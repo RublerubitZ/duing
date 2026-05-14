@@ -8,7 +8,9 @@
 ```
 duing/
 ├── backend/    Spring Boot 3.4 + Java 21 + PostgreSQL/JPA/QueryDSL/Flyway/JWT
-├── frontend/   (TBD)
+├── frontend/   Next.js 14 + React 18 + TypeScript (pnpm workspaces 모노레포, RN 호환 설계)
+│   ├── apps/web/       Next.js App Router + Tailwind
+│   └── packages/       types · api · schemas · stores · hooks · storage (RN 재사용)
 ├── CLAUDE.md         Claude Code 작업 규칙 (프로젝트 전역)
 ├── REQUIREMENTS.md   MVP 요구사항 정의서 (4도메인 · 15개 API)
 └── .claude/    Claude 코드 리뷰 에이전트 + 도메인/API/Flyway/테스트 스킬
@@ -30,7 +32,14 @@ cp .env.example .env       # 후 실제 값 채우기
 
 ### 프론트엔드
 
-스캐폴딩 예정. 결정된 스택(React/Vite, Next.js 등)에 따라 [`frontend/README.md`](./frontend/README.md) 가 갱신됨.
+```bash
+cd frontend
+pnpm install
+cp apps/web/.env.local.example apps/web/.env.local
+pnpm dev                    # http://localhost:3000
+```
+
+상세는 [`frontend/README.md`](./frontend/README.md) 참조.
 
 ---
 
@@ -38,13 +47,15 @@ cp .env.example .env       # 후 실제 값 채우기
 
 | 영역 | 백엔드 | 프론트엔드 |
 |---|---|---|
-| 언어 | Java 21 | TBD (TypeScript 예정) |
-| 프레임워크 | Spring Boot 3.4 | TBD (React/Vite 또는 Next.js) |
-| 빌드 | Gradle (Kotlin DSL) | TBD (pnpm + Vite/Next) |
-| 데이터 | PostgreSQL (Supabase), JPA, QueryDSL, Flyway | — |
-| 인증 | Spring Security + JWT | JWT 헤더 송신 |
-| API 문서 | springdoc-openapi | OpenAPI → TS 타입 생성 (TBD) |
-| 테스트 | JUnit 5, TestContainers, RestAssured, Fixture Monkey | Vitest/Playwright (TBD) |
+| 언어 | Java 21 | TypeScript 5 |
+| 프레임워크 | Spring Boot 3.4 | Next.js 14 (App Router) |
+| 빌드/패키지 | Gradle (Kotlin DSL) | pnpm 9 workspaces |
+| 데이터 | PostgreSQL (Supabase), JPA, QueryDSL, Flyway | TanStack Query (서버 상태) + Zustand (클라이언트 상태) |
+| 인증 | Spring Security + JWT | JWT 헤더, `@duing/storage` 추상화 (web localStorage / native AsyncStorage) |
+| 검증 | Bean Validation (`@Valid`) | Zod + React Hook Form |
+| 스타일 | — | Tailwind CSS (추후 shadcn-ui) |
+| API 문서 / 타입 | springdoc-openapi | `pnpm gen:api` 로 OpenAPI → TS 자동 생성 |
+| 테스트 | JUnit 5, TestContainers, RestAssured, Fixture Monkey | Vitest + Playwright (TBD) |
 
 ---
 

@@ -31,11 +31,11 @@ jobs:
       - name: Detect scaffolding
         id: detect
         run: |
-          if [ -f package.json ]; then
+          if [ -f pnpm-lock.yaml ] && [ -f apps/web/package.json ]; then
             echo "scaffolded=true" >> "$GITHUB_OUTPUT"
           else
             echo "scaffolded=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::frontend/ 가 아직 스캐폴딩되지 않아 빌드 단계를 스킵합니다."
+            echo "::notice::pnpm-lock.yaml 또는 apps/web/package.json 이 아직 없어 빌드 단계를 스킵합니다. 첫 'pnpm install' 후 lockfile 을 커밋하면 활성화됩니다."
           fi
 
       - name: Set up pnpm
