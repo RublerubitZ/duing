@@ -1,6 +1,7 @@
 # CLAUDE.md — du-ing-be
 
-프로젝트 개요, 구조, 명령어, 핵심 패턴은 @AGENTS.md 참조.
+프로젝트 개요, 구조, 명령어, 핵심 패턴은 @backend/AGENTS.md 참조.
+모노레포 구조: `backend/` (Spring Boot), `frontend/` (TBD).
 
 ---
 
