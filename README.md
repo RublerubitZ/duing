@@ -1,5 +1,8 @@
 # Du-ing (두잉) — 대구대학교 동아리 통합 플랫폼
 
+<img width="1798" height="875" alt="ChatGPT Image 2026년 5월 14일 오후 07_46_59" src="https://github.com/user-attachments/assets/83b23da1-3bd6-46f0-951d-c1d8972ca779" />
+
+
 재학생 · 동아리장 · 총동연을 위한 동아리 탐색, 지원, 모집 관리 모노레포.
 
 ```
