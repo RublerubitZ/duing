@@ -76,12 +76,13 @@ cp .env.example .env       # 후 실제 값 채우기
 - 커밋 메시지: 한국어, `[#이슈번호] 작업 내용` 형식
 - PR 본문: 🚀 작업 내용 / 🤔 고민했던 내용 / 💬 리뷰 중점사항
 
-### CI 분기 (예정)
+### CI 분기
 
-GitHub Actions `paths` 필터로 변경 영향만 빌드:
+[GitHub Actions `paths` 필터](./.github/workflows) 로 변경 영향만 빌드:
 
-- `backend/**` 변경 → Gradle 빌드 + 테스트
-- `frontend/**` 변경 → npm 빌드 + lint + 테스트
+- `backend/**` 변경 → `backend-ci.yml`: JDK 21 + Gradle `compileJava` + `build -x test` (실패 시 build/reports 업로드)
+- `frontend/**` 변경 → `frontend-ci.yml`: pnpm install / lint / typecheck / build / test (스캐폴딩 전에는 자동 스킵)
+- PR 템플릿: [`./.github/PULL_REQUEST_TEMPLATE.md`](./.github/PULL_REQUEST_TEMPLATE.md)
 
 ---
 

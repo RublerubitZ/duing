@@ -1,0 +1,73 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (pnpm)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect scaffolding
+        id: detect
+        run: |
+          if [ -f package.json ]; then
+            echo "scaffolded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "scaffolded=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::frontend/ 가 아직 스캐폴딩되지 않아 빌드 단계를 스킵합니다."
+          fi
+
+      - name: Set up pnpm
+        if: steps.detect.outputs.scaffolded == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js 20
+        if: steps.detect.outputs.scaffolded == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        if: steps.detect.outputs.scaffolded == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        if: steps.detect.outputs.scaffolded == 'true'
+        run: pnpm lint
+
+      - name: Type check
+        if: steps.detect.outputs.scaffolded == 'true'
+        run: pnpm typecheck
+
+      - name: Build
+        if: steps.detect.outputs.scaffolded == 'true'
+        run: pnpm build
+
+      - name: Test
+        if: steps.detect.outputs.scaffolded == 'true'
+        run: pnpm test --run
