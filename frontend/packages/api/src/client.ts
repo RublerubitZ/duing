@@ -1,4 +1,4 @@
-import ky, { type KyInstance, HTTPError } from 'ky';
+import ky, { type KyInstance, type ResponsePromise, HTTPError } from 'ky';
 import type {
   ApiResponse,
   PageResponse,
@@ -105,7 +105,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
     },
   });
 
-  async function jsonOk<T>(promise: Promise<Response>): Promise<T> {
+  async function jsonOk<T>(promise: ResponsePromise): Promise<T> {
     try {
       const res = await promise;
       const body = (await res.json()) as ApiResponse<T>;
@@ -115,7 +115,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
     }
   }
 
-  async function jsonVoid(promise: Promise<Response>): Promise<void> {
+  async function jsonVoid(promise: ResponsePromise): Promise<void> {
     try {
       await promise;
     } catch (error) {
@@ -175,7 +175,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
   };
 }
 
-function cleanParams(params: Record<string, unknown> | undefined): Record<string, string> {
+function cleanParams<T extends object>(params: T | undefined): Record<string, string> {
   if (!params) return {};
   return Object.fromEntries(
     Object.entries(params)
