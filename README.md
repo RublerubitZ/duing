@@ -131,6 +131,77 @@ src/main/resources/
 
 ---
 
+## MVP 기능 명세
+
+본 MVP 는 **4개 도메인 · 15개 엔드포인트** 로 구성된다. 상세 입출력·예외 조건은 [`REQUIREMENTS.md`](./REQUIREMENTS.md) 참조.
+
+### 도메인 / 사용자 역할
+
+| 역할 | Enum | 권한 요약 |
+|---|---|---|
+| 일반 재학생 | `STUDENT` | 동아리 탐색·지원, 본인 지원 현황 확인 |
+| 동아리장 | `LEADER` | 본인 동아리의 모집 공고·지원자 관리 (`Club.leader_id` 매칭으로 검증) |
+| 총동연 | `ADMIN` | 동아리 등록·승인·운영 상태 관리 |
+
+### User (사용자) ✅ 구현완료
+
+| ID | 기능 | 핵심 규칙 |
+|---|---|---|
+| U-1 | 회원가입 | 학번(7~10자리 숫자)·이메일·비번(8~72자) 검증, BCrypt 해싱, 기본 role `STUDENT` |
+| U-2 | 로그인 | 이메일+비번 → JWT(HS256) 발급, 만료 `JWT_EXPIRY_MS` |
+| U-3 | 내 정보 조회 | `@AuthenticationPrincipal UserPrincipal` 로 현재 사용자 식별 |
+
+### Club (동아리) ✅ 구현완료
+
+| ID | 기능 | 핵심 규칙 |
+|---|---|---|
+| C-1 | 동아리 목록 | `category`·`division`·`keyword` 동적 필터 (QueryDSL `BooleanExpression`), `Pageable`, 공개 |
+| C-2 | 동아리 상세 | leader 정보 포함, 공개 |
+| C-3 | 동아리 생성 | ADMIN 전용. 기본 상태 `PENDING_APPROVAL`. 이름 중복 차단 |
+| C-4 | 운영 상태 변경 | ADMIN 전용. `PENDING_APPROVAL`/`ACTIVE`/`INACTIVE` 전환 |
+
+`ClubCategory`: `ACADEMIC` / `CULTURE` / `ART` / `SPORTS` / `VOLUNTEER` / `RELIGION` / `HOBBY` / `OTHER`
+
+### Recruitment (모집 공고) ✅ 구현완료
+
+| ID | 기능 | 핵심 규칙 |
+|---|---|---|
+| R-1 | 모집 달력 조회 | `yearMonth=YYYY-MM` 입력, 해당 월과 기간이 겹치는 공고를 시작일순 반환, 공개 |
+| R-2 | 모집 상세 조회 | `RecruitmentForm.questions` 포함, `effectivelyOpen` 종료일 기반 자동 계산, 공개 |
+| R-3 | 모집 공고 생성 | LEADER(본인 동아리). 정원≥1, `endDate≥startDate`. 질문 목록과 함께 `RecruitmentForm` 자동 생성 |
+
+`RecruitmentStatus`: `OPEN` / `CLOSED` — 실효 마감은 조회 시점 (today > endDate) 에 계산.
+
+### Application (지원) ✅ 구현완료
+
+| ID | 기능 | 핵심 규칙 |
+|---|---|---|
+| A-1 | 지원 제출 | STUDENT. 마감 공고 차단, 중복 지원 차단((recruitment_id, user_id) 부분 유니크), 답변 개수 == 질문 개수 |
+| A-2 | 내 지원 목록 | STUDENT. 최신순 반환, 동아리·모집 정보 포함 |
+| A-3 | 지원자 목록 | LEADER(본인 동아리). 제출 순으로 학번·이름·답변 반환 |
+| A-4 | 지원자 상태 변경 | LEADER(본인 동아리). `ACCEPTED`/`REJECTED` 만 허용, `SUBMITTED` 로 되돌리기 차단 |
+
+`ApplicationStatus`: `SUBMITTED`(제출됨) / `ACCEPTED`(합격) / `REJECTED`(불합격)
+
+### 공통 / 비기능
+
+- **응답 표준**: `{ "ok": boolean, "data": <T>, "message": string? }`. 목록은 `PageResponse<T>` 래핑
+- **HTTP 상태**: GET 200 / POST 201 / PUT·PATCH·DELETE 204 / 검증 400 / 미인증 401 / 권한부족 403 / 없음 404 / 충돌 409
+- **인증**: 비공개 API 는 `Authorization: Bearer <JWT>` 헤더 필요
+- **데이터**: 모든 엔티티 `BaseEntity` 상속 + Soft delete(`@SQLDelete`/`@SQLRestriction`). 물리 삭제 금지
+- **검증**: Request DTO 에 `@Valid` + 한국어 메시지(예: `@NotBlank(message = "이메일은 필수 입력값입니다.")`)
+- **마이그레이션**: Flyway, 기존 파일 수정 금지
+
+### MVP 외 (Out of Scope)
+
+- 활동 피드 (FeedPost, 이미지 업로드)
+- 푸시 알림 (모집 시작·마감, 합격·불합격)
+- OAuth2 소셜 로그인
+- 통계 대시보드 (총동연)
+- 동아리장 인수인계 워크플로우
+
+---
+
 ## 현재 구현된 엔드포인트
 
 ### 공개
