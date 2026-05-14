@@ -70,7 +70,11 @@ pnpm dev                    # http://localhost:3000
 | **Recruitment** | 달력 조회 · 상세(질문 포함) · 생성(LEADER) | ✅ |
 | **Application** | 지원 제출(STUDENT) · 내 지원 목록 · 지원자 관리(LEADER) | ✅ |
 
-사용자 역할: `STUDENT` (재학생) / `LEADER` (동아리장 — `Club.leader_id` 매칭으로 검증) / `ADMIN` (총동연).
+사용자 역할은 **Global**(시스템 전역)과 **Club-scoped**(동아리 단위) 두 축으로 분리:
+- Global: `STUDENT` (재학생) / `ADMIN` (총동연) — `users.role`
+- Club-scoped: `MEMBER` (회원) / `OFFICER` (운영진) / `LEADER` (회장) — `club_members.role`
+
+자동 멤버십: 동아리 생성 시 leader → `ClubMember(LEADER)`. 지원 합격 시 지원자 → `ClubMember(MEMBER)`.
 
 상세 명세는 [`REQUIREMENTS.md`](./REQUIREMENTS.md), API 컨트랙트는 부팅 후 `http://localhost:8080/swagger-ui.html` 에서 확인.
 

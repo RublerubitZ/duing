@@ -52,11 +52,12 @@ src/main/java/com/duing/
 │                        # S3FileStorageService   (추후 구현체 — 미구현)
 │
 ├── domain/
-│   ├── club/            # 동아리
+│   ├── club/            # 동아리 마스터
+│   ├── clubmember/      # 동아리 멤버십 + Club-scoped role (MEMBER/OFFICER/LEADER)
 │   ├── recruitment/     # 모집 공고
 │   ├── application/     # 지원서
-│   ├── feed/            # 활동 피드
-│   └── user/            # 사용자
+│   ├── feed/            # 활동 피드 (미구현)
+│   └── user/            # 사용자 + Global role (STUDENT/ADMIN)
 │
 └── common/
     └── fixture/         # 테스트 전용 Fixture
@@ -281,8 +282,9 @@ return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(id));
 
 | 도메인 | 엔티티 | 주요 필드 |
 |---|---|---|
-| user | User | id, studentId, name, email, passwordHash, role |
-| club | Club | id, name, category, division, description, logoUrl, leaderId, status |
+| user | User | id, studentId, name, email, passwordHash, role (Global) |
+| club | Club | id, name, category, division, description, logoUrl, status |
+| clubmember | ClubMember | id, clubId, userId, role (Club-scoped) |
 | recruitment | Recruitment | id, clubId, title, content, startDate, endDate, capacity, status |
 | recruitment | RecruitmentForm | id, recruitmentId, questions(JSON) |
 | application | Application | id, recruitmentId, userId, answers(JSON), status |
@@ -303,12 +305,39 @@ return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(id));
 
 동아리 목록의 "모집 중" 필터는 Club 컬럼이 아닌 **Recruitment 조인 + `RecruitmentStatus.OPEN`** 으로 계산한다 — 데이터 정합성을 위해 Club 에 `recruitmentStatus` 를 캐싱하지 않는다.
 
-## UserRole Enum
+## 권한 모델 (Global vs Club-scoped)
 
-```
-STUDENT  — 일반 재학생 (동아리 탐색 · 지원)
-LEADER   — 동아리장 (모집 공고 작성 · 지원자 관리)
-ADMIN    — 총동연 (전체 동아리 승인 · 관리)
+권한은 **두 축**으로 분리한다. 어노테이션 기반 검증(@PreAuthorize)은 Global 한정,
+Club-scoped 검증은 서비스 레이어에서 `ClubMemberRepository` 조회로 처리한다.
+
+### Global role (`users.role` → `UserRole`)
+
+| 값 | 의미 |
+|---|---|
+| `STUDENT` | 일반 재학생 (동아리 탐색·지원) |
+| `ADMIN` | 총동연 (전체 동아리 승인·관리) |
+
+### Club-scoped role (`club_members.role` → `ClubMemberRole`)
+
+| 값 | 의미 | 운영 권한 (`canManageClub()`) |
+|---|---|---|
+| `MEMBER` | 일반 동아리 회원 | ❌ |
+| `OFFICER` | 운영진 | ✅ |
+| `LEADER` | 회장 | ✅ |
+
+### 자동 멤버십 등록
+
+| 트리거 | 결과 |
+|---|---|
+| `POST /admin/clubs` (ADMIN) | designated leader → `ClubMember(LEADER)` 자동 생성 |
+| `PATCH /leader/applications/{id}/status = ACCEPTED` | 지원자 → `ClubMember(MEMBER)` 자동 생성 (멱등) |
+
+### 권한 검증 패턴 (서비스 레이어)
+
+```java
+clubMemberRepository.findByClubIdAndUserId(clubId, currentUserId)
+    .filter(ClubMember::canManageClub)
+    .orElseThrow(ClubMemberException.NotClubManagerException::new);
 ```
 
 ---

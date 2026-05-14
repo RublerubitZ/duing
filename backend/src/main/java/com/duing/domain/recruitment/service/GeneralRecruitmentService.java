@@ -3,6 +3,8 @@ package com.duing.domain.recruitment.service;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubmember.exception.ClubMemberException;
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.exception.RecruitmentException;
@@ -24,6 +26,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     private final RecruitmentRepository recruitmentRepository;
     private final ClubRepository clubRepository;
+    private final ClubMemberRepository clubMemberRepository;
 
     @Override
     @Transactional
@@ -31,10 +34,11 @@ public class GeneralRecruitmentService implements RecruitmentService {
         Club club = clubRepository.findById(createRecruitmentCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
 
-        if (club.getLeader() == null
-                || !club.getLeader().getId().equals(createRecruitmentCommand.currentUserId())) {
-            throw new RecruitmentException.NotClubLeaderException();
-        }
+        // 동아리 운영진(LEADER/OFFICER)만 모집 공고를 생성할 수 있다.
+        clubMemberRepository
+                .findByClubIdAndUserId(club.getId(), createRecruitmentCommand.currentUserId())
+                .filter(member -> member.canManageClub())
+                .orElseThrow(ClubMemberException.NotClubManagerException::new);
 
         Recruitment recruitment;
         try {

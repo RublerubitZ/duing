@@ -1,6 +1,7 @@
 package com.duing.domain.application.service;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
@@ -8,6 +9,9 @@ import com.duing.domain.application.service.dto.command.UpdateApplicationStatusC
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.exception.ClubMemberException;
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.exception.RecruitmentException;
@@ -29,6 +33,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final RecruitmentRepository recruitmentRepository;
     private final UserRepository userRepository;
+    private final ClubMemberRepository clubMemberRepository;
 
     @Override
     @Transactional
@@ -64,7 +69,7 @@ public class GeneralApplicationService implements ApplicationService {
     public List<ApplicantQuery> getApplicants(Long recruitmentId, Long currentUserId) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
-        verifyClubLeader(recruitment.getClub(), currentUserId);
+        verifyClubManager(recruitment.getClub(), currentUserId);
 
         return applicationRepository.findByRecruitmentIdOrderByCreatedAtAsc(recruitmentId).stream()
                 .map(ApplicantQuery::from)
@@ -76,12 +81,22 @@ public class GeneralApplicationService implements ApplicationService {
     public void updateStatus(UpdateApplicationStatusCommand updateApplicationStatusCommand) {
         Application application = applicationRepository.findById(updateApplicationStatusCommand.applicationId())
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
-        verifyClubLeader(application.getRecruitment().getClub(), updateApplicationStatusCommand.currentUserId());
+        verifyClubManager(application.getRecruitment().getClub(), updateApplicationStatusCommand.currentUserId());
 
         try {
             application.updateStatus(updateApplicationStatusCommand.status());
         } catch (IllegalArgumentException exception) {
             throw new ApplicationDomainException.InvalidStatusTransitionException();
+        }
+
+        // 합격 처리 시 지원자를 동아리 회원(MEMBER) 으로 자동 등록.
+        // 이미 회원이면 무시 (멱등성 보장).
+        if (updateApplicationStatusCommand.status() == ApplicationStatus.ACCEPTED) {
+            Club club = application.getRecruitment().getClub();
+            User applicant = application.getUser();
+            if (!clubMemberRepository.existsByClubIdAndUserId(club.getId(), applicant.getId())) {
+                clubMemberRepository.save(ClubMember.asMember(club, applicant));
+            }
         }
     }
 
@@ -94,9 +109,9 @@ public class GeneralApplicationService implements ApplicationService {
         }
     }
 
-    private void verifyClubLeader(Club club, Long currentUserId) {
-        if (club.getLeader() == null || !club.getLeader().getId().equals(currentUserId)) {
-            throw new ApplicationDomainException.NotClubLeaderException();
-        }
+    private void verifyClubManager(Club club, Long currentUserId) {
+        clubMemberRepository.findByClubIdAndUserId(club.getId(), currentUserId)
+                .filter(ClubMember::canManageClub)
+                .orElseThrow(ClubMemberException.NotClubManagerException::new);
     }
 }

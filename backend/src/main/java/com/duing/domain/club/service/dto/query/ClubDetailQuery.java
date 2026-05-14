@@ -15,7 +15,11 @@ public record ClubDetailQuery(
         String leaderName,
         ClubStatus status
 ) {
-    public static ClubDetailQuery from(Club club) {
+    /**
+     * leaderId / leaderName 은 ClubMember 테이블에서 role = LEADER 인 행을 조회해 주입한다.
+     * 회장 부재(공석) 상황을 허용하므로 null 이 가능하다.
+     */
+    public static ClubDetailQuery of(Club club, Long leaderId, String leaderName) {
         return new ClubDetailQuery(
                 club.getId(),
                 club.getName(),
@@ -23,8 +27,8 @@ public record ClubDetailQuery(
                 club.getDivision(),
                 club.getDescription(),
                 club.getLogoUrl(),
-                club.getLeader() != null ? club.getLeader().getId() : null,
-                club.getLeader() != null ? club.getLeader().getName() : null,
+                leaderId,
+                leaderName,
                 club.getStatus()
         );
     }

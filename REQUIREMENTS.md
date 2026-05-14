@@ -12,22 +12,41 @@
 ### 1.1 목적
 대구대학교 동아리의 모집·지원·관리 과정을 통합 플랫폼으로 제공해, 학생은 동아리를 쉽게 탐색·지원하고 동아리장과 총동연은 효율적으로 운영·관리한다.
 
-### 1.2 사용자 역할
+### 1.2 사용자 역할 (RBAC — Global vs Club-scoped)
+
+권한은 **시스템 전역(Global)** 과 **동아리 단위(Club-scoped)** 두 축으로 분리된다.
+
+**Global role** — `users.role`:
 
 | 역할 | Enum | 권한 요약 |
 |---|---|---|
 | 일반 재학생 | `STUDENT` | 동아리 탐색·지원, 본인 지원 현황 확인 |
-| 동아리장 | `LEADER` | 본인 동아리의 모집 공고·지원자 관리 (계정 자체는 STUDENT 와 동일하고, 권한은 `Club.leader_id` 매칭으로 검증) |
 | 총동연(관리자) | `ADMIN` | 동아리 등록·승인·운영 상태 관리 |
+
+**Club-scoped role** — `club_members.role` (특정 동아리에 대한 역할):
+
+| 역할 | Enum | 권한 요약 |
+|---|---|---|
+| 회원 | `MEMBER` | 해당 동아리 소속. 운영 권한 없음 |
+| 운영진 | `OFFICER` | 해당 동아리의 모집 공고 작성·지원자 관리 보조 |
+| 회장 | `LEADER` | 해당 동아리의 모든 운영 권한 (OFFICER 포함) |
+
+권한 검증 흐름:
+- "총동연 동아리 등록" → `users.role == ADMIN`
+- "모집 공고 생성/지원자 관리" → `club_members.role ∈ {LEADER, OFFICER}` (`canManageClub()`)
+- 가입 시 기본 Global role 은 `STUDENT`. ADMIN 승격은 별도 admin API (현재 미구현, 운영자 DB 수동).
+- 동아리 생성 시 designated leader → `ClubMember(LEADER)` 자동 등록.
+- 지원 합격(`ACCEPTED`) 시 지원자 → `ClubMember(MEMBER)` 자동 등록 (멱등).
 
 ### 1.3 MVP 범위
 
 - User: 회원가입 · 로그인 · 내 정보 조회
 - Club: 목록 · 상세 · 생성(총동연) · 운영 상태 변경
-- Recruitment: 달력 조회 · 상세 · 생성(동아리장)
-- Application: 지원 제출 · 내 지원 목록 · 지원자 관리(동아리장)
+- ClubMember: 동아리 멤버십(생성 시 자동 LEADER, 지원 합격 시 자동 MEMBER)
+- Recruitment: 달력 조회 · 상세 · 생성(LEADER/OFFICER)
+- Application: 지원 제출 · 내 지원 목록 · 지원자 관리(LEADER/OFFICER)
 
-활동 피드(Feed), 파일/이미지 업로드, 푸시 알림 등은 MVP 이후 확장.
+활동 피드(Feed), 파일/이미지 업로드, 푸시 알림, OFFICER 승급/강등·추방·탈퇴·인계 API 는 MVP 이후 확장.
 
 ---
 
@@ -52,7 +71,8 @@
 
 ### 2.2 Club (동아리)
 
-**엔티티 필드**: `id`, `name`, `category`(enum), `division`, `description`, `logoUrl`, `leaderId`(FK→User), `status`(enum)
+**엔티티 필드**: `id`, `name`, `category`(enum), `division`, `description`, `logoUrl`, `status`(enum)
+> 회장 정보는 `club_members` 테이블의 `role = LEADER` 행에서 도출 (Club 자체 컬럼 아님).
 
 **`ClubCategory`**: `ACADEMIC` / `CULTURE` / `ART` / `SPORTS` / `VOLUNTEER` / `RELIGION` / `HOBBY` / `OTHER`
 **`ClubStatus`**: `PENDING_APPROVAL`(승인 대기) / `ACTIVE`(운영 중) / `INACTIVE`(중단)
@@ -83,7 +103,7 @@
 |---|---|---|---|---|
 | R-1 | 모집 달력 조회 | `yearMonth`(yyyy-MM) | `List<RecruitmentSummaryResponse>` — 해당 월과 기간이 겹치는 공고를 `startDate` 오름차순 (200) | 입력 형식 오류 400 |
 | R-2 | 모집 상세 조회 | `recruitmentId` | `RecruitmentDetailResponse` (질문 목록 포함) (200) | 공고 없음 404 |
-| R-3 | 모집 공고 생성 (LEADER) | `clubId`, `title`, `content?`, `startDate`, `endDate`, `capacity`(≥1), `questions[]?` | 생성된 `recruitmentId` (201) | 동아리 없음 404, 동아리장 아님 403, 정원/기간 검증 실패 400 |
+| R-3 | 모집 공고 생성 (LEADER/OFFICER) | `clubId`, `title`, `content?`, `startDate`, `endDate`, `capacity`(≥1), `questions[]?` | 생성된 `recruitmentId` (201) | 동아리 없음 404, 운영진 아님 403, 정원/기간 검증 실패 400 |
 
 **비기능 요구사항**
 - 모집 기간 검증: `endDate >= startDate` (DB CHECK + 엔티티 생성 시 검증).
@@ -104,8 +124,8 @@
 |---|---|---|---|---|
 | A-1 | 지원 제출 (STUDENT) | `recruitmentId`, `answers[]` | 생성된 `applicationId` (201) | 공고 없음 404, 마감 상태 400, 중복 지원 409 |
 | A-2 | 내 지원 목록 조회 (STUDENT) | (JWT) | `List<ApplicationSummaryResponse>` (200) | — |
-| A-3 | 지원자 목록 조회 (LEADER) | `recruitmentId` | `List<ApplicantResponse>` (200) | 동아리장 아님 403 |
-| A-4 | 지원자 상태 변경 (LEADER) | `applicationId`, `status`(ACCEPTED/REJECTED) | 204 | 지원 없음 404, 동아리장 아님 403, 잘못된 상태 전이 400 |
+| A-3 | 지원자 목록 조회 (LEADER/OFFICER) | `recruitmentId` | `List<ApplicantResponse>` (200) | 운영진 아님 403 |
+| A-4 | 지원자 상태 변경 (LEADER/OFFICER) | `applicationId`, `status`(ACCEPTED/REJECTED) | 204 | 지원 없음 404, 운영진 아님 403, 잘못된 상태 전이 400. 합격 시 `ClubMember(MEMBER)` 자동 등록 |
 
 **비기능 요구사항**
 - `(recruitmentId, user_id)` 부분 유니크 인덱스(deleted_at IS NULL) — 활성 지원은 1건만.

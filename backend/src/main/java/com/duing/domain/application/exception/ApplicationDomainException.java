@@ -48,12 +48,4 @@ public class ApplicationDomainException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
-
-    public static class NotClubLeaderException extends ApplicationDomainException {
-        private static final String MESSAGE = "해당 동아리의 동아리장만 지원자를 관리할 수 있습니다.";
-
-        public NotClubLeaderException() {
-            super(MESSAGE, HttpStatus.FORBIDDEN);
-        }
-    }
 }

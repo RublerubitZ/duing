@@ -8,6 +8,9 @@ import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
+import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
@@ -24,6 +27,7 @@ public class GeneralClubService implements ClubService {
 
     private final ClubRepository clubRepository;
     private final UserRepository userRepository;
+    private final ClubMemberRepository clubMemberRepository;
 
     @Override
     @Transactional
@@ -39,10 +43,14 @@ public class GeneralClubService implements ClubService {
                 createClubCommand.category(),
                 createClubCommand.division(),
                 createClubCommand.description(),
-                createClubCommand.logoUrl(),
-                leader
+                createClubCommand.logoUrl()
         );
-        return clubRepository.save(club).getId();
+        Club savedClub = clubRepository.save(club);
+
+        // 동아리 생성과 동시에 designated leader 를 ClubMember(LEADER) 로 자동 등록.
+        clubMemberRepository.save(ClubMember.asLeader(savedClub, leader));
+
+        return savedClub.getId();
     }
 
     @Override
@@ -55,7 +63,9 @@ public class GeneralClubService implements ClubService {
     public ClubDetailQuery getById(Long clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
-        return ClubDetailQuery.from(club);
+        return clubMemberRepository.findFirstByClubIdAndRole(clubId, ClubMemberRole.LEADER)
+                .map(leader -> ClubDetailQuery.of(club, leader.getUser().getId(), leader.getUser().getName()))
+                .orElseGet(() -> ClubDetailQuery.of(club, null, null));
     }
 
     @Override

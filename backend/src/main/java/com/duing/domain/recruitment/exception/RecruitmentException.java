@@ -24,12 +24,4 @@ public class RecruitmentException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
-
-    public static class NotClubLeaderException extends RecruitmentException {
-        private static final String MESSAGE = "해당 동아리의 동아리장만 모집 공고를 생성할 수 있습니다.";
-
-        public NotClubLeaderException() {
-            super(MESSAGE, HttpStatus.FORBIDDEN);
-        }
-    }
 }

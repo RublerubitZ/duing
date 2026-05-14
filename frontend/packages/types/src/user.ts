@@ -1,4 +1,5 @@
-export type UserRole = 'STUDENT' | 'LEADER' | 'ADMIN';
+// Global role (시스템 전역). Club-scoped role 은 ClubMemberRole 참조.
+export type UserRole = 'STUDENT' | 'ADMIN';
 
 export interface User {
   id: number;
