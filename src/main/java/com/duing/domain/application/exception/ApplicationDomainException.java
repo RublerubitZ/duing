@@ -1,0 +1,59 @@
+package com.duing.domain.application.exception;
+
+import com.duing.global.exception.ApplicationException;
+import org.springframework.http.HttpStatus;
+
+public class ApplicationDomainException extends ApplicationException {
+
+    protected ApplicationDomainException(String message, HttpStatus status) {
+        super(message, status);
+    }
+
+    public static class ApplicationNotFoundException extends ApplicationDomainException {
+        private static final String MESSAGE = "지원 내역을 찾을 수 없습니다.";
+
+        public ApplicationNotFoundException() {
+            super(MESSAGE, HttpStatus.NOT_FOUND);
+        }
+    }
+
+    public static class DuplicateApplicationException extends ApplicationDomainException {
+        private static final String MESSAGE = "이미 지원한 모집 공고입니다.";
+
+        public DuplicateApplicationException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    public static class RecruitmentClosedException extends ApplicationDomainException {
+        private static final String MESSAGE = "마감된 모집 공고에는 지원할 수 없습니다.";
+
+        public RecruitmentClosedException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class InvalidAnswersException extends ApplicationDomainException {
+        private static final String MESSAGE = "답변 개수가 질문 개수와 일치하지 않습니다.";
+
+        public InvalidAnswersException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class InvalidStatusTransitionException extends ApplicationDomainException {
+        private static final String MESSAGE = "잘못된 상태 변경입니다. ACCEPTED 또는 REJECTED 로만 변경할 수 있습니다.";
+
+        public InvalidStatusTransitionException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class NotClubLeaderException extends ApplicationDomainException {
+        private static final String MESSAGE = "해당 동아리의 동아리장만 지원자를 관리할 수 있습니다.";
+
+        public NotClubLeaderException() {
+            super(MESSAGE, HttpStatus.FORBIDDEN);
+        }
+    }
+}

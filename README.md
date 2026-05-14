@@ -108,7 +108,7 @@ src/main/java/com/duing/
     ├── user/         (가입·로그인·내 정보)
     ├── club/         (목록·상세·생성·상태변경)
     ├── recruitment/  (달력·상세·생성)
-    └── application/  (TBD — 지원·관리)
+    └── application/  (지원 제출·내 지원·지원자 관리)
 
 src/main/resources/
 ├── application.yml          # 공통
@@ -149,7 +149,11 @@ src/main/resources/
 | 메서드 | URL | 권한 | 설명 |
 |---|---|---|---|
 | GET | `/api/v1/users/me` | 인증 | 내 정보 |
+| POST | `/api/v1/recruitments/{recruitmentId}/applications` | 인증 (STUDENT) | 지원 제출 |
+| GET | `/api/v1/users/me/applications` | 인증 (STUDENT) | 내 지원 목록 |
 | POST | `/api/v1/leader/clubs/{clubId}/recruitments` | 인증 + 동아리장 본인 | 모집 공고 생성 |
+| GET | `/api/v1/leader/recruitments/{recruitmentId}/applications` | 인증 + 동아리장 본인 | 지원자 목록 |
+| PATCH | `/api/v1/leader/applications/{applicationId}/status` | 인증 + 동아리장 본인 | 지원자 합/불합격 처리 |
 | POST | `/api/v1/admin/clubs` | ADMIN | 동아리 생성 |
 | PATCH | `/api/v1/admin/clubs/{clubId}/status` | ADMIN | 운영 상태 변경 |
 

@@ -1,0 +1,37 @@
+package com.duing.domain.application.api;
+
+import com.duing.domain.application.controller.dto.request.UpdateApplicationStatusRequest;
+import com.duing.domain.application.controller.dto.response.ApplicantResponse;
+import com.duing.global.auth.UserPrincipal;
+import com.duing.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import java.util.List;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+
+@Tag(name = "지원자(동아리장)", description = "동아리장 전용 지원자 관리")
+@SecurityRequirement(name = "BearerAuth")
+public interface LeaderApplicationApi {
+
+    @Operation(summary = "지원자 목록 조회", description = "본인이 동아리장인 모집 공고의 지원자를 제출 순으로 반환한다.")
+    @GetMapping("/leader/recruitments/{recruitmentId}/applications")
+    ResponseEntity<ApiResponse<List<ApplicantResponse>>> getApplicants(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "지원자 상태 변경", description = "ACCEPTED 또는 REJECTED 로만 변경 가능. SUBMITTED 로 되돌릴 수 없다.")
+    @PatchMapping("/leader/applications/{applicationId}/status")
+    ResponseEntity<ApiResponse<Void>> updateStatus(
+            @PathVariable Long applicationId,
+            @Valid @RequestBody UpdateApplicationStatusRequest updateApplicationStatusRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+}
