@@ -60,13 +60,13 @@ jobs:
         if: steps.detect.outputs.scaffolded == 'true'
         run: pnpm lint
 
-      - name: Type check
-        if: steps.detect.outputs.scaffolded == 'true'
-        run: pnpm typecheck
-
       - name: Build
         if: steps.detect.outputs.scaffolded == 'true'
         run: pnpm build
+
+      - name: Type check
+        if: steps.detect.outputs.scaffolded == 'true'
+        run: pnpm typecheck
 
       - name: Test
         if: steps.detect.outputs.scaffolded == 'true'

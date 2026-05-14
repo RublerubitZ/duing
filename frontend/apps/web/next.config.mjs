@@ -10,9 +10,7 @@ const nextConfig = {
     '@duing/stores',
     '@duing/types',
   ],
-  experimental: {
-    typedRoutes: true,
-  },
+  typedRoutes: true,
 };
 
 export default nextConfig;
