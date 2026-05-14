@@ -70,4 +70,4 @@ jobs:
 
       - name: Test
         if: steps.detect.outputs.scaffolded == 'true'
-        run: pnpm test --run
+        run: pnpm test
