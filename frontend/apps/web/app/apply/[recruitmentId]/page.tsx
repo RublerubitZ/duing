@@ -2,7 +2,9 @@
 
 import { use, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { useRecruitmentDetail, useSubmitApplication } from '@duing/hooks';
+import { toRoute } from '../../_lib/route';
 
 export default function ApplyPage({
   params,
@@ -11,6 +13,7 @@ export default function ApplyPage({
 }) {
   const { recruitmentId: idParam } = use(params);
   const recruitmentId = Number(idParam);
+  const router = useRouter();
 
   const detail = useRecruitmentDetail(recruitmentId);
   const submit = useSubmitApplication(recruitmentId);
@@ -18,18 +21,15 @@ export default function ApplyPage({
   const [answers, setAnswers] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // 질문 개수 변화에 맞춰 answers 슬롯 초기화 (effect 내에서 패칭은 하지 않음).
   useEffect(() => {
-    if (!detail.data) return;
-    if (detail.data.applicationMode === 'EXTERNAL') {
-      window.location.assign(
-        `/clubs/${detail.data.clubId}/recruitments/${detail.data.id}`,
-      );
-      return;
-    }
+    const recruitment = detail.data;
+    if (!recruitment) return;
+    if (recruitment.applicationMode === 'EXTERNAL') return;
     setAnswers((prev) =>
-      prev.length === detail.data!.questions.length
+      prev.length === recruitment.questions.length
         ? prev
-        : detail.data!.questions.map(() => ''),
+        : recruitment.questions.map(() => ''),
     );
   }, [detail.data]);
 
@@ -38,12 +38,20 @@ export default function ApplyPage({
   }
   const recruitment = detail.data;
 
+  // 외부 폼 모집은 렌더 시점에 모집 상세로 되돌려보낸다 (effect 내 리다이렉트 금지).
+  if (recruitment.applicationMode === 'EXTERNAL') {
+    router.replace(
+      toRoute(`/clubs/${recruitment.clubId}/recruitments/${recruitment.id}`),
+    );
+    return <p className="p-6 text-sm text-slate-500">이동 중…</p>;
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     try {
       const applicationId = await submit.mutateAsync({ answers });
-      window.location.assign(`/me/applications/${applicationId}`);
+      router.push(toRoute(`/me/applications/${applicationId}`));
     } catch (err) {
       setError(err instanceof Error ? err.message : '지원에 실패했습니다.');
     }
