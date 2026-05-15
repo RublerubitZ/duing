@@ -51,12 +51,28 @@ public class Recruitment extends BaseEntity {
     @Column(nullable = false, length = 20)
     private RecruitmentStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "application_mode", nullable = false, length = 20)
+    private ApplicationMode applicationMode;
+
+    @Column(name = "external_form_url", length = 500)
+    private String externalFormUrl;
+
+    @Column(name = "use_interview", nullable = false)
+    private boolean useInterview;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "target_role", nullable = false, length = 20)
+    private TargetRole targetRole;
+
     @OneToOne(mappedBy = "recruitment", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private RecruitmentForm form;
 
     @Builder(access = AccessLevel.PRIVATE)
     private Recruitment(Club club, String title, String content, LocalDate startDate,
-                        LocalDate endDate, int capacity, RecruitmentStatus status) {
+                        LocalDate endDate, int capacity, RecruitmentStatus status,
+                        ApplicationMode applicationMode, String externalFormUrl,
+                        boolean useInterview, TargetRole targetRole) {
         this.club = club;
         this.title = title;
         this.content = content;
@@ -64,6 +80,10 @@ public class Recruitment extends BaseEntity {
         this.endDate = endDate;
         this.capacity = capacity;
         this.status = status;
+        this.applicationMode = applicationMode;
+        this.externalFormUrl = externalFormUrl;
+        this.useInterview = useInterview;
+        this.targetRole = targetRole;
     }
 
     public static Recruitment create(Club club, String title, String content,
@@ -82,6 +102,10 @@ public class Recruitment extends BaseEntity {
                 .endDate(endDate)
                 .capacity(capacity)
                 .status(RecruitmentStatus.OPEN)
+                .applicationMode(ApplicationMode.SELF)
+                .externalFormUrl(null)
+                .useInterview(false)
+                .targetRole(TargetRole.MEMBER)
                 .build();
     }
 
