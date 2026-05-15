@@ -1,17 +1,29 @@
 import type { AuthUser, JwtClaims } from "./auth-types";
 
 const TOKEN_COOKIE = "duing_token";
-const COOKIE_MAX_AGE_DAYS = 7;
+
+type CookieAdapter = {
+  set(token: string): void;
+  clear(): void;
+};
+
+const NO_OP_ADAPTER: CookieAdapter = {
+  set: () => {},
+  clear: () => {},
+};
+
+let cookieAdapter: CookieAdapter = NO_OP_ADAPTER;
+
+export function registerCookieAdapter(adapter: CookieAdapter): void {
+  cookieAdapter = adapter;
+}
 
 export function setAuthToken(token: string): void {
-  if (typeof document === "undefined") return;
-  const maxAge = COOKIE_MAX_AGE_DAYS * 24 * 60 * 60;
-  document.cookie = `${TOKEN_COOKIE}=${token}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
+  cookieAdapter.set(token);
 }
 
 export function clearAuthToken(): void {
-  if (typeof document === "undefined") return;
-  document.cookie = `${TOKEN_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+  cookieAdapter.clear();
 }
 
 export function readAuthTokenFromCookie(cookieHeader: string | undefined): string | null {
