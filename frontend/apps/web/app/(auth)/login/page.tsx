@@ -3,15 +3,15 @@
 import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Route } from 'next';
 import { useLogin } from '@duing/hooks';
+import { toRoute } from '../../_lib/route';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawNext = searchParams.get('next') ?? '/me';
   // 내부 절대 경로만 허용 (//evil.com 같은 protocol-relative 차단)
-  const next = (/^\/(?!\/)/.test(rawNext) ? rawNext : '/me') as Route;
+  const next = toRoute(/^\/(?!\/)/.test(rawNext) ? rawNext : '/me');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

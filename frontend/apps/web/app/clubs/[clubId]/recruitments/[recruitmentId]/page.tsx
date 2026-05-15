@@ -1,8 +1,10 @@
 'use client';
 
 import { use } from 'react';
+import { useRouter } from 'next/navigation';
 import { useRecruitmentDetail } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
+import { toRoute } from '../../../../_lib/route';
 
 export default function RecruitmentDetailPage({
   params,
@@ -12,6 +14,7 @@ export default function RecruitmentDetailPage({
   const { recruitmentId: recruitmentIdParam } = use(params);
   const recruitmentId = Number(recruitmentIdParam);
   const authStatus = useAuthStore((s) => s.status);
+  const router = useRouter();
 
   const query = useRecruitmentDetail(recruitmentId);
   if (query.isLoading) return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
@@ -25,10 +28,10 @@ export default function RecruitmentDetailPage({
     }
     const applyPath = `/apply/${recruitment.id}`;
     if (authStatus !== 'authenticated') {
-      window.location.assign(`/login?next=${encodeURIComponent(applyPath)}`);
+      router.push(toRoute(`/login?next=${encodeURIComponent(applyPath)}`));
       return;
     }
-    window.location.assign(applyPath);
+    router.push(toRoute(applyPath));
   }
 
   const canApply = recruitment.effectivelyOpen;
