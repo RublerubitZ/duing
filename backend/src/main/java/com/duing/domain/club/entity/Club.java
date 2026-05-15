@@ -6,12 +6,17 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.type.SqlTypes;
 
 /**
  * 동아리 마스터 엔티티.
@@ -45,6 +50,33 @@ public class Club extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private ClubStatus status;
+
+    @Column(name = "cover_url", length = 500)
+    private String coverUrl;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "tags", columnDefinition = "_text", nullable = false)
+    private List<String> tags = new ArrayList<>();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "sns_links", columnDefinition = "jsonb", nullable = false)
+    private List<ClubSnsLink> snsLinks = new ArrayList<>();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "faqs", columnDefinition = "jsonb", nullable = false)
+    private List<ClubFaq> faqs = new ArrayList<>();
+
+    public List<String> getTags() {
+        return Collections.unmodifiableList(tags);
+    }
+
+    public List<ClubSnsLink> getSnsLinks() {
+        return Collections.unmodifiableList(snsLinks);
+    }
+
+    public List<ClubFaq> getFaqs() {
+        return Collections.unmodifiableList(faqs);
+    }
 
     @Builder(access = AccessLevel.PRIVATE)
     private Club(String name, ClubCategory category, String division, String description,
