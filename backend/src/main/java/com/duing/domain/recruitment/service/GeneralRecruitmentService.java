@@ -77,4 +77,14 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         return RecruitmentDetailQuery.from(recruitment, LocalDate.now());
     }
+
+    @Override
+    public List<RecruitmentSummaryQuery> getByClubId(Long clubId) {
+        LocalDate today = LocalDate.now();
+        return recruitmentRepository
+                .findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId)
+                .stream()
+                .map(recruitment -> RecruitmentSummaryQuery.from(recruitment, today))
+                .toList();
+    }
 }
