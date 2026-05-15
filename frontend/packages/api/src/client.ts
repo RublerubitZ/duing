@@ -3,12 +3,14 @@ import type {
   ApiResponse,
   PageResponse,
   ClubDetail,
+  ClubPhoto,
   ClubSearchParams,
   ClubSummary,
   CreateClubPayload,
   CreateRecruitmentPayload,
   LoginPayload,
   LoginResult,
+  MyApplicationDetail,
   RecruitmentDetail,
   RecruitmentSummary,
   SignupPayload,
@@ -68,6 +70,8 @@ export interface DuingApiClient {
     detail(clubId: number): Promise<ClubDetail>;
     create(payload: CreateClubPayload): Promise<number>;
     updateStatus(clubId: number, payload: UpdateClubStatusPayload): Promise<void>;
+    photos(clubId: number): Promise<ClubPhoto[]>;
+    recruitmentsByClub(clubId: number): Promise<RecruitmentSummary[]>;
   };
   recruitments: {
     calendar(yearMonth: string): Promise<RecruitmentSummary[]>;
@@ -81,6 +85,7 @@ export interface DuingApiClient {
       applicationId: number,
       payload: UpdateApplicationStatusPayload,
     ): Promise<void>;
+    myDetail(applicationId: number): Promise<MyApplicationDetail>;
   };
   raw: KyInstance;
 }
@@ -146,6 +151,9 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<number>(http.post('admin/clubs', { json: payload })),
       updateStatus: (clubId, payload) =>
         jsonVoid(http.patch(`admin/clubs/${clubId}/status`, { json: payload })),
+      photos: (clubId) => jsonOk<ClubPhoto[]>(http.get(`clubs/${clubId}/photos`)),
+      recruitmentsByClub: (clubId) =>
+        jsonOk<RecruitmentSummary[]>(http.get(`clubs/${clubId}/recruitments`)),
     },
     recruitments: {
       calendar: (yearMonth) =>
@@ -170,6 +178,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonVoid(
           http.patch(`leader/applications/${applicationId}/status`, { json: payload }),
         ),
+      myDetail: (applicationId) =>
+        jsonOk<MyApplicationDetail>(http.get(`users/me/applications/${applicationId}`)),
     },
     raw: http,
   };

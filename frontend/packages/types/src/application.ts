@@ -1,4 +1,9 @@
-export type ApplicationStatus = 'SUBMITTED' | 'ACCEPTED' | 'REJECTED';
+export type ApplicationStatus =
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'INTERVIEW_PENDING'
+  | 'ACCEPTED'
+  | 'REJECTED';
 
 export interface ApplicationSummary {
   id: number;
@@ -7,7 +12,23 @@ export interface ApplicationSummary {
   clubId: number;
   clubName: string;
   status: ApplicationStatus;
+  interviewAt: string | null;
+  interviewLocation: string | null;
   submittedAt: string; // ISO datetime
+}
+
+export interface MyApplicationDetail {
+  id: number;
+  recruitmentId: number;
+  recruitmentTitle: string;
+  clubId: number;
+  clubName: string;
+  questions: string[];
+  answers: string[];
+  status: ApplicationStatus;
+  interviewAt: string | null;
+  interviewLocation: string | null;
+  submittedAt: string;
 }
 
 export interface Applicant {
