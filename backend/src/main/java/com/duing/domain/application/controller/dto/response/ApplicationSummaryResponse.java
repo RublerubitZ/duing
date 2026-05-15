@@ -11,6 +11,8 @@ public record ApplicationSummaryResponse(
         Long clubId,
         String clubName,
         ApplicationStatus status,
+        LocalDateTime interviewAt,
+        String interviewLocation,
         LocalDateTime submittedAt
 ) {
     public static ApplicationSummaryResponse from(ApplicationSummaryQuery summaryQuery) {
@@ -21,6 +23,8 @@ public record ApplicationSummaryResponse(
                 summaryQuery.clubId(),
                 summaryQuery.clubName(),
                 summaryQuery.status(),
+                summaryQuery.interviewAt(),
+                summaryQuery.interviewLocation(),
                 summaryQuery.submittedAt()
         );
     }

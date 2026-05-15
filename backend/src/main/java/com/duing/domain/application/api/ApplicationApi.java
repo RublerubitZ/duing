@@ -2,6 +2,7 @@ package com.duing.domain.application.api;
 
 import com.duing.domain.application.controller.dto.request.SubmitApplicationRequest;
 import com.duing.domain.application.controller.dto.response.ApplicationSummaryResponse;
+import com.duing.domain.application.controller.dto.response.MyApplicationDetailResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,6 +32,13 @@ public interface ApplicationApi {
     @Operation(summary = "내 지원 목록 조회", description = "본인이 제출한 지원을 최신순으로 반환한다.")
     @GetMapping("/users/me/applications")
     ResponseEntity<ApiResponse<List<ApplicationSummaryResponse>>> getMyApplications(
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "내 지원 상세 조회", description = "본인 지원만 조회 가능. 답변·면접 일시·장소 포함.")
+    @GetMapping("/users/me/applications/{applicationId}")
+    ResponseEntity<ApiResponse<MyApplicationDetailResponse>> getMyApplicationDetail(
+            @PathVariable Long applicationId,
             @AuthenticationPrincipal UserPrincipal currentUser
     );
 }
