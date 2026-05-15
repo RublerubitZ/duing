@@ -10,7 +10,7 @@ export type ClubCategory =
 
 export type ClubStatus = 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE';
 
-export interface ClubSummary {
+export type ClubSummary = {
   id: number;
   name: string;
   category: ClubCategory;
@@ -18,29 +18,29 @@ export interface ClubSummary {
   logoUrl: string | null;
   status: ClubStatus;
   tags: string[];
-}
+};
 
-export interface ClubSnsLink {
+export type ClubSnsLink = {
   platform: string;
   url: string;
-}
+};
 
-export interface ClubFaq {
+export type ClubFaq = {
   question: string;
   answer: string;
   order: number;
-}
+};
 
-export interface ClubPhoto {
+export type ClubPhoto = {
   id: number;
   storageKey: string;
   caption: string | null;
   width: number | null;
   height: number | null;
   displayOrder: number;
-}
+};
 
-export interface ClubDetail extends ClubSummary {
+export type ClubDetail = ClubSummary & {
   description: string | null;
   coverUrl: string | null;
   snsLinks: ClubSnsLink[];
@@ -48,9 +48,9 @@ export interface ClubDetail extends ClubSummary {
   leaderId: number | null;
   leaderName: string | null;
   photos: ClubPhoto[];
-}
+};
 
-export interface ClubSearchParams {
+export type ClubSearchParams = {
   category?: ClubCategory;
   division?: string;
   keyword?: string;
@@ -59,17 +59,17 @@ export interface ClubSearchParams {
   page?: number;
   size?: number;
   sort?: string;
-}
+};
 
-export interface CreateClubPayload {
+export type CreateClubPayload = {
   name: string;
   category: ClubCategory;
   division?: string;
   description?: string;
   logoUrl?: string;
   leaderId: number;
-}
+};
 
-export interface UpdateClubStatusPayload {
+export type UpdateClubStatusPayload = {
   status: ClubStatus;
-}
+};

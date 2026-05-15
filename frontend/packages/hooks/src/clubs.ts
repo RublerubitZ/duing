@@ -14,7 +14,12 @@ export function useClubDetail(clubId: number | undefined) {
   const client = useApiClient();
   return useQuery({
     queryKey: ['clubs', clubId],
-    queryFn: () => client.clubs.detail(clubId as number),
+    queryFn: () => {
+      if (clubId === undefined) {
+        throw new Error('clubId is required');
+      }
+      return client.clubs.detail(clubId);
+    },
     enabled: clubId !== undefined,
   });
 }
@@ -23,7 +28,12 @@ export function useClubPhotos(clubId: number | undefined) {
   const client = useApiClient();
   return useQuery({
     queryKey: ['clubs', clubId, 'photos'],
-    queryFn: () => client.clubs.photos(clubId as number),
+    queryFn: () => {
+      if (clubId === undefined) {
+        throw new Error('clubId is required');
+      }
+      return client.clubs.photos(clubId);
+    },
     enabled: clubId !== undefined,
   });
 }
@@ -32,7 +42,12 @@ export function useClubRecruitments(clubId: number | undefined) {
   const client = useApiClient();
   return useQuery({
     queryKey: ['clubs', clubId, 'recruitments'],
-    queryFn: () => client.clubs.recruitmentsByClub(clubId as number),
+    queryFn: () => {
+      if (clubId === undefined) {
+        throw new Error('clubId is required');
+      }
+      return client.clubs.recruitmentsByClub(clubId);
+    },
     enabled: clubId !== undefined,
   });
 }

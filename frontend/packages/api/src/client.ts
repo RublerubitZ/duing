@@ -56,7 +56,7 @@ function unwrap<T>(response: ApiResponse<T>): T {
   return response.data;
 }
 
-export interface DuingApiClient {
+export type DuingApiClient = {
   auth: {
     signup(payload: SignupPayload): Promise<number>;
     login(payload: LoginPayload): Promise<LoginResult>;
@@ -88,11 +88,11 @@ export interface DuingApiClient {
     myDetail(applicationId: number): Promise<MyApplicationDetail>;
   };
   raw: KyInstance;
-}
+};
 
-export interface CreateApiClientOptions {
+export type CreateApiClientOptions = {
   baseUrl: string;
-}
+};
 
 export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiClient {
   const http = ky.create({

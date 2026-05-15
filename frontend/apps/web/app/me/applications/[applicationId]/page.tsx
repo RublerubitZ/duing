@@ -2,14 +2,7 @@
 
 import { use } from 'react';
 import { useMyApplicationDetail } from '@duing/hooks';
-
-const STATUS_LABEL = {
-  SUBMITTED: '제출됨',
-  UNDER_REVIEW: '서류 검토중',
-  INTERVIEW_PENDING: '면접 대기',
-  ACCEPTED: '합격',
-  REJECTED: '불합격',
-} as const;
+import { APPLICATION_STATUS_LABEL } from '../../../_constants/application-status';
 
 export default function MyApplicationDetailPage({
   params,
@@ -29,7 +22,7 @@ export default function MyApplicationDetailPage({
       <p className="text-sm text-slate-500">{application.clubName}</p>
       <h1 className="mt-1 text-2xl font-bold">{application.recruitmentTitle}</h1>
       <p className="mt-2 inline-block rounded-full bg-slate-100 px-3 py-1 text-sm">
-        {STATUS_LABEL[application.status]}
+        {APPLICATION_STATUS_LABEL[application.status]}
       </p>
 
       {application.status === 'INTERVIEW_PENDING' && (

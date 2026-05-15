@@ -13,7 +13,12 @@ export function useRecruitmentDetail(recruitmentId: number | undefined) {
   const client = useApiClient();
   return useQuery({
     queryKey: ['recruitments', recruitmentId],
-    queryFn: () => client.recruitments.detail(recruitmentId as number),
+    queryFn: () => {
+      if (recruitmentId === undefined) {
+        throw new Error('recruitmentId is required');
+      }
+      return client.recruitments.detail(recruitmentId);
+    },
     enabled: recruitmentId !== undefined,
   });
 }

@@ -3,15 +3,16 @@
 import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Route } from 'next';
 import { useLogin } from '@duing/hooks';
+import { loginSchema } from '@duing/schemas';
+import { toRoute } from '../../_lib/route';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawNext = searchParams.get('next') ?? '/me';
   // 내부 절대 경로만 허용 (//evil.com 같은 protocol-relative 차단)
-  const next = (/^\/(?!\/)/.test(rawNext) ? rawNext : '/me') as Route;
+  const next = toRoute(/^\/(?!\/)/.test(rawNext) ? rawNext : '/me');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,8 +23,13 @@ function LoginForm() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    const parsed = loginSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');
+      return;
+    }
     try {
-      await login.mutateAsync({ email, password });
+      await login.mutateAsync(parsed.data);
       router.replace(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
