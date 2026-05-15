@@ -29,10 +29,8 @@ export function decodeJwt(token: string): JwtClaims | null {
     if (!payload) return null;
     const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
     const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-    const json =
-      typeof atob === "function"
-        ? atob(padded)
-        : Buffer.from(padded, "base64").toString("utf-8");
+    // atob is available in both browsers and Node 18+ (used by Next.js 15)
+    const json = atob(padded);
     return JSON.parse(json) as JwtClaims;
   } catch {
     return null;
