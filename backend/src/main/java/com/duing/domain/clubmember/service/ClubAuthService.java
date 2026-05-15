@@ -1,0 +1,54 @@
+package com.duing.domain.clubmember.service;
+
+import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.exception.ClubMemberException;
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.user.entity.UserRole;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 동아리 권한 검증의 단일 진입점.
+ * Controller / 다른 Service 는 본 클래스의 require* 메서드를 호출하여 검증한다.
+ */
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class ClubAuthService {
+
+    private final ClubMemberRepository clubMemberRepository;
+
+    public ClubMember requireLeader(Long userId, Long clubId) {
+        ClubMember clubMember = findMembershipOrThrow(userId, clubId);
+        if (clubMember.getRole() != ClubMemberRole.LEADER) {
+            throw new AccessDeniedException("해당 동아리의 회장만 가능한 작업입니다.");
+        }
+        return clubMember;
+    }
+
+    public ClubMember requireManager(Long userId, Long clubId) {
+        ClubMember clubMember = findMembershipOrThrow(userId, clubId);
+        if (!clubMember.canManageClub()) {
+            throw new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다.");
+        }
+        return clubMember;
+    }
+
+    public ClubMember requireMember(Long userId, Long clubId) {
+        return findMembershipOrThrow(userId, clubId);
+    }
+
+    public void requireAdmin(UserRole globalRole) {
+        if (globalRole != UserRole.ADMIN) {
+            throw new AccessDeniedException("총동연(ADMIN) 권한이 필요합니다.");
+        }
+    }
+
+    private ClubMember findMembershipOrThrow(Long userId, Long clubId) {
+        return clubMemberRepository.findByClubIdAndUserId(clubId, userId)
+                .orElseThrow(ClubMemberException.NotAMember::new);
+    }
+}
