@@ -8,6 +8,7 @@ import com.duing.domain.club.service.ClubService;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,9 +30,11 @@ public class ClubController implements ClubApi {
             @RequestParam(required = false) ClubCategory category,
             @RequestParam(required = false) String division,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) List<String> tags,
+            @RequestParam(required = false) Boolean recruiting,
             Pageable pageable
     ) {
-        ClubSearchCondition condition = new ClubSearchCondition(category, division, keyword);
+        ClubSearchCondition condition = new ClubSearchCondition(category, division, keyword, tags, recruiting);
         Page<ClubSummaryResponse> page = clubService.search(condition, pageable)
                 .map(ClubSummaryResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));

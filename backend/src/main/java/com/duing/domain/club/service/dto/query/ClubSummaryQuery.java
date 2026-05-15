@@ -3,6 +3,7 @@ package com.duing.domain.club.service.dto.query;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import java.util.List;
 
 public record ClubSummaryQuery(
         Long id,
@@ -10,7 +11,8 @@ public record ClubSummaryQuery(
         ClubCategory category,
         String division,
         String logoUrl,
-        ClubStatus status
+        ClubStatus status,
+        List<String> tags
 ) {
     public static ClubSummaryQuery from(Club club) {
         return new ClubSummaryQuery(
@@ -19,7 +21,8 @@ public record ClubSummaryQuery(
                 club.getCategory(),
                 club.getDivision(),
                 club.getLogoUrl(),
-                club.getStatus()
+                club.getStatus(),
+                club.getTags()
         );
     }
 }

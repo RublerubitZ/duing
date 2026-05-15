@@ -7,6 +7,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import lombok.AccessLevel;
@@ -54,9 +55,10 @@ public class Club extends BaseEntity {
     @Column(name = "cover_url", length = 500)
     private String coverUrl;
 
-    @JdbcTypeCode(SqlTypes.ARRAY)
+    // Hibernate 6 의 SqlTypes.ARRAY 매핑은 List<String> 에서 JSONB 로 잘못 직렬화되는
+    // 잠복 이슈가 있어 native String[] 로 보관한다. 외부에는 getTags() 가 List 뷰로 노출.
     @Column(name = "tags", columnDefinition = "_text", nullable = false)
-    private List<String> tags = new ArrayList<>();
+    private String[] tags = new String[0];
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "sns_links", columnDefinition = "jsonb", nullable = false)
@@ -67,7 +69,7 @@ public class Club extends BaseEntity {
     private List<ClubFaq> faqs = new ArrayList<>();
 
     public List<String> getTags() {
-        return Collections.unmodifiableList(tags);
+        return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
     }
 
     public List<ClubSnsLink> getSnsLinks() {
