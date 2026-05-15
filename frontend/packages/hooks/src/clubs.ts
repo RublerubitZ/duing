@@ -18,3 +18,21 @@ export function useClubDetail(clubId: number | undefined) {
     enabled: clubId !== undefined,
   });
 }
+
+export function useClubPhotos(clubId: number | undefined) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: ['clubs', clubId, 'photos'],
+    queryFn: () => client.clubs.photos(clubId as number),
+    enabled: clubId !== undefined,
+  });
+}
+
+export function useClubRecruitments(clubId: number | undefined) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: ['clubs', clubId, 'recruitments'],
+    queryFn: () => client.clubs.recruitmentsByClub(clubId as number),
+    enabled: clubId !== undefined,
+  });
+}

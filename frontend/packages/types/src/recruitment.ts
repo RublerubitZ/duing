@@ -1,4 +1,6 @@
 export type RecruitmentStatus = 'OPEN' | 'CLOSED';
+export type ApplicationMode = 'SELF' | 'EXTERNAL';
+export type TargetRole = 'MEMBER' | 'OFFICER';
 
 export interface RecruitmentSummary {
   id: number;
@@ -10,6 +12,10 @@ export interface RecruitmentSummary {
   capacity: number;
   status: RecruitmentStatus;
   effectivelyOpen: boolean;
+  applicationMode: ApplicationMode;
+  externalFormUrl: string | null;
+  useInterview: boolean;
+  targetRole: TargetRole;
 }
 
 export interface RecruitmentDetail extends RecruitmentSummary {
@@ -24,4 +30,8 @@ export interface CreateRecruitmentPayload {
   endDate: string;
   capacity: number;
   questions?: string[];
+  applicationMode?: ApplicationMode;
+  externalFormUrl?: string;
+  useInterview?: boolean;
+  targetRole?: TargetRole;
 }

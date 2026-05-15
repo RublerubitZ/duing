@@ -24,3 +24,13 @@ export function useMyApplications() {
     enabled: status === 'authenticated',
   });
 }
+
+export function useMyApplicationDetail(applicationId: number | undefined) {
+  const client = useApiClient();
+  const status = useAuthStore((s) => s.status);
+  return useQuery({
+    queryKey: ['users', 'me', 'applications', applicationId],
+    queryFn: () => client.applications.myDetail(applicationId as number),
+    enabled: status === 'authenticated' && applicationId !== undefined,
+  });
+}
