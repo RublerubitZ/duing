@@ -1,5 +1,6 @@
 package com.duing.domain.application.entity;
 
+import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
 import com.duing.global.entity.BaseEntity;
@@ -72,11 +73,37 @@ public class Application extends BaseEntity {
                 .build();
     }
 
-    public void updateStatus(ApplicationStatus newStatus) {
-        if (newStatus == ApplicationStatus.SUBMITTED) {
-            throw new IllegalArgumentException("SUBMITTED 상태로는 되돌릴 수 없습니다.");
+    public void transitionTo(ApplicationStatus newStatus, boolean useInterview) {
+        if (!isAllowedTransition(this.status, newStatus, useInterview)) {
+            throw new ApplicationDomainException.InvalidStatusTransitionException();
         }
         this.status = newStatus;
+    }
+
+    private static boolean isAllowedTransition(ApplicationStatus from, ApplicationStatus to, boolean useInterview) {
+        return switch (from) {
+            case SUBMITTED -> to == ApplicationStatus.UNDER_REVIEW;
+            case UNDER_REVIEW -> useInterview
+                    ? to == ApplicationStatus.INTERVIEW_PENDING
+                            || to == ApplicationStatus.REJECTED
+                    : to == ApplicationStatus.ACCEPTED || to == ApplicationStatus.REJECTED;
+            case INTERVIEW_PENDING -> to == ApplicationStatus.ACCEPTED || to == ApplicationStatus.REJECTED;
+            case ACCEPTED, REJECTED -> false;
+        };
+    }
+
+    public void scheduleInterview(LocalDateTime at, String location) {
+        if (at == null) {
+            throw new ApplicationDomainException.InvalidInterviewScheduleException();
+        }
+        if (location == null || location.isBlank()) {
+            throw new ApplicationDomainException.InvalidInterviewScheduleException();
+        }
+        if (this.status != ApplicationStatus.INTERVIEW_PENDING) {
+            throw new ApplicationDomainException.InvalidStatusTransitionException();
+        }
+        this.interviewAt = at;
+        this.interviewLocation = location;
     }
 
     public List<String> getAnswers() {

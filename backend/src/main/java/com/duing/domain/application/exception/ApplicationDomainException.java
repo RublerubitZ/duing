@@ -42,10 +42,42 @@ public class ApplicationDomainException extends ApplicationException {
     }
 
     public static class InvalidStatusTransitionException extends ApplicationDomainException {
-        private static final String MESSAGE = "잘못된 상태 변경입니다. ACCEPTED 또는 REJECTED 로만 변경할 수 있습니다.";
+        private static final String MESSAGE = "허용되지 않는 상태 전이입니다.";
 
         public InvalidStatusTransitionException() {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class ExternalFormSubmitException extends ApplicationDomainException {
+        private static final String MESSAGE = "외부 폼 모집은 du-ing 에서 직접 지원할 수 없습니다.";
+
+        public ExternalFormSubmitException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class OfficerMembershipRequiredException extends ApplicationDomainException {
+        private static final String MESSAGE = "운영진 모집은 해당 동아리의 기존 부원만 지원할 수 있습니다.";
+
+        public OfficerMembershipRequiredException() {
+            super(MESSAGE, HttpStatus.FORBIDDEN);
+        }
+    }
+
+    public static class InvalidInterviewScheduleException extends ApplicationDomainException {
+        private static final String MESSAGE = "면접 일정 정보가 올바르지 않습니다.";
+
+        public InvalidInterviewScheduleException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class ForbiddenApplicationAccessException extends ApplicationDomainException {
+        private static final String MESSAGE = "본인의 지원 내역만 조회할 수 있습니다.";
+
+        public ForbiddenApplicationAccessException() {
+            super(MESSAGE, HttpStatus.FORBIDDEN);
         }
     }
 }

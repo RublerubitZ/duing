@@ -53,6 +53,10 @@ public class ClubMember extends BaseEntity {
         return ClubMember.builder().club(club).user(user).role(ClubMemberRole.MEMBER).build();
     }
 
+    public static ClubMember of(Club club, User user, ClubMemberRole role) {
+        return ClubMember.builder().club(club).user(user).role(role).build();
+    }
+
     public boolean canManageClub() {
         return role.canManageClub();
     }
