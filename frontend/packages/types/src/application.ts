@@ -5,7 +5,7 @@ export type ApplicationStatus =
   | 'ACCEPTED'
   | 'REJECTED';
 
-export interface ApplicationSummary {
+export type ApplicationSummary = {
   id: number;
   recruitmentId: number;
   recruitmentTitle: string;
@@ -15,9 +15,9 @@ export interface ApplicationSummary {
   interviewAt: string | null;
   interviewLocation: string | null;
   submittedAt: string; // ISO datetime
-}
+};
 
-export interface MyApplicationDetail {
+export type MyApplicationDetail = {
   id: number;
   recruitmentId: number;
   recruitmentTitle: string;
@@ -29,9 +29,9 @@ export interface MyApplicationDetail {
   interviewAt: string | null;
   interviewLocation: string | null;
   submittedAt: string;
-}
+};
 
-export interface Applicant {
+export type Applicant = {
   applicationId: number;
   userId: number;
   userName: string;
@@ -40,12 +40,12 @@ export interface Applicant {
   answers: string[];
   status: ApplicationStatus;
   submittedAt: string;
-}
+};
 
-export interface SubmitApplicationPayload {
+export type SubmitApplicationPayload = {
   answers: string[];
-}
+};
 
-export interface UpdateApplicationStatusPayload {
+export type UpdateApplicationStatusPayload = {
   status: Exclude<ApplicationStatus, 'SUBMITTED'>;
-}
+};

@@ -8,13 +8,13 @@ import {
   clearAuthToken,
 } from '@duing/api';
 
-interface AuthState {
+type AuthState = {
   user: User | null;
   accessToken: string | null;
   status: 'idle' | 'authenticated' | 'unauthenticated';
   setSession(user: User, accessToken: string): Promise<void>;
   clearSession(): Promise<void>;
-}
+};
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,

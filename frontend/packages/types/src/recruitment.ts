@@ -2,7 +2,7 @@ export type RecruitmentStatus = 'OPEN' | 'CLOSED';
 export type ApplicationMode = 'SELF' | 'EXTERNAL';
 export type TargetRole = 'MEMBER' | 'OFFICER';
 
-export interface RecruitmentSummary {
+export type RecruitmentSummary = {
   id: number;
   clubId: number;
   clubName: string;
@@ -16,14 +16,14 @@ export interface RecruitmentSummary {
   externalFormUrl: string | null;
   useInterview: boolean;
   targetRole: TargetRole;
-}
+};
 
-export interface RecruitmentDetail extends RecruitmentSummary {
+export type RecruitmentDetail = RecruitmentSummary & {
   content: string | null;
   questions: string[];
-}
+};
 
-export interface CreateRecruitmentPayload {
+export type CreateRecruitmentPayload = {
   title: string;
   content?: string;
   startDate: string;
@@ -34,4 +34,4 @@ export interface CreateRecruitmentPayload {
   externalFormUrl?: string;
   useInterview?: boolean;
   targetRole?: TargetRole;
-}
+};
