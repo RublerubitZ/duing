@@ -16,6 +16,7 @@ import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -68,12 +69,18 @@ class MyApplicationDetailAccessTest {
         when(recruitment.getClub()).thenReturn(club);
         when(recruitment.getForm()).thenReturn(form);
 
+        LocalDateTime interviewAt = LocalDateTime.of(2026, 5, 20, 14, 0);
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 5, 15, 9, 30);
+
         Application application = mock(Application.class);
         when(application.getId()).thenReturn(1L);
         when(application.getUser()).thenReturn(owner);
         when(application.getRecruitment()).thenReturn(recruitment);
         when(application.getAnswers()).thenReturn(List.of("A1", "A2"));
         when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
+        when(application.getInterviewAt()).thenReturn(interviewAt);
+        when(application.getInterviewLocation()).thenReturn("본관 301호");
+        when(application.getCreatedAt()).thenReturn(submittedAt);
 
         when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
 
@@ -84,5 +91,17 @@ class MyApplicationDetailAccessTest {
         assertThat(detail.answers()).containsExactly("A1", "A2");
         assertThat(detail.clubId()).isEqualTo(7L);
         assertThat(detail.recruitmentId()).isEqualTo(3L);
+        assertThat(detail.interviewAt()).isEqualTo(interviewAt);
+        assertThat(detail.interviewLocation()).isEqualTo("본관 301호");
+        assertThat(detail.submittedAt()).isEqualTo(submittedAt);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 지원 ID 로 조회하면 ApplicationNotFoundException 이 발생한다")
+    void missingApplicationThrowsNotFound() {
+        when(applicationRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> applicationService.getMyApplicationDetail(404L, 10L))
+                .isInstanceOf(ApplicationDomainException.ApplicationNotFoundException.class);
     }
 }
