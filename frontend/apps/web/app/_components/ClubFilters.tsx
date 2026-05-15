@@ -1,6 +1,7 @@
 'use client';
 
 import type { ClubCategory, ClubSearchParams } from '@duing/types';
+import { cn } from '../_lib/cn';
 
 const CATEGORIES: { value: ClubCategory; label: string }[] = [
   { value: 'ACADEMIC', label: '학술' },
@@ -46,12 +47,12 @@ export function ClubFilters({ value, onChange }: Props) {
               key={category.value}
               type="button"
               onClick={() => toggleCategory(category.value)}
-              className={
-                'rounded-full px-3 py-1 text-sm border ' +
-                (active
+              className={cn(
+                'rounded-full px-3 py-1 text-sm border',
+                active
                   ? 'bg-slate-900 text-white border-slate-900'
-                  : 'border-slate-300 text-slate-600 hover:border-slate-500')
-              }
+                  : 'border-slate-300 text-slate-600 hover:border-slate-500',
+              )}
             >
               {category.label}
             </button>
@@ -60,12 +61,12 @@ export function ClubFilters({ value, onChange }: Props) {
         <button
           type="button"
           onClick={toggleRecruiting}
-          className={
-            'rounded-full px-3 py-1 text-sm border ' +
-            (value.recruiting
+          className={cn(
+            'rounded-full px-3 py-1 text-sm border',
+            value.recruiting
               ? 'bg-emerald-600 text-white border-emerald-600'
-              : 'border-slate-300 text-slate-600 hover:border-slate-500')
-          }
+              : 'border-slate-300 text-slate-600 hover:border-slate-500',
+          )}
         >
           모집중만
         </button>

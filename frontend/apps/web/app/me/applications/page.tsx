@@ -2,14 +2,7 @@
 
 import Link from 'next/link';
 import { useMyApplications } from '@duing/hooks';
-
-const STATUS_LABEL = {
-  SUBMITTED: '제출됨',
-  UNDER_REVIEW: '서류 검토중',
-  INTERVIEW_PENDING: '면접 대기',
-  ACCEPTED: '합격',
-  REJECTED: '불합격',
-} as const;
+import { APPLICATION_STATUS_LABEL } from '../../_constants/application-status';
 
 export default function MyApplicationsPage() {
   const query = useMyApplications();
@@ -37,7 +30,7 @@ export default function MyApplicationsPage() {
                 <div className="flex items-baseline justify-between">
                   <span className="font-medium">{application.recruitmentTitle}</span>
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">
-                    {STATUS_LABEL[application.status]}
+                    {APPLICATION_STATUS_LABEL[application.status]}
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-slate-600">{application.clubName}</p>
