@@ -1,6 +1,8 @@
 package com.duing.domain.recruitment.controller.dto.response;
 
+import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import java.time.LocalDate;
 import java.util.List;
@@ -16,7 +18,11 @@ public record RecruitmentDetailResponse(
         int capacity,
         RecruitmentStatus status,
         boolean effectivelyOpen,
-        List<String> questions
+        List<String> questions,
+        ApplicationMode applicationMode,
+        String externalFormUrl,
+        boolean useInterview,
+        TargetRole targetRole
 ) {
     public static RecruitmentDetailResponse from(RecruitmentDetailQuery detailQuery) {
         return new RecruitmentDetailResponse(
@@ -30,7 +36,11 @@ public record RecruitmentDetailResponse(
                 detailQuery.capacity(),
                 detailQuery.status(),
                 detailQuery.effectivelyOpen(),
-                detailQuery.questions()
+                detailQuery.questions(),
+                detailQuery.applicationMode(),
+                detailQuery.externalFormUrl(),
+                detailQuery.useInterview(),
+                detailQuery.targetRole()
         );
     }
 }
