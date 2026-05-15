@@ -30,7 +30,12 @@ export function useMyApplicationDetail(applicationId: number | undefined) {
   const status = useAuthStore((s) => s.status);
   return useQuery({
     queryKey: ['users', 'me', 'applications', applicationId],
-    queryFn: () => client.applications.myDetail(applicationId as number),
+    queryFn: () => {
+      if (applicationId === undefined) {
+        throw new Error('applicationId is required');
+      }
+      return client.applications.myDetail(applicationId);
+    },
     enabled: status === 'authenticated' && applicationId !== undefined,
   });
 }
