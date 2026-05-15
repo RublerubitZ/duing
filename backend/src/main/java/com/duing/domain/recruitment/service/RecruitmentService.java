@@ -13,4 +13,6 @@ public interface RecruitmentService {
     List<RecruitmentSummaryQuery> getCalendar(YearMonth yearMonth);
 
     RecruitmentDetailQuery getById(Long recruitmentId);
+
+    List<RecruitmentSummaryQuery> getByClubId(Long clubId);
 }

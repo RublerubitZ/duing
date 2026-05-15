@@ -7,4 +7,6 @@ import java.util.List;
 public interface RecruitmentRepositoryCustom {
 
     List<Recruitment> findOverlappingPeriod(LocalDate periodStart, LocalDate periodEnd);
+
+    List<Recruitment> findByClubIdOrderByStatusOpenFirstAndStartDateDesc(Long clubId);
 }
