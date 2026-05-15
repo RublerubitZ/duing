@@ -48,4 +48,28 @@ public class ApplicationDomainException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class ExternalFormSubmitException extends ApplicationDomainException {
+        private static final String MESSAGE = "외부 폼 모집은 du-ing 에서 직접 지원할 수 없습니다.";
+
+        public ExternalFormSubmitException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class OfficerMembershipRequiredException extends ApplicationDomainException {
+        private static final String MESSAGE = "운영진 모집은 해당 동아리의 기존 부원만 지원할 수 있습니다.";
+
+        public OfficerMembershipRequiredException() {
+            super(MESSAGE, HttpStatus.FORBIDDEN);
+        }
+    }
+
+    public static class ForbiddenApplicationAccessException extends ApplicationDomainException {
+        private static final String MESSAGE = "본인의 지원 내역만 조회할 수 있습니다.";
+
+        public ForbiddenApplicationAccessException() {
+            super(MESSAGE, HttpStatus.FORBIDDEN);
+        }
+    }
 }
