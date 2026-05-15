@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import type { User } from '@duing/types';
-import { clearToken, readToken, writeToken } from '@duing/api';
+import {
+  clearToken,
+  readToken,
+  writeToken,
+  setAuthToken,
+  clearAuthToken,
+} from '@duing/api';
 
 interface AuthState {
   user: User | null;
@@ -16,10 +22,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   status: 'idle',
   async setSession(user, accessToken) {
     await writeToken(accessToken);
+    setAuthToken(accessToken); // 쿠키 (미들웨어용)
     set({ user, accessToken, status: 'authenticated' });
   },
   async clearSession() {
     await clearToken();
+    clearAuthToken();
     set({ user: null, accessToken: null, status: 'unauthenticated' });
   },
 }));
@@ -29,6 +37,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 export async function hydrateAuthFromStorage(): Promise<void> {
   const token = await readToken();
   if (token) {
+    setAuthToken(token);
     useAuthStore.setState({ accessToken: token, status: 'authenticated' });
   } else {
     useAuthStore.setState({ status: 'unauthenticated' });
