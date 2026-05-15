@@ -3,13 +3,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useEffect, useState, type ReactNode } from 'react';
-import { createApiClient } from '@duing/api';
+import { createApiClient, registerCookieAdapter } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
 import { hydrateAuthFromStorage } from '@duing/stores';
+import { webCookieAdapter } from './_lib/cookie-adapter';
 
 setStorage(webStorage);
+registerCookieAdapter(webCookieAdapter);
 
 const apiClient = createApiClient({
   baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1',
