@@ -35,6 +35,17 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:/tmp/duing/uploads}
+  storage:
+    provider: ${FILE_STORAGE_PROVIDER:local}   # local | supabase
+
+supabase:
+  storage:
+    url: ${SUPABASE_URL:}
+    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+    bucket: ${SUPABASE_STORAGE_BUCKET:duing}
+
 logging:
   level:
     org.hibernate.SQL: debug
