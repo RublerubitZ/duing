@@ -9,7 +9,9 @@ import { useLogin } from '@duing/hooks';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = (searchParams.get('next') ?? '/me') as Route;
+  const rawNext = searchParams.get('next') ?? '/me';
+  // 내부 절대 경로만 허용 (//evil.com 같은 protocol-relative 차단)
+  const next = (/^\/(?!\/)/.test(rawNext) ? rawNext : '/me') as Route;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
