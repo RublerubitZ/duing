@@ -66,12 +66,13 @@
 - 비밀번호는 `BCryptPasswordEncoder` 로 해싱 후 저장 (평문 저장 금지).
 - JWT 는 `HS256`, 만료 시간은 `JWT_EXPIRY_MS` 환경변수로 제어.
 - 가입 시 기본 role 은 `STUDENT`. `LEADER` / `ADMIN` 승격은 별도 admin API 로만 가능(현재 미구현).
+- 회원가입 시 `email` 은 학교 도메인 정규식 `^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*daegu\.ac\.kr$` 통과 필수. 인증 메일 발송은 Phase 2.
 
 ---
 
 ### 2.2 Club (동아리)
 
-**엔티티 필드**: `id`, `name`, `category`(enum), `division`, `description`, `logoUrl`, `status`(enum)
+**엔티티 필드**: `id`, `name`, `category`(enum), `division`, `description`, `logoUrl`, `coverUrl`, `tags`(text[]), `snsLinks`(jsonb), `faqs`(jsonb), `status`(enum). 활동사진은 별도 `club_photo` 테이블.
 > 회장 정보는 `club_members` 테이블의 `role = LEADER` 행에서 도출 (Club 자체 컬럼 아님).
 
 **`ClubCategory`**: `ACADEMIC` / `CULTURE` / `ART` / `SPORTS` / `VOLUNTEER` / `RELIGION` / `HOBBY` / `OTHER`
@@ -93,7 +94,7 @@
 
 ### 2.3 Recruitment (모집 공고)
 
-**엔티티 필드**: `id`, `clubId`(FK), `title`, `content`, `startDate`, `endDate`, `capacity`, `status`(enum)
+**엔티티 필드**: `id`, `clubId`(FK), `title`, `content`, `startDate`, `endDate`, `capacity`, `applicationMode`(SELF|EXTERNAL), `externalFormUrl`, `useInterview`, `targetRole`(MEMBER|OFFICER), `status`(enum)
 **연관 엔티티**: `RecruitmentForm` (`recruitmentId` 1:1, `questions` JSONB)
 
 **`RecruitmentStatus`**: `OPEN` / `CLOSED`
@@ -115,8 +116,8 @@
 
 ### 2.4 Application (지원)
 
-**엔티티 필드**: `id`, `recruitmentId`(FK), `userId`(FK), `answers` JSONB, `status`(enum)
-**`ApplicationStatus`**: `SUBMITTED`(제출됨) / `ACCEPTED`(합격) / `REJECTED`(불합격)
+**엔티티 필드**: `id`, `recruitmentId`(FK), `userId`(FK), `answers` JSONB, `status`(enum), `interviewAt`, `interviewLocation`
+**`ApplicationStatus`**: `SUBMITTED` → `UNDER_REVIEW` → (`INTERVIEW_PENDING` if recruitment.useInterview) → `ACCEPTED` / `REJECTED`
 
 > Application 도메인은 아직 미구현. 아래는 합의된 명세.
 
@@ -212,3 +213,4 @@
 | 일자 | 변경 내용 |
 |---|---|
 | 2026-05-14 | 최초 작성. User/Club/Recruitment 구현 완료, Application 명세 확정 |
+| 2026-05-15 | MVP 재정의 (Phase 0 토대): clubs(cover_url/tags/sns_links/faqs), club_photo 테이블, recruitment(application_mode/external_form_url/use_interview/target_role), application(interview_at/interview_location), ApplicationStatus 5단계, 학교 도메인 이메일 검증, Supabase Storage 어댑터, InterviewNotificationService 추상화, ClubAuthService 권한 헬퍼. 상세는 docs/superpowers/specs/2026-05-15-duing-full-flow-design.md |
