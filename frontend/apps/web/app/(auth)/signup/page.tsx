@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSignup } from '@duing/hooks';
+import { signupSchema } from '@duing/schemas';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -14,8 +15,13 @@ export default function SignupPage() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    const parsed = signupSchema.safeParse(form);
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');
+      return;
+    }
     try {
-      await signup.mutateAsync(form);
+      await signup.mutateAsync(parsed.data);
       router.replace('/login?next=/me');
     } catch (err) {
       setError(err instanceof Error ? err.message : '회원가입에 실패했습니다.');

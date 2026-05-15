@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useLogin } from '@duing/hooks';
+import { loginSchema } from '@duing/schemas';
 import { toRoute } from '../../_lib/route';
 
 function LoginForm() {
@@ -22,8 +23,13 @@ function LoginForm() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    const parsed = loginSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');
+      return;
+    }
     try {
-      await login.mutateAsync({ email, password });
+      await login.mutateAsync(parsed.data);
       router.replace(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
