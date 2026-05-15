@@ -1,7 +1,9 @@
 package com.duing.domain.recruitment.service.dto.query;
 
+import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.entity.TargetRole;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -16,7 +18,11 @@ public record RecruitmentDetailQuery(
         int capacity,
         RecruitmentStatus status,
         boolean effectivelyOpen,
-        List<String> questions
+        List<String> questions,
+        ApplicationMode applicationMode,
+        String externalFormUrl,
+        boolean useInterview,
+        TargetRole targetRole
 ) {
     public static RecruitmentDetailQuery from(Recruitment recruitment, LocalDate today) {
         List<String> questions = recruitment.getForm() != null
@@ -33,7 +39,11 @@ public record RecruitmentDetailQuery(
                 recruitment.getCapacity(),
                 recruitment.getStatus(),
                 recruitment.isEffectivelyOpen(today),
-                questions
+                questions,
+                recruitment.getApplicationMode(),
+                recruitment.getExternalFormUrl(),
+                recruitment.isUseInterview(),
+                recruitment.getTargetRole()
         );
     }
 }

@@ -1,7 +1,9 @@
 package com.duing.domain.recruitment.service.dto.query;
 
+import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.entity.TargetRole;
 import java.time.LocalDate;
 
 public record RecruitmentSummaryQuery(
@@ -13,7 +15,11 @@ public record RecruitmentSummaryQuery(
         LocalDate endDate,
         int capacity,
         RecruitmentStatus status,
-        boolean effectivelyOpen
+        boolean effectivelyOpen,
+        ApplicationMode applicationMode,
+        String externalFormUrl,
+        boolean useInterview,
+        TargetRole targetRole
 ) {
     public static RecruitmentSummaryQuery from(Recruitment recruitment, LocalDate today) {
         return new RecruitmentSummaryQuery(
@@ -25,7 +31,11 @@ public record RecruitmentSummaryQuery(
                 recruitment.getEndDate(),
                 recruitment.getCapacity(),
                 recruitment.getStatus(),
-                recruitment.isEffectivelyOpen(today)
+                recruitment.isEffectivelyOpen(today),
+                recruitment.getApplicationMode(),
+                recruitment.getExternalFormUrl(),
+                recruitment.isUseInterview(),
+                recruitment.getTargetRole()
         );
     }
 }
