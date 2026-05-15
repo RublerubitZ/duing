@@ -1,33 +1,88 @@
-import Link from 'next/link';
+'use client';
+
+import { useState } from 'react';
+import type { ClubSearchParams } from '@duing/types';
+import { useClubList } from '@duing/hooks';
+import { ClubCard } from './_components/ClubCard';
+import { ClubFilters } from './_components/ClubFilters';
 
 export default function HomePage() {
+  const [params, setParams] = useState<ClubSearchParams>({ page: 0, size: 20 });
+  const query = useClubList(params);
+
   return (
-    <main className="mx-auto max-w-3xl px-6 py-16">
-      <h1 className="text-4xl font-bold tracking-tight">Du-ing 두잉</h1>
-      <p className="mt-4 text-lg text-slate-600">
-        대구대학교 동아리 통합 플랫폼. 동아리를 탐색하고, 모집 일정을 확인하고, 한 번에 지원하세요.
-      </p>
+    <main className="mx-auto max-w-5xl px-6 py-10">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">Du-ing</h1>
+        <p className="mt-2 text-slate-600">대구대학교 동아리를 탐색하고 지원하세요.</p>
+      </header>
 
-      <div className="mt-10 grid gap-4 sm:grid-cols-2">
-        <Link
-          href="/clubs"
-          className="rounded-lg border border-slate-200 p-6 transition hover:border-slate-400 hover:shadow-sm"
-        >
-          <h2 className="text-xl font-semibold">동아리 탐색</h2>
-          <p className="mt-2 text-sm text-slate-600">카테고리/분류/키워드로 동아리 찾기</p>
-        </Link>
-        <Link
-          href="/recruitments"
-          className="rounded-lg border border-slate-200 p-6 transition hover:border-slate-400 hover:shadow-sm"
-        >
-          <h2 className="text-xl font-semibold">모집 달력</h2>
-          <p className="mt-2 text-sm text-slate-600">이번 달 모집 일정 한눈에 보기</p>
-        </Link>
-      </div>
+      <section className="mb-8">
+        <ClubFilters
+          value={params}
+          onChange={(next) => setParams({ ...next, page: 0, size: params.size ?? 20 })}
+        />
+      </section>
 
-      <p className="mt-12 text-xs text-slate-400">
-        백엔드 API: {process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1'}
-      </p>
+      <section>
+        {query.isLoading && <p className="text-sm text-slate-500">불러오는 중…</p>}
+        {query.error && (
+          <p className="text-sm text-rose-600">
+            {query.error instanceof Error ? query.error.message : '오류가 발생했습니다.'}
+          </p>
+        )}
+        {query.data && (
+          <>
+            <p className="mb-3 text-sm text-slate-500">총 {query.data.totalElements}개</p>
+            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {query.data.content.map((club) => (
+                <li key={club.id}>
+                  <ClubCard club={club} />
+                </li>
+              ))}
+            </ul>
+            {query.data.totalPages > 1 && (
+              <Pagination
+                page={params.page ?? 0}
+                totalPages={query.data.totalPages}
+                onPage={(page) => setParams({ ...params, page })}
+              />
+            )}
+          </>
+        )}
+      </section>
     </main>
+  );
+}
+
+type PaginationProps = {
+  page: number;
+  totalPages: number;
+  onPage(page: number): void;
+};
+
+function Pagination({ page, totalPages, onPage }: PaginationProps) {
+  return (
+    <nav className="mt-6 flex justify-center gap-2">
+      <button
+        type="button"
+        disabled={page === 0}
+        onClick={() => onPage(page - 1)}
+        className="rounded-md border px-3 py-1 text-sm disabled:opacity-40"
+      >
+        이전
+      </button>
+      <span className="px-3 py-1 text-sm text-slate-600">
+        {page + 1} / {totalPages}
+      </span>
+      <button
+        type="button"
+        disabled={page + 1 >= totalPages}
+        onClick={() => onPage(page + 1)}
+        className="rounded-md border px-3 py-1 text-sm disabled:opacity-40"
+      >
+        다음
+      </button>
+    </nav>
   );
 }
