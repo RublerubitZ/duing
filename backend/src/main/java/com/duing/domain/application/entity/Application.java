@@ -11,6 +11,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -46,6 +47,12 @@ public class Application extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ApplicationStatus status;
+
+    @Column(name = "interview_at")
+    private LocalDateTime interviewAt;
+
+    @Column(name = "interview_location", length = 200)
+    private String interviewLocation;
 
     @Builder(access = AccessLevel.PRIVATE)
     private Application(Recruitment recruitment, User user, List<String> answers, ApplicationStatus status) {
