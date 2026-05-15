@@ -8,6 +8,7 @@ import com.duing.domain.application.service.dto.command.SubmitApplicationCommand
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
+import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
@@ -78,6 +79,16 @@ public class GeneralApplicationService implements ApplicationService {
         return applicationRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(ApplicationSummaryQuery::from)
                 .toList();
+    }
+
+    @Override
+    public MyApplicationDetailQuery getMyApplicationDetail(Long applicationId, Long currentUserId) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+        if (!application.getUser().getId().equals(currentUserId)) {
+            throw new ApplicationDomainException.ForbiddenApplicationAccessException();
+        }
+        return MyApplicationDetailQuery.from(application);
     }
 
     @Override

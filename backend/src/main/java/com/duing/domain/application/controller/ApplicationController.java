@@ -3,6 +3,7 @@ package com.duing.domain.application.controller;
 import com.duing.domain.application.api.ApplicationApi;
 import com.duing.domain.application.controller.dto.request.SubmitApplicationRequest;
 import com.duing.domain.application.controller.dto.response.ApplicationSummaryResponse;
+import com.duing.domain.application.controller.dto.response.MyApplicationDetailResponse;
 import com.duing.domain.application.service.ApplicationService;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -44,5 +45,15 @@ public class ApplicationController implements ApplicationApi {
                 .map(ApplicationSummaryResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(myApplications));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<MyApplicationDetailResponse>> getMyApplicationDetail(
+            @PathVariable Long applicationId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        MyApplicationDetailResponse myApplicationDetail = MyApplicationDetailResponse.from(
+                applicationService.getMyApplicationDetail(applicationId, currentUser.id()));
+        return ResponseEntity.ok(ApiResponse.success(myApplicationDetail));
     }
 }
