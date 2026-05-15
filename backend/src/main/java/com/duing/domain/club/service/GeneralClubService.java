@@ -5,7 +5,9 @@ import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
+import com.duing.domain.club.photo.repository.ClubPhotoRepository;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
+import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -14,6 +16,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +31,7 @@ public class GeneralClubService implements ClubService {
     private final ClubRepository clubRepository;
     private final UserRepository userRepository;
     private final ClubMemberRepository clubMemberRepository;
+    private final ClubPhotoRepository clubPhotoRepository;
 
     @Override
     @Transactional
@@ -63,9 +67,13 @@ public class GeneralClubService implements ClubService {
     public ClubDetailQuery getById(Long clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
+        List<ClubPhotoQuery> photos = clubPhotoRepository.findByClubIdOrderByDisplayOrderAsc(clubId)
+                .stream()
+                .map(ClubPhotoQuery::from)
+                .toList();
         return clubMemberRepository.findFirstByClubIdAndRole(clubId, ClubMemberRole.LEADER)
-                .map(leader -> ClubDetailQuery.of(club, leader.getUser().getId(), leader.getUser().getName()))
-                .orElseGet(() -> ClubDetailQuery.of(club, null, null));
+                .map(leader -> ClubDetailQuery.of(club, leader.getUser().getId(), leader.getUser().getName(), photos))
+                .orElseGet(() -> ClubDetailQuery.of(club, null, null, photos));
     }
 
     @Override
