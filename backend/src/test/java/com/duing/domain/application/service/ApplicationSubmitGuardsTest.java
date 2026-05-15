@@ -35,7 +35,7 @@ class ApplicationSubmitGuardsTest {
             clubMemberRepository);
 
     @Test
-    @DisplayName("외부 폼 모집에 직접 지원하면 ExternalFormSubmitException 이 발생한다")
+    @DisplayName("외부 폼 모집에는 두잉 내에서 직접 지원할 수 없다")
     void submitToExternalFormRecruitmentIsRejected() {
         Recruitment externalRecruitment = mock(Recruitment.class);
         when(externalRecruitment.isEffectivelyOpen(any())).thenReturn(true);
@@ -49,7 +49,7 @@ class ApplicationSubmitGuardsTest {
     }
 
     @Test
-    @DisplayName("OFFICER 모집에 비-부원 사용자가 지원하면 OfficerMembershipRequiredException 이 발생한다")
+    @DisplayName("운영진 모집은 해당 동아리의 기존 부원만 지원할 수 있다")
     void officerRecruitmentRequiresExistingMembership() {
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(99L);

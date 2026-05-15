@@ -93,6 +93,12 @@ public class Application extends BaseEntity {
     }
 
     public void scheduleInterview(LocalDateTime at, String location) {
+        if (at == null) {
+            throw new IllegalArgumentException("면접 일시는 필수입니다.");
+        }
+        if (location == null || location.isBlank()) {
+            throw new IllegalArgumentException("면접 장소는 필수입니다.");
+        }
         if (this.status != ApplicationStatus.INTERVIEW_PENDING) {
             throw new ApplicationDomainException.InvalidStatusTransitionException();
         }

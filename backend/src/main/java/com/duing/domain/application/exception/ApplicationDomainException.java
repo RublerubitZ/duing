@@ -42,7 +42,7 @@ public class ApplicationDomainException extends ApplicationException {
     }
 
     public static class InvalidStatusTransitionException extends ApplicationDomainException {
-        private static final String MESSAGE = "잘못된 상태 변경입니다. ACCEPTED 또는 REJECTED 로만 변경할 수 있습니다.";
+        private static final String MESSAGE = "허용되지 않는 상태 전이입니다.";
 
         public InvalidStatusTransitionException() {
             super(MESSAGE, HttpStatus.BAD_REQUEST);

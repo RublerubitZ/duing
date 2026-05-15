@@ -103,13 +103,19 @@ public class GeneralApplicationService implements ApplicationService {
                 application.getRecruitment().isUseInterview());
 
         // 합격 처리 시 지원자를 모집의 targetRole 에 맞춰 동아리 회원으로 자동 등록.
-        // 이미 회원이면 무시 (멱등성 보장).
+        // 이미 회원이면 무시 (멱등성 보장). 동시 ACCEPTED 처리 시 race condition 은
+        // club_member (club_id, user_id) WHERE deleted_at IS NULL partial unique 인덱스(V7)로
+        // DB 레벨에서 차단되며, 충돌 시 다른 트랜잭션이 먼저 등록한 케이스로 간주해 무시한다.
         if (updateApplicationStatusCommand.status() == ApplicationStatus.ACCEPTED) {
             Club club = application.getRecruitment().getClub();
             User applicant = application.getUser();
             ClubMemberRole grantedRole = application.getRecruitment().getTargetRole().toClubMemberRole();
-            if (!clubMemberRepository.existsByClubIdAndUserId(club.getId(), applicant.getId())) {
-                clubMemberRepository.save(ClubMember.of(club, applicant, grantedRole));
+            try {
+                if (!clubMemberRepository.existsByClubIdAndUserId(club.getId(), applicant.getId())) {
+                    clubMemberRepository.save(ClubMember.of(club, applicant, grantedRole));
+                }
+            } catch (org.springframework.dao.DataIntegrityViolationException duplicateMembership) {
+                // 동시 ACCEPTED 처리 시 다른 트랜잭션이 먼저 등록한 경우로 간주, idempotent 처리.
             }
         }
     }

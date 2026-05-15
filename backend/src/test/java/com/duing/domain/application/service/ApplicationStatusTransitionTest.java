@@ -12,6 +12,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -113,5 +114,29 @@ class ApplicationStatusTransitionTest {
                 .isInstanceOf(ApplicationDomainException.InvalidStatusTransitionException.class);
         assertThatThrownBy(() -> application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true))
                 .isInstanceOf(ApplicationDomainException.InvalidStatusTransitionException.class);
+    }
+
+    @Test
+    @DisplayName("면접 일정 등록 시 일시가 비어 있으면 거절된다")
+    void scheduleInterviewRequiresAt() {
+        Application application = newSubmittedApplication();
+        application.transitionTo(ApplicationStatus.UNDER_REVIEW, true);
+        application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
+
+        assertThatThrownBy(() -> application.scheduleInterview(null, "본관 301호"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("면접 일시");
+    }
+
+    @Test
+    @DisplayName("면접 일정 등록 시 장소가 비어 있으면 거절된다")
+    void scheduleInterviewRequiresLocation() {
+        Application application = newSubmittedApplication();
+        application.transitionTo(ApplicationStatus.UNDER_REVIEW, true);
+        application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
+
+        assertThatThrownBy(() -> application.scheduleInterview(LocalDateTime.now().plusDays(1), "   "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("면접 장소");
     }
 }
