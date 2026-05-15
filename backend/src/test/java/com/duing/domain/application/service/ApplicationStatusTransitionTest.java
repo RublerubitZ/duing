@@ -124,8 +124,7 @@ class ApplicationStatusTransitionTest {
         application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
 
         assertThatThrownBy(() -> application.scheduleInterview(null, "본관 301호"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("면접 일시");
+                .isInstanceOf(ApplicationDomainException.InvalidInterviewScheduleException.class);
     }
 
     @Test
@@ -136,7 +135,6 @@ class ApplicationStatusTransitionTest {
         application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
 
         assertThatThrownBy(() -> application.scheduleInterview(LocalDateTime.now().plusDays(1), "   "))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("면접 장소");
+                .isInstanceOf(ApplicationDomainException.InvalidInterviewScheduleException.class);
     }
 }
