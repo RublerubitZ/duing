@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -136,7 +137,9 @@ class ApplicationStatusServiceTest {
         applicationService.updateStatus(
                 new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ACCEPTED));
 
-        verify(clubMemberRepository).save(any(ClubMember.class));
+        ArgumentCaptor<ClubMember> captor = ArgumentCaptor.forClass(ClubMember.class);
+        verify(clubMemberRepository).save(captor.capture());
+        assertThat(captor.getValue().getRole()).isEqualTo(ClubMemberRole.OFFICER);
     }
 
     // ────────────────────────────────────────────────────────────

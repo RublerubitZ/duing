@@ -336,9 +336,12 @@ Club-scoped 검증은 서비스 레이어에서 `ClubMemberRepository` 조회로
 ### 권한 검증 패턴 (서비스 레이어)
 
 ```java
-clubMemberRepository.findByClubIdAndUserId(clubId, currentUserId)
-    .filter(ClubMember::canManageClub)
-    .orElseThrow(ClubMemberException.NotClubManagerException::new);
+// Global role: @PreAuthorize 사용
+@PreAuthorize("hasRole('ADMIN')")
+
+// Club-scoped role: ClubAuthService 단일 진입점 사용 (Phase 2 Task 5 에서 통일)
+clubAuthService.requireManager(currentUserId, clubId);
+// LEADER 전용은 requireManager 대신 requireLeader 사용.
 ```
 
 ---
