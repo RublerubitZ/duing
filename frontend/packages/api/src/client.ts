@@ -10,9 +10,13 @@ import type {
   CreateRecruitmentPayload,
   LoginPayload,
   LoginResult,
+  ManagedClub,
   MyApplicationDetail,
+  ApplicantDetail,
+  UpdateInterviewPayload,
   RecruitmentDetail,
   RecruitmentSummary,
+  UpdateRecruitmentPayload,
   SignupPayload,
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
@@ -20,6 +24,9 @@ import type {
   Applicant,
   ApplicationSummary,
   User,
+  StatsSummary,
+  StatsDailyPoint,
+  StatsFunnel,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -72,11 +79,14 @@ export type DuingApiClient = {
     updateStatus(clubId: number, payload: UpdateClubStatusPayload): Promise<void>;
     photos(clubId: number): Promise<ClubPhoto[]>;
     recruitmentsByClub(clubId: number): Promise<RecruitmentSummary[]>;
+    managedByMe(): Promise<ManagedClub[]>;
   };
   recruitments: {
     calendar(yearMonth: string): Promise<RecruitmentSummary[]>;
     detail(recruitmentId: number): Promise<RecruitmentDetail>;
     create(clubId: number, payload: CreateRecruitmentPayload): Promise<number>;
+    update(recruitmentId: number, payload: UpdateRecruitmentPayload): Promise<void>;
+    close(recruitmentId: number): Promise<void>;
   };
   applications: {
     submit(recruitmentId: number, payload: SubmitApplicationPayload): Promise<number>;
@@ -86,6 +96,13 @@ export type DuingApiClient = {
       payload: UpdateApplicationStatusPayload,
     ): Promise<void>;
     myDetail(applicationId: number): Promise<MyApplicationDetail>;
+    detail(applicationId: number): Promise<ApplicantDetail>;
+    updateInterview(applicationId: number, payload: UpdateInterviewPayload): Promise<void>;
+  };
+  stats: {
+    summary(recruitmentId: number): Promise<StatsSummary>;
+    daily(recruitmentId: number): Promise<StatsDailyPoint[]>;
+    funnel(recruitmentId: number): Promise<StatsFunnel>;
   };
   raw: KyInstance;
 };
@@ -154,6 +171,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       photos: (clubId) => jsonOk<ClubPhoto[]>(http.get(`clubs/${clubId}/photos`)),
       recruitmentsByClub: (clubId) =>
         jsonOk<RecruitmentSummary[]>(http.get(`clubs/${clubId}/recruitments`)),
+      managedByMe: () =>
+        jsonOk<ManagedClub[]>(http.get('leader/clubs/me/managed')),
     },
     recruitments: {
       calendar: (yearMonth) =>
@@ -166,6 +185,12 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<number>(
           http.post(`leader/clubs/${clubId}/recruitments`, { json: payload }),
         ),
+      update: (recruitmentId, payload) =>
+        jsonVoid(
+          http.patch(`leader/recruitments/${recruitmentId}`, { json: payload }),
+        ),
+      close: (recruitmentId) =>
+        jsonVoid(http.patch(`leader/recruitments/${recruitmentId}/close`)),
     },
     applications: {
       submit: (recruitmentId, payload) =>
@@ -180,6 +205,26 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         ),
       myDetail: (applicationId) =>
         jsonOk<MyApplicationDetail>(http.get(`users/me/applications/${applicationId}`)),
+      detail: (applicationId) =>
+        jsonOk<ApplicantDetail>(http.get(`leader/applications/${applicationId}`)),
+      updateInterview: (applicationId, payload) =>
+        jsonVoid(
+          http.patch(`leader/applications/${applicationId}/interview`, { json: payload }),
+        ),
+    },
+    stats: {
+      summary: (recruitmentId) =>
+        jsonOk<StatsSummary>(
+          http.get(`leader/recruitments/${recruitmentId}/stats/summary`),
+        ),
+      daily: (recruitmentId) =>
+        jsonOk<StatsDailyPoint[]>(
+          http.get(`leader/recruitments/${recruitmentId}/stats/daily`),
+        ),
+      funnel: (recruitmentId) =>
+        jsonOk<StatsFunnel>(
+          http.get(`leader/recruitments/${recruitmentId}/stats/funnel`),
+        ),
     },
     raw: http,
   };

@@ -2,6 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import type { ClubSearchParams } from '@duing/types';
 import { useApiClient } from './api-context';
 
+export function useManagedClubs() {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: ['clubs', 'managed'],
+    queryFn: () => client.clubs.managedByMe(),
+  });
+}
+
 export function useClubList(params: ClubSearchParams = {}) {
   const client = useApiClient();
   return useQuery({

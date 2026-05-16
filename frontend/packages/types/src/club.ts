@@ -73,3 +73,13 @@ export type CreateClubPayload = {
 export type UpdateClubStatusPayload = {
   status: ClubStatus;
 };
+
+export type ClubRole = 'LEADER' | 'OFFICER';
+
+export type ManagedClub = {
+  clubId: number;
+  clubName: string;
+  logoUrl: string | null;
+  myRole: ClubRole;
+  activeRecruitmentCount: number;
+};

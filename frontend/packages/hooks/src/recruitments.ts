@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UpdateRecruitmentPayload } from '@duing/types';
 import { useApiClient } from './api-context';
 
 export function useRecruitmentCalendar(yearMonth: string) {
@@ -20,5 +21,28 @@ export function useRecruitmentDetail(recruitmentId: number | undefined) {
       return client.recruitments.detail(recruitmentId);
     },
     enabled: recruitmentId !== undefined,
+  });
+}
+
+export function useUpdateRecruitment(recruitmentId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateRecruitmentPayload) =>
+      client.recruitments.update(recruitmentId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recruitments', recruitmentId] });
+    },
+  });
+}
+
+export function useCloseRecruitment(recruitmentId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => client.recruitments.close(recruitmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recruitments', recruitmentId] });
+    },
   });
 }

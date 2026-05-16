@@ -4,3 +4,4 @@ export * from './club';
 export * from './clubmember';
 export * from './recruitment';
 export * from './application';
+export * from './stats';
