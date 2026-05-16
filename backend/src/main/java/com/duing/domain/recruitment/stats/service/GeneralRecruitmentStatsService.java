@@ -6,7 +6,11 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
+import com.duing.domain.recruitment.stats.service.dto.query.StatsDailyPointQuery;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -39,5 +43,27 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
         long rejected = statusCountMap.getOrDefault(ApplicationStatus.REJECTED, 0L);
 
         return StatsSummaryQuery.of(submitted, underReview, interviewPending, accepted, rejected, recruitment.getCapacity());
+    }
+
+    @Override
+    public List<StatsDailyPointQuery> getDaily(Long recruitmentId, Long currentUserId) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+
+        Long clubId = recruitment.getClub().getId();
+        clubAuthService.requireManager(currentUserId, clubId);
+
+        LocalDate startDate = recruitment.getStartDate();
+        LocalDate endDate = recruitment.getEndDate();
+
+        Map<LocalDate, Long> dailySubmissionCounts =
+                recruitmentStatsRepository.findDailySubmissionCounts(recruitmentId, startDate, endDate);
+
+        List<StatsDailyPointQuery> paddedDays = new ArrayList<>();
+        for (LocalDate paddingDate = startDate; !paddingDate.isAfter(endDate); paddingDate = paddingDate.plusDays(1)) {
+            long submittedCount = dailySubmissionCounts.getOrDefault(paddingDate, 0L);
+            paddedDays.add(new StatsDailyPointQuery(paddingDate, submittedCount));
+        }
+        return paddedDays;
     }
 }
