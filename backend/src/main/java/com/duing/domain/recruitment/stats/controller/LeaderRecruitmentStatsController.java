@@ -1,11 +1,14 @@
 package com.duing.domain.recruitment.stats.controller;
 
 import com.duing.domain.recruitment.stats.api.LeaderRecruitmentStatsApi;
+import com.duing.domain.recruitment.stats.controller.dto.response.StatsDailyPointResponse;
 import com.duing.domain.recruitment.stats.controller.dto.response.StatsSummaryResponse;
 import com.duing.domain.recruitment.stats.service.RecruitmentStatsService;
+import com.duing.domain.recruitment.stats.service.dto.query.StatsDailyPointQuery;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,5 +30,17 @@ public class LeaderRecruitmentStatsController implements LeaderRecruitmentStatsA
     ) {
         StatsSummaryQuery statsSummaryQuery = recruitmentStatsService.getSummary(recruitmentId, currentUser.id());
         return ResponseEntity.ok(ApiResponse.success(StatsSummaryResponse.from(statsSummaryQuery)));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<List<StatsDailyPointResponse>>> getDaily(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        List<StatsDailyPointQuery> dailyPointQueries = recruitmentStatsService.getDaily(recruitmentId, currentUser.id());
+        List<StatsDailyPointResponse> dailyPointResponses = dailyPointQueries.stream()
+                .map(StatsDailyPointResponse::from)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(dailyPointResponses));
     }
 }

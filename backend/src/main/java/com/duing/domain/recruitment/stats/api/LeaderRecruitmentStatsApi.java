@@ -1,11 +1,13 @@
 package com.duing.domain.recruitment.stats.api;
 
+import com.duing.domain.recruitment.stats.controller.dto.response.StatsDailyPointResponse;
 import com.duing.domain.recruitment.stats.controller.dto.response.StatsSummaryResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +24,17 @@ public interface LeaderRecruitmentStatsApi {
     )
     @GetMapping("/leader/recruitments/{recruitmentId}/stats/summary")
     ResponseEntity<ApiResponse<StatsSummaryResponse>> getSummary(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(
+            summary = "모집 일자별 지원 추이 조회",
+            description = "모집 기간(startDate ~ endDate) 전 일자에 대해 KST 기준 일별 지원 제출 건수를 반환합니다. "
+                    + "지원이 없는 날짜는 submittedCount=0 으로 padding 되어 프론트 차트에서 빈 날도 점으로 렌더됩니다."
+    )
+    @GetMapping("/leader/recruitments/{recruitmentId}/stats/daily")
+    ResponseEntity<ApiResponse<List<StatsDailyPointResponse>>> getDaily(
             @PathVariable Long recruitmentId,
             @AuthenticationPrincipal UserPrincipal currentUser
     );
