@@ -32,14 +32,20 @@ class ClubSearchTagsRecruitingTest {
     @Test
     @DisplayName("tags 필터는 입력 태그를 하나라도 포함하는 동아리만 반환한다")
     void filtersByTagsContainment() throws Exception {
-        saveClubWithTags("축구부", List.of("축구", "친목"));
-        saveClubWithTags("러닝클럽", List.of("러닝"));
+        // V12 시드("두잉 축구부": 축구·스포츠 태그)가 동일 태그를 가지고 있어
+        // exact match 가 아닌 contains 로 검증한다. 본 테스트의 시드("축구부테스트") 만
+        // 격리해서 본 동아리가 결과에 포함되고, 러닝클럽테스트 는 포함되지 않음을 확인.
+        saveClubWithTags("축구부테스트", List.of("축구", "친목"));
+        saveClubWithTags("러닝클럽테스트", List.of("러닝"));
 
         var page = clubRepository.findByCondition(
                 new ClubSearchCondition(null, null, null, List.of("축구"), null),
                 PageRequest.of(0, 10));
 
-        assertThat(page.getContent()).extracting(Club::getName).containsExactly("축구부");
+        assertThat(page.getContent())
+                .extracting(Club::getName)
+                .contains("축구부테스트")
+                .doesNotContain("러닝클럽테스트");
     }
 
     @Test
