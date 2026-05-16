@@ -5,7 +5,7 @@ import com.duing.domain.clubmember.entity.ClubMemberRole;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ClubMemberRepository extends JpaRepository<ClubMember, Long> {
+public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, ClubMemberRepositoryCustom {
 
     Optional<ClubMember> findByClubIdAndUserId(Long clubId, Long userId);
 
