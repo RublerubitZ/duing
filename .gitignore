@@ -47,3 +47,12 @@ bin/
 *.log
 HELP.md
 src/main/generated/
+
+### Local agent / MCP / skill configuration (사용자별, 커밋 금지) ###
+.agents/
+.claude/settings.json
+.claude/settings.local.json
+.claude/skills/
+.mcp.json
+skills-lock.json
+.coderabbit.yaml
