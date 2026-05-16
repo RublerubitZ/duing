@@ -1,6 +1,8 @@
 package com.duing.domain.recruitment.entity;
 
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.recruitment.exception.RecruitmentException;
+import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -88,6 +90,18 @@ public class Recruitment extends BaseEntity {
 
     public static Recruitment create(Club club, String title, String content,
                                      LocalDate startDate, LocalDate endDate, int capacity) {
+        return createWithOptions(club, title, content, startDate, endDate, capacity,
+                ApplicationMode.SELF, null, false, TargetRole.MEMBER);
+    }
+
+    /**
+     * 외부폼 / 면접 / targetRole 옵션을 지정해 모집 공고를 생성한다.
+     * 외부폼 / 자체폼 분기 검증(externalFormUrl·questions) 은 호출 측에서 수행한다.
+     */
+    public static Recruitment createWithOptions(Club club, String title, String content,
+                                                LocalDate startDate, LocalDate endDate, int capacity,
+                                                ApplicationMode applicationMode, String externalFormUrl,
+                                                boolean useInterview, TargetRole targetRole) {
         if (endDate.isBefore(startDate)) {
             throw new IllegalArgumentException("모집 종료일은 시작일보다 빠를 수 없습니다.");
         }
@@ -102,10 +116,10 @@ public class Recruitment extends BaseEntity {
                 .endDate(endDate)
                 .capacity(capacity)
                 .status(RecruitmentStatus.OPEN)
-                .applicationMode(ApplicationMode.SELF)
-                .externalFormUrl(null)
-                .useInterview(false)
-                .targetRole(TargetRole.MEMBER)
+                .applicationMode(applicationMode)
+                .externalFormUrl(externalFormUrl)
+                .useInterview(useInterview)
+                .targetRole(targetRole)
                 .build();
     }
 
@@ -115,5 +129,48 @@ public class Recruitment extends BaseEntity {
 
     public boolean isEffectivelyOpen(LocalDate today) {
         return status == RecruitmentStatus.OPEN && !today.isAfter(endDate);
+    }
+
+    public void update(UpdateRecruitmentCommand command) {
+        if (this.status == RecruitmentStatus.CLOSED) {
+            throw new RecruitmentException.RecruitmentAlreadyClosedException();
+        }
+        if (command.title() != null) {
+            if (command.title().isBlank()) {
+                throw new IllegalArgumentException("제목은 공백일 수 없습니다.");
+            }
+            this.title = command.title();
+        }
+        if (command.content() != null) {
+            this.content = command.content();
+        }
+        LocalDate resolvedStartDate = command.startDate() != null ? command.startDate() : this.startDate;
+        LocalDate resolvedEndDate = command.endDate() != null ? command.endDate() : this.endDate;
+        if (command.startDate() != null || command.endDate() != null) {
+            if (resolvedEndDate.isBefore(resolvedStartDate)) {
+                throw new RecruitmentException.InvalidRecruitmentPeriodException();
+            }
+            this.startDate = resolvedStartDate;
+            this.endDate = resolvedEndDate;
+        }
+        if (command.capacity() != null) {
+            this.capacity = command.capacity();
+        }
+        if (command.useInterview() != null) {
+            this.useInterview = command.useInterview();
+        }
+        if (command.questions() != null) {
+            if (this.form == null) {
+                throw new IllegalStateException("자체 폼이 없는 모집 공고에서 질문을 수정할 수 없습니다.");
+            }
+            this.form.replaceQuestions(command.questions());
+        }
+    }
+
+    public void close() {
+        if (this.status == RecruitmentStatus.CLOSED) {
+            throw new RecruitmentException.RecruitmentAlreadyClosedException();
+        }
+        this.status = RecruitmentStatus.CLOSED;
     }
 }

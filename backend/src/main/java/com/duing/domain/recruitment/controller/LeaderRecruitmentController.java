@@ -2,6 +2,7 @@ package com.duing.domain.recruitment.controller;
 
 import com.duing.domain.recruitment.api.LeaderRecruitmentApi;
 import com.duing.domain.recruitment.controller.dto.request.CreateRecruitmentRequest;
+import com.duing.domain.recruitment.controller.dto.request.UpdateRecruitmentRequest;
 import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -31,5 +32,24 @@ public class LeaderRecruitmentController implements LeaderRecruitmentApi {
         Long recruitmentId = recruitmentService.create(
                 createRecruitmentRequest.toCommand(clubId, currentUser.id()));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(recruitmentId));
+    }
+
+    @Override
+    public ResponseEntity<Void> updateRecruitment(
+            @PathVariable Long recruitmentId,
+            @Valid @RequestBody UpdateRecruitmentRequest updateRecruitmentRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        recruitmentService.update(updateRecruitmentRequest.toCommand(recruitmentId, currentUser.id()));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<Void> closeRecruitment(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        recruitmentService.close(recruitmentId, currentUser.id());
+        return ResponseEntity.noContent().build();
     }
 }

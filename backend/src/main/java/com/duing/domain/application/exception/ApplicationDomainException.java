@@ -80,4 +80,12 @@ public class ApplicationDomainException extends ApplicationException {
             super(MESSAGE, HttpStatus.FORBIDDEN);
         }
     }
+
+    public static class InvalidInterviewStateException extends ApplicationDomainException {
+        private static final String MESSAGE = "면접 일정은 INTERVIEW_PENDING 상태에서만 입력할 수 있습니다.";
+
+        public InvalidInterviewStateException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
 }
