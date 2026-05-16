@@ -24,4 +24,10 @@ public class RecruitmentException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class InvalidApplicationModeException extends RecruitmentException {
+        public InvalidApplicationModeException(String message) {
+            super(message, HttpStatus.BAD_REQUEST);
+        }
+    }
 }
