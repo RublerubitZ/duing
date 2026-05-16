@@ -45,11 +45,53 @@ export const createRecruitmentSchema = z
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
     capacity: z.number().int().min(1, '모집 정원은 1명 이상이어야 합니다.'),
-    questions: z.array(z.string()).optional(),
+    applicationMode: z.enum(['SELF', 'EXTERNAL']).default('SELF'),
+    externalFormUrl: z.string().optional(),
+    useInterview: z.boolean().default(false),
+    targetRole: z.enum(['MEMBER', 'OFFICER']).default('MEMBER'),
+    questions: z.array(z.string().min(1, '질문 내용을 입력해주세요.')).optional(),
+  })
+  .refine((data) => data.endDate >= data.startDate, {
+    message: '모집 종료일은 시작일보다 빠를 수 없습니다.',
+    path: ['endDate'],
+  })
+  .refine(
+    (data) =>
+      data.applicationMode !== 'EXTERNAL' ||
+      (typeof data.externalFormUrl === 'string' && data.externalFormUrl.trim().length > 0),
+    {
+      message: '외부 폼 URL은 필수 입력값입니다.',
+      path: ['externalFormUrl'],
+    },
+  )
+  .refine(
+    (data) =>
+      data.applicationMode !== 'SELF' ||
+      (Array.isArray(data.questions) && data.questions.length > 0),
+    {
+      message: '자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.',
+      path: ['questions'],
+    },
+  );
+
+export type CreateRecruitmentInput = z.infer<typeof createRecruitmentSchema>;
+
+export const updateRecruitmentSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1, '제목은 필수 입력값입니다.')
+      .max(200, '제목은 200자 이하여야 합니다.'),
+    content: z.string().optional(),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
+    capacity: z.number().int().min(1, '모집 정원은 1명 이상이어야 합니다.'),
+    useInterview: z.boolean(),
+    questions: z.array(z.string().min(1, '질문 내용을 입력해주세요.')).optional(),
   })
   .refine((data) => data.endDate >= data.startDate, {
     message: '모집 종료일은 시작일보다 빠를 수 없습니다.',
     path: ['endDate'],
   });
 
-export type CreateRecruitmentInput = z.infer<typeof createRecruitmentSchema>;
+export type UpdateRecruitmentInput = z.infer<typeof updateRecruitmentSchema>;

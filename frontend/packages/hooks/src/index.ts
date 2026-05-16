@@ -8,6 +8,7 @@ export {
   useManagedClubs,
 } from './clubs';
 export {
+  useCreateRecruitment,
   useRecruitmentCalendar,
   useRecruitmentDetail,
   useUpdateRecruitment,
