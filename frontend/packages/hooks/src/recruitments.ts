@@ -1,6 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UpdateRecruitmentPayload } from '@duing/types';
+import type { CreateRecruitmentPayload, UpdateRecruitmentPayload } from '@duing/types';
 import { useApiClient } from './api-context';
+
+export function useCreateRecruitment(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateRecruitmentPayload) =>
+      client.recruitments.create(clubId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clubs', clubId, 'recruitments'] });
+    },
+  });
+}
 
 export function useRecruitmentCalendar(yearMonth: string) {
   const client = useApiClient();
