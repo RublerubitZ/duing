@@ -15,7 +15,7 @@ const CATEGORY_LABEL: Record<ClubSummary['category'], string> = {
 export function ClubCard({ club }: { club: ClubSummary }) {
   return (
     <Link
-      href={{ pathname: '/clubs/[clubId]', query: { clubId: club.id } }}
+      href={`/clubs/${club.id}`}
       className="block rounded-xl border border-slate-200 p-4 transition hover:border-slate-400 hover:shadow-sm"
     >
       <div className="flex items-center gap-3">
