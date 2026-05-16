@@ -2,6 +2,8 @@ package com.duing.domain.application.service;
 
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
+import com.duing.domain.application.service.dto.command.UpdateInterviewCommand;
+import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
@@ -17,5 +19,9 @@ public interface ApplicationService {
 
     List<ApplicantQuery> getApplicants(Long recruitmentId, Long currentUserId);
 
+    ApplicantDetailQuery getApplicantDetail(Long applicationId, Long currentUserId);
+
     void updateStatus(UpdateApplicationStatusCommand updateApplicationStatusCommand);
+
+    void updateInterview(UpdateInterviewCommand updateInterviewCommand);
 }

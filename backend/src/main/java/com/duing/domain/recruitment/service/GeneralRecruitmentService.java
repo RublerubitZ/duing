@@ -3,13 +3,14 @@ package com.duing.domain.recruitment.service;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
-import com.duing.domain.clubmember.exception.ClubMemberException;
-import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
+import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
 import java.time.LocalDate;
@@ -26,7 +27,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     private final RecruitmentRepository recruitmentRepository;
     private final ClubRepository clubRepository;
-    private final ClubMemberRepository clubMemberRepository;
+    private final ClubAuthService clubAuthService;
 
     @Override
     @Transactional
@@ -35,27 +36,31 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .orElseThrow(ClubException.ClubNotFoundException::new);
 
         // 동아리 운영진(LEADER/OFFICER)만 모집 공고를 생성할 수 있다.
-        clubMemberRepository
-                .findByClubIdAndUserId(club.getId(), createRecruitmentCommand.currentUserId())
-                .filter(member -> member.canManageClub())
-                .orElseThrow(ClubMemberException.NotClubManagerException::new);
+        clubAuthService.requireManager(createRecruitmentCommand.currentUserId(), club.getId());
 
         Recruitment recruitment;
         try {
-            recruitment = Recruitment.create(
+            recruitment = Recruitment.createWithOptions(
                     club,
                     createRecruitmentCommand.title(),
                     createRecruitmentCommand.content(),
                     createRecruitmentCommand.startDate(),
                     createRecruitmentCommand.endDate(),
-                    createRecruitmentCommand.capacity()
+                    createRecruitmentCommand.capacity(),
+                    createRecruitmentCommand.applicationMode(),
+                    createRecruitmentCommand.externalFormUrl(),
+                    createRecruitmentCommand.useInterview(),
+                    createRecruitmentCommand.targetRole()
             );
         } catch (IllegalArgumentException exception) {
             throw new RecruitmentException.InvalidRecruitmentPeriodException();
         }
 
-        RecruitmentForm form = RecruitmentForm.create(recruitment, createRecruitmentCommand.questions());
-        recruitment.attachForm(form);
+        // 외부 폼 모집은 자체 RecruitmentForm 행을 생성하지 않는다 (1:0..1).
+        if (createRecruitmentCommand.applicationMode() == ApplicationMode.SELF) {
+            RecruitmentForm form = RecruitmentForm.create(recruitment, createRecruitmentCommand.questions());
+            recruitment.attachForm(form);
+        }
 
         return recruitmentRepository.save(recruitment).getId();
     }
@@ -86,5 +91,35 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .stream()
                 .map(recruitment -> RecruitmentSummaryQuery.from(recruitment, today))
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public void update(UpdateRecruitmentCommand updateRecruitmentCommand) {
+        Recruitment recruitment = recruitmentRepository.findById(updateRecruitmentCommand.recruitmentId())
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+
+        Long clubId = recruitment.getClub().getId();
+        clubAuthService.requireManager(updateRecruitmentCommand.currentUserId(), clubId);
+
+        if (updateRecruitmentCommand.questions() != null
+                && recruitment.getApplicationMode() != ApplicationMode.SELF) {
+            throw new RecruitmentException.InvalidApplicationModeException(
+                    "자체 폼 모집에서만 질문을 수정할 수 있습니다.");
+        }
+
+        recruitment.update(updateRecruitmentCommand);
+    }
+
+    @Override
+    @Transactional
+    public void close(Long recruitmentId, Long currentUserId) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+
+        Long clubId = recruitment.getClub().getId();
+        clubAuthService.requireManager(currentUserId, clubId);
+
+        recruitment.close();
     }
 }

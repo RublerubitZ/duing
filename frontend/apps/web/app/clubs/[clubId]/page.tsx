@@ -63,10 +63,7 @@ export default function ClubDetailPage({
               .map((recruitment) => (
                 <li key={recruitment.id}>
                   <Link
-                    href={{
-                      pathname: '/clubs/[clubId]/recruitments/[recruitmentId]',
-                      query: { clubId: club.id, recruitmentId: recruitment.id },
-                    }}
+                    href={`/clubs/${club.id}/recruitments/${recruitment.id}`}
                     className="block rounded-lg border border-slate-200 p-3 hover:border-slate-400"
                   >
                     <div className="flex items-baseline justify-between">
