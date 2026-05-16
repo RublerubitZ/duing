@@ -7,6 +7,7 @@ import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsDailyPointQuery;
+import com.duing.domain.recruitment.stats.service.dto.query.StatsFunnelQuery;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -65,5 +66,19 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
             paddedDays.add(new StatsDailyPointQuery(paddingDate, submittedCount));
         }
         return paddedDays;
+    }
+
+    @Override
+    public StatsFunnelQuery getFunnel(Long recruitmentId, Long currentUserId) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+
+        Long clubId = recruitment.getClub().getId();
+        clubAuthService.requireManager(currentUserId, clubId);
+
+        Map<ApplicationStatus, Long> applicationStatusCounts =
+                recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentId);
+
+        return StatsFunnelQuery.from(applicationStatusCounts, recruitment.isUseInterview());
     }
 }

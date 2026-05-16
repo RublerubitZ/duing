@@ -1,6 +1,7 @@
 package com.duing.domain.recruitment.stats.api;
 
 import com.duing.domain.recruitment.stats.controller.dto.response.StatsDailyPointResponse;
+import com.duing.domain.recruitment.stats.controller.dto.response.StatsFunnelResponse;
 import com.duing.domain.recruitment.stats.controller.dto.response.StatsSummaryResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -35,6 +36,17 @@ public interface LeaderRecruitmentStatsApi {
     )
     @GetMapping("/leader/recruitments/{recruitmentId}/stats/daily")
     ResponseEntity<ApiResponse<List<StatsDailyPointResponse>>> getDaily(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(
+            summary = "모집 단계별 Funnel 조회",
+            description = "제출 → 서류 통과 → 면접 진입 → 합격의 4단계 카운트를 반환합니다. "
+                    + "useInterview=false 인 모집의 경우 interviewEntered 는 null 로 응답되어 프론트가 3단계 funnel 로 표시할 수 있습니다."
+    )
+    @GetMapping("/leader/recruitments/{recruitmentId}/stats/funnel")
+    ResponseEntity<ApiResponse<StatsFunnelResponse>> getFunnel(
             @PathVariable Long recruitmentId,
             @AuthenticationPrincipal UserPrincipal currentUser
     );

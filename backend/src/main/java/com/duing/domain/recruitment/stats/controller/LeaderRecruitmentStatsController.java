@@ -2,9 +2,11 @@ package com.duing.domain.recruitment.stats.controller;
 
 import com.duing.domain.recruitment.stats.api.LeaderRecruitmentStatsApi;
 import com.duing.domain.recruitment.stats.controller.dto.response.StatsDailyPointResponse;
+import com.duing.domain.recruitment.stats.controller.dto.response.StatsFunnelResponse;
 import com.duing.domain.recruitment.stats.controller.dto.response.StatsSummaryResponse;
 import com.duing.domain.recruitment.stats.service.RecruitmentStatsService;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsDailyPointQuery;
+import com.duing.domain.recruitment.stats.service.dto.query.StatsFunnelQuery;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -42,5 +44,14 @@ public class LeaderRecruitmentStatsController implements LeaderRecruitmentStatsA
                 .map(StatsDailyPointResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(dailyPointResponses));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<StatsFunnelResponse>> getFunnel(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        StatsFunnelQuery statsFunnelQuery = recruitmentStatsService.getFunnel(recruitmentId, currentUser.id());
+        return ResponseEntity.ok(ApiResponse.success(StatsFunnelResponse.from(statsFunnelQuery)));
     }
 }
