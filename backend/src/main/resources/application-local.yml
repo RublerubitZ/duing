@@ -8,6 +8,11 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    # 공통 application.yml 의 `classpath:db/migration` 에 더해 로컬 전용 시드 위치를 추가.
+    # 운영 프로파일에는 migration-dev 가 포함되지 않으므로 테스트 계정·동아리 시드가 운영 DB 에
+    # 흘러 들어가지 않는다. dev 시드(V12~) 는 migration-dev/ 디렉터리에만 둔다.
+    locations: classpath:db/migration, classpath:db/migration-dev
 
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/tmp/duing/uploads}
