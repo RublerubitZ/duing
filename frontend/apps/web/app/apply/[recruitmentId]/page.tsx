@@ -4,7 +4,7 @@ import { use, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { RecruitmentDetail } from '@duing/types';
-import { useRecruitmentDetail, useSubmitApplication } from '@duing/hooks';
+import { useRecruitmentDetailQuery, useSubmitApplicationMutation } from '@duing/hooks';
 import { toRoute } from '../../_lib/route';
 
 export default function ApplyPage({
@@ -16,7 +16,7 @@ export default function ApplyPage({
   const recruitmentId = Number(idParam);
   const router = useRouter();
 
-  const detail = useRecruitmentDetail(recruitmentId);
+  const detail = useRecruitmentDetailQuery(recruitmentId);
 
   if (detail.isLoading || !detail.data) {
     return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
@@ -44,7 +44,7 @@ type ApplyFormProps = {
 
 function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
   const router = useRouter();
-  const submit = useSubmitApplication(recruitmentId);
+  const submit = useSubmitApplicationMutation(recruitmentId);
   const [answers, setAnswers] = useState<string[]>(() =>
     recruitment.questions.map(() => ''),
   );

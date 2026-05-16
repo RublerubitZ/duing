@@ -3,10 +3,10 @@
 import { use } from 'react';
 import Link from 'next/link';
 import {
-  useRecruitmentStatsSummary,
-  useRecruitmentStatsDaily,
-  useRecruitmentStatsFunnel,
-  useRecruitmentDetail,
+  useRecruitmentStatsSummaryQuery,
+  useRecruitmentStatsDailyQuery,
+  useRecruitmentStatsFunnelQuery,
+  useRecruitmentDetailQuery,
 } from '@duing/hooks';
 import { toRoute } from '../../../../../../../_lib/route';
 import { SummaryCards } from './SummaryCards';
@@ -27,25 +27,25 @@ export function StatsClient({ params }: StatsClientProps) {
   const {
     data: recruitment,
     isLoading: isRecruitmentLoading,
-  } = useRecruitmentDetail(safeRecruitmentId);
+  } = useRecruitmentDetailQuery(safeRecruitmentId);
 
   const {
     data: statsSummary,
     isLoading: isSummaryLoading,
     isError: isSummaryError,
-  } = useRecruitmentStatsSummary(safeRecruitmentId);
+  } = useRecruitmentStatsSummaryQuery(safeRecruitmentId);
 
   const {
     data: dailyPoints,
     isLoading: isDailyLoading,
     isError: isDailyError,
-  } = useRecruitmentStatsDaily(safeRecruitmentId);
+  } = useRecruitmentStatsDailyQuery(safeRecruitmentId);
 
   const {
     data: funnelData,
     isLoading: isFunnelLoading,
     isError: isFunnelError,
-  } = useRecruitmentStatsFunnel(safeRecruitmentId);
+  } = useRecruitmentStatsFunnelQuery(safeRecruitmentId);
 
   const recruitmentTitle = recruitment?.title ?? '모집';
   const isHeaderLoading = isRecruitmentLoading && !recruitment;

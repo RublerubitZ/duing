@@ -1,30 +1,35 @@
 export { ApiClientProvider, useApiClient } from './api-context';
-export { useLogin, useSignup, useLogout, useMe } from './auth';
+export { useLoginMutation, useSignupMutation, useLogout, useMeQuery } from './auth';
 export {
-  useClubList,
-  useClubDetail,
-  useClubPhotos,
-  useClubRecruitments,
-  useManagedClubs,
+  useClubListQuery,
+  useClubDetailQuery,
+  useClubPhotosQuery,
+  useClubRecruitmentsQuery,
+  useManagedClubsQuery,
 } from './clubs';
 export {
-  useCreateRecruitment,
-  useRecruitmentCalendar,
-  useRecruitmentDetail,
-  useUpdateRecruitment,
-  useCloseRecruitment,
+  useCreateRecruitmentMutation,
+  useRecruitmentCalendarQuery,
+  useRecruitmentDetailQuery,
+  useUpdateRecruitmentMutation,
+  useCloseRecruitmentMutation,
 } from './recruitments';
 export {
-  useSubmitApplication,
-  useMyApplications,
-  useMyApplicationDetail,
-  useApplicants,
-  useApplicantDetail,
-  useUpdateApplicationStatus,
-  useUpdateInterview,
+  useSubmitApplicationMutation,
+  useMyApplicationsQuery,
+  useMyApplicationDetailQuery,
+  useApplicantsQuery,
+  useApplicantDetailQuery,
+  useUpdateApplicationStatusMutation,
+  useUpdateInterviewMutation,
 } from './applications';
 export {
-  useRecruitmentStatsSummary,
-  useRecruitmentStatsDaily,
-  useRecruitmentStatsFunnel,
+  useRecruitmentStatsSummaryQuery,
+  useRecruitmentStatsDailyQuery,
+  useRecruitmentStatsFunnelQuery,
 } from './stats';
+export { userQueryKeys } from './userQueryKeys';
+export { clubQueryKeys } from './clubQueryKeys';
+export { recruitmentQueryKeys } from './recruitmentQueryKeys';
+export { applicationQueryKeys } from './applicationQueryKeys';
+export { statsQueryKeys } from './statsQueryKeys';

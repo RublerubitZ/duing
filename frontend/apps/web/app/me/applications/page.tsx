@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useMyApplications } from '@duing/hooks';
+import { useMyApplicationsQuery } from '@duing/hooks';
 import { APPLICATION_STATUS_LABEL } from '../../_constants/application-status';
 
 export default function MyApplicationsPage() {
-  const query = useMyApplications();
+  const query = useMyApplicationsQuery();
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">

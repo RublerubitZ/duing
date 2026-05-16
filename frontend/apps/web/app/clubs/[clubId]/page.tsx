@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { useClubDetail, useClubRecruitments, useClubPhotos } from '@duing/hooks';
+import { useClubDetailQuery, useClubRecruitmentsQuery, useClubPhotosQuery } from '@duing/hooks';
 
 export default function ClubDetailPage({
   params,
@@ -11,9 +11,9 @@ export default function ClubDetailPage({
 }) {
   const { clubId: clubIdParam } = use(params);
   const clubId = Number(clubIdParam);
-  const detail = useClubDetail(clubId);
-  const photos = useClubPhotos(clubId);
-  const recruitments = useClubRecruitments(clubId);
+  const detail = useClubDetailQuery(clubId);
+  const photos = useClubPhotosQuery(clubId);
+  const recruitments = useClubRecruitmentsQuery(clubId);
 
   if (detail.isLoading) return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
   if (!detail.data) return <p className="p-6 text-sm text-rose-600">동아리를 찾을 수 없습니다.</p>;

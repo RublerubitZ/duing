@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useSignup } from '@duing/hooks';
+import { useSignupMutation } from '@duing/hooks';
 import { signupSchema } from '@duing/schemas';
 
 export default function SignupPage() {
   const router = useRouter();
-  const signup = useSignup();
+  const signup = useSignupMutation();
   const [form, setForm] = useState({ studentId: '', name: '', email: '', password: '' });
   const [error, setError] = useState<string | null>(null);
 

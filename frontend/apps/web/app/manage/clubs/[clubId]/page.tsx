@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { useClubRecruitments, useManagedClubs } from '@duing/hooks';
+import { useClubRecruitmentsQuery, useManagedClubsQuery } from '@duing/hooks';
 import { notFound } from 'next/navigation';
 import { toRoute } from '../../../_lib/route';
 
@@ -14,8 +14,8 @@ export default function ClubManagePage({
   const { clubId: clubIdParam } = use(params);
   const currentClubId = Number(clubIdParam);
 
-  const { data: managedClubs, isLoading: isManagedClubsLoading } = useManagedClubs();
-  const { data: recruitments, isLoading: isRecruitmentsLoading } = useClubRecruitments(
+  const { data: managedClubs, isLoading: isManagedClubsLoading } = useManagedClubsQuery();
+  const { data: recruitments, isLoading: isRecruitmentsLoading } = useClubRecruitmentsQuery(
     isNaN(currentClubId) ? undefined : currentClubId,
   );
 

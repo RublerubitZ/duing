@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { z } from 'zod';
-import { useUpdateInterview } from '@duing/hooks';
+import { useUpdateInterviewMutation } from '@duing/hooks';
 
 const interviewSchema = z.object({
   interviewAt: z.string().refine(
@@ -27,7 +27,7 @@ export function InterviewModal({ recruitmentId, applicationId, onClose }: Interv
   const [interviewLocation, setInterviewLocation] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const updateInterview = useUpdateInterview(recruitmentId);
+  const updateInterview = useUpdateInterviewMutation(recruitmentId);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();

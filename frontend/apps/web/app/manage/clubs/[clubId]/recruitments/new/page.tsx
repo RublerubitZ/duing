@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCreateRecruitment } from '@duing/hooks';
+import { useCreateRecruitmentMutation } from '@duing/hooks';
 import { toRoute } from '../../../../../_lib/route';
 import { RecruitmentForm } from '../_components/RecruitmentForm';
 import type { CreateFormValues } from '../_components/RecruitmentForm';
@@ -16,7 +16,7 @@ export default function NewRecruitmentPage({
   const clubId = Number(clubIdParam);
   const router = useRouter();
 
-  const createRecruitment = useCreateRecruitment(clubId);
+  const createRecruitment = useCreateRecruitmentMutation(clubId);
 
   async function handleSubmit(values: CreateFormValues) {
     const newRecruitmentId = await createRecruitment.mutateAsync({

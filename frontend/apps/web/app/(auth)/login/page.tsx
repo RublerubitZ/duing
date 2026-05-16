@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useLogin } from '@duing/hooks';
+import { useLoginMutation } from '@duing/hooks';
 import { loginSchema } from '@duing/schemas';
 import { toRoute } from '../../_lib/route';
 
@@ -11,14 +11,17 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawNext = searchParams.get('next') ?? '/me';
-  // 내부 절대 경로만 허용 (//evil.com 같은 protocol-relative 차단)
-  const next = toRoute(/^\/(?!\/)/.test(rawNext) ? rawNext : '/me');
+  // 내부 절대 경로만 허용 (//evil.com 같은 protocol-relative 차단).
+  // toRoute 는 `/${string}` 을 받으므로, 검증된 경우에만 next 에 할당하고 fallback 을 literal 로 제공한다.
+  const next = /^\/(?!\/)/.test(rawNext)
+    ? toRoute(`/${rawNext.slice(1)}`)
+    : toRoute('/me');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const login = useLogin();
+  const login = useLoginMutation();
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();

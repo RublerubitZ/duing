@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { ApplicationStatus, UpdateApplicationStatusPayload } from '@duing/types';
-import { useApplicantDetail, useUpdateApplicationStatus } from '@duing/hooks';
+import { useApplicantDetailQuery, useUpdateApplicationStatusMutation } from '@duing/hooks';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
 import { getStatusTransitions } from './applicationStatusTransitions';
 import { InterviewModal } from './InterviewModal';
@@ -31,8 +31,8 @@ export function ApplicantDetailModal({
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
 
-  const { data: applicantDetail, isLoading } = useApplicantDetail(applicationId);
-  const updateStatus = useUpdateApplicationStatus(recruitmentId);
+  const { data: applicantDetail, isLoading } = useApplicantDetailQuery(applicationId);
+  const updateStatus = useUpdateApplicationStatusMutation(recruitmentId);
 
   async function handleStatusChange(nextStatus: UpdateApplicationStatusPayload['status']) {
     setStatusError(null);
