@@ -4,7 +4,9 @@ import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.service.dto.query.ManagedClubQuery;
 import com.duing.domain.user.entity.UserRole;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,14 @@ public class ClubAuthService {
 
     public ClubMember requireMember(Long userId, Long clubId) {
         return findMembershipOrThrow(userId, clubId);
+    }
+
+    /**
+     * 사용자가 운영(LEADER/OFFICER) 가능한 동아리 목록을 조회한다.
+     * 운영 콘솔 진입 시 셀렉터와 가드 판정에 사용된다.
+     */
+    public List<ManagedClubQuery> findManagedClubs(Long userId) {
+        return clubMemberRepository.findActiveManagedClubsByUser(userId);
     }
 
     public void requireAdmin(UserRole globalRole) {

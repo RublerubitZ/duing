@@ -1,6 +1,7 @@
 package com.duing.domain.recruitment.service;
 
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
+import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
 import java.time.YearMonth;
@@ -15,4 +16,8 @@ public interface RecruitmentService {
     RecruitmentDetailQuery getById(Long recruitmentId);
 
     List<RecruitmentSummaryQuery> getByClubId(Long clubId);
+
+    void update(UpdateRecruitmentCommand updateRecruitmentCommand);
+
+    void close(Long recruitmentId, Long currentUserId);
 }

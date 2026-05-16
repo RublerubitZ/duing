@@ -21,12 +21,7 @@ export default function MyApplicationsPage() {
               key={application.id}
               className="rounded-lg border border-slate-200 p-4 hover:border-slate-400"
             >
-              <Link
-                href={{
-                  pathname: '/me/applications/[applicationId]',
-                  query: { applicationId: application.id },
-                }}
-              >
+              <Link href={`/me/applications/${application.id}`}>
                 <div className="flex items-baseline justify-between">
                   <span className="font-medium">{application.recruitmentTitle}</span>
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">
