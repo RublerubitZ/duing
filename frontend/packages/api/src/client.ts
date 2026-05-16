@@ -230,11 +230,21 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
   };
 }
 
-function cleanParams<T extends object>(params: T | undefined): Record<string, string> {
-  if (!params) return {};
-  return Object.fromEntries(
-    Object.entries(params)
-      .filter(([, v]) => v !== undefined && v !== null && v !== '')
-      .map(([k, v]) => [k, String(v)]),
-  );
+function cleanParams<T extends object>(params: T | undefined): URLSearchParams {
+  const searchParams = new URLSearchParams();
+  if (!params) return searchParams;
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    // 배열은 같은 키를 여러 번 append 해 Spring `@RequestParam List<T>` 와 호환되게 한다.
+    // (e.g. tags=[a,b] → ?tags=a&tags=b)
+    if (Array.isArray(value)) {
+      for (const element of value) {
+        if (element === undefined || element === null || element === '') continue;
+        searchParams.append(key, String(element));
+      }
+      continue;
+    }
+    searchParams.append(key, String(value));
+  }
+  return searchParams;
 }

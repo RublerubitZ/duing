@@ -51,8 +51,11 @@ class ClubSearchTagsRecruitingTest {
     @Test
     @DisplayName("recruiting=true 는 오늘 기준 OPEN 이며 종료일이 지나지 않은 모집을 가진 동아리만 반환한다")
     void filtersByActiveRecruitment() throws Exception {
-        Club withOpen = saveClubWithTags("A동아리", List.of());
-        Club withClosed = saveClubWithTags("B동아리", List.of());
+        // V12 시드 및 운영 데이터의 기존 모집(예: 두잉 코딩 동아리) 가 함께 반환될 수 있어
+        // exact match 대신 contains 로 검증한다. 본 테스트의 OPEN/CLOSED 두 동아리만 격리해서
+        // OPEN 은 포함되고 CLOSED 는 제외됨을 확인.
+        Club withOpen = saveClubWithTags("A동아리테스트", List.of());
+        Club withClosed = saveClubWithTags("B동아리테스트", List.of());
         saveOpenRecruitment(withOpen, LocalDate.now().minusDays(3), LocalDate.now().plusDays(7));
         saveClosedRecruitment(withClosed, LocalDate.now().minusDays(30), LocalDate.now().minusDays(10));
 
@@ -60,7 +63,10 @@ class ClubSearchTagsRecruitingTest {
                 new ClubSearchCondition(null, null, null, null, true),
                 PageRequest.of(0, 10));
 
-        assertThat(page.getContent()).extracting(Club::getName).containsExactly("A동아리");
+        assertThat(page.getContent())
+                .extracting(Club::getName)
+                .contains("A동아리테스트")
+                .doesNotContain("B동아리테스트");
     }
 
     private Club saveClubWithTags(String name, List<String> tags) throws Exception {
