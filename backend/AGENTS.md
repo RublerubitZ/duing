@@ -331,13 +331,17 @@ Club-scoped 검증은 서비스 레이어에서 `ClubMemberRepository` 조회로
 |---|---|
 | `POST /admin/clubs` (ADMIN) | designated leader → `ClubMember(LEADER)` 자동 생성 |
 | `PATCH /leader/applications/{id}/status = ACCEPTED` | 지원자 → `ClubMember(MEMBER)` 자동 생성 (멱등) |
+| `PATCH /leader/applications/{id}/status = ACCEPTED` (targetRole=OFFICER, 기존 MEMBER) | 기존 MEMBER → OFFICER 승급 (멱등) |
 
 ### 권한 검증 패턴 (서비스 레이어)
 
 ```java
-clubMemberRepository.findByClubIdAndUserId(clubId, currentUserId)
-    .filter(ClubMember::canManageClub)
-    .orElseThrow(ClubMemberException.NotClubManagerException::new);
+// Global role: @PreAuthorize 사용
+@PreAuthorize("hasRole('ADMIN')")
+
+// Club-scoped role: ClubAuthService 단일 진입점 사용 (Phase 2 Task 5 에서 통일)
+clubAuthService.requireManager(currentUserId, clubId);
+// LEADER 전용은 requireManager 대신 requireLeader 사용.
 ```
 
 ---

@@ -13,7 +13,6 @@ import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
-import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -98,7 +97,7 @@ public class GeneralApplicationService implements ApplicationService {
     public List<ApplicantQuery> getApplicants(Long recruitmentId, Long currentUserId) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
-        verifyClubManager(recruitment.getClub(), currentUserId);
+        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
 
         return applicationRepository.findByRecruitmentIdOrderByCreatedAtAsc(recruitmentId).stream()
                 .map(ApplicantQuery::from)
@@ -119,28 +118,46 @@ public class GeneralApplicationService implements ApplicationService {
     public void updateStatus(UpdateApplicationStatusCommand updateApplicationStatusCommand) {
         Application application = applicationRepository.findById(updateApplicationStatusCommand.applicationId())
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
-        verifyClubManager(application.getRecruitment().getClub(), updateApplicationStatusCommand.currentUserId());
+        clubAuthService.requireManager(updateApplicationStatusCommand.currentUserId(), application.getRecruitment().getClub().getId());
 
         application.transitionTo(
                 updateApplicationStatusCommand.status(),
                 application.getRecruitment().isUseInterview());
 
         // 합격 처리 시 지원자를 모집의 targetRole 에 맞춰 동아리 회원으로 자동 등록.
-        // 이미 회원이면 무시 (멱등성 보장). 동시 ACCEPTED 처리 시 race condition 은
+        // - 기존 멤버십이 없으면 신규 생성.
+        // - 기존 멤버십이 있으면 역할을 비교해 상위 역할로만 승급 (강등 금지, 멱등성 보장).
+        // 동시 ACCEPTED 처리 시 race condition 은
         // club_member (club_id, user_id) WHERE deleted_at IS NULL partial unique 인덱스(V7)로
         // DB 레벨에서 차단되며, 충돌 시 다른 트랜잭션이 먼저 등록한 케이스로 간주해 무시한다.
         if (updateApplicationStatusCommand.status() == ApplicationStatus.ACCEPTED) {
             Club club = application.getRecruitment().getClub();
             User applicant = application.getUser();
             ClubMemberRole grantedRole = application.getRecruitment().getTargetRole().toClubMemberRole();
-            try {
-                if (!clubMemberRepository.existsByClubIdAndUserId(club.getId(), applicant.getId())) {
-                    clubMemberRepository.save(ClubMember.of(club, applicant, grantedRole));
-                }
-            } catch (org.springframework.dao.DataIntegrityViolationException duplicateMembership) {
-                // 동시 ACCEPTED 처리 시 다른 트랜잭션이 먼저 등록한 경우로 간주, idempotent 처리.
-            }
+            clubMemberRepository.findByClubIdAndUserId(club.getId(), applicant.getId())
+                    .ifPresentOrElse(
+                            existingMembership -> {
+                                if (shouldUpgrade(existingMembership.getRole(), grantedRole)) {
+                                    existingMembership.changeRole(grantedRole);
+                                }
+                            },
+                            () -> {
+                                try {
+                                    clubMemberRepository.save(ClubMember.of(club, applicant, grantedRole));
+                                } catch (org.springframework.dao.DataIntegrityViolationException racedInsertion) {
+                                    // 동시 ACCEPTED 처리 시 다른 트랜잭션이 먼저 등록한 경우로 간주, idempotent 처리.
+                                }
+                            });
         }
+    }
+
+    /**
+     * 현재 역할보다 부여할 역할이 상위일 때만 true 를 반환한다.
+     * 역할 서열: MEMBER(0) < OFFICER(1) < LEADER(2).
+     * LEADER 는 이 경로에서 부여되지 않으며, 강등은 절대 허용하지 않는다.
+     */
+    private boolean shouldUpgrade(ClubMemberRole currentRole, ClubMemberRole grantedRole) {
+        return grantedRole.ordinal() > currentRole.ordinal();
     }
 
     private void validateAnswersAgainstForm(Recruitment recruitment, List<String> answers) {
@@ -150,11 +167,5 @@ public class GeneralApplicationService implements ApplicationService {
         if (expected != actual) {
             throw new ApplicationDomainException.InvalidAnswersException();
         }
-    }
-
-    private void verifyClubManager(Club club, Long currentUserId) {
-        clubMemberRepository.findByClubIdAndUserId(club.getId(), currentUserId)
-                .filter(ClubMember::canManageClub)
-                .orElseThrow(ClubMemberException.NotClubManagerException::new);
     }
 }
