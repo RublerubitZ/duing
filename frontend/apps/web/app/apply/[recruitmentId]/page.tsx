@@ -1,8 +1,9 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import type { RecruitmentDetail } from '@duing/types';
 import { useRecruitmentDetail, useSubmitApplication } from '@duing/hooks';
 import { toRoute } from '../../_lib/route';
 
@@ -16,26 +17,11 @@ export default function ApplyPage({
   const router = useRouter();
 
   const detail = useRecruitmentDetail(recruitmentId);
-  const submit = useSubmitApplication(recruitmentId);
-
-  const [answers, setAnswers] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  // 질문 개수 변화에 맞춰 answers 슬롯 초기화 (effect 내에서 패칭은 하지 않음).
-  useEffect(() => {
-    const recruitment = detail.data;
-    if (!recruitment) return;
-    if (recruitment.applicationMode === 'EXTERNAL') return;
-    setAnswers((prev) =>
-      prev.length === recruitment.questions.length
-        ? prev
-        : recruitment.questions.map(() => ''),
-    );
-  }, [detail.data]);
 
   if (detail.isLoading || !detail.data) {
     return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
   }
+
   const recruitment = detail.data;
 
   // 외부 폼 모집은 렌더 시점에 모집 상세로 되돌려보낸다 (effect 내 리다이렉트 금지).
@@ -45,6 +31,24 @@ export default function ApplyPage({
     );
     return <p className="p-6 text-sm text-slate-500">이동 중…</p>;
   }
+
+  // 데이터 도착이 보장된 시점에 자식 컴포넌트를 마운트해 useState 초기값을 props 에서 직접 받게 한다.
+  // useEffect 로 서버 상태를 클라 상태에 복사하는 안티패턴을 피한다.
+  return <ApplyForm recruitment={recruitment} recruitmentId={recruitmentId} />;
+}
+
+type ApplyFormProps = {
+  recruitment: RecruitmentDetail;
+  recruitmentId: number;
+};
+
+function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
+  const router = useRouter();
+  const submit = useSubmitApplication(recruitmentId);
+  const [answers, setAnswers] = useState<string[]>(() =>
+    recruitment.questions.map(() => ''),
+  );
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();

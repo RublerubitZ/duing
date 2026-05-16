@@ -16,7 +16,12 @@ export const signupSchema = z.object({
     .string()
     .min(1, '이메일은 필수 입력값입니다.')
     .email('올바른 이메일 형식이 아닙니다.')
-    .max(100, '이메일은 100자 이하여야 합니다.'),
+    .max(100, '이메일은 100자 이하여야 합니다.')
+    // 백엔드 SignupRequest 의 @Pattern 과 동일 — 학교 도메인만 허용.
+    .regex(
+      /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*daegu\.ac\.kr$/,
+      '대구대학교 이메일(@daegu.ac.kr)만 사용할 수 있습니다.',
+    ),
   password: z
     .string()
     .min(8, '비밀번호는 8자 이상 72자 이하여야 합니다.')
