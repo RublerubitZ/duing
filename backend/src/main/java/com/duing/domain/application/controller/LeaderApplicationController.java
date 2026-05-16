@@ -2,6 +2,7 @@ package com.duing.domain.application.controller;
 
 import com.duing.domain.application.api.LeaderApplicationApi;
 import com.duing.domain.application.controller.dto.request.UpdateApplicationStatusRequest;
+import com.duing.domain.application.controller.dto.response.ApplicantDetailResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantResponse;
 import com.duing.domain.application.service.ApplicationService;
 import com.duing.global.auth.UserPrincipal;
@@ -33,6 +34,16 @@ public class LeaderApplicationController implements LeaderApplicationApi {
                 .map(ApplicantResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(applicants));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<ApplicantDetailResponse>> getApplicantDetail(
+            @PathVariable Long applicationId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        ApplicantDetailResponse response = ApplicantDetailResponse.from(
+                applicationService.getApplicantDetail(applicationId, currentUser.id()));
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @Override

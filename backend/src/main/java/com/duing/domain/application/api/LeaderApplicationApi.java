@@ -1,6 +1,7 @@
 package com.duing.domain.application.api;
 
 import com.duing.domain.application.controller.dto.request.UpdateApplicationStatusRequest;
+import com.duing.domain.application.controller.dto.response.ApplicantDetailResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -24,6 +25,13 @@ public interface LeaderApplicationApi {
     @GetMapping("/leader/recruitments/{recruitmentId}/applications")
     ResponseEntity<ApiResponse<List<ApplicantResponse>>> getApplicants(
             @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "지원자 답변 상세 조회", description = "운영진이 지원자 모달에서 답변·신원·면접 정보를 한 번에 조회한다.")
+    @GetMapping("/leader/applications/{applicationId}")
+    ResponseEntity<ApiResponse<ApplicantDetailResponse>> getApplicantDetail(
+            @PathVariable Long applicationId,
             @AuthenticationPrincipal UserPrincipal currentUser
     );
 
