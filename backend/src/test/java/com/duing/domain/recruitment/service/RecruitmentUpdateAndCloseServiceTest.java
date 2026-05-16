@@ -36,7 +36,6 @@ class RecruitmentUpdateAndCloseServiceTest {
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
             clubRepository,
-            clubMemberRepository,
             clubAuthService
     );
 

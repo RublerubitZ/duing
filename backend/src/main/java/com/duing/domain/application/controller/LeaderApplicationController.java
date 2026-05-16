@@ -1,6 +1,7 @@
 package com.duing.domain.application.controller;
 
 import com.duing.domain.application.api.LeaderApplicationApi;
+import com.duing.domain.application.controller.dto.request.UpdateApplicationInterviewRequest;
 import com.duing.domain.application.controller.dto.request.UpdateApplicationStatusRequest;
 import com.duing.domain.application.controller.dto.response.ApplicantDetailResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantResponse;
@@ -54,6 +55,17 @@ public class LeaderApplicationController implements LeaderApplicationApi {
     ) {
         applicationService.updateStatus(
                 updateApplicationStatusRequest.toCommand(applicationId, currentUser.id()));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> updateInterview(
+            @PathVariable Long applicationId,
+            @Valid @RequestBody UpdateApplicationInterviewRequest updateApplicationInterviewRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        applicationService.updateInterview(
+                updateApplicationInterviewRequest.toCommand(applicationId, currentUser.id()));
         return ResponseEntity.noContent().build();
     }
 }

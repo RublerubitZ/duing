@@ -6,6 +6,7 @@ import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
+import com.duing.domain.application.service.dto.command.UpdateInterviewCommand;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
@@ -24,9 +25,12 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.notification.InterviewNotificationService;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,11 +39,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralApplicationService implements ApplicationService {
 
+    private static final Logger log = LoggerFactory.getLogger(GeneralApplicationService.class);
+
     private final ApplicationRepository applicationRepository;
     private final RecruitmentRepository recruitmentRepository;
     private final UserRepository userRepository;
     private final ClubMemberRepository clubMemberRepository;
     private final ClubAuthService clubAuthService;
+    private final InterviewNotificationService interviewNotificationService;
 
     @Override
     @Transactional
@@ -148,6 +155,27 @@ public class GeneralApplicationService implements ApplicationService {
                                     // 동시 ACCEPTED 처리 시 다른 트랜잭션이 먼저 등록한 경우로 간주, idempotent 처리.
                                 }
                             });
+        }
+    }
+
+    @Override
+    @Transactional
+    public void updateInterview(UpdateInterviewCommand updateInterviewCommand) {
+        Application application = applicationRepository.findById(updateInterviewCommand.applicationId())
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+        clubAuthService.requireManager(updateInterviewCommand.currentUserId(),
+                application.getRecruitment().getClub().getId());
+
+        application.updateInterview(updateInterviewCommand.interviewAt(), updateInterviewCommand.interviewLocation());
+
+        try {
+            interviewNotificationService.notifyInterviewScheduled(
+                    application.getId(),
+                    application.getUser().getEmail(),
+                    updateInterviewCommand.interviewAt(),
+                    updateInterviewCommand.interviewLocation());
+        } catch (Exception notificationFailure) {
+            log.warn("[면접 알림 발송 실패] applicationId={}", application.getId());
         }
     }
 

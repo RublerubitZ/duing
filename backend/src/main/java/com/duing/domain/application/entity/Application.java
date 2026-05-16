@@ -92,6 +92,14 @@ public class Application extends BaseEntity {
         };
     }
 
+    public void updateInterview(LocalDateTime interviewAt, String interviewLocation) {
+        if (this.status != ApplicationStatus.INTERVIEW_PENDING) {
+            throw new ApplicationDomainException.InvalidInterviewStateException();
+        }
+        this.interviewAt = interviewAt;
+        this.interviewLocation = interviewLocation;
+    }
+
     public void scheduleInterview(LocalDateTime at, String location) {
         if (at == null) {
             throw new ApplicationDomainException.InvalidInterviewScheduleException();
