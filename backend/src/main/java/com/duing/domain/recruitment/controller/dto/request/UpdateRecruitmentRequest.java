@@ -2,13 +2,11 @@ package com.duing.domain.recruitment.controller.dto.request;
 
 import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.List;
 
 public record UpdateRecruitmentRequest(
-        @NotBlank(message = "제목은 공백일 수 없습니다.")
         @Size(max = 200, message = "제목은 200자 이하여야 합니다.")
         String title,
 

@@ -124,6 +124,9 @@ public class Recruitment extends BaseEntity {
             throw new RecruitmentException.RecruitmentAlreadyClosedException();
         }
         if (command.title() != null) {
+            if (command.title().isBlank()) {
+                throw new IllegalArgumentException("제목은 공백일 수 없습니다.");
+            }
             this.title = command.title();
         }
         if (command.content() != null) {
