@@ -52,4 +52,8 @@ public class RecruitmentForm extends BaseEntity {
     public List<String> getQuestions() {
         return Collections.unmodifiableList(questions);
     }
+
+    public void replaceQuestions(List<String> newQuestions) {
+        this.questions = List.copyOf(newQuestions);
+    }
 }
