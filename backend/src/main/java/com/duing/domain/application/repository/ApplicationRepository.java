@@ -2,6 +2,7 @@ package com.duing.domain.application.repository;
 
 import com.duing.domain.application.entity.Application;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,4 +23,16 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
             + "WHERE a.recruitment.id = :recruitmentId "
             + "ORDER BY a.createdAt ASC")
     List<Application> findByRecruitmentIdOrderByCreatedAtAsc(@Param("recruitmentId") Long recruitmentId);
+
+    /**
+     * 지원자 상세 조회용 페치 조인.
+     * recruitment → club, recruitment → form(nullable) 을 한 번에 로드해 N+1 을 방지한다.
+     */
+    @Query("SELECT a FROM Application a "
+            + "JOIN FETCH a.recruitment r "
+            + "JOIN FETCH r.club "
+            + "JOIN FETCH a.user "
+            + "LEFT JOIN FETCH r.form "
+            + "WHERE a.id = :applicationId")
+    Optional<Application> findWithRecruitmentAndClubById(@Param("applicationId") Long applicationId);
 }

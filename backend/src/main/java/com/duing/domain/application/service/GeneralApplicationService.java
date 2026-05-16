@@ -6,6 +6,7 @@ import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
+import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
@@ -14,6 +15,7 @@ import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
@@ -38,6 +40,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final RecruitmentRepository recruitmentRepository;
     private final UserRepository userRepository;
     private final ClubMemberRepository clubMemberRepository;
+    private final ClubAuthService clubAuthService;
 
     @Override
     @Transactional
@@ -100,6 +103,15 @@ public class GeneralApplicationService implements ApplicationService {
         return applicationRepository.findByRecruitmentIdOrderByCreatedAtAsc(recruitmentId).stream()
                 .map(ApplicantQuery::from)
                 .toList();
+    }
+
+    @Override
+    public ApplicantDetailQuery getApplicantDetail(Long applicationId, Long currentUserId) {
+        Application application = applicationRepository.findWithRecruitmentAndClubById(applicationId)
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+        Long clubId = application.getRecruitment().getClub().getId();
+        clubAuthService.requireManager(currentUserId, clubId);
+        return ApplicantDetailQuery.from(application);
     }
 
     @Override
