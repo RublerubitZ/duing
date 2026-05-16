@@ -24,4 +24,20 @@ public class RecruitmentException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class RecruitmentAlreadyClosedException extends RecruitmentException {
+        private static final String MESSAGE = "이미 마감된 모집 공고입니다.";
+
+        public RecruitmentAlreadyClosedException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    public static class InvalidApplicationModeException extends RecruitmentException {
+        private static final String MESSAGE = "자체 지원 폼 모집 공고에서만 질문을 수정할 수 있습니다.";
+
+        public InvalidApplicationModeException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }

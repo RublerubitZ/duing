@@ -5,11 +5,14 @@ import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
+import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
 import java.time.LocalDate;
@@ -27,6 +30,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
     private final RecruitmentRepository recruitmentRepository;
     private final ClubRepository clubRepository;
     private final ClubMemberRepository clubMemberRepository;
+    private final ClubAuthService clubAuthService;
 
     @Override
     @Transactional
@@ -86,5 +90,34 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .stream()
                 .map(recruitment -> RecruitmentSummaryQuery.from(recruitment, today))
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public void update(UpdateRecruitmentCommand updateRecruitmentCommand) {
+        Recruitment recruitment = recruitmentRepository.findById(updateRecruitmentCommand.recruitmentId())
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+
+        Long clubId = recruitment.getClub().getId();
+        clubAuthService.requireManager(updateRecruitmentCommand.currentUserId(), clubId);
+
+        if (updateRecruitmentCommand.questions() != null
+                && recruitment.getApplicationMode() != ApplicationMode.SELF) {
+            throw new RecruitmentException.InvalidApplicationModeException();
+        }
+
+        recruitment.update(updateRecruitmentCommand);
+    }
+
+    @Override
+    @Transactional
+    public void close(Long recruitmentId, Long currentUserId) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+
+        Long clubId = recruitment.getClub().getId();
+        clubAuthService.requireManager(currentUserId, clubId);
+
+        recruitment.close();
     }
 }

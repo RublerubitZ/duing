@@ -1,6 +1,8 @@
 package com.duing.domain.recruitment.entity;
 
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.recruitment.exception.RecruitmentException;
+import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -115,5 +117,42 @@ public class Recruitment extends BaseEntity {
 
     public boolean isEffectivelyOpen(LocalDate today) {
         return status == RecruitmentStatus.OPEN && !today.isAfter(endDate);
+    }
+
+    public void update(UpdateRecruitmentCommand command) {
+        if (this.status == RecruitmentStatus.CLOSED) {
+            throw new RecruitmentException.RecruitmentAlreadyClosedException();
+        }
+        if (command.title() != null) {
+            this.title = command.title();
+        }
+        if (command.content() != null) {
+            this.content = command.content();
+        }
+        LocalDate resolvedStartDate = command.startDate() != null ? command.startDate() : this.startDate;
+        LocalDate resolvedEndDate = command.endDate() != null ? command.endDate() : this.endDate;
+        if (command.startDate() != null || command.endDate() != null) {
+            if (resolvedEndDate.isBefore(resolvedStartDate)) {
+                throw new RecruitmentException.InvalidRecruitmentPeriodException();
+            }
+            this.startDate = resolvedStartDate;
+            this.endDate = resolvedEndDate;
+        }
+        if (command.capacity() != null) {
+            this.capacity = command.capacity();
+        }
+        if (command.useInterview() != null) {
+            this.useInterview = command.useInterview();
+        }
+        if (command.questions() != null && this.form != null) {
+            this.form.replaceQuestions(command.questions());
+        }
+    }
+
+    public void close() {
+        if (this.status == RecruitmentStatus.CLOSED) {
+            throw new RecruitmentException.RecruitmentAlreadyClosedException();
+        }
+        this.status = RecruitmentStatus.CLOSED;
     }
 }
