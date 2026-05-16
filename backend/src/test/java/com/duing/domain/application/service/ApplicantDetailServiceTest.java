@@ -219,4 +219,48 @@ class ApplicantDetailServiceTest {
         assertThat(detail.answers().get(0).question()).isEqualTo("지원 동기는?");
         assertThat(detail.answers().get(0).answer()).isEqualTo("동기 답변");
     }
+
+    @Test
+    @DisplayName("답변 수가 질문 수보다 적을 때 짧은 쪽 길이까지만 매핑되고 초과 질문은 무시된다")
+    void answersLessThanQuestionsMapsByMinLength() {
+        User applicant = mock(User.class);
+        when(applicant.getId()).thenReturn(20L);
+        when(applicant.getName()).thenReturn("이영희");
+        when(applicant.getStudentId()).thenReturn("20252222");
+        when(applicant.getEmail()).thenReturn("lee@example.com");
+
+        Club club = mock(Club.class);
+        when(club.getId()).thenReturn(5L);
+        when(club.getName()).thenReturn("두잉 동아리");
+
+        // 질문 3개, 답변 1개 — 짧은 쪽(답변) 길이만큼만 매핑되어야 함
+        RecruitmentForm form = mock(RecruitmentForm.class);
+        when(form.getQuestions()).thenReturn(List.of("지원 동기는?", "여분 질문 1", "여분 질문 2"));
+
+        Recruitment recruitment = mock(Recruitment.class);
+        when(recruitment.getId()).thenReturn(5L);
+        when(recruitment.getTitle()).thenReturn("2026 테스트 모집");
+        when(recruitment.getClub()).thenReturn(club);
+        when(recruitment.getApplicationMode()).thenReturn(ApplicationMode.SELF);
+        when(recruitment.getForm()).thenReturn(form);
+
+        Application application = mock(Application.class);
+        when(application.getId()).thenReturn(4L);
+        when(application.getUser()).thenReturn(applicant);
+        when(application.getRecruitment()).thenReturn(recruitment);
+        when(application.getAnswers()).thenReturn(List.of("동기 답변"));
+        when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
+        when(application.getInterviewAt()).thenReturn(null);
+        when(application.getInterviewLocation()).thenReturn(null);
+        when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 11, 0));
+
+        when(applicationRepository.findWithRecruitmentAndClubById(4L)).thenReturn(Optional.of(application));
+
+        ApplicantDetailQuery detail = applicationService.getApplicantDetail(4L, 99L);
+
+        // 답변 1개까지만 매핑, 초과 질문 2개는 무시됨
+        assertThat(detail.answers()).hasSize(1);
+        assertThat(detail.answers().get(0).question()).isEqualTo("지원 동기는?");
+        assertThat(detail.answers().get(0).answer()).isEqualTo("동기 답변");
+    }
 }

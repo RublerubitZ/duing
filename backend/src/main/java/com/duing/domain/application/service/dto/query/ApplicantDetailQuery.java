@@ -2,12 +2,14 @@ package com.duing.domain.application.service.dto.query;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.club.entity.Club;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.user.entity.User;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.IntStream;
 
 public record ApplicantDetailQuery(
         Long applicationId,
@@ -40,12 +42,14 @@ public record ApplicantDetailQuery(
 
         List<QuestionAnswerQuery> pairedAnswers = buildPairedAnswers(recruitment, application);
 
+        Club club = recruitment.getClub();
+
         return new ApplicantDetailQuery(
                 application.getId(),
                 recruitment.getId(),
                 recruitment.getTitle(),
-                recruitment.getClub().getId(),
-                recruitment.getClub().getName(),
+                club.getId(),
+                club.getName(),
                 applicantInfo,
                 pairedAnswers,
                 application.getStatus(),
@@ -69,7 +73,7 @@ public record ApplicantDetailQuery(
         // (데이터 불일치 방어 — 정상 제출 시에는 동일 길이가 보장되지만,
         // 폼 편집 이후 기존 지원서가 남아 있을 수 있는 엣지케이스를 위해)
         int pairCount = Math.min(questions.size(), applicationAnswers.size());
-        return java.util.stream.IntStream.range(0, pairCount)
+        return IntStream.range(0, pairCount)
                 .mapToObj(index -> new QuestionAnswerQuery(questions.get(index), applicationAnswers.get(index)))
                 .toList();
     }
