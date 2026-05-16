@@ -49,3 +49,27 @@ export type SubmitApplicationPayload = {
 export type UpdateApplicationStatusPayload = {
   status: Exclude<ApplicationStatus, 'SUBMITTED'>;
 };
+
+export type ApplicantDetail = {
+  applicationId: number;
+  recruitmentId: number;
+  recruitmentTitle: string;
+  clubId: number;
+  clubName: string;
+  applicant: {
+    userId: number;
+    name: string;
+    studentId: string;
+    email: string;
+  };
+  answers: { question: string; answer: string }[];
+  status: ApplicationStatus;
+  interviewAt: string | null;
+  interviewLocation: string | null;
+  submittedAt: string;
+};
+
+export type UpdateInterviewPayload = {
+  interviewAt: string;
+  interviewLocation: string;
+};

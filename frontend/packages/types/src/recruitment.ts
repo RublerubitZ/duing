@@ -35,3 +35,13 @@ export type CreateRecruitmentPayload = {
   useInterview?: boolean;
   targetRole?: TargetRole;
 };
+
+export type UpdateRecruitmentPayload = {
+  title?: string;
+  content?: string | null;
+  startDate?: string;
+  endDate?: string;
+  capacity?: number;
+  useInterview?: boolean;
+  questions?: string[];
+};
