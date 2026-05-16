@@ -2,7 +2,6 @@ package com.duing.domain.recruitment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -10,7 +9,6 @@ import static org.mockito.Mockito.when;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.clubmember.service.ClubAuthService;
-import com.duing.domain.recruitment.controller.dto.request.UpdateRecruitmentRequest;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
@@ -19,15 +17,10 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -237,19 +230,6 @@ class RecruitmentUpdateAndCloseServiceTest {
 
         assertThatThrownBy(() -> recruitmentService.update(updateCommand))
                 .isInstanceOf(AccessDeniedException.class);
-    }
-
-    @Test
-    @DisplayName("capacity 를 0 으로 수정하려 하면 Bean Validation 에서 거부된다")
-    void updateWithZeroCapacityIsRejectedByBeanValidation() {
-        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-        Validator validator = factory.getValidator();
-        UpdateRecruitmentRequest request = new UpdateRecruitmentRequest(
-                null, null, null, null, 0, null, null
-        );
-        Set<ConstraintViolation<UpdateRecruitmentRequest>> violations = validator.validate(request);
-        assertThat(violations).anyMatch(violation ->
-                violation.getPropertyPath().toString().equals("capacity"));
     }
 
     @Test

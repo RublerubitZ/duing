@@ -147,7 +147,10 @@ public class Recruitment extends BaseEntity {
         if (command.useInterview() != null) {
             this.useInterview = command.useInterview();
         }
-        if (command.questions() != null && this.form != null) {
+        if (command.questions() != null) {
+            if (this.form == null) {
+                throw new IllegalStateException("자체 폼이 없는 모집 공고에서 질문을 수정할 수 없습니다.");
+            }
             this.form.replaceQuestions(command.questions());
         }
     }
