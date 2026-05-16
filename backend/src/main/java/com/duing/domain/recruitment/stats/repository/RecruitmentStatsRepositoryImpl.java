@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
-public class RecruitmentStatsRepository implements RecruitmentStatsRepositoryCustom {
+public class RecruitmentStatsRepositoryImpl implements RecruitmentStatsRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
 

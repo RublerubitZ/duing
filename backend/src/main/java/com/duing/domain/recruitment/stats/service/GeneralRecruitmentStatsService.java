@@ -5,7 +5,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
-import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepository;
+import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
 
     private final RecruitmentRepository recruitmentRepository;
-    private final RecruitmentStatsRepository recruitmentStatsRepository;
+    private final RecruitmentStatsRepositoryCustom recruitmentStatsRepository;
     private final ClubAuthService clubAuthService;
 
     @Override

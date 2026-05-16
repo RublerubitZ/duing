@@ -12,7 +12,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
-import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepository;
+import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
 import java.util.EnumMap;
 import java.util.Map;
@@ -25,14 +25,14 @@ import org.springframework.security.access.AccessDeniedException;
 class RecruitmentStatsSummaryServiceTest {
 
     private RecruitmentRepository recruitmentRepository;
-    private RecruitmentStatsRepository recruitmentStatsRepository;
+    private RecruitmentStatsRepositoryCustom recruitmentStatsRepository;
     private ClubAuthService clubAuthService;
     private GeneralRecruitmentStatsService recruitmentStatsService;
 
     @BeforeEach
     void setUp() {
         recruitmentRepository = mock(RecruitmentRepository.class);
-        recruitmentStatsRepository = mock(RecruitmentStatsRepository.class);
+        recruitmentStatsRepository = mock(RecruitmentStatsRepositoryCustom.class);
         clubAuthService = mock(ClubAuthService.class);
         recruitmentStatsService = new GeneralRecruitmentStatsService(
                 recruitmentRepository,
