@@ -3,7 +3,7 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import type { ApplicationStatus } from '@duing/types';
-import { useRecruitmentDetail, useApplicants } from '@duing/hooks';
+import { useRecruitmentDetailQuery, useApplicantsQuery } from '@duing/hooks';
 import { toRoute } from '../../../../../../_lib/route';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../_constants/application-status';
 import { ApplicantTable } from './_components/ApplicantTable';
@@ -32,10 +32,10 @@ export default function ApplicantsPage({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
 
-  const { data: recruitment, isLoading: isRecruitmentLoading } = useRecruitmentDetail(
+  const { data: recruitment, isLoading: isRecruitmentLoading } = useRecruitmentDetailQuery(
     isNaN(recruitmentId) ? undefined : recruitmentId,
   );
-  const { data: applicants, isLoading: isApplicantsLoading } = useApplicants(
+  const { data: applicants, isLoading: isApplicantsLoading } = useApplicantsQuery(
     recruitment?.applicationMode === 'SELF' && !isNaN(recruitmentId)
       ? recruitmentId
       : undefined,

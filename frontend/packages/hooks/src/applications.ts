@@ -6,34 +6,39 @@ import type {
 } from '@duing/types';
 import { useAuthStore } from '@duing/stores';
 import { useApiClient } from './api-context';
+import { applicationQueryKeys } from './applicationQueryKeys';
+import { statsQueryKeys } from './statsQueryKeys';
 
-export function useSubmitApplication(recruitmentId: number) {
+export function useSubmitApplicationMutation(recruitmentId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: SubmitApplicationPayload) =>
       client.applications.submit(recruitmentId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', 'me', 'applications'] });
+      queryClient.invalidateQueries({ queryKey: applicationQueryKeys.myList() });
     },
   });
 }
 
-export function useMyApplications() {
+export function useMyApplicationsQuery() {
   const client = useApiClient();
   const status = useAuthStore((s) => s.status);
   return useQuery({
-    queryKey: ['users', 'me', 'applications'],
+    queryKey: applicationQueryKeys.myList(),
     queryFn: () => client.users.myApplications(),
     enabled: status === 'authenticated',
   });
 }
 
-export function useMyApplicationDetail(applicationId: number | undefined) {
+export function useMyApplicationDetailQuery(applicationId: number | undefined) {
   const client = useApiClient();
   const status = useAuthStore((s) => s.status);
   return useQuery({
-    queryKey: ['users', 'me', 'applications', applicationId],
+    queryKey:
+      applicationId !== undefined
+        ? applicationQueryKeys.myDetail(applicationId)
+        : ['users', 'me', 'applications', undefined],
     queryFn: () => {
       if (applicationId === undefined) {
         throw new Error('applicationId is required');
@@ -44,10 +49,13 @@ export function useMyApplicationDetail(applicationId: number | undefined) {
   });
 }
 
-export function useApplicants(recruitmentId: number | undefined) {
+export function useApplicantsQuery(recruitmentId: number | undefined) {
   const client = useApiClient();
   return useQuery({
-    queryKey: ['applications', 'applicants', recruitmentId],
+    queryKey:
+      recruitmentId !== undefined
+        ? applicationQueryKeys.applicants(recruitmentId)
+        : ['applications', 'applicants', undefined],
     queryFn: () => {
       if (recruitmentId === undefined) {
         throw new Error('recruitmentId is required');
@@ -58,10 +66,13 @@ export function useApplicants(recruitmentId: number | undefined) {
   });
 }
 
-export function useApplicantDetail(applicationId: number | undefined) {
+export function useApplicantDetailQuery(applicationId: number | undefined) {
   const client = useApiClient();
   return useQuery({
-    queryKey: ['applications', 'applicantDetail', applicationId],
+    queryKey:
+      applicationId !== undefined
+        ? applicationQueryKeys.applicantDetail(applicationId)
+        : ['applications', 'applicantDetail', undefined],
     queryFn: () => {
       if (applicationId === undefined) {
         throw new Error('applicationId is required');
@@ -72,7 +83,7 @@ export function useApplicantDetail(applicationId: number | undefined) {
   });
 }
 
-export function useUpdateApplicationStatus(recruitmentId: number) {
+export function useUpdateApplicationStatusMutation(recruitmentId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({
@@ -85,16 +96,16 @@ export function useUpdateApplicationStatus(recruitmentId: number) {
     }) => client.applications.updateStatus(applicationId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['applications', 'applicants', recruitmentId],
+        queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
       queryClient.invalidateQueries({
-        queryKey: ['stats', recruitmentId],
+        queryKey: statsQueryKeys.byRecruitment(recruitmentId),
       });
     },
   });
 }
 
-export function useUpdateInterview(recruitmentId: number) {
+export function useUpdateInterviewMutation(recruitmentId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({
@@ -107,10 +118,10 @@ export function useUpdateInterview(recruitmentId: number) {
     }) => client.applications.updateInterview(applicationId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['applications', 'applicants', recruitmentId],
+        queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
       queryClient.invalidateQueries({
-        queryKey: ['stats', recruitmentId],
+        queryKey: statsQueryKeys.byRecruitment(recruitmentId),
       });
     },
   });

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { useManagedClubs } from '@duing/hooks';
+import { useManagedClubsQuery } from '@duing/hooks';
 import { ManageGuard } from './ManageGuard';
 import { ClubSelector } from './ClubSelector';
 import { ManageNav } from './ManageNav';
@@ -13,7 +13,7 @@ type ManageShellProps = {
 };
 
 export function ManageShell({ currentClubId, children }: ManageShellProps) {
-  const { data: managedClubs, isLoading } = useManagedClubs();
+  const { data: managedClubs, isLoading } = useManagedClubsQuery();
 
   return (
     <ManageGuard managedClubs={managedClubs} isLoading={isLoading}>

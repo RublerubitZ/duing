@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
-import { useRecruitmentDetail, useUpdateRecruitment } from '@duing/hooks';
+import { useRecruitmentDetailQuery, useUpdateRecruitmentMutation } from '@duing/hooks';
 import { toRoute } from '../../../../../../_lib/route';
 import { RecruitmentForm } from '../../_components/RecruitmentForm';
 import type { EditFormValues } from '../../_components/RecruitmentForm';
@@ -17,10 +17,10 @@ export default function EditRecruitmentPage({
   const recruitmentId = Number(recruitmentIdParam);
   const router = useRouter();
 
-  const { data: recruitment, isLoading } = useRecruitmentDetail(
+  const { data: recruitment, isLoading } = useRecruitmentDetailQuery(
     isNaN(recruitmentId) ? undefined : recruitmentId,
   );
-  const updateRecruitment = useUpdateRecruitment(recruitmentId);
+  const updateRecruitment = useUpdateRecruitmentMutation(recruitmentId);
 
   if (isLoading || !recruitment) {
     return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;

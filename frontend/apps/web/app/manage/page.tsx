@@ -3,12 +3,12 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useManagedClubs } from '@duing/hooks';
+import { useManagedClubsQuery } from '@duing/hooks';
 import { toRoute } from '../_lib/route';
 
 export default function ManagePage() {
   const router = useRouter();
-  const { data: managedClubs, isLoading } = useManagedClubs();
+  const { data: managedClubs, isLoading } = useManagedClubsQuery();
 
   useEffect(() => {
     if (!managedClubs || managedClubs.length === 0) return;

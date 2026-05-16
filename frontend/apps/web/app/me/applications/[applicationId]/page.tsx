@@ -1,7 +1,7 @@
 'use client';
 
 import { use } from 'react';
-import { useMyApplicationDetail } from '@duing/hooks';
+import { useMyApplicationDetailQuery } from '@duing/hooks';
 import { APPLICATION_STATUS_LABEL } from '../../../_constants/application-status';
 
 export default function MyApplicationDetailPage({
@@ -11,7 +11,7 @@ export default function MyApplicationDetailPage({
 }) {
   const { applicationId: idParam } = use(params);
   const applicationId = Number(idParam);
-  const query = useMyApplicationDetail(applicationId);
+  const query = useMyApplicationDetailQuery(applicationId);
 
   if (query.isLoading) return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
   if (!query.data) return <p className="p-6 text-sm text-rose-600">지원 내역을 찾을 수 없습니다.</p>;

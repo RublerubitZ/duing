@@ -2,7 +2,7 @@
 
 import { use, useState } from 'react';
 import Link from 'next/link';
-import { useClubRecruitments } from '@duing/hooks';
+import { useClubRecruitmentsQuery } from '@duing/hooks';
 import type { RecruitmentSummary } from '@duing/types';
 import { toRoute } from '../../../../_lib/route';
 
@@ -56,7 +56,7 @@ export default function RecruitmentsPage({
 
   const [activeTab, setActiveTab] = useState<TabKey>('OPEN');
 
-  const { data: recruitments, isLoading } = useClubRecruitments(
+  const { data: recruitments, isLoading } = useClubRecruitmentsQuery(
     isNaN(clubId) ? undefined : clubId,
   );
 

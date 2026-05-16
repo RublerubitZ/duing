@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
-import { useRecruitmentDetail } from '@duing/hooks';
+import { useRecruitmentDetailQuery } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import { toRoute } from '../../../../_lib/route';
 
@@ -16,7 +16,7 @@ export default function RecruitmentDetailPage({
   const authStatus = useAuthStore((s) => s.status);
   const router = useRouter();
 
-  const query = useRecruitmentDetail(recruitmentId);
+  const query = useRecruitmentDetailQuery(recruitmentId);
   if (query.isLoading) return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
   if (!query.data) return <p className="p-6 text-sm text-rose-600">모집을 찾을 수 없습니다.</p>;
   const recruitment = query.data;
@@ -26,7 +26,7 @@ export default function RecruitmentDetailPage({
       window.open(recruitment.externalFormUrl, '_blank', 'noopener,noreferrer');
       return;
     }
-    const applyPath = `/apply/${recruitment.id}`;
+    const applyPath: `/${string}` = `/apply/${recruitment.id}`;
     if (authStatus !== 'authenticated') {
       router.push(toRoute(`/login?next=${encodeURIComponent(applyPath)}`));
       return;

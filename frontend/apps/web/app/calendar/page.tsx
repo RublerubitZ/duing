@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useRecruitmentCalendar } from '@duing/hooks';
+import { useRecruitmentCalendarQuery } from '@duing/hooks';
 
 function toYearMonth(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -10,7 +10,7 @@ function toYearMonth(date: Date): string {
 
 export default function CalendarPage() {
   const [yearMonth, setYearMonth] = useState(() => toYearMonth(new Date()));
-  const calendarQuery = useRecruitmentCalendar(yearMonth);
+  const calendarQuery = useRecruitmentCalendarQuery(yearMonth);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">

@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import type { ClubSearchParams } from '@duing/types';
-import { useClubList } from '@duing/hooks';
+import { useClubListQuery } from '@duing/hooks';
 import { ClubCard } from './_components/ClubCard';
 import { ClubFilters } from './_components/ClubFilters';
 
 export default function HomePage() {
   const [params, setParams] = useState<ClubSearchParams>({ page: 0, size: 20 });
-  const query = useClubList(params);
+  const query = useClubListQuery(params);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">

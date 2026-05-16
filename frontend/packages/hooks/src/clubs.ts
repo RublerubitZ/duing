@@ -1,27 +1,28 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ClubSearchParams } from '@duing/types';
 import { useApiClient } from './api-context';
+import { clubQueryKeys } from './clubQueryKeys';
 
-export function useManagedClubs() {
+export function useManagedClubsQuery() {
   const client = useApiClient();
   return useQuery({
-    queryKey: ['clubs', 'managed'],
+    queryKey: clubQueryKeys.managed(),
     queryFn: () => client.clubs.managedByMe(),
   });
 }
 
-export function useClubList(params: ClubSearchParams = {}) {
+export function useClubListQuery(params: ClubSearchParams = {}) {
   const client = useApiClient();
   return useQuery({
-    queryKey: ['clubs', params],
+    queryKey: clubQueryKeys.list(params),
     queryFn: () => client.clubs.list(params),
   });
 }
 
-export function useClubDetail(clubId: number | undefined) {
+export function useClubDetailQuery(clubId: number | undefined) {
   const client = useApiClient();
   return useQuery({
-    queryKey: ['clubs', clubId],
+    queryKey: clubId !== undefined ? clubQueryKeys.detail(clubId) : ['clubs', undefined],
     queryFn: () => {
       if (clubId === undefined) {
         throw new Error('clubId is required');
@@ -32,10 +33,10 @@ export function useClubDetail(clubId: number | undefined) {
   });
 }
 
-export function useClubPhotos(clubId: number | undefined) {
+export function useClubPhotosQuery(clubId: number | undefined) {
   const client = useApiClient();
   return useQuery({
-    queryKey: ['clubs', clubId, 'photos'],
+    queryKey: clubId !== undefined ? clubQueryKeys.photos(clubId) : ['clubs', undefined, 'photos'],
     queryFn: () => {
       if (clubId === undefined) {
         throw new Error('clubId is required');
@@ -46,10 +47,13 @@ export function useClubPhotos(clubId: number | undefined) {
   });
 }
 
-export function useClubRecruitments(clubId: number | undefined) {
+export function useClubRecruitmentsQuery(clubId: number | undefined) {
   const client = useApiClient();
   return useQuery({
-    queryKey: ['clubs', clubId, 'recruitments'],
+    queryKey:
+      clubId !== undefined
+        ? clubQueryKeys.recruitments(clubId)
+        : ['clubs', undefined, 'recruitments'],
     queryFn: () => {
       if (clubId === undefined) {
         throw new Error('clubId is required');

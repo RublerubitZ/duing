@@ -2,7 +2,7 @@
 
 import { use, useState } from 'react';
 import Link from 'next/link';
-import { useRecruitmentDetail, useCloseRecruitment } from '@duing/hooks';
+import { useRecruitmentDetailQuery, useCloseRecruitmentMutation } from '@duing/hooks';
 import { toRoute } from '../../../../../_lib/route';
 
 export default function RecruitmentDetailPage({
@@ -17,10 +17,10 @@ export default function RecruitmentDetailPage({
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
 
-  const { data: recruitment, isLoading } = useRecruitmentDetail(
+  const { data: recruitment, isLoading } = useRecruitmentDetailQuery(
     isNaN(recruitmentId) ? undefined : recruitmentId,
   );
-  const closeRecruitment = useCloseRecruitment(recruitmentId);
+  const closeRecruitment = useCloseRecruitmentMutation(recruitmentId);
 
   if (isLoading || !recruitment) {
     return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
