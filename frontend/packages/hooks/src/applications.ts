@@ -44,6 +44,20 @@ export function useMyApplicationDetail(applicationId: number | undefined) {
   });
 }
 
+export function useApplicants(recruitmentId: number | undefined) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: ['applications', 'applicants', recruitmentId],
+    queryFn: () => {
+      if (recruitmentId === undefined) {
+        throw new Error('recruitmentId is required');
+      }
+      return client.applications.applicants(recruitmentId);
+    },
+    enabled: recruitmentId !== undefined,
+  });
+}
+
 export function useApplicantDetail(applicationId: number | undefined) {
   const client = useApiClient();
   return useQuery({

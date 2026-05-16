@@ -18,6 +18,7 @@ export {
   useSubmitApplication,
   useMyApplications,
   useMyApplicationDetail,
+  useApplicants,
   useApplicantDetail,
   useUpdateApplicationStatus,
   useUpdateInterview,
