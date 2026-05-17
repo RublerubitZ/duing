@@ -30,6 +30,7 @@ import com.duing.global.notification.InterviewNotificationService;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 
 class ApplicationStatusServiceTest {
@@ -41,6 +42,7 @@ class ApplicationStatusServiceTest {
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
+    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -49,7 +51,8 @@ class ApplicationStatusServiceTest {
             clubMemberRepository,
             clubAuthService,
             interviewNotificationService,
-            applicationDraftService);
+            applicationDraftService,
+            eventPublisher);
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더
