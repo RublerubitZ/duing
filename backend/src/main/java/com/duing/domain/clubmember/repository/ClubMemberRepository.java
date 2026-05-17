@@ -2,9 +2,11 @@ package com.duing.domain.clubmember.repository;
 
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -29,4 +31,12 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
                 cm.createdAt ASC
             """)
     List<ClubMember> findAllByClubIdOrderedByRoleAndJoinedAt(@Param("clubId") Long clubId);
+
+    /**
+     * 회장 인계 등 동시성이 중요한 변경에서 행 잠금 후 조회한다 (PESSIMISTIC_WRITE).
+     * @SQLRestriction(deleted_at IS NULL) 가 JPQL 에 자동 적용된다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cm FROM ClubMember cm WHERE cm.id = :id")
+    Optional<ClubMember> findByIdForUpdate(@Param("id") Long id);
 }
