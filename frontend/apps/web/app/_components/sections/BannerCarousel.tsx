@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 import { landingBanners, type LandingBanner } from '../../_mocks';
@@ -148,19 +149,57 @@ function MainSlide({ banner }: { banner: LandingBanner }) {
         >
           {banner.sub}
         </p>
-        <button
-          type="button"
-          className="btn rounded-md px-[22px] py-3 font-bold"
-          style={{
-            background: isDarkText ? '#9DB6A0' : banner.accent,
-            color: isDarkText ? '#143025' : '#fff',
-          }}
-        >
-          {banner.cta}
-          <ArrowRight />
-        </button>
+        <BannerCtaLink banner={banner} isDarkText={isDarkText} />
       </div>
     </div>
+  );
+}
+
+function BannerCtaLink({
+  banner,
+  isDarkText,
+}: {
+  banner: LandingBanner;
+  isDarkText: boolean;
+}) {
+  const className = 'btn rounded-md px-[22px] py-3 font-bold';
+  const style = {
+    background: isDarkText ? '#9DB6A0' : banner.accent,
+    color: isDarkText ? '#143025' : '#fff',
+  } as const;
+  const label = (
+    <>
+      {banner.cta}
+      <ArrowRight />
+    </>
+  );
+
+  // 배너별 목적지는 정적 라우트로 고정 — typedRoutes 컴파일 검증을 받기 위함.
+  if (banner.id === 1) {
+    return (
+      <Link href="/calendar" className={className} style={style}>
+        {label}
+      </Link>
+    );
+  }
+  if (banner.id === 2) {
+    return (
+      <Link href="/clubs" className={className} style={style}>
+        {label}
+      </Link>
+    );
+  }
+  if (banner.id === 3) {
+    return (
+      <Link href="/introduce" className={className} style={style}>
+        {label}
+      </Link>
+    );
+  }
+  return (
+    <Link href="/signup" className={className} style={style}>
+      {label}
+    </Link>
   );
 }
 
