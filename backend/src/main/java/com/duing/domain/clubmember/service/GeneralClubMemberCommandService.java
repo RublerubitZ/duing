@@ -31,7 +31,7 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
         clubAuthService.requireLeader(command.requesterId(), command.clubId());
 
         if (command.role() == ClubMemberRole.LEADER) {
-            throw new ClubMemberException.TransferTargetInvalid();
+            throw new ClubMemberException.InvalidRoleAssignment();
         }
 
         ClubMember target = findMembershipInClub(command.memberId(), command.clubId());

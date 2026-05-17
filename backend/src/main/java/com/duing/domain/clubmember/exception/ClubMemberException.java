@@ -76,4 +76,12 @@ public class ClubMemberException extends ApplicationException {
                     HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static final class InvalidRoleAssignment extends ClubMemberException {
+        public InvalidRoleAssignment() {
+            super("역할 변경은 OFFICER 또는 MEMBER 로만 가능합니다. 회장은 회장 인계를 이용하세요.",
+                    HttpStatus.BAD_REQUEST);
+        }
+    }
 }
+
