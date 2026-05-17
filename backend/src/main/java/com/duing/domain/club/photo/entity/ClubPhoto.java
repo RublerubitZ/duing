@@ -69,4 +69,12 @@ public class ClubPhoto extends BaseEntity {
         this.caption = caption;
         this.displayOrder = displayOrder;
     }
+
+    public void updateCaption(String caption) {
+        this.caption = caption;
+    }
+
+    public void changeDisplayOrder(int displayOrder) {
+        this.displayOrder = displayOrder;
+    }
 }
