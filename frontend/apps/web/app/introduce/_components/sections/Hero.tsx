@@ -1,6 +1,6 @@
-import { BrandMark } from '../BrandMark';
-import { ArrowRight, Lock } from '../Icon';
-import { SparkleFull } from '../Sparkle';
+import { BrandMark } from '@/components/duing/BrandMark';
+import { ArrowRight, Lock } from '@/components/duing/Icon';
+import { SparkleFull } from '@/components/duing/Sparkle';
 import { promoClubs } from '../../_mocks';
 
 export function Hero() {

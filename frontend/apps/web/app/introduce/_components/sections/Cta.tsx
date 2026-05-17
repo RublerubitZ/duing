@@ -1,5 +1,5 @@
-import { ArrowRight } from '../Icon';
-import { SparkleFull } from '../Sparkle';
+import { ArrowRight } from '@/components/duing/Icon';
+import { SparkleFull } from '@/components/duing/Sparkle';
 
 export function Cta() {
   return (

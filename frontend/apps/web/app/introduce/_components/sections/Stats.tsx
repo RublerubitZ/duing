@@ -1,4 +1,4 @@
-import { SparkleFull } from '../Sparkle';
+import { SparkleFull } from '@/components/duing/Sparkle';
 
 const STATS: ReadonlyArray<{ value: string; label: string }> = [
   { value: '128', label: '등록 동아리' },

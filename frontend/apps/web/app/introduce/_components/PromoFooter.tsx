@@ -1,4 +1,4 @@
-import { BrandMark } from './BrandMark';
+import { BrandMark } from '@/components/duing/BrandMark';
 
 export function PromoFooter() {
   return (
