@@ -41,6 +41,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        // /clubs/*/members 는 운영진 전용. 아래 clubs/** permitAll 보다
+                        // 반드시 앞에 위치해야 first-match 원칙상 인증 가드가 적용된다.
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/members").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs", "/api/v1/clubs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recruitments", "/api/v1/recruitments/**").permitAll()
