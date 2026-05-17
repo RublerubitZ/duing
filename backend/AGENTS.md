@@ -359,6 +359,15 @@ JWT_EXPIRY_MS=3600000
 # 로컬 전용
 FILE_UPLOAD_DIR=/tmp/duing/uploads    # 로컬 파일 저장 경로
 
+# 파일 스토리지 (선택)
+FILE_STORAGE_PROVIDER=local           # local | supabase
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_STORAGE_BUCKET=duing
+
+# Phase 3 — 알림 스케줄러 (운영에서만 true 권장)
+DUING_NOTIFICATION_JOBS_ENABLED=false  # true 면 매일 06:00 KST DeadlineNotificationJob + 매시 정각 InterviewReminderJob 활성
+
 # 배포 시 추가 예정 (현재 미사용)
 # AWS_S3_BUCKET=
 # AWS_ACCESS_KEY=
@@ -367,3 +376,19 @@ FILE_UPLOAD_DIR=/tmp/duing/uploads    # 로컬 파일 저장 경로
 ```
 
 모든 값은 환경변수 또는 팀 공유 `.env` 파일로 주입한다. 코드/yml 직접 기재 금지.
+
+### 알림 스케줄러 운영 활성화 (Phase 3)
+
+`DUING_NOTIFICATION_JOBS_ENABLED=true` 를 운영 환경변수로 주입하면 `NotificationJobConfig` 의 `@ConditionalOnProperty` 가 통과하면서 두 잡이 등록된다.
+
+- `DeadlineNotificationJob` — 매일 06:00 KST. 찜한 동아리의 진행 중 모집을 스캔해 D-3 / D-1 / D-0 + 오늘 시작(`RECRUITMENT_OPENED`) 알림을 멱등 INSERT.
+- `InterviewReminderJob` — 매시 정각. `interview_at` 이 지금부터 23~25시간 사이인 `INTERVIEW_PENDING` 지원에 D-1 리마인더를 멱등 INSERT.
+
+활성화 직후 첫 06:00 KST 실행에서 다음 로그가 찍히는지 확인한다:
+
+```
+DeadlineNotificationJob start: candidates={N}
+DeadlineNotificationJob done: created={M}
+```
+
+`candidates=0` 만 떠도 정상(해당 시점에 조건을 만족하는 모집이 없다는 의미). 잡 실패는 ERROR 로그로 남고 다음 실행에 멱등 복구된다.
