@@ -15,10 +15,11 @@ export function useUnreadCountQuery(enabled = true) {
   });
 }
 
-export function useNotificationListQuery(unreadOnly: boolean) {
+export function useNotificationListQuery(unreadOnly: boolean, enabled = true) {
   const client = useApiClient();
   return useInfiniteQuery({
     queryKey: notificationQueryKeys.list(unreadOnly),
+    enabled,
     queryFn: ({ pageParam }) =>
       client.notifications.list(unreadOnly, pageParam, NOTIFICATION_PAGE_SIZE),
     initialPageParam: 0,
