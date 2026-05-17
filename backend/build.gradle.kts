@@ -60,6 +60,7 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("io.rest-assured:rest-assured")
     testImplementation("com.navercorp.fixturemonkey:fixture-monkey-starter:1.1.7")
     testImplementation("com.navercorp.fixturemonkey:fixture-monkey-jakarta-validation:1.1.7")
