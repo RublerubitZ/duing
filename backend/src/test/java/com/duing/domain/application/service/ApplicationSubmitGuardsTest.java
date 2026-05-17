@@ -11,6 +11,7 @@ import com.duing.domain.application.service.dto.command.SubmitApplicationCommand
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
@@ -31,6 +32,7 @@ class ApplicationSubmitGuardsTest {
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
+    private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -38,7 +40,8 @@ class ApplicationSubmitGuardsTest {
             userRepository,
             clubMemberRepository,
             clubAuthService,
-            interviewNotificationService);
+            interviewNotificationService,
+            applicationDraftService);
 
     @Test
     @DisplayName("외부 폼 모집에는 두잉 내에서 직접 지원할 수 없다")

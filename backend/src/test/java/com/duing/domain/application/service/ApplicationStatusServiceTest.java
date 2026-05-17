@@ -20,6 +20,7 @@ import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -39,6 +40,7 @@ class ApplicationStatusServiceTest {
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
+    private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -46,7 +48,8 @@ class ApplicationStatusServiceTest {
             userRepository,
             clubMemberRepository,
             clubAuthService,
-            interviewNotificationService);
+            interviewNotificationService,
+            applicationDraftService);
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더
