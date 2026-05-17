@@ -1,9 +1,10 @@
+import type { FavoriteIds } from '@duing/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiClient } from './api-context';
 import { favoriteQueryKeys } from './favoriteQueryKeys';
 
 type FavoriteToggleContext = {
-  previousIds: number[] | undefined;
+  previousIds: FavoriteIds | undefined;
 };
 
 export function useFavoriteListQuery(page = 0, size = 20) {
@@ -39,14 +40,14 @@ export function useFavoriteToggleMutation() {
     onMutate: async ({ clubId, isFavorited }) => {
       await queryClient.cancelQueries({ queryKey: favoriteQueryKeys.ids() });
 
-      const previousIds = queryClient.getQueryData<number[]>(favoriteQueryKeys.ids());
+      const previousIds = queryClient.getQueryData<FavoriteIds>(favoriteQueryKeys.ids());
 
-      queryClient.setQueryData<number[]>(favoriteQueryKeys.ids(), (currentIds) => {
-        const ids = currentIds ?? [];
-        if (isFavorited) {
-          return ids.filter((id) => id !== clubId);
-        }
-        return [...ids, clubId];
+      queryClient.setQueryData<FavoriteIds>(favoriteQueryKeys.ids(), (current) => {
+        const ids = current?.clubIds ?? [];
+        const next = isFavorited
+          ? ids.filter((id) => id !== clubId)
+          : [...ids, clubId];
+        return { clubIds: next };
       });
 
       return { previousIds };
