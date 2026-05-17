@@ -17,12 +17,14 @@ export function NotificationBell() {
   const authStatus = useAuthStore((state) => state.status);
   const isAuthenticated = authStatus === 'authenticated';
 
+  const [open, setOpen] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
+
   const unreadCountQuery = useUnreadCountQuery(isAuthenticated);
-  const listQuery = useNotificationListQuery(false);
+  const listQuery = useNotificationListQuery(false, isAuthenticated && hasOpened);
   const readMutation = useNotificationReadMutation();
   const readAllMutation = useNotificationReadAllMutation();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export function NotificationBell() {
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((previous) => !previous)}
+        onClick={() => { setHasOpened(true); setOpen((previous) => !previous); }}
         aria-label={`알림 ${unreadCount}개`}
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-graysoft"
       >

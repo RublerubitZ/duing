@@ -1,5 +1,3 @@
-'use client';
-
 import type { Notification } from '@duing/types';
 
 type Props = {

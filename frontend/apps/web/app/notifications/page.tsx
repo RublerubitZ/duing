@@ -7,17 +7,25 @@ import {
   useNotificationReadMutation,
   useNotificationReadAllMutation,
 } from '@duing/hooks';
+import { useAuthStore } from '@duing/stores';
 import type { Notification } from '@duing/types';
 import { toLinkRoute } from '../_lib/route';
 import { NotificationItem } from './_components/NotificationItem';
 
 export default function NotificationsPage() {
+  const authStatus = useAuthStore((state) => state.status);
+  const router = useRouter();
   const [unreadOnly, setUnreadOnly] = useState(false);
-  const listQuery = useNotificationListQuery(unreadOnly);
+  const listQuery = useNotificationListQuery(unreadOnly, authStatus === 'authenticated');
   const readMutation = useNotificationReadMutation();
   const readAllMutation = useNotificationReadAllMutation();
-  const router = useRouter();
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (authStatus === 'unauthenticated') {
+      router.replace('/login?next=/notifications');
+    }
+  }, [authStatus, router]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -30,6 +38,10 @@ export default function NotificationsPage() {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [listQuery.hasNextPage, listQuery.isFetchingNextPage, listQuery.fetchNextPage]);
+
+  if (authStatus !== 'authenticated') {
+    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+  }
 
   const allNotifications = listQuery.data?.pages.flatMap((page) => page.content) ?? [];
   const bucketed = groupByTimeBucket(allNotifications);
