@@ -16,6 +16,7 @@ import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
@@ -47,6 +48,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final ClubMemberRepository clubMemberRepository;
     private final ClubAuthService clubAuthService;
     private final InterviewNotificationService interviewNotificationService;
+    private final ApplicationDraftService applicationDraftService;
 
     @Override
     @Transactional
@@ -80,7 +82,9 @@ public class GeneralApplicationService implements ApplicationService {
         validateAnswersAgainstForm(recruitment, submitApplicationCommand.answers());
 
         Application application = Application.submit(recruitment, user, submitApplicationCommand.answers());
-        return applicationRepository.save(application).getId();
+        Long savedApplicationId = applicationRepository.save(application).getId();
+        applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
+        return savedApplicationId;
     }
 
     @Override

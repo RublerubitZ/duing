@@ -12,6 +12,7 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -32,6 +33,7 @@ class MyApplicationDetailAccessTest {
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
+    private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -39,7 +41,8 @@ class MyApplicationDetailAccessTest {
             userRepository,
             clubMemberRepository,
             clubAuthService,
-            interviewNotificationService);
+            interviewNotificationService,
+            applicationDraftService);
 
     @Test
     @DisplayName("다른 사용자의 지원 상세를 조회하면 ForbiddenApplicationAccessException 이 발생한다")

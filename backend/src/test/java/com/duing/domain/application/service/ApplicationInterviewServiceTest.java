@@ -17,6 +17,7 @@ import com.duing.domain.application.service.dto.command.UpdateInterviewCommand;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -36,6 +37,7 @@ class ApplicationInterviewServiceTest {
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
+    private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -43,7 +45,8 @@ class ApplicationInterviewServiceTest {
             userRepository,
             clubMemberRepository,
             clubAuthService,
-            interviewNotificationService);
+            interviewNotificationService,
+            applicationDraftService);
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처
