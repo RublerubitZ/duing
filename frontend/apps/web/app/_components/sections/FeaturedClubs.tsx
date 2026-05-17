@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight } from '@/components/duing/Icon';
+import { ArrowRight } from '@/components/duing/Icon';
 import { Sparkle } from '@/components/duing/Sparkle';
 import { featuredClubs, type FeaturedClub } from '../../_mocks';
 
@@ -14,22 +14,12 @@ export function FeaturedClubs() {
             </div>
             <h2 className="text-[44px]">지금 가장 활발한 곳</h2>
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              aria-label="이전"
-              className="btn btn-secondary grid h-10 w-10 place-items-center rounded-full p-0"
-            >
-              <ArrowLeft />
-            </button>
-            <button
-              type="button"
-              aria-label="다음"
-              className="btn btn-primary grid h-10 w-10 place-items-center rounded-full p-0"
-            >
-              <ArrowRight />
-            </button>
-          </div>
+          <Link
+            href="/clubs"
+            className="flex items-center gap-1.5 text-sm font-semibold text-ink hover:gap-2"
+          >
+            전체 보기 <ArrowRight />
+          </Link>
         </div>
         <div className="grid gap-5 md:grid-cols-4">
           {featuredClubs.map((club) => (

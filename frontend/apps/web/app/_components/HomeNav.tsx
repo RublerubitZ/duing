@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BrandMark } from '@/components/duing/BrandMark';
+import { HomeNavAuthSlot } from './HomeNavAuthSlot';
 
 const inactiveLink = 'relative py-1 text-charcoal-3 hover:text-charcoal';
 const activeLink = 'relative py-1 text-ink-deep';
@@ -34,16 +35,8 @@ export function HomeNav() {
             </Link>
           </li>
         </ul>
-        <div className="ml-auto flex items-center gap-2.5">
-          <Link
-            href="/login"
-            className="grid h-10 place-items-center rounded-full px-4 text-[13px] font-semibold text-charcoal-2 hover:bg-graysoft"
-          >
-            로그인
-          </Link>
-          <Link href="/signup" className="btn btn-primary btn-sm rounded-full px-4">
-            가입하기
-          </Link>
+        <div className="ml-auto">
+          <HomeNavAuthSlot />
         </div>
       </nav>
     </header>
