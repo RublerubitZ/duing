@@ -35,14 +35,14 @@ public class ClubPhotoController implements ClubPhotoApi {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<Long>> createPhoto(
+    public ResponseEntity<ApiResponse<ClubPhotoResponse>> createPhoto(
             @PathVariable Long clubId,
             @Valid @RequestBody CreateClubPhotoRequest createClubPhotoRequest,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        Long photoId = clubPhotoService.create(
-                createClubPhotoRequest.toCommand(clubId, currentUser.id()));
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(photoId));
+        ClubPhotoResponse created = ClubPhotoResponse.from(clubPhotoService.create(
+                createClubPhotoRequest.toCommand(clubId, currentUser.id())));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(created));
     }
 
     @Override

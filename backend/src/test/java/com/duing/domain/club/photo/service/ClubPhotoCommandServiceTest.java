@@ -52,9 +52,9 @@ class ClubPhotoCommandServiceTest {
         clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
 
         Long firstId = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), officer.getId(), "k1.jpg", "첫번째", 100, 100));
+                club.getId(), officer.getId(), "k1.jpg", "첫번째", 100, 100)).id();
         Long secondId = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), officer.getId(), "k2.jpg", "두번째", 100, 100));
+                club.getId(), officer.getId(), "k2.jpg", "두번째", 100, 100)).id();
 
         assertThat(clubPhotoRepository.findById(firstId).orElseThrow().getDisplayOrder()).isEqualTo(0);
         assertThat(clubPhotoRepository.findById(secondId).orElseThrow().getDisplayOrder()).isEqualTo(1);
@@ -79,7 +79,7 @@ class ClubPhotoCommandServiceTest {
         Club club = saveActiveClub("두잉포토3");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Long photoId = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), leader.getId(), "k.jpg", "원본", 1, 1));
+                club.getId(), leader.getId(), "k.jpg", "원본", 1, 1)).id();
 
         clubPhotoService.updateCaption(new UpdateClubPhotoCommand(
                 club.getId(), leader.getId(), photoId, "수정됨"));
@@ -98,7 +98,7 @@ class ClubPhotoCommandServiceTest {
         clubMemberRepository.save(ClubMember.asLeader(clubA, leader));
         clubMemberRepository.save(ClubMember.asLeader(clubB, leader));
         Long photoInB = clubPhotoService.create(new CreateClubPhotoCommand(
-                clubB.getId(), leader.getId(), "kb.jpg", null, null, null));
+                clubB.getId(), leader.getId(), "kb.jpg", null, null, null)).id();
 
         assertThatThrownBy(() -> clubPhotoService.updateCaption(new UpdateClubPhotoCommand(
                 clubA.getId(), leader.getId(), photoInB, "x"
@@ -112,11 +112,11 @@ class ClubPhotoCommandServiceTest {
         Club club = saveActiveClub("두잉포토5");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Long p1 = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), leader.getId(), "1.jpg", null, null, null));
+                club.getId(), leader.getId(), "1.jpg", null, null, null)).id();
         Long p2 = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), leader.getId(), "2.jpg", null, null, null));
+                club.getId(), leader.getId(), "2.jpg", null, null, null)).id();
         Long p3 = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), leader.getId(), "3.jpg", null, null, null));
+                club.getId(), leader.getId(), "3.jpg", null, null, null)).id();
 
         clubPhotoService.reorder(new ReorderClubPhotosCommand(
                 club.getId(), leader.getId(),
@@ -134,9 +134,9 @@ class ClubPhotoCommandServiceTest {
         Club club = saveActiveClub("두잉포토6");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Long p1 = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), leader.getId(), "1.jpg", null, null, null));
+                club.getId(), leader.getId(), "1.jpg", null, null, null)).id();
         Long p2 = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), leader.getId(), "2.jpg", null, null, null));
+                club.getId(), leader.getId(), "2.jpg", null, null, null)).id();
 
         assertThatThrownBy(() -> clubPhotoService.reorder(new ReorderClubPhotosCommand(
                 club.getId(), leader.getId(),
@@ -154,9 +154,9 @@ class ClubPhotoCommandServiceTest {
         Club club = saveActiveClub("두잉포토7");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Long p1 = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), leader.getId(), "1.jpg", null, null, null));
+                club.getId(), leader.getId(), "1.jpg", null, null, null)).id();
         Long p2 = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), leader.getId(), "2.jpg", null, null, null));
+                club.getId(), leader.getId(), "2.jpg", null, null, null)).id();
 
         assertThatThrownBy(() -> clubPhotoService.reorder(new ReorderClubPhotosCommand(
                 club.getId(), leader.getId(),
@@ -171,7 +171,7 @@ class ClubPhotoCommandServiceTest {
         Club club = saveActiveClub("두잉포토8");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Long p1 = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), leader.getId(), "1.jpg", null, null, null));
+                club.getId(), leader.getId(), "1.jpg", null, null, null)).id();
 
         clubPhotoService.delete(club.getId(), leader.getId(), p1);
 
@@ -185,11 +185,11 @@ class ClubPhotoCommandServiceTest {
         Club club = saveActiveClub("두잉포토9");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Long p1 = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), leader.getId(), "same.jpg", null, null, null));
+                club.getId(), leader.getId(), "same.jpg", null, null, null)).id();
         clubPhotoService.delete(club.getId(), leader.getId(), p1);
 
         Long p2 = clubPhotoService.create(new CreateClubPhotoCommand(
-                club.getId(), leader.getId(), "same.jpg", null, null, null));
+                club.getId(), leader.getId(), "same.jpg", null, null, null)).id();
 
         assertThat(clubPhotoRepository.findById(p2).orElseThrow().getDisplayOrder()).isEqualTo(0);
     }

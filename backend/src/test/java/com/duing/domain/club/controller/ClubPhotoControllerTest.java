@@ -80,7 +80,10 @@ class ClubPhotoControllerTest {
                 .when()
                     .post("/api/v1/clubs/{clubId}/photos", club.getId())
                 .then()
-                    .statusCode(HttpStatus.CREATED.value());
+                    .statusCode(HttpStatus.CREATED.value())
+                    .body("data.storageKey", org.hamcrest.Matchers.equalTo("k.jpg"))
+                    .body("data.caption", org.hamcrest.Matchers.equalTo("사진"))
+                    .body("data.displayOrder", org.hamcrest.Matchers.equalTo(0));
     }
 
     @Test

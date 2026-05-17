@@ -38,7 +38,7 @@ public class GeneralClubPhotoService implements ClubPhotoService {
 
     @Override
     @Transactional
-    public Long create(CreateClubPhotoCommand command) {
+    public ClubPhotoQuery create(CreateClubPhotoCommand command) {
         clubAuthService.requireManager(command.requesterId(), command.clubId());
         Club club = clubRepository.findById(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
@@ -48,7 +48,7 @@ public class GeneralClubPhotoService implements ClubPhotoService {
                 club, command.storageKey(), command.caption(),
                 command.width(), command.height(), nextOrder
         );
-        return clubPhotoRepository.save(photo).getId();
+        return ClubPhotoQuery.from(clubPhotoRepository.save(photo));
     }
 
     @Override

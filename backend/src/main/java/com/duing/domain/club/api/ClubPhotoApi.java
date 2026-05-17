@@ -33,7 +33,7 @@ public interface ClubPhotoApi {
             description = "운영진이 storageKey 와 메타데이터를 보내 사진을 등록한다. displayOrder 는 자동 부여.")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/clubs/{clubId}/photos")
-    ResponseEntity<ApiResponse<Long>> createPhoto(
+    ResponseEntity<ApiResponse<ClubPhotoResponse>> createPhoto(
             @PathVariable Long clubId,
             @Valid @RequestBody CreateClubPhotoRequest createClubPhotoRequest,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser

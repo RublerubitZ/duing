@@ -9,7 +9,7 @@ import java.util.List;
 public interface ClubPhotoService {
     List<ClubPhotoQuery> getPhotosByClubId(Long clubId);
 
-    Long create(CreateClubPhotoCommand command);
+    ClubPhotoQuery create(CreateClubPhotoCommand command);
 
     void updateCaption(UpdateClubPhotoCommand command);
 
