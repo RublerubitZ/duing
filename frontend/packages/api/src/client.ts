@@ -27,6 +27,11 @@ import type {
   StatsSummary,
   StatsDailyPoint,
   StatsFunnel,
+  FavoriteClub,
+  FavoriteIds,
+  ApplicationDraft,
+  UpsertDraftPayload,
+  Notification,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -103,6 +108,23 @@ export type DuingApiClient = {
     summary(recruitmentId: number): Promise<StatsSummary>;
     daily(recruitmentId: number): Promise<StatsDailyPoint[]>;
     funnel(recruitmentId: number): Promise<StatsFunnel>;
+  };
+  favorites: {
+    list(page: number, size: number): Promise<PageResponse<FavoriteClub>>;
+    ids(): Promise<FavoriteIds>;
+    add(clubId: number): Promise<number>;
+    remove(clubId: number): Promise<void>;
+  };
+  drafts: {
+    get(recruitmentId: number): Promise<ApplicationDraft>;
+    upsert(recruitmentId: number, payload: UpsertDraftPayload): Promise<void>;
+    remove(recruitmentId: number): Promise<void>;
+  };
+  notifications: {
+    list(unreadOnly: boolean, page: number, size: number): Promise<PageResponse<Notification>>;
+    unreadCount(): Promise<{ count: number }>;
+    markRead(notificationId: number): Promise<void>;
+    markAllRead(): Promise<void>;
   };
   raw: KyInstance;
 };
@@ -225,6 +247,34 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<StatsFunnel>(
           http.get(`leader/recruitments/${recruitmentId}/stats/funnel`),
         ),
+    },
+    favorites: {
+      list: (page, size) =>
+        jsonOk<PageResponse<FavoriteClub>>(
+          http.get('me/favorites', { searchParams: { page, size } }),
+        ),
+      ids: () => jsonOk<FavoriteIds>(http.get('me/favorites/ids')),
+      add: (clubId) => jsonOk<number>(http.post(`me/favorites/${clubId}`)),
+      remove: (clubId) => jsonVoid(http.delete(`me/favorites/${clubId}`)),
+    },
+    drafts: {
+      get: (recruitmentId) =>
+        jsonOk<ApplicationDraft>(http.get(`recruitments/${recruitmentId}/draft`)),
+      upsert: (recruitmentId, payload) =>
+        jsonVoid(http.put(`recruitments/${recruitmentId}/draft`, { json: payload })),
+      remove: (recruitmentId) =>
+        jsonVoid(http.delete(`recruitments/${recruitmentId}/draft`)),
+    },
+    notifications: {
+      list: (unreadOnly, page, size) =>
+        jsonOk<PageResponse<Notification>>(
+          http.get('me/notifications', { searchParams: { unreadOnly, page, size } }),
+        ),
+      unreadCount: () =>
+        jsonOk<{ count: number }>(http.get('me/notifications/unread-count')),
+      markRead: (notificationId) =>
+        jsonVoid(http.patch(`me/notifications/${notificationId}/read`)),
+      markAllRead: () => jsonVoid(http.patch('me/notifications/read-all')),
     },
     raw: http,
   };
