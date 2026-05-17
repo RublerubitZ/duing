@@ -1,4 +1,4 @@
-import { SparkleFull } from '../Sparkle';
+import { SparkleFull } from '@/components/duing/Sparkle';
 
 type Testimonial = {
   quote: string;

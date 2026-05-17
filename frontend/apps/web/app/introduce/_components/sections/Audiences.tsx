@@ -1,5 +1,5 @@
-import { ArrowRight, Check } from '../Icon';
-import { SparkleFull } from '../Sparkle';
+import { ArrowRight, Check } from '@/components/duing/Icon';
+import { SparkleFull } from '@/components/duing/Sparkle';
 
 const STUDENT_FEATURES: ReadonlyArray<string> = [
   '탐색 · 검색 · 카테고리 필터',

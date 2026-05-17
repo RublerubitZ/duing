@@ -1,5 +1,5 @@
-import { Check } from '../Icon';
-import { SparkleFull } from '../Sparkle';
+import { Check } from '@/components/duing/Icon';
+import { SparkleFull } from '@/components/duing/Sparkle';
 import { promoApplicants, promoClubs } from '../../_mocks';
 
 const FILTER_CHIPS: ReadonlyArray<string> = ['전체', '학술', '음악', '운동', 'IT'];

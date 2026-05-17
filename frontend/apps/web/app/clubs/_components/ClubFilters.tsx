@@ -1,7 +1,7 @@
 'use client';
 
 import type { ClubCategory, ClubSearchParams } from '@duing/types';
-import { cn } from '../_lib/cn';
+import { cn } from '../../_lib/cn';
 
 const CATEGORIES: { value: ClubCategory; label: string }[] = [
   { value: 'ACADEMIC', label: '학술' },

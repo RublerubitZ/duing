@@ -1,5 +1,5 @@
-import { BrandMark } from './BrandMark';
-import { ArrowRight } from './Icon';
+import { BrandMark } from '@/components/duing/BrandMark';
+import { ArrowRight } from '@/components/duing/Icon';
 
 const NAV_ITEMS = ['소개', '주요 기능', '사용법', '후기'] as const;
 
