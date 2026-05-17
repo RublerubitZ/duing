@@ -5,6 +5,7 @@ import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
 import com.duing.domain.notification.service.dto.query.NotificationQuery;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,8 +34,12 @@ public class GeneralNotificationService implements NotificationService {
                 command.payload(),
                 command.dedupKey()
         );
-        notificationRepository.save(notification);
-        return true;
+        try {
+            notificationRepository.saveAndFlush(notification);
+            return true;
+        } catch (DataIntegrityViolationException collision) {
+            return false;
+        }
     }
 
     @Override

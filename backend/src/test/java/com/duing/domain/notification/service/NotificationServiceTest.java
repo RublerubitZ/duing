@@ -1,6 +1,9 @@
 package com.duing.domain.notification.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.entity.NotificationType;
@@ -17,6 +20,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -121,6 +125,30 @@ class NotificationServiceTest {
 
         long ownerUnread = notificationService.unreadCount(owner.getId());
         assertThat(ownerUnread).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("createIfAbsent 는 pre-check 통과 후 동시 저장이 발생해 DataIntegrityViolationException 이 나도 false 를 반환한다")
+    void createIfAbsentReturnsFalseOnConcurrentSaveCollision() {
+        NotificationRepository mockedRepository = mock(NotificationRepository.class);
+        when(mockedRepository.existsByUserIdAndDedupKey(any(), any())).thenReturn(false);
+        when(mockedRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("unique constraint violation"));
+
+        GeneralNotificationService serviceWithMockedRepository = new GeneralNotificationService(mockedRepository);
+
+        CreateNotificationCommand command = new CreateNotificationCommand(
+                1L,
+                NotificationType.RECRUITMENT_OPENED,
+                "충돌 알림",
+                "동시 저장 충돌 시나리오",
+                "/clubs/1",
+                Map.of(),
+                "COLLISION:r=99"
+        );
+
+        boolean result = serviceWithMockedRepository.createIfAbsent(command);
+
+        assertThat(result).isFalse();
     }
 
     private User saveUser(String name) {
