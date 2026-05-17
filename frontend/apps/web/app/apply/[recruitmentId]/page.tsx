@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useRef, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
@@ -59,11 +59,11 @@ function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
     recruitment.questions.map((_, idx) => ({ questionId: idx, value: '' })),
   );
   const [error, setError] = useState<string | null>(null);
-  const initializedRef = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
 
   // 임시저장에서 prefill (최초 1회)
   useEffect(() => {
-    if (initializedRef.current) return;
+    if (hydrated) return;
     if (draftQuery.isLoading) return;
     if (draftQuery.data?.exists && draftQuery.data.answers.length > 0) {
       setAnswers(
@@ -73,12 +73,12 @@ function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
         })),
       );
     }
-    initializedRef.current = true;
-  }, [draftQuery.isLoading, draftQuery.data, recruitment.questions]);
+    setHydrated(true);
+  }, [draftQuery.isLoading, draftQuery.data, recruitment.questions, hydrated]);
 
   const autosaveStatus = useAutosaveDraft(answers, {
     recruitmentId,
-    enabled: initializedRef.current && !draftQuery.isLoading,
+    enabled: hydrated && !draftQuery.isLoading,
   });
 
   const isClosedByDraft = autosaveStatus.kind === 'closed';

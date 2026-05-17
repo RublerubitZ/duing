@@ -19,6 +19,7 @@ export function useAutosaveDraft(
   { recruitmentId, enabled }: Options,
 ) {
   const mutation = useApplicationDraftMutation(recruitmentId);
+  const { mutate } = mutation;
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>({ kind: 'idle' });
   const lastSerializedRef = useRef<string | null>(null);
 
@@ -29,7 +30,7 @@ export function useAutosaveDraft(
 
     const timer = setTimeout(() => {
       setAutosaveStatus({ kind: 'saving' });
-      mutation.mutate(
+      mutate(
         { answers },
         {
           onSuccess: () => {
@@ -51,7 +52,7 @@ export function useAutosaveDraft(
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [answers, enabled, recruitmentId, mutation, autosaveStatus.kind]);
+  }, [answers, enabled, recruitmentId, mutate, autosaveStatus.kind]);
 
   return autosaveStatus;
 }
