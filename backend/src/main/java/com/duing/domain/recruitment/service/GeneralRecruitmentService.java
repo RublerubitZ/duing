@@ -4,7 +4,9 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.exception.RecruitmentException;
@@ -17,6 +19,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +31,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
     private final RecruitmentRepository recruitmentRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -62,7 +66,19 @@ public class GeneralRecruitmentService implements RecruitmentService {
             recruitment.attachForm(form);
         }
 
-        return recruitmentRepository.save(recruitment).getId();
+        Recruitment saved = recruitmentRepository.save(recruitment);
+
+        if (saved.getStatus() == RecruitmentStatus.OPEN
+                && !saved.getStartDate().isAfter(LocalDate.now())) {
+            eventPublisher.publishEvent(new RecruitmentOpenedEvent(
+                    saved.getId(),
+                    club.getId(),
+                    club.getName(),
+                    saved.getTitle(),
+                    saved.getEndDate()));
+        }
+
+        return saved.getId();
     }
 
     @Override

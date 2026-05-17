@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 class MyApplicationDetailAccessTest {
 
@@ -34,6 +35,7 @@ class MyApplicationDetailAccessTest {
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
+    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -42,7 +44,8 @@ class MyApplicationDetailAccessTest {
             clubMemberRepository,
             clubAuthService,
             interviewNotificationService,
-            applicationDraftService);
+            applicationDraftService,
+            eventPublisher);
 
     @Test
     @DisplayName("다른 사용자의 지원 상세를 조회하면 ForbiddenApplicationAccessException 이 발생한다")

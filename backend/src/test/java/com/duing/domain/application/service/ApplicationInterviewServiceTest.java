@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 
 class ApplicationInterviewServiceTest {
@@ -38,6 +39,7 @@ class ApplicationInterviewServiceTest {
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
+    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -46,7 +48,8 @@ class ApplicationInterviewServiceTest {
             clubMemberRepository,
             clubAuthService,
             interviewNotificationService,
-            applicationDraftService);
+            applicationDraftService,
+            eventPublisher);
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처
