@@ -19,7 +19,7 @@ type Props = { favorite: FavoriteClub };
 
 export function FavoriteClubCard({ favorite }: Props) {
   return (
-    <li>
+    <li className="relative">
       <Link
         href={`/clubs/${favorite.clubId}`}
         className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 transition hover:border-slate-400 hover:shadow-sm"
@@ -46,11 +46,10 @@ export function FavoriteClubCard({ favorite }: Props) {
             </span>
           )}
         </div>
-
-        <div className="flex-shrink-0">
-          <FavoriteToggleButton clubId={favorite.clubId} size="sm" />
-        </div>
       </Link>
+      <div className="absolute right-2 top-2">
+        <FavoriteToggleButton clubId={favorite.clubId} size="sm" />
+      </div>
     </li>
   );
 }
