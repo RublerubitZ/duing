@@ -4,6 +4,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
+import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
@@ -13,6 +14,7 @@ import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
@@ -32,6 +34,7 @@ public class GeneralClubService implements ClubService {
     private final UserRepository userRepository;
     private final ClubMemberRepository clubMemberRepository;
     private final ClubPhotoRepository clubPhotoRepository;
+    private final ClubAuthService clubAuthService;
 
     @Override
     @Transactional
@@ -74,6 +77,33 @@ public class GeneralClubService implements ClubService {
         return clubMemberRepository.findFirstByClubIdAndRole(clubId, ClubMemberRole.LEADER)
                 .map(leader -> ClubDetailQuery.of(club, leader.getUser().getId(), leader.getUser().getName(), photos))
                 .orElseGet(() -> ClubDetailQuery.of(club, null, null, photos));
+    }
+
+    @Override
+    @Transactional
+    public void update(UpdateClubCommand updateClubCommand) {
+        clubAuthService.requireLeader(updateClubCommand.requesterId(), updateClubCommand.clubId());
+
+        Club club = clubRepository.findById(updateClubCommand.clubId())
+                .orElseThrow(ClubException.ClubNotFoundException::new);
+
+        String newName = updateClubCommand.name();
+        if (newName != null && !newName.equals(club.getName())
+                && clubRepository.existsByName(newName)) {
+            throw new ClubException.DuplicateClubNameException();
+        }
+
+        club.update(
+                newName,
+                updateClubCommand.category(),
+                updateClubCommand.division(),
+                updateClubCommand.description(),
+                updateClubCommand.logoUrl(),
+                updateClubCommand.coverUrl(),
+                updateClubCommand.tags(),
+                updateClubCommand.snsLinks(),
+                updateClubCommand.faqs()
+        );
     }
 
     @Override

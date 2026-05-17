@@ -1,6 +1,7 @@
 package com.duing.domain.club.service;
 
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
+import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
@@ -15,6 +16,8 @@ public interface ClubService {
     Page<ClubSummaryQuery> search(ClubSearchCondition condition, Pageable pageable);
 
     ClubDetailQuery getById(Long clubId);
+
+    void update(UpdateClubCommand updateClubCommand);
 
     void updateStatus(UpdateClubStatusCommand updateClubStatusCommand);
 }
