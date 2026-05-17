@@ -124,7 +124,7 @@ public class Club extends BaseEntity {
         if (description != null) this.description = description;
         if (logoUrl != null) this.logoUrl = logoUrl;
         if (coverUrl != null) this.coverUrl = coverUrl;
-        if (tags != null) this.tags = tags.toArray(new String[0]);
+        if (tags != null) this.tags = tags.stream().distinct().toArray(String[]::new);
         if (snsLinks != null) this.snsLinks = new ArrayList<>(snsLinks);
         if (faqs != null) this.faqs = new ArrayList<>(faqs);
     }

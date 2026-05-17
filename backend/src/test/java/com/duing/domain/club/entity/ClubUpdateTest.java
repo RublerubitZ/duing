@@ -37,6 +37,17 @@ class ClubUpdateTest {
     }
 
     @Test
+    @DisplayName("update 는 tags 중복을 제거한다")
+    void dedupesTags() {
+        Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");
+
+        club.update(null, null, null, null, null, null,
+                List.of("코딩", "스터디", "코딩"), null, null);
+
+        assertThat(club.getTags()).containsExactly("코딩", "스터디");
+    }
+
+    @Test
     @DisplayName("update 는 모든 인자가 null 이면 기존 값을 유지한다")
     void keepsExistingValuesWhenAllArgsNull() {
         Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");

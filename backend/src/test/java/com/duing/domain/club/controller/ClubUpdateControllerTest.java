@@ -158,6 +158,36 @@ class ClubUpdateControllerTest {
     }
 
     @Test
+    @DisplayName("snsLinks 의 platform 이 허용 목록 외이면 400 을 반환한다")
+    void invalidSnsPlatformReturns400() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("snsLinks",
+                            java.util.List.of(Map.of("platform", "TIKTOK", "url", "https://tiktok.com/@x"))))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("faqs 의 question 이 빈 문자열이면 400 을 반환한다")
+    void invalidFaqQuestionReturns400() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("faqs",
+                            java.util.List.of(Map.of("question", "", "answer", "답", "order", 0))))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("tags 가 21개면 400 을 반환한다")
     void tooManyTagsReturns400() {
         String[] tooMany = new String[21];
