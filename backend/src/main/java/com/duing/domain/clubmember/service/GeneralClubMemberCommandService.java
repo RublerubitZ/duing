@@ -12,7 +12,6 @@ import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
 import com.duing.domain.clubmember.service.dto.query.TransferLeaderQuery;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -95,7 +94,7 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
 
         // 잠금 획득 후 재검증: 다른 트랜잭션이 먼저 인계를 끝낸 경우 본 요청자는 더 이상 LEADER 가 아니다.
         if (currentLeader.getRole() != ClubMemberRole.LEADER) {
-            throw new AccessDeniedException("더 이상 회장이 아닙니다.");
+            throw new ClubMemberException.ConcurrentTransferDetected();
         }
         if (!target.getClub().getId().equals(command.clubId())
                 || target.getRole() == ClubMemberRole.LEADER) {
