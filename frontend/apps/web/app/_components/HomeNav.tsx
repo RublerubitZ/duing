@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { HomeNavAuthSlot } from './HomeNavAuthSlot';
+import { NotificationBell } from './NotificationBell';
 
 const inactiveLink = 'relative py-1 text-charcoal-3 hover:text-charcoal';
 const activeLink = 'relative py-1 text-ink-deep';
@@ -35,7 +36,8 @@ export function HomeNav() {
             </Link>
           </li>
         </ul>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <NotificationBell />
           <HomeNavAuthSlot />
         </div>
       </nav>

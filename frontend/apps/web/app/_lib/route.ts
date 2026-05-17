@@ -14,3 +14,14 @@ import type { Route } from 'next';
 export function toRoute(path: `/${string}`): Route {
   return path as Route;
 }
+
+/**
+ * 백엔드에서 오는 동적 linkUrl(string | null)을 Route 로 변환.
+ * 슬래시로 시작하는 경우에만 Route 로 취급하고, 아닌 경우 null 을 반환해
+ * 호출 측이 타입 안전하게 처리하도록 한다.
+ */
+export function toLinkRoute(url: string | null): Route | null {
+  if (!url) return null;
+  if (!url.startsWith('/')) return null;
+  return url as Route;
+}
