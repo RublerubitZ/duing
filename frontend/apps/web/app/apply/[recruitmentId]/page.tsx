@@ -1,10 +1,17 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import type { RecruitmentDetail } from '@duing/types';
-import { useRecruitmentDetailQuery, useSubmitApplicationMutation } from '@duing/hooks';
+import { useQueryClient } from '@tanstack/react-query';
+import type { DraftAnswer, RecruitmentDetail } from '@duing/types';
+import {
+  useRecruitmentDetailQuery,
+  useSubmitApplicationMutation,
+  useApplicationDraftQuery,
+  draftQueryKeys,
+} from '@duing/hooks';
+import { useAutosaveDraft } from './_hooks/useAutosaveDraft';
 import { toRoute } from '../../_lib/route';
 
 export default function ApplyPage({
@@ -33,7 +40,6 @@ export default function ApplyPage({
   }
 
   // 데이터 도착이 보장된 시점에 자식 컴포넌트를 마운트해 useState 초기값을 props 에서 직접 받게 한다.
-  // useEffect 로 서버 상태를 클라 상태에 복사하는 안티패턴을 피한다.
   return <ApplyForm recruitment={recruitment} recruitmentId={recruitmentId} />;
 }
 
@@ -44,20 +50,60 @@ type ApplyFormProps = {
 
 function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const submit = useSubmitApplicationMutation(recruitmentId);
-  const [answers, setAnswers] = useState<string[]>(() =>
-    recruitment.questions.map(() => ''),
+  const draftQuery = useApplicationDraftQuery(recruitmentId);
+
+  // answers 상태: DraftAnswer[] 형태로 관리 (questionId = index 기반)
+  const [answers, setAnswers] = useState<DraftAnswer[]>(() =>
+    recruitment.questions.map((_, idx) => ({ questionId: idx, value: '' })),
   );
   const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  // 임시저장에서 prefill (최초 1회)
+  useEffect(() => {
+    if (hydrated) return;
+    if (draftQuery.isLoading) return;
+    if (draftQuery.data?.exists && draftQuery.data.answers.length > 0) {
+      setAnswers(
+        recruitment.questions.map((_, idx) => ({
+          questionId: idx,
+          value: draftQuery.data.answers.find((a) => a.questionId === idx)?.value ?? '',
+        })),
+      );
+    }
+    setHydrated(true);
+  }, [draftQuery.isLoading, draftQuery.data, recruitment.questions, hydrated]);
+
+  const autosaveStatus = useAutosaveDraft(answers, {
+    recruitmentId,
+    enabled: hydrated && !draftQuery.isLoading,
+  });
+
+  const isClosedByDraft = autosaveStatus.kind === 'closed';
+
+  function formatTime(date: Date): string {
+    return date.toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     try {
-      const applicationId = await submit.mutateAsync({ answers });
+      const applicationId = await submit.mutateAsync({
+        answers: answers.map((answer) => answer.value),
+      });
+      // 제출 성공 후 임시저장 쿼리 무효화
+      queryClient.invalidateQueries({ queryKey: draftQueryKeys.byRecruitment(recruitmentId) });
       router.push(toRoute(`/me/applications/${applicationId}`));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '지원에 실패했습니다.');
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : '지원에 실패했습니다.');
     }
   }
 
@@ -66,7 +112,27 @@ function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
       <p className="text-sm text-slate-500">{recruitment.clubName}</p>
       <h1 className="mt-1 text-2xl font-bold">{recruitment.title}</h1>
 
-      <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+      {/* 임시저장 상태 표시 */}
+      {isClosedByDraft && (
+        <div className="mt-4 rounded-md bg-rose-50 border border-rose-200 px-4 py-3">
+          <p className="text-sm text-rose-700">
+            모집이 마감되어 더 이상 임시저장되지 않습니다. 제출도 불가합니다.
+          </p>
+        </div>
+      )}
+      {!isClosedByDraft && (
+        <div className="mt-3 h-5 text-xs text-slate-400">
+          {autosaveStatus.kind === 'saving' && <span>저장 중…</span>}
+          {autosaveStatus.kind === 'saved' && (
+            <span>마지막 저장 {formatTime(autosaveStatus.at)}</span>
+          )}
+          {autosaveStatus.kind === 'error' && (
+            <span className="text-amber-600">{autosaveStatus.message}</span>
+          )}
+        </div>
+      )}
+
+      <form className="mt-4 space-y-5" onSubmit={handleSubmit}>
         {recruitment.questions.length === 0 && (
           <p className="text-sm text-slate-500">
             이 모집은 별도 질문이 없습니다. 제출 버튼을 눌러 지원할 수 있습니다.
@@ -80,22 +146,23 @@ function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
             <textarea
               required
               rows={4}
-              value={answers[idx] ?? ''}
+              disabled={isClosedByDraft}
+              value={answers[idx]?.value ?? ''}
               onChange={(event) =>
                 setAnswers((prev) => {
                   const next = prev.slice();
-                  next[idx] = event.target.value;
+                  next[idx] = { questionId: idx, value: event.target.value };
                   return next;
                 })
               }
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-400"
             />
           </label>
         ))}
         {error && <p className="text-sm text-rose-600">{error}</p>}
         <button
           type="submit"
-          disabled={submit.isPending}
+          disabled={submit.isPending || isClosedByDraft}
           className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
         >
           {submit.isPending ? '제출 중…' : '제출'}
