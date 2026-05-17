@@ -24,6 +24,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 
 class RecruitmentUpdateAndCloseServiceTest {
@@ -32,11 +33,13 @@ class RecruitmentUpdateAndCloseServiceTest {
     private final ClubRepository clubRepository = mock(ClubRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
+    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
             clubRepository,
-            clubAuthService
+            clubAuthService,
+            eventPublisher
     );
 
     private static final Long MANAGER_USER_ID = 1L;

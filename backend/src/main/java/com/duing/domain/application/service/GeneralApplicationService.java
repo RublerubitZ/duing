@@ -26,12 +26,14 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.notification.event.InterviewScheduledEvent;
 import com.duing.global.notification.InterviewNotificationService;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +51,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final ClubAuthService clubAuthService;
     private final InterviewNotificationService interviewNotificationService;
     private final ApplicationDraftService applicationDraftService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -181,6 +184,13 @@ public class GeneralApplicationService implements ApplicationService {
         } catch (Exception notificationFailure) {
             log.warn("[면접 알림 발송 실패] applicationId={}", application.getId());
         }
+
+        eventPublisher.publishEvent(new InterviewScheduledEvent(
+                application.getId(),
+                application.getUser().getId(),
+                application.getRecruitment().getClub().getName(),
+                application.getInterviewAt(),
+                application.getInterviewLocation()));
     }
 
     /**
