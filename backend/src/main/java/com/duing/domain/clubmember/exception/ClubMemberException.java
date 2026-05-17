@@ -38,4 +38,42 @@ public class ClubMemberException extends ApplicationException {
             super("해당 동아리의 멤버가 아닙니다.", HttpStatus.FORBIDDEN);
         }
     }
+
+    public static final class NotFound extends ClubMemberException {
+        public NotFound() {
+            super("동아리 멤버를 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
+        }
+    }
+
+    public static final class CannotChangeOwnRole extends ClubMemberException {
+        public CannotChangeOwnRole() {
+            super("본인의 역할은 변경할 수 없습니다.", HttpStatus.CONFLICT);
+        }
+    }
+
+    public static final class CannotRemoveSelf extends ClubMemberException {
+        public CannotRemoveSelf() {
+            super("본인을 강퇴할 수 없습니다.", HttpStatus.CONFLICT);
+        }
+    }
+
+    public static final class CannotModifyLeader extends ClubMemberException {
+        public CannotModifyLeader() {
+            super("회장의 역할은 변경하거나 강퇴할 수 없습니다. 회장 인계를 이용하세요.",
+                    HttpStatus.CONFLICT);
+        }
+    }
+
+    public static final class LeaderCannotLeave extends ClubMemberException {
+        public LeaderCannotLeave() {
+            super("회장은 회장 인계 후에 탈퇴할 수 있습니다.", HttpStatus.CONFLICT);
+        }
+    }
+
+    public static final class TransferTargetInvalid extends ClubMemberException {
+        public TransferTargetInvalid() {
+            super("회장 인계 대상은 같은 동아리의 OFFICER 또는 MEMBER 여야 합니다.",
+                    HttpStatus.BAD_REQUEST);
+        }
+    }
 }
