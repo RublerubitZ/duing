@@ -1,0 +1,24 @@
+package com.duing.domain.clubmember.service;
+
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class ClubMemberQueryService {
+
+    private final ClubMemberRepository clubMemberRepository;
+    private final ClubAuthService clubAuthService;
+
+    public List<ClubMemberQuery> getMembers(Long clubId, Long requesterId) {
+        clubAuthService.requireManager(requesterId, clubId);
+        return clubMemberRepository.findAllByClubIdOrderedByRoleAndJoinedAt(clubId).stream()
+                .map(ClubMemberQuery::from)
+                .toList();
+    }
+}
