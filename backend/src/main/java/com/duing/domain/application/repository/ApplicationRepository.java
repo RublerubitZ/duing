@@ -1,6 +1,7 @@
 package com.duing.domain.application.repository;
 
 import com.duing.domain.application.entity.Application;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -35,4 +36,17 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
             + "LEFT JOIN FETCH r.form "
             + "WHERE a.id = :applicationId")
     Optional<Application> findWithRecruitmentAndClubById(@Param("applicationId") Long applicationId);
+
+    /**
+     * 면접 리마인더 잡용 조회.
+     * interviewAt 이 주어진 윈도 안에 있고, 상태가 INTERVIEW_PENDING 인 지원 목록을 반환한다.
+     */
+    @Query("""
+            select a from Application a
+             where a.status = com.duing.domain.application.entity.ApplicationStatus.INTERVIEW_PENDING
+               and a.interviewAt between :start and :end
+               and a.deletedAt is null
+            """)
+    List<Application> findInterviewBetween(@Param("start") LocalDateTime start,
+                                           @Param("end") LocalDateTime end);
 }

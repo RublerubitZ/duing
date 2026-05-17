@@ -46,6 +46,11 @@ supabase:
     service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
     bucket: ${SUPABASE_STORAGE_BUCKET:duing}
 
+duing:
+  notification:
+    jobs:
+      enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:false}
+
 logging:
   level:
     org.hibernate.SQL: debug
