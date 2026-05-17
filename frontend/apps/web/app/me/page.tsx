@@ -51,6 +51,13 @@ export default function MyPage() {
           <div className="mt-1 text-base font-semibold">내 지원 목록</div>
         </Link>
         <Link
+          href="/me/favorites"
+          className="rounded-xl border border-slate-200 p-5 transition hover:border-slate-400"
+        >
+          <div className="text-sm text-slate-500">내 활동</div>
+          <div className="mt-1 text-base font-semibold">찜한 동아리</div>
+        </Link>
+        <Link
           href="/manage"
           className="rounded-xl border border-slate-200 p-5 transition hover:border-slate-400"
         >

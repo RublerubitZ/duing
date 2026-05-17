@@ -3,6 +3,7 @@
 import { use } from 'react';
 import Link from 'next/link';
 import { useClubDetailQuery, useClubRecruitmentsQuery, useClubPhotosQuery } from '@duing/hooks';
+import { FavoriteToggleButton } from '../../_components/FavoriteToggleButton';
 
 export default function ClubDetailPage({
   params,
@@ -28,13 +29,14 @@ export default function ClubDetailPage({
         {club.logoUrl && (
           <img src={club.logoUrl} alt="" className="h-16 w-16 rounded-full object-cover" />
         )}
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">{club.name}</h1>
           <p className="text-sm text-slate-500">
             {club.division ?? ''}
             {club.leaderName ? ` · 회장 ${club.leaderName}` : ''}
           </p>
         </div>
+        <FavoriteToggleButton clubId={clubId} size="md" />
       </header>
 
       {club.tags.length > 0 && (

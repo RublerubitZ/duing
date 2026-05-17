@@ -5,6 +5,7 @@ import type { ClubSearchParams } from '@duing/types';
 import { useClubListQuery } from '@duing/hooks';
 import { ClubCard } from './_components/ClubCard';
 import { ClubFilters } from './_components/ClubFilters';
+import { FavoriteToggleButton } from '../_components/FavoriteToggleButton';
 
 export default function ClubsPage() {
   const [params, setParams] = useState<ClubSearchParams>({ page: 0, size: 20 });
@@ -38,8 +39,11 @@ export default function ClubsPage() {
             <p className="mb-3 text-sm text-slate-500">총 {clubListQuery.data.totalElements}개</p>
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {clubListQuery.data.content.map((club) => (
-                <li key={club.id}>
+                <li key={club.id} className="relative">
                   <ClubCard club={club} />
+                  <div className="absolute right-2 top-2">
+                    <FavoriteToggleButton clubId={club.id} size="sm" />
+                  </div>
                 </li>
               ))}
             </ul>
