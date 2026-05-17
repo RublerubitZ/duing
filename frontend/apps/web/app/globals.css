@@ -1,3 +1,27 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+
+@font-face {
+  font-family: 'GmarketSans';
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansTTFLight.woff') format('woff');
+}
+@font-face {
+  font-family: 'GmarketSans';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansTTFMedium.woff') format('woff');
+}
+@font-face {
+  font-family: 'GmarketSans';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansTTFBold.woff') format('woff');
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,4 +32,101 @@
 
 body {
   @apply bg-white text-slate-900 antialiased;
+}
+
+/* Duing 디자인 토큰은 .duing 스코프 안에서만 적용되어 다른 라우트에 영향을 주지 않는다 */
+@layer components {
+  .duing {
+    @apply bg-cream text-charcoal font-body;
+    font-feature-settings: 'ss01' on, 'ss02' on, 'cv11' on;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.005em;
+    line-height: 1.5;
+  }
+  .duing h1,
+  .duing h2,
+  .duing h3,
+  .duing h4 {
+    @apply font-display text-ink-deep font-bold tracking-tightx;
+    line-height: 1.1;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-sage-mist text-ink whitespace-nowrap;
+  }
+  .pill-solid {
+    @apply bg-ink text-paper;
+  }
+  .pill-outline {
+    @apply bg-transparent border border-line text-charcoal-2;
+  }
+  .pill-warm {
+    background: #fbefd7;
+    color: #8e6620;
+  }
+  .pill-coral {
+    background: #fce2d9;
+    color: #9a3f23;
+  }
+  .pill-berry {
+    background: #f6dce3;
+    color: #7e2a45;
+  }
+  .pill-sky {
+    background: #dde8f1;
+    color: #2f557a;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-3 rounded-md font-semibold text-sm cursor-pointer transition;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+  }
+  .btn-primary {
+    @apply bg-ink text-paper hover:bg-ink-deep;
+  }
+  .btn-secondary {
+    @apply bg-paper text-ink border border-line hover:border-sage;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-charcoal-2 hover:bg-graysoft hover:text-charcoal;
+  }
+  .btn-big {
+    @apply px-7 py-4 text-base rounded-lg;
+  }
+  .btn-sm {
+    @apply px-3.5 py-2 text-[13px] rounded-sm;
+  }
+
+  .card {
+    @apply bg-paper rounded-lg border border-line;
+  }
+
+  .bg-grid {
+    background-image: radial-gradient(circle, rgba(31, 74, 54, 0.05) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  .brand-mark {
+    @apply font-display font-bold text-[26px] text-ink inline-flex items-baseline leading-none;
+    letter-spacing: -0.04em;
+  }
+  .brand-mark .b-d {
+    color: theme('colors.ink.DEFAULT');
+  }
+  .brand-mark .b-u {
+    color: theme('colors.sage.DEFAULT');
+    margin-left: -7px;
+  }
+  .brand-mark .b-ing {
+    color: theme('colors.charcoal.DEFAULT');
+  }
+  .brand-mark .b-spark {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-left: 2px;
+    align-self: flex-start;
+    transform: translateY(-2px);
+  }
 }
