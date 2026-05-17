@@ -127,7 +127,7 @@ class ClubPhotoControllerTest {
                 .when()
                     .patch("/api/v1/clubs/{clubId}/photos/{photoId}", club.getId(), photo.getId())
                 .then()
-                    .statusCode(HttpStatus.OK.value());
+                    .statusCode(HttpStatus.NO_CONTENT.value());
 
         assertThat(clubPhotoRepository.findById(photo.getId()).orElseThrow().getCaption())
                 .isEqualTo("변경됨");

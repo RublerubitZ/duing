@@ -100,6 +100,8 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     public void delete(Long clubId, Long requesterId, Long photoId) {
         clubAuthService.requireManager(requesterId, clubId);
         ClubPhoto photo = findPhotoInClub(photoId, clubId);
+        // 스펙 §3.2d: Storage 객체 정리는 별도 정리 잡(Phase 5)에서 처리한다.
+        // 여기서는 DB 레코드만 soft-delete.
         clubPhotoRepository.delete(photo);
     }
 

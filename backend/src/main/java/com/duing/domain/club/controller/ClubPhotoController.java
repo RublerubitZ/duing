@@ -46,7 +46,7 @@ public class ClubPhotoController implements ClubPhotoApi {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<Void>> updatePhoto(
+    public ResponseEntity<Void> updatePhoto(
             @PathVariable Long clubId,
             @PathVariable Long photoId,
             @Valid @RequestBody UpdateClubPhotoRequest updateClubPhotoRequest,
@@ -54,7 +54,7 @@ public class ClubPhotoController implements ClubPhotoApi {
     ) {
         clubPhotoService.updateCaption(
                 updateClubPhotoRequest.toCommand(clubId, currentUser.id(), photoId));
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return ResponseEntity.noContent().build();
     }
 
     @Override

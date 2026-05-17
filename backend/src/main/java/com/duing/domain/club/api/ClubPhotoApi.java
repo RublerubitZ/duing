@@ -42,7 +42,7 @@ public interface ClubPhotoApi {
     @Operation(summary = "활동사진 캡션 수정 (LEADER/OFFICER)")
     @SecurityRequirement(name = "bearerAuth")
     @PatchMapping("/clubs/{clubId}/photos/{photoId}")
-    ResponseEntity<ApiResponse<Void>> updatePhoto(
+    ResponseEntity<Void> updatePhoto(
             @PathVariable Long clubId,
             @PathVariable Long photoId,
             @Valid @RequestBody UpdateClubPhotoRequest updateClubPhotoRequest,
