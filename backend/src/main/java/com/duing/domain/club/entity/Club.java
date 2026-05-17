@@ -106,4 +106,26 @@ public class Club extends BaseEntity {
     public void changeStatus(ClubStatus newStatus) {
         this.status = newStatus;
     }
+
+    public void update(
+            String name,
+            ClubCategory category,
+            String division,
+            String description,
+            String logoUrl,
+            String coverUrl,
+            List<String> tags,
+            List<ClubSnsLink> snsLinks,
+            List<ClubFaq> faqs
+    ) {
+        if (name != null) this.name = name;
+        if (category != null) this.category = category;
+        if (division != null) this.division = division;
+        if (description != null) this.description = description;
+        if (logoUrl != null) this.logoUrl = logoUrl;
+        if (coverUrl != null) this.coverUrl = coverUrl;
+        if (tags != null) this.tags = tags.toArray(new String[0]);
+        if (snsLinks != null) this.snsLinks = new ArrayList<>(snsLinks);
+        if (faqs != null) this.faqs = new ArrayList<>(faqs);
+    }
 }
