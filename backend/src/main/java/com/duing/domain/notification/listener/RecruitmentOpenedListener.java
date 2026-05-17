@@ -7,12 +7,14 @@ import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class RecruitmentOpenedListener {
 
     private final ClubFavoriteRepository favoriteRepository;
@@ -25,7 +27,8 @@ public class RecruitmentOpenedListener {
         String title = "찜한 " + event.clubName() + "의 새 모집이 시작됐어요";
         String body = event.recruitmentTitle() + " · 마감 " + event.endDate();
 
-        favoriteRepository.findUserIdsByClubId(event.clubId()).forEach(userId ->
+        favoriteRepository.findUserIdsByClubId(event.clubId()).forEach(userId -> {
+            try {
                 notificationService.createIfAbsent(new CreateNotificationCommand(
                         userId,
                         NotificationType.RECRUITMENT_OPENED,
@@ -33,6 +36,11 @@ public class RecruitmentOpenedListener {
                         body,
                         linkUrl,
                         Map.of("recruitmentId", event.recruitmentId(), "clubId", event.clubId()),
-                        dedupKey)));
+                        dedupKey));
+            } catch (Exception failure) {
+                log.warn("RECRUITMENT_OPENED 알림 실패: userId={}, recruitmentId={}",
+                        userId, event.recruitmentId(), failure);
+            }
+        });
     }
 }
