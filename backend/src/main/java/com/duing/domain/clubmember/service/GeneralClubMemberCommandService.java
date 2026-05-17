@@ -10,7 +10,9 @@ import com.duing.domain.clubmember.service.dto.command.TransferLeaderCommand;
 import com.duing.domain.clubmember.service.dto.command.UpdateMemberRoleCommand;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
 import com.duing.domain.clubmember.service.dto.query.TransferLeaderQuery;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,7 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
 
     private final ClubMemberRepository clubMemberRepository;
     private final ClubAuthService clubAuthService;
+    private final EntityManager entityManager;
 
     @Override
     @Transactional
@@ -80,12 +83,20 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
         ClubMember requesterMembership = clubAuthService.requireLeader(
                 command.requesterId(), command.clubId());
 
+        // requireLeader 가 영속성 컨텍스트에 올린 엔티티를 1차 캐시에서 비워야
+        // 이어지는 PESSIMISTIC_WRITE 가 최신 DB 상태(다른 트랜잭션의 커밋 결과)를 가져온다.
+        entityManager.clear();
+
         // 동시 인계 경합을 막기 위해 두 행 모두 PESSIMISTIC_WRITE 로 잠근다.
         ClubMember currentLeader = clubMemberRepository.findByIdForUpdate(requesterMembership.getId())
                 .orElseThrow(ClubMemberException.NotFound::new);
         ClubMember target = clubMemberRepository.findByIdForUpdate(command.memberId())
                 .orElseThrow(ClubMemberException.NotFound::new);
 
+        // 잠금 획득 후 재검증: 다른 트랜잭션이 먼저 인계를 끝낸 경우 본 요청자는 더 이상 LEADER 가 아니다.
+        if (currentLeader.getRole() != ClubMemberRole.LEADER) {
+            throw new AccessDeniedException("더 이상 회장이 아닙니다.");
+        }
         if (!target.getClub().getId().equals(command.clubId())
                 || target.getRole() == ClubMemberRole.LEADER) {
             throw new ClubMemberException.TransferTargetInvalid();
