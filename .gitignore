@@ -56,3 +56,6 @@ src/main/generated/
 .mcp.json
 skills-lock.json
 .coderabbit.yaml
+
+### Design handoff (디자인 참조용, 커밋 금지) ###
+handoff/
