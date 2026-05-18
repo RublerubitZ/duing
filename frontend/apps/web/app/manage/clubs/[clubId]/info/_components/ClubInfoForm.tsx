@@ -15,6 +15,11 @@ type ClubInfoFormProps = {
 };
 
 const CATEGORIES = ['ACADEMIC', 'CULTURE', 'ART', 'SPORTS', 'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER'] as const;
+type CategoryLiteral = (typeof CATEGORIES)[number];
+
+function isCategory(value: string): value is CategoryLiteral {
+  return (CATEGORIES as readonly string[]).includes(value);
+}
 
 export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
   const [name, setName] = useState(detail.name);
@@ -96,7 +101,10 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
           <span className="text-sm text-slate-600">카테고리</span>
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value as typeof CATEGORIES[number])}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (isCategory(next)) setCategory(next);
+            }}
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           >
             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}

@@ -3,6 +3,11 @@
 import type { ClubSnsLink } from '@duing/types';
 
 const PLATFORMS = ['INSTAGRAM', 'FACEBOOK', 'X', 'YOUTUBE', 'KAKAO', 'WEB'] as const;
+type PlatformLiteral = (typeof PLATFORMS)[number];
+
+function isPlatform(value: string): value is PlatformLiteral {
+  return (PLATFORMS as readonly string[]).includes(value);
+}
 
 type SnsLinksRepeaterProps = {
   value: ClubSnsLink[];
@@ -33,7 +38,10 @@ export function SnsLinksRepeater({
         <div key={idx} className="flex gap-2">
           <select
             value={link.platform}
-            onChange={(e) => update(idx, { platform: e.target.value })}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (isPlatform(next)) update(idx, { platform: next });
+            }}
             disabled={readOnly}
             className="rounded-md border border-slate-300 px-2 py-1 text-sm"
           >
