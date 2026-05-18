@@ -24,7 +24,6 @@ public record CreateRecruitmentRequest(
         @NotNull(message = "모집 시작일은 필수 입력값입니다.")
         LocalDate startDate,
 
-        @NotNull(message = "모집 종료일은 필수 입력값입니다.")
         LocalDate endDate,
 
         @Min(value = 1, message = "모집 정원은 1명 이상이어야 합니다.")
