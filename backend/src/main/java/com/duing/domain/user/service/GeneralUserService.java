@@ -32,6 +32,9 @@ public class GeneralUserService implements UserService {
         if (userRepository.existsByStudentId(signupCommand.studentId())) {
             throw new UserException.DuplicateStudentIdException();
         }
+        if (userRepository.existsByPhone(signupCommand.phone())) {
+            throw new UserException.PhoneAlreadyExistsException();
+        }
 
         String passwordHash = passwordEncoder.encode(signupCommand.rawPassword());
         User user = User.create(
@@ -39,7 +42,12 @@ public class GeneralUserService implements UserService {
                 signupCommand.name(),
                 signupCommand.email(),
                 passwordHash,
-                UserRole.STUDENT
+                UserRole.STUDENT,
+                signupCommand.grade(),
+                signupCommand.college(),
+                signupCommand.major(),
+                signupCommand.phone(),
+                java.time.LocalDateTime.now()
         );
         return userRepository.save(user).getId();
     }

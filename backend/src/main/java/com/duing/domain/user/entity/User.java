@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -37,22 +38,71 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 20)
     private UserRole role;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Grade grade;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 40)
+    private College college;
+
+    @Column(nullable = false, length = 50)
+    private String major;
+
+    @Column(nullable = false, length = 13)
+    private String phone;
+
+    @Column(name = "terms_agreed_at", nullable = false)
+    private LocalDateTime termsAgreedAt;
+
     @Builder(access = AccessLevel.PRIVATE)
-    private User(String studentId, String name, String email, String passwordHash, UserRole role) {
+    private User(
+            String studentId,
+            String name,
+            String email,
+            String passwordHash,
+            UserRole role,
+            Grade grade,
+            College college,
+            String major,
+            String phone,
+            LocalDateTime termsAgreedAt
+    ) {
         this.studentId = studentId;
         this.name = name;
         this.email = email;
         this.passwordHash = passwordHash;
         this.role = role;
+        this.grade = grade;
+        this.college = college;
+        this.major = major;
+        this.phone = phone;
+        this.termsAgreedAt = termsAgreedAt;
     }
 
-    public static User create(String studentId, String name, String email, String passwordHash, UserRole role) {
+    public static User create(
+            String studentId,
+            String name,
+            String email,
+            String passwordHash,
+            UserRole role,
+            Grade grade,
+            College college,
+            String major,
+            String phone,
+            LocalDateTime termsAgreedAt
+    ) {
         return User.builder()
                 .studentId(studentId)
                 .name(name)
                 .email(email)
                 .passwordHash(passwordHash)
                 .role(role)
+                .grade(grade)
+                .college(college)
+                .major(major)
+                .phone(phone)
+                .termsAgreedAt(termsAgreedAt)
                 .build();
     }
 }

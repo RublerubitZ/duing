@@ -11,6 +11,8 @@ import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
 import com.duing.domain.notification.service.dto.query.NotificationQuery;
 import com.duing.domain.user.entity.User;
+import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.util.List;
@@ -161,7 +163,12 @@ class NotificationServiceTest {
                 name,
                 "notif" + unique + "@daegu.ac.kr",
                 "hashed",
-                UserRole.STUDENT
+                UserRole.STUDENT,
+                Grade.FRESHMAN,
+                College.IT_ENGINEERING,
+                "미설정",
+                "010-0000-0000",
+                java.time.LocalDateTime.now()
         );
         return userRepository.save(user);
     }

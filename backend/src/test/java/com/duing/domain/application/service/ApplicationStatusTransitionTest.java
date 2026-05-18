@@ -10,6 +10,8 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
+import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,7 +35,12 @@ class ApplicationStatusTransitionTest {
                 "홍길동",
                 "hong@example.com",
                 "hashed",
-                UserRole.STUDENT);
+                UserRole.STUDENT,
+                Grade.FRESHMAN,
+                College.IT_ENGINEERING,
+                "미설정",
+                "010-0000-0000",
+                java.time.LocalDateTime.now());
         return Application.submit(recruitment, user, List.of());
     }
 
