@@ -102,7 +102,14 @@ public class GeneralClubService implements ClubService {
                 updateClubCommand.coverUrl(),
                 updateClubCommand.tags(),
                 updateClubCommand.snsLinks(),
-                updateClubCommand.faqs()
+                updateClubCommand.faqs(),
+                updateClubCommand.foundedYear(),
+                updateClubCommand.cohortNumber(),
+                updateClubCommand.location(),
+                updateClubCommand.contactEmail(),
+                updateClubCommand.activityFrequency(),
+                updateClubCommand.activeDays(),
+                updateClubCommand.membershipFee()
         );
     }
 

@@ -1,5 +1,6 @@
 package com.duing.domain.recruitment.service;
 
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
@@ -29,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneralRecruitmentService implements RecruitmentService {
 
     private final RecruitmentRepository recruitmentRepository;
+    private final ApplicationRepository applicationRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
     private final ApplicationEventPublisher eventPublisher;
@@ -54,7 +56,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
                     createRecruitmentCommand.applicationMode(),
                     createRecruitmentCommand.externalFormUrl(),
                     createRecruitmentCommand.useInterview(),
-                    createRecruitmentCommand.targetRole()
+                    createRecruitmentCommand.targetRole(),
+                    createRecruitmentCommand.interviewStartDate(),
+                    createRecruitmentCommand.interviewEndDate(),
+                    createRecruitmentCommand.showApplicantCount()
             );
         } catch (IllegalArgumentException exception) {
             throw new RecruitmentException.InvalidRecruitmentPeriodException();
@@ -96,7 +101,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
     public RecruitmentDetailQuery getById(Long recruitmentId) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
-        return RecruitmentDetailQuery.from(recruitment, LocalDate.now());
+        Integer applicantCount = recruitment.isShowApplicantCount()
+                ? (int) applicationRepository.countByRecruitmentId(recruitmentId)
+                : null;
+        return RecruitmentDetailQuery.from(recruitment, LocalDate.now(), applicantCount);
     }
 
     @Override

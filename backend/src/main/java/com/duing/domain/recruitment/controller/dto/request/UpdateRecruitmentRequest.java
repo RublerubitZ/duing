@@ -21,7 +21,13 @@ public record UpdateRecruitmentRequest(
 
         Boolean useInterview,
 
-        List<String> questions
+        List<String> questions,
+
+        LocalDate interviewStartDate,
+
+        LocalDate interviewEndDate,
+
+        Boolean showApplicantCount
 ) {
     public UpdateRecruitmentCommand toCommand(Long recruitmentId, Long currentUserId) {
         return new UpdateRecruitmentCommand(
@@ -33,7 +39,10 @@ public record UpdateRecruitmentRequest(
                 endDate,
                 capacity,
                 useInterview,
-                questions
+                questions,
+                interviewStartDate,
+                interviewEndDate,
+                showApplicantCount
         );
     }
 }

@@ -73,7 +73,10 @@ class RecruitmentCreateExtensionTest {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("지원 동기", "활동 가능 시간")
+                List.of("지원 동기", "활동 가능 시간"),
+                null,
+                null,
+                false
         ));
 
         Recruitment saved = recruitmentRepository.findById(recruitmentId).orElseThrow();
@@ -102,7 +105,10 @@ class RecruitmentCreateExtensionTest {
                 "https://forms.example.com/abc",
                 false,
                 TargetRole.MEMBER,
-                null
+                null,
+                null,
+                null,
+                false
         ));
 
         Recruitment saved = recruitmentRepository.findById(recruitmentId).orElseThrow();
@@ -117,7 +123,10 @@ class RecruitmentCreateExtensionTest {
         assertThatThrownBy(() -> new CreateRecruitmentCommand(
                 1L, 1L, "외부 폼", null,
                 LocalDate.now(), LocalDate.now().plusDays(7), 10,
-                ApplicationMode.EXTERNAL, null, false, TargetRole.MEMBER, null
+                ApplicationMode.EXTERNAL, null, false, TargetRole.MEMBER, null,
+                null,
+                null,
+                false
         )).isInstanceOf(RecruitmentException.InvalidApplicationModeException.class);
     }
 
@@ -127,7 +136,10 @@ class RecruitmentCreateExtensionTest {
         assertThatThrownBy(() -> new CreateRecruitmentCommand(
                 1L, 1L, "자체 폼", null,
                 LocalDate.now(), LocalDate.now().plusDays(7), 10,
-                ApplicationMode.SELF, null, false, TargetRole.MEMBER, List.of()
+                ApplicationMode.SELF, null, false, TargetRole.MEMBER, List.of(),
+                null,
+                null,
+                false
         )).isInstanceOf(RecruitmentException.InvalidApplicationModeException.class);
     }
 
@@ -138,7 +150,10 @@ class RecruitmentCreateExtensionTest {
                 1L, 1L, "외부 폼", null,
                 LocalDate.now(), LocalDate.now().plusDays(7), 10,
                 ApplicationMode.EXTERNAL, "https://forms.example.com/x", false,
-                TargetRole.MEMBER, List.of("질문1")
+                TargetRole.MEMBER, List.of("질문1"),
+                null,
+                null,
+                false
         )).isInstanceOf(RecruitmentException.InvalidApplicationModeException.class);
     }
 
@@ -161,7 +176,10 @@ class RecruitmentCreateExtensionTest {
                 null,
                 true,
                 TargetRole.MEMBER,
-                List.of("자기소개")
+                List.of("자기소개"),
+                null,
+                null,
+                false
         ));
 
         assertThat(recruitmentRepository.findById(recruitmentId)).isPresent();
@@ -178,7 +196,10 @@ class RecruitmentCreateExtensionTest {
                 club.getId(), member.getId(), "회원작성시도", null,
                 LocalDate.now(), LocalDate.now().plusDays(5), 5,
                 ApplicationMode.SELF, null, false, TargetRole.MEMBER,
-                List.of("질문")
+                List.of("질문"),
+                null,
+                null,
+                false
         );
 
         assertThatThrownBy(() -> recruitmentService.create(command))

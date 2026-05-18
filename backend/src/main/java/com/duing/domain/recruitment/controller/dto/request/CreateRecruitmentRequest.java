@@ -38,7 +38,13 @@ public record CreateRecruitmentRequest(
 
         TargetRole targetRole,
 
-        List<@NotBlank(message = "질문 항목은 빈 문자열일 수 없습니다.") String> questions
+        List<@NotBlank(message = "질문 항목은 빈 문자열일 수 없습니다.") String> questions,
+
+        LocalDate interviewStartDate,
+
+        LocalDate interviewEndDate,
+
+        Boolean showApplicantCount
 ) {
     public CreateRecruitmentCommand toCommand(Long clubId, Long currentUserId) {
         return new CreateRecruitmentCommand(
@@ -53,7 +59,10 @@ public record CreateRecruitmentRequest(
                 externalFormUrl,
                 Boolean.TRUE.equals(useInterview),
                 targetRole,
-                questions
+                questions,
+                interviewStartDate,
+                interviewEndDate,
+                Boolean.TRUE.equals(showApplicantCount)
         );
     }
 }

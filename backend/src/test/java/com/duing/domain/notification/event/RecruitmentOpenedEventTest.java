@@ -101,7 +101,10 @@ class RecruitmentOpenedEventTest {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("지원 동기")
+                List.of("지원 동기"),
+                null,
+                null,
+                false
         ));
 
         List<Notification> openedNotifications = notificationRepository.findAll().stream()
@@ -181,7 +184,10 @@ class RecruitmentOpenedEventTest {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("자기소개")
+                List.of("자기소개"),
+                null,
+                null,
+                false
         ));
 
         List<Notification> openedNotifications = notificationRepository.findAll().stream()
