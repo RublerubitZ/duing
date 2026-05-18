@@ -67,6 +67,15 @@ public class Recruitment extends BaseEntity {
     @Column(name = "target_role", nullable = false, length = 20)
     private TargetRole targetRole;
 
+    @Column(name = "interview_start_date")
+    private LocalDate interviewStartDate;
+
+    @Column(name = "interview_end_date")
+    private LocalDate interviewEndDate;
+
+    @Column(name = "show_applicant_count", nullable = false)
+    private boolean showApplicantCount;
+
     @OneToOne(mappedBy = "recruitment", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private RecruitmentForm form;
 
@@ -74,7 +83,9 @@ public class Recruitment extends BaseEntity {
     private Recruitment(Club club, String title, String content, LocalDate startDate,
                         LocalDate endDate, int capacity, RecruitmentStatus status,
                         ApplicationMode applicationMode, String externalFormUrl,
-                        boolean useInterview, TargetRole targetRole) {
+                        boolean useInterview, TargetRole targetRole,
+                        LocalDate interviewStartDate, LocalDate interviewEndDate,
+                        boolean showApplicantCount) {
         this.club = club;
         this.title = title;
         this.content = content;
@@ -86,12 +97,16 @@ public class Recruitment extends BaseEntity {
         this.externalFormUrl = externalFormUrl;
         this.useInterview = useInterview;
         this.targetRole = targetRole;
+        this.interviewStartDate = interviewStartDate;
+        this.interviewEndDate = interviewEndDate;
+        this.showApplicantCount = showApplicantCount;
     }
 
     public static Recruitment create(Club club, String title, String content,
                                      LocalDate startDate, LocalDate endDate, int capacity) {
         return createWithOptions(club, title, content, startDate, endDate, capacity,
-                ApplicationMode.SELF, null, false, TargetRole.MEMBER);
+                ApplicationMode.SELF, null, false, TargetRole.MEMBER,
+                null, null, false);
     }
 
     /**
@@ -101,12 +116,19 @@ public class Recruitment extends BaseEntity {
     public static Recruitment createWithOptions(Club club, String title, String content,
                                                 LocalDate startDate, LocalDate endDate, int capacity,
                                                 ApplicationMode applicationMode, String externalFormUrl,
-                                                boolean useInterview, TargetRole targetRole) {
+                                                boolean useInterview, TargetRole targetRole,
+                                                LocalDate interviewStartDate,
+                                                LocalDate interviewEndDate,
+                                                boolean showApplicantCount) {
         if (endDate != null && endDate.isBefore(startDate)) {
             throw new IllegalArgumentException("모집 종료일은 시작일보다 빠를 수 없습니다.");
         }
         if (capacity <= 0) {
             throw new IllegalArgumentException("모집 정원은 1명 이상이어야 합니다.");
+        }
+        if (interviewStartDate != null && interviewEndDate != null
+                && interviewEndDate.isBefore(interviewStartDate)) {
+            throw new RecruitmentException.InvalidInterviewPeriodException();
         }
         return Recruitment.builder()
                 .club(club)
@@ -120,6 +142,9 @@ public class Recruitment extends BaseEntity {
                 .externalFormUrl(externalFormUrl)
                 .useInterview(useInterview)
                 .targetRole(targetRole)
+                .interviewStartDate(interviewStartDate)
+                .interviewEndDate(interviewEndDate)
+                .showApplicantCount(showApplicantCount)
                 .build();
     }
 

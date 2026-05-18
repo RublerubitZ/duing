@@ -46,4 +46,12 @@ public class RecruitmentException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class InvalidInterviewPeriodException extends RecruitmentException {
+        private static final String MESSAGE = "면접 종료일은 시작일보다 빠를 수 없습니다.";
+
+        public InvalidInterviewPeriodException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }
