@@ -83,3 +83,30 @@ export type ManagedClub = {
   myRole: ClubRole;
   activeRecruitmentCount: number;
 };
+
+export type FilePurpose = 'LOGO' | 'COVER' | 'PHOTO';
+
+export type FileUploadResult = {
+  storageKey: string;
+  url: string;
+};
+
+export type CreateClubPhotoPayload = {
+  storageKey: string;
+  caption?: string | null;
+  width?: number | null;
+  height?: number | null;
+};
+
+export type UpdateClubPhotoPayload = {
+  caption?: string | null;
+};
+
+export type PhotoOrderItem = {
+  photoId: number;
+  displayOrder: number;
+};
+
+export type ReorderClubPhotosPayload = {
+  items: PhotoOrderItem[];
+};
