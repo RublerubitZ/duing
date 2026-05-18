@@ -2,6 +2,7 @@ package com.duing.domain.recruitment.service.dto.query;
 
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ public record RecruitmentDetailQuery(
         LocalDate endDate,
         int capacity,
         RecruitmentStatus status,
+        RecruitmentDisplayStatus displayStatus,
         boolean effectivelyOpen,
         List<String> questions,
         ApplicationMode applicationMode,
@@ -38,6 +40,11 @@ public record RecruitmentDetailQuery(
                 recruitment.getEndDate(),
                 recruitment.getCapacity(),
                 recruitment.getStatus(),
+                RecruitmentDisplayStatus.resolve(
+                        recruitment.getStatus(),
+                        recruitment.getStartDate(),
+                        recruitment.getEndDate(),
+                        today),
                 recruitment.isEffectivelyOpen(today),
                 questions,
                 recruitment.getApplicationMode(),

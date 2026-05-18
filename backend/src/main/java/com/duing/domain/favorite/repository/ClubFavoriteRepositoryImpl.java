@@ -38,7 +38,7 @@ public class ClubFavoriteRepositoryImpl implements ClubFavoriteRepositoryCustom 
                                 .where(
                                         recruitment.club.id.eq(club.id),
                                         recruitment.status.eq(RecruitmentStatus.OPEN),
-                                        recruitment.endDate.goe(LocalDate.now()),
+                                        recruitment.endDate.isNull().or(recruitment.endDate.goe(LocalDate.now())),
                                         recruitment.deletedAt.isNull()
                                 )
                 ))
