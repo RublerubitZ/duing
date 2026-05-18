@@ -23,6 +23,10 @@ export type RecruitmentSummary = {
 export type RecruitmentDetail = RecruitmentSummary & {
   content: string | null;
   questions: string[];
+  interviewStartDate: string | null;
+  interviewEndDate: string | null;
+  showApplicantCount: boolean;
+  applicantCount: number | null;
 };
 
 export type CreateRecruitmentPayload = {
@@ -36,6 +40,9 @@ export type CreateRecruitmentPayload = {
   externalFormUrl?: string;
   useInterview?: boolean;
   targetRole?: TargetRole;
+  interviewStartDate?: string | null;
+  interviewEndDate?: string | null;
+  showApplicantCount?: boolean;
 };
 
 export type UpdateRecruitmentPayload = {
@@ -46,4 +53,7 @@ export type UpdateRecruitmentPayload = {
   capacity?: number;
   useInterview?: boolean;
   questions?: string[];
+  interviewStartDate?: string | null;
+  interviewEndDate?: string | null;
+  showApplicantCount?: boolean;
 };
