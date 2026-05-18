@@ -3,6 +3,7 @@ import type {
   ApiResponse,
   PageResponse,
   ClubDetail,
+  ClubMember,
   ClubPhoto,
   ClubSearchParams,
   ClubSummary,
@@ -36,6 +37,8 @@ import type {
   CreateClubPhotoPayload,
   UpdateClubPhotoPayload,
   ReorderClubPhotosPayload,
+  TransferLeaderResult,
+  UpdateMemberRolePayload,
   FileUploadResult,
   FilePurpose,
 } from '@duing/types';
@@ -94,6 +97,11 @@ export type DuingApiClient = {
     updatePhoto(clubId: number, photoId: number, payload: UpdateClubPhotoPayload): Promise<void>;
     reorderPhotos(clubId: number, payload: ReorderClubPhotosPayload): Promise<ClubPhoto[]>;
     deletePhoto(clubId: number, photoId: number): Promise<void>;
+    members(clubId: number): Promise<ClubMember[]>;
+    updateMemberRole(clubId: number, memberId: number, payload: UpdateMemberRolePayload): Promise<void>;
+    removeMember(clubId: number, memberId: number): Promise<void>;
+    leaveClub(clubId: number): Promise<void>;
+    transferLeader(clubId: number, memberId: number): Promise<TransferLeaderResult>;
     recruitmentsByClub(clubId: number): Promise<RecruitmentSummary[]>;
     managedByMe(): Promise<ManagedClub[]>;
   };
@@ -215,6 +223,16 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<ClubPhoto[]>(http.put(`clubs/${clubId}/photos/order`, { json: payload })),
       deletePhoto: (clubId, photoId) =>
         jsonVoid(http.delete(`clubs/${clubId}/photos/${photoId}`)),
+      members: (clubId) =>
+        jsonOk<ClubMember[]>(http.get(`clubs/${clubId}/members`)),
+      updateMemberRole: (clubId, memberId, payload) =>
+        jsonVoid(http.patch(`clubs/${clubId}/members/${memberId}/role`, { json: payload })),
+      removeMember: (clubId, memberId) =>
+        jsonVoid(http.delete(`clubs/${clubId}/members/${memberId}`)),
+      leaveClub: (clubId) =>
+        jsonVoid(http.delete(`clubs/${clubId}/members/me`)),
+      transferLeader: (clubId, memberId) =>
+        jsonOk<TransferLeaderResult>(http.post(`clubs/${clubId}/members/${memberId}/transfer-leader`)),
       recruitmentsByClub: (clubId) =>
         jsonOk<RecruitmentSummary[]>(http.get(`clubs/${clubId}/recruitments`)),
       managedByMe: () =>
