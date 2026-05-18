@@ -35,7 +35,7 @@ export default function CalendarPage() {
               key={recruitment.id}
               className="rounded-lg border border-slate-200 p-4 hover:border-slate-400"
             >
-              <Link href={`/clubs/${recruitment.clubId}/recruitments/${recruitment.id}`}>
+              <Link href={`/clubs/${recruitment.clubId}`}>
                 <div className="flex items-baseline justify-between">
                   <span className="font-semibold">{recruitment.title}</span>
                   <span className="text-sm text-slate-500">
