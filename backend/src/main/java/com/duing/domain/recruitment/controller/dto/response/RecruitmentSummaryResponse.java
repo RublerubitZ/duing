@@ -1,6 +1,7 @@
 package com.duing.domain.recruitment.controller.dto.response;
 
 import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
@@ -15,6 +16,7 @@ public record RecruitmentSummaryResponse(
         LocalDate endDate,
         int capacity,
         RecruitmentStatus status,
+        RecruitmentDisplayStatus displayStatus,
         boolean effectivelyOpen,
         ApplicationMode applicationMode,
         String externalFormUrl,
@@ -31,6 +33,7 @@ public record RecruitmentSummaryResponse(
                 summaryQuery.endDate(),
                 summaryQuery.capacity(),
                 summaryQuery.status(),
+                summaryQuery.displayStatus(),
                 summaryQuery.effectivelyOpen(),
                 summaryQuery.applicationMode(),
                 summaryQuery.externalFormUrl(),

@@ -1,6 +1,7 @@
 package com.duing.domain.recruitment.controller.dto.response;
 
 import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
@@ -17,6 +18,7 @@ public record RecruitmentDetailResponse(
         LocalDate endDate,
         int capacity,
         RecruitmentStatus status,
+        RecruitmentDisplayStatus displayStatus,
         boolean effectivelyOpen,
         List<String> questions,
         ApplicationMode applicationMode,
@@ -35,6 +37,7 @@ public record RecruitmentDetailResponse(
                 detailQuery.endDate(),
                 detailQuery.capacity(),
                 detailQuery.status(),
+                detailQuery.displayStatus(),
                 detailQuery.effectivelyOpen(),
                 detailQuery.questions(),
                 detailQuery.applicationMode(),
