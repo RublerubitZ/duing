@@ -17,6 +17,8 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
 
   const isRecruitmentsActive = pathname.startsWith(recruitmentsPath);
   const isPhotosActive = pathname.startsWith(photosPath);
+  const membersPath = toRoute(`/manage/clubs/${currentClubId}/members`);
+  const isMembersActive = pathname.startsWith(membersPath);
 
   return (
     <nav className="mt-4 flex flex-col gap-1 px-2">
@@ -65,10 +67,17 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
         >
           활동사진
         </Link>
-        <div className="rounded-md px-3 py-2 text-sm font-medium text-slate-300 cursor-not-allowed select-none">
+        <Link
+          href={membersPath}
+          className={cn(
+            'block rounded-md px-3 py-2 text-sm font-medium',
+            isMembersActive
+              ? 'bg-slate-900 text-white'
+              : 'text-slate-700 hover:bg-slate-100',
+          )}
+        >
           멤버 관리
-          <span className="ml-1.5 text-xs font-normal text-slate-300">(Phase 3)</span>
-        </div>
+        </Link>
       </div>
     </nav>
   );
