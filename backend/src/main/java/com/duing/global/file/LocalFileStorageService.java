@@ -18,14 +18,25 @@ import org.springframework.web.multipart.MultipartFile;
 public class LocalFileStorageService implements FileStorageService {
 
     private final Path rootDir;
+    private final String baseUrl;
 
-    public LocalFileStorageService(@Value("${file.upload-dir}") String uploadDir) {
+    public LocalFileStorageService(
+            @Value("${file.upload-dir}") String uploadDir,
+            @Value("${file.local.base-url:}") String baseUrl) {
         this.rootDir = Paths.get(uploadDir).toAbsolutePath().normalize();
+        this.baseUrl = stripTrailingSlash(baseUrl);
         try {
             Files.createDirectories(this.rootDir);
         } catch (IOException exception) {
             throw new IllegalStateException("파일 저장 디렉터리를 생성할 수 없습니다: " + this.rootDir, exception);
         }
+    }
+
+    private static String stripTrailingSlash(String url) {
+        if (url == null || url.isBlank()) {
+            return "";
+        }
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
     @Override
@@ -45,7 +56,8 @@ public class LocalFileStorageService implements FileStorageService {
             Path destination = targetDir.resolve(storedFilename);
             file.transferTo(destination);
 
-            return "/files/" + directory + "/" + storedFilename;
+            // baseUrl 이 비어 있으면 상대 경로로 폴백 (기존 동작 호환).
+            return baseUrl + "/files/" + directory + "/" + storedFilename;
         } catch (IOException exception) {
             throw new IllegalStateException("파일 저장에 실패했습니다.", exception);
         }
@@ -57,7 +69,11 @@ public class LocalFileStorageService implements FileStorageService {
             return;
         }
         try {
-            String relative = fileUrl.startsWith("/files/") ? fileUrl.substring("/files/".length()) : fileUrl;
+            // 절대 URL (`http://.../files/...`) 과 상대 경로 (`/files/...`) 모두 지원.
+            int filesIndex = fileUrl.indexOf("/files/");
+            String relative = filesIndex >= 0
+                    ? fileUrl.substring(filesIndex + "/files/".length())
+                    : fileUrl;
             Path target = rootDir.resolve(relative).normalize();
             if (target.startsWith(rootDir)) {
                 Files.deleteIfExists(target);
