@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ClubSearchParams, UpdateClubPayload } from '@duing/types';
+import type {
+  ClubSearchParams,
+  CreateClubPhotoPayload,
+  ReorderClubPhotosPayload,
+  UpdateClubPayload,
+  UpdateClubPhotoPayload,
+} from '@duing/types';
 import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
 
@@ -72,6 +78,51 @@ export function useUpdateClubMutation(clubId: number) {
     onSuccess: (updated) => {
       queryClient.setQueryData(clubQueryKeys.detail(clubId), updated);
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.managed() });
+    },
+  });
+}
+
+export function useCreatePhotoMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateClubPhotoPayload) => client.clubs.createPhoto(clubId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.photos(clubId) });
+    },
+  });
+}
+
+export function useUpdatePhotoMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ photoId, payload }: { photoId: number; payload: UpdateClubPhotoPayload }) =>
+      client.clubs.updatePhoto(clubId, photoId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.photos(clubId) });
+    },
+  });
+}
+
+export function useReorderPhotosMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ReorderClubPhotosPayload) => client.clubs.reorderPhotos(clubId, payload),
+    onSuccess: (reordered) => {
+      queryClient.setQueryData(clubQueryKeys.photos(clubId), reordered);
+    },
+  });
+}
+
+export function useDeletePhotoMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (photoId: number) => client.clubs.deletePhoto(clubId, photoId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.photos(clubId) });
     },
   });
 }
