@@ -83,3 +83,15 @@ export type ManagedClub = {
   myRole: ClubRole;
   activeRecruitmentCount: number;
 };
+
+export type UpdateClubPayload = {
+  name?: string;
+  category?: ClubCategory;
+  division?: string | null;
+  description?: string | null;
+  logoUrl?: string | null;
+  coverUrl?: string | null;
+  tags?: string[];
+  snsLinks?: ClubSnsLink[];
+  faqs?: ClubFaq[];
+};

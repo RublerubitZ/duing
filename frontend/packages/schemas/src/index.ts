@@ -100,3 +100,33 @@ export const updateRecruitmentSchema = z
   });
 
 export type UpdateRecruitmentInput = z.infer<typeof updateRecruitmentSchema>;
+
+export const updateClubSchema = z.object({
+  name: z.string().min(1, '동아리 이름은 1~100자여야 합니다.')
+    .max(100, '동아리 이름은 1~100자여야 합니다.'),
+  category: z.enum(['ACADEMIC', 'CULTURE', 'ART', 'SPORTS', 'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER']),
+  division: z.string().max(50, '분류는 50자 이하여야 합니다.').nullable(),
+  description: z.string().nullable(),
+  logoUrl: z.string().max(500, '로고 URL은 500자 이하여야 합니다.').nullable(),
+  coverUrl: z.string().max(500, '커버 URL은 500자 이하여야 합니다.').nullable(),
+  tags: z.array(
+    z.string().min(1, '각 태그는 1~20자여야 합니다.').max(20, '각 태그는 1~20자여야 합니다.'),
+  ).max(20, '태그는 최대 20개까지 가능합니다.'),
+  snsLinks: z.array(
+    z.object({
+      platform: z.enum(['INSTAGRAM', 'FACEBOOK', 'X', 'YOUTUBE', 'KAKAO', 'WEB']),
+      url: z.string().min(1, 'SNS URL은 1~500자여야 합니다.')
+        .max(500, 'SNS URL은 1~500자여야 합니다.')
+        .regex(/^https?:\/\/.+/, 'SNS URL은 http(s):// 로 시작해야 합니다.'),
+    }),
+  ).max(10, 'SNS 링크는 최대 10개까지 가능합니다.'),
+  faqs: z.array(
+    z.object({
+      question: z.string().min(1, 'FAQ 질문은 1~200자여야 합니다.').max(200, 'FAQ 질문은 1~200자여야 합니다.'),
+      answer: z.string().min(1, 'FAQ 답변은 1~2000자여야 합니다.').max(2000, 'FAQ 답변은 1~2000자여야 합니다.'),
+      order: z.number().int().min(0, 'FAQ 순서는 0 이상이어야 합니다.'),
+    }),
+  ).max(20, 'FAQ는 최대 20개까지 가능합니다.'),
+});
+
+export type UpdateClubInput = z.infer<typeof updateClubSchema>;
