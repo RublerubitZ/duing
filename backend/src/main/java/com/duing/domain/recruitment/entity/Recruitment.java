@@ -43,7 +43,7 @@ public class Recruitment extends BaseEntity {
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
-    @Column(name = "end_date", nullable = false)
+    @Column(name = "end_date")
     private LocalDate endDate;
 
     @Column(nullable = false)
@@ -102,7 +102,7 @@ public class Recruitment extends BaseEntity {
                                                 LocalDate startDate, LocalDate endDate, int capacity,
                                                 ApplicationMode applicationMode, String externalFormUrl,
                                                 boolean useInterview, TargetRole targetRole) {
-        if (endDate.isBefore(startDate)) {
+        if (endDate != null && endDate.isBefore(startDate)) {
             throw new IllegalArgumentException("모집 종료일은 시작일보다 빠를 수 없습니다.");
         }
         if (capacity <= 0) {
@@ -128,7 +128,10 @@ public class Recruitment extends BaseEntity {
     }
 
     public boolean isEffectivelyOpen(LocalDate today) {
-        return status == RecruitmentStatus.OPEN && !today.isAfter(endDate);
+        if (status != RecruitmentStatus.OPEN) {
+            return false;
+        }
+        return endDate == null || !today.isAfter(endDate);
     }
 
     public void update(UpdateRecruitmentCommand command) {
@@ -145,13 +148,21 @@ public class Recruitment extends BaseEntity {
             this.content = command.content();
         }
         LocalDate resolvedStartDate = command.startDate() != null ? command.startDate() : this.startDate;
-        LocalDate resolvedEndDate = command.endDate() != null ? command.endDate() : this.endDate;
-        if (command.startDate() != null || command.endDate() != null) {
-            if (resolvedEndDate.isBefore(resolvedStartDate)) {
+        if (command.endDate() != null) {
+            // 기존이 상시모집(endDate=null)이면 기간모집으로 전환 금지
+            if (this.endDate == null) {
+                throw new RecruitmentException.AlwaysOpenConversionNotAllowedException();
+            }
+            if (command.endDate().isBefore(resolvedStartDate)) {
                 throw new RecruitmentException.InvalidRecruitmentPeriodException();
             }
-            this.startDate = resolvedStartDate;
-            this.endDate = resolvedEndDate;
+            this.endDate = command.endDate();
+        }
+        if (command.startDate() != null) {
+            if (this.endDate != null && this.endDate.isBefore(command.startDate())) {
+                throw new RecruitmentException.InvalidRecruitmentPeriodException();
+            }
+            this.startDate = command.startDate();
         }
         if (command.capacity() != null) {
             this.capacity = command.capacity();
