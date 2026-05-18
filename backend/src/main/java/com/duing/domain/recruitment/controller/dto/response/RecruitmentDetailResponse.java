@@ -24,7 +24,11 @@ public record RecruitmentDetailResponse(
         ApplicationMode applicationMode,
         String externalFormUrl,
         boolean useInterview,
-        TargetRole targetRole
+        TargetRole targetRole,
+        LocalDate interviewStartDate,
+        LocalDate interviewEndDate,
+        boolean showApplicantCount,
+        Integer applicantCount
 ) {
     public static RecruitmentDetailResponse from(RecruitmentDetailQuery detailQuery) {
         return new RecruitmentDetailResponse(
@@ -43,7 +47,11 @@ public record RecruitmentDetailResponse(
                 detailQuery.applicationMode(),
                 detailQuery.externalFormUrl(),
                 detailQuery.useInterview(),
-                detailQuery.targetRole()
+                detailQuery.targetRole(),
+                detailQuery.interviewStartDate(),
+                detailQuery.interviewEndDate(),
+                detailQuery.showApplicantCount(),
+                detailQuery.applicantCount()
         );
     }
 }

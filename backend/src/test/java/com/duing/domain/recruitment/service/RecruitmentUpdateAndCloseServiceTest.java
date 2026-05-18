@@ -6,6 +6,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.clubmember.service.ClubAuthService;
@@ -30,6 +31,7 @@ import org.springframework.security.access.AccessDeniedException;
 class RecruitmentUpdateAndCloseServiceTest {
 
     private final RecruitmentRepository recruitmentRepository = mock(RecruitmentRepository.class);
+    private final ApplicationRepository applicationRepository = mock(ApplicationRepository.class);
     private final ClubRepository clubRepository = mock(ClubRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
@@ -37,6 +39,7 @@ class RecruitmentUpdateAndCloseServiceTest {
 
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
+            applicationRepository,
             clubRepository,
             clubAuthService,
             eventPublisher
