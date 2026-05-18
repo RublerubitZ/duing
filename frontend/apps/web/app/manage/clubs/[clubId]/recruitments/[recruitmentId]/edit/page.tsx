@@ -26,7 +26,7 @@ export default function EditRecruitmentPage({
     return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
   }
 
-  if (!recruitment.effectivelyOpen) {
+  if (recruitment.displayStatus === 'CLOSED') {
     return (
       <div className="mx-auto max-w-2xl px-6 py-10">
         <div className="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-600">
