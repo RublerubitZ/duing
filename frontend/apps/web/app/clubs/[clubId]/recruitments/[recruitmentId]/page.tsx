@@ -4,6 +4,7 @@ import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRecruitmentDetailQuery } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
+import { displayStatusLabel } from '../../../../_lib/recruitmentDisplay';
 import { toRoute } from '../../../../_lib/route';
 
 export default function RecruitmentDetailPage({
@@ -34,7 +35,8 @@ export default function RecruitmentDetailPage({
     router.push(toRoute(applyPath));
   }
 
-  const canApply = recruitment.effectivelyOpen;
+  const canApply = recruitment.displayStatus === 'OPEN'
+    || recruitment.displayStatus === 'ALWAYS_OPEN';
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
@@ -46,7 +48,7 @@ export default function RecruitmentDetailPage({
       </p>
 
       <p className="mt-1 text-xs text-slate-500">
-        {recruitment.effectivelyOpen ? '모집중' : '마감'} ·{' '}
+        {displayStatusLabel(recruitment.displayStatus)} ·{' '}
         {recruitment.applicationMode === 'EXTERNAL' ? '외부 폼으로 진행' : '자체 폼'} ·{' '}
         {recruitment.useInterview ? '면접 진행' : '면접 없음'}
       </p>

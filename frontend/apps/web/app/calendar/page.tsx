@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRecruitmentCalendarQuery } from '@duing/hooks';
+import { displayStatusLabel } from '../_lib/recruitmentDisplay';
 
 function toYearMonth(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -43,7 +44,7 @@ export default function CalendarPage() {
                 </div>
                 <p className="mt-1 text-sm text-slate-600">{recruitment.clubName}</p>
                 <p className="mt-1 text-xs text-slate-500">
-                  {recruitment.effectivelyOpen ? '모집중' : '마감'} ·{' '}
+                  {displayStatusLabel(recruitment.displayStatus)} ·{' '}
                   {recruitment.applicationMode === 'EXTERNAL' ? '외부 폼' : '자체 폼'} · 정원{' '}
                   {recruitment.capacity}
                 </p>

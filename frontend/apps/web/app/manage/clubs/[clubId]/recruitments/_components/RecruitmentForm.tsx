@@ -24,7 +24,7 @@ export type CreateFormValues = {
   title: string;
   content: string;
   startDate: string;
-  endDate: string;
+  endDate: string | null;
   capacity: number;
   applicationMode: 'SELF' | 'EXTERNAL';
   externalFormUrl: string;
@@ -57,6 +57,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   const [content, setContent] = useState(initialData?.content ?? '');
   const [startDate, setStartDate] = useState(initialData?.startDate ?? '');
   const [endDate, setEndDate] = useState(initialData?.endDate ?? '');
+  const [isAlwaysOpen, setIsAlwaysOpen] = useState(
+    isEditMode ? initialData?.endDate === null : false,
+  );
   const [capacity, setCapacity] = useState(initialData?.capacity ?? 1);
   const [applicationMode, setApplicationMode] = useState<'SELF' | 'EXTERNAL'>(
     initialData?.applicationMode ?? 'SELF',
@@ -113,7 +116,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       title,
       content: content || undefined,
       startDate,
-      endDate,
+      endDate: isAlwaysOpen ? null : endDate,
       capacity,
       applicationMode,
       externalFormUrl: externalFormUrl || undefined,
@@ -173,31 +176,55 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       </label>
 
       {/* 모집 기간 */}
-      <div className="grid grid-cols-2 gap-4">
-        <label className="block">
-          <span className={fieldLabelClass}>
-            시작일 <span className="text-rose-500">*</span>
-          </span>
-          <input
-            type="date"
-            required
-            value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
-            className={fieldInputClass}
-          />
-        </label>
-        <label className="block">
-          <span className={fieldLabelClass}>
-            종료일 <span className="text-rose-500">*</span>
-          </span>
-          <input
-            type="date"
-            required
-            value={endDate}
-            onChange={(event) => setEndDate(event.target.value)}
-            className={fieldInputClass}
-          />
-        </label>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <label className="block">
+            <span className={fieldLabelClass}>
+              시작일 <span className="text-rose-500">*</span>
+            </span>
+            <input
+              type="date"
+              required
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              className={fieldInputClass}
+            />
+          </label>
+          <label className="block">
+            <span className={fieldLabelClass}>
+              종료일 {!isAlwaysOpen && <span className="text-rose-500">*</span>}
+            </span>
+            <input
+              type="date"
+              required={!isAlwaysOpen}
+              disabled={isAlwaysOpen}
+              value={isAlwaysOpen ? '' : endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              className={cn(fieldInputClass, isAlwaysOpen && 'bg-slate-100 text-slate-400')}
+            />
+          </label>
+        </div>
+        {!isEditMode && (
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={isAlwaysOpen}
+              onChange={(event) => {
+                setIsAlwaysOpen(event.target.checked);
+                if (event.target.checked) {
+                  setEndDate('');
+                }
+              }}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            상시모집 (종료일 없음 — 직접 마감할 때까지 지원 접수)
+          </label>
+        )}
+        {isEditMode && initialData?.endDate === null && (
+          <p className="text-xs text-slate-500">
+            이 모집은 상시모집입니다. 종료일은 변경할 수 없습니다.
+          </p>
+        )}
       </div>
 
       {/* 정원 */}

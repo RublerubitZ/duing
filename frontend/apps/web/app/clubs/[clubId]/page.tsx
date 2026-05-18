@@ -61,7 +61,7 @@ export default function ClubDetailPage({
           <h2 className="mb-2 font-semibold">진행 중인 모집</h2>
           <ul className="space-y-2">
             {recruitments.data
-              .filter((r) => r.effectivelyOpen)
+              .filter((r) => r.displayStatus === 'OPEN' || r.displayStatus === 'ALWAYS_OPEN')
               .map((recruitment) => (
                 <li key={recruitment.id}>
                   <Link
