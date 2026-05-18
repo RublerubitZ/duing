@@ -89,7 +89,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 .where(
                         recruitment.club.id.eq(club.id),
                         recruitment.status.eq(RecruitmentStatus.OPEN),
-                        recruitment.endDate.goe(today)
+                        recruitment.endDate.isNull().or(recruitment.endDate.goe(today))
                 )
                 .exists();
     }
