@@ -1,16 +1,15 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useApiClient } from '@duing/hooks';
-import { useCreatePhotoMutation } from '@duing/hooks';
+import { useCreatePhotoMutation, useFileUploadMutation } from '@duing/hooks';
 
 type PhotoUploaderProps = {
   clubId: number;
 };
 
 export function PhotoUploader({ clubId }: PhotoUploaderProps) {
-  const client = useApiClient();
   const createPhoto = useCreatePhotoMutation(clubId);
+  const uploadFile = useFileUploadMutation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -22,7 +21,7 @@ export function PhotoUploader({ clubId }: PhotoUploaderProps) {
     const failures: string[] = [];
     for (const file of Array.from(fileList)) {
       try {
-        const uploaded = await client.files.upload(file, 'PHOTO');
+        const uploaded = await uploadFile.mutateAsync({ file, purpose: 'PHOTO' });
         await createPhoto.mutateAsync({
           storageKey: uploaded.storageKey,
           caption: null,

@@ -56,3 +56,4 @@ export {
   useNotificationReadAllMutation,
 } from './notifications';
 export { notificationQueryKeys } from './notificationQueryKeys';
+export { useFileUploadMutation } from './files';
