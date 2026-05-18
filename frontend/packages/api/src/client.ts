@@ -32,6 +32,11 @@ import type {
   ApplicationDraft,
   UpsertDraftPayload,
   Notification,
+  CreateClubPhotoPayload,
+  UpdateClubPhotoPayload,
+  ReorderClubPhotosPayload,
+  FileUploadResult,
+  FilePurpose,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -83,8 +88,15 @@ export type DuingApiClient = {
     create(payload: CreateClubPayload): Promise<number>;
     updateStatus(clubId: number, payload: UpdateClubStatusPayload): Promise<void>;
     photos(clubId: number): Promise<ClubPhoto[]>;
+    createPhoto(clubId: number, payload: CreateClubPhotoPayload): Promise<ClubPhoto>;
+    updatePhoto(clubId: number, photoId: number, payload: UpdateClubPhotoPayload): Promise<void>;
+    reorderPhotos(clubId: number, payload: ReorderClubPhotosPayload): Promise<ClubPhoto[]>;
+    deletePhoto(clubId: number, photoId: number): Promise<void>;
     recruitmentsByClub(clubId: number): Promise<RecruitmentSummary[]>;
     managedByMe(): Promise<ManagedClub[]>;
+  };
+  files: {
+    upload(file: File, purpose: FilePurpose): Promise<FileUploadResult>;
   };
   recruitments: {
     calendar(yearMonth: string): Promise<RecruitmentSummary[]>;
@@ -191,10 +203,28 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       updateStatus: (clubId, payload) =>
         jsonVoid(http.patch(`admin/clubs/${clubId}/status`, { json: payload })),
       photos: (clubId) => jsonOk<ClubPhoto[]>(http.get(`clubs/${clubId}/photos`)),
+      createPhoto: (clubId, payload) =>
+        jsonOk<ClubPhoto>(http.post(`clubs/${clubId}/photos`, { json: payload })),
+      updatePhoto: (clubId, photoId, payload) =>
+        jsonVoid(http.patch(`clubs/${clubId}/photos/${photoId}`, { json: payload })),
+      reorderPhotos: (clubId, payload) =>
+        jsonOk<ClubPhoto[]>(http.put(`clubs/${clubId}/photos/order`, { json: payload })),
+      deletePhoto: (clubId, photoId) =>
+        jsonVoid(http.delete(`clubs/${clubId}/photos/${photoId}`)),
       recruitmentsByClub: (clubId) =>
         jsonOk<RecruitmentSummary[]>(http.get(`clubs/${clubId}/recruitments`)),
       managedByMe: () =>
         jsonOk<ManagedClub[]>(http.get('leader/clubs/me/managed')),
+    },
+    files: {
+      upload: (file, purpose) => {
+        const body = new FormData();
+        body.append('file', file);
+        // ky 는 FormData 를 자동으로 multipart/form-data 로 처리한다.
+        return jsonOk<FileUploadResult>(
+          http.post('files', { body, searchParams: { purpose } }),
+        );
+      },
     },
     recruitments: {
       calendar: (yearMonth) =>
