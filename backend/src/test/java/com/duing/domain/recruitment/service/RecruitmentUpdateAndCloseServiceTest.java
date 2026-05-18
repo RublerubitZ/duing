@@ -114,6 +114,9 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 20,
                 null,
+                null,
+                null,
+                null,
                 null
         );
 
@@ -133,6 +136,9 @@ class RecruitmentUpdateAndCloseServiceTest {
                 RECRUITMENT_ID,
                 MANAGER_USER_ID,
                 "수정 시도",
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -160,7 +166,10 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 null,
-                List.of("질문1", "질문2")
+                List.of("질문1", "질문2"),
+                null,
+                null,
+                null
         );
 
         assertThatThrownBy(() -> recruitmentService.update(updateCommand))
@@ -180,6 +189,9 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 LocalDate.now().minusDays(1),
+                null,
+                null,
+                null,
                 null,
                 null,
                 null
@@ -227,6 +239,9 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
                 null
         );
 
@@ -244,6 +259,9 @@ class RecruitmentUpdateAndCloseServiceTest {
                 RECRUITMENT_ID,
                 MANAGER_USER_ID,
                 "   ",
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,

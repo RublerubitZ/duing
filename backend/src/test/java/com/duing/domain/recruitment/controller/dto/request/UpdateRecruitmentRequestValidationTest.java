@@ -17,7 +17,10 @@ class UpdateRecruitmentRequestValidationTest {
     @DisplayName("capacity 를 0 으로 수정하려 하면 Bean Validation 에서 거부된다")
     void updateWithZeroCapacityIsRejectedByBeanValidation() {
         UpdateRecruitmentRequest request = new UpdateRecruitmentRequest(
-                null, null, null, null, 0, null, null
+                null, null, null, null, 0, null, null,
+                null,
+                null,
+                null
         );
         Set<ConstraintViolation<UpdateRecruitmentRequest>> violations = validator.validate(request);
         assertThat(violations).anyMatch(violation ->

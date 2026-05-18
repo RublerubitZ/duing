@@ -201,6 +201,21 @@ public class Recruitment extends BaseEntity {
             }
             this.form.replaceQuestions(command.questions());
         }
+        if (command.interviewStartDate() != null || command.interviewEndDate() != null) {
+            LocalDate resolvedInterviewStart = command.interviewStartDate() != null
+                    ? command.interviewStartDate() : this.interviewStartDate;
+            LocalDate resolvedInterviewEnd = command.interviewEndDate() != null
+                    ? command.interviewEndDate() : this.interviewEndDate;
+            if (resolvedInterviewStart != null && resolvedInterviewEnd != null
+                    && resolvedInterviewEnd.isBefore(resolvedInterviewStart)) {
+                throw new RecruitmentException.InvalidInterviewPeriodException();
+            }
+            this.interviewStartDate = resolvedInterviewStart;
+            this.interviewEndDate = resolvedInterviewEnd;
+        }
+        if (command.showApplicantCount() != null) {
+            this.showApplicantCount = command.showApplicantCount();
+        }
     }
 
     public void close() {

@@ -55,9 +55,9 @@ public class GeneralRecruitmentService implements RecruitmentService {
                     createRecruitmentCommand.externalFormUrl(),
                     createRecruitmentCommand.useInterview(),
                     createRecruitmentCommand.targetRole(),
-                    null,
-                    null,
-                    false
+                    createRecruitmentCommand.interviewStartDate(),
+                    createRecruitmentCommand.interviewEndDate(),
+                    createRecruitmentCommand.showApplicantCount()
             );
         } catch (IllegalArgumentException exception) {
             throw new RecruitmentException.InvalidRecruitmentPeriodException();

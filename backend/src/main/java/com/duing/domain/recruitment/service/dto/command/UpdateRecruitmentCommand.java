@@ -12,5 +12,8 @@ public record UpdateRecruitmentCommand(
         LocalDate endDate,
         Integer capacity,
         Boolean useInterview,
-        List<String> questions
+        List<String> questions,
+        LocalDate interviewStartDate,
+        LocalDate interviewEndDate,
+        Boolean showApplicantCount
 ) {}
