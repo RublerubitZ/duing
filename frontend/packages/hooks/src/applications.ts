@@ -94,9 +94,14 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       applicationId: number;
       payload: UpdateApplicationStatusPayload;
     }) => client.applications.updateStatus(applicationId, payload),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
+      });
+      // 모달이 읽는 detail 캐시를 무효화하지 않으면 닫았다 다시 열 때 stale status 로
+      // 전이 버튼이 재계산돼 BE 의 실제 상태와 불일치한 PATCH 가 나가 400 이 발생한다.
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.applicantDetail(variables.applicationId),
       });
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
@@ -116,9 +121,12 @@ export function useUpdateInterviewMutation(recruitmentId: number) {
       applicationId: number;
       payload: UpdateInterviewPayload;
     }) => client.applications.updateInterview(applicationId, payload),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.applicantDetail(variables.applicationId),
       });
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
