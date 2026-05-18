@@ -6,5 +6,6 @@ export const clubQueryKeys = {
   detail: (clubId: number) => [...clubQueryKeys.all, clubId] as const,
   photos: (clubId: number) => [...clubQueryKeys.all, clubId, 'photos'] as const,
   recruitments: (clubId: number) => [...clubQueryKeys.all, clubId, 'recruitments'] as const,
+  members: (clubId: number) => [...clubQueryKeys.all, clubId, 'members'] as const,
   managed: () => [...clubQueryKeys.all, 'managed'] as const,
 };
