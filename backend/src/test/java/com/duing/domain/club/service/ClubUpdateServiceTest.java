@@ -47,7 +47,8 @@ class ClubUpdateServiceTest {
         clubService.update(new UpdateClubCommand(
                 club.getId(), leader.getId(),
                 "두잉업데이트1-NEW", null, null, null, null, null,
-                List.of("코딩"), null, null
+                List.of("코딩"), null, null,
+                null, null, null, null, null, null, null
         ));
 
         Club reloaded = clubRepository.findById(club.getId()).orElseThrow();
@@ -65,7 +66,8 @@ class ClubUpdateServiceTest {
 
         assertThatThrownBy(() -> clubService.update(new UpdateClubCommand(
                 club.getId(), memberUser.getId(),
-                "변경시도", null, null, null, null, null, null, null, null
+                "변경시도", null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null
         ))).isInstanceOf(AccessDeniedException.class);
     }
 
@@ -77,7 +79,8 @@ class ClubUpdateServiceTest {
 
         assertThatThrownBy(() -> clubService.update(new UpdateClubCommand(
                 club.getId(), stranger.getId(),
-                "변경시도", null, null, null, null, null, null, null, null
+                "변경시도", null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null
         ))).isInstanceOf(ClubMemberException.NotAMember.class);
     }
 
@@ -91,7 +94,8 @@ class ClubUpdateServiceTest {
 
         assertThatThrownBy(() -> clubService.update(new UpdateClubCommand(
                 club.getId(), leader.getId(),
-                other.getName(), null, null, null, null, null, null, null, null
+                other.getName(), null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null
         ))).isInstanceOf(ClubException.DuplicateClubNameException.class);
     }
 
@@ -104,7 +108,8 @@ class ClubUpdateServiceTest {
 
         clubService.update(new UpdateClubCommand(
                 club.getId(), leader.getId(),
-                club.getName(), null, null, null, null, null, null, null, null
+                club.getName(), null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null
         ));
 
         assertThat(clubRepository.findById(club.getId()).orElseThrow().getName())
