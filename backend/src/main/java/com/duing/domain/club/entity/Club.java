@@ -6,10 +6,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -68,6 +72,30 @@ public class Club extends BaseEntity {
     @Column(name = "faqs", columnDefinition = "jsonb", nullable = false)
     private List<ClubFaq> faqs = new ArrayList<>();
 
+    @Column(name = "founded_year")
+    private Integer foundedYear;
+
+    @Column(name = "cohort_number")
+    private Integer cohortNumber;
+
+    @Column(name = "location", length = 200)
+    private String location;
+
+    @Column(name = "contact_email", length = 200)
+    private String contactEmail;
+
+    @Column(name = "activity_frequency")
+    private Integer activityFrequency;
+
+    /**
+     * 활동 요일 CSV. 예: "MONDAY,WEDNESDAY,FRIDAY". 외부 노출은 {@link #getActiveDays()} 의 Set 뷰로 한다.
+     */
+    @Column(name = "active_days", length = 50)
+    private String activeDays;
+
+    @Column(name = "membership_fee", length = 100)
+    private String membershipFee;
+
     public List<String> getTags() {
         return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
     }
@@ -78,6 +106,31 @@ public class Club extends BaseEntity {
 
     public List<ClubFaq> getFaqs() {
         return Collections.unmodifiableList(faqs);
+    }
+
+    public Set<DayOfWeek> getActiveDays() {
+        if (activeDays == null || activeDays.isBlank()) {
+            return Collections.emptySet();
+        }
+        Set<DayOfWeek> result = new LinkedHashSet<>();
+        for (String token : activeDays.split(",")) {
+            String trimmed = token.trim();
+            if (trimmed.isEmpty()) continue;
+            result.add(DayOfWeek.valueOf(trimmed));
+        }
+        return Collections.unmodifiableSet(result);
+    }
+
+    private static String toActiveDaysCsv(Set<DayOfWeek> days) {
+        if (days == null || days.isEmpty()) return null;
+        List<DayOfWeek> sorted = new ArrayList<>(days);
+        sorted.sort(Comparator.naturalOrder());
+        StringBuilder builder = new StringBuilder();
+        for (DayOfWeek day : sorted) {
+            if (builder.length() > 0) builder.append(',');
+            builder.append(day.name());
+        }
+        return builder.toString();
     }
 
     @Builder(access = AccessLevel.PRIVATE)
@@ -116,7 +169,14 @@ public class Club extends BaseEntity {
             String coverUrl,
             List<String> tags,
             List<ClubSnsLink> snsLinks,
-            List<ClubFaq> faqs
+            List<ClubFaq> faqs,
+            Integer foundedYear,
+            Integer cohortNumber,
+            String location,
+            String contactEmail,
+            Integer activityFrequency,
+            Set<DayOfWeek> activeDays,
+            String membershipFee
     ) {
         if (name != null) this.name = name;
         if (category != null) this.category = category;
@@ -127,5 +187,12 @@ public class Club extends BaseEntity {
         if (tags != null) this.tags = tags.stream().distinct().toArray(String[]::new);
         if (snsLinks != null) this.snsLinks = new ArrayList<>(snsLinks);
         if (faqs != null) this.faqs = new ArrayList<>(faqs);
+        if (foundedYear != null) this.foundedYear = foundedYear;
+        if (cohortNumber != null) this.cohortNumber = cohortNumber;
+        if (location != null) this.location = location;
+        if (contactEmail != null) this.contactEmail = contactEmail;
+        if (activityFrequency != null) this.activityFrequency = activityFrequency;
+        if (activeDays != null) this.activeDays = toActiveDaysCsv(activeDays);
+        if (membershipFee != null) this.membershipFee = membershipFee;
     }
 }
