@@ -90,6 +90,17 @@ export const createRecruitmentSchema = z
     useInterview: z.boolean().default(false),
     targetRole: z.enum(['MEMBER', 'OFFICER']).default('MEMBER'),
     questions: z.array(z.string().min(1, '질문 내용을 입력해주세요.')).optional(),
+    interviewStartDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .nullable()
+      .optional(),
+    interviewEndDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .nullable()
+      .optional(),
+    showApplicantCount: z.boolean().optional(),
   })
   .refine((data) => data.endDate === null || data.endDate >= data.startDate, {
     message: '모집 종료일은 시작일보다 빠를 수 없습니다.',
@@ -112,6 +123,16 @@ export const createRecruitmentSchema = z
       message: '자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.',
       path: ['questions'],
     },
+  )
+  .refine(
+    (data) => {
+      if (!data.interviewStartDate || !data.interviewEndDate) return true;
+      return data.interviewEndDate >= data.interviewStartDate;
+    },
+    {
+      message: '면접 종료일은 시작일보다 빠를 수 없습니다.',
+      path: ['interviewEndDate'],
+    },
   );
 
 export type CreateRecruitmentInput = z.infer<typeof createRecruitmentSchema>;
@@ -128,11 +149,32 @@ export const updateRecruitmentSchema = z
     capacity: z.number().int().min(1, '모집 정원은 1명 이상이어야 합니다.'),
     useInterview: z.boolean(),
     questions: z.array(z.string().min(1, '질문 내용을 입력해주세요.')).optional(),
+    interviewStartDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .nullable()
+      .optional(),
+    interviewEndDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .nullable()
+      .optional(),
+    showApplicantCount: z.boolean().optional(),
   })
   .refine((data) => data.endDate >= data.startDate, {
     message: '모집 종료일은 시작일보다 빠를 수 없습니다.',
     path: ['endDate'],
-  });
+  })
+  .refine(
+    (data) => {
+      if (!data.interviewStartDate || !data.interviewEndDate) return true;
+      return data.interviewEndDate >= data.interviewStartDate;
+    },
+    {
+      message: '면접 종료일은 시작일보다 빠를 수 없습니다.',
+      path: ['interviewEndDate'],
+    },
+  );
 
 export type UpdateRecruitmentInput = z.infer<typeof updateRecruitmentSchema>;
 
@@ -162,6 +204,45 @@ export const updateClubSchema = z.object({
       order: z.number().int().min(0, 'FAQ 순서는 0 이상이어야 합니다.'),
     }),
   ).max(20, 'FAQ는 최대 20개까지 가능합니다.'),
+  foundedYear: z
+    .number()
+    .int()
+    .min(1900, '창설년도는 1900 이상이어야 합니다.')
+    .max(2100, '창설년도가 너무 큽니다.')
+    .nullable()
+    .optional(),
+  cohortNumber: z
+    .number()
+    .int()
+    .min(1, '기수는 1 이상이어야 합니다.')
+    .nullable()
+    .optional(),
+  location: z
+    .string()
+    .max(200, '위치는 200자 이하여야 합니다.')
+    .nullable()
+    .optional(),
+  contactEmail: z
+    .string()
+    .email('이메일 형식이 올바르지 않습니다.')
+    .max(200, '이메일은 200자 이하여야 합니다.')
+    .nullable()
+    .or(z.literal(''))
+    .optional(),
+  activityFrequency: z
+    .number()
+    .int()
+    .min(1, '활동 빈도는 1 이상이어야 합니다.')
+    .nullable()
+    .optional(),
+  activeDays: z
+    .array(z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']))
+    .optional(),
+  membershipFee: z
+    .string()
+    .max(100, '회비 표기는 100자 이하여야 합니다.')
+    .nullable()
+    .optional(),
 });
 
 export type UpdateClubInput = z.infer<typeof updateClubSchema>;
