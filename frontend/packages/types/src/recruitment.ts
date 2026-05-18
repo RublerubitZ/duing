@@ -1,6 +1,7 @@
 export type RecruitmentStatus = 'OPEN' | 'CLOSED';
 export type ApplicationMode = 'SELF' | 'EXTERNAL';
 export type TargetRole = 'MEMBER' | 'OFFICER';
+export type RecruitmentDisplayStatus = 'UPCOMING' | 'OPEN' | 'ALWAYS_OPEN' | 'CLOSED';
 
 export type RecruitmentSummary = {
   id: number;
@@ -8,9 +9,10 @@ export type RecruitmentSummary = {
   clubName: string;
   title: string;
   startDate: string; // ISO yyyy-MM-dd
-  endDate: string;
+  endDate: string | null; // null = 상시모집
   capacity: number;
   status: RecruitmentStatus;
+  displayStatus: RecruitmentDisplayStatus;
   effectivelyOpen: boolean;
   applicationMode: ApplicationMode;
   externalFormUrl: string | null;
@@ -27,7 +29,7 @@ export type CreateRecruitmentPayload = {
   title: string;
   content?: string;
   startDate: string;
-  endDate: string;
+  endDate?: string | null;
   capacity: number;
   questions?: string[];
   applicationMode?: ApplicationMode;
