@@ -47,6 +47,9 @@ export default function EditRecruitmentPage({
       capacity: values.capacity,
       useInterview: values.useInterview,
       questions: isSelfMode ? values.questions : undefined,
+      interviewStartDate: values.interviewStartDate ?? undefined,
+      interviewEndDate: values.interviewEndDate ?? undefined,
+      showApplicantCount: values.showApplicantCount,
     });
     router.push(toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`));
   }

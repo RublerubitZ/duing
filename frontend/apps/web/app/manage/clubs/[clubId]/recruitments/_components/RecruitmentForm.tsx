@@ -31,6 +31,9 @@ export type CreateFormValues = {
   useInterview: boolean;
   targetRole: 'MEMBER' | 'OFFICER';
   questions: string[];
+  interviewStartDate: string | null;
+  interviewEndDate: string | null;
+  showApplicantCount: boolean;
 };
 
 export type EditFormValues = {
@@ -41,6 +44,9 @@ export type EditFormValues = {
   capacity: number;
   useInterview: boolean;
   questions: string[];
+  interviewStartDate: string | null;
+  interviewEndDate: string | null;
+  showApplicantCount: boolean;
 };
 
 type RecruitmentFormProps = CreateMode | EditMode;
@@ -68,6 +74,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     initialData?.externalFormUrl ?? '',
   );
   const [useInterview, setUseInterview] = useState(initialData?.useInterview ?? false);
+  const [interviewStartDate, setInterviewStartDate] = useState(initialData?.interviewStartDate ?? '');
+  const [interviewEndDate, setInterviewEndDate] = useState(initialData?.interviewEndDate ?? '');
+  const [showApplicantCount, setShowApplicantCount] = useState(initialData?.showApplicantCount ?? false);
   const [targetRole, setTargetRole] = useState<'MEMBER' | 'OFFICER'>(
     initialData?.targetRole ?? 'MEMBER',
   );
@@ -91,6 +100,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         capacity,
         useInterview,
         questions: applicationMode === 'SELF' ? questions : undefined,
+        interviewStartDate: useInterview && interviewStartDate ? interviewStartDate : null,
+        interviewEndDate: useInterview && interviewEndDate ? interviewEndDate : null,
+        showApplicantCount,
       });
       if (!parsed.success) {
         setValidationError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');
@@ -105,6 +117,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           capacity: parsed.data.capacity,
           useInterview: parsed.data.useInterview,
           questions: parsed.data.questions ?? [],
+          interviewStartDate: parsed.data.interviewStartDate ?? null,
+          interviewEndDate: parsed.data.interviewEndDate ?? null,
+          showApplicantCount: parsed.data.showApplicantCount ?? false,
         });
       } catch (err) {
         setSubmitError(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -123,6 +138,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       useInterview,
       targetRole,
       questions: applicationMode === 'SELF' ? questions : undefined,
+      interviewStartDate: useInterview && interviewStartDate ? interviewStartDate : null,
+      interviewEndDate: useInterview && interviewEndDate ? interviewEndDate : null,
+      showApplicantCount,
     });
     if (!parsed.success) {
       setValidationError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');
@@ -140,6 +158,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         useInterview: parsed.data.useInterview,
         targetRole: parsed.data.targetRole,
         questions: parsed.data.questions ?? [],
+        interviewStartDate: parsed.data.interviewStartDate ?? null,
+        interviewEndDate: parsed.data.interviewEndDate ?? null,
+        showApplicantCount: parsed.data.showApplicantCount ?? false,
       });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -353,6 +374,39 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           className="h-4 w-4 rounded border-slate-300"
         />
         <span className="text-sm text-slate-700">면접 진행</span>
+      </label>
+
+      {useInterview && (
+        <div className="grid grid-cols-2 gap-4 rounded-md bg-slate-50 p-4">
+          <label className="block">
+            <span className="block text-sm text-slate-700">면접 시작일</span>
+            <input
+              type="date"
+              value={interviewStartDate}
+              onChange={(event) => setInterviewStartDate(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-sm text-slate-700">면접 종료일</span>
+            <input
+              type="date"
+              value={interviewEndDate}
+              onChange={(event) => setInterviewEndDate(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+      )}
+
+      <label className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          checked={showApplicantCount}
+          onChange={(event) => setShowApplicantCount(event.target.checked)}
+          className="h-4 w-4 rounded border-slate-300"
+        />
+        <span className="text-sm text-slate-700">현재 지원자 수를 학생에게 공개</span>
       </label>
 
       {/* 자체 폼 질문 빌더 */}
