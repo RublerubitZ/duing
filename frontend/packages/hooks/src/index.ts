@@ -11,6 +11,11 @@ export {
   useUpdatePhotoMutation,
   useReorderPhotosMutation,
   useDeletePhotoMutation,
+  useClubMembersQuery,
+  useUpdateMemberRoleMutation,
+  useRemoveMemberMutation,
+  useLeaveClubMutation,
+  useTransferLeaderMutation,
 } from './clubs';
 export {
   useCreateRecruitmentMutation,
