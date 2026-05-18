@@ -24,7 +24,7 @@ export type CreateFormValues = {
   title: string;
   content: string;
   startDate: string;
-  endDate: string;
+  endDate: string | null;
   capacity: number;
   applicationMode: 'SELF' | 'EXTERNAL';
   externalFormUrl: string;
@@ -113,7 +113,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       title,
       content: content || undefined,
       startDate,
-      endDate,
+      endDate: endDate || null,
       capacity,
       applicationMode,
       externalFormUrl: externalFormUrl || undefined,

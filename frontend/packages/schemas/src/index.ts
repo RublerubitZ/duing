@@ -80,7 +80,10 @@ export const createRecruitmentSchema = z
       .max(200, '제목은 200자 이하여야 합니다.'),
     content: z.string().optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
-    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
+    endDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .nullable(),
     capacity: z.number().int().min(1, '모집 정원은 1명 이상이어야 합니다.'),
     applicationMode: z.enum(['SELF', 'EXTERNAL']).default('SELF'),
     externalFormUrl: z.string().optional(),
@@ -88,7 +91,7 @@ export const createRecruitmentSchema = z
     targetRole: z.enum(['MEMBER', 'OFFICER']).default('MEMBER'),
     questions: z.array(z.string().min(1, '질문 내용을 입력해주세요.')).optional(),
   })
-  .refine((data) => data.endDate >= data.startDate, {
+  .refine((data) => data.endDate === null || data.endDate >= data.startDate, {
     message: '모집 종료일은 시작일보다 빠를 수 없습니다.',
     path: ['endDate'],
   })
