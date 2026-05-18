@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useClubRecruitmentsQuery } from '@duing/hooks';
 import type { RecruitmentSummary } from '@duing/types';
 import { toRoute } from '../../../../_lib/route';
+import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../_lib/recruitmentDisplay';
 
 type TabKey = 'OPEN' | 'CLOSED';
 
@@ -18,6 +19,8 @@ function RecruitmentCard({
   const applicationModeLabel =
     recruitment.applicationMode === 'EXTERNAL' ? '외부 폼' : '자체 폼';
   const targetRoleLabel = recruitment.targetRole === 'OFFICER' ? '운영진' : '부원';
+  const active = recruitment.displayStatus === 'OPEN'
+    || recruitment.displayStatus === 'ALWAYS_OPEN';
 
   return (
     <li>
@@ -27,18 +30,12 @@ function RecruitmentCard({
       >
         <div className="flex items-baseline justify-between">
           <span className="font-medium text-slate-900">{recruitment.title}</span>
-          <span
-            className={
-              recruitment.effectivelyOpen
-                ? 'text-xs font-medium text-emerald-600'
-                : 'text-xs text-slate-400'
-            }
-          >
-            {recruitment.effectivelyOpen ? '모집 중' : '마감'}
+          <span className={active ? 'text-xs font-medium text-emerald-600' : 'text-xs text-slate-400'}>
+            {displayStatusLabel(recruitment.displayStatus)}
           </span>
         </div>
         <p className="mt-1 text-xs text-slate-500">
-          {recruitment.startDate} ~ {recruitment.endDate} · {applicationModeLabel} ·{' '}
+          {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)} · {applicationModeLabel} ·{' '}
           {targetRoleLabel} 모집 · 정원 {recruitment.capacity}
         </p>
       </Link>
@@ -60,9 +57,12 @@ export default function RecruitmentsPage({
     isNaN(clubId) ? undefined : clubId,
   );
 
-  const openRecruitments = recruitments?.filter((recruitment) => recruitment.effectivelyOpen) ?? [];
-  const closedRecruitments =
-    recruitments?.filter((recruitment) => !recruitment.effectivelyOpen) ?? [];
+  const openRecruitments = recruitments?.filter(
+    (recruitment) => recruitment.displayStatus !== 'CLOSED',
+  ) ?? [];
+  const closedRecruitments = recruitments?.filter(
+    (recruitment) => recruitment.displayStatus === 'CLOSED',
+  ) ?? [];
 
   const displayedRecruitments =
     activeTab === 'OPEN' ? openRecruitments : closedRecruitments;
