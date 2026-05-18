@@ -41,10 +41,17 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
       </div>
 
       <div className="mt-4 border-t border-slate-200 pt-4">
-        <div className="rounded-md px-3 py-2 text-sm font-medium text-slate-300 cursor-not-allowed select-none">
+        <Link
+          href={toRoute(`/manage/clubs/${currentClubId}/info`)}
+          className={cn(
+            'block rounded-md px-3 py-2 text-sm font-medium',
+            pathname.startsWith(toRoute(`/manage/clubs/${currentClubId}/info`))
+              ? 'bg-slate-900 text-white'
+              : 'text-slate-700 hover:bg-slate-100',
+          )}
+        >
           동아리 정보
-          <span className="ml-1.5 text-xs font-normal text-slate-300">(Phase 3)</span>
-        </div>
+        </Link>
         <div className="rounded-md px-3 py-2 text-sm font-medium text-slate-300 cursor-not-allowed select-none">
           멤버 관리
           <span className="ml-1.5 text-xs font-normal text-slate-300">(Phase 3)</span>

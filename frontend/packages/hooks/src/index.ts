@@ -6,6 +6,7 @@ export {
   useClubPhotosQuery,
   useClubRecruitmentsQuery,
   useManagedClubsQuery,
+  useUpdateClubMutation,
 } from './clubs';
 export {
   useCreateRecruitmentMutation,
