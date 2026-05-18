@@ -12,6 +12,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 
     boolean existsByRecruitmentIdAndUserId(Long recruitmentId, Long userId);
 
+    long countByRecruitmentId(Long recruitmentId);
+
     @Query("SELECT a FROM Application a "
             + "JOIN FETCH a.recruitment r "
             + "JOIN FETCH r.club "
