@@ -20,6 +20,7 @@ import type {
   SignupPayload,
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
+  UpdateClubPayload,
   UpdateClubStatusPayload,
   Applicant,
   ApplicationSummary,
@@ -86,6 +87,7 @@ export type DuingApiClient = {
     list(params?: ClubSearchParams): Promise<PageResponse<ClubSummary>>;
     detail(clubId: number): Promise<ClubDetail>;
     create(payload: CreateClubPayload): Promise<number>;
+    update(clubId: number, payload: UpdateClubPayload): Promise<ClubDetail>;
     updateStatus(clubId: number, payload: UpdateClubStatusPayload): Promise<void>;
     photos(clubId: number): Promise<ClubPhoto[]>;
     createPhoto(clubId: number, payload: CreateClubPhotoPayload): Promise<ClubPhoto>;
@@ -200,6 +202,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       detail: (clubId) => jsonOk<ClubDetail>(http.get(`clubs/${clubId}`)),
       create: (payload) =>
         jsonOk<number>(http.post('admin/clubs', { json: payload })),
+      update: (clubId, payload) =>
+        jsonOk<ClubDetail>(http.patch(`clubs/${clubId}`, { json: payload })),
       updateStatus: (clubId, payload) =>
         jsonVoid(http.patch(`admin/clubs/${clubId}/status`, { json: payload })),
       photos: (clubId) => jsonOk<ClubPhoto[]>(http.get(`clubs/${clubId}/photos`)),

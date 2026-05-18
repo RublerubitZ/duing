@@ -1,8 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   ClubSearchParams,
   CreateClubPhotoPayload,
   ReorderClubPhotosPayload,
+  UpdateClubPayload,
   UpdateClubPhotoPayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
@@ -66,6 +67,18 @@ export function useClubRecruitmentsQuery(clubId: number | undefined) {
       return client.clubs.recruitmentsByClub(clubId);
     },
     enabled: clubId !== undefined,
+  });
+}
+
+export function useUpdateClubMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateClubPayload) => client.clubs.update(clubId, payload),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(clubQueryKeys.detail(clubId), updated);
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.managed() });
+    },
   });
 }
 

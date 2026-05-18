@@ -16,3 +16,7 @@ spring:
 
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/tmp/duing/uploads}
+  local:
+    # LocalFileStorageService 가 반환하는 storageKey 의 절대 URL prefix.
+    # 비워두면 상대 경로(`/files/...`) 로 폴백 (Next.js dev 에선 동작 안 함).
+    base-url: ${FILE_LOCAL_BASE_URL:http://localhost:8080}
