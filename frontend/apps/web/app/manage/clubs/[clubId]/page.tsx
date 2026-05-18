@@ -34,7 +34,9 @@ export default function ClubManagePage({
     (managedClub) => managedClub.clubId === currentClubId,
   );
 
-  const activeRecruitments = recruitments?.filter((recruitment) => recruitment.effectivelyOpen) ?? [];
+  const activeRecruitments = recruitments?.filter(
+    (recruitment) => recruitment.displayStatus !== 'CLOSED',
+  ) ?? [];
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
