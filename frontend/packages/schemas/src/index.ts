@@ -1,7 +1,28 @@
-// 백엔드 Bean Validation 규칙(@NotBlank/@Email/@Pattern/@Size 등)을 미러링한 Zod 스키마.
+// 백엔드 Bean Validation 규칙(@NotBlank/@Email/@Pattern/@Size/@AssertTrue 등)을 미러링한 Zod 스키마.
 // 한국어 메시지는 백엔드와 동일하게 유지한다.
 
 import { z } from 'zod';
+import { passwordSchema } from './password';
+
+export { passwordSchema } from './password';
+
+const GRADE_VALUES = ['FRESHMAN', 'SOPHOMORE', 'JUNIOR', 'SENIOR', 'GRADUATE_DEFERRED'] as const;
+const COLLEGE_VALUES = [
+  'PUBLIC_LEADERS',
+  'GLOBAL_BUSINESS',
+  'SOCIAL_SCIENCE',
+  'HEALTH_BIO',
+  'IT_ENGINEERING',
+  'DESIGN_ART',
+  'EDUCATION',
+  'REHABILITATION',
+  'NURSING',
+  'GLOCAL_LIFE',
+  'INTERNATIONAL',
+  'SPORTS_LEISURE',
+  'CULTURE_CONTENTS',
+  'FREE_MAJOR',
+] as const;
 
 export const signupSchema = z.object({
   studentId: z
@@ -17,15 +38,26 @@ export const signupSchema = z.object({
     .min(1, '이메일은 필수 입력값입니다.')
     .email('올바른 이메일 형식이 아닙니다.')
     .max(100, '이메일은 100자 이하여야 합니다.')
-    // 백엔드 SignupRequest 의 @Pattern 과 동일 — 학교 도메인만 허용.
     .regex(
       /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*daegu\.ac\.kr$/,
       '대구대학교 이메일(@daegu.ac.kr)만 사용할 수 있습니다.',
     ),
-  password: z
+  password: passwordSchema,
+  grade: z.enum(GRADE_VALUES, { errorMap: () => ({ message: '학년을 선택해주세요.' }) }),
+  college: z.enum(COLLEGE_VALUES, { errorMap: () => ({ message: '단과대학을 선택해주세요.' }) }),
+  major: z
     .string()
-    .min(8, '비밀번호는 8자 이상 72자 이하여야 합니다.')
-    .max(72, '비밀번호는 8자 이상 72자 이하여야 합니다.'),
+    .min(1, '전공 학과는 필수 입력값입니다.')
+    .max(50, '전공 학과는 50자 이하여야 합니다.'),
+  phone: z
+    .string()
+    .regex(/^010-\d{4}-\d{4}$/, '전화번호는 010-XXXX-XXXX 형식이어야 합니다.'),
+  termsOfServiceAgreed: z.literal(true, {
+    errorMap: () => ({ message: '이용약관에 동의해야 합니다.' }),
+  }),
+  privacyPolicyAgreed: z.literal(true, {
+    errorMap: () => ({ message: '개인정보 수집·이용에 동의해야 합니다.' }),
+  }),
 });
 
 export type SignupInput = z.infer<typeof signupSchema>;
