@@ -7,6 +7,7 @@ import { useUpdateClubMutation } from '@duing/hooks';
 import { TagsInput } from './TagsInput';
 import { SnsLinksRepeater } from './SnsLinksRepeater';
 import { FaqsRepeater } from './FaqsRepeater';
+import { HighlightsRepeater } from './HighlightsRepeater';
 import { ActiveDaysToggle } from './ActiveDaysToggle';
 
 type ClubInfoFormProps = {
@@ -45,6 +46,9 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
   );
   const [activeDays, setActiveDays] = useState<ClubDayOfWeek[]>(detail.activeDays ?? []);
   const [membershipFee, setMembershipFee] = useState(detail.membershipFee ?? '');
+  const [tagline, setTagline] = useState(detail.tagline ?? '');
+  const [highlights, setHighlights] = useState<string[]>(detail.highlights ?? []);
+  const [majorProjects, setMajorProjects] = useState(detail.majorProjects ?? '');
 
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -86,6 +90,15 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
     if (membershipFee !== (detail.membershipFee ?? '')) {
       payload.membershipFee = membershipFee || null;
     }
+    if (tagline !== (detail.tagline ?? '')) {
+      payload.tagline = tagline || null;
+    }
+    if (JSON.stringify(highlights) !== JSON.stringify(detail.highlights)) {
+      payload.highlights = highlights;
+    }
+    if (majorProjects !== (detail.majorProjects ?? '')) {
+      payload.majorProjects = majorProjects || null;
+    }
     return payload;
   }
 
@@ -107,6 +120,9 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
       activityFrequency: activityFrequency.trim() === '' ? null : Number(activityFrequency),
       activeDays,
       membershipFee: membershipFee || null,
+      tagline: tagline || null,
+      highlights,
+      majorProjects: majorProjects || null,
     };
     const parsed = updateClubSchema.safeParse(fullData);
     if (!parsed.success) {
@@ -280,6 +296,44 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
               onChange={(event) => setMembershipFee(event.target.value)}
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
               placeholder="예: 학기당 30,000원"
+            />
+          </label>
+        </fieldset>
+
+        <fieldset disabled={readOnly} className="space-y-4 rounded-lg border border-slate-200 p-4">
+          <legend className="px-2 text-sm font-medium text-slate-700">소개 콘텐츠</legend>
+
+          <label className="block">
+            <span className="block text-sm text-slate-600">한 줄 태그라인</span>
+            <input
+              type="text"
+              value={tagline}
+              maxLength={60}
+              onChange={(event) => setTagline(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              placeholder="예: 코드를 두잉"
+            />
+            <span className="mt-1 block text-xs text-slate-400">{tagline.length}/60</span>
+          </label>
+
+          <div>
+            <span className="block text-sm text-slate-600">이런 사람이 좋아할 거예요</span>
+            <p className="mb-2 text-xs text-slate-400">최대 10개, 각 100자 이하.</p>
+            <HighlightsRepeater
+              value={highlights}
+              onChange={setHighlights}
+              readOnly={readOnly}
+            />
+          </div>
+
+          <label className="block">
+            <span className="block text-sm text-slate-600">주요 프로젝트</span>
+            <textarea
+              value={majorProjects}
+              onChange={(event) => setMajorProjects(event.target.value)}
+              rows={5}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              placeholder="동아리에서 진행 중이거나 마친 프로젝트를 자유롭게 적어주세요."
             />
           </label>
         </fieldset>

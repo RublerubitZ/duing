@@ -33,6 +33,9 @@ public record ClubDetailResponse(
         Integer activityFrequency,
         Set<DayOfWeek> activeDays,
         String membershipFee,
+        String tagline,
+        List<String> highlights,
+        String majorProjects,
         StudentRecruitmentProjection activeRecruitment
 ) {
     public static ClubDetailResponse from(ClubDetailQuery detailQuery) {
@@ -58,6 +61,9 @@ public record ClubDetailResponse(
                 detailQuery.activityFrequency(),
                 detailQuery.activeDays(),
                 detailQuery.membershipFee(),
+                detailQuery.tagline(),
+                detailQuery.highlights(),
+                detailQuery.majorProjects(),
                 detailQuery.activeRecruitment()
         );
     }
