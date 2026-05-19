@@ -1,13 +1,19 @@
 package com.duing.domain.club.repository;
 
 import static com.duing.domain.club.entity.QClub.club;
+import static com.duing.domain.clubmember.entity.QClubMember.clubMember;
 import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
+import static com.duing.domain.user.entity.QUser.user;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
+import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
@@ -53,12 +59,70 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
     }
 
+    @Override
+    public Page<AdminClubSummaryQuery> findByAdminCondition(AdminClubSearchCondition condition, Pageable pageable) {
+        BooleanExpression[] predicates = {
+                adminStatusEq(condition.status()),
+                categoryEq(condition.category()),
+                divisionEq(condition.division()),
+                keywordContains(condition.keyword()),
+        };
+
+        // leader 는 한 동아리당 0~1명. ClubMember(role=LEADER) 로 left join 해 leader 부재 시에도 행이 보존되게 한다.
+        List<Tuple> rows = queryFactory
+                .select(club, user.id, user.name, user.studentId)
+                .from(club)
+                .leftJoin(clubMember)
+                .on(clubMember.club.eq(club).and(clubMember.role.eq(ClubMemberRole.LEADER)))
+                .leftJoin(user).on(user.eq(clubMember.user))
+                .where(predicates)
+                .orderBy(club.name.asc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        List<AdminClubSummaryQuery> content = rows.stream()
+                .map(this::toAdminSummary)
+                .toList();
+
+        Long total = queryFactory
+                .select(club.count())
+                .from(club)
+                .where(predicates)
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
+    private AdminClubSummaryQuery toAdminSummary(Tuple row) {
+        Club source = row.get(club);
+        if (source == null) {
+            throw new IllegalStateException("Admin 동아리 목록 조회 결과 row 에 club 이 비어있을 수 없습니다.");
+        }
+        return new AdminClubSummaryQuery(
+                source.getId(),
+                source.getName(),
+                source.getCategory(),
+                source.getDivision(),
+                source.getLogoUrl(),
+                source.getStatus(),
+                source.getTags(),
+                row.get(user.id),
+                row.get(user.name),
+                row.get(user.studentId)
+        );
+    }
+
     private BooleanExpression categoryEq(ClubCategory category) {
         return category != null ? club.category.eq(category) : null;
     }
 
     private BooleanExpression divisionEq(String division) {
         return StringUtils.hasText(division) ? club.division.eq(division) : null;
+    }
+
+    private BooleanExpression adminStatusEq(ClubStatus status) {
+        return status != null ? club.status.eq(status) : null;
     }
 
     private BooleanExpression keywordContains(String keyword) {

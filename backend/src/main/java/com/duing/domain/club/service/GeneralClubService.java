@@ -8,6 +8,8 @@ import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
+import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
+import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
@@ -70,6 +72,11 @@ public class GeneralClubService implements ClubService {
     public Page<ClubSummaryQuery> search(ClubSearchCondition condition, Pageable pageable) {
         return clubRepository.findByCondition(condition, pageable)
                 .map(ClubSummaryQuery::from);
+    }
+
+    @Override
+    public Page<AdminClubSummaryQuery> searchForAdmin(AdminClubSearchCondition condition, Pageable pageable) {
+        return clubRepository.findByAdminCondition(condition, pageable);
     }
 
     @Override
