@@ -48,4 +48,12 @@ public class UserException extends ApplicationException {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
+
+    public static class InvalidSearchQueryException extends UserException {
+        private static final String MESSAGE = "검색어를 입력해주세요.";
+
+        public InvalidSearchQueryException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }
