@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  BulkUpdateApplicationStatusPayload,
+  BulkUpdateApplicationStatusResult,
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
   UpdateInterviewPayload,
@@ -102,6 +104,24 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       // 전이 버튼이 재계산돼 BE 의 실제 상태와 불일치한 PATCH 가 나가 400 이 발생한다.
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantDetail(variables.applicationId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: statsQueryKeys.byRecruitment(recruitmentId),
+      });
+    },
+  });
+}
+
+export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation<BulkUpdateApplicationStatusResult, Error, BulkUpdateApplicationStatusPayload>({
+    mutationFn: (payload) => client.applications.bulkUpdateStatus(payload),
+    onSuccess: () => {
+      // 일괄 변경은 어떤 applicationId 가 영향받았는지 individual detail 캐시까지 알 수 없으므로
+      // 안전하게 목록·통계만 무효화한다. 사용자가 모달을 다시 열면 detail 은 fresh 로드된다.
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
