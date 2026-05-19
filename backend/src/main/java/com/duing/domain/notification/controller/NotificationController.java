@@ -4,7 +4,6 @@ import com.duing.domain.notification.api.NotificationApi;
 import com.duing.domain.notification.controller.dto.response.NotificationResponse;
 import com.duing.domain.notification.controller.dto.response.UnreadCountResponse;
 import com.duing.domain.notification.service.NotificationService;
-import com.duing.domain.notification.service.dto.query.NotificationQuery;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
@@ -31,8 +30,7 @@ public class NotificationController implements NotificationApi {
             Pageable pageable,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        Page<NotificationQuery> queryPage = notificationService.listMine(currentUser.id(), unreadOnly, pageable);
-        Page<NotificationResponse> responsePage = queryPage.map(NotificationResponse::from);
+        Page<NotificationResponse> responsePage = notificationService.listMine(currentUser.id(), unreadOnly, pageable);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(responsePage)));
     }
 
