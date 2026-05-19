@@ -1,6 +1,6 @@
 import type { ClubSearchParams } from '@duing/types';
 
-import { DIVISIONS, type Division } from './clubs';
+import { type Division, isDivision } from './clubs';
 
 export type Scope = '전체' | '중앙' | '과';
 export type DivisionFilter = '전체' | Division;
@@ -45,10 +45,7 @@ export function parseExploreParams(search: URLSearchParams): ExploreParams {
   const scope: Scope = SCOPES.find((s) => s === rawScope) ?? '전체';
 
   const rawDivision = search.get('division');
-  const division: DivisionFilter =
-    rawDivision && (DIVISIONS as readonly string[]).includes(rawDivision)
-      ? (rawDivision as Division)
-      : '전체';
+  const division: DivisionFilter = isDivision(rawDivision) ? rawDivision : '전체';
 
   const keyword = search.get('q')?.trim() ?? '';
 
