@@ -39,4 +39,13 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT cm FROM ClubMember cm WHERE cm.id = :id")
     Optional<ClubMember> findByIdForUpdate(@Param("id") Long id);
+
+    @Query("SELECT cm.club.id FROM ClubMember cm WHERE cm.user.id = :userId")
+    List<Long> findClubIdsByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT cm.club.id FROM ClubMember cm
+            WHERE cm.user.id = :userId AND cm.role IN ('LEADER','OFFICER')
+            """)
+    List<Long> findOfficerClubIdsByUserId(@Param("userId") Long userId);
 }
