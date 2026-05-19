@@ -64,7 +64,7 @@ public class Notice extends BaseEntity {
         this.coverImageUrl = coverImageUrl;
         this.linkUrl = linkUrl;
         this.category = category;
-        this.tags = tags == null ? new String[0] : tags;
+        this.tags = tags == null ? new String[0] : tags.clone();
         this.visibility = visibility;
         this.clubScopeRole = clubScopeRole;
         this.pinned = pinned;
@@ -79,7 +79,7 @@ public class Notice extends BaseEntity {
                                 boolean pinned, LocalDateTime expiresAt, boolean notifyOnPublish,
                                 Long authorId) {
         validateScope(visibility, clubScopeRole);
-        boolean normalizedNotify = (visibility == NoticeVisibility.PUBLIC) ? notifyOnPublish : true;
+        boolean normalizedNotify = (visibility != NoticeVisibility.PUBLIC) || notifyOnPublish;
         String[] tagArray = tags == null
                 ? new String[0]
                 : tags.stream().distinct().toArray(String[]::new);
@@ -103,7 +103,14 @@ public class Notice extends BaseEntity {
 
     public void update(UpdatePayload payload) {
         NoticeVisibility nextVisibility = payload.visibility() != null ? payload.visibility() : this.visibility;
-        NoticeClubScopeRole nextRole = payload.visibility() != null ? payload.clubScopeRole() : this.clubScopeRole;
+        NoticeClubScopeRole nextRole;
+        if (payload.visibility() != null) {
+            nextRole = payload.clubScopeRole();
+        } else if (payload.clubScopeRole() != null) {
+            nextRole = payload.clubScopeRole();
+        } else {
+            nextRole = this.clubScopeRole;
+        }
         validateScope(nextVisibility, nextRole);
 
         if (payload.title() != null) this.title = payload.title();
@@ -117,6 +124,8 @@ public class Notice extends BaseEntity {
             this.visibility = nextVisibility;
             this.clubScopeRole = nextRole;
             if (nextVisibility != NoticeVisibility.PUBLIC) this.notifyOnPublish = true;
+        } else if (payload.clubScopeRole() != null) {
+            this.clubScopeRole = nextRole;
         }
         if (payload.pinned() != null) this.pinned = payload.pinned();
         if (Boolean.TRUE.equals(payload.clearExpiresAt())) this.expiresAt = null;
