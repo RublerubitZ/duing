@@ -9,13 +9,13 @@ type Props = {
 
 export function GradeSelect({ value, onChange }: Props) {
   return (
-    <label className="block">
-      <span className="text-sm text-slate-600">학년</span>
+    <div className="relative">
       <select
+        id="signup-grade"
         required
         value={value}
-        onChange={(event) => onChange(event.target.value as Grade)}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+        onChange={(changeEvent) => onChange(changeEvent.target.value as Grade)}
+        className="w-full appearance-none rounded-md border border-line bg-paper px-3.5 py-3 pr-10 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20"
       >
         <option value="" disabled>학년 선택</option>
         {GRADE_OPTIONS.map((grade) => (
@@ -24,6 +24,11 @@ export function GradeSelect({ value, onChange }: Props) {
           </option>
         ))}
       </select>
-    </label>
+      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-charcoal-3" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M3.5 5.5L7 9l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+    </div>
   );
 }
