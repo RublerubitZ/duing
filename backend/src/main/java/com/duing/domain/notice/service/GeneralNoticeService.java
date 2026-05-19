@@ -79,10 +79,10 @@ public class GeneralNoticeService implements NoticeService {
 
         if (command.targetClubIds() != null) {
             targetClubRepository.deleteAllByNoticeId(found.getId());
-            if (found.getVisibility() == NoticeVisibility.CLUB_SCOPED) {
+            if (nextVisibility == NoticeVisibility.CLUB_SCOPED) {
                 persistTargetClubs(found.getId(), command.targetClubIds());
             }
-        } else if (command.visibility() != null && command.visibility() != NoticeVisibility.CLUB_SCOPED) {
+        } else if (command.visibility() != null && nextVisibility != NoticeVisibility.CLUB_SCOPED) {
             targetClubRepository.deleteAllByNoticeId(found.getId());
         }
     }
