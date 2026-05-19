@@ -1,11 +1,13 @@
 package com.duing.domain.application.service;
 
+import com.duing.domain.application.service.dto.command.BulkUpdateApplicationStatusCommand;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
 import com.duing.domain.application.service.dto.command.UpdateInterviewCommand;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
+import com.duing.domain.application.service.dto.query.BulkUpdateApplicationStatusResult;
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
 import java.util.List;
 
@@ -22,6 +24,8 @@ public interface ApplicationService {
     ApplicantDetailQuery getApplicantDetail(Long applicationId, Long currentUserId);
 
     void updateStatus(UpdateApplicationStatusCommand updateApplicationStatusCommand);
+
+    BulkUpdateApplicationStatusResult bulkUpdateStatus(BulkUpdateApplicationStatusCommand bulkCommand);
 
     void updateInterview(UpdateInterviewCommand updateInterviewCommand);
 }
