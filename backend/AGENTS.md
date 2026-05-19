@@ -365,8 +365,10 @@ SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_STORAGE_BUCKET=duing
 
-# Phase 3 — 알림 스케줄러 (운영에서만 true 권장)
-DUING_NOTIFICATION_JOBS_ENABLED=false  # true 면 매일 06:00 KST DeadlineNotificationJob + 매시 정각 InterviewReminderJob 활성
+# Phase 3 — 알림 스케줄러
+# prod 프로파일을 활성화하면 application-prod.yml 에서 자동으로 true 가 주입되므로 별도 셋업 불필요.
+# 로컬에서 잡 동작을 확인하려면 .env 에 아래를 추가하거나 IntelliJ Run config 에 등록.
+DUING_NOTIFICATION_JOBS_ENABLED=false  # 로컬 default. true 로 두면 매일 06:00 KST DeadlineNotificationJob + 매시 정각 InterviewReminderJob 활성
 
 # 배포 시 추가 예정 (현재 미사용)
 # AWS_S3_BUCKET=
@@ -379,10 +381,17 @@ DUING_NOTIFICATION_JOBS_ENABLED=false  # true 면 매일 06:00 KST DeadlineNotif
 
 ### 알림 스케줄러 운영 활성화 (Phase 3)
 
-`DUING_NOTIFICATION_JOBS_ENABLED=true` 를 운영 환경변수로 주입하면 `NotificationJobConfig` 의 `@ConditionalOnProperty` 가 통과하면서 두 잡이 등록된다.
+운영(prod 프로파일) 에서는 `application-prod.yml` 이 `duing.notification.jobs.enabled: true` 를 자동 주입하므로 별도 env var 셋업이 필요 없다. `NotificationJobConfig` 의 `@ConditionalOnProperty` 가 통과하면서 두 잡이 등록된다.
 
 - `DeadlineNotificationJob` — 매일 06:00 KST. 찜한 동아리의 진행 중 모집을 스캔해 D-3 / D-1 / D-0 + 오늘 시작(`RECRUITMENT_OPENED`) 알림을 멱등 INSERT.
 - `InterviewReminderJob` — 매시 정각. `interview_at` 이 지금부터 23~25시간 사이인 `INTERVIEW_PENDING` 지원에 D-1 리마인더를 멱등 INSERT.
+
+부팅 직후 `NotificationJobStatusLogger` 가 항상 다음 두 라인 중 하나를 INFO 로그로 남기므로, 시작 로그에서 잡 활성 여부를 즉시 확인할 수 있다:
+
+```
+[알림 스케줄러] 활성. DeadlineNotificationJob(매일 06:00 KST) + InterviewReminderJob(매시 정각) 등록됨.
+[알림 스케줄러] 비활성. 마감 임박 / 면접 하루 전 알림이 발송되지 않습니다. 운영 환경이라면 prod 프로파일 활성화(spring.profiles.active=prod) 또는 DUING_NOTIFICATION_JOBS_ENABLED=true 환경변수 주입 필요.
+```
 
 활성화 직후 첫 06:00 KST 실행에서 다음 로그가 찍히는지 확인한다:
 
@@ -392,3 +401,5 @@ DeadlineNotificationJob done: created={M}
 ```
 
 `candidates=0` 만 떠도 정상(해당 시점에 조건을 만족하는 모집이 없다는 의미). 잡 실패는 ERROR 로그로 남고 다음 실행에 멱등 복구된다.
+
+운영에서 일시적으로 잡을 끄고 싶다면 `DUING_NOTIFICATION_JOBS_ENABLED=false` 환경변수로 prod 프로파일 기본값을 오버라이드한다.
