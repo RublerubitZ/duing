@@ -31,6 +31,7 @@ export {
   useApplicantsQuery,
   useApplicantDetailQuery,
   useUpdateApplicationStatusMutation,
+  useBulkUpdateApplicationStatusMutation,
   useUpdateInterviewMutation,
 } from './applications';
 export {

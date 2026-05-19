@@ -29,6 +29,8 @@ import type {
   UpdateClubStatusPayload,
   Applicant,
   ApplicationSummary,
+  BulkUpdateApplicationStatusPayload,
+  BulkUpdateApplicationStatusResult,
   User,
   StatsSummary,
   StatsDailyPoint,
@@ -126,6 +128,9 @@ export type DuingApiClient = {
       applicationId: number,
       payload: UpdateApplicationStatusPayload,
     ): Promise<void>;
+    bulkUpdateStatus(
+      payload: BulkUpdateApplicationStatusPayload,
+    ): Promise<BulkUpdateApplicationStatusResult>;
     myDetail(applicationId: number): Promise<MyApplicationDetail>;
     detail(applicationId: number): Promise<ApplicantDetail>;
     updateInterview(applicationId: number, payload: UpdateInterviewPayload): Promise<void>;
@@ -288,6 +293,10 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       updateStatus: (applicationId, payload) =>
         jsonVoid(
           http.patch(`leader/applications/${applicationId}/status`, { json: payload }),
+        ),
+      bulkUpdateStatus: (payload) =>
+        jsonOk<BulkUpdateApplicationStatusResult>(
+          http.patch('leader/applications/bulk-status', { json: payload }),
         ),
       myDetail: (applicationId) =>
         jsonOk<MyApplicationDetail>(http.get(`users/me/applications/${applicationId}`)),
