@@ -29,4 +29,11 @@ public class NoticeException extends ApplicationException {
         private static final String MESSAGE = "허용되지 않는 대표 이미지 URL 입니다.";
         public InvalidCoverImageUrlException() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
     }
+
+    public static class RecipientLimitExceededException extends NoticeException {
+        public RecipientLimitExceededException(int count, int limit) {
+            super("알림 발송 대상이 너무 많습니다 (요청 " + count + "명, 상한 " + limit + "명).",
+                  HttpStatus.BAD_REQUEST);
+        }
+    }
 }
