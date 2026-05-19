@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import type { ClubDetail, UpdateClubPayload } from '@duing/types';
+import type { ClubDetail, ClubDayOfWeek, UpdateClubPayload } from '@duing/types';
 import { updateClubSchema } from '@duing/schemas';
 import { useUpdateClubMutation } from '@duing/hooks';
 import { TagsInput } from './TagsInput';
 import { SnsLinksRepeater } from './SnsLinksRepeater';
 import { FaqsRepeater } from './FaqsRepeater';
+import { ActiveDaysToggle } from './ActiveDaysToggle';
 
 type ClubInfoFormProps = {
   clubId: number;
@@ -31,6 +32,19 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
   const [tags, setTags] = useState(detail.tags);
   const [snsLinks, setSnsLinks] = useState(detail.snsLinks);
   const [faqs, setFaqs] = useState(detail.faqs);
+  const [foundedYear, setFoundedYear] = useState<string>(
+    detail.foundedYear !== null ? String(detail.foundedYear) : ''
+  );
+  const [cohortNumber, setCohortNumber] = useState<string>(
+    detail.cohortNumber !== null ? String(detail.cohortNumber) : ''
+  );
+  const [location, setLocation] = useState(detail.location ?? '');
+  const [contactEmail, setContactEmail] = useState(detail.contactEmail ?? '');
+  const [activityFrequency, setActivityFrequency] = useState<string>(
+    detail.activityFrequency !== null ? String(detail.activityFrequency) : ''
+  );
+  const [activeDays, setActiveDays] = useState<ClubDayOfWeek[]>(detail.activeDays ?? []);
+  const [membershipFee, setMembershipFee] = useState(detail.membershipFee ?? '');
 
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -48,6 +62,30 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
     if (JSON.stringify(tags) !== JSON.stringify(detail.tags)) payload.tags = tags;
     if (JSON.stringify(snsLinks) !== JSON.stringify(detail.snsLinks)) payload.snsLinks = snsLinks;
     if (JSON.stringify(faqs) !== JSON.stringify(detail.faqs)) payload.faqs = faqs;
+    const newFoundedYear = foundedYear.trim() === '' ? null : Number(foundedYear);
+    if (newFoundedYear !== detail.foundedYear) {
+      payload.foundedYear = newFoundedYear;
+    }
+    const newCohortNumber = cohortNumber.trim() === '' ? null : Number(cohortNumber);
+    if (newCohortNumber !== detail.cohortNumber) {
+      payload.cohortNumber = newCohortNumber;
+    }
+    if (location !== (detail.location ?? '')) {
+      payload.location = location || null;
+    }
+    if (contactEmail !== (detail.contactEmail ?? '')) {
+      payload.contactEmail = contactEmail || null;
+    }
+    const newActivityFrequency = activityFrequency.trim() === '' ? null : Number(activityFrequency);
+    if (newActivityFrequency !== detail.activityFrequency) {
+      payload.activityFrequency = newActivityFrequency;
+    }
+    if (JSON.stringify(activeDays) !== JSON.stringify(detail.activeDays)) {
+      payload.activeDays = activeDays;
+    }
+    if (membershipFee !== (detail.membershipFee ?? '')) {
+      payload.membershipFee = membershipFee || null;
+    }
     return payload;
   }
 
@@ -55,8 +93,21 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
     event.preventDefault();
     setError(null);
 
-    const fullData = { name, category, division: division || null, description: description || null,
-                       logoUrl: logoUrl || null, coverUrl: coverUrl || null, tags, snsLinks, faqs };
+    const fullData = {
+      name, category,
+      division: division || null,
+      description: description || null,
+      logoUrl: logoUrl || null,
+      coverUrl: coverUrl || null,
+      tags, snsLinks, faqs,
+      foundedYear: foundedYear.trim() === '' ? null : Number(foundedYear),
+      cohortNumber: cohortNumber.trim() === '' ? null : Number(cohortNumber),
+      location: location || null,
+      contactEmail: contactEmail || '',
+      activityFrequency: activityFrequency.trim() === '' ? null : Number(activityFrequency),
+      activeDays,
+      membershipFee: membershipFee || null,
+    };
     const parsed = updateClubSchema.safeParse(fullData);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');
@@ -151,6 +202,87 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
           <p className="mb-1 text-sm text-slate-600">태그 (최대 20개)</p>
           <TagsInput value={tags} onChange={setTags} readOnly={readOnly} />
         </div>
+
+        <fieldset disabled={readOnly} className="space-y-4 rounded-lg border border-slate-200 p-4">
+          <legend className="px-2 text-sm font-medium text-slate-700">상세 정보</legend>
+
+          <div className="grid grid-cols-2 gap-4">
+            <label className="block">
+              <span className="block text-sm text-slate-600">창설년도</span>
+              <input
+                type="number"
+                min={1900}
+                max={2100}
+                value={foundedYear}
+                onChange={(event) => setFoundedYear(event.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                placeholder="예: 2018"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-sm text-slate-600">현재 기수</span>
+              <input
+                type="number"
+                min={1}
+                value={cohortNumber}
+                onChange={(event) => setCohortNumber(event.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                placeholder="예: 10"
+              />
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="block text-sm text-slate-600">위치</span>
+            <input
+              type="text"
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+              placeholder="예: 학생회관 405호"
+            />
+          </label>
+
+          <label className="block">
+            <span className="block text-sm text-slate-600">컨택 이메일</span>
+            <input
+              type="email"
+              value={contactEmail}
+              onChange={(event) => setContactEmail(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+              placeholder="예: club@daegu.ac.kr"
+            />
+          </label>
+
+          <div>
+            <span className="block text-sm text-slate-600">활동 요일 / 빈도</span>
+            <div className="mt-2 flex flex-wrap items-center gap-4">
+              <ActiveDaysToggle value={activeDays} onChange={setActiveDays} disabled={readOnly} />
+              <label className="flex items-center gap-2 text-sm">
+                주
+                <input
+                  type="number"
+                  min={1}
+                  value={activityFrequency}
+                  onChange={(event) => setActivityFrequency(event.target.value)}
+                  className="w-16 rounded-md border border-slate-300 px-2 py-1"
+                />
+                회
+              </label>
+            </div>
+          </div>
+
+          <label className="block">
+            <span className="block text-sm text-slate-600">회비</span>
+            <input
+              type="text"
+              value={membershipFee}
+              onChange={(event) => setMembershipFee(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+              placeholder="예: 학기당 30,000원"
+            />
+          </label>
+        </fieldset>
 
         <div>
           <p className="mb-1 text-sm text-slate-600">SNS 링크 (최대 10개)</p>

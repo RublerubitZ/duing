@@ -30,6 +30,9 @@ export default function NewRecruitmentPage({
       useInterview: values.useInterview,
       targetRole: values.targetRole,
       questions: values.applicationMode === 'SELF' ? values.questions : undefined,
+      interviewStartDate: values.interviewStartDate ?? undefined,
+      interviewEndDate: values.interviewEndDate ?? undefined,
+      showApplicantCount: values.showApplicantCount,
     });
     router.push(toRoute(`/manage/clubs/${clubId}/recruitments/${newRecruitmentId}`));
   }
