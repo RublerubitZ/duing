@@ -10,7 +10,7 @@ export type ClubCategory =
   | 'HOBBY'
   | 'OTHER';
 
-export type ClubStatus = 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE';
+export type ClubStatus = 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE' | 'REJECTED';
 
 export type ClubDayOfWeek =
   | 'MONDAY'
