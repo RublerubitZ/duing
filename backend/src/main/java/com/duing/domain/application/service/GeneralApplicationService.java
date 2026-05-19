@@ -4,12 +4,14 @@ import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.service.dto.command.BulkUpdateApplicationStatusCommand;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
 import com.duing.domain.application.service.dto.command.UpdateInterviewCommand;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
+import com.duing.domain.application.service.dto.query.BulkUpdateApplicationStatusResult;
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -28,11 +30,16 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.notification.event.InterviewScheduledEvent;
 import com.duing.global.notification.InterviewNotificationService;
+import com.duing.global.exception.ApplicationException;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +59,14 @@ public class GeneralApplicationService implements ApplicationService {
     private final InterviewNotificationService interviewNotificationService;
     private final ApplicationDraftService applicationDraftService;
     private final ApplicationEventPublisher eventPublisher;
+    /**
+     * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
+     * 생성자 자체에 self-reference 를 넣으면 순환 의존이 되므로 setter 주입을 사용한다.
+     * 단위 테스트가 8-arg 생성자만 사용하는 케이스를 보호하기 위해서이기도 하다 — bulkUpdateStatus 만
+     * 본 의존이 필요하고 그 외 진입점에서는 NPE 위험이 없다.
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    private ObjectProvider<ApplicationService> selfProvider;
 
     @Override
     @Transactional
@@ -163,6 +178,37 @@ public class GeneralApplicationService implements ApplicationService {
                                 }
                             });
         }
+    }
+
+    @Override
+    public BulkUpdateApplicationStatusResult bulkUpdateStatus(BulkUpdateApplicationStatusCommand bulkCommand) {
+        // 입력 ID 중복은 클라이언트 실수 보호 차원에서 제거하되 순서는 유지한다.
+        Set<Long> uniqueIds = new LinkedHashSet<>(bulkCommand.applicationIds());
+
+        // 건별 트랜잭션을 얻기 위해 자기 자신의 프록시를 통해 updateStatus 를 호출한다.
+        // 본 메서드는 @Transactional 이 없으므로 각 self.updateStatus(...) 가 REQUIRED 로 신규 트랜잭션을 연다.
+        ApplicationService self = selfProvider.getObject();
+
+        int updated = 0;
+        List<BulkUpdateApplicationStatusResult.Failure> failures = new ArrayList<>();
+        for (Long applicationId : uniqueIds) {
+            try {
+                self.updateStatus(new UpdateApplicationStatusCommand(
+                        applicationId, bulkCommand.currentUserId(), bulkCommand.status()));
+                updated++;
+            } catch (ApplicationException domainFailure) {
+                // 도메인 실패 (없음 / 권한 / 잘못된 전이) — 사용자에게 노출할 한국어 메시지가 들어있다.
+                failures.add(new BulkUpdateApplicationStatusResult.Failure(
+                        applicationId, domainFailure.getMessage()));
+            } catch (RuntimeException unexpected) {
+                // 시스템성 실패 — 로그는 남기되 응답에는 일반화된 메시지로 노출한다.
+                log.warn("[일괄 상태 변경 실패] applicationId={}, target={}",
+                        applicationId, bulkCommand.status(), unexpected);
+                failures.add(new BulkUpdateApplicationStatusResult.Failure(
+                        applicationId, "일시적 오류로 처리하지 못했습니다."));
+            }
+        }
+        return new BulkUpdateApplicationStatusResult(updated, failures);
     }
 
     @Override
