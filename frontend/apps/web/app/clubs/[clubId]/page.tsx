@@ -2,13 +2,7 @@
 
 import { use } from 'react';
 
-import {
-  useClubDetailQuery,
-  useClubPhotosQuery,
-  useClubRecruitmentsQuery,
-  useRecruitmentDetailQuery,
-} from '@duing/hooks';
-import type { RecruitmentSummary } from '@duing/types';
+import { useClubDetailQuery, useClubPhotosQuery } from '@duing/hooks';
 
 import { ClubContactCard } from './_components/ClubContactCard';
 import { ClubDetailHero } from './_components/ClubDetailHero';
@@ -26,13 +20,6 @@ export default function ClubDetailPage({
 
   const detail = useClubDetailQuery(clubId);
   const photos = useClubPhotosQuery(clubId);
-  const recruitments = useClubRecruitmentsQuery(clubId);
-
-  // 모집 카드는 면접 일정·지원자 수까지 필요하므로 활성 모집의 detail 을 별도 호출.
-  const activeRecruitmentSummary: RecruitmentSummary | undefined = recruitments.data?.find(
-    (item) => item.displayStatus === 'OPEN' || item.displayStatus === 'ALWAYS_OPEN',
-  );
-  const recruitmentDetail = useRecruitmentDetailQuery(activeRecruitmentSummary?.id);
 
   if (detail.isLoading) {
     return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
@@ -47,7 +34,7 @@ export default function ClubDetailPage({
     <div className="bg-cream min-h-screen">
       <ClubDetailHero
         club={club}
-        recruitmentDisplayStatus={activeRecruitmentSummary?.displayStatus}
+        recruitmentDisplayStatus={club.activeRecruitment?.displayStatus}
       />
 
       <section className="bg-cream px-10 pb-16">
@@ -60,7 +47,7 @@ export default function ClubDetailPage({
           </div>
 
           <div className="space-y-4">
-            <ClubRecruitmentCard recruitment={recruitmentDetail.data} clubId={clubId} />
+            <ClubRecruitmentCard recruitment={club.activeRecruitment ?? undefined} clubId={clubId} />
             <ClubContactCard
               snsLinks={club.snsLinks}
               location={club.location}

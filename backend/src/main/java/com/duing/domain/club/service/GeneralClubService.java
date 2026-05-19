@@ -1,5 +1,6 @@
 package com.duing.domain.club.service;
 
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
@@ -15,9 +16,12 @@ import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -35,6 +39,8 @@ public class GeneralClubService implements ClubService {
     private final ClubMemberRepository clubMemberRepository;
     private final ClubPhotoRepository clubPhotoRepository;
     private final ClubAuthService clubAuthService;
+    private final RecruitmentRepository recruitmentRepository;
+    private final ApplicationRepository applicationRepository;
 
     @Override
     @Transactional
@@ -74,9 +80,21 @@ public class GeneralClubService implements ClubService {
                 .stream()
                 .map(ClubPhotoQuery::from)
                 .toList();
+
+        LocalDate today = LocalDate.now();
+        StudentRecruitmentProjection activeRecruitment = recruitmentRepository.findActiveByClubId(clubId)
+                .map(active -> {
+                    Integer applicantCount = active.isShowApplicantCount()
+                            ? (int) applicationRepository.countByRecruitmentId(active.getId())
+                            : null;
+                    return StudentRecruitmentProjection.from(active, today, applicantCount);
+                })
+                .orElse(null);
+
         return clubMemberRepository.findFirstByClubIdAndRole(clubId, ClubMemberRole.LEADER)
-                .map(leader -> ClubDetailQuery.of(club, leader.getUser().getId(), leader.getUser().getName(), photos))
-                .orElseGet(() -> ClubDetailQuery.of(club, null, null, photos));
+                .map(leader -> ClubDetailQuery.of(
+                        club, leader.getUser().getId(), leader.getUser().getName(), photos, activeRecruitment))
+                .orElseGet(() -> ClubDetailQuery.of(club, null, null, photos, activeRecruitment));
     }
 
     @Override
@@ -109,7 +127,10 @@ public class GeneralClubService implements ClubService {
                 updateClubCommand.contactEmail(),
                 updateClubCommand.activityFrequency(),
                 updateClubCommand.activeDays(),
-                updateClubCommand.membershipFee()
+                updateClubCommand.membershipFee(),
+                updateClubCommand.tagline(),
+                updateClubCommand.highlights(),
+                updateClubCommand.majorProjects()
         );
     }
 

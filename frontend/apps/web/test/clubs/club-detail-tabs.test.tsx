@@ -27,6 +27,10 @@ const baseClub: ClubDetail = {
   activityFrequency: null,
   activeDays: [],
   membershipFee: null,
+  tagline: null,
+  highlights: [],
+  majorProjects: null,
+  activeRecruitment: null,
 };
 
 describe('ClubDetailTabs', () => {

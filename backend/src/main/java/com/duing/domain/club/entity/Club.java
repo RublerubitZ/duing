@@ -96,6 +96,16 @@ public class Club extends BaseEntity {
     @Column(name = "membership_fee", length = 100)
     private String membershipFee;
 
+    @Column(name = "tagline", length = 60)
+    private String tagline;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "highlights", columnDefinition = "jsonb", nullable = false)
+    private List<String> highlights = new ArrayList<>();
+
+    @Column(name = "major_projects", columnDefinition = "TEXT")
+    private String majorProjects;
+
     public List<String> getTags() {
         return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
     }
@@ -106,6 +116,10 @@ public class Club extends BaseEntity {
 
     public List<ClubFaq> getFaqs() {
         return Collections.unmodifiableList(faqs);
+    }
+
+    public List<String> getHighlights() {
+        return Collections.unmodifiableList(highlights);
     }
 
     public Set<DayOfWeek> getActiveDays() {
@@ -176,7 +190,10 @@ public class Club extends BaseEntity {
             String contactEmail,
             Integer activityFrequency,
             Set<DayOfWeek> activeDays,
-            String membershipFee
+            String membershipFee,
+            String tagline,
+            List<String> highlights,
+            String majorProjects
     ) {
         if (name != null) this.name = name;
         if (category != null) this.category = category;
@@ -194,5 +211,8 @@ public class Club extends BaseEntity {
         if (activityFrequency != null) this.activityFrequency = activityFrequency;
         if (activeDays != null) this.activeDays = toActiveDaysCsv(activeDays);
         if (membershipFee != null) this.membershipFee = membershipFee;
+        if (tagline != null) this.tagline = tagline;
+        if (highlights != null) this.highlights = new ArrayList<>(highlights);
+        if (majorProjects != null) this.majorProjects = majorProjects;
     }
 }

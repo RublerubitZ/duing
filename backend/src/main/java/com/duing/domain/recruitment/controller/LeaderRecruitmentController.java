@@ -35,6 +35,17 @@ public class LeaderRecruitmentController implements LeaderRecruitmentApi {
     }
 
     @Override
+    public ResponseEntity<ApiResponse<Long>> replaceActiveRecruitment(
+            @PathVariable Long clubId,
+            @Valid @RequestBody CreateRecruitmentRequest createRecruitmentRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        Long recruitmentId = recruitmentService.replaceActive(
+                createRecruitmentRequest.toCommand(clubId, currentUser.id()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(recruitmentId));
+    }
+
+    @Override
     public ResponseEntity<Void> updateRecruitment(
             @PathVariable Long recruitmentId,
             @Valid @RequestBody UpdateRecruitmentRequest updateRecruitmentRequest,
