@@ -24,61 +24,61 @@ export default function ApplyPage({
   const router = useRouter();
 
   const detail = useRecruitmentDetailQuery(recruitmentId);
+  const draftQuery = useApplicationDraftQuery(recruitmentId);
 
-  if (detail.isLoading || !detail.data) {
+  // 외부 폼 모집은 동아리 상세로 되돌려보낸다. side-effect 라 effect 로 격리한다.
+  const recruitment = detail.data;
+  const isExternal = recruitment?.applicationMode === 'EXTERNAL';
+  useEffect(() => {
+    if (isExternal && recruitment) {
+      router.replace(toRoute(`/clubs/${recruitment.clubId}`));
+    }
+  }, [isExternal, recruitment, router]);
+
+  if (detail.isLoading || !recruitment || draftQuery.isLoading) {
     return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
   }
 
-  const recruitment = detail.data;
-
-  // 외부 폼 모집은 렌더 시점에 동아리 상세로 되돌려보낸다 (effect 내 리다이렉트 금지).
-  if (recruitment.applicationMode === 'EXTERNAL') {
-    router.replace(
-      toRoute(`/clubs/${recruitment.clubId}`),
-    );
+  if (isExternal) {
     return <p className="p-6 text-sm text-slate-500">이동 중…</p>;
   }
 
-  // 데이터 도착이 보장된 시점에 자식 컴포넌트를 마운트해 useState 초기값을 props 에서 직접 받게 한다.
-  return <ApplyForm recruitment={recruitment} recruitmentId={recruitmentId} />;
+  // draft 가 settle 된 뒤 mount 하므로 자식은 initialAnswers 만 받아 useState 초기값으로 쓴다.
+  const draft = draftQuery.data;
+  const initialAnswers: DraftAnswer[] = recruitment.questions.map((_, idx) => ({
+    questionId: idx,
+    value:
+      draft?.exists
+        ? draft.answers.find((answer) => answer.questionId === idx)?.value ?? ''
+        : '',
+  }));
+
+  return (
+    <ApplyForm
+      recruitment={recruitment}
+      recruitmentId={recruitmentId}
+      initialAnswers={initialAnswers}
+    />
+  );
 }
 
 type ApplyFormProps = {
   recruitment: RecruitmentDetail;
   recruitmentId: number;
+  initialAnswers: DraftAnswer[];
 };
 
-function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
+function ApplyForm({ recruitment, recruitmentId, initialAnswers }: ApplyFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const submit = useSubmitApplicationMutation(recruitmentId);
-  const draftQuery = useApplicationDraftQuery(recruitmentId);
 
-  // answers 상태: DraftAnswer[] 형태로 관리 (questionId = index 기반)
-  const [answers, setAnswers] = useState<DraftAnswer[]>(() =>
-    recruitment.questions.map((_, idx) => ({ questionId: idx, value: '' })),
-  );
+  const [answers, setAnswers] = useState<DraftAnswer[]>(initialAnswers);
   const [error, setError] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
-
-  // 임시저장에서 prefill (최초 1회)
-  useEffect(() => {
-    if (hydrated) return;
-    if (draftQuery.isLoading) return;
-    if (draftQuery.data?.exists && draftQuery.data.answers.length > 0) {
-      setAnswers(
-        recruitment.questions.map((_, idx) => ({
-          questionId: idx,
-          value: draftQuery.data.answers.find((a) => a.questionId === idx)?.value ?? '',
-        })),
-      );
-    }
-    setHydrated(true);
-  }, [draftQuery.isLoading, draftQuery.data, recruitment.questions, hydrated]);
 
   const autosaveStatus = useAutosaveDraft(answers, {
     recruitmentId,
-    enabled: hydrated && !draftQuery.isLoading,
+    enabled: true,
   });
 
   const isClosedByDraft = autosaveStatus.kind === 'closed';
@@ -99,7 +99,6 @@ function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
       const applicationId = await submit.mutateAsync({
         answers: answers.map((answer) => answer.value),
       });
-      // 제출 성공 후 임시저장 쿼리 무효화
       queryClient.invalidateQueries({ queryKey: draftQueryKeys.byRecruitment(recruitmentId) });
       router.push(toRoute(`/me/applications/${applicationId}`));
     } catch (submitError) {
@@ -112,7 +111,6 @@ function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
       <p className="text-sm text-slate-500">{recruitment.clubName}</p>
       <h1 className="mt-1 text-2xl font-bold">{recruitment.title}</h1>
 
-      {/* 임시저장 상태 표시 */}
       {isClosedByDraft && (
         <div className="mt-4 rounded-md bg-rose-50 border border-rose-200 px-4 py-3">
           <p className="text-sm text-rose-700">
