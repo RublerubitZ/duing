@@ -53,6 +53,13 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                     {displayStatusLabel(recruitmentDisplayStatus)}
                   </span>
                 )}
+                {(club.foundedYear !== null || club.cohortNumber !== null) && (
+                  <span className="text-[13px] text-charcoal-3">
+                    {club.foundedYear !== null && `${club.foundedYear}년 창설`}
+                    {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
+                    {club.cohortNumber !== null && `${club.cohortNumber}기`}
+                  </span>
+                )}
               </div>
               <h1 className="mb-4 text-[56px] leading-none tracking-tightx">{club.name}</h1>
               {club.description && (
