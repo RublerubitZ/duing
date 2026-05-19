@@ -25,5 +25,8 @@ public record UpdateClubCommand(
         String contactEmail,
         Integer activityFrequency,
         Set<DayOfWeek> activeDays,
-        String membershipFee
+        String membershipFee,
+        String tagline,
+        List<String> highlights,
+        String majorProjects
 ) {}

@@ -127,7 +127,10 @@ public class GeneralClubService implements ClubService {
                 updateClubCommand.contactEmail(),
                 updateClubCommand.activityFrequency(),
                 updateClubCommand.activeDays(),
-                updateClubCommand.membershipFee()
+                updateClubCommand.membershipFee(),
+                updateClubCommand.tagline(),
+                updateClubCommand.highlights(),
+                updateClubCommand.majorProjects()
         );
     }
 

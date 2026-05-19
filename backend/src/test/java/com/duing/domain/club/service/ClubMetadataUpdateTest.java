@@ -58,7 +58,8 @@ class ClubMetadataUpdateTest {
                 "doing-code@duing.ac.kr",
                 2,
                 days,
-                "학기당 30,000원"
+                "학기당 30,000원",
+                null, null, null
         ));
 
         ClubDetailQuery detail = clubService.getById(club.getId());
