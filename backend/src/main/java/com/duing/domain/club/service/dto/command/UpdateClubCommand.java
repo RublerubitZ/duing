@@ -1,5 +1,6 @@
 package com.duing.domain.club.service.dto.command;
 
+import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubFaq;
 import com.duing.domain.club.entity.ClubSnsLink;
@@ -29,4 +30,28 @@ public record UpdateClubCommand(
         String tagline,
         List<String> highlights,
         String majorProjects
-) {}
+) {
+    public Club.UpdatePayload toPayload() {
+        return new Club.UpdatePayload(
+                name(),
+                category(),
+                division(),
+                description(),
+                logoUrl(),
+                coverUrl(),
+                tags(),
+                snsLinks(),
+                faqs(),
+                foundedYear(),
+                cohortNumber(),
+                location(),
+                contactEmail(),
+                activityFrequency(),
+                activeDays(),
+                membershipFee(),
+                tagline(),
+                highlights(),
+                majorProjects()
+        );
+    }
+}

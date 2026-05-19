@@ -111,27 +111,7 @@ public class GeneralClubService implements ClubService {
             throw new ClubException.DuplicateClubNameException();
         }
 
-        club.update(
-                newName,
-                updateClubCommand.category(),
-                updateClubCommand.division(),
-                updateClubCommand.description(),
-                updateClubCommand.logoUrl(),
-                updateClubCommand.coverUrl(),
-                updateClubCommand.tags(),
-                updateClubCommand.snsLinks(),
-                updateClubCommand.faqs(),
-                updateClubCommand.foundedYear(),
-                updateClubCommand.cohortNumber(),
-                updateClubCommand.location(),
-                updateClubCommand.contactEmail(),
-                updateClubCommand.activityFrequency(),
-                updateClubCommand.activeDays(),
-                updateClubCommand.membershipFee(),
-                updateClubCommand.tagline(),
-                updateClubCommand.highlights(),
-                updateClubCommand.majorProjects()
-        );
+        club.update(updateClubCommand.toPayload());
     }
 
     @Override
