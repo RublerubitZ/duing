@@ -1,4 +1,4 @@
-import { SparkleFull } from '../../../../_components/Sparkle';
+import { SparkleFull } from '../../../_components/Sparkle';
 import { SectionHeader } from '../SectionHeader';
 import { Icon } from '../Icons';
 
