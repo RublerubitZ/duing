@@ -1,5 +1,9 @@
 import ky, { type KyInstance, type ResponsePromise, HTTPError } from 'ky';
 import type {
+  AdminClubSearchParams,
+  AdminClubSummary,
+  AdminUserSearchParams,
+  AdminUserSearchResult,
   ApiResponse,
   PageResponse,
   ClubDetail,
@@ -147,6 +151,14 @@ export type DuingApiClient = {
     unreadCount(): Promise<{ count: number }>;
     markRead(notificationId: number): Promise<void>;
     markAllRead(): Promise<void>;
+  };
+  admin: {
+    clubs: {
+      list(params?: AdminClubSearchParams): Promise<PageResponse<AdminClubSummary>>;
+    };
+    users: {
+      search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
+    };
   };
   raw: KyInstance;
 };
@@ -327,6 +339,20 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       markRead: (notificationId) =>
         jsonVoid(http.patch(`me/notifications/${notificationId}/read`)),
       markAllRead: () => jsonVoid(http.patch('me/notifications/read-all')),
+    },
+    admin: {
+      clubs: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminClubSummary>>(
+            http.get('admin/clubs', { searchParams: cleanParams(params) }),
+          ),
+      },
+      users: {
+        search: (params) =>
+          jsonOk<PageResponse<AdminUserSearchResult>>(
+            http.get('admin/users', { searchParams: cleanParams(params) }),
+          ),
+      },
     },
     raw: http,
   };

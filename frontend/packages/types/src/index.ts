@@ -8,3 +8,4 @@ export * from './stats';
 export * from './favorite';
 export * from './draft';
 export * from './notification';
+export * from './admin';
