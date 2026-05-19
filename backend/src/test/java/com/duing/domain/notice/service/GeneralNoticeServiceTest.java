@@ -50,7 +50,7 @@ class GeneralNoticeServiceTest {
     void createsPublicNotice() {
         Long authorId = saveAuthor();
         CreateNoticeCommand createCommand = new CreateNoticeCommand(
-                "전체 공지 제목", "요약", "본문 내용", null, null,
+                "전체 공지 제목", "요약", "본문 내용", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.PUBLIC, null, List.of(),
                 false, null, false, authorId
@@ -67,7 +67,7 @@ class GeneralNoticeServiceTest {
     void clubScopedRequiresTargets() {
         Long authorId = saveAuthor();
         CreateNoticeCommand createCommand = new CreateNoticeCommand(
-                "동아리 공지 제목", "요약", "본문 내용", null, null,
+                "동아리 공지 제목", "요약", "본문 내용", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.CLUB_SCOPED, NoticeClubScopeRole.OFFICERS_ONLY, List.of(),
                 false, null, false, authorId
@@ -83,7 +83,7 @@ class GeneralNoticeServiceTest {
         Long authorId = saveAuthor();
         Long clubId = saveClubId();
         CreateNoticeCommand createCommand = new CreateNoticeCommand(
-                "동아리 공지 제목", "요약", "본문 내용", null, null,
+                "동아리 공지 제목", "요약", "본문 내용", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.CLUB_SCOPED, NoticeClubScopeRole.ALL_MEMBERS, List.of(clubId),
                 false, null, false, authorId
@@ -109,7 +109,7 @@ class GeneralNoticeServiceTest {
     void softDeleteRemovesFromFindAll() {
         Long authorId = saveAuthor();
         CreateNoticeCommand createCommand = new CreateNoticeCommand(
-                "삭제될 공지", "요약", "본문 내용", null, null,
+                "삭제될 공지", "요약", "본문 내용", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.PUBLIC, null, List.of(),
                 false, null, false, authorId

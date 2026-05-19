@@ -268,7 +268,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "notice_target_clubs")
+@Table(name = "notice_target_club")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class NoticeTargetClub {
 
@@ -342,9 +342,9 @@ import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Entity
-@Table(name = "notices")
+@Table(name = "notice")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE notices SET deleted_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE notice SET deleted_at = NOW() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class Notice extends BaseEntity {
 

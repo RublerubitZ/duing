@@ -17,6 +17,7 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +52,7 @@ public class AdminNoticeController implements AdminNoticeApi {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<Void>> updateNotice(@PathVariable Long noticeId, @RequestBody UpdateNoticeRequest request) {
+    public ResponseEntity<ApiResponse<Void>> updateNotice(@PathVariable Long noticeId, @Valid @RequestBody UpdateNoticeRequest request) {
         noticeService.update(request.toCommand(noticeId));
         return ResponseEntity.noContent().build();
     }
