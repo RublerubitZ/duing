@@ -5,6 +5,7 @@ import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -27,6 +28,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     @Override
     public Page<Club> findByCondition(ClubSearchCondition condition, Pageable pageable) {
         BooleanExpression[] predicates = {
+                club.status.eq(ClubStatus.ACTIVE),
                 categoryEq(condition.category()),
                 divisionEq(condition.division()),
                 keywordContains(condition.keyword()),
