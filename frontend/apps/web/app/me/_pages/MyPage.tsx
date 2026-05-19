@@ -65,8 +65,9 @@ export function MyPage() {
       }
 
       const docHeight = document.documentElement.scrollHeight;
-      if (window.scrollY + window.innerHeight >= docHeight - 4) {
-        activeId = MY_SECTIONS[MY_SECTIONS.length - 1].id;
+      const lastSection = MY_SECTIONS[MY_SECTIONS.length - 1];
+      if (lastSection && window.scrollY + window.innerHeight >= docHeight - 4) {
+        activeId = lastSection.id;
       }
 
       setActive((prev) => (prev === activeId ? prev : activeId));
