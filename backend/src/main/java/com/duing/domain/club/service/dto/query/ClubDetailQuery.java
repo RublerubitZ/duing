@@ -32,6 +32,9 @@ public record ClubDetailQuery(
         Integer activityFrequency,
         Set<DayOfWeek> activeDays,
         String membershipFee,
+        String tagline,
+        List<String> highlights,
+        String majorProjects,
         StudentRecruitmentProjection activeRecruitment
 ) {
     /**
@@ -67,6 +70,9 @@ public record ClubDetailQuery(
                 club.getActivityFrequency(),
                 club.getActiveDays(),
                 club.getMembershipFee(),
+                club.getTagline(),
+                club.getHighlights(),
+                club.getMajorProjects(),
                 activeRecruitment
         );
     }
