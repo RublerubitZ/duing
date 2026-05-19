@@ -1,0 +1,143 @@
+package com.duing.domain.notice.service;
+
+import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.notice.entity.Notice;
+import com.duing.domain.notice.entity.NoticeTargetClub;
+import com.duing.domain.notice.entity.NoticeVisibility;
+import com.duing.domain.notice.exception.NoticeException;
+import com.duing.domain.notice.repository.NoticeRepository;
+import com.duing.domain.notice.repository.NoticeTargetClubRepository;
+import com.duing.domain.notice.service.dto.command.CreateNoticeCommand;
+import com.duing.domain.notice.service.dto.command.UpdateNoticeCommand;
+import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
+import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
+import com.duing.domain.notice.service.dto.query.ViewerScope;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class GeneralNoticeService implements NoticeService {
+
+    private final NoticeRepository noticeRepository;
+    private final NoticeTargetClubRepository targetClubRepository;
+    private final ClubRepository clubRepository;
+
+    @Value("${duing.notice.cover-image-url-prefix:}")
+    private String coverImageUrlPrefix;
+
+    @Override
+    @Transactional
+    public Long create(CreateNoticeCommand command) {
+        validateCoverImageUrl(command.coverImageUrl());
+        validateScopedTargets(command.visibility(), command.targetClubIds());
+
+        Notice saved = noticeRepository.save(Notice.create(
+                command.title(), command.summary(), command.content(),
+                command.coverImageUrl(), command.linkUrl(),
+                command.category(), command.tags(),
+                command.visibility(), command.clubScopeRole(),
+                command.pinned(), command.expiresAt(),
+                command.notifyOnPublish(), command.authorId()
+        ));
+
+        if (command.visibility() == NoticeVisibility.CLUB_SCOPED) {
+            persistTargetClubs(saved.getId(), command.targetClubIds());
+        }
+        return saved.getId();
+    }
+
+    @Override
+    @Transactional
+    public void update(UpdateNoticeCommand command) {
+        if (command.coverImageUrl() != null) validateCoverImageUrl(command.coverImageUrl());
+        Notice found = noticeRepository.findById(command.noticeId())
+                .orElseThrow(NoticeException.NoticeNotFoundException::new);
+
+        NoticeVisibility nextVisibility = command.visibility() != null ? command.visibility() : found.getVisibility();
+        if (nextVisibility == NoticeVisibility.CLUB_SCOPED) {
+            List<Long> nextTargets = command.targetClubIds() != null
+                    ? command.targetClubIds()
+                    : targetClubRepository.findAllByIdNoticeId(found.getId()).stream().map(NoticeTargetClub::getClubId).toList();
+            validateScopedTargets(NoticeVisibility.CLUB_SCOPED, nextTargets);
+        }
+
+        found.update(new Notice.UpdatePayload(
+                command.title(), command.summary(), command.content(),
+                command.coverImageUrl(), command.linkUrl(),
+                command.category(), command.tags(),
+                command.visibility(), command.clubScopeRole(),
+                command.pinned(), command.expiresAt(), command.clearExpiresAt(),
+                command.notifyOnPublish()
+        ));
+
+        if (command.targetClubIds() != null) {
+            targetClubRepository.deleteAllByNoticeId(found.getId());
+            if (nextVisibility == NoticeVisibility.CLUB_SCOPED) {
+                persistTargetClubs(found.getId(), command.targetClubIds());
+            }
+        } else if (command.visibility() != null && nextVisibility != NoticeVisibility.CLUB_SCOPED) {
+            targetClubRepository.deleteAllByNoticeId(found.getId());
+        }
+    }
+
+    @Override
+    @Transactional
+    public void delete(Long noticeId) {
+        Notice found = noticeRepository.findById(noticeId)
+                .orElseThrow(NoticeException.NoticeNotFoundException::new);
+        noticeRepository.delete(found);
+    }
+
+    @Override
+    public Notice getVisible(Long noticeId, ViewerScope viewer) {
+        Notice found = noticeRepository.findById(noticeId)
+                .orElseThrow(NoticeException.NoticeNotFoundException::new);
+        return noticeRepository.findVisibleById(noticeId, viewer)
+                .orElseGet(() -> {
+                    if (viewer.isAdmin()) return found;
+                    throw new NoticeException.NoticeAccessDeniedException();
+                });
+    }
+
+    @Override
+    public Page<Notice> searchFeed(NoticeSearchCondition condition, ViewerScope viewer, Pageable pageable) {
+        return noticeRepository.findFeed(condition, viewer, pageable);
+    }
+
+    @Override
+    public Page<Notice> searchForAdmin(NoticeAdminSearchCondition condition, Pageable pageable) {
+        return noticeRepository.findAdminList(condition, pageable);
+    }
+
+    private void validateCoverImageUrl(String url) {
+        if (coverImageUrlPrefix == null || coverImageUrlPrefix.isBlank()) return;
+        if (url == null || !url.startsWith(coverImageUrlPrefix)) {
+            throw new NoticeException.InvalidCoverImageUrlException();
+        }
+    }
+
+    private void validateScopedTargets(NoticeVisibility visibility, List<Long> targetClubIds) {
+        if (visibility != NoticeVisibility.CLUB_SCOPED) return;
+        if (targetClubIds == null || targetClubIds.isEmpty()) {
+            throw new NoticeException.InvalidNoticeScopeException("CLUB_SCOPED 공지는 1개 이상의 대상 동아리가 필요합니다.");
+        }
+        List<Long> distinct = targetClubIds.stream().distinct().toList();
+        long existing = clubRepository.findAllById(distinct).size();
+        if (existing != distinct.size()) {
+            throw new NoticeException.InvalidNoticeScopeException("존재하지 않는 동아리 ID 가 포함되어 있습니다.");
+        }
+    }
+
+    private void persistTargetClubs(Long noticeId, List<Long> targetClubIds) {
+        List<NoticeTargetClub> rows = targetClubIds.stream().distinct()
+                .map(clubId -> new NoticeTargetClub(noticeId, clubId)).toList();
+        targetClubRepository.saveAll(rows);
+    }
+}
