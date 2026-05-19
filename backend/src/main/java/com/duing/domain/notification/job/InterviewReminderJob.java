@@ -68,7 +68,8 @@ public class InterviewReminderJob {
                 NotificationType.INTERVIEW_REMINDER,
                 clubName + " 면접 하루 전",
                 body,
-                "/applications/" + application.getId(),
+                // 학생용 지원서 상세는 /me/applications/{id} 라우트에 존재한다.
+                "/me/applications/" + application.getId(),
                 Map.of("applicationId", application.getId(), "interviewAt", isoInterviewAt),
                 "INTERVIEW_REMINDER:a=" + application.getId() + ":t=" + isoInterviewAt
         );

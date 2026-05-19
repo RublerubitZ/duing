@@ -66,7 +66,9 @@ public class DeadlineNotificationJob {
                 NotificationType.RECRUITMENT_OPENED,
                 "찜한 " + row.getClubName() + "의 새 모집이 시작됐어요",
                 row.getTitle() + " · 마감 " + row.getEndDate(),
-                "/clubs/" + row.getClubId() + "/recruitments/" + row.getRecruitmentId(),
+                // 학생측 모집 상세 라우트는 #98 PR 에서 제거되었다. active 모집은 동아리 상세 카드에
+                // 임베드되어 노출되므로 동아리 상세로 보낸다. payload 의 recruitmentId 는 그대로 유지.
+                "/clubs/" + row.getClubId(),
                 Map.of("recruitmentId", row.getRecruitmentId(), "clubId", row.getClubId()),
                 "RECRUITMENT_OPENED:r=" + row.getRecruitmentId()
         );
@@ -89,7 +91,8 @@ public class DeadlineNotificationJob {
                 NotificationType.RECRUITMENT_DEADLINE,
                 title,
                 body,
-                "/clubs/" + row.getClubId() + "/recruitments/" + row.getRecruitmentId(),
+                // 학생측 모집 상세 라우트는 #98 PR 에서 제거. 동아리 상세에서 active 모집 노출됨.
+                "/clubs/" + row.getClubId(),
                 Map.of("recruitmentId", row.getRecruitmentId(), "clubId", row.getClubId()),
                 "RECRUITMENT_DEADLINE:r=" + row.getRecruitmentId() + ":d=" + daysToEnd
         );
