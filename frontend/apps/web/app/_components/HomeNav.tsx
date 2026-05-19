@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BrandMark } from '@/components/duing/BrandMark';
+import { HomeNavAdminLink } from './HomeNavAdminLink';
 import { HomeNavAuthSlot } from './HomeNavAuthSlot';
 import { NotificationBell } from './NotificationBell';
 
@@ -34,6 +35,9 @@ export function HomeNav() {
             <Link href="/introduce" className={inactiveLink}>
               서비스 소개
             </Link>
+          </li>
+          <li>
+            <HomeNavAdminLink className={inactiveLink} />
           </li>
         </ul>
         <div className="ml-auto flex items-center gap-2">
