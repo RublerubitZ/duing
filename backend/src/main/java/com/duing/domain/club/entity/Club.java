@@ -174,7 +174,7 @@ public class Club extends BaseEntity {
         this.status = newStatus;
     }
 
-    public void update(
+    public record UpdatePayload(
             String name,
             ClubCategory category,
             String division,
@@ -194,25 +194,27 @@ public class Club extends BaseEntity {
             String tagline,
             List<String> highlights,
             String majorProjects
-    ) {
-        if (name != null) this.name = name;
-        if (category != null) this.category = category;
-        if (division != null) this.division = division;
-        if (description != null) this.description = description;
-        if (logoUrl != null) this.logoUrl = logoUrl;
-        if (coverUrl != null) this.coverUrl = coverUrl;
-        if (tags != null) this.tags = tags.stream().distinct().toArray(String[]::new);
-        if (snsLinks != null) this.snsLinks = new ArrayList<>(snsLinks);
-        if (faqs != null) this.faqs = new ArrayList<>(faqs);
-        if (foundedYear != null) this.foundedYear = foundedYear;
-        if (cohortNumber != null) this.cohortNumber = cohortNumber;
-        if (location != null) this.location = location;
-        if (contactEmail != null) this.contactEmail = contactEmail;
-        if (activityFrequency != null) this.activityFrequency = activityFrequency;
-        if (activeDays != null) this.activeDays = toActiveDaysCsv(activeDays);
-        if (membershipFee != null) this.membershipFee = membershipFee;
-        if (tagline != null) this.tagline = tagline;
-        if (highlights != null) this.highlights = new ArrayList<>(highlights);
-        if (majorProjects != null) this.majorProjects = majorProjects;
+    ) {}
+
+    public void update(UpdatePayload payload) {
+        if (payload.name() != null) this.name = payload.name();
+        if (payload.category() != null) this.category = payload.category();
+        if (payload.division() != null) this.division = payload.division();
+        if (payload.description() != null) this.description = payload.description();
+        if (payload.logoUrl() != null) this.logoUrl = payload.logoUrl();
+        if (payload.coverUrl() != null) this.coverUrl = payload.coverUrl();
+        if (payload.tags() != null) this.tags = payload.tags().stream().distinct().toArray(String[]::new);
+        if (payload.snsLinks() != null) this.snsLinks = new ArrayList<>(payload.snsLinks());
+        if (payload.faqs() != null) this.faqs = new ArrayList<>(payload.faqs());
+        if (payload.foundedYear() != null) this.foundedYear = payload.foundedYear();
+        if (payload.cohortNumber() != null) this.cohortNumber = payload.cohortNumber();
+        if (payload.location() != null) this.location = payload.location();
+        if (payload.contactEmail() != null) this.contactEmail = payload.contactEmail();
+        if (payload.activityFrequency() != null) this.activityFrequency = payload.activityFrequency();
+        if (payload.activeDays() != null) this.activeDays = toActiveDaysCsv(payload.activeDays());
+        if (payload.membershipFee() != null) this.membershipFee = payload.membershipFee();
+        if (payload.tagline() != null) this.tagline = payload.tagline();
+        if (payload.highlights() != null) this.highlights = new ArrayList<>(payload.highlights());
+        if (payload.majorProjects() != null) this.majorProjects = payload.majorProjects();
     }
 }
