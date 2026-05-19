@@ -66,6 +66,9 @@ export type ClubDetail = ClubSummary & {
   activityFrequency: number | null;
   activeDays: ClubDayOfWeek[];
   membershipFee: string | null;
+  tagline: string | null;
+  highlights: string[];
+  majorProjects: string | null;
   activeRecruitment: StudentRecruitmentProjection | null;
 };
 
@@ -120,6 +123,9 @@ export type UpdateClubPayload = {
   activityFrequency?: number | null;
   activeDays?: ClubDayOfWeek[];
   membershipFee?: string | null;
+  tagline?: string | null;
+  highlights?: string[];
+  majorProjects?: string | null;
 };
 
 export type FilePurpose = 'LOGO' | 'COVER' | 'PHOTO';
