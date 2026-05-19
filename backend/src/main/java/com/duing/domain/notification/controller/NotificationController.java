@@ -58,4 +58,13 @@ public class NotificationController implements NotificationApi {
         notificationService.markAllRead(currentUser.id());
         return ResponseEntity.noContent().build();
     }
+
+    @Override
+    public ResponseEntity<Void> readBroadcast(
+            @PathVariable Long broadcastId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        notificationService.markBroadcastRead(currentUser.id(), broadcastId);
+        return ResponseEntity.noContent().build();
+    }
 }
