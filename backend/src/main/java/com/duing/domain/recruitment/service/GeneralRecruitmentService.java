@@ -48,46 +48,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
             throw new RecruitmentException.DuplicateActiveRecruitmentException();
         }
 
-        Recruitment recruitment;
-        try {
-            recruitment = Recruitment.createWithOptions(
-                    club,
-                    createRecruitmentCommand.title(),
-                    createRecruitmentCommand.content(),
-                    createRecruitmentCommand.startDate(),
-                    createRecruitmentCommand.endDate(),
-                    createRecruitmentCommand.capacity(),
-                    createRecruitmentCommand.applicationMode(),
-                    createRecruitmentCommand.externalFormUrl(),
-                    createRecruitmentCommand.useInterview(),
-                    createRecruitmentCommand.targetRole(),
-                    createRecruitmentCommand.interviewStartDate(),
-                    createRecruitmentCommand.interviewEndDate(),
-                    createRecruitmentCommand.showApplicantCount()
-            );
-        } catch (IllegalArgumentException exception) {
-            throw new RecruitmentException.InvalidRecruitmentPeriodException();
-        }
-
-        // 외부 폼 모집은 자체 RecruitmentForm 행을 생성하지 않는다 (1:0..1).
-        if (createRecruitmentCommand.applicationMode() == ApplicationMode.SELF) {
-            RecruitmentForm form = RecruitmentForm.create(recruitment, createRecruitmentCommand.questions());
-            recruitment.attachForm(form);
-        }
-
-        Recruitment saved = recruitmentRepository.save(recruitment);
-
-        if (saved.getStatus() == RecruitmentStatus.OPEN
-                && !saved.getStartDate().isAfter(LocalDate.now())) {
-            eventPublisher.publishEvent(new RecruitmentOpenedEvent(
-                    saved.getId(),
-                    club.getId(),
-                    club.getName(),
-                    saved.getTitle(),
-                    saved.getEndDate()));
-        }
-
-        return saved.getId();
+        return buildAndPersist(club, createRecruitmentCommand);
     }
 
     @Override
@@ -162,6 +123,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
         recruitmentRepository.findActiveByClubId(club.getId())
                 .ifPresent(Recruitment::close);
 
+        return buildAndPersist(club, command);
+    }
+
+    private Long buildAndPersist(Club club, CreateRecruitmentCommand command) {
         Recruitment recruitment;
         try {
             recruitment = Recruitment.createWithOptions(
