@@ -29,6 +29,26 @@ export type RecruitmentDetail = RecruitmentSummary & {
   applicantCount: number | null;
 };
 
+/**
+ * 학생 공개 화면(동아리 상세 페이지) 전용 모집 읽기 모델.
+ * ClubDetail.activeRecruitment 에 임베드된다. 운영자용 RecruitmentDetail 과 별개.
+ */
+export type StudentRecruitmentProjection = {
+  id: number;
+  title: string;
+  startDate: string;
+  endDate: string | null;
+  displayStatus: RecruitmentDisplayStatus;
+  capacity: number;
+  useInterview: boolean;
+  targetRole: TargetRole;
+  applicationMode: ApplicationMode;
+  externalFormUrl: string | null;
+  interviewStartDate: string | null;
+  interviewEndDate: string | null;
+  applicantCount: number | null;
+};
+
 export type CreateRecruitmentPayload = {
   title: string;
   content?: string;
