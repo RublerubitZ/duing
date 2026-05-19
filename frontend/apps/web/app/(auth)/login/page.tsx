@@ -5,23 +5,116 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useLoginMutation } from '@duing/hooks';
 import { loginSchema } from '@duing/schemas';
+import { cn } from '../../_lib/cn';
 import { toRoute } from '../../_lib/route';
+
+type NotificationCardProps = {
+  variant: 'activity' | 'interview';
+  title: string;
+  subtitle: string;
+  detail?: string;
+};
+
+function NotificationCard({ variant, title, subtitle, detail }: NotificationCardProps) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg bg-white/10 px-4 py-3 backdrop-blur-sm">
+      <div
+        className={cn(
+          'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm',
+          variant === 'activity' ? 'bg-warm/25 text-warm' : 'bg-sage-soft/25 text-sage-soft',
+        )}
+        aria-hidden="true"
+      >
+        {variant === 'activity' ? (
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 11L11 3M11 3H5M11 3v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.3" />
+            <path d="M7 4.5v3l2 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-xs font-semibold text-cream/90">{title}</p>
+        <p className="truncate text-xs text-cream/60">{subtitle}</p>
+        {detail && <p className="truncate text-xs text-cream/50">{detail}</p>}
+      </div>
+    </div>
+  );
+}
+
+function IconMail() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M1.5 5.5l6.5 4 6.5-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconLock() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="2.5" y="7" width="11" height="7.5" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconEye({ crossed }: { crossed: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M2 8s2.5-5 6-5 6 5 6 5-2.5 5-6 5-6-5-6-5z" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2" />
+      {crossed && (
+        <path d="M2 2l12 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      )}
+    </svg>
+  );
+}
+
+function IconCheck() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M5 8.5l2 2 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconChevronLeft() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconChevronDown() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path d="M3.5 5.5L7 9l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawNext = searchParams.get('next') ?? '/me';
-  // 내부 절대 경로만 허용 (//evil.com 같은 protocol-relative 차단).
-  const next = /^\/(?!\/)/.test(rawNext)
-    ? toRoute(`/${rawNext.slice(1)}`)
-    : toRoute('/me');
+  const next = /^\/(?!\/)/.test(rawNext) ? toRoute(`/${rawNext.slice(1)}`) : toRoute('/me');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const login = useLoginMutation();
+
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -40,65 +133,258 @@ function LoginForm() {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <h1 className="text-2xl font-semibold">로그인</h1>
-      {error && (
-        <div
-          role="alert"
-          aria-live="polite"
-          className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
-        >
-          {error}
+    <div className="duing flex min-h-screen">
+      {/* ─── Left decorative panel ─── */}
+      <aside className="relative hidden overflow-hidden lg:flex lg:w-[420px] lg:shrink-0 lg:flex-col xl:w-[480px] bg-ink-deep">
+        <div className="absolute inset-0 bg-grid opacity-20" />
+
+        {/* Logo */}
+        <div className="relative z-10 flex items-center gap-2.5 px-8 pt-8">
+          <span className="brand-mark">
+            <span className="b-d" style={{ color: '#fff' }}>D</span>
+            <span className="b-u" style={{ color: 'rgba(157,182,160,0.85)', marginLeft: '-7px' }}>u</span>
+            <span className="b-ing" style={{ color: 'rgba(255,255,255,0.75)' }}>ing</span>
+            <svg className="b-spark" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path
+                d="M7 0l1.5 5.5L14 7l-5.5 1.5L7 14l-1.5-5.5L0 7l5.5-1.5L7 0z"
+                fill="rgba(157,182,160,0.75)"
+              />
+            </svg>
+          </span>
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold tracking-wide06 text-cream/75">
+            대구대학교
+          </span>
         </div>
-      )}
-      <label className="block">
-        <span className="text-sm text-slate-600">학교 이메일</span>
-        <input
-          required
-          type="email"
-          autoComplete="username"
-          autoFocus
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="hong@daegu.ac.kr"
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-        />
-      </label>
-      <label className="block">
-        <span className="text-sm text-slate-600">비밀번호</span>
-        <div className="relative">
-          <input
-            required
-            type={showPassword ? 'text' : 'password'}
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 pr-14"
+
+        {/* Main copy */}
+        <div className="relative z-10 flex flex-1 flex-col justify-center px-8">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide16 text-sage-soft">
+            WELCOME BACK
+          </p>
+          <h2 className="mb-4 text-[2.5rem] font-bold leading-tight tracking-tightx text-paper">
+            다시 만나서
+            <br />
+            반가워요
+          </h2>
+          <p className="text-sm leading-relaxed text-cream/55">
+            대구대학교 학생자치회 공식 동아리 플랫폼.
+            <br />
+            128개 동아리 · 67곳 이번 학기 모집 중.
+          </p>
+        </div>
+
+        {/* Notification cards */}
+        <div className="relative z-10 flex flex-col gap-2 px-8 pb-6">
+          <NotificationCard
+            variant="activity"
+            title="트레블호 · 김도중"
+            subtitle="지원서가 잘 도착했어요"
           />
+          <NotificationCard
+            variant="interview"
+            title="STAT 통계학회 · 면접 확정"
+            subtitle="9.21 (토) 13:30 — 학생회관 302호"
+          />
+          <div className="mt-4 flex items-center justify-between text-[11px] text-cream/35">
+            <span>© 2025 Duing · 대구대학교</span>
+            <span className="flex gap-3">
+              <span>도움말</span>
+              <span>이용약관</span>
+            </span>
+          </div>
+        </div>
+      </aside>
+
+      {/* ─── Right form panel ─── */}
+      <div className="flex flex-1 flex-col bg-cream">
+        {/* Top nav bar */}
+        <nav className="flex items-center justify-between px-8 pt-6">
+          <Link
+            href="/"
+            className="flex items-center gap-1 text-sm text-charcoal-2 transition-colors hover:text-charcoal"
+          >
+            <IconChevronLeft />
+            홈으로
+          </Link>
           <button
             type="button"
-            onClick={() => setShowPassword((prev) => !prev)}
-            aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
-            className="absolute inset-y-0 right-2 my-auto h-7 px-2 text-xs text-slate-500 hover:text-slate-700"
+            className="flex items-center gap-1 text-sm text-charcoal-2 transition-colors hover:text-charcoal"
           >
-            {showPassword ? '숨김' : '표시'}
+            한국어
+            <IconChevronDown />
           </button>
-        </div>
-      </label>
-      <button
-        type="submit"
-        disabled={login.isPending}
-        className="w-full rounded-md bg-slate-900 px-3 py-2 text-white disabled:opacity-50"
-      >
-        {login.isPending ? '로그인 중…' : '로그인'}
-      </button>
-      <p className="text-center text-sm text-slate-500">
-        아직 회원이 아니신가요?{' '}
-        <Link href="/signup" className="text-slate-900 underline">
-          회원가입
-        </Link>
-      </p>
-    </form>
+        </nav>
+
+        {/* Form content */}
+        <main className="flex flex-1 items-center justify-center px-8 py-10">
+          <div className="w-full max-w-[400px]">
+            {/* Badge */}
+            <span className="pill mb-5 inline-flex">
+              <svg width="9" height="9" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path
+                  d="M7 0l1.5 5.5L14 7l-5.5 1.5L7 14l-1.5-5.5L0 7l5.5-1.5L7 0z"
+                  fill="currentColor"
+                />
+              </svg>
+              로그인
+            </span>
+
+            <h1 className="mb-2 text-[2rem] font-bold tracking-tightx text-ink-deep">
+              두잉에 로그인
+            </h1>
+            <p className="mb-8 text-sm text-charcoal-2">
+              대구대학교 학교 이메일로 로그인할 수 있어요.
+            </p>
+
+            {/* Error message */}
+            {error && (
+              <div
+                role="alert"
+                aria-live="polite"
+                className="mb-5 rounded-md border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral"
+              >
+                {error}
+              </div>
+            )}
+
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              {/* Email field */}
+              <div>
+                <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-charcoal">
+                  학교 이메일
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-charcoal-3">
+                    <IconMail />
+                  </span>
+                  <input
+                    id="login-email"
+                    required
+                    type="email"
+                    autoComplete="username"
+                    autoFocus
+                    value={email}
+                    onChange={(changeEvent) => setEmail(changeEvent.target.value)}
+                    placeholder="2021123456@daegu.ac.kr"
+                    className={cn(
+                      'w-full rounded-md border bg-paper py-3 pl-10 pr-10 text-sm text-charcoal outline-none transition',
+                      'placeholder:text-charcoal-3/50',
+                      'border-line focus:border-ink focus:ring-1 focus:ring-ink/20',
+                    )}
+                  />
+                  {isEmailValid && (
+                    <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-ink">
+                      <IconCheck />
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Password field */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label htmlFor="login-password" className="text-sm font-medium text-charcoal">
+                    비밀번호
+                  </label>
+                  <a
+                    href="/forgot-password"
+                    className="text-xs text-charcoal-2 underline underline-offset-2 transition-colors hover:text-charcoal"
+                  >
+                    비밀번호를 잊으셨나요?
+                  </a>
+                </div>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-charcoal-3">
+                    <IconLock />
+                  </span>
+                  <input
+                    id="login-password"
+                    required
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(changeEvent) => setPassword(changeEvent.target.value)}
+                    className={cn(
+                      'w-full rounded-md border bg-paper py-3 pl-10 pr-11 text-sm text-charcoal outline-none transition',
+                      'border-line focus:border-ink focus:ring-1 focus:ring-ink/20',
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+                    className="absolute inset-y-0 right-3 flex items-center px-1 text-charcoal-3 transition-colors hover:text-charcoal"
+                  >
+                    <IconEye crossed={showPassword} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember me */}
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(changeEvent) => setRememberMe(changeEvent.target.checked)}
+                  className="h-4 w-4 cursor-pointer rounded accent-ink"
+                />
+                <span className="text-sm text-charcoal-2">로그인 상태 유지</span>
+              </label>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={login.isPending}
+                className="btn btn-primary btn-big mt-2 w-full disabled:opacity-50"
+              >
+                {login.isPending ? '로그인 중…' : '두잉 시작하기 →'}
+              </button>
+            </form>
+
+            {/* Divider */}
+            <div className="my-6 flex items-center gap-4">
+              <div className="h-px flex-1 bg-line" />
+              <span className="text-xs text-charcoal-3">또는</span>
+              <div className="h-px flex-1 bg-line" />
+            </div>
+
+            {/* DUIN SSO button */}
+            <button type="button" className="btn btn-secondary w-full gap-2.5">
+              <span
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold text-paper"
+                style={{ background: '#1F4A36' }}
+                aria-hidden="true"
+              >
+                대
+              </span>
+              대구대학교 통합로그인 (DUIN)
+            </button>
+
+            {/* Footer links */}
+            <div className="mt-6 space-y-2 text-center text-sm text-charcoal-2">
+              <p>
+                학생자치회 운영자이신가요?{' '}
+                <Link
+                  href="/manage"
+                  className="font-medium text-charcoal transition-colors hover:text-ink"
+                >
+                  콘솔 로그인 →
+                </Link>
+              </p>
+              <p>
+                아직 두잉이 처음이세요?{' '}
+                <Link
+                  href="/signup"
+                  className="font-medium text-charcoal underline underline-offset-2 transition-colors hover:text-ink"
+                >
+                  회원가입
+                </Link>
+              </p>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }
 
