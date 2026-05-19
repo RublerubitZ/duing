@@ -47,6 +47,8 @@ supabase:
     bucket: ${SUPABASE_STORAGE_BUCKET:duing}
 
 duing:
+  notice:
+    cover-image-url-prefix: ${NOTICE_COVER_IMAGE_URL_PREFIX:}
   notification:
     jobs:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:false}
