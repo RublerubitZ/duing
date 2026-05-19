@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { RecruitmentSummary } from '@duing/types';
+import type { RecruitmentDetail } from '@duing/types';
 import { ClubRecruitmentCard } from '../../app/clubs/[clubId]/_components/ClubRecruitmentCard';
 
 vi.mock('@duing/stores', () => ({
@@ -12,7 +12,7 @@ vi.mock('../../app/_components/FavoriteToggleButton', () => ({
   FavoriteToggleButton: () => <button>찜하기</button>,
 }));
 
-const base: RecruitmentSummary = {
+const base: RecruitmentDetail = {
   id: 1,
   clubId: 7,
   clubName: '두잉',
@@ -27,6 +27,12 @@ const base: RecruitmentSummary = {
   externalFormUrl: null,
   useInterview: false,
   targetRole: 'MEMBER',
+  content: null,
+  questions: [],
+  interviewStartDate: null,
+  interviewEndDate: null,
+  showApplicantCount: false,
+  applicantCount: null,
 };
 
 describe('ClubRecruitmentCard', () => {
