@@ -2,6 +2,7 @@ package com.duing.domain.club.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
@@ -23,9 +24,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
 
+@Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
 @DirtiesContext
