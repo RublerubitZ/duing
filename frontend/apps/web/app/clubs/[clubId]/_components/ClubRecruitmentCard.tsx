@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import type { RecruitmentSummary } from '@duing/types';
+import type { RecruitmentDetail } from '@duing/types';
 import { useAuthStore } from '@duing/stores';
 import {
   displayStatusLabel,
@@ -13,7 +13,7 @@ import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton'
 
 type Props = {
   /** 진행 중인 모집(없으면 undefined). 모집중·예정·상시·마감 모두 받아 처리한다. */
-  recruitment: RecruitmentSummary | undefined;
+  recruitment: RecruitmentDetail | undefined;
   clubId: number;
 };
 
@@ -83,6 +83,18 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
               label="모집 대상"
               value={recruitment.targetRole === 'OFFICER' ? '운영진' : '부원'}
             />
+            {recruitment.interviewStartDate && recruitment.interviewEndDate && (
+              <Row
+                label="면접 일정"
+                value={`${recruitment.interviewStartDate} ~ ${recruitment.interviewEndDate}`}
+              />
+            )}
+            {recruitment.applicantCount !== null && (
+              <Row
+                label="지원자"
+                value={`현재 ${recruitment.applicantCount}명 지원`}
+              />
+            )}
             <Row label="상태" value={displayStatusLabel(recruitment.displayStatus)} last />
           </div>
         )}
