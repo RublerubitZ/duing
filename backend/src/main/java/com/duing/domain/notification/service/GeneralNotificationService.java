@@ -62,9 +62,10 @@ public class GeneralNotificationService implements NotificationService {
         int overFetch = (pageable.getPageNumber() + 1) * pageable.getPageSize();
 
         // personal: 기존 repo 사용. unreadOnly 는 기존 시그니처가 처리.
-        List<NotificationResponse> personal = notificationRepository
-                .findMine(userId, unreadOnly, PageRequest.of(0, overFetch, Sort.by(Sort.Direction.DESC, "createdAt")))
-                .getContent().stream()
+        Page<Notification> personalPage = notificationRepository
+                .findMine(userId, unreadOnly, PageRequest.of(0, overFetch, Sort.by(Sort.Direction.DESC, "createdAt")));
+        long personalTotal = personalPage.getTotalElements();
+        List<NotificationResponse> personal = personalPage.getContent().stream()
                 .map(NotificationQuery::from)
                 .map(NotificationResponse::from)
                 .toList();
@@ -75,18 +76,23 @@ public class GeneralNotificationService implements NotificationService {
                 .filter(slice -> !unreadOnly || !slice.isRead())
                 .map(slice -> NotificationResponse.fromBroadcast(slice.broadcast(), slice.isRead()))
                 .toList();
+        long broadcastTotal = unreadOnly
+                ? broadcastRepository.countUnreadForUser(userId)
+                : broadcastRepository.count(); // @SQLRestriction 이 soft-deleted 항목을 자동 제외
 
-        // merge + sort
+        // merge + sort (null-safe: createdAt 이 null 이면 맨 뒤로)
         List<NotificationResponse> merged = new ArrayList<>(personal.size() + broadcast.size());
         merged.addAll(personal);
         merged.addAll(broadcast);
-        merged.sort(Comparator.comparing(NotificationResponse::createdAt).reversed());
+        merged.sort(Comparator
+                .comparing(NotificationResponse::createdAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                .reversed());
 
         // page slice
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), merged.size());
         List<NotificationResponse> pageContent = start >= merged.size() ? List.of() : merged.subList(start, end);
-        return new PageImpl<>(pageContent, pageable, merged.size());
+        return new PageImpl<>(pageContent, pageable, personalTotal + broadcastTotal);
     }
 
     @Override
@@ -112,8 +118,9 @@ public class GeneralNotificationService implements NotificationService {
     @Override
     @Transactional
     public void markBroadcastRead(Long userId, Long broadcastId) {
-        boolean exists = broadcastRepository.findById(broadcastId).isPresent();
-        if (!exists) throw new NoticeBroadcastException.NoticeBroadcastNotFoundException();
+        if (!broadcastRepository.existsById(broadcastId)) {
+            throw new NoticeBroadcastException.NoticeBroadcastNotFoundException();
+        }
         if (broadcastReadRepository.existsByIdBroadcastIdAndIdUserId(broadcastId, userId)) {
             return; // 멱등
         }
