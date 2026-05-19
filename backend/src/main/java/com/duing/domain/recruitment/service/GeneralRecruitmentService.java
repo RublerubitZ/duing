@@ -44,6 +44,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
         // 동아리 운영진(LEADER/OFFICER)만 모집 공고를 생성할 수 있다.
         clubAuthService.requireManager(createRecruitmentCommand.currentUserId(), club.getId());
 
+        if (recruitmentRepository.existsActiveByClubId(club.getId())) {
+            throw new RecruitmentException.DuplicateActiveRecruitmentException();
+        }
+
         Recruitment recruitment;
         try {
             recruitment = Recruitment.createWithOptions(
@@ -145,5 +149,57 @@ public class GeneralRecruitmentService implements RecruitmentService {
         clubAuthService.requireManager(currentUserId, clubId);
 
         recruitment.close();
+    }
+
+    @Override
+    @Transactional
+    public Long replaceActive(CreateRecruitmentCommand command) {
+        Club club = clubRepository.findById(command.clubId())
+                .orElseThrow(ClubException.ClubNotFoundException::new);
+
+        clubAuthService.requireManager(command.currentUserId(), club.getId());
+
+        recruitmentRepository.findActiveByClubId(club.getId())
+                .ifPresent(Recruitment::close);
+
+        Recruitment recruitment;
+        try {
+            recruitment = Recruitment.createWithOptions(
+                    club,
+                    command.title(),
+                    command.content(),
+                    command.startDate(),
+                    command.endDate(),
+                    command.capacity(),
+                    command.applicationMode(),
+                    command.externalFormUrl(),
+                    command.useInterview(),
+                    command.targetRole(),
+                    command.interviewStartDate(),
+                    command.interviewEndDate(),
+                    command.showApplicantCount()
+            );
+        } catch (IllegalArgumentException exception) {
+            throw new RecruitmentException.InvalidRecruitmentPeriodException();
+        }
+
+        if (command.applicationMode() == ApplicationMode.SELF) {
+            RecruitmentForm form = RecruitmentForm.create(recruitment, command.questions());
+            recruitment.attachForm(form);
+        }
+
+        Recruitment saved = recruitmentRepository.save(recruitment);
+
+        if (saved.getStatus() == RecruitmentStatus.OPEN
+                && !saved.getStartDate().isAfter(LocalDate.now())) {
+            eventPublisher.publishEvent(new RecruitmentOpenedEvent(
+                    saved.getId(),
+                    club.getId(),
+                    club.getName(),
+                    saved.getTitle(),
+                    saved.getEndDate()));
+        }
+
+        return saved.getId();
     }
 }
