@@ -31,7 +31,9 @@ public class InterviewScheduledListener {
                 NotificationType.INTERVIEW_SCHEDULED,
                 event.clubName() + " 면접 일정이 잡혔어요",
                 body,
-                "/applications/" + event.applicationId(),
+                // 학생용 지원서 상세는 /me/applications/{id} 라우트에 존재한다. 과거에는 /applications/{id}
+                // 로 두었으나 해당 라우트가 없어 클릭 시 404 가 나는 결손이었다.
+                "/me/applications/" + event.applicationId(),
                 Map.of("applicationId", event.applicationId(), "interviewAt", iso),
                 dedupKey));
     }
