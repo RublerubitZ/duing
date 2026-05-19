@@ -1,6 +1,7 @@
 package com.duing.domain.notice.service;
 
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.notice.broadcast.service.NoticeBroadcaster;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeTargetClub;
 import com.duing.domain.notice.entity.NoticeVisibility;
@@ -28,6 +29,7 @@ public class GeneralNoticeService implements NoticeService {
     private final NoticeRepository noticeRepository;
     private final NoticeTargetClubRepository targetClubRepository;
     private final ClubRepository clubRepository;
+    private final NoticeBroadcaster broadcaster;
 
     @Value("${duing.notice.cover-image-url-prefix:}")
     private String coverImageUrlPrefix;
@@ -50,6 +52,10 @@ public class GeneralNoticeService implements NoticeService {
         if (command.visibility() == NoticeVisibility.CLUB_SCOPED) {
             persistTargetClubs(saved.getId(), command.targetClubIds());
         }
+        List<Long> targetClubIds = command.visibility() == NoticeVisibility.CLUB_SCOPED
+                ? command.targetClubIds()
+                : List.of();
+        broadcaster.publish(saved, targetClubIds);
         return saved.getId();
     }
 

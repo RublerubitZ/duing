@@ -9,7 +9,9 @@ import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
-import com.duing.domain.notification.service.dto.query.NotificationQuery;
+import com.duing.domain.notification.controller.dto.response.NotificationResponse;
+import com.duing.domain.notice.broadcast.repository.NoticeBroadcastReadRepository;
+import com.duing.domain.notice.broadcast.repository.NoticeBroadcastRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -84,12 +86,12 @@ class NotificationServiceTest {
         CreateNotificationCommand readableCommand = buildCommand(user.getId(), "RECRUITMENT_OPENED:r=4", "읽을알림");
         notificationService.createIfAbsent(readableCommand);
 
-        Page<NotificationQuery> page = notificationService.listMine(user.getId(), false, PageRequest.of(0, 10));
-        NotificationQuery readableQuery = page.getContent().stream()
-                .filter(q -> q.title().equals("읽을알림"))
+        Page<NotificationResponse> page = notificationService.listMine(user.getId(), false, PageRequest.of(0, 10));
+        NotificationResponse readableResponse = page.getContent().stream()
+                .filter(response -> response.title().equals("읽을알림"))
                 .findFirst()
                 .orElseThrow();
-        notificationService.markRead(user.getId(), readableQuery.id());
+        notificationService.markRead(user.getId(), readableResponse.id());
 
         long unreadCount = notificationService.unreadCount(user.getId());
 
@@ -123,7 +125,7 @@ class NotificationServiceTest {
 
         notificationService.createIfAbsent(buildCommand(owner.getId(), "RECRUITMENT_OPENED:r=30", "소유자알림"));
 
-        Page<NotificationQuery> ownerPage = notificationService.listMine(owner.getId(), false, PageRequest.of(0, 10));
+        Page<NotificationResponse> ownerPage = notificationService.listMine(owner.getId(), false, PageRequest.of(0, 10));
         Long ownerNotificationId = ownerPage.getContent().get(0).id();
 
         notificationService.markRead(other.getId(), ownerNotificationId);
@@ -135,11 +137,18 @@ class NotificationServiceTest {
     @Test
     @DisplayName("createIfAbsent 는 pre-check 통과 후 동시 저장이 발생해 DataIntegrityViolationException 이 나도 false 를 반환한다")
     void createIfAbsentReturnsFalseOnConcurrentSaveCollision() {
-        NotificationRepository mockedRepository = mock(NotificationRepository.class);
-        when(mockedRepository.existsByUserIdAndDedupKey(any(), any())).thenReturn(false);
-        when(mockedRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("unique constraint violation"));
+        NotificationRepository mockedNotificationRepository = mock(NotificationRepository.class);
+        when(mockedNotificationRepository.existsByUserIdAndDedupKey(any(), any())).thenReturn(false);
+        when(mockedNotificationRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("unique constraint violation"));
 
-        GeneralNotificationService serviceWithMockedRepository = new GeneralNotificationService(mockedRepository);
+        NoticeBroadcastRepository mockedBroadcastRepository = mock(NoticeBroadcastRepository.class);
+        NoticeBroadcastReadRepository mockedBroadcastReadRepository = mock(NoticeBroadcastReadRepository.class);
+
+        GeneralNotificationService serviceWithMockedRepository = new GeneralNotificationService(
+                mockedNotificationRepository,
+                mockedBroadcastRepository,
+                mockedBroadcastReadRepository
+        );
 
         CreateNotificationCommand command = new CreateNotificationCommand(
                 1L,

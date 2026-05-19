@@ -3,6 +3,7 @@ package com.duing.domain.clubmember.repository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -48,4 +49,19 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
             WHERE cm.user.id = :userId AND cm.role IN ('LEADER','OFFICER')
             """)
     List<Long> findOfficerClubIdsByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT DISTINCT cm.user.id FROM ClubMember cm WHERE cm.club.id IN :clubIds")
+    List<Long> findUserIdsByClubIdIn(@Param("clubIds") Collection<Long> clubIds);
+
+    @Query("""
+            SELECT DISTINCT cm.user.id FROM ClubMember cm
+            WHERE cm.club.id IN :clubIds AND cm.role IN ('LEADER','OFFICER')
+            """)
+    List<Long> findOfficerUserIdsByClubIdIn(@Param("clubIds") Collection<Long> clubIds);
+
+    @Query("""
+            SELECT DISTINCT cm.user.id FROM ClubMember cm
+            WHERE cm.role IN ('LEADER','OFFICER')
+            """)
+    List<Long> findAllOfficerUserIds();
 }
