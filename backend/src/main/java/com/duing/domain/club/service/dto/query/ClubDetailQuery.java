@@ -5,6 +5,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubFaq;
 import com.duing.domain.club.entity.ClubSnsLink;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
 import java.time.DayOfWeek;
 import java.util.List;
 import java.util.Set;
@@ -30,14 +31,20 @@ public record ClubDetailQuery(
         String contactEmail,
         Integer activityFrequency,
         Set<DayOfWeek> activeDays,
-        String membershipFee
+        String membershipFee,
+        StudentRecruitmentProjection activeRecruitment
 ) {
     /**
      * leaderId / leaderName 은 ClubMember 테이블에서 role = LEADER 인 행을 조회해 주입한다.
      * 회장 부재(공석) 상황을 허용하므로 null 이 가능하다.
      */
-    public static ClubDetailQuery of(Club club, Long leaderId, String leaderName,
-                                     List<ClubPhotoQuery> photos) {
+    public static ClubDetailQuery of(
+            Club club,
+            Long leaderId,
+            String leaderName,
+            List<ClubPhotoQuery> photos,
+            StudentRecruitmentProjection activeRecruitment
+    ) {
         return new ClubDetailQuery(
                 club.getId(),
                 club.getName(),
@@ -59,7 +66,8 @@ public record ClubDetailQuery(
                 club.getContactEmail(),
                 club.getActivityFrequency(),
                 club.getActiveDays(),
-                club.getMembershipFee()
+                club.getMembershipFee(),
+                activeRecruitment
         );
     }
 }

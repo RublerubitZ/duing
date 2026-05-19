@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import type { RecruitmentDetail } from '@duing/types';
+import type { StudentRecruitmentProjection } from '@duing/types';
 import { useAuthStore } from '@duing/stores';
 import {
   displayStatusLabel,
@@ -13,7 +13,7 @@ import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton'
 
 type Props = {
   /** 진행 중인 모집(없으면 undefined). 모집중·예정·상시·마감 모두 받아 처리한다. */
-  recruitment: RecruitmentDetail | undefined;
+  recruitment: StudentRecruitmentProjection | undefined;
   clubId: number;
 };
 

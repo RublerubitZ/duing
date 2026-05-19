@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { RecruitmentDetail } from '@duing/types';
+import type { StudentRecruitmentProjection } from '@duing/types';
 import { ClubRecruitmentCard } from '../../app/clubs/[clubId]/_components/ClubRecruitmentCard';
 
 vi.mock('@duing/stores', () => ({
@@ -12,26 +12,19 @@ vi.mock('../../app/_components/FavoriteToggleButton', () => ({
   FavoriteToggleButton: () => <button>찜하기</button>,
 }));
 
-const base: RecruitmentDetail = {
+const base: StudentRecruitmentProjection = {
   id: 1,
-  clubId: 7,
-  clubName: '두잉',
   title: 'X',
   startDate: '2026-05-01',
   endDate: '2026-05-31',
-  capacity: 10,
-  status: 'OPEN',
   displayStatus: 'OPEN',
-  effectivelyOpen: true,
-  applicationMode: 'SELF',
-  externalFormUrl: null,
+  capacity: 10,
   useInterview: false,
   targetRole: 'MEMBER',
-  content: null,
-  questions: [],
+  applicationMode: 'SELF',
+  externalFormUrl: null,
   interviewStartDate: null,
   interviewEndDate: null,
-  showApplicantCount: false,
   applicantCount: null,
 };
 
@@ -57,7 +50,7 @@ describe('ClubRecruitmentCard', () => {
   it('CLOSED 면 지원 버튼이 비활성화된다', () => {
     render(
       <ClubRecruitmentCard
-        recruitment={{ ...base, displayStatus: 'CLOSED', status: 'CLOSED' }}
+        recruitment={{ ...base, displayStatus: 'CLOSED' }}
         clubId={7}
       />,
     );

@@ -27,6 +27,7 @@ const baseClub: ClubDetail = {
   activityFrequency: null,
   activeDays: [],
   membershipFee: null,
+  activeRecruitment: null,
 };
 
 describe('ClubDetailTabs', () => {

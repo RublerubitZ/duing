@@ -1,3 +1,5 @@
+import type { StudentRecruitmentProjection } from './recruitment';
+
 export type ClubCategory =
   | 'ACADEMIC'
   | 'CULTURE'
@@ -64,6 +66,7 @@ export type ClubDetail = ClubSummary & {
   activityFrequency: number | null;
   activeDays: ClubDayOfWeek[];
   membershipFee: string | null;
+  activeRecruitment: StudentRecruitmentProjection | null;
 };
 
 export type ClubSearchParams = {
