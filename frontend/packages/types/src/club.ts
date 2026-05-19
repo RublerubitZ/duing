@@ -1,3 +1,5 @@
+import type { StudentRecruitmentProjection } from './recruitment';
+
 export type ClubCategory =
   | 'ACADEMIC'
   | 'CULTURE'
@@ -9,6 +11,15 @@ export type ClubCategory =
   | 'OTHER';
 
 export type ClubStatus = 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE';
+
+export type ClubDayOfWeek =
+  | 'MONDAY'
+  | 'TUESDAY'
+  | 'WEDNESDAY'
+  | 'THURSDAY'
+  | 'FRIDAY'
+  | 'SATURDAY'
+  | 'SUNDAY';
 
 export type ClubSummary = {
   id: number;
@@ -48,6 +59,14 @@ export type ClubDetail = ClubSummary & {
   leaderId: number | null;
   leaderName: string | null;
   photos: ClubPhoto[];
+  foundedYear: number | null;
+  cohortNumber: number | null;
+  location: string | null;
+  contactEmail: string | null;
+  activityFrequency: number | null;
+  activeDays: ClubDayOfWeek[];
+  membershipFee: string | null;
+  activeRecruitment: StudentRecruitmentProjection | null;
 };
 
 export type ClubSearchParams = {
@@ -94,6 +113,13 @@ export type UpdateClubPayload = {
   tags?: string[];
   snsLinks?: ClubSnsLink[];
   faqs?: ClubFaq[];
+  foundedYear?: number | null;
+  cohortNumber?: number | null;
+  location?: string | null;
+  contactEmail?: string | null;
+  activityFrequency?: number | null;
+  activeDays?: ClubDayOfWeek[];
+  membershipFee?: string | null;
 };
 
 export type FilePurpose = 'LOGO' | 'COVER' | 'PHOTO';

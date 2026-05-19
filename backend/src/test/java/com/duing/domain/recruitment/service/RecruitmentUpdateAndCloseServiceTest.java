@@ -6,6 +6,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.clubmember.service.ClubAuthService;
@@ -30,6 +31,7 @@ import org.springframework.security.access.AccessDeniedException;
 class RecruitmentUpdateAndCloseServiceTest {
 
     private final RecruitmentRepository recruitmentRepository = mock(RecruitmentRepository.class);
+    private final ApplicationRepository applicationRepository = mock(ApplicationRepository.class);
     private final ClubRepository clubRepository = mock(ClubRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
@@ -37,6 +39,7 @@ class RecruitmentUpdateAndCloseServiceTest {
 
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
+            applicationRepository,
             clubRepository,
             clubAuthService,
             eventPublisher
@@ -114,6 +117,9 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 20,
                 null,
+                null,
+                null,
+                null,
                 null
         );
 
@@ -133,6 +139,9 @@ class RecruitmentUpdateAndCloseServiceTest {
                 RECRUITMENT_ID,
                 MANAGER_USER_ID,
                 "수정 시도",
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -160,7 +169,10 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 null,
-                List.of("질문1", "질문2")
+                List.of("질문1", "질문2"),
+                null,
+                null,
+                null
         );
 
         assertThatThrownBy(() -> recruitmentService.update(updateCommand))
@@ -180,6 +192,9 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 LocalDate.now().minusDays(1),
+                null,
+                null,
+                null,
                 null,
                 null,
                 null
@@ -227,6 +242,9 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
                 null
         );
 
@@ -244,6 +262,9 @@ class RecruitmentUpdateAndCloseServiceTest {
                 RECRUITMENT_ID,
                 MANAGER_USER_ID,
                 "   ",
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,

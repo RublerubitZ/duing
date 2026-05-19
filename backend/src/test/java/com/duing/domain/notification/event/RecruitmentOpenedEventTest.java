@@ -21,6 +21,8 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
 import com.duing.domain.user.entity.User;
+import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
@@ -99,7 +101,10 @@ class RecruitmentOpenedEventTest {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("지원 동기")
+                List.of("지원 동기"),
+                null,
+                null,
+                false
         ));
 
         List<Notification> openedNotifications = notificationRepository.findAll().stream()
@@ -179,7 +184,10 @@ class RecruitmentOpenedEventTest {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("자기소개")
+                List.of("자기소개"),
+                null,
+                null,
+                false
         ));
 
         List<Notification> openedNotifications = notificationRepository.findAll().stream()
@@ -196,7 +204,12 @@ class RecruitmentOpenedEventTest {
                 name,
                 "event" + unique + "@daegu.ac.kr",
                 "hashed",
-                UserRole.STUDENT
+                UserRole.STUDENT,
+                Grade.FRESHMAN,
+                College.IT_ENGINEERING,
+                "미설정",
+                "010-0000-0000",
+                java.time.LocalDateTime.now()
         );
         return userRepository.save(user);
     }

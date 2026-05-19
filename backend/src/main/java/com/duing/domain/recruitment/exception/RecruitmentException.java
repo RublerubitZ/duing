@@ -38,4 +38,28 @@ public class RecruitmentException extends ApplicationException {
             super(message, HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class AlwaysOpenConversionNotAllowedException extends RecruitmentException {
+        private static final String MESSAGE = "상시모집과 기간모집은 서로 전환할 수 없습니다. 새 모집을 생성하세요.";
+
+        public AlwaysOpenConversionNotAllowedException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class InvalidInterviewPeriodException extends RecruitmentException {
+        private static final String MESSAGE = "면접 종료일은 시작일보다 빠를 수 없습니다.";
+
+        public InvalidInterviewPeriodException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class DuplicateActiveRecruitmentException extends RecruitmentException {
+        private static final String MESSAGE = "이미 진행 중인 모집이 있습니다. 기존 모집을 마감하거나 교체 endpoint 를 사용하세요.";
+
+        public DuplicateActiveRecruitmentException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
 }

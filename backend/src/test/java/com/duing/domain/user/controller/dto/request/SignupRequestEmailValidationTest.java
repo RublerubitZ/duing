@@ -14,7 +14,18 @@ class SignupRequestEmailValidationTest {
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
     private SignupRequest withEmail(String email) {
-        return new SignupRequest("20240001", "홍길동", email, "password1234");
+        return new SignupRequest(
+                "20240001",
+                "홍길동",
+                email,
+                "Abcd1234!",
+                com.duing.domain.user.entity.Grade.FRESHMAN,
+                com.duing.domain.user.entity.College.IT_ENGINEERING,
+                "컴퓨터정보공학부",
+                "010-1234-5678",
+                true,
+                true
+        );
     }
 
     @Test

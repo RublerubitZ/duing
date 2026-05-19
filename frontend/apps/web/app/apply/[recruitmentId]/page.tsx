@@ -31,10 +31,10 @@ export default function ApplyPage({
 
   const recruitment = detail.data;
 
-  // 외부 폼 모집은 렌더 시점에 모집 상세로 되돌려보낸다 (effect 내 리다이렉트 금지).
+  // 외부 폼 모집은 렌더 시점에 동아리 상세로 되돌려보낸다 (effect 내 리다이렉트 금지).
   if (recruitment.applicationMode === 'EXTERNAL') {
     router.replace(
-      toRoute(`/clubs/${recruitment.clubId}/recruitments/${recruitment.id}`),
+      toRoute(`/clubs/${recruitment.clubId}`),
     );
     return <p className="p-6 text-sm text-slate-500">이동 중…</p>;
   }

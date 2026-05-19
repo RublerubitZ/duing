@@ -3,7 +3,9 @@ package com.duing.domain.club.service.dto.command;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubFaq;
 import com.duing.domain.club.entity.ClubSnsLink;
+import java.time.DayOfWeek;
 import java.util.List;
+import java.util.Set;
 
 public record UpdateClubCommand(
         Long clubId,
@@ -16,5 +18,12 @@ public record UpdateClubCommand(
         String coverUrl,
         List<String> tags,
         List<ClubSnsLink> snsLinks,
-        List<ClubFaq> faqs
+        List<ClubFaq> faqs,
+        Integer foundedYear,
+        Integer cohortNumber,
+        String location,
+        String contactEmail,
+        Integer activityFrequency,
+        Set<DayOfWeek> activeDays,
+        String membershipFee
 ) {}

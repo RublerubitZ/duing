@@ -6,7 +6,10 @@ import com.duing.domain.club.entity.ClubSnsLink;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
+import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
+import java.time.DayOfWeek;
 import java.util.List;
+import java.util.Set;
 
 public record ClubDetailResponse(
         Long id,
@@ -22,7 +25,15 @@ public record ClubDetailResponse(
         Long leaderId,
         String leaderName,
         ClubStatus status,
-        List<ClubPhotoQuery> photos
+        List<ClubPhotoQuery> photos,
+        Integer foundedYear,
+        Integer cohortNumber,
+        String location,
+        String contactEmail,
+        Integer activityFrequency,
+        Set<DayOfWeek> activeDays,
+        String membershipFee,
+        StudentRecruitmentProjection activeRecruitment
 ) {
     public static ClubDetailResponse from(ClubDetailQuery detailQuery) {
         return new ClubDetailResponse(
@@ -39,7 +50,15 @@ public record ClubDetailResponse(
                 detailQuery.leaderId(),
                 detailQuery.leaderName(),
                 detailQuery.status(),
-                detailQuery.photos()
+                detailQuery.photos(),
+                detailQuery.foundedYear(),
+                detailQuery.cohortNumber(),
+                detailQuery.location(),
+                detailQuery.contactEmail(),
+                detailQuery.activityFrequency(),
+                detailQuery.activeDays(),
+                detailQuery.membershipFee(),
+                detailQuery.activeRecruitment()
         );
     }
 }

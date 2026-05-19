@@ -18,13 +18,16 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
             SELECT r.id AS recruitmentId, r.club_id AS clubId, c.name AS clubName, r.title AS title,
                    r.end_date AS endDate,
                    CASE
-                     WHEN r.start_date = :today             THEN 'OPENED'
-                     WHEN (r.end_date - :today) IN (3,1,0)  THEN 'DEADLINE'
+                     WHEN r.start_date = :today                                    THEN 'OPENED'
+                     WHEN r.end_date IS NOT NULL AND (r.end_date - :today) IN (3,1,0) THEN 'DEADLINE'
                    END AS kind,
                    (r.end_date - :today) AS daysToEnd
               FROM recruitment r JOIN club c ON c.id = r.club_id
              WHERE r.status = 'OPEN' AND r.deleted_at IS NULL
-               AND ( r.start_date = :today OR (r.end_date - :today) IN (3,1,0) )
+               AND (
+                     r.start_date = :today
+                     OR ( r.end_date IS NOT NULL AND (r.end_date - :today) IN (3,1,0) )
+                   )
             """, nativeQuery = true)
     List<DeadlineRow> findDeadlineNotificationCandidates(@Param("today") LocalDate today);
 }

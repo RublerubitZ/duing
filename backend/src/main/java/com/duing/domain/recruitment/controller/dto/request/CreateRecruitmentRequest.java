@@ -24,7 +24,6 @@ public record CreateRecruitmentRequest(
         @NotNull(message = "모집 시작일은 필수 입력값입니다.")
         LocalDate startDate,
 
-        @NotNull(message = "모집 종료일은 필수 입력값입니다.")
         LocalDate endDate,
 
         @Min(value = 1, message = "모집 정원은 1명 이상이어야 합니다.")
@@ -39,7 +38,13 @@ public record CreateRecruitmentRequest(
 
         TargetRole targetRole,
 
-        List<@NotBlank(message = "질문 항목은 빈 문자열일 수 없습니다.") String> questions
+        List<@NotBlank(message = "질문 항목은 빈 문자열일 수 없습니다.") String> questions,
+
+        LocalDate interviewStartDate,
+
+        LocalDate interviewEndDate,
+
+        Boolean showApplicantCount
 ) {
     public CreateRecruitmentCommand toCommand(Long clubId, Long currentUserId) {
         return new CreateRecruitmentCommand(
@@ -54,7 +59,10 @@ public record CreateRecruitmentRequest(
                 externalFormUrl,
                 Boolean.TRUE.equals(useInterview),
                 targetRole,
-                questions
+                questions,
+                interviewStartDate,
+                interviewEndDate,
+                Boolean.TRUE.equals(showApplicantCount)
         );
     }
 }

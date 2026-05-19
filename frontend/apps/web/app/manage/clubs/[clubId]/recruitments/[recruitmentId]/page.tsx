@@ -4,6 +4,7 @@ import { use, useState } from 'react';
 import Link from 'next/link';
 import { useRecruitmentDetailQuery, useCloseRecruitmentMutation } from '@duing/hooks';
 import { toRoute } from '../../../../../_lib/route';
+import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
 
 export default function RecruitmentDetailPage({
   params,
@@ -26,7 +27,7 @@ export default function RecruitmentDetailPage({
     return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
   }
 
-  const isClosed = !recruitment.effectivelyOpen;
+  const isClosed = recruitment.displayStatus === 'CLOSED';
   const applicationModeLabel =
     recruitment.applicationMode === 'EXTERNAL' ? '외부 폼' : '자체 폼';
   const targetRoleLabel = recruitment.targetRole === 'OFFICER' ? '운영진' : '부원';
@@ -55,17 +56,17 @@ export default function RecruitmentDetailPage({
         <div>
           <h1 className="text-xl font-bold text-slate-900">{recruitment.title}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {recruitment.startDate} ~ {recruitment.endDate}
+            {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
           </p>
         </div>
         <span
           className={
-            recruitment.effectivelyOpen
-              ? 'mt-1 shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700'
-              : 'mt-1 shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500'
+            isClosed
+              ? 'mt-1 shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500'
+              : 'mt-1 shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700'
           }
         >
-          {recruitment.effectivelyOpen ? '모집 중' : '마감'}
+          {displayStatusLabel(recruitment.displayStatus)}
         </span>
       </div>
 

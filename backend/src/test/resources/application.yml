@@ -1,0 +1,27 @@
+spring:
+  config:
+    # 운영용 .env 자동 import 비활성화 — 테스트 격리.
+    import: ""
+  profiles:
+    active: test
+  datasource:
+    # Testcontainers JDBC URL scheme — driver 가 컨테이너를 자동 기동.
+    # @Import(TestcontainersConfiguration.class) 가 있는 테스트는 @ServiceConnection 이
+    # 이 url 을 덮어쓰므로 동일 image 컨테이너를 단 1회만 띄운다. 본 url 은 @Import 누락 시의 fallback.
+    url: jdbc:tc:postgresql:16-alpine:///duing_test
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    # Testcontainers 가 매 실행마다 새로 만드는 임시 컨테이너의 더미 자격 — 실 시크릿 아님.
+    username: test
+    password: test
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+duing:
+  notification:
+    jobs:
+      enabled: false

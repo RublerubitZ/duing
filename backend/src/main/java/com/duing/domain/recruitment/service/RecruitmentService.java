@@ -20,4 +20,6 @@ public interface RecruitmentService {
     void update(UpdateRecruitmentCommand updateRecruitmentCommand);
 
     void close(Long recruitmentId, Long currentUserId);
+
+    Long replaceActive(CreateRecruitmentCommand createRecruitmentCommand);
 }

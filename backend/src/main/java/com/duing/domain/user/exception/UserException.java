@@ -40,4 +40,12 @@ public class UserException extends ApplicationException {
             super(MESSAGE, HttpStatus.UNAUTHORIZED);
         }
     }
+
+    public static class PhoneAlreadyExistsException extends UserException {
+        private static final String MESSAGE = "이미 등록된 전화번호입니다.";
+
+        public PhoneAlreadyExistsException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
 }

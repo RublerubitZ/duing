@@ -27,6 +27,16 @@ public interface LeaderRecruitmentApi {
             @AuthenticationPrincipal UserPrincipal currentUser
     );
 
+    @Operation(summary = "active 모집 교체",
+            description = "현재 active 모집을 마감하고 같은 트랜잭션 안에서 새 모집을 생성한다. "
+                    + "본인이 동아리장인 동아리에서만 호출 가능. 기존 active 가 없으면 close 단계 없이 새 모집만 생성된다.")
+    @PostMapping("/leader/clubs/{clubId}/recruitments/replace-active")
+    ResponseEntity<ApiResponse<Long>> replaceActiveRecruitment(
+            @PathVariable Long clubId,
+            @Valid @RequestBody CreateRecruitmentRequest createRecruitmentRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
     @Operation(summary = "모집 공고 수정", description = "null 이 아닌 필드만 부분 갱신된다. applicationMode·externalFormUrl·targetRole 은 변경 불가. 이미 마감된 공고 수정 시 409 반환.")
     @PatchMapping("/leader/recruitments/{recruitmentId}")
     ResponseEntity<Void> updateRecruitment(

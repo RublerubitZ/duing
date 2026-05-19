@@ -24,13 +24,16 @@ export type CreateFormValues = {
   title: string;
   content: string;
   startDate: string;
-  endDate: string;
+  endDate: string | null;
   capacity: number;
   applicationMode: 'SELF' | 'EXTERNAL';
   externalFormUrl: string;
   useInterview: boolean;
   targetRole: 'MEMBER' | 'OFFICER';
   questions: string[];
+  interviewStartDate: string | null;
+  interviewEndDate: string | null;
+  showApplicantCount: boolean;
 };
 
 export type EditFormValues = {
@@ -41,6 +44,9 @@ export type EditFormValues = {
   capacity: number;
   useInterview: boolean;
   questions: string[];
+  interviewStartDate: string | null;
+  interviewEndDate: string | null;
+  showApplicantCount: boolean;
 };
 
 type RecruitmentFormProps = CreateMode | EditMode;
@@ -57,6 +63,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   const [content, setContent] = useState(initialData?.content ?? '');
   const [startDate, setStartDate] = useState(initialData?.startDate ?? '');
   const [endDate, setEndDate] = useState(initialData?.endDate ?? '');
+  const [isAlwaysOpen, setIsAlwaysOpen] = useState(
+    isEditMode ? initialData?.endDate === null : false,
+  );
   const [capacity, setCapacity] = useState(initialData?.capacity ?? 1);
   const [applicationMode, setApplicationMode] = useState<'SELF' | 'EXTERNAL'>(
     initialData?.applicationMode ?? 'SELF',
@@ -65,6 +74,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     initialData?.externalFormUrl ?? '',
   );
   const [useInterview, setUseInterview] = useState(initialData?.useInterview ?? false);
+  const [interviewStartDate, setInterviewStartDate] = useState(initialData?.interviewStartDate ?? '');
+  const [interviewEndDate, setInterviewEndDate] = useState(initialData?.interviewEndDate ?? '');
+  const [showApplicantCount, setShowApplicantCount] = useState(initialData?.showApplicantCount ?? false);
   const [targetRole, setTargetRole] = useState<'MEMBER' | 'OFFICER'>(
     initialData?.targetRole ?? 'MEMBER',
   );
@@ -88,6 +100,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         capacity,
         useInterview,
         questions: applicationMode === 'SELF' ? questions : undefined,
+        interviewStartDate: useInterview && interviewStartDate ? interviewStartDate : null,
+        interviewEndDate: useInterview && interviewEndDate ? interviewEndDate : null,
+        showApplicantCount,
       });
       if (!parsed.success) {
         setValidationError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');
@@ -102,6 +117,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           capacity: parsed.data.capacity,
           useInterview: parsed.data.useInterview,
           questions: parsed.data.questions ?? [],
+          interviewStartDate: parsed.data.interviewStartDate ?? null,
+          interviewEndDate: parsed.data.interviewEndDate ?? null,
+          showApplicantCount: parsed.data.showApplicantCount ?? false,
         });
       } catch (err) {
         setSubmitError(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -113,13 +131,16 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       title,
       content: content || undefined,
       startDate,
-      endDate,
+      endDate: isAlwaysOpen ? null : endDate,
       capacity,
       applicationMode,
       externalFormUrl: externalFormUrl || undefined,
       useInterview,
       targetRole,
       questions: applicationMode === 'SELF' ? questions : undefined,
+      interviewStartDate: useInterview && interviewStartDate ? interviewStartDate : null,
+      interviewEndDate: useInterview && interviewEndDate ? interviewEndDate : null,
+      showApplicantCount,
     });
     if (!parsed.success) {
       setValidationError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');
@@ -137,6 +158,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         useInterview: parsed.data.useInterview,
         targetRole: parsed.data.targetRole,
         questions: parsed.data.questions ?? [],
+        interviewStartDate: parsed.data.interviewStartDate ?? null,
+        interviewEndDate: parsed.data.interviewEndDate ?? null,
+        showApplicantCount: parsed.data.showApplicantCount ?? false,
       });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -173,31 +197,55 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       </label>
 
       {/* 모집 기간 */}
-      <div className="grid grid-cols-2 gap-4">
-        <label className="block">
-          <span className={fieldLabelClass}>
-            시작일 <span className="text-rose-500">*</span>
-          </span>
-          <input
-            type="date"
-            required
-            value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
-            className={fieldInputClass}
-          />
-        </label>
-        <label className="block">
-          <span className={fieldLabelClass}>
-            종료일 <span className="text-rose-500">*</span>
-          </span>
-          <input
-            type="date"
-            required
-            value={endDate}
-            onChange={(event) => setEndDate(event.target.value)}
-            className={fieldInputClass}
-          />
-        </label>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <label className="block">
+            <span className={fieldLabelClass}>
+              시작일 <span className="text-rose-500">*</span>
+            </span>
+            <input
+              type="date"
+              required
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              className={fieldInputClass}
+            />
+          </label>
+          <label className="block">
+            <span className={fieldLabelClass}>
+              종료일 {!isAlwaysOpen && <span className="text-rose-500">*</span>}
+            </span>
+            <input
+              type="date"
+              required={!isAlwaysOpen}
+              disabled={isAlwaysOpen}
+              value={isAlwaysOpen ? '' : endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              className={cn(fieldInputClass, isAlwaysOpen && 'bg-slate-100 text-slate-400')}
+            />
+          </label>
+        </div>
+        {!isEditMode && (
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={isAlwaysOpen}
+              onChange={(event) => {
+                setIsAlwaysOpen(event.target.checked);
+                if (event.target.checked) {
+                  setEndDate('');
+                }
+              }}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            상시모집 (종료일 없음 — 직접 마감할 때까지 지원 접수)
+          </label>
+        )}
+        {isEditMode && initialData?.endDate === null && (
+          <p className="text-xs text-slate-500">
+            이 모집은 상시모집입니다. 종료일은 변경할 수 없습니다.
+          </p>
+        )}
       </div>
 
       {/* 정원 */}
@@ -326,6 +374,39 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           className="h-4 w-4 rounded border-slate-300"
         />
         <span className="text-sm text-slate-700">면접 진행</span>
+      </label>
+
+      {useInterview && (
+        <div className="grid grid-cols-2 gap-4 rounded-md bg-slate-50 p-4">
+          <label className="block">
+            <span className="block text-sm text-slate-700">면접 시작일</span>
+            <input
+              type="date"
+              value={interviewStartDate}
+              onChange={(event) => setInterviewStartDate(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-sm text-slate-700">면접 종료일</span>
+            <input
+              type="date"
+              value={interviewEndDate}
+              onChange={(event) => setInterviewEndDate(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+      )}
+
+      <label className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          checked={showApplicantCount}
+          onChange={(event) => setShowApplicantCount(event.target.checked)}
+          className="h-4 w-4 rounded border-slate-300"
+        />
+        <span className="text-sm text-slate-700">현재 지원자 수를 학생에게 공개</span>
       </label>
 
       {/* 자체 폼 질문 빌더 */}

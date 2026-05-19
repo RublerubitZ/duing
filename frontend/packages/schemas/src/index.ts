@@ -1,7 +1,28 @@
-// 백엔드 Bean Validation 규칙(@NotBlank/@Email/@Pattern/@Size 등)을 미러링한 Zod 스키마.
+// 백엔드 Bean Validation 규칙(@NotBlank/@Email/@Pattern/@Size/@AssertTrue 등)을 미러링한 Zod 스키마.
 // 한국어 메시지는 백엔드와 동일하게 유지한다.
 
 import { z } from 'zod';
+import { passwordSchema } from './password';
+
+export { passwordSchema } from './password';
+
+const GRADE_VALUES = ['FRESHMAN', 'SOPHOMORE', 'JUNIOR', 'SENIOR', 'GRADUATE_DEFERRED'] as const;
+const COLLEGE_VALUES = [
+  'PUBLIC_LEADERS',
+  'GLOBAL_BUSINESS',
+  'SOCIAL_SCIENCE',
+  'HEALTH_BIO',
+  'IT_ENGINEERING',
+  'DESIGN_ART',
+  'EDUCATION',
+  'REHABILITATION',
+  'NURSING',
+  'GLOCAL_LIFE',
+  'INTERNATIONAL',
+  'SPORTS_LEISURE',
+  'CULTURE_CONTENTS',
+  'FREE_MAJOR',
+] as const;
 
 export const signupSchema = z.object({
   studentId: z
@@ -17,15 +38,26 @@ export const signupSchema = z.object({
     .min(1, '이메일은 필수 입력값입니다.')
     .email('올바른 이메일 형식이 아닙니다.')
     .max(100, '이메일은 100자 이하여야 합니다.')
-    // 백엔드 SignupRequest 의 @Pattern 과 동일 — 학교 도메인만 허용.
     .regex(
       /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*daegu\.ac\.kr$/,
       '대구대학교 이메일(@daegu.ac.kr)만 사용할 수 있습니다.',
     ),
-  password: z
+  password: passwordSchema,
+  grade: z.enum(GRADE_VALUES, { errorMap: () => ({ message: '학년을 선택해주세요.' }) }),
+  college: z.enum(COLLEGE_VALUES, { errorMap: () => ({ message: '단과대학을 선택해주세요.' }) }),
+  major: z
     .string()
-    .min(8, '비밀번호는 8자 이상 72자 이하여야 합니다.')
-    .max(72, '비밀번호는 8자 이상 72자 이하여야 합니다.'),
+    .min(1, '전공 학과는 필수 입력값입니다.')
+    .max(50, '전공 학과는 50자 이하여야 합니다.'),
+  phone: z
+    .string()
+    .regex(/^010-\d{4}-\d{4}$/, '전화번호는 010-XXXX-XXXX 형식이어야 합니다.'),
+  termsOfServiceAgreed: z.literal(true, {
+    errorMap: () => ({ message: '이용약관에 동의해야 합니다.' }),
+  }),
+  privacyPolicyAgreed: z.literal(true, {
+    errorMap: () => ({ message: '개인정보 수집·이용에 동의해야 합니다.' }),
+  }),
 });
 
 export type SignupInput = z.infer<typeof signupSchema>;
@@ -48,15 +80,29 @@ export const createRecruitmentSchema = z
       .max(200, '제목은 200자 이하여야 합니다.'),
     content: z.string().optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
-    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
+    endDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .nullable(),
     capacity: z.number().int().min(1, '모집 정원은 1명 이상이어야 합니다.'),
     applicationMode: z.enum(['SELF', 'EXTERNAL']).default('SELF'),
     externalFormUrl: z.string().optional(),
     useInterview: z.boolean().default(false),
     targetRole: z.enum(['MEMBER', 'OFFICER']).default('MEMBER'),
     questions: z.array(z.string().min(1, '질문 내용을 입력해주세요.')).optional(),
+    interviewStartDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .nullable()
+      .optional(),
+    interviewEndDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .nullable()
+      .optional(),
+    showApplicantCount: z.boolean().optional(),
   })
-  .refine((data) => data.endDate >= data.startDate, {
+  .refine((data) => data.endDate === null || data.endDate >= data.startDate, {
     message: '모집 종료일은 시작일보다 빠를 수 없습니다.',
     path: ['endDate'],
   })
@@ -77,6 +123,16 @@ export const createRecruitmentSchema = z
       message: '자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.',
       path: ['questions'],
     },
+  )
+  .refine(
+    (data) => {
+      if (!data.interviewStartDate || !data.interviewEndDate) return true;
+      return data.interviewEndDate >= data.interviewStartDate;
+    },
+    {
+      message: '면접 종료일은 시작일보다 빠를 수 없습니다.',
+      path: ['interviewEndDate'],
+    },
   );
 
 export type CreateRecruitmentInput = z.infer<typeof createRecruitmentSchema>;
@@ -93,11 +149,32 @@ export const updateRecruitmentSchema = z
     capacity: z.number().int().min(1, '모집 정원은 1명 이상이어야 합니다.'),
     useInterview: z.boolean(),
     questions: z.array(z.string().min(1, '질문 내용을 입력해주세요.')).optional(),
+    interviewStartDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .nullable()
+      .optional(),
+    interviewEndDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .nullable()
+      .optional(),
+    showApplicantCount: z.boolean().optional(),
   })
   .refine((data) => data.endDate >= data.startDate, {
     message: '모집 종료일은 시작일보다 빠를 수 없습니다.',
     path: ['endDate'],
-  });
+  })
+  .refine(
+    (data) => {
+      if (!data.interviewStartDate || !data.interviewEndDate) return true;
+      return data.interviewEndDate >= data.interviewStartDate;
+    },
+    {
+      message: '면접 종료일은 시작일보다 빠를 수 없습니다.',
+      path: ['interviewEndDate'],
+    },
+  );
 
 export type UpdateRecruitmentInput = z.infer<typeof updateRecruitmentSchema>;
 
@@ -127,6 +204,45 @@ export const updateClubSchema = z.object({
       order: z.number().int().min(0, 'FAQ 순서는 0 이상이어야 합니다.'),
     }),
   ).max(20, 'FAQ는 최대 20개까지 가능합니다.'),
+  foundedYear: z
+    .number()
+    .int()
+    .min(1900, '창설년도는 1900 이상이어야 합니다.')
+    .max(2100, '창설년도가 너무 큽니다.')
+    .nullable()
+    .optional(),
+  cohortNumber: z
+    .number()
+    .int()
+    .min(1, '기수는 1 이상이어야 합니다.')
+    .nullable()
+    .optional(),
+  location: z
+    .string()
+    .max(200, '위치는 200자 이하여야 합니다.')
+    .nullable()
+    .optional(),
+  contactEmail: z
+    .string()
+    .email('이메일 형식이 올바르지 않습니다.')
+    .max(200, '이메일은 200자 이하여야 합니다.')
+    .nullable()
+    .or(z.literal(''))
+    .optional(),
+  activityFrequency: z
+    .number()
+    .int()
+    .min(1, '활동 빈도는 1 이상이어야 합니다.')
+    .nullable()
+    .optional(),
+  activeDays: z
+    .array(z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']))
+    .optional(),
+  membershipFee: z
+    .string()
+    .max(100, '회비 표기는 100자 이하여야 합니다.')
+    .nullable()
+    .optional(),
 });
 
 export type UpdateClubInput = z.infer<typeof updateClubSchema>;

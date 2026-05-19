@@ -23,7 +23,10 @@ public record CreateRecruitmentCommand(
         String externalFormUrl,
         boolean useInterview,
         TargetRole targetRole,
-        List<String> questions
+        List<String> questions,
+        LocalDate interviewStartDate,
+        LocalDate interviewEndDate,
+        boolean showApplicantCount
 ) {
     public CreateRecruitmentCommand {
         ApplicationMode resolvedMode = applicationMode == null ? ApplicationMode.SELF : applicationMode;

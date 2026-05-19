@@ -2,6 +2,7 @@ package com.duing.domain.clubmember.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -11,6 +12,8 @@ import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.dto.command.TransferLeaderCommand;
 import com.duing.domain.user.entity.User;
+import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
@@ -24,8 +27,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.DirtiesContext;
 
+@Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class TransferLeaderConcurrencyTest {
@@ -105,7 +110,12 @@ class TransferLeaderConcurrencyTest {
                 name,
                 "u" + unique + "@daegu.ac.kr",
                 "hashed",
-                UserRole.STUDENT
+                UserRole.STUDENT,
+                Grade.FRESHMAN,
+                College.IT_ENGINEERING,
+                "미설정",
+                "010-0000-0000",
+                java.time.LocalDateTime.now()
         ));
     }
 

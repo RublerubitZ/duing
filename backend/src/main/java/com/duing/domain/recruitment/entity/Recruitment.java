@@ -43,7 +43,7 @@ public class Recruitment extends BaseEntity {
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
-    @Column(name = "end_date", nullable = false)
+    @Column(name = "end_date")
     private LocalDate endDate;
 
     @Column(nullable = false)
@@ -67,6 +67,15 @@ public class Recruitment extends BaseEntity {
     @Column(name = "target_role", nullable = false, length = 20)
     private TargetRole targetRole;
 
+    @Column(name = "interview_start_date")
+    private LocalDate interviewStartDate;
+
+    @Column(name = "interview_end_date")
+    private LocalDate interviewEndDate;
+
+    @Column(name = "show_applicant_count", nullable = false)
+    private boolean showApplicantCount;
+
     @OneToOne(mappedBy = "recruitment", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private RecruitmentForm form;
 
@@ -74,7 +83,9 @@ public class Recruitment extends BaseEntity {
     private Recruitment(Club club, String title, String content, LocalDate startDate,
                         LocalDate endDate, int capacity, RecruitmentStatus status,
                         ApplicationMode applicationMode, String externalFormUrl,
-                        boolean useInterview, TargetRole targetRole) {
+                        boolean useInterview, TargetRole targetRole,
+                        LocalDate interviewStartDate, LocalDate interviewEndDate,
+                        boolean showApplicantCount) {
         this.club = club;
         this.title = title;
         this.content = content;
@@ -86,12 +97,16 @@ public class Recruitment extends BaseEntity {
         this.externalFormUrl = externalFormUrl;
         this.useInterview = useInterview;
         this.targetRole = targetRole;
+        this.interviewStartDate = interviewStartDate;
+        this.interviewEndDate = interviewEndDate;
+        this.showApplicantCount = showApplicantCount;
     }
 
     public static Recruitment create(Club club, String title, String content,
                                      LocalDate startDate, LocalDate endDate, int capacity) {
         return createWithOptions(club, title, content, startDate, endDate, capacity,
-                ApplicationMode.SELF, null, false, TargetRole.MEMBER);
+                ApplicationMode.SELF, null, false, TargetRole.MEMBER,
+                null, null, false);
     }
 
     /**
@@ -101,12 +116,19 @@ public class Recruitment extends BaseEntity {
     public static Recruitment createWithOptions(Club club, String title, String content,
                                                 LocalDate startDate, LocalDate endDate, int capacity,
                                                 ApplicationMode applicationMode, String externalFormUrl,
-                                                boolean useInterview, TargetRole targetRole) {
-        if (endDate.isBefore(startDate)) {
+                                                boolean useInterview, TargetRole targetRole,
+                                                LocalDate interviewStartDate,
+                                                LocalDate interviewEndDate,
+                                                boolean showApplicantCount) {
+        if (endDate != null && endDate.isBefore(startDate)) {
             throw new IllegalArgumentException("모집 종료일은 시작일보다 빠를 수 없습니다.");
         }
         if (capacity <= 0) {
             throw new IllegalArgumentException("모집 정원은 1명 이상이어야 합니다.");
+        }
+        if (interviewStartDate != null && interviewEndDate != null
+                && interviewEndDate.isBefore(interviewStartDate)) {
+            throw new RecruitmentException.InvalidInterviewPeriodException();
         }
         return Recruitment.builder()
                 .club(club)
@@ -120,6 +142,9 @@ public class Recruitment extends BaseEntity {
                 .externalFormUrl(externalFormUrl)
                 .useInterview(useInterview)
                 .targetRole(targetRole)
+                .interviewStartDate(interviewStartDate)
+                .interviewEndDate(interviewEndDate)
+                .showApplicantCount(showApplicantCount)
                 .build();
     }
 
@@ -128,7 +153,10 @@ public class Recruitment extends BaseEntity {
     }
 
     public boolean isEffectivelyOpen(LocalDate today) {
-        return status == RecruitmentStatus.OPEN && !today.isAfter(endDate);
+        if (status != RecruitmentStatus.OPEN) {
+            return false;
+        }
+        return endDate == null || !today.isAfter(endDate);
     }
 
     public void update(UpdateRecruitmentCommand command) {
@@ -145,13 +173,21 @@ public class Recruitment extends BaseEntity {
             this.content = command.content();
         }
         LocalDate resolvedStartDate = command.startDate() != null ? command.startDate() : this.startDate;
-        LocalDate resolvedEndDate = command.endDate() != null ? command.endDate() : this.endDate;
-        if (command.startDate() != null || command.endDate() != null) {
-            if (resolvedEndDate.isBefore(resolvedStartDate)) {
+        if (command.endDate() != null) {
+            // 기존이 상시모집(endDate=null)이면 기간모집으로 전환 금지
+            if (this.endDate == null) {
+                throw new RecruitmentException.AlwaysOpenConversionNotAllowedException();
+            }
+            if (command.endDate().isBefore(resolvedStartDate)) {
                 throw new RecruitmentException.InvalidRecruitmentPeriodException();
             }
-            this.startDate = resolvedStartDate;
-            this.endDate = resolvedEndDate;
+            this.endDate = command.endDate();
+        }
+        if (command.startDate() != null) {
+            if (this.endDate != null && this.endDate.isBefore(command.startDate())) {
+                throw new RecruitmentException.InvalidRecruitmentPeriodException();
+            }
+            this.startDate = command.startDate();
         }
         if (command.capacity() != null) {
             this.capacity = command.capacity();
@@ -164,6 +200,21 @@ public class Recruitment extends BaseEntity {
                 throw new IllegalStateException("자체 폼이 없는 모집 공고에서 질문을 수정할 수 없습니다.");
             }
             this.form.replaceQuestions(command.questions());
+        }
+        if (command.interviewStartDate() != null || command.interviewEndDate() != null) {
+            LocalDate resolvedInterviewStart = command.interviewStartDate() != null
+                    ? command.interviewStartDate() : this.interviewStartDate;
+            LocalDate resolvedInterviewEnd = command.interviewEndDate() != null
+                    ? command.interviewEndDate() : this.interviewEndDate;
+            if (resolvedInterviewStart != null && resolvedInterviewEnd != null
+                    && resolvedInterviewEnd.isBefore(resolvedInterviewStart)) {
+                throw new RecruitmentException.InvalidInterviewPeriodException();
+            }
+            this.interviewStartDate = resolvedInterviewStart;
+            this.interviewEndDate = resolvedInterviewEnd;
+        }
+        if (command.showApplicantCount() != null) {
+            this.showApplicantCount = command.showApplicantCount();
         }
     }
 
