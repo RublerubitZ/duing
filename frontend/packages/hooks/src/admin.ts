@@ -3,6 +3,7 @@ import type {
   AdminClubSearchParams,
   AdminUserSearchParams,
   CreateClubPayload,
+  UpdateClubCentralClubPayload,
   UpdateClubStatusPayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
@@ -48,6 +49,20 @@ export function useUpdateClubStatusMutation() {
   return useMutation({
     mutationFn: ({ clubId, payload }: { clubId: number; payload: UpdateClubStatusPayload }) =>
       client.clubs.updateStatus(clubId, payload),
+    onSuccess: (_, { clubId }) => {
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
+    },
+  });
+}
+
+export function useUpdateClubCentralClubMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ clubId, payload }: { clubId: number; payload: UpdateClubCentralClubPayload }) =>
+      client.clubs.updateCentralClub(clubId, payload),
     onSuccess: (_, { clubId }) => {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
