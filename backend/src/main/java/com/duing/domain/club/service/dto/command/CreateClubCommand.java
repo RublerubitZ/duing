@@ -8,5 +8,6 @@ public record CreateClubCommand(
         String division,
         String description,
         String logoUrl,
-        Long leaderId
+        Long leaderId,
+        boolean centralClub
 ) {}
