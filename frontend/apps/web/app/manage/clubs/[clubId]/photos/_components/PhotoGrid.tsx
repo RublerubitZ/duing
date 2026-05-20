@@ -2,12 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  DndContext, KeyboardSensor, PointerSensor,
-  closestCenter, useSensor, useSensors,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates,
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 import type { ClubPhoto } from '@duing/types';
 import { useReorderPhotosMutation } from '@duing/hooks';
@@ -37,11 +44,11 @@ export function PhotoGrid({ clubId, photos }: PhotoGridProps) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
+  function handleDragEnd(dragEvent: DragEndEvent) {
+    const { active, over } = dragEvent;
     if (!over || active.id === over.id) return;
-    const oldIndex = order.findIndex((p) => p.id === active.id);
-    const newIndex = order.findIndex((p) => p.id === over.id);
+    const oldIndex = order.findIndex((photo) => photo.id === active.id);
+    const newIndex = order.findIndex((photo) => photo.id === over.id);
     const next = arrayMove(order, oldIndex, newIndex);
     setOrder(next);
     scheduleReorder(next);
@@ -65,10 +72,16 @@ export function PhotoGrid({ clubId, photos }: PhotoGridProps) {
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={order.map((p) => p.id)} strategy={rectSortingStrategy}>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {order.map((photo) => (
-            <PhotoCard key={photo.id} clubId={clubId} photo={photo} />
+      <SortableContext items={order.map((photo) => photo.id)} strategy={rectSortingStrategy}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+            gap: '18px',
+          }}
+        >
+          {order.map((photo, photoIndex) => (
+            <PhotoCard key={photo.id} clubId={clubId} photo={photo} index={photoIndex} />
           ))}
         </div>
       </SortableContext>
