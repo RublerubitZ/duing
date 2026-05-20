@@ -13,6 +13,7 @@ const baseClub: ClubDetail = {
   logoUrl: null,
   status: 'ACTIVE',
   tags: [],
+  centralClub: false,
   description: null,
   coverUrl: null,
   snsLinks: [],
