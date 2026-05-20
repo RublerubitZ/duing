@@ -18,12 +18,22 @@ export function ClubSelector({ managedClubs, currentClubId }: ClubSelectorProps)
   }
 
   return (
-    <div className="px-3 py-2">
-      <label className="mb-1 block text-xs font-medium text-slate-500">동아리 선택</label>
+    <div className="px-2">
+      <label className="mb-1.5 block text-[11px] uppercase tracking-[0.12em] text-[#9aa191]">
+        동아리 선택
+      </label>
       <select
         value={currentClubId ?? ''}
         onChange={handleChange}
-        className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
+        className="w-full rounded-[8px] border border-[#3d4a36] bg-[#28311f] text-[#e6e0c9] px-3 py-2.5 text-[13.5px] appearance-none focus:outline-none focus:border-[#5b7e4d]"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%239aa191' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'right 10px center',
+          backgroundSize: '12px',
+          paddingRight: '30px',
+        }}
       >
         {managedClubs.map((managedClub) => (
           <option key={managedClub.clubId} value={managedClub.clubId}>
