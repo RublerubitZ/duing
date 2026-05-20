@@ -174,6 +174,11 @@ public class Club extends BaseEntity {
     }
 
     public static Club create(String name, ClubCategory category, String division,
+                              String description, String logoUrl) {
+        return create(name, category, division, description, logoUrl, false);
+    }
+
+    public static Club create(String name, ClubCategory category, String division,
                               String description, String logoUrl, boolean centralClub) {
         return Club.builder()
                 .name(name)
