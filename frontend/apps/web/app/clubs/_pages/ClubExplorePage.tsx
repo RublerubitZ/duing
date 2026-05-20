@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useClubListQuery, useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
-import { ExploreNav } from '../../_components/ExploreNav';
 import { Sparkle, SparkleFull } from '../../_components/Sparkle';
 import { toRoute } from '../../_lib/route';
 import { ClubCard } from '../_components/ClubCard';
@@ -160,9 +159,7 @@ export function ClubExplorePage() {
   };
 
   return (
-    <div className="duing bg-cream min-h-screen">
-      <ExploreNav active="탐색" />
-
+    <div>
       <section className="border-b border-line bg-cream px-10 pt-11 pb-7">
         <div className="max-w-layout mx-auto">
           <div className="flex items-end justify-between mb-7">

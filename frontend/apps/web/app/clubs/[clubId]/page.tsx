@@ -31,7 +31,7 @@ export default function ClubDetailPage({
   const club = detail.data;
 
   return (
-    <div className="bg-cream min-h-screen">
+    <>
       <ClubDetailHero
         club={club}
         recruitmentDisplayStatus={club.activeRecruitment?.displayStatus}
@@ -56,6 +56,6 @@ export default function ClubDetailPage({
           </div>
         </div>
       </section>
-    </div>
+    </>
   );
 }
