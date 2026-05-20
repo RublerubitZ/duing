@@ -4,5 +4,7 @@ import com.duing.domain.club.entity.ClubStatus;
 
 public record UpdateClubStatusCommand(
         Long clubId,
-        ClubStatus status
+        ClubStatus status,
+        String rejectionReason,
+        Long actorUserId
 ) {}

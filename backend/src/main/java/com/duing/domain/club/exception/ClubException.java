@@ -24,4 +24,17 @@ public class ClubException extends ApplicationException {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
+
+    public static class InvalidClubStatusTransitionException extends ClubException {
+        public InvalidClubStatusTransitionException(String from, String to) {
+            super("허용되지 않는 상태 전이입니다: " + from + " → " + to, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class RejectionReasonRequiredException extends ClubException {
+        private static final String MESSAGE = "거절 사유는 필수입니다.";
+        public RejectionReasonRequiredException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }

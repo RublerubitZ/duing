@@ -1,5 +1,6 @@
 package com.duing.domain.club.entity;
 
+import com.duing.domain.club.exception.ClubException;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -7,6 +8,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.DayOfWeek;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -106,6 +108,18 @@ public class Club extends BaseEntity {
     @Column(name = "major_projects", columnDefinition = "TEXT")
     private String majorProjects;
 
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
+
+    @Column(name = "central_club", nullable = false)
+    private boolean centralClub;
+
+    @Column(name = "status_changed_by")
+    private Long statusChangedBy;
+
+    @Column(name = "status_changed_at")
+    private LocalDateTime statusChangedAt;
+
     public List<String> getTags() {
         return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
     }
@@ -149,17 +163,23 @@ public class Club extends BaseEntity {
 
     @Builder(access = AccessLevel.PRIVATE)
     private Club(String name, ClubCategory category, String division, String description,
-                 String logoUrl, ClubStatus status) {
+                 String logoUrl, ClubStatus status, boolean centralClub) {
         this.name = name;
         this.category = category;
         this.division = division;
         this.description = description;
         this.logoUrl = logoUrl;
         this.status = status;
+        this.centralClub = centralClub;
     }
 
     public static Club create(String name, ClubCategory category, String division,
                               String description, String logoUrl) {
+        return create(name, category, division, description, logoUrl, false);
+    }
+
+    public static Club create(String name, ClubCategory category, String division,
+                              String description, String logoUrl, boolean centralClub) {
         return Club.builder()
                 .name(name)
                 .category(category)
@@ -167,11 +187,30 @@ public class Club extends BaseEntity {
                 .description(description)
                 .logoUrl(logoUrl)
                 .status(ClubStatus.PENDING_APPROVAL)
+                .centralClub(centralClub)
                 .build();
     }
 
-    public void changeStatus(ClubStatus newStatus) {
-        this.status = newStatus;
+    public void changeStatus(ClubStatus next, String reason, Long actorUserId) {
+        if (!this.status.canTransitionTo(next)) {
+            throw new ClubException.InvalidClubStatusTransitionException(this.status.name(), next.name());
+        }
+        if (next == ClubStatus.REJECTED) {
+            String normalized = reason == null ? "" : reason.strip();
+            if (normalized.isEmpty()) {
+                throw new ClubException.RejectionReasonRequiredException();
+            }
+            this.rejectionReason = normalized;
+        } else {
+            this.rejectionReason = null;
+        }
+        this.status = next;
+        this.statusChangedBy = actorUserId;
+        this.statusChangedAt = LocalDateTime.now();
+    }
+
+    public void changeCentralClub(boolean next) {
+        this.centralClub = next;
     }
 
     public record UpdatePayload(

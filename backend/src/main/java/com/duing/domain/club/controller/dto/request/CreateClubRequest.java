@@ -23,9 +23,11 @@ public record CreateClubRequest(
         String logoUrl,
 
         @NotNull(message = "동아리장 ID는 필수 입력값입니다.")
-        Long leaderId
+        Long leaderId,
+
+        boolean centralClub
 ) {
     public CreateClubCommand toCommand() {
-        return new CreateClubCommand(name, category, division, description, logoUrl, leaderId);
+        return new CreateClubCommand(name, category, division, description, logoUrl, leaderId, centralClub);
     }
 }

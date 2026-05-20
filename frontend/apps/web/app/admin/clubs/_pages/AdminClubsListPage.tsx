@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import {
   useAdminClubsQuery,
+  useUpdateClubCentralClubMutation,
   useUpdateClubStatusMutation,
 } from '@duing/hooks';
 import type { AdminClubSummary, ClubStatus } from '@duing/types';
+import { AdminClubCentralClubToggleDialog } from '../_components/AdminClubCentralClubToggleDialog';
 import { AdminClubStatusChangeDialog } from '../_components/AdminClubStatusChangeDialog';
 import { AdminClubStatusFilter } from '../_components/AdminClubStatusFilter';
 import { AdminClubsTable } from '../_components/AdminClubsTable';
@@ -28,6 +30,8 @@ export function AdminClubsListPage() {
   const [page, setPage] = useState(0);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
+  const [centralClubDialog, setCentralClubDialog] = useState<AdminClubSummary | null>(null);
+  const [centralClubError, setCentralClubError] = useState<string | null>(null);
 
   const params = useMemo(
     () => ({
@@ -41,6 +45,7 @@ export function AdminClubsListPage() {
 
   const clubsQuery = useAdminClubsQuery(params);
   const statusMutation = useUpdateClubStatusMutation();
+  const centralClubMutation = useUpdateClubCentralClubMutation();
 
   function handleFilterChange(next: StatusFilter) {
     setStatusFilter(next);
@@ -53,11 +58,17 @@ export function AdminClubsListPage() {
     setPage(0);
   }
 
-  function handleDialogConfirm() {
+  function handleDialogConfirm(rejectionReason?: string) {
     if (!dialog) return;
     setDialogError(null);
     statusMutation.mutate(
-      { clubId: dialog.club.id, payload: { status: dialog.action.nextStatus } },
+      {
+        clubId: dialog.club.id,
+        payload: {
+          status: dialog.action.nextStatus,
+          ...(rejectionReason !== undefined && { rejectionReason }),
+        },
+      },
       {
         onSuccess: () => {
           setDialog(null);
@@ -76,6 +87,32 @@ export function AdminClubsListPage() {
   function handleDialogCancel() {
     setDialog(null);
     setDialogError(null);
+  }
+
+  function handleCentralClubToggleClick(club: AdminClubSummary) {
+    setCentralClubError(null);
+    setCentralClubDialog(club);
+  }
+
+  function handleCentralClubConfirm() {
+    if (!centralClubDialog) return;
+    setCentralClubError(null);
+    centralClubMutation.mutate(
+      { clubId: centralClubDialog.id, payload: { centralClub: !centralClubDialog.centralClub } },
+      {
+        onSuccess: () => setCentralClubDialog(null),
+        onError: (mutationError) => {
+          const message =
+            mutationError instanceof ApiError ? mutationError.message : '처리에 실패했습니다.';
+          setCentralClubError(message);
+        },
+      },
+    );
+  }
+
+  function handleCentralClubCancel() {
+    setCentralClubDialog(null);
+    setCentralClubError(null);
   }
 
   const page0Based = clubsQuery.data?.page ?? 0;
@@ -143,6 +180,7 @@ export function AdminClubsListPage() {
               setDialog({ club, action });
               setDialogError(null);
             }}
+            onCentralClubToggleClick={handleCentralClubToggleClick}
           />
           <footer className="mt-4 flex items-center justify-between text-xs text-slate-500">
             <span>총 {totalElements}건</span>
@@ -179,6 +217,16 @@ export function AdminClubsListPage() {
           errorMessage={dialogError}
           onConfirm={handleDialogConfirm}
           onCancel={handleDialogCancel}
+        />
+      )}
+      {centralClubDialog && (
+        <AdminClubCentralClubToggleDialog
+          clubName={centralClubDialog.name}
+          currentValue={centralClubDialog.centralClub}
+          isPending={centralClubMutation.isPending}
+          errorMessage={centralClubError}
+          onConfirm={handleCentralClubConfirm}
+          onCancel={handleCentralClubCancel}
         />
       )}
     </main>

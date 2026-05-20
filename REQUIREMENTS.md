@@ -72,23 +72,29 @@
 
 ### 2.2 Club (동아리)
 
-**엔티티 필드**: `id`, `name`, `category`(enum), `division`, `description`, `logoUrl`, `coverUrl`, `tags`(text[]), `snsLinks`(jsonb), `faqs`(jsonb), `status`(enum). 활동사진은 별도 `club_photo` 테이블.
+**엔티티 필드**: `id`, `name`, `category`(enum), `division`, `description`, `logoUrl`, `coverUrl`, `tags`(text[]), `snsLinks`(jsonb), `faqs`(jsonb), `status`(enum), `centralClub`, `rejectionReason`, `statusChangedBy`, `statusChangedAt`. 활동사진은 별도 `club_photo` 테이블.
 > 회장 정보는 `club_members` 테이블의 `role = LEADER` 행에서 도출 (Club 자체 컬럼 아님).
 
 **`ClubCategory`**: `ACADEMIC` / `CULTURE` / `ART` / `SPORTS` / `VOLUNTEER` / `RELIGION` / `HOBBY` / `OTHER`
-**`ClubStatus`**: `PENDING_APPROVAL`(승인 대기) / `ACTIVE`(운영 중) / `INACTIVE`(중단)
+**`ClubStatus`**: `PENDING_APPROVAL`(승인 대기) / `ACTIVE`(운영 중) / `INACTIVE`(중단) / `REJECTED`(거절)
 
 | ID | 기능 | 입력 | 출력 | 예외 |
 |---|---|---|---|---|
 | C-1 | 동아리 목록 조회 | `category?`, `division?`, `keyword?`, `Pageable` | `PageResponse<ClubSummaryResponse>` (200) | — |
 | C-2 | 동아리 상세 조회 | `clubId` | `ClubDetailResponse` (200) | 동아리 없음 404 |
 | C-3 | 동아리 생성 (ADMIN) | `name`, `category`, `division?`, `description?`, `logoUrl?`, `leaderId` | 생성된 `clubId` (201) | 중복 이름 409, leader User 없음 404, 권한 없음 403 |
-| C-4 | 동아리 상태 변경 (ADMIN) | `clubId`, `status` | 204 | 동아리 없음 404, 권한 없음 403 |
+| C-4 | 동아리 상태 변경 (ADMIN) | `clubId`, `status`, `rejectionReason?` (REJECTED 전이 시 필수) | 204 | 동아리 없음 404, 권한 없음 403, 잘못된 전이 400, 거절 사유 누락 400 |
+| C-5 | 중앙동아리 토글 (ADMIN) | `clubId`, `centralClub`(boolean) | 204 | 동아리 없음 404, 권한 없음 403 |
 
 **비기능 요구사항**
 - 목록 검색 `keyword` 는 `name`/`description` 부분 일치 (대소문자 무시).
 - 페이지네이션 기본: `page=0, size=20, sort=name,asc`.
 - 추후 `recruitmentStatus` 필터(모집 중인 동아리만) 추가 예정 — Recruitment 와 join.
+- 상태 전이는 다음 매트릭스만 허용 — `PENDING_APPROVAL → ACTIVE | REJECTED` / `ACTIVE → INACTIVE` / `INACTIVE → ACTIVE` / `REJECTED → PENDING_APPROVAL` (재심사). 그 외 전이는 400.
+- REJECTED 전이 시 `rejectionReason` 은 필수(공백만 제출 시 400). 다른 상태로 전환 시 기존 `rejectionReason` 은 자동 null 정리.
+- 상태 변경자(`statusChangedBy`)와 변경 시각(`statusChangedAt`)은 ADMIN 콘솔에 노출 (감사 목적). 공개 API 응답에서는 미노출.
+- `centralClub` 은 boolean 플래그. `division` 과 직교 — 공개 카드/상세에서 두 정보를 병행 노출(중앙동아리이면서 학과명도 표기 가능).
+- 거절 사유(`rejectionReason`)는 공개 API 미노출 (어드민 응답에서만).
 
 ---
 

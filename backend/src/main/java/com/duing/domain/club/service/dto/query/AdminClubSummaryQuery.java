@@ -2,6 +2,7 @@ package com.duing.domain.club.service.dto.query;
 
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -18,6 +19,10 @@ public record AdminClubSummaryQuery(
         List<String> tags,
         Long leaderId,
         String leaderName,
-        String leaderStudentId
+        String leaderStudentId,
+        boolean centralClub,
+        String rejectionReason,
+        LocalDateTime statusChangedAt,
+        String statusChangedByName
 ) {
 }

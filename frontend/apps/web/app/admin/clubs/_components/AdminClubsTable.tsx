@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { cn } from '../../../_lib/cn';
 import type { AdminClubSummary } from '@duing/types';
 import {
@@ -12,9 +13,10 @@ import {
 type Props = {
   clubs: ReadonlyArray<AdminClubSummary>;
   onActionClick: (club: AdminClubSummary, action: StatusAction) => void;
+  onCentralClubToggleClick: (club: AdminClubSummary) => void;
 };
 
-export function AdminClubsTable({ clubs, onActionClick }: Props) {
+export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick }: Props) {
   if (clubs.length === 0) {
     return (
       <p className="border-line text-charcoal-3 rounded-md border bg-white py-10 text-center text-sm">
@@ -32,59 +34,93 @@ export function AdminClubsTable({ clubs, onActionClick }: Props) {
             <th className="px-4 py-3 text-left">분류</th>
             <th className="px-4 py-3 text-left">회장</th>
             <th className="px-4 py-3 text-left">상태</th>
+            <th className="px-4 py-3 text-left">최근 변경</th>
             <th className="px-4 py-3 text-right">액션</th>
           </tr>
         </thead>
         <tbody>
           {clubs.map((club) => {
             const actions = STATUS_ACTIONS[club.status];
+            const auditText =
+              club.statusChangedByName && club.statusChangedAt
+                ? `${club.statusChangedByName} · ${new Date(club.statusChangedAt).toLocaleDateString('ko-KR')}`
+                : '—';
+            const isRejected = club.status === 'REJECTED' && club.rejectionReason;
             return (
-              <tr key={club.id} className="border-line border-b last:border-b-0">
-                <td className="px-4 py-3">
-                  <div className="font-medium text-slate-900">{club.name}</div>
-                  <div className="text-xs text-slate-500">{club.category}</div>
-                </td>
-                <td className="px-4 py-3 text-slate-600">{club.division ?? '—'}</td>
-                <td className="px-4 py-3">
-                  {club.leaderName ? (
-                    <div>
-                      <div className="text-slate-900">{club.leaderName}</div>
-                      <div className="text-xs text-slate-500">{club.leaderStudentId}</div>
+              <React.Fragment key={club.id}>
+                <tr className="border-line border-b last:border-b-0">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 font-medium text-slate-900">
+                      {club.name}
+                      {club.centralClub && (
+                        <span
+                          aria-label="중앙동아리"
+                          className="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                        >
+                          🏛️ 중앙
+                        </span>
+                      )}
                     </div>
-                  ) : (
-                    <span className="text-rose-600">회장 정보 없음</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={cn(
-                      'inline-flex rounded-full px-2 py-0.5 text-xs font-semibold',
-                      STATUS_BADGE_CLASS[club.status],
+                    <div className="text-xs text-slate-500">{club.category}</div>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{club.division ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    {club.leaderName ? (
+                      <div>
+                        <div className="text-slate-900">{club.leaderName}</div>
+                        <div className="text-xs text-slate-500">{club.leaderStudentId}</div>
+                      </div>
+                    ) : (
+                      <span className="text-rose-600">회장 정보 없음</span>
                     )}
-                  >
-                    {STATUS_LABEL[club.status]}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="inline-flex flex-wrap justify-end gap-1.5">
-                    {actions.map((action) => (
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={cn(
+                        'inline-flex rounded-full px-2 py-0.5 text-xs font-semibold',
+                        STATUS_BADGE_CLASS[club.status],
+                      )}
+                    >
+                      {STATUS_LABEL[club.status]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{auditText}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="inline-flex flex-wrap justify-end gap-1.5">
                       <button
-                        key={action.nextStatus}
                         type="button"
-                        onClick={() => onActionClick(club, action)}
-                        className={cn(
-                          'rounded-md border px-2.5 py-1 text-xs font-semibold',
-                          action.tone === 'danger'
-                            ? 'border-rose-200 text-rose-700 hover:bg-rose-50'
-                            : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50',
-                        )}
+                        onClick={() => onCentralClubToggleClick(club)}
+                        className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                       >
-                        {action.label}
+                        {club.centralClub ? '중앙 해제' : '중앙 지정'}
                       </button>
-                    ))}
-                  </div>
-                </td>
-              </tr>
+                      {actions.map((action) => (
+                        <button
+                          key={action.nextStatus}
+                          type="button"
+                          onClick={() => onActionClick(club, action)}
+                          className={cn(
+                            'rounded-md border px-2.5 py-1 text-xs font-semibold',
+                            action.tone === 'danger'
+                              ? 'border-rose-200 text-rose-700 hover:bg-rose-50'
+                              : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50',
+                          )}
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+                {isRejected && (
+                  <tr className="border-line border-b bg-rose-50 last:border-b-0">
+                    <td colSpan={6} className="px-4 py-2 text-xs text-rose-700">
+                      <span className="font-semibold">거절 사유: </span>
+                      {club.rejectionReason}
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             );
           })}
         </tbody>

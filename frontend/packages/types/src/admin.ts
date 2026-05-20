@@ -16,6 +16,10 @@ export type AdminClubSummary = {
   leaderId: number | null;
   leaderName: string | null;
   leaderStudentId: string | null;
+  centralClub: boolean;
+  rejectionReason: string | null;
+  statusChangedAt: string | null;
+  statusChangedByName: string | null;
 };
 
 export type AdminClubSearchParams = {

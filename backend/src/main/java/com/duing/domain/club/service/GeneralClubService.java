@@ -6,6 +6,7 @@ import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
+import com.duing.domain.club.service.dto.command.UpdateClubCentralClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
@@ -53,12 +54,15 @@ public class GeneralClubService implements ClubService {
         User leader = userRepository.findById(createClubCommand.leaderId())
                 .orElseThrow(UserException.UserNotFoundException::new);
 
+        String division = createClubCommand.division() == null ? null : createClubCommand.division().strip();
+        if (division != null && division.isEmpty()) division = null;
         Club club = Club.create(
                 createClubCommand.name(),
                 createClubCommand.category(),
-                createClubCommand.division(),
+                division,
                 createClubCommand.description(),
-                createClubCommand.logoUrl()
+                createClubCommand.logoUrl(),
+                createClubCommand.centralClub()
         );
         Club savedClub = clubRepository.save(club);
 
@@ -126,6 +130,18 @@ public class GeneralClubService implements ClubService {
     public void updateStatus(UpdateClubStatusCommand updateClubStatusCommand) {
         Club club = clubRepository.findById(updateClubStatusCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
-        club.changeStatus(updateClubStatusCommand.status());
+        club.changeStatus(
+                updateClubStatusCommand.status(),
+                updateClubStatusCommand.rejectionReason(),
+                updateClubStatusCommand.actorUserId()
+        );
+    }
+
+    @Override
+    @Transactional
+    public void updateCentralClub(UpdateClubCentralClubCommand command) {
+        Club club = clubRepository.findById(command.clubId())
+                .orElseThrow(ClubException.ClubNotFoundException::new);
+        club.changeCentralClub(command.centralClub());
     }
 }

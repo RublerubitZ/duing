@@ -20,7 +20,7 @@ export type Club = {
   tag: string;
   cat: ClubCat;
   scope: ClubScope;
-  division: Division | null;
+  division: string | null;
   status: ClubStatus;
   gen: string;
   spots: string;

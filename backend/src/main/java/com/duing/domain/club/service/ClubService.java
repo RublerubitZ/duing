@@ -2,6 +2,7 @@ package com.duing.domain.club.service;
 
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
+import com.duing.domain.club.service.dto.command.UpdateClubCentralClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
@@ -24,4 +25,6 @@ public interface ClubService {
     void update(UpdateClubCommand updateClubCommand);
 
     void updateStatus(UpdateClubStatusCommand updateClubStatusCommand);
+
+    void updateCentralClub(UpdateClubCentralClubCommand updateClubCentralClubCommand);
 }
