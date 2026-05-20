@@ -13,6 +13,7 @@ export function NoticeMarkdown({ content }: Props) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars -- react-markdown 의 node prop 은 DOM 으로 전파 금지
           a: ({ node: _node, ...rest }) => (
             <a {...rest} target="_blank" rel="noreferrer" />
           ),
