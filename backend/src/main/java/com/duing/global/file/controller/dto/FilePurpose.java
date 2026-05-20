@@ -3,7 +3,8 @@ package com.duing.global.file.controller.dto;
 public enum FilePurpose {
     LOGO("club/logo"),
     COVER("club/cover"),
-    PHOTO("club/photo");
+    PHOTO("club/photo"),
+    NOTICE_COVER("notice/cover");
 
     private final String directory;
 
