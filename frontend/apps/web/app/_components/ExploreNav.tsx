@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BrandMark } from './BrandMark';
+import { NotificationBell } from './NotificationBell';
+import { HomeNavAuthSlot } from './HomeNavAuthSlot';
 
 const NAV_ITEMS = [
   { label: '홈', href: '/' },
@@ -11,7 +13,10 @@ const NAV_ITEMS = [
   { label: '공지', href: '/notifications' },
 ] as const;
 
+type NavItem = (typeof NAV_ITEMS)[number];
+
 type Props = {
+  /** pathname 대신 레이블로 강제 활성화할 때 사용. */
   active?: string;
   floating?: boolean;
 };
@@ -19,8 +24,11 @@ type Props = {
 export function ExploreNav({ active, floating = false }: Props) {
   const pathname = usePathname();
 
-  const isActive = (item: (typeof NAV_ITEMS)[number]) =>
-    active ? item.label === active : pathname === item.href;
+  const isActive = (item: NavItem): boolean => {
+    if (active) return item.label === active;
+    if (item.href === '/') return pathname === '/';
+    return pathname === item.href || pathname.startsWith(item.href + '/');
+  };
 
   return (
     <header
@@ -50,27 +58,9 @@ export function ExploreNav({ active, floating = false }: Props) {
           })}
         </ul>
 
-        <div className="ml-auto flex items-center gap-2.5">
-          <button
-            type="button"
-            aria-label="알림"
-            className="grid place-items-center w-10 h-10 rounded-full text-charcoal-2 hover:bg-graysoft"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-            </svg>
-          </button>
-
-          <Link
-            href="/me"
-            className="flex items-center gap-2 pl-3 pr-1.5 py-1 rounded-full bg-paper border-[1.5px] border-line text-[13px] font-bold text-ink hover:border-ink"
-          >
-            내 두잉
-            <span className="grid place-items-center w-[26px] h-[26px] rounded-full bg-ink text-white text-[11px] font-bold">
-              도
-            </span>
-          </Link>
+        <div className="ml-auto flex items-center gap-2">
+          <NotificationBell />
+          <HomeNavAuthSlot />
         </div>
       </nav>
     </header>
