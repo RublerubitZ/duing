@@ -58,21 +58,28 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
     @Override
     @Transactional
     public void process(ProcessSuccessionCommand command) {
-        LeaderSuccessionRequest request = requestRepository.findByIdForUpdate(command.requestId())
+        LeaderSuccessionRequest preview = requestRepository.findById(command.requestId())
                 .orElseThrow(ClubMemberException.SuccessionRequestNotFound::new);
 
         if (command.status() == SuccessionStatus.REJECTED) {
-            request.process(command.handlerAdminId(), SuccessionStatus.REJECTED, command.actionNote());
+            preview.process(command.handlerAdminId(), SuccessionStatus.REJECTED, command.actionNote());
             return;
         }
 
+        // findByIdForUpdate 가 최신 DB 상태를 가져오도록 1차 캐시 비우기 (transferLeader 패턴 동일).
+        Long requestId = preview.getId();
+        Long clubId = preview.getClubId();
+        Long requesterUserId = preview.getRequesterUserId();
         entityManager.clear();
 
+        LeaderSuccessionRequest request = requestRepository.findByIdForUpdate(requestId)
+                .orElseThrow(ClubMemberException.SuccessionRequestNotFound::new);
+
         ClubMember currentLeader = clubMemberRepository
-                .findByClubIdAndRoleForUpdate(request.getClubId(), ClubMemberRole.LEADER)
+                .findByClubIdAndRoleForUpdate(clubId, ClubMemberRole.LEADER)
                 .orElseThrow(ClubMemberException.SuccessionLeaderAbsent::new);
         ClubMember requesterMember = clubMemberRepository
-                .findByClubIdAndUserIdForUpdate(request.getClubId(), request.getRequesterUserId())
+                .findByClubIdAndUserIdForUpdate(clubId, requesterUserId)
                 .orElseThrow(ClubMemberException.SuccessionRequesterNoLongerOfficer::new);
 
         if (requesterMember.getRole() != ClubMemberRole.OFFICER) {
@@ -83,11 +90,11 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
         requesterMember.changeRole(ClubMemberRole.LEADER);
 
         historyRecorder.record(
-                request.getClubId(), currentLeader.getUser().getId(), command.handlerAdminId(),
+                clubId, currentLeader.getUser().getId(), command.handlerAdminId(),
                 ClubMemberEventType.SUCCESSION_APPROVED,
                 ClubMemberRole.LEADER, ClubMemberRole.MEMBER, command.actionNote());
         historyRecorder.record(
-                request.getClubId(), requesterMember.getUser().getId(), command.handlerAdminId(),
+                clubId, requesterMember.getUser().getId(), command.handlerAdminId(),
                 ClubMemberEventType.SUCCESSION_APPROVED,
                 ClubMemberRole.OFFICER, ClubMemberRole.LEADER, command.actionNote());
 
