@@ -8,5 +8,15 @@ public enum ClubStatus {
     /** 정상 운영 후 해체/장기 휴면 등으로 운영을 중단한 상태 */
     INACTIVE,
     /** 총동연이 승인을 거절한 상태. PENDING_APPROVAL 로 재진입(재신청) 가능. */
-    REJECTED
+    REJECTED;
+
+    public boolean canTransitionTo(ClubStatus next) {
+        if (this == next) return false;
+        return switch (this) {
+            case PENDING_APPROVAL -> next == ACTIVE || next == REJECTED;
+            case ACTIVE           -> next == INACTIVE;
+            case INACTIVE         -> next == ACTIVE;
+            case REJECTED         -> next == PENDING_APPROVAL;
+        };
+    }
 }
