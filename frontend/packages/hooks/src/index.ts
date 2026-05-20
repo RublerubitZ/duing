@@ -60,6 +60,7 @@ export {
   useUnreadCountQuery,
   useNotificationListQuery,
   useNotificationReadMutation,
+  useNotificationSourceAwareReadMutation,
   useNotificationReadAllMutation,
 } from './notifications';
 export { notificationQueryKeys } from './notificationQueryKeys';
