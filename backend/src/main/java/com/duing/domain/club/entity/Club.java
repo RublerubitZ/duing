@@ -163,17 +163,18 @@ public class Club extends BaseEntity {
 
     @Builder(access = AccessLevel.PRIVATE)
     private Club(String name, ClubCategory category, String division, String description,
-                 String logoUrl, ClubStatus status) {
+                 String logoUrl, ClubStatus status, boolean centralClub) {
         this.name = name;
         this.category = category;
         this.division = division;
         this.description = description;
         this.logoUrl = logoUrl;
         this.status = status;
+        this.centralClub = centralClub;
     }
 
     public static Club create(String name, ClubCategory category, String division,
-                              String description, String logoUrl) {
+                              String description, String logoUrl, boolean centralClub) {
         return Club.builder()
                 .name(name)
                 .category(category)
@@ -181,6 +182,7 @@ public class Club extends BaseEntity {
                 .description(description)
                 .logoUrl(logoUrl)
                 .status(ClubStatus.PENDING_APPROVAL)
+                .centralClub(centralClub)
                 .build();
     }
 
