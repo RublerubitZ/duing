@@ -1,10 +1,12 @@
 package com.duing.domain.club.api;
 
 import com.duing.domain.club.controller.dto.request.CreateClubRequest;
+import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
 import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,10 +43,18 @@ public interface AdminClubApi {
     @PostMapping("/admin/clubs")
     ResponseEntity<ApiResponse<Long>> createClub(@Valid @RequestBody CreateClubRequest createClubRequest);
 
-    @Operation(summary = "동아리 상태 변경", description = "운영 상태(ACTIVE/INACTIVE/PENDING_APPROVAL)를 변경한다.")
+    @Operation(summary = "동아리 상태 변경", description = "운영 상태 변경. REJECTED 전이 시 rejectionReason 필수.")
     @PatchMapping("/admin/clubs/{clubId}/status")
     ResponseEntity<ApiResponse<Void>> updateClubStatus(
             @PathVariable Long clubId,
-            @Valid @RequestBody UpdateClubStatusRequest updateClubStatusRequest
+            @Valid @RequestBody UpdateClubStatusRequest updateClubStatusRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "중앙동아리 토글", description = "ADMIN 이 동아리의 중앙동아리 여부를 변경한다.")
+    @PatchMapping("/admin/clubs/{clubId}/central-club")
+    ResponseEntity<ApiResponse<Void>> updateClubCentralClub(
+            @PathVariable Long clubId,
+            @Valid @RequestBody UpdateClubCentralClubRequest updateClubCentralClubRequest
     );
 }
