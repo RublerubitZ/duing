@@ -42,6 +42,7 @@ export function AdminClubCreateForm() {
   const [description, setDescription] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [leader, setLeader] = useState<AdminUserSearchResult | null>(null);
+  const [centralClub, setCentralClub] = useState(false);
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -73,6 +74,7 @@ export function AdminClubCreateForm() {
       description: description.trim() || undefined,
       logoUrl: logoUrl.trim() || undefined,
       leaderId: leader.id,
+      centralClub,
     };
 
     mutation.mutate(payload, {
@@ -122,9 +124,21 @@ export function AdminClubCreateForm() {
           value={division}
           onChange={(event) => setDivision(event.target.value)}
           maxLength={50}
-          placeholder="예: 중앙동아리 / IT분과"
+          placeholder="예: 컴퓨터정보공학부"
           className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
         />
+      </Field>
+
+      <Field label="중앙동아리 여부">
+        <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={centralClub}
+            onChange={(event) => setCentralClub(event.target.checked)}
+            className="h-4 w-4 rounded border-slate-300"
+          />
+          중앙동아리로 지정 (공개 화면에 🏛️ 배지 노출)
+        </label>
       </Field>
 
       <Field label="설명">
