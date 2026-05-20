@@ -63,7 +63,15 @@ export {
   useNotificationReadAllMutation,
 } from './notifications';
 export { notificationQueryKeys } from './notificationQueryKeys';
-export { useNoticeListQuery, useNoticeDetailQuery } from './notices';
+export {
+  useNoticeListQuery,
+  useNoticeDetailQuery,
+  useAdminNoticeListQuery,
+  useAdminNoticeDetailQuery,
+  useAdminNoticeCreateMutation,
+  useAdminNoticeUpdateMutation,
+  useAdminNoticeDeleteMutation,
+} from './notices';
 export { noticeQueryKeys } from './noticeQueryKeys';
 export { useFileUploadMutation } from './files';
 export {
