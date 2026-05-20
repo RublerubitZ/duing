@@ -1,5 +1,6 @@
 package com.duing.domain.club.entity;
 
+import com.duing.domain.club.exception.ClubException;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -7,6 +8,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.DayOfWeek;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -106,6 +108,18 @@ public class Club extends BaseEntity {
     @Column(name = "major_projects", columnDefinition = "TEXT")
     private String majorProjects;
 
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
+
+    @Column(name = "central_club", nullable = false)
+    private boolean centralClub;
+
+    @Column(name = "status_changed_by")
+    private Long statusChangedBy;
+
+    @Column(name = "status_changed_at")
+    private LocalDateTime statusChangedAt;
+
     public List<String> getTags() {
         return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
     }
@@ -170,8 +184,26 @@ public class Club extends BaseEntity {
                 .build();
     }
 
-    public void changeStatus(ClubStatus newStatus) {
-        this.status = newStatus;
+    public void changeStatus(ClubStatus next, String reason, Long actorUserId) {
+        if (!this.status.canTransitionTo(next)) {
+            throw new ClubException.InvalidClubStatusTransitionException(this.status.name(), next.name());
+        }
+        if (next == ClubStatus.REJECTED) {
+            String normalized = reason == null ? "" : reason.strip();
+            if (normalized.isEmpty()) {
+                throw new ClubException.RejectionReasonRequiredException();
+            }
+            this.rejectionReason = normalized;
+        } else {
+            this.rejectionReason = null;
+        }
+        this.status = next;
+        this.statusChangedBy = actorUserId;
+        this.statusChangedAt = LocalDateTime.now();
+    }
+
+    public void changeCentralClub(boolean next) {
+        this.centralClub = next;
     }
 
     public record UpdatePayload(
