@@ -140,6 +140,30 @@
 
 ---
 
+### 2.5 Report (신고)
+
+**엔티티 필드**: `id`, `reporterId`(FK users), `targetType`(enum), `targetId`, `reasonCode`(enum), `detail`, `status`(enum), `actionNote`, `handledBy`(FK users), `handledAt`. 다형 대상(Club/Recruitment)을 `(targetType, targetId)` 단일 테이블로 저장(애플리케이션 레벨 FK 보장).
+
+**`ReportTargetType`**: `CLUB` / `RECRUITMENT`
+**`ReportReasonCode`**: `SPAM` / `FRAUD` / `INAPPROPRIATE` / `IMPERSONATION` / `OTHER`
+**`ReportStatus`**: `PENDING` → `RESOLVED` / `DISMISSED` (종결 상태 재변경 불가)
+
+| ID | 기능 | 입력 | 출력 | 예외 |
+|---|---|---|---|---|
+| RP-1 | 신고 제출 (로그인 사용자) | `targetType`, `targetId`, `reasonCode`, `detail?`(≤1000) | 생성된 `reportId` (201) | 미인증 401, 셀프신고(LEADER/OFFICER) 400, 대상 없음 404, PENDING 중복 409 |
+| RP-2 | 신고 목록 조회 (ADMIN) | `status?`, `targetType?`, `Pageable` | `PageResponse<ReportSummaryResponse>` (200) | 401 / 403 |
+| RP-3 | 신고 상세 조회 (ADMIN) | `reportId` | `ReportDetailResponse` (200) | 401 / 403 / 404 |
+| RP-4 | 신고 처리 (ADMIN) | `reportId`, `status`(RESOLVED/DISMISSED), `actionNote?`(≤1000) | 204 | 401 / 403 / 404 / 잘못된 전이 400 |
+
+**비기능 요구사항**
+- 조건부 유니크 인덱스: `(reporter_id, target_type, target_id) WHERE status='PENDING' AND deleted_at IS NULL` — 동일 신고자×대상 PENDING 1건 제한.
+- 셀프신고 차단: 신고자가 대상 동아리/공고의 `LEADER` 또는 `OFFICER`이면 400.
+- 처리 결과(`RESOLVED`/`DISMISSED`)는 PENDING 에서만 전이 가능. 종결 후 재처리·되돌리기 불가.
+- 공개 API 미노출. 모든 조회/처리는 `/api/v1/admin/reports/**` (ADMIN 전용).
+- 실제 제재(예: Club 상태 변경)는 본 도메인이 아닌 기존 ADMIN API 를 ADMIN 이 수동 호출 — `Report` 는 기록·상태만 관리.
+
+---
+
 ## 3. 공통 / 비기능 요구사항
 
 ### 3.1 응답 표준
