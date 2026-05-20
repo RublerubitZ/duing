@@ -90,6 +90,57 @@ public class ClubMemberException extends ApplicationException {
                     HttpStatus.CONFLICT);
         }
     }
+
+    public static class InvalidSuccessionTransition extends ClubMemberException {
+        public InvalidSuccessionTransition(String reason) {
+            super("승계 요청 상태 전이가 올바르지 않습니다: " + reason, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class SuccessionRequiresOfficer extends ClubMemberException {
+        public SuccessionRequiresOfficer() {
+            super("승계 요청은 해당 동아리의 OFFICER 만 제출할 수 있습니다.", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class DuplicatePendingSuccession extends ClubMemberException {
+        public DuplicatePendingSuccession() {
+            super("이미 처리 대기 중인 승계 요청이 있습니다.", HttpStatus.CONFLICT);
+        }
+    }
+
+    public static class SuccessionRequestNotFound extends ClubMemberException {
+        public SuccessionRequestNotFound() {
+            super("승계 요청을 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
+        }
+    }
+
+    public static class SuccessionRequesterNoLongerOfficer extends ClubMemberException {
+        public SuccessionRequesterNoLongerOfficer() {
+            super("요청자가 더 이상 OFFICER 가 아닙니다. 새 승계 요청이 필요합니다.",
+                  HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class SuccessionLeaderAbsent extends ClubMemberException {
+        public SuccessionLeaderAbsent() {
+            super("LEADER 가 없는 동아리는 승계가 아닌 ADMIN 강제 지정 경로를 사용하세요.",
+                  HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class AdminAssignTargetNotMember extends ClubMemberException {
+        public AdminAssignTargetNotMember() {
+            super("강제 지정 대상은 해당 동아리의 ClubMember 여야 합니다.", HttpStatus.NOT_FOUND);
+        }
+    }
+
+    public static class AdminAssignLeaderAlreadyExists extends ClubMemberException {
+        public AdminAssignLeaderAlreadyExists() {
+            super("이미 LEADER 가 존재하는 동아리는 정상 인계 경로를 사용하세요.",
+                  HttpStatus.BAD_REQUEST);
+        }
+    }
 }
 
 

@@ -1,6 +1,7 @@
 package com.duing.domain.clubmember.service;
 
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberEventType;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -23,6 +24,7 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
     private final ClubMemberRepository clubMemberRepository;
     private final ClubAuthService clubAuthService;
     private final EntityManager entityManager;
+    private final ClubMemberHistoryRecorder historyRecorder;
 
     @Override
     @Transactional
@@ -42,7 +44,13 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
             throw new ClubMemberException.CannotModifyLeader();
         }
 
+        ClubMemberRole previousRole = target.getRole();
         target.changeRole(command.role());
+
+        historyRecorder.record(
+                command.clubId(), target.getUser().getId(), command.requesterId(),
+                ClubMemberEventType.ROLE_CHANGED,
+                previousRole, command.role(), null);
     }
 
     @Override
@@ -59,6 +67,10 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
             throw new ClubMemberException.CannotModifyLeader();
         }
 
+        ClubMemberRole previousRole = target.getRole();
+        historyRecorder.record(
+                command.clubId(), target.getUser().getId(), command.requesterId(),
+                ClubMemberEventType.REMOVED, previousRole, null, null);
         clubMemberRepository.delete(target);
     }
 
@@ -73,6 +85,10 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
             throw new ClubMemberException.LeaderCannotLeave();
         }
 
+        ClubMemberRole previousRole = membership.getRole();
+        historyRecorder.record(
+                command.clubId(), command.requesterId(), command.requesterId(),
+                ClubMemberEventType.LEFT, previousRole, null, null);
         clubMemberRepository.delete(membership);
     }
 
@@ -101,8 +117,19 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
             throw new ClubMemberException.TransferTargetInvalid();
         }
 
+        ClubMemberRole previousTargetRole = target.getRole();
+
         currentLeader.changeRole(ClubMemberRole.OFFICER);
         target.changeRole(ClubMemberRole.LEADER);
+
+        historyRecorder.record(
+                command.clubId(), currentLeader.getUser().getId(), command.requesterId(),
+                ClubMemberEventType.LEADER_TRANSFERRED,
+                ClubMemberRole.LEADER, ClubMemberRole.OFFICER, null);
+        historyRecorder.record(
+                command.clubId(), target.getUser().getId(), command.requesterId(),
+                ClubMemberEventType.LEADER_TRANSFERRED,
+                previousTargetRole, ClubMemberRole.LEADER, null);
 
         return new TransferLeaderQuery(
                 ClubMemberQuery.from(currentLeader),

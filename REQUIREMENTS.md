@@ -46,7 +46,8 @@
 - Recruitment: 달력 조회 · 상세 · 생성(LEADER/OFFICER)
 - Application: 지원 제출 · 내 지원 목록 · 지원자 관리(LEADER/OFFICER)
 
-활동 피드(Feed), 파일/이미지 업로드, 푸시 알림, OFFICER 승급/강등·추방·탈퇴·인계 API 는 MVP 이후 확장.
+활동 피드(Feed), 파일/이미지 업로드, 푸시 알림은 MVP 이후 확장.
+ClubMember 운영(승급/강등·추방·탈퇴·정상 인계)은 이미 제공. 잠수 LEADER 대상 OFFICER 승계 요청·승인 + ADMIN 강제 LEADER 지정 + 권한 변경 감사 로그는 §2.6 참조.
 
 ---
 
@@ -161,6 +162,29 @@
 - 처리 결과(`RESOLVED`/`DISMISSED`)는 PENDING 에서만 전이 가능. 종결 후 재처리·되돌리기 불가.
 - 공개 API 미노출. 모든 조회/처리는 `/api/v1/admin/reports/**` (ADMIN 전용).
 - 실제 제재(예: Club 상태 변경)는 본 도메인이 아닌 기존 ADMIN API 를 ADMIN 이 수동 호출 — `Report` 는 기록·상태만 관리.
+
+---
+
+### 2.6 Leader Succession (회장 승계 / 권한 복구)
+
+**엔티티 필드 (LeaderSuccessionRequest)**: `id`, `clubId`(FK), `requesterUserId`(FK users), `reason`(≤1000), `status`(PENDING/APPROVED/REJECTED), `actionNote`, `handledBy`, `handledAt`.
+
+**감사 로그 (ClubMemberHistory)**: 모든 권한 변경(`ROLE_CHANGED`, `LEADER_TRANSFERRED`, `LEFT`, `REMOVED`, `ADMIN_LEADER_ASSIGNED`, `SUCCESSION_APPROVED`)을 `(club_id, target_user_id, actor_user_id, event_type, from_role, to_role, reason)` 으로 기록.
+
+| ID | 기능 | 입력 | 출력 | 예외 |
+|---|---|---|---|---|
+| LS-1 | 승계 요청 제출 (OFFICER) | `clubId`, `reason` | `requestId` (201) | 401 / 400 OFFICER 아님 / 404 club 없음 / 409 PENDING 중복 |
+| LS-2 | 승계 목록 (ADMIN) | `status?`, `clubId?`, Pageable | `PageResponse<SuccessionRequestSummaryResponse>` (200) | 401/403 |
+| LS-3 | 승계 상세 (ADMIN) | `requestId` | `SuccessionRequestDetailResponse` (200) | 401/403/404 |
+| LS-4 | 승계 처리 (ADMIN) | `requestId`, `status`(APPROVED/REJECTED), `actionNote?` | 204 | 400 잘못된 전이 / LEADER 부재 / 요청자 OFFICER 아님 |
+| LH-1 | ADMIN 강제 LEADER 지정 | `clubId`, `newLeaderUserId`, `reason` | 204 | 400 LEADER 존재 / 404 club·후보 없음 |
+| LH-2 | 동아리 권한 이력 (ADMIN) | `clubId`, Pageable | `PageResponse<ClubMemberHistoryResponse>` (200) | 401/403/404 |
+
+**비기능 요구사항**
+- 조건부 유니크: `(club_id) WHERE status='PENDING' AND deleted_at IS NULL` — 동아리당 PENDING 1건.
+- APPROVED 시 단일 트랜잭션 + PESSIMISTIC_WRITE 로 두 ClubMember 행 교환.
+- ADMIN 강제 지정은 LEADER 존재 시 400 — 정상 인계 경로 사용.
+- 모든 권한 변경은 ClubMemberHistory 에 자동 기록.
 
 ---
 
