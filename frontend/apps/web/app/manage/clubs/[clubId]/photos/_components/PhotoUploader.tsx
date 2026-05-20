@@ -23,15 +23,18 @@ export function PhotoUploader({ clubId }: PhotoUploaderProps) {
       return;
     }
 
+    const fileArray = Array.from(fileList);
     const displayLabel =
-      fileList.length === 1 ? fileList[0].name : `${fileList.length}개 파일 선택됨`;
+      fileArray.length === 1 && fileArray[0]
+        ? fileArray[0].name
+        : `${fileArray.length}개 파일 선택됨`;
     setFileLabel(displayLabel);
     setHasFiles(true);
     setBusy(true);
     setErrors([]);
 
     const failures: string[] = [];
-    for (const file of Array.from(fileList)) {
+    for (const file of fileArray) {
       try {
         const uploaded = await uploadFile.mutateAsync({ file, purpose: 'PHOTO' });
         await createPhoto.mutateAsync({
