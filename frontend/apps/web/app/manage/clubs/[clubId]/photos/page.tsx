@@ -20,7 +20,7 @@ export default function ClubPhotosPage({
   );
 
   if (isManagedClubsLoading || isPhotosLoading) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <p className="p-6 text-[13.5px] text-[#8a8f83]">불러오는 중…</p>;
   }
 
   const managedClub = managedClubs?.find((club) => club.clubId === currentClubId);
@@ -29,18 +29,21 @@ export default function ClubPhotosPage({
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-6 py-10">
-      <header>
-        <h1 className="text-xl font-bold">활동사진</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          업로드 후 드래그로 순서를 바꿀 수 있습니다 (1초 후 자동 저장).
-        </p>
+    <div className="mx-auto max-w-[1100px] px-12 py-9 pb-20">
+      <header className="flex items-baseline gap-3 mb-1.5">
+        <h1 className="text-[26px] font-bold tracking-[-0.02em] text-[#2a2f27] m-0">활동사진</h1>
+        <span className="font-mono text-[11px] tracking-[0.14em] text-[#8a8f83] uppercase">
+          ADMIN · PHOTOS
+        </span>
       </header>
+      <p className="text-[13.5px] text-[#4a5247] mb-7 mt-0">
+        업로드 후 드래그로 순서를 바꿀 수 있습니다 (1초 후 자동 저장).
+      </p>
 
       <PhotoUploader clubId={currentClubId} />
 
       {photos && photos.length === 0 && (
-        <p className="text-sm text-slate-500">아직 등록된 사진이 없습니다.</p>
+        <p className="text-[13.5px] text-[#8a8f83]">아직 등록된 사진이 없습니다.</p>
       )}
 
       {photos && photos.length > 0 && (
