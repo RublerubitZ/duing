@@ -90,6 +90,12 @@ public class ClubMemberException extends ApplicationException {
                     HttpStatus.CONFLICT);
         }
     }
+
+    public static class InvalidSuccessionTransition extends ClubMemberException {
+        public InvalidSuccessionTransition(String reason) {
+            super("승계 요청 상태 전이가 올바르지 않습니다: " + reason, HttpStatus.BAD_REQUEST);
+        }
+    }
 }
 
 
