@@ -43,6 +43,14 @@ public class ClubAuthService {
         return findMembershipOrThrow(userId, clubId);
     }
 
+    public ClubMember requireOfficer(Long userId, Long clubId) {
+        ClubMember clubMember = findMembershipOrThrow(userId, clubId);
+        if (clubMember.getRole() != ClubMemberRole.OFFICER) {
+            throw new AccessDeniedException("해당 동아리의 운영진(OFFICER)만 가능한 작업입니다.");
+        }
+        return clubMember;
+    }
+
     /**
      * 사용자가 운영(LEADER/OFFICER) 가능한 동아리 목록을 조회한다.
      * 운영 콘솔 진입 시 셀렉터와 가드 판정에 사용된다.
