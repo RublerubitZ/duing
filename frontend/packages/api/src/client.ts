@@ -40,6 +40,9 @@ import type {
   ApplicationDraft,
   UpsertDraftPayload,
   Notification,
+  NoticeCardItem,
+  NoticeDetail,
+  NoticeCategory,
   CreateClubPhotoPayload,
   UpdateClubPhotoPayload,
   ReorderClubPhotosPayload,
@@ -150,6 +153,16 @@ export type DuingApiClient = {
     get(recruitmentId: number): Promise<ApplicationDraft>;
     upsert(recruitmentId: number, payload: UpsertDraftPayload): Promise<void>;
     remove(recruitmentId: number): Promise<void>;
+  };
+  notices: {
+    list(params: {
+      category?: NoticeCategory;
+      tags?: string[];
+      keyword?: string;
+      page: number;
+      size: number;
+    }): Promise<PageResponse<NoticeCardItem>>;
+    detail(noticeId: number): Promise<NoticeDetail>;
   };
   notifications: {
     list(unreadOnly: boolean, page: number, size: number): Promise<PageResponse<Notification>>;
@@ -337,6 +350,21 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonVoid(http.put(`recruitments/${recruitmentId}/draft`, { json: payload })),
       remove: (recruitmentId) =>
         jsonVoid(http.delete(`recruitments/${recruitmentId}/draft`)),
+    },
+    notices: {
+      list: ({ category, tags, keyword, page, size }) => {
+        const searchParams = new URLSearchParams();
+        searchParams.append('page', String(page));
+        searchParams.append('size', String(size));
+        if (category) searchParams.append('category', category);
+        if (keyword) searchParams.append('keyword', keyword);
+        (tags ?? []).forEach((tag) => searchParams.append('tags', tag));
+        return jsonOk<PageResponse<NoticeCardItem>>(
+          http.get(`notices?${searchParams.toString()}`),
+        );
+      },
+      detail: (noticeId) =>
+        jsonOk<NoticeDetail>(http.get(`notices/${noticeId}`)),
     },
     notifications: {
       list: (unreadOnly, page, size) =>
