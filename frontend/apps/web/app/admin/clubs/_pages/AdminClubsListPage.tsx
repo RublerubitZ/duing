@@ -53,11 +53,17 @@ export function AdminClubsListPage() {
     setPage(0);
   }
 
-  function handleDialogConfirm() {
+  function handleDialogConfirm(rejectionReason?: string) {
     if (!dialog) return;
     setDialogError(null);
     statusMutation.mutate(
-      { clubId: dialog.club.id, payload: { status: dialog.action.nextStatus } },
+      {
+        clubId: dialog.club.id,
+        payload: {
+          status: dialog.action.nextStatus,
+          ...(rejectionReason !== undefined && { rejectionReason }),
+        },
+      },
       {
         onSuccess: () => {
           setDialog(null);
