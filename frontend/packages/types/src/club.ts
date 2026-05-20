@@ -29,6 +29,7 @@ export type ClubSummary = {
   logoUrl: string | null;
   status: ClubStatus;
   tags: string[];
+  centralClub: boolean;
 };
 
 export type ClubSnsLink = {
@@ -90,10 +91,16 @@ export type CreateClubPayload = {
   description?: string;
   logoUrl?: string;
   leaderId: number;
+  centralClub?: boolean;
 };
 
 export type UpdateClubStatusPayload = {
   status: ClubStatus;
+  rejectionReason?: string;
+};
+
+export type UpdateClubCentralClubPayload = {
+  centralClub: boolean;
 };
 
 export type ClubRole = 'LEADER' | 'OFFICER';
