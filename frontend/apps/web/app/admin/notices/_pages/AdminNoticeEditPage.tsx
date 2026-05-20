@@ -12,14 +12,7 @@ import {
   toCreatePayload,
   type NoticeFormState,
 } from '../_lib/parseNoticeFormState';
-
-function extractErrorMessage(error: unknown): string | null {
-  if (error && typeof error === 'object' && 'message' in error) {
-    const message = (error as { message: unknown }).message;
-    return typeof message === 'string' ? message : null;
-  }
-  return null;
-}
+import { extractErrorMessage } from '../_lib/extractErrorMessage';
 
 export function AdminNoticeEditPage() {
   const params = useParams<{ noticeId: string }>();
@@ -29,10 +22,18 @@ export function AdminNoticeEditPage() {
   const updateMutation = useAdminNoticeUpdateMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  if (detailQuery.isLoading || !detailQuery.data) {
+  if (detailQuery.isLoading) {
     return (
       <main className="max-w-[760px] mx-auto px-6 py-10">
         <p className="text-charcoal-3 text-[13px]">불러오는 중…</p>
+      </main>
+    );
+  }
+
+  if (detailQuery.isError || !detailQuery.data) {
+    return (
+      <main className="max-w-[760px] mx-auto px-6 py-10">
+        <p className="text-coral text-[13px]">공지를 불러오지 못했습니다.</p>
       </main>
     );
   }

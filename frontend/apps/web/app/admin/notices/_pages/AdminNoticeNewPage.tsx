@@ -5,14 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAdminNoticeCreateMutation } from '@duing/hooks';
 import { NoticeForm } from '../_components/NoticeForm';
 import { EMPTY_NOTICE_FORM, toCreatePayload } from '../_lib/parseNoticeFormState';
-
-function extractErrorMessage(error: unknown): string | null {
-  if (error && typeof error === 'object' && 'message' in error) {
-    const message = (error as { message: unknown }).message;
-    return typeof message === 'string' ? message : null;
-  }
-  return null;
-}
+import { extractErrorMessage } from '../_lib/extractErrorMessage';
 
 export function AdminNoticeNewPage() {
   const router = useRouter();
