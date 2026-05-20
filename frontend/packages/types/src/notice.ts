@@ -35,3 +35,35 @@ export type NoticeDetail = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type AdminNoticeSummary = {
+  id: number;
+  title: string;
+  category: NoticeCategory;
+  visibility: NoticeVisibility;
+  pinned: boolean;
+  notifyOnPublish: boolean;
+  expiresAt: string | null;
+  createdAt: string;
+};
+
+export type CreateNoticePayload = {
+  title: string;
+  summary: string;
+  content: string;
+  coverImageUrl: string;
+  linkUrl: string | null;
+  category: NoticeCategory;
+  tags: string[];
+  visibility: NoticeVisibility;
+  clubScopeRole: NoticeClubScopeRole | null;
+  targetClubIds: number[];
+  pinned: boolean;
+  expiresAt: string | null;
+  notifyOnPublish: boolean;
+};
+
+export type UpdateNoticePayload = Partial<Omit<CreateNoticePayload, 'targetClubIds'>> & {
+  targetClubIds?: number[];
+  clearExpiresAt?: boolean;
+};

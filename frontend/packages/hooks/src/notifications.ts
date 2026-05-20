@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { NotificationSource } from '@duing/types';
 import { useApiClient } from './api-context';
 import { notificationQueryKeys } from './notificationQueryKeys';
 
@@ -45,6 +46,22 @@ export function useNotificationReadAllMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => client.notifications.markAllRead(),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all });
+    },
+  });
+}
+
+export function useNotificationSourceAwareReadMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ source, id }: { source: NotificationSource; id: number }) => {
+      if (source === 'BROADCAST') {
+        return client.notifications.markBroadcastRead(id);
+      }
+      return client.notifications.markRead(id);
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all });
     },

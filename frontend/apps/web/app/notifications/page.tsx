@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   useNotificationListQuery,
-  useNotificationReadMutation,
+  useNotificationSourceAwareReadMutation,
   useNotificationReadAllMutation,
 } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
@@ -17,7 +17,7 @@ export default function NotificationsPage() {
   const router = useRouter();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const listQuery = useNotificationListQuery(unreadOnly, authStatus === 'authenticated');
-  const readMutation = useNotificationReadMutation();
+  const readMutation = useNotificationSourceAwareReadMutation();
   const readAllMutation = useNotificationReadAllMutation();
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -46,9 +46,9 @@ export default function NotificationsPage() {
   const allNotifications = listQuery.data?.pages.flatMap((page) => page.content) ?? [];
   const bucketed = groupByTimeBucket(allNotifications);
 
-  const handleClick = (id: number, linkUrl: string | null) => {
-    readMutation.mutate(id);
-    const destination = toLinkRoute(linkUrl);
+  const handleClick = (notification: Notification) => {
+    readMutation.mutate({ source: notification.source, id: notification.id });
+    const destination = toLinkRoute(notification.linkUrl);
     if (destination) router.push(destination);
   };
 
@@ -106,7 +106,7 @@ export default function NotificationsPage() {
 type GroupProps = {
   title: string;
   items: Notification[];
-  onClick: (id: number, linkUrl: string | null) => void;
+  onClick: (notification: Notification) => void;
 };
 
 function NotificationGroup({ title, items, onClick }: GroupProps) {

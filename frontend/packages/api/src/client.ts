@@ -43,6 +43,10 @@ import type {
   NoticeCardItem,
   NoticeDetail,
   NoticeCategory,
+  NoticeVisibility,
+  AdminNoticeSummary,
+  CreateNoticePayload,
+  UpdateNoticePayload,
   CreateClubPhotoPayload,
   UpdateClubPhotoPayload,
   ReorderClubPhotosPayload,
@@ -169,6 +173,7 @@ export type DuingApiClient = {
     unreadCount(): Promise<{ count: number }>;
     markRead(notificationId: number): Promise<void>;
     markAllRead(): Promise<void>;
+    markBroadcastRead(broadcastId: number): Promise<void>;
   };
   admin: {
     clubs: {
@@ -176,6 +181,20 @@ export type DuingApiClient = {
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
+    };
+    notices: {
+      list(params: {
+        category?: NoticeCategory;
+        visibility?: NoticeVisibility;
+        keyword?: string;
+        includeExpired?: boolean;
+        page: number;
+        size: number;
+      }): Promise<PageResponse<AdminNoticeSummary>>;
+      detail(noticeId: number): Promise<NoticeDetail>;
+      create(payload: CreateNoticePayload): Promise<number>;
+      update(noticeId: number, payload: UpdateNoticePayload): Promise<void>;
+      remove(noticeId: number): Promise<void>;
     };
   };
   raw: KyInstance;
@@ -376,6 +395,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       markRead: (notificationId) =>
         jsonVoid(http.patch(`me/notifications/${notificationId}/read`)),
       markAllRead: () => jsonVoid(http.patch('me/notifications/read-all')),
+      markBroadcastRead: (broadcastId) =>
+        jsonVoid(http.patch(`me/notifications/broadcasts/${broadcastId}/read`)),
     },
     admin: {
       clubs: {
@@ -389,6 +410,28 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonOk<PageResponse<AdminUserSearchResult>>(
             http.get('admin/users', { searchParams: cleanParams(params) }),
           ),
+      },
+      notices: {
+        list: (params) => {
+          const search = new URLSearchParams();
+          search.append('page', String(params.page));
+          search.append('size', String(params.size));
+          if (params.category) search.append('category', params.category);
+          if (params.visibility) search.append('visibility', params.visibility);
+          if (params.keyword) search.append('keyword', params.keyword);
+          if (params.includeExpired) search.append('includeExpired', 'true');
+          return jsonOk<PageResponse<AdminNoticeSummary>>(
+            http.get(`admin/notices?${search.toString()}`),
+          );
+        },
+        detail: (noticeId) =>
+          jsonOk<NoticeDetail>(http.get(`admin/notices/${noticeId}`)),
+        create: (payload) =>
+          jsonOk<number>(http.post('admin/notices', { json: payload })),
+        update: (noticeId, payload) =>
+          jsonVoid(http.patch(`admin/notices/${noticeId}`, { json: payload })),
+        remove: (noticeId) =>
+          jsonVoid(http.delete(`admin/notices/${noticeId}`)),
       },
     },
     raw: http,
