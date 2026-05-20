@@ -3,6 +3,7 @@ package com.duing.domain.club.controller.dto.response;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record AdminClubSummaryResponse(
@@ -15,7 +16,11 @@ public record AdminClubSummaryResponse(
         List<String> tags,
         Long leaderId,
         String leaderName,
-        String leaderStudentId
+        String leaderStudentId,
+        boolean centralClub,
+        String rejectionReason,
+        LocalDateTime statusChangedAt,
+        String statusChangedByName
 ) {
     public static AdminClubSummaryResponse from(AdminClubSummaryQuery summaryQuery) {
         return new AdminClubSummaryResponse(
@@ -28,7 +33,11 @@ public record AdminClubSummaryResponse(
                 summaryQuery.tags(),
                 summaryQuery.leaderId(),
                 summaryQuery.leaderName(),
-                summaryQuery.leaderStudentId()
+                summaryQuery.leaderStudentId(),
+                summaryQuery.centralClub(),
+                summaryQuery.rejectionReason(),
+                summaryQuery.statusChangedAt(),
+                summaryQuery.statusChangedByName()
         );
     }
 }

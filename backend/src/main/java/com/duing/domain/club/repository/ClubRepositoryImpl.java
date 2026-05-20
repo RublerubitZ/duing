@@ -8,6 +8,7 @@ import static com.duing.domain.user.entity.QUser.user;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.user.entity.QUser;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
@@ -69,12 +70,16 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
         };
 
         // leader 는 한 동아리당 0~1명. ClubMember(role=LEADER) 로 left join 해 leader 부재 시에도 행이 보존되게 한다.
+        // actor 는 상태 변경자(statusChangedBy) 에 대한 별도 user left join.
+        QUser actor = new QUser("actor");
+
         List<Tuple> rows = queryFactory
-                .select(club, user.id, user.name, user.studentId)
+                .select(club, user.id, user.name, user.studentId, actor.name)
                 .from(club)
                 .leftJoin(clubMember)
                 .on(clubMember.club.eq(club).and(clubMember.role.eq(ClubMemberRole.LEADER)))
                 .leftJoin(user).on(user.eq(clubMember.user))
+                .leftJoin(actor).on(actor.id.eq(club.statusChangedBy))
                 .where(predicates)
                 .orderBy(club.name.asc())
                 .offset(pageable.getOffset())
@@ -82,7 +87,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 .fetch();
 
         List<AdminClubSummaryQuery> content = rows.stream()
-                .map(this::toAdminSummary)
+                .map(row -> toAdminSummary(row, actor))
                 .toList();
 
         Long total = queryFactory
@@ -94,7 +99,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
     }
 
-    private AdminClubSummaryQuery toAdminSummary(Tuple row) {
+    private AdminClubSummaryQuery toAdminSummary(Tuple row, QUser actor) {
         Club source = row.get(club);
         if (source == null) {
             throw new IllegalStateException("Admin 동아리 목록 조회 결과 row 에 club 이 비어있을 수 없습니다.");
@@ -109,7 +114,11 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 source.getTags(),
                 row.get(user.id),
                 row.get(user.name),
-                row.get(user.studentId)
+                row.get(user.studentId),
+                source.isCentralClub(),
+                source.getRejectionReason(),
+                source.getStatusChangedAt(),
+                row.get(actor.name)
         );
     }
 

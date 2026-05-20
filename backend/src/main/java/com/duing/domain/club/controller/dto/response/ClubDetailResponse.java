@@ -36,7 +36,8 @@ public record ClubDetailResponse(
         String tagline,
         List<String> highlights,
         String majorProjects,
-        StudentRecruitmentProjection activeRecruitment
+        StudentRecruitmentProjection activeRecruitment,
+        boolean centralClub
 ) {
     public static ClubDetailResponse from(ClubDetailQuery detailQuery) {
         return new ClubDetailResponse(
@@ -64,7 +65,8 @@ public record ClubDetailResponse(
                 detailQuery.tagline(),
                 detailQuery.highlights(),
                 detailQuery.majorProjects(),
-                detailQuery.activeRecruitment()
+                detailQuery.activeRecruitment(),
+                detailQuery.centralClub()
         );
     }
 }
