@@ -130,3 +130,20 @@ body {
     transform: translateY(-2px);
   }
 }
+
+@keyframes notify-bell-sway {
+  0%, 100% { transform: rotate(-6deg); }
+  50%       { transform: rotate(6deg); }
+}
+@keyframes notify-badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.06); }
+}
+
+.animate-bell-sway {
+  transform-origin: 50% 18%;
+  animation: notify-bell-sway 4.2s ease-in-out infinite;
+}
+.animate-badge-pulse {
+  animation: notify-badge-pulse 2.4s ease-in-out infinite;
+}
