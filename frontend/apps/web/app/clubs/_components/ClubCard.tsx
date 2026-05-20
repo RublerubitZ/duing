@@ -105,8 +105,8 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
           <span
             className={`px-2 py-0.5 rounded-full text-[11px] font-bold tracking-wide04 ${club.scope === '중앙' ? 'bg-sage-mist text-ink-deep' : 'bg-graysoft text-charcoal-2'}`}
           >
-            {club.scope === '중앙' ? '중앙' : '과'}
-            {club.scope === '중앙' && club.division ? ` · ${club.division}` : ''}
+            {club.scope === '중앙' ? '🏛️ 중앙' : '과'}
+            {club.division ? ` · ${club.division}` : ''}
           </span>
         )}
         <span className="ml-auto font-mono text-[11.5px]">{club.gen}</span>
