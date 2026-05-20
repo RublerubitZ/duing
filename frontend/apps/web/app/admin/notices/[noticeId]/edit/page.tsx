@@ -1,4 +1,5 @@
-// stub — Task 13 will implement this page
+import { AdminNoticeEditPage } from '../../_pages/AdminNoticeEditPage';
+
 export default function Page() {
-  return null;
+  return <AdminNoticeEditPage />;
 }
