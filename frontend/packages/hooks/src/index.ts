@@ -63,6 +63,8 @@ export {
   useNotificationReadAllMutation,
 } from './notifications';
 export { notificationQueryKeys } from './notificationQueryKeys';
+export { useNoticeListQuery, useNoticeDetailQuery } from './notices';
+export { noticeQueryKeys } from './noticeQueryKeys';
 export { useFileUploadMutation } from './files';
 export {
   useAdminClubsQuery,

@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { label: '홈', href: '/' },
   { label: '탐색', href: '/clubs' },
   { label: '캘린더', href: '/calendar' },
-  { label: '공지', href: '/notifications' },
+  { label: '공지', href: '/notices' },
 ] as const;
 
 type Props = {
