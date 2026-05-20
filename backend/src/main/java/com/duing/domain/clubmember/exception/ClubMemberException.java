@@ -128,6 +128,19 @@ public class ClubMemberException extends ApplicationException {
                   HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class AdminAssignTargetNotMember extends ClubMemberException {
+        public AdminAssignTargetNotMember() {
+            super("강제 지정 대상은 해당 동아리의 ClubMember 여야 합니다.", HttpStatus.NOT_FOUND);
+        }
+    }
+
+    public static class AdminAssignLeaderAlreadyExists extends ClubMemberException {
+        public AdminAssignLeaderAlreadyExists() {
+            super("이미 LEADER 가 존재하는 동아리는 정상 인계 경로를 사용하세요.",
+                  HttpStatus.BAD_REQUEST);
+        }
+    }
 }
 
 
