@@ -19,6 +19,17 @@ type ClubInfoFormProps = {
 const CATEGORIES = ['ACADEMIC', 'CULTURE', 'ART', 'SPORTS', 'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER'] as const;
 type CategoryLiteral = (typeof CATEGORIES)[number];
 
+const CATEGORY_LABELS: Record<CategoryLiteral, string> = {
+  ACADEMIC: '학술',
+  CULTURE: '문화',
+  ART: '예술',
+  SPORTS: '체육',
+  VOLUNTEER: '봉사',
+  RELIGION: '종교',
+  HOBBY: '취미',
+  OTHER: '기타',
+};
+
 function isCategory(value: string): value is CategoryLiteral {
   return (CATEGORIES as readonly string[]).includes(value);
 }
@@ -193,7 +204,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
               }}
             >
               {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
               ))}
             </select>
           </div>
