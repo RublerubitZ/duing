@@ -26,21 +26,21 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 20 }: T
   }
 
   return (
-    <div className="flex flex-wrap gap-2 rounded-md border border-slate-300 p-2">
+    <div className="flex flex-wrap gap-1.5 min-h-[42px] border border-[#cfcab8] bg-white rounded-[8px] px-2.5 py-2">
       {value.map((tag, idx) => (
         <span
           key={`${tag}-${idx}`}
-          className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs"
+          className="inline-flex items-center gap-1.5 bg-[#e7ebd9] text-[#3e5b34] border border-[#cfd6b3] rounded-full py-[3px] pl-[11px] pr-2.5 text-[12.5px] font-medium"
         >
           {tag}
           {!readOnly && (
             <button
               type="button"
               onClick={() => remove(idx)}
-              className="text-slate-500 hover:text-slate-900"
               aria-label={`태그 ${tag} 삭제`}
+              className="text-[#4a6b3f] text-[13px] leading-none opacity-70 hover:opacity-100 cursor-pointer"
             >
-              ✕
+              ×
             </button>
           )}
         </span>
@@ -49,16 +49,16 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 20 }: T
         <input
           type="text"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ',') {
-              e.preventDefault();
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ',') {
+              event.preventDefault();
               add(draft);
             }
           }}
           onBlur={() => add(draft)}
           placeholder={value.length === 0 ? '엔터로 태그 추가' : ''}
-          className="min-w-[8rem] flex-1 bg-transparent text-sm outline-none"
+          className="min-w-[8rem] flex-1 bg-transparent text-[14px] text-[#2a2f27] placeholder:text-[#b8b8ac] outline-none"
         />
       )}
     </div>
