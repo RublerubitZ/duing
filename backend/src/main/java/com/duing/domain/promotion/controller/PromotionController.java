@@ -25,8 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class PromotionController implements PromotionApi {
 
-    private static final String DELETED_LABEL = "(삭제됨)";
-
     private final PromotionService promotionService;
     private final ClubRepository clubRepository;
 
@@ -49,8 +47,8 @@ public class PromotionController implements PromotionApi {
     }
 
     private PromotionCardResponse.ClubRef clubRef(Long clubId, Club club) {
-        if (clubId == null) return null;
-        if (club == null) return new PromotionCardResponse.ClubRef(clubId, DELETED_LABEL);
+        // 공개 응답에서는 삭제 노이즈를 노출하지 않는다 — clubId 가 있어도 row 가 사라졌으면 ref 를 숨김.
+        if (clubId == null || club == null) return null;
         return new PromotionCardResponse.ClubRef(club.getId(), club.getName());
     }
 }
