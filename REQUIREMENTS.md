@@ -188,6 +188,32 @@ ClubMember 운영(승급/강등·추방·탈퇴·정상 인계)은 이미 제공
 
 ---
 
+### 2.7 Central Club Recertification (중앙동아리 연간 재인증)
+
+**엔티티 필드 (RecertificationRound)**: `id`, `year`, `label`, `status`(OPEN/CLOSED), `openedBy`, `openedAt`, `closedBy`, `closedAt`.
+**엔티티 필드 (RecertificationRequest)**: `id`, `roundId`, `clubId`, `leaderUserId`, `contactEmail`, `contactPhone`, `operatingYear`, `notes`(≤2000), `status`(PENDING/APPROVED/REJECTED), `actionNote`, `handledBy`, `handledAt`.
+**Club 변경**: `last_verified_year INT` 컬럼 추가.
+
+| ID | 기능 | 입력 | 출력 | 예외 |
+|---|---|---|---|---|
+| RR-1 | 라운드 열기 (ADMIN) | `year`, `label` | `roundId` (201) | 401 / 403 / 409 동일 year OPEN 존재 |
+| RR-2 | 라운드 닫기 (ADMIN) | `roundId` | 204 | 400 이미 CLOSED / 401 / 403 / 404 |
+| RR-3 | 라운드 목록 (ADMIN) | `status?`, Pageable | `PageResponse<RecertificationRoundResponse>` (200) | 401 / 403 |
+| RC-1 | 재인증 제출 (LEADER) | `clubId`, `contactEmail`, `contactPhone`, `operatingYear`, `notes?` | `requestId` (201) | 401 / 400 비-LEADER·비-중앙동아리·OPEN 라운드 없음 / 404 club / 409 PENDING 중복 |
+| RC-2 | 재인증 목록 (ADMIN) | `roundId?`, `status?`, Pageable | `PageResponse<RecertificationRequestSummaryResponse>` (200) | 401 / 403 |
+| RC-3 | 재인증 상세 (ADMIN) | `requestId` | `RecertificationRequestDetailResponse` (200) | 401 / 403 / 404 |
+| RC-4 | 재인증 처리 (ADMIN) | `requestId`, `status`(APPROVED/REJECTED), `actionNote?` | 204. APPROVED 시 club.lastVerifiedYear=round.year | 400 잘못된 전이 / 401 / 403 / 404 |
+| RC-5 | 미인증 동아리 조회 (ADMIN) | `operatingYear`, Pageable | `PageResponse<CentralClubRecertificationStatusResponse>` (200) | 401 / 403 |
+
+**비기능 요구사항**
+- 조건부 unique: `(year) WHERE status='OPEN'` — 연도당 OPEN 라운드 1개.
+- 조건부 unique: `(round_id, club_id) WHERE status='PENDING'` — 라운드당 동아리당 PENDING 1건.
+- 라운드 닫힘 후에도 기존 PENDING 은 ADMIN 이 계속 처리 가능. 새 제출만 차단.
+- EXPIRED 판정은 계산값: `central_club AND (last_verified_year IS NULL OR last_verified_year < operatingYear)`.
+- `central_club` 자동 해제 없음. ADMIN 이 RC-5 결과 보고 기존 C-5 API 로 수동 해제.
+
+---
+
 ## 3. 공통 / 비기능 요구사항
 
 ### 3.1 응답 표준

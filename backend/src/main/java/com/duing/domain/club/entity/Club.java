@@ -114,6 +114,9 @@ public class Club extends BaseEntity {
     @Column(name = "central_club", nullable = false)
     private boolean centralClub;
 
+    @Column(name = "last_verified_year")
+    private Integer lastVerifiedYear;
+
     @Column(name = "status_changed_by")
     private Long statusChangedBy;
 
@@ -211,6 +214,10 @@ public class Club extends BaseEntity {
 
     public void changeCentralClub(boolean next) {
         this.centralClub = next;
+    }
+
+    public void updateLastVerifiedYear(int year) {
+        this.lastVerifiedYear = year;
     }
 
     public record UpdatePayload(
