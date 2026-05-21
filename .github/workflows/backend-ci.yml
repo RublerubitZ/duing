@@ -20,6 +20,9 @@ jobs:
     name: Build (Gradle)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # 로컬(KST) 과 CI(UTC) 의 시간 경계·윈도 차이로 알림/리마인더 잡 테스트가 깨지지 않게 KST 로 고정한다.
+      TZ: Asia/Seoul
     defaults:
       run:
         working-directory: backend
