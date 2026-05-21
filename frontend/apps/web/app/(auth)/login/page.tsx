@@ -8,43 +8,6 @@ import { loginSchema } from '@duing/schemas';
 import { cn } from '../../_lib/cn';
 import { toRoute } from '../../_lib/route';
 
-type NotificationCardProps = {
-  variant: 'activity' | 'interview';
-  title: string;
-  subtitle: string;
-  detail?: string;
-};
-
-function NotificationCard({ variant, title, subtitle, detail }: NotificationCardProps) {
-  return (
-    <div className="flex items-start gap-3 rounded-lg bg-white/10 px-4 py-3 backdrop-blur-sm">
-      <div
-        className={cn(
-          'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm',
-          variant === 'activity' ? 'bg-warm/25 text-warm' : 'bg-sage-soft/25 text-sage-soft',
-        )}
-        aria-hidden="true"
-      >
-        {variant === 'activity' ? (
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M3 11L11 3M11 3H5M11 3v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ) : (
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.3" />
-            <path d="M7 4.5v3l2 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-xs font-semibold text-cream/90">{title}</p>
-        <p className="truncate text-xs text-cream/60">{subtitle}</p>
-        {detail && <p className="truncate text-xs text-cream/50">{detail}</p>}
-      </div>
-    </div>
-  );
-}
-
 function IconMail() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -173,19 +136,9 @@ function LoginForm() {
           </p>
         </div>
 
-        {/* Notification cards */}
-        <div className="relative z-10 flex flex-col gap-2 px-8 pb-6">
-          <NotificationCard
-            variant="activity"
-            title="트레블호 · 김도중"
-            subtitle="지원서가 잘 도착했어요"
-          />
-          <NotificationCard
-            variant="interview"
-            title="STAT 통계학회 · 면접 확정"
-            subtitle="9.21 (토) 13:30 — 학생회관 302호"
-          />
-          <div className="mt-4 flex items-center justify-between text-[11px] text-cream/35">
+        {/* Footer */}
+        <div className="relative z-10 px-8 pb-6">
+          <div className="flex items-center justify-between text-[11px] text-cream/35">
             <span>© 2025 Duing · 대구대학교</span>
             <span className="flex gap-3">
               <span>도움말</span>
@@ -340,25 +293,6 @@ function LoginForm() {
                 {login.isPending ? '로그인 중…' : '두잉 시작하기 →'}
               </button>
             </form>
-
-            {/* Divider */}
-            <div className="my-6 flex items-center gap-4">
-              <div className="h-px flex-1 bg-line" />
-              <span className="text-xs text-charcoal-3">또는</span>
-              <div className="h-px flex-1 bg-line" />
-            </div>
-
-            {/* DUIN SSO button */}
-            <button type="button" className="btn btn-secondary w-full gap-2.5">
-              <span
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold text-paper"
-                style={{ background: '#1F4A36' }}
-                aria-hidden="true"
-              >
-                대
-              </span>
-              대구대학교 통합로그인 (DUIN)
-            </button>
 
             {/* Footer links */}
             <div className="mt-6 space-y-2 text-center text-sm text-charcoal-2">
