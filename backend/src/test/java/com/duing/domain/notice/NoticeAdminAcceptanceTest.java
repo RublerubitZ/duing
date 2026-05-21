@@ -96,6 +96,30 @@ class NoticeAdminAcceptanceTest {
                 .statusCode(HttpStatus.FORBIDDEN.value());
     }
 
+    @Test
+    @DisplayName("공지 작성 시 title 이 비어 있으면 400 을 반환한다")
+    void createNoticeWithBlankTitleReturnsBadRequest() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "",
+                      "summary": "요약입니다",
+                      "content": "본문 내용입니다",
+                      "coverImageUrl": "https://example.com/cover.png",
+                      "category": "GENERAL",
+                      "visibility": "PUBLIC",
+                      "pinned": false,
+                      "notifyOnPublish": false
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
     private User saveUser(UserRole role) {
         long seq = sequence.incrementAndGet();
         return userRepository.save(User.create(

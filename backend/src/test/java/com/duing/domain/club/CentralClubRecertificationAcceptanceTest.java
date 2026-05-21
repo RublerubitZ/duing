@@ -147,6 +147,28 @@ class CentralClubRecertificationAcceptanceTest {
     }
 
     @Test
+    @DisplayName("재인증 라운드 생성 시 label 이 비어 있으면 400 을 반환한다")
+    void createRoundWithBlankLabelReturnsBadRequest() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("year", 2026, "label", ""))
+                .when().post("/api/v1/admin/recertification-rounds")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("재인증 요청 처리 시 status 가 누락되면 400 을 반환한다")
+    void processRecertificationRequestWithMissingStatusReturnsBadRequest() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("actionNote", "메모"))
+                .when().patch("/api/v1/admin/recertification-requests/999999999")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("동일 round×club PENDING 중복은 409")
     void duplicatePendingConflict() {
         RestAssured.given()
