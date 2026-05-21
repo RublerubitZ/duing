@@ -41,8 +41,6 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     @Query("SELECT cm FROM ClubMember cm WHERE cm.id = :id")
     Optional<ClubMember> findByIdForUpdate(@Param("id") Long id);
 
-    boolean existsByClubIdAndRole(Long clubId, ClubMemberRole role);
-
     /**
      * 특정 동아리·역할의 멤버를 행 잠금 후 조회한다. 회장 인계 시 LEADER 행을 잠그는 용도.
      */
