@@ -88,9 +88,6 @@ public class AdminLeaderSuccessionController implements AdminLeaderSuccessionApi
             Long clubId, AssignAdminLeaderRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        if (clubRepository.findById(clubId).isEmpty()) {
-            throw new ClubMemberException.NotFound();
-        }
         leaderAssignmentService.assign(request.toCommand(clubId, currentUser.id()));
         return ResponseEntity.noContent().build();
     }
