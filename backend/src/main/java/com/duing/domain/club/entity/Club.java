@@ -217,7 +217,9 @@ public class Club extends BaseEntity {
     }
 
     public void updateLastVerifiedYear(int year) {
-        this.lastVerifiedYear = year;
+        if (this.lastVerifiedYear == null || year > this.lastVerifiedYear) {
+            this.lastVerifiedYear = year;
+        }
     }
 
     public record UpdatePayload(
