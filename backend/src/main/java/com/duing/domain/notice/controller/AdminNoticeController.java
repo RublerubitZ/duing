@@ -44,7 +44,7 @@ public class AdminNoticeController implements AdminNoticeApi {
 
     @Override
     public ResponseEntity<ApiResponse<Long>> createNotice(
-            CreateNoticeRequest request,
+            @Valid @RequestBody CreateNoticeRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         Long noticeId = noticeService.create(request.toCommand(currentUser.id()));
