@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+
 import { SparkleFull } from '../../_components/Sparkle';
 
 /* ------------------------------------------------------------------ */
@@ -30,7 +31,7 @@ type AccentStyle = {
 
 type MonthCell = {
   iso: string;
-  d: number;
+  dayNumber: number;
   inMonth: boolean;
   dow: number;
 };
@@ -117,15 +118,10 @@ const TODAY = '2025-09-18';
 const fmt = (y: number, m: number, d: number): string =>
   `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
-const dateKR = (iso: string): string => {
-  const parts = iso.split('-').map(Number);
-  return `${parts[1] ?? 0}월 ${parts[2] ?? 0}일`;
-};
-
 const dayOfWeekKR = (iso: string): string => {
   const parts = iso.split('-').map(Number);
-  const y = parts[0] ?? 0, m = parts[1] ?? 1, d = parts[2] ?? 1;
-  const wd = new Date(y, m - 1, d).getDay();
+  const year = parts[0] ?? 0, month = parts[1] ?? 1, day = parts[2] ?? 1;
+  const wd = new Date(year, month - 1, day).getDay();
   return ['일', '월', '화', '수', '목', '금', '토'][wd] ?? '';
 };
 
@@ -151,18 +147,20 @@ const buildMonth = (year: number, month: number): MonthCell[] => {
     if (cellMonth < 0)  { cellMonth = 11; cellYear -= 1; }
     if (cellMonth > 11) { cellMonth = 0;  cellYear += 1; }
 
-    cells.push({ iso: fmt(cellYear, cellMonth, cellDay), d: cellDay, inMonth, dow: i % 7 });
+    cells.push({ iso: fmt(cellYear, cellMonth, cellDay), dayNumber: cellDay, inMonth, dow: i % 7 });
   }
 
   return cells;
 };
 
 const calcDLeft = (date: string): string => {
-  const parts  = date.split('-').map(Number);
-  const tParts = TODAY.split('-').map(Number);
-  const y = parts[0] ?? 0,  m = parts[1] ?? 1,  d = parts[2] ?? 1;
-  const ty = tParts[0] ?? 0, tm = tParts[1] ?? 1, td = tParts[2] ?? 1;
-  const diff = Math.round((new Date(y, m - 1, d).getTime() - new Date(ty, tm - 1, td).getTime()) / 86400000);
+  const parts        = date.split('-').map(Number);
+  const todayParts   = TODAY.split('-').map(Number);
+  const year         = parts[0] ?? 0,      month        = parts[1] ?? 1,      day        = parts[2] ?? 1;
+  const todayYear    = todayParts[0] ?? 0, todayMonth   = todayParts[1] ?? 1, todayDay   = todayParts[2] ?? 1;
+  const diff = Math.round(
+    (new Date(year, month - 1, day).getTime() - new Date(todayYear, todayMonth - 1, todayDay).getTime()) / 86400000,
+  );
   return diff === 0 ? 'D-DAY' : `D-${diff}`;
 };
 
@@ -170,32 +168,41 @@ const calcDLeft = (date: string): string => {
 /* Icons                                                                */
 /* ------------------------------------------------------------------ */
 
-const Icon = {
-  arrowLeft: (props: React.SVGProps<SVGSVGElement>) => (
+function ArrowLeftIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <line x1="19" y1="12" x2="5" y2="12" />
       <polyline points="12 19 5 12 12 5" />
     </svg>
-  ),
-  arrowRight: (props: React.SVGProps<SVGSVGElement>) => (
+  );
+}
+
+function ArrowRightIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <line x1="5" y1="12" x2="19" y2="12" />
       <polyline points="12 5 19 12 12 19" />
     </svg>
-  ),
-  pin: (props: React.SVGProps<SVGSVGElement>) => (
+  );
+}
+
+function PinIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
       <circle cx="12" cy="10" r="3" />
     </svg>
-  ),
-  plus: (props: React.SVGProps<SVGSVGElement>) => (
+  );
+}
+
+function PlusIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
-  ),
-};
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* Component                                                            */
@@ -318,7 +325,7 @@ export function CalendarPage() {
               color: 'var(--charcoal-2)', fontFamily: 'inherit',
               fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}>
-              <Icon.plus style={{ width: 14, height: 14 }} />
+              <PlusIcon style={{ width: 14, height: 14 }} />
               내 일정 추가
             </button>
           </div>
@@ -336,7 +343,7 @@ export function CalendarPage() {
                 width: 36, height: 36, borderRadius: 12, border: '1px solid var(--gray-line)',
                 background: 'var(--paper)', color: 'var(--charcoal-2)', display: 'grid', placeItems: 'center', cursor: 'pointer',
               }}>
-                <Icon.arrowLeft style={{ width: 16, height: 16 }} />
+                <ArrowLeftIcon style={{ width: 16, height: 16 }} />
               </button>
               <h2 style={{ fontSize: 28, lineHeight: 1 }}>
                 2025<span style={{ color: 'var(--charcoal-3)', fontWeight: 500, margin: '0 8px' }}>·</span>9월
@@ -345,7 +352,7 @@ export function CalendarPage() {
                 width: 36, height: 36, borderRadius: 12, border: '1px solid var(--gray-line)',
                 background: 'var(--paper)', color: 'var(--charcoal-2)', display: 'grid', placeItems: 'center', cursor: 'pointer',
               }}>
-                <Icon.arrowRight style={{ width: 16, height: 16 }} />
+                <ArrowRightIcon style={{ width: 16, height: 16 }} />
               </button>
             </div>
             <div style={{
@@ -406,7 +413,7 @@ export function CalendarPage() {
 
                     return (
                       <button
-                        key={i}
+                        key={cell.iso}
                         onClick={() => { setSelectedDate(cell.iso); setDetailOpen(true); }}
                         style={{
                           minHeight: detailOpen ? 102 : 120,
@@ -435,7 +442,7 @@ export function CalendarPage() {
                             fontSize: detailOpen ? 12.5 : 13.5,
                             fontFamily: 'var(--font-mono)',
                           }}>
-                            {cell.d}
+                            {cell.dayNumber}
                           </span>
                           {cellEvents.length > 3 && (
                             <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--charcoal-3)', fontFamily: 'var(--font-mono)' }}>
@@ -570,7 +577,7 @@ export function CalendarPage() {
                           {ev.title}
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--charcoal-3)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <Icon.pin style={{ width: 12, height: 12 }} />
+                          <PinIcon style={{ width: 12, height: 12 }} />
                           {ev.place}
                           {ev.club && <><span>·</span><span>{ev.club}</span></>}
                         </div>
@@ -646,7 +653,7 @@ export function CalendarPage() {
                       {ev.title}
                     </h3>
                     <p style={{ fontSize: 12.5, color: 'var(--charcoal-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Icon.pin style={{ width: 12, height: 12 }} /> {ev.place}
+                      <PinIcon style={{ width: 12, height: 12 }} /> {ev.place}
                       {ev.club && <><span style={{ margin: '0 4px' }}>·</span><span>{ev.club}</span></>}
                     </p>
                   </div>
@@ -659,7 +666,7 @@ export function CalendarPage() {
                   }}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{ev.time}</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--ink)', fontWeight: 700 }}>
-                      자세히 <Icon.arrowRight style={{ width: 12, height: 12 }} />
+                      자세히 <ArrowRightIcon style={{ width: 12, height: 12 }} />
                     </span>
                   </div>
                 </article>
