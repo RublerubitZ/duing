@@ -24,7 +24,7 @@ public record RecertificationRequestDetailResponse(
         LocalDateTime createdAt,
         List<ClubMemberHistoryResponse> recentMemberHistory
 ) {
-    public record RoundRef(Long id, int year, String label) {}
+    public record RoundRef(Long id, Integer year, String label) {}
     public record ClubRef(Long id, String name, Integer lastVerifiedYear) {}
     public record UserRef(Long id, String name) {}
 

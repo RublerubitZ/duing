@@ -8,10 +8,16 @@ import com.duing.domain.club.entity.RoundStatus;
 import com.duing.domain.club.service.RecertificationRoundService;
 import com.duing.domain.club.service.dto.command.CloseRoundCommand;
 import com.duing.domain.club.service.dto.query.RoundAdminSearchCondition;
+import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -56,16 +62,30 @@ public class AdminRecertificationRoundController implements AdminRecertification
     ) {
         Page<RecertificationRound> page = roundService.searchForAdmin(
                 new RoundAdminSearchCondition(status), pageable);
+
+        Set<Long> userIds = new HashSet<>();
+        for (RecertificationRound round : page.getContent()) {
+            userIds.add(round.getOpenedBy());
+            if (round.getClosedBy() != null) userIds.add(round.getClosedBy());
+        }
+        Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
         Page<RecertificationRoundResponse> mapped = page.map(round ->
-                RecertificationRoundResponse.of(round, userRef(round.getOpenedBy()),
-                        round.getClosedBy() == null ? null : userRef(round.getClosedBy()))
+                RecertificationRoundResponse.of(
+                        round,
+                        userRef(round.getOpenedBy(), userMap.get(round.getOpenedBy())),
+                        round.getClosedBy() == null
+                                ? null
+                                : userRef(round.getClosedBy(), userMap.get(round.getClosedBy())))
         );
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(mapped)));
     }
 
-    private RecertificationRoundResponse.UserRef userRef(Long userId) {
-        return userRepository.findById(userId)
-                .map(user -> new RecertificationRoundResponse.UserRef(user.getId(), user.getName()))
-                .orElse(new RecertificationRoundResponse.UserRef(userId, DELETED_LABEL));
+    private RecertificationRoundResponse.UserRef userRef(Long userId, User user) {
+        if (user == null) {
+            return new RecertificationRoundResponse.UserRef(userId, DELETED_LABEL);
+        }
+        return new RecertificationRoundResponse.UserRef(user.getId(), user.getName());
     }
 }

@@ -14,7 +14,7 @@ public record RecertificationRequestSummaryResponse(
         int operatingYear,
         LocalDateTime createdAt
 ) {
-    public record RoundRef(Long id, int year, String label, RoundStatus status) {}
+    public record RoundRef(Long id, Integer year, String label, RoundStatus status) {}
     public record ClubRef(Long id, String name) {}
     public record UserRef(Long id, String name) {}
 
