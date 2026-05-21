@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberEventType;
@@ -106,5 +107,17 @@ class GeneralAdminLeaderAssignmentServiceTest {
         assertThatThrownBy(() -> service.assign(new AssignLeaderByAdminCommand(
                 club.getId(), candidate.getId(), admin.getId(), "테스트")))
                 .isInstanceOf(ClubMemberException.AdminAssignTargetNotMember.class);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 동아리에 강제 지정하면 ClubNotFoundException 이 발생한다")
+    void rejectsWhenClubMissing() {
+        User admin = saveUser(UserRole.ADMIN);
+        User candidate = saveUser(UserRole.STUDENT);
+        long missingClubId = 9_999_999L;
+
+        assertThatThrownBy(() -> service.assign(new AssignLeaderByAdminCommand(
+                missingClubId, candidate.getId(), admin.getId(), "테스트")))
+                .isInstanceOf(ClubException.ClubNotFoundException.class);
     }
 }
