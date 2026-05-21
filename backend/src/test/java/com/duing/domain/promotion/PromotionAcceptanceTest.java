@@ -148,6 +148,32 @@ class PromotionAcceptanceTest {
     }
 
     @Test
+    @DisplayName("배너 등록 시 title 이 비어 있으면 400 을 반환한다")
+    void createPromotionWithBlankTitleReturnsBadRequest() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of(
+                        "title", "",
+                        "bannerImageUrl", "/files/b.png",
+                        "active", true,
+                        "displayOrder", 1))
+                .when().post("/api/v1/admin/promotions")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("홍보 요청 처리 시 status 가 누락되면 400 을 반환한다")
+    void processPromotionRequestWithMissingStatusReturnsBadRequest() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("actionNote", "메모"))
+                .when().patch("/api/v1/admin/promotion-requests/999999999")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("active=false 인 Promotion 은 공개 목록에서 빠진다")
     void inactivePromotionHidden() {
         RestAssured.given()

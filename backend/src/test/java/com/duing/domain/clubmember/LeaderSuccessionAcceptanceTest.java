@@ -140,6 +140,17 @@ class LeaderSuccessionAcceptanceTest {
     }
 
     @Test
+    @DisplayName("승계 요청 처리 시 status 가 누락되면 400 을 반환한다")
+    void processSuccessionRequestWithMissingStatusReturnsBadRequest() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("actionNote", "메모"))
+                .when().patch("/api/v1/admin/leader-succession-requests/999999999")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("동일 동아리 PENDING 승계 중복은 409")
     void duplicatePendingConflict() {
         Map<String, Object> body = Map.of("reason", "잠수");

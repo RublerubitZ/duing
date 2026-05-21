@@ -141,6 +141,17 @@ class ReportAcceptanceTest {
     }
 
     @Test
+    @DisplayName("신고 처리 시 status 가 누락되면 400 을 반환한다")
+    void processReportWithMissingStatusReturnsBadRequest() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("actionNote", "메모"))
+                .when().patch("/api/v1/admin/reports/999999999")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("ADMIN 이 신고를 RESOLVED 로 처리하면 204")
     void adminProcessesReport() {
         Long reportId = RestAssured.given()
