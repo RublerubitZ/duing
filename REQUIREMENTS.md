@@ -214,6 +214,31 @@ ClubMember 운영(승급/강등·추방·탈퇴·정상 인계)은 이미 제공
 
 ---
 
+### 2.8 Promotion (홍보 큐레이션 배너)
+
+**엔티티 필드 (PromotionRequest)**: `id`, `clubId`, `requesterUserId`(LEADER/OFFICER), `title`(≤80), `description`(≤2000), `suggestedBannerImageUrl?`, `suggestedLinkUrl?`, `status`(PENDING/ACCEPTED/REJECTED), `actionNote`, `handledBy`, `handledAt`.
+**엔티티 필드 (Promotion)**: `id`, `clubId?`, `title`(≤120), `bannerImageUrl`, `linkUrl?`, `active`, `displayOrder`, `createdBy`.
+
+| ID | 기능 | 입력 | 출력 | 예외 |
+|---|---|---|---|---|
+| PR-1 | 홍보 요청 제출 (LEADER/OFFICER) | `clubId`, `title`, `description`, `suggestedBannerImageUrl?`, `suggestedLinkUrl?` | `requestId` (201) | 401 / 403 운영진 아님 / 404 club / 409 PENDING 중복 |
+| PR-2 | 홍보 요청 목록 (ADMIN) | `status?`, `clubId?`, Pageable | `PageResponse<PromotionRequestSummaryResponse>` (200) | 401 / 403 |
+| PR-3 | 홍보 요청 상세 (ADMIN) | `requestId` | `PromotionRequestDetailResponse` (200) | 401 / 403 / 404 |
+| PR-4 | 홍보 요청 처리 (ADMIN) | `requestId`, `status`(ACCEPTED/REJECTED), `actionNote?` | 204 | 400 잘못된 전이 / 401 / 403 / 404 |
+| PM-1 | 배너 생성 (ADMIN) | `clubId?`, `title`, `bannerImageUrl`, `linkUrl?`, `active`, `displayOrder` | `promotionId` (201) | 400 / 401 / 403 / 404 |
+| PM-2 | 배너 수정 (ADMIN) | partial fields + `clearClubId?` | 204 | 400 / 401 / 403 / 404 |
+| PM-3 | 배너 삭제 (ADMIN) | `promotionId` | 204 | 401 / 403 / 404 |
+| PM-4 | 배너 관리 목록 (ADMIN) | `active?`, `clubId?`, Pageable | `PageResponse<AdminPromotionResponse>` (200) | 401 / 403 |
+| PM-5 | 공개 배너 목록 (비로그인 포함) | Pageable | `PageResponse<PromotionCardResponse>` (200) | — |
+
+**비기능 요구사항**
+- 조건부 unique: `(club_id) WHERE status='PENDING'` — 동아리당 PENDING 1건.
+- Promotion 은 ADMIN 큐레이션. PromotionRequest 의 ACCEPTED 는 Promotion 자동 생성으로 이어지지 않음(완전 분리).
+- 공개 GET `/promotions` 는 `active=true AND deleted_at IS NULL` 만 반환, `displayOrder ASC, createdAt DESC` 정렬.
+- 이미지 업로드는 기존 `FileStorageService` 흐름으로 진행하고, 응답 URL 을 `suggestedBannerImageUrl` / `bannerImageUrl` 필드에 전달한다.
+
+---
+
 ## 3. 공통 / 비기능 요구사항
 
 ### 3.1 응답 표준

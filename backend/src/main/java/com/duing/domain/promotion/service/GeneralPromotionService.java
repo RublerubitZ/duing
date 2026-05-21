@@ -1,0 +1,78 @@
+package com.duing.domain.promotion.service;
+
+import com.duing.domain.club.exception.ClubException;
+import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.promotion.entity.Promotion;
+import com.duing.domain.promotion.exception.PromotionException;
+import com.duing.domain.promotion.repository.PromotionRepository;
+import com.duing.domain.promotion.service.dto.command.CreatePromotionCommand;
+import com.duing.domain.promotion.service.dto.command.UpdatePromotionCommand;
+import com.duing.domain.promotion.service.dto.query.PromotionAdminSearchCondition;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class GeneralPromotionService implements PromotionService {
+
+    private final PromotionRepository promotionRepository;
+    private final ClubRepository clubRepository;
+
+    @Override
+    @Transactional
+    public Long create(CreatePromotionCommand command) {
+        if (command.clubId() != null && clubRepository.findById(command.clubId()).isEmpty()) {
+            throw new ClubException.ClubNotFoundException();
+        }
+        return promotionRepository.save(Promotion.create(
+                command.clubId(), command.title(), command.bannerImageUrl(), command.linkUrl(),
+                command.active(), command.displayOrder(), command.createdBy()
+        )).getId();
+    }
+
+    @Override
+    @Transactional
+    public void update(UpdatePromotionCommand command) {
+        Promotion promotion = promotionRepository.findById(command.promotionId())
+                .orElseThrow(PromotionException.PromotionNotFoundException::new);
+
+        if (command.clubId() != null
+                && !Boolean.TRUE.equals(command.clearClubId())
+                && clubRepository.findById(command.clubId()).isEmpty()) {
+            throw new ClubException.ClubNotFoundException();
+        }
+
+        promotion.update(new Promotion.UpdatePayload(
+                command.title(), command.bannerImageUrl(), command.linkUrl(),
+                command.clubId(), command.active(), command.displayOrder(), command.clearClubId()
+        ));
+    }
+
+    @Override
+    @Transactional
+    public void delete(Long promotionId) {
+        Promotion promotion = promotionRepository.findById(promotionId)
+                .orElseThrow(PromotionException.PromotionNotFoundException::new);
+        promotionRepository.delete(promotion);
+    }
+
+    @Override
+    public Promotion getById(Long promotionId) {
+        return promotionRepository.findById(promotionId)
+                .orElseThrow(PromotionException.PromotionNotFoundException::new);
+    }
+
+    @Override
+    public Page<Promotion> searchForAdmin(PromotionAdminSearchCondition condition, Pageable pageable) {
+        return promotionRepository.searchForAdmin(condition, pageable);
+    }
+
+    @Override
+    public Page<Promotion> findPublic(Pageable pageable) {
+        return promotionRepository.findPublicActive(pageable);
+    }
+}

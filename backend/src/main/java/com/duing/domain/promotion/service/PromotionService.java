@@ -1,0 +1,17 @@
+package com.duing.domain.promotion.service;
+
+import com.duing.domain.promotion.entity.Promotion;
+import com.duing.domain.promotion.service.dto.command.CreatePromotionCommand;
+import com.duing.domain.promotion.service.dto.command.UpdatePromotionCommand;
+import com.duing.domain.promotion.service.dto.query.PromotionAdminSearchCondition;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+public interface PromotionService {
+    Long create(CreatePromotionCommand command);
+    void update(UpdatePromotionCommand command);
+    void delete(Long promotionId);
+    Promotion getById(Long promotionId);
+    Page<Promotion> searchForAdmin(PromotionAdminSearchCondition condition, Pageable pageable);
+    Page<Promotion> findPublic(Pageable pageable);
+}
