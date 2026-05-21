@@ -15,7 +15,19 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
 
     Optional<ClubMember> findByClubIdAndUserId(Long clubId, Long userId);
 
-    Optional<ClubMember> findFirstByClubIdAndRole(Long clubId, ClubMemberRole role);
+    /**
+     * User 를 JOIN FETCH 해 LEADER 의 user 정보를 트랜잭션 밖에서도 안전하게 사용할 수 있게 한다.
+     * V31 unique partial index 로 LEADER 행은 0-1건이 보장되지만, JPQL 에 LIMIT 1 을 명시해
+     * 제약이 흔들리거나 비-LEADER 역할로 호출돼도 NonUniqueResultException 이 나지 않도록 방어한다.
+     */
+    @Query("""
+            SELECT cm FROM ClubMember cm
+            JOIN FETCH cm.user
+            WHERE cm.club.id = :clubId AND cm.role = :role
+            ORDER BY cm.createdAt ASC
+            LIMIT 1
+            """)
+    Optional<ClubMember> findFirstByClubIdAndRole(@Param("clubId") Long clubId, @Param("role") ClubMemberRole role);
 
     boolean existsByClubIdAndUserId(Long clubId, Long userId);
 
