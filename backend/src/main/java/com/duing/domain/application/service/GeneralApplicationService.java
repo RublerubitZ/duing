@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -181,12 +182,14 @@ public class GeneralApplicationService implements ApplicationService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public BulkUpdateApplicationStatusResult bulkUpdateStatus(BulkUpdateApplicationStatusCommand bulkCommand) {
         // 입력 ID 중복은 클라이언트 실수 보호 차원에서 제거하되 순서는 유지한다.
         Set<Long> uniqueIds = new LinkedHashSet<>(bulkCommand.applicationIds());
 
         // 건별 트랜잭션을 얻기 위해 자기 자신의 프록시를 통해 updateStatus 를 호출한다.
-        // 본 메서드는 @Transactional 이 없으므로 각 self.updateStatus(...) 가 REQUIRED 로 신규 트랜잭션을 연다.
+        // 본 메서드는 @Transactional(NOT_SUPPORTED) 로 클래스 레벨 readOnly TX 를 일시중단하므로
+        // 각 self.updateStatus(...) 가 REQUIRED 로 신규 쓰기 TX 를 연다.
         ApplicationService self = selfProvider.getObject();
 
         int updated = 0;
