@@ -69,7 +69,7 @@ class CentralClubRecertificationAcceptanceTest {
         long seq = sequence.incrementAndGet();
         return userRepository.save(User.create("20" + seq, "U" + seq,
                 "u" + seq + "@duing.ac.kr", "h", role,
-                Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0", LocalDateTime.now()));
+                Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
     }
 
     @Test
@@ -113,7 +113,7 @@ class CentralClubRecertificationAcceptanceTest {
                 .contentType(ContentType.JSON)
                 .body(Map.of(
                         "contactEmail", "x@example.com",
-                        "contactPhone", "010-0",
+                        "contactPhone", "010-0000-0000",
                         "operatingYear", 2026))
                 .when().post("/api/v1/clubs/" + centralClubId + "/recertification-requests")
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value());
