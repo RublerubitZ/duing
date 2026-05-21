@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.promotion.entity.Promotion;
 import com.duing.domain.promotion.exception.PromotionException;
 import com.duing.domain.promotion.repository.PromotionRepository;
@@ -34,6 +37,7 @@ class GeneralPromotionServiceTest {
     @Autowired PromotionService promotionService;
     @Autowired PromotionRepository promotionRepository;
     @Autowired UserRepository userRepository;
+    @Autowired ClubRepository clubRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -75,8 +79,10 @@ class GeneralPromotionServiceTest {
     @DisplayName("clearClubId=true 면 clubId 가 null 로 비워진다")
     void clearClubId() {
         User admin = saveAdmin();
+        Club club = clubRepository.save(Club.create(
+                "두잉홍보" + sequence.incrementAndGet(), ClubCategory.ACADEMIC, "분과", "설명", null));
         Long id = promotionService.create(new CreatePromotionCommand(
-                42L, "배너", "/files/b.png", null, true, 0, admin.getId()));
+                club.getId(), "배너", "/files/b.png", null, true, 0, admin.getId()));
 
         promotionService.update(new UpdatePromotionCommand(
                 id, null, null, null, null, null, null, true));
