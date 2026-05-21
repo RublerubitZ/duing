@@ -23,6 +23,8 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +48,7 @@ class GeneralLeaderSuccessionServiceTest {
     @Autowired ClubMemberHistoryRepository historyRepository;
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
+    @PersistenceContext EntityManager entityManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -185,6 +188,7 @@ class GeneralLeaderSuccessionServiceTest {
                 club.getId(), officer.getId(), "잠수"));
         successionService.process(new ProcessSuccessionCommand(
                 requestId, admin.getId(), SuccessionStatus.REJECTED, null));
+        entityManager.flush();
 
         assertThatThrownBy(() -> successionService.process(new ProcessSuccessionCommand(
                 requestId, admin.getId(), SuccessionStatus.APPROVED, null)))
@@ -205,6 +209,7 @@ class GeneralLeaderSuccessionServiceTest {
                 club.getId(), officer.getId(), "잠수"));
         officerMember.changeRole(ClubMemberRole.MEMBER);
         clubMemberRepository.save(officerMember);
+        entityManager.flush();
 
         assertThatThrownBy(() -> successionService.process(new ProcessSuccessionCommand(
                 requestId, admin.getId(), SuccessionStatus.APPROVED, null)))

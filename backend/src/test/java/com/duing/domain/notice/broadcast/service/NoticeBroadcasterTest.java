@@ -111,7 +111,7 @@ class NoticeBroadcasterTest {
         Club club = saveClub();
         for (int i = 0; i < 2001; i++) {
             User user = saveUser(UserRole.STUDENT);
-            clubMemberRepository.save(ClubMember.of(club, user, ClubMemberRole.LEADER));
+            clubMemberRepository.save(ClubMember.of(club, user, ClubMemberRole.OFFICER));
         }
         Notice notice = persistNotice(authorId, NoticeVisibility.OFFICERS_ALL, true);
 
