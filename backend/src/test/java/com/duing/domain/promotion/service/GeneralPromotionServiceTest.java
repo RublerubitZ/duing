@@ -41,7 +41,7 @@ class GeneralPromotionServiceTest {
         long seq = sequence.incrementAndGet();
         return userRepository.save(User.create("20" + seq, "A" + seq,
                 "a" + seq + "@duing.ac.kr", "h", UserRole.ADMIN,
-                Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0", LocalDateTime.now()));
+                Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
     }
 
     @Test
