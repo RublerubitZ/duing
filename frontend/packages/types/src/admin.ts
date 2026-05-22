@@ -194,3 +194,66 @@ export type CreateRecertificationRoundPayload = {
   year: number;
   label: string;
 };
+
+// ─── 재인증 요청 ──────────────────────────────────────────────────────────────
+
+export type RecertificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export type AdminRecertificationUserRef = { id: number; name: string };
+
+export type AdminRecertificationRequestSummary = {
+  id: number;
+  round: { id: number; year: number; label: string; status: RoundStatus };
+  club: { id: number; name: string };
+  leader: AdminRecertificationUserRef;
+  status: RecertificationStatus;
+  operatingYear: number;
+  createdAt: string;
+};
+
+export type AdminRecertificationRequestDetail = {
+  id: number;
+  round: { id: number; year: number; label: string };
+  club: { id: number; name: string; lastVerifiedYear: number | null };
+  currentLeader: AdminRecertificationUserRef | null;
+  officers: AdminRecertificationUserRef[];
+  submittedLeader: AdminRecertificationUserRef;
+  contactEmail: string;
+  contactPhone: string;
+  operatingYear: number;
+  notes: string | null;
+  status: RecertificationStatus;
+  actionNote: string | null;
+  handledBy: AdminRecertificationUserRef | null;
+  handledAt: string | null;
+  createdAt: string;
+  recentMemberHistory: AdminClubMemberHistoryRow[];
+};
+
+export type AdminRecertificationRequestSearchParams = {
+  roundId?: number;
+  status?: RecertificationStatus;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type ProcessRecertificationPayload = {
+  status: Exclude<RecertificationStatus, 'PENDING'>;
+  actionNote?: string;
+};
+
+export type CentralClubRecertificationStatus = {
+  clubId: number;
+  clubName: string;
+  centralClub: boolean;
+  lastVerifiedYear: number | null;
+  expired: boolean;
+};
+
+export type CentralClubRecertificationStatusParams = {
+  operatingYear: number;
+  page?: number;
+  size?: number;
+  sort?: string;
+};

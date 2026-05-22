@@ -2,9 +2,11 @@ import type {
   AdminClubMemberHistoryParams,
   AdminClubSearchParams,
   AdminRecertificationRoundSearchParams,
+  AdminRecertificationRequestSearchParams,
   AdminReportSearchParams,
   AdminSuccessionSearchParams,
   AdminUserSearchParams,
+  CentralClubRecertificationStatusParams,
 } from '@duing/types';
 
 export const adminQueryKeys = {
@@ -30,4 +32,11 @@ export const adminQueryKeys = {
   recertificationRoundsAll: ['admin', 'recertification-rounds'] as const,
   recertificationRoundsList: (params: AdminRecertificationRoundSearchParams) =>
     [...adminQueryKeys.recertificationRoundsAll, 'list', params] as const,
+  recertificationRequestsAll: ['admin', 'recertification-requests'] as const,
+  recertificationRequestsList: (params: AdminRecertificationRequestSearchParams) =>
+    [...adminQueryKeys.recertificationRequestsAll, 'list', params] as const,
+  recertificationRequestsDetail: (requestId: number) =>
+    [...adminQueryKeys.recertificationRequestsAll, 'detail', requestId] as const,
+  centralClubRecertificationStatus: (params: CentralClubRecertificationStatusParams) =>
+    ['admin', 'central-club-recertification-status', params] as const,
 };
