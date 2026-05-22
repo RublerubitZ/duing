@@ -6,6 +6,7 @@ import type {
   AdminReportSearchParams,
   AdminSuccessionSearchParams,
   AdminUserSearchParams,
+  AdminPromotionRequestSearchParams,
   CentralClubRecertificationStatusParams,
 } from '@duing/types';
 
@@ -39,4 +40,9 @@ export const adminQueryKeys = {
     [...adminQueryKeys.recertificationRequestsAll, 'detail', requestId] as const,
   centralClubRecertificationStatus: (params: CentralClubRecertificationStatusParams) =>
     ['admin', 'central-club-recertification-status', params] as const,
+  promotionRequestsAll: ['admin', 'promotion-requests'] as const,
+  promotionRequestsList: (params: AdminPromotionRequestSearchParams) =>
+    [...adminQueryKeys.promotionRequestsAll, 'list', params] as const,
+  promotionRequestsDetail: (requestId: number) =>
+    [...adminQueryKeys.promotionRequestsAll, 'detail', requestId] as const,
 };
