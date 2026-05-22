@@ -284,7 +284,15 @@ function TimeField({ label, popoverTitle, value, open, onOpen, onClose, onChange
   const minutes = Array.from({ length: 60 }, (_, i) => i);
 
   return (
-    <div ref={wrapRef} style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+    <div
+      ref={wrapRef}
+      style={{
+        flex: 1,
+        position: 'relative',
+        minWidth: 0,
+        zIndex: open ? 60 : 'auto',
+      }}
+    >
       <div style={{ fontSize: 11, color: 'var(--charcoal-3)', fontWeight: 600, marginBottom: 6 }}>
         {label}
       </div>
@@ -540,9 +548,26 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
           border: '1px solid var(--gray-line)',
           boxShadow: '0 24px 60px rgba(31, 74, 54, 0.18)',
           padding: '24px 28px 24px',
+          position: 'relative',
           animation: 'duing-pop-in .22s cubic-bezier(.22,.61,.36,1)',
         }}
       >
+        {/* Localized dim overlay — active time field stays above this */}
+        {openPicker !== null && (
+          <div
+            onMouseDown={() => setOpenPicker(null)}
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: 24,
+              background: 'rgba(31, 32, 30, 0.32)',
+              zIndex: 40,
+              animation: 'duing-fade-in .18s ease',
+            }}
+          />
+        )}
+
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <h2 id="add-event-modal-title" style={{ fontSize: 22, lineHeight: 1.1, display: 'flex', alignItems: 'center', gap: 8 }}>
