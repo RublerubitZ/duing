@@ -119,10 +119,42 @@ function TimeInput({ value, onChange }: TimeInputProps) {
   const hh = rawHH ?? '00';
   const mm = rawMM ?? '00';
 
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
   const commit = (nextHH: string, nextMM: string) => {
     const h = String(clampInt(Number(nextHH), 23)).padStart(2, '0');
     const m = String(clampInt(Number(nextMM), 59)).padStart(2, '0');
     onChange(`${h}:${m}`);
+  };
+
+  const wrap = (n: number, max: number) => ((n % max) + max) % max;
+
+  const adjust = (kind: 'h' | 'm', dir: 1 | -1) => {
+    const [curHRaw, curMRaw] = valueRef.current.split(':');
+    const curH = Number(curHRaw ?? '0');
+    const curM = Number(curMRaw ?? '0');
+    if (kind === 'h') {
+      const next = wrap(curH + dir, 24);
+      const out = `${String(next).padStart(2, '0')}:${String(curM).padStart(2, '0')}`;
+      valueRef.current = out;
+      onChange(out);
+    } else {
+      const next = wrap(curM + dir, 60);
+      const out = `${String(curH).padStart(2, '0')}:${String(next).padStart(2, '0')}`;
+      valueRef.current = out;
+      onChange(out);
+    }
+  };
+
+  const handleWheel = (kind: 'h' | 'm') => (e: React.WheelEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    adjust(kind, e.deltaY < 0 ? 1 : -1);
+  };
+
+  const handleKeyDown = (kind: 'h' | 'm') => (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowUp')   { e.preventDefault(); adjust(kind, 1);  }
+    if (e.key === 'ArrowDown') { e.preventDefault(); adjust(kind, -1); }
   };
 
   const partStyle: React.CSSProperties = {
@@ -161,7 +193,10 @@ function TimeInput({ value, onChange }: TimeInputProps) {
         value={hh}
         onChange={(e) => commit(e.target.value.replace(/\D/g, '').slice(0, 2), mm)}
         onFocus={(e) => e.target.select()}
+        onWheel={handleWheel('h')}
+        onKeyDown={handleKeyDown('h')}
         aria-label="시"
+        title="스크롤 또는 ↑↓ 키로 조정"
         style={partStyle}
       />
       <span style={{ color: 'var(--charcoal-3)', fontWeight: 700 }}>:</span>
@@ -172,7 +207,10 @@ function TimeInput({ value, onChange }: TimeInputProps) {
         value={mm}
         onChange={(e) => commit(hh, e.target.value.replace(/\D/g, '').slice(0, 2))}
         onFocus={(e) => e.target.select()}
+        onWheel={handleWheel('m')}
+        onKeyDown={handleKeyDown('m')}
         aria-label="분"
+        title="스크롤 또는 ↑↓ 키로 조정"
         style={partStyle}
       />
     </div>
