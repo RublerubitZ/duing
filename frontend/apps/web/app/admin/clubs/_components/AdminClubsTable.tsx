@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { cn } from '../../../_lib/cn';
 import type { AdminClubSummary } from '@duing/types';
 import {
@@ -51,7 +52,12 @@ export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick
                 <tr className="border-line border-b last:border-b-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5 font-medium text-slate-900">
-                      {club.name}
+                      <Link
+                        href={`/admin/clubs/${club.id}`}
+                        className="hover:underline"
+                      >
+                        {club.name}
+                      </Link>
                       {club.centralClub && (
                         <span
                           aria-label="중앙동아리"
