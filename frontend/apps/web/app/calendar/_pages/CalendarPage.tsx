@@ -386,21 +386,6 @@ export function CalendarPage() {
                 </button>
               );
             })}
-            <button
-              type="button"
-              onClick={() => setAddModalOpen(true)}
-              style={{
-                marginLeft: 'auto',
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', borderRadius: 999,
-                background: 'transparent', border: '1px solid var(--gray-line)',
-                color: 'var(--charcoal-2)', fontFamily: 'inherit',
-                fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              }}
-            >
-              <Icon.plus style={{ width: 14, height: 14 }} />
-              내 일정 추가
-            </button>
           </div>
         </div>
       </section>
