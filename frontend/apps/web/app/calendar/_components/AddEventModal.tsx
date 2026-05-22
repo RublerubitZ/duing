@@ -246,7 +246,7 @@ type TimeFieldProps = {
   onChange: (next: string) => void;
 };
 
-const POPOVER_WIDTH = 200;
+const POPOVER_WIDTH = 185;
 const POPOVER_MARGIN = 12;
 
 type PopoverPosition = {
