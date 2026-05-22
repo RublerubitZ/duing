@@ -2,6 +2,7 @@ package com.duing.domain.promotion.controller.dto.response;
 
 import com.duing.domain.promotion.entity.PromotionRequest;
 import com.duing.domain.promotion.entity.PromotionRequestStatus;
+import com.duing.domain.promotion.service.dto.query.PromotionRequestAdminSummaryQuery;
 import java.time.LocalDateTime;
 
 public record PromotionRequestSummaryResponse(
@@ -21,5 +22,13 @@ public record PromotionRequestSummaryResponse(
         return new PromotionRequestSummaryResponse(
                 request.getId(), club, requester, request.getTitle(),
                 request.getStatus(), request.getCreatedAt());
+    }
+
+    public static PromotionRequestSummaryResponse from(PromotionRequestAdminSummaryQuery query) {
+        ClubRef clubRef = new ClubRef(query.club().id(), query.club().name());
+        UserRef requesterRef = new UserRef(query.requester().id(), query.requester().name());
+        return new PromotionRequestSummaryResponse(
+                query.id(), clubRef, requesterRef, query.title(),
+                query.status(), query.createdAt());
     }
 }
