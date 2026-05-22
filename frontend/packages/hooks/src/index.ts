@@ -83,3 +83,8 @@ export {
   useUpdateClubCentralClubMutation,
 } from './admin';
 export { adminQueryKeys } from './adminQueryKeys';
+export {
+  useAdminReportListQuery,
+  useAdminReportDetailQuery,
+  useProcessReportMutation,
+} from './reports';

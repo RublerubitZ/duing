@@ -1,4 +1,4 @@
-import type { AdminClubSearchParams, AdminUserSearchParams } from '@duing/types';
+import type { AdminClubSearchParams, AdminReportSearchParams, AdminUserSearchParams } from '@duing/types';
 
 export const adminQueryKeys = {
   all: ['admin'] as const,
@@ -8,4 +8,9 @@ export const adminQueryKeys = {
   usersAll: ['admin', 'users'] as const,
   usersSearch: (params: AdminUserSearchParams) =>
     [...adminQueryKeys.usersAll, 'search', params] as const,
+  reportsAll: ['admin', 'reports'] as const,
+  reportsList: (params: AdminReportSearchParams) =>
+    [...adminQueryKeys.reportsAll, 'list', params] as const,
+  reportsDetail: (reportId: number) =>
+    [...adminQueryKeys.reportsAll, 'detail', reportId] as const,
 };

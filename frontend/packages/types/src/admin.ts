@@ -49,3 +49,47 @@ export type AdminUserSearchParams = {
   size?: number;
   sort?: string;
 };
+
+export type ReportTargetType = 'CLUB' | 'RECRUITMENT';
+export type ReportStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED';
+export type ReportReasonCode = 'SPAM' | 'FRAUD' | 'INAPPROPRIATE' | 'IMPERSONATION' | 'OTHER';
+
+export type AdminReportSummary = {
+  id: number;
+  targetType: ReportTargetType;
+  targetId: number;
+  targetLabel: string;
+  reasonCode: ReportReasonCode;
+  status: ReportStatus;
+  createdAt: string;
+};
+
+export type AdminReportUserRef = { id: number; name: string };
+
+export type AdminReportDetail = {
+  id: number;
+  reporter: AdminReportUserRef | null;
+  targetType: ReportTargetType;
+  targetId: number;
+  targetLabel: string;
+  reasonCode: ReportReasonCode;
+  detail: string;
+  status: ReportStatus;
+  actionNote: string | null;
+  handledBy: AdminReportUserRef | null;
+  handledAt: string | null;
+  createdAt: string;
+};
+
+export type AdminReportSearchParams = {
+  status?: ReportStatus;
+  targetType?: ReportTargetType;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type ProcessReportPayload = {
+  status: Exclude<ReportStatus, 'PENDING'>;
+  actionNote?: string;
+};
