@@ -28,6 +28,10 @@ import type {
   AdminPromotionRequestDetail,
   AdminPromotionRequestSearchParams,
   ProcessPromotionRequestPayload,
+  AdminPromotionSummary,
+  AdminPromotionSearchParams,
+  CreatePromotionPayload,
+  UpdatePromotionPayload,
   ApiResponse,
   PageResponse,
   ClubDetail,
@@ -249,6 +253,12 @@ export type DuingApiClient = {
       list(params: AdminPromotionRequestSearchParams): Promise<PageResponse<AdminPromotionRequestSummary>>;
       get(requestId: number): Promise<AdminPromotionRequestDetail>;
       process(requestId: number, payload: ProcessPromotionRequestPayload): Promise<void>;
+    };
+    promotions: {
+      list(params: AdminPromotionSearchParams): Promise<PageResponse<AdminPromotionSummary>>;
+      create(payload: CreatePromotionPayload): Promise<number>;
+      update(promotionId: number, payload: UpdatePromotionPayload): Promise<void>;
+      delete(promotionId: number): Promise<void>;
     };
   };
   raw: KyInstance;
@@ -552,6 +562,18 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           ),
         process: (requestId, payload) =>
           jsonVoid(http.patch(`admin/promotion-requests/${requestId}`, { json: payload })),
+      },
+      promotions: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminPromotionSummary>>(
+            http.get('admin/promotions', { searchParams: cleanParams(params) }),
+          ),
+        create: (payload) =>
+          jsonOk<number>(http.post('admin/promotions', { json: payload })),
+        update: (promotionId, payload) =>
+          jsonVoid(http.patch(`admin/promotions/${promotionId}`, { json: payload })),
+        delete: (promotionId) =>
+          jsonVoid(http.delete(`admin/promotions/${promotionId}`)),
       },
     },
     raw: http,
