@@ -7,6 +7,7 @@ import type {
 } from '@duing/types';
 import { useApiClient } from './api-context';
 import { adminQueryKeys } from './adminQueryKeys';
+import { clubQueryKeys } from './clubQueryKeys';
 
 export function useAdminSuccessionListQuery(params: AdminSuccessionSearchParams) {
   const client = useApiClient();
@@ -53,6 +54,8 @@ export function useAssignAdminLeaderMutation() {
         queryKey: adminQueryKeys.clubMemberHistory(clubId, {}),
         exact: false,
       });
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.members(clubId) });
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
     },
   });
 }
