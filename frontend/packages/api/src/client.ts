@@ -12,6 +12,12 @@ import type {
   AdminRecertificationRound,
   AdminRecertificationRoundSearchParams,
   CreateRecertificationRoundPayload,
+  AdminRecertificationRequestSummary,
+  AdminRecertificationRequestDetail,
+  AdminRecertificationRequestSearchParams,
+  ProcessRecertificationPayload,
+  CentralClubRecertificationStatus,
+  CentralClubRecertificationStatusParams,
   AdminUserSearchParams,
   AdminUserSearchResult,
   AdminReportSearchParams,
@@ -228,6 +234,12 @@ export type DuingApiClient = {
       list(params: AdminRecertificationRoundSearchParams): Promise<PageResponse<AdminRecertificationRound>>;
       create(payload: CreateRecertificationRoundPayload): Promise<number>;
       close(roundId: number): Promise<void>;
+    };
+    recertificationRequests: {
+      list(params: AdminRecertificationRequestSearchParams): Promise<PageResponse<AdminRecertificationRequestSummary>>;
+      get(requestId: number): Promise<AdminRecertificationRequestDetail>;
+      process(requestId: number, payload: ProcessRecertificationPayload): Promise<void>;
+      centralClubStatus(params: CentralClubRecertificationStatusParams): Promise<PageResponse<CentralClubRecertificationStatus>>;
     };
   };
   raw: KyInstance;
@@ -503,6 +515,22 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonOk<number>(http.post('admin/recertification-rounds', { json: payload })),
         close: (roundId) =>
           jsonVoid(http.patch(`admin/recertification-rounds/${roundId}/close`, { json: {} })),
+      },
+      recertificationRequests: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminRecertificationRequestSummary>>(
+            http.get('admin/recertification-requests', { searchParams: cleanParams(params) }),
+          ),
+        get: (requestId) =>
+          jsonOk<AdminRecertificationRequestDetail>(
+            http.get(`admin/recertification-requests/${requestId}`),
+          ),
+        process: (requestId, payload) =>
+          jsonVoid(http.patch(`admin/recertification-requests/${requestId}`, { json: payload })),
+        centralClubStatus: (params) =>
+          jsonOk<PageResponse<CentralClubRecertificationStatus>>(
+            http.get('admin/clubs/recertification-status', { searchParams: cleanParams(params) }),
+          ),
       },
     },
     raw: http,

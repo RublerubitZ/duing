@@ -100,3 +100,9 @@ export {
   useCreateRecertificationRoundMutation,
   useCloseRecertificationRoundMutation,
 } from './recertificationRounds';
+export {
+  useAdminRecertificationRequestListQuery,
+  useAdminRecertificationRequestDetailQuery,
+  useProcessRecertificationMutation,
+  useCentralClubRecertificationStatusQuery,
+} from './recertificationRequests';
