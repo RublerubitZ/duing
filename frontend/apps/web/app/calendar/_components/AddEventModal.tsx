@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { SparkleFull } from '../../_components/Sparkle';
 
@@ -200,6 +200,17 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
   const [repeatFreq, setRepeatFreq] = useState<NewEventRepeat['freq']>('none');
   const [repeatCount, setRepeatCount] = useState<number>(1);
   const [touched, setTouched] = useState<boolean>(false);
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
+
+  const openDatePicker = () => {
+    const el = dateInputRef.current;
+    if (!el) return;
+    const maybeShow = (el as HTMLInputElement & { showPicker?: () => void }).showPicker;
+    if (typeof maybeShow === 'function') {
+      try { maybeShow.call(el); return; } catch { /* fall through to focus */ }
+    }
+    el.focus();
+  };
 
   useEffect(() => {
     if (open) {
@@ -289,6 +300,14 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
           border-color: var(--sage) !important;
           box-shadow: 0 0 0 3px rgba(157,182,160,0.18);
         }
+        .duing-modal input[type="date"]::-webkit-calendar-picker-indicator {
+          display: none;
+          -webkit-appearance: none;
+        }
+        .duing-modal input[type="date"]::-webkit-inner-spin-button,
+        .duing-modal input[type="date"]::-webkit-clear-button {
+          display: none;
+        }
       `}</style>
 
       <div
@@ -355,11 +374,22 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
               날짜 <span style={{ color: '#D97757' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
-              <CalendarIcon style={{
-                position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-                width: 16, height: 16, color: 'var(--charcoal-3)', pointerEvents: 'none',
-              }} />
+              <button
+                type="button"
+                onClick={openDatePicker}
+                aria-label="날짜 선택 열기"
+                style={{
+                  position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)',
+                  width: 28, height: 28, padding: 0,
+                  border: 'none', background: 'transparent',
+                  display: 'grid', placeItems: 'center',
+                  color: 'var(--charcoal-3)', cursor: 'pointer',
+                }}
+              >
+                <CalendarIcon style={{ width: 16, height: 16 }} />
+              </button>
               <input
+                ref={dateInputRef}
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
