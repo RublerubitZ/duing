@@ -3,6 +3,9 @@
 import { useState } from 'react';
 
 import { SparkleFull } from '../../_components/Sparkle';
+import { AddEventModal } from '../_components/AddEventModal';
+
+import type { NewEventCategory, NewEventInput } from '../_components/AddEventModal';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                                */
@@ -186,10 +189,71 @@ const Icon = {
 /* Component                                                            */
 /* ------------------------------------------------------------------ */
 
+const CATEGORY_TO_ACCENT: Record<NewEventCategory, { kind: EventKind; accent: AccentKey }> = {
+  meet:      { kind: 'meet',      accent: 'sage'  },
+  deadline:  { kind: 'deadline',  accent: 'coral' },
+  show:      { kind: 'show',      accent: 'berry' },
+  volunteer: { kind: 'volunteer', accent: 'sky'   },
+  notice:    { kind: 'notice',    accent: 'ink'   },
+  etc:       { kind: 'notice',    accent: 'ink'   },
+};
+
+const addDays = (iso: string, days: number): string => {
+  const [y, m, d] = iso.split('-').map(Number);
+  const base = new Date(y ?? 0, (m ?? 1) - 1, d ?? 1);
+  base.setDate(base.getDate() + days);
+  return fmt(base.getFullYear(), base.getMonth(), base.getDate());
+};
+
+const addMonths = (iso: string, months: number): string => {
+  const [y, m, d] = iso.split('-').map(Number);
+  const base = new Date(y ?? 0, (m ?? 1) - 1, d ?? 1);
+  base.setMonth(base.getMonth() + months);
+  return fmt(base.getFullYear(), base.getMonth(), base.getDate());
+};
+
+const expandRepeat = (input: NewEventInput): string[] => {
+  const { repeat, date } = input;
+  if (repeat.freq === 'none') return [date];
+  const dates: string[] = [];
+  for (let i = 0; i < repeat.count; i++) {
+    if (repeat.freq === 'weekly') dates.push(addDays(date, i * 7));
+    else dates.push(addMonths(date, i));
+  }
+  return dates;
+};
+
 export function CalendarPage() {
   const [activeKinds, setActiveKinds] = useState<Set<EventKind>>(new Set(KIND_ORDER));
   const [selectedDate, setSelectedDate] = useState<string>(TODAY);
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
+  const [addModalOpen, setAddModalOpen] = useState<boolean>(false);
+  const [userEvents, setUserEvents] = useState<CalEvent[]>([]);
+
+  const handleAddEvent = (input: NewEventInput) => {
+    const mapping = CATEGORY_TO_ACCENT[input.category];
+    const timeLabel = input.startTime
+      ? input.endTime && input.endTime !== input.startTime
+        ? `${input.startTime}–${input.endTime}`
+        : input.startTime
+      : '';
+    const dates = expandRepeat(input);
+    const baseId = `u${Date.now()}`;
+    const newEvents: CalEvent[] = dates.map((d, i) => ({
+      id: `${baseId}-${i}`,
+      date: d,
+      kind: mapping.kind,
+      title: input.title,
+      time: timeLabel,
+      place: input.place || '장소 미정',
+      club: null,
+      accent: mapping.accent,
+    }));
+    setUserEvents((prev) => [...prev, ...newEvents]);
+    setAddModalOpen(false);
+    setSelectedDate(dates[0] ?? input.date);
+    setDetailOpen(true);
+  };
 
   const toggleKind = (k: EventKind) => {
     setActiveKinds(prev => {
@@ -199,7 +263,8 @@ export function CalendarPage() {
     });
   };
 
-  const filteredEvents = CAL_EVENTS.filter(e => activeKinds.has(e.kind));
+  const allEvents = [...CAL_EVENTS, ...userEvents];
+  const filteredEvents = allEvents.filter(e => activeKinds.has(e.kind));
   const eventsByDate = filteredEvents.reduce<Record<string, CalEvent[]>>((acc, e) => {
     (acc[e.date] = acc[e.date] || []).push(e);
     return acc;
@@ -210,10 +275,10 @@ export function CalendarPage() {
   /* Stats */
   const inMonth = (iso: string) => iso.startsWith('2025-09');
   const stats = {
-    total:    CAL_EVENTS.filter(e => inMonth(e.date)).length,
-    deadline: CAL_EVENTS.filter(e => inMonth(e.date) && e.kind === 'deadline').length,
-    fair:     CAL_EVENTS.filter(e => inMonth(e.date) && e.kind === 'fair').length,
-    meet:     CAL_EVENTS.filter(e => inMonth(e.date) && e.kind === 'meet').length,
+    total:    allEvents.filter(e => inMonth(e.date)).length,
+    deadline: allEvents.filter(e => inMonth(e.date) && e.kind === 'deadline').length,
+    fair:     allEvents.filter(e => inMonth(e.date) && e.kind === 'fair').length,
+    meet:     allEvents.filter(e => inMonth(e.date) && e.kind === 'meet').length,
   };
 
   /* Day-detail events */
@@ -251,6 +316,22 @@ export function CalendarPage() {
               </p>
             </div>
 
+            <button
+              type="button"
+              onClick={() => setAddModalOpen(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '14px 22px', borderRadius: 999,
+                background: 'var(--ink)', border: 'none',
+                color: '#fff', fontFamily: 'inherit',
+                fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                boxShadow: '0 8px 20px rgba(31,74,54,0.18)',
+                flexShrink: 0,
+              }}
+            >
+              <Icon.plus style={{ width: 16, height: 16 }} />
+              내 일정 추가
+            </button>
           </div>
 
           {/* Stats row */}
@@ -305,14 +386,18 @@ export function CalendarPage() {
                 </button>
               );
             })}
-            <button style={{
-              marginLeft: 'auto',
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', borderRadius: 999,
-              background: 'transparent', border: '1px solid var(--gray-line)',
-              color: 'var(--charcoal-2)', fontFamily: 'inherit',
-              fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}>
+            <button
+              type="button"
+              onClick={() => setAddModalOpen(true)}
+              style={{
+                marginLeft: 'auto',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 999,
+                background: 'transparent', border: '1px solid var(--gray-line)',
+                color: 'var(--charcoal-2)', fontFamily: 'inherit',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
               <Icon.plus style={{ width: 14, height: 14 }} />
               내 일정 추가
             </button>
@@ -716,6 +801,13 @@ export function CalendarPage() {
           </div>
         </div>
       </section>
+
+      <AddEventModal
+        open={addModalOpen}
+        defaultDate={selectedDate || TODAY}
+        onClose={() => setAddModalOpen(false)}
+        onSubmit={handleAddEvent}
+      />
 
     </div>
   );
