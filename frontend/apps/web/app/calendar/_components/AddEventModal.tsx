@@ -237,7 +237,6 @@ function ChevronDown(props: React.SVGProps<SVGSVGElement>) {
 }
 
 type TimeFieldProps = {
-  label: string;
   popoverTitle: string;
   value: string;
   open: boolean;
@@ -246,7 +245,7 @@ type TimeFieldProps = {
   onChange: (next: string) => void;
 };
 
-function TimeField({ label, popoverTitle, value, open, onOpen, onClose, onChange }: TimeFieldProps) {
+function TimeField({ popoverTitle, value, open, onOpen, onClose, onChange }: TimeFieldProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [rawHH, rawMM] = value.split(':');
   const hh = clampInt(Number(rawHH ?? '0'), 23);
@@ -293,14 +292,12 @@ function TimeField({ label, popoverTitle, value, open, onOpen, onClose, onChange
         zIndex: open ? 60 : 'auto',
       }}
     >
-      <div style={{ fontSize: 11, color: 'var(--charcoal-3)', fontWeight: 600, marginBottom: 6 }}>
-        {label}
-      </div>
       <button
         type="button"
         onClick={() => (open ? onClose() : onOpen())}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-label={popoverTitle}
         style={{
           width: '100%',
           height: 44,
@@ -651,9 +648,8 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
           </div>
           <div>
             <label style={labelStyle}>시간</label>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <TimeField
-                label="시작 시간"
                 popoverTitle="시작 시간 선택"
                 value={startTime}
                 open={openPicker === 'start'}
@@ -661,9 +657,8 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
                 onClose={() => setOpenPicker((p) => (p === 'start' ? null : p))}
                 onChange={setStartTime}
               />
-              <span style={{ color: 'var(--charcoal-3)', fontWeight: 600, paddingBottom: 12 }}>~</span>
+              <span style={{ color: 'var(--charcoal-3)', fontWeight: 600 }}>~</span>
               <TimeField
-                label="종료 시간"
                 popoverTitle="종료 시간 선택"
                 value={endTime}
                 open={openPicker === 'end'}
@@ -671,7 +666,7 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
                 onClose={() => setOpenPicker((p) => (p === 'end' ? null : p))}
                 onChange={setEndTime}
               />
-              <ClockIcon style={{ width: 16, height: 16, color: 'var(--charcoal-3)', flexShrink: 0, marginBottom: 14 }} />
+              <ClockIcon style={{ width: 16, height: 16, color: 'var(--charcoal-3)', flexShrink: 0 }} />
             </div>
           </div>
         </div>
