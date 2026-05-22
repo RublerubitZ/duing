@@ -88,3 +88,10 @@ export {
   useAdminReportDetailQuery,
   useProcessReportMutation,
 } from './reports';
+export {
+  useAdminSuccessionListQuery,
+  useAdminSuccessionDetailQuery,
+  useProcessSuccessionMutation,
+  useAssignAdminLeaderMutation,
+  useAdminClubMemberHistoryQuery,
+} from './leaderSuccession';

@@ -1,4 +1,5 @@
 import type { ClubCategory, ClubStatus } from './club';
+import type { ClubMemberRole } from './clubmember';
 import type { UserRole } from './user';
 
 /**
@@ -92,4 +93,75 @@ export type AdminReportSearchParams = {
 export type ProcessReportPayload = {
   status: Exclude<ReportStatus, 'PENDING'>;
   actionNote?: string;
+};
+
+// ─── 회장 승계 ───────────────────────────────────────────────────────────────
+
+export type SuccessionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export type ClubMemberEventType =
+  | 'ROLE_CHANGED'
+  | 'LEADER_TRANSFERRED'
+  | 'LEFT'
+  | 'REMOVED'
+  | 'ADMIN_LEADER_ASSIGNED'
+  | 'SUCCESSION_APPROVED';
+
+export type AdminSuccessionUserRef = { id: number; name: string };
+
+export type AdminSuccessionSummary = {
+  id: number;
+  clubId: number;
+  clubName: string;
+  requester: AdminSuccessionUserRef;
+  status: SuccessionStatus;
+  createdAt: string;
+};
+
+export type AdminSuccessionDetail = {
+  id: number;
+  club: { id: number; name: string };
+  requester: AdminSuccessionUserRef | null;
+  currentLeader: AdminSuccessionUserRef | null;
+  reason: string;
+  status: SuccessionStatus;
+  actionNote: string | null;
+  handledBy: AdminSuccessionUserRef | null;
+  handledAt: string | null;
+  createdAt: string;
+};
+
+export type AdminSuccessionSearchParams = {
+  status?: SuccessionStatus;
+  clubId?: number;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type ProcessSuccessionPayload = {
+  status: Exclude<SuccessionStatus, 'PENDING'>;
+  actionNote?: string;
+};
+
+export type AssignAdminLeaderPayload = {
+  newLeaderUserId: number;
+  reason: string;
+};
+
+export type AdminClubMemberHistoryRow = {
+  id: number;
+  eventType: ClubMemberEventType;
+  target: { id: number; name: string };
+  actor: { id: number; name: string };
+  fromRole: ClubMemberRole | null;
+  toRole: ClubMemberRole | null;
+  reason: string | null;
+  createdAt: string;
+};
+
+export type AdminClubMemberHistoryParams = {
+  page?: number;
+  size?: number;
+  sort?: string;
 };
