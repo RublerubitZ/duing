@@ -4,6 +4,7 @@ import com.duing.domain.report.entity.Report;
 import com.duing.domain.report.entity.ReportReasonCode;
 import com.duing.domain.report.entity.ReportStatus;
 import com.duing.domain.report.entity.ReportTargetType;
+import com.duing.domain.report.service.dto.query.ReportAdminSummaryQuery;
 import java.time.LocalDateTime;
 
 public record ReportSummaryResponse(
@@ -21,5 +22,9 @@ public record ReportSummaryResponse(
                 targetLabel, report.getReasonCode(), report.getStatus(),
                 report.getCreatedAt()
         );
+    }
+
+    public static ReportSummaryResponse from(ReportAdminSummaryQuery query) {
+        return of(query.report(), query.targetLabel());
     }
 }
