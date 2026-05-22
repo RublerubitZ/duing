@@ -114,105 +114,167 @@ function clampInt(v: number, max: number): number {
   return Math.floor(v);
 }
 
+const WHEEL_ITEM_HEIGHT = 32;
+const WHEEL_VISIBLE = 5;
+const WHEEL_PAD_COUNT = Math.floor(WHEEL_VISIBLE / 2);
+
+type WheelColumnProps = {
+  values: number[];
+  value: number;
+  ariaLabel: string;
+  onChange: (next: number) => void;
+};
+
+function WheelColumn({ values, value, ariaLabel, onChange }: WheelColumnProps) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const lockRef = useRef<boolean>(false);
+  const snapTimerRef = useRef<number | null>(null);
+  const lockTimerRef = useRef<number | null>(null);
+  const [activeIdx, setActiveIdx] = useState<number>(value);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const target = value * WHEEL_ITEM_HEIGHT;
+    if (Math.abs(el.scrollTop - target) > 1) {
+      lockRef.current = true;
+      if (lockTimerRef.current) window.clearTimeout(lockTimerRef.current);
+      // jump instantly so smooth scroll doesn't fire intermediate onChange
+      el.scrollTo({ top: target, behavior: 'instant' as ScrollBehavior });
+      lockTimerRef.current = window.setTimeout(() => { lockRef.current = false; }, 80);
+    }
+    setActiveIdx(value);
+  }, [value]);
+
+  const handleScroll = () => {
+    const el = ref.current;
+    if (!el) return;
+    const idx = Math.max(0, Math.min(values.length - 1, Math.round(el.scrollTop / WHEEL_ITEM_HEIGHT)));
+    setActiveIdx(idx);
+
+    if (lockRef.current) return;
+    if (snapTimerRef.current) window.clearTimeout(snapTimerRef.current);
+    snapTimerRef.current = window.setTimeout(() => {
+      const el2 = ref.current;
+      if (!el2) return;
+      const finalIdx = Math.max(0, Math.min(values.length - 1, Math.round(el2.scrollTop / WHEEL_ITEM_HEIGHT)));
+      if (finalIdx !== value) onChange(finalIdx);
+    }, 140);
+  };
+
+  const goTo = (idx: number) => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollTo({ top: idx * WHEEL_ITEM_HEIGHT, behavior: 'smooth' });
+  };
+
+  return (
+    <div
+      ref={ref}
+      role="listbox"
+      aria-label={ariaLabel}
+      tabIndex={0}
+      onScroll={handleScroll}
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowUp')   { e.preventDefault(); goTo(Math.max(0, value - 1)); }
+        if (e.key === 'ArrowDown') { e.preventDefault(); goTo(Math.min(values.length - 1, value + 1)); }
+      }}
+      className="duing-wheel-col"
+      style={{
+        width: 44,
+        height: WHEEL_VISIBLE * WHEEL_ITEM_HEIGHT,
+        overflowY: 'scroll',
+        scrollSnapType: 'y mandatory',
+        overscrollBehavior: 'contain',
+        outline: 'none',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, #000 28%, #000 72%, transparent 100%)',
+        maskImage: 'linear-gradient(to bottom, transparent 0, #000 28%, #000 72%, transparent 100%)',
+      }}
+    >
+      <div style={{ height: WHEEL_PAD_COUNT * WHEEL_ITEM_HEIGHT }} aria-hidden="true" />
+      {values.map((v, i) => {
+        const dist = Math.abs(i - activeIdx);
+        const opacity = dist === 0 ? 1 : dist === 1 ? 0.55 : dist === 2 ? 0.28 : 0.15;
+        const scale = dist === 0 ? 1 : 0.92;
+        return (
+          <div
+            key={v}
+            role="option"
+            aria-selected={dist === 0}
+            onClick={() => goTo(i)}
+            style={{
+              height: WHEEL_ITEM_HEIGHT,
+              scrollSnapAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: 'inherit',
+              fontSize: dist === 0 ? 18 : 15,
+              fontWeight: dist === 0 ? 700 : 500,
+              color: dist === 0 ? 'var(--ink-deep)' : 'var(--charcoal-2)',
+              opacity,
+              transform: `scale(${scale})`,
+              transition: 'opacity .18s ease, transform .18s ease, font-size .18s ease',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            {String(v).padStart(2, '0')}
+          </div>
+        );
+      })}
+      <div style={{ height: WHEEL_PAD_COUNT * WHEEL_ITEM_HEIGHT }} aria-hidden="true" />
+    </div>
+  );
+}
+
 function TimeInput({ value, onChange }: TimeInputProps) {
   const [rawHH, rawMM] = value.split(':');
-  const hh = rawHH ?? '00';
-  const mm = rawMM ?? '00';
+  const hh = clampInt(Number(rawHH ?? '0'), 23);
+  const mm = clampInt(Number(rawMM ?? '0'), 59);
 
-  const valueRef = useRef(value);
-  valueRef.current = value;
-
-  const commit = (nextHH: string, nextMM: string) => {
-    const h = String(clampInt(Number(nextHH), 23)).padStart(2, '0');
-    const m = String(clampInt(Number(nextMM), 59)).padStart(2, '0');
-    onChange(`${h}:${m}`);
+  const setHour = (h: number) => {
+    onChange(`${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
+  };
+  const setMinute = (m: number) => {
+    onChange(`${String(hh).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
   };
 
-  const wrap = (n: number, max: number) => ((n % max) + max) % max;
-
-  const adjust = (kind: 'h' | 'm', dir: 1 | -1) => {
-    const [curHRaw, curMRaw] = valueRef.current.split(':');
-    const curH = Number(curHRaw ?? '0');
-    const curM = Number(curMRaw ?? '0');
-    if (kind === 'h') {
-      const next = wrap(curH + dir, 24);
-      const out = `${String(next).padStart(2, '0')}:${String(curM).padStart(2, '0')}`;
-      valueRef.current = out;
-      onChange(out);
-    } else {
-      const next = wrap(curM + dir, 60);
-      const out = `${String(curH).padStart(2, '0')}:${String(next).padStart(2, '0')}`;
-      valueRef.current = out;
-      onChange(out);
-    }
-  };
-
-  const handleWheel = (kind: 'h' | 'm') => (e: React.WheelEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    adjust(kind, e.deltaY < 0 ? 1 : -1);
-  };
-
-  const handleKeyDown = (kind: 'h' | 'm') => (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowUp')   { e.preventDefault(); adjust(kind, 1);  }
-    if (e.key === 'ArrowDown') { e.preventDefault(); adjust(kind, -1); }
-  };
-
-  const partStyle: React.CSSProperties = {
-    width: 28,
-    border: 'none',
-    background: 'transparent',
-    color: 'var(--ink-deep)',
-    fontFamily: 'inherit',
-    fontSize: 14,
-    fontWeight: 600,
-    textAlign: 'center',
-    outline: 'none',
-    padding: 0,
-    MozAppearance: 'textfield',
-  };
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
 
   return (
     <div
       style={{
         flex: 1,
-        height: 44,
-        padding: '0 12px',
-        borderRadius: 10,
+        height: WHEEL_VISIBLE * WHEEL_ITEM_HEIGHT,
+        padding: '0 6px',
+        borderRadius: 12,
         border: '1px solid var(--gray-line)',
         background: 'var(--paper)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 2,
+        gap: 0,
+        position: 'relative',
       }}
     >
-      <input
-        type="text"
-        inputMode="numeric"
-        maxLength={2}
-        value={hh}
-        onChange={(e) => commit(e.target.value.replace(/\D/g, '').slice(0, 2), mm)}
-        onFocus={(e) => e.target.select()}
-        onWheel={handleWheel('h')}
-        onKeyDown={handleKeyDown('h')}
-        aria-label="시"
-        title="스크롤 또는 ↑↓ 키로 조정"
-        style={partStyle}
+      {/* Center selection highlight */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          left: 6, right: 6,
+          top: '50%', transform: 'translateY(-50%)',
+          height: WHEEL_ITEM_HEIGHT,
+          borderRadius: 8,
+          background: 'var(--sage-tint)',
+          pointerEvents: 'none',
+        }}
       />
-      <span style={{ color: 'var(--charcoal-3)', fontWeight: 700 }}>:</span>
-      <input
-        type="text"
-        inputMode="numeric"
-        maxLength={2}
-        value={mm}
-        onChange={(e) => commit(hh, e.target.value.replace(/\D/g, '').slice(0, 2))}
-        onFocus={(e) => e.target.select()}
-        onWheel={handleWheel('m')}
-        onKeyDown={handleKeyDown('m')}
-        aria-label="분"
-        title="스크롤 또는 ↑↓ 키로 조정"
-        style={partStyle}
-      />
+      <WheelColumn values={hours}   value={hh} ariaLabel="시" onChange={setHour}   />
+      <span style={{ color: 'var(--charcoal-3)', fontWeight: 700, position: 'relative', zIndex: 1 }}>:</span>
+      <WheelColumn values={minutes} value={mm} ariaLabel="분" onChange={setMinute} />
     </div>
   );
 }
@@ -345,6 +407,17 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
         .duing-modal input[type="date"]::-webkit-inner-spin-button,
         .duing-modal input[type="date"]::-webkit-clear-button {
           display: none;
+        }
+        .duing-wheel-col {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .duing-wheel-col::-webkit-scrollbar {
+          display: none;
+        }
+        .duing-wheel-col:focus-visible {
+          box-shadow: inset 0 0 0 2px rgba(157,182,160,0.45);
+          border-radius: 8px;
         }
       `}</style>
 
