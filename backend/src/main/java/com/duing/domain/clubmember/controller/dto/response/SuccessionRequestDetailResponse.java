@@ -2,6 +2,7 @@ package com.duing.domain.clubmember.controller.dto.response;
 
 import com.duing.domain.clubmember.entity.LeaderSuccessionRequest;
 import com.duing.domain.clubmember.entity.SuccessionStatus;
+import com.duing.domain.clubmember.service.dto.query.SuccessionRequestAdminDetailQuery;
 import java.time.LocalDateTime;
 
 public record SuccessionRequestDetailResponse(
@@ -27,6 +28,21 @@ public record SuccessionRequestDetailResponse(
                 request.getId(), club, requester, currentLeader,
                 request.getReason(), request.getStatus(), request.getActionNote(),
                 handler, request.getHandledAt(), request.getCreatedAt()
+        );
+    }
+
+    public static SuccessionRequestDetailResponse from(SuccessionRequestAdminDetailQuery query) {
+        ClubRef clubRef = new ClubRef(query.club().id(), query.club().name());
+        UserRef requesterRef = query.requester() == null ? null
+                : new UserRef(query.requester().id(), query.requester().name());
+        UserRef currentLeaderRef = query.currentLeader() == null ? null
+                : new UserRef(query.currentLeader().id(), query.currentLeader().name());
+        UserRef handledByRef = query.handledBy() == null ? null
+                : new UserRef(query.handledBy().id(), query.handledBy().name());
+        return new SuccessionRequestDetailResponse(
+                query.id(), clubRef, requesterRef, currentLeaderRef,
+                query.reason(), query.status(), query.actionNote(),
+                handledByRef, query.handledAt(), query.createdAt()
         );
     }
 }
