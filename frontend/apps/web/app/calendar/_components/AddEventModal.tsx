@@ -115,7 +115,7 @@ function clampInt(v: number, max: number): number {
   return Math.floor(v);
 }
 
-const WHEEL_ITEM_HEIGHT = 40;
+const WHEEL_ITEM_HEIGHT = 34;
 const WHEEL_VISIBLE = 5;
 const WHEEL_PAD_COUNT = Math.floor(WHEEL_VISIBLE / 2);
 
@@ -182,7 +182,7 @@ function WheelColumn({ values, value, ariaLabel, onChange }: WheelColumnProps) {
       }}
       className="duing-wheel-col"
       style={{
-        width: 70,
+        width: 84,
         height: WHEEL_VISIBLE * WHEEL_ITEM_HEIGHT,
         overflowY: 'scroll',
         scrollSnapType: 'y mandatory',
@@ -246,7 +246,7 @@ type TimeFieldProps = {
   onChange: (next: string) => void;
 };
 
-const POPOVER_WIDTH = 280;
+const POPOVER_WIDTH = 300;
 const POPOVER_MARGIN = 12;
 
 type PopoverPosition = {
@@ -377,7 +377,7 @@ function TimeField({ popoverTitle, value, open, onOpen, onClose, onChange }: Tim
             left: position.left,
             zIndex: 200,
             width: POPOVER_WIDTH,
-            padding: '18px 20px 22px',
+            padding: '16px 22px 18px',
             borderRadius: 18,
             background: '#fff',
             border: '1px solid var(--gray-line)',
