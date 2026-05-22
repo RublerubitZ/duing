@@ -2,6 +2,13 @@ import ky, { type KyInstance, type ResponsePromise, HTTPError } from 'ky';
 import type {
   AdminClubSearchParams,
   AdminClubSummary,
+  AdminClubMemberHistoryParams,
+  AdminClubMemberHistoryRow,
+  AdminSuccessionDetail,
+  AdminSuccessionSearchParams,
+  AdminSuccessionSummary,
+  AssignAdminLeaderPayload,
+  ProcessSuccessionPayload,
   AdminUserSearchParams,
   AdminUserSearchResult,
   AdminReportSearchParams,
@@ -206,6 +213,13 @@ export type DuingApiClient = {
       list(params: AdminReportSearchParams): Promise<PageResponse<AdminReportSummary>>;
       get(reportId: number): Promise<AdminReportDetail>;
       process(reportId: number, payload: ProcessReportPayload): Promise<void>;
+    };
+    leaderSuccession: {
+      list(params: AdminSuccessionSearchParams): Promise<PageResponse<AdminSuccessionSummary>>;
+      get(requestId: number): Promise<AdminSuccessionDetail>;
+      process(requestId: number, payload: ProcessSuccessionPayload): Promise<void>;
+      assignLeader(clubId: number, payload: AssignAdminLeaderPayload): Promise<void>;
+      memberHistory(clubId: number, params: AdminClubMemberHistoryParams): Promise<PageResponse<AdminClubMemberHistoryRow>>;
     };
   };
   raw: KyInstance;
@@ -455,6 +469,22 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonOk<AdminReportDetail>(http.get(`admin/reports/${reportId}`)),
         process: (reportId, payload) =>
           jsonVoid(http.patch(`admin/reports/${reportId}`, { json: payload })),
+      },
+      leaderSuccession: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminSuccessionSummary>>(
+            http.get('admin/leader-succession-requests', { searchParams: cleanParams(params) }),
+          ),
+        get: (requestId) =>
+          jsonOk<AdminSuccessionDetail>(http.get(`admin/leader-succession-requests/${requestId}`)),
+        process: (requestId, payload) =>
+          jsonVoid(http.patch(`admin/leader-succession-requests/${requestId}`, { json: payload })),
+        assignLeader: (clubId, payload) =>
+          jsonVoid(http.post(`admin/clubs/${clubId}/leader`, { json: payload })),
+        memberHistory: (clubId, params) =>
+          jsonOk<PageResponse<AdminClubMemberHistoryRow>>(
+            http.get(`admin/clubs/${clubId}/member-history`, { searchParams: cleanParams(params) }),
+          ),
       },
     },
     raw: http,
