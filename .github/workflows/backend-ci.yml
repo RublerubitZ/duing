@@ -20,6 +20,9 @@ jobs:
     name: Build (Gradle)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # 로컬(KST) 과 CI(UTC) 의 시간 경계·윈도 차이로 알림/리마인더 잡 테스트가 깨지지 않게 KST 로 고정한다.
+      TZ: Asia/Seoul
     defaults:
       run:
         working-directory: backend
@@ -43,13 +46,18 @@ jobs:
       - name: Compile main + test sources
         run: ./gradlew compileJava compileTestJava --no-daemon
 
-      - name: Build (skip tests — TestContainers requires Docker, enable once integration tests are wired)
+      - name: Test (TestContainers — ubuntu-latest 내장 Docker 데몬 사용)
+        run: ./gradlew test --no-daemon
+
+      - name: Build (test 결과 재사용)
         run: ./gradlew build -x test --no-daemon
 
-      - name: Upload build reports on failure
+      - name: Upload test + build reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: backend-build-reports
-          path: backend/build/reports/
+          path: |
+            backend/build/reports/
+            backend/build/test-results/
           retention-days: 7
