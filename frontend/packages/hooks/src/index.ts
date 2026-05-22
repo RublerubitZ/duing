@@ -95,3 +95,8 @@ export {
   useAssignAdminLeaderMutation,
   useAdminClubMemberHistoryQuery,
 } from './leaderSuccession';
+export {
+  useAdminRecertificationRoundListQuery,
+  useCreateRecertificationRoundMutation,
+  useCloseRecertificationRoundMutation,
+} from './recertificationRounds';

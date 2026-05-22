@@ -165,3 +165,32 @@ export type AdminClubMemberHistoryParams = {
   size?: number;
   sort?: string;
 };
+
+// ─── 재인증 라운드 ──────────────────────────────────────────────────────────────
+
+export type RoundStatus = 'OPEN' | 'CLOSED';
+
+export type AdminRecertificationRoundUserRef = { id: number; name: string };
+
+export type AdminRecertificationRound = {
+  id: number;
+  year: number;
+  label: string;
+  status: RoundStatus;
+  openedBy: AdminRecertificationRoundUserRef;
+  openedAt: string;
+  closedBy: AdminRecertificationRoundUserRef | null;
+  closedAt: string | null;
+};
+
+export type AdminRecertificationRoundSearchParams = {
+  status?: RoundStatus;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type CreateRecertificationRoundPayload = {
+  year: number;
+  label: string;
+};

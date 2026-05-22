@@ -9,6 +9,9 @@ import type {
   AdminSuccessionSummary,
   AssignAdminLeaderPayload,
   ProcessSuccessionPayload,
+  AdminRecertificationRound,
+  AdminRecertificationRoundSearchParams,
+  CreateRecertificationRoundPayload,
   AdminUserSearchParams,
   AdminUserSearchResult,
   AdminReportSearchParams,
@@ -220,6 +223,11 @@ export type DuingApiClient = {
       process(requestId: number, payload: ProcessSuccessionPayload): Promise<void>;
       assignLeader(clubId: number, payload: AssignAdminLeaderPayload): Promise<void>;
       memberHistory(clubId: number, params: AdminClubMemberHistoryParams): Promise<PageResponse<AdminClubMemberHistoryRow>>;
+    };
+    recertificationRounds: {
+      list(params: AdminRecertificationRoundSearchParams): Promise<PageResponse<AdminRecertificationRound>>;
+      create(payload: CreateRecertificationRoundPayload): Promise<number>;
+      close(roundId: number): Promise<void>;
     };
   };
   raw: KyInstance;
@@ -485,6 +493,16 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonOk<PageResponse<AdminClubMemberHistoryRow>>(
             http.get(`admin/clubs/${clubId}/member-history`, { searchParams: cleanParams(params) }),
           ),
+      },
+      recertificationRounds: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminRecertificationRound>>(
+            http.get('admin/recertification-rounds', { searchParams: cleanParams(params) }),
+          ),
+        create: (payload) =>
+          jsonOk<number>(http.post('admin/recertification-rounds', { json: payload })),
+        close: (roundId) =>
+          jsonVoid(http.patch(`admin/recertification-rounds/${roundId}/close`, { json: {} })),
       },
     },
     raw: http,
