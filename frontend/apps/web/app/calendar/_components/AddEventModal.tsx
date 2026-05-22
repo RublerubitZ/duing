@@ -115,7 +115,7 @@ function clampInt(v: number, max: number): number {
   return Math.floor(v);
 }
 
-const WHEEL_ITEM_HEIGHT = 32;
+const WHEEL_ITEM_HEIGHT = 40;
 const WHEEL_VISIBLE = 5;
 const WHEEL_PAD_COUNT = Math.floor(WHEEL_VISIBLE / 2);
 
@@ -182,7 +182,7 @@ function WheelColumn({ values, value, ariaLabel, onChange }: WheelColumnProps) {
       }}
       className="duing-wheel-col"
       style={{
-        width: 44,
+        width: 70,
         height: WHEEL_VISIBLE * WHEEL_ITEM_HEIGHT,
         overflowY: 'scroll',
         scrollSnapType: 'y mandatory',
@@ -210,7 +210,7 @@ function WheelColumn({ values, value, ariaLabel, onChange }: WheelColumnProps) {
               alignItems: 'center',
               justifyContent: 'center',
               fontFamily: 'inherit',
-              fontSize: dist === 0 ? 18 : 15,
+              fontSize: dist === 0 ? 22 : 17,
               fontWeight: dist === 0 ? 700 : 500,
               color: dist === 0 ? 'var(--ink-deep)' : 'var(--charcoal-2)',
               opacity,
@@ -246,7 +246,7 @@ type TimeFieldProps = {
   onChange: (next: string) => void;
 };
 
-const POPOVER_WIDTH = 220;
+const POPOVER_WIDTH = 280;
 const POPOVER_MARGIN = 12;
 
 type PopoverPosition = {
@@ -377,9 +377,9 @@ function TimeField({ popoverTitle, value, open, onOpen, onClose, onChange }: Tim
             left: position.left,
             zIndex: 200,
             width: POPOVER_WIDTH,
-            padding: '14px 16px 16px',
-            borderRadius: 16,
-            background: 'var(--paper)',
+            padding: '18px 20px 22px',
+            borderRadius: 18,
+            background: '#fff',
             border: '1px solid var(--gray-line)',
             boxShadow: '0 18px 40px rgba(31,74,54,0.18)',
             animation: 'duing-pop-in .18s cubic-bezier(.22,.61,.36,1)',
@@ -390,20 +390,20 @@ function TimeField({ popoverTitle, value, open, onOpen, onClose, onChange }: Tim
             position: 'absolute',
             top: -6, left: position.arrowLeft, transform: 'translateX(-50%) rotate(45deg)',
             width: 12, height: 12,
-            background: 'var(--paper)',
+            background: '#fff',
             borderLeft: '1px solid var(--gray-line)',
             borderTop: '1px solid var(--gray-line)',
           }} />
           <div style={{
-            textAlign: 'center', fontSize: 12, fontWeight: 700,
-            color: 'var(--charcoal-2)', marginBottom: 10,
+            textAlign: 'center', fontSize: 13, fontWeight: 700,
+            color: 'var(--charcoal-2)', marginBottom: 14,
           }}>
             {popoverTitle}
           </div>
           <div style={{
             position: 'relative',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 4,
+            gap: 8,
             height: WHEEL_VISIBLE * WHEEL_ITEM_HEIGHT,
           }}>
             <div aria-hidden="true" style={{
