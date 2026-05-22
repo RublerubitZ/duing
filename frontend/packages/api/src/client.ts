@@ -24,6 +24,10 @@ import type {
   AdminReportSummary,
   AdminReportDetail,
   ProcessReportPayload,
+  AdminPromotionRequestSummary,
+  AdminPromotionRequestDetail,
+  AdminPromotionRequestSearchParams,
+  ProcessPromotionRequestPayload,
   ApiResponse,
   PageResponse,
   ClubDetail,
@@ -240,6 +244,11 @@ export type DuingApiClient = {
       get(requestId: number): Promise<AdminRecertificationRequestDetail>;
       process(requestId: number, payload: ProcessRecertificationPayload): Promise<void>;
       centralClubStatus(params: CentralClubRecertificationStatusParams): Promise<PageResponse<CentralClubRecertificationStatus>>;
+    };
+    promotionRequests: {
+      list(params: AdminPromotionRequestSearchParams): Promise<PageResponse<AdminPromotionRequestSummary>>;
+      get(requestId: number): Promise<AdminPromotionRequestDetail>;
+      process(requestId: number, payload: ProcessPromotionRequestPayload): Promise<void>;
     };
   };
   raw: KyInstance;
@@ -531,6 +540,18 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonOk<PageResponse<CentralClubRecertificationStatus>>(
             http.get('admin/clubs/recertification-status', { searchParams: cleanParams(params) }),
           ),
+      },
+      promotionRequests: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminPromotionRequestSummary>>(
+            http.get('admin/promotion-requests', { searchParams: cleanParams(params) }),
+          ),
+        get: (requestId) =>
+          jsonOk<AdminPromotionRequestDetail>(
+            http.get(`admin/promotion-requests/${requestId}`),
+          ),
+        process: (requestId, payload) =>
+          jsonVoid(http.patch(`admin/promotion-requests/${requestId}`, { json: payload })),
       },
     },
     raw: http,

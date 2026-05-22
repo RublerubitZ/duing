@@ -257,3 +257,46 @@ export type CentralClubRecertificationStatusParams = {
   size?: number;
   sort?: string;
 };
+
+// ─── 홍보 요청 ──────────────────────────────────────────────────────────────
+
+export type PromotionRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
+
+export type AdminPromotionRequestUserRef = { id: number; name: string };
+
+export type AdminPromotionRequestSummary = {
+  id: number;
+  club: { id: number; name: string };
+  requester: AdminPromotionRequestUserRef;
+  title: string;
+  status: PromotionRequestStatus;
+  createdAt: string;
+};
+
+export type AdminPromotionRequestDetail = {
+  id: number;
+  club: { id: number; name: string };
+  requester: AdminPromotionRequestUserRef;
+  title: string;
+  description: string;
+  suggestedBannerImageUrl: string | null;
+  suggestedLinkUrl: string | null;
+  status: PromotionRequestStatus;
+  actionNote: string | null;
+  handledBy: AdminPromotionRequestUserRef | null;
+  handledAt: string | null;
+  createdAt: string;
+};
+
+export type AdminPromotionRequestSearchParams = {
+  status?: PromotionRequestStatus;
+  clubId?: number;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type ProcessPromotionRequestPayload = {
+  status: Exclude<PromotionRequestStatus, 'PENDING'>;
+  actionNote?: string;
+};
