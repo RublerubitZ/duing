@@ -42,6 +42,26 @@ body {
     -webkit-font-smoothing: antialiased;
     letter-spacing: -0.005em;
     line-height: 1.5;
+
+    /* CSS 변수 — inline style에서 var(--xxx) 형태로 사용 */
+    --paper:      #FFFFFF;
+    --cream:      #F6F3EC;
+    --cream-2:    #EFEBE0;
+    --ink:        #1F4A36;
+    --ink-deep:   #143025;
+    --ink-soft:   #2E6149;
+    --sage:       #9DB6A0;
+    --sage-soft:  #C9D8CC;
+    --sage-mist:  #E8EEE8;
+    --sage-tint:  #F1F5F1;
+    --charcoal:   #2F3433;
+    --charcoal-2: #4A504F;
+    --charcoal-3: #6F7574;
+    --gray-line:  #E5E2DA;
+    --gray-soft:  #F0EDE5;
+    --font-display: 'GmarketSans', Pretendard, system-ui, sans-serif;
+    --font-body:    Pretendard, system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', ui-monospace, Menlo, monospace;
   }
   .duing h1,
   .duing h2,
