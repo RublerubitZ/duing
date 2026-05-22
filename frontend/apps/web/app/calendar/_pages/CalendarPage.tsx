@@ -316,22 +316,6 @@ export function CalendarPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setAddModalOpen(true)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '14px 22px', borderRadius: 999,
-                background: 'var(--ink)', border: 'none',
-                color: '#fff', fontFamily: 'inherit',
-                fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                boxShadow: '0 8px 20px rgba(31,74,54,0.18)',
-                flexShrink: 0,
-              }}
-            >
-              <Icon.plus style={{ width: 16, height: 16 }} />
-              내 일정 추가
-            </button>
           </div>
 
           {/* Stats row */}
@@ -386,6 +370,23 @@ export function CalendarPage() {
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => setAddModalOpen(true)}
+              style={{
+                marginLeft: 'auto',
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '10px 18px', borderRadius: 999,
+                background: 'var(--ink)', border: 'none',
+                color: '#fff', fontFamily: 'inherit',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                boxShadow: '0 6px 16px rgba(31,74,54,0.18)',
+                flexShrink: 0,
+              }}
+            >
+              <Icon.plus style={{ width: 14, height: 14 }} />
+              내 일정 추가
+            </button>
           </div>
         </div>
       </section>
