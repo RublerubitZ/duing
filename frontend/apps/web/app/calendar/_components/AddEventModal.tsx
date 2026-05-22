@@ -228,10 +228,50 @@ function WheelColumn({ values, value, ariaLabel, onChange }: WheelColumnProps) {
   );
 }
 
-function TimeInput({ value, onChange }: TimeInputProps) {
+function ChevronDown(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+type TimeFieldProps = {
+  label: string;
+  popoverTitle: string;
+  value: string;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onChange: (next: string) => void;
+};
+
+function TimeField({ label, popoverTitle, value, open, onOpen, onClose, onChange }: TimeFieldProps) {
+  const wrapRef = useRef<HTMLDivElement | null>(null);
   const [rawHH, rawMM] = value.split(':');
   const hh = clampInt(Number(rawHH ?? '0'), 23);
   const mm = clampInt(Number(rawMM ?? '0'), 59);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    // defer so the opening click itself doesn't immediately close
+    const t = window.setTimeout(() => {
+      document.addEventListener('mousedown', onDocClick);
+    }, 0);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener('mousedown', onDocClick);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open, onClose]);
 
   const setHour = (h: number) => {
     onChange(`${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
@@ -244,37 +284,98 @@ function TimeInput({ value, onChange }: TimeInputProps) {
   const minutes = Array.from({ length: 60 }, (_, i) => i);
 
   return (
-    <div
-      style={{
-        flex: 1,
-        height: WHEEL_VISIBLE * WHEEL_ITEM_HEIGHT,
-        padding: '0 6px',
-        borderRadius: 12,
-        border: '1px solid var(--gray-line)',
-        background: 'var(--paper)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 0,
-        position: 'relative',
-      }}
-    >
-      {/* Center selection highlight */}
-      <div
-        aria-hidden="true"
+    <div ref={wrapRef} style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+      <div style={{ fontSize: 11, color: 'var(--charcoal-3)', fontWeight: 600, marginBottom: 6 }}>
+        {label}
+      </div>
+      <button
+        type="button"
+        onClick={() => (open ? onClose() : onOpen())}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         style={{
-          position: 'absolute',
-          left: 6, right: 6,
-          top: '50%', transform: 'translateY(-50%)',
-          height: WHEEL_ITEM_HEIGHT,
-          borderRadius: 8,
-          background: 'var(--sage-tint)',
-          pointerEvents: 'none',
+          width: '100%',
+          height: 44,
+          padding: '0 12px',
+          borderRadius: 10,
+          border: `1px solid ${open ? 'var(--sage)' : 'var(--gray-line)'}`,
+          background: 'var(--paper)',
+          color: 'var(--ink-deep)',
+          fontFamily: 'inherit',
+          fontSize: 14,
+          fontWeight: 600,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+          boxShadow: open ? '0 0 0 3px rgba(157,182,160,0.18)' : 'none',
+          transition: 'border-color .12s ease, box-shadow .12s ease',
         }}
-      />
-      <WheelColumn values={hours}   value={hh} ariaLabel="시" onChange={setHour}   />
-      <span style={{ color: 'var(--charcoal-3)', fontWeight: 700, position: 'relative', zIndex: 1 }}>:</span>
-      <WheelColumn values={minutes} value={mm} ariaLabel="분" onChange={setMinute} />
+      >
+        <span>{value}</span>
+        <ChevronDown style={{
+          width: 14, height: 14, color: 'var(--charcoal-3)',
+          transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform .18s ease',
+        }} />
+      </button>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-label={popoverTitle}
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 8px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 50,
+            width: 220,
+            padding: '14px 16px 16px',
+            borderRadius: 16,
+            background: 'var(--paper)',
+            border: '1px solid var(--gray-line)',
+            boxShadow: '0 18px 40px rgba(31,74,54,0.18)',
+            animation: 'duing-pop-in .18s cubic-bezier(.22,.61,.36,1)',
+          }}
+        >
+          {/* Arrow */}
+          <div aria-hidden="true" style={{
+            position: 'absolute',
+            top: -6, left: '50%', transform: 'translateX(-50%) rotate(45deg)',
+            width: 12, height: 12,
+            background: 'var(--paper)',
+            borderLeft: '1px solid var(--gray-line)',
+            borderTop: '1px solid var(--gray-line)',
+          }} />
+          <div style={{
+            textAlign: 'center', fontSize: 12, fontWeight: 700,
+            color: 'var(--charcoal-2)', marginBottom: 10,
+          }}>
+            {popoverTitle}
+          </div>
+          <div style={{
+            position: 'relative',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: 4,
+            height: WHEEL_VISIBLE * WHEEL_ITEM_HEIGHT,
+          }}>
+            <div aria-hidden="true" style={{
+              position: 'absolute',
+              left: 8, right: 8,
+              top: '50%', transform: 'translateY(-50%)',
+              height: WHEEL_ITEM_HEIGHT,
+              borderRadius: 8,
+              background: 'var(--sage-tint)',
+              pointerEvents: 'none',
+            }} />
+            <WheelColumn values={hours}   value={hh} ariaLabel="시" onChange={setHour}   />
+            <span style={{ color: 'var(--charcoal-3)', fontWeight: 700, position: 'relative', zIndex: 1 }}>:</span>
+            <WheelColumn values={minutes} value={mm} ariaLabel="분" onChange={setMinute} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -300,6 +401,7 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
   const [repeatFreq, setRepeatFreq] = useState<NewEventRepeat['freq']>('none');
   const [repeatCount, setRepeatCount] = useState<number>(1);
   const [touched, setTouched] = useState<boolean>(false);
+  const [openPicker, setOpenPicker] = useState<'start' | 'end' | null>(null);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
 
   const openDatePicker = () => {
@@ -325,6 +427,7 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
       setRepeatFreq('none');
       setRepeatCount(1);
       setTouched(false);
+      setOpenPicker(null);
     }
   }, [open, defaultDate]);
 
@@ -523,11 +626,27 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
           </div>
           <div>
             <label style={labelStyle}>시간</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <TimeInput value={startTime} onChange={setStartTime} />
-              <span style={{ color: 'var(--charcoal-3)', fontWeight: 600 }}>~</span>
-              <TimeInput value={endTime} onChange={setEndTime} />
-              <ClockIcon style={{ width: 16, height: 16, color: 'var(--charcoal-3)', flexShrink: 0 }} />
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+              <TimeField
+                label="시작 시간"
+                popoverTitle="시작 시간 선택"
+                value={startTime}
+                open={openPicker === 'start'}
+                onOpen={() => setOpenPicker('start')}
+                onClose={() => setOpenPicker((p) => (p === 'start' ? null : p))}
+                onChange={setStartTime}
+              />
+              <span style={{ color: 'var(--charcoal-3)', fontWeight: 600, paddingBottom: 12 }}>~</span>
+              <TimeField
+                label="종료 시간"
+                popoverTitle="종료 시간 선택"
+                value={endTime}
+                open={openPicker === 'end'}
+                onOpen={() => setOpenPicker('end')}
+                onClose={() => setOpenPicker((p) => (p === 'end' ? null : p))}
+                onChange={setEndTime}
+              />
+              <ClockIcon style={{ width: 16, height: 16, color: 'var(--charcoal-3)', flexShrink: 0, marginBottom: 14 }} />
             </div>
           </div>
         </div>
