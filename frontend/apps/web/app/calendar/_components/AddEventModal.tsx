@@ -344,7 +344,7 @@ function TimeField({ popoverTitle, value, open, onOpen, onClose, onChange }: Tim
           padding: '0 12px',
           borderRadius: 10,
           border: `1px solid ${open ? 'var(--sage)' : 'var(--gray-line)'}`,
-          background: 'var(--paper)',
+          background: '#fff',
           color: 'var(--ink-deep)',
           fontFamily: 'inherit',
           fontSize: 14,
