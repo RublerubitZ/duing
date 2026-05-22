@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { SparkleFull } from '../../_components/Sparkle';
 
@@ -245,29 +246,68 @@ type TimeFieldProps = {
   onChange: (next: string) => void;
 };
 
+const POPOVER_WIDTH = 220;
+const POPOVER_MARGIN = 12;
+
+type PopoverPosition = {
+  top: number;
+  left: number;
+  arrowLeft: number;
+};
+
 function TimeField({ popoverTitle, value, open, onOpen, onClose, onChange }: TimeFieldProps) {
-  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState<PopoverPosition | null>(null);
+  const [mounted, setMounted] = useState<boolean>(false);
   const [rawHH, rawMM] = value.split(':');
   const hh = clampInt(Number(rawHH ?? '0'), 23);
   const mm = clampInt(Number(rawMM ?? '0'), 59);
 
+  useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (!open) { setPosition(null); return; }
+    const computePosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const triggerCenterX = rect.left + rect.width / 2;
+      const minLeft = POPOVER_MARGIN;
+      const maxLeft = window.innerWidth - POPOVER_WIDTH - POPOVER_MARGIN;
+      const idealLeft = triggerCenterX - POPOVER_WIDTH / 2;
+      const left = Math.max(minLeft, Math.min(maxLeft, idealLeft));
+      const arrowLeft = Math.max(16, Math.min(POPOVER_WIDTH - 16, triggerCenterX - left));
+      setPosition({ top: rect.bottom + 8, left, arrowLeft });
+    };
+    computePosition();
+    window.addEventListener('resize', computePosition);
+    window.addEventListener('scroll', computePosition, true);
+    return () => {
+      window.removeEventListener('resize', computePosition);
+      window.removeEventListener('scroll', computePosition, true);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (!wrapRef.current) return;
-      if (!wrapRef.current.contains(e.target as Node)) onClose();
+    const onDocPointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      onClose();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     // defer so the opening click itself doesn't immediately close
-    const t = window.setTimeout(() => {
-      document.addEventListener('mousedown', onDocClick);
+    const deferred = window.setTimeout(() => {
+      document.addEventListener('mousedown', onDocPointerDown);
     }, 0);
     window.addEventListener('keydown', onKey);
     return () => {
-      window.clearTimeout(t);
-      document.removeEventListener('mousedown', onDocClick);
+      window.clearTimeout(deferred);
+      document.removeEventListener('mousedown', onDocPointerDown);
       window.removeEventListener('keydown', onKey);
     };
   }, [open, onClose]);
@@ -284,7 +324,6 @@ function TimeField({ popoverTitle, value, open, onOpen, onClose, onChange }: Tim
 
   return (
     <div
-      ref={wrapRef}
       style={{
         flex: 1,
         position: 'relative',
@@ -293,6 +332,7 @@ function TimeField({ popoverTitle, value, open, onOpen, onClose, onChange }: Tim
       }}
     >
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => (open ? onClose() : onOpen())}
         aria-haspopup="dialog"
@@ -326,17 +366,17 @@ function TimeField({ popoverTitle, value, open, onOpen, onClose, onChange }: Tim
         }} />
       </button>
 
-      {open && (
+      {open && mounted && position && createPortal(
         <div
+          ref={popoverRef}
           role="dialog"
           aria-label={popoverTitle}
           style={{
-            position: 'absolute',
-            top: 'calc(100% + 8px)',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 50,
-            width: 220,
+            position: 'fixed',
+            top: position.top,
+            left: position.left,
+            zIndex: 200,
+            width: POPOVER_WIDTH,
             padding: '14px 16px 16px',
             borderRadius: 16,
             background: 'var(--paper)',
@@ -348,7 +388,7 @@ function TimeField({ popoverTitle, value, open, onOpen, onClose, onChange }: Tim
           {/* Arrow */}
           <div aria-hidden="true" style={{
             position: 'absolute',
-            top: -6, left: '50%', transform: 'translateX(-50%) rotate(45deg)',
+            top: -6, left: position.arrowLeft, transform: 'translateX(-50%) rotate(45deg)',
             width: 12, height: 12,
             background: 'var(--paper)',
             borderLeft: '1px solid var(--gray-line)',
@@ -379,7 +419,8 @@ function TimeField({ popoverTitle, value, open, onOpen, onClose, onChange }: Tim
             <span style={{ color: 'var(--charcoal-3)', fontWeight: 700, position: 'relative', zIndex: 1 }}>:</span>
             <WheelColumn values={minutes} value={mm} ariaLabel="분" onChange={setMinute} />
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
