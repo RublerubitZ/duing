@@ -4,6 +4,10 @@ import type {
   AdminClubSummary,
   AdminUserSearchParams,
   AdminUserSearchResult,
+  AdminReportSearchParams,
+  AdminReportSummary,
+  AdminReportDetail,
+  ProcessReportPayload,
   ApiResponse,
   PageResponse,
   ClubDetail,
@@ -197,6 +201,11 @@ export type DuingApiClient = {
       create(payload: CreateNoticePayload): Promise<number>;
       update(noticeId: number, payload: UpdateNoticePayload): Promise<void>;
       remove(noticeId: number): Promise<void>;
+    };
+    reports: {
+      list(params: AdminReportSearchParams): Promise<PageResponse<AdminReportSummary>>;
+      get(reportId: number): Promise<AdminReportDetail>;
+      process(reportId: number, payload: ProcessReportPayload): Promise<void>;
     };
   };
   raw: KyInstance;
@@ -436,6 +445,16 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonVoid(http.patch(`admin/notices/${noticeId}`, { json: payload })),
         remove: (noticeId) =>
           jsonVoid(http.delete(`admin/notices/${noticeId}`)),
+      },
+      reports: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminReportSummary>>(
+            http.get('admin/reports', { searchParams: cleanParams(params) }),
+          ),
+        get: (reportId) =>
+          jsonOk<AdminReportDetail>(http.get(`admin/reports/${reportId}`)),
+        process: (reportId, payload) =>
+          jsonVoid(http.patch(`admin/reports/${reportId}`, { json: payload })),
       },
     },
     raw: http,
