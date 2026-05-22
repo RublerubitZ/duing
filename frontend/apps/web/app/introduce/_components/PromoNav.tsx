@@ -1,5 +1,7 @@
+import Link from 'next/link';
 import { BrandMark } from '@/components/duing/BrandMark';
-import { ArrowRight } from '@/components/duing/Icon';
+import { NotificationBell } from '../../_components/NotificationBell';
+import { HomeNavAuthSlot } from '../../_components/HomeNavAuthSlot';
 
 const NAV_ITEMS = ['소개', '주요 기능', '사용법', '후기'] as const;
 
@@ -10,7 +12,9 @@ export function PromoNav() {
       style={{ background: 'rgba(246,243,236,0.85)' }}
     >
       <div className="max-w-layout mx-auto flex items-center gap-9 px-10 py-4">
-        <BrandMark size={26} />
+        <Link href="/" aria-label="두잉 홈">
+          <BrandMark size={26} />
+        </Link>
         <span className="text-xs font-semibold text-charcoal-3 tracking-body">
           for 대구대학교
         </span>
@@ -25,17 +29,9 @@ export function PromoNav() {
             </a>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-2.5">
-          <a className="text-sm font-semibold text-charcoal-2" href="/login">
-            로그인
-          </a>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm rounded-full px-[18px] py-[9px]"
-          >
-            두잉 시작하기
-            <ArrowRight size={14} />
-          </button>
+        <div className="ml-auto flex items-center gap-2">
+          <NotificationBell />
+          <HomeNavAuthSlot />
         </div>
       </div>
     </header>
