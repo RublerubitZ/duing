@@ -300,3 +300,47 @@ export type ProcessPromotionRequestPayload = {
   status: Exclude<PromotionRequestStatus, 'PENDING'>;
   actionNote?: string;
 };
+
+// ─── 홍보 배너 ──────────────────────────────────────────────────────────────
+
+export type AdminPromotionBannerUserRef = { id: number; name: string };
+
+export type AdminPromotionSummary = {
+  id: number;
+  club: { id: number; name: string } | null;
+  title: string;
+  bannerImageUrl: string;
+  linkUrl: string | null;
+  active: boolean;
+  displayOrder: number;
+  createdBy: AdminPromotionBannerUserRef;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminPromotionSearchParams = {
+  active?: boolean;
+  clubId?: number;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type CreatePromotionPayload = {
+  clubId?: number | null;
+  title: string;
+  bannerImageUrl: string;
+  linkUrl?: string | null;
+  active: boolean;
+  displayOrder: number;
+};
+
+export type UpdatePromotionPayload = {
+  title?: string;
+  bannerImageUrl?: string;
+  linkUrl?: string | null;
+  clubId?: number | null;
+  active?: boolean;
+  displayOrder?: number;
+  clearClubId?: boolean;
+};

@@ -111,3 +111,9 @@ export {
   useAdminPromotionRequestDetailQuery,
   useProcessPromotionRequestMutation,
 } from './promotionRequests';
+export {
+  useAdminPromotionListQuery,
+  useCreatePromotionMutation,
+  useUpdatePromotionMutation,
+  useDeletePromotionMutation,
+} from './promotions';
