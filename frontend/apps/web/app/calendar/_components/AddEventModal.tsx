@@ -102,6 +102,83 @@ function PlusIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+type TimeInputProps = {
+  value: string;
+  onChange: (next: string) => void;
+};
+
+function clampInt(v: number, max: number): number {
+  if (!Number.isFinite(v)) return 0;
+  if (v < 0) return 0;
+  if (v > max) return max;
+  return Math.floor(v);
+}
+
+function TimeInput({ value, onChange }: TimeInputProps) {
+  const [rawHH, rawMM] = value.split(':');
+  const hh = rawHH ?? '00';
+  const mm = rawMM ?? '00';
+
+  const commit = (nextHH: string, nextMM: string) => {
+    const h = String(clampInt(Number(nextHH), 23)).padStart(2, '0');
+    const m = String(clampInt(Number(nextMM), 59)).padStart(2, '0');
+    onChange(`${h}:${m}`);
+  };
+
+  const partStyle: React.CSSProperties = {
+    width: 28,
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--ink-deep)',
+    fontFamily: 'inherit',
+    fontSize: 14,
+    fontWeight: 600,
+    textAlign: 'center',
+    outline: 'none',
+    padding: 0,
+    MozAppearance: 'textfield',
+  };
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        height: 44,
+        padding: '0 12px',
+        borderRadius: 10,
+        border: '1px solid var(--gray-line)',
+        background: 'var(--paper)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
+      }}
+    >
+      <input
+        type="text"
+        inputMode="numeric"
+        maxLength={2}
+        value={hh}
+        onChange={(e) => commit(e.target.value.replace(/\D/g, '').slice(0, 2), mm)}
+        onFocus={(e) => e.target.select()}
+        aria-label="시"
+        style={partStyle}
+      />
+      <span style={{ color: 'var(--charcoal-3)', fontWeight: 700 }}>:</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        maxLength={2}
+        value={mm}
+        onChange={(e) => commit(hh, e.target.value.replace(/\D/g, '').slice(0, 2))}
+        onFocus={(e) => e.target.select()}
+        aria-label="분"
+        style={partStyle}
+      />
+    </div>
+  );
+}
+
 function CloseIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -286,10 +363,10 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                lang="en-GB"
                 style={{
                   ...inputBase,
                   padding: '0 14px 0 38px',
-                  fontFamily: 'var(--font-mono)',
                   borderColor: touched && !date ? '#D97757' : 'var(--gray-line)',
                 }}
               />
@@ -306,19 +383,9 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
           <div>
             <label style={labelStyle}>시간</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                style={{ ...inputBase, fontFamily: 'var(--font-mono)', padding: '0 10px' }}
-              />
+              <TimeInput value={startTime} onChange={setStartTime} />
               <span style={{ color: 'var(--charcoal-3)', fontWeight: 600 }}>~</span>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                style={{ ...inputBase, fontFamily: 'var(--font-mono)', padding: '0 10px' }}
-              />
+              <TimeInput value={endTime} onChange={setEndTime} />
               <ClockIcon style={{ width: 16, height: 16, color: 'var(--charcoal-3)', flexShrink: 0 }} />
             </div>
           </div>
