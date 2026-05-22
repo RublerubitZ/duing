@@ -248,7 +248,7 @@ export function CalendarPage() {
     .slice(0, 6);
 
   return (
-    <div style={{ background: 'var(--cream)', minHeight: '100%' }}>
+    <div className="duing" style={{ background: 'var(--cream)', minHeight: '100%' }}>
 
       {/* ===== Header ===== */}
       <section style={{ padding: '48px 40px 28px', borderBottom: '1px solid var(--gray-line)' }}>
