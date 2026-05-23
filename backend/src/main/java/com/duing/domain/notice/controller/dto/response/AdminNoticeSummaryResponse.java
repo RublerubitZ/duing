@@ -1,8 +1,8 @@
 package com.duing.domain.notice.controller.dto.response;
 
-import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
 import com.duing.domain.notice.entity.NoticeVisibility;
+import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
 import java.time.LocalDateTime;
 
 public record AdminNoticeSummaryResponse(
@@ -15,10 +15,10 @@ public record AdminNoticeSummaryResponse(
         LocalDateTime expiresAt,
         LocalDateTime createdAt
 ) {
-    public static AdminNoticeSummaryResponse from(Notice notice) {
+    public static AdminNoticeSummaryResponse from(NoticeAdminSummaryQuery query) {
         return new AdminNoticeSummaryResponse(
-                notice.getId(), notice.getTitle(), notice.getCategory(), notice.getVisibility(),
-                notice.isPinned(), notice.isNotifyOnPublish(), notice.getExpiresAt(), notice.getCreatedAt()
+                query.id(), query.title(), query.category(), query.visibility(),
+                query.pinned(), query.notifyOnPublish(), query.expiresAt(), query.createdAt()
         );
     }
 }

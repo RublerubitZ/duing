@@ -4,6 +4,7 @@ import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.service.dto.command.CreateNoticeCommand;
 import com.duing.domain.notice.service.dto.command.UpdateNoticeCommand;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
+import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
 import org.springframework.data.domain.Page;
@@ -21,5 +22,6 @@ public interface NoticeService {
 
     Page<Notice> searchFeed(NoticeSearchCondition condition, ViewerScope viewer, Pageable pageable);
 
-    Page<Notice> searchForAdmin(NoticeAdminSearchCondition condition, Pageable pageable);
+    /** 어드민 공지 목록 — Notice 엔티티 노출 없이 평탄화된 Query DTO 페이지를 반환한다. */
+    Page<NoticeAdminSummaryQuery> listForAdmin(NoticeAdminSearchCondition condition, Pageable pageable);
 }

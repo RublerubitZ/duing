@@ -11,6 +11,7 @@ import com.duing.domain.notice.repository.NoticeTargetClubRepository;
 import com.duing.domain.notice.service.dto.command.CreateNoticeCommand;
 import com.duing.domain.notice.service.dto.command.UpdateNoticeCommand;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
+import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
 import java.util.List;
@@ -118,8 +119,8 @@ public class GeneralNoticeService implements NoticeService {
     }
 
     @Override
-    public Page<Notice> searchForAdmin(NoticeAdminSearchCondition condition, Pageable pageable) {
-        return noticeRepository.findAdminList(condition, pageable);
+    public Page<NoticeAdminSummaryQuery> listForAdmin(NoticeAdminSearchCondition condition, Pageable pageable) {
+        return noticeRepository.findAdminList(condition, pageable).map(NoticeAdminSummaryQuery::from);
     }
 
     private void validateCoverImageUrl(String url) {
