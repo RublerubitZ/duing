@@ -25,6 +25,7 @@ import type {
   AdminReportSummary,
   AdminReportDetail,
   ProcessReportPayload,
+  SubmitReportPayload,
   AdminPromotionRequestSummary,
   AdminPromotionRequestDetail,
   AdminPromotionRequestSearchParams,
@@ -208,6 +209,9 @@ export type DuingApiClient = {
   };
   leaderSuccession: {
     submitRequest(clubId: number, payload: SubmitSuccessionRequestPayload): Promise<number>;
+  };
+  reports: {
+    submit(payload: SubmitReportPayload): Promise<number>;
   };
   admin: {
     clubs: {
@@ -473,6 +477,10 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<number>(
           http.post(`clubs/${clubId}/leader-succession-requests`, { json: payload }),
         ),
+    },
+    reports: {
+      submit: (payload) =>
+        jsonOk<number>(http.post('reports', { json: payload })),
     },
     admin: {
       clubs: {

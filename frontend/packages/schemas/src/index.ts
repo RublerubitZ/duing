@@ -261,3 +261,28 @@ export const submitSuccessionRequestSchema = z.object({
 });
 
 export type SubmitSuccessionRequestInput = z.infer<typeof submitSuccessionRequestSchema>;
+
+const REPORT_TARGET_TYPE_VALUES = ['CLUB', 'RECRUITMENT'] as const;
+const REPORT_REASON_CODE_VALUES = [
+  'SPAM',
+  'FRAUD',
+  'INAPPROPRIATE',
+  'IMPERSONATION',
+  'OTHER',
+] as const;
+
+export const submitReportSchema = z.object({
+  targetType: z.enum(REPORT_TARGET_TYPE_VALUES, {
+    errorMap: () => ({ message: '신고 대상 유형을 선택해주세요.' }),
+  }),
+  targetId: z.number().int().positive('신고 대상 ID가 유효하지 않습니다.'),
+  reasonCode: z.enum(REPORT_REASON_CODE_VALUES, {
+    errorMap: () => ({ message: '신고 사유를 선택해주세요.' }),
+  }),
+  detail: z
+    .string()
+    .max(1000, '상세 내용은 1000자 이하여야 합니다.')
+    .optional(),
+});
+
+export type SubmitReportInput = z.infer<typeof submitReportSchema>;
