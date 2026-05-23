@@ -84,6 +84,7 @@ export {
 } from './admin';
 export { adminQueryKeys } from './adminQueryKeys';
 export {
+  useSubmitReportMutation,
   useAdminReportListQuery,
   useAdminReportDetailQuery,
   useProcessReportMutation,

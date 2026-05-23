@@ -95,6 +95,13 @@ export type ProcessReportPayload = {
   actionNote?: string;
 };
 
+export type SubmitReportPayload = {
+  targetType: ReportTargetType;
+  targetId: number;
+  reasonCode: ReportReasonCode;
+  detail?: string;
+};
+
 // ─── 회장 승계 ───────────────────────────────────────────────────────────────
 
 export type SuccessionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';

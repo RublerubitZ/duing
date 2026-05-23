@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AdminReportSearchParams, ProcessReportPayload } from '@duing/types';
+import type { AdminReportSearchParams, ProcessReportPayload, SubmitReportPayload } from '@duing/types';
 import { useApiClient } from './api-context';
 import { adminQueryKeys } from './adminQueryKeys';
+
+export function useSubmitReportMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (payload: SubmitReportPayload) => client.reports.submit(payload),
+  });
+}
 
 export function useAdminReportListQuery(params: AdminReportSearchParams) {
   const client = useApiClient();
