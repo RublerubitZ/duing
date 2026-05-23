@@ -51,4 +51,6 @@ export const adminQueryKeys = {
   promotionsAll: ['admin', 'promotions'] as const,
   promotionsList: (params: AdminPromotionSearchParams) =>
     [...adminQueryKeys.promotionsAll, 'list', params] as const,
+  promotionsDetail: (promotionId: number) =>
+    [...adminQueryKeys.promotionsAll, 'detail', promotionId] as const,
 };
