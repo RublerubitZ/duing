@@ -253,6 +253,15 @@ export const updateClubSchema = z.object({
 
 export type UpdateClubInput = z.infer<typeof updateClubSchema>;
 
+export const submitSuccessionRequestSchema = z.object({
+  reason: z
+    .string()
+    .min(1, '사유는 필수 입력값입니다.')
+    .max(1000, '사유는 1000자 이하여야 합니다.'),
+});
+
+export type SubmitSuccessionRequestInput = z.infer<typeof submitSuccessionRequestSchema>;
+
 const REPORT_TARGET_TYPE_VALUES = ['CLUB', 'RECRUITMENT'] as const;
 const REPORT_REASON_CODE_VALUES = [
   'SPAM',

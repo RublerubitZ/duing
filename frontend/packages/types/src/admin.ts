@@ -151,6 +151,10 @@ export type ProcessSuccessionPayload = {
   actionNote?: string;
 };
 
+export type SubmitSuccessionRequestPayload = {
+  reason: string;
+};
+
 export type AssignAdminLeaderPayload = {
   newLeaderUserId: number;
   reason: string;
