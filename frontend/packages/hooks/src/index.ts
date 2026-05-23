@@ -77,6 +77,7 @@ export { noticeQueryKeys } from './noticeQueryKeys';
 export { useFileUploadMutation } from './files';
 export {
   useAdminClubsQuery,
+  useAdminClubDetailQuery,
   useAdminUserSearchQuery,
   useCreateClubMutation,
   useUpdateClubStatusMutation,
