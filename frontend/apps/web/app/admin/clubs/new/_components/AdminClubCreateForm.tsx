@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import { useCreateClubMutation } from '@duing/hooks';
 import type { AdminUserSearchResult, ClubCategory, CreateClubPayload } from '@duing/types';
-import { LeaderSearchCombobox } from './LeaderSearchCombobox';
+import { LeaderSearchCombobox } from '../../_components/LeaderSearchCombobox';
 import { toRoute } from '../../../../_lib/route';
 
 const CATEGORIES: ReadonlyArray<ClubCategory> = [

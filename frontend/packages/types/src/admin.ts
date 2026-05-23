@@ -1,4 +1,5 @@
 import type { ClubCategory, ClubStatus } from './club';
+import type { ClubMemberRole } from './clubmember';
 import type { UserRole } from './user';
 
 /**
@@ -48,4 +49,298 @@ export type AdminUserSearchParams = {
   page?: number;
   size?: number;
   sort?: string;
+};
+
+export type ReportTargetType = 'CLUB' | 'RECRUITMENT';
+export type ReportStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED';
+export type ReportReasonCode = 'SPAM' | 'FRAUD' | 'INAPPROPRIATE' | 'IMPERSONATION' | 'OTHER';
+
+export type AdminReportSummary = {
+  id: number;
+  targetType: ReportTargetType;
+  targetId: number;
+  targetLabel: string;
+  reasonCode: ReportReasonCode;
+  status: ReportStatus;
+  createdAt: string;
+};
+
+export type AdminReportUserRef = { id: number; name: string };
+
+export type AdminReportDetail = {
+  id: number;
+  reporter: AdminReportUserRef | null;
+  targetType: ReportTargetType;
+  targetId: number;
+  targetLabel: string;
+  reasonCode: ReportReasonCode;
+  detail: string;
+  status: ReportStatus;
+  actionNote: string | null;
+  handledBy: AdminReportUserRef | null;
+  handledAt: string | null;
+  createdAt: string;
+};
+
+export type AdminReportSearchParams = {
+  status?: ReportStatus;
+  targetType?: ReportTargetType;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type ProcessReportPayload = {
+  status: Exclude<ReportStatus, 'PENDING'>;
+  actionNote?: string;
+};
+
+// ─── 회장 승계 ───────────────────────────────────────────────────────────────
+
+export type SuccessionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export type ClubMemberEventType =
+  | 'ROLE_CHANGED'
+  | 'LEADER_TRANSFERRED'
+  | 'LEFT'
+  | 'REMOVED'
+  | 'ADMIN_LEADER_ASSIGNED'
+  | 'SUCCESSION_APPROVED';
+
+export type AdminSuccessionUserRef = { id: number; name: string };
+
+export type AdminSuccessionSummary = {
+  id: number;
+  clubId: number;
+  clubName: string;
+  requester: AdminSuccessionUserRef;
+  status: SuccessionStatus;
+  createdAt: string;
+};
+
+export type AdminSuccessionDetail = {
+  id: number;
+  club: { id: number; name: string };
+  requester: AdminSuccessionUserRef | null;
+  currentLeader: AdminSuccessionUserRef | null;
+  reason: string;
+  status: SuccessionStatus;
+  actionNote: string | null;
+  handledBy: AdminSuccessionUserRef | null;
+  handledAt: string | null;
+  createdAt: string;
+};
+
+export type AdminSuccessionSearchParams = {
+  status?: SuccessionStatus;
+  clubId?: number;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type ProcessSuccessionPayload = {
+  status: Exclude<SuccessionStatus, 'PENDING'>;
+  actionNote?: string;
+};
+
+export type AssignAdminLeaderPayload = {
+  newLeaderUserId: number;
+  reason: string;
+};
+
+export type AdminClubMemberHistoryRow = {
+  id: number;
+  eventType: ClubMemberEventType;
+  target: { id: number; name: string };
+  actor: { id: number; name: string };
+  fromRole: ClubMemberRole | null;
+  toRole: ClubMemberRole | null;
+  reason: string | null;
+  createdAt: string;
+};
+
+export type AdminClubMemberHistoryParams = {
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+// ─── 재인증 라운드 ──────────────────────────────────────────────────────────────
+
+export type RoundStatus = 'OPEN' | 'CLOSED';
+
+export type AdminRecertificationRoundUserRef = { id: number; name: string };
+
+export type AdminRecertificationRound = {
+  id: number;
+  year: number;
+  label: string;
+  status: RoundStatus;
+  openedBy: AdminRecertificationRoundUserRef;
+  openedAt: string;
+  closedBy: AdminRecertificationRoundUserRef | null;
+  closedAt: string | null;
+};
+
+export type AdminRecertificationRoundSearchParams = {
+  status?: RoundStatus;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type CreateRecertificationRoundPayload = {
+  year: number;
+  label: string;
+};
+
+// ─── 재인증 요청 ──────────────────────────────────────────────────────────────
+
+export type RecertificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export type AdminRecertificationUserRef = { id: number; name: string };
+
+export type AdminRecertificationRequestSummary = {
+  id: number;
+  round: { id: number; year: number; label: string; status: RoundStatus };
+  club: { id: number; name: string };
+  leader: AdminRecertificationUserRef;
+  status: RecertificationStatus;
+  operatingYear: number;
+  createdAt: string;
+};
+
+export type AdminRecertificationRequestDetail = {
+  id: number;
+  round: { id: number; year: number; label: string };
+  club: { id: number; name: string; lastVerifiedYear: number | null };
+  currentLeader: AdminRecertificationUserRef | null;
+  officers: AdminRecertificationUserRef[];
+  submittedLeader: AdminRecertificationUserRef;
+  contactEmail: string;
+  contactPhone: string;
+  operatingYear: number;
+  notes: string | null;
+  status: RecertificationStatus;
+  actionNote: string | null;
+  handledBy: AdminRecertificationUserRef | null;
+  handledAt: string | null;
+  createdAt: string;
+  recentMemberHistory: AdminClubMemberHistoryRow[];
+};
+
+export type AdminRecertificationRequestSearchParams = {
+  roundId?: number;
+  status?: RecertificationStatus;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type ProcessRecertificationPayload = {
+  status: Exclude<RecertificationStatus, 'PENDING'>;
+  actionNote?: string;
+};
+
+export type CentralClubRecertificationStatus = {
+  clubId: number;
+  clubName: string;
+  centralClub: boolean;
+  lastVerifiedYear: number | null;
+  expired: boolean;
+};
+
+export type CentralClubRecertificationStatusParams = {
+  operatingYear: number;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+// ─── 홍보 요청 ──────────────────────────────────────────────────────────────
+
+export type PromotionRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
+
+export type AdminPromotionRequestUserRef = { id: number; name: string };
+
+export type AdminPromotionRequestSummary = {
+  id: number;
+  club: { id: number; name: string };
+  requester: AdminPromotionRequestUserRef;
+  title: string;
+  status: PromotionRequestStatus;
+  createdAt: string;
+};
+
+export type AdminPromotionRequestDetail = {
+  id: number;
+  club: { id: number; name: string };
+  requester: AdminPromotionRequestUserRef;
+  title: string;
+  description: string;
+  suggestedBannerImageUrl: string | null;
+  suggestedLinkUrl: string | null;
+  status: PromotionRequestStatus;
+  actionNote: string | null;
+  handledBy: AdminPromotionRequestUserRef | null;
+  handledAt: string | null;
+  createdAt: string;
+};
+
+export type AdminPromotionRequestSearchParams = {
+  status?: PromotionRequestStatus;
+  clubId?: number;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type ProcessPromotionRequestPayload = {
+  status: Exclude<PromotionRequestStatus, 'PENDING'>;
+  actionNote?: string;
+};
+
+// ─── 홍보 배너 ──────────────────────────────────────────────────────────────
+
+export type AdminPromotionBannerUserRef = { id: number; name: string };
+
+export type AdminPromotionSummary = {
+  id: number;
+  club: { id: number; name: string } | null;
+  title: string;
+  bannerImageUrl: string;
+  linkUrl: string | null;
+  active: boolean;
+  displayOrder: number;
+  createdBy: AdminPromotionBannerUserRef;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminPromotionSearchParams = {
+  active?: boolean;
+  clubId?: number;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type CreatePromotionPayload = {
+  clubId?: number | null;
+  title: string;
+  bannerImageUrl: string;
+  linkUrl?: string | null;
+  active: boolean;
+  displayOrder: number;
+};
+
+export type UpdatePromotionPayload = {
+  title?: string;
+  bannerImageUrl?: string;
+  linkUrl?: string | null;
+  clubId?: number | null;
+  active?: boolean;
+  displayOrder?: number;
+  clearClubId?: boolean;
 };

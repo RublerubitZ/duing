@@ -2,8 +2,36 @@ import ky, { type KyInstance, type ResponsePromise, HTTPError } from 'ky';
 import type {
   AdminClubSearchParams,
   AdminClubSummary,
+  AdminClubMemberHistoryParams,
+  AdminClubMemberHistoryRow,
+  AdminSuccessionDetail,
+  AdminSuccessionSearchParams,
+  AdminSuccessionSummary,
+  AssignAdminLeaderPayload,
+  ProcessSuccessionPayload,
+  AdminRecertificationRound,
+  AdminRecertificationRoundSearchParams,
+  CreateRecertificationRoundPayload,
+  AdminRecertificationRequestSummary,
+  AdminRecertificationRequestDetail,
+  AdminRecertificationRequestSearchParams,
+  ProcessRecertificationPayload,
+  CentralClubRecertificationStatus,
+  CentralClubRecertificationStatusParams,
   AdminUserSearchParams,
   AdminUserSearchResult,
+  AdminReportSearchParams,
+  AdminReportSummary,
+  AdminReportDetail,
+  ProcessReportPayload,
+  AdminPromotionRequestSummary,
+  AdminPromotionRequestDetail,
+  AdminPromotionRequestSearchParams,
+  ProcessPromotionRequestPayload,
+  AdminPromotionSummary,
+  AdminPromotionSearchParams,
+  CreatePromotionPayload,
+  UpdatePromotionPayload,
   ApiResponse,
   PageResponse,
   ClubDetail,
@@ -197,6 +225,40 @@ export type DuingApiClient = {
       create(payload: CreateNoticePayload): Promise<number>;
       update(noticeId: number, payload: UpdateNoticePayload): Promise<void>;
       remove(noticeId: number): Promise<void>;
+    };
+    reports: {
+      list(params: AdminReportSearchParams): Promise<PageResponse<AdminReportSummary>>;
+      get(reportId: number): Promise<AdminReportDetail>;
+      process(reportId: number, payload: ProcessReportPayload): Promise<void>;
+    };
+    leaderSuccession: {
+      list(params: AdminSuccessionSearchParams): Promise<PageResponse<AdminSuccessionSummary>>;
+      get(requestId: number): Promise<AdminSuccessionDetail>;
+      process(requestId: number, payload: ProcessSuccessionPayload): Promise<void>;
+      assignLeader(clubId: number, payload: AssignAdminLeaderPayload): Promise<void>;
+      memberHistory(clubId: number, params: AdminClubMemberHistoryParams): Promise<PageResponse<AdminClubMemberHistoryRow>>;
+    };
+    recertificationRounds: {
+      list(params: AdminRecertificationRoundSearchParams): Promise<PageResponse<AdminRecertificationRound>>;
+      create(payload: CreateRecertificationRoundPayload): Promise<number>;
+      close(roundId: number): Promise<void>;
+    };
+    recertificationRequests: {
+      list(params: AdminRecertificationRequestSearchParams): Promise<PageResponse<AdminRecertificationRequestSummary>>;
+      get(requestId: number): Promise<AdminRecertificationRequestDetail>;
+      process(requestId: number, payload: ProcessRecertificationPayload): Promise<void>;
+      centralClubStatus(params: CentralClubRecertificationStatusParams): Promise<PageResponse<CentralClubRecertificationStatus>>;
+    };
+    promotionRequests: {
+      list(params: AdminPromotionRequestSearchParams): Promise<PageResponse<AdminPromotionRequestSummary>>;
+      get(requestId: number): Promise<AdminPromotionRequestDetail>;
+      process(requestId: number, payload: ProcessPromotionRequestPayload): Promise<void>;
+    };
+    promotions: {
+      list(params: AdminPromotionSearchParams): Promise<PageResponse<AdminPromotionSummary>>;
+      create(payload: CreatePromotionPayload): Promise<number>;
+      update(promotionId: number, payload: UpdatePromotionPayload): Promise<void>;
+      delete(promotionId: number): Promise<void>;
     };
   };
   raw: KyInstance;
@@ -436,6 +498,82 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonVoid(http.patch(`admin/notices/${noticeId}`, { json: payload })),
         remove: (noticeId) =>
           jsonVoid(http.delete(`admin/notices/${noticeId}`)),
+      },
+      reports: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminReportSummary>>(
+            http.get('admin/reports', { searchParams: cleanParams(params) }),
+          ),
+        get: (reportId) =>
+          jsonOk<AdminReportDetail>(http.get(`admin/reports/${reportId}`)),
+        process: (reportId, payload) =>
+          jsonVoid(http.patch(`admin/reports/${reportId}`, { json: payload })),
+      },
+      leaderSuccession: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminSuccessionSummary>>(
+            http.get('admin/leader-succession-requests', { searchParams: cleanParams(params) }),
+          ),
+        get: (requestId) =>
+          jsonOk<AdminSuccessionDetail>(http.get(`admin/leader-succession-requests/${requestId}`)),
+        process: (requestId, payload) =>
+          jsonVoid(http.patch(`admin/leader-succession-requests/${requestId}`, { json: payload })),
+        assignLeader: (clubId, payload) =>
+          jsonVoid(http.post(`admin/clubs/${clubId}/leader`, { json: payload })),
+        memberHistory: (clubId, params) =>
+          jsonOk<PageResponse<AdminClubMemberHistoryRow>>(
+            http.get(`admin/clubs/${clubId}/member-history`, { searchParams: cleanParams(params) }),
+          ),
+      },
+      recertificationRounds: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminRecertificationRound>>(
+            http.get('admin/recertification-rounds', { searchParams: cleanParams(params) }),
+          ),
+        create: (payload) =>
+          jsonOk<number>(http.post('admin/recertification-rounds', { json: payload })),
+        close: (roundId) =>
+          jsonVoid(http.patch(`admin/recertification-rounds/${roundId}/close`, { json: {} })),
+      },
+      recertificationRequests: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminRecertificationRequestSummary>>(
+            http.get('admin/recertification-requests', { searchParams: cleanParams(params) }),
+          ),
+        get: (requestId) =>
+          jsonOk<AdminRecertificationRequestDetail>(
+            http.get(`admin/recertification-requests/${requestId}`),
+          ),
+        process: (requestId, payload) =>
+          jsonVoid(http.patch(`admin/recertification-requests/${requestId}`, { json: payload })),
+        centralClubStatus: (params) =>
+          jsonOk<PageResponse<CentralClubRecertificationStatus>>(
+            http.get('admin/clubs/recertification-status', { searchParams: cleanParams(params) }),
+          ),
+      },
+      promotionRequests: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminPromotionRequestSummary>>(
+            http.get('admin/promotion-requests', { searchParams: cleanParams(params) }),
+          ),
+        get: (requestId) =>
+          jsonOk<AdminPromotionRequestDetail>(
+            http.get(`admin/promotion-requests/${requestId}`),
+          ),
+        process: (requestId, payload) =>
+          jsonVoid(http.patch(`admin/promotion-requests/${requestId}`, { json: payload })),
+      },
+      promotions: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminPromotionSummary>>(
+            http.get('admin/promotions', { searchParams: cleanParams(params) }),
+          ),
+        create: (payload) =>
+          jsonOk<number>(http.post('admin/promotions', { json: payload })),
+        update: (promotionId, payload) =>
+          jsonVoid(http.patch(`admin/promotions/${promotionId}`, { json: payload })),
+        delete: (promotionId) =>
+          jsonVoid(http.delete(`admin/promotions/${promotionId}`)),
       },
     },
     raw: http,
