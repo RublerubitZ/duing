@@ -77,11 +77,6 @@ public class GeneralReportService implements ReportService {
     }
 
     @Override
-    public Page<Report> searchForAdmin(ReportAdminSearchCondition condition, Pageable pageable) {
-        return reportRepository.searchForAdmin(condition, pageable);
-    }
-
-    @Override
     public Page<ReportAdminSummaryQuery> listForAdmin(ReportAdminSearchCondition condition, Pageable pageable) {
         Page<Report> reportPage = reportRepository.searchForAdmin(condition, pageable);
 

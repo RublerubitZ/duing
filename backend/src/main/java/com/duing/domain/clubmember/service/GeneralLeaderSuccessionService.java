@@ -125,13 +125,6 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
     }
 
     @Override
-    public Page<LeaderSuccessionRequest> searchForAdmin(
-            SuccessionAdminSearchCondition condition, Pageable pageable
-    ) {
-        return requestRepository.searchForAdmin(condition, pageable);
-    }
-
-    @Override
     public Page<SuccessionRequestAdminSummaryQuery> listForAdmin(
             SuccessionAdminSearchCondition condition, Pageable pageable
     ) {

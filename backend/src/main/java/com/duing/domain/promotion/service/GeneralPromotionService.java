@@ -78,11 +78,6 @@ public class GeneralPromotionService implements PromotionService {
     }
 
     @Override
-    public Page<Promotion> searchForAdmin(PromotionAdminSearchCondition condition, Pageable pageable) {
-        return promotionRepository.searchForAdmin(condition, pageable);
-    }
-
-    @Override
     public Page<Promotion> findPublic(Pageable pageable) {
         return promotionRepository.findPublicActive(pageable);
     }
