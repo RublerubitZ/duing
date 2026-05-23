@@ -13,7 +13,6 @@ public interface ReportService {
     Long create(CreateReportCommand command);
     void process(ProcessReportCommand command);
     Report getById(Long reportId);
-    Page<Report> searchForAdmin(ReportAdminSearchCondition condition, Pageable pageable);
     Page<ReportAdminSummaryQuery> listForAdmin(ReportAdminSearchCondition condition, Pageable pageable);
     ReportAdminDetailQuery getDetailForAdmin(Long reportId);
 }

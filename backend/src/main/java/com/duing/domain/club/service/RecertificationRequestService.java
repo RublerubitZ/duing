@@ -15,8 +15,6 @@ public interface RecertificationRequestService {
     Long create(CreateRecertificationCommand command);
     void process(ProcessRecertificationCommand command);
     RecertificationRequest getById(Long requestId);
-    Page<RecertificationRequest> searchForAdmin(
-            RecertificationAdminSearchCondition condition, Pageable pageable);
     Page<CentralClubRecertificationStatusResponse> findCentralClubStatuses(
             CentralClubRecertificationStatusQuery query, Pageable pageable);
 

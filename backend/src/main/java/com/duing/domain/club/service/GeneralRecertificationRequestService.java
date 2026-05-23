@@ -106,13 +106,6 @@ public class GeneralRecertificationRequestService implements RecertificationRequ
     }
 
     @Override
-    public Page<RecertificationRequest> searchForAdmin(
-            RecertificationAdminSearchCondition condition, Pageable pageable
-    ) {
-        return requestRepository.searchForAdmin(condition, pageable);
-    }
-
-    @Override
     public Page<CentralClubRecertificationStatusResponse> findCentralClubStatuses(
             CentralClubRecertificationStatusQuery query, Pageable pageable
     ) {
