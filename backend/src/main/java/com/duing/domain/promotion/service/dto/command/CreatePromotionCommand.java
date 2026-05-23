@@ -1,5 +1,7 @@
 package com.duing.domain.promotion.service.dto.command;
 
+import com.duing.domain.promotion.entity.PromotionPalette;
+
 public record CreatePromotionCommand(
         Long clubId,
         String title,
@@ -7,5 +9,10 @@ public record CreatePromotionCommand(
         String linkUrl,
         boolean active,
         int displayOrder,
-        Long createdBy
+        Long createdBy,
+        String tag,
+        String subtitle,
+        String ctaLabel,
+        String emoji,
+        PromotionPalette palette
 ) {}

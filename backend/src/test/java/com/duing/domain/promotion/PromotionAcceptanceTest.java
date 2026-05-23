@@ -135,7 +135,8 @@ class PromotionAcceptanceTest {
                         "title", "배너",
                         "bannerImageUrl", "/files/b.png",
                         "active", true,
-                        "displayOrder", 1))
+                        "displayOrder", 1,
+                        "palette", "INK"))
                 .when().post("/api/v1/admin/promotions")
                 .then().statusCode(HttpStatus.CREATED.value())
                 .extract().jsonPath().getLong("data");
@@ -157,7 +158,8 @@ class PromotionAcceptanceTest {
                         "title", "",
                         "bannerImageUrl", "/files/b.png",
                         "active", true,
-                        "displayOrder", 1))
+                        "displayOrder", 1,
+                        "palette", "INK"))
                 .when().post("/api/v1/admin/promotions")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
@@ -184,7 +186,8 @@ class PromotionAcceptanceTest {
                         "bannerImageUrl", "/files/b.png",
                         "clubId", clubId,
                         "active", true,
-                        "displayOrder", 3))
+                        "displayOrder", 3,
+                        "palette", "SAGE"))
                 .when().post("/api/v1/admin/promotions")
                 .then().statusCode(HttpStatus.CREATED.value())
                 .extract().jsonPath().getLong("data");
@@ -219,6 +222,50 @@ class PromotionAcceptanceTest {
     }
 
     @Test
+    @DisplayName("이미지 없이 텍스트+팔레트만으로 배너를 등록할 수 있고, 공개 응답에 새 필드들이 포함된다")
+    void textOnlyBannerCreatesAndPublicListsWithNewFields() {
+        Long promotionId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of(
+                        "title", "가을 동아리 박람회 2025",
+                        "active", true,
+                        "displayOrder", 0,
+                        "palette", "INK",
+                        "tag", "EVENT · 9.25 — 9.27",
+                        "subtitle", "67개 동아리 · 80개 부스 · 중앙광장",
+                        "ctaLabel", "박람회 자세히 보기",
+                        "emoji", "🍂"))
+                .when().post("/api/v1/admin/promotions")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .when().get("/api/v1/promotions")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content[0].id", equalTo(promotionId.intValue()))
+                .body("data.content[0].title", equalTo("가을 동아리 박람회 2025"))
+                .body("data.content[0].bannerImageUrl", org.hamcrest.Matchers.nullValue())
+                .body("data.content[0].palette", equalTo("INK"))
+                .body("data.content[0].tag", equalTo("EVENT · 9.25 — 9.27"))
+                .body("data.content[0].emoji", equalTo("🍂"));
+    }
+
+    @Test
+    @DisplayName("palette 가 누락되면 400 을 반환한다")
+    void createWithoutPaletteReturnsBadRequest() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of(
+                        "title", "배너",
+                        "active", true,
+                        "displayOrder", 0))
+                .when().post("/api/v1/admin/promotions")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("active=false 인 Promotion 은 공개 목록에서 빠진다")
     void inactivePromotionHidden() {
         RestAssured.given()
@@ -228,7 +275,8 @@ class PromotionAcceptanceTest {
                         "title", "비활성 배너",
                         "bannerImageUrl", "/files/b.png",
                         "active", false,
-                        "displayOrder", 1))
+                        "displayOrder", 1,
+                        "palette", "INK"))
                 .when().post("/api/v1/admin/promotions")
                 .then().statusCode(HttpStatus.CREATED.value());
 
