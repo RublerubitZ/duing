@@ -88,6 +88,20 @@ public class GeneralPromotionService implements PromotionService {
     }
 
     @Override
+    public PromotionAdminListQuery getAdminItemById(Long promotionId) {
+        Promotion promotion = promotionRepository.findById(promotionId)
+                .orElseThrow(PromotionException.PromotionNotFoundException::new);
+        Club club = promotion.getClubId() == null
+                ? null
+                : clubRepository.findById(promotion.getClubId()).orElse(null);
+        User createdBy = userRepository.findById(promotion.getCreatedBy()).orElse(null);
+        return PromotionAdminListQuery.of(
+                promotion,
+                resolveClubRef(promotion.getClubId(), club),
+                resolveUserRef(promotion.getCreatedBy(), createdBy));
+    }
+
+    @Override
     public Page<PromotionAdminListQuery> listForAdmin(
             PromotionAdminSearchCondition condition, Pageable pageable
     ) {

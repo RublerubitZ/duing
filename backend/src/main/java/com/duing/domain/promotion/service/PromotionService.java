@@ -16,4 +16,5 @@ public interface PromotionService {
     Page<Promotion> searchForAdmin(PromotionAdminSearchCondition condition, Pageable pageable);
     Page<Promotion> findPublic(Pageable pageable);
     Page<PromotionAdminListQuery> listForAdmin(PromotionAdminSearchCondition condition, Pageable pageable);
+    PromotionAdminListQuery getAdminItemById(Long promotionId);
 }
