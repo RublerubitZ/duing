@@ -18,6 +18,20 @@ export function useAdminClubsQuery(params: AdminClubSearchParams = {}) {
   });
 }
 
+export function useAdminClubDetailQuery(clubId: number | undefined) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: clubId !== undefined ? adminQueryKeys.clubsDetail(clubId) : ['admin', 'clubs', 'detail', undefined],
+    queryFn: () => {
+      if (clubId === undefined) {
+        throw new Error('clubId is required');
+      }
+      return client.admin.clubs.detail(clubId);
+    },
+    enabled: clubId !== undefined,
+  });
+}
+
 /**
  * 동아리장 후보 검색. 검색어가 비어있으면 백엔드 400 이 떨어지므로 `enabled` 로 가드한다.
  */

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useClubDetailQuery, useClubMembersQuery } from '@duing/hooks';
+import { useAdminClubDetailQuery, useClubMembersQuery } from '@duing/hooks';
 import type { ClubMember } from '@duing/types';
 import { cn } from '../../../../_lib/cn';
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from '../../_lib/clubStatus';
@@ -67,7 +67,7 @@ function MemberGroup({
 }
 
 export function AdminClubDetailPage({ clubId }: Props) {
-  const detailQuery = useClubDetailQuery(clubId);
+  const detailQuery = useAdminClubDetailQuery(clubId);
   const membersQuery = useClubMembersQuery(clubId);
 
   const club = detailQuery.data;

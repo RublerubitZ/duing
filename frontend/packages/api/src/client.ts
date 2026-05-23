@@ -216,6 +216,7 @@ export type DuingApiClient = {
   admin: {
     clubs: {
       list(params?: AdminClubSearchParams): Promise<PageResponse<AdminClubSummary>>;
+      detail(clubId: number): Promise<ClubDetail>;
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
@@ -488,6 +489,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonOk<PageResponse<AdminClubSummary>>(
             http.get('admin/clubs', { searchParams: cleanParams(params) }),
           ),
+        detail: (clubId) => jsonOk<ClubDetail>(http.get(`admin/clubs/${clubId}`)),
       },
       users: {
         search: (params) =>
