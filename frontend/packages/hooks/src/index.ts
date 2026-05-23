@@ -116,6 +116,7 @@ export {
 } from './promotionRequests';
 export {
   useAdminPromotionListQuery,
+  useAdminPromotionDetailQuery,
   useCreatePromotionMutation,
   useUpdatePromotionMutation,
   useDeletePromotionMutation,

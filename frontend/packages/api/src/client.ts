@@ -265,6 +265,7 @@ export type DuingApiClient = {
     };
     promotions: {
       list(params: AdminPromotionSearchParams): Promise<PageResponse<AdminPromotionSummary>>;
+      detail(promotionId: number): Promise<AdminPromotionSummary>;
       create(payload: CreatePromotionPayload): Promise<number>;
       update(promotionId: number, payload: UpdatePromotionPayload): Promise<void>;
       delete(promotionId: number): Promise<void>;
@@ -588,6 +589,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonOk<PageResponse<AdminPromotionSummary>>(
             http.get('admin/promotions', { searchParams: cleanParams(params) }),
           ),
+        detail: (promotionId) =>
+          jsonOk<AdminPromotionSummary>(http.get(`admin/promotions/${promotionId}`)),
         create: (payload) =>
           jsonOk<number>(http.post('admin/promotions', { json: payload })),
         update: (promotionId, payload) =>
