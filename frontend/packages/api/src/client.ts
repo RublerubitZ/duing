@@ -24,6 +24,7 @@ import type {
   AdminReportSummary,
   AdminReportDetail,
   ProcessReportPayload,
+  SubmitReportPayload,
   AdminPromotionRequestSummary,
   AdminPromotionRequestDetail,
   AdminPromotionRequestSearchParams,
@@ -204,6 +205,9 @@ export type DuingApiClient = {
     markRead(notificationId: number): Promise<void>;
     markAllRead(): Promise<void>;
     markBroadcastRead(broadcastId: number): Promise<void>;
+  };
+  reports: {
+    submit(payload: SubmitReportPayload): Promise<number>;
   };
   admin: {
     clubs: {
@@ -463,6 +467,10 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       markAllRead: () => jsonVoid(http.patch('me/notifications/read-all')),
       markBroadcastRead: (broadcastId) =>
         jsonVoid(http.patch(`me/notifications/broadcasts/${broadcastId}/read`)),
+    },
+    reports: {
+      submit: (payload) =>
+        jsonOk<number>(http.post('reports', { json: payload })),
     },
     admin: {
       clubs: {
