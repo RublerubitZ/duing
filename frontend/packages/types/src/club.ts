@@ -135,7 +135,7 @@ export type UpdateClubPayload = {
   majorProjects?: string | null;
 };
 
-export type FilePurpose = 'LOGO' | 'COVER' | 'PHOTO' | 'NOTICE_COVER';
+export type FilePurpose = 'LOGO' | 'COVER' | 'PHOTO' | 'NOTICE_COVER' | 'PROMOTION_BANNER';
 
 export type FileUploadResult = {
   storageKey: string;
