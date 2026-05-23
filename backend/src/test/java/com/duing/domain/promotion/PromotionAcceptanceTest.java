@@ -174,6 +174,51 @@ class PromotionAcceptanceTest {
     }
 
     @Test
+    @DisplayName("ADMIN 이 단건 GET /admin/promotions/{id} 로 배너를 조회할 수 있다")
+    void adminGetPromotionById() {
+        Long promotionId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of(
+                        "title", "단건조회배너",
+                        "bannerImageUrl", "/files/b.png",
+                        "clubId", clubId,
+                        "active", true,
+                        "displayOrder", 3))
+                .when().post("/api/v1/admin/promotions")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get("/api/v1/admin/promotions/" + promotionId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("ok", equalTo(true))
+                .body("data.id", equalTo(promotionId.intValue()))
+                .body("data.title", equalTo("단건조회배너"))
+                .body("data.active", equalTo(true))
+                .body("data.club.id", equalTo(clubId.intValue()));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 promotionId 로 조회 시 404")
+    void getPromotionNotFound() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get("/api/v1/admin/promotions/999999999")
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("STUDENT 가 단건 조회를 호출하면 403")
+    void getPromotionForbidden() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when().get("/api/v1/admin/promotions/1")
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
     @DisplayName("active=false 인 Promotion 은 공개 목록에서 빠진다")
     void inactivePromotionHidden() {
         RestAssured.given()
