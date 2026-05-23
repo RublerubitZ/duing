@@ -7,12 +7,14 @@ import { useCreateRecertificationRoundMutation } from '@duing/hooks';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const LABEL_MAX = 100;
+const YEAR_MIN = 2000;
+const YEAR_MAX = 2100;
 
 export function AdminRecertificationRoundCreateForm() {
   const router = useRouter();
   const createMutation = useCreateRecertificationRoundMutation();
 
-  const [year, setYear] = useState<number>(CURRENT_YEAR);
+  const [yearInput, setYearInput] = useState<string>(String(CURRENT_YEAR));
   const [label, setLabel] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -20,8 +22,13 @@ export function AdminRecertificationRoundCreateForm() {
     event.preventDefault();
     setErrorMessage(null);
 
-    if (year < 2000 || year > 2100) {
-      setErrorMessage('연도는 2000 ~ 2100 사이여야 합니다.');
+    const parsedYear = Number.parseInt(yearInput, 10);
+    if (!Number.isInteger(parsedYear) || parsedYear <= 0) {
+      setErrorMessage('연도는 양의 정수로 입력해 주세요.');
+      return;
+    }
+    if (parsedYear < YEAR_MIN || parsedYear > YEAR_MAX) {
+      setErrorMessage(`연도는 ${YEAR_MIN} ~ ${YEAR_MAX} 사이여야 합니다.`);
       return;
     }
     if (label.trim().length === 0) {
@@ -30,7 +37,7 @@ export function AdminRecertificationRoundCreateForm() {
     }
 
     createMutation.mutate(
-      { year, label: label.trim() },
+      { year: parsedYear, label: label.trim() },
       {
         onSuccess: () => router.push(toRoute('/admin/recertification/rounds')),
         onError: () => setErrorMessage('라운드 개설에 실패했습니다. 다시 시도해 주세요.'),
@@ -47,10 +54,15 @@ export function AdminRecertificationRoundCreateForm() {
         <input
           id="round-year"
           type="number"
-          min={2000}
-          max={2100}
-          value={year}
-          onChange={(event) => setYear(Number(event.target.value))}
+          inputMode="numeric"
+          min={YEAR_MIN}
+          max={YEAR_MAX}
+          step={1}
+          value={yearInput}
+          onChange={(event) => {
+            const next = event.target.value;
+            if (next === '' || /^\d+$/.test(next)) setYearInput(next);
+          }}
           required
           className="w-full rounded-md border border-line px-3 py-2 text-[14px] focus:border-ink focus:outline-none"
         />
