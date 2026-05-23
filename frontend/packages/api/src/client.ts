@@ -9,6 +9,7 @@ import type {
   AdminSuccessionSummary,
   AssignAdminLeaderPayload,
   ProcessSuccessionPayload,
+  SubmitSuccessionRequestPayload,
   AdminRecertificationRound,
   AdminRecertificationRoundSearchParams,
   CreateRecertificationRoundPayload,
@@ -204,6 +205,9 @@ export type DuingApiClient = {
     markRead(notificationId: number): Promise<void>;
     markAllRead(): Promise<void>;
     markBroadcastRead(broadcastId: number): Promise<void>;
+  };
+  leaderSuccession: {
+    submitRequest(clubId: number, payload: SubmitSuccessionRequestPayload): Promise<number>;
   };
   admin: {
     clubs: {
@@ -463,6 +467,12 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       markAllRead: () => jsonVoid(http.patch('me/notifications/read-all')),
       markBroadcastRead: (broadcastId) =>
         jsonVoid(http.patch(`me/notifications/broadcasts/${broadcastId}/read`)),
+    },
+    leaderSuccession: {
+      submitRequest: (clubId, payload) =>
+        jsonOk<number>(
+          http.post(`clubs/${clubId}/leader-succession-requests`, { json: payload }),
+        ),
     },
     admin: {
       clubs: {

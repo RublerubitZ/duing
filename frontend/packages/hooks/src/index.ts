@@ -89,6 +89,7 @@ export {
   useProcessReportMutation,
 } from './reports';
 export {
+  useSubmitSuccessionRequestMutation,
   useAdminSuccessionListQuery,
   useAdminSuccessionDetailQuery,
   useProcessSuccessionMutation,
