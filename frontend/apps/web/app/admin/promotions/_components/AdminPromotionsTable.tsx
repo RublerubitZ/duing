@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import type { AdminPromotionSummary } from '@duing/types';
 import { toRoute } from '../../../_lib/route';
@@ -40,12 +39,11 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
             <tr key={promotion.id} className="border-t border-line">
               <Td>
                 <div className="relative w-16 h-9 rounded overflow-hidden bg-graysoft">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL (Local / Supabase Storage) */}
+                  <img
                     src={promotion.bannerImageUrl}
                     alt={promotion.title}
-                    fill
-                    className="object-cover"
-                    sizes="64px"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
                 </div>
               </Td>
