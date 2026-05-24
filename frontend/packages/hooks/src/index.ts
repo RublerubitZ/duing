@@ -117,6 +117,7 @@ export {
 export {
   useAdminPromotionListQuery,
   useAdminPromotionDetailQuery,
+  usePublicPromotionsQuery,
   useCreatePromotionMutation,
   useUpdatePromotionMutation,
   useDeletePromotionMutation,

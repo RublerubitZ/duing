@@ -39,12 +39,18 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
             <tr key={promotion.id} className="border-t border-line">
               <Td>
                 <div className="relative w-16 h-9 rounded overflow-hidden bg-graysoft">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL (Local / Supabase Storage) */}
-                  <img
-                    src={promotion.bannerImageUrl}
-                    alt={promotion.title}
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
+                  {promotion.bannerImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL (Local / Supabase Storage)
+                    <img
+                      src={promotion.bannerImageUrl}
+                      alt={promotion.title}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="absolute inset-0 grid place-items-center text-[9px] text-charcoal-3">
+                      이미지 없음
+                    </span>
+                  )}
                 </div>
               </Td>
               <Td>
