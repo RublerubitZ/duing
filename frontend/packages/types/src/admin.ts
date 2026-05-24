@@ -316,17 +316,28 @@ export type ProcessPromotionRequestPayload = {
 
 export type AdminPromotionBannerUserRef = { id: number; name: string };
 
+/**
+ * 랜딩 hero 배너의 색 톤 프리셋. 실제 bg/fg/accent hex 매핑은
+ * frontend/apps/web/app/_lib/promotionPalette.ts 에 위치.
+ */
+export type PromotionPalette = 'INK' | 'SAGE' | 'WARM' | 'CORAL' | 'BERRY' | 'SKY';
+
 export type AdminPromotionSummary = {
   id: number;
   club: { id: number; name: string } | null;
   title: string;
-  bannerImageUrl: string;
+  bannerImageUrl: string | null;
   linkUrl: string | null;
   active: boolean;
   displayOrder: number;
   createdBy: AdminPromotionBannerUserRef;
   createdAt: string;
   updatedAt: string;
+  tag: string | null;
+  subtitle: string | null;
+  ctaLabel: string | null;
+  emoji: string | null;
+  palette: PromotionPalette;
 };
 
 export type AdminPromotionSearchParams = {
@@ -340,10 +351,15 @@ export type AdminPromotionSearchParams = {
 export type CreatePromotionPayload = {
   clubId?: number | null;
   title: string;
-  bannerImageUrl: string;
+  bannerImageUrl?: string | null;
   linkUrl?: string | null;
   active: boolean;
   displayOrder: number;
+  palette: PromotionPalette;
+  tag?: string | null;
+  subtitle?: string | null;
+  ctaLabel?: string | null;
+  emoji?: string | null;
 };
 
 export type UpdatePromotionPayload = {
@@ -354,4 +370,30 @@ export type UpdatePromotionPayload = {
   active?: boolean;
   displayOrder?: number;
   clearClubId?: boolean;
+  palette?: PromotionPalette;
+  tag?: string;
+  subtitle?: string;
+  ctaLabel?: string;
+  emoji?: string;
+  clearBannerImageUrl?: boolean;
+  clearTag?: boolean;
+  clearSubtitle?: boolean;
+  clearCtaLabel?: boolean;
+  clearEmoji?: boolean;
+};
+
+/** 비로그인 사용자도 볼 수 있는 공개 배너 카드 응답 (GET /promotions). */
+export type PromotionCard = {
+  id: number;
+  club: { id: number; name: string } | null;
+  title: string;
+  bannerImageUrl: string | null;
+  linkUrl: string | null;
+  displayOrder: number;
+  createdAt: string;
+  tag: string | null;
+  subtitle: string | null;
+  ctaLabel: string | null;
+  emoji: string | null;
+  palette: PromotionPalette;
 };
