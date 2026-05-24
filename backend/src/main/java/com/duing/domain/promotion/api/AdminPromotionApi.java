@@ -51,4 +51,8 @@ public interface AdminPromotionApi {
             @RequestParam(required = false) Long clubId,
             @Parameter(hidden = true) Pageable pageable
     );
+
+    @Operation(summary = "배너 단건 조회", description = "수정 폼 진입 등 단건 조회용. 목록 응답과 동일한 형태로 반환한다.")
+    @GetMapping("/admin/promotions/{promotionId}")
+    ResponseEntity<ApiResponse<AdminPromotionResponse>> getPromotion(@PathVariable Long promotionId);
 }

@@ -77,13 +77,6 @@ public class GeneralPromotionRequestService implements PromotionRequestService {
     }
 
     @Override
-    public Page<PromotionRequest> searchForAdmin(
-            PromotionRequestAdminSearchCondition condition, Pageable pageable
-    ) {
-        return requestRepository.searchForAdmin(condition, pageable);
-    }
-
-    @Override
     public Page<PromotionRequestAdminSummaryQuery> listForAdmin(
             PromotionRequestAdminSearchCondition condition, Pageable pageable
     ) {

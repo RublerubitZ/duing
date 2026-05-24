@@ -59,4 +59,11 @@ public class AdminPromotionController implements AdminPromotionApi {
                 promotionService.listForAdmin(new PromotionAdminSearchCondition(active, clubId), pageable)
                         .map(AdminPromotionResponse::from))));
     }
+
+    @Override
+    public ResponseEntity<ApiResponse<AdminPromotionResponse>> getPromotion(Long promotionId) {
+        AdminPromotionResponse response = AdminPromotionResponse.from(
+                promotionService.getAdminItemById(promotionId));
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }

@@ -4,10 +4,19 @@ import type {
   AdminSuccessionSearchParams,
   AssignAdminLeaderPayload,
   ProcessSuccessionPayload,
+  SubmitSuccessionRequestPayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
 import { adminQueryKeys } from './adminQueryKeys';
 import { clubQueryKeys } from './clubQueryKeys';
+
+export function useSubmitSuccessionRequestMutation(clubId: number) {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (payload: SubmitSuccessionRequestPayload) =>
+      client.leaderSuccession.submitRequest(clubId, payload),
+  });
+}
 
 export function useAdminSuccessionListQuery(params: AdminSuccessionSearchParams) {
   const client = useApiClient();

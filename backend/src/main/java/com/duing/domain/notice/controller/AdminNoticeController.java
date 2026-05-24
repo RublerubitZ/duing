@@ -72,7 +72,7 @@ public class AdminNoticeController implements AdminNoticeApi {
             Pageable pageable
     ) {
         NoticeAdminSearchCondition condition = new NoticeAdminSearchCondition(category, visibility, keyword, includeExpired);
-        Page<AdminNoticeSummaryResponse> page = noticeService.searchForAdmin(condition, pageable)
+        Page<AdminNoticeSummaryResponse> page = noticeService.listForAdmin(condition, pageable)
                 .map(AdminNoticeSummaryResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
     }

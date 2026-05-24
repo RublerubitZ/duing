@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import type { AdminPromotionSummary, CreatePromotionPayload, UpdatePromotionPayload } from '@duing/types';
+import { PromotionBannerUploader } from './PromotionBannerUploader';
 
 type CreateMode = {
   mode: 'create';
@@ -118,17 +119,16 @@ export function AdminPromotionForm(props: Props) {
         />
       </Field>
 
-      <Field label="배너 이미지 URL (≤500자)">
-        <input
-          type="url"
-          maxLength={500}
+      <div>
+        <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">배너 이미지</span>
+        <PromotionBannerUploader
           value={state.bannerImageUrl}
-          onChange={(event) => update('bannerImageUrl', event.target.value)}
-          required
-          placeholder="https://..."
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          onChange={(url) => update('bannerImageUrl', url)}
         />
-      </Field>
+        {!state.bannerImageUrl && (
+          <p className="mt-1 text-[12px] text-charcoal-3">필수 항목입니다. 이미지를 업로드해주세요.</p>
+        )}
+      </div>
 
       <Field label="링크 URL (선택, ≤2000자)">
         <input

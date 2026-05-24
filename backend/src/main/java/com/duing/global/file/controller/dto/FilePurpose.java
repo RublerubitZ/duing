@@ -4,7 +4,8 @@ public enum FilePurpose {
     LOGO("club/logo"),
     COVER("club/cover"),
     PHOTO("club/photo"),
-    NOTICE_COVER("notice/cover");
+    NOTICE_COVER("notice/cover"),
+    PROMOTION_BANNER("promotion/banner");
 
     private final String directory;
 

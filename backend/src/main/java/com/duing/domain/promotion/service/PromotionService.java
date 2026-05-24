@@ -13,7 +13,7 @@ public interface PromotionService {
     void update(UpdatePromotionCommand command);
     void delete(Long promotionId);
     Promotion getById(Long promotionId);
-    Page<Promotion> searchForAdmin(PromotionAdminSearchCondition condition, Pageable pageable);
     Page<Promotion> findPublic(Pageable pageable);
     Page<PromotionAdminListQuery> listForAdmin(PromotionAdminSearchCondition condition, Pageable pageable);
+    PromotionAdminListQuery getAdminItemById(Long promotionId);
 }

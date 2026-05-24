@@ -46,8 +46,8 @@ export function AdminCentralClubRecertificationStatusPage() {
           max="2099"
           value={operatingYear}
           onChange={(event) => {
-            const parsed = parseInt(event.target.value, 10);
-            if (!Number.isNaN(parsed)) handleYearChange(parsed);
+            const parsed = Number.parseInt(event.target.value, 10);
+            if (Number.isInteger(parsed) && parsed > 0) handleYearChange(parsed);
           }}
           className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px] w-28"
         />

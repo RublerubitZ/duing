@@ -13,7 +13,6 @@ public interface PromotionRequestService {
     Long create(CreatePromotionRequestCommand command);
     void process(ProcessPromotionRequestCommand command);
     PromotionRequest getById(Long requestId);
-    Page<PromotionRequest> searchForAdmin(PromotionRequestAdminSearchCondition condition, Pageable pageable);
     Page<PromotionRequestAdminSummaryQuery> listForAdmin(PromotionRequestAdminSearchCondition condition, Pageable pageable);
     PromotionRequestAdminDetailQuery getDetailForAdmin(Long requestId);
 }

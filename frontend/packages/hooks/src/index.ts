@@ -77,6 +77,7 @@ export { noticeQueryKeys } from './noticeQueryKeys';
 export { useFileUploadMutation } from './files';
 export {
   useAdminClubsQuery,
+  useAdminClubDetailQuery,
   useAdminUserSearchQuery,
   useCreateClubMutation,
   useUpdateClubStatusMutation,
@@ -84,11 +85,13 @@ export {
 } from './admin';
 export { adminQueryKeys } from './adminQueryKeys';
 export {
+  useSubmitReportMutation,
   useAdminReportListQuery,
   useAdminReportDetailQuery,
   useProcessReportMutation,
 } from './reports';
 export {
+  useSubmitSuccessionRequestMutation,
   useAdminSuccessionListQuery,
   useAdminSuccessionDetailQuery,
   useProcessSuccessionMutation,
@@ -113,6 +116,7 @@ export {
 } from './promotionRequests';
 export {
   useAdminPromotionListQuery,
+  useAdminPromotionDetailQuery,
   useCreatePromotionMutation,
   useUpdatePromotionMutation,
   useDeletePromotionMutation,

@@ -16,6 +16,8 @@ export const adminQueryKeys = {
   clubsAll: ['admin', 'clubs'] as const,
   clubsList: (params: AdminClubSearchParams) =>
     [...adminQueryKeys.clubsAll, 'list', params] as const,
+  clubsDetail: (clubId: number) =>
+    [...adminQueryKeys.clubsAll, 'detail', clubId] as const,
   usersAll: ['admin', 'users'] as const,
   usersSearch: (params: AdminUserSearchParams) =>
     [...adminQueryKeys.usersAll, 'search', params] as const,
@@ -49,4 +51,6 @@ export const adminQueryKeys = {
   promotionsAll: ['admin', 'promotions'] as const,
   promotionsList: (params: AdminPromotionSearchParams) =>
     [...adminQueryKeys.promotionsAll, 'list', params] as const,
+  promotionsDetail: (promotionId: number) =>
+    [...adminQueryKeys.promotionsAll, 'detail', promotionId] as const,
 };

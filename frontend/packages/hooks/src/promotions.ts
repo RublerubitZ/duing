@@ -16,6 +16,22 @@ export function useAdminPromotionListQuery(params: AdminPromotionSearchParams = 
   });
 }
 
+export function useAdminPromotionDetailQuery(promotionId: number | null) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: promotionId !== null
+      ? adminQueryKeys.promotionsDetail(promotionId)
+      : ['admin', 'promotions', 'detail', null],
+    queryFn: () => {
+      if (promotionId === null) {
+        throw new Error('promotionId is required');
+      }
+      return client.admin.promotions.detail(promotionId);
+    },
+    enabled: promotionId !== null,
+  });
+}
+
 export function useCreatePromotionMutation() {
   const client = useApiClient();
   const queryClient = useQueryClient();

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAdminPromotionListQuery, useUpdatePromotionMutation } from '@duing/hooks';
+import { useAdminPromotionDetailQuery, useUpdatePromotionMutation } from '@duing/hooks';
 import { AdminPromotionForm } from '../_components/AdminPromotionForm';
 import { toRoute } from '../../../_lib/route';
 
@@ -14,8 +14,6 @@ function extractErrorMessage(error: unknown): string | null {
   return null;
 }
 
-// 단건 GET API 가 없으므로 list(size=1000)에서 id 매칭으로 데이터를 조회한다.
-// 배너 수가 일반적으로 많지 않으므로 실용적인 우회 전략이다.
 export function AdminPromotionEditPage() {
   const params = useParams<{ promotionId: string }>();
   const promotionId = params.promotionId ? Number(params.promotionId) : null;
@@ -23,10 +21,10 @@ export function AdminPromotionEditPage() {
   const updateMutation = useUpdatePromotionMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const listQuery = useAdminPromotionListQuery({ size: 1000 });
-  const promotion = listQuery.data?.content.find((item) => item.id === promotionId) ?? null;
+  const detailQuery = useAdminPromotionDetailQuery(promotionId);
+  const promotion = detailQuery.data ?? null;
 
-  if (listQuery.isLoading) {
+  if (detailQuery.isLoading) {
     return (
       <main className="max-w-[760px] mx-auto px-6 py-10">
         <p className="text-charcoal-3 text-[13px]">불러오는 중…</p>
@@ -34,10 +32,10 @@ export function AdminPromotionEditPage() {
     );
   }
 
-  if (listQuery.isError) {
+  if (detailQuery.isError) {
     return (
       <main className="max-w-[760px] mx-auto px-6 py-10">
-        <p className="text-coral text-[13px]">배너 목록을 불러오지 못했습니다.</p>
+        <p className="text-coral text-[13px]">배너를 불러오지 못했습니다.</p>
       </main>
     );
   }

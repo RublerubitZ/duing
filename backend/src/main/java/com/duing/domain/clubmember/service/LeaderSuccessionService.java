@@ -14,7 +14,6 @@ public interface LeaderSuccessionService {
     Long create(CreateSuccessionCommand command);
     void process(ProcessSuccessionCommand command);
     LeaderSuccessionRequest getById(Long requestId);
-    Page<LeaderSuccessionRequest> searchForAdmin(SuccessionAdminSearchCondition condition, Pageable pageable);
 
     Page<SuccessionRequestAdminSummaryQuery> listForAdmin(SuccessionAdminSearchCondition condition, Pageable pageable);
     SuccessionRequestAdminDetailQuery getDetailForAdmin(Long requestId);

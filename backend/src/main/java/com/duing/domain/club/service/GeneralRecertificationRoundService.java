@@ -60,11 +60,6 @@ public class GeneralRecertificationRoundService implements RecertificationRoundS
     }
 
     @Override
-    public Page<RecertificationRound> searchForAdmin(RoundAdminSearchCondition condition, Pageable pageable) {
-        return roundRepository.searchForAdmin(condition, pageable);
-    }
-
-    @Override
     public Page<RecertificationRoundAdminListQuery> listForAdmin(
             RoundAdminSearchCondition condition, Pageable pageable
     ) {

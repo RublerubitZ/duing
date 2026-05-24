@@ -9,6 +9,7 @@ import type {
   AdminSuccessionSummary,
   AssignAdminLeaderPayload,
   ProcessSuccessionPayload,
+  SubmitSuccessionRequestPayload,
   AdminRecertificationRound,
   AdminRecertificationRoundSearchParams,
   CreateRecertificationRoundPayload,
@@ -24,6 +25,7 @@ import type {
   AdminReportSummary,
   AdminReportDetail,
   ProcessReportPayload,
+  SubmitReportPayload,
   AdminPromotionRequestSummary,
   AdminPromotionRequestDetail,
   AdminPromotionRequestSearchParams,
@@ -205,9 +207,16 @@ export type DuingApiClient = {
     markAllRead(): Promise<void>;
     markBroadcastRead(broadcastId: number): Promise<void>;
   };
+  leaderSuccession: {
+    submitRequest(clubId: number, payload: SubmitSuccessionRequestPayload): Promise<number>;
+  };
+  reports: {
+    submit(payload: SubmitReportPayload): Promise<number>;
+  };
   admin: {
     clubs: {
       list(params?: AdminClubSearchParams): Promise<PageResponse<AdminClubSummary>>;
+      detail(clubId: number): Promise<ClubDetail>;
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
@@ -256,6 +265,7 @@ export type DuingApiClient = {
     };
     promotions: {
       list(params: AdminPromotionSearchParams): Promise<PageResponse<AdminPromotionSummary>>;
+      detail(promotionId: number): Promise<AdminPromotionSummary>;
       create(payload: CreatePromotionPayload): Promise<number>;
       update(promotionId: number, payload: UpdatePromotionPayload): Promise<void>;
       delete(promotionId: number): Promise<void>;
@@ -464,12 +474,23 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       markBroadcastRead: (broadcastId) =>
         jsonVoid(http.patch(`me/notifications/broadcasts/${broadcastId}/read`)),
     },
+    leaderSuccession: {
+      submitRequest: (clubId, payload) =>
+        jsonOk<number>(
+          http.post(`clubs/${clubId}/leader-succession-requests`, { json: payload }),
+        ),
+    },
+    reports: {
+      submit: (payload) =>
+        jsonOk<number>(http.post('reports', { json: payload })),
+    },
     admin: {
       clubs: {
         list: (params) =>
           jsonOk<PageResponse<AdminClubSummary>>(
             http.get('admin/clubs', { searchParams: cleanParams(params) }),
           ),
+        detail: (clubId) => jsonOk<ClubDetail>(http.get(`admin/clubs/${clubId}`)),
       },
       users: {
         search: (params) =>
@@ -568,6 +589,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonOk<PageResponse<AdminPromotionSummary>>(
             http.get('admin/promotions', { searchParams: cleanParams(params) }),
           ),
+        detail: (promotionId) =>
+          jsonOk<AdminPromotionSummary>(http.get(`admin/promotions/${promotionId}`)),
         create: (payload) =>
           jsonOk<number>(http.post('admin/promotions', { json: payload })),
         update: (promotionId, payload) =>
