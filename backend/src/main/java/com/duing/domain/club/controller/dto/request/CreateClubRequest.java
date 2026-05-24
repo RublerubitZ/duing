@@ -2,6 +2,7 @@ package com.duing.domain.club.controller.dto.request;
 
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
+import com.duing.domain.user.entity.College;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -25,9 +26,11 @@ public record CreateClubRequest(
         @NotNull(message = "동아리장 ID는 필수 입력값입니다.")
         Long leaderId,
 
-        boolean centralClub
+        boolean centralClub,
+
+        College college
 ) {
     public CreateClubCommand toCommand() {
-        return new CreateClubCommand(name, category, division, description, logoUrl, leaderId, centralClub);
+        return new CreateClubCommand(name, category, division, description, logoUrl, leaderId, centralClub, college);
     }
 }
