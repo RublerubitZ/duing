@@ -1,6 +1,7 @@
 package com.duing.domain.club.entity;
 
 import com.duing.domain.club.exception.ClubException;
+import com.duing.domain.user.entity.College;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -57,6 +58,10 @@ public class Club extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private ClubStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 40)
+    private College college;
 
     @Column(name = "cover_url", length = 500)
     private String coverUrl;
@@ -166,7 +171,7 @@ public class Club extends BaseEntity {
 
     @Builder(access = AccessLevel.PRIVATE)
     private Club(String name, ClubCategory category, String division, String description,
-                 String logoUrl, ClubStatus status, boolean centralClub) {
+                 String logoUrl, ClubStatus status, boolean centralClub, College college) {
         this.name = name;
         this.category = category;
         this.division = division;
@@ -174,15 +179,17 @@ public class Club extends BaseEntity {
         this.logoUrl = logoUrl;
         this.status = status;
         this.centralClub = centralClub;
+        this.college = college;
     }
 
     public static Club create(String name, ClubCategory category, String division,
                               String description, String logoUrl) {
-        return create(name, category, division, description, logoUrl, false);
+        return create(name, category, division, description, logoUrl, false, null);
     }
 
     public static Club create(String name, ClubCategory category, String division,
-                              String description, String logoUrl, boolean centralClub) {
+                              String description, String logoUrl, boolean centralClub,
+                              College college) {
         return Club.builder()
                 .name(name)
                 .category(category)
@@ -191,6 +198,7 @@ public class Club extends BaseEntity {
                 .logoUrl(logoUrl)
                 .status(ClubStatus.PENDING_APPROVAL)
                 .centralClub(centralClub)
+                .college(college)
                 .build();
     }
 
@@ -241,7 +249,9 @@ public class Club extends BaseEntity {
             String membershipFee,
             String tagline,
             List<String> highlights,
-            String majorProjects
+            String majorProjects,
+            College college,
+            Boolean clearCollege
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -264,5 +274,10 @@ public class Club extends BaseEntity {
         if (payload.tagline() != null) this.tagline = payload.tagline();
         if (payload.highlights() != null) this.highlights = new ArrayList<>(payload.highlights());
         if (payload.majorProjects() != null) this.majorProjects = payload.majorProjects();
+        if (Boolean.TRUE.equals(payload.clearCollege())) {
+            this.college = null;
+        } else if (payload.college() != null) {
+            this.college = payload.college();
+        }
     }
 }

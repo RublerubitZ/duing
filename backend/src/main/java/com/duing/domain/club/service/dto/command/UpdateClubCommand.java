@@ -51,7 +51,9 @@ public record UpdateClubCommand(
                 membershipFee(),
                 tagline(),
                 highlights(),
-                majorProjects()
+                majorProjects(),
+                null,
+                null
         );
     }
 }
