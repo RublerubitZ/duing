@@ -69,7 +69,7 @@ export function UserMenu() {
       {isOpen && (
         <div
           role="menu"
-          className="absolute right-0 top-[calc(100%+8px)] z-50 w-[160px] overflow-hidden rounded-[14px] border border-line bg-paper"
+          className="absolute right-0 top-[calc(100%+8px)] z-[9999] w-[160px] overflow-hidden rounded-[14px] border border-line bg-paper"
           style={{ boxShadow: 'var(--shadow-3)' }}
         >
           {MENU_ITEMS.map((item) => (
