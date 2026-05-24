@@ -575,7 +575,7 @@ export function NoticePage() {
 
                 {restItems.length === 0 && (
                   <p style={{ padding: '32px 22px', textAlign: 'center', color: 'var(--charcoal-3)', fontSize: 13 }}>
-                    {keyword ? '검색 결과가 없습니다.' : '공지가 없습니다.'}
+                    {keyword ? '검색 결과가 없습니다.' : '아직 공지가 없습니다'}
                   </p>
                 )}
               </div>
