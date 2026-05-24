@@ -41,7 +41,9 @@ public class GeneralPromotionService implements PromotionService {
         }
         return promotionRepository.save(Promotion.create(
                 command.clubId(), command.title(), command.bannerImageUrl(), command.linkUrl(),
-                command.active(), command.displayOrder(), command.createdBy()
+                command.active(), command.displayOrder(), command.createdBy(),
+                command.tag(), command.subtitle(), command.ctaLabel(), command.emoji(),
+                command.palette()
         )).getId();
     }
 
@@ -59,7 +61,11 @@ public class GeneralPromotionService implements PromotionService {
 
         promotion.update(new Promotion.UpdatePayload(
                 command.title(), command.bannerImageUrl(), command.linkUrl(),
-                command.clubId(), command.active(), command.displayOrder(), command.clearClubId()
+                command.clubId(), command.active(), command.displayOrder(), command.clearClubId(),
+                command.tag(), command.subtitle(), command.ctaLabel(), command.emoji(),
+                command.palette(),
+                command.clearBannerImageUrl(), command.clearTag(), command.clearSubtitle(),
+                command.clearCtaLabel(), command.clearEmoji()
         ));
     }
 

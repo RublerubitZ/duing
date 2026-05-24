@@ -8,6 +8,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.promotion.entity.Promotion;
+import com.duing.domain.promotion.entity.PromotionPalette;
 import com.duing.domain.promotion.exception.PromotionException;
 import com.duing.domain.promotion.repository.PromotionRepository;
 import com.duing.domain.promotion.service.dto.command.CreatePromotionCommand;
@@ -53,7 +54,8 @@ class GeneralPromotionServiceTest {
     void createSucceeds() {
         User admin = saveAdmin();
         Long id = promotionService.create(new CreatePromotionCommand(
-                null, "배너", "/files/b.png", "https://x", true, 1, admin.getId()));
+                null, "배너", "/files/b.png", "https://x", true, 1, admin.getId(),
+                null, null, null, null, PromotionPalette.INK));
         Promotion saved = promotionRepository.findById(id).orElseThrow();
         assertThat(saved.getCreatedBy()).isEqualTo(admin.getId());
         assertThat(saved.isActive()).isTrue();
@@ -64,10 +66,13 @@ class GeneralPromotionServiceTest {
     void partialUpdate() {
         User admin = saveAdmin();
         Long id = promotionService.create(new CreatePromotionCommand(
-                null, "배너", "/files/b.png", null, true, 1, admin.getId()));
+                null, "배너", "/files/b.png", null, true, 1, admin.getId(),
+                null, null, null, null, PromotionPalette.INK));
 
         promotionService.update(new UpdatePromotionCommand(
-                id, null, null, null, null, false, 5, null));
+                id, null, null, null, null, false, 5, null,
+                null, null, null, null, null,
+                null, null, null, null, null));
 
         Promotion updated = promotionRepository.findById(id).orElseThrow();
         assertThat(updated.isActive()).isFalse();
@@ -82,10 +87,13 @@ class GeneralPromotionServiceTest {
         Club club = clubRepository.save(Club.create(
                 "두잉홍보" + sequence.incrementAndGet(), ClubCategory.ACADEMIC, "분과", "설명", null));
         Long id = promotionService.create(new CreatePromotionCommand(
-                club.getId(), "배너", "/files/b.png", null, true, 0, admin.getId()));
+                club.getId(), "배너", "/files/b.png", null, true, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK));
 
         promotionService.update(new UpdatePromotionCommand(
-                id, null, null, null, null, null, null, true));
+                id, null, null, null, null, null, null, true,
+                null, null, null, null, null,
+                null, null, null, null, null));
 
         assertThat(promotionRepository.findById(id).orElseThrow().getClubId()).isNull();
     }
@@ -95,7 +103,8 @@ class GeneralPromotionServiceTest {
     void softDeleteHidesFromPublic() {
         User admin = saveAdmin();
         Long id = promotionService.create(new CreatePromotionCommand(
-                null, "배너", "/files/b.png", null, true, 0, admin.getId()));
+                null, "배너", "/files/b.png", null, true, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK));
         promotionService.delete(id);
 
         assertThat(promotionRepository.findById(id)).isEmpty();
@@ -108,11 +117,14 @@ class GeneralPromotionServiceTest {
     void findPublicSortedByDisplayOrder() {
         User admin = saveAdmin();
         Long inactiveId = promotionService.create(new CreatePromotionCommand(
-                null, "비활성", "/files/x.png", null, false, 0, admin.getId()));
+                null, "비활성", "/files/x.png", null, false, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK));
         Long second = promotionService.create(new CreatePromotionCommand(
-                null, "두번째", "/files/2.png", null, true, 20, admin.getId()));
+                null, "두번째", "/files/2.png", null, true, 20, admin.getId(),
+                null, null, null, null, PromotionPalette.INK));
         Long first = promotionService.create(new CreatePromotionCommand(
-                null, "첫번째", "/files/1.png", null, true, 10, admin.getId()));
+                null, "첫번째", "/files/1.png", null, true, 10, admin.getId(),
+                null, null, null, null, PromotionPalette.INK));
 
         var content = promotionService.findPublic(PageRequest.of(0, 10)).getContent();
         assertThat(content).extracting(Promotion::getId).containsExactly(first, second);
@@ -123,7 +135,9 @@ class GeneralPromotionServiceTest {
     @DisplayName("존재하지 않는 Promotion 갱신은 404")
     void updateMissingFails() {
         assertThatThrownBy(() -> promotionService.update(new UpdatePromotionCommand(
-                999_999L, "X", null, null, null, null, null, null)))
+                999_999L, "X", null, null, null, null, null, null,
+                null, null, null, null, null,
+                null, null, null, null, null)))
                 .isInstanceOf(PromotionException.PromotionNotFoundException.class);
     }
 }
