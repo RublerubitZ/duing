@@ -8,6 +8,7 @@ import static com.duing.domain.user.entity.QUser.user;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.QUser;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
@@ -41,6 +42,8 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 keywordContains(condition.keyword()),
                 tagsOverlap(condition.tags()),
                 hasActiveRecruitment(condition.recruitingOnly()),
+                centralClubEq(condition.centralClub()),
+                collegeEq(condition.college()),
         };
 
         List<Club> content = queryFactory
@@ -109,6 +112,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 source.getName(),
                 source.getCategory(),
                 source.getDivision(),
+                source.getCollege(),
                 source.getLogoUrl(),
                 source.getStatus(),
                 source.getTags(),
@@ -167,5 +171,13 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                         recruitment.endDate.isNull().or(recruitment.endDate.goe(today))
                 )
                 .exists();
+    }
+
+    private BooleanExpression centralClubEq(Boolean value) {
+        return value == null ? null : club.centralClub.eq(value);
+    }
+
+    private BooleanExpression collegeEq(College value) {
+        return value == null ? null : club.college.eq(value);
     }
 }
