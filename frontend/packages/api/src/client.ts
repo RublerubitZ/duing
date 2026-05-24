@@ -85,6 +85,7 @@ import type {
   UpdateMemberRolePayload,
   FileUploadResult,
   FilePurpose,
+  PromotionCard,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -199,6 +200,9 @@ export type DuingApiClient = {
       size: number;
     }): Promise<PageResponse<NoticeCardItem>>;
     detail(noticeId: number): Promise<NoticeDetail>;
+  };
+  promotions: {
+    list(): Promise<PageResponse<PromotionCard>>;
   };
   notifications: {
     list(unreadOnly: boolean, page: number, size: number): Promise<PageResponse<Notification>>;
@@ -460,6 +464,9 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       },
       detail: (noticeId) =>
         jsonOk<NoticeDetail>(http.get(`notices/${noticeId}`)),
+    },
+    promotions: {
+      list: () => jsonOk<PageResponse<PromotionCard>>(http.get('promotions')),
     },
     notifications: {
       list: (unreadOnly, page, size) =>

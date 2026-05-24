@@ -4,6 +4,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubFaq;
 import com.duing.domain.club.entity.ClubSnsLink;
+import com.duing.domain.user.entity.College;
 import java.time.DayOfWeek;
 import java.util.List;
 import java.util.Set;
@@ -29,7 +30,9 @@ public record UpdateClubCommand(
         String membershipFee,
         String tagline,
         List<String> highlights,
-        String majorProjects
+        String majorProjects,
+        College college,
+        Boolean clearCollege
 ) {
     public Club.UpdatePayload toPayload() {
         return new Club.UpdatePayload(
@@ -51,7 +54,9 @@ public record UpdateClubCommand(
                 membershipFee(),
                 tagline(),
                 highlights(),
-                majorProjects()
+                majorProjects(),
+                college(),
+                clearCollege()
         );
     }
 }

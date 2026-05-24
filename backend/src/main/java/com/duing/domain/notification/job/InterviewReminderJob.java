@@ -5,8 +5,8 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
+import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -28,13 +28,14 @@ public class InterviewReminderJob {
 
     private final ApplicationRepository applicationRepository;
     private final NotificationService notificationService;
+    private final Clock clock;
 
     private static final DateTimeFormatter DISPLAY_FORMAT = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
 
     @Scheduled(cron = "0 0 * * * *", zone = "Asia/Seoul")
     @Transactional(readOnly = true)
     public void run() {
-        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+        LocalDateTime now = LocalDateTime.now(clock);
         LocalDateTime windowStart = now.plusHours(23);
         LocalDateTime windowEnd = now.plusHours(25);
 

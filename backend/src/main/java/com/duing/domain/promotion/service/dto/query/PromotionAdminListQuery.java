@@ -1,6 +1,7 @@
 package com.duing.domain.promotion.service.dto.query;
 
 import com.duing.domain.promotion.entity.Promotion;
+import com.duing.domain.promotion.entity.PromotionPalette;
 import java.time.LocalDateTime;
 
 public record PromotionAdminListQuery(
@@ -13,7 +14,12 @@ public record PromotionAdminListQuery(
         int displayOrder,
         UserRef createdBy,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        String tag,
+        String subtitle,
+        String ctaLabel,
+        String emoji,
+        PromotionPalette palette
 ) {
     public record ClubRef(Long id, String name) {}
     public record UserRef(Long id, String name) {}
@@ -24,6 +30,8 @@ public record PromotionAdminListQuery(
         return new PromotionAdminListQuery(
                 promotion.getId(), club, promotion.getTitle(), promotion.getBannerImageUrl(),
                 promotion.getLinkUrl(), promotion.isActive(), promotion.getDisplayOrder(),
-                createdBy, promotion.getCreatedAt(), promotion.getUpdatedAt());
+                createdBy, promotion.getCreatedAt(), promotion.getUpdatedAt(),
+                promotion.getTag(), promotion.getSubtitle(), promotion.getCtaLabel(),
+                promotion.getEmoji(), promotion.getPalette());
     }
 }

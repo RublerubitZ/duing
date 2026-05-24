@@ -42,7 +42,7 @@ class ClubSearchTagsRecruitingTest {
         saveClubWithTags("러닝클럽테스트", List.of("러닝"));
 
         var page = clubRepository.findByCondition(
-                new ClubSearchCondition(null, null, null, List.of("축구"), null),
+                new ClubSearchCondition(null, null, null, List.of("축구"), null, null, null),
                 PageRequest.of(0, 10));
 
         assertThat(page.getContent())
@@ -63,7 +63,7 @@ class ClubSearchTagsRecruitingTest {
         saveClosedRecruitment(withClosed, LocalDate.now().minusDays(30), LocalDate.now().minusDays(10));
 
         var page = clubRepository.findByCondition(
-                new ClubSearchCondition(null, null, null, null, true),
+                new ClubSearchCondition(null, null, null, null, true, null, null),
                 PageRequest.of(0, 10));
 
         assertThat(page.getContent())
