@@ -6,6 +6,7 @@ import com.duing.domain.club.entity.ClubFaq;
 import com.duing.domain.club.entity.ClubSnsLink;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
+import com.duing.domain.user.entity.College;
 import java.time.DayOfWeek;
 import java.util.List;
 import java.util.Set;
@@ -15,6 +16,7 @@ public record ClubDetailQuery(
         String name,
         ClubCategory category,
         String division,
+        College college,
         String description,
         String logoUrl,
         String coverUrl,
@@ -54,6 +56,7 @@ public record ClubDetailQuery(
                 club.getName(),
                 club.getCategory(),
                 club.getDivision(),
+                club.getCollege(),
                 club.getDescription(),
                 club.getLogoUrl(),
                 club.getCoverUrl(),

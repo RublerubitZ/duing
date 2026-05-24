@@ -2,6 +2,7 @@ package com.duing.domain.club.service.dto.query;
 
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.user.entity.College;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -14,6 +15,7 @@ public record AdminClubSummaryQuery(
         String name,
         ClubCategory category,
         String division,
+        College college,
         String logoUrl,
         ClubStatus status,
         List<String> tags,

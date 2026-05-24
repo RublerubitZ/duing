@@ -112,6 +112,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 source.getName(),
                 source.getCategory(),
                 source.getDivision(),
+                source.getCollege(),
                 source.getLogoUrl(),
                 source.getStatus(),
                 source.getTags(),
