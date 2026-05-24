@@ -24,7 +24,8 @@ class ClubUpdateTest {
                 List.of(new ClubSnsLink("INSTAGRAM", "https://insta")),
                 List.of(new ClubFaq("Q1", "A1", 0)),
                 null, null, null, null, null, null, null,
-                null, null, null
+                null, null, null,
+                null, null
         ));
 
         assertThat(club.getName()).isEqualTo("두잉 NEW");
@@ -46,7 +47,8 @@ class ClubUpdateTest {
         club.update(new Club.UpdatePayload(null, null, null, null, null, null,
                 List.of("코딩", "스터디", "코딩"), null, null,
                 null, null, null, null, null, null, null,
-                null, null, null));
+                null, null, null,
+                null, null));
 
         assertThat(club.getTags()).containsExactly("코딩", "스터디");
     }
@@ -58,7 +60,8 @@ class ClubUpdateTest {
 
         club.update(new Club.UpdatePayload(null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
-                null, null, null));
+                null, null, null,
+                null, null));
 
         assertThat(club.getName()).isEqualTo("두잉");
         assertThat(club.getCategory()).isEqualTo(ClubCategory.ACADEMIC);
