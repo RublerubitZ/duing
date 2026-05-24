@@ -6,8 +6,8 @@ import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
 import com.duing.domain.recruitment.repository.DeadlineRow;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -32,11 +32,12 @@ public class DeadlineNotificationJob {
     private final RecruitmentRepository recruitmentRepository;
     private final ClubFavoriteRepository favoriteRepository;
     private final NotificationService notificationService;
+    private final Clock clock;
 
     @Scheduled(cron = "0 0 6 * * *", zone = "Asia/Seoul")
     @Transactional(readOnly = true)
     public void run() {
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        LocalDate today = LocalDate.now(clock);
         List<DeadlineRow> candidates = recruitmentRepository.findDeadlineNotificationCandidates(today);
         log.info("DeadlineNotificationJob start: candidates={}", candidates.size());
 
