@@ -1,10 +1,11 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { useClubRecruitmentsQuery, useManagedClubsQuery } from '@duing/hooks';
 import { notFound } from 'next/navigation';
 import { toRoute } from '../../../_lib/route';
+import { PromotionRequestModal } from './_components/PromotionRequestModal';
 
 export default function ClubManagePage({
   params,
@@ -34,6 +35,8 @@ export default function ClubManagePage({
     (managedClub) => managedClub.clubId === currentClubId,
   );
 
+  const [promotionOpen, setPromotionOpen] = useState(false);
+
   const activeRecruitments = recruitments?.filter(
     (recruitment) => recruitment.displayStatus !== 'CLOSED',
   ) ?? [];
@@ -44,12 +47,21 @@ export default function ClubManagePage({
         <h1 className="text-xl font-bold">
           {currentManagedClub?.clubName ?? '동아리'} 콘솔
         </h1>
-        <Link
-          href={toRoute(`/manage/clubs/${currentClubId}/recruitments/new`)}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          신규 모집 작성
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPromotionOpen(true)}
+            className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal-2 hover:border-ink hover:text-ink"
+          >
+            홍보 요청
+          </button>
+          <Link
+            href={toRoute(`/manage/clubs/${currentClubId}/recruitments/new`)}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+          >
+            신규 모집 작성
+          </Link>
+        </div>
       </header>
 
       <section>
@@ -86,6 +98,13 @@ export default function ClubManagePage({
           </ul>
         )}
       </section>
+      {promotionOpen && currentManagedClub && (
+        <PromotionRequestModal
+          clubId={currentClubId}
+          clubName={currentManagedClub.clubName}
+          onClose={() => setPromotionOpen(false)}
+        />
+      )}
     </div>
   );
 }

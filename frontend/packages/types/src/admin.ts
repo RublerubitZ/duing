@@ -307,6 +307,13 @@ export type AdminPromotionRequestSearchParams = {
   sort?: string;
 };
 
+export type SubmitPromotionRequestPayload = {
+  title: string;
+  description: string;
+  suggestedBannerImageUrl?: string;
+  suggestedLinkUrl?: string;
+};
+
 export type ProcessPromotionRequestPayload = {
   status: Exclude<PromotionRequestStatus, 'PENDING'>;
   actionNote?: string;

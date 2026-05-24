@@ -110,6 +110,7 @@ export {
   useCentralClubRecertificationStatusQuery,
 } from './recertificationRequests';
 export {
+  useSubmitPromotionRequestMutation,
   useAdminPromotionRequestListQuery,
   useAdminPromotionRequestDetailQuery,
   useProcessPromotionRequestMutation,

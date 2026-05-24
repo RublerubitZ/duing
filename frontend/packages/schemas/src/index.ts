@@ -262,6 +262,27 @@ export const submitSuccessionRequestSchema = z.object({
 
 export type SubmitSuccessionRequestInput = z.infer<typeof submitSuccessionRequestSchema>;
 
+export const submitPromotionRequestSchema = z.object({
+  title: z
+    .string()
+    .min(1, '제목은 필수 입력값입니다.')
+    .max(80, '제목은 80자 이하여야 합니다.'),
+  description: z
+    .string()
+    .min(1, '설명은 필수 입력값입니다.')
+    .max(2000, '설명은 2000자 이하여야 합니다.'),
+  suggestedBannerImageUrl: z
+    .string()
+    .max(500, '배너 이미지 URL은 500자 이하여야 합니다.')
+    .optional(),
+  suggestedLinkUrl: z
+    .string()
+    .max(2000, '링크 URL은 2000자 이하여야 합니다.')
+    .optional(),
+});
+
+export type SubmitPromotionRequestInput = z.infer<typeof submitPromotionRequestSchema>;
+
 const REPORT_TARGET_TYPE_VALUES = ['CLUB', 'RECRUITMENT'] as const;
 const REPORT_REASON_CODE_VALUES = [
   'SPAM',
