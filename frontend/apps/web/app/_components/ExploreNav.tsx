@@ -2,6 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+
+import { cn } from '@/app/_lib/cn';
+
 import { BrandMark } from './BrandMark';
 import { NotificationBell } from './NotificationBell';
 import { HomeNavAuthSlot } from './HomeNavAuthSlot';
@@ -32,7 +35,10 @@ export function ExploreNav({ active, floating = false }: Props) {
 
   return (
     <header
-      className={`${floating ? 'absolute inset-x-0 top-0 z-50' : 'relative z-50'} bg-cream/90 backdrop-blur border-b border-line`}
+      className={cn(
+        floating ? 'absolute inset-x-0 top-0' : 'relative',
+        'z-50 bg-cream/90 backdrop-blur border-b border-line',
+      )}
     >
       <nav className="max-w-layout mx-auto flex items-center gap-12 px-10 py-4">
         <Link href="/" aria-label="두잉 홈">
