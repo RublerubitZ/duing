@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { TimeField } from './TimeField';
 
@@ -118,10 +118,14 @@ export function EventEditModal({ event, open, onClose, onSave }: Props) {
   };
 
   const isValid = title.trim().length > 0 && date.length > 0;
+  const isTimeValid = useMemo(() => {
+    if (!startTime || !endTime) return true;
+    return endTime >= startTime;
+  }, [startTime, endTime]);
 
   const handleSave = () => {
     setTouched(true);
-    if (!isValid) return;
+    if (!isValid || !isTimeValid) return;
     onSave({
       ...event,
       title: title.trim(),
@@ -303,6 +307,11 @@ export function EventEditModal({ event, open, onClose, onSave }: Props) {
                 onChange={setEndTime}
               />
             </div>
+            {touched && !isTimeValid && (
+              <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#D97757', lineHeight: 1.4 }}>
+                시간 설정이 잘못되었습니다. 종료 시간을 확인해 주세요
+              </p>
+            )}
           </div>
         </div>
 
