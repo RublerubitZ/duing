@@ -269,6 +269,13 @@ export type CentralClubRecertificationStatusParams = {
   sort?: string;
 };
 
+export type SubmitRecertificationRequestPayload = {
+  contactEmail: string;
+  contactPhone: string;
+  operatingYear: number;
+  notes?: string;
+};
+
 // ─── 홍보 요청 ──────────────────────────────────────────────────────────────
 
 export type PromotionRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';

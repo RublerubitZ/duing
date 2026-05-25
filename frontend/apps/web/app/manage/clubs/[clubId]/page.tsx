@@ -6,6 +6,7 @@ import { useClubRecruitmentsQuery, useManagedClubsQuery } from '@duing/hooks';
 import { notFound } from 'next/navigation';
 import { toRoute } from '../../../_lib/route';
 import { PromotionRequestModal } from './_components/PromotionRequestModal';
+import { RecertificationRequestModal } from './_components/RecertificationRequestModal';
 
 export default function ClubManagePage({
   params,
@@ -36,6 +37,9 @@ export default function ClubManagePage({
   );
 
   const [promotionOpen, setPromotionOpen] = useState(false);
+  const [recertificationOpen, setRecertificationOpen] = useState(false);
+
+  const isLeader = currentManagedClub?.myRole === 'LEADER';
 
   const activeRecruitments = recruitments?.filter(
     (recruitment) => recruitment.displayStatus !== 'CLOSED',
@@ -48,6 +52,15 @@ export default function ClubManagePage({
           {currentManagedClub?.clubName ?? '동아리'} 콘솔
         </h1>
         <div className="flex items-center gap-2">
+          {isLeader && (
+            <button
+              type="button"
+              onClick={() => setRecertificationOpen(true)}
+              className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal-2 hover:border-ink hover:text-ink"
+            >
+              재인증 제출
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setPromotionOpen(true)}
@@ -103,6 +116,13 @@ export default function ClubManagePage({
           clubId={currentClubId}
           clubName={currentManagedClub.clubName}
           onClose={() => setPromotionOpen(false)}
+        />
+      )}
+      {recertificationOpen && currentManagedClub && (
+        <RecertificationRequestModal
+          clubId={currentClubId}
+          clubName={currentManagedClub.clubName}
+          onClose={() => setRecertificationOpen(false)}
         />
       )}
     </div>

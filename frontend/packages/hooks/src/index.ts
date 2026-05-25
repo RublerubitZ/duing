@@ -104,6 +104,7 @@ export {
   useCloseRecertificationRoundMutation,
 } from './recertificationRounds';
 export {
+  useSubmitRecertificationRequestMutation,
   useAdminRecertificationRequestListQuery,
   useAdminRecertificationRequestDetailQuery,
   useProcessRecertificationMutation,
