@@ -3,9 +3,18 @@ import type {
   AdminRecertificationRequestSearchParams,
   CentralClubRecertificationStatusParams,
   ProcessRecertificationPayload,
+  SubmitRecertificationRequestPayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
 import { adminQueryKeys } from './adminQueryKeys';
+
+export function useSubmitRecertificationRequestMutation(clubId: number) {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (payload: SubmitRecertificationRequestPayload) =>
+      client.recertificationRequests.submit(clubId, payload),
+  });
+}
 
 export function useAdminRecertificationRequestListQuery(
   params: AdminRecertificationRequestSearchParams,
