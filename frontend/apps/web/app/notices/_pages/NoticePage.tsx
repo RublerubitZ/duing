@@ -19,11 +19,6 @@ const Icon = {
       <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
     </svg>
   ),
-  edit: (p: IconProps) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
-      <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-    </svg>
-  ),
   chev: (p: IconProps) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
       <path d="m6 9 6 6 6-6" />
@@ -322,17 +317,6 @@ export function NoticePage() {
                   <Icon.search style={{ width: 16, height: 16 }} />
                 </button>
               </div>
-              <button type="button" style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                height: 40, padding: '0 16px', borderRadius: 10,
-                background: 'var(--paper)', color: 'var(--charcoal)',
-                border: '1px solid var(--gray-line)',
-                fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit',
-                cursor: 'pointer',
-              }}>
-                <Icon.edit style={{ width: 14, height: 14 }} />
-                글쓰기
-              </button>
             </div>
           </div>
 
@@ -392,10 +376,11 @@ export function NoticePage() {
                             borderRadius: 16, padding: '20px 22px',
                             position: 'relative', overflow: 'hidden',
                             cursor: 'pointer', minHeight: 188,
-                            display: 'flex', flexDirection: 'column',
+                            display: 'flex', flexDirection: 'row', gap: 18,
                             textDecoration: 'none',
                           }}
                         >
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                           {/* Top row: tag + date + NEW */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                             {isDark ? (
@@ -451,6 +436,21 @@ export function NoticePage() {
                               자세히 보기 <Icon.arrowRight style={{ width: 13, height: 13 }} />
                             </span>
                           </div>
+                          </div>
+                          {/* Cover thumbnail */}
+                          <div style={{
+                            flex: '0 0 140px', alignSelf: 'stretch',
+                            borderRadius: 12, overflow: 'hidden',
+                            background: isDark ? 'rgba(255,255,255,0.06)' : 'var(--gray-soft)',
+                          }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL */}
+                            <img
+                              src={n.coverImageUrl}
+                              alt=""
+                              aria-hidden
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                            />
+                          </div>
                         </Link>
                       );
                     })}
@@ -482,7 +482,7 @@ export function NoticePage() {
                 {/* Header row */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: '56px 72px 1fr 110px',
+                  gridTemplateColumns: '56px 56px 72px 1fr 110px',
                   padding: '12px 22px', gap: 14, alignItems: 'center',
                   background: '#FAF8F2',
                   borderBottom: '1px solid var(--gray-line)',
@@ -490,6 +490,7 @@ export function NoticePage() {
                   letterSpacing: '0.04em',
                 }}>
                   <span>NO.</span>
+                  <span />
                   <span>분류</span>
                   <span>제목</span>
                   <span style={{ textAlign: 'center' }}>등록일</span>
@@ -501,7 +502,7 @@ export function NoticePage() {
                     href={toRoute(`/notices/${n.id}`)}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '56px 72px 1fr 110px',
+                      gridTemplateColumns: '56px 56px 72px 1fr 110px',
                       padding: '13px 22px', gap: 14, alignItems: 'center',
                       borderBottom: i < restItems.length - 1 ? '1px solid var(--gray-line)' : 'none',
                       fontSize: 13.5, cursor: 'pointer',
@@ -513,6 +514,19 @@ export function NoticePage() {
                       fontFamily: 'var(--font-mono)',
                     }}>
                       {String(n.id).padStart(4, '0')}
+                    </span>
+                    <span style={{
+                      width: 40, height: 40, borderRadius: 8,
+                      overflow: 'hidden', background: 'var(--gray-soft)',
+                      display: 'block',
+                    }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL */}
+                      <img
+                        src={n.coverImageUrl}
+                        alt=""
+                        aria-hidden
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
                     </span>
                     <span><NTagPill category={n.category} /></span>
                     <span style={{
