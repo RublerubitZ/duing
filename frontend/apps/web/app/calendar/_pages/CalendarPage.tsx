@@ -4,33 +4,12 @@ import { useState } from 'react';
 
 import { SparkleFull } from '../../_components/Sparkle';
 import { AddEventModal } from '../_components/AddEventModal';
+import { DeleteConfirmModal } from '../_components/DeleteConfirmModal';
+import { EventDetailModal } from '../_components/EventDetailModal';
+import { EventEditModal } from '../_components/EventEditModal';
 
 import type { NewEventCategory, NewEventInput } from '../_components/AddEventModal';
-
-/* ------------------------------------------------------------------ */
-/* Types                                                                */
-/* ------------------------------------------------------------------ */
-
-type EventKind = 'deadline' | 'fair' | 'show' | 'meet' | 'volunteer' | 'notice';
-type AccentKey = 'ink' | 'coral' | 'warm' | 'berry' | 'sage' | 'sky';
-
-type CalEvent = {
-  id: string;
-  date: string;
-  kind: EventKind;
-  title: string;
-  time: string;
-  place: string;
-  club: string | null;
-  accent: AccentKey;
-  span?: number;
-};
-
-type AccentStyle = {
-  dot: string;
-  bg: string;
-  fg: string;
-};
+import type { AccentKey, AccentStyle, CalEvent, EventKind } from '../_types';
 
 type MonthCell = {
   iso: string;
@@ -43,21 +22,21 @@ type MonthCell = {
 /* Data                                                                 */
 /* ------------------------------------------------------------------ */
 
-const CAL_EVENTS: CalEvent[] = [
+const CAL_EVENTS_INITIAL: CalEvent[] = [
   /* — 공지 — */
-  { id: 'n1',  date: '2025-09-10', kind: 'notice',    title: '동아리방 배정 신청 시작',       time: '10:00',       place: '총학생회 사이트', club: null,            accent: 'ink'   },
-  { id: 'n2',  date: '2025-09-15', kind: 'notice',    title: '2025-2학기 박람회 안내문 게시', time: '09:00',       place: '두잉 공지',       club: null,            accent: 'ink'   },
+  { id: 'n1',  date: '2025-09-10', kind: 'notice',    title: '동아리방 배정 신청 시작',       time: '10:00',       place: '총학생회 사이트', club: null,            accent: 'ink',   description: '2025-2학기 동아리방 배정 신청이 시작됩니다. 총학생회 사이트에서 신청서를 제출해 주세요.', contact: '총학생회 동아리국' },
+  { id: 'n2',  date: '2025-09-15', kind: 'notice',    title: '2025-2학기 박람회 안내문 게시', time: '09:00',       place: '두잉 공지',       club: null,            accent: 'ink',   description: '가을 동아리 박람회(9/25~9/27) 일정, 부스 배치, 참가 동아리 목록이 공지됩니다.' },
 
   /* — 모집 마감 — */
-  { id: 'd1',  date: '2025-09-22', kind: 'deadline',  title: 'STAT 통계학회 모집 마감',       time: '23:59',       place: '지원폼',          club: 'STAT 통계학회', accent: 'coral' },
+  { id: 'd1',  date: '2025-09-22', kind: 'deadline',  title: 'STAT 통계학회 모집 마감',       time: '23:59',       place: '지원폼',          club: 'STAT 통계학회', accent: 'coral', description: '통계학 및 데이터 분석에 관심 있는 학생을 모집합니다. 전공 무관 지원 가능.' },
   { id: 'd2',  date: '2025-09-23', kind: 'deadline',  title: '스텝업 · K-pop 댄스 마감',      time: '23:59',       place: '지원폼',          club: '스텝업',        accent: 'coral' },
   { id: 'd3',  date: '2025-09-23', kind: 'deadline',  title: '렌즈클럽 모집 마감',            time: '23:59',       place: '지원폼',          club: '렌즈클럽',      accent: 'coral' },
   { id: 'd4',  date: '2025-09-24', kind: 'deadline',  title: '트레몰로 · 어쿠스틱 마감',      time: '23:59',       place: '지원폼',          club: '트레몰로',      accent: 'coral' },
   { id: 'd5',  date: '2025-09-24', kind: 'deadline',  title: '한모금 와인모임 마감',          time: '23:59',       place: '지원폼',          club: '한모금',        accent: 'coral' },
   { id: 'd6',  date: '2025-09-25', kind: 'deadline',  title: '씨네두잉 모집 마감',            time: '23:59',       place: '지원폼',          club: '씨네두잉',      accent: 'coral' },
   { id: 'd7',  date: '2025-09-25', kind: 'deadline',  title: '보이스라운지 모집 마감',        time: '23:59',       place: '지원폼',          club: '보이스라운지',  accent: 'coral' },
-  { id: 'd8',  date: '2025-09-26', kind: 'deadline',  title: '스파크 · IR 모임 마감',         time: '23:59',       place: '지원폼',          club: '스파크',        accent: 'coral' },
-  { id: 'd9',  date: '2025-09-26', kind: 'deadline',  title: '철학하는밤 모집 마감',          time: '23:59',       place: '지원폼',          club: '철학하는밤',    accent: 'coral' },
+  { id: 'd8',  date: '2025-09-26', kind: 'deadline',  title: '스파크 · IR 모임 마감',         time: '23:59',       place: '지원폼',          club: '스파크',        accent: 'coral', description: '창업·IR 발표에 관심 있는 학생을 모집합니다. 매주 모임을 통해 스타트업 아이디어를 발전시킵니다.', contact: '스파크 운영진' },
+  { id: 'd9',  date: '2025-09-26', kind: 'deadline',  title: '철학하는밤 모집 마감',          time: '23:59',       place: '지원폼',          club: '철학하는밤',    accent: 'coral', description: '인문학·철학에 관심 있는 누구나 환영합니다. 매달 주제를 정해 자유롭게 토론합니다.', contact: '철학하는밤 운영진' },
   { id: 'd10', date: '2025-09-27', kind: 'deadline',  title: '두잉코드 모집 마감',            time: '23:59',       place: '지원폼',          club: '두잉코드',      accent: 'coral' },
   { id: 'd11', date: '2025-09-28', kind: 'deadline',  title: '함께해요 멘토링 마감',          time: '23:59',       place: '지원폼',          club: '함께해요',      accent: 'coral' },
   { id: 'd12', date: '2025-09-28', kind: 'deadline',  title: '붓터치 회화 동아리 마감',       time: '23:59',       place: '지원폼',          club: '붓터치',        accent: 'coral' },
@@ -65,14 +44,14 @@ const CAL_EVENTS: CalEvent[] = [
   { id: 'd14', date: '2025-09-30', kind: 'deadline',  title: '북클럽 두잉 모집 마감',         time: '23:59',       place: '지원폼',          club: '북클럽 두잉',   accent: 'coral' },
 
   /* — 박람회 (3-day, 9.25–9.27) — */
-  { id: 'f1',  date: '2025-09-25', kind: 'fair',      title: '가을 동아리 박람회 D1',         time: '11:00–18:00', place: '중앙광장',        club: null, span: 3,   accent: 'warm'  },
-  { id: 'f2',  date: '2025-09-26', kind: 'fair',      title: '가을 동아리 박람회 D2',         time: '11:00–18:00', place: '중앙광장',        club: null,            accent: 'warm'  },
-  { id: 'f3',  date: '2025-09-27', kind: 'fair',      title: '가을 동아리 박람회 D3',         time: '11:00–17:00', place: '학생회관 1F',     club: null,            accent: 'warm'  },
+  { id: 'f1',  date: '2025-09-25', kind: 'fair',      title: '가을 동아리 박람회 D1',         time: '11:00–18:00', place: '중앙광장',        club: null, span: 3,   accent: 'warm',  description: '동아리 홍보 부스 운영 및 체험 프로그램 진행. 참여 대상: 대구대학교 재학생 전체.', contact: '학생지원팀 (053-850-5114)' },
+  { id: 'f2',  date: '2025-09-26', kind: 'fair',      title: '가을 동아리 박람회 D2',         time: '11:00–18:00', place: '중앙광장',        club: null,            accent: 'warm',  description: '동아리 홍보 부스 운영 및 체험 프로그램 진행. 참여 대상: 대구대학교 재학생 전체.', contact: '학생지원팀 (053-850-5114)' },
+  { id: 'f3',  date: '2025-09-27', kind: 'fair',      title: '가을 동아리 박람회 D3',         time: '11:00–17:00', place: '학생회관 1F',     club: null,            accent: 'warm',  description: '박람회 마지막 날. 오후 5시 폐막식 진행.', contact: '학생지원팀 (053-850-5114)' },
 
   /* — 공연 · 전시 — */
-  { id: 's1',  date: '2025-09-13', kind: 'show',      title: '두드림 가을 쇼케이스',          time: '19:30',       place: '소극장',          club: '두드림',        accent: 'berry' },
-  { id: 's2',  date: '2025-09-21', kind: 'show',      title: '씨네두잉 상영회 — 〈Past Lives〉', time: '19:00',     place: '인문관 305',      club: '씨네두잉',      accent: 'berry' },
-  { id: 's3',  date: '2025-09-19', kind: 'show',      title: '붓터치 9월 전시 오프닝',        time: '17:00',       place: '디자인관 로비',   club: '붓터치',        accent: 'berry' },
+  { id: 's1',  date: '2025-09-13', kind: 'show',      title: '두드림 가을 쇼케이스',          time: '19:30',       place: '소극장',          club: '두드림',        accent: 'berry', description: '밴드 동아리 두드림의 2025년 가을 정기 공연. 입장 무료, 선착순 100석.' },
+  { id: 's2',  date: '2025-09-21', kind: 'show',      title: '씨네두잉 상영회 — 〈Past Lives〉', time: '19:00',     place: '인문관 305',      club: '씨네두잉',      accent: 'berry', description: '셀린 송 감독의 2023년 작품 〈Past Lives〉 상영 및 영화 토론. 음료 제공.' },
+  { id: 's3',  date: '2025-09-19', kind: 'show',      title: '붓터치 9월 전시 오프닝',        time: '17:00',       place: '디자인관 로비',   club: '붓터치',        accent: 'berry', description: '회원 작품 20점 전시. 9월 19일 ~ 9월 30일 상시 관람 가능.' },
 
   /* — 정기 모임 (every-week) — */
   { id: 'm1',  date: '2025-09-16', kind: 'meet',      title: '트레몰로 합주',                 time: '19:00',       place: '동아리방 B',      club: '트레몰로',      accent: 'sage'  },
@@ -84,7 +63,7 @@ const CAL_EVENTS: CalEvent[] = [
   { id: 'm7',  date: '2025-09-20', kind: 'meet',      title: 'STAT 데이터 워크샵',            time: '14:00',       place: '사회과학관 211',  club: 'STAT 통계학회', accent: 'sage'  },
 
   /* — 봉사 — */
-  { id: 'v1',  date: '2025-09-20', kind: 'volunteer', title: '함께해요 멘토링 OT',            time: '10:00',       place: '지역아동센터',    club: '함께해요',      accent: 'sky'   },
+  { id: 'v1',  date: '2025-09-20', kind: 'volunteer', title: '함께해요 멘토링 OT',            time: '10:00',       place: '지역아동센터',    club: '함께해요',      accent: 'sky',   description: '지역 아동센터 학습 멘토링 오리엔테이션. 참여 전 필수 출석.' },
 ];
 
 /* Accent palette */
@@ -228,7 +207,12 @@ export function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string>(TODAY);
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
   const [addModalOpen, setAddModalOpen] = useState<boolean>(false);
-  const [userEvents, setUserEvents] = useState<CalEvent[]>([]);
+  const [events, setEvents] = useState<CalEvent[]>([...CAL_EVENTS_INITIAL]);
+
+  const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
+  const [eventDetailOpen, setEventDetailOpen] = useState<boolean>(false);
+  const [eventEditOpen, setEventEditOpen] = useState<boolean>(false);
+  const [eventDeleteConfirmOpen, setEventDeleteConfirmOpen] = useState<boolean>(false);
 
   const handleAddEvent = (input: NewEventInput) => {
     const mapping = CATEGORY_TO_ACCENT[input.category];
@@ -248,11 +232,42 @@ export function CalendarPage() {
       place: input.place || '장소 미정',
       club: null,
       accent: mapping.accent,
+      description: input.memo || undefined,
     }));
-    setUserEvents((prev) => [...prev, ...newEvents]);
+    setEvents((prev) => [...prev, ...newEvents]);
     setAddModalOpen(false);
     setSelectedDate(dates[0] ?? input.date);
     setDetailOpen(true);
+  };
+
+  const handleEventClick = (ev: CalEvent) => {
+    setSelectedEvent(ev);
+    setEventDetailOpen(true);
+  };
+
+  const handleEventEdit = () => {
+    setEventDetailOpen(false);
+    setEventEditOpen(true);
+  };
+
+  const handleEventDelete = () => {
+    setEventDetailOpen(false);
+    setEventDeleteConfirmOpen(true);
+  };
+
+  const handleEventSave = (updated: CalEvent) => {
+    setEvents((prev) => prev.map((ev) => ev.id === updated.id ? updated : ev));
+    setSelectedEvent(updated);
+    setEventEditOpen(false);
+    setEventDetailOpen(true);
+  };
+
+  const handleEventDeleteConfirm = () => {
+    if (selectedEvent) {
+      setEvents((prev) => prev.filter((ev) => ev.id !== selectedEvent.id));
+    }
+    setEventDeleteConfirmOpen(false);
+    setSelectedEvent(null);
   };
 
   const toggleKind = (k: EventKind) => {
@@ -263,7 +278,7 @@ export function CalendarPage() {
     });
   };
 
-  const allEvents = [...CAL_EVENTS, ...userEvents];
+  const allEvents = events;
   const filteredEvents = allEvents.filter(e => activeKinds.has(e.kind));
   const eventsByDate = filteredEvents.reduce<Record<string, CalEvent[]>>((acc, e) => {
     (acc[e.date] = acc[e.date] || []).push(e);
@@ -649,11 +664,22 @@ export function CalendarPage() {
                 {dayEvents.map((ev, i) => {
                   const a = ACCENT[ev.accent];
                   return (
-                    <div key={ev.id} style={{
-                      padding: '16px 20px',
-                      borderBottom: i < dayEvents.length - 1 ? '1px solid var(--gray-line)' : 'none',
-                      display: 'flex', gap: 14, alignItems: 'flex-start',
-                    }}>
+                    <div
+                      key={ev.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleEventClick(ev)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleEventClick(ev); } }}
+                      style={{
+                        padding: '16px 20px',
+                        borderBottom: i < dayEvents.length - 1 ? '1px solid var(--gray-line)' : 'none',
+                        display: 'flex', gap: 14, alignItems: 'flex-start',
+                        cursor: 'pointer',
+                        transition: 'background .14s ease',
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--sage-tint)'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+                    >
                       <div style={{
                         minWidth: 60, paddingTop: 2,
                         fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 700,
@@ -792,6 +818,31 @@ export function CalendarPage() {
         defaultDate={selectedDate || TODAY}
         onClose={() => setAddModalOpen(false)}
         onSubmit={handleAddEvent}
+      />
+
+      {selectedEvent && (
+        <EventDetailModal
+          event={selectedEvent}
+          open={eventDetailOpen}
+          onClose={() => { setEventDetailOpen(false); setSelectedEvent(null); }}
+          onEdit={handleEventEdit}
+          onDelete={handleEventDelete}
+        />
+      )}
+
+      {selectedEvent && (
+        <EventEditModal
+          event={selectedEvent}
+          open={eventEditOpen}
+          onClose={() => setEventEditOpen(false)}
+          onSave={handleEventSave}
+        />
+      )}
+
+      <DeleteConfirmModal
+        open={eventDeleteConfirmOpen}
+        onClose={() => setEventDeleteConfirmOpen(false)}
+        onConfirm={handleEventDeleteConfirm}
       />
 
     </div>
