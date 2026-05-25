@@ -6,14 +6,7 @@ export type Scope = '전체' | '중앙' | '학과';
 export type DivisionFilter = '전체' | Division;
 export type SortKey = 'DEADLINE_SOON' | 'RECENT' | 'ALPHABETICAL';
 
-/**
- * 카드에 표시되는 모집 상태 필터.
- * - 'all'      : 필터 없음
- * - 'open'     : 모집중 (API recruiting=true)
- * - 'upcoming' : 오픈 예정 (백엔드 미지원 — UI 만 노출)
- * - 'closed'   : 모집 마감 (API recruiting=false)
- */
-export type RecruitmentFilter = 'all' | 'open' | 'upcoming' | 'closed';
+export type RecruitmentFilter = 'all' | 'available' | 'upcoming' | 'closed';
 
 export type ExploreParams = {
   scope: Scope;
@@ -37,7 +30,7 @@ export const DEFAULT_EXPLORE_PARAMS: ExploreParams = {
 };
 
 const SCOPES: readonly Scope[] = ['전체', '중앙', '학과'];
-const RECRUITMENTS: readonly RecruitmentFilter[] = ['all', 'open', 'upcoming', 'closed'];
+const RECRUITMENTS: readonly RecruitmentFilter[] = ['all', 'available', 'upcoming', 'closed'];
 const SORT_KEYS: readonly SortKey[] = ['DEADLINE_SOON', 'RECENT', 'ALPHABETICAL'];
 
 const VALID_COLLEGES = new Set<string>([
@@ -48,9 +41,9 @@ const VALID_COLLEGES = new Set<string>([
 ]);
 
 export const RECRUITMENT_LABEL: Record<Exclude<RecruitmentFilter, 'all'>, string> = {
-  open: '모집중',
-  upcoming: '오픈 예정',
-  closed: '모집 마감',
+  available: '지원가능',
+  upcoming: '모집예정',
+  closed: '모집마감',
 };
 
 export function parseExploreParams(search: URLSearchParams): ExploreParams {
@@ -64,7 +57,8 @@ export function parseExploreParams(search: URLSearchParams): ExploreParams {
 
   const rawRecruitment = search.get('recruitment');
   const recruitment: RecruitmentFilter =
-    RECRUITMENTS.find((r) => r === rawRecruitment) ?? 'all';
+    rawRecruitment === 'open' ? 'available'                          // 이전 URL 호환
+      : RECRUITMENTS.find((option) => option === rawRecruitment) ?? 'all';
 
   const rawCollege = search.get('college');
   const college: College | null =
@@ -96,9 +90,10 @@ export function serializeExploreParams(params: ExploreParams): string {
  * scope → centralClub 매핑: 중앙=true, 학과=false, 전체=undefined.
  */
 export function toApiParams(params: ExploreParams, pageSize: number): ClubSearchParams {
-  const recruiting =
-    params.recruitment === 'open' ? true
-      : params.recruitment === 'closed' ? false
+  const recruitmentStatus =
+    params.recruitment === 'available' ? 'AVAILABLE'
+      : params.recruitment === 'upcoming' ? 'UPCOMING'
+      : params.recruitment === 'closed' ? 'CLOSED'
       : undefined;
 
   const centralClub =
@@ -109,7 +104,7 @@ export function toApiParams(params: ExploreParams, pageSize: number): ClubSearch
   return {
     keyword: params.keyword || undefined,
     division: params.division !== '전체' ? params.division : undefined,
-    recruiting,
+    recruitmentStatus,
     centralClub,
     college: params.college ?? undefined,
     sort: params.sort,
