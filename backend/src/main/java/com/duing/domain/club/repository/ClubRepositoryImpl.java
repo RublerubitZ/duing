@@ -13,9 +13,12 @@ import com.duing.domain.user.entity.QUser;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubSortOption;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.Order;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
@@ -49,7 +52,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
         List<Club> content = queryFactory
                 .selectFrom(club)
                 .where(predicates)
-                .orderBy(club.name.asc())
+                .orderBy(applySort(condition.sortOptionOrDefault()))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
@@ -179,5 +182,23 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private BooleanExpression collegeEq(College value) {
         return value == null ? null : club.college.eq(value);
+    }
+
+    private OrderSpecifier<?>[] applySort(ClubSortOption sortOption) {
+        return switch (sortOption) {
+            case DEADLINE_SOON -> new OrderSpecifier<?>[]{
+                    new OrderSpecifier<>(
+                            Order.ASC,
+                            JPAExpressions.select(recruitment.endDate.min())
+                                    .from(recruitment)
+                                    .where(recruitment.club.eq(club)
+                                            .and(recruitment.status.eq(RecruitmentStatus.OPEN))),
+                            OrderSpecifier.NullHandling.NullsLast
+                    ),
+                    club.createdAt.desc()
+            };
+            case ALPHABETICAL -> new OrderSpecifier<?>[]{ club.name.asc() };
+            case RECENT -> new OrderSpecifier<?>[]{ club.createdAt.desc() };
+        };
     }
 }
