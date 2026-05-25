@@ -1,4 +1,4 @@
-import type { StudentRecruitmentProjection } from './recruitment';
+import type { RecruitmentDisplayStatus, StudentRecruitmentProjection } from './recruitment';
 import type { College } from './user';
 
 export type ClubCategory =
@@ -22,6 +22,17 @@ export type ClubDayOfWeek =
   | 'SATURDAY'
   | 'SUNDAY';
 
+/**
+ * 카드 표시에 필요한 활성/대표 모집의 축약형.
+ * BE: ClubSummaryResponse.ActiveRecruitmentSummaryResponse 와 1:1 매칭.
+ */
+export type ClubSummaryRecruitment = {
+  recruitmentId: number;
+  displayStatus: RecruitmentDisplayStatus;
+  startDate: string;          // ISO yyyy-MM-dd
+  endDate: string | null;     // null = 상시모집
+};
+
 export type ClubSummary = {
   id: number;
   name: string;
@@ -32,6 +43,7 @@ export type ClubSummary = {
   status: ClubStatus;
   tags: string[];
   centralClub: boolean;
+  activeRecruitment: ClubSummaryRecruitment | null;
 };
 
 export type ClubSnsLink = {
@@ -80,7 +92,8 @@ export type ClubSearchParams = {
   division?: string;
   keyword?: string;
   tags?: string[];
-  recruiting?: boolean;
+  recruiting?: boolean;                                              // deprecated
+  recruitmentStatus?: 'AVAILABLE' | 'UPCOMING' | 'CLOSED';
   centralClub?: boolean;
   college?: College;
   page?: number;
