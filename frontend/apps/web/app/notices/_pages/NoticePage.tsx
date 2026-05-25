@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import type { SVGProps } from 'react';
+import Link from 'next/link';
 import type { NoticeCategory } from '@duing/types';
 import { useNoticeListQuery } from '@duing/hooks';
 import { ExploreNav } from '../../_components/ExploreNav';
 import { SparkleFull } from '../../_components/Sparkle';
+import { toRoute } from '../../_lib/route';
 import { NOTICE_CATEGORY_LABEL, NOTICE_CATEGORY_OPTIONS } from '../_lib/categoryLabels';
 
 /* ---------- Local icon set (inline-style 페이지 전용) ---------- */
@@ -132,17 +134,6 @@ const SideIcon = {
     </svg>
   ),
 };
-
-function Star({ filled = false }: { filled?: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24"
-         fill={filled ? 'var(--warm)' : 'none'}
-         stroke={filled ? 'var(--warm)' : 'var(--charcoal-3)'}
-         strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3l2.7 5.7 6.3.9-4.6 4.4 1.1 6.2L12 17.3 6.5 20.2l1.1-6.2L3 9.6l6.3-.9L12 3z" />
-    </svg>
-  );
-}
 
 type SideItemProps = {
   icon: React.ReactNode;
@@ -391,15 +382,20 @@ export function NoticePage() {
                     {pinnedItems.slice(0, 2).map((n, i) => {
                       const isDark = i === 0;
                       return (
-                        <article key={n.id} style={{
-                          background: isDark ? 'var(--ink)' : 'var(--paper)',
-                          color: isDark ? '#fff' : 'var(--charcoal)',
-                          border: isDark ? 'none' : '1px solid var(--gray-line)',
-                          borderRadius: 16, padding: '20px 22px',
-                          position: 'relative', overflow: 'hidden',
-                          cursor: 'pointer', minHeight: 188,
-                          display: 'flex', flexDirection: 'column',
-                        }}>
+                        <Link
+                          key={n.id}
+                          href={toRoute(`/notices/${n.id}`)}
+                          style={{
+                            background: isDark ? 'var(--ink)' : 'var(--paper)',
+                            color: isDark ? '#fff' : 'var(--charcoal)',
+                            border: isDark ? 'none' : '1px solid var(--gray-line)',
+                            borderRadius: 16, padding: '20px 22px',
+                            position: 'relative', overflow: 'hidden',
+                            cursor: 'pointer', minHeight: 188,
+                            display: 'flex', flexDirection: 'column',
+                            textDecoration: 'none',
+                          }}
+                        >
                           {/* Top row: tag + date + NEW */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                             {isDark ? (
@@ -455,21 +451,12 @@ export function NoticePage() {
                               자세히 보기 <Icon.arrowRight style={{ width: 13, height: 13 }} />
                             </span>
                           </div>
-                        </article>
+                        </Link>
                       );
                     })}
                   </div>
 
-                  {/* Carousel dots */}
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '10px 0 24px' }}>
-                    {[0, 1, 2].map((i) => (
-                      <span key={i} style={{
-                        width: i === 0 ? 18 : 6, height: 6, borderRadius: 999,
-                        background: i === 0 ? 'var(--ink)' : 'var(--gray-line)',
-                        transition: 'all .2s',
-                      }} />
-                    ))}
-                  </div>
+                  <div style={{ padding: '10px 0 24px' }} />
                 </>
               )}
 
@@ -484,37 +471,6 @@ export function NoticePage() {
                 }}>
                   전체 공지 · {totalElements}
                 </h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button type="button" style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    padding: '6px 12px', borderRadius: 8,
-                    background: 'var(--paper)', border: '1px solid var(--gray-line)',
-                    fontSize: 12.5, fontWeight: 600, color: 'var(--charcoal-2)',
-                    fontFamily: 'inherit', cursor: 'pointer',
-                  }}>
-                    최신순 <Icon.chev style={{ width: 13, height: 13 }} />
-                  </button>
-                  <div style={{
-                    display: 'flex',
-                    background: 'var(--paper)', border: '1px solid var(--gray-line)',
-                    borderRadius: 8, padding: 2,
-                  }}>
-                    <button type="button" style={{
-                      width: 28, height: 26, borderRadius: 6, border: 'none',
-                      background: 'var(--ink)', color: '#fff',
-                      display: 'grid', placeItems: 'center', cursor: 'pointer',
-                    }}>
-                      <Icon.list style={{ width: 14, height: 14 }} />
-                    </button>
-                    <button type="button" style={{
-                      width: 28, height: 26, borderRadius: 6, border: 'none',
-                      background: 'transparent', color: 'var(--charcoal-3)',
-                      display: 'grid', placeItems: 'center', cursor: 'pointer',
-                    }}>
-                      <Icon.grid style={{ width: 14, height: 14 }} />
-                    </button>
-                  </div>
-                </div>
               </div>
 
               {/* Table */}
@@ -526,7 +482,7 @@ export function NoticePage() {
                 {/* Header row */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: '56px 72px 1fr 110px 44px',
+                  gridTemplateColumns: '56px 72px 1fr 110px',
                   padding: '12px 22px', gap: 14, alignItems: 'center',
                   background: '#FAF8F2',
                   borderBottom: '1px solid var(--gray-line)',
@@ -537,17 +493,21 @@ export function NoticePage() {
                   <span>분류</span>
                   <span>제목</span>
                   <span style={{ textAlign: 'center' }}>등록일</span>
-                  <span />
                 </div>
 
                 {restItems.map((n, i) => (
-                  <div key={n.id} style={{
-                    display: 'grid',
-                    gridTemplateColumns: '56px 72px 1fr 110px 44px',
-                    padding: '13px 22px', gap: 14, alignItems: 'center',
-                    borderBottom: i < restItems.length - 1 ? '1px solid var(--gray-line)' : 'none',
-                    fontSize: 13.5, cursor: 'pointer',
-                  }}>
+                  <Link
+                    key={n.id}
+                    href={toRoute(`/notices/${n.id}`)}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '56px 72px 1fr 110px',
+                      padding: '13px 22px', gap: 14, alignItems: 'center',
+                      borderBottom: i < restItems.length - 1 ? '1px solid var(--gray-line)' : 'none',
+                      fontSize: 13.5, cursor: 'pointer',
+                      color: 'var(--charcoal)', textDecoration: 'none',
+                    }}
+                  >
                     <span style={{
                       fontSize: 12, color: 'var(--charcoal-3)',
                       fontFamily: 'var(--font-mono)',
@@ -567,10 +527,7 @@ export function NoticePage() {
                       fontSize: 12, color: 'var(--charcoal-3)',
                       fontFamily: 'var(--font-mono)', textAlign: 'center',
                     }}>{formatDate(n.createdAt)}</span>
-                    <span style={{ display: 'grid', placeItems: 'center' }}>
-                      <Star />
-                    </span>
-                  </div>
+                  </Link>
                 ))}
 
                 {restItems.length === 0 && (
