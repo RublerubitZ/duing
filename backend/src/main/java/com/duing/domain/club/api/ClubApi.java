@@ -4,6 +4,7 @@ import com.duing.domain.club.controller.dto.request.UpdateClubRequest;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
 import com.duing.domain.club.controller.dto.response.ClubSummaryResponse;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.service.dto.query.ClubSortOption;
 import com.duing.domain.user.entity.College;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -37,6 +38,7 @@ public interface ClubApi {
             @Parameter(description = "오늘 기준 모집중인 동아리만") @RequestParam(required = false) Boolean recruiting,
             @Parameter(description = "true=중앙동아리만, false=학과동아리만, 미지정=전체") @RequestParam(required = false) Boolean centralClub,
             @Parameter(description = "학과동아리의 단과대학 (College enum 코드)") @RequestParam(required = false) College college,
+            @Parameter(description = "정렬 옵션 (DEADLINE_SOON / RECENT / ALPHABETICAL). 미지정 시 RECENT.") @RequestParam(required = false) ClubSortOption sort,
             @Parameter(hidden = true) Pageable pageable
     );
 
