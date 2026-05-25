@@ -59,6 +59,10 @@ body {
     --charcoal-3: #6F7574;
     --gray-line:  #E5E2DA;
     --gray-soft:  #F0EDE5;
+    --warm:       #E8B968;
+    --coral:      #D97757;
+    --berry:      #B65672;
+    --sky:        #6A95B8;
     --font-display: 'GmarketSans', Pretendard, system-ui, sans-serif;
     --font-body:    Pretendard, system-ui, sans-serif;
     --font-mono:    'JetBrains Mono', ui-monospace, Menlo, monospace;
