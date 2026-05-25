@@ -44,7 +44,8 @@ public class ClubController implements ClubApi {
             @RequestParam(required = false) ClubSortOption sort,
             Pageable pageable
     ) {
-        ClubSearchCondition condition = new ClubSearchCondition(category, division, keyword, tags, recruiting, centralClub, college, sort);
+        ClubSearchCondition condition = new ClubSearchCondition(
+                category, division, keyword, tags, recruiting, null, centralClub, college, sort);
         Page<ClubSummaryResponse> page = clubService.search(condition, pageable)
                 .map(ClubSummaryResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));

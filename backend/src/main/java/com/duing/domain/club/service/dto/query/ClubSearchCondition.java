@@ -10,6 +10,7 @@ public record ClubSearchCondition(
         String keyword,
         List<String> tags,
         Boolean recruiting,
+        RecruitmentStatusFilter recruitmentStatus,
         Boolean centralClub,
         College college,
         ClubSortOption sortOption
@@ -25,5 +26,19 @@ public record ClubSearchCondition(
     /** 미지정이면 RECENT 로 폴백. */
     public ClubSortOption sortOptionOrDefault() {
         return sortOption == null ? ClubSortOption.RECENT : sortOption;
+    }
+
+    /**
+     * recruitmentStatus 미지정 + 구 recruiting=true 만 들어왔을 때 AVAILABLE 로 보정한다.
+     * recruitmentStatus 가 지정되어 있으면 recruiting 은 무시한다.
+     */
+    public RecruitmentStatusFilter effectiveRecruitmentStatus() {
+        if (recruitmentStatus != null) {
+            return recruitmentStatus;
+        }
+        if (Boolean.TRUE.equals(recruiting)) {
+            return RecruitmentStatusFilter.AVAILABLE;
+        }
+        return null;
     }
 }
