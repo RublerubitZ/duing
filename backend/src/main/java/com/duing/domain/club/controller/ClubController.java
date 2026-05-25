@@ -8,6 +8,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.service.ClubService;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
+import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.user.entity.College;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -39,13 +40,14 @@ public class ClubController implements ClubApi {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) List<String> tags,
             @RequestParam(required = false) Boolean recruiting,
+            @RequestParam(required = false) RecruitmentStatusFilter recruitmentStatus,
             @RequestParam(required = false) Boolean centralClub,
             @RequestParam(required = false) College college,
             @RequestParam(required = false) ClubSortOption sort,
             Pageable pageable
     ) {
         ClubSearchCondition condition = new ClubSearchCondition(
-                category, division, keyword, tags, recruiting, null, centralClub, college, sort);
+                category, division, keyword, tags, recruiting, recruitmentStatus, centralClub, college, sort);
         Page<ClubSummaryResponse> page = clubService.search(condition, pageable)
                 .map(ClubSummaryResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
