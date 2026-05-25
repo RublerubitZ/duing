@@ -11,6 +11,7 @@ function makeClub(overrides: Partial<AdminClubSummary> = {}): AdminClubSummary {
     name: '테스트 동아리',
     category: 'ACADEMIC',
     division: null,
+    college: null,
     logoUrl: null,
     status: 'PENDING_APPROVAL',
     tags: [],

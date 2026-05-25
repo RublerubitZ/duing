@@ -1,4 +1,5 @@
 import type { StudentRecruitmentProjection } from './recruitment';
+import type { College } from './user';
 
 export type ClubCategory =
   | 'ACADEMIC'
@@ -26,6 +27,7 @@ export type ClubSummary = {
   name: string;
   category: ClubCategory;
   division: string | null;
+  college: College | null;
   logoUrl: string | null;
   status: ClubStatus;
   tags: string[];
@@ -88,6 +90,7 @@ export type CreateClubPayload = {
   name: string;
   category: ClubCategory;
   division?: string;
+  college?: College | null;
   description?: string;
   logoUrl?: string;
   leaderId: number;
@@ -117,6 +120,8 @@ export type UpdateClubPayload = {
   name?: string;
   category?: ClubCategory;
   division?: string | null;
+  college?: College;
+  clearCollege?: boolean;
   description?: string | null;
   logoUrl?: string | null;
   coverUrl?: string | null;

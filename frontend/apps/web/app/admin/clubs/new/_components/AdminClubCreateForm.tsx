@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import { useCreateClubMutation } from '@duing/hooks';
-import type { AdminUserSearchResult, ClubCategory, CreateClubPayload } from '@duing/types';
+import type { AdminUserSearchResult, ClubCategory, College, CreateClubPayload } from '@duing/types';
 import { LeaderSearchCombobox } from '../../_components/LeaderSearchCombobox';
 import { toRoute } from '../../../../_lib/route';
+import { COLLEGE_OPTIONS } from '../../../../_lib/college';
 
 const CATEGORIES: ReadonlyArray<ClubCategory> = [
   'ACADEMIC',
@@ -43,6 +44,7 @@ export function AdminClubCreateForm() {
   const [logoUrl, setLogoUrl] = useState('');
   const [leader, setLeader] = useState<AdminUserSearchResult | null>(null);
   const [centralClub, setCentralClub] = useState(false);
+  const [college, setCollege] = useState<College | ''>('');
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -71,6 +73,7 @@ export function AdminClubCreateForm() {
       name: name.trim(),
       category,
       division: division.trim() || undefined,
+      college: college === '' ? null : college,
       description: description.trim() || undefined,
       logoUrl: logoUrl.trim() || undefined,
       leaderId: leader.id,
@@ -128,6 +131,22 @@ export function AdminClubCreateForm() {
           className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
         />
       </Field>
+
+      <label className="block">
+        <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">
+          단과대학 (학과동아리만 해당, 선택)
+        </span>
+        <select
+          value={college}
+          onChange={(event) => setCollege(event.target.value as College | '')}
+          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+        >
+          <option value="">선택 안 함 (중앙동아리)</option>
+          {COLLEGE_OPTIONS.map((option) => (
+            <option key={option.code} value={option.code}>{option.label}</option>
+          ))}
+        </select>
+      </label>
 
       <Field label="중앙동아리 여부">
         <label className="inline-flex items-center gap-2 text-sm text-slate-700">
