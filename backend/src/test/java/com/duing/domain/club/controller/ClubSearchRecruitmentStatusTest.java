@@ -116,6 +116,22 @@ class ClubSearchRecruitmentStatusTest {
     }
 
     @Test
+    @DisplayName("recruitmentStatus 와 recruiting 가 동시에 지정되면 recruitmentStatus 가 우선한다")
+    void explicitRecruitmentStatusOverridesLegacyRecruiting() throws Exception {
+        Club upcomingClub = saveActiveClub("overrideUpcoming");
+        Club openClub = saveActiveClub("overrideOpen");
+
+        saveOpenRecruitment(upcomingClub, LocalDate.now().plusDays(3), LocalDate.now().plusDays(10));
+        saveOpenRecruitment(openClub, LocalDate.now().minusDays(1), LocalDate.now().plusDays(5));
+
+        RestAssured.given()
+                .when().get("/api/v1/clubs?recruiting=true&recruitmentStatus=UPCOMING&keyword=override&size=50")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.name", hasItem(upcomingClub.getName()))
+                .body("data.content.name", not(hasItem(openClub.getName())));
+    }
+
+    @Test
     @DisplayName("활성 모집이 있는 동아리는 activeRecruitment 가 OPEN 상태로 응답에 포함된다")
     void activeRecruitmentEmbeddedInResponse() throws Exception {
         Club openClub = saveActiveClub("embedOpen");

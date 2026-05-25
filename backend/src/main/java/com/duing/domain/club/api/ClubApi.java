@@ -36,7 +36,7 @@ public interface ClubApi {
             @Parameter(description = "분류 필터") @RequestParam(required = false) String division,
             @Parameter(description = "이름/설명 키워드") @RequestParam(required = false) String keyword,
             @Parameter(description = "태그 다중 (OR 매칭)") @RequestParam(required = false) List<String> tags,
-            @Parameter(description = "deprecated — recruitmentStatus 로 대체. true 이면 AVAILABLE 과 동일.") @RequestParam(required = false) Boolean recruiting,
+            @Parameter(description = "deprecated — recruitmentStatus 로 대체. true → AVAILABLE 매핑. false 는 매핑되지 않음(=전체).") @RequestParam(required = false) Boolean recruiting,
             @Parameter(description = "모집 상태 필터 (AVAILABLE / UPCOMING / CLOSED). 미지정 시 전체. recruiting 보다 우선 적용.")
             @RequestParam(required = false) RecruitmentStatusFilter recruitmentStatus,
             @Parameter(description = "true=중앙동아리만, false=학과동아리만, 미지정=전체") @RequestParam(required = false) Boolean centralClub,
