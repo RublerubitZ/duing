@@ -1,15 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePublicPromotionsQuery } from '@duing/hooks';
 import type { PromotionCard, PromotionPalette } from '@duing/types';
+import { cn } from '@/app/_lib/cn';
 import { ArrowLeft, ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 import { PROMOTION_PALETTE } from '../../_lib/promotionPalette';
 import { landingBanners, type LandingBanner } from '../../_mocks';
 
 const AUTOPLAY_INTERVAL_MS = 5_000;
+const SLIDE_DURATION_MS = 400;
 
 /**
  * 캐러셀이 내부적으로 사용하는 정규화된 슬라이드 모델.
@@ -72,6 +74,9 @@ export function BannerCarousel() {
   const promotionsQuery = usePublicPromotionsQuery();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [direction, setDirection] = useState<'left' | 'right'>('left');
+  const [exitingSlide, setExitingSlide] = useState<CarouselSlide | null>(null);
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const slides = useMemo<CarouselSlide[]>(() => {
     const dbContent = promotionsQuery.data?.content ?? [];
@@ -84,13 +89,36 @@ export function BannerCarousel() {
     [slides],
   );
 
+  const startSlideTransition = useCallback(
+    (newDirection: 'left' | 'right', currentSlide: CarouselSlide) => {
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+      setDirection(newDirection);
+      setExitingSlide(currentSlide);
+      transitionTimerRef.current = setTimeout(() => {
+        setExitingSlide(null);
+        transitionTimerRef.current = null;
+      }, SLIDE_DURATION_MS);
+    },
+    [],
+  );
+
   const goNext = useCallback(() => {
+    const currentSlide = slides[activeIndex];
+    if (currentSlide) startSlideTransition('left', currentSlide);
     setActiveIndex((prev) => (prev + 1) % slides.length);
-  }, [slides.length]);
+  }, [slides, activeIndex, startSlideTransition]);
 
   const goPrev = useCallback(() => {
+    const currentSlide = slides[activeIndex];
+    if (currentSlide) startSlideTransition('right', currentSlide);
     setActiveIndex((prev) => (prev - 1 + slides.length) % slides.length);
-  }, [slides.length]);
+  }, [slides, activeIndex, startSlideTransition]);
+
+  useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     // 슬라이드 수가 바뀌면 안전한 인덱스로 리셋.
@@ -114,15 +142,47 @@ export function BannerCarousel() {
     <section className="px-10 pt-2">
       <div className="max-w-layout relative mx-auto">
         <div className="grid gap-4 md:grid-cols-[1fr_340px]">
-          <MainSlide slide={activeSlide} />
+          <div className="relative h-[280px] overflow-hidden rounded-xl">
+            {exitingSlide && (
+              <div
+                key={`exit-${exitingSlide.key}`}
+                className={cn(
+                  'pointer-events-none absolute inset-0',
+                  direction === 'left' ? 'animate-slide-out-left' : 'animate-slide-out-right',
+                )}
+              >
+                <MainSlide slide={exitingSlide} />
+              </div>
+            )}
+            <div
+              key={`enter-${activeSlide.key}`}
+              className={cn(
+                'absolute inset-0',
+                exitingSlide
+                  ? direction === 'left'
+                    ? 'animate-slide-in-right'
+                    : 'animate-slide-in-left'
+                  : '',
+              )}
+            >
+              <MainSlide slide={activeSlide} />
+            </div>
+          </div>
+
           <div className="flex flex-col gap-3">
-            {previewSlides.map((slide) => (
+            {previewSlides.map((slide, idx) => (
               <PreviewSlide
-                key={slide.key}
+                key={`${activeIndex}-${direction}-${slide.key}`}
                 slide={slide}
+                direction={direction}
+                animationDelay={idx === 1 ? '120ms' : undefined}
                 onSelect={() => {
                   const next = slides.findIndex((s) => s.key === slide.key);
-                  if (next >= 0) setActiveIndex(next);
+                  if (next >= 0) {
+                    const currentSlide = slides[activeIndex];
+                    if (currentSlide) startSlideTransition(next > activeIndex ? 'left' : 'right', currentSlide);
+                    setActiveIndex(next);
+                  }
                 }}
               />
             ))}
@@ -136,7 +196,11 @@ export function BannerCarousel() {
                 key={slide.key}
                 type="button"
                 aria-label={`배너 ${idx + 1}로 이동`}
-                onClick={() => setActiveIndex(idx)}
+                onClick={() => {
+                  const currentSlide = slides[activeIndex];
+                  if (currentSlide) startSlideTransition(idx > activeIndex ? 'left' : 'right', currentSlide);
+                  setActiveIndex(idx);
+                }}
                 className={`h-[5px] rounded-full transition-all ${
                   idx === activeIndex ? 'w-6 bg-ink' : 'w-[5px] bg-line'
                 }`}
@@ -182,7 +246,7 @@ function MainSlide({ slide }: { slide: CarouselSlide }) {
   const isDarkText = slide.fg === '#fff';
   const body = (
     <div
-      className="relative flex h-[280px] flex-col justify-between overflow-hidden rounded-xl px-12 py-11"
+      className="relative flex h-full flex-col justify-between px-12 py-11"
       style={{ background: slide.bg, color: slide.fg }}
     >
       {slide.bannerImageUrl && (
@@ -256,33 +320,37 @@ function MainSlide({ slide }: { slide: CarouselSlide }) {
   // typedRoutes 검증을 위해 외부 URL / 내부 라우트를 구분한다.
   if (slide.href.startsWith('http')) {
     return (
-      <a href={slide.href} target="_blank" rel="noopener noreferrer" className="block">
+      <a href={slide.href} target="_blank" rel="noopener noreferrer" className="block h-full">
         {body}
       </a>
     );
   }
   // 내부 경로는 string 으로 캐스팅 — DB 가 임의의 path 를 줄 수 있어 typedRoutes 검증 우회가 필요하다.
   return (
-    <Link href={slide.href as never} className="block">
+    <Link href={slide.href as never} className="block h-full">
       {body}
     </Link>
   );
 }
 
-function PreviewSlide({
-  slide,
-  onSelect,
-}: {
+type PreviewSlideProps = {
   slide: CarouselSlide;
+  direction: 'left' | 'right';
+  animationDelay?: string;
   onSelect(): void;
-}) {
+};
+
+function PreviewSlide({ slide, direction, animationDelay, onSelect }: PreviewSlideProps) {
   const isDarkText = slide.fg === '#fff';
   return (
     <button
       type="button"
       onClick={onSelect}
-      className="relative flex-1 cursor-pointer overflow-hidden rounded-lg px-5 py-[18px] text-left"
-      style={{ background: slide.bg, color: slide.fg }}
+      className={cn(
+        'relative flex-1 cursor-pointer overflow-hidden rounded-lg px-5 py-[18px] text-left',
+        direction === 'left' ? 'animate-preview-in' : 'animate-preview-in-reverse',
+      )}
+      style={{ background: slide.bg, color: slide.fg, animationDelay }}
     >
       {slide.emoji && (
         <div
