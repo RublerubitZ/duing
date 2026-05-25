@@ -168,12 +168,16 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
 
   const dateLabel = useMemo(() => toKoreanDateLabel(date), [date]);
   const isValid = title.trim().length > 0 && date.length > 0;
+  const isTimeValid = useMemo(() => {
+    if (!startTime || !endTime) return true;
+    return endTime >= startTime;
+  }, [startTime, endTime]);
 
   if (!open) return null;
 
   const handleSubmit = () => {
     setTouched(true);
-    if (!isValid) return;
+    if (!isValid || !isTimeValid) return;
     onSubmit({
       title: title.trim(),
       date,
@@ -389,6 +393,11 @@ export function AddEventModal({ open, defaultDate, onClose, onSubmit }: Props) {
               />
               <ClockIcon style={{ width: 16, height: 16, color: 'var(--charcoal-3)', flexShrink: 0 }} />
             </div>
+            {touched && !isTimeValid && (
+              <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#D97757', lineHeight: 1.4 }}>
+                종료 시간은 시작 시간 이후로 설정해 주세요
+              </p>
+            )}
           </div>
         </div>
 
