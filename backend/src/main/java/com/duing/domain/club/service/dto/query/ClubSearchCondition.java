@@ -11,7 +11,8 @@ public record ClubSearchCondition(
         List<String> tags,
         Boolean recruiting,
         Boolean centralClub,
-        College college
+        College college,
+        ClubSortOption sortOption
 ) {
     public boolean hasTags() {
         return tags != null && !tags.isEmpty();
@@ -19,5 +20,10 @@ public record ClubSearchCondition(
 
     public boolean recruitingOnly() {
         return Boolean.TRUE.equals(recruiting);
+    }
+
+    /** 미지정이면 RECENT 로 폴백. */
+    public ClubSortOption sortOptionOrDefault() {
+        return sortOption == null ? ClubSortOption.RECENT : sortOption;
     }
 }
