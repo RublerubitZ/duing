@@ -1,4 +1,5 @@
 import type { ClubCategory, ClubStatus } from './club';
+import type { College } from './user';
 import type { ClubMemberRole } from './clubmember';
 import type { UserRole } from './user';
 
@@ -11,6 +12,7 @@ export type AdminClubSummary = {
   name: string;
   category: ClubCategory;
   division: string | null;
+  college: College | null;
   logoUrl: string | null;
   status: ClubStatus;
   tags: string[];

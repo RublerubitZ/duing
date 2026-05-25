@@ -1,24 +1,5 @@
 import type { StudentRecruitmentProjection } from './recruitment';
-
-/**
- * 단과대학 enum (BE: com.duing.domain.user.entity.College).
- * Club 의 college 필드와 User 의 college 필드가 동일 enum 을 공유한다.
- */
-export type College =
-  | 'PUBLIC_LEADERS'
-  | 'GLOBAL_BUSINESS'
-  | 'SOCIAL_SCIENCE'
-  | 'HEALTH_BIO'
-  | 'IT_ENGINEERING'
-  | 'DESIGN_ART'
-  | 'EDUCATION'
-  | 'REHABILITATION'
-  | 'NURSING'
-  | 'GLOCAL_LIFE'
-  | 'INTERNATIONAL'
-  | 'SPORTS_LEISURE'
-  | 'CULTURE_CONTENTS'
-  | 'FREE_MAJOR';
+import type { College } from './user';
 
 export type ClubCategory =
   | 'ACADEMIC'

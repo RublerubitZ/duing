@@ -10,6 +10,7 @@ const baseClub: ClubDetail = {
   name: 'X',
   category: 'ACADEMIC',
   division: null,
+  college: null,
   logoUrl: null,
   status: 'ACTIVE',
   tags: [],
