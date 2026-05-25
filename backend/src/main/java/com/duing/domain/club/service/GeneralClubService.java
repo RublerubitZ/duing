@@ -19,6 +19,8 @@ import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
+import com.duing.domain.recruitment.repository.ClubActiveRecruitmentRow;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
 import com.duing.domain.user.entity.User;
@@ -26,6 +28,7 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -75,8 +78,28 @@ public class GeneralClubService implements ClubService {
 
     @Override
     public Page<ClubSummaryQuery> search(ClubSearchCondition condition, Pageable pageable) {
-        return clubRepository.findByCondition(condition, pageable)
-                .map(ClubSummaryQuery::from);
+        Page<Club> clubPage = clubRepository.findByCondition(condition, pageable);
+        List<Club> clubs = clubPage.getContent();
+        if (clubs.isEmpty()) {
+            return clubPage.map(ClubSummaryQuery::from);
+        }
+
+        List<Long> clubIds = clubs.stream().map(Club::getId).toList();
+        LocalDate today = LocalDate.now();
+        Map<Long, ClubActiveRecruitmentRow> representativeByClubId =
+                recruitmentRepository.findRepresentativeByClubIds(clubIds, today);
+
+        return clubPage.map(eachClub -> {
+            ClubSummaryQuery base = ClubSummaryQuery.from(eachClub);
+            ClubActiveRecruitmentRow row = representativeByClubId.get(eachClub.getId());
+            if (row == null) {
+                return base;
+            }
+            RecruitmentDisplayStatus displayStatus = RecruitmentDisplayStatus.resolve(
+                    row.status(), row.startDate(), row.endDate(), today);
+            return base.withActiveRecruitment(new ClubSummaryQuery.ActiveRecruitmentSummary(
+                    row.recruitmentId(), displayStatus, row.startDate(), row.endDate()));
+        });
     }
 
     @Override

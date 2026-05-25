@@ -5,6 +5,7 @@ import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
 import com.duing.domain.club.controller.dto.response.ClubSummaryResponse;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
+import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.user.entity.College;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -35,7 +36,9 @@ public interface ClubApi {
             @Parameter(description = "분류 필터") @RequestParam(required = false) String division,
             @Parameter(description = "이름/설명 키워드") @RequestParam(required = false) String keyword,
             @Parameter(description = "태그 다중 (OR 매칭)") @RequestParam(required = false) List<String> tags,
-            @Parameter(description = "오늘 기준 모집중인 동아리만") @RequestParam(required = false) Boolean recruiting,
+            @Parameter(description = "deprecated — recruitmentStatus 로 대체. true → AVAILABLE 매핑. false 는 매핑되지 않음(=전체).") @RequestParam(required = false) Boolean recruiting,
+            @Parameter(description = "모집 상태 필터 (AVAILABLE / UPCOMING / CLOSED). 미지정 시 전체. recruiting 보다 우선 적용.")
+            @RequestParam(required = false) RecruitmentStatusFilter recruitmentStatus,
             @Parameter(description = "true=중앙동아리만, false=학과동아리만, 미지정=전체") @RequestParam(required = false) Boolean centralClub,
             @Parameter(description = "학과동아리의 단과대학 (College enum 코드)") @RequestParam(required = false) College college,
             @Parameter(description = "정렬 옵션 (DEADLINE_SOON / RECENT / ALPHABETICAL). 미지정 시 RECENT.") @RequestParam(required = false) ClubSortOption sort,
