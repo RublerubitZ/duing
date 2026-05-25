@@ -14,6 +14,7 @@ import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
+import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.querydsl.core.Tuple;
@@ -38,13 +39,15 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     @Override
     public Page<Club> findByCondition(ClubSearchCondition condition, Pageable pageable) {
+        RecruitmentStatusFilter effectiveStatus = condition.effectiveRecruitmentStatus();
+
         BooleanExpression[] predicates = {
                 club.status.eq(ClubStatus.ACTIVE),
                 categoryEq(condition.category()),
                 divisionEq(condition.division()),
                 keywordContains(condition.keyword()),
                 tagsOverlap(condition.tags()),
-                hasActiveRecruitment(condition.recruitingOnly()),
+                recruitmentStatusFilter(effectiveStatus),
                 centralClubEq(condition.centralClub()),
                 collegeEq(condition.college()),
         };
@@ -162,18 +165,48 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
         );
     }
 
-    private BooleanExpression hasActiveRecruitment(boolean recruitingOnly) {
-        if (!recruitingOnly) return null;
+    private BooleanExpression recruitmentStatusFilter(RecruitmentStatusFilter filter) {
+        if (filter == null) return null;
         LocalDate today = LocalDate.now();
-        return JPAExpressions
-                .selectOne()
-                .from(recruitment)
-                .where(
-                        recruitment.club.id.eq(club.id),
-                        recruitment.status.eq(RecruitmentStatus.OPEN),
-                        recruitment.endDate.isNull().or(recruitment.endDate.goe(today))
-                )
-                .exists();
+        return switch (filter) {
+            case AVAILABLE -> JPAExpressions
+                    .selectOne()
+                    .from(recruitment)
+                    .where(
+                            recruitment.club.id.eq(club.id),
+                            recruitment.status.eq(RecruitmentStatus.OPEN),
+                            recruitment.endDate.isNull().or(recruitment.endDate.goe(today)),
+                            recruitment.startDate.loe(today)
+                    )
+                    .exists();
+            case UPCOMING -> JPAExpressions
+                    .selectOne()
+                    .from(recruitment)
+                    .where(
+                            recruitment.club.id.eq(club.id),
+                            recruitment.status.eq(RecruitmentStatus.OPEN),
+                            recruitment.startDate.gt(today)
+                    )
+                    .exists();
+            case CLOSED -> JPAExpressions
+                    .selectOne()
+                    .from(recruitment)
+                    .where(
+                            recruitment.club.id.eq(club.id),
+                            recruitment.status.eq(RecruitmentStatus.CLOSED)
+                                    .or(recruitment.endDate.isNotNull().and(recruitment.endDate.lt(today)))
+                    )
+                    .exists()
+                    .and(JPAExpressions  // 활성 모집이 있으면 CLOSED 필터에서 제외
+                            .selectOne()
+                            .from(recruitment)
+                            .where(
+                                    recruitment.club.id.eq(club.id),
+                                    recruitment.status.eq(RecruitmentStatus.OPEN),
+                                    recruitment.endDate.isNull().or(recruitment.endDate.goe(today))
+                            )
+                            .notExists());
+        };
     }
 
     private BooleanExpression centralClubEq(Boolean value) {
