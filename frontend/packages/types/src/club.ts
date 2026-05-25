@@ -81,6 +81,8 @@ export type ClubSearchParams = {
   keyword?: string;
   tags?: string[];
   recruiting?: boolean;
+  centralClub?: boolean;
+  college?: College;
   page?: number;
   size?: number;
   sort?: string;

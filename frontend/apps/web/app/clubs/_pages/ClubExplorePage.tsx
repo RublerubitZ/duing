@@ -7,10 +7,11 @@ import { useClubListQuery, useFavoriteIdsQuery, useFavoriteToggleMutation } from
 import { useAuthStore } from '@duing/stores';
 
 import { Sparkle, SparkleFull } from '../../_components/Sparkle';
+import { COLLEGE_OPTIONS, collegeDisplayName } from '../../_lib/college';
 import { toRoute } from '../../_lib/route';
 import { ClubCard } from '../_components/ClubCard';
 import { summaryToClub } from '../_lib/clubAdapter';
-import { DIVISIONS, isDivision, type Division } from '../_lib/clubs';
+import { DIVISIONS, type Division } from '../_lib/clubs';
 import {
   DEFAULT_EXPLORE_PARAMS,
   RECRUITMENT_LABEL,
@@ -21,34 +22,16 @@ import {
   type ExploreParams,
   type RecruitmentFilter,
   type Scope,
+  type SortKey,
 } from '../_lib/exploreParams';
 
 const PAGE_SIZE = 20;
-const COLLEGES = ['전체', 'IT융합대학', '공과대학', '경영대학', '사회과학대학', '예술대학', '사범대학'] as const;
 
 const Icon = {
   search: (props: React.SVGProps<SVGSVGElement>) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-3.5-3.5" />
-    </svg>
-  ),
-  grid: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-    </svg>
-  ),
-  list: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <line x1="8" y1="6" x2="21" y2="6" />
-      <line x1="8" y1="12" x2="21" y2="12" />
-      <line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" />
-      <line x1="3" y1="12" x2="3.01" y2="12" />
-      <line x1="3" y1="18" x2="3.01" y2="18" />
     </svg>
   ),
   chev: (props: React.SVGProps<SVGSVGElement>) => (
@@ -102,24 +85,10 @@ export function ClubExplorePage() {
 
   const likedIds = useMemo(() => new Set(favoriteIdsQuery.data ?? []), [favoriteIdsQuery.data]);
 
-  /**
-   * scope 는 백엔드 검색에 없으므로 페이지 결과에서 한 번 더 거른다.
-   * (페이지네이션 정합성은 백엔드에 scope 필드가 생기면 자연스럽게 해결.)
-   */
-  const visibleClubs = useMemo(() => {
-    const content = clubListQuery.data?.content ?? [];
-    return content
-      .filter((summary) => {
-        if (params.scope === '중앙' && !isDivision(summary.division)) return false;
-        if (params.scope === '과' && isDivision(summary.division)) return false;
-        return true;
-      })
-      .map(summaryToClub)
-      .filter((club) => {
-        if (params.recruitment === 'all') return true;
-        return club.status === params.recruitment;
-      });
-  }, [clubListQuery.data, params.scope, params.recruitment]);
+  const visibleClubs = useMemo(
+    () => (clubListQuery.data?.content ?? []).map(summaryToClub),
+    [clubListQuery.data],
+  );
 
   const totalElements = clubListQuery.data?.totalElements ?? 0;
   const totalPages = clubListQuery.data?.totalPages ?? 0;
@@ -139,7 +108,7 @@ export function ClubExplorePage() {
   };
 
   const handleScopeChange = (scope: Scope) => {
-    updateParams({ scope, division: '전체', page: 1 });
+    updateParams({ scope, division: '전체', college: null, page: 1 });
   };
 
   const handleDivisionChange = (division: DivisionFilter) => {
@@ -203,7 +172,7 @@ export function ClubExplorePage() {
               [
                 { key: '전체', hint: '모든 동아리' },
                 { key: '중앙', hint: '학생자치회 5개 분과' },
-                { key: '과',   hint: '학과 · 단과대 산하' },
+                { key: '학과', hint: '학과 · 단과대 산하' },
               ] as const
             ).map((segment) => {
               const on = segment.key === params.scope;
@@ -214,7 +183,7 @@ export function ClubExplorePage() {
                   onClick={() => handleScopeChange(segment.key)}
                   className={`inline-flex items-center gap-2.5 px-[18px] py-2.5 rounded-[12px] text-sm font-bold border-[1.5px] ${on ? 'bg-ink text-white border-ink' : 'bg-paper text-charcoal-2 border-line'}`}
                 >
-                  {segment.key === '전체' ? '전체' : segment.key === '중앙' ? '중앙동아리' : '과동아리'}
+                  {segment.key === '전체' ? '전체' : segment.key === '중앙' ? '중앙동아리' : '학과동아리'}
                   {on && (
                     <span className="text-[11px] text-sage font-medium tracking-wide04">
                       · {segment.hint}
@@ -243,18 +212,24 @@ export function ClubExplorePage() {
                 );
               })}
             </div>
-          ) : params.scope === '과' ? (
+          ) : params.scope === '학과' ? (
             <div className="flex gap-2 flex-wrap items-center">
               <span className="text-[11.5px] font-bold text-charcoal-3 tracking-wide08 mr-1">단과대학</span>
-              {COLLEGES.map((college, index) => (
-                <button
-                  key={college}
-                  type="button"
-                  className={`px-4 py-2 rounded-full text-[13.5px] font-semibold border ${index === 0 ? 'bg-sage-mist text-ink-deep border-ink-deep' : 'bg-paper text-charcoal-2 border-line'}`}
-                >
-                  {college}
-                </button>
-              ))}
+              {COLLEGE_OPTIONS.map((option) => {
+                const on = option.code === params.college;
+                return (
+                  <button
+                    key={option.code}
+                    type="button"
+                    onClick={() =>
+                      updateParams({ college: on ? null : option.code, page: 1 })
+                    }
+                    className={`px-4 py-2 rounded-full text-[13.5px] font-semibold border ${on ? 'bg-sage-mist text-ink-deep border-ink-deep' : 'bg-paper text-charcoal-2 border-line'}`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
             </div>
           ) : null}
         </div>
@@ -300,7 +275,7 @@ export function ClubExplorePage() {
                     </button>
                   ))}
                 </div>
-                <p className="mt-2 text-[11px] text-charcoal-3">활동 요일 필터는 준비 중입니다.</p>
+                <p className="mt-2 text-[11px] text-charcoal-3">활동 요일 필터는 다음 업데이트에 추가될 예정입니다.</p>
               </FilterGroup>
 
               <FilterGroup title={params.scope === '중앙' ? '분과' : '단과대학'} last>
@@ -315,8 +290,18 @@ export function ClubExplorePage() {
                         }
                       />
                     ))
-                  : COLLEGES.filter((c) => c !== '전체').map((c) => (
-                      <FilterRow key={c} label={c} checked={false} onChange={undefined} disabled />
+                  : COLLEGE_OPTIONS.map((option) => (
+                      <FilterRow
+                        key={option.code}
+                        label={option.label}
+                        checked={params.college === option.code}
+                        onChange={() =>
+                          updateParams({
+                            college: params.college === option.code ? null : option.code,
+                            page: 1,
+                          })
+                        }
+                      />
                     ))}
               </FilterGroup>
             </div>
@@ -331,22 +316,17 @@ export function ClubExplorePage() {
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex p-1 bg-paper rounded-[10px] border border-line">
-                  <button type="button" className="px-2 py-1.5 rounded-md bg-ink text-white">
-                    <Icon.grid />
-                  </button>
-                  <button type="button" className="px-2 py-1.5 rounded-md bg-transparent text-charcoal-3">
-                    <Icon.list />
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  disabled
-                  className="px-3.5 py-2 bg-paper rounded-[10px] border border-line text-[13.5px] font-semibold text-charcoal-3 inline-flex items-center gap-1.5 opacity-60 cursor-not-allowed"
-                  title="정렬 옵션은 준비 중"
+                <select
+                  value={params.sort}
+                  onChange={(event) =>
+                    updateParams({ sort: event.target.value as SortKey, page: 1 })
+                  }
+                  className="px-3.5 py-2 bg-paper rounded-[10px] border border-line text-[13.5px] font-semibold text-charcoal-2"
                 >
-                  마감 임박순 <Icon.chev className="w-4 h-4" />
-                </button>
+                  <option value="RECENT">최근 등록순</option>
+                  <option value="DEADLINE_SOON">마감 임박순</option>
+                  <option value="ALPHABETICAL">가나다순</option>
+                </select>
               </div>
             </div>
 
@@ -354,12 +334,13 @@ export function ClubExplorePage() {
               {(params.scope !== '전체' ||
                 params.division !== '전체' ||
                 params.keyword !== '' ||
-                params.recruitment !== 'all') && (
+                params.recruitment !== 'all' ||
+                params.college !== null) && (
                 <span className="text-[13px] text-charcoal-3 pt-1.5">필터:</span>
               )}
               {params.scope !== '전체' && (
                 <ActiveFilterChip
-                  label={params.scope === '중앙' ? '중앙동아리' : '과동아리'}
+                  label={params.scope === '중앙' ? '중앙동아리' : '학과동아리'}
                   variant="primary"
                   onRemove={() => handleScopeChange('전체')}
                 />
@@ -369,6 +350,13 @@ export function ClubExplorePage() {
                   label={`${params.division}분과`}
                   variant="primary"
                   onRemove={() => handleDivisionChange('전체')}
+                />
+              )}
+              {params.college && (
+                <ActiveFilterChip
+                  label={collegeDisplayName(params.college)}
+                  variant="primary"
+                  onRemove={() => updateParams({ college: null, page: 1 })}
                 />
               )}
               {params.keyword && (

@@ -1,9 +1,10 @@
-import type { ClubSearchParams } from '@duing/types';
+import type { ClubSearchParams, College } from '@duing/types';
 
 import { type Division, isDivision } from './clubs';
 
-export type Scope = '전체' | '중앙' | '과';
+export type Scope = '전체' | '중앙' | '학과';
 export type DivisionFilter = '전체' | Division;
+export type SortKey = 'DEADLINE_SOON' | 'RECENT' | 'ALPHABETICAL';
 
 /**
  * 카드에 표시되는 모집 상태 필터.
@@ -19,6 +20,8 @@ export type ExploreParams = {
   division: DivisionFilter;
   keyword: string;
   recruitment: RecruitmentFilter;
+  college: College | null;
+  sort: SortKey;
   /** 1-based 페이지 — URL 표기와 일치. API 호출 시 -1. */
   page: number;
 };
@@ -28,11 +31,21 @@ export const DEFAULT_EXPLORE_PARAMS: ExploreParams = {
   division: '전체',
   keyword: '',
   recruitment: 'all',
+  college: null,
+  sort: 'RECENT',
   page: 1,
 };
 
-const SCOPES: readonly Scope[] = ['전체', '중앙', '과'];
+const SCOPES: readonly Scope[] = ['전체', '중앙', '학과'];
 const RECRUITMENTS: readonly RecruitmentFilter[] = ['all', 'open', 'upcoming', 'closed'];
+const SORT_KEYS: readonly SortKey[] = ['DEADLINE_SOON', 'RECENT', 'ALPHABETICAL'];
+
+const VALID_COLLEGES = new Set<string>([
+  'PUBLIC_LEADERS', 'GLOBAL_BUSINESS', 'SOCIAL_SCIENCE', 'HEALTH_BIO',
+  'IT_ENGINEERING', 'DESIGN_ART', 'EDUCATION', 'REHABILITATION',
+  'NURSING', 'GLOCAL_LIFE', 'INTERNATIONAL', 'SPORTS_LEISURE',
+  'CULTURE_CONTENTS', 'FREE_MAJOR',
+]);
 
 export const RECRUITMENT_LABEL: Record<Exclude<RecruitmentFilter, 'all'>, string> = {
   open: '모집중',
@@ -53,10 +66,17 @@ export function parseExploreParams(search: URLSearchParams): ExploreParams {
   const recruitment: RecruitmentFilter =
     RECRUITMENTS.find((r) => r === rawRecruitment) ?? 'all';
 
+  const rawCollege = search.get('college');
+  const college: College | null =
+    rawCollege && VALID_COLLEGES.has(rawCollege) ? (rawCollege as College) : null;
+
+  const rawSort = search.get('sort');
+  const sort: SortKey = SORT_KEYS.find((s) => s === rawSort) ?? 'RECENT';
+
   const rawPage = Number(search.get('page'));
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
 
-  return { scope, division, keyword, recruitment, page };
+  return { scope, division, keyword, recruitment, college, sort, page };
 }
 
 export function serializeExploreParams(params: ExploreParams): string {
@@ -65,14 +85,15 @@ export function serializeExploreParams(params: ExploreParams): string {
   if (params.division !== '전체') next.set('division', params.division);
   if (params.keyword) next.set('q', params.keyword);
   if (params.recruitment !== 'all') next.set('recruitment', params.recruitment);
+  if (params.college) next.set('college', params.college);
+  if (params.sort !== 'RECENT') next.set('sort', params.sort);
   if (params.page > 1) next.set('page', String(params.page));
   return next.toString();
 }
 
 /**
  * 백엔드 검색 파라미터 변환.
- * - scope 는 백엔드 스키마에 없으므로 클라이언트에서 후처리.
- * - recruitment='upcoming' 도 백엔드 미지원 — 필터를 보내지 않고 클라이언트에서 후처리.
+ * scope → centralClub 매핑: 중앙=true, 학과=false, 전체=undefined.
  */
 export function toApiParams(params: ExploreParams, pageSize: number): ClubSearchParams {
   const recruiting =
@@ -80,10 +101,18 @@ export function toApiParams(params: ExploreParams, pageSize: number): ClubSearch
       : params.recruitment === 'closed' ? false
       : undefined;
 
+  const centralClub =
+    params.scope === '중앙' ? true
+      : params.scope === '학과' ? false
+      : undefined;
+
   return {
     keyword: params.keyword || undefined,
     division: params.division !== '전체' ? params.division : undefined,
     recruiting,
+    centralClub,
+    college: params.college ?? undefined,
+    sort: params.sort,
     page: Math.max(0, params.page - 1),
     size: pageSize,
   };
