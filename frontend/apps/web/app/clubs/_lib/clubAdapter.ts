@@ -22,7 +22,7 @@ const COLOR_PALETTE = [
 const pickColor = (id: number): string => COLOR_PALETTE[Math.abs(id) % COLOR_PALETTE.length] ?? '#1F4A36';
 
 const deriveScope = (centralClub: boolean): ClubScope =>
-  centralClub ? '중앙' : '과';
+  centralClub ? '중앙' : '학과';
 
 /**
  * 백엔드 ClubStatus(PENDING/ACTIVE/INACTIVE) → UI ClubStatus(open/upcoming/closed) 임시 매핑.

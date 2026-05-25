@@ -40,14 +40,14 @@ describe('ClubCard — scope/division chip 렌더링', () => {
     expect(screen.getByText('🏛️ 중앙 · 컴퓨터정보공학부')).toBeInTheDocument();
   });
 
-  it('scope="과", division="컴퓨터정보공학부" → "과 · 컴퓨터정보공학부"', () => {
-    render(<ClubCard club={{ ...baseClub, scope: '과', division: '컴퓨터정보공학부' }} />);
-    expect(screen.getByText('과 · 컴퓨터정보공학부')).toBeInTheDocument();
+  it('scope="학과", division="컴퓨터정보공학부" → "🎓 학과 · 컴퓨터정보공학부"', () => {
+    render(<ClubCard club={{ ...baseClub, scope: '학과', division: '컴퓨터정보공학부' }} />);
+    expect(screen.getByText('🎓 학과 · 컴퓨터정보공학부')).toBeInTheDocument();
   });
 
-  it('scope="과", division=null → "과" 만', () => {
-    render(<ClubCard club={{ ...baseClub, scope: '과', division: null }} />);
-    const chip = screen.getByText('과');
+  it('scope="학과", division=null → "🎓 학과" 만', () => {
+    render(<ClubCard club={{ ...baseClub, scope: '학과', division: null }} />);
+    const chip = screen.getByText('🎓 학과');
     expect(chip).toBeInTheDocument();
     expect(chip.textContent).not.toContain('·');
   });
