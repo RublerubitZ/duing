@@ -1,5 +1,25 @@
 import type { StudentRecruitmentProjection } from './recruitment';
 
+/**
+ * 단과대학 enum (BE: com.duing.domain.user.entity.College).
+ * Club 의 college 필드와 User 의 college 필드가 동일 enum 을 공유한다.
+ */
+export type College =
+  | 'PUBLIC_LEADERS'
+  | 'GLOBAL_BUSINESS'
+  | 'SOCIAL_SCIENCE'
+  | 'HEALTH_BIO'
+  | 'IT_ENGINEERING'
+  | 'DESIGN_ART'
+  | 'EDUCATION'
+  | 'REHABILITATION'
+  | 'NURSING'
+  | 'GLOCAL_LIFE'
+  | 'INTERNATIONAL'
+  | 'SPORTS_LEISURE'
+  | 'CULTURE_CONTENTS'
+  | 'FREE_MAJOR';
+
 export type ClubCategory =
   | 'ACADEMIC'
   | 'CULTURE'
@@ -26,6 +46,7 @@ export type ClubSummary = {
   name: string;
   category: ClubCategory;
   division: string | null;
+  college: College | null;
   logoUrl: string | null;
   status: ClubStatus;
   tags: string[];
@@ -88,6 +109,7 @@ export type CreateClubPayload = {
   name: string;
   category: ClubCategory;
   division?: string;
+  college?: College | null;
   description?: string;
   logoUrl?: string;
   leaderId: number;
@@ -117,6 +139,8 @@ export type UpdateClubPayload = {
   name?: string;
   category?: ClubCategory;
   division?: string | null;
+  college?: College;
+  clearCollege?: boolean;
   description?: string | null;
   logoUrl?: string | null;
   coverUrl?: string | null;
