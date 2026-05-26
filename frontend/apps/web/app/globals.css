@@ -181,6 +181,10 @@ body {
 .animate-pulse-ring { animation: pulse-ring 1.8s ease-out infinite; }
 .animate-pop-in    { animation: pop-in .6s .8s cubic-bezier(.2,.9,.3,1.4) both; }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @keyframes notify-bell-sway {
   0%, 100% { transform: rotate(-6deg); }
   50%       { transform: rotate(6deg); }
