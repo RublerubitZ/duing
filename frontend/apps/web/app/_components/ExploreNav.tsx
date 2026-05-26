@@ -41,7 +41,7 @@ export function ExploreNav({ active, floating = false }: Props) {
       )}
     >
       <nav className="max-w-layout mx-auto flex items-center gap-12 px-10 py-3">
-        <Link href="/" aria-label="두잉 홈">
+        <Link href="/" aria-label="두잉 홈" className="translate-y-[3px]">
           <BrandMark size={44} />
         </Link>
 
