@@ -43,7 +43,7 @@ export function MyPageHeader({
 
           <div>
             <div className="text-[12px] font-bold text-sage tracking-wide16 mb-1.5">MY DUING</div>
-            <h1 className="text-[32px] text-white mb-2.5 flex items-center gap-2">
+            <h1 className="text-[32px] !text-cream mb-2.5 flex items-center gap-2">
               안녕하세요, {name}님
               <SparkleFull size={20} color="#9DB6A0" className="inline-block align-middle" />
             </h1>
