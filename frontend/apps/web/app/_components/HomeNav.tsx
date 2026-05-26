@@ -11,7 +11,7 @@ export function HomeNav() {
   return (
     <header className="relative z-50 border-b border-line bg-cream/90 backdrop-blur">
       <nav className="max-w-layout mx-auto flex items-center gap-12 px-10 py-3">
-        <Link href="/" aria-label="두잉 홈">
+        <Link href="/" aria-label="두잉 홈" className="translate-y-[3px]">
           <BrandMark size={44} />
         </Link>
         <ul className="flex items-center gap-8 text-[13.5px] font-semibold">
