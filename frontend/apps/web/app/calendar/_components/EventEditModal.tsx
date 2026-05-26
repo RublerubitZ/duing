@@ -391,18 +391,6 @@ export function EventEditModal({ event, open, onClose, onSave }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <button
             type="button"
-            onClick={onClose}
-            style={{
-              height: 48, borderRadius: 12,
-              border: '1px solid var(--gray-line)',
-              background: 'var(--paper)', color: 'var(--charcoal)',
-              fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-            }}
-          >
-            취소
-          </button>
-          <button
-            type="button"
             onClick={handleSave}
             style={{
               height: 48, borderRadius: 12, border: 'none',
@@ -413,6 +401,18 @@ export function EventEditModal({ event, open, onClose, onSave }: Props) {
             }}
           >
             저장
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              height: 48, borderRadius: 12,
+              border: '1px solid var(--gray-line)',
+              background: 'var(--paper)', color: 'var(--charcoal)',
+              fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            취소
           </button>
         </div>
       </div>
