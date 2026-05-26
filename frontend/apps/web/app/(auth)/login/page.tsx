@@ -33,7 +33,7 @@ export default async function LoginPage() {
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide16 text-sage-soft">
             WELCOME BACK
           </p>
-          <h2 className="mb-4 text-[2.5rem] font-bold leading-tight tracking-tightx text-paper">
+          <h2 className="mb-4 text-[2.5rem] font-bold leading-tight tracking-tightx !text-cream">
             다시 만나서
             <br />
             반가워요
