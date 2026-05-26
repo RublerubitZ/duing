@@ -155,6 +155,10 @@ body {
   }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @keyframes notify-bell-sway {
   0%, 100% { transform: rotate(-6deg); }
   50%       { transform: rotate(6deg); }
