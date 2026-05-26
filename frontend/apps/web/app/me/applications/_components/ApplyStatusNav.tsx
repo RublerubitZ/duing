@@ -19,19 +19,19 @@ export function ApplyStatusNav() {
         <BrandMark size={22} />
         <nav style={{ display: 'flex', gap: 22, marginLeft: 4 }}>
           {[
-            { k: '탐색',   n: '동아리 탐색' },
-            { k: '캘린더', n: '캠퍼스 캘린더' },
-            { k: '소식',   n: '캠퍼스 소식' },
-            { k: '지원',   n: '지원현황' },
+            { id: '탐색',   label: '동아리 탐색' },
+            { id: '캘린더', label: '캠퍼스 캘린더' },
+            { id: '소식',   label: '캠퍼스 소식' },
+            { id: '지원',   label: '지원현황' },
           ].map((navItem) => (
-            <a key={navItem.k} href="#" style={{
+            <a key={navItem.id} href="#" style={{
               fontSize: 13.5, fontWeight: 600,
-              color: navItem.k === '지원' ? 'var(--ink-deep)' : 'var(--charcoal-3)',
+              color: navItem.id === '지원' ? 'var(--ink-deep)' : 'var(--charcoal-3)',
               position: 'relative', paddingBottom: 5,
               whiteSpace: 'nowrap',
             }}>
-              {navItem.n}
-              {navItem.k === '지원' && (
+              {navItem.label}
+              {navItem.id === '지원' && (
                 <span style={{
                   position: 'absolute', left: 0, right: 0, bottom: -2,
                   height: 2.5, background: 'var(--ink-deep)', borderRadius: 2,

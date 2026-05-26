@@ -1,10 +1,10 @@
 /* a-apply-status-parts.jsx → TypeScript 변환: ApplyRow + padToFour */
 
-import type React from 'react';
 import { CAT_LABEL_COLOR } from '../_constants/data';
 import { ClubLogo } from './ClubLogo';
 import { StepTimeline } from './StepTimeline';
 import { StatusBadge } from './StatusBadge';
+import type React from 'react';
 import type { App, Step } from '../_constants/data';
 
 /* 단계가 1개뿐인 카드(취소된 지원 등)도 4-칸 그리드로 보이게 패딩 */
