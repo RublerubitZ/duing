@@ -18,7 +18,7 @@ export function BrandMark({ size = 26, light = false }: Props) {
         height={size}
         width={Math.round(size * 2.18)}
         priority
-        style={{ height: size, width: 'auto' }}
+        style={{ height: size, width: 'auto', display: 'block' }}
       />
     </span>
   );
