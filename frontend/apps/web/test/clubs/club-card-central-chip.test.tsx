@@ -18,12 +18,9 @@ const baseClub: Club = {
   cat: '학술',
   scope: '중앙',
   division: null,
-  status: 'open',
-  gen: '15기',
-  spots: '5명',
-  deadline: '~6/30',
   color: '#1F4A36',
   logoUrl: null,
+  activeRecruitment: null,
 };
 
 /* ── 테스트 ─────────────────────────────────────────────────── */
