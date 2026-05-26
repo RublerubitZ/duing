@@ -170,6 +170,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     private BooleanExpression recruitmentStatusFilter(RecruitmentStatusFilter filter) {
         if (filter == null) return null;
         LocalDate today = LocalDate.now();
+<<<<<<< HEAD
         return switch (filter) {
             case AVAILABLE -> JPAExpressions
                     .selectOne()
@@ -288,5 +289,16 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 };
             }
         };
+=======
+        return JPAExpressions
+                .selectOne()
+                .from(recruitment)
+                .where(
+                        recruitment.club.id.eq(club.id),
+                        recruitment.status.eq(RecruitmentStatus.OPEN),
+                        recruitment.endDate.isNull().or(recruitment.endDate.goe(today))
+                )
+                .exists();
+>>>>>>> origin/main
     }
 }

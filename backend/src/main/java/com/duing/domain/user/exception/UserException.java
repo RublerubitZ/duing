@@ -48,6 +48,7 @@ public class UserException extends ApplicationException {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
+<<<<<<< HEAD
 
     public static class InvalidSearchQueryException extends UserException {
         private static final String MESSAGE = "검색어를 입력해주세요.";
@@ -56,4 +57,6 @@ public class UserException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+=======
+>>>>>>> origin/main
 }

@@ -3,7 +3,10 @@ package com.duing.domain.recruitment.repository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import java.time.LocalDate;
 import java.util.List;
+<<<<<<< HEAD
 import java.util.Map;
+=======
+>>>>>>> origin/main
 import java.util.Optional;
 
 public interface RecruitmentRepositoryCustom {
@@ -21,6 +24,7 @@ public interface RecruitmentRepositoryCustom {
      * 활성 모집 1건 조회. 비정상 케이스로 여러 건이면 startDate ASC, id ASC tie-break.
      */
     Optional<Recruitment> findActiveByClubId(Long clubId);
+<<<<<<< HEAD
 
     /**
      * 동아리 id 묶음에 대해 대표 모집을 1건씩 조회한다.
@@ -34,4 +38,6 @@ public interface RecruitmentRepositoryCustom {
      * @return key=clubId, value=대표 모집 row. 모집이 한 건도 없는 club id 는 키가 없다.
      */
     Map<Long, ClubActiveRecruitmentRow> findRepresentativeByClubIds(List<Long> clubIds, LocalDate today);
+=======
+>>>>>>> origin/main
 }

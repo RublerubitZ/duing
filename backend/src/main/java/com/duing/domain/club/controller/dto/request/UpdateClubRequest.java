@@ -60,6 +60,7 @@ public record UpdateClubRequest(
         Set<DayOfWeek> activeDays,
 
         @Size(max = 100, message = "회비 표기는 100자 이하여야 합니다.")
+<<<<<<< HEAD
         String membershipFee,
 
         @Size(max = 60, message = "한 줄 태그라인은 60자 이하여야 합니다.")
@@ -73,6 +74,9 @@ public record UpdateClubRequest(
         College college,
 
         Boolean clearCollege
+=======
+        String membershipFee
+>>>>>>> origin/main
 ) {
     public UpdateClubCommand toCommand(Long clubId, Long requesterId) {
         return new UpdateClubCommand(
@@ -80,9 +84,13 @@ public record UpdateClubRequest(
                 name, category, division, description,
                 logoUrl, coverUrl, tags, snsLinks, faqs,
                 foundedYear, cohortNumber, location, contactEmail,
+<<<<<<< HEAD
                 activityFrequency, activeDays, membershipFee,
                 tagline, highlights, majorProjects,
                 college, clearCollege
+=======
+                activityFrequency, activeDays, membershipFee
+>>>>>>> origin/main
         );
     }
 }

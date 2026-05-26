@@ -4,7 +4,10 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubFaq;
 import com.duing.domain.club.entity.ClubSnsLink;
+<<<<<<< HEAD
 import com.duing.domain.user.entity.College;
+=======
+>>>>>>> origin/main
 import java.time.DayOfWeek;
 import java.util.List;
 import java.util.Set;
@@ -27,6 +30,7 @@ public record UpdateClubCommand(
         String contactEmail,
         Integer activityFrequency,
         Set<DayOfWeek> activeDays,
+<<<<<<< HEAD
         String membershipFee,
         String tagline,
         List<String> highlights,
@@ -60,3 +64,7 @@ public record UpdateClubCommand(
         );
     }
 }
+=======
+        String membershipFee
+) {}
+>>>>>>> origin/main

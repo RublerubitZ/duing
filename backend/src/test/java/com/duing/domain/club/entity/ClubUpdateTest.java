@@ -23,10 +23,15 @@ class ClubUpdateTest {
                 List.of("코딩", "스터디"),
                 List.of(new ClubSnsLink("INSTAGRAM", "https://insta")),
                 List.of(new ClubFaq("Q1", "A1", 0)),
+<<<<<<< HEAD
                 null, null, null, null, null, null, null,
                 null, null, null,
                 null, null
         ));
+=======
+                null, null, null, null, null, null, null
+        );
+>>>>>>> origin/main
 
         assertThat(club.getName()).isEqualTo("두잉 NEW");
         assertThat(club.getCategory()).isEqualTo(ClubCategory.ACADEMIC);
@@ -44,11 +49,17 @@ class ClubUpdateTest {
     void dedupesTags() {
         Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");
 
+<<<<<<< HEAD
         club.update(new Club.UpdatePayload(null, null, null, null, null, null,
                 List.of("코딩", "스터디", "코딩"), null, null,
                 null, null, null, null, null, null, null,
                 null, null, null,
                 null, null));
+=======
+        club.update(null, null, null, null, null, null,
+                List.of("코딩", "스터디", "코딩"), null, null,
+                null, null, null, null, null, null, null);
+>>>>>>> origin/main
 
         assertThat(club.getTags()).containsExactly("코딩", "스터디");
     }
@@ -58,10 +69,15 @@ class ClubUpdateTest {
     void keepsExistingValuesWhenAllArgsNull() {
         Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");
 
+<<<<<<< HEAD
         club.update(new Club.UpdatePayload(null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null,
                 null, null));
+=======
+        club.update(null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null);
+>>>>>>> origin/main
 
         assertThat(club.getName()).isEqualTo("두잉");
         assertThat(club.getCategory()).isEqualTo(ClubCategory.ACADEMIC);

@@ -19,8 +19,11 @@ import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+<<<<<<< HEAD
 import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.repository.ClubActiveRecruitmentRow;
+=======
+>>>>>>> origin/main
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
 import com.duing.domain.user.entity.User;
@@ -146,7 +149,28 @@ public class GeneralClubService implements ClubService {
             throw new ClubException.DuplicateClubNameException();
         }
 
+<<<<<<< HEAD
         club.update(updateClubCommand.toPayload());
+=======
+        club.update(
+                newName,
+                updateClubCommand.category(),
+                updateClubCommand.division(),
+                updateClubCommand.description(),
+                updateClubCommand.logoUrl(),
+                updateClubCommand.coverUrl(),
+                updateClubCommand.tags(),
+                updateClubCommand.snsLinks(),
+                updateClubCommand.faqs(),
+                updateClubCommand.foundedYear(),
+                updateClubCommand.cohortNumber(),
+                updateClubCommand.location(),
+                updateClubCommand.contactEmail(),
+                updateClubCommand.activityFrequency(),
+                updateClubCommand.activeDays(),
+                updateClubCommand.membershipFee()
+        );
+>>>>>>> origin/main
     }
 
     @Override

@@ -1,9 +1,13 @@
 'use client';
 
+<<<<<<< HEAD
 import { useState } from 'react';
 import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
 import { useAuthStore } from '@duing/stores';
 import { ReportModal } from '@/components/report/ReportModal';
+=======
+import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
+>>>>>>> origin/main
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
 import { clubCategoryLabel } from '../_lib/clubCategoryLabel';
 
@@ -16,10 +20,13 @@ type Props = {
 export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   const categoryLabel = clubCategoryLabel(club.category);
   const initial = club.name.trim().charAt(0);
+<<<<<<< HEAD
   const authStatus = useAuthStore((state) => state.status);
   const isAuthenticated = authStatus === 'authenticated';
 
   const [reportOpen, setReportOpen] = useState(false);
+=======
+>>>>>>> origin/main
 
   return (
     <>
@@ -52,11 +59,14 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 
             <div className="flex-1 pt-2">
               <div className="mb-3.5 flex items-center gap-2">
+<<<<<<< HEAD
                 {club.centralClub && (
                   <span className="pill pill-solid">
                     🏛️ 중앙동아리
                   </span>
                 )}
+=======
+>>>>>>> origin/main
                 <span className="pill">
                   {categoryLabel}{club.division ? ` · ${club.division}` : ''}
                 </span>
@@ -79,6 +89,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   {club.description}
                 </p>
               )}
+<<<<<<< HEAD
 
               {isAuthenticated && (
                 <button
@@ -90,10 +101,13 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   신고하기
                 </button>
               )}
+=======
+>>>>>>> origin/main
             </div>
           </div>
         </div>
       </section>
+<<<<<<< HEAD
 
       {reportOpen && (
         <ReportModal
@@ -125,3 +139,8 @@ function FlagIcon() {
     </svg>
   );
 }
+=======
+    </>
+  );
+}
+>>>>>>> origin/main
