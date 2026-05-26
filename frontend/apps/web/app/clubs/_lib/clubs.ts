@@ -1,3 +1,5 @@
+import type { ClubSummaryRecruitment } from '@duing/types';
+
 export const DIVISIONS = ['문화예술', '사회', '전시창작', '종교', '학술'] as const;
 export type Division = (typeof DIVISIONS)[number];
 
@@ -7,13 +9,6 @@ export type ClubCat =
   | '학술' | '운동' | '음악' | '공연' | '봉사'
   | '문화' | 'IT' | '창업' | '친목';
 
-/**
- * UI 카드 상태. 백엔드 ClubSummary.status(PENDING/ACTIVE/INACTIVE) 와는 별개로
- * 모집 상태(open/upcoming/closed)를 표시한다. 현재는 단순 매핑이며,
- * 추후 Recruitment 도메인이 카드 응답에 포함되면 정확한 값으로 대체된다.
- */
-export type ClubStatus = 'open' | 'upcoming' | 'closed';
-
 export type Club = {
   id: number;
   name: string;
@@ -21,13 +16,10 @@ export type Club = {
   cat: ClubCat;
   scope: ClubScope;
   division: string | null;
-  status: ClubStatus;
-  gen: string;
-  spots: string;
-  deadline: string;
-  openDate?: string;
   color: string;
   logoUrl: string | null;
+  /** 활성 또는 가장 최근 마감 모집 1건. null 이면 카드에 "모집 없음" 표시. */
+  activeRecruitment: ClubSummaryRecruitment | null;
 };
 
 export const isDivision = (value: string | null | undefined): value is Division =>
