@@ -18,14 +18,10 @@ type Tab = { key: TabKey; label: string };
 type Props = { club: ClubDetail; photos: ClubPhoto[] };
 
 export function ClubDetailTabs({ club, photos }: Props) {
-<<<<<<< HEAD
   const hasIntro = club.description !== null
     || club.tagline !== null
     || club.highlights.length > 0
     || club.majorProjects !== null;
-=======
-  const hasIntro = club.description !== null;
->>>>>>> origin/main
   const hasActivity = activityScheduleLabel(club.activityFrequency, club.activeDays) !== null
     || photos.length > 0;
   const hasQna = club.faqs.length > 0;
@@ -72,7 +68,6 @@ export function ClubDetailTabs({ club, photos }: Props) {
         })}
       </div>
 
-<<<<<<< HEAD
       {active === 'intro' && (
         <ClubDetailAbout
           description={club.description}
@@ -81,9 +76,6 @@ export function ClubDetailTabs({ club, photos }: Props) {
           majorProjects={club.majorProjects}
         />
       )}
-=======
-      {active === 'intro' && <ClubDetailAbout description={club.description} />}
->>>>>>> origin/main
       {active === 'activity' && <ClubDetailActivity club={club} photos={photos} />}
       {active === 'qna' && <ClubDetailQna faqs={club.faqs} />}
       {active === 'info' && <ClubDetailInfoList club={club} />}

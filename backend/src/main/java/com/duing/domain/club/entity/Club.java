@@ -9,10 +9,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.DayOfWeek;
-<<<<<<< HEAD
 import java.time.LocalDateTime;
-=======
->>>>>>> origin/main
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -106,7 +103,6 @@ public class Club extends BaseEntity {
     @Column(name = "membership_fee", length = 100)
     private String membershipFee;
 
-<<<<<<< HEAD
     @Column(name = "tagline", length = 60)
     private String tagline;
 
@@ -132,8 +128,6 @@ public class Club extends BaseEntity {
     @Column(name = "status_changed_at")
     private LocalDateTime statusChangedAt;
 
-=======
->>>>>>> origin/main
     public List<String> getTags() {
         return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
     }
@@ -146,13 +140,10 @@ public class Club extends BaseEntity {
         return Collections.unmodifiableList(faqs);
     }
 
-<<<<<<< HEAD
     public List<String> getHighlights() {
         return Collections.unmodifiableList(highlights);
     }
 
-=======
->>>>>>> origin/main
     public Set<DayOfWeek> getActiveDays() {
         if (activeDays == null || activeDays.isBlank()) {
             return Collections.emptySet();
@@ -255,7 +246,6 @@ public class Club extends BaseEntity {
             String contactEmail,
             Integer activityFrequency,
             Set<DayOfWeek> activeDays,
-<<<<<<< HEAD
             String membershipFee,
             String tagline,
             List<String> highlights,
@@ -289,25 +279,5 @@ public class Club extends BaseEntity {
         } else if (payload.college() != null) {
             this.college = payload.college();
         }
-=======
-            String membershipFee
-    ) {
-        if (name != null) this.name = name;
-        if (category != null) this.category = category;
-        if (division != null) this.division = division;
-        if (description != null) this.description = description;
-        if (logoUrl != null) this.logoUrl = logoUrl;
-        if (coverUrl != null) this.coverUrl = coverUrl;
-        if (tags != null) this.tags = tags.stream().distinct().toArray(String[]::new);
-        if (snsLinks != null) this.snsLinks = new ArrayList<>(snsLinks);
-        if (faqs != null) this.faqs = new ArrayList<>(faqs);
-        if (foundedYear != null) this.foundedYear = foundedYear;
-        if (cohortNumber != null) this.cohortNumber = cohortNumber;
-        if (location != null) this.location = location;
-        if (contactEmail != null) this.contactEmail = contactEmail;
-        if (activityFrequency != null) this.activityFrequency = activityFrequency;
-        if (activeDays != null) this.activeDays = toActiveDaysCsv(activeDays);
-        if (membershipFee != null) this.membershipFee = membershipFee;
->>>>>>> origin/main
     }
 }

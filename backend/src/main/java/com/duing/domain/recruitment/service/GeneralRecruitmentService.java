@@ -46,30 +46,6 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
         if (recruitmentRepository.existsActiveByClubId(club.getId())) {
             throw new RecruitmentException.DuplicateActiveRecruitmentException();
-<<<<<<< HEAD
-=======
-        }
-
-        Recruitment recruitment;
-        try {
-            recruitment = Recruitment.createWithOptions(
-                    club,
-                    createRecruitmentCommand.title(),
-                    createRecruitmentCommand.content(),
-                    createRecruitmentCommand.startDate(),
-                    createRecruitmentCommand.endDate(),
-                    createRecruitmentCommand.capacity(),
-                    createRecruitmentCommand.applicationMode(),
-                    createRecruitmentCommand.externalFormUrl(),
-                    createRecruitmentCommand.useInterview(),
-                    createRecruitmentCommand.targetRole(),
-                    createRecruitmentCommand.interviewStartDate(),
-                    createRecruitmentCommand.interviewEndDate(),
-                    createRecruitmentCommand.showApplicantCount()
-            );
-        } catch (IllegalArgumentException exception) {
-            throw new RecruitmentException.InvalidRecruitmentPeriodException();
->>>>>>> origin/main
         }
 
         return buildAndPersist(club, createRecruitmentCommand);
@@ -147,13 +123,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
         recruitmentRepository.findActiveByClubId(club.getId())
                 .ifPresent(Recruitment::close);
 
-<<<<<<< HEAD
         return buildAndPersist(club, command);
     }
 
     private Long buildAndPersist(Club club, CreateRecruitmentCommand command) {
-=======
->>>>>>> origin/main
         Recruitment recruitment;
         try {
             recruitment = Recruitment.createWithOptions(
