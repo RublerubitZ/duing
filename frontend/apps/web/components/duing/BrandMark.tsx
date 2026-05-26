@@ -1,4 +1,4 @@
-import { Sparkle } from './Sparkle';
+import Image from 'next/image';
 
 type BrandMarkProps = {
   size?: number;
@@ -7,17 +7,18 @@ type BrandMarkProps = {
 
 export function BrandMark({ size = 26, light = false }: BrandMarkProps) {
   return (
-    <span className="brand-mark" style={{ fontSize: size }}>
-      <span className="b-d" style={light ? { color: '#fff' } : undefined}>
-        D
-      </span>
-      <span className="b-u">u</span>
-      <span className="b-ing" style={light ? { color: 'rgba(255,255,255,0.92)' } : undefined}>
-        ing
-      </span>
-      <span className="b-spark">
-        <Sparkle size={size * 0.6} color="#9DB6A0" />
-      </span>
+    <span
+      className="brand-mark inline-flex items-center"
+      style={{ height: size, filter: light ? 'brightness(0) invert(1)' : undefined }}
+    >
+      <Image
+        src="/duing-logo.png"
+        alt="Duing"
+        height={size}
+        width={Math.round(size * 3.2)}
+        priority
+        style={{ height: size, width: 'auto' }}
+      />
     </span>
   );
 }
