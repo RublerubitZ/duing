@@ -1,4 +1,4 @@
-import type { ClubSearchParams, College } from '@duing/types';
+import type { ClubCategory, ClubSearchParams, College } from '@duing/types';
 
 import { type Division, isDivision } from './clubs';
 
@@ -14,6 +14,7 @@ export type ExploreParams = {
   keyword: string;
   recruitment: RecruitmentFilter;
   college: College | null;
+  category: ClubCategory | null;
   sort: SortKey;
   /** 1-based 페이지 — URL 표기와 일치. API 호출 시 -1. */
   page: number;
@@ -25,9 +26,31 @@ export const DEFAULT_EXPLORE_PARAMS: ExploreParams = {
   keyword: '',
   recruitment: 'all',
   college: null,
+  category: null,
   sort: 'RECENT',
   page: 1,
 };
+
+export const CATEGORY_OPTIONS: ReadonlyArray<{ value: ClubCategory; label: string }> = [
+  { value: 'ACADEMIC',  label: '학술' },
+  { value: 'CULTURE',   label: '문화' },
+  { value: 'ART',       label: '예술' },
+  { value: 'SPORTS',    label: '운동' },
+  { value: 'VOLUNTEER', label: '봉사' },
+  { value: 'RELIGION',  label: '종교' },
+  { value: 'HOBBY',     label: '취미' },
+  { value: 'OTHER',     label: '기타' },
+];
+
+const VALID_CATEGORIES = new Set<string>(CATEGORY_OPTIONS.map((option) => option.value));
+
+function isCategory(value: string): value is ClubCategory {
+  return VALID_CATEGORIES.has(value);
+}
+
+export function categoryLabel(value: ClubCategory): string {
+  return CATEGORY_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
 
 const SCOPES: readonly Scope[] = ['전체', '중앙', '학과'];
 const RECRUITMENTS: readonly RecruitmentFilter[] = ['all', 'available', 'upcoming', 'closed'];
@@ -71,10 +94,14 @@ export function parseExploreParams(search: URLSearchParams): ExploreParams {
   const rawSort = search.get('sort');
   const sort: SortKey = SORT_KEYS.find((s) => s === rawSort) ?? 'RECENT';
 
+  const rawCategory = search.get('category');
+  const category: ClubCategory | null =
+    rawCategory !== null && isCategory(rawCategory) ? rawCategory : null;
+
   const rawPage = Number(search.get('page'));
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
 
-  return { scope, division, keyword, recruitment, college, sort, page };
+  return { scope, division, keyword, recruitment, college, category, sort, page };
 }
 
 export function serializeExploreParams(params: ExploreParams): string {
@@ -84,6 +111,7 @@ export function serializeExploreParams(params: ExploreParams): string {
   if (params.keyword) next.set('q', params.keyword);
   if (params.recruitment !== 'all') next.set('recruitment', params.recruitment);
   if (params.college) next.set('college', params.college);
+  if (params.category) next.set('category', params.category);
   if (params.sort !== 'RECENT') next.set('sort', params.sort);
   if (params.page > 1) next.set('page', String(params.page));
   return next.toString();
@@ -111,6 +139,7 @@ export function toApiParams(params: ExploreParams, pageSize: number): ClubSearch
     recruitmentStatus,
     centralClub,
     college: params.college ?? undefined,
+    category: params.category ?? undefined,
     sort: params.sort,
     page: Math.max(0, params.page - 1),
     size: pageSize,
