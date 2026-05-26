@@ -5,7 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { useLogout, useMeQuery } from '@duing/hooks';
+import { useFavoriteListQuery, useLogout, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
 
 import { HomeNav } from '@/app/_components/HomeNav';
 import { SparkleFull } from '@/components/duing/Sparkle';
@@ -125,10 +125,16 @@ function SettingsPageTabs() {
 /* ── Settings Page ── */
 export function SettingsPage() {
   const meQuery = useMeQuery();
+  const applicationsQuery = useMyApplicationsQuery();
+  const managedClubsQuery = useManagedClubsQuery();
+  const favoriteListQuery = useFavoriteListQuery(0, 20);
   const logout = useLogout();
   const router = useRouter();
 
   const user = meQuery.data;
+  const applyCount = applicationsQuery.data?.length ?? 0;
+  const joinedCount = managedClubsQuery.data?.length ?? 0;
+  const savedCount = favoriteListQuery.data?.content.length ?? 0;
 
   const handleLogout = async () => {
     await logout();
@@ -142,9 +148,9 @@ export function SettingsPage() {
         name={user?.name ?? '—'}
         studentId={user?.studentId ?? '—'}
         email={user?.email ?? '—'}
-        applyCount={0}
-        joinedCount={0}
-        savedCount={0}
+        applyCount={applyCount}
+        joinedCount={joinedCount}
+        savedCount={savedCount}
       />
       <SettingsPageTabs />
 
