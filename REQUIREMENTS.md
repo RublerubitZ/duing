@@ -46,7 +46,8 @@
 - Recruitment: 달력 조회 · 상세 · 생성(LEADER/OFFICER)
 - Application: 지원 제출 · 내 지원 목록 · 지원자 관리(LEADER/OFFICER)
 
-활동 피드(Feed), 파일/이미지 업로드, 푸시 알림, OFFICER 승급/강등·추방·탈퇴·인계 API 는 MVP 이후 확장.
+활동 피드(Feed), 파일/이미지 업로드, 푸시 알림은 MVP 이후 확장.
+ClubMember 운영(승급/강등·추방·탈퇴·정상 인계)은 이미 제공. 잠수 LEADER 대상 OFFICER 승계 요청·승인 + ADMIN 강제 LEADER 지정 + 권한 변경 감사 로그는 §2.6 참조.
 
 ---
 
@@ -72,23 +73,29 @@
 
 ### 2.2 Club (동아리)
 
-**엔티티 필드**: `id`, `name`, `category`(enum), `division`, `description`, `logoUrl`, `coverUrl`, `tags`(text[]), `snsLinks`(jsonb), `faqs`(jsonb), `status`(enum). 활동사진은 별도 `club_photo` 테이블.
+**엔티티 필드**: `id`, `name`, `category`(enum), `division`, `description`, `logoUrl`, `coverUrl`, `tags`(text[]), `snsLinks`(jsonb), `faqs`(jsonb), `status`(enum), `centralClub`, `rejectionReason`, `statusChangedBy`, `statusChangedAt`. 활동사진은 별도 `club_photo` 테이블.
 > 회장 정보는 `club_members` 테이블의 `role = LEADER` 행에서 도출 (Club 자체 컬럼 아님).
 
 **`ClubCategory`**: `ACADEMIC` / `CULTURE` / `ART` / `SPORTS` / `VOLUNTEER` / `RELIGION` / `HOBBY` / `OTHER`
-**`ClubStatus`**: `PENDING_APPROVAL`(승인 대기) / `ACTIVE`(운영 중) / `INACTIVE`(중단)
+**`ClubStatus`**: `PENDING_APPROVAL`(승인 대기) / `ACTIVE`(운영 중) / `INACTIVE`(중단) / `REJECTED`(거절)
 
 | ID | 기능 | 입력 | 출력 | 예외 |
 |---|---|---|---|---|
 | C-1 | 동아리 목록 조회 | `category?`, `division?`, `keyword?`, `Pageable` | `PageResponse<ClubSummaryResponse>` (200) | — |
 | C-2 | 동아리 상세 조회 | `clubId` | `ClubDetailResponse` (200) | 동아리 없음 404 |
 | C-3 | 동아리 생성 (ADMIN) | `name`, `category`, `division?`, `description?`, `logoUrl?`, `leaderId` | 생성된 `clubId` (201) | 중복 이름 409, leader User 없음 404, 권한 없음 403 |
-| C-4 | 동아리 상태 변경 (ADMIN) | `clubId`, `status` | 204 | 동아리 없음 404, 권한 없음 403 |
+| C-4 | 동아리 상태 변경 (ADMIN) | `clubId`, `status`, `rejectionReason?` (REJECTED 전이 시 필수) | 204 | 동아리 없음 404, 권한 없음 403, 잘못된 전이 400, 거절 사유 누락 400 |
+| C-5 | 중앙동아리 토글 (ADMIN) | `clubId`, `centralClub`(boolean) | 204 | 동아리 없음 404, 권한 없음 403 |
 
 **비기능 요구사항**
 - 목록 검색 `keyword` 는 `name`/`description` 부분 일치 (대소문자 무시).
 - 페이지네이션 기본: `page=0, size=20, sort=name,asc`.
 - 추후 `recruitmentStatus` 필터(모집 중인 동아리만) 추가 예정 — Recruitment 와 join.
+- 상태 전이는 다음 매트릭스만 허용 — `PENDING_APPROVAL → ACTIVE | REJECTED` / `ACTIVE → INACTIVE` / `INACTIVE → ACTIVE` / `REJECTED → PENDING_APPROVAL` (재심사). 그 외 전이는 400.
+- REJECTED 전이 시 `rejectionReason` 은 필수(공백만 제출 시 400). 다른 상태로 전환 시 기존 `rejectionReason` 은 자동 null 정리.
+- 상태 변경자(`statusChangedBy`)와 변경 시각(`statusChangedAt`)은 ADMIN 콘솔에 노출 (감사 목적). 공개 API 응답에서는 미노출.
+- `centralClub` 은 boolean 플래그. `division` 과 직교 — 공개 카드/상세에서 두 정보를 병행 노출(중앙동아리이면서 학과명도 표기 가능).
+- 거절 사유(`rejectionReason`)는 공개 API 미노출 (어드민 응답에서만).
 
 ---
 
@@ -131,6 +138,104 @@
 **비기능 요구사항**
 - `(recruitmentId, user_id)` 부분 유니크 인덱스(deleted_at IS NULL) — 활성 지원은 1건만.
 - 지원 답변 개수 = `RecruitmentForm.questions` 길이와 동일해야 함.
+
+---
+
+### 2.5 Report (신고)
+
+**엔티티 필드**: `id`, `reporterId`(FK users), `targetType`(enum), `targetId`, `reasonCode`(enum), `detail`, `status`(enum), `actionNote`, `handledBy`(FK users), `handledAt`. 다형 대상(Club/Recruitment)을 `(targetType, targetId)` 단일 테이블로 저장(애플리케이션 레벨 FK 보장).
+
+**`ReportTargetType`**: `CLUB` / `RECRUITMENT`
+**`ReportReasonCode`**: `SPAM` / `FRAUD` / `INAPPROPRIATE` / `IMPERSONATION` / `OTHER`
+**`ReportStatus`**: `PENDING` → `RESOLVED` / `DISMISSED` (종결 상태 재변경 불가)
+
+| ID | 기능 | 입력 | 출력 | 예외 |
+|---|---|---|---|---|
+| RP-1 | 신고 제출 (로그인 사용자) | `targetType`, `targetId`, `reasonCode`, `detail?`(≤1000) | 생성된 `reportId` (201) | 미인증 401, 셀프신고(LEADER/OFFICER) 400, 대상 없음 404, PENDING 중복 409 |
+| RP-2 | 신고 목록 조회 (ADMIN) | `status?`, `targetType?`, `Pageable` | `PageResponse<ReportSummaryResponse>` (200) | 401 / 403 |
+| RP-3 | 신고 상세 조회 (ADMIN) | `reportId` | `ReportDetailResponse` (200) | 401 / 403 / 404 |
+| RP-4 | 신고 처리 (ADMIN) | `reportId`, `status`(RESOLVED/DISMISSED), `actionNote?`(≤1000) | 204 | 401 / 403 / 404 / 잘못된 전이 400 |
+
+**비기능 요구사항**
+- 조건부 유니크 인덱스: `(reporter_id, target_type, target_id) WHERE status='PENDING' AND deleted_at IS NULL` — 동일 신고자×대상 PENDING 1건 제한.
+- 셀프신고 차단: 신고자가 대상 동아리/공고의 `LEADER` 또는 `OFFICER`이면 400.
+- 처리 결과(`RESOLVED`/`DISMISSED`)는 PENDING 에서만 전이 가능. 종결 후 재처리·되돌리기 불가.
+- 공개 API 미노출. 모든 조회/처리는 `/api/v1/admin/reports/**` (ADMIN 전용).
+- 실제 제재(예: Club 상태 변경)는 본 도메인이 아닌 기존 ADMIN API 를 ADMIN 이 수동 호출 — `Report` 는 기록·상태만 관리.
+
+---
+
+### 2.6 Leader Succession (회장 승계 / 권한 복구)
+
+**엔티티 필드 (LeaderSuccessionRequest)**: `id`, `clubId`(FK), `requesterUserId`(FK users), `reason`(≤1000), `status`(PENDING/APPROVED/REJECTED), `actionNote`, `handledBy`, `handledAt`.
+
+**감사 로그 (ClubMemberHistory)**: 모든 권한 변경(`ROLE_CHANGED`, `LEADER_TRANSFERRED`, `LEFT`, `REMOVED`, `ADMIN_LEADER_ASSIGNED`, `SUCCESSION_APPROVED`)을 `(club_id, target_user_id, actor_user_id, event_type, from_role, to_role, reason)` 으로 기록.
+
+| ID | 기능 | 입력 | 출력 | 예외 |
+|---|---|---|---|---|
+| LS-1 | 승계 요청 제출 (OFFICER) | `clubId`, `reason` | `requestId` (201) | 401 / 400 OFFICER 아님 / 404 club 없음 / 409 PENDING 중복 |
+| LS-2 | 승계 목록 (ADMIN) | `status?`, `clubId?`, Pageable | `PageResponse<SuccessionRequestSummaryResponse>` (200) | 401/403 |
+| LS-3 | 승계 상세 (ADMIN) | `requestId` | `SuccessionRequestDetailResponse` (200) | 401/403/404 |
+| LS-4 | 승계 처리 (ADMIN) | `requestId`, `status`(APPROVED/REJECTED), `actionNote?` | 204 | 400 잘못된 전이 / LEADER 부재 / 요청자 OFFICER 아님 |
+| LH-1 | ADMIN 강제 LEADER 지정 | `clubId`, `newLeaderUserId`, `reason` | 204 | 400 LEADER 존재 / 404 club·후보 없음 |
+| LH-2 | 동아리 권한 이력 (ADMIN) | `clubId`, Pageable | `PageResponse<ClubMemberHistoryResponse>` (200) | 401/403/404 |
+
+**비기능 요구사항**
+- 조건부 유니크: `(club_id) WHERE status='PENDING' AND deleted_at IS NULL` — 동아리당 PENDING 1건.
+- APPROVED 시 단일 트랜잭션 + PESSIMISTIC_WRITE 로 두 ClubMember 행 교환.
+- ADMIN 강제 지정은 LEADER 존재 시 400 — 정상 인계 경로 사용.
+- 모든 권한 변경은 ClubMemberHistory 에 자동 기록.
+
+---
+
+### 2.7 Central Club Recertification (중앙동아리 연간 재인증)
+
+**엔티티 필드 (RecertificationRound)**: `id`, `year`, `label`, `status`(OPEN/CLOSED), `openedBy`, `openedAt`, `closedBy`, `closedAt`.
+**엔티티 필드 (RecertificationRequest)**: `id`, `roundId`, `clubId`, `leaderUserId`, `contactEmail`, `contactPhone`, `operatingYear`, `notes`(≤2000), `status`(PENDING/APPROVED/REJECTED), `actionNote`, `handledBy`, `handledAt`.
+**Club 변경**: `last_verified_year INT` 컬럼 추가.
+
+| ID | 기능 | 입력 | 출력 | 예외 |
+|---|---|---|---|---|
+| RR-1 | 라운드 열기 (ADMIN) | `year`, `label` | `roundId` (201) | 401 / 403 / 409 동일 year OPEN 존재 |
+| RR-2 | 라운드 닫기 (ADMIN) | `roundId` | 204 | 400 이미 CLOSED / 401 / 403 / 404 |
+| RR-3 | 라운드 목록 (ADMIN) | `status?`, Pageable | `PageResponse<RecertificationRoundResponse>` (200) | 401 / 403 |
+| RC-1 | 재인증 제출 (LEADER) | `clubId`, `contactEmail`, `contactPhone`, `operatingYear`, `notes?` | `requestId` (201) | 401 / 400 비-LEADER·비-중앙동아리·OPEN 라운드 없음 / 404 club / 409 PENDING 중복 |
+| RC-2 | 재인증 목록 (ADMIN) | `roundId?`, `status?`, Pageable | `PageResponse<RecertificationRequestSummaryResponse>` (200) | 401 / 403 |
+| RC-3 | 재인증 상세 (ADMIN) | `requestId` | `RecertificationRequestDetailResponse` (200) | 401 / 403 / 404 |
+| RC-4 | 재인증 처리 (ADMIN) | `requestId`, `status`(APPROVED/REJECTED), `actionNote?` | 204. APPROVED 시 club.lastVerifiedYear=round.year | 400 잘못된 전이 / 401 / 403 / 404 |
+| RC-5 | 미인증 동아리 조회 (ADMIN) | `operatingYear`, Pageable | `PageResponse<CentralClubRecertificationStatusResponse>` (200) | 401 / 403 |
+
+**비기능 요구사항**
+- 조건부 unique: `(year) WHERE status='OPEN'` — 연도당 OPEN 라운드 1개.
+- 조건부 unique: `(round_id, club_id) WHERE status='PENDING'` — 라운드당 동아리당 PENDING 1건.
+- 라운드 닫힘 후에도 기존 PENDING 은 ADMIN 이 계속 처리 가능. 새 제출만 차단.
+- EXPIRED 판정은 계산값: `central_club AND (last_verified_year IS NULL OR last_verified_year < operatingYear)`.
+- `central_club` 자동 해제 없음. ADMIN 이 RC-5 결과 보고 기존 C-5 API 로 수동 해제.
+
+---
+
+### 2.8 Promotion (홍보 큐레이션 배너)
+
+**엔티티 필드 (PromotionRequest)**: `id`, `clubId`, `requesterUserId`(LEADER/OFFICER), `title`(≤80), `description`(≤2000), `suggestedBannerImageUrl?`, `suggestedLinkUrl?`, `status`(PENDING/ACCEPTED/REJECTED), `actionNote`, `handledBy`, `handledAt`.
+**엔티티 필드 (Promotion)**: `id`, `clubId?`, `title`(≤120), `bannerImageUrl`, `linkUrl?`, `active`, `displayOrder`, `createdBy`.
+
+| ID | 기능 | 입력 | 출력 | 예외 |
+|---|---|---|---|---|
+| PR-1 | 홍보 요청 제출 (LEADER/OFFICER) | `clubId`, `title`, `description`, `suggestedBannerImageUrl?`, `suggestedLinkUrl?` | `requestId` (201) | 401 / 403 운영진 아님 / 404 club / 409 PENDING 중복 |
+| PR-2 | 홍보 요청 목록 (ADMIN) | `status?`, `clubId?`, Pageable | `PageResponse<PromotionRequestSummaryResponse>` (200) | 401 / 403 |
+| PR-3 | 홍보 요청 상세 (ADMIN) | `requestId` | `PromotionRequestDetailResponse` (200) | 401 / 403 / 404 |
+| PR-4 | 홍보 요청 처리 (ADMIN) | `requestId`, `status`(ACCEPTED/REJECTED), `actionNote?` | 204 | 400 잘못된 전이 / 401 / 403 / 404 |
+| PM-1 | 배너 생성 (ADMIN) | `clubId?`, `title`, `bannerImageUrl`, `linkUrl?`, `active`, `displayOrder` | `promotionId` (201) | 400 / 401 / 403 / 404 |
+| PM-2 | 배너 수정 (ADMIN) | partial fields + `clearClubId?` | 204 | 400 / 401 / 403 / 404 |
+| PM-3 | 배너 삭제 (ADMIN) | `promotionId` | 204 | 401 / 403 / 404 |
+| PM-4 | 배너 관리 목록 (ADMIN) | `active?`, `clubId?`, Pageable | `PageResponse<AdminPromotionResponse>` (200) | 401 / 403 |
+| PM-5 | 공개 배너 목록 (비로그인 포함) | Pageable | `PageResponse<PromotionCardResponse>` (200) | — |
+
+**비기능 요구사항**
+- 조건부 unique: `(club_id) WHERE status='PENDING'` — 동아리당 PENDING 1건.
+- Promotion 은 ADMIN 큐레이션. PromotionRequest 의 ACCEPTED 는 Promotion 자동 생성으로 이어지지 않음(완전 분리).
+- 공개 GET `/promotions` 는 `active=true AND deleted_at IS NULL` 만 반환, `displayOrder ASC, createdAt DESC` 정렬.
+- 이미지 업로드는 기존 `FileStorageService` 흐름으로 진행하고, 응답 URL 을 `suggestedBannerImageUrl` / `bannerImageUrl` 필드에 전달한다.
 
 ---
 

@@ -46,4 +46,11 @@ public interface NotificationApi {
     ResponseEntity<Void> readAll(
             @AuthenticationPrincipal UserPrincipal currentUser
     );
+
+    @Operation(summary = "Broadcast 알림 읽음 처리 (멱등)", description = "공지 broadcast 를 본인 기준으로 읽음 마킹.")
+    @PatchMapping("/broadcasts/{broadcastId}/read")
+    ResponseEntity<Void> readBroadcast(
+            @PathVariable Long broadcastId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
 }

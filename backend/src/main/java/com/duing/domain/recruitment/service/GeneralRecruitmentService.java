@@ -46,6 +46,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
         if (recruitmentRepository.existsActiveByClubId(club.getId())) {
             throw new RecruitmentException.DuplicateActiveRecruitmentException();
+<<<<<<< HEAD
+=======
         }
 
         Recruitment recruitment;
@@ -67,27 +69,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
             );
         } catch (IllegalArgumentException exception) {
             throw new RecruitmentException.InvalidRecruitmentPeriodException();
+>>>>>>> origin/main
         }
 
-        // 외부 폼 모집은 자체 RecruitmentForm 행을 생성하지 않는다 (1:0..1).
-        if (createRecruitmentCommand.applicationMode() == ApplicationMode.SELF) {
-            RecruitmentForm form = RecruitmentForm.create(recruitment, createRecruitmentCommand.questions());
-            recruitment.attachForm(form);
-        }
-
-        Recruitment saved = recruitmentRepository.save(recruitment);
-
-        if (saved.getStatus() == RecruitmentStatus.OPEN
-                && !saved.getStartDate().isAfter(LocalDate.now())) {
-            eventPublisher.publishEvent(new RecruitmentOpenedEvent(
-                    saved.getId(),
-                    club.getId(),
-                    club.getName(),
-                    saved.getTitle(),
-                    saved.getEndDate()));
-        }
-
-        return saved.getId();
+        return buildAndPersist(club, createRecruitmentCommand);
     }
 
     @Override
@@ -162,6 +147,13 @@ public class GeneralRecruitmentService implements RecruitmentService {
         recruitmentRepository.findActiveByClubId(club.getId())
                 .ifPresent(Recruitment::close);
 
+<<<<<<< HEAD
+        return buildAndPersist(club, command);
+    }
+
+    private Long buildAndPersist(Club club, CreateRecruitmentCommand command) {
+=======
+>>>>>>> origin/main
         Recruitment recruitment;
         try {
             recruitment = Recruitment.createWithOptions(

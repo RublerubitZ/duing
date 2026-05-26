@@ -1,30 +1,27 @@
-import { Check } from '@/components/duing/Icon';
-import { SparkleFull } from '@/components/duing/Sparkle';
+import { FeatureSection } from '../FeatureSection';
 import { promoApplicants, promoClubs } from '../../_mocks';
 
-const FILTER_CHIPS: ReadonlyArray<string> = ['전체', '학술', '음악', '운동', 'IT'];
+type AdminStatItem = { value: string; label: string; highlight: boolean };
 
-const ADMIN_STATS: ReadonlyArray<{ value: string; label: string; highlight: boolean }> = [
-  { value: '34', label: '총 지원자', highlight: false },
+const FEATURE_ADMIN_STATS: ReadonlyArray<AdminStatItem> = [
+  { value: '43', label: '총 지원자', highlight: false },
   { value: '12', label: '검토중', highlight: false },
   { value: '8', label: '면접 확정', highlight: true },
-  { value: '6', label: '합격', highlight: false },
 ];
 
-function FeatureBadge({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mb-5 inline-flex rounded-full bg-sage-mist px-3 py-1.5 text-xs font-bold tracking-wide06 text-ink-deep">
-      {children}
-    </div>
-  );
-}
+const FILTER_CHIPS = ['전체', '학술', '음악', '운동', 'IT'] as const;
 
 function CheckList({ items }: { items: ReadonlyArray<string> }) {
   return (
-    <ul className="flex list-none flex-col gap-3 pl-0">
+    <ul className="m-0 flex list-none flex-col gap-[10px] p-0">
       {items.map((item) => (
-        <li key={item} className="flex gap-3 text-[14.5px] text-charcoal">
-          <Check size={18} className="mt-0.5 shrink-0 text-ink" />
+        <li key={item} className="flex items-start gap-[10px] text-[14px]" style={{ color: '#4a5247' }}>
+          <span
+            className="mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold"
+            style={{ background: '#3e5b34', color: '#ffffff' }}
+          >
+            ✓
+          </span>
           {item}
         </li>
       ))}
@@ -33,40 +30,60 @@ function CheckList({ items }: { items: ReadonlyArray<string> }) {
 }
 
 function ExploreMockup() {
-  const exploreClubs = promoClubs.filter((club) => club.cat === 'IT' || club.cat === '학술').slice(0, 4);
+  const exploreClubs = promoClubs
+    .filter((club) => club.cat === 'IT' || club.cat === '학술')
+    .slice(0, 4);
+
   return (
-    <div className="rounded-xl border border-line bg-paper p-7 shadow-2">
-      <div className="mb-4 flex flex-wrap gap-1.5">
+    <div
+      className="rounded-[14px] border p-[18px]"
+      style={{
+        background: '#ffffff',
+        borderColor: '#d9d4c3',
+        boxShadow: '0 2px 8px rgba(47,58,46,.06), 0 12px 28px rgba(47,58,46,.06)',
+      }}
+    >
+      <div className="mb-[14px] flex flex-wrap gap-2">
         {FILTER_CHIPS.map((chip, idx) => (
           <span
             key={chip}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-              idx === 3
-                ? 'bg-ink text-white'
-                : 'border border-line bg-paper text-charcoal-2'
-            }`}
+            className="rounded-full border px-3 py-1.5 text-[12.5px] font-medium"
+            style={
+              idx === 0
+                ? { background: '#3e5b34', color: '#fbf6e6', borderColor: '#3e5b34' }
+                : { background: '#faf7ee', color: '#4a5247', borderColor: '#d9d4c3' }
+            }
           >
             {chip}
           </span>
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-[10px]">
         {exploreClubs.map((club) => (
-          <div key={club.id} className="rounded-md border border-line bg-cream p-3">
+          <div
+            key={club.id}
+            className="flex items-center gap-3 rounded-[10px] border p-[14px]"
+            style={{ background: '#faf7ee', borderColor: '#e6e1d2' }}
+          >
             <div
-              className="grid h-[70px] place-items-center rounded-md text-[26px]"
-              style={{
-                background: `linear-gradient(135deg, ${club.color}22, ${club.color}11)`,
-              }}
+              className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] border bg-white text-base"
+              style={{ borderColor: '#d9d4c3' }}
             >
               {club.avatar}
             </div>
-            <div className="mt-2.5">
-              <span className="pill" style={{ fontSize: 10, padding: '2px 6px' }}>
+            <div>
+              <div
+                className="mb-1 inline-block rounded-[4px] px-1.5 py-0.5 text-[10px] font-semibold"
+                style={{ background: '#e7ebd9', color: '#3e5b34' }}
+              >
                 {club.cat}
-              </span>
-              <div className="mt-1.5 text-[13px] font-bold text-ink-deep">{club.name}</div>
-              <div className="mt-0.5 text-[11px] text-charcoal-3">{club.members}명</div>
+              </div>
+              <div className="text-[13.5px] font-bold leading-tight" style={{ color: '#2a2f27' }}>
+                {club.name}
+              </div>
+              <div className="mt-0.5 font-mono text-[11px]" style={{ color: '#8a8f83' }}>
+                {club.members}명
+              </div>
             </div>
           </div>
         ))}
@@ -78,68 +95,106 @@ function ExploreMockup() {
 function ApplyMockup() {
   return (
     <div
-      className="relative overflow-hidden rounded-xl p-8 text-white"
-      style={{ background: 'linear-gradient(180deg, #1F4A36 0%, #143025 100%)' }}
+      className="rounded-[14px] border p-[18px]"
+      style={{
+        background: '#ffffff',
+        borderColor: '#d9d4c3',
+        boxShadow: '0 2px 8px rgba(47,58,46,.06), 0 12px 28px rgba(47,58,46,.06)',
+      }}
     >
-      <SparkleFull size={36} color="#9DB6A0" className="absolute right-6 top-6 opacity-60" />
-      <div className="mb-3 text-[11px] font-bold tracking-wide06 text-sage">
+      <h4
+        className="mb-1.5 font-mono text-[12px]"
+        style={{ color: '#8a8f83', letterSpacing: '.12em' }}
+      >
         STEP 2 / 3 · 자기소개
-      </div>
-      <div className="mb-7 flex gap-1.5">
-        {[1, 2, 3].map((step) => (
-          <div
-            key={step}
-            className={`h-1 flex-1 rounded-full ${step <= 2 ? 'bg-sage' : 'bg-white/15'}`}
-          />
-        ))}
-      </div>
-      <h4 className="mb-4 font-body text-[26px] text-white">지원 동기를 적어주세요</h4>
-      <div className="min-h-[100px] rounded-md border border-white/10 bg-white/5 p-4 text-[13.5px] leading-relaxed text-white/70">
+      </h4>
+      <p className="mb-[14px] text-[16px] font-bold" style={{ color: '#2c4124' }}>
+        지원 동기를 적어주세요
+      </p>
+      <div
+        className="relative min-h-[130px] rounded-[8px] border p-3 text-[13px] leading-[1.6]"
+        style={{ background: '#faf7ee', borderColor: '#e6e1d2', color: '#4a5247' }}
+      >
         대학 와서 처음으로 개발 공부를 시작했고, 혼자 강의를 들으면서 자그마한 사이드 프로젝트를…
-        <span className="text-sage">|</span>
+        <span
+          className="inline-block w-px h-[14px] align-[-2px] animate-blink-cursor"
+          style={{ background: '#3e5b34' }}
+        />
       </div>
-      <div className="mt-2.5 text-right text-[11px] text-white/45">자동 저장됨 · 16:24</div>
-      <div className="mt-6 flex justify-between gap-2">
-        <button className="rounded-md bg-white/10 px-4 py-2.5 text-white" type="button">
-          이전
-        </button>
-        <button
-          className="rounded-md bg-sage px-4 py-2.5 font-bold text-ink-deep"
-          type="button"
+      <div
+        className="mt-[10px] flex items-center gap-1.5 font-mono text-[11px]"
+        style={{ color: '#3e5b34' }}
+      >
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#5b7e4d' }} />
+        자동 저장됨 · 방금 전
+      </div>
+      <div className="mt-[14px] flex justify-between">
+        <span className="px-3 py-2 text-[12.5px]" style={{ color: '#8a8f83' }}>
+          ← 이전
+        </span>
+        <span
+          className="rounded-[8px] px-[14px] py-2 text-[12.5px] font-semibold"
+          style={{ background: '#2c4124', color: '#fbf6e6' }}
         >
-          다음 단계
-        </button>
+          다음 단계 →
+        </span>
       </div>
     </div>
   );
 }
 
+function statusStyle(status: '검토중' | '면접확정' | '합격'): { background: string; color: string } {
+  if (status === '합격') return { background: '#e8f1d8', color: '#4a6b3f' };
+  if (status === '면접확정') return { background: '#e7ebd9', color: '#3e5b34' };
+  return { background: '#fbe9d8', color: '#8c5125' };
+}
+
 function AdminMockup() {
   return (
-    <div className="rounded-xl border border-line bg-paper p-6 shadow-2">
-      <div className="mb-3.5 grid grid-cols-4 gap-2">
-        {ADMIN_STATS.map((stat) => (
+    <div
+      className="rounded-[14px] border p-[18px]"
+      style={{
+        background: '#ffffff',
+        borderColor: '#d9d4c3',
+        boxShadow: '0 2px 8px rgba(47,58,46,.06), 0 12px 28px rgba(47,58,46,.06)',
+      }}
+    >
+      <div className="mb-[14px] grid grid-cols-3 gap-[10px]">
+        {FEATURE_ADMIN_STATS.map((stat) => (
           <div
             key={stat.label}
-            className={`rounded-md px-3.5 py-3 ${
+            className="rounded-[10px] border px-[14px] py-3"
+            style={
               stat.highlight
-                ? 'bg-ink text-white'
-                : 'border border-line bg-cream text-charcoal'
-            }`}
+                ? { background: '#e7ebd9', borderColor: '#cfd6b3' }
+                : { background: '#faf7ee', borderColor: '#e6e1d2' }
+            }
           >
             <div
-              className={`text-[10px] font-semibold ${
-                stat.highlight ? 'text-sage' : 'text-charcoal-3'
-              }`}
+              className="font-mono text-[22px] font-bold"
+              style={{ color: stat.highlight ? '#3e5b34' : '#2c4124' }}
             >
+              {stat.value}
+            </div>
+            <div className="mt-0.5 text-[11px]" style={{ color: '#8a8f83' }}>
               {stat.label}
             </div>
-            <div className="font-display text-[22px] font-bold">{stat.value}</div>
           </div>
         ))}
       </div>
-      <div className="overflow-hidden rounded-md border border-line bg-cream">
-        <div className="grid grid-cols-[1fr_1fr_80px] gap-2.5 bg-graysoft px-3 py-2 text-[10px] font-bold tracking-wide04 text-charcoal-3">
+      <div
+        className="overflow-hidden rounded-[10px] border"
+        style={{ background: '#faf7ee', borderColor: '#e6e1d2' }}
+      >
+        <div
+          className="grid items-center gap-2.5 px-[14px] py-[10px] font-mono text-[11px] uppercase"
+          style={{
+            gridTemplateColumns: '1fr 1fr auto',
+            background: '#ffffff',
+            color: '#8a8f83',
+            letterSpacing: '.08em',
+          }}
+        >
           <span>지원자</span>
           <span>학과</span>
           <span>상태</span>
@@ -147,21 +202,24 @@ function AdminMockup() {
         {promoApplicants.map((applicant, idx) => (
           <div
             key={applicant.id}
-            className={`grid grid-cols-[1fr_1fr_80px] items-center gap-2.5 px-3 py-2.5 text-[11.5px] ${
-              idx > 0 ? 'border-t border-line' : ''
-            }`}
+            className="grid items-center gap-2.5 px-[14px] py-2.5 text-[12.5px]"
+            style={{
+              gridTemplateColumns: '1fr 1fr auto',
+              borderTop: idx > 0 ? '1px solid #e6e1d2' : 'none',
+            }}
           >
-            <div className="flex items-center gap-1.5">
-              <div className="grid h-[22px] w-[22px] place-items-center rounded-full bg-sage-mist text-[9px] font-bold text-ink-deep">
-                {applicant.name.slice(-2)}
-              </div>
-              <span className="font-semibold text-ink-deep">{applicant.name}</span>
-            </div>
-            <span className="text-[11px] text-charcoal-2">
-              {applicant.dept.replace('학과', '')}
+            <span className="flex items-center gap-2 font-medium" style={{ color: '#2a2f27' }}>
+              <span
+                className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full font-bold text-[10.5px]"
+                style={{ background: '#e7ebd9', color: '#3e5b34' }}
+              >
+                {applicant.name[0]}
+              </span>
+              {applicant.name}
             </span>
+            <span style={{ color: '#4a5247' }}>{applicant.dept.replace('학과', '')}</span>
             <span
-              className="w-fit rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+              className="rounded-full px-2 py-[3px] text-[11px] font-semibold"
               style={statusStyle(applicant.status)}
             >
               {applicant.status}
@@ -173,40 +231,51 @@ function AdminMockup() {
   );
 }
 
-function statusStyle(status: '검토중' | '면접확정' | '합격') {
-  if (status === '합격') return { background: '#E0EAD8', color: '#2A4A1F' };
-  if (status === '면접확정') return { background: '#E8EEE8', color: '#143025' };
-  return { background: '#F0EDE5', color: '#143025' };
-}
-
 export function Features() {
   return (
-    <section id="section-3" className="px-10 pb-20 pt-[120px]">
-      <div className="max-w-layout mx-auto">
-        <div className="mb-16 text-center">
-          <div className="mb-3.5 text-[13px] font-bold tracking-wide16 text-ink">
-            FEATURES · 주요 기능
-          </div>
-          <h2 className="text-[56px] leading-[1.1]">
-            동아리 생활의 모든 순간
-            <SparkleFull
-              size={28}
-              color="#9DB6A0"
-              className="ml-2.5 inline-block align-middle"
-            />
-          </h2>
-        </div>
+    <section
+      className="px-8 py-24"
+      style={{ borderTop: '1px solid #e6e1d2', background: '#faf7ee' }}
+    >
+      <div className="mx-auto max-w-[1180px]">
+        <p
+          className="mb-[18px] font-mono text-[11.5px] font-semibold uppercase"
+          style={{ letterSpacing: '.22em', color: '#3e5b34' }}
+        >
+          FEATURES · 주요 기능
+        </p>
+        <h2
+          className="mb-[18px] max-w-[760px] font-bold leading-[1.12]"
+          style={{ fontSize: 'clamp(32px, 4vw, 44px)', letterSpacing: '-0.025em', color: '#2c4124' }}
+        >
+          동아리 생활의 모든 순간
+        </h2>
+        <p className="mb-12 max-w-[640px] text-[16.5px]" style={{ color: '#4a5247' }}>
+          대구대학교의 모든 동아리를 한 곳에서. 검색하고, 지원하고, 활동까지 두잉으로 관리하세요.
+        </p>
 
-        <div className="mb-[120px] grid items-center gap-16 md:grid-cols-[1fr_1.1fr]">
-          <div>
-            <FeatureBadge>FEATURE 01</FeatureBadge>
-            <h3 className="mb-5 text-[44px] leading-[1.1]">
-              여러곳의 동아리를 한눈에
+        {/* Feature 01 — 텍스트 왼쪽에서, 비주얼 팝인 */}
+        <FeatureSection
+          className="mb-16 grid items-center gap-16 border-b border-dashed pb-16 md:grid-cols-2"
+          style={{ borderColor: '#d9d4c3' }}
+        >
+          <div className="feature-text-left">
+            <p
+              className="mb-[14px] font-mono text-[11.5px] font-semibold"
+              style={{ letterSpacing: '.2em', color: '#3e5b34' }}
+            >
+              FEATURE 01
+            </p>
+            <h3
+              className="mb-[18px] font-bold leading-[1.12]"
+              style={{ fontSize: 'clamp(28px, 3.2vw, 38px)', letterSpacing: '-0.025em', color: '#2c4124' }}
+            >
+              여러 곳의 동아리를
               <br />
-              <span className="text-ink">관심사로 골라봐요</span>
+              한눈에, 관심사로 골라봐요
             </h3>
-            <p className="mb-6 text-base leading-[1.7] text-charcoal-2">
-              학술, 운동, 음악, 봉사… 9개 카테고리로 정리된 대구대 모든 동아리. 요일·인원·단과대학으로 필터링해서 나에게 맞는 곳을 빠르게 찾을 수 있어요.
+            <p className="mb-[22px] text-[15.5px]" style={{ color: '#4a5247' }}>
+              학술, 운동, 음악, 봉사… 8개 카테고리로 정리된 대구대 모든 동아리. 요일·인원·단과대학으로 필터링해서 나에게 맞는 곳을 빠르게 찾을 수 있어요.
             </p>
             <CheckList
               items={[
@@ -216,19 +285,35 @@ export function Features() {
               ]}
             />
           </div>
-          <ExploreMockup />
-        </div>
+          <div className="feature-visual">
+            <ExploreMockup />
+          </div>
+        </FeatureSection>
 
-        <div className="mb-[120px] grid items-center gap-16 md:grid-cols-[1.1fr_1fr]">
-          <ApplyMockup />
-          <div>
-            <FeatureBadge>FEATURE 02</FeatureBadge>
-            <h3 className="mb-5 text-[44px] leading-[1.1]">
-              지원서, <span className="text-ink">한 번에</span>
+        {/* Feature 02 — 비주얼 팝인, 텍스트 오른쪽에서 */}
+        <FeatureSection
+          className="mb-16 grid items-center gap-16 border-b border-dashed pb-16 md:grid-cols-2"
+          style={{ borderColor: '#d9d4c3' }}
+        >
+          <div className="feature-visual">
+            <ApplyMockup />
+          </div>
+          <div className="feature-text-right">
+            <p
+              className="mb-[14px] font-mono text-[11.5px] font-semibold"
+              style={{ letterSpacing: '.2em', color: '#3e5b34' }}
+            >
+              FEATURE 02
+            </p>
+            <h3
+              className="mb-[18px] font-bold leading-[1.12]"
+              style={{ fontSize: 'clamp(28px, 3.2vw, 38px)', letterSpacing: '-0.025em', color: '#2c4124' }}
+            >
+              지원서, 한 번에
               <br />
               제출하고 끝
             </h3>
-            <p className="mb-6 text-base leading-[1.7] text-charcoal-2">
+            <p className="mb-[22px] text-[15.5px]" style={{ color: '#4a5247' }}>
               구글폼, 카톡, 인스타 DM 돌아다닐 필요 없어요. 두잉 안에서 동아리별 양식대로 작성하고, 면접 일정까지 받아볼 수 있어요.
             </p>
             <CheckList
@@ -239,17 +324,26 @@ export function Features() {
               ]}
             />
           </div>
-        </div>
+        </FeatureSection>
 
-        <div className="grid items-center gap-16 md:grid-cols-[1fr_1.1fr]">
-          <div>
-            <FeatureBadge>FEATURE 03 · 운영자</FeatureBadge>
-            <h3 className="mb-5 text-[44px] leading-[1.1]">
+        {/* Feature 03 — 텍스트 왼쪽에서, 비주얼 팝인 */}
+        <FeatureSection className="grid items-center gap-16 md:grid-cols-2">
+          <div className="feature-text-left">
+            <p
+              className="mb-[14px] font-mono text-[11.5px] font-semibold"
+              style={{ letterSpacing: '.2em', color: '#3e5b34' }}
+            >
+              FEATURE 03 · 운영자
+            </p>
+            <h3
+              className="mb-[18px] font-bold leading-[1.12]"
+              style={{ fontSize: 'clamp(28px, 3.2vw, 38px)', letterSpacing: '-0.025em', color: '#2c4124' }}
+            >
               우리 동아리 운영은
               <br />
-              <span className="text-ink">두잉에서 통째로</span>
+              두잉에서 통째로
             </h3>
-            <p className="mb-6 text-base leading-[1.7] text-charcoal-2">
+            <p className="mb-[22px] text-[15.5px]" style={{ color: '#4a5247' }}>
               지원자 관리부터 공지, 일정, 회비 정산까지. 회장단이 노션·구글폼·엑셀로 나눠 쓰던 일을 한 곳에 모았어요.
             </p>
             <CheckList
@@ -260,8 +354,10 @@ export function Features() {
               ]}
             />
           </div>
-          <AdminMockup />
-        </div>
+          <div className="feature-visual">
+            <AdminMockup />
+          </div>
+        </FeatureSection>
       </div>
     </section>
   );

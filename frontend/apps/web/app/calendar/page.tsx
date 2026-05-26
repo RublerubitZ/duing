@@ -1,5 +1,10 @@
-'use client';
+import { CalendarPage } from './_pages/CalendarPage';
 
+<<<<<<< HEAD
+export default function Page() {
+  return <CalendarPage />;
+}
+=======
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRecruitmentCalendarQuery } from '@duing/hooks';
@@ -56,3 +61,4 @@ export default function CalendarPage() {
     </main>
   );
 }
+>>>>>>> origin/main

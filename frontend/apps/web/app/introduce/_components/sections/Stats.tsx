@@ -1,38 +1,35 @@
-import { SparkleFull } from '@/components/duing/Sparkle';
+type Stat = { value: string; label: string };
 
-const STATS: ReadonlyArray<{ value: string; label: string }> = [
+const STATS: ReadonlyArray<Stat> = [
   { value: '128', label: '등록 동아리' },
-  { value: '67', label: '이번 학기 모집중' },
-  { value: '4,200+', label: '두잉 회원' },
+  { value: '7', label: '이번 학기 모집중' },
+  { value: '1,200+', label: '두잉 회원' },
   { value: '12', label: '단과대학' },
 ];
 
 export function Stats() {
   return (
-    <section className="relative overflow-hidden bg-ink-deep px-10 py-12 text-white">
-      <SparkleFull
-        size={48}
-        color="#9DB6A0"
-        className="absolute left-[20%] top-8 opacity-40"
-      />
-      <SparkleFull
-        size={36}
-        color="#9DB6A0"
-        className="absolute bottom-6 right-[18%] opacity-30"
-      />
-      <div className="max-w-layout mx-auto text-center">
-        <div className="mb-6 text-xs font-bold tracking-wide16 text-sage">
-          DUING · DAEGU UNIVERSITY · 2025-2학기
-        </div>
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-          {STATS.map((stat) => (
-            <div key={stat.label}>
+    <section style={{ background: '#faf7ee' }}>
+      <div className="mx-auto max-w-[1180px]">
+        <div
+          className="grid grid-cols-2 md:grid-cols-4"
+          style={{ borderTop: '1px solid #d9d4c3', borderBottom: '1px solid #d9d4c3' }}
+        >
+          {STATS.map((stat, idx) => (
+            <div
+              key={stat.label}
+              className="px-6 py-7"
+              style={{
+                borderRight: idx < STATS.length - 1 ? '1px solid #d9d4c3' : 'none',
+              }}
+            >
               <div
-                className="font-display text-[72px] font-bold leading-none text-white tracking-tightx"
+                className="font-mono text-[38px] font-bold leading-none"
+                style={{ color: '#2c4124', letterSpacing: '-0.02em' }}
               >
                 {stat.value}
               </div>
-              <div className="mt-3 text-[13px] font-semibold tracking-wide04 text-white/55">
+              <div className="mt-2 text-[13px]" style={{ color: '#8a8f83' }}>
                 {stat.label}
               </div>
             </div>

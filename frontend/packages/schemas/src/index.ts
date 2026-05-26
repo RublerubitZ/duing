@@ -243,6 +243,69 @@ export const updateClubSchema = z.object({
     .max(100, '회비 표기는 100자 이하여야 합니다.')
     .nullable()
     .optional(),
+  tagline: z.string().max(60, '한 줄 태그라인은 60자 이하여야 합니다.').nullable().optional(),
+  highlights: z
+    .array(z.string().min(1, '강조 항목은 비어 있을 수 없습니다.').max(100, '각 강조 항목은 100자 이하여야 합니다.'))
+    .max(10, '강조 항목은 최대 10개까지 가능합니다.')
+    .optional(),
+  majorProjects: z.string().nullable().optional(),
 });
 
 export type UpdateClubInput = z.infer<typeof updateClubSchema>;
+
+export const submitSuccessionRequestSchema = z.object({
+  reason: z
+    .string()
+    .min(1, '사유는 필수 입력값입니다.')
+    .max(1000, '사유는 1000자 이하여야 합니다.'),
+});
+
+export type SubmitSuccessionRequestInput = z.infer<typeof submitSuccessionRequestSchema>;
+
+export const submitPromotionRequestSchema = z.object({
+  title: z
+    .string()
+    .min(1, '제목은 필수 입력값입니다.')
+    .max(80, '제목은 80자 이하여야 합니다.')
+    .refine((value) => value.trim().length > 0, '공백만으로 이루어진 제목은 입력할 수 없습니다.'),
+  description: z
+    .string()
+    .min(1, '설명은 필수 입력값입니다.')
+    .max(2000, '설명은 2000자 이하여야 합니다.')
+    .refine((value) => value.trim().length > 0, '공백만으로 이루어진 설명은 입력할 수 없습니다.'),
+  suggestedBannerImageUrl: z
+    .string()
+    .max(500, '배너 이미지 URL은 500자 이하여야 합니다.')
+    .optional(),
+  suggestedLinkUrl: z
+    .string()
+    .max(2000, '링크 URL은 2000자 이하여야 합니다.')
+    .optional(),
+});
+
+export type SubmitPromotionRequestInput = z.infer<typeof submitPromotionRequestSchema>;
+
+const REPORT_TARGET_TYPE_VALUES = ['CLUB', 'RECRUITMENT'] as const;
+const REPORT_REASON_CODE_VALUES = [
+  'SPAM',
+  'FRAUD',
+  'INAPPROPRIATE',
+  'IMPERSONATION',
+  'OTHER',
+] as const;
+
+export const submitReportSchema = z.object({
+  targetType: z.enum(REPORT_TARGET_TYPE_VALUES, {
+    errorMap: () => ({ message: '신고 대상 유형을 선택해주세요.' }),
+  }),
+  targetId: z.number().int().positive('신고 대상 ID가 유효하지 않습니다.'),
+  reasonCode: z.enum(REPORT_REASON_CODE_VALUES, {
+    errorMap: () => ({ message: '신고 사유를 선택해주세요.' }),
+  }),
+  detail: z
+    .string()
+    .max(1000, '상세 내용은 1000자 이하여야 합니다.')
+    .optional(),
+});
+
+export type SubmitReportInput = z.infer<typeof submitReportSchema>;

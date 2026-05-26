@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   useUnreadCountQuery,
   useNotificationListQuery,
-  useNotificationReadMutation,
+  useNotificationSourceAwareReadMutation,
   useNotificationReadAllMutation,
 } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
@@ -22,7 +22,7 @@ export function NotificationBell() {
 
   const unreadCountQuery = useUnreadCountQuery(isAuthenticated);
   const listQuery = useNotificationListQuery(false, isAuthenticated && hasOpened);
-  const readMutation = useNotificationReadMutation();
+  const readMutation = useNotificationSourceAwareReadMutation();
   const readAllMutation = useNotificationReadAllMutation();
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -44,7 +44,7 @@ export function NotificationBell() {
   const recentFive = (listQuery.data?.pages?.[0]?.content ?? []).slice(0, 5);
 
   const handleItemClick = (notification: Notification) => {
-    readMutation.mutate(notification.id);
+    readMutation.mutate({ source: notification.source, id: notification.id });
     setOpen(false);
     const destination = toLinkRoute(notification.linkUrl);
     if (destination) router.push(destination);
@@ -89,7 +89,7 @@ export function NotificationBell() {
                     className="block w-full px-4 py-3 text-left hover:bg-slate-50"
                   >
                     <div className="flex items-start gap-2">
-                      {!notification.readAt && (
+                      {!notification.isRead && (
                         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-rose-500" />
                       )}
                       <div className="min-w-0">

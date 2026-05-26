@@ -18,27 +18,32 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
   return (
     <ManageGuard managedClubs={managedClubs} isLoading={isLoading}>
       <div className="flex min-h-screen">
-        <aside className="w-60 shrink-0 border-r border-slate-200 bg-slate-50">
-          <div className="border-b border-slate-200 px-4 py-4">
-            <Link href="/" className="text-sm font-semibold text-slate-800 hover:text-slate-600">
-              Du-ing 운영진 콘솔
+        <aside className="w-[248px] shrink-0 flex flex-col gap-[18px] px-4 py-[22px] pb-6 bg-[#2f3a2e] border-r border-[#232c22]">
+          <div className="flex items-center gap-2 px-2 pb-3.5 border-b border-[#44503f]">
+            <Link href="/" className="block">
+              <span className="font-mono font-semibold text-[18px] text-[#f1ecd9] tracking-[-0.02em]">
+                Du<span className="text-[#5b7e4d]">·</span>ing
+              </span>
+              <span className="block text-[12px] text-[#9aa191] mt-0.5 ml-0.5">운영진 콘솔</span>
             </Link>
           </div>
 
           {managedClubs && managedClubs.length > 0 && (
             <>
-              <ClubSelector
-                managedClubs={managedClubs}
-                currentClubId={currentClubId}
-              />
+              <ClubSelector managedClubs={managedClubs} currentClubId={currentClubId} />
               {currentClubId !== null && (
                 <ManageNav currentClubId={currentClubId} />
               )}
             </>
           )}
+
+          <div className="mt-auto pt-3 border-t border-[#44503f] px-2 flex justify-between text-[11.5px] text-[#9aa191]">
+            <span>v1.0.0</span>
+            <span>회장 모드</span>
+          </div>
         </aside>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-[#f3efe4]">
           {children}
         </main>
       </div>

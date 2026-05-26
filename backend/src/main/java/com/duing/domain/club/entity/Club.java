@@ -1,5 +1,7 @@
 package com.duing.domain.club.entity;
 
+import com.duing.domain.club.exception.ClubException;
+import com.duing.domain.user.entity.College;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -7,6 +9,10 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.DayOfWeek;
+<<<<<<< HEAD
+import java.time.LocalDateTime;
+=======
+>>>>>>> origin/main
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,6 +62,10 @@ public class Club extends BaseEntity {
     @Column(nullable = false, length = 30)
     private ClubStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 40)
+    private College college;
+
     @Column(name = "cover_url", length = 500)
     private String coverUrl;
 
@@ -96,6 +106,34 @@ public class Club extends BaseEntity {
     @Column(name = "membership_fee", length = 100)
     private String membershipFee;
 
+<<<<<<< HEAD
+    @Column(name = "tagline", length = 60)
+    private String tagline;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "highlights", columnDefinition = "jsonb", nullable = false)
+    private List<String> highlights = new ArrayList<>();
+
+    @Column(name = "major_projects", columnDefinition = "TEXT")
+    private String majorProjects;
+
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
+
+    @Column(name = "central_club", nullable = false)
+    private boolean centralClub;
+
+    @Column(name = "last_verified_year")
+    private Integer lastVerifiedYear;
+
+    @Column(name = "status_changed_by")
+    private Long statusChangedBy;
+
+    @Column(name = "status_changed_at")
+    private LocalDateTime statusChangedAt;
+
+=======
+>>>>>>> origin/main
     public List<String> getTags() {
         return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
     }
@@ -108,6 +146,13 @@ public class Club extends BaseEntity {
         return Collections.unmodifiableList(faqs);
     }
 
+<<<<<<< HEAD
+    public List<String> getHighlights() {
+        return Collections.unmodifiableList(highlights);
+    }
+
+=======
+>>>>>>> origin/main
     public Set<DayOfWeek> getActiveDays() {
         if (activeDays == null || activeDays.isBlank()) {
             return Collections.emptySet();
@@ -135,17 +180,25 @@ public class Club extends BaseEntity {
 
     @Builder(access = AccessLevel.PRIVATE)
     private Club(String name, ClubCategory category, String division, String description,
-                 String logoUrl, ClubStatus status) {
+                 String logoUrl, ClubStatus status, boolean centralClub, College college) {
         this.name = name;
         this.category = category;
         this.division = division;
         this.description = description;
         this.logoUrl = logoUrl;
         this.status = status;
+        this.centralClub = centralClub;
+        this.college = college;
     }
 
     public static Club create(String name, ClubCategory category, String division,
                               String description, String logoUrl) {
+        return create(name, category, division, description, logoUrl, false, null);
+    }
+
+    public static Club create(String name, ClubCategory category, String division,
+                              String description, String logoUrl, boolean centralClub,
+                              College college) {
         return Club.builder()
                 .name(name)
                 .category(category)
@@ -153,14 +206,40 @@ public class Club extends BaseEntity {
                 .description(description)
                 .logoUrl(logoUrl)
                 .status(ClubStatus.PENDING_APPROVAL)
+                .centralClub(centralClub)
+                .college(college)
                 .build();
     }
 
-    public void changeStatus(ClubStatus newStatus) {
-        this.status = newStatus;
+    public void changeStatus(ClubStatus next, String reason, Long actorUserId) {
+        if (!this.status.canTransitionTo(next)) {
+            throw new ClubException.InvalidClubStatusTransitionException(this.status.name(), next.name());
+        }
+        if (next == ClubStatus.REJECTED) {
+            String normalized = reason == null ? "" : reason.strip();
+            if (normalized.isEmpty()) {
+                throw new ClubException.RejectionReasonRequiredException();
+            }
+            this.rejectionReason = normalized;
+        } else {
+            this.rejectionReason = null;
+        }
+        this.status = next;
+        this.statusChangedBy = actorUserId;
+        this.statusChangedAt = LocalDateTime.now();
     }
 
-    public void update(
+    public void changeCentralClub(boolean next) {
+        this.centralClub = next;
+    }
+
+    public void updateLastVerifiedYear(int year) {
+        if (this.lastVerifiedYear == null || year > this.lastVerifiedYear) {
+            this.lastVerifiedYear = year;
+        }
+    }
+
+    public record UpdatePayload(
             String name,
             ClubCategory category,
             String division,
@@ -176,6 +255,41 @@ public class Club extends BaseEntity {
             String contactEmail,
             Integer activityFrequency,
             Set<DayOfWeek> activeDays,
+<<<<<<< HEAD
+            String membershipFee,
+            String tagline,
+            List<String> highlights,
+            String majorProjects,
+            College college,
+            Boolean clearCollege
+    ) {}
+
+    public void update(UpdatePayload payload) {
+        if (payload.name() != null) this.name = payload.name();
+        if (payload.category() != null) this.category = payload.category();
+        if (payload.division() != null) this.division = payload.division();
+        if (payload.description() != null) this.description = payload.description();
+        if (payload.logoUrl() != null) this.logoUrl = payload.logoUrl();
+        if (payload.coverUrl() != null) this.coverUrl = payload.coverUrl();
+        if (payload.tags() != null) this.tags = payload.tags().stream().distinct().toArray(String[]::new);
+        if (payload.snsLinks() != null) this.snsLinks = new ArrayList<>(payload.snsLinks());
+        if (payload.faqs() != null) this.faqs = new ArrayList<>(payload.faqs());
+        if (payload.foundedYear() != null) this.foundedYear = payload.foundedYear();
+        if (payload.cohortNumber() != null) this.cohortNumber = payload.cohortNumber();
+        if (payload.location() != null) this.location = payload.location();
+        if (payload.contactEmail() != null) this.contactEmail = payload.contactEmail();
+        if (payload.activityFrequency() != null) this.activityFrequency = payload.activityFrequency();
+        if (payload.activeDays() != null) this.activeDays = toActiveDaysCsv(payload.activeDays());
+        if (payload.membershipFee() != null) this.membershipFee = payload.membershipFee();
+        if (payload.tagline() != null) this.tagline = payload.tagline();
+        if (payload.highlights() != null) this.highlights = new ArrayList<>(payload.highlights());
+        if (payload.majorProjects() != null) this.majorProjects = payload.majorProjects();
+        if (Boolean.TRUE.equals(payload.clearCollege())) {
+            this.college = null;
+        } else if (payload.college() != null) {
+            this.college = payload.college();
+        }
+=======
             String membershipFee
     ) {
         if (name != null) this.name = name;
@@ -194,5 +308,6 @@ public class Club extends BaseEntity {
         if (activityFrequency != null) this.activityFrequency = activityFrequency;
         if (activeDays != null) this.activeDays = toActiveDaysCsv(activeDays);
         if (membershipFee != null) this.membershipFee = membershipFee;
+>>>>>>> origin/main
     }
 }

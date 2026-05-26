@@ -6,6 +6,10 @@ import com.duing.domain.club.entity.ClubFaq;
 import com.duing.domain.club.entity.ClubSnsLink;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
+<<<<<<< HEAD
+import com.duing.domain.user.entity.College;
+=======
+>>>>>>> origin/main
 import java.time.DayOfWeek;
 import java.util.List;
 import java.util.Set;
@@ -15,6 +19,7 @@ public record ClubDetailQuery(
         String name,
         ClubCategory category,
         String division,
+        College college,
         String description,
         String logoUrl,
         String coverUrl,
@@ -32,7 +37,15 @@ public record ClubDetailQuery(
         Integer activityFrequency,
         Set<DayOfWeek> activeDays,
         String membershipFee,
+<<<<<<< HEAD
+        String tagline,
+        List<String> highlights,
+        String majorProjects,
+        StudentRecruitmentProjection activeRecruitment,
+        boolean centralClub
+=======
         StudentRecruitmentProjection activeRecruitment
+>>>>>>> origin/main
 ) {
     /**
      * leaderId / leaderName 은 ClubMember 테이블에서 role = LEADER 인 행을 조회해 주입한다.
@@ -50,6 +63,7 @@ public record ClubDetailQuery(
                 club.getName(),
                 club.getCategory(),
                 club.getDivision(),
+                club.getCollege(),
                 club.getDescription(),
                 club.getLogoUrl(),
                 club.getCoverUrl(),
@@ -67,7 +81,15 @@ public record ClubDetailQuery(
                 club.getActivityFrequency(),
                 club.getActiveDays(),
                 club.getMembershipFee(),
+<<<<<<< HEAD
+                club.getTagline(),
+                club.getHighlights(),
+                club.getMajorProjects(),
+                activeRecruitment,
+                club.isCentralClub()
+=======
                 activeRecruitment
+>>>>>>> origin/main
         );
     }
 }

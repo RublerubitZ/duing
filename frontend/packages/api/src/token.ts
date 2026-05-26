@@ -3,7 +3,12 @@ import { getStorage } from '@duing/storage';
 export const TOKEN_STORAGE_KEY = 'duing.accessToken';
 
 export async function readToken(): Promise<string | null> {
-  return getStorage().getItem(TOKEN_STORAGE_KEY);
+  try {
+    return await getStorage().getItem(TOKEN_STORAGE_KEY);
+  } catch {
+    // 서버 사이드 렌더링 환경에서는 storage 가 주입되지 않으므로 null 반환
+    return null;
+  }
 }
 
 export async function writeToken(token: string): Promise<void> {

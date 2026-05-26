@@ -92,7 +92,7 @@ export type FeaturedClub = {
   color: string;
   avatar: string;
   recruit: boolean;
-  scope: '중앙' | '과';
+  scope: '중앙' | '학과';
 };
 
 export const featuredClubs: FeaturedClub[] = [

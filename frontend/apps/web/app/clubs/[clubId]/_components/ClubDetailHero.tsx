@@ -1,6 +1,13 @@
 'use client';
 
+<<<<<<< HEAD
+import { useState } from 'react';
 import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
+import { useAuthStore } from '@duing/stores';
+import { ReportModal } from '@/components/report/ReportModal';
+=======
+import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
+>>>>>>> origin/main
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
 import { clubCategoryLabel } from '../_lib/clubCategoryLabel';
 
@@ -13,6 +20,13 @@ type Props = {
 export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   const categoryLabel = clubCategoryLabel(club.category);
   const initial = club.name.trim().charAt(0);
+<<<<<<< HEAD
+  const authStatus = useAuthStore((state) => state.status);
+  const isAuthenticated = authStatus === 'authenticated';
+
+  const [reportOpen, setReportOpen] = useState(false);
+=======
+>>>>>>> origin/main
 
   return (
     <>
@@ -45,6 +59,14 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 
             <div className="flex-1 pt-2">
               <div className="mb-3.5 flex items-center gap-2">
+<<<<<<< HEAD
+                {club.centralClub && (
+                  <span className="pill pill-solid">
+                    🏛️ 중앙동아리
+                  </span>
+                )}
+=======
+>>>>>>> origin/main
                 <span className="pill">
                   {categoryLabel}{club.division ? ` · ${club.division}` : ''}
                 </span>
@@ -67,10 +89,58 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   {club.description}
                 </p>
               )}
+<<<<<<< HEAD
+
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className="mt-4 flex items-center gap-1.5 text-xs text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
+                >
+                  <FlagIcon />
+                  신고하기
+                </button>
+              )}
+=======
+>>>>>>> origin/main
             </div>
           </div>
         </div>
       </section>
+<<<<<<< HEAD
+
+      {reportOpen && (
+        <ReportModal
+          targetType="CLUB"
+          targetId={club.id}
+          targetLabel={club.name}
+          onClose={() => setReportOpen(false)}
+        />
+      )}
     </>
   );
 }
+
+function FlagIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      className="h-3.5 w-3.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <line x1="4" x2="4" y1="22" y2="15" />
+    </svg>
+  );
+}
+=======
+    </>
+  );
+}
+>>>>>>> origin/main

@@ -7,6 +7,10 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
 import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
+<<<<<<< HEAD
+import com.duing.domain.user.entity.College;
+=======
+>>>>>>> origin/main
 import java.time.DayOfWeek;
 import java.util.List;
 import java.util.Set;
@@ -16,6 +20,7 @@ public record ClubDetailResponse(
         String name,
         ClubCategory category,
         String division,
+        College college,
         String description,
         String logoUrl,
         String coverUrl,
@@ -33,7 +38,15 @@ public record ClubDetailResponse(
         Integer activityFrequency,
         Set<DayOfWeek> activeDays,
         String membershipFee,
+<<<<<<< HEAD
+        String tagline,
+        List<String> highlights,
+        String majorProjects,
+        StudentRecruitmentProjection activeRecruitment,
+        boolean centralClub
+=======
         StudentRecruitmentProjection activeRecruitment
+>>>>>>> origin/main
 ) {
     public static ClubDetailResponse from(ClubDetailQuery detailQuery) {
         return new ClubDetailResponse(
@@ -41,6 +54,7 @@ public record ClubDetailResponse(
                 detailQuery.name(),
                 detailQuery.category(),
                 detailQuery.division(),
+                detailQuery.college(),
                 detailQuery.description(),
                 detailQuery.logoUrl(),
                 detailQuery.coverUrl(),
@@ -58,7 +72,15 @@ public record ClubDetailResponse(
                 detailQuery.activityFrequency(),
                 detailQuery.activeDays(),
                 detailQuery.membershipFee(),
+<<<<<<< HEAD
+                detailQuery.tagline(),
+                detailQuery.highlights(),
+                detailQuery.majorProjects(),
+                detailQuery.activeRecruitment(),
+                detailQuery.centralClub()
+=======
                 detailQuery.activeRecruitment()
+>>>>>>> origin/main
         );
     }
 }

@@ -10,6 +10,7 @@ import {
   useTransferLeaderMutation,
 } from '@duing/hooks';
 import { MemberSection } from './_components/MemberSection';
+import { SuccessionRequestModal } from './_components/SuccessionRequestModal';
 import { TransferLeaderDialog } from './_components/TransferLeaderDialog';
 
 export default function ClubMembersPage({
@@ -30,6 +31,7 @@ export default function ClubMembersPage({
 
   const [transferTarget, setTransferTarget] = useState<ClubMember | null>(null);
   const [transferError, setTransferError] = useState<string | null>(null);
+  const [successionOpen, setSuccessionOpen] = useState(false);
 
   if (isMeLoading || isManagedLoading || isMembersLoading) {
     return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
@@ -57,11 +59,22 @@ export default function ClubMembersPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-6 py-10">
-      <header>
-        <h1 className="text-xl font-bold">멤버 관리</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          역할별 멤버를 확인하고, 회장은 역할 변경·강퇴·인계를 할 수 있습니다.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold">멤버 관리</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            역할별 멤버를 확인하고, 회장은 역할 변경·강퇴·인계를 할 수 있습니다.
+          </p>
+        </div>
+        {managedClub.myRole === 'OFFICER' && (
+          <button
+            type="button"
+            onClick={() => setSuccessionOpen(true)}
+            className="shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
+          >
+            회장 승계 요청
+          </button>
+        )}
       </header>
 
       <MemberSection
@@ -98,6 +111,14 @@ export default function ClubMembersPage({
           isPending={transferLeader.isPending}
           onConfirm={doTransfer}
           onCancel={() => { setTransferTarget(null); setTransferError(null); }}
+        />
+      )}
+
+      {successionOpen && (
+        <SuccessionRequestModal
+          clubId={currentClubId}
+          clubName={managedClub.clubName}
+          onClose={() => setSuccessionOpen(false)}
         />
       )}
     </div>

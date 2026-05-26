@@ -21,6 +21,31 @@ export function TermsAgreement({
   }
 
   return (
+<<<<<<< HEAD
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-line bg-paper px-4 py-3">
+      <span className="flex items-center gap-2.5">
+        <input
+          type="checkbox"
+          checked={allAgreed}
+          onChange={(changeEvent) => toggleAll(changeEvent.target.checked)}
+          className="h-4 w-4 cursor-pointer rounded accent-ink"
+        />
+        <span className="text-sm text-charcoal">
+          이용약관·개인정보 처리방침에 동의합니다{' '}
+          <span className="text-charcoal-3">(필수)</span>
+        </span>
+      </span>
+      <a
+        href="/terms"
+        onClick={(clickEvent) => clickEvent.stopPropagation()}
+        className="shrink-0 text-xs text-charcoal-2 underline underline-offset-2 hover:text-charcoal"
+      >
+        전체보기
+      </a>
+    </label>
+  );
+}
+=======
     <fieldset className="space-y-2 rounded-md border border-slate-200 p-3">
       <label className="flex items-center gap-2 text-sm font-medium">
         <input
@@ -51,3 +76,4 @@ export function TermsAgreement({
     </fieldset>
   );
 }
+>>>>>>> origin/main

@@ -1,9 +1,11 @@
 package com.duing.domain.application.api;
 
+import com.duing.domain.application.controller.dto.request.BulkUpdateApplicationStatusRequest;
 import com.duing.domain.application.controller.dto.request.UpdateApplicationInterviewRequest;
 import com.duing.domain.application.controller.dto.request.UpdateApplicationStatusRequest;
 import com.duing.domain.application.controller.dto.response.ApplicantDetailResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantResponse;
+import com.duing.domain.application.controller.dto.response.BulkUpdateApplicationStatusResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,6 +43,14 @@ public interface LeaderApplicationApi {
     ResponseEntity<ApiResponse<Void>> updateStatus(
             @PathVariable Long applicationId,
             @Valid @RequestBody UpdateApplicationStatusRequest updateApplicationStatusRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "지원자 상태 일괄 변경",
+            description = "N건의 지원서를 동일 status 로 일괄 전환한다. 건별 트랜잭션으로 처리되어 한 건이 실패해도 나머지는 그대로 커밋되며, 실패 사유는 응답의 failures 배열에 담겨 돌아온다.")
+    @PatchMapping("/leader/applications/bulk-status")
+    ResponseEntity<ApiResponse<BulkUpdateApplicationStatusResponse>> bulkUpdateStatus(
+            @Valid @RequestBody BulkUpdateApplicationStatusRequest bulkUpdateApplicationStatusRequest,
             @AuthenticationPrincipal UserPrincipal currentUser
     );
 

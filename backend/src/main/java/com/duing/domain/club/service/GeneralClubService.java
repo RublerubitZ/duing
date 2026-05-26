@@ -6,8 +6,11 @@ import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
+import com.duing.domain.club.service.dto.command.UpdateClubCentralClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
+import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
+import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
@@ -16,6 +19,11 @@ import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+<<<<<<< HEAD
+import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
+import com.duing.domain.recruitment.repository.ClubActiveRecruitmentRow;
+=======
+>>>>>>> origin/main
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
 import com.duing.domain.user.entity.User;
@@ -23,6 +31,7 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -51,12 +60,16 @@ public class GeneralClubService implements ClubService {
         User leader = userRepository.findById(createClubCommand.leaderId())
                 .orElseThrow(UserException.UserNotFoundException::new);
 
+        String division = createClubCommand.division() == null ? null : createClubCommand.division().strip();
+        if (division != null && division.isEmpty()) division = null;
         Club club = Club.create(
                 createClubCommand.name(),
                 createClubCommand.category(),
-                createClubCommand.division(),
+                division,
                 createClubCommand.description(),
-                createClubCommand.logoUrl()
+                createClubCommand.logoUrl(),
+                createClubCommand.centralClub(),
+                createClubCommand.college()
         );
         Club savedClub = clubRepository.save(club);
 
@@ -68,8 +81,33 @@ public class GeneralClubService implements ClubService {
 
     @Override
     public Page<ClubSummaryQuery> search(ClubSearchCondition condition, Pageable pageable) {
-        return clubRepository.findByCondition(condition, pageable)
-                .map(ClubSummaryQuery::from);
+        Page<Club> clubPage = clubRepository.findByCondition(condition, pageable);
+        List<Club> clubs = clubPage.getContent();
+        if (clubs.isEmpty()) {
+            return clubPage.map(ClubSummaryQuery::from);
+        }
+
+        List<Long> clubIds = clubs.stream().map(Club::getId).toList();
+        LocalDate today = LocalDate.now();
+        Map<Long, ClubActiveRecruitmentRow> representativeByClubId =
+                recruitmentRepository.findRepresentativeByClubIds(clubIds, today);
+
+        return clubPage.map(eachClub -> {
+            ClubSummaryQuery base = ClubSummaryQuery.from(eachClub);
+            ClubActiveRecruitmentRow row = representativeByClubId.get(eachClub.getId());
+            if (row == null) {
+                return base;
+            }
+            RecruitmentDisplayStatus displayStatus = RecruitmentDisplayStatus.resolve(
+                    row.status(), row.startDate(), row.endDate(), today);
+            return base.withActiveRecruitment(new ClubSummaryQuery.ActiveRecruitmentSummary(
+                    row.recruitmentId(), displayStatus, row.startDate(), row.endDate()));
+        });
+    }
+
+    @Override
+    public Page<AdminClubSummaryQuery> searchForAdmin(AdminClubSearchCondition condition, Pageable pageable) {
+        return clubRepository.findByAdminCondition(condition, pageable);
     }
 
     @Override
@@ -111,6 +149,9 @@ public class GeneralClubService implements ClubService {
             throw new ClubException.DuplicateClubNameException();
         }
 
+<<<<<<< HEAD
+        club.update(updateClubCommand.toPayload());
+=======
         club.update(
                 newName,
                 updateClubCommand.category(),
@@ -129,6 +170,7 @@ public class GeneralClubService implements ClubService {
                 updateClubCommand.activeDays(),
                 updateClubCommand.membershipFee()
         );
+>>>>>>> origin/main
     }
 
     @Override
@@ -136,6 +178,18 @@ public class GeneralClubService implements ClubService {
     public void updateStatus(UpdateClubStatusCommand updateClubStatusCommand) {
         Club club = clubRepository.findById(updateClubStatusCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
-        club.changeStatus(updateClubStatusCommand.status());
+        club.changeStatus(
+                updateClubStatusCommand.status(),
+                updateClubStatusCommand.rejectionReason(),
+                updateClubStatusCommand.actorUserId()
+        );
+    }
+
+    @Override
+    @Transactional
+    public void updateCentralClub(UpdateClubCentralClubCommand command) {
+        Club club = clubRepository.findById(command.clubId())
+                .orElseThrow(ClubException.ClubNotFoundException::new);
+        club.changeCentralClub(command.centralClub());
     }
 }

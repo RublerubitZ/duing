@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BrandMark } from '@/components/duing/BrandMark';
+import { HomeNavAdminLink } from './HomeNavAdminLink';
 import { HomeNavAuthSlot } from './HomeNavAuthSlot';
 import { NotificationBell } from './NotificationBell';
 
@@ -8,7 +9,7 @@ const activeLink = 'relative py-1 text-ink-deep';
 
 export function HomeNav() {
   return (
-    <header className="border-b border-line bg-cream/90 backdrop-blur">
+    <header className="relative z-50 border-b border-line bg-cream/90 backdrop-blur">
       <nav className="max-w-layout mx-auto flex items-center gap-12 px-10 py-4">
         <Link href="/" aria-label="두잉 홈">
           <BrandMark size={26} />
@@ -34,6 +35,9 @@ export function HomeNav() {
             <Link href="/introduce" className={inactiveLink}>
               서비스 소개
             </Link>
+          </li>
+          <li>
+            <HomeNavAdminLink className={inactiveLink} />
           </li>
         </ul>
         <div className="ml-auto flex items-center gap-2">

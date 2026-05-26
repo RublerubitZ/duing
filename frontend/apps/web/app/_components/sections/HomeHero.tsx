@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Search } from '@/components/duing/Icon';
 import { Sparkle, SparkleFull } from '@/components/duing/Sparkle';
+import { fetchClubStats } from '@/app/_lib/club-stats';
 
 const SUGGESTED_QUERIES: ReadonlyArray<string> = [
   '주니어 개발자',
@@ -10,7 +11,8 @@ const SUGGESTED_QUERIES: ReadonlyArray<string> = [
   '그림 그리기',
 ];
 
-export function HomeHero() {
+export async function HomeHero() {
+  const { totalCount, recruitingCount } = await fetchClubStats();
   return (
     <section className="relative overflow-hidden px-10 pb-8 pt-16">
       <div className="bg-grid absolute inset-0 opacity-50" />
@@ -64,11 +66,11 @@ export function HomeHero() {
           <p className="mb-9 max-w-[500px] text-lg leading-[1.6] text-charcoal-2">
             대구대학교 학생자치회 공식 동아리 플랫폼.
             <br />
-            128개 동아리가 지금도{' '}
+            {totalCount}개 동아리가 지금도{' '}
             <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
               ing
             </em>{' '}
-            중 — 이번 학기 67곳 모집 중이에요.
+            중 — 이번 학기 {recruitingCount}곳 모집 중이에요.
           </p>
 
           <form action="/clubs" method="get" className="flex max-w-[540px] items-center gap-1.5 rounded-lg bg-paper p-1.5 shadow-2">
@@ -101,13 +103,13 @@ export function HomeHero() {
           </div>
         </div>
 
-        <HeroCardStack />
+        <HeroCardStack recruitingCount={recruitingCount} />
       </div>
     </section>
   );
 }
 
-function HeroCardStack() {
+function HeroCardStack({ recruitingCount }: { recruitingCount: number }) {
   return (
     <div className="relative h-[540px]">
       <div
@@ -180,7 +182,7 @@ function HeroCardStack() {
         style={{ transform: 'rotate(-6deg)' }}
       >
         <div className="font-display text-[36px] font-bold leading-none text-ink">
-          67<span className="text-lg">곳</span>
+          {recruitingCount}<span className="text-lg">곳</span>
         </div>
         <div className="mt-1 text-[11.5px] text-ink/70">이번 학기 모집중</div>
       </div>

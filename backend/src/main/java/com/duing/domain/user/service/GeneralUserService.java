@@ -8,11 +8,15 @@ import com.duing.domain.user.service.dto.command.LoginCommand;
 import com.duing.domain.user.service.dto.command.SignupCommand;
 import com.duing.domain.user.service.dto.query.LoginResult;
 import com.duing.domain.user.service.dto.query.UserQuery;
+import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
 import com.duing.global.auth.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -70,5 +74,14 @@ public class GeneralUserService implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(UserException.UserNotFoundException::new);
         return UserQuery.from(user);
+    }
+
+    @Override
+    public Page<UserSearchResultQuery> searchForAdmin(String query, Pageable pageable) {
+        if (!StringUtils.hasText(query)) {
+            throw new UserException.InvalidSearchQueryException();
+        }
+        return userRepository.searchForAdmin(query.trim(), pageable)
+                .map(UserSearchResultQuery::from);
     }
 }

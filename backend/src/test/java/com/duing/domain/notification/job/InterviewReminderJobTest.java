@@ -19,6 +19,7 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
@@ -53,12 +54,16 @@ class InterviewReminderJobTest {
     @Autowired
     private NotificationRepository notificationRepository;
 
+    @Autowired
+    private Clock clock;
+
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
     @DisplayName("interviewAt 이 23h~25h 윈도 안인 지원에만 INTERVIEW_REMINDER 가 생성된다")
     void onlyWindowApplicationGetsReminder() throws Exception {
-        LocalDateTime now = LocalDateTime.now();
+        // 잡과 동일한 Clock(Asia/Seoul) 을 사용해 CI TZ 와 무관하게 윈도 계산이 일치하도록 한다.
+        LocalDateTime now = LocalDateTime.now(clock);
 
         // 윈도 중심: now+24h (대상)
         Application centerApplication = saveInterviewPendingApplication(now.plusHours(24), "윈도중심지원자");
@@ -85,7 +90,8 @@ class InterviewReminderJobTest {
     @Test
     @DisplayName("잡을 두 번 실행해도 INTERVIEW_REMINDER row 수가 동일하다 (멱등)")
     void idempotentReminderJob() throws Exception {
-        LocalDateTime now = LocalDateTime.now();
+        // 잡과 동일한 Clock(Asia/Seoul) 을 사용해 CI TZ 와 무관하게 윈도 계산이 일치하도록 한다.
+        LocalDateTime now = LocalDateTime.now(clock);
         saveInterviewPendingApplication(now.plusHours(24), "멱등검증지원자");
 
         long beforeCount = notificationRepository.count();

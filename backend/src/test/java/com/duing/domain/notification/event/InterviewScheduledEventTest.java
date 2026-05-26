@@ -106,7 +106,7 @@ class InterviewScheduledEventTest {
         assertThat(notification.getUserId()).isEqualTo(applicant.getId());
         assertThat(notification.getTitle()).contains(club.getName());
         assertThat(notification.getBody()).contains(interviewLocation);
-        assertThat(notification.getLinkUrl()).isEqualTo("/applications/" + application.getId());
+        assertThat(notification.getLinkUrl()).isEqualTo("/me/applications/" + application.getId());
     }
 
     @Test

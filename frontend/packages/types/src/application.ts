@@ -50,6 +50,21 @@ export type UpdateApplicationStatusPayload = {
   status: Exclude<ApplicationStatus, 'SUBMITTED'>;
 };
 
+export type BulkUpdateApplicationStatusPayload = {
+  applicationIds: number[];
+  status: Exclude<ApplicationStatus, 'SUBMITTED'>;
+};
+
+export type BulkUpdateApplicationStatusFailure = {
+  applicationId: number;
+  reason: string;
+};
+
+export type BulkUpdateApplicationStatusResult = {
+  updated: number;
+  failures: BulkUpdateApplicationStatusFailure[];
+};
+
 export type ApplicantDetail = {
   applicationId: number;
   recruitmentId: number;

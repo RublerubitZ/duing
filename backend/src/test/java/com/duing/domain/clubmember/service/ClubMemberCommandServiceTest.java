@@ -21,6 +21,9 @@ import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.FlushModeType;
+import jakarta.persistence.PersistenceContext;
 import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +43,7 @@ class ClubMemberCommandServiceTest {
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired UserRepository userRepository;
+    @PersistenceContext EntityManager entityManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -121,12 +125,22 @@ class ClubMemberCommandServiceTest {
         // → 더 명확한 케이스: clubA 의 LEADER 가 자기 동아리에서 또 다른 LEADER 행을 만들 일은
         // 없지만, 본 테스트는 "LEADER 인 행은 일반 PATCH 로 변경 불가" 만 확인하면 되므로
         // 비정상 상태(LEADER 2명)를 생성해 검증한다.
-        ClubMember secondLeader = clubMemberRepository.save(
-                ClubMember.of(clubA, saveUser("리더5C"), ClubMemberRole.LEADER));
-
-        assertThatThrownBy(() -> clubMemberCommandService.updateRole(new UpdateMemberRoleCommand(
-                clubA.getId(), secondLeader.getId(), leaderA.getId(), ClubMemberRole.OFFICER)))
-                .isInstanceOf(ClubMemberException.CannotModifyLeader.class);
+        // V31 partial unique index 우회: MEMBER 로 저장 후 reflection 으로 in-memory role 만 LEADER 로 변경.
+        // requireLeader 가 JPQL 쿼리를 실행하기 전 auto-flush 를 막기 위해 FlushMode 를 COMMIT 으로
+        // 설정해 두고, assertThatThrownBy 블록 안에서 MANUAL 로 전환한 뒤 복원한다.
+        // saveAsLeaderViaReflection flushes the MEMBER state first, then mutates role in-memory.
+        // FlushMode=COMMIT prevents auto-flush during requireLeader's JPQL query so the dirty
+        // LEADER role does not reach DB (which would violate V31). The service sees role=LEADER
+        // from L1 cache and throws CannotModifyLeader before any write.
+        ClubMember secondLeader = saveAsLeaderViaReflection(clubA, saveUser("리더5C"));
+        entityManager.setFlushMode(FlushModeType.COMMIT);
+        try {
+            assertThatThrownBy(() -> clubMemberCommandService.updateRole(new UpdateMemberRoleCommand(
+                    clubA.getId(), secondLeader.getId(), leaderA.getId(), ClubMemberRole.OFFICER)))
+                    .isInstanceOf(ClubMemberException.CannotModifyLeader.class);
+        } finally {
+            entityManager.setFlushMode(FlushModeType.AUTO);
+        }
     }
 
     @Test
@@ -180,12 +194,17 @@ class ClubMemberCommandServiceTest {
         User leaderA = saveUser("리더9");
         Club club = saveActiveClub("두잉변경9");
         clubMemberRepository.save(ClubMember.asLeader(club, leaderA));
-        ClubMember secondLeader = clubMemberRepository.save(
-                ClubMember.of(club, saveUser("리더9B"), ClubMemberRole.LEADER));
-
-        assertThatThrownBy(() -> clubMemberCommandService.removeMember(new RemoveMemberCommand(
-                club.getId(), secondLeader.getId(), leaderA.getId())))
-                .isInstanceOf(ClubMemberException.CannotModifyLeader.class);
+        // V31 partial unique index 우회: MEMBER 로 저장 후 reflection 으로 in-memory role 만 LEADER 로 변경.
+        // FlushMode=COMMIT 으로 전환해 requireLeader JPQL 쿼리 실행 전 auto-flush 를 억제한다.
+        ClubMember secondLeader = saveAsLeaderViaReflection(club, saveUser("리더9B"));
+        entityManager.setFlushMode(FlushModeType.COMMIT);
+        try {
+            assertThatThrownBy(() -> clubMemberCommandService.removeMember(new RemoveMemberCommand(
+                    club.getId(), secondLeader.getId(), leaderA.getId())))
+                    .isInstanceOf(ClubMemberException.CannotModifyLeader.class);
+        } finally {
+            entityManager.setFlushMode(FlushModeType.AUTO);
+        }
     }
 
     @Test
@@ -323,5 +342,25 @@ class ClubMemberCommandServiceTest {
         statusField.setAccessible(true);
         statusField.set(created, ClubStatus.ACTIVE);
         return clubRepository.save(created);
+    }
+
+    /**
+     * V31 partial unique index prevents having 2 active LEADERs in the same club at the DB level.
+     * These tests only need to verify that the service guard fires when the target entity has
+     * role=LEADER in memory. Steps:
+     * 1. Save as MEMBER and flush immediately — DB row has role=MEMBER, no V31 conflict.
+     * 2. Mutate role to LEADER via reflection — entity is now dirty in L1 cache.
+     * The caller must set FlushMode=COMMIT before the service call to prevent auto-flush
+     * from pushing the dirty LEADER state to DB (which would violate V31).
+     * Since the service runs in the same transaction, findById returns the L1-cached entity
+     * with role=LEADER, and the CannotModifyLeader guard fires.
+     */
+    private ClubMember saveAsLeaderViaReflection(Club club, User user) throws Exception {
+        ClubMember member = clubMemberRepository.save(ClubMember.of(club, user, ClubMemberRole.MEMBER));
+        clubMemberRepository.flush(); // write MEMBER to DB before reflection mutation
+        Field roleField = ClubMember.class.getDeclaredField("role");
+        roleField.setAccessible(true);
+        roleField.set(member, ClubMemberRole.LEADER);
+        return member;
     }
 }

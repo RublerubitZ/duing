@@ -18,6 +18,7 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
@@ -51,12 +52,16 @@ class DeadlineNotificationJobTest {
     @Autowired
     private NotificationRepository notificationRepository;
 
+    @Autowired
+    private Clock clock;
+
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
     @DisplayName("D-3/D-1/D-0 모집을 찜한 유저들에게 RECRUITMENT_DEADLINE 알림이 멱등 생성된다")
     void deadlineFanoutIsIdempotent() throws Exception {
-        LocalDate today = LocalDate.now();
+        // 잡과 동일한 Clock(Asia/Seoul) 사용 — CI TZ 와 무관하게 D-0/D-1/D-3 계산 일치.
+        LocalDate today = LocalDate.now(clock);
 
         User favoringUserA = saveStudent("찜유저A");
         User favoringUserB = saveStudent("찜유저B");
@@ -100,7 +105,8 @@ class DeadlineNotificationJobTest {
     @Test
     @DisplayName("오늘 시작하는 OPEN 모집은 RECRUITMENT_OPENED 로 분류되어 찜한 유저에게 알림이 생성된다")
     void openedKindFanout() throws Exception {
-        LocalDate today = LocalDate.now();
+        // 잡과 동일한 Clock(Asia/Seoul) 사용 — CI TZ 와 무관하게 D-0/D-1/D-3 계산 일치.
+        LocalDate today = LocalDate.now(clock);
 
         User favoringUser = saveStudent("찜유저D");
         Club club = saveActiveClub("오픈동아리");

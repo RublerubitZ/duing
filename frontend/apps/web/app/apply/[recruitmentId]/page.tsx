@@ -24,61 +24,82 @@ export default function ApplyPage({
   const router = useRouter();
 
   const detail = useRecruitmentDetailQuery(recruitmentId);
+  const draftQuery = useApplicationDraftQuery(recruitmentId);
 
-  if (detail.isLoading || !detail.data) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
-  }
-
+  // 외부 폼 모집은 동아리 상세로 되돌려보낸다. side-effect 라 effect 로 격리한다.
   const recruitment = detail.data;
+  const isExternal = recruitment?.applicationMode === 'EXTERNAL';
+  useEffect(() => {
+    if (isExternal && recruitment) {
+      router.replace(toRoute(`/clubs/${recruitment.clubId}`));
+    }
+  }, [isExternal, recruitment, router]);
 
+<<<<<<< HEAD
+  if (detail.isLoading || !recruitment || draftQuery.isLoading) {
+    return (
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+      >
+        <p className="font-mono text-sm text-charcoal-3">불러오는 중…</p>
+      </div>
+=======
   // 외부 폼 모집은 렌더 시점에 동아리 상세로 되돌려보낸다 (effect 내 리다이렉트 금지).
   if (recruitment.applicationMode === 'EXTERNAL') {
     router.replace(
       toRoute(`/clubs/${recruitment.clubId}`),
+>>>>>>> origin/main
     );
-    return <p className="p-6 text-sm text-slate-500">이동 중…</p>;
   }
 
-  // 데이터 도착이 보장된 시점에 자식 컴포넌트를 마운트해 useState 초기값을 props 에서 직접 받게 한다.
-  return <ApplyForm recruitment={recruitment} recruitmentId={recruitmentId} />;
+  if (isExternal) {
+    return (
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+      >
+        <p className="font-mono text-sm text-charcoal-3">이동 중…</p>
+      </div>
+    );
+  }
+
+  // draft 가 settle 된 뒤 mount 하므로 자식은 initialAnswers 만 받아 useState 초기값으로 쓴다.
+  const draft = draftQuery.data;
+  const initialAnswers: DraftAnswer[] = recruitment.questions.map((_, idx) => ({
+    questionId: idx,
+    value:
+      draft?.exists
+        ? draft.answers.find((answer) => answer.questionId === idx)?.value ?? ''
+        : '',
+  }));
+
+  return (
+    <ApplyForm
+      recruitment={recruitment}
+      recruitmentId={recruitmentId}
+      initialAnswers={initialAnswers}
+    />
+  );
 }
 
 type ApplyFormProps = {
   recruitment: RecruitmentDetail;
   recruitmentId: number;
+  initialAnswers: DraftAnswer[];
 };
 
-function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
+function ApplyForm({ recruitment, recruitmentId, initialAnswers }: ApplyFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const submit = useSubmitApplicationMutation(recruitmentId);
-  const draftQuery = useApplicationDraftQuery(recruitmentId);
 
-  // answers 상태: DraftAnswer[] 형태로 관리 (questionId = index 기반)
-  const [answers, setAnswers] = useState<DraftAnswer[]>(() =>
-    recruitment.questions.map((_, idx) => ({ questionId: idx, value: '' })),
-  );
+  const [answers, setAnswers] = useState<DraftAnswer[]>(initialAnswers);
   const [error, setError] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
-
-  // 임시저장에서 prefill (최초 1회)
-  useEffect(() => {
-    if (hydrated) return;
-    if (draftQuery.isLoading) return;
-    if (draftQuery.data?.exists && draftQuery.data.answers.length > 0) {
-      setAnswers(
-        recruitment.questions.map((_, idx) => ({
-          questionId: idx,
-          value: draftQuery.data.answers.find((a) => a.questionId === idx)?.value ?? '',
-        })),
-      );
-    }
-    setHydrated(true);
-  }, [draftQuery.isLoading, draftQuery.data, recruitment.questions, hydrated]);
 
   const autosaveStatus = useAutosaveDraft(answers, {
     recruitmentId,
-    enabled: hydrated && !draftQuery.isLoading,
+    enabled: true,
   });
 
   const isClosedByDraft = autosaveStatus.kind === 'closed';
@@ -99,7 +120,6 @@ function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
       const applicationId = await submit.mutateAsync({
         answers: answers.map((answer) => answer.value),
       });
-      // 제출 성공 후 임시저장 쿼리 무효화
       queryClient.invalidateQueries({ queryKey: draftQueryKeys.byRecruitment(recruitmentId) });
       router.push(toRoute(`/me/applications/${applicationId}`));
     } catch (submitError) {
@@ -108,66 +128,115 @@ function ApplyForm({ recruitment, recruitmentId }: ApplyFormProps) {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-10">
-      <p className="text-sm text-slate-500">{recruitment.clubName}</p>
-      <h1 className="mt-1 text-2xl font-bold">{recruitment.title}</h1>
+    <div
+      className="min-h-screen"
+      style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+    >
+      <main className="mx-auto max-w-[760px] px-8 pb-24 pt-16">
 
-      {/* 임시저장 상태 표시 */}
-      {isClosedByDraft && (
-        <div className="mt-4 rounded-md bg-rose-50 border border-rose-200 px-4 py-3">
-          <p className="text-sm text-rose-700">
-            모집이 마감되어 더 이상 임시저장되지 않습니다. 제출도 불가합니다.
+        {/* 헤더 */}
+        <header className="mb-9">
+          <p className="mb-1.5 text-[13.5px] font-medium tracking-body text-ink">
+            {recruitment.clubName}
           </p>
-        </div>
-      )}
-      {!isClosedByDraft && (
-        <div className="mt-3 h-5 text-xs text-slate-400">
-          {autosaveStatus.kind === 'saving' && <span>저장 중…</span>}
-          {autosaveStatus.kind === 'saved' && (
-            <span>마지막 저장 {formatTime(autosaveStatus.at)}</span>
-          )}
-          {autosaveStatus.kind === 'error' && (
-            <span className="text-amber-600">{autosaveStatus.message}</span>
-          )}
-        </div>
-      )}
+          <h1 className="mb-2.5 text-[28px] font-bold tracking-tightx text-charcoal">
+            {recruitment.title}
+          </h1>
 
-      <form className="mt-4 space-y-5" onSubmit={handleSubmit}>
-        {recruitment.questions.length === 0 && (
-          <p className="text-sm text-slate-500">
-            이 모집은 별도 질문이 없습니다. 제출 버튼을 눌러 지원할 수 있습니다.
-          </p>
-        )}
-        {recruitment.questions.map((question, idx) => (
-          <label key={idx} className="block">
-            <span className="text-sm font-medium text-slate-700">
-              {idx + 1}. {question}
+          {/* 자동저장 상태 */}
+          {isClosedByDraft ? (
+            <span className="font-mono text-[12.5px] tracking-wide text-coral">
+              모집 마감 — 임시저장 및 제출 불가
             </span>
-            <textarea
-              required
-              rows={4}
-              disabled={isClosedByDraft}
-              value={answers[idx]?.value ?? ''}
-              onChange={(event) =>
-                setAnswers((prev) => {
-                  const next = prev.slice();
-                  next[idx] = { questionId: idx, value: event.target.value };
-                  return next;
-                })
-              }
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-400"
-            />
-          </label>
-        ))}
-        {error && <p className="text-sm text-rose-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={submit.isPending || isClosedByDraft}
-          className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
-        >
-          {submit.isPending ? '제출 중…' : '제출'}
-        </button>
-      </form>
-    </main>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 font-mono text-[12.5px] tracking-wide text-charcoal-3">
+              {autosaveStatus.kind === 'saved' && (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-ink-soft shadow-[0_0_0_3px_rgba(46,97,73,0.18)]" />
+                  마지막 저장 {formatTime(autosaveStatus.at)}
+                </>
+              )}
+              {autosaveStatus.kind === 'saving' && (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-warm opacity-80" />
+                  저장 중…
+                </>
+              )}
+              {autosaveStatus.kind === 'error' && (
+                <span className="text-coral">{autosaveStatus.message}</span>
+              )}
+            </span>
+          )}
+        </header>
+
+        {/* 구분선 */}
+        <div
+          className="mb-8 h-px"
+          style={{ background: 'linear-gradient(90deg, transparent, #d9d4c3 20%, #d9d4c3 80%, transparent)' }}
+        />
+
+        {/* 마감 알림 */}
+        {isClosedByDraft && (
+          <div className="mb-6 rounded-[12px] border border-coral/20 bg-coral/5 px-4 py-3">
+            <p className="text-sm text-coral">
+              모집이 마감되어 더 이상 임시저장되지 않습니다. 제출도 불가합니다.
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-7">
+          {recruitment.questions.length === 0 && (
+            <p className="text-sm text-charcoal-3">
+              이 모집은 별도 질문이 없습니다. 제출 버튼을 눌러 지원할 수 있습니다.
+            </p>
+          )}
+
+          {recruitment.questions.map((question, idx) => (
+            <div key={idx} className="space-y-2.5">
+              <label
+                htmlFor={`q${idx + 1}`}
+                className="block text-sm font-semibold tracking-body text-charcoal"
+              >
+                <span className="mr-1.5 font-mono font-semibold text-ink">
+                  {idx + 1}.
+                </span>
+                {question}
+              </label>
+              <textarea
+                id={`q${idx + 1}`}
+                required
+                disabled={isClosedByDraft}
+                value={answers[idx]?.value ?? ''}
+                onChange={(event) =>
+                  setAnswers((prev) => {
+                    const next = prev.slice();
+                    next[idx] = { questionId: idx, value: event.target.value };
+                    return next;
+                  })
+                }
+                className="w-full resize-y rounded-[12px] border border-[#cfcab8] bg-white px-4 py-3.5 text-sm leading-[1.55] text-charcoal shadow-[0_1px_0_rgba(47,58,46,0.04),_0_1px_2px_rgba(47,58,46,0.05)] transition-[border-color,box-shadow] placeholder:text-[#b8b8ac] focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/[.15] disabled:bg-[#f5f3ef] disabled:text-charcoal-3"
+                style={{ minHeight: '180px' }}
+              />
+            </div>
+          ))}
+
+          {error && (
+            <p className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral">
+              {error}
+            </p>
+          )}
+
+          <div className="pt-1">
+            <button
+              type="submit"
+              disabled={submit.isPending || isClosedByDraft}
+              className="inline-flex items-center gap-2 rounded-[10px] bg-ink px-7 py-3 text-sm font-semibold text-cream shadow-[0_1px_0_rgba(0,0,0,0.04),_0_6px_16px_rgba(31,74,54,0.20)] transition-colors hover:bg-ink-soft active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submit.isPending ? '제출 중…' : '제출'}
+            </button>
+          </div>
+        </form>
+      </main>
+    </div>
   );
 }

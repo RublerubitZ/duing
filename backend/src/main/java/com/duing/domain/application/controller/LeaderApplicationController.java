@@ -1,10 +1,12 @@
 package com.duing.domain.application.controller;
 
 import com.duing.domain.application.api.LeaderApplicationApi;
+import com.duing.domain.application.controller.dto.request.BulkUpdateApplicationStatusRequest;
 import com.duing.domain.application.controller.dto.request.UpdateApplicationInterviewRequest;
 import com.duing.domain.application.controller.dto.request.UpdateApplicationStatusRequest;
 import com.duing.domain.application.controller.dto.response.ApplicantDetailResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantResponse;
+import com.duing.domain.application.controller.dto.response.BulkUpdateApplicationStatusResponse;
 import com.duing.domain.application.service.ApplicationService;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -56,6 +58,17 @@ public class LeaderApplicationController implements LeaderApplicationApi {
         applicationService.updateStatus(
                 updateApplicationStatusRequest.toCommand(applicationId, currentUser.id()));
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<BulkUpdateApplicationStatusResponse>> bulkUpdateStatus(
+            @Valid @RequestBody BulkUpdateApplicationStatusRequest bulkUpdateApplicationStatusRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        BulkUpdateApplicationStatusResponse response = BulkUpdateApplicationStatusResponse.from(
+                applicationService.bulkUpdateStatus(
+                        bulkUpdateApplicationStatusRequest.toCommand(currentUser.id())));
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @Override

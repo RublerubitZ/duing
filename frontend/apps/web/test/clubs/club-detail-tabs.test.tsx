@@ -10,9 +10,11 @@ const baseClub: ClubDetail = {
   name: 'X',
   category: 'ACADEMIC',
   division: null,
+  college: null,
   logoUrl: null,
   status: 'ACTIVE',
   tags: [],
+  centralClub: false,
   description: null,
   coverUrl: null,
   snsLinks: [],
@@ -27,6 +29,9 @@ const baseClub: ClubDetail = {
   activityFrequency: null,
   activeDays: [],
   membershipFee: null,
+  tagline: null,
+  highlights: [],
+  majorProjects: null,
   activeRecruitment: null,
 };
 
