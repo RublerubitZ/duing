@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
+import { RegisterClubButton } from './RegisterClubButton';
 
 export function LeaderCta() {
   return (
@@ -28,10 +28,7 @@ export function LeaderCta() {
           </p>
         </div>
         <div className="flex flex-col gap-2">
-          <Link href="/manage" className="btn btn-primary btn-big rounded-lg">
-            동아리 등록 신청
-            <ArrowRight />
-          </Link>
+          <RegisterClubButton />
           <Link
             href="/introduce#section-3"
             className="btn btn-ghost btn-sm text-ink-deep"
