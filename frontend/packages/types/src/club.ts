@@ -84,6 +84,10 @@ export type ClubDetail = ClubSummary & {
   tagline: string | null;
   highlights: string[];
   majorProjects: string | null;
+  /**
+   * 상세 페이지 전용: 카드용 ClubSummaryRecruitment 보다 풍부한 필드를 노출.
+   * field 명도 다르다 — 카드는 `recruitmentId`, 상세는 `id`. BE 응답 모양과 1:1 매칭이라 의도된 발산.
+   */
   activeRecruitment: StudentRecruitmentProjection | null;
 };
 

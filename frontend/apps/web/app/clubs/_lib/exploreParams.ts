@@ -40,6 +40,10 @@ const VALID_COLLEGES = new Set<string>([
   'CULTURE_CONTENTS', 'FREE_MAJOR',
 ]);
 
+function isCollege(value: string): value is College {
+  return VALID_COLLEGES.has(value);
+}
+
 export const RECRUITMENT_LABEL: Record<Exclude<RecruitmentFilter, 'all'>, string> = {
   available: '지원가능',
   upcoming: '모집예정',
@@ -62,7 +66,7 @@ export function parseExploreParams(search: URLSearchParams): ExploreParams {
 
   const rawCollege = search.get('college');
   const college: College | null =
-    rawCollege && VALID_COLLEGES.has(rawCollege) ? (rawCollege as College) : null;
+    rawCollege !== null && isCollege(rawCollege) ? rawCollege : null;
 
   const rawSort = search.get('sort');
   const sort: SortKey = SORT_KEYS.find((s) => s === rawSort) ?? 'RECENT';
