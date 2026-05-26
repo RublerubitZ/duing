@@ -32,6 +32,11 @@ export function HomeNav() {
             </Link>
           </li>
           <li>
+            <Link href="/notices" className={inactiveLink}>
+              공지
+            </Link>
+          </li>
+          <li className="ml-6">
             <Link href="/introduce" className={inactiveLink}>
               서비스 소개
             </Link>

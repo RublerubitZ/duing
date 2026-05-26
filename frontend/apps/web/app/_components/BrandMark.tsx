@@ -1,4 +1,4 @@
-import { Sparkle } from './Sparkle';
+import Image from 'next/image';
 
 type Props = {
   size?: number;
@@ -6,14 +6,20 @@ type Props = {
 };
 
 export function BrandMark({ size = 26, light = false }: Props) {
+  // size 는 height 기준. 로고는 가로형이므로 너비는 비율 유지 (Image 의 height/width 비율 보존).
   return (
-    <span className="brand-mark" style={{ fontSize: size }}>
-      <span className="b-d" style={light ? { color: '#fff' } : undefined}>D</span>
-      <span className="b-u">u</span>
-      <span className="b-ing" style={light ? { color: 'rgba(255,255,255,0.92)' } : undefined}>ing</span>
-      <span className="b-spark">
-        <Sparkle size={size * 0.6} color="#9DB6A0" />
-      </span>
+    <span
+      className="brand-mark inline-flex items-center"
+      style={{ height: size, filter: light ? 'brightness(0) invert(1)' : undefined }}
+    >
+      <Image
+        src="/duing-logo.png"
+        alt="Duing"
+        height={size}
+        width={Math.round(size * 3.2)}
+        priority
+        style={{ height: size, width: 'auto' }}
+      />
     </span>
   );
 }
