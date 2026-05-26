@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { SparkleFull } from '../../_components/Sparkle';
 import { AddEventModal } from '../_components/AddEventModal';
@@ -137,31 +137,47 @@ const buildMonth = (year: number, month: number): MonthCell[] => {
 /* ------------------------------------------------------------------ */
 
 /* Icon.* 는 프로젝트에 전역 객체로 존재하지 않으므로 동일한 모양의 인라인 SVG로 대체 */
-const Icon = {
-  arrowLeft: (props: React.SVGProps<SVGSVGElement>) => (
+function IconArrowLeft(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <line x1="19" y1="12" x2="5" y2="12" />
       <polyline points="12 19 5 12 12 5" />
     </svg>
-  ),
-  arrowRight: (props: React.SVGProps<SVGSVGElement>) => (
+  );
+}
+
+function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <line x1="5" y1="12" x2="19" y2="12" />
       <polyline points="12 5 19 12 12 19" />
     </svg>
-  ),
-  pin: (props: React.SVGProps<SVGSVGElement>) => (
+  );
+}
+
+function IconPin(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
       <circle cx="12" cy="10" r="3" />
     </svg>
-  ),
-  plus: (props: React.SVGProps<SVGSVGElement>) => (
+  );
+}
+
+function IconPlus(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
-  ),
+  );
+}
+
+const Icon = {
+  arrowLeft: IconArrowLeft,
+  arrowRight: IconArrowRight,
+  pin: IconPin,
+  plus: IconPlus,
 };
 
 /* ------------------------------------------------------------------ */
@@ -202,7 +218,10 @@ const expandRepeat = (input: NewEventInput): string[] => {
   return dates;
 };
 
+const KR_MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
 export function CalendarPage() {
+  const [viewMonth, setViewMonth] = useState<number>(5); // 0-indexed, 5 = June
   const [activeKinds, setActiveKinds] = useState<Set<EventKind>>(new Set(KIND_ORDER));
   const [selectedDate, setSelectedDate] = useState<string>(TODAY);
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
@@ -210,9 +229,29 @@ export function CalendarPage() {
   const [events, setEvents] = useState<CalEvent[]>([...CAL_EVENTS_INITIAL]);
 
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
+
+  const calendarCardRef = useRef<HTMLDivElement>(null);
+  // ResizeObserver 첫 콜백 전에는 null — 그 동안에는 minHeight fallback 으로 첫 프레임 깜빡임 방지.
+  const [calendarCardHeight, setCalendarCardHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const calendarCard = calendarCardRef.current;
+    if (!calendarCard) return;
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setCalendarCardHeight(Math.round(entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height));
+      }
+    });
+    resizeObserver.observe(calendarCard);
+    return () => resizeObserver.disconnect();
+  }, []);
   const [eventDetailOpen, setEventDetailOpen] = useState<boolean>(false);
   const [eventEditOpen, setEventEditOpen] = useState<boolean>(false);
   const [eventDeleteConfirmOpen, setEventDeleteConfirmOpen] = useState<boolean>(false);
+
+  const handlePrevMonth = () => { setViewMonth(prev => prev - 1); setDetailOpen(false); };
+  const handleNextMonth = () => { setViewMonth(prev => prev + 1); setDetailOpen(false); };
 
   const handleAddEvent = (input: NewEventInput) => {
     const mapping = CATEGORY_TO_ACCENT[input.category];
@@ -285,10 +324,12 @@ export function CalendarPage() {
     return acc;
   }, {});
 
-  const monthCells = buildMonth(2026, 5);   // June = month 5
+  const monthCells = buildMonth(2026, viewMonth);
+
+  const viewMonthPrefix = `2026-${String(viewMonth + 1).padStart(2, '0')}`;
 
   /* Stats */
-  const inMonth = (iso: string) => iso.startsWith('2026-06');
+  const inMonth = (iso: string) => iso.startsWith(viewMonthPrefix);
   const stats = {
     total:    allEvents.filter(e => inMonth(e.date)).length,
     deadline: allEvents.filter(e => inMonth(e.date) && e.kind === 'deadline').length,
@@ -411,17 +452,29 @@ export function CalendarPage() {
           {/* Month nav */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <button style={{
-                width: 36, height: 36, borderRadius: 12, border: '1px solid var(--gray-line)',
-                background: 'var(--paper)', color: 'var(--charcoal-2)', display: 'grid', placeItems: 'center', cursor: 'pointer',
-              }}><Icon.arrowLeft style={{ width: 16, height: 16 }} /></button>
+              <button
+                onClick={handlePrevMonth}
+                disabled={viewMonth === 0}
+                style={{
+                  width: 36, height: 36, borderRadius: 12, border: '1px solid var(--gray-line)',
+                  background: 'var(--paper)', color: viewMonth === 0 ? 'var(--charcoal-3)' : 'var(--charcoal-2)',
+                  display: 'grid', placeItems: 'center', cursor: viewMonth === 0 ? 'not-allowed' : 'pointer',
+                  opacity: viewMonth === 0 ? 0.4 : 1,
+                }}
+              ><Icon.arrowLeft style={{ width: 16, height: 16 }} /></button>
               <h2 style={{ fontSize: 28, lineHeight: 1 }}>
-                2026<span style={{ color: 'var(--charcoal-3)', fontWeight: 500, margin: '0 8px' }}>·</span>6월
+                2026<span style={{ color: 'var(--charcoal-3)', fontWeight: 500, margin: '0 8px' }}>·</span>{KR_MONTHS[viewMonth] ?? ''}
               </h2>
-              <button style={{
-                width: 36, height: 36, borderRadius: 12, border: '1px solid var(--gray-line)',
-                background: 'var(--paper)', color: 'var(--charcoal-2)', display: 'grid', placeItems: 'center', cursor: 'pointer',
-              }}><Icon.arrowRight style={{ width: 16, height: 16 }} /></button>
+              <button
+                onClick={handleNextMonth}
+                disabled={viewMonth === 11}
+                style={{
+                  width: 36, height: 36, borderRadius: 12, border: '1px solid var(--gray-line)',
+                  background: 'var(--paper)', color: viewMonth === 11 ? 'var(--charcoal-3)' : 'var(--charcoal-2)',
+                  display: 'grid', placeItems: 'center', cursor: viewMonth === 11 ? 'not-allowed' : 'pointer',
+                  opacity: viewMonth === 11 ? 0.4 : 1,
+                }}
+              ><Icon.arrowRight style={{ width: 16, height: 16 }} /></button>
             </div>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -450,8 +503,10 @@ export function CalendarPage() {
             columnGap: detailOpen ? 10 : 0,
             rowGap: 0,
             justifyContent: 'center',
-            alignItems: 'start',
-            minHeight: detailOpen ? 720 : 790,
+            alignItems: 'stretch',
+            ...(detailOpen && calendarCardHeight !== null
+              ? { height: calendarCardHeight }
+              : { minHeight: 790 }),
             overflow: 'hidden',
             transition: 'grid-template-columns .42s cubic-bezier(.22,.61,.36,1), gap .42s cubic-bezier(.22,.61,.36,1)',
           }}>
@@ -462,7 +517,7 @@ export function CalendarPage() {
               transition: 'transform .42s cubic-bezier(.22,.61,.36,1)',
             }}>
             {/* —— Month grid —— */}
-            <div style={{
+            <div ref={calendarCardRef} style={{
               background: 'var(--paper)', border: '1px solid var(--gray-line)',
               borderRadius: 24, overflow: 'hidden',
             }}>
@@ -611,6 +666,8 @@ export function CalendarPage() {
             <aside style={{
               width: 360,
               minWidth: 0,
+              minHeight: 0,
+              overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
               gap: 16,
@@ -634,7 +691,7 @@ export function CalendarPage() {
                     {parseInt(selectedDate.slice(8), 10)}
                   </span>
                   <span style={{ fontSize: 16, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
-                    6월 · {dayOfWeekKR(selectedDate)}요일
+                    {parseInt(selectedDate.split('-')[1] ?? '0', 10)}월 · {dayOfWeekKR(selectedDate)}요일
                   </span>
                 </div>
                 <div style={{
@@ -652,6 +709,7 @@ export function CalendarPage() {
               <div style={{
                 background: 'var(--paper)', border: '1px solid var(--gray-line)',
                 borderRadius: 24, padding: '8px 0', flex: 1,
+                overflowY: 'auto', minHeight: 0,
               }}>
                 {dayEvents.length === 0 && (
                   <div style={{
@@ -669,7 +727,7 @@ export function CalendarPage() {
                       role="button"
                       tabIndex={0}
                       onClick={() => handleEventClick(ev)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleEventClick(ev); } }}
+                      onKeyDown={(keyboardEvent) => { if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') { keyboardEvent.preventDefault(); handleEventClick(ev); } }}
                       style={{
                         padding: '16px 20px',
                         borderBottom: i < dayEvents.length - 1 ? '1px solid var(--gray-line)' : 'none',
@@ -677,8 +735,8 @@ export function CalendarPage() {
                         cursor: 'pointer',
                         transition: 'background .14s ease',
                       }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--sage-tint)'; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+                      onMouseEnter={(mouseEvent) => { mouseEvent.currentTarget.style.background = 'var(--sage-tint)'; }}
+                      onMouseLeave={(mouseEvent) => { mouseEvent.currentTarget.style.background = 'transparent'; }}
                     >
                       <div style={{
                         minWidth: 60, paddingTop: 2,
@@ -755,7 +813,7 @@ export function CalendarPage() {
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                       flexShrink: 0,
                     }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', opacity: 0.7 }}>6월</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', opacity: 0.7 }}>{parseInt(ev.date.split('-')[1] ?? '0', 10)}월</div>
                       <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, lineHeight: 1 }}>
                         {parseInt(ev.date.slice(8), 10)}
                       </div>
