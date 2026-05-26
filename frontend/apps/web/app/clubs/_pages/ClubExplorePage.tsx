@@ -251,7 +251,7 @@ export function ClubExplorePage() {
               </div>
 
               <FilterGroup title="모집 상태">
-                {(['open', 'upcoming', 'closed'] as const).map((value) => (
+                {(['available', 'upcoming', 'closed'] as const).map((value) => (
                   <FilterRow
                     key={value}
                     label={RECRUITMENT_LABEL[value]}
