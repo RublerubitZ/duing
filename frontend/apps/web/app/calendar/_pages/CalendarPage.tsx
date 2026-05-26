@@ -231,7 +231,8 @@ export function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
 
   const calendarCardRef = useRef<HTMLDivElement>(null);
-  const [calendarCardHeight, setCalendarCardHeight] = useState<number>(652);
+  // ResizeObserver 첫 콜백 전에는 null — 그 동안에는 minHeight fallback 으로 첫 프레임 깜빡임 방지.
+  const [calendarCardHeight, setCalendarCardHeight] = useState<number | null>(null);
 
   useEffect(() => {
     const calendarCard = calendarCardRef.current;
@@ -503,7 +504,9 @@ export function CalendarPage() {
             rowGap: 0,
             justifyContent: 'center',
             alignItems: 'stretch',
-            ...(detailOpen ? { height: calendarCardHeight } : { minHeight: 790 }),
+            ...(detailOpen && calendarCardHeight !== null
+              ? { height: calendarCardHeight }
+              : { minHeight: 790 }),
             overflow: 'hidden',
             transition: 'grid-template-columns .42s cubic-bezier(.22,.61,.36,1), gap .42s cubic-bezier(.22,.61,.36,1)',
           }}>
