@@ -30,6 +30,7 @@ import type {
   AdminPromotionRequestDetail,
   AdminPromotionRequestSearchParams,
   ProcessPromotionRequestPayload,
+  SubmitPromotionRequestPayload,
   AdminPromotionSummary,
   AdminPromotionSearchParams,
   CreatePromotionPayload,
@@ -213,6 +214,9 @@ export type DuingApiClient = {
   };
   leaderSuccession: {
     submitRequest(clubId: number, payload: SubmitSuccessionRequestPayload): Promise<number>;
+  };
+  promotionRequests: {
+    submit(clubId: number, payload: SubmitPromotionRequestPayload): Promise<number>;
   };
   reports: {
     submit(payload: SubmitReportPayload): Promise<number>;
@@ -485,6 +489,12 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       submitRequest: (clubId, payload) =>
         jsonOk<number>(
           http.post(`clubs/${clubId}/leader-succession-requests`, { json: payload }),
+        ),
+    },
+    promotionRequests: {
+      submit: (clubId, payload) =>
+        jsonOk<number>(
+          http.post(`clubs/${clubId}/promotion-requests`, { json: payload }),
         ),
     },
     reports: {

@@ -314,6 +314,13 @@ export type ProcessPromotionRequestPayload = {
   actionNote?: string;
 };
 
+export type SubmitPromotionRequestPayload = {
+  title: string;
+  description: string;
+  suggestedBannerImageUrl?: string;
+  suggestedLinkUrl?: string;
+};
+
 // ─── 홍보 배너 ──────────────────────────────────────────────────────────────
 
 export type AdminPromotionBannerUserRef = { id: number; name: string };
