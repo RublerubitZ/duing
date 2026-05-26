@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { SparkleFull } from '../../_components/Sparkle';
 import { AddEventModal } from '../_components/AddEventModal';
@@ -137,31 +137,47 @@ const buildMonth = (year: number, month: number): MonthCell[] => {
 /* ------------------------------------------------------------------ */
 
 /* Icon.* 는 프로젝트에 전역 객체로 존재하지 않으므로 동일한 모양의 인라인 SVG로 대체 */
-const Icon = {
-  arrowLeft: (props: React.SVGProps<SVGSVGElement>) => (
+function IconArrowLeft(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <line x1="19" y1="12" x2="5" y2="12" />
       <polyline points="12 19 5 12 12 5" />
     </svg>
-  ),
-  arrowRight: (props: React.SVGProps<SVGSVGElement>) => (
+  );
+}
+
+function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <line x1="5" y1="12" x2="19" y2="12" />
       <polyline points="12 5 19 12 12 19" />
     </svg>
-  ),
-  pin: (props: React.SVGProps<SVGSVGElement>) => (
+  );
+}
+
+function IconPin(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
       <circle cx="12" cy="10" r="3" />
     </svg>
-  ),
-  plus: (props: React.SVGProps<SVGSVGElement>) => (
+  );
+}
+
+function IconPlus(props: React.SVGProps<SVGSVGElement>) {
+  return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
-  ),
+  );
+}
+
+const Icon = {
+  arrowLeft: IconArrowLeft,
+  arrowRight: IconArrowRight,
+  pin: IconPin,
+  plus: IconPlus,
 };
 
 /* ------------------------------------------------------------------ */
@@ -213,6 +229,22 @@ export function CalendarPage() {
   const [events, setEvents] = useState<CalEvent[]>([...CAL_EVENTS_INITIAL]);
 
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
+
+  const calendarCardRef = useRef<HTMLDivElement>(null);
+  const [calendarCardHeight, setCalendarCardHeight] = useState<number>(652);
+
+  useEffect(() => {
+    const calendarCard = calendarCardRef.current;
+    if (!calendarCard) return;
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setCalendarCardHeight(Math.round(entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height));
+      }
+    });
+    resizeObserver.observe(calendarCard);
+    return () => resizeObserver.disconnect();
+  }, []);
   const [eventDetailOpen, setEventDetailOpen] = useState<boolean>(false);
   const [eventEditOpen, setEventEditOpen] = useState<boolean>(false);
   const [eventDeleteConfirmOpen, setEventDeleteConfirmOpen] = useState<boolean>(false);
@@ -470,8 +502,8 @@ export function CalendarPage() {
             columnGap: detailOpen ? 10 : 0,
             rowGap: 0,
             justifyContent: 'center',
-            alignItems: 'start',
-            minHeight: detailOpen ? 720 : 790,
+            alignItems: 'stretch',
+            ...(detailOpen ? { height: calendarCardHeight } : { minHeight: 790 }),
             overflow: 'hidden',
             transition: 'grid-template-columns .42s cubic-bezier(.22,.61,.36,1), gap .42s cubic-bezier(.22,.61,.36,1)',
           }}>
@@ -482,7 +514,7 @@ export function CalendarPage() {
               transition: 'transform .42s cubic-bezier(.22,.61,.36,1)',
             }}>
             {/* —— Month grid —— */}
-            <div style={{
+            <div ref={calendarCardRef} style={{
               background: 'var(--paper)', border: '1px solid var(--gray-line)',
               borderRadius: 24, overflow: 'hidden',
             }}>
@@ -631,6 +663,8 @@ export function CalendarPage() {
             <aside style={{
               width: 360,
               minWidth: 0,
+              minHeight: 0,
+              overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
               gap: 16,
@@ -672,6 +706,7 @@ export function CalendarPage() {
               <div style={{
                 background: 'var(--paper)', border: '1px solid var(--gray-line)',
                 borderRadius: 24, padding: '8px 0', flex: 1,
+                overflowY: 'auto', minHeight: 0,
               }}>
                 {dayEvents.length === 0 && (
                   <div style={{
@@ -689,7 +724,7 @@ export function CalendarPage() {
                       role="button"
                       tabIndex={0}
                       onClick={() => handleEventClick(ev)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleEventClick(ev); } }}
+                      onKeyDown={(keyboardEvent) => { if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') { keyboardEvent.preventDefault(); handleEventClick(ev); } }}
                       style={{
                         padding: '16px 20px',
                         borderBottom: i < dayEvents.length - 1 ? '1px solid var(--gray-line)' : 'none',
@@ -697,8 +732,8 @@ export function CalendarPage() {
                         cursor: 'pointer',
                         transition: 'background .14s ease',
                       }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--sage-tint)'; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+                      onMouseEnter={(mouseEvent) => { mouseEvent.currentTarget.style.background = 'var(--sage-tint)'; }}
+                      onMouseLeave={(mouseEvent) => { mouseEvent.currentTarget.style.background = 'transparent'; }}
                     >
                       <div style={{
                         minWidth: 60, paddingTop: 2,
