@@ -48,13 +48,9 @@ class ClubUpdateServiceTest {
                 club.getId(), leader.getId(),
                 "두잉업데이트1-NEW", null, null, null, null, null,
                 List.of("코딩"), null, null,
-<<<<<<< HEAD
                 null, null, null, null, null, null, null,
                 null, null, null,
                 null, null
-=======
-                null, null, null, null, null, null, null
->>>>>>> origin/main
         ));
 
         Club reloaded = clubRepository.findById(club.getId()).orElseThrow();
@@ -73,13 +69,9 @@ class ClubUpdateServiceTest {
         assertThatThrownBy(() -> clubService.update(new UpdateClubCommand(
                 club.getId(), memberUser.getId(),
                 "변경시도", null, null, null, null, null, null, null, null,
-<<<<<<< HEAD
                 null, null, null, null, null, null, null,
                 null, null, null,
                 null, null
-=======
-                null, null, null, null, null, null, null
->>>>>>> origin/main
         ))).isInstanceOf(AccessDeniedException.class);
     }
 
@@ -92,13 +84,9 @@ class ClubUpdateServiceTest {
         assertThatThrownBy(() -> clubService.update(new UpdateClubCommand(
                 club.getId(), stranger.getId(),
                 "변경시도", null, null, null, null, null, null, null, null,
-<<<<<<< HEAD
                 null, null, null, null, null, null, null,
                 null, null, null,
                 null, null
-=======
-                null, null, null, null, null, null, null
->>>>>>> origin/main
         ))).isInstanceOf(ClubMemberException.NotAMember.class);
     }
 
@@ -113,13 +101,9 @@ class ClubUpdateServiceTest {
         assertThatThrownBy(() -> clubService.update(new UpdateClubCommand(
                 club.getId(), leader.getId(),
                 other.getName(), null, null, null, null, null, null, null, null,
-<<<<<<< HEAD
                 null, null, null, null, null, null, null,
                 null, null, null,
                 null, null
-=======
-                null, null, null, null, null, null, null
->>>>>>> origin/main
         ))).isInstanceOf(ClubException.DuplicateClubNameException.class);
     }
 
@@ -133,13 +117,9 @@ class ClubUpdateServiceTest {
         clubService.update(new UpdateClubCommand(
                 club.getId(), leader.getId(),
                 club.getName(), null, null, null, null, null, null, null, null,
-<<<<<<< HEAD
                 null, null, null, null, null, null, null,
                 null, null, null,
                 null, null
-=======
-                null, null, null, null, null, null, null
->>>>>>> origin/main
         ));
 
         assertThat(clubRepository.findById(club.getId()).orElseThrow().getName())

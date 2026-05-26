@@ -31,11 +31,7 @@ export default function ClubDetailPage({
   const club = detail.data;
 
   return (
-<<<<<<< HEAD
     <>
-=======
-    <div className="bg-cream min-h-screen">
->>>>>>> origin/main
       <ClubDetailHero
         club={club}
         recruitmentDisplayStatus={club.activeRecruitment?.displayStatus}
@@ -60,10 +56,6 @@ export default function ClubDetailPage({
           </div>
         </div>
       </section>
-<<<<<<< HEAD
     </>
-=======
-    </div>
->>>>>>> origin/main
   );
 }

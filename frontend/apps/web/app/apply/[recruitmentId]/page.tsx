@@ -35,7 +35,6 @@ export default function ApplyPage({
     }
   }, [isExternal, recruitment, router]);
 
-<<<<<<< HEAD
   if (detail.isLoading || !recruitment || draftQuery.isLoading) {
     return (
       <div
@@ -44,12 +43,6 @@ export default function ApplyPage({
       >
         <p className="font-mono text-sm text-charcoal-3">불러오는 중…</p>
       </div>
-=======
-  // 외부 폼 모집은 렌더 시점에 동아리 상세로 되돌려보낸다 (effect 내 리다이렉트 금지).
-  if (recruitment.applicationMode === 'EXTERNAL') {
-    router.replace(
-      toRoute(`/clubs/${recruitment.clubId}`),
->>>>>>> origin/main
     );
   }
 

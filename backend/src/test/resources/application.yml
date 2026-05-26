@@ -21,13 +21,10 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
-<<<<<<< HEAD
 jwt:
   secret: duing-test-jwt-secret-key-that-is-long-enough-for-hs256-algorithm
   expiry-ms: 3600000
 
-=======
->>>>>>> origin/main
 duing:
   notification:
     jobs:

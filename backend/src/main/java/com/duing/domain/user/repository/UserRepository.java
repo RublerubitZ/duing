@@ -17,7 +17,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByStudentId(String studentId);
 
     boolean existsByPhone(String phone);
-<<<<<<< HEAD
 
     /**
      * ADMIN 사용자 검색.
@@ -31,6 +30,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
                OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%'))
             """)
     Page<User> searchForAdmin(@Param("q") String q, Pageable pageable);
-=======
->>>>>>> origin/main
 }

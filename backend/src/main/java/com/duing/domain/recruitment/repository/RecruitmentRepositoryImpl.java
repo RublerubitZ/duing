@@ -11,10 +11,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
-<<<<<<< HEAD
 import java.util.Map;
-=======
->>>>>>> origin/main
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 
@@ -79,7 +76,6 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
                 .fetchFirst();
         return Optional.ofNullable(found);
     }
-<<<<<<< HEAD
 
     @Override
     public Map<Long, ClubActiveRecruitmentRow> findRepresentativeByClubIds(List<Long> clubIds, LocalDate today) {
@@ -135,6 +131,4 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
         }
         return picked;
     }
-=======
->>>>>>> origin/main
 }

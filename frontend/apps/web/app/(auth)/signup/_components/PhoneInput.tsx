@@ -14,7 +14,6 @@ export function formatPhone(raw: string): string {
 
 export function PhoneInput({ value, onChange }: Props) {
   return (
-<<<<<<< HEAD
     <div className="relative">
       <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-charcoal-3" aria-hidden="true">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
@@ -23,16 +22,10 @@ export function PhoneInput({ value, onChange }: Props) {
       </span>
       <input
         id="signup-phone"
-=======
-    <label className="block">
-      <span className="text-sm text-slate-600">전화번호</span>
-      <input
->>>>>>> origin/main
         required
         inputMode="numeric"
         autoComplete="tel"
         value={value}
-<<<<<<< HEAD
         onChange={(changeEvent) => onChange(formatPhone(changeEvent.target.value))}
         placeholder="010-1234-5678"
         className="w-full rounded-md border border-line bg-paper py-3 pl-10 pr-3.5 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20 placeholder:text-charcoal-3/50"
@@ -40,12 +33,3 @@ export function PhoneInput({ value, onChange }: Props) {
     </div>
   );
 }
-=======
-        onChange={(event) => onChange(formatPhone(event.target.value))}
-        placeholder="010-1234-5678"
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-      />
-    </label>
-  );
-}
->>>>>>> origin/main
