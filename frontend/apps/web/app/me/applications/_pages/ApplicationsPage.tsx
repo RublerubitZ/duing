@@ -4,7 +4,6 @@
 
 import { useState, useMemo } from 'react';
 import { APPS, FILTERS, STATUS_TO_FILTER, PAGE_PAD, PAGE_MAX } from '../_constants/data';
-import type { FilterKey, Counts } from '../_constants/data';
 import { ApplyStatusNav } from '../_components/ApplyStatusNav';
 import { ApplyStatusHero } from '../_components/ApplyStatusHero';
 import { ApplyTopTabs } from '../_components/ApplyTopTabs';
@@ -13,6 +12,7 @@ import { ApplySummaryCard } from '../_components/ApplySummaryCard';
 import { StageFilterCard } from '../_components/StageFilterCard';
 import { InfoNoteBox } from '../_components/InfoNoteBox';
 import { ApplyDetailModal } from '../_components/ApplyDetailModal';
+import type { FilterKey, Counts } from '../_constants/data';
 
 export function ApplicationsPage() {
   const [selected, setSelected] = useState<FilterKey[]>(['all']);
@@ -31,25 +31,25 @@ export function ApplicationsPage() {
 
   /* 각 필터별 카운트 — STATUS_TO_FILTER 매핑 기반 */
   const counts = useMemo<Counts>(() => {
-    const c: Counts = { all: APPS.length };
-    FILTERS.forEach(f => { if (f.key !== 'all') c[f.key] = 0; });
-    APPS.forEach(a => {
-      const k = STATUS_TO_FILTER[a.status];
-      if (k && c[k] != null) c[k] = (c[k] ?? 0) + 1;
+    const countMap: Counts = { all: APPS.length };
+    FILTERS.forEach(filterItem => { if (filterItem.key !== 'all') countMap[filterItem.key] = 0; });
+    APPS.forEach(app => {
+      const filterKey = STATUS_TO_FILTER[app.status];
+      if (filterKey && countMap[filterKey] != null) countMap[filterKey] = (countMap[filterKey] ?? 0) + 1;
     });
-    return c;
+    return countMap;
   }, []);
 
   /* 필터링된 앱 목록 */
   const visibleApps = useMemo(() => {
     if (selected.includes('all')) return APPS;
-    return APPS.filter(a => {
-      const filterKey = STATUS_TO_FILTER[a.status];
+    return APPS.filter(app => {
+      const filterKey = STATUS_TO_FILTER[app.status];
       return filterKey !== undefined && selected.includes(filterKey);
     });
   }, [selected]);
 
-  const openApp = openId ? APPS.find(a => a.id === openId) ?? null : null;
+  const openApp = openId ? APPS.find(app => app.id === openId) ?? null : null;
 
   return (
     <div className="duing" style={{ background: 'var(--cream)', minHeight: '100vh' }}>

@@ -2,10 +2,10 @@
 
 import type React from 'react';
 import { CAT_LABEL_COLOR } from '../_constants/data';
-import type { App, Step } from '../_constants/data';
 import { ClubLogo } from './ClubLogo';
 import { StepTimeline } from './StepTimeline';
 import { StatusBadge } from './StatusBadge';
+import type { App, Step } from '../_constants/data';
 
 /* 단계가 1개뿐인 카드(취소된 지원 등)도 4-칸 그리드로 보이게 패딩 */
 export const padToFour = (steps: Step[]): Step[] => {
@@ -23,7 +23,7 @@ type Props = {
   isActive: boolean;
 };
 
-export const ApplyRow = ({ app, onOpen, isActive }: Props) => {
+export function ApplyRow({ app, onOpen, isActive }: Props) {
   const labelColor = CAT_LABEL_COLOR[app.cat] ?? '#5C8268';
   return (
     <div
@@ -123,4 +123,4 @@ export const ApplyRow = ({ app, onOpen, isActive }: Props) => {
       </div>
     </div>
   );
-};
+}

@@ -8,7 +8,7 @@ type Props = {
   size?: number;
 };
 
-export const ClubLogo = ({ logo, size = 64 }: Props) => {
+export function ClubLogo({ logo, size = 64 }: Props) {
   const { kind, bg, fg } = logo;
   const base: React.CSSProperties = {
     width: size, height: size, borderRadius: '50%',
@@ -51,11 +51,11 @@ export const ClubLogo = ({ logo, size = 64 }: Props) => {
   if (kind === 'stack') {
     return (
       <div style={{ ...base, flexDirection: 'column', gap: 0, lineHeight: 1 }}>
-        {(logo.lines ?? []).map((l, i) => (
-          <span key={i} style={{ fontSize: size * 0.18, fontWeight: 700, letterSpacing: '0.04em' }}>{l}</span>
+        {(logo.lines ?? []).map((line, i) => (
+          <span key={i} style={{ fontSize: size * 0.18, fontWeight: 700, letterSpacing: '0.04em' }}>{line}</span>
         ))}
       </div>
     );
   }
   return <div style={base} />;
-};
+}

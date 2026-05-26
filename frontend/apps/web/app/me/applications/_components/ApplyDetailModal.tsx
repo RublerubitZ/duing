@@ -1,9 +1,9 @@
 /* a-apply-status-page.jsx → TypeScript 변환: DetailRow + ApplyDetailModal */
 
-import type React from 'react';
-import type { App, Step } from '../_constants/data';
 import { ClubLogo } from './ClubLogo';
 import { StepTimeline } from './StepTimeline';
+import type React from 'react';
+import type { App, Step } from '../_constants/data';
 
 /* ============================================================
    DetailRow
@@ -14,32 +14,34 @@ type DetailRowProps = {
   multiline?: boolean;
 };
 
-export const DetailRow = ({ label, value, multiline = false }: DetailRowProps) => (
-  <div style={{
-    display: 'grid',
-    gridTemplateColumns: '82px 1fr',
-    gap: 10,
-    padding: '8px 0',
-    borderBottom: '1px solid var(--gray-line)',
-    alignItems: multiline ? 'flex-start' : 'center',
-    fontSize: 13.5,
-  }}>
-    <div style={{ color: 'var(--charcoal-3)', fontWeight: 500, whiteSpace: 'nowrap' }}>{label}</div>
+export function DetailRow({ label, value, multiline = false }: DetailRowProps) {
+  return (
     <div style={{
-      color: 'var(--ink-deep)',
-      fontWeight: 500,
-      lineHeight: multiline ? 1.5 : 1.4,
-      wordBreak: 'keep-all',
+      display: 'grid',
+      gridTemplateColumns: '82px 1fr',
+      gap: 10,
+      padding: '8px 0',
+      borderBottom: '1px solid var(--gray-line)',
+      alignItems: multiline ? 'flex-start' : 'center',
+      fontSize: 13.5,
     }}>
-      {value}
+      <div style={{ color: 'var(--charcoal-3)', fontWeight: 500, whiteSpace: 'nowrap' }}>{label}</div>
+      <div style={{
+        color: 'var(--ink-deep)',
+        fontWeight: 500,
+        lineHeight: multiline ? 1.5 : 1.4,
+        wordBreak: 'keep-all',
+      }}>
+        {value}
+      </div>
     </div>
-  </div>
-);
+  );
+}
 
 /* ============================================================
    ApplyDetailModal
    ============================================================ */
-type Props = {
+type ApplyDetailModalProps = {
   app: App | null;
   onClose: () => void;
 };
@@ -54,7 +56,7 @@ const padToFour = (steps: Step[]): Step[] => {
   return out;
 };
 
-export const ApplyDetailModal = ({ app, onClose }: Props) => {
+export function ApplyDetailModal({ app, onClose }: ApplyDetailModalProps) {
   if (!app) return null;
 
   const steps4 = app.steps.length === 4 ? app.steps : padToFour(app.steps);
@@ -171,10 +173,10 @@ export const ApplyDetailModal = ({ app, onClose }: Props) => {
               <DetailRow label="지원일" value={app.appliedAt} />
               <DetailRow label="지원 구분" value={app.division} />
               <DetailRow label="지원 부서" value={app.department} />
-              {app.files.map((f, i) => (
-                <DetailRow key={i} label={f.type} value={
+              {app.files.map((appFile, i) => (
+                <DetailRow key={i} label={appFile.type} value={
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: 'var(--ink-deep)' }}>{f.name}</span>
+                    <span style={{ color: 'var(--ink-deep)' }}>{appFile.name}</span>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--charcoal-2)', flexShrink: 0 }}>
                       <path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16" />
                     </svg>
@@ -188,4 +190,4 @@ export const ApplyDetailModal = ({ app, onClose }: Props) => {
       </div>
     </>
   );
-};
+}

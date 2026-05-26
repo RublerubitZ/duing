@@ -7,7 +7,7 @@ type Props = {
   status: AppStatus;
 };
 
-export const StatusBadge = ({ status }: Props) => {
+export function StatusBadge({ status }: Props) {
   const meta = STATUS_META[status];
   if (!meta) return null;
   return (
@@ -25,4 +25,4 @@ export const StatusBadge = ({ status }: Props) => {
       {meta.label}
     </span>
   );
-};
+}

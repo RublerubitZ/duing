@@ -1,7 +1,7 @@
 /* a-apply-status.jsx → TypeScript 변환: StepNode + StepTimeline */
 
-import type React from 'react';
 import type { Step, StepState } from '../_constants/data';
+import type React from 'react';
 
 /* ============================================================
    StepNode
@@ -20,47 +20,47 @@ type NodeColor = {
   inner?: string;
 };
 
-export const StepNode = ({ step, showDate = false, dim = false }: StepNodeProps) => {
-  const s: StepState = step.state;
+export function StepNode({ step, showDate = false, dim = false }: StepNodeProps) {
+  const stepState: StepState = step.state;
   const colorMap: Record<StepState, NodeColor> = {
     done:    { bg: '#2E6149', border: '#2E6149', icon: 'check', iconColor: '#fff' },
     current: { bg: '#fff',   border: '#2E6149', icon: null,    iconColor: '#2E6149', inner: '#2E6149' },
     pending: { bg: '#fff',   border: '#D9D6CC', icon: null,    iconColor: 'transparent' },
     failed:  { bg: '#D9523A', border: '#D9523A', icon: 'x',    iconColor: '#fff' },
   };
-  const c = colorMap[s] ?? colorMap.pending;
+  const nodeColor = colorMap[stepState] ?? colorMap.pending;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: '0 0 auto', zIndex: 1 }}>
       <div style={{
         width: 22, height: 22, borderRadius: '50%',
-        background: c.bg,
-        border: `2px solid ${c.border}`,
+        background: nodeColor.bg,
+        border: `2px solid ${nodeColor.border}`,
         display: 'grid', placeItems: 'center',
         position: 'relative',
       }}>
-        {c.icon === 'check' && (
+        {nodeColor.icon === 'check' && (
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-            <path d="M5 12 L10 17 L19 7" stroke={c.iconColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M5 12 L10 17 L19 7" stroke={nodeColor.iconColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
-        {c.icon === 'x' && (
+        {nodeColor.icon === 'x' && (
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-            <path d="M6 6 L18 18 M18 6 L6 18" stroke={c.iconColor} strokeWidth="3" strokeLinecap="round" />
+            <path d="M6 6 L18 18 M18 6 L6 18" stroke={nodeColor.iconColor} strokeWidth="3" strokeLinecap="round" />
           </svg>
         )}
-        {s === 'current' && (
+        {stepState === 'current' && (
           <span style={{
             width: 8, height: 8, borderRadius: '50%',
-            background: c.inner,
+            background: nodeColor.inner,
           }} />
         )}
       </div>
       <div style={{
         fontSize: 10, fontWeight: 600,
         color: dim ? 'var(--charcoal-3)'
-              : s === 'done' || s === 'current' ? 'var(--ink-deep)'
-              : s === 'failed' ? '#9A3F23'
+              : stepState === 'done' || stepState === 'current' ? 'var(--ink-deep)'
+              : stepState === 'failed' ? '#9A3F23'
               : 'var(--charcoal-3)',
         whiteSpace: 'nowrap',
         textAlign: 'center',
@@ -81,7 +81,7 @@ export const StepNode = ({ step, showDate = false, dim = false }: StepNodeProps)
       )}
     </div>
   );
-};
+}
 
 /* ============================================================
    StepTimeline — 4단계 타임라인 (수평)
@@ -92,7 +92,7 @@ type StepTimelineProps = {
   width?: string;
 };
 
-export const StepTimeline = ({ steps, showDate = false, width = '100%' }: StepTimelineProps) => {
+export function StepTimeline({ steps, showDate = false, width = '100%' }: StepTimelineProps) {
   const cols = steps.length;
   return (
     <div style={{
@@ -105,13 +105,13 @@ export const StepTimeline = ({ steps, showDate = false, width = '100%' }: StepTi
     }}>
       {/* 연결선들 (마디 사이) */}
       {steps.slice(0, -1).map((step, i) => {
-        const next = steps[i + 1];
-        if (!next) return null;
-        const bothDone = step.state === 'done' && (next.state === 'done' || next.state === 'failed');
-        const halfDone = step.state === 'done' && next.state === 'current';
-        const color = bothDone ? '#2E6149'
-                    : halfDone ? '#2E6149'
-                    : '#D9D6CC';
+        const nextStep = steps[i + 1];
+        if (!nextStep) return null;
+        const bothDone = step.state === 'done' && (nextStep.state === 'done' || nextStep.state === 'failed');
+        const halfDone = step.state === 'done' && nextStep.state === 'current';
+        const lineColor = bothDone ? '#2E6149'
+                        : halfDone ? '#2E6149'
+                        : '#D9D6CC';
         return (
           <div key={i} style={{
             position: 'absolute',
@@ -119,7 +119,7 @@ export const StepTimeline = ({ steps, showDate = false, width = '100%' }: StepTi
             left: `calc(${(i + 0.5) * (100 / cols)}% + 11px)`,
             width: `calc(${100 / cols}% - 22px)`,
             height: 2,
-            background: color,
+            background: lineColor,
             opacity: halfDone ? 0.55 : 1,
             zIndex: 0,
           }} />
@@ -130,4 +130,4 @@ export const StepTimeline = ({ steps, showDate = false, width = '100%' }: StepTi
       ))}
     </div>
   );
-};
+}
