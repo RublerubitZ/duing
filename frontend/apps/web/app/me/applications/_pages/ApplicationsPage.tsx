@@ -14,9 +14,13 @@ import { InfoNoteBox } from '../_components/InfoNoteBox';
 import { ApplyDetailModal } from '../_components/ApplyDetailModal';
 import type { FilterKey, Counts } from '../_constants/data';
 
-export function ApplicationsPage() {
+type Props = {
+  defaultOpenId?: string | null;
+};
+
+export function ApplicationsPage({ defaultOpenId = null }: Props) {
   const [selected, setSelected] = useState<FilterKey[]>(['all']);
-  const [openId, setOpenId] = useState<string | null>('spark'); // 시안: 스파크 모달 열린 상태
+  const [openId, setOpenId] = useState<string | null>(defaultOpenId);
 
   /* 통합 토글 — 단일 선택 모드 (한 번에 하나만 활성화) */
   const toggleFilter = (key: FilterKey) => {
