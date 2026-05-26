@@ -13,7 +13,7 @@ export function BrandMark({ size = 26, light = false }: Props) {
       style={{ height: size, filter: light ? 'brightness(0) invert(1)' : undefined }}
     >
       <Image
-        src="/duing-logo.png"
+        src="/duing-logo.webp"
         alt="Duing"
         height={size}
         width={Math.round(size * 3.2)}
