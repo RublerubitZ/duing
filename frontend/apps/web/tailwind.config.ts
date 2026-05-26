@@ -70,8 +70,43 @@ const config: Config = {
       backgroundSize: {
         'dot-22': '22px 22px',
       },
+      keyframes: {
+        'slide-in-from-right': {
+          '0%': { transform: 'translateX(100%)' },
+          '100%': { transform: 'translateX(0%)' },
+        },
+        'slide-out-to-left': {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-100%)' },
+        },
+        'slide-in-from-left': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(0%)' },
+        },
+        'slide-out-to-right': {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
+        'preview-in': {
+          '0%': { opacity: '0', transform: 'translateY(16px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'preview-in-reverse': {
+          '0%': { opacity: '0', transform: 'translateY(-16px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'slide-in-right': 'slide-in-from-right 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
+        'slide-out-left': 'slide-out-to-left 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
+        'slide-in-left': 'slide-in-from-left 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
+        'slide-out-right': 'slide-out-to-right 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
+        'preview-in': 'preview-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
+        'preview-in-reverse': 'preview-in-reverse 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
+      },
     },
   },
+  safelist: ['animate-preview-in', 'animate-preview-in-reverse'],
   plugins: [],
 };
 
