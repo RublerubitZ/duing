@@ -40,7 +40,7 @@ export function ExploreNav({ active, floating = false }: Props) {
         'z-50 bg-cream/90 backdrop-blur border-b border-line',
       )}
     >
-      <nav className="max-w-layout mx-auto flex items-center gap-12 px-10 py-2">
+      <nav className="max-w-layout mx-auto flex items-center gap-12 px-10 py-3">
         <Link href="/" aria-label="두잉 홈">
           <BrandMark size={56} />
         </Link>
