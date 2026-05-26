@@ -24,46 +24,46 @@ type MonthCell = {
 
 const CAL_EVENTS_INITIAL: CalEvent[] = [
   /* — 공지 — */
-  { id: 'n1',  date: '2026-06-10', kind: 'notice',    title: '동아리방 배정 신청 시작',       time: '10:00',       place: '총학생회 사이트', club: null,            accent: 'ink',   description: '2025-2학기 동아리방 배정 신청이 시작됩니다. 총학생회 사이트에서 신청서를 제출해 주세요.', contact: '총학생회 동아리국' },
-  { id: 'n2',  date: '2026-06-15', kind: 'notice',    title: '2025-2학기 박람회 안내문 게시', time: '09:00',       place: '두잉 공지',       club: null,            accent: 'ink',   description: '가을 동아리 박람회(9/25~9/27) 일정, 부스 배치, 참가 동아리 목록이 공지됩니다.' },
+  { id: 'n1',  date: '2026-05-10', kind: 'notice',    title: '동아리방 배정 신청 시작',       time: '10:00',       place: '총학생회 사이트', club: null,            accent: 'ink',   description: '2025-2학기 동아리방 배정 신청이 시작됩니다. 총학생회 사이트에서 신청서를 제출해 주세요.', contact: '총학생회 동아리국' },
+  { id: 'n2',  date: '2026-05-15', kind: 'notice',    title: '2025-2학기 박람회 안내문 게시', time: '09:00',       place: '두잉 공지',       club: null,            accent: 'ink',   description: '가을 동아리 박람회(9/25~9/27) 일정, 부스 배치, 참가 동아리 목록이 공지됩니다.' },
 
   /* — 모집 마감 — */
-  { id: 'd1',  date: '2026-06-22', kind: 'deadline',  title: 'STAT 통계학회 모집 마감',       time: '23:59',       place: '지원폼',          club: 'STAT 통계학회', accent: 'coral', description: '통계학 및 데이터 분석에 관심 있는 학생을 모집합니다. 전공 무관 지원 가능.' },
-  { id: 'd2',  date: '2026-06-23', kind: 'deadline',  title: '스텝업 · K-pop 댄스 마감',      time: '23:59',       place: '지원폼',          club: '스텝업',        accent: 'coral' },
-  { id: 'd3',  date: '2026-06-23', kind: 'deadline',  title: '렌즈클럽 모집 마감',            time: '23:59',       place: '지원폼',          club: '렌즈클럽',      accent: 'coral' },
-  { id: 'd4',  date: '2026-06-24', kind: 'deadline',  title: '트레몰로 · 어쿠스틱 마감',      time: '23:59',       place: '지원폼',          club: '트레몰로',      accent: 'coral' },
-  { id: 'd5',  date: '2026-06-24', kind: 'deadline',  title: '한모금 와인모임 마감',          time: '23:59',       place: '지원폼',          club: '한모금',        accent: 'coral' },
-  { id: 'd6',  date: '2026-06-25', kind: 'deadline',  title: '씨네두잉 모집 마감',            time: '23:59',       place: '지원폼',          club: '씨네두잉',      accent: 'coral' },
-  { id: 'd7',  date: '2026-06-25', kind: 'deadline',  title: '보이스라운지 모집 마감',        time: '23:59',       place: '지원폼',          club: '보이스라운지',  accent: 'coral' },
-  { id: 'd8',  date: '2026-06-26', kind: 'deadline',  title: '스파크 · IR 모임 마감',         time: '23:59',       place: '지원폼',          club: '스파크',        accent: 'coral', description: '창업·IR 발표에 관심 있는 학생을 모집합니다. 매주 모임을 통해 스타트업 아이디어를 발전시킵니다.', contact: '스파크 운영진' },
-  { id: 'd9',  date: '2026-06-26', kind: 'deadline',  title: '철학하는밤 모집 마감',          time: '23:59',       place: '지원폼',          club: '철학하는밤',    accent: 'coral', description: '인문학·철학에 관심 있는 누구나 환영합니다. 매달 주제를 정해 자유롭게 토론합니다.', contact: '철학하는밤 운영진' },
-  { id: 'd10', date: '2026-06-27', kind: 'deadline',  title: '두잉코드 모집 마감',            time: '23:59',       place: '지원폼',          club: '두잉코드',      accent: 'coral' },
-  { id: 'd11', date: '2026-06-28', kind: 'deadline',  title: '함께해요 멘토링 마감',          time: '23:59',       place: '지원폼',          club: '함께해요',      accent: 'coral' },
-  { id: 'd12', date: '2026-06-28', kind: 'deadline',  title: '붓터치 회화 동아리 마감',       time: '23:59',       place: '지원폼',          club: '붓터치',        accent: 'coral' },
-  { id: 'd13', date: '2026-06-29', kind: 'deadline',  title: '픽셀팩토리 모집 마감',          time: '23:59',       place: '지원폼',          club: '픽셀팩토리',    accent: 'coral' },
-  { id: 'd14', date: '2026-06-30', kind: 'deadline',  title: '북클럽 두잉 모집 마감',         time: '23:59',       place: '지원폼',          club: '북클럽 두잉',   accent: 'coral' },
+  { id: 'd1',  date: '2026-05-22', kind: 'deadline',  title: 'STAT 통계학회 모집 마감',       time: '23:59',       place: '지원폼',          club: 'STAT 통계학회', accent: 'coral', description: '통계학 및 데이터 분석에 관심 있는 학생을 모집합니다. 전공 무관 지원 가능.' },
+  { id: 'd2',  date: '2026-05-23', kind: 'deadline',  title: '스텝업 · K-pop 댄스 마감',      time: '23:59',       place: '지원폼',          club: '스텝업',        accent: 'coral' },
+  { id: 'd3',  date: '2026-05-23', kind: 'deadline',  title: '렌즈클럽 모집 마감',            time: '23:59',       place: '지원폼',          club: '렌즈클럽',      accent: 'coral' },
+  { id: 'd4',  date: '2026-05-24', kind: 'deadline',  title: '트레몰로 · 어쿠스틱 마감',      time: '23:59',       place: '지원폼',          club: '트레몰로',      accent: 'coral' },
+  { id: 'd5',  date: '2026-05-24', kind: 'deadline',  title: '한모금 와인모임 마감',          time: '23:59',       place: '지원폼',          club: '한모금',        accent: 'coral' },
+  { id: 'd6',  date: '2026-05-25', kind: 'deadline',  title: '씨네두잉 모집 마감',            time: '23:59',       place: '지원폼',          club: '씨네두잉',      accent: 'coral' },
+  { id: 'd7',  date: '2026-05-25', kind: 'deadline',  title: '보이스라운지 모집 마감',        time: '23:59',       place: '지원폼',          club: '보이스라운지',  accent: 'coral' },
+  { id: 'd8',  date: '2026-05-26', kind: 'deadline',  title: '스파크 · IR 모임 마감',         time: '23:59',       place: '지원폼',          club: '스파크',        accent: 'coral', description: '창업·IR 발표에 관심 있는 학생을 모집합니다. 매주 모임을 통해 스타트업 아이디어를 발전시킵니다.', contact: '스파크 운영진' },
+  { id: 'd9',  date: '2026-05-26', kind: 'deadline',  title: '철학하는밤 모집 마감',          time: '23:59',       place: '지원폼',          club: '철학하는밤',    accent: 'coral', description: '인문학·철학에 관심 있는 누구나 환영합니다. 매달 주제를 정해 자유롭게 토론합니다.', contact: '철학하는밤 운영진' },
+  { id: 'd10', date: '2026-05-27', kind: 'deadline',  title: '두잉코드 모집 마감',            time: '23:59',       place: '지원폼',          club: '두잉코드',      accent: 'coral' },
+  { id: 'd11', date: '2026-05-28', kind: 'deadline',  title: '함께해요 멘토링 마감',          time: '23:59',       place: '지원폼',          club: '함께해요',      accent: 'coral' },
+  { id: 'd12', date: '2026-05-28', kind: 'deadline',  title: '붓터치 회화 동아리 마감',       time: '23:59',       place: '지원폼',          club: '붓터치',        accent: 'coral' },
+  { id: 'd13', date: '2026-05-29', kind: 'deadline',  title: '픽셀팩토리 모집 마감',          time: '23:59',       place: '지원폼',          club: '픽셀팩토리',    accent: 'coral' },
+  { id: 'd14', date: '2026-05-30', kind: 'deadline',  title: '북클럽 두잉 모집 마감',         time: '23:59',       place: '지원폼',          club: '북클럽 두잉',   accent: 'coral' },
 
   /* — 박람회 (3-day, 9.25–9.27) — */
-  { id: 'f1',  date: '2026-06-25', kind: 'fair',      title: '가을 동아리 박람회 D1',         time: '11:00–18:00', place: '중앙광장',        club: null, span: 3,   accent: 'warm',  description: '동아리 홍보 부스 운영 및 체험 프로그램 진행. 참여 대상: 대구대학교 재학생 전체.', contact: '학생지원팀 (053-850-5114)' },
-  { id: 'f2',  date: '2026-06-26', kind: 'fair',      title: '가을 동아리 박람회 D2',         time: '11:00–18:00', place: '중앙광장',        club: null,            accent: 'warm',  description: '동아리 홍보 부스 운영 및 체험 프로그램 진행. 참여 대상: 대구대학교 재학생 전체.', contact: '학생지원팀 (053-850-5114)' },
-  { id: 'f3',  date: '2026-06-27', kind: 'fair',      title: '가을 동아리 박람회 D3',         time: '11:00–17:00', place: '학생회관 1F',     club: null,            accent: 'warm',  description: '박람회 마지막 날. 오후 5시 폐막식 진행.', contact: '학생지원팀 (053-850-5114)' },
+  { id: 'f1',  date: '2026-05-25', kind: 'fair',      title: '가을 동아리 박람회 D1',         time: '11:00–18:00', place: '중앙광장',        club: null, span: 3,   accent: 'warm',  description: '동아리 홍보 부스 운영 및 체험 프로그램 진행. 참여 대상: 대구대학교 재학생 전체.', contact: '학생지원팀 (053-850-5114)' },
+  { id: 'f2',  date: '2026-05-26', kind: 'fair',      title: '가을 동아리 박람회 D2',         time: '11:00–18:00', place: '중앙광장',        club: null,            accent: 'warm',  description: '동아리 홍보 부스 운영 및 체험 프로그램 진행. 참여 대상: 대구대학교 재학생 전체.', contact: '학생지원팀 (053-850-5114)' },
+  { id: 'f3',  date: '2026-05-27', kind: 'fair',      title: '가을 동아리 박람회 D3',         time: '11:00–17:00', place: '학생회관 1F',     club: null,            accent: 'warm',  description: '박람회 마지막 날. 오후 5시 폐막식 진행.', contact: '학생지원팀 (053-850-5114)' },
 
   /* — 공연 · 전시 — */
-  { id: 's1',  date: '2026-06-13', kind: 'show',      title: '두드림 가을 쇼케이스',          time: '19:30',       place: '소극장',          club: '두드림',        accent: 'berry', description: '밴드 동아리 두드림의 2025년 가을 정기 공연. 입장 무료, 선착순 100석.' },
-  { id: 's2',  date: '2026-06-21', kind: 'show',      title: '씨네두잉 상영회 — 〈Past Lives〉', time: '19:00',     place: '인문관 305',      club: '씨네두잉',      accent: 'berry', description: '셀린 송 감독의 2023년 작품 〈Past Lives〉 상영 및 영화 토론. 음료 제공.' },
-  { id: 's3',  date: '2026-06-19', kind: 'show',      title: '붓터치 9월 전시 오프닝',        time: '17:00',       place: '디자인관 로비',   club: '붓터치',        accent: 'berry', description: '회원 작품 20점 전시. 9월 19일 ~ 9월 30일 상시 관람 가능.' },
+  { id: 's1',  date: '2026-05-13', kind: 'show',      title: '두드림 가을 쇼케이스',          time: '19:30',       place: '소극장',          club: '두드림',        accent: 'berry', description: '밴드 동아리 두드림의 2025년 가을 정기 공연. 입장 무료, 선착순 100석.' },
+  { id: 's2',  date: '2026-05-21', kind: 'show',      title: '씨네두잉 상영회 — 〈Past Lives〉', time: '19:00',     place: '인문관 305',      club: '씨네두잉',      accent: 'berry', description: '셀린 송 감독의 2023년 작품 〈Past Lives〉 상영 및 영화 토론. 음료 제공.' },
+  { id: 's3',  date: '2026-05-19', kind: 'show',      title: '붓터치 9월 전시 오프닝',        time: '17:00',       place: '디자인관 로비',   club: '붓터치',        accent: 'berry', description: '회원 작품 20점 전시. 9월 19일 ~ 9월 30일 상시 관람 가능.' },
 
   /* — 정기 모임 (every-week) — */
-  { id: 'm1',  date: '2026-06-16', kind: 'meet',      title: '트레몰로 합주',                 time: '19:00',       place: '동아리방 B',      club: '트레몰로',      accent: 'sage'  },
-  { id: 'm2',  date: '2026-06-23', kind: 'meet',      title: '트레몰로 합주',                 time: '19:00',       place: '동아리방 B',      club: '트레몰로',      accent: 'sage'  },
-  { id: 'm3',  date: '2026-06-30', kind: 'meet',      title: '트레몰로 합주',                 time: '19:00',       place: '동아리방 B',      club: '트레몰로',      accent: 'sage'  },
-  { id: 'm4',  date: '2026-06-17', kind: 'meet',      title: '두잉코드 스터디',               time: '20:00',       place: '공학관 412',      club: '두잉코드',      accent: 'sage'  },
-  { id: 'm5',  date: '2026-06-24', kind: 'meet',      title: '두잉코드 스터디',               time: '20:00',       place: '공학관 412',      club: '두잉코드',      accent: 'sage'  },
-  { id: 'm6',  date: '2026-06-18', kind: 'meet',      title: '북클럽 두잉 — 9월 모임',        time: '19:00',       place: '도서관 토론실',   club: '북클럽 두잉',   accent: 'sage'  },
-  { id: 'm7',  date: '2026-06-20', kind: 'meet',      title: 'STAT 데이터 워크샵',            time: '14:00',       place: '사회과학관 211',  club: 'STAT 통계학회', accent: 'sage'  },
+  { id: 'm1',  date: '2026-05-16', kind: 'meet',      title: '트레몰로 합주',                 time: '19:00',       place: '동아리방 B',      club: '트레몰로',      accent: 'sage'  },
+  { id: 'm2',  date: '2026-05-23', kind: 'meet',      title: '트레몰로 합주',                 time: '19:00',       place: '동아리방 B',      club: '트레몰로',      accent: 'sage'  },
+  { id: 'm3',  date: '2026-05-30', kind: 'meet',      title: '트레몰로 합주',                 time: '19:00',       place: '동아리방 B',      club: '트레몰로',      accent: 'sage'  },
+  { id: 'm4',  date: '2026-05-17', kind: 'meet',      title: '두잉코드 스터디',               time: '20:00',       place: '공학관 412',      club: '두잉코드',      accent: 'sage'  },
+  { id: 'm5',  date: '2026-05-24', kind: 'meet',      title: '두잉코드 스터디',               time: '20:00',       place: '공학관 412',      club: '두잉코드',      accent: 'sage'  },
+  { id: 'm6',  date: '2026-05-18', kind: 'meet',      title: '북클럽 두잉 — 9월 모임',        time: '19:00',       place: '도서관 토론실',   club: '북클럽 두잉',   accent: 'sage'  },
+  { id: 'm7',  date: '2026-05-20', kind: 'meet',      title: 'STAT 데이터 워크샵',            time: '14:00',       place: '사회과학관 211',  club: 'STAT 통계학회', accent: 'sage'  },
 
   /* — 봉사 — */
-  { id: 'v1',  date: '2026-06-20', kind: 'volunteer', title: '함께해요 멘토링 OT',            time: '10:00',       place: '지역아동센터',    club: '함께해요',      accent: 'sky',   description: '지역 아동센터 학습 멘토링 오리엔테이션. 참여 전 필수 출석.' },
+  { id: 'v1',  date: '2026-05-20', kind: 'volunteer', title: '함께해요 멘토링 OT',            time: '10:00',       place: '지역아동센터',    club: '함께해요',      accent: 'sky',   description: '지역 아동센터 학습 멘토링 오리엔테이션. 참여 전 필수 출석.' },
 ];
 
 /* Accent palette */
@@ -91,7 +91,7 @@ const KIND_ORDER: EventKind[] = ['fair', 'deadline', 'show', 'meet', 'volunteer'
 /* Helpers                                                              */
 /* ------------------------------------------------------------------ */
 
-const TODAY = '2026-06-18';
+const TODAY = '2026-05-26';
 
 const fmt = (y: number, m: number, d: number): string =>
   `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -108,7 +108,7 @@ const dayOfWeekKR = (iso: string): string => {
   return (['일', '월', '화', '수', '목', '금', '토'][wd]) ?? '';
 };
 
-/* Build September 2025 month grid (6 rows × 7 cols, Sun-start) */
+/* Build May 2026 month grid (6 rows × 7 cols, Sun-start) */
 const buildMonth = (year: number, month: number): MonthCell[] => {
   const first = new Date(year, month, 1);
   const startCol = first.getDay();         // 0=Sun
@@ -221,7 +221,7 @@ const expandRepeat = (input: NewEventInput): string[] => {
 const KR_MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
 export function CalendarPage() {
-  const [viewMonth, setViewMonth] = useState<number>(5); // 0-indexed, 5 = June
+  const [viewMonth, setViewMonth] = useState<number>(4); // 0-indexed, 4 = May
   const [activeKinds, setActiveKinds] = useState<Set<EventKind>>(new Set(KIND_ORDER));
   const [selectedDate, setSelectedDate] = useState<string>(TODAY);
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
