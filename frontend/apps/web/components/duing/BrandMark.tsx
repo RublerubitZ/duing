@@ -15,7 +15,7 @@ export function BrandMark({ size = 26, light = false }: BrandMarkProps) {
         src="/duing-logo.webp"
         alt="Duing"
         height={size}
-        width={Math.round(size * 3.2)}
+        width={Math.round(size * 2.18)}
         priority
         style={{ height: size, width: 'auto' }}
       />
