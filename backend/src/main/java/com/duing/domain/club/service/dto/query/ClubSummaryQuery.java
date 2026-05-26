@@ -17,6 +17,7 @@ public record ClubSummaryQuery(
         String logoUrl,
         ClubStatus status,
         List<String> tags,
+        boolean centralClub,
         ActiveRecruitmentSummary activeRecruitment
 ) {
     public record ActiveRecruitmentSummary(
@@ -36,11 +37,12 @@ public record ClubSummaryQuery(
                 club.getLogoUrl(),
                 club.getStatus(),
                 club.getTags(),
+                club.isCentralClub(),
                 null
         );
     }
 
     public ClubSummaryQuery withActiveRecruitment(ActiveRecruitmentSummary recruitmentSummary) {
-        return new ClubSummaryQuery(id, name, category, division, college, logoUrl, status, tags, recruitmentSummary);
+        return new ClubSummaryQuery(id, name, category, division, college, logoUrl, status, tags, centralClub, recruitmentSummary);
     }
 }

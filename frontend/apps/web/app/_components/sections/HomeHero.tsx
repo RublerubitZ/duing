@@ -78,7 +78,7 @@ export async function HomeHero() {
               <Search className="text-charcoal-3" />
               <input
                 type="search"
-                name="keyword"
+                name="q"
                 placeholder="동아리 이름, 키워드, 카테고리로 검색"
                 className="flex-1 border-none bg-transparent text-[15px] text-charcoal outline-none"
               />
@@ -94,7 +94,7 @@ export async function HomeHero() {
             {SUGGESTED_QUERIES.map((query) => (
               <Link
                 key={query}
-                href={`/clubs?keyword=${encodeURIComponent(query)}`}
+                href={`/clubs?q=${encodeURIComponent(query)}`}
                 className="rounded-full border border-dashed border-line px-3 py-[5px] text-[13px] font-medium text-charcoal-2 hover:border-ink hover:text-ink"
               >
                 {query}

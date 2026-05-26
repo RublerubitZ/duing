@@ -17,6 +17,7 @@ public record ClubSummaryResponse(
         String logoUrl,
         ClubStatus status,
         List<String> tags,
+        boolean centralClub,
         ActiveRecruitmentSummaryResponse activeRecruitment
 ) {
     public record ActiveRecruitmentSummaryResponse(
@@ -45,6 +46,7 @@ public record ClubSummaryResponse(
                 summaryQuery.logoUrl(),
                 summaryQuery.status(),
                 summaryQuery.tags(),
+                summaryQuery.centralClub(),
                 summaryQuery.activeRecruitment() == null
                         ? null
                         : ActiveRecruitmentSummaryResponse.from(summaryQuery.activeRecruitment())

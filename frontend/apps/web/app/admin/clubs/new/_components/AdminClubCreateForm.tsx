@@ -10,6 +10,7 @@ import type { AdminUserSearchResult, ClubCategory, College, CreateClubPayload } 
 import { LeaderSearchCombobox } from '../../_components/LeaderSearchCombobox';
 import { toRoute } from '../../../../_lib/route';
 import { COLLEGE_OPTIONS } from '../../../../_lib/college';
+import { DIVISIONS } from '../../../../clubs/_lib/clubs';
 
 const CATEGORIES: ReadonlyArray<ClubCategory> = [
   'ACADEMIC',
@@ -121,44 +122,49 @@ export function AdminClubCreateForm() {
         </select>
       </Field>
 
-      <Field label="분류 (학생회 / 분과 등)">
-        <input
-          type="text"
-          value={division}
-          onChange={(event) => setDivision(event.target.value)}
-          maxLength={50}
-          placeholder="예: 컴퓨터정보공학부"
-          className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
-        />
-      </Field>
-
-      <label className="block">
-        <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">
-          단과대학 (학과동아리만 해당, 선택)
-        </span>
-        <select
-          value={college}
-          onChange={(event) => setCollege(event.target.value as College | '')}
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
-        >
-          <option value="">선택 안 함 (중앙동아리)</option>
-          {COLLEGE_OPTIONS.map((option) => (
-            <option key={option.code} value={option.code}>{option.label}</option>
-          ))}
-        </select>
-      </label>
-
       <Field label="중앙동아리 여부">
         <label className="inline-flex items-center gap-2 text-sm text-slate-700">
           <input
             type="checkbox"
             checked={centralClub}
-            onChange={(event) => setCentralClub(event.target.checked)}
+            onChange={(event) => {
+              setCentralClub(event.target.checked);
+              setDivision('');
+              setCollege('');
+            }}
             className="h-4 w-4 rounded border-slate-300"
           />
           중앙동아리로 지정 (공개 화면에 🏛️ 배지 노출)
         </label>
       </Field>
+
+      {centralClub ? (
+        <Field label="분과">
+          <select
+            value={division}
+            onChange={(event) => setDivision(event.target.value)}
+            className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">분과 선택</option>
+            {DIVISIONS.map((option) => (
+              <option key={option} value={option}>{option}분과</option>
+            ))}
+          </select>
+        </Field>
+      ) : (
+        <Field label="단과대학">
+          <select
+            value={college}
+            onChange={(event) => setCollege(event.target.value as College | '')}
+            className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">단과대학 선택</option>
+            {COLLEGE_OPTIONS.map((option) => (
+              <option key={option.code} value={option.code}>{option.label}</option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       <Field label="설명">
         <textarea

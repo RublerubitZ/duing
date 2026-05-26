@@ -13,8 +13,10 @@ import { ClubCard } from '../_components/ClubCard';
 import { summaryToClub } from '../_lib/clubAdapter';
 import { DIVISIONS, type Division } from '../_lib/clubs';
 import {
+  CATEGORY_OPTIONS,
   DEFAULT_EXPLORE_PARAMS,
   RECRUITMENT_LABEL,
+  categoryLabel,
   parseExploreParams,
   serializeExploreParams,
   toApiParams,
@@ -250,6 +252,22 @@ export function ClubExplorePage() {
                 </button>
               </div>
 
+              <FilterGroup title="카테고리">
+                {CATEGORY_OPTIONS.map((option) => (
+                  <FilterRow
+                    key={option.value}
+                    label={option.label}
+                    checked={params.category === option.value}
+                    onChange={() =>
+                      updateParams({
+                        category: params.category === option.value ? null : option.value,
+                        page: 1,
+                      })
+                    }
+                  />
+                ))}
+              </FilterGroup>
+
               <FilterGroup title="모집 상태">
                 {(['available', 'upcoming', 'closed'] as const).map((value) => (
                   <FilterRow
@@ -335,7 +353,8 @@ export function ClubExplorePage() {
                 params.division !== '전체' ||
                 params.keyword !== '' ||
                 params.recruitment !== 'all' ||
-                params.college !== null) && (
+                params.college !== null ||
+                params.category !== null) && (
                 <span className="text-[13px] text-charcoal-3 pt-1.5">필터:</span>
               )}
               {params.scope !== '전체' && (
@@ -357,6 +376,13 @@ export function ClubExplorePage() {
                   label={collegeDisplayName(params.college)}
                   variant="primary"
                   onRemove={() => updateParams({ college: null, page: 1 })}
+                />
+              )}
+              {params.category && (
+                <ActiveFilterChip
+                  label={categoryLabel(params.category)}
+                  variant="primary"
+                  onRemove={() => updateParams({ category: null, page: 1 })}
                 />
               )}
               {params.keyword && (

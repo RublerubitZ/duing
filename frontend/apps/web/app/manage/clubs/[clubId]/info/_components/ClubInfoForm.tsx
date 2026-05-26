@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { ClubDetail, ClubDayOfWeek, UpdateClubPayload } from '@duing/types';
+import type { ClubDetail, ClubDayOfWeek, College, UpdateClubPayload } from '@duing/types';
 import { updateClubSchema } from '@duing/schemas';
 import { useUpdateClubMutation } from '@duing/hooks';
 import { TagsInput } from './TagsInput';
@@ -9,6 +9,8 @@ import { SnsLinksRepeater } from './SnsLinksRepeater';
 import { FaqsRepeater } from './FaqsRepeater';
 import { HighlightsRepeater } from './HighlightsRepeater';
 import { ActiveDaysToggle } from './ActiveDaysToggle';
+import { DIVISIONS } from '../../../../../clubs/_lib/clubs';
+import { COLLEGE_OPTIONS } from '../../../../../_lib/college';
 
 type ClubInfoFormProps = {
   clubId: number;
@@ -54,6 +56,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
   const [name, setName] = useState(detail.name);
   const [category, setCategory] = useState(detail.category);
   const [division, setDivision] = useState(detail.division ?? '');
+  const [college, setCollege] = useState<College | ''>(detail.college ?? '');
   const [description, setDescription] = useState(detail.description ?? '');
   const [logoUrl, setLogoUrl] = useState(detail.logoUrl ?? '');
   const [coverUrl, setCoverUrl] = useState(detail.coverUrl ?? '');
@@ -87,6 +90,14 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
     if (name !== detail.name) payload.name = name;
     if (category !== detail.category) payload.category = category;
     if (division !== (detail.division ?? '')) payload.division = division || null;
+    const previousCollege: College | '' = detail.college ?? '';
+    if (college !== previousCollege) {
+      if (college === '') {
+        payload.clearCollege = true;
+      } else {
+        payload.college = college;
+      }
+    }
     if (description !== (detail.description ?? '')) payload.description = description || null;
     if (logoUrl !== (detail.logoUrl ?? '')) payload.logoUrl = logoUrl || null;
     if (coverUrl !== (detail.coverUrl ?? '')) payload.coverUrl = coverUrl || null;
@@ -209,17 +220,53 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
             </select>
           </div>
 
-          <div className={fieldCls}>
-            <label htmlFor="f-div" className={labelCls}>분류</label>
-            <input
-              id="f-div"
-              type="text"
-              value={division}
-              onChange={(event) => setDivision(event.target.value)}
-              placeholder="예: 중앙동아리"
-              className={inputCls}
-            />
-          </div>
+          {detail.centralClub ? (
+            <div className={fieldCls}>
+              <label htmlFor="f-div" className={labelCls}>분과</label>
+              <select
+                id="f-div"
+                value={division}
+                onChange={(event) => setDivision(event.target.value)}
+                className={selectCls}
+                style={{
+                  backgroundImage:
+                    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5247' d='M2 4l4 4 4-4'/%3E%3C/svg%3E\")",
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 12px center',
+                  backgroundSize: '12px',
+                  paddingRight: '36px',
+                }}
+              >
+                <option value="">분과 선택</option>
+                {DIVISIONS.map((option) => (
+                  <option key={option} value={option}>{option}분과</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className={fieldCls}>
+              <label htmlFor="f-college" className={labelCls}>단과대학</label>
+              <select
+                id="f-college"
+                value={college}
+                onChange={(event) => setCollege(event.target.value as College | '')}
+                className={selectCls}
+                style={{
+                  backgroundImage:
+                    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5247' d='M2 4l4 4 4-4'/%3E%3C/svg%3E\")",
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 12px center',
+                  backgroundSize: '12px',
+                  paddingRight: '36px',
+                }}
+              >
+                <option value="">단과대학 선택</option>
+                {COLLEGE_OPTIONS.map((option) => (
+                  <option key={option.code} value={option.code}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className={fieldCls}>
             <label htmlFor="f-intro" className={labelCls}>소개</label>
