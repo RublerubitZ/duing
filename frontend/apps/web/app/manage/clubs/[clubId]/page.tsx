@@ -1,10 +1,11 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { useClubRecruitmentsQuery, useManagedClubsQuery } from '@duing/hooks';
 import { notFound } from 'next/navigation';
 import { toRoute } from '../../../_lib/route';
+import { PromotionRequestModal } from './_components/PromotionRequestModal';
 
 export default function ClubManagePage({
   params,
@@ -13,6 +14,9 @@ export default function ClubManagePage({
 }) {
   const { clubId: clubIdParam } = use(params);
   const currentClubId = Number(clubIdParam);
+
+  // useState는 조건부 return 이전에 반드시 호출해야 한다 (Rules of Hooks)
+  const [promotionOpen, setPromotionOpen] = useState(false);
 
   const { data: managedClubs, isLoading: isManagedClubsLoading } = useManagedClubsQuery();
   const { data: recruitments, isLoading: isRecruitmentsLoading } = useClubRecruitmentsQuery(
@@ -34,9 +38,8 @@ export default function ClubManagePage({
     (managedClub) => managedClub.clubId === currentClubId,
   );
 
-  const activeRecruitments = recruitments?.filter(
-    (recruitment) => recruitment.displayStatus !== 'CLOSED',
-  ) ?? [];
+  const activeRecruitments =
+    recruitments?.filter((recruitment) => recruitment.displayStatus !== 'CLOSED') ?? [];
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -44,12 +47,21 @@ export default function ClubManagePage({
         <h1 className="text-xl font-bold">
           {currentManagedClub?.clubName ?? '동아리'} 콘솔
         </h1>
-        <Link
-          href={toRoute(`/manage/clubs/${currentClubId}/recruitments/new`)}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          신규 모집 작성
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPromotionOpen(true)}
+            className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal-2 hover:border-ink hover:text-ink"
+          >
+            홍보 요청
+          </button>
+          <Link
+            href={toRoute(`/manage/clubs/${currentClubId}/recruitments/new`)}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+          >
+            신규 모집 작성
+          </Link>
+        </div>
       </header>
 
       <section>
@@ -68,7 +80,9 @@ export default function ClubManagePage({
             {activeRecruitments.map((recruitment) => (
               <li key={recruitment.id}>
                 <Link
-                  href={toRoute(`/manage/clubs/${currentClubId}/recruitments/${recruitment.id}/applicants`)}
+                  href={toRoute(
+                    `/manage/clubs/${currentClubId}/recruitments/${recruitment.id}/applicants`,
+                  )}
                   className="block rounded-lg border border-slate-200 p-4 hover:border-slate-400"
                 >
                   <div className="flex items-baseline justify-between">
@@ -86,6 +100,14 @@ export default function ClubManagePage({
           </ul>
         )}
       </section>
+
+      {promotionOpen && currentManagedClub && (
+        <PromotionRequestModal
+          clubId={currentClubId}
+          clubName={currentManagedClub.clubName}
+          onClose={() => setPromotionOpen(false)}
+        />
+      )}
     </div>
   );
 }

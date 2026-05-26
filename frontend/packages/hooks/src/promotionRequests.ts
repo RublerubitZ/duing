@@ -2,9 +2,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdminPromotionRequestSearchParams,
   ProcessPromotionRequestPayload,
+  SubmitPromotionRequestPayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
 import { adminQueryKeys } from './adminQueryKeys';
+
+export const useSubmitPromotionRequestMutation = (clubId: number) => {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (payload: SubmitPromotionRequestPayload) =>
+      client.promotionRequests.submit(clubId, payload),
+  });
+};
 
 export function useAdminPromotionRequestListQuery(
   params: AdminPromotionRequestSearchParams,
