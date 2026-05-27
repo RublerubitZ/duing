@@ -1,9 +1,11 @@
 package com.duing.domain.application.repository;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,8 +20,11 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
             + "JOIN FETCH a.recruitment r "
             + "JOIN FETCH r.club "
             + "WHERE a.user.id = :userId "
+            + "  AND a.status IN :statuses "
             + "ORDER BY a.createdAt DESC")
-    List<Application> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId);
+    List<Application> findByUserIdAndStatusInOrderByCreatedAtDesc(
+            @Param("userId") Long userId,
+            @Param("statuses") Set<ApplicationStatus> statuses);
 
     @Query("SELECT a FROM Application a "
             + "JOIN FETCH a.user "

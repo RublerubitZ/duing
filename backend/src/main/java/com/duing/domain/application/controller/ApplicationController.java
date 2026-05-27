@@ -38,10 +38,11 @@ public class ApplicationController implements ApplicationApi {
 
     @Override
     public ResponseEntity<ApiResponse<List<ApplicationSummaryResponse>>> getMyApplications(
+            ApplicationScope scope,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         List<ApplicationSummaryResponse> myApplications = applicationService
-                .getMyApplications(currentUser.id()).stream()
+                .getMyApplications(currentUser.id(), scope.toStatuses()).stream()
                 .map(ApplicationSummaryResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(myApplications));

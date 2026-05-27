@@ -2,6 +2,7 @@ package com.duing.domain.clubmember.service;
 
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
+import com.duing.domain.clubmember.service.dto.query.MyClubQuery;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,5 +22,10 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
         return clubMemberRepository.findAllByClubIdOrderedByRoleAndJoinedAt(clubId).stream()
                 .map(ClubMemberQuery::from)
                 .toList();
+    }
+
+    @Override
+    public List<MyClubQuery> findMyClubs(Long userId) {
+        return clubMemberRepository.findMyClubsByUser(userId);
     }
 }

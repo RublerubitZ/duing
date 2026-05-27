@@ -5,5 +5,13 @@ public enum ApplicationStatus {
     UNDER_REVIEW,
     INTERVIEW_PENDING,
     ACCEPTED,
-    REJECTED
+    REJECTED;
+
+    public boolean isTerminal() {
+        return this == ACCEPTED || this == REJECTED;
+    }
+
+    public boolean isActive() {
+        return !isTerminal();
+    }
 }

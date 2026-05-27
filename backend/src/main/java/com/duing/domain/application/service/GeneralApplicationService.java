@@ -107,8 +107,8 @@ public class GeneralApplicationService implements ApplicationService {
     }
 
     @Override
-    public List<ApplicationSummaryQuery> getMyApplications(Long userId) {
-        return applicationRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+    public List<ApplicationSummaryQuery> getMyApplications(Long userId, Set<ApplicationStatus> statuses) {
+        return applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(userId, statuses).stream()
                 .map(ApplicationSummaryQuery::from)
                 .toList();
     }
