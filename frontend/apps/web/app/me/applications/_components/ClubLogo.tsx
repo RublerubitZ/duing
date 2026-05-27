@@ -57,5 +57,11 @@ export function ClubLogo({ logo, size = 64 }: Props) {
       </div>
     );
   }
+  if (kind === 'img' && logo.url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={logo.url} alt="" style={{ ...base, objectFit: 'cover' }} />
+    );
+  }
   return <div style={base} />;
 }
