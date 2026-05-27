@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+
 import { useMyApplicationsQuery, useMyApplicationDetailQuery } from '@duing/hooks';
 import type { ApplicationSummary, ApplicationStatus, ClubCategory } from '@duing/types';
+
+import { ExploreNav } from '@/app/_components/ExploreNav';
+
 import { FILTERS, STATUS_TO_FILTER, PAGE_PAD, PAGE_MAX } from '../_constants/data';
 import type { App, FilterKey, Counts, Logo, AppStatus, Step } from '../_constants/data';
-import { ApplyStatusNav } from '../_components/ApplyStatusNav';
 import { ApplyStatusHero } from '../_components/ApplyStatusHero';
 import { ApplyTopTabs } from '../_components/ApplyTopTabs';
 import { ApplyRow } from '../_components/ApplyRow';
@@ -154,7 +157,7 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
 
   return (
     <div className="duing" style={{ background: 'var(--cream)', minHeight: '100vh' }}>
-      <ApplyStatusNav />
+      <ExploreNav />
       <ApplyStatusHero />
       <ApplyTopTabs active={selected} onToggle={toggleFilter} counts={counts} />
 
