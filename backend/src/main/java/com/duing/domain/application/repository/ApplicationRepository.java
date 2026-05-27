@@ -20,13 +20,6 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
             + "JOIN FETCH a.recruitment r "
             + "JOIN FETCH r.club "
             + "WHERE a.user.id = :userId "
-            + "ORDER BY a.createdAt DESC")
-    List<Application> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId);
-
-    @Query("SELECT a FROM Application a "
-            + "JOIN FETCH a.recruitment r "
-            + "JOIN FETCH r.club "
-            + "WHERE a.user.id = :userId "
             + "  AND a.status IN :statuses "
             + "ORDER BY a.createdAt DESC")
     List<Application> findByUserIdAndStatusInOrderByCreatedAtDesc(

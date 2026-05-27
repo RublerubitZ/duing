@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.duing.domain.application.controller.ApplicationScope;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
@@ -67,9 +68,10 @@ class MyApplicationsQueryTest {
         when(application.getInterviewLocation()).thenReturn(null);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 15, 9, 30));
 
-        when(applicationRepository.findByUserIdOrderByCreatedAtDesc(99L)).thenReturn(List.of(application));
+        when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))
+                .thenReturn(List.of(application));
 
-        List<ApplicationSummaryQuery> summaries = applicationService.getMyApplications(99L);
+        List<ApplicationSummaryQuery> summaries = applicationService.getMyApplications(99L, ApplicationScope.ALL.toStatuses());
 
         assertThat(summaries).hasSize(1);
         ApplicationSummaryQuery summary = summaries.get(0);
@@ -100,9 +102,10 @@ class MyApplicationsQueryTest {
         when(application.getInterviewLocation()).thenReturn(null);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 10, 14, 0));
 
-        when(applicationRepository.findByUserIdOrderByCreatedAtDesc(99L)).thenReturn(List.of(application));
+        when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))
+                .thenReturn(List.of(application));
 
-        List<ApplicationSummaryQuery> summaries = applicationService.getMyApplications(99L);
+        List<ApplicationSummaryQuery> summaries = applicationService.getMyApplications(99L, ApplicationScope.ALL.toStatuses());
 
         assertThat(summaries).hasSize(1);
         assertThat(summaries.get(0).logoUrl()).isNull();
