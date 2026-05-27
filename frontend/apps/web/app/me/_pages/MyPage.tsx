@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useFavoriteListQuery, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
+import { useFavoriteListQuery, useMeQuery, useMyApplicationsQuery, useMyClubsQuery } from '@duing/hooks';
 
 import { HomeNav } from '@/app/_components/HomeNav';
 
+import { AcceptanceBanner } from '../_components/AcceptanceBanner';
 import { MyPageHeader } from '../_components/MyPageHeader';
 import { MyPageTabs } from '../_components/MyPageTabs';
 import { SectionApply } from '../_components/SectionApply';
-import { SectionJoined } from '../_components/SectionJoined';
+import { SectionMyClubs } from '../_components/SectionMyClubs';
 import { SectionSaved } from '../_components/SectionSaved';
 
 type SectionId = 'apply' | 'joined' | 'saved';
@@ -30,13 +31,13 @@ export function MyPage() {
 
   /* ── Data ── */
   const meQuery = useMeQuery();
-  const applicationsQuery = useMyApplicationsQuery();
-  const managedClubsQuery = useManagedClubsQuery();
+  const applicationsQuery = useMyApplicationsQuery('ACTIVE');
+  const myClubsQuery = useMyClubsQuery();
   const favoriteListQuery = useFavoriteListQuery(0, 20);
 
   const user = meQuery.data;
   const applications = applicationsQuery.data ?? [];
-  const managedClubs = managedClubsQuery.data ?? [];
+  const myClubs = myClubsQuery.data ?? [];
   const favorites = favoriteListQuery.data?.content ?? [];
 
   /* ── 탭 클릭 → 해당 섹션 헤더로 스무스 스크롤 ── */
@@ -130,7 +131,7 @@ export function MyPage() {
       section.id === 'apply'
         ? applications.length
         : section.id === 'joined'
-          ? managedClubs.length
+          ? myClubs.length
           : favorites.length;
     return { ...section, count };
   });
@@ -151,9 +152,11 @@ export function MyPage() {
           studentId={user?.studentId ?? '—'}
           email={user?.email ?? '—'}
           applyCount={applications.length}
-          joinedCount={managedClubs.length}
+          joinedCount={myClubs.length}
           savedCount={favorites.length}
         />
+
+        <AcceptanceBanner myClubs={myClubs} />
 
         <MyPageTabs
           sections={sectionsWithCount}
@@ -165,7 +168,7 @@ export function MyPage() {
           <SectionApply applications={applications} />
         </div>
         <div ref={refFor('joined')} data-section="joined">
-          <SectionJoined managedClubs={managedClubs} />
+          <SectionMyClubs myClubs={myClubs} />
         </div>
         <div ref={refFor('saved')} data-section="saved">
           <SectionSaved favorites={favorites} />
