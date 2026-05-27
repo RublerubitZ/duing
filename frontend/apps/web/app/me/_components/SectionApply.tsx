@@ -1,29 +1,30 @@
 import Link from 'next/link';
 
-import type { ApplicationStatus, ApplicationSummary } from '@duing/types';
+import type { ApplicationSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
 
 import { SectionHeader } from './SectionHeader';
 
-const STEPS = ['서류', '검토', '면접', '결과'] as const;
+type ActiveApplicationStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'INTERVIEW_PENDING';
 
-const STATUS_STEP: Record<ApplicationStatus, number> = {
+const STEPS = ['서류', '검토', '면접'] as const;
+
+const STATUS_STEP: Record<ActiveApplicationStatus, number> = {
   SUBMITTED: 1,
   UNDER_REVIEW: 2,
   INTERVIEW_PENDING: 3,
-  ACCEPTED: 4,
-  REJECTED: 4,
 };
 
-const ACTION_LABEL: Record<ApplicationStatus, string> = {
+const ACTION_LABEL: Record<ActiveApplicationStatus, string> = {
   SUBMITTED: '지원서 보기',
   UNDER_REVIEW: '지원서 보기',
   INTERVIEW_PENDING: '면접 일정 보기',
-  ACCEPTED: '합격 확인',
-  REJECTED: '결과 보기',
 };
+
+const isActiveStatus = (status: string): status is ActiveApplicationStatus =>
+  status in STATUS_STEP;
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleString('ko-KR', {
@@ -46,8 +47,6 @@ const statusNote = (app: ApplicationSummary): string => {
     return `면접: ${at}${app.interviewLocation ? ` — ${app.interviewLocation}` : ''}`;
   }
   if (app.status === 'UNDER_REVIEW') return '동아리에서 검토 중입니다';
-  if (app.status === 'ACCEPTED') return '합격을 축하드립니다!';
-  if (app.status === 'REJECTED') return '아쉽게도 이번에는 함께하지 못했어요';
   return '지원서 작성 완료';
 };
 
@@ -93,6 +92,7 @@ export function SectionApply({ applications }: Props) {
 
         <div className="flex flex-col gap-3">
           {applications.map((app) => {
+            if (!isActiveStatus(app.status)) return null;
             const step = STATUS_STEP[app.status];
             const isInterview = app.status === 'INTERVIEW_PENDING';
 

@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'app'),
+      '@': path.resolve(__dirname),
       // 모노레포 내 pnpm 이 react 를 두 군데(apps/web, root)에 설치해 react-dom 과
       // 페이지 컴포넌트가 서로 다른 React 인스턴스를 쓰면 "Invalid hook call" 이 발생한다.
       // react-dom 이 사용하는 루트 react 인스턴스 하나로 수렴시킨다.
