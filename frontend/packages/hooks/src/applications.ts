@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  ApplicationScope,
   BulkUpdateApplicationStatusPayload,
   BulkUpdateApplicationStatusResult,
   SubmitApplicationPayload,
@@ -18,17 +19,17 @@ export function useSubmitApplicationMutation(recruitmentId: number) {
     mutationFn: (payload: SubmitApplicationPayload) =>
       client.applications.submit(recruitmentId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: applicationQueryKeys.myList() });
+      queryClient.invalidateQueries({ queryKey: applicationQueryKeys.allMyLists });
     },
   });
 }
 
-export function useMyApplicationsQuery() {
+export function useMyApplicationsQuery(scope: ApplicationScope = 'ALL') {
   const client = useApiClient();
   const status = useAuthStore((s) => s.status);
   return useQuery({
-    queryKey: applicationQueryKeys.myList(),
-    queryFn: () => client.users.myApplications(),
+    queryKey: applicationQueryKeys.myList(scope),
+    queryFn: () => client.users.myApplications(scope),
     enabled: status === 'authenticated',
   });
 }

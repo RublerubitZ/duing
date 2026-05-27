@@ -7,6 +7,8 @@ export type ApplicationStatus =
   | 'ACCEPTED'
   | 'REJECTED';
 
+export type ApplicationScope = 'ALL' | 'ACTIVE' | 'ARCHIVED';
+
 export type ApplicationSummary = {
   id: number;
   recruitmentId: number;

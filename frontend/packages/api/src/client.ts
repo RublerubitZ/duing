@@ -60,7 +60,9 @@ import type {
   UpdateClubStatusPayload,
   UpdateClubCentralClubPayload,
   Applicant,
+  ApplicationScope,
   ApplicationSummary,
+  MyClubSummary,
   BulkUpdateApplicationStatusPayload,
   BulkUpdateApplicationStatusResult,
   User,
@@ -130,7 +132,8 @@ export type DuingApiClient = {
   };
   users: {
     me(): Promise<User>;
-    myApplications(): Promise<ApplicationSummary[]>;
+    myApplications(scope?: ApplicationScope): Promise<ApplicationSummary[]>;
+    myClubs(): Promise<MyClubSummary[]>;
   };
   clubs: {
     list(params?: ClubSearchParams): Promise<PageResponse<ClubSummary>>;
@@ -329,7 +332,13 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
     },
     users: {
       me: () => jsonOk<User>(http.get('users/me')),
-      myApplications: () => jsonOk<ApplicationSummary[]>(http.get('users/me/applications')),
+      myApplications: (scope) =>
+        jsonOk<ApplicationSummary[]>(
+          http.get('users/me/applications', {
+            searchParams: scope ? { scope } : undefined,
+          }),
+        ),
+      myClubs: () => jsonOk<MyClubSummary[]>(http.get('me/clubs')),
     },
     clubs: {
       list: (params) =>
