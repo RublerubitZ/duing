@@ -135,6 +135,17 @@ export type ManagedClub = {
   activeRecruitmentCount: number;
 };
 
+export type MyClubRole = 'LEADER' | 'OFFICER' | 'MEMBER';
+
+export type MyClubSummary = {
+  clubId: number;
+  clubName: string;
+  logoUrl: string | null;
+  myRole: MyClubRole;
+  activeRecruitmentCount: number;
+  joinedAt: string; // ISO datetime
+};
+
 export type UpdateClubPayload = {
   name?: string;
   category?: ClubCategory;
