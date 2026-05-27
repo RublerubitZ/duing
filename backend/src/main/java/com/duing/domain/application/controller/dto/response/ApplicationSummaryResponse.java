@@ -2,6 +2,7 @@ package com.duing.domain.application.controller.dto.response;
 
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
+import com.duing.domain.club.entity.ClubCategory;
 import java.time.LocalDateTime;
 
 public record ApplicationSummaryResponse(
@@ -10,6 +11,8 @@ public record ApplicationSummaryResponse(
         String recruitmentTitle,
         Long clubId,
         String clubName,
+        ClubCategory category,
+        String logoUrl,
         ApplicationStatus status,
         LocalDateTime interviewAt,
         String interviewLocation,
@@ -22,6 +25,8 @@ public record ApplicationSummaryResponse(
                 summaryQuery.recruitmentTitle(),
                 summaryQuery.clubId(),
                 summaryQuery.clubName(),
+                summaryQuery.category(),
+                summaryQuery.logoUrl(),
                 summaryQuery.status(),
                 summaryQuery.interviewAt(),
                 summaryQuery.interviewLocation(),

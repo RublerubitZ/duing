@@ -4,6 +4,7 @@ import { ClubLogo } from './ClubLogo';
 import { StepTimeline } from './StepTimeline';
 import type React from 'react';
 import type { App, Step } from '../_constants/data';
+import type { MyApplicationDetail } from '@duing/types';
 
 /* ============================================================
    DetailRow
@@ -43,6 +44,7 @@ export function DetailRow({ label, value, multiline = false }: DetailRowProps) {
    ============================================================ */
 type ApplyDetailModalProps = {
   app: App | null;
+  detail?: MyApplicationDetail | null;
   onClose: () => void;
 };
 
@@ -56,7 +58,7 @@ const padToFour = (steps: Step[]): Step[] => {
   return out;
 };
 
-export function ApplyDetailModal({ app, onClose }: ApplyDetailModalProps) {
+export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps) {
   if (!app) return null;
 
   const steps4 = app.steps.length === 4 ? app.steps : padToFour(app.steps);
@@ -171,19 +173,19 @@ export function ApplyDetailModal({ app, onClose }: ApplyDetailModalProps) {
               paddingLeft: 22,
             }}>
               <DetailRow label="지원일" value={app.appliedAt} />
-              <DetailRow label="지원 구분" value={app.division} />
-              <DetailRow label="지원 부서" value={app.department} />
-              {app.files.map((appFile, i) => (
-                <DetailRow key={i} label={appFile.type} value={
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: 'var(--ink-deep)' }}>{appFile.name}</span>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--charcoal-2)', flexShrink: 0 }}>
-                      <path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16" />
-                    </svg>
-                  </span>
-                } />
-              ))}
-              <DetailRow label="메모" value={app.memo} multiline />
+              {detail ? (
+                detail.questions.length > 0 ? (
+                  detail.questions.map((question, i) => (
+                    <DetailRow key={i} label={`Q${i + 1}. ${question}`} value={detail.answers[i] ?? '-'} multiline />
+                  ))
+                ) : (
+                  <DetailRow label="지원 내용" value="별도 지원서 없음" />
+                )
+              ) : (
+                <div style={{ padding: '20px 0', fontSize: 13, color: 'var(--charcoal-3)', textAlign: 'center' }}>
+                  불러오는 중...
+                </div>
+              )}
             </div>
           </div>
         </div>

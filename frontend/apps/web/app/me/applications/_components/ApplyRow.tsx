@@ -91,7 +91,7 @@ export function ApplyRow({ app, onOpen, isActive }: Props) {
 
       {/* 4. 상태 + 부가 정보 */}
       <div style={{ textAlign: 'left' }}>
-        {app.status && app.status !== 'cancelled' && (
+        {app.status && (
           <div style={{ marginBottom: 6 }}>
             <StatusBadge status={app.status} />
           </div>
@@ -115,11 +115,9 @@ export function ApplyRow({ app, onOpen, isActive }: Props) {
 
       {/* 5. 화살표 */}
       <div style={{ color: 'var(--charcoal-3)', display: 'grid', placeItems: 'center' }}>
-        {app.status !== 'cancelled' && (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m9 6 6 6-6 6" />
-          </svg>
-        )}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m9 6 6 6-6 6" />
+        </svg>
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+import type { ClubCategory } from './club';
+
 export type ApplicationStatus =
   | 'SUBMITTED'
   | 'UNDER_REVIEW'
@@ -11,6 +13,8 @@ export type ApplicationSummary = {
   recruitmentTitle: string;
   clubId: number;
   clubName: string;
+  category: ClubCategory;
+  logoUrl: string | null;
   status: ApplicationStatus;
   interviewAt: string | null;
   interviewLocation: string | null;
