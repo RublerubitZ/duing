@@ -1,5 +1,5 @@
 /* shared.jsx → TypeScript 변환
-   Sparkle, SparkleFull, BrandMark, Icon */
+   Sparkle, SparkleFull */
 
 import type React from 'react';
 
@@ -69,40 +69,3 @@ export function SparkleFull({ size = 24, color = '#9DB6A0', className = '', styl
   );
 }
 
-/* ============================================================
-   BrandMark
-   ============================================================ */
-type BrandMarkProps = {
-  size?: number;
-  light?: boolean;
-};
-
-export function BrandMark({ size = 26, light = false }: BrandMarkProps) {
-  return (
-    <span className="brand-mark" style={{ fontSize: size }}>
-      <span className="b-d" style={light ? { color: '#fff' } : undefined}>D</span>
-      <span className="b-u">u</span>
-      <span className="b-ing" style={light ? { color: 'rgba(255,255,255,.92)' } : undefined}>ing</span>
-      <span className="b-spark"><Sparkle size={size * 0.6} color="#9DB6A0" /></span>
-    </span>
-  );
-}
-
-/* ============================================================
-   Icon — 지원현황 페이지에서 사용하는 아이콘만 포함
-   ============================================================ */
-type IconProps = React.SVGProps<SVGSVGElement>;
-
-export const Icon = {
-  search: (p: IconProps) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
-      <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
-    </svg>
-  ),
-  bell: (p: IconProps) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
-      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-    </svg>
-  ),
-};
