@@ -20,6 +20,14 @@ export function useManagedClubsQuery() {
   });
 }
 
+export function useMyClubsQuery() {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: userQueryKeys.myClubs(),
+    queryFn: () => client.users.myClubs(),
+  });
+}
+
 export function useClubListQuery(params: ClubSearchParams = {}) {
   const client = useApiClient();
   return useQuery({

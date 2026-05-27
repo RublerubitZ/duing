@@ -6,6 +6,7 @@ export {
   useClubPhotosQuery,
   useClubRecruitmentsQuery,
   useManagedClubsQuery,
+  useMyClubsQuery,
   useUpdateClubMutation,
   useCreatePhotoMutation,
   useUpdatePhotoMutation,
