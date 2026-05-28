@@ -16,6 +16,29 @@ type DetailRowProps = {
 };
 
 export function DetailRow({ label, value, multiline = false }: DetailRowProps) {
+  if (multiline) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        padding: '10px 0',
+        borderBottom: '1px solid var(--gray-line)',
+        fontSize: 13.5,
+      }}>
+        <div style={{ color: 'var(--charcoal-3)', fontWeight: 600, wordBreak: 'keep-all' }}>{label}</div>
+        <div style={{
+          color: 'var(--ink-deep)',
+          fontWeight: 500,
+          lineHeight: 1.6,
+          wordBreak: 'keep-all',
+        }}>
+          {value}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       display: 'grid',
@@ -23,14 +46,14 @@ export function DetailRow({ label, value, multiline = false }: DetailRowProps) {
       gap: 10,
       padding: '8px 0',
       borderBottom: '1px solid var(--gray-line)',
-      alignItems: multiline ? 'flex-start' : 'center',
+      alignItems: 'center',
       fontSize: 13.5,
     }}>
       <div style={{ color: 'var(--charcoal-3)', fontWeight: 500, whiteSpace: 'nowrap' }}>{label}</div>
       <div style={{
         color: 'var(--ink-deep)',
         fontWeight: 500,
-        lineHeight: multiline ? 1.5 : 1.4,
+        lineHeight: 1.4,
         wordBreak: 'keep-all',
       }}>
         {value}
