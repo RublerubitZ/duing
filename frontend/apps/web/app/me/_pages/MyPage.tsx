@@ -10,15 +10,17 @@ import { AcceptanceBanner } from '../_components/AcceptanceBanner';
 import { MyPageHeader } from '../_components/MyPageHeader';
 import { MyPageTabs } from '../_components/MyPageTabs';
 import { SectionApply } from '../_components/SectionApply';
+import { SectionArchived } from '../_components/SectionArchived';
 import { SectionMyClubs } from '../_components/SectionMyClubs';
 import { SectionSaved } from '../_components/SectionSaved';
 
-type SectionId = 'apply' | 'joined' | 'saved';
+type SectionId = 'apply' | 'joined' | 'saved' | 'archived';
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'apply', label: '지원 현황' },
   { id: 'joined', label: '가입한 동아리' },
   { id: 'saved', label: '찜한 동아리' },
+  { id: 'archived', label: '지난 지원' },
 ];
 
 export function MyPage() {
@@ -32,11 +34,13 @@ export function MyPage() {
   /* ── Data ── */
   const meQuery = useMeQuery();
   const applicationsQuery = useMyApplicationsQuery('ACTIVE');
+  const archivedApplicationsQuery = useMyApplicationsQuery('ARCHIVED');
   const myClubsQuery = useMyClubsQuery();
   const favoriteListQuery = useFavoriteListQuery(0, 20);
 
   const user = meQuery.data;
   const applications = applicationsQuery.data ?? [];
+  const archivedApplications = archivedApplicationsQuery.data ?? [];
   const myClubs = myClubsQuery.data ?? [];
   const favorites = favoriteListQuery.data?.content ?? [];
 
@@ -132,7 +136,9 @@ export function MyPage() {
         ? applications.length
         : section.id === 'joined'
           ? myClubs.length
-          : favorites.length;
+          : section.id === 'saved'
+            ? favorites.length
+            : archivedApplications.length;
     return { ...section, count };
   });
 
@@ -172,6 +178,9 @@ export function MyPage() {
         </div>
         <div ref={refFor('saved')} data-section="saved">
           <SectionSaved favorites={favorites} />
+        </div>
+        <div ref={refFor('archived')} data-section="archived">
+          <SectionArchived applications={archivedApplications} />
         </div>
 
         {/* 마지막 섹션이 탭 클릭 시 충분히 스크롤될 수 있도록 하는 스페이서 */}
