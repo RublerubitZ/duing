@@ -10,3 +10,4 @@ export * from './draft';
 export * from './notice';
 export * from './notification';
 export * from './admin';
+export * from './recertification';

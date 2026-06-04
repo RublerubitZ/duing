@@ -117,6 +117,11 @@ export {
   useProcessPromotionRequestMutation,
 } from './promotionRequests';
 export {
+  useRecertificationContextQuery,
+  useSubmitRecertificationRequestMutation,
+} from './leaderRecertification';
+export { leaderRecertificationKeys } from './leaderRecertificationQueryKeys';
+export {
   useAdminPromotionListQuery,
   useAdminPromotionDetailQuery,
   usePublicPromotionsQuery,

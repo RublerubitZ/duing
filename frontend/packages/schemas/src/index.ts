@@ -285,6 +285,30 @@ export const submitPromotionRequestSchema = z.object({
 
 export type SubmitPromotionRequestInput = z.infer<typeof submitPromotionRequestSchema>;
 
+export const submitRecertificationRequestSchema = z.object({
+  contactEmail: z
+    .string()
+    .min(1, '이메일은 필수 입력값입니다.')
+    .email('이메일 형식이 올바르지 않습니다.')
+    .max(255, '이메일은 255자 이하여야 합니다.'),
+  contactPhone: z
+    .string()
+    .min(1, '연락처는 필수 입력값입니다.')
+    .max(40, '연락처는 40자 이하여야 합니다.'),
+  operatingYear: z
+    .number()
+    .int()
+    .min(2000, '운영 연도는 2000 이상이어야 합니다.')
+    .max(2100, '운영 연도는 2100 이하여야 합니다.'),
+  notes: z
+    .string()
+    .max(2000, '메모는 2000자 이하여야 합니다.')
+    .optional()
+    .or(z.literal('')),
+});
+
+export type SubmitRecertificationRequestInput = z.infer<typeof submitRecertificationRequestSchema>;
+
 const REPORT_TARGET_TYPE_VALUES = ['CLUB', 'RECRUITMENT'] as const;
 const REPORT_REASON_CODE_VALUES = [
   'SPAM',
