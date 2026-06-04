@@ -1,6 +1,7 @@
 package com.duing.domain.club.service;
 
 import com.duing.domain.club.controller.dto.response.CentralClubRecertificationStatusResponse;
+import com.duing.domain.club.controller.dto.response.RecertificationContextResponse;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.RecertificationRequest;
 import com.duing.domain.club.entity.RecertificationRound;
@@ -203,6 +204,21 @@ public class GeneralRecertificationRequestService implements RecertificationRequ
                 currentLeaderRef, officerRefs, submittedLeaderRef,
                 handledByRef, recentHistoryQueries
         );
+    }
+
+    @Override
+    public RecertificationContextResponse getLeaderContext(Long clubId) {
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(ClubException.ClubNotFoundException::new);
+        RecertificationRound openRound = roundRepository.findByStatus(RoundStatus.OPEN).orElse(null);
+        RecertificationRequest pending = null;
+        if (openRound != null) {
+            pending = requestRepository
+                    .findByRoundIdAndClubIdAndStatus(openRound.getId(), club.getId(),
+                            RecertificationStatus.PENDING)
+                    .orElse(null);
+        }
+        return RecertificationContextResponse.of(club, openRound, pending);
     }
 
     // ── 내부 헬퍼 ──────────────────────────────────────────────────────────────
