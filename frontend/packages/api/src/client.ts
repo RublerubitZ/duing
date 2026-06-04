@@ -89,6 +89,8 @@ import type {
   FileUploadResult,
   FilePurpose,
   PromotionCard,
+  LeaderRecertificationContext,
+  SubmitRecertificationRequestPayload,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -220,6 +222,10 @@ export type DuingApiClient = {
   };
   promotionRequests: {
     submit(clubId: number, payload: SubmitPromotionRequestPayload): Promise<number>;
+  };
+  recertificationRequests: {
+    context(clubId: number): Promise<LeaderRecertificationContext>;
+    submit(clubId: number, payload: SubmitRecertificationRequestPayload): Promise<number>;
   };
   reports: {
     submit(payload: SubmitReportPayload): Promise<number>;
@@ -504,6 +510,16 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       submit: (clubId, payload) =>
         jsonOk<number>(
           http.post(`clubs/${clubId}/promotion-requests`, { json: payload }),
+        ),
+    },
+    recertificationRequests: {
+      context: (clubId) =>
+        jsonOk<LeaderRecertificationContext>(
+          http.get(`clubs/${clubId}/recertification-context`),
+        ),
+      submit: (clubId, payload) =>
+        jsonOk<number>(
+          http.post(`clubs/${clubId}/recertification-requests`, { json: payload }),
         ),
     },
     reports: {
