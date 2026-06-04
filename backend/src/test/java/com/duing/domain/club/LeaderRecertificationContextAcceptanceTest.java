@@ -9,6 +9,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -134,5 +135,58 @@ class LeaderRecertificationContextAcceptanceTest {
                 .body("data.pendingRequest.operatingYear", equalTo(2026))
                 .body("data.pendingRequest.contactEmail", equalTo("leader@example.com"))
                 .body("data.pendingRequest.contactPhone", equalTo("010-1234-5678"));
+    }
+
+    @Test
+    @DisplayName("비-중앙동아리이면 centralClub=false 로 응답한다")
+    void contextWithNonCentralClub() {
+        Club nonCentral = clubRepository.save(Club.create("일반동아리",
+                ClubCategory.HOBBY, null, "설명", null));
+        User leader2 = saveUser(UserRole.STUDENT);
+        clubMemberRepository.save(ClubMember.asLeader(nonCentral, leader2));
+        String token = jwtTokenProvider.createToken(leader2.getId(), leader2.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .when().get("/api/v1/clubs/" + nonCentral.getId() + "/recertification-context")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.centralClub", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("OFFICER 가 호출하면 403 을 반환한다")
+    void contextWithOfficerForbidden() {
+        User officer = saveUser(UserRole.STUDENT);
+        Club club = clubRepository.findById(centralClubId).orElseThrow();
+        clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
+        String token = jwtTokenProvider.createToken(officer.getId(), officer.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .when().get("/api/v1/clubs/" + centralClubId + "/recertification-context")
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("비-멤버가 호출하면 403 을 반환한다")
+    void contextWithNonMemberForbidden() {
+        User outsider = saveUser(UserRole.STUDENT);
+        String token = jwtTokenProvider.createToken(outsider.getId(), outsider.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .when().get("/api/v1/clubs/" + centralClubId + "/recertification-context")
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("미인증 사용자가 호출하면 403 을 반환한다")
+    void contextWithoutAuth() {
+        // GET /api/v1/clubs/** 는 SecurityConfig 에서 permitAll() 이므로 필터 수준의 401 이
+        // 발생하지 않는다. 대신 컨트롤러의 @PreAuthorize("isAuthenticated()") 가 동작하여
+        // AccessDeniedException → GlobalExceptionHandler → 403 을 반환한다.
+        RestAssured.given()
+                .when().get("/api/v1/clubs/" + centralClubId + "/recertification-context")
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
     }
 }
