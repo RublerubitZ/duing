@@ -1,6 +1,7 @@
 package com.duing.domain.club.service;
 
 import com.duing.domain.club.controller.dto.response.CentralClubRecertificationStatusResponse;
+import com.duing.domain.club.controller.dto.response.RecertificationContextResponse;
 import com.duing.domain.club.entity.RecertificationRequest;
 import com.duing.domain.club.service.dto.command.CreateRecertificationCommand;
 import com.duing.domain.club.service.dto.command.ProcessRecertificationCommand;
@@ -24,4 +25,7 @@ public interface RecertificationRequestService {
 
     /** 어드민 상세 조회 — 멤버·이력 조회 및 연관 엔티티 해석 후 Query DTO 를 반환한다. */
     RecertificationRequestAdminDetailQuery getDetailForAdmin(Long requestId);
+
+    /** LEADER 모달용 컨텍스트 — 중앙동아리 여부·OPEN 라운드·PENDING 신청 1건을 한 번에 반환. */
+    RecertificationContextResponse getLeaderContext(Long clubId);
 }
