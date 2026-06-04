@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-@Tag(name = "재인증 제출", description = "LEADER 의 중앙동아리 재인증 제출 API")
+@Tag(name = "재인증 (LEADER)", description = "LEADER 의 중앙동아리 재인증 컨텍스트 조회 및 신청 API")
 @SecurityRequirement(name = "BearerAuth")
 public interface LeaderRecertificationApi {
 
