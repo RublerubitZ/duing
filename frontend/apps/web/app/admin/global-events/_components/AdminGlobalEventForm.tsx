@@ -9,7 +9,7 @@ import {
   isGlobalEventCategory,
 } from '../_lib/categoryLabels';
 import type { GlobalEventFormState } from '../_lib/parseGlobalEventFormState';
-import { GlobalEventCoverUploader } from './GlobalEventCoverUploader';
+import { ImageUploader } from '../../../_components/ImageUploader';
 
 const FORM_STATE_KEYS = [
   'title',
@@ -74,9 +74,12 @@ export function AdminGlobalEventForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Field label="표지 이미지 (선택)" error={fieldErrors.coverImageUrl}>
-        <GlobalEventCoverUploader
+        <ImageUploader
           value={state.coverImageUrl}
           onChange={(url) => update('coverImageUrl', url)}
+          purpose="GLOBAL_EVENT_COVER"
+          placeholder="표지 이미지를 업로드하세요 (선택)"
+          altText="표지 이미지"
         />
       </Field>
 
