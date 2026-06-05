@@ -37,7 +37,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
                 command.title(), command.description(),
                 command.startAt(), command.endAt(),
                 command.location(), command.linkUrl(),
-                null, // TODO: Task 3 에서 command.coverImageUrl()
+                command.coverImageUrl(),
                 command.category(), command.createdBy()
         );
         return eventRepository.save(event).getId();
@@ -52,7 +52,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
                 command.startAt(), command.endAt(),
                 command.location(), command.linkUrl(),
                 command.category(),
-                null, null); // TODO: Task 3 에서 command.coverImageUrl(), command.clearCoverImage()
+                command.coverImageUrl(), command.clearCoverImage());
     }
 
     @Override

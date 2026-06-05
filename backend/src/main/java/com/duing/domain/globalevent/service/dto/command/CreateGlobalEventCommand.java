@@ -11,5 +11,6 @@ public record CreateGlobalEventCommand(
         LocalDateTime endAt,
         String location,
         String linkUrl,
+        String coverImageUrl,
         GlobalEventCategory category
 ) {}
