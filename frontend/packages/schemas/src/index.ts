@@ -333,3 +333,24 @@ export const submitReportSchema = z.object({
 });
 
 export type SubmitReportInput = z.infer<typeof submitReportSchema>;
+
+export const createClubNoticeSchema = z.object({
+  title: z
+    .string()
+    .min(1, '제목은 필수 입력값입니다.')
+    .max(120, '제목은 120자 이하여야 합니다.')
+    .refine((value) => value.trim().length > 0, '공백만으로 이루어진 제목은 입력할 수 없습니다.'),
+  summary: z.string().max(500, '요약은 500자 이하여야 합니다.').optional().or(z.literal('')),
+  content: z
+    .string()
+    .min(1, '본문은 필수 입력값입니다.')
+    .max(20000, '본문은 20000자 이하여야 합니다.'),
+  coverImageUrl: z.string().max(500, '이미지 URL 은 500자 이하여야 합니다.').optional().or(z.literal('')),
+  pinned: z.boolean().optional(),
+  expiresAt: z.string().optional().or(z.literal('')),
+});
+
+export type CreateClubNoticeInput = z.infer<typeof createClubNoticeSchema>;
+
+export const updateClubNoticeSchema = createClubNoticeSchema.partial();
+export type UpdateClubNoticeInput = z.infer<typeof updateClubNoticeSchema>;
