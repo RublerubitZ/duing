@@ -277,16 +277,27 @@ export function toCreatePayload(state: GlobalEventFormState): CreateGlobalEventP
 /**
  * 폼 상태 → PATCH 요청 payload.
  *
- * 빈 문자열(`""`) 은 의도된 "필드 비우기" 신호로 그대로 백엔드에 전달한다 (description/location/linkUrl).
+ * 빈 문자열(`""`) 은 의도된 "필드 비우기" 신호로 그대로 백엔드에 전달한다 (description/location).
  * 백엔드 `GlobalEvent.update` 가 null(=skip) 과 빈 문자열(=clear) 을 구분하므로,
  * `toCreatePayload` 처럼 `'' → undefined` 변환하면 안 됨.
+ *
+ * **linkUrl 의 빈 문자열 처리 (알려진 한계):**
+ * 백엔드 `UpdateGlobalEventRequest.linkUrl` 은 `@Pattern(regexp = "^https?://.+")` 가
+ * 빈 문자열을 거부 → `linkUrl: ""` 으로 PATCH 시 400. 현재 본 함수는 그대로 전달하므로
+ * 사용자가 linkUrl 을 "지운" 채 저장 시도 시 폼에서 400 에러 노출. 본 PR 범위 밖 — 후속
+ * 통합 리팩토링 spec 에서 `clearLinkUrl` 플래그 도입 또는 regex 완화로 통일 예정.
  *
  * coverImageUrl 처리 — `Club.clearCollege` 패턴:
  * - 폼 state.coverImageUrl 이 initialCoverImageUrl 과 동일 → 변경 없음, 두 필드 모두 undefined
  * - state.coverImageUrl 이 새 값 (non-empty, 다름) → coverImageUrl 만 set
  * - state.coverImageUrl 이 '' (제거 의도) → clearCoverImage: true 만 set
  *
- * **Invariant: coverImageUrl 과 clearCoverImage 는 동시에 set 되지 않는다.**
+ * **Invariant 1 — Mutually exclusive:** coverImageUrl 과 clearCoverImage 는 동시에 set 되지 않는다.
+ *
+ * **Invariant 2 — initialCoverImageUrl 는 반드시 `''` 로 normalize 된 string.**
+ * 백엔드 `AdminGlobalEventDetail.coverImageUrl` 이 `string | null` 이므로 호출자는
+ * `detailQuery.data.coverImageUrl ?? ''` 형태로 정규화해 전달해야 한다. `null` 을 그대로
+ * 전달하면 `'' !== null` 이라 매 저장마다 잘못된 변경 감지가 일어남.
  */
 export function toUpdatePayload(
   state: GlobalEventFormState,
@@ -485,12 +496,15 @@ import { GlobalEventCoverUploader } from './GlobalEventCoverUploader';
 
 - [ ] **Step 2: `AdminGlobalEventEditPage` 의 `toUpdatePayload` 호출 갱신**
 
-`Read` 로 현재 호출 위치 확인 후 `initialCoverImageUrl` 두 번째 인자 추가:
+`Read` 로 현재 호출 위치 확인 후 `initialCoverImageUrl` 두 번째 인자 추가. **`?? ''` normalize 는 invariant — 절대 생략 금지.**
 
 ```tsx
 updateMutation.mutate(
   {
     eventId,
+    // initialCoverImageUrl 는 반드시 '' 로 normalize 해 전달 (Invariant 2 of toUpdatePayload).
+    // detailQuery.data.coverImageUrl 은 string | null 이라 ?? '' 없이 전달하면
+    // 매 저장마다 잘못된 변경 감지가 일어남.
     payload: toUpdatePayload(state, detailQuery.data.coverImageUrl ?? ''),
   },
   {
@@ -502,8 +516,6 @@ updateMutation.mutate(
   },
 );
 ```
-
-> `detailQuery.data.coverImageUrl` 는 `string | null` — `?? ''` 로 빈 문자열 normalize. 그렇지 않으면 `null !== ''` 이라 항상 변경 감지됨.
 
 - [ ] **Step 3: `AdminGlobalEventNewPage` 영향 확인 (변경 없음)**
 
@@ -626,8 +638,9 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing/frontend && pnpm --filter web dev
 | 5 | 기존 이미지 있는 이벤트 수정 → title 만 변경 → 저장 | PATCH payload 에 `coverImageUrl`, `clearCoverImage` 둘 다 누락. DB 의 cover_image_url 유지. 모달 변화 없음 |
 | 6 | 어드민 목록(GE-3) / 공개 윈도우(GE-1) 응답 — 네트워크 탭 확인 | 응답에 `coverImageUrl` 필드 **없음** (Card / Summary 응답 미변경 확인) |
 | 7 | 공개 detail(GE-2) / 어드민 detail(GE-4) 응답 | 응답에 `coverImageUrl` 필드 **있음** (이미지 등록 케이스만 non-null) |
+| 8 | 기존 linkUrl 있는 이벤트 수정 → linkUrl 입력 필드 비워서 저장 | **현재 알려진 한계** — 폼에서 `linkUrl: ""` 전송 → 백엔드 `@Pattern` 거부 → 400 → 폼 에러 노출. 본 PR 범위 밖이지만 회귀 신호를 위해 시나리오로 명시. |
 
-각 시나리오의 네트워크 탭에서 PATCH 요청 body 를 확인해 `coverImageUrl` 과 `clearCoverImage` 가 **동시에 set 되지 않는 invariant** 가 지켜지는지 검증.
+각 시나리오의 네트워크 탭에서 PATCH 요청 body 를 확인해 `coverImageUrl` 과 `clearCoverImage` 가 **동시에 set 되지 않는 invariant 1** 이 지켜지는지, `toUpdatePayload` 호출이 `?? ''` normalize 후 전달되는지 (**invariant 2**) 검증.
 
 - [ ] **Step 3: spec / PR 체크리스트 self-review**
 
@@ -668,5 +681,6 @@ PR1 백엔드의 coverImageUrl 필드를 어드민 폼 + 캘린더 detail 모달
 - 업로드 형식/용량 검증 (spec §5.6 — 후속 통합 리팩토링 spec)
 - `<ImageWithFallback>` 공통 컴포넌트 (spec §5.7 — 후속 통합 리팩토링 spec)
 - 다른 도메인 URL 입력 통합 (spec §5.9)
-- 이미지 업로드 진행률 (spec §5.10)
+- 이미지 업로드 진행률 (spec №5.10)
 - next/image 도입 (spec §5.11)
+- **`linkUrl` 의 clear 시맨틱 통일** — 본 함수 `toUpdatePayload` 는 `linkUrl` 을 그대로 전달하는데, 사용자가 비우면 백엔드 `@Pattern` 가 빈 문자열을 거부해 400 발생. 시나리오 #8 에서 알려진 한계로 명시. 통일 방안 후보: (a) frontend 가 `state.linkUrl === ''` 일 때 백엔드의 `clearLinkUrl: true` 플래그로 변환 / (b) 백엔드 regex 완화. PR1 plan 의 Out of Scope 와 일치 — 후속 통합 리팩토링 spec.

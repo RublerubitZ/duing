@@ -626,7 +626,28 @@ void updatePartialPreservesCoverImage() {
             .body("data.title", equalTo("수정된 제목"))
             .body("data.coverImageUrl", equalTo("https://storage.example.com/global-event/cover/keep.jpg"));
 }
+
+@Test
+@DisplayName("linkUrl 을 빈 문자열로 PATCH 하면 @Pattern 검증에 의해 400 을 반환한다 (현재 거동)")
+void updateLinkUrlEmptyStringRejected() {
+    LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+    Long eventId = createAsAdmin(start, start.plusHours(2));
+
+    Map<String, Object> patch = new HashMap<>();
+    patch.put("linkUrl", "");
+
+    // 현재 @Pattern(regexp = "^https?://.+") 가 빈 문자열을 거부.
+    // 다른 자유 텍스트 필드(description/location)는 빈 문자열로 clear 가능하지만
+    // linkUrl 만 정책 불일치. coverImageUrl 처럼 clearLinkUrl 플래그 도입 필요 — 후속 spec.
+    RestAssured.given()
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .contentType(ContentType.JSON).body(patch)
+            .when().patch("/api/v1/admin/global-events/" + eventId)
+            .then().statusCode(HttpStatus.BAD_REQUEST.value());
+}
 ```
+
+> 마지막 케이스는 **본 PR 의 기여 외의 사전 결함을 문서화** 하는 회귀 방지 테스트. coverImageUrl 의 `clearCoverImage` 패턴이 도입됐어도 linkUrl 은 그대로 — 사용자가 "본 PR 이 linkUrl 도 고쳤다" 고 오해하지 않도록 현재 거동을 명시. 후속 spec 에서 `clearLinkUrl` 플래그 도입 또는 regex 완화 시 이 테스트가 깨지면서 의도된 변경이라는 신호가 됨.
 
 - [ ] **Step 2: `nullValue()` import 추가**
 
@@ -705,3 +726,4 @@ GlobalEvent 에 단일 표지 이미지(coverImageUrl) optional 필드를 추가
 - `<ImageWithFallback>` 공통 컴포넌트 — spec §5.7 (후속 통합 리팩토링 spec)
 - 다른 도메인 URL 입력 통합 — spec §5.9
 - 다중 이미지 갤러리 — spec §5.2
+- **`linkUrl` 의 clear 시맨틱 통일** — `@Pattern(regexp = "^https?://.+")` 가 빈 문자열을 거부해 다른 자유 텍스트 필드(description/location)의 "빈 문자열 = clear" 컨벤션과 정책 불일치. 본 PR 의 Task 5 마지막 케이스가 현재 거동을 회귀 방지 테스트로 명시. 통일 방안 후보: (a) `clearLinkUrl: Boolean` 플래그 도입 (`coverImageUrl` 과 동일 패턴) / (b) regex 완화 (`^(|https?://.+)$`). 어느 쪽이든 본 PR 범위 밖 — 후속 통합 리팩토링 spec 에 포함하거나 별도 micro-spec 으로 분리.
