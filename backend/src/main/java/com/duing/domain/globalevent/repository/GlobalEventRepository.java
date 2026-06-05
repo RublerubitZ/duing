@@ -1,6 +1,7 @@
 package com.duing.domain.globalevent.repository;
 
 import com.duing.domain.globalevent.entity.GlobalEvent;
+import com.duing.domain.globalevent.entity.GlobalEventCategory;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,8 +14,10 @@ public interface GlobalEventRepository extends JpaRepository<GlobalEvent, Long>,
         SELECT event FROM GlobalEvent event
         WHERE event.startAt <= :to
           AND event.endAt   >= :from
+          AND (:category IS NULL OR event.category = :category)
         ORDER BY event.startAt ASC
     """)
     List<GlobalEvent> findWindow(@Param("from") LocalDateTime from,
-                                 @Param("to") LocalDateTime to);
+                                 @Param("to") LocalDateTime to,
+                                 @Param("category") GlobalEventCategory category);
 }

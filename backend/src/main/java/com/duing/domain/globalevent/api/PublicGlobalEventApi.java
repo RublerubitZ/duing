@@ -2,6 +2,7 @@ package com.duing.domain.globalevent.api;
 
 import com.duing.domain.globalevent.controller.dto.response.GlobalEventCardResponse;
 import com.duing.domain.globalevent.controller.dto.response.GlobalEventDetailResponse;
+import com.duing.domain.globalevent.entity.GlobalEventCategory;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,7 +21,8 @@ public interface PublicGlobalEventApi {
     @GetMapping("/global-events")
     ResponseEntity<ApiResponse<List<GlobalEventCardResponse>>> listWindow(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) GlobalEventCategory category
     );
 
     @Operation(summary = "글로벌 이벤트 상세 (공개)")

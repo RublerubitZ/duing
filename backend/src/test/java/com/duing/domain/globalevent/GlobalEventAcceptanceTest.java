@@ -245,6 +245,29 @@ class GlobalEventAcceptanceTest {
     }
 
     @Test
+    @DisplayName("공개 윈도우 조회는 카테고리 필터를 적용한다")
+    void publicWindowCategoryFilter() {
+        LocalDateTime start = LocalDateTime.now().plusDays(5).withNano(0);
+        // FAIR 1 건 (default samplePayload)
+        createAsAdmin(start, start.plusHours(1));
+        // FESTIVAL 1 건
+        Map<String, Object> festivalBody = samplePayload(start.plusDays(1), start.plusDays(1).plusHours(1));
+        festivalBody.put("title", "공연 데이");
+        festivalBody.put("category", "FESTIVAL");
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON).body(festivalBody)
+                .when().post("/api/v1/admin/global-events")
+                .then().statusCode(HttpStatus.CREATED.value());
+
+        RestAssured.given()
+                .when().get("/api/v1/global-events?category=FESTIVAL")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(1))
+                .body("data[0].category", equalTo("FESTIVAL"));
+    }
+
+    @Test
     @DisplayName("어드민 목록은 카테고리 필터와 키워드를 동시에 적용한다")
     void adminListFilter() {
         LocalDateTime start = LocalDateTime.now().plusDays(1).withNano(0);

@@ -19,7 +19,7 @@ public interface GlobalEventService {
 
     void delete(Long eventId);
 
-    List<GlobalEvent> listPublicWindow(LocalDate from, LocalDate to);
+    List<GlobalEvent> listPublicWindow(LocalDate from, LocalDate to, GlobalEventCategory category);
 
     GlobalEvent getPublic(Long eventId);
 

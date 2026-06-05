@@ -62,7 +62,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
     }
 
     @Override
-    public List<GlobalEvent> listPublicWindow(LocalDate from, LocalDate to) {
+    public List<GlobalEvent> listPublicWindow(LocalDate from, LocalDate to, GlobalEventCategory category) {
         LocalDate today = LocalDate.now();
         LocalDate fromDate = from != null ? from : today.minusDays(DEFAULT_PAST_DAYS);
         LocalDate toDate = to != null ? to : today.plusDays(DEFAULT_FUTURE_DAYS);
@@ -74,7 +74,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
         }
         LocalDateTime fromTs = fromDate.atStartOfDay();
         LocalDateTime toTs = toDate.atTime(LocalTime.MAX);
-        return eventRepository.findWindow(fromTs, toTs);
+        return eventRepository.findWindow(fromTs, toTs, category);
     }
 
     @Override

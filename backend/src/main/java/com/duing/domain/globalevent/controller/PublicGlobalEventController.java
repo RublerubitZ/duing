@@ -3,6 +3,7 @@ package com.duing.domain.globalevent.controller;
 import com.duing.domain.globalevent.api.PublicGlobalEventApi;
 import com.duing.domain.globalevent.controller.dto.response.GlobalEventCardResponse;
 import com.duing.domain.globalevent.controller.dto.response.GlobalEventDetailResponse;
+import com.duing.domain.globalevent.entity.GlobalEventCategory;
 import com.duing.domain.globalevent.service.GlobalEventService;
 import com.duing.global.response.ApiResponse;
 import java.time.LocalDate;
@@ -20,8 +21,10 @@ public class PublicGlobalEventController implements PublicGlobalEventApi {
     private final GlobalEventService eventService;
 
     @Override
-    public ResponseEntity<ApiResponse<List<GlobalEventCardResponse>>> listWindow(LocalDate from, LocalDate to) {
-        List<GlobalEventCardResponse> items = eventService.listPublicWindow(from, to)
+    public ResponseEntity<ApiResponse<List<GlobalEventCardResponse>>> listWindow(
+            LocalDate from, LocalDate to, GlobalEventCategory category
+    ) {
+        List<GlobalEventCardResponse> items = eventService.listPublicWindow(from, to, category)
                 .stream()
                 .map(GlobalEventCardResponse::from)
                 .toList();
