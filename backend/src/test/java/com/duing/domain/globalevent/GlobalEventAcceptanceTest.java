@@ -378,17 +378,44 @@ class GlobalEventAcceptanceTest {
     }
 
     @Test
-    @DisplayName("linkUrl 을 빈 문자열로 PATCH 하면 @Pattern 검증에 의해 400 을 반환한다 (현재 거동)")
-    void updateLinkUrlEmptyStringRejected() {
+    @DisplayName("linkUrl 을 빈 문자열로 PATCH 하면 clear 시맨틱으로 빈 문자열이 저장된다")
+    void updateLinkUrlEmptyStringClears() {
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        Map<String, Object> body = samplePayload(start, start.plusHours(2));
+        body.put("linkUrl", "https://example.com/info");
+        Long eventId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON).body(body)
+                .when().post("/api/v1/admin/global-events")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        // @Pattern(regexp = "^$|^https?://.+$") 가 빈 문자열을 허용 → 200/204 통과 →
+        // entity.update() 의 `if (linkUrl != null) this.linkUrl = linkUrl;` 가 빈 문자열을 저장.
+        // 결과적으로 description/location 의 "빈 문자열 = clear" 컨벤션과 일관.
+        Map<String, Object> patch = new HashMap<>();
+        patch.put("linkUrl", "");
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON).body(patch)
+                .when().patch("/api/v1/admin/global-events/" + eventId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .when().get("/api/v1/global-events/" + eventId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.linkUrl", equalTo(""));
+    }
+
+    @Test
+    @DisplayName("linkUrl 이 http(s) 도 빈 문자열도 아닌 잘못된 값이면 400 을 반환한다")
+    void updateLinkUrlInvalidPatternRejected() {
         LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
         Long eventId = createAsAdmin(start, start.plusHours(2));
 
         Map<String, Object> patch = new HashMap<>();
-        patch.put("linkUrl", "");
+        patch.put("linkUrl", "javascript:alert(1)");
 
-        // 현재 @Pattern(regexp = "^https?://.+") 가 빈 문자열을 거부.
-        // 다른 자유 텍스트 필드(description/location)는 빈 문자열로 clear 가능하지만
-        // linkUrl 만 정책 불일치. coverImageUrl 처럼 clearLinkUrl 플래그 도입 필요 — 후속 spec.
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .contentType(ContentType.JSON).body(patch)

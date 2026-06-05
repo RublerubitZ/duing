@@ -12,7 +12,8 @@ public record UpdateGlobalEventRequest(
         LocalDateTime startAt,
         LocalDateTime endAt,
         @Size(max = 200, message = "장소는 200자 이하여야 합니다.") String location,
-        @Pattern(regexp = "^https?://.+", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.")
+        // 빈 문자열은 "linkUrl clear" 시맨틱 (description/location 과 일관). non-empty 일 때만 http(s) regex enforce.
+        @Pattern(regexp = "^$|^https?://.+$", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.")
         @Size(max = 500, message = "링크는 500자 이하여야 합니다.") String linkUrl,
         GlobalEventCategory category,
         @Size(max = 500, message = "이미지 URL은 500자 이하여야 합니다.")

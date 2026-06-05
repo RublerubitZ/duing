@@ -395,10 +395,16 @@ export const createGlobalEventSchema = z
     startAt: z.string().min(1, '시작 시각은 필수입니다.'),
     endAt: z.string().min(1, '종료 시각은 필수입니다.'),
     location: z.string().max(200, '장소는 200자 이하여야 합니다.').optional().or(z.literal('')),
+    // linkUrl 빈 문자열은 의도된 "미입력" 신호 — regex 우회.
+    // `.optional().or(z.literal(''))` 만으로는 zod 의 union 평가 타이밍 때문에
+    // 빈 문자열 입력 시 regex 에러가 먼저 노출되는 케이스가 있어 conditional refine 으로 명시.
     linkUrl: z
       .string()
       .max(500, '링크는 500자 이하여야 합니다.')
-      .regex(LINK_URL_PATTERN, '링크는 http:// 또는 https:// 로 시작해야 합니다.')
+      .refine(
+        (value) => value === '' || LINK_URL_PATTERN.test(value),
+        '링크는 http:// 또는 https:// 로 시작해야 합니다.',
+      )
       .optional()
       .or(z.literal('')),
     coverImageUrl: z
@@ -429,10 +435,14 @@ export const updateGlobalEventSchema = z
     startAt: z.string().optional(),
     endAt: z.string().optional(),
     location: z.string().max(200).optional().or(z.literal('')),
+    // linkUrl 빈 문자열은 의도된 "미입력" 신호 — regex 우회 (createGlobalEventSchema 와 동일 패턴).
     linkUrl: z
       .string()
       .max(500)
-      .regex(LINK_URL_PATTERN, '링크는 http:// 또는 https:// 로 시작해야 합니다.')
+      .refine(
+        (value) => value === '' || LINK_URL_PATTERN.test(value),
+        '링크는 http:// 또는 https:// 로 시작해야 합니다.',
+      )
       .optional()
       .or(z.literal('')),
     coverImageUrl: z
