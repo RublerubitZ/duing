@@ -104,6 +104,16 @@ function GlobalDetailSection({ eventId }: { eventId: number }) {
   const detail = detailQuery.data;
   return (
     <div className="space-y-3 border-t border-line pt-4">
+      {detail.coverImageUrl && (
+        <div className="aspect-[16/9] rounded-lg overflow-hidden bg-graysoft">
+          {/* eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL */}
+          <img
+            src={detail.coverImageUrl}
+            alt={detail.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
       {detail.description && (
         <p className="text-[13.5px] text-charcoal whitespace-pre-wrap">{detail.description}</p>
       )}
