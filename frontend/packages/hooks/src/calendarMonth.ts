@@ -41,6 +41,16 @@ export type CalendarMonthResult = {
   };
 };
 
+/**
+ * "YYYY-MM-DD" + N days → "YYYY-MM-DD".
+ * 월/년 경계 안전. UTC midnight 으로 파싱해 timezone 영향 없음.
+ */
+function addDaysIso(iso: string, days: number): string {
+  const base = new Date(`${iso}T00:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + days);
+  return base.toISOString().slice(0, 10);
+}
+
 export function useCalendarMonthQuery(
   yearMonth: string,
   options: CalendarMonthOptions,
@@ -70,7 +80,24 @@ export function useCalendarMonthQuery(
 
   const events = useMemo<CalEvent[]>(() => {
     const merged: CalEvent[] = [];
-    if (globalEvents.data) merged.push(...globalEvents.data.map(mappers.toGlobal));
+    if (globalEvents.data) {
+      // 다일 GlobalEvent (예: 박람회 6/9~6/15) 는 시작일~종료일 사이 모든 셀에 노출되어야 한다.
+      // mapper 는 단일 CalEvent 를 반환하므로 여기서 day 단위로 fan-out.
+      // span 은 첫 날에만 set — 그리드가 multi-day pill 을 그릴 때 활용 (선택 사항).
+      // CalendarPage 의 그리드는 event.date 키로 lookup 하므로 각 셀에 매핑되어야 함.
+      for (const item of globalEvents.data) {
+        const baseEvent = mappers.toGlobal(item);
+        const totalSpan = baseEvent.span ?? 1;
+        for (let dayOffset = 0; dayOffset < totalSpan; dayOffset++) {
+          merged.push({
+            ...baseEvent,
+            id: `${baseEvent.id}-d${dayOffset}`,
+            date: addDaysIso(baseEvent.date, dayOffset),
+            span: dayOffset === 0 ? totalSpan : undefined,
+          });
+        }
+      }
+    }
     if (recruitments.data) {
       for (const item of recruitments.data) {
         const mapped = mappers.toRecruitment(item);
