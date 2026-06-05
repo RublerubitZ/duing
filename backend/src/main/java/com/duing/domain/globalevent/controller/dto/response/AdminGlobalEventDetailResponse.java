@@ -13,6 +13,7 @@ public record AdminGlobalEventDetailResponse(
         LocalDateTime endAt,
         String location,
         String linkUrl,
+        String coverImageUrl,
         GlobalEventCategory category,
         CreatorRef createdBy,
         LocalDateTime createdAt,
@@ -24,7 +25,9 @@ public record AdminGlobalEventDetailResponse(
         return new AdminGlobalEventDetailResponse(
                 event.getId(), event.getTitle(), event.getDescription(),
                 event.getStartAt(), event.getEndAt(),
-                event.getLocation(), event.getLinkUrl(), event.getCategory(),
+                event.getLocation(), event.getLinkUrl(),
+                event.getCoverImageUrl(),
+                event.getCategory(),
                 new CreatorRef(creator.getId(), creator.getName()),
                 event.getCreatedAt(), event.getUpdatedAt()
         );
