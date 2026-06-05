@@ -9,6 +9,7 @@ import {
   isGlobalEventCategory,
 } from '../_lib/categoryLabels';
 import type { GlobalEventFormState } from '../_lib/parseGlobalEventFormState';
+import { GlobalEventCoverUploader } from './GlobalEventCoverUploader';
 
 const FORM_STATE_KEYS = [
   'title',
@@ -17,6 +18,7 @@ const FORM_STATE_KEYS = [
   'endAt',
   'location',
   'linkUrl',
+  'coverImageUrl',
   'category',
 ] as const satisfies readonly (keyof GlobalEventFormState)[];
 
@@ -71,6 +73,13 @@ export function AdminGlobalEventForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <Field label="표지 이미지 (선택)" error={fieldErrors.coverImageUrl}>
+        <GlobalEventCoverUploader
+          value={state.coverImageUrl}
+          onChange={(url) => update('coverImageUrl', url)}
+        />
+      </Field>
+
       <Field label="카테고리" error={fieldErrors.category}>
         <select
           required

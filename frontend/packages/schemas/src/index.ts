@@ -401,6 +401,11 @@ export const createGlobalEventSchema = z
       .regex(LINK_URL_PATTERN, '링크는 http:// 또는 https:// 로 시작해야 합니다.')
       .optional()
       .or(z.literal('')),
+    coverImageUrl: z
+      .string()
+      .max(500, '이미지 URL은 500자 이하여야 합니다.')
+      .optional()
+      .or(z.literal('')),
     category: z.enum(['FAIR', 'FESTIVAL', 'APPLICATION', 'CONTEST', 'UNION', 'OTHER'], {
       errorMap: () => ({ message: '카테고리를 선택해주세요.' }),
     }),
@@ -430,6 +435,12 @@ export const updateGlobalEventSchema = z
       .regex(LINK_URL_PATTERN, '링크는 http:// 또는 https:// 로 시작해야 합니다.')
       .optional()
       .or(z.literal('')),
+    coverImageUrl: z
+      .string()
+      .max(500, '이미지 URL은 500자 이하여야 합니다.')
+      .optional()
+      .or(z.literal('')),
+    clearCoverImage: z.boolean().optional(),
     category: z.enum(['FAIR', 'FESTIVAL', 'APPLICATION', 'CONTEST', 'UNION', 'OTHER']).optional(),
   })
   // partial update 에서도 startAt / endAt 둘 다 제공되면 순서 검증. 한쪽만 제공된 경우는 백엔드 entity 의 validatePeriod 가 최종 방어선.
