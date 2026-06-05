@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useEffect, useState, type ReactNode } from 'react';
-import { createApiClient, registerCookieAdapter } from '@duing/api';
+import { ApiError, createApiClient, registerCookieAdapter } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
@@ -24,7 +24,14 @@ export function Providers({ children }: { children: ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 30_000,
-            retry: 1,
+            // 인증 실패(401)·권한 실패(403)는 retry 무의미 — 콘솔 노이즈만 유발.
+            // 그 외 네트워크/일시 오류는 기존 1 회 retry 유지.
+            retry: (failureCount, error) => {
+              if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+                return false;
+              }
+              return failureCount < 1;
+            },
             refetchOnWindowFocus: false,
           },
         },
