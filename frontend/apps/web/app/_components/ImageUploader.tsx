@@ -34,12 +34,13 @@ export function ImageUploader({
   const [localError, setLocalError] = useState<string | null>(null);
 
   const handleSelect = async (file: File) => {
+    setLocalError(null);
     const validationError = validateImageFile(file);
     if (validationError) {
       setLocalError(validationError);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    setLocalError(null);
     try {
       const result = await uploadMutation.mutateAsync({ file, purpose });
       onChange(result.url);
@@ -47,6 +48,8 @@ export function ImageUploader({
       // 업로드 실패(백엔드 400, 네트워크 오류 등) 는 uploadMutation.isError /
       // uploadMutation.error 에 담겨 displayError 로 노출됨. catch 없으면
       // unhandled rejection 이 콘솔 에러 + 잔여 부작용을 남기므로 swallow 가 의도된 동작.
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
