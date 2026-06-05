@@ -12,11 +12,12 @@ import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
 import { userQueryKeys } from './userQueryKeys';
 
-export function useManagedClubsQuery() {
+export function useManagedClubsQuery(options?: { enabled?: boolean }) {
   const client = useApiClient();
   return useQuery({
     queryKey: clubQueryKeys.managed(),
     queryFn: () => client.clubs.managedByMe(),
+    enabled: options?.enabled ?? true,
   });
 }
 

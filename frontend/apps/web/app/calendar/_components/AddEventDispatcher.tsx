@@ -14,7 +14,10 @@ type Props = {
 export function AddEventDispatcher({ open, onClose }: Props) {
   const router = useRouter();
   const meQuery = useMeQuery();
-  const managedClubsQuery = useManagedClubsQuery();
+  // 비로그인 시 /leader/clubs/me/managed 호출 자체를 skip — 401 콘솔 노이즈 방지.
+  // 비로그인 사용자는 운영 클럽이 있을 수 없으므로 빈 배열 처리와 의미상 동일.
+  const isAuthenticated = !!meQuery.data;
+  const managedClubsQuery = useManagedClubsQuery({ enabled: isAuthenticated });
   const [selectedClubId, setSelectedClubId] = useState<number | null>(null);
 
   if (!open) return null;
