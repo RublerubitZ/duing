@@ -91,6 +91,9 @@ import type {
   PromotionCard,
   LeaderRecertificationContext,
   SubmitRecertificationRequestPayload,
+  MyClubMembership,
+  CreateClubNoticePayload,
+  UpdateClubNoticePayload,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -226,6 +229,18 @@ export type DuingApiClient = {
   recertificationRequests: {
     context(clubId: number): Promise<LeaderRecertificationContext>;
     submit(clubId: number, payload: SubmitRecertificationRequestPayload): Promise<number>;
+  };
+  clubMembership: {
+    get(clubId: number): Promise<MyClubMembership>;
+  };
+  clubNotices: {
+    listForClub(
+      clubId: number,
+      params: { page?: number; size?: number },
+    ): Promise<PageResponse<NoticeCardItem>>;
+    create(clubId: number, payload: CreateClubNoticePayload): Promise<number>;
+    update(clubId: number, noticeId: number, payload: UpdateClubNoticePayload): Promise<void>;
+    remove(clubId: number, noticeId: number): Promise<void>;
   };
   reports: {
     submit(payload: SubmitReportPayload): Promise<number>;
@@ -521,6 +536,22 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<number>(
           http.post(`clubs/${clubId}/recertification-requests`, { json: payload }),
         ),
+    },
+    clubMembership: {
+      get: (clubId) =>
+        jsonOk<MyClubMembership>(http.get(`clubs/${clubId}/membership`)),
+    },
+    clubNotices: {
+      listForClub: (clubId, params) =>
+        jsonOk<PageResponse<NoticeCardItem>>(
+          http.get(`clubs/${clubId}/notices`, { searchParams: cleanParams(params) }),
+        ),
+      create: (clubId, payload) =>
+        jsonOk<number>(http.post(`clubs/${clubId}/notices`, { json: payload })),
+      update: (clubId, noticeId, payload) =>
+        jsonVoid(http.patch(`clubs/${clubId}/notices/${noticeId}`, { json: payload })),
+      remove: (clubId, noticeId) =>
+        jsonVoid(http.delete(`clubs/${clubId}/notices/${noticeId}`)),
     },
     reports: {
       submit: (payload) =>
