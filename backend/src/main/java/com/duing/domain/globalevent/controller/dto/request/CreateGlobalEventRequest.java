@@ -19,7 +19,9 @@ public record CreateGlobalEventRequest(
 
         @Size(max = 200, message = "장소는 200자 이하여야 합니다.") String location,
 
-        @Pattern(regexp = "^https?://.+", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.")
+        // 빈 문자열은 "linkUrl 미입력" 시맨틱 (UpdateGlobalEventRequest 의 clear 패턴과 일관).
+        // 실제로는 frontend toCreatePayload 가 '' → undefined 변환하지만 방어적 일관성을 위해 update 와 동일 regex.
+        @Pattern(regexp = "^$|^https?://.+$", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.")
         @Size(max = 500, message = "링크는 500자 이하여야 합니다.") String linkUrl,
 
         @Size(max = 500, message = "이미지 URL은 500자 이하여야 합니다.")
