@@ -414,7 +414,12 @@ export type CreateGlobalEventInput = z.infer<typeof createGlobalEventSchema>;
 
 export const updateGlobalEventSchema = z
   .object({
-    title: z.string().min(1).max(120).optional(),
+    title: z
+      .string()
+      .min(1, '제목은 필수 입력값입니다.')
+      .max(120, '제목은 120자 이하여야 합니다.')
+      .refine((value) => value.trim().length > 0, '공백만으로 이루어진 제목은 입력할 수 없습니다.')
+      .optional(),
     description: z.string().max(2000).optional().or(z.literal('')),
     startAt: z.string().optional(),
     endAt: z.string().optional(),

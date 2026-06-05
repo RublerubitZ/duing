@@ -61,6 +61,13 @@ export function toCreatePayload(state: GlobalEventFormState): CreateGlobalEventP
   };
 }
 
+/**
+ * 폼 상태 → PATCH 요청 payload.
+ *
+ * 빈 문자열(`""`) 은 의도된 "필드 비우기" 신호로 그대로 백엔드에 전달한다.
+ * 백엔드 `GlobalEvent.update` 가 null(=skip) 과 빈 문자열(=clear) 을 구분하므로,
+ * `toCreatePayload` 처럼 `'' → undefined` 변환하면 안 됨.
+ */
 export function toUpdatePayload(state: GlobalEventFormState): UpdateGlobalEventPayload {
   const payload: UpdateGlobalEventPayload = {
     title: state.title.trim(),
