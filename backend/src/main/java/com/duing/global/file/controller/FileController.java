@@ -41,7 +41,8 @@ public class FileController implements FileApi {
             throw new FileException.UploadSizeExceededException();
         }
         String contentType = file.getContentType();
-        if (contentType == null || !FileUploadPolicy.ALLOWED_MIME_TYPES.contains(contentType)) {
+        if (contentType == null || contentType.isBlank()
+                || !FileUploadPolicy.ALLOWED_MIME_TYPES.contains(contentType)) {
             throw new FileException.UnsupportedFileTypeException();
         }
     }
