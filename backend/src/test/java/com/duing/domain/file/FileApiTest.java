@@ -82,7 +82,8 @@ class FileApiTest {
                 .when()
                     .post("/api/v1/files")
                 .then()
-                    .statusCode(HttpStatus.CREATED.value());
+                    .statusCode(HttpStatus.CREATED.value())
+                    .body("data.url", org.hamcrest.Matchers.notNullValue());
     }
 
     @Test
@@ -126,7 +127,8 @@ class FileApiTest {
                 .when()
                     .post("/api/v1/files")
                 .then()
-                    .statusCode(HttpStatus.BAD_REQUEST.value());
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("message", org.hamcrest.Matchers.containsString("지원하지 않는"));
     }
 
     @Test
@@ -140,7 +142,8 @@ class FileApiTest {
                 .when()
                     .post("/api/v1/files")
                 .then()
-                    .statusCode(HttpStatus.BAD_REQUEST.value());
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("message", org.hamcrest.Matchers.containsString("지원하지 않는"));
     }
 
     @Test
@@ -157,6 +160,7 @@ class FileApiTest {
                 .when()
                     .post("/api/v1/files")
                 .then()
-                    .statusCode(HttpStatus.BAD_REQUEST.value());
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("message", org.hamcrest.Matchers.containsString("지원하지 않는"));
     }
 }
