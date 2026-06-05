@@ -156,3 +156,5 @@ export {
   useAdminGlobalEventDeleteMutation,
 } from './globalEvents';
 export { globalEventKeys } from './globalEventQueryKeys';
+export { useCalendarMonthQuery } from './calendarMonth';
+export type { CalendarMonthOptions, CalendarMonthResult } from './calendarMonth';

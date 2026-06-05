@@ -20,11 +20,12 @@ export function useManagedClubsQuery() {
   });
 }
 
-export function useMyClubsQuery() {
+export function useMyClubsQuery(options?: { enabled?: boolean }) {
   const client = useApiClient();
   return useQuery({
     queryKey: userQueryKeys.myClubs(),
     queryFn: () => client.users.myClubs(),
+    enabled: options?.enabled ?? true,
   });
 }
 
