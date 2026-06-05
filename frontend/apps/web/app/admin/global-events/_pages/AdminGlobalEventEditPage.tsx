@@ -50,7 +50,13 @@ export function AdminGlobalEventEditPage() {
           if (eventId === null) return;
           setErrorMessage(null);
           updateMutation.mutate(
-            { eventId, payload: toUpdatePayload(state) },
+            {
+              eventId,
+              // initialCoverImageUrl 은 반드시 '' 로 normalize 해 전달 (Invariant 2 of toUpdatePayload).
+              // detailQuery.data.coverImageUrl 은 string | null 이라 ?? '' 없이 전달하면
+              // 매 저장마다 잘못된 변경 감지가 일어남.
+              payload: toUpdatePayload(state, detailQuery.data.coverImageUrl ?? ''),
+            },
             {
               onSuccess: () => router.push(toRoute('/admin/global-events')),
               onError: (error) => {
