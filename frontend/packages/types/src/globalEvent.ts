@@ -23,6 +23,7 @@ export type GlobalEventDetail = {
   endAt: string;
   location: string | null;
   linkUrl: string | null;
+  coverImageUrl: string | null;
   category: GlobalEventCategory;
 };
 
@@ -48,6 +49,7 @@ export type AdminGlobalEventDetail = {
   endAt: string;
   location: string | null;
   linkUrl: string | null;
+  coverImageUrl: string | null;
   category: GlobalEventCategory;
   createdBy: AdminGlobalEventCreator;
   createdAt: string;
@@ -61,10 +63,13 @@ export type CreateGlobalEventPayload = {
   endAt: string;
   location?: string;
   linkUrl?: string;
+  coverImageUrl?: string;
   category: GlobalEventCategory;
 };
 
-export type UpdateGlobalEventPayload = Partial<CreateGlobalEventPayload>;
+export type UpdateGlobalEventPayload = Partial<CreateGlobalEventPayload> & {
+  clearCoverImage?: boolean;
+};
 
 export type GlobalEventListParams = {
   from?: string;
