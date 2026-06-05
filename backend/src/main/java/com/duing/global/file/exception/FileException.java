@@ -1,6 +1,7 @@
 package com.duing.global.file.exception;
 
 import com.duing.global.exception.ApplicationException;
+import com.duing.global.file.FileUploadPolicy;
 import org.springframework.http.HttpStatus;
 
 public class FileException extends ApplicationException {
@@ -10,7 +11,8 @@ public class FileException extends ApplicationException {
     }
 
     public static class UploadSizeExceededException extends FileException {
-        private static final String MESSAGE = "이미지 크기는 5MB 이하여야 합니다.";
+        private static final String MESSAGE =
+                "이미지 크기는 " + (FileUploadPolicy.MAX_BYTES / (1024 * 1024)) + "MB 이하여야 합니다.";
         public UploadSizeExceededException() {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
