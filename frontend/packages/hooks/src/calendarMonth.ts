@@ -44,8 +44,10 @@ export type CalendarMonthResult = {
 /**
  * "YYYY-MM-DD" + N days → "YYYY-MM-DD".
  * 월/년 경계 안전. UTC midnight 으로 파싱해 timezone 영향 없음.
+ *
+ * Upcoming 목록의 다일 이벤트 기간 표시 (`startDate + (span - 1)`) 등 호출자에서도 활용.
  */
-function addDaysIso(iso: string, days: number): string {
+export function addDaysIso(iso: string, days: number): string {
   const base = new Date(`${iso}T00:00:00Z`);
   base.setUTCDate(base.getUTCDate() + days);
   return base.toISOString().slice(0, 10);
