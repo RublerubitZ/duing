@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.user.entity.College;
@@ -294,5 +295,104 @@ class GlobalEventAcceptanceTest {
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.content", hasSize(1))
                 .body("data.content[0].title", equalTo("두잉 페스티벌"));
+    }
+
+    @Test
+    @DisplayName("ADMIN 이 coverImageUrl 을 포함해 생성하면 공개 detail 응답에 노출된다")
+    void createWithCoverImage() {
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        Map<String, Object> body = samplePayload(start, start.plusHours(2));
+        body.put("coverImageUrl", "https://storage.example.com/global-event/cover/abc.jpg");
+
+        Long eventId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON).body(body)
+                .when().post("/api/v1/admin/global-events")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data", notNullValue())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .when().get("/api/v1/global-events/" + eventId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.coverImageUrl", equalTo("https://storage.example.com/global-event/cover/abc.jpg"));
+    }
+
+    @Test
+    @DisplayName("clearCoverImage true 로 PATCH 하면 coverImageUrl 이 null 로 제거된다")
+    void updateClearCoverImage() {
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        Map<String, Object> body = samplePayload(start, start.plusHours(2));
+        body.put("coverImageUrl", "https://storage.example.com/global-event/cover/old.jpg");
+
+        Long eventId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON).body(body)
+                .when().post("/api/v1/admin/global-events")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        Map<String, Object> patch = new HashMap<>();
+        patch.put("clearCoverImage", true);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON).body(patch)
+                .when().patch("/api/v1/admin/global-events/" + eventId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .when().get("/api/v1/global-events/" + eventId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.coverImageUrl", nullValue());
+    }
+
+    @Test
+    @DisplayName("title 만 PATCH 하면 기존 coverImageUrl 은 그대로 유지된다")
+    void updatePartialPreservesCoverImage() {
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        Map<String, Object> body = samplePayload(start, start.plusHours(2));
+        body.put("coverImageUrl", "https://storage.example.com/global-event/cover/keep.jpg");
+
+        Long eventId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON).body(body)
+                .when().post("/api/v1/admin/global-events")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        Map<String, Object> patch = new HashMap<>();
+        patch.put("title", "수정된 제목");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON).body(patch)
+                .when().patch("/api/v1/admin/global-events/" + eventId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .when().get("/api/v1/global-events/" + eventId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.title", equalTo("수정된 제목"))
+                .body("data.coverImageUrl", equalTo("https://storage.example.com/global-event/cover/keep.jpg"));
+    }
+
+    @Test
+    @DisplayName("linkUrl 을 빈 문자열로 PATCH 하면 @Pattern 검증에 의해 400 을 반환한다 (현재 거동)")
+    void updateLinkUrlEmptyStringRejected() {
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        Long eventId = createAsAdmin(start, start.plusHours(2));
+
+        Map<String, Object> patch = new HashMap<>();
+        patch.put("linkUrl", "");
+
+        // 현재 @Pattern(regexp = "^https?://.+") 가 빈 문자열을 거부.
+        // 다른 자유 텍스트 필드(description/location)는 빈 문자열로 clear 가능하지만
+        // linkUrl 만 정책 불일치. coverImageUrl 처럼 clearLinkUrl 플래그 도입 필요 — 후속 spec.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON).body(patch)
+                .when().patch("/api/v1/admin/global-events/" + eventId)
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 }
