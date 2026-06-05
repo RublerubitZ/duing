@@ -29,6 +29,7 @@ public class GlobalEvent extends BaseEntity {
     @Column(name = "end_at",   nullable = false)         private LocalDateTime endAt;
     @Column(length = 200)                                private String location;
     @Column(name = "link_url", length = 500)             private String linkUrl;
+    @Column(name = "cover_image_url", length = 500)      private String coverImageUrl;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)               private GlobalEventCategory category;
     @Column(name = "created_by", nullable = false)       private Long createdBy;
@@ -37,6 +38,7 @@ public class GlobalEvent extends BaseEntity {
     private GlobalEvent(String title, String description,
                         LocalDateTime startAt, LocalDateTime endAt,
                         String location, String linkUrl,
+                        String coverImageUrl,
                         GlobalEventCategory category, Long createdBy) {
         validateTitle(title);
         validatePeriod(startAt, endAt);
@@ -46,6 +48,7 @@ public class GlobalEvent extends BaseEntity {
         this.endAt = endAt;
         this.location = location;
         this.linkUrl = linkUrl;
+        this.coverImageUrl = coverImageUrl;
         this.category = category;
         this.createdBy = createdBy;
     }
@@ -53,11 +56,13 @@ public class GlobalEvent extends BaseEntity {
     public static GlobalEvent create(String title, String description,
                                      LocalDateTime startAt, LocalDateTime endAt,
                                      String location, String linkUrl,
+                                     String coverImageUrl,
                                      GlobalEventCategory category, Long createdBy) {
         return GlobalEvent.builder()
                 .title(title).description(description)
                 .startAt(startAt).endAt(endAt)
                 .location(location).linkUrl(linkUrl)
+                .coverImageUrl(coverImageUrl)
                 .category(category).createdBy(createdBy)
                 .build();
     }
@@ -65,7 +70,8 @@ public class GlobalEvent extends BaseEntity {
     public void update(String title, String description,
                        LocalDateTime startAt, LocalDateTime endAt,
                        String location, String linkUrl,
-                       GlobalEventCategory category) {
+                       GlobalEventCategory category,
+                       String coverImageUrl, Boolean clearCoverImage) {
         LocalDateTime nextStart = startAt != null ? startAt : this.startAt;
         LocalDateTime nextEnd   = endAt   != null ? endAt   : this.endAt;
         validatePeriod(nextStart, nextEnd);
@@ -79,6 +85,14 @@ public class GlobalEvent extends BaseEntity {
         if (location != null) this.location = location;
         if (linkUrl != null) this.linkUrl = linkUrl;
         if (category != null) this.category = category;
+
+        // clearCoverImage 가 우선 평가 — true 면 null 로 제거.
+        // 그 외에는 coverImageUrl 이 non-null 일 때만 교체. 둘 다 누락 → 유지.
+        if (Boolean.TRUE.equals(clearCoverImage)) {
+            this.coverImageUrl = null;
+        } else if (coverImageUrl != null) {
+            this.coverImageUrl = coverImageUrl;
+        }
     }
 
     private static void validatePeriod(LocalDateTime start, LocalDateTime end) {
