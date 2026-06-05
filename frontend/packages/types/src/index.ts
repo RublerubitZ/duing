@@ -14,3 +14,4 @@ export * from './recertification';
 export * from './clubMembership';
 export * from './clubNotice';
 export * from './clubEvent';
+export * from './globalEvent';

@@ -145,3 +145,14 @@ export {
   useRemoveClubEventMutation,
 } from './clubEvents';
 export { clubEventKeys } from './clubEventQueryKeys';
+export {
+  useGlobalEventListQuery,
+  useGlobalEventDetailQuery,
+  useAdminGlobalEventListQuery,
+  useAdminGlobalEventDetailQuery,
+  useGlobalEventCategoryStatsQuery,
+  useAdminGlobalEventCreateMutation,
+  useAdminGlobalEventUpdateMutation,
+  useAdminGlobalEventDeleteMutation,
+} from './globalEvents';
+export { globalEventKeys } from './globalEventQueryKeys';

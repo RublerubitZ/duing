@@ -381,3 +381,68 @@ export const updateClubEventSchema = z.object({
 });
 
 export type UpdateClubEventInput = z.infer<typeof updateClubEventSchema>;
+
+const LINK_URL_PATTERN = /^https?:\/\/.+/;
+
+export const createGlobalEventSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1, '제목은 필수 입력값입니다.')
+      .max(120, '제목은 120자 이하여야 합니다.')
+      .refine((value) => value.trim().length > 0, '공백만으로 이루어진 제목은 입력할 수 없습니다.'),
+    description: z.string().max(2000, '설명은 2000자 이하여야 합니다.').optional().or(z.literal('')),
+    startAt: z.string().min(1, '시작 시각은 필수입니다.'),
+    endAt: z.string().min(1, '종료 시각은 필수입니다.'),
+    location: z.string().max(200, '장소는 200자 이하여야 합니다.').optional().or(z.literal('')),
+    linkUrl: z
+      .string()
+      .max(500, '링크는 500자 이하여야 합니다.')
+      .regex(LINK_URL_PATTERN, '링크는 http:// 또는 https:// 로 시작해야 합니다.')
+      .optional()
+      .or(z.literal('')),
+    category: z.enum(['FAIR', 'FESTIVAL', 'APPLICATION', 'CONTEST', 'UNION', 'OTHER'], {
+      errorMap: () => ({ message: '카테고리를 선택해주세요.' }),
+    }),
+  })
+  .refine((data) => new Date(data.endAt) >= new Date(data.startAt), {
+    message: '종료 시각은 시작 시각 이후여야 합니다.',
+    path: ['endAt'],
+  });
+
+export type CreateGlobalEventInput = z.infer<typeof createGlobalEventSchema>;
+
+export const updateGlobalEventSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1, '제목은 필수 입력값입니다.')
+      .max(120, '제목은 120자 이하여야 합니다.')
+      .refine((value) => value.trim().length > 0, '공백만으로 이루어진 제목은 입력할 수 없습니다.')
+      .optional(),
+    description: z.string().max(2000).optional().or(z.literal('')),
+    startAt: z.string().optional(),
+    endAt: z.string().optional(),
+    location: z.string().max(200).optional().or(z.literal('')),
+    linkUrl: z
+      .string()
+      .max(500)
+      .regex(LINK_URL_PATTERN, '링크는 http:// 또는 https:// 로 시작해야 합니다.')
+      .optional()
+      .or(z.literal('')),
+    category: z.enum(['FAIR', 'FESTIVAL', 'APPLICATION', 'CONTEST', 'UNION', 'OTHER']).optional(),
+  })
+  // partial update 에서도 startAt / endAt 둘 다 제공되면 순서 검증. 한쪽만 제공된 경우는 백엔드 entity 의 validatePeriod 가 최종 방어선.
+  .superRefine((data, ctx) => {
+    if (data.startAt && data.endAt) {
+      if (new Date(data.endAt) < new Date(data.startAt)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: '종료 시각은 시작 시각 이후여야 합니다.',
+          path: ['endAt'],
+        });
+      }
+    }
+  });
+
+export type UpdateGlobalEventInput = z.infer<typeof updateGlobalEventSchema>;

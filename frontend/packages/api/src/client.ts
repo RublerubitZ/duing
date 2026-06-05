@@ -99,6 +99,15 @@ import type {
   ClubEventListParams,
   CreateClubEventPayload,
   UpdateClubEventPayload,
+  AdminGlobalEventDetail,
+  AdminGlobalEventListParams,
+  AdminGlobalEventSummary,
+  CreateGlobalEventPayload,
+  GlobalEventCard,
+  GlobalEventCategoryStats,
+  GlobalEventDetail,
+  GlobalEventListParams,
+  UpdateGlobalEventPayload,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -254,6 +263,10 @@ export type DuingApiClient = {
     update(clubId: number, eventId: number, payload: UpdateClubEventPayload): Promise<void>;
     remove(clubId: number, eventId: number): Promise<void>;
   };
+  globalEvents: {
+    list(params?: GlobalEventListParams): Promise<GlobalEventCard[]>;
+    get(eventId: number): Promise<GlobalEventDetail>;
+  };
   reports: {
     submit(payload: SubmitReportPayload): Promise<number>;
   };
@@ -278,6 +291,14 @@ export type DuingApiClient = {
       create(payload: CreateNoticePayload): Promise<number>;
       update(noticeId: number, payload: UpdateNoticePayload): Promise<void>;
       remove(noticeId: number): Promise<void>;
+    };
+    globalEvents: {
+      list(params: AdminGlobalEventListParams): Promise<PageResponse<AdminGlobalEventSummary>>;
+      detail(eventId: number): Promise<AdminGlobalEventDetail>;
+      create(payload: CreateGlobalEventPayload): Promise<number>;
+      update(eventId: number, payload: UpdateGlobalEventPayload): Promise<void>;
+      remove(eventId: number): Promise<void>;
+      categoryStats(): Promise<GlobalEventCategoryStats>;
     };
     reports: {
       list(params: AdminReportSearchParams): Promise<PageResponse<AdminReportSummary>>;
@@ -579,6 +600,14 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       remove: (clubId, eventId) =>
         jsonVoid(http.delete(`clubs/${clubId}/events/${eventId}`)),
     },
+    globalEvents: {
+      list: (params) =>
+        jsonOk<GlobalEventCard[]>(
+          http.get('global-events', { searchParams: cleanParams(params ?? {}) }),
+        ),
+      get: (eventId) =>
+        jsonOk<GlobalEventDetail>(http.get(`global-events/${eventId}`)),
+    },
     reports: {
       submit: (payload) =>
         jsonOk<number>(http.post('reports', { json: payload })),
@@ -618,6 +647,26 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonVoid(http.patch(`admin/notices/${noticeId}`, { json: payload })),
         remove: (noticeId) =>
           jsonVoid(http.delete(`admin/notices/${noticeId}`)),
+      },
+      globalEvents: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminGlobalEventSummary>>(
+            http.get('admin/global-events', { searchParams: cleanParams(params) }),
+          ),
+        detail: (eventId) =>
+          jsonOk<AdminGlobalEventDetail>(http.get(`admin/global-events/${eventId}`)),
+        create: (payload) =>
+          jsonOk<number>(http.post('admin/global-events', { json: payload })),
+        update: (eventId, payload) =>
+          jsonVoid(http.patch(`admin/global-events/${eventId}`, { json: payload })),
+        remove: (eventId) =>
+          jsonVoid(http.delete(`admin/global-events/${eventId}`)),
+        categoryStats: async () => {
+          const wrapper = await jsonOk<{ distribution: GlobalEventCategoryStats }>(
+            http.get('admin/global-events/category-stats'),
+          );
+          return wrapper.distribution;
+        },
       },
       reports: {
         list: (params) =>
