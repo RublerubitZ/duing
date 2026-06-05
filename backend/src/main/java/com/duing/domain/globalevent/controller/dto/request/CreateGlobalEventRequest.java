@@ -22,12 +22,15 @@ public record CreateGlobalEventRequest(
         @Pattern(regexp = "^https?://.+", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.")
         @Size(max = 500, message = "링크는 500자 이하여야 합니다.") String linkUrl,
 
+        @Size(max = 500, message = "이미지 URL은 500자 이하여야 합니다.")
+        String coverImageUrl,
+
         @NotNull(message = "카테고리는 필수 입력값입니다.") GlobalEventCategory category
 ) {
     public CreateGlobalEventCommand toCommand(Long createdBy) {
         return new CreateGlobalEventCommand(
                 createdBy, title, description, startAt, endAt,
-                location, linkUrl, category
+                location, linkUrl, coverImageUrl, category
         );
     }
 }

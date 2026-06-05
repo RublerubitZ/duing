@@ -37,6 +37,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
                 command.title(), command.description(),
                 command.startAt(), command.endAt(),
                 command.location(), command.linkUrl(),
+                command.coverImageUrl(),
                 command.category(), command.createdBy()
         );
         return eventRepository.save(event).getId();
@@ -50,7 +51,8 @@ public class GeneralGlobalEventService implements GlobalEventService {
         event.update(command.title(), command.description(),
                 command.startAt(), command.endAt(),
                 command.location(), command.linkUrl(),
-                command.category());
+                command.category(),
+                command.coverImageUrl(), command.clearCoverImage());
     }
 
     @Override

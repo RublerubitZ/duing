@@ -14,12 +14,16 @@ public record UpdateGlobalEventRequest(
         @Size(max = 200, message = "장소는 200자 이하여야 합니다.") String location,
         @Pattern(regexp = "^https?://.+", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.")
         @Size(max = 500, message = "링크는 500자 이하여야 합니다.") String linkUrl,
-        GlobalEventCategory category
+        GlobalEventCategory category,
+        @Size(max = 500, message = "이미지 URL은 500자 이하여야 합니다.")
+        String coverImageUrl,
+        Boolean clearCoverImage
 ) {
     public UpdateGlobalEventCommand toCommand(Long eventId) {
         return new UpdateGlobalEventCommand(
                 eventId, title, description, startAt, endAt,
-                location, linkUrl, category
+                location, linkUrl, category,
+                coverImageUrl, clearCoverImage
         );
     }
 }

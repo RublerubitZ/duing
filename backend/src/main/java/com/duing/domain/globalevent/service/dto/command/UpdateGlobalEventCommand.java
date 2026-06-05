@@ -11,5 +11,7 @@ public record UpdateGlobalEventCommand(
         LocalDateTime endAt,
         String location,
         String linkUrl,
-        GlobalEventCategory category
+        GlobalEventCategory category,
+        String coverImageUrl,
+        Boolean clearCoverImage
 ) {}

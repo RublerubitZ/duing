@@ -12,13 +12,16 @@ public record GlobalEventDetailResponse(
         LocalDateTime endAt,
         String location,
         String linkUrl,
+        String coverImageUrl,
         GlobalEventCategory category
 ) {
     public static GlobalEventDetailResponse from(GlobalEvent event) {
         return new GlobalEventDetailResponse(
                 event.getId(), event.getTitle(), event.getDescription(),
                 event.getStartAt(), event.getEndAt(),
-                event.getLocation(), event.getLinkUrl(), event.getCategory()
+                event.getLocation(), event.getLinkUrl(),
+                event.getCoverImageUrl(),
+                event.getCategory()
         );
     }
 }
