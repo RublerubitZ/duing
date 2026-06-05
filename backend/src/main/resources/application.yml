@@ -9,6 +9,9 @@ spring:
     name: duing
   servlet:
     multipart:
+      # 이미지 업로드 정책 한도는 FileUploadPolicy.MAX_BYTES (5MB). 서블릿 한도는
+      # 그보다 큰 값을 두어 5MB 초과 파일도 우리 검증(FileController.validate)이 먼저
+      # 받아 한국어 400 메시지를 내려준다. ClubPhoto 등 향후 다른 업로드까지 감안해 10MB.
       max-file-size: 10MB
       max-request-size: 10MB
   jpa:
