@@ -94,6 +94,11 @@ import type {
   MyClubMembership,
   CreateClubNoticePayload,
   UpdateClubNoticePayload,
+  ClubEventCard,
+  ClubEventDetail,
+  ClubEventListParams,
+  CreateClubEventPayload,
+  UpdateClubEventPayload,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -241,6 +246,13 @@ export type DuingApiClient = {
     create(clubId: number, payload: CreateClubNoticePayload): Promise<number>;
     update(clubId: number, noticeId: number, payload: UpdateClubNoticePayload): Promise<void>;
     remove(clubId: number, noticeId: number): Promise<void>;
+  };
+  clubEvents: {
+    list(clubId: number, params?: ClubEventListParams): Promise<ClubEventCard[]>;
+    get(clubId: number, eventId: number): Promise<ClubEventDetail>;
+    create(clubId: number, payload: CreateClubEventPayload): Promise<number>;
+    update(clubId: number, eventId: number, payload: UpdateClubEventPayload): Promise<void>;
+    remove(clubId: number, eventId: number): Promise<void>;
   };
   reports: {
     submit(payload: SubmitReportPayload): Promise<number>;
@@ -552,6 +564,20 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonVoid(http.patch(`clubs/${clubId}/notices/${noticeId}`, { json: payload })),
       remove: (clubId, noticeId) =>
         jsonVoid(http.delete(`clubs/${clubId}/notices/${noticeId}`)),
+    },
+    clubEvents: {
+      list: (clubId, params) =>
+        jsonOk<ClubEventCard[]>(
+          http.get(`clubs/${clubId}/events`, { searchParams: cleanParams(params ?? {}) }),
+        ),
+      get: (clubId, eventId) =>
+        jsonOk<ClubEventDetail>(http.get(`clubs/${clubId}/events/${eventId}`)),
+      create: (clubId, payload) =>
+        jsonOk<number>(http.post(`clubs/${clubId}/events`, { json: payload })),
+      update: (clubId, eventId, payload) =>
+        jsonVoid(http.patch(`clubs/${clubId}/events/${eventId}`, { json: payload })),
+      remove: (clubId, eventId) =>
+        jsonVoid(http.delete(`clubs/${clubId}/events/${eventId}`)),
     },
     reports: {
       submit: (payload) =>
