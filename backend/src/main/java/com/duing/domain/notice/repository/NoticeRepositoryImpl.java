@@ -91,6 +91,30 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
     }
 
+    @Override
+    public Page<Notice> findClubScopedForMember(Long clubId, Pageable pageable) {
+        LocalDateTime now = LocalDateTime.now();
+
+        BooleanExpression where = notice.visibility.eq(NoticeVisibility.CLUB_SCOPED)
+                .and(notice.clubScopeRole.eq(NoticeClubScopeRole.ALL_MEMBERS))
+                .and(notice.expiresAt.isNull().or(notice.expiresAt.gt(now)))
+                .and(notice.id.in(
+                        JPAExpressions.select(noticeTargetClub.id.noticeId)
+                                .from(noticeTargetClub)
+                                .where(noticeTargetClub.id.clubId.eq(clubId))
+                ));
+
+        List<Notice> content = queryFactory.selectFrom(notice)
+                .where(where)
+                .orderBy(notice.pinned.desc(), notice.createdAt.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory.select(notice.count()).from(notice).where(where).fetchOne();
+        return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
     private BooleanExpression notExpired() {
         return notice.expiresAt.isNull().or(notice.expiresAt.gt(LocalDateTime.now()));
     }
