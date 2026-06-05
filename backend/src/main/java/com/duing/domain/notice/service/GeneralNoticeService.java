@@ -133,9 +133,11 @@ public class GeneralNoticeService implements NoticeService {
         if (command.coverImageUrl() != null && !command.coverImageUrl().isBlank()) {
             validateCoverImageUrl(command.coverImageUrl());
         }
+        String safeSummary = command.summary() != null ? command.summary() : "";
+        String safeCoverImageUrl = command.coverImageUrl() != null ? command.coverImageUrl() : "";
         Notice saved = noticeRepository.save(Notice.create(
-                command.title(), command.summary(), command.content(),
-                command.coverImageUrl(), null /* linkUrl */,
+                command.title(), safeSummary, command.content(),
+                safeCoverImageUrl, null /* linkUrl */,
                 NoticeCategory.GENERAL,
                 List.of() /* tags */,
                 NoticeVisibility.CLUB_SCOPED,
