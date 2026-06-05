@@ -13,6 +13,10 @@ spring:
     # Testcontainers 가 매 실행마다 새로 만드는 임시 컨테이너의 더미 자격 — 실 시크릿 아님.
     username: test
     password: test
+  servlet:
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 6MB
   jpa:
     open-in-view: false
     hibernate:
