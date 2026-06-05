@@ -282,6 +282,23 @@ class FileApiTest {
                 .then()
                     .statusCode(HttpStatus.BAD_REQUEST.value());
     }
+
+    @Test
+    @DisplayName("Content-Type 이 누락된 multipart 파트는 400 으로 거부된다")
+    void rejectsMissingContentType() {
+        // 비정상 API 호출 (curl / 외부 클라이언트) 방어. RestAssured 의 multiPart 오버로드는
+        // contentType 인자 없이 호출하면 서버에 application/octet-stream 또는 빈 값으로 전달된다.
+        // 둘 다 ALLOWED_MIME_TYPES 에 포함되지 않으므로 400 이 정상 응답.
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "no-content-type", bytesOfSize(1024))
+                    .queryParam("purpose", "NOTICE_COVER")
+                .when()
+                    .post("/api/v1/files")
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
 }
 ```
 
@@ -291,7 +308,7 @@ class FileApiTest {
 cd backend && ./gradlew test --tests "com.duing.domain.file.FileApiTest"
 ```
 
-Expected: `uploadsValidJpeg` / `uploadsAtMaxBoundary` 만 통과, 나머지 4개 케이스 실패 (`Expected 400 but was 201` — 아직 검증 미구현). 정상 케이스 2개가 통과하지 않으면 토큰/엔드포인트/StubFileStorageService 설정 문제이므로 진행 중단.
+Expected: `uploadsValidJpeg` / `uploadsAtMaxBoundary` 만 통과, 나머지 5개 케이스 실패 (`Expected 400 but was 201` — 아직 검증 미구현). 정상 케이스 2개가 통과하지 않으면 토큰/엔드포인트/StubFileStorageService 설정 문제이므로 진행 중단.
 
 `uploadsAtMaxBoundary` 의 byte 배열 5MB 가 메모리에서 문제가 되면 `bytesOfSize` 를 `new byte[size]` 그대로 두되 JVM heap 옵션을 확인. Gradle 기본 (`-Xmx`) 으로 충분.
 
@@ -308,71 +325,23 @@ git commit -m "test(backend): FileApiTest — 형식·용량 검증 인수 테�
 
 **Files:**
 - Modify: `backend/src/main/java/com/duing/global/file/controller/FileController.java`
+- Modify (조건부): `backend/src/main/resources/application.yml` 또는 `application-test.yml`
 
-- [ ] **Step 1: validate 메서드 + import 추가**
+이 태스크는 **기존 `FileController.java` 의 시그니처·어노테이션·Swagger 설정·`FileApi` 구현 관계를 절대 건드리지 않는다.** `upload()` 진입부에 한 줄 추가 + private `validate()` 메서드 추가 + 두 개 import 추가, 이게 전부.
 
-기존 `FileController.java` 전체를 다음으로 교체:
+- [ ] **Step 1: 사전 점검 — Spring multipart 제한 확인**
 
-```java
-package com.duing.global.file.controller;
+`5MB + 1 byte` 테스트가 우리 검증이 아닌 Spring multipart 레이어에서 먼저 차단되면 응답 상태가 400 이 아니라 413 (또는 500 + `MaxUploadSizeExceededException`) 으로 떨어진다. 우리 검증이 먼저 동작하려면 Spring 제한이 정책(5MB) 보다 커야 한다.
 
-import com.duing.global.file.FileStorageService;
-import com.duing.global.file.FileUploadPolicy;
-import com.duing.global.file.controller.dto.FilePurpose;
-import com.duing.global.file.controller.dto.FileUploadResponse;
-import com.duing.global.file.exception.FileException;
-import com.duing.global.response.ApiResponse;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
-
-@RestController
-@RequestMapping("/api/v1/files")
-@RequiredArgsConstructor
-public class FileController implements FileApi {
-
-    private final FileStorageService fileStorageService;
-
-    @Override
-    @PostMapping(consumes = "multipart/form-data")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<FileUploadResponse>> upload(
-            @RequestPart("file") MultipartFile file,
-            @RequestParam("purpose") FilePurpose purpose) {
-        validate(file);
-        String uploadedUrl = fileStorageService.upload(file, purpose.directory());
-        FileUploadResponse fileUploadResponse = new FileUploadResponse(uploadedUrl, uploadedUrl);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(fileUploadResponse));
-    }
-
-    private void validate(MultipartFile file) {
-        if (file.getSize() > FileUploadPolicy.MAX_BYTES) {
-            throw new FileException.UploadSizeExceededException();
-        }
-        String contentType = file.getContentType();
-        if (contentType == null || !FileUploadPolicy.ALLOWED_MIME_TYPES.contains(contentType)) {
-            throw new FileException.UnsupportedFileTypeException();
-        }
-    }
-}
-```
-
-- [ ] **Step 2: 테스트 실행 — 통과 확인**
+먼저 현재 설정 확인:
 
 ```bash
-cd backend && ./gradlew test --tests "com.duing.domain.file.FileApiTest"
+grep -rn "multipart" backend/src/main/resources/
 ```
 
-Expected: 6/6 PASS.
+결과가 비어있거나 `max-file-size` 가 정의되어 있지 않으면 Spring Boot 기본값 (`1MB`) 이 적용된다 — 우리 정책(5MB) 보다 작으므로 **반드시 설정 추가 필요**. 이미 6MB 이상으로 잡혀 있으면 Step 2 로 진행.
 
-만약 `5MB + 1 byte` 케이스가 fail 하면 Spring multipart 설정 (`spring.servlet.multipart.max-file-size` 기본 1MB) 이 사전에 차단했을 가능성. 그 경우 `backend/src/main/resources/application.yml` (또는 `application-test.yml`) 에 다음 추가:
+`backend/src/main/resources/application.yml` 에 다음 블록 추가 (기존 `spring:` 키가 있으면 그 아래로 합칠 것 — 새 `spring:` 루트 키를 만들지 말 것):
 
 ```yaml
 spring:
@@ -382,24 +351,87 @@ spring:
       max-request-size: 6MB
 ```
 
-(앱 자체 정책 5MB 보다 크게 잡아 우리 검증이 먼저 동작하도록.)
+**의도:** 앱 정책(5MB) 보다 Spring 제한(6MB) 을 1MB 크게 잡아 5MB + 1 byte 시나리오에서 우리 검증이 먼저 동작하도록 한다. Spring 의 413 응답은 한국어 메시지 커스터마이즈가 까다로워 사용자 친화적이지 않은 반면, 우리 `FileException` 은 명확한 한국어 메시지를 제공한다.
 
-- [ ] **Step 3: 전체 백엔드 테스트 실행 — 회귀 없음 확인**
+- [ ] **Step 2: FileController 에 최소 변경 — validate 호출 + private 메서드 추가**
+
+기존 `FileController.java` 를 읽은 뒤 다음 3개 변경만 적용한다. **클래스 어노테이션, `implements FileApi`, `upload()` 의 `@Override` / `@PostMapping(consumes = ...)` / `@PreAuthorize` / `@RequestPart` / `@RequestParam` 시그니처는 그대로 둔다.**
+
+**변경 1 — import 두 줄 추가** (기존 `com.duing.global.file.controller.dto.FilePurpose` import 라인 근처):
+
+```java
+import com.duing.global.file.FileUploadPolicy;
+import com.duing.global.file.exception.FileException;
+```
+
+**변경 2 — `upload()` 메서드 본문 첫 줄에 `validate(file);` 한 줄 추가**:
+
+```java
+public ResponseEntity<ApiResponse<FileUploadResponse>> upload(
+        @RequestPart("file") MultipartFile file,
+        @RequestParam("purpose") FilePurpose purpose) {
+    validate(file);                                    // ← 추가되는 단 한 줄
+    String uploadedUrl = fileStorageService.upload(file, purpose.directory());
+    FileUploadResponse fileUploadResponse = new FileUploadResponse(uploadedUrl, uploadedUrl);
+    return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(fileUploadResponse));
+}
+```
+
+**변경 3 — 클래스 내부(어디든 무방, 권장: `upload()` 메서드 바로 아래) 에 private 메서드 추가**:
+
+```java
+private void validate(MultipartFile file) {
+    if (file.getSize() > FileUploadPolicy.MAX_BYTES) {
+        throw new FileException.UploadSizeExceededException();
+    }
+    String contentType = file.getContentType();
+    if (contentType == null || !FileUploadPolicy.ALLOWED_MIME_TYPES.contains(contentType)) {
+        throw new FileException.UnsupportedFileTypeException();
+    }
+}
+```
+
+이 외 어떤 라인도 수정/삭제하지 않는다.
+
+- [ ] **Step 3: 테스트 실행 — 통과 확인**
+
+```bash
+cd backend && ./gradlew test --tests "com.duing.domain.file.FileApiTest"
+```
+
+Expected: 7/7 PASS.
+
+증상 → 원인 가이드:
+
+- `5MB + 1 byte` 케이스가 400 이 아닌 413/500 → Step 1 의 multipart 설정 누락. yml 추가 후 재실행.
+- `rejectsMissingContentType` 가 400 이 아닌 201 → RestAssured 가 헤더 없이도 octet-stream 으로 보정해 검증을 통과시킨 경우. `bytesOfSize(1024)` 의 `contentType` 인자를 `""` (빈 문자열) 로 명시. 그래도 통과되면 백엔드 validate 의 null/empty 처리가 누락된 것이므로 `if (contentType == null || contentType.isBlank() || !ALLOWED_MIME_TYPES.contains(contentType))` 로 강화.
+- 정상 케이스 2개가 실패로 떨어짐 → FileApi 인터페이스 또는 Swagger 설정 변경을 실수로 동반했을 가능성. `git diff backend/src/main/java/com/duing/global/file/controller/FileController.java` 로 확인 — Step 2 의 변경 1/2/3 이 외 라인이 있으면 되돌릴 것.
+
+- [ ] **Step 4: 전체 백엔드 테스트 실행 — 회귀 없음 확인**
 
 ```bash
 cd backend && ./gradlew test
 ```
 
-Expected: 전체 PASS. 기존 파일 업로드 테스트가 없으므로 회귀 영향 없음.
+Expected: 전체 PASS. 기존 파일 업로드 테스트가 없으므로 회귀 영향 없음. 다른 도메인 인수 테스트가 multipart 를 사용한다면 (없을 것으로 보이나 확인) 영향 점검.
 
-- [ ] **Step 4: 커밋**
+- [ ] **Step 5: 커밋**
 
 ```bash
 git add backend/src/main/java/com/duing/global/file/controller/FileController.java
+# Step 1 에서 yml 추가했다면 함께 stage
+git add backend/src/main/resources/application.yml 2>/dev/null || true
 git commit -m "feat(backend): 파일 업로드 형식·용량 검증 (5MB / JPG·PNG·WEBP)"
 ```
 
-만약 Step 2 에서 multipart 설정 변경이 필요했다면 같은 커밋에 yml 도 포함.
+---
+
+## Risks & 검토 항목
+
+- **Spring multipart vs 앱 검증 우선순위:** Spring `max-file-size` 가 정책(5MB) 보다 작으면 우리 검증이 절대 실행되지 않는다. Task 4 Step 1 의 사전 점검 필수.
+- **Content-Type 위조:** §spec 4.3 명시대로 이번 PR 의 검증은 클라이언트가 보낸 헤더에 의존한다. Magic Number 검증은 별도 PR (spec Out of Scope).
+- **빈 파일 (size=0):** `file.getSize() > MAX_BYTES` 검증은 통과하지만 의미 없는 빈 파일이 Storage 에 올라간다. 이번 PR 의 명시 정책에 빈 파일 차단이 없으므로 작업 범위 밖. 필요 시 후속.
+- **multipart 설정 추가가 다른 도메인 영향을 주는가:** `max-file-size: 6MB` 는 기존 1MB 기본값보다 큼 — 다른 업로드 (예: ClubPhoto) 가 이미 1MB 초과 파일을 받고 있었다면 본 변경으로 새로 통과되는 케이스가 생긴다. ClubPhoto Controller 가 별도 size 검증을 가졌는지 grep 으로 확인 필요.
 
 ---
 
@@ -453,7 +485,7 @@ EOF
 
 ## Self-Review
 
-- **Spec 커버리지:** §5.1 (FileUploadPolicy) = Task 1, §5.2 (validate 메서드) = Task 4, §5.3 (FileException) = Task 2, §5.4 (인수 테스트 6 케이스) = Task 3. 누락 없음.
+- **Spec 커버리지:** §5.1 (FileUploadPolicy) = Task 1, §5.2 (validate 메서드) = Task 4, §5.3 (FileException) = Task 2, §5.4 (인수 테스트 7 케이스 — spec 의 6 케이스 + Content-Type null 보강) = Task 3. 누락 없음.
 - **플레이스홀더:** 없음.
 - **타입 일관성:** `FileException.UploadSizeExceededException` / `UnsupportedFileTypeException` 가 Task 2/4 에서 동일.
 - **회귀 위험:** 정상 케이스 인수 테스트가 먼저 통과하는지 Task 3 Step 2 에서 검증.

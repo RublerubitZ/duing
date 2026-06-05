@@ -400,8 +400,15 @@ export function ImageUploader({
       return;
     }
     setLocalError(null);
-    const result = await uploadMutation.mutateAsync({ file, purpose });
-    onChange(result.url);
+    try {
+      const result = await uploadMutation.mutateAsync({ file, purpose });
+      onChange(result.url);
+    } catch {
+      // 업로드 실패 (백엔드 400, 네트워크 오류 등) 는 uploadMutation.isError /
+      // uploadMutation.error 에 이미 담겨 있다. 아래 displayError 가 그대로 노출하므로
+      // 여기서 별도 처리하지 않는다. catch 가 없으면 await 실패가 unhandled rejection 으로
+      // 새어나가 콘솔 에러 + 다음 onSubmit 흐름에 잔여 부작용을 남기므로 swallow 가 의도된 동작.
+    }
   };
 
   const serverError =
@@ -655,6 +662,22 @@ git commit -m "refactor(frontend): AdminPromotionForm 이 ImageUploader 를 직�
 - Modify: `frontend/apps/web/app/admin/promotions/_components/AdminPromotionsTable.tsx` (line 41-55)
 
 각 파일에서 `<div>` + `eslint-disable @next/next/no-img-element` 주석 + `<img>` 패턴을 `<ImageWithFallback>` 으로 치환한다. 컨테이너 className (aspect-ratio, rounded, overflow) 은 그대로 유지하되 안쪽 `<img>` 를 제거하고 `<ImageWithFallback>` 한 줄로 교체.
+
+- [ ] **Step 0: 사전 점검 — `<img>` 사용처 전수 조사**
+
+이번 PR 의 목표는 "외부 Storage URL 표시처 통일" 이므로, 본 plan 에 나열된 5곳 외에 누락된 사용처가 있는지 먼저 확인한다.
+
+```bash
+grep -rn "<img" frontend/apps/web/app --include="*.tsx" | grep -v "^Binary"
+```
+
+결과를 다음 3 분류로 직접 판정:
+
+1. **이번 PR 마이그레이션 대상** — 외부 Storage URL (Notice/Promotion/GlobalEvent 의 `coverImageUrl` / `bannerImageUrl`). plan 에 명시된 5곳 (`EventDetailModal`, `NoticeCard`, `notices/[noticeId]/page`, `NoticePage` 2곳, `AdminPromotionsTable`) 과 일치하는지 확인. **추가 발견 시 Step 1~5 에 동일 패턴으로 추가.**
+2. **Out of Scope (PhotoUploader 범위)** — 클럽 로고 / 클럽 사진 (`club.logoUrl`, `ClubDetailPhotos`, `ClubDetailHero`, `FavoriteClubCard`, `me/*` 의 클럽 로고 등). spec §6.4 에 따라 별도 PR 로 이관 — **건드리지 않는다.**
+3. **정적 자산 (`next/image` 사용 중)** — `BrandMark.tsx`, `sections/Categories.tsx`. 손대지 않는다.
+
+분류 결과를 작업 노트에 기록한 뒤 Step 1 로 진행. 1번 분류에 추가 항목이 있으면 이 plan 의 Step 1~5 사이에 동일 형태의 교체 단계를 삽입한 후 진행.
 
 - [ ] **Step 1: EventDetailModal 교체**
 
