@@ -354,3 +354,30 @@ export type CreateClubNoticeInput = z.infer<typeof createClubNoticeSchema>;
 
 export const updateClubNoticeSchema = createClubNoticeSchema.partial();
 export type UpdateClubNoticeInput = z.infer<typeof updateClubNoticeSchema>;
+
+export const createClubEventSchema = z.object({
+  title: z
+    .string()
+    .min(1, '제목은 필수 입력값입니다.')
+    .max(120, '제목은 120자 이하여야 합니다.')
+    .refine((value) => value.trim().length > 0, '공백만으로 이루어진 제목은 입력할 수 없습니다.'),
+  description: z.string().max(2000, '설명은 2000자 이하여야 합니다.').optional().or(z.literal('')),
+  startAt: z.string().min(1, '시작 시각은 필수입니다.'),
+  endAt: z.string().min(1, '종료 시각은 필수입니다.'),
+  location: z.string().max(200, '장소는 200자 이하여야 합니다.').optional().or(z.literal('')),
+}).refine((data) => new Date(data.endAt) >= new Date(data.startAt), {
+  message: '종료 시각은 시작 시각 이후여야 합니다.',
+  path: ['endAt'],
+});
+
+export type CreateClubEventInput = z.infer<typeof createClubEventSchema>;
+
+export const updateClubEventSchema = z.object({
+  title: z.string().min(1).max(120).optional(),
+  description: z.string().max(2000).optional().or(z.literal('')),
+  startAt: z.string().optional(),
+  endAt: z.string().optional(),
+  location: z.string().max(200).optional().or(z.literal('')),
+});
+
+export type UpdateClubEventInput = z.infer<typeof updateClubEventSchema>;
