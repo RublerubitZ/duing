@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useCalendarMonthQuery, useMeQuery } from '@duing/hooks';
+import { addDaysIso, useCalendarMonthQuery, useMeQuery } from '@duing/hooks';
 
 import { SparkleFull } from '../../_components/Sparkle';
 import { AddEventDispatcher } from '../_components/AddEventDispatcher';
@@ -89,6 +89,19 @@ const buildMonth = (year: number, monthIndex: number): MonthCell[] => {
     cells.push({ iso: fmt(year2, month, day), d: day, inMonth, dow: i % 7 });
   }
   return cells;
+};
+
+/**
+ * 다일 이벤트 기간 표기 — "6/5 ~ 6/10".
+ * Upcoming 카드의 다일 이벤트(`span >= 2`)에서만 사용.
+ */
+const formatPeriod = (startIso: string, span: number): string => {
+  const endIso = addDaysIso(startIso, span - 1);
+  const shortDate = (iso: string): string => {
+    const parts = iso.split('-').map(Number);
+    return `${parts[1] ?? 0}/${parts[2] ?? 0}`;
+  };
+  return `${shortDate(startIso)} ~ ${shortDate(endIso)}`;
 };
 
 /* ------------------------------------------------------------------ */
@@ -217,10 +230,24 @@ export function CalendarPage() {
     (a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind),
   );
 
-  const upcoming = filteredEvents
-    .filter((event) => event.date >= todayIso)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-    .slice(0, 6);
+  // Upcoming 은 fan-out 된 day entry 가 아닌 "원본 이벤트 단위" 로 표시해야 함.
+  // GlobalEvent 의 다일 fan-out (id: g-1-d0, g-1-d1, ...) 이 6 번 노출되는 걸 막기 위해
+  // sourceType+sourceId 기준 dedupe + 가장 빠른 날짜 (= startAt) entry 선택.
+  // 첫 날 entry 는 span 도 set 되어 있어 카드에서 기간 표시에 활용 가능.
+  const upcoming = useMemo(() => {
+    const originals = new Map<string, CalEvent>();
+    for (const event of filteredEvents) {
+      if (event.date < todayIso) continue;
+      const key = `${event.sourceType}-${event.sourceId}`;
+      const existing = originals.get(key);
+      if (!existing || event.date < existing.date) {
+        originals.set(key, event);
+      }
+    }
+    return Array.from(originals.values())
+      .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+      .slice(0, 6);
+  }, [filteredEvents, todayIso]);
 
   const handlePrevMonth = () => {
     if (viewMonth === 0) {
@@ -760,6 +787,14 @@ export function CalendarPage() {
                     <h3 style={{ fontSize: 17, fontFamily: 'var(--font-body)', fontWeight: 700, color: 'var(--ink-deep)', lineHeight: 1.3, marginBottom: 6 }}>
                       {event.title}
                     </h3>
+                    {event.span !== undefined && event.span > 1 && (
+                      <p style={{
+                        fontSize: 12, color: 'var(--charcoal-3)',
+                        fontFamily: 'var(--font-mono)', marginBottom: 6,
+                      }}>
+                        {formatPeriod(event.date, event.span)}
+                      </p>
+                    )}
                     <p style={{ fontSize: 12.5, color: 'var(--charcoal-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Icon.pin style={{ width: 12, height: 12 }} /> {event.place}
                       {event.club && <><span style={{ margin: '0 4px' }}>·</span><span>{event.club}</span></>}
