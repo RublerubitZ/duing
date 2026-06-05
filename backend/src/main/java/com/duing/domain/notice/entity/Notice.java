@@ -135,6 +135,18 @@ public class Notice extends BaseEntity {
         }
     }
 
+    /** LEADER/OFFICER 의 CLUB_SCOPED 공지 부분 수정 — null 필드는 건너뛴다. */
+    public void applyClubScopedUpdate(String title, String summary, String content,
+                                      String coverImageUrl, Boolean pinned,
+                                      java.time.LocalDateTime expiresAt) {
+        if (title != null) this.title = title;
+        if (summary != null) this.summary = summary;
+        if (content != null) this.content = content;
+        if (coverImageUrl != null) this.coverImageUrl = coverImageUrl;
+        if (pinned != null) this.pinned = pinned;
+        if (expiresAt != null) this.expiresAt = expiresAt;
+    }
+
     private static void validateScope(NoticeVisibility visibility, NoticeClubScopeRole clubScopeRole) {
         if (visibility == NoticeVisibility.CLUB_SCOPED && clubScopeRole == null) {
             throw new NoticeException.InvalidNoticeScopeException("CLUB_SCOPED 공지는 club_scope_role 이 필요합니다.");

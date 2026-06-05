@@ -3,12 +3,16 @@ package com.duing.domain.notice.service;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.notice.broadcast.service.NoticeBroadcaster;
 import com.duing.domain.notice.entity.Notice;
+import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.domain.notice.entity.NoticeClubScopeRole;
 import com.duing.domain.notice.entity.NoticeTargetClub;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.exception.NoticeException;
 import com.duing.domain.notice.repository.NoticeRepository;
 import com.duing.domain.notice.repository.NoticeTargetClubRepository;
+import com.duing.domain.notice.service.dto.command.CreateClubNoticeCommand;
 import com.duing.domain.notice.service.dto.command.CreateNoticeCommand;
+import com.duing.domain.notice.service.dto.command.UpdateClubNoticeCommand;
 import com.duing.domain.notice.service.dto.command.UpdateNoticeCommand;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
@@ -121,6 +125,65 @@ public class GeneralNoticeService implements NoticeService {
     @Override
     public Page<NoticeAdminSummaryQuery> listForAdmin(NoticeAdminSearchCondition condition, Pageable pageable) {
         return noticeRepository.findAdminList(condition, pageable).map(NoticeAdminSummaryQuery::from);
+    }
+
+    @Override
+    @Transactional
+    public Long createForClub(CreateClubNoticeCommand command) {
+        if (command.coverImageUrl() != null && !command.coverImageUrl().isBlank()) {
+            validateCoverImageUrl(command.coverImageUrl());
+        }
+        Notice saved = noticeRepository.save(Notice.create(
+                command.title(), command.summary(), command.content(),
+                command.coverImageUrl(), null /* linkUrl */,
+                NoticeCategory.GENERAL,
+                List.of() /* tags */,
+                NoticeVisibility.CLUB_SCOPED,
+                NoticeClubScopeRole.ALL_MEMBERS,
+                command.pinned(), command.expiresAt(),
+                false /* notifyOnPublish */,
+                command.authorId()
+        ));
+        persistTargetClubs(saved.getId(), List.of(command.clubId()));
+        broadcaster.publish(saved, List.of(command.clubId()));
+        return saved.getId();
+    }
+
+    @Override
+    @Transactional
+    public void updateForClub(UpdateClubNoticeCommand command) {
+        Notice found = noticeRepository.findById(command.noticeId())
+                .orElseThrow(NoticeException.NoticeNotFoundException::new);
+        boolean belongsToClub = targetClubRepository.findAllByIdNoticeId(found.getId())
+                .stream().anyMatch(targetClub -> targetClub.getClubId().equals(command.clubId()));
+        if (!belongsToClub) {
+            throw new NoticeException.NoticeAccessDeniedException();
+        }
+        if (command.coverImageUrl() != null && !command.coverImageUrl().isBlank()) {
+            validateCoverImageUrl(command.coverImageUrl());
+        }
+        found.applyClubScopedUpdate(
+                command.title(), command.summary(), command.content(),
+                command.coverImageUrl(), command.pinned(), command.expiresAt()
+        );
+    }
+
+    @Override
+    @Transactional
+    public void deleteForClub(Long clubId, Long noticeId) {
+        Notice found = noticeRepository.findById(noticeId)
+                .orElseThrow(NoticeException.NoticeNotFoundException::new);
+        boolean belongsToClub = targetClubRepository.findAllByIdNoticeId(found.getId())
+                .stream().anyMatch(targetClub -> targetClub.getClubId().equals(clubId));
+        if (!belongsToClub) {
+            throw new NoticeException.NoticeAccessDeniedException();
+        }
+        noticeRepository.delete(found);
+    }
+
+    @Override
+    public Page<Notice> findClubScopedForMember(Long clubId, Pageable pageable) {
+        return noticeRepository.findClubScopedForMember(clubId, pageable);
     }
 
     private void validateCoverImageUrl(String url) {
