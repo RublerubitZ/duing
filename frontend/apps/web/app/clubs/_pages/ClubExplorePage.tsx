@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useClubListQuery, useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
+import type { ClubDayOfWeek } from '@duing/types';
 
 import { Sparkle, SparkleFull } from '../../_components/Sparkle';
 import { COLLEGE_OPTIONS, collegeDisplayName } from '../../_lib/college';
@@ -12,6 +13,7 @@ import { toRoute } from '../../_lib/route';
 import { ClubCard } from '../_components/ClubCard';
 import { summaryToClub } from '../_lib/clubAdapter';
 import { DIVISIONS, type Division } from '../_lib/clubs';
+import { dayLabel, ORDER as DAY_ORDER } from '../_lib/activeDaysLabel';
 import {
   CATEGORY_OPTIONS,
   DEFAULT_EXPLORE_PARAMS,
@@ -127,6 +129,14 @@ export function ClubExplorePage() {
   const handleResetFilters = () => {
     setKeywordDraft('');
     updateParams({ ...DEFAULT_EXPLORE_PARAMS });
+  };
+
+  const handleToggleActiveDay = (day: ClubDayOfWeek) => {
+    const current = params.activeDays;
+    const next = current.includes(day)
+      ? current.filter((value) => value !== day)
+      : [...current, day];
+    updateParams({ activeDays: next, page: 1 });
   };
 
   return (
@@ -281,19 +291,20 @@ export function ClubExplorePage() {
 
               <FilterGroup title="활동 요일">
                 <div className="flex gap-1 flex-wrap">
-                  {['월', '화', '수', '목', '금', '토', '일'].map((day) => (
-                    <button
-                      key={day}
-                      type="button"
-                      disabled
-                      className="w-[30px] h-[30px] rounded-full text-[13px] font-semibold border bg-paper text-charcoal-3 border-line opacity-60 cursor-not-allowed"
-                      title="준비 중"
-                    >
-                      {day}
-                    </button>
-                  ))}
+                  {DAY_ORDER.map((day) => {
+                    const on = params.activeDays.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => handleToggleActiveDay(day)}
+                        className={`w-[30px] h-[30px] rounded-full text-[13px] font-semibold border ${on ? 'bg-ink text-white border-ink' : 'bg-paper text-charcoal-2 border-line'}`}
+                      >
+                        {dayLabel(day)}
+                      </button>
+                    );
+                  })}
                 </div>
-                <p className="mt-2 text-[11px] text-charcoal-3">활동 요일 필터는 다음 업데이트에 추가될 예정입니다.</p>
               </FilterGroup>
 
               <FilterGroup title={params.scope === '중앙' ? '분과' : '단과대학'} last>
@@ -354,7 +365,8 @@ export function ClubExplorePage() {
                 params.keyword !== '' ||
                 params.recruitment !== 'all' ||
                 params.college !== null ||
-                params.category !== null) && (
+                params.category !== null ||
+                (params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length)) && (
                 <span className="text-[13px] text-charcoal-3 pt-1.5">필터:</span>
               )}
               {params.scope !== '전체' && (
@@ -393,6 +405,13 @@ export function ClubExplorePage() {
                     setKeywordDraft('');
                     updateParams({ keyword: '', page: 1 });
                   }}
+                />
+              )}
+              {params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length && (
+                <ActiveFilterChip
+                  label={`요일: ${[...params.activeDays].sort((left, right) => DAY_ORDER.indexOf(left) - DAY_ORDER.indexOf(right)).map(dayLabel).join('·')}`}
+                  variant="soft"
+                  onRemove={() => updateParams({ activeDays: [], page: 1 })}
                 />
               )}
               {params.recruitment !== 'all' && (
