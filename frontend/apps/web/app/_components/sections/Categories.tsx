@@ -1,24 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { landingCategories, type LandingCategory } from '../../_mocks';
 
-type CategoryMeta = {
-  accent: string;
-  fallbackBg: string;
-  imageSrc: string;
-  index: string;
-};
-
-const CATEGORY_META: Record<LandingCategory['cat'], CategoryMeta> = {
-  학술: { accent: '#5b7e4d', fallbackBg: '#1e2e1a', imageSrc: '/categories/cat-01-academic.png', index: '01' },
-  음악: { accent: '#7d4f87', fallbackBg: '#221428', imageSrc: '/categories/cat-02-music.png',    index: '02' },
-  운동: { accent: '#c47a3b', fallbackBg: '#2e1e0e', imageSrc: '/categories/cat-03-sport.png',    index: '03' },
-  IT:   { accent: '#4d6b8a', fallbackBg: '#121e2a', imageSrc: '/categories/cat-04-it.png',       index: '04' },
-  공연: { accent: '#a85e5e', fallbackBg: '#281414', imageSrc: '/categories/cat-05-perform.png',  index: '05' },
-  봉사: { accent: '#b88b3b', fallbackBg: '#28200e', imageSrc: '/categories/cat-06-volunteer.png',index: '06' },
-  문화: { accent: '#6b7e3e', fallbackBg: '#1e2614', imageSrc: '/categories/cat-07-culture.png',  index: '07' },
-  창업: { accent: '#3e7a73', fallbackBg: '#0e2422', imageSrc: '/categories/cat-08-startup.png',  index: '08' },
-};
+import { HOME_CATEGORIES, type HomeCategoryMeta } from '@/app/_lib/homeCategories';
 
 export function Categories() {
   return (
@@ -55,8 +38,8 @@ export function Categories() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
-          {landingCategories.map((category) => (
-            <CategoryTile key={category.cat} category={category} />
+          {HOME_CATEGORIES.map((category) => (
+            <CategoryTile key={category.value} category={category} />
           ))}
         </div>
       </div>
@@ -64,49 +47,41 @@ export function Categories() {
   );
 }
 
-function CategoryTile({ category }: { category: LandingCategory }) {
-  const meta = CATEGORY_META[category.cat];
-
+function CategoryTile({ category }: { category: HomeCategoryMeta }) {
   return (
     <Link
-      href={`/clubs?category=${encodeURIComponent(category.cat)}`}
+      href={`/clubs?category=${category.value}`}
       className="group relative flex flex-col overflow-hidden rounded-[18px] border text-inherit no-underline transition-[transform,box-shadow,border-color] duration-[250ms] ease-[cubic-bezier(.2,.7,.2,1)] hover:-translate-y-1 hover:border-[color:var(--accent)] hover:shadow-[0_16px_32px_rgba(47,58,46,.08),0_2px_6px_rgba(47,58,46,.04)]"
       style={{
         background: '#ffffff',
         borderColor: '#d9d4c3',
-        ['--accent' as string]: meta.accent,
+        ['--accent' as string]: category.accent,
       }}
     >
-      {/* 비주얼 영역 */}
       <div
         className="relative overflow-hidden border-b"
-        style={{ height: 170, borderColor: '#e6e1d2', background: meta.fallbackBg }}
+        style={{ height: 170, borderColor: '#e6e1d2', background: category.fallbackBg }}
       >
-        {/* 카테고리 사진 */}
         <Image
-          src={meta.imageSrc}
-          alt={category.cat}
+          src={category.imageSrc}
+          alt={category.label}
           fill
           sizes="(max-width: 768px) 50vw, 25vw"
           className="object-cover transition-transform duration-[600ms] ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-105"
         />
-
-        {/* 인덱스 필 */}
         <span
           className="absolute left-3.5 top-3 z-20 rounded-full px-[9px] py-1 font-mono text-[10px] font-semibold"
           style={{
             background: 'rgba(255,255,255,.86)',
-            color: meta.accent,
+            color: category.accent,
             letterSpacing: '.12em',
             backdropFilter: 'blur(6px)',
             WebkitBackdropFilter: 'blur(6px)',
             boxShadow: '0 1px 2px rgba(0,0,0,.06)',
           }}
         >
-          {meta.index}
+          {category.index}
         </span>
-
-        {/* 하단 그라디언트 오버레이 */}
         <span
           className="pointer-events-none absolute inset-0 z-[1]"
           style={{
@@ -115,14 +90,13 @@ function CategoryTile({ category }: { category: LandingCategory }) {
         />
       </div>
 
-      {/* 메타 영역 */}
       <div className="flex items-center justify-between gap-2 px-[18px] py-4">
         <div className="flex flex-col gap-[3px]">
           <span
             className="text-[16.5px] font-bold leading-tight"
             style={{ color: '#2c4124', letterSpacing: '-0.015em' }}
           >
-            {category.cat}
+            {category.label}
           </span>
           <span
             className="flex items-center gap-1.5 font-mono text-[11.5px]"
@@ -130,19 +104,14 @@ function CategoryTile({ category }: { category: LandingCategory }) {
           >
             <span
               className="inline-block h-[5px] w-[5px] rounded-full"
-              style={{ background: meta.accent }}
+              style={{ background: category.accent }}
             />
-            {category.count}개 동아리
+            둘러보기
           </span>
         </div>
-
-        {/* 화살표 버튼 */}
         <span
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all duration-[250ms] group-hover:-rotate-45 group-hover:border-[color:var(--accent)] group-hover:bg-[color:var(--accent)] group-hover:text-white"
-          style={{
-            borderColor: '#d9d4c3',
-            color: '#4a5247',
-          }}
+          style={{ borderColor: '#d9d4c3', color: '#4a5247' }}
         >
           <svg viewBox="0 0 12 12" className="h-[13px] w-[13px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3 9L9 3M4 3h5v5" />
