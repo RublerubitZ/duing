@@ -1,6 +1,6 @@
 import type { ClubDetail } from '@duing/types';
 
-import { activityScheduleLabel } from '../_lib/activeDaysLabel';
+import { activityScheduleLabel } from '../../_lib/activeDaysLabel';
 
 type Props = { club: ClubDetail };
 
