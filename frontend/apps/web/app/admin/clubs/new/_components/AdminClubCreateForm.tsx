@@ -8,6 +8,7 @@ import { ApiError } from '@duing/api';
 import { useCreateClubMutation } from '@duing/hooks';
 import type { AdminUserSearchResult, ClubCategory, College, CreateClubPayload } from '@duing/types';
 import { LeaderSearchCombobox } from '../../_components/LeaderSearchCombobox';
+import { ImageUploader } from '../../../../_components/ImageUploader';
 import { toRoute } from '../../../../_lib/route';
 import { COLLEGE_OPTIONS } from '../../../../_lib/college';
 import { DIVISIONS } from '../../../../clubs/_lib/clubs';
@@ -54,7 +55,7 @@ export function AdminClubCreateForm() {
     if (trimmedName.length === 0) return '동아리 이름은 필수 입력값입니다.';
     if (trimmedName.length > 100) return '동아리 이름은 100자 이하여야 합니다.';
     if (division.trim().length > 50) return '분류는 50자 이하여야 합니다.';
-    if (logoUrl.trim().length > 500) return '로고 URL은 500자 이하여야 합니다.';
+    if (logoUrl.trim().length > 500) return '로고 이미지 경로가 너무 깁니다.';
     if (!leader) return '동아리장(회장) 을 검색해 선택해주세요.';
     return null;
   }
@@ -176,14 +177,14 @@ export function AdminClubCreateForm() {
         />
       </Field>
 
-      <Field label="로고 URL">
-        <input
-          type="url"
+      <Field label="로고 이미지 (선택)">
+        <ImageUploader
           value={logoUrl}
-          onChange={(event) => setLogoUrl(event.target.value)}
-          maxLength={500}
-          placeholder="https://..."
-          className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          onChange={setLogoUrl}
+          purpose="LOGO"
+          aspectRatio="1/1"
+          placeholder="로고 이미지를 업로드하세요 (선택)"
+          altText="로고"
         />
       </Field>
 
