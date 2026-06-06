@@ -378,7 +378,7 @@ import { ImageUploader } from '../../../_components/ImageUploader';
 </Field>
 ```
 
-**변경 3 — `validate()` 내부의 메시지 문구 정리 (검증 자체는 유지):**
+**변경 3 — `validate()` 내부의 메시지 문구에서 "URL" 표현 제거:**
 
 기존 (line 57):
 ```ts
@@ -387,10 +387,10 @@ if (logoUrl.trim().length > 500) return '로고 URL은 500자 이하여야 합�
 
 교체:
 ```ts
-if (logoUrl.trim().length > 500) return '로고 이미지 URL은 500자 이하여야 합니다.';
+if (logoUrl.trim().length > 500) return '로고 이미지 경로가 너무 깁니다.';
 ```
 
-(Storage URL 도 500자 이내이므로 이 검증은 가드로만 작동. 동작 변경 없음.)
+본 PR 의 목표는 사용자에게 "URL" 이라는 개념 자체를 노출하지 않는 것이므로 메시지 문구도 URL 단어를 제거한다. Storage URL 도 500자 이내이므로 이 검증은 안전 가드로만 작동.
 
 `logoUrl` state 선언, payload 변환 (`logoUrl.trim() || undefined`), `setLogoUrl` setter 는 그대로 유지.
 
@@ -460,6 +460,12 @@ vi.mock('@/app/_components/ImageUploader', () => ({
       />
     );
   },
+}));
+
+vi.mock('@/app/_components/ImageWithFallback', () => ({
+  ImageWithFallback: (props: { src: string | null | undefined; alt: string }) => (
+    <div data-testid={`fallback-${props.alt}`} data-src={props.src ?? ''} />
+  ),
 }));
 
 vi.mock('@duing/hooks', () => ({
@@ -536,6 +542,16 @@ describe('ClubInfoForm 의 이미지 입력', () => {
       expect(node.getAttribute('id')).not.toBe('f-cover');
     });
   });
+
+  it('readOnly=true 면 ImageUploader 대신 ImageWithFallback 으로 표시 전용 렌더된다', () => {
+    render(<ClubInfoForm clubId={1} detail={makeDetail()} readOnly={true} />);
+    expect(screen.queryByTestId('logo-uploader')).toBeNull();
+    expect(screen.queryByTestId('cover-uploader')).toBeNull();
+    const logoFallback = screen.getByTestId('fallback-로고');
+    expect(logoFallback.getAttribute('data-src')).toBe('https://imgur.com/old-logo.png');
+    const coverFallback = screen.getByTestId('fallback-커버');
+    expect(coverFallback.getAttribute('data-src')).toBe('https://imgur.com/old-cover.png');
+  });
 });
 ```
 
@@ -557,7 +573,10 @@ Expected: `getByTestId('logo-uploader')` 가 매칭 안 됨 (아직 ImageUploade
 
 ```tsx
 import { ImageUploader } from '@/app/_components/ImageUploader';
+import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
 ```
+
+조회 모드(`readOnly`) 에서는 업로드 UI 가 어색하므로 표시 전용 `<ImageWithFallback>` 으로 분기한다 — 의미상 "조회 = 표시 / 편집 = 업로드" 가 명확.
 
 **변경 2 — `로고 URL` 블록 (대략 line 282-294) 전체 교체.**
 
@@ -582,13 +601,11 @@ import { ImageUploader } from '@/app/_components/ImageUploader';
 <div className={fieldCls}>
   <label className={labelCls}>로고 이미지</label>
   {readOnly ? (
-    <ImageUploader
-      value={logoUrl}
-      onChange={() => undefined}
-      purpose="LOGO"
-      aspectRatio="1/1"
-      placeholder="로고 이미지가 없습니다"
-      altText="로고"
+    <ImageWithFallback
+      src={logoUrl}
+      alt="로고"
+      className="aspect-square rounded-xl overflow-hidden border border-line max-w-[240px]"
+      emptyMessage="로고 이미지가 없습니다"
     />
   ) : (
     <ImageUploader
@@ -603,9 +620,7 @@ import { ImageUploader } from '@/app/_components/ImageUploader';
 </div>
 ```
 
-> 참고: `ImageUploader` 가 자체적으로 input 을 숨기고 버튼으로만 트리거하므로 `disabled` 동작은 readOnly 분기로 onChange 를 no-op 으로 만들어 흉내낸다. 더 깔끔하게 하려면 ImageUploader 에 `disabled` prop 추가가 필요하나 본 plan 범위 밖 — readOnly 가 true 일 때 운영진이 폼을 못 보기에 실질 영향 없음. 단순 readOnly 표시 케이스가 코드에 거의 안 보이면 위 분기 없이 단일 `onChange={setLogoUrl}` 만으로 충분 (확인 후 단순화).
-
-`htmlFor="f-logo"` 의존성 제거 후 라벨에 `htmlFor` 속성 제거.
+`htmlFor="f-logo"` 의존성 제거 후 라벨에 `htmlFor` 속성 제거. 표시 전용일 때는 `max-w-[240px]` 으로 1:1 박스가 페이지를 가로지르지 않도록 제한.
 
 **변경 3 — `커버 URL` 블록 (대략 line 294-306) 동일 패턴으로 교체.**
 
@@ -630,13 +645,11 @@ import { ImageUploader } from '@/app/_components/ImageUploader';
 <div className={fieldCls}>
   <label className={labelCls}>커버 이미지</label>
   {readOnly ? (
-    <ImageUploader
-      value={coverUrl}
-      onChange={() => undefined}
-      purpose="COVER"
-      aspectRatio="16/9"
-      placeholder="커버 이미지가 없습니다"
-      altText="커버"
+    <ImageWithFallback
+      src={coverUrl}
+      alt="커버"
+      className="aspect-[16/9] rounded-xl overflow-hidden border border-line"
+      emptyMessage="커버 이미지가 없습니다"
     />
   ) : (
     <ImageUploader
@@ -1018,6 +1031,44 @@ gh pr checks <PR번호>
 
 ---
 
+## Acceptance Criteria
+
+본 PR 머지 직전 다음을 모두 만족해야 한다.
+
+**입력 UI 제거 (사용자에게 URL 노출 0):**
+- [ ] `AdminClubCreateForm` 에 이미지 URL 입력 필드(`<input type="url">` for logo) 가 존재하지 않는다.
+- [ ] `ClubInfoForm` 에 logoUrl / coverUrl URL 입력 필드가 존재하지 않는다.
+- [ ] `PromotionRequestModal` 에 suggestedBannerImageUrl URL 입력 필드가 존재하지 않는다.
+- [ ] 화면에 노출되는 라벨/플레이스홀더/검증 메시지에서 "URL" 단어가 사라졌다 (이미지 입력 영역 한정).
+
+**컴포넌트 선택 정합성:**
+- [ ] logoUrl 은 `<ImageUploader purpose="LOGO" aspectRatio="1/1">` 를 사용한다 (AdminClubCreateForm, ClubInfoForm 양쪽).
+- [ ] coverUrl 은 `<ImageUploader purpose="COVER" aspectRatio="16/9">` 를 사용한다.
+- [ ] suggestedBannerImageUrl 은 `<ImageUploader purpose="PROMOTION_REQUEST_BANNER" aspectRatio="16/9">` 를 사용한다.
+- [ ] `ClubInfoForm` 의 `readOnly=true` 분기는 `<ImageWithFallback>` 으로 표시 전용 렌더되며 업로드 UI 가 노출되지 않는다.
+
+**데이터 호환:**
+- [ ] DB 에 기존 외부 URL (예: `https://imgur.com/...`) 로 저장된 logoUrl/coverUrl 이 콘텐츠 표시 화면(ClubCard, ClubDetailHero 등) 에서 정상 표시된다.
+- [ ] 동일 외부 URL 이 ClubInfoForm 수정 화면 진입 시 ImageUploader 의 미리보기에 그대로 노출된다.
+- [ ] 운영진이 "교체" 클릭 후 새 이미지를 업로드하면 Storage URL 로 갱신되어 저장된다.
+- [ ] DB 스키마는 변경되지 않는다 (Flyway 마이그레이션 신규 파일 0).
+
+**테스트 / 빌드:**
+- [ ] `FileApiTest` 8/8 PASS (기존 7 + PROMOTION_REQUEST_BANNER 1).
+- [ ] `ImageUploader.test.tsx` 6/6 PASS (기존 5 + aspect-square 1).
+- [ ] 신규 폼 단위 테스트 3 파일 모두 PASS.
+- [ ] `pnpm --filter @duing/web build` 성공.
+- [ ] `./gradlew test` 전체 PASS (회귀 없음).
+
+**참고 검증 (자동):**
+```bash
+grep -rn 'type="url"' frontend/apps/web/app --include="*.tsx" \
+  | grep -iE 'logoUrl|coverUrl|imageUrl|bannerImageUrl'
+```
+0 건 출력.
+
+---
+
 ## Self-Review
 
 **Spec 커버리지:**
@@ -1041,4 +1092,4 @@ gh pr checks <PR번호>
 **잠재 위험:**
 - Task 4 / 5 / 6 의 폼별 단위 테스트가 첫 실행 시 모듈 mock 누락으로 throw 할 가능성 — 각 Task Step 1 의 mock 블록을 첫 실패 메시지에 따라 보강하는 방식이 표준 패턴.
 - Task 6 의 제출 버튼/라벨 정규식 (`/요청|제출|보내기/`, `/제목/`, `/설명/`) 이 실제 라벨 텍스트와 다르면 실패 — 실제 텍스트 확인 후 교체.
-- ClubInfoForm 의 readOnly 케이스가 실제 운영 화면에 거의 없으면 분기 단순화 가능 (Task 5 Step 3 참고).
+- `ClubInfoForm` 의 `readOnly` 분기에서 표시 전용 `ImageWithFallback` 로 전환 — 기존 disabled URL input 의 시각 효과와 다르므로 dev 수동 확인 시 함께 검증 필요.
