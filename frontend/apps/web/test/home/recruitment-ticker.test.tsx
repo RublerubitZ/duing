@@ -50,6 +50,17 @@ describe('RecruitmentTicker (server component)', () => {
     expect(screen.getByText('베타')).toBeInTheDocument();
   });
 
+  it('섹션 라벨은 "마감 임박" 으로 표기된다 (쿼리는 7일 범위로 제한하지 않음)', async () => {
+    mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce([
+      makeSummary('감마', '2026-10-15'),
+    ]);
+
+    const Component = await RecruitmentTicker();
+    render(<>{Component}</>);
+
+    expect(screen.getByText('마감 임박')).toBeInTheDocument();
+  });
+
   it('helper 가 모두 필터해 0건이면 섹션 자체가 미렌더', async () => {
     mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce([]);
 

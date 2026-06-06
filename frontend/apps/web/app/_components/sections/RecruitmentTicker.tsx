@@ -18,7 +18,7 @@ export async function RecruitmentTicker() {
           style={{ background: 'rgba(157,182,160,0.18)' }}
         >
           <span className="h-1.5 w-1.5 rounded-full bg-sage" />
-          이번 주 마감
+          마감 임박
         </div>
         <div className="flex flex-1 gap-8 overflow-hidden text-sm font-medium">
           {clubs.map((club) => {
