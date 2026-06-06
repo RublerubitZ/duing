@@ -1,7 +1,9 @@
 package com.duing.domain.club.repository;
 
+import static com.duing.domain.application.entity.QApplication.application;
 import static com.duing.domain.club.entity.QClub.club;
 import static com.duing.domain.clubmember.entity.QClubMember.clubMember;
+import static com.duing.domain.favorite.entity.QClubFavorite.clubFavorite;
 import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
 import static com.duing.domain.user.entity.QUser.user;
 
@@ -302,6 +304,40 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                         new OrderSpecifier<>(Order.ASC, openEndDateAsc, OrderSpecifier.NullHandling.NullsLast),
                         new OrderSpecifier<>(Order.ASC, upcomingStartDateAsc, OrderSpecifier.NullHandling.NullsLast),
                         new OrderSpecifier<>(Order.DESC, closedEndDateDesc, OrderSpecifier.NullHandling.NullsLast),
+                        club.createdAt.desc()
+                };
+            }
+            case POPULAR -> {
+                LocalDate today = LocalDate.now();
+
+                // tier 1: 활성 모집들의 application 수 합
+                var applicationCount = JPAExpressions.select(application.count())
+                        .from(application)
+                        .join(application.recruitment, recruitment)
+                        .where(recruitment.club.eq(club),
+                                recruitment.status.eq(RecruitmentStatus.OPEN),
+                                recruitment.startDate.loe(today),
+                                recruitment.endDate.isNull().or(recruitment.endDate.goe(today)));
+
+                // tier 2: 즐겨찾기 수
+                var favoriteCount = JPAExpressions.select(clubFavorite.count())
+                        .from(clubFavorite)
+                        .where(clubFavorite.club.eq(club));
+
+                // tier 3: 가장 최근 활성 모집의 시작일
+                var latestActiveStart = JPAExpressions.select(recruitment.startDate.max())
+                        .from(recruitment)
+                        .where(recruitment.club.eq(club),
+                                recruitment.status.eq(RecruitmentStatus.OPEN),
+                                recruitment.startDate.loe(today),
+                                recruitment.endDate.isNull().or(recruitment.endDate.goe(today)));
+
+                // tier 1·2 는 COUNT 가 0 반환 → DESC 정렬 시 자연스럽게 후순위.
+                // tier 3 만 활성 모집 부재 시 NULL 가능 → NULLS LAST 명시.
+                yield new OrderSpecifier<?>[]{
+                        new OrderSpecifier<>(Order.DESC, applicationCount),
+                        new OrderSpecifier<>(Order.DESC, favoriteCount),
+                        new OrderSpecifier<>(Order.DESC, latestActiveStart, OrderSpecifier.NullHandling.NullsLast),
                         club.createdAt.desc()
                 };
             }
