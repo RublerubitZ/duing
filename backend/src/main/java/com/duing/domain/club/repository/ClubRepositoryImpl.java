@@ -31,6 +31,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -164,7 +165,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 "lower(function('array_to_string', {0}, {1}))",
                 club.tags,
                 ","
-        ).like("%" + normalized.toLowerCase() + "%");
+        ).like("%" + normalized.toLowerCase(Locale.ROOT) + "%");
 
         return club.name.containsIgnoreCase(normalized)
                 .or(club.description.containsIgnoreCase(normalized))
