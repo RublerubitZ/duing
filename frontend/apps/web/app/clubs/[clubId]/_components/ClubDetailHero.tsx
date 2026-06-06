@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
 import { useAuthStore } from '@duing/stores';
 import { ReportModal } from '@/components/report/ReportModal';
+import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
 import { clubCategoryLabel } from '../_lib/clubCategoryLabel';
 
@@ -29,6 +30,18 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
           <span className="font-semibold text-ink">{club.name}</span>
         </div>
       </div>
+
+      {club.coverUrl && (
+        <div className="border-b border-line bg-cream">
+          <div className="max-w-layout mx-auto px-10 pt-4">
+            <ImageWithFallback
+              src={club.coverUrl}
+              alt={`${club.name} 커버`}
+              className="aspect-[16/9] max-h-[280px] w-full overflow-hidden rounded-2xl"
+            />
+          </div>
+        </div>
+      )}
 
       <section className="bg-cream px-10 pt-11 pb-8">
         <div className="max-w-layout mx-auto">
