@@ -17,6 +17,7 @@ import org.hibernate.type.StandardBasicTypes;
  * <p>
  * 호출 예: {@code function('array_overlap_text', club.tags, '축구,러닝')}
  * 호출 예: {@code function('array_overlap_csv', club.activeDays, 'MONDAY,WEDNESDAY')}
+ * 호출 예: {@code function('array_to_string', club.tags, ',')}
  */
 public class PostgresFunctionContributor implements FunctionContributor {
 
@@ -26,6 +27,10 @@ public class PostgresFunctionContributor implements FunctionContributor {
                 .getTypeConfiguration()
                 .getBasicTypeRegistry()
                 .resolve(StandardBasicTypes.BOOLEAN);
+        BasicType<String> stringType = functionContributions
+                .getTypeConfiguration()
+                .getBasicTypeRegistry()
+                .resolve(StandardBasicTypes.STRING);
 
         functionContributions.getFunctionRegistry().registerPattern(
                 "array_overlap_text",
@@ -37,6 +42,12 @@ public class PostgresFunctionContributor implements FunctionContributor {
                 "array_overlap_csv",
                 "(string_to_array(nullif(?1, ''), ',') && string_to_array(?2, ','))",
                 booleanType
+        );
+
+        functionContributions.getFunctionRegistry().registerPattern(
+                "array_to_string",
+                "array_to_string(?1, ?2)",
+                stringType
         );
     }
 }
