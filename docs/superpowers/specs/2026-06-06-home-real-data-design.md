@@ -74,7 +74,7 @@
 ### 운영 시나리오
 
 - 활성 모집이 여러 개인 동아리 → 지원자 수는 합산, 시작일은 MAX
-- 활성 모집이 없는 동아리 → tier 1·3 NULL → NULLS LAST 로 후순위. tier 2(favoriteCount) 가 사실상 정렬 기준
+- 활성 모집이 없는 동아리 → tier 1 = 0 (자연 후순위), tier 3 = NULL → NULLS LAST. tier 2(favoriteCount) 가 사실상 정렬 기준이 됨
 - → POPULAR 단독 호출 시 결과에 활성 모집 없는 동아리도 포함 (정렬 후순위)
 - → `?sort=POPULAR&recruitmentStatus=AVAILABLE` 조합 → "현재 모집 중 + 인기순" 이 FeaturedClubs 의 실제 사용 패턴
 
@@ -123,7 +123,7 @@ public enum ClubSortOption {
      * 2) 즐겨찾기 수 DESC
      * 3) 가장 최근 활성 모집의 시작일 DESC
      * 4) club.createdAt DESC (최종 tiebreak)
-     * 활성 모집이 없는 동아리는 1·3 tier 가 NULL → NULLS LAST 로 후순위.
+     * 활성 모집이 없는 동아리는 tier 1 = 0 으로 자연 후순위, tier 3 NULL → NULLS LAST.
      * "현재 모집 중인 동아리 중 인기순" 사용 시 {@code recruitmentStatus=AVAILABLE} 와 조합.
      */
     POPULAR
@@ -331,14 +331,14 @@ PR-C 는 BE 변경에 의존하지 않으므로 PR-A·B 와 무관하게 진행 
 
 2. **`ClubSummary` ↔ 기존 카드 마크업 간극** — 기존 mock 카드는 `gen/spots/members/avatar/color/recruit/scope` 등 BE 응답에 없는 필드 의존. 매핑 누락 시 빈 칸 또는 어색한 표시 가능. 카드 마크업의 어느 정보를 빼고 어느 정보를 매핑할지 PR-B 구현 단계에서 확정. 디자이너 확인 권장.
 
-2. **카테고리 이미지 매핑** — 기존 8장 이미지(`cat-01-academic.png` ~ `cat-08-startup.png`)는 옛 분류 체계(학술/음악/운동/IT/공연/봉사/문화/창업) 기준. 새 enum (학술/문화/예술/운동/봉사/종교/취미/기타) 매핑 시 의미가 약간 어긋남 (예: "예술" 카테고리에 "음악" 이미지). PR-C 에서 임시 매핑 유지 + 후속 라운드에 디자이너 작업으로 교체 권장.
+3. **카테고리 이미지 매핑** — 기존 8장 이미지(`cat-01-academic.png` ~ `cat-08-startup.png`)는 옛 분류 체계(학술/음악/운동/IT/공연/봉사/문화/창업) 기준. 새 enum (학술/문화/예술/운동/봉사/종교/취미/기타) 매핑 시 의미가 약간 어긋남 (예: "예술" 카테고리에 "음악" 이미지). PR-C 에서 임시 매핑 유지 + 후속 라운드에 디자이너 작업으로 교체 권장.
 
-3. **POPULAR 정렬 성능 모니터링** — Subquery 3개 NULLS LAST 정렬. EXPLAIN 으로 확인 권장하나 MVP 규모는 안전. 추후 비정규화 시 invalidation 전략 별도 설계 필요.
+4. **POPULAR 정렬 성능 모니터링** — Subquery 3개 NULLS LAST 정렬. EXPLAIN 으로 확인 권장하나 MVP 규모는 안전. 추후 비정규화 시 invalidation 전략 별도 설계 필요.
 
-4. **0건 시 섹션 숨김 정책의 일관성** — 본 라운드에서 FeaturedClubs / RecruitmentTicker 모두 0건이면 `BannerCarousel` ↔ `Categories` 사이가 휑해짐. 디자인적 갭은 의도된 절제 — 후속 라운드에서 empty-state 카드 도입 여지.
+5. **0건 시 섹션 숨김 정책의 일관성** — 본 라운드에서 FeaturedClubs / RecruitmentTicker 모두 0건이면 `BannerCarousel` ↔ `Categories` 사이가 휑해짐. 디자인적 갭은 의도된 절제 — 후속 라운드에서 empty-state 카드 도입 여지.
 
-5. **`HeroCardStack` 의 추후 정합화** — 본 라운드 Out of scope. 사용자가 직후 후속 라운드로 진행 의사를 표명함. 구현 시 같은 `POPULAR` 정렬 + size 3 패턴 재사용 가능.
+6. **`HeroCardStack` 의 추후 정합화** — 본 라운드 Out of scope. 사용자가 직후 후속 라운드로 진행 의사를 표명함. 구현 시 같은 `POPULAR` 정렬 + size 3 패턴 재사용 가능.
 
-6. **`BannerCarousel` 이벤트 도메인 부재** — 본 라운드 Out of scope. 후속 라운드에서 이벤트 도메인(`AdminNotice` 의 카테고리 확장 또는 별도 `Event` 도메인) 설계 필요.
+7. **`BannerCarousel` 이벤트 도메인 부재** — 본 라운드 Out of scope. 후속 라운드에서 이벤트 도메인(`AdminNotice` 의 카테고리 확장 또는 별도 `Event` 도메인) 설계 필요.
 
-7. **카테고리 클릭 URL 변경 영향도** — 현재 `/clubs?category=음악` 같은 한글 URL 은 사실상 작동 안 함(BE enum 매치 실패). PR-C 가 이 dead-link 를 enum 값으로 교정. 외부에서 한글 URL 을 북마크/공유한 사용자는 없음으로 가정 (현재 깨진 동작).
+8. **카테고리 클릭 URL 변경 영향도** — 현재 `/clubs?category=음악` 같은 한글 URL 은 사실상 작동 안 함(BE enum 매치 실패). PR-C 가 이 dead-link 를 enum 값으로 교정. 외부에서 한글 URL 을 북마크/공유한 사용자는 없음으로 가정 (현재 깨진 동작).
