@@ -139,10 +139,11 @@ private BooleanExpression keywordContains(String keyword) {
     String normalized = keyword.replaceFirst("^#+", "").trim();
     if (normalized.isEmpty()) return null;
 
+    // 기존 tagsOverlap() 와 동일하게 booleanTemplate 인자에 String 을 직접 바인딩한다.
     BooleanExpression tagMatch = Expressions.booleanTemplate(
             "function('array_to_string', {0}, {1}) ilike {2}",
             club.tags,
-            Expressions.constant(","),
+            ",",
             "%" + normalized + "%"
     );
 
@@ -155,6 +156,7 @@ private BooleanExpression keywordContains(String keyword) {
 #### 설계 메모
 
 - **`#` 정규화**: `replaceFirst("^#+", "")` 로 선행 `#` 을 모두 제거한다 (`#`, `##개발` 등 모두 `개발` 로). `trim()` 으로 양끝 공백도 정리해, `# 개발` 입력 시 빈 토큰이 되지 않게 한다. 빈 문자열이면 null 반환(필터 비활성).
+- **정규화 영향 범위 주의**: 정규화된 `normalized` 는 name·description·tag 매치 모두에 사용된다. 이름이나 소개에 실제 `#` 문자가 포함된 경우 매치 폭이 약간 넓어질 수 있으나(예: 이름 `"#1동아리"` 가 `keyword="#1"` 검색에서 더 넓게 잡힘), 실제 데이터에서 발생 가능성은 매우 낮아 허용한다. 필요해지면 name/description 매치는 원문 `keyword` 로, tag 매치만 `normalized` 로 분리할 수 있다.
 - **태그 매치 방식**: `array_to_string(tags, ',')` 결과에 ILIKE `%개발%` 매치. 이름·소개와 동일한 부분 문자열 시맨틱을 유지한다.
 - **현재 트레이드오프**: `array_to_string` 매치는 태그 경계를 무시한다 — 예: `["프론트엔드개발"]` 도 "개발" 검색에 잡힌다. 사용자 의도와 일치하는 동작으로 판단해 그대로 둔다. 추후 정확한 단어 단위 매치가 필요해지면 `unnest(tags)` 를 활용한 EXISTS 서브쿼리로 전환을 검토할 수 있다(아래 후속 검토 메모 참조).
 - **`tags` 파라미터와의 관계**: 기존 `tagsOverlap()` 필터는 그대로 유지. `keyword` 와 `tags` 는 AND 로 합쳐지므로, 사용자가 두 가지를 동시에 사용해도 의도대로 동작한다.
@@ -179,17 +181,19 @@ EXISTS (
 
 ## 5. 테스트 계획
 
-### 5.1 백엔드 단위 테스트 (ClubRepositoryImplTest)
+### 5.1 백엔드 통합 테스트 (`ClubRepositoryImplTest`, TestContainers + Postgres)
+
+기존 ClubRepositoryImpl 통합 테스트 패턴과 동일하게 TestContainers(`@Testcontainers` + Postgres 이미지)로 실제 Postgres 에 대해 검증한다. `array_to_string` 은 Postgres 전용 함수이므로 H2/embedded DB 로는 검증 불가.
 
 | 케이스 | 데이터 | 입력 | 기대 결과 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 이름만 매치 | name="개발동아리", description="x", tags=[] | keyword="개발" | hit |
 | 소개만 매치 | name="x", description="개발을 함", tags=[] | keyword="개발" | hit |
 | 태그만 매치 | name="x", description="x", tags=["개발"] | keyword="개발" | hit |
 | `#` 정규화 | name="x", description="x", tags=["개발"] | keyword="#개발" | hit |
 | `##` 정규화 | tags=["개발"] | keyword="##개발" | hit |
 | 매치 실패 | name="요리", tags=["봉사"] | keyword="개발" | miss |
-| 공백 정규화 | tags=["개발"] | keyword="# " | 필터 비활성(전체 조회) |
+| 공백 정규화 | tags=["개발"] | keyword="# " | keyword 조건 비활성 (다른 필터만 적용) |
 | 부분 문자열 | tags=["프론트엔드"] | keyword="엔드" | hit (설계상 허용) |
 
 ### 5.2 프론트엔드 수동 검증 체크리스트
