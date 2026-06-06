@@ -141,6 +141,13 @@ public class ClubMemberException extends ApplicationException {
                   HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class ConcurrentSuccessionUpdateException extends ClubMemberException {
+        public ConcurrentSuccessionUpdateException() {
+            super("다른 운영진이 먼저 요청을 처리했습니다. 새로고침 후 다시 시도해주세요.",
+                  HttpStatus.CONFLICT);
+        }
+    }
 }
 
 
