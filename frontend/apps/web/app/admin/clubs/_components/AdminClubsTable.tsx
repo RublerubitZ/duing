@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { cn } from '../../../_lib/cn';
 import type { AdminClubSummary } from '@duing/types';
+import { clubCategoryLabel } from '../../../clubs/[clubId]/_lib/clubCategoryLabel';
 import {
   STATUS_ACTIONS,
   STATUS_BADGE_CLASS,
@@ -67,7 +68,7 @@ export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-slate-500">{club.category}</div>
+                    <div className="text-xs text-slate-500">{clubCategoryLabel(club.category)}</div>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{club.division ?? '—'}</td>
                   <td className="px-4 py-3">

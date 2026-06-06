@@ -4,6 +4,7 @@ import type { FavoriteClub } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ClubLogo } from '@/app/_components/ClubLogo';
+import { clubCategoryLabel } from '@/app/clubs/[clubId]/_lib/clubCategoryLabel';
 
 import { SectionHeader } from './SectionHeader';
 
@@ -93,7 +94,7 @@ export function SectionSaved({ favorites }: Props) {
 
                   {/* Footer */}
                   <div className="flex items-center justify-between text-[11px] pt-2 border-t border-line">
-                    <span className="pill text-[10px]">{club.category}</span>
+                    <span className="pill text-[10px]">{clubCategoryLabel(club.category)}</span>
                     <span
                       className={cn(
                         'font-semibold font-mono',
