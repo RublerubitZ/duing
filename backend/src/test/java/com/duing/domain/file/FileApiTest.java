@@ -163,4 +163,19 @@ class FileApiTest {
                     .statusCode(HttpStatus.BAD_REQUEST.value())
                     .body("message", org.hamcrest.Matchers.containsString("지원하지 않는"));
     }
+
+    @Test
+    @DisplayName("PROMOTION_REQUEST_BANNER purpose 로 정상 JPG 를 업로드하면 promotion-request/banner directory 의 URL 을 반환한다")
+    void uploadsPromotionRequestBanner() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "banner.jpg", bytesOfSize(1024), "image/jpeg")
+                    .queryParam("purpose", "PROMOTION_REQUEST_BANNER")
+                .when()
+                    .post("/api/v1/files")
+                .then()
+                    .statusCode(HttpStatus.CREATED.value())
+                    .body("data.url", org.hamcrest.Matchers.containsString("promotion-request/banner"));
+    }
 }
