@@ -50,9 +50,23 @@ public class GeneralRecruitmentService implements RecruitmentService {
         // 동아리 운영진(LEADER/OFFICER)만 모집 공고를 생성할 수 있다.
         clubAuthService.requireManager(createRecruitmentCommand.currentUserId(), club.getId());
 
-        if (recruitmentRepository.existsActiveByClubId(club.getId())) {
-            throw new RecruitmentException.DuplicateActiveRecruitmentException();
-        }
+        // uk_recruitment_club_active (V38) 는 endDate 와 무관하게 status='OPEN' 만 보고 1건만 허용한다.
+        // 한편 사용자/사전 체크가 인식하는 "활성" 의 의미는 status=OPEN AND endDate>=today 라서
+        // endDate 가 지났지만 status 가 OPEN 인 행이 있으면 사전 체크는 통과하고 INSERT 가 인덱스에
+        // 걸리는 모순이 생긴다. 이 경우 운영자가 보기엔 이미 끝난 모집이므로 자동 close 후 새 INSERT 를
+        // 진행해 사용자 멘탈모델과 DB 인덱스의 의미차를 흡수한다. 진짜 활성인 경우엔 그대로 거부.
+        LocalDate today = LocalDate.now();
+        recruitmentRepository.findOpenByClubId(club.getId()).ifPresent(existingOpen -> {
+            boolean isStillActive = existingOpen.getEndDate() == null
+                    || !existingOpen.getEndDate().isBefore(today);
+            if (isStillActive) {
+                throw new RecruitmentException.DuplicateActiveRecruitmentException();
+            }
+            // 만료된 OPEN — close UPDATE 가 새 INSERT 보다 먼저 DB 에 가도록 명시적 flush.
+            // Hibernate 기본 액션 순서 INSERT→UPDATE 에서 자기 자신과 unique 충돌 차단 (replaceActive 와 동일 패턴).
+            existingOpen.close();
+            recruitmentRepository.flush();
+        });
 
         return buildAndPersist(club, createRecruitmentCommand);
     }
