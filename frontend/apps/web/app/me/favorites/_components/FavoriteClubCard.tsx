@@ -28,7 +28,7 @@ export function FavoriteClubCard({ favorite }: Props) {
           <img
             src={favorite.logoUrl}
             alt=""
-            className="h-12 w-12 flex-shrink-0 rounded-full object-cover"
+            className="h-12 w-12 flex-shrink-0 rounded-full bg-slate-100 object-contain"
           />
         ) : (
           <div className="h-12 w-12 flex-shrink-0 rounded-full bg-slate-200" />

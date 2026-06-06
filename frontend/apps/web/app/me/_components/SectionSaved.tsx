@@ -67,7 +67,7 @@ export function SectionSaved({ favorites }: Props) {
                         <img
                           src={club.logoUrl}
                           alt={club.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                         />
                       ) : (
                         CATEGORY_EMOJI[club.category] ?? '✨'

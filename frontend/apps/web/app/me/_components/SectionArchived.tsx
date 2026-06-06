@@ -78,7 +78,7 @@ export function SectionArchived({ applications }: Props) {
                       <img
                         src={app.logoUrl}
                         alt={app.clubName}
-                        className="w-full h-full object-cover rounded-[14px]"
+                        className="w-full h-full object-contain rounded-[14px]"
                       />
                     ) : (
                       '🏛'

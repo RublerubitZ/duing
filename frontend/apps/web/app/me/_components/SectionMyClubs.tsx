@@ -64,7 +64,7 @@ export function SectionMyClubs({ myClubs }: Props) {
                       <img
                         src={club.logoUrl}
                         alt={club.clubName}
-                        className="w-full h-full object-cover rounded-[14px]"
+                        className="w-full h-full object-contain rounded-[14px]"
                       />
                     ) : (
                       '🏛'
