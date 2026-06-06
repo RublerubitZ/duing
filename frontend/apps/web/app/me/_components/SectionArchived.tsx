@@ -4,6 +4,7 @@ import type { ApplicationStatus, ApplicationSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
+import { ClubLogo } from '@/app/_components/ClubLogo';
 
 import { SectionHeader } from './SectionHeader';
 
@@ -73,16 +74,9 @@ export function SectionArchived({ applications }: Props) {
                   <div
                     className="w-14 h-14 rounded-[14px] grid place-items-center text-[26px] shrink-0 bg-sage-mist text-ink-deep relative overflow-hidden"
                   >
-                    {app.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={app.logoUrl}
-                        alt={app.clubName}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                    ) : (
-                      '🏛'
-                    )}
+                    <ClubLogo logoUrl={app.logoUrl} alt={app.clubName}>
+                      <span>🏛</span>
+                    </ClubLogo>
                   </div>
 
                   <div className="flex-1 min-w-0">

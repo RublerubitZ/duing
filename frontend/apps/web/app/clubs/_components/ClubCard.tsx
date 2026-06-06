@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { SparkleFull } from '../../_components/Sparkle';
+import { ClubLogo } from '../../_components/ClubLogo';
 import { toRoute } from '../../_lib/route';
 import { CAT_COLORS, type Club } from '../_lib/clubs';
 import type { RecruitmentDisplayStatus } from '@duing/types';
@@ -104,12 +105,7 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
           }}
           aria-label={`${club.name} 로고`}
         >
-          {club.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={club.logoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-          ) : (
-            initial
-          )}
+          <ClubLogo logoUrl={club.logoUrl}>{initial}</ClubLogo>
           <SparkleFull size={12} color="#9DB6A0" className="absolute -top-1 -right-1" />
         </div>
 
