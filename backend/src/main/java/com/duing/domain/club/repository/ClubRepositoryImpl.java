@@ -26,8 +26,11 @@ import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -52,6 +55,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 recruitmentStatusFilter(effectiveStatus),
                 centralClubEq(condition.centralClub()),
                 collegeEq(condition.college()),
+                activeDaysOverlap(condition.effectiveActiveDays()),
         };
 
         List<Club> content = queryFactory
@@ -163,6 +167,20 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
         return Expressions.booleanTemplate(
                 "function('array_overlap_text', {0}, {1}) = true",
                 club.tags,
+                csv
+        );
+    }
+
+    private BooleanExpression activeDaysOverlap(Set<DayOfWeek> days) {
+        if (days == null) return null;
+        String csv = days.stream()
+                .map(DayOfWeek::name)
+                .collect(Collectors.joining(","));
+        // active_days 는 CSV TEXT. array_overlap_csv 가 양쪽을 string_to_array 로 펼쳐
+        // PostgreSQL && 로 한 원소라도 겹치는지 검사한다. 빈 문자열은 nullif 로 NULL 처리.
+        return Expressions.booleanTemplate(
+                "function('array_overlap_csv', {0}, {1}) = true",
+                club.activeDays,
                 csv
         );
     }

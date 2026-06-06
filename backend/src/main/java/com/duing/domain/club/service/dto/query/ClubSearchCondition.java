@@ -2,7 +2,9 @@ package com.duing.domain.club.service.dto.query;
 
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.user.entity.College;
+import java.time.DayOfWeek;
 import java.util.List;
+import java.util.Set;
 
 public record ClubSearchCondition(
         ClubCategory category,
@@ -13,6 +15,7 @@ public record ClubSearchCondition(
         RecruitmentStatusFilter recruitmentStatus,
         Boolean centralClub,
         College college,
+        Set<DayOfWeek> activeDays,
         ClubSortOption sortOption
 ) {
     public boolean hasTags() {
@@ -44,5 +47,17 @@ public record ClubSearchCondition(
             return RecruitmentStatusFilter.AVAILABLE;
         }
         return null;
+    }
+
+    /**
+     * 활동요일 필터의 정규화된 값.
+     * - null / 빈 Set / 7개 전체 → null (필터 미적용)
+     * - 그 외 → 입력 Set 그대로
+     */
+    public Set<DayOfWeek> effectiveActiveDays() {
+        if (activeDays == null || activeDays.isEmpty() || activeDays.size() == DayOfWeek.values().length) {
+            return null;
+        }
+        return activeDays;
     }
 }
