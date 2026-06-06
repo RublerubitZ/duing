@@ -71,14 +71,14 @@ export function SectionArchived({ applications }: Props) {
                   )}
                 >
                   <div
-                    className="w-14 h-14 rounded-[14px] grid place-items-center text-[26px] shrink-0 bg-sage-mist text-ink-deep"
+                    className="w-14 h-14 rounded-[14px] grid place-items-center text-[26px] shrink-0 bg-sage-mist text-ink-deep relative overflow-hidden"
                   >
                     {app.logoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={app.logoUrl}
                         alt={app.clubName}
-                        className="w-full h-full object-contain rounded-[14px]"
+                        className="absolute inset-0 w-full h-full object-cover"
                       />
                     ) : (
                       '🏛'

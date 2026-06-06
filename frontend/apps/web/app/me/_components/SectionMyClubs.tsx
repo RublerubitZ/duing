@@ -55,7 +55,7 @@ export function SectionMyClubs({ myClubs }: Props) {
                 >
                   <div
                     className={cn(
-                      'w-14 h-14 rounded-[14px] grid place-items-center text-[26px] shrink-0',
+                      'w-14 h-14 rounded-[14px] grid place-items-center text-[26px] shrink-0 relative overflow-hidden',
                       isManager ? 'bg-ink-deep text-white' : 'bg-sage-mist text-ink-deep',
                     )}
                   >
@@ -64,7 +64,7 @@ export function SectionMyClubs({ myClubs }: Props) {
                       <img
                         src={club.logoUrl}
                         alt={club.clubName}
-                        className="w-full h-full object-contain rounded-[14px]"
+                        className="absolute inset-0 w-full h-full object-cover"
                       />
                     ) : (
                       '🏛'

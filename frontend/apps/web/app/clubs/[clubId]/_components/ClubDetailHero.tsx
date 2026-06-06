@@ -38,138 +38,74 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
               <ImageWithFallback
                 src={club.coverUrl}
                 alt={`${club.name} 커버`}
-                className="aspect-[16/9] max-h-[280px] w-full overflow-hidden rounded-2xl"
+                className="aspect-[16/9] max-h-[240px] w-full overflow-hidden rounded-2xl"
               />
             </div>
           )}
-
-          {club.coverUrl ? (
-            <div className="-mt-12 flex flex-col items-center px-10 pb-8 text-center">
+          <div className={`px-10 pb-8 ${club.coverUrl ? 'pt-7' : 'pt-11'}`}>
+            <div className="flex flex-col items-start gap-6 md:flex-row">
               <div
-                className="relative z-10 grid h-[96px] w-[96px] place-items-center overflow-hidden rounded-[24px] text-white shadow-2 ring-4 ring-cream"
+                className="relative grid h-[140px] w-[140px] shrink-0 place-items-center overflow-hidden rounded-[28px] text-white shadow-2"
                 style={{ background: 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)' }}
               >
                 {club.logoUrl ? (
                   <img
                     src={club.logoUrl}
                     alt=""
-                    className="absolute inset-0 h-full w-full object-contain"
+                    className="absolute inset-0 h-full w-full object-cover"
                   />
                 ) : (
-                  <span className="font-display text-[40px] font-bold leading-none">
+                  <span className="font-display text-[56px] font-bold leading-none">
                     {initial}
                   </span>
                 )}
               </div>
 
-              <div className="mt-5 mb-3.5 flex flex-wrap items-center justify-center gap-2">
-                {club.centralClub && (
-                  <span className="pill pill-solid">
-                    🏛️ 중앙동아리
+              <div className="flex-1 pt-2">
+                <div className="mb-3.5 flex flex-wrap items-center gap-2">
+                  {club.centralClub && (
+                    <span className="pill pill-solid">
+                      🏛️ 중앙동아리
+                    </span>
+                  )}
+                  <span className="pill">
+                    {categoryLabel}{club.division ? ` · ${club.division}` : ''}
                   </span>
-                )}
-                <span className="pill">
-                  {categoryLabel}{club.division ? ` · ${club.division}` : ''}
-                </span>
-                {recruitmentDisplayStatus && (
-                  <span className="pill pill-solid">
-                    {displayStatusLabel(recruitmentDisplayStatus)}
-                  </span>
-                )}
-                {(club.foundedYear !== null || club.cohortNumber !== null) && (
-                  <span className="text-[13px] text-charcoal-3">
-                    {club.foundedYear !== null && `${club.foundedYear}년 창설`}
-                    {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
-                    {club.cohortNumber !== null && `${club.cohortNumber}기`}
-                  </span>
-                )}
-              </div>
-              <h1 className="mb-4 text-[44px] leading-none tracking-tightx md:text-[56px]">
-                {club.name}
-              </h1>
-              {club.description && (
-                <p className="max-w-[580px] text-lg leading-relaxed text-charcoal-2 line-clamp-2">
-                  {club.description}
-                </p>
-              )}
-
-              {isAuthenticated && (
-                <button
-                  type="button"
-                  onClick={() => setReportOpen(true)}
-                  className="mt-4 flex items-center gap-1.5 text-xs text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
-                >
-                  <FlagIcon />
-                  신고하기
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="px-10 pt-11 pb-8">
-              <div className="mb-8 flex flex-col items-start gap-6 md:flex-row">
-                <div
-                  className="relative grid h-[140px] w-[140px] shrink-0 place-items-center rounded-[28px] text-white shadow-2 overflow-hidden"
-                  style={{ background: 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)' }}
-                >
-                  {club.logoUrl ? (
-                    <img
-                      src={club.logoUrl}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-contain"
-                    />
-                  ) : (
-                    <span className="font-display text-[56px] font-bold leading-none">
-                      {initial}
+                  {recruitmentDisplayStatus && (
+                    <span className="pill pill-solid">
+                      {displayStatusLabel(recruitmentDisplayStatus)}
+                    </span>
+                  )}
+                  {(club.foundedYear !== null || club.cohortNumber !== null) && (
+                    <span className="text-[13px] text-charcoal-3">
+                      {club.foundedYear !== null && `${club.foundedYear}년 창설`}
+                      {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
+                      {club.cohortNumber !== null && `${club.cohortNumber}기`}
                     </span>
                   )}
                 </div>
+                <h1 className="mb-4 text-[44px] leading-none tracking-tightx md:text-[56px]">
+                  {club.name}
+                </h1>
+                {club.description && (
+                  <p className="max-w-[580px] text-lg leading-relaxed text-charcoal-2 line-clamp-2">
+                    {club.description}
+                  </p>
+                )}
 
-                <div className="flex-1 pt-2">
-                  <div className="mb-3.5 flex flex-wrap items-center gap-2">
-                    {club.centralClub && (
-                      <span className="pill pill-solid">
-                        🏛️ 중앙동아리
-                      </span>
-                    )}
-                    <span className="pill">
-                      {categoryLabel}{club.division ? ` · ${club.division}` : ''}
-                    </span>
-                    {recruitmentDisplayStatus && (
-                      <span className="pill pill-solid">
-                        {displayStatusLabel(recruitmentDisplayStatus)}
-                      </span>
-                    )}
-                    {(club.foundedYear !== null || club.cohortNumber !== null) && (
-                      <span className="text-[13px] text-charcoal-3">
-                        {club.foundedYear !== null && `${club.foundedYear}년 창설`}
-                        {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
-                        {club.cohortNumber !== null && `${club.cohortNumber}기`}
-                      </span>
-                    )}
-                  </div>
-                  <h1 className="mb-4 text-[44px] leading-none tracking-tightx md:text-[56px]">
-                    {club.name}
-                  </h1>
-                  {club.description && (
-                    <p className="max-w-[580px] text-lg leading-relaxed text-charcoal-2 line-clamp-2">
-                      {club.description}
-                    </p>
-                  )}
-
-                  {isAuthenticated && (
-                    <button
-                      type="button"
-                      onClick={() => setReportOpen(true)}
-                      className="mt-4 flex items-center gap-1.5 text-xs text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
-                    >
-                      <FlagIcon />
-                      신고하기
-                    </button>
-                  )}
-                </div>
+                {isAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={() => setReportOpen(true)}
+                    className="mt-4 flex items-center gap-1.5 text-xs text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
+                  >
+                    <FlagIcon />
+                    신고하기
+                  </button>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
       </section>
 
