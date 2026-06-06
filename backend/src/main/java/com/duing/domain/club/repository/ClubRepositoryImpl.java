@@ -305,6 +305,11 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                         club.createdAt.desc()
                 };
             }
+            case POPULAR -> new OrderSpecifier<?>[]{
+                    // TODO: 인기순 정렬 로직 구현
+                    // 우선순위: 활성 모집 지원자수 > 즐겨찾기 수 > 가장 최근 활성 모집의 시작일 > club.createdAt
+                    club.createdAt.desc()
+            };
         };
     }
 }
