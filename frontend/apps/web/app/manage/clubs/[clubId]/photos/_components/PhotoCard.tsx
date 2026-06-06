@@ -5,6 +5,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { ClubPhoto } from '@duing/types';
 import { useDeletePhotoMutation, useUpdatePhotoMutation } from '@duing/hooks';
+import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
 
 type PhotoCardProps = {
   clubId: number;
@@ -58,8 +59,13 @@ export function PhotoCard({ clubId, photo }: PhotoCardProps) {
         aria-label="드래그하여 순서 변경"
         className="block w-full cursor-grab text-left active:cursor-grabbing"
       >
-        <img src={photo.storageKey} alt={photo.caption ?? ''}
-          className="aspect-square w-full rounded-sm object-cover" />
+        <ImageWithFallback
+          src={photo.storageKey}
+          alt={photo.caption ?? ''}
+          className="aspect-square w-full rounded-sm"
+          emptyMessage="사진 없음"
+          errorMessage="불러올 수 없습니다"
+        />
       </button>
       <input
         type="text"
