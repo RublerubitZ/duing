@@ -60,14 +60,14 @@ export function SectionSaved({ favorites }: Props) {
                   {/* Header row */}
                   <div className="flex items-center justify-between">
                     <div
-                      className="w-11 h-11 rounded-[12px] grid place-items-center text-[22px] bg-sage-mist text-ink-deep overflow-hidden"
+                      className="w-11 h-11 rounded-[12px] grid place-items-center text-[22px] bg-sage-mist text-ink-deep overflow-hidden relative"
                     >
                       {club.logoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={club.logoUrl}
                           alt={club.name}
-                          className="w-full h-full object-cover"
+                          className="absolute inset-0 w-full h-full object-cover"
                         />
                       ) : (
                         CATEGORY_EMOJI[club.category] ?? '✨'
