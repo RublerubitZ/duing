@@ -447,7 +447,7 @@ export function NoticePage() {
                             <ImageWithFallback
                               src={n.coverImageUrl}
                               alt=""
-                              className="w-full h-full"
+                              className="w-full h-full !bg-transparent"
                               emptyMessage="이미지 없음"
                             />
                           </div>
@@ -522,7 +522,7 @@ export function NoticePage() {
                       <ImageWithFallback
                         src={n.coverImageUrl}
                         alt=""
-                        className="w-full h-full"
+                        className="w-full h-full !bg-transparent"
                         emptyMessage="이미지 없음"
                       />
                     </div>
