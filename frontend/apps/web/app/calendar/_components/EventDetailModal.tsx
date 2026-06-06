@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useGlobalEventDetailQuery } from '@duing/hooks';
 import type { CalEvent, EventSource } from '@duing/types';
+import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { toRoute } from '../../_lib/route';
 
 type Props = {
@@ -105,14 +106,11 @@ function GlobalDetailSection({ eventId }: { eventId: number }) {
   return (
     <div className="space-y-3 border-t border-line pt-4">
       {detail.coverImageUrl && (
-        <div className="aspect-[16/9] rounded-lg overflow-hidden bg-graysoft">
-          {/* eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL */}
-          <img
-            src={detail.coverImageUrl}
-            alt={detail.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
+        <ImageWithFallback
+          src={detail.coverImageUrl}
+          alt={detail.title}
+          className="aspect-[16/9] rounded-lg overflow-hidden"
+        />
       )}
       {detail.description && (
         <p className="text-[13.5px] text-charcoal whitespace-pre-wrap">{detail.description}</p>

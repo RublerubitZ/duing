@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { NoticeCategory } from '@duing/types';
 import { useNoticeListQuery } from '@duing/hooks';
 import { ExploreNav } from '../../_components/ExploreNav';
+import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { SparkleFull } from '../../_components/Sparkle';
 import { toRoute } from '../../_lib/route';
 import { NOTICE_CATEGORY_LABEL, NOTICE_CATEGORY_OPTIONS } from '../_lib/categoryLabels';
@@ -443,12 +444,11 @@ export function NoticePage() {
                             borderRadius: 12, overflow: 'hidden',
                             background: isDark ? 'rgba(255,255,255,0.06)' : 'var(--gray-soft)',
                           }}>
-                            {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL */}
-                            <img
+                            <ImageWithFallback
                               src={n.coverImageUrl}
                               alt=""
-                              aria-hidden
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              className="w-full h-full !bg-transparent"
+                              emptyMessage="이미지 없음"
                             />
                           </div>
                         </Link>
@@ -515,19 +515,17 @@ export function NoticePage() {
                     }}>
                       {String(n.id).padStart(4, '0')}
                     </span>
-                    <span style={{
+                    <div style={{
                       width: 40, height: 40, borderRadius: 8,
-                      overflow: 'hidden', background: 'var(--gray-soft)',
-                      display: 'block',
+                      overflow: 'hidden',
                     }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL */}
-                      <img
+                      <ImageWithFallback
                         src={n.coverImageUrl}
                         alt=""
-                        aria-hidden
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        className="w-full h-full !bg-transparent"
+                        emptyMessage="이미지 없음"
                       />
-                    </span>
+                    </div>
                     <span><NTagPill category={n.category} /></span>
                     <span style={{
                       fontSize: 13.5, fontWeight: 500, color: 'var(--charcoal)',

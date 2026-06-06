@@ -8,7 +8,7 @@ import type {
   PromotionPalette,
   UpdatePromotionPayload,
 } from '@duing/types';
-import { PromotionBannerUploader } from './PromotionBannerUploader';
+import { ImageUploader } from '../../../_components/ImageUploader';
 import { PALETTE_OPTIONS, PROMOTION_PALETTE } from '../../../_lib/promotionPalette';
 
 type CreateMode = {
@@ -236,9 +236,12 @@ export function AdminPromotionForm(props: Props) {
 
       <div>
         <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">배너 이미지 (선택)</span>
-        <PromotionBannerUploader
+        <ImageUploader
           value={state.bannerImageUrl}
           onChange={(url) => update('bannerImageUrl', url)}
+          purpose="PROMOTION_BANNER"
+          placeholder="배너 이미지를 업로드하세요"
+          altText="배너 이미지"
         />
         <p className="mt-1 text-[12px] text-charcoal-3">
           이미지 없이 텍스트+팔레트만으로도 배너 등록이 가능합니다.

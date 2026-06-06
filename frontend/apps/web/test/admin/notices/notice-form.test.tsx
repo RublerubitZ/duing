@@ -2,9 +2,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
-// NoticeCoverUploader 는 useFileUploadMutation 에 의존하므로 간단한 input 으로 대체
-vi.mock('../../../app/admin/notices/_components/NoticeCoverUploader', () => ({
-  NoticeCoverUploader: ({ value, onChange }: { value: string; onChange: (url: string) => void }) => (
+// ImageUploader 는 useFileUploadMutation 에 의존하므로 간단한 input 으로 대체
+vi.mock('../../../app/_components/ImageUploader', () => ({
+  ImageUploader: ({ value, onChange }: { value: string; onChange: (url: string) => void }) => (
     <input
       data-testid="cover-uploader"
       value={value}

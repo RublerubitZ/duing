@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { NoticeCardItem } from '@duing/types';
+import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { NOTICE_CATEGORY_LABEL } from '../_lib/categoryLabels';
 
 type Props = {
@@ -15,12 +16,11 @@ export function NoticeCard({ notice }: Props) {
       href={`/notices/${notice.id}`}
       className="group block rounded-2xl overflow-hidden bg-paper border border-line hover:border-ink transition-colors"
     >
-      <div className="relative aspect-[16/9] bg-graysoft">
-        {/* eslint-disable-next-line @next/next/no-img-element -- 외부 URL (Supabase Storage). next/image 도메인 화이트리스트는 후속 PR. */}
-        <img
+      <div className="relative">
+        <ImageWithFallback
           src={notice.coverImageUrl}
           alt={notice.title}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="aspect-[16/9]"
         />
         {notice.pinned && (
           <span

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { NOTICE_CATEGORY_OPTIONS } from '../../../notices/_lib/categoryLabels';
-import { NoticeCoverUploader } from './NoticeCoverUploader';
+import { ImageUploader } from '../../../_components/ImageUploader';
 import { NoticeMarkdownEditor } from './NoticeMarkdownEditor';
 import { NoticeTagInput } from './NoticeTagInput';
 import { VisibilityPicker } from './VisibilityPicker';
@@ -53,7 +53,13 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
       </Field>
 
       <Field label="대표 이미지">
-        <NoticeCoverUploader value={state.coverImageUrl} onChange={(url) => update('coverImageUrl', url)} />
+        <ImageUploader
+          value={state.coverImageUrl}
+          onChange={(url) => update('coverImageUrl', url)}
+          purpose="NOTICE_COVER"
+          placeholder="대표 이미지를 업로드하세요"
+          altText="대표 이미지"
+        />
       </Field>
 
       <Field label="본문 (마크다운)">
