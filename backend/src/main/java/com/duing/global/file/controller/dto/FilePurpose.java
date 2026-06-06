@@ -6,7 +6,8 @@ public enum FilePurpose {
     PHOTO("club/photo"),
     NOTICE_COVER("notice/cover"),
     PROMOTION_BANNER("promotion/banner"),
-    GLOBAL_EVENT_COVER("global-event/cover");
+    GLOBAL_EVENT_COVER("global-event/cover"),
+    PROMOTION_REQUEST_BANNER("promotion-request/banner");
 
     private final String directory;
 

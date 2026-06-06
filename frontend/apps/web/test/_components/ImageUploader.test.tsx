@@ -80,4 +80,13 @@ describe('ImageUploader', () => {
     fireEvent.click(screen.getByRole('button', { name: '제거' }));
     expect(onChange).toHaveBeenCalledWith('');
   });
+
+  it('aspectRatio="1/1" 가 전달되면 컨테이너에 aspect-square 클래스가 적용된다', () => {
+    const onChange = vi.fn();
+    const { container } = render(
+      <ImageUploader value="" onChange={onChange} purpose="LOGO" aspectRatio="1/1" placeholder="로고" />,
+    );
+    expect(container.querySelector('.aspect-square')).not.toBeNull();
+    expect(container.querySelector('.aspect-\\[16\\/9\\]')).toBeNull();
+  });
 });

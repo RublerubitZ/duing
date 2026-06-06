@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useController } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSubmitPromotionRequestMutation } from '@duing/hooks';
 import { submitPromotionRequestSchema } from '@duing/schemas';
 import type { SubmitPromotionRequestInput } from '@duing/schemas';
 import { cn } from '@/app/_lib/cn';
+import { ImageUploader } from '@/app/_components/ImageUploader';
 
 type PromotionRequestModalProps = {
   clubId: number;
@@ -22,9 +23,16 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
     register,
     handleSubmit,
     watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<SubmitPromotionRequestInput>({
     resolver: zodResolver(submitPromotionRequestSchema),
+  });
+
+  const { field: bannerField } = useController({
+    control,
+    name: 'suggestedBannerImageUrl',
+    defaultValue: '',
   });
 
   const titleValue = watch('title') ?? '';
@@ -147,25 +155,17 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
           </div>
 
           <div>
-            <label
-              htmlFor="promo-banner-url"
-              className="mb-1.5 block text-sm font-semibold text-ink"
-            >
-              희망 배너 이미지 URL
+            <p className="mb-1.5 block text-sm font-semibold text-ink">
+              희망 배너 이미지
               <span className="ml-1 text-xs font-normal text-charcoal-3">(선택)</span>
-            </label>
-            <input
-              id="promo-banner-url"
-              type="url"
-              placeholder="https://..."
-              {...register('suggestedBannerImageUrl')}
-              className={cn(
-                'w-full rounded-xl border px-4 py-3 text-sm outline-none transition-colors',
-                'border-line placeholder:text-charcoal-3',
-                'focus:border-ink focus:ring-1 focus:ring-ink',
-                errors.suggestedBannerImageUrl &&
-                  'border-coral focus:border-coral focus:ring-coral',
-              )}
+            </p>
+            <ImageUploader
+              value={bannerField.value ?? ''}
+              onChange={bannerField.onChange}
+              purpose="PROMOTION_REQUEST_BANNER"
+              aspectRatio="16/9"
+              placeholder="희망 배너 이미지를 업로드하세요 (선택)"
+              altText="희망 배너"
             />
             {errors.suggestedBannerImageUrl && (
               <p className="mt-1 text-xs text-coral">{errors.suggestedBannerImageUrl.message}</p>
