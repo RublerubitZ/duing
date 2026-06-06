@@ -65,6 +65,22 @@ public class ApplicationDomainException extends ApplicationException {
         }
     }
 
+    public static class AlreadyClubMemberException extends ApplicationDomainException {
+        private static final String MESSAGE = "이미 해당 동아리 소속이라 일반 모집에는 지원할 수 없습니다.";
+
+        public AlreadyClubMemberException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    public static class IneligibleOfficerApplicantException extends ApplicationDomainException {
+        private static final String MESSAGE = "이미 운영진 권한이 있어 운영진 모집에 지원할 수 없습니다.";
+
+        public IneligibleOfficerApplicantException() {
+            super(MESSAGE, HttpStatus.FORBIDDEN);
+        }
+    }
+
     public static class InvalidInterviewScheduleException extends ApplicationDomainException {
         private static final String MESSAGE = "면접 일정 정보가 올바르지 않습니다.";
 

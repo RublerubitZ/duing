@@ -22,7 +22,6 @@ import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
-import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -97,13 +96,7 @@ public class GeneralApplicationService implements ApplicationService {
             throw new ApplicationDomainException.DuplicateApplicationException();
         }
 
-        if (recruitment.getTargetRole() == TargetRole.OFFICER) {
-            boolean isExistingMember = clubMemberRepository
-                    .existsByClubIdAndUserId(recruitment.getClub().getId(), user.getId());
-            if (!isExistingMember) {
-                throw new ApplicationDomainException.OfficerMembershipRequiredException();
-            }
-        }
+        validateClubMembershipPolicy(recruitment, user);
 
         validateAnswersAgainstForm(recruitment, submitApplicationCommand.answers());
 
@@ -286,6 +279,36 @@ public class GeneralApplicationService implements ApplicationService {
         }
         String message = sqlException.getMessage();
         return message != null && message.contains(CLUB_MEMBER_UNIQUE_CONSTRAINT);
+    }
+
+    /**
+     * 모집 대상 역할별 지원 자격을 검증한다.
+     * - MEMBER 모집: 해당 동아리에 소속된 사용자(역할 무관) 는 재지원 불가. 다른 동아리 소속은 영향 없음.
+     * - OFFICER 모집: 해당 동아리의 MEMBER 만 지원 가능. 멤버십 없음은 차단,
+     *   이미 OFFICER/LEADER 인 사용자도 재지원 차단.
+     * 소프트 삭제·비활성 멤버십은 SQLRestriction 으로 조회 자체에서 제외되므로 별도 처리하지 않는다.
+     */
+    private void validateClubMembershipPolicy(Recruitment recruitment, User user) {
+        Long clubId = recruitment.getClub().getId();
+        ClubMemberRole currentRole = clubMemberRepository.findByClubIdAndUserId(clubId, user.getId())
+                .map(ClubMember::getRole)
+                .orElse(null);
+
+        switch (recruitment.getTargetRole()) {
+            case MEMBER -> {
+                if (currentRole != null) {
+                    throw new ApplicationDomainException.AlreadyClubMemberException();
+                }
+            }
+            case OFFICER -> {
+                if (currentRole == null) {
+                    throw new ApplicationDomainException.OfficerMembershipRequiredException();
+                }
+                if (currentRole != ClubMemberRole.MEMBER) {
+                    throw new ApplicationDomainException.IneligibleOfficerApplicantException();
+                }
+            }
+        }
     }
 
     private void validateAnswersAgainstForm(Recruitment recruitment, List<String> answers) {
