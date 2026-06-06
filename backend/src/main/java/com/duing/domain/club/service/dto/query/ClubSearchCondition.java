@@ -55,7 +55,7 @@ public record ClubSearchCondition(
      * - 그 외 → 입력 Set 그대로
      */
     public Set<DayOfWeek> effectiveActiveDays() {
-        if (activeDays == null || activeDays.isEmpty() || activeDays.size() == 7) {
+        if (activeDays == null || activeDays.isEmpty() || activeDays.size() == DayOfWeek.values().length) {
             return null;
         }
         return activeDays;
