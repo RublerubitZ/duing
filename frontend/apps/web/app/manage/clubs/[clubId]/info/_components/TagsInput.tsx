@@ -9,8 +9,9 @@ type TagsInputProps = {
   maxTags?: number;
 };
 
-export function TagsInput({ value, onChange, readOnly = false, maxTags = 20 }: TagsInputProps) {
+export function TagsInput({ value, onChange, readOnly = false, maxTags = 5 }: TagsInputProps) {
   const [draft, setDraft] = useState('');
+  const [isComposing, setIsComposing] = useState(false);
 
   function add(token: string) {
     const trimmed = token.trim();
@@ -50,13 +51,20 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 20 }: T
           type="text"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
           onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+            if (isComposing) return;
             if (event.key === 'Enter' || event.key === ',') {
               event.preventDefault();
               add(draft);
             }
           }}
-          onBlur={() => add(draft)}
+          onBlur={() => {
+            if (isComposing) return;
+            add(draft);
+          }}
           placeholder={value.length === 0 ? '엔터로 태그 추가' : ''}
           className="min-w-[8rem] flex-1 bg-transparent text-[14px] text-[#2a2f27] placeholder:text-[#b8b8ac] outline-none"
         />

@@ -327,10 +327,31 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
         </fieldset>
 
         <div className={fieldCls}>
-          <span className={labelCls}>
-            태그 <span className="text-[11.5px] font-normal text-[#8a8f83]">(최대 20개)</span>
-          </span>
+          <div className="flex items-baseline justify-between">
+            <span className={labelCls}>
+              태그 <span className="text-[11.5px] font-normal text-[#8a8f83]">(최대 5개)</span>
+            </span>
+            <span
+              className={`text-[11.5px] font-medium ${
+                tags.length > 5
+                  ? 'text-[#b04a2a]'
+                  : tags.length === 5
+                    ? 'text-[#3e5b34]'
+                    : 'text-[#8a8f83]'
+              }`}
+            >
+              {tags.length}/5
+            </span>
+          </div>
           <TagsInput value={tags} onChange={setTags} readOnly={readOnly} />
+          {tags.length > 5 && (
+            <p className="mt-1.5 text-[12px] text-[#b04a2a]">
+              이전에 등록된 태그가 5개를 초과합니다. 새 태그를 추가하려면 먼저 일부를 삭제해 주세요.
+            </p>
+          )}
+          {tags.length === 5 && (
+            <p className="mt-1.5 text-[12px] text-[#8a8f83]">최대 5개까지 추가할 수 있어요.</p>
+          )}
         </div>
 
         {/* 상세 정보 그룹 카드 */}
