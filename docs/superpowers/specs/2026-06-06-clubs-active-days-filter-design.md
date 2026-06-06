@@ -1,3 +1,4 @@
+
 # `/clubs` 활동요일 필터 활성화
 
 작성일: 2026-06-06
@@ -19,6 +20,8 @@
 
 - 단일 요일: 월요일에 활동하는 동아리만
 - 다중 요일 (OR): 월 또는 수요일에 활동하는 동아리
+
+**핵심 정책**: 활동요일 필터가 적용되면 `active_days` 가 NULL 인 동아리는 결과에서 제외한다 (활동요일 미설정 ≠ 모든 요일 매칭).
 
 ---
 
@@ -228,8 +231,10 @@ const toggleDay = (day: ClubDayOfWeek) => {
 ### 6-1. Backend (`ClubControllerTest` / `ClubRepositoryImplTest`)
 - 단일 요일 — `?activeDays=MONDAY` → 월요일 포함 동아리만
 - 다중 요일 OR — `?activeDays=MONDAY&activeDays=WEDNESDAY` → 월 또는 수 포함. 월·수 둘 다 있는 동아리는 1번만 나옴 (중복 없음)
+- **중복 파라미터** — `?activeDays=MONDAY&activeDays=MONDAY` → 단일 `?activeDays=MONDAY` 와 동일 결과셋 (Controller 의 `Set.copyOf()` 중복 제거 검증)
 - 결과 0건 — 일요일만 활동하는 동아리 없을 때 빈 페이지 정상 반환
 - `active_days` NULL 인 동아리는 필터 적용 시 제외, 미적용 시 포함
+- `active_days` 가 빈 문자열인 레거시 동아리도 필터 적용 시 제외 (`nullif` 방어 검증)
 - 잘못된 enum (`?activeDays=MOONDAY`) → 400
 - 7개 전체 선택 → 미적용과 동일 결과셋 (NULL 동아리 포함)
 - 다른 필터와 AND 결합 — `category=SPORTS & activeDays=MONDAY` → 스포츠 ∩ 월요일
@@ -252,15 +257,26 @@ const toggleDay = (day: ClubDayOfWeek) => {
 
 설계 검토 단계에서 결정해야 할 항목.
 
-### 7-1. HQL 함수 등록 방식
+### 7-1. HQL 함수 등록 방식 — 확정
 
-| 옵션 | 변경 | 권장 |
-|---|---|---|
-| **A1** `array_overlap_csv(csv, csv)` 신규 등록 | `PostgresFunctionContributor` 한 줄 추가 | ⭐ 기본안 |
-| A2 `string_to_array` HQL 등록 + 중첩 호출 | `string_to_array` 등록 + 호출부 nested function | 호출부 가독성 ↓ |
-| A3 변경 없음, raw SQL 템플릿 우회 시도 | `Expressions.booleanTemplate` 에 raw SQL 직접 | Hibernate dialect 미등록 함수 인식 여부 불확실, 실측 필요 |
+**A1 채택.** `array_overlap_csv(csv, csv)` 신규 등록 — `PostgresFunctionContributor` 한 줄 추가.
 
-**현 시점 권장: A1.** 1줄 추가로 기존 `array_overlap_text` 와 대칭. spec 리뷰 시 사용자 확정.
+```java
+functionContributions.getFunctionRegistry().registerPattern(
+        "array_overlap_csv",
+        "(string_to_array(nullif(?1, ''), ',') && string_to_array(?2, ','))",
+        booleanType
+);
+```
+
+- 기존 `array_overlap_text` 와 네이밍·구조 대칭.
+- `array_overlap_text` 재사용은 시그니처 (`text[]` vs `text`) 불일치로 불가 → 시도하지 않음.
+- 호출부:
+  ```java
+  Expressions.booleanTemplate(
+      "function('array_overlap_csv', {0}, {1}) = true",
+      club.activeDays, csv)
+  ```
 
 ### 7-2. 7개 전체 선택 정규화 책임
 
