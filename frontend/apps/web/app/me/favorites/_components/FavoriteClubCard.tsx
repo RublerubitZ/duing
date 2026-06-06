@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { FavoriteClub } from '@duing/types';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
+import { ClubLogo } from '../../../_components/ClubLogo';
 
 const CATEGORY_LABEL: Record<FavoriteClub['category'], string> = {
   ACADEMIC: '학술',
@@ -25,13 +26,7 @@ export function FavoriteClubCard({ favorite }: Props) {
         className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 transition hover:border-slate-400 hover:shadow-sm"
       >
         <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-slate-200">
-          {favorite.logoUrl && (
-            <img
-              src={favorite.logoUrl}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          )}
+          <ClubLogo logoUrl={favorite.logoUrl} />
         </div>
 
         <div className="min-w-0 flex-1">

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
 import { useAuthStore } from '@duing/stores';
 import { ReportModal } from '@/components/report/ReportModal';
+import { ClubLogo } from '@/app/_components/ClubLogo';
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
 import { clubCategoryLabel } from '../_lib/clubCategoryLabel';
 
@@ -53,17 +54,11 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                 className="relative grid h-[140px] w-[140px] shrink-0 place-items-center overflow-hidden rounded-[28px] text-white shadow-2"
                 style={{ background: 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)' }}
               >
-                {club.logoUrl ? (
-                  <img
-                    src={club.logoUrl}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                ) : (
+                <ClubLogo logoUrl={club.logoUrl}>
                   <span className="font-display text-[56px] font-bold leading-none">
                     {initial}
                   </span>
-                )}
+                </ClubLogo>
               </div>
 
               <div className="flex-1 pt-2">

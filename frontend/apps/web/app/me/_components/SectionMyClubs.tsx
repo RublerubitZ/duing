@@ -4,6 +4,7 @@ import type { MyClubSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
+import { ClubLogo } from '@/app/_components/ClubLogo';
 
 import { SectionHeader } from './SectionHeader';
 
@@ -59,16 +60,9 @@ export function SectionMyClubs({ myClubs }: Props) {
                       isManager ? 'bg-ink-deep text-white' : 'bg-sage-mist text-ink-deep',
                     )}
                   >
-                    {club.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={club.logoUrl}
-                        alt={club.clubName}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                    ) : (
-                      '🏛'
-                    )}
+                    <ClubLogo logoUrl={club.logoUrl} alt={club.clubName}>
+                      <span>🏛</span>
+                    </ClubLogo>
                   </div>
 
                   <div className="flex-1 min-w-0">
