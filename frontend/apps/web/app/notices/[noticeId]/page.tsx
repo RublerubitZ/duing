@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useNoticeDetailQuery } from '@duing/hooks';
 import { ExploreNav } from '../../_components/ExploreNav';
+import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { NoticeDetailHeader } from '../_components/NoticeDetailHeader';
 import { NoticeMarkdown } from '../_components/NoticeMarkdown';
 import { ExpiredBanner } from '../_components/ExpiredBanner';
@@ -68,14 +69,11 @@ export default function NoticeDetailPage() {
           </div>
         )}
         <article>
-          <div className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-graysoft mb-6">
-            {/* eslint-disable-next-line @next/next/no-img-element -- 외부 URL (Supabase Storage). next/image 도메인 화이트리스트는 후속 PR. */}
-            <img
-              src={notice.coverImageUrl}
-              alt={notice.title}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          </div>
+          <ImageWithFallback
+            src={notice.coverImageUrl}
+            alt={notice.title}
+            className="aspect-[16/9] rounded-2xl overflow-hidden mb-6"
+          />
           <h1 className="text-[22px] font-bold text-ink leading-snug">{notice.title}</h1>
           <p className="mt-2 text-[12.5px] text-charcoal-3">{publishedDate}</p>
           {notice.summary && (

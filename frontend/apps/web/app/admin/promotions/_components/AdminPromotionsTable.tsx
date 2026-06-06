@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { AdminPromotionSummary } from '@duing/types';
+import { ImageWithFallback } from '../../../_components/ImageWithFallback';
 import { toRoute } from '../../../_lib/route';
 import { CURATION_LABEL, getActiveBadgeClass, getActiveLabel } from '../_lib/promotionLabels';
 
@@ -38,20 +39,12 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
           {items.map((promotion) => (
             <tr key={promotion.id} className="border-t border-line">
               <Td>
-                <div className="relative w-16 h-9 rounded overflow-hidden bg-graysoft">
-                  {promotion.bannerImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL (Local / Supabase Storage)
-                    <img
-                      src={promotion.bannerImageUrl}
-                      alt={promotion.title}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="absolute inset-0 grid place-items-center text-[9px] text-charcoal-3">
-                      이미지 없음
-                    </span>
-                  )}
-                </div>
+                <ImageWithFallback
+                  src={promotion.bannerImageUrl}
+                  alt={promotion.title}
+                  className="w-16 h-9 rounded overflow-hidden"
+                  emptyMessage="이미지 없음"
+                />
               </Td>
               <Td>
                 <Link
