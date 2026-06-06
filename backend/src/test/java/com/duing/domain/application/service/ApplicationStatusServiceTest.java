@@ -31,6 +31,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 
 class ApplicationStatusServiceTest {
@@ -229,5 +230,33 @@ class ApplicationStatusServiceTest {
 
         // 권한 차단 후 상태 변경 로직이 실행되어서는 안 된다
         verify(application, never()).transitionTo(any(), any(boolean.class));
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // 7. OptimisticLock 충돌은 도메인 예외(ConcurrentStatusUpdateException) 로 변환된다
+    //    — bulkUpdateStatus 의 ApplicationException 분기로 흘러가야 사용자 메시지가 정확히 응답된다.
+    // ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("flush 시점에 ObjectOptimisticLockingFailureException 이 발생하면 ConcurrentStatusUpdateException 으로 변환된다")
+    void optimisticLockFailureIsConvertedToDomainException() {
+        Long applicationId = 7L;
+        Long managerId = 10L;
+        Long clubId = 5L;
+
+        Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+
+        // 다른 트랜잭션이 먼저 status 를 변경한 상황을 모사한다.
+        doThrow(new ObjectOptimisticLockingFailureException(Application.class, applicationId))
+                .when(applicationRepository).flush();
+
+        assertThatThrownBy(() -> applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.REJECTED)))
+                .isInstanceOf(ApplicationDomainException.ConcurrentStatusUpdateException.class);
+
+        // 권한 확인 및 도메인 전이는 충돌 검출 이전에 호출되었어야 한다
+        verify(clubAuthService).requireManager(managerId, clubId);
+        verify(application).transitionTo(ApplicationStatus.REJECTED, false);
     }
 }

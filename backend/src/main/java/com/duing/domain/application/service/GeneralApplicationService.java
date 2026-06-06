@@ -41,6 +41,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +53,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneralApplicationService implements ApplicationService {
 
     private static final Logger log = LoggerFactory.getLogger(GeneralApplicationService.class);
+
+    // V7 partial unique 인덱스. (club_id, user_id) WHERE deleted_at IS NULL.
+    private static final String CLUB_MEMBER_UNIQUE_CONSTRAINT = "uk_club_member_club_user_active";
+    // PostgreSQL unique_violation.
+    private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
 
     private final ApplicationRepository applicationRepository;
     private final RecruitmentRepository recruitmentRepository;
@@ -159,7 +166,8 @@ public class GeneralApplicationService implements ApplicationService {
         // - 기존 멤버십이 있으면 역할을 비교해 상위 역할로만 승급 (강등 금지, 멱등성 보장).
         // 동시 ACCEPTED 처리 시 race condition 은
         // club_member (club_id, user_id) WHERE deleted_at IS NULL partial unique 인덱스(V7)로
-        // DB 레벨에서 차단되며, 충돌 시 다른 트랜잭션이 먼저 등록한 케이스로 간주해 무시한다.
+        // DB 레벨에서 차단된다. flush 로 트랜잭션 안에서 충돌을 트리거하고,
+        // 23505 + uk_club_member_club_user_active 만 idempotent 처리, 나머지는 전파한다.
         if (updateApplicationStatusCommand.status() == ApplicationStatus.ACCEPTED) {
             Club club = application.getRecruitment().getClub();
             User applicant = application.getUser();
@@ -174,10 +182,23 @@ public class GeneralApplicationService implements ApplicationService {
                             () -> {
                                 try {
                                     clubMemberRepository.save(ClubMember.of(club, applicant, grantedRole));
-                                } catch (org.springframework.dao.DataIntegrityViolationException racedInsertion) {
-                                    // 동시 ACCEPTED 처리 시 다른 트랜잭션이 먼저 등록한 경우로 간주, idempotent 처리.
+                                    clubMemberRepository.flush();
+                                } catch (DataIntegrityViolationException racedInsertion) {
+                                    if (!isClubMemberDuplicateMembership(racedInsertion)) {
+                                        throw racedInsertion;
+                                    }
+                                    // 다른 트랜잭션이 먼저 (club, user) 멤버십을 등록한 경우로 간주, idempotent 처리.
                                 }
                             });
+        }
+
+        // Optimistic Lock 충돌은 커밋 시 발생해 GlobalExceptionHandler 의 fallthrough 로 빠진다.
+        // 명시적 flush 로 현재 트랜잭션 안에서 잡아 도메인 예외(409) 로 변환해야
+        // bulkUpdateStatus 의 ApplicationException 분기에 정확한 사용자 메시지가 실린다.
+        try {
+            applicationRepository.flush();
+        } catch (ObjectOptimisticLockingFailureException concurrentUpdate) {
+            throw new ApplicationDomainException.ConcurrentStatusUpdateException();
         }
     }
 
@@ -249,6 +270,22 @@ public class GeneralApplicationService implements ApplicationService {
      */
     private boolean shouldUpgrade(ClubMemberRole currentRole, ClubMemberRole grantedRole) {
         return grantedRole.ordinal() > currentRole.ordinal();
+    }
+
+    /**
+     * 동시 ACCEPTED 처리로 인한 club_member 중복 삽입 only true.
+     * 향후 club_member 에 새 unique / CHECK / FK 가 추가되어도 그 위반은 그대로 위로 전파된다.
+     */
+    private static boolean isClubMemberDuplicateMembership(DataIntegrityViolationException exception) {
+        Throwable mostSpecific = exception.getMostSpecificCause();
+        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
+            return false;
+        }
+        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
+            return false;
+        }
+        String message = sqlException.getMessage();
+        return message != null && message.contains(CLUB_MEMBER_UNIQUE_CONSTRAINT);
     }
 
     private void validateAnswersAgainstForm(Recruitment recruitment, List<String> answers) {
