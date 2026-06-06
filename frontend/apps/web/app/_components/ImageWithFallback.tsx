@@ -10,6 +10,11 @@ type Props = {
   className?: string;
   emptyMessage?: string;
   errorMessage?: string;
+  /**
+   * 이미지 fit 모드. 기본 'cover' — 컨테이너 가득 채우고 비율 보존(crop).
+   * 'contain' — 원본 비율 유지하며 letterbox. 검토용 미리보기 등 잘리면 안 되는 케이스.
+   */
+  objectFit?: 'cover' | 'contain';
 };
 
 export function ImageWithFallback({
@@ -18,12 +23,14 @@ export function ImageWithFallback({
   className,
   emptyMessage = '대표 이미지 없음',
   errorMessage = '이미지를 불러올 수 없습니다',
+  objectFit = 'cover',
 }: Props) {
   // src 가 바뀌면 errorSrc 가 자동으로 stale 해져 isError 가 false 로 복귀.
   // useEffect 로 reset 하던 패턴 대신 derived state — 새 URL 진입 시 깜빡임 없음.
   const [errorSrc, setErrorSrc] = useState<string | null>(null);
   const isError = src != null && src !== '' && errorSrc === src;
   const containerClass = cn('relative bg-graysoft', className);
+  const fitClass = objectFit === 'contain' ? 'object-contain' : 'object-cover';
 
   if (src && !isError) {
     return (
@@ -32,7 +39,7 @@ export function ImageWithFallback({
         <img
           src={src}
           alt={alt}
-          className="absolute inset-0 w-full h-full object-cover"
+          className={cn('absolute inset-0 w-full h-full', fitClass)}
           onError={() => setErrorSrc(src)}
         />
       </div>
