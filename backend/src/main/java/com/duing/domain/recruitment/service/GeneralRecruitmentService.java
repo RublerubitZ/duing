@@ -21,6 +21,7 @@ import java.time.YearMonth;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GeneralRecruitmentService implements RecruitmentService {
+
+    // V38 partial unique 인덱스. (club_id) WHERE status='OPEN' AND deleted_at IS NULL.
+    private static final String RECRUITMENT_ACTIVE_UNIQUE_CONSTRAINT = "uk_recruitment_club_active";
+    // PostgreSQL unique_violation.
+    private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
 
     private final RecruitmentRepository recruitmentRepository;
     private final ApplicationRepository applicationRepository;
@@ -120,8 +126,15 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
         clubAuthService.requireManager(command.currentUserId(), club.getId());
 
+        // close() 는 메모리상의 status 만 바꾸므로 그 다음 buildAndPersist 의 INSERT 가
+        // flush 될 때 Hibernate 기본 액션 순서(INSERT → UPDATE) 상 UPDATE 가 뒤로 밀려
+        // uk_recruitment_club_active 와 자기 자신이 충돌한다. close 직후 명시적 flush 로
+        // UPDATE 를 먼저 DB 에 반영한 뒤 INSERT 를 진행한다.
         recruitmentRepository.findActiveByClubId(club.getId())
-                .ifPresent(Recruitment::close);
+                .ifPresent(existingActive -> {
+                    existingActive.close();
+                    recruitmentRepository.flush();
+                });
 
         return buildAndPersist(club, command);
     }
@@ -153,7 +166,20 @@ public class GeneralRecruitmentService implements RecruitmentService {
             recruitment.attachForm(form);
         }
 
-        Recruitment saved = recruitmentRepository.save(recruitment);
+        // 동시 생성 race 는 uk_recruitment_club_active partial unique 로 차단된다.
+        // 명시적 flush 로 commit 이 아닌 현재 트랜잭션 안에서 충돌을 잡아
+        // DuplicateActiveRecruitmentException 으로 변환한다. 다른 종류의
+        // DataIntegrityViolationException (FK / CHECK / 다른 unique 등) 은 그대로 전파.
+        Recruitment saved;
+        try {
+            saved = recruitmentRepository.save(recruitment);
+            recruitmentRepository.flush();
+        } catch (DataIntegrityViolationException racedActiveInsertion) {
+            if (!isRecruitmentActiveDuplicate(racedActiveInsertion)) {
+                throw racedActiveInsertion;
+            }
+            throw new RecruitmentException.DuplicateActiveRecruitmentException();
+        }
 
         if (saved.getStatus() == RecruitmentStatus.OPEN
                 && !saved.getStartDate().isAfter(LocalDate.now())) {
@@ -166,5 +192,21 @@ public class GeneralRecruitmentService implements RecruitmentService {
         }
 
         return saved.getId();
+    }
+
+    /**
+     * 활성 모집 unique 인덱스(uk_recruitment_club_active) 위반인지만 true.
+     * 다른 unique / CHECK / FK 위반은 false 를 돌려 호출 측에서 그대로 전파시킨다.
+     */
+    private static boolean isRecruitmentActiveDuplicate(DataIntegrityViolationException exception) {
+        Throwable mostSpecific = exception.getMostSpecificCause();
+        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
+            return false;
+        }
+        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
+            return false;
+        }
+        String message = sqlException.getMessage();
+        return message != null && message.contains(RECRUITMENT_ACTIVE_UNIQUE_CONSTRAINT);
     }
 }

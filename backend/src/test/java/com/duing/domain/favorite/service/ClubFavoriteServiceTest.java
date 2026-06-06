@@ -89,10 +89,12 @@ class ClubFavoriteServiceTest {
         Club clubWithOpen = saveActiveClub("모집중동아리C");
         Club clubWithClosed = saveActiveClub("마감동아리C");
 
+        // V38 partial unique 인덱스로 동아리당 OPEN 모집은 1건만 허용된다.
+        // clubWithOpen 은 진행 중 OPEN 1건, clubWithClosed 는 endDate 가 지난 OPEN 1건으로 분리해
+        // openRecruitmentCount 가 OPEN+future 만 카운트하는 의미를 검증한다.
         LocalDate today = LocalDate.now();
-        saveRecruitment(clubWithOpen, "진행모집1", today.minusDays(1), today.plusDays(7), RecruitmentStatus.OPEN);
-        saveRecruitment(clubWithOpen, "진행모집2", today, today.plusDays(14), RecruitmentStatus.OPEN);
-        saveRecruitment(clubWithClosed, "마감모집", today.minusDays(30), today.minusDays(1), RecruitmentStatus.OPEN);
+        saveRecruitment(clubWithOpen, "진행모집", today.minusDays(1), today.plusDays(7), RecruitmentStatus.OPEN);
+        saveRecruitment(clubWithClosed, "기간만료모집", today.minusDays(30), today.minusDays(1), RecruitmentStatus.OPEN);
 
         favoriteService.add(student.getId(), clubWithOpen.getId());
         favoriteService.add(student.getId(), clubWithClosed.getId());
@@ -104,7 +106,7 @@ class ClubFavoriteServiceTest {
                 .filter(query -> query.clubId().equals(clubWithOpen.getId()))
                 .findFirst()
                 .orElseThrow();
-        assertThat(openClubQuery.openRecruitmentCount()).isEqualTo(2);
+        assertThat(openClubQuery.openRecruitmentCount()).isEqualTo(1);
 
         FavoriteClubQuery closedClubQuery = result.getContent().stream()
                 .filter(query -> query.clubId().equals(clubWithClosed.getId()))

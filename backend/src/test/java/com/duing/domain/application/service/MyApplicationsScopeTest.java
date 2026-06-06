@@ -55,8 +55,10 @@ class MyApplicationsScopeTest {
     @DisplayName("scope=ACTIVE 는 SUBMITTED/UNDER_REVIEW/INTERVIEW_PENDING 만 반환한다")
     void activeScopeReturnsOnlyActiveStatuses() throws Exception {
         User applicant = saveStudent("지원자ACTIVE");
-        Club club = saveClub("ACTIVE동아리");
+        // V38 partial unique 인덱스로 동아리당 OPEN 모집은 1건만 허용되므로,
+        // 지원 status 별 픽스처를 동아리별로 분리한다.
         for (ApplicationStatus status : ApplicationStatus.values()) {
+            Club club = saveClub("ACTIVE동아리-" + status);
             Recruitment recruitment = saveRecruitment(club, "ACTIVE모집-" + status);
             saveApplication(recruitment, applicant, status);
         }
@@ -77,10 +79,12 @@ class MyApplicationsScopeTest {
     @DisplayName("scope=ARCHIVED 는 ACCEPTED/REJECTED 만 반환한다")
     void archivedScopeReturnsOnlyTerminalStatuses() throws Exception {
         User applicant = saveStudent("지원자ARCHIVED");
-        Club club = saveClub("ARCHIVED동아리");
-        saveApplication(saveRecruitment(club, "ARCHIVED모집-SUBMITTED"), applicant, ApplicationStatus.SUBMITTED);
-        saveApplication(saveRecruitment(club, "ARCHIVED모집-ACCEPTED"), applicant, ApplicationStatus.ACCEPTED);
-        saveApplication(saveRecruitment(club, "ARCHIVED모집-REJECTED"), applicant, ApplicationStatus.REJECTED);
+        saveApplication(saveRecruitment(saveClub("ARCHIVED동아리-SUBMITTED"), "ARCHIVED모집-SUBMITTED"),
+                applicant, ApplicationStatus.SUBMITTED);
+        saveApplication(saveRecruitment(saveClub("ARCHIVED동아리-ACCEPTED"), "ARCHIVED모집-ACCEPTED"),
+                applicant, ApplicationStatus.ACCEPTED);
+        saveApplication(saveRecruitment(saveClub("ARCHIVED동아리-REJECTED"), "ARCHIVED모집-REJECTED"),
+                applicant, ApplicationStatus.REJECTED);
 
         List<ApplicationSummaryQuery> result =
                 applicationService.getMyApplications(applicant.getId(), ApplicationScope.ARCHIVED.toStatuses());
@@ -94,8 +98,8 @@ class MyApplicationsScopeTest {
     @DisplayName("scope=ALL 은 모든 상태를 반환한다 (기존 호환)")
     void allScopeReturnsEveryStatus() throws Exception {
         User applicant = saveStudent("지원자ALL");
-        Club club = saveClub("ALL동아리");
         for (ApplicationStatus status : ApplicationStatus.values()) {
+            Club club = saveClub("ALL동아리-" + status);
             Recruitment recruitment = saveRecruitment(club, "ALL모집-" + status);
             saveApplication(recruitment, applicant, status);
         }

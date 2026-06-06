@@ -20,6 +20,7 @@ import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -67,21 +68,26 @@ class DeadlineNotificationJobTest {
         User favoringUserB = saveStudent("찜유저B");
         User nonFavoringUser = saveStudent("비찜유저C");
 
-        Club targetClub = saveActiveClub("대상동아리");
+        // V38 partial unique 인덱스로 동아리당 OPEN 모집은 1건만 허용된다.
+        // 각 deadline 케이스를 동아리별로 분리하고 두 찜 유저가 모든 동아리를 찜하도록 구성한다.
+        Club d3Club = saveActiveClub("D3동아리");
+        Club d1Club = saveActiveClub("D1동아리");
+        Club d0Club = saveActiveClub("D0동아리");
+        Club unrelatedClub = saveActiveClub("무관동아리");
+        Club closedClub = saveActiveClub("마감동아리");
 
-        saveFavorite(favoringUserA, targetClub);
-        saveFavorite(favoringUserB, targetClub);
+        for (Club club : List.of(d3Club, d1Club, d0Club, unrelatedClub, closedClub)) {
+            saveFavorite(favoringUserA, club);
+            saveFavorite(favoringUserB, club);
+        }
 
-        // D-3 모집
-        saveOpenRecruitment(targetClub, "D3모집", today.minusDays(5), today.plusDays(3));
-        // D-1 모집
-        saveOpenRecruitment(targetClub, "D1모집", today.minusDays(5), today.plusDays(1));
-        // D-0 모집
-        saveOpenRecruitment(targetClub, "D0모집", today.minusDays(5), today);
+        saveOpenRecruitment(d3Club, "D3모집", today.minusDays(5), today.plusDays(3));
+        saveOpenRecruitment(d1Club, "D1모집", today.minusDays(5), today.plusDays(1));
+        saveOpenRecruitment(d0Club, "D0모집", today.minusDays(5), today);
         // 관련 없음 (D-7)
-        saveOpenRecruitment(targetClub, "무관모집", today.minusDays(1), today.plusDays(7));
+        saveOpenRecruitment(unrelatedClub, "무관모집", today.minusDays(1), today.plusDays(7));
         // CLOSED 모집 (마감일이 today+3 이지만 상태가 CLOSED)
-        saveClosedRecruitment(targetClub, "CLOSED모집", today.minusDays(5), today.plusDays(3));
+        saveClosedRecruitment(closedClub, "CLOSED모집", today.minusDays(5), today.plusDays(3));
 
         long beforeCount = notificationRepository.count();
         job.run();
