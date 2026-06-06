@@ -100,6 +100,7 @@ export type ClubSearchParams = {
   recruitmentStatus?: 'AVAILABLE' | 'UPCOMING' | 'CLOSED';
   centralClub?: boolean;
   college?: College;
+  activeDays?: ClubDayOfWeek[];
   page?: number;
   size?: number;
   sort?: string;

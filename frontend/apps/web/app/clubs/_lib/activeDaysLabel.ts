@@ -10,7 +10,7 @@ const LABELS: Record<ClubDayOfWeek, string> = {
   SUNDAY: '일',
 };
 
-const ORDER: ClubDayOfWeek[] = [
+export const ORDER: ClubDayOfWeek[] = [
   'MONDAY',
   'TUESDAY',
   'WEDNESDAY',

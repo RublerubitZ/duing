@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { ClubDetail, ClubPhoto } from '@duing/types';
 
 import { cn } from '../../../_lib/cn';
-import { activityScheduleLabel } from '../_lib/activeDaysLabel';
+import { activityScheduleLabel } from '../../_lib/activeDaysLabel';
 import { ClubDetailAbout } from './ClubDetailAbout';
 import { ClubDetailActivity } from './ClubDetailActivity';
 import { ClubDetailInfoList } from './ClubDetailInfoList';
