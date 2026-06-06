@@ -21,7 +21,9 @@ import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -93,20 +95,29 @@ class ManagedClubsQueryTest {
     @Test
     @DisplayName("진행 중인 모집(OPEN AND end_date >= today)만 activeRecruitmentCount 에 카운트된다")
     void activeRecruitmentCountReflectsOpenAndDateRange() throws Exception {
+        // uk_recruitment_club_active (V38) 로 동아리당 OPEN 모집은 1건만 허용되므로
+        // 각 필터 차원(OPEN+future / OPEN+past / CLOSED+future) 을 동아리별로 분리해 검증한다.
         User currentUser = saveStudent("카운트리더");
-        Club club = saveActiveClub("카운트동아리");
-        saveMembership(club, currentUser, ClubMemberRole.LEADER);
+        Club clubActive = saveActiveClub("카운트활성동아리");
+        Club clubExpired = saveActiveClub("카운트만료동아리");
+        Club clubClosed = saveActiveClub("카운트마감동아리");
+        saveMembership(clubActive, currentUser, ClubMemberRole.LEADER);
+        saveMembership(clubExpired, currentUser, ClubMemberRole.LEADER);
+        saveMembership(clubClosed, currentUser, ClubMemberRole.LEADER);
 
         LocalDate today = LocalDate.now();
-        saveRecruitment(club, "진행중1", today.minusDays(1), today.plusDays(5), RecruitmentStatus.OPEN);
-        saveRecruitment(club, "진행중2", today, today.plusDays(10), RecruitmentStatus.OPEN);
-        saveRecruitment(club, "기간만료", today.minusDays(20), today.minusDays(1), RecruitmentStatus.OPEN);
-        saveRecruitment(club, "수동마감", today.minusDays(2), today.plusDays(5), RecruitmentStatus.CLOSED);
+        saveRecruitment(clubActive, "진행중", today.minusDays(1), today.plusDays(5), RecruitmentStatus.OPEN);
+        saveRecruitment(clubExpired, "기간만료", today.minusDays(20), today.minusDays(1), RecruitmentStatus.OPEN);
+        saveRecruitment(clubClosed, "수동마감", today.minusDays(2), today.plusDays(5), RecruitmentStatus.CLOSED);
 
         List<ManagedClubQuery> result = clubMemberRepository.findActiveManagedClubsByUser(currentUser.getId());
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).activeRecruitmentCount()).isEqualTo(2L);
+        assertThat(result).hasSize(3);
+        Map<Long, Long> countByClubId = result.stream()
+                .collect(Collectors.toMap(ManagedClubQuery::clubId, ManagedClubQuery::activeRecruitmentCount));
+        assertThat(countByClubId.get(clubActive.getId())).isEqualTo(1L);
+        assertThat(countByClubId.get(clubExpired.getId())).isEqualTo(0L);
+        assertThat(countByClubId.get(clubClosed.getId())).isEqualTo(0L);
     }
 
     @Test
