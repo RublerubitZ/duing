@@ -14,7 +14,9 @@ import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import jakarta.validation.Valid;
+import java.time.DayOfWeek;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,11 +45,14 @@ public class ClubController implements ClubApi {
             @RequestParam(required = false) RecruitmentStatusFilter recruitmentStatus,
             @RequestParam(required = false) Boolean centralClub,
             @RequestParam(required = false) College college,
+            @RequestParam(required = false) List<DayOfWeek> activeDays,
             @RequestParam(required = false) ClubSortOption sort,
             Pageable pageable
     ) {
+        Set<DayOfWeek> activeDaysSet = activeDays == null ? null : Set.copyOf(activeDays);
         ClubSearchCondition condition = new ClubSearchCondition(
-                category, division, keyword, tags, recruiting, recruitmentStatus, centralClub, college, sort);
+                category, division, keyword, tags, recruiting, recruitmentStatus,
+                centralClub, college, activeDaysSet, sort);
         Page<ClubSummaryResponse> page = clubService.search(condition, pageable)
                 .map(ClubSummaryResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
