@@ -11,6 +11,8 @@ import { HighlightsRepeater } from './HighlightsRepeater';
 import { ActiveDaysToggle } from './ActiveDaysToggle';
 import { DIVISIONS } from '../../../../../clubs/_lib/clubs';
 import { COLLEGE_OPTIONS } from '../../../../../_lib/college';
+import { ImageUploader } from '@/app/_components/ImageUploader';
+import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
 
 type ClubInfoFormProps = {
   clubId: number;
@@ -280,27 +282,45 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
           </div>
 
           <div className={fieldCls}>
-            <label htmlFor="f-logo" className={labelCls}>로고 URL</label>
-            <input
-              id="f-logo"
-              type="url"
-              value={logoUrl}
-              onChange={(event) => setLogoUrl(event.target.value)}
-              placeholder="https://..."
-              className={inputCls}
-            />
+            <label className={labelCls}>로고 이미지</label>
+            {readOnly ? (
+              <ImageWithFallback
+                src={logoUrl}
+                alt="로고"
+                className="aspect-square rounded-xl overflow-hidden border border-line max-w-[240px]"
+                emptyMessage="로고 이미지가 없습니다"
+              />
+            ) : (
+              <ImageUploader
+                value={logoUrl}
+                onChange={setLogoUrl}
+                purpose="LOGO"
+                aspectRatio="1/1"
+                placeholder="로고 이미지를 업로드하세요"
+                altText="로고"
+              />
+            )}
           </div>
 
           <div className={fieldCls}>
-            <label htmlFor="f-cover" className={labelCls}>커버 URL</label>
-            <input
-              id="f-cover"
-              type="url"
-              value={coverUrl}
-              onChange={(event) => setCoverUrl(event.target.value)}
-              placeholder="https://..."
-              className={inputCls}
-            />
+            <label className={labelCls}>커버 이미지</label>
+            {readOnly ? (
+              <ImageWithFallback
+                src={coverUrl}
+                alt="커버"
+                className="aspect-[16/9] rounded-xl overflow-hidden border border-line"
+                emptyMessage="커버 이미지가 없습니다"
+              />
+            ) : (
+              <ImageUploader
+                value={coverUrl}
+                onChange={setCoverUrl}
+                purpose="COVER"
+                aspectRatio="16/9"
+                placeholder="커버 이미지를 업로드하세요"
+                altText="커버"
+              />
+            )}
           </div>
         </fieldset>
 
