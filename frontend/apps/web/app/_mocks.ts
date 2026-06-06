@@ -62,24 +62,6 @@ export const landingBanners: LandingBanner[] = [
   },
 ];
 
-export type LandingCategory = {
-  cat: '학술' | '음악' | '운동' | 'IT' | '공연' | '봉사' | '문화' | '창업';
-  count: number;
-  emoji: string;
-  tone: 'sage' | 'warm' | 'berry' | 'coral' | 'sky' | 'ink';
-};
-
-export const landingCategories: LandingCategory[] = [
-  { cat: '학술', count: 28, emoji: '📚', tone: 'sage' },
-  { cat: '음악', count: 19, emoji: '🎵', tone: 'berry' },
-  { cat: '운동', count: 24, emoji: '⚽', tone: 'warm' },
-  { cat: 'IT', count: 12, emoji: '💻', tone: 'ink' },
-  { cat: '공연', count: 11, emoji: '🎭', tone: 'coral' },
-  { cat: '봉사', count: 16, emoji: '🤝', tone: 'sky' },
-  { cat: '문화', count: 14, emoji: '🎨', tone: 'sage' },
-  { cat: '창업', count: 9, emoji: '🚀', tone: 'warm' },
-];
-
 export type FeaturedClub = {
   id: string;
   name: string;
