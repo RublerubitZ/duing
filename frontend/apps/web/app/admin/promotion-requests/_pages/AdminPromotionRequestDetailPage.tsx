@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAdminPromotionRequestDetailQuery, useProcessPromotionRequestMutation } from '@duing/hooks';
 import type { ProcessPromotionRequestPayload } from '@duing/types';
 import { cn } from '../../../_lib/cn';
+import { ImageWithFallback } from '../../../_components/ImageWithFallback';
 import { AdminPromotionRequestProcessDialog } from '../_components/AdminPromotionRequestProcessDialog';
 import {
   PROMOTION_REQUEST_STATUS_LABEL,
@@ -118,11 +119,12 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
           <div>
             <dt className="text-[12px] font-semibold text-charcoal-2 mb-2">제안 배너 이미지</dt>
             <dd>
-              <img
+              <ImageWithFallback
                 src={request.suggestedBannerImageUrl}
                 alt="제안 배너 이미지"
-                className="max-w-full rounded-lg border border-line object-contain"
-                style={{ maxHeight: 240 }}
+                objectFit="contain"
+                className="h-[240px] w-full rounded-lg border border-line"
+                errorMessage="제안 배너 이미지를 불러올 수 없습니다"
               />
               <a
                 href={request.suggestedBannerImageUrl}

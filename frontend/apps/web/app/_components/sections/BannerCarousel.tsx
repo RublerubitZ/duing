@@ -250,12 +250,15 @@ function MainSlide({ slide }: { slide: CarouselSlide }) {
       style={{ background: slide.bg, color: slide.fg }}
     >
       {slide.bannerImageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL (Local / Supabase Storage)
+        // eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL (Local / Supabase Storage). 장식용이라 ImageWithFallback 미사용 — 깨지면 slide.bg 색만 노출되도록 onError 에서 숨김.
         <img
           src={slide.bannerImageUrl}
           alt=""
           aria-hidden
           className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
+          onError={(event) => {
+            event.currentTarget.style.display = 'none';
+          }}
         />
       )}
       {slide.emoji && (

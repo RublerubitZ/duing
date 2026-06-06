@@ -27,4 +27,24 @@ describe('ImageWithFallback', () => {
     expect(screen.getByText('이미지를 불러올 수 없습니다')).toBeInTheDocument();
     expect(screen.queryByAltText('표지')).toBeNull();
   });
+
+  it('objectFit prop 미지정 시 img 에 object-cover 가 적용된다', () => {
+    render(<ImageWithFallback src="https://example.com/a.jpg" alt="표지" />);
+    const img = screen.getByAltText('표지');
+    expect(img.className).toContain('object-cover');
+    expect(img.className).not.toContain('object-contain');
+  });
+
+  it('objectFit="contain" 지정 시 img 에 object-contain 이 적용된다', () => {
+    render(
+      <ImageWithFallback
+        src="https://example.com/a.jpg"
+        alt="표지"
+        objectFit="contain"
+      />,
+    );
+    const img = screen.getByAltText('표지');
+    expect(img.className).toContain('object-contain');
+    expect(img.className).not.toContain('object-cover');
+  });
 });
