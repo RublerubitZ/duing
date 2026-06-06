@@ -282,7 +282,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
           </div>
 
           <div className={fieldCls}>
-            <label className={labelCls}>로고 이미지</label>
+            <p className={labelCls}>로고 이미지</p>
             {readOnly ? (
               <ImageWithFallback
                 src={logoUrl}
@@ -291,19 +291,21 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
                 emptyMessage="로고 이미지가 없습니다"
               />
             ) : (
-              <ImageUploader
-                value={logoUrl}
-                onChange={setLogoUrl}
-                purpose="LOGO"
-                aspectRatio="1/1"
-                placeholder="로고 이미지를 업로드하세요"
-                altText="로고"
-              />
+              <div className="max-w-[240px]">
+                <ImageUploader
+                  value={logoUrl}
+                  onChange={setLogoUrl}
+                  purpose="LOGO"
+                  aspectRatio="1/1"
+                  placeholder="로고 이미지를 업로드하세요"
+                  altText="로고"
+                />
+              </div>
             )}
           </div>
 
           <div className={fieldCls}>
-            <label className={labelCls}>커버 이미지</label>
+            <p className={labelCls}>커버 이미지</p>
             {readOnly ? (
               <ImageWithFallback
                 src={coverUrl}
