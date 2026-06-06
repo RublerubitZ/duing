@@ -66,7 +66,10 @@
 - **활성 모집** = `recruitment.status = OPEN` AND `start_date <= CURRENT_DATE` AND `(end_date IS NULL OR end_date >= CURRENT_DATE)` (기존 `RecruitmentStatusFilter.AVAILABLE` 와 동일 조건)
 - **활성 모집의 지원자 수** = 위 조건을 만족하는 recruitment 들에 속한 모든 `Application` 카운트
 - **즐겨찾기 수** = `club_favorite.club_id = club.id` 카운트
-- `@SQLRestriction("deleted_at IS NULL")` 가 `Recruitment`·`Application` 엔티티 모두에 적용되어 있어 QueryDSL `JPAExpressions.from(...)` 서브쿼리에도 자동 반영됨 (기존 `tagsOverlap` / `recruitmentStatusFilter` 와 동일 패턴). 직접 `deleted_at` 조건 명시 불필요.
+- **`@SQLRestriction` 자동 적용 가정** — `Recruitment` (`backend/.../entity/Recruitment.java:29`) 와 `Application` (`backend/.../entity/Application.java:35`) 둘 다 `@SQLRestriction("deleted_at IS NULL")` 보유. 기존 코드 (`ClubRepositoryImpl.recruitmentStatusFilter` 등) 가 `JPAExpressions.from(recruitment)` 서브쿼리에서 별도 `deleted_at` 조건 없이 동작 중 — Hibernate 가 서브쿼리에도 restriction 을 자동 삽입한다는 전제. **본 spec 의 POPULAR 구현도 같은 전제에 의존**:
+  - 구현 시 §6-1 의 soft-delete 검증 테스트 (soft-deleted recruitment / application 이 카운트에서 빠지는지) 가 통과해야 가정 확정.
+  - 추가로 구현 단계에서 SQL 로그(`spring.jpa.show-sql=true` 또는 통합 테스트의 Hibernate 로그) 로 생성된 서브쿼리에 `deleted_at IS NULL` 이 포함되었는지 1회 육안 확인.
+  - 만약 자동 삽입이 안 됨이 확인되면 fallback: subquery `.where(...)` 에 명시적 `application.deletedAt.isNull()`, `recruitment.deletedAt.isNull()` 추가.
 
 ### 운영 시나리오
 
@@ -270,6 +273,10 @@ case POPULAR -> {
 - 활성 모집 없는 클럽: tier 1 = 0 → 활성 모집 있는 클럽 뒤로 자연 정렬됨 (그 클럽이 favoriteCount 더 많아도 활성 모집 있는 클럽 뒤)
 - 활성 모집 없고 favoriteCount=0 인 클럽: tier 3 NULL → NULLS LAST 로 가장 뒤 (createdAt 으로 최종 정렬)
 - `recruitmentStatus=AVAILABLE` 와 조합 시 활성 모집 없는 클럽은 결과에서 완전히 빠지는지 확인 (FeaturedClubs 사용 패턴)
+- **`@SQLRestriction` 자동 적용 검증 (§3 의 가정 잠금)**:
+  - 활성 모집은 있되 그 모집의 application 중 1건이 **soft-delete** (`deleted_at` 세팅) 된 클럽 → POPULAR 의 tier 1 (applicationCount) 카운트에서 제외되는지 검증
+  - 활성 모집 자체가 **soft-delete** 된 클럽 → 그 모집과 그에 속한 application 이 카운트에서 제외되는지 (즉 다른 활성 모집이 없으면 tier 1 = 0) 검증
+  - 두 케이스 모두 실패 시 fallback (명시적 `deleted_at` 조건) 으로 전환 — §3 의 안전망 조항 발동
 - 활성 모집이 2개인 클럽 → application 합산 검증 (모집 A 3건 + 모집 B 2건 → 5건)
 - 회귀: 기존 `DEADLINE_SOON` / `RECENT` / `ALPHABETICAL` 정렬에 영향 없음
 
@@ -316,7 +323,13 @@ PR-C 는 BE 변경에 의존하지 않으므로 PR-A·B 와 무관하게 진행 
 
 ## 8. 잠재 리스크 / 주의사항
 
-1. **`ClubSummary` ↔ 기존 카드 마크업 간극** — 기존 mock 카드는 `gen/spots/members/avatar/color/recruit/scope` 등 BE 응답에 없는 필드 의존. 매핑 누락 시 빈 칸 또는 어색한 표시 가능. 카드 마크업의 어느 정보를 빼고 어느 정보를 매핑할지 PR-B 구현 단계에서 확정. 디자이너 확인 권장.
+1. **`@SQLRestriction` 자동 적용 가정의 검증** — §3 의 핵심 전제. PR-A 구현 단계에서 다음 순서로 잠금:
+   1. §6-1 의 soft-delete 검증 테스트 2개 작성 (Red)
+   2. POPULAR 구현 (deleted_at 명시 없이) → 테스트 통과 시 가정 확정
+   3. SQL 로그 1회 육안 확인 — 서브쿼리에 `deleted_at IS NULL` 이 자동 삽입되었는지
+   4. 테스트가 Red 로 남으면 즉시 fallback: 서브쿼리에 명시적 `application.deletedAt.isNull()`, `recruitment.deletedAt.isNull()` 추가 후 재실행
+
+2. **`ClubSummary` ↔ 기존 카드 마크업 간극** — 기존 mock 카드는 `gen/spots/members/avatar/color/recruit/scope` 등 BE 응답에 없는 필드 의존. 매핑 누락 시 빈 칸 또는 어색한 표시 가능. 카드 마크업의 어느 정보를 빼고 어느 정보를 매핑할지 PR-B 구현 단계에서 확정. 디자이너 확인 권장.
 
 2. **카테고리 이미지 매핑** — 기존 8장 이미지(`cat-01-academic.png` ~ `cat-08-startup.png`)는 옛 분류 체계(학술/음악/운동/IT/공연/봉사/문화/창업) 기준. 새 enum (학술/문화/예술/운동/봉사/종교/취미/기타) 매핑 시 의미가 약간 어긋남 (예: "예술" 카테고리에 "음악" 이미지). PR-C 에서 임시 매핑 유지 + 후속 라운드에 디자이너 작업으로 교체 권장.
 
