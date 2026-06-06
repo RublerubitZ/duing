@@ -154,8 +154,21 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private BooleanExpression keywordContains(String keyword) {
         if (!StringUtils.hasText(keyword)) return null;
-        return club.name.containsIgnoreCase(keyword)
-                .or(club.description.containsIgnoreCase(keyword));
+        String normalized = keyword.replaceFirst("^#+", "").trim();
+        if (normalized.isEmpty()) return null;
+
+        // Hibernate HQL semantic 분석이 function() 의 String 반환 타입을 like 의 피연산자로
+        // 인식하지 못하는 케이스가 있어, stringTemplate 으로 명시적 String 타입을 부여한 뒤
+        // .like() 를 호출한다. ilike 를 위해 lower() 로 양쪽을 소문자화한다.
+        BooleanExpression tagMatch = Expressions.stringTemplate(
+                "lower(function('array_to_string', {0}, {1}))",
+                club.tags,
+                ","
+        ).like("%" + normalized.toLowerCase() + "%");
+
+        return club.name.containsIgnoreCase(normalized)
+                .or(club.description.containsIgnoreCase(normalized))
+                .or(tagMatch);
     }
 
     private BooleanExpression tagsOverlap(List<String> tags) {
