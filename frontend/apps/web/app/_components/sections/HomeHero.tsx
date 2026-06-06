@@ -4,11 +4,11 @@ import { Sparkle, SparkleFull } from '@/components/duing/Sparkle';
 import { fetchClubStats } from '@/app/_lib/club-stats';
 
 const SUGGESTED_QUERIES: ReadonlyArray<string> = [
-  '주니어 개발자',
-  'K-pop 댄스',
-  '투자 스터디',
-  '산악회',
-  '그림 그리기',
+  '개발',
+  '공모전',
+  '봉사',
+  '축구',
+  '창업',
 ];
 
 export async function HomeHero() {
