@@ -300,50 +300,54 @@ export function AdminPromotionForm(props: Props) {
         />
       </Field>
 
-      <Field label="태그 (선택, ≤60자) — 예: EVENT · 9.25 — 9.27">
-        <input
-          type="text"
-          maxLength={60}
-          value={state.tag}
-          onChange={(event) => update('tag', event.target.value)}
-          placeholder="EVENT · 9.25 — 9.27"
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
-        />
-      </Field>
+      {state.renderMode !== 'FULL_BLEED_IMAGE' && (
+        <>
+          <Field label="태그 (선택, ≤60자) — 예: EVENT · 9.25 — 9.27">
+            <input
+              type="text"
+              maxLength={60}
+              value={state.tag}
+              onChange={(event) => update('tag', event.target.value)}
+              placeholder="EVENT · 9.25 — 9.27"
+              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            />
+          </Field>
 
-      <Field label="부제 (선택, ≤200자)">
-        <input
-          type="text"
-          maxLength={200}
-          value={state.subtitle}
-          onChange={(event) => update('subtitle', event.target.value)}
-          placeholder="67개 동아리 · 80개 부스 · 중앙광장"
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
-        />
-      </Field>
+          <Field label="부제 (선택, ≤200자)">
+            <input
+              type="text"
+              maxLength={200}
+              value={state.subtitle}
+              onChange={(event) => update('subtitle', event.target.value)}
+              placeholder="67개 동아리 · 80개 부스 · 중앙광장"
+              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            />
+          </Field>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="CTA 라벨 (선택, ≤40자)">
-          <input
-            type="text"
-            maxLength={40}
-            value={state.ctaLabel}
-            onChange={(event) => update('ctaLabel', event.target.value)}
-            placeholder="박람회 자세히 보기"
-            className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
-          />
-        </Field>
-        <Field label="이모지 (선택, 1자 권장)">
-          <input
-            type="text"
-            maxLength={8}
-            value={state.emoji}
-            onChange={(event) => update('emoji', event.target.value)}
-            placeholder="🍂"
-            className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
-          />
-        </Field>
-      </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="CTA 라벨 (선택, ≤40자)">
+              <input
+                type="text"
+                maxLength={40}
+                value={state.ctaLabel}
+                onChange={(event) => update('ctaLabel', event.target.value)}
+                placeholder="박람회 자세히 보기"
+                className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+              />
+            </Field>
+            <Field label="이모지 (선택, 1자 권장)">
+              <input
+                type="text"
+                maxLength={8}
+                value={state.emoji}
+                onChange={(event) => update('emoji', event.target.value)}
+                placeholder="🍂"
+                className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+              />
+            </Field>
+          </div>
+        </>
+      )}
 
       <div>
         <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">배너 이미지 (선택)</span>
