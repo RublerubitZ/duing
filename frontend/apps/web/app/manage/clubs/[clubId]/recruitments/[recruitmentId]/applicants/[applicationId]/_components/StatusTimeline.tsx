@@ -13,8 +13,8 @@ export function StatusTimeline({ history, submittedAt }: Props) {
     <section className="rounded border border-neutral-200 bg-white p-4">
       <h2 className="mb-3 text-base font-semibold text-slate-900">상태 변경 이력</h2>
       <ol className="flex flex-col gap-3">
-        {history.map((item, index) => (
-          <li key={index} className="flex items-start gap-3">
+        {history.map((item) => (
+          <li key={`${item.changedAt}-${item.changedById}`} className="flex items-start gap-3">
             <span
               className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full bg-blue-500"
               aria-hidden

@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ApplicantNavBar } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/[applicationId]/_components/ApplicantNavBar';
 
+let mockNeighborsData: () => { prevApplicationId: number | null; nextApplicationId: number | null };
+
 const mockPush = vi.fn();
 
 vi.mock('next/navigation', () => ({
@@ -13,8 +15,6 @@ vi.mock('@duing/hooks', () => ({
     data: mockNeighborsData(),
   }),
 }));
-
-let mockNeighborsData: () => { prevApplicationId: number | null; nextApplicationId: number | null };
 
 describe('ApplicantNavBar', () => {
   it('prevApplicationId 가 null 이면 이전 버튼이 disabled 이다', () => {

@@ -20,7 +20,7 @@ export function ApplicantAnswersPanel({ answers }: Props) {
       <h2 className="mb-3 text-base font-semibold text-slate-900">응답</h2>
       <div className="flex flex-col gap-4">
         {answers.map((pair, index) => (
-          <div key={index}>
+          <div key={pair.question}>
             <p className="text-sm font-medium text-neutral-700">
               Q{index + 1}. {pair.question}
             </p>
