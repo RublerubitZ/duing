@@ -19,9 +19,17 @@ public record ApplicantQuery(
         List<String> answers,
         ApplicationStatus status,
         LocalDateTime submittedAt,
-        LocalDateTime interviewAt
+        LocalDateTime interviewAt,
+        Integer myScore
 ) {
+    /**
+     * 기존 호출자 backward-compatibility 유지 — myScore 를 null 로 위임한다.
+     */
     public static ApplicantQuery from(Application application) {
+        return fromWithMyScore(application, null);
+    }
+
+    public static ApplicantQuery fromWithMyScore(Application application, Integer myScore) {
         return new ApplicantQuery(
                 application.getId(),
                 application.getUser().getId(),
@@ -34,7 +42,8 @@ public record ApplicantQuery(
                 application.getAnswers(),
                 application.getStatus(),
                 application.getCreatedAt(),
-                application.getInterviewAt()
+                application.getInterviewAt(),
+                myScore
         );
     }
 }
