@@ -25,15 +25,25 @@ export function ApplicantNavBar({
   const router = useRouter();
   const { data: neighbors } = useApplicantNeighborsQuery(recruitmentId, applicationId, filters);
 
-  const listHref = buildListHref(clubId, recruitmentId, filters);
+  const qs = filtersToQuery(filters);
 
-  const prevHref = buildDetailHref(clubId, recruitmentId, neighbors?.prevApplicationId, filters);
-  const nextHref = buildDetailHref(clubId, recruitmentId, neighbors?.nextApplicationId, filters);
+  const prevId = neighbors?.prevApplicationId;
+  const nextId = neighbors?.nextApplicationId;
+
+  const prevBase = prevId
+    ? `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${prevId}`
+    : undefined;
+  const prevHref = prevBase ? (qs ? `${prevBase}?${qs}` : prevBase) : undefined;
+
+  const nextBase = nextId
+    ? `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${nextId}`
+    : undefined;
+  const nextHref = nextBase ? (qs ? `${nextBase}?${qs}` : nextBase) : undefined;
 
   return (
     <nav className="flex items-center gap-2 rounded border border-neutral-200 bg-white p-3">
       <Link
-        href={toRoute(listHref)}
+        href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants${qs ? `?${qs}` : ''}`)}
         className="text-sm text-neutral-600 hover:underline"
       >
         ← 목록
@@ -41,7 +51,11 @@ export function ApplicantNavBar({
       <button
         type="button"
         disabled={!prevHref}
-        onClick={() => prevHref && router.push(toRoute(prevHref))}
+        onClick={() => {
+          if (prevHref) {
+            router.push(toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${prevId}${qs ? `?${qs}` : ''}`));
+          }
+        }}
         className="ml-3 rounded border border-neutral-300 px-3 py-1 text-sm text-slate-700 disabled:opacity-40"
       >
         ‹ 이전
@@ -49,7 +63,11 @@ export function ApplicantNavBar({
       <button
         type="button"
         disabled={!nextHref}
-        onClick={() => nextHref && router.push(toRoute(nextHref))}
+        onClick={() => {
+          if (nextHref) {
+            router.push(toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${nextId}${qs ? `?${qs}` : ''}`));
+          }
+        }}
         className="rounded border border-neutral-300 px-3 py-1 text-sm text-slate-700 disabled:opacity-40"
       >
         다음 ›
@@ -59,28 +77,6 @@ export function ApplicantNavBar({
       </span>
     </nav>
   );
-}
-
-function buildListHref(
-  clubId: number,
-  recruitmentId: number,
-  filters: ApplicantsFilters,
-): `/${string}` {
-  const qs = filtersToQuery(filters);
-  const base = `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants`;
-  return qs ? `${base}?${qs}` : base;
-}
-
-function buildDetailHref(
-  clubId: number,
-  recruitmentId: number,
-  targetId: number | null | undefined,
-  filters: ApplicantsFilters,
-): `/${string}` | undefined {
-  if (!targetId) return undefined;
-  const qs = filtersToQuery(filters);
-  const base = `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${targetId}`;
-  return qs ? `${base}?${qs}` : base;
 }
 
 function filtersToQuery(filters: ApplicantsFilters): string {

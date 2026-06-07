@@ -53,9 +53,10 @@ describe('StatusTimeline', () => {
   });
 
   it('이전 상태와 새 상태가 모두 렌더된다', () => {
+    const singleItem = historyFixture.slice(0, 1);
     render(
       <StatusTimeline
-        history={[historyFixture[0]]}
+        history={singleItem}
         submittedAt="2026-06-01T09:05:00"
       />,
     );
