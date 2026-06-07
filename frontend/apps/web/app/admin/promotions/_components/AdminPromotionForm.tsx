@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import type {
   AdminPromotionSummary,
   CreatePromotionPayload,
   PromotionPalette,
+  PromotionRenderMode,
   UpdatePromotionPayload,
 } from '@duing/types';
 import { ImageUploader } from '../../../_components/ImageUploader';
@@ -49,6 +50,8 @@ type FormState = {
   /** datetime-local 입력값 — "YYYY-MM-DDTHH:mm" 형식. 빈 문자열 = 미지정. */
   startAt: string;
   endAt: string;
+  renderMode: PromotionRenderMode;
+  imageAltText: string;
 };
 
 /**
@@ -79,6 +82,8 @@ function buildInitialState(initialValues?: AdminPromotionSummary): FormState {
       scheduleMode: 'ALWAYS',
       startAt: '',
       endAt: '',
+      renderMode: 'SYSTEM_COMPOSED',
+      imageAltText: '',
     };
   }
   const hasSchedule = initialValues.startAt !== null || initialValues.endAt !== null;
@@ -99,6 +104,8 @@ function buildInitialState(initialValues?: AdminPromotionSummary): FormState {
     scheduleMode: hasSchedule ? 'SCHEDULED' : 'ALWAYS',
     startAt: toDateTimeLocalValue(initialValues.startAt),
     endAt: toDateTimeLocalValue(initialValues.endAt),
+    renderMode: initialValues.renderMode,
+    imageAltText: initialValues.imageAltText ?? '',
   };
 }
 
@@ -107,6 +114,34 @@ export function AdminPromotionForm(props: Props) {
   const [state, setState] = useState<FormState>(() =>
     buildInitialState(mode === 'edit' ? props.initialValues : undefined),
   );
+
+  // 권장 비율(1920×840, 16:7) 측정 — FULL_BLEED 모드에서만 경고 노출.
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    if (!state.bannerImageUrl) {
+      setImageDimensions(null);
+      return;
+    }
+    const img = new window.Image();
+    img.onload = () => setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => setImageDimensions(null);
+    img.src = state.bannerImageUrl;
+  }, [state.bannerImageUrl]);
+
+  const imageSizeWarning = (() => {
+    if (state.renderMode !== 'FULL_BLEED_IMAGE') return null;
+    if (!imageDimensions) return null;
+    const { width, height } = imageDimensions;
+    const shortSide = Math.min(width, height);
+    const ratio = width / height;
+    const targetRatio = 16 / 7;
+    const tolerancePercent = 0.1;
+    const ratioOff = Math.abs(ratio - targetRatio) / targetRatio > tolerancePercent;
+    const tooSmall = shortSide < 840;
+    if (!ratioOff && !tooSmall) return null;
+    return '권장 사이즈(1920×840, 16:7) 와 다릅니다 — 모바일에서 이미지 일부가 잘릴 수 있습니다.';
+  })();
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setState((prev) => ({ ...prev, [key]: value }));
@@ -142,6 +177,8 @@ export function AdminPromotionForm(props: Props) {
         emoji: trimToNull(state.emoji),
         startAt: scheduledStart,
         endAt: scheduledEnd,
+        renderMode: state.renderMode,
+        imageAltText: trimToNull(state.imageAltText),
       };
       await props.onSubmit(payload);
     } else {
@@ -175,6 +212,7 @@ export function AdminPromotionForm(props: Props) {
       assignOrClear(payload, 'subtitle', 'clearSubtitle', state.subtitle, initialValues.subtitle);
       assignOrClear(payload, 'ctaLabel', 'clearCtaLabel', state.ctaLabel, initialValues.ctaLabel);
       assignOrClear(payload, 'emoji', 'clearEmoji', state.emoji, initialValues.emoji);
+      assignOrClear(payload, 'imageAltText', 'clearImageAltText', state.imageAltText, initialValues.imageAltText);
 
       // 기간 — SCHEDULED 면 값을 보내고, ALWAYS 면 원래 값이 있던 경우만 clear 플래그.
       if (scheduledStart === null) {
@@ -187,6 +225,9 @@ export function AdminPromotionForm(props: Props) {
       } else {
         payload.endAt = scheduledEnd;
       }
+
+      // renderMode 는 항상 명시적으로 전송 — 백엔드는 null=변경 안 함이지만 폼 state 에는 항상 값이 있다.
+      payload.renderMode = state.renderMode;
 
       if (hadClub && nowCuration) {
         payload.clearClubId = true;
@@ -203,6 +244,51 @@ export function AdminPromotionForm(props: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* 배너 유형 (모드 선택) — 가장 먼저 결정해야 다른 필드 의미가 정해진다. */}
+      <div className="space-y-2">
+        <span className="block text-[12.5px] font-semibold text-charcoal-2">배너 유형</span>
+        <div className="flex flex-col gap-2 text-[13.5px]">
+          <label className="inline-flex items-start gap-2">
+            <input
+              type="radio"
+              name="renderMode"
+              checked={state.renderMode === 'SYSTEM_COMPOSED'}
+              onChange={() => update('renderMode', 'SYSTEM_COMPOSED')}
+              className="mt-1"
+            />
+            <div>
+              <div className="font-semibold">시스템 조합형</div>
+              <div className="text-charcoal-3 text-[12px]">제목/부제목/CTA/팔레트를 자동 조합해 렌더링합니다.</div>
+            </div>
+          </label>
+          <label className="inline-flex items-start gap-2">
+            <input
+              type="radio"
+              name="renderMode"
+              checked={state.renderMode === 'FULL_BLEED_IMAGE'}
+              onChange={() => update('renderMode', 'FULL_BLEED_IMAGE')}
+              className="mt-1"
+            />
+            <div>
+              <div className="font-semibold">완성 이미지형</div>
+              <div className="text-charcoal-3 text-[12px]">업로드한 이미지를 가공 없이 그대로 노출합니다 (포스터/홍보물).</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* FULL_BLEED 전환 가드 — 필수 필드가 비어 있을 때 인라인 경고 (저장은 백엔드 422 로 차단). */}
+      {state.renderMode === 'FULL_BLEED_IMAGE' && state.bannerImageUrl.trim() === '' && (
+        <p className="rounded-md bg-coral/10 border border-coral/40 px-3 py-2 text-[12.5px] text-coral">
+          완성 이미지형으로 전환하려면 배너 이미지 업로드가 필요합니다.
+        </p>
+      )}
+      {state.renderMode === 'FULL_BLEED_IMAGE' && state.imageAltText.trim() === '' && (
+        <p className="rounded-md bg-coral/10 border border-coral/40 px-3 py-2 text-[12.5px] text-coral">
+          완성 이미지형으로 전환하려면 Alt Text 입력이 필요합니다.
+        </p>
+      )}
+
       <Field label="제목 (≤120자)">
         <input
           type="text"
@@ -273,7 +359,29 @@ export function AdminPromotionForm(props: Props) {
             ? '이미지가 등록되어 팔레트 선택은 생략됩니다.'
             : '이미지 없이 텍스트+팔레트만으로도 배너 등록이 가능합니다.'}
         </p>
+        {imageSizeWarning && (
+          <p className="mt-1 text-[12px] text-amber-600">
+            {imageSizeWarning}
+          </p>
+        )}
       </div>
+
+      {/* Alt Text — 완성 이미지형에서는 필수, 시스템 조합형에서는 보존만 (입력 UI 는 항상 유지). */}
+      <Field label={`Alt Text ${state.renderMode === 'FULL_BLEED_IMAGE' ? '(필수)' : '(선택)'}`}>
+        <input
+          type="text"
+          maxLength={200}
+          value={state.imageAltText}
+          onChange={(event) => update('imageAltText', event.target.value)}
+          placeholder="2026 AI 학과 해커톤 참가자 모집"
+          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+        />
+        <p className="mt-1 text-[12px] text-charcoal-3">
+          {state.renderMode === 'FULL_BLEED_IMAGE'
+            ? '포스터에 표시된 핵심 텍스트(제목, 일정 등) 를 그대로 적어주세요. 스크린리더와 SEO 가 이 텍스트를 읽습니다.'
+            : '완성 이미지형 배너로 전환할 때 접근성·SEO 용도로 사용됩니다. 지금 입력해두면 모드 전환 시 자동 적용됩니다.'}
+        </p>
+      </Field>
 
       {!hasBannerImage && (
         <div>
@@ -409,77 +517,102 @@ export function AdminPromotionForm(props: Props) {
         />
       </Field>
 
-      {/* 라이브 미리보기 */}
+      {/* 라이브 미리보기 — 모드별 분기 */}
       <div>
         <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">미리보기</span>
-        <div
-          className="relative flex h-[200px] flex-col justify-between overflow-hidden rounded-xl px-8 py-7"
-          style={{
-            background: previewStyle.bg,
-            color: hasBannerImage ? '#fff' : previewStyle.fg,
-          }}
-        >
-          {hasBannerImage && (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL. 깨지면 팔레트 색만 노출되도록 onError 에서 숨김. */}
+        {state.renderMode === 'FULL_BLEED_IMAGE' ? (
+          <div className="relative h-[200px] overflow-hidden rounded-xl bg-graysoft">
+            {state.bannerImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL. 깨지면 회색 배경이 그대로 노출되도록 onError 에서 숨김.
               <img
                 src={state.bannerImageUrl}
-                alt=""
-                aria-hidden
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                alt={state.imageAltText || ''}
+                className="block h-full w-full object-cover"
                 onError={(event) => {
                   event.currentTarget.style.display = 'none';
                 }}
               />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0"
-                style={{ background: 'rgba(0,0,0,0.22)' }}
-              />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0"
-                style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)' }}
-              />
-            </>
-          )}
-          {state.emoji && (
-            <div
-              className="pointer-events-none absolute -right-2 -top-3 text-[140px] leading-none opacity-[0.18]"
-              style={{ transform: 'rotate(-12deg)' }}
-            >
-              {state.emoji}
-            </div>
-          )}
-          {state.tag && (
-            <div
-              className="relative inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold"
-              style={{
-                background: hasBannerImage ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.14)',
-                color: hasBannerImage ? '#143025' : previewStyle.accent,
-              }}
-            >
-              {state.tag}
-            </div>
-          )}
-          <div className="relative">
-            <div className="text-[26px] font-bold leading-tight">{state.title || '제목 미리보기'}</div>
-            {state.subtitle && (
-              <div className="mt-1.5 text-[13px] opacity-85">{state.subtitle}</div>
-            )}
-            {state.ctaLabel && (
-              <div
-                className="mt-3 inline-block rounded-md px-3 py-1.5 text-[12px] font-bold"
-                style={{
-                  background: hasBannerImage ? '#9DB6A0' : previewStyle.accent,
-                  color: hasBannerImage ? '#143025' : '#fff',
-                }}
-              >
-                {state.ctaLabel} →
+            ) : (
+              <div className="flex h-full items-center justify-center text-charcoal-3 text-[13px]">
+                배너 이미지를 업로드해주세요
               </div>
             )}
+            {state.bannerImageUrl && state.imageAltText.trim() === '' && (
+              <span className="absolute right-2 top-2 rounded bg-coral/90 px-2 py-1 text-[11px] font-bold text-paper">
+                ⚠ Alt 미입력
+              </span>
+            )}
           </div>
-        </div>
+        ) : (
+          <div
+            className="relative flex h-[200px] flex-col justify-between overflow-hidden rounded-xl px-8 py-7"
+            style={{
+              background: previewStyle.bg,
+              color: hasBannerImage ? '#fff' : previewStyle.fg,
+            }}
+          >
+            {hasBannerImage && (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL. 깨지면 팔레트 색만 노출되도록 onError 에서 숨김. */}
+                <img
+                  src={state.bannerImageUrl}
+                  alt=""
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none';
+                  }}
+                />
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0"
+                  style={{ background: 'rgba(0,0,0,0.22)' }}
+                />
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0"
+                  style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)' }}
+                />
+              </>
+            )}
+            {state.emoji && (
+              <div
+                className="pointer-events-none absolute -right-2 -top-3 text-[140px] leading-none opacity-[0.18]"
+                style={{ transform: 'rotate(-12deg)' }}
+              >
+                {state.emoji}
+              </div>
+            )}
+            {state.tag && (
+              <div
+                className="relative inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold"
+                style={{
+                  background: hasBannerImage ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.14)',
+                  color: hasBannerImage ? '#143025' : previewStyle.accent,
+                }}
+              >
+                {state.tag}
+              </div>
+            )}
+            <div className="relative">
+              <div className="text-[26px] font-bold leading-tight">{state.title || '제목 미리보기'}</div>
+              {state.subtitle && (
+                <div className="mt-1.5 text-[13px] opacity-85">{state.subtitle}</div>
+              )}
+              {state.ctaLabel && (
+                <div
+                  className="mt-3 inline-block rounded-md px-3 py-1.5 text-[12px] font-bold"
+                  style={{
+                    background: hasBannerImage ? '#9DB6A0' : previewStyle.accent,
+                    color: hasBannerImage ? '#143025' : '#fff',
+                  }}
+                >
+                  {state.ctaLabel} →
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {errorMessage && (
@@ -515,8 +648,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
  * 값이 있다면 그대로 보낸다. 값이 양쪽 모두 비어 있으면 아무것도 보내지 않는다.
  */
 function assignOrClear<
-  K extends 'tag' | 'subtitle' | 'ctaLabel' | 'emoji',
-  C extends 'clearTag' | 'clearSubtitle' | 'clearCtaLabel' | 'clearEmoji',
+  K extends 'tag' | 'subtitle' | 'ctaLabel' | 'emoji' | 'imageAltText',
+  C extends 'clearTag' | 'clearSubtitle' | 'clearCtaLabel' | 'clearEmoji' | 'clearImageAltText',
 >(
   payload: UpdatePromotionPayload,
   field: K,

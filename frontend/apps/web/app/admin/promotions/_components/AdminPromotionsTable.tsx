@@ -8,6 +8,8 @@ import {
   CURATION_LABEL,
   DISPLAY_STATUS_BADGE_CLASS,
   DISPLAY_STATUS_LABEL,
+  RENDER_MODE_BADGE_CLASS,
+  RENDER_MODE_LABEL,
   resolveDisplayStatus,
 } from '../_lib/promotionLabels';
 
@@ -33,6 +35,7 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
             <Th>썸네일</Th>
             <Th>제목</Th>
             <Th>동아리</Th>
+            <Th>유형</Th>
             <Th>상태</Th>
             <Th>노출 기간</Th>
             <Th>순서</Th>
@@ -66,6 +69,13 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
                 ) : (
                   <span className="text-charcoal-3">{CURATION_LABEL}</span>
                 )}
+              </Td>
+              <Td>
+                <span
+                  className={`inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold ${RENDER_MODE_BADGE_CLASS[promotion.renderMode]}`}
+                >
+                  {RENDER_MODE_LABEL[promotion.renderMode]}
+                </span>
               </Td>
               <Td>
                 {(() => {
