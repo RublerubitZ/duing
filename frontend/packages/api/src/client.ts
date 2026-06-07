@@ -60,6 +60,9 @@ import type {
   UpdateClubStatusPayload,
   UpdateClubCentralClubPayload,
   Applicant,
+  ApplicantsFilters,
+  ApplicantNeighbors,
+  UpsertApplicationEvaluationPayload,
   ApplicationScope,
   ApplicationSummary,
   MyClubSummary,
@@ -186,7 +189,12 @@ export type DuingApiClient = {
   };
   applications: {
     submit(recruitmentId: number, payload: SubmitApplicationPayload): Promise<number>;
-    applicants(recruitmentId: number): Promise<Applicant[]>;
+    applicants(recruitmentId: number, filters?: ApplicantsFilters): Promise<Applicant[]>;
+    applicantNeighbors(
+      recruitmentId: number,
+      applicationId: number,
+      filters?: ApplicantsFilters,
+    ): Promise<ApplicantNeighbors>;
     updateStatus(
       applicationId: number,
       payload: UpdateApplicationStatusPayload,
@@ -197,6 +205,11 @@ export type DuingApiClient = {
     myDetail(applicationId: number): Promise<MyApplicationDetail>;
     detail(applicationId: number): Promise<ApplicantDetail>;
     updateInterview(applicationId: number, payload: UpdateInterviewPayload): Promise<void>;
+    upsertMyApplicationEvaluation(
+      applicationId: number,
+      payload: UpsertApplicationEvaluationPayload,
+    ): Promise<void>;
+    deleteMyApplicationEvaluation(applicationId: number): Promise<void>;
   };
   stats: {
     summary(recruitmentId: number): Promise<StatsSummary>;
@@ -467,8 +480,28 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<number>(
           http.post(`recruitments/${recruitmentId}/applications`, { json: payload }),
         ),
-      applicants: (recruitmentId) =>
-        jsonOk<Applicant[]>(http.get(`leader/recruitments/${recruitmentId}/applications`)),
+      applicants: (recruitmentId, filters) => {
+        const search = new URLSearchParams();
+        if (filters?.status) search.set('status', filters.status);
+        if (filters?.college) search.set('college', filters.college);
+        if (filters?.q) search.set('q', filters.q);
+        if (filters?.submittedFrom) search.set('submittedFrom', filters.submittedFrom);
+        if (filters?.submittedTo) search.set('submittedTo', filters.submittedTo);
+        const qs = search.toString();
+        const path = `leader/recruitments/${recruitmentId}/applications${qs ? `?${qs}` : ''}`;
+        return jsonOk<Applicant[]>(http.get(path));
+      },
+      applicantNeighbors: (recruitmentId, applicationId, filters) => {
+        const search = new URLSearchParams();
+        if (filters?.status) search.set('status', filters.status);
+        if (filters?.college) search.set('college', filters.college);
+        if (filters?.q) search.set('q', filters.q);
+        if (filters?.submittedFrom) search.set('submittedFrom', filters.submittedFrom);
+        if (filters?.submittedTo) search.set('submittedTo', filters.submittedTo);
+        const qs = search.toString();
+        const path = `leader/recruitments/${recruitmentId}/applications/${applicationId}/neighbors${qs ? `?${qs}` : ''}`;
+        return jsonOk<ApplicantNeighbors>(http.get(path));
+      },
       updateStatus: (applicationId, payload) =>
         jsonVoid(
           http.patch(`leader/applications/${applicationId}/status`, { json: payload }),
@@ -484,6 +517,14 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       updateInterview: (applicationId, payload) =>
         jsonVoid(
           http.patch(`leader/applications/${applicationId}/interview`, { json: payload }),
+        ),
+      upsertMyApplicationEvaluation: (applicationId, payload) =>
+        jsonVoid(
+          http.put(`leader/applications/${applicationId}/evaluations/me`, { json: payload }),
+        ),
+      deleteMyApplicationEvaluation: (applicationId) =>
+        jsonVoid(
+          http.delete(`leader/applications/${applicationId}/evaluations/me`),
         ),
     },
     stats: {
