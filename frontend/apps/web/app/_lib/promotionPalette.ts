@@ -19,6 +19,11 @@ export const PROMOTION_PALETTE: Record<PromotionPalette, PromotionPaletteStyle> 
     fg: '#fff',
     accent: '#9DB6A0',
   },
+  PLAIN: {
+    bg: '#FAF7F0',
+    fg: '#143025',
+    accent: '#1F4A36',
+  },
   SAGE: {
     bg: 'linear-gradient(120deg, #E8EEE8 0%, #C9D8CC 100%)',
     fg: '#143025',
@@ -48,6 +53,7 @@ export const PROMOTION_PALETTE: Record<PromotionPalette, PromotionPaletteStyle> 
 
 export const PALETTE_OPTIONS: { value: PromotionPalette; label: string }[] = [
   { value: 'INK', label: '잉크 (다크 세이지)' },
+  { value: 'PLAIN', label: '플레인 (베이지)' },
   { value: 'SAGE', label: '세이지 (라이트 그린)' },
   { value: 'WARM', label: '웜 (옐로우)' },
   { value: 'CORAL', label: '코랄 (피치)' },
