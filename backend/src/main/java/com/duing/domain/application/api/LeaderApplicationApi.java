@@ -41,11 +41,11 @@ public interface LeaderApplicationApi {
     @GetMapping("/leader/recruitments/{recruitmentId}/applications")
     ResponseEntity<ApiResponse<List<ApplicantResponse>>> getApplicants(
             @PathVariable Long recruitmentId,
-            @Parameter(description = "지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)")
+            @Parameter(description = "지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)", example = "UNDER_REVIEW")
             @RequestParam(required = false) ApplicationStatus status,
-            @Parameter(description = "단과대 필터")
+            @Parameter(description = "단과대 필터", example = "ENGINEERING")
             @RequestParam(required = false) College college,
-            @Parameter(description = "이름·학번·학과명 부분일치(OR), 대소문자 무시")
+            @Parameter(description = "이름·학번·학과명 부분일치(OR), 대소문자 무시", example = "홍길동")
             @RequestParam(required = false) String q,
             @Parameter(description = "제출일 시작 (inclusive, yyyy-MM-dd)", example = "2026-05-01")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedFrom,
@@ -96,11 +96,11 @@ public interface LeaderApplicationApi {
     ResponseEntity<ApiResponse<ApplicantNeighborsResponse>> getApplicantNeighbors(
             @PathVariable Long recruitmentId,
             @PathVariable Long applicationId,
-            @Parameter(description = "지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)")
+            @Parameter(description = "지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)", example = "UNDER_REVIEW")
             @RequestParam(required = false) ApplicationStatus status,
-            @Parameter(description = "단과대 필터")
+            @Parameter(description = "단과대 필터", example = "ENGINEERING")
             @RequestParam(required = false) College college,
-            @Parameter(description = "이름·학번·학과명 부분일치(OR), 대소문자 무시")
+            @Parameter(description = "이름·학번·학과명 부분일치(OR), 대소문자 무시", example = "홍길동")
             @RequestParam(required = false) String q,
             @Parameter(description = "제출일 시작 (inclusive, yyyy-MM-dd)", example = "2026-05-01")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedFrom,

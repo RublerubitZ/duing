@@ -112,7 +112,6 @@ public class LeaderApplicationController implements LeaderApplicationApi {
         ApplicantSearchCondition condition = new ApplicantSearchCondition(status, college, q, submittedFrom, submittedTo);
         ApplicantNeighborsQuery neighborsQuery = applicationService.getNeighbors(
                 recruitmentId, applicationId, currentUser.id(), condition);
-        return ResponseEntity.ok(ApiResponse.success(
-                new ApplicantNeighborsResponse(neighborsQuery.prevApplicationId(), neighborsQuery.nextApplicationId())));
+        return ResponseEntity.ok(ApiResponse.success(ApplicantNeighborsResponse.from(neighborsQuery)));
     }
 }

@@ -63,7 +63,8 @@ public class ApplicationRepositoryImpl implements ApplicationRepositoryCustom {
         LocalDateTime pivot = queryFactory
                 .select(application.createdAt)
                 .from(application)
-                .where(application.id.eq(applicationId))
+                .where(application.id.eq(applicationId),
+                       application.recruitment.id.eq(recruitmentId))
                 .fetchOne();
         if (pivot == null) {
             return new ApplicantNeighborsQuery(null, null);

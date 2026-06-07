@@ -326,14 +326,15 @@ class LeaderApplicationControllerTest {
         Recruitment recruitment = saveOpenRecruitment(club, "오래된이웃모집");
 
         Long oldestId = saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 1, 9, 0));
-        saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 10, 9, 0));
+        Long newerApplicationId = saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 10, 9, 0));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications/{applicationId}/neighbors",
                         recruitment.getId(), oldestId)
                 .then().statusCode(200)
-                .body("data.nextApplicationId", nullValue());
+                .body("data.nextApplicationId", nullValue())
+                .body("data.prevApplicationId", equalTo(newerApplicationId.intValue()));
     }
 
     @Test
@@ -373,6 +374,32 @@ class LeaderApplicationControllerTest {
                 .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications/{applicationId}/neighbors",
                         recruitment.getId(), applicationId)
                 .then().statusCode(403);
+    }
+
+    @Test
+    @DisplayName("다른 모집 소속의 applicationId 를 전달하면 neighbors 가 모두 null 이다")
+    void mismatchedRecruitmentReturnsNullNeighbors() {
+        // uk_recruitment_club_active 로 동아리당 활성 모집이 1개로 제한되므로 클럽을 분리한다
+        Club clubA = saveActiveClub("모집불일치동아리A");
+        clubMemberRepository.save(ClubMember.asLeader(clubA, leader));
+        Club clubB = saveActiveClub("모집불일치동아리B");
+        clubMemberRepository.save(ClubMember.asLeader(clubB, leader));
+
+        Recruitment recruitmentA = saveOpenRecruitment(clubA, "모집A");
+        Recruitment recruitmentB = saveOpenRecruitment(clubB, "모집B");
+
+        // recruitmentA 에 이웃이 생길 수 있도록 2건 등록
+        Long applicationInA = saveApplicationAtTime(recruitmentA, LocalDateTime.of(2026, 5, 1, 9, 0));
+        saveApplicationAtTime(recruitmentA, LocalDateTime.of(2026, 5, 2, 9, 0));
+
+        // recruitmentB 로 조회하되 applicationInA 를 넘기면 pivot 이 null → neighbors 모두 null
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications/{applicationId}/neighbors",
+                        recruitmentB.getId(), applicationInA)
+                .then().statusCode(200)
+                .body("data.prevApplicationId", nullValue())
+                .body("data.nextApplicationId", nullValue());
     }
 
     private Long saveApplicationAtTime(Recruitment recruitment, LocalDateTime createdAt) {
