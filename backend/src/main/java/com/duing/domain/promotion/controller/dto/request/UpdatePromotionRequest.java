@@ -40,6 +40,18 @@ public record UpdatePromotionRequest(
         return startAt == null || endAt == null || startAt.isBefore(endAt);
     }
 
+    @AssertTrue(message = "완성 이미지형 배너는 Alt Text가 필수입니다.")
+    public boolean isImageAltTextRequiredForFullBleed() {
+        return renderMode != PromotionRenderMode.FULL_BLEED_IMAGE
+                || (imageAltText != null && !imageAltText.isBlank());
+    }
+
+    @AssertTrue(message = "완성 이미지형 배너는 배너 이미지가 필수입니다.")
+    public boolean isBannerImageRequiredForFullBleed() {
+        return renderMode != PromotionRenderMode.FULL_BLEED_IMAGE
+                || (bannerImageUrl != null && !bannerImageUrl.isBlank());
+    }
+
     public UpdatePromotionCommand toCommand(Long promotionId) {
         return new UpdatePromotionCommand(
                 promotionId, title, bannerImageUrl, linkUrl, clubId, active, displayOrder, clearClubId,
