@@ -17,7 +17,7 @@ export type SystemComposedSlideData = {
   fg: string;
   accent: string;
   emoji: string;
-  href: string;
+  href: string | null;
   bannerImageUrl: string | null;
   renderMode: PromotionRenderMode;
   imageAltText: string | null;
@@ -146,6 +146,10 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
     </div>
   );
 
+  // href === null → Spec #7 의 비인터랙티브 컨테이너 (role/tab/cursor 모두 비활성).
+  if (slide.href === null) {
+    return <div className="block h-full cursor-default">{body}</div>;
+  }
   // typedRoutes 검증을 위해 외부 URL / 내부 라우트를 구분한다.
   if (slide.href.startsWith('http')) {
     return (

@@ -6,7 +6,7 @@ import { cn } from '@/app/_lib/cn';
 /** SystemComposedSlide.tsx 와 동일 구조의 슬라이드 데이터. */
 export type FullBleedSlideData = {
   key: string;
-  href: string;
+  href: string | null;
   bannerImageUrl: string | null;
   imageAltText: string | null;
 };
@@ -52,6 +52,9 @@ function FullBleedMainBody({ slide }: { slide: FullBleedSlideData }) {
     </div>
   );
 
+  if (slide.href === null) {
+    return <div className="block h-full cursor-default">{body}</div>;
+  }
   if (slide.href.startsWith('http')) {
     return (
       <a href={slide.href} target="_blank" rel="noopener noreferrer" className="block h-full">
