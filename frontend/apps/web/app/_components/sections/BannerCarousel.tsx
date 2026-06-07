@@ -60,13 +60,13 @@ function mockToSlide(banner: LandingBanner): CarouselSlide {
 /**
  * Promotion 의 연결 대상 우선순위:
  * 1. linkUrl (외부/내부 URL — 직접 입력 우선)
- * 2. club (`/clubs/{id}`)
- * 3. null (연결 없음 — 슬라이드를 비인터랙티브로 렌더)
- *
- * Spec #8 (공지 연결) 가 합류할 때 notice 분기를 2 와 3 사이에 한 줄 추가한다.
+ * 2. notice (isAccessible=true 인 공지 — `/notices/{id}`)
+ * 3. club (`/clubs/{id}`)
+ * 4. null (연결 없음 — 슬라이드를 비인터랙티브로 렌더)
  */
 export function resolvePromotionHref(promotion: PromotionCard): string | null {
   if (promotion.linkUrl) return promotion.linkUrl;
+  if (promotion.notice?.isAccessible) return `/notices/${promotion.notice.id}`;
   if (promotion.club) return `/clubs/${promotion.club.id}`;
   return null;
 }

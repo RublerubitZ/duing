@@ -5,6 +5,7 @@ import type { FormEvent } from 'react';
 import type {
   AdminPromotionSummary,
   CreatePromotionPayload,
+  PromotionLinkType,
   PromotionPalette,
   PromotionRenderMode,
   UpdatePromotionPayload,
@@ -12,6 +13,7 @@ import type {
 import { ImageUploader } from '../../../_components/ImageUploader';
 import { PALETTE_OPTIONS, PROMOTION_PALETTE } from '../../../_lib/promotionPalette';
 import { ClubSelector } from './ClubSelector';
+import { NoticeSelector } from './NoticeSelector';
 
 type CreateMode = {
   mode: 'create';
@@ -36,7 +38,9 @@ type FormState = {
   title: string;
   bannerImageUrl: string;
   linkUrl: string;
-  isCuration: boolean;
+  linkType: PromotionLinkType;
+  noticeId: number | null;
+  noticeTitle: string | null;
   clubId: number | null;
   clubName: string | null;
   active: boolean;
@@ -69,7 +73,9 @@ function buildInitialState(initialValues?: AdminPromotionSummary): FormState {
       title: '',
       bannerImageUrl: '',
       linkUrl: '',
-      isCuration: true,
+      linkType: 'NONE',
+      noticeId: null,
+      noticeTitle: null,
       clubId: null,
       clubName: null,
       active: true,
@@ -91,7 +97,9 @@ function buildInitialState(initialValues?: AdminPromotionSummary): FormState {
     title: initialValues.title,
     bannerImageUrl: initialValues.bannerImageUrl ?? '',
     linkUrl: initialValues.linkUrl ?? '',
-    isCuration: initialValues.club === null,
+    linkType: initialValues.linkType,
+    noticeId: initialValues.notice?.id ?? null,
+    noticeTitle: initialValues.notice?.title ?? null,
     clubId: initialValues.club?.id ?? null,
     clubName: initialValues.club?.name ?? null,
     active: initialValues.active,
@@ -147,6 +155,18 @@ export function AdminPromotionForm(props: Props) {
     setState((prev) => ({ ...prev, [key]: value }));
   };
 
+  function handleLinkTypeChange(next: PromotionLinkType) {
+    setState((prev) => ({
+      ...prev,
+      linkType: next,
+      linkUrl: next === 'URL' ? prev.linkUrl : '',
+      noticeId: next === 'NOTICE' ? prev.noticeId : null,
+      noticeTitle: next === 'NOTICE' ? prev.noticeTitle : null,
+      clubId: next === 'CLUB' ? prev.clubId : null,
+      clubName: next === 'CLUB' ? prev.clubName : null,
+    }));
+  }
+
   const trimToNull = (value: string): string | null => {
     const trimmed = value.trim();
     return trimmed.length === 0 ? null : trimmed;
@@ -155,10 +175,11 @@ export function AdminPromotionForm(props: Props) {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const clubId = state.isCuration ? null : state.clubId;
+    const linkUrlValue = state.linkType === 'URL' ? trimToNull(state.linkUrl) : null;
+    const noticeIdValue = state.linkType === 'NOTICE' ? state.noticeId : null;
+    const clubIdValue = state.linkType === 'CLUB' ? state.clubId : null;
     const displayOrderValue = Number(state.displayOrder);
     const bannerImage = trimToNull(state.bannerImageUrl);
-    const linkUrlValue = trimToNull(state.linkUrl);
     const scheduledStart = state.scheduleMode === 'SCHEDULED' ? trimToNull(state.startAt) : null;
     const scheduledEnd = state.scheduleMode === 'SCHEDULED' ? trimToNull(state.endAt) : null;
 
@@ -167,7 +188,8 @@ export function AdminPromotionForm(props: Props) {
         title: state.title,
         bannerImageUrl: bannerImage,
         linkUrl: linkUrlValue,
-        clubId,
+        noticeId: noticeIdValue,
+        clubId: clubIdValue,
         active: state.active,
         displayOrder: displayOrderValue,
         palette: state.palette,
@@ -183,8 +205,6 @@ export function AdminPromotionForm(props: Props) {
       await props.onSubmit(payload);
     } else {
       const initialValues = props.initialValues;
-      const hadClub = initialValues.club !== null;
-      const nowCuration = state.isCuration;
 
       const payload: UpdatePromotionPayload = {
         title: state.title,
@@ -200,11 +220,25 @@ export function AdminPromotionForm(props: Props) {
         payload.bannerImageUrl = bannerImage;
       }
 
-      // linkUrl — 이미지와 동일 패턴. 비웠으면 clearLinkUrl, 값 있으면 그대로.
+      // linkUrl — linkType 이 URL 이 아닌 경우 항상 null 처리.
       if (linkUrlValue === null) {
         if (initialValues.linkUrl !== null) payload.clearLinkUrl = true;
       } else {
         payload.linkUrl = linkUrlValue;
+      }
+
+      // noticeId — linkType 이 NOTICE 가 아닌 경우 항상 null 처리.
+      if (noticeIdValue === null) {
+        if (initialValues.notice !== null) payload.clearNoticeId = true;
+      } else {
+        payload.noticeId = noticeIdValue;
+      }
+
+      // clubId — linkType 이 CLUB 이 아닌 경우 항상 null 처리.
+      if (clubIdValue === null) {
+        if (initialValues.club !== null) payload.clearClubId = true;
+      } else {
+        payload.clubId = clubIdValue;
       }
 
       // 텍스트 필드들 — 동일 패턴.
@@ -228,12 +262,6 @@ export function AdminPromotionForm(props: Props) {
 
       // renderMode 는 항상 명시적으로 전송 — 백엔드는 null=변경 안 함이지만 폼 state 에는 항상 값이 있다.
       payload.renderMode = state.renderMode;
-
-      if (hadClub && nowCuration) {
-        payload.clearClubId = true;
-      } else if (!nowCuration) {
-        payload.clubId = clubId;
-      }
 
       await props.onSubmit(payload);
     }
@@ -416,42 +444,75 @@ export function AdminPromotionForm(props: Props) {
         </div>
       )}
 
-      <Field label="링크 URL (선택, ≤2000자)">
-        <input
-          type="url"
-          maxLength={2000}
-          value={state.linkUrl}
-          onChange={(event) => update('linkUrl', event.target.value)}
-          placeholder="https://..."
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
-        />
-      </Field>
-
+      {/* 연결 대상 라디오 */}
       <div className="space-y-2">
-        <span className="block text-[12.5px] font-semibold text-charcoal-2">동아리 연결</span>
-        <label className="inline-flex items-center gap-2 text-[13.5px]">
-          <input
-            type="checkbox"
-            checked={state.isCuration}
-            onChange={(event) => update('isCuration', event.target.checked)}
-          />
-          큐레이션 배너 (동아리 미연결)
-        </label>        {!state.isCuration && (
-          <div className="mt-2">
-            <label className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">동아리 선택</label>
-            <ClubSelector
-              selectedClubId={state.clubId}
-              selectedClubName={state.clubName}
-              onSelect={(clubId, clubName) => {
-                setState((prev) => ({ ...prev, clubId, clubName }));
-              }}
-              onClear={() => {
-                setState((prev) => ({ ...prev, clubId: null, clubName: null }));
-              }}
-            />
-          </div>
-        )}
+        <span className="block text-[12.5px] font-semibold text-charcoal-2">연결 대상</span>
+        <div className="flex flex-col gap-2 text-[13.5px]">
+          {([
+            { type: 'NONE' as const, label: '연결 안 함 — 클릭 불가 배너' },
+            { type: 'URL' as const, label: '외부/내부 URL' },
+            { type: 'NOTICE' as const, label: '공지 연결' },
+            { type: 'CLUB' as const, label: '동아리 연결' },
+          ]).map(({ type, label }) => (
+            <label key={type} className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="linkType"
+                checked={state.linkType === type}
+                onChange={() => handleLinkTypeChange(type)}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
       </div>
+
+      {/* URL 입력 */}
+      {state.linkType === 'URL' && (
+        <Field label="링크 URL (≤2000자)">
+          <input
+            type="url"
+            maxLength={2000}
+            value={state.linkUrl}
+            onChange={(event) => update('linkUrl', event.target.value)}
+            placeholder="https://..."
+            className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          />
+        </Field>
+      )}
+
+      {/* 공지 선택 + 비공개/삭제 경고 */}
+      {state.linkType === 'NOTICE' && (
+        <Field label="공지 선택">
+          <NoticeSelector
+            selectedNoticeId={state.noticeId}
+            selectedNoticeTitle={state.noticeTitle}
+            onSelect={(noticeId, noticeTitle) => setState((prev) => ({ ...prev, noticeId, noticeTitle }))}
+            onClear={() => setState((prev) => ({ ...prev, noticeId: null, noticeTitle: null }))}
+          />
+          {mode === 'edit'
+            && state.linkType === 'NOTICE'
+            && state.noticeId !== null
+            && props.initialValues.notice?.id === state.noticeId
+            && props.initialValues.notice?.isAccessible === false && (
+              <p className="mt-1 text-[12px] text-amber-600">
+                연결된 공지가 비공개/삭제 상태입니다. 다시 선택하거나 다른 연결을 골라주세요.
+              </p>
+          )}
+        </Field>
+      )}
+
+      {/* 동아리 선택 */}
+      {state.linkType === 'CLUB' && (
+        <Field label="동아리 선택">
+          <ClubSelector
+            selectedClubId={state.clubId}
+            selectedClubName={state.clubName}
+            onSelect={(clubId, clubName) => setState((prev) => ({ ...prev, clubId, clubName }))}
+            onClear={() => setState((prev) => ({ ...prev, clubId: null, clubName: null }))}
+          />
+        </Field>
+      )}
 
       <div className="flex items-center gap-6">
         <label className="inline-flex items-center gap-2 text-[13.5px]">

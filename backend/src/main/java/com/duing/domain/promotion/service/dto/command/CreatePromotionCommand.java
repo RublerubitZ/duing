@@ -20,5 +20,6 @@ public record CreatePromotionCommand(
         LocalDateTime startAt,
         LocalDateTime endAt,
         PromotionRenderMode renderMode,
-        String imageAltText
+        String imageAltText,
+        Long noticeId
 ) {}

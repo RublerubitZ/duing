@@ -1,6 +1,8 @@
 package com.duing.domain.promotion.controller.dto.response;
 
+import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.promotion.entity.Promotion;
+import com.duing.domain.promotion.entity.PromotionLinkType;
 import com.duing.domain.promotion.entity.PromotionPalette;
 import com.duing.domain.promotion.entity.PromotionRenderMode;
 import com.duing.domain.promotion.service.dto.query.PromotionAdminListQuery;
@@ -25,13 +27,18 @@ public record AdminPromotionResponse(
         LocalDateTime startAt,
         LocalDateTime endAt,
         PromotionRenderMode renderMode,
-        String imageAltText
+        String imageAltText,
+        NoticeRef notice,
+        PromotionLinkType linkType
 ) {
     public record ClubRef(Long id, String name) {}
     public record UserRef(Long id, String name) {}
 
+    /** 어드민 응답 전용 — 운영자가 비공개/삭제 공지도 식별 가능해야 하므로 title 그대로 노출. */
+    public record NoticeRef(Long id, String title, NoticeVisibility visibility, boolean isAccessible) {}
+
     public static AdminPromotionResponse of(
-            Promotion promotion, ClubRef club, UserRef createdBy
+            Promotion promotion, ClubRef club, UserRef createdBy, NoticeRef notice
     ) {
         return new AdminPromotionResponse(
                 promotion.getId(), club, promotion.getTitle(), promotion.getBannerImageUrl(),
@@ -40,20 +47,32 @@ public record AdminPromotionResponse(
                 promotion.getTag(), promotion.getSubtitle(), promotion.getCtaLabel(),
                 promotion.getEmoji(), promotion.getPalette(),
                 promotion.getStartAt(), promotion.getEndAt(),
-                promotion.getRenderMode(), promotion.getImageAltText());
+                promotion.getRenderMode(), promotion.getImageAltText(),
+                notice,
+                deriveLinkType(promotion.getLinkUrl(), promotion.getNoticeId(), promotion.getClubId()));
     }
 
-    public static AdminPromotionResponse from(PromotionAdminListQuery query) {
+    public static AdminPromotionResponse from(PromotionAdminListQuery query, NoticeRef notice) {
         ClubRef clubRef = query.club() == null
                 ? null
                 : new ClubRef(query.club().id(), query.club().name());
         UserRef userRef = new UserRef(query.createdBy().id(), query.createdBy().name());
+        Long clubId = query.club() == null ? null : query.club().id();
         return new AdminPromotionResponse(
                 query.id(), clubRef, query.title(), query.bannerImageUrl(),
                 query.linkUrl(), query.active(), query.displayOrder(),
                 userRef, query.createdAt(), query.updatedAt(),
                 query.tag(), query.subtitle(), query.ctaLabel(), query.emoji(), query.palette(),
                 query.startAt(), query.endAt(),
-                query.renderMode(), query.imageAltText());
+                query.renderMode(), query.imageAltText(),
+                notice,
+                deriveLinkType(query.linkUrl(), query.noticeId(), clubId));
+    }
+
+    private static PromotionLinkType deriveLinkType(String linkUrl, Long noticeId, Long clubId) {
+        if (linkUrl != null && !linkUrl.isBlank()) return PromotionLinkType.URL;
+        if (noticeId != null) return PromotionLinkType.NOTICE;
+        if (clubId != null) return PromotionLinkType.CLUB;
+        return PromotionLinkType.NONE;
     }
 }

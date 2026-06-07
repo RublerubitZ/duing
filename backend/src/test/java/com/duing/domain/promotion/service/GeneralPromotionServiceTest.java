@@ -7,6 +7,10 @@ import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.notice.entity.Notice;
+import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.domain.notice.entity.NoticeVisibility;
+import com.duing.domain.notice.repository.NoticeRepository;
 import com.duing.domain.promotion.entity.Promotion;
 import com.duing.domain.promotion.entity.PromotionPalette;
 import com.duing.domain.promotion.entity.PromotionRenderMode;
@@ -20,6 +24,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +45,7 @@ class GeneralPromotionServiceTest {
     @Autowired PromotionRepository promotionRepository;
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
+    @Autowired NoticeRepository noticeRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -58,7 +64,7 @@ class GeneralPromotionServiceTest {
                 null, "배너", "/files/b.png", "https://x", true, 1, admin.getId(),
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.SYSTEM_COMPOSED, null));
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
         Promotion saved = promotionRepository.findById(id).orElseThrow();
         assertThat(saved.getCreatedBy()).isEqualTo(admin.getId());
         assertThat(saved.isActive()).isTrue();
@@ -72,7 +78,7 @@ class GeneralPromotionServiceTest {
                 null, "배너", "/files/b.png", null, true, 1, admin.getId(),
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.SYSTEM_COMPOSED, null));
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
 
         promotionService.update(new UpdatePromotionCommand(
                 id, null, null, null, null, false, 5, null,
@@ -81,7 +87,7 @@ class GeneralPromotionServiceTest {
                 null, null,
                 null, null, null, null, null, null,
                 null, null,
-                null));
+                null, null, null));
 
         Promotion updated = promotionRepository.findById(id).orElseThrow();
         assertThat(updated.isActive()).isFalse();
@@ -99,7 +105,7 @@ class GeneralPromotionServiceTest {
                 club.getId(), "배너", "/files/b.png", null, true, 0, admin.getId(),
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.SYSTEM_COMPOSED, null));
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
 
         promotionService.update(new UpdatePromotionCommand(
                 id, null, null, null, null, null, null, true,
@@ -108,7 +114,7 @@ class GeneralPromotionServiceTest {
                 null, null,
                 null, null, null, null, null, null,
                 null, null,
-                null));
+                null, null, null));
 
         assertThat(promotionRepository.findById(id).orElseThrow().getClubId()).isNull();
     }
@@ -121,7 +127,7 @@ class GeneralPromotionServiceTest {
                 null, "배너", "/files/b.png", null, true, 0, admin.getId(),
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.SYSTEM_COMPOSED, null));
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
         promotionService.delete(id);
 
         assertThat(promotionRepository.findById(id)).isEmpty();
@@ -137,17 +143,17 @@ class GeneralPromotionServiceTest {
                 null, "비활성", "/files/x.png", null, false, 0, admin.getId(),
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.SYSTEM_COMPOSED, null));
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
         Long second = promotionService.create(new CreatePromotionCommand(
                 null, "두번째", "/files/2.png", null, true, 20, admin.getId(),
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.SYSTEM_COMPOSED, null));
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
         Long first = promotionService.create(new CreatePromotionCommand(
                 null, "첫번째", "/files/1.png", null, true, 10, admin.getId(),
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.SYSTEM_COMPOSED, null));
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
 
         var content = promotionService.findPublic(PageRequest.of(0, 10)).getContent();
         assertThat(content).extracting(Promotion::getId).containsExactly(first, second);
@@ -163,22 +169,22 @@ class GeneralPromotionServiceTest {
                 null, "상시", "/files/now.png", null, true, 0, admin.getId(),
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.SYSTEM_COMPOSED, null));
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
         Long upcoming = promotionService.create(new CreatePromotionCommand(
                 null, "예정", "/files/u.png", null, true, 10, admin.getId(),
                 null, null, null, null, PromotionPalette.INK,
                 now.plusDays(3), null,
-                PromotionRenderMode.SYSTEM_COMPOSED, null));
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
         Long expired = promotionService.create(new CreatePromotionCommand(
                 null, "종료", "/files/e.png", null, true, 20, admin.getId(),
                 null, null, null, null, PromotionPalette.INK,
                 null, now.minusDays(1),
-                PromotionRenderMode.SYSTEM_COMPOSED, null));
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
         Long inRange = promotionService.create(new CreatePromotionCommand(
                 null, "구간", "/files/r.png", null, true, 30, admin.getId(),
                 null, null, null, null, PromotionPalette.INK,
                 now.minusDays(1), now.plusDays(1),
-                PromotionRenderMode.SYSTEM_COMPOSED, null));
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
 
         var content = promotionService.findPublic(PageRequest.of(0, 10)).getContent();
         assertThat(content).extracting(Promotion::getId)
@@ -196,7 +202,69 @@ class GeneralPromotionServiceTest {
                 null, null,
                 null, null, null, null, null, null,
                 null, null,
-                null)))
+                null, null, null)))
                 .isInstanceOf(PromotionException.PromotionNotFoundException.class);
+    }
+
+    private Notice saveNotice(NoticeVisibility visibility) {
+        User author = saveAdmin();
+        return noticeRepository.save(Notice.create(
+                "테스트 공지" + sequence.incrementAndGet(),
+                "요약",
+                "본문",
+                "/files/cover.png",
+                null,
+                NoticeCategory.GENERAL,
+                List.of(),
+                visibility,
+                null,
+                false,
+                null,
+                false,
+                author.getId()));
+    }
+
+    @Test
+    @DisplayName("공지 연결 create 가 PUBLIC 공지에 대해 성공한다")
+    void createWithPublicNoticeSucceeds() {
+        User admin = saveAdmin();
+        Notice notice = saveNotice(NoticeVisibility.PUBLIC);
+        Long id = promotionService.create(new CreatePromotionCommand(
+                null, "공지 배너", "/files/b.png", null, true, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                notice.getId()));
+        assertThat(promotionRepository.findById(id).orElseThrow().getNoticeId())
+                .isEqualTo(notice.getId());
+    }
+
+    @Test
+    @DisplayName("비공개 공지를 연결하려고 하면 NonPublicNoticeLinkException")
+    void createWithNonPublicNoticeThrows() {
+        User admin = saveAdmin();
+        Notice notice = saveNotice(NoticeVisibility.OFFICERS_ALL);
+        assertThatThrownBy(() -> promotionService.create(new CreatePromotionCommand(
+                null, "T", "/files/b.png", null, true, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                notice.getId())))
+                .isInstanceOf(PromotionException.NonPublicNoticeLinkException.class);
+    }
+
+    @Test
+    @DisplayName("Service Validator 도 다중 link 를 거부한다 (Request 우회 시 안전망)")
+    void createRejectsMultipleLinks() {
+        User admin = saveAdmin();
+        Club club = clubRepository.save(Club.create(
+                "두잉" + sequence.incrementAndGet(), ClubCategory.ACADEMIC, "분과", "설명", null));
+        assertThatThrownBy(() -> promotionService.create(new CreatePromotionCommand(
+                club.getId(), "T", "/files/b.png", "https://x.com", true, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                null)))
+                .isInstanceOf(PromotionException.MultipleLinkTargetsException.class);
     }
 }

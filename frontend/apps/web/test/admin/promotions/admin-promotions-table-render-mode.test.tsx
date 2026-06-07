@@ -35,6 +35,8 @@ function makeRow(overrides: Partial<AdminPromotionSummary>): AdminPromotionSumma
     endAt: null,
     renderMode: 'SYSTEM_COMPOSED',
     imageAltText: null,
+    notice: null,
+    linkType: 'NONE',
     ...overrides,
   };
 }

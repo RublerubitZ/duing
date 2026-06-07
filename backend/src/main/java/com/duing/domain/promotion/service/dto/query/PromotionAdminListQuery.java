@@ -24,7 +24,8 @@ public record PromotionAdminListQuery(
         LocalDateTime startAt,
         LocalDateTime endAt,
         PromotionRenderMode renderMode,
-        String imageAltText
+        String imageAltText,
+        Long noticeId
 ) {
     public record ClubRef(Long id, String name) {}
     public record UserRef(Long id, String name) {}
@@ -39,6 +40,7 @@ public record PromotionAdminListQuery(
                 promotion.getTag(), promotion.getSubtitle(), promotion.getCtaLabel(),
                 promotion.getEmoji(), promotion.getPalette(),
                 promotion.getStartAt(), promotion.getEndAt(),
-                promotion.getRenderMode(), promotion.getImageAltText());
+                promotion.getRenderMode(), promotion.getImageAltText(),
+                promotion.getNoticeId());
     }
 }

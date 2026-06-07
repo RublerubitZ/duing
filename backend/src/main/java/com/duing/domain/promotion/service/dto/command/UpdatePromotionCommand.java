@@ -30,5 +30,7 @@ public record UpdatePromotionCommand(
         Boolean clearEmoji,
         Boolean clearStartAt,
         Boolean clearEndAt,
-        Boolean clearImageAltText
+        Boolean clearImageAltText,
+        Long noticeId,
+        Boolean clearNoticeId
 ) {}
