@@ -79,7 +79,8 @@ private String imageAltText;
 ```
 
 - `create(...)` / `UpdatePayload` / `update(...)` 시그니처에 두 필드 추가 (기존 nullable 필드 패턴과 동일하게 clear 플래그 `clearImageAltText` 도 함께 도입).
-- `renderMode` 는 enum 이라 null 입력 시 `SYSTEM_COMPOSED` 폴백 (`PromotionPalette` 가 INK 로 폴백되는 것과 동일 패턴).
+- `renderMode` 는 enum 이라 `create()` 시 null 입력은 `SYSTEM_COMPOSED` 폴백 (`PromotionPalette` 가 INK 로 폴백되는 것과 동일 패턴).
+- `update()` 에서 `renderMode == null` 은 \"변경 안 함\" 으로 해석 (`palette` / `active` 등 다른 partial-update 필드와 동일 규칙). 즉 어드민이 모드를 명시적으로 바꾸지 않은 요청은 기존 모드를 유지한다.
 
 ---
 
@@ -164,11 +165,12 @@ imageAltText: string | null;
 
 ### 6.3 모드 전환 가드
 
-\"이미지 없는 SYSTEM_COMPOSED 배너 → FULL_BLEED_IMAGE 전환\" 을 라디오에서 시도하면 인라인 경고:
+FULL_BLEED_IMAGE 의 필수 필드(`bannerImageUrl`, `imageAltText`) 가 비어 있는 상태에서 라디오를 FULL_BLEED 로 토글하면 각각 인라인 경고:
 
-> 완성 이미지형으로 전환하려면 배너 이미지 업로드가 필요합니다.
+- `bannerImageUrl` 비어 있을 때: \"완성 이미지형으로 전환하려면 배너 이미지 업로드가 필요합니다.\"
+- `imageAltText` 비어 있을 때: \"완성 이미지형으로 전환하려면 Alt Text 입력이 필요합니다.\"
 
-전환 자체는 막지 않고 \"필수 입력이 비어 있음\" 으로 저장 시 422 가 발생하게 둔다 (백엔드 검증과 일치).
+두 경고는 독립적으로 동시 노출 가능 (둘 다 비어 있으면 두 줄). 전환 자체는 막지 않고 \"필수 입력이 비어 있음\" 으로 저장 시 422 가 발생하게 둔다 (백엔드 cross-field 검증과 일치).
 
 ### 6.4 이미지 권장 비율 즉시 경고
 
@@ -275,6 +277,15 @@ PR1 머지 후:
 - 기존 SYSTEM_COMPOSED 배너의 응답 / 렌더 / 어드민 폼이 모두 그대로 동작.
 - 모든 기존 배너의 `renderMode` 가 `SYSTEM_COMPOSED` 로 자동 채워졌는지 확인.
 - FULL_BLEED 신규 등록은 어드민 폼이 없으니 직접 API 호출로만 가능. 422 검증 케이스 테스트로 보장.
+
+PR1 백엔드 테스트 추가 케이스 (§8 데이터 정책의 핵심 가드):
+- `renderMode=FULL_BLEED + imageAltText=null` 으로 create → 422 (`isImageAltTextRequiredForFullBleed`).
+- `renderMode=FULL_BLEED + bannerImageUrl=null` 으로 create → 422 (`isBannerImageRequiredForFullBleed`).
+- `clearImageAltText=true` 동작 (다른 clear 플래그와 동일 패턴).
+- **모드 토글 보존 회귀 가드** —
+  - FULL_BLEED 로 update 후 SYSTEM_COMPOSED 로 다시 update 시 `imageAltText` 가 DB 에 그대로 남아 있는지.
+  - `renderMode` 만 토글하는 update 가 `tag` / `subtitle` / `ctaLabel` / `emoji` / `palette` 어느 것도 건드리지 않는지.
+- `update()` 에서 `renderMode == null` 인 요청이 기존 모드를 그대로 유지하는지 (partial-update 회귀).
 
 PR2 머지 후:
 - 어드민이 FULL_BLEED 신규 등록 / 기존 배너 모드 토글 / 모드 전환 시 데이터 보존 확인.
