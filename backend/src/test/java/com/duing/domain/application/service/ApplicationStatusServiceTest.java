@@ -14,6 +14,7 @@ import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -44,6 +45,7 @@ class ApplicationStatusServiceTest {
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+    private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -53,7 +55,8 @@ class ApplicationStatusServiceTest {
             clubAuthService,
             interviewNotificationService,
             applicationDraftService,
-            eventPublisher);
+            eventPublisher,
+            applicationStatusHistoryRepository);
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더
@@ -91,6 +94,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         applicationService.updateStatus(
                 new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.UNDER_REVIEW));
@@ -122,7 +126,8 @@ class ApplicationStatusServiceTest {
                 new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ACCEPTED)))
                 .isInstanceOf(ApplicationDomainException.InvalidStatusTransitionException.class);
 
-        // 상태 전이가 차단되므로 ClubMember 행 조작은 발생하지 않아야 한다
+        // 상태 전이가 차단되므로 userRepository 조회 및 ClubMember 행 조작은 발생하지 않아야 한다
+        verify(userRepository, never()).findById(any());
         verify(clubMemberRepository, never()).findByClubIdAndUserId(any(), any());
         verify(clubMemberRepository, never()).save(any());
     }
@@ -141,6 +146,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.OFFICER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
         when(clubMemberRepository.findByClubIdAndUserId(clubId, applicantId))
                 .thenReturn(Optional.empty());
 
@@ -166,6 +172,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.OFFICER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         ClubMember existingMembership = mock(ClubMember.class);
         when(existingMembership.getRole()).thenReturn(ClubMemberRole.MEMBER);
@@ -193,6 +200,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         ClubMember existingMembership = mock(ClubMember.class);
         when(existingMembership.getRole()).thenReturn(ClubMemberRole.OFFICER);
@@ -246,6 +254,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         // 다른 트랜잭션이 먼저 status 를 변경한 상황을 모사한다.
         doThrow(new ObjectOptimisticLockingFailureException(Application.class, applicationId))
