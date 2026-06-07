@@ -517,77 +517,102 @@ export function AdminPromotionForm(props: Props) {
         />
       </Field>
 
-      {/* 라이브 미리보기 */}
+      {/* 라이브 미리보기 — 모드별 분기 */}
       <div>
         <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">미리보기</span>
-        <div
-          className="relative flex h-[200px] flex-col justify-between overflow-hidden rounded-xl px-8 py-7"
-          style={{
-            background: previewStyle.bg,
-            color: hasBannerImage ? '#fff' : previewStyle.fg,
-          }}
-        >
-          {hasBannerImage && (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL. 깨지면 팔레트 색만 노출되도록 onError 에서 숨김. */}
+        {state.renderMode === 'FULL_BLEED_IMAGE' ? (
+          <div className="relative h-[200px] overflow-hidden rounded-xl bg-graysoft">
+            {state.bannerImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL. 깨지면 회색 배경이 그대로 노출되도록 onError 에서 숨김.
               <img
                 src={state.bannerImageUrl}
-                alt=""
-                aria-hidden
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                alt={state.imageAltText || ''}
+                className="block h-full w-full object-cover"
                 onError={(event) => {
                   event.currentTarget.style.display = 'none';
                 }}
               />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0"
-                style={{ background: 'rgba(0,0,0,0.22)' }}
-              />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0"
-                style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)' }}
-              />
-            </>
-          )}
-          {state.emoji && (
-            <div
-              className="pointer-events-none absolute -right-2 -top-3 text-[140px] leading-none opacity-[0.18]"
-              style={{ transform: 'rotate(-12deg)' }}
-            >
-              {state.emoji}
-            </div>
-          )}
-          {state.tag && (
-            <div
-              className="relative inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold"
-              style={{
-                background: hasBannerImage ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.14)',
-                color: hasBannerImage ? '#143025' : previewStyle.accent,
-              }}
-            >
-              {state.tag}
-            </div>
-          )}
-          <div className="relative">
-            <div className="text-[26px] font-bold leading-tight">{state.title || '제목 미리보기'}</div>
-            {state.subtitle && (
-              <div className="mt-1.5 text-[13px] opacity-85">{state.subtitle}</div>
-            )}
-            {state.ctaLabel && (
-              <div
-                className="mt-3 inline-block rounded-md px-3 py-1.5 text-[12px] font-bold"
-                style={{
-                  background: hasBannerImage ? '#9DB6A0' : previewStyle.accent,
-                  color: hasBannerImage ? '#143025' : '#fff',
-                }}
-              >
-                {state.ctaLabel} →
+            ) : (
+              <div className="flex h-full items-center justify-center text-charcoal-3 text-[13px]">
+                배너 이미지를 업로드해주세요
               </div>
             )}
+            {state.bannerImageUrl && state.imageAltText.trim() === '' && (
+              <span className="absolute right-2 top-2 rounded bg-coral/90 px-2 py-1 text-[11px] font-bold text-paper">
+                ⚠ Alt 미입력
+              </span>
+            )}
           </div>
-        </div>
+        ) : (
+          <div
+            className="relative flex h-[200px] flex-col justify-between overflow-hidden rounded-xl px-8 py-7"
+            style={{
+              background: previewStyle.bg,
+              color: hasBannerImage ? '#fff' : previewStyle.fg,
+            }}
+          >
+            {hasBannerImage && (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL. 깨지면 팔레트 색만 노출되도록 onError 에서 숨김. */}
+                <img
+                  src={state.bannerImageUrl}
+                  alt=""
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none';
+                  }}
+                />
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0"
+                  style={{ background: 'rgba(0,0,0,0.22)' }}
+                />
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0"
+                  style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)' }}
+                />
+              </>
+            )}
+            {state.emoji && (
+              <div
+                className="pointer-events-none absolute -right-2 -top-3 text-[140px] leading-none opacity-[0.18]"
+                style={{ transform: 'rotate(-12deg)' }}
+              >
+                {state.emoji}
+              </div>
+            )}
+            {state.tag && (
+              <div
+                className="relative inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold"
+                style={{
+                  background: hasBannerImage ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.14)',
+                  color: hasBannerImage ? '#143025' : previewStyle.accent,
+                }}
+              >
+                {state.tag}
+              </div>
+            )}
+            <div className="relative">
+              <div className="text-[26px] font-bold leading-tight">{state.title || '제목 미리보기'}</div>
+              {state.subtitle && (
+                <div className="mt-1.5 text-[13px] opacity-85">{state.subtitle}</div>
+              )}
+              {state.ctaLabel && (
+                <div
+                  className="mt-3 inline-block rounded-md px-3 py-1.5 text-[12px] font-bold"
+                  style={{
+                    background: hasBannerImage ? '#9DB6A0' : previewStyle.accent,
+                    color: hasBannerImage ? '#143025' : '#fff',
+                  }}
+                >
+                  {state.ctaLabel} →
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {errorMessage && (
