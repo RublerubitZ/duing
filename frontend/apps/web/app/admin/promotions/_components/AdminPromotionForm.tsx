@@ -298,6 +298,11 @@ export function AdminPromotionForm(props: Props) {
           required
           className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
         />
+        {state.renderMode === 'FULL_BLEED_IMAGE' && (
+          <p className="mt-1 text-[12px] text-charcoal-3">
+            관리자 화면에서 배너를 구분하기 위한 이름입니다. 사용자에게는 노출되지 않습니다.
+          </p>
+        )}
       </Field>
 
       {state.renderMode !== 'FULL_BLEED_IMAGE' && (
@@ -381,9 +386,7 @@ export function AdminPromotionForm(props: Props) {
           className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
         />
         <p className="mt-1 text-[12px] text-charcoal-3">
-          {state.renderMode === 'FULL_BLEED_IMAGE'
-            ? '포스터에 표시된 핵심 텍스트(제목, 일정 등) 를 그대로 적어주세요. 스크린리더와 SEO 가 이 텍스트를 읽습니다.'
-            : '완성 이미지형 배너로 전환할 때 접근성·SEO 용도로 사용됩니다. 지금 입력해두면 모드 전환 시 자동 적용됩니다.'}
+          이미지가 보이지 않을 때 대신 보여주거나 읽어주는 설명입니다.
         </p>
       </Field>
 
