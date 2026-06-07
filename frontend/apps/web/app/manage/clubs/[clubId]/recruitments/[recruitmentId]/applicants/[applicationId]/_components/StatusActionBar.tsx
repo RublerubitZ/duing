@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useUpdateApplicationStatusMutation } from '@duing/hooks';
 import type { ApplicationStatus, UpdateApplicationStatusPayload } from '@duing/types';
 import { allowedTransitionsFrom } from '../../_components/applicationStatusTransitions';
-import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
+import { APPLICATION_STATUS_LABEL } from '../../../../../../../../_constants/application-status';
 import { InterviewModal } from './InterviewModal';
 
 type Props = {

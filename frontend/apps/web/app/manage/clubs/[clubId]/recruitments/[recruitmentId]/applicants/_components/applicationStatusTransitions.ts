@@ -17,7 +17,9 @@ export function getStatusTransitions(
 ): NextStatus[] {
   const TRANSITIONS: Record<ApplicationStatus, NextStatus[]> = {
     SUBMITTED: ['UNDER_REVIEW'],
-    UNDER_REVIEW: useInterview ? ['INTERVIEW_PENDING'] : ['ACCEPTED', 'REJECTED'],
+    UNDER_REVIEW: useInterview
+      ? ['INTERVIEW_PENDING', 'REJECTED']
+      : ['ACCEPTED', 'REJECTED'],
     INTERVIEW_PENDING: ['ACCEPTED', 'REJECTED'],
     ACCEPTED: [],
     REJECTED: [],

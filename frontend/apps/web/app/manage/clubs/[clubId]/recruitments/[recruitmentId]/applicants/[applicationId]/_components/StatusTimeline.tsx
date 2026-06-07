@@ -1,7 +1,7 @@
 'use client';
 
 import type { ApplicationStatusHistoryItem } from '@duing/types';
-import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
+import { APPLICATION_STATUS_LABEL } from '../../../../../../../../_constants/application-status';
 
 type Props = {
   history: ApplicationStatusHistoryItem[];

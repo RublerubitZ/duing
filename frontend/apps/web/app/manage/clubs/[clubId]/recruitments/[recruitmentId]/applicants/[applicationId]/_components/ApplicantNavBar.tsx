@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useApplicantNeighborsQuery } from '@duing/hooks';
 import type { ApplicantsFilters, ApplicationStatus } from '@duing/types';
-import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
-import { toRoute } from '../../../../../../../_lib/route';
+import { APPLICATION_STATUS_LABEL } from '../../../../../../../../_constants/application-status';
+import { toRoute } from '../../../../../../../../_lib/route';
 
 type Props = {
   clubId: number;
