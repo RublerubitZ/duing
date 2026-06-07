@@ -62,6 +62,16 @@ describe('FullBleedSlide — main variant', () => {
     expect(screen.queryByRole('heading')).not.toBeInTheDocument();
     expect(screen.queryByText('자세히 보기')).not.toBeInTheDocument();
   });
+
+  it('main 의 href 가 null 이면 role=link 가 없는 div 로 이미지만 렌더된다', () => {
+    const { container } = render(<FullBleedSlide variant="main" slide={makeSlide({ href: null })} />);
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByAltText('2026 해커톤 포스터')).toBeInTheDocument();
+    const wrappingDiv = container.firstChild as HTMLElement;
+    expect(wrappingDiv.tagName.toLowerCase()).toBe('div');
+    expect(wrappingDiv.className).toContain('cursor-default');
+    expect(wrappingDiv.tabIndex).toBe(-1);
+  });
 });
 
 describe('FullBleedSlide — preview variant', () => {
