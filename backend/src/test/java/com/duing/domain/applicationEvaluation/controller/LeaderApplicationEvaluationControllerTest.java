@@ -117,7 +117,7 @@ class LeaderApplicationEvaluationControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /evaluations/me — 없으면 신규 생성되고 204")
+    @DisplayName("운영진이 처음 평가를 제출하면 새 평가가 생성된다")
     void putCreates() {
         Long applicationId = createApplicationForApplicant(sharedClub);
 
@@ -136,7 +136,7 @@ class LeaderApplicationEvaluationControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /evaluations/me — 있으면 갱신되고 204")
+    @DisplayName("운영진이 기존 평가를 재제출하면 점수와 메모가 갱신된다")
     void putUpdates() {
         Long applicationId = createApplicationForApplicant(sharedClub);
         evaluationRepository.save(ApplicationEvaluation.create(
@@ -158,7 +158,7 @@ class LeaderApplicationEvaluationControllerTest {
     }
 
     @Test
-    @DisplayName("score 가 0 / 6 / null 이면 400")
+    @DisplayName("허용 범위를 벗어난 점수나 점수 누락 시 요청이 거부된다")
     void invalidScoreRejected() {
         Long applicationId = createApplicationForApplicant(sharedClub);
 
@@ -225,7 +225,7 @@ class LeaderApplicationEvaluationControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /evaluations/me — 없는 평가에 대해서도 204 (idempotent)")
+    @DisplayName("평가가 존재하지 않아도 삭제 요청은 멱등하게 204로 응답한다")
     void deleteIdempotent() {
         Long applicationId = createApplicationForApplicant(sharedClub);
 
@@ -310,7 +310,7 @@ class LeaderApplicationEvaluationControllerTest {
         ApplicantSearchCondition noFilter = new ApplicantSearchCondition(null, null, null, null, null);
         List<ApplicantQuery> applicants = applicationService.getApplicants(
                 recruitmentRepository.findAll().stream()
-                        .filter(r -> r.getClub().getId().equals(sharedClub.getId()))
+                        .filter(recruitment -> recruitment.getClub().getId().equals(sharedClub.getId()))
                         .findFirst().orElseThrow().getId(),
                 leaderId,
                 noFilter);
@@ -341,7 +341,7 @@ class LeaderApplicationEvaluationControllerTest {
 
         // 2. 목록 조회 → myScore = 3
         Recruitment recruitment = recruitmentRepository.findAll().stream()
-                .filter(r -> r.getClub().getId().equals(sharedClub.getId()))
+                .filter(each -> each.getClub().getId().equals(sharedClub.getId()))
                 .findFirst().orElseThrow();
         ApplicantSearchCondition noFilter = new ApplicantSearchCondition(null, null, null, null, null);
         List<ApplicantQuery> beforeDelete = applicationService.getApplicants(
@@ -364,6 +364,40 @@ class LeaderApplicationEvaluationControllerTest {
                 .filter(row -> row.applicationId().equals(applicationId))
                 .findFirst().orElseThrow();
         assertThat(rowAfter.myScore()).isNull();
+    }
+
+    @Test
+    @DisplayName("내 평가를 삭제한 뒤 다시 작성하면 새 평가가 정상 생성된다")
+    void recreateEvaluationAfterDelete() {
+        Long applicationId = createApplicationForApplicant(sharedClub);
+
+        // 1. 작성
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("score", 3, "memo", "초기"))
+                .when().put("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
+                .then().statusCode(204);
+
+        // 2. 삭제
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
+                .then().statusCode(204);
+
+        // 3. 재작성
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("score", 5, "memo", "재작성"))
+                .when().put("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
+                .then().statusCode(204);
+
+        Optional<ApplicationEvaluation> reloaded =
+                evaluationRepository.findByApplicationIdAndEvaluatorId(applicationId, leaderId);
+        assertThat(reloaded).isPresent();
+        assertThat(reloaded.get().getScore()).isEqualTo(5);
+        assertThat(reloaded.get().getMemo()).isEqualTo("재작성");
     }
 
     // ─────────────────────────────────────────────────────────────

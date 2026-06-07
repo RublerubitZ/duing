@@ -10,8 +10,10 @@ public class ApplicationEvaluationDomainException extends ApplicationException {
     }
 
     public static class EvaluationScoreOutOfRangeException extends ApplicationEvaluationDomainException {
+        private static final String MESSAGE = "평가 점수는 1~5 사이여야 합니다.";
+
         public EvaluationScoreOutOfRangeException() {
-            super("평가 점수는 1~5 사이여야 합니다.", HttpStatus.BAD_REQUEST);
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
 }

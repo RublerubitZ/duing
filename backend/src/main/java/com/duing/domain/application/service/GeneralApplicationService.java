@@ -138,7 +138,7 @@ public class GeneralApplicationService implements ApplicationService {
         clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
 
         return applicationRepository.searchApplicants(recruitmentId, currentUserId, condition).stream()
-                .map(row -> ApplicantQuery.fromWithMyScore(row.application(), row.myScore()))
+                .map(row -> ApplicantQuery.fromAll(row.application(), row.myScore()))
                 .toList();
     }
 
