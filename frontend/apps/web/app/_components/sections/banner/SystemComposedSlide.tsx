@@ -130,16 +130,18 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
             {slide.sub}
           </p>
         )}
-        <span
-          className="btn rounded-md px-[22px] py-3 font-bold"
-          style={{
-            background: isDarkText ? '#9DB6A0' : slide.accent,
-            color: isDarkText ? '#143025' : '#fff',
-          }}
-        >
-          {slide.cta}
-          <ArrowRight />
-        </span>
+        {slide.cta && (
+          <span
+            className="btn rounded-md px-[22px] py-3 font-bold"
+            style={{
+              background: isDarkText ? '#9DB6A0' : slide.accent,
+              color: isDarkText ? '#143025' : '#fff',
+            }}
+          >
+            {slide.cta}
+            <ArrowRight />
+          </span>
+        )}
       </div>
     </div>
   );
@@ -233,11 +235,10 @@ function PreviewSlideBody({ slide, direction, animationDelay, onSelect }: Previe
       </div>
       {slide.sub && (
         <div
-          className="relative mt-2 flex items-center gap-1.5 text-xs"
+          className="relative mt-2 text-xs"
           style={{ color: textColor, opacity: 0.85 }}
         >
           {slide.sub.split(' · ')[0]}
-          <ArrowRight size={12} />
         </div>
       )}
     </button>

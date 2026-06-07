@@ -298,52 +298,61 @@ export function AdminPromotionForm(props: Props) {
           required
           className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
         />
+        {state.renderMode === 'FULL_BLEED_IMAGE' && (
+          <p className="mt-1 text-[12px] text-charcoal-3">
+            관리자 화면에서 배너를 구분하기 위한 이름입니다. 사용자에게는 노출되지 않습니다.
+          </p>
+        )}
       </Field>
 
-      <Field label="태그 (선택, ≤60자) — 예: EVENT · 9.25 — 9.27">
-        <input
-          type="text"
-          maxLength={60}
-          value={state.tag}
-          onChange={(event) => update('tag', event.target.value)}
-          placeholder="EVENT · 9.25 — 9.27"
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
-        />
-      </Field>
+      {state.renderMode !== 'FULL_BLEED_IMAGE' && (
+        <>
+          <Field label="태그 (선택, ≤60자) — 예: EVENT · 9.25 — 9.27">
+            <input
+              type="text"
+              maxLength={60}
+              value={state.tag}
+              onChange={(event) => update('tag', event.target.value)}
+              placeholder="EVENT · 9.25 — 9.27"
+              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            />
+          </Field>
 
-      <Field label="부제 (선택, ≤200자)">
-        <input
-          type="text"
-          maxLength={200}
-          value={state.subtitle}
-          onChange={(event) => update('subtitle', event.target.value)}
-          placeholder="67개 동아리 · 80개 부스 · 중앙광장"
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
-        />
-      </Field>
+          <Field label="부제 (선택, ≤200자)">
+            <input
+              type="text"
+              maxLength={200}
+              value={state.subtitle}
+              onChange={(event) => update('subtitle', event.target.value)}
+              placeholder="67개 동아리 · 80개 부스 · 중앙광장"
+              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            />
+          </Field>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="CTA 라벨 (선택, ≤40자)">
-          <input
-            type="text"
-            maxLength={40}
-            value={state.ctaLabel}
-            onChange={(event) => update('ctaLabel', event.target.value)}
-            placeholder="박람회 자세히 보기"
-            className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
-          />
-        </Field>
-        <Field label="이모지 (선택, 1자 권장)">
-          <input
-            type="text"
-            maxLength={8}
-            value={state.emoji}
-            onChange={(event) => update('emoji', event.target.value)}
-            placeholder="🍂"
-            className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
-          />
-        </Field>
-      </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="CTA 라벨 (선택, ≤40자)">
+              <input
+                type="text"
+                maxLength={40}
+                value={state.ctaLabel}
+                onChange={(event) => update('ctaLabel', event.target.value)}
+                placeholder="박람회 자세히 보기"
+                className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+              />
+            </Field>
+            <Field label="이모지 (선택, 1자 권장)">
+              <input
+                type="text"
+                maxLength={8}
+                value={state.emoji}
+                onChange={(event) => update('emoji', event.target.value)}
+                placeholder="🍂"
+                className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+              />
+            </Field>
+          </div>
+        </>
+      )}
 
       <div>
         <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">배너 이미지 (선택)</span>
@@ -377,9 +386,7 @@ export function AdminPromotionForm(props: Props) {
           className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
         />
         <p className="mt-1 text-[12px] text-charcoal-3">
-          {state.renderMode === 'FULL_BLEED_IMAGE'
-            ? '포스터에 표시된 핵심 텍스트(제목, 일정 등) 를 그대로 적어주세요. 스크린리더와 SEO 가 이 텍스트를 읽습니다.'
-            : '완성 이미지형 배너로 전환할 때 접근성·SEO 용도로 사용됩니다. 지금 입력해두면 모드 전환 시 자동 적용됩니다.'}
+          이미지가 보이지 않을 때 대신 보여주거나 읽어주는 설명입니다.
         </p>
       </Field>
 

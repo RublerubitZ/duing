@@ -62,6 +62,17 @@ describe('SystemComposedSlide — main variant', () => {
     expect(link).not.toHaveAttribute('target');
     expect(link).toHaveAttribute('href', '/clubs');
   });
+
+  it('CTA 라벨이 빈 문자열이면 메인 슬라이드에 버튼이 렌더되지 않는다', () => {
+    render(<SystemComposedSlide variant="main" slide={makeSlide({ cta: '' })} />);
+    expect(screen.getByText('테스트 배너 제목')).toBeInTheDocument();
+    expect(screen.queryByText('자세히 보기')).not.toBeInTheDocument();
+  });
+
+  it('CTA 라벨이 있으면 메인 슬라이드에 버튼이 렌더된다', () => {
+    render(<SystemComposedSlide variant="main" slide={makeSlide({ cta: '박람회 자세히 보기' })} />);
+    expect(screen.getByText('박람회 자세히 보기')).toBeInTheDocument();
+  });
 });
 
 describe('SystemComposedSlide — preview variant', () => {
@@ -76,5 +87,18 @@ describe('SystemComposedSlide — preview variant', () => {
     );
     expect(screen.getByRole('button')).toBeInTheDocument();
     expect(screen.getByText('테스트 배너 제목')).toBeInTheDocument();
+  });
+
+  it('preview 의 부제 영역은 단순 텍스트만 포함하고 아이콘이 없다', () => {
+    render(
+      <SystemComposedSlide
+        variant="preview"
+        slide={makeSlide({ sub: '67개 동아리 · 80개 부스' })}
+        direction="left"
+        onSelect={() => undefined}
+      />,
+    );
+    const subContainer = screen.getByText('67개 동아리');
+    expect(subContainer.querySelector('svg')).toBeNull();
   });
 });

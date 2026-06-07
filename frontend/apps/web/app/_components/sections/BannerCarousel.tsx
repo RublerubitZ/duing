@@ -64,7 +64,7 @@ function promotionToSlide(promotion: PromotionCard): CarouselSlide {
     tag: promotion.tag ?? '',
     title: promotion.title,
     sub: promotion.subtitle ?? '',
-    cta: promotion.ctaLabel ?? '자세히 보기',
+    cta: promotion.ctaLabel ?? '',
     bg: style.bg,
     fg: style.fg,
     accent: style.accent,
@@ -148,7 +148,7 @@ export function BannerCarousel() {
     <section className="px-10 pt-2">
       <div className="max-w-layout relative mx-auto">
         <div className="grid gap-4 md:grid-cols-[1fr_340px]">
-          <div className="relative h-[280px] overflow-hidden rounded-xl">
+          <div className="relative aspect-[16/7] overflow-hidden rounded-xl">
             {exitingSlide && (
               <div
                 key={`exit-${exitingSlide.key}`}

@@ -95,4 +95,52 @@ describe('AdminPromotionForm — renderMode UI', () => {
     fireEvent.click(screen.getByRole('radio', { name: /완성 이미지형/ }));
     expect(screen.getByDisplayValue('미리 입력한 alt')).toBeInTheDocument();
   });
+
+  it('FULL_BLEED 모드에서 태그/부제/CTA 라벨/이모지 입력란이 모두 숨겨진다', () => {
+    renderCreateForm();
+    fireEvent.click(screen.getByRole('radio', { name: /완성 이미지형/ }));
+    expect(screen.queryByPlaceholderText('EVENT · 9.25 — 9.27')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('67개 동아리 · 80개 부스 · 중앙광장')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('박람회 자세히 보기')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('🍂')).not.toBeInTheDocument();
+  });
+
+  it('SYSTEM_COMPOSED 모드에서는 태그/부제/CTA 라벨/이모지 입력란이 모두 노출된다', () => {
+    renderCreateForm();
+    expect(screen.getByPlaceholderText('EVENT · 9.25 — 9.27')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('67개 동아리 · 80개 부스 · 중앙광장')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('박람회 자세히 보기')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('🍂')).toBeInTheDocument();
+  });
+
+  it('SYSTEM → FULL_BLEED → SYSTEM 왕복 시 태그 입력값이 보존된다', () => {
+    renderCreateForm();
+    const tagInput = screen.getByPlaceholderText('EVENT · 9.25 — 9.27');
+    fireEvent.change(tagInput, { target: { value: '내가 입력한 태그' } });
+    fireEvent.click(screen.getByRole('radio', { name: /완성 이미지형/ }));
+    expect(screen.queryByPlaceholderText('EVENT · 9.25 — 9.27')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /시스템 조합형/ }));
+    expect(screen.getByDisplayValue('내가 입력한 태그')).toBeInTheDocument();
+  });
+
+  it('FULL_BLEED 모드에서 제목 입력란에 관리자 식별용 헬프 텍스트가 노출된다', () => {
+    renderCreateForm();
+    fireEvent.click(screen.getByRole('radio', { name: /완성 이미지형/ }));
+    expect(
+      screen.getByText('관리자 화면에서 배너를 구분하기 위한 이름입니다. 사용자에게는 노출되지 않습니다.'),
+    ).toBeInTheDocument();
+  });
+
+  it('Alt Text 헬프 문구가 SYSTEM/FULL_BLEED 모두 동일 표현이다', () => {
+    renderCreateForm();
+    expect(
+      screen.getByText('이미지가 보이지 않을 때 대신 보여주거나 읽어주는 설명입니다.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/포스터에 표시된 핵심 텍스트/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/완성 이미지형 배너로 전환할 때 접근성/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /완성 이미지형/ }));
+    expect(
+      screen.getByText('이미지가 보이지 않을 때 대신 보여주거나 읽어주는 설명입니다.'),
+    ).toBeInTheDocument();
+  });
 });
