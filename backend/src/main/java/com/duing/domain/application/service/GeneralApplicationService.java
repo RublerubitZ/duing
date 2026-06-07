@@ -2,8 +2,10 @@ package com.duing.domain.application.service;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.entity.ApplicationStatusHistory;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.application.service.dto.command.BulkUpdateApplicationStatusCommand;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
@@ -67,6 +69,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final InterviewNotificationService interviewNotificationService;
     private final ApplicationDraftService applicationDraftService;
     private final ApplicationEventPublisher eventPublisher;
+    private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
     /**
      * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
      * 생성자 자체에 self-reference 를 넣으면 순환 의존이 되므로 setter 주입을 사용한다.
@@ -141,7 +144,10 @@ public class GeneralApplicationService implements ApplicationService {
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         Long clubId = application.getRecruitment().getClub().getId();
         clubAuthService.requireManager(currentUserId, clubId);
-        return ApplicantDetailQuery.from(application);
+
+        List<ApplicationStatusHistory> historyRows =
+                applicationStatusHistoryRepository.findByApplicationIdOrderByCreatedAtDesc(applicationId);
+        return ApplicantDetailQuery.fromWithHistory(application, historyRows);
     }
 
     @Override
@@ -151,9 +157,16 @@ public class GeneralApplicationService implements ApplicationService {
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         clubAuthService.requireManager(updateApplicationStatusCommand.currentUserId(), application.getRecruitment().getClub().getId());
 
+        ApplicationStatus previousStatus = application.getStatus();
         application.transitionTo(
                 updateApplicationStatusCommand.status(),
                 application.getRecruitment().isUseInterview());
+
+        User changedBy = userRepository.findById(updateApplicationStatusCommand.currentUserId())
+                .orElseThrow(UserException.UserNotFoundException::new);
+        applicationStatusHistoryRepository.save(
+                ApplicationStatusHistory.record(application, previousStatus, updateApplicationStatusCommand.status(), changedBy)
+        );
 
         // 합격 처리 시 지원자를 모집의 targetRole 에 맞춰 동아리 회원으로 자동 등록.
         // - 기존 멤버십이 없으면 신규 생성.
