@@ -11,6 +11,18 @@ export type ApplicationStatus =
   | 'ACCEPTED'
   | 'REJECTED';
 
+const APPLICATION_STATUSES: readonly ApplicationStatus[] = [
+  'SUBMITTED',
+  'UNDER_REVIEW',
+  'INTERVIEW_PENDING',
+  'ACCEPTED',
+  'REJECTED',
+];
+
+export function isApplicationStatus(value: unknown): value is ApplicationStatus {
+  return typeof value === 'string' && (APPLICATION_STATUSES as readonly string[]).includes(value);
+}
+
 export type ApplicationScope = 'ALL' | 'ACTIVE' | 'ARCHIVED';
 
 export type ApplicationSummary = {

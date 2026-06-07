@@ -2,7 +2,8 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useApplicantDetailQuery, useRecruitmentDetailQuery } from '@duing/hooks';
-import type { ApplicantsFilters, ApplicationStatus, College } from '@duing/types';
+import { isApplicationStatus, isCollege } from '@duing/types';
+import type { ApplicantsFilters } from '@duing/types';
 import { ApplicantNavBar } from './ApplicantNavBar';
 import { ApplicantProfilePanel } from './ApplicantProfilePanel';
 import { ApplicantAnswersPanel } from './ApplicantAnswersPanel';
@@ -19,9 +20,11 @@ type Props = {
 export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Props) {
   const searchParams = useSearchParams();
 
+  const statusRaw = searchParams.get('status');
+  const collegeRaw = searchParams.get('college');
   const filters: ApplicantsFilters = {
-    status: (searchParams.get('status') as ApplicationStatus | null) ?? undefined,
-    college: (searchParams.get('college') as College | null) ?? undefined,
+    status: statusRaw !== null && isApplicationStatus(statusRaw) ? statusRaw : undefined,
+    college: collegeRaw !== null && isCollege(collegeRaw) ? collegeRaw : undefined,
     q: searchParams.get('q') ?? undefined,
     submittedFrom: searchParams.get('submittedFrom') ?? undefined,
     submittedTo: searchParams.get('submittedTo') ?? undefined,

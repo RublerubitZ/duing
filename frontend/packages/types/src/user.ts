@@ -52,6 +52,10 @@ export const COLLEGE_DISPLAY_NAME: Record<College, string> = {
   FREE_MAJOR: '자유전공학부',
 };
 
+export function isCollege(value: unknown): value is College {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(COLLEGE_DISPLAY_NAME, value);
+}
+
 export const COLLEGE_OPTIONS: ReadonlyArray<College> = [
   'PUBLIC_LEADERS',
   'GLOBAL_BUSINESS',
