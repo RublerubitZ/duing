@@ -331,6 +331,9 @@ export type AdminPromotionBannerUserRef = { id: number; name: string };
  */
 export type PromotionPalette = 'INK' | 'PLAIN' | 'SAGE' | 'WARM' | 'CORAL' | 'BERRY' | 'SKY';
 
+/** 프로모션 배너 렌더 모드. SYSTEM_COMPOSED=시스템 조합형, FULL_BLEED_IMAGE=완성 이미지형. */
+export type PromotionRenderMode = 'SYSTEM_COMPOSED' | 'FULL_BLEED_IMAGE';
+
 export type AdminPromotionSummary = {
   id: number;
   club: { id: number; name: string } | null;
@@ -351,6 +354,8 @@ export type AdminPromotionSummary = {
   startAt: string | null;
   /** ISO 8601 — 노출 종료 시각. null=상시(만료 없음). */
   endAt: string | null;
+  renderMode: PromotionRenderMode;
+  imageAltText: string | null;
 };
 
 export type AdminPromotionSearchParams = {
@@ -375,6 +380,8 @@ export type CreatePromotionPayload = {
   emoji?: string | null;
   startAt?: string | null;
   endAt?: string | null;
+  renderMode?: PromotionRenderMode | null;
+  imageAltText?: string | null;
 };
 
 export type UpdatePromotionPayload = {
@@ -392,6 +399,8 @@ export type UpdatePromotionPayload = {
   emoji?: string;
   startAt?: string;
   endAt?: string;
+  renderMode?: PromotionRenderMode;
+  imageAltText?: string;
   clearBannerImageUrl?: boolean;
   clearLinkUrl?: boolean;
   clearTag?: boolean;
@@ -400,6 +409,7 @@ export type UpdatePromotionPayload = {
   clearEmoji?: boolean;
   clearStartAt?: boolean;
   clearEndAt?: boolean;
+  clearImageAltText?: boolean;
 };
 
 /** 비로그인 사용자도 볼 수 있는 공개 배너 카드 응답 (GET /promotions). */
@@ -416,4 +426,6 @@ export type PromotionCard = {
   ctaLabel: string | null;
   emoji: string | null;
   palette: PromotionPalette;
+  renderMode: PromotionRenderMode;
+  imageAltText: string | null;
 };
