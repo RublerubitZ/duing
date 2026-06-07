@@ -44,7 +44,8 @@ public class GeneralPromotionService implements PromotionService {
                 command.active(), command.displayOrder(), command.createdBy(),
                 command.tag(), command.subtitle(), command.ctaLabel(), command.emoji(),
                 command.palette(), command.startAt(), command.endAt(),
-                command.renderMode(), command.imageAltText()
+                command.renderMode(), command.imageAltText(),
+                null
         )).getId();
     }
 
@@ -71,7 +72,8 @@ public class GeneralPromotionService implements PromotionService {
                 command.clearTag(), command.clearSubtitle(),
                 command.clearCtaLabel(), command.clearEmoji(),
                 command.clearStartAt(), command.clearEndAt(),
-                command.clearImageAltText()
+                command.clearImageAltText(),
+                null, null
         ));
     }
 

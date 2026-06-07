@@ -23,6 +23,7 @@ import org.hibernate.annotations.SQLRestriction;
 public class Promotion extends BaseEntity {
 
     @Column(name = "club_id") private Long clubId;
+    @Column(name = "notice_id") private Long noticeId;
     @Column(nullable = false, length = 120) private String title;
     @Column(name = "banner_image_url", length = 500) private String bannerImageUrl;
     @Column(name = "link_url", columnDefinition = "TEXT") private String linkUrl;
@@ -52,12 +53,13 @@ public class Promotion extends BaseEntity {
     @Column(name = "end_at") private LocalDateTime endAt;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private Promotion(Long clubId, String title, String bannerImageUrl, String linkUrl,
+    private Promotion(Long clubId, Long noticeId, String title, String bannerImageUrl, String linkUrl,
                       boolean active, int displayOrder, Long createdBy,
                       String tag, String subtitle, String ctaLabel, String emoji,
                       PromotionPalette palette, LocalDateTime startAt, LocalDateTime endAt,
                       PromotionRenderMode renderMode, String imageAltText) {
         this.clubId = clubId;
+        this.noticeId = noticeId;
         this.title = title;
         this.bannerImageUrl = bannerImageUrl;
         this.linkUrl = linkUrl;
@@ -80,9 +82,10 @@ public class Promotion extends BaseEntity {
                                    String tag, String subtitle, String ctaLabel, String emoji,
                                    PromotionPalette palette,
                                    LocalDateTime startAt, LocalDateTime endAt,
-                                   PromotionRenderMode renderMode, String imageAltText) {
+                                   PromotionRenderMode renderMode, String imageAltText,
+                                   Long noticeId) {
         return Promotion.builder()
-                .clubId(clubId).title(title).bannerImageUrl(bannerImageUrl).linkUrl(linkUrl)
+                .clubId(clubId).noticeId(noticeId).title(title).bannerImageUrl(bannerImageUrl).linkUrl(linkUrl)
                 .active(active).displayOrder(displayOrder).createdBy(createdBy)
                 .tag(tag).subtitle(subtitle).ctaLabel(ctaLabel).emoji(emoji)
                 .palette(palette == null ? PromotionPalette.INK : palette)
@@ -117,7 +120,9 @@ public class Promotion extends BaseEntity {
             Boolean clearEmoji,
             Boolean clearStartAt,
             Boolean clearEndAt,
-            Boolean clearImageAltText
+            Boolean clearImageAltText,
+            Long noticeId,
+            Boolean clearNoticeId
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -155,6 +160,9 @@ public class Promotion extends BaseEntity {
 
         if (Boolean.TRUE.equals(payload.clearImageAltText())) this.imageAltText = null;
         else if (payload.imageAltText() != null) this.imageAltText = payload.imageAltText();
+
+        if (Boolean.TRUE.equals(payload.clearNoticeId())) this.noticeId = null;
+        else if (payload.noticeId() != null) this.noticeId = payload.noticeId();
 
         if (Boolean.TRUE.equals(payload.clearStartAt())) this.startAt = null;
         else if (payload.startAt() != null) this.startAt = payload.startAt();
