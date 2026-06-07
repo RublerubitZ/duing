@@ -79,4 +79,30 @@ class PromotionRequestValidationTest {
         Set<ConstraintViolation<UpdatePromotionRequest>> violations = validator.validate(request);
         assertThat(violations).anyMatch(v -> v.getMessage().contains("Alt Text"));
     }
+
+    @Test
+    @DisplayName("CreatePromotionRequest: FULL_BLEED_IMAGE + 이미지 + alt 모두 있으면 통과")
+    void createFullBleedWithAllFieldsPassesValidation() {
+        CreatePromotionRequest request = new CreatePromotionRequest(
+                null, "T", "/files/b.png", null, true, 0,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.FULL_BLEED_IMAGE, "대형 배너");
+        Set<ConstraintViolation<CreatePromotionRequest>> violations = validator.validate(request);
+        assertThat(violations).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UpdatePromotionRequest: FULL_BLEED_IMAGE 인데 bannerImageUrl 이 비어 있으면 검증 실패")
+    void updateFullBleedRequiresBannerImage() {
+        UpdatePromotionRequest request = new UpdatePromotionRequest(
+                null, null, null, null, null, null, null,
+                null, null, null, null, PromotionPalette.INK,
+                PromotionRenderMode.FULL_BLEED_IMAGE, "alt",
+                null, null,
+                null, null, null, null, null, null,
+                null, null, null);
+        Set<ConstraintViolation<UpdatePromotionRequest>> violations = validator.validate(request);
+        assertThat(violations).anyMatch(v -> v.getMessage().contains("배너 이미지가 필수"));
+    }
 }
