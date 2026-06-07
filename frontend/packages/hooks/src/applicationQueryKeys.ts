@@ -12,6 +12,8 @@ export const applicationQueryKeys = {
     [...applicationQueryKeys.all, 'applicants', recruitmentId, filters ?? {}] as const,
   applicantDetail: (applicationId: number) =>
     [...applicationQueryKeys.all, 'applicantDetail', applicationId] as const,
+  applicantNeighborsAll: () =>
+    [...applicationQueryKeys.all, 'applicantNeighbors'] as const,
   applicantNeighbors: (
     recruitmentId: number,
     applicationId: number,
