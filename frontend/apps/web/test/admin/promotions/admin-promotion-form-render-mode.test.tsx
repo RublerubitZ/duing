@@ -12,7 +12,35 @@ vi.mock('../../../app/_components/ImageUploader', () => ({
 }));
 
 vi.mock('../../../app/admin/promotions/_components/ClubSelector', () => ({
-  ClubSelector: () => <div data-testid="club-selector" />,
+  ClubSelector: (props: {
+    selectedClubId: number | null;
+    selectedClubName: string | null;
+    onSelect: (id: number, name: string) => void;
+    onClear: () => void;
+  }) => (
+    <div data-testid="club-selector">
+      <button type="button" onClick={() => props.onSelect(99, '테스트 동아리')}>동아리 선택</button>
+      {props.selectedClubId !== null && (
+        <span data-testid="club-selected">{props.selectedClubName ?? props.selectedClubId}</span>
+      )}
+    </div>
+  ),
+}));
+
+vi.mock('../../../app/admin/promotions/_components/NoticeSelector', () => ({
+  NoticeSelector: (props: {
+    selectedNoticeId: number | null;
+    selectedNoticeTitle: string | null;
+    onSelect: (id: number, title: string) => void;
+    onClear: () => void;
+  }) => (
+    <div data-testid="notice-selector">
+      <button type="button" onClick={() => props.onSelect(42, '테스트 공지')}>공지 선택</button>
+      {props.selectedNoticeId !== null && (
+        <span data-testid="notice-selected">{props.selectedNoticeTitle ?? props.selectedNoticeId}</span>
+      )}
+    </div>
+  ),
 }));
 
 import { AdminPromotionForm } from '../../../app/admin/promotions/_components/AdminPromotionForm';
@@ -142,5 +170,80 @@ describe('AdminPromotionForm — renderMode UI', () => {
     expect(
       screen.getByText('이미지가 보이지 않을 때 대신 보여주거나 읽어주는 설명입니다.'),
     ).toBeInTheDocument();
+  });
+
+  it('초기 렌더는 연결 대상 NONE 라디오가 선택돼 있다', () => {
+    renderCreateForm();
+    expect(screen.getByRole('radio', { name: /연결 안 함/ })).toBeChecked();
+  });
+
+  it('URL 라디오 선택 시 URL 입력란만 노출된다', () => {
+    renderCreateForm();
+    fireEvent.click(screen.getByRole('radio', { name: /외부\/내부 URL/ }));
+    expect(screen.getByPlaceholderText(/https:\/\//)).toBeInTheDocument();
+    expect(screen.queryByTestId('notice-selector')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('club-selector')).not.toBeInTheDocument();
+  });
+
+  it('NOTICE 라디오 선택 시 NoticeSelector 만 노출된다', () => {
+    renderCreateForm();
+    fireEvent.click(screen.getByRole('radio', { name: /공지 연결/ }));
+    expect(screen.getByTestId('notice-selector')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/https:\/\//)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('club-selector')).not.toBeInTheDocument();
+  });
+
+  it('CLUB 라디오 선택 시 ClubSelector 만 노출된다', () => {
+    renderCreateForm();
+    fireEvent.click(screen.getByRole('radio', { name: /동아리 연결/ }));
+    expect(screen.getByTestId('club-selector')).toBeInTheDocument();
+    expect(screen.queryByTestId('notice-selector')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/https:\/\//)).not.toBeInTheDocument();
+  });
+
+  it('URL → NOTICE 전환 시 URL 입력값이 자동 클리어된다', () => {
+    renderCreateForm();
+    fireEvent.click(screen.getByRole('radio', { name: /외부\/내부 URL/ }));
+    const urlInput = screen.getByPlaceholderText(/https:\/\//);
+    fireEvent.change(urlInput, { target: { value: 'https://example.com' } });
+    fireEvent.click(screen.getByRole('radio', { name: /공지 연결/ }));
+    expect(screen.queryByPlaceholderText(/https:\/\//)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /외부\/내부 URL/ }));
+    expect((screen.getByPlaceholderText(/https:\/\//) as HTMLInputElement).value).toBe('');
+  });
+
+  it('edit 모드 + 비공개 공지 연결 시 경고 문구가 노출된다', () => {
+    const initialValues = {
+      id: 1,
+      club: null,
+      title: '비공개 공지 연결 배너',
+      bannerImageUrl: null,
+      linkUrl: null,
+      active: true,
+      displayOrder: 0,
+      createdBy: { id: 1, name: 'admin' },
+      createdAt: '2026-06-01T00:00:00',
+      updatedAt: '2026-06-01T00:00:00',
+      tag: null,
+      subtitle: null,
+      ctaLabel: null,
+      emoji: null,
+      palette: 'INK' as const,
+      startAt: null,
+      endAt: null,
+      renderMode: 'SYSTEM_COMPOSED' as const,
+      imageAltText: null,
+      notice: { id: 42, title: '비공개', visibility: 'OFFICERS_ALL' as const, isAccessible: false },
+      linkType: 'NOTICE' as const,
+    };
+    render(
+      <AdminPromotionForm
+        mode="edit"
+        initialValues={initialValues}
+        isSubmitting={false}
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+    expect(screen.getByText(/비공개\/삭제 상태입니다/)).toBeInTheDocument();
   });
 });
