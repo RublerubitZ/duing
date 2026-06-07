@@ -7,6 +7,10 @@ import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.notice.entity.Notice;
+import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.domain.notice.entity.NoticeVisibility;
+import com.duing.domain.notice.repository.NoticeRepository;
 import com.duing.domain.promotion.entity.Promotion;
 import com.duing.domain.promotion.entity.PromotionPalette;
 import com.duing.domain.promotion.entity.PromotionRenderMode;
@@ -20,6 +24,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +45,7 @@ class GeneralPromotionServiceTest {
     @Autowired PromotionRepository promotionRepository;
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
+    @Autowired NoticeRepository noticeRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -198,5 +204,67 @@ class GeneralPromotionServiceTest {
                 null, null,
                 null, null, null)))
                 .isInstanceOf(PromotionException.PromotionNotFoundException.class);
+    }
+
+    private Notice saveNotice(NoticeVisibility visibility) {
+        User author = saveAdmin();
+        return noticeRepository.save(Notice.create(
+                "테스트 공지" + sequence.incrementAndGet(),
+                "요약",
+                "본문",
+                "/files/cover.png",
+                null,
+                NoticeCategory.GENERAL,
+                List.of(),
+                visibility,
+                null,
+                false,
+                null,
+                false,
+                author.getId()));
+    }
+
+    @Test
+    @DisplayName("공지 연결 create 가 PUBLIC 공지에 대해 성공한다")
+    void createWithPublicNoticeSucceeds() {
+        User admin = saveAdmin();
+        Notice notice = saveNotice(NoticeVisibility.PUBLIC);
+        Long id = promotionService.create(new CreatePromotionCommand(
+                null, "공지 배너", "/files/b.png", null, true, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                notice.getId()));
+        assertThat(promotionRepository.findById(id).orElseThrow().getNoticeId())
+                .isEqualTo(notice.getId());
+    }
+
+    @Test
+    @DisplayName("비공개 공지를 연결하려고 하면 NonPublicNoticeLinkException")
+    void createWithNonPublicNoticeThrows() {
+        User admin = saveAdmin();
+        Notice notice = saveNotice(NoticeVisibility.OFFICERS_ALL);
+        assertThatThrownBy(() -> promotionService.create(new CreatePromotionCommand(
+                null, "T", "/files/b.png", null, true, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                notice.getId())))
+                .isInstanceOf(PromotionException.NonPublicNoticeLinkException.class);
+    }
+
+    @Test
+    @DisplayName("Service Validator 도 다중 link 를 거부한다 (Request 우회 시 안전망)")
+    void createRejectsMultipleLinks() {
+        User admin = saveAdmin();
+        Club club = clubRepository.save(Club.create(
+                "두잉" + sequence.incrementAndGet(), ClubCategory.ACADEMIC, "분과", "설명", null));
+        assertThatThrownBy(() -> promotionService.create(new CreatePromotionCommand(
+                club.getId(), "T", "/files/b.png", "https://x.com", true, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                null)))
+                .isInstanceOf(PromotionException.MultipleLinkTargetsException.class);
     }
 }
