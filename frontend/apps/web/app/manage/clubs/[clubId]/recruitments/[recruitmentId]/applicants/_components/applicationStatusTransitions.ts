@@ -24,3 +24,14 @@ export function getStatusTransitions(
   };
   return TRANSITIONS[currentStatus];
 }
+
+/**
+ * 상세 페이지 StatusActionBar 에서 사용.
+ * getStatusTransitions 와 동일한 로직 — 단일 진실 보장을 위해 위임.
+ */
+export function allowedTransitionsFrom(
+  status: ApplicationStatus,
+  useInterview: boolean,
+): NextStatus[] {
+  return getStatusTransitions(status, useInterview);
+}
