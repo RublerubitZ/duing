@@ -114,6 +114,10 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
       });
+      // 상태 변경 시 이웃 순서가 바뀔 수 있으므로 (필터 상태 기반 정렬) 모두 무효화한다.
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.applicantNeighborsAll(),
+      });
     },
   });
 }
@@ -131,6 +135,10 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
       });
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
+      });
+      // 일괄 상태 변경도 이웃 순서에 영향을 주므로 neighbors 캐시 전체 무효화.
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.applicantNeighborsAll(),
       });
     },
   });
