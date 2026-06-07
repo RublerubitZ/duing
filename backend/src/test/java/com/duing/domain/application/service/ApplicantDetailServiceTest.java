@@ -12,6 +12,7 @@ import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
+import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
@@ -42,6 +43,7 @@ class ApplicantDetailServiceTest {
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
+    private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -52,7 +54,8 @@ class ApplicantDetailServiceTest {
             interviewNotificationService,
             applicationDraftService,
             eventPublisher,
-            applicationStatusHistoryRepository);
+            applicationStatusHistoryRepository,
+            applicationEvaluationRepository);
 
     @Test
     @DisplayName("SELF 모집의 지원서를 동아리 운영진이 조회하면 질문·답변이 인덱스 기준으로 매핑되어 반환된다")

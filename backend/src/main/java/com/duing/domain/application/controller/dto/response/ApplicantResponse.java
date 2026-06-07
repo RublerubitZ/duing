@@ -19,7 +19,8 @@ public record ApplicantResponse(
         List<String> answers,
         ApplicationStatus status,
         LocalDateTime submittedAt,
-        LocalDateTime interviewAt
+        LocalDateTime interviewAt,
+        Integer myScore
 ) {
     public static ApplicantResponse from(ApplicantQuery applicantQuery) {
         return new ApplicantResponse(
@@ -34,7 +35,8 @@ public record ApplicantResponse(
                 applicantQuery.answers(),
                 applicantQuery.status(),
                 applicantQuery.submittedAt(),
-                applicantQuery.interviewAt()
+                applicantQuery.interviewAt(),
+                applicantQuery.myScore()
         );
     }
 }

@@ -10,6 +10,7 @@ import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
+import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -46,6 +47,7 @@ class ApplicationSubmitGuardsTest {
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
+    private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -56,7 +58,8 @@ class ApplicationSubmitGuardsTest {
             interviewNotificationService,
             applicationDraftService,
             eventPublisher,
-            applicationStatusHistoryRepository);
+            applicationStatusHistoryRepository,
+            applicationEvaluationRepository);
 
     @Test
     @DisplayName("외부 폼 모집에는 두잉 내에서 직접 지원할 수 없다")

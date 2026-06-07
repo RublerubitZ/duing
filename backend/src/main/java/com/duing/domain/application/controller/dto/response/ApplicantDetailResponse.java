@@ -17,7 +17,9 @@ public record ApplicantDetailResponse(
         LocalDateTime interviewAt,
         String interviewLocation,
         LocalDateTime submittedAt,
-        List<StatusHistoryItem> statusHistory
+        List<StatusHistoryItem> statusHistory,
+        ApplicationEvaluationItem myEvaluation,
+        List<ApplicationEvaluationItem> otherEvaluations
 ) {
 
     public record ApplicantInfo(Long userId, String name, String studentId, String email) {}
@@ -30,6 +32,15 @@ public record ApplicantDetailResponse(
             Long changedById,
             String changedByName,
             LocalDateTime changedAt
+    ) {}
+
+    public record ApplicationEvaluationItem(
+            Long evaluatorId,
+            String evaluatorName,
+            Integer score,
+            String memo,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
     ) {}
 
     public static ApplicantDetailResponse from(ApplicantDetailQuery detailQuery) {
@@ -53,6 +64,13 @@ public record ApplicantDetailResponse(
                         item.changedAt()))
                 .toList();
 
+        ApplicationEvaluationItem myEvaluation = detailQuery.myEvaluation() == null ? null
+                : toEvaluationItem(detailQuery.myEvaluation());
+
+        List<ApplicationEvaluationItem> otherEvaluations = detailQuery.otherEvaluations().stream()
+                .map(ApplicantDetailResponse::toEvaluationItem)
+                .toList();
+
         return new ApplicantDetailResponse(
                 detailQuery.applicationId(),
                 detailQuery.recruitmentId(),
@@ -65,7 +83,21 @@ public record ApplicantDetailResponse(
                 detailQuery.interviewAt(),
                 detailQuery.interviewLocation(),
                 detailQuery.submittedAt(),
-                history
+                history,
+                myEvaluation,
+                otherEvaluations
+        );
+    }
+
+    private static ApplicationEvaluationItem toEvaluationItem(
+            ApplicantDetailQuery.EvaluationItemQuery evaluationItemQuery) {
+        return new ApplicationEvaluationItem(
+                evaluationItemQuery.evaluatorId(),
+                evaluationItemQuery.evaluatorName(),
+                evaluationItemQuery.score(),
+                evaluationItemQuery.memo(),
+                evaluationItemQuery.createdAt(),
+                evaluationItemQuery.updatedAt()
         );
     }
 }

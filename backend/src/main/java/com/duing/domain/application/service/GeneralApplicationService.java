@@ -16,6 +16,8 @@ import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
 import com.duing.domain.application.service.dto.query.BulkUpdateApplicationStatusResult;
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
+import com.duing.domain.applicationEvaluation.entity.ApplicationEvaluation;
+import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
@@ -71,6 +73,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final ApplicationDraftService applicationDraftService;
     private final ApplicationEventPublisher eventPublisher;
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
+    private final ApplicationEvaluationRepository applicationEvaluationRepository;
     /**
      * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
      * 생성자 자체에 self-reference 를 넣으면 순환 의존이 되므로 setter 주입을 사용한다.
@@ -134,8 +137,8 @@ public class GeneralApplicationService implements ApplicationService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
 
-        return applicationRepository.searchApplicants(recruitmentId, condition).stream()
-                .map(ApplicantQuery::from)
+        return applicationRepository.searchApplicants(recruitmentId, currentUserId, condition).stream()
+                .map(row -> ApplicantQuery.fromAll(row.application(), row.myScore()))
                 .toList();
     }
 
@@ -148,7 +151,10 @@ public class GeneralApplicationService implements ApplicationService {
 
         List<ApplicationStatusHistory> historyRows =
                 applicationStatusHistoryRepository.findByApplicationIdOrderByCreatedAtDesc(applicationId);
-        return ApplicantDetailQuery.fromWithHistory(application, historyRows);
+        List<ApplicationEvaluation> evaluations =
+                applicationEvaluationRepository.findByApplicationIdWithEvaluator(applicationId);
+
+        return ApplicantDetailQuery.fromAll(application, historyRows, evaluations, currentUserId);
     }
 
     @Override
