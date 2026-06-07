@@ -51,4 +51,25 @@ describe('resolvePromotionHref', () => {
       ),
     ).toBe('https://override.example.com');
   });
+
+  it('linkUrl 없고 notice 가 isAccessible=true 면 /notices/{id} 를 반환한다', () => {
+    expect(
+      resolvePromotionHref(
+        makePromotion({
+          notice: { id: 42, title: '공지', isAccessible: true },
+        }),
+      ),
+    ).toBe('/notices/42');
+  });
+
+  it('notice.isAccessible=false 면 notice 를 건너뛰고 다음 폴백으로 간다', () => {
+    expect(
+      resolvePromotionHref(
+        makePromotion({
+          notice: { id: 42, title: '', isAccessible: false },
+          club: { id: 7, name: '두잉' },
+        }),
+      ),
+    ).toBe('/clubs/7');
+  });
 });
