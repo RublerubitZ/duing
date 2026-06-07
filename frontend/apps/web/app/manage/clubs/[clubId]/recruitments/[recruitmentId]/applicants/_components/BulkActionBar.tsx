@@ -1,15 +1,17 @@
 'use client';
 
-import type { ApplicationStatus } from '@duing/types';
+import type { BulkUpdateApplicationStatusPayload } from '@duing/types';
+import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
 
-type BulkActionBarProps = {
+type BulkTarget = BulkUpdateApplicationStatusPayload['status'];
+
+type Props = {
   selectedCount: number;
-  isPending: boolean;
-  onConfirm: (status: Extract<ApplicationStatus, 'ACCEPTED' | 'REJECTED'>) => void;
-  onClear: () => void;
+  onBulkAction: (target: BulkTarget) => void;
+  useInterview: boolean;
 };
 
-export function BulkActionBar({ selectedCount, isPending, onConfirm, onClear }: BulkActionBarProps) {
+export function BulkActionBar({ selectedCount, onBulkAction, useInterview }: Props) {
   if (selectedCount === 0) return null;
 
   return (
@@ -25,25 +27,31 @@ export function BulkActionBar({ selectedCount, isPending, onConfirm, onClear }: 
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={onClear}
-            disabled={isPending}
-            className="rounded-md px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+            onClick={() => onBulkAction('UNDER_REVIEW')}
+            className="rounded-md border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50"
           >
-            선택 해제
+            {APPLICATION_STATUS_LABEL.UNDER_REVIEW}
           </button>
+          {useInterview && (
+            <button
+              type="button"
+              onClick={() => onBulkAction('INTERVIEW_PENDING')}
+              className="rounded-md border border-purple-200 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-50"
+            >
+              {APPLICATION_STATUS_LABEL.INTERVIEW_PENDING}
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => onConfirm('REJECTED')}
-            disabled={isPending}
-            className="rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+            onClick={() => onBulkAction('REJECTED')}
+            className="rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
           >
             일괄 불합격
           </button>
           <button
             type="button"
-            onClick={() => onConfirm('ACCEPTED')}
-            disabled={isPending}
-            className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            onClick={() => onBulkAction('ACCEPTED')}
+            className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
           >
             일괄 합격
           </button>
