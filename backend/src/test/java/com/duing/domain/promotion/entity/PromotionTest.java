@@ -283,6 +283,7 @@ class PromotionTest {
         assertThat(promotion.getEmoji()).isEqualTo("🎉");
         assertThat(promotion.getPalette()).isEqualTo(PromotionPalette.WARM);
         assertThat(promotion.getLinkUrl()).isEqualTo("https://x");
+        assertThat(promotion.getBannerImageUrl()).isEqualTo("/files/b.png");
     }
 
     @Test
@@ -302,5 +303,36 @@ class PromotionTest {
                 null, null,
                 true));
         assertThat(promotion.getImageAltText()).isNull();
+    }
+
+    @Test
+    @DisplayName("FULL_BLEED 로 update 후 SYSTEM_COMPOSED 로 되돌리면 imageAltText 가 보존된다 (왕복 토글 보존)")
+    void updateRenderModeRoundTripPreservesImageAltText() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 1L,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null);
+        // 1) SYSTEM → FULL_BLEED 로 전환하며 alt 입력
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                PromotionRenderMode.FULL_BLEED_IMAGE, "포스터 alt",
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null));
+        assertThat(promotion.getImageAltText()).isEqualTo("포스터 alt");
+        // 2) FULL_BLEED → SYSTEM 으로 되돌릴 때 imageAltText 는 보존되어야 한다
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null));
+        assertThat(promotion.getRenderMode()).isEqualTo(PromotionRenderMode.SYSTEM_COMPOSED);
+        assertThat(promotion.getImageAltText()).isEqualTo("포스터 alt");
     }
 }
