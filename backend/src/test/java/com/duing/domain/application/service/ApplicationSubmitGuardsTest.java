@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -44,6 +45,7 @@ class ApplicationSubmitGuardsTest {
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+    private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -53,7 +55,8 @@ class ApplicationSubmitGuardsTest {
             clubAuthService,
             interviewNotificationService,
             applicationDraftService,
-            eventPublisher);
+            eventPublisher,
+            applicationStatusHistoryRepository);
 
     @Test
     @DisplayName("외부 폼 모집에는 두잉 내에서 직접 지원할 수 없다")
