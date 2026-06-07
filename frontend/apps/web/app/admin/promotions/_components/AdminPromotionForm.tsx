@@ -184,6 +184,7 @@ export function AdminPromotionForm(props: Props) {
       assignOrClear(payload, 'subtitle', 'clearSubtitle', state.subtitle, initialValues.subtitle);
       assignOrClear(payload, 'ctaLabel', 'clearCtaLabel', state.ctaLabel, initialValues.ctaLabel);
       assignOrClear(payload, 'emoji', 'clearEmoji', state.emoji, initialValues.emoji);
+      assignOrClear(payload, 'imageAltText', 'clearImageAltText', state.imageAltText, initialValues.imageAltText);
 
       // 기간 — SCHEDULED 면 값을 보내고, ALWAYS 면 원래 값이 있던 경우만 clear 플래그.
       if (scheduledStart === null) {
@@ -199,14 +200,6 @@ export function AdminPromotionForm(props: Props) {
 
       // renderMode 는 항상 명시적으로 전송 — 백엔드는 null=변경 안 함이지만 폼 state 에는 항상 값이 있다.
       payload.renderMode = state.renderMode;
-
-      // Alt Text 는 nullable 필드와 동일한 assign-or-clear 패턴.
-      const altTrimmed = state.imageAltText.trim();
-      if (altTrimmed.length === 0) {
-        if (initialValues.imageAltText !== null) payload.clearImageAltText = true;
-      } else {
-        payload.imageAltText = altTrimmed;
-      }
 
       if (hadClub && nowCuration) {
         payload.clearClubId = true;
@@ -327,6 +320,23 @@ export function AdminPromotionForm(props: Props) {
             : '이미지 없이 텍스트+팔레트만으로도 배너 등록이 가능합니다.'}
         </p>
       </div>
+
+      {/* Alt Text — 완성 이미지형에서는 필수, 시스템 조합형에서는 보존만 (입력 UI 는 항상 유지). */}
+      <Field label={`Alt Text ${state.renderMode === 'FULL_BLEED_IMAGE' ? '(필수)' : '(선택)'}`}>
+        <input
+          type="text"
+          maxLength={200}
+          value={state.imageAltText}
+          onChange={(event) => update('imageAltText', event.target.value)}
+          placeholder="2026 AI 학과 해커톤 참가자 모집"
+          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+        />
+        <p className="mt-1 text-[12px] text-charcoal-3">
+          {state.renderMode === 'FULL_BLEED_IMAGE'
+            ? '포스터에 표시된 핵심 텍스트(제목, 일정 등) 를 그대로 적어주세요. 스크린리더와 SEO 가 이 텍스트를 읽습니다.'
+            : '완성 이미지형 배너로 전환할 때 접근성·SEO 용도로 사용됩니다. 지금 입력해두면 모드 전환 시 자동 적용됩니다.'}
+        </p>
+      </Field>
 
       {!hasBannerImage && (
         <div>
@@ -568,8 +578,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
  * 값이 있다면 그대로 보낸다. 값이 양쪽 모두 비어 있으면 아무것도 보내지 않는다.
  */
 function assignOrClear<
-  K extends 'tag' | 'subtitle' | 'ctaLabel' | 'emoji',
-  C extends 'clearTag' | 'clearSubtitle' | 'clearCtaLabel' | 'clearEmoji',
+  K extends 'tag' | 'subtitle' | 'ctaLabel' | 'emoji' | 'imageAltText',
+  C extends 'clearTag' | 'clearSubtitle' | 'clearCtaLabel' | 'clearEmoji' | 'clearImageAltText',
 >(
   payload: UpdatePromotionPayload,
   field: K,
