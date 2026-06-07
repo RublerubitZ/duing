@@ -249,6 +249,18 @@ export function AdminPromotionForm(props: Props) {
         </div>
       </div>
 
+      {/* FULL_BLEED 전환 가드 — 필수 필드가 비어 있을 때 인라인 경고 (저장은 백엔드 422 로 차단). */}
+      {state.renderMode === 'FULL_BLEED_IMAGE' && state.bannerImageUrl.trim() === '' && (
+        <p className="rounded-md bg-coral/10 border border-coral/40 px-3 py-2 text-[12.5px] text-coral">
+          완성 이미지형으로 전환하려면 배너 이미지 업로드가 필요합니다.
+        </p>
+      )}
+      {state.renderMode === 'FULL_BLEED_IMAGE' && state.imageAltText.trim() === '' && (
+        <p className="rounded-md bg-coral/10 border border-coral/40 px-3 py-2 text-[12.5px] text-coral">
+          완성 이미지형으로 전환하려면 Alt Text 입력이 필요합니다.
+        </p>
+      )}
+
       <Field label="제목 (≤120자)">
         <input
           type="text"
