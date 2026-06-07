@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePublicPromotionsQuery } from '@duing/hooks';
-import type { PromotionCard, PromotionPalette } from '@duing/types';
+import type { PromotionCard, PromotionPalette, PromotionRenderMode } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { ArrowLeft, ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
@@ -29,6 +29,8 @@ type CarouselSlide = {
   emoji: string;
   href: string;
   bannerImageUrl: string | null;
+  renderMode: PromotionRenderMode;
+  imageAltText: string | null;
 };
 
 function mockToSlide(banner: LandingBanner): CarouselSlide {
@@ -50,6 +52,8 @@ function mockToSlide(banner: LandingBanner): CarouselSlide {
     emoji: banner.emoji,
     href,
     bannerImageUrl: null,
+    renderMode: 'SYSTEM_COMPOSED',
+    imageAltText: null,
   };
 }
 
@@ -67,6 +71,8 @@ function promotionToSlide(promotion: PromotionCard): CarouselSlide {
     emoji: promotion.emoji ?? '',
     href: promotion.linkUrl ?? (promotion.club ? `/clubs/${promotion.club.id}` : '/clubs'),
     bannerImageUrl: promotion.bannerImageUrl,
+    renderMode: promotion.renderMode,
+    imageAltText: promotion.imageAltText,
   };
 }
 
