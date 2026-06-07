@@ -2,6 +2,8 @@ package com.duing.domain.application.service.dto.query;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.Grade;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -11,9 +13,13 @@ public record ApplicantQuery(
         String userName,
         String studentId,
         String email,
+        College college,
+        String major,
+        Grade grade,
         List<String> answers,
         ApplicationStatus status,
-        LocalDateTime submittedAt
+        LocalDateTime submittedAt,
+        LocalDateTime interviewAt
 ) {
     public static ApplicantQuery from(Application application) {
         return new ApplicantQuery(
@@ -22,9 +28,13 @@ public record ApplicantQuery(
                 application.getUser().getName(),
                 application.getUser().getStudentId(),
                 application.getUser().getEmail(),
+                application.getUser().getCollege(),
+                application.getUser().getMajor(),
+                application.getUser().getGrade(),
                 application.getAnswers(),
                 application.getStatus(),
-                application.getCreatedAt()
+                application.getCreatedAt(),
+                application.getInterviewAt()
         );
     }
 }

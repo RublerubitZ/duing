@@ -10,6 +10,7 @@ import com.duing.domain.application.service.dto.command.UpdateApplicationStatusC
 import com.duing.domain.application.service.dto.command.UpdateInterviewCommand;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
+import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
 import com.duing.domain.application.service.dto.query.BulkUpdateApplicationStatusResult;
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
@@ -124,12 +125,12 @@ public class GeneralApplicationService implements ApplicationService {
     }
 
     @Override
-    public List<ApplicantQuery> getApplicants(Long recruitmentId, Long currentUserId) {
+    public List<ApplicantQuery> getApplicants(Long recruitmentId, Long currentUserId, ApplicantSearchCondition condition) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
 
-        return applicationRepository.findByRecruitmentIdOrderByCreatedAtAsc(recruitmentId).stream()
+        return applicationRepository.searchApplicants(recruitmentId, condition).stream()
                 .map(ApplicantQuery::from)
                 .toList();
     }

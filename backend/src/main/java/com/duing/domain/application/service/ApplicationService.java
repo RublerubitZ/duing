@@ -7,6 +7,7 @@ import com.duing.domain.application.service.dto.command.UpdateApplicationStatusC
 import com.duing.domain.application.service.dto.command.UpdateInterviewCommand;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
+import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
 import com.duing.domain.application.service.dto.query.BulkUpdateApplicationStatusResult;
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
@@ -21,7 +22,7 @@ public interface ApplicationService {
 
     MyApplicationDetailQuery getMyApplicationDetail(Long applicationId, Long currentUserId);
 
-    List<ApplicantQuery> getApplicants(Long recruitmentId, Long currentUserId);
+    List<ApplicantQuery> getApplicants(Long recruitmentId, Long currentUserId, ApplicantSearchCondition condition);
 
     ApplicantDetailQuery getApplicantDetail(Long applicationId, Long currentUserId);
 

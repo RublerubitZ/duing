@@ -105,6 +105,14 @@ public class ApplicationDomainException extends ApplicationException {
         }
     }
 
+    public static class InvalidDateRangeException extends ApplicationDomainException {
+        private static final String MESSAGE = "submittedFrom 은 submittedTo 보다 늦을 수 없습니다.";
+
+        public InvalidDateRangeException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
     public static class ConcurrentStatusUpdateException extends ApplicationDomainException {
         private static final String MESSAGE = "다른 운영진이 먼저 상태를 변경했습니다. 새로고침 후 다시 시도해주세요.";
 
