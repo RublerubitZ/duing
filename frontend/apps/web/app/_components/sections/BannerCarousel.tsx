@@ -293,10 +293,12 @@ function MainSlide({ slide }: { slide: CarouselSlide }) {
 
       {slide.tag && (
         <div
-          className="inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold tracking-wide08"
+          className="relative inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold tracking-wide08"
           style={{
-            background: isDarkText ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)',
-            color: isDarkText ? '#9DB6A0' : slide.accent,
+            background: hasImage
+              ? 'rgba(255,255,255,0.95)'
+              : isDarkText ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)',
+            color: hasImage ? '#143025' : isDarkText ? '#9DB6A0' : slide.accent,
           }}
         >
           {slide.tag}
@@ -397,8 +399,12 @@ function PreviewSlide({ slide, direction, animationDelay, onSelect }: PreviewSli
       )}
       {slide.tag && (
         <div
-          className="relative mb-1.5 text-[10.5px] font-extrabold tracking-wide08"
-          style={{ color: isDarkText ? '#9DB6A0' : slide.accent }}
+          className="relative mb-1.5 inline-flex items-center rounded-full px-2 py-[2px] text-[10.5px] font-extrabold tracking-wide08"
+          style={{
+            background: hasImage ? 'rgba(255,255,255,0.95)' : 'transparent',
+            color: hasImage ? '#143025' : isDarkText ? '#9DB6A0' : slide.accent,
+            paddingInline: hasImage ? '8px' : '0',
+          }}
         >
           {slide.tag.split(' · ')[0]}
         </div>

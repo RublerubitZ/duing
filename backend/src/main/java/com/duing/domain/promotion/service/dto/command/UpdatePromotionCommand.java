@@ -17,6 +17,7 @@ public record UpdatePromotionCommand(
         String emoji,
         PromotionPalette palette,
         Boolean clearBannerImageUrl,
+        Boolean clearLinkUrl,
         Boolean clearTag,
         Boolean clearSubtitle,
         Boolean clearCtaLabel,

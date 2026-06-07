@@ -82,6 +82,7 @@ public class Promotion extends BaseEntity {
             String emoji,
             PromotionPalette palette,
             Boolean clearBannerImageUrl,
+            Boolean clearLinkUrl,
             Boolean clearTag,
             Boolean clearSubtitle,
             Boolean clearCtaLabel,
@@ -95,7 +96,11 @@ public class Promotion extends BaseEntity {
         } else if (payload.bannerImageUrl() != null) {
             this.bannerImageUrl = payload.bannerImageUrl();
         }
-        if (payload.linkUrl() != null) this.linkUrl = payload.linkUrl();
+        if (Boolean.TRUE.equals(payload.clearLinkUrl())) {
+            this.linkUrl = null;
+        } else if (payload.linkUrl() != null) {
+            this.linkUrl = payload.linkUrl();
+        }
         if (Boolean.TRUE.equals(payload.clearClubId())) {
             this.clubId = null;
         } else if (payload.clubId() != null) {

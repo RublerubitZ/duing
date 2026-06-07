@@ -19,6 +19,7 @@ public record UpdatePromotionRequest(
         @Size(max = 8, message = "이모지는 8자 이하여야 합니다.") String emoji,
         PromotionPalette palette,
         Boolean clearBannerImageUrl,
+        Boolean clearLinkUrl,
         Boolean clearTag,
         Boolean clearSubtitle,
         Boolean clearCtaLabel,
@@ -28,6 +29,6 @@ public record UpdatePromotionRequest(
         return new UpdatePromotionCommand(
                 promotionId, title, bannerImageUrl, linkUrl, clubId, active, displayOrder, clearClubId,
                 tag, subtitle, ctaLabel, emoji, palette,
-                clearBannerImageUrl, clearTag, clearSubtitle, clearCtaLabel, clearEmoji);
+                clearBannerImageUrl, clearLinkUrl, clearTag, clearSubtitle, clearCtaLabel, clearEmoji);
     }
 }
