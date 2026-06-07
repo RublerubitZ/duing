@@ -6,6 +6,7 @@ import type {
   AdminPromotionSummary,
   CreatePromotionPayload,
   PromotionPalette,
+  PromotionRenderMode,
   UpdatePromotionPayload,
 } from '@duing/types';
 import { ImageUploader } from '../../../_components/ImageUploader';
@@ -49,6 +50,8 @@ type FormState = {
   /** datetime-local 입력값 — "YYYY-MM-DDTHH:mm" 형식. 빈 문자열 = 미지정. */
   startAt: string;
   endAt: string;
+  renderMode: PromotionRenderMode;
+  imageAltText: string;
 };
 
 /**
@@ -79,6 +82,8 @@ function buildInitialState(initialValues?: AdminPromotionSummary): FormState {
       scheduleMode: 'ALWAYS',
       startAt: '',
       endAt: '',
+      renderMode: 'SYSTEM_COMPOSED',
+      imageAltText: '',
     };
   }
   const hasSchedule = initialValues.startAt !== null || initialValues.endAt !== null;
@@ -99,6 +104,8 @@ function buildInitialState(initialValues?: AdminPromotionSummary): FormState {
     scheduleMode: hasSchedule ? 'SCHEDULED' : 'ALWAYS',
     startAt: toDateTimeLocalValue(initialValues.startAt),
     endAt: toDateTimeLocalValue(initialValues.endAt),
+    renderMode: initialValues.renderMode,
+    imageAltText: initialValues.imageAltText ?? '',
   };
 }
 
@@ -142,6 +149,8 @@ export function AdminPromotionForm(props: Props) {
         emoji: trimToNull(state.emoji),
         startAt: scheduledStart,
         endAt: scheduledEnd,
+        renderMode: state.renderMode,
+        imageAltText: trimToNull(state.imageAltText),
       };
       await props.onSubmit(payload);
     } else {
@@ -188,6 +197,17 @@ export function AdminPromotionForm(props: Props) {
         payload.endAt = scheduledEnd;
       }
 
+      // renderMode 는 항상 명시적으로 전송 — 백엔드는 null=변경 안 함이지만 폼 state 에는 항상 값이 있다.
+      payload.renderMode = state.renderMode;
+
+      // Alt Text 는 nullable 필드와 동일한 assign-or-clear 패턴.
+      const altTrimmed = state.imageAltText.trim();
+      if (altTrimmed.length === 0) {
+        if (initialValues.imageAltText !== null) payload.clearImageAltText = true;
+      } else {
+        payload.imageAltText = altTrimmed;
+      }
+
       if (hadClub && nowCuration) {
         payload.clearClubId = true;
       } else if (!nowCuration) {
@@ -203,6 +223,39 @@ export function AdminPromotionForm(props: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* 배너 유형 (모드 선택) — 가장 먼저 결정해야 다른 필드 의미가 정해진다. */}
+      <div className="space-y-2">
+        <span className="block text-[12.5px] font-semibold text-charcoal-2">배너 유형</span>
+        <div className="flex flex-col gap-2 text-[13.5px]">
+          <label className="inline-flex items-start gap-2">
+            <input
+              type="radio"
+              name="renderMode"
+              checked={state.renderMode === 'SYSTEM_COMPOSED'}
+              onChange={() => update('renderMode', 'SYSTEM_COMPOSED')}
+              className="mt-1"
+            />
+            <div>
+              <div className="font-semibold">시스템 조합형</div>
+              <div className="text-charcoal-3 text-[12px]">제목/부제목/CTA/팔레트를 자동 조합해 렌더링합니다.</div>
+            </div>
+          </label>
+          <label className="inline-flex items-start gap-2">
+            <input
+              type="radio"
+              name="renderMode"
+              checked={state.renderMode === 'FULL_BLEED_IMAGE'}
+              onChange={() => update('renderMode', 'FULL_BLEED_IMAGE')}
+              className="mt-1"
+            />
+            <div>
+              <div className="font-semibold">완성 이미지형</div>
+              <div className="text-charcoal-3 text-[12px]">업로드한 이미지를 가공 없이 그대로 노출합니다 (포스터/홍보물).</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
       <Field label="제목 (≤120자)">
         <input
           type="text"
