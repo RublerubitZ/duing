@@ -1,113 +1,110 @@
 'use client';
 
-import { use, useMemo, useState } from 'react';
+import { use, useCallback, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
-import type { ApplicationStatus, BulkUpdateApplicationStatusResult } from '@duing/types';
+import type {
+  ApplicantsFilters,
+  ApplicationStatus,
+  BulkUpdateApplicationStatusPayload,
+  BulkUpdateApplicationStatusResult,
+  College,
+} from '@duing/types';
 import {
   useRecruitmentDetailQuery,
   useApplicantsQuery,
   useBulkUpdateApplicationStatusMutation,
 } from '@duing/hooks';
 import { toRoute } from '../../../../../../_lib/route';
-import { APPLICATION_STATUS_LABEL } from '../../../../../../_constants/application-status';
 import { ApplicantTable } from './_components/ApplicantTable';
-import { ApplicantDetailModal } from './_components/ApplicantDetailModal';
+import { ApplicantsFilterBar } from './_components/ApplicantsFilterBar';
 import { BulkActionBar } from './_components/BulkActionBar';
 import { BulkConfirmDialog } from './_components/BulkConfirmDialog';
 
-type StatusFilter = 'ALL' | ApplicationStatus;
-type BulkTarget = Extract<ApplicationStatus, 'ACCEPTED' | 'REJECTED'>;
+type PageParams = { params: Promise<{ clubId: string; recruitmentId: string }> };
 
-const STATUS_FILTER_OPTIONS: { label: string; value: StatusFilter }[] = [
-  { label: '전체', value: 'ALL' },
-  { label: APPLICATION_STATUS_LABEL.SUBMITTED, value: 'SUBMITTED' },
-  { label: APPLICATION_STATUS_LABEL.UNDER_REVIEW, value: 'UNDER_REVIEW' },
-  { label: APPLICATION_STATUS_LABEL.INTERVIEW_PENDING, value: 'INTERVIEW_PENDING' },
-  { label: APPLICATION_STATUS_LABEL.ACCEPTED, value: 'ACCEPTED' },
-  { label: APPLICATION_STATUS_LABEL.REJECTED, value: 'REJECTED' },
-];
-
-export default function ApplicantsPage({
-  params,
-}: {
-  params: Promise<{ clubId: string; recruitmentId: string }>;
-}) {
+export default function ApplicantsPage({ params }: PageParams) {
   const { clubId: clubIdParam, recruitmentId: recruitmentIdParam } = use(params);
   const clubId = Number(clubIdParam);
   const recruitmentId = Number(recruitmentIdParam);
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
-  const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
-  const [pendingBulkTarget, setPendingBulkTarget] = useState<BulkTarget | null>(null);
-  const [lastResult, setLastResult] = useState<BulkUpdateApplicationStatusResult | null>(null);
-  const [bulkError, setBulkError] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const filters = useMemo<ApplicantsFilters>(
+    () => ({
+      status: (searchParams.get('status') as ApplicationStatus | null) ?? undefined,
+      college: (searchParams.get('college') as College | null) ?? undefined,
+      q: searchParams.get('q') ?? undefined,
+      submittedFrom: searchParams.get('submittedFrom') ?? undefined,
+      submittedTo: searchParams.get('submittedTo') ?? undefined,
+    }),
+    [searchParams],
+  );
+
+  const updateFilters = useCallback(
+    (nextFilters: ApplicantsFilters) => {
+      const nextParams = new URLSearchParams();
+      if (nextFilters.status) nextParams.set('status', nextFilters.status);
+      if (nextFilters.college) nextParams.set('college', nextFilters.college);
+      if (nextFilters.q) nextParams.set('q', nextFilters.q);
+      if (nextFilters.submittedFrom)
+        nextParams.set('submittedFrom', nextFilters.submittedFrom);
+      if (nextFilters.submittedTo) nextParams.set('submittedTo', nextFilters.submittedTo);
+      router.replace(`?${nextParams.toString()}`);
+    },
+    [router],
+  );
 
   const { data: recruitment, isLoading: isRecruitmentLoading } = useRecruitmentDetailQuery(
     isNaN(recruitmentId) ? undefined : recruitmentId,
   );
-  const { data: applicants, isLoading: isApplicantsLoading } = useApplicantsQuery(
+  const { data: applicants = [], isLoading: isApplicantsLoading } = useApplicantsQuery(
     recruitment?.applicationMode === 'SELF' && !isNaN(recruitmentId)
       ? recruitmentId
       : undefined,
+    filters,
   );
   const bulkMutation = useBulkUpdateApplicationStatusMutation(recruitmentId);
 
-  const filteredApplicants = useMemo(
-    () =>
-      applicants?.filter(
-        (applicant) => statusFilter === 'ALL' || applicant.status === statusFilter,
-      ) ?? [],
-    [applicants, statusFilter],
-  );
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [pendingBulkTarget, setPendingBulkTarget] = useState<
+    BulkUpdateApplicationStatusPayload['status'] | null
+  >(null);
+  const [lastBulkResult, setLastBulkResult] =
+    useState<BulkUpdateApplicationStatusResult | null>(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
 
-  function toggleOne(applicationId: number) {
-    setSelectedIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(applicationId)) next.delete(applicationId);
-      else next.add(applicationId);
-      return next;
-    });
-  }
-
-  function toggleAll() {
-    setSelectedIds((previous) => {
-      const allSelected = filteredApplicants.every((applicant) => previous.has(applicant.applicationId));
-      const next = new Set(previous);
-      if (allSelected) {
-        filteredApplicants.forEach((applicant) => next.delete(applicant.applicationId));
-      } else {
-        filteredApplicants.forEach((applicant) => next.add(applicant.applicationId));
-      }
-      return next;
-    });
-  }
+  const useInterview = recruitment?.useInterview ?? true;
 
   function handleBulkConfirm() {
-    if (!pendingBulkTarget) return;
-    const applicationIds = Array.from(selectedIds);
-    if (applicationIds.length === 0) {
+    if (!pendingBulkTarget || selectedIds.length === 0) {
       setPendingBulkTarget(null);
       return;
     }
     setBulkError(null);
     bulkMutation.mutate(
-      { applicationIds, status: pendingBulkTarget },
+      { applicationIds: selectedIds, status: pendingBulkTarget },
       {
         onSuccess: (result) => {
-          setLastResult(result);
-          setSelectedIds(new Set());
+          setLastBulkResult(result);
+          setSelectedIds([]);
           setPendingBulkTarget(null);
         },
         onError: (mutationError) => {
           const message =
-            mutationError instanceof ApiError ? mutationError.message : '일괄 처리에 실패했습니다.';
+            mutationError instanceof ApiError
+              ? mutationError.message
+              : '일괄 처리에 실패했습니다.';
           setBulkError(message);
+          setPendingBulkTarget(null);
         },
       },
     );
   }
+
+  const hasActiveFilters = Object.values(filters).some(Boolean);
 
   if (isRecruitmentLoading || !recruitment) {
     return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
@@ -123,7 +120,9 @@ export default function ApplicantsPage({
         >
           ← 모집 상세로 돌아가기
         </Link>
-        <h1 className="text-xl font-bold text-slate-900">{recruitment.title} — 지원자 관리</h1>
+        <h1 className="text-xl font-bold text-slate-900">
+          {recruitment.title} — 지원자 관리
+        </h1>
       </div>
 
       {/* 외부 폼 안내 */}
@@ -145,35 +144,21 @@ export default function ApplicantsPage({
         </div>
       )}
 
-      {/* 자체 폼 지원자 표 */}
+      {/* 자체 폼 지원자 관리 */}
       {recruitment.applicationMode === 'SELF' && (
         <>
-          {/* 상태 필터 칩 */}
-          <div className="flex flex-wrap gap-2">
-            {STATUS_FILTER_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  setStatusFilter(option.value);
-                  setSelectedIds(new Set());
-                }}
-                className={
-                  statusFilter === option.value
-                    ? 'rounded-full bg-slate-900 px-4 py-1.5 text-xs font-medium text-white'
-                    : 'rounded-full border border-slate-300 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50'
-                }
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          {/* 필터 바 */}
+          <ApplicantsFilterBar
+            filters={filters}
+            onChange={updateFilters}
+            useInterview={useInterview}
+          />
 
-          {/* 직전 일괄 처리 결과 */}
-          {lastResult && (
+          {/* 일괄 처리 결과 알림 */}
+          {lastBulkResult && (
             <div
               className={
-                lastResult.failures.length === 0
+                lastBulkResult.failures.length === 0
                   ? 'mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800'
                   : 'mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'
               }
@@ -181,25 +166,26 @@ export default function ApplicantsPage({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="font-semibold">
-                    일괄 처리 완료: {lastResult.updated}건 성공
-                    {lastResult.failures.length > 0 && ` · ${lastResult.failures.length}건 실패`}
+                    일괄 처리 완료: {lastBulkResult.updated}건 성공
+                    {lastBulkResult.failures.length > 0 &&
+                      ` · ${lastBulkResult.failures.length}건 실패`}
                   </div>
-                  {lastResult.failures.length > 0 && (
+                  {lastBulkResult.failures.length > 0 && (
                     <ul className="mt-1 list-disc pl-5 text-xs">
-                      {lastResult.failures.slice(0, 5).map((failure) => (
+                      {lastBulkResult.failures.slice(0, 5).map((failure) => (
                         <li key={failure.applicationId}>
                           ID {failure.applicationId}: {failure.reason}
                         </li>
                       ))}
-                      {lastResult.failures.length > 5 && (
-                        <li>외 {lastResult.failures.length - 5}건…</li>
+                      {lastBulkResult.failures.length > 5 && (
+                        <li>외 {lastBulkResult.failures.length - 5}건…</li>
                       )}
                     </ul>
                   )}
                 </div>
                 <button
                   type="button"
-                  onClick={() => setLastResult(null)}
+                  onClick={() => setLastBulkResult(null)}
                   className="text-xs text-slate-500 hover:text-slate-800"
                 >
                   닫기
@@ -208,57 +194,87 @@ export default function ApplicantsPage({
             </div>
           )}
 
-          {/* 호출 자체 실패 (네트워크 등) */}
+          {/* 오류 메시지 */}
           {bulkError && (
             <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {bulkError}
             </p>
           )}
 
-          {isApplicantsLoading && (
+          {/* 로딩 / 빈 상태 / 테이블 */}
+          {isApplicantsLoading ? (
             <p className="mt-6 text-sm text-slate-500">지원자 목록 불러오는 중…</p>
-          )}
-
-          {!isApplicantsLoading && (
+          ) : applicants.length === 0 ? (
+            <p className="mt-8 py-8 text-center text-neutral-500">
+              {hasActiveFilters ? '검색 결과 없음' : '지원자가 아직 없습니다'}
+            </p>
+          ) : (
             <ApplicantTable
-              applicants={filteredApplicants}
+              applicants={applicants}
               selectedIds={selectedIds}
-              onToggleOne={toggleOne}
-              onToggleAll={toggleAll}
-              onDetailOpen={(applicationId) => setSelectedApplicationId(applicationId)}
+              onSelect={setSelectedIds}
+              useInterview={useInterview}
+              clubId={clubId}
+              recruitmentId={recruitmentId}
             />
           )}
         </>
       )}
 
-      {/* 지원자 상세 모달 */}
-      {selectedApplicationId !== null && (
-        <ApplicantDetailModal
-          applicationId={selectedApplicationId}
-          recruitmentId={recruitmentId}
-          useInterview={recruitment.useInterview}
-          onClose={() => setSelectedApplicationId(null)}
-        />
-      )}
-
       {/* 일괄 처리 sticky bar */}
       <BulkActionBar
-        selectedCount={selectedIds.size}
-        isPending={bulkMutation.isPending}
-        onConfirm={(target) => setPendingBulkTarget(target)}
-        onClear={() => setSelectedIds(new Set())}
+        selectedCount={selectedIds.length}
+        onBulkAction={setPendingBulkTarget}
+        useInterview={useInterview}
       />
 
-      {/* 일괄 처리 확인 dialog */}
-      {pendingBulkTarget && (
-        <BulkConfirmDialog
-          targetStatus={pendingBulkTarget}
-          selectedCount={selectedIds.size}
-          isPending={bulkMutation.isPending}
-          onConfirm={handleBulkConfirm}
-          onCancel={() => setPendingBulkTarget(null)}
-        />
-      )}
+      {/* 일괄 처리 확인 dialog — 기존 컴포넌트 API 유지 */}
+      {pendingBulkTarget &&
+        (pendingBulkTarget === 'ACCEPTED' || pendingBulkTarget === 'REJECTED') && (
+          <BulkConfirmDialog
+            targetStatus={pendingBulkTarget}
+            selectedCount={selectedIds.length}
+            isPending={bulkMutation.isPending}
+            onConfirm={handleBulkConfirm}
+            onCancel={() => setPendingBulkTarget(null)}
+          />
+        )}
+      {pendingBulkTarget &&
+        pendingBulkTarget !== 'ACCEPTED' &&
+        pendingBulkTarget !== 'REJECTED' && (
+          <div
+            role="alertdialog"
+            aria-labelledby="bulk-confirm-title"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+          >
+            <div className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-xl">
+              <h2 id="bulk-confirm-title" className="text-base font-semibold text-slate-900">
+                {selectedIds.length}건을 일괄 처리할까요?
+              </h2>
+              <p className="text-sm text-slate-600">
+                현재 상태에서 전이가 불가능한 항목은 자동으로 건너뜁니다.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingBulkTarget(null)}
+                  disabled={bulkMutation.isPending}
+                  className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkConfirm}
+                  disabled={bulkMutation.isPending}
+                  className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+                >
+                  {bulkMutation.isPending ? '처리 중…' : '확인'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* PII 고지 */}
       <footer className="mt-10 border-t border-slate-100 pt-4 text-center text-xs text-slate-400">
