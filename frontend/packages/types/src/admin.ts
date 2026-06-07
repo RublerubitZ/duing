@@ -385,6 +385,7 @@ export type UpdatePromotionPayload = {
   ctaLabel?: string;
   emoji?: string;
   clearBannerImageUrl?: boolean;
+  clearLinkUrl?: boolean;
   clearTag?: boolean;
   clearSubtitle?: boolean;
   clearCtaLabel?: boolean;

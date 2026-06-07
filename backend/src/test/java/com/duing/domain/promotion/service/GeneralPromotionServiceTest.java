@@ -72,7 +72,7 @@ class GeneralPromotionServiceTest {
         promotionService.update(new UpdatePromotionCommand(
                 id, null, null, null, null, false, 5, null,
                 null, null, null, null, null,
-                null, null, null, null, null));
+                null, null, null, null, null, null));
 
         Promotion updated = promotionRepository.findById(id).orElseThrow();
         assertThat(updated.isActive()).isFalse();
@@ -93,7 +93,7 @@ class GeneralPromotionServiceTest {
         promotionService.update(new UpdatePromotionCommand(
                 id, null, null, null, null, null, null, true,
                 null, null, null, null, null,
-                null, null, null, null, null));
+                null, null, null, null, null, null));
 
         assertThat(promotionRepository.findById(id).orElseThrow().getClubId()).isNull();
     }
@@ -137,7 +137,7 @@ class GeneralPromotionServiceTest {
         assertThatThrownBy(() -> promotionService.update(new UpdatePromotionCommand(
                 999_999L, "X", null, null, null, null, null, null,
                 null, null, null, null, null,
-                null, null, null, null, null)))
+                null, null, null, null, null, null)))
                 .isInstanceOf(PromotionException.PromotionNotFoundException.class);
     }
 }

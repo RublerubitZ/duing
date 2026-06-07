@@ -39,7 +39,7 @@ class PromotionTest {
         promotion.update(new Promotion.UpdatePayload(
                 "새 제목", null, null, null, false, null, null,
                 null, null, null, null, null,
-                null, null, null, null, null));
+                null, null, null, null, null, null));
 
         assertThat(promotion.getTitle()).isEqualTo("새 제목");
         assertThat(promotion.getBannerImageUrl()).isEqualTo("/files/old.png");
@@ -59,7 +59,7 @@ class PromotionTest {
         promotion.update(new Promotion.UpdatePayload(
                 null, null, null, null, null, null, true,
                 null, null, null, null, null,
-                null, null, null, null, null));
+                null, null, null, null, null, null));
         assertThat(promotion.getClubId()).isNull();
     }
 
@@ -72,7 +72,7 @@ class PromotionTest {
         promotion.update(new Promotion.UpdatePayload(
                 null, null, null, 7L, null, null, true,
                 null, null, null, null, null,
-                null, null, null, null, null));
+                null, null, null, null, null, null));
         assertThat(promotion.getClubId()).isNull();
     }
 
@@ -85,8 +85,34 @@ class PromotionTest {
         promotion.update(new Promotion.UpdatePayload(
                 null, null, null, null, null, null, null,
                 null, null, null, null, null,
-                true, null, null, null, null));
+                true, null, null, null, null, null));
         assertThat(promotion.getBannerImageUrl()).isNull();
         assertThat(promotion.getPalette()).isEqualTo(PromotionPalette.WARM);
+    }
+
+    @Test
+    @DisplayName("clearLinkUrl=true 면 linkUrl 이 null 로 비워진다")
+    void clearLinkUrl() {
+        Promotion promotion = Promotion.create(
+                42L, "T", "/files/b.png", "https://old.example.com", true, 0, 99L,
+                null, null, null, null, PromotionPalette.INK);
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                null, true, null, null, null, null));
+        assertThat(promotion.getLinkUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("clearLinkUrl=true 가 linkUrl=새 값 보다 우선 적용된다")
+    void clearLinkUrlPrecedence() {
+        Promotion promotion = Promotion.create(
+                42L, "T", "/files/b.png", "https://old.example.com", true, 0, 99L,
+                null, null, null, null, PromotionPalette.INK);
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, "https://new.example.com", null, null, null, null,
+                null, null, null, null, null,
+                null, true, null, null, null, null));
+        assertThat(promotion.getLinkUrl()).isNull();
     }
 }

@@ -121,7 +121,6 @@ export function AdminPromotionForm(props: Props) {
 
       const payload: UpdatePromotionPayload = {
         title: state.title,
-        linkUrl: linkUrlValue,
         active: state.active,
         displayOrder: displayOrderValue,
         palette: state.palette,
@@ -132,6 +131,13 @@ export function AdminPromotionForm(props: Props) {
         if (initialValues.bannerImageUrl !== null) payload.clearBannerImageUrl = true;
       } else {
         payload.bannerImageUrl = bannerImage;
+      }
+
+      // linkUrl — 이미지와 동일 패턴. 비웠으면 clearLinkUrl, 값 있으면 그대로.
+      if (linkUrlValue === null) {
+        if (initialValues.linkUrl !== null) payload.clearLinkUrl = true;
+      } else {
+        payload.linkUrl = linkUrlValue;
       }
 
       // 텍스트 필드들 — 동일 패턴.
@@ -352,8 +358,8 @@ export function AdminPromotionForm(props: Props) {
             <div
               className="relative inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold"
               style={{
-                background: 'rgba(255,255,255,0.14)',
-                color: hasBannerImage ? '#fff' : previewStyle.accent,
+                background: hasBannerImage ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.14)',
+                color: hasBannerImage ? '#143025' : previewStyle.accent,
               }}
             >
               {state.tag}
