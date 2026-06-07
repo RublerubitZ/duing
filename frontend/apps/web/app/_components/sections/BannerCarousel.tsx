@@ -264,11 +264,17 @@ function MainSlide({ slide }: { slide: CarouselSlide }) {
               event.currentTarget.style.display = 'none';
             }}
           />
-          {/* 하단 그라데이션 — 텍스트 영역만 어둡게 덮어 이미지 주인공 + 가독성 동시 확보. */}
+          {/* 톤다운 레이어 — 흰 이미지에서도 흰 텍스트가 묻히지 않도록 전체에 옅은 다크 깔기. */}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0"
-            style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.65) 100%)' }}
+            style={{ background: 'rgba(0,0,0,0.22)' }}
+          />
+          {/* 하단 그라데이션 — 텍스트 영역을 더 어둡게 덮어 제목/CTA 가독성 추가 확보. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)' }}
           />
         </>
       )}
@@ -385,7 +391,12 @@ function PreviewSlide({ slide, direction, animationDelay, onSelect }: PreviewSli
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0"
-            style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.7) 100%)' }}
+            style={{ background: 'rgba(0,0,0,0.22)' }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.6) 100%)' }}
           />
         </>
       )}

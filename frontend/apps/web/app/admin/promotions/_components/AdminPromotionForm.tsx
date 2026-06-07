@@ -342,7 +342,12 @@ export function AdminPromotionForm(props: Props) {
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-0"
-                style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.65) 100%)' }}
+                style={{ background: 'rgba(0,0,0,0.22)' }}
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)' }}
               />
             </>
           )}
