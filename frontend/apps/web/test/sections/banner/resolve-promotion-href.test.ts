@@ -17,6 +17,7 @@ function makePromotion(overrides: Partial<PromotionCard> = {}): PromotionCard {
     emoji: null,
     renderMode: 'SYSTEM_COMPOSED',
     imageAltText: null,
+    notice: null,
     displayOrder: 0,
     createdAt: '2024-01-01T00:00:00Z',
     ...overrides,
