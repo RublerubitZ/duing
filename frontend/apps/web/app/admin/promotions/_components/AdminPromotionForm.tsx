@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import type {
   AdminPromotionSummary,
@@ -114,6 +114,34 @@ export function AdminPromotionForm(props: Props) {
   const [state, setState] = useState<FormState>(() =>
     buildInitialState(mode === 'edit' ? props.initialValues : undefined),
   );
+
+  // 권장 비율(1920×840, 16:7) 측정 — FULL_BLEED 모드에서만 경고 노출.
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    if (!state.bannerImageUrl) {
+      setImageDimensions(null);
+      return;
+    }
+    const img = new window.Image();
+    img.onload = () => setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => setImageDimensions(null);
+    img.src = state.bannerImageUrl;
+  }, [state.bannerImageUrl]);
+
+  const imageSizeWarning = (() => {
+    if (state.renderMode !== 'FULL_BLEED_IMAGE') return null;
+    if (!imageDimensions) return null;
+    const { width, height } = imageDimensions;
+    const shortSide = Math.min(width, height);
+    const ratio = width / height;
+    const targetRatio = 16 / 7;
+    const tolerancePercent = 0.1;
+    const ratioOff = Math.abs(ratio - targetRatio) / targetRatio > tolerancePercent;
+    const tooSmall = shortSide < 840;
+    if (!ratioOff && !tooSmall) return null;
+    return '권장 사이즈(1920×840, 16:7) 와 다릅니다 — 모바일에서 이미지 일부가 잘릴 수 있습니다.';
+  })();
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setState((prev) => ({ ...prev, [key]: value }));
@@ -331,6 +359,11 @@ export function AdminPromotionForm(props: Props) {
             ? '이미지가 등록되어 팔레트 선택은 생략됩니다.'
             : '이미지 없이 텍스트+팔레트만으로도 배너 등록이 가능합니다.'}
         </p>
+        {imageSizeWarning && (
+          <p className="mt-1 text-[12px] text-amber-600">
+            {imageSizeWarning}
+          </p>
+        )}
       </div>
 
       {/* Alt Text — 완성 이미지형에서는 필수, 시스템 조합형에서는 보존만 (입력 UI 는 항상 유지). */}
