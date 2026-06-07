@@ -6,28 +6,44 @@ import com.duing.domain.application.controller.dto.request.UpdateApplicationStat
 import com.duing.domain.application.controller.dto.response.ApplicantDetailResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantResponse;
 import com.duing.domain.application.controller.dto.response.BulkUpdateApplicationStatusResponse;
+import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.user.entity.College;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "지원자(동아리장)", description = "동아리장 전용 지원자 관리")
 @SecurityRequirement(name = "BearerAuth")
 public interface LeaderApplicationApi {
 
-    @Operation(summary = "지원자 목록 조회", description = "본인이 동아리장인 모집 공고의 지원자를 제출 순으로 반환한다.")
+    @Operation(
+            summary = "지원자 목록 조회",
+            description = "본인이 동아리장인 모집 공고의 지원자를 최근 제출 순(desc) 으로 반환한다. "
+                    + "옵셔널 필터: status, college (단과대), q (이름·학번·학과명 부분일치 OR), "
+                    + "submittedFrom·submittedTo (LocalDate, half-open: submittedTo 당일 23:59 까지 포함). "
+                    + "submittedFrom > submittedTo 시 400."
+    )
     @GetMapping("/leader/recruitments/{recruitmentId}/applications")
     ResponseEntity<ApiResponse<List<ApplicantResponse>>> getApplicants(
             @PathVariable Long recruitmentId,
+            @RequestParam(required = false) ApplicationStatus status,
+            @RequestParam(required = false) College college,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedTo,
             @AuthenticationPrincipal UserPrincipal currentUser
     );
 
