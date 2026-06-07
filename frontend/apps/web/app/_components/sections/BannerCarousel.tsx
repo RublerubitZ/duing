@@ -64,7 +64,7 @@ function promotionToSlide(promotion: PromotionCard): CarouselSlide {
     tag: promotion.tag ?? '',
     title: promotion.title,
     sub: promotion.subtitle ?? '',
-    cta: promotion.ctaLabel ?? '자세히 보기',
+    cta: promotion.ctaLabel ?? '',
     bg: style.bg,
     fg: style.fg,
     accent: style.accent,

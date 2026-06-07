@@ -130,16 +130,18 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
             {slide.sub}
           </p>
         )}
-        <span
-          className="btn rounded-md px-[22px] py-3 font-bold"
-          style={{
-            background: isDarkText ? '#9DB6A0' : slide.accent,
-            color: isDarkText ? '#143025' : '#fff',
-          }}
-        >
-          {slide.cta}
-          <ArrowRight />
-        </span>
+        {slide.cta && (
+          <span
+            className="btn rounded-md px-[22px] py-3 font-bold"
+            style={{
+              background: isDarkText ? '#9DB6A0' : slide.accent,
+              color: isDarkText ? '#143025' : '#fff',
+            }}
+          >
+            {slide.cta}
+            <ArrowRight />
+          </span>
+        )}
       </div>
     </div>
   );

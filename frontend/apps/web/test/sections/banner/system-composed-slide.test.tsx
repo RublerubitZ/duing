@@ -62,6 +62,17 @@ describe('SystemComposedSlide — main variant', () => {
     expect(link).not.toHaveAttribute('target');
     expect(link).toHaveAttribute('href', '/clubs');
   });
+
+  it('CTA 라벨이 빈 문자열이면 메인 슬라이드에 버튼이 렌더되지 않는다', () => {
+    render(<SystemComposedSlide variant="main" slide={makeSlide({ cta: '' })} />);
+    expect(screen.getByText('테스트 배너 제목')).toBeInTheDocument();
+    expect(screen.queryByText('자세히 보기')).not.toBeInTheDocument();
+  });
+
+  it('CTA 라벨이 있으면 메인 슬라이드에 버튼이 렌더된다', () => {
+    render(<SystemComposedSlide variant="main" slide={makeSlide({ cta: '박람회 자세히 보기' })} />);
+    expect(screen.getByText('박람회 자세히 보기')).toBeInTheDocument();
+  });
 });
 
 describe('SystemComposedSlide — preview variant', () => {
