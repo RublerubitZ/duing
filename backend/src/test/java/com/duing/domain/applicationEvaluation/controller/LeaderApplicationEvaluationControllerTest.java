@@ -326,6 +326,46 @@ class LeaderApplicationEvaluationControllerTest {
         assertThat(rowForApplication2.myScore()).isNull();
     }
 
+    @Test
+    @DisplayName("내 평가를 삭제하면 목록의 myScore 가 null 로 돌아온다")
+    void myScoreClearsAfterDelete() {
+        Long applicationId = createApplicationForApplicant(sharedClub);
+
+        // 1. PUT /evaluations/me 로 score 작성 → 204
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("score", 3, "memo", "삭제 전 평가"))
+                .when().put("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
+                .then().statusCode(204);
+
+        // 2. 목록 조회 → myScore = 3
+        Recruitment recruitment = recruitmentRepository.findAll().stream()
+                .filter(r -> r.getClub().getId().equals(sharedClub.getId()))
+                .findFirst().orElseThrow();
+        ApplicantSearchCondition noFilter = new ApplicantSearchCondition(null, null, null, null, null);
+        List<ApplicantQuery> beforeDelete = applicationService.getApplicants(
+                recruitment.getId(), leaderId, noFilter);
+        ApplicantQuery rowBefore = beforeDelete.stream()
+                .filter(row -> row.applicationId().equals(applicationId))
+                .findFirst().orElseThrow();
+        assertThat(rowBefore.myScore()).isEqualTo(3);
+
+        // 3. DELETE /evaluations/me → 204
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
+                .then().statusCode(204);
+
+        // 4. 목록 조회 → myScore = null (soft-delete 된 평가가 새어나오지 않아야 한다)
+        List<ApplicantQuery> afterDelete = applicationService.getApplicants(
+                recruitment.getId(), leaderId, noFilter);
+        ApplicantQuery rowAfter = afterDelete.stream()
+                .filter(row -> row.applicationId().equals(applicationId))
+                .findFirst().orElseThrow();
+        assertThat(rowAfter.myScore()).isNull();
+    }
+
     // ─────────────────────────────────────────────────────────────
     // 픽스처 헬퍼
     // ─────────────────────────────────────────────────────────────

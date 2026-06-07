@@ -36,7 +36,8 @@ public class ApplicationRepositoryImpl implements ApplicationRepositoryCustom {
                 .join(application.user, user).fetchJoin()
                 .leftJoin(applicationEvaluation)
                     .on(applicationEvaluation.application.eq(application)
-                            .and(applicationEvaluation.evaluator.id.eq(currentUserId)))
+                            .and(applicationEvaluation.evaluator.id.eq(currentUserId))
+                            .and(applicationEvaluation.deletedAt.isNull()))
                 .where(
                         application.recruitment.id.eq(recruitmentId),
                         statusEq(condition.status()),
