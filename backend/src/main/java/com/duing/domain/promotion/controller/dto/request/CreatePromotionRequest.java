@@ -49,6 +49,6 @@ public record CreatePromotionRequest(
         return new CreatePromotionCommand(
                 clubId, title, bannerImageUrl, linkUrl, active, displayOrder, createdBy,
                 tag, subtitle, ctaLabel, emoji, palette, startAt, endAt,
-                renderMode, imageAltText);
+                renderMode, imageAltText, null);
     }
 }

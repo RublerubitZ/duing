@@ -60,6 +60,6 @@ public record UpdatePromotionRequest(
                 startAt, endAt,
                 clearBannerImageUrl, clearLinkUrl, clearTag, clearSubtitle, clearCtaLabel, clearEmoji,
                 clearStartAt, clearEndAt,
-                clearImageAltText);
+                clearImageAltText, null, null);
     }
 }
