@@ -38,6 +38,14 @@ public class Promotion extends BaseEntity {
     @Column(nullable = false, length = 20)
     private PromotionPalette palette;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "render_mode", nullable = false, length = 20)
+    private PromotionRenderMode renderMode;
+
+    /** 완성 이미지형 배너의 접근성/SEO 용 alt 텍스트. SYSTEM_COMPOSED 에서는 의미 없음. */
+    @Column(name = "image_alt_text", length = 200)
+    private String imageAltText;
+
     /** 노출 시작 시각. NULL=상시(즉시 노출). */
     @Column(name = "start_at") private LocalDateTime startAt;
     /** 노출 종료 시각. NULL=상시(만료 없음). */
@@ -47,7 +55,8 @@ public class Promotion extends BaseEntity {
     private Promotion(Long clubId, String title, String bannerImageUrl, String linkUrl,
                       boolean active, int displayOrder, Long createdBy,
                       String tag, String subtitle, String ctaLabel, String emoji,
-                      PromotionPalette palette, LocalDateTime startAt, LocalDateTime endAt) {
+                      PromotionPalette palette, LocalDateTime startAt, LocalDateTime endAt,
+                      PromotionRenderMode renderMode, String imageAltText) {
         this.clubId = clubId;
         this.title = title;
         this.bannerImageUrl = bannerImageUrl;
@@ -62,19 +71,24 @@ public class Promotion extends BaseEntity {
         this.palette = palette;
         this.startAt = startAt;
         this.endAt = endAt;
+        this.renderMode = renderMode;
+        this.imageAltText = imageAltText;
     }
 
     public static Promotion create(Long clubId, String title, String bannerImageUrl, String linkUrl,
                                    boolean active, int displayOrder, Long createdBy,
                                    String tag, String subtitle, String ctaLabel, String emoji,
                                    PromotionPalette palette,
-                                   LocalDateTime startAt, LocalDateTime endAt) {
+                                   LocalDateTime startAt, LocalDateTime endAt,
+                                   PromotionRenderMode renderMode, String imageAltText) {
         return Promotion.builder()
                 .clubId(clubId).title(title).bannerImageUrl(bannerImageUrl).linkUrl(linkUrl)
                 .active(active).displayOrder(displayOrder).createdBy(createdBy)
                 .tag(tag).subtitle(subtitle).ctaLabel(ctaLabel).emoji(emoji)
                 .palette(palette == null ? PromotionPalette.INK : palette)
                 .startAt(startAt).endAt(endAt)
+                .renderMode(renderMode == null ? PromotionRenderMode.SYSTEM_COMPOSED : renderMode)
+                .imageAltText(imageAltText)
                 .build();
     }
 
@@ -91,6 +105,8 @@ public class Promotion extends BaseEntity {
             String ctaLabel,
             String emoji,
             PromotionPalette palette,
+            PromotionRenderMode renderMode,
+            String imageAltText,
             LocalDateTime startAt,
             LocalDateTime endAt,
             Boolean clearBannerImageUrl,
@@ -100,7 +116,8 @@ public class Promotion extends BaseEntity {
             Boolean clearCtaLabel,
             Boolean clearEmoji,
             Boolean clearStartAt,
-            Boolean clearEndAt
+            Boolean clearEndAt,
+            Boolean clearImageAltText
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -133,6 +150,11 @@ public class Promotion extends BaseEntity {
         else if (payload.emoji() != null) this.emoji = payload.emoji();
 
         if (payload.palette() != null) this.palette = payload.palette();
+
+        if (payload.renderMode() != null) this.renderMode = payload.renderMode();
+
+        if (Boolean.TRUE.equals(payload.clearImageAltText())) this.imageAltText = null;
+        else if (payload.imageAltText() != null) this.imageAltText = payload.imageAltText();
 
         if (Boolean.TRUE.equals(payload.clearStartAt())) this.startAt = null;
         else if (payload.startAt() != null) this.startAt = payload.startAt();

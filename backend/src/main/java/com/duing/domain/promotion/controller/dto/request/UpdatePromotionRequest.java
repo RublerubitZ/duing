@@ -1,6 +1,7 @@
 package com.duing.domain.promotion.controller.dto.request;
 
 import com.duing.domain.promotion.entity.PromotionPalette;
+import com.duing.domain.promotion.entity.PromotionRenderMode;
 import com.duing.domain.promotion.service.dto.command.UpdatePromotionCommand;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
@@ -20,6 +21,8 @@ public record UpdatePromotionRequest(
         @Size(max = 40, message = "CTA 라벨은 40자 이하여야 합니다.") String ctaLabel,
         @Size(max = 8, message = "이모지는 8자 이하여야 합니다.") String emoji,
         PromotionPalette palette,
+        PromotionRenderMode renderMode,
+        @Size(max = 200, message = "Alt Text는 200자 이하여야 합니다.") String imageAltText,
         LocalDateTime startAt,
         LocalDateTime endAt,
         Boolean clearBannerImageUrl,
@@ -29,18 +32,34 @@ public record UpdatePromotionRequest(
         Boolean clearCtaLabel,
         Boolean clearEmoji,
         Boolean clearStartAt,
-        Boolean clearEndAt
+        Boolean clearEndAt,
+        Boolean clearImageAltText
 ) {
     @AssertTrue(message = "노출 종료 시각은 시작 시각 이후여야 합니다.")
     public boolean isScheduleRangeValid() {
         return startAt == null || endAt == null || startAt.isBefore(endAt);
     }
 
+    @AssertTrue(message = "완성 이미지형 배너는 Alt Text가 필수입니다.")
+    public boolean isImageAltTextRequiredForFullBleed() {
+        return renderMode != PromotionRenderMode.FULL_BLEED_IMAGE
+                || (imageAltText != null && !imageAltText.isBlank());
+    }
+
+    @AssertTrue(message = "완성 이미지형 배너는 배너 이미지가 필수입니다.")
+    public boolean isBannerImageRequiredForFullBleed() {
+        return renderMode != PromotionRenderMode.FULL_BLEED_IMAGE
+                || (bannerImageUrl != null && !bannerImageUrl.isBlank());
+    }
+
     public UpdatePromotionCommand toCommand(Long promotionId) {
         return new UpdatePromotionCommand(
                 promotionId, title, bannerImageUrl, linkUrl, clubId, active, displayOrder, clearClubId,
-                tag, subtitle, ctaLabel, emoji, palette, startAt, endAt,
+                tag, subtitle, ctaLabel, emoji, palette,
+                renderMode, imageAltText,
+                startAt, endAt,
                 clearBannerImageUrl, clearLinkUrl, clearTag, clearSubtitle, clearCtaLabel, clearEmoji,
-                clearStartAt, clearEndAt);
+                clearStartAt, clearEndAt,
+                clearImageAltText);
     }
 }

@@ -2,6 +2,7 @@ package com.duing.domain.promotion.controller.dto.response;
 
 import com.duing.domain.promotion.entity.Promotion;
 import com.duing.domain.promotion.entity.PromotionPalette;
+import com.duing.domain.promotion.entity.PromotionRenderMode;
 import com.duing.domain.promotion.service.dto.query.PromotionAdminListQuery;
 import java.time.LocalDateTime;
 
@@ -22,7 +23,9 @@ public record AdminPromotionResponse(
         String emoji,
         PromotionPalette palette,
         LocalDateTime startAt,
-        LocalDateTime endAt
+        LocalDateTime endAt,
+        PromotionRenderMode renderMode,
+        String imageAltText
 ) {
     public record ClubRef(Long id, String name) {}
     public record UserRef(Long id, String name) {}
@@ -36,7 +39,8 @@ public record AdminPromotionResponse(
                 createdBy, promotion.getCreatedAt(), promotion.getUpdatedAt(),
                 promotion.getTag(), promotion.getSubtitle(), promotion.getCtaLabel(),
                 promotion.getEmoji(), promotion.getPalette(),
-                promotion.getStartAt(), promotion.getEndAt());
+                promotion.getStartAt(), promotion.getEndAt(),
+                promotion.getRenderMode(), promotion.getImageAltText());
     }
 
     public static AdminPromotionResponse from(PromotionAdminListQuery query) {
@@ -49,6 +53,7 @@ public record AdminPromotionResponse(
                 query.linkUrl(), query.active(), query.displayOrder(),
                 userRef, query.createdAt(), query.updatedAt(),
                 query.tag(), query.subtitle(), query.ctaLabel(), query.emoji(), query.palette(),
-                query.startAt(), query.endAt());
+                query.startAt(), query.endAt(),
+                query.renderMode(), query.imageAltText());
     }
 }
