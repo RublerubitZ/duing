@@ -37,7 +37,8 @@ class PromotionRequestValidationTest {
                 null, "T", "/files/b.png", null, true, 0,
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.FULL_BLEED_IMAGE, null);
+                PromotionRenderMode.FULL_BLEED_IMAGE, null,
+                null);
         Set<ConstraintViolation<CreatePromotionRequest>> violations = validator.validate(request);
         assertThat(violations).anyMatch(v -> v.getMessage().contains("Alt Text"));
     }
@@ -49,7 +50,8 @@ class PromotionRequestValidationTest {
                 null, "T", null, null, true, 0,
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.FULL_BLEED_IMAGE, "alt");
+                PromotionRenderMode.FULL_BLEED_IMAGE, "alt",
+                null);
         Set<ConstraintViolation<CreatePromotionRequest>> violations = validator.validate(request);
         assertThat(violations).anyMatch(v -> v.getMessage().contains("배너 이미지가 필수"));
     }
@@ -61,7 +63,8 @@ class PromotionRequestValidationTest {
                 null, "T", null, null, true, 0,
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.SYSTEM_COMPOSED, null);
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                null);
         Set<ConstraintViolation<CreatePromotionRequest>> violations = validator.validate(request);
         assertThat(violations).isEmpty();
     }
@@ -75,7 +78,8 @@ class PromotionRequestValidationTest {
                 PromotionRenderMode.FULL_BLEED_IMAGE, "   ",
                 null, null,
                 null, null, null, null, null, null,
-                null, null, null);
+                null, null, null,
+                null, null);
         Set<ConstraintViolation<UpdatePromotionRequest>> violations = validator.validate(request);
         assertThat(violations).anyMatch(v -> v.getMessage().contains("Alt Text"));
     }
@@ -87,7 +91,8 @@ class PromotionRequestValidationTest {
                 null, "T", "/files/b.png", null, true, 0,
                 null, null, null, null, PromotionPalette.INK,
                 null, null,
-                PromotionRenderMode.FULL_BLEED_IMAGE, "대형 배너");
+                PromotionRenderMode.FULL_BLEED_IMAGE, "대형 배너",
+                null);
         Set<ConstraintViolation<CreatePromotionRequest>> violations = validator.validate(request);
         assertThat(violations).isEmpty();
     }
@@ -101,8 +106,65 @@ class PromotionRequestValidationTest {
                 PromotionRenderMode.FULL_BLEED_IMAGE, "alt",
                 null, null,
                 null, null, null, null, null, null,
-                null, null, null);
+                null, null, null,
+                null, null);
         Set<ConstraintViolation<UpdatePromotionRequest>> violations = validator.validate(request);
         assertThat(violations).anyMatch(v -> v.getMessage().contains("배너 이미지가 필수"));
+    }
+
+    @Test
+    @DisplayName("CreatePromotionRequest: linkUrl + noticeId 동시 set 이면 검증 실패")
+    void createRejectsTwoLinks() {
+        CreatePromotionRequest request = new CreatePromotionRequest(
+                null, "T", null, "https://example.com", true, 0,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                42L);
+        Set<ConstraintViolation<CreatePromotionRequest>> violations = validator.validate(request);
+        assertThat(violations).anyMatch(v -> v.getMessage().contains("하나만 선택"));
+    }
+
+    @Test
+    @DisplayName("CreatePromotionRequest: noticeId 만 set 이면 통과")
+    void createAllowsNoticeOnly() {
+        CreatePromotionRequest request = new CreatePromotionRequest(
+                null, "T", "/files/b.png", null, true, 0,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                42L);
+        Set<ConstraintViolation<CreatePromotionRequest>> violations = validator.validate(request);
+        assertThat(violations).isEmpty();
+    }
+
+    @Test
+    @DisplayName("CreatePromotionRequest: 세 link 모두 null 이면 통과 (연결 안 함)")
+    void createAllowsNoLinks() {
+        CreatePromotionRequest request = new CreatePromotionRequest(
+                null, "T", "/files/b.png", null, true, 0,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                null);
+        Set<ConstraintViolation<CreatePromotionRequest>> violations = validator.validate(request);
+        assertThat(violations).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UpdatePromotionRequest: linkUrl + clubId + noticeId 셋 다 set 이면 검증 실패")
+    void updateRejectsAllThreeLinks() {
+        UpdatePromotionRequest request = new UpdatePromotionRequest(
+                null, null, "https://x.com", 7L, null, null, null,
+                null, null, null, null, PromotionPalette.INK,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null,
+                42L,
+                null);
+        Set<ConstraintViolation<UpdatePromotionRequest>> violations = validator.validate(request);
+        assertThat(violations).anyMatch(v -> v.getMessage().contains("하나만 선택"));
     }
 }

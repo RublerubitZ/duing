@@ -33,7 +33,9 @@ public record UpdatePromotionRequest(
         Boolean clearEmoji,
         Boolean clearStartAt,
         Boolean clearEndAt,
-        Boolean clearImageAltText
+        Boolean clearImageAltText,
+        Long noticeId,
+        Boolean clearNoticeId
 ) {
     @AssertTrue(message = "노출 종료 시각은 시작 시각 이후여야 합니다.")
     public boolean isScheduleRangeValid() {
@@ -52,6 +54,15 @@ public record UpdatePromotionRequest(
                 || (bannerImageUrl != null && !bannerImageUrl.isBlank());
     }
 
+    @AssertTrue(message = "링크 대상은 외부 URL / 공지 / 동아리 중 하나만 선택 가능합니다.")
+    public boolean isSingleLinkTarget() {
+        int count = 0;
+        if (linkUrl != null && !linkUrl.isBlank()) count++;
+        if (noticeId != null) count++;
+        if (clubId != null) count++;
+        return count <= 1;
+    }
+
     public UpdatePromotionCommand toCommand(Long promotionId) {
         return new UpdatePromotionCommand(
                 promotionId, title, bannerImageUrl, linkUrl, clubId, active, displayOrder, clearClubId,
@@ -60,6 +71,6 @@ public record UpdatePromotionRequest(
                 startAt, endAt,
                 clearBannerImageUrl, clearLinkUrl, clearTag, clearSubtitle, clearCtaLabel, clearEmoji,
                 clearStartAt, clearEndAt,
-                clearImageAltText, null, null);
+                clearImageAltText, noticeId, clearNoticeId);
     }
 }

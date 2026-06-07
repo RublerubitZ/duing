@@ -26,7 +26,8 @@ public record CreatePromotionRequest(
         LocalDateTime startAt,
         LocalDateTime endAt,
         PromotionRenderMode renderMode,
-        @Size(max = 200, message = "Alt Text는 200자 이하여야 합니다.") String imageAltText
+        @Size(max = 200, message = "Alt Text는 200자 이하여야 합니다.") String imageAltText,
+        Long noticeId
 ) {
     @AssertTrue(message = "노출 종료 시각은 시작 시각 이후여야 합니다.")
     public boolean isScheduleRangeValid() {
@@ -45,10 +46,19 @@ public record CreatePromotionRequest(
                 || (bannerImageUrl != null && !bannerImageUrl.isBlank());
     }
 
+    @AssertTrue(message = "링크 대상은 외부 URL / 공지 / 동아리 중 하나만 선택 가능합니다.")
+    public boolean isSingleLinkTarget() {
+        int count = 0;
+        if (linkUrl != null && !linkUrl.isBlank()) count++;
+        if (noticeId != null) count++;
+        if (clubId != null) count++;
+        return count <= 1;
+    }
+
     public CreatePromotionCommand toCommand(Long createdBy) {
         return new CreatePromotionCommand(
                 clubId, title, bannerImageUrl, linkUrl, active, displayOrder, createdBy,
                 tag, subtitle, ctaLabel, emoji, palette, startAt, endAt,
-                renderMode, imageAltText, null);
+                renderMode, imageAltText, noticeId);
     }
 }
