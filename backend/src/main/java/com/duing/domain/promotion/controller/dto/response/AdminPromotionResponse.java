@@ -20,7 +20,9 @@ public record AdminPromotionResponse(
         String subtitle,
         String ctaLabel,
         String emoji,
-        PromotionPalette palette
+        PromotionPalette palette,
+        LocalDateTime startAt,
+        LocalDateTime endAt
 ) {
     public record ClubRef(Long id, String name) {}
     public record UserRef(Long id, String name) {}
@@ -33,7 +35,8 @@ public record AdminPromotionResponse(
                 promotion.getLinkUrl(), promotion.isActive(), promotion.getDisplayOrder(),
                 createdBy, promotion.getCreatedAt(), promotion.getUpdatedAt(),
                 promotion.getTag(), promotion.getSubtitle(), promotion.getCtaLabel(),
-                promotion.getEmoji(), promotion.getPalette());
+                promotion.getEmoji(), promotion.getPalette(),
+                promotion.getStartAt(), promotion.getEndAt());
     }
 
     public static AdminPromotionResponse from(PromotionAdminListQuery query) {
@@ -45,6 +48,7 @@ public record AdminPromotionResponse(
                 query.id(), clubRef, query.title(), query.bannerImageUrl(),
                 query.linkUrl(), query.active(), query.displayOrder(),
                 userRef, query.createdAt(), query.updatedAt(),
-                query.tag(), query.subtitle(), query.ctaLabel(), query.emoji(), query.palette());
+                query.tag(), query.subtitle(), query.ctaLabel(), query.emoji(), query.palette(),
+                query.startAt(), query.endAt());
     }
 }

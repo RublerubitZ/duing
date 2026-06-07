@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -37,11 +38,16 @@ public class Promotion extends BaseEntity {
     @Column(nullable = false, length = 20)
     private PromotionPalette palette;
 
+    /** 노출 시작 시각. NULL=상시(즉시 노출). */
+    @Column(name = "start_at") private LocalDateTime startAt;
+    /** 노출 종료 시각. NULL=상시(만료 없음). */
+    @Column(name = "end_at") private LocalDateTime endAt;
+
     @Builder(access = AccessLevel.PRIVATE)
     private Promotion(Long clubId, String title, String bannerImageUrl, String linkUrl,
                       boolean active, int displayOrder, Long createdBy,
                       String tag, String subtitle, String ctaLabel, String emoji,
-                      PromotionPalette palette) {
+                      PromotionPalette palette, LocalDateTime startAt, LocalDateTime endAt) {
         this.clubId = clubId;
         this.title = title;
         this.bannerImageUrl = bannerImageUrl;
@@ -54,17 +60,21 @@ public class Promotion extends BaseEntity {
         this.ctaLabel = ctaLabel;
         this.emoji = emoji;
         this.palette = palette;
+        this.startAt = startAt;
+        this.endAt = endAt;
     }
 
     public static Promotion create(Long clubId, String title, String bannerImageUrl, String linkUrl,
                                    boolean active, int displayOrder, Long createdBy,
                                    String tag, String subtitle, String ctaLabel, String emoji,
-                                   PromotionPalette palette) {
+                                   PromotionPalette palette,
+                                   LocalDateTime startAt, LocalDateTime endAt) {
         return Promotion.builder()
                 .clubId(clubId).title(title).bannerImageUrl(bannerImageUrl).linkUrl(linkUrl)
                 .active(active).displayOrder(displayOrder).createdBy(createdBy)
                 .tag(tag).subtitle(subtitle).ctaLabel(ctaLabel).emoji(emoji)
                 .palette(palette == null ? PromotionPalette.INK : palette)
+                .startAt(startAt).endAt(endAt)
                 .build();
     }
 
@@ -81,12 +91,16 @@ public class Promotion extends BaseEntity {
             String ctaLabel,
             String emoji,
             PromotionPalette palette,
+            LocalDateTime startAt,
+            LocalDateTime endAt,
             Boolean clearBannerImageUrl,
             Boolean clearLinkUrl,
             Boolean clearTag,
             Boolean clearSubtitle,
             Boolean clearCtaLabel,
-            Boolean clearEmoji
+            Boolean clearEmoji,
+            Boolean clearStartAt,
+            Boolean clearEndAt
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -119,5 +133,10 @@ public class Promotion extends BaseEntity {
         else if (payload.emoji() != null) this.emoji = payload.emoji();
 
         if (payload.palette() != null) this.palette = payload.palette();
+
+        if (Boolean.TRUE.equals(payload.clearStartAt())) this.startAt = null;
+        else if (payload.startAt() != null) this.startAt = payload.startAt();
+        if (Boolean.TRUE.equals(payload.clearEndAt())) this.endAt = null;
+        else if (payload.endAt() != null) this.endAt = payload.endAt();
     }
 }

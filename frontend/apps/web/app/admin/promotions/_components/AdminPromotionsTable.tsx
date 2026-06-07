@@ -4,7 +4,12 @@ import Link from 'next/link';
 import type { AdminPromotionSummary } from '@duing/types';
 import { ImageWithFallback } from '../../../_components/ImageWithFallback';
 import { toRoute } from '../../../_lib/route';
-import { CURATION_LABEL, getActiveBadgeClass, getActiveLabel } from '../_lib/promotionLabels';
+import {
+  CURATION_LABEL,
+  DISPLAY_STATUS_BADGE_CLASS,
+  DISPLAY_STATUS_LABEL,
+  resolveDisplayStatus,
+} from '../_lib/promotionLabels';
 
 type Props = {
   items: AdminPromotionSummary[];
@@ -28,7 +33,8 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
             <Th>썸네일</Th>
             <Th>제목</Th>
             <Th>동아리</Th>
-            <Th>활성</Th>
+            <Th>상태</Th>
+            <Th>노출 기간</Th>
             <Th>순서</Th>
             <Th>등록자</Th>
             <Th>등록일</Th>
@@ -62,10 +68,26 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
                 )}
               </Td>
               <Td>
-                <span
-                  className={`inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold ${getActiveBadgeClass(promotion.active)}`}
-                >
-                  {getActiveLabel(promotion.active)}
+                {(() => {
+                  const status = resolveDisplayStatus(
+                    promotion.active,
+                    promotion.startAt,
+                    promotion.endAt,
+                  );
+                  return (
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold ${DISPLAY_STATUS_BADGE_CLASS[status]}`}
+                    >
+                      {DISPLAY_STATUS_LABEL[status]}
+                    </span>
+                  );
+                })()}
+              </Td>
+              <Td>
+                <span className="text-charcoal-3 text-[12px]">
+                  {promotion.startAt === null && promotion.endAt === null
+                    ? '상시'
+                    : `${formatScheduleEdge(promotion.startAt) ?? '즉시'} ~ ${formatScheduleEdge(promotion.endAt) ?? '무기한'}`}
                 </span>
               </Td>
               <Td>{promotion.displayOrder}</Td>
@@ -102,3 +124,9 @@ const Th = ({ children }: { children: React.ReactNode }) => (
 const Td = ({ children }: { children: React.ReactNode }) => (
   <td className="px-3 py-2 align-middle">{children}</td>
 );
+
+function formatScheduleEdge(iso: string | null): string | null {
+  if (iso === null) return null;
+  const date = new Date(iso);
+  return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}

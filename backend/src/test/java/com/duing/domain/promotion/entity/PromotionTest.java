@@ -2,6 +2,7 @@ package com.duing.domain.promotion.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,11 +14,14 @@ class PromotionTest {
         Promotion promotion = Promotion.create(
                 42L, "행사 배너", "/files/banner.png", "https://example.com",
                 false, 10, 99L,
-                null, null, null, null, PromotionPalette.INK);
+                null, null, null, null, PromotionPalette.INK,
+                null, null);
         assertThat(promotion.isActive()).isFalse();
         assertThat(promotion.getDisplayOrder()).isEqualTo(10);
         assertThat(promotion.getCreatedBy()).isEqualTo(99L);
         assertThat(promotion.getPalette()).isEqualTo(PromotionPalette.INK);
+        assertThat(promotion.getStartAt()).isNull();
+        assertThat(promotion.getEndAt()).isNull();
     }
 
     @Test
@@ -25,8 +29,22 @@ class PromotionTest {
     void paletteNullFallsBackToInk() {
         Promotion promotion = Promotion.create(
                 null, "T", null, null, true, 0, 1L,
-                null, null, null, null, null);
+                null, null, null, null, null,
+                null, null);
         assertThat(promotion.getPalette()).isEqualTo(PromotionPalette.INK);
+    }
+
+    @Test
+    @DisplayName("startAt/endAt 가 지정되어 생성되면 그대로 저장된다")
+    void createWithSchedule() {
+        LocalDateTime start = LocalDateTime.of(2026, 6, 1, 0, 0);
+        LocalDateTime end = LocalDateTime.of(2026, 6, 10, 0, 0);
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 1L,
+                null, null, null, null, PromotionPalette.INK,
+                start, end);
+        assertThat(promotion.getStartAt()).isEqualTo(start);
+        assertThat(promotion.getEndAt()).isEqualTo(end);
     }
 
     @Test
@@ -34,12 +52,15 @@ class PromotionTest {
     void partialUpdate() {
         Promotion promotion = Promotion.create(
                 42L, "원래 제목", "/files/old.png", "https://old", true, 1, 99L,
-                "TAG", "sub", "더보기", "🎉", PromotionPalette.SAGE);
+                "TAG", "sub", "더보기", "🎉", PromotionPalette.SAGE,
+                null, null);
 
         promotion.update(new Promotion.UpdatePayload(
                 "새 제목", null, null, null, false, null, null,
                 null, null, null, null, null,
-                null, null, null, null, null, null));
+                null, null,
+                null, null, null, null, null, null,
+                null, null));
 
         assertThat(promotion.getTitle()).isEqualTo("새 제목");
         assertThat(promotion.getBannerImageUrl()).isEqualTo("/files/old.png");
@@ -55,11 +76,14 @@ class PromotionTest {
     void clearClubId() {
         Promotion promotion = Promotion.create(
                 42L, "T", "/files/b.png", null, true, 0, 99L,
-                null, null, null, null, PromotionPalette.INK);
+                null, null, null, null, PromotionPalette.INK,
+                null, null);
         promotion.update(new Promotion.UpdatePayload(
                 null, null, null, null, null, null, true,
                 null, null, null, null, null,
-                null, null, null, null, null, null));
+                null, null,
+                null, null, null, null, null, null,
+                null, null));
         assertThat(promotion.getClubId()).isNull();
     }
 
@@ -68,11 +92,14 @@ class PromotionTest {
     void updateClubIdWithClearPrecedence() {
         Promotion promotion = Promotion.create(
                 42L, "T", "/files/b.png", null, true, 0, 99L,
-                null, null, null, null, PromotionPalette.INK);
+                null, null, null, null, PromotionPalette.INK,
+                null, null);
         promotion.update(new Promotion.UpdatePayload(
                 null, null, null, 7L, null, null, true,
                 null, null, null, null, null,
-                null, null, null, null, null, null));
+                null, null,
+                null, null, null, null, null, null,
+                null, null));
         assertThat(promotion.getClubId()).isNull();
     }
 
@@ -81,11 +108,14 @@ class PromotionTest {
     void clearBannerImageUrl() {
         Promotion promotion = Promotion.create(
                 null, "T", "/files/b.png", null, true, 0, 99L,
-                null, null, null, null, PromotionPalette.WARM);
+                null, null, null, null, PromotionPalette.WARM,
+                null, null);
         promotion.update(new Promotion.UpdatePayload(
                 null, null, null, null, null, null, null,
                 null, null, null, null, null,
-                true, null, null, null, null, null));
+                null, null,
+                true, null, null, null, null, null,
+                null, null));
         assertThat(promotion.getBannerImageUrl()).isNull();
         assertThat(promotion.getPalette()).isEqualTo(PromotionPalette.WARM);
     }
@@ -95,11 +125,14 @@ class PromotionTest {
     void clearLinkUrl() {
         Promotion promotion = Promotion.create(
                 42L, "T", "/files/b.png", "https://old.example.com", true, 0, 99L,
-                null, null, null, null, PromotionPalette.INK);
+                null, null, null, null, PromotionPalette.INK,
+                null, null);
         promotion.update(new Promotion.UpdatePayload(
                 null, null, null, null, null, null, null,
                 null, null, null, null, null,
-                null, true, null, null, null, null));
+                null, null,
+                null, true, null, null, null, null,
+                null, null));
         assertThat(promotion.getLinkUrl()).isNull();
     }
 
@@ -108,11 +141,50 @@ class PromotionTest {
     void clearLinkUrlPrecedence() {
         Promotion promotion = Promotion.create(
                 42L, "T", "/files/b.png", "https://old.example.com", true, 0, 99L,
-                null, null, null, null, PromotionPalette.INK);
+                null, null, null, null, PromotionPalette.INK,
+                null, null);
         promotion.update(new Promotion.UpdatePayload(
                 null, null, "https://new.example.com", null, null, null, null,
                 null, null, null, null, null,
-                null, true, null, null, null, null));
+                null, null,
+                null, true, null, null, null, null,
+                null, null));
         assertThat(promotion.getLinkUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("startAt/endAt 갱신은 명시된 값으로 덮어쓴다")
+    void updateSchedule() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 99L,
+                null, null, null, null, PromotionPalette.INK,
+                LocalDateTime.of(2026, 6, 1, 0, 0), LocalDateTime.of(2026, 6, 10, 0, 0));
+        LocalDateTime newStart = LocalDateTime.of(2026, 7, 1, 0, 0);
+        LocalDateTime newEnd = LocalDateTime.of(2026, 7, 20, 0, 0);
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                newStart, newEnd,
+                null, null, null, null, null, null,
+                null, null));
+        assertThat(promotion.getStartAt()).isEqualTo(newStart);
+        assertThat(promotion.getEndAt()).isEqualTo(newEnd);
+    }
+
+    @Test
+    @DisplayName("clearStartAt=true / clearEndAt=true 면 기간이 비워져 상시 노출이 된다")
+    void clearSchedule() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 99L,
+                null, null, null, null, PromotionPalette.INK,
+                LocalDateTime.of(2026, 6, 1, 0, 0), LocalDateTime.of(2026, 6, 10, 0, 0));
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                null, null,
+                null, null, null, null, null, null,
+                true, true));
+        assertThat(promotion.getStartAt()).isNull();
+        assertThat(promotion.getEndAt()).isNull();
     }
 }
