@@ -1,6 +1,7 @@
 package com.duing.domain.promotion.controller.dto.request;
 
 import com.duing.domain.promotion.entity.PromotionPalette;
+import com.duing.domain.promotion.entity.PromotionRenderMode;
 import com.duing.domain.promotion.service.dto.command.CreatePromotionCommand;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
@@ -23,7 +24,9 @@ public record CreatePromotionRequest(
         @Size(max = 8, message = "이모지는 8자 이하여야 합니다.") String emoji,
         @NotNull(message = "팔레트는 필수입니다.") PromotionPalette palette,
         LocalDateTime startAt,
-        LocalDateTime endAt
+        LocalDateTime endAt,
+        PromotionRenderMode renderMode,
+        @Size(max = 200, message = "이미지 대체 텍스트는 200자 이하여야 합니다.") String imageAltText
 ) {
     @AssertTrue(message = "노출 종료 시각은 시작 시각 이후여야 합니다.")
     public boolean isScheduleRangeValid() {
@@ -33,6 +36,7 @@ public record CreatePromotionRequest(
     public CreatePromotionCommand toCommand(Long createdBy) {
         return new CreatePromotionCommand(
                 clubId, title, bannerImageUrl, linkUrl, active, displayOrder, createdBy,
-                tag, subtitle, ctaLabel, emoji, palette, startAt, endAt);
+                tag, subtitle, ctaLabel, emoji, palette, startAt, endAt,
+                renderMode, imageAltText);
     }
 }

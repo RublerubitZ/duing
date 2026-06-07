@@ -44,7 +44,7 @@ public class GeneralPromotionService implements PromotionService {
                 command.active(), command.displayOrder(), command.createdBy(),
                 command.tag(), command.subtitle(), command.ctaLabel(), command.emoji(),
                 command.palette(), command.startAt(), command.endAt(),
-                null, null
+                command.renderMode(), command.imageAltText()
         )).getId();
     }
 
@@ -65,13 +65,13 @@ public class GeneralPromotionService implements PromotionService {
                 command.clubId(), command.active(), command.displayOrder(), command.clearClubId(),
                 command.tag(), command.subtitle(), command.ctaLabel(), command.emoji(),
                 command.palette(),
-                null, null,
+                command.renderMode(), command.imageAltText(),
                 command.startAt(), command.endAt(),
                 command.clearBannerImageUrl(), command.clearLinkUrl(),
                 command.clearTag(), command.clearSubtitle(),
                 command.clearCtaLabel(), command.clearEmoji(),
                 command.clearStartAt(), command.clearEndAt(),
-                null
+                command.clearImageAltText()
         ));
     }
 
