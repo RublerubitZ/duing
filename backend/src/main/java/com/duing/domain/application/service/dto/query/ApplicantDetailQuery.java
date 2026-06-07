@@ -3,6 +3,7 @@ package com.duing.domain.application.service.dto.query;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.entity.ApplicationStatusHistory;
+import com.duing.domain.applicationEvaluation.entity.ApplicationEvaluation;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -24,7 +25,9 @@ public record ApplicantDetailQuery(
         LocalDateTime interviewAt,
         String interviewLocation,
         LocalDateTime submittedAt,
-        List<StatusHistoryItemQuery> statusHistory
+        List<StatusHistoryItemQuery> statusHistory,
+        EvaluationItemQuery myEvaluation,
+        List<EvaluationItemQuery> otherEvaluations
 ) {
 
     public record ApplicantInfoQuery(Long userId, String name, String studentId, String email) {}
@@ -39,24 +42,48 @@ public record ApplicantDetailQuery(
             LocalDateTime changedAt
     ) {}
 
+    public record EvaluationItemQuery(
+            Long evaluatorId,
+            String evaluatorName,
+            Integer score,
+            String memo,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
+    ) {}
+
     /**
-     * 기존 호출자 backward-compatibility 유지용 단축 메서드.
-     * history 가 필요 없는 경로(단위 테스트 등)에서 빈 리스트로 위임한다.
+     * 기존 호출자 backward-compatibility 유지 — history/evaluation 없이 위임한다.
      */
     public static ApplicantDetailQuery from(Application application) {
         return fromWithHistory(application, List.of());
     }
 
+    /**
+     * history 포함, evaluation 미포함 단축 메서드.
+     * 기존 호출자(서비스, 테스트)의 backward-compatibility 를 유지한다.
+     */
     public static ApplicantDetailQuery fromWithHistory(Application application,
                                                        List<ApplicationStatusHistory> historyRows) {
+        return fromAll(application, historyRows, List.of(), null);
+    }
+
+    /**
+     * 전체 필드를 포함하는 최종 팩토리 메서드.
+     * currentUserId 기준으로 myEvaluation / otherEvaluations 를 분리한다.
+     * currentUserId 가 null 이면 모든 평가를 otherEvaluations 에 배치한다.
+     */
+    public static ApplicantDetailQuery fromAll(Application application,
+                                               List<ApplicationStatusHistory> historyRows,
+                                               List<ApplicationEvaluation> allEvaluations,
+                                               Long currentUserId) {
         Recruitment recruitment = application.getRecruitment();
-        User user = application.getUser();
+        User applicationUser = application.getUser();
 
         ApplicantInfoQuery applicantInfo = new ApplicantInfoQuery(
-                user.getId(),
-                user.getName(),
-                user.getStudentId(),
-                user.getEmail()
+                applicationUser.getId(),
+                applicationUser.getName(),
+                applicationUser.getStudentId(),
+                applicationUser.getEmail()
         );
 
         List<QuestionAnswerQuery> pairedAnswers = buildPairedAnswers(recruitment, application);
@@ -72,6 +99,19 @@ public record ApplicantDetailQuery(
                 ))
                 .toList();
 
+        EvaluationItemQuery myEvaluation = allEvaluations.stream()
+                .filter(evaluation -> currentUserId != null
+                        && evaluation.getEvaluator().getId().equals(currentUserId))
+                .findFirst()
+                .map(ApplicantDetailQuery::toEvaluationItem)
+                .orElse(null);
+
+        List<EvaluationItemQuery> otherEvaluations = allEvaluations.stream()
+                .filter(evaluation -> currentUserId == null
+                        || !evaluation.getEvaluator().getId().equals(currentUserId))
+                .map(ApplicantDetailQuery::toEvaluationItem)
+                .toList();
+
         return new ApplicantDetailQuery(
                 application.getId(),
                 recruitment.getId(),
@@ -84,7 +124,20 @@ public record ApplicantDetailQuery(
                 application.getInterviewAt(),
                 application.getInterviewLocation(),
                 application.getCreatedAt(),
-                statusHistory
+                statusHistory,
+                myEvaluation,
+                otherEvaluations
+        );
+    }
+
+    private static EvaluationItemQuery toEvaluationItem(ApplicationEvaluation evaluation) {
+        return new EvaluationItemQuery(
+                evaluation.getEvaluator().getId(),
+                evaluation.getEvaluator().getName(),
+                evaluation.getScore(),
+                evaluation.getMemo(),
+                evaluation.getCreatedAt(),
+                evaluation.getUpdatedAt()
         );
     }
 
