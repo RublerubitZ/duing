@@ -126,7 +126,8 @@ class ApplicationStatusServiceTest {
                 new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ACCEPTED)))
                 .isInstanceOf(ApplicationDomainException.InvalidStatusTransitionException.class);
 
-        // 상태 전이가 차단되므로 ClubMember 행 조작은 발생하지 않아야 한다
+        // 상태 전이가 차단되므로 userRepository 조회 및 ClubMember 행 조작은 발생하지 않아야 한다
+        verify(userRepository, never()).findById(any());
         verify(clubMemberRepository, never()).findByClubIdAndUserId(any(), any());
         verify(clubMemberRepository, never()).save(any());
     }

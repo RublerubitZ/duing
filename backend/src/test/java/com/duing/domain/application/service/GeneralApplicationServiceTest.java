@@ -80,12 +80,22 @@ class GeneralApplicationServiceTest {
         return applicationRepository.save(application).getId();
     }
 
-    private Long createApplicationWithStatus(ApplicationStatus status) throws Exception {
+    private Long createApplicationWithStatus(ApplicationStatus targetStatus) {
         User applicant = saveUser("지원자", UserRole.STUDENT);
         Application application = Application.submit(activeRecruitment, applicant, List.of());
-        Field statusField = Application.class.getDeclaredField("status");
-        statusField.setAccessible(true);
-        statusField.set(application, status);
+        applicationRepository.save(application);
+
+        // 도메인 전이 경로로 목표 상태까지 도달: SUBMITTED → UNDER_REVIEW → (ACCEPTED | REJECTED)
+        // useInterview=false 기준 (setupClubAndLeader 의 Recruitment.create 기본값)
+        if (targetStatus == ApplicationStatus.UNDER_REVIEW
+                || targetStatus == ApplicationStatus.ACCEPTED
+                || targetStatus == ApplicationStatus.REJECTED) {
+            application.transitionTo(ApplicationStatus.UNDER_REVIEW, false);
+        }
+        if (targetStatus == ApplicationStatus.ACCEPTED || targetStatus == ApplicationStatus.REJECTED) {
+            application.transitionTo(targetStatus, false);
+        }
+
         return applicationRepository.save(application).getId();
     }
 

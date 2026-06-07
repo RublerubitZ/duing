@@ -42,6 +42,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -76,7 +77,7 @@ public class GeneralApplicationService implements ApplicationService {
      * 단위 테스트가 8-arg 생성자만 사용하는 케이스를 보호하기 위해서이기도 하다 — bulkUpdateStatus 만
      * 본 의존이 필요하고 그 외 진입점에서는 NPE 위험이 없다.
      */
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     private ObjectProvider<ApplicationService> selfProvider;
 
     @Override
