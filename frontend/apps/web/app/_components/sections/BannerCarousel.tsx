@@ -243,23 +243,34 @@ export function BannerCarousel() {
 }
 
 function MainSlide({ slide }: { slide: CarouselSlide }) {
-  const isDarkText = slide.fg === '#fff';
+  const hasImage = !!slide.bannerImageUrl;
+  // 이미지가 깔리면 가독성을 위해 텍스트를 흰색 톤으로 고정한다.
+  const isDarkText = hasImage || slide.fg === '#fff';
+  const textColor = hasImage ? '#fff' : slide.fg;
   const body = (
     <div
       className="relative flex h-full flex-col justify-between px-12 py-11"
-      style={{ background: slide.bg, color: slide.fg }}
+      style={{ background: slide.bg, color: textColor }}
     >
-      {slide.bannerImageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL (Local / Supabase Storage). 장식용이라 ImageWithFallback 미사용 — 깨지면 slide.bg 색만 노출되도록 onError 에서 숨김.
-        <img
-          src={slide.bannerImageUrl}
-          alt=""
-          aria-hidden
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
-          onError={(event) => {
-            event.currentTarget.style.display = 'none';
-          }}
-        />
+      {hasImage && (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL (Local / Supabase Storage). 깨지면 slide.bg 색만 노출되도록 onError 에서 숨김. */}
+          <img
+            src={slide.bannerImageUrl ?? ''}
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            onError={(event) => {
+              event.currentTarget.style.display = 'none';
+            }}
+          />
+          {/* 하단 그라데이션 — 텍스트 영역만 어둡게 덮어 이미지 주인공 + 가독성 동시 확보. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.65) 100%)' }}
+          />
+        </>
       )}
       {slide.emoji && (
         <div
@@ -291,17 +302,17 @@ function MainSlide({ slide }: { slide: CarouselSlide }) {
           {slide.tag}
         </div>
       )}
-      <div>
+      <div className="relative">
         <h2
           className="mb-2.5 whitespace-pre-line text-5xl leading-[1.05] tracking-[-0.025em]"
-          style={{ color: slide.fg }}
+          style={{ color: textColor }}
         >
           {slide.title}
         </h2>
         {slide.sub && (
           <p
             className="mb-6 max-w-[460px] text-[15.5px] leading-[1.5]"
-            style={{ color: slide.fg, opacity: 0.78 }}
+            style={{ color: textColor, opacity: 0.85 }}
           >
             {slide.sub}
           </p>
@@ -344,7 +355,9 @@ type PreviewSlideProps = {
 };
 
 function PreviewSlide({ slide, direction, animationDelay, onSelect }: PreviewSlideProps) {
-  const isDarkText = slide.fg === '#fff';
+  const hasImage = !!slide.bannerImageUrl;
+  const isDarkText = hasImage || slide.fg === '#fff';
+  const textColor = hasImage ? '#fff' : slide.fg;
   return (
     <button
       type="button"
@@ -353,8 +366,27 @@ function PreviewSlide({ slide, direction, animationDelay, onSelect }: PreviewSli
         'relative flex-1 cursor-pointer overflow-hidden rounded-lg px-5 py-[18px] text-left',
         direction === 'left' ? 'animate-preview-in' : 'animate-preview-in-reverse',
       )}
-      style={{ background: slide.bg, color: slide.fg, animationDelay }}
+      style={{ background: slide.bg, color: textColor, animationDelay }}
     >
+      {hasImage && (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL. 깨지면 slide.bg 색만 노출되도록 onError 에서 숨김. */}
+          <img
+            src={slide.bannerImageUrl ?? ''}
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            onError={(event) => {
+              event.currentTarget.style.display = 'none';
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.7) 100%)' }}
+          />
+        </>
+      )}
       {slide.emoji && (
         <div
           className="absolute -right-2.5 -top-2.5 text-[86px] leading-none opacity-[0.22]"
@@ -365,22 +397,22 @@ function PreviewSlide({ slide, direction, animationDelay, onSelect }: PreviewSli
       )}
       {slide.tag && (
         <div
-          className="mb-1.5 text-[10.5px] font-extrabold tracking-wide08"
+          className="relative mb-1.5 text-[10.5px] font-extrabold tracking-wide08"
           style={{ color: isDarkText ? '#9DB6A0' : slide.accent }}
         >
           {slide.tag.split(' · ')[0]}
         </div>
       )}
       <div
-        className="whitespace-pre-line font-display text-[19px] font-bold leading-[1.15]"
-        style={{ color: slide.fg }}
+        className="relative whitespace-pre-line font-display text-[19px] font-bold leading-[1.15]"
+        style={{ color: textColor }}
       >
         {slide.title}
       </div>
       {slide.sub && (
         <div
-          className="mt-2 flex items-center gap-1.5 text-xs"
-          style={{ color: slide.fg, opacity: 0.7 }}
+          className="relative mt-2 flex items-center gap-1.5 text-xs"
+          style={{ color: textColor, opacity: 0.85 }}
         >
           {slide.sub.split(' · ')[0]}
           <ArrowRight size={12} />

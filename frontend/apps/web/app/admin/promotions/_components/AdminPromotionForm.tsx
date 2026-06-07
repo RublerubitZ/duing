@@ -151,6 +151,7 @@ export function AdminPromotionForm(props: Props) {
   };
 
   const previewStyle = PROMOTION_PALETTE[state.palette];
+  const hasBannerImage = state.bannerImageUrl.trim().length > 0;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -211,30 +212,6 @@ export function AdminPromotionForm(props: Props) {
       </div>
 
       <div>
-        <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">팔레트 (필수)</span>
-        <div className="grid grid-cols-3 gap-2">
-          {PALETTE_OPTIONS.map((option) => {
-            const style = PROMOTION_PALETTE[option.value];
-            const selected = state.palette === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => update('palette', option.value)}
-                className={`relative h-14 rounded-md border-2 px-3 text-left text-[12px] font-semibold transition-colors ${selected ? 'border-ink' : 'border-line hover:border-charcoal-3'}`}
-                style={{ background: style.bg, color: style.fg }}
-              >
-                {option.label}
-                {selected && (
-                  <span className="absolute top-1 right-1.5 text-[10px] font-bold">✓</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div>
         <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">배너 이미지 (선택)</span>
         <ImageUploader
           value={state.bannerImageUrl}
@@ -244,9 +221,37 @@ export function AdminPromotionForm(props: Props) {
           altText="배너 이미지"
         />
         <p className="mt-1 text-[12px] text-charcoal-3">
-          이미지 없이 텍스트+팔레트만으로도 배너 등록이 가능합니다.
+          {hasBannerImage
+            ? '이미지가 등록되어 팔레트 선택은 생략됩니다.'
+            : '이미지 없이 텍스트+팔레트만으로도 배너 등록이 가능합니다.'}
         </p>
       </div>
+
+      {!hasBannerImage && (
+        <div>
+          <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">팔레트 (필수)</span>
+          <div className="grid grid-cols-3 gap-2">
+            {PALETTE_OPTIONS.map((option) => {
+              const style = PROMOTION_PALETTE[option.value];
+              const selected = state.palette === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => update('palette', option.value)}
+                  className={`relative h-14 rounded-md border-2 px-3 text-left text-[12px] font-semibold transition-colors ${selected ? 'border-ink' : 'border-line hover:border-charcoal-3'}`}
+                  style={{ background: style.bg, color: style.fg }}
+                >
+                  {option.label}
+                  {selected && (
+                    <span className="absolute top-1 right-1.5 text-[10px] font-bold">✓</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <Field label="링크 URL (선택, ≤2000자)">
         <input
@@ -311,8 +316,30 @@ export function AdminPromotionForm(props: Props) {
         <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">미리보기</span>
         <div
           className="relative flex h-[200px] flex-col justify-between overflow-hidden rounded-xl px-8 py-7"
-          style={{ background: previewStyle.bg, color: previewStyle.fg }}
+          style={{
+            background: previewStyle.bg,
+            color: hasBannerImage ? '#fff' : previewStyle.fg,
+          }}
         >
+          {hasBannerImage && (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL. 깨지면 팔레트 색만 노출되도록 onError 에서 숨김. */}
+              <img
+                src={state.bannerImageUrl}
+                alt=""
+                aria-hidden
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none';
+                }}
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.65) 100%)' }}
+              />
+            </>
+          )}
           {state.emoji && (
             <div
               className="pointer-events-none absolute -right-2 -top-3 text-[140px] leading-none opacity-[0.18]"
@@ -323,21 +350,27 @@ export function AdminPromotionForm(props: Props) {
           )}
           {state.tag && (
             <div
-              className="inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold"
-              style={{ background: 'rgba(255,255,255,0.14)', color: previewStyle.accent }}
+              className="relative inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold"
+              style={{
+                background: 'rgba(255,255,255,0.14)',
+                color: hasBannerImage ? '#fff' : previewStyle.accent,
+              }}
             >
               {state.tag}
             </div>
           )}
-          <div>
+          <div className="relative">
             <div className="text-[26px] font-bold leading-tight">{state.title || '제목 미리보기'}</div>
             {state.subtitle && (
-              <div className="mt-1.5 text-[13px] opacity-80">{state.subtitle}</div>
+              <div className="mt-1.5 text-[13px] opacity-85">{state.subtitle}</div>
             )}
             {state.ctaLabel && (
               <div
                 className="mt-3 inline-block rounded-md px-3 py-1.5 text-[12px] font-bold"
-                style={{ background: previewStyle.accent, color: '#fff' }}
+                style={{
+                  background: hasBannerImage ? '#9DB6A0' : previewStyle.accent,
+                  color: hasBannerImage ? '#143025' : '#fff',
+                }}
               >
                 {state.ctaLabel} →
               </div>
