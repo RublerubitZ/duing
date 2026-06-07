@@ -82,7 +82,7 @@ function FullBleedPreviewBody({
       type="button"
       onClick={onSelect}
       className={cn(
-        'relative flex-1 min-h-0 cursor-pointer overflow-hidden rounded-lg bg-graysoft',
+        'relative aspect-[85/37] cursor-pointer overflow-hidden rounded-lg bg-graysoft',
         direction === 'left' ? 'animate-preview-in' : 'animate-preview-in-reverse',
       )}
       style={{ animationDelay }}
