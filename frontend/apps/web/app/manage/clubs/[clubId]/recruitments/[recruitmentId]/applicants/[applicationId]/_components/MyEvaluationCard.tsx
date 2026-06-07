@@ -69,21 +69,24 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
   return (
     <section className="rounded border border-blue-200 bg-blue-50 p-4">
       <h3 className="mb-3 text-sm font-semibold text-slate-900">내 평가</h3>
-      <div className="flex items-center gap-3">
-        <span className="text-xs text-neutral-600">점수</span>
-        {([1, 2, 3, 4, 5] as const).map((n) => (
-          <label key={n} className="flex items-center gap-1 text-sm text-slate-700">
-            <input
-              type="radio"
-              name={`score-${applicationId}`}
-              value={n}
-              checked={score === n}
-              onChange={() => setScore(n)}
-            />
-            {n}
-          </label>
-        ))}
-      </div>
+      <fieldset className="border-0 p-0">
+        <legend className="sr-only">점수</legend>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-neutral-600" aria-hidden="true">점수</span>
+          {([1, 2, 3, 4, 5] as const).map((n) => (
+            <label key={n} className="flex items-center gap-1 text-sm text-slate-700">
+              <input
+                type="radio"
+                name={`score-${applicationId}`}
+                value={n}
+                checked={score === n}
+                onChange={() => setScore(n)}
+              />
+              {n}
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <textarea
         value={memo}
         onChange={(event) => setMemo(event.target.value)}

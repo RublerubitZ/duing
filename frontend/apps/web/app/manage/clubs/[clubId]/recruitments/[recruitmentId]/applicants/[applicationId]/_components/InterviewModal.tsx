@@ -54,10 +54,15 @@ export function InterviewModal({ recruitmentId, applicationId, onClose }: Interv
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="interview-modal-title"
+    >
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">면접 일정 입력</h2>
+          <h2 id="interview-modal-title" className="text-lg font-semibold text-slate-900">면접 일정 입력</h2>
           <button
             type="button"
             onClick={onClose}
