@@ -22,7 +22,7 @@ public record UpdatePromotionRequest(
         @Size(max = 8, message = "이모지는 8자 이하여야 합니다.") String emoji,
         PromotionPalette palette,
         PromotionRenderMode renderMode,
-        @Size(max = 200, message = "이미지 대체 텍스트는 200자 이하여야 합니다.") String imageAltText,
+        @Size(max = 200, message = "Alt Text는 200자 이하여야 합니다.") String imageAltText,
         LocalDateTime startAt,
         LocalDateTime endAt,
         Boolean clearBannerImageUrl,

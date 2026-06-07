@@ -26,7 +26,7 @@ public record CreatePromotionRequest(
         LocalDateTime startAt,
         LocalDateTime endAt,
         PromotionRenderMode renderMode,
-        @Size(max = 200, message = "이미지 대체 텍스트는 200자 이하여야 합니다.") String imageAltText
+        @Size(max = 200, message = "Alt Text는 200자 이하여야 합니다.") String imageAltText
 ) {
     @AssertTrue(message = "노출 종료 시각은 시작 시각 이후여야 합니다.")
     public boolean isScheduleRangeValid() {
