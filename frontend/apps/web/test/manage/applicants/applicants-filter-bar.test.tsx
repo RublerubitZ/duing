@@ -1,9 +1,17 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ApplicantsFilterBar } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_components/ApplicantsFilterBar';
 
 describe('ApplicantsFilterBar', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('상태 드롭다운 변경 시 onChange 가 status 와 함께 호출된다', async () => {
     const onChange = vi.fn();
     render(<ApplicantsFilterBar filters={{}} onChange={onChange} useInterview />);
@@ -51,11 +59,10 @@ describe('ApplicantsFilterBar', () => {
     const searchInput = screen.getByLabelText('지원자 검색');
     await userEvent.type(searchInput, '홍길동');
 
-    // debounce 300ms 가 지나도록 실시간 대기
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await vi.advanceTimersByTimeAsync(350);
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ q: '홍길동' }),
     );
-  }, 10_000);
+  });
 });

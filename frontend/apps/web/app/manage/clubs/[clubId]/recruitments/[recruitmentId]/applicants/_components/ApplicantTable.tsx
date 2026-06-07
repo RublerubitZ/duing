@@ -2,8 +2,8 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Applicant, ApplicationStatus } from '@duing/types';
+import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
-import { COLLEGE_LABEL, GRADE_LABEL } from '../_constants/college-grade';
 import { toRoute } from '../../../../../../../_lib/route';
 
 const STATUS_BADGE_CLASS: Record<ApplicationStatus, string> = {
@@ -36,6 +36,7 @@ function MyScoreBadge({ score }: { score: number | null }) {
 type Props = {
   applicants: Applicant[];
   selectedIds: number[];
+  selectedSet: ReadonlySet<number>;
   onSelect: (next: number[]) => void;
   useInterview: boolean;
   clubId: number;
@@ -45,6 +46,7 @@ type Props = {
 export function ApplicantTable({
   applicants,
   selectedIds,
+  selectedSet,
   onSelect,
   useInterview,
   clubId,
@@ -53,13 +55,9 @@ export function ApplicantTable({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  if (applicants.length === 0) {
-    return <p className="mt-6 text-sm text-slate-500">해당 조건의 지원자가 없습니다.</p>;
-  }
-
   const toggleRow = (applicationId: number, status: ApplicationStatus) => {
     if (isTerminalStatus(status)) return;
-    const isSelected = selectedIds.includes(applicationId);
+    const isSelected = selectedSet.has(applicationId);
     onSelect(
       isSelected
         ? selectedIds.filter((id) => id !== applicationId)
@@ -105,7 +103,7 @@ export function ApplicantTable({
         <tbody className="divide-y divide-slate-100 bg-white">
           {applicants.map((applicant) => {
             const isTerminal = isTerminalStatus(applicant.status);
-            const isSelected = selectedIds.includes(applicant.applicationId);
+            const isSelected = selectedSet.has(applicant.applicationId);
             return (
               <tr
                 key={applicant.applicationId}
@@ -132,10 +130,10 @@ export function ApplicantTable({
                 </td>
                 <td className="px-4 py-3 font-medium text-slate-900">{applicant.userName}</td>
                 <td className="px-4 py-3 text-slate-600">
-                  {COLLEGE_LABEL[applicant.college]} · {applicant.major}
+                  {COLLEGE_DISPLAY_NAME[applicant.college]} · {applicant.major}
                 </td>
                 <td className="px-4 py-3 text-slate-600">{applicant.studentId}</td>
-                <td className="px-4 py-3 text-slate-600">{GRADE_LABEL[applicant.grade]}</td>
+                <td className="px-4 py-3 text-slate-600">{GRADE_DISPLAY_NAME[applicant.grade]}</td>
                 <td className="px-4 py-3 text-slate-600">
                   {new Date(applicant.submittedAt).toLocaleString('ko-KR')}
                 </td>

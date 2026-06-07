@@ -24,12 +24,15 @@ const baseApplicant: Applicant = {
   myScore: null,
 };
 
+const emptySet = new Set<number>();
+
 describe('ApplicantTable 확장', () => {
   it('myScore null 이면 "—" 를 표시한다', () => {
     render(
       <ApplicantTable
         applicants={[baseApplicant]}
         selectedIds={[]}
+        selectedSet={emptySet}
         onSelect={() => {}}
         useInterview
         clubId={1}
@@ -44,6 +47,7 @@ describe('ApplicantTable 확장', () => {
       <ApplicantTable
         applicants={[{ ...baseApplicant, applicationId: 2, myScore: 4 }]}
         selectedIds={[]}
+        selectedSet={emptySet}
         onSelect={() => {}}
         useInterview
         clubId={1}
@@ -58,6 +62,7 @@ describe('ApplicantTable 확장', () => {
       <ApplicantTable
         applicants={[{ ...baseApplicant, status: 'ACCEPTED' }]}
         selectedIds={[]}
+        selectedSet={emptySet}
         onSelect={() => {}}
         useInterview
         clubId={1}
@@ -74,6 +79,7 @@ describe('ApplicantTable 확장', () => {
       <ApplicantTable
         applicants={[{ ...baseApplicant, status: 'REJECTED' }]}
         selectedIds={[]}
+        selectedSet={emptySet}
         onSelect={() => {}}
         useInterview
         clubId={1}
@@ -90,6 +96,7 @@ describe('ApplicantTable 확장', () => {
       <ApplicantTable
         applicants={[baseApplicant]}
         selectedIds={[]}
+        selectedSet={emptySet}
         onSelect={() => {}}
         useInterview
         clubId={1}
@@ -105,6 +112,7 @@ describe('ApplicantTable 확장', () => {
       <ApplicantTable
         applicants={[baseApplicant]}
         selectedIds={[]}
+        selectedSet={emptySet}
         onSelect={() => {}}
         useInterview={false}
         clubId={1}
@@ -119,6 +127,7 @@ describe('ApplicantTable 확장', () => {
       <ApplicantTable
         applicants={[baseApplicant]}
         selectedIds={[]}
+        selectedSet={emptySet}
         onSelect={() => {}}
         useInterview
         clubId={1}
@@ -133,6 +142,7 @@ describe('ApplicantTable 확장', () => {
       <ApplicantTable
         applicants={[{ ...baseApplicant, myScore: 5 }]}
         selectedIds={[]}
+        selectedSet={emptySet}
         onSelect={() => {}}
         useInterview
         clubId={1}
@@ -148,6 +158,7 @@ describe('ApplicantTable 확장', () => {
       <ApplicantTable
         applicants={[{ ...baseApplicant, myScore: 2 }]}
         selectedIds={[]}
+        selectedSet={emptySet}
         onSelect={() => {}}
         useInterview
         clubId={1}

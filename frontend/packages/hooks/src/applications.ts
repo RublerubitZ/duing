@@ -191,7 +191,7 @@ export function useUpsertMyApplicationEvaluationMutation() {
         queryKey: applicationQueryKeys.applicantDetail(applicationId),
       });
       // applicants 목록의 myScore 갱신을 위해 접두키로 무효화
-      queryClient.invalidateQueries({ queryKey: ['applications', 'applicants'] });
+      queryClient.invalidateQueries({ queryKey: applicationQueryKeys.applicantsAll() });
     },
   });
 }
@@ -207,7 +207,7 @@ export function useDeleteMyApplicationEvaluationMutation() {
         queryKey: applicationQueryKeys.applicantDetail(applicationId),
       });
       // applicants 목록의 myScore 갱신을 위해 접두키로 무효화
-      queryClient.invalidateQueries({ queryKey: ['applications', 'applicants'] });
+      queryClient.invalidateQueries({ queryKey: applicationQueryKeys.applicantsAll() });
     },
   });
 }

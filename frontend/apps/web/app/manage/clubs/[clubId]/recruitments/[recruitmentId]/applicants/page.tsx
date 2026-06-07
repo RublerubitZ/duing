@@ -69,6 +69,7 @@ export default function ApplicantsPage({ params }: PageParams) {
   const bulkMutation = useBulkUpdateApplicationStatusMutation(recruitmentId);
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const [pendingBulkTarget, setPendingBulkTarget] = useState<
     BulkUpdateApplicationStatusPayload['status'] | null
   >(null);
@@ -212,6 +213,7 @@ export default function ApplicantsPage({ params }: PageParams) {
             <ApplicantTable
               applicants={applicants}
               selectedIds={selectedIds}
+              selectedSet={selectedSet}
               onSelect={setSelectedIds}
               useInterview={useInterview}
               clubId={clubId}
@@ -228,53 +230,16 @@ export default function ApplicantsPage({ params }: PageParams) {
         useInterview={useInterview}
       />
 
-      {/* 일괄 처리 확인 dialog — 기존 컴포넌트 API 유지 */}
-      {pendingBulkTarget &&
-        (pendingBulkTarget === 'ACCEPTED' || pendingBulkTarget === 'REJECTED') && (
-          <BulkConfirmDialog
-            targetStatus={pendingBulkTarget}
-            selectedCount={selectedIds.length}
-            isPending={bulkMutation.isPending}
-            onConfirm={handleBulkConfirm}
-            onCancel={() => setPendingBulkTarget(null)}
-          />
-        )}
-      {pendingBulkTarget &&
-        pendingBulkTarget !== 'ACCEPTED' &&
-        pendingBulkTarget !== 'REJECTED' && (
-          <div
-            role="alertdialog"
-            aria-labelledby="bulk-confirm-title"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
-          >
-            <div className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-xl">
-              <h2 id="bulk-confirm-title" className="text-base font-semibold text-slate-900">
-                {selectedIds.length}건을 일괄 처리할까요?
-              </h2>
-              <p className="text-sm text-slate-600">
-                현재 상태에서 전이가 불가능한 항목은 자동으로 건너뜁니다.
-              </p>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setPendingBulkTarget(null)}
-                  disabled={bulkMutation.isPending}
-                  className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBulkConfirm}
-                  disabled={bulkMutation.isPending}
-                  className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-                >
-                  {bulkMutation.isPending ? '처리 중…' : '확인'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+      {/* 일괄 처리 확인 dialog */}
+      {pendingBulkTarget && (
+        <BulkConfirmDialog
+          targetStatus={pendingBulkTarget}
+          selectedCount={selectedIds.length}
+          isPending={bulkMutation.isPending}
+          onConfirm={handleBulkConfirm}
+          onCancel={() => setPendingBulkTarget(null)}
+        />
+      )}
 
       {/* PII 고지 */}
       <footer className="mt-10 border-t border-slate-100 pt-4 text-center text-xs text-slate-400">

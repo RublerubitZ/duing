@@ -2,11 +2,11 @@
 
 import type { ReactNode } from 'react';
 import type { ApplicantsFilters, ApplicationStatus, College } from '@duing/types';
+import { COLLEGE_DISPLAY_NAME } from '@duing/types';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
-import { COLLEGE_LABEL } from '../_constants/college-grade';
 import { ApplicantsSearchInput } from './ApplicantsSearchInput';
 
-const COLLEGE_OPTIONS = (Object.entries(COLLEGE_LABEL) as [College, string][]).map(
+const COLLEGE_OPTIONS = (Object.entries(COLLEGE_DISPLAY_NAME) as [College, string][]).map(
   ([value, label]) => ({ value, label }),
 );
 
