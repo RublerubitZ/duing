@@ -6,6 +6,7 @@ package com.duing.domain.promotion.entity;
  */
 public enum PromotionPalette {
     INK,
+    PLAIN,
     SAGE,
     WARM,
     CORAL,

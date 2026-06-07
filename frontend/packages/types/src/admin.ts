@@ -329,7 +329,7 @@ export type AdminPromotionBannerUserRef = { id: number; name: string };
  * 랜딩 hero 배너의 색 톤 프리셋. 실제 bg/fg/accent hex 매핑은
  * frontend/apps/web/app/_lib/promotionPalette.ts 에 위치.
  */
-export type PromotionPalette = 'INK' | 'SAGE' | 'WARM' | 'CORAL' | 'BERRY' | 'SKY';
+export type PromotionPalette = 'INK' | 'PLAIN' | 'SAGE' | 'WARM' | 'CORAL' | 'BERRY' | 'SKY';
 
 export type AdminPromotionSummary = {
   id: number;
