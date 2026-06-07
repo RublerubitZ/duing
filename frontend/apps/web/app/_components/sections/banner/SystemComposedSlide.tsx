@@ -235,11 +235,10 @@ function PreviewSlideBody({ slide, direction, animationDelay, onSelect }: Previe
       </div>
       {slide.sub && (
         <div
-          className="relative mt-2 flex items-center gap-1.5 text-xs"
+          className="relative mt-2 text-xs"
           style={{ color: textColor, opacity: 0.85 }}
         >
           {slide.sub.split(' · ')[0]}
-          <ArrowRight size={12} />
         </div>
       )}
     </button>

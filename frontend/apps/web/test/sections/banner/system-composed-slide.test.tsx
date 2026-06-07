@@ -88,4 +88,17 @@ describe('SystemComposedSlide — preview variant', () => {
     expect(screen.getByRole('button')).toBeInTheDocument();
     expect(screen.getByText('테스트 배너 제목')).toBeInTheDocument();
   });
+
+  it('preview 의 부제 영역은 단순 텍스트만 포함하고 아이콘이 없다', () => {
+    render(
+      <SystemComposedSlide
+        variant="preview"
+        slide={makeSlide({ sub: '67개 동아리 · 80개 부스' })}
+        direction="left"
+        onSelect={() => undefined}
+      />,
+    );
+    const subContainer = screen.getByText('67개 동아리');
+    expect(subContainer.querySelector('svg')).toBeNull();
+  });
 });
