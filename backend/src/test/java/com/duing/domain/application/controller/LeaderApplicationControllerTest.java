@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
@@ -72,6 +73,7 @@ class LeaderApplicationControllerTest {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     private String leaderToken;
+    private String memberToken;
     private User leader;
 
     @BeforeEach
@@ -79,6 +81,8 @@ class LeaderApplicationControllerTest {
         RestAssured.port = port;
         leader = saveUser("리더", UserRole.STUDENT, College.IT_ENGINEERING, "컴퓨터공학");
         leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+        User nonMember = saveUser("일반회원", UserRole.STUDENT, College.IT_ENGINEERING, "컴퓨터공학");
+        memberToken = jwtTokenProvider.createToken(nonMember.getId(), nonMember.getRole().name());
     }
 
     @Test
@@ -273,6 +277,113 @@ class LeaderApplicationControllerTest {
                 .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications", recruitment.getId())
                 .then().statusCode(400)
                 .body("message", containsString("submittedFrom"));
+    }
+
+    @Test
+    @DisplayName("동일 필터에서 가운데 지원자의 prev 는 가장 최근, next 는 가장 오래된 지원자 id 다")
+    void neighborsMatchListOrdering() {
+        Club club = saveActiveClub("이웃정렬동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "이웃정렬모집");
+
+        Long oldestId = saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 1, 9, 0));
+        Long middleId = saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 5, 9, 0));
+        Long newestId = saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 10, 9, 0));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications/{applicationId}/neighbors",
+                        recruitment.getId(), middleId)
+                .then().statusCode(200)
+                .body("data.prevApplicationId", equalTo(newestId.intValue()))
+                .body("data.nextApplicationId", equalTo(oldestId.intValue()));
+    }
+
+    @Test
+    @DisplayName("가장 최근 지원자(UI 상 맨 위)는 prevApplicationId 가 null 이다")
+    void newestApplicantHasNullPrev() {
+        Club club = saveActiveClub("최신이웃동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "최신이웃모집");
+
+        Long olderId = saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 1, 9, 0));
+        Long newestId = saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 10, 9, 0));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications/{applicationId}/neighbors",
+                        recruitment.getId(), newestId)
+                .then().statusCode(200)
+                .body("data.prevApplicationId", nullValue())
+                .body("data.nextApplicationId", equalTo(olderId.intValue()));
+    }
+
+    @Test
+    @DisplayName("가장 오래된 지원자(UI 상 맨 아래)는 nextApplicationId 가 null 이다")
+    void oldestApplicantHasNullNext() {
+        Club club = saveActiveClub("오래된이웃동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "오래된이웃모집");
+
+        Long oldestId = saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 1, 9, 0));
+        saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 10, 9, 0));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications/{applicationId}/neighbors",
+                        recruitment.getId(), oldestId)
+                .then().statusCode(200)
+                .body("data.nextApplicationId", nullValue());
+    }
+
+    @Test
+    @DisplayName("필터로 1건만 남으면 prevApplicationId, nextApplicationId 모두 null 이다")
+    void filteredToSingleResultReturnsBothNull() {
+        Club club = saveActiveClub("단일필터이웃동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "단일필터이웃모집");
+
+        Long submittedId = saveApplicationWithStatus(recruitment,
+                saveUser("제출자", UserRole.STUDENT, College.EDUCATION, "교육학"),
+                ApplicationStatus.SUBMITTED).getId();
+        saveApplicationWithStatus(recruitment,
+                saveUser("검토자", UserRole.STUDENT, College.EDUCATION, "교육학"),
+                ApplicationStatus.UNDER_REVIEW);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .queryParam("status", "SUBMITTED")
+                .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications/{applicationId}/neighbors",
+                        recruitment.getId(), submittedId)
+                .then().statusCode(200)
+                .body("data.prevApplicationId", nullValue())
+                .body("data.nextApplicationId", nullValue());
+    }
+
+    @Test
+    @DisplayName("운영진이 아닌 사용자가 neighbor 조회 시 403 을 반환한다")
+    void nonManagerCannotAccessNeighbors() {
+        Club club = saveActiveClub("권한이웃동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "권한이웃모집");
+        Long applicationId = saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 1, 9, 0));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications/{applicationId}/neighbors",
+                        recruitment.getId(), applicationId)
+                .then().statusCode(403);
+    }
+
+    private Long saveApplicationAtTime(Recruitment recruitment, LocalDateTime createdAt) {
+        User applicant = saveUser("지원자", UserRole.STUDENT, College.IT_ENGINEERING, "전자공학");
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of()));
+        jdbcTemplate.update(
+                "UPDATE application SET created_at = ? WHERE id = ?",
+                java.sql.Timestamp.valueOf(createdAt),
+                application.getId());
+        return application.getId();
     }
 
     private User saveUser(String name, UserRole role, College college, String major) {

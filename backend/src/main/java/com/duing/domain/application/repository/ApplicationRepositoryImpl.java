@@ -6,6 +6,7 @@ import static com.duing.domain.user.entity.QUser.user;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.service.dto.query.ApplicantNeighborsQuery;
 import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
 import com.duing.domain.user.entity.College;
 import com.querydsl.core.Tuple;
@@ -54,6 +55,57 @@ public class ApplicationRepositoryImpl implements ApplicationRepositoryCustom {
                         tuple.get(application),
                         tuple.get(applicationEvaluation.score)))
                 .toList();
+    }
+
+    @Override
+    public ApplicantNeighborsQuery findNeighbors(Long recruitmentId, Long applicationId,
+                                                  ApplicantSearchCondition condition) {
+        LocalDateTime pivot = queryFactory
+                .select(application.createdAt)
+                .from(application)
+                .where(application.id.eq(applicationId))
+                .fetchOne();
+        if (pivot == null) {
+            return new ApplicantNeighborsQuery(null, null);
+        }
+
+        // prev = createdAt > pivot (더 최신, UI 상 위) 중 가장 가까운 것 → asc 후 limit 1
+        Long prevId = queryFactory
+                .select(application.id)
+                .from(application)
+                .join(application.user, user)
+                .where(
+                        application.recruitment.id.eq(recruitmentId),
+                        application.createdAt.gt(pivot),
+                        statusEq(condition.status()),
+                        collegeEq(condition.college()),
+                        searchKeyword(condition.q()),
+                        submittedAfter(condition.submittedFrom()),
+                        submittedBefore(condition.submittedTo())
+                )
+                .orderBy(application.createdAt.asc())
+                .limit(1)
+                .fetchOne();
+
+        // next = createdAt < pivot (더 오래된, UI 상 아래) 중 가장 가까운 것 → desc 후 limit 1
+        Long nextId = queryFactory
+                .select(application.id)
+                .from(application)
+                .join(application.user, user)
+                .where(
+                        application.recruitment.id.eq(recruitmentId),
+                        application.createdAt.lt(pivot),
+                        statusEq(condition.status()),
+                        collegeEq(condition.college()),
+                        searchKeyword(condition.q()),
+                        submittedAfter(condition.submittedFrom()),
+                        submittedBefore(condition.submittedTo())
+                )
+                .orderBy(application.createdAt.desc())
+                .limit(1)
+                .fetchOne();
+
+        return new ApplicantNeighborsQuery(prevId, nextId);
     }
 
     private BooleanExpression statusEq(ApplicationStatus status) {
