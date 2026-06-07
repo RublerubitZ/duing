@@ -34,6 +34,9 @@ export {
   useUpdateApplicationStatusMutation,
   useBulkUpdateApplicationStatusMutation,
   useUpdateInterviewMutation,
+  useApplicantNeighborsQuery,
+  useUpsertMyApplicationEvaluationMutation,
+  useDeleteMyApplicationEvaluationMutation,
 } from './applications';
 export {
   useRecruitmentStatsSummaryQuery,

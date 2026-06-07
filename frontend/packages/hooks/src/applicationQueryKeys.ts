@@ -1,4 +1,4 @@
-import type { ApplicationScope } from '@duing/types';
+import type { ApplicationScope, ApplicantsFilters } from '@duing/types';
 
 export const applicationQueryKeys = {
   all: ['applications'] as const,
@@ -7,8 +7,20 @@ export const applicationQueryKeys = {
     [...applicationQueryKeys.allMyLists, { scope }] as const,
   myDetail: (applicationId: number) =>
     [...applicationQueryKeys.allMyLists, applicationId] as const,
-  applicants: (recruitmentId: number) =>
-    [...applicationQueryKeys.all, 'applicants', recruitmentId] as const,
+  applicants: (recruitmentId: number, filters?: ApplicantsFilters) =>
+    [...applicationQueryKeys.all, 'applicants', recruitmentId, filters ?? {}] as const,
   applicantDetail: (applicationId: number) =>
     [...applicationQueryKeys.all, 'applicantDetail', applicationId] as const,
+  applicantNeighbors: (
+    recruitmentId: number,
+    applicationId: number,
+    filters?: ApplicantsFilters,
+  ) =>
+    [
+      ...applicationQueryKeys.all,
+      'applicantNeighbors',
+      recruitmentId,
+      applicationId,
+      filters ?? {},
+    ] as const,
 };
