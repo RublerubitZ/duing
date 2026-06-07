@@ -63,6 +63,22 @@ describe('SystemComposedSlide — main variant', () => {
     expect(link).toHaveAttribute('href', '/clubs');
   });
 
+  it('main 의 href 가 null 이면 role=link 가 없고 cursor-default 가 적용된 div 로 렌더된다', () => {
+    const { container } = render(<SystemComposedSlide variant="main" slide={makeSlide({ href: null })} />);
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByText('테스트 배너 제목')).toBeInTheDocument();
+    const wrappingDiv = container.firstChild as HTMLElement;
+    expect(wrappingDiv.tagName.toLowerCase()).toBe('div');
+    expect(wrappingDiv.className).toContain('cursor-default');
+  });
+
+  it('main 의 href 가 null 이면 wrapping 요소가 Tab focus 불가능하다', () => {
+    const { container } = render(<SystemComposedSlide variant="main" slide={makeSlide({ href: null })} />);
+    const wrappingDiv = container.firstChild as HTMLElement;
+    expect(wrappingDiv.tagName.toLowerCase()).toBe('div');
+    expect(wrappingDiv.tabIndex).toBe(-1);
+  });
+
   it('CTA 라벨이 빈 문자열이면 메인 슬라이드에 버튼이 렌더되지 않는다', () => {
     render(<SystemComposedSlide variant="main" slide={makeSlide({ cta: '' })} />);
     expect(screen.getByText('테스트 배너 제목')).toBeInTheDocument();
