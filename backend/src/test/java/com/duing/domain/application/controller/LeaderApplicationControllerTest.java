@@ -83,7 +83,7 @@ class LeaderApplicationControllerTest {
 
     @Test
     @DisplayName("status 필터를 적용하면 해당 상태의 지원자만 반환된다")
-    void statusFilterReturnsMatching() throws Exception {
+    void statusFilterReturnsMatching() {
         Club club = saveActiveClub("상태필터동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveOpenRecruitment(club, "상태필터모집");
@@ -107,7 +107,7 @@ class LeaderApplicationControllerTest {
 
     @Test
     @DisplayName("college 필터를 적용하면 해당 단과대 지원자만 반환된다")
-    void collegeFilterReturnsMatching() throws Exception {
+    void collegeFilterReturnsMatching() {
         Club club = saveActiveClub("단과대필터동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveOpenRecruitment(club, "단과대필터모집");
@@ -130,8 +130,8 @@ class LeaderApplicationControllerTest {
     }
 
     @Test
-    @DisplayName("q 파라미터는 이름·학번·major 어느 하나만 일치해도 대소문자 무시로 매칭된다")
-    void searchKeywordMatchesNameOrStudentIdOrMajor() throws Exception {
+    @DisplayName("q=홍길동 으로 검색하면 이름이 일치하는 지원자 1건만 반환된다")
+    void searchByNameMatches() {
         Club club = saveActiveClub("검색필터동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveOpenRecruitment(club, "검색필터모집");
@@ -144,23 +144,53 @@ class LeaderApplicationControllerTest {
         saveApplicationWithStatus(recruitment, applicantKim, ApplicationStatus.SUBMITTED);
         saveApplicationWithStatus(recruitment, applicantPark, ApplicationStatus.SUBMITTED);
 
-        // 이름으로 검색
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .queryParam("q", "홍길동")
                 .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications", recruitment.getId())
                 .then().statusCode(200)
                 .body("data.size()", is(1));
+    }
 
-        // 학번으로 검색
+    @Test
+    @DisplayName("q=20210042 으로 검색하면 학번이 일치하는 지원자 1건만 반환된다")
+    void searchByStudentIdMatches() {
+        Club club = saveActiveClub("학번검색동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "학번검색모집");
+
+        User applicantHong = saveUserWithStudentId("홍길동", "20200001", College.IT_ENGINEERING, "컴퓨터공학");
+        User applicantKim = saveUserWithStudentId("김민수", "20210042", College.IT_ENGINEERING, "ComputerScience");
+        User applicantPark = saveUserWithStudentId("박지호", "20220099", College.IT_ENGINEERING, "전자공학");
+
+        saveApplicationWithStatus(recruitment, applicantHong, ApplicationStatus.SUBMITTED);
+        saveApplicationWithStatus(recruitment, applicantKim, ApplicationStatus.SUBMITTED);
+        saveApplicationWithStatus(recruitment, applicantPark, ApplicationStatus.SUBMITTED);
+
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .queryParam("q", "20210042")
                 .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications", recruitment.getId())
                 .then().statusCode(200)
                 .body("data.size()", is(1));
+    }
 
-        // major 대소문자 무시 검색 — "computer" 는 "ComputerScience" 에 매칭
+    @Test
+    @DisplayName("q=computer 로 검색하면 major 가 ComputerScience 인 지원자가 대소문자 무시로 매칭된다")
+    void searchByMajorIgnoresAsciiCase() {
+        Club club = saveActiveClub("전공검색동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "전공검색모집");
+
+        User applicantHong = saveUserWithStudentId("홍길동", "20200001", College.IT_ENGINEERING, "컴퓨터공학");
+        User applicantKim = saveUserWithStudentId("김민수", "20210042", College.IT_ENGINEERING, "ComputerScience");
+        User applicantPark = saveUserWithStudentId("박지호", "20220099", College.IT_ENGINEERING, "전자공학");
+
+        saveApplicationWithStatus(recruitment, applicantHong, ApplicationStatus.SUBMITTED);
+        saveApplicationWithStatus(recruitment, applicantKim, ApplicationStatus.SUBMITTED);
+        saveApplicationWithStatus(recruitment, applicantPark, ApplicationStatus.SUBMITTED);
+
+        // "computer" 는 "ComputerScience" 에 ILIKE 매칭 — ASCII 범위이므로 PostgreSQL ILIKE 가 fold 함
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .queryParam("q", "computer")
@@ -171,7 +201,7 @@ class LeaderApplicationControllerTest {
 
     @Test
     @DisplayName("submittedTo 당일 23:59 에 제출된 지원자도 포함된다")
-    void submittedToInclusiveBoundary() throws Exception {
+    void submittedToInclusiveBoundary() {
         Club club = saveActiveClub("경계테스트동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveOpenRecruitment(club, "경계테스트모집");
@@ -195,8 +225,43 @@ class LeaderApplicationControllerTest {
     }
 
     @Test
+    @DisplayName("submittedFrom 당일 00:00 에 제출된 지원자도 포함되고, 직전(전날 23:59) 제출은 제외된다")
+    void submittedFromInclusiveBoundary() {
+        Club club = saveActiveClub("시작경계테스트동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "시작경계테스트모집");
+
+        User includedApplicant = saveUser("포함지원자", UserRole.STUDENT, College.EDUCATION, "교육학");
+        User excludedApplicant = saveUser("제외지원자", UserRole.STUDENT, College.EDUCATION, "교육학");
+
+        Application includedApplication = applicationRepository.save(
+                Application.submit(recruitment, includedApplicant, List.of()));
+        Application excludedApplication = applicationRepository.save(
+                Application.submit(recruitment, excludedApplicant, List.of()));
+
+        // 2026-05-15 00:00:30 제출 → submittedFrom=2026-05-15 에 포함
+        jdbcTemplate.update(
+                "UPDATE application SET created_at = ? WHERE id = ?",
+                java.sql.Timestamp.valueOf(LocalDateTime.of(2026, 5, 15, 0, 0, 30)),
+                includedApplication.getId());
+        // 2026-05-14 23:59:30 제출 → submittedFrom=2026-05-15 에서 제외
+        jdbcTemplate.update(
+                "UPDATE application SET created_at = ? WHERE id = ?",
+                java.sql.Timestamp.valueOf(LocalDateTime.of(2026, 5, 14, 23, 59, 30)),
+                excludedApplication.getId());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .queryParam("submittedFrom", "2026-05-15")
+                .queryParam("submittedTo", "2026-05-15")
+                .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications", recruitment.getId())
+                .then().statusCode(200)
+                .body("data.size()", is(1));
+    }
+
+    @Test
     @DisplayName("submittedFrom 이 submittedTo 보다 늦으면 400 을 반환한다")
-    void invalidDateRange() throws Exception {
+    void invalidDateRange() {
         Club club = saveActiveClub("날짜오류동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveOpenRecruitment(club, "날짜오류모집");
@@ -242,12 +307,16 @@ class LeaderApplicationControllerTest {
         ));
     }
 
-    private Club saveActiveClub(String name) throws Exception {
+    private Club saveActiveClub(String name) {
         String uniqueName = name + "-" + sequence.incrementAndGet();
         Club club = Club.create(uniqueName, ClubCategory.ACADEMIC, "분과", "설명", null);
-        Field statusField = Club.class.getDeclaredField("status");
-        statusField.setAccessible(true);
-        statusField.set(club, ClubStatus.ACTIVE);
+        try {
+            Field statusField = Club.class.getDeclaredField("status");
+            statusField.setAccessible(true);
+            statusField.set(club, ClubStatus.ACTIVE);
+        } catch (ReflectiveOperationException reflectionFailure) {
+            throw new IllegalStateException(reflectionFailure);
+        }
         return clubRepository.save(club);
     }
 
@@ -259,11 +328,15 @@ class LeaderApplicationControllerTest {
     }
 
     private Application saveApplicationWithStatus(Recruitment recruitment, User applicant,
-            ApplicationStatus status) throws Exception {
+            ApplicationStatus status) {
         Application application = Application.submit(recruitment, applicant, List.of());
-        Field statusField = Application.class.getDeclaredField("status");
-        statusField.setAccessible(true);
-        statusField.set(application, status);
+        try {
+            Field statusField = Application.class.getDeclaredField("status");
+            statusField.setAccessible(true);
+            statusField.set(application, status);
+        } catch (ReflectiveOperationException reflectionFailure) {
+            throw new IllegalStateException(reflectionFailure);
+        }
         return applicationRepository.save(application);
     }
 
