@@ -178,7 +178,7 @@ function PreviewSlideBody({ slide, direction, animationDelay, onSelect }: Previe
       type="button"
       onClick={onSelect}
       className={cn(
-        'relative flex-1 cursor-pointer overflow-hidden rounded-lg px-5 py-[18px] text-left',
+        'relative flex-1 min-h-0 cursor-pointer overflow-hidden rounded-lg px-5 py-[18px] text-left',
         direction === 'left' ? 'animate-preview-in' : 'animate-preview-in-reverse',
       )}
       style={{ background: slide.bg, color: textColor, animationDelay }}
