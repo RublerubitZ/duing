@@ -10,6 +10,7 @@ import type {
 } from '@duing/types';
 import { ImageUploader } from '../../../_components/ImageUploader';
 import { PALETTE_OPTIONS, PROMOTION_PALETTE } from '../../../_lib/promotionPalette';
+import { ClubSelector } from './ClubSelector';
 
 type CreateMode = {
   mode: 'create';
@@ -33,7 +34,8 @@ type FormState = {
   bannerImageUrl: string;
   linkUrl: string;
   isCuration: boolean;
-  clubIdText: string;
+  clubId: number | null;
+  clubName: string | null;
   active: boolean;
   displayOrder: string;
   palette: PromotionPalette;
@@ -50,7 +52,8 @@ function buildInitialState(initialValues?: AdminPromotionSummary): FormState {
       bannerImageUrl: '',
       linkUrl: '',
       isCuration: true,
-      clubIdText: '',
+      clubId: null,
+      clubName: null,
       active: true,
       displayOrder: '0',
       palette: 'INK',
@@ -65,7 +68,8 @@ function buildInitialState(initialValues?: AdminPromotionSummary): FormState {
     bannerImageUrl: initialValues.bannerImageUrl ?? '',
     linkUrl: initialValues.linkUrl ?? '',
     isCuration: initialValues.club === null,
-    clubIdText: initialValues.club ? String(initialValues.club.id) : '',
+    clubId: initialValues.club?.id ?? null,
+    clubName: initialValues.club?.name ?? null,
     active: initialValues.active,
     displayOrder: String(initialValues.displayOrder),
     palette: initialValues.palette,
@@ -94,7 +98,7 @@ export function AdminPromotionForm(props: Props) {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const clubId = state.isCuration ? null : (state.clubIdText ? Number(state.clubIdText) : null);
+    const clubId = state.isCuration ? null : state.clubId;
     const displayOrderValue = Number(state.displayOrder);
     const bannerImage = trimToNull(state.bannerImageUrl);
     const linkUrlValue = trimToNull(state.linkUrl);
@@ -279,17 +283,18 @@ export function AdminPromotionForm(props: Props) {
             onChange={(event) => update('isCuration', event.target.checked)}
           />
           큐레이션 배너 (동아리 미연결)
-        </label>
-        {!state.isCuration && (
+        </label>        {!state.isCuration && (
           <div className="mt-2">
-            <label className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">동아리 ID</label>
-            <input
-              type="number"
-              min={1}
-              value={state.clubIdText}
-              onChange={(event) => update('clubIdText', event.target.value)}
-              placeholder="동아리 ID 입력"
-              className="w-40 px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            <label className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">동아리 선택</label>
+            <ClubSelector
+              selectedClubId={state.clubId}
+              selectedClubName={state.clubName}
+              onSelect={(clubId, clubName) => {
+                setState((prev) => ({ ...prev, clubId, clubName }));
+              }}
+              onClear={() => {
+                setState((prev) => ({ ...prev, clubId: null, clubName: null }));
+              }}
             />
           </div>
         )}
