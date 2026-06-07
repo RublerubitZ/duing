@@ -6,6 +6,7 @@ import com.duing.domain.application.service.dto.command.SubmitApplicationCommand
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
 import com.duing.domain.application.service.dto.command.UpdateInterviewCommand;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
+import com.duing.domain.application.service.dto.query.ApplicantNeighborsQuery;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
@@ -31,4 +32,7 @@ public interface ApplicationService {
     BulkUpdateApplicationStatusResult bulkUpdateStatus(BulkUpdateApplicationStatusCommand bulkCommand);
 
     void updateInterview(UpdateInterviewCommand updateInterviewCommand);
+
+    ApplicantNeighborsQuery getNeighbors(Long recruitmentId, Long applicationId, Long currentUserId,
+                                         ApplicantSearchCondition condition);
 }

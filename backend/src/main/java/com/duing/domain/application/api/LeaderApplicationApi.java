@@ -4,6 +4,7 @@ import com.duing.domain.application.controller.dto.request.BulkUpdateApplication
 import com.duing.domain.application.controller.dto.request.UpdateApplicationInterviewRequest;
 import com.duing.domain.application.controller.dto.request.UpdateApplicationStatusRequest;
 import com.duing.domain.application.controller.dto.response.ApplicantDetailResponse;
+import com.duing.domain.application.controller.dto.response.ApplicantNeighborsResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantResponse;
 import com.duing.domain.application.controller.dto.response.BulkUpdateApplicationStatusResponse;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -40,11 +41,11 @@ public interface LeaderApplicationApi {
     @GetMapping("/leader/recruitments/{recruitmentId}/applications")
     ResponseEntity<ApiResponse<List<ApplicantResponse>>> getApplicants(
             @PathVariable Long recruitmentId,
-            @Parameter(description = "지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)")
+            @Parameter(description = "지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)", example = "UNDER_REVIEW")
             @RequestParam(required = false) ApplicationStatus status,
-            @Parameter(description = "단과대 필터")
+            @Parameter(description = "단과대 필터", example = "ENGINEERING")
             @RequestParam(required = false) College college,
-            @Parameter(description = "이름·학번·학과명 부분일치(OR), 대소문자 무시")
+            @Parameter(description = "이름·학번·학과명 부분일치(OR), 대소문자 무시", example = "홍길동")
             @RequestParam(required = false) String q,
             @Parameter(description = "제출일 시작 (inclusive, yyyy-MM-dd)", example = "2026-05-01")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedFrom,
@@ -82,5 +83,29 @@ public interface LeaderApplicationApi {
             @PathVariable Long applicationId,
             @Valid @RequestBody UpdateApplicationInterviewRequest updateApplicationInterviewRequest,
             @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(
+            summary = "지원자 이웃(prev/next) 조회",
+            description = "운영진 상세 페이지의 이전/다음 지원자 이동용. "
+                    + "동일 필터 컨텍스트에서 createdAt desc 정렬 기준 이웃을 반환한다. "
+                    + "prev = 더 최근 (UI 상 위쪽), next = 더 오래된 (UI 상 아래쪽). "
+                    + "해당 방향 이웃이 없으면 null."
+    )
+    @GetMapping("/leader/recruitments/{recruitmentId}/applications/{applicationId}/neighbors")
+    ResponseEntity<ApiResponse<ApplicantNeighborsResponse>> getApplicantNeighbors(
+            @PathVariable Long recruitmentId,
+            @PathVariable Long applicationId,
+            @Parameter(description = "지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)", example = "UNDER_REVIEW")
+            @RequestParam(required = false) ApplicationStatus status,
+            @Parameter(description = "단과대 필터", example = "ENGINEERING")
+            @RequestParam(required = false) College college,
+            @Parameter(description = "이름·학번·학과명 부분일치(OR), 대소문자 무시", example = "홍길동")
+            @RequestParam(required = false) String q,
+            @Parameter(description = "제출일 시작 (inclusive, yyyy-MM-dd)", example = "2026-05-01")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedFrom,
+            @Parameter(description = "제출일 종료 (inclusive, yyyy-MM-dd)", example = "2026-05-31")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedTo,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }

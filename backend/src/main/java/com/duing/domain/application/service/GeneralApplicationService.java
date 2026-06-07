@@ -11,6 +11,7 @@ import com.duing.domain.application.service.dto.command.SubmitApplicationCommand
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
 import com.duing.domain.application.service.dto.command.UpdateInterviewCommand;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
+import com.duing.domain.application.service.dto.query.ApplicantNeighborsQuery;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
@@ -275,6 +276,15 @@ public class GeneralApplicationService implements ApplicationService {
                 application.getRecruitment().getClub().getName(),
                 application.getInterviewAt(),
                 application.getInterviewLocation()));
+    }
+
+    @Override
+    public ApplicantNeighborsQuery getNeighbors(Long recruitmentId, Long applicationId, Long currentUserId,
+                                                 ApplicantSearchCondition condition) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
+        return applicationRepository.findNeighbors(recruitmentId, applicationId, condition);
     }
 
     /**

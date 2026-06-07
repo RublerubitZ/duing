@@ -5,10 +5,12 @@ import com.duing.domain.application.controller.dto.request.BulkUpdateApplication
 import com.duing.domain.application.controller.dto.request.UpdateApplicationInterviewRequest;
 import com.duing.domain.application.controller.dto.request.UpdateApplicationStatusRequest;
 import com.duing.domain.application.controller.dto.response.ApplicantDetailResponse;
+import com.duing.domain.application.controller.dto.response.ApplicantNeighborsResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantResponse;
 import com.duing.domain.application.controller.dto.response.BulkUpdateApplicationStatusResponse;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.service.ApplicationService;
+import com.duing.domain.application.service.dto.query.ApplicantNeighborsQuery;
 import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
 import com.duing.domain.user.entity.College;
 import com.duing.global.auth.UserPrincipal;
@@ -94,5 +96,22 @@ public class LeaderApplicationController implements LeaderApplicationApi {
         applicationService.updateInterview(
                 updateApplicationInterviewRequest.toCommand(applicationId, currentUser.id()));
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<ApplicantNeighborsResponse>> getApplicantNeighbors(
+            @PathVariable Long recruitmentId,
+            @PathVariable Long applicationId,
+            @RequestParam(required = false) ApplicationStatus status,
+            @RequestParam(required = false) College college,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedTo,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        ApplicantSearchCondition condition = new ApplicantSearchCondition(status, college, q, submittedFrom, submittedTo);
+        ApplicantNeighborsQuery neighborsQuery = applicationService.getNeighbors(
+                recruitmentId, applicationId, currentUser.id(), condition);
+        return ResponseEntity.ok(ApiResponse.success(ApplicantNeighborsResponse.from(neighborsQuery)));
     }
 }
