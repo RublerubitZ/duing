@@ -11,6 +11,7 @@ import com.duing.domain.user.entity.College;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,12 +40,17 @@ public interface LeaderApplicationApi {
     @GetMapping("/leader/recruitments/{recruitmentId}/applications")
     ResponseEntity<ApiResponse<List<ApplicantResponse>>> getApplicants(
             @PathVariable Long recruitmentId,
+            @Parameter(description = "지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)")
             @RequestParam(required = false) ApplicationStatus status,
+            @Parameter(description = "단과대 필터")
             @RequestParam(required = false) College college,
+            @Parameter(description = "이름·학번·학과명 부분일치(OR), 대소문자 무시")
             @RequestParam(required = false) String q,
+            @Parameter(description = "제출일 시작 (inclusive, yyyy-MM-dd)", example = "2026-05-01")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedFrom,
+            @Parameter(description = "제출일 종료 (inclusive, yyyy-MM-dd)", example = "2026-05-31")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedTo,
-            @AuthenticationPrincipal UserPrincipal currentUser
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
     @Operation(summary = "지원자 답변 상세 조회", description = "운영진이 지원자 모달에서 답변·신원·면접 정보를 한 번에 조회한다.")
