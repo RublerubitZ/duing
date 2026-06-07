@@ -29,6 +29,8 @@ type Props = (CreateMode | EditMode) & {
   errorMessage?: string | null;
 };
 
+type ScheduleMode = 'ALWAYS' | 'SCHEDULED';
+
 type FormState = {
   title: string;
   bannerImageUrl: string;
@@ -43,7 +45,20 @@ type FormState = {
   subtitle: string;
   ctaLabel: string;
   emoji: string;
+  scheduleMode: ScheduleMode;
+  /** datetime-local 입력값 — "YYYY-MM-DDTHH:mm" 형식. 빈 문자열 = 미지정. */
+  startAt: string;
+  endAt: string;
 };
+
+/**
+ * 서버의 ISO 문자열 ("2026-06-01T09:00:00") 을 datetime-local input 이 받아들이는
+ * "YYYY-MM-DDTHH:mm" 형식으로 자른다.
+ */
+function toDateTimeLocalValue(iso: string | null): string {
+  if (!iso) return '';
+  return iso.slice(0, 16);
+}
 
 function buildInitialState(initialValues?: AdminPromotionSummary): FormState {
   if (!initialValues) {
@@ -61,8 +76,12 @@ function buildInitialState(initialValues?: AdminPromotionSummary): FormState {
       subtitle: '',
       ctaLabel: '',
       emoji: '',
+      scheduleMode: 'ALWAYS',
+      startAt: '',
+      endAt: '',
     };
   }
+  const hasSchedule = initialValues.startAt !== null || initialValues.endAt !== null;
   return {
     title: initialValues.title,
     bannerImageUrl: initialValues.bannerImageUrl ?? '',
@@ -77,6 +96,9 @@ function buildInitialState(initialValues?: AdminPromotionSummary): FormState {
     subtitle: initialValues.subtitle ?? '',
     ctaLabel: initialValues.ctaLabel ?? '',
     emoji: initialValues.emoji ?? '',
+    scheduleMode: hasSchedule ? 'SCHEDULED' : 'ALWAYS',
+    startAt: toDateTimeLocalValue(initialValues.startAt),
+    endAt: toDateTimeLocalValue(initialValues.endAt),
   };
 }
 
@@ -102,6 +124,8 @@ export function AdminPromotionForm(props: Props) {
     const displayOrderValue = Number(state.displayOrder);
     const bannerImage = trimToNull(state.bannerImageUrl);
     const linkUrlValue = trimToNull(state.linkUrl);
+    const scheduledStart = state.scheduleMode === 'SCHEDULED' ? trimToNull(state.startAt) : null;
+    const scheduledEnd = state.scheduleMode === 'SCHEDULED' ? trimToNull(state.endAt) : null;
 
     if (mode === 'create') {
       const payload: CreatePromotionPayload = {
@@ -116,6 +140,8 @@ export function AdminPromotionForm(props: Props) {
         subtitle: trimToNull(state.subtitle),
         ctaLabel: trimToNull(state.ctaLabel),
         emoji: trimToNull(state.emoji),
+        startAt: scheduledStart,
+        endAt: scheduledEnd,
       };
       await props.onSubmit(payload);
     } else {
@@ -149,6 +175,18 @@ export function AdminPromotionForm(props: Props) {
       assignOrClear(payload, 'subtitle', 'clearSubtitle', state.subtitle, initialValues.subtitle);
       assignOrClear(payload, 'ctaLabel', 'clearCtaLabel', state.ctaLabel, initialValues.ctaLabel);
       assignOrClear(payload, 'emoji', 'clearEmoji', state.emoji, initialValues.emoji);
+
+      // 기간 — SCHEDULED 면 값을 보내고, ALWAYS 면 원래 값이 있던 경우만 clear 플래그.
+      if (scheduledStart === null) {
+        if (initialValues.startAt !== null) payload.clearStartAt = true;
+      } else {
+        payload.startAt = scheduledStart;
+      }
+      if (scheduledEnd === null) {
+        if (initialValues.endAt !== null) payload.clearEndAt = true;
+      } else {
+        payload.endAt = scheduledEnd;
+      }
 
       if (hadClub && nowCuration) {
         payload.clearClubId = true;
@@ -309,6 +347,55 @@ export function AdminPromotionForm(props: Props) {
           />
           활성 (배너 노출)
         </label>
+      </div>
+
+      <div className="space-y-2">
+        <span className="block text-[12.5px] font-semibold text-charcoal-2">노출 기간</span>
+        <div className="flex items-center gap-5 text-[13.5px]">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="scheduleMode"
+              checked={state.scheduleMode === 'ALWAYS'}
+              onChange={() => update('scheduleMode', 'ALWAYS')}
+            />
+            상시 노출
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="scheduleMode"
+              checked={state.scheduleMode === 'SCHEDULED'}
+              onChange={() => update('scheduleMode', 'SCHEDULED')}
+            />
+            기간 노출
+          </label>
+        </div>
+        {state.scheduleMode === 'SCHEDULED' && (
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <label className="block">
+              <span className="block text-[12px] font-semibold text-charcoal-3 mb-1">시작</span>
+              <input
+                type="datetime-local"
+                value={state.startAt}
+                onChange={(event) => update('startAt', event.target.value)}
+                className="w-full px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-[12px] font-semibold text-charcoal-3 mb-1">종료</span>
+              <input
+                type="datetime-local"
+                value={state.endAt}
+                onChange={(event) => update('endAt', event.target.value)}
+                className="w-full px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+              />
+            </label>
+            <p className="col-span-2 text-[12px] text-charcoal-3">
+              한쪽만 비워두면 그 방향은 상시(시작 미지정=즉시 / 종료 미지정=만료 없음) 처리됩니다.
+            </p>
+          </div>
+        )}
       </div>
 
       <Field label="노출 순서 (숫자가 작을수록 앞에 표시)">

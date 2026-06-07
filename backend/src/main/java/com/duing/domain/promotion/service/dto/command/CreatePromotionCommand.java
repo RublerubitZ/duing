@@ -1,6 +1,7 @@
 package com.duing.domain.promotion.service.dto.command;
 
 import com.duing.domain.promotion.entity.PromotionPalette;
+import java.time.LocalDateTime;
 
 public record CreatePromotionCommand(
         Long clubId,
@@ -14,5 +15,7 @@ public record CreatePromotionCommand(
         String subtitle,
         String ctaLabel,
         String emoji,
-        PromotionPalette palette
+        PromotionPalette palette,
+        LocalDateTime startAt,
+        LocalDateTime endAt
 ) {}

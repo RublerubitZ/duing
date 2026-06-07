@@ -347,6 +347,10 @@ export type AdminPromotionSummary = {
   ctaLabel: string | null;
   emoji: string | null;
   palette: PromotionPalette;
+  /** ISO 8601 — 노출 시작 시각. null=상시(즉시 노출). */
+  startAt: string | null;
+  /** ISO 8601 — 노출 종료 시각. null=상시(만료 없음). */
+  endAt: string | null;
 };
 
 export type AdminPromotionSearchParams = {
@@ -369,6 +373,8 @@ export type CreatePromotionPayload = {
   subtitle?: string | null;
   ctaLabel?: string | null;
   emoji?: string | null;
+  startAt?: string | null;
+  endAt?: string | null;
 };
 
 export type UpdatePromotionPayload = {
@@ -384,12 +390,16 @@ export type UpdatePromotionPayload = {
   subtitle?: string;
   ctaLabel?: string;
   emoji?: string;
+  startAt?: string;
+  endAt?: string;
   clearBannerImageUrl?: boolean;
   clearLinkUrl?: boolean;
   clearTag?: boolean;
   clearSubtitle?: boolean;
   clearCtaLabel?: boolean;
   clearEmoji?: boolean;
+  clearStartAt?: boolean;
+  clearEndAt?: boolean;
 };
 
 /** 비로그인 사용자도 볼 수 있는 공개 배너 카드 응답 (GET /promotions). */

@@ -1,6 +1,7 @@
 package com.duing.domain.promotion.service.dto.command;
 
 import com.duing.domain.promotion.entity.PromotionPalette;
+import java.time.LocalDateTime;
 
 public record UpdatePromotionCommand(
         Long promotionId,
@@ -16,10 +17,14 @@ public record UpdatePromotionCommand(
         String ctaLabel,
         String emoji,
         PromotionPalette palette,
+        LocalDateTime startAt,
+        LocalDateTime endAt,
         Boolean clearBannerImageUrl,
         Boolean clearLinkUrl,
         Boolean clearTag,
         Boolean clearSubtitle,
         Boolean clearCtaLabel,
-        Boolean clearEmoji
+        Boolean clearEmoji,
+        Boolean clearStartAt,
+        Boolean clearEndAt
 ) {}

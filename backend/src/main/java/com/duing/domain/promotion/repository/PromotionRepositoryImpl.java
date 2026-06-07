@@ -5,6 +5,7 @@ import com.duing.domain.promotion.entity.QPromotion;
 import com.duing.domain.promotion.service.dto.query.PromotionAdminSearchCondition;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -38,16 +39,21 @@ public class PromotionRepositoryImpl implements PromotionRepositoryCustom {
     @Override
     public Page<Promotion> findPublicActive(Pageable pageable) {
         QPromotion promotion = QPromotion.promotion;
+        // 같은 호출 안에서 동일한 now 로 시작·종료를 비교한다.
+        LocalDateTime now = LocalDateTime.now();
         BooleanExpression activeTrue = promotion.active.isTrue();
+        BooleanExpression startedOrAlways = promotion.startAt.isNull().or(promotion.startAt.loe(now));
+        BooleanExpression notEndedOrAlways = promotion.endAt.isNull().or(promotion.endAt.gt(now));
 
         List<Promotion> content = queryFactory.selectFrom(promotion)
-                .where(activeTrue)
+                .where(activeTrue, startedOrAlways, notEndedOrAlways)
                 .orderBy(promotion.displayOrder.asc(), promotion.createdAt.desc())
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
 
-        var countQuery = queryFactory.select(promotion.count()).from(promotion).where(activeTrue);
+        var countQuery = queryFactory.select(promotion.count()).from(promotion)
+                .where(activeTrue, startedOrAlways, notEndedOrAlways);
         return PageableExecutionUtils.getPage(content, pageable, countQuery::fetchOne);
     }
 }
