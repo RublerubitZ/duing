@@ -16,12 +16,21 @@ public record ApplicantDetailResponse(
         ApplicationStatus status,
         LocalDateTime interviewAt,
         String interviewLocation,
-        LocalDateTime submittedAt
+        LocalDateTime submittedAt,
+        List<StatusHistoryItem> statusHistory
 ) {
 
     public record ApplicantInfo(Long userId, String name, String studentId, String email) {}
 
     public record QuestionAnswer(String question, String answer) {}
+
+    public record StatusHistoryItem(
+            ApplicationStatus previousStatus,
+            ApplicationStatus newStatus,
+            Long changedById,
+            String changedByName,
+            LocalDateTime changedAt
+    ) {}
 
     public static ApplicantDetailResponse from(ApplicantDetailQuery detailQuery) {
         ApplicantInfo applicantInfo = new ApplicantInfo(
@@ -35,6 +44,15 @@ public record ApplicantDetailResponse(
                 .map(qa -> new QuestionAnswer(qa.question(), qa.answer()))
                 .toList();
 
+        List<StatusHistoryItem> history = detailQuery.statusHistory().stream()
+                .map(item -> new StatusHistoryItem(
+                        item.previousStatus(),
+                        item.newStatus(),
+                        item.changedById(),
+                        item.changedByName(),
+                        item.changedAt()))
+                .toList();
+
         return new ApplicantDetailResponse(
                 detailQuery.applicationId(),
                 detailQuery.recruitmentId(),
@@ -46,7 +64,8 @@ public record ApplicantDetailResponse(
                 detailQuery.status(),
                 detailQuery.interviewAt(),
                 detailQuery.interviewLocation(),
-                detailQuery.submittedAt()
+                detailQuery.submittedAt(),
+                history
         );
     }
 }

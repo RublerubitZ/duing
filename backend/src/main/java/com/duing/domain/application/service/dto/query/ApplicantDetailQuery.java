@@ -2,6 +2,7 @@ package com.duing.domain.application.service.dto.query;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.entity.ApplicationStatusHistory;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -22,14 +23,32 @@ public record ApplicantDetailQuery(
         ApplicationStatus status,
         LocalDateTime interviewAt,
         String interviewLocation,
-        LocalDateTime submittedAt
+        LocalDateTime submittedAt,
+        List<StatusHistoryItemQuery> statusHistory
 ) {
 
     public record ApplicantInfoQuery(Long userId, String name, String studentId, String email) {}
 
     public record QuestionAnswerQuery(String question, String answer) {}
 
+    public record StatusHistoryItemQuery(
+            ApplicationStatus previousStatus,
+            ApplicationStatus newStatus,
+            Long changedById,
+            String changedByName,
+            LocalDateTime changedAt
+    ) {}
+
+    /**
+     * 기존 호출자 backward-compatibility 유지용 단축 메서드.
+     * history 가 필요 없는 경로(단위 테스트 등)에서 빈 리스트로 위임한다.
+     */
     public static ApplicantDetailQuery from(Application application) {
+        return fromWithHistory(application, List.of());
+    }
+
+    public static ApplicantDetailQuery fromWithHistory(Application application,
+                                                       List<ApplicationStatusHistory> historyRows) {
         Recruitment recruitment = application.getRecruitment();
         User user = application.getUser();
 
@@ -41,8 +60,17 @@ public record ApplicantDetailQuery(
         );
 
         List<QuestionAnswerQuery> pairedAnswers = buildPairedAnswers(recruitment, application);
-
         Club club = recruitment.getClub();
+
+        List<StatusHistoryItemQuery> statusHistory = historyRows.stream()
+                .map(row -> new StatusHistoryItemQuery(
+                        row.getPreviousStatus(),
+                        row.getNewStatus(),
+                        row.getChangedBy().getId(),
+                        row.getChangedBy().getName(),
+                        row.getCreatedAt()
+                ))
+                .toList();
 
         return new ApplicantDetailQuery(
                 application.getId(),
@@ -55,7 +83,8 @@ public record ApplicantDetailQuery(
                 application.getStatus(),
                 application.getInterviewAt(),
                 application.getInterviewLocation(),
-                application.getCreatedAt()
+                application.getCreatedAt(),
+                statusHistory
         );
     }
 
