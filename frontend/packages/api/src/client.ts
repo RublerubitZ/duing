@@ -111,6 +111,14 @@ import type {
   GlobalEventDetail,
   GlobalEventListParams,
   UpdateGlobalEventPayload,
+  InterviewConfig,
+  ApplicantInterviewSlot,
+  SlotListView,
+  ScheduleListView,
+  AutoAssignResult,
+  MatchingCandidatesView,
+  MyInterviewAvailabilities,
+  MyInterviewSchedule,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -348,6 +356,45 @@ export type DuingApiClient = {
       update(promotionId: number, payload: UpdatePromotionPayload): Promise<void>;
       delete(promotionId: number): Promise<void>;
     };
+  };
+  interviews: {
+    // === Manager — Config ===
+    createConfig(
+      recruitmentId: number,
+      payload: { availabilityDeadline: string; location?: string },
+    ): Promise<{ configId: number }>;
+    updateConfig(
+      recruitmentId: number,
+      payload: { availabilityDeadline?: string; location?: string },
+    ): Promise<void>;
+    getConfig(recruitmentId: number): Promise<InterviewConfig>;
+
+    // === Manager — Slots ===
+    createSlots(
+      recruitmentId: number,
+      payload: { slots: Array<{ startTime: string; endTime: string; capacity: number }> },
+    ): Promise<{ slotIds: number[] }>;
+    listSlots(recruitmentId: number): Promise<SlotListView[]>;
+    updateSlot(
+      slotId: number,
+      payload: { startTime?: string; endTime?: string; capacity?: number },
+    ): Promise<void>;
+    deleteSlot(slotId: number): Promise<void>;
+
+    // === Manager — Auto assign / Schedules ===
+    autoAssign(recruitmentId: number): Promise<AutoAssignResult>;
+    listSchedules(recruitmentId: number): Promise<ScheduleListView[]>;
+    matchingCandidates(recruitmentId: number): Promise<MatchingCandidatesView>;
+    assignSchedule(applicationId: number, payload: { slotId: number }): Promise<void>;
+    cancelSchedule(applicationId: number): Promise<void>;
+
+    // === Applicant ===
+    updateAvailabilities(applicationId: number, payload: { slotIds: number[] }): Promise<void>;
+    getAvailabilities(applicationId: number): Promise<MyInterviewAvailabilities>;
+    applicantSlots(recruitmentId: number): Promise<ApplicantInterviewSlot[]>;
+
+    // A2 — backend raw 응답을 discriminated union 으로 narrow
+    mySchedule(applicationId: number): Promise<MyInterviewSchedule>;
   };
   raw: KyInstance;
 };
@@ -786,6 +833,84 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonVoid(http.patch(`admin/promotions/${promotionId}`, { json: payload })),
         delete: (promotionId) =>
           jsonVoid(http.delete(`admin/promotions/${promotionId}`)),
+      },
+    },
+    interviews: {
+      createConfig: (recruitmentId, payload) =>
+        jsonOk<{ configId: number }>(
+          http.post(`recruitments/${recruitmentId}/interview-config`, { json: payload }),
+        ),
+      updateConfig: (recruitmentId, payload) =>
+        jsonVoid(
+          http.patch(`recruitments/${recruitmentId}/interview-config`, { json: payload }),
+        ),
+      getConfig: (recruitmentId) =>
+        jsonOk<InterviewConfig>(
+          http.get(`recruitments/${recruitmentId}/interview-config`),
+        ),
+      createSlots: (recruitmentId, payload) =>
+        jsonOk<{ slotIds: number[] }>(
+          http.post(`recruitments/${recruitmentId}/interview-slots`, { json: payload }),
+        ),
+      listSlots: (recruitmentId) =>
+        jsonOk<SlotListView[]>(
+          http.get(`recruitments/${recruitmentId}/interview-slots`),
+        ),
+      updateSlot: (slotId, payload) =>
+        jsonVoid(http.patch(`interview-slots/${slotId}`, { json: payload })),
+      deleteSlot: (slotId) => jsonVoid(http.delete(`interview-slots/${slotId}`)),
+      autoAssign: (recruitmentId) =>
+        jsonOk<AutoAssignResult>(
+          http.post(`recruitments/${recruitmentId}/interview-schedules/auto-assign`),
+        ),
+      listSchedules: (recruitmentId) =>
+        jsonOk<ScheduleListView[]>(
+          http.get(`recruitments/${recruitmentId}/interview-schedules`),
+        ),
+      matchingCandidates: (recruitmentId) =>
+        jsonOk<MatchingCandidatesView>(
+          http.get(`recruitments/${recruitmentId}/interview-matching-candidates`),
+        ),
+      assignSchedule: (applicationId, payload) =>
+        jsonVoid(
+          http.put(`applications/${applicationId}/interview-schedule`, { json: payload }),
+        ),
+      cancelSchedule: (applicationId) =>
+        jsonVoid(http.delete(`applications/${applicationId}/interview-schedule`)),
+      updateAvailabilities: (applicationId, payload) =>
+        jsonVoid(
+          http.put(`applications/${applicationId}/interview-availabilities`, {
+            json: payload,
+          }),
+        ),
+      getAvailabilities: (applicationId) =>
+        jsonOk<MyInterviewAvailabilities>(
+          http.get(`applications/${applicationId}/interview-availabilities`),
+        ),
+      applicantSlots: (recruitmentId) =>
+        jsonOk<ApplicantInterviewSlot[]>(
+          http.get(`recruitments/${recruitmentId}/applicant-interview-slots`),
+        ),
+      // A2 — raw 응답 (assigned 플래그 + schedule/location optional) 을 union 으로 narrow.
+      // backend 가 assigned=false 면 schedule 을 omit 하므로 명시적 null 변환으로 타입 안전 보장.
+      mySchedule: async (applicationId) => {
+        type AssignedSchedule = Extract<
+          MyInterviewSchedule,
+          { assigned: true }
+        >['schedule'];
+        const raw = await jsonOk<{
+          assigned?: boolean;
+          schedule?: AssignedSchedule;
+          location?: string;
+        }>(http.get(`applications/${applicationId}/interview-schedule`));
+        if (raw.assigned && raw.schedule) {
+          return {
+            assigned: true,
+            schedule: raw.schedule,
+            location: raw.location ?? null,
+          };
+        }
+        return { assigned: false, schedule: null, location: null };
       },
     },
     raw: http,
