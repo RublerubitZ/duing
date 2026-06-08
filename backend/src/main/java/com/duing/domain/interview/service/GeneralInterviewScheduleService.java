@@ -80,7 +80,7 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
 
         return scheduleRepository.findByApplicationId(applicationId)
                 .map(this::buildAssignedResponse)
-                .orElseGet(() -> new MyInterviewScheduleResponse(false, null));
+                .orElseGet(() -> new MyInterviewScheduleResponse(false, null, null));
     }
 
     /**
@@ -242,6 +242,11 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
         Map<Long, List<InterviewSchedule>> schedulesBySlotId = schedules.stream()
                 .collect(Collectors.groupingBy(InterviewSchedule::getSlotId));
 
+        // N+1 회피: config 는 모집당 1 row 이므로 한 번만 조회해 모든 슬롯 view 에 동일 location 매핑
+        String location = configRepository.findByRecruitmentId(recruitmentId)
+                .map(InterviewConfig::getLocation)
+                .orElse(null);
+
         return slots.stream()
                 .map(slot -> {
                     List<ScheduleListView.AssignedItem> assignedItems = schedulesBySlotId
@@ -258,6 +263,7 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
                             slot.getStartTime(),
                             slot.getEndTime(),
                             slot.getCapacity(),
+                            location,
                             assignedItems);
                 })
                 .toList();
@@ -433,6 +439,10 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
         InterviewSlot slot = slotRepository.findById(schedule.getSlotId())
                 .orElseThrow(InterviewException.SlotNotFound::new);
 
+        String location = configRepository.findByRecruitmentId(schedule.getRecruitmentId())
+                .map(InterviewConfig::getLocation)
+                .orElse(null);
+
         return new MyInterviewScheduleResponse(true,
                 new MyInterviewScheduleResponse.InterviewScheduleDetail(
                         schedule.getId(),
@@ -440,6 +450,7 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
                         slot.getStartTime(),
                         slot.getEndTime(),
                         schedule.getStatus(),
-                        schedule.getAssignedAt()));
+                        schedule.getAssignedAt()),
+                location);
     }
 }

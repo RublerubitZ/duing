@@ -4,6 +4,7 @@ import com.duing.domain.interview.api.ManagerInterviewConfigApi;
 import com.duing.domain.interview.controller.dto.request.CreateInterviewConfigRequest;
 import com.duing.domain.interview.controller.dto.request.UpdateInterviewConfigRequest;
 import com.duing.domain.interview.controller.dto.response.CreateInterviewConfigResponse;
+import com.duing.domain.interview.controller.dto.response.InterviewConfigResponse;
 import com.duing.domain.interview.service.InterviewConfigService;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -19,6 +20,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class ManagerInterviewConfigController implements ManagerInterviewConfigApi {
 
     private final InterviewConfigService interviewConfigService;
+
+    @Override
+    public ResponseEntity<ApiResponse<InterviewConfigResponse>> get(
+            Long recruitmentId,
+            UserPrincipal currentUser
+    ) {
+        InterviewConfigResponse response =
+                interviewConfigService.getByRecruitmentId(recruitmentId, currentUser.id());
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 
     @Override
     public ResponseEntity<ApiResponse<CreateInterviewConfigResponse>> create(

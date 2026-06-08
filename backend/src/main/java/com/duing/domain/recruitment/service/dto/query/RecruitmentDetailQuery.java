@@ -6,6 +6,7 @@ import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record RecruitmentDetailQuery(
@@ -28,12 +29,17 @@ public record RecruitmentDetailQuery(
         LocalDate interviewStartDate,
         LocalDate interviewEndDate,
         boolean showApplicantCount,
-        Integer applicantCount
+        Integer applicantCount,
+        LocalDateTime interviewAvailabilityDeadline
 ) {
     /**
      * applicantCount 는 showApplicantCount=false 일 때 null 로 전달한다 (응답 노출 차단).
+     * interviewAvailabilityDeadline 은 InterviewConfig 가 없거나 useInterview=false 면 null 로 전달한다.
      */
-    public static RecruitmentDetailQuery from(Recruitment recruitment, LocalDate today, Integer applicantCount) {
+    public static RecruitmentDetailQuery from(Recruitment recruitment,
+                                              LocalDate today,
+                                              Integer applicantCount,
+                                              LocalDateTime interviewAvailabilityDeadline) {
         List<String> questions = recruitment.getForm() != null
                 ? recruitment.getForm().getQuestions()
                 : List.of();
@@ -61,7 +67,8 @@ public record RecruitmentDetailQuery(
                 recruitment.getInterviewStartDate(),
                 recruitment.getInterviewEndDate(),
                 recruitment.isShowApplicantCount(),
-                applicantCount
+                applicantCount,
+                interviewAvailabilityDeadline
         );
     }
 }

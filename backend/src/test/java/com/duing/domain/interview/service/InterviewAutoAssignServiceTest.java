@@ -327,13 +327,14 @@ class InterviewAutoAssignServiceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("M8 GET schedules 는 슬롯별로 그룹핑된 일정을 반환한다")
+    @DisplayName("M8 GET schedules 는 슬롯별로 그룹핑된 일정을 반환한다 (location 포함)")
     void M8_슬롯별_그룹핑_일정_조회() {
         Club club = saveActiveClub("동아리");
         User leader = saveUser("리더");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveOpenRecruitment(club);
-        saveConfigWithPastDeadline(recruitment.getId());
+        configRepository.save(InterviewConfig.create(
+                recruitment.getId(), LocalDateTime.now().minusHours(1), "공학관 2201호"));
 
         InterviewSlot slot1 = saveSlot(recruitment.getId());
         InterviewSlot slot2 = saveSlot(recruitment.getId());
@@ -357,6 +358,11 @@ class InterviewAutoAssignServiceTest extends IntegrationTestBase {
                 .findFirst().orElseThrow();
         assertThat(slotView1.assigned()).hasSize(1);
         assertThat(slotView1.assigned().get(0).applicationId()).isEqualTo(application1.getId());
+        assertThat(slotView1.location()).isEqualTo("공학관 2201호");
+        ScheduleListView slotView2 = schedules.stream()
+                .filter(v -> v.slotId().equals(slot2.getId()))
+                .findFirst().orElseThrow();
+        assertThat(slotView2.location()).isEqualTo("공학관 2201호");
     }
 
     @Test

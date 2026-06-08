@@ -35,6 +35,8 @@ class RecruitmentUpdateAndCloseServiceTest {
     private final ClubRepository clubRepository = mock(ClubRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
+    private final com.duing.domain.interview.repository.InterviewConfigRepository interviewConfigRepository =
+            mock(com.duing.domain.interview.repository.InterviewConfigRepository.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
@@ -42,6 +44,7 @@ class RecruitmentUpdateAndCloseServiceTest {
             applicationRepository,
             clubRepository,
             clubAuthService,
+            interviewConfigRepository,
             eventPublisher
     );
 

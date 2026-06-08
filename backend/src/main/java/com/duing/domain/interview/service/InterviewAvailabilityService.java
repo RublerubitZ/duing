@@ -1,5 +1,6 @@
 package com.duing.domain.interview.service;
 
+import com.duing.domain.interview.controller.dto.response.MyInterviewAvailabilitiesResponse;
 import com.duing.domain.interview.service.dto.command.CreateAvailabilitiesInSubmissionCommand;
 import com.duing.domain.interview.service.dto.command.UpdateAvailabilityCommand;
 
@@ -16,4 +17,9 @@ public interface InterviewAvailabilityService {
      * 기존 availability 를 모두 삭제하고 새 slotIds 로 재등록한다.
      */
     void replace(UpdateAvailabilityCommand command);
+
+    /**
+     * 지원자 본인이 등록한 면접 가능 시간(slotIds) 을 조회한다.
+     */
+    MyInterviewAvailabilitiesResponse findMyAvailabilities(Long applicationId, Long actorUserId);
 }

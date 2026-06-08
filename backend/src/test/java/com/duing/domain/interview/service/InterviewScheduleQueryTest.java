@@ -15,10 +15,12 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.interview.controller.dto.response.MyInterviewScheduleResponse;
+import com.duing.domain.interview.entity.InterviewConfig;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.exception.InterviewException;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -47,6 +49,7 @@ class InterviewScheduleQueryTest extends IntegrationTestBase {
     @Autowired private ApplicationRepository applicationRepository;
     @Autowired private InterviewScheduleRepository scheduleRepository;
     @Autowired private InterviewSlotRepository slotRepository;
+    @Autowired private InterviewConfigRepository configRepository;
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private ClubRepository clubRepository;
     @Autowired private ClubMemberRepository clubMemberRepository;
@@ -199,5 +202,55 @@ class InterviewScheduleQueryTest extends IntegrationTestBase {
         assertThat(response.assigned()).isTrue();
         assertThat(response.schedule()).isNotNull();
         assertThat(response.schedule().status()).isEqualTo(InterviewScheduleStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("assigned=true 일 때 응답에 InterviewConfig.location 이 포함된다")
+    void mySchedulePopulatesLocation() {
+        Club club = saveActiveClub("동아리");
+        User leader = saveUser("리더");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club);
+        configRepository.save(InterviewConfig.create(
+                recruitment.getId(), LocalDateTime.now().plusDays(5), "공학관 2201호"));
+
+        User applicant = saveUser("지원자");
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of()));
+
+        InterviewSlot slot = saveSlot(recruitment.getId());
+        scheduleRepository.save(InterviewSchedule.create(
+                application.getId(), slot.getId(), recruitment.getId(), LocalDateTime.now()));
+
+        MyInterviewScheduleResponse response =
+                interviewScheduleService.findMySchedule(application.getId(), applicant.getId());
+
+        assertThat(response.assigned()).isTrue();
+        assertThat(response.location()).isEqualTo("공학관 2201호");
+    }
+
+    @Test
+    @DisplayName("config 의 location 이 null 일 때 응답 location 도 null 이다")
+    void myScheduleLocationNullWhenConfigLocationNull() {
+        Club club = saveActiveClub("동아리");
+        User leader = saveUser("리더");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club);
+        configRepository.save(InterviewConfig.create(
+                recruitment.getId(), LocalDateTime.now().plusDays(5), null));
+
+        User applicant = saveUser("지원자");
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of()));
+
+        InterviewSlot slot = saveSlot(recruitment.getId());
+        scheduleRepository.save(InterviewSchedule.create(
+                application.getId(), slot.getId(), recruitment.getId(), LocalDateTime.now()));
+
+        MyInterviewScheduleResponse response =
+                interviewScheduleService.findMySchedule(application.getId(), applicant.getId());
+
+        assertThat(response.assigned()).isTrue();
+        assertThat(response.location()).isNull();
     }
 }

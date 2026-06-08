@@ -5,5 +5,6 @@ import java.time.LocalDateTime;
 public record CreateInterviewConfigCommand(
         Long recruitmentId,
         Long actorUserId,
-        LocalDateTime availabilityDeadline
+        LocalDateTime availabilityDeadline,
+        String location
 ) {}

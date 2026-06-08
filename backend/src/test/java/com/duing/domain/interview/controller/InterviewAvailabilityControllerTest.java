@@ -1,6 +1,9 @@
 package com.duing.domain.interview.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -248,7 +251,56 @@ class InterviewAvailabilityControllerTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
+    @Test
+    @DisplayName("본인의 availability 목록 조회 시 200 + slotIds 배열을 반환한다")
+    void getMyAvailabilitiesReturnsSlotIds() {
+        availabilityRepository.save(InterviewAvailability.create(applicationId, slotAId, recruitmentIdOf(applicationId)));
+        availabilityRepository.save(InterviewAvailability.create(applicationId, slotBId, recruitmentIdOf(applicationId)));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/applications/" + applicationId + "/interview-availabilities")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.slotIds", notNullValue())
+                .body("data.slotIds", hasSize(2));
+    }
+
+    @Test
+    @DisplayName("availability 가 비어있어도 GET 은 200 + 빈 배열을 반환한다")
+    void getMyAvailabilitiesReturnsEmpty() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/applications/" + applicationId + "/interview-availabilities")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.slotIds", empty());
+    }
+
+    @Test
+    @DisplayName("다른 사용자의 application 조회 시 403 NotApplicationOwner 가 반환된다")
+    void getMyAvailabilitiesByNonOwnerReturns403() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherUserToken)
+                .when().get("/api/v1/applications/" + applicationId + "/interview-availabilities")
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("application 자체가 없으면 404 가 반환된다")
+    void getMyAvailabilitiesWhenApplicationMissingReturns404() {
+        long missingApplicationId = 9_999_999L;
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/applications/" + missingApplicationId + "/interview-availabilities")
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
+
+    private Long recruitmentIdOf(Long applicationId) {
+        return applicationRepository.findById(applicationId)
+                .map(application -> application.getRecruitment().getId())
+                .orElseThrow();
+    }
 
     private User saveUser(String nameSuffix) {
         long seq = sequence.incrementAndGet();

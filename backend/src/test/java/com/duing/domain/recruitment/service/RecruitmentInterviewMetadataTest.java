@@ -12,6 +12,8 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
@@ -47,6 +49,7 @@ class RecruitmentInterviewMetadataTest {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
+    @Autowired InterviewConfigRepository interviewConfigRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -109,7 +112,73 @@ class RecruitmentInterviewMetadataTest {
         assertThat(detail.applicantCount()).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("useInterview=true + InterviewConfig 가 있으면 interviewAvailabilityDeadline 이 노출된다")
+    void interviewAvailabilityDeadlineExposedWhenConfigExists() throws Exception {
+        User leader = saveUser("면접리더A");
+        Club club = saveActiveClub("면접노출A");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Long recruitmentId = createInterviewRecruitment(club, leader);
+
+        LocalDateTime deadline = LocalDateTime.now().plusDays(3);
+        interviewConfigRepository.save(InterviewConfig.create(recruitmentId, deadline, "공학관 2201호"));
+
+        RecruitmentDetailQuery detail = recruitmentService.getById(recruitmentId);
+        assertThat(detail.useInterview()).isTrue();
+        assertThat(detail.interviewAvailabilityDeadline()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("useInterview=true 라도 InterviewConfig 가 아직 없으면 interviewAvailabilityDeadline 은 null")
+    void interviewAvailabilityDeadlineNullWhenConfigAbsent() throws Exception {
+        User leader = saveUser("면접리더B");
+        Club club = saveActiveClub("면접노출B");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Long recruitmentId = createInterviewRecruitment(club, leader);
+
+        RecruitmentDetailQuery detail = recruitmentService.getById(recruitmentId);
+        assertThat(detail.useInterview()).isTrue();
+        assertThat(detail.interviewAvailabilityDeadline()).isNull();
+    }
+
+    @Test
+    @DisplayName("useInterview=false 면 InterviewConfig 가 있어도 interviewAvailabilityDeadline 은 null")
+    void interviewAvailabilityDeadlineNullWhenUseInterviewFalse() throws Exception {
+        User leader = saveUser("면접리더C");
+        Club club = saveActiveClub("면접노출C");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Long recruitmentId = createRecruitment(club, leader, true);
+
+        // 비정상 케이스: useInterview=false 인 모집에 어쩌다 config row 가 있어도 노출 차단
+        interviewConfigRepository.save(InterviewConfig.create(
+                recruitmentId, LocalDateTime.now().plusDays(3), null));
+
+        RecruitmentDetailQuery detail = recruitmentService.getById(recruitmentId);
+        assertThat(detail.useInterview()).isFalse();
+        assertThat(detail.interviewAvailabilityDeadline()).isNull();
+    }
+
     /* ---- helpers ---- */
+
+    private Long createInterviewRecruitment(Club club, User leader) {
+        return recruitmentService.create(new CreateRecruitmentCommand(
+                club.getId(),
+                leader.getId(),
+                "면접공고-" + sequence.incrementAndGet(),
+                null,
+                LocalDate.now(),
+                LocalDate.now().plusDays(7),
+                10,
+                ApplicationMode.SELF,
+                null,
+                true,
+                TargetRole.MEMBER,
+                List.of("자기소개"),
+                LocalDate.now().plusDays(8),
+                LocalDate.now().plusDays(10),
+                true
+        ));
+    }
 
     private Long createRecruitment(Club club, User leader, boolean showApplicantCount) {
         return recruitmentService.create(new CreateRecruitmentCommand(
