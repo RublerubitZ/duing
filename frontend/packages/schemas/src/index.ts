@@ -467,3 +467,16 @@ export const updateGlobalEventSchema = z
   });
 
 export type UpdateGlobalEventInput = z.infer<typeof updateGlobalEventSchema>;
+
+export {
+  createInterviewConfigSchema,
+  updateInterviewConfigSchema,
+  slotPatternSchema,
+  updateAvailabilitySchema,
+} from './interview';
+export type {
+  CreateInterviewConfigInput,
+  UpdateInterviewConfigInput,
+  SlotPatternInput,
+  UpdateAvailabilityInput,
+} from './interview';

@@ -16,3 +16,4 @@ export * from './clubNotice';
 export * from './clubEvent';
 export * from './globalEvent';
 export * from './calendar';
+export * from './interview';
