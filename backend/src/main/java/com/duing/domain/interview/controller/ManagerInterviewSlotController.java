@@ -2,6 +2,7 @@ package com.duing.domain.interview.controller;
 
 import com.duing.domain.interview.api.ManagerInterviewSlotApi;
 import com.duing.domain.interview.controller.dto.request.CreateInterviewSlotsRequest;
+import com.duing.domain.interview.controller.dto.request.UpdateInterviewSlotRequest;
 import com.duing.domain.interview.controller.dto.response.CreateInterviewSlotsResponse;
 import com.duing.domain.interview.service.InterviewSlotService;
 import com.duing.domain.interview.service.dto.query.SlotListView;
@@ -41,5 +42,24 @@ public class ManagerInterviewSlotController implements ManagerInterviewSlotApi {
         List<SlotListView> slotListViews = interviewSlotService.listByRecruitment(
                 recruitmentId, currentUser.id());
         return ResponseEntity.ok(ApiResponse.success(slotListViews));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> updateSlot(
+            Long slotId,
+            UpdateInterviewSlotRequest request,
+            UserPrincipal currentUser
+    ) {
+        interviewSlotService.update(request.toCommand(slotId, currentUser.id()));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> deleteSlot(
+            Long slotId,
+            UserPrincipal currentUser
+    ) {
+        interviewSlotService.delete(slotId, currentUser.id());
+        return ResponseEntity.noContent().build();
     }
 }
