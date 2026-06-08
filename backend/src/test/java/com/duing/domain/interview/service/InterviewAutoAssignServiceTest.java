@@ -432,4 +432,60 @@ class InterviewAutoAssignServiceTest extends IntegrationTestBase {
         assertThat(successCount.get()).isEqualTo(1);
         assertThat(conflictCount.get()).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("자동배정과 수동배정이 동시에 실행되어도 슬롯 capacity 가 초과되지 않는다")
+    void 자동_수동_배정_동시_실행시_capacity_보호() throws Exception {
+        Club club = saveActiveClub("동아리");
+        User leader = saveUser("리더");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club);
+        saveConfigWithPastDeadline(recruitment.getId());
+
+        // capacity 1 인 슬롯에 두 지원자가 같은 슬롯을 노리는 상황
+        InterviewSlot slot = slotRepository.save(InterviewSlot.create(
+                recruitment.getId(),
+                LocalDateTime.now().plusDays(7),
+                LocalDateTime.now().plusDays(7).plusHours(1),
+                1));
+        User autoCandidate = saveUser("자동대상자");
+        User manualCandidate = saveUser("수동대상자");
+        Application autoApp = saveInterviewPendingApplication(recruitment, autoCandidate);
+        Application manualApp = saveInterviewPendingApplication(recruitment, manualCandidate);
+        saveAvailability(autoApp.getId(), slot.getId(), recruitment.getId());
+
+        java.util.concurrent.ExecutorService executor =
+                java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.atomic.AtomicInteger successCount = new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger failCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        java.util.concurrent.Future<?> autoFuture = executor.submit(() -> {
+            try {
+                interviewScheduleService.autoAssign(recruitment.getId(), leader.getId());
+                successCount.incrementAndGet();
+            } catch (Exception ignored) {
+                failCount.incrementAndGet();
+            }
+        });
+        java.util.concurrent.Future<?> manualFuture = executor.submit(() -> {
+            try {
+                interviewScheduleService.assign(
+                        new com.duing.domain.interview.service.dto.command.AssignInterviewScheduleCommand(
+                                manualApp.getId(), slot.getId(), leader.getId()));
+                successCount.incrementAndGet();
+            } catch (Exception ignored) {
+                failCount.incrementAndGet();
+            }
+        });
+        autoFuture.get();
+        manualFuture.get();
+        executor.shutdown();
+
+        long assignedOnSlot = scheduleRepository.countBySlotIdAndStatus(
+                slot.getId(), InterviewScheduleStatus.ASSIGNED);
+        // capacity 1 을 절대 초과하면 안 됨
+        assertThat(assignedOnSlot).isLessThanOrEqualTo(1L);
+        // 두 호출 합쳐서 최소 한 건은 진행됐다 (lock 기반 직렬화로 결과는 1 성공/1 실패 또는 둘 다 시도)
+        assertThat(successCount.get() + failCount.get()).isEqualTo(2);
+    }
 }

@@ -114,10 +114,21 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
             throw new InterviewException.AssignmentAlreadyCompleted();
         }
 
-        List<InterviewSlot> slots = slotRepository.findByRecruitmentIdOrderByStartTimeAsc(recruitmentId);
-        if (slots.isEmpty()) {
+        List<InterviewSlot> slotsByStart = slotRepository.findByRecruitmentIdOrderByStartTimeAsc(recruitmentId);
+        if (slotsByStart.isEmpty()) {
             throw new InterviewException.NoSlotsAvailable();
         }
+
+        // capacity-changing path (autoAssign + manual assign) 직렬화를 위해 모든 recruitment 슬롯을
+        // id 오름차순으로 pessimistic lock 한다. manual assign 의 source/target slot lock 과 동일 순서라
+        // deadlock 회피. interview_config → slots 두 단계 lock 순서를 양 path 가 공유한다.
+        List<Long> slotIdsAsc = slotsByStart.stream()
+                .map(InterviewSlot::getId)
+                .sorted()
+                .toList();
+        slotRepository.findAllByIdInForUpdate(slotIdsAsc);
+        // lock 이후 다시 startTime 정렬 결과를 사용 (slots 변수)
+        List<InterviewSlot> slots = slotsByStart;
 
         List<Application> allCandidates = applicationRepository
                 .findByRecruitmentIdAndStatus(recruitmentId, ApplicationStatus.INTERVIEW_PENDING);
@@ -166,6 +177,24 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
                 .toList();
 
         MatchingResult matchingResult = matchingService.match(new MatchingInput(applicantsToMatch, slotStates));
+
+        // save 직전 final capacity recheck — lock 안에서 현재 ASSIGNED 수를 다시 읽어
+        // (capacity - existing - new) >= 0 인지 슬롯별 검증한다. effectiveCapacity 가 이미 보장하지만
+        // 동시성·race-condition 회귀에 대한 이중 안전망.
+        Map<Long, Long> newAssignmentCountBySlotId = matchingResult.assigned().stream()
+                .collect(Collectors.groupingBy(
+                        MatchingResult.Assignment::slotId, Collectors.counting()));
+        Map<Long, Integer> capacityBySlotId = slots.stream()
+                .collect(Collectors.toMap(InterviewSlot::getId, InterviewSlot::getCapacity));
+        for (Map.Entry<Long, Long> entry : newAssignmentCountBySlotId.entrySet()) {
+            Long slotId = entry.getKey();
+            long newCount = entry.getValue();
+            long currentAssigned = existingAssignedCountBySlotId.getOrDefault(slotId, 0L);
+            int capacity = capacityBySlotId.getOrDefault(slotId, 0);
+            if (currentAssigned + newCount > capacity) {
+                throw new InterviewException.CapacityExceeded();
+            }
+        }
 
         List<InterviewSchedule> toSave = new ArrayList<>();
         List<InterviewScheduledEvent> eventsToPublish = new ArrayList<>();
@@ -298,6 +327,13 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
         if (application.getStatus() != ApplicationStatus.INTERVIEW_PENDING) {
             throw new InterviewException.InvalidApplicationStatus();
         }
+
+        Long recruitmentId = application.getRecruitment().getId();
+        // capacity-changing path (autoAssign + manual assign) 직렬화를 위해
+        // interview_config row 를 먼저 lock 한다. autoAssign 도 동일 순서(config → slots)로 lock 잡아
+        // 두 path 가 같은 boundary 를 공유한다. config 가 없는 모집은 manual assign 불가.
+        configRepository.findByRecruitmentIdForUpdate(recruitmentId)
+                .orElseThrow(InterviewException.InterviewConfigNotFound::new);
 
         Optional<InterviewSchedule> existingSchedule =
                 scheduleRepository.findByApplicationId(command.applicationId());

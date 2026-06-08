@@ -233,6 +233,7 @@ class ManagerInterviewScheduleControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("M9 운영진이 INTERVIEW_PENDING 지원자를 슬롯에 배정하면 204 를 반환한다")
     void assign_성공_204() {
+        configRepository.save(InterviewConfig.create(recruitmentId, LocalDateTime.now().plusDays(3)));
         InterviewSlot slot = slotRepository.save(InterviewSlot.create(
                 recruitmentId,
                 LocalDateTime.now().plusDays(7),
@@ -253,6 +254,7 @@ class ManagerInterviewScheduleControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("M9 INTERVIEW_PENDING 이 아닌 지원자에 배정 요청 시 400 을 반환한다")
     void assign_비대상_상태_400() {
+        configRepository.save(InterviewConfig.create(recruitmentId, LocalDateTime.now().plusDays(3)));
         InterviewSlot slot = slotRepository.save(InterviewSlot.create(
                 recruitmentId,
                 LocalDateTime.now().plusDays(7),
@@ -276,6 +278,7 @@ class ManagerInterviewScheduleControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("M9 정원이 가득 찬 슬롯에 배정하면 409 를 반환한다")
     void assign_정원_초과_409() {
+        configRepository.save(InterviewConfig.create(recruitmentId, LocalDateTime.now().plusDays(3)));
         InterviewSlot slot = slotRepository.save(InterviewSlot.create(
                 recruitmentId,
                 LocalDateTime.now().plusDays(7),
@@ -301,6 +304,7 @@ class ManagerInterviewScheduleControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("M9 동아리 비회원이 배정 요청 시 403 을 반환한다")
     void assign_비회원_403() {
+        configRepository.save(InterviewConfig.create(recruitmentId, LocalDateTime.now().plusDays(3)));
         InterviewSlot slot = slotRepository.save(InterviewSlot.create(
                 recruitmentId,
                 LocalDateTime.now().plusDays(7),

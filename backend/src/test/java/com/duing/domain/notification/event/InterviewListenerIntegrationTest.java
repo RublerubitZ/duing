@@ -13,8 +13,10 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.interview.entity.InterviewConfig;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.InterviewScheduleService;
@@ -47,6 +49,7 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
     @Autowired private InterviewScheduleService interviewScheduleService;
     @Autowired private ApplicationRepository applicationRepository;
     @Autowired private InterviewSlotRepository slotRepository;
+    @Autowired private InterviewConfigRepository configRepository;
     @Autowired private InterviewScheduleRepository scheduleRepository;
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private ClubRepository clubRepository;
@@ -83,9 +86,12 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
 
     private Recruitment saveRecruitment(Club club) {
         LocalDate today = LocalDate.now();
-        return recruitmentRepository.save(
+        Recruitment recruitment = recruitmentRepository.save(
                 Recruitment.create(club, "모집" + sequence.incrementAndGet(),
                         null, today.minusDays(1), today.plusDays(7), 10));
+        // assign / cancel path 는 InterviewConfig 가 존재하는 면접 모집 가정
+        configRepository.save(InterviewConfig.create(recruitment.getId(), LocalDateTime.now().plusDays(3)));
+        return recruitment;
     }
 
     private InterviewSlot saveSlot(Long recruitmentId) {

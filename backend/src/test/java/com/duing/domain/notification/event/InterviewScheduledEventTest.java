@@ -13,7 +13,9 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.interview.entity.InterviewConfig;
 import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.InterviewScheduleService;
@@ -53,6 +55,9 @@ class InterviewScheduledEventTest extends IntegrationTestBase {
     private InterviewSlotRepository slotRepository;
 
     @Autowired
+    private InterviewConfigRepository configRepository;
+
+    @Autowired
     private InterviewScheduleRepository scheduleRepository;
 
     @Autowired
@@ -83,6 +88,7 @@ class InterviewScheduledEventTest extends IntegrationTestBase {
         Recruitment recruitment = recruitmentRepository.save(
                 Recruitment.create(club, "2026 면접 모집", "내용",
                         LocalDate.now(), LocalDate.now().plusDays(14), 10));
+        configRepository.save(InterviewConfig.create(recruitment.getId(), LocalDateTime.now().plusDays(7)));
 
         Application application = saveInterviewPendingApplication(recruitment, applicant);
         InterviewSlot slot = saveSlot(recruitment.getId());
@@ -112,6 +118,7 @@ class InterviewScheduledEventTest extends IntegrationTestBase {
         Recruitment recruitment = recruitmentRepository.save(
                 Recruitment.create(club, "2026 이동 모집", "내용",
                         LocalDate.now(), LocalDate.now().plusDays(14), 10));
+        configRepository.save(InterviewConfig.create(recruitment.getId(), LocalDateTime.now().plusDays(7)));
 
         Application application = saveInterviewPendingApplication(recruitment, applicant);
         InterviewSlot slotA = saveSlot(recruitment.getId());

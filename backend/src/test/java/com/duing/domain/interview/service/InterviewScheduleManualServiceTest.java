@@ -14,6 +14,7 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.interview.entity.InterviewConfig;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
@@ -21,6 +22,7 @@ import com.duing.domain.interview.event.InterviewCancelledEvent;
 import com.duing.domain.interview.event.InterviewScheduledEvent;
 import com.duing.domain.interview.event.InterviewUpdatedEvent;
 import com.duing.domain.interview.exception.InterviewException;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.command.AssignInterviewScheduleCommand;
@@ -57,6 +59,7 @@ class InterviewScheduleManualServiceTest extends IntegrationTestBase {
     @Autowired private InterviewScheduleService interviewScheduleService;
     @Autowired private ApplicationRepository applicationRepository;
     @Autowired private InterviewSlotRepository slotRepository;
+    @Autowired private InterviewConfigRepository configRepository;
     @Autowired private InterviewScheduleRepository scheduleRepository;
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private ClubRepository clubRepository;
@@ -91,9 +94,13 @@ class InterviewScheduleManualServiceTest extends IntegrationTestBase {
 
     private Recruitment saveOpenRecruitment(Club club) {
         LocalDate today = LocalDate.now();
-        return recruitmentRepository.save(
+        Recruitment recruitment = recruitmentRepository.save(
                 Recruitment.create(club, "모집" + sequence.incrementAndGet(),
                         null, today.minusDays(1), today.plusDays(7), 10));
+        // manual assign 은 InterviewConfig 가 존재하는 면접 모집에서만 가능 (capacity 보호용 lock 흐름)
+        configRepository.save(InterviewConfig.create(
+                recruitment.getId(), LocalDateTime.now().plusDays(3)));
+        return recruitment;
     }
 
     private InterviewSlot saveSlot(Long recruitmentId, int capacity) {
