@@ -33,7 +33,6 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.domain.interview.event.InterviewScheduledEvent;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.interview.service.dto.command.CreateAvailabilitiesInSubmissionCommand;
 import com.duing.global.notification.InterviewNotificationService;
@@ -48,7 +47,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -74,7 +72,6 @@ public class GeneralApplicationService implements ApplicationService {
     private final ClubAuthService clubAuthService;
     private final InterviewNotificationService interviewNotificationService;
     private final ApplicationDraftService applicationDraftService;
-    private final ApplicationEventPublisher eventPublisher;
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
     private final ApplicationEvaluationRepository applicationEvaluationRepository;
     private final InterviewAvailabilityService interviewAvailabilityService;
@@ -279,14 +276,6 @@ public class GeneralApplicationService implements ApplicationService {
         } catch (Exception notificationFailure) {
             log.warn("[면접 알림 발송 실패] applicationId={}", application.getId());
         }
-
-        // NOTE: 신규 InterviewScheduledEvent 는 (applicationId, slotId, recruitmentId) 시그니처.
-        // 이 레거시 updateInterview 경로는 slotId 가 없으므로 null 을 전달한다.
-        // Task 9 에서 신규 면접 도메인 배정 경로가 완성되면 이 호출을 제거하거나 대체한다.
-        eventPublisher.publishEvent(new InterviewScheduledEvent(
-                application.getId(),
-                null,
-                application.getRecruitment().getId()));
     }
 
     @Override

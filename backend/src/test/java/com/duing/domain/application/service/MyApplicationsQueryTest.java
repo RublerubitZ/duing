@@ -25,7 +25,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationEventPublisher;
 
 class MyApplicationsQueryTest {
 
@@ -36,7 +35,6 @@ class MyApplicationsQueryTest {
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
-    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
     private final com.duing.domain.interview.service.InterviewAvailabilityService interviewAvailabilityService = mock(com.duing.domain.interview.service.InterviewAvailabilityService.class);
@@ -49,7 +47,6 @@ class MyApplicationsQueryTest {
             clubAuthService,
             interviewNotificationService,
             applicationDraftService,
-            eventPublisher,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
             interviewAvailabilityService);

@@ -36,11 +36,6 @@ public class InterviewScheduledListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handle(InterviewScheduledEvent event) {
-        // legacy path guard: slotId=null 이면 구 Application 도메인 경로 — 알림 불필요
-        if (event.slotId() == null) {
-            log.debug("InterviewScheduledEvent with null slotId — legacy path, skipping notification");
-            return;
-        }
         try {
             Application application = applicationRepository.findWithRecruitmentAndClubById(event.applicationId())
                     .orElse(null);
