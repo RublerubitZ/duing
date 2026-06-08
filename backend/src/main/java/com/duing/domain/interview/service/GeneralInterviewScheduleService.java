@@ -13,7 +13,9 @@ import com.duing.domain.interview.entity.InterviewConfig;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.event.InterviewCancelledEvent;
 import com.duing.domain.interview.event.InterviewScheduledEvent;
+import com.duing.domain.interview.event.InterviewUpdatedEvent;
 import com.duing.domain.interview.exception.InterviewException;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
@@ -21,6 +23,7 @@ import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.MatchingInput;
 import com.duing.domain.interview.service.dto.MatchingResult;
+import com.duing.domain.interview.service.dto.command.AssignInterviewScheduleCommand;
 import com.duing.domain.interview.service.dto.query.ScheduleListView;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
@@ -29,8 +32,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -253,6 +259,109 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
                 candidatesWithAvailability,
                 candidatesWithoutAvailability,
                 slotViews);
+    }
+
+    /**
+     * M9 — 수동 배정/이동.
+     *
+     * <p>deadlock 방지를 위해 source/target 슬롯을 ID 오름차순으로 동시 lock 한다.
+     */
+    @Override
+    @Transactional
+    public void assign(AssignInterviewScheduleCommand command) {
+        Application application = applicationRepository.findById(command.applicationId())
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+
+        clubAuthService.requireManager(command.actorUserId(),
+                application.getRecruitment().getClub().getId());
+
+        if (application.getStatus() != ApplicationStatus.INTERVIEW_PENDING) {
+            throw new InterviewException.InvalidApplicationStatus();
+        }
+
+        Optional<InterviewSchedule> existingSchedule =
+                scheduleRepository.findByApplicationId(command.applicationId());
+
+        Long currentSlotId = existingSchedule.map(InterviewSchedule::getSlotId).orElse(null);
+        Long targetSlotId = command.slotId();
+
+        List<Long> slotIdsToLock = Stream.of(currentSlotId, targetSlotId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+
+        Map<Long, InterviewSlot> lockedSlots = slotRepository.findAllByIdInForUpdate(slotIdsToLock)
+                .stream()
+                .collect(Collectors.toMap(InterviewSlot::getId, lockedSlot -> lockedSlot));
+
+        InterviewSlot targetSlot = lockedSlots.get(targetSlotId);
+        if (targetSlot == null) {
+            throw new InterviewException.SlotNotFound();
+        }
+
+        boolean isAlreadyAssignedToSameSlot = existingSchedule.isPresent()
+                && targetSlotId.equals(currentSlotId)
+                && existingSchedule.get().getStatus() == InterviewScheduleStatus.ASSIGNED;
+
+        if (!isAlreadyAssignedToSameSlot) {
+            long currentAssignedCount = scheduleRepository.countBySlotIdAndStatus(
+                    targetSlotId, InterviewScheduleStatus.ASSIGNED);
+            if (currentAssignedCount >= targetSlot.getCapacity()) {
+                throw new InterviewException.CapacityExceeded();
+            }
+        }
+
+        InterviewScheduleStatus priorStatus =
+                existingSchedule.map(InterviewSchedule::getStatus).orElse(null);
+
+        LocalDateTime now = LocalDateTime.now();
+        InterviewSchedule schedule = existingSchedule
+                .map(existing -> {
+                    existing.reassign(targetSlotId, now);
+                    return existing;
+                })
+                .orElseGet(() -> InterviewSchedule.create(
+                        command.applicationId(), targetSlotId,
+                        application.getRecruitment().getId(), now));
+        scheduleRepository.save(schedule);
+
+        boolean isNewAssignment = priorStatus == null
+                || priorStatus == InterviewScheduleStatus.CANCELLED;
+        boolean isMove = priorStatus == InterviewScheduleStatus.ASSIGNED
+                && !targetSlotId.equals(currentSlotId);
+
+        if (isNewAssignment) {
+            eventPublisher.publishEvent(new InterviewScheduledEvent(
+                    command.applicationId(), targetSlotId, application.getRecruitment().getId()));
+        } else if (isMove) {
+            eventPublisher.publishEvent(new InterviewUpdatedEvent(
+                    command.applicationId(), targetSlotId, application.getRecruitment().getId()));
+        }
+        // 동일 슬롯 재호출(no-op)은 이벤트 없음
+    }
+
+    /**
+     * M10 — 면접 일정 취소.
+     */
+    @Override
+    @Transactional
+    public void cancel(Long applicationId, Long actorUserId) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+
+        clubAuthService.requireManager(actorUserId,
+                application.getRecruitment().getClub().getId());
+
+        InterviewSchedule schedule = scheduleRepository.findByApplicationId(applicationId)
+                .orElseThrow(InterviewException.ScheduleNotFound::new);
+
+        Long slotId = schedule.getSlotId();
+        Long recruitmentId = schedule.getRecruitmentId();
+
+        schedule.cancel();
+
+        eventPublisher.publishEvent(new InterviewCancelledEvent(applicationId, slotId, recruitmentId));
     }
 
     private MyInterviewScheduleResponse buildAssignedResponse(InterviewSchedule schedule) {
