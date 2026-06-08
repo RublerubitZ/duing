@@ -40,7 +40,9 @@ public class GeneralInterviewConfigService implements InterviewConfigService {
         validateDeadlineInRecruitmentPeriod(command.availabilityDeadline(), recruitment);
 
         InterviewConfig savedConfig = configRepository.save(
-                InterviewConfig.create(recruitment.getId(), command.availabilityDeadline()));
+                InterviewConfig.create(recruitment.getId(),
+                        command.availabilityDeadline(),
+                        command.location()));
         return savedConfig.getId();
     }
 
@@ -60,6 +62,7 @@ public class GeneralInterviewConfigService implements InterviewConfigService {
             validateDeadlineInRecruitmentPeriod(command.availabilityDeadline(), recruitment);
             config.updateDeadline(command.availabilityDeadline(), LocalDateTime.now());
         }
+        config.updateLocation(command.location());
     }
 
     private void validateDeadlineInRecruitmentPeriod(LocalDateTime deadline, Recruitment recruitment) {

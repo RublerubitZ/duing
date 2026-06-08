@@ -30,17 +30,46 @@ public class InterviewConfig extends BaseEntity {
     @Column(name = "assignment_completed_at")
     private LocalDateTime assignmentCompletedAt;
 
+    @Column(length = 200)
+    private String location;
+
     @Builder(access = AccessLevel.PRIVATE)
-    private InterviewConfig(Long recruitmentId, LocalDateTime availabilityDeadline) {
+    private InterviewConfig(Long recruitmentId, LocalDateTime availabilityDeadline, String location) {
         this.recruitmentId = recruitmentId;
         this.availabilityDeadline = availabilityDeadline;
+        this.location = location;
     }
 
     public static InterviewConfig create(Long recruitmentId, LocalDateTime availabilityDeadline) {
+        return create(recruitmentId, availabilityDeadline, null);
+    }
+
+    public static InterviewConfig create(Long recruitmentId,
+                                         LocalDateTime availabilityDeadline,
+                                         String location) {
+        String normalizedLocation = null;
+        if (location != null) {
+            String trimmed = location.trim();
+            if (!trimmed.isEmpty()) {
+                normalizedLocation = trimmed;
+            }
+        }
         return InterviewConfig.builder()
                 .recruitmentId(recruitmentId)
                 .availabilityDeadline(availabilityDeadline)
+                .location(normalizedLocation)
                 .build();
+    }
+
+    public void updateLocation(String newLocation) {
+        if (newLocation == null) {
+            return;
+        }
+        String trimmed = newLocation.trim();
+        if (trimmed.isEmpty()) {
+            return;
+        }
+        this.location = trimmed;
     }
 
     public boolean isAvailabilitySubmissionAllowed(LocalDateTime now) {

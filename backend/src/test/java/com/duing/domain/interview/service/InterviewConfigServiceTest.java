@@ -56,7 +56,7 @@ class InterviewConfigServiceTest {
 
         Long configId = interviewConfigService.create(new CreateInterviewConfigCommand(
                 recruitment.getId(), leader.getId(),
-                LocalDateTime.now().plusDays(7)));
+                LocalDateTime.now().plusDays(7), null));
 
         assertThat(configRepository.findById(configId)).isPresent();
     }
@@ -70,7 +70,7 @@ class InterviewConfigServiceTest {
 
         assertThatThrownBy(() -> interviewConfigService.create(new CreateInterviewConfigCommand(
                 recruitment.getId(), outsider.getId(),
-                LocalDateTime.now().plusDays(7))))
+                LocalDateTime.now().plusDays(7), null)))
                 .isInstanceOf(ClubMemberException.NotAMember.class);
     }
 
@@ -84,11 +84,11 @@ class InterviewConfigServiceTest {
 
         interviewConfigService.create(new CreateInterviewConfigCommand(
                 recruitment.getId(), leader.getId(),
-                LocalDateTime.now().plusDays(7)));
+                LocalDateTime.now().plusDays(7), null));
 
         assertThatThrownBy(() -> interviewConfigService.create(new CreateInterviewConfigCommand(
                 recruitment.getId(), leader.getId(),
-                LocalDateTime.now().plusDays(8))))
+                LocalDateTime.now().plusDays(8), null)))
                 .isInstanceOf(InterviewException.ConfigAlreadyExists.class);
     }
 
@@ -103,7 +103,7 @@ class InterviewConfigServiceTest {
 
         assertThatThrownBy(() -> interviewConfigService.create(new CreateInterviewConfigCommand(
                 recruitment.getId(), leader.getId(),
-                LocalDateTime.now().plusDays(3))))
+                LocalDateTime.now().plusDays(3), null)))
                 .isInstanceOf(InterviewException.RecruitmentAlreadyStarted.class);
     }
 
@@ -118,7 +118,7 @@ class InterviewConfigServiceTest {
         // endDate 이후인 deadline
         assertThatThrownBy(() -> interviewConfigService.create(new CreateInterviewConfigCommand(
                 recruitment.getId(), leader.getId(),
-                LocalDateTime.now().plusDays(10))))
+                LocalDateTime.now().plusDays(10), null)))
                 .isInstanceOf(InterviewException.InvalidDeadline.class);
     }
 
@@ -137,7 +137,7 @@ class InterviewConfigServiceTest {
 
         assertThatThrownBy(() -> interviewConfigService.update(new UpdateInterviewConfigCommand(
                 recruitment.getId(), leader.getId(),
-                LocalDateTime.now().plusDays(10))))
+                LocalDateTime.now().plusDays(10), null)))
                 .isInstanceOf(InterviewException.AssignmentAlreadyCompleted.class);
     }
 
@@ -154,10 +154,63 @@ class InterviewConfigServiceTest {
                 InterviewConfig.create(recruitment.getId(), originalDeadline));
 
         interviewConfigService.update(new UpdateInterviewConfigCommand(
-                recruitment.getId(), leader.getId(), null));
+                recruitment.getId(), leader.getId(), null, null));
 
         InterviewConfig found = configRepository.findById(config.getId()).orElseThrow();
         assertThat(found.getAvailabilityDeadline()).isEqualToIgnoringNanos(originalDeadline);
+    }
+
+    @Test
+    @DisplayName("create 시 location 이 함께 저장된다")
+    void createPersistsLocation() {
+        Club club = saveActiveClub("동아리H");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now(), LocalDate.now().plusDays(30));
+
+        Long configId = interviewConfigService.create(new CreateInterviewConfigCommand(
+                recruitment.getId(), leader.getId(),
+                LocalDateTime.now().plusDays(3), "공학관 2201호"));
+
+        InterviewConfig config = configRepository.findById(configId).orElseThrow();
+        assertThat(config.getLocation()).isEqualTo("공학관 2201호");
+    }
+
+    @Test
+    @DisplayName("update 시 location 이 null 이면 변경되지 않는다")
+    void updateWithNullLocationDoesNothing() {
+        Club club = saveActiveClub("동아리I");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now(), LocalDate.now().plusDays(30));
+
+        InterviewConfig config = configRepository.save(
+                InterviewConfig.create(recruitment.getId(), LocalDateTime.now().plusDays(7), "공학관 2201호"));
+
+        interviewConfigService.update(new UpdateInterviewConfigCommand(
+                recruitment.getId(), leader.getId(),
+                LocalDateTime.now().plusDays(10), null));
+
+        InterviewConfig found = configRepository.findById(config.getId()).orElseThrow();
+        assertThat(found.getLocation()).isEqualTo("공학관 2201호");
+    }
+
+    @Test
+    @DisplayName("update 시 location 이 공백만 있는 문자열이면 변경되지 않는다 (MVP 에선 clear 미지원)")
+    void updateWithBlankLocationDoesNothing() {
+        Club club = saveActiveClub("동아리J");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now(), LocalDate.now().plusDays(30));
+
+        InterviewConfig config = configRepository.save(
+                InterviewConfig.create(recruitment.getId(), LocalDateTime.now().plusDays(7), "공학관 2201호"));
+
+        interviewConfigService.update(new UpdateInterviewConfigCommand(
+                recruitment.getId(), leader.getId(), null, "   "));
+
+        InterviewConfig found = configRepository.findById(config.getId()).orElseThrow();
+        assertThat(found.getLocation()).isEqualTo("공학관 2201호");
     }
 
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
