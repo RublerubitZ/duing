@@ -1,6 +1,6 @@
 // OpenAPI generated schema 는 packages/api 에 위치하지만, 면접 도메인 타입은
 // 공유 의도가 강해 packages/types 에 둔다. type-only import 라 런타임/번들 영향 없음.
-import type { components } from '../../api/src/generated/schema';
+import type { components } from '@duing/api/openapi-types';
 
 // === Backend 응답 1:1 alias ===
 export type InterviewConfig = components['schemas']['InterviewConfigResponse'];
