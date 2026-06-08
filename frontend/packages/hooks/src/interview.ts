@@ -168,7 +168,7 @@ export function useDeleteInterviewSlotMutation(recruitmentId: number) {
   });
 }
 
-export function useAutoAssignInterviewMutation(recruitmentId: number) {
+export function useAutoAssignMutation(recruitmentId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({

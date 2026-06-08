@@ -174,7 +174,7 @@ export {
   useCreateInterviewSlotsMutation,
   useUpdateInterviewSlotMutation,
   useDeleteInterviewSlotMutation,
-  useAutoAssignInterviewMutation,
+  useAutoAssignMutation,
   useAssignInterviewScheduleMutation,
   useCancelInterviewScheduleMutation,
   useUpdateInterviewAvailabilitiesMutation,

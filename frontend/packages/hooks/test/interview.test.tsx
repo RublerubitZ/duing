@@ -10,7 +10,7 @@ import { interviewQueryKeys } from '../src/interviewQueryKeys';
 import {
   useCreateInterviewSlotsMutation,
   useUpdateInterviewSlotMutation,
-  useAutoAssignInterviewMutation,
+  useAutoAssignMutation,
   useAssignInterviewScheduleMutation,
   useCancelInterviewScheduleMutation,
   useUpdateInterviewAvailabilitiesMutation,
@@ -101,7 +101,7 @@ describe('useUpdateInterviewSlotMutation (spec §6)', () => {
   });
 });
 
-describe('useAutoAssignInterviewMutation (spec §6)', () => {
+describe('useAutoAssignMutation (spec §6)', () => {
   it('성공 시 config + schedules + candidates 가 invalidate 된다', async () => {
     const queryClient = newQueryClient();
     server.use(
@@ -125,7 +125,7 @@ describe('useAutoAssignInterviewMutation (spec §6)', () => {
     queryClient.setQueryData(interviewQueryKeys.candidates(10), null);
     queryClient.setQueryData(interviewQueryKeys.slots(10), []); // 비대상
 
-    const { result } = renderHook(() => useAutoAssignInterviewMutation(10), {
+    const { result } = renderHook(() => useAutoAssignMutation(10), {
       wrapper: makeWrapper(queryClient),
     });
     result.current.mutate();
