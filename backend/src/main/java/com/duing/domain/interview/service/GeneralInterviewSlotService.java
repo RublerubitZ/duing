@@ -36,7 +36,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
         if (!configRepository.existsByRecruitmentId(recruitment.getId())) {
             throw new InterviewException.InterviewConfigNotFound();
         }
-        if (!LocalDate.now().isBefore(recruitment.getStartDate())) {
+        if (LocalDate.now().isAfter(recruitment.getStartDate())) {
             throw new InterviewException.RecruitmentAlreadyStarted();
         }
 
