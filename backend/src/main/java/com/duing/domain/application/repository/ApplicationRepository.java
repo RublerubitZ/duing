@@ -56,4 +56,12 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
             """)
     List<Application> findInterviewBetween(@Param("start") LocalDateTime start,
                                            @Param("end") LocalDateTime end);
+
+    /**
+     * 자동배정용 — 특정 모집의 특정 상태 지원자 전체 조회. user fetch join 으로 N+1 방지.
+     */
+    @Query("SELECT a FROM Application a JOIN FETCH a.user WHERE a.recruitment.id = :recruitmentId AND a.status = :status")
+    List<Application> findByRecruitmentIdAndStatus(
+            @Param("recruitmentId") Long recruitmentId,
+            @Param("status") ApplicationStatus status);
 }

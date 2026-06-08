@@ -23,6 +23,7 @@ import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
+import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -48,7 +49,7 @@ class ApplicationStatusServiceTest {
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
-    private final com.duing.domain.interview.service.InterviewAvailabilityService interviewAvailabilityService = mock(com.duing.domain.interview.service.InterviewAvailabilityService.class);
+    private final InterviewAvailabilityService interviewAvailabilityService = mock(InterviewAvailabilityService.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,

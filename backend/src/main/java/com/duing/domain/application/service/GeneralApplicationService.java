@@ -118,9 +118,7 @@ public class GeneralApplicationService implements ApplicationService {
         interviewAvailabilityService.createAllInSubmission(new CreateAvailabilitiesInSubmissionCommand(
                 savedApplicationId,
                 submitApplicationCommand.recruitmentId(),
-                submitApplicationCommand.interviewSlotIds() != null
-                        ? submitApplicationCommand.interviewSlotIds()
-                        : List.of()
+                submitApplicationCommand.interviewSlotIds()
         ));
 
         applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
