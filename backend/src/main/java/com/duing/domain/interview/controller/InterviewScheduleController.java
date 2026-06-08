@@ -22,8 +22,8 @@ public class InterviewScheduleController implements InterviewScheduleApi {
             Long applicationId,
             UserPrincipal currentUser
     ) {
-        MyInterviewScheduleResponse response =
+        MyInterviewScheduleResponse scheduleResponse =
                 interviewScheduleService.findMySchedule(applicationId, currentUser.id());
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(ApiResponse.success(scheduleResponse));
     }
 }
