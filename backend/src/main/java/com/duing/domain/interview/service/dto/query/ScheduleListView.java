@@ -12,6 +12,7 @@ public record ScheduleListView(
         LocalDateTime startTime,
         LocalDateTime endTime,
         int capacity,
+        String location,
         List<AssignedItem> assigned
 ) {
     public record AssignedItem(

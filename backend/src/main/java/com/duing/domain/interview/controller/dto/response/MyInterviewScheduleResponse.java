@@ -5,7 +5,8 @@ import java.time.LocalDateTime;
 
 public record MyInterviewScheduleResponse(
         boolean assigned,
-        InterviewScheduleDetail schedule
+        InterviewScheduleDetail schedule,
+        String location
 ) {
 
     public record InterviewScheduleDetail(
