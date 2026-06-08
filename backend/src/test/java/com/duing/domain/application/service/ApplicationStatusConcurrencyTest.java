@@ -2,6 +2,7 @@ package com.duing.domain.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -35,12 +36,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.annotation.DirtiesContext;
 
+// @DirtiesContext 제거: 테스트가 1개뿐이고, IntegrationTestBase.cleanDatabase() 로 매 실행 전
+// DB 상태를 초기화한다. 동시성 테스트는 별도 트랜잭션에서 동작하므로 @Transactional rollback 대신
+// truncate 전략을 사용한다.
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class ApplicationStatusConcurrencyTest {
+class ApplicationStatusConcurrencyTest extends IntegrationTestBase {
 
     @Autowired ApplicationService applicationService;
     @Autowired ApplicationRepository applicationRepository;

@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.nullValue;
 
+import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -39,12 +40,13 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.annotation.DirtiesContext;
 
+// @DirtiesContext 제거: 매 테스트 전 IntegrationTestBase.cleanDatabase() 가 전체 테이블을 TRUNCATE 해
+// 이전 테스트 데이터가 필터 결과에 끼어드는 오염을 방지한다.
+// 컨테이너는 TestcontainersConfiguration 의 static 필드로 JVM 전체에서 1회만 기동.
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class LeaderApplicationControllerTest {
+class LeaderApplicationControllerTest extends IntegrationTestBase {
 
     @LocalServerPort
     private int port;

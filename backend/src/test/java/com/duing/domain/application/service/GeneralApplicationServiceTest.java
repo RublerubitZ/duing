@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 
+import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -40,12 +41,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.annotation.DirtiesContext;
 
+// @DirtiesContext 제거:
+// 1. @MockitoSpyBean — Spring Boot 3.4 (Spring Framework 6.2) 의 @BeanOverride 메커니즘은
+//    각 테스트 메서드 후 spy 의 Mockito 스텁을 자동으로 초기화(reset)하므로 ApplicationContext
+//    재시작 없이 테스트 간 spy 잔존 영향이 없다.
+// 2. 데이터 격리 — IntegrationTestBase.cleanDatabase() 가 매 테스트 전 전체 테이블을 TRUNCATE 해
+//    이전 테스트의 application_status_history 등 잔존 데이터를 제거한다.
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class GeneralApplicationServiceTest {
+class GeneralApplicationServiceTest extends IntegrationTestBase {
 
     @Autowired ApplicationService applicationService;
     @Autowired ApplicationRepository applicationRepository;

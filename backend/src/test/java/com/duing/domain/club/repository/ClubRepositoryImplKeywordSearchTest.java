@@ -2,6 +2,7 @@ package com.duing.domain.club.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.Club.UpdatePayload;
@@ -19,14 +20,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
-@DirtiesContext
-class ClubRepositoryImplKeywordSearchTest {
+class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
 
     @Autowired ClubRepository clubRepository;
 

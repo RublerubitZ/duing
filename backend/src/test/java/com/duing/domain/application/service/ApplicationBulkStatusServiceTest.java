@@ -2,6 +2,7 @@ package com.duing.domain.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -31,12 +32,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.annotation.DirtiesContext;
 
+// @DirtiesContext 제거: IntegrationTestBase.cleanDatabase() 가 매 테스트 전 전체 테이블을 TRUNCATE 해
+// 이전 테스트의 application / club_member 데이터가 다음 테스트 assertion 에 영향을 주지 않는다.
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class ApplicationBulkStatusServiceTest {
+class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
 
     @Autowired ApplicationService applicationService;
     @Autowired ApplicationRepository applicationRepository;
