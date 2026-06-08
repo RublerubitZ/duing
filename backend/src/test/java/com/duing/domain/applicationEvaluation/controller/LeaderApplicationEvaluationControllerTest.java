@@ -2,6 +2,7 @@ package com.duing.domain.applicationEvaluation.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -46,12 +47,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
-import org.springframework.test.annotation.DirtiesContext;
 
+// @DirtiesContext 제거: IntegrationTestBase.cleanDatabase() 가 매 테스트 전 전체 테이블을 TRUNCATE 해
+// 이전 테스트의 evaluation / application / club 데이터가 다음 테스트 assertion 에 영향을 주지 않는다.
+// RestAssured HTTP 레벨 테스트라 @Transactional rollback 은 적용 불가 → truncate 전략.
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class LeaderApplicationEvaluationControllerTest {
+class LeaderApplicationEvaluationControllerTest extends IntegrationTestBase {
 
     @LocalServerPort
     private int port;

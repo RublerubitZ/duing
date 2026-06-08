@@ -3,6 +3,7 @@ package com.duing.domain.notice.broadcast.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -33,14 +34,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
-@DirtiesContext
-class NoticeBroadcasterTest {
+class NoticeBroadcasterTest extends IntegrationTestBase {
 
     @Autowired NoticeBroadcaster broadcaster;
     @Autowired NoticeRepository noticeRepository;

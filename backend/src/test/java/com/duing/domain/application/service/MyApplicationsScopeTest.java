@@ -29,13 +29,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
 
+// @DirtiesContext 제거: 클래스에 @Transactional 이 선언되어 각 테스트가 자동으로 rollback 된다.
+// 서비스 레이어 호출은 테스트 트랜잭션 내부에서 동작하므로 컨텍스트 재시작 없이 DB 격리가 보장된다.
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
-@DirtiesContext
 class MyApplicationsScopeTest {
 
     @Autowired
