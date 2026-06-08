@@ -53,6 +53,7 @@ import org.springframework.transaction.annotation.Transactional;
 class InterviewAutoAssignServiceTest extends IntegrationTestBase {
 
     @Autowired private InterviewScheduleService interviewScheduleService;
+    @Autowired private InterviewSlotService interviewSlotServiceForCapacityRace;
     @Autowired private ApplicationRepository applicationRepository;
     @Autowired private InterviewConfigRepository configRepository;
     @Autowired private InterviewSlotRepository slotRepository;
@@ -431,6 +432,63 @@ class InterviewAutoAssignServiceTest extends IntegrationTestBase {
 
         assertThat(successCount.get()).isEqualTo(1);
         assertThat(conflictCount.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("자동배정과 슬롯 capacity 감소가 동시에 실행되어도 stale capacity 로 overbook 되지 않는다")
+    void 자동배정_과_capacity_감소_동시_실행시_stale_read_차단() throws Exception {
+        Club club = saveActiveClub("동아리");
+        User leader = saveUser("리더");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club);
+        saveConfigWithPastDeadline(recruitment.getId());
+
+        InterviewSlot slot = slotRepository.save(InterviewSlot.create(
+                recruitment.getId(),
+                LocalDateTime.now().plusDays(7),
+                LocalDateTime.now().plusDays(7).plusHours(1),
+                2)); // 초기 capacity 2
+
+        // 두 명의 availability — 매칭 시 두 명 모두 같은 슬롯 노림
+        User a = saveUser("A");
+        User b = saveUser("B");
+        Application appA = saveInterviewPendingApplication(recruitment, a);
+        Application appB = saveInterviewPendingApplication(recruitment, b);
+        saveAvailability(appA.getId(), slot.getId(), recruitment.getId());
+        saveAvailability(appB.getId(), slot.getId(), recruitment.getId());
+
+        java.util.concurrent.ExecutorService executor =
+                java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.atomic.AtomicInteger successCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        java.util.concurrent.Future<?> autoFuture = executor.submit(() -> {
+            try {
+                interviewScheduleService.autoAssign(recruitment.getId(), leader.getId());
+                successCount.incrementAndGet();
+            } catch (Exception ignored) {
+                // 정상 race 처리 결과
+            }
+        });
+        java.util.concurrent.Future<?> patchFuture = executor.submit(() -> {
+            try {
+                // capacity 2 → 1 로 감소 (concurrent)
+                interviewSlotServiceForCapacityRace.update(
+                        new com.duing.domain.interview.service.dto.command.UpdateInterviewSlotCommand(
+                                slot.getId(), leader.getId(), null, null, 1));
+                successCount.incrementAndGet();
+            } catch (Exception ignored) {
+                // PATCH 가 lock 대기 중 CapacityBelowAssigned 등 발생 시 OK
+            }
+        });
+        autoFuture.get();
+        patchFuture.get();
+        executor.shutdown();
+
+        long assignedOnSlot = scheduleRepository.countBySlotIdAndStatus(
+                slot.getId(), InterviewScheduleStatus.ASSIGNED);
+        InterviewSlot reloadedSlot = slotRepository.findById(slot.getId()).orElseThrow();
+        // 최종 capacity (committed value) 를 초과하면 안 됨 — stale capacity 로 인한 overbook 차단 검증
+        assertThat((long) reloadedSlot.getCapacity()).isGreaterThanOrEqualTo(assignedOnSlot);
     }
 
     @Test

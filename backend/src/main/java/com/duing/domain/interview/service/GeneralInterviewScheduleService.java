@@ -30,6 +30,7 @@ import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -114,21 +115,24 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
             throw new InterviewException.AssignmentAlreadyCompleted();
         }
 
-        List<InterviewSlot> slotsByStart = slotRepository.findByRecruitmentIdOrderByStartTimeAsc(recruitmentId);
-        if (slotsByStart.isEmpty()) {
-            throw new InterviewException.NoSlotsAvailable();
-        }
-
-        // capacity-changing path (autoAssign + manual assign) 직렬화를 위해 모든 recruitment 슬롯을
-        // id 오름차순으로 pessimistic lock 한다. manual assign 의 source/target slot lock 과 동일 순서라
-        // deadlock 회피. interview_config → slots 두 단계 lock 순서를 양 path 가 공유한다.
-        List<Long> slotIdsAsc = slotsByStart.stream()
+        // 초기 조회는 슬롯 id 목록만 얻기 위한 용도. capacity 등 동시 변경 가능한 값은 lock 후 다시 읽어야 한다.
+        List<Long> slotIdsAsc = slotRepository.findByRecruitmentIdOrderByStartTimeAsc(recruitmentId).stream()
                 .map(InterviewSlot::getId)
                 .sorted()
                 .toList();
-        slotRepository.findAllByIdInForUpdate(slotIdsAsc);
-        // lock 이후 다시 startTime 정렬 결과를 사용 (slots 변수)
-        List<InterviewSlot> slots = slotsByStart;
+        if (slotIdsAsc.isEmpty()) {
+            throw new InterviewException.NoSlotsAvailable();
+        }
+
+        // capacity-changing path (autoAssign + manual assign + slot capacity 수정) 직렬화를 위해
+        // 모든 recruitment 슬롯을 id 오름차순으로 pessimistic lock 한다. manual assign 의 source/target
+        // slot lock 과 동일 순서라 deadlock 회피. interview_config → slots 두 단계 lock 순서를 양 path 가 공유.
+        // **lock 후 반환된 인스턴스의 capacity 를 사용해야 stale read 로 인한 overbook 을 차단할 수 있다.**
+        List<InterviewSlot> lockedSlots = slotRepository.findAllByIdInForUpdate(slotIdsAsc);
+        // 매칭은 startTime 오름차순으로 진행해야 spec 의 tie-break 가 동작한다.
+        List<InterviewSlot> slots = lockedSlots.stream()
+                .sorted(Comparator.comparing(InterviewSlot::getStartTime))
+                .toList();
 
         List<Application> allCandidates = applicationRepository
                 .findByRecruitmentIdAndStatus(recruitmentId, ApplicationStatus.INTERVIEW_PENDING);

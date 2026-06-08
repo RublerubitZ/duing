@@ -50,9 +50,10 @@ public class GeneralInterviewAvailabilityService implements InterviewAvailabilit
         Long recruitmentId = command.recruitmentId();
         List<Long> slotIds = command.interviewSlotIds();
 
-        InterviewConfig config = configRepository.findByRecruitmentId(recruitmentId).orElse(null);
+        // config 존재 확인 (lock 없음) — 일반 모집과 면접 모집 분기
+        InterviewConfig configPeek = configRepository.findByRecruitmentId(recruitmentId).orElse(null);
 
-        if (config == null) {
+        if (configPeek == null) {
             if (!slotIds.isEmpty()) {
                 throw new InterviewException.InvalidSlotSelection();
             }
@@ -63,6 +64,11 @@ public class GeneralInterviewAvailabilityService implements InterviewAvailabilit
         if (slotIds.isEmpty()) {
             throw new InterviewException.InvalidSlotSelection();
         }
+
+        // autoAssign 과 동일한 lock boundary (interview_config row) 를 공유한다.
+        // 이로써 deadline 직전 PUT 이 autoAssign 직후에 stale availability 를 커밋하는 race 를 차단.
+        InterviewConfig config = configRepository.findByRecruitmentIdForUpdate(recruitmentId)
+                .orElseThrow(InterviewException.InterviewConfigNotFound::new);
 
         if (!config.isAvailabilitySubmissionAllowed(LocalDateTime.now())) {
             throw new InterviewException.AvailabilityPeriodClosed();
@@ -120,7 +126,9 @@ public class GeneralInterviewAvailabilityService implements InterviewAvailabilit
 
         Long recruitmentId = application.getRecruitment().getId();
 
-        InterviewConfig config = configRepository.findByRecruitmentId(recruitmentId)
+        // autoAssign 과 동일한 lock boundary (interview_config row) 를 공유한다.
+        // 이로써 deadline 직전 PUT 이 autoAssign 직후에 stale availability 를 커밋하는 race 를 차단.
+        InterviewConfig config = configRepository.findByRecruitmentIdForUpdate(recruitmentId)
                 .orElseThrow(InterviewException.InterviewConfigNotFound::new);
 
         if (config.getAssignmentCompletedAt() != null) {

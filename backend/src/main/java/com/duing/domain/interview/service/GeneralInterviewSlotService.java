@@ -75,11 +75,19 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     @Override
     @Transactional
     public void update(UpdateInterviewSlotCommand command) {
-        InterviewSlot slot = slotRepository.findByIdForUpdate(command.slotId())
+        // recruitmentId 만 얻기 위한 사전 조회 (lock 없음)
+        InterviewSlot slotPeek = slotRepository.findById(command.slotId())
                 .orElseThrow(InterviewException.SlotNotFound::new);
-        Recruitment recruitment = recruitmentRepository.findById(slot.getRecruitmentId())
+        Recruitment recruitment = recruitmentRepository.findById(slotPeek.getRecruitmentId())
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(command.actorUserId(), recruitment.getClub().getId());
+
+        // capacity 변경은 autoAssign · manual assign 의 capacity 검증과 직렬화되어야 한다.
+        // 양 path 와 동일하게 interview_config → slot 순서로 lock 한다 (deadlock 회피).
+        configRepository.findByRecruitmentIdForUpdate(slotPeek.getRecruitmentId())
+                .orElseThrow(InterviewException.InterviewConfigNotFound::new);
+        InterviewSlot slot = slotRepository.findByIdForUpdate(command.slotId())
+                .orElseThrow(InterviewException.SlotNotFound::new);
 
         long availabilityCount = availabilityRepository.countBySlotId(slot.getId());
         long assignedCount = scheduleRepository.countBySlotIdAndStatus(slot.getId(), InterviewScheduleStatus.ASSIGNED);
