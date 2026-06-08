@@ -33,7 +33,8 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.domain.notification.event.InterviewScheduledEvent;
+import com.duing.domain.interview.service.InterviewAvailabilityService;
+import com.duing.domain.interview.service.dto.command.CreateAvailabilitiesInSubmissionCommand;
 import com.duing.global.notification.InterviewNotificationService;
 import com.duing.global.exception.ApplicationException;
 import java.time.LocalDate;
@@ -46,7 +47,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -72,9 +72,9 @@ public class GeneralApplicationService implements ApplicationService {
     private final ClubAuthService clubAuthService;
     private final InterviewNotificationService interviewNotificationService;
     private final ApplicationDraftService applicationDraftService;
-    private final ApplicationEventPublisher eventPublisher;
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
     private final ApplicationEvaluationRepository applicationEvaluationRepository;
+    private final InterviewAvailabilityService interviewAvailabilityService;
     /**
      * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
      * 생성자 자체에 self-reference 를 넣으면 순환 의존이 되므로 setter 주입을 사용한다.
@@ -111,6 +111,13 @@ public class GeneralApplicationService implements ApplicationService {
 
         Application application = Application.submit(recruitment, user, submitApplicationCommand.answers());
         Long savedApplicationId = applicationRepository.save(application).getId();
+
+        interviewAvailabilityService.createAllInSubmission(new CreateAvailabilitiesInSubmissionCommand(
+                savedApplicationId,
+                submitApplicationCommand.recruitmentId(),
+                submitApplicationCommand.interviewSlotIds()
+        ));
+
         applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
         return savedApplicationId;
     }
@@ -269,13 +276,6 @@ public class GeneralApplicationService implements ApplicationService {
         } catch (Exception notificationFailure) {
             log.warn("[면접 알림 발송 실패] applicationId={}", application.getId());
         }
-
-        eventPublisher.publishEvent(new InterviewScheduledEvent(
-                application.getId(),
-                application.getUser().getId(),
-                application.getRecruitment().getClub().getName(),
-                application.getInterviewAt(),
-                application.getInterviewLocation()));
     }
 
     @Override

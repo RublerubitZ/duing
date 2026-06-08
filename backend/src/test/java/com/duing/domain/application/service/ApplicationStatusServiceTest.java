@@ -23,6 +23,7 @@ import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
+import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -32,7 +33,6 @@ import com.duing.global.notification.InterviewNotificationService;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -45,9 +45,9 @@ class ApplicationStatusServiceTest {
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
-    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
+    private final InterviewAvailabilityService interviewAvailabilityService = mock(InterviewAvailabilityService.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -57,9 +57,9 @@ class ApplicationStatusServiceTest {
             clubAuthService,
             interviewNotificationService,
             applicationDraftService,
-            eventPublisher,
             applicationStatusHistoryRepository,
-            applicationEvaluationRepository);
+            applicationEvaluationRepository,
+            interviewAvailabilityService);
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더

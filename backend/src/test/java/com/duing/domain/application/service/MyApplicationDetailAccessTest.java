@@ -15,6 +15,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
+import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -26,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationEventPublisher;
 
 class MyApplicationDetailAccessTest {
 
@@ -37,9 +37,9 @@ class MyApplicationDetailAccessTest {
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
-    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
+    private final InterviewAvailabilityService interviewAvailabilityService = mock(InterviewAvailabilityService.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -49,9 +49,9 @@ class MyApplicationDetailAccessTest {
             clubAuthService,
             interviewNotificationService,
             applicationDraftService,
-            eventPublisher,
             applicationStatusHistoryRepository,
-            applicationEvaluationRepository);
+            applicationEvaluationRepository,
+            interviewAvailabilityService);
 
     @Test
     @DisplayName("다른 사용자의 지원 상세를 조회하면 ForbiddenApplicationAccessException 이 발생한다")

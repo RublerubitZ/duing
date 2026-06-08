@@ -12,6 +12,7 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
+import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
@@ -30,7 +31,6 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationEventPublisher;
 
 class ApplicationSubmitGuardsTest {
 
@@ -45,9 +45,9 @@ class ApplicationSubmitGuardsTest {
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
-    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
+    private final InterviewAvailabilityService interviewAvailabilityService = mock(InterviewAvailabilityService.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -57,9 +57,9 @@ class ApplicationSubmitGuardsTest {
             clubAuthService,
             interviewNotificationService,
             applicationDraftService,
-            eventPublisher,
             applicationStatusHistoryRepository,
-            applicationEvaluationRepository);
+            applicationEvaluationRepository,
+            interviewAvailabilityService);
 
     @Test
     @DisplayName("외부 폼 모집에는 두잉 내에서 직접 지원할 수 없다")
@@ -69,7 +69,7 @@ class ApplicationSubmitGuardsTest {
         when(externalRecruitment.getApplicationMode()).thenReturn(ApplicationMode.EXTERNAL);
         when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(externalRecruitment));
 
-        SubmitApplicationCommand submitCommand = new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of());
+        SubmitApplicationCommand submitCommand = new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of(), List.of());
 
         assertThatThrownBy(() -> applicationService.submit(submitCommand))
                 .isInstanceOf(ApplicationDomainException.ExternalFormSubmitException.class);
@@ -178,7 +178,7 @@ class ApplicationSubmitGuardsTest {
     }
 
     private SubmitApplicationCommand submitCommand() {
-        return new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of());
+        return new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of(), List.of());
     }
 
     private void stubMemberRecruitment() {
