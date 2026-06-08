@@ -4,24 +4,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.InterviewAvailabilityFixture;
+import com.duing.common.fixture.InterviewScheduleFixture;
 import com.duing.common.fixture.InterviewSlotFixture;
+import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.interview.entity.InterviewConfig;
-import com.duing.common.fixture.InterviewAvailabilityFixture;
-import com.duing.common.fixture.InterviewScheduleFixture;
-import com.duing.domain.application.entity.Application;
-import com.duing.domain.application.entity.ApplicationStatus;
-import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.exception.InterviewException;
+import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.command.CreateInterviewSlotsCommand;
 import com.duing.domain.interview.service.dto.command.CreateInterviewSlotsCommand.SlotEntry;
+import com.duing.domain.interview.service.dto.command.UpdateInterviewSlotCommand;
 import com.duing.domain.interview.service.dto.query.SlotListView;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -50,6 +52,8 @@ class InterviewSlotServiceTest {
     @Autowired private InterviewSlotService interviewSlotService;
     @Autowired private InterviewSlotRepository slotRepository;
     @Autowired private InterviewConfigRepository configRepository;
+    @Autowired private InterviewAvailabilityRepository availabilityRepository;
+    @Autowired private InterviewScheduleRepository scheduleRepository;
     @Autowired private ApplicationRepository applicationRepository;
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private ClubRepository clubRepository;
@@ -227,6 +231,190 @@ class InterviewSlotServiceTest {
         assertThat(result.get(0).assignedCount()).isEqualTo(0L);
     }
 
+    // ── M5: 슬롯 수정 ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("availability 가 없는 슬롯의 시간 수정은 허용된다")
+    void updatesSlotTimeWhenNoAvailability() {
+        Club club = saveActiveClub("수정테스트동아리A");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        saveInterviewConfig(recruitment);
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        entityManager.flush();
+        entityManager.clear();
+
+        LocalDateTime newStart = base.plusDays(1);
+        LocalDateTime newEnd = newStart.plusHours(2);
+        interviewSlotService.update(new UpdateInterviewSlotCommand(
+                slot.getId(), leader.getId(), newStart, newEnd, null));
+
+        entityManager.flush();
+        entityManager.clear();
+        InterviewSlot updated = slotRepository.findById(slot.getId()).orElseThrow();
+        assertThat(updated.getStartTime()).isEqualTo(newStart);
+        assertThat(updated.getEndTime()).isEqualTo(newEnd);
+    }
+
+    @Test
+    @DisplayName("availability 가 1건이라도 있는 슬롯의 시간 수정은 409 SlotHasAvailability 가 반환된다")
+    void throwsSlotHasAvailabilityWhenUpdatingTimeWithExistingAvailability() {
+        Club club = saveActiveClub("수정테스트동아리B");
+        User leader = saveUser();
+        User applicant = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        saveInterviewConfig(recruitment);
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of("답변")));
+        entityManager.persist(InterviewAvailabilityFixture.link(application.getId(), slot.getId(), recruitment.getId()));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> interviewSlotService.update(new UpdateInterviewSlotCommand(
+                slot.getId(), leader.getId(), base.plusDays(1), base.plusDays(1).plusHours(2), null)))
+                .isInstanceOf(InterviewException.SlotHasAvailability.class);
+    }
+
+    @Test
+    @DisplayName("capacity 증가는 항상 허용된다")
+    void increasesCapacityAlways() {
+        Club club = saveActiveClub("수정테스트동아리C");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        saveInterviewConfig(recruitment);
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 2));
+        entityManager.flush();
+        entityManager.clear();
+
+        interviewSlotService.update(new UpdateInterviewSlotCommand(
+                slot.getId(), leader.getId(), null, null, 10));
+
+        entityManager.flush();
+        entityManager.clear();
+        InterviewSlot updated = slotRepository.findById(slot.getId()).orElseThrow();
+        assertThat(updated.getCapacity()).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("capacity 감소가 현재 assigned 수보다 작으면 409 CapacityBelowAssigned 가 반환된다")
+    void throwsCapacityBelowAssignedWhenReducingCapacityBelowAssignedCount() {
+        Club club = saveActiveClub("수정테스트동아리D");
+        User leader = saveUser();
+        User applicant = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        saveInterviewConfig(recruitment);
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of("답변")));
+        entityManager.persist(InterviewScheduleFixture.assigned(application.getId(), slot.getId(), recruitment.getId()));
+        entityManager.flush();
+        entityManager.clear();
+
+        // assignedCount == 1, 새 capacity == 0 → 차단
+        assertThatThrownBy(() -> interviewSlotService.update(new UpdateInterviewSlotCommand(
+                slot.getId(), leader.getId(), null, null, 0)))
+                .isInstanceOf(InterviewException.CapacityBelowAssigned.class);
+    }
+
+    @Test
+    @DisplayName("update 호출 시 존재하지 않는 slotId 면 404 SlotNotFound 가 반환된다")
+    void updateThrowsSlotNotFoundForUnknownId() {
+        Long leaderId = saveLeaderForRecruitment().getId();
+        UpdateInterviewSlotCommand command = new UpdateInterviewSlotCommand(
+                999_999L, leaderId, null, null, 3);
+
+        assertThatThrownBy(() -> interviewSlotService.update(command))
+                .isInstanceOf(InterviewException.SlotNotFound.class);
+    }
+
+    @Test
+    @DisplayName("delete 호출 시 존재하지 않는 slotId 면 404 SlotNotFound 가 반환된다")
+    void deleteThrowsSlotNotFoundForUnknownId() {
+        Long leaderId = saveLeaderForRecruitment().getId();
+        assertThatThrownBy(() -> interviewSlotService.delete(999_999L, leaderId))
+                .isInstanceOf(InterviewException.SlotNotFound.class);
+    }
+
+    // ── M6: 슬롯 삭제 ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("availability 가 없고 schedule 도 없는 슬롯은 삭제할 수 있다")
+    void deletesSlotWhenNoAvailabilityAndNoSchedule() {
+        Club club = saveActiveClub("삭제테스트동아리A");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        saveInterviewConfig(recruitment);
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        entityManager.flush();
+        entityManager.clear();
+
+        interviewSlotService.delete(slot.getId(), leader.getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(slotRepository.findById(slot.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("availability 가 있는 슬롯 삭제는 409 SlotHasAvailability 가 반환된다")
+    void throwsSlotHasAvailabilityWhenDeletingSlotWithAvailability() {
+        Club club = saveActiveClub("삭제테스트동아리B");
+        User leader = saveUser();
+        User applicant = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        saveInterviewConfig(recruitment);
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of("답변")));
+        entityManager.persist(InterviewAvailabilityFixture.link(application.getId(), slot.getId(), recruitment.getId()));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> interviewSlotService.delete(slot.getId(), leader.getId()))
+                .isInstanceOf(InterviewException.SlotHasAvailability.class);
+    }
+
+    @Test
+    @DisplayName("schedule 이 ASSIGNED 인 슬롯 삭제는 409 SlotHasSchedule 가 반환된다")
+    void throwsSlotHasScheduleWhenDeletingSlotWithAssignedSchedule() {
+        Club club = saveActiveClub("삭제테스트동아리C");
+        User leader = saveUser();
+        User applicant = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        saveInterviewConfig(recruitment);
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of("답변")));
+        entityManager.persist(InterviewScheduleFixture.assigned(application.getId(), slot.getId(), recruitment.getId()));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> interviewSlotService.delete(slot.getId(), leader.getId()))
+                .isInstanceOf(InterviewException.SlotHasSchedule.class);
+    }
+
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
 
     private Club saveActiveClub(String name) {
@@ -254,5 +442,13 @@ class InterviewSlotServiceTest {
     private InterviewConfig saveInterviewConfig(Recruitment recruitment) {
         return configRepository.save(
                 InterviewConfig.create(recruitment.getId(), LocalDateTime.now().plusDays(7)));
+    }
+
+    private User saveLeaderForRecruitment() {
+        Club club = saveActiveClub("리더테스트동아리");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        return leader;
     }
 }

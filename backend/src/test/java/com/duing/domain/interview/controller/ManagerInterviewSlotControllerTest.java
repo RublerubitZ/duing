@@ -4,13 +4,24 @@ import static org.hamcrest.Matchers.hasSize;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.InterviewAvailabilityFixture;
+import com.duing.common.fixture.InterviewScheduleFixture;
+import com.duing.common.fixture.InterviewSlotFixture;
+import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.interview.entity.InterviewAvailability;
 import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
+import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.College;
@@ -48,6 +59,10 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
     @Autowired private ClubMemberRepository clubMemberRepository;
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private InterviewConfigRepository configRepository;
+    @Autowired private InterviewSlotRepository slotRepository;
+    @Autowired private InterviewAvailabilityRepository availabilityRepository;
+    @Autowired private InterviewScheduleRepository scheduleRepository;
+    @Autowired private ApplicationRepository applicationRepository;
     @Autowired private JwtTokenProvider jwtTokenProvider;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
@@ -206,6 +221,144 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
                 .when().get("/api/v1/recruitments/" + recruitmentId + "/interview-slots")
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data", hasSize(1));
+    }
+
+    // ── M5: PATCH /interview-slots/{slotId} ──────────────────────────────────────
+
+    @Test
+    @DisplayName("운영진이 availability 없는 슬롯의 시간을 수정하면 204 를 반환한다")
+    void updateSlotTimeHappyPath() {
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitmentId, base, 3));
+
+        LocalDateTime newStart = base.plusDays(1);
+        LocalDateTime newEnd = newStart.plusHours(2);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("startTime", newStart.toString(), "endTime", newEnd.toString()))
+                .when().patch("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
+    @DisplayName("비운영진이 슬롯을 수정하면 403 을 반환한다")
+    void updateSlotReturns403ForNonMember() {
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitmentId, base, 3));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("capacity", 10))
+                .when().patch("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("availability 가 있는 슬롯의 시간 수정은 409 를 반환한다")
+    void updateSlotTimeReturns409WhenAvailabilityExists() {
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitmentId, base, 5));
+
+        User applicant = saveUser();
+        Application application = applicationRepository.save(
+                Application.submit(recruitmentRepository.findById(recruitmentId).orElseThrow(),
+                        applicant, List.of("답변")));
+        availabilityRepository.save(
+                InterviewAvailabilityFixture.link(application.getId(), slot.getId(), recruitmentId));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("startTime", base.plusDays(2).toString(), "endTime", base.plusDays(2).plusHours(1).toString()))
+                .when().patch("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 slotId 로 PATCH 호출 시 404 가 반환된다")
+    void updateSlotReturns404ForUnknownSlotId() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("capacity", 5))
+                .when().patch("/api/v1/interview-slots/999999")
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    // ── M6: DELETE /interview-slots/{slotId} ─────────────────────────────────────
+
+    @Test
+    @DisplayName("운영진이 빈 슬롯을 삭제하면 204 를 반환한다")
+    void deleteSlotHappyPath() {
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitmentId, base, 3));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
+    @DisplayName("비운영진이 슬롯을 삭제하면 403 을 반환한다")
+    void deleteSlotReturns403ForNonMember() {
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitmentId, base, 3));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
+                .when().delete("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("availability 가 있는 슬롯 삭제는 409 를 반환한다")
+    void deleteSlotReturns409WhenAvailabilityExists() {
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitmentId, base, 5));
+
+        User applicant = saveUser();
+        Application application = applicationRepository.save(
+                Application.submit(recruitmentRepository.findById(recruitmentId).orElseThrow(),
+                        applicant, List.of("답변")));
+        availabilityRepository.save(
+                InterviewAvailabilityFixture.link(application.getId(), slot.getId(), recruitmentId));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("ASSIGNED schedule 이 있는 슬롯 삭제는 409 를 반환한다")
+    void deleteSlotReturns409WhenAssignedScheduleExists() {
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitmentId, base, 5));
+
+        User applicant = saveUser();
+        Application application = applicationRepository.save(
+                Application.submit(recruitmentRepository.findById(recruitmentId).orElseThrow(),
+                        applicant, List.of("답변")));
+        scheduleRepository.save(
+                InterviewScheduleFixture.assigned(application.getId(), slot.getId(), recruitmentId));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 slotId 로 DELETE 호출 시 404 가 반환된다")
+    void deleteSlotReturns404ForUnknownSlotId() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/interview-slots/999999")
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
