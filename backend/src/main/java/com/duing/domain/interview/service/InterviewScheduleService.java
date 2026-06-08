@@ -3,6 +3,7 @@ package com.duing.domain.interview.service;
 import com.duing.domain.interview.controller.dto.response.AutoAssignResultResponse;
 import com.duing.domain.interview.controller.dto.response.MatchingCandidatesResponse;
 import com.duing.domain.interview.controller.dto.response.MyInterviewScheduleResponse;
+import com.duing.domain.interview.service.dto.command.AssignInterviewScheduleCommand;
 import com.duing.domain.interview.service.dto.query.ScheduleListView;
 import java.util.List;
 
@@ -30,4 +31,19 @@ public interface InterviewScheduleService {
      * 자동배정 실행 전 후보 통계를 미리 조회한다 (dry-run).
      */
     MatchingCandidatesResponse listCandidates(Long recruitmentId, Long actorUserId);
+
+    /**
+     * M9 — 운영진이 지원자를 특정 슬롯에 수동 배정/이동한다.
+     * 기존 일정이 없으면 새로 생성(InterviewScheduledEvent),
+     * 이미 ASSIGNED 이고 다른 슬롯으로 이동하면 InterviewUpdatedEvent,
+     * CANCELLED 상태에서 재배정하면 InterviewScheduledEvent 를 발행한다.
+     */
+    void assign(AssignInterviewScheduleCommand command);
+
+    /**
+     * M10 — 운영진이 지원자의 면접 일정을 취소한다.
+     * schedule 이 없으면 404 ScheduleNotFound.
+     * 취소 후 InterviewCancelledEvent 를 발행한다.
+     */
+    void cancel(Long applicationId, Long actorUserId);
 }

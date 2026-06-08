@@ -228,6 +228,142 @@ class ManagerInterviewScheduleControllerTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
     }
 
+    // ── M9 PUT 수동 배정 ──────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("M9 운영진이 INTERVIEW_PENDING 지원자를 슬롯에 배정하면 204 를 반환한다")
+    void assign_성공_204() {
+        InterviewSlot slot = slotRepository.save(InterviewSlot.create(
+                recruitmentId,
+                LocalDateTime.now().plusDays(7),
+                LocalDateTime.now().plusDays(7).plusHours(1),
+                5));
+
+        User applicant = saveUser("지원자");
+        Application application = saveInterviewPendingApplication(recruitmentId, applicant);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType("application/json")
+                .body("{\"slotId\": " + slot.getId() + "}")
+                .when().put(assignUrl(application.getId()))
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
+    @DisplayName("M9 INTERVIEW_PENDING 이 아닌 지원자에 배정 요청 시 400 을 반환한다")
+    void assign_비대상_상태_400() {
+        InterviewSlot slot = slotRepository.save(InterviewSlot.create(
+                recruitmentId,
+                LocalDateTime.now().plusDays(7),
+                LocalDateTime.now().plusDays(7).plusHours(1),
+                5));
+
+        User applicant = saveUser("지원자");
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId).orElseThrow();
+        Application application = Application.submit(recruitment, applicant, List.of());
+        // SUBMITTED 상태 그대로 저장
+        applicationRepository.save(application);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType("application/json")
+                .body("{\"slotId\": " + slot.getId() + "}")
+                .when().put(assignUrl(application.getId()))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("M9 정원이 가득 찬 슬롯에 배정하면 409 를 반환한다")
+    void assign_정원_초과_409() {
+        InterviewSlot slot = slotRepository.save(InterviewSlot.create(
+                recruitmentId,
+                LocalDateTime.now().plusDays(7),
+                LocalDateTime.now().plusDays(7).plusHours(1),
+                1)); // 정원 1
+
+        User occupant = saveUser("선점자");
+        Application occupantApp = saveInterviewPendingApplication(recruitmentId, occupant);
+        scheduleRepository.save(
+                InterviewSchedule.create(occupantApp.getId(), slot.getId(), recruitmentId, LocalDateTime.now()));
+
+        User lateApplicant = saveUser("후발자");
+        Application lateApplication = saveInterviewPendingApplication(recruitmentId, lateApplicant);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType("application/json")
+                .body("{\"slotId\": " + slot.getId() + "}")
+                .when().put(assignUrl(lateApplication.getId()))
+                .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("M9 동아리 비회원이 배정 요청 시 403 을 반환한다")
+    void assign_비회원_403() {
+        InterviewSlot slot = slotRepository.save(InterviewSlot.create(
+                recruitmentId,
+                LocalDateTime.now().plusDays(7),
+                LocalDateTime.now().plusDays(7).plusHours(1),
+                5));
+
+        User applicant = saveUser("지원자");
+        Application application = saveInterviewPendingApplication(recruitmentId, applicant);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
+                .contentType("application/json")
+                .body("{\"slotId\": " + slot.getId() + "}")
+                .when().put(assignUrl(application.getId()))
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    // ── M10 DELETE 취소 ────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("M10 운영진이 배정된 일정을 취소하면 204 를 반환한다")
+    void cancel_성공_204() {
+        InterviewSlot slot = slotRepository.save(InterviewSlot.create(
+                recruitmentId,
+                LocalDateTime.now().plusDays(7),
+                LocalDateTime.now().plusDays(7).plusHours(1),
+                5));
+
+        User applicant = saveUser("지원자");
+        Application application = saveInterviewPendingApplication(recruitmentId, applicant);
+        scheduleRepository.save(
+                InterviewSchedule.create(application.getId(), slot.getId(), recruitmentId, LocalDateTime.now()));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete(cancelUrl(application.getId()))
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
+    @DisplayName("M10 일정이 없는 지원자에 취소 요청 시 404 를 반환한다")
+    void cancel_일정_없음_404() {
+        User applicant = saveUser("지원자");
+        Application application = saveInterviewPendingApplication(recruitmentId, applicant);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete(cancelUrl(application.getId()))
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("M10 동아리 비회원이 취소 요청 시 403 을 반환한다")
+    void cancel_비회원_403() {
+        User applicant = saveUser("지원자");
+        Application application = saveInterviewPendingApplication(recruitmentId, applicant);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
+                .when().delete(cancelUrl(application.getId()))
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
 
     private String autoAssignUrl() {
@@ -240,6 +376,14 @@ class ManagerInterviewScheduleControllerTest extends IntegrationTestBase {
 
     private String candidatesUrl() {
         return "/api/v1/recruitments/" + recruitmentId + "/interview-matching-candidates";
+    }
+
+    private String assignUrl(Long applicationId) {
+        return "/api/v1/applications/" + applicationId + "/interview-schedule";
+    }
+
+    private String cancelUrl(Long applicationId) {
+        return "/api/v1/applications/" + applicationId + "/interview-schedule";
     }
 
     private User saveUser(String nameSuffix) {
