@@ -3,6 +3,7 @@ package com.duing.domain.interview.service;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.interview.controller.dto.response.MyInterviewAvailabilitiesResponse;
 import com.duing.domain.interview.entity.InterviewAvailability;
 import com.duing.domain.interview.entity.InterviewConfig;
 import com.duing.domain.interview.entity.InterviewSlot;
@@ -168,6 +169,21 @@ public class GeneralInterviewAvailabilityService implements InterviewAvailabilit
             }
             throw duplicateAvailability;
         }
+    }
+
+    @Override
+    public MyInterviewAvailabilitiesResponse findMyAvailabilities(Long applicationId, Long actorUserId) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+
+        if (!application.getUser().getId().equals(actorUserId)) {
+            throw new InterviewException.NotApplicationOwner();
+        }
+
+        List<Long> slotIds = availabilityRepository.findByApplicationId(applicationId).stream()
+                .map(InterviewAvailability::getSlotId)
+                .toList();
+        return MyInterviewAvailabilitiesResponse.of(slotIds);
     }
 
     /**

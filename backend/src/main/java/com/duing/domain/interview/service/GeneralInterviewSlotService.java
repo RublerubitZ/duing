@@ -1,6 +1,7 @@
 package com.duing.domain.interview.service;
 
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.controller.dto.response.ApplicantInterviewSlotResponse;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.exception.InterviewException;
@@ -110,6 +111,18 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
             }
             slot.updateCapacity(command.capacity());
         }
+    }
+
+    @Override
+    public List<ApplicantInterviewSlotResponse> listForApplicants(Long recruitmentId) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+        if (!recruitment.isEffectivelyOpen(LocalDate.now())) {
+            throw new InterviewException.NoSlotsAvailable();
+        }
+        return slotRepository.findByRecruitmentIdOrderByStartTimeAsc(recruitmentId).stream()
+                .map(ApplicantInterviewSlotResponse::from)
+                .toList();
     }
 
     @Override
