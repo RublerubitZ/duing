@@ -82,7 +82,8 @@ export function useAutosaveDraft(
 | `report/` | `ReportModal.tsx` |
 
 → 네이밍 패턴: **소문자 단어** (하이픈 없음)  
-→ 새 도메인 폴더: `interview/` 로 추가. 두 라우트 이상에서 공유하는 면접 관련 컴포넌트(슬롯 선택 UI 등) 위치.
+→ 새 도메인 폴더: `interview/` 로 추가. 두 라우트 이상에서 공유하는 면접 관련 컴포넌트(슬롯 선택 UI 등) 위치.  
+→ components 루트에 단일 파일 (`UserMenu.tsx`) 도 존재하므로, 단일 파일 패턴 vs `interview/` 폴더 패턴은 컴포넌트 개수 기준으로 결정. 면접 도메인은 `ManagementSlotCard` + `SlotPickerByDateGroup` + `ApplicantSlotItem` 등 다수 → `interview/` 폴더 채택.
 
 ---
 
@@ -127,13 +128,14 @@ export function useAutosaveDraft(
 |--------|------|----------------------|
 | `types/src/recruitment.ts` | 기존 파일 | `useInterview`, `interviewStartDate`, `interviewEndDate` 포함 |
 | `types/src/application.ts` | 기존 파일 | `ApplicationStatus.INTERVIEW_PENDING`, `interviewAt`, `interviewLocation`, `UpdateInterviewPayload` 포함 |
-| `types/src/notification.ts` | 기존 파일 | interview 관련 알림 타입 (확인 필요) |
+| `types/src/notification.ts` | 기존 파일 | interview 관련 알림 타입 없음. notification.ts 내 interview/Interview 문자열 0 건 확인 |
 | `hooks/src/applications.ts` | 기존 파일 | `useUpdateInterviewMutation` 존재 |
 | `api/src/client.ts` | 기존 파일 | `updateInterview` API 메서드 존재 (`PATCH leader/applications/:id/interview`) |
 | `schemas/src/` | 기존 파일 | `password.ts`만 있음 — interview 관련 Zod schema 없음 |
 
 → interview 전용 파일(`interview.ts`)은 어느 패키지에도 없음. Task 1에서 신규 생성 필요.
-→ 기존 UpdateInterviewPayload / useUpdateInterviewMutation 은 운영진 면접 일정 수동 업데이트용 (Spec B6) — Task 1~7 에서 재사용 가능.
+
+> ⚠️ **기존 `UpdateInterviewPayload` (interviewAt + interviewLocation) 와 신규 slot 기반 모델 충돌 가능성**: 기존 PATCH `/leader/applications/{id}/interview` (Spec B6) 는 운영진이 단일 timestamp + location 직접 입력하는 사전 면접 일정 기록 모델. 신규 Spec 의 InterviewSlot/InterviewSchedule 도메인과는 별개 흐름. `ApplicationDetail.interviewAt` / `interviewLocation` 필드도 기존 모델 소속. **Task 1~7 에서 이 두 모델을 혼동·재사용 시도 금지** — interview-config/-slots/-schedules/-availabilities 네 엔드포인트 그룹은 신규 도메인 단독 사용.
 
 ---
 
