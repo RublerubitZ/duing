@@ -34,7 +34,7 @@ public class InterviewException extends ApplicationException {
     }
 
     public static final class RecruitmentAlreadyStarted extends InterviewException {
-        private static final String MESSAGE = "이미 진행 중인 모집에는 설정을 변경할 수 없습니다.";
+        private static final String MESSAGE = "이미 시작된 모집에는 면접 설정과 슬롯을 변경할 수 없습니다.";
         public RecruitmentAlreadyStarted() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
 

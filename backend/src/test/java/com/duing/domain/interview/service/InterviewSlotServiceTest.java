@@ -11,6 +11,11 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.common.fixture.InterviewAvailabilityFixture;
+import com.duing.common.fixture.InterviewScheduleFixture;
+import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.exception.InterviewException;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
@@ -45,6 +50,7 @@ class InterviewSlotServiceTest {
     @Autowired private InterviewSlotService interviewSlotService;
     @Autowired private InterviewSlotRepository slotRepository;
     @Autowired private InterviewConfigRepository configRepository;
+    @Autowired private ApplicationRepository applicationRepository;
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private ClubRepository clubRepository;
     @Autowired private ClubMemberRepository clubMemberRepository;
@@ -136,6 +142,89 @@ class InterviewSlotServiceTest {
         });
         // startTime 오름차순 정렬 확인
         assertThat(result.get(0).startTime()).isBefore(result.get(1).startTime());
+    }
+
+    @Test
+    @DisplayName("슬롯별 availability 수와 ASSIGNED schedule 수가 양수일 때 정확히 카운트된다")
+    void listSlotsCountsAvailabilityAndAssignedCorrectly() {
+        Club club = saveActiveClub("동아리E");
+        User leader = saveUser();
+        User applicant1 = saveUser();
+        User applicant2 = saveUser();
+        saveLeaderMembership(club, leader);
+
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        saveInterviewConfig(recruitment);
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slotA = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        InterviewSlot slotB = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base.plusHours(2), 3));
+
+        // 지원자 2명
+        Application app1 = applicationRepository.save(
+                Application.submit(recruitment, applicant1, List.of("답변1")));
+        Application app2 = applicationRepository.save(
+                Application.submit(recruitment, applicant2, List.of("답변2")));
+
+        // Slot A: availability 1건 + ASSIGNED schedule 1건
+        entityManager.persist(InterviewAvailabilityFixture.link(app1.getId(), slotA.getId(), recruitment.getId()));
+        entityManager.persist(InterviewScheduleFixture.assigned(app2.getId(), slotA.getId(), recruitment.getId()));
+
+        // Slot B: 아무것도 없음
+        entityManager.flush();
+        entityManager.clear();
+
+        List<SlotListView> result = interviewSlotService.listByRecruitment(recruitment.getId(), leader.getId());
+
+        assertThat(result).hasSize(2);
+        SlotListView resultSlotA = result.stream()
+                .filter(view -> view.startTime().equals(slotA.getStartTime()))
+                .findFirst()
+                .orElseThrow();
+        SlotListView resultSlotB = result.stream()
+                .filter(view -> view.startTime().equals(slotB.getStartTime()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(resultSlotA.availabilityCount()).isEqualTo(1L);
+        assertThat(resultSlotA.assignedCount()).isEqualTo(1L);
+        assertThat(resultSlotB.availabilityCount()).isEqualTo(0L);
+        assertThat(resultSlotB.assignedCount()).isEqualTo(0L);
+    }
+
+    @Test
+    @DisplayName("CANCELLED 상태 InterviewSchedule 은 assignedCount 에 포함되지 않는다")
+    void cancelledScheduleIsNotCountedInAssigned() {
+        Club club = saveActiveClub("동아리F");
+        User leader = saveUser();
+        User applicant = saveUser();
+        saveLeaderMembership(club, leader);
+
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        saveInterviewConfig(recruitment);
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of("답변")));
+
+        // ASSIGNED schedule 생성
+        var schedule = InterviewScheduleFixture.assigned(application.getId(), slot.getId(), recruitment.getId());
+        entityManager.persist(schedule);
+        entityManager.flush();
+
+        // 상태를 CANCELLED 로 변경
+        schedule.cancel();
+        entityManager.merge(schedule);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        List<SlotListView> result = interviewSlotService.listByRecruitment(recruitment.getId(), leader.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).assignedCount()).isEqualTo(0L);
     }
 
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
