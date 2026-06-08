@@ -44,6 +44,7 @@ class ApplicantDetailServiceTest {
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
+    private final com.duing.domain.interview.service.InterviewAvailabilityService interviewAvailabilityService = mock(com.duing.domain.interview.service.InterviewAvailabilityService.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -55,7 +56,8 @@ class ApplicantDetailServiceTest {
             applicationDraftService,
             eventPublisher,
             applicationStatusHistoryRepository,
-            applicationEvaluationRepository);
+            applicationEvaluationRepository,
+            interviewAvailabilityService);
 
     @Test
     @DisplayName("SELF 모집의 지원서를 동아리 운영진이 조회하면 질문·답변이 인덱스 기준으로 매핑되어 반환된다")

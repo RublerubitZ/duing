@@ -5,5 +5,6 @@ import java.util.List;
 public record SubmitApplicationCommand(
         Long recruitmentId,
         Long userId,
-        List<String> answers
+        List<String> answers,
+        List<Long> interviewSlotIds
 ) {}

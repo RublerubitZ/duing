@@ -40,6 +40,7 @@ class MyApplicationDetailAccessTest {
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
+    private final com.duing.domain.interview.service.InterviewAvailabilityService interviewAvailabilityService = mock(com.duing.domain.interview.service.InterviewAvailabilityService.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -51,7 +52,8 @@ class MyApplicationDetailAccessTest {
             applicationDraftService,
             eventPublisher,
             applicationStatusHistoryRepository,
-            applicationEvaluationRepository);
+            applicationEvaluationRepository,
+            interviewAvailabilityService);
 
     @Test
     @DisplayName("다른 사용자의 지원 상세를 조회하면 ForbiddenApplicationAccessException 이 발생한다")
