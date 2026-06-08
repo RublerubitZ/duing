@@ -1,6 +1,7 @@
 package com.duing.domain.interview.service;
 
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.controller.dto.response.InterviewConfigResponse;
 import com.duing.domain.interview.service.dto.command.CreateInterviewConfigCommand;
 import com.duing.domain.interview.service.dto.command.UpdateInterviewConfigCommand;
 import com.duing.domain.interview.entity.InterviewConfig;
@@ -63,6 +64,17 @@ public class GeneralInterviewConfigService implements InterviewConfigService {
             config.updateDeadline(command.availabilityDeadline(), LocalDateTime.now());
         }
         config.updateLocation(command.location());
+    }
+
+    @Override
+    public InterviewConfigResponse getByRecruitmentId(Long recruitmentId, Long actorUserId) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+        clubAuthService.requireManager(actorUserId, recruitment.getClub().getId());
+
+        InterviewConfig config = configRepository.findByRecruitmentId(recruitmentId)
+                .orElseThrow(InterviewException.InterviewConfigNotFound::new);
+        return InterviewConfigResponse.from(config);
     }
 
     private void validateDeadlineInRecruitmentPeriod(LocalDateTime deadline, Recruitment recruitment) {

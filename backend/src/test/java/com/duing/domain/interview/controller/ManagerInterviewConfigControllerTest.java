@@ -1,5 +1,6 @@
 package com.duing.domain.interview.controller;
 
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
 import com.duing.common.IntegrationTestBase;
@@ -145,6 +146,56 @@ class ManagerInterviewConfigControllerTest extends IntegrationTestBase {
                 .body(Map.of("availabilityDeadline", LocalDateTime.now().plusDays(5).toString()))
                 .when().patch("/api/v1/recruitments/" + recruitmentId + "/interview-config")
                 .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("운영진이 GET interview-config 호출 시 200 + configId/deadline/location 이 반환된다")
+    void getInterviewConfigReturnsOk() {
+        configRepository.save(InterviewConfig.create(
+                recruitmentId, LocalDateTime.now().plusDays(5), "공학관 2201호"));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/recruitments/" + recruitmentId + "/interview-config")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.configId", notNullValue())
+                .body("data.location", equalTo("공학관 2201호"))
+                .body("data.availabilityDeadline", notNullValue());
+    }
+
+    @Test
+    @DisplayName("config 가 없는 모집에 GET 호출 시 404 InterviewConfigNotFound 가 반환된다")
+    void getInterviewConfigReturns404WhenAbsent() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/recruitments/" + recruitmentId + "/interview-config")
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("운영진이 아닌 사용자가 GET 호출 시 403 이 반환된다")
+    void getInterviewConfigReturns403ForOutsider() {
+        configRepository.save(InterviewConfig.create(
+                recruitmentId, LocalDateTime.now().plusDays(5), "공학관 2201호"));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
+                .when().get("/api/v1/recruitments/" + recruitmentId + "/interview-config")
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("create 시 location 이 200자 초과면 400 이 반환된다")
+    void createRejectsTooLongLocation() {
+        String tooLong = "x".repeat(201);
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of(
+                        "availabilityDeadline", LocalDateTime.now().plusDays(5).toString(),
+                        "location", tooLong))
+                .when().post("/api/v1/recruitments/" + recruitmentId + "/interview-config")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
