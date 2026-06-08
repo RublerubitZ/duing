@@ -35,6 +35,7 @@ import com.duing.domain.user.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
@@ -160,7 +161,7 @@ class InterviewSlotServiceTest {
         Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
         saveInterviewConfig(recruitment);
 
-        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        LocalDateTime base = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusDays(5);
         InterviewSlot slotA = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
         InterviewSlot slotB = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base.plusHours(2), 3));
 
@@ -207,7 +208,7 @@ class InterviewSlotServiceTest {
         Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
         saveInterviewConfig(recruitment);
 
-        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        LocalDateTime base = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusDays(5);
         InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
 
         Application application = applicationRepository.save(
@@ -242,7 +243,7 @@ class InterviewSlotServiceTest {
         Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
         saveInterviewConfig(recruitment);
 
-        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        LocalDateTime base = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusDays(5);
         InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
         entityManager.flush();
         entityManager.clear();
