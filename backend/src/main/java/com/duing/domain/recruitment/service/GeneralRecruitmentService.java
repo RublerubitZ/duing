@@ -5,6 +5,8 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
@@ -17,6 +19,7 @@ import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +42,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
     private final ApplicationRepository applicationRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
+    private final InterviewConfigRepository interviewConfigRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -89,7 +93,15 @@ public class GeneralRecruitmentService implements RecruitmentService {
         Integer applicantCount = recruitment.isShowApplicantCount()
                 ? (int) applicationRepository.countByRecruitmentId(recruitmentId)
                 : null;
-        return RecruitmentDetailQuery.from(recruitment, LocalDate.now(), applicantCount);
+        // useInterview=true 인 모집만 InterviewConfig 를 조회한다.
+        // config 가 아직 없거나 useInterview=false 면 null 노출.
+        LocalDateTime interviewAvailabilityDeadline = recruitment.isUseInterview()
+                ? interviewConfigRepository.findByRecruitmentId(recruitmentId)
+                        .map(InterviewConfig::getAvailabilityDeadline)
+                        .orElse(null)
+                : null;
+        return RecruitmentDetailQuery.from(
+                recruitment, LocalDate.now(), applicantCount, interviewAvailabilityDeadline);
     }
 
     @Override
