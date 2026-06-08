@@ -12,8 +12,8 @@ public interface InterviewAvailabilityRepository extends JpaRepository<Interview
     long countBySlotId(Long slotId);
 
     @Modifying(clearAutomatically = true)
-    @Query("DELETE FROM InterviewAvailability a WHERE a.applicationId = :applicationId")
-    void deleteByApplicationId(@Param("applicationId") Long applicationId);
+    @Query("UPDATE InterviewAvailability a SET a.deletedAt = CURRENT_TIMESTAMP WHERE a.applicationId = :applicationId AND a.deletedAt IS NULL")
+    void softDeleteByApplicationId(@Param("applicationId") Long applicationId);
 
     List<InterviewAvailability> findByApplicationId(Long applicationId);
 
