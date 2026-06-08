@@ -288,6 +288,44 @@ class InterviewAutoAssignServiceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("이미 ASSIGNED 인 슬롯의 잔여 capacity 만큼만 자동배정되어 overbooking 이 발생하지 않는다")
+    void 기존_ASSIGNED_slot_capacity_차감() {
+        Club club = saveActiveClub("동아리");
+        User leader = saveUser("리더");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club);
+        saveConfigWithPastDeadline(recruitment.getId());
+
+        // capacity = 1 인 슬롯에 운영진이 사전 수동 배정 (availability 없는 applicant)
+        InterviewSlot slot = slotRepository.save(InterviewSlot.create(
+                recruitment.getId(),
+                LocalDateTime.now().plusDays(7),
+                LocalDateTime.now().plusDays(7).plusHours(1),
+                1));
+        User preassigned = saveUser("수동배정자");
+        Application preassignedApp = saveInterviewPendingApplication(recruitment, preassigned);
+        scheduleRepository.saveAndFlush(InterviewSchedule.create(
+                preassignedApp.getId(), slot.getId(), recruitment.getId(), LocalDateTime.now().minusHours(1)));
+
+        // 같은 슬롯에 availability 제출한 새 지원자
+        User candidate = saveUser("자동대상자");
+        Application candidateApp = saveInterviewPendingApplication(recruitment, candidate);
+        saveAvailability(candidateApp.getId(), slot.getId(), recruitment.getId());
+
+        AutoAssignResultResponse result = interviewScheduleService.autoAssign(recruitment.getId(), leader.getId());
+
+        // 기존 수동 배정 1건 + 새 후보가 capacity 0 인 슬롯밖에 못 골라 미배정
+        assertThat(result.assignedCount()).isEqualTo(0);
+        assertThat(result.unassignedCount()).isEqualTo(1);
+        long totalAssignedOnSlot = scheduleRepository.countBySlotIdAndStatus(
+                slot.getId(), InterviewScheduleStatus.ASSIGNED);
+        assertThat(totalAssignedOnSlot).isEqualTo(1); // overbooking 없음
+        // 사전 수동 배정자가 매칭 대상에서 제외되어 reassign 되지 않았는지
+        InterviewSchedule preassignedSchedule = scheduleRepository.findByApplicationId(preassignedApp.getId()).orElseThrow();
+        assertThat(preassignedSchedule.getSlotId()).isEqualTo(slot.getId());
+    }
+
+    @Test
     @DisplayName("M8 GET schedules 는 슬롯별로 그룹핑된 일정을 반환한다")
     void M8_슬롯별_그룹핑_일정_조회() {
         Club club = saveActiveClub("동아리");

@@ -306,6 +306,30 @@ class InterviewScheduleManualServiceTest extends IntegrationTestBase {
         assertThat(events.stream(InterviewCancelledEvent.class)).hasSize(1);
     }
 
+    @Test
+    @DisplayName("다른 모집의 slotId 로 수동 배정 호출 시 400 InvalidSlotSelection 이 반환된다")
+    void 타_모집_슬롯_배정시_400() {
+        Club club = saveActiveClub("동아리");
+        User leader = saveUser("리더");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club);
+
+        // uk_recruitment_club_active 충돌 회피를 위해 별도 동아리의 모집·슬롯을 사용한다
+        Club otherClub = saveActiveClub("다른동아리");
+        Recruitment otherRecruitment = saveOpenRecruitment(otherClub);
+        InterviewSlot otherRecruitmentSlot = saveSlot(otherRecruitment.getId(), 1);
+
+        User applicant = saveUser("지원자");
+        Application application = saveInterviewPendingApplication(recruitment, applicant);
+
+        AssignInterviewScheduleCommand command = new AssignInterviewScheduleCommand(
+                application.getId(), otherRecruitmentSlot.getId(), leader.getId());
+
+        assertThatThrownBy(() -> interviewScheduleService.assign(command))
+                .isInstanceOf(InterviewException.InvalidSlotSelection.class);
+        assertThat(scheduleRepository.findByApplicationId(application.getId())).isEmpty();
+    }
+
     // ── 동시성 테스트 ─────────────────────────────────────────────────────────────
 
     @Test

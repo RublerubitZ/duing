@@ -141,11 +141,31 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
 
         int noAvailabilityCount = allCandidates.size() - matchableApplicants.size();
 
-        List<MatchingInput.SlotState> slotStates = slots.stream()
-                .map(slot -> new MatchingInput.SlotState(slot.getId(), slot.getStartTime(), slot.getCapacity()))
+        // 기존 ASSIGNED 일정 (운영진 수동 배정 등) 을 매칭 입력에 반영한다.
+        // - 슬롯의 effective capacity = capacity - 기존 ASSIGNED 수 (overbooking 방지)
+        // - 이미 ASSIGNED 인 지원자는 매칭 대상에서 제외 (수동 결정 보호)
+        List<InterviewSchedule> existingSchedules = scheduleRepository.findByRecruitmentId(recruitmentId);
+        Map<Long, Long> existingAssignedCountBySlotId = existingSchedules.stream()
+                .filter(schedule -> schedule.getStatus() == InterviewScheduleStatus.ASSIGNED)
+                .collect(Collectors.groupingBy(InterviewSchedule::getSlotId, Collectors.counting()));
+        Set<Long> alreadyAssignedApplicationIds = existingSchedules.stream()
+                .filter(schedule -> schedule.getStatus() == InterviewScheduleStatus.ASSIGNED)
+                .map(InterviewSchedule::getApplicationId)
+                .collect(Collectors.toSet());
+
+        List<MatchingInput.ApplicantSelection> applicantsToMatch = matchableApplicants.stream()
+                .filter(selection -> !alreadyAssignedApplicationIds.contains(selection.applicationId()))
                 .toList();
 
-        MatchingResult matchingResult = matchingService.match(new MatchingInput(matchableApplicants, slotStates));
+        List<MatchingInput.SlotState> slotStates = slots.stream()
+                .map(slot -> {
+                    int effectiveCapacity = Math.max(0, slot.getCapacity()
+                            - existingAssignedCountBySlotId.getOrDefault(slot.getId(), 0L).intValue());
+                    return new MatchingInput.SlotState(slot.getId(), slot.getStartTime(), effectiveCapacity);
+                })
+                .toList();
+
+        MatchingResult matchingResult = matchingService.match(new MatchingInput(applicantsToMatch, slotStates));
 
         List<InterviewSchedule> toSave = new ArrayList<>();
         List<InterviewScheduledEvent> eventsToPublish = new ArrayList<>();
@@ -298,6 +318,11 @@ public class GeneralInterviewScheduleService implements InterviewScheduleService
         InterviewSlot targetSlot = lockedSlots.get(targetSlotId);
         if (targetSlot == null) {
             throw new InterviewException.SlotNotFound();
+        }
+        // composite FK (slot_id, recruitment_id) 위반이 persistence 단에서 500 으로 누설되지 않도록
+        // service 진입부에서 cross-recruitment slot 배정을 명시적으로 거부한다.
+        if (!targetSlot.getRecruitmentId().equals(application.getRecruitment().getId())) {
+            throw new InterviewException.InvalidSlotSelection();
         }
 
         boolean isAlreadyAssignedToSameSlot = existingSchedule.isPresent()
