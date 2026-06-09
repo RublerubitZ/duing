@@ -12,6 +12,7 @@ import { ApplicantInterviewScheduleCard } from './ApplicantInterviewScheduleCard
 import { ApplicantNavBar } from './ApplicantNavBar';
 import { ApplicantProfilePanel } from './ApplicantProfilePanel';
 import { EvaluationPanel } from './EvaluationPanel';
+import { ManualAssignModal } from './ManualAssignModal';
 import { StatusActionBar } from './StatusActionBar';
 import { StatusTimeline } from './StatusTimeline';
 
@@ -37,7 +38,7 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
   const { data: recruitment } = useRecruitmentDetailQuery(recruitmentId);
   const { data: detail, isLoading } = useApplicantDetailQuery(applicationId);
 
-  const [showManualAssignPlaceholder, setShowManualAssignPlaceholder] = useState(false);
+  const [showManualAssign, setShowManualAssign] = useState(false);
 
   if (isLoading || !detail) {
     return <p className="p-4 text-sm text-slate-500">불러오는 중…</p>;
@@ -71,13 +72,17 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
             <ApplicantInterviewScheduleCard
               interviewAvailabilities={detail.interviewAvailabilities}
               assignedSlot={detail.assignedSlot}
-              onOpenManualAssign={() => setShowManualAssignPlaceholder(true)}
+              onOpenManualAssign={() => setShowManualAssign(true)}
             />
           )}
-          {showManualAssignPlaceholder && (
-            <p className="text-xs text-slate-400">
-              수동 배정 모달은 다음 PR 에서 추가됩니다.
-            </p>
+          {useInterview && showManualAssign && (
+            <ManualAssignModal
+              applicationId={applicationId}
+              recruitmentId={recruitmentId}
+              interviewAvailabilities={detail.interviewAvailabilities}
+              assignedSlotId={detail.assignedSlot?.slotId ?? null}
+              onClose={() => setShowManualAssign(false)}
+            />
           )}
           <StatusActionBar
             applicationId={applicationId}
