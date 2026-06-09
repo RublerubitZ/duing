@@ -114,7 +114,11 @@ export function InterviewManagementPage({ clubId, recruitmentId }: Props) {
       </div>
 
       <div className="space-y-6">
-        <InterviewConfigSection recruitmentId={recruitmentId} config={config} />
+        <InterviewConfigSection
+          recruitmentId={recruitmentId}
+          config={config}
+          recruitmentStartDate={recruitment?.startDate ?? null}
+        />
 
         {currentStep >= 2 && recruitment ? (
           <InterviewSlotSection

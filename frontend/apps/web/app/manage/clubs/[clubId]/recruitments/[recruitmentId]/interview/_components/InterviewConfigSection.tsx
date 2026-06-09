@@ -19,10 +19,26 @@ import { nowLocalInputValue } from '@/components/interview/_utils/localDateTime'
 // config 는 페이지가 이미 useInterviewConfigQuery 로 구독해 가져온 결과를 prop 으로 받는다.
 // 같은 queryKey 에 다중 observer 가 붙으면 errored state 일 때 retry 루프가 발생할 수 있어
 // (TanStack Query v5 의 retryOnMount=true 기본) 단일 구독으로 통일한다.
+//
+// recruitmentStartDate (yyyy-MM-dd) 는 백엔드 검증 `startDate < deadline` 와 정렬하기 위해
+// datetime-local 의 min 속성에 사용한다. null 이면 (모집 정보 로딩 실패 등) 기본 "현재 시각" min 만 적용.
 type Props = {
   recruitmentId: number;
   config: InterviewConfig | null;
+  recruitmentStartDate?: string | null;
 };
+
+// 모집 시작일(yyyy-MM-dd) 다음 날 자정의 datetime-local(`YYYY-MM-DDTHH:mm`) 문자열을 만든다.
+// 백엔드 정책은 `startDate < deadline` — 시작일 자체가 미만이 되도록 (= 시작일 다음날 00:00 이상)
+// 클라이언트 input 의 min 으로 강제한다.
+function startDatePlusOneDayLocal(startDateIso: string): string | null {
+  const match = startDateIso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  const next = new Date(Number(year), Number(month) - 1, Number(day) + 1);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}T00:00`;
+}
 
 // datetime-local input 은 `YYYY-MM-DDTHH:mm` (로컬 타임존, 초/Z 없음) 만 허용한다.
 // 백엔드 응답은 LocalDateTime(timezone-naive) — `YYYY-MM-DDTHH:mm:ss` 형태이거나
@@ -44,7 +60,11 @@ function toBackendDateTime(localValue: string): string {
 
 // 운영진 Step 1 — 면접 설정 생성/수정 섹션.
 // config === null 이면 createConfig, 존재하면 updateConfig 로 분기한다.
-export function InterviewConfigSection({ recruitmentId, config }: Props) {
+export function InterviewConfigSection({
+  recruitmentId,
+  config,
+  recruitmentStartDate,
+}: Props) {
   const isEditing = config !== null;
 
   const { register, handleSubmit, reset, formState } = useForm<CreateInterviewConfigInput>({
@@ -107,14 +127,21 @@ export function InterviewConfigSection({ recruitmentId, config }: Props) {
   });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
-  const minLocal = nowLocalInputValue();
+  // 백엔드 정책 (`startDate < deadline`) 과 정렬 — 모집 시작일 다음날 자정 또는 현재 시각 중 더 큰 값.
+  // 모집 시작 전이면 startDate+1d 가 더 크고, 시작 후엔 현재 시각이 더 크다.
+  const nowMin = nowLocalInputValue();
+  const startDateMin = recruitmentStartDate
+    ? startDatePlusOneDayLocal(recruitmentStartDate)
+    : null;
+  const minLocal =
+    startDateMin && startDateMin > nowMin ? startDateMin : nowMin;
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6">
       <header className="mb-4">
         <h2 className="text-base font-semibold text-slate-900">Step 1 · 면접 설정</h2>
         <p className="mt-1 text-xs text-slate-500">
-          지원자가 가능 시간대를 제출할 마감 시각과 면접 장소를 입력하세요.
+          지원자가 면접 가능시간을 제출할 마감 시각과 면접 장소를 입력하세요.
         </p>
       </header>
 
@@ -124,7 +151,7 @@ export function InterviewConfigSection({ recruitmentId, config }: Props) {
             htmlFor="availability-deadline"
             className="block text-sm font-medium text-slate-700"
           >
-            면접 가능시간 제출 마감
+            지원자 가능시간 제출 마감
           </label>
           <input
             id="availability-deadline"
@@ -133,10 +160,15 @@ export function InterviewConfigSection({ recruitmentId, config }: Props) {
             {...register('availabilityDeadline')}
             aria-invalid={formState.errors.availabilityDeadline ? true : undefined}
             aria-describedby={
-              formState.errors.availabilityDeadline ? 'availability-deadline-error' : undefined
+              formState.errors.availabilityDeadline
+                ? 'availability-deadline-error'
+                : 'availability-deadline-hint'
             }
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
+          <p id="availability-deadline-hint" className="mt-1 text-xs text-slate-500">
+            지원자가 자신의 면접 가능시간을 제출할 수 있는 마감 시각입니다. 모집 시작일 이후로 설정해주세요.
+          </p>
           {formState.errors.availabilityDeadline && (
             <p id="availability-deadline-error" className="mt-1 text-xs text-rose-600">
               {formState.errors.availabilityDeadline.message}

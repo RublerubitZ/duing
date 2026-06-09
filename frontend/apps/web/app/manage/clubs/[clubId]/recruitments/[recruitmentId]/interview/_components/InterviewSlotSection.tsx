@@ -132,6 +132,9 @@ export function InterviewSlotSection({
         </p>
       ) : (
         <div className="space-y-3">
+          <p className="text-xs text-slate-500">
+            여러 날짜에 슬롯을 등록하려면 패턴을 입력하고 저장한 뒤, 다음 날짜로 시작 시각을 바꿔 다시 저장하세요.
+          </p>
           <SlotPatternForm onPreview={setPreview} disabled={recruitmentStarted} />
           {preview.length > 0 && (
             <div className="space-y-3 rounded-md border border-slate-200 bg-white p-3">

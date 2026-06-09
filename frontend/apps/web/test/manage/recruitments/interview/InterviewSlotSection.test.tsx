@@ -59,6 +59,14 @@ function futureLocalDateTime(): string {
 }
 
 describe('InterviewSlotSection — 패턴 + 미리보기 + 저장', () => {
+  it('패턴 입력 영역 상단에 여러 날짜 등록 안내 카피가 노출된다 (Issue 4)', () => {
+    renderSection();
+
+    expect(
+      screen.getByText(/여러 날짜에 슬롯을 등록하려면 패턴을 입력하고 저장한 뒤/),
+    ).toBeInTheDocument();
+  });
+
   it('패턴 입력 후 미리보기를 누르면 슬롯 N개가 표시된다', async () => {
     const user = userEvent.setup();
     renderSection();

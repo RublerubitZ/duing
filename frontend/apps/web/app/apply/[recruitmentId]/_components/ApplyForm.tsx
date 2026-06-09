@@ -186,6 +186,8 @@ export function ApplyForm({ recruitment, recruitmentId, initialAnswers }: Props)
             <ApplyInterviewSlotsStep
               slots={slots}
               isLoadingSlots={slotsQuery.isLoading}
+              isSlotsError={slotsQuery.isError}
+              slotsError={slotsQuery.error}
               selectedSlotIds={selectedSlotIds}
               onChange={handleSelectedSlotsChange}
               availabilityDeadline={recruitment.interviewAvailabilityDeadline ?? null}
