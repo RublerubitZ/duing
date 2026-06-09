@@ -2,6 +2,7 @@
 
 import { ClubLogo } from './ClubLogo';
 import { StepTimeline } from './StepTimeline';
+import { InterviewScheduleCard } from '../[applicationId]/_components/InterviewScheduleCard';
 import type React from 'react';
 import type { App, Step } from '../_constants/data';
 import type { MyApplicationDetail } from '@duing/types';
@@ -207,6 +208,17 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
               ) : (
                 <div style={{ padding: '20px 0', fontSize: 13, color: 'var(--charcoal-3)', textAlign: 'center' }}>
                   불러오는 중...
+                </div>
+              )}
+
+              {/* 면접 일정 카드 — useInterview=true 인 모집에만 자체 렌더된다.
+                  recruitmentId 가 확정된 detail 도착 후에만 마운트하여 query enabled 조건 단순화. */}
+              {detail && (
+                <div style={{ marginTop: 16 }}>
+                  <InterviewScheduleCard
+                    applicationId={detail.id}
+                    recruitmentId={detail.recruitmentId}
+                  />
                 </div>
               )}
             </div>
