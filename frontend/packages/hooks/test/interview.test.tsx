@@ -7,6 +7,7 @@ import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '../src/api-context';
 import { interviewQueryKeys } from '../src/interviewQueryKeys';
+import { applicationQueryKeys } from '../src/applicationQueryKeys';
 import {
   useCreateInterviewSlotsMutation,
   useUpdateInterviewSlotMutation,
@@ -101,8 +102,8 @@ describe('useUpdateInterviewSlotMutation (spec §6)', () => {
   });
 });
 
-describe('useAutoAssignMutation (spec §6)', () => {
-  it('성공 시 config + schedules + candidates 가 invalidate 된다', async () => {
+describe('useAutoAssignMutation (spec §6 + P0 invalidation 확장)', () => {
+  it('성공 시 config + schedules + candidates + slots + application 도메인 prefix 가 invalidate 된다', async () => {
     const queryClient = newQueryClient();
     server.use(
       http.post('*/recruitments/10/interview-schedules/auto-assign', () =>
@@ -123,7 +124,13 @@ describe('useAutoAssignMutation (spec §6)', () => {
     queryClient.setQueryData(interviewQueryKeys.config(10), null);
     queryClient.setQueryData(interviewQueryKeys.schedules(10), []);
     queryClient.setQueryData(interviewQueryKeys.candidates(10), null);
-    queryClient.setQueryData(interviewQueryKeys.slots(10), []); // 비대상
+    queryClient.setQueryData(interviewQueryKeys.slots(10), []);
+    // 운영진 list / detail / neighbors (`applicationQueryKeys.all` prefix)
+    queryClient.setQueryData(applicationQueryKeys.applicants(10), []);
+    queryClient.setQueryData(applicationQueryKeys.applicantDetail(55), null);
+    // 지원자 my-page (`applicationQueryKeys.allMyLists` prefix)
+    queryClient.setQueryData(applicationQueryKeys.myList('ALL'), []);
+    queryClient.setQueryData(applicationQueryKeys.myDetail(55), null);
 
     const { result } = renderHook(() => useAutoAssignMutation(10), {
       wrapper: makeWrapper(queryClient),
@@ -134,7 +141,13 @@ describe('useAutoAssignMutation (spec §6)', () => {
     expect(queryClient.getQueryState(interviewQueryKeys.config(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewQueryKeys.schedules(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewQueryKeys.candidates(10))?.isInvalidated).toBe(true);
-    expect(queryClient.getQueryState(interviewQueryKeys.slots(10))?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(interviewQueryKeys.slots(10))?.isInvalidated).toBe(true);
+    // 자동배정은 모든 지원자의 assignedSlot 을 변경 → 운영진 detail/list/neighbors 무효화.
+    expect(queryClient.getQueryState(applicationQueryKeys.applicants(10))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(applicationQueryKeys.applicantDetail(55))?.isInvalidated).toBe(true);
+    // 지원자 my-page (interviewScheduleAssigned) 도 동시 무효화.
+    expect(queryClient.getQueryState(applicationQueryKeys.myList('ALL'))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(applicationQueryKeys.myDetail(55))?.isInvalidated).toBe(true);
   });
 });
 

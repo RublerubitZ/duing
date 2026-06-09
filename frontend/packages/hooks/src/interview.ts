@@ -78,7 +78,9 @@ export function useMyInterviewScheduleQuery(applicationId: number) {
 //   createConfig / updateConfig  → config
 //   createSlots                  → slots + candidates + applicantSlots
 //   updateSlot / deleteSlot      → slots + candidates + schedules + applicantSlots
-//   autoAssign                   → config + schedules + candidates
+//   autoAssign                   → config + schedules + candidates + slots
+//                                  + applicationQueryKeys.all (운영진 list/detail/neighbors)
+//                                  + applicationQueryKeys.allMyLists (지원자 my-page)
 //   assignSchedule               → slots + schedules + candidates
 //                                  + applicantDetail(applicationId)
 //                                  + myDetail(applicationId)
@@ -94,6 +96,12 @@ export function useMyInterviewScheduleQuery(applicationId: number) {
 // 추가로 Spec P0 에서 ApplicantDetail(`assignedSlot`/`interviewAvailabilities`) 와
 // MyApplicationDetail(`interviewScheduleAssigned`) 가 배정/취소에 의해 변하므로
 // 두 detail query 도 함께 invalidate 한다.
+//
+// autoAssign 은 모든 지원자의 assignedSlot / interviewScheduleAssigned 를 한꺼번에
+// 바꾸므로 applicationId 단위 invalidation 은 불가능하다. 운영진 측은 application
+// 도메인 prefix(`applicationQueryKeys.all` = ['applications']) 로, 지원자 측은
+// my-page prefix(`applicationQueryKeys.allMyLists` = ['users','me','applications']) 로
+// broad invalidate 한다. 두 prefix 가 서로 disjoint 하여 둘 다 명시적으로 호출해야 한다.
 // =====================================================================
 
 export function useCreateInterviewConfigMutation(recruitmentId: number) {
@@ -205,6 +213,19 @@ export function useAutoAssignMutation(recruitmentId: number) {
       });
       queryClient.invalidateQueries({
         queryKey: interviewQueryKeys.candidates(recruitmentId),
+      });
+      // 자동배정으로 슬롯 assignedCount 가 일괄 변동하므로 slots 도 무효화한다.
+      queryClient.invalidateQueries({
+        queryKey: interviewQueryKeys.slots(recruitmentId),
+      });
+      // 운영진 ApplicantDetail / list / neighbors 모두 assignedSlot 이 변경되므로
+      // application 도메인 전체 prefix 로 broad invalidate.
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.all,
+      });
+      // 지원자 my-page (interviewScheduleAssigned) 도 동시 갱신.
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.allMyLists,
       });
     },
   });
