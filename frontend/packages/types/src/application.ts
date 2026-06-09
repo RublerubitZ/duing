@@ -1,4 +1,5 @@
 import type { ClubCategory } from './club';
+import type { AvailabilityItem } from './interview';
 import type { College, Grade } from './user';
 
 // College, Grade 는 user.ts 에서 정의된 타입을 재사용한다.
@@ -51,6 +52,12 @@ export type MyApplicationDetail = {
   interviewAt: string | null;
   interviewLocation: string | null;
   submittedAt: string;
+  // 면접 진행 필드 (Spec P0-1) — useInterview=false 모집은 count=0, scheduleAssigned=false,
+  // availabilityDeadline=null 로 응답한다. CANCELLED 상태의 schedule 은 미배정으로 취급되어
+  // scheduleAssigned=false 가 된다.
+  interviewAvailabilityCount: number;
+  interviewScheduleAssigned: boolean;
+  availabilityDeadline: string | null;
 };
 
 export type Applicant = {
@@ -153,6 +160,10 @@ export type ApplicantDetail = {
   myEvaluation: ApplicationEvaluation | null;
   otherEvaluations: ApplicationEvaluation[];
   statusHistory: ApplicationStatusHistoryItem[];
+  // 면접 슬롯 정보 (Spec P0-2) — useInterview=false 모집/일반 모집은 빈 배열,
+  // assignedSlot=null. AvailabilityItem 은 capacity/assignedCount 미포함 경량 표현.
+  interviewAvailabilities: AvailabilityItem[];
+  assignedSlot: AvailabilityItem | null;
 };
 
 export type UpdateInterviewPayload = {
