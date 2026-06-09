@@ -12,6 +12,9 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
+import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -48,6 +51,9 @@ class ApplicationSubmitGuardsTest {
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
     private final InterviewAvailabilityService interviewAvailabilityService = mock(InterviewAvailabilityService.class);
+    private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
+    private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
+    private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -59,7 +65,10 @@ class ApplicationSubmitGuardsTest {
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
-            interviewAvailabilityService);
+            interviewAvailabilityService,
+            interviewAvailabilityRepository,
+            interviewScheduleRepository,
+            interviewConfigRepository);
 
     @Test
     @DisplayName("외부 폼 모집에는 두잉 내에서 직접 지원할 수 없다")

@@ -38,6 +38,9 @@ class MyApplicationsQueryTest {
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
     private final com.duing.domain.interview.service.InterviewAvailabilityService interviewAvailabilityService = mock(com.duing.domain.interview.service.InterviewAvailabilityService.class);
+    private final com.duing.domain.interview.repository.InterviewAvailabilityRepository interviewAvailabilityRepository = mock(com.duing.domain.interview.repository.InterviewAvailabilityRepository.class);
+    private final com.duing.domain.interview.repository.InterviewScheduleRepository interviewScheduleRepository = mock(com.duing.domain.interview.repository.InterviewScheduleRepository.class);
+    private final com.duing.domain.interview.repository.InterviewConfigRepository interviewConfigRepository = mock(com.duing.domain.interview.repository.InterviewConfigRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -49,7 +52,10 @@ class MyApplicationsQueryTest {
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
-            interviewAvailabilityService);
+            interviewAvailabilityService,
+            interviewAvailabilityRepository,
+            interviewScheduleRepository,
+            interviewConfigRepository);
 
     @Test
     @DisplayName("내 지원 목록 조회 결과에 동아리 카테고리와 로고 URL이 포함된다")
