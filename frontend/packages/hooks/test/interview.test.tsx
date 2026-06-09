@@ -139,7 +139,7 @@ describe('useAutoAssignMutation (spec §6)', () => {
 });
 
 describe('useAssignInterviewScheduleMutation (spec §6)', () => {
-  it('성공 시 schedules + candidates 만 invalidate 된다 (slots 비대상)', async () => {
+  it('성공 시 slots + schedules + candidates 가 invalidate 된다', async () => {
     const queryClient = newQueryClient();
     server.use(
       http.put('*/applications/55/interview-schedule', () =>
@@ -157,14 +157,14 @@ describe('useAssignInterviewScheduleMutation (spec §6)', () => {
     result.current.mutate({ applicationId: 55, slotId: 7 });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
+    expect(queryClient.getQueryState(interviewQueryKeys.slots(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewQueryKeys.schedules(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewQueryKeys.candidates(10))?.isInvalidated).toBe(true);
-    expect(queryClient.getQueryState(interviewQueryKeys.slots(10))?.isInvalidated).toBe(false);
   });
 });
 
 describe('useCancelInterviewScheduleMutation (spec §6)', () => {
-  it('성공 시 schedules 만 invalidate 된다', async () => {
+  it('성공 시 slots + schedules + candidates 가 invalidate 된다', async () => {
     const queryClient = newQueryClient();
     server.use(
       http.delete('*/applications/55/interview-schedule', () =>
@@ -172,6 +172,7 @@ describe('useCancelInterviewScheduleMutation (spec §6)', () => {
       ),
     );
 
+    queryClient.setQueryData(interviewQueryKeys.slots(10), []);
     queryClient.setQueryData(interviewQueryKeys.schedules(10), []);
     queryClient.setQueryData(interviewQueryKeys.candidates(10), null);
 
@@ -181,8 +182,9 @@ describe('useCancelInterviewScheduleMutation (spec §6)', () => {
     result.current.mutate(55);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
+    expect(queryClient.getQueryState(interviewQueryKeys.slots(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewQueryKeys.schedules(10))?.isInvalidated).toBe(true);
-    expect(queryClient.getQueryState(interviewQueryKeys.candidates(10))?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(interviewQueryKeys.candidates(10))?.isInvalidated).toBe(true);
   });
 });
 
