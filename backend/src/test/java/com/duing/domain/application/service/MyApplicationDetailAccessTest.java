@@ -159,7 +159,7 @@ class MyApplicationDetailAccessTest {
     }
 
     @Test
-    @DisplayName("useInterview=false 모집은 InterviewConfig 조회 없이 availabilityDeadline 을 null 로 반환한다")
+    @DisplayName("useInterview=false 모집은 면접 레포지토리를 호출하지 않고 면접 진행 필드를 기본값으로 반환한다")
     void availabilityDeadlineIsNullWhenUseInterviewFalse() {
         long applicationId = 2L;
         long currentUserId = 10L;
@@ -167,13 +167,17 @@ class MyApplicationDetailAccessTest {
 
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, false);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
-        when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(0L);
-        when(interviewScheduleRepository.existsByApplicationId(applicationId)).thenReturn(false);
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 
+        assertThat(detail.interviewAvailabilityCount()).isZero();
+        assertThat(detail.interviewScheduleAssigned()).isFalse();
         assertThat(detail.availabilityDeadline()).isNull();
-        // useInterview=false 면 config 조회 자체가 발생하지 않아야 한다.
+        // useInterview=false 면 면접 관련 레포지토리 호출 자체가 발생하지 않아야 한다.
+        org.mockito.Mockito.verify(interviewAvailabilityRepository, org.mockito.Mockito.never())
+                .countByApplicationId(applicationId);
+        org.mockito.Mockito.verify(interviewScheduleRepository, org.mockito.Mockito.never())
+                .existsByApplicationId(applicationId);
         org.mockito.Mockito.verifyNoInteractions(interviewConfigRepository);
     }
 
