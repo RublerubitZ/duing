@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import type { AvailabilityItem } from '@duing/types';
-
 import { ApplicantInterviewScheduleCard } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/[applicationId]/_components/ApplicantInterviewScheduleCard';
+
+import type { AvailabilityItem } from '@duing/types';
 
 const slotA: AvailabilityItem = {
   slotId: 1,

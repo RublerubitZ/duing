@@ -34,16 +34,17 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
     submittedTo: searchParams.get('submittedTo') ?? undefined,
   };
 
-  const { data: recruitment } = useRecruitmentDetailQuery(recruitmentId);
+  const { data: recruitment, isLoading: isRecruitmentLoading } =
+    useRecruitmentDetailQuery(recruitmentId);
   const { data: detail, isLoading } = useApplicantDetailQuery(applicationId);
 
   const [showManualAssignPlaceholder, setShowManualAssignPlaceholder] = useState(false);
 
-  if (isLoading || !detail) {
+  if (isLoading || isRecruitmentLoading || !detail || !recruitment) {
     return <p className="p-4 text-sm text-slate-500">불러오는 중…</p>;
   }
 
-  const useInterview = recruitment?.useInterview ?? true;
+  const useInterview = recruitment.useInterview;
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4">

@@ -1,8 +1,8 @@
 'use client';
 
-import type { AvailabilityItem } from '@duing/types';
-
 import { formatSlotLabel } from '@/components/interview/_utils/localDateTime';
+
+import type { AvailabilityItem } from '@duing/types';
 
 // 운영진 지원자 상세 화면의 "면접 일정" 카드 (Spec P0-2).
 // - 현재 배정 슬롯 (없으면 "미배정")
