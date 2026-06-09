@@ -15,11 +15,17 @@ export function useInterviewConfigQuery(recruitmentId: number) {
   });
 }
 
-export function useInterviewSlotsQuery(recruitmentId: number) {
+// `enabled` 옵션은 ManualAssignModal (Spec P0-3) 가 토글 ON 시점에만 fetch 하기 위해 추가.
+// 기본값 true 로 두어 기존 호출부(InterviewManagementPage 등) 의 동작은 변하지 않는다.
+export function useInterviewSlotsQuery(
+  recruitmentId: number,
+  options: { enabled?: boolean } = {},
+) {
   const client = useApiClient();
   return useQuery({
     queryKey: interviewQueryKeys.slots(recruitmentId),
     queryFn: () => client.interviews.listSlots(recruitmentId),
+    enabled: options.enabled ?? true,
   });
 }
 
