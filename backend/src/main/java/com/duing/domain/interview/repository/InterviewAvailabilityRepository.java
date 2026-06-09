@@ -7,7 +7,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface InterviewAvailabilityRepository extends JpaRepository<InterviewAvailability, Long> {
+public interface InterviewAvailabilityRepository
+        extends JpaRepository<InterviewAvailability, Long>, InterviewAvailabilityRepositoryCustom {
 
     long countBySlotId(Long slotId);
 

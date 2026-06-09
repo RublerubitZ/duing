@@ -19,7 +19,9 @@ public record ApplicantDetailResponse(
         LocalDateTime submittedAt,
         List<StatusHistoryItem> statusHistory,
         ApplicationEvaluationItem myEvaluation,
-        List<ApplicationEvaluationItem> otherEvaluations
+        List<ApplicationEvaluationItem> otherEvaluations,
+        List<AvailabilityItemResponse> interviewAvailabilities,
+        AvailabilityItemResponse assignedSlot
 ) {
 
     public record ApplicantInfo(Long userId, String name, String studentId, String email) {}
@@ -41,6 +43,12 @@ public record ApplicantDetailResponse(
             String memo,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
+    ) {}
+
+    public record AvailabilityItemResponse(
+            Long slotId,
+            LocalDateTime startTime,
+            LocalDateTime endTime
     ) {}
 
     public static ApplicantDetailResponse from(ApplicantDetailQuery detailQuery) {
@@ -71,6 +79,12 @@ public record ApplicantDetailResponse(
                 .map(ApplicantDetailResponse::toEvaluationItem)
                 .toList();
 
+        List<AvailabilityItemResponse> availabilities = detailQuery.interviewAvailabilities().stream()
+                .map(ApplicantDetailResponse::toAvailabilityItem)
+                .toList();
+        AvailabilityItemResponse assignedSlot = detailQuery.assignedSlot() == null ? null
+                : toAvailabilityItem(detailQuery.assignedSlot());
+
         return new ApplicantDetailResponse(
                 detailQuery.applicationId(),
                 detailQuery.recruitmentId(),
@@ -85,7 +99,18 @@ public record ApplicantDetailResponse(
                 detailQuery.submittedAt(),
                 history,
                 myEvaluation,
-                otherEvaluations
+                otherEvaluations,
+                availabilities,
+                assignedSlot
+        );
+    }
+
+    private static AvailabilityItemResponse toAvailabilityItem(
+            ApplicantDetailQuery.AvailabilityItem availabilityItem) {
+        return new AvailabilityItemResponse(
+                availabilityItem.slotId(),
+                availabilityItem.startTime(),
+                availabilityItem.endTime()
         );
     }
 

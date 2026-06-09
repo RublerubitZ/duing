@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.entity.Application;
@@ -12,6 +14,7 @@ import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
+import com.duing.domain.application.service.dto.query.ApplicantDetailQuery.AvailabilityItem;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -242,6 +245,91 @@ class ApplicantDetailServiceTest {
         assertThat(detail.answers()).hasSize(1);
         assertThat(detail.answers().get(0).question()).isEqualTo("지원 동기는?");
         assertThat(detail.answers().get(0).answer()).isEqualTo("동기 답변");
+    }
+
+    @Test
+    @DisplayName("면접 사용 모집의 지원자 상세는 가능시간/배정 슬롯 레포지토리를 호출해 응답에 포함한다")
+    void interviewRecruitmentLoadsAvailabilitiesAndAssignedSlot() {
+        User applicant = mock(User.class);
+        when(applicant.getId()).thenReturn(20L);
+        when(applicant.getName()).thenReturn("지원자");
+        when(applicant.getStudentId()).thenReturn("20251234");
+        when(applicant.getEmail()).thenReturn("hong@example.com");
+
+        Club club = mock(Club.class);
+        when(club.getId()).thenReturn(5L);
+        when(club.getName()).thenReturn("두잉 동아리");
+
+        Recruitment recruitment = mock(Recruitment.class);
+        when(recruitment.getId()).thenReturn(3L);
+        when(recruitment.getTitle()).thenReturn("면접 모집");
+        when(recruitment.getClub()).thenReturn(club);
+        when(recruitment.getApplicationMode()).thenReturn(ApplicationMode.EXTERNAL);
+        when(recruitment.isUseInterview()).thenReturn(true);
+
+        Application application = mock(Application.class);
+        when(application.getId()).thenReturn(10L);
+        when(application.getUser()).thenReturn(applicant);
+        when(application.getRecruitment()).thenReturn(recruitment);
+        when(application.getAnswers()).thenReturn(List.of());
+        when(application.getStatus()).thenReturn(ApplicationStatus.INTERVIEW_PENDING);
+        when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 9, 0));
+
+        AvailabilityItem first = new AvailabilityItem(101L,
+                LocalDateTime.of(2026, 6, 20, 14, 0), LocalDateTime.of(2026, 6, 20, 14, 30));
+        AvailabilityItem second = new AvailabilityItem(102L,
+                LocalDateTime.of(2026, 6, 20, 14, 30), LocalDateTime.of(2026, 6, 20, 15, 0));
+        AvailabilityItem assigned = new AvailabilityItem(101L,
+                LocalDateTime.of(2026, 6, 20, 14, 0), LocalDateTime.of(2026, 6, 20, 14, 30));
+
+        when(applicationRepository.findWithRecruitmentAndClubById(10L)).thenReturn(Optional.of(application));
+        when(interviewAvailabilityRepository.findAvailabilityItemsByApplicationId(10L))
+                .thenReturn(List.of(first, second));
+        when(interviewScheduleRepository.findAssignedSlotByApplicationId(10L))
+                .thenReturn(Optional.of(assigned));
+
+        ApplicantDetailQuery detail = applicationService.getApplicantDetail(10L, 99L);
+
+        assertThat(detail.interviewAvailabilities()).containsExactly(first, second);
+        assertThat(detail.assignedSlot()).isEqualTo(assigned);
+    }
+
+    @Test
+    @DisplayName("면접을 사용하지 않는 모집의 지원자 상세는 면접 레포지토리를 전혀 호출하지 않고 빈 응답을 반환한다")
+    void nonInterviewRecruitmentSkipsInterviewRepositoryCalls() {
+        User applicant = mock(User.class);
+        when(applicant.getId()).thenReturn(20L);
+        when(applicant.getName()).thenReturn("지원자");
+        when(applicant.getStudentId()).thenReturn("20251234");
+        when(applicant.getEmail()).thenReturn("hong@example.com");
+
+        Club club = mock(Club.class);
+        when(club.getId()).thenReturn(5L);
+        when(club.getName()).thenReturn("두잉 동아리");
+
+        Recruitment recruitment = mock(Recruitment.class);
+        when(recruitment.getId()).thenReturn(3L);
+        when(recruitment.getTitle()).thenReturn("면접 미사용 모집");
+        when(recruitment.getClub()).thenReturn(club);
+        when(recruitment.getApplicationMode()).thenReturn(ApplicationMode.EXTERNAL);
+        when(recruitment.isUseInterview()).thenReturn(false);
+
+        Application application = mock(Application.class);
+        when(application.getId()).thenReturn(11L);
+        when(application.getUser()).thenReturn(applicant);
+        when(application.getRecruitment()).thenReturn(recruitment);
+        when(application.getAnswers()).thenReturn(List.of());
+        when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
+        when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 9, 0));
+
+        when(applicationRepository.findWithRecruitmentAndClubById(11L)).thenReturn(Optional.of(application));
+
+        ApplicantDetailQuery detail = applicationService.getApplicantDetail(11L, 99L);
+
+        assertThat(detail.interviewAvailabilities()).isEmpty();
+        assertThat(detail.assignedSlot()).isNull();
+        verify(interviewAvailabilityRepository, never()).findAvailabilityItemsByApplicationId(11L);
+        verify(interviewScheduleRepository, never()).findAssignedSlotByApplicationId(11L);
     }
 
     @Test
