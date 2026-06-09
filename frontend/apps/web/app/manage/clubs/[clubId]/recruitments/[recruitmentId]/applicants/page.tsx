@@ -21,6 +21,7 @@ import { ApplicantTable } from './_components/ApplicantTable';
 import { ApplicantsFilterBar } from './_components/ApplicantsFilterBar';
 import { BulkActionBar } from './_components/BulkActionBar';
 import { BulkConfirmDialog } from './_components/BulkConfirmDialog';
+import { BulkPromoteDialog } from './_components/BulkPromoteDialog';
 
 type PageParams = { params: Promise<{ clubId: string; recruitmentId: string }> };
 
@@ -70,9 +71,12 @@ export default function ApplicantsPage({ params }: PageParams) {
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  // INTERVIEW_PENDING 전이는 BulkPromoteDialog (Spec P0-4) 가 전담하므로,
+  // BulkConfirmDialog 의 pending target 에서는 INTERVIEW_PENDING 을 제외한다.
   const [pendingBulkTarget, setPendingBulkTarget] = useState<
-    BulkUpdateApplicationStatusPayload['status'] | null
+    Exclude<BulkUpdateApplicationStatusPayload['status'], 'INTERVIEW_PENDING'> | null
   >(null);
+  const [isPromoteDialogOpen, setIsPromoteDialogOpen] = useState(false);
   const [lastBulkResult, setLastBulkResult] =
     useState<BulkUpdateApplicationStatusResult | null>(null);
   const [bulkError, setBulkError] = useState<string | null>(null);
@@ -104,6 +108,43 @@ export default function ApplicantsPage({ params }: PageParams) {
       },
     );
   }
+
+  // Spec P0-4 — "면접 대상으로 선정" 확정. 본문 모달은 INTERVIEW_PENDING 전용.
+  function handlePromoteConfirm() {
+    if (selectedIds.length === 0) {
+      setIsPromoteDialogOpen(false);
+      return;
+    }
+    setBulkError(null);
+    bulkMutation.mutate(
+      { applicationIds: selectedIds, status: 'INTERVIEW_PENDING' },
+      {
+        onSuccess: (result) => {
+          setLastBulkResult(result);
+          setSelectedIds([]);
+          setIsPromoteDialogOpen(false);
+        },
+        onError: (mutationError) => {
+          const message =
+            mutationError instanceof ApiError
+              ? mutationError.message
+              : '일괄 처리에 실패했습니다.';
+          setBulkError(message);
+          setIsPromoteDialogOpen(false);
+        },
+      },
+    );
+  }
+
+  // 선택된 지원자 중 대표 (정렬은 list 응답 기준 — 첫 번째 선택자).
+  // applicants list 순서를 따라가서 BulkActionBar 의 "선택 N건" 과 일관된 표시.
+  const promoteRepresentativeName = useMemo(() => {
+    if (selectedIds.length === 0) return '';
+    const firstSelected = applicants.find((applicant) =>
+      selectedSet.has(applicant.applicationId),
+    );
+    return firstSelected?.userName ?? '';
+  }, [applicants, selectedIds.length, selectedSet]);
 
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
@@ -227,10 +268,11 @@ export default function ApplicantsPage({ params }: PageParams) {
       <BulkActionBar
         selectedCount={selectedIds.length}
         onBulkAction={setPendingBulkTarget}
+        onPromoteToInterview={() => setIsPromoteDialogOpen(true)}
         useInterview={useInterview}
       />
 
-      {/* 일괄 처리 확인 dialog */}
+      {/* 일괄 처리 확인 dialog (UNDER_REVIEW / ACCEPTED / REJECTED) */}
       {pendingBulkTarget && (
         <BulkConfirmDialog
           targetStatus={pendingBulkTarget}
@@ -238,6 +280,17 @@ export default function ApplicantsPage({ params }: PageParams) {
           isPending={bulkMutation.isPending}
           onConfirm={handleBulkConfirm}
           onCancel={() => setPendingBulkTarget(null)}
+        />
+      )}
+
+      {/* 면접 대상 선정 dialog (Spec P0-4) */}
+      {isPromoteDialogOpen && (
+        <BulkPromoteDialog
+          representativeName={promoteRepresentativeName}
+          selectedCount={selectedIds.length}
+          isPending={bulkMutation.isPending}
+          onConfirm={handlePromoteConfirm}
+          onCancel={() => setIsPromoteDialogOpen(false)}
         />
       )}
 

@@ -28,13 +28,13 @@ describe('ApplicantsFilterBar', () => {
       <ApplicantsFilterBar filters={{}} onChange={() => {}} useInterview={false} />,
     );
     expect(
-      screen.queryByRole('option', { name: /면접 대기/ }),
+      screen.queryByRole('option', { name: /면접 대상/ }),
     ).not.toBeInTheDocument();
   });
 
   it('useInterview=true 면 INTERVIEW_PENDING 옵션이 표시된다', () => {
     render(<ApplicantsFilterBar filters={{}} onChange={() => {}} useInterview />);
-    expect(screen.getByRole('option', { name: /면접 대기/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /면접 대상/ })).toBeInTheDocument();
   });
 
   it('필터 초기화 버튼은 빈 객체로 onChange 호출', async () => {

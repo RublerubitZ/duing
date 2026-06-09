@@ -31,14 +31,14 @@ describe('StatusTimeline', () => {
 
     const items = screen.getAllByRole('listitem');
     // 첫 번째 = INTERVIEW_PENDING (최신)
-    expect(items[0]).toHaveTextContent('면접 대기');
+    expect(items[0]).toHaveTextContent('면접 대상');
     // 마지막 = SUBMITTED 시작점
-    expect(items[items.length - 1]).toHaveTextContent('제출됨');
+    expect(items[items.length - 1]).toHaveTextContent('지원 완료');
   });
 
   it('history 가 비어있어도 SUBMITTED 시작점 도트가 표시된다', () => {
     render(<StatusTimeline history={[]} submittedAt="2026-06-01T09:05:00" />);
-    expect(screen.getByText('제출됨')).toBeInTheDocument();
+    expect(screen.getByText('지원 완료')).toBeInTheDocument();
   });
 
   it('변경자 이름이 타임라인 항목에 표시된다', () => {
@@ -60,7 +60,7 @@ describe('StatusTimeline', () => {
         submittedAt="2026-06-01T09:05:00"
       />,
     );
-    expect(screen.getByText('면접 대기')).toBeInTheDocument();
-    expect(screen.getByText(/서류 검토중/)).toBeInTheDocument();
+    expect(screen.getByText('면접 대상')).toBeInTheDocument();
+    expect(screen.getByText(/서류 검토 중/)).toBeInTheDocument();
   });
 });
