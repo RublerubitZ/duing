@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import {
   useInterviewConfigQuery,
+  useInterviewSchedulesQuery,
   useInterviewSlotsQuery,
+  useMatchingCandidatesQuery,
   useRecruitmentDetailQuery,
 } from '@duing/hooks';
 import { toRoute } from '../../../../../../../_lib/route';
@@ -12,6 +14,8 @@ import { deriveInterviewStep } from '../_utils/deriveInterviewStep';
 import { InterviewProgressStepper } from '../_components/InterviewProgressStepper';
 import { InterviewConfigSection } from '../_components/InterviewConfigSection';
 import { InterviewSlotSection } from '../_components/InterviewSlotSection';
+import { InterviewAutoAssignSection } from '../_components/InterviewAutoAssignSection';
+import { InterviewScheduleManagementSection } from '../_components/InterviewScheduleManagementSection';
 import { SectionPlaceholder } from '../_components/SectionPlaceholder';
 
 type Props = {
@@ -19,14 +23,31 @@ type Props = {
   recruitmentId: number;
 };
 
-// spec §4 — 면접 관리 페이지. server state(config+slots) 기반으로 step 을 자동 도출하고,
-// 진입 가능한 단계만 활성화한다. 비활성 단계는 SectionPlaceholder 로 시각화.
+// spec §4 — 면접 관리 페이지. server state(config + slots + candidates + schedules) 기반으로
+// step 을 자동 도출하고 진입 가능한 단계만 활성화한다. 비활성 단계는 SectionPlaceholder.
+//
+// page-level 에서 모든 query 를 모아 Section 으로 props 전달 — 다중 observer retry-loop 회피.
+//   - candidates / schedules 는 Step 3, 4 에서만 의미가 있어 enabled 플래그로 조건부 fetch.
 export function InterviewManagementPage({ clubId, recruitmentId }: Props) {
   const configQuery = useInterviewConfigQuery(recruitmentId);
   const slotsQuery = useInterviewSlotsQuery(recruitmentId);
-  // Step 2 (SlotSection) 가 모집 시작일 기준으로 신규 슬롯 추가 가능 여부를 판단해야 한다.
-  // 페이지 레벨에서 한 번만 fetch 해 Section 으로 전달 — 다중 observer retry-loop 회피.
   const recruitmentDetailQuery = useRecruitmentDetailQuery(recruitmentId);
+
+  // Step 3 / 4 에서만 필요한 데이터는 enabled 로 조건부 fetch 한다.
+  // step 도출에 config + slots 가 필요하므로 둘 다 로드된 후에만 활성화한다.
+  const stepReady = !configQuery.isLoading && !slotsQuery.isLoading;
+  const currentStepProbe = stepReady
+    ? deriveInterviewStep({
+        config: configQuery.data ?? null,
+        slots: slotsQuery.data ?? [],
+      })
+    : 1;
+  const candidatesQuery = useMatchingCandidatesQuery(recruitmentId, {
+    enabled: stepReady && currentStepProbe >= 3,
+  });
+  const schedulesQuery = useInterviewSchedulesQuery(recruitmentId, {
+    enabled: stepReady && currentStepProbe >= 4,
+  });
 
   // config 가 없는 신규 모집은 404 가 정상 경로. 그 외 에러만 noisy 로 처리.
   const configNotFound =
@@ -67,12 +88,14 @@ export function InterviewManagementPage({ clubId, recruitmentId }: Props) {
     return <p className="p-6 text-sm text-rose-600">{message}</p>;
   }
 
-  const currentStep = deriveInterviewStep({
-    config: configQuery.data ?? null,
-    slots: slotsQuery.data ?? [],
-  });
+  const currentStep = currentStepProbe;
   const slots = slotsQuery.data ?? [];
   const recruitment = recruitmentDetailQuery.data;
+  const config = configQuery.data ?? null;
+  const candidates = candidatesQuery.data ?? null;
+  const schedules = schedulesQuery.data ?? [];
+  const assignmentCompletedAt = config?.assignmentCompletedAt ?? null;
+  const alreadyAssigned = assignmentCompletedAt !== null;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -91,10 +114,7 @@ export function InterviewManagementPage({ clubId, recruitmentId }: Props) {
       </div>
 
       <div className="space-y-6">
-        <InterviewConfigSection
-          recruitmentId={recruitmentId}
-          config={configQuery.data ?? null}
-        />
+        <InterviewConfigSection recruitmentId={recruitmentId} config={config} />
 
         {currentStep >= 2 && recruitment ? (
           <InterviewSlotSection
@@ -110,16 +130,47 @@ export function InterviewManagementPage({ clubId, recruitmentId }: Props) {
           />
         )}
 
-        <SectionPlaceholder
-          stepNumber={3}
-          title="자동 배정"
-          reason="PR-FE3 에서 추가됩니다."
-        />
-        <SectionPlaceholder
-          stepNumber={4}
-          title="일정 관리"
-          reason="PR-FE3 에서 추가됩니다."
-        />
+        {currentStep >= 3 ? (
+          candidatesQuery.isLoading || !candidates ? (
+            <p className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
+              자동 배정 정보를 불러오는 중…
+            </p>
+          ) : (
+            <InterviewAutoAssignSection
+              recruitmentId={recruitmentId}
+              candidates={candidates}
+              alreadyAssigned={alreadyAssigned}
+              assignmentCompletedAt={assignmentCompletedAt}
+            />
+          )
+        ) : (
+          <SectionPlaceholder
+            stepNumber={3}
+            title="자동 배정"
+            reason="가능시간 제출 마감 후 활성화됩니다."
+          />
+        )}
+
+        {currentStep >= 4 ? (
+          schedulesQuery.isLoading ? (
+            <p className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
+              일정 정보를 불러오는 중…
+            </p>
+          ) : (
+            <InterviewScheduleManagementSection
+              recruitmentId={recruitmentId}
+              schedules={schedules}
+              config={config}
+              slots={slots}
+            />
+          )
+        ) : (
+          <SectionPlaceholder
+            stepNumber={4}
+            title="일정 관리"
+            reason="자동 배정 완료 후 활성화됩니다."
+          />
+        )}
       </div>
     </div>
   );

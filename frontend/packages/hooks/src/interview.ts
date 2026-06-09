@@ -22,19 +22,29 @@ export function useInterviewSlotsQuery(recruitmentId: number) {
   });
 }
 
-export function useInterviewSchedulesQuery(recruitmentId: number) {
+// Step 3/4 컴포넌트가 진입 가능한 step 일 때만 fetch 하도록 enabled 옵션 노출.
+// 기본값 true 로 두어 기존 호출부의 동작은 동일하게 유지된다.
+export function useInterviewSchedulesQuery(
+  recruitmentId: number,
+  options: { enabled?: boolean } = {},
+) {
   const client = useApiClient();
   return useQuery({
     queryKey: interviewQueryKeys.schedules(recruitmentId),
     queryFn: () => client.interviews.listSchedules(recruitmentId),
+    enabled: options.enabled ?? true,
   });
 }
 
-export function useMatchingCandidatesQuery(recruitmentId: number) {
+export function useMatchingCandidatesQuery(
+  recruitmentId: number,
+  options: { enabled?: boolean } = {},
+) {
   const client = useApiClient();
   return useQuery({
     queryKey: interviewQueryKeys.candidates(recruitmentId),
     queryFn: () => client.interviews.matchingCandidates(recruitmentId),
+    enabled: options.enabled ?? true,
   });
 }
 
