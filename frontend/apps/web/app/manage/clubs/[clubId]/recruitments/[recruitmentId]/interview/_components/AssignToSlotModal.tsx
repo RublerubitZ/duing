@@ -50,7 +50,7 @@ export function AssignToSlotModal({
 
   return (
     <div
-      role="presentation"
+      aria-hidden="true"
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
     >

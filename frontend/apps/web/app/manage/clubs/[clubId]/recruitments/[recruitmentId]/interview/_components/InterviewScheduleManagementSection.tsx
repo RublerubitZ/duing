@@ -92,9 +92,9 @@ export function InterviewScheduleManagementSection({
 
   const handleCancel = (applicationId: number) => {
     if (typeof window !== 'undefined') {
-      const confirmed = window.confirm(
-        '이 지원자의 면접 일정을 취소하시겠습니까?',
-      );
+      // window.confirm 자체는 phase 2 에서 Dialog 컴포넌트로 교체 예정 — 현 단계는 메시지만 보강.
+      const message = `지원자 #${applicationId} 의 면접 일정을 취소하시겠습니까?`;
+      const confirmed = window.confirm(message);
       if (!confirmed) return;
     }
     setActionError(null);
@@ -227,17 +227,12 @@ export function InterviewScheduleManagementSection({
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {views.map((view) => (
+                // 빈 슬롯에서 신규 지원자 배정을 시작하는 UX 는 phase 2 — `onAssign` 미전달로
+                // ManagementSlotCard 의 "+지원자 배정" 버튼이 렌더되지 않도록 한다.
+                // AssignToSlotModal 은 `handleMove` (이동) 경로에서만 발동된다.
                 <ManagementSlotCard
                   key={view.slotId}
                   slot={view}
-                  onAssign={(slotId) => {
-                    // 본 섹션은 "어느 지원자를" 가 시작점이 아니라 "어느 슬롯에" 가 시작점이라
-                    // assignToSlotModal 의 applicationId 가 필요하다. 빈 슬롯에서 시작하는 경로는
-                    // 전체 일정 탭의 미배정 지원자 보강 시점에 다룬다(phase 2).
-                    // 현재는 클릭 시 안내만 남기고 모달은 열지 않는다.
-                    void slotId;
-                    window.alert('빈 슬롯에 신규 지원자 배정은 다음 단계에서 지원됩니다.');
-                  }}
                   onMove={(applicationId) => handleMove(applicationId)}
                   onCancel={(applicationId) => handleCancel(applicationId)}
                 />

@@ -78,9 +78,13 @@ export function useMyInterviewScheduleQuery(applicationId: number) {
 //   createSlots                  → slots + candidates + applicantSlots
 //   updateSlot / deleteSlot      → slots + candidates + schedules + applicantSlots
 //   autoAssign                   → config + schedules + candidates
-//   assignSchedule               → schedules + candidates
-//   cancelSchedule               → schedules
+//   assignSchedule               → slots + schedules + candidates
+//   cancelSchedule               → slots + schedules + candidates
 //   updateAvailabilities         → mySchedule + availabilities
+//
+// 수동 배정/취소(assign/cancel) 도 slots 의 assignedCount 를 변동시키므로 slots 도 invalidate 한다.
+// 누락 시 운영진이 슬롯 A 배정 → 모달 닫기 → 다른 지원자 재오픈 시 slots 가 stale 한
+// assignedCount 로 full 판정이 어긋나 409 가 날 수 있다.
 // =====================================================================
 
 export function useCreateInterviewConfigMutation(recruitmentId: number) {
@@ -205,6 +209,9 @@ export function useAssignInterviewScheduleMutation(recruitmentId: number) {
       client.interviews.assignSchedule(args.applicationId, { slotId: args.slotId }),
     onSuccess: () => {
       queryClient.invalidateQueries({
+        queryKey: interviewQueryKeys.slots(recruitmentId),
+      });
+      queryClient.invalidateQueries({
         queryKey: interviewQueryKeys.schedules(recruitmentId),
       });
       queryClient.invalidateQueries({
@@ -222,7 +229,14 @@ export function useCancelInterviewScheduleMutation(recruitmentId: number) {
       client.interviews.cancelSchedule(applicationId),
     onSuccess: () => {
       queryClient.invalidateQueries({
+        queryKey: interviewQueryKeys.slots(recruitmentId),
+      });
+      queryClient.invalidateQueries({
         queryKey: interviewQueryKeys.schedules(recruitmentId),
+      });
+      // 슬롯 정원이 다시 가용해지므로 candidates 재계산도 의미 있다.
+      queryClient.invalidateQueries({
+        queryKey: interviewQueryKeys.candidates(recruitmentId),
       });
     },
   });

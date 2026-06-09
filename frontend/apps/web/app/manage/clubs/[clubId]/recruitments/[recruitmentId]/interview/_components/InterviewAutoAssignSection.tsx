@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ApiError } from '@duing/api';
 import { useAutoAssignMutation } from '@duing/hooks';
 import type { AutoAssignResult, MatchingCandidatesView } from '@duing/types';
+import { formatSlotMoment } from '@/components/interview/_utils/localDateTime';
 import { calculateDryRunStats } from '../_utils/calculateDryRunStats';
 
 // Step 3 — 자동 배정 dry-run + 실행 섹션.
@@ -69,7 +70,7 @@ export function InterviewAutoAssignSection({
         {alreadyAssigned && (
           <p className="text-xs text-slate-500">
             이미 자동 배정이 완료되었습니다
-            {assignmentCompletedAt && ` (${formatCompletedAt(assignmentCompletedAt)})`}.
+            {assignmentCompletedAt && ` (${formatSlotMoment(assignmentCompletedAt)})`}.
           </p>
         )}
       </div>
@@ -110,11 +111,4 @@ function extractErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error) return error.message;
   return '자동 배정에 실패했습니다.';
-}
-
-function formatCompletedAt(iso: string): string {
-  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-  if (!match) return iso;
-  const [, , month, day, hour, minute] = match;
-  return `${Number(month)}월 ${Number(day)}일 ${hour}:${minute}`;
 }
