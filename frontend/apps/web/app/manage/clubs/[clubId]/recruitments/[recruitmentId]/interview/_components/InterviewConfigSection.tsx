@@ -14,6 +14,7 @@ import {
 } from '@duing/schemas';
 import type { CreateInterviewConfigInput } from '@duing/schemas';
 import type { InterviewConfig } from '@duing/types';
+import { nowLocalInputValue } from '@/components/interview/_utils/localDateTime';
 
 // config 는 페이지가 이미 useInterviewConfigQuery 로 구독해 가져온 결과를 prop 으로 받는다.
 // 같은 queryKey 에 다중 observer 가 붙으면 errored state 일 때 retry 루프가 발생할 수 있어
@@ -39,14 +40,6 @@ function toLocalInputValue(value: string | undefined): string {
 // 백엔드는 timezone-naive 이므로 UTC 변환 없이 초만 보충해 그대로 전달한다.
 function toBackendDateTime(localValue: string): string {
   return /\d{2}:\d{2}:\d{2}/.test(localValue) ? localValue : `${localValue}:00`;
-}
-
-// `<input type="datetime-local" min={...}>` 비교용 — 현재 로컬 시각의 `YYYY-MM-DDTHH:mm`.
-// datetime-local 의 min 은 로컬 문자열 비교이므로 UTC 가 아닌 로컬 기준으로 산출해야 한다.
-function nowLocalInputValue(): string {
-  const now = new Date();
-  const offsetMs = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 // 운영진 Step 1 — 면접 설정 생성/수정 섹션.
