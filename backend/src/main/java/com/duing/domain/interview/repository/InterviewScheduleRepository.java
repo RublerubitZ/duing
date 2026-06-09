@@ -6,7 +6,8 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface InterviewScheduleRepository extends JpaRepository<InterviewSchedule, Long> {
+public interface InterviewScheduleRepository
+        extends JpaRepository<InterviewSchedule, Long>, InterviewScheduleRepositoryCustom {
 
     long countBySlotIdAndStatus(Long slotId, InterviewScheduleStatus status);
 

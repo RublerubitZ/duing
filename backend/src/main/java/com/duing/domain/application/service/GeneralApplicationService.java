@@ -32,6 +32,7 @@ import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.interview.service.dto.command.CreateAvailabilitiesInSubmissionCommand;
+import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
@@ -197,7 +198,34 @@ public class GeneralApplicationService implements ApplicationService {
         List<ApplicationEvaluation> evaluations =
                 applicationEvaluationRepository.findByApplicationIdWithEvaluator(applicationId);
 
-        return ApplicantDetailQuery.fromAll(application, historyRows, evaluations, currentUserId);
+        // 운영진 상세 카드에 노출할 "지원자가 선택한 면접 가능시간 + 현재 배정 슬롯".
+        // useInterview=false 모집은 면접 도메인 자체가 없으므로 추가 쿼리 호출 자체를 생략하고
+        // 빈 리스트 / null 로 응답한다 (Task 1 의 useInterview 가드 패턴과 동일).
+        // 또한 InterviewSchedule.cancel() 은 status 만 CANCELLED 로 바꾸는 도메인 취소이고
+        // soft delete 가 아니므로 assignedSlot 쿼리는 status=ASSIGNED 조건을 명시한다.
+        List<ApplicantDetailQuery.AvailabilityItem> interviewAvailabilities;
+        ApplicantDetailQuery.AvailabilityItem assignedSlot;
+        if (application.getRecruitment().isUseInterview()) {
+            // interview 도메인은 자체 표현인 InterviewSlotTimeWindow 로 반환하고,
+            // application 도메인이 자기 표현인 AvailabilityItem 으로 매핑한다.
+            List<InterviewSlotTimeWindow> availabilityWindows =
+                    interviewAvailabilityRepository.findAvailabilityItemsByApplicationId(applicationId);
+            interviewAvailabilities = availabilityWindows.stream()
+                    .map(window -> new ApplicantDetailQuery.AvailabilityItem(
+                            window.slotId(), window.startTime(), window.endTime()))
+                    .toList();
+            assignedSlot = interviewScheduleRepository
+                    .findAssignedSlotByApplicationId(applicationId)
+                    .map(window -> new ApplicantDetailQuery.AvailabilityItem(
+                            window.slotId(), window.startTime(), window.endTime()))
+                    .orElse(null);
+        } else {
+            interviewAvailabilities = List.of();
+            assignedSlot = null;
+        }
+
+        return ApplicantDetailQuery.fromAll(application, historyRows, evaluations, currentUserId,
+                interviewAvailabilities, assignedSlot);
     }
 
     @Override

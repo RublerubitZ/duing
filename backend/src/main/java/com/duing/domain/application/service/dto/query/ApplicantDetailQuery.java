@@ -27,7 +27,9 @@ public record ApplicantDetailQuery(
         LocalDateTime submittedAt,
         List<StatusHistoryItemQuery> statusHistory,
         EvaluationItemQuery myEvaluation,
-        List<EvaluationItemQuery> otherEvaluations
+        List<EvaluationItemQuery> otherEvaluations,
+        List<AvailabilityItem> interviewAvailabilities,
+        AvailabilityItem assignedSlot
 ) {
 
     public record ApplicantInfoQuery(Long userId, String name, String studentId, String email) {}
@@ -52,6 +54,16 @@ public record ApplicantDetailQuery(
     ) {}
 
     /**
+     * 운영진 시점 카드/모달에서 사용하는 경량 슬롯 표현.
+     * 정원/배정수는 의도적으로 포함하지 않는다. (P0-2 spec — 정보 밀도 낮춤)
+     */
+    public record AvailabilityItem(
+            Long slotId,
+            LocalDateTime startTime,
+            LocalDateTime endTime
+    ) {}
+
+    /**
      * 기존 호출자 backward-compatibility 유지 — history/evaluation 없이 위임한다.
      */
     public static ApplicantDetailQuery from(Application application) {
@@ -68,14 +80,28 @@ public record ApplicantDetailQuery(
     }
 
     /**
-     * 전체 필드를 포함하는 최종 팩토리 메서드.
-     * currentUserId 기준으로 myEvaluation / otherEvaluations 를 분리한다.
-     * currentUserId 가 null 이면 모든 평가를 otherEvaluations 에 배치한다.
+     * 면접 가능시간/배정 슬롯 정보 없이 위임한다.
+     * 기존 호출자(서비스 단위 테스트 등)의 backward-compatibility 를 위해 유지한다.
      */
     public static ApplicantDetailQuery fromAll(Application application,
                                                List<ApplicationStatusHistory> historyRows,
                                                List<ApplicationEvaluation> allEvaluations,
                                                Long currentUserId) {
+        return fromAll(application, historyRows, allEvaluations, currentUserId, List.of(), null);
+    }
+
+    /**
+     * 전체 필드를 포함하는 최종 팩토리 메서드.
+     * currentUserId 기준으로 myEvaluation / otherEvaluations 를 분리한다.
+     * currentUserId 가 null 이면 모든 평가를 otherEvaluations 에 배치한다.
+     * interviewAvailabilities / assignedSlot 은 면접 미사용 모집에선 빈 리스트 / null 로 전달한다.
+     */
+    public static ApplicantDetailQuery fromAll(Application application,
+                                               List<ApplicationStatusHistory> historyRows,
+                                               List<ApplicationEvaluation> allEvaluations,
+                                               Long currentUserId,
+                                               List<AvailabilityItem> interviewAvailabilities,
+                                               AvailabilityItem assignedSlot) {
         Recruitment recruitment = application.getRecruitment();
         User applicationUser = application.getUser();
 
@@ -126,7 +152,9 @@ public record ApplicantDetailQuery(
                 application.getCreatedAt(),
                 statusHistory,
                 myEvaluation,
-                otherEvaluations
+                otherEvaluations,
+                interviewAvailabilities == null ? List.of() : interviewAvailabilities,
+                assignedSlot
         );
     }
 
