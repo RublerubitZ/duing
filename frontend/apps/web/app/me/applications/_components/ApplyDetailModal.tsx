@@ -1,12 +1,14 @@
 /* a-apply-status-page.jsx → TypeScript 변환: DetailRow + ApplyDetailModal */
 
-import { ClubLogo } from './ClubLogo';
-import { StepTimeline } from './StepTimeline';
-import { InterviewScheduleCard } from '../[applicationId]/_components/InterviewScheduleCard';
-import { ApplicationStepper } from '../[applicationId]/_components/ApplicationStepper';
 import type React from 'react';
-import type { App, Step } from '../_constants/data';
+
 import type { MyApplicationDetail } from '@duing/types';
+
+import { ApplicationStepper } from '../[applicationId]/_components/ApplicationStepper';
+import { InterviewScheduleCard } from '../[applicationId]/_components/InterviewScheduleCard';
+import type { App } from '../_constants/data';
+
+import { ClubLogo } from './ClubLogo';
 
 /* ============================================================
    DetailRow
@@ -73,20 +75,8 @@ type ApplyDetailModalProps = {
   onClose: () => void;
 };
 
-/* steps 길이가 4가 아닌 경우 4칸으로 채우는 인라인 헬퍼 */
-const padToFour = (steps: Step[]): Step[] => {
-  const labels = ['서류접수', '서류심사', '면접/인터뷰', '최종발표'];
-  const out = [...steps];
-  while (out.length < 4) {
-    out.push({ label: labels[out.length] ?? '', date: '-', state: 'pending' });
-  }
-  return out;
-};
-
 export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps) {
   if (!app) return null;
-
-  const steps4 = app.steps.length === 4 ? app.steps : padToFour(app.steps);
 
   return (
     <>
@@ -147,10 +137,11 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
 
         <div style={{ padding: '0 20px 60px', overflowY: 'auto' }}>
           {/* 전체 funnel stepper — Spec P0-1.
-              detail 도착 후에만 마운트하여 status/interviewScheduleAssigned 가 확정된 상태로 렌더한다. */}
+              detail 도착 후에만 마운트하여 status/interviewScheduleAssigned 가 확정된 상태로 렌더한다.
+              `now` 는 호출 시점에 결정되며 모달이 client 트리 안에 있어 결정성 이슈가 없다. */}
           {detail && (
             <div style={{ marginBottom: 16 }}>
-              <ApplicationStepper detail={detail} />
+              <ApplicationStepper detail={detail} now={new Date()} />
             </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.65fr', gap: 18 }}>
@@ -183,20 +174,8 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
               }}>
                 동아리 소개 바로가기 →
               </a>
-
-              <div style={{
-                borderTop: '1px solid var(--gray-line)',
-                paddingTop: 14, marginTop: 2,
-              }}>
-                <div style={{
-                  fontSize: 11.5, fontWeight: 700,
-                  color: 'var(--ink-deep)',
-                  marginBottom: 14,
-                }}>
-                  전형 진행 단계
-                </div>
-                <StepTimeline steps={steps4} showDate />
-              </div>
+              {/* mock data 기반 StepTimeline 은 상단 ApplicationStepper 와 중복 노출되어 제거.
+                  funnel 진행 표시는 detail 기반 ApplicationStepper 가 authoritative 다. */}
             </div>
 
             {/* Right — detail table */}

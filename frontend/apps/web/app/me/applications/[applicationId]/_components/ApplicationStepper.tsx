@@ -1,5 +1,3 @@
-'use client';
-
 import type { MyApplicationDetail } from '@duing/types';
 
 import { deriveStepperSubState, type StepperSubState } from '../_utils/deriveStepperSubState';
@@ -22,8 +20,9 @@ type StepperDetail = Pick<
 
 type Props = {
   detail: StepperDetail;
-  // SSR / 테스트 안정성을 위해 외부에서 주입 가능. 미주입 시 컴포넌트 렌더 시점의 현재 시각 사용.
-  now?: Date;
+  // SSR/테스트 결정성을 위해 호출자가 명시적으로 주입한다. (default `new Date()` 은
+  // server render 결정성을 깨뜨릴 수 있어 의도적으로 required 로 둔다.)
+  now: Date;
 };
 
 type StepKey =
@@ -66,6 +65,12 @@ function resolveActiveStepIndex(detail: StepperDetail): number {
     case 'ACCEPTED':
     case 'REJECTED':
       return 4;
+    default: {
+      // ApplicationStatus union 확장 시 컴파일 타임에 누락을 잡아낸다.
+      const _exhaustive: never = detail.status;
+      void _exhaustive;
+      return 0;
+    }
   }
 }
 
@@ -80,13 +85,15 @@ export function ApplicationStepper({ detail, now }: Props) {
   const activeIndex = resolveActiveStepIndex(detail);
   const isFinalReject = detail.status === 'REJECTED';
 
+  // activeIndex === 2 (Step 3 활성) 시점에 한해서만 sub-state 를 계산한다.
+  // 이 가드가 `!interviewScheduleAssigned` 를 이미 보장하므로 util signature 에는
+  // interviewScheduleAssigned 를 전달하지 않는다.
   const subState: StepperSubState | null =
     activeIndex === 2
       ? deriveStepperSubState({
           interviewAvailabilityCount: detail.interviewAvailabilityCount,
-          interviewScheduleAssigned: detail.interviewScheduleAssigned,
           availabilityDeadline: detail.availabilityDeadline,
-          now: now ?? new Date(),
+          now,
         })
       : null;
 
