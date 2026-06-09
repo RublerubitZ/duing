@@ -26,6 +26,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
@@ -157,8 +158,10 @@ public class GeneralApplicationService implements ApplicationService {
 
         long interviewAvailabilityCount =
                 interviewAvailabilityRepository.countByApplicationId(applicationId);
+        // CANCELLED InterviewSchedule 는 미배정으로 간주 (취소된 일정이 "배정 완료" 로 잘못 표시되는 것 방지).
         boolean interviewScheduleAssigned =
-                interviewScheduleRepository.existsByApplicationId(applicationId);
+                interviewScheduleRepository.existsByApplicationIdAndStatus(
+                        applicationId, InterviewScheduleStatus.ASSIGNED);
         LocalDateTime availabilityDeadline =
                 interviewConfigRepository.findByRecruitmentId(application.getRecruitment().getId())
                         .map(InterviewConfig::getAvailabilityDeadline)

@@ -55,7 +55,7 @@
 
 **Backend 변경:** `MyApplicationDetailQuery` / `MyApplicationDetailResponse` 에 다음 필드 추가:
 - `interviewAvailabilityCount: int` — 해당 application 의 `InterviewAvailability` row 수
-- `interviewScheduleAssigned: boolean` — `InterviewSchedule` 존재 여부
+- `interviewScheduleAssigned: boolean` — `InterviewSchedule` 가 존재하고 `status == ASSIGNED` 인 경우 `true`. `CANCELLED` 상태는 `false` (취소된 일정은 미배정으로 취급).
 - `availabilityDeadline: LocalDateTime | null` — `InterviewConfig.availabilityDeadline` 원본 값 (모집이 `useInterview=false` 거나 config 미존재 시 `null`)
 
 `availabilityDeadlinePassed` 같은 derived boolean 대신 원본 timestamp 를 노출해 프론트에서 "D-Day", "남은 시간", "마감 여부" 등 다양한 UI 표현이 가능하도록 한다. sub-state 분기는 프론트에서 `availabilityDeadline != null && availabilityDeadline < now()` 로 계산.

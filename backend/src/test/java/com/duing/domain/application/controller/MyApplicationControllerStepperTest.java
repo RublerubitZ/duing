@@ -142,6 +142,39 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("InterviewSchedule 이 CANCELLED 상태이면 interviewScheduleAssigned 는 false 로 노출된다")
+    void cancelledScheduleIsTreatedAsUnassigned() {
+        User applicant = saveUser("취소된지원자");
+        String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
+
+        Club club = saveActiveClub("취소동아리");
+        Recruitment recruitment = saveInterviewRecruitment(club, "취소모집");
+        interviewConfigRepository.save(InterviewConfig.create(
+                recruitment.getId(), LocalDateTime.of(2026, 6, 15, 18, 0)));
+
+        InterviewSlot slot = interviewSlotRepository.save(InterviewSlot.create(
+                recruitment.getId(),
+                LocalDateTime.of(2026, 6, 20, 14, 0),
+                LocalDateTime.of(2026, 6, 20, 14, 30),
+                3));
+
+        Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewAvailabilityRepository.save(InterviewAvailability.create(
+                application.getId(), slot.getId(), recruitment.getId()));
+        InterviewSchedule schedule = interviewScheduleRepository.save(InterviewSchedule.create(
+                application.getId(), slot.getId(), recruitment.getId(), LocalDateTime.now()));
+        schedule.cancel();
+        interviewScheduleRepository.save(schedule);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/users/me/applications/{id}", application.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.interviewAvailabilityCount", is(1))
+                .body("data.interviewScheduleAssigned", equalTo(false));
+    }
+
+    @Test
     @DisplayName("면접을 사용하지 않는 모집의 본인 지원 상세는 availabilityDeadline 이 null 이다")
     void useInterviewFalseReturnsNullDeadline() {
         User applicant = saveUser("일반지원자");

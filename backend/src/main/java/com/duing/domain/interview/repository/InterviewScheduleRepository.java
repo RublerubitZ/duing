@@ -12,6 +12,8 @@ public interface InterviewScheduleRepository extends JpaRepository<InterviewSche
 
     boolean existsByApplicationId(Long applicationId);
 
+    boolean existsByApplicationIdAndStatus(Long applicationId, InterviewScheduleStatus status);
+
     Optional<InterviewSchedule> findByApplicationId(Long applicationId);
 
     List<InterviewSchedule> findByRecruitmentId(Long recruitmentId);

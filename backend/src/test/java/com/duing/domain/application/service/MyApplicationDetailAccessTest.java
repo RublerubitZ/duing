@@ -3,6 +3,9 @@ package com.duing.domain.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.entity.Application;
@@ -16,6 +19,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
@@ -144,7 +148,8 @@ class MyApplicationDetailAccessTest {
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(2L);
-        when(interviewScheduleRepository.existsByApplicationId(applicationId)).thenReturn(false);
+        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
+                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(false);
 
         InterviewConfig interviewConfig = mock(InterviewConfig.class);
         when(interviewConfig.getAvailabilityDeadline()).thenReturn(deadline);
@@ -166,6 +171,8 @@ class MyApplicationDetailAccessTest {
         long recruitmentId = 4L;
 
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, false);
+        // useInterview=false 모집은 INTERVIEW_PENDING 으로 진입 불가능하므로 status 를 SUBMITTED 로 덮어 쓴다.
+        when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
@@ -174,11 +181,10 @@ class MyApplicationDetailAccessTest {
         assertThat(detail.interviewScheduleAssigned()).isFalse();
         assertThat(detail.availabilityDeadline()).isNull();
         // useInterview=false 면 면접 관련 레포지토리 호출 자체가 발생하지 않아야 한다.
-        org.mockito.Mockito.verify(interviewAvailabilityRepository, org.mockito.Mockito.never())
-                .countByApplicationId(applicationId);
-        org.mockito.Mockito.verify(interviewScheduleRepository, org.mockito.Mockito.never())
-                .existsByApplicationId(applicationId);
-        org.mockito.Mockito.verifyNoInteractions(interviewConfigRepository);
+        verify(interviewAvailabilityRepository, never()).countByApplicationId(applicationId);
+        verify(interviewScheduleRepository, never())
+                .existsByApplicationIdAndStatus(applicationId, InterviewScheduleStatus.ASSIGNED);
+        verifyNoInteractions(interviewConfigRepository);
     }
 
     @Test
@@ -191,7 +197,8 @@ class MyApplicationDetailAccessTest {
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(0L);
-        when(interviewScheduleRepository.existsByApplicationId(applicationId)).thenReturn(false);
+        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
+                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(false);
         when(interviewConfigRepository.findByRecruitmentId(recruitmentId)).thenReturn(Optional.empty());
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
@@ -200,8 +207,8 @@ class MyApplicationDetailAccessTest {
     }
 
     @Test
-    @DisplayName("InterviewSchedule 이 존재하면 interviewScheduleAssigned 가 true 로 반환된다")
-    void interviewScheduleAssignedReflectsExistence() {
+    @DisplayName("InterviewSchedule 이 ASSIGNED 상태로 존재하면 interviewScheduleAssigned 가 true 로 반환된다")
+    void interviewScheduleAssignedTrueWhenAssigned() {
         long applicationId = 4L;
         long currentUserId = 10L;
         long recruitmentId = 6L;
@@ -209,13 +216,35 @@ class MyApplicationDetailAccessTest {
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(3L);
-        when(interviewScheduleRepository.existsByApplicationId(applicationId)).thenReturn(true);
+        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
+                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(true);
         when(interviewConfigRepository.findByRecruitmentId(recruitmentId)).thenReturn(Optional.empty());
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 
         assertThat(detail.interviewScheduleAssigned()).isTrue();
         assertThat(detail.interviewAvailabilityCount()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("InterviewSchedule 이 CANCELLED 상태만 존재하면 interviewScheduleAssigned 는 false 로 반환된다")
+    void interviewScheduleAssignedFalseWhenCancelled() {
+        long applicationId = 5L;
+        long currentUserId = 10L;
+        long recruitmentId = 7L;
+
+        Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(1L);
+        // ASSIGNED 상태 row 가 없으면 (CANCELLED 만 존재) false 가 반환되어야 한다.
+        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
+                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(false);
+        when(interviewConfigRepository.findByRecruitmentId(recruitmentId)).thenReturn(Optional.empty());
+
+        var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
+
+        assertThat(detail.interviewScheduleAssigned()).isFalse();
+        assertThat(detail.interviewAvailabilityCount()).isEqualTo(1);
     }
 
     private Application stubOwnedApplication(long applicationId, long ownerId, long recruitmentId, boolean useInterview) {
