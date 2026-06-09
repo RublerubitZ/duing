@@ -70,3 +70,26 @@ export function formatSlotRange(startTime: string, endTime: string): string {
     `${pad(endParts.hour)}:${pad(endParts.minute)}`
   );
 }
+
+// `{ startTime, endTime }` 슬롯을 카드/리스트 라벨용 단문(`M/D (요일) HH:mm – HH:mm`) 으로 포맷.
+// 면접 수동 배정 UX P0-2 의 ApplicantInterviewScheduleCard / P0-3 ManualAssignModal 가 공용으로 사용.
+// wall-clock 보존 — `new Date(...).toISOString()` 같은 UTC 변환을 거치지 않는다.
+const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+export function formatSlotLabel(slot: { startTime: string; endTime: string }): string {
+  const startParts = parseLocalDateTime(slot.startTime);
+  const endParts = parseLocalDateTime(slot.endTime);
+  if (!startParts || !endParts) {
+    return `${slot.startTime} – ${slot.endTime}`;
+  }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const weekday =
+    WEEKDAY_LABELS[
+      new Date(startParts.year, startParts.month - 1, startParts.day).getDay()
+    ];
+  return (
+    `${startParts.month}/${startParts.day} (${weekday}) ` +
+    `${pad(startParts.hour)}:${pad(startParts.minute)} – ` +
+    `${pad(endParts.hour)}:${pad(endParts.minute)}`
+  );
+}

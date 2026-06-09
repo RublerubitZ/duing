@@ -1,15 +1,19 @@
 'use client';
 
+import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+
 import { useApplicantDetailQuery, useRecruitmentDetailQuery } from '@duing/hooks';
 import { isApplicationStatus, isCollege } from '@duing/types';
 import type { ApplicantsFilters } from '@duing/types';
+
+import { ApplicantAnswersPanel } from './ApplicantAnswersPanel';
+import { ApplicantInterviewScheduleCard } from './ApplicantInterviewScheduleCard';
 import { ApplicantNavBar } from './ApplicantNavBar';
 import { ApplicantProfilePanel } from './ApplicantProfilePanel';
-import { ApplicantAnswersPanel } from './ApplicantAnswersPanel';
 import { EvaluationPanel } from './EvaluationPanel';
-import { StatusTimeline } from './StatusTimeline';
 import { StatusActionBar } from './StatusActionBar';
+import { StatusTimeline } from './StatusTimeline';
 
 type Props = {
   clubId: number;
@@ -33,11 +37,13 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
   const { data: recruitment } = useRecruitmentDetailQuery(recruitmentId);
   const { data: detail, isLoading } = useApplicantDetailQuery(applicationId);
 
+  const [showManualAssignPlaceholder, setShowManualAssignPlaceholder] = useState(false);
+
   if (isLoading || !detail) {
     return <p className="p-4 text-sm text-slate-500">불러오는 중…</p>;
   }
 
-  const useInterview = recruitment?.useInterview ?? true;
+  const useInterview = recruitment?.useInterview ?? false;
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4">
@@ -61,6 +67,18 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
             myEvaluation={detail.myEvaluation}
             otherEvaluations={detail.otherEvaluations}
           />
+          {useInterview && (
+            <ApplicantInterviewScheduleCard
+              interviewAvailabilities={detail.interviewAvailabilities}
+              assignedSlot={detail.assignedSlot}
+              onOpenManualAssign={() => setShowManualAssignPlaceholder(true)}
+            />
+          )}
+          {showManualAssignPlaceholder && (
+            <p className="text-xs text-slate-400">
+              수동 배정 모달은 다음 PR 에서 추가됩니다.
+            </p>
+          )}
           <StatusActionBar
             applicationId={applicationId}
             recruitmentId={recruitmentId}
