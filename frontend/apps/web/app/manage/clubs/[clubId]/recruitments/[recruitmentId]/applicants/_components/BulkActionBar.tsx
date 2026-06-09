@@ -1,17 +1,27 @@
 'use client';
 
 import type { BulkUpdateApplicationStatusPayload } from '@duing/types';
-import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
 
-type BulkTarget = BulkUpdateApplicationStatusPayload['status'];
+// Spec P0-4 — INTERVIEW_PENDING 으로의 전이는 "면접 대상으로 선정" 액션으로 분리.
+// 그 외 UNDER_REVIEW / ACCEPTED / REJECTED 전이는 기존 onBulkAction 콜백 그대로.
+type GenericBulkTarget = Exclude<
+  BulkUpdateApplicationStatusPayload['status'],
+  'INTERVIEW_PENDING'
+>;
 
 type Props = {
   selectedCount: number;
-  onBulkAction: (target: BulkTarget) => void;
+  onBulkAction: (target: GenericBulkTarget) => void;
+  onPromoteToInterview: () => void;
   useInterview: boolean;
 };
 
-export function BulkActionBar({ selectedCount, onBulkAction, useInterview }: Props) {
+export function BulkActionBar({
+  selectedCount,
+  onBulkAction,
+  onPromoteToInterview,
+  useInterview,
+}: Props) {
   if (selectedCount === 0) return null;
 
   return (
@@ -30,15 +40,15 @@ export function BulkActionBar({ selectedCount, onBulkAction, useInterview }: Pro
             onClick={() => onBulkAction('UNDER_REVIEW')}
             className="rounded-md border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50"
           >
-            {APPLICATION_STATUS_LABEL.UNDER_REVIEW}
+            서류 검토 중
           </button>
           {useInterview && (
             <button
               type="button"
-              onClick={() => onBulkAction('INTERVIEW_PENDING')}
+              onClick={onPromoteToInterview}
               className="rounded-md border border-purple-200 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-50"
             >
-              {APPLICATION_STATUS_LABEL.INTERVIEW_PENDING}
+              면접 대상으로 선정
             </button>
           )}
           <button

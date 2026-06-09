@@ -30,7 +30,7 @@ describe('StatusActionBar', () => {
         useInterview
       />,
     );
-    expect(screen.getByRole('button', { name: /면접 대기/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /면접 대상/ })).toBeInTheDocument();
     // 불합격은 포함, 합격으로 버튼(ACCEPTED)은 없어야 함
     const allButtons = screen.getAllByRole('button');
     const buttonTexts = allButtons.map((btn) => btn.textContent ?? '');
@@ -47,7 +47,7 @@ describe('StatusActionBar', () => {
         useInterview={false}
       />,
     );
-    expect(screen.queryByRole('button', { name: /면접 대기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /면접 대상/ })).not.toBeInTheDocument();
     // ACCEPTED/REJECTED 전이 버튼 2개가 모두 렌더됨
     const transitionButtons = screen.getAllByRole('button');
     const buttonTexts = transitionButtons.map((btn) => btn.textContent ?? '');
@@ -88,7 +88,7 @@ describe('StatusActionBar', () => {
         useInterview
       />,
     );
-    await userEvent.click(screen.getByRole('button', { name: /서류 검토중으로/ }));
+    await userEvent.click(screen.getByRole('button', { name: /서류 검토 중으로/ }));
     expect(mockMutate).toHaveBeenCalledWith({
       applicationId: 5,
       payload: { status: 'UNDER_REVIEW' },

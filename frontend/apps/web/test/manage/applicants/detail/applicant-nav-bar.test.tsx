@@ -74,6 +74,6 @@ describe('ApplicantNavBar', () => {
         currentStatus="INTERVIEW_PENDING"
       />,
     );
-    expect(screen.getByText('면접 대기')).toBeInTheDocument();
+    expect(screen.getByText('면접 대상')).toBeInTheDocument();
   });
 });
