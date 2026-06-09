@@ -27,6 +27,9 @@ export type RecruitmentDetail = RecruitmentSummary & {
   interviewEndDate: string | null;
   showApplicantCount: boolean;
   applicantCount: number | null;
+  // 면접 가능시간 제출 마감 (LocalDateTime) — useInterview=true 면집 모집에서만 의미가 있다.
+  // 백엔드는 모집 endDate 기반으로 산출하며 클라이언트는 deadline 경과 시 picker 를 disable 한다.
+  interviewAvailabilityDeadline?: string | null;
 };
 
 /**

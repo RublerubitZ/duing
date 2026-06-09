@@ -106,6 +106,9 @@ export type UpsertApplicationEvaluationPayload = {
 
 export type SubmitApplicationPayload = {
   answers: string[];
+  // 면접 모집(useInterview=true) 일 때만 지원자가 선택한 슬롯 id 목록.
+  // 일반 모집은 omit (백엔드 SubmitApplicationRequest 가 null → List.of() 정규화).
+  interviewSlotIds?: number[];
 };
 
 export type UpdateApplicationStatusPayload = {
