@@ -3,6 +3,9 @@ package com.duing.domain.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.entity.Application;
@@ -15,6 +18,11 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
+import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
+import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
@@ -40,6 +48,9 @@ class MyApplicationDetailAccessTest {
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
     private final InterviewAvailabilityService interviewAvailabilityService = mock(InterviewAvailabilityService.class);
+    private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
+    private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
+    private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -51,7 +62,10 @@ class MyApplicationDetailAccessTest {
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
-            interviewAvailabilityService);
+            interviewAvailabilityService,
+            interviewAvailabilityRepository,
+            interviewScheduleRepository,
+            interviewConfigRepository);
 
     @Test
     @DisplayName("다른 사용자의 지원 상세를 조회하면 ForbiddenApplicationAccessException 이 발생한다")
@@ -121,5 +135,143 @@ class MyApplicationDetailAccessTest {
 
         assertThatThrownBy(() -> applicationService.getMyApplicationDetail(404L, 10L))
                 .isInstanceOf(ApplicationDomainException.ApplicationNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("면접 사용 모집의 본인 지원 상세는 가능시간 수·일정 배정 여부·마감 시각을 함께 반환한다")
+    void interviewProgressionFieldsArePopulatedFromRepositoriesWhenUseInterview() {
+        long applicationId = 1L;
+        long currentUserId = 10L;
+        long recruitmentId = 3L;
+        LocalDateTime deadline = LocalDateTime.of(2026, 6, 15, 18, 0);
+
+        Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(2L);
+        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
+                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(false);
+
+        InterviewConfig interviewConfig = mock(InterviewConfig.class);
+        when(interviewConfig.getAvailabilityDeadline()).thenReturn(deadline);
+        when(interviewConfigRepository.findByRecruitmentId(recruitmentId))
+                .thenReturn(Optional.of(interviewConfig));
+
+        var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
+
+        assertThat(detail.interviewAvailabilityCount()).isEqualTo(2);
+        assertThat(detail.interviewScheduleAssigned()).isFalse();
+        assertThat(detail.availabilityDeadline()).isEqualTo(deadline);
+    }
+
+    @Test
+    @DisplayName("useInterview=false 모집은 면접 레포지토리를 호출하지 않고 면접 진행 필드를 기본값으로 반환한다")
+    void availabilityDeadlineIsNullWhenUseInterviewFalse() {
+        long applicationId = 2L;
+        long currentUserId = 10L;
+        long recruitmentId = 4L;
+
+        Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, false);
+        // useInterview=false 모집은 INTERVIEW_PENDING 으로 진입 불가능하므로 status 를 SUBMITTED 로 덮어 쓴다.
+        when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+
+        var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
+
+        assertThat(detail.interviewAvailabilityCount()).isZero();
+        assertThat(detail.interviewScheduleAssigned()).isFalse();
+        assertThat(detail.availabilityDeadline()).isNull();
+        // useInterview=false 면 면접 관련 레포지토리 호출 자체가 발생하지 않아야 한다.
+        verify(interviewAvailabilityRepository, never()).countByApplicationId(applicationId);
+        verify(interviewScheduleRepository, never())
+                .existsByApplicationIdAndStatus(applicationId, InterviewScheduleStatus.ASSIGNED);
+        verifyNoInteractions(interviewConfigRepository);
+    }
+
+    @Test
+    @DisplayName("useInterview=true 이지만 InterviewConfig 가 없으면 availabilityDeadline 은 null 이다")
+    void availabilityDeadlineIsNullWhenConfigMissing() {
+        long applicationId = 3L;
+        long currentUserId = 10L;
+        long recruitmentId = 5L;
+
+        Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(0L);
+        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
+                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(false);
+        when(interviewConfigRepository.findByRecruitmentId(recruitmentId)).thenReturn(Optional.empty());
+
+        var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
+
+        assertThat(detail.availabilityDeadline()).isNull();
+    }
+
+    @Test
+    @DisplayName("InterviewSchedule 이 ASSIGNED 상태로 존재하면 interviewScheduleAssigned 가 true 로 반환된다")
+    void interviewScheduleAssignedTrueWhenAssigned() {
+        long applicationId = 4L;
+        long currentUserId = 10L;
+        long recruitmentId = 6L;
+
+        Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(3L);
+        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
+                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(true);
+        when(interviewConfigRepository.findByRecruitmentId(recruitmentId)).thenReturn(Optional.empty());
+
+        var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
+
+        assertThat(detail.interviewScheduleAssigned()).isTrue();
+        assertThat(detail.interviewAvailabilityCount()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("InterviewSchedule 이 CANCELLED 상태만 존재하면 interviewScheduleAssigned 는 false 로 반환된다")
+    void interviewScheduleAssignedFalseWhenCancelled() {
+        long applicationId = 5L;
+        long currentUserId = 10L;
+        long recruitmentId = 7L;
+
+        Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(1L);
+        // ASSIGNED 상태 row 가 없으면 (CANCELLED 만 존재) false 가 반환되어야 한다.
+        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
+                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(false);
+        when(interviewConfigRepository.findByRecruitmentId(recruitmentId)).thenReturn(Optional.empty());
+
+        var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
+
+        assertThat(detail.interviewScheduleAssigned()).isFalse();
+        assertThat(detail.interviewAvailabilityCount()).isEqualTo(1);
+    }
+
+    private Application stubOwnedApplication(long applicationId, long ownerId, long recruitmentId, boolean useInterview) {
+        User owner = mock(User.class);
+        when(owner.getId()).thenReturn(ownerId);
+
+        Club club = mock(Club.class);
+        when(club.getId()).thenReturn(7L);
+        when(club.getName()).thenReturn("동아리");
+
+        RecruitmentForm form = mock(RecruitmentForm.class);
+        when(form.getQuestions()).thenReturn(List.of("Q1"));
+
+        Recruitment recruitment = mock(Recruitment.class);
+        when(recruitment.getId()).thenReturn(recruitmentId);
+        when(recruitment.getTitle()).thenReturn("모집 공고");
+        when(recruitment.getClub()).thenReturn(club);
+        when(recruitment.getForm()).thenReturn(form);
+        when(recruitment.isUseInterview()).thenReturn(useInterview);
+
+        Application application = mock(Application.class);
+        when(application.getId()).thenReturn(applicationId);
+        when(application.getUser()).thenReturn(owner);
+        when(application.getRecruitment()).thenReturn(recruitment);
+        when(application.getAnswers()).thenReturn(List.of("A1"));
+        when(application.getStatus()).thenReturn(ApplicationStatus.INTERVIEW_PENDING);
+        when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 15, 9, 30));
+        return application;
     }
 }

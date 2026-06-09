@@ -23,6 +23,9 @@ import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
+import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
@@ -48,6 +51,9 @@ class ApplicationStatusServiceTest {
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
     private final InterviewAvailabilityService interviewAvailabilityService = mock(InterviewAvailabilityService.class);
+    private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
+    private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
+    private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -59,7 +65,10 @@ class ApplicationStatusServiceTest {
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
-            interviewAvailabilityService);
+            interviewAvailabilityService,
+            interviewAvailabilityRepository,
+            interviewScheduleRepository,
+            interviewConfigRepository);
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더

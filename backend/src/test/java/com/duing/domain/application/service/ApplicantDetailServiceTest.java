@@ -17,6 +17,9 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
+import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.global.notification.InterviewNotificationService;
@@ -44,6 +47,9 @@ class ApplicantDetailServiceTest {
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
     private final InterviewAvailabilityService interviewAvailabilityService = mock(InterviewAvailabilityService.class);
+    private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
+    private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
+    private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -55,7 +61,10 @@ class ApplicantDetailServiceTest {
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
-            interviewAvailabilityService);
+            interviewAvailabilityService,
+            interviewAvailabilityRepository,
+            interviewScheduleRepository,
+            interviewConfigRepository);
 
     @Test
     @DisplayName("SELF 모집의 지원서를 동아리 운영진이 조회하면 질문·답변이 인덱스 기준으로 매핑되어 반환된다")

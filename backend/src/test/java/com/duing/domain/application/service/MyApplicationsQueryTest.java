@@ -16,6 +16,10 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
+import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
+import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -37,7 +41,10 @@ class MyApplicationsQueryTest {
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
-    private final com.duing.domain.interview.service.InterviewAvailabilityService interviewAvailabilityService = mock(com.duing.domain.interview.service.InterviewAvailabilityService.class);
+    private final InterviewAvailabilityService interviewAvailabilityService = mock(InterviewAvailabilityService.class);
+    private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
+    private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
+    private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -49,7 +56,10 @@ class MyApplicationsQueryTest {
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
-            interviewAvailabilityService);
+            interviewAvailabilityService,
+            interviewAvailabilityRepository,
+            interviewScheduleRepository,
+            interviewConfigRepository);
 
     @Test
     @DisplayName("내 지원 목록 조회 결과에 동아리 카테고리와 로고 URL이 포함된다")

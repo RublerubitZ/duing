@@ -25,6 +25,13 @@ import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
+import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
+import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
+import com.duing.domain.interview.service.InterviewAvailabilityService;
+import com.duing.domain.interview.service.dto.command.CreateAvailabilitiesInSubmissionCommand;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
@@ -33,11 +40,10 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.domain.interview.service.InterviewAvailabilityService;
-import com.duing.domain.interview.service.dto.command.CreateAvailabilitiesInSubmissionCommand;
 import com.duing.global.notification.InterviewNotificationService;
 import com.duing.global.exception.ApplicationException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -75,6 +81,10 @@ public class GeneralApplicationService implements ApplicationService {
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
     private final ApplicationEvaluationRepository applicationEvaluationRepository;
     private final InterviewAvailabilityService interviewAvailabilityService;
+    private final InterviewAvailabilityRepository interviewAvailabilityRepository;
+    private final InterviewScheduleRepository interviewScheduleRepository;
+    private final InterviewConfigRepository interviewConfigRepository;
+
     /**
      * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
      * 생성자 자체에 self-reference 를 넣으면 순환 의존이 되므로 setter 주입을 사용한다.
@@ -136,7 +146,32 @@ public class GeneralApplicationService implements ApplicationService {
         if (!application.getUser().getId().equals(currentUserId)) {
             throw new ApplicationDomainException.ForbiddenApplicationAccessException();
         }
-        return MyApplicationDetailQuery.from(application);
+
+        // 지원자 stepper 의 Step 3 sub-state 분기를 위해 면접 진행 상황을 derived 필드로 노출한다.
+        // - interviewAvailabilityCount: 본인이 제출한 면접 가능 시간 개수
+        // - interviewScheduleAssigned: 운영진의 일정 배정 완료 여부
+        // - availabilityDeadline: 가능시간 제출 마감 시각 원본(useInterview=false 또는 config 미존재 → null)
+        // useInterview=false 모집은 면접 관련 레포지토리 호출 자체를 생략한다.
+        if (!application.getRecruitment().isUseInterview()) {
+            return MyApplicationDetailQuery.fromAll(application, 0, false, null);
+        }
+
+        long interviewAvailabilityCount =
+                interviewAvailabilityRepository.countByApplicationId(applicationId);
+        // CANCELLED InterviewSchedule 는 미배정으로 간주 (취소된 일정이 "배정 완료" 로 잘못 표시되는 것 방지).
+        boolean interviewScheduleAssigned =
+                interviewScheduleRepository.existsByApplicationIdAndStatus(
+                        applicationId, InterviewScheduleStatus.ASSIGNED);
+        LocalDateTime availabilityDeadline =
+                interviewConfigRepository.findByRecruitmentId(application.getRecruitment().getId())
+                        .map(InterviewConfig::getAvailabilityDeadline)
+                        .orElse(null);
+
+        return MyApplicationDetailQuery.fromAll(
+                application,
+                Math.toIntExact(interviewAvailabilityCount),
+                interviewScheduleAssigned,
+                availabilityDeadline);
     }
 
     @Override

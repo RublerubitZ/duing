@@ -16,7 +16,10 @@ public record MyApplicationDetailResponse(
         ApplicationStatus status,
         LocalDateTime interviewAt,
         String interviewLocation,
-        LocalDateTime submittedAt
+        LocalDateTime submittedAt,
+        int interviewAvailabilityCount,
+        boolean interviewScheduleAssigned,
+        LocalDateTime availabilityDeadline
 ) {
     public static MyApplicationDetailResponse from(MyApplicationDetailQuery detailQuery) {
         return new MyApplicationDetailResponse(
@@ -30,7 +33,10 @@ public record MyApplicationDetailResponse(
                 detailQuery.status(),
                 detailQuery.interviewAt(),
                 detailQuery.interviewLocation(),
-                detailQuery.submittedAt()
+                detailQuery.submittedAt(),
+                detailQuery.interviewAvailabilityCount(),
+                detailQuery.interviewScheduleAssigned(),
+                detailQuery.availabilityDeadline()
         );
     }
 }
