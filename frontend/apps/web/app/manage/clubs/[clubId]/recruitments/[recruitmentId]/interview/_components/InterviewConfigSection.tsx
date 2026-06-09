@@ -24,18 +24,29 @@ type Props = {
 };
 
 // datetime-local input 은 `YYYY-MM-DDTHH:mm` (로컬 타임존, 초/Z 없음) 만 허용한다.
-// 백엔드 ISO(예: 2026-06-18T14:00:00Z) 를 input value 로 그대로 넣으면 빈 값이 되므로 변환한다.
-function toLocalInputValue(iso: string | undefined): string {
-  if (!iso) return '';
-  const dt = new Date(iso);
-  if (Number.isNaN(dt.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+// 백엔드 응답은 LocalDateTime(timezone-naive) — `YYYY-MM-DDTHH:mm:ss` 형태이거나
+// 과거 데이터로 `Z`/오프셋이 붙어올 수도 있다. 어느 경우든 UTC 변환 없이 앞 16자만 truncate
+// 한다 (`new Date(...).toISOString()` 을 거치면 KST 사용자 기준 9시간이 어긋난다).
+function toLocalInputValue(value: string | undefined): string {
+  if (!value) return '';
+  // 'Z' 또는 '+HH:mm'/'-HH:mm' 오프셋을 떼고, 'T' 뒤 시:분만 추출.
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+  if (!match) return '';
+  return `${match[1]}T${match[2]}:${match[3]}`;
 }
 
-// datetime-local 의 로컬시간 문자열을 백엔드가 기대하는 ISO 8601 (Z) 로 변환한다.
-function toIsoFromLocalInput(localValue: string): string {
-  return new Date(localValue).toISOString();
+// datetime-local 의 로컬시간 문자열을 백엔드 LocalDateTime 포맷으로 직렬화.
+// 백엔드는 timezone-naive 이므로 UTC 변환 없이 초만 보충해 그대로 전달한다.
+function toBackendDateTime(localValue: string): string {
+  return /\d{2}:\d{2}:\d{2}/.test(localValue) ? localValue : `${localValue}:00`;
+}
+
+// `<input type="datetime-local" min={...}>` 비교용 — 현재 로컬 시각의 `YYYY-MM-DDTHH:mm`.
+// datetime-local 의 min 은 로컬 문자열 비교이므로 UTC 가 아닌 로컬 기준으로 산출해야 한다.
+function nowLocalInputValue(): string {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 // 운영진 Step 1 — 면접 설정 생성/수정 섹션.
@@ -74,7 +85,7 @@ export function InterviewConfigSection({ recruitmentId, config }: Props) {
     const trimmedLocation = values.location?.trim();
     // 빈 입력은 payload 에서 omit — 백엔드에서 "추후 안내" 로 처리됨.
     const payload: { availabilityDeadline: string; location?: string } = {
-      availabilityDeadline: toIsoFromLocalInput(values.availabilityDeadline),
+      availabilityDeadline: toBackendDateTime(values.availabilityDeadline),
     };
     if (trimmedLocation) {
       payload.location = trimmedLocation;
@@ -103,6 +114,7 @@ export function InterviewConfigSection({ recruitmentId, config }: Props) {
   });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const minLocal = nowLocalInputValue();
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6">
@@ -124,11 +136,16 @@ export function InterviewConfigSection({ recruitmentId, config }: Props) {
           <input
             id="availability-deadline"
             type="datetime-local"
+            min={minLocal}
             {...register('availabilityDeadline')}
+            aria-invalid={formState.errors.availabilityDeadline ? true : undefined}
+            aria-describedby={
+              formState.errors.availabilityDeadline ? 'availability-deadline-error' : undefined
+            }
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
           {formState.errors.availabilityDeadline && (
-            <p className="mt-1 text-xs text-rose-600">
+            <p id="availability-deadline-error" className="mt-1 text-xs text-rose-600">
               {formState.errors.availabilityDeadline.message}
             </p>
           )}
@@ -147,11 +164,19 @@ export function InterviewConfigSection({ recruitmentId, config }: Props) {
             maxLength={200}
             placeholder="예: 공학관 2201호"
             {...register('location')}
+            aria-invalid={formState.errors.location ? true : undefined}
+            aria-describedby={
+              formState.errors.location ? 'interview-location-error' : 'interview-location-hint'
+            }
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
-          <p className="mt-1 text-xs text-slate-500">비워두면 추후 안내됩니다.</p>
+          <p id="interview-location-hint" className="mt-1 text-xs text-slate-500">
+            비워두면 추후 안내됩니다.
+          </p>
           {formState.errors.location && (
-            <p className="mt-1 text-xs text-rose-600">{formState.errors.location.message}</p>
+            <p id="interview-location-error" className="mt-1 text-xs text-rose-600">
+              {formState.errors.location.message}
+            </p>
           )}
         </div>
 
