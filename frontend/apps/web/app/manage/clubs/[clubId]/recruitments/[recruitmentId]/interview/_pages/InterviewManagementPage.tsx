@@ -2,11 +2,16 @@
 
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
-import { useInterviewConfigQuery, useInterviewSlotsQuery } from '@duing/hooks';
+import {
+  useInterviewConfigQuery,
+  useInterviewSlotsQuery,
+  useRecruitmentDetailQuery,
+} from '@duing/hooks';
 import { toRoute } from '../../../../../../../_lib/route';
 import { deriveInterviewStep } from '../_utils/deriveInterviewStep';
 import { InterviewProgressStepper } from '../_components/InterviewProgressStepper';
 import { InterviewConfigSection } from '../_components/InterviewConfigSection';
+import { InterviewSlotSection } from '../_components/InterviewSlotSection';
 import { SectionPlaceholder } from '../_components/SectionPlaceholder';
 
 type Props = {
@@ -19,6 +24,9 @@ type Props = {
 export function InterviewManagementPage({ clubId, recruitmentId }: Props) {
   const configQuery = useInterviewConfigQuery(recruitmentId);
   const slotsQuery = useInterviewSlotsQuery(recruitmentId);
+  // Step 2 (SlotSection) 가 모집 시작일 기준으로 신규 슬롯 추가 가능 여부를 판단해야 한다.
+  // 페이지 레벨에서 한 번만 fetch 해 Section 으로 전달 — 다중 observer retry-loop 회피.
+  const recruitmentDetailQuery = useRecruitmentDetailQuery(recruitmentId);
 
   // config 가 없는 신규 모집은 404 가 정상 경로. 그 외 에러만 noisy 로 처리.
   const configNotFound =
@@ -27,7 +35,11 @@ export function InterviewManagementPage({ clubId, recruitmentId }: Props) {
     configQuery.error.status === 404;
   const configFatalError = configQuery.isError && !configNotFound;
 
-  if (configQuery.isLoading || slotsQuery.isLoading) {
+  if (
+    configQuery.isLoading ||
+    slotsQuery.isLoading ||
+    recruitmentDetailQuery.isLoading
+  ) {
     return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
   }
 
@@ -47,10 +59,20 @@ export function InterviewManagementPage({ clubId, recruitmentId }: Props) {
     return <p className="p-6 text-sm text-rose-600">{message}</p>;
   }
 
+  if (recruitmentDetailQuery.isError) {
+    const message =
+      recruitmentDetailQuery.error instanceof ApiError
+        ? recruitmentDetailQuery.error.message
+        : '모집 정보를 불러오지 못했습니다.';
+    return <p className="p-6 text-sm text-rose-600">{message}</p>;
+  }
+
   const currentStep = deriveInterviewStep({
     config: configQuery.data ?? null,
     slots: slotsQuery.data ?? [],
   });
+  const slots = slotsQuery.data ?? [];
+  const recruitment = recruitmentDetailQuery.data;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -74,11 +96,11 @@ export function InterviewManagementPage({ clubId, recruitmentId }: Props) {
           config={configQuery.data ?? null}
         />
 
-        {currentStep >= 2 ? (
-          <SectionPlaceholder
-            stepNumber={2}
-            title="슬롯 관리"
-            reason="PR-FE2 에서 추가됩니다."
+        {currentStep >= 2 && recruitment ? (
+          <InterviewSlotSection
+            recruitmentId={recruitmentId}
+            recruitmentStartDate={recruitment.startDate}
+            slots={slots}
           />
         ) : (
           <SectionPlaceholder

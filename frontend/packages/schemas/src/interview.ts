@@ -29,8 +29,21 @@ export const updateInterviewConfigSchema = createInterviewConfigSchema.partial()
 
 // 슬롯 패턴 (UI 가 한 번에 N 개 슬롯을 생성할 때 사용).
 // startTime 부터 intervalMinutes 간격으로 count 개 슬롯, 각 슬롯의 capacity 동일.
+//
+// datetime-local input 의 로컬 문자열(`YYYY-MM-DDTHH:mm` 또는 `:ss`/`Z`/오프셋 포함) 을 모두 허용한다.
+// createInterviewConfigSchema.availabilityDeadline 과 동일한 규약 — UTC 변환을 거치면
+// KST 사용자 기준 9시간이 어긋나므로 클라이언트는 로컬 문자열을 그대로 백엔드로 전달한다.
 export const slotPatternSchema = z.object({
-  startTime: z.string().datetime(),
+  startTime: z
+    .string()
+    .regex(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/,
+      'YYYY-MM-DDTHH:mm 형식이어야 합니다',
+    )
+    .refine((value) => {
+      const parsed = new Date(value);
+      return !Number.isNaN(parsed.getTime()) && parsed > new Date();
+    }, '시작 시각은 미래여야 합니다'),
   intervalMinutes: z.number().int().positive().max(240),
   count: z.number().int().min(1).max(50),
   capacity: z.number().int().min(1).max(20),

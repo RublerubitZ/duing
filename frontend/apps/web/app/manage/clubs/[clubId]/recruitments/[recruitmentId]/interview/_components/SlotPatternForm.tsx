@@ -1,0 +1,129 @@
+'use client';
+
+import { useState } from 'react';
+import { slotPatternSchema } from '@duing/schemas';
+import {
+  generateSlotsFromPattern,
+  type SlotEntry,
+} from '../_utils/generateSlotsFromPattern';
+
+// SlotSection 의 패턴 입력 폼. startTime / intervalMinutes / count / capacity
+// 4 개 값을 받아 onPreview 콜백으로 슬롯 배열을 전달한다.
+//
+// 모집이 이미 시작되었거나(`disabled`), zod 검증 실패 시 onPreview 가 호출되지 않는다.
+// schema validation 실패 메시지는 fieldset 하단의 errorMessage 영역에 노출된다.
+
+type Props = {
+  onPreview: (slots: SlotEntry[]) => void;
+  disabled?: boolean;
+};
+
+// datetime-local input 의 min 속성은 로컬 문자열 비교라 UTC 기준으로 만들면 안 된다.
+function nowLocalInputValue(): string {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+export function SlotPatternForm({ onPreview, disabled }: Props) {
+  const [startTime, setStartTime] = useState('');
+  const [intervalMinutes, setIntervalMinutes] = useState(30);
+  const [count, setCount] = useState(6);
+  const [capacity, setCapacity] = useState(2);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const minLocal = nowLocalInputValue();
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setErrorMessage(null);
+    if (disabled) return;
+
+    const validation = slotPatternSchema.safeParse({
+      startTime,
+      intervalMinutes,
+      count,
+      capacity,
+    });
+    if (!validation.success) {
+      const firstIssue = validation.error.issues[0];
+      setErrorMessage(firstIssue?.message ?? '입력값이 올바르지 않습니다.');
+      return;
+    }
+    onPreview(generateSlotsFromPattern({ startTime, intervalMinutes, count, capacity }));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <fieldset
+        disabled={disabled}
+        className="grid grid-cols-1 gap-3 sm:grid-cols-4"
+        aria-describedby={errorMessage ? 'slot-pattern-error' : undefined}
+      >
+        <legend className="sr-only">슬롯 패턴 입력</legend>
+
+        <label className="block text-sm">
+          <span className="block text-xs text-slate-500">시작 시각</span>
+          <input
+            type="datetime-local"
+            min={minLocal}
+            value={startTime}
+            onChange={(event) => setStartTime(event.target.value)}
+            required
+            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          />
+        </label>
+
+        <label className="block text-sm">
+          <span className="block text-xs text-slate-500">간격 (분)</span>
+          <input
+            type="number"
+            min={5}
+            max={240}
+            value={intervalMinutes}
+            onChange={(event) => setIntervalMinutes(Number(event.target.value))}
+            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          />
+        </label>
+
+        <label className="block text-sm">
+          <span className="block text-xs text-slate-500">슬롯 개수</span>
+          <input
+            type="number"
+            min={1}
+            max={50}
+            value={count}
+            onChange={(event) => setCount(Number(event.target.value))}
+            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          />
+        </label>
+
+        <label className="block text-sm">
+          <span className="block text-xs text-slate-500">슬롯당 정원</span>
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={capacity}
+            onChange={(event) => setCapacity(Number(event.target.value))}
+            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          />
+        </label>
+      </fieldset>
+
+      {errorMessage && (
+        <p id="slot-pattern-error" className="text-xs text-rose-600">
+          {errorMessage}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={disabled}
+        className="rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-600 disabled:opacity-50"
+      >
+        + 미리보기
+      </button>
+    </form>
+  );
+}

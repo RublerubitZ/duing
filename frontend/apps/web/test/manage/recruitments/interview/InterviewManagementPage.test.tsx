@@ -15,6 +15,39 @@ const RECRUITMENT_ID = 10;
 const server = setupServer();
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
+// Step 2 (SlotSection) 가 모집 시작일을 필요로 하므로 detail mock 을 공용으로 둔다.
+// 본 테스트 그룹은 단계 결정 자체만 검증하므로 startDate 는 충분히 미래로 설정.
+function mockRecruitmentDetail(startDate = '2099-01-01') {
+  return http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
+    HttpResponse.json({
+      ok: true,
+      data: {
+        id: RECRUITMENT_ID,
+        clubId: 1,
+        clubName: '테스트 동아리',
+        title: '테스트 모집',
+        startDate,
+        endDate: null,
+        capacity: 10,
+        status: 'OPEN',
+        displayStatus: 'UPCOMING',
+        effectivelyOpen: false,
+        applicationMode: 'SELF',
+        externalFormUrl: null,
+        useInterview: true,
+        targetRole: 'MEMBER',
+        content: null,
+        questions: [],
+        interviewStartDate: null,
+        interviewEndDate: null,
+        showApplicantCount: false,
+        applicantCount: null,
+      },
+      message: null,
+    }),
+  );
+}
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
@@ -45,6 +78,7 @@ function renderPage() {
 describe('InterviewManagementPage — 자동 단계 결정 (spec §4)', () => {
   it('config 가 없으면 Step 1(면접 설정) 이 active', async () => {
     server.use(
+      mockRecruitmentDetail(),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-config`, () =>
         HttpResponse.json(
           { ok: false, data: null, message: '면접 설정을 찾을 수 없습니다.' },
@@ -69,6 +103,7 @@ describe('InterviewManagementPage — 자동 단계 결정 (spec §4)', () => {
 
   it('config 있고 slots 가 0 개면 Step 2(슬롯 관리) 가 active', async () => {
     server.use(
+      mockRecruitmentDetail(),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-config`, () =>
         HttpResponse.json({
           ok: true,
@@ -95,6 +130,7 @@ describe('InterviewManagementPage — 자동 단계 결정 (spec §4)', () => {
 
   it('assignmentCompletedAt 이 있으면 Step 4(일정 관리) 가 active', async () => {
     server.use(
+      mockRecruitmentDetail(),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-config`, () =>
         HttpResponse.json({
           ok: true,
