@@ -108,18 +108,53 @@ class InterviewConfigServiceTest {
     }
 
     @Test
-    @DisplayName("recruitment 범위 밖 deadline 은 400 InvalidDeadline 을 반환한다")
-    void throwsInvalidDeadlineWhenOutOfRecruitmentPeriod() {
+    @DisplayName("deadline 이 모집 시작일과 같거나 이전이면 400 InvalidDeadline 을 반환한다")
+    void throwsInvalidDeadlineWhenBeforeOrEqualStartDate() {
         Club club = saveActiveClub("동아리E");
         User leader = saveUser();
         saveLeaderMembership(club, leader);
-        Recruitment recruitment = saveRecruitment(club, LocalDate.now(), LocalDate.now().plusDays(5));
+        // startDate = 내일 → deadline 도 내일이면 시작일과 같은 날 (불가)
+        LocalDate startDate = LocalDate.now().plusDays(1);
+        Recruitment recruitment = saveRecruitment(club, startDate, startDate.plusDays(5));
 
-        // endDate 이후인 deadline
         assertThatThrownBy(() -> interviewConfigService.create(new CreateInterviewConfigCommand(
                 recruitment.getId(), leader.getId(),
-                LocalDateTime.now().plusDays(10), null)))
+                startDate.atTime(23, 0), null)))
                 .isInstanceOf(InterviewException.InvalidDeadline.class);
+    }
+
+    @Test
+    @DisplayName("deadline 이 모집 종료일과 같은 날이어도 정상 생성된다 (endDate 제약 완화)")
+    void createsConfigWhenDeadlineEqualsEndDate() {
+        Club club = saveActiveClub("동아리E2");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        LocalDate startDate = LocalDate.now();
+        LocalDate endDate = startDate.plusDays(5);
+        Recruitment recruitment = saveRecruitment(club, startDate, endDate);
+
+        Long configId = interviewConfigService.create(new CreateInterviewConfigCommand(
+                recruitment.getId(), leader.getId(),
+                endDate.atTime(23, 0), null));
+
+        assertThat(configRepository.findById(configId)).isPresent();
+    }
+
+    @Test
+    @DisplayName("deadline 이 모집 종료일 이후여도 정상 생성된다 (endDate 제약 완화)")
+    void createsConfigWhenDeadlineAfterEndDate() {
+        Club club = saveActiveClub("동아리E3");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        LocalDate startDate = LocalDate.now();
+        LocalDate endDate = startDate.plusDays(5);
+        Recruitment recruitment = saveRecruitment(club, startDate, endDate);
+
+        Long configId = interviewConfigService.create(new CreateInterviewConfigCommand(
+                recruitment.getId(), leader.getId(),
+                endDate.plusDays(1).atTime(10, 0), null));
+
+        assertThat(configRepository.findById(configId)).isPresent();
     }
 
     @Test
