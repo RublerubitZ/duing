@@ -272,6 +272,47 @@ describe('ApplyForm — 2-Step UI (PR-FE4)', () => {
     expect(window.sessionStorage.getItem(`apply:${RECRUITMENT_ID}:slots`)).toBeNull();
   });
 
+  it('slotsQuery 가 409 에러를 반환하면 에러 alert 가 노출된다 (Issue 5)', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/applicant-interview-slots`, () =>
+        HttpResponse.json(
+          {
+            ok: false,
+            data: null,
+            message: '모집이 종료되어 더 이상 면접 슬롯을 조회할 수 없습니다.',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderForm({ useInterview: true, interviewAvailabilityDeadline: FUTURE_DEADLINE });
+    await user.click(screen.getByRole('button', { name: '다음' }));
+
+    await screen.findByRole('heading', { name: '면접 가능시간 선택' });
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/모집이 종료되어/),
+    );
+    // 슬롯 picker 가 렌더되지 않아야 한다.
+    expect(screen.queryAllByRole('group')).toHaveLength(0);
+  });
+
+  it('운영진이 슬롯을 등록하지 않은 경우 (200 빈 배열) 별도 안내가 노출된다 (Issue 5)', async () => {
+    server.use(mockApplicantSlots([]));
+
+    const user = userEvent.setup();
+    renderForm({ useInterview: true, interviewAvailabilityDeadline: FUTURE_DEADLINE });
+    await user.click(screen.getByRole('button', { name: '다음' }));
+
+    await screen.findByRole('heading', { name: '면접 가능시간 선택' });
+    await waitFor(() =>
+      expect(
+        screen.getByText(/운영진이 아직 면접 슬롯을 등록하지 않았습니다/),
+      ).toBeInTheDocument(),
+    );
+  });
+
   it('409 AVAILABILITY_PERIOD_CLOSED 응답 시 에러 alert 가 노출된다', async () => {
     server.use(
       mockApplicantSlots(SAMPLE_SLOTS),

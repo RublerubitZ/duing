@@ -126,6 +126,14 @@ export default function RecruitmentDetailPage({
         >
           지원자 관리
         </Link>
+        {recruitment.useInterview && (
+          <Link
+            href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`)}
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            면접 관리
+          </Link>
+        )}
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/stats`)}
           className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
