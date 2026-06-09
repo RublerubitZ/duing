@@ -60,3 +60,6 @@ skills-lock.json
 
 ### Design handoff (디자인 참조용, 커밋 금지) ###
 handoff/
+
+### Superpowers brainstorming 임시 산출물 (visual companion mockup + 로컬 서버 state) ###
+.superpowers/
