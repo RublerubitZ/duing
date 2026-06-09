@@ -78,17 +78,27 @@ export function ManualAssignModal({
   const queryClient = useQueryClient();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [selectedSlotId, setSelectedSlotId] = useState<number | null>(assignedSlotId);
-  const [overrideTarget, setOverrideTarget] = useState<number | null>(null);
-  const [mutationError, setMutationError] = useState<string | null>(null);
-
-  const slotsQuery = useInterviewSlotsQuery(recruitmentId, { enabled: showAll });
-  const assignMutation = useAssignInterviewScheduleMutation(recruitmentId);
 
   const availabilitySlotIds = useMemo(
     () => new Set(interviewAvailabilities.map((item) => item.slotId)),
     [interviewAvailabilities],
   );
+
+  // assignedSlotId 가 availability 안에 있을 때만 pre-select.
+  // Override 로 배정된 케이스(이전 운영진이 availability 밖 슬롯을 강제 배정) 는
+  // 토글 OFF 상태에서 해당 슬롯이 화면에 보이지 않으므로, 그 hidden slot 으로 selectedSlotId 를
+  // 초기화하면 사용자가 인지하지 못한 채 "배정" 버튼이 활성화되어 재 Override 가 일어날 수 있다.
+  const initialSelectedSlotId =
+    assignedSlotId !== null && availabilitySlotIds.has(assignedSlotId)
+      ? assignedSlotId
+      : null;
+
+  const [selectedSlotId, setSelectedSlotId] = useState<number | null>(initialSelectedSlotId);
+  const [overrideTarget, setOverrideTarget] = useState<number | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+
+  const slotsQuery = useInterviewSlotsQuery(recruitmentId, { enabled: showAll });
+  const assignMutation = useAssignInterviewScheduleMutation(recruitmentId);
 
   // slotId → SlotListView 메타. 토글 OFF 시점에도 slotsQuery.data 가 캐시되어 있으면 활용.
   const slotMetaById = useMemo(() => {
@@ -154,16 +164,29 @@ export function ManualAssignModal({
   const assignDisabled =
     selectedSlotId === null || assignMutation.isPending;
 
+  // 토글 ON 전환 핸들러.
+  // 다른 화면(예: ScheduleManagement) 에서 같은 query key 가 isError 상태로 캐시되어 있으면
+  // 모달이 토글 ON 된 첫 render 부터 slotsQuery.isError === true 로 시작 → 자동 OFF useEffect 가
+  // 즉시 발동해 사용자가 retry 할 기회가 사라진다. 진입 시점에 한 번 reset 해서 fresh fetch 를 보장한다.
+  const handleShowAllOn = () => {
+    void queryClient.resetQueries({
+      queryKey: interviewQueryKeys.slots(recruitmentId),
+    });
+    setShowAll(true);
+  };
+
   // 토글 OFF 전환 핸들러.
   // hidden 영역(Override 후보 슬롯) 을 선택한 채로 토글을 끄면, UI 에는 숨어 있는 슬롯이
   // selectedSlotId 로 그대로 남아 사용자가 의도하지 않은 Override 배정으로 이어질 수 있다.
-  // - availability 밖 슬롯이면 assignedSlotId(있으면) 또는 null 로 되돌리고
+  // - selectedSlotId 가 availability 밖이면 null 로 비운다.
+  //   (이전 운영진의 override 배정으로 들어온 assignedSlotId 도 availability 밖일 수 있으므로
+  //    assignedSlotId 로 fallback 시키지 않는다.)
   // - overrideTarget / mutationError 도 초기화한다.
   // - slots 쿼리는 resetQueries 로 에러 캐시까지 같이 비워서 재오픈 시 깨끗한 fetch 가 되도록 한다.
   const handleShowAllOff = () => {
     setShowAll(false);
     if (selectedSlotId !== null && !availabilitySlotIds.has(selectedSlotId)) {
-      setSelectedSlotId(assignedSlotId);
+      setSelectedSlotId(null);
     }
     setOverrideTarget(null);
     setMutationError(null);
@@ -295,7 +318,7 @@ export function ManualAssignModal({
               checked={showAll}
               onChange={(event) => {
                 if (event.currentTarget.checked) {
-                  setShowAll(true);
+                  handleShowAllOn();
                 } else {
                   handleShowAllOff();
                 }

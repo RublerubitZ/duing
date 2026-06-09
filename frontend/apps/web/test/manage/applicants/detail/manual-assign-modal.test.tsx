@@ -1,5 +1,4 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { ReactNode } from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,10 +7,12 @@ import { http, HttpResponse } from 'msw';
 import { z } from 'zod';
 
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
-import type { AvailabilityItem, SlotListView } from '@duing/types';
+import { ApiClientProvider, interviewQueryKeys } from '@duing/hooks';
 
 import { ManualAssignModal } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/[applicationId]/_components/ManualAssignModal';
+
+import type { ReactNode } from 'react';
+import type { AvailabilityItem, SlotListView } from '@duing/types';
 
 const assignBodySchema = z.object({ slotId: z.number() });
 
@@ -70,7 +71,17 @@ type RenderOptions = {
   assignedSlotId?: number | null;
   applicantName?: string;
   onClose?: () => void;
+  queryClient?: QueryClient;
 };
+
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchOnWindowFocus: false },
+      mutations: { retry: false },
+    },
+  });
+}
 
 function renderModal({
   interviewAvailabilities = [slotA, slotB],
@@ -78,14 +89,8 @@ function renderModal({
   assignedSlotId = null,
   applicantName = '홍길동',
   onClose = () => {},
+  queryClient = createTestQueryClient(),
 }: RenderOptions = {}) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, refetchOnWindowFocus: false },
-      mutations: { retry: false },
-    },
-  });
-
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <ApiClientProvider client={apiClient}>
@@ -510,6 +515,93 @@ describe('ManualAssignModal', () => {
       await user.click(backdrop);
     }
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('assignedSlotId 가 availability 밖(이전 override 배정) 이면 selectedSlotId 가 null 로 시작하고 배정 버튼은 비활성화된다', async () => {
+    const user = userEvent.setup();
+    let assignCalled = false;
+    server.use(
+      http.put(`*/applications/:applicationId/interview-schedule`, () => {
+        assignCalled = true;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+
+    // assignedSlotId = slotC (availability 밖 slot 3) — 이전 운영진의 override 배정 케이스.
+    renderModal({
+      interviewAvailabilities: [slotA, slotB],
+      assignedSlot: null,
+      assignedSlotId: slotC.slotId,
+    });
+
+    // 배정 버튼 비활성화 — hidden override slot 으로 pre-select 되지 않아야 한다.
+    expect(screen.getByRole('button', { name: '배정', hidden: true })).toBeDisabled();
+
+    // availability 내 라디오들이 어느 것도 checked 가 아니어야 한다.
+    const availabilityList = screen.getByRole('list', {
+      name: '지원자가 선택한 슬롯',
+      hidden: true,
+    });
+    const radios = within(availabilityList).getAllByRole('radio', { hidden: true });
+    radios.forEach((radio) => expect(radio).not.toBeChecked());
+
+    // 배정 버튼을 강제로 눌러도 mutation 도, override confirm 도 발생하지 않는다.
+    await user.click(screen.getByRole('button', { name: '배정', hidden: true }));
+    await waitFor(() =>
+      expect(screen.queryByRole('alertdialog', { hidden: true })).not.toBeInTheDocument(),
+    );
+    expect(assignCalled).toBe(false);
+  });
+
+  it('다른 화면에서 같은 query key 가 isError 캐시된 상태로 모달이 열려도, 토글 ON 시 reset → fresh fetch 가 시작되고 즉시 OFF 되지 않는다', async () => {
+    const user = userEvent.setup();
+    let slotsFetchCount = 0;
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-slots`, () => {
+        slotsFetchCount += 1;
+        return HttpResponse.json({ ok: true, data: slotsResponse, message: null });
+      }),
+    );
+
+    // 다른 화면에서 발생한 stale error 를 흉내 — 같은 query key 에 error state 를 미리 심어둔다.
+    const queryClient = createTestQueryClient();
+    const cache = queryClient.getQueryCache();
+    const staleQuery = cache.build(queryClient, {
+      queryKey: interviewQueryKeys.slots(RECRUITMENT_ID),
+      queryFn: () => Promise.resolve([] as SlotListView[]),
+    });
+    staleQuery.setState({
+      ...staleQuery.state,
+      status: 'error',
+      error: new Error('stale error from another screen'),
+      errorUpdatedAt: Date.now(),
+      fetchStatus: 'idle',
+    });
+
+    renderModal({ queryClient });
+
+    const toggle = screen.getByRole('switch', {
+      name: /선택하지 않은 슬롯도 보기/,
+      hidden: true,
+    });
+
+    // 토글 ON — handleShowAllOn 이 resetQueries 를 먼저 호출해 stale error 를 비우므로
+    // 자동 OFF useEffect 가 발동하지 않고 fresh fetch 가 정상 시작되어야 한다.
+    await user.click(toggle);
+
+    await waitFor(() => expect(slotsFetchCount).toBeGreaterThanOrEqual(1));
+
+    // 토글이 ON 상태로 유지된다 (stale error 로 인한 false-negative OFF 가 발생하지 않음).
+    expect(
+      screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/, hidden: true }),
+    ).toBeChecked();
+
+    // override 후보 리스트가 정상 렌더링된다.
+    const overrideList = await screen.findByRole('list', {
+      name: '선택하지 않은 슬롯',
+      hidden: true,
+    });
+    expect(within(overrideList).getAllByRole('listitem', { hidden: true })).toHaveLength(1);
   });
 
   it('토글 OFF 시 availability 밖 슬롯 선택이 초기화되어 후속 배정에서 override 가 발생하지 않는다', async () => {
