@@ -2123,10 +2123,10 @@ export interface components {
             imageAltText?: string;
             /** Format: int64 */
             noticeId?: number;
-            imageAltTextRequiredForFullBleed?: boolean;
-            bannerImageRequiredForFullBleed?: boolean;
             scheduleRangeValid?: boolean;
             singleLinkTarget?: boolean;
+            imageAltTextRequiredForFullBleed?: boolean;
+            bannerImageRequiredForFullBleed?: boolean;
         };
         CreateNoticeRequest: {
             title: string;
@@ -2424,10 +2424,10 @@ export interface components {
             /** Format: int64 */
             noticeId?: number;
             clearNoticeId?: boolean;
-            imageAltTextRequiredForFullBleed?: boolean;
-            bannerImageRequiredForFullBleed?: boolean;
             scheduleRangeValid?: boolean;
             singleLinkTarget?: boolean;
+            imageAltTextRequiredForFullBleed?: boolean;
+            bannerImageRequiredForFullBleed?: boolean;
         };
         ProcessPromotionRequestRequest: {
             /** @enum {string} */
@@ -2534,6 +2534,11 @@ export interface components {
             interviewLocation?: string;
             /** Format: date-time */
             submittedAt?: string;
+            /** Format: int32 */
+            interviewAvailabilityCount?: number;
+            interviewScheduleAssigned?: boolean;
+            /** Format: date-time */
+            availabilityDeadline?: string;
         };
         ApiResponseListRecruitmentSummaryResponse: {
             ok?: boolean;
@@ -3068,6 +3073,8 @@ export interface components {
             statusHistory?: components["schemas"]["StatusHistoryItem"][];
             myEvaluation?: components["schemas"]["ApplicationEvaluationItem"];
             otherEvaluations?: components["schemas"]["ApplicationEvaluationItem"][];
+            interviewAvailabilities?: components["schemas"]["AvailabilityItemResponse"][];
+            assignedSlot?: components["schemas"]["AvailabilityItemResponse"];
         };
         ApplicantInfo: {
             /** Format: int64 */
@@ -3087,6 +3094,14 @@ export interface components {
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
+        };
+        AvailabilityItemResponse: {
+            /** Format: int64 */
+            slotId?: number;
+            /** Format: date-time */
+            startTime?: string;
+            /** Format: date-time */
+            endTime?: string;
         };
         QuestionAnswer: {
             question?: string;

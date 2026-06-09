@@ -13,6 +13,11 @@ export type MatchingCandidatesView = components['schemas']['MatchingCandidatesRe
 // Backend PR-IS 신규 — 지원자 가능 슬롯 + 면접 일정
 export type MyInterviewAvailabilities = components['schemas']['MyInterviewAvailabilitiesResponse'];
 
+// 면접 수동 배정 UX P0 — `ApplicantDetailResponse.interviewAvailabilities` /
+// `assignedSlot` 그리고 stepper UI 의 슬롯 표시에 공통 사용되는 경량 표현.
+// capacity/assignedCount 는 의도적으로 포함하지 않는다 (정원 정보는 별도 slots API 로).
+export type AvailabilityItem = components['schemas']['AvailabilityItemResponse'];
+
 // 면접 일정 상태 — backend enum 미러
 export type InterviewScheduleStatus = 'ASSIGNED' | 'CANCELLED';
 
