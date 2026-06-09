@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { ApiError } from '@duing/api';
 import {
@@ -8,7 +9,6 @@ import {
   useAssignInterviewScheduleMutation,
   useInterviewSlotsQuery,
 } from '@duing/hooks';
-import { useQueryClient } from '@tanstack/react-query';
 
 import { formatSlotLabel } from '@/components/interview/_utils/localDateTime';
 
