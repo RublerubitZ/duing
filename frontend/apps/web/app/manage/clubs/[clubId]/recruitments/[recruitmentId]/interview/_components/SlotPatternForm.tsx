@@ -116,9 +116,14 @@ export function SlotPatternForm({ onPreview, disabled }: Props) {
       </fieldset>
 
       {errorMessage && (
-        <p id="slot-pattern-error" className="text-xs text-rose-600">
-          {errorMessage}
-        </p>
+        <div
+          id="slot-pattern-error"
+          role="alert"
+          className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+        >
+          <strong className="block font-medium">입력값을 확인해주세요</strong>
+          <span>{errorMessage}</span>
+        </div>
       )}
 
       <button
@@ -126,7 +131,7 @@ export function SlotPatternForm({ onPreview, disabled }: Props) {
         disabled={disabled}
         className="rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-600 disabled:opacity-50"
       >
-        + 미리보기
+        + 미리보기에 추가
       </button>
     </form>
   );

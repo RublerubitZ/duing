@@ -132,37 +132,55 @@ export function InterviewSlotSection({
         </p>
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-slate-500">
-            여러 날짜에 슬롯을 등록하려면 패턴을 입력하고 저장한 뒤, 다음 날짜로 시작 시각을 바꿔 다시 저장하세요.
-          </p>
-          <SlotPatternForm onPreview={setPreview} disabled={recruitmentStarted} />
-          {preview.length > 0 && (
-            <div className="space-y-3 rounded-md border border-slate-200 bg-white p-3">
-              <SlotPreviewList
-                slots={preview}
-                onRemove={(index) =>
-                  setPreview(preview.filter((_, currentIndex) => currentIndex !== index))
-                }
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={createMutation.isPending || preview.length === 0}
-                  className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
-                >
-                  {createMutation.isPending ? '저장 중…' : `${preview.length}개 저장`}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreview([])}
-                  className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
-                >
-                  미리보기 비우기
-                </button>
-              </div>
-            </div>
-          )}
+          <div className="rounded-md border border-sky-100 bg-sky-50 px-3 py-3 text-sm text-sky-900">
+            <strong className="block font-medium">💡 여러 날짜·비균등 패턴 등록 방법</strong>
+            <p className="mt-1 text-xs text-sky-900">
+              각 패턴을 입력하고 <strong>+ 미리보기에 추가</strong> 를 누르면 누적됩니다.
+              모두 합쳐서 마지막에 한 번에 저장하세요.
+            </p>
+            <ul className="mt-2 list-disc pl-5 text-xs text-sky-900">
+              <li>예: 6/10 10:00 단일 슬롯(개수=1, 정원=4) → +미리보기 → 6/11 14:00 단일 슬롯(개수=1, 정원=2) → +미리보기 → 저장</li>
+              <li>균등 패턴(6/10 18:00 부터 30분 간격 6개) 도 같은 방식으로 미리보기 후 저장</li>
+            </ul>
+          </div>
+          <SlotPatternForm
+            onPreview={(newSlots) => setPreview((prev) => [...prev, ...newSlots])}
+            disabled={recruitmentStarted}
+          />
+          <div className="space-y-3 rounded-md border border-slate-200 bg-white p-3">
+            {preview.length > 0 ? (
+              <>
+                <SlotPreviewList
+                  slots={preview}
+                  onRemove={(index) =>
+                    setPreview(preview.filter((_, currentIndex) => currentIndex !== index))
+                  }
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={createMutation.isPending || preview.length === 0}
+                    className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+                  >
+                    {createMutation.isPending ? '저장 중…' : `${preview.length}개 저장`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreview([])}
+                    className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                  >
+                    미리보기 비우기
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">
+                미리보기가 비어 있습니다. 위 패턴 폼에서 <strong>+ 미리보기에 추가</strong> 를 눌러 슬롯을 만든 뒤
+                저장하세요.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
