@@ -40,5 +40,8 @@ export type ManagementSlotView = {
   endTime: string;
   capacity: number;
   availabilityCount?: number;
+  // 백엔드 SlotListView.assignedCount — 자동배정 후 채워지는 누적 배정 인원수.
+  // `assignments` 가 로드되지 않은 시점(Step 2) 의 카드 표시를 위한 fallback 원천.
+  assignedCount?: number;
   assignments?: ManagementSlotAssignment[];
 };

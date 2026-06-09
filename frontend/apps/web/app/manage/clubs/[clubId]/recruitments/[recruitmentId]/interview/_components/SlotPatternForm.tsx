@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { slotPatternSchema } from '@duing/schemas';
+import { nowLocalInputValue } from '@/components/interview/_utils/localDateTime';
 import {
   generateSlotsFromPattern,
   type SlotEntry,
@@ -18,11 +19,14 @@ type Props = {
   disabled?: boolean;
 };
 
-// datetime-local input 의 min 속성은 로컬 문자열 비교라 UTC 기준으로 만들면 안 된다.
-function nowLocalInputValue(): string {
-  const now = new Date();
-  const offsetMs = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16);
+// number input 의 빈 값/잘못된 입력을 안전하게 수치로 변환. valueAsNumber 는
+// 빈 입력에 NaN 을 반환하므로 Number.isFinite 가드를 통해 fallback 으로 떨어뜨린다.
+function readNumberInput(
+  event: React.ChangeEvent<HTMLInputElement>,
+  fallback: number,
+): number {
+  const value = event.target.valueAsNumber;
+  return Number.isFinite(value) ? value : fallback;
 }
 
 export function SlotPatternForm({ onPreview, disabled }: Props) {
@@ -81,7 +85,7 @@ export function SlotPatternForm({ onPreview, disabled }: Props) {
             min={5}
             max={240}
             value={intervalMinutes}
-            onChange={(event) => setIntervalMinutes(Number(event.target.value))}
+            onChange={(event) => setIntervalMinutes(readNumberInput(event, 0))}
             className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
         </label>
@@ -93,7 +97,7 @@ export function SlotPatternForm({ onPreview, disabled }: Props) {
             min={1}
             max={50}
             value={count}
-            onChange={(event) => setCount(Number(event.target.value))}
+            onChange={(event) => setCount(readNumberInput(event, 0))}
             className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
         </label>
@@ -105,7 +109,7 @@ export function SlotPatternForm({ onPreview, disabled }: Props) {
             min={1}
             max={20}
             value={capacity}
-            onChange={(event) => setCapacity(Number(event.target.value))}
+            onChange={(event) => setCapacity(readNumberInput(event, 0))}
             className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
         </label>

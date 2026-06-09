@@ -27,7 +27,9 @@ type Props = {
   slots: SlotListView[];
 };
 
-// `recruitmentStartDate` 는 yyyy-MM-dd 포맷. 로컬 자정과 비교해 "오늘 또는 과거" 판정.
+// `recruitmentStartDate` 는 yyyy-MM-dd 포맷. 로컬 자정과 비교해 "시작일 이후" 판정.
+// 백엔드 정책(`LocalDate.now().isAfter(startDate)`) 과 일치시키기 위해 strict `>` 비교 사용 —
+// 시작일 당일(`==`) 은 신규 슬롯 추가가 허용된다.
 function isRecruitmentStarted(startDateIso: string): boolean {
   const match = startDateIso.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return false;
@@ -35,7 +37,7 @@ function isRecruitmentStarted(startDateIso: string): boolean {
   const startMidnight = new Date(Number(year), Number(month) - 1, Number(day));
   const todayMidnight = new Date();
   todayMidnight.setHours(0, 0, 0, 0);
-  return todayMidnight.getTime() >= startMidnight.getTime();
+  return todayMidnight.getTime() > startMidnight.getTime();
 }
 
 // SlotListView -> ManagementSlotView (assignments 는 PR-FE3 의 ScheduleManagement 에서 채움)
@@ -48,6 +50,8 @@ function toManagementView(slot: SlotListView): ManagementSlotView {
     endTime: slot.endTime ?? '',
     capacity: slot.capacity ?? 0,
     availabilityCount: slot.availabilityCount,
+    // 자동배정 후 카드의 "배정 N/Capacity명" 표시가 0 으로 고정되지 않도록 보존.
+    assignedCount: slot.assignedCount,
   };
 }
 
@@ -68,12 +72,14 @@ export function InterviewSlotSection({
   const handleSave = () => {
     setSubmitError(null);
     setSubmitSuccess(null);
+    // 캡처 — onSuccess 가 비동기로 실행될 때 preview state 가 비워졌을 가능성에 대비.
+    const savedCount = preview.length;
     createMutation.mutate(
       { slots: preview },
       {
         onSuccess: () => {
           setPreview([]);
-          setSubmitSuccess(`${preview.length}개 슬롯이 저장되었습니다.`);
+          setSubmitSuccess(`${savedCount}개 슬롯이 저장되었습니다.`);
         },
         onError: (mutationError: unknown) => {
           const message =

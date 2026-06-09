@@ -162,6 +162,36 @@ describe('InterviewSlotSection — 패턴 + 미리보기 + 저장', () => {
     expect(screen.queryByRole('button', { name: '+ 미리보기' })).not.toBeInTheDocument();
   });
 
+  // 백엔드 정책(`LocalDate.now().isAfter(startDate)`) 과 정렬:
+  // 시작일 당일(today == startDate) 은 신규 슬롯 추가가 여전히 허용된다.
+  it('recruitment.startDate 가 오늘이면 패턴 입력 form 이 렌더된다', () => {
+    const today = new Date();
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const todayIso = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+
+    renderSection({ recruitmentStartDate: todayIso });
+
+    expect(
+      screen.queryByText(/모집이 시작된 후에는 새 슬롯을 추가할 수 없습니다/),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText('시작 시각')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '+ 미리보기' })).toBeInTheDocument();
+  });
+
+  it('recruitment.startDate 의 익일(어제) 이면 패턴 입력이 차단된다', () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const yesterdayIso = `${yesterday.getFullYear()}-${pad(yesterday.getMonth() + 1)}-${pad(yesterday.getDate())}`;
+
+    renderSection({ recruitmentStartDate: yesterdayIso });
+
+    expect(
+      screen.getByText(/모집이 시작된 후에는 새 슬롯을 추가할 수 없습니다/),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('시작 시각')).not.toBeInTheDocument();
+  });
+
   it('기존 슬롯은 ManagementSlotCard 그리드로 표시되고 × 클릭 시 DELETE 가 호출된다', async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
