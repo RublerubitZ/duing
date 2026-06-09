@@ -51,6 +51,23 @@ describe('BulkPromoteDialog', () => {
     expect(screen.getByText(/김두잉 외 0명을/)).toBeInTheDocument();
   });
 
+  it('representativeName 이 빈 문자열이면 "선택한 N명을" fallback 으로 표시된다', () => {
+    // selection 후 filter/search 가 변경되어 선택된 지원자가 visible list 에서
+    // 사라진 케이스 — 대표 이름 없이도 본문이 의미를 유지해야 한다.
+    render(
+      <BulkPromoteDialog
+        representativeName=""
+        selectedCount={3}
+        isPending={false}
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(/선택한 3명을/)).toBeInTheDocument();
+    expect(screen.getByText(/면접 대상자로 선정하시겠습니까\?/)).toBeInTheDocument();
+  });
+
   it('"선정" 버튼 클릭 시 onConfirm 이 호출된다', async () => {
     const onConfirm = vi.fn();
     render(

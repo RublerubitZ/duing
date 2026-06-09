@@ -53,9 +53,9 @@ export function BulkConfirmDialog({
   // ESC 닫기 — BulkPromoteDialog 와 동일 패턴으로 일관성 유지.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isPending) {
+      if (event.key === 'Escape') {
         event.stopPropagation();
-        onCancel();
+        if (!isPending) onCancel();
       }
     };
     document.addEventListener('keydown', handleKeyDown);

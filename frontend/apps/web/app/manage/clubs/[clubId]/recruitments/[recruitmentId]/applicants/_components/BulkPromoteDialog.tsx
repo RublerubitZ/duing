@@ -13,6 +13,10 @@ import { useEffect, useId, useRef } from 'react';
 // 그대로 전달). 1명일 때는 "외 0명" 으로 출력해도 의미가 어색하지 않다는 spec 판단
 // (선택 0건일 때는 BulkActionBar 자체가 비활성이므로 호출되지 않음).
 //
+// representativeName 이 빈 문자열일 때 — selection 후 filter/search 가 바뀌어
+// 선택된 지원자가 현재 visible list 에서 사라진 경우 — 대표 이름 대신
+// "선택한 N명을" 으로 fallback 하여 빈 이름이 노출되지 않도록 한다.
+//
 // ESC / backdrop click 으로 취소, 진입 시 "선정" 버튼 autofocus.
 
 type Props = {
@@ -52,7 +56,9 @@ export function BulkPromoteDialog({
   }, []);
 
   const othersCount = Math.max(selectedCount - 1, 0);
-  const summaryLine = `${representativeName} 외 ${othersCount}명을`;
+  const summaryLine = representativeName
+    ? `${representativeName} 외 ${othersCount}명을`
+    : `선택한 ${selectedCount}명을`;
 
   return (
     <div
