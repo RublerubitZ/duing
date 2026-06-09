@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
+import { ApiError } from '@duing/api';
 import {
+  interviewQueryKeys,
   useAssignInterviewScheduleMutation,
   useInterviewSlotsQuery,
 } from '@duing/hooks';
-import { ApiError } from '@duing/api';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { formatSlotLabel } from '@/components/interview/_utils/localDateTime';
 
@@ -25,7 +27,9 @@ import type { AvailabilityItem, SlotListView } from '@duing/types';
 type Props = {
   applicationId: number;
   recruitmentId: number;
+  applicantName: string;
   interviewAvailabilities: AvailabilityItem[];
+  assignedSlot: AvailabilityItem | null;
   assignedSlotId: number | null;
   onClose: () => void;
 };
@@ -64,11 +68,15 @@ function formatCapacity(slot: SlotWithMeta): string | null {
 export function ManualAssignModal({
   applicationId,
   recruitmentId,
+  applicantName,
   interviewAvailabilities,
+  assignedSlot,
   assignedSlotId,
   onClose,
 }: Props) {
   const titleId = useId();
+  const queryClient = useQueryClient();
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(assignedSlotId);
   const [overrideTarget, setOverrideTarget] = useState<number | null>(null);
@@ -111,9 +119,53 @@ export function ManualAssignModal({
     }
   }, [showAll, slotsQuery.isError]);
 
+  // Escape 닫기 + 진입 시 첫 인터랙티브 요소 autofocus.
+  // Override confirm 이 열려 있으면 Escape 가 confirm 만 먼저 닫고, 그 외에는 모달을 닫는다.
+  // 이 useEffect 는 데이터 패칭이 아닌 키보드 이벤트 리스너 등록이라 가이드라인과 충돌하지 않는다.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        if (overrideTarget !== null) {
+          setOverrideTarget(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [overrideTarget, onClose]);
+
+  // 모달 mount 시 첫 활성 버튼(닫기) 으로 포커스 이동.
+  useEffect(() => {
+    const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
+      'button:not([disabled])',
+    );
+    firstFocusable?.focus();
+  }, []);
+
   const isEmptyAvailability = interviewAvailabilities.length === 0;
   const assignDisabled =
     selectedSlotId === null || assignMutation.isPending;
+
+  // 토글 OFF 전환 핸들러.
+  // hidden 영역(Override 후보 슬롯) 을 선택한 채로 토글을 끄면, UI 에는 숨어 있는 슬롯이
+  // selectedSlotId 로 그대로 남아 사용자가 의도하지 않은 Override 배정으로 이어질 수 있다.
+  // - availability 밖 슬롯이면 assignedSlotId(있으면) 또는 null 로 되돌리고
+  // - overrideTarget / mutationError 도 초기화한다.
+  // - slots 쿼리는 resetQueries 로 에러 캐시까지 같이 비워서 재오픈 시 깨끗한 fetch 가 되도록 한다.
+  const handleShowAllOff = () => {
+    setShowAll(false);
+    if (selectedSlotId !== null && !availabilitySlotIds.has(selectedSlotId)) {
+      setSelectedSlotId(assignedSlotId);
+    }
+    setOverrideTarget(null);
+    setMutationError(null);
+    void queryClient.resetQueries({
+      queryKey: interviewQueryKeys.slots(recruitmentId),
+    });
+  };
 
   const handleAssignClick = () => {
     setMutationError(null);
@@ -146,21 +198,30 @@ export function ManualAssignModal({
     );
   };
 
+  const assignedSlotLabel = assignedSlot ? formatSlotLabel(assignedSlot) : '미배정';
+
   return (
     <div
+      aria-hidden="true"
+      onClick={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-      role="presentation"
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        onClick={(event) => event.stopPropagation()}
         className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl"
       >
-        <header className="flex items-start justify-between">
-          <h2 id={titleId} className="text-lg font-semibold text-slate-900">
-            면접 일정 배정
-          </h2>
+        <header className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 id={titleId} className="text-lg font-semibold text-slate-900">
+              면접 일정 배정
+            </h2>
+            <p className="text-sm text-slate-700">지원자: {applicantName}</p>
+            <p className="text-sm text-slate-700">현재 배정: {assignedSlotLabel}</p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -229,7 +290,11 @@ export function ManualAssignModal({
               role="switch"
               checked={showAll}
               onChange={(event) => {
-                setShowAll(event.currentTarget.checked);
+                if (event.currentTarget.checked) {
+                  setShowAll(true);
+                } else {
+                  handleShowAllOff();
+                }
               }}
             />
             선택하지 않은 슬롯도 보기
@@ -340,7 +405,10 @@ type ConfirmProps = {
 function OverrideConfirmDialog({ onCancel, onConfirm, isPending }: ConfirmProps) {
   const titleId = useId();
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/60 p-4">
+    <div
+      onClick={(event) => event.stopPropagation()}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4"
+    >
       <div
         role="alertdialog"
         aria-modal="true"

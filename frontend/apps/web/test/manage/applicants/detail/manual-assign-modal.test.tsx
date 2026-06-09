@@ -5,12 +5,15 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
+import { z } from 'zod';
 
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import type { AvailabilityItem, SlotListView } from '@duing/types';
 
 import { ManualAssignModal } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/[applicationId]/_components/ManualAssignModal';
+
+const assignBodySchema = z.object({ slotId: z.number() });
 
 const RECRUITMENT_ID = 99;
 const APPLICATION_ID = 501;
@@ -63,13 +66,17 @@ afterAll(() => server.close());
 
 type RenderOptions = {
   interviewAvailabilities?: AvailabilityItem[];
+  assignedSlot?: AvailabilityItem | null;
   assignedSlotId?: number | null;
+  applicantName?: string;
   onClose?: () => void;
 };
 
 function renderModal({
   interviewAvailabilities = [slotA, slotB],
+  assignedSlot = null,
   assignedSlotId = null,
+  applicantName = '홍길동',
   onClose = () => {},
 }: RenderOptions = {}) {
   const queryClient = new QueryClient({
@@ -92,7 +99,9 @@ function renderModal({
       <ManualAssignModal
         applicationId={APPLICATION_ID}
         recruitmentId={RECRUITMENT_ID}
+        applicantName={applicantName}
         interviewAvailabilities={interviewAvailabilities}
+        assignedSlot={assignedSlot}
         assignedSlotId={assignedSlotId}
         onClose={onClose}
       />
@@ -112,19 +121,20 @@ describe('ManualAssignModal', () => {
 
     renderModal();
 
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('dialog', { hidden: true });
     expect(dialog).toHaveAttribute('aria-modal', 'true');
 
     const availabilityList = screen.getByRole('list', {
       name: '지원자가 선택한 슬롯',
+      hidden: true,
     });
-    const items = within(availabilityList).getAllByRole('listitem');
+    const items = within(availabilityList).getAllByRole('listitem', { hidden: true });
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveTextContent(/6\/13.*18:00.*–.*18:30/);
     expect(items[1]).toHaveTextContent(/6\/13.*18:30.*–.*19:00/);
 
     expect(
-      screen.queryByRole('list', { name: '선택하지 않은 슬롯' }),
+      screen.queryByRole('list', { name: '선택하지 않은 슬롯', hidden: true }),
     ).not.toBeInTheDocument();
 
     // 잠시 대기해도 fetch 가 발생하지 않아야 한다.
@@ -148,6 +158,7 @@ describe('ManualAssignModal', () => {
 
     const toggle = screen.getByRole('switch', {
       name: /선택하지 않은 슬롯도 보기/,
+      hidden: true,
     });
     await user.click(toggle);
 
@@ -155,8 +166,9 @@ describe('ManualAssignModal', () => {
 
     const overrideList = await screen.findByRole('list', {
       name: '선택하지 않은 슬롯',
+      hidden: true,
     });
-    const overrideItems = within(overrideList).getAllByRole('listitem');
+    const overrideItems = within(overrideList).getAllByRole('listitem', { hidden: true });
     expect(overrideItems).toHaveLength(1);
     expect(overrideItems[0]).toHaveTextContent(/6\/15.*20:00.*–.*20:30/);
     expect(overrideItems[0]).toHaveTextContent(
@@ -179,7 +191,7 @@ describe('ManualAssignModal', () => {
       ),
     ).toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: '배정' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '배정', hidden: true })).toBeDisabled();
   });
 
   it('availability 안의 슬롯을 선택해 배정하면 confirm 없이 바로 mutation 이 호출되고 onClose 가 실행된다', async () => {
@@ -187,7 +199,7 @@ describe('ManualAssignModal', () => {
     let assignedPayload: { applicationId: number; slotId: number } | null = null;
     server.use(
       http.put(`*/applications/:applicationId/interview-schedule`, async ({ params, request }) => {
-        const body = (await request.json()) as { slotId: number };
+        const body = assignBodySchema.parse(await request.json());
         assignedPayload = {
           applicationId: Number(params.applicationId),
           slotId: body.slotId,
@@ -199,8 +211,8 @@ describe('ManualAssignModal', () => {
     const onClose = vi.fn();
     renderModal({ onClose });
 
-    await user.click(screen.getByRole('radio', { name: /6\/13.*18:00.*–.*18:30/ }));
-    await user.click(screen.getByRole('button', { name: '배정' }));
+    await user.click(screen.getByRole('radio', { name: /6\/13.*18:00.*–.*18:30/, hidden: true }));
+    await user.click(screen.getByRole('button', { name: '배정', hidden: true }));
 
     await waitFor(() => {
       expect(assignedPayload).toEqual({
@@ -225,7 +237,7 @@ describe('ManualAssignModal', () => {
     let assignedSlotId: number | null = null;
     server.use(
       http.put(`*/applications/:applicationId/interview-schedule`, async ({ request }) => {
-        const body = (await request.json()) as { slotId: number };
+        const body = assignBodySchema.parse(await request.json());
         assignedSlotId = body.slotId;
         return HttpResponse.json({ ok: true, data: null, message: null });
       }),
@@ -235,23 +247,24 @@ describe('ManualAssignModal', () => {
     renderModal({ onClose });
 
     await user.click(
-      screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/ }),
+      screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/, hidden: true }),
     );
 
     const overrideRadio = await screen.findByRole('radio', {
       name: /6\/15.*20:00.*–.*20:30/,
+      hidden: true,
     });
     await user.click(overrideRadio);
-    await user.click(screen.getByRole('button', { name: '배정' }));
+    await user.click(screen.getByRole('button', { name: '배정', hidden: true }));
 
-    const confirmDialog = await screen.findByRole('alertdialog');
+    const confirmDialog = await screen.findByRole('alertdialog', { hidden: true });
     expect(confirmDialog).toHaveTextContent('지원자가 선택하지 않은 시간입니다.');
     expect(confirmDialog).toHaveTextContent(
       '이 시간으로 배정하면 지원자가 참석하기 어려울 수 있습니다.',
     );
     expect(confirmDialog).toHaveTextContent('계속 진행하시겠습니까?');
 
-    await user.click(within(confirmDialog).getByRole('button', { name: '계속 진행' }));
+    await user.click(within(confirmDialog).getByRole('button', { name: '계속 진행', hidden: true }));
 
     await waitFor(() => expect(assignedSlotId).toBe(slotC.slotId));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
@@ -276,21 +289,22 @@ describe('ManualAssignModal', () => {
     renderModal({ onClose });
 
     await user.click(
-      screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/ }),
+      screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/, hidden: true }),
     );
     const overrideRadio = await screen.findByRole('radio', {
       name: /6\/15.*20:00.*–.*20:30/,
+      hidden: true,
     });
     await user.click(overrideRadio);
-    await user.click(screen.getByRole('button', { name: '배정' }));
+    await user.click(screen.getByRole('button', { name: '배정', hidden: true }));
 
-    const confirmDialog = await screen.findByRole('alertdialog');
-    await user.click(within(confirmDialog).getByRole('button', { name: '취소' }));
+    const confirmDialog = await screen.findByRole('alertdialog', { hidden: true });
+    await user.click(within(confirmDialog).getByRole('button', { name: '취소', hidden: true }));
 
     expect(assignCalled).toBe(false);
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog', { hidden: true })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { hidden: true })).toBeInTheDocument();
   });
 
   it('mutation 에러 (409) 시 모달 내 alert 가 노출되고 모달은 유지된다', async () => {
@@ -307,13 +321,13 @@ describe('ManualAssignModal', () => {
     const onClose = vi.fn();
     renderModal({ onClose });
 
-    await user.click(screen.getByRole('radio', { name: /6\/13.*18:00.*–.*18:30/ }));
-    await user.click(screen.getByRole('button', { name: '배정' }));
+    await user.click(screen.getByRole('radio', { name: /6\/13.*18:00.*–.*18:30/, hidden: true }));
+    await user.click(screen.getByRole('button', { name: '배정', hidden: true }));
 
-    const alert = await screen.findByRole('alert');
+    const alert = await screen.findByRole('alert', { hidden: true });
     expect(alert).toHaveTextContent('슬롯이 이미 가득 찼습니다.');
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { hidden: true })).toBeInTheDocument();
   });
 
   it('토글 ON 시 slots fetch 실패하면 inline error + 토글 자동 OFF 로 복귀한다', async () => {
@@ -331,15 +345,16 @@ describe('ManualAssignModal', () => {
 
     const toggle = screen.getByRole('switch', {
       name: /선택하지 않은 슬롯도 보기/,
+      hidden: true,
     });
     await user.click(toggle);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    expect(await screen.findByRole('alert', { hidden: true })).toHaveTextContent(
       '슬롯을 불러오지 못했습니다',
     );
 
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/ })).not.toBeChecked(),
+      expect(screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/, hidden: true })).not.toBeChecked(),
     );
   });
 
@@ -348,8 +363,132 @@ describe('ManualAssignModal', () => {
     const onClose = vi.fn();
     renderModal({ onClose });
 
-    await user.click(screen.getByRole('button', { name: '닫기' }));
+    await user.click(screen.getByRole('button', { name: '닫기', hidden: true }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('헤더에 지원자 이름과 현재 배정 상태가 노출된다', () => {
+    renderModal({
+      applicantName: '김두잉',
+      assignedSlot: slotA,
+      assignedSlotId: slotA.slotId,
+    });
+
+    const dialog = screen.getByRole('dialog', { hidden: true });
+    expect(dialog).toHaveTextContent('지원자: 김두잉');
+    expect(dialog).toHaveTextContent(/현재 배정:.*6\/13.*18:00.*–.*18:30/);
+  });
+
+  it('assignedSlot 이 없으면 현재 배정에 "미배정" 이 표시된다', () => {
+    renderModal({ applicantName: '김두잉', assignedSlot: null });
+
+    expect(screen.getByRole('dialog', { hidden: true })).toHaveTextContent('현재 배정: 미배정');
+  });
+
+  it('ESC 키 입력 시 onClose 가 호출되고, override confirm 이 열려있으면 confirm 만 닫힌다', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-slots`, () =>
+        HttpResponse.json({ ok: true, data: slotsResponse, message: null }),
+      ),
+    );
+
+    const onClose = vi.fn();
+    renderModal({ onClose });
+
+    await user.click(
+      screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/, hidden: true }),
+    );
+    const overrideRadio = await screen.findByRole('radio', {
+      name: /6\/15.*20:00.*–.*20:30/,
+      hidden: true,
+    });
+    await user.click(overrideRadio);
+    await user.click(screen.getByRole('button', { name: '배정', hidden: true }));
+
+    expect(await screen.findByRole('alertdialog', { hidden: true })).toBeInTheDocument();
+
+    // 첫 ESC — confirm 만 닫힌다.
+    await user.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(screen.queryByRole('alertdialog', { hidden: true })).not.toBeInTheDocument(),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+
+    // 두 번째 ESC — 모달이 닫힌다.
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('Backdrop 클릭 시 onClose 가 호출되고, dialog 내부 클릭은 닫지 않는다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderModal({ onClose });
+
+    // dialog 내부 클릭(취소 버튼 영역 외 헤더 텍스트) → 닫히면 안 된다.
+    await user.click(screen.getByText('지원자가 선택한 슬롯 (2)'));
+    expect(onClose).not.toHaveBeenCalled();
+
+    // backdrop 클릭 → 닫힌다.
+    const dialog = screen.getByRole('dialog', { hidden: true });
+    const backdrop = dialog.parentElement;
+    expect(backdrop).not.toBeNull();
+    if (backdrop) {
+      await user.click(backdrop);
+    }
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('토글 OFF 시 availability 밖 슬롯 선택이 초기화되어 후속 배정에서 override 가 발생하지 않는다', async () => {
+    const user = userEvent.setup();
+    let slotsFetchCount = 0;
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-slots`, () => {
+        slotsFetchCount += 1;
+        return HttpResponse.json({ ok: true, data: slotsResponse, message: null });
+      }),
+    );
+    let assignCalled = false;
+    server.use(
+      http.put(`*/applications/:applicationId/interview-schedule`, () => {
+        assignCalled = true;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+
+    renderModal();
+
+    // 토글 ON → override 슬롯 선택.
+    await user.click(
+      screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/, hidden: true }),
+    );
+    const overrideRadio = await screen.findByRole('radio', {
+      name: /6\/15.*20:00.*–.*20:30/,
+      hidden: true,
+    });
+    await user.click(overrideRadio);
+    expect(overrideRadio).toBeChecked();
+
+    // 토글 OFF — override 슬롯이 더 이상 selectedSlotId 가 아니어야 한다.
+    await user.click(
+      screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/, hidden: true }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('list', { name: '선택하지 않은 슬롯', hidden: true }),
+      ).not.toBeInTheDocument(),
+    );
+
+    // 배정 버튼 클릭 시 selectedSlotId 가 null 이므로 confirm 도, mutation 도 발생하지 않는다.
+    await user.click(screen.getByRole('button', { name: '배정', hidden: true }));
+
+    // 충분히 기다려도 alertdialog / mutation 모두 발생하지 않아야 한다.
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog', { hidden: true })).not.toBeInTheDocument();
+    });
+    expect(assignCalled).toBe(false);
+    expect(slotsFetchCount).toBeGreaterThanOrEqual(1);
   });
 });

@@ -79,7 +79,9 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
             <ManualAssignModal
               applicationId={applicationId}
               recruitmentId={recruitmentId}
+              applicantName={detail.applicant.name}
               interviewAvailabilities={detail.interviewAvailabilities}
+              assignedSlot={detail.assignedSlot}
               assignedSlotId={detail.assignedSlot?.slotId ?? null}
               onClose={() => setShowManualAssign(false)}
             />
