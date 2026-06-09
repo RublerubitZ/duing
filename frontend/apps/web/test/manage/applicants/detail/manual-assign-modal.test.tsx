@@ -358,6 +358,78 @@ describe('ManualAssignModal', () => {
     );
   });
 
+  it('slots fetch 실패로 자동 OFF 된 뒤 다시 토글 ON 하면 retry 가 트리거되고 즉시 OFF 되지 않는다', async () => {
+    const user = userEvent.setup();
+    let slotsFetchCount = 0;
+    let shouldFail = true;
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-slots`, () => {
+        slotsFetchCount += 1;
+        if (shouldFail) {
+          return HttpResponse.json(
+            { ok: false, data: null, message: '슬롯 조회 실패' },
+            { status: 500 },
+          );
+        }
+        return HttpResponse.json({ ok: true, data: slotsResponse, message: null });
+      }),
+    );
+
+    renderModal();
+
+    const toggle = screen.getByRole('switch', {
+      name: /선택하지 않은 슬롯도 보기/,
+      hidden: true,
+    });
+
+    // 1차 토글 ON → fetch 실패 → 자동 OFF.
+    await user.click(toggle);
+    await waitFor(() => expect(slotsFetchCount).toBeGreaterThanOrEqual(1));
+    expect(await screen.findByRole('alert', { hidden: true })).toHaveTextContent(
+      '슬롯을 불러오지 못했습니다',
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/, hidden: true }),
+      ).not.toBeChecked(),
+    );
+    const fetchCountAfterFailure = slotsFetchCount;
+
+    // 서버 복구 후 재토글 ON — resetQueries 가 isError 캐시를 비웠으므로
+    // 토글 ON 직후 즉시 OFF 되어 사용자가 인지하지 못한 채 닫혀버리는 false-negative 가 없어야 한다.
+    shouldFail = false;
+    await user.click(toggle);
+
+    // 재토글 후 inline error 가 사라지고, override 후보 리스트가 정상 렌더링된다.
+    await waitFor(() =>
+      expect(screen.queryByText('슬롯을 불러오지 못했습니다.')).not.toBeInTheDocument(),
+    );
+    const overrideList = await screen.findByRole('list', {
+      name: '선택하지 않은 슬롯',
+      hidden: true,
+    });
+    expect(within(overrideList).getAllByRole('listitem', { hidden: true })).toHaveLength(1);
+
+    // 토글이 ON 상태로 유지된다 — 자동 OFF false-negative 가 없어야 한다.
+    expect(
+      screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/, hidden: true }),
+    ).toBeChecked();
+
+    // 추가 fetch 가 발생했음을 확인 (resetQueries 후 retry 가 정상 트리거됨).
+    expect(slotsFetchCount).toBeGreaterThan(fetchCountAfterFailure);
+  });
+
+  it('backdrop 와 dialog 에 aria-hidden 이 설정되어 있지 않다 (AT 노출 보장)', () => {
+    renderModal();
+
+    const dialog = screen.getByRole('dialog', { hidden: true });
+    expect(dialog).not.toHaveAttribute('aria-hidden');
+
+    const backdrop = dialog.parentElement;
+    expect(backdrop).not.toBeNull();
+    expect(backdrop).not.toHaveAttribute('aria-hidden');
+  });
+
   it('취소 버튼을 누르면 onClose 가 호출된다', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

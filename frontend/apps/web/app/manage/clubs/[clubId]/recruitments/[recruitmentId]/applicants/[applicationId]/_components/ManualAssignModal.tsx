@@ -113,11 +113,16 @@ export function ManualAssignModal({
   }, [slotsQuery.data, availabilitySlotIds]);
 
   // 토글 ON 직후 fetch 실패 — inline error 노출 + 토글 자동 OFF.
+  // resetQueries 로 isError 캐시까지 비워서 다시 토글 ON 했을 때 잔류 에러로 인해
+  // 즉시 OFF 되는 false-negative 를 막는다.
   useEffect(() => {
     if (showAll && slotsQuery.isError) {
+      void queryClient.resetQueries({
+        queryKey: interviewQueryKeys.slots(recruitmentId),
+      });
       setShowAll(false);
     }
-  }, [showAll, slotsQuery.isError]);
+  }, [showAll, slotsQuery.isError, queryClient, recruitmentId]);
 
   // Escape 닫기 + 진입 시 첫 인터랙티브 요소 autofocus.
   // Override confirm 이 열려 있으면 Escape 가 confirm 만 먼저 닫고, 그 외에는 모달을 닫는다.
@@ -202,7 +207,6 @@ export function ManualAssignModal({
 
   return (
     <div
-      aria-hidden="true"
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
     >
