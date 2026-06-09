@@ -205,6 +205,52 @@ class LeaderApplicantDetailInterviewTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("soft-deleted 슬롯을 참조하는 가능시간/배정은 응답에서 제외된다")
+    void softDeletedSlotIsExcludedFromAvailabilitiesAndAssigned() {
+        User leader = saveUser("soft리더");
+        String leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        Club club = saveActiveClub("soft동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveInterviewRecruitment(club, "soft모집");
+
+        // 살아있는 슬롯 1 + soft-delete 될 슬롯 1.
+        InterviewSlot keptSlot = interviewSlotRepository.save(InterviewSlot.create(
+                recruitment.getId(),
+                LocalDateTime.of(2026, 6, 21, 14, 0),
+                LocalDateTime.of(2026, 6, 21, 14, 30),
+                3));
+        InterviewSlot deletedSlot = interviewSlotRepository.save(InterviewSlot.create(
+                recruitment.getId(),
+                LocalDateTime.of(2026, 6, 21, 15, 0),
+                LocalDateTime.of(2026, 6, 21, 15, 30),
+                3));
+
+        User applicant = saveUser("soft지원자");
+        Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewAvailabilityRepository.save(InterviewAvailability.create(
+                application.getId(), keptSlot.getId(), recruitment.getId()));
+        interviewAvailabilityRepository.save(InterviewAvailability.create(
+                application.getId(), deletedSlot.getId(), recruitment.getId()));
+        // 배정도 deleted 슬롯으로 걸어 둔다 — 같이 사라져야 한다.
+        interviewScheduleRepository.save(InterviewSchedule.create(
+                application.getId(), deletedSlot.getId(), recruitment.getId(), LocalDateTime.now()));
+
+        // 슬롯을 soft-delete 한다 (@SQLDelete → deleted_at IS NOT NULL).
+        interviewSlotRepository.delete(deletedSlot);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/applications/{id}", application.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                // soft-deleted 슬롯을 가리키는 availability 는 제외되어 살아있는 슬롯 1개만 노출.
+                .body("data.interviewAvailabilities", hasSize(1))
+                .body("data.interviewAvailabilities[0].slotId", equalTo(keptSlot.getId().intValue()))
+                // 배정 슬롯도 soft-deleted 이므로 null 로 응답된다.
+                .body("data.assignedSlot", nullValue());
+    }
+
+    @Test
     @DisplayName("면접을 사용하지 않는 모집의 지원자 상세는 interviewAvailabilities 빈 배열, assignedSlot null 로 응답된다")
     void useInterviewFalseReturnsEmptyAvailabilitiesAndNullAssigned() {
         User leader = saveUser("면접없는리더");

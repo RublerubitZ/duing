@@ -24,6 +24,7 @@ import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
+import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.global.notification.InterviewNotificationService;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -275,23 +276,31 @@ class ApplicantDetailServiceTest {
         when(application.getStatus()).thenReturn(ApplicationStatus.INTERVIEW_PENDING);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 9, 0));
 
-        AvailabilityItem first = new AvailabilityItem(101L,
+        // interview 도메인 레포지토리는 자체 표현(InterviewSlotTimeWindow) 으로 반환하고,
+        // application 서비스가 application 도메인 표현(AvailabilityItem) 으로 매핑한다.
+        InterviewSlotTimeWindow firstWindow = new InterviewSlotTimeWindow(101L,
                 LocalDateTime.of(2026, 6, 20, 14, 0), LocalDateTime.of(2026, 6, 20, 14, 30));
-        AvailabilityItem second = new AvailabilityItem(102L,
+        InterviewSlotTimeWindow secondWindow = new InterviewSlotTimeWindow(102L,
                 LocalDateTime.of(2026, 6, 20, 14, 30), LocalDateTime.of(2026, 6, 20, 15, 0));
-        AvailabilityItem assigned = new AvailabilityItem(101L,
+        InterviewSlotTimeWindow assignedWindow = new InterviewSlotTimeWindow(101L,
                 LocalDateTime.of(2026, 6, 20, 14, 0), LocalDateTime.of(2026, 6, 20, 14, 30));
 
         when(applicationRepository.findWithRecruitmentAndClubById(10L)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.findAvailabilityItemsByApplicationId(10L))
-                .thenReturn(List.of(first, second));
+                .thenReturn(List.of(firstWindow, secondWindow));
         when(interviewScheduleRepository.findAssignedSlotByApplicationId(10L))
-                .thenReturn(Optional.of(assigned));
+                .thenReturn(Optional.of(assignedWindow));
 
         ApplicantDetailQuery detail = applicationService.getApplicantDetail(10L, 99L);
 
-        assertThat(detail.interviewAvailabilities()).containsExactly(first, second);
-        assertThat(detail.assignedSlot()).isEqualTo(assigned);
+        AvailabilityItem expectedFirst = new AvailabilityItem(101L,
+                LocalDateTime.of(2026, 6, 20, 14, 0), LocalDateTime.of(2026, 6, 20, 14, 30));
+        AvailabilityItem expectedSecond = new AvailabilityItem(102L,
+                LocalDateTime.of(2026, 6, 20, 14, 30), LocalDateTime.of(2026, 6, 20, 15, 0));
+        AvailabilityItem expectedAssigned = new AvailabilityItem(101L,
+                LocalDateTime.of(2026, 6, 20, 14, 0), LocalDateTime.of(2026, 6, 20, 14, 30));
+        assertThat(detail.interviewAvailabilities()).containsExactly(expectedFirst, expectedSecond);
+        assertThat(detail.assignedSlot()).isEqualTo(expectedAssigned);
     }
 
     @Test

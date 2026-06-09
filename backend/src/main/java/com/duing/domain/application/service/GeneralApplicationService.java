@@ -32,6 +32,7 @@ import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.interview.service.dto.command.CreateAvailabilitiesInSubmissionCommand;
+import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
@@ -205,10 +206,18 @@ public class GeneralApplicationService implements ApplicationService {
         List<ApplicantDetailQuery.AvailabilityItem> interviewAvailabilities;
         ApplicantDetailQuery.AvailabilityItem assignedSlot;
         if (application.getRecruitment().isUseInterview()) {
-            interviewAvailabilities =
+            // interview 도메인은 자체 표현인 InterviewSlotTimeWindow 로 반환하고,
+            // application 도메인이 자기 표현인 AvailabilityItem 으로 매핑한다.
+            List<InterviewSlotTimeWindow> availabilityWindows =
                     interviewAvailabilityRepository.findAvailabilityItemsByApplicationId(applicationId);
+            interviewAvailabilities = availabilityWindows.stream()
+                    .map(window -> new ApplicantDetailQuery.AvailabilityItem(
+                            window.slotId(), window.startTime(), window.endTime()))
+                    .toList();
             assignedSlot = interviewScheduleRepository
                     .findAssignedSlotByApplicationId(applicationId)
+                    .map(window -> new ApplicantDetailQuery.AvailabilityItem(
+                            window.slotId(), window.startTime(), window.endTime()))
                     .orElse(null);
         } else {
             interviewAvailabilities = List.of();
