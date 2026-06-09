@@ -408,11 +408,8 @@ describe('ManualAssignModal', () => {
     await user.click(toggle);
 
     await waitFor(() =>
-      expect(screen.queryByText('슬롯을 불러오지 못했습니다.')).not.toBeInTheDocument(),
+      expect(screen.queryByText(/슬롯을 불러오지 못했습니다/)).not.toBeInTheDocument(),
     );
-    expect(
-      screen.queryByText('슬롯을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'),
-    ).not.toBeInTheDocument();
   });
 
   it('slots fetch 실패로 자동 OFF 된 뒤 다시 토글 ON 하면 retry 가 트리거되고 즉시 OFF 되지 않는다', async () => {
@@ -459,7 +456,7 @@ describe('ManualAssignModal', () => {
 
     // 재토글 후 inline error 가 사라지고, override 후보 리스트가 정상 렌더링된다.
     await waitFor(() =>
-      expect(screen.queryByText('슬롯을 불러오지 못했습니다.')).not.toBeInTheDocument(),
+      expect(screen.queryByText(/슬롯을 불러오지 못했습니다/)).not.toBeInTheDocument(),
     );
     const overrideList = await screen.findByRole('list', {
       name: '선택하지 않은 슬롯',
