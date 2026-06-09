@@ -54,7 +54,7 @@ public class InterviewException extends ApplicationException {
     }
 
     public static final class NoSlotsAvailable extends InterviewException {
-        private static final String MESSAGE = "사용 가능한 면접 슬롯이 없습니다.";
+        private static final String MESSAGE = "모집이 종료되어 더 이상 면접 슬롯을 조회할 수 없습니다.";
         public NoSlotsAvailable() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
 
@@ -110,7 +110,7 @@ public class InterviewException extends ApplicationException {
     }
 
     public static final class InvalidDeadline extends InterviewException {
-        private static final String MESSAGE = "가용 시간 마감일이 올바르지 않습니다.";
+        private static final String MESSAGE = "면접 가능시간 제출 마감은 모집 시작일 이후여야 합니다.";
         public InvalidDeadline() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
     }
 

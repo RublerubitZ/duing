@@ -79,8 +79,7 @@ public class GeneralInterviewConfigService implements InterviewConfigService {
 
     private void validateDeadlineInRecruitmentPeriod(LocalDateTime deadline, Recruitment recruitment) {
         LocalDate deadlineDate = deadline.toLocalDate();
-        if (!deadlineDate.isAfter(recruitment.getStartDate())
-                || (recruitment.getEndDate() != null && !deadlineDate.isBefore(recruitment.getEndDate()))) {
+        if (!deadlineDate.isAfter(recruitment.getStartDate())) {
             throw new InterviewException.InvalidDeadline();
         }
     }
