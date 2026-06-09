@@ -88,6 +88,8 @@ export function useMyInterviewScheduleQuery(applicationId: number) {
 //                                  + applicantDetail(applicationId)
 //                                  + myDetail(applicationId)
 //   updateAvailabilities         → mySchedule + availabilities
+//                                  + applicantDetail(applicationId)
+//                                  + myDetail(applicationId)   ※ availabilityCount 변경 반영
 //
 // 수동 배정/취소(assign/cancel) 도 slots 의 assignedCount 를 변동시키므로 slots 도 invalidate 한다.
 // 누락 시 운영진이 슬롯 A 배정 → 모달 닫기 → 다른 지원자 재오픈 시 slots 가 stale 한
@@ -300,6 +302,14 @@ export function useUpdateInterviewAvailabilitiesMutation(applicationId: number) 
       });
       queryClient.invalidateQueries({
         queryKey: interviewQueryKeys.availabilities(applicationId),
+      });
+      // 운영진 ApplicantDetail.interviewAvailabilities 갱신.
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.applicantDetail(applicationId),
+      });
+      // 지원자 stepper (MyApplicationDetail.interviewAvailabilityCount) 갱신.
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.myDetail(applicationId),
       });
     },
   });
