@@ -335,7 +335,7 @@ describe('ManualAssignModal', () => {
     expect(screen.getByRole('dialog', { hidden: true })).toBeInTheDocument();
   });
 
-  it('토글 ON 시 slots fetch 실패하면 inline error + 토글 자동 OFF 로 복귀한다', async () => {
+  it('토글 ON 시 slots fetch 실패하면 inline error + 토글 자동 OFF 로 복귀하고, 자동 OFF 이후에도 alert 가 유지된다', async () => {
     const user = userEvent.setup();
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-slots`, () =>
@@ -361,6 +361,58 @@ describe('ManualAssignModal', () => {
     await waitFor(() =>
       expect(screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/, hidden: true })).not.toBeChecked(),
     );
+
+    // 자동 OFF 가 완료되어 slotsQuery.isError 가 resetQueries 로 비워진 이후에도
+    // local 로 보존한 lazyFetchError 가 살아있어 alert 는 그대로 노출되어야 한다.
+    expect(screen.getByRole('alert', { hidden: true })).toHaveTextContent(
+      '슬롯을 불러오지 못했습니다',
+    );
+  });
+
+  it('자동 OFF 로 alert 가 노출된 상태에서 사용자가 토글을 다시 ON 하면 alert 이 사라진다', async () => {
+    const user = userEvent.setup();
+    let shouldFail = true;
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-slots`, () => {
+        if (shouldFail) {
+          return HttpResponse.json(
+            { ok: false, data: null, message: '슬롯 조회 실패' },
+            { status: 500 },
+          );
+        }
+        return HttpResponse.json({ ok: true, data: slotsResponse, message: null });
+      }),
+    );
+
+    renderModal();
+
+    const toggle = screen.getByRole('switch', {
+      name: /선택하지 않은 슬롯도 보기/,
+      hidden: true,
+    });
+
+    // 1차 토글 ON — fetch 실패 → 자동 OFF + alert 유지.
+    await user.click(toggle);
+    expect(await screen.findByRole('alert', { hidden: true })).toHaveTextContent(
+      '슬롯을 불러오지 못했습니다',
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole('switch', { name: /선택하지 않은 슬롯도 보기/, hidden: true }),
+      ).not.toBeChecked(),
+    );
+
+    // 서버 복구 후 사용자가 다시 토글 ON — handleShowAllOn 이 lazyFetchError 를 비우므로
+    // inline alert 가 즉시 사라져야 한다.
+    shouldFail = false;
+    await user.click(toggle);
+
+    await waitFor(() =>
+      expect(screen.queryByText('슬롯을 불러오지 못했습니다.')).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText('슬롯을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'),
+    ).not.toBeInTheDocument();
   });
 
   it('slots fetch 실패로 자동 OFF 된 뒤 다시 토글 ON 하면 retry 가 트리거되고 즉시 OFF 되지 않는다', async () => {

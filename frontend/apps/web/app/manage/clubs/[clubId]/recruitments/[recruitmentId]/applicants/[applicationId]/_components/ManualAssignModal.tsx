@@ -96,6 +96,10 @@ export function ManualAssignModal({
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(initialSelectedSlotId);
   const [overrideTarget, setOverrideTarget] = useState<number | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  // 토글 ON → fetch 실패 시 자동 OFF 직후에도 inline alert 가 유지되도록
+  // 메시지를 별도 local state 에 보존한다. (resetQueries 가 slotsQuery.isError 를 false 로
+  // 떨어뜨려 isError 기반 alert 가 즉시 사라지는 silent UX 를 방지.)
+  const [lazyFetchError, setLazyFetchError] = useState<string | null>(null);
 
   const slotsQuery = useInterviewSlotsQuery(recruitmentId, { enabled: showAll });
   const assignMutation = useAssignInterviewScheduleMutation(recruitmentId);
@@ -123,10 +127,13 @@ export function ManualAssignModal({
   }, [slotsQuery.data, availabilitySlotIds]);
 
   // 토글 ON 직후 fetch 실패 — inline error 노출 + 토글 자동 OFF.
+  // resetQueries 가 slotsQuery.isError 를 false 로 떨어뜨리므로, alert 노출은
+  // lazyFetchError local state 로 분리해 자동 OFF 이후에도 메시지가 유지되도록 한다.
   // resetQueries 로 isError 캐시까지 비워서 다시 토글 ON 했을 때 잔류 에러로 인해
-  // 즉시 OFF 되는 false-negative 를 막는다.
+  // 즉시 OFF 되는 false-negative 도 함께 막는다.
   useEffect(() => {
     if (showAll && slotsQuery.isError) {
+      setLazyFetchError('슬롯을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
       void queryClient.resetQueries({
         queryKey: interviewQueryKeys.slots(recruitmentId),
       });
@@ -169,6 +176,8 @@ export function ManualAssignModal({
   // 모달이 토글 ON 된 첫 render 부터 slotsQuery.isError === true 로 시작 → 자동 OFF useEffect 가
   // 즉시 발동해 사용자가 retry 할 기회가 사라진다. 진입 시점에 한 번 reset 해서 fresh fetch 를 보장한다.
   const handleShowAllOn = () => {
+    // 사용자가 명시적으로 retry — 이전 lazy fetch alert 을 비운다.
+    setLazyFetchError(null);
     void queryClient.resetQueries({
       queryKey: interviewQueryKeys.slots(recruitmentId),
     });
@@ -190,6 +199,8 @@ export function ManualAssignModal({
     }
     setOverrideTarget(null);
     setMutationError(null);
+    // 사용자가 명시적으로 OFF — 이전 lazy fetch alert 도 함께 비운다.
+    setLazyFetchError(null);
     void queryClient.resetQueries({
       queryKey: interviewQueryKeys.slots(recruitmentId),
     });
@@ -374,12 +385,12 @@ export function ManualAssignModal({
             </ul>
           )}
 
-          {slotsQuery.isError && (
+          {lazyFetchError && (
             <p
               role="alert"
               className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
             >
-              슬롯을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+              {lazyFetchError}
             </p>
           )}
         </section>
