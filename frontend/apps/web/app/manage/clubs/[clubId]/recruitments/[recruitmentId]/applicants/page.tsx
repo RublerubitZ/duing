@@ -144,7 +144,7 @@ export default function ApplicantsPage({ params }: PageParams) {
       selectedSet.has(applicant.applicationId),
     );
     return firstSelected?.userName ?? '';
-  }, [applicants, selectedIds.length, selectedSet]);
+  }, [applicants, selectedIds, selectedSet]);
 
   const hasActiveFilters = Object.values(filters).some(Boolean);
 

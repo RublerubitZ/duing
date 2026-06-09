@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useId } from 'react';
+
 import type { BulkUpdateApplicationStatusPayload } from '@duing/types';
 
 type TargetStatus = BulkUpdateApplicationStatusPayload['status'];
@@ -45,22 +47,39 @@ export function BulkConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
+  const titleId = useId();
+  const descId = useId();
+
+  // ESC 닫기 — BulkPromoteDialog 와 동일 패턴으로 일관성 유지.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isPending) {
+        event.stopPropagation();
+        onCancel();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isPending, onCancel]);
+
   return (
     <div
       role="alertdialog"
-      aria-labelledby="bulk-confirm-title"
-      aria-describedby="bulk-confirm-desc"
+      aria-labelledby={titleId}
+      aria-describedby={descId}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
-      onClick={onCancel}
+      onClick={() => {
+        if (!isPending) onCancel();
+      }}
     >
       <div
         className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id="bulk-confirm-title" className="text-base font-semibold text-slate-900">
+        <h2 id={titleId} className="text-base font-semibold text-slate-900">
           {selectedCount}건을 일괄 {LABEL[targetStatus]} 처리할까요?
         </h2>
-        <p id="bulk-confirm-desc" className="text-sm text-slate-600">
+        <p id={descId} className="text-sm text-slate-600">
           {DESCRIPTION[targetStatus]}{' '}
           현재 상태에서 전이가 불가능한 항목은 자동으로 건너뜁니다.
         </p>

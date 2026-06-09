@@ -66,3 +66,4 @@ handoff/
 
 ### Codex 로컬 에이전트 설정 (사용자별, 커밋 금지) ###
 .codex/
+AGENTS.md
