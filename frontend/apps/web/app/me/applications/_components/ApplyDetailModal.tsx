@@ -3,6 +3,7 @@
 import { ClubLogo } from './ClubLogo';
 import { StepTimeline } from './StepTimeline';
 import { InterviewScheduleCard } from '../[applicationId]/_components/InterviewScheduleCard';
+import { ApplicationStepper } from '../[applicationId]/_components/ApplicationStepper';
 import type React from 'react';
 import type { App, Step } from '../_constants/data';
 import type { MyApplicationDetail } from '@duing/types';
@@ -145,6 +146,13 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
         </div>
 
         <div style={{ padding: '0 20px 60px', overflowY: 'auto' }}>
+          {/* 전체 funnel stepper — Spec P0-1.
+              detail 도착 후에만 마운트하여 status/interviewScheduleAssigned 가 확정된 상태로 렌더한다. */}
+          {detail && (
+            <div style={{ marginBottom: 16 }}>
+              <ApplicationStepper detail={detail} />
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.65fr', gap: 18 }}>
             {/* Left — club brief + timeline */}
             <div>
