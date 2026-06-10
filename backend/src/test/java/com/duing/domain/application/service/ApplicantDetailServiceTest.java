@@ -27,7 +27,6 @@ import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
 import com.duing.domain.recruitment.entity.ApplicationMode;
-import com.duing.global.notification.InterviewNotificationService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -47,7 +46,6 @@ class ApplicantDetailServiceTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
-    private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
@@ -63,7 +61,6 @@ class ApplicantDetailServiceTest {
             userRepository,
             clubMemberRepository,
             clubAuthService,
-            interviewNotificationService,
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,

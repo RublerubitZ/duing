@@ -1,7 +1,6 @@
 package com.duing.domain.application.api;
 
 import com.duing.domain.application.controller.dto.request.BulkUpdateApplicationStatusRequest;
-import com.duing.domain.application.controller.dto.request.UpdateApplicationInterviewRequest;
 import com.duing.domain.application.controller.dto.request.UpdateApplicationStatusRequest;
 import com.duing.domain.application.controller.dto.response.ApplicantDetailResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantNeighborsResponse;
@@ -74,14 +73,6 @@ public interface LeaderApplicationApi {
     @PatchMapping("/leader/applications/bulk-status")
     ResponseEntity<ApiResponse<BulkUpdateApplicationStatusResponse>> bulkUpdateStatus(
             @Valid @RequestBody BulkUpdateApplicationStatusRequest bulkUpdateApplicationStatusRequest,
-            @AuthenticationPrincipal UserPrincipal currentUser
-    );
-
-    @Operation(summary = "면접 일시·장소 입력", description = "INTERVIEW_PENDING 상태인 지원서에 면접 일시와 장소를 입력한다. 그 외 상태에서 호출하면 409.")
-    @PatchMapping("/leader/applications/{applicationId}/interview")
-    ResponseEntity<ApiResponse<Void>> updateInterview(
-            @PathVariable Long applicationId,
-            @Valid @RequestBody UpdateApplicationInterviewRequest updateApplicationInterviewRequest,
             @AuthenticationPrincipal UserPrincipal currentUser
     );
 

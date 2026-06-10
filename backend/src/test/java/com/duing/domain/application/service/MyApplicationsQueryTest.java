@@ -26,7 +26,6 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.global.notification.InterviewNotificationService;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -39,7 +38,6 @@ class MyApplicationsQueryTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
-    private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
@@ -55,7 +53,6 @@ class MyApplicationsQueryTest {
             userRepository,
             clubMemberRepository,
             clubAuthService,
-            interviewNotificationService,
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,

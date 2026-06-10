@@ -9,7 +9,6 @@ import com.duing.domain.application.repository.ApplicationStatusHistoryRepositor
 import com.duing.domain.application.service.dto.command.BulkUpdateApplicationStatusCommand;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
-import com.duing.domain.application.service.dto.command.UpdateInterviewCommand;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
 import com.duing.domain.application.service.dto.query.ApplicantNeighborsQuery;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
@@ -45,7 +44,6 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.global.notification.InterviewNotificationService;
 import com.duing.global.exception.ApplicationException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -86,7 +84,6 @@ public class GeneralApplicationService implements ApplicationService {
     private final UserRepository userRepository;
     private final ClubMemberRepository clubMemberRepository;
     private final ClubAuthService clubAuthService;
-    private final InterviewNotificationService interviewNotificationService;
     private final ApplicationDraftService applicationDraftService;
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
     private final ApplicationEvaluationRepository applicationEvaluationRepository;
@@ -345,27 +342,6 @@ public class GeneralApplicationService implements ApplicationService {
             }
         }
         return new BulkUpdateApplicationStatusResult(updated, failures);
-    }
-
-    @Override
-    @Transactional
-    public void updateInterview(UpdateInterviewCommand updateInterviewCommand) {
-        Application application = applicationRepository.findById(updateInterviewCommand.applicationId())
-                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
-        clubAuthService.requireManager(updateInterviewCommand.currentUserId(),
-                application.getRecruitment().getClub().getId());
-
-        application.updateInterview(updateInterviewCommand.interviewAt(), updateInterviewCommand.interviewLocation());
-
-        try {
-            interviewNotificationService.notifyInterviewScheduled(
-                    application.getId(),
-                    application.getUser().getEmail(),
-                    updateInterviewCommand.interviewAt(),
-                    updateInterviewCommand.interviewLocation());
-        } catch (Exception notificationFailure) {
-            log.warn("[면접 알림 발송 실패] applicationId={}", application.getId());
-        }
     }
 
     @Override

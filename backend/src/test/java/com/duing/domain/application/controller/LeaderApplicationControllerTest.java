@@ -26,10 +26,12 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -376,6 +378,26 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
                 .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications/{applicationId}/neighbors",
                         recruitment.getId(), applicationId)
                 .then().statusCode(403);
+    }
+
+    @Test
+    @DisplayName("PATCH /leader/applications/{id}/interview 엔드포인트는 더 이상 존재하지 않아 404 를 반환한다")
+    void updateInterviewEndpoint_returns404() {
+        Club club = saveActiveClub("폐기엔드포인트동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "폐기엔드포인트모집");
+        Long applicationId = saveApplicationWithStatus(recruitment,
+                saveUser("지원자", UserRole.STUDENT, College.EDUCATION, "교육학"),
+                ApplicationStatus.INTERVIEW_PENDING).getId();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of(
+                        "interviewAt", "2026-06-20T18:00:00",
+                        "interviewLocation", "3호관 201호"))
+                .when().patch("/api/v1/leader/applications/{applicationId}/interview", applicationId)
+                .then().statusCode(404);
     }
 
     @Test
