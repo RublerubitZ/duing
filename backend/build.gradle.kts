@@ -64,13 +64,20 @@ dependencies {
     testImplementation("io.rest-assured:rest-assured")
     testImplementation("com.navercorp.fixturemonkey:fixture-monkey-starter:1.1.7")
     testImplementation("com.navercorp.fixturemonkey:fixture-monkey-jakarta-validation:1.1.7")
+    // 파일 스토리지
+    implementation("software.amazon.awssdk:s3")
+
+    // MinIO Testcontainer (L2)
+    testImplementation("org.testcontainers:minio")
+
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-// TestContainers BOM
+// TestContainers BOM + AWS SDK BOM
 dependencyManagement {
     imports {
         mavenBom("org.testcontainers:testcontainers-bom:1.20.4")
+        mavenBom("software.amazon.awssdk:bom:2.34.0")
     }
 }
 
