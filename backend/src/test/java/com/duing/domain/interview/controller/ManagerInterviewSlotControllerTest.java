@@ -149,9 +149,9 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("모집이 이미 시작된 경우 슬롯 생성은 409 를 반환한다")
-    void createBulkReturns409WhenRecruitmentAlreadyStarted() {
-        // 모집 시작일이 어제인 별도 모집
+    @DisplayName("모집이 이미 시작되었어도 phase 1(가용시간 제출 단계) 이면 슬롯 생성은 201 을 반환한다 — 새 lifecycle 정책")
+    void createBulkSucceedsAfterRecruitmentStartIfPhase1() {
+        // 이전 정책에서는 모집 시작일 이후 슬롯 생성이 차단되었으나, 새 정책에서는 phase 만으로 판정한다.
         Club club = clubRepository.save(Club.create("시작된동아리", ClubCategory.ACADEMIC, null, "설명", null));
         User leader = saveUser();
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
@@ -170,7 +170,59 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
                         Map.of("startTime", base.toString(), "endTime", base.plusHours(1).toString(), "capacity", 3)
                 )))
                 .when().post("/api/v1/recruitments/" + startedRecruitment.getId() + "/interview-slots")
+                .then().statusCode(HttpStatus.CREATED.value());
+    }
+
+    @Test
+    @DisplayName("자동배정이 완료된(phase 3) 모집에 슬롯 생성은 409 SlotCreationNotAllowedInCurrentPhase 를 반환한다")
+    void createBulkReturns409WhenPhase3() {
+        Club club = clubRepository.save(Club.create("배정완료동아리", ClubCategory.ACADEMIC, null, "설명", null));
+        User leader = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment phase3Recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "배정완료 모집", "내용",
+                        LocalDate.now().plusDays(1), LocalDate.now().plusDays(30), 10));
+        InterviewConfig phase3Config = configRepository.save(
+                InterviewConfig.create(phase3Recruitment.getId(), LocalDateTime.now().plusDays(7)));
+        phase3Config.markAssignmentCompleted(LocalDateTime.now());
+        configRepository.saveAndFlush(phase3Config);
+        String phase3LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + phase3LeaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("slots", List.of(
+                        Map.of("startTime", base.toString(), "endTime", base.plusHours(1).toString(), "capacity", 3)
+                )))
+                .when().post("/api/v1/recruitments/" + phase3Recruitment.getId() + "/interview-slots")
                 .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("phase 2(마감 후 자동배정 전) 에서 슬롯 생성은 201 을 반환한다 — 운영진 직권 배정 용도")
+    void createBulkSucceedsWhenPhase2() {
+        Club club = clubRepository.save(Club.create("phase2동아리", ClubCategory.ACADEMIC, null, "설명", null));
+        User leader = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment phase2Recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "phase2 모집", "내용",
+                        LocalDate.now().plusDays(1), LocalDate.now().plusDays(30), 10));
+        // 마감일 이미 지남, 자동배정 미완료 → phase 2
+        configRepository.save(InterviewConfig.create(phase2Recruitment.getId(), LocalDateTime.now().minusHours(1)));
+        String phase2LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + phase2LeaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("slots", List.of(
+                        Map.of("startTime", base.toString(), "endTime", base.plusHours(1).toString(), "capacity", 3)
+                )))
+                .when().post("/api/v1/recruitments/" + phase2Recruitment.getId() + "/interview-slots")
+                .then().statusCode(HttpStatus.CREATED.value());
     }
 
     @Test
@@ -257,8 +309,8 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("availability 가 있는 슬롯의 시간 수정은 409 를 반환한다")
-    void updateSlotTimeReturns409WhenAvailabilityExists() {
+    @DisplayName("phase 1 + 선택된 슬롯의 시간 변경은 409 SlotTimeChangeForbiddenForSelectedSlot 가 반환된다")
+    void updateSlotTimeReturns409WhenPhase1SelectedSlot() {
         LocalDateTime base = LocalDateTime.now().plusDays(5);
         InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitmentId, base, 5));
 
@@ -273,6 +325,106 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
                 .body(Map.of("startTime", base.plusDays(2).toString(), "endTime", base.plusDays(2).plusHours(1).toString()))
+                .when().patch("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("phase 1 + 선택된 슬롯의 capacity 변경은 204 를 반환한다")
+    void updateSlotCapacityOnlySucceedsWhenPhase1SelectedSlot() {
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitmentId, base, 5));
+
+        User applicant = saveUser();
+        Application application = applicationRepository.save(
+                Application.submit(recruitmentRepository.findById(recruitmentId).orElseThrow(),
+                        applicant, List.of("답변")));
+        availabilityRepository.save(
+                InterviewAvailabilityFixture.link(application.getId(), slot.getId(), recruitmentId));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("capacity", 8))
+                .when().patch("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
+    @DisplayName("phase 2 + 선택된 슬롯의 capacity 변경은 409 SlotModificationNotAllowedInCurrentPhase 가 반환된다")
+    void updateSlotReturns409WhenPhase2SelectedSlot() {
+        // phase 2 모집 별도 셋업: 마감일이 이미 지남
+        Club club = clubRepository.save(Club.create("phase2수정동아리", ClubCategory.ACADEMIC, null, "설명", null));
+        User leader = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment phase2Recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "phase2 모집", "내용",
+                        LocalDate.now().plusDays(1), LocalDate.now().plusDays(30), 10));
+        configRepository.save(InterviewConfig.create(phase2Recruitment.getId(), LocalDateTime.now().minusHours(1)));
+        String phase2LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(phase2Recruitment.getId(), base, 5));
+        User applicant = saveUser();
+        Application application = applicationRepository.save(
+                Application.submit(phase2Recruitment, applicant, List.of("답변")));
+        availabilityRepository.save(
+                InterviewAvailabilityFixture.link(application.getId(), slot.getId(), phase2Recruitment.getId()));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + phase2LeaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("capacity", 10))
+                .when().patch("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("phase 2(마감 후 자동배정 전) + 빈 슬롯의 capacity 만 수정은 204 를 반환한다")
+    void updateSlotCapacityOnlySucceedsWhenPhase2EmptySlot() {
+        Club club = clubRepository.save(Club.create("phase2빈슬롯수정동아리", ClubCategory.ACADEMIC, null, "설명", null));
+        User leader = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment phase2Recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "phase2 빈 슬롯 모집", "내용",
+                        LocalDate.now().plusDays(1), LocalDate.now().plusDays(30), 10));
+        // phase 2: 마감일이 이미 지남, 자동배정 미완료. RestAssured 가 별도 트랜잭션이라 saveAndFlush 로 DB 반영 보장.
+        configRepository.saveAndFlush(InterviewConfig.create(phase2Recruitment.getId(), LocalDateTime.now().minusHours(1)));
+        String phase2LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(phase2Recruitment.getId(), base, 5));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + phase2LeaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("capacity", 8))
+                .when().patch("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
+    @DisplayName("phase 3(자동배정 완료) 에서 빈 슬롯 수정은 409 SlotModificationNotAllowedInCurrentPhase 가 반환된다")
+    void updateSlotReturns409WhenPhase3() {
+        Club club = clubRepository.save(Club.create("phase3수정동아리", ClubCategory.ACADEMIC, null, "설명", null));
+        User leader = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment phase3Recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "phase3 모집", "내용",
+                        LocalDate.now().plusDays(1), LocalDate.now().plusDays(30), 10));
+        InterviewConfig phase3Config = configRepository.save(
+                InterviewConfig.create(phase3Recruitment.getId(), LocalDateTime.now().plusDays(7)));
+        phase3Config.markAssignmentCompleted(LocalDateTime.now());
+        configRepository.saveAndFlush(phase3Config);
+        String phase3LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(phase3Recruitment.getId(), base, 5));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + phase3LeaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("capacity", 10))
                 .when().patch("/api/v1/interview-slots/" + slot.getId())
                 .then().statusCode(HttpStatus.CONFLICT.value());
     }
@@ -315,8 +467,8 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("availability 가 있는 슬롯 삭제는 409 를 반환한다")
-    void deleteSlotReturns409WhenAvailabilityExists() {
+    @DisplayName("availability 가 있는 슬롯 삭제는 409 SlotDeletionNotAllowedInCurrentPhase 가 반환된다")
+    void deleteSlotReturns409WhenSelectedSlot() {
         LocalDateTime base = LocalDateTime.now().plusDays(5);
         InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitmentId, base, 5));
 
@@ -331,6 +483,51 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .when().delete("/api/v1/interview-slots/" + slot.getId())
                 .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("phase 3(자동배정 완료) 에서 빈 슬롯 삭제는 409 SlotDeletionNotAllowedInCurrentPhase 가 반환된다")
+    void deleteSlotReturns409WhenPhase3() {
+        Club club = clubRepository.save(Club.create("phase3삭제동아리", ClubCategory.ACADEMIC, null, "설명", null));
+        User leader = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment phase3Recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "phase3 모집", "내용",
+                        LocalDate.now().plusDays(1), LocalDate.now().plusDays(30), 10));
+        InterviewConfig phase3Config = configRepository.save(
+                InterviewConfig.create(phase3Recruitment.getId(), LocalDateTime.now().plusDays(7)));
+        phase3Config.markAssignmentCompleted(LocalDateTime.now());
+        configRepository.saveAndFlush(phase3Config);
+        String phase3LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(phase3Recruitment.getId(), base, 5));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + phase3LeaderToken)
+                .when().delete("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("phase 2(마감 후 자동배정 전) 의 빈 슬롯 삭제는 204 를 반환한다")
+    void deleteSlotSucceedsWhenPhase2EmptySlot() {
+        Club club = clubRepository.save(Club.create("phase2삭제동아리", ClubCategory.ACADEMIC, null, "설명", null));
+        User leader = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment phase2Recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "phase2 모집", "내용",
+                        LocalDate.now().plusDays(1), LocalDate.now().plusDays(30), 10));
+        configRepository.save(InterviewConfig.create(phase2Recruitment.getId(), LocalDateTime.now().minusHours(1)));
+        String phase2LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(phase2Recruitment.getId(), base, 5));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + phase2LeaderToken)
+                .when().delete("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
     }
 
     @Test

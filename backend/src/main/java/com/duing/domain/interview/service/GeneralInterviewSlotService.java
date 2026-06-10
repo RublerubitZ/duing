@@ -2,6 +2,7 @@ package com.duing.domain.interview.service;
 
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.interview.controller.dto.response.ApplicantInterviewSlotResponse;
+import com.duing.domain.interview.entity.InterviewConfig;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.exception.InterviewException;
@@ -41,11 +42,12 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(command.actorUserId(), recruitment.getClub().getId());
 
-        if (!configRepository.existsByRecruitmentId(recruitment.getId())) {
-            throw new InterviewException.InterviewConfigNotFound();
-        }
-        if (LocalDate.now().isAfter(recruitment.getStartDate())) {
-            throw new InterviewException.RecruitmentAlreadyStarted();
+        InterviewConfig config = configRepository.findByRecruitmentId(recruitment.getId())
+                .orElseThrow(InterviewException.InterviewConfigNotFound::new);
+
+        LocalDateTime now = LocalDateTime.now();
+        if (!config.canCreateSlot(now)) {
+            throw new InterviewException.SlotCreationNotAllowedInCurrentPhase();
         }
 
         List<InterviewSlot> slotsToSave = command.slots().stream()
@@ -85,18 +87,30 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
 
         // capacity 변경은 autoAssign · manual assign 의 capacity 검증과 직렬화되어야 한다.
         // 양 path 와 동일하게 interview_config → slot 순서로 lock 한다 (deadlock 회피).
-        configRepository.findByRecruitmentIdForUpdate(slotPeek.getRecruitmentId())
+        InterviewConfig config = configRepository.findByRecruitmentIdForUpdate(slotPeek.getRecruitmentId())
                 .orElseThrow(InterviewException.InterviewConfigNotFound::new);
         InterviewSlot slot = slotRepository.findByIdForUpdate(command.slotId())
                 .orElseThrow(InterviewException.SlotNotFound::new);
 
-        long availabilityCount = availabilityRepository.countBySlotId(slot.getId());
+        int availabilityCount = Math.toIntExact(availabilityRepository.countBySlotId(slot.getId()));
         long assignedCount = scheduleRepository.countBySlotIdAndStatus(slot.getId(), InterviewScheduleStatus.ASSIGNED);
+        LocalDateTime now = LocalDateTime.now();
+
+        InterviewConfig.SlotMutableFields mutable = config.canModifySlot(availabilityCount, now);
+        switch (mutable) {
+            case NONE -> throw new InterviewException.SlotModificationNotAllowedInCurrentPhase();
+            case CAPACITY_ONLY -> {
+                if (command.startTime() != null || command.endTime() != null) {
+                    throw new InterviewException.SlotTimeChangeForbiddenForSelectedSlot();
+                }
+            }
+            case TIME_AND_CAPACITY -> {
+                // 시간 + 정원 모두 허용 — 추가 phase 가드 없음
+            }
+            default -> throw new IllegalStateException("Unhandled SlotMutableFields: " + mutable);
+        }
 
         if (command.startTime() != null || command.endTime() != null) {
-            if (availabilityCount > 0) {
-                throw new InterviewException.SlotHasAvailability();
-            }
             LocalDateTime newStart = command.startTime() != null ? command.startTime() : slot.getStartTime();
             LocalDateTime newEnd = command.endTime() != null ? command.endTime() : slot.getEndTime();
             if (!newEnd.isAfter(newStart)) {
@@ -128,15 +142,28 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     @Override
     @Transactional
     public void delete(Long slotId, Long actorUserId) {
-        InterviewSlot slot = slotRepository.findByIdForUpdate(slotId)
+        // recruitmentId 만 얻기 위한 사전 조회 (lock 없음)
+        InterviewSlot slotPeek = slotRepository.findById(slotId)
                 .orElseThrow(InterviewException.SlotNotFound::new);
-        Recruitment recruitment = recruitmentRepository.findById(slot.getRecruitmentId())
+        Recruitment recruitment = recruitmentRepository.findById(slotPeek.getRecruitmentId())
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(actorUserId, recruitment.getClub().getId());
 
-        if (availabilityRepository.countBySlotId(slotId) > 0) {
-            throw new InterviewException.SlotHasAvailability();
+        // update 와 동일하게 interview_config → slot 순서로 lock (deadlock 회피).
+        // config 를 먼저 락해 phase 전환(markAssignmentCompleted)과 직렬화한다.
+        InterviewConfig config = configRepository.findByRecruitmentIdForUpdate(slotPeek.getRecruitmentId())
+                .orElseThrow(InterviewException.InterviewConfigNotFound::new);
+        InterviewSlot slot = slotRepository.findByIdForUpdate(slotId)
+                .orElseThrow(InterviewException.SlotNotFound::new);
+
+        int availabilityCount = Math.toIntExact(availabilityRepository.countBySlotId(slotId));
+        LocalDateTime now = LocalDateTime.now();
+
+        if (!config.canDeleteSlot(availabilityCount, now)) {
+            throw new InterviewException.SlotDeletionNotAllowedInCurrentPhase();
         }
+        // phase 1/2 에서도 manual-assigned schedule 이 있는 슬롯은 면접 일정 데이터 무결성을 위해 보호.
+        // (phase 3 진입은 canDeleteSlot 에서 이미 차단되므로 여기 도달하지 않는다.)
         if (scheduleRepository.countBySlotIdAndStatus(slotId, InterviewScheduleStatus.ASSIGNED) > 0) {
             throw new InterviewException.SlotHasSchedule();
         }

@@ -83,7 +83,7 @@ class InterviewSlotServiceTest {
                 new CreateInterviewSlotsCommand(recruitment.getId(), leader.getId(), slots));
 
         assertThat(slotIds).hasSize(2);
-        assertThat(slotRepository.findAll()).hasSize(2);
+        assertThat(slotRepository.findByRecruitmentIdOrderByStartTimeAsc(recruitment.getId())).hasSize(2);
     }
 
     @Test
@@ -104,21 +104,42 @@ class InterviewSlotServiceTest {
     }
 
     @Test
-    @DisplayName("모집 시작 이후 슬롯 생성은 409 RecruitmentAlreadyStarted 가 반환된다")
-    void throwsRecruitmentAlreadyStartedWhenPastStart() {
+    @DisplayName("모집이 이미 시작되었어도 phase 1(가용시간 제출 단계) 이면 슬롯 생성이 허용된다 — 새 lifecycle 정책")
+    void allowsSlotCreationAfterRecruitmentStartIfPhase1() {
         Club club = saveActiveClub("동아리C");
         User leader = saveUser();
         saveLeaderMembership(club, leader);
-        // startDate 가 오늘 이전 → 모집 이미 시작됨
+        // startDate 가 오늘 이전 → 이전 정책에서는 차단되던 케이스
         Recruitment recruitment = saveRecruitment(club, LocalDate.now().minusDays(1), LocalDate.now().plusDays(30));
-        saveInterviewConfig(recruitment);
+        saveInterviewConfig(recruitment); // availabilityDeadline = now+7d → phase 1
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        List<SlotEntry> slots = List.of(new SlotEntry(base, base.plusHours(1), 3));
+
+        List<Long> slotIds = interviewSlotService.createBulk(
+                new CreateInterviewSlotsCommand(recruitment.getId(), leader.getId(), slots));
+
+        assertThat(slotIds).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("자동배정이 완료된(phase 3) 모집에 슬롯을 생성하면 409 SlotCreationNotAllowedInCurrentPhase 가 반환된다")
+    void throwsSlotCreationNotAllowedWhenPhase3() {
+        Club club = saveActiveClub("동아리C2");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        InterviewConfig config = saveInterviewConfig(recruitment);
+        config.markAssignmentCompleted(LocalDateTime.now());
+        entityManager.flush();
+        entityManager.clear();
 
         LocalDateTime base = LocalDateTime.now().plusDays(5);
         List<SlotEntry> slots = List.of(new SlotEntry(base, base.plusHours(1), 3));
 
         assertThatThrownBy(() -> interviewSlotService.createBulk(
                 new CreateInterviewSlotsCommand(recruitment.getId(), leader.getId(), slots)))
-                .isInstanceOf(InterviewException.RecruitmentAlreadyStarted.class);
+                .isInstanceOf(InterviewException.SlotCreationNotAllowedInCurrentPhase.class);
     }
 
     @Test
@@ -261,14 +282,14 @@ class InterviewSlotServiceTest {
     }
 
     @Test
-    @DisplayName("availability 가 1건이라도 있는 슬롯의 시간 수정은 409 SlotHasAvailability 가 반환된다")
-    void throwsSlotHasAvailabilityWhenUpdatingTimeWithExistingAvailability() {
+    @DisplayName("phase 1 에서 availability 가 있는 슬롯의 시간 수정은 409 SlotTimeChangeForbiddenForSelectedSlot 가 반환된다")
+    void throwsTimeChangeForbiddenWhenPhase1SelectedSlot() {
         Club club = saveActiveClub("수정테스트동아리B");
         User leader = saveUser();
         User applicant = saveUser();
         saveLeaderMembership(club, leader);
         Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
-        saveInterviewConfig(recruitment);
+        saveInterviewConfig(recruitment); // availabilityDeadline = now+7d → phase 1
 
         LocalDateTime base = LocalDateTime.now().plusDays(5);
         InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
@@ -280,7 +301,105 @@ class InterviewSlotServiceTest {
 
         assertThatThrownBy(() -> interviewSlotService.update(new UpdateInterviewSlotCommand(
                 slot.getId(), leader.getId(), base.plusDays(1), base.plusDays(1).plusHours(2), null)))
-                .isInstanceOf(InterviewException.SlotHasAvailability.class);
+                .isInstanceOf(InterviewException.SlotTimeChangeForbiddenForSelectedSlot.class);
+    }
+
+    @Test
+    @DisplayName("phase 1 에서 availability 가 있는 슬롯의 capacity 만 변경하면 정상 동작한다")
+    void allowsCapacityOnlyUpdateWhenPhase1SelectedSlot() {
+        Club club = saveActiveClub("수정테스트동아리B2");
+        User leader = saveUser();
+        User applicant = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        saveInterviewConfig(recruitment); // phase 1
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of("답변")));
+        entityManager.persist(InterviewAvailabilityFixture.link(application.getId(), slot.getId(), recruitment.getId()));
+        entityManager.flush();
+        entityManager.clear();
+
+        interviewSlotService.update(new UpdateInterviewSlotCommand(
+                slot.getId(), leader.getId(), null, null, 8));
+
+        entityManager.flush();
+        entityManager.clear();
+        InterviewSlot updated = slotRepository.findById(slot.getId()).orElseThrow();
+        assertThat(updated.getCapacity()).isEqualTo(8);
+    }
+
+    @Test
+    @DisplayName("phase 2 에서 availability 가 있는 슬롯의 capacity 변경도 409 SlotModificationNotAllowedInCurrentPhase 가 반환된다")
+    void throwsModificationNotAllowedWhenPhase2SelectedSlot() {
+        Club club = saveActiveClub("수정테스트동아리B3");
+        User leader = saveUser();
+        User applicant = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        // phase 2: 마감일이 이미 지남, 아직 자동배정 안 됨
+        InterviewConfig config = configRepository.save(
+                InterviewConfig.create(recruitment.getId(), LocalDateTime.now().minusHours(1)));
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of("답변")));
+        entityManager.persist(InterviewAvailabilityFixture.link(application.getId(), slot.getId(), recruitment.getId()));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> interviewSlotService.update(new UpdateInterviewSlotCommand(
+                slot.getId(), leader.getId(), null, null, 10)))
+                .isInstanceOf(InterviewException.SlotModificationNotAllowedInCurrentPhase.class);
+    }
+
+    @Test
+    @DisplayName("phase 2(마감 후 자동배정 전) 의 빈 슬롯은 capacity 만 수정이 허용된다")
+    void allowsCapacityOnlyUpdateWhenPhase2EmptySlot() {
+        Club club = saveActiveClub("수정테스트동아리B5");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        // phase 2: 마감일이 이미 지남, 자동배정 미완료
+        configRepository.save(InterviewConfig.create(recruitment.getId(), LocalDateTime.now().minusHours(1)));
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        entityManager.flush();
+        entityManager.clear();
+
+        interviewSlotService.update(new UpdateInterviewSlotCommand(
+                slot.getId(), leader.getId(), null, null, 8));
+
+        entityManager.flush();
+        entityManager.clear();
+        InterviewSlot updated = slotRepository.findById(slot.getId()).orElseThrow();
+        assertThat(updated.getCapacity()).isEqualTo(8);
+    }
+
+    @Test
+    @DisplayName("phase 3(자동배정 완료) 에서는 빈 슬롯이라도 수정이 409 SlotModificationNotAllowedInCurrentPhase 로 차단된다")
+    void throwsModificationNotAllowedWhenPhase3() {
+        Club club = saveActiveClub("수정테스트동아리B4");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        InterviewConfig config = saveInterviewConfig(recruitment);
+        config.markAssignmentCompleted(LocalDateTime.now());
+        entityManager.flush();
+        entityManager.clear();
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> interviewSlotService.update(new UpdateInterviewSlotCommand(
+                slot.getId(), leader.getId(), null, null, 10)))
+                .isInstanceOf(InterviewException.SlotModificationNotAllowedInCurrentPhase.class);
     }
 
     @Test
@@ -373,8 +492,8 @@ class InterviewSlotServiceTest {
     }
 
     @Test
-    @DisplayName("availability 가 있는 슬롯 삭제는 409 SlotHasAvailability 가 반환된다")
-    void throwsSlotHasAvailabilityWhenDeletingSlotWithAvailability() {
+    @DisplayName("availability 가 있는 슬롯 삭제는 409 SlotDeletionNotAllowedInCurrentPhase 가 반환된다")
+    void throwsSlotDeletionNotAllowedWhenSelectedSlot() {
         Club club = saveActiveClub("삭제테스트동아리B");
         User leader = saveUser();
         User applicant = saveUser();
@@ -391,7 +510,50 @@ class InterviewSlotServiceTest {
         entityManager.clear();
 
         assertThatThrownBy(() -> interviewSlotService.delete(slot.getId(), leader.getId()))
-                .isInstanceOf(InterviewException.SlotHasAvailability.class);
+                .isInstanceOf(InterviewException.SlotDeletionNotAllowedInCurrentPhase.class);
+    }
+
+    @Test
+    @DisplayName("phase 3(자동배정 완료) 에서는 빈 슬롯이라도 삭제가 409 SlotDeletionNotAllowedInCurrentPhase 로 차단된다")
+    void throwsSlotDeletionNotAllowedWhenPhase3() {
+        Club club = saveActiveClub("삭제테스트동아리D");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        InterviewConfig config = saveInterviewConfig(recruitment);
+        config.markAssignmentCompleted(LocalDateTime.now());
+        entityManager.flush();
+        entityManager.clear();
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> interviewSlotService.delete(slot.getId(), leader.getId()))
+                .isInstanceOf(InterviewException.SlotDeletionNotAllowedInCurrentPhase.class);
+    }
+
+    @Test
+    @DisplayName("phase 2(마감 후 자동배정 전) 의 빈 슬롯 삭제는 정상 동작한다")
+    void allowsDeleteWhenPhase2EmptySlot() {
+        Club club = saveActiveClub("삭제테스트동아리E");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        // phase 2: 마감일이 이미 지남, 자동배정은 아직 안 됨
+        configRepository.save(InterviewConfig.create(recruitment.getId(), LocalDateTime.now().minusHours(1)));
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        entityManager.flush();
+        entityManager.clear();
+
+        interviewSlotService.delete(slot.getId(), leader.getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(slotRepository.findById(slot.getId())).isEmpty();
     }
 
     @Test
