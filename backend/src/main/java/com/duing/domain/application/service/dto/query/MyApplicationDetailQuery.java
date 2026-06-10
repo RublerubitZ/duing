@@ -15,25 +15,27 @@ public record MyApplicationDetailQuery(
         List<String> questions,
         List<String> answers,
         ApplicationStatus status,
-        LocalDateTime interviewAt,
-        String interviewLocation,
+        AssignedInterviewQuery interview,
         LocalDateTime submittedAt,
         int interviewAvailabilityCount,
-        boolean interviewScheduleAssigned,
         LocalDateTime availabilityDeadline
 ) {
     /**
-     * 면접 진행 필드(가능시간 제출 수 / 일정 배정 여부 / 마감 시각)를 기본값으로 채워 반환한다.
+     * 면접 진행 필드(가능시간 제출 수 / 배정 면접 / 마감 시각)를 기본값으로 채워 반환한다.
      * 호출자가 신규 필드를 알 필요 없는 경우(단위 테스트 / 면접 미사용 경로)에 사용한다.
      */
     public static MyApplicationDetailQuery from(Application application) {
-        return fromAll(application, 0, false, null);
+        return fromAll(application, 0, null, null);
     }
 
+    /**
+     * 전체 필드를 포함하는 최종 팩토리 메서드.
+     * {@code interview} 는 ASSIGNED 상태 schedule 이 있을 때만 채워지고, 그 외에는 {@code null} 로 전달한다.
+     */
     public static MyApplicationDetailQuery fromAll(
             Application application,
             int interviewAvailabilityCount,
-            boolean interviewScheduleAssigned,
+            AssignedInterviewQuery interview,
             LocalDateTime availabilityDeadline
     ) {
         var recruitment = application.getRecruitment();
@@ -48,11 +50,9 @@ public record MyApplicationDetailQuery(
                 form == null ? List.of() : form.getQuestions(),
                 application.getAnswers(),
                 application.getStatus(),
-                application.getInterviewAt(),
-                application.getInterviewLocation(),
+                interview,
                 application.getCreatedAt(),
                 interviewAvailabilityCount,
-                interviewScheduleAssigned,
                 availabilityDeadline
         );
     }

@@ -18,6 +18,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -45,6 +46,7 @@ class MyApplicationsQueryTest {
     private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
     private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
+    private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -59,7 +61,8 @@ class MyApplicationsQueryTest {
             interviewAvailabilityService,
             interviewAvailabilityRepository,
             interviewScheduleRepository,
-            interviewConfigRepository);
+            interviewConfigRepository,
+            interviewSlotRepository);
 
     @Test
     @DisplayName("내 지원 목록 조회 결과에 동아리 카테고리와 로고 URL이 포함된다")
@@ -79,8 +82,6 @@ class MyApplicationsQueryTest {
         when(application.getId()).thenReturn(10L);
         when(application.getRecruitment()).thenReturn(recruitment);
         when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
-        when(application.getInterviewAt()).thenReturn(null);
-        when(application.getInterviewLocation()).thenReturn(null);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 15, 9, 30));
 
         when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))
@@ -113,8 +114,6 @@ class MyApplicationsQueryTest {
         when(application.getId()).thenReturn(20L);
         when(application.getRecruitment()).thenReturn(recruitment);
         when(application.getStatus()).thenReturn(ApplicationStatus.UNDER_REVIEW);
-        when(application.getInterviewAt()).thenReturn(null);
-        when(application.getInterviewLocation()).thenReturn(null);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 10, 14, 0));
 
         when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))

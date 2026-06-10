@@ -2,6 +2,7 @@ package com.duing.domain.application.controller;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
@@ -106,20 +107,20 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
                 .when().get("/api/v1/users/me/applications/{id}", application.getId())
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.interviewAvailabilityCount", is(2))
-                .body("data.interviewScheduleAssigned", equalTo(false))
+                .body("data.interview", nullValue())
                 .body("data.availabilityDeadline", equalTo("2026-06-15T18:00:00"));
     }
 
     @Test
-    @DisplayName("운영진이 면접 일정을 배정한 지원자는 interviewScheduleAssigned 가 true 로 노출된다")
-    void scheduleAssignedReflectsTrue() {
+    @DisplayName("운영진이 면접 일정을 배정하고 InterviewConfig.location 이 설정된 지원자는 interview 객체로 노출된다")
+    void scheduleAssignedReflectsInterview() {
         User applicant = saveUser("배정된지원자");
         String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
 
         Club club = saveActiveClub("배정확인동아리");
         Recruitment recruitment = saveInterviewRecruitment(club, "배정확인모집");
         interviewConfigRepository.save(InterviewConfig.create(
-                recruitment.getId(), LocalDateTime.of(2026, 6, 15, 18, 0)));
+                recruitment.getId(), LocalDateTime.of(2026, 6, 15, 18, 0), "3호관 201호"));
 
         InterviewSlot slot = interviewSlotRepository.save(InterviewSlot.create(
                 recruitment.getId(),
@@ -138,11 +139,14 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
                 .when().get("/api/v1/users/me/applications/{id}", application.getId())
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.interviewAvailabilityCount", is(1))
-                .body("data.interviewScheduleAssigned", equalTo(true));
+                .body("data.interview", notNullValue())
+                .body("data.interview.startAt", equalTo("2026-06-20T14:00:00"))
+                .body("data.interview.endAt", equalTo("2026-06-20T14:30:00"))
+                .body("data.interview.location", equalTo("3호관 201호"));
     }
 
     @Test
-    @DisplayName("InterviewSchedule 이 CANCELLED 상태이면 interviewScheduleAssigned 는 false 로 노출된다")
+    @DisplayName("InterviewSchedule 이 CANCELLED 상태이면 interview 는 null 로 노출된다")
     void cancelledScheduleIsTreatedAsUnassigned() {
         User applicant = saveUser("취소된지원자");
         String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
@@ -150,7 +154,7 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
         Club club = saveActiveClub("취소동아리");
         Recruitment recruitment = saveInterviewRecruitment(club, "취소모집");
         interviewConfigRepository.save(InterviewConfig.create(
-                recruitment.getId(), LocalDateTime.of(2026, 6, 15, 18, 0)));
+                recruitment.getId(), LocalDateTime.of(2026, 6, 15, 18, 0), "3호관 201호"));
 
         InterviewSlot slot = interviewSlotRepository.save(InterviewSlot.create(
                 recruitment.getId(),
@@ -171,11 +175,11 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
                 .when().get("/api/v1/users/me/applications/{id}", application.getId())
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.interviewAvailabilityCount", is(1))
-                .body("data.interviewScheduleAssigned", equalTo(false));
+                .body("data.interview", nullValue());
     }
 
     @Test
-    @DisplayName("면접을 사용하지 않는 모집의 본인 지원 상세는 availabilityDeadline 이 null 이다")
+    @DisplayName("면접을 사용하지 않는 모집의 본인 지원 상세는 availabilityDeadline 과 interview 가 모두 null 이다")
     void useInterviewFalseReturnsNullDeadline() {
         User applicant = saveUser("일반지원자");
         String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
@@ -190,7 +194,7 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
                 .when().get("/api/v1/users/me/applications/{id}", application.getId())
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.interviewAvailabilityCount", is(0))
-                .body("data.interviewScheduleAssigned", equalTo(false))
+                .body("data.interview", nullValue())
                 .body("data.availabilityDeadline", nullValue());
     }
 

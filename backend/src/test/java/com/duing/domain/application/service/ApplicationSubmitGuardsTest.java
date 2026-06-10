@@ -14,6 +14,7 @@ import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRe
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.club.entity.Club;
@@ -54,6 +55,7 @@ class ApplicationSubmitGuardsTest {
     private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
     private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
+    private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -68,7 +70,8 @@ class ApplicationSubmitGuardsTest {
             interviewAvailabilityService,
             interviewAvailabilityRepository,
             interviewScheduleRepository,
-            interviewConfigRepository);
+            interviewConfigRepository,
+            interviewSlotRepository);
 
     @Test
     @DisplayName("외부 폼 모집에는 두잉 내에서 직접 지원할 수 없다")

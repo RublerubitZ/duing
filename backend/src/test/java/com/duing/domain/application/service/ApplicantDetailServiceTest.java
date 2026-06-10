@@ -22,6 +22,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
@@ -54,6 +55,7 @@ class ApplicantDetailServiceTest {
     private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
     private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
+    private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -68,7 +70,8 @@ class ApplicantDetailServiceTest {
             interviewAvailabilityService,
             interviewAvailabilityRepository,
             interviewScheduleRepository,
-            interviewConfigRepository);
+            interviewConfigRepository,
+            interviewSlotRepository);
 
     @Test
     @DisplayName("SELF 모집의 지원서를 동아리 운영진이 조회하면 질문·답변이 인덱스 기준으로 매핑되어 반환된다")
@@ -93,7 +96,6 @@ class ApplicantDetailServiceTest {
         when(recruitment.getApplicationMode()).thenReturn(ApplicationMode.SELF);
         when(recruitment.getForm()).thenReturn(form);
 
-        LocalDateTime interviewAt = LocalDateTime.of(2026, 6, 1, 14, 0);
         LocalDateTime submittedAt = LocalDateTime.of(2026, 5, 15, 10, 0);
 
         Application application = mock(Application.class);
@@ -102,8 +104,6 @@ class ApplicantDetailServiceTest {
         when(application.getRecruitment()).thenReturn(recruitment);
         when(application.getAnswers()).thenReturn(List.of("동아리에 관심이 많습니다.", "부회장을 목표로 합니다."));
         when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
-        when(application.getInterviewAt()).thenReturn(interviewAt);
-        when(application.getInterviewLocation()).thenReturn("본관 201호");
         when(application.getCreatedAt()).thenReturn(submittedAt);
 
         when(applicationRepository.findWithRecruitmentAndClubById(1L)).thenReturn(Optional.of(application));
@@ -125,8 +125,8 @@ class ApplicantDetailServiceTest {
         assertThat(detail.answers().get(1).question()).isEqualTo("장기 목표는?");
         assertThat(detail.answers().get(1).answer()).isEqualTo("부회장을 목표로 합니다.");
         assertThat(detail.status()).isEqualTo(ApplicationStatus.SUBMITTED);
-        assertThat(detail.interviewAt()).isEqualTo(interviewAt);
-        assertThat(detail.interviewLocation()).isEqualTo("본관 201호");
+        // useInterview 가 false (기본값) 인 SELF 모집은 interview 가 null 이다.
+        assertThat(detail.interview()).isNull();
         assertThat(detail.submittedAt()).isEqualTo(submittedAt);
     }
 
@@ -155,8 +155,6 @@ class ApplicantDetailServiceTest {
         when(application.getRecruitment()).thenReturn(recruitment);
         when(application.getAnswers()).thenReturn(List.of());
         when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
-        when(application.getInterviewAt()).thenReturn(null);
-        when(application.getInterviewLocation()).thenReturn(null);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 9, 0));
 
         when(applicationRepository.findWithRecruitmentAndClubById(2L)).thenReturn(Optional.of(application));
@@ -234,8 +232,6 @@ class ApplicantDetailServiceTest {
         when(application.getRecruitment()).thenReturn(recruitment);
         when(application.getAnswers()).thenReturn(List.of("동기 답변", "여분 답변 1", "여분 답변 2"));
         when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
-        when(application.getInterviewAt()).thenReturn(null);
-        when(application.getInterviewLocation()).thenReturn(null);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 11, 0));
 
         when(applicationRepository.findWithRecruitmentAndClubById(3L)).thenReturn(Optional.of(application));
@@ -371,8 +367,6 @@ class ApplicantDetailServiceTest {
         when(application.getRecruitment()).thenReturn(recruitment);
         when(application.getAnswers()).thenReturn(List.of("동기 답변"));
         when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
-        when(application.getInterviewAt()).thenReturn(null);
-        when(application.getInterviewLocation()).thenReturn(null);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 11, 0));
 
         when(applicationRepository.findWithRecruitmentAndClubById(4L)).thenReturn(Optional.of(application));
