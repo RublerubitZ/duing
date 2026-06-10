@@ -12,6 +12,7 @@ type Props = {
   recruitmentId: number;
   currentStatus: ApplicationStatus;
   useInterview: boolean;
+  hasInterviewConfig: boolean;
 };
 
 export function StatusActionBar({
@@ -19,11 +20,13 @@ export function StatusActionBar({
   recruitmentId,
   currentStatus,
   useInterview,
+  hasInterviewConfig,
 }: Props) {
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const updateStatus = useUpdateApplicationStatusMutation(recruitmentId);
 
   const transitions = allowedTransitionsFrom(currentStatus, useInterview);
+  const legacyInterviewInputAllowed = !useInterview || !hasInterviewConfig;
 
   return (
     <section className="rounded border border-neutral-200 bg-white p-4">
@@ -50,7 +53,7 @@ export function StatusActionBar({
           ))}
         </div>
       )}
-      {currentStatus === 'INTERVIEW_PENDING' && (
+      {currentStatus === 'INTERVIEW_PENDING' && legacyInterviewInputAllowed && (
         <button
           type="button"
           onClick={() => setShowInterviewModal(true)}
