@@ -33,6 +33,10 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
  * <p>test 프로파일 그대로 켠 채 {@code @DynamicPropertySource} 가 {@code file.storage.provider}
  * 를 stub 에서 s3 로 덮어쓴다. Stub 이 property 게이트라 비활성, S3FileStorageService 만 활성 —
  * test 프로파일 + 실제 S3 구현체 공존.
+ *
+ * <p>{@code webEnvironment = RANDOM_PORT} — 프로젝트의 다른 통합 테스트(FileApiTest 등)와
+ * 일관성 유지. {@code NONE} 은 SecurityConfig 의 HttpSecurity 빈 의존성 때문에
+ * 컨텍스트 부팅이 실패한다.
  */
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -69,6 +73,8 @@ class S3FileStorageIntegrationTest extends IntegrationTestBase {
         }
     }
 
+    // 구체 타입 직접 참조 — L2 의 의도는 S3FileStorageService 내부 동작(endpoint 해석, key 추출)
+    // 검증. CLAUDE.md 의 "인터페이스 타입 주입" 규칙은 운영 Controller/Service 대상이며 테스트는 제외.
     @Autowired
     S3FileStorageService service;
 
