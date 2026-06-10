@@ -388,8 +388,8 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
         Recruitment phase2Recruitment = recruitmentRepository.save(
                 Recruitment.create(club, "phase2 빈 슬롯 모집", "내용",
                         LocalDate.now().plusDays(1), LocalDate.now().plusDays(30), 10));
-        // phase 2: 마감일이 이미 지남, 자동배정 미완료
-        configRepository.save(InterviewConfig.create(phase2Recruitment.getId(), LocalDateTime.now().minusHours(1)));
+        // phase 2: 마감일이 이미 지남, 자동배정 미완료. RestAssured 가 별도 트랜잭션이라 saveAndFlush 로 DB 반영 보장.
+        configRepository.saveAndFlush(InterviewConfig.create(phase2Recruitment.getId(), LocalDateTime.now().minusHours(1)));
         String phase2LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
 
         LocalDateTime base = LocalDateTime.now().plusDays(5);
