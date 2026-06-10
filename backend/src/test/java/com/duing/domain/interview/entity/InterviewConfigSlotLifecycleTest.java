@@ -1,6 +1,7 @@
 package com.duing.domain.interview.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
@@ -75,15 +76,17 @@ class InterviewConfigSlotLifecycleTest {
     }
 
     @Test
-    @DisplayName("phase 3 에서는 빈 슬롯이든 선택된 슬롯이든 어떤 필드도 수정할 수 없다")
+    @DisplayName("phase 3 (자동배정 완료) 에서는 availability 유무 무관하게 모든 슬롯 수정이 잠금된다")
     void canModifySlot_phase3_none() {
         InterviewConfig config = InterviewConfig.create(RECRUITMENT_ID, DEADLINE);
         config.markAssignmentCompleted(AFTER_DEADLINE);
 
-        assertThat(config.canModifySlot(0, AFTER_DEADLINE))
-                .isEqualTo(InterviewConfig.SlotMutableFields.NONE);
-        assertThat(config.canModifySlot(5, AFTER_DEADLINE))
-                .isEqualTo(InterviewConfig.SlotMutableFields.NONE);
+        assertAll(
+                () -> assertThat(config.canModifySlot(0, AFTER_DEADLINE))
+                        .isEqualTo(InterviewConfig.SlotMutableFields.NONE),
+                () -> assertThat(config.canModifySlot(5, AFTER_DEADLINE))
+                        .isEqualTo(InterviewConfig.SlotMutableFields.NONE)
+        );
     }
 
     @Test
@@ -95,6 +98,14 @@ class InterviewConfigSlotLifecycleTest {
     }
 
     @Test
+    @DisplayName("phase 1 + 지원자가 선택한 슬롯은 삭제할 수 없다")
+    void canDeleteSlot_phase1_selectedSlot_returnsFalse() {
+        InterviewConfig config = InterviewConfig.create(RECRUITMENT_ID, DEADLINE);
+
+        assertThat(config.canDeleteSlot(1, BEFORE_DEADLINE)).isFalse();
+    }
+
+    @Test
     @DisplayName("phase 2 + 지원자가 선택한 슬롯은 삭제할 수 없다")
     void canDeleteSlot_phase2_selectedSlot_returnsFalse() {
         InterviewConfig config = InterviewConfig.create(RECRUITMENT_ID, DEADLINE);
@@ -103,12 +114,14 @@ class InterviewConfigSlotLifecycleTest {
     }
 
     @Test
-    @DisplayName("phase 3 에서는 빈 슬롯이든 선택된 슬롯이든 삭제할 수 없다")
+    @DisplayName("phase 3 (자동배정 완료) 에서는 availability 유무 무관하게 모든 슬롯 삭제가 잠금된다")
     void canDeleteSlot_phase3_anyCount_returnsFalse() {
         InterviewConfig config = InterviewConfig.create(RECRUITMENT_ID, DEADLINE);
         config.markAssignmentCompleted(AFTER_DEADLINE);
 
-        assertThat(config.canDeleteSlot(0, AFTER_DEADLINE)).isFalse();
-        assertThat(config.canDeleteSlot(3, AFTER_DEADLINE)).isFalse();
+        assertAll(
+                () -> assertThat(config.canDeleteSlot(0, AFTER_DEADLINE)).isFalse(),
+                () -> assertThat(config.canDeleteSlot(3, AFTER_DEADLINE)).isFalse()
+        );
     }
 }

@@ -94,6 +94,13 @@ public class InterviewConfig extends BaseEntity {
         this.assignmentCompletedAt = now;
     }
 
+    /**
+     * 슬롯을 신규로 생성할 수 있는지 판정한다.
+     * <p>
+     * 현재 로직은 {@code assignmentCompletedAt} 유무만 판단하므로 {@code now} 를 사용하지 않으나,
+     * 동일 도메인의 {@link #canModifySlot}, {@link #canDeleteSlot} 와 시그니처를 일관시키고
+     * 향후 phase 2 내부 추가 분기 (예: deadline + grace period) 도입 시 호환되도록 인자에 포함한다.
+     */
     public boolean canCreateSlot(LocalDateTime now) {
         return assignmentCompletedAt == null;
     }
@@ -109,6 +116,14 @@ public class InterviewConfig extends BaseEntity {
         return selected ? SlotMutableFields.NONE : SlotMutableFields.TIME_AND_CAPACITY;
     }
 
+    /**
+     * 슬롯을 삭제할 수 있는지 판정한다.
+     * <p>
+     * 현재 로직은 {@code assignmentCompletedAt} 와 {@code availabilityCount} 만 판단하므로
+     * {@code now} 를 사용하지 않으나, 동일 도메인의 {@link #canCreateSlot}, {@link #canModifySlot} 와
+     * 시그니처를 일관시키고 향후 phase 별 추가 분기 (예: 자동배정 직전 lock 윈도우) 도입 시
+     * 호환되도록 인자에 포함한다.
+     */
     public boolean canDeleteSlot(int availabilityCount, LocalDateTime now) {
         if (assignmentCompletedAt != null) {
             return false;
