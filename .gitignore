@@ -44,6 +44,7 @@ bin/
 ### Du-ing ###
 .env
 .env.local
+.env.example
 *.log
 HELP.md
 src/main/generated/

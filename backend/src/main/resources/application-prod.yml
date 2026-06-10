@@ -36,4 +36,4 @@ s3:
   access-key: ${R2_ACCESS_KEY}
   secret-key: ${R2_SECRET_KEY}
   bucket: ${R2_BUCKET:duing}
-  public-base-url: https://files.duing.app
+  public-base-url: ${R2_PUBLIC_BASE_URL}
