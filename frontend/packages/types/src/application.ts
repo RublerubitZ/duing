@@ -29,7 +29,8 @@ export type ApplicationScope = 'ALL' | 'ACTIVE' | 'ARCHIVED';
 export type AssignedInterview = {
   startAt: string;
   endAt: string;
-  location: string;
+  // nullable — BE interview-config.location 미설정 (=null) 시 그대로 전달된다.
+  location: string | null;
 };
 
 export type ApplicationSummary = {

@@ -44,7 +44,9 @@ const statusNote = (app: ApplicationSummary): string => {
       hour: '2-digit',
       minute: '2-digit',
     });
-    return `면접: ${at} — ${app.interview.location}`;
+    return app.interview.location
+      ? `면접: ${at} — ${app.interview.location}`
+      : `면접: ${at}`;
   }
   if (app.status === 'UNDER_REVIEW') return '동아리에서 검토 중입니다';
   return '지원서 작성 완료';

@@ -2485,7 +2485,7 @@ export interface components {
                 startAt: string;
                 /** Format: date-time */
                 endAt: string;
-                location: string;
+                location: string | null;
             } | null;
             /** Format: date-time */
             submittedAt?: string;
@@ -2513,7 +2513,7 @@ export interface components {
                 startAt: string;
                 /** Format: date-time */
                 endAt: string;
-                location: string;
+                location: string | null;
             } | null;
             /** Format: date-time */
             submittedAt?: string;
@@ -3054,7 +3054,7 @@ export interface components {
                 startAt: string;
                 /** Format: date-time */
                 endAt: string;
-                location: string;
+                location: string | null;
             } | null;
             /** Format: date-time */
             submittedAt?: string;

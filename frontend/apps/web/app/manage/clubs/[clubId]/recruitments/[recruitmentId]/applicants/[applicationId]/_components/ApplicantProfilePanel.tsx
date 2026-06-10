@@ -35,8 +35,7 @@ export function ApplicantProfilePanel({ detail }: { detail: ApplicantDetail }) {
             <dt className="text-neutral-500">면접일정</dt>
             <dd className="text-slate-900">
               {new Date(detail.interview.startAt).toLocaleString('ko-KR')}
-              {' · '}
-              {detail.interview.location}
+              {detail.interview.location && ` · ${detail.interview.location}`}
             </dd>
           </>
         )}

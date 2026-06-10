@@ -61,7 +61,8 @@ function deriveRight(status: ApplicationStatus, interview: AssignedInterview | n
     const interviewDate = new Date(interview.startAt);
     const dateStr = `${interviewDate.getFullYear()}.${String(interviewDate.getMonth() + 1).padStart(2, '0')}.${String(interviewDate.getDate()).padStart(2, '0')}`;
     const timeStr = `${String(interviewDate.getHours()).padStart(2, '0')}:${String(interviewDate.getMinutes()).padStart(2, '0')}`;
-    return { eyebrow: '면접일', value: dateStr, sub: `${timeStr} · ${interview.location}` };
+    const sub = interview.location ? `${timeStr} · ${interview.location}` : timeStr;
+    return { eyebrow: '면접일', value: dateStr, sub };
   }
   if (status === 'ACCEPTED') {
     return { eyebrow: '합격', value: '최종 합격' };
