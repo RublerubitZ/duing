@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+
 import { ApiError } from '@duing/api';
 import { useCancelInterviewScheduleMutation } from '@duing/hooks';
 import type {
@@ -9,8 +10,10 @@ import type {
   ScheduleListView,
   SlotListView,
 } from '@duing/types';
+
 import { ManagementSlotCard } from '@/components/interview/ManagementSlotCard';
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
+
 import { AssignToSlotModal } from './AssignToSlotModal';
 
 // Step 4 — 일정 관리 섹션.

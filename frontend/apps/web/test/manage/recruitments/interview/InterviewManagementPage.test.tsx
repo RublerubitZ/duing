@@ -161,6 +161,24 @@ describe('InterviewManagementPage — 자동 단계 결정 (spec §4)', () => {
           message: null,
         }),
       ),
+      // Step 4 진입 시 currentStepProbe >= 3 → useMatchingCandidatesQuery 활성,
+      // currentStepProbe >= 4 → useInterviewSchedulesQuery 활성.
+      // onUnhandledRequest: 'error' 정책상 두 endpoint 모두 핸들러 등록 필요.
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-schedules`, () =>
+        HttpResponse.json({ ok: true, data: [], message: null }),
+      ),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-matching-candidates`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            totalCandidates: 0,
+            candidatesWithAvailability: 0,
+            candidatesWithoutAvailability: 0,
+            slots: [],
+          },
+          message: null,
+        }),
+      ),
     );
 
     renderPage();
