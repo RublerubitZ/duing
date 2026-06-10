@@ -3,7 +3,15 @@
 import type { components } from '@duing/api/openapi-types';
 
 // === Backend 응답 1:1 alias ===
-export type InterviewConfig = components['schemas']['InterviewConfigResponse'];
+// `slotLifecyclePhase` 는 backend 가 항상 채워 보내지만 openapi-typescript 가
+// optional `?: string literal` 로 생성한다. 도메인 레이어에서 narrow union 으로
+// 재선언해 호출부의 undefined 가드를 줄인다.
+export type InterviewConfig = Omit<
+  components['schemas']['InterviewConfigResponse'],
+  'slotLifecyclePhase'
+> & {
+  slotLifecyclePhase: InterviewSlotLifecyclePhase;
+};
 export type ApplicantInterviewSlot = components['schemas']['ApplicantInterviewSlotResponse'];
 export type SlotListView = components['schemas']['SlotListView'];
 export type ScheduleListView = components['schemas']['ScheduleListView'];
@@ -32,6 +40,18 @@ export type AvailabilityItem = {
 
 // 면접 일정 상태 — backend enum 미러
 export type InterviewScheduleStatus = 'ASSIGNED' | 'CANCELLED';
+
+// 슬롯 lifecycle 3-phase — backend enum 미러.
+// Spec: docs/superpowers/specs/2026-06-10-slot-lifecycle-policy-design.md
+//
+// backend `InterviewConfigResponse.slotLifecyclePhase` 는 서버가 항상 채워 보내지만
+// springdoc 이 required 미선언으로 노출 → openapi-typescript 가 `?: string` optional 로 생성한다.
+// `AvailabilityItem` 과 동일한 사유로 도메인 레이어에서 명시적 narrow union 으로 노출한다.
+// drift 방지: backend `SlotLifecyclePhase` enum 값이 바뀌면 본 type 도 직접 갱신해야 한다.
+export type InterviewSlotLifecyclePhase =
+  | 'BEFORE_DEADLINE'
+  | 'AFTER_DEADLINE_BEFORE_ASSIGNMENT'
+  | 'AFTER_ASSIGNMENT';
 
 // === Discriminated union ===
 // Backend `MyInterviewScheduleResponse` 는 { assigned: boolean; schedule?: InterviewScheduleDetail; location?: string }

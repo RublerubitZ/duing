@@ -27,6 +27,7 @@ const baseConfig: InterviewConfig = {
   availabilityDeadline: '2026-06-18T14:00:00',
   assignmentCompletedAt: '2026-06-19T10:00:00',
   location: '공학관 2201호',
+  slotLifecyclePhase: 'AFTER_ASSIGNMENT',
 };
 
 const baseSchedules: ScheduleListView[] = [

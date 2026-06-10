@@ -2696,6 +2696,8 @@ export interface components {
             /** Format: date-time */
             assignmentCompletedAt?: string;
             location?: string;
+            /** @enum {string} */
+            slotLifecyclePhase?: "BEFORE_DEADLINE" | "AFTER_DEADLINE_BEFORE_ASSIGNMENT" | "AFTER_ASSIGNMENT";
         };
         ApiResponseDraftResponse: {
             ok?: boolean;
