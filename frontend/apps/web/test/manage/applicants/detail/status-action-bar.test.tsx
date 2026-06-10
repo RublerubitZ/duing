@@ -28,6 +28,7 @@ describe('StatusActionBar', () => {
         recruitmentId={1}
         currentStatus="UNDER_REVIEW"
         useInterview
+        hasInterviewConfig={false}
       />,
     );
     expect(screen.getByRole('button', { name: /면접 대상/ })).toBeInTheDocument();
@@ -45,6 +46,7 @@ describe('StatusActionBar', () => {
         recruitmentId={1}
         currentStatus="UNDER_REVIEW"
         useInterview={false}
+        hasInterviewConfig={false}
       />,
     );
     expect(screen.queryByRole('button', { name: /면접 대상/ })).not.toBeInTheDocument();
@@ -55,13 +57,40 @@ describe('StatusActionBar', () => {
     expect(buttonTexts.some((text) => text.includes('불합격'))).toBe(true);
   });
 
-  it('INTERVIEW_PENDING 상태에서 "면접 일정 입력" 버튼이 노출된다', () => {
+  it('INTERVIEW_PENDING + useInterview=true + Config 미생성이면 Legacy "면접 일정 입력" 버튼이 노출된다', () => {
     render(
       <StatusActionBar
         applicationId={1}
         recruitmentId={1}
         currentStatus="INTERVIEW_PENDING"
         useInterview
+        hasInterviewConfig={false}
+      />,
+    );
+    expect(screen.getByRole('button', { name: '면접 일정 입력' })).toBeInTheDocument();
+  });
+
+  it('INTERVIEW_PENDING + useInterview=true + Config 존재면 Legacy "면접 일정 입력" 버튼이 숨겨진다', () => {
+    render(
+      <StatusActionBar
+        applicationId={1}
+        recruitmentId={1}
+        currentStatus="INTERVIEW_PENDING"
+        useInterview
+        hasInterviewConfig
+      />,
+    );
+    expect(screen.queryByRole('button', { name: '면접 일정 입력' })).not.toBeInTheDocument();
+  });
+
+  it('INTERVIEW_PENDING + useInterview=false 면 Legacy "면접 일정 입력" 버튼이 노출된다', () => {
+    render(
+      <StatusActionBar
+        applicationId={1}
+        recruitmentId={1}
+        currentStatus="INTERVIEW_PENDING"
+        useInterview={false}
+        hasInterviewConfig={false}
       />,
     );
     expect(screen.getByRole('button', { name: '면접 일정 입력' })).toBeInTheDocument();
@@ -74,6 +103,7 @@ describe('StatusActionBar', () => {
         recruitmentId={1}
         currentStatus="ACCEPTED"
         useInterview
+        hasInterviewConfig={false}
       />,
     );
     expect(screen.getByText(/더 이상 변경 가능한 상태가 없습니다/)).toBeInTheDocument();
@@ -86,6 +116,7 @@ describe('StatusActionBar', () => {
         recruitmentId={2}
         currentStatus="SUBMITTED"
         useInterview
+        hasInterviewConfig={false}
       />,
     );
     await userEvent.click(screen.getByRole('button', { name: /서류 검토 중으로/ }));
