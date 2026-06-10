@@ -124,4 +124,33 @@ class InterviewConfigSlotLifecycleTest {
                 () -> assertThat(config.canDeleteSlot(3, AFTER_DEADLINE)).isFalse()
         );
     }
+
+    @Test
+    @DisplayName("마감 전(phase 1) 시점에는 phase() 가 BEFORE_DEADLINE 을 반환한다")
+    void phase_beforeDeadline_returnsBeforeDeadline() {
+        InterviewConfig config = InterviewConfig.create(RECRUITMENT_ID, DEADLINE);
+
+        assertThat(config.phase(BEFORE_DEADLINE)).isEqualTo(SlotLifecyclePhase.BEFORE_DEADLINE);
+    }
+
+    @Test
+    @DisplayName("마감 후 자동배정 전(phase 2) 시점에는 phase() 가 AFTER_DEADLINE_BEFORE_ASSIGNMENT 를 반환한다")
+    void phase_afterDeadline_returnsAfterDeadlineBeforeAssignment() {
+        InterviewConfig config = InterviewConfig.create(RECRUITMENT_ID, DEADLINE);
+
+        assertThat(config.phase(AFTER_DEADLINE))
+                .isEqualTo(SlotLifecyclePhase.AFTER_DEADLINE_BEFORE_ASSIGNMENT);
+    }
+
+    @Test
+    @DisplayName("자동배정 완료(phase 3) 후에는 시점에 관계없이 phase() 가 AFTER_ASSIGNMENT 를 반환한다")
+    void phase_afterAssignment_returnsAfterAssignment() {
+        InterviewConfig config = InterviewConfig.create(RECRUITMENT_ID, DEADLINE);
+        config.markAssignmentCompleted(AFTER_DEADLINE);
+
+        assertAll(
+                () -> assertThat(config.phase(BEFORE_DEADLINE)).isEqualTo(SlotLifecyclePhase.AFTER_ASSIGNMENT),
+                () -> assertThat(config.phase(AFTER_DEADLINE)).isEqualTo(SlotLifecyclePhase.AFTER_ASSIGNMENT)
+        );
+    }
 }

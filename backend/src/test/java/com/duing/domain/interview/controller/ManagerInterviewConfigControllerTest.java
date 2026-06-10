@@ -164,6 +164,47 @@ class ManagerInterviewConfigControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("마감 전 시점에는 GET 응답의 slotLifecyclePhase 가 BEFORE_DEADLINE 이다")
+    void getInterviewConfigReturnsBeforeDeadlinePhase() {
+        configRepository.save(InterviewConfig.create(
+                recruitmentId, LocalDateTime.now().plusDays(5), "공학관 2201호"));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/recruitments/" + recruitmentId + "/interview-config")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.slotLifecyclePhase", equalTo("BEFORE_DEADLINE"));
+    }
+
+    @Test
+    @DisplayName("마감이 지난 config 는 GET 응답의 slotLifecyclePhase 가 AFTER_DEADLINE_BEFORE_ASSIGNMENT 이다")
+    void getInterviewConfigReturnsAfterDeadlinePhase() {
+        configRepository.save(InterviewConfig.create(
+                recruitmentId, LocalDateTime.now().minusHours(1), "공학관 2201호"));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/recruitments/" + recruitmentId + "/interview-config")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.slotLifecyclePhase", equalTo("AFTER_DEADLINE_BEFORE_ASSIGNMENT"));
+    }
+
+    @Test
+    @DisplayName("자동배정이 완료된 config 는 GET 응답의 slotLifecyclePhase 가 AFTER_ASSIGNMENT 이다")
+    void getInterviewConfigReturnsAfterAssignmentPhase() {
+        InterviewConfig config = InterviewConfig.create(
+                recruitmentId, LocalDateTime.now().minusHours(2), "공학관 2201호");
+        config.markAssignmentCompleted(LocalDateTime.now().minusMinutes(10));
+        configRepository.save(config);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/recruitments/" + recruitmentId + "/interview-config")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.slotLifecyclePhase", equalTo("AFTER_ASSIGNMENT"));
+    }
+
+    @Test
     @DisplayName("config 가 없는 모집에 GET 호출 시 404 InterviewConfigNotFound 가 반환된다")
     void getInterviewConfigReturns404WhenAbsent() {
         RestAssured.given()
