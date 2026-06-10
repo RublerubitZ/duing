@@ -3,6 +3,8 @@ package com.duing.domain.interview.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.InterviewAvailabilityFixture;
+import com.duing.common.fixture.InterviewSlotFixture;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
@@ -31,22 +33,25 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * {@link InterviewAvailabilityRepository#countBySlotIdAndDeletedAtIsNull(Long)} 동작 검증.
+ * {@link InterviewAvailabilityRepository#countBySlotId(Long)} 동작 검증.
  *
  * <p>Slot Lifecycle 정책 (Task C): 슬롯에 묶인 활성 availability 개수를 정확히 세어야
  * 운영진의 슬롯 수정/삭제 가드 (Task D) 가 "지원자가 선택한 슬롯" 여부를 판정할 수 있다.
+ *
+ * <p>엔티티의 {@code @SQLRestriction("deleted_at IS NULL")} 가 자동 적용되어
+ * soft-delete 된 행은 카운트에서 자연스럽게 제외된다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
 class InterviewAvailabilityRepositoryTest {
 
-    @Autowired private InterviewAvailabilityRepository availabilityRepository;
-    @Autowired private InterviewSlotRepository slotRepository;
-    @Autowired private ApplicationRepository applicationRepository;
-    @Autowired private RecruitmentRepository recruitmentRepository;
-    @Autowired private ClubRepository clubRepository;
-    @Autowired private UserRepository userRepository;
+    @Autowired InterviewAvailabilityRepository availabilityRepository;
+    @Autowired InterviewSlotRepository slotRepository;
+    @Autowired ApplicationRepository applicationRepository;
+    @Autowired RecruitmentRepository recruitmentRepository;
+    @Autowired ClubRepository clubRepository;
+    @Autowired UserRepository userRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -61,14 +66,14 @@ class InterviewAvailabilityRepositoryTest {
         Application applicant3 = persistApplication(recruitment, persistStudent("지원자3"));
 
         availabilityRepository.save(
-                InterviewAvailability.create(applicant1.getId(), slot.getId(), recruitment.getId()));
+                InterviewAvailabilityFixture.link(applicant1.getId(), slot.getId(), recruitment.getId()));
         availabilityRepository.save(
-                InterviewAvailability.create(applicant2.getId(), slot.getId(), recruitment.getId()));
+                InterviewAvailabilityFixture.link(applicant2.getId(), slot.getId(), recruitment.getId()));
         availabilityRepository.save(
-                InterviewAvailability.create(applicant3.getId(), slot.getId(), recruitment.getId()));
+                InterviewAvailabilityFixture.link(applicant3.getId(), slot.getId(), recruitment.getId()));
         availabilityRepository.flush();
 
-        int count = availabilityRepository.countBySlotIdAndDeletedAtIsNull(slot.getId());
+        long count = availabilityRepository.countBySlotId(slot.getId());
 
         assertThat(count).isEqualTo(3);
     }
@@ -82,19 +87,18 @@ class InterviewAvailabilityRepositoryTest {
         Application applicant1 = persistApplication(recruitment, persistStudent("지원자A"));
         Application applicant2 = persistApplication(recruitment, persistStudent("지원자B"));
 
-        InterviewAvailability survivingAvailability = availabilityRepository.save(
-                InterviewAvailability.create(applicant1.getId(), slot.getId(), recruitment.getId()));
+        availabilityRepository.save(
+                InterviewAvailabilityFixture.link(applicant1.getId(), slot.getId(), recruitment.getId()));
         InterviewAvailability deletedAvailability = availabilityRepository.save(
-                InterviewAvailability.create(applicant2.getId(), slot.getId(), recruitment.getId()));
+                InterviewAvailabilityFixture.link(applicant2.getId(), slot.getId(), recruitment.getId()));
         availabilityRepository.flush();
 
         availabilityRepository.delete(deletedAvailability); // @SQLDelete → deleted_at 세팅
         availabilityRepository.flush();
 
-        int count = availabilityRepository.countBySlotIdAndDeletedAtIsNull(slot.getId());
+        long count = availabilityRepository.countBySlotId(slot.getId());
 
         assertThat(count).isEqualTo(1);
-        assertThat(survivingAvailability.getId()).isNotNull();
     }
 
     @Test
@@ -106,10 +110,10 @@ class InterviewAvailabilityRepositoryTest {
 
         Application applicant = persistApplication(recruitment, persistStudent("지원자X"));
         availabilityRepository.save(
-                InterviewAvailability.create(applicant.getId(), otherSlot.getId(), recruitment.getId()));
+                InterviewAvailabilityFixture.link(applicant.getId(), otherSlot.getId(), recruitment.getId()));
         availabilityRepository.flush();
 
-        int count = availabilityRepository.countBySlotIdAndDeletedAtIsNull(targetSlot.getId());
+        long count = availabilityRepository.countBySlotId(targetSlot.getId());
 
         assertThat(count).isZero();
     }
@@ -163,11 +167,7 @@ class InterviewAvailabilityRepositoryTest {
 
     private InterviewSlot persistSlot(Long recruitmentId) {
         return slotRepository.save(
-                InterviewSlot.create(
-                        recruitmentId,
-                        LocalDateTime.now().plusDays(10),
-                        LocalDateTime.now().plusDays(10).plusHours(1),
-                        5));
+                InterviewSlotFixture.create(recruitmentId, LocalDateTime.now().plusDays(10), 5));
     }
 
     private Application persistApplication(Recruitment recruitment, User applicant) {

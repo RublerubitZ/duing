@@ -12,8 +12,6 @@ public interface InterviewAvailabilityRepository
 
     long countBySlotId(Long slotId);
 
-    int countBySlotIdAndDeletedAtIsNull(Long slotId);
-
     long countByApplicationId(Long applicationId);
 
     @Modifying(clearAutomatically = true)
