@@ -25,3 +25,15 @@ logging:
   level:
     org.hibernate.SQL: warn
     org.hibernate.orm.jdbc.bind: warn
+
+file:
+  storage:
+    provider: s3
+
+s3:
+  endpoint: ${R2_ENDPOINT}
+  region: auto
+  access-key: ${R2_ACCESS_KEY}
+  secret-key: ${R2_SECRET_KEY}
+  bucket: ${R2_BUCKET:duing}
+  public-base-url: https://files.duing.app

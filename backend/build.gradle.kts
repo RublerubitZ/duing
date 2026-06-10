@@ -46,6 +46,9 @@ dependencies {
     // JWT
     implementation("com.auth0:java-jwt:4.4.0")
 
+    // 파일 스토리지
+    implementation("software.amazon.awssdk:s3")
+
     // API 문서
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0")
 
@@ -64,13 +67,18 @@ dependencies {
     testImplementation("io.rest-assured:rest-assured")
     testImplementation("com.navercorp.fixturemonkey:fixture-monkey-starter:1.1.7")
     testImplementation("com.navercorp.fixturemonkey:fixture-monkey-jakarta-validation:1.1.7")
+
+    // MinIO Testcontainer — 파일 스토리지 통합 테스트용
+    testImplementation("org.testcontainers:minio")
+
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-// TestContainers BOM
+// AWS SDK BOM + TestContainers BOM
 dependencyManagement {
     imports {
-        mavenBom("org.testcontainers:testcontainers-bom:1.20.4")
+        mavenBom("software.amazon.awssdk:bom:2.34.0")            // 운영
+        mavenBom("org.testcontainers:testcontainers-bom:1.20.4") // 테스트
     }
 }
 

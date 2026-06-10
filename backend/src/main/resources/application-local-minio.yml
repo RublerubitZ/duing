@@ -1,0 +1,16 @@
+# 활성화: SPRING_PROFILES_ACTIVE=local,local-minio
+# - local       → datasource, FILE_LOCAL_BASE_URL 제공
+# - local-minio → file.storage.provider=s3, s3.* 오버라이드 (뒤가 우선)
+# 이 파일에 spring.profiles.active 적지 말 것 (Spring Boot 2.4+ InvalidConfigDataPropertyException).
+
+file:
+  storage:
+    provider: s3
+
+s3:
+  endpoint: http://localhost:9000
+  region: us-east-1
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: duing
+  public-base-url: http://localhost:9000/duing
