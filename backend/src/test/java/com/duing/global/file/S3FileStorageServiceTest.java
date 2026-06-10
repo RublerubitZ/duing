@@ -1,6 +1,7 @@
 package com.duing.global.file;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -139,5 +140,63 @@ class S3FileStorageServiceTest {
         assertThatThrownBy(() -> service.upload(file, "x"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("S3 Storage 업로드에 실패했습니다.");
+    }
+
+    @Test
+    @DisplayName("공개 URL 에서 key 가 leading slash 없이 추출되어 DeleteObject 가 호출된다")
+    void deleteExtractsKeyWithoutLeadingSlash() {
+        service.delete("https://files.duing.app/club/cover/abc.webp");
+
+        ArgumentCaptor<software.amazon.awssdk.services.s3.model.DeleteObjectRequest> captor =
+                ArgumentCaptor.forClass(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class);
+        verify(s3Client).deleteObject(captor.capture());
+        assertThat(captor.getValue().bucket()).isEqualTo("duing");
+        assertThat(captor.getValue().key()).isEqualTo("club/cover/abc.webp");
+    }
+
+    @Test
+    @DisplayName("publicBaseUrl 끝에 슬래시가 있어도 delete 의 prefix 매칭은 정확히 일치한다")
+    void deleteHandlesTrailingSlashInBaseUrl() {
+        S3StorageProperties propertiesWithSlash = new S3StorageProperties(
+                "https://example.com", "auto", "ak", "sk", "duing",
+                "https://files.duing.app/");
+        S3FileStorageService serviceWithSlash =
+                new S3FileStorageService(s3Client, propertiesWithSlash);
+
+        serviceWithSlash.delete("https://files.duing.app/club/cover/abc.webp");
+
+        ArgumentCaptor<software.amazon.awssdk.services.s3.model.DeleteObjectRequest> captor =
+                ArgumentCaptor.forClass(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class);
+        verify(s3Client).deleteObject(captor.capture());
+        assertThat(captor.getValue().key()).isEqualTo("club/cover/abc.webp");
+    }
+
+    @Test
+    @DisplayName("publicBaseUrl 과 prefix 가 일치하지 않는 URL 은 삭제 호출 없이 무시된다")
+    void deleteIgnoresUrlOutsideBaseUrl() {
+        service.delete("https://other-host.example/club/cover/abc.webp");
+
+        verify(s3Client, never()).deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class));
+    }
+
+    @Test
+    @DisplayName("삭제 중 SdkException 이 발생해도 예외가 전파되지 않고 warn 로그만 남는다")
+    void deleteSwallowsSdkException() {
+        when(s3Client.deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class)))
+                .thenThrow(software.amazon.awssdk.awscore.exception.AwsServiceException.builder()
+                        .message("conflict").build());
+
+        assertThatCode(() -> service.delete("https://files.duing.app/club/cover/abc.webp"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("null 또는 빈 URL 은 delete 호출 없이 즉시 반환된다")
+    void deleteHandlesNullAndBlank() {
+        service.delete(null);
+        service.delete("");
+        service.delete("   ");
+
+        verify(s3Client, never()).deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class));
     }
 }
