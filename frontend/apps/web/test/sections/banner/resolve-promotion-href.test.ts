@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PromotionCard } from '@duing/types';
 
-import { resolvePromotionHref } from '../../../app/_components/sections/BannerCarousel';
+import { resolvePromotionHref } from '../../../app/_lib/promotion';
 
 function makePromotion(overrides: Partial<PromotionCard> = {}): PromotionCard {
   return {
