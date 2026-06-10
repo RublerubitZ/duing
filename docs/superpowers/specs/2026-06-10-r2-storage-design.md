@@ -157,9 +157,11 @@ S3 구현체는 정상이므로 INFO: `log.info("Active storage backend = S3 (en
 - `provider: s3` + s3 블록 (endpoint/credential/bucket/public-base-url) 만
 - datasource 는 `local` 프로파일이 제공 → 실행 시 `SPRING_PROFILES_ACTIVE=local,local-minio` 로 둘 다 활성 (뒤가 우선 → provider=s3 확정)
 
-**(9) `docker-compose.yml`** (모노레포에 미존재 → 신규)
+**(9) `backend/docker-compose.yml`** (모노레포에 미존재 → 신규)
+- 위치: **`backend/` 디렉토리 안** (백엔드 작업과 1:1, `./gradlew bootRun` 과 같은 디렉토리에서 `docker compose up`)
 - MinIO + `mc` initContainer (bucket 생성 + `mc anonymous set download` ★ — 둘째 단계 누락 시 로컬 GET 403)
 - postgres 는 포함 안 함 (기존 개발자 환경 존중, 각자 별도 띄움)
+- **이미지 버전 핀 필수** (기존 `TestcontainersConfiguration` 의 `postgres:16-alpine` 핀 컨벤션 일관): `minio/minio:latest`, `minio/mc:latest` 금지. 구체 안정 태그(`RELEASE.YYYY-MM-DDTHH-MM-SSZ`)는 구현 시점 최신 안정판으로 박음. `:latest` 사용 시 MinIO 가 breaking 이미지 publish 하면 CI 가 코드 변경 없이 갑자기 깨짐 → 재현 불가능
 
 **(10) `build.gradle.kts`**
 - 기존 `dependencyManagement.imports` 블록에 mavenBom 추가:
@@ -330,12 +332,14 @@ file:
 
 `.env` 자동 로드는 `application.yml:5` 의 `spring.config.import: optional:file:.env[.properties]` 로 이미 활성. 포맷은 `KEY=VALUE` (.properties 호환).
 
-### `docker-compose.yml` (신규, MinIO 만)
+### `backend/docker-compose.yml` (신규, MinIO 만)
+
+> 이미지 태그는 `:latest` 금지 — `TestcontainersConfiguration` 의 `postgres:16-alpine` 핀 컨벤션 일관. 아래 예시의 `RELEASE.YYYY-MM-DDTHH-MM-SSZ` 는 구현 시점 최신 안정판으로 확정 후 박음.
 
 ```yaml
 services:
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.YYYY-MM-DDTHH-MM-SSZ   # ★ 구현 시 안정판 확정
     command: server /data --console-address ":9001"
     ports: ["9000:9000", "9001:9001"]
     environment:
@@ -344,7 +348,7 @@ services:
     volumes: [minio-data:/data]
 
   minio-setup:
-    image: minio/mc:latest
+    image: minio/mc:RELEASE.YYYY-MM-DDTHH-MM-SSZ      # ★ 구현 시 안정판 확정
     depends_on: [minio]
     entrypoint: >
       /bin/sh -c "
@@ -454,9 +458,15 @@ public String upload(MultipartFile file, String directory) {
 ### L2. 통합 — `S3FileStorageIntegrationTest` (MinIO TestContainer)
 
 ```java
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@Import(TestcontainersConfiguration.class)        // ★ 다른 통합테스트와 동일, datasource/flyway 부팅
+@Testcontainers
+class S3FileStorageIntegrationTest extends IntegrationTestBase {
+
 @Container
-static MinIOContainer minio = new MinIOContainer("minio/minio:latest")
-    .withUserName("minioadmin").withPassword("minioadmin");
+static MinIOContainer minio =                     // ★ :latest 금지, 구현 시 안정판 확정
+    new MinIOContainer("minio/minio:RELEASE.YYYY-MM-DDTHH-MM-SSZ")
+        .withUserName("minioadmin").withPassword("minioadmin");
 
 @DynamicPropertySource
 static void overrideProps(DynamicPropertyRegistry registry) {
@@ -498,6 +508,12 @@ private final ApplicationContextRunner runner = new ApplicationContextRunner()
 
 케이스:
 - `"file.storage.provider 미설정 시 LocalFileStorageService 가 활성된다"` (matchIfMissing 회귀)
+  ```java
+  @TempDir Path tempDir;
+  // ApplicationContextRunner 는 application.yml 안 읽음 → file.upload-dir placeholder 가
+  // 해석 안 돼 엉뚱한 이유로 컨텍스트 실패. 명시 주입 필수.
+  runner.withPropertyValues("file.upload-dir=" + tempDir).run(ctx -> ...);
+  ```
 - `"file.storage.provider=s3 일 때 S3FileStorageService 만 활성되고 다른 구현체는 비활성된다"` (mutually exclusive)
 - `"file.storage.provider=s3 인데 s3.access-key 가 비어 있으면 컨텍스트 부팅이 실패한다"` (★ **`@Validated + @NotBlank` 회귀** — 이 PR 의 안전 서사 게이트)
 - `"file.storage.provider=s3 인데 s3.public-base-url 이 비어 있으면 부팅 실패한다"` (필드별 parameterized)
@@ -592,7 +608,7 @@ private final ApplicationContextRunner runner = new ApplicationContextRunner()
 |---|---|---|
 | startup 실패 (yml/Secret 누락) | 이전 이미지 유지 (자동). yml/Secret 보정 후 재배포 | 없음 |
 | 업로드는 OK, `<img>` 403/404 | **코드 롤백 X**. 인프라 체크리스트 #2/#3 보정 | 없음 (객체 살아있음) |
-| 일부 업로드 실패 + S3 unhealthy | **R2 복구가 절대 우선.** 부득이한 최후 수단으로 `FILE_STORAGE_PROVIDER=local` env 강제 → 재시작. **단 이는 "앱 생존" 일 뿐 업로드 기능 사실상 불능 (degraded)**: ① `file.local.base-url` 이 prod yml 에 없어 반환 URL 이 상대경로(`/files/...`) → 클라이언트 렌더링 깨질 수 있음, ② 컨테이너 재시작 시 `/tmp` 휘발. **운영자가 "기능하는 폴백" 으로 오해 금지.** | 폴백 기간 업로드 = 휘발 + 렌더링 깨짐. R2 복구 후 즉시 `s3` 환원 |
+| 일부 업로드 실패 + S3 unhealthy | **R2 복구가 절대 우선.** ⚠️ **응급 조치 — 기능하는 폴백 아님.** R2 복구 완료까지의 임시 생존 모드로만 `FILE_STORAGE_PROVIDER=local` env 강제 → 재시작. 이 상태에서는: ① `file.local.base-url` 이 prod yml 에 없어 반환 URL 이 상대경로(`/files/...`) → 클라이언트 렌더링 깨짐, ② 컨테이너 재시작 시 `/tmp` 휘발로 업로드된 파일 소실, ③ 신규 업로드는 사실상 불능 = **읽기 전용에 가깝게 운영**. 운영자가 이 폴백을 "수 시간/하루 버틸 만한 대안" 으로 신뢰하면 안 됨. R2 복구가 지연되면 사용자 공지 + 업로드 기능 일시 비활성을 검토 | 폴백 기간 업로드 = 휘발 + 렌더링 깨짐. R2 복구 후 즉시 `s3` 환원 |
 | 의도치 않은 회귀 발견 | `git revert` + 재배포. R2 객체는 그대로 둠 (DB 의 R2 URL 은 custom domain 살아있어 여전히 GET 가능) | DB 의 R2 URL 그대로 유효, 신규 업로드만 `/tmp` 로 |
 | 비용/quota 초과 | R2 콘솔에서 알람/제한. 코드 변경 없음 | 없음 |
 
