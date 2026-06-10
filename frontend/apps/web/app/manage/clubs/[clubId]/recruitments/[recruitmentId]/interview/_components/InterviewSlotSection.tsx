@@ -6,7 +6,11 @@ import {
   useCreateInterviewSlotsMutation,
   useDeleteInterviewSlotMutation,
 } from '@duing/hooks';
-import type { ManagementSlotView, SlotListView } from '@duing/types';
+import type {
+  InterviewSlotLifecyclePhase,
+  ManagementSlotView,
+  SlotListView,
+} from '@duing/types';
 import { ManagementSlotCard } from '@/components/interview/ManagementSlotCard';
 import { SlotPatternForm } from './SlotPatternForm';
 import { SlotPreviewList } from './SlotPreviewList';
@@ -16,29 +20,20 @@ import type { SlotEntry } from '../_utils/generateSlotsFromPattern';
 // 1) 패턴 입력 → 미리보기(저장 전, 클라이언트 state)
 // 2) 미리보기 행 개별 삭제
 // 3) 저장 → POST /recruitments/{id}/interview-slots
-// 4) 현재 슬롯 그리드 — onCancel 로 슬롯 자체 삭제 (window.confirm)
+// 4) 현재 슬롯 그리드 — onDeleteSlot 으로 슬롯 자체 삭제 (window.confirm)
 //
-// **모집 시작일 정책 (spec §13)**: recruitmentStartDate <= today 면 신규 슬롯 추가 금지.
-// 수정/삭제는 별도 정책 — 본 PR 에서는 삭제만 허용 (전부 막으면 운영진이 잘못 만든 슬롯을 정리할 수 없음).
+// **Slot Lifecycle 정책 (spec 2026-06-10)**:
+// 기존 recruitment.startDate 기반 가드 (`recruitmentStarted` 일 때 차단) 를 폐기하고
+// `InterviewConfig.slotLifecyclePhase` 의 3-phase 매트릭스로 전환.
+//   - BEFORE_DEADLINE: 모든 액션 허용
+//   - AFTER_DEADLINE_BEFORE_ASSIGNMENT: 신규 슬롯 추가 허용 (직권 배정 용도) + 빈 슬롯만 삭제 가능
+//   - AFTER_ASSIGNMENT: 신규 추가/수정/삭제 전부 잠금
 
 type Props = {
   recruitmentId: number;
-  recruitmentStartDate: string; // ISO yyyy-MM-dd
+  slotLifecyclePhase: InterviewSlotLifecyclePhase;
   slots: SlotListView[];
 };
-
-// `recruitmentStartDate` 는 yyyy-MM-dd 포맷. 로컬 자정과 비교해 "시작일 이후" 판정.
-// 백엔드 정책(`LocalDate.now().isAfter(startDate)`) 과 일치시키기 위해 strict `>` 비교 사용 —
-// 시작일 당일(`==`) 은 신규 슬롯 추가가 허용된다.
-function isRecruitmentStarted(startDateIso: string): boolean {
-  const match = startDateIso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) return false;
-  const [, year, month, day] = match;
-  const startMidnight = new Date(Number(year), Number(month) - 1, Number(day));
-  const todayMidnight = new Date();
-  todayMidnight.setHours(0, 0, 0, 0);
-  return todayMidnight.getTime() > startMidnight.getTime();
-}
 
 // SlotListView -> ManagementSlotView (assignments 는 PR-FE3 의 ScheduleManagement 에서 채움)
 // OpenAPI 스키마상 모든 필드가 optional 이지만 백엔드는 항상 채워서 응답한다.
@@ -57,7 +52,7 @@ function toManagementView(slot: SlotListView): ManagementSlotView {
 
 export function InterviewSlotSection({
   recruitmentId,
-  recruitmentStartDate,
+  slotLifecyclePhase,
   slots,
 }: Props) {
   const createMutation = useCreateInterviewSlotsMutation(recruitmentId);
@@ -67,7 +62,7 @@ export function InterviewSlotSection({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
-  const recruitmentStarted = isRecruitmentStarted(recruitmentStartDate);
+  const canCreateSlots = slotLifecyclePhase !== 'AFTER_ASSIGNMENT';
 
   const handleSave = () => {
     setSubmitError(null);
@@ -114,6 +109,40 @@ export function InterviewSlotSection({
 
   const views = slots.map(toManagementView);
 
+  // phase 별 callout — spec §"Frontend 변경" wording 그대로.
+  const phaseCallout = (() => {
+    switch (slotLifecyclePhase) {
+      case 'BEFORE_DEADLINE':
+        return null;
+      case 'AFTER_DEADLINE_BEFORE_ASSIGNMENT':
+        return (
+          <div
+            role="status"
+            className="space-y-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+          >
+            <p>면접 가능시간 제출이 마감되었습니다.</p>
+            <p>추가 슬롯은 운영진 직권 배정 용도로 사용할 수 있습니다.</p>
+            <p>지원자가 선택한 슬롯의 시간/정원은 더 이상 변경할 수 없습니다.</p>
+          </div>
+        );
+      case 'AFTER_ASSIGNMENT':
+        return (
+          <div
+            role="status"
+            className="space-y-1 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+          >
+            <p>자동배정이 완료되었습니다.</p>
+            <p>슬롯 추가·수정·삭제가 잠금되었습니다.</p>
+            <p>면접 일정 변경은 운영진 수동 배정(개별 지원자 상세 페이지) 으로만 가능합니다.</p>
+          </div>
+        );
+      default: {
+        const _exhaustive: never = slotLifecyclePhase;
+        return _exhaustive;
+      }
+    }
+  })();
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6">
       <header className="mb-4">
@@ -123,15 +152,10 @@ export function InterviewSlotSection({
         </p>
       </header>
 
-      {recruitmentStarted ? (
-        <p
-          role="status"
-          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
-        >
-          모집이 시작된 후에는 새 슬롯을 추가할 수 없습니다. (기존 슬롯 삭제만 가능)
-        </p>
-      ) : (
-        <div className="space-y-3">
+      {phaseCallout && <div className="mb-3">{phaseCallout}</div>}
+
+      <div className="space-y-3">
+        {canCreateSlots && (
           <div className="rounded-md border border-sky-100 bg-sky-50 px-3 py-3 text-sm text-sky-900">
             <strong className="block font-medium">💡 여러 날짜·비균등 패턴 등록 방법</strong>
             <p className="mt-1 text-xs text-sky-900">
@@ -143,10 +167,12 @@ export function InterviewSlotSection({
               <li>균등 패턴(6/10 18:00 부터 30분 간격 6개) 도 같은 방식으로 미리보기 후 저장</li>
             </ul>
           </div>
-          <SlotPatternForm
-            onPreview={(newSlots) => setPreview((prev) => [...prev, ...newSlots])}
-            disabled={recruitmentStarted}
-          />
+        )}
+        <SlotPatternForm
+          onPreview={(newSlots) => setPreview((prev) => [...prev, ...newSlots])}
+          disabled={!canCreateSlots}
+        />
+        {canCreateSlots && (
           <div className="space-y-3 rounded-md border border-slate-200 bg-white p-3">
             {preview.length > 0 ? (
               <>
@@ -181,8 +207,8 @@ export function InterviewSlotSection({
               </p>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {submitError && (
         <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -209,6 +235,7 @@ export function InterviewSlotSection({
               <ManagementSlotCard
                 key={view.slotId}
                 slot={view}
+                slotLifecyclePhase={slotLifecyclePhase}
                 onDeleteSlot={handleDeleteSlot}
               />
             ))}

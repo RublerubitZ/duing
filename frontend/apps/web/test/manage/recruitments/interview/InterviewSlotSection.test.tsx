@@ -7,10 +7,10 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
-import type { SlotListView } from '@duing/types';
+import type { InterviewSlotLifecyclePhase, SlotListView } from '@duing/types';
 import { InterviewSlotSection } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/interview/_components/InterviewSlotSection';
 
-// SlotSection 은 page 가 fetch 한 slots 를 props 로 받는 구조다.
+// SlotSection 은 page 가 fetch 한 slots + slotLifecyclePhase 를 props 로 받는다.
 // MSW 는 createSlots(POST) / deleteSlot(DELETE) mutation 만 mock 하면 충분.
 
 const RECRUITMENT_ID = 42;
@@ -23,8 +23,11 @@ afterAll(() => server.close());
 
 function renderSection({
   slots = [] as SlotListView[],
-  recruitmentStartDate = '2099-01-01',
-}: { slots?: SlotListView[]; recruitmentStartDate?: string } = {}) {
+  slotLifecyclePhase = 'BEFORE_DEADLINE' as InterviewSlotLifecyclePhase,
+}: {
+  slots?: SlotListView[];
+  slotLifecyclePhase?: InterviewSlotLifecyclePhase;
+} = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, refetchOnWindowFocus: false },
@@ -44,7 +47,7 @@ function renderSection({
     <Wrapper>
       <InterviewSlotSection
         recruitmentId={RECRUITMENT_ID}
-        recruitmentStartDate={recruitmentStartDate}
+        slotLifecyclePhase={slotLifecyclePhase}
         slots={slots}
       />
     </Wrapper>,
@@ -247,47 +250,6 @@ describe('InterviewSlotSection — 패턴 + 미리보기 + 저장', () => {
     expect(alert).toHaveTextContent('입력값을 확인해주세요');
   });
 
-  it('recruitment.startDate 가 과거이면 패턴 입력이 disabled 되고 안내 메시지가 노출된다', () => {
-    renderSection({ recruitmentStartDate: '2020-01-01' });
-
-    expect(
-      screen.getByText(/모집이 시작된 후에는 새 슬롯을 추가할 수 없습니다/),
-    ).toBeInTheDocument();
-    // 패턴 form 자체가 렌더되지 않음
-    expect(screen.queryByLabelText('시작 시각')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '+ 미리보기에 추가' })).not.toBeInTheDocument();
-  });
-
-  // 백엔드 정책(`LocalDate.now().isAfter(startDate)`) 과 정렬:
-  // 시작일 당일(today == startDate) 은 신규 슬롯 추가가 여전히 허용된다.
-  it('recruitment.startDate 가 오늘이면 패턴 입력 form 이 렌더된다', () => {
-    const today = new Date();
-    const pad = (value: number) => String(value).padStart(2, '0');
-    const todayIso = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-
-    renderSection({ recruitmentStartDate: todayIso });
-
-    expect(
-      screen.queryByText(/모집이 시작된 후에는 새 슬롯을 추가할 수 없습니다/),
-    ).not.toBeInTheDocument();
-    expect(screen.getByLabelText('시작 시각')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '+ 미리보기에 추가' })).toBeInTheDocument();
-  });
-
-  it('recruitment.startDate 의 익일(어제) 이면 패턴 입력이 차단된다', () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const pad = (value: number) => String(value).padStart(2, '0');
-    const yesterdayIso = `${yesterday.getFullYear()}-${pad(yesterday.getMonth() + 1)}-${pad(yesterday.getDate())}`;
-
-    renderSection({ recruitmentStartDate: yesterdayIso });
-
-    expect(
-      screen.getByText(/모집이 시작된 후에는 새 슬롯을 추가할 수 없습니다/),
-    ).toBeInTheDocument();
-    expect(screen.queryByLabelText('시작 시각')).not.toBeInTheDocument();
-  });
-
   it('기존 슬롯은 ManagementSlotCard 그리드로 표시되고 × 클릭 시 DELETE 가 호출된다', async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -321,5 +283,39 @@ describe('InterviewSlotSection — 패턴 + 미리보기 + 저장', () => {
     });
 
     confirmSpy.mockRestore();
+  });
+});
+
+// Slot Lifecycle 정책 (spec 2026-06-10) — phase × slot 매트릭스
+describe('InterviewSlotSection — slotLifecyclePhase 매트릭스', () => {
+  it('phase 1 (BEFORE_DEADLINE) 에서는 phase callout 없이 패턴 입력 form 이 활성화된다', () => {
+    renderSection({ slotLifecyclePhase: 'BEFORE_DEADLINE' });
+
+    expect(screen.queryByText(/면접 가능시간 제출이 마감되었습니다/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/자동배정이 완료되었습니다/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('시작 시각')).toBeEnabled();
+    expect(screen.getByRole('button', { name: '+ 미리보기에 추가' })).toBeEnabled();
+  });
+
+  it('phase 2 (AFTER_DEADLINE_BEFORE_ASSIGNMENT) 에서는 마감 안내 callout 이 노출되고 슬롯 추가는 여전히 활성', () => {
+    renderSection({ slotLifecyclePhase: 'AFTER_DEADLINE_BEFORE_ASSIGNMENT' });
+
+    expect(screen.getByText(/면접 가능시간 제출이 마감되었습니다/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/추가 슬롯은 운영진 직권 배정 용도로 사용할 수 있습니다/),
+    ).toBeInTheDocument();
+    // 신규 슬롯 추가 form 은 phase 2 에서도 활성 (운영진 직권 배정 용도).
+    expect(screen.getByLabelText('시작 시각')).toBeEnabled();
+    expect(screen.getByRole('button', { name: '+ 미리보기에 추가' })).toBeEnabled();
+  });
+
+  it('phase 3 (AFTER_ASSIGNMENT) 에서는 잠금 안내 callout 이 노출되고 패턴 입력이 비활성', () => {
+    renderSection({ slotLifecyclePhase: 'AFTER_ASSIGNMENT' });
+
+    expect(screen.getByText(/자동배정이 완료되었습니다/)).toBeInTheDocument();
+    expect(screen.getByText(/슬롯 추가·수정·삭제가 잠금되었습니다/)).toBeInTheDocument();
+    // 패턴 form 자체는 렌더되되 disabled.
+    expect(screen.getByLabelText('시작 시각')).toBeDisabled();
+    expect(screen.getByRole('button', { name: '+ 미리보기에 추가' })).toBeDisabled();
   });
 });

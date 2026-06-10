@@ -233,6 +233,9 @@ export function InterviewScheduleManagementSection({
                 <ManagementSlotCard
                   key={view.slotId}
                   slot={view}
+                  // Step 4 는 assignmentCompletedAt 마킹 이후에만 활성화되므로 phase 3 가 정상 경로.
+                  // config 가 null 이거나 phase 누락 시에도 슬롯 삭제/수정 UI 가 활성화되지 않도록 안전한 기본값 사용.
+                  slotLifecyclePhase={config?.slotLifecyclePhase ?? 'AFTER_ASSIGNMENT'}
                   onMove={(applicationId) => handleMove(applicationId)}
                   onCancel={(applicationId) => handleCancel(applicationId)}
                 />
