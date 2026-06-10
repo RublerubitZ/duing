@@ -20,7 +20,7 @@ const baseApplicant: Applicant = {
   answers: [],
   status: 'SUBMITTED',
   submittedAt: '2026-05-01T10:00:00',
-  interviewAt: null,
+  interviewStartAt: null,
   myScore: null,
 };
 

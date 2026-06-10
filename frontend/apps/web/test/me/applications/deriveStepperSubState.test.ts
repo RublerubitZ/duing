@@ -4,7 +4,7 @@ import { deriveStepperSubState } from '@/app/me/applications/[applicationId]/_ut
 
 // Spec P0-1 의 Step 3 sub-state 매트릭스.
 // 호출자 (ApplicationStepper) 가 activeIndex === 2 가드로 `INTERVIEW_PENDING &&
-// !interviewScheduleAssigned` 를 보장하므로 본 유틸은 count + deadline + now 3변수만
+// interview == null` 를 보장하므로 본 유틸은 count + deadline + now 3변수만
 // 받는다.
 //
 // 분기 조건:

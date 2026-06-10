@@ -19,8 +19,7 @@ const base: ApplicationSummary = {
   category: 'CULTURE',
   logoUrl: null,
   status: 'SUBMITTED',
-  interviewAt: null,
-  interviewLocation: null,
+  interview: null,
   submittedAt: '2026-05-26T10:00:00Z',
 };
 

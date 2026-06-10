@@ -15,18 +15,24 @@ import { ApplicationStepper } from '@/app/me/applications/[applicationId]/_compo
 
 type StepperDetail = Pick<
   MyApplicationDetail,
-  'status' | 'interviewAvailabilityCount' | 'interviewScheduleAssigned' | 'availabilityDeadline'
+  'status' | 'interviewAvailabilityCount' | 'interview' | 'availabilityDeadline'
 >;
 
 function makeDetail(overrides: Partial<StepperDetail> = {}): StepperDetail {
   return {
     status: 'SUBMITTED',
     interviewAvailabilityCount: 0,
-    interviewScheduleAssigned: false,
+    interview: null,
     availabilityDeadline: null,
     ...overrides,
   };
 }
+
+const ASSIGNED_INTERVIEW = {
+  startAt: '2026-06-20T14:00:00',
+  endAt: '2026-06-20T14:30:00',
+  location: '본관 201호',
+};
 
 const NOW = new Date('2026-06-09T10:00:00');
 
@@ -49,7 +55,7 @@ describe('ApplicationStepper', () => {
         detail={makeDetail({
           status: 'INTERVIEW_PENDING',
           interviewAvailabilityCount: 0,
-          interviewScheduleAssigned: false,
+          interview: null,
           availabilityDeadline: '2026-06-15T18:00:00',
         })}
         now={NOW}
@@ -68,7 +74,7 @@ describe('ApplicationStepper', () => {
         detail={makeDetail({
           status: 'INTERVIEW_PENDING',
           interviewAvailabilityCount: 3,
-          interviewScheduleAssigned: false,
+          interview: null,
           availabilityDeadline: '2026-06-15T18:00:00',
         })}
         now={NOW}
@@ -87,7 +93,7 @@ describe('ApplicationStepper', () => {
         detail={makeDetail({
           status: 'INTERVIEW_PENDING',
           interviewAvailabilityCount: 0,
-          interviewScheduleAssigned: false,
+          interview: null,
           availabilityDeadline: '2026-06-01T18:00:00',
         })}
         now={NOW}
@@ -106,7 +112,7 @@ describe('ApplicationStepper', () => {
         detail={makeDetail({
           status: 'INTERVIEW_PENDING',
           interviewAvailabilityCount: 3,
-          interviewScheduleAssigned: true,
+          interview: ASSIGNED_INTERVIEW,
           availabilityDeadline: '2026-06-15T18:00:00',
         })}
         now={NOW}

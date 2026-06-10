@@ -145,7 +145,7 @@ describe('useAutoAssignMutation (spec §6 + P0 invalidation 확장)', () => {
     // 자동배정은 모든 지원자의 assignedSlot 을 변경 → 운영진 detail/list/neighbors 무효화.
     expect(queryClient.getQueryState(applicationQueryKeys.applicants(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(applicationQueryKeys.applicantDetail(55))?.isInvalidated).toBe(true);
-    // 지원자 my-page (interviewScheduleAssigned) 도 동시 무효화.
+    // 지원자 my-page (interview 필드) 도 동시 무효화.
     expect(queryClient.getQueryState(applicationQueryKeys.myList('ALL'))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(applicationQueryKeys.myDetail(55))?.isInvalidated).toBe(true);
   });

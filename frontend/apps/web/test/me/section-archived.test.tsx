@@ -19,8 +19,7 @@ const make = (overrides: Partial<ApplicationSummary> = {}): ApplicationSummary =
   category: 'CULTURE',
   logoUrl: null,
   status: 'ACCEPTED',
-  interviewAt: null,
-  interviewLocation: null,
+  interview: null,
   submittedAt: '2026-04-15T10:00:00Z',
   ...overrides,
 });
