@@ -16,11 +16,13 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 매 정시(Asia/Seoul)에 실행되는 면접 리마인더 잡.
@@ -43,35 +45,56 @@ public class InterviewReminderJob {
     private final Clock clock;
 
     @Scheduled(cron = "0 0 * * * *", zone = "Asia/Seoul")
-    @Transactional(readOnly = true)
     public void run() {
         LocalDateTime now = LocalDateTime.now(clock);
         LocalDateTime windowStart = now.plusHours(23);
         LocalDateTime windowEnd = now.plusHours(25);
 
         List<InterviewSchedule> targets = scheduleRepository.findAssignedBetween(windowStart, windowEnd);
+        if (targets.isEmpty()) {
+            log.info("InterviewReminderJob start: targets=0");
+            return;
+        }
         log.info("InterviewReminderJob start: targets={}", targets.size());
+
+        // 배치 lookup — schedule 마다 개별 쿼리(N+1) 회피
+        Set<Long> slotIds = targets.stream()
+                .map(InterviewSchedule::getSlotId)
+                .collect(Collectors.toSet());
+        Set<Long> recruitmentIds = targets.stream()
+                .map(InterviewSchedule::getRecruitmentId)
+                .collect(Collectors.toSet());
+        Set<Long> applicationIds = targets.stream()
+                .map(InterviewSchedule::getApplicationId)
+                .collect(Collectors.toSet());
+
+        Map<Long, InterviewSlot> slotById = slotRepository.findAllById(slotIds).stream()
+                .collect(Collectors.toMap(InterviewSlot::getId, Function.identity()));
+        Map<Long, InterviewConfig> configByRecruitmentId = configRepository.findByRecruitmentIdIn(recruitmentIds)
+                .stream()
+                .collect(Collectors.toMap(InterviewConfig::getRecruitmentId, Function.identity()));
+        Map<Long, Application> applicationById = applicationRepository
+                .findAllWithRecruitmentAndClubByIdIn(applicationIds).stream()
+                .collect(Collectors.toMap(Application::getId, Function.identity()));
 
         int created = 0;
         for (InterviewSchedule schedule : targets) {
             try {
-                InterviewSlot slot = slotRepository.findById(schedule.getSlotId()).orElse(null);
+                InterviewSlot slot = slotById.get(schedule.getSlotId());
                 if (slot == null) {
                     log.warn("INTERVIEW_REMINDER 알림 생략 — slot 없음: scheduleId={}, slotId={}",
                             schedule.getId(), schedule.getSlotId());
                     continue;
                 }
 
-                InterviewConfig config = configRepository.findByRecruitmentId(schedule.getRecruitmentId())
-                        .orElse(null);
+                InterviewConfig config = configByRecruitmentId.get(schedule.getRecruitmentId());
                 if (config == null) {
                     log.warn("INTERVIEW_REMINDER 알림 생략 — config 없음: scheduleId={}, recruitmentId={}",
                             schedule.getId(), schedule.getRecruitmentId());
                     continue;
                 }
 
-                Application application = applicationRepository.findWithRecruitmentAndClubById(
-                        schedule.getApplicationId()).orElse(null);
+                Application application = applicationById.get(schedule.getApplicationId());
                 if (application == null) {
                     log.warn("INTERVIEW_REMINDER 알림 생략 — application 없음: scheduleId={}, applicationId={}",
                             schedule.getId(), schedule.getApplicationId());
