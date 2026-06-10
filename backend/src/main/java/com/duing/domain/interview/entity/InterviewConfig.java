@@ -93,4 +93,32 @@ public class InterviewConfig extends BaseEntity {
         }
         this.assignmentCompletedAt = now;
     }
+
+    public boolean canCreateSlot(LocalDateTime now) {
+        return assignmentCompletedAt == null;
+    }
+
+    public SlotMutableFields canModifySlot(int availabilityCount, LocalDateTime now) {
+        if (assignmentCompletedAt != null) {
+            return SlotMutableFields.NONE;
+        }
+        boolean selected = availabilityCount > 0;
+        if (now.isBefore(availabilityDeadline)) {
+            return selected ? SlotMutableFields.CAPACITY_ONLY : SlotMutableFields.TIME_AND_CAPACITY;
+        }
+        return selected ? SlotMutableFields.NONE : SlotMutableFields.TIME_AND_CAPACITY;
+    }
+
+    public boolean canDeleteSlot(int availabilityCount, LocalDateTime now) {
+        if (assignmentCompletedAt != null) {
+            return false;
+        }
+        return availabilityCount == 0;
+    }
+
+    public enum SlotMutableFields {
+        NONE,
+        CAPACITY_ONLY,
+        TIME_AND_CAPACITY
+    }
 }
