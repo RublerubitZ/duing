@@ -48,7 +48,11 @@ describe('deriveInterviewStep', () => {
   it('assignmentCompletedAt 이 있으면 Step 4', () => {
     expect(
       deriveInterviewStep({
-        config: { ...baseConfig, assignmentCompletedAt: '2026-06-19T15:00:00Z' },
+        config: {
+          ...baseConfig,
+          assignmentCompletedAt: '2026-06-19T15:00:00Z',
+          slotLifecyclePhase: 'AFTER_ASSIGNMENT',
+        },
         slots: oneSlot,
       }),
     ).toBe(4);
