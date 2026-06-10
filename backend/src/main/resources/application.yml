@@ -41,7 +41,7 @@ springdoc:
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/tmp/duing/uploads}
   storage:
-    provider: ${FILE_STORAGE_PROVIDER:local}   # local | s3 | stub
+    provider: ${FILE_STORAGE_PROVIDER:local}   # local | s3  (test 전용: stub)
 
 s3:
   endpoint: ${S3_ENDPOINT:}
