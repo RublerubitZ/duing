@@ -9,6 +9,8 @@ import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
+import com.duing.common.fixture.InterviewScheduleFixture;
+import com.duing.common.fixture.InterviewSlotFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -69,13 +71,10 @@ class ApplicantQueryTest extends IntegrationTestBase {
         Application application = saveInterviewPendingApplication(recruitment, applicantUser);
 
         LocalDateTime expectedStart = LocalDateTime.of(2026, 6, 20, 18, 0);
-        InterviewSlot slot = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
-                expectedStart,
-                expectedStart.plusMinutes(30),
-                3));
-        interviewScheduleRepository.save(InterviewSchedule.create(
-                application.getId(), slot.getId(), recruitment.getId(), LocalDateTime.now()));
+        InterviewSlot slot = interviewSlotRepository.save(
+                InterviewSlotFixture.create(recruitment.getId(), expectedStart, 3));
+        interviewScheduleRepository.save(
+                InterviewScheduleFixture.assigned(application.getId(), slot.getId(), recruitment.getId()));
 
         ApplicantSearchCondition noFilter = new ApplicantSearchCondition(null, null, null, null, null);
         List<ApplicantQuery> results = applicationService.getApplicants(
@@ -88,7 +87,7 @@ class ApplicantQueryTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("ASSIGNED schedule 이 없으면 interviewStartAt 은 null")
+    @DisplayName("ASSIGNED schedule 이 없으면 interviewStartAt 은 null 이다")
     void applicantQuery_noAssignedInterview_returnsNull() {
         User leader = saveUser("리더없음");
         Club club = saveActiveClub("미배정동아리");
@@ -119,13 +118,10 @@ class ApplicantQueryTest extends IntegrationTestBase {
         User applicantUser = saveUser("취소지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicantUser);
 
-        InterviewSlot slot = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
-                LocalDateTime.of(2026, 6, 21, 14, 0),
-                LocalDateTime.of(2026, 6, 21, 14, 30),
-                3));
-        InterviewSchedule schedule = interviewScheduleRepository.save(InterviewSchedule.create(
-                application.getId(), slot.getId(), recruitment.getId(), LocalDateTime.now()));
+        InterviewSlot slot = interviewSlotRepository.save(
+                InterviewSlotFixture.create(recruitment.getId(), LocalDateTime.of(2026, 6, 21, 14, 0), 3));
+        InterviewSchedule schedule = interviewScheduleRepository.save(
+                InterviewScheduleFixture.assigned(application.getId(), slot.getId(), recruitment.getId()));
         schedule.cancel();
         interviewScheduleRepository.save(schedule);
 
