@@ -100,7 +100,7 @@ class S3FileStorageServiceTest {
         String url = serviceWithSlash.upload(file, "club/cover");
 
         assertThat(url).startsWith("https://files.duing.app/club/cover/")
-                .doesNotContain("//club");
+                .doesNotMatch(".*files\\.duing\\.app//.*");
     }
 
     @Test

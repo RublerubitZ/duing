@@ -46,7 +46,8 @@ public class S3FileStorageService implements FileStorageService {
         String originalFilename = StringUtils.cleanPath(
                 file.getOriginalFilename() == null ? "file" : file.getOriginalFilename());
         String extension = StringUtils.getFilenameExtension(originalFilename);
-        String key = directory + "/" + UUID.randomUUID()
+        String sanitizedDirectory = StringUtils.cleanPath(directory);
+        String key = sanitizedDirectory + "/" + UUID.randomUUID()
                 + (extension != null ? "." + extension : "");
 
         byte[] body;
