@@ -74,7 +74,7 @@ public class GeneralInterviewConfigService implements InterviewConfigService {
 
         InterviewConfig config = configRepository.findByRecruitmentId(recruitmentId)
                 .orElseThrow(InterviewException.InterviewConfigNotFound::new);
-        return InterviewConfigResponse.from(config);
+        return InterviewConfigResponse.from(config, LocalDateTime.now());
     }
 
     private void validateDeadlineInRecruitmentPeriod(LocalDateTime deadline, Recruitment recruitment) {

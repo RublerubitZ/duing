@@ -131,6 +131,22 @@ public class InterviewConfig extends BaseEntity {
         return availabilityCount == 0;
     }
 
+    /**
+     * 현재 슬롯 lifecycle phase 를 반환한다.
+     * <p>
+     * {@code now} 는 도메인 내부에서 {@link LocalDateTime#now()} 를 호출하지 않고
+     * 호출자(서비스 레이어) 가 주입한다 — 결정성·테스트 용이성 보존.
+     */
+    public SlotLifecyclePhase phase(LocalDateTime now) {
+        if (assignmentCompletedAt != null) {
+            return SlotLifecyclePhase.AFTER_ASSIGNMENT;
+        }
+        if (now.isBefore(availabilityDeadline)) {
+            return SlotLifecyclePhase.BEFORE_DEADLINE;
+        }
+        return SlotLifecyclePhase.AFTER_DEADLINE_BEFORE_ASSIGNMENT;
+    }
+
     public enum SlotMutableFields {
         NONE,
         CAPACITY_ONLY,
