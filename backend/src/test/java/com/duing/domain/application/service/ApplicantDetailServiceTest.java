@@ -20,6 +20,10 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
+import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
+import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
@@ -332,6 +336,113 @@ class ApplicantDetailServiceTest {
         assertThat(detail.assignedSlot()).isNull();
         verify(interviewAvailabilityRepository, never()).findAvailabilityItemsByApplicationId(11L);
         verify(interviewScheduleRepository, never()).findAssignedSlotByApplicationId(11L);
+    }
+
+    @Test
+    @DisplayName("ASSIGNED schedule 은 있지만 InterviewConfig.location 이 null 인 경우에도 interview 객체는 그대로 노출되고 location 만 null 이다 (Codex review BE-3)")
+    void interviewExposedEvenWhenConfigLocationIsNull() {
+        User applicant = mock(User.class);
+        when(applicant.getId()).thenReturn(20L);
+        when(applicant.getName()).thenReturn("지원자");
+        when(applicant.getStudentId()).thenReturn("20251234");
+        when(applicant.getEmail()).thenReturn("hong@example.com");
+
+        Club club = mock(Club.class);
+        when(club.getId()).thenReturn(5L);
+        when(club.getName()).thenReturn("두잉 동아리");
+
+        Recruitment recruitment = mock(Recruitment.class);
+        when(recruitment.getId()).thenReturn(3L);
+        when(recruitment.getTitle()).thenReturn("면접 모집");
+        when(recruitment.getClub()).thenReturn(club);
+        when(recruitment.getApplicationMode()).thenReturn(ApplicationMode.EXTERNAL);
+        when(recruitment.isUseInterview()).thenReturn(true);
+
+        Application application = mock(Application.class);
+        when(application.getId()).thenReturn(15L);
+        when(application.getUser()).thenReturn(applicant);
+        when(application.getRecruitment()).thenReturn(recruitment);
+        when(application.getAnswers()).thenReturn(List.of());
+        when(application.getStatus()).thenReturn(ApplicationStatus.INTERVIEW_PENDING);
+        when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 9, 0));
+
+        // ASSIGNED schedule + slot 은 존재. config 는 있지만 location 은 null.
+        InterviewSchedule schedule = mock(InterviewSchedule.class);
+        when(schedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
+        when(schedule.getSlotId()).thenReturn(101L);
+        InterviewSlot slot = mock(InterviewSlot.class);
+        when(slot.getStartTime()).thenReturn(LocalDateTime.of(2026, 6, 20, 14, 0));
+        when(slot.getEndTime()).thenReturn(LocalDateTime.of(2026, 6, 20, 14, 30));
+        InterviewConfig config = mock(InterviewConfig.class);
+        when(config.getLocation()).thenReturn(null);
+        when(config.getAvailabilityDeadline()).thenReturn(LocalDateTime.of(2026, 6, 15, 18, 0));
+
+        when(applicationRepository.findWithRecruitmentAndClubById(15L)).thenReturn(Optional.of(application));
+        when(interviewAvailabilityRepository.findAvailabilityItemsByApplicationId(15L))
+                .thenReturn(List.of());
+        when(interviewScheduleRepository.findAssignedSlotByApplicationId(15L))
+                .thenReturn(Optional.empty());
+        when(interviewConfigRepository.findByRecruitmentId(3L)).thenReturn(Optional.of(config));
+        when(interviewScheduleRepository.findByApplicationId(15L)).thenReturn(Optional.of(schedule));
+        when(interviewSlotRepository.findById(101L)).thenReturn(Optional.of(slot));
+
+        ApplicantDetailQuery detail = applicationService.getApplicantDetail(15L, 99L);
+
+        assertThat(detail.interview()).isNotNull();
+        assertThat(detail.interview().startAt()).isEqualTo(LocalDateTime.of(2026, 6, 20, 14, 0));
+        assertThat(detail.interview().endAt()).isEqualTo(LocalDateTime.of(2026, 6, 20, 14, 30));
+        assertThat(detail.interview().location()).isNull();
+    }
+
+    @Test
+    @DisplayName("ASSIGNED schedule 은 있지만 InterviewConfig 자체가 없는 경우에도 interview 객체는 그대로 노출되고 location 만 null 이다")
+    void interviewExposedEvenWhenConfigIsAbsent() {
+        User applicant = mock(User.class);
+        when(applicant.getId()).thenReturn(20L);
+        when(applicant.getName()).thenReturn("지원자");
+        when(applicant.getStudentId()).thenReturn("20251234");
+        when(applicant.getEmail()).thenReturn("hong@example.com");
+
+        Club club = mock(Club.class);
+        when(club.getId()).thenReturn(5L);
+        when(club.getName()).thenReturn("두잉 동아리");
+
+        Recruitment recruitment = mock(Recruitment.class);
+        when(recruitment.getId()).thenReturn(7L);
+        when(recruitment.getTitle()).thenReturn("면접 모집(config 없음)");
+        when(recruitment.getClub()).thenReturn(club);
+        when(recruitment.getApplicationMode()).thenReturn(ApplicationMode.EXTERNAL);
+        when(recruitment.isUseInterview()).thenReturn(true);
+
+        Application application = mock(Application.class);
+        when(application.getId()).thenReturn(16L);
+        when(application.getUser()).thenReturn(applicant);
+        when(application.getRecruitment()).thenReturn(recruitment);
+        when(application.getAnswers()).thenReturn(List.of());
+        when(application.getStatus()).thenReturn(ApplicationStatus.INTERVIEW_PENDING);
+        when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 9, 0));
+
+        InterviewSchedule schedule = mock(InterviewSchedule.class);
+        when(schedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
+        when(schedule.getSlotId()).thenReturn(201L);
+        InterviewSlot slot = mock(InterviewSlot.class);
+        when(slot.getStartTime()).thenReturn(LocalDateTime.of(2026, 6, 21, 10, 0));
+        when(slot.getEndTime()).thenReturn(LocalDateTime.of(2026, 6, 21, 10, 30));
+
+        when(applicationRepository.findWithRecruitmentAndClubById(16L)).thenReturn(Optional.of(application));
+        when(interviewAvailabilityRepository.findAvailabilityItemsByApplicationId(16L))
+                .thenReturn(List.of());
+        when(interviewScheduleRepository.findAssignedSlotByApplicationId(16L))
+                .thenReturn(Optional.empty());
+        when(interviewConfigRepository.findByRecruitmentId(7L)).thenReturn(Optional.empty());
+        when(interviewScheduleRepository.findByApplicationId(16L)).thenReturn(Optional.of(schedule));
+        when(interviewSlotRepository.findById(201L)).thenReturn(Optional.of(slot));
+
+        ApplicantDetailQuery detail = applicationService.getApplicantDetail(16L, 99L);
+
+        assertThat(detail.interview()).isNotNull();
+        assertThat(detail.interview().startAt()).isEqualTo(LocalDateTime.of(2026, 6, 21, 10, 0));
+        assertThat(detail.interview().location()).isNull();
     }
 
     @Test

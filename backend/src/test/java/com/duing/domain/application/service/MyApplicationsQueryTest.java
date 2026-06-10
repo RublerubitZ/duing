@@ -1,6 +1,7 @@
 package com.duing.domain.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,10 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
+import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
+import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
@@ -94,6 +99,57 @@ class MyApplicationsQueryTest {
         assertThat(summary.category()).isEqualTo(ClubCategory.ACADEMIC);
         assertThat(summary.logoUrl()).isEqualTo("https://example.com/logo.png");
         assertThat(summary.clubName()).isEqualTo("스파크");
+    }
+
+    @Test
+    @DisplayName("ASSIGNED schedule 이 있고 InterviewConfig.location 이 null 인 경우에도 interview 가 노출되고 location 만 null 이다 (Codex review BE-3)")
+    void interviewExposedInSummaryEvenWhenConfigLocationIsNull() {
+        Club club = mock(Club.class);
+        when(club.getId()).thenReturn(1L);
+        when(club.getName()).thenReturn("스파크");
+        when(club.getCategory()).thenReturn(ClubCategory.ACADEMIC);
+        when(club.getLogoUrl()).thenReturn(null);
+
+        Recruitment recruitment = mock(Recruitment.class);
+        when(recruitment.getId()).thenReturn(2L);
+        when(recruitment.getTitle()).thenReturn("2026 상반기 모집");
+        when(recruitment.getClub()).thenReturn(club);
+
+        Application application = mock(Application.class);
+        when(application.getId()).thenReturn(10L);
+        when(application.getRecruitment()).thenReturn(recruitment);
+        when(application.getStatus()).thenReturn(ApplicationStatus.INTERVIEW_PENDING);
+        when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 15, 9, 30));
+
+        InterviewSchedule schedule = mock(InterviewSchedule.class);
+        when(schedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
+        when(schedule.getApplicationId()).thenReturn(10L);
+        when(schedule.getSlotId()).thenReturn(101L);
+        when(schedule.getRecruitmentId()).thenReturn(2L);
+
+        InterviewSlot slot = mock(InterviewSlot.class);
+        when(slot.getId()).thenReturn(101L);
+        when(slot.getStartTime()).thenReturn(LocalDateTime.of(2026, 6, 20, 14, 0));
+        when(slot.getEndTime()).thenReturn(LocalDateTime.of(2026, 6, 20, 14, 30));
+
+        InterviewConfig config = mock(InterviewConfig.class);
+        when(config.getRecruitmentId()).thenReturn(2L);
+        when(config.getLocation()).thenReturn(null);
+
+        when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))
+                .thenReturn(List.of(application));
+        when(interviewScheduleRepository.findByApplicationIdIn(anyList()))
+                .thenReturn(List.of(schedule));
+        when(interviewSlotRepository.findAllById(any())).thenReturn(List.of(slot));
+        when(interviewConfigRepository.findByRecruitmentIdIn(any())).thenReturn(List.of(config));
+
+        List<ApplicationSummaryQuery> summaries = applicationService.getMyApplications(99L, ApplicationScope.ALL.toStatuses());
+
+        assertThat(summaries).hasSize(1);
+        assertThat(summaries.get(0).interview()).isNotNull();
+        assertThat(summaries.get(0).interview().startAt()).isEqualTo(LocalDateTime.of(2026, 6, 20, 14, 0));
+        assertThat(summaries.get(0).interview().endAt()).isEqualTo(LocalDateTime.of(2026, 6, 20, 14, 30));
+        assertThat(summaries.get(0).interview().location()).isNull();
     }
 
     @Test

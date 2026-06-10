@@ -149,8 +149,8 @@ public class GeneralApplicationService implements ApplicationService {
         }
 
         // 응답 카드의 nested interview 채움용 batch lookup — application 별 개별 쿼리(N+1) 회피.
-        // ASSIGNED schedule + InterviewConfig.location 둘 다 있어야 interview 가 채워지고,
-        // 그 외(CANCELLED 만 / config 없음 / location null) 는 null 로 응답한다.
+        // ASSIGNED schedule 이 있으면 interview 가 채워지고 (location 은 nullable),
+        // CANCELLED 만 / 미배정인 경우만 null 로 응답한다 (Codex review BE-3 — config.location null 도 interview 노출 유지).
         Map<Long, AssignedInterviewQuery> interviewByApplicationId =
                 resolveInterviewBatch(applications.stream().map(Application::getId).toList());
 
@@ -170,7 +170,7 @@ public class GeneralApplicationService implements ApplicationService {
 
         // 지원자 stepper 의 Step 3 sub-state 분기를 위해 면접 진행 상황을 derived 필드로 노출한다.
         // - interviewAvailabilityCount: 본인이 제출한 면접 가능 시간 개수
-        // - interview: 현재 배정된 면접 (ASSIGNED schedule + config.location 모두 존재할 때만 채워짐, 그 외엔 null)
+        // - interview: 현재 배정된 면접 (ASSIGNED schedule 이 있으면 location 이 null 이어도 객체로 노출, 그 외엔 null)
         // - availabilityDeadline: 가능시간 제출 마감 시각 원본(useInterview=false 또는 config 미존재 → null)
         // useInterview=false 모집은 면접 관련 레포지토리 호출 자체를 생략한다.
         if (!application.getRecruitment().isUseInterview()) {
@@ -419,21 +419,20 @@ public class GeneralApplicationService implements ApplicationService {
 
     /**
      * 응답 DTO 의 nested {@code interview} 채움용 단건 헬퍼.
-     * ASSIGNED 상태 schedule 이 있고 그 schedule 에 매핑된 슬롯이 존재하며 {@code InterviewConfig.location} 도
-     * 비어 있지 않을 때만 {@link AssignedInterviewQuery} 를 반환한다. 그 외엔 {@code null}.
+     * ASSIGNED 상태 schedule 이 있고 그 schedule 에 매핑된 슬롯이 존재하면 {@link AssignedInterviewQuery} 를 반환한다.
+     * {@code InterviewConfig} 이 없거나 {@code config.location} 이 null 이어도 interview 자체는 그대로 노출하되
+     * location 만 null 로 채운다 (Codex review BE-3).
      * <p>
      * {@code InterviewSchedule.cancel()} 은 status 만 CANCELLED 로 바꾸는 도메인 취소로
      * {@code @SQLRestriction} 가 걸려 있지 않으므로 status 조건을 명시한다.
      */
     private AssignedInterviewQuery resolveAssignedInterview(Long applicationId, InterviewConfig interviewConfig) {
-        if (interviewConfig == null || interviewConfig.getLocation() == null) {
-            return null;
-        }
+        String location = interviewConfig == null ? null : interviewConfig.getLocation();
         return interviewScheduleRepository.findByApplicationId(applicationId)
                 .filter(schedule -> schedule.getStatus() == InterviewScheduleStatus.ASSIGNED)
                 .flatMap(schedule -> interviewSlotRepository.findById(schedule.getSlotId()))
                 .map(slot -> new AssignedInterviewQuery(
-                        slot.getStartTime(), slot.getEndTime(), interviewConfig.getLocation()))
+                        slot.getStartTime(), slot.getEndTime(), location))
                 .orElse(null);
     }
 
@@ -443,7 +442,7 @@ public class GeneralApplicationService implements ApplicationService {
      * <ol>
      *   <li>application_id IN (...) AND status=ASSIGNED InterviewSchedule 일괄 조회</li>
      *   <li>대상 schedule 들의 slot_id / recruitment_id 를 batch 로 join</li>
-     *   <li>{@code InterviewConfig.location} 이 비어 있는 모집은 응답에서 제외(null)</li>
+     *   <li>{@code InterviewConfig.location} 이 비어 있어도 interview 객체는 그대로 노출 (location 만 null)</li>
      * </ol>
      * 결과 Map 에 키가 없는 application 은 호출 측에서 {@code null} 로 표현되어 "면접 미배정" 을 의미한다.
      */
@@ -476,12 +475,14 @@ public class GeneralApplicationService implements ApplicationService {
         Map<Long, AssignedInterviewQuery> result = new HashMap<>();
         for (InterviewSchedule schedule : assignedSchedules) {
             InterviewSlot slot = slotById.get(schedule.getSlotId());
-            InterviewConfig config = configByRecruitmentId.get(schedule.getRecruitmentId());
-            if (slot == null || config == null || config.getLocation() == null) {
+            if (slot == null) {
                 continue;
             }
+            // config 또는 config.location 이 null 인 경우에도 interview 자체는 노출하고 location 만 null 로 채운다.
+            InterviewConfig config = configByRecruitmentId.get(schedule.getRecruitmentId());
+            String location = config == null ? null : config.getLocation();
             result.put(schedule.getApplicationId(), new AssignedInterviewQuery(
-                    slot.getStartTime(), slot.getEndTime(), config.getLocation()));
+                    slot.getStartTime(), slot.getEndTime(), location));
         }
         return result;
     }

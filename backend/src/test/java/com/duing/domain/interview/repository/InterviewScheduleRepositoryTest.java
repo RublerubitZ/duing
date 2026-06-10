@@ -6,6 +6,7 @@ import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.InterviewScheduleFixture;
 import com.duing.common.fixture.InterviewSlotFixture;
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -97,21 +98,75 @@ class InterviewScheduleRepositoryTest {
                 .containsExactlyInAnyOrder(atStart.getId(), atEnd.getId());
     }
 
+    @Test
+    @DisplayName("Application status 가 INTERVIEW_PENDING 이 아닌 경우(ACCEPTED, REJECTED 등) reminder 대상에서 제외된다")
+    void findAssignedBetween_filtersByApplicationStatus() {
+        LocalDateTime now = LocalDateTime.of(2026, 6, 11, 0, 0);
+        LocalDateTime windowStart = now.plusHours(23);
+        LocalDateTime windowEnd = now.plusHours(25);
+
+        Recruitment recruitment = persistOpenRecruitment("앱상태가드");
+
+        // INTERVIEW_PENDING + ASSIGNED → 포함
+        InterviewSchedule pendingApp = persistScheduleWithApplicationStatus(
+                recruitment, now.plusHours(24),
+                InterviewScheduleStatus.ASSIGNED, ApplicationStatus.INTERVIEW_PENDING);
+        // ACCEPTED + ASSIGNED → 제외 (Codex review BE-2)
+        persistScheduleWithApplicationStatus(
+                recruitment, now.plusHours(24),
+                InterviewScheduleStatus.ASSIGNED, ApplicationStatus.ACCEPTED);
+        // REJECTED + ASSIGNED → 제외
+        persistScheduleWithApplicationStatus(
+                recruitment, now.plusHours(24),
+                InterviewScheduleStatus.ASSIGNED, ApplicationStatus.REJECTED);
+
+        List<InterviewSchedule> result = scheduleRepository.findAssignedBetween(windowStart, windowEnd);
+
+        assertThat(result).extracting(InterviewSchedule::getId).containsExactly(pendingApp.getId());
+    }
+
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * 기존 매트릭스용 — Application status 는 INTERVIEW_PENDING 으로 고정.
+     * INTERVIEW_PENDING 가드 추가 후에도 schedule/윈도 필터링 케이스를 기존 의도대로 검증한다.
+     */
     private InterviewSchedule persistSchedule(Recruitment recruitment, LocalDateTime slotStartTime,
                                               InterviewScheduleStatus status) {
+        return persistScheduleWithApplicationStatus(
+                recruitment, slotStartTime, status, ApplicationStatus.INTERVIEW_PENDING);
+    }
+
+    private InterviewSchedule persistScheduleWithApplicationStatus(
+            Recruitment recruitment, LocalDateTime slotStartTime,
+            InterviewScheduleStatus scheduleStatus, ApplicationStatus applicationStatus) {
         InterviewSlot slot = slotRepository.save(
                 InterviewSlotFixture.create(recruitment.getId(), slotStartTime, 5));
         Application application = persistApplication(recruitment, persistStudent("지원자"));
+        forceApplicationStatus(application, applicationStatus);
         InterviewSchedule schedule = InterviewScheduleFixture.assigned(
                 application.getId(), slot.getId(), recruitment.getId());
-        if (status == InterviewScheduleStatus.CANCELLED) {
+        if (scheduleStatus == InterviewScheduleStatus.CANCELLED) {
             schedule.cancel();
         }
         InterviewSchedule persisted = scheduleRepository.save(schedule);
         scheduleRepository.flush();
         return persisted;
+    }
+
+    /**
+     * Application.status 는 setter 가 없고 transitionTo 도 SUBMITTED → UNDER_REVIEW → INTERVIEW_PENDING 등
+     * 다단계 전이를 거쳐야 도달 가능하므로, 테스트 fixture 에서는 reflection 으로 직접 주입한다.
+     */
+    private void forceApplicationStatus(Application application, ApplicationStatus status) {
+        try {
+            Field statusField = Application.class.getDeclaredField("status");
+            statusField.setAccessible(true);
+            statusField.set(application, status);
+            applicationRepository.saveAndFlush(application);
+        } catch (ReflectiveOperationException reflectionFailure) {
+            throw new IllegalStateException(reflectionFailure);
+        }
     }
 
     private User persistStudent(String nameSuffix) {

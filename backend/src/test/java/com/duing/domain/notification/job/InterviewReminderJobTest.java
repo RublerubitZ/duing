@@ -8,6 +8,7 @@ import com.duing.common.fixture.InterviewConfigFixture;
 import com.duing.common.fixture.InterviewScheduleFixture;
 import com.duing.common.fixture.InterviewSlotFixture;
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -125,17 +126,37 @@ class InterviewReminderJobTest extends IntegrationTestBase {
         assertThat(afterSecondRun).isEqualTo(afterFirstRun);
     }
 
+    @Test
+    @DisplayName("ACCEPTED 상태 지원자는 ASSIGNED schedule 이 있어도 INTERVIEW_REMINDER 가 생성되지 않는다 (Codex review BE-2)")
+    void interviewReminder_skipsAcceptedApplications() throws Exception {
+        // 잡과 동일한 Clock(Asia/Seoul) 을 사용해 CI TZ 와 무관하게 윈도 계산이 일치하도록 한다.
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        // ACCEPTED 로 전이된 지원자의 ASSIGNED schedule — 윈도 안이라도 리마인더 생성 금지.
+        persistScheduleWithApplicationStatus(
+                now.plusHours(24), "ACCEPTED지원자", false, ApplicationStatus.ACCEPTED);
+
+        long beforeCount = notificationRepository.count();
+        job.run();
+        long afterCount = notificationRepository.count();
+
+        assertThat(afterCount - beforeCount).isZero();
+    }
+
     // ── Fixture 헬퍼 ─────────────────────────────────────────────────────────────
 
     private InterviewSchedule fixtureAssignedSchedule(LocalDateTime slotStartTime, String label) throws Exception {
-        return persistSchedule(slotStartTime, label, false);
+        return persistScheduleWithApplicationStatus(
+                slotStartTime, label, false, ApplicationStatus.INTERVIEW_PENDING);
     }
 
     private InterviewSchedule fixtureCancelledSchedule(LocalDateTime slotStartTime, String label) throws Exception {
-        return persistSchedule(slotStartTime, label, true);
+        return persistScheduleWithApplicationStatus(
+                slotStartTime, label, true, ApplicationStatus.INTERVIEW_PENDING);
     }
 
-    private InterviewSchedule persistSchedule(LocalDateTime slotStartTime, String label, boolean cancelled)
+    private InterviewSchedule persistScheduleWithApplicationStatus(
+            LocalDateTime slotStartTime, String label, boolean cancelled, ApplicationStatus applicationStatus)
             throws Exception {
         User applicant = saveStudent("지원자" + label);
         Club club = saveActiveClub("면접동아리" + label);
@@ -152,6 +173,9 @@ class InterviewReminderJobTest extends IntegrationTestBase {
 
         Application application = applicationRepository.save(
                 Application.submit(recruitment, applicant, List.of()));
+        // INTERVIEW_PENDING 가드를 통과/실패시키기 위해 Application.status 를 직접 주입.
+        // transitionTo 는 SUBMITTED → UNDER_REVIEW → INTERVIEW_PENDING 등 다단계라 fixture 에서는 reflection 사용.
+        forceApplicationStatus(application, applicationStatus);
 
         InterviewSchedule schedule = InterviewScheduleFixture.assigned(
                 application.getId(), slot.getId(), recruitment.getId());
@@ -159,6 +183,13 @@ class InterviewReminderJobTest extends IntegrationTestBase {
             schedule.cancel();
         }
         return interviewScheduleRepository.save(schedule);
+    }
+
+    private void forceApplicationStatus(Application application, ApplicationStatus status) throws Exception {
+        Field statusField = Application.class.getDeclaredField("status");
+        statusField.setAccessible(true);
+        statusField.set(application, status);
+        applicationRepository.saveAndFlush(application);
     }
 
     private User saveStudent(String name) {

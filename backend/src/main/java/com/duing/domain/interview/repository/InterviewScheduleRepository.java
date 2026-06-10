@@ -29,11 +29,17 @@ public interface InterviewScheduleRepository
 
     List<InterviewSchedule> findByRecruitmentId(Long recruitmentId);
 
+    /**
+     * 면접 24h 전 리마인더 윈도 대상 조회. INTERVIEW_PENDING 상태 지원자만 포함한다.
+     * ACCEPTED/REJECTED 로 이미 전이된 지원자는 ASSIGNED schedule 이 남아 있어도 리마인더 대상에서 제외된다 (Codex review BE-2).
+     */
     @Query("""
             select s
               from InterviewSchedule s
               join InterviewSlot slot on slot.id = s.slotId
+              join Application a on a.id = s.applicationId
              where s.status = com.duing.domain.interview.entity.InterviewScheduleStatus.ASSIGNED
+               and a.status = com.duing.domain.application.entity.ApplicationStatus.INTERVIEW_PENDING
                and slot.startTime between :start and :end
                and slot.deletedAt is null
             """)
