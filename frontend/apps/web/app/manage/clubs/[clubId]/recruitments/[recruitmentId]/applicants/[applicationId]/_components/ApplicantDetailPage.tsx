@@ -49,7 +49,6 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
   }
 
   const useInterview = recruitment?.useInterview ?? false;
-  const hasInterviewConfig = recruitment?.interviewAvailabilityDeadline != null;
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4">
@@ -114,7 +113,6 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
             recruitmentId={recruitmentId}
             currentStatus={detail.status}
             useInterview={useInterview}
-            hasInterviewConfig={hasInterviewConfig}
           />
         </div>
       </div>
