@@ -58,6 +58,11 @@ export function BannerCarouselClient({ slides }: Props) {
   }, []);
 
   useEffect(() => {
+    // 서버 refresh 로 슬라이드 수가 줄어들면 activeIndex 가 범위를 벗어나 페이저(`04 / 02`)와 dot 활성 상태가 어긋난다.
+    setActiveIndex((prev) => (slides.length === 0 ? 0 : prev % slides.length));
+  }, [slides.length]);
+
+  useEffect(() => {
     if (!isPlaying || slides.length <= 1) return;
     const timer = window.setInterval(goNext, AUTOPLAY_INTERVAL_MS);
     return () => window.clearInterval(timer);
