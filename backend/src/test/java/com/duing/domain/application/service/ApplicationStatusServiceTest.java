@@ -25,6 +25,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -32,7 +33,6 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.global.notification.InterviewNotificationService;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,7 +46,6 @@ class ApplicationStatusServiceTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
-    private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
@@ -54,6 +53,7 @@ class ApplicationStatusServiceTest {
     private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
     private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
+    private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -61,14 +61,14 @@ class ApplicationStatusServiceTest {
             userRepository,
             clubMemberRepository,
             clubAuthService,
-            interviewNotificationService,
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
             interviewAvailabilityService,
             interviewAvailabilityRepository,
             interviewScheduleRepository,
-            interviewConfigRepository);
+            interviewConfigRepository,
+            interviewSlotRepository);
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더

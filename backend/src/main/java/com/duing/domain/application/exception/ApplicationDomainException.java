@@ -81,27 +81,11 @@ public class ApplicationDomainException extends ApplicationException {
         }
     }
 
-    public static class InvalidInterviewScheduleException extends ApplicationDomainException {
-        private static final String MESSAGE = "면접 일정 정보가 올바르지 않습니다.";
-
-        public InvalidInterviewScheduleException() {
-            super(MESSAGE, HttpStatus.BAD_REQUEST);
-        }
-    }
-
     public static class ForbiddenApplicationAccessException extends ApplicationDomainException {
         private static final String MESSAGE = "본인의 지원 내역만 조회할 수 있습니다.";
 
         public ForbiddenApplicationAccessException() {
             super(MESSAGE, HttpStatus.FORBIDDEN);
-        }
-    }
-
-    public static class InvalidInterviewStateException extends ApplicationDomainException {
-        private static final String MESSAGE = "면접 일정은 INTERVIEW_PENDING 상태에서만 입력할 수 있습니다.";
-
-        public InvalidInterviewStateException() {
-            super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
 

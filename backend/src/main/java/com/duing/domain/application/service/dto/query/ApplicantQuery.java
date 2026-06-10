@@ -19,17 +19,17 @@ public record ApplicantQuery(
         List<String> answers,
         ApplicationStatus status,
         LocalDateTime submittedAt,
-        LocalDateTime interviewAt,
+        LocalDateTime interviewStartAt,
         Integer myScore
 ) {
     /**
-     * 기존 호출자 backward-compatibility 유지 — myScore 를 null 로 위임한다.
+     * interviewStartAt 은 ASSIGNED InterviewSchedule 이 가리키는 슬롯의 startTime 으로
+     * QueryDSL repository 에서 직접 채워 넘긴다. ASSIGNED schedule 이 없으면 null.
+     * 더 이상 {@code Application.getInterviewAt()} 스칼라 필드를 읽지 않는다.
      */
-    public static ApplicantQuery from(Application application) {
-        return fromAll(application, null);
-    }
-
-    public static ApplicantQuery fromAll(Application application, Integer myScore) {
+    public static ApplicantQuery of(Application application,
+                                    LocalDateTime interviewStartAt,
+                                    Integer myScore) {
         return new ApplicantQuery(
                 application.getId(),
                 application.getUser().getId(),
@@ -42,7 +42,7 @@ public record ApplicantQuery(
                 application.getAnswers(),
                 application.getStatus(),
                 application.getCreatedAt(),
-                application.getInterviewAt(),
+                interviewStartAt,
                 myScore
         );
     }

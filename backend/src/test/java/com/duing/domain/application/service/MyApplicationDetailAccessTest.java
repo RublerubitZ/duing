@@ -19,17 +19,19 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
+import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
+import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.global.notification.InterviewNotificationService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -43,7 +45,6 @@ class MyApplicationDetailAccessTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
-    private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
@@ -51,6 +52,7 @@ class MyApplicationDetailAccessTest {
     private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
     private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
+    private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -58,14 +60,14 @@ class MyApplicationDetailAccessTest {
             userRepository,
             clubMemberRepository,
             clubAuthService,
-            interviewNotificationService,
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
             interviewAvailabilityService,
             interviewAvailabilityRepository,
             interviewScheduleRepository,
-            interviewConfigRepository);
+            interviewConfigRepository,
+            interviewSlotRepository);
 
     @Test
     @DisplayName("다른 사용자의 지원 상세를 조회하면 ForbiddenApplicationAccessException 이 발생한다")
@@ -83,35 +85,18 @@ class MyApplicationDetailAccessTest {
     }
 
     @Test
-    @DisplayName("본인 지원 상세 조회는 질문·답변·면접 정보를 함께 반환한다")
-    void ownerCanReadOwnApplicationDetail() {
-        User owner = mock(User.class);
-        when(owner.getId()).thenReturn(10L);
-
-        Club club = mock(Club.class);
-        when(club.getId()).thenReturn(7L);
-        when(club.getName()).thenReturn("동아리");
+    @DisplayName("본인 지원 상세 조회는 질문·답변을 함께 반환하고 면접 미배정 시 interview 는 null 이다")
+    void ownerCanReadOwnApplicationDetailWithoutAssignedInterview() {
+        Application application = stubOwnedApplication(1L, 10L, 3L, false);
+        // useInterview=false 이므로 INTERVIEW_PENDING 가 아닌 SUBMITTED 로 가정한다.
+        when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
+        when(application.getAnswers()).thenReturn(List.of("A1", "A2"));
 
         RecruitmentForm form = mock(RecruitmentForm.class);
         when(form.getQuestions()).thenReturn(List.of("Q1", "Q2"));
+        when(application.getRecruitment().getForm()).thenReturn(form);
 
-        Recruitment recruitment = mock(Recruitment.class);
-        when(recruitment.getId()).thenReturn(3L);
-        when(recruitment.getTitle()).thenReturn("모집 공고");
-        when(recruitment.getClub()).thenReturn(club);
-        when(recruitment.getForm()).thenReturn(form);
-
-        LocalDateTime interviewAt = LocalDateTime.of(2026, 5, 20, 14, 0);
         LocalDateTime submittedAt = LocalDateTime.of(2026, 5, 15, 9, 30);
-
-        Application application = mock(Application.class);
-        when(application.getId()).thenReturn(1L);
-        when(application.getUser()).thenReturn(owner);
-        when(application.getRecruitment()).thenReturn(recruitment);
-        when(application.getAnswers()).thenReturn(List.of("A1", "A2"));
-        when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
-        when(application.getInterviewAt()).thenReturn(interviewAt);
-        when(application.getInterviewLocation()).thenReturn("본관 301호");
         when(application.getCreatedAt()).thenReturn(submittedAt);
 
         when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
@@ -123,8 +108,7 @@ class MyApplicationDetailAccessTest {
         assertThat(detail.answers()).containsExactly("A1", "A2");
         assertThat(detail.clubId()).isEqualTo(7L);
         assertThat(detail.recruitmentId()).isEqualTo(3L);
-        assertThat(detail.interviewAt()).isEqualTo(interviewAt);
-        assertThat(detail.interviewLocation()).isEqualTo("본관 301호");
+        assertThat(detail.interview()).isNull();
         assertThat(detail.submittedAt()).isEqualTo(submittedAt);
     }
 
@@ -138,7 +122,7 @@ class MyApplicationDetailAccessTest {
     }
 
     @Test
-    @DisplayName("면접 사용 모집의 본인 지원 상세는 가능시간 수·일정 배정 여부·마감 시각을 함께 반환한다")
+    @DisplayName("면접 사용 모집의 본인 지원 상세는 가능시간 수·마감 시각·interview 를 함께 반환한다")
     void interviewProgressionFieldsArePopulatedFromRepositoriesWhenUseInterview() {
         long applicationId = 1L;
         long currentUserId = 10L;
@@ -148,18 +132,20 @@ class MyApplicationDetailAccessTest {
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(2L);
-        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
-                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(false);
+        // ASSIGNED schedule 이 없으면 interview = null
+        when(interviewScheduleRepository.findByApplicationId(applicationId))
+                .thenReturn(Optional.empty());
 
         InterviewConfig interviewConfig = mock(InterviewConfig.class);
         when(interviewConfig.getAvailabilityDeadline()).thenReturn(deadline);
+        when(interviewConfig.getLocation()).thenReturn("3호관 201호");
         when(interviewConfigRepository.findByRecruitmentId(recruitmentId))
                 .thenReturn(Optional.of(interviewConfig));
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 
         assertThat(detail.interviewAvailabilityCount()).isEqualTo(2);
-        assertThat(detail.interviewScheduleAssigned()).isFalse();
+        assertThat(detail.interview()).isNull();
         assertThat(detail.availabilityDeadline()).isEqualTo(deadline);
     }
 
@@ -178,17 +164,17 @@ class MyApplicationDetailAccessTest {
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 
         assertThat(detail.interviewAvailabilityCount()).isZero();
-        assertThat(detail.interviewScheduleAssigned()).isFalse();
+        assertThat(detail.interview()).isNull();
         assertThat(detail.availabilityDeadline()).isNull();
         // useInterview=false 면 면접 관련 레포지토리 호출 자체가 발생하지 않아야 한다.
         verify(interviewAvailabilityRepository, never()).countByApplicationId(applicationId);
-        verify(interviewScheduleRepository, never())
-                .existsByApplicationIdAndStatus(applicationId, InterviewScheduleStatus.ASSIGNED);
+        verifyNoInteractions(interviewScheduleRepository);
         verifyNoInteractions(interviewConfigRepository);
+        verifyNoInteractions(interviewSlotRepository);
     }
 
     @Test
-    @DisplayName("useInterview=true 이지만 InterviewConfig 가 없으면 availabilityDeadline 은 null 이다")
+    @DisplayName("useInterview=true 이지만 InterviewConfig 가 없으면 availabilityDeadline 과 interview 가 모두 null 이다")
     void availabilityDeadlineIsNullWhenConfigMissing() {
         long applicationId = 3L;
         long currentUserId = 10L;
@@ -197,38 +183,56 @@ class MyApplicationDetailAccessTest {
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(0L);
-        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
-                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(false);
         when(interviewConfigRepository.findByRecruitmentId(recruitmentId)).thenReturn(Optional.empty());
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 
         assertThat(detail.availabilityDeadline()).isNull();
+        assertThat(detail.interview()).isNull();
     }
 
     @Test
-    @DisplayName("InterviewSchedule 이 ASSIGNED 상태로 존재하면 interviewScheduleAssigned 가 true 로 반환된다")
-    void interviewScheduleAssignedTrueWhenAssigned() {
+    @DisplayName("ASSIGNED InterviewSchedule + InterviewConfig.location 이 있으면 interview = { startAt, endAt, location } 으로 채워진다")
+    void assignedInterviewPopulatesInterview() {
         long applicationId = 4L;
         long currentUserId = 10L;
         long recruitmentId = 6L;
+        long slotId = 100L;
+        LocalDateTime startAt = LocalDateTime.of(2026, 6, 20, 18, 0);
+        LocalDateTime endAt = LocalDateTime.of(2026, 6, 20, 18, 30);
 
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(3L);
-        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
-                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(true);
-        when(interviewConfigRepository.findByRecruitmentId(recruitmentId)).thenReturn(Optional.empty());
+
+        InterviewConfig interviewConfig = mock(InterviewConfig.class);
+        when(interviewConfig.getLocation()).thenReturn("3호관 201호");
+        when(interviewConfigRepository.findByRecruitmentId(recruitmentId))
+                .thenReturn(Optional.of(interviewConfig));
+
+        InterviewSchedule schedule = mock(InterviewSchedule.class);
+        when(schedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
+        when(schedule.getSlotId()).thenReturn(slotId);
+        when(interviewScheduleRepository.findByApplicationId(applicationId))
+                .thenReturn(Optional.of(schedule));
+
+        InterviewSlot slot = mock(InterviewSlot.class);
+        when(slot.getStartTime()).thenReturn(startAt);
+        when(slot.getEndTime()).thenReturn(endAt);
+        when(interviewSlotRepository.findById(slotId)).thenReturn(Optional.of(slot));
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 
-        assertThat(detail.interviewScheduleAssigned()).isTrue();
+        assertThat(detail.interview()).isNotNull();
+        assertThat(detail.interview().startAt()).isEqualTo(startAt);
+        assertThat(detail.interview().endAt()).isEqualTo(endAt);
+        assertThat(detail.interview().location()).isEqualTo("3호관 201호");
         assertThat(detail.interviewAvailabilityCount()).isEqualTo(3);
     }
 
     @Test
-    @DisplayName("InterviewSchedule 이 CANCELLED 상태만 존재하면 interviewScheduleAssigned 는 false 로 반환된다")
-    void interviewScheduleAssignedFalseWhenCancelled() {
+    @DisplayName("InterviewSchedule 이 CANCELLED 상태만 존재하면 interview 는 null 로 반환된다")
+    void cancelledScheduleResultsInNullInterview() {
         long applicationId = 5L;
         long currentUserId = 10L;
         long recruitmentId = 7L;
@@ -236,14 +240,20 @@ class MyApplicationDetailAccessTest {
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(1L);
-        // ASSIGNED 상태 row 가 없으면 (CANCELLED 만 존재) false 가 반환되어야 한다.
-        when(interviewScheduleRepository.existsByApplicationIdAndStatus(
-                applicationId, InterviewScheduleStatus.ASSIGNED)).thenReturn(false);
-        when(interviewConfigRepository.findByRecruitmentId(recruitmentId)).thenReturn(Optional.empty());
+
+        InterviewConfig interviewConfig = mock(InterviewConfig.class);
+        when(interviewConfig.getLocation()).thenReturn("3호관 201호");
+        when(interviewConfigRepository.findByRecruitmentId(recruitmentId))
+                .thenReturn(Optional.of(interviewConfig));
+
+        InterviewSchedule cancelled = mock(InterviewSchedule.class);
+        when(cancelled.getStatus()).thenReturn(InterviewScheduleStatus.CANCELLED);
+        when(interviewScheduleRepository.findByApplicationId(applicationId))
+                .thenReturn(Optional.of(cancelled));
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 
-        assertThat(detail.interviewScheduleAssigned()).isFalse();
+        assertThat(detail.interview()).isNull();
         assertThat(detail.interviewAvailabilityCount()).isEqualTo(1);
     }
 

@@ -2,7 +2,7 @@ package com.duing.domain.application.repository;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
-import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -45,17 +45,16 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     Optional<Application> findWithRecruitmentAndClubById(@Param("applicationId") Long applicationId);
 
     /**
-     * 면접 리마인더 잡용 조회.
-     * interviewAt 이 주어진 윈도 안에 있고, 상태가 INTERVIEW_PENDING 인 지원 목록을 반환한다.
+     * 배치 잡 등에서 다건 페치 조인 조회용. {@link #findWithRecruitmentAndClubById} 의 plural 버전으로,
+     * recruitment → club, user, recruitment → form(nullable) 을 한 번에 로드해 N+1 을 방지한다.
      */
-    @Query("""
-            select a from Application a
-             where a.status = com.duing.domain.application.entity.ApplicationStatus.INTERVIEW_PENDING
-               and a.interviewAt between :start and :end
-               and a.deletedAt is null
-            """)
-    List<Application> findInterviewBetween(@Param("start") LocalDateTime start,
-                                           @Param("end") LocalDateTime end);
+    @Query("SELECT a FROM Application a "
+            + "JOIN FETCH a.recruitment r "
+            + "JOIN FETCH r.club "
+            + "JOIN FETCH a.user "
+            + "LEFT JOIN FETCH r.form "
+            + "WHERE a.id IN :applicationIds")
+    List<Application> findAllWithRecruitmentAndClubByIdIn(@Param("applicationIds") Collection<Long> applicationIds);
 
     /**
      * 자동배정용 — 특정 모집의 특정 상태 지원자 전체 조회. user fetch join 으로 N+1 방지.

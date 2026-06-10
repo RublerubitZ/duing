@@ -22,8 +22,7 @@ public record ApplicantDetailQuery(
         ApplicantInfoQuery applicant,
         List<QuestionAnswerQuery> answers,
         ApplicationStatus status,
-        LocalDateTime interviewAt,
-        String interviewLocation,
+        AssignedInterviewQuery interview,
         LocalDateTime submittedAt,
         List<StatusHistoryItemQuery> statusHistory,
         EvaluationItemQuery myEvaluation,
@@ -80,14 +79,14 @@ public record ApplicantDetailQuery(
     }
 
     /**
-     * 면접 가능시간/배정 슬롯 정보 없이 위임한다.
+     * 면접 가능시간/배정 슬롯/배정 면접 정보 없이 위임한다.
      * 기존 호출자(서비스 단위 테스트 등)의 backward-compatibility 를 위해 유지한다.
      */
     public static ApplicantDetailQuery fromAll(Application application,
                                                List<ApplicationStatusHistory> historyRows,
                                                List<ApplicationEvaluation> allEvaluations,
                                                Long currentUserId) {
-        return fromAll(application, historyRows, allEvaluations, currentUserId, List.of(), null);
+        return fromAll(application, historyRows, allEvaluations, currentUserId, List.of(), null, null);
     }
 
     /**
@@ -95,13 +94,15 @@ public record ApplicantDetailQuery(
      * currentUserId 기준으로 myEvaluation / otherEvaluations 를 분리한다.
      * currentUserId 가 null 이면 모든 평가를 otherEvaluations 에 배치한다.
      * interviewAvailabilities / assignedSlot 은 면접 미사용 모집에선 빈 리스트 / null 로 전달한다.
+     * {@code interview} 는 ASSIGNED schedule + InterviewConfig.location 이 모두 존재할 때만 전달, 그 외엔 {@code null}.
      */
     public static ApplicantDetailQuery fromAll(Application application,
                                                List<ApplicationStatusHistory> historyRows,
                                                List<ApplicationEvaluation> allEvaluations,
                                                Long currentUserId,
                                                List<AvailabilityItem> interviewAvailabilities,
-                                               AvailabilityItem assignedSlot) {
+                                               AvailabilityItem assignedSlot,
+                                               AssignedInterviewQuery interview) {
         Recruitment recruitment = application.getRecruitment();
         User applicationUser = application.getUser();
 
@@ -147,8 +148,7 @@ public record ApplicantDetailQuery(
                 applicantInfo,
                 pairedAnswers,
                 application.getStatus(),
-                application.getInterviewAt(),
-                application.getInterviewLocation(),
+                interview,
                 application.getCreatedAt(),
                 statusHistory,
                 myEvaluation,

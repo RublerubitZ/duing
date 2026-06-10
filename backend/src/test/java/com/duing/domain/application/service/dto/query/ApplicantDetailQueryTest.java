@@ -19,19 +19,20 @@ import org.junit.jupiter.api.Test;
 class ApplicantDetailQueryTest {
 
     @Test
-    @DisplayName("fromAll 은 면접 가능시간 목록을 빈 리스트로, 배정 슬롯을 null 로 받아도 안전하게 매핑된다")
+    @DisplayName("fromAll 은 면접 가능시간 목록을 빈 리스트로, 배정 슬롯/면접을 null 로 받아도 안전하게 매핑된다")
     void emptyAvailabilitiesAndNullAssignedSlotAreMapped() {
         Application application = stubApplication();
 
         ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
-                application, List.of(), List.of(), null, List.of(), null);
+                application, List.of(), List.of(), null, List.of(), null, null);
 
         assertThat(detailQuery.interviewAvailabilities()).isEmpty();
         assertThat(detailQuery.assignedSlot()).isNull();
+        assertThat(detailQuery.interview()).isNull();
     }
 
     @Test
-    @DisplayName("fromAll 은 면접 가능시간 다수와 현재 배정 슬롯을 그대로 보존한다")
+    @DisplayName("fromAll 은 면접 가능시간 다수와 현재 배정 슬롯/배정 면접을 그대로 보존한다")
     void multipleAvailabilitiesAndAssignedSlotAreRetained() {
         Application application = stubApplication();
         AvailabilityItem first = new AvailabilityItem(1L,
@@ -40,13 +41,18 @@ class ApplicantDetailQueryTest {
                 LocalDateTime.of(2026, 6, 13, 14, 0), LocalDateTime.of(2026, 6, 13, 14, 30));
         AvailabilityItem assigned = new AvailabilityItem(5L,
                 LocalDateTime.of(2026, 6, 13, 18, 0), LocalDateTime.of(2026, 6, 13, 18, 30));
+        AssignedInterviewQuery interview = new AssignedInterviewQuery(
+                LocalDateTime.of(2026, 6, 13, 18, 0),
+                LocalDateTime.of(2026, 6, 13, 18, 30),
+                "3호관 201호");
 
         ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
                 application, List.of(), List.of(), null,
-                List.of(first, second), assigned);
+                List.of(first, second), assigned, interview);
 
         assertThat(detailQuery.interviewAvailabilities()).containsExactly(first, second);
         assertThat(detailQuery.assignedSlot()).isEqualTo(assigned);
+        assertThat(detailQuery.interview()).isEqualTo(interview);
     }
 
     @Test
@@ -59,6 +65,7 @@ class ApplicantDetailQueryTest {
 
         assertThat(detailQuery.interviewAvailabilities()).isEmpty();
         assertThat(detailQuery.assignedSlot()).isNull();
+        assertThat(detailQuery.interview()).isNull();
     }
 
     @Test
@@ -67,10 +74,40 @@ class ApplicantDetailQueryTest {
         Application application = stubApplication();
 
         ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
-                application, List.of(), List.of(), null, null, null);
+                application, List.of(), List.of(), null, null, null, null);
 
         assertThat(detailQuery.interviewAvailabilities()).isEmpty();
         assertThat(detailQuery.assignedSlot()).isNull();
+        assertThat(detailQuery.interview()).isNull();
+    }
+
+    @Test
+    @DisplayName("ASSIGNED InterviewSchedule 에 매핑된 interview 가 전달되면 interview = { startAt, endAt, location } 으로 채워진다")
+    void assignedInterviewIsPopulated() {
+        Application application = stubApplication();
+        AssignedInterviewQuery interview = new AssignedInterviewQuery(
+                LocalDateTime.of(2026, 6, 20, 18, 0),
+                LocalDateTime.of(2026, 6, 20, 18, 30),
+                "3호관 201호");
+
+        ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
+                application, List.of(), List.of(), null, List.of(), null, interview);
+
+        assertThat(detailQuery.interview()).isNotNull();
+        assertThat(detailQuery.interview().startAt()).isEqualTo(LocalDateTime.of(2026, 6, 20, 18, 0));
+        assertThat(detailQuery.interview().endAt()).isEqualTo(LocalDateTime.of(2026, 6, 20, 18, 30));
+        assertThat(detailQuery.interview().location()).isEqualTo("3호관 201호");
+    }
+
+    @Test
+    @DisplayName("ASSIGNED schedule 이 없으면 interview 필드는 null 로 응답된다")
+    void noScheduleResultsInNullInterview() {
+        Application application = stubApplication();
+
+        ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
+                application, List.of(), List.of(), null, List.of(), null, null);
+
+        assertThat(detailQuery.interview()).isNull();
     }
 
     private Application stubApplication() {
@@ -96,8 +133,6 @@ class ApplicantDetailQueryTest {
         when(application.getRecruitment()).thenReturn(recruitment);
         when(application.getAnswers()).thenReturn(List.of());
         when(application.getStatus()).thenReturn(ApplicationStatus.INTERVIEW_PENDING);
-        when(application.getInterviewAt()).thenReturn(null);
-        when(application.getInterviewLocation()).thenReturn(null);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 15, 9, 30));
         return application;
     }

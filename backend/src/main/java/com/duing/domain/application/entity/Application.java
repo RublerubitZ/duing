@@ -13,7 +13,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -51,12 +50,6 @@ public class Application extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ApplicationStatus status;
-
-    @Column(name = "interview_at")
-    private LocalDateTime interviewAt;
-
-    @Column(name = "interview_location", length = 200)
-    private String interviewLocation;
 
     // 두 운영진이 동시에 상태를 변경하면 후행 UPDATE 가 0 row affected →
     // ObjectOptimisticLockingFailureException 으로 차단된다. Hibernate 가 직접 채운다.
@@ -99,28 +92,6 @@ public class Application extends BaseEntity {
             case INTERVIEW_PENDING -> to == ApplicationStatus.ACCEPTED || to == ApplicationStatus.REJECTED;
             case ACCEPTED, REJECTED -> false;
         };
-    }
-
-    public void updateInterview(LocalDateTime interviewAt, String interviewLocation) {
-        if (this.status != ApplicationStatus.INTERVIEW_PENDING) {
-            throw new ApplicationDomainException.InvalidInterviewStateException();
-        }
-        this.interviewAt = interviewAt;
-        this.interviewLocation = interviewLocation;
-    }
-
-    public void scheduleInterview(LocalDateTime at, String location) {
-        if (at == null) {
-            throw new ApplicationDomainException.InvalidInterviewScheduleException();
-        }
-        if (location == null || location.isBlank()) {
-            throw new ApplicationDomainException.InvalidInterviewScheduleException();
-        }
-        if (this.status != ApplicationStatus.INTERVIEW_PENDING) {
-            throw new ApplicationDomainException.InvalidStatusTransitionException();
-        }
-        this.interviewAt = at;
-        this.interviewLocation = location;
     }
 
     public List<String> getAnswers() {

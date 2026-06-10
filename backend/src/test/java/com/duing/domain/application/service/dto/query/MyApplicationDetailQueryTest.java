@@ -21,36 +21,58 @@ class MyApplicationDetailQueryTest {
     void fromAllPopulatesInterviewProgressionFields() {
         Application application = stubApplication();
         LocalDateTime deadline = LocalDateTime.of(2026, 6, 15, 18, 0);
+        AssignedInterviewQuery interview = new AssignedInterviewQuery(
+                LocalDateTime.of(2026, 6, 20, 18, 0),
+                LocalDateTime.of(2026, 6, 20, 18, 30),
+                "3호관 201호");
 
         MyApplicationDetailQuery detailQuery = MyApplicationDetailQuery.fromAll(
-                application, 3, false, deadline);
+                application, 3, interview, deadline);
 
         assertThat(detailQuery.interviewAvailabilityCount()).isEqualTo(3);
-        assertThat(detailQuery.interviewScheduleAssigned()).isFalse();
+        assertThat(detailQuery.interview()).isEqualTo(interview);
         assertThat(detailQuery.availabilityDeadline()).isEqualTo(deadline);
     }
 
     @Test
-    @DisplayName("from 은 backward compatibility 를 위해 interview 진행 필드를 0/false/null 로 기본화한다")
+    @DisplayName("from 은 backward compatibility 를 위해 interview 진행 필드를 0/null/null 로 기본화한다")
     void fromKeepsBackwardCompatibilityWithDefaultInterviewFields() {
         Application application = stubApplication();
 
         MyApplicationDetailQuery detailQuery = MyApplicationDetailQuery.from(application);
 
         assertThat(detailQuery.interviewAvailabilityCount()).isZero();
-        assertThat(detailQuery.interviewScheduleAssigned()).isFalse();
+        assertThat(detailQuery.interview()).isNull();
         assertThat(detailQuery.availabilityDeadline()).isNull();
     }
 
     @Test
-    @DisplayName("fromAll 은 일정 배정이 완료된 지원의 scheduleAssigned 를 true 로 반환한다")
-    void fromAllMarksScheduleAssignedWhenTrue() {
+    @DisplayName("ASSIGNED InterviewSchedule 에 매핑된 interview 가 있으면 fromAll 은 interview 를 보존한다")
+    void fromAllAssignedInterviewPopulatesInterview() {
+        Application application = stubApplication();
+        AssignedInterviewQuery interview = new AssignedInterviewQuery(
+                LocalDateTime.of(2026, 6, 20, 18, 0),
+                LocalDateTime.of(2026, 6, 20, 18, 30),
+                "3호관 201호");
+
+        MyApplicationDetailQuery detailQuery = MyApplicationDetailQuery.fromAll(
+                application, 2, interview, LocalDateTime.of(2026, 6, 15, 18, 0));
+
+        assertThat(detailQuery.interview()).isNotNull();
+        assertThat(detailQuery.interview().startAt()).isEqualTo(LocalDateTime.of(2026, 6, 20, 18, 0));
+        assertThat(detailQuery.interview().endAt()).isEqualTo(LocalDateTime.of(2026, 6, 20, 18, 30));
+        assertThat(detailQuery.interview().location()).isEqualTo("3호관 201호");
+    }
+
+    @Test
+    @DisplayName("ASSIGNED schedule 이 없는 호출은 interview = null 로 반환된다")
+    void fromAllNoScheduleReturnsNullInterview() {
         Application application = stubApplication();
 
         MyApplicationDetailQuery detailQuery = MyApplicationDetailQuery.fromAll(
-                application, 2, true, LocalDateTime.of(2026, 6, 15, 18, 0));
+                application, 0, null, null);
 
-        assertThat(detailQuery.interviewScheduleAssigned()).isTrue();
+        assertThat(detailQuery.interview()).isNull();
     }
 
     private Application stubApplication() {
@@ -72,8 +94,6 @@ class MyApplicationDetailQueryTest {
         when(application.getRecruitment()).thenReturn(recruitment);
         when(application.getAnswers()).thenReturn(List.of("A1", "A2"));
         when(application.getStatus()).thenReturn(ApplicationStatus.INTERVIEW_PENDING);
-        when(application.getInterviewAt()).thenReturn(LocalDateTime.of(2026, 5, 20, 14, 0));
-        when(application.getInterviewLocation()).thenReturn("본관 301호");
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 15, 9, 30));
         return application;
     }
