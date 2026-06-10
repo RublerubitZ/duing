@@ -3,6 +3,7 @@ package com.duing.domain.interview.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.InterviewScheduleFixture;
 import com.duing.common.fixture.InterviewSlotFixture;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.repository.ApplicationRepository;
@@ -54,7 +55,7 @@ class InterviewScheduleRepositoryTest {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("status=ASSIGNED 이고 slot.startTime 이 윈도 안인 schedule 만 반환된다")
+    @DisplayName("면접 24시간 전 리마인더 윈도에 해당하는 ASSIGNED 배정만 반환되고, 취소되거나 윈도 밖 배정은 제외된다")
     void findAssignedBetween_filtersByStatusAndWindow() {
         LocalDateTime now = LocalDateTime.of(2026, 6, 11, 0, 0);
         LocalDateTime windowStart = now.plusHours(23);
@@ -77,6 +78,25 @@ class InterviewScheduleRepositoryTest {
                 .containsExactly(inWindowAssigned.getId());
     }
 
+    @Test
+    @DisplayName("BETWEEN 윈도 양 끝 경계의 ASSIGNED 배정도 inclusive 로 반환된다")
+    void findAssignedBetween_inclusiveBoundary() {
+        LocalDateTime windowStart = LocalDateTime.of(2026, 6, 11, 23, 0);
+        LocalDateTime windowEnd = LocalDateTime.of(2026, 6, 12, 1, 0);
+
+        Recruitment recruitment = persistOpenRecruitment("경계값");
+
+        InterviewSchedule atStart = persistSchedule(recruitment, windowStart,
+                InterviewScheduleStatus.ASSIGNED);
+        InterviewSchedule atEnd = persistSchedule(recruitment, windowEnd,
+                InterviewScheduleStatus.ASSIGNED);
+
+        List<InterviewSchedule> result = scheduleRepository.findAssignedBetween(windowStart, windowEnd);
+
+        assertThat(result).extracting(InterviewSchedule::getId)
+                .containsExactlyInAnyOrder(atStart.getId(), atEnd.getId());
+    }
+
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────────
 
     private InterviewSchedule persistSchedule(Recruitment recruitment, LocalDateTime slotStartTime,
@@ -84,8 +104,8 @@ class InterviewScheduleRepositoryTest {
         InterviewSlot slot = slotRepository.save(
                 InterviewSlotFixture.create(recruitment.getId(), slotStartTime, 5));
         Application application = persistApplication(recruitment, persistStudent("지원자"));
-        InterviewSchedule schedule = InterviewSchedule.create(
-                application.getId(), slot.getId(), recruitment.getId(), LocalDateTime.now());
+        InterviewSchedule schedule = InterviewScheduleFixture.assigned(
+                application.getId(), slot.getId(), recruitment.getId());
         if (status == InterviewScheduleStatus.CANCELLED) {
             schedule.cancel();
         }

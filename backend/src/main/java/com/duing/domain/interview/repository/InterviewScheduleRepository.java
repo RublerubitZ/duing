@@ -28,6 +28,7 @@ public interface InterviewScheduleRepository
               join InterviewSlot slot on slot.id = s.slotId
              where s.status = com.duing.domain.interview.entity.InterviewScheduleStatus.ASSIGNED
                and slot.startTime between :start and :end
+               and slot.deletedAt is null
             """)
     List<InterviewSchedule> findAssignedBetween(
             @Param("start") LocalDateTime start,
