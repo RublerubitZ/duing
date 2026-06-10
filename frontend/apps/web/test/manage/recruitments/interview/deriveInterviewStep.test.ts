@@ -9,6 +9,7 @@ const baseConfig: InterviewConfig = {
   availabilityDeadline: '2026-06-18T14:00:00Z',
   assignmentCompletedAt: undefined,
   location: undefined,
+  slotLifecyclePhase: 'BEFORE_DEADLINE',
 };
 
 const oneSlot: SlotListView[] = [
