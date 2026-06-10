@@ -126,7 +126,6 @@ export { leaderRecertificationKeys } from './leaderRecertificationQueryKeys';
 export {
   useAdminPromotionListQuery,
   useAdminPromotionDetailQuery,
-  usePublicPromotionsQuery,
   useCreatePromotionMutation,
   useUpdatePromotionMutation,
   useDeletePromotionMutation,

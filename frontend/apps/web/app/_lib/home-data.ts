@@ -1,5 +1,11 @@
 import { createApiClient } from '@duing/api';
 import type { ClubSummary } from '@duing/types';
+import {
+  FALLBACK_BANNERS,
+  fallbackBannerToSlide,
+  promotionToSlide,
+  type CarouselSlide,
+} from './promotion';
 
 function client() {
   return createApiClient({
@@ -43,4 +49,20 @@ export async function fetchUpcomingDeadlineClubs(size: number): Promise<ClubSumm
     logBackendUnavailable('fetchUpcomingDeadlineClubs', error);
     return [];
   }
+}
+
+/**
+ * BannerCarousel 용: 공개 활성 프로모션 슬라이드.
+ * DB 가 비었거나 백엔드 장애 시 정적 폴백 배너를 반환해 홈 레이아웃 깨짐을 방지한다.
+ */
+export async function fetchPublicPromotionSlides(): Promise<CarouselSlide[]> {
+  try {
+    const page = await client().promotions.list();
+    if (page.content.length > 0) {
+      return page.content.map(promotionToSlide);
+    }
+  } catch (error) {
+    logBackendUnavailable('fetchPublicPromotionSlides', error);
+  }
+  return FALLBACK_BANNERS.map(fallbackBannerToSlide);
 }
