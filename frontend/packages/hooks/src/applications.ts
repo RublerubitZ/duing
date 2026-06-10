@@ -6,7 +6,6 @@ import type {
   BulkUpdateApplicationStatusResult,
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
-  UpdateInterviewPayload,
   UpsertApplicationEvaluationPayload,
 } from '@duing/types';
 import { useAuthStore } from '@duing/stores';
@@ -139,31 +138,6 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
       // 일괄 상태 변경도 이웃 순서에 영향을 주므로 neighbors 캐시 전체 무효화.
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantNeighborsAll(),
-      });
-    },
-  });
-}
-
-export function useUpdateInterviewMutation(recruitmentId: number) {
-  const client = useApiClient();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      applicationId,
-      payload,
-    }: {
-      applicationId: number;
-      payload: UpdateInterviewPayload;
-    }) => client.applications.updateInterview(applicationId, payload),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: applicationQueryKeys.applicants(recruitmentId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: applicationQueryKeys.applicantDetail(variables.applicationId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: statsQueryKeys.byRecruitment(recruitmentId),
       });
     },
   });

@@ -33,7 +33,6 @@ export {
   useApplicantDetailQuery,
   useUpdateApplicationStatusMutation,
   useBulkUpdateApplicationStatusMutation,
-  useUpdateInterviewMutation,
   useApplicantNeighborsQuery,
   useUpsertMyApplicationEvaluationMutation,
   useDeleteMyApplicationEvaluationMutation,

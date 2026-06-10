@@ -49,7 +49,6 @@ import type {
   ManagedClub,
   MyApplicationDetail,
   ApplicantDetail,
-  UpdateInterviewPayload,
   RecruitmentDetail,
   RecruitmentSummary,
   UpdateRecruitmentPayload,
@@ -212,7 +211,6 @@ export type DuingApiClient = {
     ): Promise<BulkUpdateApplicationStatusResult>;
     myDetail(applicationId: number): Promise<MyApplicationDetail>;
     detail(applicationId: number): Promise<ApplicantDetail>;
-    updateInterview(applicationId: number, payload: UpdateInterviewPayload): Promise<void>;
     upsertMyApplicationEvaluation(
       applicationId: number,
       payload: UpsertApplicationEvaluationPayload,
@@ -561,10 +559,6 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<MyApplicationDetail>(http.get(`users/me/applications/${applicationId}`)),
       detail: (applicationId) =>
         jsonOk<ApplicantDetail>(http.get(`leader/applications/${applicationId}`)),
-      updateInterview: (applicationId, payload) =>
-        jsonVoid(
-          http.patch(`leader/applications/${applicationId}/interview`, { json: payload }),
-        ),
       upsertMyApplicationEvaluation: (applicationId, payload) =>
         jsonVoid(
           http.put(`leader/applications/${applicationId}/evaluations/me`, { json: payload }),
