@@ -142,14 +142,19 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     @Override
     @Transactional
     public void delete(Long slotId, Long actorUserId) {
-        InterviewSlot slot = slotRepository.findByIdForUpdate(slotId)
+        // recruitmentId 만 얻기 위한 사전 조회 (lock 없음)
+        InterviewSlot slotPeek = slotRepository.findById(slotId)
                 .orElseThrow(InterviewException.SlotNotFound::new);
-        Recruitment recruitment = recruitmentRepository.findById(slot.getRecruitmentId())
+        Recruitment recruitment = recruitmentRepository.findById(slotPeek.getRecruitmentId())
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(actorUserId, recruitment.getClub().getId());
 
-        InterviewConfig config = configRepository.findByRecruitmentId(slot.getRecruitmentId())
+        // update 와 동일하게 interview_config → slot 순서로 lock (deadlock 회피).
+        // config 를 먼저 락해 phase 전환(markAssignmentCompleted)과 직렬화한다.
+        InterviewConfig config = configRepository.findByRecruitmentIdForUpdate(slotPeek.getRecruitmentId())
                 .orElseThrow(InterviewException.InterviewConfigNotFound::new);
+        InterviewSlot slot = slotRepository.findByIdForUpdate(slotId)
+                .orElseThrow(InterviewException.SlotNotFound::new);
 
         int availabilityCount = Math.toIntExact(availabilityRepository.countBySlotId(slotId));
         LocalDateTime now = LocalDateTime.now();

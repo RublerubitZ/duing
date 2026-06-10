@@ -185,7 +185,7 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
         InterviewConfig phase3Config = configRepository.save(
                 InterviewConfig.create(phase3Recruitment.getId(), LocalDateTime.now().plusDays(7)));
         phase3Config.markAssignmentCompleted(LocalDateTime.now());
-        configRepository.save(phase3Config);
+        configRepository.saveAndFlush(phase3Config);
         String phase3LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
 
         LocalDateTime base = LocalDateTime.now().plusDays(5);
@@ -380,6 +380,30 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("phase 2(마감 후 자동배정 전) + 빈 슬롯의 capacity 만 수정은 204 를 반환한다")
+    void updateSlotCapacityOnlySucceedsWhenPhase2EmptySlot() {
+        Club club = clubRepository.save(Club.create("phase2빈슬롯수정동아리", ClubCategory.ACADEMIC, null, "설명", null));
+        User leader = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment phase2Recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "phase2 빈 슬롯 모집", "내용",
+                        LocalDate.now().plusDays(1), LocalDate.now().plusDays(30), 10));
+        // phase 2: 마감일이 이미 지남, 자동배정 미완료
+        configRepository.save(InterviewConfig.create(phase2Recruitment.getId(), LocalDateTime.now().minusHours(1)));
+        String phase2LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(phase2Recruitment.getId(), base, 5));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + phase2LeaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("capacity", 8))
+                .when().patch("/api/v1/interview-slots/" + slot.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
     @DisplayName("phase 3(자동배정 완료) 에서 빈 슬롯 수정은 409 SlotModificationNotAllowedInCurrentPhase 가 반환된다")
     void updateSlotReturns409WhenPhase3() {
         Club club = clubRepository.save(Club.create("phase3수정동아리", ClubCategory.ACADEMIC, null, "설명", null));
@@ -391,7 +415,7 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
         InterviewConfig phase3Config = configRepository.save(
                 InterviewConfig.create(phase3Recruitment.getId(), LocalDateTime.now().plusDays(7)));
         phase3Config.markAssignmentCompleted(LocalDateTime.now());
-        configRepository.save(phase3Config);
+        configRepository.saveAndFlush(phase3Config);
         String phase3LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
 
         LocalDateTime base = LocalDateTime.now().plusDays(5);
@@ -473,7 +497,7 @@ class ManagerInterviewSlotControllerTest extends IntegrationTestBase {
         InterviewConfig phase3Config = configRepository.save(
                 InterviewConfig.create(phase3Recruitment.getId(), LocalDateTime.now().plusDays(7)));
         phase3Config.markAssignmentCompleted(LocalDateTime.now());
-        configRepository.save(phase3Config);
+        configRepository.saveAndFlush(phase3Config);
         String phase3LeaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
 
         LocalDateTime base = LocalDateTime.now().plusDays(5);

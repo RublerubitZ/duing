@@ -357,6 +357,30 @@ class InterviewSlotServiceTest {
     }
 
     @Test
+    @DisplayName("phase 2(마감 후 자동배정 전) 의 빈 슬롯은 capacity 만 수정이 허용된다")
+    void allowsCapacityOnlyUpdateWhenPhase2EmptySlot() {
+        Club club = saveActiveClub("수정테스트동아리B5");
+        User leader = saveUser();
+        saveLeaderMembership(club, leader);
+        Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
+        // phase 2: 마감일이 이미 지남, 자동배정 미완료
+        configRepository.save(InterviewConfig.create(recruitment.getId(), LocalDateTime.now().minusHours(1)));
+
+        LocalDateTime base = LocalDateTime.now().plusDays(5);
+        InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
+        entityManager.flush();
+        entityManager.clear();
+
+        interviewSlotService.update(new UpdateInterviewSlotCommand(
+                slot.getId(), leader.getId(), null, null, 8));
+
+        entityManager.flush();
+        entityManager.clear();
+        InterviewSlot updated = slotRepository.findById(slot.getId()).orElseThrow();
+        assertThat(updated.getCapacity()).isEqualTo(8);
+    }
+
+    @Test
     @DisplayName("phase 3(자동배정 완료) 에서는 빈 슬롯이라도 수정이 409 SlotModificationNotAllowedInCurrentPhase 로 차단된다")
     void throwsModificationNotAllowedWhenPhase3() {
         Club club = saveActiveClub("수정테스트동아리B4");
@@ -365,6 +389,8 @@ class InterviewSlotServiceTest {
         Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
         InterviewConfig config = saveInterviewConfig(recruitment);
         config.markAssignmentCompleted(LocalDateTime.now());
+        entityManager.flush();
+        entityManager.clear();
 
         LocalDateTime base = LocalDateTime.now().plusDays(5);
         InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
@@ -496,6 +522,8 @@ class InterviewSlotServiceTest {
         Recruitment recruitment = saveRecruitment(club, LocalDate.now().plusDays(1), LocalDate.now().plusDays(30));
         InterviewConfig config = saveInterviewConfig(recruitment);
         config.markAssignmentCompleted(LocalDateTime.now());
+        entityManager.flush();
+        entityManager.clear();
 
         LocalDateTime base = LocalDateTime.now().plusDays(5);
         InterviewSlot slot = slotRepository.save(InterviewSlotFixture.create(recruitment.getId(), base, 5));
