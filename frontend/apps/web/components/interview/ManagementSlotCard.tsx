@@ -1,6 +1,7 @@
 'use client';
 
 import type { InterviewSlotLifecyclePhase, ManagementSlotView } from '@duing/types';
+
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
 
 // 운영진용 슬롯 카드 — Step 2 (SlotSection) 와 Step 4 (ScheduleManagementSection) 가 공용으로 사용.
@@ -102,7 +103,7 @@ export function ManagementSlotCard({
         </p>
       )}
 
-      {!canDelete && deleteDisabledReason && (
+      {onDeleteSlot && !canDelete && deleteDisabledReason && (
         <p className="mt-1 text-xs text-slate-500">{deleteDisabledReason}</p>
       )}
 

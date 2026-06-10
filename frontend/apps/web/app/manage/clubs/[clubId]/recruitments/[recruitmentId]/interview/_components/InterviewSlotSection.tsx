@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+
 import { ApiError } from '@duing/api';
 import {
   useCreateInterviewSlotsMutation,
@@ -11,10 +12,13 @@ import type {
   ManagementSlotView,
   SlotListView,
 } from '@duing/types';
+
 import { ManagementSlotCard } from '@/components/interview/ManagementSlotCard';
+
+import type { SlotEntry } from '../_utils/generateSlotsFromPattern';
+
 import { SlotPatternForm } from './SlotPatternForm';
 import { SlotPreviewList } from './SlotPreviewList';
-import type { SlotEntry } from '../_utils/generateSlotsFromPattern';
 
 // Step 2 — 슬롯 관리 섹션.
 // 1) 패턴 입력 → 미리보기(저장 전, 클라이언트 state)

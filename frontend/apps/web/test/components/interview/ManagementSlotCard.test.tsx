@@ -122,4 +122,22 @@ describe('ManagementSlotCard — phase × availabilityCount 매트릭스', () =>
 
     expect(screen.queryByRole('button', { name: '슬롯 삭제' })).not.toBeInTheDocument();
   });
+
+  it('onDeleteSlot 미전달 시 삭제 안내가 렌더되지 않는다 (ScheduleManagementSection 슬롯별 보기)', () => {
+    // Step 4 슬롯별 보기는 onDeleteSlot 을 넘기지 않으므로 phase 3 라도
+    // "자동배정이 완료되어 슬롯을 삭제할 수 없습니다." 안내가 노출되어선 안 된다.
+    render(
+      <ManagementSlotCard
+        slot={baseSlot}
+        slotLifecyclePhase="AFTER_ASSIGNMENT"
+      />,
+    );
+
+    expect(
+      screen.queryByText(/자동배정이 완료되어 슬롯을 삭제할 수 없습니다\./),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/지원자 .*명이 선택한 슬롯입니다\. 삭제할 수 없습니다\./),
+    ).not.toBeInTheDocument();
+  });
 });
