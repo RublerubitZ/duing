@@ -146,8 +146,8 @@ export function ApplicantTable({
                 </td>
                 {useInterview && (
                   <td className="px-4 py-3 text-slate-600">
-                    {applicant.interviewAt
-                      ? new Date(applicant.interviewAt).toLocaleString('ko-KR')
+                    {applicant.interviewStartAt
+                      ? new Date(applicant.interviewStartAt).toLocaleString('ko-KR')
                       : '—'}
                   </td>
                 )}

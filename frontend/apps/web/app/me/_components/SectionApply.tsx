@@ -36,15 +36,15 @@ const formatDate = (iso: string) =>
   });
 
 const statusNote = (app: ApplicationSummary): string => {
-  if (app.status === 'INTERVIEW_PENDING' && app.interviewAt) {
-    const at = new Date(app.interviewAt).toLocaleString('ko-KR', {
+  if (app.status === 'INTERVIEW_PENDING' && app.interview) {
+    const at = new Date(app.interview.startAt).toLocaleString('ko-KR', {
       month: 'numeric',
       day: 'numeric',
       weekday: 'short',
       hour: '2-digit',
       minute: '2-digit',
     });
-    return `면접: ${at}${app.interviewLocation ? ` — ${app.interviewLocation}` : ''}`;
+    return `면접: ${at} — ${app.interview.location}`;
   }
   if (app.status === 'UNDER_REVIEW') return '동아리에서 검토 중입니다';
   return '지원서 작성 완료';
@@ -165,7 +165,7 @@ export function SectionApply({ applications }: Props) {
                     })}
                   </div>
                   <div className="text-[12px] text-charcoal-3 font-mono">
-                    {app.interviewAt ? `면접: ${formatDate(app.interviewAt)}` : formatDate(app.submittedAt)}
+                    {app.interview ? `면접: ${formatDate(app.interview.startAt)}` : formatDate(app.submittedAt)}
                   </div>
                 </div>
 

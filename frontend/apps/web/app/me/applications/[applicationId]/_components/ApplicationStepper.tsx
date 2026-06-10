@@ -7,15 +7,15 @@ import { deriveStepperSubState, type StepperSubState } from '../_utils/deriveSte
 // 5단계 메인 진행 막대:
 //   1. 지원 완료           — status == SUBMITTED
 //   2. 서류 검토 중        — status == UNDER_REVIEW
-//   3. 면접 대상           — status == INTERVIEW_PENDING && !interviewScheduleAssigned
-//   4. 면접 일정 배정 완료 — status == INTERVIEW_PENDING && interviewScheduleAssigned
+//   3. 면접 대상           — status == INTERVIEW_PENDING && interview == null
+//   4. 면접 일정 배정 완료 — status == INTERVIEW_PENDING && interview != null
 //   5. 최종 합격 / 최종 불합격 — status == ACCEPTED / REJECTED
 //
 // Step 3 활성 시 진행 막대는 그대로 두고 sub-state 안내 문구만 분기 (deriveStepperSubState 참조).
 
 type StepperDetail = Pick<
   MyApplicationDetail,
-  'status' | 'interviewAvailabilityCount' | 'interviewScheduleAssigned' | 'availabilityDeadline'
+  'status' | 'interviewAvailabilityCount' | 'interview' | 'availabilityDeadline'
 >;
 
 type Props = {
@@ -61,7 +61,7 @@ function resolveActiveStepIndex(detail: StepperDetail): number {
     case 'UNDER_REVIEW':
       return 1;
     case 'INTERVIEW_PENDING':
-      return detail.interviewScheduleAssigned ? 3 : 2;
+      return detail.interview !== null ? 3 : 2;
     case 'ACCEPTED':
     case 'REJECTED':
       return 4;
@@ -86,8 +86,8 @@ export function ApplicationStepper({ detail, now }: Props) {
   const isFinalReject = detail.status === 'REJECTED';
 
   // activeIndex === 2 (Step 3 활성) 시점에 한해서만 sub-state 를 계산한다.
-  // 이 가드가 `!interviewScheduleAssigned` 를 이미 보장하므로 util signature 에는
-  // interviewScheduleAssigned 를 전달하지 않는다.
+  // 이 가드가 `interview == null` 을 이미 보장하므로 util signature 에는
+  // interview 를 전달하지 않는다.
   const subState: StepperSubState | null =
     activeIndex === 2
       ? deriveStepperSubState({
