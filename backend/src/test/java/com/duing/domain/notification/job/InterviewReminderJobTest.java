@@ -2,32 +2,42 @@ package com.duing.domain.notification.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.duing.common.IntegrationTestBase;
+import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.InterviewConfigFixture;
+import com.duing.common.fixture.InterviewScheduleFixture;
+import com.duing.common.fixture.InterviewSlotFixture;
 import com.duing.domain.application.entity.Application;
-import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
+import com.duing.domain.interview.repository.InterviewSlotRepository;
+import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
-import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
+import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.duing.common.IntegrationTestBase;
-import com.duing.common.TestcontainersConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
@@ -51,6 +61,15 @@ class InterviewReminderJobTest extends IntegrationTestBase {
     private ApplicationRepository applicationRepository;
 
     @Autowired
+    private InterviewConfigRepository interviewConfigRepository;
+
+    @Autowired
+    private InterviewSlotRepository interviewSlotRepository;
+
+    @Autowired
+    private InterviewScheduleRepository interviewScheduleRepository;
+
+    @Autowired
     private NotificationRepository notificationRepository;
 
     @Autowired
@@ -59,17 +78,17 @@ class InterviewReminderJobTest extends IntegrationTestBase {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("interviewAt 이 23h~25h 윈도 안인 지원에만 INTERVIEW_REMINDER 가 생성된다")
-    void onlyWindowApplicationGetsReminder() throws Exception {
+    @DisplayName("ASSIGNED 상태이고 slot.startTime 이 23h~25h 윈도 안인 InterviewSchedule 만 INTERVIEW_REMINDER 가 생성된다")
+    void interviewReminder_createdForAssignedSchedulesInWindow() throws Exception {
         // 잡과 동일한 Clock(Asia/Seoul) 을 사용해 CI TZ 와 무관하게 윈도 계산이 일치하도록 한다.
         LocalDateTime now = LocalDateTime.now(clock);
 
-        // 윈도 중심: now+24h (대상)
-        Application centerApplication = saveInterviewPendingApplication(now.plusHours(24), "윈도중심지원자");
-        // 윈도 직전: now+22h (제외)
-        Application beforeApplication = saveInterviewPendingApplication(now.plusHours(22), "윈도직전지원자");
-        // 윈도 직후: now+26h (제외)
-        Application afterApplication = saveInterviewPendingApplication(now.plusHours(26), "윈도직후지원자");
+        // 윈도 안 + ASSIGNED → 대상
+        InterviewSchedule inWindowAssigned = fixtureAssignedSchedule(now.plusHours(24), "윈도중심");
+        // 윈도 밖 + ASSIGNED → 제외
+        fixtureAssignedSchedule(now.plusHours(48), "윈도밖");
+        // 윈도 안 + CANCELLED → 상태 제외 (COMPLETED 부재 → CANCELLED 로 의미 동일하게)
+        fixtureCancelledSchedule(now.plusHours(24), "취소됨");
 
         long beforeCount = notificationRepository.count();
         job.run();
@@ -77,21 +96,24 @@ class InterviewReminderJobTest extends IntegrationTestBase {
 
         assertThat(afterCount - beforeCount).isEqualTo(1);
 
-        boolean hasReminderForCenter = notificationRepository.findAll().stream()
-                .anyMatch(n ->
-                        n.getUserId().equals(centerApplication.getUser().getId())
-                                && n.getType() == NotificationType.INTERVIEW_REMINDER
-                                && n.getDedupKey().startsWith("INTERVIEW_REMINDER:a=" + centerApplication.getId())
-                );
-        assertThat(hasReminderForCenter).isTrue();
+        InterviewSlot inWindowSlot = interviewSlotRepository.findById(inWindowAssigned.getSlotId())
+                .orElseThrow();
+        String expectedDedupKey = "INTERVIEW_REMINDER:a=" + inWindowAssigned.getApplicationId()
+                + ":t=" + inWindowSlot.getStartTime().toString();
+
+        List<Notification> created = notificationRepository.findAll();
+        assertThat(created).hasSize(1);
+        assertThat(created.get(0).getType()).isEqualTo(NotificationType.INTERVIEW_REMINDER);
+        assertThat(created.get(0).getDedupKey()).isEqualTo(expectedDedupKey);
     }
 
     @Test
-    @DisplayName("잡을 두 번 실행해도 INTERVIEW_REMINDER row 수가 동일하다 (멱등)")
-    void idempotentReminderJob() throws Exception {
+    @DisplayName("같은 dedup_key 로 한 번만 INTERVIEW_REMINDER 가 생성된다 (잡 재실행 idempotent)")
+    void interviewReminder_idempotentOnReRun() throws Exception {
         // 잡과 동일한 Clock(Asia/Seoul) 을 사용해 CI TZ 와 무관하게 윈도 계산이 일치하도록 한다.
         LocalDateTime now = LocalDateTime.now(clock);
-        saveInterviewPendingApplication(now.plusHours(24), "멱등검증지원자");
+
+        fixtureAssignedSchedule(now.plusHours(24), "멱등검증");
 
         long beforeCount = notificationRepository.count();
         job.run();
@@ -103,28 +125,40 @@ class InterviewReminderJobTest extends IntegrationTestBase {
         assertThat(afterSecondRun).isEqualTo(afterFirstRun);
     }
 
-    private Application saveInterviewPendingApplication(LocalDateTime interviewAt, String applicantName)
+    // ── Fixture 헬퍼 ─────────────────────────────────────────────────────────────
+
+    private InterviewSchedule fixtureAssignedSchedule(LocalDateTime slotStartTime, String label) throws Exception {
+        return persistSchedule(slotStartTime, label, false);
+    }
+
+    private InterviewSchedule fixtureCancelledSchedule(LocalDateTime slotStartTime, String label) throws Exception {
+        return persistSchedule(slotStartTime, label, true);
+    }
+
+    private InterviewSchedule persistSchedule(LocalDateTime slotStartTime, String label, boolean cancelled)
             throws Exception {
-        User applicant = saveStudent(applicantName);
-        Club club = saveActiveClub("면접동아리");
+        User applicant = saveStudent("지원자" + label);
+        Club club = saveActiveClub("면접동아리" + label);
         Recruitment recruitment = saveRecruitment(club);
 
-        Application application = Application.submit(recruitment, applicant, java.util.List.of());
+        // 자동배정 윈도 기준일 무관 — Reminder Job 은 InterviewConfig 의 location 만 사용한다.
+        InterviewConfig config = InterviewConfigFixture.create(
+                recruitment.getId(), LocalDateTime.now(clock).plusDays(30));
+        config.updateLocation("공학관 101호");
+        interviewConfigRepository.save(config);
 
-        // status → INTERVIEW_PENDING, interviewAt 설정
-        Field statusField = Application.class.getDeclaredField("status");
-        statusField.setAccessible(true);
-        statusField.set(application, ApplicationStatus.INTERVIEW_PENDING);
+        InterviewSlot slot = interviewSlotRepository.save(
+                InterviewSlotFixture.create(recruitment.getId(), slotStartTime, 5));
 
-        Field interviewAtField = Application.class.getDeclaredField("interviewAt");
-        interviewAtField.setAccessible(true);
-        interviewAtField.set(application, interviewAt);
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of()));
 
-        Field interviewLocationField = Application.class.getDeclaredField("interviewLocation");
-        interviewLocationField.setAccessible(true);
-        interviewLocationField.set(application, "공학관 101호");
-
-        return applicationRepository.save(application);
+        InterviewSchedule schedule = InterviewScheduleFixture.assigned(
+                application.getId(), slot.getId(), recruitment.getId());
+        if (cancelled) {
+            schedule.cancel();
+        }
+        return interviewScheduleRepository.save(schedule);
     }
 
     private User saveStudent(String name) {
@@ -139,7 +173,7 @@ class InterviewReminderJobTest extends IntegrationTestBase {
                 College.IT_ENGINEERING,
                 "미설정",
                 "010-0000-0000",
-                java.time.LocalDateTime.now()
+                LocalDateTime.now()
         );
         return userRepository.save(user);
     }
@@ -155,7 +189,8 @@ class InterviewReminderJobTest extends IntegrationTestBase {
 
     private Recruitment saveRecruitment(Club club) {
         LocalDate today = LocalDate.now();
-        Recruitment recruitment = Recruitment.create(club, "면접모집", null, today, today.plusDays(30), 10);
+        Recruitment recruitment = Recruitment.create(club, "면접모집-" + sequence.getAndIncrement(),
+                null, today, today.plusDays(30), 10);
         return recruitmentRepository.save(recruitment);
     }
 }
