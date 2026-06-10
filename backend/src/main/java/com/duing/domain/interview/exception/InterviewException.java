@@ -85,6 +85,28 @@ public class InterviewException extends ApplicationException {
         public CapacityExceeded() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
 
+    // ── 409 슬롯 lifecycle (phase 정책) ────────────────────────────────────────
+
+    public static final class SlotCreationNotAllowedInCurrentPhase extends InterviewException {
+        private static final String MESSAGE = "현재 단계에서는 슬롯을 추가할 수 없습니다. 자동배정이 이미 완료되었습니다.";
+        public SlotCreationNotAllowedInCurrentPhase() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static final class SlotModificationNotAllowedInCurrentPhase extends InterviewException {
+        private static final String MESSAGE = "현재 단계에서는 이 슬롯을 수정할 수 없습니다.";
+        public SlotModificationNotAllowedInCurrentPhase() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static final class SlotDeletionNotAllowedInCurrentPhase extends InterviewException {
+        private static final String MESSAGE = "지원자가 선택한 슬롯이거나 자동배정이 완료되어 삭제할 수 없습니다.";
+        public SlotDeletionNotAllowedInCurrentPhase() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static final class SlotTimeChangeForbiddenForSelectedSlot extends InterviewException {
+        private static final String MESSAGE = "지원자가 선택한 슬롯의 시간은 변경할 수 없습니다. 정원만 변경할 수 있습니다.";
+        public SlotTimeChangeForbiddenForSelectedSlot() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
     // ── 409 race ──────────────────────────────────────────────────────────────
 
     public static final class AvailabilityConflict extends InterviewException {
