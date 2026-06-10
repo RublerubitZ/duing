@@ -36,4 +36,19 @@ class S3StoragePropertiesTest {
 
         assertThat(properties.publicBaseUrl()).isEqualTo("https://files.duing.app");
     }
+
+    @Test
+    @DisplayName("publicBaseUrl 끝에 슬래시가 여러 개 있어도 모두 제거되어 보관된다")
+    void normalizesMultipleTrailingSlashes() {
+        S3StorageProperties properties = new S3StorageProperties(
+                "https://example.com",
+                "auto",
+                "ak",
+                "sk",
+                "duing",
+                "https://files.duing.app///"
+        );
+
+        assertThat(properties.publicBaseUrl()).isEqualTo("https://files.duing.app");
+    }
 }

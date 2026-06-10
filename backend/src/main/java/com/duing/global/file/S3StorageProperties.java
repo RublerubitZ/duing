@@ -33,6 +33,10 @@ public record S3StorageProperties(
         if (url == null || url.isBlank()) {
             return url;
         }
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+        String result = url;
+        while (result.endsWith("/")) {
+            result = result.substring(0, result.length() - 1);
+        }
+        return result;
     }
 }
