@@ -75,17 +75,6 @@ class MyApplicationDetailQueryTest {
         assertThat(detailQuery.interview()).isNull();
     }
 
-    @Test
-    @DisplayName("CANCELLED schedule 만 존재해 호출자가 null 을 전달하면 interview 응답은 null 이다")
-    void fromAllCancelledScheduleReturnsNullInterview() {
-        Application application = stubApplication();
-
-        MyApplicationDetailQuery detailQuery = MyApplicationDetailQuery.fromAll(
-                application, 1, null, LocalDateTime.of(2026, 6, 15, 18, 0));
-
-        assertThat(detailQuery.interview()).isNull();
-    }
-
     private Application stubApplication() {
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(7L);

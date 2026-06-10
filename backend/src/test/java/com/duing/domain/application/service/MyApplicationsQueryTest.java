@@ -1,6 +1,7 @@
 package com.duing.domain.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -86,6 +87,8 @@ class MyApplicationsQueryTest {
 
         when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))
                 .thenReturn(List.of(application));
+        when(interviewScheduleRepository.findByApplicationIdIn(anyList()))
+                .thenReturn(List.of());
 
         List<ApplicationSummaryQuery> summaries = applicationService.getMyApplications(99L, ApplicationScope.ALL.toStatuses());
 
@@ -118,6 +121,8 @@ class MyApplicationsQueryTest {
 
         when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))
                 .thenReturn(List.of(application));
+        when(interviewScheduleRepository.findByApplicationIdIn(anyList()))
+                .thenReturn(List.of());
 
         List<ApplicationSummaryQuery> summaries = applicationService.getMyApplications(99L, ApplicationScope.ALL.toStatuses());
 

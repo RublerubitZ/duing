@@ -51,6 +51,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -496,7 +497,7 @@ public class GeneralApplicationService implements ApplicationService {
                 interviewConfigRepository.findByRecruitmentIdIn(recruitmentIds).stream()
                         .collect(Collectors.toMap(InterviewConfig::getRecruitmentId, Function.identity()));
 
-        Map<Long, AssignedInterviewQuery> result = new java.util.HashMap<>();
+        Map<Long, AssignedInterviewQuery> result = new HashMap<>();
         for (InterviewSchedule schedule : assignedSchedules) {
             InterviewSlot slot = slotById.get(schedule.getSlotId());
             InterviewConfig config = configByRecruitmentId.get(schedule.getRecruitmentId());

@@ -100,22 +100,10 @@ class ApplicantDetailQueryTest {
     }
 
     @Test
-    @DisplayName("ASSIGNED schedule 이 없으면 호출자가 null 을 전달해 interview = null 이 된다")
+    @DisplayName("ASSIGNED schedule 이 없으면 interview 필드는 null 로 응답된다")
     void noScheduleResultsInNullInterview() {
         Application application = stubApplication();
 
-        ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
-                application, List.of(), List.of(), null, List.of(), null, null);
-
-        assertThat(detailQuery.interview()).isNull();
-    }
-
-    @Test
-    @DisplayName("CANCELLED schedule 만 존재해 호출자가 null 을 전달하면 interview 응답은 null 이다")
-    void cancelledScheduleResultsInNullInterview() {
-        Application application = stubApplication();
-
-        // 서비스 레이어가 CANCELLED 를 ASSIGNED 외 status 로 필터링한 뒤 null 을 전달하는 시나리오
         ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
                 application, List.of(), List.of(), null, List.of(), null, null);
 
