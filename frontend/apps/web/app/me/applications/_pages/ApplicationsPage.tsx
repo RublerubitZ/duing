@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 
 import { useMyApplicationsQuery, useMyApplicationDetailQuery } from '@duing/hooks';
-import type { ApplicationSummary, ApplicationStatus, ClubCategory } from '@duing/types';
+import type { ApplicationSummary, ApplicationStatus, AssignedInterview, ClubCategory } from '@duing/types';
 
 import { ExploreNav } from '@/app/_components/ExploreNav';
 
@@ -28,11 +28,11 @@ const CATEGORY_LABELS: Record<ClubCategory, string> = {
   OTHER:     '기타',
 };
 
-function toAppStatus(status: ApplicationStatus, interviewAt: string | null): AppStatus {
+function toAppStatus(status: ApplicationStatus, interview: AssignedInterview | null): AppStatus {
   switch (status) {
     case 'SUBMITTED':         return 'applied';
     case 'UNDER_REVIEW':      return 'doc-review';
-    case 'INTERVIEW_PENDING': return interviewAt ? 'interview-scheduled' : 'interview-pending';
+    case 'INTERVIEW_PENDING': return interview ? 'interview-scheduled' : 'interview-pending';
     case 'ACCEPTED':          return 'passed';
     case 'REJECTED':          return 'failed';
   }
@@ -56,12 +56,13 @@ function deriveSteps(status: ApplicationStatus): Step[] {
   ];
 }
 
-function deriveRight(status: ApplicationStatus, interviewAt: string | null, interviewLocation: string | null) {
-  if (status === 'INTERVIEW_PENDING' && interviewAt) {
-    const interviewDate = new Date(interviewAt);
+function deriveRight(status: ApplicationStatus, interview: AssignedInterview | null) {
+  if (status === 'INTERVIEW_PENDING' && interview) {
+    const interviewDate = new Date(interview.startAt);
     const dateStr = `${interviewDate.getFullYear()}.${String(interviewDate.getMonth() + 1).padStart(2, '0')}.${String(interviewDate.getDate()).padStart(2, '0')}`;
     const timeStr = `${String(interviewDate.getHours()).padStart(2, '0')}:${String(interviewDate.getMinutes()).padStart(2, '0')}`;
-    return { eyebrow: '면접일', value: dateStr, sub: `${timeStr}${interviewLocation ? ` · ${interviewLocation}` : ''}` };
+    const sub = interview.location ? `${timeStr} · ${interview.location}` : timeStr;
+    return { eyebrow: '면접일', value: dateStr, sub };
   }
   if (status === 'ACCEPTED') {
     return { eyebrow: '합격', value: '최종 합격' };
@@ -103,8 +104,8 @@ function toApp(summary: ApplicationSummary): App {
     files: [],
     memo: '',
     steps: deriveSteps(summary.status),
-    status: toAppStatus(summary.status, summary.interviewAt),
-    right: deriveRight(summary.status, summary.interviewAt, summary.interviewLocation),
+    status: toAppStatus(summary.status, summary.interview),
+    right: deriveRight(summary.status, summary.interview),
     logo: toLogo(summary.logoUrl, summary.clubName),
   };
 }

@@ -719,26 +719,6 @@ export interface paths {
         patch: operations["updateStatus"];
         trace?: never;
     };
-    "/api/v1/leader/applications/{applicationId}/interview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * 면접 일시·장소 입력
-         * @description INTERVIEW_PENDING 상태인 지원서에 면접 일시와 장소를 입력한다. 그 외 상태에서 호출하면 409.
-         */
-        patch: operations["updateInterview"];
-        trace?: never;
-    };
     "/api/v1/leader/applications/bulk-status": {
         parameters: {
             query?: never;
@@ -2204,11 +2184,6 @@ export interface components {
             /** @enum {string} */
             status: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
         };
-        UpdateApplicationInterviewRequest: {
-            /** Format: date-time */
-            interviewAt: string;
-            interviewLocation: string;
-        };
         BulkUpdateApplicationStatusRequest: {
             applicationIds: number[];
             /** @enum {string} */
@@ -2505,9 +2480,13 @@ export interface components {
             logoUrl?: string;
             /** @enum {string} */
             status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
-            /** Format: date-time */
-            interviewAt?: string;
-            interviewLocation?: string;
+            interview?: {
+                /** Format: date-time */
+                startAt: string;
+                /** Format: date-time */
+                endAt: string;
+                location: string | null;
+            } | null;
             /** Format: date-time */
             submittedAt?: string;
         };
@@ -2529,14 +2508,17 @@ export interface components {
             answers?: string[];
             /** @enum {string} */
             status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
-            /** Format: date-time */
-            interviewAt?: string;
-            interviewLocation?: string;
+            interview?: {
+                /** Format: date-time */
+                startAt: string;
+                /** Format: date-time */
+                endAt: string;
+                location: string | null;
+            } | null;
             /** Format: date-time */
             submittedAt?: string;
             /** Format: int32 */
             interviewAvailabilityCount?: number;
-            interviewScheduleAssigned?: boolean;
             /** Format: date-time */
             availabilityDeadline?: string;
         };
@@ -3019,7 +3001,7 @@ export interface components {
             /** Format: date-time */
             submittedAt?: string;
             /** Format: date-time */
-            interviewAt?: string;
+            interviewStartAt?: string | null;
             /** Format: int32 */
             myScore?: number;
         };
@@ -3067,9 +3049,13 @@ export interface components {
             answers?: components["schemas"]["QuestionAnswer"][];
             /** @enum {string} */
             status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
-            /** Format: date-time */
-            interviewAt?: string;
-            interviewLocation?: string;
+            interview?: {
+                /** Format: date-time */
+                startAt: string;
+                /** Format: date-time */
+                endAt: string;
+                location: string | null;
+            } | null;
             /** Format: date-time */
             submittedAt?: string;
             statusHistory?: components["schemas"]["StatusHistoryItem"][];
@@ -5139,32 +5125,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateApplicationStatusRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
-                };
-            };
-        };
-    };
-    updateInterview: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                applicationId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateApplicationInterviewRequest"];
             };
         };
         responses: {

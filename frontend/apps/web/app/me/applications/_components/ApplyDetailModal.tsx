@@ -137,7 +137,7 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
 
         <div style={{ padding: '0 20px 60px', overflowY: 'auto' }}>
           {/* 전체 funnel stepper — Spec P0-1.
-              detail 도착 후에만 마운트하여 status/interviewScheduleAssigned 가 확정된 상태로 렌더한다.
+              detail 도착 후에만 마운트하여 status/interview 가 확정된 상태로 렌더한다.
               `now` 는 호출 시점에 결정되며 모달이 client 트리 안에 있어 결정성 이슈가 없다. */}
           {detail && (
             <div style={{ marginBottom: 16 }}>

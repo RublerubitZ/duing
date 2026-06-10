@@ -26,6 +26,13 @@ export function isApplicationStatus(value: unknown): value is ApplicationStatus 
 
 export type ApplicationScope = 'ALL' | 'ACTIVE' | 'ARCHIVED';
 
+export type AssignedInterview = {
+  startAt: string;
+  endAt: string;
+  // nullable — BE interview-config.location 미설정 (=null) 시 그대로 전달된다.
+  location: string | null;
+};
+
 export type ApplicationSummary = {
   id: number;
   recruitmentId: number;
@@ -35,8 +42,7 @@ export type ApplicationSummary = {
   category: ClubCategory;
   logoUrl: string | null;
   status: ApplicationStatus;
-  interviewAt: string | null;
-  interviewLocation: string | null;
+  interview: AssignedInterview | null;
   submittedAt: string; // ISO datetime
 };
 
@@ -49,14 +55,11 @@ export type MyApplicationDetail = {
   questions: string[];
   answers: string[];
   status: ApplicationStatus;
-  interviewAt: string | null;
-  interviewLocation: string | null;
+  interview: AssignedInterview | null;
   submittedAt: string;
-  // 면접 진행 필드 (Spec P0-1) — useInterview=false 모집은 count=0, scheduleAssigned=false,
-  // availabilityDeadline=null 로 응답한다. CANCELLED 상태의 schedule 은 미배정으로 취급되어
-  // scheduleAssigned=false 가 된다.
+  // 면접 진행 필드 (Spec P0-1) — useInterview=false 모집은 count=0,
+  // availabilityDeadline=null 로 응답한다.
   interviewAvailabilityCount: number;
-  interviewScheduleAssigned: boolean;
   availabilityDeadline: string | null;
 };
 
@@ -72,7 +75,7 @@ export type Applicant = {
   answers: string[];
   status: ApplicationStatus;
   submittedAt: string;
-  interviewAt: string | null;
+  interviewStartAt: string | null;
   myScore: number | null;
 };
 
@@ -154,8 +157,7 @@ export type ApplicantDetail = {
   };
   answers: { question: string; answer: string }[];
   status: ApplicationStatus;
-  interviewAt: string | null;
-  interviewLocation: string | null;
+  interview: AssignedInterview | null;
   submittedAt: string;
   myEvaluation: ApplicationEvaluation | null;
   otherEvaluations: ApplicationEvaluation[];
@@ -164,9 +166,4 @@ export type ApplicantDetail = {
   // assignedSlot=null. AvailabilityItem 은 capacity/assignedCount 미포함 경량 표현.
   interviewAvailabilities: AvailabilityItem[];
   assignedSlot: AvailabilityItem | null;
-};
-
-export type UpdateInterviewPayload = {
-  interviewAt: string;
-  interviewLocation: string;
 };
