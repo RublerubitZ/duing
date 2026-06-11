@@ -3,8 +3,10 @@ package com.duing.domain.interview.repository;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.interview.service.dto.query.RoundMemberLine;
 import com.duing.domain.interview.service.dto.query.RoundMemberStatusCount;
+import com.duing.domain.interview.service.dto.query.VisibleMembership;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface InterviewRoundMemberRepositoryCustom {
 
@@ -25,4 +27,15 @@ public interface InterviewRoundMemberRepositoryCustom {
 
     /** 목록 카운트 요약 — round × status groupBy 집계. */
     List<RoundMemberStatusCount> countMembersGroupedByStatus(Collection<Long> roundIds);
+
+    /**
+     * 지원자 노출용 visible 멤버십 — isVisibleToApplicant 술어(§5.4, DRAFT 제외).
+     * 불변식상 최대 1건 (placement-active ⊇ visible).
+     */
+    Optional<VisibleMembership> findVisibleMembershipByApplicationId(Long applicationId);
+
+    /**
+     * 참여 이력 — CANCELLED 라운드 멤버십 또는 EXCLUDED 멤버십 존재 (§9.3 보정: DRAFT-only 는 이력 아님).
+     */
+    boolean existsConcludedMembershipByApplicationId(Long applicationId);
 }

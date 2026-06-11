@@ -249,6 +249,9 @@ URL 컨벤션: `/api/v1` 베이스, 리소스 중첩 + 액션 kebab-case (기존
 FE 는 applicantPhase 만 소비한다. status→phase 파생은 서버 단독, **FE 재파생 금지** (EXCLUDED 누출 원천 차단). **평가 순서**:
 
 ```
+0) application.status 가 표 밖(SUBMITTED/ACCEPTED/REJECTED)이면 visible 여부와 무관하게
+   NOT_APPLICABLE — 합불 처리 후 잔존한 visible 멤버십이 AVAILABILITY_* 등을 노출하면 안 된다
+   (BE#7 리뷰 반영: COLLECTING 중 REJECTED 처리된 지원자가 응답 화면을 계속 받는 구멍 차단)
 1) isVisibleToApplicant 유무 먼저 (5.4절 — DRAFT 제외)
    visible = round.status ∈ {COLLECTING,ASSIGNING,SCHEDULED} && member ≠ EXCLUDED
    ※ DRAFT 멤버는 visible=false → 2번 분기 → WAITING_ROUND
@@ -267,7 +270,8 @@ FE 는 applicantPhase 만 소비한다. status→phase 파생은 서버 단독, 
 ```
 
 - **DRAFT 멤버십의 노출 처리**: `isVisibleToApplicant` 가 DRAFT 를 제외하므로 DRAFT 멤버는 2번 분기로 표시되고, round 가 DRAFT 인 동안 지원자는 조회/응답 불가. 배치·중복방지는 `isActiveForPlacement`(DRAFT 포함)가 담당 — 두 술어 혼용 금지(5.4절).
-- **참여 이력 정의**: CANCELLED round 의 멤버십 또는 EXCLUDED 멤버십이 존재하면 "이력 있음". 진행 중인 DRAFT 멤버십만 있는 경우는 이력으로 치지 않는다 (→ WAITING_ROUND).
+- **참여 이력 정의**: CANCELLED round 의 멤버십 또는 **비DRAFT round 의** EXCLUDED 멤버십이 존재하면 "이력 있음". 진행 중인 DRAFT 멤버십만 있는 경우는 물론, **DRAFT round 안에서의 EXCLUDED 도 이력이 아니다** — 발송 전 라운드는 지원자에게 존재한 적이 없으므로 그 안의 제외가 phase 변화(WAITING_NEXT_ROUND)로 새면 DRAFT 비노출 원칙 위반이다 (BE#7 리뷰 반영).
+- **마감 경계 표기 통일**: 표의 마감 비교는 §5.3 과 동일하게 strict — `now > deadline` 이면 CLOSED/미응답, `now == deadline` 정각은 아직 REQUESTED (구현: `now.isAfter(deadline)`).
 - **경계**: 이 표는 평가~면접 구간만 커버. SUBMITTED(평가 전)·ACCEPTED·REJECTED(최종 합불)는 interview 표 밖 — application 결과 뷰가 담당.
 - **내부 상태(EXCLUDED 등)를 "제외" 같은 부정 신호로 노출 금지.** 내부 상태 ≠ 노출 문구.
 
