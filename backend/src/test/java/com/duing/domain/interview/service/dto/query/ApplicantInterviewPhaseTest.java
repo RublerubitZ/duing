@@ -120,6 +120,19 @@ class ApplicantInterviewPhaseTest {
     }
 
     @Test
+    @DisplayName("합불 처리 후 라운드 멤버십이 남아 있어도 NOT_APPLICABLE 이 우선한다")
+    void outOfScopeStatusWinsOverVisibleMembership() {
+        assertThat(ApplicantInterviewPhase.derive(
+                ApplicationStatus.REJECTED, RoundStatus.COLLECTING,
+                RoundMemberStatus.INVITED, false, false))
+                .isEqualTo(ApplicantInterviewPhase.NOT_APPLICABLE);
+        assertThat(ApplicantInterviewPhase.derive(
+                ApplicationStatus.ACCEPTED, RoundStatus.SCHEDULED,
+                RoundMemberStatus.ASSIGNED, false, true))
+                .isEqualTo(ApplicantInterviewPhase.NOT_APPLICABLE);
+    }
+
+    @Test
     @DisplayName("어떤 입력 조합도 내부 멤버 상태명(EXCLUDED 등)을 phase 로 노출하지 않는다")
     void phaseNamesNeverLeakInternalStatuses() {
         for (ApplicantInterviewPhase phase : ApplicantInterviewPhase.values()) {

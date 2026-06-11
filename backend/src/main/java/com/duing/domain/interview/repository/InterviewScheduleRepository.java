@@ -15,6 +15,9 @@ public interface InterviewScheduleRepository
 
     Optional<InterviewSchedule> findByApplicationId(Long applicationId);
 
+    Optional<InterviewSchedule> findByRoundIdAndApplicationIdAndStatus(Long roundId, Long applicationId,
+                                                                        InterviewScheduleStatus status);
+
     List<InterviewSchedule> findByRoundIdAndStatus(Long roundId, InterviewScheduleStatus status);
 
     /**

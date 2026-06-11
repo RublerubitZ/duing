@@ -23,6 +23,7 @@ public enum ApplicantInterviewPhase {
 
     /**
      * 평가 순서 (스펙 §9.3):
+     * 0) 평가~면접 구간 밖(SUBMITTED/ACCEPTED/REJECTED)은 visible 여부와 무관하게 NOT_APPLICABLE.
      * 1) visible 멤버십(DRAFT 제외 — §5.4 isVisibleToApplicant) 유무 — 호출자가 쿼리로 판정해
      *    visibleRoundStatus/memberStatus 를 null 또는 non-null 로 전달한다.
      * 2) visible 없음 → application 상태 분기. 참여 이력(CANCELLED 라운드 또는 EXCLUDED 멤버십)이
@@ -36,6 +37,12 @@ public enum ApplicantInterviewPhase {
                                                  RoundMemberStatus memberStatus,
                                                  boolean hasConcludedMembership,
                                                  boolean deadlinePassed) {
+        // 평가~면접 구간 밖 상태가 최우선이다 (스펙 §9.3 평가 순서 0) — 합불 처리 후 visible 멤버십이
+        // 잔존해도 AVAILABILITY_* 류가 노출되면 안 된다 (예: COLLECTING 중 REJECTED 처리된 지원자).
+        if (applicationStatus != ApplicationStatus.UNDER_REVIEW
+                && applicationStatus != ApplicationStatus.INTERVIEW_PENDING) {
+            return NOT_APPLICABLE;
+        }
         if (visibleRoundStatus == null) {
             return switch (applicationStatus) {
                 case UNDER_REVIEW -> DOCUMENT_REVIEW;

@@ -12,4 +12,6 @@ public interface InterviewAvailabilityRepository
     long countBySlotId(Long slotId);
 
     List<InterviewAvailability> findByApplicationId(Long applicationId);
+
+    List<InterviewAvailability> findByRoundIdAndApplicationId(Long roundId, Long applicationId);
 }

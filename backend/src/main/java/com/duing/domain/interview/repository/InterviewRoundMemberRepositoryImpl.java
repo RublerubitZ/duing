@@ -11,12 +11,14 @@ import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.service.dto.query.RoundMemberLine;
 import com.duing.domain.interview.service.dto.query.RoundMemberStatusCount;
+import com.duing.domain.interview.service.dto.query.VisibleMembership;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -114,5 +116,40 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
                 .where(interviewRoundMember.roundId.in(roundIds))
                 .groupBy(interviewRoundMember.roundId, interviewRoundMember.status)
                 .fetch();
+    }
+
+    @Override
+    public Optional<VisibleMembership> findVisibleMembershipByApplicationId(Long applicationId) {
+        return Optional.ofNullable(queryFactory
+                .select(Projections.constructor(VisibleMembership.class, interviewRound, interviewRoundMember))
+                .from(interviewRoundMember)
+                .join(interviewRound).on(interviewRound.id.eq(interviewRoundMember.roundId)
+                        .and(interviewRound.deletedAt.isNull()))
+                .where(
+                        interviewRoundMember.applicationId.eq(applicationId),
+                        interviewRoundMember.status.ne(RoundMemberStatus.EXCLUDED),
+                        interviewRound.status.in(
+                                RoundStatus.COLLECTING, RoundStatus.ASSIGNING, RoundStatus.SCHEDULED)
+                )
+                .fetchOne());
+    }
+
+    @Override
+    public boolean existsConcludedMembershipByApplicationId(Long applicationId) {
+        Integer found = queryFactory
+                .selectOne()
+                .from(interviewRoundMember)
+                .join(interviewRound).on(interviewRound.id.eq(interviewRoundMember.roundId)
+                        .and(interviewRound.deletedAt.isNull()))
+                .where(
+                        interviewRoundMember.applicationId.eq(applicationId),
+                        // 발송 전(DRAFT) 라운드는 지원자에게 존재한 적이 없다 — 그 안의 EXCLUDED 가
+                        // 이력(WAITING_NEXT_ROUND)으로 새면 DRAFT 비노출 원칙 위반 (스펙 §9.3 보정).
+                        interviewRoundMember.status.eq(RoundMemberStatus.EXCLUDED)
+                                .and(interviewRound.status.ne(RoundStatus.DRAFT))
+                                .or(interviewRound.status.eq(RoundStatus.CANCELLED))
+                )
+                .fetchFirst();
+        return found != null;
     }
 }
