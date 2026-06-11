@@ -40,5 +40,11 @@ public interface InterviewSlotRepository extends JpaRepository<InterviewSlot, Lo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM InterviewSlot s WHERE s.roundId = :roundId ORDER BY s.id ASC")
     List<InterviewSlot> findAllByRoundIdForUpdate(@Param("roundId") Long roundId);
+
+    /** 소유권(roundId)을 잠금 술어에 포함 — 타 라운드 슬롯 행을 잠그지 않고 거부한다. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM InterviewSlot s WHERE s.id = :id AND s.roundId = :roundId")
+    Optional<InterviewSlot> findByIdAndRoundIdForUpdate(@Param("id") Long id,
+                                                        @Param("roundId") Long roundId);
 }
 

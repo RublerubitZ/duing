@@ -167,4 +167,47 @@ class InterviewRoundDomainTest {
         assertThatThrownBy(round::openAssigning)
                 .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
     }
+
+    @Test
+    @DisplayName("초대·응답·가능없음 상태의 멤버는 제외할 수 있다")
+    void nonTerminalMembersCanBeExcluded() {
+        InterviewRoundMember invited = InterviewRoundMember.invite(1L, 10L);
+        InterviewRoundMember responded = InterviewRoundMember.invite(1L, 11L);
+        responded.markResponded();
+        InterviewRoundMember noSlot = InterviewRoundMember.invite(1L, 12L);
+        noSlot.reportNoAvailableSlot("주말만");
+
+        invited.exclude();
+        responded.exclude();
+        noSlot.exclude();
+
+        assertThat(invited.getStatus()).isEqualTo(RoundMemberStatus.EXCLUDED);
+        assertThat(responded.getStatus()).isEqualTo(RoundMemberStatus.EXCLUDED);
+        assertThat(noSlot.getStatus()).isEqualTo(RoundMemberStatus.EXCLUDED);
+    }
+
+    @Test
+    @DisplayName("제외해도 가능없음 멤버가 남긴 대체 가능시간 텍스트는 보존된다")
+    void excludePreservesAlternativeText() {
+        InterviewRoundMember member = InterviewRoundMember.invite(1L, 10L);
+        member.reportNoAvailableSlot("평일 저녁만 가능합니다");
+
+        member.exclude();
+
+        assertThat(member.getAlternativeAvailabilityText()).isEqualTo("평일 저녁만 가능합니다");
+    }
+
+    @Test
+    @DisplayName("이미 제외됐거나 배정 확정된 멤버는 다시 제외할 수 없다")
+    void terminalMembersCannotBeExcluded() {
+        InterviewRoundMember excluded = InterviewRoundMember.invite(1L, 10L);
+        excluded.exclude();
+        InterviewRoundMember assigned = InterviewRoundMember.invite(1L, 11L);
+        ReflectionTestUtils.setField(assigned, "status", RoundMemberStatus.ASSIGNED);
+
+        assertThatThrownBy(excluded::exclude)
+                .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
+        assertThatThrownBy(assigned::exclude)
+                .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
+    }
 }
