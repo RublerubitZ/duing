@@ -1,5 +1,6 @@
 package com.duing.domain.interview.entity;
 
+import com.duing.domain.interview.exception.InterviewException;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -49,5 +50,18 @@ public class InterviewRoundMember extends BaseEntity {
                 .roundId(roundId)
                 .applicationId(applicationId)
                 .build();
+    }
+
+    /**
+     * Rule 2 (스펙 §5.5): COLLECTING && 마감 전 추가 슬롯 생성 시 NO_AVAILABLE_SLOT → INVITED 복귀.
+     * 대체 가능시간 텍스트는 비운다 — INVITED 상태에 이전 응답이 남으면 dashboard 표시가 오염되고,
+     * 재응답 시 어차피 새로 쓰인다.
+     */
+    public void reinviteAfterSlotAdded() {
+        if (this.status != RoundMemberStatus.NO_AVAILABLE_SLOT) {
+            throw new InterviewException.MemberTransitionNotAllowed();
+        }
+        this.status = RoundMemberStatus.INVITED;
+        this.alternativeAvailabilityText = null;
     }
 }
