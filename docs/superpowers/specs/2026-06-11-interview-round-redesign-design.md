@@ -99,6 +99,8 @@ interview_schedule
   FK (round_id, application_id) → interview_round_member(round_id, application_id)
   PARTIAL UNIQUE (round_id, application_id) WHERE deleted_at IS NULL
   -- 자동배정 재실행 시 soft delete 후 재생성 허용. 전역 UNIQUE 였던 application_id 는 per-round 로 완화
+  -- status='CANCELLED' 은 MVP 미사용 (재배정은 soft delete 경로).
+  -- future 재면접 (ASSIGNED member → EXCLUDED + schedule CANCELLED) 용 예약값.
 ```
 
 모든 테이블에 BaseEntity 공통 컬럼(`created_at`/`updated_at`/`deleted_at`) 포함, `@SQLDelete` + `@SQLRestriction` soft delete (기존 패턴). 단 `interview_round_member` 는 soft delete 를 사용하지 않고 `EXCLUDED` 상태로 종결한다 (FK 타겟 unique 유지 목적 — 컬럼은 두되 삭제 경로 없음).
@@ -133,19 +135,25 @@ INVITED | RESPONDED | NO_AVAILABLE_SLOT ──[운영진 제외 / 강제확정]�
 ### 5.3 파생 규칙 (저장하지 않는 상태)
 
 - **미응답**: `member.status == INVITED && now > round.availability_deadline` 로 파생 표시. `NO_RESPONSE` 저장 안 함.
-- **면접 대기열(상시)**: `application.status == INTERVIEW_PENDING && active 멤버십 없음` 파생 쿼리. 별도 저장 안 함.
+- **면접 대기열(상시)**: `application.status == INTERVIEW_PENDING && placement-active 멤버십 없음` 파생 쿼리 (5.4절 `isActiveForPlacement`). 별도 저장 안 함.
 - `now` 는 도메인 내부에서 `LocalDateTime.now()` 를 호출하지 않고 서비스 레이어가 주입한다 (결정성·테스트 용이성 — 기존 `InterviewConfig` 패턴 유지).
 
-### 5.4 active 멤버십 정의 (불변식)
+### 5.4 멤버십 술어 2종 (불변식 — "active" 단독 단어 금지)
 
 ```
-active = round.status ∈ {DRAFT, COLLECTING, ASSIGNING, SCHEDULED}
-         && member.status != EXCLUDED
+isActiveForPlacement(member)   // 배치·중복방지용 — DRAFT 포함
+  = round.status ∈ {DRAFT, COLLECTING, ASSIGNING, SCHEDULED} && member.status != EXCLUDED
+
+isVisibleToApplicant(member)   // 지원자 노출(phase)용 — DRAFT 제외
+  = round.status ∈ {COLLECTING, ASSIGNING, SCHEDULED} && member.status != EXCLUDED
 ```
 
-- **SCHEDULED 포함이 핵심**: 제외하면 면접 일정이 잡힌 지원자가 대기열에 재등장해 더블부킹된다. 대기열 이탈은 application.status(ACCEPTED/REJECTED)로 처리한다.
-- `EXCLUDED` 멤버는 round 가 active 여도 소속으로 치지 않음 → **즉시 대기열 복귀** → 새 round 재수용 가능.
-- 한 application 은 active 멤버십 최대 1개. 재도전은 이전 round 가 CANCELLED 된 뒤 (또는 EXCLUDED 처리된 뒤) 새 round 에서.
+- **placement 사용처**: 후보 조회(API 1), round 생성 검증(API 2), "placement-active 멤버십 최대 1개" 불변식, 대기열 파생.
+- **visible 사용처**: applicantPhase 파생(9.3절) 단독.
+- 코드에서 `active` 단독 이름 금지, 두 술어 혼용 금지. 용도 차이(DRAFT 가 배치엔 포함·노출엔 제외)를 주석으로 명시한다.
+- **placement 에 SCHEDULED 포함이 핵심**: 제외하면 면접 일정이 잡힌 지원자가 대기열에 재등장해 더블부킹된다. 대기열 이탈은 application.status(ACCEPTED/REJECTED)로 처리한다.
+- `EXCLUDED` 멤버는 round 상태와 무관하게 두 술어 모두 false → **즉시 대기열 복귀** → 새 round 재수용 가능.
+- 한 application 은 placement-active 멤버십 최대 1개. 재도전은 이전 round 가 CANCELLED 된 뒤 (또는 EXCLUDED 처리된 뒤) 새 round 에서.
 
 ### 5.5 NO_AVAILABLE_SLOT 정책 (불변식)
 
@@ -177,12 +185,24 @@ active = round.status ∈ {DRAFT, COLLECTING, ASSIGNING, SCHEDULED}
 - `force` 없는 확정 요청에 미처리 멤버가 있으면 409 + 내역을 **2종으로 분리** 반환:
   - (a) 미응답(INVITED·마감경과 파생) / NO_AVAILABLE_SLOT
   - (b) **RESPONDED 인데 슬롯 만석으로 미배정** — 별도 강조 (응답했는데 누락되는 케이스)
+- 409 body:
+
+```json
+{
+  "code": "INTERVIEW_ROUND_HAS_UNRESOLVED_MEMBERS",
+  "unresponded":         [{ "applicationId": 1, "applicantName": "…", "memberStatus": "INVITED|NO_AVAILABLE_SLOT" }],
+  "respondedUnassigned": [{ "applicationId": 2, "applicantName": "…", "selectedSlotIds": [3, 5] }]
+}
+```
+
+  - `unresponded` = (a) INVITED(마감경과)·NO_AVAILABLE_SLOT — `memberStatus` 로 세분 렌더 가능.
+  - `respondedUnassigned` = (b) 강조 대상. FE 는 (b)를 시각 강조 + [추가 슬롯 생성]/[수동 배정]/[force 확정] 액션 제공.
 - `force=true` → 한 트랜잭션: 잔존 미처리 멤버 자동 EXCLUDED → schedule 보유 멤버 ASSIGNED 전이 → round SCHEDULED → `INTERVIEW_SCHEDULED` 알림 발화 (AFTER_COMMIT 리스너).
 - 멤버 ASSIGNED 전이와 알림은 **확정 시점에만** 발화. EXCLUDED 된 지원자는 application 이 INTERVIEW_PENDING 그대로라 대기열 복귀.
 
 ## 7. 동시성
 
-- **Round 생성/멤버 추가**: application 행 `PESSIMISTIC_WRITE` 잠금 후 "active 멤버십 없음" 검증 — 두 운영진이 동시에 같은 지원자를 다른 round 에 넣는 race 차단.
+- **Round 생성/멤버 추가**: application 행 `PESSIMISTIC_WRITE` 잠금 후 "placement-active 멤버십 없음"(`isActiveForPlacement`) 검증 — 두 운영진이 동시에 같은 지원자를 다른 round 에 넣는 race 차단.
 - **Application 상태 전이**: 기존 `@Version` 낙관적 락 + flush 변환(409) 경로 그대로 사용.
 - **Round 상태 전이**: `InterviewRound` 에 `@Version` 낙관적 락 (Application 전례와 일관) — 자동배정/확정/취소 race 차단. 전이 메서드는 도메인 내부에서 현재 상태를 검증하고 위반 시 도메인 예외.
 - **모집당 DRAFT 1개**: DB partial unique 로 강제 (4절).
@@ -191,7 +211,7 @@ active = round.status ∈ {DRAFT, COLLECTING, ASSIGNING, SCHEDULED}
 
 - **신규 `NotificationType.INTERVIEW_AVAILABILITY_REQUESTED`** — event 발행 + AFTER_COMMIT 리스너 + `createIfAbsent` (기존 패턴).
   - dedupKey: `INTERVIEW_AVAILABILITY_REQUESTED:r={roundId}:a={applicationId}:q={requestSequence}`
-  - 발송·재알림·Rule 2 복귀 알림이 공용. 발송/재알림 시 `round.request_sequence++`.
+  - 발송·재알림·**Rule 2 재초대** 모두 직전에 `round.request_sequence++`. 안 올리면 직전 발송과 dedupKey 가 같아져 재알림이 deduped 되어 소실된다. (sequence 는 round 단위 monotonic, dedupKey 에 applicationId 가 포함되어 대상자별 분리)
 - **확정 시 기존 `INTERVIEW_SCHEDULED` 재사용** (dedupKey `a={applicationId}:s={slotId}` 유지).
 - `INTERVIEW_REMINDER` + `InterviewReminderJob` 유지 — location 을 round 에서 join 하도록 수정.
 - `INTERVIEW_UPDATED` / `INTERVIEW_CANCELLED` 타입·리스너는 **보존하되 MVP 발행 경로 없음** (SCHEDULED 터미널이므로 — 다리 안 태움).
@@ -204,8 +224,8 @@ URL 컨벤션: `/api/v1` 베이스, 리소스 중첩 + 액션 kebab-case (기존
 
 | # | Method & Path | 계약 |
 |---|---|---|
-| 1 | `GET /recruitments/{recruitmentId}/interview-round-candidates` | **기본 후보군 = 큐** (`INTERVIEW_PENDING && active 멤버십 없음`). `includeUnderReview=true` 필터로 UNDER_REVIEW 포함. 정기 wizard 는 `true` 기본 전송(메인 플로우가 UNDER_REVIEW 선정), 상시 dashboard 대기열 카운트는 큐만 집계. |
-| 2 | `POST /recruitments/{recruitmentId}/interview-rounds` | `{title, availabilityDeadline?, location?, applicationIds[]}` → round DRAFT + members 생성. **허용 상태: UNDER_REVIEW(→INTERVIEW_PENDING 전이), INTERVIEW_PENDING(유지). 그 외(SUBMITTED/ACCEPTED/REJECTED) 포함 시 거부.** 한 트랜잭션, application 행 PESSIMISTIC_WRITE 후 active 검증. |
+| 1 | `GET /recruitments/{recruitmentId}/interview-round-candidates` | **기본 후보군 = 큐** (`INTERVIEW_PENDING && placement-active 멤버십 없음`). `includeUnderReview=true` 필터로 UNDER_REVIEW 포함. 정기 wizard 는 `true` 기본 전송(메인 플로우가 UNDER_REVIEW 선정), 상시 dashboard 대기열 카운트는 큐만 집계. |
+| 2 | `POST /recruitments/{recruitmentId}/interview-rounds` | `{title, availabilityDeadline?, location?, applicationIds[]}` → round DRAFT + members 생성. **허용 상태: UNDER_REVIEW(→INTERVIEW_PENDING 전이), INTERVIEW_PENDING(유지). 그 외(SUBMITTED/ACCEPTED/REJECTED) 포함 시 거부.** 한 트랜잭션, application 행 PESSIMISTIC_WRITE 후 placement-active 검증. |
 | 3 | `GET /recruitments/{recruitmentId}/interview-rounds` · `GET /interview-rounds/{roundId}` | 목록 / 상세 dashboard (멤버별 상태, 응답·미응답·가능슬롯없음 카운트 — 미응답은 마감경과 파생, QueryDSL). |
 | 4 | `POST /interview-rounds/{roundId}/slots` (일괄) · `PATCH/DELETE /interview-slots/{slotId}` | 일괄생성(클라이언트가 패턴→리스트 변환, capacity 필수)·수정·삭제. **phase 가드: 슬롯 변경은 DRAFT·COLLECTING 에서만, ASSIGNING/SCHEDULED 불가** (기존 `SlotMutableFields.NONE`). **삭제: availability 참조 > 0 → 409** (기존 `canDeleteSlot` 일치). **시간변경: availability 참조 > 0 이면 불가, capacity 만 수정 가능** (기존 `CAPACITY_ONLY` port). COLLECTING && 마감 전 추가 생성 시 Rule 2 발동. |
 | 5 | `POST /interview-rounds/{roundId}/request-availability` | **발송**: `require(슬롯≥1 && 멤버≥1 && deadline≠null)` → DRAFT→COLLECTING, `request_sequence++`, INVITED 전원 알림. |
@@ -229,14 +249,15 @@ URL 컨벤션: `/api/v1` 베이스, 리소스 중첩 + 액션 kebab-case (기존
 FE 는 applicantPhase 만 소비한다. status→phase 파생은 서버 단독, **FE 재파생 금지** (EXCLUDED 누출 원천 차단). **평가 순서**:
 
 ```
-1) active 멤버십 유무 먼저
-   active = round.status ∈ {DRAFT,COLLECTING,ASSIGNING,SCHEDULED} && member ≠ EXCLUDED
-2) active 없음 →
+1) isVisibleToApplicant 유무 먼저 (5.4절 — DRAFT 제외)
+   visible = round.status ∈ {COLLECTING,ASSIGNING,SCHEDULED} && member ≠ EXCLUDED
+   ※ DRAFT 멤버는 visible=false → 2번 분기 → WAITING_ROUND
+2) visible 없음 →
    - application UNDER_REVIEW                   → DOCUMENT_REVIEW    "서류 검토 중"
    - INTERVIEW_PENDING && 참여 이력 없음          → WAITING_ROUND      "면접 회차 배정 대기 중"
-   - 참여 이력 있음 && active 없음(EXCLUDED/CANCELLED)
+   - 참여 이력 있음 && visible 없음(EXCLUDED/CANCELLED)
                                                 → WAITING_NEXT_ROUND "다음 면접 회차 안내 대기 중"
-3) active 있음 → round.status + member.status 조합:
+3) visible 있음 → round.status + member.status 조합:
    - INVITED && COLLECTING && now < deadline    → AVAILABILITY_REQUESTED "면접 가능 시간을 선택해주세요" + 마감 D-day
    - INVITED && COLLECTING && now ≥ deadline    → AVAILABILITY_CLOSED    "응답 기간이 마감되었습니다 — 운영진 처리 대기"
    - RESPONDED && COLLECTING                    → RESPONDED              "응답 완료 — 일정 확정을 기다리는 중"
@@ -245,7 +266,7 @@ FE 는 applicantPhase 만 소비한다. status→phase 파생은 서버 단독, 
    - ASSIGNED && round SCHEDULED                → SCHEDULED              "면접 일정 확정" + 일시·장소
 ```
 
-- **DRAFT 멤버십의 노출 처리**: phase 계산(노출용)에서는 DRAFT round 멤버십을 "active 없음"으로 간주하고 2번 분기로 표시한다 — round 가 DRAFT 인 동안 지원자는 조회/응답 불가. 단 **더블부킹 방지용 active 정의(5.4절, 후보 조회·round 생성 검증)에는 DRAFT 가 포함**된다. 두 정의의 용도 차이를 코드에 주석으로 명시한다.
+- **DRAFT 멤버십의 노출 처리**: `isVisibleToApplicant` 가 DRAFT 를 제외하므로 DRAFT 멤버는 2번 분기로 표시되고, round 가 DRAFT 인 동안 지원자는 조회/응답 불가. 배치·중복방지는 `isActiveForPlacement`(DRAFT 포함)가 담당 — 두 술어 혼용 금지(5.4절).
 - **참여 이력 정의**: CANCELLED round 의 멤버십 또는 EXCLUDED 멤버십이 존재하면 "이력 있음". 진행 중인 DRAFT 멤버십만 있는 경우는 이력으로 치지 않는다 (→ WAITING_ROUND).
 - **경계**: 이 표는 평가~면접 구간만 커버. SUBMITTED(평가 전)·ACCEPTED·REJECTED(최종 합불)는 interview 표 밖 — application 결과 뷰가 담당.
 - **내부 상태(EXCLUDED 등)를 "제외" 같은 부정 신호로 노출 금지.** 내부 상태 ≠ 노출 문구.
@@ -275,7 +296,10 @@ manage/clubs/[clubId]/recruitments/[recruitmentId]/interview/
 - **Step2 완료 시 `POST rounds` = 첫 persist + UNDER_REVIEW→INTERVIEW_PENDING 전이 커밋** — 부수효과를 UI 에 명시한다.
 - Step3 슬롯 일괄생성 (`SlotPatternForm`·`generateSlotsFromPattern`·`SlotPreviewList` 재사용, **capacity 입력 필수**).
 - Step4 발송 — 버튼 활성화 조건 `슬롯≥1 && 멤버≥1 && deadline≠null` (서버 가드와 1:1).
-- 정기 진입 = `includeUnderReview=true` 기본 / 상시 대기열 진입 = `false` 기본 + 토글.
+- **Step1 후보 필터 UX**: 진입 맥락별 기본값 + 토글.
+  - 정기 wizard 진입 = `includeUnderReview=true` 기본 → "서류 검토 중" + "면접 대기열" 둘 다 노출, 그룹 헤더로 구분.
+  - 상시 대기열 진입 = `false` 기본 → 대기열만, 토글로 UNDER_REVIEW 포함 가능.
+  - 후보 행에 상태 뱃지(서류 검토 중 / 면접 대기) + 선택 카운터 + 일괄 선택.
 
 ### 10.4 라운드 dashboard
 
@@ -301,7 +325,7 @@ manage/clubs/[clubId]/recruitments/[recruitmentId]/interview/
 
 - **BE**: 도메인 단위 (Round/Member 상태머신 전이표, 매칭 비교자, Rule 2 복귀, `now` 주입 결정성) + RestAssured 통합 (TestContainers — 권한·상태 가드·409·동시성 시나리오). Fixture Monkey / `common/fixture/`. `@DisplayName` 은 요구사항 문장.
 - **풀 시나리오 통합 테스트** (BE#11): 생성→슬롯→발송→응답→자동배정→확정→알림 dedup 검증.
-- **더블부킹 회귀 테스트 필수**: "SCHEDULED round 소속 지원자는 candidates/queue 에 안 뜬다" 통합 테스트 (active 정의 회귀 방지).
+- **더블부킹 회귀 테스트 필수**: "SCHEDULED round 소속 지원자는 candidates/queue 에 안 뜬다" 통합 테스트 (`isActiveForPlacement` 정의 회귀 방지).
 - **FE**: vitest+RTL 기존 패턴 미러 — util 단위(`deriveInterviewStep`, phase→copy 매핑), 컴포넌트(wizard 단계 가드, 확정 모달 경고 2종, NO_AVAILABLE_SLOT 섹션), hooks(invalidation).
   - **"EXCLUDED 가 부정 문구로 렌더되지 않는다"** 단정 테스트.
   - **"AVAILABILITY_CLOSED 는 선택 UI 비활성"** 단정 테스트.
@@ -358,6 +382,7 @@ FE#5  상시 대기열 dashboard + 모집 카드 단계표시
 - `ASSIGNING → COLLECTING` 복귀
 - 운영진 대상 알림 (미응답 알림 등 — dashboard 노출로 갈음)
 - NotificationLog / InterviewRoundNotification 테이블 (`request_sequence` 로 갈음, 향후 이관 가능)
+- **INTERVIEW_PENDING 되돌리기 미지원** — round 투입 후(취소·EXCLUDED 포함)에도 application 은 INTERVIEW_PENDING 유지 (UNDER_REVIEW 롤백 없음). 일방통행이며 정리는 ACCEPTED/REJECTED 로만. 정기모집 no-response 잔존은 운영진 수동 REJECT.
 
 ## 15. 핵심 결정 로그
 
@@ -367,6 +392,7 @@ FE#5  상시 대기열 dashboard + 모집 카드 단계표시
 | 2 | 확정 시 경고 후 강제 + 잔존 미처리 자동 EXCLUDED | 운영 피로 최소화, round 깔끔 종결, EXCLUDED→대기열 복귀로 손실 없음 |
 | 3 | 코어 전환 PR(BE#1) + API 별 PR, BE#0 선분리 | repoint 불가분, 출시 전이라 면접 기능 일시 비활성 허용 |
 | 4 | round 종결 상태 ASSIGNED → SCHEDULED rename | member.ASSIGNED 와 충돌 제거, COMPLETED 확장 여지 |
-| 5 | active 정의에 SCHEDULED 포함 | 더블부킹 방지 — 대기열 이탈은 application 합불로 |
+| 5 | placement-active 정의에 SCHEDULED 포함 | 더블부킹 방지 — 대기열 이탈은 application 합불로 |
 | 6 | applicantPhase 서버 단독 파생 (SSOT) | EXCLUDED 등 내부 상태 누출 원천 차단 |
 | 7 | draft 배정을 round.status 로 표현 (schedule 에 DRAFT 없음) | 상태 중복 제거, 스키마 단순화 |
+| 8 | 멤버십 술어 2개 분리 (isActiveForPlacement / isVisibleToApplicant) | DRAFT 가 배치엔 포함·노출엔 제외 — 혼용 시 더블부킹/조기노출 버그 |
