@@ -210,4 +210,60 @@ class InterviewRoundDomainTest {
         assertThatThrownBy(assigned::exclude)
                 .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
     }
+
+    @Test
+    @DisplayName("배정 검토 중 라운드는 확정으로 종결된다")
+    void assigningRoundConfirms() {
+        InterviewRound round = InterviewRound.create(1L, "1차 면접",
+                LocalDateTime.now().plusDays(7), null);
+        round.openCollecting(LocalDateTime.now());
+        round.openAssigning();
+
+        round.confirm();
+
+        assertThat(round.getStatus()).isEqualTo(RoundStatus.SCHEDULED);
+    }
+
+    @Test
+    @DisplayName("배정 검토 단계가 아닌 라운드는 확정할 수 없다")
+    void nonAssigningRoundCannotConfirm() {
+        InterviewRound collecting = InterviewRound.create(1L, "1차 면접",
+                LocalDateTime.now().plusDays(7), null);
+        collecting.openCollecting(LocalDateTime.now());
+
+        assertThatThrownBy(collecting::confirm)
+                .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
+    }
+
+    @Test
+    @DisplayName("배정을 보유한 멤버는 확정 시 상태와 무관하게 ASSIGNED 가 된다")
+    void scheduledMembersConfirmRegardlessOfStatus() {
+        InterviewRoundMember responded = InterviewRoundMember.invite(1L, 10L);
+        responded.markResponded();
+        InterviewRoundMember noSlot = InterviewRoundMember.invite(1L, 11L);
+        noSlot.reportNoAvailableSlot("주말만");
+        InterviewRoundMember invited = InterviewRoundMember.invite(1L, 12L);
+
+        responded.confirmAssigned();
+        noSlot.confirmAssigned();
+        invited.confirmAssigned();
+
+        assertThat(responded.getStatus()).isEqualTo(RoundMemberStatus.ASSIGNED);
+        assertThat(noSlot.getStatus()).isEqualTo(RoundMemberStatus.ASSIGNED);
+        assertThat(invited.getStatus()).isEqualTo(RoundMemberStatus.ASSIGNED);
+    }
+
+    @Test
+    @DisplayName("이미 종결된 멤버는 확정 전이할 수 없다")
+    void terminalMembersCannotConfirm() {
+        InterviewRoundMember excluded = InterviewRoundMember.invite(1L, 10L);
+        excluded.exclude();
+        InterviewRoundMember assigned = InterviewRoundMember.invite(1L, 11L);
+        ReflectionTestUtils.setField(assigned, "status", RoundMemberStatus.ASSIGNED);
+
+        assertThatThrownBy(excluded::confirmAssigned)
+                .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
+        assertThatThrownBy(assigned::confirmAssigned)
+                .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
+    }
 }
