@@ -46,7 +46,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -62,7 +62,7 @@ git checkout -b feat/interview-round-dashboard
 - Create: `backend/src/main/java/com/duing/domain/interview/service/dto/query/SlotsCreationResult.java`
 - Modify: `InterviewSlotService.java` / `GeneralInterviewSlotService.java` / `CreateInterviewSlotsResponse.java` / `LeaderInterviewSlotController.java`
 
-- [ ] **Step 1: query DTO 신설 + 반환 타입 교체**
+- [x] **Step 1: query DTO 신설 + 반환 타입 교체**
 
 `SlotsCreationResult.java`:
 
@@ -93,9 +93,9 @@ public record CreateInterviewSlotsResponse(List<Long> createdSlotIds, int reinvi
 
 `LeaderInterviewSlotController.createSlots` 에서 `CreateInterviewSlotsResponse.from(...)` 변환.
 
-- [ ] **Step 2: 회귀 확인** — `./gradlew test --tests "com.duing.domain.interview.controller.LeaderInterviewSlotControllerTest"` → 18건 PASS (단언 무변경)
+- [x] **Step 2: 회귀 확인** — `./gradlew test --tests "com.duing.domain.interview.controller.LeaderInterviewSlotControllerTest"` → 18건 PASS (단언 무변경)
 
-- [ ] **Step 3: 커밋**
+- [x] **Step 3: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -110,7 +110,7 @@ git commit -m "refactor(backend): 슬롯 생성 결과를 query DTO 로 분리 �
 **Files:**
 - Create: `backend/src/test/java/com/duing/domain/interview/controller/LeaderInterviewRoundDashboardControllerTest.java`
 
-- [ ] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
+- [x] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
 
 ```java
 package com.duing.domain.interview.controller;
@@ -426,13 +426,13 @@ class LeaderInterviewRoundDashboardControllerTest extends InterviewControllerTes
 }
 ```
 
-- [ ] **Step 2: RED 확인** — `./gradlew test --tests "...LeaderInterviewRoundDashboardControllerTest"` → 컴파일 성공 + 대부분 FAIL. **커밋하지 않는다.**
+- [x] **Step 2: RED 확인** — `./gradlew test --tests "...LeaderInterviewRoundDashboardControllerTest"` → 컴파일 성공 + 대부분 FAIL. **커밋하지 않는다.**
 
 ---
 
 ### Task 4: 구현 (GREEN)
 
-- [ ] **Step 1: projection·query DTO 6종**
+- [x] **Step 1: projection·query DTO 6종**
 
 `service/dto/query/RoundMemberLine.java`:
 
@@ -632,7 +632,7 @@ public record RoundDetailQuery(
 }
 ```
 
-- [ ] **Step 2: 레포 5건**
+- [x] **Step 2: 레포 5건**
 
 `InterviewRoundRepository` 에 추가:
 
@@ -737,7 +737,7 @@ public record RoundDetailQuery(
 
 (주의: `InterviewAvailabilityRepositoryImpl` 의 기존 구조 — `JPAQueryFactory queryFactory` 필드와 Q-클래스 static import — 를 읽고 동일 스타일로 병합. `interviewAvailability` Q-인스턴스 import 가 없으면 추가.)
 
-- [ ] **Step 3: 서비스**
+- [x] **Step 3: 서비스**
 
 `InterviewRoundService` 에 추가:
 
@@ -812,7 +812,7 @@ public record RoundDetailQuery(
 
 (import 추가: `RoundSummaryQuery`·`RoundDetailQuery`·`RoundMemberLine`·`RoundMemberStatusCount`·`SlotSelectionCount`·`MemberSelectionCount`·`InterviewSchedule`·`InterviewScheduleStatus`·`InterviewScheduleRepository`·`InterviewAvailabilityRepository`·`Map`·`Collectors`)
 
-- [ ] **Step 4: 응답 DTO + Api + Controller**
+- [x] **Step 4: 응답 DTO + Api + Controller**
 
 `controller/dto/response/RoundSummaryResponse.java`:
 
@@ -950,15 +950,15 @@ public record RoundDetailResponse(
     }
 ```
 
-- [ ] **Step 5: GREEN 확인** — 13건 PASS
+- [x] **Step 5: GREEN 확인** — 13건 PASS
 
 ---
 
 ### Task 5: 전체 검증 + 커밋
 
-- [ ] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (742 + 13 = 755건 예상)
+- [x] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (742 + 13 = 755건 예상)
 
-- [ ] **Step 2:**
+- [x] **Step 2:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -970,9 +970,9 @@ git commit -m "feat(backend): 면접 라운드 목록·상세 dashboard API"
 
 ### Task 6: self-check + PR 생성 (컨트롤러 수행 — 구현 subagent 금지)
 
-- [ ] **Step 1: self-check 7항목** (기존 동일 명령)
+- [x] **Step 1: self-check 7항목** (기존 동일 명령)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지)
+- [x] **Step 2: push + PR** (자동 머지 금지)
 
 ```bash
 git push -u origin feat/interview-round-dashboard
