@@ -1,6 +1,5 @@
 package com.duing.domain.interview.service;
 
-import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.InterviewSlot;
@@ -15,9 +14,6 @@ import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.command.CreateInterviewSlotsCommand;
 import com.duing.domain.interview.service.dto.command.UpdateInterviewSlotCommand;
 import com.duing.domain.interview.service.dto.query.SlotsCreationResult;
-import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.exception.RecruitmentException;
-import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,10 +31,9 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     private final InterviewSlotRepository interviewSlotRepository;
     private final InterviewAvailabilityRepository interviewAvailabilityRepository;
     private final InterviewRoundMemberRepository interviewRoundMemberRepository;
-    private final RecruitmentRepository recruitmentRepository;
-    private final ClubAuthService clubAuthService;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
+    private final InterviewRoundAccessor interviewRoundAccessor;
 
     @Override
     @Transactional
@@ -142,12 +137,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     }
 
     private InterviewRound getRoundWithManagerAuth(Long roundId, Long currentUserId) {
-        InterviewRound round = interviewRoundRepository.findById(roundId)
-                .orElseThrow(InterviewException.RoundNotFound::new);
-        Recruitment recruitment = recruitmentRepository.findById(round.getRecruitmentId())
-                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
-        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
-        return round;
+        return interviewRoundAccessor.getWithManagerAuth(roundId, currentUserId);
     }
 
     /**
