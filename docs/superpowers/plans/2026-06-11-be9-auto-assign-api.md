@@ -48,7 +48,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -66,7 +66,7 @@ git checkout -b feat/interview-auto-assign
 - Modify: `backend/src/test/java/com/duing/domain/interview/entity/InterviewRoundDomainTest.java`
 - Modify: `backend/src/main/java/com/duing/domain/interview/entity/InterviewRound.java`
 
-- [ ] **Step 1: 차별 테스트 2건 추가 (RED)** — `InterviewMatchingServiceTest` 에 (기존 헬퍼·import 스타일 따라):
+- [x] **Step 1: 차별 테스트 2건 추가 (RED)** — `InterviewMatchingServiceTest` 에 (기존 헬퍼·import 스타일 따라):
 
 ```java
     @Test
@@ -105,9 +105,9 @@ git checkout -b feat/interview-auto-assign
     }
 ```
 
-- [ ] **Step 2: RED 확인** — `./gradlew test --tests "...InterviewMatchingServiceTest"` → `largestRemainingCapacityChosen` FAIL (현재 로직은 800 선택)
+- [x] **Step 2: RED 확인** — `./gradlew test --tests "...InterviewMatchingServiceTest"` → `largestRemainingCapacityChosen` FAIL (현재 로직은 800 선택)
 
-- [ ] **Step 3: 비교자 수정 (GREEN)** — `InterviewMatchingService.match` 의 슬롯 선택 비교자를:
+- [x] **Step 3: 비교자 수정 (GREEN)** — `InterviewMatchingService.match` 의 슬롯 선택 비교자를:
 
 ```java
                     // 스펙 §6.1 — 본인이 고른 슬롯 중 잔여 수용 인원(capacity - assigned) 최대.
@@ -121,9 +121,9 @@ git checkout -b feat/interview-auto-assign
 
 그리고 `fewestAssignedSlotIsChosen` 의 `@DisplayName` 을 `"동일한 슬롯 후보 중 잔여 수용 인원이 가장 많은 슬롯이 선택된다"` 로, 메서드명을 `largestRemainingSlotIsChosenAmongEqualCapacity` 로 보정 (동일 capacity 라 시나리오·단언 무변경).
 
-- [ ] **Step 4: GREEN 확인** — 10건(기존 8+신규 2) PASS
+- [x] **Step 4: GREEN 확인** — 10건(기존 8+신규 2) PASS
 
-- [ ] **Step 5: `openAssigning` 단위 테스트 2건 (RED)** — `InterviewRoundDomainTest` 에:
+- [x] **Step 5: `openAssigning` 단위 테스트 2건 (RED)** — `InterviewRoundDomainTest` 에:
 
 ```java
     @Test
@@ -149,7 +149,7 @@ git checkout -b feat/interview-auto-assign
     }
 ```
 
-- [ ] **Step 6: 구현 (GREEN)** — `InterviewRound` 의 `openCollecting` 아래에:
+- [x] **Step 6: 구현 (GREEN)** — `InterviewRound` 의 `openCollecting` 아래에:
 
 ```java
     /**
@@ -164,9 +164,9 @@ git checkout -b feat/interview-auto-assign
     }
 ```
 
-- [ ] **Step 7: GREEN 확인** — 도메인 14건(기존 12+신규 2) PASS
+- [x] **Step 7: GREEN 확인** — 도메인 14건(기존 12+신규 2) PASS
 
-- [ ] **Step 8: 커밋**
+- [x] **Step 8: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -182,7 +182,7 @@ git commit -m "feat(backend): 매칭 슬롯 비교자를 잔여 capacity 최대�
 - Create: `backend/src/main/java/com/duing/domain/interview/service/InterviewRoundAccessor.java`
 - Modify: `GeneralInterviewRoundService.java` / `GeneralInterviewSlotService.java`
 
-- [ ] **Step 1: 추출** — 두 서비스에 중복된 private `getRoundWithManagerAuth` 본문을 **그대로 이전**해 컴포넌트화 (기존 본문을 먼저 읽고 예외 타입·조회 메서드를 동일하게 유지):
+- [x] **Step 1: 추출** — 두 서비스에 중복된 private `getRoundWithManagerAuth` 본문을 **그대로 이전**해 컴포넌트화 (기존 본문을 먼저 읽고 예외 타입·조회 메서드를 동일하게 유지):
 
 ```java
 package com.duing.domain.interview.service;
@@ -226,9 +226,9 @@ public class InterviewRoundAccessor {
 
 (※ 기존 private 헬퍼의 실제 본문이 위와 다르면 — 예: recruitment 조회 메서드명 — **기존 본문이 정답**이다. 이전 후 두 서비스의 private 헬퍼 삭제, 호출부를 `interviewRoundAccessor.getWithManagerAuth(...)` 로 교체, 불용 의존(필드·import) 정리.)
 
-- [ ] **Step 2: 회귀 확인** — `./gradlew test --tests "com.duing.domain.interview.controller.*"` → 전체 PASS (단언 무변경)
+- [x] **Step 2: 회귀 확인** — `./gradlew test --tests "com.duing.domain.interview.controller.*"` → 전체 PASS (단언 무변경)
 
-- [ ] **Step 3: 커밋**
+- [x] **Step 3: 커밋**
 
 ```bash
 git add backend/src
@@ -242,7 +242,7 @@ git commit -m "refactor(backend): 라운드 인증 헬퍼를 InterviewRoundAcces
 **Files:**
 - Create: `backend/src/test/java/com/duing/domain/interview/controller/LeaderInterviewAutoAssignControllerTest.java`
 
-- [ ] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
+- [x] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
 
 ```java
 package com.duing.domain.interview.controller;
@@ -567,13 +567,13 @@ class LeaderInterviewAutoAssignControllerTest extends InterviewControllerTestSup
 
 (※ `findByRoundIdAndApplicationId`(member) 가 레포에 없으면 derived 로 추가: `Optional<InterviewRoundMember> findByRoundIdAndApplicationId(Long roundId, Long applicationId);`)
 
-- [ ] **Step 2: RED 확인** — 컴파일 성공(엔드포인트 블랙박스) + 대부분 FAIL. **커밋하지 않는다.**
+- [x] **Step 2: RED 확인** — 컴파일 성공(엔드포인트 블랙박스) + 대부분 FAIL. **커밋하지 않는다.**
 
 ---
 
 ### Task 5: 구현 (GREEN)
 
-- [ ] **Step 1: 레포 3건**
+- [x] **Step 1: 레포 3건**
 
 `InterviewRoundRepository` (import `Lock`·`LockModeType`·`Query`·`Param`):
 
@@ -604,7 +604,7 @@ class LeaderInterviewAutoAssignControllerTest extends InterviewControllerTestSup
     List<InterviewAvailability> findByRoundId(Long roundId);
 ```
 
-- [ ] **Step 2: 결과 DTO 2개**
+- [x] **Step 2: 결과 DTO 2개**
 
 `service/dto/query/AutoAssignResult.java`:
 
@@ -628,7 +628,7 @@ public record AutoAssignResponse(int assignedMemberCount, int unassignedMemberCo
 }
 ```
 
-- [ ] **Step 3: 서비스**
+- [x] **Step 3: 서비스**
 
 `service/InterviewAssignmentService.java`:
 
@@ -745,7 +745,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
 
 (※ `InterviewSchedule.create` 의 실제 시그니처를 먼저 읽고 인자 순서를 맞출 것 — BE#6 테스트 전례: `create(applicationId, slotId, roundId, assignedAt)`.)
 
-- [ ] **Step 4: Api + Controller**
+- [x] **Step 4: Api + Controller**
 
 `api/LeaderInterviewAssignmentApi.java`:
 
@@ -820,21 +820,21 @@ public class LeaderInterviewAssignmentController implements LeaderInterviewAssig
 }
 ```
 
-- [ ] **Step 5: GREEN 확인** — 12건 PASS
+- [x] **Step 5: GREEN 확인** — 12건 PASS
 
 ---
 
 ### Task 6: 전체 검증 + 스펙 보정 + 커밋
 
-- [ ] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (804 + 2 + 2 + 12 = 820건 예상)
+- [x] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (804 + 2 + 2 + 12 = 820건 예상)
 
-- [ ] **Step 2: 스펙 §16-7-3 명문화** — `docs/superpowers/specs/2026-06-11-interview-round-redesign-design.md` 의 `7-2.` 항목 아래에 추가:
+- [x] **Step 2: 스펙 §16-7-3 명문화** — `docs/superpowers/specs/2026-06-11-interview-round-redesign-design.md` 의 `7-2.` 항목 아래에 추가:
 
 ```markdown
 7-3. **수용된 잔여 윈도우 (경계 응답, BE#9 설계 판정)**: 응답 TX 가 기간 검사(COLLECTING)를 통과한 직후 자동배정이 전이·배정·커밋하면, 그 마지막 순간 응답 1건은 draft 에 미반영될 수 있다. availability·RESPONDED 데이터는 일관하므로 모순이 아니며, ASSIGNING 재실행과 확정 게이트(§6.3 respondedUnassigned)가 노출·흡수한다 — 응답 측 round 공유 잠금 도입은 과설계로 보류. ASSIGNING 진입 후 응답은 기존대로 409.
 ```
 
-- [ ] **Step 3: 커밋**
+- [x] **Step 3: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -846,9 +846,9 @@ git commit -m "feat(backend): 면접 자동배정 API — 그리디 draft 배정
 
 ### Task 7: self-check + PR 생성 (컨트롤러 수행 — 구현 subagent 금지)
 
-- [ ] **Step 1: self-check 7항목** (기존 동일 명령)
+- [x] **Step 1: self-check 7항목** (기존 동일 명령)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지. **리뷰 단계에서 codex adversarial 필수**)
+- [x] **Step 2: push + PR** (자동 머지 금지. **리뷰 단계에서 codex adversarial 필수**)
 
 ```bash
 git push -u origin feat/interview-auto-assign
