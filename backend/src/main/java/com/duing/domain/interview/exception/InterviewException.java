@@ -49,4 +49,9 @@ public class InterviewException extends ApplicationException {
         private static final String MESSAGE = "이미 진행 중인 면접 라운드에 소속된 지원자가 포함되어 있습니다.";
         public CandidateAlreadyInActiveRound() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
+
+    public static final class MemberTransitionNotAllowed extends InterviewException {
+        private static final String MESSAGE = "현재 상태에서 허용되지 않는 멤버 상태 변경입니다.";
+        public MemberTransitionNotAllowed() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
 }

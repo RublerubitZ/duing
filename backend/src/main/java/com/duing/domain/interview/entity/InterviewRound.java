@@ -75,6 +75,14 @@ public class InterviewRound extends BaseEntity {
                 .build();
     }
 
+    /**
+     * Availability 요청 회차를 1 올린다 — 발송·재알림·Rule 2 재초대 모두 발동 직전에 호출한다.
+     * 안 올리면 직전 발송과 dedupKey 가 같아져 재알림이 deduped 되어 소실된다 (스펙 §8).
+     */
+    public void increaseRequestSequence() {
+        this.requestSequence++;
+    }
+
     private static String normalizeNullable(String value) {
         if (value == null) {
             return null;
