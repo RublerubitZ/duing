@@ -2,11 +2,13 @@ package com.duing.domain.application.repository;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
+import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -63,4 +65,17 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     List<Application> findByRecruitmentIdAndStatus(
             @Param("recruitmentId") Long recruitmentId,
             @Param("status") ApplicationStatus status);
+
+    /**
+     * 라운드 생성 시 대상 지원서 행을 잠가 동시 생성 race 를 직렬화한다 (스펙 §7).
+     * ORDER BY id 고정으로 잠금 획득 순서를 일관시켜 교착을 방지한다.
+     * <p>
+     * FORCE_INCREMENT 인 이유: 전이 없이 멤버십만 생기는 후보(INTERVIEW_PENDING 재수용)는
+     * 더티 체킹이 없어 version 이 오르지 않는데, 그 사이 잠금 없이 @Version 만 쓰는
+     * updateStatus 가 끼어들면 "합격 처리된 지원자가 활성 멤버십 보유" 불일치가 생긴다.
+     * version 강제 증가로 동시 상태 전이가 커밋 시 낙관적 충돌(409)로 떨어지게 한다 (스펙 §16-7).
+     */
+    @Lock(LockModeType.PESSIMISTIC_FORCE_INCREMENT)
+    @Query("SELECT a FROM Application a WHERE a.id IN :ids ORDER BY a.id ASC")
+    List<Application> findAllByIdInForUpdate(@Param("ids") Collection<Long> ids);
 }
