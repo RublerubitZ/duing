@@ -212,16 +212,18 @@ class InterviewRoundDomainTest {
     }
 
     @Test
-    @DisplayName("배정 검토 중 라운드는 확정으로 종결된다")
+    @DisplayName("배정 검토 중 라운드는 확정으로 종결되고 확정 시각이 기록된다")
     void assigningRoundConfirms() {
         InterviewRound round = InterviewRound.create(1L, "1차 면접",
                 LocalDateTime.now().plusDays(7), null);
         round.openCollecting(LocalDateTime.now());
         round.openAssigning();
 
-        round.confirm();
+        LocalDateTime confirmedAt = LocalDateTime.now();
+        round.confirm(confirmedAt);
 
         assertThat(round.getStatus()).isEqualTo(RoundStatus.SCHEDULED);
+        assertThat(round.getAssignmentCompletedAt()).isEqualTo(confirmedAt);
     }
 
     @Test
@@ -231,7 +233,13 @@ class InterviewRoundDomainTest {
                 LocalDateTime.now().plusDays(7), null);
         collecting.openCollecting(LocalDateTime.now());
 
-        assertThatThrownBy(collecting::confirm)
+        assertThatThrownBy(() -> collecting.confirm(LocalDateTime.now()))
+                .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
+
+        InterviewRound draft = InterviewRound.create(1L, "1차 면접",
+                LocalDateTime.now().plusDays(7), null);
+
+        assertThatThrownBy(() -> draft.confirm(LocalDateTime.now()))
                 .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
     }
 

@@ -1,5 +1,6 @@
 package com.duing.domain.interview.exception;
 
+import com.duing.domain.interview.service.dto.query.UnresolvedMembersPayload;
 import com.duing.global.exception.ApplicationException;
 import org.springframework.http.HttpStatus;
 
@@ -155,5 +156,24 @@ public class InterviewException extends ApplicationException {
     public static final class LastSlotUndeletableWhileCollecting extends InterviewException {
         private static final String MESSAGE = "응답 수집 중에는 마지막 슬롯을 삭제할 수 없습니다.";
         public LastSlotUndeletableWhileCollecting() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static final class NothingToConfirm extends InterviewException {
+        private static final String MESSAGE = "확정할 면접 배정이 없습니다.";
+        public NothingToConfirm() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static final class RoundHasUnresolvedMembers extends InterviewException {
+        private static final String MESSAGE = "미처리 멤버가 있어 확정할 수 없습니다. 처리 후 다시 시도하거나 강제 확정하세요.";
+        private final UnresolvedMembersPayload payload;
+
+        public RoundHasUnresolvedMembers(UnresolvedMembersPayload payload) {
+            super(MESSAGE, HttpStatus.CONFLICT);
+            this.payload = payload;
+        }
+
+        public UnresolvedMembersPayload getPayload() {
+            return payload;
+        }
     }
 }

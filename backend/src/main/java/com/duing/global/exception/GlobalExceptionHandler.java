@@ -1,5 +1,7 @@
 package com.duing.global.exception;
 
+import com.duing.domain.interview.controller.dto.response.UnresolvedMembersResponse;
+import com.duing.domain.interview.exception.InterviewException;
 import com.duing.global.response.ApiResponse;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +22,18 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(InterviewException.RoundHasUnresolvedMembers.class)
+    public ResponseEntity<ApiResponse<UnresolvedMembersResponse>> handleUnresolvedMembers(
+            InterviewException.RoundHasUnresolvedMembers exception) {
+        // §6.3 — 경고 2종을 데이터로 실어 FE 가 분리 렌더·강조할 수 있게 한다.
+        log.warn("RoundHasUnresolvedMembers: unresponded={}, respondedUnassigned={}",
+                exception.getPayload().unresponded().size(),
+                exception.getPayload().respondedUnassigned().size());
+        return ResponseEntity.status(exception.getStatus())
+                .body(new ApiResponse<>(false, UnresolvedMembersResponse.from(exception.getPayload()),
+                        exception.getMessage()));
+    }
 
     @ExceptionHandler(ApplicationException.class)
     public ResponseEntity<ApiResponse<Void>> handleApplicationException(ApplicationException exception) {

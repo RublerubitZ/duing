@@ -105,12 +105,13 @@ public class InterviewRound extends BaseEntity {
         this.status = RoundStatus.ASSIGNING;
     }
 
-    /** 확정: ASSIGNING → SCHEDULED (터미널, 스펙 §5.1·§6.3). 재확정·확정 후 변경 경로는 없다 (§14). */
-    public void confirm() {
+    /** 확정: ASSIGNING → SCHEDULED (터미널, 스펙 §5.1·§6.3) + 확정 시각 기록. 재확정·확정 후 변경 경로는 없다 (§14). */
+    public void confirm(LocalDateTime now) {
         if (this.status != RoundStatus.ASSIGNING) {
             throw new InterviewException.RoundTransitionNotAllowed();
         }
         this.status = RoundStatus.SCHEDULED;
+        this.assignmentCompletedAt = now;
     }
 
     /**

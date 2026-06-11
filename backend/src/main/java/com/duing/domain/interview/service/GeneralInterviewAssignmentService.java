@@ -8,6 +8,7 @@ import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.event.InterviewScheduledEvent;
 import com.duing.domain.interview.exception.InterviewException;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
@@ -17,6 +18,9 @@ import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.MatchingInput;
 import com.duing.domain.interview.service.dto.MatchingResult;
 import com.duing.domain.interview.service.dto.query.AutoAssignResult;
+import com.duing.domain.interview.service.dto.query.ConfirmResult;
+import com.duing.domain.interview.service.dto.query.RoundMemberLine;
+import com.duing.domain.interview.service.dto.query.UnresolvedMembersPayload;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -25,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +48,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
     private final InterviewScheduleRepository interviewScheduleRepository;
     private final InterviewRoundAccessor interviewRoundAccessor;
     private final InterviewMatchingService interviewMatchingService;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     @Override
@@ -179,5 +185,81 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
                 .findByRoundIdAndApplicationIdAndStatus(roundId, applicationId,
                         InterviewScheduleStatus.ASSIGNED)
                 .ifPresent(interviewScheduleRepository::delete);
+    }
+
+    @Override
+    @Transactional
+    public ConfirmResult confirmRound(Long roundId, boolean force, Long currentUserId) {
+        // 잠금 순서 §16-7-4: round → members(전체). slot 잠금은 불요 — capacity 검증 없이 읽기만.
+        InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
+                .orElseThrow(InterviewException.RoundNotFound::new);
+        interviewRoundAccessor.requireManager(round, currentUserId);
+        if (round.getStatus() != RoundStatus.ASSIGNING) {
+            throw new InterviewException.RoundTransitionNotAllowed();
+        }
+
+        List<InterviewRoundMember> members =
+                interviewRoundMemberRepository.findAllByRoundIdForUpdate(roundId);
+        Map<Long, InterviewSchedule> scheduleByApplicationId = interviewScheduleRepository
+                .findByRoundIdAndStatus(roundId, InterviewScheduleStatus.ASSIGNED).stream()
+                .collect(Collectors.toMap(InterviewSchedule::getApplicationId, schedule -> schedule));
+
+        List<InterviewRoundMember> confirmTargets = members.stream()
+                .filter(member -> member.getStatus() != RoundMemberStatus.EXCLUDED)
+                .filter(member -> scheduleByApplicationId.containsKey(member.getApplicationId()))
+                .toList();
+        List<InterviewRoundMember> unresolvedMembers = members.stream()
+                .filter(member -> member.getStatus() != RoundMemberStatus.EXCLUDED)
+                .filter(member -> !scheduleByApplicationId.containsKey(member.getApplicationId()))
+                .toList();
+
+        if (confirmTargets.isEmpty()) {
+            throw new InterviewException.NothingToConfirm();
+        }
+        if (!unresolvedMembers.isEmpty() && !force) {
+            throw new InterviewException.RoundHasUnresolvedMembers(
+                    buildUnresolvedPayload(roundId, unresolvedMembers));
+        }
+
+        // force — 잔존 미처리 자동 EXCLUDED (§6.3). 미처리 = 활성 배정 미보유라 §16-3 정리 대상이 없다.
+        unresolvedMembers.forEach(InterviewRoundMember::exclude);
+        confirmTargets.forEach(InterviewRoundMember::confirmAssigned);
+        round.confirm(LocalDateTime.now(clock));
+
+        // 알림은 AFTER_COMMIT 리스너가 처리 — 롤백 시 발송되지 않는다 (기존 인프라 재사용).
+        confirmTargets.forEach(member -> eventPublisher.publishEvent(new InterviewScheduledEvent(
+                member.getApplicationId(),
+                scheduleByApplicationId.get(member.getApplicationId()).getSlotId(),
+                round.getRecruitmentId())));
+
+        return new ConfirmResult(confirmTargets.size(), unresolvedMembers.size());
+    }
+
+    private UnresolvedMembersPayload buildUnresolvedPayload(
+            Long roundId, List<InterviewRoundMember> unresolvedMembers) {
+        Map<Long, String> nameByApplicationId = interviewRoundMemberRepository
+                .findMemberLinesByRoundId(roundId).stream()
+                .collect(Collectors.toMap(RoundMemberLine::applicationId, RoundMemberLine::userName));
+        Map<Long, List<Long>> selectedSlotIdsByApplicationId = interviewAvailabilityRepository
+                .findByRoundId(roundId).stream()
+                .collect(Collectors.groupingBy(InterviewAvailability::getApplicationId,
+                        Collectors.mapping(InterviewAvailability::getSlotId, Collectors.toList())));
+
+        return new UnresolvedMembersPayload(
+                unresolvedMembers.stream()
+                        .filter(member -> member.getStatus() != RoundMemberStatus.RESPONDED)
+                        .map(member -> new UnresolvedMembersPayload.UnrespondedMember(
+                                member.getApplicationId(),
+                                nameByApplicationId.get(member.getApplicationId()),
+                                member.getStatus()))
+                        .toList(),
+                unresolvedMembers.stream()
+                        .filter(member -> member.getStatus() == RoundMemberStatus.RESPONDED)
+                        .map(member -> new UnresolvedMembersPayload.RespondedUnassignedMember(
+                                member.getApplicationId(),
+                                nameByApplicationId.get(member.getApplicationId()),
+                                selectedSlotIdsByApplicationId.getOrDefault(
+                                        member.getApplicationId(), List.of())))
+                        .toList());
     }
 }

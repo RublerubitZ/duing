@@ -33,4 +33,9 @@ public interface InterviewRoundMemberRepository
     @Query("SELECT m FROM InterviewRoundMember m WHERE m.id = :id AND m.roundId = :roundId")
     Optional<InterviewRoundMember> findByIdAndRoundIdForUpdate(@Param("id") Long id,
                                                                @Param("roundId") Long roundId);
+
+    /** 확정의 분류·전이는 전 상태 멤버 대상 — 전 멤버 잠금 (§16-7-2·§16-7-4, ORDER BY id). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT m FROM InterviewRoundMember m WHERE m.roundId = :roundId ORDER BY m.id ASC")
+    List<InterviewRoundMember> findAllByRoundIdForUpdate(@Param("roundId") Long roundId);
 }

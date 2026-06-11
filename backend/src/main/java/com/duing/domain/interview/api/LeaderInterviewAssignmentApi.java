@@ -2,6 +2,7 @@ package com.duing.domain.interview.api;
 
 import com.duing.domain.interview.controller.dto.request.AssignScheduleRequest;
 import com.duing.domain.interview.controller.dto.response.AutoAssignResponse;
+import com.duing.domain.interview.controller.dto.response.ConfirmRoundResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "면접 배정(운영진)", description = "면접 라운드 자동배정·수동 배정·해제·멤버 제외")
 @SecurityRequirement(name = "BearerAuth")
@@ -69,6 +71,20 @@ public interface LeaderInterviewAssignmentApi {
     ResponseEntity<ApiResponse<Void>> excludeMember(
             @PathVariable Long roundId,
             @PathVariable Long memberId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(
+            summary = "면접 라운드 확정",
+            description = "배정을 보유한 멤버를 ASSIGNED 로 전이하고 라운드를 종결(SCHEDULED·터미널)하며 확정 알림을 발송한다. "
+                    + "미처리(배정 없는) 멤버가 있으면 force 없이는 409 로 거부하고 경고 2종 — 미응답·가능없음 / "
+                    + "응답했는데 만석 미배정(강조 대상) — 을 분리 반환한다. force=true 면 미처리 멤버를 자동 제외해 "
+                    + "후보 대기열로 복귀시킨 뒤 종결한다. 배정이 하나도 없으면 강제로도 확정할 수 없다."
+    )
+    @PostMapping("/leader/interview-rounds/{roundId}/confirm")
+    ResponseEntity<ApiResponse<ConfirmRoundResponse>> confirmRound(
+            @PathVariable Long roundId,
+            @RequestParam(defaultValue = "false") boolean force,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }
