@@ -47,7 +47,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -63,7 +63,7 @@ git checkout -b feat/applicant-interview-view
 - Create: `backend/src/test/java/com/duing/domain/interview/service/dto/query/ApplicantInterviewPhaseTest.java`
 - Create: `backend/src/main/java/com/duing/domain/interview/service/dto/query/ApplicantInterviewPhase.java`
 
-- [ ] **Step 1: 진리표 단위 테스트 작성 (RED)**
+- [x] **Step 1: 진리표 단위 테스트 작성 (RED)**
 
 ```java
 package com.duing.domain.interview.service.dto.query;
@@ -198,9 +198,9 @@ class ApplicantInterviewPhaseTest {
 }
 ```
 
-- [ ] **Step 2: RED 확인** — `./gradlew test --tests "com.duing.domain.interview.service.dto.query.ApplicantInterviewPhaseTest"` → 컴파일 실패
+- [x] **Step 2: RED 확인** — `./gradlew test --tests "com.duing.domain.interview.service.dto.query.ApplicantInterviewPhaseTest"` → 컴파일 실패
 
-- [ ] **Step 3: 구현 (GREEN)**
+- [x] **Step 3: 구현 (GREEN)**
 
 ```java
 package com.duing.domain.interview.service.dto.query;
@@ -268,9 +268,9 @@ public enum ApplicantInterviewPhase {
 }
 ```
 
-- [ ] **Step 4: GREEN 확인** — 12건 PASS
+- [x] **Step 4: GREEN 확인** — 12건 PASS
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -285,7 +285,7 @@ git commit -m "feat(backend): applicantPhase 파생 enum — SSOT 진리표"
 **Files:**
 - Create: `backend/src/test/java/com/duing/domain/interview/controller/ApplicantInterviewControllerTest.java`
 
-- [ ] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속 — 지원자 본인 토큰 사용)
+- [x] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속 — 지원자 본인 토큰 사용)
 
 ```java
 package com.duing.domain.interview.controller;
@@ -605,13 +605,13 @@ class ApplicantInterviewControllerTest extends InterviewControllerTestSupport {
 }
 ```
 
-- [ ] **Step 2: RED 확인** — `./gradlew test --tests "...ApplicantInterviewControllerTest"` → 컴파일 성공 + 대부분 FAIL. **커밋하지 않는다.**
+- [x] **Step 2: RED 확인** — `./gradlew test --tests "...ApplicantInterviewControllerTest"` → 컴파일 성공 + 대부분 FAIL. **커밋하지 않는다.**
 
 ---
 
 ### Task 4: 구현 (GREEN)
 
-- [ ] **Step 1: projection·view DTO**
+- [x] **Step 1: projection·view DTO**
 
 `service/dto/query/VisibleMembership.java`:
 
@@ -651,7 +651,7 @@ public record ApplicantInterviewView(
 }
 ```
 
-- [ ] **Step 2: 레포 4건**
+- [x] **Step 2: 레포 4건**
 
 `InterviewRoundMemberRepositoryCustom` 에 추가 (import `VisibleMembership`·`Optional`):
 
@@ -707,7 +707,7 @@ public record ApplicantInterviewView(
 `InterviewAvailabilityRepository` 에 `List<InterviewAvailability> findByRoundIdAndApplicationId(Long roundId, Long applicationId);` 추가.
 `InterviewScheduleRepository` 에 `Optional<InterviewSchedule> findByRoundIdAndApplicationIdAndStatus(Long roundId, Long applicationId, InterviewScheduleStatus status);` 추가 (import `Optional` 기존재).
 
-- [ ] **Step 3: 서비스**
+- [x] **Step 3: 서비스**
 
 `service/ApplicantInterviewService.java`:
 
@@ -837,7 +837,7 @@ public class GeneralApplicantInterviewService implements ApplicantInterviewServi
 
 (주의: `ApplicationStatus` 는 FQCN 인라인 대신 import 로 정리 — 구현 시 import 문에 추가하고 본문은 `ApplicationStatus.INTERVIEW_PENDING` 사용)
 
-- [ ] **Step 4: 응답 DTO + Api + Controller**
+- [x] **Step 4: 응답 DTO + Api + Controller**
 
 `controller/dto/response/ApplicantInterviewResponse.java`:
 
@@ -953,15 +953,15 @@ public class ApplicantInterviewController implements ApplicantInterviewApi {
 }
 ```
 
-- [ ] **Step 5: GREEN 확인** — 15건 PASS
+- [x] **Step 5: GREEN 확인** — 15건 PASS
 
 ---
 
 ### Task 5: 전체 검증 + 커밋
 
-- [ ] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (755 + 12 + 15 = 782건 예상)
+- [x] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (755 + 12 + 15 = 782건 예상)
 
-- [ ] **Step 2:**
+- [x] **Step 2:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -973,9 +973,9 @@ git commit -m "feat(backend): 지원자 인터뷰 조회 API — applicantPhase 
 
 ### Task 6: self-check + PR 생성 (컨트롤러 수행 — 구현 subagent 금지)
 
-- [ ] **Step 1: self-check 7항목** (기존 동일 명령)
+- [x] **Step 1: self-check 7항목** (기존 동일 명령)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지)
+- [x] **Step 2: push + PR** (자동 머지 금지)
 
 ```bash
 git push -u origin feat/applicant-interview-view
