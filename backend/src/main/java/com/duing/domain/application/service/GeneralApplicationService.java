@@ -33,8 +33,6 @@ import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
-import com.duing.domain.interview.service.InterviewAvailabilityService;
-import com.duing.domain.interview.service.dto.command.CreateAvailabilitiesInSubmissionCommand;
 import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -87,7 +85,6 @@ public class GeneralApplicationService implements ApplicationService {
     private final ApplicationDraftService applicationDraftService;
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
     private final ApplicationEvaluationRepository applicationEvaluationRepository;
-    private final InterviewAvailabilityService interviewAvailabilityService;
     private final InterviewAvailabilityRepository interviewAvailabilityRepository;
     private final InterviewScheduleRepository interviewScheduleRepository;
     private final InterviewConfigRepository interviewConfigRepository;
@@ -129,12 +126,6 @@ public class GeneralApplicationService implements ApplicationService {
 
         Application application = Application.submit(recruitment, user, submitApplicationCommand.answers());
         Long savedApplicationId = applicationRepository.save(application).getId();
-
-        interviewAvailabilityService.createAllInSubmission(new CreateAvailabilitiesInSubmissionCommand(
-                savedApplicationId,
-                submitApplicationCommand.recruitmentId(),
-                submitApplicationCommand.interviewSlotIds()
-        ));
 
         applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
         return savedApplicationId;
