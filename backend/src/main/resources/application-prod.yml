@@ -30,10 +30,13 @@ file:
   storage:
     provider: s3
 
+# 환경변수는 vendor(R2) 가 아니라 provider-neutral 한 S3_* 로 통일한다 — 내부 프로퍼티가
+# s3.*, 구현체가 S3FileStorageService 이고 로컬 개발도 같은 S3_* 를 쓰므로 환경 불문 동일
+# 변수명, 값(버킷/엔드포인트)만 환경별로 다르게 주입. default 없음 = credential 누락 시 fail-fast.
 s3:
-  endpoint: ${R2_ENDPOINT}
+  endpoint: ${S3_ENDPOINT}
   region: auto
-  access-key: ${R2_ACCESS_KEY}
-  secret-key: ${R2_SECRET_KEY}
-  bucket: ${R2_BUCKET:duing}
-  public-base-url: ${R2_PUBLIC_BASE_URL}
+  access-key: ${S3_ACCESS_KEY}
+  secret-key: ${S3_SECRET_KEY}
+  bucket: ${S3_BUCKET:duing}
+  public-base-url: ${S3_PUBLIC_BASE_URL}
