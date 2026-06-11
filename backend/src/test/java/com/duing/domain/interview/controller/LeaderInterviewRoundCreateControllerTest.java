@@ -36,8 +36,6 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.util.ReflectionTestUtils;
-
 // wizard Step2 의 첫 persist — 면접 대상 선정 + 라운드(DRAFT) + 멤버 생성이 한 트랜잭션으로
 // 처리되는지, placement 불변식과 DRAFT 1개 제약이 강제되는지 검증한다 (스펙 §9.1 API 2·§7·§16).
 @Import(TestcontainersConfiguration.class)

@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -81,6 +82,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handlePessimisticLocking(
             PessimisticLockingFailureException exception) {
         log.warn("비관적 잠금 획득 실패 (409 변환): {}", rootCauseMessage(exception));
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error("요청을 처리할 수 없습니다. 잠시 후 다시 시도해주세요."));
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLocking(
+            ObjectOptimisticLockingFailureException exception) {
+        log.warn("낙관적 잠금 충돌 (409 변환): {}", rootCauseMessage(exception));
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error("요청을 처리할 수 없습니다. 잠시 후 다시 시도해주세요."));
     }

@@ -9,5 +9,7 @@ public interface InterviewAvailabilityRepository
 
     long countByApplicationId(Long applicationId);
 
+    long countBySlotId(Long slotId);
+
     List<InterviewAvailability> findByApplicationId(Long applicationId);
 }
