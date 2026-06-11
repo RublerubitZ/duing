@@ -51,7 +51,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -69,7 +69,7 @@ git checkout -b feat/interview-slot-management
 - Modify: `backend/src/main/java/com/duing/domain/interview/entity/InterviewRoundMember.java`
 - Modify: `backend/src/main/java/com/duing/domain/interview/exception/InterviewException.java` (MemberTransitionNotAllowed 만 선반영)
 
-- [ ] **Step 1: 단위 테스트 작성 (RED)**
+- [x] **Step 1: 단위 테스트 작성 (RED)**
 
 ```java
 package com.duing.domain.interview.entity;
@@ -121,7 +121,7 @@ class InterviewRoundDomainTest {
 }
 ```
 
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -130,7 +130,7 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
 
 Expected: 컴파일 실패 (메서드/예외 미존재) — TDD 의 RED.
 
-- [ ] **Step 3: 구현 (GREEN)**
+- [x] **Step 3: 구현 (GREEN)**
 
 `InterviewException` 에 추가 (`CandidateAlreadyInActiveRound` 아래 409 섹션):
 
@@ -170,9 +170,9 @@ Expected: 컴파일 실패 (메서드/예외 미존재) — TDD 의 RED.
     }
 ```
 
-- [ ] **Step 4: GREEN 확인** — 같은 명령, 3건 PASS
+- [x] **Step 4: GREEN 확인** — 같은 명령, 3건 PASS
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -188,7 +188,7 @@ git commit -m "feat(backend): 라운드 요청 회차 증가·멤버 재초대 �
 - Create: `backend/src/test/java/com/duing/domain/interview/controller/InterviewControllerTestSupport.java`
 - Modify: `LeaderInterviewRoundCandidateControllerTest.java` / `LeaderInterviewRoundCreateControllerTest.java` (헬퍼 삭제 + 상속)
 
-- [ ] **Step 1: support base 작성**
+- [x] **Step 1: support base 작성**
 
 ```java
 package com.duing.domain.interview.controller;
@@ -311,11 +311,11 @@ public abstract class InterviewControllerTestSupport extends IntegrationTestBase
 }
 ```
 
-- [ ] **Step 2: 기존 2개 테스트 리팩토링**
+- [x] **Step 2: 기존 2개 테스트 리팩토링**
 
 각 테스트에서: `extends IntegrationTestBase` → `extends InterviewControllerTestSupport`, 중복 `@Autowired` 필드(베이스에 있는 것)·`sequence`·헬퍼 메서드 삭제, 헬퍼 시그니처 차이 보정 — 기존 테스트의 `saveInterviewRecruitment(club, title)` 호출은 그대로, recruitment-필드 기반이던 `saveUnderReviewApplication("suffix")` 류는 `saveUnderReviewApplication(recruitment, "suffix")` 로 인자 추가. **단언·시나리오 무변경. import 정리.**
 
-- [ ] **Step 3: 리팩토링 검증 (두 테스트 클래스 전체 PASS)**
+- [x] **Step 3: 리팩토링 검증 (두 테스트 클래스 전체 PASS)**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -324,7 +324,7 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
 
 Expected: 25건 (10+15) PASS
 
-- [ ] **Step 4: 커밋**
+- [x] **Step 4: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -339,7 +339,7 @@ git commit -m "test(backend): 면접 컨트롤러 테스트 헬퍼 공통화 (In
 **Files:**
 - Create: `backend/src/test/java/com/duing/domain/interview/controller/LeaderInterviewSlotControllerTest.java`
 
-- [ ] **Step 1: 테스트 작성** (support 상속 — 슬롯/availability/notification 레포는 이 테스트만 쓰므로 자체 @Autowired)
+- [x] **Step 1: 테스트 작성** (support 상속 — 슬롯/availability/notification 레포는 이 테스트만 쓰므로 자체 @Autowired)
 
 ```java
 package com.duing.domain.interview.controller;
@@ -724,7 +724,7 @@ class LeaderInterviewSlotControllerTest extends InterviewControllerTestSupport {
 }
 ```
 
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -737,7 +737,7 @@ Expected: 컴파일 성공 + 대부분 FAIL (엔드포인트 미존재 — 404 �
 
 ### Task 5: 구현 (GREEN)
 
-- [ ] **Step 1: NotificationType + 이벤트 + 리스너**
+- [x] **Step 1: NotificationType + 이벤트 + 리스너**
 
 `NotificationType` 의 `INTERVIEW_CANCELLED` 다음에 `INTERVIEW_AVAILABILITY_REQUESTED,` 추가.
 
@@ -833,7 +833,7 @@ public class InterviewAvailabilityRequestedListener {
 }
 ```
 
-- [ ] **Step 2: 예외 6개 추가** (`InterviewException` — 404 섹션 신설 + 409 섹션에 추가, `InvalidDeadline` 아래 400 에 `InvalidSlotTime`)
+- [x] **Step 2: 예외 6개 추가** (`InterviewException` — 404 섹션 신설 + 409 섹션에 추가, `InvalidDeadline` 아래 400 에 `InvalidSlotTime`)
 
 ```java
     // ── 404 Not Found ─────────────────────────────────────────────────────────
@@ -873,9 +873,9 @@ public class InterviewAvailabilityRequestedListener {
     }
 ```
 
-- [ ] **Step 3: 레포 2건** — `InterviewAvailabilityRepository` 에 `long countBySlotId(Long slotId);`, `InterviewRoundMemberRepository` 에 `List<InterviewRoundMember> findByRoundIdAndStatus(Long roundId, RoundMemberStatus status);` (import 추가)
+- [x] **Step 3: 레포 2건** — `InterviewAvailabilityRepository` 에 `long countBySlotId(Long slotId);`, `InterviewRoundMemberRepository` 에 `List<InterviewRoundMember> findByRoundIdAndStatus(Long roundId, RoundMemberStatus status);` (import 추가)
 
-- [ ] **Step 4: DTO 4종**
+- [x] **Step 4: DTO 4종**
 
 `CreateInterviewSlotsCommand.java`:
 
@@ -978,7 +978,7 @@ import java.util.List;
 public record CreateInterviewSlotsResponse(List<Long> createdSlotIds, int reinvitedMemberCount) {}
 ```
 
-- [ ] **Step 5: 서비스**
+- [x] **Step 5: 서비스**
 
 `InterviewSlotService.java`:
 
@@ -1168,7 +1168,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
 }
 ```
 
-- [ ] **Step 6: Api + Controller**
+- [x] **Step 6: Api + Controller**
 
 `LeaderInterviewSlotApi.java`:
 
@@ -1298,15 +1298,15 @@ public class LeaderInterviewSlotController implements LeaderInterviewSlotApi {
 }
 ```
 
-- [ ] **Step 7: GREEN 확인** — `./gradlew test --tests "com.duing.domain.interview.controller.LeaderInterviewSlotControllerTest"` → 16건 PASS
+- [x] **Step 7: GREEN 확인** — `./gradlew test --tests "com.duing.domain.interview.controller.LeaderInterviewSlotControllerTest"` → 16건 PASS
 
 ---
 
 ### Task 6: 전체 검증 + 커밋
 
-- [ ] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (704 + 16 + 3 = 723건 예상, Task 3 리팩토링 포함 무손실)
+- [x] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (704 + 16 + 3 = 723건 예상, Task 3 리팩토링 포함 무손실)
 
-- [ ] **Step 2:**
+- [x] **Step 2:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -1318,9 +1318,9 @@ git commit -m "feat(backend): 면접 슬롯 관리 API + Rule 2 자동 복귀·�
 
 ### Task 7: self-check + PR 생성
 
-- [ ] **Step 1: self-check 7항목** (BE#0~3 동일 명령)
+- [x] **Step 1: self-check 7항목** (BE#0~3 동일 명령)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지)
+- [x] **Step 2: push + PR** (자동 머지 금지)
 
 ```bash
 git push -u origin feat/interview-slot-management
