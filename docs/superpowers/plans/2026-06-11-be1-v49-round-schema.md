@@ -52,7 +52,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1: develop 최신화 후 분기**
+- [x] **Step 1: develop 최신화 후 분기**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -71,7 +71,7 @@ Expected: `Switched to a new branch 'refactor/interview-round-schema'`
 
 구 `InterviewSchemaTest` 의 JdbcTemplate + `session_replication_role='replica'`(FK 우회) 패턴을 그대로 따른다. 이 시점엔 구 스키마라 새 테이블이 없어 **전부 FAIL** 해야 한다. 구 `InterviewSchemaTest` 는 Task 4 에서 삭제한다.
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```java
 package com.duing.domain.interview.repository;
@@ -272,7 +272,7 @@ class InterviewRoundSchemaTest {
 }
 ```
 
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -287,7 +287,7 @@ Expected: **전부 FAIL** — `relation "interview_round" does not exist` 류 (`
 
 **체크포인트:** Task 3 끝에 `./gradlew compileJava` 그린. (테스트 컴파일은 Task 4 에서 해소 — 커밋은 Task 4 끝에 1개)
 
-- [ ] **Step 1: V49 마이그레이션 작성**
+- [x] **Step 1: V49 마이그레이션 작성**
 
 `backend/src/main/resources/db/migration/V49__recreate_interview_tables_round_based.sql`:
 
@@ -406,7 +406,7 @@ CREATE INDEX idx_interview_schedule_slot
     ON interview_schedule (slot_id);
 ```
 
-- [ ] **Step 2: enum 2개 신규 작성**
+- [x] **Step 2: enum 2개 신규 작성**
 
 `backend/src/main/java/com/duing/domain/interview/entity/RoundStatus.java`:
 
@@ -448,7 +448,7 @@ public enum RoundMemberStatus {
 }
 ```
 
-- [ ] **Step 3: `InterviewRound` 엔티티 신규 작성**
+- [x] **Step 3: `InterviewRound` 엔티티 신규 작성**
 
 `backend/src/main/java/com/duing/domain/interview/entity/InterviewRound.java`:
 
@@ -542,7 +542,7 @@ public class InterviewRound extends BaseEntity {
 
 (상태 전이 메서드는 의도적으로 없다 — 각 전이는 해당 API PR 에서 TDD 로 도입한다. YAGNI.)
 
-- [ ] **Step 4: `InterviewRoundMember` 엔티티 신규 작성**
+- [x] **Step 4: `InterviewRoundMember` 엔티티 신규 작성**
 
 `backend/src/main/java/com/duing/domain/interview/entity/InterviewRoundMember.java`:
 
@@ -602,7 +602,7 @@ public class InterviewRoundMember extends BaseEntity {
 }
 ```
 
-- [ ] **Step 5: 기존 엔티티 3개 round 기반으로 수정 — 전체 교체**
+- [x] **Step 5: 기존 엔티티 3개 round 기반으로 수정 — 전체 교체**
 
 `InterviewSlot.java` — `recruitmentId` → `roundId`, 나머지 유지:
 
@@ -789,7 +789,7 @@ public class InterviewSchedule extends BaseEntity {
 }
 ```
 
-- [ ] **Step 6: 구 도메인 파일 일괄 삭제**
+- [x] **Step 6: 구 도메인 파일 일괄 삭제**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -820,7 +820,7 @@ git rm backend/src/main/java/com/duing/domain/interview/repository/InterviewConf
 
 **남는 것 (의도):** `InterviewMatchingService` + `MatchingInput`/`MatchingResult`, `InterviewSlotTimeWindow`, event 3종, `InterviewScheduleStatus`. `controller/` 디렉터리는 통째 삭제 (BE#2 부터 새 구조로 재생성).
 
-- [ ] **Step 7: `InterviewException` prune — 전체 교체**
+- [x] **Step 7: `InterviewException` prune — 전체 교체**
 
 삭제된 서비스 전용 예외를 제거하고, 살아있는 참조(`InterviewSlot.updateCapacity`)만 남긴다. 새 라운드 예외는 각 API PR 에서 추가한다.
 
@@ -845,7 +845,7 @@ public class InterviewException extends ApplicationException {
 }
 ```
 
-- [ ] **Step 8: 레포지토리 정비**
+- [x] **Step 8: 레포지토리 정비**
 
 `InterviewRoundRepository.java` 신규:
 
@@ -968,7 +968,7 @@ public interface InterviewSlotRepository extends JpaRepository<InterviewSlot, Lo
 }
 ```
 
-- [ ] **Step 9: `GeneralApplicationService` round 기반 재작성**
+- [x] **Step 9: `GeneralApplicationService` round 기반 재작성**
 
 `backend/src/main/java/com/duing/domain/application/service/GeneralApplicationService.java` 수정:
 
@@ -1108,7 +1108,7 @@ public interface InterviewSlotRepository extends JpaRepository<InterviewSlot, Lo
 
 (g) `getMyApplications` 의 주석에서 `config.location` 표현을 `round.location` 으로 갱신.
 
-- [ ] **Step 10: `GeneralRecruitmentService` 의 interview 의존 제거**
+- [x] **Step 10: `GeneralRecruitmentService` 의 interview 의존 제거**
 
 (a) import 2줄 제거: `com.duing.domain.interview.entity.InterviewConfig`, `com.duing.domain.interview.repository.InterviewConfigRepository`
 (b) 필드 제거: `private final InterviewConfigRepository interviewConfigRepository;`
@@ -1135,7 +1135,7 @@ public interface InterviewSlotRepository extends JpaRepository<InterviewSlot, Lo
 
 (d) `RecruitmentDetailQuery.java` 의 javadoc 한 줄 교체: `interviewAvailabilityDeadline 은 InterviewConfig 가 없거나 useInterview=false 면 null 로 전달한다.` → `interviewAvailabilityDeadline 은 라운드 모델 전환 후 호환용 필드로 항상 null 이다 (FE 재배선 후 제거 예정).`
 
-- [ ] **Step 11: `InterviewReminderJob` round 기반 재작성**
+- [x] **Step 11: `InterviewReminderJob` round 기반 재작성**
 
 config 의존을 round 로 교체 — 변경 요지: import `InterviewConfig(Repository)` → `InterviewRound(Repository)`, 필드 교체, `recruitmentIds`/`configByRecruitmentId` → `roundIds`/`roundById`, location 출처 `round.getLocation()`:
 
@@ -1163,7 +1163,7 @@ config 의존을 round 로 교체 — 변경 요지: import `InterviewConfig(Rep
 
 `buildReminderCommand(schedule, slot, round, application)` 시그니처/본문의 `config` → `round` 치환 (`round.getLocation()`). dedupKey·링크·메타데이터는 무변경.
 
-- [ ] **Step 12: main 컴파일 확인**
+- [x] **Step 12: main 컴파일 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -1190,7 +1190,7 @@ Expected: 출력 없음
 | REWORK | fixture 3개(아래 전문), `InterviewRoundFixture` 신규(아래 전문), 단위 5개(`ApplicantDetailServiceTest`·`MyApplicationDetailAccessTest`·`MyApplicationsQueryTest`·`ApplicationSubmitGuardsTest`·`ApplicationStatusServiceTest`), 통합 6개(`LeaderApplicantDetailInterviewTest`·`MyApplicationControllerStepperTest`·`ApplicantQueryTest`·`InterviewReminderJobTest`·`InterviewListenerIntegrationTest`·`ApplicationSubmitDecouplingTest`), recruitment 3개(`RecruitmentInterviewMetadataTest`·`RecruitmentCreateGuardsTest`·`RecruitmentUpdateAndCloseServiceTest`) |
 | KEEP | `interview/service/InterviewMatchingServiceTest`, `draft/integration/SubmitDiscardsDraftTest` |
 
-- [ ] **Step 1: DELETE 일괄 실행**
+- [x] **Step 1: DELETE 일괄 실행**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -1209,7 +1209,7 @@ git rm backend/src/test/java/com/duing/domain/interview/entity/InterviewConfigSl
        backend/src/test/java/com/duing/common/fixture/InterviewConfigFixture.java
 ```
 
-- [ ] **Step 2: fixture 재작성**
+- [x] **Step 2: fixture 재작성**
 
 `backend/src/test/java/com/duing/common/fixture/InterviewRoundFixture.java` 신규:
 
@@ -1251,7 +1251,7 @@ public final class InterviewRoundFixture {
 
 `InterviewSlotFixture`/`InterviewAvailabilityFixture`/`InterviewScheduleFixture`: 기존 메서드명·구조를 유지한 채 첫 인자(또는 recruitmentId 인자)를 `roundId` 로 치환한다 — 각 파일을 읽고 `recruitmentId` 파라미터명과 `create/link/assigned` 호출의 해당 인자만 `roundId` 로 바꾼다 (엔티티 create 시그니처는 Task 3 Step 5 와 일치: slot `create(roundId, start, end, capacity)`, availability `create(applicationId, slotId, roundId)`, schedule `create(applicationId, slotId, roundId, assignedAt)`).
 
-- [ ] **Step 3: 단위 테스트 5개 — mock 교체**
+- [x] **Step 3: 단위 테스트 5개 — mock 교체**
 
 5개 파일(`ApplicantDetailServiceTest`, `MyApplicationDetailAccessTest`, `MyApplicationsQueryTest`, `ApplicationSubmitGuardsTest`, `ApplicationStatusServiceTest`) 공통 변경:
 
@@ -1272,7 +1272,7 @@ stub 교체 (해당 파일에만 존재):
 - location 검증 케이스: `config.getLocation()` stub → fixture round 의 location 인자로 표현.
 - schedule mock/fixture 의 `getRecruitmentId()` 참조 전부 `getRoundId()` 로.
 
-- [ ] **Step 4: 통합 테스트 6개 — round 기반 셋업으로 재배선**
+- [x] **Step 4: 통합 테스트 6개 — round 기반 셋업으로 재배선**
 
 **공통 셋업 패턴** (FK 사슬: round → member → slot → availability|schedule — member 없이 availability/schedule 을 넣으면 FK 위반):
 
@@ -1312,12 +1312,12 @@ InterviewSlot slot = slotRepository.save(
 5. **`InterviewReminderJobTest`**: `InterviewConfigFixture` → round (location 은 `withStatus(..., "본관 201호", RoundStatus.SCHEDULED)` 로 직접 전달), slot/schedule 에 roundId + member 선행 생성. dedupKey/본문 단언 무수정 (location 출처만 바뀜).
 6. **`InterviewListenerIntegrationTest`**: config 생성 제거 → round + member + slot(roundId) + schedule(roundId). 이벤트 직접 발행 패턴 유지, 단언 무수정.
 
-- [ ] **Step 5: recruitment 테스트 3개**
+- [x] **Step 5: recruitment 테스트 3개**
 
 1. **`RecruitmentCreateGuardsTest`·`RecruitmentUpdateAndCloseServiceTest`**: `InterviewConfigRepository` mock 필드 + 생성자 인자 + import **제거** (교체 아님 — `GeneralRecruitmentService` 의 interview 의존 자체가 사라졌다).
 2. **`RecruitmentInterviewMetadataTest`**: config 저장 제거. deadline 노출을 단언하던 케이스는 **"라운드 모델 전환 후 모집 상세의 interviewAvailabilityDeadline 은 항상 null 이다"** 로 의미를 뒤집어 유지 (호환 필드 회귀 방지). 면접 기간(interviewStartDate/EndDate — recruitment 자체 컬럼)·applicantCount 케이스는 무수정.
 
-- [ ] **Step 6: 전체 테스트 GREEN 확인**
+- [x] **Step 6: 전체 테스트 GREEN 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -1333,7 +1333,7 @@ grep -rn "InterviewConfig\|SlotLifecyclePhase\|interview_config" backend/src --i
 
 Expected: V49 의 `DROP TABLE IF EXISTS interview_config` 1줄만 출력
 
-- [ ] **Step 7: 단일 커밋**
+- [x] **Step 7: 단일 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -1345,7 +1345,7 @@ git commit -m "refactor(backend): 면접 도메인 라운드 중심 스키마 �
 
 ### Task 5: 최종 검증 + PR 생성
 
-- [ ] **Step 1: PR 직전 self-check 7항목** (각 항목 실제 실행·확인)
+- [x] **Step 1: PR 직전 self-check 7항목** (각 항목 실제 실행·확인)
 
 1. `./gradlew test` BUILD SUCCESSFUL (Task 4 Step 6 재확인)
 2. 변경 범위 = 스펙 §12 BE#1 + File Map: `git diff develop --stat` 대조, 요청 외 변경 0건
@@ -1361,7 +1361,7 @@ for f in $(git diff develop --name-only --diff-filter=d); do
 done; true
 ```
 
-- [ ] **Step 2: push + PR 생성** (자동 머지 금지)
+- [x] **Step 2: push + PR 생성** (자동 머지 금지)
 
 ```bash
 git push -u origin refactor/interview-round-schema
