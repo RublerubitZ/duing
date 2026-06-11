@@ -85,4 +85,64 @@ class InterviewRoundDomainTest {
         assertThatThrownBy(() -> round.openCollecting(LocalDateTime.now()))
                 .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
     }
+
+    @Test
+    @DisplayName("초대된 멤버가 슬롯을 선택하면 RESPONDED 가 된다")
+    void invitedMemberMarksResponded() {
+        InterviewRoundMember member = InterviewRoundMember.invite(1L, 10L);
+
+        member.markResponded();
+
+        assertThat(member.getStatus()).isEqualTo(RoundMemberStatus.RESPONDED);
+    }
+
+    @Test
+    @DisplayName("가능없음 상태 멤버가 슬롯 선택으로 전환하면 RESPONDED 가 되고 대체 텍스트가 비워진다")
+    void noAvailableSlotMemberSwitchesToResponded() {
+        InterviewRoundMember member = InterviewRoundMember.invite(1L, 10L);
+        ReflectionTestUtils.setField(member, "status", RoundMemberStatus.NO_AVAILABLE_SLOT);
+        ReflectionTestUtils.setField(member, "alternativeAvailabilityText", "주말만");
+
+        member.markResponded();
+
+        assertThat(member.getStatus()).isEqualTo(RoundMemberStatus.RESPONDED);
+        assertThat(member.getAlternativeAvailabilityText()).isNull();
+    }
+
+    @Test
+    @DisplayName("초대된 멤버가 가능한 슬롯이 없다고 응답하면 NO_AVAILABLE_SLOT 과 대체 가능시간 텍스트가 기록된다")
+    void invitedMemberReportsNoAvailableSlot() {
+        InterviewRoundMember member = InterviewRoundMember.invite(1L, 10L);
+
+        member.reportNoAvailableSlot("  평일 저녁만 가능합니다  ");
+
+        assertThat(member.getStatus()).isEqualTo(RoundMemberStatus.NO_AVAILABLE_SLOT);
+        assertThat(member.getAlternativeAvailabilityText()).isEqualTo("평일 저녁만 가능합니다");
+    }
+
+    @Test
+    @DisplayName("응답 완료 멤버는 마감 전 가능없음으로 다시 응답할 수 있다 — 상호 전환")
+    void respondedMemberCanSwitchToNoAvailableSlot() {
+        InterviewRoundMember member = InterviewRoundMember.invite(1L, 10L);
+        member.markResponded();
+
+        member.reportNoAvailableSlot(null);
+
+        assertThat(member.getStatus()).isEqualTo(RoundMemberStatus.NO_AVAILABLE_SLOT);
+        assertThat(member.getAlternativeAvailabilityText()).isNull();
+    }
+
+    @Test
+    @DisplayName("배정 확정·제외된 멤버는 응답을 변경할 수 없다")
+    void terminalMembersCannotRespond() {
+        InterviewRoundMember assigned = InterviewRoundMember.invite(1L, 10L);
+        ReflectionTestUtils.setField(assigned, "status", RoundMemberStatus.ASSIGNED);
+        InterviewRoundMember excluded = InterviewRoundMember.invite(1L, 11L);
+        ReflectionTestUtils.setField(excluded, "status", RoundMemberStatus.EXCLUDED);
+
+        assertThatThrownBy(assigned::markResponded)
+                .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
+        assertThatThrownBy(() -> excluded.reportNoAvailableSlot("아무때나"))
+                .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
+    }
 }
