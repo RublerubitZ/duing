@@ -45,7 +45,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -61,7 +61,7 @@ git checkout -b feat/interview-respond-availability
 - Modify: `backend/src/test/java/com/duing/domain/interview/entity/InterviewRoundDomainTest.java`
 - Modify: `backend/src/main/java/com/duing/domain/interview/entity/InterviewRoundMember.java`
 
-- [ ] **Step 1: 단위 테스트 4건 추가 (RED)** — `InterviewRoundDomainTest` 에:
+- [x] **Step 1: 단위 테스트 4건 추가 (RED)** — `InterviewRoundDomainTest` 에:
 
 ```java
     @Test
@@ -115,9 +115,9 @@ git checkout -b feat/interview-respond-availability
     }
 ```
 
-- [ ] **Step 2: RED 확인** — `./gradlew test --tests "com.duing.domain.interview.entity.InterviewRoundDomainTest"` → 컴파일 실패
+- [x] **Step 2: RED 확인** — `./gradlew test --tests "com.duing.domain.interview.entity.InterviewRoundDomainTest"` → 컴파일 실패
 
-- [ ] **Step 3: 구현 (GREEN)** — `InterviewRoundMember` 의 `reinviteAfterSlotAdded()` 아래에:
+- [x] **Step 3: 구현 (GREEN)** — `InterviewRoundMember` 의 `reinviteAfterSlotAdded()` 아래에:
 
 ```java
     /**
@@ -157,9 +157,9 @@ git checkout -b feat/interview-respond-availability
     }
 ```
 
-- [ ] **Step 4: GREEN 확인** — 11건(기존 7+신규 4) PASS
+- [x] **Step 4: GREEN 확인** — 11건(기존 7+신규 4) PASS
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -174,7 +174,7 @@ git commit -m "feat(backend): 라운드 멤버 응답 전이(markResponded·repo
 **Files:**
 - Create: `backend/src/test/java/com/duing/domain/interview/controller/ApplicantInterviewRespondControllerTest.java`
 
-- [ ] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
+- [x] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
 
 ```java
 package com.duing.domain.interview.controller;
@@ -552,13 +552,13 @@ class ApplicantInterviewRespondControllerTest extends InterviewControllerTestSup
 }
 ```
 
-- [ ] **Step 2: RED 확인** — `./gradlew test --tests "...ApplicantInterviewRespondControllerTest"` → 컴파일 성공(엔드포인트 블랙박스) + 대부분 FAIL. **커밋하지 않는다.**
+- [x] **Step 2: RED 확인** — `./gradlew test --tests "...ApplicantInterviewRespondControllerTest"` → 컴파일 성공(엔드포인트 블랙박스) + 대부분 FAIL. **커밋하지 않는다.**
 
 ---
 
 ### Task 4: 구현 (GREEN)
 
-- [ ] **Step 1: 예외 5개 추가** (`InterviewException`)
+- [x] **Step 1: 예외 5개 추가** (`InterviewException`)
 
 404 섹션에:
 
@@ -597,7 +597,7 @@ class ApplicantInterviewRespondControllerTest extends InterviewControllerTestSup
     }
 ```
 
-- [ ] **Step 2: 레포 2건**
+- [x] **Step 2: 레포 2건**
 
 `InterviewSlotRepository` 에 추가 (import `LockModeType`·`Lock`·`Query`·`Param`·`Collection`):
 
@@ -623,7 +623,7 @@ class ApplicantInterviewRespondControllerTest extends InterviewControllerTestSup
                                              @Param("applicationId") Long applicationId);
 ```
 
-- [ ] **Step 3: command + request DTO**
+- [x] **Step 3: command + request DTO**
 
 `service/dto/command/RespondInterviewAvailabilityCommand.java`:
 
@@ -665,7 +665,7 @@ public record RespondInterviewAvailabilityRequest(
 }
 ```
 
-- [ ] **Step 4: 서비스**
+- [x] **Step 4: 서비스**
 
 `ApplicantInterviewService` 에 추가:
 
@@ -749,7 +749,7 @@ public record RespondInterviewAvailabilityRequest(
 
 (import 추가: `ApplicationStatus`·`RespondInterviewAvailabilityCommand`·`LinkedHashSet`·`Set` — `ApplicationStatus` 는 BE#7 에서 이미 import 됨)
 
-- [ ] **Step 5: Api + Controller**
+- [x] **Step 5: Api + Controller**
 
 `ApplicantInterviewApi` 에 추가 (import `RespondInterviewAvailabilityRequest`·`Valid`·`PutMapping`·`RequestBody`):
 
@@ -783,15 +783,15 @@ public record RespondInterviewAvailabilityRequest(
     }
 ```
 
-- [ ] **Step 6: GREEN 확인** — 15건 PASS
+- [x] **Step 6: GREEN 확인** — 15건 PASS
 
 ---
 
 ### Task 5: 전체 검증 + 커밋
 
-- [ ] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (784 + 4 + 15 = 803건 예상)
+- [x] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (784 + 4 + 15 = 803건 예상)
 
-- [ ] **Step 2:**
+- [x] **Step 2:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -803,9 +803,9 @@ git commit -m "feat(backend): 지원자 면접 가능 시간 응답 API — 전�
 
 ### Task 6: self-check + PR 생성 (컨트롤러 수행 — 구현 subagent 금지)
 
-- [ ] **Step 1: self-check 7항목** (기존 동일 명령)
+- [x] **Step 1: self-check 7항목** (기존 동일 명령)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지. **리뷰 단계에서 codex adversarial — 잠금 2종·상태전이 — 포함**)
+- [x] **Step 2: push + PR** (자동 머지 금지. **리뷰 단계에서 codex adversarial — 잠금 2종·상태전이 — 포함**)
 
 ```bash
 git push -u origin feat/interview-respond-availability
