@@ -45,7 +45,9 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
      * isActiveForPlacement 술어의 부정 (스펙 §5.4) —
      * placement-active = round.status != CANCELLED(DRAFT 포함) && member.status != EXCLUDED.
      * 지원자 노출용 isVisibleToApplicant(DRAFT 제외)와 혼용하지 않는다.
-     * soft-deleted round 는 @SQLRestriction 이 서브쿼리에서도 자동 제외한다.
+     * soft-deleted round 는 명시적 deletedAt 필터로 제외한다 — @SQLRestriction 의 서브쿼리 join 적용에
+     * 의존하지 않는 belt-and-braces (findAssignedBetween 의 slot.deletedAt 명시 필터 전례).
+     * round 삭제 경로 자체가 금지(스펙 §16-4)이므로 정상 운영에선 도달하지 않는 방어선이다.
      */
     private BooleanExpression hasNoPlacementActiveMembership() {
         return JPAExpressions
@@ -55,7 +57,8 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
                 .where(
                         interviewRoundMember.applicationId.eq(application.id),
                         interviewRoundMember.status.ne(RoundMemberStatus.EXCLUDED),
-                        interviewRound.status.ne(RoundStatus.CANCELLED)
+                        interviewRound.status.ne(RoundStatus.CANCELLED),
+                        interviewRound.deletedAt.isNull()
                 )
                 .notExists();
     }

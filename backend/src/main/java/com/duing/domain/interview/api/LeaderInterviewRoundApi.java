@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "면접 라운드(운영진)", description = "운영진 전용 면접 라운드 관리")
 @SecurityRequirement(name = "BearerAuth")
-public interface ManagerInterviewRoundApi {
+public interface LeaderInterviewRoundApi {
 
     @Operation(
             summary = "면접 라운드 후보 조회",
@@ -27,7 +27,7 @@ public interface ManagerInterviewRoundApi {
                     + "상시모집 대기열 카운트는 파라미터 없이 호출해 큐만 집계한다. "
                     + "면접을 사용하지 않는 모집이면 400."
     )
-    @GetMapping("/recruitments/{recruitmentId}/interview-round-candidates")
+    @GetMapping("/leader/recruitments/{recruitmentId}/interview-round-candidates")
     ResponseEntity<ApiResponse<List<RoundCandidateResponse>>> getRoundCandidates(
             @PathVariable Long recruitmentId,
             @Parameter(description = "서류 검토 중(UNDER_REVIEW) 지원자 포함 여부", example = "true")

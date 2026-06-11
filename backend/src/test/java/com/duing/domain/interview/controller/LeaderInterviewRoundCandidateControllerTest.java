@@ -52,9 +52,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 // 후보 = 후보 상태(기본 INTERVIEW_PENDING, 옵션 UNDER_REVIEW 포함) && placement-active 멤버십 없음 (스펙 §5.4·§9.1 API 1).
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class ManagerInterviewRoundCandidateControllerTest extends IntegrationTestBase {
+class LeaderInterviewRoundCandidateControllerTest extends IntegrationTestBase {
 
-    private static final String CANDIDATES_PATH = "/api/v1/recruitments/{recruitmentId}/interview-round-candidates";
+    private static final String CANDIDATES_PATH = "/api/v1/leader/recruitments/{recruitmentId}/interview-round-candidates";
 
     @LocalServerPort
     private int port;

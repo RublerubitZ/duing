@@ -1,6 +1,6 @@
 package com.duing.domain.interview.controller;
 
-import com.duing.domain.interview.api.ManagerInterviewRoundApi;
+import com.duing.domain.interview.api.LeaderInterviewRoundApi;
 import com.duing.domain.interview.controller.dto.response.RoundCandidateResponse;
 import com.duing.domain.interview.service.InterviewRoundService;
 import com.duing.global.auth.UserPrincipal;
@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
-public class ManagerInterviewRoundController implements ManagerInterviewRoundApi {
+public class LeaderInterviewRoundController implements LeaderInterviewRoundApi {
 
     private final InterviewRoundService interviewRoundService;
 
