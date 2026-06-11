@@ -27,4 +27,10 @@ public interface InterviewRoundMemberRepository
     @Query("SELECT m FROM InterviewRoundMember m WHERE m.roundId = :roundId AND m.status = :status ORDER BY m.id ASC")
     List<InterviewRoundMember> findAllByRoundIdAndStatusForUpdate(@Param("roundId") Long roundId,
                                                                   @Param("status") RoundMemberStatus status);
+
+    /** 소유권(roundId)을 잠금 술어에 포함 — 타 라운드 멤버 행을 잠그지 않고 거부한다 (§16-7-2). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT m FROM InterviewRoundMember m WHERE m.id = :id AND m.roundId = :roundId")
+    Optional<InterviewRoundMember> findByIdAndRoundIdForUpdate(@Param("id") Long id,
+                                                               @Param("roundId") Long roundId);
 }

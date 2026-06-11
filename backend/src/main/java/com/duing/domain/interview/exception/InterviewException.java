@@ -16,6 +16,16 @@ public class InterviewException extends ApplicationException {
         public RoundNotFound() { super(MESSAGE, HttpStatus.NOT_FOUND); }
     }
 
+    public static final class ScheduleNotFound extends InterviewException {
+        private static final String MESSAGE = "해제할 면접 배정이 없습니다.";
+        public ScheduleNotFound() { super(MESSAGE, HttpStatus.NOT_FOUND); }
+    }
+
+    public static final class MemberNotFound extends InterviewException {
+        private static final String MESSAGE = "해당 면접 라운드의 멤버가 아닙니다.";
+        public MemberNotFound() { super(MESSAGE, HttpStatus.NOT_FOUND); }
+    }
+
     public static final class SlotNotFound extends InterviewException {
         private static final String MESSAGE = "면접 슬롯을 찾을 수 없습니다.";
         public SlotNotFound() { super(MESSAGE, HttpStatus.NOT_FOUND); }
@@ -95,6 +105,11 @@ public class InterviewException extends ApplicationException {
     public static final class RoundTransitionNotAllowed extends InterviewException {
         private static final String MESSAGE = "현재 단계에서 허용되지 않는 라운드 상태 변경입니다.";
         public RoundTransitionNotAllowed() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static final class SlotCapacityExceeded extends InterviewException {
+        private static final String MESSAGE = "해당 슬롯의 수용 인원이 가득 찼습니다.";
+        public SlotCapacityExceeded() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
 
     public static final class RoundHasNoSlots extends InterviewException {

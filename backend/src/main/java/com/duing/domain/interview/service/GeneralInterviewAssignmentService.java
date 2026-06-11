@@ -4,6 +4,7 @@ import com.duing.domain.interview.entity.InterviewAvailability;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
@@ -31,6 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GeneralInterviewAssignmentService implements InterviewAssignmentService {
+
+    private static final Set<RoundStatus> EXCLUDABLE_ROUND_STATUSES =
+            Set.of(RoundStatus.DRAFT, RoundStatus.COLLECTING, RoundStatus.ASSIGNING);
 
     private final InterviewRoundRepository interviewRoundRepository;
     private final InterviewRoundMemberRepository interviewRoundMemberRepository;
@@ -95,5 +99,85 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         return new AutoAssignResult(
                 matchingResult.assigned().size(),
                 matchingResult.unassignedApplicationIds().size());
+    }
+
+    @Override
+    @Transactional
+    public void assignSchedule(Long roundId, Long memberId, Long slotId, Long currentUserId) {
+        // 잠금 순서 §16-7-4: round → slot → member.
+        InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
+                .orElseThrow(InterviewException.RoundNotFound::new);
+        interviewRoundAccessor.requireManager(round, currentUserId);
+        if (round.getStatus() != RoundStatus.ASSIGNING) {
+            throw new InterviewException.RoundTransitionNotAllowed();
+        }
+
+        InterviewSlot slot = interviewSlotRepository.findByIdAndRoundIdForUpdate(slotId, roundId)
+                .orElseThrow(InterviewException.InvalidSlotSelection::new);
+        InterviewRoundMember member = getLockedMemberOfRound(roundId, memberId);
+        if (member.getStatus() == RoundMemberStatus.EXCLUDED) {
+            throw new InterviewException.MemberTransitionNotAllowed();
+        }
+
+        // 본인 기존 배정을 먼저 비워야 "만석 슬롯 내 본인 재배정(멱등)" 이 자연 통과한다.
+        removeActiveSchedule(roundId, member.getApplicationId());
+        long assignedCount = interviewScheduleRepository
+                .countBySlotIdAndStatus(slotId, InterviewScheduleStatus.ASSIGNED);
+        if (assignedCount >= slot.getCapacity()) {
+            throw new InterviewException.SlotCapacityExceeded();
+        }
+        interviewScheduleRepository.save(InterviewSchedule.create(
+                member.getApplicationId(), slotId, roundId, LocalDateTime.now(clock)));
+    }
+
+    @Override
+    @Transactional
+    public void unassignSchedule(Long roundId, Long memberId, Long currentUserId) {
+        InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
+                .orElseThrow(InterviewException.RoundNotFound::new);
+        interviewRoundAccessor.requireManager(round, currentUserId);
+        if (round.getStatus() != RoundStatus.ASSIGNING) {
+            throw new InterviewException.RoundTransitionNotAllowed();
+        }
+
+        // 멤버 행을 쓰지 않으므로 멤버 잠금은 불요 — 존재·소속 검증만 한다.
+        InterviewRoundMember member = interviewRoundMemberRepository.findById(memberId)
+                .filter(found -> found.getRoundId().equals(roundId))
+                .orElseThrow(InterviewException.MemberNotFound::new);
+        InterviewSchedule schedule = interviewScheduleRepository
+                .findByRoundIdAndApplicationIdAndStatus(roundId, member.getApplicationId(),
+                        InterviewScheduleStatus.ASSIGNED)
+                .orElseThrow(InterviewException.ScheduleNotFound::new);
+        interviewScheduleRepository.delete(schedule);
+    }
+
+    @Override
+    @Transactional
+    public void excludeMember(Long roundId, Long memberId, Long currentUserId) {
+        // 잠금 순서 §16-7-4: round → member. round 잠금이 자동배정 재실행·향후 확정/취소와
+        // 직렬화하고, 멤버 잠금(§16-7-2)이 동시 "배정 vs 제외" 의 잔존 배정을 차단한다.
+        InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
+                .orElseThrow(InterviewException.RoundNotFound::new);
+        interviewRoundAccessor.requireManager(round, currentUserId);
+        if (!EXCLUDABLE_ROUND_STATUSES.contains(round.getStatus())) {
+            throw new InterviewException.RoundTransitionNotAllowed();
+        }
+
+        InterviewRoundMember member = getLockedMemberOfRound(roundId, memberId);
+        member.exclude();
+        // §16-3 — 누락 시 제외된 지원자에게 리마인더가 발송되고 dashboard 에 배정이 잔존한다.
+        removeActiveSchedule(roundId, member.getApplicationId());
+    }
+
+    private InterviewRoundMember getLockedMemberOfRound(Long roundId, Long memberId) {
+        return interviewRoundMemberRepository.findByIdAndRoundIdForUpdate(memberId, roundId)
+                .orElseThrow(InterviewException.MemberNotFound::new);
+    }
+
+    private void removeActiveSchedule(Long roundId, Long applicationId) {
+        interviewScheduleRepository
+                .findByRoundIdAndApplicationIdAndStatus(roundId, applicationId,
+                        InterviewScheduleStatus.ASSIGNED)
+                .ifPresent(interviewScheduleRepository::delete);
     }
 }
