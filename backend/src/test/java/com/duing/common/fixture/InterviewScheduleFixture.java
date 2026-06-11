@@ -7,7 +7,7 @@ public final class InterviewScheduleFixture {
 
     private InterviewScheduleFixture() {}
 
-    public static InterviewSchedule assigned(Long applicationId, Long slotId, Long recruitmentId) {
-        return InterviewSchedule.create(applicationId, slotId, recruitmentId, LocalDateTime.now());
+    public static InterviewSchedule assigned(Long applicationId, Long slotId, Long roundId) {
+        return InterviewSchedule.create(applicationId, slotId, roundId, LocalDateTime.now());
     }
 }

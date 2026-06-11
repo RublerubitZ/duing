@@ -6,7 +6,7 @@ public final class InterviewAvailabilityFixture {
 
     private InterviewAvailabilityFixture() {}
 
-    public static InterviewAvailability link(Long applicationId, Long slotId, Long recruitmentId) {
-        return InterviewAvailability.create(applicationId, slotId, recruitmentId);
+    public static InterviewAvailability link(Long applicationId, Long slotId, Long roundId) {
+        return InterviewAvailability.create(applicationId, slotId, roundId);
     }
 }

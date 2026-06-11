@@ -13,6 +13,7 @@ import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
+import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery.AvailabilityItem;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
@@ -20,12 +21,13 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
-import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
@@ -54,7 +56,7 @@ class ApplicantDetailServiceTest {
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
     private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
-    private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
+    private final InterviewRoundRepository interviewRoundRepository = mock(InterviewRoundRepository.class);
     private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
@@ -68,7 +70,7 @@ class ApplicantDetailServiceTest {
             applicationEvaluationRepository,
             interviewAvailabilityRepository,
             interviewScheduleRepository,
-            interviewConfigRepository,
+            interviewRoundRepository,
             interviewSlotRepository);
 
     @Test
@@ -336,8 +338,8 @@ class ApplicantDetailServiceTest {
     }
 
     @Test
-    @DisplayName("ASSIGNED schedule 은 있지만 InterviewConfig.location 이 null 인 경우에도 interview 객체는 그대로 노출되고 location 만 null 이다 (Codex review BE-3)")
-    void interviewExposedEvenWhenConfigLocationIsNull() {
+    @DisplayName("ASSIGNED schedule 은 있지만 InterviewRound.location 이 null 인 경우에도 interview 객체는 그대로 노출되고 location 만 null 이다 (Codex review BE-3)")
+    void interviewExposedEvenWhenRoundLocationIsNull() {
         User applicant = mock(User.class);
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("지원자");
@@ -363,23 +365,23 @@ class ApplicantDetailServiceTest {
         when(application.getStatus()).thenReturn(ApplicationStatus.INTERVIEW_PENDING);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 9, 0));
 
-        // ASSIGNED schedule + slot 은 존재. config 는 있지만 location 은 null.
+        // ASSIGNED schedule + slot 은 존재. round 는 있지만 location 은 null.
         InterviewSchedule schedule = mock(InterviewSchedule.class);
         when(schedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
         when(schedule.getSlotId()).thenReturn(101L);
+        when(schedule.getRoundId()).thenReturn(30L);
         InterviewSlot slot = mock(InterviewSlot.class);
         when(slot.getStartTime()).thenReturn(LocalDateTime.of(2026, 6, 20, 14, 0));
         when(slot.getEndTime()).thenReturn(LocalDateTime.of(2026, 6, 20, 14, 30));
-        InterviewConfig config = mock(InterviewConfig.class);
-        when(config.getLocation()).thenReturn(null);
-        when(config.getAvailabilityDeadline()).thenReturn(LocalDateTime.of(2026, 6, 15, 18, 0));
+        InterviewRound roundWithoutLocation = InterviewRoundFixture.withStatus(
+                3L, LocalDateTime.of(2026, 6, 15, 18, 0), null, RoundStatus.SCHEDULED);
 
         when(applicationRepository.findWithRecruitmentAndClubById(15L)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.findAvailabilityItemsByApplicationId(15L))
                 .thenReturn(List.of());
         when(interviewScheduleRepository.findAssignedSlotByApplicationId(15L))
                 .thenReturn(Optional.empty());
-        when(interviewConfigRepository.findByRecruitmentId(3L)).thenReturn(Optional.of(config));
+        when(interviewRoundRepository.findById(30L)).thenReturn(Optional.of(roundWithoutLocation));
         when(interviewScheduleRepository.findByApplicationId(15L)).thenReturn(Optional.of(schedule));
         when(interviewSlotRepository.findById(101L)).thenReturn(Optional.of(slot));
 
@@ -392,8 +394,8 @@ class ApplicantDetailServiceTest {
     }
 
     @Test
-    @DisplayName("ASSIGNED schedule 은 있지만 InterviewConfig 자체가 없는 경우에도 interview 객체는 그대로 노출되고 location 만 null 이다")
-    void interviewExposedEvenWhenConfigIsAbsent() {
+    @DisplayName("ASSIGNED schedule 은 있지만 InterviewRound 자체가 없는 경우에도 interview 객체는 그대로 노출되고 location 만 null 이다")
+    void interviewExposedEvenWhenRoundIsAbsent() {
         User applicant = mock(User.class);
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("지원자");
@@ -406,7 +408,7 @@ class ApplicantDetailServiceTest {
 
         Recruitment recruitment = mock(Recruitment.class);
         when(recruitment.getId()).thenReturn(7L);
-        when(recruitment.getTitle()).thenReturn("면접 모집(config 없음)");
+        when(recruitment.getTitle()).thenReturn("면접 모집(round 없음)");
         when(recruitment.getClub()).thenReturn(club);
         when(recruitment.getApplicationMode()).thenReturn(ApplicationMode.EXTERNAL);
         when(recruitment.isUseInterview()).thenReturn(true);
@@ -422,6 +424,7 @@ class ApplicantDetailServiceTest {
         InterviewSchedule schedule = mock(InterviewSchedule.class);
         when(schedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
         when(schedule.getSlotId()).thenReturn(201L);
+        when(schedule.getRoundId()).thenReturn(31L);
         InterviewSlot slot = mock(InterviewSlot.class);
         when(slot.getStartTime()).thenReturn(LocalDateTime.of(2026, 6, 21, 10, 0));
         when(slot.getEndTime()).thenReturn(LocalDateTime.of(2026, 6, 21, 10, 30));
@@ -431,7 +434,7 @@ class ApplicantDetailServiceTest {
                 .thenReturn(List.of());
         when(interviewScheduleRepository.findAssignedSlotByApplicationId(16L))
                 .thenReturn(Optional.empty());
-        when(interviewConfigRepository.findByRecruitmentId(7L)).thenReturn(Optional.empty());
+        when(interviewRoundRepository.findById(31L)).thenReturn(Optional.empty());
         when(interviewScheduleRepository.findByApplicationId(16L)).thenReturn(Optional.of(schedule));
         when(interviewSlotRepository.findById(201L)).thenReturn(Optional.of(slot));
 

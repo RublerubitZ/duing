@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
-import com.duing.common.fixture.InterviewConfigFixture;
+import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.common.fixture.InterviewScheduleFixture;
 import com.duing.common.fixture.InterviewSlotFixture;
 import com.duing.domain.application.entity.Application;
@@ -14,10 +14,14 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
-import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewRound;
+import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.notification.entity.Notification;
@@ -62,7 +66,10 @@ class InterviewReminderJobTest extends IntegrationTestBase {
     private ApplicationRepository applicationRepository;
 
     @Autowired
-    private InterviewConfigRepository interviewConfigRepository;
+    private InterviewRoundRepository interviewRoundRepository;
+
+    @Autowired
+    private InterviewRoundMemberRepository interviewRoundMemberRepository;
 
     @Autowired
     private InterviewSlotRepository interviewSlotRepository;
@@ -162,14 +169,13 @@ class InterviewReminderJobTest extends IntegrationTestBase {
         Club club = saveActiveClub("면접동아리" + label);
         Recruitment recruitment = saveRecruitment(club);
 
-        // 자동배정 윈도 기준일 무관 — Reminder Job 은 InterviewConfig 의 location 만 사용한다.
-        InterviewConfig config = InterviewConfigFixture.create(
-                recruitment.getId(), LocalDateTime.now(clock).plusDays(30));
-        config.updateLocation("공학관 101호");
-        interviewConfigRepository.save(config);
+        // availabilityDeadline 무관 — Reminder Job 은 InterviewRound 의 location 만 사용한다.
+        InterviewRound round = interviewRoundRepository.save(InterviewRoundFixture.withStatus(
+                recruitment.getId(), LocalDateTime.now(clock).plusDays(30), "공학관 101호",
+                RoundStatus.SCHEDULED));
 
         InterviewSlot slot = interviewSlotRepository.save(
-                InterviewSlotFixture.create(recruitment.getId(), slotStartTime, 5));
+                InterviewSlotFixture.create(round.getId(), slotStartTime, 5));
 
         Application application = applicationRepository.save(
                 Application.submit(recruitment, applicant, List.of()));
@@ -177,10 +183,16 @@ class InterviewReminderJobTest extends IntegrationTestBase {
         // transitionTo 는 SUBMITTED → UNDER_REVIEW → INTERVIEW_PENDING 등 다단계라 fixture 에서는 reflection 사용.
         forceApplicationStatus(application, applicationStatus);
 
+        // composite FK (round_id, application_id) → interview_round_member — schedule 보다 먼저 저장한다.
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
+
         InterviewSchedule schedule = InterviewScheduleFixture.assigned(
-                application.getId(), slot.getId(), recruitment.getId());
+                application.getId(), slot.getId(), round.getId());
         if (cancelled) {
-            schedule.cancel();
+            // 취소 전이 메서드는 라운드 API PR(BE#3~)에서 TDD 로 도입된다 — saveActiveClub 의 리플렉션 전례.
+            Field scheduleStatusField = InterviewSchedule.class.getDeclaredField("status");
+            scheduleStatusField.setAccessible(true);
+            scheduleStatusField.set(schedule, InterviewScheduleStatus.CANCELLED);
         }
         return interviewScheduleRepository.save(schedule);
     }

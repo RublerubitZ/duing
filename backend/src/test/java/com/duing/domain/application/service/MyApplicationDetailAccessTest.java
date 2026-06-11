@@ -13,17 +13,19 @@ import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
+import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
-import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -49,7 +51,7 @@ class MyApplicationDetailAccessTest {
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
     private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
-    private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
+    private final InterviewRoundRepository interviewRoundRepository = mock(InterviewRoundRepository.class);
     private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
@@ -63,7 +65,7 @@ class MyApplicationDetailAccessTest {
             applicationEvaluationRepository,
             interviewAvailabilityRepository,
             interviewScheduleRepository,
-            interviewConfigRepository,
+            interviewRoundRepository,
             interviewSlotRepository);
 
     @Test
@@ -133,11 +135,10 @@ class MyApplicationDetailAccessTest {
         when(interviewScheduleRepository.findByApplicationId(applicationId))
                 .thenReturn(Optional.empty());
 
-        InterviewConfig interviewConfig = mock(InterviewConfig.class);
-        when(interviewConfig.getAvailabilityDeadline()).thenReturn(deadline);
-        when(interviewConfig.getLocation()).thenReturn("3호관 201호");
-        when(interviewConfigRepository.findByRecruitmentId(recruitmentId))
-                .thenReturn(Optional.of(interviewConfig));
+        InterviewRound collectingRound = InterviewRoundFixture.withStatus(
+                recruitmentId, deadline, "3호관 201호", RoundStatus.COLLECTING);
+        when(interviewRoundRepository.findVisibleToApplicantRoundByApplicationId(applicationId))
+                .thenReturn(Optional.of(collectingRound));
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 
@@ -166,13 +167,13 @@ class MyApplicationDetailAccessTest {
         // useInterview=false 면 면접 관련 레포지토리 호출 자체가 발생하지 않아야 한다.
         verify(interviewAvailabilityRepository, never()).countByApplicationId(applicationId);
         verifyNoInteractions(interviewScheduleRepository);
-        verifyNoInteractions(interviewConfigRepository);
+        verifyNoInteractions(interviewRoundRepository);
         verifyNoInteractions(interviewSlotRepository);
     }
 
     @Test
-    @DisplayName("useInterview=true 이지만 InterviewConfig 가 없으면 availabilityDeadline 과 interview 가 모두 null 이다")
-    void availabilityDeadlineIsNullWhenConfigMissing() {
+    @DisplayName("useInterview=true 이지만 지원자에게 보이는 라운드가 없으면 availabilityDeadline 과 interview 가 모두 null 이다")
+    void availabilityDeadlineIsNullWhenVisibleRoundMissing() {
         long applicationId = 3L;
         long currentUserId = 10L;
         long recruitmentId = 5L;
@@ -180,7 +181,8 @@ class MyApplicationDetailAccessTest {
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(0L);
-        when(interviewConfigRepository.findByRecruitmentId(recruitmentId)).thenReturn(Optional.empty());
+        when(interviewRoundRepository.findVisibleToApplicantRoundByApplicationId(applicationId))
+                .thenReturn(Optional.empty());
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 
@@ -189,12 +191,13 @@ class MyApplicationDetailAccessTest {
     }
 
     @Test
-    @DisplayName("ASSIGNED InterviewSchedule + InterviewConfig.location 이 있으면 interview = { startAt, endAt, location } 으로 채워진다")
+    @DisplayName("ASSIGNED InterviewSchedule + InterviewRound.location 이 있으면 interview = { startAt, endAt, location } 으로 채워진다")
     void assignedInterviewPopulatesInterview() {
         long applicationId = 4L;
         long currentUserId = 10L;
         long recruitmentId = 6L;
         long slotId = 100L;
+        long roundId = 30L;
         LocalDateTime startAt = LocalDateTime.of(2026, 6, 20, 18, 0);
         LocalDateTime endAt = LocalDateTime.of(2026, 6, 20, 18, 30);
 
@@ -202,14 +205,14 @@ class MyApplicationDetailAccessTest {
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(3L);
 
-        InterviewConfig interviewConfig = mock(InterviewConfig.class);
-        when(interviewConfig.getLocation()).thenReturn("3호관 201호");
-        when(interviewConfigRepository.findByRecruitmentId(recruitmentId))
-                .thenReturn(Optional.of(interviewConfig));
+        InterviewRound scheduledRound = InterviewRoundFixture.withStatus(
+                recruitmentId, LocalDateTime.of(2026, 6, 15, 18, 0), "3호관 201호", RoundStatus.SCHEDULED);
+        when(interviewRoundRepository.findById(roundId)).thenReturn(Optional.of(scheduledRound));
 
         InterviewSchedule schedule = mock(InterviewSchedule.class);
         when(schedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
         when(schedule.getSlotId()).thenReturn(slotId);
+        when(schedule.getRoundId()).thenReturn(roundId);
         when(interviewScheduleRepository.findByApplicationId(applicationId))
                 .thenReturn(Optional.of(schedule));
 
@@ -237,11 +240,6 @@ class MyApplicationDetailAccessTest {
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(1L);
-
-        InterviewConfig interviewConfig = mock(InterviewConfig.class);
-        when(interviewConfig.getLocation()).thenReturn("3호관 201호");
-        when(interviewConfigRepository.findByRecruitmentId(recruitmentId))
-                .thenReturn(Optional.of(interviewConfig));
 
         InterviewSchedule cancelled = mock(InterviewSchedule.class);
         when(cancelled.getStatus()).thenReturn(InterviewScheduleStatus.CANCELLED);

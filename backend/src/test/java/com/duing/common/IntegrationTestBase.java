@@ -27,7 +27,8 @@ public abstract class IntegrationTestBase {
                 "interview_schedule, " +
                 "interview_availability, " +
                 "interview_slot, " +
-                "interview_config, " +
+                "interview_round_member, " +
+                "interview_round, " +
                 "application_evaluation, " +
                 "application_status_history, " +
                 "application, " +

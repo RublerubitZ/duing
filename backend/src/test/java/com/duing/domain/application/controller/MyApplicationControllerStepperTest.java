@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
@@ -15,11 +16,15 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.interview.entity.InterviewAvailability;
-import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewRound;
+import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -61,7 +66,8 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
     @Autowired private ClubRepository clubRepository;
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private ApplicationRepository applicationRepository;
-    @Autowired private InterviewConfigRepository interviewConfigRepository;
+    @Autowired private InterviewRoundRepository interviewRoundRepository;
+    @Autowired private InterviewRoundMemberRepository interviewRoundMemberRepository;
     @Autowired private InterviewSlotRepository interviewSlotRepository;
     @Autowired private InterviewAvailabilityRepository interviewAvailabilityRepository;
     @Autowired private InterviewScheduleRepository interviewScheduleRepository;
@@ -83,24 +89,26 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
         Club club = saveActiveClub("면접동아리");
         Recruitment recruitment = saveInterviewRecruitment(club, "면접모집");
         LocalDateTime deadline = LocalDateTime.of(2026, 6, 15, 18, 0);
-        interviewConfigRepository.save(InterviewConfig.create(recruitment.getId(), deadline));
+        InterviewRound round = interviewRoundRepository.save(InterviewRoundFixture.withStatus(
+                recruitment.getId(), deadline, null, RoundStatus.COLLECTING));
 
         InterviewSlot slotA = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
+                round.getId(),
                 LocalDateTime.of(2026, 6, 20, 14, 0),
                 LocalDateTime.of(2026, 6, 20, 14, 30),
                 3));
         InterviewSlot slotB = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
+                round.getId(),
                 LocalDateTime.of(2026, 6, 20, 14, 30),
                 LocalDateTime.of(2026, 6, 20, 15, 0),
                 3));
 
         Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
         interviewAvailabilityRepository.save(InterviewAvailability.create(
-                application.getId(), slotA.getId(), recruitment.getId()));
+                application.getId(), slotA.getId(), round.getId()));
         interviewAvailabilityRepository.save(InterviewAvailability.create(
-                application.getId(), slotB.getId(), recruitment.getId()));
+                application.getId(), slotB.getId(), round.getId()));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
@@ -112,27 +120,29 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영진이 면접 일정을 배정하고 InterviewConfig.location 이 설정된 지원자는 interview 객체로 노출된다")
+    @DisplayName("운영진이 면접 일정을 배정하고 InterviewRound.location 이 설정된 지원자는 interview 객체로 노출된다")
     void scheduleAssignedReflectsInterview() {
         User applicant = saveUser("배정된지원자");
         String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
 
         Club club = saveActiveClub("배정확인동아리");
         Recruitment recruitment = saveInterviewRecruitment(club, "배정확인모집");
-        interviewConfigRepository.save(InterviewConfig.create(
-                recruitment.getId(), LocalDateTime.of(2026, 6, 15, 18, 0), "3호관 201호"));
+        InterviewRound round = interviewRoundRepository.save(InterviewRoundFixture.withStatus(
+                recruitment.getId(), LocalDateTime.of(2026, 6, 15, 18, 0), "3호관 201호",
+                RoundStatus.SCHEDULED));
 
         InterviewSlot slot = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
+                round.getId(),
                 LocalDateTime.of(2026, 6, 20, 14, 0),
                 LocalDateTime.of(2026, 6, 20, 14, 30),
                 3));
 
         Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
         interviewAvailabilityRepository.save(InterviewAvailability.create(
-                application.getId(), slot.getId(), recruitment.getId()));
+                application.getId(), slot.getId(), round.getId()));
         interviewScheduleRepository.save(InterviewSchedule.create(
-                application.getId(), slot.getId(), recruitment.getId(), LocalDateTime.now()));
+                application.getId(), slot.getId(), round.getId(), LocalDateTime.now()));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
@@ -153,21 +163,24 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
 
         Club club = saveActiveClub("취소동아리");
         Recruitment recruitment = saveInterviewRecruitment(club, "취소모집");
-        interviewConfigRepository.save(InterviewConfig.create(
-                recruitment.getId(), LocalDateTime.of(2026, 6, 15, 18, 0), "3호관 201호"));
+        InterviewRound round = interviewRoundRepository.save(InterviewRoundFixture.withStatus(
+                recruitment.getId(), LocalDateTime.of(2026, 6, 15, 18, 0), "3호관 201호",
+                RoundStatus.SCHEDULED));
 
         InterviewSlot slot = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
+                round.getId(),
                 LocalDateTime.of(2026, 6, 20, 14, 0),
                 LocalDateTime.of(2026, 6, 20, 14, 30),
                 3));
 
         Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
         interviewAvailabilityRepository.save(InterviewAvailability.create(
-                application.getId(), slot.getId(), recruitment.getId()));
+                application.getId(), slot.getId(), round.getId()));
         InterviewSchedule schedule = interviewScheduleRepository.save(InterviewSchedule.create(
-                application.getId(), slot.getId(), recruitment.getId(), LocalDateTime.now()));
-        schedule.cancel();
+                application.getId(), slot.getId(), round.getId(), LocalDateTime.now()));
+        // 취소 전이 메서드는 라운드 API PR(BE#3~)에서 TDD 로 도입된다 — saveActiveClub 의 리플렉션 전례.
+        ReflectionTestUtils.setField(schedule, "status", InterviewScheduleStatus.CANCELLED);
         interviewScheduleRepository.save(schedule);
 
         RestAssured.given()
@@ -199,14 +212,37 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("면접 사용 모집이지만 InterviewConfig 가 아직 없으면 availabilityDeadline 은 null 이다")
-    void useInterviewWithoutConfigReturnsNullDeadline() {
+    @DisplayName("면접 사용 모집이지만 라운드가 아직 없으면 availabilityDeadline 은 null 이다")
+    void useInterviewWithoutRoundReturnsNullDeadline() {
         User applicant = saveUser("설정전지원자");
         String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
 
         Club club = saveActiveClub("설정전동아리");
         Recruitment recruitment = saveInterviewRecruitment(club, "설정전모집");
         Application application = saveInterviewPendingApplication(recruitment, applicant);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/users/me/applications/{id}", application.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.availabilityDeadline", nullValue());
+    }
+
+    @Test
+    @DisplayName("발송 전(DRAFT) 라운드의 마감 시각은 지원자에게 노출되지 않는다")
+    void draftRoundDeadlineIsHiddenFromApplicant() {
+        User applicant = saveUser("발송전지원자");
+        String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
+
+        Club club = saveActiveClub("발송전동아리");
+        Recruitment recruitment = saveInterviewRecruitment(club, "발송전모집");
+        Application application = saveInterviewPendingApplication(recruitment, applicant);
+
+        // DRAFT 라운드 + 멤버십이 있어도 isVisibleToApplicant 가 DRAFT 를 제외하므로 마감 시각이 새지 않는다.
+        InterviewRound draftRound = interviewRoundRepository.save(
+                InterviewRoundFixture.draft(recruitment.getId(), LocalDateTime.now().plusDays(7)));
+        interviewRoundMemberRepository.save(
+                InterviewRoundMember.invite(draftRound.getId(), application.getId()));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)

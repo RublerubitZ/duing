@@ -13,7 +13,7 @@ import com.duing.domain.application.repository.ApplicationStatusHistoryRepositor
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.club.entity.Club;
@@ -50,7 +50,7 @@ class ApplicationSubmitGuardsTest {
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
     private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
-    private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
+    private final InterviewRoundRepository interviewRoundRepository = mock(InterviewRoundRepository.class);
     private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
@@ -64,7 +64,7 @@ class ApplicationSubmitGuardsTest {
             applicationEvaluationRepository,
             interviewAvailabilityRepository,
             interviewScheduleRepository,
-            interviewConfigRepository,
+            interviewRoundRepository,
             interviewSlotRepository);
 
     @Test

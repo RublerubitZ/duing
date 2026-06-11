@@ -27,7 +27,7 @@ public record ApplicationSummaryQuery(
 
     /**
      * 전체 필드를 포함하는 최종 팩토리 메서드.
-     * {@code interview} 는 ASSIGNED schedule + InterviewConfig.location 이 모두 존재할 때만 채워지고,
+     * {@code interview} 는 ASSIGNED schedule + InterviewRound.location 이 모두 존재할 때만 채워지고,
      * 그 외엔 {@code null} 로 전달한다.
      */
     public static ApplicationSummaryQuery from(Application application, AssignedInterviewQuery interview) {

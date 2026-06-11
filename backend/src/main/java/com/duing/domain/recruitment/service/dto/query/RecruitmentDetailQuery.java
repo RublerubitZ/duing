@@ -34,7 +34,7 @@ public record RecruitmentDetailQuery(
 ) {
     /**
      * applicantCount 는 showApplicantCount=false 일 때 null 로 전달한다 (응답 노출 차단).
-     * interviewAvailabilityDeadline 은 InterviewConfig 가 없거나 useInterview=false 면 null 로 전달한다.
+     * interviewAvailabilityDeadline 은 라운드 모델 전환 후 호환용 필드로 항상 null 이다 (FE 재배선 후 제거 예정).
      */
     public static RecruitmentDetailQuery from(Recruitment recruitment,
                                               LocalDate today,

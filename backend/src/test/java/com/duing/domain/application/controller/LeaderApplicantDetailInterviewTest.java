@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
@@ -17,9 +18,15 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.interview.entity.InterviewAvailability;
+import com.duing.domain.interview.entity.InterviewRound;
+import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -62,6 +69,8 @@ class LeaderApplicantDetailInterviewTest extends IntegrationTestBase {
     @Autowired private ClubMemberRepository clubMemberRepository;
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private ApplicationRepository applicationRepository;
+    @Autowired private InterviewRoundRepository interviewRoundRepository;
+    @Autowired private InterviewRoundMemberRepository interviewRoundMemberRepository;
     @Autowired private InterviewSlotRepository interviewSlotRepository;
     @Autowired private InterviewAvailabilityRepository interviewAvailabilityRepository;
     @Autowired private InterviewScheduleRepository interviewScheduleRepository;
@@ -83,25 +92,27 @@ class LeaderApplicantDetailInterviewTest extends IntegrationTestBase {
         Club club = saveActiveClub("정렬확인동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveInterviewRecruitment(club, "정렬확인모집");
+        InterviewRound round = saveCollectingRound(recruitment);
 
         // 일부러 늦은 슬롯을 먼저 저장해 startTime ASC 정렬 검증이 의미를 갖도록 한다.
         InterviewSlot lateSlot = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
+                round.getId(),
                 LocalDateTime.of(2026, 6, 20, 16, 0),
                 LocalDateTime.of(2026, 6, 20, 16, 30),
                 3));
         InterviewSlot earlySlot = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
+                round.getId(),
                 LocalDateTime.of(2026, 6, 20, 14, 0),
                 LocalDateTime.of(2026, 6, 20, 14, 30),
                 3));
 
         User applicant = saveUser("지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
         interviewAvailabilityRepository.save(InterviewAvailability.create(
-                application.getId(), lateSlot.getId(), recruitment.getId()));
+                application.getId(), lateSlot.getId(), round.getId()));
         interviewAvailabilityRepository.save(InterviewAvailability.create(
-                application.getId(), earlySlot.getId(), recruitment.getId()));
+                application.getId(), earlySlot.getId(), round.getId()));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -124,19 +135,21 @@ class LeaderApplicantDetailInterviewTest extends IntegrationTestBase {
         Club club = saveActiveClub("배정동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveInterviewRecruitment(club, "배정모집");
+        InterviewRound round = saveCollectingRound(recruitment);
 
         InterviewSlot slot = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
+                round.getId(),
                 LocalDateTime.of(2026, 6, 20, 18, 0),
                 LocalDateTime.of(2026, 6, 20, 18, 30),
                 3));
 
         User applicant = saveUser("배정지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
         interviewAvailabilityRepository.save(InterviewAvailability.create(
-                application.getId(), slot.getId(), recruitment.getId()));
+                application.getId(), slot.getId(), round.getId()));
         interviewScheduleRepository.save(InterviewSchedule.create(
-                application.getId(), slot.getId(), recruitment.getId(), LocalDateTime.now()));
+                application.getId(), slot.getId(), round.getId(), LocalDateTime.now()));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -157,22 +170,25 @@ class LeaderApplicantDetailInterviewTest extends IntegrationTestBase {
         Club club = saveActiveClub("취소동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveInterviewRecruitment(club, "취소모집");
+        InterviewRound round = saveCollectingRound(recruitment);
 
         InterviewSlot slot = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
+                round.getId(),
                 LocalDateTime.of(2026, 6, 20, 18, 0),
                 LocalDateTime.of(2026, 6, 20, 18, 30),
                 3));
 
         User applicant = saveUser("취소지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
         interviewAvailabilityRepository.save(InterviewAvailability.create(
-                application.getId(), slot.getId(), recruitment.getId()));
+                application.getId(), slot.getId(), round.getId()));
         InterviewSchedule schedule = interviewScheduleRepository.save(InterviewSchedule.create(
-                application.getId(), slot.getId(), recruitment.getId(), LocalDateTime.now()));
-        // cancel() 은 status 만 CANCELLED 로 바꾸는 도메인 취소이며 soft delete 가 아니다.
+                application.getId(), slot.getId(), round.getId(), LocalDateTime.now()));
+        // CANCELLED 는 status 만 바뀌는 도메인 취소이며 soft delete 가 아니다 — 취소 전이 메서드는
+        // 라운드 API PR(BE#3~)에서 TDD 로 도입되므로 리플렉션으로 세팅한다 (saveActiveClub 전례).
         // 운영진 상세에서도 CANCELLED 는 "배정 없음" 으로 노출되어야 한다.
-        schedule.cancel();
+        ReflectionTestUtils.setField(schedule, "status", InterviewScheduleStatus.CANCELLED);
         interviewScheduleRepository.save(schedule);
 
         RestAssured.given()
@@ -213,28 +229,30 @@ class LeaderApplicantDetailInterviewTest extends IntegrationTestBase {
         Club club = saveActiveClub("soft동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveInterviewRecruitment(club, "soft모집");
+        InterviewRound round = saveCollectingRound(recruitment);
 
         // 살아있는 슬롯 1 + soft-delete 될 슬롯 1.
         InterviewSlot keptSlot = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
+                round.getId(),
                 LocalDateTime.of(2026, 6, 21, 14, 0),
                 LocalDateTime.of(2026, 6, 21, 14, 30),
                 3));
         InterviewSlot deletedSlot = interviewSlotRepository.save(InterviewSlot.create(
-                recruitment.getId(),
+                round.getId(),
                 LocalDateTime.of(2026, 6, 21, 15, 0),
                 LocalDateTime.of(2026, 6, 21, 15, 30),
                 3));
 
         User applicant = saveUser("soft지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
         interviewAvailabilityRepository.save(InterviewAvailability.create(
-                application.getId(), keptSlot.getId(), recruitment.getId()));
+                application.getId(), keptSlot.getId(), round.getId()));
         interviewAvailabilityRepository.save(InterviewAvailability.create(
-                application.getId(), deletedSlot.getId(), recruitment.getId()));
+                application.getId(), deletedSlot.getId(), round.getId()));
         // 배정도 deleted 슬롯으로 걸어 둔다 — 같이 사라져야 한다.
         interviewScheduleRepository.save(InterviewSchedule.create(
-                application.getId(), deletedSlot.getId(), recruitment.getId(), LocalDateTime.now()));
+                application.getId(), deletedSlot.getId(), round.getId(), LocalDateTime.now()));
 
         // 슬롯을 soft-delete 한다 (@SQLDelete → deleted_at IS NOT NULL).
         interviewSlotRepository.delete(deletedSlot);
@@ -312,6 +330,11 @@ class LeaderApplicantDetailInterviewTest extends IntegrationTestBase {
                 title + "-" + sequence.incrementAndGet(), null,
                 today.minusDays(1), today.plusDays(7), 10);
         return recruitmentRepository.save(recruitment);
+    }
+
+    private InterviewRound saveCollectingRound(Recruitment recruitment) {
+        return interviewRoundRepository.save(InterviewRoundFixture.withStatus(
+                recruitment.getId(), LocalDateTime.now().plusDays(7), null, RoundStatus.COLLECTING));
     }
 
     private Application saveInterviewPendingApplication(Recruitment recruitment, User user) {

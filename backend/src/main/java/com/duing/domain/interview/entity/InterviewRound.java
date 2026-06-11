@@ -1,0 +1,85 @@
+package com.duing.domain.interview.entity;
+
+import com.duing.global.entity.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
+
+@Getter
+@Entity
+@Table(name = "interview_round")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+// @Version 도입으로 Hibernate 가 두 번째 바인드 파라미터로 version 을 전달한다 (Application 전례).
+@SQLDelete(sql = "UPDATE interview_round SET deleted_at = NOW() WHERE id = ? AND version = ?")
+@SQLRestriction("deleted_at IS NULL")
+public class InterviewRound extends BaseEntity {
+
+    @Column(name = "recruitment_id", nullable = false)
+    private Long recruitmentId;
+
+    @Column(nullable = false, length = 100)
+    private String title;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private RoundStatus status;
+
+    // DRAFT 동안 nullable — DRAFT→COLLECTING 발송 전이 가드에서 NOT NULL 을 요구한다 (BE#5).
+    @Column(name = "availability_deadline")
+    private LocalDateTime availabilityDeadline;
+
+    @Column(length = 200)
+    private String location;
+
+    @Column(name = "assignment_completed_at")
+    private LocalDateTime assignmentCompletedAt;
+
+    // MVP 는 Availability 요청/재알림 dedupKey 생성용 — 발송·재알림·Rule 2 재초대 직전에 증가한다.
+    // 향후 NotificationLog/InterviewRoundNotification 테이블로 이관 가능 (스펙 §4·§8).
+    @Column(name = "request_sequence", nullable = false)
+    private int requestSequence;
+
+    // 자동배정/확정/취소 동시 실행 race 차단 (스펙 §7 — Application @Version 전례)
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
+    @Builder(access = AccessLevel.PRIVATE)
+    private InterviewRound(Long recruitmentId, String title,
+                           LocalDateTime availabilityDeadline, String location) {
+        this.recruitmentId = recruitmentId;
+        this.title = title;
+        this.status = RoundStatus.DRAFT;
+        this.availabilityDeadline = availabilityDeadline;
+        this.location = location;
+        this.requestSequence = 0;
+    }
+
+    public static InterviewRound create(Long recruitmentId, String title,
+                                        LocalDateTime availabilityDeadline, String location) {
+        return InterviewRound.builder()
+                .recruitmentId(recruitmentId)
+                .title(title)
+                .availabilityDeadline(availabilityDeadline)
+                .location(normalizeNullable(location))
+                .build();
+    }
+
+    private static String normalizeNullable(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+}

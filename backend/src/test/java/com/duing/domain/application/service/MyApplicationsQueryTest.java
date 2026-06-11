@@ -18,12 +18,12 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
-import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -47,7 +47,7 @@ class MyApplicationsQueryTest {
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
     private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
-    private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
+    private final InterviewRoundRepository interviewRoundRepository = mock(InterviewRoundRepository.class);
     private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
@@ -61,7 +61,7 @@ class MyApplicationsQueryTest {
             applicationEvaluationRepository,
             interviewAvailabilityRepository,
             interviewScheduleRepository,
-            interviewConfigRepository,
+            interviewRoundRepository,
             interviewSlotRepository);
 
     @Test
@@ -99,8 +99,8 @@ class MyApplicationsQueryTest {
     }
 
     @Test
-    @DisplayName("ASSIGNED schedule 이 있고 InterviewConfig.location 이 null 인 경우에도 interview 가 노출되고 location 만 null 이다 (Codex review BE-3)")
-    void interviewExposedInSummaryEvenWhenConfigLocationIsNull() {
+    @DisplayName("ASSIGNED schedule 이 있고 InterviewRound.location 이 null 인 경우에도 interview 가 노출되고 location 만 null 이다 (Codex review BE-3)")
+    void interviewExposedInSummaryEvenWhenRoundLocationIsNull() {
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(1L);
         when(club.getName()).thenReturn("스파크");
@@ -122,23 +122,23 @@ class MyApplicationsQueryTest {
         when(schedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
         when(schedule.getApplicationId()).thenReturn(10L);
         when(schedule.getSlotId()).thenReturn(101L);
-        when(schedule.getRecruitmentId()).thenReturn(2L);
+        when(schedule.getRoundId()).thenReturn(30L);
 
         InterviewSlot slot = mock(InterviewSlot.class);
         when(slot.getId()).thenReturn(101L);
         when(slot.getStartTime()).thenReturn(LocalDateTime.of(2026, 6, 20, 14, 0));
         when(slot.getEndTime()).thenReturn(LocalDateTime.of(2026, 6, 20, 14, 30));
 
-        InterviewConfig config = mock(InterviewConfig.class);
-        when(config.getRecruitmentId()).thenReturn(2L);
-        when(config.getLocation()).thenReturn(null);
+        InterviewRound roundWithoutLocation = mock(InterviewRound.class);
+        when(roundWithoutLocation.getId()).thenReturn(30L);
+        when(roundWithoutLocation.getLocation()).thenReturn(null);
 
         when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))
                 .thenReturn(List.of(application));
         when(interviewScheduleRepository.findByApplicationIdIn(anyList()))
                 .thenReturn(List.of(schedule));
         when(interviewSlotRepository.findAllById(any())).thenReturn(List.of(slot));
-        when(interviewConfigRepository.findByRecruitmentIdIn(any())).thenReturn(List.of(config));
+        when(interviewRoundRepository.findAllById(any())).thenReturn(List.of(roundWithoutLocation));
 
         List<ApplicationSummaryQuery> summaries = applicationService.getMyApplications(99L, ApplicationScope.ALL.toStatuses());
 

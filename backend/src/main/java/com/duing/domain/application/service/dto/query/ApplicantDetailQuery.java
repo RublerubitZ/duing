@@ -94,7 +94,7 @@ public record ApplicantDetailQuery(
      * currentUserId 기준으로 myEvaluation / otherEvaluations 를 분리한다.
      * currentUserId 가 null 이면 모든 평가를 otherEvaluations 에 배치한다.
      * interviewAvailabilities / assignedSlot 은 면접 미사용 모집에선 빈 리스트 / null 로 전달한다.
-     * {@code interview} 는 ASSIGNED schedule + InterviewConfig.location 이 모두 존재할 때만 전달, 그 외엔 {@code null}.
+     * {@code interview} 는 ASSIGNED schedule + InterviewRound.location 이 모두 존재할 때만 전달, 그 외엔 {@code null}.
      */
     public static ApplicantDetailQuery fromAll(Application application,
                                                List<ApplicationStatusHistory> historyRows,
