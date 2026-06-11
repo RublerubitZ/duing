@@ -4,7 +4,9 @@ import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.RoundStatus;
 import java.util.List;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -28,6 +30,11 @@ public interface InterviewRoundRepository extends JpaRepository<InterviewRound, 
                                 com.duing.domain.interview.entity.RoundStatus.SCHEDULED)
             """)
     Optional<InterviewRound> findVisibleToApplicantRoundByApplicationId(@Param("applicationId") Long applicationId);
+
+    /** 자동배정·확정·취소 등 round writer 간 직렬화 (스펙 §7) — @Version 충돌 대신 선두에서 잠근다. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM InterviewRound r WHERE r.id = :id")
+    Optional<InterviewRound> findByIdForUpdate(@Param("id") Long id);
 
     boolean existsByRecruitmentIdAndStatus(Long recruitmentId, RoundStatus status);
 
