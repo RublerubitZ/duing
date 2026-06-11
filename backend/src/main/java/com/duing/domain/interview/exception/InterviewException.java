@@ -72,6 +72,16 @@ public class InterviewException extends ApplicationException {
         public RoundTransitionNotAllowed() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
 
+    public static final class RoundHasNoSlots extends InterviewException {
+        private static final String MESSAGE = "슬롯이 없는 라운드는 발송할 수 없습니다. 슬롯을 먼저 생성해주세요.";
+        public RoundHasNoSlots() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static final class NoMemberToNotify extends InterviewException {
+        private static final String MESSAGE = "알림을 보낼 대상자가 없습니다.";
+        public NoMemberToNotify() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
     public static final class DraftRoundAlreadyExists extends InterviewException {
         private static final String MESSAGE = "이미 준비 중(DRAFT)인 면접 라운드가 있습니다.";
         public DraftRoundAlreadyExists() { super(MESSAGE, HttpStatus.CONFLICT); }

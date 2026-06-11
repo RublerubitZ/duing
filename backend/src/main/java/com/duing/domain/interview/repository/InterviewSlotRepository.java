@@ -4,4 +4,7 @@ import com.duing.domain.interview.entity.InterviewSlot;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface InterviewSlotRepository extends JpaRepository<InterviewSlot, Long> {
+
+    long countByRoundId(Long roundId);
 }
+

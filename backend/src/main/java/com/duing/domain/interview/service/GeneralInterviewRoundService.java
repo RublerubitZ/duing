@@ -7,12 +7,16 @@ import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.controller.dto.response.AvailabilityRequestResponse;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
+import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.event.InterviewAvailabilityRequestedEvent;
 import com.duing.domain.interview.exception.InterviewException;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
+import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.command.CreateInterviewRoundCommand;
 import com.duing.domain.interview.service.dto.query.RoundCandidateQuery;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -22,11 +26,13 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +54,9 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     private final ApplicationRepository applicationRepository;
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
     private final UserRepository userRepository;
+    private final InterviewSlotRepository interviewSlotRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final Clock clock;
 
     @Override
     public List<RoundCandidateQuery> getRoundCandidates(Long recruitmentId, Long currentUserId,
@@ -150,6 +159,68 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
         interviewRoundMemberRepository.saveAll(members);
 
         return round.getId();
+    }
+
+    @Override
+    @Transactional
+    public AvailabilityRequestResponse requestAvailability(Long roundId, Long currentUserId) {
+        InterviewRound round = getRoundWithManagerAuth(roundId, currentUserId);
+
+        if (interviewSlotRepository.countByRoundId(round.getId()) == 0) {
+            throw new InterviewException.RoundHasNoSlots();
+        }
+        List<InterviewRoundMember> invitedMembers = interviewRoundMemberRepository
+                .findByRoundIdAndStatus(round.getId(), RoundMemberStatus.INVITED);
+        if (invitedMembers.isEmpty()) {
+            throw new InterviewException.NoMemberToNotify();
+        }
+
+        round.openCollecting(LocalDateTime.now(clock));
+        notifyAvailabilityRequest(round, invitedMembers);
+        return new AvailabilityRequestResponse(invitedMembers.size());
+    }
+
+    @Override
+    @Transactional
+    public AvailabilityRequestResponse remind(Long roundId, Long currentUserId) {
+        InterviewRound round = getRoundWithManagerAuth(roundId, currentUserId);
+
+        if (round.getStatus() != RoundStatus.COLLECTING) {
+            throw new InterviewException.RoundTransitionNotAllowed();
+        }
+        List<InterviewRoundMember> unrespondedMembers = interviewRoundMemberRepository
+                .findByRoundIdAndStatus(round.getId(), RoundMemberStatus.INVITED);
+        if (unrespondedMembers.isEmpty()) {
+            throw new InterviewException.NoMemberToNotify();
+        }
+
+        notifyAvailabilityRequest(round, unrespondedMembers);
+        return new AvailabilityRequestResponse(unrespondedMembers.size());
+    }
+
+    /**
+     * 요청 회차를 1 올리고 대상 멤버별로 Availability 요청 이벤트를 발행한다 (스펙 §8).
+     * 알림 생성은 AFTER_COMMIT 리스너(InterviewAvailabilityRequestedListener)가 담당한다.
+     */
+    private void notifyAvailabilityRequest(InterviewRound round, List<InterviewRoundMember> targets) {
+        round.increaseRequestSequence();
+        for (InterviewRoundMember target : targets) {
+            eventPublisher.publishEvent(new InterviewAvailabilityRequestedEvent(
+                    round.getId(), target.getApplicationId(), round.getRequestSequence()));
+        }
+    }
+
+    /**
+     * round → recruitment → club 경로의 운영진 권한 가드.
+     * GeneralInterviewSlotService 와 동일 패턴 중복 — 2곳까지는 허용, 세 번째 등장 시 공통화한다 (rule of three).
+     */
+    private InterviewRound getRoundWithManagerAuth(Long roundId, Long currentUserId) {
+        InterviewRound round = interviewRoundRepository.findById(roundId)
+                .orElseThrow(InterviewException.RoundNotFound::new);
+        Recruitment recruitment = recruitmentRepository.findById(round.getRecruitmentId())
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
+        return round;
     }
 
     /**

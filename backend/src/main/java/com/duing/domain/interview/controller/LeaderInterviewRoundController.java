@@ -2,6 +2,7 @@ package com.duing.domain.interview.controller;
 
 import com.duing.domain.interview.api.LeaderInterviewRoundApi;
 import com.duing.domain.interview.controller.dto.request.CreateInterviewRoundRequest;
+import com.duing.domain.interview.controller.dto.response.AvailabilityRequestResponse;
 import com.duing.domain.interview.controller.dto.response.CreateInterviewRoundResponse;
 import com.duing.domain.interview.controller.dto.response.RoundCandidateResponse;
 import com.duing.domain.interview.service.InterviewRoundService;
@@ -52,4 +53,23 @@ public class LeaderInterviewRoundController implements LeaderInterviewRoundApi {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(CreateInterviewRoundResponse.from(roundId)));
     }
+
+    @Override
+    public ResponseEntity<ApiResponse<AvailabilityRequestResponse>> requestAvailability(
+            @PathVariable Long roundId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                interviewRoundService.requestAvailability(roundId, currentUser.id())));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<AvailabilityRequestResponse>> remind(
+            @PathVariable Long roundId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                interviewRoundService.remind(roundId, currentUser.id())));
+    }
 }
+
