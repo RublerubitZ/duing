@@ -32,8 +32,9 @@ public class LeaderInterviewSlotController implements LeaderInterviewSlotApi {
             @Valid @RequestBody CreateInterviewSlotsRequest createInterviewSlotsRequest,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        CreateInterviewSlotsResponse response = interviewSlotService.createSlots(
-                createInterviewSlotsRequest.toCommand(roundId, currentUser.id()));
+        CreateInterviewSlotsResponse response = CreateInterviewSlotsResponse.from(
+                interviewSlotService.createSlots(
+                        createInterviewSlotsRequest.toCommand(roundId, currentUser.id())));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 

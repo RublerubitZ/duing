@@ -3,11 +3,15 @@ package com.duing.domain.interview.repository;
 import static com.duing.domain.application.entity.QApplication.application;
 import static com.duing.domain.interview.entity.QInterviewRound.interviewRound;
 import static com.duing.domain.interview.entity.QInterviewRoundMember.interviewRoundMember;
+import static com.duing.domain.user.entity.QUser.user;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.service.dto.query.RoundMemberLine;
+import com.duing.domain.interview.service.dto.query.RoundMemberStatusCount;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -77,5 +81,38 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
                         interviewRound.deletedAt.isNull()
                 )
                 .notExists();
+    }
+
+    @Override
+    public List<RoundMemberLine> findMemberLinesByRoundId(Long roundId) {
+        return queryFactory
+                .select(Projections.constructor(RoundMemberLine.class,
+                        interviewRoundMember.id,
+                        interviewRoundMember.applicationId,
+                        user.name,
+                        user.studentId,
+                        interviewRoundMember.status,
+                        interviewRoundMember.alternativeAvailabilityText))
+                .from(interviewRoundMember)
+                .join(application).on(
+                        application.id.eq(interviewRoundMember.applicationId)
+                                .and(application.deletedAt.isNull()))
+                .join(application.user, user)
+                .where(interviewRoundMember.roundId.eq(roundId))
+                .orderBy(interviewRoundMember.id.asc())
+                .fetch();
+    }
+
+    @Override
+    public List<RoundMemberStatusCount> countMembersGroupedByStatus(Collection<Long> roundIds) {
+        return queryFactory
+                .select(Projections.constructor(RoundMemberStatusCount.class,
+                        interviewRoundMember.roundId,
+                        interviewRoundMember.status,
+                        interviewRoundMember.count()))
+                .from(interviewRoundMember)
+                .where(interviewRoundMember.roundId.in(roundIds))
+                .groupBy(interviewRoundMember.roundId, interviewRoundMember.status)
+                .fetch();
     }
 }

@@ -1,8 +1,11 @@
 package com.duing.domain.interview.repository;
 
-import com.duing.domain.interview.entity.QInterviewAvailability;
+import static com.duing.domain.interview.entity.QInterviewAvailability.interviewAvailability;
+
 import com.duing.domain.interview.entity.QInterviewSlot;
 import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
+import com.duing.domain.interview.service.dto.query.MemberSelectionCount;
+import com.duing.domain.interview.service.dto.query.SlotSelectionCount;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.util.List;
@@ -17,7 +20,6 @@ public class InterviewAvailabilityRepositoryImpl implements InterviewAvailabilit
 
     @Override
     public List<InterviewSlotTimeWindow> findAvailabilityItemsByApplicationId(Long applicationId) {
-        QInterviewAvailability availability = QInterviewAvailability.interviewAvailability;
         QInterviewSlot slot = QInterviewSlot.interviewSlot;
 
         return queryFactory
@@ -25,10 +27,34 @@ public class InterviewAvailabilityRepositoryImpl implements InterviewAvailabilit
                         slot.id,
                         slot.startTime,
                         slot.endTime))
-                .from(availability)
-                .join(slot).on(slot.id.eq(availability.slotId).and(slot.deletedAt.isNull()))
-                .where(availability.applicationId.eq(applicationId))
+                .from(interviewAvailability)
+                .join(slot).on(slot.id.eq(interviewAvailability.slotId).and(slot.deletedAt.isNull()))
+                .where(interviewAvailability.applicationId.eq(applicationId))
                 .orderBy(slot.startTime.asc())
+                .fetch();
+    }
+
+    @Override
+    public List<SlotSelectionCount> countByRoundIdGroupedBySlot(Long roundId) {
+        return queryFactory
+                .select(Projections.constructor(SlotSelectionCount.class,
+                        interviewAvailability.slotId,
+                        interviewAvailability.count()))
+                .from(interviewAvailability)
+                .where(interviewAvailability.roundId.eq(roundId))
+                .groupBy(interviewAvailability.slotId)
+                .fetch();
+    }
+
+    @Override
+    public List<MemberSelectionCount> countByRoundIdGroupedByApplication(Long roundId) {
+        return queryFactory
+                .select(Projections.constructor(MemberSelectionCount.class,
+                        interviewAvailability.applicationId,
+                        interviewAvailability.count()))
+                .from(interviewAvailability)
+                .where(interviewAvailability.roundId.eq(roundId))
+                .groupBy(interviewAvailability.applicationId)
                 .fetch();
     }
 }

@@ -1,6 +1,7 @@
 package com.duing.domain.interview.repository;
 
 import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -13,6 +14,8 @@ public interface InterviewScheduleRepository
         extends JpaRepository<InterviewSchedule, Long>, InterviewScheduleRepositoryCustom {
 
     Optional<InterviewSchedule> findByApplicationId(Long applicationId);
+
+    List<InterviewSchedule> findByRoundIdAndStatus(Long roundId, InterviewScheduleStatus status);
 
     /**
      * 응답 DTO 의 nested {@code interview} 채움용 — 지원 ID 다건을 한 번에 끌어와 N+1 을 방지한다.

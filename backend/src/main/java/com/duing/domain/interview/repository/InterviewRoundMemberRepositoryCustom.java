@@ -1,6 +1,8 @@
 package com.duing.domain.interview.repository;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.interview.service.dto.query.RoundMemberLine;
+import com.duing.domain.interview.service.dto.query.RoundMemberStatusCount;
 import java.util.Collection;
 import java.util.List;
 
@@ -17,4 +19,10 @@ public interface InterviewRoundMemberRepositoryCustom {
      * "placement-active 멤버십 최대 1개" 불변식(§16)의 라운드 생성 측 강제 지점.
      */
     List<Long> findApplicationIdsWithPlacementActiveMembership(Collection<Long> applicationIds);
+
+    /** 상세 dashboard 멤버 테이블 — member ⋈ application ⋈ user 한 방 projection. */
+    List<RoundMemberLine> findMemberLinesByRoundId(Long roundId);
+
+    /** 목록 카운트 요약 — round × status groupBy 집계. */
+    List<RoundMemberStatusCount> countMembersGroupedByStatus(Collection<Long> roundIds);
 }

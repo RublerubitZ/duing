@@ -4,6 +4,8 @@ import com.duing.domain.interview.controller.dto.request.CreateInterviewRoundReq
 import com.duing.domain.interview.controller.dto.response.AvailabilityRequestResponse;
 import com.duing.domain.interview.controller.dto.response.CreateInterviewRoundResponse;
 import com.duing.domain.interview.controller.dto.response.RoundCandidateResponse;
+import com.duing.domain.interview.controller.dto.response.RoundDetailResponse;
+import com.duing.domain.interview.controller.dto.response.RoundSummaryResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -75,6 +77,29 @@ public interface LeaderInterviewRoundApi {
     )
     @PostMapping("/leader/interview-rounds/{roundId}/remind")
     ResponseEntity<ApiResponse<AvailabilityRequestResponse>> remind(
+            @PathVariable Long roundId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(
+            summary = "면접 라운드 목록 조회",
+            description = "모집의 라운드를 최신 생성 순으로 반환한다. 카드 요약용 카운트 포함 — "
+                    + "totalMemberCount 는 제외(EXCLUDED) 멤버를 뺀 응답 가능 대상, "
+                    + "respondedMemberCount 는 응답 행위를 완료한 수(슬롯 선택·가능 없음 응답·배정 확정)."
+    )
+    @GetMapping("/leader/recruitments/{recruitmentId}/interview-rounds")
+    ResponseEntity<ApiResponse<List<RoundSummaryResponse>>> getRounds(
+            @PathVariable Long recruitmentId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(
+            summary = "면접 라운드 상세 dashboard",
+            description = "상태별 카운트 카드, 멤버 테이블(파생 미응답 — 마감 경과 && 초대 상태, 가능 슬롯 없음 멤버의 대체 가능시간 텍스트, "
+                    + "선택 슬롯 수, 배정 슬롯), 슬롯 목록(시작 시각 오름차순, 슬롯별 선택/배정 수)을 반환한다."
+    )
+    @GetMapping("/leader/interview-rounds/{roundId}")
+    ResponseEntity<ApiResponse<RoundDetailResponse>> getRoundDetail(
             @PathVariable Long roundId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );

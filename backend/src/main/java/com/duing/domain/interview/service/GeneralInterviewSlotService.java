@@ -1,7 +1,6 @@
 package com.duing.domain.interview.service;
 
 import com.duing.domain.clubmember.service.ClubAuthService;
-import com.duing.domain.interview.controller.dto.response.CreateInterviewSlotsResponse;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.InterviewSlot;
@@ -15,6 +14,7 @@ import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.command.CreateInterviewSlotsCommand;
 import com.duing.domain.interview.service.dto.command.UpdateInterviewSlotCommand;
+import com.duing.domain.interview.service.dto.query.SlotsCreationResult;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -42,7 +42,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
 
     @Override
     @Transactional
-    public CreateInterviewSlotsResponse createSlots(CreateInterviewSlotsCommand createCommand) {
+    public SlotsCreationResult createSlots(CreateInterviewSlotsCommand createCommand) {
         InterviewRound round = getRoundWithManagerAuth(createCommand.roundId(), createCommand.currentUserId());
         requireSlotChangeablePhase(round);
 
@@ -60,7 +60,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
 
         int reinvitedMemberCount = reinviteNoAvailableSlotMembers(round, LocalDateTime.now(clock));
 
-        return new CreateInterviewSlotsResponse(
+        return new SlotsCreationResult(
                 savedSlots.stream().map(InterviewSlot::getId).toList(),
                 reinvitedMemberCount);
     }
