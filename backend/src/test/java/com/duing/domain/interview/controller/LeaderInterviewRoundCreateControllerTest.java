@@ -4,35 +4,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
-import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
-import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.club.entity.Club;
-import com.duing.domain.club.entity.ClubCategory;
-import com.duing.domain.club.entity.ClubStatus;
-import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
-import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
-import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
-import com.duing.domain.interview.repository.InterviewRoundRepository;
-import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.entity.TargetRole;
-import com.duing.domain.recruitment.repository.RecruitmentRepository;
-import com.duing.domain.user.entity.College;
-import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
-import com.duing.domain.user.entity.UserRole;
-import com.duing.domain.user.repository.UserRepository;
-import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDate;
@@ -43,7 +27,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -59,24 +42,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 // 처리되는지, placement 불변식과 DRAFT 1개 제약이 강제되는지 검증한다 (스펙 §9.1 API 2·§7·§16).
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
+class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSupport {
 
     private static final String CREATE_PATH = "/api/v1/leader/recruitments/{recruitmentId}/interview-rounds";
 
     @LocalServerPort
     private int port;
 
-    @Autowired private UserRepository userRepository;
-    @Autowired private ClubRepository clubRepository;
-    @Autowired private ClubMemberRepository clubMemberRepository;
-    @Autowired private RecruitmentRepository recruitmentRepository;
-    @Autowired private ApplicationRepository applicationRepository;
     @Autowired private ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
-    @Autowired private InterviewRoundRepository interviewRoundRepository;
-    @Autowired private InterviewRoundMemberRepository interviewRoundMemberRepository;
-    @Autowired private JwtTokenProvider jwtTokenProvider;
-
-    private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     private User leader;
     private String leaderToken;
@@ -95,9 +68,9 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("서류 검토 중 지원자와 대기열 지원자를 함께 선정하면 라운드가 DRAFT 로 생성되고 전이·이력·멤버가 한 번에 처리된다")
     void createRoundSelectsCandidatesAtomically() {
-        Application reviewing1 = saveUnderReviewApplication("서류1");
-        Application reviewing2 = saveUnderReviewApplication("서류2");
-        Application queued = saveInterviewPendingApplication("대기열");
+        Application reviewing1 = saveUnderReviewApplication(recruitment, "서류1");
+        Application reviewing2 = saveUnderReviewApplication(recruitment, "서류2");
+        Application queued = saveInterviewPendingApplication(recruitment, "대기열");
         long queuedHistoryBefore = applicationStatusHistoryRepository
                 .findByApplicationIdOrderByCreatedAtDesc(queued.getId()).size();
 
@@ -147,7 +120,7 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("availabilityDeadline 없이도 라운드를 만들 수 있다 — 마감은 발송 전까지만 정하면 된다")
     void deadlineIsOptionalInDraft() {
-        Application reviewing = saveUnderReviewApplication("마감없음");
+        Application reviewing = saveUnderReviewApplication(recruitment, "마감없음");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -160,7 +133,7 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("availabilityDeadline 이 현재 이전이면 라운드를 만들 수 없다")
     void pastDeadlineIsRejected() {
-        Application reviewing = saveUnderReviewApplication("과거마감");
+        Application reviewing = saveUnderReviewApplication(recruitment, "과거마감");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -176,8 +149,8 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("선정 불가 상태(SUBMITTED) 지원자가 섞이면 전체가 거부되고 아무것도 변하지 않는다")
     void ineligibleStatusRejectsWholeRequestAtomically() {
-        Application reviewing = saveUnderReviewApplication("정상후보");
-        Application submitted = saveSubmittedApplication("미열람");
+        Application reviewing = saveUnderReviewApplication(recruitment, "정상후보");
+        Application submitted = saveSubmittedApplication(recruitment, "미열람");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -198,7 +171,7 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("이미 합격 처리된 지원자는 면접 대상으로 선정할 수 없다")
     void acceptedApplicantIsRejected() {
-        Application accepted = saveApplicationWithStatus("합격자", ApplicationStatus.ACCEPTED);
+        Application accepted = saveApplicationWithStatus(recruitment, "합격자", ApplicationStatus.ACCEPTED);
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -231,12 +204,12 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("이미 진행 중인 라운드에 소속된 지원자를 다시 선정하면 409 로 거부된다")
     void candidateAlreadyInActiveRoundIsRejected() {
-        Application placed = saveInterviewPendingApplication("기소속");
+        Application placed = saveInterviewPendingApplication(recruitment, "기소속");
         InterviewRound collectingRound = interviewRoundRepository.save(InterviewRoundFixture.withStatus(
                 recruitment.getId(), LocalDateTime.now().plusDays(3), null, RoundStatus.COLLECTING));
         interviewRoundMemberRepository.save(
                 InterviewRoundMember.invite(collectingRound.getId(), placed.getId()));
-        Application fresh = saveUnderReviewApplication("신규후보");
+        Application fresh = saveUnderReviewApplication(recruitment, "신규후보");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -256,7 +229,7 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
     void secondDraftRoundIsRejected() {
         interviewRoundRepository.save(
                 InterviewRoundFixture.draft(recruitment.getId(), LocalDateTime.now().plusDays(7)));
-        Application reviewing = saveUnderReviewApplication("후보");
+        Application reviewing = saveUnderReviewApplication(recruitment, "후보");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -291,7 +264,7 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("중복으로 선택된 지원자는 한 번만 멤버로 등록된다")
     void duplicateApplicationIdsAreDeduplicated() {
-        Application reviewing = saveUnderReviewApplication("중복선택");
+        Application reviewing = saveUnderReviewApplication(recruitment, "중복선택");
 
         Integer roundId = RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -313,7 +286,7 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
     void nonManagerCannotCreateRound() {
         User outsider = saveUser("외부인");
         String outsiderToken = jwtTokenProvider.createToken(outsider.getId(), outsider.getRole().name());
-        Application reviewing = saveUnderReviewApplication("후보");
+        Application reviewing = saveUnderReviewApplication(recruitment, "후보");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
@@ -355,7 +328,7 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("같은 모집에 동시에 라운드 생성을 요청하면 정확히 하나만 성공한다")
     void concurrentCreationAllowsExactlyOne() throws Exception {
-        Application reviewing = saveUnderReviewApplication("동시성후보");
+        Application reviewing = saveUnderReviewApplication(recruitment, "동시성후보");
         Map<String, Object> requestBody = Map.of(
                 "title", "1차 면접", "applicationIds", List.of(reviewing.getId()));
 
@@ -404,64 +377,5 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
                 .count();
         assertThat(roundCount).isEqualTo(1);
         assertThat(memberCount).isEqualTo(1);
-    }
-
-    // ── 헬퍼 (LeaderInterviewRoundCandidateControllerTest 패턴) ─────────────────
-
-    private User saveUser(String nameSuffix) {
-        long unique = sequence.incrementAndGet();
-        return userRepository.save(User.create(
-                String.format("%010d", unique % 10_000_000_000L),
-                nameSuffix + unique,
-                "roundcreate" + unique + "@daegu.ac.kr",
-                "hash",
-                UserRole.STUDENT,
-                Grade.FRESHMAN,
-                College.IT_ENGINEERING,
-                "컴퓨터공학",
-                "010-0000-0000",
-                LocalDateTime.now()));
-    }
-
-    private Club saveActiveClub(String name) {
-        Club club = Club.create(name + sequence.incrementAndGet(),
-                ClubCategory.ACADEMIC, "공학계열", "설명", null);
-        ReflectionTestUtils.setField(club, "status", ClubStatus.ACTIVE);
-        return clubRepository.save(club);
-    }
-
-    private Recruitment saveInterviewRecruitment(Club club, String title) {
-        LocalDate today = LocalDate.now();
-        return recruitmentRepository.save(Recruitment.createWithOptions(club,
-                title + "-" + sequence.incrementAndGet(), null,
-                today.minusDays(1), today.plusDays(7), 10,
-                ApplicationMode.SELF, null,
-                true, TargetRole.MEMBER,
-                today.plusDays(7), today.plusDays(14),
-                false));
-    }
-
-    private Application saveSubmittedApplication(String applicantSuffix) {
-        User applicant = saveUser(applicantSuffix);
-        return applicationRepository.save(Application.submit(recruitment, applicant, List.of()));
-    }
-
-    private Application saveApplicationWithStatus(String applicantSuffix, ApplicationStatus status) {
-        Application application = saveSubmittedApplication(applicantSuffix);
-        // 전이 규칙을 우회하는 셋업 한정 리플렉션 (saveActiveClub 의 ClubStatus 전례).
-        ReflectionTestUtils.setField(application, "status", status);
-        return applicationRepository.save(application);
-    }
-
-    private Application saveUnderReviewApplication(String applicantSuffix) {
-        Application application = saveSubmittedApplication(applicantSuffix);
-        application.transitionTo(ApplicationStatus.UNDER_REVIEW, true);
-        return applicationRepository.save(application);
-    }
-
-    private Application saveInterviewPendingApplication(String applicantSuffix) {
-        Application application = saveUnderReviewApplication(applicantSuffix);
-        application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
-        return applicationRepository.save(application);
     }
 }
