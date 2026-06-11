@@ -15,4 +15,11 @@ public class InterviewException extends ApplicationException {
         private static final String MESSAGE = "정원이 이미 배정된 인원수보다 적을 수 없습니다.";
         public CapacityBelowAssigned() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
+
+    // ── 400 Bad Request ───────────────────────────────────────────────────────
+
+    public static final class InterviewNotUsed extends InterviewException {
+        private static final String MESSAGE = "면접을 사용하지 않는 모집입니다.";
+        public InterviewNotUsed() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
+    }
 }
