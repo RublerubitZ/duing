@@ -41,7 +41,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1: develop 최신화 후 분기**
+- [x] **Step 1: develop 최신화 후 분기**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -62,13 +62,13 @@ Expected: `Switched to a new branch 'feat/remove-apply-slot-submission'`
 
 구 테스트 8건은 전부 "지원 제출이 슬롯에 결합된" 행동(빈 슬롯 거부·마감 후 거부·슬롯 검증·availability 동시 저장)을 검증하므로 통째로 삭제한다. 새 테스트는 디커플링의 핵심 2가지를 검증한다. 이 시점에는 4-arg `SubmitApplicationCommand` 가 살아있으므로 로컬 헬퍼 `submitCommand()` 로 감싸 Task 4 에서 한 줄만 고치게 한다.
 
-- [ ] **Step 1: 구 테스트 파일 삭제**
+- [x] **Step 1: 구 테스트 파일 삭제**
 
 ```bash
 git rm backend/src/test/java/com/duing/domain/interview/service/InterviewAvailabilitySubmissionTest.java
 ```
 
-- [ ] **Step 2: 새 통합 테스트 작성**
+- [x] **Step 2: 새 통합 테스트 작성**
 
 `backend/src/test/java/com/duing/domain/application/service/ApplicationSubmitDecouplingTest.java`:
 
@@ -232,7 +232,7 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
 }
 ```
 
-- [ ] **Step 3: RED 확인** (Docker 실행 상태 필요 — Testcontainers)
+- [x] **Step 3: RED 확인** (Docker 실행 상태 필요 — Testcontainers)
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -255,7 +255,7 @@ Expected: **FAIL 2건** — 둘 다 `InterviewException$InvalidSlotSelection` (�
 
 `@RequiredArgsConstructor` 생성 생성자에서 `interviewAvailabilityService` 가 빠지면 13-arg 직접 생성하는 단위 테스트 5개가 컴파일 실패한다 — 같은 Task 에서 함께 수정해야 GREEN 이 된다.
 
-- [ ] **Step 1: `GeneralApplicationService.submit()` 에서 호출 제거**
+- [x] **Step 1: `GeneralApplicationService.submit()` 에서 호출 제거**
 
 `submit()` 내부에서 아래 블록을 삭제:
 
@@ -267,7 +267,7 @@ Expected: **FAIL 2건** — 둘 다 `InterviewException$InvalidSlotSelection` (�
         ));
 ```
 
-- [ ] **Step 2: 필드 + import 제거**
+- [x] **Step 2: 필드 + import 제거**
 
 필드 삭제:
 
@@ -284,7 +284,7 @@ import com.duing.domain.interview.service.dto.command.CreateAvailabilitiesInSubm
 
 (나머지 interview repository 필드 4개와 그 import 는 조회 경로에서 사용 중 — 유지)
 
-- [ ] **Step 3: 단위 테스트 5개 파일에서 생성자 인자 제거**
+- [x] **Step 3: 단위 테스트 5개 파일에서 생성자 인자 제거**
 
 5개 파일(`ApplicationSubmitGuardsTest`, `MyApplicationDetailAccessTest`, `MyApplicationsQueryTest`, `ApplicantDetailServiceTest`, `ApplicationStatusServiceTest`) 각각에서 동일 패턴 3줄 삭제:
 
@@ -306,7 +306,7 @@ import:
 import com.duing.domain.interview.service.InterviewAvailabilityService;
 ```
 
-- [ ] **Step 4: GREEN 확인**
+- [x] **Step 4: GREEN 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -317,7 +317,7 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
 
 Expected: **전부 PASS** (디커플링 2건 GREEN. draft 통합 테스트는 4-arg command 를 아직 쓰므로 이 시점에 컴파일·통과 유지됨)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -340,7 +340,7 @@ git commit -m "feat(backend): 지원 제출에서 면접 슬롯 결합 제거"
 - Modify: `backend/src/test/java/com/duing/domain/application/service/ApplicationSubmitGuardsTest.java`
 - Modify: `backend/src/test/java/com/duing/domain/draft/integration/SubmitDiscardsDraftTest.java`
 
-- [ ] **Step 1: `SubmitApplicationRequest` 전체 교체**
+- [x] **Step 1: `SubmitApplicationRequest` 전체 교체**
 
 ```java
 package com.duing.domain.application.controller.dto.request;
@@ -359,7 +359,7 @@ public record SubmitApplicationRequest(
 }
 ```
 
-- [ ] **Step 2: `SubmitApplicationCommand` 전체 교체**
+- [x] **Step 2: `SubmitApplicationCommand` 전체 교체**
 
 ```java
 package com.duing.domain.application.service.dto.command;
@@ -373,7 +373,7 @@ public record SubmitApplicationCommand(
 ) {}
 ```
 
-- [ ] **Step 3: `InterviewAvailabilityService` 인터페이스에서 `createAllInSubmission` 제거 — 전체 교체**
+- [x] **Step 3: `InterviewAvailabilityService` 인터페이스에서 `createAllInSubmission` 제거 — 전체 교체**
 
 ```java
 package com.duing.domain.interview.service;
@@ -396,7 +396,7 @@ public interface InterviewAvailabilityService {
 }
 ```
 
-- [ ] **Step 4: `GeneralInterviewAvailabilityService` 에서 구현 제거**
+- [x] **Step 4: `GeneralInterviewAvailabilityService` 에서 구현 제거**
 
 `createAllInSubmission` 메서드 전체(Javadoc 포함, `@Override @Transactional public void createAllInSubmission(...) { ... }`)를 삭제하고 import 1줄 삭제:
 
@@ -406,13 +406,13 @@ import com.duing.domain.interview.service.dto.command.CreateAvailabilitiesInSubm
 
 (`HashSet`/`DataIntegrityViolationException`/`InterviewSlot`/`InterviewConfig`/`SQLException` 등 나머지 import 는 `replace()`/`isAvailabilityUniqueViolation()` 이 사용 — 유지)
 
-- [ ] **Step 5: command 파일 삭제**
+- [x] **Step 5: command 파일 삭제**
 
 ```bash
 git rm backend/src/main/java/com/duing/domain/interview/service/dto/command/CreateAvailabilitiesInSubmissionCommand.java
 ```
 
-- [ ] **Step 6: `SubmitApplicationRequestTest` 전체 교체** (구 2건은 슬롯 정규화 검증 — 무의미)
+- [x] **Step 6: `SubmitApplicationRequestTest` 전체 교체** (구 2건은 슬롯 정규화 검증 — 무의미)
 
 ```java
 package com.duing.domain.application.controller.dto.request;
@@ -440,7 +440,7 @@ class SubmitApplicationRequestTest {
 }
 ```
 
-- [ ] **Step 7: 테스트 3개 파일의 4-arg command 호출을 3-arg 로 축소**
+- [x] **Step 7: 테스트 3개 파일의 4-arg command 호출을 3-arg 로 축소**
 
 `ApplicationSubmitDecouplingTest` — 헬퍼 1곳:
 
@@ -484,7 +484,7 @@ class SubmitApplicationRequestTest {
         );
 ```
 
-- [ ] **Step 8: 전체 테스트 GREEN 확인**
+- [x] **Step 8: 전체 테스트 GREEN 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -499,7 +499,7 @@ grep -rn "interviewSlotIds\|createAllInSubmission\|CreateAvailabilitiesInSubmiss
 
 Expected: 출력 없음
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -511,7 +511,7 @@ git commit -m "refactor(backend): 지원 제출 DTO 와 면접 도메인의 제�
 
 ### Task 5: 최종 검증 + PR 생성
 
-- [ ] **Step 1: PR 직전 self-check 7항목** (각 항목 실제 실행·확인 후 체크)
+- [x] **Step 1: PR 직전 self-check 7항목** (각 항목 실제 실행·확인 후 체크)
 
 1. 컴파일/테스트 SUCCESS — Task 4 Step 8 의 `./gradlew test` 결과 재확인 (BUILD SUCCESSFUL)
 2. 변경 범위 = 스펙 BE#0 — File Map 의 15개 파일 외 변경 0건: `git diff develop --stat` 로 대조
@@ -530,7 +530,7 @@ done; true
 
 Expected: 출력 없음
 
-- [ ] **Step 2: push + PR 생성** (자동 머지 금지 — PR 생성까지만)
+- [x] **Step 2: push + PR 생성** (자동 머지 금지 — PR 생성까지만)
 
 ```bash
 git push -u origin feat/remove-apply-slot-submission
