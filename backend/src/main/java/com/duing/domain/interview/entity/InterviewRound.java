@@ -115,6 +115,58 @@ public class InterviewRound extends BaseEntity {
     }
 
     /**
+     * 취소: DRAFT·COLLECTING·ASSIGNING → CANCELLED (스펙 §5.1·§9.1 API 12). 멤버는 건드리지
+     * 않는다 — placement 술어(round ≠ CANCELLED)가 자동 큐 복귀를, 이력 쿼리가 WAITING_NEXT_ROUND
+     * 표시를 처리한다. 활성 schedule 정리(§16-2)는 서비스 담당.
+     */
+    public void cancel() {
+        if (this.status == RoundStatus.SCHEDULED || this.status == RoundStatus.CANCELLED) {
+            throw new InterviewException.RoundTransitionNotAllowed();
+        }
+        this.status = RoundStatus.CANCELLED;
+    }
+
+    /**
+     * 제목·장소 부분 수정 (null = 무변경) — ASSIGNING 까지 허용: 배정 검토 중 장소 확정 입력 후
+     * confirm 이 주 시나리오다. SCHEDULED·CANCELLED 는 불변 (§14 확정 후 변경 없음).
+     */
+    public void updateInfo(String title, String location) {
+        if (this.status == RoundStatus.SCHEDULED || this.status == RoundStatus.CANCELLED) {
+            throw new InterviewException.RoundTransitionNotAllowed();
+        }
+        if (title != null) {
+            this.title = title;
+        }
+        if (location != null) {
+            this.location = location;
+        }
+    }
+
+    /**
+     * 마감 변경 (스펙 §9.1 API 7) — DRAFT 는 미래 시각이면 자유, COLLECTING 은 연장만(기존보다
+     * 뒤 + 미래): 단축은 응답 중인 지원자의 기회를 소급 박탈하고 미응답 파생을 즉시 뒤집는다.
+     * 이 "연장만" 제약이 응답 API(round 비잠금)와의 race 를 무해하게 만든다 — 변경은 기회를
+     * 넓히는 방향뿐이다. ASSIGNING 부터는 수집이 끝나 변경이 무의미하다.
+     */
+    public void updateDeadline(LocalDateTime newDeadline, LocalDateTime now) {
+        if (this.status == RoundStatus.DRAFT) {
+            if (!newDeadline.isAfter(now)) {
+                throw new InterviewException.InvalidDeadline();
+            }
+        } else if (this.status == RoundStatus.COLLECTING) {
+            if (this.availabilityDeadline != null && !newDeadline.isAfter(this.availabilityDeadline)) {
+                throw new InterviewException.InvalidDeadline();
+            }
+            if (!newDeadline.isAfter(now)) {
+                throw new InterviewException.InvalidDeadline();
+            }
+        } else {
+            throw new InterviewException.RoundTransitionNotAllowed();
+        }
+        this.availabilityDeadline = newDeadline;
+    }
+
+    /**
      * Availability 요청 회차를 1 올린다 — 발송·재알림·Rule 2 재초대 모두 발동 직전에 호출한다.
      * 안 올리면 직전 발송과 dedupKey 가 같아져 재알림이 deduped 되어 소실된다 (스펙 §8).
      */

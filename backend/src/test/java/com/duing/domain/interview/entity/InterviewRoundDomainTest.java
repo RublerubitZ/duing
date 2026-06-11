@@ -244,6 +244,107 @@ class InterviewRoundDomainTest {
     }
 
     @Test
+    @DisplayName("발송 전·응답 수집·배정 검토 라운드는 취소할 수 있다")
+    void nonTerminalRoundsCancel() {
+        InterviewRound draft = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
+        InterviewRound collecting = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
+        collecting.openCollecting(LocalDateTime.now());
+        InterviewRound assigning = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
+        assigning.openCollecting(LocalDateTime.now());
+        assigning.openAssigning();
+
+        draft.cancel();
+        collecting.cancel();
+        assigning.cancel();
+
+        assertThat(draft.getStatus()).isEqualTo(RoundStatus.CANCELLED);
+        assertThat(collecting.getStatus()).isEqualTo(RoundStatus.CANCELLED);
+        assertThat(assigning.getStatus()).isEqualTo(RoundStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("확정된 라운드는 터미널이라 취소할 수 없고, 취소된 라운드는 다시 취소할 수 없다")
+    void terminalRoundsCannotCancel() {
+        InterviewRound scheduled = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
+        scheduled.openCollecting(LocalDateTime.now());
+        scheduled.openAssigning();
+        scheduled.confirm(LocalDateTime.now());
+        InterviewRound cancelled = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
+        cancelled.cancel();
+
+        assertThatThrownBy(scheduled::cancel)
+                .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
+        assertThatThrownBy(cancelled::cancel)
+                .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
+    }
+
+    @Test
+    @DisplayName("배정 검토 중에도 라운드 제목과 장소를 수정할 수 있다")
+    void infoUpdatesUntilAssigning() {
+        InterviewRound round = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
+        round.openCollecting(LocalDateTime.now());
+        round.openAssigning();
+
+        round.updateInfo("1차 대면 면접", "본관 201호");
+
+        assertThat(round.getTitle()).isEqualTo("1차 대면 면접");
+        assertThat(round.getLocation()).isEqualTo("본관 201호");
+    }
+
+    @Test
+    @DisplayName("수정에서 비운 필드는 기존 값이 유지되고, 확정된 라운드는 수정할 수 없다")
+    void partialUpdateAndTerminalGuard() {
+        InterviewRound round = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), "구관 101호");
+        round.updateInfo("1차 대면 면접", null);
+        assertThat(round.getTitle()).isEqualTo("1차 대면 면접");
+        assertThat(round.getLocation()).isEqualTo("구관 101호");
+
+        InterviewRound scheduled = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
+        scheduled.openCollecting(LocalDateTime.now());
+        scheduled.openAssigning();
+        scheduled.confirm(LocalDateTime.now());
+        assertThatThrownBy(() -> scheduled.updateInfo("변경", null))
+                .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
+    }
+
+    @Test
+    @DisplayName("발송 전 라운드의 마감은 미래 시각이면 자유롭게 바꿀 수 있다")
+    void draftDeadlineChangesFreely() {
+        InterviewRound round = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
+        LocalDateTime earlier = LocalDateTime.now().plusDays(2);
+
+        round.updateDeadline(earlier, LocalDateTime.now());
+
+        assertThat(round.getAvailabilityDeadline()).isEqualTo(earlier);
+    }
+
+    @Test
+    @DisplayName("응답 수집 중 마감은 연장만 가능하다 — 단축은 응답 기회를 소급 박탈한다")
+    void collectingDeadlineOnlyExtends() {
+        LocalDateTime original = LocalDateTime.now().plusDays(3);
+        InterviewRound round = InterviewRound.create(1L, "1차", original, null);
+        round.openCollecting(LocalDateTime.now());
+
+        LocalDateTime extended = original.plusDays(2);
+        round.updateDeadline(extended, LocalDateTime.now());
+        assertThat(round.getAvailabilityDeadline()).isEqualTo(extended);
+
+        assertThatThrownBy(() -> round.updateDeadline(original, LocalDateTime.now()))
+                .isInstanceOf(InterviewException.InvalidDeadline.class);
+    }
+
+    @Test
+    @DisplayName("배정 검토 단계부터는 마감을 변경할 수 없다 — 수집이 끝난 마감은 의미가 없다")
+    void deadlineFrozenFromAssigning() {
+        InterviewRound round = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(3), null);
+        round.openCollecting(LocalDateTime.now());
+        round.openAssigning();
+
+        assertThatThrownBy(() -> round.updateDeadline(LocalDateTime.now().plusDays(9), LocalDateTime.now()))
+                .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
+    }
+
+    @Test
     @DisplayName("배정을 보유한 멤버는 확정 시 상태와 무관하게 ASSIGNED 가 된다")
     void scheduledMembersConfirmRegardlessOfStatus() {
         InterviewRoundMember responded = InterviewRoundMember.invite(1L, 10L);
