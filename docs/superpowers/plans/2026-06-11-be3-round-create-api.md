@@ -44,7 +44,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -61,7 +61,7 @@ git checkout -b feat/interview-round-create
 
 `LeaderInterviewRoundCandidateControllerTest` 의 헬퍼 패턴을 따른다 (같은 패키지라 헬퍼 복사 — 공통 fixture 추출은 세 번째 클래스 등장 시점인 지금이 적기이나, 이 PR 은 검증 대상이 많아 복사 유지 후 BE#4 에서 추출한다).
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```java
 package com.duing.domain.interview.controller;
@@ -524,7 +524,7 @@ class LeaderInterviewRoundCreateControllerTest extends IntegrationTestBase {
 }
 ```
 
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -537,7 +537,7 @@ Expected: **컴파일 성공 + 전부 FAIL** (엔드포인트 미존재 — 201 
 
 ### Task 3: 구현 (GREEN)
 
-- [ ] **Step 1: `InterviewException` 에 5개 멤버 추가** (`InterviewNotUsed` 아래에)
+- [x] **Step 1: `InterviewException` 에 5개 멤버 추가** (`InterviewNotUsed` 아래에)
 
 ```java
     public static final class CandidateNotEligible extends InterviewException {
@@ -568,7 +568,7 @@ Expected: **컴파일 성공 + 전부 FAIL** (엔드포인트 미존재 — 201 
     }
 ```
 
-- [ ] **Step 2: 레포지토리 3건**
+- [x] **Step 2: 레포지토리 3건**
 
 `InterviewRoundRepository` 에 추가 (import `RoundStatus`):
 
@@ -617,7 +617,7 @@ Expected: **컴파일 성공 + 전부 FAIL** (엔드포인트 미존재 — 201 
     }
 ```
 
-- [ ] **Step 3: command / request / response DTO**
+- [x] **Step 3: command / request / response DTO**
 
 `service/dto/command/CreateInterviewRoundCommand.java`:
 
@@ -682,7 +682,7 @@ public record CreateInterviewRoundResponse(Long roundId) {
 }
 ```
 
-- [ ] **Step 4: 서비스**
+- [x] **Step 4: 서비스**
 
 `InterviewRoundService` 에 추가:
 
@@ -812,7 +812,7 @@ public record CreateInterviewRoundResponse(Long roundId) {
     }
 ```
 
-- [ ] **Step 5: API 인터페이스 + 컨트롤러**
+- [x] **Step 5: API 인터페이스 + 컨트롤러**
 
 `LeaderInterviewRoundApi` 에 추가 (import `CreateInterviewRoundRequest`/`CreateInterviewRoundResponse`/`jakarta.validation.Valid`/`PostMapping`/`RequestBody`):
 
@@ -849,7 +849,7 @@ public record CreateInterviewRoundResponse(Long roundId) {
     }
 ```
 
-- [ ] **Step 6: GREEN 확인**
+- [x] **Step 6: GREEN 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -862,9 +862,9 @@ Expected: **15건 전부 PASS** (동시성 케이스 포함 — flaky 하면 잠
 
 ### Task 4: 전체 검증 + 커밋
 
-- [ ] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL, 0 failures (689 + 15 = 704건)
+- [x] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL, 0 failures (689 + 15 = 704건)
 
-- [ ] **Step 2:**
+- [x] **Step 2:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -876,9 +876,9 @@ git commit -m "feat(backend): 면접 라운드 생성 API — 대상 선정·라
 
 ### Task 5: self-check + PR 생성
 
-- [ ] **Step 1: self-check 7항목** (BE#0~2 와 동일 명령. 항목 3 타영역: 신규 API — FE 는 FE#2 wizard 에서 소비)
+- [x] **Step 1: self-check 7항목** (BE#0~2 와 동일 명령. 항목 3 타영역: 신규 API — FE 는 FE#2 wizard 에서 소비)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지. **리뷰 단계에서 codex adversarial — 상태전이·동시성·데이터무결성 관점 — 필수**)
+- [x] **Step 2: push + PR** (자동 머지 금지. **리뷰 단계에서 codex adversarial — 상태전이·동시성·데이터무결성 관점 — 필수**)
 
 ```bash
 git push -u origin feat/interview-round-create
