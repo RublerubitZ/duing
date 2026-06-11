@@ -1,7 +1,7 @@
 package com.duing.domain.interview.service;
 
-import com.duing.domain.interview.controller.dto.response.AvailabilityRequestResponse;
 import com.duing.domain.interview.service.dto.command.CreateInterviewRoundCommand;
+import com.duing.domain.interview.service.dto.query.AvailabilityRequestResult;
 import com.duing.domain.interview.service.dto.query.RoundCandidateQuery;
 import java.util.List;
 
@@ -24,11 +24,11 @@ public interface InterviewRoundService {
      * 발송: DRAFT → COLLECTING 전이 + INVITED 전원에게 Availability 요청 알림 (스펙 §9.1 API 5).
      * 가드 3종(슬롯≥1·INVITED≥1·deadline 필수/미래)은 wizard 발송 버튼 조건과 1:1 (§10.3).
      */
-    AvailabilityRequestResponse requestAvailability(Long roundId, Long currentUserId);
+    AvailabilityRequestResult requestAvailability(Long roundId, Long currentUserId);
 
     /**
      * 재알림: COLLECTING 라운드의 미응답(INVITED) 대상에게 새 회차로 재발송 (스펙 §9.1 API 6).
      */
-    AvailabilityRequestResponse remind(Long roundId, Long currentUserId);
+    AvailabilityRequestResult remind(Long roundId, Long currentUserId);
 }
 

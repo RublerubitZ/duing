@@ -229,6 +229,11 @@ class LeaderInterviewRoundRequestControllerTest extends InterviewControllerTestS
                 .when().post(REMIND_PATH, round.getId())
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.notifiedMemberCount", equalTo(1));
+
+        InterviewRound reminded = interviewRoundRepository.findById(round.getId()).orElseThrow();
+        assertThat(reminded.getRequestSequence()).isEqualTo(1);
+        assertThat(notificationRepository.existsByUserIdAndDedupKey(
+                silent.getUser().getId(), requestDedupKey(round, silent, 1))).isTrue();
     }
 
     @Test

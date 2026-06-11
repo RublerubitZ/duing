@@ -7,7 +7,6 @@ import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
-import com.duing.domain.interview.controller.dto.response.AvailabilityRequestResponse;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.RoundMemberStatus;
@@ -18,6 +17,7 @@ import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.command.CreateInterviewRoundCommand;
+import com.duing.domain.interview.service.dto.query.AvailabilityRequestResult;
 import com.duing.domain.interview.service.dto.query.RoundCandidateQuery;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
@@ -163,7 +163,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
     @Override
     @Transactional
-    public AvailabilityRequestResponse requestAvailability(Long roundId, Long currentUserId) {
+    public AvailabilityRequestResult requestAvailability(Long roundId, Long currentUserId) {
         InterviewRound round = getRoundWithManagerAuth(roundId, currentUserId);
 
         if (interviewSlotRepository.countByRoundId(round.getId()) == 0) {
@@ -177,12 +177,12 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
         round.openCollecting(LocalDateTime.now(clock));
         notifyAvailabilityRequest(round, invitedMembers);
-        return new AvailabilityRequestResponse(invitedMembers.size());
+        return new AvailabilityRequestResult(invitedMembers.size());
     }
 
     @Override
     @Transactional
-    public AvailabilityRequestResponse remind(Long roundId, Long currentUserId) {
+    public AvailabilityRequestResult remind(Long roundId, Long currentUserId) {
         InterviewRound round = getRoundWithManagerAuth(roundId, currentUserId);
 
         if (round.getStatus() != RoundStatus.COLLECTING) {
@@ -195,7 +195,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
         }
 
         notifyAvailabilityRequest(round, unrespondedMembers);
-        return new AvailabilityRequestResponse(unrespondedMembers.size());
+        return new AvailabilityRequestResult(unrespondedMembers.size());
     }
 
     /**

@@ -111,4 +111,9 @@ public class InterviewException extends ApplicationException {
         private static final String MESSAGE = "지원자가 선택한 슬롯의 시간은 변경할 수 없습니다. 정원만 변경할 수 있습니다.";
         public SlotTimeChangeForbiddenForSelectedSlot() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
+
+    public static final class LastSlotUndeletableWhileCollecting extends InterviewException {
+        private static final String MESSAGE = "응답 수집 중에는 마지막 슬롯을 삭제할 수 없습니다.";
+        public LastSlotUndeletableWhileCollecting() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
 }

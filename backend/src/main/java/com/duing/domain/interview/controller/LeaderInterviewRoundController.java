@@ -60,7 +60,8 @@ public class LeaderInterviewRoundController implements LeaderInterviewRoundApi {
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         return ResponseEntity.ok(ApiResponse.success(
-                interviewRoundService.requestAvailability(roundId, currentUser.id())));
+                AvailabilityRequestResponse.from(
+                        interviewRoundService.requestAvailability(roundId, currentUser.id()))));
     }
 
     @Override
@@ -69,7 +70,8 @@ public class LeaderInterviewRoundController implements LeaderInterviewRoundApi {
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         return ResponseEntity.ok(ApiResponse.success(
-                interviewRoundService.remind(roundId, currentUser.id())));
+                AvailabilityRequestResponse.from(
+                        interviewRoundService.remind(roundId, currentUser.id()))));
     }
 }
 
