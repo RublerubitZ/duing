@@ -46,6 +46,11 @@ public class InterviewException extends ApplicationException {
 
     // ── 400 Bad Request ───────────────────────────────────────────────────────
 
+    public static final class InvalidRoundUpdate extends InterviewException {
+        private static final String MESSAGE = "수정할 내용이 유효하지 않습니다.";
+        public InvalidRoundUpdate() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
+    }
+
     public static final class InterviewNotUsed extends InterviewException {
         private static final String MESSAGE = "면접을 사용하지 않는 모집입니다.";
         public InterviewNotUsed() { super(MESSAGE, HttpStatus.BAD_REQUEST); }

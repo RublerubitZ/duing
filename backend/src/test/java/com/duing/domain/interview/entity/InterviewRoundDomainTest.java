@@ -299,6 +299,9 @@ class InterviewRoundDomainTest {
         assertThat(round.getTitle()).isEqualTo("1차 대면 면접");
         assertThat(round.getLocation()).isEqualTo("구관 101호");
 
+        round.updateInfo(null, "   ");
+        assertThat(round.getLocation()).isEqualTo("구관 101호");
+
         InterviewRound scheduled = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
         scheduled.openCollecting(LocalDateTime.now());
         scheduled.openAssigning();
@@ -316,6 +319,9 @@ class InterviewRoundDomainTest {
         round.updateDeadline(earlier, LocalDateTime.now());
 
         assertThat(round.getAvailabilityDeadline()).isEqualTo(earlier);
+
+        assertThatThrownBy(() -> round.updateDeadline(LocalDateTime.now().minusMinutes(1), LocalDateTime.now()))
+                .isInstanceOf(InterviewException.InvalidDeadline.class);
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.duing.domain.interview.service;
 
 import com.duing.domain.interview.service.dto.command.CreateInterviewRoundCommand;
+import com.duing.domain.interview.service.dto.command.UpdateInterviewRoundCommand;
 import com.duing.domain.interview.service.dto.query.AvailabilityRequestResult;
 import com.duing.domain.interview.service.dto.query.RoundCandidateQuery;
 import com.duing.domain.interview.service.dto.query.RoundDetailQuery;
@@ -32,6 +33,18 @@ public interface InterviewRoundService {
      * 재알림: COLLECTING 라운드의 미응답(INVITED) 대상에게 새 회차로 재발송 (스펙 §9.1 API 6).
      */
     AvailabilityRequestResult remind(Long roundId, Long currentUserId);
+
+    /**
+     * 라운드 부분 수정 (스펙 §9.1 API 7) — null 필드는 무변경. title/location 은 ASSIGNING 까지,
+     * deadline 은 DRAFT(미래 자유)·COLLECTING(연장만).
+     */
+    void updateRound(UpdateInterviewRoundCommand updateCommand);
+
+    /**
+     * 라운드 취소 (스펙 §9.1 API 12·§16-2) — CANCELLED 전이 + 활성 schedule 전부 정리.
+     * 멤버는 전이 없이 자동 재큐잉, 알림 없음 (§8).
+     */
+    void cancelRound(Long roundId, Long currentUserId);
 
     /** 라운드 목록 — 최신 생성 순 + 멤버 카운트 요약 (스펙 §9.1 API 3). */
     List<RoundSummaryQuery> getRounds(Long recruitmentId, Long currentUserId);

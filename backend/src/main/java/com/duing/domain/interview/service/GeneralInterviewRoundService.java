@@ -21,6 +21,7 @@ import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.command.CreateInterviewRoundCommand;
+import com.duing.domain.interview.service.dto.command.UpdateInterviewRoundCommand;
 import com.duing.domain.interview.service.dto.query.AvailabilityRequestResult;
 import com.duing.domain.interview.service.dto.query.MemberSelectionCount;
 import com.duing.domain.interview.service.dto.query.RoundCandidateQuery;
@@ -223,6 +224,45 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
             eventPublisher.publishEvent(new InterviewAvailabilityRequestedEvent(
                     round.getId(), target.getApplicationId(), round.getRequestSequence()));
         }
+    }
+
+    @Override
+    @Transactional
+    public void updateRound(UpdateInterviewRoundCommand updateCommand) {
+        // §16-7-4 — round writer 직렬화 (자동배정·확정·취소와 동일 잠금).
+        InterviewRound round = interviewRoundRepository.findByIdForUpdate(updateCommand.roundId())
+                .orElseThrow(InterviewException.RoundNotFound::new);
+        interviewRoundAccessor.requireManager(round, updateCommand.currentUserId());
+
+        boolean nothingToUpdate = updateCommand.title() == null
+                && updateCommand.location() == null
+                && updateCommand.availabilityDeadline() == null;
+        boolean blankTitle = updateCommand.title() != null && updateCommand.title().trim().isEmpty();
+        if (nothingToUpdate || blankTitle) {
+            throw new InterviewException.InvalidRoundUpdate();
+        }
+
+        if (updateCommand.title() != null || updateCommand.location() != null) {
+            round.updateInfo(
+                    updateCommand.title() == null ? null : updateCommand.title().trim(),
+                    updateCommand.location());
+        }
+        if (updateCommand.availabilityDeadline() != null) {
+            round.updateDeadline(updateCommand.availabilityDeadline(), LocalDateTime.now(clock));
+        }
+    }
+
+    @Override
+    @Transactional
+    public void cancelRound(Long roundId, Long currentUserId) {
+        InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
+                .orElseThrow(InterviewException.RoundNotFound::new);
+        interviewRoundAccessor.requireManager(round, currentUserId);
+
+        round.cancel();
+        // §16-2 — 누락 시 취소된 라운드의 draft 배정이 새 라운드 배정과 병존해
+        // findByApplicationId 류 Optional reader 가 NonUniqueResult 로 깨진다.
+        interviewScheduleRepository.softDeleteByRoundId(roundId);
     }
 
     @Override

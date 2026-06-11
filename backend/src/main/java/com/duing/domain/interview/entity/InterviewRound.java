@@ -127,7 +127,7 @@ public class InterviewRound extends BaseEntity {
     }
 
     /**
-     * 제목·장소 부분 수정 (null = 무변경) — ASSIGNING 까지 허용: 배정 검토 중 장소 확정 입력 후
+     * 제목·장소 부분 수정 (null·공백 = 무변경) — ASSIGNING 까지 허용: 배정 검토 중 장소 확정 입력 후
      * confirm 이 주 시나리오다. SCHEDULED·CANCELLED 는 불변 (§14 확정 후 변경 없음).
      */
     public void updateInfo(String title, String location) {
@@ -137,8 +137,8 @@ public class InterviewRound extends BaseEntity {
         if (title != null) {
             this.title = title;
         }
-        if (location != null) {
-            this.location = location;
+        if (location != null && !location.trim().isEmpty()) {
+            this.location = location.trim();
         }
     }
 

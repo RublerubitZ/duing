@@ -1,6 +1,7 @@
 package com.duing.domain.interview.api;
 
 import com.duing.domain.interview.controller.dto.request.CreateInterviewRoundRequest;
+import com.duing.domain.interview.controller.dto.request.UpdateInterviewRoundRequest;
 import com.duing.domain.interview.controller.dto.response.AvailabilityRequestResponse;
 import com.duing.domain.interview.controller.dto.response.CreateInterviewRoundResponse;
 import com.duing.domain.interview.controller.dto.response.RoundCandidateResponse;
@@ -17,6 +18,7 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -100,6 +102,30 @@ public interface LeaderInterviewRoundApi {
     )
     @GetMapping("/leader/interview-rounds/{roundId}")
     ResponseEntity<ApiResponse<RoundDetailResponse>> getRoundDetail(
+            @PathVariable Long roundId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(
+            summary = "면접 라운드 수정",
+            description = "제목·장소·마감을 부분 수정한다 (보내지 않은 필드는 유지). 제목·장소는 배정 검토 단계까지, "
+                    + "마감은 발송 전(미래 시각 자유)·응답 수집 중(연장만) 변경할 수 있다. 확정·취소된 라운드는 수정 불가."
+    )
+    @PatchMapping("/leader/interview-rounds/{roundId}")
+    ResponseEntity<ApiResponse<Void>> updateRound(
+            @PathVariable Long roundId,
+            @Valid @RequestBody UpdateInterviewRoundRequest updateInterviewRoundRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(
+            summary = "면접 라운드 취소",
+            description = "라운드를 취소한다 (발송 전·응답 수집·배정 검토 단계). draft 배정이 정리되고 멤버 지원서는 "
+                    + "면접 대상 상태 그대로 후보 대기열로 복귀한다 — 새 라운드에서 재선정하면 된다. "
+                    + "확정된 라운드는 터미널이라 취소할 수 없다. 취소 알림은 발송되지 않는다."
+    )
+    @PostMapping("/leader/interview-rounds/{roundId}/cancel")
+    ResponseEntity<ApiResponse<Void>> cancelRound(
             @PathVariable Long roundId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
