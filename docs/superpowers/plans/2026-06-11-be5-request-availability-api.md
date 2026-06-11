@@ -41,7 +41,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -58,7 +58,7 @@ git checkout -b feat/interview-availability-request
 - Modify: `backend/src/main/java/com/duing/domain/interview/entity/InterviewRound.java`
 - Modify: `backend/src/main/java/com/duing/domain/interview/exception/InterviewException.java` (RoundTransitionNotAllowed·AvailabilityDeadlineRequired 선반영)
 
-- [ ] **Step 1: 단위 테스트 4건 추가 (RED)** — `InterviewRoundDomainTest` 에 추가:
+- [x] **Step 1: 단위 테스트 4건 추가 (RED)** — `InterviewRoundDomainTest` 에 추가:
 
 ```java
     @Test
@@ -103,9 +103,9 @@ git checkout -b feat/interview-availability-request
     }
 ```
 
-- [ ] **Step 2: RED 확인** — `./gradlew test --tests "com.duing.domain.interview.entity.InterviewRoundDomainTest"` → 컴파일 실패
+- [x] **Step 2: RED 확인** — `./gradlew test --tests "com.duing.domain.interview.entity.InterviewRoundDomainTest"` → 컴파일 실패
 
-- [ ] **Step 3: 구현 (GREEN)**
+- [x] **Step 3: 구현 (GREEN)**
 
 `InterviewException` — 409 섹션에:
 
@@ -147,9 +147,9 @@ git checkout -b feat/interview-availability-request
     }
 ```
 
-- [ ] **Step 4: GREEN 확인** — 7건(기존 3+신규 4) PASS
+- [x] **Step 4: GREEN 확인** — 7건(기존 3+신규 4) PASS
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -164,7 +164,7 @@ git commit -m "feat(backend): 라운드 발송 전이(openCollecting) 도메인 
 **Files:**
 - Create: `backend/src/test/java/com/duing/domain/interview/controller/LeaderInterviewRoundRequestControllerTest.java`
 
-- [ ] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
+- [x] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
 
 ```java
 package com.duing.domain.interview.controller;
@@ -458,13 +458,13 @@ class LeaderInterviewRoundRequestControllerTest extends InterviewControllerTestS
 }
 ```
 
-- [ ] **Step 2: RED 확인** — `./gradlew test --tests "...LeaderInterviewRoundRequestControllerTest"` → 컴파일 성공 + 대부분 FAIL (404 기대 1건 우연 PASS 가능). **커밋하지 않는다.**
+- [x] **Step 2: RED 확인** — `./gradlew test --tests "...LeaderInterviewRoundRequestControllerTest"` → 컴파일 성공 + 대부분 FAIL (404 기대 1건 우연 PASS 가능). **커밋하지 않는다.**
 
 ---
 
 ### Task 4: 구현 (GREEN)
 
-- [ ] **Step 1: 예외 2개 추가** (409 섹션 — Task 2 의 2개는 이미 반영됨):
+- [x] **Step 1: 예외 2개 추가** (409 섹션 — Task 2 의 2개는 이미 반영됨):
 
 ```java
     public static final class RoundHasNoSlots extends InterviewException {
@@ -478,9 +478,9 @@ class LeaderInterviewRoundRequestControllerTest extends InterviewControllerTestS
     }
 ```
 
-- [ ] **Step 2: `InterviewSlotRepository` 에 `long countByRoundId(Long roundId);` 추가**
+- [x] **Step 2: `InterviewSlotRepository` 에 `long countByRoundId(Long roundId);` 추가**
 
-- [ ] **Step 3: 응답 DTO**
+- [x] **Step 3: 응답 DTO**
 
 `backend/src/main/java/com/duing/domain/interview/controller/dto/response/AvailabilityRequestResponse.java`:
 
@@ -490,7 +490,7 @@ package com.duing.domain.interview.controller.dto.response;
 public record AvailabilityRequestResponse(int notifiedMemberCount) {}
 ```
 
-- [ ] **Step 4: 서비스**
+- [x] **Step 4: 서비스**
 
 `InterviewRoundService` 에 추가:
 
@@ -575,7 +575,7 @@ public record AvailabilityRequestResponse(int notifiedMemberCount) {}
 
 (import 추가: `InterviewRound`·`InterviewRoundMember`·`RoundMemberStatus`·`RoundStatus`·`InterviewAvailabilityRequestedEvent`·`AvailabilityRequestResponse`·`InterviewSlotRepository`·`ApplicationEventPublisher`·`Clock` — 기존 import 와 병합)
 
-- [ ] **Step 5: Api + Controller**
+- [x] **Step 5: Api + Controller**
 
 `LeaderInterviewRoundApi` 에 추가:
 
@@ -626,15 +626,15 @@ public record AvailabilityRequestResponse(int notifiedMemberCount) {}
     }
 ```
 
-- [ ] **Step 6: GREEN 확인** — 13건 PASS
+- [x] **Step 6: GREEN 확인** — 13건 PASS
 
 ---
 
 ### Task 5: 전체 검증 + 커밋
 
-- [ ] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (724 + 4 + 13 = 741건 예상)
+- [x] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (724 + 4 + 13 = 741건 예상)
 
-- [ ] **Step 2:**
+- [x] **Step 2:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -646,9 +646,9 @@ git commit -m "feat(backend): 면접 라운드 발송·재알림 API"
 
 ### Task 6: self-check + PR 생성
 
-- [ ] **Step 1: self-check 7항목** (BE#0~4 동일 명령 — EOF 검사 포함)
+- [x] **Step 1: self-check 7항목** (BE#0~4 동일 명령 — EOF 검사 포함)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지)
+- [x] **Step 2: push + PR** (자동 머지 금지)
 
 ```bash
 git push -u origin feat/interview-availability-request
