@@ -43,7 +43,32 @@ jobs:
       - name: Compile main + test sources
         run: ./gradlew compileJava compileTestJava --no-daemon
 
+      - name: Pre-pull Testcontainers images (백오프 재시도)
+        # docker.io 익명 pull 이 공용 러너에서 간헐적으로 레이트리밋/지연되어 ryuk 이미지 pull 이
+        # 2분 타임아웃 → 수트 전체(523건)가 연쇄 실패한 사례 대응 (run 27337340457, PR #345).
+        # 이미지 확보를 테스트 실행과 분리하고, 일시 장애는 백오프 재시도로 흡수하며,
+        # 최종 실패 시 어떤 이미지가 문제인지 명확히 드러낸다.
+        # 이미지 태그 출처: postgres → TestcontainersConfiguration.java, minio → S3FileStorageIntegrationTest.java
+        run: |
+          set -euo pipefail
+          pull_with_retry() {
+            local image="$1"
+            for attempt in 1 2 3; do
+              if docker pull "$image"; then return 0; fi
+              echo "::warning::이미지 pull 실패 ($image, attempt $attempt/3) — $((attempt * 20))s 백오프 후 재시도"
+              sleep $((attempt * 20))
+            done
+            echo "::error::이미지 pull 최종 실패: $image"
+            return 1
+          }
+          pull_with_retry postgres:16-alpine
+          pull_with_retry minio/minio:RELEASE.2025-09-07T16-13-09Z
+
       - name: Test (TestContainers — ubuntu-latest 내장 Docker 데몬 사용)
+        env:
+          # 일회용 CI 러너에서는 컨테이너 리퍼(ryuk)가 불필요 — job 종료와 함께 러너가 폐기된다.
+          # ryuk 이미지 pull 을 제거해 위 사례의 단일 실패점을 없앤다. 로컬 개발은 기본값(활성) 유지.
+          TESTCONTAINERS_RYUK_DISABLED: "true"
         run: ./gradlew test --no-daemon
 
       - name: Build (test 결과 재사용)
