@@ -19,11 +19,26 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>JdbcTemplate 으로 SQL 을 직접 실행하고 위반 예외를 확인한다.
  * FK 제약을 우회하기 위해 테스트 직전 {@code SET session_replication_role = 'replica'} 를 실행한다.
  * PostgreSQL 에서 이 설정은 FK 트리거를 비활성화하지만 CHECK/UNIQUE 제약은 정상 동작한다.
+ *
+ * <p>잔존 커밋 데이터(@SpringBootTest RANDOM_PORT 테스트들이 남긴 행)와의 ID 충돌을 피하기 위해
+ * BIGSERIAL 시퀀스가 도달할 수 없는 큰 고정 ID 를 테스트별로 분리해 사용한다.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @Transactional
 class InterviewRoundSchemaTest {
+
+    // 잔존 커밋 데이터(@SpringBootTest RANDOM_PORT 테스트들이 남긴 행)와의 ID 충돌을 피하기 위해
+    // BIGSERIAL 시퀀스가 도달할 수 없는 큰 고정 ID 를 테스트별로 분리해 사용한다.
+    private static final long ROUND_STATUS_ID_BASE = 910_000L;
+    private static final long DRAFT_UNIQUE_ID_BASE = 920_000L;
+    private static final long DRAFT_COEXIST_ID_BASE = 930_000L;
+    private static final long MEMBER_DUP_ID_BASE = 940_000L;
+    private static final long MEMBER_STATUS_ID_BASE = 950_000L;
+    private static final long SLOT_TIME_ID_BASE = 960_000L;
+    private static final long SLOT_CAPACITY_ID_BASE = 970_000L;
+    private static final long SCHEDULE_UNIQUE_ID_BASE = 980_000L;
+    private static final long AVAILABILITY_DUP_ID_BASE = 990_000L;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -41,8 +56,8 @@ class InterviewRoundSchemaTest {
                 jdbcTemplate.execute("""
                         INSERT INTO interview_round
                             (recruitment_id, title, status, request_sequence, version, created_at, updated_at)
-                        VALUES (1, '1차 면접', 'INVALID_STATUS', 0, 0, now(), now())
-                        """))
+                        VALUES (%d, '1차 면접', 'INVALID_STATUS', 0, 0, now(), now())
+                        """.formatted(ROUND_STATUS_ID_BASE)))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -54,15 +69,15 @@ class InterviewRoundSchemaTest {
         jdbcTemplate.execute("""
                 INSERT INTO interview_round
                     (recruitment_id, title, status, request_sequence, version, created_at, updated_at)
-                VALUES (1, '1차 면접', 'DRAFT', 0, 0, now(), now())
-                """);
+                VALUES (%d, '1차 면접', 'DRAFT', 0, 0, now(), now())
+                """.formatted(DRAFT_UNIQUE_ID_BASE));
 
         assertThatThrownBy(() ->
                 jdbcTemplate.execute("""
                         INSERT INTO interview_round
                             (recruitment_id, title, status, request_sequence, version, created_at, updated_at)
-                        VALUES (1, '2차 면접', 'DRAFT', 0, 0, now(), now())
-                        """))
+                        VALUES (%d, '2차 면접', 'DRAFT', 0, 0, now(), now())
+                        """.formatted(DRAFT_UNIQUE_ID_BASE)))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -74,13 +89,13 @@ class InterviewRoundSchemaTest {
         jdbcTemplate.execute("""
                 INSERT INTO interview_round
                     (recruitment_id, title, status, request_sequence, version, created_at, updated_at)
-                VALUES (1, '1차 면접', 'SCHEDULED', 1, 0, now(), now())
-                """);
+                VALUES (%d, '1차 면접', 'SCHEDULED', 1, 0, now(), now())
+                """.formatted(DRAFT_COEXIST_ID_BASE));
         jdbcTemplate.execute("""
                 INSERT INTO interview_round
                     (recruitment_id, title, status, request_sequence, version, created_at, updated_at)
-                VALUES (1, '2차 면접', 'DRAFT', 0, 0, now(), now())
-                """);
+                VALUES (%d, '2차 면접', 'DRAFT', 0, 0, now(), now())
+                """.formatted(DRAFT_COEXIST_ID_BASE));
         // 예외 없이 통과하면 성공
     }
 
@@ -92,15 +107,15 @@ class InterviewRoundSchemaTest {
         jdbcTemplate.execute("""
                 INSERT INTO interview_round_member
                     (round_id, application_id, status, created_at, updated_at)
-                VALUES (1, 1, 'INVITED', now(), now())
-                """);
+                VALUES (%d, %d, 'INVITED', now(), now())
+                """.formatted(MEMBER_DUP_ID_BASE, MEMBER_DUP_ID_BASE));
 
         assertThatThrownBy(() ->
                 jdbcTemplate.execute("""
                         INSERT INTO interview_round_member
                             (round_id, application_id, status, created_at, updated_at)
-                        VALUES (1, 1, 'RESPONDED', now(), now())
-                        """))
+                        VALUES (%d, %d, 'RESPONDED', now(), now())
+                        """.formatted(MEMBER_DUP_ID_BASE, MEMBER_DUP_ID_BASE)))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -113,8 +128,8 @@ class InterviewRoundSchemaTest {
                 jdbcTemplate.execute("""
                         INSERT INTO interview_round_member
                             (round_id, application_id, status, created_at, updated_at)
-                        VALUES (1, 1, 'NO_RESPONSE', now(), now())
-                        """))
+                        VALUES (%d, %d, 'NO_RESPONSE', now(), now())
+                        """.formatted(MEMBER_STATUS_ID_BASE, MEMBER_STATUS_ID_BASE)))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -127,8 +142,8 @@ class InterviewRoundSchemaTest {
                 jdbcTemplate.execute("""
                         INSERT INTO interview_slot
                             (round_id, start_time, end_time, capacity, created_at, updated_at)
-                        VALUES (1, now() + interval '1 hour', now(), 5, now(), now())
-                        """))
+                        VALUES (%d, now() + interval '1 hour', now(), 5, now(), now())
+                        """.formatted(SLOT_TIME_ID_BASE)))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -141,8 +156,8 @@ class InterviewRoundSchemaTest {
                 jdbcTemplate.execute("""
                         INSERT INTO interview_slot
                             (round_id, start_time, end_time, capacity, created_at, updated_at)
-                        VALUES (1, now(), now() + interval '1 hour', 0, now(), now())
-                        """))
+                        VALUES (%d, now(), now() + interval '1 hour', 0, now(), now())
+                        """.formatted(SLOT_CAPACITY_ID_BASE)))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -154,8 +169,8 @@ class InterviewRoundSchemaTest {
         jdbcTemplate.execute("""
                 INSERT INTO interview_schedule
                     (round_id, application_id, slot_id, status, assigned_at, created_at, updated_at)
-                VALUES (1, 1, 1, 'ASSIGNED', now(), now(), now())
-                """);
+                VALUES (%d, %d, %d, 'ASSIGNED', now(), now(), now())
+                """.formatted(SCHEDULE_UNIQUE_ID_BASE, SCHEDULE_UNIQUE_ID_BASE, SCHEDULE_UNIQUE_ID_BASE));
 
         // PostgreSQL 은 트랜잭션 안에서 제약 위반이 나면 트랜잭션이 abort 되므로 (25P02),
         // 위반 검증 후에도 같은 트랜잭션에서 후속 검증을 잇기 위해 SAVEPOINT 로 격리한다.
@@ -164,18 +179,18 @@ class InterviewRoundSchemaTest {
                 jdbcTemplate.execute("""
                         INSERT INTO interview_schedule
                             (round_id, application_id, slot_id, status, assigned_at, created_at, updated_at)
-                        VALUES (1, 1, 2, 'ASSIGNED', now(), now(), now())
-                        """))
+                        VALUES (%d, %d, %d, 'ASSIGNED', now(), now(), now())
+                        """.formatted(SCHEDULE_UNIQUE_ID_BASE, SCHEDULE_UNIQUE_ID_BASE, SCHEDULE_UNIQUE_ID_BASE + 1)))
                 .isInstanceOf(DataAccessException.class);
         jdbcTemplate.execute("ROLLBACK TO SAVEPOINT before_duplicate_schedule");
 
         // 자동배정 재실행 경로: 기존 행 soft delete 후 재생성 허용 (스펙 §6.2)
-        jdbcTemplate.execute("UPDATE interview_schedule SET deleted_at = now() WHERE round_id = 1");
+        jdbcTemplate.execute("UPDATE interview_schedule SET deleted_at = now() WHERE round_id = %d".formatted(SCHEDULE_UNIQUE_ID_BASE));
         jdbcTemplate.execute("""
                 INSERT INTO interview_schedule
                     (round_id, application_id, slot_id, status, assigned_at, created_at, updated_at)
-                VALUES (1, 1, 2, 'ASSIGNED', now(), now(), now())
-                """);
+                VALUES (%d, %d, %d, 'ASSIGNED', now(), now(), now())
+                """.formatted(SCHEDULE_UNIQUE_ID_BASE, SCHEDULE_UNIQUE_ID_BASE, SCHEDULE_UNIQUE_ID_BASE + 1));
     }
 
     @Test
@@ -186,15 +201,15 @@ class InterviewRoundSchemaTest {
         jdbcTemplate.execute("""
                 INSERT INTO interview_availability
                     (round_id, application_id, slot_id, created_at, updated_at)
-                VALUES (1, 1, 1, now(), now())
-                """);
+                VALUES (%d, %d, %d, now(), now())
+                """.formatted(AVAILABILITY_DUP_ID_BASE, AVAILABILITY_DUP_ID_BASE, AVAILABILITY_DUP_ID_BASE));
 
         assertThatThrownBy(() ->
                 jdbcTemplate.execute("""
                         INSERT INTO interview_availability
                             (round_id, application_id, slot_id, created_at, updated_at)
-                        VALUES (1, 1, 1, now(), now())
-                        """))
+                        VALUES (%d, %d, %d, now(), now())
+                        """.formatted(AVAILABILITY_DUP_ID_BASE, AVAILABILITY_DUP_ID_BASE, AVAILABILITY_DUP_ID_BASE)))
                 .isInstanceOf(DataAccessException.class);
     }
 }
