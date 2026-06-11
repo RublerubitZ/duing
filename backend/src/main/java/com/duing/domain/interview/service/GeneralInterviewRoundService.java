@@ -1,14 +1,33 @@
 package com.duing.domain.interview.service;
 
+import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.entity.ApplicationStatusHistory;
+import com.duing.domain.application.exception.ApplicationDomainException;
+import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.entity.InterviewRound;
+import com.duing.domain.interview.entity.InterviewRoundMember;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.exception.InterviewException;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
+import com.duing.domain.interview.service.dto.command.CreateInterviewRoundCommand;
 import com.duing.domain.interview.service.dto.query.RoundCandidateQuery;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.user.entity.User;
+import com.duing.domain.user.exception.UserException;
+import com.duing.domain.user.repository.UserRepository;
+import java.sql.SQLException;
+import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,9 +36,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralInterviewRoundService implements InterviewRoundService {
 
+    // V49 의 모집당 DRAFT 라운드 1개 partial unique (race 최종 방어선).
+    private static final String DRAFT_ROUND_UNIQUE_INDEX = "uq_interview_round_draft_per_recruitment";
+    // PostgreSQL unique_violation.
+    private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
+
     private final RecruitmentRepository recruitmentRepository;
     private final ClubAuthService clubAuthService;
     private final InterviewRoundMemberRepository interviewRoundMemberRepository;
+    private final InterviewRoundRepository interviewRoundRepository;
+    private final ApplicationRepository applicationRepository;
+    private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
+    private final UserRepository userRepository;
 
     @Override
     public List<RoundCandidateQuery> getRoundCandidates(Long recruitmentId, Long currentUserId,
@@ -35,5 +63,108 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
         return interviewRoundMemberRepository.findRoundCandidates(recruitmentId, includeUnderReview).stream()
                 .map(RoundCandidateQuery::from)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public Long createRound(CreateInterviewRoundCommand createCommand) {
+        Recruitment recruitment = recruitmentRepository.findById(createCommand.recruitmentId())
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+        clubAuthService.requireManager(createCommand.currentUserId(), recruitment.getClub().getId());
+
+        User changedBy = userRepository.findById(createCommand.currentUserId())
+                .orElseThrow(UserException.UserNotFoundException::new);
+
+        if (!recruitment.isUseInterview()) {
+            throw new InterviewException.InterviewNotUsed();
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (createCommand.availabilityDeadline() != null
+                && !createCommand.availabilityDeadline().isAfter(now)) {
+            throw new InterviewException.InvalidDeadline();
+        }
+
+        // 친절한 사전 체크 — 동시 생성 race 는 아래 partial unique(23505) 가 최종 차단한다.
+        if (interviewRoundRepository.existsByRecruitmentIdAndStatus(
+                createCommand.recruitmentId(), RoundStatus.DRAFT)) {
+            throw new InterviewException.DraftRoundAlreadyExists();
+        }
+
+        // 입력 ID 중복은 클라이언트 실수 보호 차원에서 제거하되 순서는 유지한다 (bulkUpdateStatus 전례).
+        Set<Long> applicationIds = new LinkedHashSet<>(createCommand.applicationIds());
+
+        // 같은 지원자를 두 라운드에 동시 배치하는 race 를 행 잠금으로 직렬화한다 (스펙 §7).
+        // 후행 트랜잭션은 잠금 해제 후 아래 placement 검증에서 선행 커밋의 멤버십을 보고 409 로 떨어진다.
+        List<Application> applications = applicationRepository.findAllByIdInForUpdate(applicationIds);
+        if (applications.size() != applicationIds.size()) {
+            throw new ApplicationDomainException.ApplicationNotFoundException();
+        }
+
+        for (Application application : applications) {
+            if (!application.getRecruitment().getId().equals(createCommand.recruitmentId())) {
+                throw new InterviewException.CandidateNotInRecruitment();
+            }
+            ApplicationStatus candidateStatus = application.getStatus();
+            if (candidateStatus != ApplicationStatus.UNDER_REVIEW
+                    && candidateStatus != ApplicationStatus.INTERVIEW_PENDING) {
+                throw new InterviewException.CandidateNotEligible();
+            }
+        }
+
+        // placement-active 멤버십 최대 1개 불변식 (스펙 §5.4·§16) 의 생성 측 강제.
+        List<Long> alreadyPlacedIds = interviewRoundMemberRepository
+                .findApplicationIdsWithPlacementActiveMembership(applicationIds);
+        if (!alreadyPlacedIds.isEmpty()) {
+            throw new InterviewException.CandidateAlreadyInActiveRound();
+        }
+
+        InterviewRound round;
+        try {
+            round = interviewRoundRepository.save(InterviewRound.create(
+                    createCommand.recruitmentId(),
+                    createCommand.title(),
+                    createCommand.availabilityDeadline(),
+                    createCommand.location()));
+            interviewRoundRepository.flush();
+        } catch (DataIntegrityViolationException racedDraftCreation) {
+            if (isDraftRoundUniqueViolation(racedDraftCreation)) {
+                throw new InterviewException.DraftRoundAlreadyExists();
+            }
+            throw racedDraftCreation;
+        }
+
+        for (Application application : applications) {
+            // 대기열(INTERVIEW_PENDING) 재수용은 상태 변화가 없으므로 전이·이력을 만들지 않는다.
+            if (application.getStatus() == ApplicationStatus.UNDER_REVIEW) {
+                application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
+                applicationStatusHistoryRepository.save(ApplicationStatusHistory.record(
+                        application, ApplicationStatus.UNDER_REVIEW,
+                        ApplicationStatus.INTERVIEW_PENDING, changedBy));
+            }
+        }
+
+        List<InterviewRoundMember> members = applicationIds.stream()
+                .map(applicationId -> InterviewRoundMember.invite(round.getId(), applicationId))
+                .toList();
+        interviewRoundMemberRepository.saveAll(members);
+
+        return round.getId();
+    }
+
+    /**
+     * 동시 라운드 생성으로 인한 DRAFT partial unique 위반 only true.
+     * 다른 무결성 위반은 그대로 위로 전파한다 (club_member 23505 처리 전례).
+     */
+    private static boolean isDraftRoundUniqueViolation(DataIntegrityViolationException exception) {
+        Throwable mostSpecific = exception.getMostSpecificCause();
+        if (!(mostSpecific instanceof SQLException sqlException)) {
+            return false;
+        }
+        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
+            return false;
+        }
+        String message = sqlException.getMessage();
+        return message != null && message.contains(DRAFT_ROUND_UNIQUE_INDEX);
     }
 }

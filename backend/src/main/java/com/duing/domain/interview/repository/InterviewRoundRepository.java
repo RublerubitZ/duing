@@ -1,6 +1,7 @@
 package com.duing.domain.interview.repository;
 
 import com.duing.domain.interview.entity.InterviewRound;
+import com.duing.domain.interview.entity.RoundStatus;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -26,4 +27,6 @@ public interface InterviewRoundRepository extends JpaRepository<InterviewRound, 
                                 com.duing.domain.interview.entity.RoundStatus.SCHEDULED)
             """)
     Optional<InterviewRound> findVisibleToApplicantRoundByApplicationId(@Param("applicationId") Long applicationId);
+
+    boolean existsByRecruitmentIdAndStatus(Long recruitmentId, RoundStatus status);
 }

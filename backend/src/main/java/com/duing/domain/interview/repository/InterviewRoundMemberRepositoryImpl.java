@@ -11,6 +11,7 @@ import com.duing.domain.interview.entity.RoundStatus;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.util.Collection;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +31,21 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
                         hasNoPlacementActiveMembership()
                 )
                 .orderBy(application.createdAt.desc())
+                .fetch();
+    }
+
+    @Override
+    public List<Long> findApplicationIdsWithPlacementActiveMembership(Collection<Long> applicationIds) {
+        return queryFactory
+                .selectDistinct(interviewRoundMember.applicationId)
+                .from(interviewRoundMember)
+                .join(interviewRound).on(interviewRound.id.eq(interviewRoundMember.roundId))
+                .where(
+                        interviewRoundMember.applicationId.in(applicationIds),
+                        interviewRoundMember.status.ne(RoundMemberStatus.EXCLUDED),
+                        interviewRound.status.ne(RoundStatus.CANCELLED),
+                        interviewRound.deletedAt.isNull()
+                )
                 .fetch();
     }
 
