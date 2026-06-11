@@ -132,6 +132,12 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
         if (interviewAvailabilityRepository.countBySlotId(slot.getId()) > 0) {
             throw new InterviewException.SlotHasAvailability();
         }
+        // 발송 가드(슬롯≥1)가 보장한 "수집 중 라운드에 선택지가 있다" 불변식을 삭제 경로에서도 지킨다.
+        // (발송과 삭제의 순수 동시 race 윈도우는 수용 — 발생해도 추가 슬롯 생성 + Rule 2 로 복구 가능)
+        if (round.getStatus() == RoundStatus.COLLECTING
+                && interviewSlotRepository.countByRoundId(round.getId()) == 1) {
+            throw new InterviewException.LastSlotUndeletableWhileCollecting();
+        }
         interviewSlotRepository.delete(slot);
     }
 

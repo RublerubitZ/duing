@@ -352,6 +352,20 @@ class LeaderInterviewSlotControllerTest extends InterviewControllerTestSupport {
     }
 
     @Test
+    @DisplayName("응답 수집 중에는 마지막 남은 슬롯을 삭제할 수 없다")
+    void lastSlotCannotBeDeletedWhileCollecting() {
+        InterviewRound round = saveRound(RoundStatus.COLLECTING, LocalDateTime.now().plusDays(3));
+        InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete(SLOT_PATH, slot.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value());
+
+        assertThat(interviewSlotRepository.findById(slot.getId())).isPresent();
+    }
+
+    @Test
     @DisplayName("배정 검토(ASSIGNING) 단계의 슬롯은 삭제할 수 없다")
     void assigningRoundSlotCannotBeDeleted() {
         InterviewRound round = saveRound(RoundStatus.ASSIGNING, LocalDateTime.now().minusDays(1));

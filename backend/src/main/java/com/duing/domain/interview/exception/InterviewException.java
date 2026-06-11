@@ -50,6 +50,11 @@ public class InterviewException extends ApplicationException {
         public InvalidDeadline() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
     }
 
+    public static final class AvailabilityDeadlineRequired extends InterviewException {
+        private static final String MESSAGE = "발송 전에 면접 가능시간 마감을 설정해야 합니다.";
+        public AvailabilityDeadlineRequired() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
+    }
+
     public static final class InvalidSlotTime extends InterviewException {
         private static final String MESSAGE = "슬롯 종료 시각은 시작 시각 이후여야 합니다.";
         public InvalidSlotTime() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
@@ -61,6 +66,21 @@ public class InterviewException extends ApplicationException {
     }
 
     // ── 409 Conflict ──────────────────────────────────────────────────────────
+
+    public static final class RoundTransitionNotAllowed extends InterviewException {
+        private static final String MESSAGE = "현재 단계에서 허용되지 않는 라운드 상태 변경입니다.";
+        public RoundTransitionNotAllowed() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static final class RoundHasNoSlots extends InterviewException {
+        private static final String MESSAGE = "슬롯이 없는 라운드는 발송할 수 없습니다. 슬롯을 먼저 생성해주세요.";
+        public RoundHasNoSlots() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static final class NoMemberToNotify extends InterviewException {
+        private static final String MESSAGE = "알림을 보낼 대상자가 없습니다.";
+        public NoMemberToNotify() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
 
     public static final class DraftRoundAlreadyExists extends InterviewException {
         private static final String MESSAGE = "이미 준비 중(DRAFT)인 면접 라운드가 있습니다.";
@@ -90,5 +110,10 @@ public class InterviewException extends ApplicationException {
     public static final class SlotTimeChangeForbiddenForSelectedSlot extends InterviewException {
         private static final String MESSAGE = "지원자가 선택한 슬롯의 시간은 변경할 수 없습니다. 정원만 변경할 수 있습니다.";
         public SlotTimeChangeForbiddenForSelectedSlot() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static final class LastSlotUndeletableWhileCollecting extends InterviewException {
+        private static final String MESSAGE = "응답 수집 중에는 마지막 슬롯을 삭제할 수 없습니다.";
+        public LastSlotUndeletableWhileCollecting() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
 }

@@ -1,5 +1,6 @@
 package com.duing.domain.interview.entity;
 
+import com.duing.domain.interview.exception.InterviewException;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -73,6 +74,24 @@ public class InterviewRound extends BaseEntity {
                 .availabilityDeadline(availabilityDeadline)
                 .location(normalizeNullable(location))
                 .build();
+    }
+
+    /**
+     * 발송: DRAFT → COLLECTING (스펙 §5.1). 마감은 발송의 전제 조건이라 도메인이 직접 검증한다 —
+     * 생성 시점에 미래였어도 발송까지 시간이 흐를 수 있어 재검증한다.
+     * 슬롯·멤버 존재 가드는 레포지토리가 필요하므로 서비스가 담당한다 (스펙 §10.3 가드 3종 중 나머지).
+     */
+    public void openCollecting(LocalDateTime now) {
+        if (this.status != RoundStatus.DRAFT) {
+            throw new InterviewException.RoundTransitionNotAllowed();
+        }
+        if (this.availabilityDeadline == null) {
+            throw new InterviewException.AvailabilityDeadlineRequired();
+        }
+        if (!this.availabilityDeadline.isAfter(now)) {
+            throw new InterviewException.InvalidDeadline();
+        }
+        this.status = RoundStatus.COLLECTING;
     }
 
     /**

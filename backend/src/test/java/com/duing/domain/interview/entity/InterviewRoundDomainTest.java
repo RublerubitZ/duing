@@ -44,4 +44,45 @@ class InterviewRoundDomainTest {
         assertThatThrownBy(invited::reinviteAfterSlotAdded)
                 .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
     }
+
+    @Test
+    @DisplayName("준비 중(DRAFT) 라운드는 마감이 미래로 설정돼 있으면 응답 수집을 시작할 수 있다")
+    void draftRoundOpensCollecting() {
+        InterviewRound round = InterviewRound.create(1L, "1차 면접",
+                LocalDateTime.now().plusDays(7), null);
+
+        round.openCollecting(LocalDateTime.now());
+
+        assertThat(round.getStatus()).isEqualTo(RoundStatus.COLLECTING);
+    }
+
+    @Test
+    @DisplayName("마감 시각이 정해지지 않은 라운드는 발송할 수 없다")
+    void openCollectingRequiresDeadline() {
+        InterviewRound round = InterviewRound.create(1L, "1차 면접", null, null);
+
+        assertThatThrownBy(() -> round.openCollecting(LocalDateTime.now()))
+                .isInstanceOf(InterviewException.AvailabilityDeadlineRequired.class);
+    }
+
+    @Test
+    @DisplayName("마감 시각이 이미 지난 라운드는 발송할 수 없다 — 생성 후 시간이 흐른 경우의 재검증")
+    void openCollectingRejectsPastDeadline() {
+        InterviewRound round = InterviewRound.create(1L, "1차 면접",
+                LocalDateTime.now().plusDays(7), null);
+
+        assertThatThrownBy(() -> round.openCollecting(LocalDateTime.now().plusDays(8)))
+                .isInstanceOf(InterviewException.InvalidDeadline.class);
+    }
+
+    @Test
+    @DisplayName("이미 발송된 라운드는 다시 발송할 수 없다")
+    void openCollectingRequiresDraftStatus() {
+        InterviewRound round = InterviewRound.create(1L, "1차 면접",
+                LocalDateTime.now().plusDays(7), null);
+        round.openCollecting(LocalDateTime.now());
+
+        assertThatThrownBy(() -> round.openCollecting(LocalDateTime.now()))
+                .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
+    }
 }
