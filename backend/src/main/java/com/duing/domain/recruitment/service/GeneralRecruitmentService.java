@@ -5,8 +5,6 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
-import com.duing.domain.interview.entity.InterviewConfig;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
@@ -42,7 +40,6 @@ public class GeneralRecruitmentService implements RecruitmentService {
     private final ApplicationRepository applicationRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
-    private final InterviewConfigRepository interviewConfigRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -93,13 +90,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
         Integer applicantCount = recruitment.isShowApplicantCount()
                 ? (int) applicationRepository.countByRecruitmentId(recruitmentId)
                 : null;
-        // useInterview=true 인 모집만 InterviewConfig 를 조회한다.
-        // config 가 아직 없거나 useInterview=false 면 null 노출.
-        LocalDateTime interviewAvailabilityDeadline = recruitment.isUseInterview()
-                ? interviewConfigRepository.findByRecruitmentId(recruitmentId)
-                        .map(InterviewConfig::getAvailabilityDeadline)
-                        .orElse(null)
-                : null;
+        // 면접 마감은 라운드(interview_round.availability_deadline) 단위로 관리된다.
+        // 모집 상세의 단일 deadline 노출은 라운드 모델에서 의미가 없어 null 고정 —
+        // 응답 필드는 FE 재배선(라운드 dashboard 전환) 전까지 호환용으로만 유지한다.
+        LocalDateTime interviewAvailabilityDeadline = null;
         return RecruitmentDetailQuery.from(
                 recruitment, LocalDate.now(), applicantCount, interviewAvailabilityDeadline);
     }

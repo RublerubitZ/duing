@@ -25,12 +25,12 @@ import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
-import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
@@ -87,7 +87,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final ApplicationEvaluationRepository applicationEvaluationRepository;
     private final InterviewAvailabilityRepository interviewAvailabilityRepository;
     private final InterviewScheduleRepository interviewScheduleRepository;
-    private final InterviewConfigRepository interviewConfigRepository;
+    private final InterviewRoundRepository interviewRoundRepository;
     private final InterviewSlotRepository interviewSlotRepository;
 
     /**
@@ -141,7 +141,7 @@ public class GeneralApplicationService implements ApplicationService {
 
         // 응답 카드의 nested interview 채움용 batch lookup — application 별 개별 쿼리(N+1) 회피.
         // ASSIGNED schedule 이 있으면 interview 가 채워지고 (location 은 nullable),
-        // CANCELLED 만 / 미배정인 경우만 null 로 응답한다 (Codex review BE-3 — config.location null 도 interview 노출 유지).
+        // CANCELLED 만 / 미배정인 경우만 null 로 응답한다 (Codex review BE-3 — round.location null 도 interview 노출 유지).
         Map<Long, AssignedInterviewQuery> interviewByApplicationId =
                 resolveInterviewBatch(applications.stream().map(Application::getId).toList());
 
@@ -162,7 +162,8 @@ public class GeneralApplicationService implements ApplicationService {
         // 지원자 stepper 의 Step 3 sub-state 분기를 위해 면접 진행 상황을 derived 필드로 노출한다.
         // - interviewAvailabilityCount: 본인이 제출한 면접 가능 시간 개수
         // - interview: 현재 배정된 면접 (ASSIGNED schedule 이 있으면 location 이 null 이어도 객체로 노출, 그 외엔 null)
-        // - availabilityDeadline: 가능시간 제출 마감 시각 원본(useInterview=false 또는 config 미존재 → null)
+        // - availabilityDeadline: 지원자에게 보이는 라운드의 마감 시각.
+        //   isVisibleToApplicant 술어(DRAFT 제외)를 사용해 발송 전 라운드 정보가 새지 않는다 (스펙 §5.4·§9.3).
         // useInterview=false 모집은 면접 관련 레포지토리 호출 자체를 생략한다.
         if (!application.getRecruitment().isUseInterview()) {
             return MyApplicationDetailQuery.fromAll(application, 0, null, null);
@@ -170,12 +171,11 @@ public class GeneralApplicationService implements ApplicationService {
 
         long interviewAvailabilityCount =
                 interviewAvailabilityRepository.countByApplicationId(applicationId);
-        InterviewConfig interviewConfig =
-                interviewConfigRepository.findByRecruitmentId(application.getRecruitment().getId())
-                        .orElse(null);
-        LocalDateTime availabilityDeadline = interviewConfig == null ? null
-                : interviewConfig.getAvailabilityDeadline();
-        AssignedInterviewQuery interview = resolveAssignedInterview(applicationId, interviewConfig);
+        LocalDateTime availabilityDeadline = interviewRoundRepository
+                .findVisibleToApplicantRoundByApplicationId(applicationId)
+                .map(InterviewRound::getAvailabilityDeadline)
+                .orElse(null);
+        AssignedInterviewQuery interview = resolveAssignedInterview(applicationId);
 
         return MyApplicationDetailQuery.fromAll(
                 application,
@@ -229,10 +229,7 @@ public class GeneralApplicationService implements ApplicationService {
                     .map(window -> new ApplicantDetailQuery.AvailabilityItem(
                             window.slotId(), window.startTime(), window.endTime()))
                     .orElse(null);
-            InterviewConfig interviewConfig = interviewConfigRepository
-                    .findByRecruitmentId(application.getRecruitment().getId())
-                    .orElse(null);
-            interview = resolveAssignedInterview(applicationId, interviewConfig);
+            interview = resolveAssignedInterview(applicationId);
         } else {
             interviewAvailabilities = List.of();
             assignedSlot = null;
@@ -411,29 +408,31 @@ public class GeneralApplicationService implements ApplicationService {
     /**
      * 응답 DTO 의 nested {@code interview} 채움용 단건 헬퍼.
      * ASSIGNED 상태 schedule 이 있고 그 schedule 에 매핑된 슬롯이 존재하면 {@link AssignedInterviewQuery} 를 반환한다.
-     * {@code InterviewConfig} 이 없거나 {@code config.location} 이 null 이어도 interview 자체는 그대로 노출하되
-     * location 만 null 로 채운다 (Codex review BE-3).
+     * location 은 schedule 이 속한 {@code InterviewRound.location} 에서 가져오며, round 가 없거나
+     * location 이 비어 있어도 interview 자체는 노출하고 location 만 null 로 채운다 (Codex review BE-3 유지).
      * <p>
-     * {@code InterviewSchedule.cancel()} 은 status 만 CANCELLED 로 바꾸는 도메인 취소로
-     * {@code @SQLRestriction} 가 걸려 있지 않으므로 status 조건을 명시한다.
+     * {@code InterviewSchedule} 의 CANCELLED 는 MVP 미사용 예약값이지만 방어적으로 status 조건을 명시한다.
      */
-    private AssignedInterviewQuery resolveAssignedInterview(Long applicationId, InterviewConfig interviewConfig) {
-        String location = interviewConfig == null ? null : interviewConfig.getLocation();
+    private AssignedInterviewQuery resolveAssignedInterview(Long applicationId) {
         return interviewScheduleRepository.findByApplicationId(applicationId)
                 .filter(schedule -> schedule.getStatus() == InterviewScheduleStatus.ASSIGNED)
-                .flatMap(schedule -> interviewSlotRepository.findById(schedule.getSlotId()))
-                .map(slot -> new AssignedInterviewQuery(
-                        slot.getStartTime(), slot.getEndTime(), location))
+                .flatMap(schedule -> interviewSlotRepository.findById(schedule.getSlotId())
+                        .map(slot -> new AssignedInterviewQuery(
+                                slot.getStartTime(),
+                                slot.getEndTime(),
+                                interviewRoundRepository.findById(schedule.getRoundId())
+                                        .map(InterviewRound::getLocation)
+                                        .orElse(null))))
                 .orElse(null);
     }
 
     /**
      * 응답 리스트 DTO 의 nested {@code interview} 채움용 batch 헬퍼.
-     * 지원 ID 다건을 한 번에 끌어와 N+1 을 회피한다 — Task 2 (InterviewReminderJob) 패턴과 동일.
+     * 지원 ID 다건을 한 번에 끌어와 N+1 을 회피한다 — InterviewReminderJob 패턴과 동일.
      * <ol>
      *   <li>application_id IN (...) AND status=ASSIGNED InterviewSchedule 일괄 조회</li>
-     *   <li>대상 schedule 들의 slot_id / recruitment_id 를 batch 로 join</li>
-     *   <li>{@code InterviewConfig.location} 이 비어 있어도 interview 객체는 그대로 노출 (location 만 null)</li>
+     *   <li>대상 schedule 들의 slot_id / round_id 를 batch 로 join</li>
+     *   <li>{@code InterviewRound.location} 이 비어 있어도 interview 객체는 그대로 노출 (location 만 null)</li>
      * </ol>
      * 결과 Map 에 키가 없는 application 은 호출 측에서 {@code null} 로 표현되어 "면접 미배정" 을 의미한다.
      */
@@ -453,15 +452,14 @@ public class GeneralApplicationService implements ApplicationService {
         Set<Long> slotIds = assignedSchedules.stream()
                 .map(InterviewSchedule::getSlotId)
                 .collect(Collectors.toSet());
-        Set<Long> recruitmentIds = assignedSchedules.stream()
-                .map(InterviewSchedule::getRecruitmentId)
+        Set<Long> roundIds = assignedSchedules.stream()
+                .map(InterviewSchedule::getRoundId)
                 .collect(Collectors.toSet());
 
         Map<Long, InterviewSlot> slotById = interviewSlotRepository.findAllById(slotIds).stream()
                 .collect(Collectors.toMap(InterviewSlot::getId, Function.identity()));
-        Map<Long, InterviewConfig> configByRecruitmentId =
-                interviewConfigRepository.findByRecruitmentIdIn(recruitmentIds).stream()
-                        .collect(Collectors.toMap(InterviewConfig::getRecruitmentId, Function.identity()));
+        Map<Long, InterviewRound> roundById = interviewRoundRepository.findAllById(roundIds).stream()
+                .collect(Collectors.toMap(InterviewRound::getId, Function.identity()));
 
         Map<Long, AssignedInterviewQuery> result = new HashMap<>();
         for (InterviewSchedule schedule : assignedSchedules) {
@@ -469,9 +467,8 @@ public class GeneralApplicationService implements ApplicationService {
             if (slot == null) {
                 continue;
             }
-            // config 또는 config.location 이 null 인 경우에도 interview 자체는 노출하고 location 만 null 로 채운다.
-            InterviewConfig config = configByRecruitmentId.get(schedule.getRecruitmentId());
-            String location = config == null ? null : config.getLocation();
+            InterviewRound round = roundById.get(schedule.getRoundId());
+            String location = round == null ? null : round.getLocation();
             result.put(schedule.getApplicationId(), new AssignedInterviewQuery(
                     slot.getStartTime(), slot.getEndTime(), location));
         }

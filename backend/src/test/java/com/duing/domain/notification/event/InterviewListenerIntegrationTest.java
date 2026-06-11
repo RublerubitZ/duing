@@ -1,9 +1,11 @@
 package com.duing.domain.notification.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
@@ -13,14 +15,17 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
-import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewRound;
+import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewSlot;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.event.InterviewCancelledEvent;
+import com.duing.domain.interview.event.InterviewUpdatedEvent;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
-import com.duing.domain.interview.service.InterviewScheduleService;
-import com.duing.domain.interview.service.dto.command.AssignInterviewScheduleCommand;
 import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.repository.NotificationRepository;
@@ -39,17 +44,23 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionTemplate;
 
+// 슬롯 이동/취소 서비스는 라운드 API PR(BE#3~)에서 재도입된다. 이 테스트는 리스너 계약만 고정한다 —
+// 이벤트를 직접 발행해 INTERVIEW_UPDATED / INTERVIEW_CANCELLED 알림 생성·dedup·예외 격리를 검증한다.
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 class InterviewListenerIntegrationTest extends IntegrationTestBase {
 
-    @Autowired private InterviewScheduleService interviewScheduleService;
+    @Autowired private ApplicationEventPublisher eventPublisher;
+    @Autowired private TransactionTemplate transactionTemplate;
     @Autowired private ApplicationRepository applicationRepository;
+    @Autowired private InterviewRoundRepository roundRepository;
+    @Autowired private InterviewRoundMemberRepository roundMemberRepository;
     @Autowired private InterviewSlotRepository slotRepository;
-    @Autowired private InterviewConfigRepository configRepository;
     @Autowired private InterviewScheduleRepository scheduleRepository;
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private ClubRepository clubRepository;
@@ -86,17 +97,19 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
 
     private Recruitment saveRecruitment(Club club) {
         LocalDate today = LocalDate.now();
-        Recruitment recruitment = recruitmentRepository.save(
+        return recruitmentRepository.save(
                 Recruitment.create(club, "모집" + sequence.incrementAndGet(),
                         null, today.minusDays(1), today.plusDays(7), 10));
-        // assign / cancel path 는 InterviewConfig 가 존재하는 면접 모집 가정
-        configRepository.save(InterviewConfig.create(recruitment.getId(), LocalDateTime.now().plusDays(3)));
-        return recruitment;
     }
 
-    private InterviewSlot saveSlot(Long recruitmentId) {
+    private InterviewRound saveCollectingRound(Recruitment recruitment) {
+        return roundRepository.save(InterviewRoundFixture.withStatus(
+                recruitment.getId(), LocalDateTime.now().plusDays(3), null, RoundStatus.COLLECTING));
+    }
+
+    private InterviewSlot saveSlot(Long roundId) {
         return slotRepository.save(InterviewSlot.create(
-                recruitmentId,
+                roundId,
                 LocalDateTime.now().plusDays(7),
                 LocalDateTime.now().plusDays(7).plusHours(1),
                 5));
@@ -108,9 +121,17 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
         return applicationRepository.save(application);
     }
 
-    private InterviewSchedule saveAssignedSchedule(Long applicationId, Long slotId, Long recruitmentId) {
+    private InterviewSchedule saveAssignedSchedule(Long applicationId, Long slotId, Long roundId) {
         return scheduleRepository.save(
-                InterviewSchedule.create(applicationId, slotId, recruitmentId, LocalDateTime.now().minusMinutes(10)));
+                InterviewSchedule.create(applicationId, slotId, roundId, LocalDateTime.now().minusMinutes(10)));
+    }
+
+    /**
+     * 리스너가 {@code @TransactionalEventListener(AFTER_COMMIT)} 이므로
+     * 커밋되는 트랜잭션 안에서 발행해야 핸들러가 동작한다.
+     */
+    private void publishAfterCommit(Object event) {
+        transactionTemplate.executeWithoutResult(transactionStatus -> eventPublisher.publishEvent(event));
     }
 
     // ── 테스트 ───────────────────────────────────────────────────────────────────
@@ -122,15 +143,17 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
         User leader = saveUser("리더");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveRecruitment(club);
-        InterviewSlot slotA = saveSlot(recruitment.getId());
-        InterviewSlot slotB = saveSlot(recruitment.getId());
+        InterviewRound round = saveCollectingRound(recruitment);
+        InterviewSlot slotA = saveSlot(round.getId());
+        InterviewSlot slotB = saveSlot(round.getId());
 
         User applicant = saveUser("지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicant);
-        saveAssignedSchedule(application.getId(), slotA.getId(), recruitment.getId());
+        roundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
+        saveAssignedSchedule(application.getId(), slotA.getId(), round.getId());
 
-        interviewScheduleService.assign(new AssignInterviewScheduleCommand(
-                application.getId(), slotB.getId(), leader.getId()));
+        publishAfterCommit(new InterviewUpdatedEvent(
+                application.getId(), slotB.getId(), recruitment.getId()));
 
         List<Notification> updatedNotifications = notificationRepository.findAll().stream()
                 .filter(notification -> notification.getType() == NotificationType.INTERVIEW_UPDATED)
@@ -150,13 +173,16 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
         User leader = saveUser("리더");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveRecruitment(club);
-        InterviewSlot slot = saveSlot(recruitment.getId());
+        InterviewRound round = saveCollectingRound(recruitment);
+        InterviewSlot slot = saveSlot(round.getId());
 
         User applicant = saveUser("지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicant);
-        saveAssignedSchedule(application.getId(), slot.getId(), recruitment.getId());
+        roundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
+        saveAssignedSchedule(application.getId(), slot.getId(), round.getId());
 
-        interviewScheduleService.cancel(application.getId(), leader.getId());
+        publishAfterCommit(new InterviewCancelledEvent(
+                application.getId(), slot.getId(), recruitment.getId()));
 
         List<Notification> cancelledNotifications = notificationRepository.findAll().stream()
                 .filter(notification -> notification.getType() == NotificationType.INTERVIEW_CANCELLED)
@@ -170,49 +196,43 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("같은 슬롯으로 재호출(no-op) 시 INTERVIEW_UPDATED 알림이 생성되지 않는다")
-    void 같은_슬롯_재호출_시_알림_없음() {
+    @DisplayName("같은 InterviewUpdatedEvent 가 재발행되어도 INTERVIEW_UPDATED 알림은 dedup_key 로 1건만 생성된다")
+    void 같은_슬롯_재발행_시_알림_중복_없음() {
         Club club = saveActiveClub();
         User leader = saveUser("리더");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveRecruitment(club);
-        InterviewSlot slot = saveSlot(recruitment.getId());
+        InterviewRound round = saveCollectingRound(recruitment);
+        InterviewSlot slot = saveSlot(round.getId());
 
         User applicant = saveUser("지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicant);
-        saveAssignedSchedule(application.getId(), slot.getId(), recruitment.getId());
+        roundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
+        saveAssignedSchedule(application.getId(), slot.getId(), round.getId());
 
-        interviewScheduleService.assign(new AssignInterviewScheduleCommand(
-                application.getId(), slot.getId(), leader.getId()));
+        InterviewUpdatedEvent sameSlotEvent = new InterviewUpdatedEvent(
+                application.getId(), slot.getId(), recruitment.getId());
+        publishAfterCommit(sameSlotEvent);
+        publishAfterCommit(sameSlotEvent);
 
         List<Notification> updatedNotifications = notificationRepository.findAll().stream()
                 .filter(notification -> notification.getType() == NotificationType.INTERVIEW_UPDATED)
                 .toList();
 
-        assertThat(updatedNotifications).isEmpty();
+        assertThat(updatedNotifications).hasSize(1);
     }
 
     @Test
-    @DisplayName("리스너 내부에서 application 을 찾지 못해도 면접 취소 자체는 성공한다")
-    void 리스너_예외가_면접_취소에_영향을_주지_않는다() {
-        Club club = saveActiveClub();
-        User leader = saveUser("리더");
-        clubMemberRepository.save(ClubMember.asLeader(club, leader));
-        Recruitment recruitment = saveRecruitment(club);
-        InterviewSlot slot = saveSlot(recruitment.getId());
+    @DisplayName("리스너 내부에서 application 을 찾지 못해도 이벤트 발행 트랜잭션은 실패하지 않는다")
+    void 리스너_예외가_발행_트랜잭션에_영향을_주지_않는다() {
+        // 존재하지 않는 applicationId — 리스너는 경고 로그 후 알림 생성을 생략해야 한다.
+        assertThatCode(() -> publishAfterCommit(
+                new InterviewCancelledEvent(999_999L, 1L, 1L)))
+                .doesNotThrowAnyException();
 
-        User applicant = saveUser("지원자");
-        Application application = saveInterviewPendingApplication(recruitment, applicant);
-        InterviewSchedule schedule = saveAssignedSchedule(application.getId(), slot.getId(), recruitment.getId());
-
-        // 면접 일정이 ASSIGNED 상태인지 확인
-        assertThat(schedule.getSlotId()).isEqualTo(slot.getId());
-
-        // cancel 호출이 예외 없이 성공해야 한다
-        interviewScheduleService.cancel(application.getId(), leader.getId());
-
-        // schedule 이 CANCELLED 로 변경됐는지 확인
-        InterviewSchedule cancelled = scheduleRepository.findByApplicationId(application.getId()).orElseThrow();
-        assertThat(cancelled.getStatus().name()).isEqualTo("CANCELLED");
+        List<Notification> cancelledNotifications = notificationRepository.findAll().stream()
+                .filter(notification -> notification.getType() == NotificationType.INTERVIEW_CANCELLED)
+                .toList();
+        assertThat(cancelledNotifications).isEmpty();
     }
 }

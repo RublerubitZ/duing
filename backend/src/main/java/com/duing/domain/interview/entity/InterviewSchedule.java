@@ -1,6 +1,5 @@
 package com.duing.domain.interview.entity;
 
-import com.duing.domain.interview.exception.InterviewException;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,14 +22,14 @@ import org.hibernate.annotations.SQLRestriction;
 @SQLRestriction("deleted_at IS NULL")
 public class InterviewSchedule extends BaseEntity {
 
-    @Column(name = "application_id", nullable = false, unique = true)
+    @Column(name = "application_id", nullable = false)
     private Long applicationId;
 
     @Column(name = "slot_id", nullable = false)
     private Long slotId;
 
-    @Column(name = "recruitment_id", nullable = false)
-    private Long recruitmentId;
+    @Column(name = "round_id", nullable = false)
+    private Long roundId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -40,33 +39,23 @@ public class InterviewSchedule extends BaseEntity {
     private LocalDateTime assignedAt;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private InterviewSchedule(Long applicationId, Long slotId, Long recruitmentId,
+    private InterviewSchedule(Long applicationId, Long slotId, Long roundId,
                                InterviewScheduleStatus status, LocalDateTime assignedAt) {
         this.applicationId = applicationId;
         this.slotId = slotId;
-        this.recruitmentId = recruitmentId;
+        this.roundId = roundId;
         this.status = status;
         this.assignedAt = assignedAt;
     }
 
-    public static InterviewSchedule create(Long applicationId, Long slotId, Long recruitmentId,
+    public static InterviewSchedule create(Long applicationId, Long slotId, Long roundId,
                                             LocalDateTime assignedAt) {
         return InterviewSchedule.builder()
                 .applicationId(applicationId)
                 .slotId(slotId)
-                .recruitmentId(recruitmentId)
+                .roundId(roundId)
                 .status(InterviewScheduleStatus.ASSIGNED)
                 .assignedAt(assignedAt)
                 .build();
-    }
-
-    public void reassign(Long newSlotId, LocalDateTime newAssignedAt) {
-        this.slotId = newSlotId;
-        this.status = InterviewScheduleStatus.ASSIGNED;
-        this.assignedAt = newAssignedAt;
-    }
-
-    public void cancel() {
-        this.status = InterviewScheduleStatus.CANCELLED;
     }
 }

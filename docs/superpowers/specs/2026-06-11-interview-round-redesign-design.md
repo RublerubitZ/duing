@@ -396,3 +396,14 @@ FE#5  상시 대기열 dashboard + 모집 카드 단계표시
 | 6 | applicantPhase 서버 단독 파생 (SSOT) | EXCLUDED 등 내부 상태 누출 원천 차단 |
 | 7 | draft 배정을 round.status 로 표현 (schedule 에 DRAFT 없음) | 상태 중복 제거, 스키마 단순화 |
 | 8 | 멤버십 술어 2개 분리 (isActiveForPlacement / isVisibleToApplicant) | DRAFT 가 배치엔 포함·노출엔 제외 — 혼용 시 더블부킹/조기노출 버그 |
+
+## 16. 후속 PR 데이터 무결성 요구사항 (BE#1 adversarial 리뷰 반영)
+
+"placement-active 멤버십 최대 1개" 불변식은 cross-table 술어라 DB 로 표현할 수 없고 서비스 레벨로 강제한다(§7). BE#1 의 reader 들은 이 불변식을 신뢰하므로, **불변식을 만들거나 깨뜨릴 수 있는 각 writer PR 은 아래를 필수 요구사항으로 상속한다**:
+
+1. **BE#11 (확정)**: 확정은 멤버 `ASSIGNED` 전이의 유일한 지점 — 한 application 의 활성(ASSIGNED·미삭제) schedule 이 **전 라운드 통틀어 1개**임을 placement 불변식이 보장한다. 확정 트랜잭션은 이를 전제로 검증한다.
+2. **BE#12 (취소)**: round `CANCELLED` 전이 시 **해당 라운드의 활성 schedule 전부 soft delete**. 누락 시 취소된 라운드의 draft 배정이 새 라운드 배정과 병존해 `findByApplicationId`(Optional)·`findAssignedSlotByApplicationId`(fetchOne)·`ApplicationRepositoryImpl` join 이 깨진다.
+3. **BE#10 (제외)**: ASSIGNING 중 멤버 `EXCLUDED` 전이 시 **해당 멤버의 활성 schedule soft delete**. 누락 시 제외된 지원자에게 `InterviewReminderJob` 이 리마인더를 발송하고 상세 화면에 배정이 잔존한다.
+4. **round 삭제 경로 금지**: 라운드 종결은 `CANCELLED`/`SCHEDULED` 상태 전이뿐 — soft delete 포함 삭제 API 를 만들지 않는다. round 가 soft delete 되면 자식(slot/schedule)은 활성인데 `@SQLRestriction` 이 부모를 숨겨 location 소실·리마인더 무음 스킵이 발생한다.
+5. **member 삭제 경로 금지**: `InterviewRoundMemberRepository` 의 상속 `delete*` 는 호출 금지 (hard delete — soft delete 미설정이 의도, §4). 종결은 `EXCLUDED` 전이뿐. BE#3 에서 멤버 쓰기 도입 시 가드(또는 금지 테스트) 권장.
+6. **Optional reader 의 loud-failure 는 의도**: `findVisibleToApplicantRoundByApplicationId`·`findByApplicationId`·`findAssignedSlotByApplicationId` 가 불변식 위반 데이터를 만나면 `NonUniqueResult` 로 시끄럽게 실패한다 — silent LIMIT 1 으로 오염을 가리지 않는 선택이며, 위 1~3 요구사항이 지켜지면 도달하지 않는다.

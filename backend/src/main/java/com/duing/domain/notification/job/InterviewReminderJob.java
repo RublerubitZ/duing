@@ -2,10 +2,10 @@ package com.duing.domain.notification.job;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.repository.ApplicationRepository;
-import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewSlot;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.notification.entity.NotificationType;
@@ -39,7 +39,7 @@ public class InterviewReminderJob {
 
     private final InterviewScheduleRepository scheduleRepository;
     private final InterviewSlotRepository slotRepository;
-    private final InterviewConfigRepository configRepository;
+    private final InterviewRoundRepository interviewRoundRepository;
     private final ApplicationRepository applicationRepository;
     private final NotificationService notificationService;
     private final Clock clock;
@@ -61,8 +61,8 @@ public class InterviewReminderJob {
         Set<Long> slotIds = targets.stream()
                 .map(InterviewSchedule::getSlotId)
                 .collect(Collectors.toSet());
-        Set<Long> recruitmentIds = targets.stream()
-                .map(InterviewSchedule::getRecruitmentId)
+        Set<Long> roundIds = targets.stream()
+                .map(InterviewSchedule::getRoundId)
                 .collect(Collectors.toSet());
         Set<Long> applicationIds = targets.stream()
                 .map(InterviewSchedule::getApplicationId)
@@ -70,9 +70,8 @@ public class InterviewReminderJob {
 
         Map<Long, InterviewSlot> slotById = slotRepository.findAllById(slotIds).stream()
                 .collect(Collectors.toMap(InterviewSlot::getId, Function.identity()));
-        Map<Long, InterviewConfig> configByRecruitmentId = configRepository.findByRecruitmentIdIn(recruitmentIds)
-                .stream()
-                .collect(Collectors.toMap(InterviewConfig::getRecruitmentId, Function.identity()));
+        Map<Long, InterviewRound> roundById = interviewRoundRepository.findAllById(roundIds).stream()
+                .collect(Collectors.toMap(InterviewRound::getId, Function.identity()));
         Map<Long, Application> applicationById = applicationRepository
                 .findAllWithRecruitmentAndClubByIdIn(applicationIds).stream()
                 .collect(Collectors.toMap(Application::getId, Function.identity()));
@@ -87,10 +86,10 @@ public class InterviewReminderJob {
                     continue;
                 }
 
-                InterviewConfig config = configByRecruitmentId.get(schedule.getRecruitmentId());
-                if (config == null) {
-                    log.warn("INTERVIEW_REMINDER 알림 생략 — config 없음: scheduleId={}, recruitmentId={}",
-                            schedule.getId(), schedule.getRecruitmentId());
+                InterviewRound round = roundById.get(schedule.getRoundId());
+                if (round == null) {
+                    log.warn("INTERVIEW_REMINDER 알림 생략 — round 없음: scheduleId={}, roundId={}",
+                            schedule.getId(), schedule.getRoundId());
                     continue;
                 }
 
@@ -101,7 +100,7 @@ public class InterviewReminderJob {
                     continue;
                 }
 
-                boolean inserted = notificationService.createIfAbsent(buildReminderCommand(schedule, slot, config, application));
+                boolean inserted = notificationService.createIfAbsent(buildReminderCommand(schedule, slot, round, application));
                 if (inserted) {
                     created++;
                 }
@@ -115,14 +114,14 @@ public class InterviewReminderJob {
 
     private CreateNotificationCommand buildReminderCommand(InterviewSchedule schedule,
                                                             InterviewSlot slot,
-                                                            InterviewConfig config,
+                                                            InterviewRound round,
                                                             Application application) {
         String isoStartTime = slot.getStartTime().toString();
         String clubName = application.getRecruitment().getClub().getName();
         String when = slot.getStartTime().format(DISPLAY_FORMAT);
-        String body = config.getLocation() == null
+        String body = round.getLocation() == null
                 ? when
-                : (when + " · " + config.getLocation());
+                : (when + " · " + round.getLocation());
 
         return new CreateNotificationCommand(
                 application.getUser().getId(),

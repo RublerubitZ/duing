@@ -21,8 +21,8 @@ import org.hibernate.annotations.SQLRestriction;
 @SQLRestriction("deleted_at IS NULL")
 public class InterviewSlot extends BaseEntity {
 
-    @Column(name = "recruitment_id", nullable = false)
-    private Long recruitmentId;
+    @Column(name = "round_id", nullable = false)
+    private Long roundId;
 
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
@@ -34,16 +34,16 @@ public class InterviewSlot extends BaseEntity {
     private int capacity;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private InterviewSlot(Long recruitmentId, LocalDateTime startTime, LocalDateTime endTime, int capacity) {
-        this.recruitmentId = recruitmentId;
+    private InterviewSlot(Long roundId, LocalDateTime startTime, LocalDateTime endTime, int capacity) {
+        this.roundId = roundId;
         this.startTime = startTime;
         this.endTime = endTime;
         this.capacity = capacity;
     }
 
-    public static InterviewSlot create(Long recruitmentId, LocalDateTime startTime, LocalDateTime endTime, int capacity) {
+    public static InterviewSlot create(Long roundId, LocalDateTime startTime, LocalDateTime endTime, int capacity) {
         return InterviewSlot.builder()
-                .recruitmentId(recruitmentId)
+                .roundId(roundId)
                 .startTime(startTime)
                 .endTime(endTime)
                 .capacity(capacity)

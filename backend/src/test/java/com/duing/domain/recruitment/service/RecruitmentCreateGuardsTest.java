@@ -36,8 +36,6 @@ class RecruitmentCreateGuardsTest {
     private final ApplicationRepository applicationRepository = mock(ApplicationRepository.class);
     private final ClubRepository clubRepository = mock(ClubRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
-    private final com.duing.domain.interview.repository.InterviewConfigRepository interviewConfigRepository =
-            mock(com.duing.domain.interview.repository.InterviewConfigRepository.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
@@ -45,7 +43,6 @@ class RecruitmentCreateGuardsTest {
             applicationRepository,
             clubRepository,
             clubAuthService,
-            interviewConfigRepository,
             eventPublisher);
 
     @Test

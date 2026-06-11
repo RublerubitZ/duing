@@ -1,7 +1,6 @@
 package com.duing.domain.interview.repository;
 
 import com.duing.domain.interview.entity.InterviewSchedule;
-import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -13,12 +12,6 @@ import org.springframework.data.repository.query.Param;
 public interface InterviewScheduleRepository
         extends JpaRepository<InterviewSchedule, Long>, InterviewScheduleRepositoryCustom {
 
-    long countBySlotIdAndStatus(Long slotId, InterviewScheduleStatus status);
-
-    boolean existsByApplicationId(Long applicationId);
-
-    boolean existsByApplicationIdAndStatus(Long applicationId, InterviewScheduleStatus status);
-
     Optional<InterviewSchedule> findByApplicationId(Long applicationId);
 
     /**
@@ -26,8 +19,6 @@ public interface InterviewScheduleRepository
      * CANCELLED 상태도 함께 반환되므로 호출자는 status 필터링을 명시해야 한다.
      */
     List<InterviewSchedule> findByApplicationIdIn(Collection<Long> applicationIds);
-
-    List<InterviewSchedule> findByRecruitmentId(Long recruitmentId);
 
     /**
      * 면접 24h 전 리마인더 윈도 대상 조회. INTERVIEW_PENDING 상태 지원자만 포함한다.

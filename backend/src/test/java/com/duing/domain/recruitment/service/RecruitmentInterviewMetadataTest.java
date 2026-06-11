@@ -10,10 +10,11 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
-import com.duing.domain.interview.entity.InterviewConfig;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
@@ -49,7 +50,7 @@ class RecruitmentInterviewMetadataTest {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
-    @Autowired InterviewConfigRepository interviewConfigRepository;
+    @Autowired InterviewRoundRepository interviewRoundRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -113,24 +114,25 @@ class RecruitmentInterviewMetadataTest {
     }
 
     @Test
-    @DisplayName("useInterview=true + InterviewConfig 가 있으면 interviewAvailabilityDeadline 이 노출된다")
-    void interviewAvailabilityDeadlineExposedWhenConfigExists() throws Exception {
+    @DisplayName("라운드 모델 전환 후 마감 수집 중인 라운드가 있어도 모집 상세의 interviewAvailabilityDeadline 은 항상 null 이다")
+    void interviewAvailabilityDeadlineIsAlwaysNullAfterRoundModel() throws Exception {
         User leader = saveUser("면접리더A");
         Club club = saveActiveClub("면접노출A");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Long recruitmentId = createInterviewRecruitment(club, leader);
 
-        LocalDateTime deadline = LocalDateTime.now().plusDays(3);
-        interviewConfigRepository.save(InterviewConfig.create(recruitmentId, deadline, "공학관 2201호"));
+        // 마감 시각은 라운드 단위(지원자별 visible 라운드)로만 노출된다 — 모집 상세의 호환 필드 회귀 방지.
+        interviewRoundRepository.save(InterviewRoundFixture.withStatus(
+                recruitmentId, LocalDateTime.now().plusDays(3), "공학관 2201호", RoundStatus.COLLECTING));
 
         RecruitmentDetailQuery detail = recruitmentService.getById(recruitmentId);
         assertThat(detail.useInterview()).isTrue();
-        assertThat(detail.interviewAvailabilityDeadline()).isNotNull();
+        assertThat(detail.interviewAvailabilityDeadline()).isNull();
     }
 
     @Test
-    @DisplayName("useInterview=true 라도 InterviewConfig 가 아직 없으면 interviewAvailabilityDeadline 은 null")
-    void interviewAvailabilityDeadlineNullWhenConfigAbsent() throws Exception {
+    @DisplayName("useInterview=true 라도 라운드가 아직 없으면 interviewAvailabilityDeadline 은 null")
+    void interviewAvailabilityDeadlineNullWhenRoundAbsent() throws Exception {
         User leader = saveUser("면접리더B");
         Club club = saveActiveClub("면접노출B");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
@@ -142,16 +144,16 @@ class RecruitmentInterviewMetadataTest {
     }
 
     @Test
-    @DisplayName("useInterview=false 면 InterviewConfig 가 있어도 interviewAvailabilityDeadline 은 null")
+    @DisplayName("useInterview=false 면 라운드가 있어도 interviewAvailabilityDeadline 은 null")
     void interviewAvailabilityDeadlineNullWhenUseInterviewFalse() throws Exception {
         User leader = saveUser("면접리더C");
         Club club = saveActiveClub("면접노출C");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Long recruitmentId = createRecruitment(club, leader, true);
 
-        // 비정상 케이스: useInterview=false 인 모집에 어쩌다 config row 가 있어도 노출 차단
-        interviewConfigRepository.save(InterviewConfig.create(
-                recruitmentId, LocalDateTime.now().plusDays(3), null));
+        // 비정상 케이스: useInterview=false 인 모집에 어쩌다 라운드 row 가 있어도 노출 차단
+        interviewRoundRepository.save(InterviewRoundFixture.withStatus(
+                recruitmentId, LocalDateTime.now().plusDays(3), null, RoundStatus.COLLECTING));
 
         RecruitmentDetailQuery detail = recruitmentService.getById(recruitmentId);
         assertThat(detail.useInterview()).isFalse();

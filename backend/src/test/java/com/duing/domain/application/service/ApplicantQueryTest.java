@@ -9,6 +9,7 @@ import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
+import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.common.fixture.InterviewScheduleFixture;
 import com.duing.common.fixture.InterviewSlotFixture;
 import com.duing.domain.club.entity.Club;
@@ -17,8 +18,14 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.interview.entity.InterviewRound;
+import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -53,6 +60,8 @@ class ApplicantQueryTest extends IntegrationTestBase {
     @Autowired private ClubMemberRepository clubMemberRepository;
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private ApplicationRepository applicationRepository;
+    @Autowired private InterviewRoundRepository interviewRoundRepository;
+    @Autowired private InterviewRoundMemberRepository interviewRoundMemberRepository;
     @Autowired private InterviewSlotRepository interviewSlotRepository;
     @Autowired private InterviewScheduleRepository interviewScheduleRepository;
     @Autowired private ApplicationService applicationService;
@@ -70,11 +79,13 @@ class ApplicantQueryTest extends IntegrationTestBase {
         User applicantUser = saveUser("배정지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicantUser);
 
+        InterviewRound round = saveCollectingRound(recruitment);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
         LocalDateTime expectedStart = LocalDateTime.of(2026, 6, 20, 18, 0);
         InterviewSlot slot = interviewSlotRepository.save(
-                InterviewSlotFixture.create(recruitment.getId(), expectedStart, 3));
+                InterviewSlotFixture.create(round.getId(), expectedStart, 3));
         interviewScheduleRepository.save(
-                InterviewScheduleFixture.assigned(application.getId(), slot.getId(), recruitment.getId()));
+                InterviewScheduleFixture.assigned(application.getId(), slot.getId(), round.getId()));
 
         ApplicantSearchCondition noFilter = new ApplicantSearchCondition(null, null, null, null, null);
         List<ApplicantQuery> results = applicationService.getApplicants(
@@ -118,11 +129,14 @@ class ApplicantQueryTest extends IntegrationTestBase {
         User applicantUser = saveUser("취소지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicantUser);
 
+        InterviewRound round = saveCollectingRound(recruitment);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
         InterviewSlot slot = interviewSlotRepository.save(
-                InterviewSlotFixture.create(recruitment.getId(), LocalDateTime.of(2026, 6, 21, 14, 0), 3));
+                InterviewSlotFixture.create(round.getId(), LocalDateTime.of(2026, 6, 21, 14, 0), 3));
         InterviewSchedule schedule = interviewScheduleRepository.save(
-                InterviewScheduleFixture.assigned(application.getId(), slot.getId(), recruitment.getId()));
-        schedule.cancel();
+                InterviewScheduleFixture.assigned(application.getId(), slot.getId(), round.getId()));
+        // 취소 전이 메서드는 라운드 API PR(BE#3~)에서 TDD 로 도입된다 — saveActiveClub 의 리플렉션 전례.
+        ReflectionTestUtils.setField(schedule, "status", InterviewScheduleStatus.CANCELLED);
         interviewScheduleRepository.save(schedule);
 
         ApplicantSearchCondition noFilter = new ApplicantSearchCondition(null, null, null, null, null);
@@ -167,6 +181,11 @@ class ApplicantQueryTest extends IntegrationTestBase {
                 today.plusDays(7), today.plusDays(14),
                 false);
         return recruitmentRepository.save(recruitment);
+    }
+
+    private InterviewRound saveCollectingRound(Recruitment recruitment) {
+        return interviewRoundRepository.save(InterviewRoundFixture.withStatus(
+                recruitment.getId(), LocalDateTime.now().plusDays(7), null, RoundStatus.COLLECTING));
     }
 
     private Application saveInterviewPendingApplication(Recruitment recruitment, User user) {

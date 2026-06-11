@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.club.entity.Club;
@@ -12,10 +13,11 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
-import com.duing.domain.interview.entity.InterviewConfig;
+import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
-import com.duing.domain.interview.repository.InterviewConfigRepository;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -44,7 +46,7 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
     @Autowired private ApplicationService applicationService;
     @Autowired private ApplicationRepository applicationRepository;
     @Autowired private InterviewAvailabilityRepository availabilityRepository;
-    @Autowired private InterviewConfigRepository configRepository;
+    @Autowired private InterviewRoundRepository roundRepository;
     @Autowired private InterviewSlotRepository slotRepository;
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private ClubRepository clubRepository;
@@ -97,19 +99,14 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
         return saveOpenRecruitment(club, "면접모집-" + label);
     }
 
-    private void saveOpenConfig(Long recruitmentId) {
-        configRepository.save(
-                InterviewConfig.create(recruitmentId, LocalDateTime.now().plusDays(7)));
+    private InterviewRound saveCollectingRound(Long recruitmentId, LocalDateTime availabilityDeadline) {
+        return roundRepository.save(InterviewRoundFixture.withStatus(
+                recruitmentId, availabilityDeadline, null, RoundStatus.COLLECTING));
     }
 
-    private void saveClosedConfig(Long recruitmentId) {
-        configRepository.save(
-                InterviewConfig.create(recruitmentId, LocalDateTime.now().minusSeconds(1)));
-    }
-
-    private void saveSlot(Long recruitmentId) {
+    private void saveSlot(Long roundId) {
         slotRepository.save(
-                InterviewSlot.create(recruitmentId,
+                InterviewSlot.create(roundId,
                         LocalDateTime.now().plusDays(10),
                         LocalDateTime.now().plusDays(10).plusHours(1),
                         5));
@@ -126,8 +123,10 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void interviewRecruitmentSubmitSucceedsWithoutSlotSelection() {
         Recruitment recruitment = setupInterviewRecruitment("디커플링");
-        saveOpenConfig(recruitment.getId());
-        saveSlot(recruitment.getId());
+        // 지원 시점엔 라운드 멤버가 아닌 것이 정상 — 라운드는 운영진이 발송할 때 멤버를 초대한다 (디커플링 그 자체).
+        InterviewRound collectingRound =
+                saveCollectingRound(recruitment.getId(), LocalDateTime.now().plusDays(7));
+        saveSlot(collectingRound.getId());
 
         User applicant = saveStudent("지원자");
         Long applicationId = applicationService.submit(
@@ -144,8 +143,9 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void submitSucceedsAfterAvailabilityDeadline() {
         Recruitment recruitment = setupInterviewRecruitment("마감후디커플링");
-        saveClosedConfig(recruitment.getId());
-        saveSlot(recruitment.getId());
+        InterviewRound closedRound =
+                saveCollectingRound(recruitment.getId(), LocalDateTime.now().minusSeconds(1));
+        saveSlot(closedRound.getId());
 
         User applicant = saveStudent("지원자");
         Long applicationId = applicationService.submit(
