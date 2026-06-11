@@ -39,7 +39,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -54,7 +54,7 @@ git checkout -b refactor/apply-slot-step-removal
 **Files:**
 - Modify: `frontend/apps/web/test/apply/apply-page.test.tsx`
 
-- [ ] **Step 1: 케이스 재구성** — 기존 파일을 읽고 setup·렌더 헬퍼·MSW 핸들러 패턴을 유지하면서:
+- [x] **Step 1: 케이스 재구성** — 기존 파일을 읽고 setup·렌더 헬퍼·MSW 핸들러 패턴을 유지하면서:
 
 **삭제 (Step 2 전제 7건):**
 - `useInterview=true 면 Step 1 다음 클릭 시 Step 2 가 노출된다`
@@ -93,7 +93,7 @@ git checkout -b refactor/apply-slot-step-removal
 
 (※ MSW 핸들러 경로·응답 envelope·렌더 헬퍼는 **기존 파일의 실제 패턴이 정답** — 위 코드는 단언 의미를 고정하는 틀이다. describe 블록명도 `ApplyForm — 2-Step UI (PR-FE4)` → `ApplyForm — 단일 스텝 지원` 으로 갱신. 미사용이 된 슬롯 MSW 핸들러·픽스처는 함께 제거.)
 
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/frontend
@@ -105,7 +105,7 @@ Expected: 보정·신규 케이스 FAIL (현 구현은 2-step). **커밋하지 �
 
 ### Task 3: 구현 (GREEN)
 
-- [ ] **Step 1: 파일 4개 삭제**
+- [x] **Step 1: 파일 4개 삭제**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/frontend
@@ -115,7 +115,7 @@ rm "apps/web/app/apply/[recruitmentId]/_hooks/useSelectedSlotIds.ts"
 rm "apps/web/test/apply/useSelectedSlotIds.test.ts"
 ```
 
-- [ ] **Step 2: `ApplyForm.tsx` 전체 교체** — 헤더·자동저장·마감 알림·답변 스텝·에러·버튼 영역의 기존 마크업은 그대로, 스텝·슬롯 관련만 제거한 결과:
+- [x] **Step 2: `ApplyForm.tsx` 전체 교체** — 헤더·자동저장·마감 알림·답변 스텝·에러·버튼 영역의 기존 마크업은 그대로, 스텝·슬롯 관련만 제거한 결과:
 
 ```tsx
 'use client';
@@ -275,7 +275,7 @@ export function ApplyForm({ recruitment, recruitmentId, initialAnswers }: Props)
 }
 ```
 
-- [ ] **Step 3: 타입 정리** — `frontend/packages/types/src/application.ts` 의 `SubmitApplicationPayload` 를:
+- [x] **Step 3: 타입 정리** — `frontend/packages/types/src/application.ts` 의 `SubmitApplicationPayload` 를:
 
 ```typescript
 export type SubmitApplicationPayload = {
@@ -285,7 +285,7 @@ export type SubmitApplicationPayload = {
 
 (주석 포함 `interviewSlotIds` 줄 삭제. 이 타입의 다른 사용처가 컴파일 에러를 내면 — 사용처가 apply 외에 있다는 뜻이므로 — BLOCKED 보고.)
 
-- [ ] **Step 4: GREEN 확인**
+- [x] **Step 4: GREEN 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/frontend
@@ -297,7 +297,7 @@ Expected: apply 테스트 전체 PASS.
 
 ### Task 4: 전체 검증 + 커밋
 
-- [ ] **Step 1: CI 게이트 4종**
+- [x] **Step 1: CI 게이트 4종**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/frontend
@@ -305,7 +305,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 Expected: 전부 성공. (typecheck 가 잡는 잔여 참조 — 예: 삭제 파일 import — 가 있으면 해당 import 만 정리.)
 
-- [ ] **Step 2: 커밋**
+- [x] **Step 2: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -317,9 +317,9 @@ git commit -m "refactor(web): 지원 흐름에서 면접 슬롯 선택 스텝 �
 
 ### Task 5: self-check + PR 생성 (컨트롤러 수행 — 구현 subagent 금지)
 
-- [ ] **Step 1: self-check** (EOF newline·금지 라인·계획 외 변경 — 기존 7항목 명령에서 backend 테스트 카운트 대신 frontend 게이트 4종 확인)
+- [x] **Step 1: self-check** (EOF newline·금지 라인·계획 외 변경 — 기존 7항목 명령에서 backend 테스트 카운트 대신 frontend 게이트 4종 확인)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지)
+- [x] **Step 2: push + PR** (자동 머지 금지)
 
 ```bash
 git push -u origin refactor/apply-slot-step-removal
