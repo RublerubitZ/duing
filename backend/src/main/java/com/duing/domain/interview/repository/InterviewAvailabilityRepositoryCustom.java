@@ -1,6 +1,8 @@
 package com.duing.domain.interview.repository;
 
 import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
+import com.duing.domain.interview.service.dto.query.MemberSelectionCount;
+import com.duing.domain.interview.service.dto.query.SlotSelectionCount;
 import java.util.List;
 
 public interface InterviewAvailabilityRepositoryCustom {
@@ -13,4 +15,10 @@ public interface InterviewAvailabilityRepositoryCustom {
      * (QueryDSL Q타입 join 에는 @SQLRestriction 이 자동 적용되지 않으므로 명시 필요.)
      */
     List<InterviewSlotTimeWindow> findAvailabilityItemsByApplicationId(Long applicationId);
+
+    /** 슬롯별 선택 수 — dashboard 슬롯 섹션. */
+    List<SlotSelectionCount> countByRoundIdGroupedBySlot(Long roundId);
+
+    /** 멤버별 선택 슬롯 수 — dashboard 멤버 테이블. */
+    List<MemberSelectionCount> countByRoundIdGroupedByApplication(Long roundId);
 }

@@ -5,6 +5,8 @@ import com.duing.domain.interview.controller.dto.request.CreateInterviewRoundReq
 import com.duing.domain.interview.controller.dto.response.AvailabilityRequestResponse;
 import com.duing.domain.interview.controller.dto.response.CreateInterviewRoundResponse;
 import com.duing.domain.interview.controller.dto.response.RoundCandidateResponse;
+import com.duing.domain.interview.controller.dto.response.RoundDetailResponse;
+import com.duing.domain.interview.controller.dto.response.RoundSummaryResponse;
 import com.duing.domain.interview.service.InterviewRoundService;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -72,6 +74,27 @@ public class LeaderInterviewRoundController implements LeaderInterviewRoundApi {
         return ResponseEntity.ok(ApiResponse.success(
                 AvailabilityRequestResponse.from(
                         interviewRoundService.remind(roundId, currentUser.id()))));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<List<RoundSummaryResponse>>> getRounds(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        List<RoundSummaryResponse> rounds = interviewRoundService
+                .getRounds(recruitmentId, currentUser.id()).stream()
+                .map(RoundSummaryResponse::from)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(rounds));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<RoundDetailResponse>> getRoundDetail(
+            @PathVariable Long roundId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                RoundDetailResponse.from(interviewRoundService.getRoundDetail(roundId, currentUser.id()))));
     }
 }
 

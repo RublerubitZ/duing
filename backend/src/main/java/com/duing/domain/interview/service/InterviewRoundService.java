@@ -3,6 +3,8 @@ package com.duing.domain.interview.service;
 import com.duing.domain.interview.service.dto.command.CreateInterviewRoundCommand;
 import com.duing.domain.interview.service.dto.query.AvailabilityRequestResult;
 import com.duing.domain.interview.service.dto.query.RoundCandidateQuery;
+import com.duing.domain.interview.service.dto.query.RoundDetailQuery;
+import com.duing.domain.interview.service.dto.query.RoundSummaryQuery;
 import java.util.List;
 
 public interface InterviewRoundService {
@@ -30,5 +32,11 @@ public interface InterviewRoundService {
      * 재알림: COLLECTING 라운드의 미응답(INVITED) 대상에게 새 회차로 재발송 (스펙 §9.1 API 6).
      */
     AvailabilityRequestResult remind(Long roundId, Long currentUserId);
+
+    /** 라운드 목록 — 최신 생성 순 + 멤버 카운트 요약 (스펙 §9.1 API 3). */
+    List<RoundSummaryQuery> getRounds(Long recruitmentId, Long currentUserId);
+
+    /** 라운드 상세 dashboard — 카운트 카드·멤버 테이블(파생 미응답)·슬롯 집계 (스펙 §10.4). */
+    RoundDetailQuery getRoundDetail(Long roundId, Long currentUserId);
 }
 

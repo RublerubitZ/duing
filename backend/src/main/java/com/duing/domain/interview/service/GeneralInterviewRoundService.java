@@ -9,16 +9,26 @@ import com.duing.domain.application.repository.ApplicationStatusHistoryRepositor
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
+import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.event.InterviewAvailabilityRequestedEvent;
 import com.duing.domain.interview.exception.InterviewException;
+import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.command.CreateInterviewRoundCommand;
 import com.duing.domain.interview.service.dto.query.AvailabilityRequestResult;
+import com.duing.domain.interview.service.dto.query.MemberSelectionCount;
 import com.duing.domain.interview.service.dto.query.RoundCandidateQuery;
+import com.duing.domain.interview.service.dto.query.RoundDetailQuery;
+import com.duing.domain.interview.service.dto.query.RoundMemberLine;
+import com.duing.domain.interview.service.dto.query.RoundMemberStatusCount;
+import com.duing.domain.interview.service.dto.query.RoundSummaryQuery;
+import com.duing.domain.interview.service.dto.query.SlotSelectionCount;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -30,7 +40,9 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -55,6 +67,8 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
     private final UserRepository userRepository;
     private final InterviewSlotRepository interviewSlotRepository;
+    private final InterviewScheduleRepository interviewScheduleRepository;
+    private final InterviewAvailabilityRepository interviewAvailabilityRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
@@ -221,6 +235,64 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
         return round;
+    }
+
+    @Override
+    public List<RoundSummaryQuery> getRounds(Long recruitmentId, Long currentUserId) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
+        if (!recruitment.isUseInterview()) {
+            throw new InterviewException.InterviewNotUsed();
+        }
+
+        List<InterviewRound> rounds = interviewRoundRepository
+                .findByRecruitmentIdOrderByCreatedAtDesc(recruitmentId);
+        // 라운드가 없으면 카운트 집계 쿼리 자체를 생략한다 (in 빈 리스트 호출 방지 의도).
+        if (rounds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Map<RoundMemberStatus, Long>> countsByRoundId = interviewRoundMemberRepository
+                .countMembersGroupedByStatus(rounds.stream().map(InterviewRound::getId).toList())
+                .stream()
+                .collect(Collectors.groupingBy(RoundMemberStatusCount::roundId,
+                        Collectors.toMap(RoundMemberStatusCount::status, RoundMemberStatusCount::count)));
+
+        return rounds.stream()
+                .map(round -> RoundSummaryQuery.of(round,
+                        countsByRoundId.getOrDefault(round.getId(), Map.of())))
+                .toList();
+    }
+
+    @Override
+    public RoundDetailQuery getRoundDetail(Long roundId, Long currentUserId) {
+        InterviewRound round = getRoundWithManagerAuth(roundId, currentUserId);
+
+        List<RoundMemberLine> memberLines = interviewRoundMemberRepository
+                .findMemberLinesByRoundId(round.getId());
+        Map<Long, Long> selectionCountByApplicationId = interviewAvailabilityRepository
+                .countByRoundIdGroupedByApplication(round.getId()).stream()
+                .collect(Collectors.toMap(MemberSelectionCount::applicationId, MemberSelectionCount::count));
+        Map<Long, Long> selectionCountBySlotId = interviewAvailabilityRepository
+                .countByRoundIdGroupedBySlot(round.getId()).stream()
+                .collect(Collectors.toMap(SlotSelectionCount::slotId, SlotSelectionCount::count));
+
+        // 활성(ASSIGNED·미삭제) schedule — ASSIGNING(draft 검토)·SCHEDULED 에서 §10.4 검토 영역이 사용.
+        // soft-deleted slot 참조는 도달 불가: 슬롯 삭제는 availability 참조 0 && DRAFT·COLLECTING 한정(BE#4 가드)인데
+        // schedule 은 ASSIGNING 부터 생긴다 — 가드를 완화하는 PR 은 이 집계의 slot join 필요성을 재검토할 것.
+        List<InterviewSchedule> activeSchedules = interviewScheduleRepository
+                .findByRoundIdAndStatus(round.getId(), InterviewScheduleStatus.ASSIGNED);
+        Map<Long, Long> assignedSlotIdByApplicationId = activeSchedules.stream()
+                .collect(Collectors.toMap(InterviewSchedule::getApplicationId, InterviewSchedule::getSlotId));
+        Map<Long, Long> assignedCountBySlotId = activeSchedules.stream()
+                .collect(Collectors.groupingBy(InterviewSchedule::getSlotId, Collectors.counting()));
+
+        return RoundDetailQuery.assemble(round, memberLines,
+                selectionCountByApplicationId, assignedSlotIdByApplicationId,
+                interviewSlotRepository.findByRoundIdOrderByStartTimeAsc(round.getId()),
+                selectionCountBySlotId, assignedCountBySlotId,
+                LocalDateTime.now(clock));
     }
 
     /**
