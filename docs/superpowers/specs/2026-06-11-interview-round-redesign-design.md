@@ -218,24 +218,24 @@ isVisibleToApplicant(member)   // 지원자 노출(phase)용 — DRAFT 제외
 
 ## 9. API 설계
 
-URL 컨벤션: `/api/v1` 베이스, 리소스 중첩 + 액션 kebab-case (기존 `auto-assign` 전례). 운영진 API 권한 = `clubAuthService.requireManager`, 지원자 API = 본인 application 검증 (기존 패턴). Swagger `api/` 인터페이스 → `controller/` 구현 순서 준수.
+URL 컨벤션: `/api/v1` 베이스, 리소스 중첩 + 액션 kebab-case (기존 `auto-assign` 전례). **운영진 엔드포인트는 `/leader/` prefix + 인터페이스 명명 `Leader{Domain}Api`** — application 도메인의 living convention 정렬 (BE#2 리뷰 반영; 삭제된 구 인터뷰 도메인의 `Manager*`/무prefix 전례는 따르지 않는다). 운영진 API 권한 = `clubAuthService.requireManager`, 지원자 API = 본인 application 검증 (기존 패턴). Swagger `api/` 인터페이스 → `controller/` 구현 순서 준수.
 
 ### 9.1 운영진
 
 | # | Method & Path | 계약 |
 |---|---|---|
-| 1 | `GET /recruitments/{recruitmentId}/interview-round-candidates` | **기본 후보군 = 큐** (`INTERVIEW_PENDING && placement-active 멤버십 없음`). `includeUnderReview=true` 필터로 UNDER_REVIEW 포함. 정기 wizard 는 `true` 기본 전송(메인 플로우가 UNDER_REVIEW 선정), 상시 dashboard 대기열 카운트는 큐만 집계. |
-| 2 | `POST /recruitments/{recruitmentId}/interview-rounds` | `{title, availabilityDeadline?, location?, applicationIds[]}` → round DRAFT + members 생성. **허용 상태: UNDER_REVIEW(→INTERVIEW_PENDING 전이), INTERVIEW_PENDING(유지). 그 외(SUBMITTED/ACCEPTED/REJECTED) 포함 시 거부.** 한 트랜잭션, application 행 PESSIMISTIC_WRITE 후 placement-active 검증. |
-| 3 | `GET /recruitments/{recruitmentId}/interview-rounds` · `GET /interview-rounds/{roundId}` | 목록 / 상세 dashboard (멤버별 상태, 응답·미응답·가능슬롯없음 카운트 — 미응답은 마감경과 파생, QueryDSL). |
-| 4 | `POST /interview-rounds/{roundId}/slots` (일괄) · `PATCH/DELETE /interview-slots/{slotId}` | 일괄생성(클라이언트가 패턴→리스트 변환, capacity 필수)·수정·삭제. **phase 가드: 슬롯 변경은 DRAFT·COLLECTING 에서만, ASSIGNING/SCHEDULED 불가** (기존 `SlotMutableFields.NONE`). **삭제: availability 참조 > 0 → 409** (기존 `canDeleteSlot` 일치). **시간변경: availability 참조 > 0 이면 불가, capacity 만 수정 가능** (기존 `CAPACITY_ONLY` port). COLLECTING && 마감 전 추가 생성 시 Rule 2 발동. |
-| 5 | `POST /interview-rounds/{roundId}/request-availability` | **발송**: `require(슬롯≥1 && 멤버≥1 && deadline≠null)` → DRAFT→COLLECTING, `request_sequence++`, INVITED 전원 알림. |
-| 6 | `POST /interview-rounds/{roundId}/remind` | **재알림**: COLLECTING 한정, INVITED(미응답) 대상, `request_sequence++`. |
-| 7 | `PATCH /interview-rounds/{roundId}` | title/location/deadline 수정. deadline 연장은 DRAFT·COLLECTING 에서만. |
-| 8 | `POST /interview-rounds/{roundId}/auto-assign` | **허용 상태: COLLECTING, ASSIGNING.** COLLECTING → ASSIGNING 전이 후 배정 / ASSIGNING 재실행 시 기존 draft schedule soft delete 후 재생성. |
-| 9 | `PUT/DELETE /interview-rounds/{roundId}/members/{memberId}/schedule` | 수동 배정·재배정(capacity 하드 체크) / 배정 해제. ASSIGNING 한정, NO_AVAILABLE_SLOT 멤버 포함 가능. |
-| 10 | `POST /interview-rounds/{roundId}/members/{memberId}/exclude` | EXCLUDED 전이 (즉시 대기열 복귀). |
-| 11 | `POST /interview-rounds/{roundId}/confirm` | 6.3 절 계약 (`force` + 경고 2종 분리 409). |
-| 12 | `POST /interview-rounds/{roundId}/cancel` | DRAFT·COLLECTING·ASSIGNING 에서만. 멤버 재큐잉 (application status 롤백 없음 — INTERVIEW_PENDING 유지). SCHEDULED 는 터미널. |
+| 1 | `GET /leader/recruitments/{recruitmentId}/interview-round-candidates` | **기본 후보군 = 큐** (`INTERVIEW_PENDING && placement-active 멤버십 없음`). `includeUnderReview=true` 필터로 UNDER_REVIEW 포함. 정기 wizard 는 `true` 기본 전송(메인 플로우가 UNDER_REVIEW 선정), 상시 dashboard 대기열 카운트는 큐만 집계. |
+| 2 | `POST /leader/recruitments/{recruitmentId}/interview-rounds` | `{title, availabilityDeadline?, location?, applicationIds[]}` → round DRAFT + members 생성. **허용 상태: UNDER_REVIEW(→INTERVIEW_PENDING 전이), INTERVIEW_PENDING(유지). 그 외(SUBMITTED/ACCEPTED/REJECTED) 포함 시 거부.** 한 트랜잭션, application 행 PESSIMISTIC_WRITE 후 placement-active 검증. |
+| 3 | `GET /leader/recruitments/{recruitmentId}/interview-rounds` · `GET /leader/interview-rounds/{roundId}` | 목록 / 상세 dashboard (멤버별 상태, 응답·미응답·가능슬롯없음 카운트 — 미응답은 마감경과 파생, QueryDSL). |
+| 4 | `POST /leader/interview-rounds/{roundId}/slots` (일괄) · `PATCH/DELETE /leader/interview-slots/{slotId}` | 일괄생성(클라이언트가 패턴→리스트 변환, capacity 필수)·수정·삭제. **phase 가드: 슬롯 변경은 DRAFT·COLLECTING 에서만, ASSIGNING/SCHEDULED 불가** (기존 `SlotMutableFields.NONE`). **삭제: availability 참조 > 0 → 409** (기존 `canDeleteSlot` 일치). **시간변경: availability 참조 > 0 이면 불가, capacity 만 수정 가능** (기존 `CAPACITY_ONLY` port). COLLECTING && 마감 전 추가 생성 시 Rule 2 발동. |
+| 5 | `POST /leader/interview-rounds/{roundId}/request-availability` | **발송**: `require(슬롯≥1 && 멤버≥1 && deadline≠null)` → DRAFT→COLLECTING, `request_sequence++`, INVITED 전원 알림. |
+| 6 | `POST /leader/interview-rounds/{roundId}/remind` | **재알림**: COLLECTING 한정, INVITED(미응답) 대상, `request_sequence++`. |
+| 7 | `PATCH /leader/interview-rounds/{roundId}` | title/location/deadline 수정. deadline 연장은 DRAFT·COLLECTING 에서만. |
+| 8 | `POST /leader/interview-rounds/{roundId}/auto-assign` | **허용 상태: COLLECTING, ASSIGNING.** COLLECTING → ASSIGNING 전이 후 배정 / ASSIGNING 재실행 시 기존 draft schedule soft delete 후 재생성. |
+| 9 | `PUT/DELETE /leader/interview-rounds/{roundId}/members/{memberId}/schedule` | 수동 배정·재배정(capacity 하드 체크) / 배정 해제. ASSIGNING 한정, NO_AVAILABLE_SLOT 멤버 포함 가능. |
+| 10 | `POST /leader/interview-rounds/{roundId}/members/{memberId}/exclude` | EXCLUDED 전이 (즉시 대기열 복귀). |
+| 11 | `POST /leader/interview-rounds/{roundId}/confirm` | 6.3 절 계약 (`force` + 경고 2종 분리 409). |
+| 12 | `POST /leader/interview-rounds/{roundId}/cancel` | DRAFT·COLLECTING·ASSIGNING 에서만. 멤버 재큐잉 (application status 롤백 없음 — INTERVIEW_PENDING 유지). SCHEDULED 는 터미널. |
 
 ### 9.2 지원자
 
@@ -396,6 +396,7 @@ FE#5  상시 대기열 dashboard + 모집 카드 단계표시
 | 6 | applicantPhase 서버 단독 파생 (SSOT) | EXCLUDED 등 내부 상태 누출 원천 차단 |
 | 7 | draft 배정을 round.status 로 표현 (schedule 에 DRAFT 없음) | 상태 중복 제거, 스키마 단순화 |
 | 8 | 멤버십 술어 2개 분리 (isActiveForPlacement / isVisibleToApplicant) | DRAFT 가 배치엔 포함·노출엔 제외 — 혼용 시 더블부킹/조기노출 버그 |
+| 9 | 운영진 라운드 API 는 `/leader/` prefix + `Leader*` 명명 | 구 인터뷰 도메인(Manager*, 무prefix)이 아닌 living convention(application 도메인) 정렬 — BE#2 리뷰 반영 |
 
 ## 16. 후속 PR 데이터 무결성 요구사항 (BE#1 adversarial 리뷰 반영)
 
