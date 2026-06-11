@@ -6,6 +6,13 @@
 - 전제: 실서비스 전. R2 에는 아직 객체 0개, DB 의 일부 URL 컬럼에는 local /tmp 또는 Supabase URL 이 박혀 있을 가능성 있음 (마이그레이션은 별도 PR)
 - 선행: 없음 (`FileStorageService` 추상화는 이미 존재 — `backend/CLAUDE.md` "확장성 원칙")
 
+> **갱신 (2026-06-11):** 수동 개발용 `local-minio` 프로파일(`application-local-minio.yml`)과
+> `backend/docker-compose.yml` 은 제거됐다. 일상 개발은 R2 dev 버킷을 직접 가리키는
+> `FILE_STORAGE_PROVIDER=s3` 로 하고(운영과 동일한 S3 경로를 매일 검증), R2 자격증명이 없거나
+> 오프라인일 때는 `local` (`/tmp`) 폴백을 쓴다. MinIO 는 더 이상 수동 개발 인프라가 아니며,
+> CI 통합 테스트(L2 `S3FileStorageIntegrationTest`)의 자체 `MinIOContainer` TestContainer 로만 남는다.
+> 아래 본문의 `local-minio` 프로파일·`docker-compose` 관련 서술은 이 결정 이전의 기록이다.
+
 ---
 
 ## 1. Goal & Non-Goals
