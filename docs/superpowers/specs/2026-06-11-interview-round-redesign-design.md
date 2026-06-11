@@ -386,6 +386,7 @@ FE#5  상시 대기열 dashboard + 모집 카드 단계표시
 - `ASSIGNING → COLLECTING` 복귀
 - 운영진 대상 알림 (미응답 알림 등 — dashboard 노출로 갈음)
 - NotificationLog / InterviewRoundNotification 테이블 (`request_sequence` 로 갈음, 향후 이관 가능)
+- **알림 전달 보장(outbox/재시도)** — 인앱 알림은 best-effort 보조 채널이다 (BE#11 adversarial 리뷰 판정: AFTER_COMMIT 리스너의 REQUIRES_NEW 실패 시 해당 멤버 알림은 유실되지만, SSOT 인 지원자 조회 API 가 phase·일시·장소를 항상 표시하고 dedupKey 가 중복만 막는다 — 유실 윈도우는 "메인 TX 커밋 직후 알림 insert 실패"라는 좁은 DB 장애 케이스라 MVP 수용)
 - **INTERVIEW_PENDING 되돌리기 미지원** — round 투입 후(취소·EXCLUDED 포함)에도 application 은 INTERVIEW_PENDING 유지 (UNDER_REVIEW 롤백 없음). 일방통행이며 정리는 ACCEPTED/REJECTED 로만. 정기모집 no-response 잔존은 운영진 수동 REJECT.
 
 ## 15. 핵심 결정 로그

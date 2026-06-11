@@ -45,7 +45,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -61,7 +61,7 @@ git checkout -b feat/interview-round-confirm
 - Modify: `backend/src/test/java/com/duing/domain/interview/entity/InterviewRoundDomainTest.java`
 - Modify: `backend/src/main/java/com/duing/domain/interview/entity/InterviewRound.java` / `InterviewRoundMember.java`
 
-- [ ] **Step 1: 단위 테스트 4건 추가 (RED)**
+- [x] **Step 1: 단위 테스트 4건 추가 (RED)**
 
 ```java
     @Test
@@ -121,9 +121,9 @@ git checkout -b feat/interview-round-confirm
     }
 ```
 
-- [ ] **Step 2: RED 확인** — 컴파일 실패
+- [x] **Step 2: RED 확인** — 컴파일 실패
 
-- [ ] **Step 3: 구현 (GREEN)**
+- [x] **Step 3: 구현 (GREEN)**
 
 `InterviewRound` — `openAssigning()` 아래:
 
@@ -152,9 +152,9 @@ git checkout -b feat/interview-round-confirm
     }
 ```
 
-- [ ] **Step 4: GREEN 확인** — 도메인 21건(기존 17+신규 4) PASS
+- [x] **Step 4: GREEN 확인** — 도메인 21건(기존 17+신규 4) PASS
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -169,7 +169,7 @@ git commit -m "feat(backend): 라운드·멤버 확정 전이(confirm·confirmAs
 **Files:**
 - Create: `backend/src/test/java/com/duing/domain/interview/controller/LeaderInterviewConfirmControllerTest.java`
 
-- [ ] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
+- [x] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
 
 ```java
 package com.duing.domain.interview.controller;
@@ -534,13 +534,13 @@ class LeaderInterviewConfirmControllerTest extends InterviewControllerTestSuppor
 }
 ```
 
-- [ ] **Step 2: RED 확인** — 컴파일 성공 + confirm 경로 전부 FAIL (E2E 의 1~4단계는 기존 API 라 정상 동작). **커밋하지 않는다.**
+- [x] **Step 2: RED 확인** — 컴파일 성공 + confirm 경로 전부 FAIL (E2E 의 1~4단계는 기존 API 라 정상 동작). **커밋하지 않는다.**
 
 ---
 
 ### Task 4: 구현 (GREEN)
 
-- [ ] **Step 1: 레포 + payload·결과 DTO**
+- [x] **Step 1: 레포 + payload·결과 DTO**
 
 `InterviewRoundMemberRepository` 에 추가:
 
@@ -580,7 +580,7 @@ package com.duing.domain.interview.service.dto.query;
 public record ConfirmResult(int assignedMemberCount, int excludedMemberCount) {}
 ```
 
-- [ ] **Step 2: 예외 2종 + 전용 핸들러**
+- [x] **Step 2: 예외 2종 + 전용 핸들러**
 
 `InterviewException` 409 섹션에:
 
@@ -657,7 +657,7 @@ public record UnresolvedMembersResponse(
 
 (※ `InterviewException.class` 포괄 핸들러보다 **구체 타입 핸들러가 우선**되는 것이 Spring 규칙 — 기존 포괄 핸들러 무변경.)
 
-- [ ] **Step 3: 서비스**
+- [x] **Step 3: 서비스**
 
 `InterviewAssignmentService` 에 추가:
 
@@ -749,7 +749,7 @@ public record UnresolvedMembersResponse(
     }
 ```
 
-- [ ] **Step 4: 응답 DTO + Api + Controller**
+- [x] **Step 4: 응답 DTO + Api + Controller**
 
 `controller/dto/response/ConfirmRoundResponse.java`:
 
@@ -797,15 +797,15 @@ public record ConfirmRoundResponse(int assignedMemberCount, int excludedMemberCo
     }
 ```
 
-- [ ] **Step 5: GREEN 확인** — 12건 PASS (E2E 포함)
+- [x] **Step 5: GREEN 확인** — 12건 PASS (E2E 포함)
 
 ---
 
 ### Task 5: 전체 검증 + 커밋
 
-- [ ] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (839 + 4 + 12 = 855건 예상)
+- [x] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (839 + 4 + 12 = 855건 예상)
 
-- [ ] **Step 2:**
+- [x] **Step 2:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -817,9 +817,9 @@ git commit -m "feat(backend): 면접 라운드 확정 API — 경고 2종 분리
 
 ### Task 6: self-check + PR 생성 (컨트롤러 수행 — 구현 subagent 금지)
 
-- [ ] **Step 1: self-check 7항목** (기존 동일 명령)
+- [x] **Step 1: self-check 7항목** (기존 동일 명령)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지. **리뷰 단계에서 codex adversarial 필수**)
+- [x] **Step 2: push + PR** (자동 머지 금지. **리뷰 단계에서 codex adversarial 필수**)
 
 ```bash
 git push -u origin feat/interview-round-confirm
