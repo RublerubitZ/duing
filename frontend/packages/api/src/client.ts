@@ -1,5 +1,16 @@
 import ky, { type KyInstance, type ResponsePromise, HTTPError } from 'ky';
 import type {
+  InterviewRoundCandidate,
+  InterviewRoundSummary,
+  InterviewRoundDetail,
+  CreateInterviewRoundPayload,
+  CreateInterviewRoundResult,
+  CreateRoundSlotsPayload,
+  CreateRoundSlotsResult,
+  UpdateInterviewRoundPayload,
+  AvailabilityRequestResult,
+} from '@duing/types';
+import type {
   AdminClubSearchParams,
   AdminClubSummary,
   AdminClubMemberHistoryParams,
@@ -354,6 +365,35 @@ export type DuingApiClient = {
       update(promotionId: number, payload: UpdatePromotionPayload): Promise<void>;
       delete(promotionId: number): Promise<void>;
     };
+  };
+  interviewRounds: {
+    // === 면접 라운드 후보 조회 (BE#2) ===
+    // GET /leader/recruitments/{recruitmentId}/interview-round-candidates
+    candidates(recruitmentId: number, includeUnderReview: boolean): Promise<InterviewRoundCandidate[]>;
+    // === 면접 라운드 목록 (BE#6) ===
+    // GET /leader/recruitments/{recruitmentId}/interview-rounds
+    list(recruitmentId: number): Promise<InterviewRoundSummary[]>;
+    // === 면접 라운드 상세 (BE#6) ===
+    // GET /leader/interview-rounds/{roundId}
+    detail(roundId: number): Promise<InterviewRoundDetail>;
+    // === 면접 라운드 생성 (BE#3) ===
+    // POST /leader/recruitments/{recruitmentId}/interview-rounds
+    create(recruitmentId: number, payload: CreateInterviewRoundPayload): Promise<CreateInterviewRoundResult>;
+    // === 면접 라운드 수정 (BE#12) ===
+    // PATCH /leader/interview-rounds/{roundId}
+    update(roundId: number, payload: UpdateInterviewRoundPayload): Promise<void>;
+    // === 면접 라운드 취소 ===
+    // POST /leader/interview-rounds/{roundId}/cancel
+    cancel(roundId: number): Promise<void>;
+    // === 슬롯 일괄 생성 (BE#4) ===
+    // POST /leader/interview-rounds/{roundId}/slots
+    createSlots(roundId: number, payload: CreateRoundSlotsPayload): Promise<CreateRoundSlotsResult>;
+    // === 슬롯 삭제 ===
+    // DELETE /leader/interview-slots/{slotId}
+    deleteSlot(slotId: number): Promise<void>;
+    // === 가능시간 요청 발송 (BE#5) ===
+    // POST /leader/interview-rounds/{roundId}/request-availability
+    requestAvailability(roundId: number): Promise<AvailabilityRequestResult>;
   };
   interviews: {
     // === Manager — Config ===
@@ -828,6 +868,40 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         delete: (promotionId) =>
           jsonVoid(http.delete(`admin/promotions/${promotionId}`)),
       },
+    },
+    interviewRounds: {
+      candidates: (recruitmentId, includeUnderReview) =>
+        jsonOk<InterviewRoundCandidate[]>(
+          http.get(`leader/recruitments/${recruitmentId}/interview-round-candidates`, {
+            searchParams: { includeUnderReview },
+          }),
+        ),
+      list: (recruitmentId) =>
+        jsonOk<InterviewRoundSummary[]>(
+          http.get(`leader/recruitments/${recruitmentId}/interview-rounds`),
+        ),
+      detail: (roundId) =>
+        jsonOk<InterviewRoundDetail>(
+          http.get(`leader/interview-rounds/${roundId}`),
+        ),
+      create: (recruitmentId, payload) =>
+        jsonOk<CreateInterviewRoundResult>(
+          http.post(`leader/recruitments/${recruitmentId}/interview-rounds`, { json: payload }),
+        ),
+      update: (roundId, payload) =>
+        jsonVoid(http.patch(`leader/interview-rounds/${roundId}`, { json: payload })),
+      cancel: (roundId) =>
+        jsonVoid(http.post(`leader/interview-rounds/${roundId}/cancel`)),
+      createSlots: (roundId, payload) =>
+        jsonOk<CreateRoundSlotsResult>(
+          http.post(`leader/interview-rounds/${roundId}/slots`, { json: payload }),
+        ),
+      deleteSlot: (slotId) =>
+        jsonVoid(http.delete(`leader/interview-slots/${slotId}`)),
+      requestAvailability: (roundId) =>
+        jsonOk<AvailabilityRequestResult>(
+          http.post(`leader/interview-rounds/${roundId}/request-availability`),
+        ),
     },
     interviews: {
       createConfig: (recruitmentId, payload) =>
