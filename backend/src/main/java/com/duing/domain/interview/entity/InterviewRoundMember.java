@@ -64,4 +64,40 @@ public class InterviewRoundMember extends BaseEntity {
         this.status = RoundMemberStatus.INVITED;
         this.alternativeAvailabilityText = null;
     }
+
+    /**
+     * 응답(슬롯 선택) — INVITED·RESPONDED·NO_AVAILABLE_SLOT 상호 전환 가능 (스펙 §5.2,
+     * COLLECTING && 마감 전 가드는 서비스 담당). 이전 가능없음 텍스트는 stale 이므로 비운다.
+     */
+    public void markResponded() {
+        requireRespondableStatus();
+        this.status = RoundMemberStatus.RESPONDED;
+        this.alternativeAvailabilityText = null;
+    }
+
+    /**
+     * 응답(가능한 슬롯 없음) — Rule 1 (스펙 §5.5): 자동배정 대상에서 빠지고 수동 처리 전용이 된다.
+     * 텍스트는 비구조 자유텍스트로 매칭에 쓰이지 않는다.
+     */
+    public void reportNoAvailableSlot(String alternativeText) {
+        requireRespondableStatus();
+        this.status = RoundMemberStatus.NO_AVAILABLE_SLOT;
+        this.alternativeAvailabilityText = normalizeNullable(alternativeText);
+    }
+
+    private void requireRespondableStatus() {
+        if (this.status != RoundMemberStatus.INVITED
+                && this.status != RoundMemberStatus.RESPONDED
+                && this.status != RoundMemberStatus.NO_AVAILABLE_SLOT) {
+            throw new InterviewException.MemberTransitionNotAllowed();
+        }
+    }
+
+    private static String normalizeNullable(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
 }
