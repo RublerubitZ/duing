@@ -85,6 +85,18 @@ public class InterviewRoundMember extends BaseEntity {
         this.alternativeAvailabilityText = normalizeNullable(alternativeText);
     }
 
+    /**
+     * 제외: 라운드 종결의 유일한 멤버 경로 (§5.2 — soft delete 미사용, §16-5). 지원자에겐
+     * 중립 phase(WAITING_NEXT_ROUND)로만 보이고 application 은 INTERVIEW_PENDING 유지라
+     * 즉시 대기열 복귀한다. 가능없음 텍스트는 운영 기록으로 보존한다.
+     */
+    public void exclude() {
+        if (this.status == RoundMemberStatus.ASSIGNED || this.status == RoundMemberStatus.EXCLUDED) {
+            throw new InterviewException.MemberTransitionNotAllowed();
+        }
+        this.status = RoundMemberStatus.EXCLUDED;
+    }
+
     private void requireRespondableStatus() {
         if (this.status != RoundMemberStatus.INVITED
                 && this.status != RoundMemberStatus.RESPONDED
