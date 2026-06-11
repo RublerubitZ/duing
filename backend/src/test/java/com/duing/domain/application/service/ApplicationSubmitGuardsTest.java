@@ -16,7 +16,6 @@ import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
-import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
@@ -49,7 +48,6 @@ class ApplicationSubmitGuardsTest {
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
-    private final InterviewAvailabilityService interviewAvailabilityService = mock(InterviewAvailabilityService.class);
     private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
     private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
@@ -64,7 +62,6 @@ class ApplicationSubmitGuardsTest {
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
-            interviewAvailabilityService,
             interviewAvailabilityRepository,
             interviewScheduleRepository,
             interviewConfigRepository,
@@ -78,7 +75,7 @@ class ApplicationSubmitGuardsTest {
         when(externalRecruitment.getApplicationMode()).thenReturn(ApplicationMode.EXTERNAL);
         when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(externalRecruitment));
 
-        SubmitApplicationCommand submitCommand = new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of(), List.of());
+        SubmitApplicationCommand submitCommand = new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of());
 
         assertThatThrownBy(() -> applicationService.submit(submitCommand))
                 .isInstanceOf(ApplicationDomainException.ExternalFormSubmitException.class);
@@ -187,7 +184,7 @@ class ApplicationSubmitGuardsTest {
     }
 
     private SubmitApplicationCommand submitCommand() {
-        return new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of(), List.of());
+        return new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of());
     }
 
     private void stubMemberRecruitment() {

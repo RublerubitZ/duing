@@ -26,7 +26,6 @@ import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewConfigRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
-import com.duing.domain.interview.service.InterviewAvailabilityService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -46,7 +45,6 @@ class MyApplicationsQueryTest {
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
-    private final InterviewAvailabilityService interviewAvailabilityService = mock(InterviewAvailabilityService.class);
     private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
     private final InterviewConfigRepository interviewConfigRepository = mock(InterviewConfigRepository.class);
@@ -61,7 +59,6 @@ class MyApplicationsQueryTest {
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
-            interviewAvailabilityService,
             interviewAvailabilityRepository,
             interviewScheduleRepository,
             interviewConfigRepository,
