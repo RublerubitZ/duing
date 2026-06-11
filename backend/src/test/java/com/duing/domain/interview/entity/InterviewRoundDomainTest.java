@@ -87,8 +87,18 @@ class InterviewRoundDomainTest {
     }
 
     @Test
-    @DisplayName("초대된 멤버가 슬롯을 선택하면 RESPONDED 가 되고, 가능없음 텍스트는 비워진다")
+    @DisplayName("초대된 멤버가 슬롯을 선택하면 RESPONDED 가 된다")
     void invitedMemberMarksResponded() {
+        InterviewRoundMember member = InterviewRoundMember.invite(1L, 10L);
+
+        member.markResponded();
+
+        assertThat(member.getStatus()).isEqualTo(RoundMemberStatus.RESPONDED);
+    }
+
+    @Test
+    @DisplayName("가능없음 상태 멤버가 슬롯 선택으로 전환하면 RESPONDED 가 되고 대체 텍스트가 비워진다")
+    void noAvailableSlotMemberSwitchesToResponded() {
         InterviewRoundMember member = InterviewRoundMember.invite(1L, 10L);
         ReflectionTestUtils.setField(member, "status", RoundMemberStatus.NO_AVAILABLE_SLOT);
         ReflectionTestUtils.setField(member, "alternativeAvailabilityText", "주말만");

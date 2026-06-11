@@ -80,7 +80,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
         }
 
         List<InterviewRoundMember> stuckMembers = interviewRoundMemberRepository
-                .findByRoundIdAndStatus(round.getId(), RoundMemberStatus.NO_AVAILABLE_SLOT);
+                .findAllByRoundIdAndStatusForUpdate(round.getId(), RoundMemberStatus.NO_AVAILABLE_SLOT);
         if (stuckMembers.isEmpty()) {
             return 0;
         }
@@ -97,7 +97,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     @Override
     @Transactional
     public void updateSlot(UpdateInterviewSlotCommand updateCommand) {
-        InterviewSlot slot = interviewSlotRepository.findById(updateCommand.slotId())
+        InterviewSlot slot = interviewSlotRepository.findByIdForUpdate(updateCommand.slotId())
                 .orElseThrow(InterviewException.SlotNotFound::new);
         InterviewRound round = getRoundWithManagerAuth(slot.getRoundId(), updateCommand.currentUserId());
         requireSlotChangeablePhase(round);
@@ -124,7 +124,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     @Override
     @Transactional
     public void deleteSlot(Long slotId, Long currentUserId) {
-        InterviewSlot slot = interviewSlotRepository.findById(slotId)
+        InterviewSlot slot = interviewSlotRepository.findByIdForUpdate(slotId)
                 .orElseThrow(InterviewException.SlotNotFound::new);
         InterviewRound round = getRoundWithManagerAuth(slot.getRoundId(), currentUserId);
         requireSlotChangeablePhase(round);

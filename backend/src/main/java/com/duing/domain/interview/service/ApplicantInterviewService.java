@@ -1,5 +1,6 @@
 package com.duing.domain.interview.service;
 
+import com.duing.domain.interview.service.dto.command.RespondInterviewAvailabilityCommand;
 import com.duing.domain.interview.service.dto.query.ApplicantInterviewView;
 
 public interface ApplicantInterviewService {
@@ -9,4 +10,10 @@ public interface ApplicantInterviewService {
      * raw member/round status 는 노출하지 않는다 — 파생은 서버 단독(SSOT, §9.3).
      */
     ApplicantInterviewView getMyInterview(Long applicationId, Long currentUserId);
+
+    /**
+     * 슬롯 선택 또는 '가능한 시간 없음' 응답 — 전체 교체 upsert, COLLECTING && 마감 전 한정,
+     * 재응답·상호 전환 가능 (스펙 §9.2 API 14·§5.2).
+     */
+    void respondAvailability(RespondInterviewAvailabilityCommand respondCommand);
 }

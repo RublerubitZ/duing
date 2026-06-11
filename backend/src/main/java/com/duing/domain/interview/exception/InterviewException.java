@@ -21,6 +21,11 @@ public class InterviewException extends ApplicationException {
         public SlotNotFound() { super(MESSAGE, HttpStatus.NOT_FOUND); }
     }
 
+    public static final class RoundMembershipNotFound extends InterviewException {
+        private static final String MESSAGE = "응답할 수 있는 면접 라운드가 없습니다.";
+        public RoundMembershipNotFound() { super(MESSAGE, HttpStatus.NOT_FOUND); }
+    }
+
     // ── 409 슬롯 수정 ──────────────────────────────────────────────────────────
 
     public static final class CapacityBelowAssigned extends InterviewException {
@@ -33,6 +38,16 @@ public class InterviewException extends ApplicationException {
     public static final class InterviewNotUsed extends InterviewException {
         private static final String MESSAGE = "면접을 사용하지 않는 모집입니다.";
         public InterviewNotUsed() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
+    }
+
+    public static final class InvalidSlotSelection extends InterviewException {
+        private static final String MESSAGE = "선택한 슬롯이 유효하지 않습니다.";
+        public InvalidSlotSelection() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
+    }
+
+    public static final class InvalidAvailabilityRequest extends InterviewException {
+        private static final String MESSAGE = "슬롯 선택과 '가능한 시간 없음' 중 하나만 보내야 합니다.";
+        public InvalidAvailabilityRequest() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
     }
 
     public static final class CandidateNotEligible extends InterviewException {
@@ -66,6 +81,16 @@ public class InterviewException extends ApplicationException {
     }
 
     // ── 409 Conflict ──────────────────────────────────────────────────────────
+
+    public static final class AvailabilityPeriodClosed extends InterviewException {
+        private static final String MESSAGE = "면접 가능 시간 응답 기간이 아닙니다.";
+        public AvailabilityPeriodClosed() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static final class ApplicationAlreadyDecided extends InterviewException {
+        private static final String MESSAGE = "이미 합격/불합격 처리된 지원입니다.";
+        public ApplicationAlreadyDecided() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
 
     public static final class RoundTransitionNotAllowed extends InterviewException {
         private static final String MESSAGE = "현재 단계에서 허용되지 않는 라운드 상태 변경입니다.";
