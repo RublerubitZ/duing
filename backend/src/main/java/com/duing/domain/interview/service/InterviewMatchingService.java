@@ -34,8 +34,11 @@ public class InterviewMatchingService {
                     .map(slotById::get)
                     .filter(Objects::nonNull)
                     .filter(slot -> assignedCount.getOrDefault(slot.slotId(), 0) < slot.capacity())
+                    // 스펙 §6.1 — 본인이 고른 슬롯 중 잔여 수용 인원(capacity - assigned) 최대.
+                    // tie → start_time, slot_id. (min + 음수화 = 잔여 최대)
                     .min(Comparator
-                            .comparingInt((SlotState s) -> assignedCount.getOrDefault(s.slotId(), 0))
+                            .comparingInt((SlotState slot) ->
+                                    -(slot.capacity() - assignedCount.getOrDefault(slot.slotId(), 0)))
                             .thenComparing(SlotState::startTime)
                             .thenComparing(SlotState::slotId))
                     .map(SlotState::slotId);

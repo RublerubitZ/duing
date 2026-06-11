@@ -45,8 +45,8 @@ class InterviewMatchingServiceTest {
     }
 
     @Test
-    @DisplayName("동일한 슬롯 후보 중 현재 배정 수가 가장 적은 슬롯이 선택된다")
-    void fewestAssignedSlotIsChosen() {
+    @DisplayName("동일한 슬롯 후보 중 잔여 수용 인원이 가장 많은 슬롯이 선택된다")
+    void largestRemainingSlotIsChosenAmongEqualCapacity() {
         // 슬롯200은 capacity=2, 슬롯201은 capacity=2
         // 지원자 1이 먼저 슬롯200에 배정됨 (startTime이 같으면 slotId 오름차순)
         // 지원자 2도 두 슬롯 모두 선택 가능 → 슬롯200(count=1) vs 슬롯201(count=0) → 슬롯201 선택
@@ -192,5 +192,40 @@ class InterviewMatchingServiceTest {
         // 지원자2는 정상 배정, 지원자1은 미배정
         assertThat(result.assigned()).containsExactly(new Assignment(2L, 801L));
         assertThat(result.unassignedApplicationIds()).containsExactly(1L);
+    }
+
+    @Test
+    @DisplayName("capacity 가 다른 슬롯들 중 잔여 수용 인원이 가장 많은 슬롯이 선택된다")
+    void largestRemainingCapacityChosen() {
+        // 슬롯800: capacity=1(잔여1, 시간 빠름), 슬롯801: capacity=3(잔여3, 시간 늦음)
+        // 배정 수 최소 기준이면 동률(0)이라 빠른 슬롯800 — 잔여 최대 기준이면 슬롯801 이어야 한다
+        MatchingInput input = new MatchingInput(
+                List.of(new ApplicantSelection(1L, Set.of(800L, 801L))),
+                List.of(
+                        new SlotState(800L, LocalDateTime.parse("2026-06-20T10:00:00"), 1),
+                        new SlotState(801L, LocalDateTime.parse("2026-06-20T15:00:00"), 3)));
+
+        MatchingResult result = service.match(input);
+
+        assertThat(result.assigned()).containsExactly(new Assignment(1L, 801L));
+    }
+
+    @Test
+    @DisplayName("배정이 진행될수록 잔여가 줄어든 슬롯 대신 여유 있는 슬롯으로 분산된다")
+    void assignmentsSpreadByRemainingCapacity() {
+        // 슬롯900: capacity=2, 슬롯901: capacity=2 — 두 명이 모두 양쪽 선택 시
+        // 1번째: 잔여 동률(2,2) → 빠른 900. 2번째: 잔여 (1,2) → 901 로 분산
+        MatchingInput input = new MatchingInput(
+                List.of(
+                        new ApplicantSelection(1L, Set.of(900L, 901L)),
+                        new ApplicantSelection(2L, Set.of(900L, 901L))),
+                List.of(
+                        new SlotState(900L, LocalDateTime.parse("2026-06-20T10:00:00"), 2),
+                        new SlotState(901L, LocalDateTime.parse("2026-06-20T11:00:00"), 2)));
+
+        MatchingResult result = service.match(input);
+
+        assertThat(result.assigned()).containsExactlyInAnyOrder(
+                new Assignment(1L, 900L), new Assignment(2L, 901L));
     }
 }

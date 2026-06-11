@@ -18,6 +18,8 @@ public interface InterviewAvailabilityRepository
 
     List<InterviewAvailability> findByRoundIdAndApplicationId(Long roundId, Long applicationId);
 
+    List<InterviewAvailability> findByRoundId(Long roundId);
+
     /** 응답 upsert — 라운드 한정 전체 교체의 삭제 단계 (V46 partial unique 패턴으로 재삽입 허용). */
     @Modifying(clearAutomatically = true)
     @Query("UPDATE InterviewAvailability a SET a.deletedAt = CURRENT_TIMESTAMP "

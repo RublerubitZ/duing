@@ -71,6 +71,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     private final InterviewAvailabilityRepository interviewAvailabilityRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
+    private final InterviewRoundAccessor interviewRoundAccessor;
 
     @Override
     public List<RoundCandidateQuery> getRoundCandidates(Long recruitmentId, Long currentUserId,
@@ -178,7 +179,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     @Override
     @Transactional
     public AvailabilityRequestResult requestAvailability(Long roundId, Long currentUserId) {
-        InterviewRound round = getRoundWithManagerAuth(roundId, currentUserId);
+        InterviewRound round = interviewRoundAccessor.getWithManagerAuth(roundId, currentUserId);
 
         if (interviewSlotRepository.countByRoundId(round.getId()) == 0) {
             throw new InterviewException.RoundHasNoSlots();
@@ -197,7 +198,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     @Override
     @Transactional
     public AvailabilityRequestResult remind(Long roundId, Long currentUserId) {
-        InterviewRound round = getRoundWithManagerAuth(roundId, currentUserId);
+        InterviewRound round = interviewRoundAccessor.getWithManagerAuth(roundId, currentUserId);
 
         if (round.getStatus() != RoundStatus.COLLECTING) {
             throw new InterviewException.RoundTransitionNotAllowed();
@@ -222,19 +223,6 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
             eventPublisher.publishEvent(new InterviewAvailabilityRequestedEvent(
                     round.getId(), target.getApplicationId(), round.getRequestSequence()));
         }
-    }
-
-    /**
-     * round → recruitment → club 경로의 운영진 권한 가드.
-     * GeneralInterviewSlotService 와 동일 패턴 중복 — 2곳까지는 허용, 세 번째 등장 시 공통화한다 (rule of three).
-     */
-    private InterviewRound getRoundWithManagerAuth(Long roundId, Long currentUserId) {
-        InterviewRound round = interviewRoundRepository.findById(roundId)
-                .orElseThrow(InterviewException.RoundNotFound::new);
-        Recruitment recruitment = recruitmentRepository.findById(round.getRecruitmentId())
-                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
-        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
-        return round;
     }
 
     @Override
@@ -267,7 +255,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
     @Override
     public RoundDetailQuery getRoundDetail(Long roundId, Long currentUserId) {
-        InterviewRound round = getRoundWithManagerAuth(roundId, currentUserId);
+        InterviewRound round = interviewRoundAccessor.getWithManagerAuth(roundId, currentUserId);
 
         List<RoundMemberLine> memberLines = interviewRoundMemberRepository
                 .findMemberLinesByRoundId(round.getId());

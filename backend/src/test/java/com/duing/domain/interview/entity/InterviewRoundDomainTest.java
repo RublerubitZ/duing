@@ -145,4 +145,26 @@ class InterviewRoundDomainTest {
         assertThatThrownBy(() -> excluded.reportNoAvailableSlot("아무때나"))
                 .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
     }
+
+    @Test
+    @DisplayName("응답 수집 중 라운드는 자동배정 실행으로 배정 검토 단계에 들어간다")
+    void collectingRoundOpensAssigning() {
+        InterviewRound round = InterviewRound.create(1L, "1차 면접",
+                LocalDateTime.now().plusDays(7), null);
+        round.openCollecting(LocalDateTime.now());
+
+        round.openAssigning();
+
+        assertThat(round.getStatus()).isEqualTo(RoundStatus.ASSIGNING);
+    }
+
+    @Test
+    @DisplayName("발송 전 라운드는 자동배정을 실행할 수 없다")
+    void draftRoundCannotOpenAssigning() {
+        InterviewRound round = InterviewRound.create(1L, "1차 면접",
+                LocalDateTime.now().plusDays(7), null);
+
+        assertThatThrownBy(round::openAssigning)
+                .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
+    }
 }

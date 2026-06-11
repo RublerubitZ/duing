@@ -32,5 +32,13 @@ public interface InterviewSlotRepository extends JpaRepository<InterviewSlot, Lo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM InterviewSlot s WHERE s.id = :id")
     Optional<InterviewSlot> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * 자동배정이 capacity 를 읽고 배정하는 동안 동시 capacity 축소(updateSlot)와 직렬화한다
+     * (스펙 §16-7-1 확장). ORDER BY id 고정 — 응답 API 의 슬롯 잠금과 같은 순서라 교착이 없다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM InterviewSlot s WHERE s.roundId = :roundId ORDER BY s.id ASC")
+    List<InterviewSlot> findAllByRoundIdForUpdate(@Param("roundId") Long roundId);
 }
 

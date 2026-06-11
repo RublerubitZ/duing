@@ -154,10 +154,6 @@ public class GeneralApplicantInterviewService implements ApplicantInterviewServi
 
         interviewAvailabilityRepository.softDeleteByRoundIdAndApplicationId(
                 round.getId(), respondCommand.applicationId());
-        // clearAutomatically 로 비워진 PC 에서 멤버를 잠금 재로드한다 — 신선한 상태 확보(§16-7-2:
-        // Rule 2 재초대 등 같은 멤버 행의 동시 writer 와 직렬화) + 전이 dirty check 복원.
-        InterviewRoundMember managedMember = interviewRoundMemberRepository
-                .findByIdForUpdate(member.getId()).orElseThrow(InterviewException.RoundMembershipNotFound::new);
 
         if (slotsGiven) {
             // 입력 중복은 클라이언트 실수 보호 차원에서 제거하되 순서는 유지한다 (bulkUpdateStatus 전례).
@@ -172,6 +168,16 @@ public class GeneralApplicantInterviewService implements ApplicantInterviewServi
                     .map(slotId -> InterviewAvailability.create(
                             respondCommand.applicationId(), slotId, round.getId()))
                     .toList());
+        }
+
+        // 잠금 순서 통일: 슬롯 먼저, 멤버 나중 — 자동배정(round→slots→members)과 자원 순서가
+        // 일치해야 교착 사이클이 없다 (BE#9 adversarial 재검증 반영).
+        // clearAutomatically 로 비워진 PC 에서 멤버를 잠금 재로드한다 — 신선한 상태 확보(§16-7-2:
+        // Rule 2 재초대 등 같은 멤버 행의 동시 writer 와 직렬화) + 전이 dirty check 복원.
+        InterviewRoundMember managedMember = interviewRoundMemberRepository
+                .findByIdForUpdate(member.getId()).orElseThrow(InterviewException.RoundMembershipNotFound::new);
+
+        if (slotsGiven) {
             managedMember.markResponded();
         } else {
             managedMember.reportNoAvailableSlot(respondCommand.alternativeText());

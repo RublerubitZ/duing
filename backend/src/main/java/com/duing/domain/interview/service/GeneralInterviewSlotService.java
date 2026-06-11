@@ -1,8 +1,8 @@
 package com.duing.domain.interview.service;
 
-import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
@@ -11,13 +11,11 @@ import com.duing.domain.interview.exception.InterviewException;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.command.CreateInterviewSlotsCommand;
 import com.duing.domain.interview.service.dto.command.UpdateInterviewSlotCommand;
 import com.duing.domain.interview.service.dto.query.SlotsCreationResult;
-import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.exception.RecruitmentException;
-import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,10 +33,10 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     private final InterviewSlotRepository interviewSlotRepository;
     private final InterviewAvailabilityRepository interviewAvailabilityRepository;
     private final InterviewRoundMemberRepository interviewRoundMemberRepository;
-    private final RecruitmentRepository recruitmentRepository;
-    private final ClubAuthService clubAuthService;
+    private final InterviewScheduleRepository interviewScheduleRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
+    private final InterviewRoundAccessor interviewRoundAccessor;
 
     @Override
     @Transactional
@@ -117,6 +115,12 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
             slot.updateTime(updateCommand.startTime(), updateCommand.endTime());
         }
         if (updateCommand.capacity() != null) {
+            // 도달 가능 경로는 phase 가드가 막지만(배정은 ASSIGNING 부터, 변경은 COLLECTING 까지),
+            // 예외 이름이 약속한 검사를 채워 미래의 phase 규칙 완화에도 안전하게 한다.
+            if (interviewScheduleRepository.countBySlotIdAndStatus(
+                    slot.getId(), InterviewScheduleStatus.ASSIGNED) > updateCommand.capacity()) {
+                throw new InterviewException.CapacityBelowAssigned();
+            }
             slot.updateCapacity(updateCommand.capacity());
         }
     }
@@ -142,12 +146,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     }
 
     private InterviewRound getRoundWithManagerAuth(Long roundId, Long currentUserId) {
-        InterviewRound round = interviewRoundRepository.findById(roundId)
-                .orElseThrow(InterviewException.RoundNotFound::new);
-        Recruitment recruitment = recruitmentRepository.findById(round.getRecruitmentId())
-                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
-        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
-        return round;
+        return interviewRoundAccessor.getWithManagerAuth(roundId, currentUserId);
     }
 
     /**

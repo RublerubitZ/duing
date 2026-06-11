@@ -15,6 +15,8 @@ public interface InterviewRoundMemberRepository
 
     List<InterviewRoundMember> findByRoundIdAndStatus(Long roundId, RoundMemberStatus status);
 
+    Optional<InterviewRoundMember> findByRoundIdAndApplicationId(Long roundId, Long applicationId);
+
     /** 같은 멤버 행의 동시 writer(응답 vs Rule 2 재초대 등)를 직렬화한다 (스펙 §16-7-2). */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT m FROM InterviewRoundMember m WHERE m.id = :id")
