@@ -95,6 +95,17 @@ public class InterviewRound extends BaseEntity {
     }
 
     /**
+     * 자동배정 실행: COLLECTING → ASSIGNING (스펙 §5.1·§6.2). 이미 ASSIGNING 인 재실행은
+     * 전이가 아니므로 서비스가 분기한다 — 이 메서드는 첫 실행 전이만 담당한다.
+     */
+    public void openAssigning() {
+        if (this.status != RoundStatus.COLLECTING) {
+            throw new InterviewException.RoundTransitionNotAllowed();
+        }
+        this.status = RoundStatus.ASSIGNING;
+    }
+
+    /**
      * Availability 요청 회차를 1 올린다 — 발송·재알림·Rule 2 재초대 모두 발동 직전에 호출한다.
      * 안 올리면 직전 발송과 dedupKey 가 같아져 재알림이 deduped 되어 소실된다 (스펙 §8).
      */
