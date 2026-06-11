@@ -115,11 +115,8 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
                         5));
     }
 
-    // Task 4 에서 3-arg 로 축소된다 — 테스트 본문은 그대로 유지하기 위한 단일 변경점.
     private SubmitApplicationCommand submitCommand(Long recruitmentId, Long userId) {
-        List<String> noAnswers = List.of();
-        List<Long> noSlotIds = List.of();
-        return new SubmitApplicationCommand(recruitmentId, userId, noAnswers, noSlotIds);
+        return new SubmitApplicationCommand(recruitmentId, userId, List.of());
     }
 
     // ── 테스트 ────────────────────────────────────────────────────────────────
