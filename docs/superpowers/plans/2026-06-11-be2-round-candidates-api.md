@@ -42,7 +42,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -61,7 +61,7 @@ Expected: `Switched to a new branch 'feat/interview-round-candidates'`
 
 `LeaderApplicantDetailInterviewTest` 의 RestAssured + JwtTokenProvider + 헬퍼 패턴을 따른다.
 
-- [ ] **Step 1: 테스트 작성**
+- [x] **Step 1: 테스트 작성**
 
 ```java
 package com.duing.domain.interview.controller;
@@ -369,7 +369,7 @@ class ManagerInterviewRoundCandidateControllerTest extends IntegrationTestBase {
 }
 ```
 
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -382,7 +382,7 @@ Expected: **전부 FAIL** — 엔드포인트 미존재로 200 기대 케이스�
 
 ### Task 3: 구현 (GREEN)
 
-- [ ] **Step 1: `InterviewException` 에 `InterviewNotUsed` 추가**
+- [x] **Step 1: `InterviewException` 에 `InterviewNotUsed` 추가**
 
 `backend/src/main/java/com/duing/domain/interview/exception/InterviewException.java` 의 `CapacityBelowAssigned` 섹션 아래에 추가:
 
@@ -395,7 +395,7 @@ Expected: **전부 FAIL** — 엔드포인트 미존재로 200 기대 케이스�
     }
 ```
 
-- [ ] **Step 2: Custom 레포 시그니처 + QueryDSL 구현**
+- [x] **Step 2: Custom 레포 시그니처 + QueryDSL 구현**
 
 `backend/src/main/java/com/duing/domain/interview/repository/InterviewRoundMemberRepositoryCustom.java`:
 
@@ -495,7 +495,7 @@ public interface InterviewRoundMemberRepository
 }
 ```
 
-- [ ] **Step 3: 조회 DTO + 서비스**
+- [x] **Step 3: 조회 DTO + 서비스**
 
 `backend/src/main/java/com/duing/domain/interview/service/dto/query/RoundCandidateQuery.java`:
 
@@ -597,7 +597,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 }
 ```
 
-- [ ] **Step 4: 응답 DTO + API 인터페이스 + 컨트롤러**
+- [x] **Step 4: 응답 DTO + API 인터페이스 + 컨트롤러**
 
 `backend/src/main/java/com/duing/domain/interview/controller/dto/response/RoundCandidateResponse.java`:
 
@@ -721,7 +721,7 @@ public class ManagerInterviewRoundController implements ManagerInterviewRoundApi
 }
 ```
 
-- [ ] **Step 5: GREEN 확인**
+- [x] **Step 5: GREEN 확인**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -734,7 +734,7 @@ Expected: **10건 전부 PASS**. (403 케이스가 다른 코드로 떨어지면
 
 ### Task 4: 전체 검증 + 커밋
 
-- [ ] **Step 1: 전체 테스트**
+- [x] **Step 1: 전체 테스트**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
@@ -743,7 +743,7 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend
 
 Expected: BUILD SUCCESSFUL, 0 failures (679 + 10 = 689건)
 
-- [ ] **Step 2: 커밋**
+- [x] **Step 2: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -755,9 +755,9 @@ git commit -m "feat(backend): 면접 라운드 후보 조회 API"
 
 ### Task 5: self-check + PR 생성
 
-- [ ] **Step 1: self-check 7항목** (빌드/범위(File Map 11파일)/타영역 영향(신규 API 라 없음 — FE 는 FE#2 에서 소비)/리뷰 완료/체크박스 재검증/커밋 형식/EOF newline — BE#0·1 과 동일 명령)
+- [x] **Step 1: self-check 7항목** (빌드/범위(File Map 11파일)/타영역 영향(신규 API 라 없음 — FE 는 FE#2 에서 소비)/리뷰 완료/체크박스 재검증/커밋 형식/EOF newline — BE#0·1 과 동일 명령)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지)
+- [x] **Step 2: push + PR** (자동 머지 금지)
 
 ```bash
 git push -u origin feat/interview-round-candidates
