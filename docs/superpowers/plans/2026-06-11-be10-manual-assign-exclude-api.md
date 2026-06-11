@@ -43,7 +43,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -59,7 +59,7 @@ git checkout -b feat/interview-member-manage
 - Modify: `backend/src/test/java/com/duing/domain/interview/entity/InterviewRoundDomainTest.java`
 - Modify: `backend/src/main/java/com/duing/domain/interview/entity/InterviewRoundMember.java`
 
-- [ ] **Step 1: 단위 테스트 3건 추가 (RED)**
+- [x] **Step 1: 단위 테스트 3건 추가 (RED)**
 
 ```java
     @Test
@@ -106,9 +106,9 @@ git checkout -b feat/interview-member-manage
     }
 ```
 
-- [ ] **Step 2: RED 확인** — `./gradlew test --tests "com.duing.domain.interview.entity.InterviewRoundDomainTest"` → 컴파일 실패
+- [x] **Step 2: RED 확인** — `./gradlew test --tests "com.duing.domain.interview.entity.InterviewRoundDomainTest"` → 컴파일 실패
 
-- [ ] **Step 3: 구현 (GREEN)** — `InterviewRoundMember` 의 `reportNoAvailableSlot` 아래에:
+- [x] **Step 3: 구현 (GREEN)** — `InterviewRoundMember` 의 `reportNoAvailableSlot` 아래에:
 
 ```java
     /**
@@ -124,9 +124,9 @@ git checkout -b feat/interview-member-manage
     }
 ```
 
-- [ ] **Step 4: GREEN 확인** — 도메인 17건(기존 14+신규 3) PASS
+- [x] **Step 4: GREEN 확인** — 도메인 17건(기존 14+신규 3) PASS
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -141,7 +141,7 @@ git commit -m "feat(backend): 라운드 멤버 제외 전이(exclude) 추가"
 **Files:**
 - Create: `backend/src/test/java/com/duing/domain/interview/controller/LeaderInterviewMemberManageControllerTest.java`
 
-- [ ] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
+- [x] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
 
 ```java
 package com.duing.domain.interview.controller;
@@ -497,13 +497,13 @@ class LeaderInterviewMemberManageControllerTest extends InterviewControllerTestS
 }
 ```
 
-- [ ] **Step 2: RED 확인** — 컴파일 성공 + 대부분 FAIL. **커밋하지 않는다.**
+- [x] **Step 2: RED 확인** — 컴파일 성공 + 대부분 FAIL. **커밋하지 않는다.**
 
 ---
 
 ### Task 4: 구현 (GREEN)
 
-- [ ] **Step 1: 예외 3종** (`InterviewException`)
+- [x] **Step 1: 예외 3종** (`InterviewException`)
 
 409 섹션:
 
@@ -528,7 +528,7 @@ class LeaderInterviewMemberManageControllerTest extends InterviewControllerTestS
     }
 ```
 
-- [ ] **Step 2: request DTO**
+- [x] **Step 2: request DTO**
 
 `controller/dto/request/AssignScheduleRequest.java`:
 
@@ -543,7 +543,7 @@ public record AssignScheduleRequest(
 ) {}
 ```
 
-- [ ] **Step 3: 서비스**
+- [x] **Step 3: 서비스**
 
 `InterviewAssignmentService` 에 추가:
 
@@ -656,7 +656,7 @@ public record AssignScheduleRequest(
 
 (※ `delete` 는 `@SQLDelete` soft delete 경로 — BE#0~1 의 엔티티 설정 그대로. `InterviewScheduleStatus`·`Set` import 추가, 필드 추가 없음 — 전부 기존 의존.)
 
-- [ ] **Step 4: Api + Controller**
+- [x] **Step 4: Api + Controller**
 
 `LeaderInterviewAssignmentApi` 에 추가 (import `AssignScheduleRequest`·`Valid`·`RequestBody`·`PutMapping`·`DeleteMapping`):
 
@@ -736,15 +736,15 @@ public record AssignScheduleRequest(
     }
 ```
 
-- [ ] **Step 5: GREEN 확인** — 16건 PASS
+- [x] **Step 5: GREEN 확인** — 16건 PASS
 
 ---
 
 ### Task 5: 전체 검증 + 커밋
 
-- [ ] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (820 + 3 + 16 = 839건 예상)
+- [x] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (820 + 3 + 16 = 839건 예상)
 
-- [ ] **Step 2:**
+- [x] **Step 2:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -756,9 +756,9 @@ git commit -m "feat(backend): 면접 수동 배정·해제·멤버 제외 API"
 
 ### Task 6: self-check + PR 생성 (컨트롤러 수행 — 구현 subagent 금지)
 
-- [ ] **Step 1: self-check 7항목** (기존 동일 명령)
+- [x] **Step 1: self-check 7항목** (기존 동일 명령)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지. **리뷰 단계에서 codex adversarial 필수**)
+- [x] **Step 2: push + PR** (자동 머지 금지. **리뷰 단계에서 codex adversarial 필수**)
 
 ```bash
 git push -u origin feat/interview-member-manage
