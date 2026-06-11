@@ -105,6 +105,15 @@ public class InterviewRound extends BaseEntity {
         this.status = RoundStatus.ASSIGNING;
     }
 
+    /** 확정: ASSIGNING → SCHEDULED (터미널, 스펙 §5.1·§6.3) + 확정 시각 기록. 재확정·확정 후 변경 경로는 없다 (§14). */
+    public void confirm(LocalDateTime now) {
+        if (this.status != RoundStatus.ASSIGNING) {
+            throw new InterviewException.RoundTransitionNotAllowed();
+        }
+        this.status = RoundStatus.SCHEDULED;
+        this.assignmentCompletedAt = now;
+    }
+
     /**
      * Availability 요청 회차를 1 올린다 — 발송·재알림·Rule 2 재초대 모두 발동 직전에 호출한다.
      * 안 올리면 직전 발송과 dedupKey 가 같아져 재알림이 deduped 되어 소실된다 (스펙 §8).

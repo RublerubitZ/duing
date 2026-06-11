@@ -86,6 +86,17 @@ public class InterviewRoundMember extends BaseEntity {
     }
 
     /**
+     * 확정: ASSIGNED 전이의 유일한 지점 (§6.3·§16-1). 분류 기준은 "활성 schedule 보유"(서비스 검증)라
+     * 수동 배정된 INVITED·NO_AVAILABLE_SLOT 도 대상 — §6.3 문언이 §5.2 주 경로 서술보다 우선한다.
+     */
+    public void confirmAssigned() {
+        if (this.status == RoundMemberStatus.ASSIGNED || this.status == RoundMemberStatus.EXCLUDED) {
+            throw new InterviewException.MemberTransitionNotAllowed();
+        }
+        this.status = RoundMemberStatus.ASSIGNED;
+    }
+
+    /**
      * 제외: 라운드 종결의 유일한 멤버 경로 (§5.2 — soft delete 미사용, §16-5). 지원자에겐
      * 중립 phase(WAITING_NEXT_ROUND)로만 보이고 application 은 INTERVIEW_PENDING 유지라
      * 즉시 대기열 복귀한다. 가능없음 텍스트는 운영 기록으로 보존한다.

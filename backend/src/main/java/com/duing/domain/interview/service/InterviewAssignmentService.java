@@ -1,6 +1,7 @@
 package com.duing.domain.interview.service;
 
 import com.duing.domain.interview.service.dto.query.AutoAssignResult;
+import com.duing.domain.interview.service.dto.query.ConfirmResult;
 
 public interface InterviewAssignmentService {
 
@@ -25,4 +26,10 @@ public interface InterviewAssignmentService {
      * 활성 schedule 정리(§16-3) + 대기열 즉시 복귀 (application 은 INTERVIEW_PENDING 유지).
      */
     void excludeMember(Long roundId, Long memberId, Long currentUserId);
+
+    /**
+     * 라운드 확정 (스펙 §6.3·§9.1 API 11) — ASSIGNED 전이·INTERVIEW_SCHEDULED 알림의 유일한 지점.
+     * 미처리(활성 배정 미보유) 멤버가 있으면 force 없이는 경고 2종 분리 409, force 면 자동 EXCLUDED.
+     */
+    ConfirmResult confirmRound(Long roundId, boolean force, Long currentUserId);
 }
