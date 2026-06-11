@@ -43,7 +43,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -59,7 +59,7 @@ git checkout -b feat/interview-round-manage
 - Modify: `backend/src/test/java/com/duing/domain/interview/entity/InterviewRoundDomainTest.java`
 - Modify: `backend/src/main/java/com/duing/domain/interview/entity/InterviewRound.java`
 
-- [ ] **Step 1: 단위 테스트 7건 추가 (RED)**
+- [x] **Step 1: 단위 테스트 7건 추가 (RED)**
 
 ```java
     @Test
@@ -164,9 +164,9 @@ git checkout -b feat/interview-round-manage
     }
 ```
 
-- [ ] **Step 2: RED 확인** — 컴파일 실패
+- [x] **Step 2: RED 확인** — 컴파일 실패
 
-- [ ] **Step 3: 구현 (GREEN)** — `InterviewRound` 의 `confirm` 아래에:
+- [x] **Step 3: 구현 (GREEN)** — `InterviewRound` 의 `confirm` 아래에:
 
 ```java
     /**
@@ -222,9 +222,9 @@ git checkout -b feat/interview-round-manage
     }
 ```
 
-- [ ] **Step 4: GREEN 확인** — 도메인 28건(기존 21+신규 7) PASS
+- [x] **Step 4: GREEN 확인** — 도메인 28건(기존 21+신규 7) PASS
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -239,7 +239,7 @@ git commit -m "feat(backend): 라운드 취소·정보 수정·마감 변경 도
 **Files:**
 - Create: `backend/src/test/java/com/duing/domain/interview/controller/LeaderInterviewRoundManageControllerTest.java`
 
-- [ ] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
+- [x] **Step 1: 테스트 작성** (`InterviewControllerTestSupport` 상속)
 
 ```java
 package com.duing.domain.interview.controller;
@@ -561,13 +561,13 @@ class LeaderInterviewRoundManageControllerTest extends InterviewControllerTestSu
 }
 ```
 
-- [ ] **Step 2: RED 확인** — 컴파일 성공 + 대부분 FAIL. **커밋하지 않는다.**
+- [x] **Step 2: RED 확인** — 컴파일 성공 + 대부분 FAIL. **커밋하지 않는다.**
 
 ---
 
 ### Task 4: 구현 (GREEN)
 
-- [ ] **Step 1: 예외 + DTO**
+- [x] **Step 1: 예외 + DTO**
 
 `InterviewException` 400 섹션에:
 
@@ -617,7 +617,7 @@ public record UpdateInterviewRoundRequest(
 }
 ```
 
-- [ ] **Step 2: 서비스**
+- [x] **Step 2: 서비스**
 
 `InterviewRoundService` 에 추가:
 
@@ -680,7 +680,7 @@ public record UpdateInterviewRoundRequest(
 
 (※ `GeneralInterviewRoundService` 에 `interviewRoundAccessor`·`clock` 이 기존 주입돼 있는지 확인 — BE#9 refactor 로 accessor 사용 중, clock 은 BE#5 부터. `softDeleteByRoundId` 는 plain @Modifying(BE#9) — 이 TX 의 round dirty 변경(cancel)은 JPQL 실행 전 auto-flush 대상이 아니어도 커밋 시 flush 되므로 무관하나, **round.cancel() 을 softDelete 보다 먼저** 호출하는 현재 순서가 안전하다 — BE#9 주석 참조.)
 
-- [ ] **Step 3: Api + Controller**
+- [x] **Step 3: Api + Controller**
 
 `LeaderInterviewRoundApi` 에 추가 (import `UpdateInterviewRoundRequest`·`PatchMapping`·`Valid`·`RequestBody`):
 
@@ -734,15 +734,15 @@ public record UpdateInterviewRoundRequest(
     }
 ```
 
-- [ ] **Step 4: GREEN 확인** — 12건 PASS
+- [x] **Step 4: GREEN 확인** — 12건 PASS
 
 ---
 
 ### Task 5: 전체 검증 + 커밋
 
-- [ ] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (853 + 7 + 12 = 872건 예상)
+- [x] **Step 1:** `./gradlew test` → BUILD SUCCESSFUL (853 + 7 + 12 = 872건 예상)
 
-- [ ] **Step 2:**
+- [x] **Step 2:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -754,9 +754,9 @@ git commit -m "feat(backend): 면접 라운드 취소·수정 API"
 
 ### Task 6: self-check + PR 생성 (컨트롤러 수행 — 구현 subagent 금지)
 
-- [ ] **Step 1: self-check 7항목** (기존 동일 명령)
+- [x] **Step 1: self-check 7항목** (기존 동일 명령)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지)
+- [x] **Step 2: push + PR** (자동 머지 금지)
 
 ```bash
 git push -u origin feat/interview-round-manage
