@@ -19,16 +19,16 @@ export function ClubSelector({ managedClubs, currentClubId }: ClubSelectorProps)
 
   return (
     <div className="px-2">
-      <label className="mb-1.5 block text-[11px] uppercase tracking-[0.12em] text-[#9aa191]">
+      <label className="mb-1.5 block text-[11px] uppercase tracking-[0.12em] text-sage/80">
         동아리 선택
       </label>
       <select
         value={currentClubId ?? ''}
         onChange={handleChange}
-        className="w-full rounded-[8px] border border-[#3d4a36] bg-[#28311f] text-[#e6e0c9] px-3 py-2.5 text-[13.5px] appearance-none focus:outline-none focus:border-[#5b7e4d]"
+        className="w-full rounded-[8px] border border-white/15 bg-black/20 text-cream px-3 py-2.5 text-[13.5px] appearance-none focus:outline-none focus:border-sage"
         style={{
           backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%239aa191' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%239DB6A0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'right 10px center',
           backgroundSize: '12px',
