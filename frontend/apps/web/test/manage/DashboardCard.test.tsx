@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import { DashboardCard } from '@/app/manage/_components/dashboard/DashboardCard';
 
 describe('DashboardCard', () => {
