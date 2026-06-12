@@ -30,4 +30,9 @@ describe('dashboardDate', () => {
     expect(daysUntilKst('2026-06-12', now)).toBe(0);
     expect(daysUntilKst('2026-06-10', now)).toBe(-2);
   });
+
+  it('daysUntilKst: KST 자정 직전(23:59)도 당일로 계산', () => {
+    // 2026-06-12T14:59:00Z == 2026-06-12 23:59 KST → 6/13까지 1일
+    expect(daysUntilKst('2026-06-13', new Date('2026-06-12T14:59:00Z'))).toBe(1);
+  });
 });

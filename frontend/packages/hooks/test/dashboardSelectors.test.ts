@@ -22,9 +22,9 @@ function recruitment(over: Partial<RecruitmentSummary> = {}): RecruitmentSummary
     id: 1, clubId: 10, clubName: '두잉', title: '2026 봄 모집',
     startDate: '2026-06-01', endDate: '2026-06-30', capacity: 20,
     status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: true,
-    applicationMode: 'INTERNAL', externalFormUrl: null, useInterview: true,
+    applicationMode: 'SELF', externalFormUrl: null, useInterview: true,
     targetRole: 'MEMBER', ...over,
-  } as RecruitmentSummary;
+  };
 }
 
 function stats(over: Partial<StatsSummary> = {}): StatsSummary {

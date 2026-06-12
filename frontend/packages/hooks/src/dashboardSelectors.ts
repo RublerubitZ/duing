@@ -63,7 +63,7 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
     }
 
     // 마감 임박: 종료 아님 + endDate D-N 이내(경과 제외)
-    if (recruitment.displayStatus !== 'CLOSED' && recruitment.endDate) {
+    if (recruitment.displayStatus !== 'CLOSED' && recruitment.displayStatus !== 'ALWAYS_OPEN' && recruitment.endDate) {
       const daysLeft = daysUntilKst(recruitment.endDate, now);
       if (daysLeft >= 0 && daysLeft <= CLOSING_SOON_DAYS) {
         items.push({ type: 'RECRUITMENT_CLOSING_SOON', ...base, daysLeft });
@@ -105,7 +105,7 @@ const KIND_RANK = { INTERVIEW: 0, EVENT: 1 } as const;
 
 export function sortTodaySchedule(items: TodayScheduleItem[]): TodayScheduleItem[] {
   return [...items].sort((a, b) => {
-    const byTime = a.startAt.localeCompare(b.startAt);
+    const byTime = new Date(a.startAt).getTime() - new Date(b.startAt).getTime();
     if (byTime !== 0) return byTime;
     return KIND_RANK[a.kind] - KIND_RANK[b.kind];
   });
