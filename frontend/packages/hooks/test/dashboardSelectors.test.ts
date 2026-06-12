@@ -107,6 +107,13 @@ describe('buildActionItems', () => {
     ];
     expect(buildActionItems(input, NOW).some((i) => i.type === 'RECRUITMENT_CLOSING_SOON')).toBe(false);
   });
+
+  it('ALWAYS_OPEN(상시모집) 모집은 마감 임박을 만들지 않는다', () => {
+    const input: RecruitmentDashboardInput[] = [
+      { recruitment: recruitment({ displayStatus: 'ALWAYS_OPEN', endDate: '2026-06-14' }), stats: stats(), rounds: [] },
+    ];
+    expect(buildActionItems(input, NOW).some((i) => i.type === 'RECRUITMENT_CLOSING_SOON')).toBe(false);
+  });
 });
 
 describe('sortActionItems', () => {
