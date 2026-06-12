@@ -153,6 +153,32 @@ describe('buildActionItems', () => {
     const undefinedItems = buildActionItems([dashboardInput({ candidateCount: undefined })], NOW);
     expect(undefinedItems.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
   });
+
+  it('라운드 미로딩(undefined)이면 대기열이 있어도 라운드 생성 필요 아님', () => {
+    const items = buildActionItems([dashboardInput({ candidateCount: 3, rounds: undefined })], NOW);
+    expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
+  });
+
+  it('CANCELLED 라운드만 있으면(취소 후 재대기열) 라운드 생성 필요', () => {
+    const items = buildActionItems(
+      [dashboardInput({ candidateCount: 3, rounds: [round({ status: 'CANCELLED' })] })],
+      NOW,
+    );
+    expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(true);
+  });
+
+  it('CANCELLED + COLLECTING 혼재면 수용 가능 라운드가 있어 라운드 생성 필요 아님', () => {
+    const items = buildActionItems(
+      [
+        dashboardInput({
+          candidateCount: 3,
+          rounds: [round({ roundId: 100, status: 'CANCELLED' }), round({ roundId: 101, status: 'COLLECTING' })],
+        }),
+      ],
+      NOW,
+    );
+    expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
+  });
 });
 
 describe('sortActionItems', () => {

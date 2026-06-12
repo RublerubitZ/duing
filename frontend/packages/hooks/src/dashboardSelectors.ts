@@ -46,10 +46,11 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
 
     // 면접 라운드 생성 필요: 대기열 인원 존재 + 신규 인원 수용 가능 라운드(DRAFT·COLLECTING·ASSIGNING) 없음
     // (SCHEDULED는 확정 라운드라 수용 불가, CANCELLED는 무시)
+    // rounds === undefined(라운드 쿼리 미로딩·실패)면 '수용 라운드 없음'으로 단정할 수 없어 생성하지 않는다.
     const hasAcceptingRound = (rounds ?? []).some(
       (round) => round.status === 'DRAFT' || round.status === 'COLLECTING' || round.status === 'ASSIGNING',
     );
-    if (candidateCount !== undefined && candidateCount > 0 && !hasAcceptingRound) {
+    if (rounds !== undefined && candidateCount !== undefined && candidateCount > 0 && !hasAcceptingRound) {
       items.push({ type: 'INTERVIEW_ROUND_NEEDED', ...base, count: candidateCount });
     }
 
