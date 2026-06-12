@@ -115,9 +115,17 @@ export function InterviewManagementPage({ clubId, recruitmentId }: Props) {
         </Link>
         <div className="flex items-baseline justify-between gap-2">
           <h1 className="text-xl font-bold text-slate-900">면접 관리</h1>
-          {config && (
-            <span className="text-xs text-slate-500">현재: {phaseLabel}</span>
-          )}
+          <div className="flex items-center gap-3">
+            {config && (
+              <span className="text-xs text-slate-500">현재: {phaseLabel}</span>
+            )}
+            <Link
+              href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview/rounds/new`)}
+              className="rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700"
+            >
+              새 면접 라운드 만들기
+            </Link>
+          </div>
         </div>
       </div>
 
