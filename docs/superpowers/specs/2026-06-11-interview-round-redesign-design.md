@@ -200,6 +200,16 @@ isVisibleToApplicant(member)   // 지원자 노출(phase)용 — DRAFT 제외
 - `force=true` → 한 트랜잭션: 잔존 미처리 멤버 자동 EXCLUDED → schedule 보유 멤버 ASSIGNED 전이 → round SCHEDULED → `INTERVIEW_SCHEDULED` 알림 발화 (AFTER_COMMIT 리스너).
 - 멤버 ASSIGNED 전이와 알림은 **확정 시점에만** 발화. EXCLUDED 된 지원자는 application 이 INTERVIEW_PENDING 그대로라 대기열 복귀.
 
+### 6.4 확정 후 일정 변경 (BE#13 — 2026-06-12 사용자 요구 반영)
+
+운영진 사정 변경(특정 시간대 진행 불가 등)의 시스템 내 구제 경로. **라운드 터미널 의미는 유지** — 멤버 구성·합불 흐름은 불변이고 "일정만" 옮긴다.
+
+- **슬롯 관리 확장**: 슬롯 생성·수정·삭제의 phase 가드에 SCHEDULED 추가 (참조 0·정원 검사 등 기존 가드 그대로). SCHEDULED 에서의 슬롯 추가는 **Rule 2 (재초대) 미발동** — 수집이 끝난 라운드다.
+- **개별 재배정**: `PUT .../members/{memberId}/schedule` 의 phase 가드에 SCHEDULED 추가 — 대상은 ASSIGNED 멤버, per-member 교체(기존 로직)라 "ASSIGNED ⟺ 활성 schedule 1개"(§16-1) 불변식이 유지된다. capacity 하드 체크 그대로.
+- **해제(DELETE)는 ASSIGNING 한정 유지** — SCHEDULED 에서 해제를 허용하면 "schedule 없는 ASSIGNED" 가 생겨 §16-1 이 깨진다. 빼고 싶으면 다른 슬롯으로 옮기는 것만 가능.
+- **알림**: SCHEDULED 라운드에서의 재배정 성공 시 `INTERVIEW_UPDATED` 발행 (보존해 둔 이벤트·리스너 — §8). ASSIGNING 의 수동 배정은 기존대로 무알림(draft). dedupKey 가 `a={app}:s={slotId}` 라 A→B→A 재변경 시 두 번째 A 알림이 dedup 되는 경계는 수용 (드묾·직전 B 알림과 화면이 진실).
+- 제외·확정·취소·발송·자동배정은 SCHEDULED 불변 그대로.
+
 ## 7. 동시성
 
 - **Round 생성/멤버 추가**: application 행 `PESSIMISTIC_WRITE` 잠금 후 "placement-active 멤버십 없음"(`isActiveForPlacement`) 검증 — 두 운영진이 동시에 같은 지원자를 다른 round 에 넣는 race 차단.
@@ -214,7 +224,7 @@ isVisibleToApplicant(member)   // 지원자 노출(phase)용 — DRAFT 제외
   - 발송·재알림·**Rule 2 재초대** 모두 직전에 `round.request_sequence++`. 안 올리면 직전 발송과 dedupKey 가 같아져 재알림이 deduped 되어 소실된다. (sequence 는 round 단위 monotonic, dedupKey 에 applicationId 가 포함되어 대상자별 분리)
 - **확정 시 기존 `INTERVIEW_SCHEDULED` 재사용** (dedupKey `a={applicationId}:s={slotId}` 유지).
 - `INTERVIEW_REMINDER` + `InterviewReminderJob` 유지 — location 을 round 에서 join 하도록 수정.
-- `INTERVIEW_UPDATED` / `INTERVIEW_CANCELLED` 타입·리스너는 **보존하되 MVP 발행 경로 없음** (SCHEDULED 터미널이므로 — 다리 안 태움).
+- `INTERVIEW_UPDATED`: **BE#13 부터 발행** — SCHEDULED 라운드의 개별 재배정 성공 시 (§6.4). `INTERVIEW_CANCELLED` 는 여전히 발행 경로 없음 (확정 라운드 취소 미지원).
 
 ## 9. API 설계
 
@@ -227,12 +237,12 @@ URL 컨벤션: `/api/v1` 베이스, 리소스 중첩 + 액션 kebab-case (기존
 | 1 | `GET /leader/recruitments/{recruitmentId}/interview-round-candidates` | **기본 후보군 = 큐** (`INTERVIEW_PENDING && placement-active 멤버십 없음`). `includeUnderReview=true` 필터로 UNDER_REVIEW 포함. 정기 wizard 는 `true` 기본 전송(메인 플로우가 UNDER_REVIEW 선정), 상시 dashboard 대기열 카운트는 큐만 집계. |
 | 2 | `POST /leader/recruitments/{recruitmentId}/interview-rounds` | `{title, availabilityDeadline?, location?, applicationIds[]}` → round DRAFT + members 생성. **허용 상태: UNDER_REVIEW(→INTERVIEW_PENDING 전이), INTERVIEW_PENDING(유지). 그 외(SUBMITTED/ACCEPTED/REJECTED) 포함 시 거부.** 한 트랜잭션, application 행 PESSIMISTIC_WRITE 후 placement-active 검증. |
 | 3 | `GET /leader/recruitments/{recruitmentId}/interview-rounds` · `GET /leader/interview-rounds/{roundId}` | 목록 / 상세 dashboard (멤버별 상태, 응답·미응답·가능슬롯없음 카운트 — 미응답은 마감경과 파생, QueryDSL). |
-| 4 | `POST /leader/interview-rounds/{roundId}/slots` (일괄) · `PATCH/DELETE /leader/interview-slots/{slotId}` | 일괄생성(클라이언트가 패턴→리스트 변환, capacity 필수)·수정·삭제. **phase 가드: 슬롯 변경은 DRAFT·COLLECTING 에서만, ASSIGNING/SCHEDULED 불가** (기존 `SlotMutableFields.NONE`). **삭제: availability 참조 > 0 → 409** (기존 `canDeleteSlot` 일치). **시간변경: availability 참조 > 0 이면 불가, capacity 만 수정 가능** (기존 `CAPACITY_ONLY` port). COLLECTING && 마감 전 추가 생성 시 Rule 2 발동. |
+| 4 | `POST /leader/interview-rounds/{roundId}/slots` (일괄) · `PATCH/DELETE /leader/interview-slots/{slotId}` | 일괄생성(클라이언트가 패턴→리스트 변환, capacity 필수)·수정·삭제. **phase 가드: 슬롯 변경은 DRAFT·COLLECTING·SCHEDULED(§6.4 확정 후 재조정)에서, ASSIGNING 불가** (기존 `SlotMutableFields.NONE`). **삭제: availability 참조 > 0 → 409** (기존 `canDeleteSlot` 일치). **시간변경: availability 참조 > 0 이면 불가, capacity 만 수정 가능** (기존 `CAPACITY_ONLY` port). COLLECTING && 마감 전 추가 생성 시 Rule 2 발동. |
 | 5 | `POST /leader/interview-rounds/{roundId}/request-availability` | **발송**: `require(슬롯≥1 && 멤버≥1 && deadline≠null)` → DRAFT→COLLECTING, `request_sequence++`, INVITED 전원 알림. |
 | 6 | `POST /leader/interview-rounds/{roundId}/remind` | **재알림**: COLLECTING 한정, INVITED(미응답) 대상, `request_sequence++`. |
 | 7 | `PATCH /leader/interview-rounds/{roundId}` | title/location/deadline 수정. deadline 연장은 DRAFT·COLLECTING 에서만. |
 | 8 | `POST /leader/interview-rounds/{roundId}/auto-assign` | **허용 상태: COLLECTING, ASSIGNING.** COLLECTING → ASSIGNING 전이 후 배정 / ASSIGNING 재실행 시 기존 draft schedule soft delete 후 재생성. |
-| 9 | `PUT/DELETE /leader/interview-rounds/{roundId}/members/{memberId}/schedule` | 수동 배정·재배정(capacity 하드 체크) / 배정 해제. ASSIGNING 한정, NO_AVAILABLE_SLOT 멤버 포함 가능. |
+| 9 | `PUT/DELETE /leader/interview-rounds/{roundId}/members/{memberId}/schedule` | 수동 배정·재배정(capacity 하드 체크) — ASSIGNING + **SCHEDULED(§6.4 — ASSIGNED 멤버 교체, INTERVIEW_UPDATED 발행)** / 배정 해제는 ASSIGNING 한정. NO_AVAILABLE_SLOT 멤버 포함 가능. |
 | 10 | `POST /leader/interview-rounds/{roundId}/members/{memberId}/exclude` | EXCLUDED 전이 (즉시 대기열 복귀). |
 | 11 | `POST /leader/interview-rounds/{roundId}/confirm` | 6.3 절 계약 (`force` + 경고 2종 분리 409). |
 | 12 | `POST /leader/interview-rounds/{roundId}/cancel` | DRAFT·COLLECTING·ASSIGNING 에서만. 멤버 재큐잉 (application status 롤백 없음 — INTERVIEW_PENDING 유지). SCHEDULED 는 터미널. |
@@ -358,6 +368,7 @@ BE#9  feat(backend): 자동배정 (API 8)
 BE#10 feat(backend): 수동 배정/해제/제외 (API 9, 10)
 BE#11 feat(backend): 확정 (API 11) + 풀 시나리오 통합 테스트
 BE#12 feat(backend): 취소 + 라운드 수정 (API 7, 12)
+BE#13 feat(backend): 확정 후 일정 변경 (§6.4 — 슬롯 phase 확장 + SCHEDULED 재배정 + INTERVIEW_UPDATED)
 
 FE#1  apply 흐름 슬롯 스텝 제거 (BE#0 짝)
 FE#2  선정→슬롯→발송 wizard
@@ -384,7 +395,7 @@ FE#5  상시 대기열 dashboard + 모집 카드 단계표시
 - 범용 채용 ATS / 최적 매칭 (헝가리안 등)
 - 자동 마감연장·자동제외
 - **재면접/노쇼 처리** — SCHEDULED 터미널, 운영진이 application 합불로 직접 처리
-- 확정(SCHEDULED) 후 일정 변경·취소 — `INTERVIEW_UPDATED/CANCELLED` 발행 경로 없음 (타입은 보존)
+- ~~확정(SCHEDULED) 후 일정 변경~~ → **BE#13 에서 개별 재배정으로 지원** (§6.4). 확정 라운드 **취소**는 여전히 미지원 — `INTERVIEW_CANCELLED` 발행 경로 없음
 - `ASSIGNING → COLLECTING` 복귀
 - 운영진 대상 알림 (미응답 알림 등 — dashboard 노출로 갈음)
 - NotificationLog / InterviewRoundNotification 테이블 (`request_sequence` 로 갈음, 향후 이관 가능)
