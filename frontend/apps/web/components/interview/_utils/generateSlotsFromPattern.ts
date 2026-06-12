@@ -1,5 +1,5 @@
-// wizard 전용 슬롯 패턴 생성 유틸.
-// 구 interview/_utils/generateSlotsFromPattern 을 복제·개조 (FE#3/4 가 구 페이지 삭제 시 wizard 독립 유지).
+// 라운드 슬롯 패턴 생성 유틸 — wizard Step3 와 라운드 dashboard 슬롯 섹션이 공용.
+// 구 interview/_utils/generateSlotsFromPattern 을 복제·개조 (FE#3/4 가 구 페이지 삭제 시 독립 유지).
 // 변경점: date + startTime/endTime 시간 분리 입력 → 계산 후 슬롯 배열 반환.
 // capacity 는 필수 입력으로 개조 (스펙 §10.3).
 //

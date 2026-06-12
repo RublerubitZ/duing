@@ -165,19 +165,21 @@ describe('interviewRounds.confirm — 409 payload 보존', () => {
     }
 
     expect(caughtError).toBeInstanceOf(ApiError);
-    const apiError = caughtError as ApiError;
-    expect(apiError.status).toBe(409);
-    expect(apiError.message).toBe('미처리 멤버가 있습니다.');
+    if (!(caughtError instanceof ApiError)) {
+      throw new Error('ApiError 인스턴스가 아닙니다.');
+    }
+    expect(caughtError.status).toBe(409);
+    expect(caughtError.message).toBe('미처리 멤버가 있습니다.');
 
     // payload 보존 + 타입 가드
-    expect(isUnresolvedMembersPayload(apiError.payload)).toBe(true);
-    if (isUnresolvedMembersPayload(apiError.payload)) {
-      expect(apiError.payload.code).toBe('INTERVIEW_ROUND_HAS_UNRESOLVED_MEMBERS');
-      expect(apiError.payload.unresponded).toHaveLength(1);
-      expect(apiError.payload.respondedUnassigned).toHaveLength(1);
-      const firstUnresponded = apiError.payload.unresponded[0];
+    expect(isUnresolvedMembersPayload(caughtError.payload)).toBe(true);
+    if (isUnresolvedMembersPayload(caughtError.payload)) {
+      expect(caughtError.payload.code).toBe('INTERVIEW_ROUND_HAS_UNRESOLVED_MEMBERS');
+      expect(caughtError.payload.unresponded).toHaveLength(1);
+      expect(caughtError.payload.respondedUnassigned).toHaveLength(1);
+      const firstUnresponded = caughtError.payload.unresponded[0];
       expect(firstUnresponded?.applicantName).toBe('홍길동');
-      const firstRespondedUnassigned = apiError.payload.respondedUnassigned[0];
+      const firstRespondedUnassigned = caughtError.payload.respondedUnassigned[0];
       expect(firstRespondedUnassigned?.selectedSlotIds).toEqual([10, 11]);
     }
   });

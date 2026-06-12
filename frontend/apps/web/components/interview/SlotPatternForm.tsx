@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { generateRoundSlotsFromPattern, type RoundSlotEntry } from '../_utils/generateSlotsFromPattern';
+import { generateRoundSlotsFromPattern, type RoundSlotEntry } from './_utils/generateSlotsFromPattern';
 
-// wizard 전용 슬롯 패턴 폼 (구 SlotPatternForm 복제·개조).
+// 라운드 슬롯 패턴 폼 — wizard Step3 와 라운드 dashboard 슬롯 섹션이 공용 (구 SlotPatternForm 복제·개조).
 // 날짜 + 시작시각 + 종료시각 + 면접시간(분) + 정원 입력 → onGenerate 콜백으로 슬롯 배열 전달.
 // capacity 는 필수 입력 (스펙 §10.3 개조사항).
 

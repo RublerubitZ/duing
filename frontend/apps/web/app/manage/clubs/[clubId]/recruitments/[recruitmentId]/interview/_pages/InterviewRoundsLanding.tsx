@@ -70,8 +70,7 @@ function RoundCard({ round, clubId, recruitmentId }: RoundCardProps) {
           )}
         </div>
 
-        {/* DRAFT 카드만 [이어서 작성] 링크 제공. 비DRAFT 상세 페이지는 FE#3 예정. */}
-        {isDraft && (
+        {isDraft ? (
           <Link
             href={toRoute(
               `/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview/rounds/new`,
@@ -79,6 +78,15 @@ function RoundCard({ round, clubId, recruitmentId }: RoundCardProps) {
             className="shrink-0 rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700"
           >
             이어서 작성
+          </Link>
+        ) : (
+          <Link
+            href={toRoute(
+              `/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview/rounds/${round.roundId}`,
+            )}
+            className="shrink-0 rounded-md bg-slate-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-600"
+          >
+            현황 보기
           </Link>
         )}
       </div>

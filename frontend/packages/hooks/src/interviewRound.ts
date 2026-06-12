@@ -103,8 +103,8 @@ export function useUpdateInterviewRoundMutation(recruitmentId: number, roundId: 
 
 /**
  * 면접 라운드 취소
- * 성공 → list(recruitmentId) + candidates(recruitmentId) invalidate
- * (취소 시 멤버 대기열 복귀 — 재큐잉이므로 candidates 포함 §10.1)
+ * 성공 → detail(roundId) + list(recruitmentId) + candidates(recruitmentId) invalidate
+ * (취소 시 상태 전이가 detail 에 반영 + 멤버 대기열 복귀 — 재큐잉이므로 candidates 포함 §10.1)
  */
 export function useCancelInterviewRoundMutation(recruitmentId: number, roundId: number) {
   const client = useApiClient();
@@ -112,6 +112,9 @@ export function useCancelInterviewRoundMutation(recruitmentId: number, roundId: 
   return useMutation({
     mutationFn: () => client.interviewRounds.cancel(roundId),
     onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.detail(roundId),
+      });
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.list(recruitmentId),
       });

@@ -416,6 +416,7 @@ export type DuingApiClient = {
     confirm(roundId: number, force: boolean): Promise<RoundConfirmResult>;
     // === 재알림 발송 (BE#11) ===
     // POST /leader/interview-rounds/{roundId}/remind
+    // 발송과 동일 응답 형태 (notifiedMemberCount)
     remind(roundId: number): Promise<AvailabilityRequestResult>;
     // === 슬롯 수정 (BE#11) ===
     // PATCH /leader/interview-slots/{slotId}

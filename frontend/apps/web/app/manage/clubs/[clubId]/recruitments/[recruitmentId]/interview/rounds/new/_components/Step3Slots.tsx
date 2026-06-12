@@ -7,8 +7,8 @@ import {
   useDeleteRoundSlotMutation,
 } from '@duing/hooks';
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
-import type { RoundSlotEntry } from '../_utils/generateSlotsFromPattern';
-import { SlotPatternForm } from './SlotPatternForm';
+import { SlotPatternForm } from '@/components/interview/SlotPatternForm';
+import type { RoundSlotEntry } from '@/components/interview/_utils/generateSlotsFromPattern';
 
 // Step3: 슬롯 등록
 // SlotPatternForm(패턴 입력) → useCreateRoundSlotsMutation → detailQuery.data.slots 표시.

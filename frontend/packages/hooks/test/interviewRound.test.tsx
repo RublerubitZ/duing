@@ -74,7 +74,7 @@ describe('useCreateInterviewRoundMutation (스펙 §10.1)', () => {
 });
 
 describe('useCancelInterviewRoundMutation (스펙 §10.1 — 재큐잉)', () => {
-  it('성공 시 list + candidates queryKey 가 invalidate 된다', async () => {
+  it('성공 시 detail + list + candidates queryKey 가 invalidate 된다', async () => {
     const queryClient = newQueryClient();
     server.use(
       http.post('*/leader/interview-rounds/42/cancel', () =>
@@ -84,7 +84,7 @@ describe('useCancelInterviewRoundMutation (스펙 §10.1 — 재큐잉)', () => 
 
     queryClient.setQueryData(interviewRoundKeys.list(10), []);
     queryClient.setQueryData(interviewRoundKeys.candidates(10), []);
-    // 비대상 — detail 은 cancel 에서 invalidate 안 됨
+    // 취소된 라운드 dashboard 가 stale 상태로 남지 않도록 detail 도 invalidate 대상
     queryClient.setQueryData(interviewRoundKeys.detail(42), null);
 
     const { result } = renderHook(() => useCancelInterviewRoundMutation(10, 42), {
@@ -95,8 +95,7 @@ describe('useCancelInterviewRoundMutation (스펙 §10.1 — 재큐잉)', () => 
 
     expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(true);
-    // 비대상: detail 은 cancel 단계에서 invalidate 안 함
-    expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(true);
   });
 });
 

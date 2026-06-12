@@ -195,19 +195,14 @@ export type UnresolvedMembersPayload = {
 /**
  * 확정 409 payload 타입 가드.
  * ApiError.payload 가 UnresolvedMembersPayload 인지 code 리터럴 + 배열 존재로 판별한다.
- * `as` 단언 없이 unknown 을 좁힌다.
+ * `as` 단언 없이 `in` 연산자 narrowing 으로 unknown 을 좁힌다.
  */
 export function isUnresolvedMembersPayload(value: unknown): value is UnresolvedMembersPayload {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'code' in value &&
-    (value as Record<string, unknown>)['code'] === 'INTERVIEW_ROUND_HAS_UNRESOLVED_MEMBERS' &&
-    'unresponded' in value &&
-    Array.isArray((value as Record<string, unknown>)['unresponded']) &&
-    'respondedUnassigned' in value &&
-    Array.isArray((value as Record<string, unknown>)['respondedUnassigned'])
-  );
+  if (typeof value !== 'object' || value === null) return false;
+  if (!('code' in value) || value.code !== 'INTERVIEW_ROUND_HAS_UNRESOLVED_MEMBERS') return false;
+  if (!('unresponded' in value) || !Array.isArray(value.unresponded)) return false;
+  if (!('respondedUnassigned' in value) || !Array.isArray(value.respondedUnassigned)) return false;
+  return true;
 }
 
 // = UpdateInterviewSlotRequest (BE#11 slot — controller/dto/request/UpdateInterviewSlotRequest.java)
