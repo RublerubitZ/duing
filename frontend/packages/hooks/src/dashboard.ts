@@ -3,16 +3,13 @@ import { useQuery, useQueries } from '@tanstack/react-query';
 import type {
   ActionItem,
   ApplicantStatusTotals,
-  ClubEventCard,
-  InterviewRoundDetail,
   InterviewRoundSummary,
   RecruitmentSummary,
-  StatsSummary,
   TodayScheduleItem,
 } from '@duing/types';
 import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
-import { recruitmentQueryKeys } from './recruitmentQueryKeys';
+import { statsQueryKeys } from './statsQueryKeys';
 import { interviewRoundKeys } from './interviewRoundQueryKeys';
 import { dashboardQueryKeys } from './dashboardQueryKeys';
 import { isTodayKst, todayKstDateString } from './dashboardDate';
@@ -60,22 +57,22 @@ export function useApplicantSummary(clubId: number | undefined): {
 
   const statsQueries = useQueries({
     queries: ids.map((recruitmentId) => ({
-      queryKey: recruitmentQueryKeys.statsSummary(recruitmentId),
+      queryKey: statsQueryKeys.summary(recruitmentId),
       queryFn: () => client.stats.summary(recruitmentId),
       ...DASHBOARD_QUERY_OPTIONS,
     })),
+    combine: (results) => ({
+      totals: aggregateApplicantTotals(results.map((q) => q.data)),
+      someLoading: results.some((q) => q.isLoading),
+      someError: results.some((q) => q.isError),
+      length: results.length,
+    }),
   });
 
-  const totals = useMemo(
-    () => aggregateApplicantTotals(statsQueries.map((q) => q.data as StatsSummary | undefined)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [statsQueries],
-  );
-
   return {
-    totals,
-    isLoading: recruitments.isLoading || statsQueries.some((q) => q.isLoading),
-    isError: recruitments.isError || statsQueries.some((q) => q.isError),
+    totals: statsQueries.totals,
+    isLoading: recruitments.isLoading || (ids.length > 0 && statsQueries.length === 0) || statsQueries.someLoading,
+    isError: recruitments.isError || statsQueries.someError,
   };
 }
 
@@ -94,10 +91,16 @@ export function useClubActionItems(clubId: number | undefined): {
 
   const statsQueries = useQueries({
     queries: ids.map((recruitmentId) => ({
-      queryKey: recruitmentQueryKeys.statsSummary(recruitmentId),
+      queryKey: statsQueryKeys.summary(recruitmentId),
       queryFn: () => client.stats.summary(recruitmentId),
       ...DASHBOARD_QUERY_OPTIONS,
     })),
+    combine: (results) => ({
+      data: results.map((q) => q.data),
+      someLoading: results.some((q) => q.isLoading),
+      someError: results.some((q) => q.isError),
+      length: results.length,
+    }),
   });
 
   const roundsQueries = useQueries({
@@ -106,23 +109,34 @@ export function useClubActionItems(clubId: number | undefined): {
       queryFn: () => client.interviewRounds.list(recruitmentId),
       ...DASHBOARD_QUERY_OPTIONS,
     })),
+    combine: (results) => ({
+      data: results.map((q) => q.data),
+      someLoading: results.some((q) => q.isLoading),
+      someError: results.some((q) => q.isError),
+      length: results.length,
+    }),
   });
 
   const items = useMemo(() => {
     const inputs: RecruitmentDashboardInput[] = list.map((recruitment, index) => ({
       recruitment,
-      stats: statsQueries[index]?.data as StatsSummary | undefined,
-      rounds: roundsQueries[index]?.data as InterviewRoundSummary[] | undefined,
+      stats: statsQueries.data[index],
+      rounds: roundsQueries.data[index],
     }));
     return sortActionItems(buildActionItems(inputs, new Date()));
-  }, [list, statsQueries, roundsQueries]);
+  }, [list, statsQueries.data, roundsQueries.data]);
 
   return {
     items,
     preview: items.slice(0, ACTION_ITEM_PREVIEW_COUNT),
     totalCount: items.length,
-    isLoading: recruitments.isLoading || statsQueries.some((q) => q.isLoading) || roundsQueries.some((q) => q.isLoading),
-    isError: recruitments.isError || statsQueries.some((q) => q.isError) || roundsQueries.some((q) => q.isError),
+    isLoading:
+      recruitments.isLoading ||
+      (ids.length > 0 && statsQueries.length === 0) ||
+      statsQueries.someLoading ||
+      (ids.length > 0 && roundsQueries.length === 0) ||
+      roundsQueries.someLoading,
+    isError: recruitments.isError || statsQueries.someError || roundsQueries.someError,
   };
 }
 
@@ -139,31 +153,47 @@ export function useTodaySchedule(clubId: number | undefined): {
   const recruitments = useActiveRecruitments(clubId);
   const recruitmentIds = (recruitments.data ?? []).map((r) => r.id);
 
-  const roundsQueries = useQueries({
+  // combine으로 SCHEDULED 라운드 ID와 round→recruitment 메타를 직접 추출한다.
+  const roundsResult = useQueries({
     queries: recruitmentIds.map((recruitmentId) => ({
       queryKey: interviewRoundKeys.list(recruitmentId),
       queryFn: () => client.interviewRounds.list(recruitmentId),
       ...DASHBOARD_QUERY_OPTIONS,
     })),
+    combine: (results) => {
+      const scheduledRoundIds: number[] = [];
+      const roundMeta = new Map<number, { recruitmentId: number; title: string }>();
+      results.forEach((result, index) => {
+        const rounds: InterviewRoundSummary[] = result.data ?? [];
+        const recruitmentId = recruitmentIds[index];
+        if (recruitmentId === undefined) return;
+        for (const round of rounds) {
+          roundMeta.set(round.roundId, { recruitmentId, title: round.title });
+          if (round.status === 'SCHEDULED') scheduledRoundIds.push(round.roundId);
+        }
+      });
+      return {
+        scheduledRoundIds,
+        roundMeta,
+        someLoading: results.some((q) => q.isLoading),
+        someError: results.some((q) => q.isError),
+        length: results.length,
+      };
+    },
   });
 
-  const scheduledRoundIds = useMemo(() => {
-    const ids: number[] = [];
-    for (const query of roundsQueries) {
-      for (const round of (query.data as InterviewRoundSummary[] | undefined) ?? []) {
-        if (round.status === 'SCHEDULED') ids.push(round.roundId);
-      }
-    }
-    return ids;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roundsQueries]);
-
   const detailQueries = useQueries({
-    queries: scheduledRoundIds.map((roundId) => ({
+    queries: roundsResult.scheduledRoundIds.map((roundId) => ({
       queryKey: interviewRoundKeys.detail(roundId),
       queryFn: () => client.interviewRounds.detail(roundId),
       ...DASHBOARD_QUERY_OPTIONS,
     })),
+    combine: (results) => ({
+      details: results.map((q) => q.data),
+      someLoading: results.some((q) => q.isLoading),
+      someError: results.some((q) => q.isError),
+      length: results.length,
+    }),
   });
 
   const eventsQuery = useQuery({
@@ -176,23 +206,13 @@ export function useTodaySchedule(clubId: number | undefined): {
     ...DASHBOARD_QUERY_OPTIONS,
   });
 
-  // SCHEDULED 라운드 상세에서 오늘·배정된 슬롯 → 면접 아이템 매핑을 위해
-  // 라운드 메타(recruitmentId)가 필요하므로 round→recruitment 매핑을 만든다.
-  const roundMeta = useMemo(() => {
-    const map = new Map<number, { recruitmentId: number; title: string }>();
-    recruitmentIds.forEach((recruitmentId, index) => {
-      for (const round of (roundsQueries[index]?.data as InterviewRoundSummary[] | undefined) ?? []) {
-        map.set(round.roundId, { recruitmentId, title: round.title });
-      }
-    });
-    return map;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recruitmentIds, roundsQueries]);
+  const roundMeta = roundsResult.roundMeta;
+  const details = detailQueries.details;
+  const eventsData = eventsQuery.data;
 
   const items = useMemo(() => {
     const interviewItems: TodayScheduleItem[] = [];
-    for (const query of detailQueries) {
-      const detail = query.data as InterviewRoundDetail | undefined;
+    for (const detail of details) {
       if (!detail) continue;
       const meta = roundMeta.get(detail.roundId);
       for (const slot of detail.slots) {
@@ -210,7 +230,7 @@ export function useTodaySchedule(clubId: number | undefined): {
       }
     }
 
-    const eventItems: TodayScheduleItem[] = ((eventsQuery.data as ClubEventCard[] | undefined) ?? [])
+    const eventItems: TodayScheduleItem[] = (eventsData ?? [])
       .filter((event) => isTodayKst(event.startAt, now))
       .map((event) => ({
         kind: 'EVENT',
@@ -222,13 +242,18 @@ export function useTodaySchedule(clubId: number | undefined): {
       }));
 
     return sortTodaySchedule([...interviewItems, ...eventItems]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailQueries, eventsQuery.data, roundMeta]);
+  }, [details, eventsData, roundMeta, now]);
 
   return {
     items,
-    isLoading: recruitments.isLoading || roundsQueries.some((q) => q.isLoading) || detailQueries.some((q) => q.isLoading) || eventsQuery.isLoading,
-    isError: recruitments.isError || roundsQueries.some((q) => q.isError) || detailQueries.some((q) => q.isError) || eventsQuery.isError,
+    isLoading:
+      recruitments.isLoading ||
+      (recruitmentIds.length > 0 && roundsResult.length === 0) ||
+      roundsResult.someLoading ||
+      (roundsResult.scheduledRoundIds.length > 0 && detailQueries.length === 0) ||
+      detailQueries.someLoading ||
+      eventsQuery.isLoading,
+    isError: recruitments.isError || roundsResult.someError || detailQueries.someError || eventsQuery.isError,
   };
 }
 
@@ -253,7 +278,7 @@ export function useClubFeedCounts(clubId: number | undefined): {
   });
 
   const eventsQuery = useQuery({
-    queryKey: enabled ? [...dashboardQueryKeys.all, clubId, 'event-count'] : ['dashboard', undefined, 'event-count'],
+    queryKey: enabled ? dashboardQueryKeys.eventCount(clubId) : ['dashboard', undefined, 'event-count'],
     queryFn: () => {
       if (clubId === undefined) throw new Error('clubId is required');
       return client.clubEvents.list(clubId);

@@ -49,4 +49,20 @@ describe('useClubActionItems', () => {
     // 기한 없음 → 타입 우선순위로 미확정 라운드가 먼저
     expect(result.current.preview[0]?.type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
   });
+
+  it('모집이 모두 CLOSED이면 액션 아이템 없음', async () => {
+    server.use(
+      http.get('*/clubs/10/recruitments', () =>
+        HttpResponse.json({ ok: true, message: null, data: [
+          { id: 1, clubId: 10, clubName: '두잉', title: '봄 모집', startDate: '2026-06-01', endDate: '2026-06-30',
+            capacity: 20, status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: false,
+            applicationMode: 'INTERNAL', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' },
+        ] }),
+      ),
+    );
+    const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalCount).toBe(0);
+    expect(result.current.preview.length).toBe(0);
+  });
 });

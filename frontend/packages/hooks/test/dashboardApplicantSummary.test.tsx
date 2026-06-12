@@ -47,4 +47,10 @@ describe('useApplicantSummary', () => {
     expect(result.current.totals.submitted).toBe(3);
     expect(result.current.totals.interviewPending).toBe(2);
   });
+
+  it('clubId가 undefined이면 합계 0이고 로딩 false', () => {
+    const { result } = renderHook(() => useApplicantSummary(undefined), { wrapper: makeWrapper(newQueryClient()) });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.totals.total).toBe(0);
+  });
 });

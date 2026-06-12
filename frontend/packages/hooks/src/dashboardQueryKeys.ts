@@ -5,4 +5,5 @@ export const dashboardQueryKeys = {
   feedCounts: (clubId: number) => [...dashboardQueryKeys.all, clubId, 'feed-counts'] as const,
   todayEvents: (clubId: number, day: string) =>
     [...dashboardQueryKeys.all, clubId, 'today-events', day] as const,
+  eventCount: (clubId: number) => [...dashboardQueryKeys.all, clubId, 'event-count'] as const,
 };

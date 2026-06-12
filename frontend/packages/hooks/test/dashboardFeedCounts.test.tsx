@@ -37,4 +37,11 @@ describe('useClubFeedCounts', () => {
     expect(result.current.noticeCount).toBe(7);
     expect(result.current.eventCount).toBe(2);
   });
+
+  it('clubId가 undefined이면 카운트 0이고 로딩 false', () => {
+    const { result } = renderHook(() => useClubFeedCounts(undefined), { wrapper: makeWrapper(newQueryClient()) });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.noticeCount).toBe(0);
+    expect(result.current.eventCount).toBe(0);
+  });
 });
