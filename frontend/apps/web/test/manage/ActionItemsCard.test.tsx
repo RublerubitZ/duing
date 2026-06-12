@@ -23,6 +23,18 @@ describe('ActionItemsCard', () => {
     expect(screen.getByText('검토 대기 지원자')).toBeInTheDocument();
   });
 
+  it('면접 라운드 생성 필요 항목은 라벨과 면접 라운드 화면 딥링크를 렌더한다', () => {
+    const items: ActionItem[] = [
+      { type: 'INTERVIEW_ROUND_NEEDED', recruitmentId: 1, recruitmentTitle: '봄 모집', count: 2 },
+    ];
+    mockUse.mockReturnValue({ items, preview: items, totalCount: 1, isLoading: false, isError: false });
+    render(<ActionItemsCard clubId={10} />);
+    const label = screen.getByText('면접 라운드 생성 필요');
+    expect(label).toBeInTheDocument();
+    const link = label.closest('a');
+    expect(link).toHaveAttribute('href', '/manage/clubs/10/recruitments/1/interview');
+  });
+
   it('업무가 없으면 Empty State', () => {
     mockUse.mockReturnValue({ items: [], preview: [], totalCount: 0, isLoading: false, isError: false });
     render(<ActionItemsCard clubId={10} />);

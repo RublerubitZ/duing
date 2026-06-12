@@ -9,6 +9,9 @@ import { ACTION_ITEM_TYPE_LABEL } from './dashboard-labels';
 
 function hrefFor(clubId: number, item: ActionItem): `/${string}` {
   switch (item.type) {
+    case 'INTERVIEW_ROUND_NEEDED':
+      // 대기열·라운드 생성 버튼이 있는 면접 라운드 랜딩으로 이동
+      return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview`;
     case 'INTERVIEW_ROUND_UNCONFIRMED':
     case 'INTERVIEW_RESPONSE_UNCOLLECTED':
       if (item.roundId === undefined) {
