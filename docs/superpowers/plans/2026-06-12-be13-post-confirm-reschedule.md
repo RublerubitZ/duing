@@ -38,11 +38,11 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] `git checkout develop && git pull origin develop && git checkout -b feat/post-confirm-reschedule`
+- [x] `git checkout develop && git pull origin develop && git checkout -b feat/post-confirm-reschedule`
 
 ### Task 2: 통합 테스트 (RED)
 
-- [ ] **Step 1**: `LeaderInterviewRescheduleControllerTest` (TestSupport 상속, 기존 헬퍼 패턴 — saveRound(SCHEDULED)·saveSlot·saveMember(ASSIGNED)+schedule):
+- [x] **Step 1**: `LeaderInterviewRescheduleControllerTest` (TestSupport 상속, 기존 헬퍼 패턴 — saveRound(SCHEDULED)·saveSlot·saveMember(ASSIGNED)+schedule):
 
 1. `확정된 라운드에 새 슬롯을 추가할 수 있다` (201)
 2. `확정된 라운드에서 슬롯을 추가해도 가능없음 멤버가 재초대되지 않는다` (NO_AVAILABLE_SLOT 멤버 상태 불변 + 알림 부재)
@@ -55,22 +55,22 @@
 9. `확정된 라운드에서 멤버 제외는 여전히 불가하다` (409 — 터미널 의미 유지)
 10. `같은 슬롯으로 다시 옮기는 멱등 재배정도 성공한다` (만석 본인 멱등 — BE#10 전례, SCHEDULED 에서)
 
-- [ ] **Step 2**: RED 확인 (1·3·4·6·10 FAIL — 현 가드가 409). 기존 슬롯·운영 테스트 중 "ASSIGNING/SCHEDULED 불가" 류 단언 grep — §6.4 와 충돌하는 단언만 보정 목록화. **커밋 금지.**
+- [x] **Step 2**: RED 확인 (1·3·4·6·10 FAIL — 현 가드가 409). 기존 슬롯·운영 테스트 중 "ASSIGNING/SCHEDULED 불가" 류 단언 grep — §6.4 와 충돌하는 단언만 보정 목록화. **커밋 금지.**
 
 ### Task 3: 구현 (GREEN)
 
-- [ ] **Step 1**: `GeneralInterviewSlotService` — phase 집합에 SCHEDULED 추가 (`requireSlotChangeablePhase` 또는 해당 가드 — 기존 구조가 정답), Rule 2 호출부가 COLLECTING 조건인지 확인(아니면 조건 명시), BE#9 의 "도달 불가" 주석 현행화 (§6.4 로 도달 가능해짐).
-- [ ] **Step 2**: `GeneralInterviewAssignmentService.assignSchedule` — 가드를 `{ASSIGNING, SCHEDULED}.contains(...)` 로, 메서드 끝에서 `if (round.getStatus() == RoundStatus.SCHEDULED) publishEvent(new InterviewUpdatedEvent(...))` (eventPublisher 기존 주입 — BE#11). Javadoc·Api description 갱신.
-- [ ] **Step 3**: Task 2 Step 2 의 충돌 단언 보정 (의미 무변경 원칙 — 새 정책 반영만). GREEN 10건 + 전체 `./gradlew test` (872+10−보정 예상).
-- [ ] **Step 4**: 커밋.
+- [x] **Step 1**: `GeneralInterviewSlotService` — phase 집합에 SCHEDULED 추가 (`requireSlotChangeablePhase` 또는 해당 가드 — 기존 구조가 정답), Rule 2 호출부가 COLLECTING 조건인지 확인(아니면 조건 명시), BE#9 의 "도달 불가" 주석 현행화 (§6.4 로 도달 가능해짐).
+- [x] **Step 2**: `GeneralInterviewAssignmentService.assignSchedule` — 가드를 `{ASSIGNING, SCHEDULED}.contains(...)` 로, 메서드 끝에서 `if (round.getStatus() == RoundStatus.SCHEDULED) publishEvent(new InterviewUpdatedEvent(...))` (eventPublisher 기존 주입 — BE#11). Javadoc·Api description 갱신.
+- [x] **Step 3**: Task 2 Step 2 의 충돌 단언 보정 (의미 무변경 원칙 — 새 정책 반영만). GREEN 10건 + 전체 `./gradlew test` (872+10−보정 예상).
+- [x] **Step 4**: 커밋.
 
 ### Task 4: 전체 검증
 
-- [ ] self-check 7항목 (체크박스 마킹·EOF·금지 라인 — repo 루트).
+- [x] self-check 7항목 (체크박스 마킹·EOF·금지 라인 — repo 루트).
 
 ### Task 5: push + PR (컨트롤러 수행 — 구현 subagent 금지, 머지 금지)
 
-- [ ] PR `feat(backend): 확정 후 일정 변경 — SCHEDULED 재조정 + 변경 알림` — 본문: 🚀(운영진 사정 변경 구제 — 신규 엔드포인트 0, phase 확장 2곳+알림 발행, 터미널 의미 유지) / 🤔(해제 불허 근거 §16-1·Rule 2 미발동·A→B→A dedup 수용·제외 불변) / 💬(phase 집합 경계·알림 발행 조건). 스펙 §6.4 링크.
+- [x] PR `feat(backend): 확정 후 일정 변경 — SCHEDULED 재조정 + 변경 알림` — 본문: 🚀(운영진 사정 변경 구제 — 신규 엔드포인트 0, phase 확장 2곳+알림 발행, 터미널 의미 유지) / 🤔(해제 불허 근거 §16-1·Rule 2 미발동·A→B→A dedup 수용·제외 불변) / 💬(phase 집합 경계·알림 발행 조건). 스펙 §6.4 링크.
 
 ---
 
