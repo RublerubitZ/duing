@@ -153,6 +153,11 @@ public class InterviewException extends ApplicationException {
         public SlotHasAvailability() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
 
+    public static final class SlotHasAssignments extends InterviewException {
+        private static final String MESSAGE = "배정된 면접이 있는 슬롯입니다.";
+        public SlotHasAssignments() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
     public static final class SlotTimeChangeForbiddenForSelectedSlot extends InterviewException {
         private static final String MESSAGE = "지원자가 선택한 슬롯의 시간은 변경할 수 없습니다. 정원만 변경할 수 있습니다.";
         public SlotTimeChangeForbiddenForSelectedSlot() { super(MESSAGE, HttpStatus.CONFLICT); }

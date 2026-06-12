@@ -167,7 +167,7 @@ class LeaderInterviewSlotControllerTest extends InterviewControllerTestSupport {
     }
 
     @Test
-    @DisplayName("배정 검토(ASSIGNING) 이후 단계에서는 슬롯을 생성할 수 없다")
+    @DisplayName("배정 검토(ASSIGNING) 단계에서는 슬롯을 생성할 수 없다")
     void slotCreationIsBlockedAfterCollecting() {
         InterviewRound round = saveRound(RoundStatus.ASSIGNING, LocalDateTime.now().minusDays(1));
 
@@ -280,8 +280,8 @@ class LeaderInterviewSlotControllerTest extends InterviewControllerTestSupport {
     }
 
     @Test
-    @DisplayName("일정 확정(SCHEDULED) 라운드의 슬롯은 수정할 수 없다")
-    void scheduledRoundSlotCannotBeModified() {
+    @DisplayName("일정 확정(SCHEDULED) 라운드의 슬롯은 정원을 수정할 수 있다 — §6.4 확정 후 재조정")
+    void scheduledRoundSlotCapacityCanBeModified() {
         InterviewRound round = saveRound(RoundStatus.SCHEDULED, LocalDateTime.now().minusDays(1));
         InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00");
 
@@ -290,7 +290,9 @@ class LeaderInterviewSlotControllerTest extends InterviewControllerTestSupport {
                 .contentType(ContentType.JSON)
                 .body(Map.of("capacity", 5))
                 .when().patch(SLOT_PATH, slot.getId())
-                .then().statusCode(HttpStatus.CONFLICT.value());
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(interviewSlotRepository.findById(slot.getId()).orElseThrow().getCapacity()).isEqualTo(5);
     }
 
     @Test

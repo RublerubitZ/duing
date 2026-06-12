@@ -9,6 +9,7 @@ import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.event.InterviewScheduledEvent;
+import com.duing.domain.interview.event.InterviewUpdatedEvent;
 import com.duing.domain.interview.exception.InterviewException;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
@@ -40,6 +41,11 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
 
     private static final Set<RoundStatus> EXCLUDABLE_ROUND_STATUSES =
             Set.of(RoundStatus.DRAFT, RoundStatus.COLLECTING, RoundStatus.ASSIGNING);
+
+    // §6.4 — ASSIGNING(draft 수동 배정)·SCHEDULED(확정 후 개별 재배정) 허용.
+    // CANCELLED 는 집합에 없으므로 종결 상태가 새지 않는다.
+    private static final Set<RoundStatus> ASSIGNABLE_ROUND_STATUSES =
+            Set.of(RoundStatus.ASSIGNING, RoundStatus.SCHEDULED);
 
     private final InterviewRoundRepository interviewRoundRepository;
     private final InterviewRoundMemberRepository interviewRoundMemberRepository;
@@ -114,7 +120,8 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
         interviewRoundAccessor.requireManager(round, currentUserId);
-        if (round.getStatus() != RoundStatus.ASSIGNING) {
+        // SCHEDULED 재배정 성공 시 INTERVIEW_UPDATED 알림 발행 (메서드 마지막).
+        if (!ASSIGNABLE_ROUND_STATUSES.contains(round.getStatus())) {
             throw new InterviewException.RoundTransitionNotAllowed();
         }
 
@@ -134,6 +141,14 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         }
         interviewScheduleRepository.save(InterviewSchedule.create(
                 member.getApplicationId(), slotId, roundId, LocalDateTime.now(clock)));
+
+        // SCHEDULED 재배정 — 확정 완료된 지원자에게 변경 알림 발행 (§6.4·§8).
+        // ASSIGNING 의 수동 배정은 draft 단계이므로 알림을 보내지 않는다.
+        // AFTER_COMMIT 리스너가 처리하므로 롤백 시 알림은 발송되지 않는다 (BE#11 전례).
+        if (round.getStatus() == RoundStatus.SCHEDULED) {
+            eventPublisher.publishEvent(new InterviewUpdatedEvent(
+                    member.getApplicationId(), slotId, round.getRecruitmentId()));
+        }
     }
 
     @Override
