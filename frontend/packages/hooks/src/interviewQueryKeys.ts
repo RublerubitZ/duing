@@ -10,8 +10,4 @@ export const interviewQueryKeys = {
     [...interviewQueryKeys.all, 'candidates', recruitmentId] as const,
   applicantSlots: (recruitmentId: number) =>
     [...interviewQueryKeys.all, 'applicant-slots', recruitmentId] as const,
-  availabilities: (applicationId: number) =>
-    [...interviewQueryKeys.all, 'availabilities', applicationId] as const,
-  mySchedule: (applicationId: number) =>
-    [...interviewQueryKeys.all, 'my-schedule', applicationId] as const,
 };

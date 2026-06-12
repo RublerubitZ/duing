@@ -1,15 +1,22 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { ApplicantInterviewSlot } from '@duing/types';
 import { ApplicantSlotItem } from './ApplicantSlotItem';
 import { parseLocalDateTime } from './_utils/localDateTime';
 
 // 지원자/지원자(편집) 화면에서 슬롯을 날짜별 그룹 + chip 그리드로 보여주는 공용 picker.
-// 같은 컴포넌트를 ApplyInterviewSlotsStep(PR-FE4) 과 EditAvailabilityModal(PR-FE5) 에서 재사용한다.
+// ApplicantInterviewSlot(구 타입: capacity 포함, openapi generated optional)·
+// ApplicantInterviewSelectableSlot(신 타입: selected 포함, required) 를 모두 수용하도록
+// 공통 최소 구조를 props 로 선언한다. openapi-generated 타입과의 호환을 위해 optional 허용.
+
+type SlotItem = {
+  slotId?: number;
+  startTime?: string;
+  endTime?: string;
+};
 
 type Props = {
-  slots: ApplicantInterviewSlot[];
+  slots: SlotItem[];
   selectedSlotIds: number[];
   onChange: (next: number[]) => void;
   disabled?: boolean;
@@ -19,7 +26,7 @@ type Props = {
 type DateGroup = {
   dateKey: string;
   label: string;
-  slots: ApplicantInterviewSlot[];
+  slots: SlotItem[];
 };
 
 function formatDateLabel(dateKey: string): string {
@@ -40,7 +47,7 @@ export function SlotPickerByDateGroup({
   minSelected = 1,
 }: Props) {
   const groups = useMemo<DateGroup[]>(() => {
-    const map = new Map<string, ApplicantInterviewSlot[]>();
+    const map = new Map<string, SlotItem[]>();
     for (const slot of slots) {
       if (!slot.startTime) continue;
       const dateKey = slot.startTime.slice(0, 10);
@@ -111,7 +118,6 @@ export function SlotPickerByDateGroup({
                       slotId,
                       startTime: slot.startTime ?? '',
                       endTime: slot.endTime ?? '',
-                      capacity: slot.capacity ?? 0,
                     }}
                     selected={selectedSet.has(slotId)}
                     onToggle={handleToggle}

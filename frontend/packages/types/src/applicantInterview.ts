@@ -32,7 +32,7 @@ export type ApplicantInterviewSelectableSlot = {
 export type ApplicantInterviewScheduled = {
   startTime: string;
   endTime: string;
-  location: string;
+  location: string | null;
 };
 
 // = ApplicantInterviewResponse (BE#7)

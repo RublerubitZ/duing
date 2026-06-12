@@ -55,30 +55,6 @@ export function useMatchingCandidatesQuery(
   });
 }
 
-export function useApplicantInterviewSlotsQuery(recruitmentId: number) {
-  const client = useApiClient();
-  return useQuery({
-    queryKey: interviewQueryKeys.applicantSlots(recruitmentId),
-    queryFn: () => client.interviews.applicantSlots(recruitmentId),
-  });
-}
-
-export function useInterviewAvailabilitiesQuery(applicationId: number) {
-  const client = useApiClient();
-  return useQuery({
-    queryKey: interviewQueryKeys.availabilities(applicationId),
-    queryFn: () => client.interviews.getAvailabilities(applicationId),
-  });
-}
-
-export function useMyInterviewScheduleQuery(applicationId: number) {
-  const client = useApiClient();
-  return useQuery({
-    queryKey: interviewQueryKeys.mySchedule(applicationId),
-    queryFn: () => client.interviews.mySchedule(applicationId),
-  });
-}
-
 // =====================================================================
 // Mutations — invalidation matrix (spec §6 + P0 FE foundation)
 //   createConfig / updateConfig  → config
@@ -296,27 +272,3 @@ export function useCancelInterviewScheduleMutation(recruitmentId: number) {
   });
 }
 
-export function useUpdateInterviewAvailabilitiesMutation(applicationId: number) {
-  const client = useApiClient();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: { slotIds: number[] }) =>
-      client.interviews.updateAvailabilities(applicationId, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: interviewQueryKeys.mySchedule(applicationId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: interviewQueryKeys.availabilities(applicationId),
-      });
-      // 운영진 ApplicantDetail.interviewAvailabilities 갱신.
-      queryClient.invalidateQueries({
-        queryKey: applicationQueryKeys.applicantDetail(applicationId),
-      });
-      // 지원자 stepper (MyApplicationDetail.interviewAvailabilityCount) 갱신.
-      queryClient.invalidateQueries({
-        queryKey: applicationQueryKeys.myDetail(applicationId),
-      });
-    },
-  });
-}

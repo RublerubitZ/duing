@@ -14,7 +14,6 @@ import {
   useAutoAssignMutation,
   useAssignInterviewScheduleMutation,
   useCancelInterviewScheduleMutation,
-  useUpdateInterviewAvailabilitiesMutation,
 } from '../src/interview';
 
 const server = setupServer();
@@ -201,31 +200,3 @@ describe('useCancelInterviewScheduleMutation (spec §6)', () => {
   });
 });
 
-describe('useUpdateInterviewAvailabilitiesMutation (spec §6)', () => {
-  it('성공 시 mySchedule + availabilities + applicantDetail + myDetail 가 invalidate 된다', async () => {
-    const queryClient = newQueryClient();
-    server.use(
-      http.put('*/applications/55/interview-availabilities', () =>
-        HttpResponse.json({ ok: true, data: null, message: null }),
-      ),
-    );
-
-    queryClient.setQueryData(interviewQueryKeys.mySchedule(55), null);
-    queryClient.setQueryData(interviewQueryKeys.availabilities(55), { slotIds: [] });
-    // ApplicantDetail.interviewAvailabilities / MyApplicationDetail.interviewAvailabilityCount
-    // 가 동시에 변하므로 두 detail query 도 함께 invalidate 되어야 한다.
-    queryClient.setQueryData(applicationQueryKeys.applicantDetail(55), null);
-    queryClient.setQueryData(applicationQueryKeys.myDetail(55), null);
-
-    const { result } = renderHook(() => useUpdateInterviewAvailabilitiesMutation(55), {
-      wrapper: makeWrapper(queryClient),
-    });
-    result.current.mutate({ slotIds: [1, 2] });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-    expect(queryClient.getQueryState(interviewQueryKeys.mySchedule(55))?.isInvalidated).toBe(true);
-    expect(queryClient.getQueryState(interviewQueryKeys.availabilities(55))?.isInvalidated).toBe(true);
-    expect(queryClient.getQueryState(applicationQueryKeys.applicantDetail(55))?.isInvalidated).toBe(true);
-    expect(queryClient.getQueryState(applicationQueryKeys.myDetail(55))?.isInvalidated).toBe(true);
-  });
-});

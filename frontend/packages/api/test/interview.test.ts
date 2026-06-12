@@ -11,57 +11,6 @@ afterAll(() => server.close());
 
 const client = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
-describe('interviews.mySchedule (A2)', () => {
-  it('assigned=false 응답을 discriminated union 으로 narrow 한다', async () => {
-    server.use(
-      http.get('*/applications/100/interview-schedule', () =>
-        HttpResponse.json({
-          ok: true,
-          data: { assigned: false },
-          message: null,
-        }),
-      ),
-    );
-
-    const result = await client.interviews.mySchedule(100);
-    expect(result.assigned).toBe(false);
-    if (!result.assigned) {
-      expect(result.schedule).toBeNull();
-      expect(result.location).toBeNull();
-    }
-  });
-
-  it('assigned=true 응답을 discriminated union 으로 narrow 한다', async () => {
-    server.use(
-      http.get('*/applications/100/interview-schedule', () =>
-        HttpResponse.json({
-          ok: true,
-          data: {
-            assigned: true,
-            schedule: {
-              scheduleId: 1,
-              slotId: 1,
-              startTime: '2026-06-18T14:00:00Z',
-              endTime: '2026-06-18T14:30:00Z',
-              status: 'ASSIGNED',
-              assignedAt: '2026-06-18T13:00:00Z',
-            },
-            location: '공학관 2201호',
-          },
-          message: null,
-        }),
-      ),
-    );
-
-    const result = await client.interviews.mySchedule(100);
-    expect(result.assigned).toBe(true);
-    if (result.assigned) {
-      expect(result.schedule.scheduleId).toBe(1);
-      expect(result.location).toBe('공학관 2201호');
-    }
-  });
-});
-
 describe('interviews.createSlots', () => {
   it('정확한 URL + body 로 POST 한다', async () => {
     let captured: unknown = null;
