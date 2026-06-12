@@ -307,6 +307,8 @@ manage/clubs/[clubId]/recruitments/[recruitmentId]/interview/
 
 ### 10.4 라운드 dashboard
 
+**조기 배정 UX (사용자 요구 반영, 2026-06-12)**: ① COLLECTING 중 **전원 응답 완료(미응답 0명)** 시 dashboard 에 강조 배너 — "전원 응답 완료, 마감 전이지만 지금 배정할 수 있어요" + [자동배정 실행]. ② [자동배정 실행] 버튼 자체를 마감 무관하게 COLLECTING 부터 노출(서버 가드와 1:1 — BE#9 는 마감 조건이 없다). 마감 전 실행 시 "아직 응답하지 않은 N명은 배정에서 빠집니다" 확인 모달로 부수효과 명시. ③ 마감 전 수동 완주 경로(자동배정 → 수동 조정 → 확정)가 막히지 않게 — 확정 버튼도 ASSIGNING 이면 마감 무관 노출.
+
 상태 배너(round status + 단일 next action) / 카운트 카드(응답완료·미응답·가능슬롯없음) / 멤버 테이블(파생 미응답 표시) / **NO_AVAILABLE_SLOT 전용 섹션** (alternativeText 노출 + [추가 슬롯 생성][제외]) / 슬롯 섹션 / 자동배정 검토 영역 (draft 배지, [확정] 모달 경고 2종 분리, [수동 수정] = 기존 `AssignToSlotModal` 재사용) / [재알림] [마감 연장] [취소].
 
 ### 10.5 진행단계 표시 (가드레일 UI)
