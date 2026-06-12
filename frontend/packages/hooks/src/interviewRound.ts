@@ -4,6 +4,7 @@ import type {
   CreateInterviewRoundPayload,
   CreateRoundSlotsPayload,
   UpdateInterviewRoundPayload,
+  UpdateInterviewSlotPayload,
 } from '@duing/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiClient } from './api-context';
@@ -173,6 +174,150 @@ export function useRequestAvailabilityMutation(recruitmentId: number, roundId: n
       });
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.list(recruitmentId),
+      });
+    },
+  });
+}
+
+/**
+ * 자동배정 실행 (BE#11) — COLLECTING → ASSIGNING 전환 또는 ASSIGNING 재계산
+ * 성공 → detail(roundId) + list(recruitmentId) invalidate
+ * (상태 전이 + 배정 현황 반영)
+ */
+export function useRoundAutoAssignMutation(recruitmentId: number, roundId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => client.interviewRounds.autoAssign(roundId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.detail(roundId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.list(recruitmentId),
+      });
+    },
+  });
+}
+
+/**
+ * 수동 배정/재배정 (BE#11 — 배정 검토 단계 한정)
+ * 성공 → detail(roundId) invalidate
+ */
+export function useAssignMemberScheduleMutation(roundId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ memberId, slotId }: { memberId: number; slotId: number }) =>
+      client.interviewRounds.assignMemberSchedule(roundId, memberId, { slotId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.detail(roundId),
+      });
+    },
+  });
+}
+
+/**
+ * 배정 해제 (BE#11 — 배정 검토 단계 한정)
+ * 성공 → detail(roundId) invalidate
+ */
+export function useUnassignMemberScheduleMutation(roundId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (memberId: number) =>
+      client.interviewRounds.unassignMemberSchedule(roundId, memberId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.detail(roundId),
+      });
+    },
+  });
+}
+
+/**
+ * 멤버 제외 (BE#11)
+ * 성공 → detail(roundId) + list(recruitmentId) + candidates(recruitmentId) invalidate
+ * (제외 시 멤버 대기열 복귀 — 재큐잉이므로 candidates 포함 §10.1)
+ */
+export function useExcludeMemberMutation(recruitmentId: number, roundId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (memberId: number) =>
+      client.interviewRounds.excludeMember(roundId, memberId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.detail(roundId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.list(recruitmentId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.candidates(recruitmentId),
+      });
+    },
+  });
+}
+
+/**
+ * 라운드 확정 (BE#11)
+ * force=false 시 미처리 멤버가 있으면 409 + ApiError.payload(UnresolvedMembersPayload).
+ * force=true 시 미처리 멤버를 자동 제외하고 확정한다.
+ * 성공 → detail(roundId) + list(recruitmentId) + candidates(recruitmentId) invalidate
+ * (확정 시 상태 전이 + 자동 제외 대기열 복귀)
+ */
+export function useConfirmRoundMutation(recruitmentId: number, roundId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (force: boolean) =>
+      client.interviewRounds.confirm(roundId, force),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.detail(roundId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.list(recruitmentId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.candidates(recruitmentId),
+      });
+    },
+  });
+}
+
+/**
+ * 재알림 발송 (BE#11 — COLLECTING 단계 미응답자 대상)
+ * 성공 → detail(roundId) invalidate
+ */
+export function useRemindMutation(roundId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => client.interviewRounds.remind(roundId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.detail(roundId),
+      });
+    },
+  });
+}
+
+/**
+ * 슬롯 수정 (BE#11 — DRAFT·COLLECTING 한정)
+ * 성공 → detail(roundId) invalidate
+ */
+export function useUpdateRoundSlotMutation(roundId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ slotId, payload }: { slotId: number; payload: UpdateInterviewSlotPayload }) =>
+      client.interviewRounds.updateSlot(slotId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.detail(roundId),
       });
     },
   });

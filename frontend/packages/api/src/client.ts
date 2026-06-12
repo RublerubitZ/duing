@@ -11,6 +11,9 @@ import type {
   AvailabilityRequestResult,
   ApplicantInterviewView,
   RespondAvailabilityPayload,
+  RoundAutoAssignResult,
+  RoundConfirmResult,
+  UpdateInterviewSlotPayload,
 } from '@duing/types';
 import type {
   AdminClubSearchParams,
@@ -135,6 +138,7 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    public readonly payload?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -144,15 +148,17 @@ export class ApiError extends Error {
 async function toApiError(error: unknown): Promise<never> {
   if (error instanceof HTTPError) {
     let message = `요청 실패 (${error.response.status})`;
+    let payload: unknown;
     try {
       const body = (await error.response.json()) as ApiResponse<unknown>;
       if (body && typeof body.message === 'string') {
         message = body.message;
       }
+      payload = body.data;
     } catch {
       // ignore json parse failure
     }
-    throw new ApiError(error.response.status, message);
+    throw new ApiError(error.response.status, message, payload);
   }
   throw error;
 }
@@ -393,6 +399,27 @@ export type DuingApiClient = {
     // === 가능시간 요청 발송 (BE#5) ===
     // POST /leader/interview-rounds/{roundId}/request-availability
     requestAvailability(roundId: number): Promise<AvailabilityRequestResult>;
+    // === 자동배정 실행 (BE#11) ===
+    // POST /leader/interview-rounds/{roundId}/auto-assign
+    autoAssign(roundId: number): Promise<RoundAutoAssignResult>;
+    // === 수동 배정 (BE#11) ===
+    // PUT /leader/interview-rounds/{roundId}/members/{memberId}/schedule
+    assignMemberSchedule(roundId: number, memberId: number, payload: { slotId: number }): Promise<void>;
+    // === 배정 해제 (BE#11) ===
+    // DELETE /leader/interview-rounds/{roundId}/members/{memberId}/schedule
+    unassignMemberSchedule(roundId: number, memberId: number): Promise<void>;
+    // === 멤버 제외 (BE#11) ===
+    // POST /leader/interview-rounds/{roundId}/members/{memberId}/exclude
+    excludeMember(roundId: number, memberId: number): Promise<void>;
+    // === 라운드 확정 (BE#11) — force=false 시 409 + UnresolvedMembersPayload ===
+    // POST /leader/interview-rounds/{roundId}/confirm?force=
+    confirm(roundId: number, force: boolean): Promise<RoundConfirmResult>;
+    // === 재알림 발송 (BE#11) ===
+    // POST /leader/interview-rounds/{roundId}/remind
+    remind(roundId: number): Promise<AvailabilityRequestResult>;
+    // === 슬롯 수정 (BE#11) ===
+    // PATCH /leader/interview-slots/{slotId}
+    updateSlot(slotId: number, payload: UpdateInterviewSlotPayload): Promise<void>;
   };
   interviews: {
     // === Manager — Config ===
@@ -907,6 +934,36 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       requestAvailability: (roundId) =>
         jsonOk<AvailabilityRequestResult>(
           http.post(`leader/interview-rounds/${roundId}/request-availability`),
+        ),
+      autoAssign: (roundId) =>
+        jsonOk<RoundAutoAssignResult>(
+          http.post(`leader/interview-rounds/${roundId}/auto-assign`),
+        ),
+      assignMemberSchedule: (roundId, memberId, payload) =>
+        jsonVoid(
+          http.put(`leader/interview-rounds/${roundId}/members/${memberId}/schedule`, { json: payload }),
+        ),
+      unassignMemberSchedule: (roundId, memberId) =>
+        jsonVoid(
+          http.delete(`leader/interview-rounds/${roundId}/members/${memberId}/schedule`),
+        ),
+      excludeMember: (roundId, memberId) =>
+        jsonVoid(
+          http.post(`leader/interview-rounds/${roundId}/members/${memberId}/exclude`),
+        ),
+      confirm: (roundId, force) =>
+        jsonOk<RoundConfirmResult>(
+          http.post(`leader/interview-rounds/${roundId}/confirm`, {
+            searchParams: { force },
+          }),
+        ),
+      remind: (roundId) =>
+        jsonOk<AvailabilityRequestResult>(
+          http.post(`leader/interview-rounds/${roundId}/remind`),
+        ),
+      updateSlot: (slotId, payload) =>
+        jsonVoid(
+          http.patch(`leader/interview-slots/${slotId}`, { json: payload }),
         ),
     },
     interviews: {
