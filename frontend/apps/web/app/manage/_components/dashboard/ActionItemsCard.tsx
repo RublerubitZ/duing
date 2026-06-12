@@ -9,17 +9,19 @@ import { ACTION_ITEM_TYPE_LABEL } from './dashboard-labels';
 
 function hrefFor(clubId: number, item: ActionItem): `/${string}` {
   switch (item.type) {
+    case 'INTERVIEW_ROUND_NEEDED':
+      // 대기열·라운드 생성 버튼이 있는 면접 라운드 랜딩으로 이동
+      return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview`;
     case 'INTERVIEW_ROUND_UNCONFIRMED':
     case 'INTERVIEW_RESPONSE_UNCOLLECTED':
       if (item.roundId === undefined) {
         return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview`;
       }
       return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview/rounds/${item.roundId}`;
-    case 'APPLICANTS_AWAITING_REVIEW':
     case 'INTERVIEW_RESULT_PENDING':
+      // 합/불 결정은 지원자 목록에서 처리하므로 지원자 페이지로 이동 (라운드 귀속 정보는 행 텍스트로만 표시)
+    case 'APPLICANTS_AWAITING_REVIEW':
       return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/applicants`;
-    case 'RECRUITMENT_CLOSING_SOON':
-      return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}`;
   }
 }
 
