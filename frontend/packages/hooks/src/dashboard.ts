@@ -89,6 +89,9 @@ export function useClubActionItems(clubId: number | undefined): {
   const recruitments = useActiveRecruitments(clubId);
   const list = recruitments.data ?? [];
   const ids = list.map((r) => r.id);
+  // 면접 라운드 API는 useInterview=false 모집에서 InterviewNotUsed를 던지므로,
+  // 라운드 fan-out은 면접 사용 모집으로만 제한한다.
+  const interviewRecruitmentIds = list.filter((r) => r.useInterview).map((r) => r.id);
 
   const statsQueries = useQueries({
     queries: ids.map((recruitmentId) => ({
@@ -104,28 +107,38 @@ export function useClubActionItems(clubId: number | undefined): {
     }),
   });
 
+  // 필터된 부분집합이므로 positional index가 아니라 recruitmentId로 키잉한다.
   const roundsQueries = useQueries({
-    queries: ids.map((recruitmentId) => ({
+    queries: interviewRecruitmentIds.map((recruitmentId) => ({
       queryKey: interviewRoundKeys.list(recruitmentId),
       queryFn: () => client.interviewRounds.list(recruitmentId),
       ...DASHBOARD_QUERY_OPTIONS,
     })),
-    combine: (results) => ({
-      data: results.map((q) => q.data),
-      someLoading: results.some((q) => q.isLoading),
-      someError: results.some((q) => q.isError),
-      length: results.length,
-    }),
+    combine: (results) => {
+      const roundsByRecruitmentId = new Map<number, InterviewRoundSummary[]>();
+      results.forEach((result, index) => {
+        const recruitmentId = interviewRecruitmentIds[index];
+        if (recruitmentId === undefined) return;
+        if (result.data) roundsByRecruitmentId.set(recruitmentId, result.data);
+      });
+      return {
+        roundsByRecruitmentId,
+        someLoading: results.some((q) => q.isLoading),
+        someError: results.some((q) => q.isError),
+        length: results.length,
+      };
+    },
   });
 
+  const roundsByRecruitmentId = roundsQueries.roundsByRecruitmentId;
   const items = useMemo(() => {
     const inputs: RecruitmentDashboardInput[] = list.map((recruitment, index) => ({
       recruitment,
       stats: statsQueries.data[index],
-      rounds: roundsQueries.data[index],
+      rounds: roundsByRecruitmentId.get(recruitment.id),
     }));
     return sortActionItems(buildActionItems(inputs, new Date()));
-  }, [list, statsQueries.data, roundsQueries.data]);
+  }, [list, statsQueries.data, roundsByRecruitmentId]);
 
   return {
     items,
@@ -135,7 +148,7 @@ export function useClubActionItems(clubId: number | undefined): {
       recruitments.isLoading ||
       (ids.length > 0 && statsQueries.length === 0) ||
       statsQueries.someLoading ||
-      (ids.length > 0 && roundsQueries.length === 0) ||
+      (interviewRecruitmentIds.length > 0 && roundsQueries.length === 0) ||
       roundsQueries.someLoading,
     isError: recruitments.isError || statsQueries.someError || roundsQueries.someError,
   };
@@ -152,11 +165,13 @@ export function useTodaySchedule(clubId: number | undefined): {
   const today = todayKstDateString(now);
 
   const recruitments = useActiveRecruitments(clubId);
-  const recruitmentIds = (recruitments.data ?? []).map((r) => r.id);
+  // 면접 라운드 API는 useInterview=false 모집에서 InterviewNotUsed를 던지므로,
+  // 라운드 fan-out은 면접 사용 모집으로만 제한한다. (SCHEDULED 라운드도 면접 모집에만 존재)
+  const interviewRecruitmentIds = (recruitments.data ?? []).filter((r) => r.useInterview).map((r) => r.id);
 
   // combine으로 SCHEDULED 라운드 ID와 round→recruitment 메타를 직접 추출한다.
   const roundsResult = useQueries({
-    queries: recruitmentIds.map((recruitmentId) => ({
+    queries: interviewRecruitmentIds.map((recruitmentId) => ({
       queryKey: interviewRoundKeys.list(recruitmentId),
       queryFn: () => client.interviewRounds.list(recruitmentId),
       ...DASHBOARD_QUERY_OPTIONS,
@@ -166,7 +181,7 @@ export function useTodaySchedule(clubId: number | undefined): {
       const roundMeta = new Map<number, { recruitmentId: number; title: string }>();
       results.forEach((result, index) => {
         const rounds: InterviewRoundSummary[] = result.data ?? [];
-        const recruitmentId = recruitmentIds[index];
+        const recruitmentId = interviewRecruitmentIds[index];
         if (recruitmentId === undefined) return;
         for (const round of rounds) {
           roundMeta.set(round.roundId, { recruitmentId, title: round.title });
@@ -250,7 +265,7 @@ export function useTodaySchedule(clubId: number | undefined): {
     items,
     isLoading:
       recruitments.isLoading ||
-      (recruitmentIds.length > 0 && roundsResult.length === 0) ||
+      (interviewRecruitmentIds.length > 0 && roundsResult.length === 0) ||
       roundsResult.someLoading ||
       (roundsResult.scheduledRoundIds.length > 0 && detailQueries.length === 0) ||
       detailQueries.someLoading ||

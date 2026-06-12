@@ -50,6 +50,26 @@ describe('useClubActionItems', () => {
     expect(result.current.preview[0]?.type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
   });
 
+  it('useInterview=false 모집은 interview-rounds를 호출하지 않고 통계 기반 액션만 반환', async () => {
+    // recruitment 1은 비면접 모집. interview-rounds 핸들러를 등록하지 않으므로,
+    // 훅이 해당 엔드포인트를 호출하면 onUnhandledRequest:'error'로 테스트가 실패한다.
+    server.use(
+      http.get('*/clubs/10/recruitments', () =>
+        HttpResponse.json({ ok: true, message: null, data: [
+          { id: 1, clubId: 10, clubName: '두잉', title: '일반 모집', startDate: '2026-06-01', endDate: '2026-12-30',
+            capacity: 20, status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: true,
+            applicationMode: 'INTERNAL', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
+        ] }),
+      ),
+    );
+    const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    // 통계 기반 검토 대기(submitted 2 + underReview 3 = 5)만 1건
+    expect(result.current.isError).toBe(false);
+    expect(result.current.totalCount).toBe(1);
+    expect(result.current.preview[0]?.type).toBe('APPLICANTS_AWAITING_REVIEW');
+  });
+
   it('모집이 모두 CLOSED이면 액션 아이템 없음', async () => {
     server.use(
       http.get('*/clubs/10/recruitments', () =>
