@@ -1,4 +1,5 @@
-import { InterviewManagementPage } from './_pages/InterviewManagementPage';
+import { InterviewRoundsLanding } from './_pages/InterviewRoundsLanding';
+// TODO(FE#3/4): 구 InterviewManagementPage·관련 _components/_utils 철거 예정
 
 type PageParams = {
   params: Promise<{ clubId: string; recruitmentId: string }>;
@@ -8,7 +9,7 @@ type PageParams = {
 export default async function Page({ params }: PageParams) {
   const { clubId, recruitmentId } = await params;
   return (
-    <InterviewManagementPage
+    <InterviewRoundsLanding
       clubId={Number(clubId)}
       recruitmentId={Number(recruitmentId)}
     />
