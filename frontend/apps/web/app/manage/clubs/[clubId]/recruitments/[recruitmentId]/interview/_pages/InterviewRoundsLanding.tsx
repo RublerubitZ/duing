@@ -94,10 +94,7 @@ function RoundCard({ round, clubId, recruitmentId }: RoundCardProps) {
   );
 }
 
-/**
- * 면접 관리 랜딩 — 신규 라운드 목록 기반.
- * 구 InterviewManagementPage(dead API)를 대체한다. FE#3/4 에서 구 페이지·컴포넌트 철거 예정.
- */
+/** 면접 관리 랜딩 — 라운드 목록 기반. */
 export function InterviewRoundsLanding({ clubId, recruitmentId }: Props) {
   const roundsQuery = useInterviewRoundsQuery(recruitmentId);
 

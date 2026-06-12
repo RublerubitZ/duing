@@ -1,5 +1,4 @@
 import { InterviewRoundsLanding } from './_pages/InterviewRoundsLanding';
-// TODO(FE#3/4): 구 InterviewManagementPage·관련 _components/_utils 철거 예정
 
 type PageParams = {
   params: Promise<{ clubId: string; recruitmentId: string }>;

@@ -126,11 +126,6 @@ import type {
   GlobalEventDetail,
   GlobalEventListParams,
   UpdateGlobalEventPayload,
-  InterviewConfig,
-  SlotListView,
-  ScheduleListView,
-  AutoAssignResult,
-  MatchingCandidatesView,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -421,38 +416,6 @@ export type DuingApiClient = {
     // === 슬롯 수정 (BE#11) ===
     // PATCH /leader/interview-slots/{slotId}
     updateSlot(slotId: number, payload: UpdateInterviewSlotPayload): Promise<void>;
-  };
-  interviews: {
-    // === Manager — Config ===
-    createConfig(
-      recruitmentId: number,
-      payload: { availabilityDeadline: string; location?: string },
-    ): Promise<{ configId: number }>;
-    updateConfig(
-      recruitmentId: number,
-      payload: { availabilityDeadline?: string; location?: string },
-    ): Promise<void>;
-    getConfig(recruitmentId: number): Promise<InterviewConfig>;
-
-    // === Manager — Slots ===
-    createSlots(
-      recruitmentId: number,
-      payload: { slots: Array<{ startTime: string; endTime: string; capacity: number }> },
-    ): Promise<{ slotIds: number[] }>;
-    listSlots(recruitmentId: number): Promise<SlotListView[]>;
-    updateSlot(
-      slotId: number,
-      payload: { startTime?: string; endTime?: string; capacity?: number },
-    ): Promise<void>;
-    deleteSlot(slotId: number): Promise<void>;
-
-    // === Manager — Auto assign / Schedules ===
-    autoAssign(recruitmentId: number): Promise<AutoAssignResult>;
-    listSchedules(recruitmentId: number): Promise<ScheduleListView[]>;
-    matchingCandidates(recruitmentId: number): Promise<MatchingCandidatesView>;
-    assignSchedule(applicationId: number, payload: { slotId: number }): Promise<void>;
-    cancelSchedule(applicationId: number): Promise<void>;
-
   };
   applicantInterview: {
     // === 지원자 면접 진행 단계 조회 (BE#7) ===
@@ -966,49 +929,6 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonVoid(
           http.patch(`leader/interview-slots/${slotId}`, { json: payload }),
         ),
-    },
-    interviews: {
-      createConfig: (recruitmentId, payload) =>
-        jsonOk<{ configId: number }>(
-          http.post(`recruitments/${recruitmentId}/interview-config`, { json: payload }),
-        ),
-      updateConfig: (recruitmentId, payload) =>
-        jsonVoid(
-          http.patch(`recruitments/${recruitmentId}/interview-config`, { json: payload }),
-        ),
-      getConfig: (recruitmentId) =>
-        jsonOk<InterviewConfig>(
-          http.get(`recruitments/${recruitmentId}/interview-config`),
-        ),
-      createSlots: (recruitmentId, payload) =>
-        jsonOk<{ slotIds: number[] }>(
-          http.post(`recruitments/${recruitmentId}/interview-slots`, { json: payload }),
-        ),
-      listSlots: (recruitmentId) =>
-        jsonOk<SlotListView[]>(
-          http.get(`recruitments/${recruitmentId}/interview-slots`),
-        ),
-      updateSlot: (slotId, payload) =>
-        jsonVoid(http.patch(`interview-slots/${slotId}`, { json: payload })),
-      deleteSlot: (slotId) => jsonVoid(http.delete(`interview-slots/${slotId}`)),
-      autoAssign: (recruitmentId) =>
-        jsonOk<AutoAssignResult>(
-          http.post(`recruitments/${recruitmentId}/interview-schedules/auto-assign`),
-        ),
-      listSchedules: (recruitmentId) =>
-        jsonOk<ScheduleListView[]>(
-          http.get(`recruitments/${recruitmentId}/interview-schedules`),
-        ),
-      matchingCandidates: (recruitmentId) =>
-        jsonOk<MatchingCandidatesView>(
-          http.get(`recruitments/${recruitmentId}/interview-matching-candidates`),
-        ),
-      assignSchedule: (applicationId, payload) =>
-        jsonVoid(
-          http.put(`applications/${applicationId}/interview-schedule`, { json: payload }),
-        ),
-      cancelSchedule: (applicationId) =>
-        jsonVoid(http.delete(`applications/${applicationId}/interview-schedule`)),
     },
     raw: http,
   };
