@@ -17,20 +17,23 @@ export type RecruitmentDashboardInput = {
   recruitment: RecruitmentSummary;
   stats: StatsSummary | undefined;
   rounds: InterviewRoundSummary[] | undefined;
+  /** 면접 대기열 인원 수 — 비면접 모집은 undefined */
+  candidateCount: number | undefined;
 };
 
 const TYPE_PRIORITY: Record<ActionItemType, number> = {
-  INTERVIEW_ROUND_UNCONFIRMED: 0,
-  INTERVIEW_RESPONSE_UNCOLLECTED: 1,
-  RECRUITMENT_CLOSING_SOON: 2,
-  INTERVIEW_RESULT_PENDING: 3,
-  APPLICANTS_AWAITING_REVIEW: 4,
+  INTERVIEW_ROUND_NEEDED: 0,
+  INTERVIEW_ROUND_UNCONFIRMED: 1,
+  INTERVIEW_RESPONSE_UNCOLLECTED: 2,
+  RECRUITMENT_CLOSING_SOON: 3,
+  INTERVIEW_RESULT_PENDING: 4,
+  APPLICANTS_AWAITING_REVIEW: 5,
 };
 
 export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date): ActionItem[] {
   const items: ActionItem[] = [];
 
-  for (const { recruitment, stats, rounds } of inputs) {
+  for (const { recruitment, stats, rounds, candidateCount } of inputs) {
     const base = { recruitmentId: recruitment.id, recruitmentTitle: recruitment.title };
 
     // 검토 대기 지원자
@@ -39,6 +42,15 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
       if (awaiting > 0) {
         items.push({ type: 'APPLICANTS_AWAITING_REVIEW', ...base, count: awaiting });
       }
+    }
+
+    // 면접 라운드 생성 필요: 대기열 인원 존재 + 신규 인원 수용 가능 라운드(DRAFT·COLLECTING·ASSIGNING) 없음
+    // (SCHEDULED는 확정 라운드라 수용 불가, CANCELLED는 무시)
+    const hasAcceptingRound = (rounds ?? []).some(
+      (round) => round.status === 'DRAFT' || round.status === 'COLLECTING' || round.status === 'ASSIGNING',
+    );
+    if (candidateCount !== undefined && candidateCount > 0 && !hasAcceptingRound) {
+      items.push({ type: 'INTERVIEW_ROUND_NEEDED', ...base, count: candidateCount });
     }
 
     // 면접 라운드 기반

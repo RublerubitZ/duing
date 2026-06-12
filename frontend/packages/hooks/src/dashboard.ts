@@ -130,15 +130,42 @@ export function useClubActionItems(clubId: number | undefined): {
     },
   });
 
+  // 면접 대기열 fan-out — 라운드 화면의 useInterviewRoundCandidatesQuery(includeUnderReview=false)와
+  // 쿼리키 모양을 동일하게 맞춰 캐시를 공유하고, 라운드 생성/취소/제외/확정 mutation의
+  // candidates(recruitmentId) prefix invalidation이 여기에도 닿게 한다.
+  const candidatesQueries = useQueries({
+    queries: interviewRecruitmentIds.map((recruitmentId) => ({
+      queryKey: [...interviewRoundKeys.candidates(recruitmentId), false] as const,
+      queryFn: () => client.interviewRounds.candidates(recruitmentId, false),
+      ...DASHBOARD_QUERY_OPTIONS,
+    })),
+    combine: (results) => {
+      const candidateCountByRecruitmentId = new Map<number, number>();
+      results.forEach((result, index) => {
+        const recruitmentId = interviewRecruitmentIds[index];
+        if (recruitmentId === undefined) return;
+        if (result.data) candidateCountByRecruitmentId.set(recruitmentId, result.data.length);
+      });
+      return {
+        candidateCountByRecruitmentId,
+        someLoading: results.some((q) => q.isLoading),
+        someError: results.some((q) => q.isError),
+        length: results.length,
+      };
+    },
+  });
+
   const roundsByRecruitmentId = roundsQueries.roundsByRecruitmentId;
+  const candidateCountByRecruitmentId = candidatesQueries.candidateCountByRecruitmentId;
   const items = useMemo(() => {
     const inputs: RecruitmentDashboardInput[] = list.map((recruitment, index) => ({
       recruitment,
       stats: statsQueries.data[index],
       rounds: roundsByRecruitmentId.get(recruitment.id),
+      candidateCount: candidateCountByRecruitmentId.get(recruitment.id),
     }));
     return sortActionItems(buildActionItems(inputs, new Date()));
-  }, [list, statsQueries.data, roundsByRecruitmentId]);
+  }, [list, statsQueries.data, roundsByRecruitmentId, candidateCountByRecruitmentId]);
 
   return {
     items,
@@ -149,8 +176,14 @@ export function useClubActionItems(clubId: number | undefined): {
       (ids.length > 0 && statsQueries.length === 0) ||
       statsQueries.someLoading ||
       (interviewRecruitmentIds.length > 0 && roundsQueries.length === 0) ||
-      roundsQueries.someLoading,
-    isError: recruitments.isError || statsQueries.someError || roundsQueries.someError,
+      roundsQueries.someLoading ||
+      (interviewRecruitmentIds.length > 0 && candidatesQueries.length === 0) ||
+      candidatesQueries.someLoading,
+    isError:
+      recruitments.isError ||
+      statsQueries.someError ||
+      roundsQueries.someError ||
+      candidatesQueries.someError,
   };
 }
 
