@@ -4,6 +4,7 @@ import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewSchedule;
+import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -97,6 +99,21 @@ public class InterviewReminderJob {
                 if (application == null) {
                     log.warn("INTERVIEW_REMINDER 알림 생략 — application 없음: scheduleId={}, applicationId={}",
                             schedule.getId(), schedule.getApplicationId());
+                    continue;
+                }
+
+                // 재배정 race — 스냅샷 조회 후 §6.4 개별 재배정이 일어나면 구 슬롯 기준 리마인더가 나간다.
+                // 발송 직전 현재 활성 ASSIGNED 배정을 재조회해 스냅샷과 다르면 skip 한다.
+                Optional<InterviewSchedule> currentActiveSchedule = scheduleRepository
+                        .findByRoundIdAndApplicationIdAndStatus(schedule.getRoundId(),
+                                schedule.getApplicationId(), InterviewScheduleStatus.ASSIGNED);
+                if (currentActiveSchedule.isEmpty()
+                        || !currentActiveSchedule.get().getId().equals(schedule.getId())) {
+                    log.debug("INTERVIEW_REMINDER 알림 생략 — 재배정으로 스냅샷이 stale: "
+                                    + "snapshotScheduleId={}, currentScheduleId={}, applicationId={}",
+                            schedule.getId(),
+                            currentActiveSchedule.map(InterviewSchedule::getId).orElse(null),
+                            schedule.getApplicationId());
                     continue;
                 }
 

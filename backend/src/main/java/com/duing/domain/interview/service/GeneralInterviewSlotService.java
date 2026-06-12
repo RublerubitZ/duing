@@ -112,11 +112,17 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
             if (interviewAvailabilityRepository.countBySlotId(slot.getId()) > 0) {
                 throw new InterviewException.SlotTimeChangeForbiddenForSelectedSlot();
             }
+            // §6.4 로 SCHEDULED 슬롯 조작이 열리며 도달 가능해짐 — 수동 배정 멤버는 응답 기록이 없어
+            // availability 검사로 안 잡힌다. 배정이 있는 슬롯의 시간 변경은 확정 통보를 무효화하므로 차단.
+            if (interviewScheduleRepository.countBySlotIdAndStatus(
+                    slot.getId(), InterviewScheduleStatus.ASSIGNED) > 0) {
+                throw new InterviewException.SlotHasAssignments();
+            }
             slot.updateTime(updateCommand.startTime(), updateCommand.endTime());
         }
         if (updateCommand.capacity() != null) {
-            // 도달 가능 경로는 phase 가드가 막지만(배정은 ASSIGNING 부터, 변경은 COLLECTING 까지),
-            // 예외 이름이 약속한 검사를 채워 미래의 phase 규칙 완화에도 안전하게 한다.
+            // SCHEDULED 에서의 슬롯 변경이 §6.4 로 허용되어 이 경로에 실제로 도달할 수 있다.
+            // 예외 이름이 약속한 검사를 채워 기존 배정(ASSIGNED status)이 정원 아래로 내려가지 않도록 보호한다.
             if (interviewScheduleRepository.countBySlotIdAndStatus(
                     slot.getId(), InterviewScheduleStatus.ASSIGNED) > updateCommand.capacity()) {
                 throw new InterviewException.CapacityBelowAssigned();
@@ -136,6 +142,12 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
         if (interviewAvailabilityRepository.countBySlotId(slot.getId()) > 0) {
             throw new InterviewException.SlotHasAvailability();
         }
+        // §6.4 로 SCHEDULED 슬롯 조작이 열리며 도달 가능해짐 — 수동 배정 멤버는 응답 기록이 없어
+        // availability 검사로 안 잡힌다. 배정이 있는 슬롯 삭제는 확정된 면접을 고아로 만들므로 차단.
+        if (interviewScheduleRepository.countBySlotIdAndStatus(
+                slot.getId(), InterviewScheduleStatus.ASSIGNED) > 0) {
+            throw new InterviewException.SlotHasAssignments();
+        }
         // 발송 가드(슬롯≥1)가 보장한 "수집 중 라운드에 선택지가 있다" 불변식을 삭제 경로에서도 지킨다.
         // (발송과 삭제의 순수 동시 race 윈도우는 수용 — 발생해도 추가 슬롯 생성 + Rule 2 로 복구 가능)
         if (round.getStatus() == RoundStatus.COLLECTING
@@ -150,11 +162,16 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     }
 
     /**
-     * 슬롯 변경(생성·수정·삭제) phase 가드 — DRAFT·COLLECTING 한정 (스펙 §9.1 API 4).
-     * ASSIGNING 중 수동 배정용 슬롯 추가 허용(§5.5)은 소비자가 생기는 BE#10 에서 완화한다.
+     * 슬롯 변경(생성·수정·삭제) phase 가드 — DRAFT·COLLECTING·SCHEDULED 허용 (스펙 §9.1 API 4·§6.4).
+     * ASSIGNING 은 여전히 불가 — 수동 배정용 슬롯 추가가 필요하면 ASSIGNING 재실행 전에 처리한다.
+     * SCHEDULED 추가 시 Rule 2(NO_AVAILABLE_SLOT 재초대)는 발동하지 않는다 (수집 종료, §6.4).
+     * CANCELLED 는 명시 집합에 없으므로 종결 상태가 새지 않는다.
      */
     private void requireSlotChangeablePhase(InterviewRound round) {
-        if (round.getStatus() != RoundStatus.DRAFT && round.getStatus() != RoundStatus.COLLECTING) {
+        RoundStatus status = round.getStatus();
+        if (status != RoundStatus.DRAFT
+                && status != RoundStatus.COLLECTING
+                && status != RoundStatus.SCHEDULED) {
             throw new InterviewException.SlotChangeNotAllowedInCurrentPhase();
         }
     }

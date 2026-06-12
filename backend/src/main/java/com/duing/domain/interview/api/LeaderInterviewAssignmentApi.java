@@ -38,9 +38,13 @@ public interface LeaderInterviewAssignmentApi {
 
     @Operation(
             summary = "면접 수동 배정/재배정",
-            description = "멤버를 지정 슬롯에 배정한다 (배정 검토 단계 한정). 가능없음·미응답 멤버도 운영진 재량으로 "
-                    + "배정할 수 있고, 기존 배정은 교체된다. 정원이 찬 슬롯은 409 — 단 같은 슬롯 내 본인 재배정은 허용된다. "
-                    + "멤버 상태는 바뀌지 않는다 (확정 시점에만 ASSIGNED 전이)."
+            description = "멤버를 지정 슬롯에 배정한다. 배정 검토(ASSIGNING)·확정(SCHEDULED) 단계 모두 허용 (§6.4). "
+                    + "ASSIGNING — draft 단계, 알림 없음. "
+                    + "SCHEDULED — ASSIGNED 멤버의 개별 재배정, 성공 시 INTERVIEW_UPDATED 알림 발행. "
+                    + "가능없음·미응답 멤버도 운영진 재량으로 배정할 수 있고, 기존 배정은 교체된다. "
+                    + "정원이 찬 슬롯은 409 — 단 같은 슬롯 내 본인 재배정은 허용된다. "
+                    + "ASSIGNING 에서 멤버 상태는 바뀌지 않는다 (확정 시점에만 ASSIGNED 전이). "
+                    + "배정 해제(DELETE)는 ASSIGNING 한정 — SCHEDULED 에서는 다른 슬롯으로 옮기는 것만 가능하다 (§16-1)."
     )
     @PutMapping("/leader/interview-rounds/{roundId}/members/{memberId}/schedule")
     ResponseEntity<ApiResponse<Void>> assignSchedule(
