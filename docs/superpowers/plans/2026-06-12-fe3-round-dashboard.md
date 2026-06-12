@@ -45,19 +45,19 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] `git checkout develop && git pull origin develop && git checkout -b feat/interview-round-dashboard-ui`
+- [x] `git checkout develop && git pull origin develop && git checkout -b feat/interview-round-dashboard-ui`
 
 ### Task 2: 데이터 레이어 (커밋 ①)
 
-- [ ] **Step 1**: `ApiError` 에 `public readonly payload?: unknown` 추가(3번째 ctor 인자, 기존 호출 호환), `toApiError` 에서 `body.data` 전달. 기존 api 테스트 무회귀.
-- [ ] **Step 2**: 타입 — `AutoAssignResult`·`ConfirmRoundResult`·`UnresolvedMembersPayload`(+중첩 2) ← BE DTO 1:1 (각 `ConfirmRoundResponse.java`·`AutoAssignResponse.java`·`UnresolvedMembersResponse.java`). 판별 함수 `isUnresolvedMembersPayload` (code 리터럴+배열 존재 검사) — `packages/types` 에 동거.
-- [ ] **Step 3**: 클라이언트 7 메서드 (핵심 결정 2 — 경로는 백엔드 Api 3종 정답. confirm 은 `?force=` query). 훅 7종 + invalidation (핵심 결정 3).
-- [ ] **Step 4**: 테스트 — api: confirm 409 에서 `ApiError.payload` 에 data 보존 단언(MSW 409 + body)·autoAssign/exclude URL·body 캡처 / hooks: 확정·제외 invalidation(candidates 포함)·배정 invalidation(detail 만).
-- [ ] **Step 5**: `pnpm typecheck && pnpm --filter @duing/api test && pnpm --filter @duing/hooks test` → 커밋 `feat(web): 라운드 운영 데이터 레이어 — 배정·확정·제외 + ApiError payload`
+- [x] **Step 1**: `ApiError` 에 `public readonly payload?: unknown` 추가(3번째 ctor 인자, 기존 호출 호환), `toApiError` 에서 `body.data` 전달. 기존 api 테스트 무회귀.
+- [x] **Step 2**: 타입 — `AutoAssignResult`·`ConfirmRoundResult`·`UnresolvedMembersPayload`(+중첩 2) ← BE DTO 1:1 (각 `ConfirmRoundResponse.java`·`AutoAssignResponse.java`·`UnresolvedMembersResponse.java`). 판별 함수 `isUnresolvedMembersPayload` (code 리터럴+배열 존재 검사) — `packages/types` 에 동거.
+- [x] **Step 3**: 클라이언트 7 메서드 (핵심 결정 2 — 경로는 백엔드 Api 3종 정답. confirm 은 `?force=` query). 훅 7종 + invalidation (핵심 결정 3).
+- [x] **Step 4**: 테스트 — api: confirm 409 에서 `ApiError.payload` 에 data 보존 단언(MSW 409 + body)·autoAssign/exclude URL·body 캡처 / hooks: 확정·제외 invalidation(candidates 포함)·배정 invalidation(detail 만).
+- [x] **Step 5**: `pnpm typecheck && pnpm --filter @duing/api test && pnpm --filter @duing/hooks test` → 커밋 `feat(web): 라운드 운영 데이터 레이어 — 배정·확정·제외 + ApiError payload`
 
 ### Task 3: dashboard 테스트 (RED)
 
-- [ ] **Step 1**: `round-dashboard.test.tsx` ~14건 (MSW detail 픽스처를 상태별 구성, 기존 wrapper 패턴):
+- [x] **Step 1**: `round-dashboard.test.tsx` ~14건 (MSW detail 픽스처를 상태별 구성, 기존 wrapper 패턴):
 1. `수집 중 dashboard 에 카운트 카드와 멤버 테이블이 보인다` (마감 전 — "응답 대기" 라벨)
 2. `마감이 지나면 미응답 라벨과 파생 미응답 강조가 보인다` (deadlinePassed 픽스처)
 3. `전원이 응답하면 조기 배정 배너가 보인다` (invitedCount 0)
@@ -72,26 +72,26 @@
 12. `마감 연장 모달은 연장만 가능함을 안내하고 PATCH 를 보낸다` (캡처)
 13. `라운드 취소는 대기열 복귀 안내 확인 후 실행된다`
 14. `수집 중 슬롯 추가 생성 시 재초대 인원이 안내된다` (reinvitedMemberCount 토스트)
-- [ ] **Step 2**: 랜딩 테스트에 `진행 중 라운드 카드가 dashboard 로 링크된다` 1건 추가. RED 확인. **커밋 금지.**
+- [x] **Step 2**: 랜딩 테스트에 `진행 중 라운드 카드가 dashboard 로 링크된다` 1건 추가. RED 확인. **커밋 금지.**
 
 ### Task 4: dashboard 구현 (GREEN, 커밋 ②)
 
-- [ ] **Step 1**: `SlotPatternForm`·`generateRoundSlotsFromPattern` 을 `apps/web/components/interview/` 로 승격(wizard import 경로 수정 — 동작 무변경, wizard 테스트 그린 유지).
-- [ ] **Step 2**: 컨테이너+섹션 구현 (핵심 결정 4 명세 그대로 — 모달 a11y·cn()·manage 톤·기존 모달 패턴. 모든 mutation 버튼 isPending 가드 — FE#2 교훈).
-- [ ] **Step 3**: 랜딩 링크 연결. GREEN 확인 → 게이트 4종(명령별 exit code) → 커밋 `feat(web): 면접 라운드 dashboard — 응답 현황·배정 검토·확정`
+- [x] **Step 1**: `SlotPatternForm`·`generateRoundSlotsFromPattern` 을 `apps/web/components/interview/` 로 승격(wizard import 경로 수정 — 동작 무변경, wizard 테스트 그린 유지).
+- [x] **Step 2**: 컨테이너+섹션 구현 (핵심 결정 4 명세 그대로 — 모달 a11y·cn()·manage 톤·기존 모달 패턴. 모든 mutation 버튼 isPending 가드 — FE#2 교훈).
+- [x] **Step 3**: 랜딩 링크 연결. GREEN 확인 → 게이트 4종(명령별 exit code) → 커밋 `feat(web): 면접 라운드 dashboard — 응답 현황·배정 검토·확정`
 
 ### Task 5: 구 화면 철거 (커밋 ③)
 
-- [ ] **Step 1**: 핵심 결정 5 목록 삭제 — 각 대상 grep 잔존 0 확인 후 제거, 사용처 끊긴 export·테스트 동반 삭제. `ApplicantInterviewScheduleCard`·`AvailabilityItem` 유지 확인.
-- [ ] **Step 2**: 게이트 4종 그린 (다른 화면 테스트가 깨지면 철거 범위 초과 — BLOCKED) → 커밋 `refactor(web): 구 면접 관리 화면·dead 데이터 레이어 철거`
+- [x] **Step 1**: 핵심 결정 5 목록 삭제 — 각 대상 grep 잔존 0 확인 후 제거, 사용처 끊긴 export·테스트 동반 삭제. `ApplicantInterviewScheduleCard`·`AvailabilityItem` 유지 확인.
+- [x] **Step 2**: 게이트 4종 그린 (다른 화면 테스트가 깨지면 철거 범위 초과 — BLOCKED) → 커밋 `refactor(web): 구 면접 관리 화면·dead 데이터 레이어 철거`
 
 ### Task 6: 전체 검증
 
-- [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` (명령별 exit code) + repo 루트 EOF·금지 라인 검사
+- [x] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` (명령별 exit code) + repo 루트 EOF·금지 라인 검사
 
 ### Task 7: self-check + PR 생성 (컨트롤러 수행 — 구현 subagent 금지)
 
-- [ ] push + PR `feat(web): 면접 라운드 dashboard` — 본문: 🚀(dashboard 한 화면 운영 + 조기 배정 UX 사용자 요구 반영 + 철거) / 🤔(ApiError payload 설계·전원 응답 배너 기준·재실행 경고·ApplicantInterviewScheduleCard 유지 판정·SlotPatternForm 승격) / 💬(확정 409 payload 흐름·invalidation §10.1·철거 잔존 0). **머지 금지.**
+- [x] push + PR `feat(web): 면접 라운드 dashboard` — 본문: 🚀(dashboard 한 화면 운영 + 조기 배정 UX 사용자 요구 반영 + 철거) / 🤔(ApiError payload 설계·전원 응답 배너 기준·재실행 경고·ApplicantInterviewScheduleCard 유지 판정·SlotPatternForm 승격) / 💬(확정 409 payload 흐름·invalidation §10.1·철거 잔존 0). **머지 금지.**
 
 ---
 
