@@ -40,9 +40,10 @@ export default function ManagePage() {
     );
   }
 
+  // 동아리가 있고 로딩도 끝났으면 위 useEffect가 첫 동아리로 리다이렉트 중인 상태다.
   return (
-    <div className="duing flex min-h-screen items-center justify-center bg-cream">
-      <p className="text-sm text-charcoal-3">불러오는 중…</p>
+    <div className="flex min-h-screen items-center justify-center">
+      <p className="text-sm text-charcoal-3">이동 중…</p>
     </div>
   );
 }
