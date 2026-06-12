@@ -39,6 +39,43 @@ const COLLECTING_ROUND = {
   respondedMemberCount: 2,
 };
 
+/** 대기열 후보 — includeUnderReview=false 기본 */
+const CANDIDATE_A = {
+  applicationId: 101,
+  userId: 1,
+  userName: '이순신',
+  studentId: '20230001',
+  college: 'ENGINEERING',
+  major: '컴퓨터공학',
+  grade: 'THIRD',
+  status: 'PENDING',
+  submittedAt: '2026-06-01T10:00:00',
+};
+
+const CANDIDATE_B = {
+  applicationId: 102,
+  userId: 2,
+  userName: '강감찬',
+  studentId: '20230002',
+  college: 'ENGINEERING',
+  major: '소프트웨어공학',
+  grade: 'SECOND',
+  status: 'PENDING',
+  submittedAt: '2026-06-02T10:00:00',
+};
+
+/** 빈 대기열 응답 */
+const EMPTY_CANDIDATES_HANDLER = http.get(
+  `*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`,
+  () => HttpResponse.json({ ok: true, data: [], message: null }),
+);
+
+/** 2명 대기열 응답 */
+const CANDIDATES_HANDLER = http.get(
+  `*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`,
+  () => HttpResponse.json({ ok: true, data: [CANDIDATE_A, CANDIDATE_B], message: null }),
+);
+
 // ── 테스트 설정 ──────────────────────────────────────────────────────────────
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -67,7 +104,7 @@ function renderLanding() {
   );
 }
 
-// ── 테스트 2건 ───────────────────────────────────────────────────────────────
+// ── 테스트 5건 ───────────────────────────────────────────────────────────────
 
 describe('InterviewRoundsLanding — 면접 관리 랜딩', () => {
   it('라운드가 없으면 빈 상태와 만들기 버튼이 보인다', async () => {
@@ -75,6 +112,7 @@ describe('InterviewRoundsLanding — 면접 관리 랜딩', () => {
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
         HttpResponse.json({ ok: true, data: [], message: null }),
       ),
+      EMPTY_CANDIDATES_HANDLER,
     );
 
     renderLanding();
@@ -97,6 +135,7 @@ describe('InterviewRoundsLanding — 면접 관리 랜딩', () => {
           message: null,
         }),
       ),
+      EMPTY_CANDIDATES_HANDLER,
     );
 
     renderLanding();
@@ -118,5 +157,82 @@ describe('InterviewRoundsLanding — 면접 관리 랜딩', () => {
 
     // 비DRAFT 카드엔 [이어서 작성] 링크가 없다 — 링크는 DRAFT 1개만 존재
     expect(screen.getAllByRole('link', { name: '이어서 작성' }).length).toBe(1);
+  });
+
+  it('대기열에 후보가 있으면 카운트와 이름이 노출된다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [], message: null }),
+      ),
+      CANDIDATES_HANDLER,
+    );
+
+    renderLanding();
+
+    // 대기열 섹션 카운트 — 2명
+    await waitFor(() => {
+      expect(screen.getByText(/2명/)).toBeInTheDocument();
+    });
+
+    // 후보 이름 미리보기
+    expect(screen.getByText('이순신')).toBeInTheDocument();
+    expect(screen.getByText('강감찬')).toBeInTheDocument();
+  });
+
+  it('대기열이 비어 있으면 "대기 중인 지원자가 없습니다" 문구가 보인다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [], message: null }),
+      ),
+      EMPTY_CANDIDATES_HANDLER,
+    );
+
+    renderLanding();
+
+    await waitFor(() => {
+      expect(screen.getByText('대기 중인 지원자가 없습니다')).toBeInTheDocument();
+    });
+  });
+
+  it('대기열 조회가 실패하면 오류 안내가 보인다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [], message: null }),
+      ),
+      http.get(
+        `*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`,
+        () => HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 }),
+      ),
+    );
+
+    renderLanding();
+
+    await waitFor(() => {
+      expect(screen.getByText('대기열을 불러오지 못했습니다.')).toBeInTheDocument();
+    });
+  });
+
+  it('대기열 섹션은 includeUnderReview=false 로 요청한다', async () => {
+    let capturedIncludeUnderReview: string | null = null;
+
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [], message: null }),
+      ),
+      http.get(
+        `*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`,
+        ({ request }) => {
+          const url = new URL(request.url);
+          capturedIncludeUnderReview = url.searchParams.get('includeUnderReview');
+          return HttpResponse.json({ ok: true, data: [], message: null });
+        },
+      ),
+    );
+
+    renderLanding();
+
+    await waitFor(() => {
+      expect(capturedIncludeUnderReview).toBe('false');
+    });
   });
 });

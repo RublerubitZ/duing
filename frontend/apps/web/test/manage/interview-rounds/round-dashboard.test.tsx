@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -868,7 +868,7 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
     });
 
     // 모달에 일정 변경 알림 안내 문구가 있어야 한다
-    expect(screen.getByText(/일정 변경 알림/)).toBeInTheDocument();
+    expect(screen.getByText('변경 시 지원자에게 일정 변경 알림이 발송됩니다.')).toBeInTheDocument();
 
     // 슬롯 라디오 선택 후 배정 → PUT 요청
     const slotRadios = within(screen.getByRole('dialog')).getAllByRole('radio');
@@ -881,8 +881,6 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
   });
 
   it('18. SCHEDULED 에서 배정 참조 슬롯 삭제 시 409 메시지가 그대로 노출된다', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
-
     server.use(
       http.get(`*/interview-rounds/${ROUND_ID}`, () =>
         HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED, message: null }),
@@ -905,12 +903,10 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
     const deleteButtons = screen.getAllByRole('button', { name: /슬롯 삭제/ });
     await userEvent.click(deleteButtons[0]!);
 
-    // 409 서버 메시지가 window.alert 로 노출된다
+    // 409 서버 메시지가 인라인 role="alert" 로 노출된다
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith('배정된 면접이 있는 슬롯입니다.');
+      expect(screen.getByRole('alert')).toHaveTextContent('배정된 면접이 있는 슬롯입니다.');
     });
-
-    alertSpy.mockRestore();
   });
 
   it('19. SCHEDULED 에서 [해제]·[제외] 버튼이 보이지 않는다', async () => {
@@ -934,6 +930,12 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
 
 // ── 랜딩 링크 테스트 1건 ────────────────────────────────────────────────────
 
+/** rounds-landing 에서 재사용하는 빈 대기열 핸들러 패턴 */
+const EMPTY_CANDIDATES_HANDLER = http.get(
+  `*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`,
+  () => HttpResponse.json({ ok: true, data: [], message: null }),
+);
+
 describe('InterviewRoundsLanding — 비DRAFT 카드 dashboard 링크', () => {
   it('진행 중 라운드 카드가 dashboard 로 링크된다', async () => {
     server.use(
@@ -954,6 +956,7 @@ describe('InterviewRoundsLanding — 비DRAFT 카드 dashboard 링크', () => {
           message: null,
         }),
       ),
+      EMPTY_CANDIDATES_HANDLER,
     );
 
     renderLanding();

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import type { InterviewRoundSummary, InterviewRoundStatus } from '@duing/types';
-import { useInterviewRoundsQuery } from '@duing/hooks';
+import { useInterviewRoundsQuery, useInterviewRoundCandidatesQuery } from '@duing/hooks';
 import { toRoute } from '../../../../../../../_lib/route';
 import { cn } from '@/app/_lib/cn';
 
@@ -94,6 +94,80 @@ function RoundCard({ round, clubId, recruitmentId }: RoundCardProps) {
   );
 }
 
+// ── 대기열 섹션 ─────────────────────────────────────────────────────────────
+
+type CandidateQueueSectionProps = {
+  clubId: number;
+  recruitmentId: number;
+};
+
+/** 대기열 섹션 — includeUnderReview=false (§10.3 기본값). 상시 노출. */
+function CandidateQueueSection({ clubId, recruitmentId }: CandidateQueueSectionProps) {
+  // §10.3: 대기열 진입 기본값 false — 심사 중 지원자 제외
+  const candidatesQuery = useInterviewRoundCandidatesQuery(recruitmentId, false);
+
+  if (candidatesQuery.isLoading) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+        <p className="text-sm text-slate-400">불러오는 중…</p>
+      </div>
+    );
+  }
+
+  if (candidatesQuery.isError) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+        <p className="text-sm text-rose-600">대기열을 불러오지 못했습니다.</p>
+      </div>
+    );
+  }
+
+  const candidates = candidatesQuery.data ?? [];
+  const previewCandidates = candidates.slice(0, 5);
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-slate-700">
+          면접 대기열
+          {candidates.length > 0 && (
+            <span className="ml-2 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
+              {candidates.length}명
+            </span>
+          )}
+        </h2>
+        <Link
+          href={toRoute(
+            `/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview/rounds/new`,
+          )}
+          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+        >
+          라운드 생성
+        </Link>
+      </div>
+
+      {candidates.length === 0 ? (
+        <p className="text-sm text-slate-400">대기 중인 지원자가 없습니다</p>
+      ) : (
+        <div className="space-y-1">
+          {previewCandidates.map((candidate) => (
+            <div
+              key={candidate.applicationId}
+              className="flex items-center gap-2 rounded-md bg-slate-50 px-3 py-1.5 text-sm"
+            >
+              <span className="font-medium text-slate-800">{candidate.userName}</span>
+              <span className="text-xs text-slate-400">{candidate.studentId}</span>
+            </div>
+          ))}
+          {candidates.length > 5 && (
+            <p className="pt-1 text-xs text-slate-400">외 {candidates.length - 5}명…</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** 면접 관리 랜딩 — 라운드 목록 기반. */
 export function InterviewRoundsLanding({ clubId, recruitmentId }: Props) {
   const roundsQuery = useInterviewRoundsQuery(recruitmentId);
@@ -133,6 +207,11 @@ export function InterviewRoundsLanding({ clubId, recruitmentId }: Props) {
             새 면접 라운드 만들기
           </Link>
         </div>
+      </div>
+
+      {/* 대기열 섹션 — 상시 노출 */}
+      <div className="mb-6">
+        <CandidateQueueSection clubId={clubId} recruitmentId={recruitmentId} />
       </div>
 
       {/* 목록 / 빈 상태 */}

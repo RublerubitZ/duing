@@ -90,21 +90,29 @@ function renderPage() {
   );
 }
 
+/** 빈 라운드 목록 핸들러 — InterviewStageChip 이 useInterviewRoundsQuery 를 호출하므로 필요 */
+const EMPTY_ROUNDS_HANDLER = http.get(
+  `*/recruitments/${RECRUITMENT_ID}/interview-rounds`,
+  () => HttpResponse.json({ ok: true, data: [], message: null }),
+);
+
 describe('RecruitmentDetailPage — 면접 관리 진입 링크 (Issue 1)', () => {
   it('useInterview=true 면 "면접 관리" 링크가 노출된다', async () => {
-    server.use(mockRecruitmentDetail(true));
+    server.use(mockRecruitmentDetail(true), EMPTY_ROUNDS_HANDLER);
 
     renderPage();
 
-    const link = await screen.findByRole('link', { name: '면접 관리' });
-    expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute(
+    // 면접 관리 링크는 액션 버튼 + 단계 칩 영역 총 두 곳 이상 노출될 수 있다
+    const links = await screen.findAllByRole('link', { name: '면접 관리' });
+    expect(links.length).toBeGreaterThanOrEqual(1);
+    expect(links[0]).toHaveAttribute(
       'href',
       `/manage/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/interview`,
     );
   });
 
   it('useInterview=false 면 "면접 관리" 링크가 노출되지 않는다', async () => {
+    // useInterview=false 시 InterviewStageChip 자체가 미렌더링되므로 rounds 요청 없음
     server.use(mockRecruitmentDetail(false));
 
     renderPage();
@@ -114,5 +122,53 @@ describe('RecruitmentDetailPage — 면접 관리 진입 링크 (Issue 1)', () =
     await waitFor(() =>
       expect(screen.queryByRole('link', { name: '면접 관리' })).not.toBeInTheDocument(),
     );
+  });
+});
+
+describe('RecruitmentDetailPage — 면접 진행 단계표시 칩 (§10.5)', () => {
+  it('COLLECTING 라운드가 있으면 "응답 대기 2/3" 형식의 단계 칩이 노출된다', async () => {
+    server.use(
+      mockRecruitmentDetail(true),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: [
+            {
+              roundId: 99,
+              title: '1차 면접',
+              status: 'COLLECTING',
+              availabilityDeadline: '2026-07-10T18:00:00',
+              location: '공학관',
+              totalMemberCount: 3,
+              respondedMemberCount: 2,
+            },
+          ],
+          message: null,
+        }),
+      ),
+    );
+
+    renderPage();
+
+    // 단계 칩 — "응답 대기 n/N" 형식
+    await waitFor(() => {
+      expect(screen.getByText(/응답 대기/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/2\/3/)).toBeInTheDocument();
+  });
+
+  it('라운드가 없으면 단계 칩에 "면접 대상 선정 전" 이 보인다', async () => {
+    server.use(
+      mockRecruitmentDetail(true),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [], message: null }),
+      ),
+    );
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('면접 대상 선정 전')).toBeInTheDocument();
+    });
   });
 });
