@@ -3,7 +3,7 @@
 // invalidation 매트릭스 (스펙 §10.1):
 //   생성(create)        → list + candidates
 //   수정(update)        → detail + list
-//   취소(cancel)        → list + candidates  (멤버 대기열 복귀 — 재큐잉)
+//   취소(cancel)        → detail + list + candidates  (상태 전이 + 멤버 대기열 복귀 — 재큐잉)
 //   슬롯 생성/삭제      → detail
 //   발송(requestAvail)  → detail + list
 export const interviewRoundKeys = {

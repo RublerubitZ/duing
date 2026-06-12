@@ -11,6 +11,9 @@ import type {
   AvailabilityRequestResult,
   ApplicantInterviewView,
   RespondAvailabilityPayload,
+  RoundAutoAssignResult,
+  RoundConfirmResult,
+  UpdateInterviewSlotPayload,
 } from '@duing/types';
 import type {
   AdminClubSearchParams,
@@ -123,11 +126,6 @@ import type {
   GlobalEventDetail,
   GlobalEventListParams,
   UpdateGlobalEventPayload,
-  InterviewConfig,
-  SlotListView,
-  ScheduleListView,
-  AutoAssignResult,
-  MatchingCandidatesView,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -135,6 +133,7 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    public readonly payload?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -144,15 +143,17 @@ export class ApiError extends Error {
 async function toApiError(error: unknown): Promise<never> {
   if (error instanceof HTTPError) {
     let message = `요청 실패 (${error.response.status})`;
+    let payload: unknown;
     try {
       const body = (await error.response.json()) as ApiResponse<unknown>;
       if (body && typeof body.message === 'string') {
         message = body.message;
       }
+      payload = body.data;
     } catch {
       // ignore json parse failure
     }
-    throw new ApiError(error.response.status, message);
+    throw new ApiError(error.response.status, message, payload);
   }
   throw error;
 }
@@ -393,38 +394,28 @@ export type DuingApiClient = {
     // === 가능시간 요청 발송 (BE#5) ===
     // POST /leader/interview-rounds/{roundId}/request-availability
     requestAvailability(roundId: number): Promise<AvailabilityRequestResult>;
-  };
-  interviews: {
-    // === Manager — Config ===
-    createConfig(
-      recruitmentId: number,
-      payload: { availabilityDeadline: string; location?: string },
-    ): Promise<{ configId: number }>;
-    updateConfig(
-      recruitmentId: number,
-      payload: { availabilityDeadline?: string; location?: string },
-    ): Promise<void>;
-    getConfig(recruitmentId: number): Promise<InterviewConfig>;
-
-    // === Manager — Slots ===
-    createSlots(
-      recruitmentId: number,
-      payload: { slots: Array<{ startTime: string; endTime: string; capacity: number }> },
-    ): Promise<{ slotIds: number[] }>;
-    listSlots(recruitmentId: number): Promise<SlotListView[]>;
-    updateSlot(
-      slotId: number,
-      payload: { startTime?: string; endTime?: string; capacity?: number },
-    ): Promise<void>;
-    deleteSlot(slotId: number): Promise<void>;
-
-    // === Manager — Auto assign / Schedules ===
-    autoAssign(recruitmentId: number): Promise<AutoAssignResult>;
-    listSchedules(recruitmentId: number): Promise<ScheduleListView[]>;
-    matchingCandidates(recruitmentId: number): Promise<MatchingCandidatesView>;
-    assignSchedule(applicationId: number, payload: { slotId: number }): Promise<void>;
-    cancelSchedule(applicationId: number): Promise<void>;
-
+    // === 자동배정 실행 (BE#11) ===
+    // POST /leader/interview-rounds/{roundId}/auto-assign
+    autoAssign(roundId: number): Promise<RoundAutoAssignResult>;
+    // === 수동 배정 (BE#11) ===
+    // PUT /leader/interview-rounds/{roundId}/members/{memberId}/schedule
+    assignMemberSchedule(roundId: number, memberId: number, payload: { slotId: number }): Promise<void>;
+    // === 배정 해제 (BE#11) ===
+    // DELETE /leader/interview-rounds/{roundId}/members/{memberId}/schedule
+    unassignMemberSchedule(roundId: number, memberId: number): Promise<void>;
+    // === 멤버 제외 (BE#11) ===
+    // POST /leader/interview-rounds/{roundId}/members/{memberId}/exclude
+    excludeMember(roundId: number, memberId: number): Promise<void>;
+    // === 라운드 확정 (BE#11) — force=false 시 409 + UnresolvedMembersPayload ===
+    // POST /leader/interview-rounds/{roundId}/confirm?force=
+    confirm(roundId: number, force: boolean): Promise<RoundConfirmResult>;
+    // === 재알림 발송 (BE#11) ===
+    // POST /leader/interview-rounds/{roundId}/remind
+    // 발송과 동일 응답 형태 (notifiedMemberCount)
+    remind(roundId: number): Promise<AvailabilityRequestResult>;
+    // === 슬롯 수정 (BE#11) ===
+    // PATCH /leader/interview-slots/{slotId}
+    updateSlot(slotId: number, payload: UpdateInterviewSlotPayload): Promise<void>;
   };
   applicantInterview: {
     // === 지원자 면접 진행 단계 조회 (BE#7) ===
@@ -908,49 +899,36 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<AvailabilityRequestResult>(
           http.post(`leader/interview-rounds/${roundId}/request-availability`),
         ),
-    },
-    interviews: {
-      createConfig: (recruitmentId, payload) =>
-        jsonOk<{ configId: number }>(
-          http.post(`recruitments/${recruitmentId}/interview-config`, { json: payload }),
+      autoAssign: (roundId) =>
+        jsonOk<RoundAutoAssignResult>(
+          http.post(`leader/interview-rounds/${roundId}/auto-assign`),
         ),
-      updateConfig: (recruitmentId, payload) =>
+      assignMemberSchedule: (roundId, memberId, payload) =>
         jsonVoid(
-          http.patch(`recruitments/${recruitmentId}/interview-config`, { json: payload }),
+          http.put(`leader/interview-rounds/${roundId}/members/${memberId}/schedule`, { json: payload }),
         ),
-      getConfig: (recruitmentId) =>
-        jsonOk<InterviewConfig>(
-          http.get(`recruitments/${recruitmentId}/interview-config`),
+      unassignMemberSchedule: (roundId, memberId) =>
+        jsonVoid(
+          http.delete(`leader/interview-rounds/${roundId}/members/${memberId}/schedule`),
         ),
-      createSlots: (recruitmentId, payload) =>
-        jsonOk<{ slotIds: number[] }>(
-          http.post(`recruitments/${recruitmentId}/interview-slots`, { json: payload }),
+      excludeMember: (roundId, memberId) =>
+        jsonVoid(
+          http.post(`leader/interview-rounds/${roundId}/members/${memberId}/exclude`),
         ),
-      listSlots: (recruitmentId) =>
-        jsonOk<SlotListView[]>(
-          http.get(`recruitments/${recruitmentId}/interview-slots`),
+      confirm: (roundId, force) =>
+        jsonOk<RoundConfirmResult>(
+          http.post(`leader/interview-rounds/${roundId}/confirm`, {
+            searchParams: { force },
+          }),
+        ),
+      remind: (roundId) =>
+        jsonOk<AvailabilityRequestResult>(
+          http.post(`leader/interview-rounds/${roundId}/remind`),
         ),
       updateSlot: (slotId, payload) =>
-        jsonVoid(http.patch(`interview-slots/${slotId}`, { json: payload })),
-      deleteSlot: (slotId) => jsonVoid(http.delete(`interview-slots/${slotId}`)),
-      autoAssign: (recruitmentId) =>
-        jsonOk<AutoAssignResult>(
-          http.post(`recruitments/${recruitmentId}/interview-schedules/auto-assign`),
-        ),
-      listSchedules: (recruitmentId) =>
-        jsonOk<ScheduleListView[]>(
-          http.get(`recruitments/${recruitmentId}/interview-schedules`),
-        ),
-      matchingCandidates: (recruitmentId) =>
-        jsonOk<MatchingCandidatesView>(
-          http.get(`recruitments/${recruitmentId}/interview-matching-candidates`),
-        ),
-      assignSchedule: (applicationId, payload) =>
         jsonVoid(
-          http.put(`applications/${applicationId}/interview-schedule`, { json: payload }),
+          http.patch(`leader/interview-slots/${slotId}`, { json: payload }),
         ),
-      cancelSchedule: (applicationId) =>
-        jsonVoid(http.delete(`applications/${applicationId}/interview-schedule`)),
     },
     raw: http,
   };

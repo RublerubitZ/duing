@@ -14,7 +14,6 @@ import { ApplicantInterviewScheduleCard } from './ApplicantInterviewScheduleCard
 import { ApplicantNavBar } from './ApplicantNavBar';
 import { ApplicantProfilePanel } from './ApplicantProfilePanel';
 import { EvaluationPanel } from './EvaluationPanel';
-import { ManualAssignModal } from './ManualAssignModal';
 import { PromoteToInterviewPendingDialog } from './PromoteToInterviewPendingDialog';
 import { StatusActionBar } from './StatusActionBar';
 import { StatusTimeline } from './StatusTimeline';
@@ -41,7 +40,6 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
   const { data: recruitment } = useRecruitmentDetailQuery(recruitmentId);
   const { data: detail, isLoading } = useApplicantDetailQuery(applicationId);
 
-  const [showManualAssign, setShowManualAssign] = useState(false);
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
 
   if (isLoading || !detail) {
@@ -79,8 +77,6 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
               onOpenManualAssign={() => {
                 if (detail.status === PROMOTABLE_STATUS) {
                   setShowPromoteDialog(true);
-                } else {
-                  setShowManualAssign(true);
                 }
               }}
             />
@@ -93,19 +89,7 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
               onCancel={() => setShowPromoteDialog(false)}
               onPromoted={() => {
                 setShowPromoteDialog(false);
-                setShowManualAssign(true);
               }}
-            />
-          )}
-          {useInterview && showManualAssign && (
-            <ManualAssignModal
-              applicationId={applicationId}
-              recruitmentId={recruitmentId}
-              applicantName={detail.applicant.name}
-              interviewAvailabilities={detail.interviewAvailabilities}
-              assignedSlot={detail.assignedSlot}
-              assignedSlotId={detail.assignedSlot?.slotId ?? null}
-              onClose={() => setShowManualAssign(false)}
             />
           )}
           <StatusActionBar

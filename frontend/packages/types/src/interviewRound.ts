@@ -153,3 +153,61 @@ export type UpdateInterviewRoundPayload = {
 export type AvailabilityRequestResult = {
   notifiedMemberCount: number;
 };
+
+// = AutoAssignResponse (BE#11 assignment — controller/dto/response/AutoAssignResponse.java)
+// Note: interview.ts 의 구 AutoAssignResult(old 면접 관리 — Task 5 철거 예정)와 구분을 위해
+// RoundAutoAssignResult 로 명명. Task 5 철거 후 AutoAssignResult 로 rename 가능.
+export type RoundAutoAssignResult = {
+  assignedMemberCount: number;
+  unassignedMemberCount: number;
+};
+
+// = ConfirmRoundResponse (BE#11 assignment — controller/dto/response/ConfirmRoundResponse.java)
+export type RoundConfirmResult = {
+  assignedMemberCount: number;
+  excludedMemberCount: number;
+};
+
+// = UnresolvedMembersResponse.UnrespondedMember (nested record)
+// backend: controller/dto/response/UnresolvedMembersResponse.java
+export type UnrespondedMember = {
+  applicationId: number;
+  applicantName: string;
+  memberStatus: InterviewRoundMemberStatus;
+};
+
+// = UnresolvedMembersResponse.RespondedUnassignedMember (nested record)
+export type RespondedUnassignedMember = {
+  applicationId: number;
+  applicantName: string;
+  selectedSlotIds: number[];
+};
+
+// = UnresolvedMembersResponse (BE#11 — 409 data payload)
+// backend: controller/dto/response/UnresolvedMembersResponse.java
+// code 리터럴은 백엔드 CODE 상수 1:1
+export type UnresolvedMembersPayload = {
+  code: 'INTERVIEW_ROUND_HAS_UNRESOLVED_MEMBERS';
+  unresponded: UnrespondedMember[];
+  respondedUnassigned: RespondedUnassignedMember[];
+};
+
+/**
+ * 확정 409 payload 타입 가드.
+ * ApiError.payload 가 UnresolvedMembersPayload 인지 code 리터럴 + 배열 존재로 판별한다.
+ * `as` 단언 없이 `in` 연산자 narrowing 으로 unknown 을 좁힌다.
+ */
+export function isUnresolvedMembersPayload(value: unknown): value is UnresolvedMembersPayload {
+  if (typeof value !== 'object' || value === null) return false;
+  if (!('code' in value) || value.code !== 'INTERVIEW_ROUND_HAS_UNRESOLVED_MEMBERS') return false;
+  if (!('unresponded' in value) || !Array.isArray(value.unresponded)) return false;
+  if (!('respondedUnassigned' in value) || !Array.isArray(value.respondedUnassigned)) return false;
+  return true;
+}
+
+// = UpdateInterviewSlotRequest (BE#11 slot — controller/dto/request/UpdateInterviewSlotRequest.java)
+export type UpdateInterviewSlotPayload = {
+  startTime?: string;
+  endTime?: string;
+  capacity?: number;
+};

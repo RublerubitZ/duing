@@ -2,26 +2,10 @@
 // 공유 의도가 강해 packages/types 에 둔다. type-only import 라 런타임/번들 영향 없음.
 import type { components } from '@duing/api/openapi-types';
 
-// === Backend 응답 1:1 alias ===
-// `slotLifecyclePhase` 는 backend 가 항상 채워 보내지만 openapi-typescript 가
-// optional `?: string literal` 로 생성한다. 도메인 레이어에서 narrow union 으로
-// 재선언해 호출부의 undefined 가드를 줄인다.
-export type InterviewConfig = Omit<
-  components['schemas']['InterviewConfigResponse'],
-  'slotLifecyclePhase'
-> & {
-  slotLifecyclePhase: InterviewSlotLifecyclePhase;
-};
+// 지원자 면접 가능 슬롯 — SlotPickerByDateGroup·ApplicantSlotItem 이 사용.
 export type ApplicantInterviewSlot = components['schemas']['ApplicantInterviewSlotResponse'];
-export type SlotListView = components['schemas']['SlotListView'];
-export type ScheduleListView = components['schemas']['ScheduleListView'];
-export type AutoAssignResult = components['schemas']['AutoAssignResultResponse'];
-export type MatchingCandidatesView = components['schemas']['MatchingCandidatesResponse'];
 
-// Backend PR-IS 신규 — 지원자 가능 슬롯 + 면접 일정
-export type MyInterviewAvailabilities = components['schemas']['MyInterviewAvailabilitiesResponse'];
-
-// 면접 수동 배정 UX P0 — `ApplicantDetailResponse.interviewAvailabilities` /
+// 면접 수동 배정 UX — `ApplicantDetailResponse.interviewAvailabilities` /
 // `assignedSlot` 그리고 stepper UI 의 슬롯 표시에 공통 사용되는 경량 표현.
 // capacity/assignedCount 는 의도적으로 포함하지 않는다 (정원 정보는 별도 slots API 로).
 //
@@ -36,49 +20,4 @@ export type AvailabilityItem = {
   slotId: number;
   startTime: string;
   endTime: string;
-};
-
-// 면접 일정 상태 — backend enum 미러
-export type InterviewScheduleStatus = 'ASSIGNED' | 'CANCELLED';
-
-// 슬롯 lifecycle 3-phase — backend enum 미러.
-// Spec: docs/superpowers/specs/2026-06-10-slot-lifecycle-policy-design.md
-//
-// backend `InterviewConfigResponse.slotLifecyclePhase` 는 서버가 항상 채워 보내지만
-// springdoc 이 required 미선언으로 노출 → openapi-typescript 가 `?: string` optional 로 생성한다.
-// `AvailabilityItem` 과 동일한 사유로 도메인 레이어에서 명시적 narrow union 으로 노출한다.
-// drift 방지: backend `SlotLifecyclePhase` enum 값이 바뀌면 본 type 도 직접 갱신해야 한다.
-export type InterviewSlotLifecyclePhase =
-  | 'BEFORE_DEADLINE'
-  | 'AFTER_DEADLINE_BEFORE_ASSIGNMENT'
-  | 'AFTER_ASSIGNMENT';
-
-// === Discriminated union ===
-// Backend `MyInterviewScheduleResponse` 는 { assigned: boolean; schedule?: InterviewScheduleDetail; location?: string }
-// 형태로 schedule/location 이 optional 이라 narrowing 이 약하다. client 단에서
-// assigned 플래그를 기준으로 명확한 union 으로 변환한다.
-type AssignedSchedule = NonNullable<components['schemas']['MyInterviewScheduleResponse']['schedule']>;
-
-export type MyInterviewSchedule =
-  | { assigned: false; schedule: null; location: null }
-  | { assigned: true; schedule: AssignedSchedule; location: string | null };
-
-// === View model (route-local 매핑 헬퍼용) ===
-export type ManagementSlotAssignment = {
-  scheduleId: number;
-  applicationId: number;
-  applicantLabel: string;
-  status: InterviewScheduleStatus;
-};
-
-export type ManagementSlotView = {
-  slotId: number;
-  startTime: string;
-  endTime: string;
-  capacity: number;
-  availabilityCount?: number;
-  // 백엔드 SlotListView.assignedCount — 자동배정 후 채워지는 누적 배정 인원수.
-  // `assignments` 가 로드되지 않은 시점(Step 2) 의 카드 표시를 위한 fallback 원천.
-  assignedCount?: number;
-  assignments?: ManagementSlotAssignment[];
 };
