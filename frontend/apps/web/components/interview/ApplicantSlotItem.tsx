@@ -1,16 +1,17 @@
 'use client';
 
-import type { ApplicantInterviewSlot } from '@duing/types';
 import { parseLocalDateTime } from '@/components/interview/_utils/localDateTime';
 
 // 지원자가 면접 가능시간을 선택할 때 사용하는 chip 컴포넌트.
 // SlotPickerByDateGroup 에서 같은 날짜 묶음 안의 시간 chip 으로 렌더되며,
-// EditAvailabilityModal(PR-FE5) 에서도 재사용 예정이다.
+// ApplicantInterviewSlot(구 타입, openapi optional)·ApplicantInterviewSelectableSlot(신 타입,
+// required) 모두 수용하도록 공통 최소 구조로 선언한다.
+type SlotShape = {
+  slotId: number;
+  startTime: string;
+  endTime: string;
+};
 
-type SlotShape = Pick<
-  NonNullable<ApplicantInterviewSlot>,
-  'slotId' | 'startTime' | 'endTime' | 'capacity'
->;
 
 type Props = {
   slot: SlotShape;

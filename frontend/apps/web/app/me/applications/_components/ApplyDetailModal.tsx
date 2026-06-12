@@ -3,9 +3,10 @@
 import type React from 'react';
 
 import type { MyApplicationDetail } from '@duing/types';
+import { useMyInterviewQuery } from '@duing/hooks';
 
 import { ApplicationStepper } from '../[applicationId]/_components/ApplicationStepper';
-import { InterviewScheduleCard } from '../[applicationId]/_components/InterviewScheduleCard';
+import { ApplicantInterviewCard } from '../[applicationId]/_components/ApplicantInterviewCard';
 import type { App } from '../_constants/data';
 
 import { ClubLogo } from './ClubLogo';
@@ -76,7 +77,17 @@ type ApplyDetailModalProps = {
 };
 
 export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps) {
+  // 면접 진행 phase 조회 — detail 이 확정된 후에만 fetch (enabled 조건).
+  // phase 는 stepper 활성 단계·문구와 ApplicantInterviewCard 에 주입된다.
+  const applicationId = detail?.id;
+  const { data: interviewView } = useMyInterviewQuery(
+    applicationId ?? 0,
+    { enabled: applicationId !== undefined },
+  );
+
   if (!app) return null;
+
+  const phase = interviewView?.phase ?? null;
 
   return (
     <>
@@ -136,12 +147,11 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
         </div>
 
         <div style={{ padding: '0 20px 60px', overflowY: 'auto' }}>
-          {/* 전체 funnel stepper — Spec P0-1.
-              detail 도착 후에만 마운트하여 status/interview 가 확정된 상태로 렌더한다.
-              `now` 는 호출 시점에 결정되며 모달이 client 트리 안에 있어 결정성 이슈가 없다. */}
+          {/* 전체 funnel stepper — phase 기반으로 재배선.
+              detail 도착 후에만 마운트. phase=null 이면 status fallback 사용. */}
           {detail && (
             <div style={{ marginBottom: 16 }}>
-              <ApplicationStepper detail={detail} now={new Date()} />
+              <ApplicationStepper detail={detail} phase={phase} />
             </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.65fr', gap: 18 }}>
@@ -198,15 +208,10 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
                 </div>
               )}
 
-              {/* 면접 일정 카드 — useInterview=true 인 모집에만 자체 렌더된다.
-                  recruitmentId 가 확정된 detail 도착 후에만 마운트하여 query enabled 조건 단순화. */}
+              {/* 면접 카드 — applicantPhase 소비 (InterviewScheduleCard 대체).
+                  recruitmentId 가 확정된 detail 도착 후에만 마운트. */}
               {detail && (
-                <div style={{ marginTop: 16 }}>
-                  <InterviewScheduleCard
-                    applicationId={detail.id}
-                    recruitmentId={detail.recruitmentId}
-                  />
-                </div>
+                <ApplicantInterviewCard applicationId={detail.id} />
               )}
             </div>
           </div>

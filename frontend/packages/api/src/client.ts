@@ -9,6 +9,8 @@ import type {
   CreateRoundSlotsResult,
   UpdateInterviewRoundPayload,
   AvailabilityRequestResult,
+  ApplicantInterviewView,
+  RespondAvailabilityPayload,
 } from '@duing/types';
 import type {
   AdminClubSearchParams,
@@ -122,13 +124,10 @@ import type {
   GlobalEventListParams,
   UpdateGlobalEventPayload,
   InterviewConfig,
-  ApplicantInterviewSlot,
   SlotListView,
   ScheduleListView,
   AutoAssignResult,
   MatchingCandidatesView,
-  MyInterviewAvailabilities,
-  MyInterviewSchedule,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -426,13 +425,14 @@ export type DuingApiClient = {
     assignSchedule(applicationId: number, payload: { slotId: number }): Promise<void>;
     cancelSchedule(applicationId: number): Promise<void>;
 
-    // === Applicant ===
-    updateAvailabilities(applicationId: number, payload: { slotIds: number[] }): Promise<void>;
-    getAvailabilities(applicationId: number): Promise<MyInterviewAvailabilities>;
-    applicantSlots(recruitmentId: number): Promise<ApplicantInterviewSlot[]>;
-
-    // A2 — backend raw 응답을 discriminated union 으로 narrow
-    mySchedule(applicationId: number): Promise<MyInterviewSchedule>;
+  };
+  applicantInterview: {
+    // === 지원자 면접 진행 단계 조회 (BE#7) ===
+    // GET /applications/{applicationId}/interview
+    view(applicationId: number): Promise<ApplicantInterviewView>;
+    // === 면접 가능 시간 응답 (BE#8 — XOR payload) ===
+    // PUT /applications/{applicationId}/interview-availability
+    respond(applicationId: number, payload: RespondAvailabilityPayload): Promise<void>;
   };
   raw: KyInstance;
 };
@@ -869,6 +869,12 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonVoid(http.delete(`admin/promotions/${promotionId}`)),
       },
     },
+    applicantInterview: {
+      view: (applicationId) =>
+        jsonOk<ApplicantInterviewView>(http.get(`applications/${applicationId}/interview`)),
+      respond: (applicationId, payload) =>
+        jsonVoid(http.put(`applications/${applicationId}/interview-availability`, { json: payload })),
+    },
     interviewRounds: {
       candidates: (recruitmentId, includeUnderReview) =>
         jsonOk<InterviewRoundCandidate[]>(
@@ -945,41 +951,6 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         ),
       cancelSchedule: (applicationId) =>
         jsonVoid(http.delete(`applications/${applicationId}/interview-schedule`)),
-      updateAvailabilities: (applicationId, payload) =>
-        jsonVoid(
-          http.put(`applications/${applicationId}/interview-availabilities`, {
-            json: payload,
-          }),
-        ),
-      getAvailabilities: (applicationId) =>
-        jsonOk<MyInterviewAvailabilities>(
-          http.get(`applications/${applicationId}/interview-availabilities`),
-        ),
-      applicantSlots: (recruitmentId) =>
-        jsonOk<ApplicantInterviewSlot[]>(
-          http.get(`recruitments/${recruitmentId}/applicant-interview-slots`),
-        ),
-      // A2 — raw 응답 (assigned 플래그 + schedule/location optional) 을 union 으로 narrow.
-      // backend 가 assigned=false 면 schedule 을 omit 하므로 명시적 null 변환으로 타입 안전 보장.
-      mySchedule: async (applicationId) => {
-        type AssignedSchedule = Extract<
-          MyInterviewSchedule,
-          { assigned: true }
-        >['schedule'];
-        const raw = await jsonOk<{
-          assigned?: boolean;
-          schedule?: AssignedSchedule;
-          location?: string;
-        }>(http.get(`applications/${applicationId}/interview-schedule`));
-        if (raw.assigned && raw.schedule) {
-          return {
-            assigned: true,
-            schedule: raw.schedule,
-            location: raw.location ?? null,
-          };
-        }
-        return { assigned: false, schedule: null, location: null };
-      },
     },
     raw: http,
   };

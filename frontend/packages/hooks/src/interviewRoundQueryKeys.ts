@@ -14,4 +14,7 @@ export const interviewRoundKeys = {
     [...interviewRoundKeys.all, 'detail', roundId] as const,
   candidates: (recruitmentId: number) =>
     [...interviewRoundKeys.all, 'candidates', recruitmentId] as const,
+  // 지원자 본인의 면접 진행 단계 캐시 — applicationId 기준 (스펙 §10.1)
+  myInterview: (applicationId: number) =>
+    [...interviewRoundKeys.all, 'my-interview', applicationId] as const,
 };

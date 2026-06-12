@@ -3,6 +3,7 @@ export type NotificationType =
   | 'RECRUITMENT_DEADLINE'
   | 'INTERVIEW_SCHEDULED'
   | 'INTERVIEW_REMINDER'
+  | 'INTERVIEW_AVAILABILITY_REQUESTED'
   | 'NOTICE_TARGETED';
 
 export type NotificationSource = 'PERSONAL' | 'BROADCAST';

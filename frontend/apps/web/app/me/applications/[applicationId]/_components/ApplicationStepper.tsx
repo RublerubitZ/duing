@@ -1,17 +1,25 @@
-import type { MyApplicationDetail } from '@duing/types';
+import type { MyApplicationDetail, ApplicantInterviewPhase } from '@duing/types';
 
-import { deriveStepperSubState, type StepperSubState } from '../_utils/deriveStepperSubState';
+import { getInterviewPhaseGuide } from '../_utils/interviewPhaseGuide';
 
-// 지원자 my-page 면접 funnel stepper (Spec P0-1).
+// 지원자 my-page 면접 funnel stepper (재배선 — applicantPhase 기반, §9.3).
 //
 // 5단계 메인 진행 막대:
-//   1. 지원 완료           — status == SUBMITTED
-//   2. 서류 검토 중        — status == UNDER_REVIEW
-//   3. 면접 대상           — status == INTERVIEW_PENDING && interview == null
-//   4. 면접 일정 배정 완료 — status == INTERVIEW_PENDING && interview != null
-//   5. 최종 합격 / 최종 불합격 — status == ACCEPTED / REJECTED
+//   0. 지원 완료           — index 0
+//   1. 서류 검토 중        — index 1
+//   2. 면접 대상           — index 2
+//   3. 면접 일정 배정 완료 — index 3
+//   4. 최종 합격 / 최종 불합격 — index 4
 //
-// Step 3 활성 시 진행 막대는 그대로 두고 sub-state 안내 문구만 분기 (deriveStepperSubState 참조).
+// 활성 단계 결정 (핵심 결정 2):
+//   phase != null && phase != 'NOT_APPLICABLE' → guide.stepIndex 우선
+//     DOCUMENT_REVIEW → 1
+//     WAITING_*/AVAILABILITY_*/RESPONDED/NO_SLOT_REPORTED/SCHEDULING → 2
+//     SCHEDULED → 3
+//   NOT_APPLICABLE 또는 phase=null(로딩 중) → status fallback
+//     SUBMITTED → 0 / UNDER_REVIEW → 1 / INTERVIEW_PENDING → 2 / ACCEPTED·REJECTED → 4
+//
+// 안내 문구: guide.description 을 role=status 영역에 표시.
 
 type StepperDetail = Pick<
   MyApplicationDetail,
@@ -20,9 +28,8 @@ type StepperDetail = Pick<
 
 type Props = {
   detail: StepperDetail;
-  // SSR/테스트 결정성을 위해 호출자가 명시적으로 주입한다. (default `new Date()` 은
-  // server render 결정성을 깨뜨릴 수 있어 의도적으로 required 로 둔다.)
-  now: Date;
+  // 지원자 면접 진행 phase — null 이면 로딩 중으로 간주해 status fallback 사용.
+  phase: ApplicantInterviewPhase | null;
 };
 
 type StepKey =
@@ -45,33 +52,40 @@ const STEPS: readonly StepDef[] = [
   { key: 'finalized', defaultLabel: '최종 결과' },
 ];
 
-const SUB_STATE_TEXT: Record<StepperSubState, (count: number) => string> = {
-  'slot-select-pending': () =>
-    '운영진이 면접 대상으로 선정했습니다. 면접 가능 시간을 선택해 주세요.',
-  'slot-submitted': (count) =>
-    `면접 가능 시간 ${count}개를 제출했습니다. 운영진이 일정을 배정 중입니다.`,
-  'slot-deadline-passed': () =>
-    '면접 가능 시간 제출이 마감되었습니다. 운영진과 별도 연락이 있을 수 있습니다.',
-};
-
-function resolveActiveStepIndex(detail: StepperDetail): number {
+function resolveActiveStepIndexFromStatus(
+  detail: StepperDetail,
+): number {
   switch (detail.status) {
     case 'SUBMITTED':
       return 0;
     case 'UNDER_REVIEW':
       return 1;
     case 'INTERVIEW_PENDING':
-      return detail.interview !== null ? 3 : 2;
+      return 2;
     case 'ACCEPTED':
     case 'REJECTED':
       return 4;
     default: {
-      // ApplicationStatus union 확장 시 컴파일 타임에 누락을 잡아낸다.
       const _exhaustive: never = detail.status;
       void _exhaustive;
       return 0;
     }
   }
+}
+
+function resolveActiveStepIndex(
+  phase: ApplicantInterviewPhase | null,
+  detail: StepperDetail,
+): number {
+  if (phase !== null && phase !== 'NOT_APPLICABLE') {
+    const guide = getInterviewPhaseGuide(phase);
+    if (guide !== null) {
+      // guide.stepIndex: 1=서류 검토 중, 2=면접 대상, 3=면접 일정 배정 완료
+      return guide.stepIndex;
+    }
+  }
+  // NOT_APPLICABLE 또는 로딩 중(null) → status fallback
+  return resolveActiveStepIndexFromStatus(detail);
 }
 
 function resolveStepLabel(step: StepDef, detail: StepperDetail): string {
@@ -81,20 +95,14 @@ function resolveStepLabel(step: StepDef, detail: StepperDetail): string {
   return step.defaultLabel;
 }
 
-export function ApplicationStepper({ detail, now }: Props) {
-  const activeIndex = resolveActiveStepIndex(detail);
+export function ApplicationStepper({ detail, phase }: Props) {
+  const activeIndex = resolveActiveStepIndex(phase, detail);
   const isFinalReject = detail.status === 'REJECTED';
 
-  // activeIndex === 2 (Step 3 활성) 시점에 한해서만 sub-state 를 계산한다.
-  // 이 가드가 `interview == null` 을 이미 보장하므로 util signature 에는
-  // interview 를 전달하지 않는다.
-  const subState: StepperSubState | null =
-    activeIndex === 2
-      ? deriveStepperSubState({
-          interviewAvailabilityCount: detail.interviewAvailabilityCount,
-          availabilityDeadline: detail.availabilityDeadline,
-          now,
-        })
+  // guide 안내 문구 — phase 가 있으면 guide.description 사용, 없으면 없음.
+  const guideDescription: string | null =
+    phase !== null && phase !== 'NOT_APPLICABLE'
+      ? (getInterviewPhaseGuide(phase)?.description ?? null)
       : null;
 
   return (
@@ -208,7 +216,7 @@ export function ApplicationStepper({ detail, now }: Props) {
         })}
       </ol>
 
-      {subState && (
+      {guideDescription && (
         <p
           role="status"
           style={{
@@ -222,7 +230,7 @@ export function ApplicationStepper({ detail, now }: Props) {
             lineHeight: 1.5,
           }}
         >
-          {SUB_STATE_TEXT[subState](detail.interviewAvailabilityCount)}
+          {guideDescription}
         </p>
       )}
     </section>

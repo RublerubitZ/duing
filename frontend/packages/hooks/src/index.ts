@@ -164,9 +164,6 @@ export {
   useInterviewSlotsQuery,
   useInterviewSchedulesQuery,
   useMatchingCandidatesQuery,
-  useApplicantInterviewSlotsQuery,
-  useInterviewAvailabilitiesQuery,
-  useMyInterviewScheduleQuery,
   useCreateInterviewConfigMutation,
   useUpdateInterviewConfigMutation,
   useCreateInterviewSlotsMutation,
@@ -175,7 +172,6 @@ export {
   useAutoAssignMutation,
   useAssignInterviewScheduleMutation,
   useCancelInterviewScheduleMutation,
-  useUpdateInterviewAvailabilitiesMutation,
 } from './interview';
 export { interviewQueryKeys } from './interviewQueryKeys';
 export {
@@ -190,3 +186,7 @@ export {
   useRequestAvailabilityMutation,
 } from './interviewRound';
 export { interviewRoundKeys } from './interviewRoundQueryKeys';
+export {
+  useMyInterviewQuery,
+  useRespondAvailabilityMutation,
+} from './applicantInterview';
