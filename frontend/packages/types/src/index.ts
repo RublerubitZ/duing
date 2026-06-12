@@ -19,3 +19,4 @@ export * from './calendar';
 export * from './interview';
 export * from './interviewRound';
 export * from './applicantInterview';
+export * from './dashboard';
