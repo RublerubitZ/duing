@@ -36,19 +36,19 @@
 ---
 
 ### Task 1: 브랜치
-- [ ] `git checkout develop && git pull origin develop && git checkout -b feat/queue-and-reschedule-ui`
+- [x] `git checkout develop && git pull origin develop && git checkout -b feat/queue-and-reschedule-ui`
 
 ### Task 2: 재조정 UI (커밋 ①)
-- [ ] 테스트 4건 RED (기존 dashboard 테스트 픽스처에 SCHEDULED 변형 추가) → phase 조건 확장 구현 → GREEN → `feat(web): 확정 후 일정 변경 UI — SCHEDULED 슬롯 관리·재배정`
+- [x] 테스트 4건 RED (기존 dashboard 테스트 픽스처에 SCHEDULED 변형 추가) → phase 조건 확장 구현 → GREEN → `feat(web): 확정 후 일정 변경 UI — SCHEDULED 슬롯 관리·재배정`
 
 ### Task 3: 대기열 + 단계표시 (커밋 ②)
-- [ ] 테스트 5건 RED → `InterviewRoundsLanding` 대기열 섹션 + `InterviewStageChip`(+모집 상세 배치 — 기존 액션 버튼 영역 인접) 구현 → GREEN → `feat(web): 면접 대기열 섹션·모집 상세 진행 단계표시`
+- [x] 테스트 5건 RED → `InterviewRoundsLanding` 대기열 섹션 + `InterviewStageChip`(+모집 상세 배치 — 기존 액션 버튼 영역 인접) 구현 → GREEN → `feat(web): 면접 대기열 섹션·모집 상세 진행 단계표시`
 
 ### Task 4: 전체 검증
-- [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` (명령별 exit code) + repo 루트 self-check (체크박스·EOF·금지 라인)
+- [x] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` (명령별 exit code) + repo 루트 self-check (체크박스·EOF·금지 라인)
 
 ### Task 5: push + PR (컨트롤러 — 머지 금지)
-- [ ] PR `feat(web): 면접 대기열·진행 단계표시 + 확정 후 일정 변경 UI` — 🚀(재설계 마지막 조각 — BE#13 짝 UI·상시 대기열·단계 가드레일) / 🤔(목록 카드 N+1 트레이드오프·SCHEDULED 무토스트·해제/제외 미노출 유지) / 💬(phase 조건 경계·§10.5 라벨 1:1).
+- [x] PR `feat(web): 면접 대기열·진행 단계표시 + 확정 후 일정 변경 UI` — 🚀(재설계 마지막 조각 — BE#13 짝 UI·상시 대기열·단계 가드레일) / 🤔(목록 카드 N+1 트레이드오프·SCHEDULED 무토스트·해제/제외 미노출 유지) / 💬(phase 조건 경계·§10.5 라벨 1:1).
 
 ---
 
