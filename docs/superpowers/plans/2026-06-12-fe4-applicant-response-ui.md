@@ -50,7 +50,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -62,7 +62,7 @@ git checkout -b feat/applicant-interview-response
 
 ### Task 2: 데이터 레이어 + 알림 타입 (커밋 ①)
 
-- [ ] **Step 1: 타입** — `packages/types/src/applicantInterview.ts` 신규, **`ApplicantInterviewResponse.java`(BE#7)·`RespondInterviewAvailabilityRequest.java`(BE#8) 를 읽고 1:1** (LocalDateTime→string, nullable→`| null`):
+- [x] **Step 1: 타입** — `packages/types/src/applicantInterview.ts` 신규, **`ApplicantInterviewResponse.java`(BE#7)·`RespondInterviewAvailabilityRequest.java`(BE#8) 를 읽고 1:1** (LocalDateTime→string, nullable→`| null`):
 
 ```typescript
 // 지원자 면접 진행 — 백엔드 BE#7/8 DTO 1:1 수동 정의 (regen 보류 — FE#2 전례).
@@ -80,7 +80,7 @@ export type RespondAvailabilityPayload =
   | { noAvailableSlot: true; alternativeText?: string };
 ```
 
-- [ ] **Step 2: 클라이언트** — `client.ts` 에 신규 그룹 (경로는 `ApplicantInterviewApi.java` 가 정답):
+- [x] **Step 2: 클라이언트** — `client.ts` 에 신규 그룹 (경로는 `ApplicantInterviewApi.java` 가 정답):
 
 ```typescript
   applicantInterview: {
@@ -93,7 +93,7 @@ export type RespondAvailabilityPayload =
 
 동시에 구 메서드 4 삭제(`applicantSlots`·`getAvailabilities`·`updateAvailabilities`·`mySchedule`) — **이 시점엔 사용처가 남아 typecheck 가 깨지므로, 삭제는 커밋 ② 로 미루고 여기선 추가만** 한다 (커밋 ① 은 추가 전용 — 빌드 그린 유지).
 
-- [ ] **Step 3: 쿼리키·훅** — `interviewRoundQueryKeys.ts` 에 `myInterview: (applicationId) => [...interviewRoundKeys.all, 'my-interview', applicationId]` 추가. `packages/hooks/src/applicantInterview.ts` 신규:
+- [x] **Step 3: 쿼리키·훅** — `interviewRoundQueryKeys.ts` 에 `myInterview: (applicationId) => [...interviewRoundKeys.all, 'my-interview', applicationId]` 추가. `packages/hooks/src/applicantInterview.ts` 신규:
 
 ```typescript
 export function useMyInterviewQuery(applicationId: number, options?: { enabled?: boolean }) { /* queryFn: client.applicantInterview.view */ }
@@ -104,9 +104,9 @@ export function useRespondAvailabilityMutation(applicationId: number) {
 }
 ```
 
-- [ ] **Step 4: 알림 타입** — `notification.ts` union 에 `'INTERVIEW_AVAILABILITY_REQUESTED'` 추가, 알림 렌더 컴포넌트의 타입별 매핑(grep `INTERVIEW_SCHEDULED` 로 위치 확인)에 라벨(예: "면접 시간 선택 요청") 분기 추가 — 기존 매핑 스타일이 정답.
+- [x] **Step 4: 알림 타입** — `notification.ts` union 에 `'INTERVIEW_AVAILABILITY_REQUESTED'` 추가, 알림 렌더 컴포넌트의 타입별 매핑(grep `INTERVIEW_SCHEDULED` 로 위치 확인)에 라벨(예: "면접 시간 선택 요청") 분기 추가 — 기존 매핑 스타일이 정답.
 
-- [ ] **Step 5: 테스트 + 커밋** — api 테스트 2건(view 언래핑·respond XOR body 캡처 2형), hooks 테스트 1건(respond 성공 시 myInterview invalidate).
+- [x] **Step 5: 테스트 + 커밋** — api 테스트 2건(view 언래핑·respond XOR body 캡처 2형), hooks 테스트 1건(respond 성공 시 myInterview invalidate).
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/frontend
@@ -118,9 +118,9 @@ cd .. && git add frontend && git commit -m "feat(web): 지원자 면접 진행 �
 
 ### Task 3: 카드·stepper 테스트 (RED)
 
-- [ ] **Step 1: `interviewPhaseGuide.test.ts`** — 10 phase 전수: 각 phase 의 stepIndex·문구 존재, NOT_APPLICABLE 은 guide null.
+- [x] **Step 1: `interviewPhaseGuide.test.ts`** — 10 phase 전수: 각 phase 의 stepIndex·문구 존재, NOT_APPLICABLE 은 guide null.
 
-- [ ] **Step 2: `applicant-interview-card.test.tsx`** (~10건, MSW — view 픽스처를 phase 별 교체):
+- [x] **Step 2: `applicant-interview-card.test.tsx`** (~10건, MSW — view 픽스처를 phase 별 교체):
 
 1. `응답 요청 단계에서는 마감과 함께 시간 선택 버튼이 보인다`
 2. `시간 선택 모달에서 슬롯을 고르고 저장하면 선택한 슬롯이 그대로 전송된다` — body 캡처 `{slotIds:[...]}` + `noAvailableSlot` 부재
@@ -133,15 +133,15 @@ cd .. && git add frontend && git commit -m "feat(web): 지원자 면접 진행 �
 9. `확정되면 일시와 장소가 보인다` (SCHEDULED + scheduledInterview)
 10. `응답 저장이 거부되면 서버 메시지가 모달 안에 보인다` (409 — 모달 유지)
 
-- [ ] **Step 3: `ApplicationStepper.test.tsx` 재작성** — phase 기반: DOCUMENT_REVIEW→1단계 활성, AVAILABILITY_REQUESTED→2단계+문구, SCHEDULED→3단계, NOT_APPLICABLE+ACCEPTED→4단계 (4건).
+- [x] **Step 3: `ApplicationStepper.test.tsx` 재작성** — phase 기반: DOCUMENT_REVIEW→1단계 활성, AVAILABILITY_REQUESTED→2단계+문구, SCHEDULED→3단계, NOT_APPLICABLE+ACCEPTED→4단계 (4건).
 
-- [ ] **Step 4: RED 확인** — 신규·재작성분 FAIL. **커밋하지 않는다.**
+- [x] **Step 4: RED 확인** — 신규·재작성분 FAIL. **커밋하지 않는다.**
 
 ---
 
 ### Task 4: 구현 + dead 정리 (GREEN)
 
-- [ ] **Step 1: `interviewPhaseGuide.ts`** — phase 전수 매핑 (NOT_APPLICABLE → null):
+- [x] **Step 1: `interviewPhaseGuide.ts`** — phase 전수 매핑 (NOT_APPLICABLE → null):
 
 ```typescript
 export type InterviewPhaseGuide = { stepIndex: 1 | 2 | 3; title: string; description: string };
@@ -159,15 +159,15 @@ export function getInterviewPhaseGuide(phase: ApplicantInterviewPhase): Intervie
 }
 ```
 
-- [ ] **Step 2: `ApplicantInterviewCard.tsx`** — props `{ applicationId }`, `useMyInterviewQuery`, 핵심 결정 3 의 노출 범위·결정 5 의 재응답 규칙대로 분기 렌더. SCHEDULED 는 일시(`formatSlotRange` 재사용)·장소. 모달 상태 보유.
+- [x] **Step 2: `ApplicantInterviewCard.tsx`** — props `{ applicationId }`, `useMyInterviewQuery`, 핵심 결정 3 의 노출 범위·결정 5 의 재응답 규칙대로 분기 렌더. SCHEDULED 는 일시(`formatSlotRange` 재사용)·장소. 모달 상태 보유.
 
-- [ ] **Step 3: `RespondAvailabilityModal.tsx`** — 기존 모달 a11y 패턴(role=dialog·esc·backdrop — 비파괴라 esc 닫기 허용), `SlotPickerByDateGroup` 재사용(slots 의 selected 로 초기 selectedSlotIds 구성), 가능없음 토글+textarea, 저장=`useRespondAvailabilityMutation`(XOR payload — 토글 상태가 결정), 에러 인라인.
+- [x] **Step 3: `RespondAvailabilityModal.tsx`** — 기존 모달 a11y 패턴(role=dialog·esc·backdrop — 비파괴라 esc 닫기 허용), `SlotPickerByDateGroup` 재사용(slots 의 selected 로 초기 selectedSlotIds 구성), 가능없음 토글+textarea, 저장=`useRespondAvailabilityMutation`(XOR payload — 토글 상태가 결정), 에러 인라인.
 
-- [ ] **Step 4: stepper 재배선** — `ApplicationStepper` props 에 `phase: ApplicantInterviewPhase | null` 추가(로딩 중 null → 기존 status fallback), 활성 인덱스·문구를 guide 로. `ApplyDetailModal` 이 `useMyInterviewQuery(openApplicationId, {enabled})` 호출해 stepper·카드에 주입, `InterviewScheduleCard` 호출부를 `ApplicantInterviewCard` 로 교체.
+- [x] **Step 4: stepper 재배선** — `ApplicationStepper` props 에 `phase: ApplicantInterviewPhase | null` 추가(로딩 중 null → 기존 status fallback), 활성 인덱스·문구를 guide 로. `ApplyDetailModal` 이 `useMyInterviewQuery(openApplicationId, {enabled})` 호출해 stepper·카드에 주입, `InterviewScheduleCard` 호출부를 `ApplicantInterviewCard` 로 교체.
 
-- [ ] **Step 5: dead 정리** — 핵심 결정 6 목록 전부 삭제 (컴포넌트 2·유틸 1·훅 4·클라이언트 메서드 4·쿼리키 3·테스트 3). `SlotPickerByDateGroup` 의 props 타입이 구 `ApplicantInterviewSlot` 의존이면 신 타입 호환 구조(`{slotId,startTime,endTime}` Pick)로 교체. 구 타입 중 사용처가 0 이 된 것(`MyInterviewAvailabilities`·`MyInterviewSchedule` 등)도 삭제. **grep 으로 각 삭제 대상의 잔존 참조 0 확인.**
+- [x] **Step 5: dead 정리** — 핵심 결정 6 목록 전부 삭제 (컴포넌트 2·유틸 1·훅 4·클라이언트 메서드 4·쿼리키 3·테스트 3). `SlotPickerByDateGroup` 의 props 타입이 구 `ApplicantInterviewSlot` 의존이면 신 타입 호환 구조(`{slotId,startTime,endTime}` Pick)로 교체. 구 타입 중 사용처가 0 이 된 것(`MyInterviewAvailabilities`·`MyInterviewSchedule` 등)도 삭제. **grep 으로 각 삭제 대상의 잔존 참조 0 확인.**
 
-- [ ] **Step 6: GREEN + 게이트** — 신규·재작성 테스트 PASS 후 (명령별 exit code):
+- [x] **Step 6: GREEN + 게이트** — 신규·재작성 테스트 PASS 후 (명령별 exit code):
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/frontend
@@ -181,7 +181,7 @@ pnpm build
 
 ### Task 5: 커밋 ②
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -193,9 +193,9 @@ git commit -m "feat(web): 지원자 면접 응답 카드·stepper 를 applicantP
 
 ### Task 6: self-check + PR 생성 (컨트롤러 수행 — 구현 subagent 금지)
 
-- [ ] **Step 1: self-check** (금지 라인·EOF — repo 루트·계획 외 변경·게이트 4종)
+- [x] **Step 1: self-check** (금지 라인·EOF — repo 루트·계획 외 변경·게이트 4종)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지)
+- [x] **Step 2: push + PR** (자동 머지 금지)
 
 ```bash
 git push -u origin feat/applicant-interview-response
