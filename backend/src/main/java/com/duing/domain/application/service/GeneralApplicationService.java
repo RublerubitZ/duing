@@ -29,7 +29,9 @@ import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
@@ -43,6 +45,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.exception.ApplicationException;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -89,6 +92,8 @@ public class GeneralApplicationService implements ApplicationService {
     private final InterviewScheduleRepository interviewScheduleRepository;
     private final InterviewRoundRepository interviewRoundRepository;
     private final InterviewSlotRepository interviewSlotRepository;
+    private final InterviewRoundMemberRepositoryCustom interviewRoundMemberRepository;
+    private final Clock clock;
 
     /**
      * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
@@ -207,7 +212,7 @@ public class GeneralApplicationService implements ApplicationService {
         List<ApplicationEvaluation> evaluations =
                 applicationEvaluationRepository.findByApplicationIdWithEvaluator(applicationId);
 
-        // 운영진 상세 카드에 노출할 "지원자가 선택한 면접 가능시간 + 현재 배정 슬롯 + 배정 면접 일정".
+        // 운영진 상세 카드에 노출할 "지원자가 선택한 면접 가능시간 + 현재 배정 슬롯 + 배정 면접 일정 + 라운드 요약".
         // useInterview=false 모집은 면접 도메인 자체가 없으므로 추가 쿼리 호출 자체를 생략하고
         // 빈 리스트 / null 로 응답한다 (Task 1 의 useInterview 가드 패턴과 동일).
         // 또한 InterviewSchedule.cancel() 은 status 만 CANCELLED 로 바꾸는 도메인 취소이고
@@ -215,6 +220,7 @@ public class GeneralApplicationService implements ApplicationService {
         List<ApplicantDetailQuery.AvailabilityItem> interviewAvailabilities;
         ApplicantDetailQuery.AvailabilityItem assignedSlot;
         AssignedInterviewQuery interview;
+        ApplicantDetailQuery.InterviewRoundBriefQuery interviewRoundBrief;
         if (application.getRecruitment().isUseInterview()) {
             // interview 도메인은 자체 표현인 InterviewSlotTimeWindow 로 반환하고,
             // application 도메인이 자기 표현인 AvailabilityItem 으로 매핑한다.
@@ -230,14 +236,16 @@ public class GeneralApplicationService implements ApplicationService {
                             window.slotId(), window.startTime(), window.endTime()))
                     .orElse(null);
             interview = resolveAssignedInterview(applicationId);
+            interviewRoundBrief = resolvePlacementActiveMembership(applicationId);
         } else {
             interviewAvailabilities = List.of();
             assignedSlot = null;
             interview = null;
+            interviewRoundBrief = null;
         }
 
         return ApplicantDetailQuery.fromAll(application, historyRows, evaluations, currentUserId,
-                interviewAvailabilities, assignedSlot, interview);
+                interviewAvailabilities, assignedSlot, interview, interviewRoundBrief);
     }
 
     @Override
@@ -339,6 +347,37 @@ public class GeneralApplicationService implements ApplicationService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
         return applicationRepository.findNeighbors(recruitmentId, applicationId, condition);
+    }
+
+    /**
+     * 운영진 상세 카드의 면접 라운드 요약 단건 헬퍼.
+     * placement-active 멤버십(§5.4 — DRAFT 포함, EXCLUDED·CANCELLED 제외)이 있으면 brief 를 채우고,
+     * 없으면 null (= 대기열/선정 전) 을 반환한다.
+     * <p>
+     * {@code unresponded} 는 저장 필드가 아니라 파생값이다 — INVITED && now > availabilityDeadline.
+     * availabilityDeadline 이 null 인 DRAFT 라운드는 마감이 미설정 상태이므로 unresponded 가 false.
+     */
+    private ApplicantDetailQuery.InterviewRoundBriefQuery resolvePlacementActiveMembership(Long applicationId) {
+        return interviewRoundMemberRepository
+                .findPlacementActiveMembershipByApplicationId(applicationId)
+                .map(membership -> {
+                    InterviewRound round = membership.round();
+                    RoundMemberStatus memberStatus = membership.member().getStatus();
+                    boolean unresponded = memberStatus == RoundMemberStatus.INVITED
+                            && round.getAvailabilityDeadline() != null
+                            && LocalDateTime.now(clock).isAfter(round.getAvailabilityDeadline());
+                    String alternativeText = memberStatus == RoundMemberStatus.NO_AVAILABLE_SLOT
+                            ? membership.member().getAlternativeAvailabilityText()
+                            : null;
+                    return new ApplicantDetailQuery.InterviewRoundBriefQuery(
+                            round.getId(),
+                            round.getTitle(),
+                            round.getStatus(),
+                            memberStatus,
+                            unresponded,
+                            alternativeText);
+                })
+                .orElse(null);
     }
 
     /**

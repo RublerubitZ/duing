@@ -35,6 +35,13 @@ public interface InterviewRoundMemberRepositoryCustom {
     Optional<VisibleMembership> findVisibleMembershipByApplicationId(Long applicationId);
 
     /**
+     * 운영진 상세용 placement-active 멤버십 — isActiveForPlacement 술어의 양 방향(§5.4, DRAFT 포함).
+     * EXCLUDED 와 CANCELLED 라운드만 제외하므로 지원자 화면보다 넓다.
+     * 불변식상 최대 1건 — fetchOne loud-fail(NonUniqueResultException) 으로 보장한다.
+     */
+    Optional<VisibleMembership> findPlacementActiveMembershipByApplicationId(Long applicationId);
+
+    /**
      * 참여 이력 — CANCELLED 라운드 멤버십 또는 EXCLUDED 멤버십 존재 (§9.3 보정: DRAFT-only 는 이력 아님).
      */
     boolean existsConcludedMembershipByApplicationId(Long applicationId);

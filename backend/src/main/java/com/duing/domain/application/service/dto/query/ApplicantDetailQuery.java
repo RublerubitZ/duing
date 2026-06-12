@@ -5,6 +5,8 @@ import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.entity.ApplicationStatusHistory;
 import com.duing.domain.applicationEvaluation.entity.ApplicationEvaluation;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.interview.entity.RoundMemberStatus;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
@@ -28,7 +30,8 @@ public record ApplicantDetailQuery(
         EvaluationItemQuery myEvaluation,
         List<EvaluationItemQuery> otherEvaluations,
         List<AvailabilityItem> interviewAvailabilities,
-        AvailabilityItem assignedSlot
+        AvailabilityItem assignedSlot,
+        InterviewRoundBriefQuery interviewRound
 ) {
 
     public record ApplicantInfoQuery(Long userId, String name, String studentId, String email) {}
@@ -63,6 +66,22 @@ public record ApplicantDetailQuery(
     ) {}
 
     /**
+     * 운영진 상세 카드에 노출하는 면접 라운드 요약.
+     * placement-active 멤버십(§5.4 — DRAFT 포함, EXCLUDED·CANCELLED 제외)이 있을 때만 채워진다.
+     * <p>
+     * {@code unresponded} 는 저장 필드가 아니라 파생값이다 — INVITED && now > availabilityDeadline.
+     * {@code alternativeAvailabilityText} 는 NO_AVAILABLE_SLOT 상태일 때만 의미를 가지며 그 외엔 null.
+     */
+    public record InterviewRoundBriefQuery(
+            Long roundId,
+            String title,
+            RoundStatus roundStatus,
+            RoundMemberStatus memberStatus,
+            boolean unresponded,
+            String alternativeAvailabilityText
+    ) {}
+
+    /**
      * 기존 호출자 backward-compatibility 유지 — history/evaluation 없이 위임한다.
      */
     public static ApplicantDetailQuery from(Application application) {
@@ -86,15 +105,16 @@ public record ApplicantDetailQuery(
                                                List<ApplicationStatusHistory> historyRows,
                                                List<ApplicationEvaluation> allEvaluations,
                                                Long currentUserId) {
-        return fromAll(application, historyRows, allEvaluations, currentUserId, List.of(), null, null);
+        return fromAll(application, historyRows, allEvaluations, currentUserId, List.of(), null, null, null);
     }
 
     /**
-     * 전체 필드를 포함하는 최종 팩토리 메서드.
+     * 전체 필드를 포함하는 최종 팩토리 메서드 (면접 라운드 요약 포함).
      * currentUserId 기준으로 myEvaluation / otherEvaluations 를 분리한다.
      * currentUserId 가 null 이면 모든 평가를 otherEvaluations 에 배치한다.
      * interviewAvailabilities / assignedSlot 은 면접 미사용 모집에선 빈 리스트 / null 로 전달한다.
      * {@code interview} 는 ASSIGNED schedule + InterviewRound.location 이 모두 존재할 때만 전달, 그 외엔 {@code null}.
+     * {@code interviewRound} 는 placement-active 멤버십이 없으면 null (= 대기열/선정 전).
      */
     public static ApplicantDetailQuery fromAll(Application application,
                                                List<ApplicationStatusHistory> historyRows,
@@ -102,7 +122,8 @@ public record ApplicantDetailQuery(
                                                Long currentUserId,
                                                List<AvailabilityItem> interviewAvailabilities,
                                                AvailabilityItem assignedSlot,
-                                               AssignedInterviewQuery interview) {
+                                               AssignedInterviewQuery interview,
+                                               InterviewRoundBriefQuery interviewRound) {
         Recruitment recruitment = application.getRecruitment();
         User applicationUser = application.getUser();
 
@@ -154,7 +175,8 @@ public record ApplicantDetailQuery(
                 myEvaluation,
                 otherEvaluations,
                 interviewAvailabilities == null ? List.of() : interviewAvailabilities,
-                assignedSlot
+                assignedSlot,
+                interviewRound
         );
     }
 

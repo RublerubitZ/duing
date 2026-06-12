@@ -2,6 +2,8 @@ package com.duing.domain.application.controller.dto.response;
 
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
+import com.duing.domain.interview.entity.RoundMemberStatus;
+import com.duing.domain.interview.entity.RoundStatus;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -20,7 +22,8 @@ public record ApplicantDetailResponse(
         ApplicationEvaluationItem myEvaluation,
         List<ApplicationEvaluationItem> otherEvaluations,
         List<AvailabilityItemResponse> interviewAvailabilities,
-        AvailabilityItemResponse assignedSlot
+        AvailabilityItemResponse assignedSlot,
+        InterviewRoundBrief interviewRound
 ) {
 
     public record ApplicantInfo(Long userId, String name, String studentId, String email) {}
@@ -63,6 +66,21 @@ public record ApplicantDetailResponse(
             String location
     ) {}
 
+    /**
+     * 운영진 화면에 노출하는 placement-active 라운드 요약.
+     * placement-active 멤버십이 없으면 {@code null} (= 대기열/선정 전).
+     * {@code unresponded} 는 파생값 — INVITED && now > availabilityDeadline (§5.3).
+     * {@code alternativeAvailabilityText} 는 NO_AVAILABLE_SLOT 일 때만 의미를 가지며 그 외엔 {@code null}.
+     */
+    public record InterviewRoundBrief(
+            Long roundId,
+            String title,
+            RoundStatus roundStatus,
+            RoundMemberStatus memberStatus,
+            boolean unresponded,
+            String alternativeAvailabilityText
+    ) {}
+
     public static ApplicantDetailResponse from(ApplicantDetailQuery detailQuery) {
         ApplicantInfo applicantInfo = new ApplicantInfo(
                 detailQuery.applicant().userId(),
@@ -103,6 +121,15 @@ public record ApplicantDetailResponse(
                         detailQuery.interview().endAt(),
                         detailQuery.interview().location());
 
+        InterviewRoundBrief interviewRound = detailQuery.interviewRound() == null ? null
+                : new InterviewRoundBrief(
+                        detailQuery.interviewRound().roundId(),
+                        detailQuery.interviewRound().title(),
+                        detailQuery.interviewRound().roundStatus(),
+                        detailQuery.interviewRound().memberStatus(),
+                        detailQuery.interviewRound().unresponded(),
+                        detailQuery.interviewRound().alternativeAvailabilityText());
+
         return new ApplicantDetailResponse(
                 detailQuery.applicationId(),
                 detailQuery.recruitmentId(),
@@ -118,7 +145,8 @@ public record ApplicantDetailResponse(
                 myEvaluation,
                 otherEvaluations,
                 availabilities,
-                assignedSlot
+                assignedSlot,
+                interviewRound
         );
     }
 

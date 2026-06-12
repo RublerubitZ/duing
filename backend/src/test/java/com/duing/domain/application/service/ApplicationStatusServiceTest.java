@@ -24,6 +24,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
@@ -32,6 +33,7 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import java.time.Clock;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,6 +54,8 @@ class ApplicationStatusServiceTest {
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
     private final InterviewRoundRepository interviewRoundRepository = mock(InterviewRoundRepository.class);
     private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
+    private final InterviewRoundMemberRepositoryCustom interviewRoundMemberRepository = mock(InterviewRoundMemberRepositoryCustom.class);
+    private final Clock clock = Clock.systemDefaultZone();
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -65,7 +69,9 @@ class ApplicationStatusServiceTest {
             interviewAvailabilityRepository,
             interviewScheduleRepository,
             interviewRoundRepository,
-            interviewSlotRepository);
+            interviewSlotRepository,
+            interviewRoundMemberRepository,
+            clock);
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더

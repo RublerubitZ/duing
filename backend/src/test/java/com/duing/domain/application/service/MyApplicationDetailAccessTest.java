@@ -25,6 +25,7 @@ import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
@@ -33,6 +34,7 @@ import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -53,6 +55,8 @@ class MyApplicationDetailAccessTest {
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
     private final InterviewRoundRepository interviewRoundRepository = mock(InterviewRoundRepository.class);
     private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
+    private final InterviewRoundMemberRepositoryCustom interviewRoundMemberRepository = mock(InterviewRoundMemberRepositoryCustom.class);
+    private final Clock clock = Clock.systemDefaultZone();
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -66,7 +70,9 @@ class MyApplicationDetailAccessTest {
             interviewAvailabilityRepository,
             interviewScheduleRepository,
             interviewRoundRepository,
-            interviewSlotRepository);
+            interviewSlotRepository,
+            interviewRoundMemberRepository,
+            clock);
 
     @Test
     @DisplayName("다른 사용자의 지원 상세를 조회하면 ForbiddenApplicationAccessException 이 발생한다")
