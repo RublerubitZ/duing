@@ -19,11 +19,7 @@ function hrefFor(clubId: number, item: ActionItem): `/${string}` {
       }
       return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview/rounds/${item.roundId}`;
     case 'INTERVIEW_RESULT_PENDING':
-      // 단일 라운드 귀속이면 해당 라운드 dashboard로, 아니면 면접 랜딩으로
-      if (item.roundId === undefined) {
-        return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview`;
-      }
-      return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview/rounds/${item.roundId}`;
+      // 합/불 결정은 지원자 목록에서 처리하므로 지원자 페이지로 이동 (라운드 귀속 정보는 행 텍스트로만 표시)
     case 'APPLICANTS_AWAITING_REVIEW':
       return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/applicants`;
   }

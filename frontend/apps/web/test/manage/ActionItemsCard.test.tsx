@@ -35,24 +35,24 @@ describe('ActionItemsCard', () => {
     expect(link).toHaveAttribute('href', '/manage/clubs/10/recruitments/1/interview');
   });
 
-  it('면접 결과 미확정이 라운드에 귀속되면 해당 라운드 딥링크를 렌더한다', () => {
+  it('면접 결과 미확정은 라운드 귀속과 무관하게 지원자 페이지로 딥링크한다', () => {
     const items: ActionItem[] = [
       { type: 'INTERVIEW_RESULT_PENDING', recruitmentId: 1, recruitmentTitle: '봄 모집', roundId: 7, roundTitle: '1차', count: 3 },
     ];
     mockUse.mockReturnValue({ items, preview: items, totalCount: 1, isLoading: false, isError: false });
     render(<ActionItemsCard clubId={10} />);
     const link = screen.getByText('면접 결과 미확정').closest('a');
-    expect(link).toHaveAttribute('href', '/manage/clubs/10/recruitments/1/interview/rounds/7');
+    expect(link).toHaveAttribute('href', '/manage/clubs/10/recruitments/1/applicants');
   });
 
-  it('면접 결과 미확정이 라운드 귀속 없으면 면접 랜딩 딥링크를 렌더한다', () => {
+  it('면접 결과 미확정이 라운드 귀속 없어도 지원자 페이지로 딥링크한다', () => {
     const items: ActionItem[] = [
       { type: 'INTERVIEW_RESULT_PENDING', recruitmentId: 1, recruitmentTitle: '봄 모집', count: 3 },
     ];
     mockUse.mockReturnValue({ items, preview: items, totalCount: 1, isLoading: false, isError: false });
     render(<ActionItemsCard clubId={10} />);
     const link = screen.getByText('면접 결과 미확정').closest('a');
-    expect(link).toHaveAttribute('href', '/manage/clubs/10/recruitments/1/interview');
+    expect(link).toHaveAttribute('href', '/manage/clubs/10/recruitments/1/applicants');
   });
 
   it('업무가 없으면 Empty State', () => {
