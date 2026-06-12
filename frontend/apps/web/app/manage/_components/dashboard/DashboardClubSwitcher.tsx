@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { ManagedClub } from '@duing/types';
 import { toRoute } from '@/app/_lib/route';
 
@@ -12,18 +12,18 @@ export function DashboardClubSwitcher({
   selectedClubId: number;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  if (managedClubs.length <= 1) {
-    const only = managedClubs[0];
-    return <span className="text-sm font-semibold text-charcoal">{only?.clubName ?? ''}</span>;
+  if (managedClubs.length === 0) return null;
+  if (managedClubs.length === 1) {
+    const [onlyClub] = managedClubs;
+    return <span className="text-sm font-semibold text-charcoal">{onlyClub?.clubName}</span>;
   }
 
   function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const params = new URLSearchParams(searchParams.toString());
     params.set('clubId', event.target.value);
-    router.replace(toRoute(`${pathname as `/${string}`}?${params.toString()}`));
+    router.replace(toRoute(`/manage?${params.toString()}`));
   }
 
   return (
