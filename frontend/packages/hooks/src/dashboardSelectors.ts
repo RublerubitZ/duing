@@ -7,7 +7,7 @@ import type {
   StatsSummary,
   TodayScheduleItem,
 } from '@duing/types';
-import { daysUntilKst } from './dashboardDate';
+import { daysUntilKst, parseKstInstant } from './dashboardDate';
 
 export const CLOSING_SOON_DAYS = 3;
 export const ACTION_ITEM_PREVIEW_COUNT = 3;
@@ -105,7 +105,7 @@ const KIND_RANK = { INTERVIEW: 0, EVENT: 1 } as const;
 
 export function sortTodaySchedule(items: TodayScheduleItem[]): TodayScheduleItem[] {
   return [...items].sort((a, b) => {
-    const byTime = new Date(a.startAt).getTime() - new Date(b.startAt).getTime();
+    const byTime = parseKstInstant(a.startAt).getTime() - parseKstInstant(b.startAt).getTime();
     if (byTime !== 0) return byTime;
     return KIND_RANK[a.kind] - KIND_RANK[b.kind];
   });

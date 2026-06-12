@@ -7,10 +7,25 @@ const KST_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 });
 
+function hasZoneOffset(iso: string): boolean {
+  return /[zZ]$/.test(iso) || /[+-]\d{2}:\d{2}$/.test(iso);
+}
+
+/**
+ * 백엔드(Spring)가 반환하는 offset 없는 LocalDateTime 문자열을 KST instant로 파싱한다.
+ * - 날짜만(length 10): `YYYY-MM-DD` → `YYYY-MM-DDT00:00:00+09:00`
+ * - offset 없는 datetime: `YYYY-MM-DDTHH:mm:ss` → `...+09:00` (KST로 간주)
+ * - 이미 Z 또는 offset 포함: 그대로 파싱
+ */
+export function parseKstInstant(iso: string): Date {
+  if (iso.length === 10) return new Date(`${iso}T00:00:00+09:00`);
+  if (!hasZoneOffset(iso)) return new Date(`${iso}+09:00`);
+  return new Date(iso);
+}
+
 /** ISO datetime 또는 'YYYY-MM-DD'를 KST 'YYYY-MM-DD'로 변환 */
 export function kstDateString(iso: string): string {
-  const date = iso.length === 10 ? new Date(`${iso}T00:00:00+09:00`) : new Date(iso);
-  return KST_FORMATTER.format(date);
+  return KST_FORMATTER.format(parseKstInstant(iso));
 }
 
 export function todayKstDateString(now: Date): string {

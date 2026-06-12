@@ -182,7 +182,7 @@ export {
   useMyInterviewQuery,
   useRespondAvailabilityMutation,
 } from './applicantInterview';
-export { dashboardQueryKeys } from './dashboardQueryKeys';
+export { parseKstInstant } from './dashboardDate';
 export {
   DASHBOARD_QUERY_OPTIONS,
   useActiveRecruitments,

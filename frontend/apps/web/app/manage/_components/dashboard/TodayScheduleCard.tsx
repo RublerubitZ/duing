@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { TodayScheduleItem } from '@duing/types';
-import { useTodaySchedule } from '@duing/hooks';
+import { useTodaySchedule, parseKstInstant } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { DashboardCard } from './DashboardCard';
 
@@ -12,7 +12,7 @@ function formatTime(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-  }).format(new Date(iso));
+  }).format(parseKstInstant(iso));
 }
 
 function ScheduleRow({ clubId, item }: { clubId: number; item: TodayScheduleItem }) {

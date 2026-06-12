@@ -6,7 +6,10 @@ vi.mock('next/link', () => ({ default: ({ children, href }: { children: React.Re
 vi.mock('@/app/_lib/route', () => ({ toRoute: (path: string) => path }));
 
 const mockUseTodaySchedule = vi.fn();
-vi.mock('@duing/hooks', () => ({ useTodaySchedule: (clubId: number) => mockUseTodaySchedule(clubId) }));
+vi.mock('@duing/hooks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@duing/hooks')>();
+  return { ...actual, useTodaySchedule: (clubId: number) => mockUseTodaySchedule(clubId) };
+});
 
 import { TodayScheduleCard } from '@/app/manage/_components/dashboard/TodayScheduleCard';
 
