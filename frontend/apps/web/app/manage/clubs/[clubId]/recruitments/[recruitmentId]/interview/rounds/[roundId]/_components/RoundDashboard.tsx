@@ -468,6 +468,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           onAssign={handleAssignConfirm}
           onCancel={() => setAssignTarget(null)}
           isPending={assignMutation.isPending}
+          showRescheduleNotice={status === 'SCHEDULED'}
         />
       )}
     </div>
