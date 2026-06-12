@@ -18,13 +18,13 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
   return (
     <ManageGuard managedClubs={managedClubs} isLoading={isLoading}>
       <div className="flex min-h-screen">
-        <aside className="w-[248px] shrink-0 flex flex-col gap-[18px] px-4 py-[22px] pb-6 bg-[#2f3a2e] border-r border-[#232c22]">
-          <div className="flex items-center gap-2 px-2 pb-3.5 border-b border-[#44503f]">
+        <aside className="w-[248px] shrink-0 flex flex-col gap-[18px] px-4 py-[22px] pb-6 bg-ink-deep border-r border-black/20">
+          <div className="flex items-center gap-2 px-2 pb-3.5 border-b border-white/10">
             <Link href="/" className="block">
-              <span className="font-mono font-semibold text-[18px] text-[#f1ecd9] tracking-[-0.02em]">
-                Du<span className="text-[#5b7e4d]">·</span>ing
+              <span className="font-mono font-semibold text-[18px] text-cream tracking-[-0.02em]">
+                Du<span className="text-sage">·</span>ing
               </span>
-              <span className="block text-[12px] text-[#9aa191] mt-0.5 ml-0.5">운영진 콘솔</span>
+              <span className="block text-[12px] text-cream/50 mt-0.5 ml-0.5">운영진 콘솔</span>
             </Link>
           </div>
 
@@ -37,13 +37,13 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
             </>
           )}
 
-          <div className="mt-auto pt-3 border-t border-[#44503f] px-2 flex justify-between text-[11.5px] text-[#9aa191]">
+          <div className="mt-auto pt-3 border-t border-white/10 px-2 flex justify-between text-[11.5px] text-cream/50">
             <span>v1.0.0</span>
             <span>회장 모드</span>
           </div>
         </aside>
 
-        <main className="flex-1 overflow-y-auto bg-[#f3efe4]">
+        <main className="flex-1 overflow-y-auto bg-cream">
           {children}
         </main>
       </div>

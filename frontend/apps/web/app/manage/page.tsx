@@ -1,37 +1,38 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { useManagedClubsQuery } from '@duing/hooks';
-import { toRoute } from '../_lib/route';
+import { toRoute } from '@/app/_lib/route';
 
 export default function ManagePage() {
   const router = useRouter();
   const { data: managedClubs, isLoading } = useManagedClubsQuery();
 
+  const firstClub = managedClubs?.[0];
+
   useEffect(() => {
-    if (!managedClubs || managedClubs.length === 0) return;
-    const firstClub = managedClubs[0];
-    if (!firstClub) return;
-    router.push(toRoute(`/manage/clubs/${firstClub.clubId}`));
-  }, [managedClubs, router]);
+    if (!isLoading && firstClub) {
+      router.push(toRoute(`/manage/clubs/${firstClub.clubId}`));
+    }
+  }, [isLoading, firstClub, router]);
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-slate-500">불러오는 중…</p>
+      <div className="duing flex min-h-screen items-center justify-center bg-cream">
+        <p className="text-sm text-charcoal-3">불러오는 중…</p>
       </div>
     );
   }
 
   if (!managedClubs || managedClubs.length === 0) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-slate-600">관리하는 동아리가 없습니다.</p>
+      <div className="duing flex min-h-screen flex-col items-center justify-center gap-4 bg-cream">
+        <p className="text-charcoal-2">관리하는 동아리가 없습니다.</p>
         <Link
-          href="/"
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:border-slate-500"
+          href={toRoute('/')}
+          className="rounded-lg border border-line px-4 py-2 text-sm hover:border-sage"
         >
           홈으로 돌아가기
         </Link>
@@ -39,9 +40,10 @@ export default function ManagePage() {
     );
   }
 
+  // 동아리가 있고 로딩도 끝났으면 위 useEffect가 첫 동아리로 리다이렉트 중인 상태다.
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <p className="text-sm text-slate-500">이동 중…</p>
+      <p className="text-sm text-charcoal-3">이동 중…</p>
     </div>
   );
 }
