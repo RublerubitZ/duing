@@ -76,6 +76,28 @@ describe('ActiveRecruitmentsCard', () => {
     expect(badge.className).toContain('pill-coral');
   });
 
+  it('임박 윈도 경계(D-3)는 coral 강조에 포함된다', () => {
+    mockUseActiveRecruitments.mockReturnValue({
+      data: [recruitment({ endDate: kstDatePlusDays(3) })],
+      isLoading: false,
+      isError: false,
+    });
+    render(<ActiveRecruitmentsCard clubId={1} />);
+    expect(screen.getByText('D-3').className).toContain('pill-coral');
+  });
+
+  it('임박 윈도 밖 경계(D-4)는 muted 텍스트로 렌더한다', () => {
+    mockUseActiveRecruitments.mockReturnValue({
+      data: [recruitment({ endDate: kstDatePlusDays(4) })],
+      isLoading: false,
+      isError: false,
+    });
+    render(<ActiveRecruitmentsCard clubId={1} />);
+    const badge = screen.getByText('D-4');
+    expect(badge.className).not.toContain('pill-coral');
+    expect(badge.className).toContain('text-charcoal-3');
+  });
+
   it('마감 당일이면 D-day로 coral pill 강조한다', () => {
     mockUseActiveRecruitments.mockReturnValue({
       data: [recruitment({ endDate: kstDatePlusDays(0) })],
