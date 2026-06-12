@@ -183,3 +183,11 @@ export {
   useRespondAvailabilityMutation,
 } from './applicantInterview';
 export { dashboardQueryKeys } from './dashboardQueryKeys';
+export {
+  DASHBOARD_QUERY_OPTIONS,
+  useActiveRecruitments,
+  useApplicantSummary,
+  useClubActionItems,
+  useTodaySchedule,
+  useClubFeedCounts,
+} from './dashboard';
