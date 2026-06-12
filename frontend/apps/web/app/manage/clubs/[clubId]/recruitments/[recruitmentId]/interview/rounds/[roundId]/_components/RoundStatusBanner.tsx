@@ -1,28 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import type { InterviewRoundDetail, InterviewRoundStatus } from '@duing/types';
+import type { InterviewRoundDetail } from '@duing/types';
 import { toRoute } from '@/app/_lib/route';
 import { cn } from '@/app/_lib/cn';
+import {
+  ROUND_STATUS_LABEL,
+  ROUND_STATUS_BADGE_CLASS,
+} from '@/components/interview/interviewRoundStatusLabels';
 
 // 상태 배너 — 상태 뱃지 + 단일 next action (DRAFT→이어서 작성 / COLLECTING·ASSIGNING→자동배정 /
 // ASSIGNING→확정) + 조기 배정 UX ① 전원 응답 배너 + ASSIGNING draft 안내.
-
-const STATUS_LABEL: Record<InterviewRoundStatus, string> = {
-  DRAFT: '작성 중',
-  COLLECTING: '응답 수집 중',
-  ASSIGNING: '배정 검토 중',
-  SCHEDULED: '확정',
-  CANCELLED: '취소',
-};
-
-const STATUS_BADGE_CLASS: Record<InterviewRoundStatus, string> = {
-  DRAFT: 'bg-slate-100 text-slate-700',
-  COLLECTING: 'bg-blue-100 text-blue-700',
-  ASSIGNING: 'bg-amber-100 text-amber-700',
-  SCHEDULED: 'bg-emerald-100 text-emerald-700',
-  CANCELLED: 'bg-rose-100 text-rose-600',
-};
 
 type RoundStatusBannerProps = {
   detail: InterviewRoundDetail;
@@ -56,10 +44,10 @@ export function RoundStatusBanner({
           <span
             className={cn(
               'rounded-full px-3 py-1 text-sm font-medium',
-              STATUS_BADGE_CLASS[status],
+              ROUND_STATUS_BADGE_CLASS[status],
             )}
           >
-            {STATUS_LABEL[status]}
+            {ROUND_STATUS_LABEL[status]}
           </span>
           <span className="text-base font-semibold text-slate-900">{detail.title}</span>
         </div>

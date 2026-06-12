@@ -1,5 +1,6 @@
 import type { ClubCategory } from './club';
 import type { AvailabilityItem } from './interview';
+import type { InterviewRoundStatus, InterviewRoundMemberStatus } from './interviewRound';
 import type { College, Grade } from './user';
 
 // College, Grade 는 user.ts 에서 정의된 타입을 재사용한다.
@@ -163,4 +164,18 @@ export type ApplicantDetail = {
   // assignedSlot=null. AvailabilityItem 은 capacity/assignedCount 미포함 경량 표현.
   interviewAvailabilities: AvailabilityItem[];
   assignedSlot: AvailabilityItem | null;
+  // 면접 라운드 요약 (BE#14) — placement-active 멤버십이 있는 경우에만 채워진다.
+  // 대기열 상태(INTERVIEW_PENDING 이지만 미선정)이거나 면접 미사용 모집이면 null.
+  interviewRound: InterviewRoundBrief | null;
+};
+
+// = ApplicantDetailResponse.InterviewRoundBrief (BE#14)
+// backend: controller/dto/response/ApplicantDetailResponse.java — inner record InterviewRoundBrief
+export type InterviewRoundBrief = {
+  roundId: number;
+  title: string;
+  roundStatus: InterviewRoundStatus;
+  memberStatus: InterviewRoundMemberStatus;
+  unresponded: boolean;
+  alternativeAvailabilityText: string | null;
 };

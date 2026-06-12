@@ -1,20 +1,16 @@
 'use client';
 
-import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { useApplicantDetailQuery, useRecruitmentDetailQuery } from '@duing/hooks';
 import { isApplicationStatus, isCollege } from '@duing/types';
-import type { ApplicantsFilters, ApplicationStatus } from '@duing/types';
-
-const PROMOTABLE_STATUS: ApplicationStatus = 'UNDER_REVIEW';
+import type { ApplicantsFilters } from '@duing/types';
 
 import { ApplicantAnswersPanel } from './ApplicantAnswersPanel';
 import { ApplicantInterviewScheduleCard } from './ApplicantInterviewScheduleCard';
 import { ApplicantNavBar } from './ApplicantNavBar';
 import { ApplicantProfilePanel } from './ApplicantProfilePanel';
 import { EvaluationPanel } from './EvaluationPanel';
-import { PromoteToInterviewPendingDialog } from './PromoteToInterviewPendingDialog';
 import { StatusActionBar } from './StatusActionBar';
 import { StatusTimeline } from './StatusTimeline';
 
@@ -39,8 +35,6 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
 
   const { data: recruitment } = useRecruitmentDetailQuery(recruitmentId);
   const { data: detail, isLoading } = useApplicantDetailQuery(applicationId);
-
-  const [showPromoteDialog, setShowPromoteDialog] = useState(false);
 
   if (isLoading || !detail) {
     return <p className="p-4 text-sm text-slate-500">불러오는 중…</p>;
@@ -72,24 +66,12 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
           />
           {useInterview && (
             <ApplicantInterviewScheduleCard
+              interviewRound={detail.interviewRound}
               interviewAvailabilities={detail.interviewAvailabilities}
               assignedSlot={detail.assignedSlot}
-              onOpenManualAssign={() => {
-                if (detail.status === PROMOTABLE_STATUS) {
-                  setShowPromoteDialog(true);
-                }
-              }}
-            />
-          )}
-          {useInterview && showPromoteDialog && (
-            <PromoteToInterviewPendingDialog
-              applicationId={applicationId}
+              clubId={clubId}
               recruitmentId={recruitmentId}
-              applicantName={detail.applicant.name}
-              onCancel={() => setShowPromoteDialog(false)}
-              onPromoted={() => {
-                setShowPromoteDialog(false);
-              }}
+              applicationStatus={detail.status}
             />
           )}
           <StatusActionBar
