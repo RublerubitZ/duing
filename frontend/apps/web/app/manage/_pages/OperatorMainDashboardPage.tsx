@@ -37,8 +37,11 @@ export function OperatorMainDashboardPage() {
     );
   }
 
+  const firstClub = managedClubs[0];
+  if (!firstClub) return null;
+
   const requested = Number(searchParams.get('clubId'));
-  const selected = managedClubs.find((club) => club.clubId === requested) ?? managedClubs[0];
+  const selected = managedClubs.find((club) => club.clubId === requested) ?? firstClub;
   const clubId = selected.clubId;
 
   return (
