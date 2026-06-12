@@ -182,3 +182,4 @@ export {
   useMyInterviewQuery,
   useRespondAvailabilityMutation,
 } from './applicantInterview';
+export { dashboardQueryKeys } from './dashboardQueryKeys';

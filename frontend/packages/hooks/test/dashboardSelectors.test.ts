@@ -120,9 +120,9 @@ describe('sortActionItems', () => {
     );
     const sorted = sortActionItems(items);
     // 마감 임박(daysLeft=2) → 기한 없는 ASSIGNING → 검토 대기 순
-    expect(sorted[0].type).toBe('RECRUITMENT_CLOSING_SOON');
-    expect(sorted[1].type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
-    expect(sorted[2].type).toBe('APPLICANTS_AWAITING_REVIEW');
+    expect(sorted[0]?.type).toBe('RECRUITMENT_CLOSING_SOON');
+    expect(sorted[1]?.type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
+    expect(sorted[2]?.type).toBe('APPLICANTS_AWAITING_REVIEW');
   });
 });
 
