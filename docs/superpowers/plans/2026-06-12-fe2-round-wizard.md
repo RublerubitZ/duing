@@ -63,7 +63,7 @@
 
 ### Task 1: 브랜치 생성
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -77,7 +77,7 @@ git checkout -b feat/interview-round-wizard
 
 **Files:** File Map 의 packages 6개.
 
-- [ ] **Step 1: 타입** — `packages/types/src/interviewRound.ts` 신규. **백엔드 DTO 를 읽고 1:1** (아래는 형태 골격 — 필드는 백엔드가 정답):
+- [x] **Step 1: 타입** — `packages/types/src/interviewRound.ts` 신규. **백엔드 DTO 를 읽고 1:1** (아래는 형태 골격 — 필드는 백엔드가 정답):
 
 ```typescript
 // 면접 라운드 (재설계) — 백엔드 DTO 1:1 수동 정의.
@@ -113,7 +113,7 @@ export type AvailabilityRequestResult = { notifiedMemberCount: number };
 
 `packages/types/src/index.ts` 에 export 추가.
 
-- [ ] **Step 2: 클라이언트** — `packages/api/src/client.ts` 의 `DuingApiClient` 타입과 구현에 신규 그룹 추가 (기존 `jsonOk`/`jsonVoid`/그룹 패턴 그대로, 경로는 `LeaderInterviewRoundApi`/`LeaderInterviewSlotApi` 가 정답):
+- [x] **Step 2: 클라이언트** — `packages/api/src/client.ts` 의 `DuingApiClient` 타입과 구현에 신규 그룹 추가 (기존 `jsonOk`/`jsonVoid`/그룹 패턴 그대로, 경로는 `LeaderInterviewRoundApi`/`LeaderInterviewSlotApi` 가 정답):
 
 ```typescript
   interviewRounds: {
@@ -141,7 +141,7 @@ export type AvailabilityRequestResult = { notifiedMemberCount: number };
   },
 ```
 
-- [ ] **Step 3: 쿼리키 + 훅** — `interviewRoundQueryKeys.ts`:
+- [x] **Step 3: 쿼리키 + 훅** — `interviewRoundQueryKeys.ts`:
 
 ```typescript
 export const interviewRoundKeys = {
@@ -164,9 +164,9 @@ export const interviewRoundKeys = {
 
 `packages/hooks/src/index.ts` export 추가.
 
-- [ ] **Step 4: 테스트** — `packages/api/test/interviewRound.test.ts` (기존 interview.test.ts 패턴): ① candidates 가 searchParams 포함 정확 URL GET ② create 가 정확 URL+body POST ③ requestAvailability 가 data 언래핑. `packages/hooks/test/interviewRound.test.tsx`: ① createRound 성공 시 list+candidates invalidate ② cancel 성공 시 list+candidates invalidate.
+- [x] **Step 4: 테스트** — `packages/api/test/interviewRound.test.ts` (기존 interview.test.ts 패턴): ① candidates 가 searchParams 포함 정확 URL GET ② create 가 정확 URL+body POST ③ requestAvailability 가 data 언래핑. `packages/hooks/test/interviewRound.test.tsx`: ① createRound 성공 시 list+candidates invalidate ② cancel 성공 시 list+candidates invalidate.
 
-- [ ] **Step 5: 검증 + 커밋**
+- [x] **Step 5: 검증 + 커밋**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/frontend
@@ -181,7 +181,7 @@ cd .. && git add frontend && git commit -m "feat(web): 면접 라운드 데이�
 **Files:**
 - Create: `apps/web/test/manage/interview-rounds/round-wizard.test.tsx`
 
-- [ ] **Step 1: 흐름 테스트 9건 작성** (기존 manage 테스트 패턴 — ApiClientProvider+QueryClientProvider wrapper, MSW server.use, `RoundWizard` 직접 렌더 with props `{ clubId, recruitmentId }`):
+- [x] **Step 1: 흐름 테스트 9건 작성** (기존 manage 테스트 패턴 — ApiClientProvider+QueryClientProvider wrapper, MSW server.use, `RoundWizard` 직접 렌더 with props `{ clubId, recruitmentId }`):
 
 1. `후보 목록이 서류 검토 중과 면접 대기 그룹으로 나뉘어 보인다` — includeUnderReview=true 기본, MSW 가 UNDER_REVIEW 1·INTERVIEW_PENDING 1 반환 → 그룹 헤더 2개 + 상태 뱃지.
 2. `서류 검토 중 포함 토글을 끄면 대기열만 다시 조회한다` — 토글 off → includeUnderReview=false 요청 캡처.
@@ -193,7 +193,7 @@ cd .. && git add frontend && git commit -m "feat(web): 면접 라운드 데이�
 8. `기존 DRAFT 라운드가 있으면 이어하기와 폐기를 선택할 수 있다` — list MSW 에 DRAFT 1건 → 다이얼로그 노출, [이어하기] → Step2 프리필(제목 표시).
 9. `폐기를 선택하면 라운드가 취소되고 후보 선정부터 시작한다` — [폐기] → cancel POST 캡처 + Step1 노출.
 
-- [ ] **Step 2: RED 확인** — `pnpm --filter web test 2>&1 | tail -10` → 신규 파일 FAIL (컴포넌트 부재). **커밋하지 않는다.**
+- [x] **Step 2: RED 확인** — `pnpm --filter web test 2>&1 | tail -10` → 신규 파일 FAIL (컴포넌트 부재). **커밋하지 않는다.**
 
 ---
 
@@ -201,9 +201,9 @@ cd .. && git add frontend && git commit -m "feat(web): 면접 라운드 데이�
 
 **Files:** File Map 의 apps/web 신규 9개 + page.tsx 수정.
 
-- [ ] **Step 1: 패턴 유틸 복제·개조** — 구 면접 페이지의 `generateSlotsFromPattern`(탐색 보고: `apps/web/components/interview/_utils/` 또는 구 interview `_components` — grep 으로 위치 확인) 을 `rounds/new/_utils/generateSlotsFromPattern.ts` 로 복제, 시그니처를 `{ date, startTime, endTime, durationMinutes, capacity }` → `{ startTime, endTime, capacity }[]` 로 개조 (capacity 필수). 단위 로직은 기존이 정답.
+- [x] **Step 1: 패턴 유틸 복제·개조** — 구 면접 페이지의 `generateSlotsFromPattern`(탐색 보고: `apps/web/components/interview/_utils/` 또는 구 interview `_components` — grep 으로 위치 확인) 을 `rounds/new/_utils/generateSlotsFromPattern.ts` 로 복제, 시그니처를 `{ date, startTime, endTime, durationMinutes, capacity }` → `{ startTime, endTime, capacity }[]` 로 개조 (capacity 필수). 단위 로직은 기존이 정답.
 
-- [ ] **Step 2: 컴포넌트 트리 구현** — 모든 컴포넌트 `'use client'`, manage 톤(slate 텍스트·sky 활성·purple CTA·rose 에러) 기존 클래스 재사용:
+- [x] **Step 2: 컴포넌트 트리 구현** — 모든 컴포넌트 `'use client'`, manage 톤(slate 텍스트·sky 활성·purple CTA·rose 에러) 기존 클래스 재사용:
 
 `RoundWizard.tsx` (컨테이너) — 핵심 로직:
 
@@ -233,15 +233,15 @@ const draftRound = roundsQuery.data?.find((round) => round.status === 'DRAFT') ?
 
 `rounds/new/page.tsx` — 서버 컴포넌트: params 추출 후 `<RoundWizard clubId recruitmentId />`.
 
-- [ ] **Step 3: 진입 버튼** — 기존 `interview/page.tsx` 헤더 영역에 `rounds/new` Link 버튼 1개 추가 (`새 면접 라운드 만들기` — 기존 CTA 클래스). 다른 변경 금지.
+- [x] **Step 3: 진입 버튼** — 기존 `interview/page.tsx` 헤더 영역에 `rounds/new` Link 버튼 1개 추가 (`새 면접 라운드 만들기` — 기존 CTA 클래스). 다른 변경 금지.
 
-- [ ] **Step 4: GREEN 확인** — `pnpm --filter web test` → wizard 9건 포함 전체 PASS.
+- [x] **Step 4: GREEN 확인** — `pnpm --filter web test` → wizard 9건 포함 전체 PASS.
 
 ---
 
 ### Task 5: 전체 검증 + 커밋
 
-- [ ] **Step 1:** (pipefail 필수)
+- [x] **Step 1:** (pipefail 필수)
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing/frontend
@@ -250,7 +250,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 Expected: 4 게이트 전부 성공 — **각 명령의 exit code 를 개별 확인** (파이프로 가리지 말 것).
 
-- [ ] **Step 2:**
+- [x] **Step 2:**
 
 ```bash
 cd /Users/ksy/Desktop/BASIC/Coding/Duing
@@ -262,9 +262,9 @@ git commit -m "feat(web): 면접 라운드 생성 wizard — 선정·정보·슬
 
 ### Task 6: self-check + PR 생성 (컨트롤러 수행 — 구현 subagent 금지)
 
-- [ ] **Step 1: self-check** (금지 라인·EOF — repo 루트에서·계획 외 변경·pipefail 게이트 재확인)
+- [x] **Step 1: self-check** (금지 라인·EOF — repo 루트에서·계획 외 변경·pipefail 게이트 재확인)
 
-- [ ] **Step 2: push + PR** (자동 머지 금지)
+- [x] **Step 2: push + PR** (자동 머지 금지)
 
 ```bash
 git push -u origin feat/interview-round-wizard
