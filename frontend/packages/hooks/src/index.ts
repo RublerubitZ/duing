@@ -190,3 +190,7 @@ export {
   useRequestAvailabilityMutation,
 } from './interviewRound';
 export { interviewRoundKeys } from './interviewRoundQueryKeys';
+export {
+  useMyInterviewQuery,
+  useRespondAvailabilityMutation,
+} from './applicantInterview';

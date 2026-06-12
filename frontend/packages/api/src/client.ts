@@ -9,6 +9,8 @@ import type {
   CreateRoundSlotsResult,
   UpdateInterviewRoundPayload,
   AvailabilityRequestResult,
+  ApplicantInterviewView,
+  RespondAvailabilityPayload,
 } from '@duing/types';
 import type {
   AdminClubSearchParams,
@@ -433,6 +435,14 @@ export type DuingApiClient = {
 
     // A2 — backend raw 응답을 discriminated union 으로 narrow
     mySchedule(applicationId: number): Promise<MyInterviewSchedule>;
+  };
+  applicantInterview: {
+    // === 지원자 면접 진행 단계 조회 (BE#7) ===
+    // GET /applications/{applicationId}/interview
+    view(applicationId: number): Promise<ApplicantInterviewView>;
+    // === 면접 가능 시간 응답 (BE#8 — XOR payload) ===
+    // PUT /applications/{applicationId}/interview-availability
+    respond(applicationId: number, payload: RespondAvailabilityPayload): Promise<void>;
   };
   raw: KyInstance;
 };
@@ -868,6 +878,12 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         delete: (promotionId) =>
           jsonVoid(http.delete(`admin/promotions/${promotionId}`)),
       },
+    },
+    applicantInterview: {
+      view: (applicationId) =>
+        jsonOk<ApplicantInterviewView>(http.get(`applications/${applicationId}/interview`)),
+      respond: (applicationId, payload) =>
+        jsonVoid(http.put(`applications/${applicationId}/interview-availability`, { json: payload })),
     },
     interviewRounds: {
       candidates: (recruitmentId, includeUnderReview) =>
