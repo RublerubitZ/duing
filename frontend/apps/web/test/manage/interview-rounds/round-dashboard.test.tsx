@@ -142,6 +142,51 @@ const DETAIL_WITH_NO_SLOT_MEMBER = {
   ],
 };
 
+/** SCHEDULED 픽스처 — 확정된 라운드, ASSIGNED 멤버 포함 */
+const DETAIL_SCHEDULED = {
+  roundId: ROUND_ID,
+  title: '1차 면접',
+  status: 'SCHEDULED',
+  availabilityDeadline: '2026-07-10T18:00:00',
+  location: '공학관',
+  requestSequence: 1,
+  deadlinePassed: true,
+  counts: {
+    totalMemberCount: 3,
+    invitedCount: 0,
+    respondedCount: 3,
+    noAvailableSlotCount: 0,
+    assignedCount: 3,
+    excludedCount: 0,
+    unrespondedCount: 0,
+  },
+  members: [
+    {
+      memberId: 1,
+      applicationId: 1,
+      userName: '홍길동',
+      studentId: '20220001',
+      status: 'ASSIGNED',
+      unresponded: false,
+      alternativeAvailabilityText: null,
+      selectedSlotCount: 2,
+      assignedSlotId: 10,
+    },
+    {
+      memberId: 2,
+      applicationId: 2,
+      userName: '김철수',
+      studentId: '20220002',
+      status: 'ASSIGNED',
+      unresponded: false,
+      alternativeAvailabilityText: null,
+      selectedSlotCount: 1,
+      assignedSlotId: 11,
+    },
+  ],
+  slots: [SLOT_A, SLOT_B],
+};
+
 /** ASSIGNING 픽스처 */
 const DETAIL_ASSIGNING = {
   roundId: ROUND_ID,
@@ -752,9 +797,144 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
       expect(capturedBody).toMatchObject({ capacity: 5 });
     });
   });
+
+  it('16. SCHEDULED 라운드에서 슬롯 추가 폼이 노출된다 (재초대 토스트 없음)', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED, message: null }),
+      ),
+      http.post(`*/interview-rounds/${ROUND_ID}/slots`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: { createdSlotIds: [30], reinvitedMemberCount: 0 },
+          message: null,
+        }),
+      ),
+    );
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('확정')).toBeInTheDocument();
+    });
+
+    // SCHEDULED 에서도 슬롯 패턴 폼이 노출되어야 한다
+    expect(screen.getByLabelText(/시작 날짜/)).toBeInTheDocument();
+
+    // 슬롯 생성 후 reinvitedMemberCount=0 → 재초대 토스트 없음
+    const dateInput = screen.getByLabelText(/시작 날짜/);
+    const startTimeInput = screen.getByLabelText(/시작 시각/);
+    const endTimeInput = screen.getByLabelText(/종료 시각/);
+    await userEvent.type(dateInput, '2026-07-20');
+    await userEvent.type(startTimeInput, '09:00');
+    await userEvent.type(endTimeInput, '10:00');
+
+    await userEvent.click(screen.getByRole('button', { name: /슬롯 생성/ }));
+
+    // 재초대 안내가 없어야 한다
+    await waitFor(() => {
+      expect(screen.queryByText(/재초대/)).not.toBeInTheDocument();
+    });
+  });
+
+  it('17. SCHEDULED 에서 ASSIGNED 멤버 행에 [일정 변경] 버튼이 노출되고 배정 모달에 안내 문구가 보인다', async () => {
+    let capturedBody: unknown = null;
+
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED, message: null }),
+      ),
+      http.put(`*/interview-rounds/${ROUND_ID}/members/:memberId/schedule`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('확정')).toBeInTheDocument();
+    });
+
+    // ASSIGNED 멤버에 [일정 변경] 버튼이 있어야 한다
+    const rescheduleButtons = screen.getAllByRole('button', { name: /일정 변경/ });
+    expect(rescheduleButtons.length).toBeGreaterThan(0);
+
+    // 클릭 → 배정 모달 노출
+    await userEvent.click(rescheduleButtons[0]!);
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    // 모달에 일정 변경 알림 안내 문구가 있어야 한다
+    expect(screen.getByText('변경 시 지원자에게 일정 변경 알림이 발송됩니다.')).toBeInTheDocument();
+
+    // 슬롯 라디오 선택 후 배정 → PUT 요청
+    const slotRadios = within(screen.getByRole('dialog')).getAllByRole('radio');
+    await userEvent.click(slotRadios[0]!);
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '배정' }));
+
+    await waitFor(() => {
+      expect(capturedBody).toMatchObject({ slotId: expect.any(Number) });
+    });
+  });
+
+  it('18. SCHEDULED 에서 배정 참조 슬롯 삭제 시 409 메시지가 그대로 노출된다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED, message: null }),
+      ),
+      http.delete(`*/interview-slots/${SLOT_A.slotId}`, () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '배정된 면접이 있는 슬롯입니다.' },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('확정')).toBeInTheDocument();
+    });
+
+    // 슬롯 삭제 버튼 클릭
+    const deleteButtons = screen.getAllByRole('button', { name: /슬롯 삭제/ });
+    await userEvent.click(deleteButtons[0]!);
+
+    // 409 서버 메시지가 인라인 role="alert" 로 노출된다
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('배정된 면접이 있는 슬롯입니다.');
+    });
+  });
+
+  it('19. SCHEDULED 에서 [해제]·[제외] 버튼이 보이지 않는다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED, message: null }),
+      ),
+    );
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('확정')).toBeInTheDocument();
+    });
+
+    // 해제·제외 버튼이 없어야 한다
+    expect(screen.queryByRole('button', { name: /해제/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^제외$/ })).not.toBeInTheDocument();
+  });
 });
 
 // ── 랜딩 링크 테스트 1건 ────────────────────────────────────────────────────
+
+/** rounds-landing 에서 재사용하는 빈 대기열 핸들러 패턴 */
+const EMPTY_CANDIDATES_HANDLER = http.get(
+  `*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`,
+  () => HttpResponse.json({ ok: true, data: [], message: null }),
+);
 
 describe('InterviewRoundsLanding — 비DRAFT 카드 dashboard 링크', () => {
   it('진행 중 라운드 카드가 dashboard 로 링크된다', async () => {
@@ -776,6 +956,7 @@ describe('InterviewRoundsLanding — 비DRAFT 카드 dashboard 링크', () => {
           message: null,
         }),
       ),
+      EMPTY_CANDIDATES_HANDLER,
     );
 
     renderLanding();

@@ -84,6 +84,16 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                     수동 배정
                   </button>
                 )}
+                {/* 일정 변경 — SCHEDULED + ASSIGNED 멤버 한정 (BE#13 재조정) */}
+                {status === 'SCHEDULED' && member.status === 'ASSIGNED' && (
+                  <button
+                    type="button"
+                    onClick={() => onManualAssign(member)}
+                    className="rounded-md px-2 py-1 text-xs text-sky-600 hover:bg-sky-50"
+                  >
+                    일정 변경
+                  </button>
+                )}
                 {/* 제외 — 비터미널 상태 + EXCLUDED 아닌 멤버 */}
                 {canExclude && member.status !== 'EXCLUDED' && (
                   <button

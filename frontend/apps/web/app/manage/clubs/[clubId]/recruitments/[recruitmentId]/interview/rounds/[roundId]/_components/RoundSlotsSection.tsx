@@ -25,7 +25,9 @@ type RoundSlotsSectionProps = {
 
 export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionProps) {
   const { slots, status, roundId } = detail;
-  const canEdit = status === 'DRAFT' || status === 'COLLECTING';
+  // SCHEDULED 에서도 슬롯 추가·삭제·정원 수정 가능 (BE#13 재조정).
+  // 배정 참조 슬롯 삭제·시간 변경은 서버가 409 로 거부 — 메시지 그대로 노출.
+  const canEdit = status === 'DRAFT' || status === 'COLLECTING' || status === 'SCHEDULED';
   const createSlotsMutation = useCreateRoundSlotsMutation(roundId);
   const deleteSlotMutation = useDeleteRoundSlotMutation(roundId);
   const updateSlotMutation = useUpdateRoundSlotMutation(roundId);
@@ -33,6 +35,7 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
   // 정원 인라인 수정 — 수정 중인 슬롯 id 와 입력값
   const [capacityEditSlotId, setCapacityEditSlotId] = useState<number | null>(null);
   const [capacityInput, setCapacityInput] = useState(1);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleGenerate = async (generated: RoundSlotEntry[]) => {
     const result = await createSlotsMutation.mutateAsync({ slots: generated });
@@ -42,14 +45,15 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
   };
 
   const handleDelete = async (slotId: number) => {
+    setDeleteError(null);
     try {
       await deleteSlotMutation.mutateAsync(slotId);
-    } catch (deleteError) {
+    } catch (slotDeleteError) {
       const message =
-        deleteError instanceof ApiError
-          ? deleteError.message
+        slotDeleteError instanceof ApiError
+          ? slotDeleteError.message
           : '슬롯 삭제 중 오류가 발생했습니다.';
-      alert(message);
+      setDeleteError(message);
     }
   };
 
@@ -145,6 +149,15 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {deleteError !== null && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+        >
+          {deleteError}
         </div>
       )}
 
