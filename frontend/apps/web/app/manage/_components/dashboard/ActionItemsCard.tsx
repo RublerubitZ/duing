@@ -11,6 +11,9 @@ function hrefFor(clubId: number, item: ActionItem): `/${string}` {
   switch (item.type) {
     case 'INTERVIEW_ROUND_UNCONFIRMED':
     case 'INTERVIEW_RESPONSE_UNCOLLECTED':
+      if (item.roundId === undefined) {
+        return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview`;
+      }
       return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview/rounds/${item.roundId}`;
     case 'APPLICANTS_AWAITING_REVIEW':
     case 'INTERVIEW_RESULT_PENDING':
@@ -41,8 +44,8 @@ export function ActionItemsCard({ clubId }: { clubId: number }) {
       footer={totalCount > preview.length ? <p className="text-xs text-charcoal-3">전체 {totalCount}건</p> : undefined}
     >
       <ul className="flex flex-col gap-2">
-        {preview.map((item, index) => (
-          <li key={`${item.type}-${item.recruitmentId}-${item.roundId ?? index}`}>
+        {preview.map((item) => (
+          <li key={`${item.type}-${item.recruitmentId}-${item.roundId ?? ''}`}>
             <Link
               href={toRoute(hrefFor(clubId, item))}
               className="flex items-center justify-between rounded-md px-2 py-2 text-sm transition hover:bg-sage-tint"

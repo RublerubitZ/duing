@@ -5,14 +5,14 @@ type DashboardCardProps = {
   badge?: ReactNode;
   isLoading?: boolean;
   isEmpty?: boolean;
-  emptyText: string;
+  emptyText?: string;
   children?: ReactNode;
   footer?: ReactNode;
 };
 
 export function DashboardCard({ title, badge, isLoading, isEmpty, emptyText, children, footer }: DashboardCardProps) {
   return (
-    <section className="card rounded-lg border border-line bg-paper p-4 transition hover:shadow-2">
+    <section className="card p-4 transition hover:shadow-2">
       <header className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-charcoal">{title}</h2>
         {badge}
@@ -20,7 +20,7 @@ export function DashboardCard({ title, badge, isLoading, isEmpty, emptyText, chi
       {isLoading ? (
         <p className="py-6 text-center text-sm text-charcoal-3">불러오는 중…</p>
       ) : isEmpty ? (
-        <p className="rounded-md bg-graysoft py-6 text-center text-sm text-charcoal-3">{emptyText}</p>
+        <p className="rounded-md bg-graysoft py-6 text-center text-sm text-charcoal-3">{emptyText ?? ''}</p>
       ) : (
         children
       )}

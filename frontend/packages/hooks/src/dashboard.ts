@@ -225,6 +225,7 @@ export function useTodaySchedule(clubId: number | undefined): {
             location: detail.location,
             recruitmentId: meta?.recruitmentId,
             roundId: detail.roundId,
+            slotId: slot.slotId,
           });
         }
       }

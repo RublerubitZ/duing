@@ -56,7 +56,7 @@ export function TodayScheduleCard({ clubId }: { clubId: number }) {
     >
       <ul className="flex flex-col gap-1">
         {items.map((item, index) => (
-          <li key={`${item.kind}-${item.roundId ?? item.eventId ?? index}-${item.startAt}`}>
+          <li key={`${item.kind}-${item.slotId ?? item.eventId ?? index}-${item.startAt}`}>
             <ScheduleRow clubId={clubId} item={item} />
           </li>
         ))}

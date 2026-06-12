@@ -32,6 +32,8 @@ export type TodayScheduleItem = {
   /** INTERVIEW 딥링크용 */
   recruitmentId?: number;
   roundId?: number;
+  /** INTERVIEW 슬롯 식별자 — 키 충돌 방지용 */
+  slotId?: number;
   /** EVENT 식별자(v1 비링크) */
   eventId?: number;
 };

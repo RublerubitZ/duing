@@ -13,7 +13,6 @@ export function ClubFeedLinkCard({ clubId }: { clubId: number }) {
     <DashboardCard
       title="공지 · 일정"
       isLoading={isLoading}
-      emptyText=""
       footer={
         <Link href={toRoute(`/clubs/${clubId}`)} className="text-xs font-medium text-ink hover:underline">
           동아리 페이지 바로가기 →
