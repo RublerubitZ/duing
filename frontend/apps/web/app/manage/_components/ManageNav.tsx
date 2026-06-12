@@ -47,7 +47,7 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
         대시보드
       </Link>
 
-      <p className="px-2.5 pt-3 pb-1.5 text-[11px] uppercase tracking-[0.12em] text-sage/80">
+      <p className="px-2.5 pt-3 pb-1.5 text-[11px] uppercase tracking-[0.12em] text-cream/50">
         모집
       </p>
 
@@ -92,7 +92,7 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
         </small>
       </span>
 
-      <p className="px-2.5 pt-3.5 pb-1.5 text-[11px] uppercase tracking-[0.12em] text-sage/80">
+      <p className="px-2.5 pt-3.5 pb-1.5 text-[11px] uppercase tracking-[0.12em] text-cream/50">
         관리
       </p>
 

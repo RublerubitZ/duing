@@ -19,7 +19,7 @@ export function ClubSelector({ managedClubs, currentClubId }: ClubSelectorProps)
 
   return (
     <div className="px-2">
-      <label className="mb-1.5 block text-[11px] uppercase tracking-[0.12em] text-sage/80">
+      <label className="mb-1.5 block text-[11px] uppercase tracking-[0.12em] text-cream/50">
         동아리 선택
       </label>
       <select

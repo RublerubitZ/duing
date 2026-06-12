@@ -24,7 +24,7 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
               <span className="font-mono font-semibold text-[18px] text-cream tracking-[-0.02em]">
                 Du<span className="text-sage">·</span>ing
               </span>
-              <span className="block text-[12px] text-sage/80 mt-0.5 ml-0.5">운영진 콘솔</span>
+              <span className="block text-[12px] text-cream/50 mt-0.5 ml-0.5">운영진 콘솔</span>
             </Link>
           </div>
 
@@ -37,7 +37,7 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
             </>
           )}
 
-          <div className="mt-auto pt-3 border-t border-white/10 px-2 flex justify-between text-[11.5px] text-sage/80">
+          <div className="mt-auto pt-3 border-t border-white/10 px-2 flex justify-between text-[11.5px] text-cream/50">
             <span>v1.0.0</span>
             <span>회장 모드</span>
           </div>
