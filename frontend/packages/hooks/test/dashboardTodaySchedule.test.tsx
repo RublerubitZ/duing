@@ -60,8 +60,8 @@ describe('useTodaySchedule', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.items).toHaveLength(2);
     // 14:00 동일 → 면접이 먼저
-    expect(result.current.items[0].kind).toBe('INTERVIEW');
-    expect(result.current.items[0].roundId).toBe(7);
-    expect(result.current.items[1].kind).toBe('EVENT');
+    expect(result.current.items[0]?.kind).toBe('INTERVIEW');
+    expect(result.current.items[0]?.roundId).toBe(7);
+    expect(result.current.items[1]?.kind).toBe('EVENT');
   });
 });

@@ -47,6 +47,6 @@ describe('useClubActionItems', () => {
     expect(result.current.totalCount).toBe(2);
     expect(result.current.preview.length).toBeLessThanOrEqual(3);
     // 기한 없음 → 타입 우선순위로 미확정 라운드가 먼저
-    expect(result.current.preview[0].type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
+    expect(result.current.preview[0]?.type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
   });
 });
