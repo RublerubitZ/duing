@@ -69,10 +69,21 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
       }
     }
 
-    // 결과 미확정(근사): SCHEDULED 라운드 존재 + 면접대기 인원
-    const hasScheduled = (rounds ?? []).some((r) => r.status === 'SCHEDULED');
-    if (hasScheduled && stats && stats.interviewPending > 0) {
-      items.push({ type: 'INTERVIEW_RESULT_PENDING', ...base, count: stats.interviewPending });
+    // 결과 미확정: SCHEDULED 라운드에 배정됐지만 합/불 미결정인 인원(배정됨 ∩ 미결정).
+    // interviewPending에는 대기열 인원도 포함되므로 candidateCount를 빼서 배정 인원만 센다.
+    // (대기열 인원은 INTERVIEW_ROUND_NEEDED 소관. candidateCount 미로딩이면 단정 불가라 생성하지 않는다.)
+    const scheduledRounds = (rounds ?? []).filter((round) => round.status === 'SCHEDULED');
+    if (scheduledRounds.length > 0 && stats !== undefined && candidateCount !== undefined) {
+      const assignedPendingCount = stats.interviewPending - candidateCount;
+      if (assignedPendingCount > 0) {
+        // 단일 SCHEDULED 라운드면 그 라운드로 귀속, 복수면 모집 단위로만 노출
+        const attributedRound = scheduledRounds.length === 1 ? scheduledRounds[0] : undefined;
+        items.push({
+          type: 'INTERVIEW_RESULT_PENDING', ...base,
+          roundId: attributedRound?.roundId, roundTitle: attributedRound?.title,
+          count: assignedPendingCount,
+        });
+      }
     }
   }
 

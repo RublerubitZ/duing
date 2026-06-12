@@ -80,13 +80,72 @@ describe('buildActionItems', () => {
     expect(uncollected?.daysLeft).toBe(-2); // 6/10 마감 → 경과
   });
 
-  it('SCHEDULED 라운드 + interviewPending>0 → 결과 미확정', () => {
+  it('SCHEDULED 라운드 + 배정 인원(interviewPending-대기열) 존재 → 결과 미확정, 단일 라운드 귀속', () => {
     const input: RecruitmentDashboardInput[] = [
-      dashboardInput({ stats: stats({ interviewPending: 4 }), rounds: [round({ status: 'SCHEDULED' })] }),
+      dashboardInput({
+        stats: stats({ interviewPending: 4 }),
+        candidateCount: 0,
+        rounds: [round({ roundId: 7, title: '1차 면접', status: 'SCHEDULED' })],
+      }),
     ];
     const items = buildActionItems(input, NOW);
     const pending = items.find((i) => i.type === 'INTERVIEW_RESULT_PENDING');
     expect(pending?.count).toBe(4);
+    expect(pending?.roundId).toBe(7);
+    expect(pending?.roundTitle).toBe('1차 면접');
+  });
+
+  it('interviewPending 전원이 대기열이면(배정 인원 0) 결과 미확정 아님', () => {
+    const items = buildActionItems(
+      [dashboardInput({ stats: stats({ interviewPending: 4 }), candidateCount: 4, rounds: [round({ status: 'SCHEDULED' })] })],
+      NOW,
+    );
+    expect(items.some((i) => i.type === 'INTERVIEW_RESULT_PENDING')).toBe(false);
+  });
+
+  it('대기열 인원을 뺀 배정 인원만 센다 — count = interviewPending - candidateCount', () => {
+    const items = buildActionItems(
+      [
+        dashboardInput({
+          stats: stats({ interviewPending: 4 }),
+          candidateCount: 1,
+          rounds: [round({ roundId: 7, title: '1차 면접', status: 'SCHEDULED' })],
+        }),
+      ],
+      NOW,
+    );
+    const pending = items.find((i) => i.type === 'INTERVIEW_RESULT_PENDING');
+    expect(pending?.count).toBe(3);
+    expect(pending?.roundId).toBe(7);
+    expect(pending?.roundTitle).toBe('1차 면접');
+  });
+
+  it('SCHEDULED 라운드가 여러 개면 라운드 귀속 없이 결과 미확정', () => {
+    const items = buildActionItems(
+      [
+        dashboardInput({
+          stats: stats({ interviewPending: 4 }),
+          candidateCount: 1,
+          rounds: [
+            round({ roundId: 7, title: '1차 면접', status: 'SCHEDULED' }),
+            round({ roundId: 8, title: '2차 면접', status: 'SCHEDULED' }),
+          ],
+        }),
+      ],
+      NOW,
+    );
+    const pending = items.find((i) => i.type === 'INTERVIEW_RESULT_PENDING');
+    expect(pending?.count).toBe(3);
+    expect(pending?.roundId).toBeUndefined();
+    expect(pending?.roundTitle).toBeUndefined();
+  });
+
+  it('대기열 미로딩(candidateCount undefined)이면 결과 미확정을 만들지 않는다', () => {
+    const items = buildActionItems(
+      [dashboardInput({ stats: stats({ interviewPending: 4 }), candidateCount: undefined, rounds: [round({ status: 'SCHEDULED' })] })],
+      NOW,
+    );
+    expect(items.some((i) => i.type === 'INTERVIEW_RESULT_PENDING')).toBe(false);
   });
 
   it('마감 임박은 더 이상 액션 아이템을 만들지 않는다(진행 중 모집 카드 D-day로 이관)', () => {

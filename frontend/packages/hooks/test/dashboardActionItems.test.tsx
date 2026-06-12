@@ -96,7 +96,8 @@ describe('useClubActionItems', () => {
     );
     const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    // 라운드 생성 필요(대기열 2) + 검토 대기(5) = 2건 (interviewPending=0이라 결과 미확정 없음)
+    // 라운드 생성 필요(대기열 2) + 검토 대기(5) = 2건
+    // (결과 미확정 없음: 배정 인원 = interviewPending 0 - 대기열 2 ≤ 0)
     expect(result.current.totalCount).toBe(2);
     const roundNeeded = result.current.items.find((item) => item.type === 'INTERVIEW_ROUND_NEEDED');
     expect(roundNeeded?.count).toBe(2);
