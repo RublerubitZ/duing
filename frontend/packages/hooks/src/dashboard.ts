@@ -11,7 +11,8 @@ import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
 import { statsQueryKeys } from './statsQueryKeys';
 import { interviewRoundKeys } from './interviewRoundQueryKeys';
-import { dashboardQueryKeys } from './dashboardQueryKeys';
+import { clubNoticeKeys } from './clubMembershipQueryKeys';
+import { clubEventKeys } from './clubEventQueryKeys';
 import { isTodayKst, todayKstDateString } from './dashboardDate';
 import {
   ACTION_ITEM_PREVIEW_COUNT,
@@ -197,7 +198,7 @@ export function useTodaySchedule(clubId: number | undefined): {
   });
 
   const eventsQuery = useQuery({
-    queryKey: clubId !== undefined ? dashboardQueryKeys.todayEvents(clubId, today) : ['dashboard', undefined, 'today-events'],
+    queryKey: clubId !== undefined ? clubEventKeys.list(clubId, { from: today, to: today }) : ['club', 'events', undefined, 'list', { from: today, to: today }],
     queryFn: () => {
       if (clubId === undefined) throw new Error('clubId is required');
       return client.clubEvents.list(clubId, { from: today, to: today });
@@ -269,7 +270,7 @@ export function useClubFeedCounts(clubId: number | undefined): {
   const enabled = clubId !== undefined;
 
   const noticesQuery = useQuery({
-    queryKey: enabled ? dashboardQueryKeys.feedCounts(clubId) : ['dashboard', undefined, 'feed-counts'],
+    queryKey: enabled ? clubNoticeKeys.list(clubId, 0, 1) : ['club', 'notices', undefined, 'list', { page: 0, size: 1 }],
     queryFn: () => {
       if (clubId === undefined) throw new Error('clubId is required');
       return client.clubNotices.listForClub(clubId, { page: 0, size: 1 });
@@ -279,7 +280,7 @@ export function useClubFeedCounts(clubId: number | undefined): {
   });
 
   const eventsQuery = useQuery({
-    queryKey: enabled ? dashboardQueryKeys.eventCount(clubId) : ['dashboard', undefined, 'event-count'],
+    queryKey: enabled ? clubEventKeys.list(clubId, {}) : ['club', 'events', undefined, 'list', {}],
     queryFn: () => {
       if (clubId === undefined) throw new Error('clubId is required');
       return client.clubEvents.list(clubId);
