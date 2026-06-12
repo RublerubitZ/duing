@@ -9,6 +9,7 @@ import type {
 } from '@duing/types';
 import { daysUntilKst, parseKstInstant } from './dashboardDate';
 
+/** 진행 중 모집 카드에서 D-day 강조(coral)를 적용하는 잔여 일수 윈도 */
 export const CLOSING_SOON_DAYS = 3;
 export const ACTION_ITEM_PREVIEW_COUNT = 3;
 
@@ -25,9 +26,8 @@ const TYPE_PRIORITY: Record<ActionItemType, number> = {
   INTERVIEW_ROUND_NEEDED: 0,
   INTERVIEW_ROUND_UNCONFIRMED: 1,
   INTERVIEW_RESPONSE_UNCOLLECTED: 2,
-  RECRUITMENT_CLOSING_SOON: 3,
-  INTERVIEW_RESULT_PENDING: 4,
-  APPLICANTS_AWAITING_REVIEW: 5,
+  INTERVIEW_RESULT_PENDING: 3,
+  APPLICANTS_AWAITING_REVIEW: 4,
 };
 
 export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date): ActionItem[] {
@@ -73,14 +73,6 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
     const hasScheduled = (rounds ?? []).some((r) => r.status === 'SCHEDULED');
     if (hasScheduled && stats && stats.interviewPending > 0) {
       items.push({ type: 'INTERVIEW_RESULT_PENDING', ...base, count: stats.interviewPending });
-    }
-
-    // 마감 임박: 종료 아님 + endDate D-N 이내(경과 제외)
-    if (recruitment.displayStatus !== 'CLOSED' && recruitment.displayStatus !== 'ALWAYS_OPEN' && recruitment.endDate) {
-      const daysLeft = daysUntilKst(recruitment.endDate, now);
-      if (daysLeft >= 0 && daysLeft <= CLOSING_SOON_DAYS) {
-        items.push({ type: 'RECRUITMENT_CLOSING_SOON', ...base, daysLeft });
-      }
     }
   }
 

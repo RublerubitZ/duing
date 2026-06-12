@@ -21,8 +21,6 @@ function hrefFor(clubId: number, item: ActionItem): `/${string}` {
     case 'APPLICANTS_AWAITING_REVIEW':
     case 'INTERVIEW_RESULT_PENDING':
       return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/applicants`;
-    case 'RECRUITMENT_CLOSING_SOON':
-      return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}`;
   }
 }
 

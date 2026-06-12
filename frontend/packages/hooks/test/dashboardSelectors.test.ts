@@ -89,34 +89,11 @@ describe('buildActionItems', () => {
     expect(pending?.count).toBe(4);
   });
 
-  it('endDate가 D-3 이내면 마감 임박', () => {
+  it('마감 임박은 더 이상 액션 아이템을 만들지 않는다(진행 중 모집 카드 D-day로 이관)', () => {
     const input: RecruitmentDashboardInput[] = [
       dashboardInput({ recruitment: recruitment({ endDate: '2026-06-14' }) }),
     ];
-    const items = buildActionItems(input, NOW);
-    const closing = items.find((i) => i.type === 'RECRUITMENT_CLOSING_SOON');
-    expect(closing?.daysLeft).toBe(2);
-  });
-
-  it('endDate가 D-3 초과면 마감 임박 아님', () => {
-    const input: RecruitmentDashboardInput[] = [
-      dashboardInput({ recruitment: recruitment({ endDate: '2026-06-30' }) }),
-    ];
-    expect(buildActionItems(input, NOW).some((i) => i.type === 'RECRUITMENT_CLOSING_SOON')).toBe(false);
-  });
-
-  it('CLOSED 모집은 마감 임박을 만들지 않는다', () => {
-    const input: RecruitmentDashboardInput[] = [
-      dashboardInput({ recruitment: recruitment({ displayStatus: 'CLOSED', endDate: '2026-06-14' }) }),
-    ];
-    expect(buildActionItems(input, NOW).some((i) => i.type === 'RECRUITMENT_CLOSING_SOON')).toBe(false);
-  });
-
-  it('ALWAYS_OPEN(상시모집) 모집은 마감 임박을 만들지 않는다', () => {
-    const input: RecruitmentDashboardInput[] = [
-      dashboardInput({ recruitment: recruitment({ displayStatus: 'ALWAYS_OPEN', endDate: '2026-06-14' }) }),
-    ];
-    expect(buildActionItems(input, NOW).some((i) => i.type === 'RECRUITMENT_CLOSING_SOON')).toBe(false);
+    expect(buildActionItems(input, NOW)).toHaveLength(0);
   });
 
   it('대기열 인원 존재 + 라운드 없음 → 면접 라운드 생성 필요', () => {
@@ -186,16 +163,23 @@ describe('sortActionItems', () => {
     const items = buildActionItems(
       [
         dashboardInput({
-          recruitment: recruitment({ id: 1, endDate: '2026-06-14' }),
+          recruitment: recruitment({ id: 1 }),
           stats: stats({ submitted: 1 }),
-          rounds: [round({ roundId: 9, status: 'ASSIGNING' })],
+          rounds: [
+            round({ roundId: 9, status: 'ASSIGNING' }),
+            round({
+              roundId: 11, status: 'COLLECTING',
+              totalMemberCount: 5, respondedMemberCount: 3, availabilityDeadline: '2026-06-14',
+            }),
+          ],
         }),
       ],
       NOW,
     );
     const sorted = sortActionItems(items);
-    // 마감 임박(daysLeft=2) → 기한 없는 ASSIGNING → 검토 대기 순
-    expect(sorted[0]?.type).toBe('RECRUITMENT_CLOSING_SOON');
+    // 응답 미수집(daysLeft=2) → 기한 없는 ASSIGNING → 검토 대기 순
+    expect(sorted[0]?.type).toBe('INTERVIEW_RESPONSE_UNCOLLECTED');
+    expect(sorted[0]?.daysLeft).toBe(2);
     expect(sorted[1]?.type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
     expect(sorted[2]?.type).toBe('APPLICANTS_AWAITING_REVIEW');
   });
