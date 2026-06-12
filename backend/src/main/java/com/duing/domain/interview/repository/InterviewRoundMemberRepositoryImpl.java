@@ -135,6 +135,21 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
     }
 
     @Override
+    public Optional<VisibleMembership> findPlacementActiveMembershipByApplicationId(Long applicationId) {
+        return Optional.ofNullable(queryFactory
+                .select(Projections.constructor(VisibleMembership.class, interviewRound, interviewRoundMember))
+                .from(interviewRoundMember)
+                .join(interviewRound).on(interviewRound.id.eq(interviewRoundMember.roundId)
+                        .and(interviewRound.deletedAt.isNull()))
+                .where(
+                        interviewRoundMember.applicationId.eq(applicationId),
+                        interviewRoundMember.status.ne(RoundMemberStatus.EXCLUDED),
+                        interviewRound.status.ne(RoundStatus.CANCELLED)
+                )
+                .fetchOne());
+    }
+
+    @Override
     public boolean existsConcludedMembershipByApplicationId(Long applicationId) {
         Integer found = queryFactory
                 .selectOne()

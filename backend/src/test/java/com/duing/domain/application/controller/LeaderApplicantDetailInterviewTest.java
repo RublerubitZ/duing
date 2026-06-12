@@ -3,6 +3,7 @@ package com.duing.domain.application.controller;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
@@ -23,6 +24,7 @@ import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
+import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
@@ -266,6 +268,136 @@ class LeaderApplicantDetailInterviewTest extends IntegrationTestBase {
                 .body("data.interviewAvailabilities[0].slotId", equalTo(keptSlot.getId().intValue()))
                 // 배정 슬롯도 soft-deleted 이므로 null 로 응답된다.
                 .body("data.assignedSlot", nullValue());
+    }
+
+    // ─── interviewRound brief 신규 테스트 (계획 §4) ─────────────────────────────
+
+    @Test
+    @DisplayName("DRAFT 상태 라운드의 멤버십도 interviewRound brief 에 노출된다")
+    void draftRoundMembershipIsExposedInInterviewRoundBrief() {
+        User leader = saveUser("draft라운드리더");
+        String leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        Club club = saveActiveClub("draft라운드동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveInterviewRecruitment(club, "draft라운드모집");
+        // DRAFT 라운드 — availabilityDeadline 없이 생성
+        InterviewRound draftRound = interviewRoundRepository.save(
+                InterviewRoundFixture.withStatus(recruitment.getId(), null, null, RoundStatus.DRAFT));
+
+        User applicant = saveUser("draft라운드지원자");
+        Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(draftRound.getId(), application.getId()));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/applications/{id}", application.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.interviewRound", notNullValue())
+                .body("data.interviewRound.roundId", equalTo(draftRound.getId().intValue()))
+                .body("data.interviewRound.roundStatus", equalTo("DRAFT"))
+                .body("data.interviewRound.memberStatus", equalTo("INVITED"))
+                .body("data.interviewRound.unresponded", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("COLLECTING 라운드 마감 후 INVITED 멤버는 unresponded true 로 응답된다")
+    void invitedMemberAfterDeadlineIsMarkedUnresponded() {
+        User leader = saveUser("마감후리더");
+        String leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        Club club = saveActiveClub("마감후동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveInterviewRecruitment(club, "마감후모집");
+        // 마감이 이미 지난 COLLECTING 라운드
+        InterviewRound pastDeadlineRound = interviewRoundRepository.save(
+                InterviewRoundFixture.withStatus(
+                        recruitment.getId(), LocalDateTime.now().minusHours(1), null, RoundStatus.COLLECTING));
+
+        User applicant = saveUser("마감후지원자");
+        Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(pastDeadlineRound.getId(), application.getId()));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/applications/{id}", application.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.interviewRound", notNullValue())
+                .body("data.interviewRound.memberStatus", equalTo("INVITED"))
+                .body("data.interviewRound.unresponded", equalTo(true));
+    }
+
+    @Test
+    @DisplayName("NO_AVAILABLE_SLOT 상태 멤버는 alternativeAvailabilityText 가 응답에 포함된다")
+    void noAvailableSlotMemberHasAlternativeTextInBrief() {
+        User leader = saveUser("사유리더");
+        String leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        Club club = saveActiveClub("사유동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveInterviewRecruitment(club, "사유모집");
+        InterviewRound round = saveCollectingRound(recruitment);
+
+        User applicant = saveUser("사유지원자");
+        Application application = saveInterviewPendingApplication(recruitment, applicant);
+        InterviewRoundMember member = InterviewRoundMember.invite(round.getId(), application.getId());
+        member.reportNoAvailableSlot("출장 일정으로 모든 시간대 참석이 어렵습니다.");
+        interviewRoundMemberRepository.save(member);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/applications/{id}", application.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.interviewRound", notNullValue())
+                .body("data.interviewRound.memberStatus", equalTo("NO_AVAILABLE_SLOT"))
+                .body("data.interviewRound.alternativeAvailabilityText",
+                        equalTo("출장 일정으로 모든 시간대 참석이 어렵습니다."))
+                .body("data.interviewRound.unresponded", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("placement-active 멤버십이 없는 지원자는 interviewRound 가 null 로 응답된다")
+    void applicantWithoutPlacementActiveMembershipHasNullInterviewRound() {
+        User leader = saveUser("멤버없는리더");
+        String leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        Club club = saveActiveClub("멤버없는동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveInterviewRecruitment(club, "멤버없는모집");
+
+        User applicant = saveUser("멤버없는지원자");
+        Application application = saveInterviewPendingApplication(recruitment, applicant);
+        // 멤버십 없이 지원서만 존재
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/applications/{id}", application.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.interviewRound", nullValue());
+    }
+
+    @Test
+    @DisplayName("EXCLUDED 멤버십만 있는 지원자는 interviewRound 가 null 로 응답된다 (대기열 복귀 상태)")
+    void excludedOnlyMembershipResultsInNullInterviewRound() {
+        User leader = saveUser("제외된리더");
+        String leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
+
+        Club club = saveActiveClub("제외된동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveInterviewRecruitment(club, "제외된모집");
+        InterviewRound round = saveCollectingRound(recruitment);
+
+        User applicant = saveUser("제외된지원자");
+        Application application = saveInterviewPendingApplication(recruitment, applicant);
+        InterviewRoundMember member = InterviewRoundMember.invite(round.getId(), application.getId());
+        member.exclude();
+        interviewRoundMemberRepository.save(member);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/applications/{id}", application.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.interviewRound", nullValue());
     }
 
     @Test

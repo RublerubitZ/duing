@@ -24,7 +24,7 @@ class ApplicantDetailQueryTest {
         Application application = stubApplication();
 
         ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
-                application, List.of(), List.of(), null, List.of(), null, null);
+                application, List.of(), List.of(), null, List.of(), null, null, null);
 
         assertThat(detailQuery.interviewAvailabilities()).isEmpty();
         assertThat(detailQuery.assignedSlot()).isNull();
@@ -48,7 +48,7 @@ class ApplicantDetailQueryTest {
 
         ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
                 application, List.of(), List.of(), null,
-                List.of(first, second), assigned, interview);
+                List.of(first, second), assigned, interview, null);
 
         assertThat(detailQuery.interviewAvailabilities()).containsExactly(first, second);
         assertThat(detailQuery.assignedSlot()).isEqualTo(assigned);
@@ -74,7 +74,7 @@ class ApplicantDetailQueryTest {
         Application application = stubApplication();
 
         ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
-                application, List.of(), List.of(), null, null, null, null);
+                application, List.of(), List.of(), null, null, null, null, null);
 
         assertThat(detailQuery.interviewAvailabilities()).isEmpty();
         assertThat(detailQuery.assignedSlot()).isNull();
@@ -91,7 +91,7 @@ class ApplicantDetailQueryTest {
                 "3호관 201호");
 
         ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
-                application, List.of(), List.of(), null, List.of(), null, interview);
+                application, List.of(), List.of(), null, List.of(), null, interview, null);
 
         assertThat(detailQuery.interview()).isNotNull();
         assertThat(detailQuery.interview().startAt()).isEqualTo(LocalDateTime.of(2026, 6, 20, 18, 0));
@@ -105,7 +105,7 @@ class ApplicantDetailQueryTest {
         Application application = stubApplication();
 
         ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
-                application, List.of(), List.of(), null, List.of(), null, null);
+                application, List.of(), List.of(), null, List.of(), null, null, null);
 
         assertThat(detailQuery.interview()).isNull();
     }

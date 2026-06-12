@@ -27,6 +27,7 @@ import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
@@ -37,6 +38,7 @@ import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -58,6 +60,8 @@ class ApplicantDetailServiceTest {
     private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
     private final InterviewRoundRepository interviewRoundRepository = mock(InterviewRoundRepository.class);
     private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
+    private final InterviewRoundMemberRepositoryCustom interviewRoundMemberRepository = mock(InterviewRoundMemberRepositoryCustom.class);
+    private final Clock clock = Clock.systemDefaultZone();
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -71,7 +75,9 @@ class ApplicantDetailServiceTest {
             interviewAvailabilityRepository,
             interviewScheduleRepository,
             interviewRoundRepository,
-            interviewSlotRepository);
+            interviewSlotRepository,
+            interviewRoundMemberRepository,
+            clock);
 
     @Test
     @DisplayName("SELF 모집의 지원서를 동아리 운영진이 조회하면 질문·답변이 인덱스 기준으로 매핑되어 반환된다")
@@ -286,6 +292,8 @@ class ApplicantDetailServiceTest {
                 .thenReturn(List.of(firstWindow, secondWindow));
         when(interviewScheduleRepository.findAssignedSlotByApplicationId(10L))
                 .thenReturn(Optional.of(assignedWindow));
+        when(interviewRoundMemberRepository.findPlacementActiveMembershipByApplicationId(10L))
+                .thenReturn(Optional.empty());
 
         ApplicantDetailQuery detail = applicationService.getApplicantDetail(10L, 99L);
 
@@ -384,6 +392,8 @@ class ApplicantDetailServiceTest {
         when(interviewRoundRepository.findById(30L)).thenReturn(Optional.of(roundWithoutLocation));
         when(interviewScheduleRepository.findByApplicationId(15L)).thenReturn(Optional.of(schedule));
         when(interviewSlotRepository.findById(101L)).thenReturn(Optional.of(slot));
+        when(interviewRoundMemberRepository.findPlacementActiveMembershipByApplicationId(15L))
+                .thenReturn(Optional.empty());
 
         ApplicantDetailQuery detail = applicationService.getApplicantDetail(15L, 99L);
 
@@ -437,6 +447,8 @@ class ApplicantDetailServiceTest {
         when(interviewRoundRepository.findById(31L)).thenReturn(Optional.empty());
         when(interviewScheduleRepository.findByApplicationId(16L)).thenReturn(Optional.of(schedule));
         when(interviewSlotRepository.findById(201L)).thenReturn(Optional.of(slot));
+        when(interviewRoundMemberRepository.findPlacementActiveMembershipByApplicationId(16L))
+                .thenReturn(Optional.empty());
 
         ApplicantDetailQuery detail = applicationService.getApplicantDetail(16L, 99L);
 
