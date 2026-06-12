@@ -21,7 +21,7 @@ function newQueryClient() {
 function recruitmentRow(id: number, displayStatus: string) {
   return { id, clubId: 10, clubName: '두잉', title: `모집${id}`, startDate: '2026-06-01', endDate: '2026-06-30',
     capacity: 10, status: displayStatus === 'CLOSED' ? 'CLOSED' : 'OPEN', displayStatus, effectivelyOpen: displayStatus !== 'CLOSED',
-    applicationMode: 'INTERNAL', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' };
+    applicationMode: 'SELF', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' };
 }
 function statsBody(over: Record<string, number>) {
   return { ok: true, message: null,

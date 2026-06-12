@@ -23,7 +23,7 @@ const server = setupServer(
     HttpResponse.json({ ok: true, message: null, data: [
       { id: 1, clubId: 10, clubName: '두잉', title: '봄 모집', startDate: '2026-06-01', endDate: '2026-06-30',
         capacity: 20, status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: true,
-        applicationMode: 'INTERNAL', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' },
+        applicationMode: 'SELF', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' },
     ] }),
   ),
   http.get('*/leader/recruitments/1/stats/summary', () =>
@@ -51,23 +51,29 @@ describe('useClubActionItems', () => {
   });
 
   it('useInterview=false 모집은 interview-rounds를 호출하지 않고 통계 기반 액션만 반환', async () => {
-    // recruitment 1은 비면접 모집. interview-rounds 핸들러를 등록하지 않으므로,
-    // 훅이 해당 엔드포인트를 호출하면 onUnhandledRequest:'error'로 테스트가 실패한다.
+    // recruitment 1을 비면접 모집으로 덮어쓴다.
+    // 게이팅 검증 방식: afterEach(resetHandlers)로 복원된 기본 interview-rounds 핸들러가 여전히
+    // 응답 가능하므로, 훅이 잘못 호출해도 서버 에러로는 잡히지 않는다. 대신 출력값으로 검증한다.
+    // 비면접 모집은 통계 기반 APPLICANTS_AWAITING_REVIEW 1건만 생성해야 하므로 totalCount === 1.
+    // 훅이 interview-rounds를 잘못 호출하면 INTERVIEW_ROUND_UNCONFIRMED 항목이 추가되어
+    // totalCount === 2가 되고 아래 waitFor 단언이 실패한다.
     server.use(
       http.get('*/clubs/10/recruitments', () =>
         HttpResponse.json({ ok: true, message: null, data: [
           { id: 1, clubId: 10, clubName: '두잉', title: '일반 모집', startDate: '2026-06-01', endDate: '2026-12-30',
             capacity: 20, status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: true,
-            applicationMode: 'INTERNAL', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
+            applicationMode: 'SELF', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
         ] }),
       ),
     );
     const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    // 통계 기반 검토 대기(submitted 2 + underReview 3 = 5)만 1건
-    expect(result.current.isError).toBe(false);
-    expect(result.current.totalCount).toBe(1);
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      // 통계 기반 검토 대기(submitted 2 + underReview 3 = 5)만 1건
+      expect(result.current.totalCount).toBe(1);
+    });
     expect(result.current.preview[0]?.type).toBe('APPLICANTS_AWAITING_REVIEW');
+    expect(result.current.isError).toBe(false);
   });
 
   it('모집이 모두 CLOSED이면 액션 아이템 없음', async () => {
@@ -76,7 +82,7 @@ describe('useClubActionItems', () => {
         HttpResponse.json({ ok: true, message: null, data: [
           { id: 1, clubId: 10, clubName: '두잉', title: '봄 모집', startDate: '2026-06-01', endDate: '2026-06-30',
             capacity: 20, status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: false,
-            applicationMode: 'INTERNAL', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' },
+            applicationMode: 'SELF', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' },
         ] }),
       ),
     );

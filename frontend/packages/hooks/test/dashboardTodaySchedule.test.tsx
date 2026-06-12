@@ -29,7 +29,7 @@ const server = setupServer(
     HttpResponse.json({ ok: true, message: null, data: [
       { id: 1, clubId: 10, clubName: '두잉', title: '봄 모집', startDate: '2026-06-01', endDate: '2026-12-30',
         capacity: 20, status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: true,
-        applicationMode: 'INTERNAL', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' },
+        applicationMode: 'SELF', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' },
     ] }),
   ),
   http.get('*/leader/recruitments/1/interview-rounds', () =>
@@ -66,14 +66,16 @@ describe('useTodaySchedule', () => {
   });
 
   it('useInterview=false 모집은 interview-rounds를 호출하지 않고 이벤트만 반환', async () => {
-    // recruitment 1을 비면접 모집으로 덮어쓴다. interview-rounds 핸들러는 그대로 두지만,
-    // 훅이 해당 엔드포인트를 호출하면 onUnhandledRequest:'error'로 실패시키기 위해 라우트를 제거한다.
+    // recruitment 1을 비면접 모집으로 덮어쓴다.
+    // interview-rounds 엔드포인트는 500을 반환하도록 설정해두어, 훅이 잘못 호출하면
+    // isError===true 또는 items 개수가 달라지는 방식으로 아래 waitFor 단언이 실패한다.
+    // 정상 경로: items에는 이벤트 1건만 포함되어야 한다.
     server.use(
       http.get('*/clubs/10/recruitments', () =>
         HttpResponse.json({ ok: true, message: null, data: [
           { id: 1, clubId: 10, clubName: '두잉', title: '일반 모집', startDate: '2026-06-01', endDate: '2026-12-30',
             capacity: 20, status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: true,
-            applicationMode: 'INTERNAL', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
+            applicationMode: 'SELF', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
         ] }),
       ),
       http.get('*/leader/recruitments/1/interview-rounds', () =>
@@ -81,10 +83,12 @@ describe('useTodaySchedule', () => {
       ),
     );
     const { result } = renderHook(() => useTodaySchedule(10), { wrapper: makeWrapper(newQueryClient()) });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.isError).toBe(false);
-    expect(result.current.items).toHaveLength(1);
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.items).toHaveLength(1);
+    });
     expect(result.current.items[0]?.kind).toBe('EVENT');
     expect(result.current.items[0]?.eventId).toBe(50);
+    expect(result.current.isError).toBe(false);
   });
 });

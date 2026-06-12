@@ -30,10 +30,10 @@ const server = setupServer(
       data: [
         { id: 1, clubId: 10, clubName: '두잉', title: '봄 모집', startDate: '2026-06-01', endDate: '2026-06-30',
           capacity: 20, status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: true,
-          applicationMode: 'INTERNAL', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' },
+          applicationMode: 'SELF', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' },
         { id: 2, clubId: 10, clubName: '두잉', title: '겨울 모집', startDate: '2025-12-01', endDate: '2025-12-31',
           capacity: 20, status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: false,
-          applicationMode: 'INTERNAL', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
+          applicationMode: 'SELF', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
       ],
     }),
   ),
