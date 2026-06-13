@@ -254,6 +254,65 @@ class NoticeAdminAcceptanceTest extends IntegrationTestBase {
                 .body("data.eventInfo", nullValue());
     }
 
+    @Test
+    @DisplayName("contentFormat=HTML 로 작성하면 상세 응답의 contentFormat 이 HTML 이다")
+    void noticeWithHtmlContentFormatIsExposed() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "HTML 공지", "summary": "요약", "content": "<p>본문</p>",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "GENERAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false,
+                      "contentFormat": "HTML"
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.contentFormat", equalTo("HTML"));
+    }
+
+    @Test
+    @DisplayName("contentFormat 미지정 작성 시 기본값 MARKDOWN 으로 노출된다")
+    void noticeWithoutContentFormatDefaultsToMarkdown() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "기본 공지", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "GENERAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.contentFormat", equalTo("MARKDOWN"));
+    }
+
     private User saveUser(UserRole role) {
         long seq = sequence.incrementAndGet();
         return userRepository.save(User.create(
