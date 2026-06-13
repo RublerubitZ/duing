@@ -10,6 +10,7 @@ import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { SparkleFull } from '../../_components/Sparkle';
 import { toRoute } from '../../_lib/route';
 import { NOTICE_CATEGORY_LABEL, NOTICE_CATEGORY_OPTIONS } from '../_lib/categoryLabels';
+import { CATEGORY_TAG_STYLES } from '../_lib/categoryTagStyles';
 
 /* ---------- Local icon set (inline-style 페이지 전용) ---------- */
 type IconProps = SVGProps<SVGSVGElement>;
@@ -46,17 +47,6 @@ const Icon = {
       <path d="M5 12h14M13 5l7 7-7 7" />
     </svg>
   ),
-};
-
-/* ---------- 카테고리 태그 스타일 ---------- */
-type TagStyle = { bg: string; fg: string };
-
-const CATEGORY_TAG_STYLES: Record<NoticeCategory, TagStyle> = {
-  FESTIVAL: { bg: '#FCE2D9',           fg: '#9A3F23' },
-  FAIR:     { bg: 'var(--sage-mist)',  fg: 'var(--ink-deep)' },
-  FUNDING:  { bg: '#DDE8F1',           fg: '#2F557A' },
-  CONTEST:  { bg: '#FBEFD7',           fg: '#8E6620' },
-  GENERAL:  { bg: 'var(--gray-soft)', fg: 'var(--charcoal-2)' },
 };
 
 /* ---------- 미니 컴포넌트 ---------- */
