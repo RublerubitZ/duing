@@ -160,6 +160,21 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("이미 가입된 이메일로 인증 없이 재가입하면 인증 가드보다 먼저 409 를 반환한다")
+    void signupRejectsAlreadyRegisteredEmailBeforeVerificationGuard() {
+        prepareVerifiedEmail("hong@daegu.ac.kr");
+        given().contentType(ContentType.JSON).body(validBody())
+                .when().post("/api/v1/auth/signup")
+                .then().statusCode(HttpStatus.CREATED.value());
+
+        // 가입 성공으로 인증 행은 consume(삭제)됐다. 같은 이메일 재가입은 인증 행이 없지만,
+        // 미인증(403)이 아니라 중복(409)으로 막혀야 한다(기존 계약 보존).
+        given().contentType(ContentType.JSON).body(validBody())
+                .when().post("/api/v1/auth/signup")
+                .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
     @DisplayName("인증 후 만료 시각이 지나면 가입할 수 없다")
     void signupRejectsExpiredVerification() {
         prepareVerifiedEmail("hong@daegu.ac.kr");

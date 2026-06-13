@@ -32,7 +32,9 @@ public class GeneralUserService implements UserService {
     @Override
     @Transactional
     public Long signup(SignupCommand signupCommand) {
-        emailVerificationService.assertVerified(signupCommand.email());
+        // 중복(409) 검사를 인증 가드(403) 보다 먼저 둔다 — 이미 가입된 이메일은 인증 코드를
+        // 받을 수 없으므로(발송 API 가 409), 가드를 앞에 두면 중복 이메일이 항상 403 으로
+        // 가려져 기존 회원가입 계약(중복 409)이 회귀한다.
         if (userRepository.existsByEmail(signupCommand.email())) {
             throw new UserException.DuplicateEmailException();
         }
@@ -42,6 +44,7 @@ public class GeneralUserService implements UserService {
         if (userRepository.existsByPhone(signupCommand.phone())) {
             throw new UserException.PhoneAlreadyExistsException();
         }
+        emailVerificationService.assertVerified(signupCommand.email());
 
         String passwordHash = passwordEncoder.encode(signupCommand.rawPassword());
         User user = User.create(
