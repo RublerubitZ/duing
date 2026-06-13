@@ -32,14 +32,14 @@ public class GlobalExceptionHandler {
                 exception.getPayload().respondedUnassigned().size());
         return ResponseEntity.status(exception.getStatus())
                 .body(new ApiResponse<>(false, UnresolvedMembersResponse.from(exception.getPayload()),
-                        exception.getMessage()));
+                        exception.getMessage(), null));
     }
 
     @ExceptionHandler(ApplicationException.class)
     public ResponseEntity<ApiResponse<Void>> handleApplicationException(ApplicationException exception) {
         log.warn("ApplicationException: {}", exception.getMessage());
         return ResponseEntity.status(exception.getStatus())
-                .body(ApiResponse.error(exception.getMessage()));
+                .body(ApiResponse.error(exception.getMessage(), exception.getCode()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

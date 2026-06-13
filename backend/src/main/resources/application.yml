@@ -51,6 +51,15 @@ s3:
   bucket: ${S3_BUCKET:duing}
   public-base-url: ${S3_PUBLIC_BASE_URL:}
 
+email:
+  provider: ${EMAIL_PROVIDER:logging}   # logging | resend  (test 전용: stub)
+  verification:
+    secret: ${EMAIL_VERIFICATION_SECRET}   # HMAC 키 — 기본값 없음(필수), .env 로 주입
+
+resend:
+  api-key: ${RESEND_API_KEY}
+  from: ${RESEND_FROM:Du-ing <noreply@duings.com>}
+
 duing:
   notice:
     cover-image-url-prefix: ${NOTICE_COVER_IMAGE_URL_PREFIX:}
