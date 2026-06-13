@@ -57,7 +57,7 @@ email:
     secret: ${EMAIL_VERIFICATION_SECRET}   # HMAC 키 — 기본값 없음(필수), .env 로 주입
 
 resend:
-  api-key: ${RESEND_API_KEY:}
+  api-key: ${RESEND_API_KEY}
   from: ${RESEND_FROM:Du-ing <noreply@duings.com>}
 
 duing:
