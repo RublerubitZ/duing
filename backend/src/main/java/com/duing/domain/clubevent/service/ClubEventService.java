@@ -13,4 +13,6 @@ public interface ClubEventService {
     void delete(Long clubId, Long eventId);
     List<ClubEventCardResponse> listWindow(Long clubId, LocalDate from, LocalDate to);
     ClubEventDetailResponse getDetail(Long clubId, Long eventId);
+
+    void removeAllOnClubClosure(Long clubId);
 }

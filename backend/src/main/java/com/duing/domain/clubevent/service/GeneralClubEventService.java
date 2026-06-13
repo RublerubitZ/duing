@@ -83,6 +83,12 @@ public class GeneralClubEventService implements ClubEventService {
     }
 
     @Override
+    @Transactional
+    public void removeAllOnClubClosure(Long clubId) {
+        eventRepository.deleteAll(eventRepository.findAllByClubId(clubId));
+    }
+
+    @Override
     public ClubEventDetailResponse getDetail(Long clubId, Long eventId) {
         ClubEvent event = eventRepository.findById(eventId)
                 .orElseThrow(ClubEventException.ClubEventNotFoundException::new);

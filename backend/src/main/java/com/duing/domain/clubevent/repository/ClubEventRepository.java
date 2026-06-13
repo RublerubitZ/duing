@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface ClubEventRepository extends JpaRepository<ClubEvent, Long> {
 
+    List<ClubEvent> findAllByClubId(Long clubId);
+
     @Query("""
         SELECT e FROM ClubEvent e
         WHERE e.clubId = :clubId
