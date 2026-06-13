@@ -1366,7 +1366,6 @@ public class GeneralEmailVerificationService implements EmailVerificationService
     public EmailVerificationSendResult sendCode(SendEmailVerificationCommand sendCommand, String clientIp) {
         LocalDateTime now = LocalDateTime.now();
         rateLimiter.assertAndRecordIpRequest(clientIp, now);
-        rateLimiter.assertGlobalQuotaAvailable(now);
         if (userRepository.existsByEmail(sendCommand.email())) {
             throw new UserException.DuplicateEmailException();
         }
@@ -1375,7 +1374,9 @@ public class GeneralEmailVerificationService implements EmailVerificationService
         String codeHash = verificationCodeManager.hash(sendCommand.email(), code);
         EmailVerification emailVerification = upsertVerification(sendCommand.email(), codeHash, now);
 
-        rateLimiter.recordSendAttempt(now);
+        // 발송 직전에 전역 일일 쿼터를 원자적으로 예약(검사+증가 일체) — 중복/쿨다운으로
+        // 발송에 이르지 못한 요청은 쿼터를 소비하지 않는다. 한도 초과 시 503.
+        rateLimiter.reserveGlobalQuota(now);
         // 발송 실패(EmailSendException) 시 트랜잭션 롤백 — 쿨다운 페널티가 남지 않는다.
         emailSender.send(new EmailMessage(sendCommand.email(), SUBJECT, buildHtml(code)));
         return new EmailVerificationSendResult(

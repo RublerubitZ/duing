@@ -5,6 +5,7 @@ import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,8 +18,10 @@ public interface EmailVerificationRepository extends JpaRepository<EmailVerifica
      * attempt 카운트 유실을 막는다 (spec §7.3).
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT emailVerification FROM EmailVerification emailVerification WHERE emailVerification.email = :email")
+    @Query("SELECT ev FROM EmailVerification ev WHERE ev.email = :email")
     Optional<EmailVerification> findByEmailForUpdate(@Param("email") String email);
 
-    void deleteByEmail(String email);
+    @Modifying(clearAutomatically = true)
+    @Query("DELETE FROM EmailVerification ev WHERE ev.email = :email")
+    void deleteByEmail(@Param("email") String email);
 }
