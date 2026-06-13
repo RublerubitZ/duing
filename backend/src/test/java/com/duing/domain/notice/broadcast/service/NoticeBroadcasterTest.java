@@ -142,6 +142,7 @@ class NoticeBroadcasterTest extends IntegrationTestBase {
         return noticeRepository.save(Notice.create(
                 "공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
-                visibility, null, false, null, notifyOnPublish, authorId));
+                visibility, null, false, null, notifyOnPublish,
+                null, null, null, null, null, List.of(), authorId));
     }
 }

@@ -23,8 +23,29 @@ public record NoticeDetailResponse(
         LocalDateTime expiresAt,
         boolean notifyOnPublish,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        List<String> bodyImageUrls,
+        EventInfo eventInfo
 ) {
+    public record EventInfo(
+            LocalDateTime startAt,
+            LocalDateTime endAt,
+            String location,
+            String host,
+            String audience
+    ) {
+        public static EventInfo from(Notice notice) {
+            if (notice.getEventStartAt() == null && notice.getEventEndAt() == null
+                    && notice.getLocation() == null && notice.getHost() == null
+                    && notice.getAudience() == null) {
+                return null;
+            }
+            return new EventInfo(
+                    notice.getEventStartAt(), notice.getEventEndAt(),
+                    notice.getLocation(), notice.getHost(), notice.getAudience());
+        }
+    }
+
     public static NoticeDetailResponse from(Notice notice, List<Long> targetClubIds, boolean exposeAdminFields) {
         return new NoticeDetailResponse(
                 notice.getId(), notice.getTitle(), notice.getSummary(), notice.getContent(),
@@ -35,7 +56,9 @@ public record NoticeDetailResponse(
                 exposeAdminFields ? targetClubIds : null,
                 notice.isPinned(), notice.getExpiresAt(),
                 exposeAdminFields && notice.isNotifyOnPublish(),
-                notice.getCreatedAt(), notice.getUpdatedAt()
+                notice.getCreatedAt(), notice.getUpdatedAt(),
+                notice.getBodyImageUrls(),
+                EventInfo.from(notice)
         );
     }
 }

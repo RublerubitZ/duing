@@ -21,5 +21,12 @@ public record UpdateNoticeCommand(
         Boolean pinned,
         LocalDateTime expiresAt,
         Boolean clearExpiresAt,
-        Boolean notifyOnPublish
+        Boolean notifyOnPublish,
+        LocalDateTime eventStartAt,
+        LocalDateTime eventEndAt,
+        String location,
+        String host,
+        String audience,
+        Boolean clearEvent,
+        List<String> bodyImageUrls
 ) {}

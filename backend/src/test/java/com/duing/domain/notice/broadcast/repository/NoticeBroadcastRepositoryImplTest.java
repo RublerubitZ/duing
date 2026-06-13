@@ -127,7 +127,8 @@ class NoticeBroadcastRepositoryImplTest {
         return noticeRepository.save(Notice.create(
                 "공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
-                NoticeVisibility.PUBLIC, null, false, null, true, authorId));
+                NoticeVisibility.PUBLIC, null, false, null, true,
+                null, null, null, null, null, List.of(), authorId));
     }
 
     private Long saveUser(UserRole role) {

@@ -2,6 +2,8 @@ package com.duing.domain.notice;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.hasSize;
 
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -120,6 +122,141 @@ class NoticeAdminAcceptanceTest extends IntegrationTestBase {
                 .post("/api/v1/admin/notices")
             .then()
                 .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("행사정보와 본문 이미지가 담긴 공지를 작성하면 상세 응답에 eventInfo·bodyImageUrls 가 노출된다")
+    void noticeWithEventAndBodyImagesIsExposedInDetail() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "동아리 박람회",
+                      "summary": "가을 박람회 안내",
+                      "content": "본문",
+                      "coverImageUrl": "https://example.com/cover.png",
+                      "category": "FAIR",
+                      "visibility": "PUBLIC",
+                      "pinned": false,
+                      "notifyOnPublish": false,
+                      "eventStartAt": "2026-09-25T10:00:00",
+                      "eventEndAt": "2026-09-27T18:00:00",
+                      "location": "중앙광장 · 학생회관 1층",
+                      "host": "학생자치회",
+                      "audience": "재학생 누구나",
+                      "bodyImageUrls": ["https://example.com/b1.png", "https://example.com/b2.png"]
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.eventInfo", notNullValue())
+                .body("data.eventInfo.location", equalTo("중앙광장 · 학생회관 1층"))
+                .body("data.eventInfo.host", equalTo("학생자치회"))
+                .body("data.eventInfo.audience", equalTo("재학생 누구나"))
+                .body("data.bodyImageUrls", hasSize(2))
+                .body("data.bodyImageUrls[0]", equalTo("https://example.com/b1.png"));
+    }
+
+    @Test
+    @DisplayName("행사정보가 없는 공지는 상세 응답의 eventInfo 가 null 이고 bodyImageUrls 는 빈 배열이다")
+    void noticeWithoutEventHasNullEventInfo() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "일반 공지", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "GENERAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.eventInfo", nullValue())
+                .body("data.bodyImageUrls", hasSize(0));
+    }
+
+    @Test
+    @DisplayName("행사 종료 일시가 시작보다 빠르면 400 을 반환한다")
+    void createNoticeWithReversedEventRangeReturnsBadRequest() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "행사", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "FESTIVAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false,
+                      "eventStartAt": "2026-09-27T18:00:00",
+                      "eventEndAt": "2026-09-25T10:00:00"
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("clearEvent=true 로 수정하면 행사정보가 모두 비워진다")
+    void updateWithClearEventRemovesEventInfo() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "행사", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "FESTIVAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false,
+                      "eventStartAt": "2026-09-25T10:00:00", "location": "광장"
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("{ \"clearEvent\": true }")
+            .when()
+                .patch("/api/v1/admin/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.eventInfo", nullValue());
     }
 
     private User saveUser(UserRole role) {

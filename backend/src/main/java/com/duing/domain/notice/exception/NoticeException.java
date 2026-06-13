@@ -30,6 +30,18 @@ public class NoticeException extends ApplicationException {
         public InvalidCoverImageUrlException() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
     }
 
+    public static class InvalidBodyImageUrlException extends NoticeException {
+        private static final String MESSAGE = "허용되지 않는 본문 이미지 URL 입니다.";
+        public InvalidBodyImageUrlException() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
+    }
+
+    public static class InvalidNoticeEventException extends NoticeException {
+        private static final String MESSAGE_PREFIX = "공지 행사 정보가 올바르지 않습니다: ";
+        public InvalidNoticeEventException(String reason) {
+            super(MESSAGE_PREFIX + reason, HttpStatus.BAD_REQUEST);
+        }
+    }
+
     public static class RecipientLimitExceededException extends NoticeException {
         public RecipientLimitExceededException(int count, int limit) {
             super("알림 발송 대상이 너무 많습니다 (요청 " + count + "명, 상한 " + limit + "명).",
