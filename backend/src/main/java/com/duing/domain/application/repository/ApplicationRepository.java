@@ -79,8 +79,9 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     @Query("SELECT a FROM Application a WHERE a.id IN :ids ORDER BY a.id ASC")
     List<Application> findAllByIdInForUpdate(@Param("ids") Collection<Long> ids);
 
-    @Query("SELECT a FROM Application a WHERE a.recruitment.id IN :recruitmentIds AND a.status IN :statuses")
+    @Query("SELECT a FROM Application a JOIN FETCH a.recruitment r "
+            + "WHERE r.id IN :recruitmentIds AND a.status IN :statuses")
     List<Application> findByRecruitmentIdInAndStatusIn(
-            @Param("recruitmentIds") java.util.Collection<Long> recruitmentIds,
-            @Param("statuses") java.util.Collection<ApplicationStatus> statuses);
+            @Param("recruitmentIds") Collection<Long> recruitmentIds,
+            @Param("statuses") Collection<ApplicationStatus> statuses);
 }
