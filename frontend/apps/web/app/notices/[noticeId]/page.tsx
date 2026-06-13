@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ExternalLink } from 'lucide-react';
 import { useNoticeDetailQuery } from '@duing/hooks';
 import { ExploreNav } from '../../_components/ExploreNav';
 import { NoticeArticleHeader } from '../_components/NoticeArticleHeader';
@@ -88,16 +87,6 @@ export default function NoticeDetailPage() {
             />
             <NoticeMarkdown content={notice.content} />
             <NoticeBodyImages urls={notice.bodyImageUrls ?? []} />
-            {notice.linkUrl && (
-              <a
-                href={notice.linkUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-8 inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-ink text-paper text-[13.5px] font-semibold"
-              >
-                <ExternalLink size={15} aria-hidden /> 원문 보기
-              </a>
-            )}
           </article>
 
           <aside className="lg:sticky lg:top-24 flex flex-col gap-4 min-w-0">
