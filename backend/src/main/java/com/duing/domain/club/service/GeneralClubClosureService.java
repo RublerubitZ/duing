@@ -13,6 +13,7 @@ import com.duing.domain.interview.service.InterviewRoundService;
 import com.duing.domain.promotion.service.PromotionRequestService;
 import com.duing.domain.promotion.service.PromotionService;
 import com.duing.domain.recruitment.service.RecruitmentService;
+import jakarta.persistence.EntityManager;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class GeneralClubClosureService implements ClubClosureService {
     private final PromotionRequestService promotionRequestService;
     private final ClubEventService clubEventService;
     private final ClubFavoriteService clubFavoriteService;
+    private final EntityManager entityManager;
 
     @Override
     @Transactional
@@ -63,6 +65,12 @@ public class GeneralClubClosureService implements ClubClosureService {
         clubFavoriteService.removeAllOnClubClosure(clubId);
 
         // 4. 동아리 soft-delete
-        clubRepository.delete(club);
+        // Hibernate CHECK_ON_FLUSH 이 단계 2·3 에서 로드된 Recruitment 등의 club 프록시가
+        // "DELETED" 상태의 Club 을 참조한다고 판단해 TransientObjectException 을 던지는 것을
+        // 방지하기 위해 flush 로 변경분을 먼저 기록한 뒤 session 을 clear 한다.
+        entityManager.flush();
+        entityManager.clear();
+        Club clubToDelete = clubRepository.getReferenceById(club.getId());
+        clubRepository.delete(clubToDelete);
     }
 }
