@@ -16,7 +16,6 @@ const filledEvent: NoticeFormState = {
   location: '중앙광장',
   host: '학생자치회',
   audience: '재학생',
-  bodyImageUrls: ['https://x/b1.png', 'https://x/b2.png'],
 };
 
 describe('parseNoticeFormState', () => {
@@ -25,7 +24,6 @@ describe('parseNoticeFormState', () => {
     expect(payload.eventStartAt).toBe('2026-09-25T10:00');
     expect(payload.eventEndAt).toBe('2026-09-27T18:00');
     expect(payload.location).toBe('중앙광장');
-    expect(payload.bodyImageUrls).toEqual(['https://x/b1.png', 'https://x/b2.png']);
   });
 
   it('toCreatePayload: 비어 있는 행사 필드는 null 로 변환된다', () => {
@@ -35,7 +33,6 @@ describe('parseNoticeFormState', () => {
     expect(payload.location).toBeNull();
     expect(payload.host).toBeNull();
     expect(payload.audience).toBeNull();
-    expect(payload.bodyImageUrls).toEqual([]);
   });
 
   it('toUpdatePayload: 행사 필드가 모두 비면 clearEvent=true 를 보낸다', () => {

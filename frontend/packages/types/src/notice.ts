@@ -45,7 +45,6 @@ export type NoticeDetail = {
   createdAt: string;
   updatedAt: string;
   contentFormat: NoticeContentFormat;
-  bodyImageUrls: string[];
   eventInfo: NoticeEventInfo | null;
 };
 
@@ -80,7 +79,6 @@ export type CreateNoticePayload = {
   host: string | null;
   audience: string | null;
   contentFormat: NoticeContentFormat;
-  bodyImageUrls: string[];
 };
 
 export type UpdateNoticePayload = Partial<Omit<CreateNoticePayload, 'targetClubIds'>> & {

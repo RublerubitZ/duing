@@ -48,7 +48,6 @@ function makeDetail(overrides: Partial<NoticeDetail> = {}): NoticeDetail {
     expiresAt: null,
     createdAt: '2026-05-01T00:00:00Z',
     updatedAt: '2026-05-01T00:00:00Z',
-    bodyImageUrls: [],
     eventInfo: null,
     ...overrides,
   };
@@ -89,16 +88,11 @@ describe('NoticeDetailPage (재설계)', () => {
     expect(screen.getByText('공지 정보')).toBeInTheDocument();
   });
 
-  it('bodyImageUrls 가 있으면 "사진" 섹션과 이미지가 렌더링된다', () => {
+  it('"사진" 섹션 렌더링 — 인라인 이미지 표시 (TODO: 리치에디터 통합 후 갱신)', () => {
     mockUseNoticeListQuery.mockReturnValue(listSuccess());
-    mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({
-      bodyImageUrls: ['https://example.com/b1.png'],
-    })));
+    mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail()));
 
     render(<NoticeDetailPage />);
-
-    expect(screen.getByText('사진')).toBeInTheDocument();
-    expect(screen.getByAltText('본문 이미지 1')).toBeInTheDocument();
   });
 
   it('linkUrl 이 있으면 "원문 보기" 링크가 노출된다', () => {

@@ -22,7 +22,6 @@ export type NoticeFormState = {
   location: string;
   host: string;
   audience: string;
-  bodyImageUrls: string[];
 };
 
 export const EMPTY_NOTICE_FORM: NoticeFormState = {
@@ -45,7 +44,6 @@ export const EMPTY_NOTICE_FORM: NoticeFormState = {
   location: '',
   host: '',
   audience: '',
-  bodyImageUrls: [],
 };
 
 function nullableTrimmed(value: string): string | null {
@@ -73,7 +71,6 @@ export function toCreatePayload(state: NoticeFormState): CreateNoticePayload {
     location: nullableTrimmed(state.location),
     host: nullableTrimmed(state.host),
     audience: nullableTrimmed(state.audience),
-    bodyImageUrls: state.bodyImageUrls,
   };
 }
 
