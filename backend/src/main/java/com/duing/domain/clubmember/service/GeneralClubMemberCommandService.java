@@ -3,6 +3,7 @@ package com.duing.domain.clubmember.service;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberEventType;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
+import java.util.List;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.dto.command.LeaveClubCommand;
@@ -135,6 +136,18 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
                 ClubMemberQuery.from(currentLeader),
                 ClubMemberQuery.from(target)
         );
+    }
+
+    @Override
+    @Transactional
+    public void removeAllOnClubClosure(Long clubId, Long actorUserId, String reason) {
+        List<ClubMember> members = clubMemberRepository.findAllByClubIdOrderedByRoleAndJoinedAt(clubId);
+        for (ClubMember member : members) {
+            historyRecorder.record(
+                    clubId, member.getUser().getId(), actorUserId,
+                    ClubMemberEventType.REMOVED, member.getRole(), null, reason);
+        }
+        clubMemberRepository.deleteAll(members);
     }
 
     private ClubMember findMembershipInClub(Long memberId, Long clubId) {

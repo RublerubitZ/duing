@@ -15,4 +15,6 @@ public interface ClubMemberCommandService {
     void leave(LeaveClubCommand command);
 
     TransferLeaderQuery transferLeader(TransferLeaderCommand command);
+
+    void removeAllOnClubClosure(Long clubId, Long actorUserId, String reason);
 }
