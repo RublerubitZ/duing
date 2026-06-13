@@ -19,6 +19,7 @@ type Props = {
 export function NoticeArticleHeader({ category, title, pinned, expiresAt, createdAt }: Props) {
   const tag = CATEGORY_TAG_STYLES[category];
   const dday = expiresAt ? formatDdayLabel(expiresAt) : null;
+  const expired = expiresAt !== null && new Date(expiresAt).getTime() < Date.now();
 
   return (
     <header className="pt-7 pb-6 border-b border-line">
@@ -44,7 +45,7 @@ export function NoticeArticleHeader({ category, title, pinned, expiresAt, create
           <span className="px-2.5 py-1 rounded-md bg-ink text-paper text-[11.5px] font-bold">상단 고정</span>
         )}
         {dday && (
-          <span className={`px-2.5 py-1 rounded-md text-[11.5px] font-bold ${dday === '마감' ? 'bg-gray-soft text-charcoal-3' : 'bg-sage-mist text-ink'}`}>
+          <span className={`px-2.5 py-1 rounded-md text-[11.5px] font-bold ${expired ? 'bg-graysoft text-charcoal-3' : 'bg-sage-mist text-ink'}`}>
             {dday}
           </span>
         )}
