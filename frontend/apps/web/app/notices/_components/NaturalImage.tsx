@@ -9,9 +9,11 @@ type Props = {
 };
 
 export function NaturalImage({ src, alt, className }: Props) {
-  const [errored, setErrored] = useState(false);
+  // src 가 바뀌면 errorSrc 가 stale 해져 isError 가 false 로 복귀 — useEffect reset 없이 새 URL 진입 시 폴백 해제.
+  const [errorSrc, setErrorSrc] = useState<string | null>(null);
+  const isError = errorSrc === src;
 
-  if (errored) {
+  if (isError) {
     return (
       <div
         role="img"
@@ -28,7 +30,7 @@ export function NaturalImage({ src, alt, className }: Props) {
     <img
       src={src}
       alt={alt}
-      onError={() => setErrored(true)}
+      onError={() => setErrorSrc(src)}
       className={`w-full h-auto rounded-lg ${className ?? ''}`}
     />
   );

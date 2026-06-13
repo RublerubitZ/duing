@@ -22,7 +22,7 @@ export function NoticeShareCard() {
       <button
         type="button"
         onClick={copyLink}
-        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-gray-soft text-charcoal-2 text-[13px] font-semibold hover:bg-sage-tint hover:text-ink transition"
+        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-graysoft text-charcoal-2 text-[13px] font-semibold hover:bg-sage-tint hover:text-ink transition"
       >
         <Link2 size={15} aria-hidden />
         {copied ? '링크 복사됨' : '링크 복사'}
