@@ -1,11 +1,12 @@
 import type {
-  CreateNoticePayload, NoticeCategory, NoticeClubScopeRole, NoticeVisibility, UpdateNoticePayload,
+  CreateNoticePayload, NoticeCategory, NoticeClubScopeRole, NoticeContentFormat, NoticeVisibility, UpdateNoticePayload,
 } from '@duing/types';
 
 export type NoticeFormState = {
   title: string;
   summary: string;
   content: string;
+  contentFormat: NoticeContentFormat;
   coverImageUrl: string;
   linkUrl: string;
   category: NoticeCategory;
@@ -28,6 +29,7 @@ export const EMPTY_NOTICE_FORM: NoticeFormState = {
   title: '',
   summary: '',
   content: '',
+  contentFormat: 'HTML',
   coverImageUrl: '',
   linkUrl: '',
   category: 'GENERAL',
@@ -55,6 +57,7 @@ export function toCreatePayload(state: NoticeFormState): CreateNoticePayload {
     title: state.title.trim(),
     summary: state.summary.trim(),
     content: state.content,
+    contentFormat: state.contentFormat,
     coverImageUrl: state.coverImageUrl,
     linkUrl: nullableTrimmed(state.linkUrl),
     category: state.category,

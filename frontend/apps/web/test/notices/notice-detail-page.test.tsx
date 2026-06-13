@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { NoticeDetail } from '@duing/types';
+import type { NoticeDetail, NoticeContentFormat } from '@duing/types';
 
 vi.mock('../../app/_components/ExploreNav', () => ({
   ExploreNav: () => <nav aria-label="탐색 네비게이션" />,
@@ -27,12 +27,15 @@ vi.mock('next/navigation', () => ({
 
 import NoticeDetailPage from '../../app/notices/[noticeId]/page';
 
+const DEFAULT_CONTENT_FORMAT: NoticeContentFormat = 'MARKDOWN';
+
 function makeDetail(overrides: Partial<NoticeDetail> = {}): NoticeDetail {
   return {
     id: 42,
     title: '공지 제목',
     summary: '공지 요약',
     content: '## 본문 내용\n\n상세 텍스트',
+    contentFormat: DEFAULT_CONTENT_FORMAT,
     coverImageUrl: 'https://example.com/cover.jpg',
     linkUrl: null,
     category: 'GENERAL',
