@@ -221,6 +221,16 @@ public class GeneralRecertificationRequestService implements RecertificationRequ
         return RecertificationContextResponse.of(club, openRound, pending);
     }
 
+    @Override
+    @Transactional
+    public void rejectPendingOnClubClosure(Long clubId, Long actorAdminId, String reason) {
+        List<RecertificationRequest> pending =
+                requestRepository.findByClubIdAndStatus(clubId, RecertificationStatus.PENDING);
+        for (RecertificationRequest request : pending) {
+            request.process(actorAdminId, RecertificationStatus.REJECTED, reason);
+        }
+    }
+
     // ── 내부 헬퍼 ──────────────────────────────────────────────────────────────
 
     private static <T> Map<Long, T> indexById(Collection<T> items, Function<T, Long> idExtractor) {

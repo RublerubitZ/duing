@@ -15,6 +15,8 @@ public interface RecertificationRequestRepository
     Optional<RecertificationRequest> findByRoundIdAndClubIdAndStatus(
             Long roundId, Long clubId, RecertificationStatus status);
 
+    java.util.List<RecertificationRequest> findByClubIdAndStatus(Long clubId, RecertificationStatus status);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM RecertificationRequest r WHERE r.id = :id")
     Optional<RecertificationRequest> findByIdForUpdate(@Param("id") Long id);

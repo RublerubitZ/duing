@@ -28,4 +28,6 @@ public interface RecertificationRequestService {
 
     /** LEADER 모달용 컨텍스트 — 중앙동아리 여부·OPEN 라운드·PENDING 신청 1건을 한 번에 반환. */
     RecertificationContextResponse getLeaderContext(Long clubId);
+
+    void rejectPendingOnClubClosure(Long clubId, Long actorAdminId, String reason);
 }
