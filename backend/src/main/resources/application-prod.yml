@@ -21,6 +21,12 @@ duing:
     jobs:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:true}
 
+# 이메일 발송 — 운영은 항상 Resend 를 쓴다. EMAIL_PROVIDER 누락 시 공통 yml 의 기본값(logging)
+# 으로 조용히 떨어져 인증 메일이 발송되지 않는 사고를 막기 위해 프로파일에서 하드코딩한다.
+# RESEND_API_KEY / EMAIL_VERIFICATION_SECRET 은 공통 yml 에서 default 없이 주입 = 누락 시 fail-fast.
+email:
+  provider: resend
+
 logging:
   level:
     org.hibernate.SQL: warn
