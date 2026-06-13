@@ -46,6 +46,9 @@ export function NoticeTagInput({ value, onChange, max = 8 }: Props) {
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
+            // 한글 등 IME 조합 중의 Enter 는 조합 확정용이므로 무시한다.
+            // (조합 중 addTag 가 불리면 "안녕" → "안녕"+"녕" 처럼 이중 등록됨)
+            if (event.nativeEvent.isComposing) return;
             if (event.key === 'Enter') {
               event.preventDefault();
               addTag();
