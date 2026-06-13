@@ -34,7 +34,7 @@ public record NoticeDetailResponse(
             String host,
             String audience
     ) {
-        static EventInfo from(Notice notice) {
+        public static EventInfo from(Notice notice) {
             if (notice.getEventStartAt() == null && notice.getEventEndAt() == null
                     && notice.getLocation() == null && notice.getHost() == null
                     && notice.getAudience() == null) {

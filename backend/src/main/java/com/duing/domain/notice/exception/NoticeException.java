@@ -31,8 +31,9 @@ public class NoticeException extends ApplicationException {
     }
 
     public static class InvalidNoticeEventException extends NoticeException {
+        private static final String MESSAGE_PREFIX = "공지 행사 정보가 올바르지 않습니다: ";
         public InvalidNoticeEventException(String reason) {
-            super("공지 행사 정보가 올바르지 않습니다: " + reason, HttpStatus.BAD_REQUEST);
+            super(MESSAGE_PREFIX + reason, HttpStatus.BAD_REQUEST);
         }
     }
 
