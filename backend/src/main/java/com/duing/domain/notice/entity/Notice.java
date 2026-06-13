@@ -59,8 +59,6 @@ public class Notice extends BaseEntity {
     @Column(name = "content_format", nullable = false, length = 20)
     private NoticeContentFormat contentFormat = NoticeContentFormat.MARKDOWN;
 
-    // DB 의 body_image_urls 컬럼은 더 이상 매핑하지 않는다(인라인 이미지로 대체). 물리 DROP 은 후속 마이그레이션(V54)에서 처리.
-
     public List<String> getTags() {
         return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
     }
