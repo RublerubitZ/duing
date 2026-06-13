@@ -1,5 +1,6 @@
 package com.duing.domain.club.api;
 
+import com.duing.domain.club.controller.dto.request.CloseClubRequest;
 import com.duing.domain.club.controller.dto.request.CreateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
@@ -62,5 +63,14 @@ public interface AdminClubApi {
     ResponseEntity<ApiResponse<Void>> updateClubCentralClub(
             @PathVariable Long clubId,
             @Valid @RequestBody UpdateClubCentralClubRequest updateClubCentralClubRequest
+    );
+
+    @Operation(summary = "동아리 폐쇄",
+            description = "운영 중단(INACTIVE) 동아리를 폐쇄(soft-delete)하고 진행 중인 모집·지원·면접·인증·홍보·멤버십·이벤트·즐겨찾기를 자동 종료한다.")
+    @PostMapping("/admin/clubs/{clubId}/close")
+    ResponseEntity<ApiResponse<Void>> closeClub(
+            @PathVariable Long clubId,
+            @Valid @RequestBody(required = false) CloseClubRequest closeClubRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }
