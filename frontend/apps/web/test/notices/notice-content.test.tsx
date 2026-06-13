@@ -20,4 +20,13 @@ describe('NoticeContent', () => {
     render(<NoticeContent format="MARKDOWN" content={'## 제목'} />);
     expect(screen.getByTestId('markdown')).toHaveTextContent('## 제목');
   });
+
+  it('format 이 없으면(백엔드 미배포) HTML 로 렌더한다 — 태그를 문자열로 노출하지 않는다', () => {
+    const { container } = render(
+      <NoticeContent content={'<h2>제목</h2><p><strong>굵게</strong></p>'} />,
+    );
+    expect(container.querySelector('h2')?.textContent).toBe('제목');
+    expect(container.querySelector('strong')?.textContent).toBe('굵게');
+    expect(screen.queryByTestId('markdown')).toBeNull();
+  });
 });
