@@ -172,6 +172,19 @@ public class GeneralRecruitmentService implements RecruitmentService {
         return recruitments.stream().map(Recruitment::getId).toList();
     }
 
+    // 모집의 soft-delete 는 지원/면접 cascade(반환된 id 사용) 가 끝난 뒤 호출해야 한다. 모집을 먼저
+    // 삭제하면 지원/면접 조회가 @SQLRestriction 으로 모집을 찾지 못해 cascade 가 누락된다. 폐쇄된
+    // 동아리의 모집이 살아남아 공개 캘린더/상세/목록 조회를 500 으로 만드는 것을 막기 위해, cascade
+    // 종료 후 일괄 soft-delete 하여 @SQLRestriction 이 모든 공개 경로에서 제외하도록 한다.
+    @Override
+    @Transactional
+    public void softDeleteAllOnClubClosure(List<Long> recruitmentIds) {
+        if (recruitmentIds.isEmpty()) {
+            return;
+        }
+        recruitmentRepository.softDeleteByIds(recruitmentIds, LocalDateTime.now());
+    }
+
     private Long buildAndPersist(Club club, CreateRecruitmentCommand command) {
         Recruitment recruitment;
         try {
