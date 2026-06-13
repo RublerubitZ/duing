@@ -55,16 +55,14 @@ public class Notice extends BaseEntity {
     @Column(length = 200) private String host;
     @Column(length = 200) private String audience;
 
-    @Column(name = "body_image_urls", columnDefinition = "_text", nullable = false)
-    private String[] bodyImageUrls = new String[0];
+    @Enumerated(EnumType.STRING)
+    @Column(name = "content_format", nullable = false, length = 20)
+    private NoticeContentFormat contentFormat = NoticeContentFormat.MARKDOWN;
+
+    // DB 의 body_image_urls 컬럼은 더 이상 매핑하지 않는다(인라인 이미지로 대체). 물리 DROP 은 후속 마이그레이션(V54)에서 처리.
 
     public List<String> getTags() {
         return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
-    }
-
-    public List<String> getBodyImageUrls() {
-        return bodyImageUrls == null ? Collections.emptyList()
-                : Collections.unmodifiableList(Arrays.asList(bodyImageUrls));
     }
 
     @Builder(access = AccessLevel.PRIVATE)
@@ -73,7 +71,7 @@ public class Notice extends BaseEntity {
                    NoticeClubScopeRole clubScopeRole, boolean pinned, LocalDateTime expiresAt,
                    boolean notifyOnPublish,
                    LocalDateTime eventStartAt, LocalDateTime eventEndAt,
-                   String location, String host, String audience, String[] bodyImageUrls,
+                   String location, String host, String audience, NoticeContentFormat contentFormat,
                    Long authorId) {
         this.title = title;
         this.summary = summary;
@@ -92,7 +90,7 @@ public class Notice extends BaseEntity {
         this.location = location;
         this.host = host;
         this.audience = audience;
-        this.bodyImageUrls = bodyImageUrls == null ? new String[0] : bodyImageUrls.clone();
+        this.contentFormat = contentFormat == null ? NoticeContentFormat.MARKDOWN : contentFormat;
         this.authorId = authorId;
     }
 
@@ -101,7 +99,7 @@ public class Notice extends BaseEntity {
                                 NoticeVisibility visibility, NoticeClubScopeRole clubScopeRole,
                                 boolean pinned, LocalDateTime expiresAt, boolean notifyOnPublish,
                                 LocalDateTime eventStartAt, LocalDateTime eventEndAt,
-                                String location, String host, String audience, List<String> bodyImageUrls,
+                                String location, String host, String audience, NoticeContentFormat contentFormat,
                                 Long authorId) {
         validateScope(visibility, clubScopeRole);
         validateEventRange(eventStartAt, eventEndAt);
@@ -109,9 +107,6 @@ public class Notice extends BaseEntity {
         String[] tagArray = tags == null
                 ? new String[0]
                 : tags.stream().distinct().toArray(String[]::new);
-        String[] bodyImageArray = bodyImageUrls == null
-                ? new String[0]
-                : bodyImageUrls.toArray(String[]::new);
         return Notice.builder()
                 .title(title).summary(summary).content(content)
                 .coverImageUrl(coverImageUrl).linkUrl(linkUrl)
@@ -121,7 +116,7 @@ public class Notice extends BaseEntity {
                 .notifyOnPublish(normalizedNotify)
                 .eventStartAt(eventStartAt).eventEndAt(eventEndAt)
                 .location(location).host(host).audience(audience)
-                .bodyImageUrls(bodyImageArray)
+                .contentFormat(contentFormat)
                 .authorId(authorId)
                 .build();
     }
@@ -134,7 +129,7 @@ public class Notice extends BaseEntity {
             Boolean notifyOnPublish,
             LocalDateTime eventStartAt, LocalDateTime eventEndAt,
             String location, String host, String audience, Boolean clearEvent,
-            List<String> bodyImageUrls
+            NoticeContentFormat contentFormat
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -188,8 +183,8 @@ public class Notice extends BaseEntity {
             if (payload.host() != null) this.host = payload.host();
             if (payload.audience() != null) this.audience = payload.audience();
         }
-        if (payload.bodyImageUrls() != null) {
-            this.bodyImageUrls = payload.bodyImageUrls().toArray(String[]::new);
+        if (payload.contentFormat() != null) {
+            this.contentFormat = payload.contentFormat();
         }
     }
 
