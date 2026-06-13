@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralEmailVerificationService implements EmailVerificationService {
 
-    private static final String SUBJECT = "[Du-ing] 이메일 인증 코드";
+    private static final String SUBJECT = "[DUING] 두잉 동아리 서비스 인증 코드";
 
     private final EmailVerificationRepository emailVerificationRepository;
     private final UserRepository userRepository;
@@ -140,7 +140,9 @@ public class GeneralEmailVerificationService implements EmailVerificationService
                         <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:480px;max-width:480px;background-color:#FFFFFF;border:1px solid #EFEBE0;border-radius:16px;">
                           <tr>
                             <td style="padding:32px 36px 0;">
-                              <img src="https://files.duings.com/logo/duing-logo.webp" alt="두잉" width="61" height="28" style="width:61px;height:28px;border:0;display:block;outline:none;text-decoration:none;">
+                              <a href="https://duings.com" target="_blank" style="display:inline-block;text-decoration:none;">
+                                <img src="https://files.duings.com/logo/duing-logo.webp" alt="두잉" width="61" height="28" style="width:61px;height:28px;border:0;display:block;outline:none;text-decoration:none;">
+                              </a>
                             </td>
                           </tr>
                           <tr>
@@ -166,17 +168,23 @@ public class GeneralEmailVerificationService implements EmailVerificationService
                             </td>
                           </tr>
                           <tr>
-                            <td style="padding:0 36px 32px;">
+                            <td style="padding:0 36px 24px;">
                               <div style="border-top:1px solid #EFEBE0;padding-top:16px;">
                                 <p style="margin:0;font-size:12px;line-height:1.6;color:#6F7574;">본인이 요청하지 않았다면 이 메일을 무시해주세요. 누군가 이메일 주소를 잘못 입력했을 수 있어요.</p>
                               </div>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td align="center" style="padding:0 36px 32px;">
+                              <a href="https://duings.com" target="_blank" style="display:inline-block;background-color:#1F4A36;color:#FFFFFF;font-size:14px;font-weight:600;text-decoration:none;padding:11px 24px;border-radius:8px;">두잉 둘러보기 →</a>
                             </td>
                           </tr>
                         </table>
                         <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:480px;max-width:480px;">
                           <tr>
                             <td align="center" style="padding:18px 0;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;">
-                              <p style="margin:0;font-size:12px;color:#6F7574;">Du-ing · 대구대학교 동아리 플랫폼</p>
+                              <p style="margin:0 0 6px;font-size:12px;color:#6F7574;">본 메일은 발신 전용이에요. 이 메일로 회신하셔도 답변을 받을 수 없어요.</p>
+                              <p style="margin:0;font-size:12px;color:#6F7574;">DUING · 대구대학교 동아리 플랫폼</p>
                             </td>
                           </tr>
                         </table>

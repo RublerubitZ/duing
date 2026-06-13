@@ -58,7 +58,7 @@ email:
 
 resend:
   api-key: ${RESEND_API_KEY}
-  from: ${RESEND_FROM:Du-ing <noreply@duings.com>}
+  from: '${RESEND_FROM:"두잉[DUING]" <noreply@duings.com>}'
 
 duing:
   notice:
