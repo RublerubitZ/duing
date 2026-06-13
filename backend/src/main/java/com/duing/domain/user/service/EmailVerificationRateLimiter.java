@@ -79,5 +79,16 @@ public class EmailVerificationRateLimiter {
         }
     }
 
+    /**
+     * 예약된 쿼터 1건을 복구한다 — 발송 실패 시 {@link #reserveGlobalQuota} 를 보상한다.
+     * 예약과 같은 날짜의 카운터에만 적용한다(자정 경계에서 다음날 카운터를 침범하지 않도록).
+     */
+    public void releaseGlobalQuota(LocalDateTime now) {
+        DailyCounter counter = dailyCounter.get();
+        if (counter != null && counter.date().equals(now.toLocalDate())) {
+            counter.count().decrementAndGet();
+        }
+    }
+
     private record DailyCounter(LocalDate date, AtomicInteger count) {}
 }

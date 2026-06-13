@@ -46,8 +46,14 @@ public class GeneralEmailVerificationService implements EmailVerificationService
         // 발송 직전에 전역 일일 쿼터를 원자적으로 예약 — 중복/쿨다운으로 발송에 이르지 못한
         // 요청은 쿼터를 소비하지 않는다. 한도 초과 시 503.
         rateLimiter.reserveGlobalQuota(now);
-        // 발송 실패(EmailException.SendFailedException) 시 트랜잭션 롤백 — 쿨다운 페널티가 남지 않는다.
-        emailSender.send(new EmailMessage(sendCommand.email(), SUBJECT, buildHtml(code)));
+        try {
+            emailSender.send(new EmailMessage(sendCommand.email(), SUBJECT, buildHtml(code)));
+        } catch (RuntimeException sendFailure) {
+            // 발송 실패 시 예약한 전역 쿼터를 복구한다 — Resend 장애가 일일 한도를 소진해
+            // 정상 가입을 막는 자폭을 방지. DB 변경(쿨다운 행)은 트랜잭션 롤백으로 별도 복구된다.
+            rateLimiter.releaseGlobalQuota(now);
+            throw sendFailure;
+        }
         return new EmailVerificationSendResult(
                 emailVerification.getExpiresAt(),
                 Duration.between(now, emailVerification.getExpiresAt()).getSeconds());

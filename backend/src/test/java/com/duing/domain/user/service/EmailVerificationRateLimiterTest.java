@@ -113,4 +113,32 @@ class EmailVerificationRateLimiterTest {
         assertThatThrownBy(() -> rateLimiter.reserveGlobalQuota(BASE))
                 .isInstanceOf(EmailVerificationException.EmailSendQuotaExceededException.class);
     }
+
+    @Test
+    @DisplayName("예약한 쿼터를 복구하면 그만큼 다시 예약할 수 있다")
+    void releaseRestoresReservedQuota() {
+        for (int sendAttempt = 0; sendAttempt < 5_000; sendAttempt++) {
+            rateLimiter.reserveGlobalQuota(BASE);
+        }
+        // 1건 복구 → 4999 → 다시 1건 예약 가능
+        rateLimiter.releaseGlobalQuota(BASE);
+        assertThatCode(() -> rateLimiter.reserveGlobalQuota(BASE)).doesNotThrowAnyException();
+        // 다시 한도 도달 → 503
+        assertThatThrownBy(() -> rateLimiter.reserveGlobalQuota(BASE))
+                .isInstanceOf(EmailVerificationException.EmailSendQuotaExceededException.class);
+    }
+
+    @Test
+    @DisplayName("다른 날짜의 복구 요청은 현재 카운터를 침범하지 않는다")
+    void releaseIgnoresDifferentDate() {
+        rateLimiter.reserveGlobalQuota(BASE);
+        // 다음 날짜로 복구 시도 — 현재(BASE 날짜) 카운터를 건드리면 안 된다
+        rateLimiter.releaseGlobalQuota(BASE.plusDays(1));
+        // BASE 카운터는 1 그대로이므로 4999건 더 예약 후 5001번째가 503
+        for (int sendAttempt = 0; sendAttempt < 4_999; sendAttempt++) {
+            rateLimiter.reserveGlobalQuota(BASE);
+        }
+        assertThatThrownBy(() -> rateLimiter.reserveGlobalQuota(BASE))
+                .isInstanceOf(EmailVerificationException.EmailSendQuotaExceededException.class);
+    }
 }
