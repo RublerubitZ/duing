@@ -15,4 +15,6 @@ public interface PromotionRequestService {
     PromotionRequest getById(Long requestId);
     Page<PromotionRequestAdminSummaryQuery> listForAdmin(PromotionRequestAdminSearchCondition condition, Pageable pageable);
     PromotionRequestAdminDetailQuery getDetailForAdmin(Long requestId);
+
+    void rejectPendingOnClubClosure(Long clubId, Long actorAdminId, String reason);
 }
