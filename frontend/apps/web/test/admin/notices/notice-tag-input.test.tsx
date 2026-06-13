@@ -15,6 +15,29 @@ describe('NoticeTagInput', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('IME 확정 keydown(keyCode 229)으로는 태그가 추가되지 않는다', () => {
+    const onChange = vi.fn();
+    render(<NoticeTagInput value={[]} onChange={onChange} />);
+
+    const input = screen.getByPlaceholderText(/태그 입력 후 Enter/);
+    fireEvent.change(input, { target: { value: '안녕' } });
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('조합 시작(compositionStart) 후 Enter 로는 태그가 추가되지 않는다', () => {
+    const onChange = vi.fn();
+    render(<NoticeTagInput value={[]} onChange={onChange} />);
+
+    const input = screen.getByPlaceholderText(/태그 입력 후 Enter/);
+    fireEvent.change(input, { target: { value: '안녕' } });
+    fireEvent.compositionStart(input);
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('조합이 끝난 Enter 로는 태그가 한 번만 추가된다', () => {
     const onChange = vi.fn();
     render(<NoticeTagInput value={[]} onChange={onChange} />);
