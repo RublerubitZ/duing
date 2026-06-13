@@ -50,25 +50,30 @@
 
 ## 4. 비범위 (Out of Scope)
 
-- **폐쇄 복구(되돌리기) UI** — soft-delete라 DB에는 남지만, v1에서 복구 기능은 제공하지 않는다.
+- **폐쇄 복구(되돌리기) 기능** — v1에서는 제공하지 않는다. (soft-delete라 추후 복구 가능 — 아래 Future TODO 참고)
 - **폐쇄 동아리 전용 목록/필터** — 폐쇄 동아리는 모든 조회에서 사라지며, 별도 "폐쇄됨" 탭은 만들지 않는다.
 - **`ClubStatus`에 `CLOSED`/`DELETED` enum 추가** — 상태가 아니라 삭제로 처리하므로 추가하지 않는다.
 - **동아리장 화면에서의 폐쇄 신청** — 폐쇄는 ADMIN 전용. 동아리장 발의 흐름은 만들지 않는다.
 - **폐쇄 사유를 Club 행에 별도 컬럼으로 저장** — 사유는 cascade 시 히스토리/처리 사유로만 전달한다. (Club에 컬럼 추가 없음)
-- **폐쇄 알림(푸시·메일) 발송** — 멤버/지원자에게 별도 알림은 v1 범위 밖. (히스토리 기록만 남긴다)
 - **인증 라운드(RecertificationRound) 자체의 종료** — 라운드는 여러 동아리가 공유(연 1개 OPEN)하므로 닫지 않는다. 해당 동아리의 요청만 종료한다.
+
+### Future TODO (v1 이후)
+
+- **폐쇄 알림 발송** — 폐쇄로 멤버십이 종료되거나 지원·면접이 거절된 멤버/지원자에게 푸시·메일 알림. v1에서는 `ClubMemberHistory(REMOVED)` 등 히스토리 기록만 남기고, 알림 발송은 후속 작업으로 분리한다.
+- **폐쇄 복구(되돌리기) 기능** — soft-delete라 DB에는 남으므로 추후 복구 UI/엔드포인트를 얹을 수 있다.
 
 ## 5. 백엔드 설계
 
 ### 5.1 엔드포인트
 
 ```
-DELETE /api/v1/admin/clubs/{clubId}
+POST /api/v1/admin/clubs/{clubId}/close
 ```
 
+- **메서드 선택**: `DELETE` 대신 `POST .../close` 채택. 이유 — (1) 폐쇄 사유를 본문으로 받는데 `DELETE` + body는 표준 지원이 불안정, (2) 단순 리소스 삭제가 아니라 다단계 cascade를 수행하는 **명령(command)** 성격, (3) 기존 admin 액션 엔드포인트(`PATCH .../status`, `.../central-club`)와 결이 맞음.
 - 권한: `@PreAuthorize("hasRole('ADMIN')")` (기존 `AdminClubController` 클래스 가드와 동일)
 - 요청 본문(선택): `{ "closureReason": string? }` — `@Size(max = 500)`, 없거나 공백이면 기본값 `"동아리 폐쇄"`
-- 성공 응답: `204 No Content`
+- 성공 응답: `204 No Content` (응답 본문 없는 명령이므로 생성(201) 아님)
 - Swagger 인터페이스 `AdminClubApi`에 메서드 추가 후 `AdminClubController`가 구현 (인터페이스 없는 컨트롤러 금지 규칙 준수)
 
 ### 5.2 검증 / 가드
@@ -92,23 +97,27 @@ ClubClosureService.close(clubId, adminUserId, closureReason)   @Transactional
   ├─ 3. LeaderSuccessionService      : PENDING 위임요청 종료
   ├─ 4. RecruitmentService           : OPEN 모집 close() → CLOSED
   ├─ 5. ApplicationService           : 활성 지원서(SUBMITTED/UNDER_REVIEW/INTERVIEW_PENDING) → REJECTED
-  ├─ 6. RecertificationRequestService: PENDING 인증요청 process(REJECTED, reason)  (라운드는 닫지 않음)
-  ├─ 7. PromotionService             : 활성 Promotion soft-delete + PENDING PromotionRequest 종료
-  ├─ 8. ClubFavoriteService          : 해당 club 즐겨찾기 soft-delete
-  └─ 9. clubRepository.delete(club)  : Club soft-delete (deleted_at). actor 기록 위해 statusChangedBy/At 갱신(선택)
+  ├─ 6. InterviewRoundService        : 위 모집들의 면접 라운드 취소 + 면접 일정 soft-delete (cancelRound 패턴)
+  ├─ 7. RecertificationRequestService: PENDING 인증요청 process(REJECTED, reason)  (공유 라운드는 닫지 않음)
+  ├─ 8. PromotionService             : 활성 Promotion soft-delete + PENDING PromotionRequest 종료
+  ├─ 9. ClubEventService             : 해당 club 이벤트 soft-delete
+  ├─ 10. ClubFavoriteService         : 해당 club 즐겨찾기 soft-delete
+  └─ 11. clubRepository.delete(club) : Club soft-delete (deleted_at). actor 기록 위해 statusChangedBy/At 갱신(선택)
 ```
 
 각 도메인 서비스에 추가할 cascade 메서드(명칭은 구현 단계에서 확정, 예시):
 
 - `ClubMemberCommandService.removeAllOnClubClosure(clubId, adminUserId, reason)`
 - `LeaderSuccessionService.cancelPendingOnClubClosure(clubId, adminUserId, reason)`
-- `RecruitmentService.closeOpenOnClubClosure(clubId)`
+- `RecruitmentService.closeOpenOnClubClosure(clubId)` — 닫은 모집 id 목록 반환(면접 cascade 입력)
 - `ApplicationService.rejectActiveOnClubClosure(clubId, reason)`
+- `InterviewRoundService.cancelAllOnRecruitmentClosure(recruitmentId, adminUserId)` — 모집별 라운드 `round.cancel()` + `interviewScheduleRepository.softDeleteByRoundId(roundId)` (리더 권한검사 없는 cancelRound 변형)
 - `RecertificationRequestService.rejectPendingOnClubClosure(clubId, adminUserId, reason)`
 - `PromotionService.removeAllOnClubClosure(clubId, adminUserId, reason)`
+- `ClubEventService.removeAllOnClubClosure(clubId)` — clubId로 ClubEvent soft-delete (repository에 `findByClubId`/배치 삭제 메서드 추가 필요)
 - `ClubFavoriteService.removeAllByClub(clubId)` (서비스가 없으면 repository 정리 메서드)
 
-> 참고: 4·5번은 "모집 close → 그 모집의 활성 지원 REJECTED"로 묶어 recruitment 도메인 내부에서 처리해도 된다. 구현 단계에서 결정.
+> 참고: 4·5·6번은 club → 모집 → (지원·면접) 순으로 묶인다. 모집 close 시 반환된 모집 id로 활성 지원 REJECTED + 해당 모집의 면접 라운드 취소를 함께 처리한다. recruitment 도메인 내부에서 묶을지 closure 서비스에서 조율할지는 구현 단계에서 결정.
 
 ### 5.4 Cascade 명세 (대상별 처리)
 
@@ -118,12 +127,17 @@ ClubClosureService.close(clubId, adminUserId, closureReason)   @Transactional
 | **LeaderSuccessionRequest** (PENDING) | soft-delete 또는 `process(REJECTED, reason)` | 위임 요청 잔존 방지 |
 | **Recruitment** (OPEN) | `recruitment.close()` → CLOSED | 모집 진행 종료 |
 | **Application** (SUBMITTED/UNDER_REVIEW/INTERVIEW_PENDING) | `transitionTo(REJECTED)` | 지원자 "심사 중" 잔존 방지 |
+| **InterviewRound** (위 모집의 라운드) | `round.cancel()` | 면접 라운드 취소 (recruitmentId로 조회) |
+| **InterviewSchedule** (해당 라운드) | `softDeleteByRoundId(roundId)` | 지원자 "면접 예정" 잔존 방지 |
 | **RecertificationRequest** (PENDING) | `process(REJECTED, reason)` | 인증 요청 종료 |
 | **RecertificationRound** | **처리 안 함** | 여러 동아리 공유 — 닫지 않음 |
+| **ClubEvent** (해당 clubId) | soft-delete | 캘린더 stale 이벤트 제거 (clubId raw 컬럼) |
 | **Promotion** (해당 clubId) | soft-delete | 홍보 배너 제거 |
 | **PromotionRequest** (PENDING) | `process(REJECTED, reason)` | 홍보 요청 종료 |
 | **ClubFavorite** (해당 clubId) | soft-delete | 5.5 마이그레이션 필요 |
 | **Club** | soft-delete (`deleted_at`) | 최종 |
+
+> **면접 하위 아티팩트**(`InterviewSlot`·`InterviewRoundMember`·`InterviewAvailability`)는 기존 `cancelRound` 동작과 동일하게 별도 soft-delete하지 않는다. 라운드 취소 + 일정 soft-delete + 모집 CLOSED + 지원 REJECTED로 인해 리더·지원자 화면에서 도달 불가해지며, 이는 현행 면접 취소 시맨틱과 일치한다. (과도한 정리를 피하기 위한 의식적 결정)
 
 ### 5.5 DB 마이그레이션
 
@@ -196,8 +210,10 @@ INACTIVE 필터 2페이지에서 폐쇄 시 목록이 갱신되며 항목이 줄
 - cascade 검증: 폐쇄 후
   - 전 멤버 ClubMember soft-delete + `ClubMemberHistory(REMOVED)` 기록됨
   - OPEN 모집 → CLOSED, 활성 지원 → REJECTED
+  - 위 모집의 면접 라운드 취소 + 면접 일정 soft-delete (지원자 면접 조회에서 사라짐)
   - PENDING 인증요청 → REJECTED (공유 라운드는 OPEN 유지)
   - PENDING 위임요청 종료
+  - 해당 club ClubEvent soft-delete (캘린더 조회에서 사라짐)
   - 해당 club Promotion soft-delete, PENDING PromotionRequest 종료
   - 해당 club ClubFavorite soft-delete
   - 멤버의 "내 동아리"/즐겨찾기 목록에서 사라짐
@@ -212,8 +228,10 @@ INACTIVE 필터 2페이지에서 폐쇄 시 목록이 갱신되며 항목이 줄
 ## 9. 결정 기록 (확정된 선택)
 
 - 폐쇄 = soft-delete (상태값 추가 X)
+- 엔드포인트 = **`POST /admin/clubs/{clubId}/close`** (DELETE+body 대신, cascade 명령 성격 반영)
 - 폐쇄 가능 조건 = **INACTIVE 동아리만** (2단계 안전장치)
-- 진행 중 데이터 = **자동 종료(cascade)**
+- 진행 중 데이터 = **자동 종료(cascade)** — 멤버·위임·모집·지원·**면접**·인증·**이벤트**·홍보·즐겨찾기
 - 확인 다이얼로그 = **동아리명 입력 확인**
 - 폐쇄 사유 = **선택 입력** (기본값 "동아리 폐쇄")
-- 엣지 데이터(Promotion·PromotionRequest·ClubFavorite) = **포함 정리**
+- 엣지 데이터(Promotion·PromotionRequest·ClubFavorite·ClubEvent·Interview) = **포함 정리**
+- 알림 발송 = **Future TODO** (v1 제외, 히스토리 기록만)
