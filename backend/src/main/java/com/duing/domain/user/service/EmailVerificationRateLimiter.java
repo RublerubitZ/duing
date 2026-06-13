@@ -63,17 +63,15 @@ public class EmailVerificationRateLimiter {
      * 발송 직전에 호출한다 — 중복/쿨다운으로 발송에 이르지 못한 요청은 쿼터를 소비하지 않는다.
      */
     public void reserveGlobalQuota(LocalDateTime now) {
-        LocalDate today = now.toLocalDate();
-        // 저장된 날짜가 today 보다 과거일 때만 교체 — 자정 경계에서 늦게 도착한 과거 날짜
-        // 요청이 이미 설치된 새 날짜 카운터를 0 으로 되돌리지 못하게 monotonic 하게 전진시킨다.
+        LocalDate requestDate = now.toLocalDate();
+        // 저장된 날짜가 요청 날짜보다 과거일 때만 새 카운터로 교체 — monotonic 전진.
         DailyCounter counter = dailyCounter.updateAndGet(existing ->
-                (existing == null || existing.date().isBefore(today))
-                        ? new DailyCounter(today, new AtomicInteger(0))
+                (existing == null || existing.date().isBefore(requestDate))
+                        ? new DailyCounter(requestDate, new AtomicInteger(0))
                         : existing);
-        if (!counter.date().equals(today)) {
-            // 새 날짜 카운터가 설치된 뒤 도착한 과거 날짜 요청 — 보수적으로 통과시킨다(경계 1건).
-            return;
-        }
+        // 카운터가 이미 더 미래 날짜라면(자정 경계에 늦게 온 과거 요청 등) 그 카운터를 그대로 소비한다.
+        // stale-date 요청을 무증가 통과시키면 일일 상한을 우회하므로, 약간의 과대 계상을 감수하고
+        // 현재 카운터에 예약한다 — 쿼터 "보호" 목적상 과대 계상은 안전한 방향이다.
         int reserved = counter.count().incrementAndGet();
         if (reserved > DAILY_GLOBAL_LIMIT) {
             counter.count().decrementAndGet();

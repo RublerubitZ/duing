@@ -86,19 +86,31 @@ class EmailVerificationRateLimiterTest {
     }
 
     @Test
-    @DisplayName("자정 경계에서 늦게 도착한 전날 요청이 새 날짜 카운터를 되돌리지 않는다")
-    void latePreviousDayRequestDoesNotResetNewDayCounter() {
+    @DisplayName("자정 경계에 늦게 도착한 전날 요청은 새 날짜 카운터를 0으로 되돌리지 않고 함께 소비된다")
+    void latePreviousDayRequestConsumesCurrentCounter() {
         LocalDateTime nextDay = BASE.plusDays(1).withHour(0).withMinute(0).withSecond(0);
-        rateLimiter.reserveGlobalQuota(nextDay);          // 새 날짜 카운터 설치 (count=1)
-
-        // 늦게 도착한 전날 요청 — 새 날짜 카운터를 0 으로 되돌리면 안 된다
-        assertThatCode(() -> rateLimiter.reserveGlobalQuota(BASE)).doesNotThrowAnyException();
-
-        // 새 날짜 카운터가 보존됐는지: nextDay 로 4999 번 더 예약하면 총 5000, 5001 번째는 503
+        // 새 날짜로 4999건 예약
         for (int sendAttempt = 0; sendAttempt < 4_999; sendAttempt++) {
             rateLimiter.reserveGlobalQuota(nextDay);
         }
+        // 늦게 도착한 전날 요청도 같은(현재) 카운터를 소비 → 5000번째
+        rateLimiter.reserveGlobalQuota(BASE);
+        // 5001번째는 503 — 전날 요청이 카운터를 0으로 되돌리지 않았음을 증명
         assertThatThrownBy(() -> rateLimiter.reserveGlobalQuota(nextDay))
+                .isInstanceOf(EmailVerificationException.EmailSendQuotaExceededException.class);
+    }
+
+    @Test
+    @DisplayName("롤오버 후 다수의 전날 요청도 현재 일일 상한을 우회하지 못한다")
+    void manyStaleDateRequestsCannotBypassDailyQuota() {
+        LocalDateTime nextDay = BASE.plusDays(1).withHour(0).withMinute(0).withSecond(0);
+        rateLimiter.reserveGlobalQuota(nextDay); // 새 날짜 카운터 설치 (1건)
+        // 전날 시각으로 4999건 — 모두 현재 카운터를 소비해야 한다 (무증가 통과 금지)
+        for (int sendAttempt = 0; sendAttempt < 4_999; sendAttempt++) {
+            rateLimiter.reserveGlobalQuota(BASE);
+        }
+        // 총 5000 → 다음 전날 요청은 503
+        assertThatThrownBy(() -> rateLimiter.reserveGlobalQuota(BASE))
                 .isInstanceOf(EmailVerificationException.EmailSendQuotaExceededException.class);
     }
 }
