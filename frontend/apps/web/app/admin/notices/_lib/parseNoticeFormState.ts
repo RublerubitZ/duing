@@ -55,7 +55,9 @@ export function toCreatePayload(state: NoticeFormState): CreateNoticePayload {
     title: state.title.trim(),
     summary: state.summary.trim(),
     content: state.content,
-    contentFormat: state.contentFormat,
+    // 리치 에디터 출력은 항상 HTML 이므로 저장 포맷은 HTML 로 고정한다.
+    // (state.contentFormat 은 편집 로드 시 기존 본문 해석용 — MARKDOWN 공지는 에디터에서 HTML 로 변환되어 저장됨)
+    contentFormat: 'HTML',
     coverImageUrl: state.coverImageUrl,
     linkUrl: nullableTrimmed(state.linkUrl),
     category: state.category,

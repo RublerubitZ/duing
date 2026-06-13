@@ -27,6 +27,12 @@ describe('parseNoticeFormState', () => {
     expect(payload.contentFormat).toBe('HTML');
   });
 
+  it('toCreatePayload: 폼 상태가 MARKDOWN 이어도 저장 포맷은 HTML 로 고정된다', () => {
+    // 리치 에디터로 편집하면 본문은 항상 HTML 로 출력되므로, 기존 MARKDOWN 공지도 저장 시 HTML 로 전환된다.
+    const payload = toCreatePayload({ ...EMPTY_NOTICE_FORM, contentFormat: 'MARKDOWN', coverImageUrl: 'https://x/c.png' });
+    expect(payload.contentFormat).toBe('HTML');
+  });
+
   it('toCreatePayload: 비어 있는 행사 필드는 null 로 변환된다', () => {
     const payload = toCreatePayload({ ...EMPTY_NOTICE_FORM, coverImageUrl: 'https://x/c.png' });
     expect(payload.eventStartAt).toBeNull();
