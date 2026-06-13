@@ -84,4 +84,18 @@ describe('AdminClubDeleteDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: '폐쇄' }));
     expect(onConfirm).toHaveBeenCalledWith(undefined);
   });
+
+  it('isPending 중에는 동아리명이 일치해도 폐쇄 버튼이 비활성이다', () => {
+    render(
+      <AdminClubDeleteDialog
+        club={makeClub({ name: '폐쇄 동아리' })}
+        isPending={true}
+        errorMessage={null}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('동아리명 입력 확인'), { target: { value: '폐쇄 동아리' } });
+    expect(screen.getByRole('button', { name: '처리 중…' })).toBeDisabled();
+  });
 });
