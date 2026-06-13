@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@duing/stores';
-import type { LoginPayload, SignupPayload, User } from '@duing/types';
+import type {
+  ConfirmEmailVerificationPayload,
+  LoginPayload,
+  SendEmailVerificationPayload,
+  SignupPayload,
+  User,
+} from '@duing/types';
 import { useApiClient } from './api-context';
 import { userQueryKeys } from './userQueryKeys';
 
@@ -38,5 +44,21 @@ export function useMeQuery() {
     queryKey: userQueryKeys.me(),
     queryFn: () => client.users.me(),
     enabled: status === 'authenticated',
+  });
+}
+
+export function useSendEmailVerificationMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (payload: SendEmailVerificationPayload) =>
+      client.auth.sendEmailVerification(payload),
+  });
+}
+
+export function useConfirmEmailVerificationMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (payload: ConfirmEmailVerificationPayload) =>
+      client.auth.confirmEmailVerification(payload),
   });
 }
