@@ -6,6 +6,7 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.LoginCommand;
 import com.duing.domain.user.service.dto.command.SignupCommand;
+import com.duing.domain.user.service.EmailVerificationService;
 import com.duing.domain.user.service.dto.query.LoginResult;
 import com.duing.domain.user.service.dto.query.UserQuery;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
@@ -26,10 +27,12 @@ public class GeneralUserService implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final EmailVerificationService emailVerificationService;
 
     @Override
     @Transactional
     public Long signup(SignupCommand signupCommand) {
+        emailVerificationService.assertVerified(signupCommand.email());
         if (userRepository.existsByEmail(signupCommand.email())) {
             throw new UserException.DuplicateEmailException();
         }
@@ -53,7 +56,9 @@ public class GeneralUserService implements UserService {
                 signupCommand.phone(),
                 java.time.LocalDateTime.now()
         );
-        return userRepository.save(user).getId();
+        Long userId = userRepository.save(user).getId();
+        emailVerificationService.consume(signupCommand.email());
+        return userId;
     }
 
     @Override
