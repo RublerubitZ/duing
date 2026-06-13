@@ -9,6 +9,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.repository.NoticeRepository;
 import com.duing.domain.promotion.entity.Promotion;
@@ -219,7 +220,7 @@ class GeneralPromotionServiceTest {
                 false,
                 null,
                 false,
-                null, null, null, null, null, List.of(),
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN,
                 author.getId()));
     }
 

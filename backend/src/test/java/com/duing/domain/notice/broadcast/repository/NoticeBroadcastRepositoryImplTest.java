@@ -8,6 +8,7 @@ import com.duing.domain.notice.broadcast.entity.NoticeBroadcastRead;
 import com.duing.domain.notice.broadcast.repository.NoticeBroadcastRepositoryCustom.BroadcastSlice;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.repository.NoticeRepository;
 import com.duing.domain.user.entity.College;
@@ -128,7 +129,7 @@ class NoticeBroadcastRepositoryImplTest {
                 "공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.PUBLIC, null, false, null, true,
-                null, null, null, null, null, List.of(), authorId));
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
     }
 
     private Long saveUser(UserRole role) {

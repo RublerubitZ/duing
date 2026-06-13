@@ -9,6 +9,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.notice.entity.NoticeCategory;
 import com.duing.domain.notice.entity.NoticeClubScopeRole;
+import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.exception.NoticeException;
 import com.duing.domain.notice.repository.NoticeRepository;
@@ -52,7 +53,7 @@ class GeneralNoticeServiceTest {
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.PUBLIC, null, List.of(),
                 false, null, false,
-                null, null, null, null, null, List.of(), authorId
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId
         );
 
         Long savedId = noticeService.create(createCommand);
@@ -70,7 +71,7 @@ class GeneralNoticeServiceTest {
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.CLUB_SCOPED, NoticeClubScopeRole.OFFICERS_ONLY, List.of(),
                 false, null, false,
-                null, null, null, null, null, List.of(), authorId
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId
         );
 
         assertThatThrownBy(() -> noticeService.create(createCommand))
@@ -87,7 +88,7 @@ class GeneralNoticeServiceTest {
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.CLUB_SCOPED, NoticeClubScopeRole.ALL_MEMBERS, List.of(clubId),
                 false, null, false,
-                null, null, null, null, null, List.of(), authorId
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId
         );
         Long savedId = noticeService.create(createCommand);
         assertThat(targetClubRepository.findAllByIdNoticeId(savedId)).isNotEmpty();
@@ -115,7 +116,7 @@ class GeneralNoticeServiceTest {
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.PUBLIC, null, List.of(),
                 false, null, false,
-                null, null, null, null, null, List.of(), authorId
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId
         );
         Long savedId = noticeService.create(createCommand);
         assertThat(noticeRepository.findById(savedId)).isPresent();

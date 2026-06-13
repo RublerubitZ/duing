@@ -3,6 +3,7 @@ package com.duing.domain.notice.controller.dto.response;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
 import com.duing.domain.notice.entity.NoticeClubScopeRole;
+import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,7 +25,7 @@ public record NoticeDetailResponse(
         boolean notifyOnPublish,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        List<String> bodyImageUrls,
+        NoticeContentFormat contentFormat,
         EventInfo eventInfo
 ) {
     public record EventInfo(
@@ -57,7 +58,7 @@ public record NoticeDetailResponse(
                 notice.isPinned(), notice.getExpiresAt(),
                 exposeAdminFields && notice.isNotifyOnPublish(),
                 notice.getCreatedAt(), notice.getUpdatedAt(),
-                notice.getBodyImageUrls(),
+                notice.getContentFormat(),
                 EventInfo.from(notice)
         );
     }

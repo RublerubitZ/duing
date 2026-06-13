@@ -2,6 +2,7 @@ package com.duing.domain.notice.service.dto.command;
 
 import com.duing.domain.notice.entity.NoticeCategory;
 import com.duing.domain.notice.entity.NoticeClubScopeRole;
+import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,5 +29,5 @@ public record UpdateNoticeCommand(
         String host,
         String audience,
         Boolean clearEvent,
-        List<String> bodyImageUrls
+        NoticeContentFormat contentFormat
 ) {}

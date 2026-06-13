@@ -3,7 +3,6 @@ package com.duing.domain.notice;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.hamcrest.Matchers.hasSize;
 
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -125,8 +124,8 @@ class NoticeAdminAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("행사정보와 본문 이미지가 담긴 공지를 작성하면 상세 응답에 eventInfo·bodyImageUrls 가 노출된다")
-    void noticeWithEventAndBodyImagesIsExposedInDetail() {
+    @DisplayName("행사정보가 담긴 공지를 작성하면 상세 응답에 eventInfo 가 노출된다")
+    void noticeWithEventIsExposedInDetail() {
         Long noticeId = RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .contentType(ContentType.JSON)
@@ -144,8 +143,7 @@ class NoticeAdminAcceptanceTest extends IntegrationTestBase {
                       "eventEndAt": "2026-09-27T18:00:00",
                       "location": "중앙광장 · 학생회관 1층",
                       "host": "학생자치회",
-                      "audience": "재학생 누구나",
-                      "bodyImageUrls": ["https://example.com/b1.png", "https://example.com/b2.png"]
+                      "audience": "재학생 누구나"
                     }
                     """)
             .when()
@@ -163,13 +161,11 @@ class NoticeAdminAcceptanceTest extends IntegrationTestBase {
                 .body("data.eventInfo", notNullValue())
                 .body("data.eventInfo.location", equalTo("중앙광장 · 학생회관 1층"))
                 .body("data.eventInfo.host", equalTo("학생자치회"))
-                .body("data.eventInfo.audience", equalTo("재학생 누구나"))
-                .body("data.bodyImageUrls", hasSize(2))
-                .body("data.bodyImageUrls[0]", equalTo("https://example.com/b1.png"));
+                .body("data.eventInfo.audience", equalTo("재학생 누구나"));
     }
 
     @Test
-    @DisplayName("행사정보가 없는 공지는 상세 응답의 eventInfo 가 null 이고 bodyImageUrls 는 빈 배열이다")
+    @DisplayName("행사정보가 없는 공지는 상세 응답의 eventInfo 가 null 이다")
     void noticeWithoutEventHasNullEventInfo() {
         Long noticeId = RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
@@ -194,8 +190,7 @@ class NoticeAdminAcceptanceTest extends IntegrationTestBase {
                 .get("/api/v1/notices/" + noticeId)
             .then()
                 .statusCode(HttpStatus.OK.value())
-                .body("data.eventInfo", nullValue())
-                .body("data.bodyImageUrls", hasSize(0));
+                .body("data.eventInfo", nullValue());
     }
 
     @Test

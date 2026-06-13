@@ -15,6 +15,7 @@ import com.duing.domain.notice.broadcast.entity.NoticeBroadcast;
 import com.duing.domain.notice.broadcast.repository.NoticeBroadcastRepository;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.exception.NoticeException;
 import com.duing.domain.notice.repository.NoticeRepository;
@@ -143,6 +144,6 @@ class NoticeBroadcasterTest extends IntegrationTestBase {
                 "공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 visibility, null, false, null, notifyOnPublish,
-                null, null, null, null, null, List.of(), authorId));
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
     }
 }
