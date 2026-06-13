@@ -43,6 +43,7 @@ public class GeneralNoticeService implements NoticeService {
     @Transactional
     public Long create(CreateNoticeCommand command) {
         validateCoverImageUrl(command.coverImageUrl());
+        validateBodyImageUrls(command.bodyImageUrls());
         validateScopedTargets(command.visibility(), command.targetClubIds());
 
         Notice saved = noticeRepository.save(Notice.create(
@@ -70,6 +71,7 @@ public class GeneralNoticeService implements NoticeService {
     @Transactional
     public void update(UpdateNoticeCommand command) {
         if (command.coverImageUrl() != null) validateCoverImageUrl(command.coverImageUrl());
+        validateBodyImageUrls(command.bodyImageUrls());
         Notice found = noticeRepository.findById(command.noticeId())
                 .orElseThrow(NoticeException.NoticeNotFoundException::new);
 
@@ -197,6 +199,15 @@ public class GeneralNoticeService implements NoticeService {
         if (coverImageUrlPrefix == null || coverImageUrlPrefix.isBlank()) return;
         if (url == null || !url.startsWith(coverImageUrlPrefix)) {
             throw new NoticeException.InvalidCoverImageUrlException();
+        }
+    }
+
+    private void validateBodyImageUrls(List<String> urls) {
+        if (urls == null || coverImageUrlPrefix == null || coverImageUrlPrefix.isBlank()) return;
+        for (String url : urls) {
+            if (url == null || !url.startsWith(coverImageUrlPrefix)) {
+                throw new NoticeException.InvalidBodyImageUrlException();
+            }
         }
     }
 

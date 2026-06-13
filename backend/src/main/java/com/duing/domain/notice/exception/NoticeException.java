@@ -30,6 +30,11 @@ public class NoticeException extends ApplicationException {
         public InvalidCoverImageUrlException() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
     }
 
+    public static class InvalidBodyImageUrlException extends NoticeException {
+        private static final String MESSAGE = "허용되지 않는 본문 이미지 URL 입니다.";
+        public InvalidBodyImageUrlException() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
+    }
+
     public static class InvalidNoticeEventException extends NoticeException {
         private static final String MESSAGE_PREFIX = "공지 행사 정보가 올바르지 않습니다: ";
         public InvalidNoticeEventException(String reason) {
