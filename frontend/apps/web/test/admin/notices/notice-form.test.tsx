@@ -13,17 +13,9 @@ vi.mock('../../../app/_components/ImageUploader', () => ({
   ),
 }));
 
-// NoticeMarkdownEditor 는 react-markdown 에 의존하므로 단순 textarea 로 대체
-vi.mock('../../../app/admin/notices/_components/NoticeMarkdownEditor', () => ({
-  NoticeMarkdownEditor: ({ value, onChange }: { value: string; onChange: (next: string) => void }) => (
-    <textarea data-testid="markdown-editor" value={value} onChange={(event) => onChange(event.target.value)} />
-  ),
-}));
-
-vi.mock('../../../app/admin/notices/_components/NoticeBodyImagesUploader', () => ({
-  NoticeBodyImagesUploader: ({ value }: { value: string[] }) => (
-    <div data-testid="body-images-uploader">{value.length}</div>
-  ),
+// NoticeRichEditor 는 Tiptap 에 의존하므로 단순 div 로 대체
+vi.mock('../../../app/admin/notices/_components/NoticeRichEditor', () => ({
+  NoticeRichEditor: ({ value }: { value: string }) => <div data-testid="rich-editor">{value}</div>,
 }));
 
 const mockUseAdminClubsQuery = vi.fn();
@@ -143,7 +135,7 @@ describe('NoticeForm', () => {
     expect(removeButtonsAfter).toHaveLength(8);
   });
 
-  it('행사 정보 입력 필드(시작/종료/장소/주최/대상)와 본문 이미지 업로더가 렌더링된다', () => {
+  it('행사 정보 입력 필드(시작/종료/장소/주최/대상)와 리치 에디터가 렌더링된다', () => {
     mockUseAdminClubsQuery.mockReturnValue(makeClubsResponse());
 
     render(
@@ -160,6 +152,6 @@ describe('NoticeForm', () => {
     expect(screen.getByText('장소')).toBeInTheDocument();
     expect(screen.getByText('주최')).toBeInTheDocument();
     expect(screen.getByText('대상')).toBeInTheDocument();
-    expect(screen.getByTestId('body-images-uploader')).toBeInTheDocument();
+    expect(screen.getByTestId('rich-editor')).toBeInTheDocument();
   });
 });

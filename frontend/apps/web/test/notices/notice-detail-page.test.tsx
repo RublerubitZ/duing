@@ -6,8 +6,8 @@ vi.mock('../../app/_components/ExploreNav', () => ({
   ExploreNav: () => <nav aria-label="탐색 네비게이션" />,
 }));
 
-vi.mock('../../app/notices/_components/NoticeMarkdown', () => ({
-  NoticeMarkdown: ({ content }: { content: string }) => <div>{content}</div>,
+vi.mock('../../app/notices/_components/NoticeContent', () => ({
+  NoticeContent: ({ content }: { content: string }) => <div data-testid="notice-content">{content}</div>,
 }));
 
 const mockUseNoticeDetailQuery = vi.fn();
@@ -86,13 +86,6 @@ describe('NoticeDetailPage (재설계)', () => {
     mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({ eventInfo: null })));
     render(<NoticeDetailPage />);
     expect(screen.getByText('공지 정보')).toBeInTheDocument();
-  });
-
-  it('"사진" 섹션 렌더링 — 인라인 이미지 표시 (TODO: 리치에디터 통합 후 갱신)', () => {
-    mockUseNoticeListQuery.mockReturnValue(listSuccess());
-    mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail()));
-
-    render(<NoticeDetailPage />);
   });
 
   it('linkUrl 이 있으면 "원문 보기" 링크가 노출된다', () => {

@@ -19,11 +19,12 @@ const filledEvent: NoticeFormState = {
 };
 
 describe('parseNoticeFormState', () => {
-  it('toCreatePayload: 입력된 행사 필드와 본문 이미지가 그대로 담긴다', () => {
+  it('toCreatePayload: 입력된 행사 필드가 그대로 담기고 contentFormat 이 HTML 이다', () => {
     const payload = toCreatePayload(filledEvent);
     expect(payload.eventStartAt).toBe('2026-09-25T10:00');
     expect(payload.eventEndAt).toBe('2026-09-27T18:00');
     expect(payload.location).toBe('중앙광장');
+    expect(payload.contentFormat).toBe('HTML');
   });
 
   it('toCreatePayload: 비어 있는 행사 필드는 null 로 변환된다', () => {
