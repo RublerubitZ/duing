@@ -39,6 +39,11 @@ export function useEmailVerification(email: string) {
     setErrorMessage(null);
   }, [email]);
 
+  // 진행 중이던 send/confirm 응답이 도착하기 전에 이메일이 바뀌면, 그 결과를 무시한다.
+  // (이메일 A 로 발송 요청 후 B 로 바꾸면 A 의 응답이 B 상태에 codeSent/verified 를 씌우는 race 방지)
+  const latestEmailRef = useRef(email);
+  latestEmailRef.current = email;
+
   // 1초 틱 — 만료·재발송 카운트다운
   useEffect(() => {
     if (status !== 'codeSent') return;
@@ -52,14 +57,17 @@ export function useEmailVerification(email: string) {
   const emailValid = schoolEmailSchema.safeParse(email).success;
 
   async function send() {
+    const requestedEmail = email;
     setErrorMessage(null);
     try {
-      const sendResult = await sendMutation.mutateAsync({ email });
+      const sendResult = await sendMutation.mutateAsync({ email: requestedEmail });
+      if (latestEmailRef.current !== requestedEmail) return; // 이메일이 바뀜 — stale 결과 무시
       setStatus('codeSent');
       setCode('');
       setRemainingSeconds(sendResult.expiresInSeconds);
       setResendCooldownSeconds(RESEND_COOLDOWN_SECONDS);
     } catch (sendError) {
+      if (latestEmailRef.current !== requestedEmail) return;
       setErrorMessage(mapSendError(sendError));
     }
   }
@@ -68,11 +76,14 @@ export function useEmailVerification(email: string) {
     if (code.length !== 6 || remainingSeconds === 0) {
       return; // 6자리 미만이거나 만료 상태면 시도하지 않는다(인증 시도 낭비 방지)
     }
+    const requestedEmail = email;
     setErrorMessage(null);
     try {
-      await confirmMutation.mutateAsync({ email, code });
+      await confirmMutation.mutateAsync({ email: requestedEmail, code });
+      if (latestEmailRef.current !== requestedEmail) return; // 이메일이 바뀜 — stale 결과 무시
       setStatus('verified');
     } catch (confirmError) {
+      if (latestEmailRef.current !== requestedEmail) return;
       setErrorMessage(mapConfirmError(confirmError));
     }
   }
