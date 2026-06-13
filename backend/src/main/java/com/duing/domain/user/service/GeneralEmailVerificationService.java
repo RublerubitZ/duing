@@ -141,7 +141,7 @@ public class GeneralEmailVerificationService implements EmailVerificationService
                           <tr>
                             <td style="padding:32px 36px 0;">
                               <a href="https://duings.com" target="_blank" style="display:inline-block;text-decoration:none;">
-                                <img src="https://files.duings.com/logo/duing-logo.webp" alt="두잉" width="61" height="28" style="width:61px;height:28px;border:0;display:block;outline:none;text-decoration:none;">
+                                <img src="https://files.duings.com/logo/%E1%84%83%E1%85%AE%E1%84%8B%E1%85%B5%E1%86%BC%20%E1%84%87%E1%85%A2%E1%84%80%E1%85%A7%E1%86%BC%E1%84%8C%E1%85%A6%E1%84%80%E1%85%A5.png" alt="두잉" width="42" height="28" style="width:42px;height:28px;border:0;display:block;outline:none;text-decoration:none;">
                               </a>
                             </td>
                           </tr>
