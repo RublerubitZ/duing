@@ -98,6 +98,11 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
 
         Assertions.assertTrue(
                 clubMemberRepository.findByClubIdAndUserId(inactiveClub.getId(), leaderUser.getId()).isEmpty());
+
+        // 물리 삭제가 아니라 soft-delete 임을 보장 — 행은 남고 deleted_at 만 설정된다.
+        LocalDateTime clubDeletedAt = jdbcTemplate.queryForObject(
+                "SELECT deleted_at FROM club WHERE id = ?", LocalDateTime.class, inactiveClub.getId());
+        Assertions.assertNotNull(clubDeletedAt);
     }
 
     @Test
@@ -132,7 +137,7 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("이미 폐쇄된(존재하지 않는) 동아리를 폐쇄하려 하면 404 가 반환된다")
+    @DisplayName("존재하지 않는 동아리 ID 로 폐쇄를 요청하면 404 가 반환된다")
     void closingMissingClubReturns404() throws Exception {
         RestAssured
                 .given()
@@ -157,8 +162,8 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
         Application application = applicationRepository.save(
                 Application.submit(recruitment, applicant, List.of()));
 
-        // Hibernate 세션 밖에서 직접 SQL 로 상태를 INACTIVE 로 전환한다.
-        // 이 방식은 JPA 세션과 독립적으로 동작해 TransientObjectException 을 방지한다.
+        // 모집·지원서는 운영 중(ACTIVE) 동아리에서만 생성되므로, 생성 후 직접 SQL 로 동아리 상태만
+        // INACTIVE 로 전환해 폐쇄 가능 상태(2단계 안전장치)를 만든다.
         jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
 
         long recruitmentId = recruitment.getId();
