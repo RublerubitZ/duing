@@ -39,7 +39,7 @@ public class GeneralClubClosureService implements ClubClosureService {
     @Transactional
     public void close(CloseClubCommand command) {
         Long clubId = command.clubId();
-        Long actor = command.actorUserId();
+        Long actorAdminUserId = command.actorUserId();
         String reason = command.closureReason();
 
         Club club = clubRepository.findById(clubId)
@@ -47,8 +47,8 @@ public class GeneralClubClosureService implements ClubClosureService {
         club.validateClosable();
 
         // 1. 멤버십 · 위임
-        clubMemberCommandService.removeAllOnClubClosure(clubId, actor, reason);
-        leaderSuccessionService.cancelPendingOnClubClosure(clubId, actor, reason);
+        clubMemberCommandService.removeAllOnClubClosure(clubId, actorAdminUserId, reason);
+        leaderSuccessionService.cancelPendingOnClubClosure(clubId, actorAdminUserId, reason);
 
         // 2. 모집 → 지원 → 면접 (모집 id 체인)
         List<Long> recruitmentIds = recruitmentService.closeAllOnClubClosure(clubId);
@@ -56,9 +56,9 @@ public class GeneralClubClosureService implements ClubClosureService {
         interviewRoundService.softDeleteAllOnClubClosure(recruitmentIds);
 
         // 3. 인증 · 홍보 · 이벤트 · 즐겨찾기
-        recertificationRequestService.rejectPendingOnClubClosure(clubId, actor, reason);
+        recertificationRequestService.rejectPendingOnClubClosure(clubId, actorAdminUserId, reason);
         promotionService.removeAllOnClubClosure(clubId);
-        promotionRequestService.rejectPendingOnClubClosure(clubId, actor, reason);
+        promotionRequestService.rejectPendingOnClubClosure(clubId, actorAdminUserId, reason);
         clubEventService.removeAllOnClubClosure(clubId);
         clubFavoriteService.removeAllOnClubClosure(clubId);
 
