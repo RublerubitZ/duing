@@ -104,3 +104,17 @@ export type LoginResult = {
   tokenType: 'Bearer';
   user: User;
 };
+
+export type SendEmailVerificationPayload = {
+  email: string;
+};
+
+export type ConfirmEmailVerificationPayload = {
+  email: string;
+  code: string;
+};
+
+export type EmailVerificationResult = {
+  expiresAt: string;
+  expiresInSeconds: number;
+};
