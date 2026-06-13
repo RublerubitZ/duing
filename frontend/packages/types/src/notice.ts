@@ -4,6 +4,14 @@ export type NoticeVisibility = 'PUBLIC' | 'OFFICERS_ALL' | 'CLUB_SCOPED';
 
 export type NoticeClubScopeRole = 'OFFICERS_ONLY' | 'ALL_MEMBERS';
 
+export type NoticeEventInfo = {
+  startAt: string;
+  endAt: string | null;
+  location: string | null;
+  host: string | null;
+  audience: string | null;
+};
+
 export type NoticeCardItem = {
   id: number;
   title: string;
@@ -34,6 +42,8 @@ export type NoticeDetail = {
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
+  bodyImageUrls: string[];
+  eventInfo: NoticeEventInfo | null;
 };
 
 export type AdminNoticeSummary = {
@@ -61,9 +71,16 @@ export type CreateNoticePayload = {
   pinned: boolean;
   expiresAt: string | null;
   notifyOnPublish: boolean;
+  eventStartAt: string | null;
+  eventEndAt: string | null;
+  location: string | null;
+  host: string | null;
+  audience: string | null;
+  bodyImageUrls: string[];
 };
 
 export type UpdateNoticePayload = Partial<Omit<CreateNoticePayload, 'targetClubIds'>> & {
   targetClubIds?: number[];
   clearExpiresAt?: boolean;
+  clearEvent?: boolean;
 };

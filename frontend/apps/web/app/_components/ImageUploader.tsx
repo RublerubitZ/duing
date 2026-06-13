@@ -11,7 +11,7 @@ type Props = {
   value: string;
   onChange: (url: string) => void;
   purpose: FilePurpose;
-  aspectRatio?: '1/1' | '16/9' | '4/3';
+  aspectRatio?: '1/1' | '16/9' | '4/3' | '3/4';
   placeholder?: string;
   altText?: string;
 };
@@ -20,6 +20,7 @@ const ASPECT_CLASS: Record<NonNullable<Props['aspectRatio']>, string> = {
   '1/1': 'aspect-square',
   '16/9': 'aspect-[16/9]',
   '4/3': 'aspect-[4/3]',
+  '3/4': 'aspect-[3/4]',
 };
 
 export function ImageUploader({

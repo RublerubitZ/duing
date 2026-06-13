@@ -1,5 +1,5 @@
 import type {
-  CreateNoticePayload, NoticeCategory, NoticeClubScopeRole, NoticeVisibility,
+  CreateNoticePayload, NoticeCategory, NoticeClubScopeRole, NoticeVisibility, UpdateNoticePayload,
 } from '@duing/types';
 
 export type NoticeFormState = {
@@ -16,6 +16,12 @@ export type NoticeFormState = {
   pinned: boolean;
   expiresAt: string | null;
   notifyOnPublish: boolean;
+  eventStartAt: string;
+  eventEndAt: string;
+  location: string;
+  host: string;
+  audience: string;
+  bodyImageUrls: string[];
 };
 
 export const EMPTY_NOTICE_FORM: NoticeFormState = {
@@ -32,7 +38,17 @@ export const EMPTY_NOTICE_FORM: NoticeFormState = {
   pinned: false,
   expiresAt: null,
   notifyOnPublish: false,
+  eventStartAt: '',
+  eventEndAt: '',
+  location: '',
+  host: '',
+  audience: '',
+  bodyImageUrls: [],
 };
+
+function nullableTrimmed(value: string): string | null {
+  return value.trim() === '' ? null : value.trim();
+}
 
 export function toCreatePayload(state: NoticeFormState): CreateNoticePayload {
   return {
@@ -40,7 +56,7 @@ export function toCreatePayload(state: NoticeFormState): CreateNoticePayload {
     summary: state.summary.trim(),
     content: state.content,
     coverImageUrl: state.coverImageUrl,
-    linkUrl: state.linkUrl.trim() === '' ? null : state.linkUrl.trim(),
+    linkUrl: nullableTrimmed(state.linkUrl),
     category: state.category,
     tags: state.tags,
     visibility: state.visibility,
@@ -49,5 +65,33 @@ export function toCreatePayload(state: NoticeFormState): CreateNoticePayload {
     pinned: state.pinned,
     expiresAt: state.expiresAt,
     notifyOnPublish: state.visibility === 'PUBLIC' ? state.notifyOnPublish : true,
+    eventStartAt: state.eventStartAt === '' ? null : state.eventStartAt,
+    eventEndAt: state.eventEndAt === '' ? null : state.eventEndAt,
+    location: nullableTrimmed(state.location),
+    host: nullableTrimmed(state.host),
+    audience: nullableTrimmed(state.audience),
+    bodyImageUrls: state.bodyImageUrls,
   };
+}
+
+export function toUpdatePayload(state: NoticeFormState): UpdateNoticePayload {
+  const base = toCreatePayload(state);
+  const allEventEmpty =
+    state.eventStartAt === '' &&
+    state.eventEndAt === '' &&
+    state.location.trim() === '' &&
+    state.host.trim() === '' &&
+    state.audience.trim() === '';
+  if (allEventEmpty) {
+    return {
+      ...base,
+      eventStartAt: null,
+      eventEndAt: null,
+      location: null,
+      host: null,
+      audience: null,
+      clearEvent: true,
+    };
+  }
+  return base;
 }
