@@ -4,14 +4,16 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.StubEmailSender;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.domain.user.entity.EmailVerification;
+import com.duing.domain.user.service.EmailVerificationRateLimiter;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,12 +30,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AuthEmailVerificationTest extends IntegrationTestBase {
 
-    private static final Pattern CODE_PATTERN = Pattern.compile("(\\d{6})");
+    // 코드 앞뒤로 숫자가 더 붙지 않는 정확히 6자리만 매칭한다(HTML 내 다른 숫자 오매칭 방지).
+    private static final Pattern CODE_PATTERN = Pattern.compile("(?<!\\d)(\\d{6})(?!\\d)");
     private static final String EMAIL = "hong@daegu.ac.kr";
-    // @SpringBootTest 는 RateLimiter 빈을 테스트 간 공유한다. IP 슬라이딩 윈도우는 IP 별이므로
-    // 테스트마다 고유 IP(X-Forwarded-For)를 부여해 격리한다. 전역 일일 쿼터(5000)는 통합 테스트
-    // 수십 건 발송으로는 닿지 않으므로 별도 리셋이 필요 없다.
-    private static final AtomicInteger IP_SEQUENCE = new AtomicInteger();
+    private static final int EXPECTED_EXPIRES_IN_SECONDS = (int) EmailVerification.VALIDITY.getSeconds();
 
     @LocalServerPort
     private int port;
@@ -42,37 +42,36 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
     private StubEmailSender stubEmailSender;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private EmailVerificationRateLimiter rateLimiter;
 
-    private String clientIp;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
-        clientIp = "10.1." + IP_SEQUENCE.incrementAndGet() + ".1";
+        // @SpringBootTest 컨텍스트 공유로 RateLimiter 빈이 누적되므로 테스트마다 초기화한다.
+        rateLimiter.reset();
     }
 
     private void requestSend(String email, int expectedStatus) {
-        given().contentType(ContentType.JSON).header("X-Forwarded-For", clientIp)
-                .body(Map.of("email", email))
+        given().contentType(ContentType.JSON).body(Map.of("email", email))
                 .when().post("/api/v1/auth/email-verifications")
                 .then().statusCode(expectedStatus);
     }
 
     private String sendAndExtractCode(String email) {
-        given().contentType(ContentType.JSON).header("X-Forwarded-For", clientIp)
-                .body(Map.of("email", email))
+        given().contentType(ContentType.JSON).body(Map.of("email", email))
                 .when().post("/api/v1/auth/email-verifications")
                 .then().statusCode(HttpStatus.CREATED.value())
-                .body("data.expiresInSeconds", equalTo(1200));
+                .body("data.expiresInSeconds", equalTo(EXPECTED_EXPIRES_IN_SECONDS));
         Matcher codeMatcher = CODE_PATTERN.matcher(stubEmailSender.lastMessage().html());
         assertThat(codeMatcher.find()).isTrue();
         return codeMatcher.group(1);
     }
 
     private void confirm(String email, String code, int expectedStatus) {
-        given().contentType(ContentType.JSON)
-                .body(Map.of("email", email, "code", code))
+        given().contentType(ContentType.JSON).body(Map.of("email", email, "code", code))
                 .when().post("/api/v1/auth/email-verifications/confirm")
                 .then().statusCode(expectedStatus);
     }
@@ -94,8 +93,7 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
     @DisplayName("60초 쿨다운 내 재발송 요청은 429 와 VERIFICATION_COOLDOWN 코드를 반환한다")
     void resendWithinCooldownReturns429() {
         sendAndExtractCode(EMAIL);
-        given().contentType(ContentType.JSON).header("X-Forwarded-For", clientIp)
-                .body(Map.of("email", EMAIL))
+        given().contentType(ContentType.JSON).body(Map.of("email", EMAIL))
                 .when().post("/api/v1/auth/email-verifications")
                 .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
                 .body("code", equalTo("VERIFICATION_COOLDOWN"));
@@ -110,11 +108,10 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
                 EMAIL);
         String secondCode = sendAndExtractCode(EMAIL);
 
-        if (firstCode.equals(secondCode)) {
-            return; // 1/100만 확률로 같은 코드가 재발급되면 구분 불가 — 스킵
-        }
-        given().contentType(ContentType.JSON)
-                .body(Map.of("email", EMAIL, "code", firstCode))
+        // 1/100만 확률로 같은 코드가 재발급되면 이전/새 코드 구분이 불가하므로 스킵(SKIPPED 로 기록)
+        assumeTrue(!firstCode.equals(secondCode), "코드가 우연히 같아 검증 불가 — 스킵");
+
+        given().contentType(ContentType.JSON).body(Map.of("email", EMAIL, "code", firstCode))
                 .when().post("/api/v1/auth/email-verifications/confirm")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("code", equalTo("INVALID_VERIFICATION_CODE"));
@@ -128,8 +125,7 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
         jdbcTemplate.update(
                 "UPDATE email_verifications SET expires_at = NOW() - INTERVAL '1 second' WHERE email = ?",
                 EMAIL);
-        given().contentType(ContentType.JSON)
-                .body(Map.of("email", EMAIL, "code", code))
+        given().contentType(ContentType.JSON).body(Map.of("email", EMAIL, "code", code))
                 .when().post("/api/v1/auth/email-verifications/confirm")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("code", equalTo("EMAIL_VERIFICATION_EXPIRED"));
@@ -144,8 +140,7 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
         for (int attempt = 0; attempt < 5; attempt++) {
             confirm(EMAIL, wrongCode, HttpStatus.BAD_REQUEST.value());
         }
-        given().contentType(ContentType.JSON)
-                .body(Map.of("email", EMAIL, "code", code))
+        given().contentType(ContentType.JSON).body(Map.of("email", EMAIL, "code", code))
                 .when().post("/api/v1/auth/email-verifications/confirm")
                 .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
                 .body("code", equalTo("VERIFICATION_ATTEMPT_EXCEEDED"));
@@ -162,8 +157,7 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
     @Test
     @DisplayName("인증 이력이 없는 이메일 confirm 은 400 과 EMAIL_VERIFICATION_NOT_FOUND 를 반환한다")
     void confirmWithoutSendReturns400() {
-        given().contentType(ContentType.JSON)
-                .body(Map.of("email", EMAIL, "code", "123456"))
+        given().contentType(ContentType.JSON).body(Map.of("email", EMAIL, "code", "123456"))
                 .when().post("/api/v1/auth/email-verifications/confirm")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("code", equalTo("EMAIL_VERIFICATION_NOT_FOUND"));
@@ -172,12 +166,12 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
     @Test
     @DisplayName("같은 IP 에서 1분 내 6번째 발송 요청은 429 와 VERIFICATION_RATE_LIMITED 를 반환한다")
     void ipRateLimitReturns429() {
-        // 쿨다운(이메일 단위)에 걸리지 않도록 서로 다른 이메일 사용, 같은 clientIp 유지
+        // 쿨다운(이메일 단위)에 걸리지 않도록 서로 다른 이메일 사용. 같은 getRemoteAddr(127.0.0.1) 라
+        // IP 윈도우가 누적되어 6번째에 RATE_LIMITED 가 떠야 한다(setUp 의 reset() 으로 테스트 격리).
         for (int request = 1; request <= 5; request++) {
             requestSend("student" + request + "@daegu.ac.kr", HttpStatus.CREATED.value());
         }
-        given().contentType(ContentType.JSON).header("X-Forwarded-For", clientIp)
-                .body(Map.of("email", "student6@daegu.ac.kr"))
+        given().contentType(ContentType.JSON).body(Map.of("email", "student6@daegu.ac.kr"))
                 .when().post("/api/v1/auth/email-verifications")
                 .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
                 .body("code", equalTo("VERIFICATION_RATE_LIMITED"));
@@ -186,8 +180,7 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
     @Test
     @DisplayName("기존 API 에러 응답에는 code 필드가 노출되지 않는다 (비파괴)")
     void legacyErrorResponsesOmitCodeField() {
-        given().contentType(ContentType.JSON)
-                .body(Map.of("email", EMAIL, "password", "wrong-pass1"))
+        given().contentType(ContentType.JSON).body(Map.of("email", EMAIL, "password", "wrong-pass1"))
                 .when().post("/api/v1/auth/login")
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value())
                 .body("code", nullValue());

@@ -16,7 +16,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,7 +44,7 @@ public class AuthController implements AuthApi {
     public ResponseEntity<ApiResponse<EmailVerificationResponse>> sendEmailVerification(
             @Valid @RequestBody SendEmailVerificationRequest sendRequest,
             HttpServletRequest httpServletRequest) {
-        String clientIp = resolveClientIp(httpServletRequest);
+        String clientIp = httpServletRequest.getRemoteAddr();
         EmailVerificationSendResult sendResult =
                 emailVerificationService.sendCode(sendRequest.toCommand(), clientIp);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -59,12 +58,4 @@ public class AuthController implements AuthApi {
         return ResponseEntity.ok(ApiResponse.success());
     }
 
-    /** prod 는 LB/프록시 뒤 — X-Forwarded-For 첫 값을 사용, 없으면 remoteAddr (spec §4.2). */
-    private static String resolveClientIp(HttpServletRequest httpServletRequest) {
-        String forwardedFor = httpServletRequest.getHeader("X-Forwarded-For");
-        if (StringUtils.hasText(forwardedFor)) {
-            return forwardedFor.split(",")[0].trim();
-        }
-        return httpServletRequest.getRemoteAddr();
-    }
 }

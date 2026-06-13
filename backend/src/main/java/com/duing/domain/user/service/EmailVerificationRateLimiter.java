@@ -90,5 +90,14 @@ public class EmailVerificationRateLimiter {
         }
     }
 
+    /**
+     * 테스트 전용 — 모든 카운터를 초기화한다. 프로덕션에서 호출 금지.
+     * {@code @SpringBootTest} 가 이 빈을 공유하므로 통합 테스트 간 상태 격리에 쓴다.
+     */
+    public void reset() {
+        requestTimesByIp.clear();
+        dailyCounter.set(null);
+    }
+
     private record DailyCounter(LocalDate date, AtomicInteger count) {}
 }
