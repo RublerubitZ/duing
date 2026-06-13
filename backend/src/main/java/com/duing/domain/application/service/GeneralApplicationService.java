@@ -353,9 +353,13 @@ public class GeneralApplicationService implements ApplicationService {
         List<Application> applications =
                 applicationRepository.findByRecruitmentIdInAndStatusIn(recruitmentIds, activeStatuses);
         for (Application application : applications) {
-            application.transitionTo(
-                    ApplicationStatus.REJECTED,
-                    application.getRecruitment().isUseInterview());
+            boolean useInterview = application.getRecruitment().isUseInterview();
+            // SUBMITTED 는 REJECTED 로 직접 전이가 불가(FSM: SUBMITTED→UNDER_REVIEW 만 허용)하므로
+            // 폐쇄 일괄 거절에서는 UNDER_REVIEW 를 거쳐 REJECTED 로 종료한다.
+            if (application.getStatus() == ApplicationStatus.SUBMITTED) {
+                application.transitionTo(ApplicationStatus.UNDER_REVIEW, useInterview);
+            }
+            application.transitionTo(ApplicationStatus.REJECTED, useInterview);
         }
     }
 
