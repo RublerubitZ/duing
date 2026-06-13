@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralEmailVerificationService implements EmailVerificationService {
 
-    private static final String SUBJECT = "[Du-ing] 이메일 인증 코드";
+    private static final String SUBJECT = "[DUING] 두잉 동아리 서비스 인증 코드";
 
     private final EmailVerificationRepository emailVerificationRepository;
     private final UserRepository userRepository;
@@ -121,14 +121,78 @@ public class GeneralEmailVerificationService implements EmailVerificationService
     }
 
     private String buildHtml(String code) {
+        // 이메일 클라이언트(Gmail·Outlook 등) 호환을 위해 테이블 레이아웃 + 인라인 CSS 로 작성한다.
+        // 코드 치환은 .formatted 가 아니라 .replace 를 쓴다 — CSS 의 width:100% 등 `%` 가
+        // String.format 포맷 지정자로 오인되는 것을 피하기 위해서다.
+        // 색상은 Du-ing 브랜드 토큰을 쓰되 ink-deep(#143025)은 제외한다 — 순수 6자리 숫자라
+        // 인증코드 추출 정규식(\\d{6})에 오매칭될 수 있다(나머지 색은 알파벳 포함이라 안전).
         return """
-                <div style="font-family: sans-serif; line-height: 1.6;">
-                  <h2>Du-ing 이메일 인증</h2>
-                  <p>아래 인증코드를 회원가입 화면에 입력해주세요.</p>
-                  <p style="font-size: 28px; font-weight: bold; letter-spacing: 6px;">%s</p>
-                  <p>이 코드는 발송 시점부터 20분간 유효합니다.</p>
-                  <p style="color: #888; font-size: 12px;">본인이 요청하지 않았다면 이 메일을 무시해주세요.</p>
-                </div>
-                """.formatted(code);
+                <!DOCTYPE html>
+                <html lang="ko">
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1">
+                </head>
+                <body style="margin:0;padding:0;background-color:#F6F3EC;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F6F3EC;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                    <tr>
+                      <td align="center">
+                        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:480px;max-width:480px;background-color:#FFFFFF;border:1px solid #EFEBE0;border-radius:16px;">
+                          <tr>
+                            <td style="padding:32px 36px 0;">
+                              <a href="https://duings.com" target="_blank" style="display:inline-block;text-decoration:none;">
+                                <img src="https://files.duings.com/logo/%E1%84%83%E1%85%AE%E1%84%8B%E1%85%B5%E1%86%BC%20%E1%84%87%E1%85%A2%E1%84%80%E1%85%A7%E1%86%BC%E1%84%8C%E1%85%A6%E1%84%80%E1%85%A5.png" alt="두잉" width="42" height="28" style="width:42px;height:28px;border:0;display:block;outline:none;text-decoration:none;">
+                              </a>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:22px 36px 4px;">
+                              <h1 style="margin:0 0 8px;font-size:21px;font-weight:700;color:#1F4A36;">이메일을 인증해주세요</h1>
+                              <p style="margin:0;font-size:15px;line-height:1.6;color:#4A504F;">아래 6자리 인증코드를 회원가입 화면에 입력하면 가입이 완료돼요.</p>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:20px 36px;">
+                              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                  <td align="center" style="background-color:#F6F3EC;border:2px solid #D97757;border-radius:12px;padding:18px 0;">
+                                    <span style="font-size:34px;font-weight:700;letter-spacing:10px;color:#1F4A36;font-family:Consolas,'Courier New',monospace;">{{CODE}}</span>
+                                  </td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:0 36px 22px;">
+                              <p style="margin:0;font-size:13px;color:#6F7574;">이 코드는 발송 시점부터 <strong style="color:#4A504F;">20분간</strong> 유효해요.</p>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:0 36px 24px;">
+                              <div style="border-top:1px solid #EFEBE0;padding-top:16px;">
+                                <p style="margin:0;font-size:12px;line-height:1.6;color:#6F7574;">본인이 요청하지 않았다면 이 메일을 무시해주세요. 누군가 이메일 주소를 잘못 입력했을 수 있어요.</p>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td align="center" style="padding:0 36px 32px;">
+                              <a href="https://duings.com" target="_blank" style="display:inline-block;background-color:#1F4A36;color:#FFFFFF;font-size:14px;font-weight:600;text-decoration:none;padding:11px 24px;border-radius:8px;">두잉 둘러보기 →</a>
+                            </td>
+                          </tr>
+                        </table>
+                        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:480px;max-width:480px;">
+                          <tr>
+                            <td align="center" style="padding:18px 0;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;">
+                              <p style="margin:0 0 6px;font-size:12px;color:#6F7574;">본 메일은 발신 전용이에요. 이 메일로 회신하셔도 답변을 받을 수 없어요.</p>
+                              <p style="margin:0;font-size:12px;color:#6F7574;">DUING · 대구대학교 동아리 플랫폼</p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </body>
+                </html>
+                """.replace("{{CODE}}", code);
     }
 }
