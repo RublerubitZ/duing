@@ -27,7 +27,9 @@ public interface AuthApi {
     @Operation(summary = "로그인", description = "이메일과 비밀번호로 인증 후 JWT를 발급한다.")
     @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"))
     @PostMapping("/auth/login")
-    ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest loginRequest);
+    ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Valid @RequestBody LoginRequest loginRequest,
+            HttpServletRequest httpServletRequest);
 
     @Operation(summary = "이메일 인증코드 발송",
             description = "회원가입용 6자리 인증코드를 학교 이메일로 발송한다. 코드는 20분 유효, 재발송은 60초 쿨다운.")

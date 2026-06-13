@@ -12,7 +12,7 @@ public interface UserService {
 
     Long signup(SignupCommand signupCommand);
 
-    LoginResult login(LoginCommand loginCommand);
+    LoginResult login(LoginCommand loginCommand, String clientIp);
 
     UserQuery getById(Long userId);
 

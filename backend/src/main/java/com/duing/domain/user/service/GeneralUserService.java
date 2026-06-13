@@ -11,6 +11,8 @@ import com.duing.domain.user.service.dto.query.LoginResult;
 import com.duing.domain.user.service.dto.query.UserQuery;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
 import com.duing.global.auth.JwtTokenProvider;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +30,10 @@ public class GeneralUserService implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final EmailVerificationService emailVerificationService;
+    private final LoginAttemptRateLimiter loginAttemptRateLimiter;
+
+    private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
+    private static final Duration LOGIN_LOCK_DURATION = Duration.ofMinutes(15);
 
     @Override
     @Transactional
@@ -64,15 +70,28 @@ public class GeneralUserService implements UserService {
         return userId;
     }
 
+    // 비밀번호 불일치 시 실패 카운터 증가(엔티티 변경)를 커밋해야 하므로 InvalidCredentials 는
+    // 롤백 대상에서 제외한다 — 기본 롤백이면 잠금 카운트가 매번 0으로 되돌아가 잠금이 동작하지 않는다.
     @Override
-    public LoginResult login(LoginCommand loginCommand) {
+    @Transactional(noRollbackFor = UserException.InvalidCredentialsException.class)
+    public LoginResult login(LoginCommand loginCommand, String clientIp) {
+        LocalDateTime now = LocalDateTime.now();
+        // IP 단위 시도 제한(credential stuffing/spraying) — 계정 조회 이전에 차단한다.
+        loginAttemptRateLimiter.assertAndRecordAttempt(clientIp, now);
+
         User user = userRepository.findByEmail(loginCommand.email())
                 .orElseThrow(UserException.InvalidCredentialsException::new);
 
+        if (user.isLocked(now)) {
+            throw new UserException.AccountLockedException();
+        }
+
         if (!passwordEncoder.matches(loginCommand.rawPassword(), user.getPasswordHash())) {
+            user.recordFailedLogin(MAX_FAILED_LOGIN_ATTEMPTS, LOGIN_LOCK_DURATION, now);
             throw new UserException.InvalidCredentialsException();
         }
 
+        user.recordSuccessfulLogin();
         String accessToken = jwtTokenProvider.createToken(user.getId(), user.getRole().name());
         return new LoginResult(accessToken, UserQuery.from(user));
     }
