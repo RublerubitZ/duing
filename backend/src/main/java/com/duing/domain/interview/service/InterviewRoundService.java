@@ -51,5 +51,7 @@ public interface InterviewRoundService {
 
     /** 라운드 상세 dashboard — 카운트 카드·멤버 테이블(파생 미응답)·슬롯 집계 (스펙 §10.4). */
     RoundDetailQuery getRoundDetail(Long roundId, Long currentUserId);
+
+    void softDeleteAllOnClubClosure(List<Long> recruitmentIds);
 }
 

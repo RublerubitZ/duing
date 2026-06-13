@@ -323,6 +323,19 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
                 LocalDateTime.now(clock));
     }
 
+    @Override
+    @Transactional
+    public void softDeleteAllOnClubClosure(List<Long> recruitmentIds) {
+        for (Long recruitmentId : recruitmentIds) {
+            List<InterviewRound> rounds =
+                    interviewRoundRepository.findByRecruitmentIdOrderByCreatedAtDesc(recruitmentId);
+            for (InterviewRound round : rounds) {
+                interviewScheduleRepository.softDeleteByRoundId(round.getId());
+                interviewRoundRepository.delete(round);
+            }
+        }
+    }
+
     /**
      * 동시 라운드 생성으로 인한 DRAFT partial unique 위반 only true.
      * 다른 무결성 위반은 그대로 위로 전파한다 (club_member 23505 처리 전례).
