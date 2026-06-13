@@ -23,6 +23,8 @@ export function toRoute(path: `/${string}`): Route {
 export function toLinkRoute(url: string | null): Route | null {
   if (!url) return null;
   if (!url.startsWith('/')) return null;
+  // 프로토콜 상대경로(//host)·역슬래시(/\\host)는 브라우저가 오프-오리진으로 해석하므로 내부 경로로 취급하지 않는다.
+  if (url.startsWith('//') || url.startsWith('/\\')) return null;
   return url as Route;
 }
 
