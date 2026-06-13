@@ -35,6 +35,9 @@ public class GeneralUserService implements UserService {
     private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
     private static final Duration LOGIN_LOCK_DURATION = Duration.ofMinutes(15);
 
+    // 존재하지 않는 이메일 분기의 BCrypt 타이밍 평탄화용 더미 해시 (지연 초기화, 비밀 아님).
+    private volatile String dummyPasswordHash;
+
     @Override
     @Transactional
     public Long signup(SignupCommand signupCommand) {
@@ -72,15 +75,25 @@ public class GeneralUserService implements UserService {
 
     // 비밀번호 불일치 시 실패 카운터 증가(엔티티 변경)를 커밋해야 하므로 InvalidCredentials 는
     // 롤백 대상에서 제외한다 — 기본 롤백이면 잠금 카운트가 매번 0으로 되돌아가 잠금이 동작하지 않는다.
+    // 나머지 인증 예외는 엔티티 변경이 없지만, 향후 흐름 변경에 대비해 함께 롤백 제외로 둔다.
     @Override
-    @Transactional(noRollbackFor = UserException.InvalidCredentialsException.class)
+    @Transactional(noRollbackFor = {
+            UserException.InvalidCredentialsException.class,
+            UserException.AccountLockedException.class,
+            UserException.TooManyLoginAttemptsException.class
+    })
     public LoginResult login(LoginCommand loginCommand, String clientIp) {
         LocalDateTime now = LocalDateTime.now();
         // IP 단위 시도 제한(credential stuffing/spraying) — 계정 조회 이전에 차단한다.
         loginAttemptRateLimiter.assertAndRecordAttempt(clientIp, now);
 
-        User user = userRepository.findByEmail(loginCommand.email())
-                .orElseThrow(UserException.InvalidCredentialsException::new);
+        // 같은 계정에 대한 동시 실패가 실패 카운터 증가를 덮어쓰지 않도록 행을 잠그고 조회한다.
+        User user = userRepository.findByEmailForUpdate(loginCommand.email()).orElse(null);
+        if (user == null) {
+            // 존재하지 않는 이메일도 BCrypt 비교 비용을 동일하게 소비해 타이밍 기반 이메일 열거를 막는다.
+            burnPasswordComparison(loginCommand.rawPassword());
+            throw new UserException.InvalidCredentialsException();
+        }
 
         if (user.isLocked(now)) {
             throw new UserException.AccountLockedException();
@@ -94,6 +107,16 @@ public class GeneralUserService implements UserService {
         user.recordSuccessfulLogin();
         String accessToken = jwtTokenProvider.createToken(user.getId(), user.getRole().name());
         return new LoginResult(accessToken, UserQuery.from(user));
+    }
+
+    /** 존재하지 않는 이메일 분기에서도 BCrypt 비교 비용을 소비해 타이밍 오라클을 제거한다. */
+    private void burnPasswordComparison(String rawPassword) {
+        String hash = dummyPasswordHash;
+        if (hash == null) {
+            hash = passwordEncoder.encode("login-timing-equalizer");
+            dummyPasswordHash = hash;
+        }
+        passwordEncoder.matches(rawPassword, hash);
     }
 
     @Override
