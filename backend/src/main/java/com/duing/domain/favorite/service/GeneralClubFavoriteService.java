@@ -50,6 +50,12 @@ public class GeneralClubFavoriteService implements ClubFavoriteService {
     }
 
     @Override
+    @Transactional
+    public void removeAllOnClubClosure(Long clubId) {
+        favoriteRepository.deleteAll(favoriteRepository.findAllByClubId(clubId));
+    }
+
+    @Override
     public List<Long> getMyFavoriteClubIds(Long userId) {
         return favoriteRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(favorite -> favorite.getClub().getId())

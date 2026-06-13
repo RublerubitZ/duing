@@ -12,6 +12,7 @@ import com.duing.domain.clubmember.service.dto.command.UpdateMemberRoleCommand;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
 import com.duing.domain.clubmember.service.dto.query.TransferLeaderQuery;
 import jakarta.persistence.EntityManager;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -135,6 +136,18 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
                 ClubMemberQuery.from(currentLeader),
                 ClubMemberQuery.from(target)
         );
+    }
+
+    @Override
+    @Transactional
+    public void removeAllOnClubClosure(Long clubId, Long actorUserId, String reason) {
+        List<ClubMember> members = clubMemberRepository.findAllByClubIdOrderedByRoleAndJoinedAt(clubId);
+        for (ClubMember member : members) {
+            historyRecorder.record(
+                    clubId, member.getUser().getId(), actorUserId,
+                    ClubMemberEventType.REMOVED, member.getRole(), null, reason);
+        }
+        clubMemberRepository.deleteAll(members);
     }
 
     private ClubMember findMembershipInClub(Long memberId, Long clubId) {

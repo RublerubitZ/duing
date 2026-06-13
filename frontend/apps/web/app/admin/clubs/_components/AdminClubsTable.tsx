@@ -16,9 +16,10 @@ type Props = {
   clubs: ReadonlyArray<AdminClubSummary>;
   onActionClick: (club: AdminClubSummary, action: StatusAction) => void;
   onCentralClubToggleClick: (club: AdminClubSummary) => void;
+  onCloseClick: (club: AdminClubSummary) => void;
 };
 
-export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick }: Props) {
+export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick, onCloseClick }: Props) {
   if (clubs.length === 0) {
     return (
       <p className="border-line text-charcoal-3 rounded-md border bg-white py-10 text-center text-sm">
@@ -116,6 +117,15 @@ export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick
                           {action.label}
                         </button>
                       ))}
+                      {club.status === 'INACTIVE' && (
+                        <button
+                          type="button"
+                          onClick={() => onCloseClick(club)}
+                          className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                        >
+                          폐쇄
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -18,6 +18,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -166,6 +167,12 @@ public class GeneralPromotionService implements PromotionService {
         if (clubId == null) return null;
         if (club == null) return new PromotionAdminListQuery.ClubRef(clubId, AdminLabels.DELETED);
         return new PromotionAdminListQuery.ClubRef(club.getId(), club.getName());
+    }
+
+    @Override
+    @Transactional
+    public void removeAllOnClubClosure(Long clubId) {
+        promotionRepository.deleteAll(promotionRepository.findAllByClubId(clubId));
     }
 
     private PromotionAdminListQuery.UserRef resolveUserRef(Long userId, User user) {

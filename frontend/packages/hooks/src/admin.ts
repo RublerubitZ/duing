@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdminClubSearchParams,
   AdminUserSearchParams,
+  CloseClubPayload,
   CreateClubPayload,
   UpdateClubCentralClubPayload,
   UpdateClubStatusPayload,
@@ -63,6 +64,20 @@ export function useUpdateClubStatusMutation() {
   return useMutation({
     mutationFn: ({ clubId, payload }: { clubId: number; payload: UpdateClubStatusPayload }) =>
       client.clubs.updateStatus(clubId, payload),
+    onSuccess: (_, { clubId }) => {
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
+    },
+  });
+}
+
+export function useCloseClubMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ clubId, payload }: { clubId: number; payload: CloseClubPayload }) =>
+      client.clubs.close(clubId, payload),
     onSuccess: (_, { clubId }) => {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });

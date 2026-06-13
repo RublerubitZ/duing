@@ -16,12 +16,16 @@ import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Entity
 @Table(name = "club_favorite",
         uniqueConstraints = @UniqueConstraint(name = "uq_club_favorite", columnNames = {"user_id", "club_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SQLDelete(sql = "UPDATE club_favorite SET deleted_at = NOW() WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 public class ClubFavorite {
 
     @Id
@@ -38,6 +42,9 @@ public class ClubFavorite {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     private ClubFavorite(User user, Club club) {
         this.user = user;

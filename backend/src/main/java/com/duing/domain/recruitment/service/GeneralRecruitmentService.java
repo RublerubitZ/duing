@@ -159,6 +159,19 @@ public class GeneralRecruitmentService implements RecruitmentService {
         return buildAndPersist(club, command);
     }
 
+    @Override
+    @Transactional
+    public List<Long> closeAllOnClubClosure(Long clubId) {
+        List<Recruitment> recruitments =
+                recruitmentRepository.findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId);
+        for (Recruitment recruitment : recruitments) {
+            if (recruitment.getStatus() == RecruitmentStatus.OPEN) {
+                recruitment.close();
+            }
+        }
+        return recruitments.stream().map(Recruitment::getId).toList();
+    }
+
     private Long buildAndPersist(Club club, CreateRecruitmentCommand command) {
         Recruitment recruitment;
         try {

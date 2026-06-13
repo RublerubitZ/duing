@@ -1,6 +1,7 @@
 package com.duing.domain.club.controller;
 
 import com.duing.domain.club.api.AdminClubApi;
+import com.duing.domain.club.controller.dto.request.CloseClubRequest;
 import com.duing.domain.club.controller.dto.request.CreateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
@@ -8,6 +9,7 @@ import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.service.ClubClosureService;
 import com.duing.domain.club.service.ClubService;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.global.auth.UserPrincipal;
@@ -34,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminClubController implements AdminClubApi {
 
     private final ClubService clubService;
+    private final ClubClosureService clubClosureService;
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<AdminClubSummaryResponse>>> getAdminClubs(
@@ -77,6 +80,17 @@ public class AdminClubController implements AdminClubApi {
             @Valid @RequestBody UpdateClubCentralClubRequest updateClubCentralClubRequest
     ) {
         clubService.updateCentralClub(updateClubCentralClubRequest.toCommand(clubId));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> closeClub(
+            @PathVariable Long clubId,
+            @Valid @RequestBody(required = false) CloseClubRequest closeClubRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        CloseClubRequest body = closeClubRequest != null ? closeClubRequest : new CloseClubRequest(null);
+        clubClosureService.close(body.toCommand(clubId, currentUser.id()));
         return ResponseEntity.noContent().build();
     }
 }

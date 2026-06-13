@@ -16,6 +16,8 @@ public interface ClubFavoriteRepository
 
     List<ClubFavorite> findAllByUserIdOrderByCreatedAtDesc(Long userId);
 
+    List<ClubFavorite> findAllByClubId(Long clubId);
+
     @Query("select cf.user.id from ClubFavorite cf where cf.club.id = :clubId")
     List<Long> findUserIdsByClubId(@Param("clubId") Long clubId);
 }

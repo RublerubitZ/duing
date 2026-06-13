@@ -18,4 +18,6 @@ public interface LeaderSuccessionService {
     Page<SuccessionRequestAdminSummaryQuery> listForAdmin(SuccessionAdminSearchCondition condition, Pageable pageable);
     SuccessionRequestAdminDetailQuery getDetailForAdmin(Long requestId);
     Page<ClubMemberHistoryAdminQuery> listMemberHistoryForAdmin(Long clubId, Pageable pageable);
+
+    void cancelPendingOnClubClosure(Long clubId, Long actorAdminId, String reason);
 }

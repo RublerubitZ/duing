@@ -17,6 +17,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -132,6 +133,16 @@ public class GeneralPromotionRequestService implements PromotionRequestService {
     private PromotionRequestAdminSummaryQuery.UserRef resolveSummaryUserRef(Long userId, User user) {
         if (user == null) return new PromotionRequestAdminSummaryQuery.UserRef(userId, AdminLabels.DELETED);
         return new PromotionRequestAdminSummaryQuery.UserRef(user.getId(), user.getName());
+    }
+
+    @Override
+    @Transactional
+    public void rejectPendingOnClubClosure(Long clubId, Long actorAdminId, String reason) {
+        List<PromotionRequest> pending =
+                requestRepository.findAllByClubIdAndStatus(clubId, PromotionRequestStatus.PENDING);
+        for (PromotionRequest request : pending) {
+            request.process(actorAdminId, PromotionRequestStatus.REJECTED, reason);
+        }
     }
 
     private PromotionRequestAdminDetailQuery.UserRef resolveDetailUserRef(Long userId, User user) {

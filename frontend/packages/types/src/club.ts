@@ -122,6 +122,10 @@ export type UpdateClubStatusPayload = {
   rejectionReason?: string;
 };
 
+export type CloseClubPayload = {
+  closureReason?: string;
+};
+
 export type UpdateClubCentralClubPayload = {
   centralClub: boolean;
 };
