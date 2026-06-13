@@ -341,6 +341,25 @@ public class GeneralApplicationService implements ApplicationService {
     }
 
     @Override
+    @Transactional
+    public void rejectActiveOnClubClosure(List<Long> recruitmentIds) {
+        if (recruitmentIds.isEmpty()) {
+            return;
+        }
+        List<ApplicationStatus> activeStatuses = List.of(
+                ApplicationStatus.SUBMITTED,
+                ApplicationStatus.UNDER_REVIEW,
+                ApplicationStatus.INTERVIEW_PENDING);
+        List<Application> applications =
+                applicationRepository.findByRecruitmentIdInAndStatusIn(recruitmentIds, activeStatuses);
+        for (Application application : applications) {
+            application.transitionTo(
+                    ApplicationStatus.REJECTED,
+                    application.getRecruitment().isUseInterview());
+        }
+    }
+
+    @Override
     public ApplicantNeighborsQuery getNeighbors(Long recruitmentId, Long applicationId, Long currentUserId,
                                                  ApplicantSearchCondition condition) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)

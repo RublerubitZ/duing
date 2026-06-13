@@ -78,4 +78,9 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     @Lock(LockModeType.PESSIMISTIC_FORCE_INCREMENT)
     @Query("SELECT a FROM Application a WHERE a.id IN :ids ORDER BY a.id ASC")
     List<Application> findAllByIdInForUpdate(@Param("ids") Collection<Long> ids);
+
+    @Query("SELECT a FROM Application a WHERE a.recruitment.id IN :recruitmentIds AND a.status IN :statuses")
+    List<Application> findByRecruitmentIdInAndStatusIn(
+            @Param("recruitmentIds") java.util.Collection<Long> recruitmentIds,
+            @Param("statuses") java.util.Collection<ApplicationStatus> statuses);
 }
