@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { PromotionRenderMode } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
+import { safeExternalHref, toLinkRoute } from '@/app/_lib/route';
 import { ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 
@@ -146,24 +147,26 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
     </div>
   );
 
-  // href === null → Spec #7 의 비인터랙티브 컨테이너 (role/tab/cursor 모두 비활성).
-  if (slide.href === null) {
-    return <div className="block h-full cursor-default">{body}</div>;
-  }
-  // typedRoutes 검증을 위해 외부 URL / 내부 라우트를 구분한다.
-  if (slide.href.startsWith('http')) {
+  // 외부 URL(http/https)만 anchor 로, 내부 경로(/...)만 Link 로 렌더한다.
+  // javascript:/data: 등 안전하지 않은 값은 어느 분기에도 걸리지 않아 비인터랙티브로 폴백한다.
+  const externalHref = safeExternalHref(slide.href);
+  if (externalHref) {
     return (
-      <a href={slide.href} target="_blank" rel="noopener noreferrer" className="block h-full">
+      <a href={externalHref} target="_blank" rel="noopener noreferrer" className="block h-full">
         {body}
       </a>
     );
   }
-  // 내부 경로는 string 으로 캐스팅 — DB 가 임의의 path 를 줄 수 있어 typedRoutes 검증 우회가 필요하다.
-  return (
-    <Link href={slide.href as never} className="block h-full">
-      {body}
-    </Link>
-  );
+  const internalHref = toLinkRoute(slide.href);
+  if (internalHref) {
+    return (
+      <Link href={internalHref} className="block h-full">
+        {body}
+      </Link>
+    );
+  }
+  // href === null → Spec #7 의 비인터랙티브 컨테이너 (role/tab/cursor 모두 비활성).
+  return <div className="block h-full cursor-default">{body}</div>;
 }
 
 type PreviewBodyProps = {

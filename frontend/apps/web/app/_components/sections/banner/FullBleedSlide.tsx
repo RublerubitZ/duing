@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { cn } from '@/app/_lib/cn';
+import { safeExternalHref, toLinkRoute } from '@/app/_lib/route';
 
 /** SystemComposedSlide.tsx 와 동일 구조의 슬라이드 데이터. */
 export type FullBleedSlideData = {
@@ -52,21 +53,24 @@ function FullBleedMainBody({ slide }: { slide: FullBleedSlideData }) {
     </div>
   );
 
-  if (slide.href === null) {
-    return <div className="block h-full cursor-default">{body}</div>;
-  }
-  if (slide.href.startsWith('http')) {
+  const externalHref = safeExternalHref(slide.href);
+  if (externalHref) {
     return (
-      <a href={slide.href} target="_blank" rel="noopener noreferrer" className="block h-full">
+      <a href={externalHref} target="_blank" rel="noopener noreferrer" className="block h-full">
         {body}
       </a>
     );
   }
-  return (
-    <Link href={slide.href as never} className="block h-full">
-      {body}
-    </Link>
-  );
+  const internalHref = toLinkRoute(slide.href);
+  if (internalHref) {
+    return (
+      <Link href={internalHref} className="block h-full">
+        {body}
+      </Link>
+    );
+  }
+  // href === null 이거나 javascript:/data: 등 안전하지 않은 값 → 비인터랙티브 컨테이너.
+  return <div className="block h-full cursor-default">{body}</div>;
 }
 
 function FullBleedPreviewBody({

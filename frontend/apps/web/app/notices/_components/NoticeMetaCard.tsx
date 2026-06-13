@@ -2,6 +2,7 @@ import { ExternalLink } from 'lucide-react';
 import type { NoticeCategory } from '@duing/types';
 import { NOTICE_CATEGORY_LABEL } from '../_lib/categoryLabels';
 import { formatPublishedDate, formatDdayLabel } from '../_lib/eventFormat';
+import { safeExternalHref } from '../../_lib/route';
 
 type Props = {
   category: NoticeCategory;
@@ -17,6 +18,8 @@ export function NoticeMetaCard({ category, createdAt, expiresAt, tags, linkUrl }
     { label: '게시일', value: formatPublishedDate(createdAt) },
   ];
   if (expiresAt) rows.push({ label: '마감', value: `${formatPublishedDate(expiresAt)} · ${formatDdayLabel(expiresAt)}` });
+
+  const safeLink = safeExternalHref(linkUrl);
 
   return (
     <div className="rounded-lg border border-line bg-paper p-5">
@@ -36,9 +39,9 @@ export function NoticeMetaCard({ category, createdAt, expiresAt, tags, linkUrl }
           ))}
         </div>
       )}
-      {linkUrl && (
+      {safeLink && (
         <a
-          href={linkUrl}
+          href={safeLink}
           target="_blank"
           rel="noreferrer"
           className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-ink text-paper text-[13px] font-semibold"
