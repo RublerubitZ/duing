@@ -52,6 +52,7 @@ public abstract class IntegrationTestBase {
                 "recertification_round, " +
                 "promotion, " +
                 "promotion_request, " +
+                "email_verifications, " +
                 "club, " +
                 "users " +
                 "RESTART IDENTITY CASCADE"
