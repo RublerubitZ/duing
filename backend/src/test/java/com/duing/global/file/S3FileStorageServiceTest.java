@@ -36,12 +36,12 @@ class S3FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("directory + UUID 파일명으로 키가 생성되어 PutObject 가 호출된다")
+    @DisplayName("directory + UUID 파일명으로 키가 생성되고 확장자는 검증된 Content-Type 에서 도출된다")
     void uploadCallsPutObjectWithDirectoryUuidKey() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.webp", "image/webp", new byte[]{1, 2, 3});
 
-        service.upload(file, "club/cover");
+        service.upload(file, "club/cover", "image/webp");
 
         ArgumentCaptor<PutObjectRequest> captor = ArgumentCaptor.forClass(PutObjectRequest.class);
         verify(s3Client).putObject(captor.capture(), any(RequestBody.class));
@@ -50,12 +50,12 @@ class S3FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("업로드 시 객체의 Content-Type 이 MultipartFile 의 contentType 으로 저장된다")
+    @DisplayName("저장 객체의 Content-Type 은 전달된(검증된) Content-Type 으로 설정된다")
     void uploadSetsContentType() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "p.png", "image/png", new byte[]{1});
 
-        service.upload(file, "club/logo");
+        service.upload(file, "club/logo", "image/png");
 
         ArgumentCaptor<PutObjectRequest> captor = ArgumentCaptor.forClass(PutObjectRequest.class);
         verify(s3Client).putObject(captor.capture(), any(RequestBody.class));
@@ -63,16 +63,18 @@ class S3FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("Content-Type 이 null 이면 application/octet-stream 으로 폴백된다")
-    void uploadFallsBackOctetStreamWhenContentTypeNull() {
+    @DisplayName("저장 확장자는 클라이언트 파일명이 아니라 검증된 Content-Type 에서 도출된다")
+    void uploadDerivesExtensionFromContentTypeNotFilename() {
+        // 파일명은 .png 지만 검증된 타입이 image/jpeg 이면 저장 키는 .jpg 가 된다.
         MockMultipartFile file = new MockMultipartFile(
-                "file", "p", null, new byte[]{1});
+                "file", "spoof.png", "image/png", new byte[]{1});
 
-        service.upload(file, "x");
+        service.upload(file, "club/cover", "image/jpeg");
 
         ArgumentCaptor<PutObjectRequest> captor = ArgumentCaptor.forClass(PutObjectRequest.class);
         verify(s3Client).putObject(captor.capture(), any(RequestBody.class));
-        assertThat(captor.getValue().contentType()).isEqualTo("application/octet-stream");
+        assertThat(captor.getValue().key()).matches("club/cover/[0-9a-f-]{36}\\.jpg");
+        assertThat(captor.getValue().contentType()).isEqualTo("image/jpeg");
     }
 
     @Test
@@ -81,7 +83,7 @@ class S3FileStorageServiceTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "p.png", "image/png", new byte[]{1});
 
-        String url = service.upload(file, "club/cover");
+        String url = service.upload(file, "club/cover", "image/png");
 
         assertThat(url).startsWith("https://files.duing.app/club/cover/")
                 .endsWith(".png");
@@ -98,7 +100,7 @@ class S3FileStorageServiceTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "p.png", "image/png", new byte[]{1});
 
-        String url = serviceWithSlash.upload(file, "club/cover");
+        String url = serviceWithSlash.upload(file, "club/cover", "image/png");
 
         assertThat(url).startsWith("https://files.duing.app/club/cover/")
                 .doesNotMatch(".*files\\.duing\\.app//.*");
@@ -110,7 +112,7 @@ class S3FileStorageServiceTest {
         MockMultipartFile empty = new MockMultipartFile(
                 "file", "p.png", "image/png", new byte[0]);
 
-        assertThatThrownBy(() -> service.upload(empty, "x"))
+        assertThatThrownBy(() -> service.upload(empty, "x", "image/png"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("업로드할 파일이 비어 있습니다.");
         verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
@@ -124,7 +126,7 @@ class S3FileStorageServiceTest {
         when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
                 .thenThrow(S3Exception.builder().message("denied").build());
 
-        assertThatThrownBy(() -> service.upload(file, "x"))
+        assertThatThrownBy(() -> service.upload(file, "x", "image/png"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("S3 Storage 업로드에 실패했습니다.");
     }
@@ -137,7 +139,7 @@ class S3FileStorageServiceTest {
         when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
                 .thenThrow(SdkClientException.create("network"));
 
-        assertThatThrownBy(() -> service.upload(file, "x"))
+        assertThatThrownBy(() -> service.upload(file, "x", "image/png"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("S3 Storage 업로드에 실패했습니다.");
     }
