@@ -50,8 +50,10 @@ public class GeneralNoticeService implements NoticeService {
                 command.coverImageUrl(), command.linkUrl(),
                 command.category(), command.tags(),
                 command.visibility(), command.clubScopeRole(),
-                command.pinned(), command.expiresAt(),
-                command.notifyOnPublish(), command.authorId()
+                command.pinned(), command.expiresAt(), command.notifyOnPublish(),
+                command.eventStartAt(), command.eventEndAt(),
+                command.location(), command.host(), command.audience(), command.bodyImageUrls(),
+                command.authorId()
         ));
 
         if (command.visibility() == NoticeVisibility.CLUB_SCOPED) {
@@ -85,7 +87,10 @@ public class GeneralNoticeService implements NoticeService {
                 command.category(), command.tags(),
                 command.visibility(), command.clubScopeRole(),
                 command.pinned(), command.expiresAt(), command.clearExpiresAt(),
-                command.notifyOnPublish()
+                command.notifyOnPublish(),
+                command.eventStartAt(), command.eventEndAt(),
+                command.location(), command.host(), command.audience(), command.clearEvent(),
+                command.bodyImageUrls()
         ));
 
         if (command.targetClubIds() != null) {
@@ -142,8 +147,8 @@ public class GeneralNoticeService implements NoticeService {
                 List.of() /* tags */,
                 NoticeVisibility.CLUB_SCOPED,
                 NoticeClubScopeRole.ALL_MEMBERS,
-                command.pinned(), command.expiresAt(),
-                false /* notifyOnPublish */,
+                command.pinned(), command.expiresAt(), false /* notifyOnPublish */,
+                null, null, null, null, null /* event */, List.of() /* bodyImageUrls */,
                 command.authorId()
         ));
         persistTargetClubs(saved.getId(), List.of(command.clubId()));

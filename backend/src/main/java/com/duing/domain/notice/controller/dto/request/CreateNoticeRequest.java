@@ -23,7 +23,13 @@ public record CreateNoticeRequest(
         List<Long> targetClubIds,
         boolean pinned,
         LocalDateTime expiresAt,
-        boolean notifyOnPublish
+        boolean notifyOnPublish,
+        LocalDateTime eventStartAt,
+        LocalDateTime eventEndAt,
+        @Size(max = 200) String location,
+        @Size(max = 200) String host,
+        @Size(max = 200) String audience,
+        @Size(max = 20) List<@Size(max = 500) String> bodyImageUrls
 ) {
     public CreateNoticeCommand toCommand(Long authorId) {
         return new CreateNoticeCommand(
@@ -31,7 +37,10 @@ public record CreateNoticeRequest(
                 category, tags == null ? List.of() : tags,
                 visibility, clubScopeRole,
                 targetClubIds == null ? List.of() : targetClubIds,
-                pinned, expiresAt, notifyOnPublish, authorId
+                pinned, expiresAt, notifyOnPublish,
+                eventStartAt, eventEndAt, location, host, audience,
+                bodyImageUrls == null ? List.of() : bodyImageUrls,
+                authorId
         );
     }
 }

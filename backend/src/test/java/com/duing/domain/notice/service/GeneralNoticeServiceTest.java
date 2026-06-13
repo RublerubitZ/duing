@@ -51,7 +51,8 @@ class GeneralNoticeServiceTest {
                 "전체 공지 제목", "요약", "본문 내용", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.PUBLIC, null, List.of(),
-                false, null, false, authorId
+                false, null, false,
+                null, null, null, null, null, List.of(), authorId
         );
 
         Long savedId = noticeService.create(createCommand);
@@ -68,7 +69,8 @@ class GeneralNoticeServiceTest {
                 "동아리 공지 제목", "요약", "본문 내용", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.CLUB_SCOPED, NoticeClubScopeRole.OFFICERS_ONLY, List.of(),
-                false, null, false, authorId
+                false, null, false,
+                null, null, null, null, null, List.of(), authorId
         );
 
         assertThatThrownBy(() -> noticeService.create(createCommand))
@@ -84,7 +86,8 @@ class GeneralNoticeServiceTest {
                 "동아리 공지 제목", "요약", "본문 내용", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.CLUB_SCOPED, NoticeClubScopeRole.ALL_MEMBERS, List.of(clubId),
-                false, null, false, authorId
+                false, null, false,
+                null, null, null, null, null, List.of(), authorId
         );
         Long savedId = noticeService.create(createCommand);
         assertThat(targetClubRepository.findAllByIdNoticeId(savedId)).isNotEmpty();
@@ -93,7 +96,8 @@ class GeneralNoticeServiceTest {
                 savedId,
                 null, null, null, null, null, null, null,
                 NoticeVisibility.PUBLIC, null, null,
-                null, null, null, null
+                null, null, null, null,
+                null, null, null, null, null, null, null
         );
         noticeService.update(updateCommand);
 
@@ -110,7 +114,8 @@ class GeneralNoticeServiceTest {
                 "삭제될 공지", "요약", "본문 내용", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.PUBLIC, null, List.of(),
-                false, null, false, authorId
+                false, null, false,
+                null, null, null, null, null, List.of(), authorId
         );
         Long savedId = noticeService.create(createCommand);
         assertThat(noticeRepository.findById(savedId)).isPresent();

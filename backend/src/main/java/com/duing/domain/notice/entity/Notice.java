@@ -49,15 +49,32 @@ public class Notice extends BaseEntity {
     @Column(name = "notify_on_publish", nullable = false) private boolean notifyOnPublish;
     @Column(name = "author_id", nullable = false) private Long authorId;
 
+    @Column(name = "event_start_at") private LocalDateTime eventStartAt;
+    @Column(name = "event_end_at")   private LocalDateTime eventEndAt;
+    @Column(length = 200) private String location;
+    @Column(length = 200) private String host;
+    @Column(length = 200) private String audience;
+
+    @Column(name = "body_image_urls", columnDefinition = "_text", nullable = false)
+    private String[] bodyImageUrls = new String[0];
+
     public List<String> getTags() {
         return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
+    }
+
+    public List<String> getBodyImageUrls() {
+        return bodyImageUrls == null ? Collections.emptyList()
+                : Collections.unmodifiableList(Arrays.asList(bodyImageUrls));
     }
 
     @Builder(access = AccessLevel.PRIVATE)
     private Notice(String title, String summary, String content, String coverImageUrl, String linkUrl,
                    NoticeCategory category, String[] tags, NoticeVisibility visibility,
                    NoticeClubScopeRole clubScopeRole, boolean pinned, LocalDateTime expiresAt,
-                   boolean notifyOnPublish, Long authorId) {
+                   boolean notifyOnPublish,
+                   LocalDateTime eventStartAt, LocalDateTime eventEndAt,
+                   String location, String host, String audience, String[] bodyImageUrls,
+                   Long authorId) {
         this.title = title;
         this.summary = summary;
         this.content = content;
@@ -70,6 +87,12 @@ public class Notice extends BaseEntity {
         this.pinned = pinned;
         this.expiresAt = expiresAt;
         this.notifyOnPublish = notifyOnPublish;
+        this.eventStartAt = eventStartAt;
+        this.eventEndAt = eventEndAt;
+        this.location = location;
+        this.host = host;
+        this.audience = audience;
+        this.bodyImageUrls = bodyImageUrls == null ? new String[0] : bodyImageUrls.clone();
         this.authorId = authorId;
     }
 
@@ -77,19 +100,29 @@ public class Notice extends BaseEntity {
                                 String linkUrl, NoticeCategory category, List<String> tags,
                                 NoticeVisibility visibility, NoticeClubScopeRole clubScopeRole,
                                 boolean pinned, LocalDateTime expiresAt, boolean notifyOnPublish,
+                                LocalDateTime eventStartAt, LocalDateTime eventEndAt,
+                                String location, String host, String audience, List<String> bodyImageUrls,
                                 Long authorId) {
         validateScope(visibility, clubScopeRole);
+        validateEventRange(eventStartAt, eventEndAt);
         boolean normalizedNotify = (visibility != NoticeVisibility.PUBLIC) || notifyOnPublish;
         String[] tagArray = tags == null
                 ? new String[0]
                 : tags.stream().distinct().toArray(String[]::new);
+        String[] bodyImageArray = bodyImageUrls == null
+                ? new String[0]
+                : bodyImageUrls.toArray(String[]::new);
         return Notice.builder()
                 .title(title).summary(summary).content(content)
                 .coverImageUrl(coverImageUrl).linkUrl(linkUrl)
                 .category(category).tags(tagArray)
                 .visibility(visibility).clubScopeRole(clubScopeRole)
                 .pinned(pinned).expiresAt(expiresAt)
-                .notifyOnPublish(normalizedNotify).authorId(authorId)
+                .notifyOnPublish(normalizedNotify)
+                .eventStartAt(eventStartAt).eventEndAt(eventEndAt)
+                .location(location).host(host).audience(audience)
+                .bodyImageUrls(bodyImageArray)
+                .authorId(authorId)
                 .build();
     }
 
@@ -98,7 +131,10 @@ public class Notice extends BaseEntity {
             NoticeCategory category, List<String> tags,
             NoticeVisibility visibility, NoticeClubScopeRole clubScopeRole,
             Boolean pinned, LocalDateTime expiresAt, Boolean clearExpiresAt,
-            Boolean notifyOnPublish
+            Boolean notifyOnPublish,
+            LocalDateTime eventStartAt, LocalDateTime eventEndAt,
+            String location, String host, String audience, Boolean clearEvent,
+            List<String> bodyImageUrls
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -133,6 +169,28 @@ public class Notice extends BaseEntity {
         if (payload.notifyOnPublish() != null && this.visibility == NoticeVisibility.PUBLIC) {
             this.notifyOnPublish = payload.notifyOnPublish();
         }
+        boolean clearEvent = Boolean.TRUE.equals(payload.clearEvent());
+        LocalDateTime nextEventStart = clearEvent ? null
+                : (payload.eventStartAt() != null ? payload.eventStartAt() : this.eventStartAt);
+        LocalDateTime nextEventEnd = clearEvent ? null
+                : (payload.eventEndAt() != null ? payload.eventEndAt() : this.eventEndAt);
+        validateEventRange(nextEventStart, nextEventEnd);
+        if (clearEvent) {
+            this.eventStartAt = null;
+            this.eventEndAt = null;
+            this.location = null;
+            this.host = null;
+            this.audience = null;
+        } else {
+            if (payload.eventStartAt() != null) this.eventStartAt = payload.eventStartAt();
+            if (payload.eventEndAt() != null) this.eventEndAt = payload.eventEndAt();
+            if (payload.location() != null) this.location = payload.location();
+            if (payload.host() != null) this.host = payload.host();
+            if (payload.audience() != null) this.audience = payload.audience();
+        }
+        if (payload.bodyImageUrls() != null) {
+            this.bodyImageUrls = payload.bodyImageUrls().toArray(String[]::new);
+        }
     }
 
     /** LEADER/OFFICER 의 CLUB_SCOPED 공지 부분 수정 — null 필드는 건너뛴다. */
@@ -153,6 +211,12 @@ public class Notice extends BaseEntity {
         }
         if (visibility != NoticeVisibility.CLUB_SCOPED && clubScopeRole != null) {
             throw new NoticeException.InvalidNoticeScopeException("CLUB_SCOPED 가 아닌 공지에는 club_scope_role 을 둘 수 없습니다.");
+        }
+    }
+
+    private static void validateEventRange(LocalDateTime start, LocalDateTime end) {
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new NoticeException.InvalidNoticeEventException("종료 일시가 시작 일시보다 빠를 수 없습니다.");
         }
     }
 }

@@ -20,5 +20,11 @@ public record CreateNoticeCommand(
         boolean pinned,
         LocalDateTime expiresAt,
         boolean notifyOnPublish,
+        LocalDateTime eventStartAt,
+        LocalDateTime eventEndAt,
+        String location,
+        String host,
+        String audience,
+        List<String> bodyImageUrls,
         Long authorId
 ) {}

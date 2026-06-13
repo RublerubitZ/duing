@@ -50,11 +50,13 @@ class NoticeRepositoryImplTest {
         Notice publicNotice = noticeRepository.save(Notice.create(
                 "전체 공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
-                NoticeVisibility.PUBLIC, null, false, null, false, authorId));
+                NoticeVisibility.PUBLIC, null, false, null, false,
+                null, null, null, null, null, List.of(), authorId));
         Notice officersNotice = noticeRepository.save(Notice.create(
                 "운영진 공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
-                NoticeVisibility.OFFICERS_ALL, null, false, null, true, authorId));
+                NoticeVisibility.OFFICERS_ALL, null, false, null, true,
+                null, null, null, null, null, List.of(), authorId));
 
         Page<Notice> result = noticeRepository.findFeed(
                 new NoticeSearchCondition(null, null, null),
@@ -72,7 +74,8 @@ class NoticeRepositoryImplTest {
         Notice officersNotice = noticeRepository.save(Notice.create(
                 "운영진 공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
-                NoticeVisibility.OFFICERS_ALL, null, false, null, true, authorId));
+                NoticeVisibility.OFFICERS_ALL, null, false, null, true,
+                null, null, null, null, null, List.of(), authorId));
 
         ViewerScope student = new ViewerScope(UserRole.STUDENT, 2L, Set.of(10L), Set.of());
         ViewerScope officer = new ViewerScope(UserRole.STUDENT, 3L, Set.of(10L), Set.of(10L));
@@ -96,7 +99,8 @@ class NoticeRepositoryImplTest {
                 "클럽 멤버 공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.CLUB_SCOPED, NoticeClubScopeRole.ALL_MEMBERS,
-                false, null, true, authorId));
+                false, null, true,
+                null, null, null, null, null, List.of(), authorId));
         targetClubRepository.save(new NoticeTargetClub(scopedNotice.getId(), targetClub.getId()));
 
         ViewerScope memberOfTarget = new ViewerScope(UserRole.STUDENT, 7L, Set.of(targetClub.getId()), Set.of());
@@ -119,7 +123,8 @@ class NoticeRepositoryImplTest {
                 "만료 공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.PUBLIC, null, false,
-                LocalDateTime.now().minusDays(1), false, authorId));
+                LocalDateTime.now().minusDays(1), false,
+                null, null, null, null, null, List.of(), authorId));
 
         Page<Notice> anonFeed = noticeRepository.findFeed(
                 new NoticeSearchCondition(null, null, null), ViewerScope.anonymous(), PageRequest.of(0, 10));

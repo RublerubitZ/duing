@@ -219,6 +219,7 @@ class GeneralPromotionServiceTest {
                 false,
                 null,
                 false,
+                null, null, null, null, null, List.of(),
                 author.getId()));
     }
 

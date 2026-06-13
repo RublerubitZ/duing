@@ -22,13 +22,21 @@ public record UpdateNoticeRequest(
         Boolean pinned,
         LocalDateTime expiresAt,
         Boolean clearExpiresAt,
-        Boolean notifyOnPublish
+        Boolean notifyOnPublish,
+        LocalDateTime eventStartAt,
+        LocalDateTime eventEndAt,
+        @Size(max = 200) String location,
+        @Size(max = 200) String host,
+        @Size(max = 200) String audience,
+        Boolean clearEvent,
+        @Size(max = 20) List<@Size(max = 500) String> bodyImageUrls
 ) {
     public UpdateNoticeCommand toCommand(Long noticeId) {
         return new UpdateNoticeCommand(
                 noticeId, title, summary, content, coverImageUrl, linkUrl,
                 category, tags, visibility, clubScopeRole, targetClubIds,
-                pinned, expiresAt, clearExpiresAt, notifyOnPublish
+                pinned, expiresAt, clearExpiresAt, notifyOnPublish,
+                eventStartAt, eventEndAt, location, host, audience, clearEvent, bodyImageUrls
         );
     }
 }
