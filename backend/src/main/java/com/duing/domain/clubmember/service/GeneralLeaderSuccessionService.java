@@ -214,6 +214,13 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
     }
 
     @Override
+    @Transactional
+    public void cancelPendingOnClubClosure(Long clubId, Long actorAdminId, String reason) {
+        requestRepository.findByClubIdAndStatus(clubId, SuccessionStatus.PENDING)
+                .ifPresent(request -> request.process(actorAdminId, SuccessionStatus.REJECTED, reason));
+    }
+
+    @Override
     public Page<ClubMemberHistoryAdminQuery> listMemberHistoryForAdmin(
             Long clubId, Pageable pageable
     ) {
