@@ -6,8 +6,7 @@ import { useNoticeDetailQuery } from '@duing/hooks';
 import { ExploreNav } from '../../_components/ExploreNav';
 import { NoticeArticleHeader } from '../_components/NoticeArticleHeader';
 import { NoticePosterHero } from '../_components/NoticePosterHero';
-import { NoticeMarkdown } from '../_components/NoticeMarkdown';
-import { NoticeBodyImages } from '../_components/NoticeBodyImages';
+import { NoticeContent } from '../_components/NoticeContent';
 import { NoticeEventCard } from '../_components/NoticeEventCard';
 import { NoticeMetaCard } from '../_components/NoticeMetaCard';
 import { NoticeShareCard } from '../_components/NoticeShareCard';
@@ -85,8 +84,7 @@ export default function NoticeDetailPage() {
               title={notice.title}
               summary={notice.summary}
             />
-            <NoticeMarkdown content={notice.content} />
-            <NoticeBodyImages urls={notice.bodyImageUrls ?? []} />
+            <NoticeContent content={notice.content} format={notice.contentFormat} />
           </article>
 
           <aside className="lg:sticky lg:top-24 flex flex-col gap-4 min-w-0">

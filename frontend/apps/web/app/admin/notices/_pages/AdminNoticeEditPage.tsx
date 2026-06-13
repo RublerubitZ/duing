@@ -59,7 +59,7 @@ export function AdminNoticeEditPage() {
     location: notice.eventInfo?.location ?? '',
     host: notice.eventInfo?.host ?? '',
     audience: notice.eventInfo?.audience ?? '',
-    bodyImageUrls: notice.bodyImageUrls ?? [],
+    contentFormat: notice.contentFormat,
   };
 
   return (
