@@ -4,10 +4,9 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { NOTICE_CATEGORY_OPTIONS } from '../../../notices/_lib/categoryLabels';
 import { ImageUploader } from '../../../_components/ImageUploader';
-import { NoticeMarkdownEditor } from './NoticeMarkdownEditor';
+import { NoticeRichEditor } from './NoticeRichEditor';
 import { NoticeTagInput } from './NoticeTagInput';
 import { VisibilityPicker } from './VisibilityPicker';
-import { NoticeBodyImagesUploader } from './NoticeBodyImagesUploader';
 import type { NoticeFormState } from '../_lib/parseNoticeFormState';
 
 type Props = {
@@ -64,15 +63,12 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
         />
       </Field>
 
-      <Field label="본문 (마크다운)">
-        <NoticeMarkdownEditor value={state.content} onChange={(next) => update('content', next)} />
-      </Field>
-
       <div>
-        <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">본문 이미지 (선택)</span>
-        <NoticeBodyImagesUploader
-          value={state.bodyImageUrls}
-          onChange={(urls) => update('bodyImageUrls', urls)}
+        <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">본문</span>
+        <NoticeRichEditor
+          value={state.content}
+          format={state.contentFormat}
+          onChange={(html) => update('content', html)}
         />
       </div>
 

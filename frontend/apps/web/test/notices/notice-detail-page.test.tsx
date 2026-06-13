@@ -1,13 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { NoticeDetail } from '@duing/types';
+import type { NoticeDetail, NoticeContentFormat } from '@duing/types';
 
 vi.mock('../../app/_components/ExploreNav', () => ({
   ExploreNav: () => <nav aria-label="탐색 네비게이션" />,
 }));
 
-vi.mock('../../app/notices/_components/NoticeMarkdown', () => ({
-  NoticeMarkdown: ({ content }: { content: string }) => <div>{content}</div>,
+vi.mock('../../app/notices/_components/NoticeContent', () => ({
+  NoticeContent: ({ content }: { content: string }) => <div data-testid="notice-content">{content}</div>,
 }));
 
 const mockUseNoticeDetailQuery = vi.fn();
@@ -27,12 +27,15 @@ vi.mock('next/navigation', () => ({
 
 import NoticeDetailPage from '../../app/notices/[noticeId]/page';
 
+const DEFAULT_CONTENT_FORMAT: NoticeContentFormat = 'MARKDOWN';
+
 function makeDetail(overrides: Partial<NoticeDetail> = {}): NoticeDetail {
   return {
     id: 42,
     title: '공지 제목',
     summary: '공지 요약',
     content: '## 본문 내용\n\n상세 텍스트',
+    contentFormat: DEFAULT_CONTENT_FORMAT,
     coverImageUrl: 'https://example.com/cover.jpg',
     linkUrl: null,
     category: 'GENERAL',
@@ -45,7 +48,6 @@ function makeDetail(overrides: Partial<NoticeDetail> = {}): NoticeDetail {
     expiresAt: null,
     createdAt: '2026-05-01T00:00:00Z',
     updatedAt: '2026-05-01T00:00:00Z',
-    bodyImageUrls: [],
     eventInfo: null,
     ...overrides,
   };
@@ -84,18 +86,6 @@ describe('NoticeDetailPage (재설계)', () => {
     mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({ eventInfo: null })));
     render(<NoticeDetailPage />);
     expect(screen.getByText('공지 정보')).toBeInTheDocument();
-  });
-
-  it('bodyImageUrls 가 있으면 "사진" 섹션과 이미지가 렌더링된다', () => {
-    mockUseNoticeListQuery.mockReturnValue(listSuccess());
-    mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({
-      bodyImageUrls: ['https://example.com/b1.png'],
-    })));
-
-    render(<NoticeDetailPage />);
-
-    expect(screen.getByText('사진')).toBeInTheDocument();
-    expect(screen.getByAltText('본문 이미지 1')).toBeInTheDocument();
   });
 
   it('linkUrl 이 있으면 "원문 보기" 링크가 노출된다', () => {

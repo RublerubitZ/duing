@@ -4,6 +4,8 @@ export type NoticeVisibility = 'PUBLIC' | 'OFFICERS_ALL' | 'CLUB_SCOPED';
 
 export type NoticeClubScopeRole = 'OFFICERS_ONLY' | 'ALL_MEMBERS';
 
+export type NoticeContentFormat = 'MARKDOWN' | 'HTML';
+
 export type NoticeEventInfo = {
   startAt: string;
   endAt: string | null;
@@ -42,7 +44,7 @@ export type NoticeDetail = {
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
-  bodyImageUrls: string[];
+  contentFormat: NoticeContentFormat;
   eventInfo: NoticeEventInfo | null;
 };
 
@@ -76,7 +78,7 @@ export type CreateNoticePayload = {
   location: string | null;
   host: string | null;
   audience: string | null;
-  bodyImageUrls: string[];
+  contentFormat: NoticeContentFormat;
 };
 
 export type UpdateNoticePayload = Partial<Omit<CreateNoticePayload, 'targetClubIds'>> & {
