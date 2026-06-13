@@ -20,6 +20,12 @@ vi.mock('../../../app/admin/notices/_components/NoticeMarkdownEditor', () => ({
   ),
 }));
 
+vi.mock('../../../app/admin/notices/_components/NoticeBodyImagesUploader', () => ({
+  NoticeBodyImagesUploader: ({ value }: { value: string[] }) => (
+    <div data-testid="body-images-uploader">{value.length}</div>
+  ),
+}));
+
 const mockUseAdminClubsQuery = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
@@ -135,5 +141,25 @@ describe('NoticeForm', () => {
     // 여전히 8개
     const removeButtonsAfter = screen.getAllByRole('button', { name: /태그 제거/ });
     expect(removeButtonsAfter).toHaveLength(8);
+  });
+
+  it('행사 정보 입력 필드(시작/종료/장소/주최/대상)와 본문 이미지 업로더가 렌더링된다', () => {
+    mockUseAdminClubsQuery.mockReturnValue(makeClubsResponse());
+
+    render(
+      <NoticeForm
+        initialState={EMPTY_NOTICE_FORM}
+        submitLabel="저장"
+        isSubmitting={false}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('시작 일시')).toBeInTheDocument();
+    expect(screen.getByText('종료 일시')).toBeInTheDocument();
+    expect(screen.getByText('장소')).toBeInTheDocument();
+    expect(screen.getByText('주최')).toBeInTheDocument();
+    expect(screen.getByText('대상')).toBeInTheDocument();
+    expect(screen.getByTestId('body-images-uploader')).toBeInTheDocument();
   });
 });
