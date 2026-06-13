@@ -9,10 +9,13 @@ import com.duing.domain.promotion.controller.dto.request.CreatePromotionRequestR
 import com.duing.domain.promotion.controller.dto.request.UpdatePromotionRequest;
 import com.duing.domain.promotion.entity.PromotionPalette;
 import com.duing.domain.promotion.entity.PromotionRenderMode;
+import com.duing.domain.recruitment.controller.dto.request.CreateRecruitmentRequest;
+import com.duing.domain.recruitment.entity.ApplicationMode;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
+import java.time.LocalDate;
 import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -87,6 +90,23 @@ class LinkUrlSchemeValidationTest {
         assertThat(hasViolationOn(validator.validate(promotionRequest(null)), "suggestedLinkUrl")).isFalse();
     }
 
+    @Test
+    @DisplayName("CreateRecruitmentRequest: externalFormUrl 의 javascript: 스킴은 거부, http(s)/빈값/null 은 허용된다")
+    void recruitmentExternalFormUrlScheme() {
+        assertThat(hasViolationOn(validator.validate(recruitmentCreate(JAVASCRIPT_URL)), "externalFormUrl")).isTrue();
+        assertThat(hasViolationOn(validator.validate(recruitmentCreate("https://forms.gle/abc")), "externalFormUrl")).isFalse();
+        assertThat(hasViolationOn(validator.validate(recruitmentCreate("")), "externalFormUrl")).isFalse();
+        assertThat(hasViolationOn(validator.validate(recruitmentCreate(null)), "externalFormUrl")).isFalse();
+    }
+
+    @Test
+    @DisplayName("링크 스킴 검증은 data:/vbscript:/ftp: 등 비-http 스킴도 거부한다")
+    void rejectsOtherDangerousSchemes() {
+        assertThat(hasViolationOn(validator.validate(noticeCreate("data:text/html,<script>alert(1)</script>")), "linkUrl")).isTrue();
+        assertThat(hasViolationOn(validator.validate(noticeCreate("vbscript:msgbox(1)")), "linkUrl")).isTrue();
+        assertThat(hasViolationOn(validator.validate(promotionRequest("ftp://example.com/file")), "suggestedLinkUrl")).isTrue();
+    }
+
     private static <T> boolean hasViolationOn(Set<ConstraintViolation<T>> violations, String field) {
         return violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals(field));
     }
@@ -126,5 +146,12 @@ class LinkUrlSchemeValidationTest {
 
     private static CreatePromotionRequestRequest promotionRequest(String suggestedLinkUrl) {
         return new CreatePromotionRequestRequest("제목", "설명입니다", null, suggestedLinkUrl);
+    }
+
+    private static CreateRecruitmentRequest recruitmentCreate(String externalFormUrl) {
+        return new CreateRecruitmentRequest(
+                "제목", null, LocalDate.of(2026, 1, 1), null, 1,
+                ApplicationMode.EXTERNAL, externalFormUrl,
+                null, null, null, null, null, null);
     }
 }
