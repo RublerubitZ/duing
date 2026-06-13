@@ -68,12 +68,13 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
         <NoticeMarkdownEditor value={state.content} onChange={(next) => update('content', next)} />
       </Field>
 
-      <Field label="본문 이미지 (선택)">
+      <div>
+        <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">본문 이미지 (선택)</span>
         <NoticeBodyImagesUploader
           value={state.bodyImageUrls}
           onChange={(urls) => update('bodyImageUrls', urls)}
         />
-      </Field>
+      </div>
 
       <Field label="외부 링크 (선택)">
         <input
