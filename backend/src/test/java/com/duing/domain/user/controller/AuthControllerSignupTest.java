@@ -163,8 +163,9 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     @DisplayName("인증 후 만료 시각이 지나면 가입할 수 없다")
     void signupRejectsExpiredVerification() {
         prepareVerifiedEmail("hong@daegu.ac.kr");
+        // NOW()(DB) 와 LocalDateTime.now()(JVM) 의 타임존 차(최대 ±시간대)를 압도하도록 1일 과거로 만료시킨다.
         jdbcTemplate.update(
-                "UPDATE email_verifications SET expires_at = NOW() - INTERVAL '1 second' WHERE email = ?",
+                "UPDATE email_verifications SET expires_at = NOW() - INTERVAL '1 day' WHERE email = ?",
                 "hong@daegu.ac.kr");
 
         given().contentType(ContentType.JSON).body(validBody())

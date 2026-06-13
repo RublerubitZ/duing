@@ -122,8 +122,9 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
     @DisplayName("만료된 코드 확인은 400 과 EMAIL_VERIFICATION_EXPIRED 코드를 반환한다")
     void confirmExpiredCodeReturns400() {
         String code = sendAndExtractCode(EMAIL);
+        // NOW()(DB) 와 LocalDateTime.now()(JVM) 의 타임존 차를 압도하도록 1일 과거로 만료시킨다.
         jdbcTemplate.update(
-                "UPDATE email_verifications SET expires_at = NOW() - INTERVAL '1 second' WHERE email = ?",
+                "UPDATE email_verifications SET expires_at = NOW() - INTERVAL '1 day' WHERE email = ?",
                 EMAIL);
         given().contentType(ContentType.JSON).body(Map.of("email", EMAIL, "code", code))
                 .when().post("/api/v1/auth/email-verifications/confirm")
