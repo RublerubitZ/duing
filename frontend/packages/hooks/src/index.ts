@@ -91,6 +91,7 @@ export {
   useAdminUserSearchQuery,
   useCreateClubMutation,
   useUpdateClubStatusMutation,
+  useCloseClubMutation,
   useUpdateClubCentralClubMutation,
 } from './admin';
 export { adminQueryKeys } from './adminQueryKeys';
