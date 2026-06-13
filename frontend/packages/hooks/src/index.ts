@@ -1,5 +1,12 @@
 export { ApiClientProvider, useApiClient } from './api-context';
-export { useLoginMutation, useSignupMutation, useLogout, useMeQuery } from './auth';
+export {
+  useLoginMutation,
+  useSignupMutation,
+  useLogout,
+  useMeQuery,
+  useSendEmailVerificationMutation,
+  useConfirmEmailVerificationMutation,
+} from './auth';
 export {
   useClubListQuery,
   useClubDetailQuery,

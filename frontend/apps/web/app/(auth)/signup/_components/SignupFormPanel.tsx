@@ -5,8 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useReducer, useState } from 'react';
 import { useSignupMutation } from '@duing/hooks';
 import { signupSchema } from '@duing/schemas';
+import { ApiError } from '@duing/api';
 import { initialSignupState, signupReducer, type SignupFormState } from '../_lib/signup-state';
+import { useEmailVerification } from '../_lib/use-email-verification';
 import { CollegeSelect } from './CollegeSelect';
+import { EmailVerificationField } from './EmailVerificationField';
 import { GradeSelect } from './GradeSelect';
 import { PhoneInput } from './PhoneInput';
 import { TermsAgreement } from './TermsAgreement';
@@ -40,15 +43,6 @@ function IconPerson() {
   );
 }
 
-function IconMail() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-      <path d="M1.5 5.5l6.5 4 6.5-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 export function SignupFormPanel() {
   const router = useRouter();
   const signup = useSignupMutation();
@@ -59,11 +53,17 @@ export function SignupFormPanel() {
     dispatch({ type: 'SET_FIELD', field, value });
   }
 
+  const emailVerification = useEmailVerification(state.email);
+
   const passwordMismatch =
     state.passwordConfirm.length > 0 && state.password !== state.passwordConfirm;
 
   const canSubmit =
-    state.termsOfServiceAgreed && state.privacyPolicyAgreed && !signup.isPending && !passwordMismatch;
+    state.termsOfServiceAgreed &&
+    state.privacyPolicyAgreed &&
+    !signup.isPending &&
+    !passwordMismatch &&
+    emailVerification.verified;
 
   async function handleSubmit(submitEvent: React.FormEvent) {
     submitEvent.preventDefault();
@@ -91,8 +91,13 @@ export function SignupFormPanel() {
     try {
       await signup.mutateAsync(parsed.data);
       router.replace('/login?next=/me');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '회원가입에 실패했습니다.');
+    } catch (signupError) {
+      if (signupError instanceof ApiError && signupError.code === 'EMAIL_NOT_VERIFIED') {
+        emailVerification.reset();
+        setError('이메일 인증이 만료되었어요. 다시 인증해주세요.');
+        return;
+      }
+      setError(signupError instanceof Error ? signupError.message : '회원가입에 실패했습니다.');
     }
   }
 
@@ -149,29 +154,23 @@ export function SignupFormPanel() {
           )}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Email */}
-            <div>
-              <label htmlFor="signup-email" className="mb-1.5 block text-sm font-medium text-charcoal">
-                학교 이메일
-              </label>
-              <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-charcoal-3">
-                  <IconMail />
-                </span>
-                <input
-                  id="signup-email"
-                  required
-                  type="email"
-                  autoComplete="username"
-                  autoFocus
-                  value={state.email}
-                  onChange={(changeEvent) => setField('email', changeEvent.target.value)}
-                  placeholder="2021123456@daegu.ac.kr"
-                  className={`${inputCls} pl-10`}
-                />
-              </div>
-              <p className="mt-1.5 text-xs text-charcoal-3">@daegu.ac.kr 메일만 가입 가능</p>
-            </div>
+            {/* Email + 인증 */}
+            <EmailVerificationField
+              email={state.email}
+              onEmailChange={(email) => setField('email', email)}
+              status={emailVerification.status}
+              code={emailVerification.code}
+              onCodeChange={emailVerification.setCode}
+              remainingSeconds={emailVerification.remainingSeconds}
+              resendCooldownSeconds={emailVerification.resendCooldownSeconds}
+              sending={emailVerification.sending}
+              confirming={emailVerification.confirming}
+              canSend={emailVerification.canSend}
+              errorMessage={emailVerification.errorMessage}
+              onSend={emailVerification.send}
+              onConfirm={emailVerification.confirm}
+              onEditEmail={emailVerification.reset}
+            />
 
             {/* Password + Password Confirm */}
             <div className="grid grid-cols-2 gap-3">

@@ -69,6 +69,9 @@ import type {
   RecruitmentSummary,
   UpdateRecruitmentPayload,
   SignupPayload,
+  SendEmailVerificationPayload,
+  ConfirmEmailVerificationPayload,
+  EmailVerificationResult,
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
   UpdateClubPayload,
@@ -134,6 +137,7 @@ export class ApiError extends Error {
     public readonly status: number,
     message: string,
     public readonly payload?: unknown,
+    public readonly code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -144,16 +148,20 @@ async function toApiError(error: unknown): Promise<never> {
   if (error instanceof HTTPError) {
     let message = `요청 실패 (${error.response.status})`;
     let payload: unknown;
+    let code: string | undefined;
     try {
       const body = (await error.response.json()) as ApiResponse<unknown>;
       if (body && typeof body.message === 'string') {
         message = body.message;
       }
+      if (body && typeof body.code === 'string') {
+        code = body.code;
+      }
       payload = body.data;
     } catch {
       // ignore json parse failure
     }
-    throw new ApiError(error.response.status, message, payload);
+    throw new ApiError(error.response.status, message, payload, code);
   }
   throw error;
 }
@@ -169,6 +177,8 @@ export type DuingApiClient = {
   auth: {
     signup(payload: SignupPayload): Promise<number>;
     login(payload: LoginPayload): Promise<LoginResult>;
+    sendEmailVerification(payload: SendEmailVerificationPayload): Promise<EmailVerificationResult>;
+    confirmEmailVerification(payload: ConfirmEmailVerificationPayload): Promise<void>;
   };
   users: {
     me(): Promise<User>;
@@ -472,6 +482,10 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<number>(http.post('auth/signup', { json: payload })),
       login: (payload) =>
         jsonOk<LoginResult>(http.post('auth/login', { json: payload })),
+      sendEmailVerification: (payload) =>
+        jsonOk<EmailVerificationResult>(http.post('auth/email-verifications', { json: payload })),
+      confirmEmailVerification: (payload) =>
+        jsonVoid(http.post('auth/email-verifications/confirm', { json: payload })),
     },
     users: {
       me: () => jsonOk<User>(http.get('users/me')),
