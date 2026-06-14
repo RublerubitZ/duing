@@ -30,7 +30,7 @@ export async function HomeHero() {
             DU + ING
           </div>
 
-          <h1 className="mb-12 text-[84px] leading-none tracking-[-0.035em]">
+          <h1 className="mb-12 text-[44px] leading-none tracking-[-0.035em] sm:text-[60px] md:text-[84px]">
             오늘,
             <br />
             캠퍼스의
@@ -110,8 +110,9 @@ export async function HomeHero() {
 }
 
 function HeroCardStack({ recruitingCount }: { recruitingCount: number }) {
+  // 회전 콜라주는 360px 폭에서 절대배치 카드들이 bleed 되므로 모바일에선 숨긴다(장식 — 정보는 서브카피·검색이 담당).
   return (
-    <div className="relative h-[540px]">
+    <div className="relative hidden h-[540px] md:block">
       <div
         className="absolute right-10 top-10 w-[280px] rounded-lg border border-line bg-paper p-4 shadow-2"
         style={{ transform: 'rotate(7deg)' }}
