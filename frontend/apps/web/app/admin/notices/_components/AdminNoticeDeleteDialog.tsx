@@ -1,5 +1,14 @@
 'use client';
 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+
 type Props = {
   title: string | null;
   isPending: boolean;
@@ -10,24 +19,38 @@ type Props = {
 export function AdminNoticeDeleteDialog({ title, isPending, onConfirm, onCancel }: Props) {
   if (!title) return null;
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40">
-      <div className="rounded-2xl bg-paper p-6 max-w-sm w-full">
-        <h2 className="text-[15px] font-bold text-ink">공지를 삭제할까요?</h2>
-        <p className="mt-2 text-[13px] text-charcoal-2">&quot;{title}&quot; 항목이 더 이상 노출되지 않습니다.</p>
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-3 py-1.5 rounded-md border border-line text-[13px] text-charcoal-2"
-          >취소</button>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onCancel();
+      }}
+    >
+      <DialogContent
+        className="max-w-sm"
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>공지를 삭제할까요?</DialogTitle>
+          <DialogDescription>&quot;{title}&quot; 항목이 더 이상 노출되지 않습니다.</DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter>
+          <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
+            취소
+          </button>
           <button
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className="px-3 py-1.5 rounded-md bg-coral text-paper text-[13px] font-semibold disabled:opacity-50"
-          >{isPending ? '삭제 중…' : '삭제'}</button>
-        </div>
-      </div>
-    </div>
+            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+          >
+            {isPending ? '삭제 중…' : '삭제'}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

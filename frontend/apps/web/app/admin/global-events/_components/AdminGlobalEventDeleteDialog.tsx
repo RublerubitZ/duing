@@ -1,5 +1,14 @@
 'use client';
 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+
 type Props = {
   title: string | null;
   isPending: boolean;
@@ -10,31 +19,40 @@ type Props = {
 export function AdminGlobalEventDeleteDialog({ title, isPending, onCancel, onConfirm }: Props) {
   if (!title) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-[420px] rounded-2xl bg-paper p-6">
-        <h2 className="text-[16px] font-bold text-ink mb-2">이벤트 삭제</h2>
-        <p className="text-[13.5px] text-charcoal-2 mb-6">
-          &quot;<strong className="text-ink">{title}</strong>&quot; 를 삭제하시겠어요? 캘린더에서 즉시 사라집니다.
-        </p>
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-            className="px-4 py-2 rounded-full border border-line text-[13px]"
-          >
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onCancel();
+      }}
+    >
+      <DialogContent
+        className="max-w-md"
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>이벤트 삭제</DialogTitle>
+          <DialogDescription>
+            &quot;<strong className="font-semibold text-ink">{title}</strong>&quot; 를 삭제하시겠어요? 캘린더에서 즉시 사라집니다.
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter>
+          <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
             취소
           </button>
           <button
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className="px-4 py-2 rounded-full bg-coral text-paper text-[13px] font-semibold disabled:opacity-60"
+            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
             {isPending ? '삭제 중…' : '삭제'}
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

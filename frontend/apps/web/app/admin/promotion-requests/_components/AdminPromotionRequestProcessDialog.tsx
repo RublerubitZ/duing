@@ -1,8 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import type { AdminPromotionRequestDetail, ProcessPromotionRequestPayload, PromotionRequestStatus } from '@duing/types';
-import { cn } from '../../../_lib/cn';
+
+import type {
+  AdminPromotionRequestDetail,
+  ProcessPromotionRequestPayload,
+  PromotionRequestStatus,
+} from '@duing/types';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 type Props = {
   request: AdminPromotionRequestDetail;
@@ -13,14 +26,14 @@ type Props = {
 };
 
 const ACTION_NOTE_MAX = 1000;
-const TERMINAL_STATUSES: Exclude<PromotionRequestStatus, 'PENDING'>[] = [
-  'ACCEPTED',
-  'REJECTED',
-];
+const TERMINAL_STATUSES: Exclude<PromotionRequestStatus, 'PENDING'>[] = ['ACCEPTED', 'REJECTED'];
 const STATUS_LABEL_MAP: Record<Exclude<PromotionRequestStatus, 'PENDING'>, string> = {
   ACCEPTED: '수락',
   REJECTED: '거절',
 };
+
+const noteCls =
+  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function AdminPromotionRequestProcessDialog({
   request,
@@ -29,49 +42,46 @@ export function AdminPromotionRequestProcessDialog({
   onConfirm,
   onCancel,
 }: Props) {
-  const [selectedStatus, setSelectedStatus] =
-    useState<Exclude<PromotionRequestStatus, 'PENDING'>>('ACCEPTED');
+  const [selectedStatus, setSelectedStatus] = useState<Exclude<PromotionRequestStatus, 'PENDING'>>('ACCEPTED');
   const [actionNote, setActionNote] = useState('');
 
   const handleSubmit = () => {
-    const payload: ProcessPromotionRequestPayload = {
-      status: selectedStatus,
-      actionNote: actionNote.trim() || undefined,
-    };
-    onConfirm(payload);
+    onConfirm({ status: selectedStatus, actionNote: actionNote.trim() || undefined });
   };
 
   return (
-    <div
-      role="alertdialog"
-      aria-labelledby="process-promotion-title"
-      aria-describedby="process-promotion-desc"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onCancel();
+      }}
     >
-      <div className="w-full max-w-md space-y-4 rounded-lg bg-white p-6 shadow-xl">
-        <header className="space-y-1">
-          <h2 id="process-promotion-title" className="text-base font-semibold text-slate-900">
-            홍보 요청 처리
-          </h2>
-          <p id="process-promotion-desc" className="text-xs text-slate-500">
-            요청 #<span className="font-medium text-slate-700">{request.id}</span> — {request.title}
-          </p>
-        </header>
+      <DialogContent
+        className="max-w-md"
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>홍보 요청 처리</DialogTitle>
+          <DialogDescription>
+            요청 #<span className="font-medium text-charcoal-2">{request.id}</span> — {request.title}
+          </DialogDescription>
+        </DialogHeader>
 
         <fieldset className="space-y-2">
-          <legend className="text-xs font-medium text-slate-700">처리 결과 선택</legend>
+          <legend className="text-xs font-medium text-charcoal-2">처리 결과 선택</legend>
           <div className="flex gap-4">
             {TERMINAL_STATUSES.map((statusOption) => (
-              <label
-                key={statusOption}
-                className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"
-              >
+              <label key={statusOption} className="flex cursor-pointer items-center gap-2 text-sm text-charcoal">
                 <input
                   type="radio"
                   name="promotionRequestStatus"
                   value={statusOption}
                   checked={selectedStatus === statusOption}
                   onChange={() => setSelectedStatus(statusOption)}
+                  className="accent-ink"
                 />
                 {STATUS_LABEL_MAP[statusOption]}
               </label>
@@ -80,47 +90,41 @@ export function AdminPromotionRequestProcessDialog({
         </fieldset>
 
         <label className="block space-y-1">
-          <span className="text-xs font-medium text-slate-700">처리 메모 (선택)</span>
+          <span className="text-xs font-medium text-charcoal-2">처리 메모 (선택)</span>
           <textarea
             value={actionNote}
             onChange={(event) => setActionNote(event.target.value.slice(0, ACTION_NOTE_MAX))}
             rows={4}
             placeholder="처리 메모를 입력하세요"
-            className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+            className={noteCls}
           />
-          <p className="text-right text-[11px] text-slate-400">
+          <p className="text-right text-[11px] text-charcoal-3">
             {actionNote.length} / {ACTION_NOTE_MAX}
           </p>
         </label>
 
-        {errorMessage && (
-          <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorMessage}</p>
-        )}
+        {errorMessage && <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>}
 
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-            className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-          >
+        <DialogFooter>
+          <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
             취소
           </button>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={isPending}
-            className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50',
+            className={
               selectedStatus === 'ACCEPTED'
-                ? 'bg-emerald-600 hover:bg-emerald-700'
-                : 'bg-rose-600 hover:bg-rose-700',
-            )}
+                ? 'btn btn-primary btn-sm disabled:opacity-50'
+                : 'btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50'
+            }
           >
-            {isPending ? '처리 중…' : `${STATUS_LABEL_MAP[selectedStatus]}으로 처리`}
+            {isPending
+              ? '처리 중…'
+              : `${STATUS_LABEL_MAP[selectedStatus]}${selectedStatus === 'REJECTED' ? '로' : '으로'} 처리`}
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
