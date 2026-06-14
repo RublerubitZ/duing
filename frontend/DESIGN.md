@@ -402,16 +402,25 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 - 풀하이트는 **`min-h-[100dvh]`**(현 `min-h-screen`=100vh는 모바일 크롬에서 잘림). 신규 영역은 `dvh` 사용.
 
 ### Navigation
-모바일 네비는 **shadcn 두잉 셋업의 Sheet/Drawer 로 전 영역 통일**(stone 금지 — `bg-card`·`border-line`·`shadow-3`·스크림 `bg-ink/35`, 열림은 `slide-in-*` 400ms 토큰 재사용).
+모바일 네비는 **하이브리드** — 공개 콘텐츠 탐색은 **하단 탭바(앱형)**, 도구형 콘솔(운영/관리)은 **Sheet 드로어**, 개인영역(`/me`)은 **상단 우측 유저메뉴**. 드로어·시트는 shadcn 두잉 셋업(stone 금지 — `bg-card`·`border-line`·`shadow-3`·스크림 `bg-ink/35`, 열림은 `slide-in-*` 400ms).
+
+**① 하단 탭바 — 공개 콘텐츠 (mobile only, `md:hidden`)**
+- 탭 4개: **홈(`/`) · 탐색(`/clubs`) · 캘린더(`/calendar`) · 공지(`/notices`)** — 모두 공개 라우트(인증 불요)라 게스트도 동일 동작. 3~5개 범위 준수(소개 등은 탭에 넣지 않음).
+- 스타일: `fixed inset-x-0 bottom-0` + `bg-cream/90 backdrop-blur` + 상단 헤어라인 `border-t border-line` + `pb-[env(safe-area-inset-bottom)]`. 활성 `text-ink`(+ ink 도트/언더라인 모티프), 비활성 `text-charcoal-3`. 아이콘은 **thin-stroke 두잉 아이콘**(`@/components/duing/Icon` 확장 — 현재 home/explore/calendar/notice 아이콘 부재, 추가 필요), 라벨 `text-[10~11px]`.
+- 가시성: 4탭 루트 + 그 하위 콘텐츠/상세에 노출. **포커스 플로우(`/apply` 지원서)에서는 숨김.** `md:` 이상은 기존 상단 HomeNav.
+- 콘텐츠는 탭바 높이 + 세이프에어리어만큼 하단 패딩으로 가림 방지. **공개 공지 탭 ≠ 개인 알림 벨**(벨은 상단 우측 유지, 둘을 합치지 않는다).
+
+**② 프로필(`/me`) — 상단 우측 유저메뉴**
+- 하단 탭이 아니라 현 shadcn `UserMenu`(아바타)로 진입. 비로그인 시 그 자리에 **로그인·가입**. (인증 게이팅된 개인영역을 항상보이는 바에서 분리 — X/YouTube 식.)
+
+**③ 도구형 콘솔 — Sheet 드로어 (하단 탭바 없음)**
 
 | 영역 | 패턴 |
 |------|------|
-| 공개(홈/탐색/공지/소개) | 상단 Header 축약(브랜드마크 + 햄버거) → **Sheet 좌측 드로어**(네비 + 로그인/가입) |
-| 지원자 인증(`/me/*`) | 동일 — 상단바 햄버거 → **Sheet 드로어**(하단 탭바 미도입) |
 | 운영진(`/manage/*`) | `ManageShell` 사이드바(248px) → 모바일 상단바 + **Sheet 드로어**(ClubSelector + ManageNav 수용) |
 | 관리자(`/admin/*`) | `AdminSidebar`(`hidden md:block`) 유지 + 상단바 햄버거 → **Sheet 드로어** |
 
-무한 마퀴·과한 스프링 금지(Motion 원칙 준수).
+공개 영역은 하단 탭바가 네비를 대체하므로 **별도 드로어를 두지 않는다**. 무한 마퀴·과한 스프링 금지(Motion 원칙 준수).
 
 ### Dialog vs Sheet
 - 폼·다단 입력·긴 콘텐츠·하단 액션 묶음 → **Bottom Sheet(Drawer)**, 상단만 둥근 `rounded-t-xl`.
