@@ -35,7 +35,7 @@ export function AdminNoticesListPage() {
   const totalPages = listQuery.data?.totalPages ?? 0;
 
   return (
-    <main className="max-w-layout mx-auto px-10 py-10">
+    <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-ink">공지 관리</h1>

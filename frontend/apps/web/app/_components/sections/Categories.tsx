@@ -5,7 +5,7 @@ import { HOME_CATEGORIES, type HomeCategoryMeta } from '@/app/_lib/homeCategorie
 
 export function Categories() {
   return (
-    <section className="px-10 pb-10 pt-24">
+    <section className="px-4 sm:px-6 md:px-10 pb-10 pt-24">
       <div className="max-w-layout mx-auto">
         <div className="mb-9 flex items-end justify-between gap-5">
           <div>

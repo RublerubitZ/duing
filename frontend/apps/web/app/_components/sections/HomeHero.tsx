@@ -14,7 +14,7 @@ const SUGGESTED_QUERIES: ReadonlyArray<string> = [
 export async function HomeHero() {
   const { totalCount, recruitingCount } = await fetchClubStats();
   return (
-    <section className="relative overflow-hidden px-10 pb-8 pt-16">
+    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-8 pt-16">
       <div className="bg-grid absolute inset-0 opacity-50" />
       <div
         className="absolute -right-40 -top-32 h-[520px] w-[520px] rounded-full opacity-70 blur-[8px]"

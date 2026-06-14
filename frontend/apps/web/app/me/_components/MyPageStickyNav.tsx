@@ -17,7 +17,7 @@ type Props = {
 export function MyPageStickyNav({ sections, active, onSelect }: Props) {
   return (
     <div
-      className="sticky z-20 bg-cream border-b border-line px-10"
+      className="sticky z-20 bg-cream border-b border-line px-4 sm:px-6 md:px-10"
       style={{ top: -1, marginTop: -1, boxShadow: '0 -16px 0 var(--cream), 0 1px 0 var(--gray-line)' }}
     >
       {/* breadcrumb row */}

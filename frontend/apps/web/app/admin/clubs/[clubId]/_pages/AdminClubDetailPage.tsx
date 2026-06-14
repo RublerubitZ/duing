@@ -81,7 +81,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
   const hasNoLeader = leaders.length === 0;
 
   return (
-    <main className="max-w-layout mx-auto px-10 py-10">
+    <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6 flex flex-wrap items-center gap-3">
         <Link
           href="/admin/clubs"

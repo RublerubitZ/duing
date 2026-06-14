@@ -6,7 +6,7 @@ import { toRoute } from '../../../../_lib/route';
 
 export function AdminClubCreatePage() {
   return (
-    <main className="max-w-2xl mx-auto px-10 py-10">
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6">
         <Link
           href={toRoute('/admin/clubs')}

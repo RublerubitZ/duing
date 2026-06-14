@@ -33,7 +33,7 @@ const TESTIMONIALS: ReadonlyArray<Testimonial> = [
 
 export function Testimonials() {
   return (
-    <section id="section-4" className="px-10 pb-[120px] pt-20">
+    <section id="section-4" className="px-4 sm:px-6 md:px-10 pb-[120px] pt-20">
       <div className="max-w-layout mx-auto">
         <div className="mb-14 text-center">
           <div className="mb-3.5 text-[13px] font-bold tracking-wide16 text-ink">

@@ -28,7 +28,7 @@ export function SectionSaved({ favorites }: Props) {
     <section
       data-section="saved"
       id="sec-saved"
-      className="px-10 pt-8 pb-[260px] scroll-mt-[60px]"
+      className="px-4 sm:px-6 md:px-10 pt-8 pb-[260px] scroll-mt-[60px]"
     >
       <div className="max-w-layout mx-auto">
         <SectionHeader

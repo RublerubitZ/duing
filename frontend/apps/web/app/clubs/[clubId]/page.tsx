@@ -37,7 +37,7 @@ export default function ClubDetailPage({
         recruitmentDisplayStatus={club.activeRecruitment?.displayStatus}
       />
 
-      <section className="bg-cream px-10 pb-16">
+      <section className="bg-cream px-4 sm:px-6 md:px-10 pb-16">
         <div className="max-w-layout mx-auto grid grid-cols-[1fr_380px] gap-12">
           <div>
             <div className="mb-8">

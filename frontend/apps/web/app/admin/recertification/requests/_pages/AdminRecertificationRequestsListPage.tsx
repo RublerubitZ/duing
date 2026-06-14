@@ -52,7 +52,7 @@ export function AdminRecertificationRequestsListPage() {
   };
 
   return (
-    <main className="max-w-layout mx-auto px-10 py-10">
+    <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6">
         <h1 className="text-[22px] font-bold text-ink">재인증 요청 관리</h1>
         <p className="mt-1 text-[13.5px] text-charcoal-2">

@@ -25,7 +25,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   return (
     <>
       <div className="border-b border-line bg-cream">
-        <div className="max-w-layout mx-auto px-10 py-4 text-[12.5px] text-charcoal-3">
+        <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-4 text-[12.5px] text-charcoal-3">
           동아리 탐색 / <span>{categoryLabel}</span> /{' '}
           <span className="font-semibold text-ink">{club.name}</span>
         </div>
@@ -48,7 +48,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             />
           </>
         )}
-        <div className="relative max-w-layout mx-auto px-10 py-9">
+        <div className="relative max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-9">
           <div className="flex flex-col items-start gap-6 md:flex-row">
               <div
                 className="relative grid h-[140px] w-[140px] shrink-0 place-items-center overflow-hidden rounded-[28px] text-white shadow-2"

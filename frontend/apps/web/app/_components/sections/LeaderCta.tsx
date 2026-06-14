@@ -4,7 +4,7 @@ import { RegisterClubButton } from './RegisterClubButton';
 
 export function LeaderCta() {
   return (
-    <section className="px-10 pb-6 pt-20">
+    <section className="px-4 sm:px-6 md:px-10 pb-6 pt-20">
       <div className="max-w-layout relative mx-auto grid items-center gap-8 overflow-hidden rounded-xl bg-sage-mist px-14 py-11 md:grid-cols-[1fr_auto]">
         <SparkleFull
           size={48}
