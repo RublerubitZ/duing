@@ -1,8 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { cn } from '../../../_lib/cn';
+
 import type { AdminClubSummary } from '@duing/types';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 type Props = {
   club: AdminClubSummary;
@@ -13,6 +22,9 @@ type Props = {
 };
 
 const REASON_MAX = 500;
+
+const fieldCls =
+  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm, onCancel }: Props) {
   const [nameInput, setNameInput] = useState('');
@@ -28,74 +40,74 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
   };
 
   return (
-    <div
-      role="alertdialog"
-      aria-labelledby="club-delete-title"
-      aria-describedby="club-delete-desc"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onCancel();
+      }}
     >
-      <div className="w-full max-w-md space-y-4 rounded-lg bg-white p-6 shadow-xl">
-        <header className="space-y-1">
-          <h2 id="club-delete-title" className="text-base font-semibold text-slate-900">동아리 폐쇄</h2>
-          <p className="text-xs text-slate-500">
-            <span className="font-medium text-slate-700">{club.name}</span> 을(를) 폐쇄합니다.
-          </p>
-        </header>
+      <DialogContent
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>동아리 폐쇄</DialogTitle>
+          <DialogDescription>
+            <span className="font-medium text-charcoal-2">{club.name}</span> 을(를) 폐쇄합니다.
+          </DialogDescription>
+        </DialogHeader>
 
-        <div id="club-delete-desc" className="space-y-2 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div className="space-y-2 rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">
           <p className="font-semibold">되돌릴 수 없습니다.</p>
           <p className="text-xs">멤버십·진행 중인 모집·지원·면접·인증 요청·홍보가 모두 종료되고, 동아리가 모든 화면에서 사라집니다.</p>
         </div>
 
         <label className="block space-y-1">
-          <span className="text-xs font-medium text-slate-700">동아리명 입력 확인</span>
+          <span className="text-xs font-medium text-charcoal-2">동아리명 입력 확인</span>
           <input
             type="text"
             aria-label="동아리명 입력 확인"
             value={nameInput}
             onChange={(event) => setNameInput(event.target.value)}
             placeholder={club.name}
-            className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+            className={fieldCls}
           />
-          <span className="text-[11px] text-slate-400">폐쇄하려면 동아리명을 정확히 입력하세요.</span>
+          <span className="text-[11px] text-charcoal-3">폐쇄하려면 동아리명을 정확히 입력하세요.</span>
         </label>
 
         <label className="block space-y-1">
-          <span className="text-xs font-medium text-slate-700">폐쇄 사유 (선택)</span>
+          <span className="text-xs font-medium text-charcoal-2">폐쇄 사유 (선택)</span>
           <textarea
             aria-label="폐쇄 사유 (선택)"
             value={reason}
             onChange={(event) => setReason(event.target.value.slice(0, REASON_MAX))}
             rows={3}
             placeholder="폐쇄 사유를 입력하세요 (선택)"
-            className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+            className={fieldCls}
           />
-          <span className="block text-right text-[11px] text-slate-400">{reason.length} / {REASON_MAX}</span>
+          <span className="block text-right text-[11px] text-charcoal-3">{reason.length} / {REASON_MAX}</span>
         </label>
 
         {errorMessage && (
-          <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorMessage}</p>
+          <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-            className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-          >
+        <DialogFooter>
+          <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
             취소
           </button>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={submitDisabled}
-            className={cn('rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50', 'bg-rose-600 hover:bg-rose-700')}
+            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
             {isPending ? '처리 중…' : '폐쇄'}
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
