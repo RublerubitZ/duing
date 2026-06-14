@@ -86,7 +86,7 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
       )}
       {slide.emoji && (
         <div
-          className="pointer-events-none absolute -right-2.5 -top-5 text-[220px] leading-none opacity-[0.18]"
+          className="pointer-events-none absolute -right-2.5 -top-5 text-[110px] leading-none opacity-[0.18] sm:text-[160px] md:text-[220px]"
           style={{ transform: 'rotate(-12deg)' }}
         >
           {slide.emoji}
