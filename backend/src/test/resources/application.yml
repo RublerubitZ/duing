@@ -47,3 +47,7 @@ duing:
   notification:
     jobs:
       enabled: false
+  privacy:
+    retention:
+      enabled: false
+      window: P1Y

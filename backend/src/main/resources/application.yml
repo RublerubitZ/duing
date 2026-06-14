@@ -66,6 +66,11 @@ duing:
   notification:
     jobs:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:false}
+  privacy:
+    retention:
+      # PII 보관기간 파기 잡. 기본 비활성 — 보관기간(window)은 법무/내부 방침 확정 후 운영에서 활성화한다.
+      enabled: ${DUING_PII_RETENTION_ENABLED:false}
+      window: ${DUING_PII_RETENTION_WINDOW:P1Y}
 
 logging:
   level:
