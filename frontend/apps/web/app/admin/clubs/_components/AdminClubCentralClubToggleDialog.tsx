@@ -1,5 +1,14 @@
 'use client';
 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+
 type Props = {
   clubName: string | null;
   currentValue: boolean;
@@ -19,41 +28,46 @@ export function AdminClubCentralClubToggleDialog({
 }: Props) {
   if (clubName === null) return null;
   const action = currentValue ? '해제' : '지정';
+
   return (
-    <div
-      role="alertdialog"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onCancel();
+      }}
     >
-      <div className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-xl">
-        <header>
-          <h2 className="text-base font-semibold text-slate-900">중앙동아리 {action}</h2>
-        </header>
-        <p className="text-sm text-slate-600">
-          <span className="font-medium text-slate-800">{clubName}</span> 을(를) 중앙동아리로{' '}
-          {action}하시겠습니까?
-        </p>
+      <DialogContent
+        className="max-w-sm"
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>중앙동아리 {action}</DialogTitle>
+          <DialogDescription>
+            <span className="font-medium text-charcoal-2">{clubName}</span> 을(를) 중앙동아리로 {action}하시겠습니까?
+          </DialogDescription>
+        </DialogHeader>
+
         {errorMessage && (
-          <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorMessage}</p>
+          <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
         )}
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-            className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-          >
+
+        <DialogFooter>
+          <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
             취소
           </button>
           <button
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            className="btn btn-primary btn-sm disabled:opacity-50"
           >
             {isPending ? '처리 중…' : '확인'}
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
