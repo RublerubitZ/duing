@@ -79,8 +79,9 @@ describe('NoticeDetailPage (재설계)', () => {
       eventInfo: { startAt: '2026-09-25T10:00:00', endAt: '2026-09-27T18:00:00', location: '중앙광장', host: '학생자치회', audience: '재학생' },
     })));
     const withEvent = render(<NoticeDetailPage />);
-    expect(screen.getByText('한눈에 보기')).toBeInTheDocument();
-    expect(screen.getByText('중앙광장')).toBeInTheDocument();
+    // 모바일 요약(NoticeEventSummary)·데스크탑 카드(NoticeEventCard)가 둘 다 DOM 에 있어(CSS 로만 분기) 2개씩.
+    expect(screen.getAllByText('한눈에 보기').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('중앙광장').length).toBeGreaterThan(0);
     withEvent.unmount();
 
     mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({ eventInfo: null })));

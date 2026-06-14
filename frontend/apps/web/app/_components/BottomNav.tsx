@@ -22,8 +22,8 @@ const TABS = [
 // 현재 경로가 어느 탭에 속하는지 — 홈은 정확히, 나머지는 prefix(상세/하위 포함). 탭 밖이면 null.
 function matchTabHref(pathname: string): string | null {
   if (pathname === '/') return '/';
-  // 동아리 상세(/clubs/{id})는 자체 하단 지원 바를 노출하는 포커스 뷰라 탭바를 숨긴다.
-  if (/^\/clubs\/\d+$/.test(pathname)) return null;
+  // 동아리·공지 상세(/clubs/{id}, /notices/{id})는 자체 상단 액션바를 쓰는 포커스 뷰라 탭바를 숨긴다.
+  if (/^\/(clubs|notices)\/\d+$/.test(pathname)) return null;
   const matched = TABS.find(
     (tab) => tab.href !== '/' && (pathname === tab.href || pathname.startsWith(`${tab.href}/`)),
   );

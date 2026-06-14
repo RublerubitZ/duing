@@ -34,4 +34,12 @@ describe('ExploreNav — 동아리 상세 모바일 숨김', () => {
     render(<ExploreNav slimOnMobile />);
     expect(screen.getByRole('banner')).not.toHaveClass('hidden');
   });
+
+  it('공지 상세(/notices/123)에서도 모바일에서 브랜드 바를 숨긴다', () => {
+    mockUsePathname.mockReturnValue('/notices/123');
+    render(<ExploreNav active="공지" slimOnMobile />);
+    const banner = screen.getByRole('banner');
+    expect(banner).toHaveClass('hidden');
+    expect(banner).toHaveClass('md:block');
+  });
 });
