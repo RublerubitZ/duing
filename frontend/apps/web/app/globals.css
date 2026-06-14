@@ -186,6 +186,42 @@ body {
     align-self: flex-start;
     transform: translateY(-2px);
   }
+
+  /* /me/applications ApplyRow — 데스크탑 1행 5칸, 모바일 2행 카드(헤더[로고·정보·배지] + 타임라인 풀폭) */
+  .apply-row {
+    display: grid;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 14px;
+    grid-template-columns: 50px 1fr auto;
+    grid-template-areas:
+      'logo info status'
+      'timeline timeline timeline';
+  }
+  .apply-row > .ar-logo {
+    grid-area: logo;
+  }
+  .apply-row > .ar-info {
+    grid-area: info;
+    min-width: 0;
+  }
+  .apply-row > .ar-timeline {
+    grid-area: timeline;
+  }
+  .apply-row > .ar-status {
+    grid-area: status;
+  }
+  .apply-row > .ar-arrow {
+    grid-area: arrow;
+  }
+  @media (min-width: 768px) {
+    .apply-row {
+      column-gap: 10px;
+      row-gap: 0;
+      grid-template-columns: 50px 1fr 220px 108px 12px;
+      grid-template-areas: 'logo info timeline status arrow';
+    }
+  }
 }
 
 /* ===== Introduce page animations ===== */

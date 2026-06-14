@@ -163,13 +163,10 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
       <ApplyTopTabs active={selected} onToggle={toggleFilter} counts={counts} />
 
       <section style={{ padding: `16px ${PAGE_PAD} 40px` }}>
-        <div style={{
-          maxWidth: PAGE_MAX, margin: '0 auto',
-          display: 'grid',
-          gridTemplateColumns: '1fr 200px',
-          gap: 16,
-          alignItems: 'start',
-        }}>
+        <div
+          className="mx-auto grid grid-cols-1 items-start gap-4 md:grid-cols-[1fr_200px]"
+          style={{ maxWidth: PAGE_MAX }}
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {isLoading ? (
               <div style={{
@@ -220,10 +217,8 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
             </div>
           </div>
 
-          <aside style={{
-            position: 'sticky', top: 16,
-            display: 'flex', flexDirection: 'column', gap: 12,
-          }}>
+          {/* 요약·단계 필터 사이드바 — 데스크탑 전용. 모바일은 상단 ApplyTopTabs 가 필터를 제공한다. */}
+          <aside className="sticky top-4 hidden flex-col gap-3 md:flex">
             <ApplySummaryCard counts={counts} />
             <StageFilterCard checked={selected} onToggle={toggleFilter} counts={counts} />
           </aside>
