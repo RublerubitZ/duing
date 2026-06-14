@@ -83,12 +83,11 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
           </p>
         )}
 
-        {/* 지원 버튼: 데스크탑(md+)에서만. 모바일은 하단 고정 지원 바(ClubDetailApplyBar)가 대신한다. */}
         <button
           type="button"
           onClick={handleApply}
           disabled={!canApply}
-          className="btn btn-primary btn-big mb-2.5 hidden w-full disabled:cursor-not-allowed disabled:opacity-40 md:inline-flex"
+          className="btn btn-primary btn-big mb-2.5 w-full disabled:cursor-not-allowed disabled:opacity-40"
         >
           {applyButtonLabel}
         </button>

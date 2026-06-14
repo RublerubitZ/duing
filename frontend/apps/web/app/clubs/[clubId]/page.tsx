@@ -10,6 +10,7 @@ import { ClubDetailHero } from './_components/ClubDetailHero';
 import { ClubDetailStats } from './_components/ClubDetailStats';
 import { ClubDetailTabs } from './_components/ClubDetailTabs';
 import { ClubRecruitmentCard } from './_components/ClubRecruitmentCard';
+import { ClubRecruitmentSummary } from './_components/ClubRecruitmentSummary';
 
 export default function ClubDetailPage({
   params,
@@ -44,11 +45,18 @@ export default function ClubDetailPage({
             <div className="mb-8">
               <ClubDetailStats club={club} />
             </div>
+            {/* 모바일 전용 모집 요약 — 탭 위. 데스크탑은 우측 사이드바 풀 카드를 쓴다. */}
+            <div className="mb-6 md:hidden">
+              <ClubRecruitmentSummary recruitment={club.activeRecruitment ?? undefined} />
+            </div>
             <ClubDetailTabs club={club} photos={photos.data ?? []} />
           </div>
 
           <div className="space-y-4">
-            <ClubRecruitmentCard recruitment={club.activeRecruitment ?? undefined} clubId={clubId} />
+            {/* 풀 모집 카드는 데스크탑/태블릿 전용. 모바일은 위 요약 + 하단 지원 바로 대체. */}
+            <div className="hidden md:block">
+              <ClubRecruitmentCard recruitment={club.activeRecruitment ?? undefined} clubId={clubId} />
+            </div>
             <ClubContactCard
               snsLinks={club.snsLinks}
               location={club.location}
