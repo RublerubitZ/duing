@@ -152,6 +152,7 @@ public class GeneralNoticeService implements NoticeService {
                 null, null, null, null, null /* event */, NoticeContentFormat.MARKDOWN,
                 command.authorId()
         ));
+        saved.assignOwningClub(command.clubId());
         persistTargetClubs(saved.getId(), List.of(command.clubId()));
         broadcaster.publish(saved, List.of(command.clubId()));
         return saved.getId();
@@ -162,9 +163,13 @@ public class GeneralNoticeService implements NoticeService {
     public void updateForClub(UpdateClubNoticeCommand command) {
         Notice found = noticeRepository.findById(command.noticeId())
                 .orElseThrow(NoticeException.NoticeNotFoundException::new);
-        boolean belongsToClub = targetClubRepository.findAllByIdNoticeId(found.getId())
+        // 클럽이 작성했고(owning_club_id) 현재도 그 클럽을 대상으로 하는 공지만 그 클럽 운영진이
+        // 수정할 수 있다. owning_club_id 로 관리자 브로드캐스트(NULL)·타 클럽 소유 공지를 차단하고,
+        // 대상 재검증으로 관리자가 대상을 다른 클럽으로 옮긴 공지에 대한 잔존 권한도 막는다.
+        boolean owned = found.getOwningClubId() != null && found.getOwningClubId().equals(command.clubId());
+        boolean stillTargetsClub = targetClubRepository.findAllByIdNoticeId(found.getId())
                 .stream().anyMatch(targetClub -> targetClub.getClubId().equals(command.clubId()));
-        if (!belongsToClub) {
+        if (!owned || !stillTargetsClub) {
             throw new NoticeException.NoticeAccessDeniedException();
         }
         if (command.coverImageUrl() != null && !command.coverImageUrl().isBlank()) {
@@ -181,9 +186,11 @@ public class GeneralNoticeService implements NoticeService {
     public void deleteForClub(Long clubId, Long noticeId) {
         Notice found = noticeRepository.findById(noticeId)
                 .orElseThrow(NoticeException.NoticeNotFoundException::new);
-        boolean belongsToClub = targetClubRepository.findAllByIdNoticeId(found.getId())
+        // 클럽이 작성했고(owning_club_id) 현재도 그 클럽을 대상으로 하는 공지만 삭제할 수 있다.
+        boolean owned = found.getOwningClubId() != null && found.getOwningClubId().equals(clubId);
+        boolean stillTargetsClub = targetClubRepository.findAllByIdNoticeId(found.getId())
                 .stream().anyMatch(targetClub -> targetClub.getClubId().equals(clubId));
-        if (!belongsToClub) {
+        if (!owned || !stillTargetsClub) {
             throw new NoticeException.NoticeAccessDeniedException();
         }
         noticeRepository.delete(found);

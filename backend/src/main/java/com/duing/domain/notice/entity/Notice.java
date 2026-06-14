@@ -59,6 +59,10 @@ public class Notice extends BaseEntity {
     @Column(name = "content_format", nullable = false, length = 20)
     private NoticeContentFormat contentFormat = NoticeContentFormat.MARKDOWN;
 
+    // 클럽이 작성한 공지의 소유 클럽. createForClub 에서만 설정되며, 관리자 작성 공지는 NULL.
+    @Column(name = "owning_club_id")
+    private Long owningClubId;
+
     public List<String> getTags() {
         return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
     }
@@ -203,6 +207,11 @@ public class Notice extends BaseEntity {
         if (coverImageUrl != null) this.coverImageUrl = coverImageUrl;
         if (pinned != null) this.pinned = pinned;
         if (expiresAt != null) this.expiresAt = expiresAt;
+    }
+
+    /** 클럽이 작성한 공지의 소유 클럽을 지정한다(createForClub 전용). 관리자 작성 공지는 호출하지 않아 NULL 로 둔다. */
+    public void assignOwningClub(Long clubId) {
+        this.owningClubId = clubId;
     }
 
     private static void validateScope(NoticeVisibility visibility, NoticeClubScopeRole clubScopeRole) {
