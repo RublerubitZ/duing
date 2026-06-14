@@ -63,6 +63,20 @@ class S3FileStorageServiceTest {
     }
 
     @Test
+    @DisplayName("저장 객체에 Content-Disposition=inline 과 영구 Cache-Control 이 설정된다")
+    void uploadSetsContentDispositionAndCacheControl() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "p.png", "image/png", new byte[]{1});
+
+        service.upload(file, "club/logo", "image/png");
+
+        ArgumentCaptor<PutObjectRequest> captor = ArgumentCaptor.forClass(PutObjectRequest.class);
+        verify(s3Client).putObject(captor.capture(), any(RequestBody.class));
+        assertThat(captor.getValue().contentDisposition()).isEqualTo("inline");
+        assertThat(captor.getValue().cacheControl()).isEqualTo("public, max-age=31536000, immutable");
+    }
+
+    @Test
     @DisplayName("저장 확장자는 클라이언트 파일명이 아니라 검증된 Content-Type 에서 도출된다")
     void uploadDerivesExtensionFromContentTypeNotFilename() {
         // 파일명은 .png 지만 검증된 타입이 image/jpeg 이면 저장 키는 .jpg 가 된다.

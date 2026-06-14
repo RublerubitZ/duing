@@ -34,8 +34,10 @@ public class ClubMemberException extends ApplicationException {
     }
 
     public static final class NotAMember extends ClubMemberException {
+        private static final String MESSAGE = "해당 동아리의 멤버가 아닙니다.";
+
         public NotAMember() {
-            super("해당 동아리의 멤버가 아닙니다.", HttpStatus.FORBIDDEN);
+            super(MESSAGE, HttpStatus.FORBIDDEN);
         }
     }
 

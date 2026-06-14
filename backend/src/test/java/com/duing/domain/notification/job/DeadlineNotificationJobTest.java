@@ -133,6 +133,28 @@ class DeadlineNotificationJobTest extends IntegrationTestBase {
         assertThat(hasOpenedKey).isTrue();
     }
 
+    @Test
+    @DisplayName("soft-delete 된 동아리의 OPEN 모집은 마감 알림 후보에서 제외된다")
+    void softDeletedClubRecruitmentIsExcluded() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+
+        User favoringUser = saveStudent("찜유저E");
+        Club club = saveActiveClub("삭제예정동아리");
+        saveFavorite(favoringUser, club);
+        saveOpenRecruitment(club, "삭제동아리모집", today.minusDays(5), today.plusDays(3)); // D-3 후보
+
+        // 클로저 cascade 를 거치지 않고 동아리만 soft-delete 한다(@SQLDelete 로 deleted_at 설정).
+        // 모집 행은 OPEN·미삭제로 남으므로, 클럽 soft-delete 만으로 후보에서 빠지는지를 검증한다.
+        clubRepository.delete(club);
+
+        long beforeCount = notificationRepository.count();
+        job.run();
+        long createdCount = notificationRepository.count() - beforeCount;
+
+        // native query 가 c.deleted_at IS NULL 로 걸러 알림이 생성되지 않아야 한다.
+        assertThat(createdCount).isZero();
+    }
+
     private User saveStudent(String name) {
         long unique = sequence.getAndIncrement();
         User user = User.create(

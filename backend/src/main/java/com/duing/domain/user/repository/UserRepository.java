@@ -2,11 +2,13 @@ package com.duing.domain.user.repository;
 
 import com.duing.domain.user.entity.User;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -48,4 +50,23 @@ public interface UserRepository extends JpaRepository<User, Long> {
                OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%'))
             """)
     Page<User> searchForAdmin(@Param("q") String q, Pageable pageable);
+
+    /**
+     * 보관기간(cutoff)을 넘겨 soft-delete 된 사용자의 PII 컬럼을 비식별화한다(이미 익명화된 행은 제외 — 멱등).
+     * email/student_id 는 partial unique 보존을 위해 id 파생값으로, phone 은 CHECK 제약을 만족하는
+     * placeholder('010-0000-0000')로 둔다. 대상이 soft-delete 행이라 @SQLRestriction 을 우회하려 nativeQuery.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query(value = """
+            UPDATE users SET
+                student_id = LEFT(CONCAT('anon_', id), 20),
+                name = '탈퇴회원',
+                email = CONCAT('deleted+', id, '@anonymized.invalid'),
+                password_hash = '',
+                major = '',
+                phone = '010-0000-0000',
+                anonymized_at = NOW()
+            WHERE deleted_at < :cutoff AND anonymized_at IS NULL
+            """, nativeQuery = true)
+    int anonymizeExpiredUsers(@Param("cutoff") LocalDateTime cutoff);
 }

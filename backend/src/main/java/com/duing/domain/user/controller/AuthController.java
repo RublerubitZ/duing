@@ -65,8 +65,10 @@ public class AuthController implements AuthApi {
 
     @Override
     public ResponseEntity<ApiResponse<Void>> confirmEmailVerification(
-            @Valid @RequestBody ConfirmEmailVerificationRequest confirmRequest) {
-        emailVerificationService.confirmCode(confirmRequest.toCommand());
+            @Valid @RequestBody ConfirmEmailVerificationRequest confirmRequest,
+            HttpServletRequest httpServletRequest) {
+        String clientIp = httpServletRequest.getRemoteAddr();
+        emailVerificationService.confirmCode(confirmRequest.toCommand(), clientIp);
         return ResponseEntity.ok(ApiResponse.success());
     }
 

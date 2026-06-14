@@ -96,6 +96,21 @@ class S3FileStorageIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("실제 MinIO 에 업로드된 객체의 Content-Disposition 이 inline, Cache-Control 이 immutable 로 저장된다")
+    void uploadStoresInlineDispositionAndCacheControl() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "p.png", "image/png", new byte[]{1, 2, 3});
+
+        String url = service.upload(file, "club/logo", "image/png");
+        String key = url.substring((MINIO.getS3URL() + "/duing-test/").length());
+
+        var head = s3Client.headObject(HeadObjectRequest.builder()
+                .bucket("duing-test").key(key).build());
+        assertThat(head.contentDisposition()).isEqualTo("inline");
+        assertThat(head.cacheControl()).isEqualTo("public, max-age=31536000, immutable");
+    }
+
+    @Test
     @DisplayName("동일 directory 에 두 번 업로드해도 UUID 가 다르므로 충돌하지 않는다")
     void uploadsToSameDirectoryDoNotCollide() {
         MockMultipartFile file1 = new MockMultipartFile(
