@@ -40,13 +40,17 @@ export function ClubDetailTabs({ club, photos }: Props) {
 
   return (
     <Tabs defaultValue={firstTab.key}>
-      <TabsList className="mb-8">
-        {tabs.map((tab) => (
-          <TabsTrigger key={tab.key} value={tab.key}>
-            {tab.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      {/* 모바일에서 탭이 넘치면 가로 스크롤 — 래퍼가 overflow 를 맡아 활성 탭 언더라인(-mb)의 세로 클립을 막는다.
+          TabsList 는 w-max+min-w-full 로 평소엔 전체폭 레일, 넘칠 때만 콘텐츠폭. 데스크탑(md+)은 기존 그대로. */}
+      <div className="mb-8 overflow-x-auto pb-px md:overflow-visible md:pb-0">
+        <TabsList className="w-max min-w-full gap-5 md:gap-8">
+          {tabs.map((tab) => (
+            <TabsTrigger key={tab.key} value={tab.key} className="shrink-0">
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
 
       {hasIntro && (
         <TabsContent value="intro">

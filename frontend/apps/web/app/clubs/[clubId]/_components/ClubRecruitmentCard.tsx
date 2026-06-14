@@ -62,7 +62,7 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
 
   return (
     <aside className="space-y-4">
-      <div className="sticky top-6 rounded-[24px] border border-line bg-paper p-7 shadow-2">
+      <div className="lg:sticky lg:top-6 rounded-[24px] border border-line bg-paper p-7 shadow-2">
         <div className="mb-3 text-xs font-bold tracking-wide06 text-ink">
           {header}
         </div>

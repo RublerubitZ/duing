@@ -38,7 +38,7 @@ export default function ClubDetailPage({
       />
 
       <section className="bg-cream px-4 sm:px-6 md:px-10 pb-16">
-        <div className="max-w-layout mx-auto grid grid-cols-[1fr_380px] gap-12">
+        <div className="max-w-layout mx-auto grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px] lg:gap-12">
           <div>
             <div className="mb-8">
               <ClubDetailStats club={club} />
