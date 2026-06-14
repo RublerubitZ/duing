@@ -12,6 +12,14 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.notice.entity.Notice;
+import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.domain.notice.entity.NoticeClubScopeRole;
+import com.duing.domain.notice.entity.NoticeContentFormat;
+import com.duing.domain.notice.entity.NoticeTargetClub;
+import com.duing.domain.notice.entity.NoticeVisibility;
+import com.duing.domain.notice.repository.NoticeRepository;
+import com.duing.domain.notice.repository.NoticeTargetClubRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -21,6 +29,7 @@ import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +52,8 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired NoticeRepository noticeRepository;
+    @Autowired NoticeTargetClubRepository targetClubRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -176,5 +187,31 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
                 .body("data.content[0].title", equalTo("고정 공지"))
                 .body("data.content[1].title", equalTo("최신 공지"))
                 .body("data.content[2].title", equalTo("오래된 공지"));
+    }
+
+    @Test
+    @DisplayName("관리자가 작성한(소유 클럽 없는) 공지는 대상 클럽 LEADER 도 수정·삭제할 수 없다 (작성자 경계)")
+    void leaderCannotMutateAdminAuthoredNotice() {
+        // owning_club_id 없이(=createForClub 가 아닌 관리자 경로) 생성하고 대상에 이 클럽을 포함시킨다.
+        // 과거 anyMatch(target==clubId) 가드는 통과시켰지만, owning_club_id 검증은 거부해야 한다.
+        Long authorId = saveUser().getId();
+        Notice adminNotice = noticeRepository.save(Notice.create(
+                "관리자 공지", "요약", "본문", "https://example.com/c.png", null,
+                NoticeCategory.GENERAL, List.of(), NoticeVisibility.CLUB_SCOPED,
+                NoticeClubScopeRole.ALL_MEMBERS, false, null, false,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
+        targetClubRepository.save(new NoticeTargetClub(adminNotice.getId(), clubId));
+        Long noticeId = adminNotice.getId();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON).body(Map.of("title", "변조 시도"))
+                .when().patch("/api/v1/clubs/" + clubId + "/notices/" + noticeId)
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/clubs/" + clubId + "/notices/" + noticeId)
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
     }
 }
