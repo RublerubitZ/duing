@@ -13,7 +13,7 @@ export function ClubDetailPhotos({ photos }: Props) {
       <h3 className="mb-4 text-lg font-bold text-ink-deep">
         활동 사진 · {photos.length}장
       </h3>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {visible.map((photo, index) => {
           const isLast = index === visible.length - 1;
           const showOverlay = isLast && remainder > 0;
