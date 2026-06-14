@@ -192,6 +192,63 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("logoUrl 이 javascript 스킴이면 400 을 반환한다")
+    void rejectsJavascriptSchemeLogoUrl() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("logoUrl", "javascript:alert(1)"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("coverUrl 이 프로토콜 상대경로(//)면 400 을 반환한다")
+    void rejectsProtocolRelativeCoverUrl() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("coverUrl", "//evil.com/x.png"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("logoUrl 이 역슬래시(/\\)로 시작하면 400 을 반환한다")
+    void rejectsBackslashLogoUrl() {
+        // 브라우저가 `\` 를 `/` 로 정규화해 `//evil` 로 해석하므로 프로토콜 상대경로와 동일하게 차단한다.
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("logoUrl", "/\\evil.com/x.png"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("logoUrl 이 / 로 시작하는 내부 경로면 200 으로 허용된다")
+    void allowsRelativeInternalLogoUrl() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("logoUrl", "/files/club/logo.png"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value());
+    }
+
+    @Test
     @DisplayName("tags 가 21개면 400 을 반환한다")
     void tooManyTagsReturns400() {
         String[] tooMany = new String[21];

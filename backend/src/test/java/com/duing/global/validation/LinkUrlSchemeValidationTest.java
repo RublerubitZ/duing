@@ -2,6 +2,8 @@ package com.duing.global.validation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.duing.domain.club.controller.dto.request.CreateClubRequest;
+import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.notice.controller.dto.request.CreateNoticeRequest;
 import com.duing.domain.notice.controller.dto.request.UpdateNoticeRequest;
 import com.duing.domain.promotion.controller.dto.request.CreatePromotionRequest;
@@ -100,6 +102,19 @@ class LinkUrlSchemeValidationTest {
     }
 
     @Test
+    @DisplayName("CreateClubRequest: logoUrl 은 javascript:/data://-/\\ 를 거부하고 http(s)/내부경로(/files)/빈값/null 은 허용한다")
+    void clubCreateLogoUrlScheme() {
+        assertThat(hasViolationOn(validator.validate(clubCreate(JAVASCRIPT_URL)), "logoUrl")).isTrue();
+        assertThat(hasViolationOn(validator.validate(clubCreate("data:text/html,<script>")), "logoUrl")).isTrue();
+        assertThat(hasViolationOn(validator.validate(clubCreate("//evil.com/x.png")), "logoUrl")).isTrue();
+        assertThat(hasViolationOn(validator.validate(clubCreate("/\\evil.com/x.png")), "logoUrl")).isTrue();
+        assertThat(hasViolationOn(validator.validate(clubCreate("https://files.duings.com/logo.png")), "logoUrl")).isFalse();
+        assertThat(hasViolationOn(validator.validate(clubCreate("/files/club/logo.png")), "logoUrl")).isFalse();
+        assertThat(hasViolationOn(validator.validate(clubCreate("")), "logoUrl")).isFalse();
+        assertThat(hasViolationOn(validator.validate(clubCreate(null)), "logoUrl")).isFalse();
+    }
+
+    @Test
     @DisplayName("링크 스킴 검증은 data:/vbscript:/ftp: 등 비-http 스킴도 거부한다")
     void rejectsOtherDangerousSchemes() {
         assertThat(hasViolationOn(validator.validate(noticeCreate("data:text/html,<script>alert(1)</script>")), "linkUrl")).isTrue();
@@ -109,6 +124,10 @@ class LinkUrlSchemeValidationTest {
 
     private static <T> boolean hasViolationOn(Set<ConstraintViolation<T>> violations, String field) {
         return violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals(field));
+    }
+
+    private static CreateClubRequest clubCreate(String logoUrl) {
+        return new CreateClubRequest("동아리", ClubCategory.OTHER, "분과", "설명", logoUrl, 1L, false, null);
     }
 
     private static CreateNoticeRequest noticeCreate(String linkUrl) {

@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.DayOfWeek;
 import java.util.List;
@@ -25,10 +26,15 @@ public record UpdateClubRequest(
 
         String description,
 
+        // http(s) 절대 URL 또는 `/files/...` 내부 경로만 허용 — javascript:/data: 스킴과 // 차단(저장형 XSS 방어).
         @Size(max = 500, message = "로고 URL은 500자 이하여야 합니다.")
+        @Pattern(regexp = "^$|^https?://.+$|^/[^/\\\\].*$",
+                message = "로고 URL은 http:// 또는 https:// 로 시작하거나 / 로 시작하는 내부 경로여야 합니다.")
         String logoUrl,
 
         @Size(max = 500, message = "커버 URL은 500자 이하여야 합니다.")
+        @Pattern(regexp = "^$|^https?://.+$|^/[^/\\\\].*$",
+                message = "커버 URL은 http:// 또는 https:// 로 시작하거나 / 로 시작하는 내부 경로여야 합니다.")
         String coverUrl,
 
         @Size(max = 20, message = "태그는 최대 20개까지 가능합니다.")

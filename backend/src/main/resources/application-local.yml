@@ -20,3 +20,9 @@ file:
     # LocalFileStorageService 가 반환하는 storageKey 의 절대 URL prefix.
     # 비워두면 상대 경로(`/files/...`) 로 폴백 (Next.js dev 에선 동작 안 함).
     base-url: ${FILE_LOCAL_BASE_URL:http://localhost:8080}
+
+# 로컬 개발에서만 SQL/바인드 파라미터를 상세 로깅한다(공통 base 는 warn). bind 는 PII 를 포함하므로 local 전용.
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace

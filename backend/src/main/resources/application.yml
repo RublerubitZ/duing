@@ -67,7 +67,10 @@ duing:
     jobs:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:false}
 
+# 기본은 안전값(warn). bind 파라미터 로깅(org.hibernate.orm.jdbc.bind=trace)은 이메일·인증코드·학번 등
+# PII 를 평문으로 남기므로 base 를 warn 으로 둔다. local 프로파일만 개발 편의로 trace 를 다시 켜고
+# (application-local.yml), 운영은 warn(application-prod.yml). 그 외/오설정 프로파일은 base warn 으로 안전하다.
 logging:
   level:
-    org.hibernate.SQL: debug
-    org.hibernate.orm.jdbc.bind: trace
+    org.hibernate.SQL: warn
+    org.hibernate.orm.jdbc.bind: warn
