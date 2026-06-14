@@ -67,7 +67,7 @@ export function ApplyForm({ recruitment, recruitmentId, initialAnswers }: Props)
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-dvh"
       style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
     >
       <main className="mx-auto max-w-[760px] px-8 pb-24 pt-16">

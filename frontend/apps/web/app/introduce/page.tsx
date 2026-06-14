@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function IntroducePage() {
   return (
-    <div className="duing min-h-screen" style={{ background: '#f3efe4' }}>
+    <div className="duing min-h-dvh" style={{ background: '#f3efe4' }}>
       <HomeNav />
       <Hero />
       <Stats />

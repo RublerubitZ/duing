@@ -399,7 +399,7 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 ### Safe Area
 - `app/layout.tsx` viewport: `viewport-fit=cover`, `width=device-width, initial-scale=1`, `themeColor:'#F6F3EC'`(cream), `maximumScale` 미설정(확대 허용).
 - `env(safe-area-inset-*)`: 상단 sticky 네비(`pt-[env(safe-area-inset-top)]`), 하단 고정 액션바·바텀시트(`pb-[env(safe-area-inset-bottom)]`).
-- 풀하이트는 **`min-h-[100dvh]`**(현 `min-h-screen`=100vh는 모바일 크롬에서 잘림). 신규 영역은 `dvh` 사용.
+- 풀하이트는 **`min-h-dvh`**(=`min-height:100dvh`, 현 `min-h-screen`=100vh는 모바일 크롬에서 잘림). 신규 영역은 `dvh` 사용. *Tailwind 가 `min-h-screen` 을 dvh 유틸보다 뒤에 emit 하므로 `min-h-screen min-h-dvh` 공존 fallback 은 무효 → `min-h-dvh` 단독으로 둔다.*
 
 ### Navigation
 모바일 네비는 **하이브리드** — 공개 콘텐츠 탐색은 **하단 탭바(앱형)**, 도구형 콘솔(운영/관리)은 **Sheet 드로어**, 개인영역(`/me`)은 **상단 우측 유저메뉴**. 드로어·시트는 shadcn 두잉 셋업(stone 금지 — `bg-card`·`border-line`·`shadow-3`·스크림 `bg-ink/35`, 열림은 `slide-in-*` 400ms).

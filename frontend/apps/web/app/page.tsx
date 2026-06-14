@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 
 export default function HomePage() {
   return (
-    <div className="duing min-h-screen bg-cream">
+    <div className="duing min-h-dvh bg-cream">
       <HomeNav />
       <HomeHero />
       <BannerCarousel />

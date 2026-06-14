@@ -4,7 +4,7 @@ import { AdminSidebar } from './_components/AdminSidebar';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="duing bg-cream min-h-screen">
+    <div className="duing bg-cream min-h-dvh">
       <HomeNav />
       <AdminRoleGuard>
         <div className="flex">

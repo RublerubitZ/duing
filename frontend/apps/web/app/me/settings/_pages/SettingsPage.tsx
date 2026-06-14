@@ -142,7 +142,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="duing bg-cream min-h-screen">
+    <div className="duing bg-cream min-h-dvh">
       <HomeNav />
       <MyPageHeader
         name={user?.name ?? '—'}

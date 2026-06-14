@@ -46,7 +46,7 @@ export default async function SignupPage() {
   const { totalCount, recruitingCount } = await fetchClubStats();
 
   return (
-    <div className="duing flex min-h-screen">
+    <div className="duing flex min-h-dvh">
       {/* ─── Left decorative panel ─── */}
       <aside className="relative hidden overflow-hidden lg:flex lg:w-[420px] lg:shrink-0 lg:flex-col xl:w-[480px] bg-ink-deep">
         <div className="absolute inset-0 bg-grid opacity-20" />

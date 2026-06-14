@@ -20,7 +20,7 @@ export default function ManagePage() {
 
   if (isLoading) {
     return (
-      <div className="duing flex min-h-screen items-center justify-center bg-cream">
+      <div className="duing flex min-h-dvh items-center justify-center bg-cream">
         <p className="text-sm text-charcoal-3">불러오는 중…</p>
       </div>
     );
@@ -28,7 +28,7 @@ export default function ManagePage() {
 
   if (!managedClubs || managedClubs.length === 0) {
     return (
-      <div className="duing flex min-h-screen flex-col items-center justify-center gap-4 bg-cream">
+      <div className="duing flex min-h-dvh flex-col items-center justify-center gap-4 bg-cream">
         <p className="text-charcoal-2">관리하는 동아리가 없습니다.</p>
         <Link
           href={toRoute('/')}
@@ -42,7 +42,7 @@ export default function ManagePage() {
 
   // 동아리가 있고 로딩도 끝났으면 위 useEffect가 첫 동아리로 리다이렉트 중인 상태다.
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex min-h-dvh items-center justify-center">
       <p className="text-sm text-charcoal-3">이동 중…</p>
     </div>
   );
