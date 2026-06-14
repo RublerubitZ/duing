@@ -25,7 +25,7 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
                    END AS kind,
                    (r.end_date - :today) AS daysToEnd
               FROM recruitment r JOIN club c ON c.id = r.club_id
-             WHERE r.status = 'OPEN' AND r.deleted_at IS NULL
+             WHERE r.status = 'OPEN' AND r.deleted_at IS NULL AND c.deleted_at IS NULL
                AND (
                      r.start_date = :today
                      OR ( r.end_date IS NOT NULL AND (r.end_date - :today) IN (3,1,0) )
