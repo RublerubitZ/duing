@@ -265,3 +265,16 @@ body {
   opacity: 1;
   transform: scale(1);
 }
+
+/* iOS Safari 포커스 자동 줌 방지 — 모바일(<768px)에서 폼 입력 폰트를 16px 하한으로 강제한다.
+   < 16px 입력에 포커스하면 iOS 가 페이지를 자동 확대하는데, 이를 막는 표준 처치다.
+   데스크탑(>=768px, md 경계)은 각 입력의 기존 밀도(text-[13~15px])를 그대로 둔다.
+   Tailwind v3 는 네이티브 cascade layer 를 쓰지 않아 유틸리티 text-* / 인라인 style 을
+   확실히 덮으려면 !important 가 필요하다(iOS 줌 방지라는 보편 규칙 한정 예외). */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
