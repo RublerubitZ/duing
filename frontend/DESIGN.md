@@ -267,6 +267,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 - **Lift Card (hover):** `0 16px 32px rgba(47,58,46,.08), 0 2px 6px rgba(47,58,46,.04)` + `-translate-y-1`
 - **버튼:** 섀도 없음 (패널이 대신 가진다)
 - **CTA 패널·pill·푸터:** 섀도 없음 — 색 면과 보더로만
+- **모달 오버레이 스크림:** `bg-ink/35` (잉크틴트 35% = `rgb(31 74 54 / 0.35)`) — 모든 모달 공통 단일값. 뉴트럴 `bg-black/*`·`bg-slate-900/*` 금지. 모달 패널은 `bg-card`(paper) + `rounded-lg`(20px) + `shadow-3`
 
 ## Imagery
 

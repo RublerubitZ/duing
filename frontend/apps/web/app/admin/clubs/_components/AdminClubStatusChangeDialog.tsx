@@ -1,8 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { cn } from '../../../_lib/cn';
+
 import type { AdminClubSummary } from '@duing/types';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { STATUS_LABEL, type StatusAction } from '../_lib/clubStatus';
 
 type Props = {
@@ -15,6 +24,9 @@ type Props = {
 };
 
 const REASON_MAX = 500;
+
+const fieldCls =
+  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function AdminClubStatusChangeDialog({
   club,
@@ -38,75 +50,68 @@ export function AdminClubStatusChangeDialog({
     }
   };
 
-  return (
-    <div
-      role="alertdialog"
-      aria-labelledby="status-change-title"
-      aria-describedby="status-change-desc"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
-    >
-      <div className="w-full max-w-md space-y-4 rounded-lg bg-white p-6 shadow-xl">
-        <header className="space-y-1">
-          <h2 id="status-change-title" className="text-base font-semibold text-slate-900">
-            {action.label}
-          </h2>
-          <p className="text-xs text-slate-500">
-            <span className="font-medium text-slate-700">{club.name}</span> ·{' '}
-            {STATUS_LABEL[club.status]} → {STATUS_LABEL[action.nextStatus]}
-          </p>
-        </header>
+  const confirmClass =
+    action.tone === 'danger'
+      ? 'btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50'
+      : 'btn btn-primary btn-sm disabled:opacity-50';
 
-        <p id="status-change-desc" className="text-sm text-slate-600">
-          {action.description}
-        </p>
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onCancel();
+      }}
+    >
+      <DialogContent
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{action.label}</DialogTitle>
+          <DialogDescription>
+            <span className="font-medium text-charcoal-2">{club.name}</span> ·{' '}
+            {STATUS_LABEL[club.status]} → {STATUS_LABEL[action.nextStatus]}
+          </DialogDescription>
+        </DialogHeader>
+
+        <p className="text-sm text-charcoal-2">{action.description}</p>
 
         {isRejection && (
           <label className="block space-y-1">
-            <span className="text-xs font-medium text-slate-700">
-              거절 사유 <span className="text-rose-600">*</span>
+            <span className="text-xs font-medium text-charcoal-2">
+              거절 사유 <span className="text-coral">*</span>
             </span>
             <textarea
+              aria-label="거절 사유"
+              aria-required
               value={reason}
               onChange={(event) => setReason(event.target.value.slice(0, REASON_MAX))}
               required
               rows={4}
               placeholder="거절 사유를 입력하세요"
-              className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+              className={fieldCls}
             />
-            <p className="text-right text-[11px] text-slate-400">
+            <p className="text-right text-[11px] text-charcoal-3">
               {reason.length} / {REASON_MAX}
             </p>
           </label>
         )}
 
         {errorMessage && (
-          <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorMessage}</p>
+          <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-            className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-          >
+        <DialogFooter>
+          <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
             취소
           </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitDisabled}
-            className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50',
-              action.tone === 'danger'
-                ? 'bg-rose-600 hover:bg-rose-700'
-                : 'bg-emerald-600 hover:bg-emerald-700',
-            )}
-          >
+          <button type="button" onClick={handleSubmit} disabled={submitDisabled} className={confirmClass}>
             {isPending ? '처리 중…' : action.label}
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
