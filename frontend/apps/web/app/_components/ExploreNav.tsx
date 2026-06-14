@@ -29,6 +29,9 @@ type Props = {
 export function ExploreNav({ active, floating = false, slimOnMobile = false }: Props) {
   const pathname = usePathname();
 
+  // 동아리 상세(/clubs/{id})는 자체 상단 액션바(ClubDetailTopBar)를 쓰는 포커스 뷰라 모바일에서 이 브랜드 바를 숨긴다.
+  const isClubDetail = /^\/clubs\/\d+$/.test(pathname);
+
   const isActive = (item: NavItem): boolean => {
     if (active) return item.label === active;
     if (item.href === '/') return pathname === '/';
@@ -40,6 +43,7 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
       className={cn(
         floating ? 'absolute inset-x-0 top-0' : 'relative',
         'z-50 bg-cream/90 backdrop-blur border-b border-line',
+        isClubDetail && 'hidden md:block',
       )}
     >
       <nav className="max-w-layout mx-auto flex items-center gap-12 px-4 sm:px-6 md:px-10 py-3">

@@ -5,10 +5,12 @@ import { use } from 'react';
 import { useClubDetailQuery, useClubPhotosQuery } from '@duing/hooks';
 
 import { ClubContactCard } from './_components/ClubContactCard';
+import { ClubDetailApplyBar } from './_components/ClubDetailApplyBar';
 import { ClubDetailHero } from './_components/ClubDetailHero';
 import { ClubDetailStats } from './_components/ClubDetailStats';
 import { ClubDetailTabs } from './_components/ClubDetailTabs';
 import { ClubRecruitmentCard } from './_components/ClubRecruitmentCard';
+import { ClubRecruitmentSummary } from './_components/ClubRecruitmentSummary';
 
 export default function ClubDetailPage({
   params,
@@ -38,16 +40,23 @@ export default function ClubDetailPage({
       />
 
       <section className="bg-cream px-4 sm:px-6 md:px-10 pb-16">
-        <div className="max-w-layout mx-auto grid grid-cols-[1fr_380px] gap-12">
+        <div className="max-w-layout mx-auto grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px] lg:gap-12">
           <div>
             <div className="mb-8">
               <ClubDetailStats club={club} />
+            </div>
+            {/* 모바일 전용 모집 요약 — 탭 위. 데스크탑은 우측 사이드바 풀 카드를 쓴다. */}
+            <div className="mb-6 md:hidden">
+              <ClubRecruitmentSummary recruitment={club.activeRecruitment ?? undefined} />
             </div>
             <ClubDetailTabs club={club} photos={photos.data ?? []} />
           </div>
 
           <div className="space-y-4">
-            <ClubRecruitmentCard recruitment={club.activeRecruitment ?? undefined} clubId={clubId} />
+            {/* 풀 모집 카드는 데스크탑/태블릿 전용. 모바일은 위 요약 + 하단 지원 바로 대체. */}
+            <div className="hidden md:block">
+              <ClubRecruitmentCard recruitment={club.activeRecruitment ?? undefined} clubId={clubId} />
+            </div>
             <ClubContactCard
               snsLinks={club.snsLinks}
               location={club.location}
@@ -56,6 +65,9 @@ export default function ClubDetailPage({
           </div>
         </div>
       </section>
+
+      {/* 모바일 전용 하단 고정 지원 바 (md:hidden). 데스크탑은 우측 모집 카드를 그대로 쓴다. */}
+      <ClubDetailApplyBar recruitment={club.activeRecruitment ?? undefined} />
     </>
   );
 }

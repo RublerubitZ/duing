@@ -4,9 +4,11 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@duing/stores';
 import { useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
 
-type Props = { clubId: number; size?: 'sm' | 'md' };
+import { cn } from '@/app/_lib/cn';
 
-export function FavoriteToggleButton({ clubId, size = 'md' }: Props) {
+type Props = { clubId: number; size?: 'sm' | 'md'; className?: string };
+
+export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) {
   const router = useRouter();
   const status = useAuthStore((state) => state.status);
   const favoriteIdsQuery = useFavoriteIdsQuery();
@@ -40,7 +42,11 @@ export function FavoriteToggleButton({ clubId, size = 'md' }: Props) {
       onClick={handleClick}
       aria-pressed={isFavorited}
       aria-label={isFavorited ? '찜 해제' : '찜 추가'}
-      className={`inline-flex items-center justify-center rounded-full ${dimensionClass} transition hover:bg-slate-100`}
+      className={cn(
+        'inline-flex items-center justify-center rounded-full transition hover:bg-slate-100',
+        dimensionClass,
+        className,
+      )}
       disabled={toggleMutation.isPending}
     >
       <HeartIcon filled={isFavorited} />
