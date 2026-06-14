@@ -8,7 +8,7 @@ public interface EmailVerificationService {
 
     EmailVerificationSendResult sendCode(SendEmailVerificationCommand sendCommand, String clientIp);
 
-    void confirmCode(ConfirmEmailVerificationCommand confirmCommand);
+    void confirmCode(ConfirmEmailVerificationCommand confirmCommand, String clientIp);
 
     /** 가입 가능한(인증 완료 + 미만료) 상태가 아니면 EmailNotVerifiedException(403). */
     void assertVerified(String email);

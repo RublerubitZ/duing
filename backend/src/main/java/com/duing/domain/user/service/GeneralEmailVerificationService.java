@@ -71,8 +71,11 @@ public class GeneralEmailVerificationService implements EmailVerificationService
 
     @Override
     @Transactional(noRollbackFor = EmailVerificationException.InvalidVerificationCodeException.class)
-    public void confirmCode(ConfirmEmailVerificationCommand confirmCommand) {
+    public void confirmCode(ConfirmEmailVerificationCommand confirmCommand, String clientIp) {
         LocalDateTime now = LocalDateTime.now();
+        // 발송과 별도로 confirm 도 per-IP 로 제한한다(이메일당 5회 제한만으로는 이메일을 갈아끼우는
+        // IP 단위 무차별 대입을 막지 못함). 미존재·이미 인증된 요청도 IP 윈도우를 소비하도록 최상단에 둔다.
+        rateLimiter.assertAndRecordConfirmIpRequest(clientIp, now);
         EmailVerification emailVerification = emailVerificationRepository
                 .findByEmailForUpdate(confirmCommand.email())
                 .orElseThrow(EmailVerificationException.EmailVerificationNotFoundException::new);

@@ -263,6 +263,21 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("같은 IP 에서 confirm 요청도 1분 내 11번째는 429 와 VERIFICATION_RATE_LIMITED 를 반환한다")
+    void confirmIpRateLimitReturns429() {
+        // confirm 전용 윈도우는 10/분. 미존재 이메일이라 1~10번째는 400(NOT_FOUND)이지만 IP 가드가
+        // 먼저 돌아 윈도우를 소비하므로, 11번째에서 IP 제한(429)이 걸려야 한다(setUp 의 reset() 으로 격리).
+        for (int request = 1; request <= 10; request++) {
+            confirm("nobody" + request + "@daegu.ac.kr", "123456", HttpStatus.BAD_REQUEST.value());
+        }
+        given().contentType(ContentType.JSON)
+                .body(Map.of("email", "nobody11@daegu.ac.kr", "code", "123456"))
+                .when().post("/api/v1/auth/email-verifications/confirm")
+                .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                .body("code", equalTo("VERIFICATION_RATE_LIMITED"));
+    }
+
+    @Test
     @DisplayName("기존 API 에러 응답에는 code 필드가 노출되지 않는다 (비파괴)")
     void legacyErrorResponsesOmitCodeField() {
         given().contentType(ContentType.JSON).body(Map.of("email", EMAIL, "password", "wrong-pass1"))

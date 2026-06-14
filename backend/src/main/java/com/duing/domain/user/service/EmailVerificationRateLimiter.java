@@ -11,11 +11,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.stereotype.Component;
 
 /**
- * 인증 메일 발송 레이트리밋 — in-memory, 단일 인스턴스 전제 (spec §4.2).
+ * 인증 메일 발송·코드 확인(confirm) 레이트리밋 — in-memory, 단일 인스턴스 전제 (spec §4.2).
  *
- * <p>IP 슬라이딩 윈도우(1분 5회 / 1시간 50회)는 <b>허용된 요청만</b> 기록한다. 거절(429)된
- * 요청은 기록하지 않는다 — 단일 IP 가 무한히 때려 deque 를 채우는 메모리 고갈을 막고,
- * 허용 카운트(분당 5 / 시간당 50)만으로도 이메일 열거 시도가 충분히 제한되기 때문이다.
+ * <p>발송 IP 슬라이딩 윈도우(1분 5회 / 1시간 50회)와 confirm 전용 IP 윈도우(1분 10회 / 1시간 100회)는
+ * 서로 독립이며 <b>허용된 요청만</b> 기록한다. 거절(429)된 요청은 기록하지 않는다 — 단일 IP 가 무한히
+ * 때려 deque 를 채우는 메모리 고갈을 막고, 허용 카운트만으로도 이메일 열거·코드 무차별 대입이
+ * 충분히 제한되기 때문이다.
  *
  * <p>전역 일일 상한(5,000건)은 Resend 쿼터 보호용이며, 발송 직전에 단일 원자 연산
  * {@link #reserveGlobalQuota}로 예약한다(검사+증가 일체) — 동시 요청이 상한을 넘기는
@@ -30,18 +31,40 @@ public class EmailVerificationRateLimiter {
     static final int PER_MINUTE_LIMIT = 5;
     static final int PER_HOUR_LIMIT = 50;
     static final int DAILY_GLOBAL_LIMIT = 5_000;
+    // confirm(코드 확인) 전용 — 발송보다 완화한다. 정상 사용자의 코드 재입력은 막지 않으면서
+    // 이메일을 갈아끼우며 IP 한 곳에서 코드를 무차별 대입하는 총량만 제한하기 위함이다.
+    static final int CONFIRM_PER_MINUTE_LIMIT = 10;
+    static final int CONFIRM_PER_HOUR_LIMIT = 100;
 
     private final ConcurrentHashMap<String, Deque<LocalDateTime>> requestTimesByIp = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Deque<LocalDateTime>> confirmTimesByIp = new ConcurrentHashMap<>();
     private final AtomicReference<DailyCounter> dailyCounter = new AtomicReference<>();
 
     /**
-     * IP 윈도우를 검사하고, 허용이면 이번 요청을 기록한다. 초과 시 429.
-     * compute 콜백은 원자적으로 실행되며, 예외 시 매핑이 변경되지 않아(거절 미기록) 안전하다.
+     * 발송 IP 윈도우(분당 5/시간당 50)를 검사하고, 허용이면 이번 요청을 기록한다. 초과 시 429.
      */
     public void assertAndRecordIpRequest(String clientIp, LocalDateTime now) {
+        assertAndRecordWithin(requestTimesByIp, clientIp, now, PER_MINUTE_LIMIT, PER_HOUR_LIMIT);
+    }
+
+    /**
+     * confirm(코드 확인) 전용 IP 윈도우(분당 10/시간당 100). 발송 윈도우와 독립이라
+     * 이메일당 5회 시도 제한(VERIFICATION_ATTEMPT_EXCEEDED)을 가리지 않으면서, IP 단위
+     * 코드 무차별 대입의 총량을 제한한다. 초과 시 429.
+     */
+    public void assertAndRecordConfirmIpRequest(String clientIp, LocalDateTime now) {
+        assertAndRecordWithin(confirmTimesByIp, clientIp, now, CONFIRM_PER_MINUTE_LIMIT, CONFIRM_PER_HOUR_LIMIT);
+    }
+
+    /**
+     * 슬라이딩 윈도우 공통 로직 — 허용된 요청만 기록한다(거절은 미기록).
+     * compute 콜백은 원자적으로 실행되며, 예외 시 매핑이 변경되지 않아(거절 미기록) 안전하다.
+     */
+    private void assertAndRecordWithin(ConcurrentHashMap<String, Deque<LocalDateTime>> timesByIp,
+                                       String clientIp, LocalDateTime now, int perMinuteLimit, int perHourLimit) {
         LocalDateTime hourAgo = now.minusHours(1);
         LocalDateTime minuteAgo = now.minusMinutes(1);
-        requestTimesByIp.compute(clientIp, (ip, requestTimes) -> {
+        timesByIp.compute(clientIp, (ip, requestTimes) -> {
             Deque<LocalDateTime> windowTimes = requestTimes == null ? new ArrayDeque<>() : requestTimes;
             // 1시간 지난 기록 제거 (경계 시각 정각은 윈도우 밖으로 본다 — exclusive)
             while (!windowTimes.isEmpty() && !windowTimes.peekFirst().isAfter(hourAgo)) {
@@ -50,7 +73,7 @@ public class EmailVerificationRateLimiter {
             long lastMinuteCount = windowTimes.stream()
                     .filter(requestTime -> requestTime.isAfter(minuteAgo))
                     .count();
-            if (lastMinuteCount >= PER_MINUTE_LIMIT || windowTimes.size() >= PER_HOUR_LIMIT) {
+            if (lastMinuteCount >= perMinuteLimit || windowTimes.size() >= perHourLimit) {
                 throw new EmailVerificationException.VerificationRateLimitedException();
             }
             windowTimes.addLast(now);
@@ -96,6 +119,7 @@ public class EmailVerificationRateLimiter {
      */
     public void reset() {
         requestTimesByIp.clear();
+        confirmTimesByIp.clear();
         dailyCounter.set(null);
     }
 

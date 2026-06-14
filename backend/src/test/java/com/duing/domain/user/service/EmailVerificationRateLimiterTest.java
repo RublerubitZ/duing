@@ -32,6 +32,38 @@ class EmailVerificationRateLimiterTest {
     }
 
     @Test
+    @DisplayName("confirm 윈도우는 1분 내 10회까지 허용되고 11번째는 거부된다")
+    void confirmPerMinuteLimitIsTen() {
+        for (int request = 0; request < 10; request++) {
+            rateLimiter.assertAndRecordConfirmIpRequest(IP, BASE.plusSeconds(request));
+        }
+        assertThatThrownBy(() -> rateLimiter.assertAndRecordConfirmIpRequest(IP, BASE.plusSeconds(15)))
+                .isInstanceOf(EmailVerificationException.VerificationRateLimitedException.class);
+    }
+
+    @Test
+    @DisplayName("발송 윈도우와 confirm 윈도우는 서로 독립적으로 카운트된다")
+    void sendAndConfirmWindowsAreIndependent() {
+        // 발송 5회로 발송 윈도우를 가득 채워도 confirm 은 별도 윈도우라 영향받지 않는다.
+        for (int request = 0; request < 5; request++) {
+            rateLimiter.assertAndRecordIpRequest(IP, BASE.plusSeconds(request));
+        }
+        assertThatCode(() -> rateLimiter.assertAndRecordConfirmIpRequest(IP, BASE.plusSeconds(6)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("confirm 윈도우는 1시간 내 100회를 넘으면 거부된다")
+    void confirmPerHourLimitIsOneHundred() {
+        // 12초 간격(분당 5건 미만)으로 100건을 채워 분 윈도우엔 안 걸리게 하고 시간 한도만 검증한다.
+        for (int request = 0; request < 100; request++) {
+            rateLimiter.assertAndRecordConfirmIpRequest(IP, BASE.plusSeconds(request * 12L));
+        }
+        assertThatThrownBy(() -> rateLimiter.assertAndRecordConfirmIpRequest(IP, BASE.plusMinutes(20)))
+                .isInstanceOf(EmailVerificationException.VerificationRateLimitedException.class);
+    }
+
+    @Test
     @DisplayName("정확히 1분이 지난 시점의 요청은 새 윈도우로 허용된다")
     void requestAtExactMinuteBoundaryIsAllowed() {
         for (int request = 0; request < 5; request++) {
