@@ -105,7 +105,8 @@ public class GeneralUserService implements UserService {
         }
 
         user.recordSuccessfulLogin();
-        String accessToken = jwtTokenProvider.createToken(user.getId(), user.getRole().name());
+        String accessToken =
+                jwtTokenProvider.createToken(user.getId(), user.getRole().name(), user.getTokenVersion());
         return new LoginResult(accessToken, UserQuery.from(user));
     }
 
@@ -117,6 +118,15 @@ public class GeneralUserService implements UserService {
             dummyPasswordHash = hash;
         }
         passwordEncoder.matches(rawPassword, hash);
+    }
+
+    @Override
+    @Transactional
+    public void logout(Long userId) {
+        // 동시 로그아웃의 token_version lost update 를 막기 위해 행을 잠그고 조회한다.
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(UserException.UserNotFoundException::new);
+        user.bumpTokenVersion();
     }
 
     @Override

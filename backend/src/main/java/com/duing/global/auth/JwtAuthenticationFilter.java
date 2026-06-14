@@ -1,6 +1,8 @@
 package com.duing.global.auth;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.duing.domain.user.entity.User;
+import com.duing.domain.user.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -31,16 +34,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = extractToken(request);
         if (token != null) {
             try {
-                UserPrincipal principal = jwtTokenProvider.parse(token);
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                JwtTokenProvider.TokenClaims claims = jwtTokenProvider.parse(token);
+                // 사용자(DB)를 조회해 (a) soft-deleted 탈퇴 계정은 @SQLRestriction 으로 미발견 → 거부하고,
+                // (b) token_version 이 불일치(로그아웃·강제 폐기로 증가)면 거부한다. 권한은 토큰의 role
+                // 클레임이 아니라 DB 의 현재 role 로 구성해 역할 변경(예: 관리자 강등)도 즉시 반영한다.
+                userRepository.findById(claims.userId())
+                        .filter(user -> user.getTokenVersion() == claims.tokenVersion())
+                        .ifPresentOrElse(this::authenticate, SecurityContextHolder::clearContext);
             } catch (JWTVerificationException exception) {
                 log.debug("JWT 검증 실패: {}", exception.getMessage());
                 SecurityContextHolder.clearContext();
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private void authenticate(User user) {
+        UserPrincipal principal = UserPrincipal.of(user.getId(), user.getRole().name());
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
     private String extractToken(HttpServletRequest request) {
