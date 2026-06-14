@@ -222,6 +222,50 @@ body {
       grid-template-areas: 'logo info timeline status arrow';
     }
   }
+
+  /* /notices 목록 NoticeRow — 데스크탑 5칸 테이블 행, 모바일 2행 카드(이미지 + 제목/분류·등록일) */
+  .notice-row {
+    display: grid;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 3px;
+    grid-template-columns: 40px auto 1fr;
+    grid-template-areas:
+      'img title title'
+      'img cat date';
+  }
+  .notice-row > .nr-no {
+    grid-area: no;
+    display: none;
+  }
+  .notice-row > .nr-img {
+    grid-area: img;
+  }
+  .notice-row > .nr-cat {
+    grid-area: cat;
+  }
+  .notice-row > .nr-title {
+    grid-area: title;
+    min-width: 0;
+  }
+  .notice-row > .nr-date {
+    grid-area: date;
+    text-align: left;
+  }
+  @media (min-width: 768px) {
+    .notice-row {
+      column-gap: 14px;
+      row-gap: 0;
+      grid-template-columns: 56px 56px 72px 1fr 110px;
+      grid-template-areas: 'no img cat title date';
+    }
+    .notice-row > .nr-no {
+      display: block;
+    }
+    .notice-row > .nr-date {
+      text-align: center;
+    }
+  }
 }
 
 /* ===== Introduce page animations ===== */
