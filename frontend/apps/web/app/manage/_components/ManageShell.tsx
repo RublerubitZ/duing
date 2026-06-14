@@ -17,7 +17,7 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
 
   return (
     <ManageGuard managedClubs={managedClubs} isLoading={isLoading}>
-      <div className="flex min-h-screen">
+      <div className="duing flex min-h-screen">
         <aside className="w-[248px] shrink-0 flex flex-col gap-[18px] px-4 py-[22px] pb-6 bg-ink-deep border-r border-black/20">
           <div className="flex items-center gap-2 px-2 pb-3.5 border-b border-white/10">
             <Link href="/" className="block">
