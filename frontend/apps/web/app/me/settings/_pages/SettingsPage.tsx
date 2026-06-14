@@ -143,7 +143,7 @@ export function SettingsPage() {
 
   return (
     <div className="duing bg-cream min-h-dvh">
-      <HomeNav />
+      <HomeNav slimOnMobile />
       <MyPageHeader
         name={user?.name ?? '—'}
         studentId={user?.studentId ?? '—'}

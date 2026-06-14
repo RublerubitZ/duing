@@ -158,7 +158,7 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
 
   return (
     <div className="duing" style={{ background: 'var(--cream)', minHeight: '100vh' }}>
-      <ExploreNav />
+      <ExploreNav slimOnMobile />
       <ApplyStatusHero />
       <ApplyTopTabs active={selected} onToggle={toggleFilter} counts={counts} />
 
