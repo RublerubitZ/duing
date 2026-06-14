@@ -1,11 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { useAuthStore } from '@duing/stores';
 import { useLogout, useMeQuery } from '@duing/hooks';
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const MENU_ITEMS = [
   { label: '마이페이지', href: '/me' },
@@ -17,28 +23,6 @@ export function UserMenu() {
   const meQuery = useMeQuery();
   const logout = useLogout();
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        event.target instanceof Node &&
-        containerRef.current &&
-        !containerRef.current.contains(event.target)
-      ) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
 
   if (status !== 'authenticated') return null;
 
@@ -46,49 +30,40 @@ export function UserMenu() {
   const initial = userName.slice(-2).charAt(0);
 
   const handleLogout = async () => {
-    setIsOpen(false);
     await logout();
     router.refresh();
   };
 
   return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="flex items-center gap-2 rounded-full border border-line bg-paper py-1 pl-3 pr-1.5 text-[13px] font-bold text-ink hover:border-ink"
-      >
-        {userName}님
-        <span className="grid h-[26px] w-[26px] place-items-center rounded-full bg-ink text-[11px] font-bold text-white">
-          {initial}
-        </span>
-      </button>
-
-      {isOpen && (
-        <div
-          className="absolute right-0 top-[calc(100%+8px)] z-50 w-[160px] overflow-hidden rounded-[14px] border border-line bg-paper"
-          style={{ boxShadow: 'var(--shadow-3)' }}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-2 rounded-full border border-line bg-paper py-1 pl-3 pr-1.5 text-[13px] font-bold text-ink hover:border-ink"
         >
-          {MENU_ITEMS.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={() => setIsOpen(false)}
-              className="flex items-center border-b border-line px-4 py-3 text-[13.5px] font-semibold text-ink-deep transition-colors hover:bg-sage-tint"
-            >
-              {item.label}
-            </Link>
-          ))}
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center px-4 py-3 text-[13.5px] font-bold text-coral transition-colors hover:bg-sage-tint"
+          {userName}님
+          <span className="grid h-[26px] w-[26px] place-items-center rounded-full bg-ink text-[11px] font-bold text-white">
+            {initial}
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={8} className="w-[160px] p-0">
+        {MENU_ITEMS.map((item) => (
+          <DropdownMenuItem
+            key={item.label}
+            asChild
+            className="rounded-none border-b border-line px-4 py-3 text-[13.5px] font-semibold text-ink-deep"
           >
-            로그아웃
-          </button>
-        </div>
-      )}
-    </div>
+            <Link href={item.href}>{item.label}</Link>
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuItem
+          onSelect={handleLogout}
+          className="rounded-none px-4 py-3 text-[13.5px] font-bold text-coral"
+        >
+          로그아웃
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
