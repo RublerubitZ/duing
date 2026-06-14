@@ -147,7 +147,7 @@ export function MyPage() {
       className="duing bg-cream"
       style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
     >
-      <HomeNav />
+      <HomeNav slimOnMobile />
 
       <div
         ref={scrollRef}
