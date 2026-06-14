@@ -23,4 +23,10 @@ public class UserController implements UserApi {
         UserResponse userResponse = UserResponse.from(userService.getById(currentUser.id()));
         return ResponseEntity.ok(ApiResponse.success(userResponse));
     }
+
+    @Override
+    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal UserPrincipal currentUser) {
+        userService.withdraw(currentUser.id());
+        return ResponseEntity.noContent().build();
+    }
 }

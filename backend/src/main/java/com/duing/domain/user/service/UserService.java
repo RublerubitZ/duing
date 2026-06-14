@@ -16,6 +16,8 @@ public interface UserService {
 
     void logout(Long userId);
 
+    void withdraw(Long userId);
+
     UserQuery getById(Long userId);
 
     Page<UserSearchResultQuery> searchForAdmin(String query, Pageable pageable);
