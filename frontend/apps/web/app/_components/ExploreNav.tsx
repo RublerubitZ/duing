@@ -22,9 +22,11 @@ type Props = {
   /** pathname 대신 레이블로 강제 활성화할 때 사용. */
   active?: string;
   floating?: boolean;
+  /** 하단 탭바가 같은 링크를 제공하는 라우트에서 true — 모바일 상단바를 슬림화하려 네비 링크를 md 미만에서 숨긴다. */
+  slimOnMobile?: boolean;
 };
 
-export function ExploreNav({ active, floating = false }: Props) {
+export function ExploreNav({ active, floating = false, slimOnMobile = false }: Props) {
   const pathname = usePathname();
 
   const isActive = (item: NavItem): boolean => {
@@ -45,7 +47,12 @@ export function ExploreNav({ active, floating = false }: Props) {
           <BrandMark size={44} />
         </Link>
 
-        <ul className="flex items-center gap-8 text-[13.5px] font-semibold">
+        <ul
+          className={cn(
+            'items-center gap-8 text-[13.5px] font-semibold',
+            slimOnMobile ? 'hidden md:flex' : 'flex',
+          )}
+        >
           {NAV_ITEMS.map((item) => {
             const on = isActive(item);
             return (
