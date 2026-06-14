@@ -25,6 +25,15 @@ spring:
     # 로컬 시드(V12~) 가 운영 DB 로 흘러 들어가지 않는다.
     locations: classpath:db/migration
 
+# API 문서(Swagger UI / OpenAPI JSON)는 운영에서 비활성화한다. SecurityConfig 가 /swagger-ui/**,
+# /v3/api-docs/** 를 permitAll 로 열어두므로, 운영에 노출되면 전체 엔드포인트·요청 스키마가 인증 없이
+# 공개되어 공격 표면 정찰에 악용된다. springdoc 을 끄면 두 경로 모두 404 가 되어 문서가 노출되지 않는다.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 # 알림 스케줄러 — 운영에서는 항상 켜져있어야 한다.
 # 별도 환경변수 셋업을 잊는 사일런트 결손을 막기 위해 프로파일에서 하드코딩한다.
 # 끄고 싶으면 DUING_NOTIFICATION_JOBS_ENABLED=false 로 env var 오버라이드 가능.
