@@ -1,5 +1,7 @@
 package com.duing.domain.user.service;
 
+import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.exception.UserException;
@@ -31,6 +33,7 @@ public class GeneralUserService implements UserService {
     private final JwtTokenProvider jwtTokenProvider;
     private final EmailVerificationService emailVerificationService;
     private final LoginAttemptRateLimiter loginAttemptRateLimiter;
+    private final ClubMemberRepository clubMemberRepository;
 
     private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
     private static final Duration LOGIN_LOCK_DURATION = Duration.ofMinutes(15);
@@ -123,6 +126,24 @@ public class GeneralUserService implements UserService {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();
+    }
+
+    @Override
+    @Transactional
+    public void withdraw(Long userId) {
+        // 동아리 회장이 탈퇴하면 회장직이 공석이 되어 운영이 막히고, 멤버십 cascade 없이 User 만
+        // soft-delete 하므로 회장 행이 유령으로 남는다. 회장 인계(succession) 후 탈퇴하도록 막는다.
+        if (clubMemberRepository.existsByUserIdAndRole(userId, ClubMemberRole.LEADER)) {
+            throw new UserException.LeaderCannotWithdrawException();
+        }
+        // logout 과 동일하게 행을 잠가 token_version lost update 를 막고, @SQLDelete 로 soft-delete 한다.
+        // bumpTokenVersion 으로 발급된 모든 토큰이 즉시 무효화되고, soft-delete 로 이후 인증이 차단된다.
+        // 회원의 멤버십/지원서 등 잔여 데이터의 정리·PII 물리 파기는 보관기간 파기 잡(PIPA)에서 일괄 처리한다.
+        // 비-회장 멤버십 행은 남지만 멤버 목록 쿼리가 JOIN FETCH cm.user(INNER)라 숨겨진 회원은 노출되지 않는다.
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(UserException.UserNotFoundException::new);
+        user.bumpTokenVersion();
+        userRepository.delete(user);
     }
 
     @Override

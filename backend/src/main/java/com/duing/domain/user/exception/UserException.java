@@ -35,6 +35,14 @@ public class UserException extends ApplicationException {
         }
     }
 
+    public static class LeaderCannotWithdrawException extends UserException {
+        private static final String MESSAGE = "동아리 회장은 회장직을 인계한 뒤 탈퇴할 수 있습니다.";
+
+        public LeaderCannotWithdrawException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
     public static class InvalidSearchQueryException extends UserException {
         private static final String MESSAGE = "검색어를 입력해주세요.";
 
