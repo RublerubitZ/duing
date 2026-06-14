@@ -14,6 +14,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -107,7 +108,7 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("존재하지 않는 applicationId 가 섞이면 failures 에 해당 id 와 not-found 메시지가 담긴다")
+    @DisplayName("존재하지 않는 applicationId 가 섞이면 failures 에 해당 id 가 일반 사유와 함께 담긴다")
     void unknownApplicationIdGoesToFailures() throws Exception {
         User leader = saveUser("미존재리더", UserRole.STUDENT);
         Club club = saveActiveClub("미존재동아리");
@@ -128,6 +129,93 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
         assertThat(result.updated()).isEqualTo(1);
         assertThat(result.failures()).hasSize(1);
         assertThat(result.failures().get(0).applicationId()).isEqualTo(missingId);
+    }
+
+    @Test
+    @DisplayName("일괄 변경 실패 사유는 미존재와 타 클럽 권한없음을 동일 일반 메시지로 합쳐 존재·소속을 숨긴다")
+    void bulkFailureReasonDoesNotLeakExistenceOrMembership() throws Exception {
+        User leader = saveUser("열거방지리더", UserRole.STUDENT);
+        Club myClub = saveActiveClub("내동아리");
+        clubMemberRepository.save(ClubMember.asLeader(myClub, leader));
+
+        // 타 클럽의 지원서 — 호출자는 이 클럽의 운영진이 아니다.
+        User otherLeader = saveUser("타클럽리더", UserRole.STUDENT);
+        Club otherClub = saveActiveClub("타동아리");
+        clubMemberRepository.save(ClubMember.asLeader(otherClub, otherLeader));
+        Recruitment otherRecruitment = recruitmentRepository.save(
+                Recruitment.create(otherClub, "타클럽모집", null,
+                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
+        Application otherClubApp =
+                saveApplicationWithStatus(otherRecruitment, ApplicationStatus.UNDER_REVIEW, "타클럽지원자");
+
+        long missingId = -77L;
+
+        BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
+                new BulkUpdateApplicationStatusCommand(
+                        List.of(otherClubApp.getId(), missingId),
+                        leader.getId(),
+                        ApplicationStatus.REJECTED));
+
+        assertThat(result.updated()).isZero();
+        assertThat(result.failures()).hasSize(2);
+        // 미존재와 타 클럽 권한없음의 사유가 동일해야 존재/소속을 구분할 수 없다.
+        List<String> distinctReasons = result.failures().stream()
+                .map(BulkUpdateApplicationStatusResult.Failure::reason)
+                .distinct()
+                .toList();
+        assertThat(distinctReasons).hasSize(1);
+        // 미존재·타 클럽 모두 정확히 동일한 일반 메시지여야 한다.
+        assertThat(distinctReasons.get(0))
+                .isEqualTo("해당 지원서를 처리할 권한이 없거나 존재하지 않습니다.");
+    }
+
+    @Test
+    @DisplayName("잘못된 상태 전이 실패 사유는 일반화하지 않고 구체 메시지를 유지한다")
+    void bulkInvalidTransitionKeepsSpecificReason() throws Exception {
+        User leader = saveUser("전이리더", UserRole.STUDENT);
+        Club club = saveActiveClub("전이동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "전이모집", null,
+                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
+        // SUBMITTED -> REJECTED 직접 전이는 FSM 상 금지(검토 단계를 건너뜀)라 InvalidStatusTransition 으로 실패한다.
+        Application submitted =
+                saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "검토전지원자");
+
+        BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
+                new BulkUpdateApplicationStatusCommand(
+                        List.of(submitted.getId()),
+                        leader.getId(),
+                        ApplicationStatus.REJECTED));
+
+        assertThat(result.failures()).hasSize(1);
+        // 권한이 확인된 운영진에게는 정당한 정보 — 일반 메시지로 가리지 않는다.
+        assertThat(result.failures().get(0).reason())
+                .isNotEqualTo("해당 지원서를 처리할 권한이 없거나 존재하지 않습니다.");
+    }
+
+    @Test
+    @DisplayName("운영진이 아닌 멤버의 일괄 변경 시도는 시스템 오류가 아닌 일반 권한 메시지로 실패한다")
+    void bulkByNonManagerMemberReturnsGenericReason() throws Exception {
+        User leader = saveUser("권한리더", UserRole.STUDENT);
+        Club club = saveActiveClub("권한동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        User member = saveUser("일반멤버", UserRole.STUDENT);
+        clubMemberRepository.save(ClubMember.of(club, member, ClubMemberRole.MEMBER));
+        Recruitment recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "권한모집", null,
+                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
+        Application app = saveApplicationWithStatus(recruitment, ApplicationStatus.UNDER_REVIEW, "지원자");
+
+        BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
+                new BulkUpdateApplicationStatusCommand(
+                        List.of(app.getId()), member.getId(), ApplicationStatus.REJECTED));
+
+        assertThat(result.updated()).isZero();
+        assertThat(result.failures()).hasSize(1);
+        // 역할 부족(AccessDeniedException)도 미존재·비멤버와 동일한 일반 메시지로 응답한다.
+        assertThat(result.failures().get(0).reason())
+                .isEqualTo("해당 지원서를 처리할 권한이 없거나 존재하지 않습니다.");
     }
 
     private User saveUser(String name, UserRole role) {
