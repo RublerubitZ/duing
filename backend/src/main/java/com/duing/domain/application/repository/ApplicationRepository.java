@@ -3,12 +3,14 @@ package com.duing.domain.application.repository;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -84,4 +86,13 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     List<Application> findByRecruitmentIdInAndStatusIn(
             @Param("recruitmentIds") Collection<Long> recruitmentIds,
             @Param("statuses") Collection<ApplicationStatus> statuses);
+
+    /**
+     * 보관기간을 넘긴 soft-delete 지원서의 자유서술 답변(jsonb)을 비운다(이미 빈 답변은 제외 — 멱등).
+     * 대상이 soft-delete 행이라 @SQLRestriction 을 우회하려 nativeQuery 를 쓴다.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE application SET answers = '[]'::jsonb WHERE deleted_at < :cutoff AND answers <> '[]'::jsonb",
+            nativeQuery = true)
+    int scrubExpiredApplicationAnswers(@Param("cutoff") LocalDateTime cutoff);
 }
