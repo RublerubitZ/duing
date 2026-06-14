@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useGlobalEventDetailQuery } from '@duing/hooks';
 import type { CalEvent, EventSource } from '@duing/types';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
-import { toRoute } from '../../_lib/route';
+import { safeExternalHref, toRoute } from '../../_lib/route';
 
 type Props = {
   event: CalEvent;
@@ -103,6 +103,7 @@ function GlobalDetailSection({ eventId }: { eventId: number }) {
     return <p className="text-[13px] text-coral">상세 정보를 불러오지 못했습니다.</p>;
   }
   const detail = detailQuery.data;
+  const safeLink = safeExternalHref(detail.linkUrl);
   return (
     <div className="space-y-3 border-t border-line pt-4">
       {detail.coverImageUrl && (
@@ -115,9 +116,9 @@ function GlobalDetailSection({ eventId }: { eventId: number }) {
       {detail.description && (
         <p className="text-[13.5px] text-charcoal whitespace-pre-wrap">{detail.description}</p>
       )}
-      {detail.linkUrl && (
+      {safeLink && (
         <a
-          href={detail.linkUrl}
+          href={safeLink}
           target="_blank"
           rel="noreferrer noopener"
           className="inline-flex items-center gap-1 text-[13px] text-ink font-semibold underline"

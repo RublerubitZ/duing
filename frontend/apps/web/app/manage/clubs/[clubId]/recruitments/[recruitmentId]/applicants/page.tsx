@@ -16,7 +16,7 @@ import {
   useApplicantsQuery,
   useBulkUpdateApplicationStatusMutation,
 } from '@duing/hooks';
-import { toRoute } from '../../../../../../_lib/route';
+import { safeExternalHref, toRoute } from '../../../../../../_lib/route';
 import { ApplicantTable } from './_components/ApplicantTable';
 import { ApplicantsFilterBar } from './_components/ApplicantsFilterBar';
 import { BulkActionBar } from './_components/BulkActionBar';
@@ -173,16 +173,20 @@ export default function ApplicantsPage({ params }: PageParams) {
           <p className="text-sm text-slate-600">
             외부 폼 응답은 외부 시스템에서 확인하세요.
           </p>
-          {recruitment.externalFormUrl && (
-            <a
-              href={recruitment.externalFormUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 inline-block text-sm text-sky-600 hover:underline"
-            >
-              외부 폼 바로가기 →
-            </a>
-          )}
+          {(() => {
+            const safeExternalFormUrl = safeExternalHref(recruitment.externalFormUrl);
+            if (!safeExternalFormUrl) return null;
+            return (
+              <a
+                href={safeExternalFormUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-block text-sm text-sky-600 hover:underline"
+              >
+                외부 폼 바로가기 →
+              </a>
+            );
+          })()}
         </div>
       )}
 

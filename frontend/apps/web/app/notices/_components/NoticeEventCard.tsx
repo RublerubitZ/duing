@@ -2,6 +2,7 @@ import { CalendarDays, MapPin, Users2, ExternalLink } from 'lucide-react';
 import type { NoticeEventInfo } from '@duing/types';
 import { formatEventRange } from '../_lib/eventFormat';
 import { SparkleFull } from '../../_components/Sparkle';
+import { safeExternalHref } from '../../_lib/route';
 
 type Props = {
   eventInfo: NoticeEventInfo;
@@ -15,6 +16,8 @@ export function NoticeEventCard({ eventInfo, linkUrl }: Props) {
   if (eventInfo.location) rows.push({ icon: <MapPin size={16} aria-hidden />, label: '장소', value: eventInfo.location });
   if (eventInfo.host) rows.push({ icon: <Users2 size={16} aria-hidden />, label: '주최', value: eventInfo.host });
   if (eventInfo.audience) rows.push({ icon: <Users2 size={16} aria-hidden />, label: '대상', value: eventInfo.audience });
+
+  const safeLink = safeExternalHref(linkUrl);
 
   return (
     <div className="relative overflow-hidden rounded-lg bg-ink text-paper p-6">
@@ -31,9 +34,9 @@ export function NoticeEventCard({ eventInfo, linkUrl }: Props) {
           </div>
         ))}
       </dl>
-      {linkUrl && (
+      {safeLink && (
         <a
-          href={linkUrl}
+          href={safeLink}
           target="_blank"
           rel="noreferrer"
           className="mt-6 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-sage text-ink-deep text-[13px] font-bold"

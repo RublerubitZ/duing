@@ -23,5 +23,23 @@ export function toRoute(path: `/${string}`): Route {
 export function toLinkRoute(url: string | null): Route | null {
   if (!url) return null;
   if (!url.startsWith('/')) return null;
+  // 프로토콜 상대경로(//host)·역슬래시(/\\host)는 브라우저가 오프-오리진으로 해석하므로 내부 경로로 취급하지 않는다.
+  if (url.startsWith('//') || url.startsWith('/\\')) return null;
   return url as Route;
+}
+
+/**
+ * 백엔드/사용자 입력 URL 을 외부 링크 anchor(href)로 안전하게 변환한다.
+ * http(s) 스킴만 허용하고, javascript:/data:/vbscript: 등 스크립트 실행이 가능한
+ * 값이나 내부 상대경로는 null 을 반환해 호출 측이 비-링크로 렌더하도록 한다.
+ *
+ * 안전성의 보장은 `^https?://` allowlist 자체다. 검사 전에 공백류 문자를 제거하는 것은
+ * 브라우저가 URL 파싱 시 무시하는 공백·개행을 끼워 넣은 우회(`java\tscript:`)를
+ * http 가 아닌 것으로 확실히 떨어뜨리고, 선행 공백이 붙은 정상 URL 의 오탐을 줄이기 위함이다.
+ * (저장형 XSS 차단)
+ */
+export function safeExternalHref(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const normalized = url.replace(/\s/g, '');
+  return /^https?:\/\//i.test(normalized) ? url : null;
 }

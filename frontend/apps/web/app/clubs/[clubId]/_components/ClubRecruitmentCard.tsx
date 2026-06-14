@@ -8,7 +8,7 @@ import {
   recruitmentDaysLeft,
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
-import { toRoute } from '../../../_lib/route';
+import { safeExternalHref, toRoute } from '../../../_lib/route';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
 
 type Props = {
@@ -48,7 +48,8 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
   function handleApply() {
     if (!recruitment || !canApply) return;
     if (recruitment.applicationMode === 'EXTERNAL' && recruitment.externalFormUrl) {
-      window.open(recruitment.externalFormUrl, '_blank', 'noopener,noreferrer');
+      const externalUrl = safeExternalHref(recruitment.externalFormUrl);
+      if (externalUrl) window.open(externalUrl, '_blank', 'noopener,noreferrer');
       return;
     }
     const applyPath: `/${string}` = `/apply/${recruitment.id}`;

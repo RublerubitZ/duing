@@ -7,6 +7,7 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 
@@ -15,7 +16,8 @@ public record CreatePromotionRequest(
         @NotBlank(message = "제목은 필수입니다.")
         @Size(max = 120, message = "제목은 120자 이하여야 합니다.") String title,
         @Size(max = 500, message = "배너 이미지 URL은 500자 이하여야 합니다.") String bannerImageUrl,
-        @Size(max = 2000, message = "링크는 2000자 이하여야 합니다.") String linkUrl,
+        @Size(max = 2000, message = "링크는 2000자 이하여야 합니다.")
+        @Pattern(regexp = "^$|^https?://.+$", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.") String linkUrl,
         boolean active,
         @Min(value = 0, message = "정렬 순서는 0 이상이어야 합니다.") int displayOrder,
         @Size(max = 60, message = "태그는 60자 이하여야 합니다.") String tag,
