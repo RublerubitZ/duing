@@ -515,8 +515,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
             <button
               type="submit"
               disabled={mutation.isPending}
-              className="inline-flex items-center gap-2 bg-[#3e5b34] text-[#f6f1dd] border-none rounded-[8px] px-[22px] py-[11px] text-[14px] font-semibold cursor-pointer transition-colors hover:bg-[#4a6b3f] active:translate-y-px disabled:opacity-50"
-              style={{ boxShadow: '0 1px 0 rgba(0,0,0,.04), 0 6px 16px rgba(62,91,52,.18)' }}
+              className="btn btn-primary disabled:opacity-50"
             >
               {mutation.isPending ? '저장 중…' : '저장'}
             </button>

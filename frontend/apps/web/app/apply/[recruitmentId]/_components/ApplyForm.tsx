@@ -143,7 +143,7 @@ export function ApplyForm({ recruitment, recruitmentId, initialAnswers }: Props)
             <button
               type="submit"
               disabled={submitDisabled}
-              className="inline-flex items-center gap-2 rounded-[10px] bg-ink px-7 py-3 text-sm font-semibold text-cream shadow-[0_1px_0_rgba(0,0,0,0.04),_0_6px_16px_rgba(31,74,54,0.20)] transition-colors hover:bg-ink-soft active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn btn-primary px-7 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submit.isPending ? '제출 중…' : '제출'}
             </button>

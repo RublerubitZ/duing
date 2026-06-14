@@ -28,7 +28,7 @@ export function BulkActionBar({
     <div
       role="region"
       aria-label="일괄 처리 액션"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white shadow-[0_-4px_12px_-4px_rgba(0,0,0,0.08)]"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper"
     >
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-3">
         <div className="text-sm font-medium text-slate-700">

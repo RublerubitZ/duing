@@ -40,8 +40,7 @@ export function SectionSettingsSummary({ onGoToSettings }: Props) {
           <button
             type="button"
             onClick={onGoToSettings}
-            className="relative z-[1] inline-flex items-center gap-2 px-[22px] py-3.5 rounded-[14px] font-bold text-[14px] text-ink-deep whitespace-nowrap transition-[transform,background] duration-150 hover:-translate-y-px"
-            style={{ background: 'var(--sage)' }}
+            className="btn btn-primary relative z-[1] px-[22px] whitespace-nowrap"
           >
             설정 이동하기
             <ArrowRight size={16} />
