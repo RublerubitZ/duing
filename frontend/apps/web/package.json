@@ -28,6 +28,8 @@
     "@tiptap/extension-link": "^3.26.1",
     "@tiptap/react": "^3.26.1",
     "@tiptap/starter-kit": "^3.26.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "isomorphic-dompurify": "^3.16.0",
     "ky": "^1.7.2",
     "lucide-react": "^1.17.0",
@@ -39,6 +41,7 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^2.6.0",
     "zod": "^3.23.8",
     "zustand": "^5.0.0"
   },
@@ -58,6 +61,7 @@
     "postcss": "^8.4.47",
     "prettier-plugin-tailwindcss": "^0.6.8",
     "tailwindcss": "^3.4.13",
+    "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.6.3",
     "vitest": "^4.1.6"
   }

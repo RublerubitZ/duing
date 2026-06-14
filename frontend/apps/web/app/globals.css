@@ -34,6 +34,36 @@ body {
   @apply bg-white text-slate-900 antialiased;
 }
 
+/* shadcn/ui 시맨틱 토큰 — 두잉 토큰에 매핑 (두잉 전용 셋업).
+   stone 기본값을 버리고 모든 시맨틱 변수를 두잉 팔레트 HSL로 고정한다 (DESIGN이 SoT, 충돌 시 두잉 우선).
+   tailwind.config 가 hsl(var(--x)) 로 소비하므로 HSL 트리플렛 포맷을 유지한다 (opacity 모디파이어 호환).
+   격리 통합: 전역 리셋(`* { @apply border-border }`)·body 오버라이드는 의도적으로 넣지 않는다.
+   radius/shadow 는 컴포넌트 추가 시 두잉 4값 어휘·잉크틴트로 사람이 수동 보정한다 (완전 자동화 금지). */
+@layer base {
+  :root {
+    --background: 42 35.7% 94.5%;             /* cream  #F6F3EC */
+    --foreground: 168 5.1% 19.4%;             /* charcoal #2F3433 */
+    --card: 0 0% 100%;                        /* paper  #FFFFFF */
+    --card-foreground: 168 5.1% 19.4%;        /* charcoal */
+    --popover: 0 0% 100%;                     /* paper */
+    --popover-foreground: 168 5.1% 19.4%;     /* charcoal */
+    --primary: 152.1 41% 20.6%;               /* ink    #1F4A36 */
+    --primary-foreground: 0 0% 100%;          /* paper */
+    --secondary: 120 15% 92.2%;               /* sage-mist #E8EEE8 */
+    --secondary-foreground: 152.1 41% 20.6%;  /* ink */
+    --muted: 43.6 26.8% 92%;                  /* graysoft #F0EDE5 */
+    --muted-foreground: 170 2.6% 44.7%;       /* charcoal-3 #6F7574 */
+    --accent: 120 16.7% 95.3%;                /* sage-tint #F1F5F1 (hover·선택 배경) */
+    --accent-foreground: 152.1 41% 20.6%;     /* ink */
+    --destructive: 14.8 63.1% 59.6%;          /* coral  #D97757 (위험·로그아웃) */
+    --destructive-foreground: 0 0% 100%;      /* paper */
+    --border: 43.6 17.5% 87.6%;               /* line   #E5E2DA */
+    --input: 43.6 17.5% 87.6%;                /* line */
+    --ring: 152.1 41% 20.6%;                  /* ink */
+    --radius: 0.875rem;                        /* 14px = 버튼 기준(rounded-md). 카드 20px 등은 컴포넌트별 수동 보정 */
+  }
+}
+
 /* Duing 디자인 토큰은 .duing 스코프 안에서만 적용되어 다른 라우트에 영향을 주지 않는다 */
 @layer components {
   .duing {
