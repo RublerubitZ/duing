@@ -364,3 +364,19 @@ letterSpacing: { tightx: '-0.02em', body: '-0.005em', wide04: '0.04em', wide06: 
 ```
 
 컴포넌트 클래스(`.btn` 계열, `.pill` 계열, `.card`, `.bg-grid`, `.brand-mark`)와 애니메이션 키프레임 전체는 `globals.css` `@layer components` 참조.
+
+## shadcn/ui (동작 컴포넌트 한정)
+
+shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**(모달·드롭다운·셀렉트·콤보박스·탭·체크박스·팝오버 등)에만 사용한다. 시각 정체성은 **항상 두잉 토큰이 우선**이며, shadcn 기본값(stone·new-york·단일 8px radius·뉴트럴 섀도)을 그대로 쓰지 않는다.
+
+- **토큰:** `globals.css` `:root` 의 shadcn 시맨틱 변수(`--background`/`--foreground`/`--primary`/`--secondary`/`--muted`/`--accent`/`--destructive`/`--border`/`--input`/`--ring`)는 전부 두잉 팔레트(cream·charcoal·ink·sage-mist·graysoft·sage-tint·coral·line)에 매핑돼 있다. 충돌 시 두잉 토큰이 SoT.
+- **radius / shadow:** shadcn `--radius`는 단일값이라 두잉 4값 어휘(8/14/20/28)를 표현하지 못한다. 기본을 14px(버튼 `rounded-md`)로 두되, 컴포넌트마다 `rounded-md/lg/xl` 와 잉크틴트 `shadow-2/3` 로 **사람이 수동 보정**한다 — 자동화하지 않는다.
+- **금지:** 버튼·뱃지·카드는 기존 `.btn` / `.pill` / `.card` 를 쓰고 shadcn 으로 만들지 않는다. 라이트 고정 — 다크모드 코드·`darkMode` 설정을 넣지 않는다.
+- **셋업:** `apps/web/components.json`(style new-york, baseColor stone — grays 는 위 토큰 매핑으로 무력화), `cn` = `@/app/_lib/cn`, ui = `@/components/ui`. `components/ui/*` 와 `@radix-ui/*` 는 첫 컴포넌트가 필요한 후속 PR 에서 추가한다.
+
+**후속 컴포넌트 PR 체크리스트** — `shadcn add` 로 생성된 파일은 그대로 머지하지 않는다:
+- `dark:` 접두사 클래스(`dark:bg-stone-950` 등)를 전부 제거한다 — 라이트 고정이라 동작은 안 하지만 stone 잔류 경로를 남기지 않는다.
+- `calc(var(--radius) - 2px)` 같은 파생 radius(12px·10px 등 두잉 4값 어휘 밖)를 `rounded-sm/md/lg/xl` 토큰으로 치환한다.
+- 뉴트럴 섀도(`shadow-md` 등)를 잉크틴트 `shadow-2/3` 로 바꾼다.
+- 포탈 컴포넌트(Dialog·Popover·Dropdown)는 `document.body` 직하(= `.duing` 스코프 밖, body 는 흰색)에 렌더된다. 콘텐츠는 자체 `bg-card`/`bg-popover` 토큰을 쓰되, 인라인 `var(--ink)` 등 스코프 토큰이 필요하면 포탈 콘텐츠 래퍼에 `duing` 클래스를 부여한다.
+- 버튼·뱃지·카드는 shadcn 으로 만들지 않고 기존 `.btn`/`.pill`/`.card` 를 쓴다.
