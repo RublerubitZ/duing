@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { BulkPromoteDialog } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_components/BulkPromoteDialog';
 
 describe('BulkPromoteDialog', () => {
-  it('제목 "면접 대상자 선정" 이 alertdialog 의 aria-labelledby 로 노출된다', () => {
+  it('제목 "면접 대상자 선정" 이 dialog 의 aria-labelledby 로 노출된다', () => {
     render(
       <BulkPromoteDialog
         representativeName="홍길동"
@@ -16,7 +16,7 @@ describe('BulkPromoteDialog', () => {
       />,
     );
 
-    expect(screen.getByRole('alertdialog', { name: '면접 대상자 선정' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '면접 대상자 선정' })).toBeInTheDocument();
   });
 
   it('대표 이름 + (N-1)명 본문 + 자동배정 안내 문구를 표시한다', () => {
