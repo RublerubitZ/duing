@@ -175,6 +175,41 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("이메일·학번·전화번호 중 무엇이 중복이어도 동일한 409 메시지를 반환한다")
+    void signupDuplicateMessageDoesNotRevealWhichField() {
+        // 기준 사용자 가입 — email/studentId/phone 모두 선점한다.
+        prepareVerifiedEmail("hong@daegu.ac.kr");
+        given().contentType(ContentType.JSON).body(validBody())
+                .when().post("/api/v1/auth/signup")
+                .then().statusCode(HttpStatus.CREATED.value());
+
+        String emailCollisionMessage = duplicateSignupMessage(
+                "hong@daegu.ac.kr", "20249991", "010-9999-0001");      // 이메일만 중복
+        String studentIdCollisionMessage = duplicateSignupMessage(
+                "dup-sid@daegu.ac.kr", "20240001", "010-9999-0002");   // 학번만 중복
+        String phoneCollisionMessage = duplicateSignupMessage(
+                "dup-phone@daegu.ac.kr", "20249992", "010-1234-5678"); // 전화번호만 중복
+
+        // 세 경우의 메시지가 동일해야 어떤 필드가 중복인지 알 수 없다(계정 열거 방지).
+        assertThat(emailCollisionMessage)
+                .isEqualTo(studentIdCollisionMessage)
+                .isEqualTo(phoneCollisionMessage)
+                .doesNotContain("이메일").doesNotContain("학번").doesNotContain("전화번호");
+    }
+
+    private String duplicateSignupMessage(String email, String studentId, String phone) {
+        prepareVerifiedEmail(email);
+        java.util.Map<String, Object> body = new java.util.HashMap<>(validBody());
+        body.put("email", email);
+        body.put("studentId", studentId);
+        body.put("phone", phone);
+        return given().contentType(ContentType.JSON).body(body)
+                .when().post("/api/v1/auth/signup")
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .extract().jsonPath().getString("message");
+    }
+
+    @Test
     @DisplayName("인증 후 만료 시각이 지나면 가입할 수 없다")
     void signupRejectsExpiredVerification() {
         prepareVerifiedEmail("hong@daegu.ac.kr");

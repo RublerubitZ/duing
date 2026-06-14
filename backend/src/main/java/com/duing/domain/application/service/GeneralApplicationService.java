@@ -22,6 +22,7 @@ import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRe
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
@@ -64,6 +65,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,6 +81,9 @@ public class GeneralApplicationService implements ApplicationService {
     private static final String CLUB_MEMBER_UNIQUE_CONSTRAINT = "uk_club_member_club_user_active";
     // PostgreSQL unique_violation.
     private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
+    // 일괄 상태 변경의 건별 실패 사유 — 미존재(NotFound)와 타 클럽 권한없음(NotAMember)을 동일 메시지로
+    // 합쳐, 타 클럽 운영진이 임의 ID 로 지원서 존재/소속 여부를 알아내는 열거(oracle)를 막는다.
+    private static final String BULK_ITEM_GENERIC_FAILURE = "해당 지원서를 처리할 권한이 없거나 존재하지 않습니다.";
 
     private final ApplicationRepository applicationRepository;
     private final RecruitmentRepository recruitmentRepository;
@@ -326,9 +331,17 @@ public class GeneralApplicationService implements ApplicationService {
                         applicationId, bulkCommand.currentUserId(), bulkCommand.status()));
                 updated++;
             } catch (ApplicationException domainFailure) {
-                // 도메인 실패 (없음 / 권한 / 잘못된 전이) — 사용자에게 노출할 한국어 메시지가 들어있다.
+                // 미존재/타 클럽 권한없음은 열거 방지를 위해 일반 메시지로 합치고, 그 외(잘못된 전이·동시수정
+                // 등 이미 권한이 확인된 사용자에게 정당한 정보)는 구체 메시지를 그대로 노출한다.
+                String reason = isExistenceOrAuthorizationFailure(domainFailure)
+                        ? BULK_ITEM_GENERIC_FAILURE
+                        : domainFailure.getMessage();
+                failures.add(new BulkUpdateApplicationStatusResult.Failure(applicationId, reason));
+            } catch (AccessDeniedException authorizationFailure) {
+                // 운영진 역할 부족 — 존재/소속 정보가 새지 않도록 미존재·비멤버와 동일한 일반 메시지로 응답한다
+                // (시스템 오류가 아니므로 warn 로그도 남기지 않는다).
                 failures.add(new BulkUpdateApplicationStatusResult.Failure(
-                        applicationId, domainFailure.getMessage()));
+                        applicationId, BULK_ITEM_GENERIC_FAILURE));
             } catch (RuntimeException unexpected) {
                 // 시스템성 실패 — 로그는 남기되 응답에는 일반화된 메시지로 노출한다.
                 log.warn("[일괄 상태 변경 실패] applicationId={}, target={}",
@@ -338,6 +351,14 @@ public class GeneralApplicationService implements ApplicationService {
             }
         }
         return new BulkUpdateApplicationStatusResult(updated, failures);
+    }
+
+    // 지원서 미존재와 타 클럽 권한없음만 일반 메시지로 합칠 대상으로 분류한다(메시지 문자열이 아닌
+    // 예외 타입으로 판별 — 향후 메시지 변경에도 안전). 역할 부족(AccessDeniedException)은
+    // ApplicationException 이 아니므로 별도 catch 에서 같은 일반 메시지로 처리한다.
+    private static boolean isExistenceOrAuthorizationFailure(ApplicationException domainFailure) {
+        return domainFailure instanceof ApplicationDomainException.ApplicationNotFoundException
+                || domainFailure instanceof ClubMemberException.NotAMember;
     }
 
     @Override
