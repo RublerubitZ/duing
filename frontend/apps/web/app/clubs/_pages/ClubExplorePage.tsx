@@ -8,11 +8,12 @@ import { useAuthStore } from '@duing/stores';
 import type { ClubDayOfWeek } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Sparkle, SparkleFull } from '../../_components/Sparkle';
 import { COLLEGE_OPTIONS, collegeDisplayName } from '../../_lib/college';
 import { toRoute } from '../../_lib/route';
 import { ClubCard } from '../_components/ClubCard';
+import { ClubListItem } from '../_components/ClubListItem';
 import { summaryToClub } from '../_lib/clubAdapter';
 import { DIVISIONS, type Division } from '../_lib/clubs';
 import { dayLabel, ORDER as DAY_ORDER } from '../_lib/activeDaysLabel';
@@ -45,13 +46,6 @@ const Icon = {
       <polyline points="6 9 12 15 18 9" />
     </svg>
   ),
-  filter: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <line x1="4" y1="7" x2="20" y2="7" />
-      <line x1="7" y1="12" x2="17" y2="12" />
-      <line x1="10" y1="17" x2="14" y2="17" />
-    </svg>
-  ),
   arrowLeft: (props: React.SVGProps<SVGSVGElement>) => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <line x1="19" y1="12" x2="5" y2="12" />
@@ -69,6 +63,13 @@ const Icon = {
       <polyline points="20 6 9 17 4 12" />
     </svg>
   ),
+  sliders: (props: React.SVGProps<SVGSVGElement>) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="7" y1="12" x2="17" y2="12" />
+      <line x1="10" y1="17" x2="14" y2="17" />
+    </svg>
+  ),
 };
 
 export function ClubExplorePage() {
@@ -81,6 +82,8 @@ export function ClubExplorePage() {
 
   /** 검색 인풋은 입력 중 URL 을 흔들지 않도록 별도 로컬 상태로 둔다 */
   const [keywordDraft, setKeywordDraft] = useState(params.keyword);
+  /** 모바일 필터 바텀시트 — "동아리 N곳 보기"로 닫기 위해 제어 상태로 둔다 */
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const updateParams = useCallback(
     (patch: Partial<ExploreParams>) => {
@@ -109,6 +112,12 @@ export function ClubExplorePage() {
     const status = club.activeRecruitment?.displayStatus;
     return status === 'OPEN' || status === 'ALWAYS_OPEN';
   }).length;
+  const activeFilterCount =
+    (params.recruitment !== 'all' ? 1 : 0) +
+    (params.scope !== '전체' ? 1 : 0) +
+    (params.division !== '전체' ? 1 : 0) +
+    (params.college !== null ? 1 : 0) +
+    params.activeDays.length;
 
   const handleToggleLike = (clubId: number) => {
     if (authStatus !== 'authenticated') {
@@ -152,88 +161,24 @@ export function ClubExplorePage() {
     updateParams({ activeDays: next, page: 1 });
   };
 
-  // 데스크탑 사이드바와 모바일 Sheet 가 같은 필터 UI 를 공유한다(상태·핸들러는 클로저로 캡처).
-  const filterPanelContent = (
-    <>
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-base font-body text-ink-deep">필터</h3>
-        <button
-          type="button"
-          onClick={handleResetFilters}
-          className="text-xs font-semibold text-charcoal-3 hover:text-ink"
-        >
-          초기화
-        </button>
-      </div>
-
-      <FilterGroup title="모집 상태">
-        {(['available', 'upcoming', 'closed'] as const).map((value) => (
-          <FilterRow
-            key={value}
-            label={RECRUITMENT_LABEL[value]}
-            checked={params.recruitment === value}
-            onChange={() => handleRecruitmentSelect(value)}
-          />
-        ))}
-      </FilterGroup>
-
-      <FilterGroup title="활동 요일">
-        <div className="flex gap-1 flex-wrap">
-          {DAY_ORDER.map((day) => {
-            const on = params.activeDays.includes(day);
-            return (
-              <button
-                key={day}
-                type="button"
-                onClick={() => handleToggleActiveDay(day)}
-                className={`w-[30px] h-[30px] rounded-full text-[13px] font-semibold border ${on ? 'bg-ink text-white border-ink' : 'bg-paper text-charcoal-2 border-line'}`}
-              >
-                {dayLabel(day)}
-              </button>
-            );
-          })}
-        </div>
-      </FilterGroup>
-
-      <FilterGroup title={params.scope === '중앙' ? '분과' : '단과대학'} last>
-        {params.scope === '중앙'
-          ? DIVISIONS.map((d) => (
-              <FilterRow
-                key={d}
-                label={`${d}분과`}
-                checked={params.division === d}
-                onChange={() =>
-                  handleDivisionChange(params.division === d ? '전체' : (d as Division))
-                }
-              />
-            ))
-          : COLLEGE_OPTIONS.map((option) => (
-              <FilterRow
-                key={option.code}
-                label={option.label}
-                checked={params.college === option.code}
-                onChange={() =>
-                  updateParams({
-                    college: params.college === option.code ? null : option.code,
-                    page: 1,
-                  })
-                }
-              />
-            ))}
-      </FilterGroup>
-    </>
-  );
+  const handleSortChange = (value: string) => {
+    if (value === 'RECENT' || value === 'DEADLINE_SOON' || value === 'ALPHABETICAL') {
+      updateParams({ sort: value, page: 1 });
+    }
+  };
 
   return (
     <div>
+      {/* ─── 데스크탑 (md+) — 기존 카드형 레이아웃(원본 유지) ─── */}
+      <div className="hidden md:block">
       <section className="border-b border-line bg-cream px-4 sm:px-6 md:px-10 pt-11 pb-7">
         <div className="max-w-layout mx-auto">
-          <div className="flex flex-col gap-4 mb-7 md:flex-row md:items-end md:justify-between">
+          <div className="flex items-end justify-between mb-7">
             <div>
               <div className="text-[13px] font-semibold text-ink tracking-wide08 mb-2.5">
                 EXPLORE · 동아리 탐색
               </div>
-              <h1 className="text-[28px] sm:text-[36px] md:text-[48px] mb-3">
+              <h1 className="text-[48px] mb-3">
                 {totalElements > 0 ? `${totalElements}개 동아리를 둘러보세요` : '동아리를 둘러보세요'}
                 <SparkleFull
                   size={28}
@@ -248,7 +193,7 @@ export function ClubExplorePage() {
 
             <form
               onSubmit={handleSearchSubmit}
-              className="flex items-center gap-2 p-1 w-full md:w-[360px] bg-paper rounded-[14px] border border-line"
+              className="flex items-center gap-2 p-1 w-[360px] bg-paper rounded-[14px] border border-line"
             >
               <div className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5">
                 <Icon.search className="text-charcoal-3 w-[18px] h-[18px]" />
@@ -256,7 +201,7 @@ export function ClubExplorePage() {
                   value={keywordDraft}
                   onChange={(event) => setKeywordDraft(event.target.value)}
                   placeholder="동아리 이름·소개 검색"
-                  className="flex-1 min-w-0 border-none outline-none text-sm bg-transparent"
+                  className="flex-1 border-none outline-none text-sm bg-transparent"
                   style={{ fontFamily: 'inherit' }}
                 />
               </div>
@@ -264,7 +209,7 @@ export function ClubExplorePage() {
             </form>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 mb-4">
+          <div className="flex gap-1.5 mb-4">
             {(
               [
                 { key: '전체', hint: '모든 동아리' },
@@ -333,53 +278,103 @@ export function ClubExplorePage() {
       </section>
 
       <section className="px-4 sm:px-6 md:px-10 pt-8 pb-20">
-        <nav className="max-w-layout mx-auto mb-6 flex gap-5 overflow-x-auto border-b border-line">
-          {[{ value: null, label: '전체' }, ...CATEGORY_OPTIONS].map((option) => {
-            const on = params.category === option.value;
-            return (
-              <button
-                key={option.label}
-                type="button"
-                onClick={() => updateParams({ category: option.value, page: 1 })}
-                className={cn(
-                  '-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2.5 text-[14px] font-semibold transition-colors',
-                  on ? 'border-ink text-ink' : 'border-transparent text-charcoal-3 hover:text-charcoal',
-                )}
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </nav>
-        <div className="max-w-layout mx-auto grid grid-cols-1 md:grid-cols-[256px_1fr] gap-8">
-          <aside className="hidden md:block">
+        <div className="max-w-layout mx-auto grid grid-cols-[256px_1fr] gap-8">
+          <aside>
             <div className="sticky top-6 bg-paper rounded-[18px] border border-line px-[22px] py-5">
-              {filterPanelContent}
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-base font-body text-ink-deep">필터</h3>
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="text-xs font-semibold text-charcoal-3 hover:text-ink"
+                >
+                  초기화
+                </button>
+              </div>
+
+              <FilterGroup title="카테고리">
+                {CATEGORY_OPTIONS.map((option) => (
+                  <FilterRow
+                    key={option.value}
+                    label={option.label}
+                    checked={params.category === option.value}
+                    onChange={() =>
+                      updateParams({
+                        category: params.category === option.value ? null : option.value,
+                        page: 1,
+                      })
+                    }
+                  />
+                ))}
+              </FilterGroup>
+
+              <FilterGroup title="모집 상태">
+                {(['available', 'upcoming', 'closed'] as const).map((value) => (
+                  <FilterRow
+                    key={value}
+                    label={RECRUITMENT_LABEL[value]}
+                    checked={params.recruitment === value}
+                    onChange={() => handleRecruitmentSelect(value)}
+                  />
+                ))}
+              </FilterGroup>
+
+              <FilterGroup title="활동 요일">
+                <div className="flex gap-1 flex-wrap">
+                  {DAY_ORDER.map((day) => {
+                    const on = params.activeDays.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => handleToggleActiveDay(day)}
+                        className={`w-[30px] h-[30px] rounded-full text-[13px] font-semibold border ${on ? 'bg-ink text-white border-ink' : 'bg-paper text-charcoal-2 border-line'}`}
+                      >
+                        {dayLabel(day)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </FilterGroup>
+
+              <FilterGroup title={params.scope === '중앙' ? '분과' : '단과대학'} last>
+                {params.scope === '중앙'
+                  ? DIVISIONS.map((d) => (
+                      <FilterRow
+                        key={d}
+                        label={`${d}분과`}
+                        checked={params.division === d}
+                        onChange={() =>
+                          handleDivisionChange(params.division === d ? '전체' : (d as Division))
+                        }
+                      />
+                    ))
+                  : COLLEGE_OPTIONS.map((option) => (
+                      <FilterRow
+                        key={option.code}
+                        label={option.label}
+                        checked={params.college === option.code}
+                        onChange={() =>
+                          updateParams({
+                            college: params.college === option.code ? null : option.code,
+                            page: 1,
+                          })
+                        }
+                      />
+                    ))}
+              </FilterGroup>
             </div>
           </aside>
 
           <div>
-            <div className="flex flex-wrap items-center justify-between gap-y-3 mb-5">
+            <div className="flex items-center justify-between mb-5">
               <div className="text-sm text-charcoal-2">
-                지금 <span className="font-bold text-ink">{recruitingCount}곳</span> 모집 중
-                <span className="text-charcoal-3"> · 전체 {totalElements}곳</span>
+                <span className="font-bold text-ink">{visibleClubs.length}개</span>{' '}
+                <span className="text-charcoal-3">
+                  · 현재 페이지 (전체 {totalElements}개)
+                </span>
               </div>
               <div className="flex items-center gap-3">
-                <Sheet>
-                  <SheetTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-line bg-paper px-3.5 py-2 text-[13.5px] font-semibold text-charcoal-2 md:hidden"
-                    >
-                      <Icon.filter className="h-4 w-4" />
-                      필터
-                    </button>
-                  </SheetTrigger>
-                  <SheetContent side="left" className="w-[300px] px-[22px] pb-6 pt-12">
-                    <SheetTitle className="sr-only">필터</SheetTitle>
-                    {filterPanelContent}
-                  </SheetContent>
-                </Sheet>
                 <select
                   value={params.sort}
                   onChange={(event) =>
@@ -473,12 +468,11 @@ export function ClubExplorePage() {
             )}
 
             {visibleClubs.length > 0 && (
-              <div className="flex flex-col gap-3">
-                {visibleClubs.map((club, index) => (
+              <div className="grid grid-cols-4 gap-[18px]">
+                {visibleClubs.map((club) => (
                   <ClubCard
                     key={club.id}
                     club={club}
-                    recommended={index === 0 && params.page === 1}
                     liked={likedIds.has(club.id)}
                     isLikeBusy={
                       favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id
@@ -499,7 +493,255 @@ export function ClubExplorePage() {
           </div>
         </div>
       </section>
+      </div>
+
+      {/* ─── 모바일 (<md) — 단일 컬럼 리스트 + 바텀시트 필터 ─── */}
+      <div className="md:hidden">
+        <section className="border-b border-line bg-cream px-4 pt-8 pb-4">
+          <div className="text-[11px] font-bold tracking-wide08 text-ink">EXPLORE</div>
+          <h1 className="mt-1 text-[27px] tracking-tightx">동아리 탐색</h1>
+          <form
+            onSubmit={handleSearchSubmit}
+            className="mt-4 flex items-center gap-2.5 rounded-[14px] border border-line bg-paper px-4 py-3 shadow-1"
+          >
+            <Icon.search className="h-[18px] w-[18px] text-charcoal-3" />
+            <input
+              value={keywordDraft}
+              onChange={(event) => setKeywordDraft(event.target.value)}
+              placeholder="동아리 이름 · 관심사 검색"
+              className="min-w-0 flex-1 border-none bg-transparent text-sm outline-none"
+              style={{ fontFamily: 'inherit' }}
+            />
+          </form>
+        </section>
+
+        <nav className="flex gap-5 overflow-x-auto border-b border-line bg-cream px-4">
+          {[{ value: null, label: '전체' }, ...CATEGORY_OPTIONS].map((option) => {
+            const on = params.category === option.value;
+            return (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => updateParams({ category: option.value, page: 1 })}
+                className={cn(
+                  '-mb-px shrink-0 whitespace-nowrap border-b-[2.5px] py-2.5 text-[14px] font-semibold transition-colors',
+                  on ? 'border-ink text-ink' : 'border-transparent text-charcoal-3',
+                )}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="flex items-center justify-between px-4 pb-3 pt-4">
+          <div className="text-[13.5px] text-charcoal-2">
+            지금 <span className="font-bold text-ink">{recruitingCount}곳</span> 모집 중
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFilterOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-ink bg-ink px-3 py-1.5 text-[12.5px] font-bold text-white"
+            >
+              <Icon.sliders className="h-[15px] w-[15px]" />
+              필터
+              {activeFilterCount > 0 && (
+                <span className="grid h-4 min-w-4 place-items-center rounded-full bg-sage px-1 font-mono text-[10px] font-extrabold text-ink-deep">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+            <div className="relative inline-flex items-center">
+              <select
+                value={params.sort}
+                onChange={(event) => handleSortChange(event.target.value)}
+                className="appearance-none bg-transparent pr-4 text-[12.5px] font-semibold text-charcoal-2"
+              >
+                <option value="RECENT">최근순</option>
+                <option value="DEADLINE_SOON">마감순</option>
+                <option value="ALPHABETICAL">가나다순</option>
+              </select>
+              <Icon.chev className="pointer-events-none absolute right-0 h-[15px] w-[15px] text-charcoal-2" />
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 pb-8">
+          {clubListQuery.isLoading && <p className="text-sm text-charcoal-2">불러오는 중…</p>}
+          {clubListQuery.error && <p className="text-sm text-coral">오류가 발생했습니다.</p>}
+          {clubListQuery.data && visibleClubs.length === 0 && (
+            <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
+          )}
+          {visibleClubs.length > 0 && (
+            <div className="flex flex-col gap-3">
+              {visibleClubs.map((club, index) => (
+                <ClubListItem
+                  key={club.id}
+                  club={club}
+                  recommended={index === 0 && params.page === 1}
+                  liked={likedIds.has(club.id)}
+                  isLikeBusy={
+                    favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id
+                  }
+                  onLikeToggle={handleToggleLike}
+                />
+              ))}
+            </div>
+          )}
+          {totalPages > 1 && (
+            <div className="mt-5">
+              <Pagination
+                page={params.page}
+                totalPages={totalPages}
+                onPage={(page) => updateParams({ page })}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 모바일 필터 바텀시트 */}
+      <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+        <SheetContent
+          side="bottom"
+          hideClose
+          className="flex max-h-[88%] flex-col overflow-hidden rounded-t-[26px] bg-cream px-0 pb-0"
+        >
+          <SheetTitle className="sr-only">필터</SheetTitle>
+          <div className="shrink-0 px-5 pb-3 pt-2.5">
+            <div className="mx-auto mb-3.5 h-[4.5px] w-10 rounded-full bg-line" />
+            <div className="flex items-center justify-between">
+              <h2 className="text-[21px] tracking-tightx">필터</h2>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="text-[13px] font-semibold text-charcoal-3 hover:text-ink"
+              >
+                초기화
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5">
+            <MFilterGroup title="모집 상태">
+              {(['available', 'upcoming', 'closed'] as const).map((value) => (
+                <FilterChip
+                  key={value}
+                  label={RECRUITMENT_LABEL[value]}
+                  on={params.recruitment === value}
+                  onClick={() => handleRecruitmentSelect(value)}
+                />
+              ))}
+            </MFilterGroup>
+
+            <MFilterGroup title="소속">
+              {(['전체', '중앙', '학과'] as const).map((segment) => (
+                <FilterChip
+                  key={segment}
+                  label={segment === '전체' ? '전체' : segment === '중앙' ? '중앙동아리' : '과동아리'}
+                  on={params.scope === segment}
+                  onClick={() => handleScopeChange(segment)}
+                />
+              ))}
+            </MFilterGroup>
+
+            <MFilterGroup title={params.scope === '중앙' ? '분과' : '단과대학'}>
+              {params.scope === '중앙'
+                ? DIVISIONS.map((division) => (
+                    <FilterChip
+                      key={division}
+                      label={`${division}분과`}
+                      on={params.division === division}
+                      onClick={() =>
+                        handleDivisionChange(params.division === division ? '전체' : division)
+                      }
+                    />
+                  ))
+                : COLLEGE_OPTIONS.map((option) => (
+                    <FilterChip
+                      key={option.code}
+                      label={option.label}
+                      on={params.college === option.code}
+                      onClick={() =>
+                        updateParams({
+                          college: params.college === option.code ? null : option.code,
+                          page: 1,
+                        })
+                      }
+                    />
+                  ))}
+            </MFilterGroup>
+
+            <div className="py-[18px]">
+              <div className="mb-3 text-[13px] font-bold text-ink-deep">활동 요일</div>
+              <div className="flex gap-1.5">
+                {DAY_ORDER.map((day) => {
+                  const on = params.activeDays.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => handleToggleActiveDay(day)}
+                      className={cn(
+                        'grid aspect-square flex-1 place-items-center rounded-full border-[1.5px] text-[13px] font-bold',
+                        on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
+                      )}
+                    >
+                      {dayLabel(day)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 gap-2.5 border-t border-line px-5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-3.5">
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="btn btn-secondary rounded-[14px] px-5"
+            >
+              초기화
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterOpen(false)}
+              className="btn btn-primary flex-1 justify-center rounded-[14px] py-3.5 text-[15px]"
+            >
+              동아리 {totalElements}곳 보기
+              <Icon.arrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
+  );
+}
+
+// 모바일 바텀시트 — 칩 기반 필터 그룹/칩
+function MFilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border-b border-line py-[18px]">
+      <div className="mb-3 text-[13px] font-bold text-ink-deep">{title}</div>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+function FilterChip({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold transition-colors',
+        on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
+      )}
+    >
+      {on && <Icon.check className="h-3 w-3" />}
+      {label}
+    </button>
   );
 }
 

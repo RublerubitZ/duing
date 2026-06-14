@@ -21,34 +21,22 @@ const baseClub: Club = {
   activeRecruitment: null,
 };
 
-describe('ClubCard — 모집 상태 뱃지 렌더링', () => {
-  it('OPEN(마감일 있음): D-day 뱃지', () => {
+describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
+  it('OPEN: "모집중" 뱃지 + "모집 03.15 - 04.20" 기간', () => {
     render(<ClubCard club={{
       ...baseClub,
       activeRecruitment: {
         recruitmentId: 10,
         displayStatus: 'OPEN',
         startDate: '2026-03-15',
-        endDate: '2099-12-31', // 항상 미래 → 양수 D-day 보장
-      },
-    }} />);
-    expect(screen.getByText(/^D-\d+$/)).toBeInTheDocument();
-  });
-
-  it('OPEN(마감일 없음): "모집중" 뱃지', () => {
-    render(<ClubCard club={{
-      ...baseClub,
-      activeRecruitment: {
-        recruitmentId: 14,
-        displayStatus: 'OPEN',
-        startDate: '2026-03-15',
-        endDate: null,
+        endDate: '2026-04-20',
       },
     }} />);
     expect(screen.getByText('모집중')).toBeInTheDocument();
+    expect(screen.getByText('모집 03.15 - 04.20')).toBeInTheDocument();
   });
 
-  it('ALWAYS_OPEN: "상시모집" 뱃지', () => {
+  it('ALWAYS_OPEN: "상시모집" 뱃지 + "상시모집" 기간 라벨', () => {
     render(<ClubCard club={{
       ...baseClub,
       activeRecruitment: {
@@ -58,10 +46,10 @@ describe('ClubCard — 모집 상태 뱃지 렌더링', () => {
         endDate: null,
       },
     }} />);
-    expect(screen.getByText('상시모집')).toBeInTheDocument();
+    expect(screen.getAllByText('상시모집').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('UPCOMING: "모집예정" 뱃지', () => {
+  it('UPCOMING: "모집예정" 뱃지 + "03.20부터 모집"', () => {
     render(<ClubCard club={{
       ...baseClub,
       activeRecruitment: {
@@ -72,9 +60,10 @@ describe('ClubCard — 모집 상태 뱃지 렌더링', () => {
       },
     }} />);
     expect(screen.getByText('모집예정')).toBeInTheDocument();
+    expect(screen.getByText('03.20부터 모집')).toBeInTheDocument();
   });
 
-  it('CLOSED: "모집마감" 뱃지', () => {
+  it('CLOSED: "모집마감" 뱃지 + "모집 종료"', () => {
     render(<ClubCard club={{
       ...baseClub,
       activeRecruitment: {
@@ -85,10 +74,12 @@ describe('ClubCard — 모집 상태 뱃지 렌더링', () => {
       },
     }} />);
     expect(screen.getByText('모집마감')).toBeInTheDocument();
+    expect(screen.getByText('모집 종료')).toBeInTheDocument();
   });
 
-  it('activeRecruitment=null: 모집 뱃지가 렌더링되지 않는다', () => {
+  it('activeRecruitment=null: "모집 없음" 뱃지, 기간 영역에 텍스트 없음', () => {
     render(<ClubCard club={{ ...baseClub, activeRecruitment: null }} />);
-    expect(screen.queryByText(/^D-\d+$|모집중|상시모집|모집예정|모집마감/)).toBeNull();
+    expect(screen.getByText('모집 없음')).toBeInTheDocument();
+    expect(screen.queryByText(/모집 종료|상시모집|부터 모집|모집 \d{2}\.\d{2}/)).toBeNull();
   });
 });

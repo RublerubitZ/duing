@@ -43,12 +43,14 @@ const SIDE_CLASSES: Record<SheetSide, string> = {
 
 type SheetContentProps = React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content> & {
   side?: SheetSide;
+  /** 내장 X 닫기 버튼 숨김 — 자체 핸들/적용 버튼으로 닫는 바텀시트 등에 사용. */
+  hideClose?: boolean;
 };
 
 const SheetContent = React.forwardRef<
   React.ComponentRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(function SheetContent({ side = 'left', className, children, ...props }, ref) {
+>(function SheetContent({ side = 'left', className, children, hideClose = false, ...props }, ref) {
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -62,10 +64,12 @@ const SheetContent = React.forwardRef<
         {...props}
       >
         {children}
-        <SheetPrimitive.Close className="absolute right-3 top-3 rounded-sm p-2 text-charcoal-3 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
-          <X size={18} />
-          <span className="sr-only">닫기</span>
-        </SheetPrimitive.Close>
+        {!hideClose && (
+          <SheetPrimitive.Close className="absolute right-3 top-3 rounded-sm p-2 text-charcoal-3 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
+            <X size={18} />
+            <span className="sr-only">닫기</span>
+          </SheetPrimitive.Close>
+        )}
       </SheetPrimitive.Content>
     </SheetPortal>
   );

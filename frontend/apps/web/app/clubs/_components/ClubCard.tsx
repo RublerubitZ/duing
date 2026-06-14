@@ -2,18 +2,19 @@
 
 import Link from 'next/link';
 
-import { cn } from '@/app/_lib/cn';
+import { SparkleFull } from '../../_components/Sparkle';
 import { ClubLogo } from '../../_components/ClubLogo';
 import { toRoute } from '../../_lib/route';
 import { CAT_COLORS, type Club } from '../_lib/clubs';
+import type { RecruitmentDisplayStatus } from '@duing/types';
 
 function HeartIcon({ filled = false }: { filled?: boolean }) {
   return filled ? (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M12 21s-7.5-4.5-9.5-9.5C1 7 4.5 4 8 5c1.6.4 2.8 1.4 4 3 1.2-1.6 2.4-2.6 4-3 3.5-1 7 2 5.5 6.5C19.5 16.5 12 21 12 21z" />
     </svg>
   ) : (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
     </svg>
   );
@@ -21,130 +22,145 @@ function HeartIcon({ filled = false }: { filled?: boolean }) {
 
 type Props = {
   club: Club;
+  size?: 'md' | 'lg';
   liked?: boolean;
   isLikeBusy?: boolean;
   onLikeToggle?: (id: number) => void;
-  /** 리스트 첫 항목 추천 강조(잉크 보더 + 추천 라벨). */
-  recommended?: boolean;
 };
 
-type Badge = { text: string; tone: 'recruiting' | 'urgent' | 'muted' };
+type StatusKey = RecruitmentDisplayStatus | 'NONE';
 
-// 모집 마감까지 D-day 뱃지. OPEN+endDate 만 카운트다운, 그 외엔 상태 라벨.
-// 일 단위라 SSR/CSR 같은 날짜 → 하이드레이션 안전.
-function recruitBadge(club: Club): Badge | null {
+type StatusStyle = {
+  label: string;
+  dotColor: string;
+  chipClass: string;
+};
+
+const STATUS_STYLES: Record<StatusKey, StatusStyle> = {
+  OPEN:        { label: '모집중',    dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
+  ALWAYS_OPEN: { label: '상시모집',  dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
+  UPCOMING:    { label: '모집예정',  dotColor: '#E8B968', chipClass: 'bg-[#FBEFD7] text-[#8E6620]' },
+  CLOSED:      { label: '모집마감',  dotColor: '#6F7574', chipClass: 'bg-graysoft text-charcoal-2' },
+  NONE:        { label: '모집 없음', dotColor: '#6F7574', chipClass: 'bg-graysoft text-charcoal-2' },
+};
+
+function formatMonthDay(isoDate: string): string {
+  const parts = isoDate.split('-');
+  const month = parts[1] ?? '';
+  const day = parts[2] ?? '';
+  return `${month}.${day}`;
+}
+
+function renderPeriod(club: Club): React.ReactNode {
   const recruitment = club.activeRecruitment;
-  if (recruitment === null) return null;
+  if (recruitment === null) {
+    return null;
+  }
   switch (recruitment.displayStatus) {
+    case 'OPEN':
+      if (recruitment.endDate === null) return null;
+      return (
+        <span className="font-bold text-ink">
+          모집 {formatMonthDay(recruitment.startDate)} - {formatMonthDay(recruitment.endDate)}
+        </span>
+      );
     case 'ALWAYS_OPEN':
-      return { text: '상시모집', tone: 'recruiting' };
+      return <span className="font-bold text-ink">상시모집</span>;
     case 'UPCOMING':
-      return { text: '모집예정', tone: 'recruiting' };
+      return (
+        <span className="font-bold text-[#8E6620]">
+          {formatMonthDay(recruitment.startDate)}부터 모집
+        </span>
+      );
     case 'CLOSED':
-      return { text: '모집마감', tone: 'muted' };
-    case 'OPEN': {
-      if (recruitment.endDate === null) return { text: '모집중', tone: 'recruiting' };
-      const end = new Date(`${recruitment.endDate}T23:59:59`);
-      const remainingDays = Math.ceil((end.getTime() - Date.now()) / 86_400_000);
-      if (remainingDays < 0) return { text: '모집마감', tone: 'muted' };
-      if (remainingDays === 0) return { text: 'D-day', tone: 'urgent' };
-      return { text: `D-${remainingDays}`, tone: remainingDays <= 3 ? 'urgent' : 'recruiting' };
-    }
+      return <span className="text-charcoal-3">모집 종료</span>;
   }
 }
 
-const BADGE_TONE: Record<Badge['tone'], string> = {
-  recruiting: 'bg-sage-mist text-ink-deep',
-  urgent: 'bg-[#FCE2D9] text-[#9A3F23]',
-  muted: 'bg-graysoft text-charcoal-3',
-};
-
-export function ClubCard({
-  club,
-  liked = false,
-  isLikeBusy = false,
-  onLikeToggle,
-  recommended = false,
-}: Props) {
+export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false, onLikeToggle }: Props) {
   const cat = CAT_COLORS[club.cat];
-  const badge = recruitBadge(club);
-  const isDimmed = badge?.tone === 'muted' || club.activeRecruitment === null;
+  const statusKey: StatusKey = club.activeRecruitment?.displayStatus ?? 'NONE';
+  const statusStyle = STATUS_STYLES[statusKey];
+  const isDimmed = statusKey === 'CLOSED' || statusKey === 'NONE';
+  const logoSize = size === 'lg' ? 96 : 64;
   const initial = (club.name || '?').trim().charAt(0);
 
   return (
     <Link
       href={toRoute(`/clubs/${club.id}`)}
-      className={cn(
-        'group relative flex items-center gap-4 rounded-[18px] border bg-paper p-4 transition hover:shadow-2',
-        recommended ? 'border-ink' : 'border-line',
-        isDimmed && 'opacity-[0.85]',
-      )}
+      className={`relative flex flex-col gap-3.5 overflow-hidden bg-paper border border-line rounded-[18px] p-[18px] cursor-pointer transition hover:shadow-2 ${isDimmed ? 'opacity-[0.85]' : ''}`}
     >
-      {recommended && (
-        <span className="absolute -top-2 left-5 rounded-full bg-ink px-2 py-[3px] text-[10px] font-bold tracking-wide04 text-paper">
-          추천
-        </span>
-      )}
+      <div className="flex items-start justify-between gap-2">
+        <div
+          className={`relative grid place-items-center shrink-0 text-white font-display font-bold leading-none shadow-1 overflow-hidden ${size === 'lg' ? 'rounded-[22px]' : 'rounded-[16px]'}`}
+          style={{
+            width: logoSize,
+            height: logoSize,
+            background: club.logoUrl
+              ? undefined
+              : `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
+            fontSize: size === 'lg' ? 44 : 30,
+            letterSpacing: '-0.03em',
+            filter: isDimmed ? 'saturate(0.6)' : undefined,
+          }}
+          aria-label={`${club.name} 로고`}
+        >
+          <ClubLogo logoUrl={club.logoUrl}>{initial}</ClubLogo>
+          <SparkleFull size={12} color="#9DB6A0" className="absolute -top-1 -right-1" />
+        </div>
 
-      <div
-        className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-[16px] font-display text-[28px] font-bold leading-none text-white shadow-1"
-        style={{
-          background: club.logoUrl
-            ? undefined
-            : `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
-          letterSpacing: '-0.03em',
-          filter: isDimmed ? 'saturate(0.6)' : undefined,
-        }}
-        aria-label={`${club.name} 로고`}
-      >
-        <ClubLogo logoUrl={club.logoUrl}>{initial}</ClubLogo>
+        <button
+          type="button"
+          aria-label={liked ? '찜 해제' : '찜 추가'}
+          aria-pressed={liked}
+          disabled={isLikeBusy}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onLikeToggle?.(club.id);
+          }}
+          className={`grid place-items-center w-8 h-8 rounded-full shrink-0 disabled:opacity-50 ${liked ? 'bg-[#FFE8E5] text-coral' : 'bg-transparent text-charcoal-3'}`}
+        >
+          <HeartIcon filled={liked} />
+        </button>
       </div>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="truncate text-[16px] font-bold leading-tight text-ink-deep">{club.name}</h3>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {badge && (
-              <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-bold', BADGE_TONE[badge.tone])}>
-                {badge.text}
-              </span>
-            )}
-            <button
-              type="button"
-              aria-label={liked ? '찜 해제' : '찜 추가'}
-              aria-pressed={liked}
-              disabled={isLikeBusy}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onLikeToggle?.(club.id);
-              }}
-              className={cn(
-                'grid h-8 w-8 shrink-0 place-items-center rounded-full disabled:opacity-50',
-                liked ? 'bg-[#FFE8E5] text-coral' : 'text-charcoal-3 hover:bg-graysoft',
-              )}
-            >
-              <HeartIcon filled={liked} />
-            </button>
-          </div>
-        </div>
+      <div>
+        <h3 className="text-[19px] mb-1.5 leading-[1.25]">{club.name}</h3>
+        <p className="text-[13.5px] text-charcoal-3 leading-[1.45]">{club.tag}</p>
+      </div>
 
-        <p className="mt-0.5 truncate text-[13px] text-charcoal-3">{club.tag}</p>
+      <div className="flex items-center gap-1.5 flex-wrap text-[12px] text-charcoal-3">
+        <span className={cat.pill}>{club.cat}</span>
+        {club.scope && (
+          <span
+            className={`px-2 py-0.5 rounded-full text-[11px] font-bold tracking-wide04 ${club.scope === '중앙' ? 'bg-sage-mist text-ink-deep' : 'bg-graysoft text-charcoal-2'}`}
+          >
+            {club.scope === '중앙' ? '🏛️ 중앙' : '🎓 학과'}
+            {club.division ? ` · ${club.division}` : ''}
+          </span>
+        )}
+      </div>
 
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className={cat.pill}>{club.cat}</span>
-          {club.scope && (
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                club.scope === '중앙' ? 'bg-sage-mist text-ink-deep' : 'bg-graysoft text-charcoal-2',
-              )}
-            >
-              {club.scope}
-              {club.division ? ` · ${club.division}` : ''}
-            </span>
-          )}
-        </div>
+      <div className="mt-1 pt-3 border-t border-dashed border-line flex items-center justify-between gap-2">
+        <span
+          className={`inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[11.5px] font-bold tracking-[0.02em] ${statusStyle.chipClass}`}
+        >
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{
+              background: statusStyle.dotColor,
+              boxShadow: statusKey === 'OPEN' || statusKey === 'ALWAYS_OPEN'
+                ? `0 0 0 3px ${statusStyle.dotColor}33`
+                : undefined,
+            }}
+          />
+          {statusStyle.label}
+        </span>
+
+        <span className="text-[12.5px] text-charcoal-2 inline-flex items-center gap-1.5">
+          {renderPeriod(club)}
+        </span>
       </div>
     </Link>
   );
