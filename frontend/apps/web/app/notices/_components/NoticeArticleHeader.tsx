@@ -22,8 +22,9 @@ export function NoticeArticleHeader({ category, title, pinned, expiresAt, create
   const expired = expiresAt !== null && new Date(expiresAt).getTime() < Date.now();
 
   return (
-    <header className="pt-7 pb-6 border-b border-line">
-      <div className="flex items-center justify-between mb-5">
+    <header className="pt-4 pb-6 border-b border-line md:pt-7">
+      {/* 브레드크럼·목록으로 — 데스크탑 전용. 모바일은 상단 액션바의 뒤로가기로 이동한다. */}
+      <div className="hidden items-center justify-between mb-5 md:flex">
         <nav className="flex items-center gap-1.5 text-[13px] text-charcoal-3 whitespace-nowrap" aria-label="위치">
           <span>공지 · 소식</span>
           <ChevronRight size={14} aria-hidden />
@@ -51,7 +52,7 @@ export function NoticeArticleHeader({ category, title, pinned, expiresAt, create
         )}
       </div>
 
-      <h1 className="text-[34px] leading-[1.25] flex items-start gap-2">
+      <h1 className="text-[27px] leading-[1.3] flex items-start gap-2 md:text-[34px] md:leading-[1.25]">
         <span>{title}</span>
         <Sparkle size={18} color="var(--sage)" className="mt-2 shrink-0" />
       </h1>

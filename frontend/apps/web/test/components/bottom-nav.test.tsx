@@ -38,6 +38,18 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: '탐색' })).toHaveAttribute('aria-current', 'page');
   });
 
+  it('공지 상세(/notices/123)도 자체 상단 액션바를 쓰므로 탭바를 미노출한다', () => {
+    mockUsePathname.mockReturnValue('/notices/123');
+    const { container } = render(<BottomNav />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('공지 목록(/notices)에서는 공지 탭이 활성이다', () => {
+    mockUsePathname.mockReturnValue('/notices');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: '공지' })).toHaveAttribute('aria-current', 'page');
+  });
+
   it('개인영역(/me)에서는 렌더링하지 않는다', () => {
     mockUsePathname.mockReturnValue('/me');
     const { container } = render(<BottomNav />);

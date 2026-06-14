@@ -12,7 +12,7 @@ export function NoticePosterHero({ coverImageUrl, title, summary }: Props) {
       <ImageWithFallback
         src={coverImageUrl}
         alt={title}
-        className="aspect-[3/4] rounded-lg overflow-hidden border border-line shadow-2"
+        className="aspect-[3/4] w-full rounded-lg overflow-hidden border border-line shadow-2"
         emptyMessage="이미지 없음"
       />
       {summary ? (

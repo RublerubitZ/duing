@@ -4,10 +4,13 @@ import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useNoticeDetailQuery } from '@duing/hooks';
 import { ExploreNav } from '../../_components/ExploreNav';
+import { NoticeDetailTopBar } from '../_components/NoticeDetailTopBar';
 import { NoticeArticleHeader } from '../_components/NoticeArticleHeader';
 import { NoticePosterHero } from '../_components/NoticePosterHero';
 import { NoticeContent } from '../_components/NoticeContent';
 import { NoticeEventCard } from '../_components/NoticeEventCard';
+import { NoticeEventSummary } from '../_components/NoticeEventSummary';
+import { NoticeDetailLinkBar } from '../_components/NoticeDetailLinkBar';
 import { NoticeMetaCard } from '../_components/NoticeMetaCard';
 import { NoticeShareCard } from '../_components/NoticeShareCard';
 import { RelatedNotices } from '../_components/RelatedNotices';
@@ -39,6 +42,7 @@ export default function NoticeDetailPage() {
     return (
       <div className="duing min-h-dvh bg-cream">
         <ExploreNav active="공지" slimOnMobile />
+        <NoticeDetailTopBar />
         <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 py-16">
           <p className="text-charcoal-3 text-[13px]">불러오는 중…</p>
         </div>
@@ -50,6 +54,7 @@ export default function NoticeDetailPage() {
     return (
       <div className="duing min-h-dvh bg-cream">
         <ExploreNav active="공지" slimOnMobile />
+        <NoticeDetailTopBar />
         <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 py-16">
           <p className="text-coral text-[13px]">공지를 불러오지 못했습니다.</p>
         </div>
@@ -62,6 +67,7 @@ export default function NoticeDetailPage() {
   return (
     <div className="duing min-h-dvh bg-cream">
       <ExploreNav active="공지" slimOnMobile />
+      <NoticeDetailTopBar />
       <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 pb-24">
         <NoticeArticleHeader
           category={notice.category}
@@ -84,12 +90,18 @@ export default function NoticeDetailPage() {
               title={notice.title}
               summary={notice.summary}
             />
+            {/* 모바일: 한눈에 보기(이벤트)를 본문 위로 끌어올림. 데스크탑은 우측 카드를 쓴다. */}
+            {notice.eventInfo && (
+              <NoticeEventSummary eventInfo={notice.eventInfo} className="mb-8 md:hidden" />
+            )}
             <NoticeContent content={notice.content} format={notice.contentFormat} />
           </article>
 
           <aside className="lg:sticky lg:top-24 flex flex-col gap-4 min-w-0">
             {notice.eventInfo ? (
-              <NoticeEventCard eventInfo={notice.eventInfo} linkUrl={notice.linkUrl} />
+              <div className="hidden md:block">
+                <NoticeEventCard eventInfo={notice.eventInfo} linkUrl={notice.linkUrl} />
+              </div>
             ) : (
               <NoticeMetaCard
                 category={notice.category}
@@ -99,11 +111,19 @@ export default function NoticeDetailPage() {
                 linkUrl={notice.linkUrl}
               />
             )}
-            <NoticeShareCard />
+            {/* 공유 카드 — 모바일 삭제(상단 액션바로 공유). */}
+            <div className="hidden md:block">
+              <NoticeShareCard />
+            </div>
             <RelatedNotices category={notice.category} currentId={notice.id} />
           </aside>
         </div>
       </div>
+
+      {/* 모바일 전용 하단 고정 '자세히 보기' 바 — 외부 안내가 있는 이벤트 공지. 데스크탑은 우측 카드 버튼. */}
+      {notice.eventInfo && (
+        <NoticeDetailLinkBar eventInfo={notice.eventInfo} linkUrl={notice.linkUrl} />
+      )}
     </div>
   );
 }
