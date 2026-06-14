@@ -68,9 +68,10 @@ duing:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:false}
   privacy:
     retention:
-      # PII 보관기간 파기 잡. 기본 비활성 — 보관기간(window)은 법무/내부 방침 확정 후 운영에서 활성화한다.
+      # 탈퇴/폐쇄로 soft-delete 된 PII 의 보관기간 = 45일(P45D). 이후 파기 잡이 비식별화/삭제한다.
+      # 기본 비활성 — 운영에서 DUING_PII_RETENTION_ENABLED=true 주입 시 활성화(개인정보 처리방침의 45일 보관과 일치).
       enabled: ${DUING_PII_RETENTION_ENABLED:false}
-      window: ${DUING_PII_RETENTION_WINDOW:P1Y}
+      window: ${DUING_PII_RETENTION_WINDOW:P45D}
 
 # 기본은 안전값(warn). bind 파라미터 로깅(org.hibernate.orm.jdbc.bind=trace)은 이메일·인증코드·학번 등
 # PII 를 평문으로 남기므로 base 를 warn 으로 둔다. local 프로파일만 개발 편의로 trace 를 다시 켜고
