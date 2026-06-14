@@ -1,3 +1,5 @@
+import { FadeIn } from '@/components/motion/FadeIn';
+
 import { HomeFooter } from './_components/HomeFooter';
 import { HomeNav } from './_components/HomeNav';
 import { BannerCarousel } from './_components/sections/BannerCarousel';
@@ -18,9 +20,15 @@ export default function HomePage() {
       <HomeHero />
       <BannerCarousel />
       <RecruitmentTicker />
-      <Categories />
-      <FeaturedClubs />
-      <LeaderCta />
+      <FadeIn>
+        <Categories />
+      </FadeIn>
+      <FadeIn>
+        <FeaturedClubs />
+      </FadeIn>
+      <FadeIn>
+        <LeaderCta />
+      </FadeIn>
       <HomeFooter />
     </div>
   );

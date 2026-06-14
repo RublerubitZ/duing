@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { MotionConfig } from 'framer-motion';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ApiError, createApiClient, registerCookieAdapter } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
@@ -43,9 +44,12 @@ export function Providers({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ApiClientProvider client={apiClient}>{children}</ApiClientProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
+    // reducedMotion="user" — OS 의 '동작 줄이기' 설정 시 transform 모션을 자동 비활성화한다.
+    <MotionConfig reducedMotion="user">
+      <QueryClientProvider client={queryClient}>
+        <ApiClientProvider client={apiClient}>{children}</ApiClientProvider>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </MotionConfig>
   );
 }

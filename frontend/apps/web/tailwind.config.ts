@@ -103,6 +103,15 @@ const config: Config = {
         2: '0 2px 6px rgb(31 74 54 / 0.05), 0 12px 32px rgb(31 74 54 / 0.08)',
         3: '0 6px 20px rgb(31 74 54 / 0.08), 0 24px 60px rgb(31 74 54 / 0.12)',
       },
+      // 두잉 모션 토큰 — 임의값(duration-[250ms]·ease-[cubic-bezier(...)])이 tailwindcss-animate 와
+      // 충돌해 ambiguous 경고를 내므로 명명 유틸리티로 승격(duration-250·ease-duing).
+      transitionDuration: {
+        250: '250ms',
+        600: '600ms',
+      },
+      transitionTimingFunction: {
+        duing: 'cubic-bezier(.2, .7, .2, 1)',
+      },
       maxWidth: {
         layout: '1280px',
       },

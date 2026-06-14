@@ -51,7 +51,7 @@ function CategoryTile({ category }: { category: HomeCategoryMeta }) {
   return (
     <Link
       href={`/clubs?category=${category.value}`}
-      className="group relative flex flex-col overflow-hidden rounded-[18px] border text-inherit no-underline transition-[transform,box-shadow,border-color] duration-[250ms] ease-[cubic-bezier(.2,.7,.2,1)] hover:-translate-y-1 hover:border-[color:var(--accent)] hover:shadow-[0_16px_32px_rgba(47,58,46,.08),0_2px_6px_rgba(47,58,46,.04)]"
+      className="group relative flex flex-col overflow-hidden rounded-[18px] border text-inherit no-underline transition-[transform,box-shadow,border-color] duration-250 ease-duing hover:-translate-y-1 hover:border-[color:var(--accent)] hover:shadow-[0_16px_32px_rgba(47,58,46,.08),0_2px_6px_rgba(47,58,46,.04)]"
       style={{
         background: '#ffffff',
         borderColor: '#d9d4c3',
@@ -67,7 +67,7 @@ function CategoryTile({ category }: { category: HomeCategoryMeta }) {
           alt={category.label}
           fill
           sizes="(max-width: 768px) 50vw, 25vw"
-          className="object-cover transition-transform duration-[600ms] ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-105"
+          className="object-cover transition-transform duration-600 ease-duing group-hover:scale-105"
         />
         <span
           className="absolute left-3.5 top-3 z-20 rounded-full px-[9px] py-1 font-mono text-[10px] font-semibold"
@@ -110,7 +110,7 @@ function CategoryTile({ category }: { category: HomeCategoryMeta }) {
           </span>
         </div>
         <span
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all duration-[250ms] group-hover:-rotate-45 group-hover:border-[color:var(--accent)] group-hover:bg-[color:var(--accent)] group-hover:text-white"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all duration-250 group-hover:-rotate-45 group-hover:border-[color:var(--accent)] group-hover:bg-[color:var(--accent)] group-hover:text-white"
           style={{ borderColor: '#d9d4c3', color: '#4a5247' }}
         >
           <svg viewBox="0 0 12 12" className="h-[13px] w-[13px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
