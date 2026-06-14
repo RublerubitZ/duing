@@ -25,26 +25,26 @@ const baseClub: Club = {
 
 /* ── 테스트 ─────────────────────────────────────────────────── */
 describe('ClubCard — scope/division chip 렌더링', () => {
-  it('scope="중앙", division=null → "🏛️ 중앙" 보임, "·" 없음', () => {
+  it('scope="중앙", division=null → "중앙" 보임, "·" 없음 (이모지 없음)', () => {
     render(<ClubCard club={{ ...baseClub, scope: '중앙', division: null }} />);
-    const chip = screen.getByText('🏛️ 중앙');
+    const chip = screen.getByText('중앙');
     expect(chip).toBeInTheDocument();
     expect(chip.textContent).not.toContain('·');
   });
 
-  it('scope="중앙", division="컴퓨터정보공학부" → "🏛️ 중앙 · 컴퓨터정보공학부"', () => {
+  it('scope="중앙", division="컴퓨터정보공학부" → "중앙 · 컴퓨터정보공학부"', () => {
     render(<ClubCard club={{ ...baseClub, scope: '중앙', division: '컴퓨터정보공학부' }} />);
-    expect(screen.getByText('🏛️ 중앙 · 컴퓨터정보공학부')).toBeInTheDocument();
+    expect(screen.getByText('중앙 · 컴퓨터정보공학부')).toBeInTheDocument();
   });
 
-  it('scope="학과", division="컴퓨터정보공학부" → "🎓 학과 · 컴퓨터정보공학부"', () => {
+  it('scope="학과", division="컴퓨터정보공학부" → "학과 · 컴퓨터정보공학부"', () => {
     render(<ClubCard club={{ ...baseClub, scope: '학과', division: '컴퓨터정보공학부' }} />);
-    expect(screen.getByText('🎓 학과 · 컴퓨터정보공학부')).toBeInTheDocument();
+    expect(screen.getByText('학과 · 컴퓨터정보공학부')).toBeInTheDocument();
   });
 
-  it('scope="학과", division=null → "🎓 학과" 만', () => {
+  it('scope="학과", division=null → "학과" 만', () => {
     render(<ClubCard club={{ ...baseClub, scope: '학과', division: null }} />);
-    const chip = screen.getByText('🎓 학과');
+    const chip = screen.getByText('학과');
     expect(chip).toBeInTheDocument();
     expect(chip.textContent).not.toContain('·');
   });

@@ -7,6 +7,8 @@ import { useClubListQuery, useFavoriteIdsQuery, useFavoriteToggleMutation } from
 import { useAuthStore } from '@duing/stores';
 import type { ClubDayOfWeek } from '@duing/types';
 
+import { cn } from '@/app/_lib/cn';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Sparkle, SparkleFull } from '../../_components/Sparkle';
 import { COLLEGE_OPTIONS, collegeDisplayName } from '../../_lib/college';
 import { toRoute } from '../../_lib/route';
@@ -41,6 +43,13 @@ const Icon = {
   chev: (props: React.SVGProps<SVGSVGElement>) => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <polyline points="6 9 12 15 18 9" />
+    </svg>
+  ),
+  filter: (props: React.SVGProps<SVGSVGElement>) => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="7" y1="12" x2="17" y2="12" />
+      <line x1="10" y1="17" x2="14" y2="17" />
     </svg>
   ),
   arrowLeft: (props: React.SVGProps<SVGSVGElement>) => (
@@ -96,6 +105,10 @@ export function ClubExplorePage() {
 
   const totalElements = clubListQuery.data?.totalElements ?? 0;
   const totalPages = clubListQuery.data?.totalPages ?? 0;
+  const recruitingCount = visibleClubs.filter((club) => {
+    const status = club.activeRecruitment?.displayStatus;
+    return status === 'OPEN' || status === 'ALWAYS_OPEN';
+  }).length;
 
   const handleToggleLike = (clubId: number) => {
     if (authStatus !== 'authenticated') {
@@ -139,16 +152,88 @@ export function ClubExplorePage() {
     updateParams({ activeDays: next, page: 1 });
   };
 
+  // 데스크탑 사이드바와 모바일 Sheet 가 같은 필터 UI 를 공유한다(상태·핸들러는 클로저로 캡처).
+  const filterPanelContent = (
+    <>
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-base font-body text-ink-deep">필터</h3>
+        <button
+          type="button"
+          onClick={handleResetFilters}
+          className="text-xs font-semibold text-charcoal-3 hover:text-ink"
+        >
+          초기화
+        </button>
+      </div>
+
+      <FilterGroup title="모집 상태">
+        {(['available', 'upcoming', 'closed'] as const).map((value) => (
+          <FilterRow
+            key={value}
+            label={RECRUITMENT_LABEL[value]}
+            checked={params.recruitment === value}
+            onChange={() => handleRecruitmentSelect(value)}
+          />
+        ))}
+      </FilterGroup>
+
+      <FilterGroup title="활동 요일">
+        <div className="flex gap-1 flex-wrap">
+          {DAY_ORDER.map((day) => {
+            const on = params.activeDays.includes(day);
+            return (
+              <button
+                key={day}
+                type="button"
+                onClick={() => handleToggleActiveDay(day)}
+                className={`w-[30px] h-[30px] rounded-full text-[13px] font-semibold border ${on ? 'bg-ink text-white border-ink' : 'bg-paper text-charcoal-2 border-line'}`}
+              >
+                {dayLabel(day)}
+              </button>
+            );
+          })}
+        </div>
+      </FilterGroup>
+
+      <FilterGroup title={params.scope === '중앙' ? '분과' : '단과대학'} last>
+        {params.scope === '중앙'
+          ? DIVISIONS.map((d) => (
+              <FilterRow
+                key={d}
+                label={`${d}분과`}
+                checked={params.division === d}
+                onChange={() =>
+                  handleDivisionChange(params.division === d ? '전체' : (d as Division))
+                }
+              />
+            ))
+          : COLLEGE_OPTIONS.map((option) => (
+              <FilterRow
+                key={option.code}
+                label={option.label}
+                checked={params.college === option.code}
+                onChange={() =>
+                  updateParams({
+                    college: params.college === option.code ? null : option.code,
+                    page: 1,
+                  })
+                }
+              />
+            ))}
+      </FilterGroup>
+    </>
+  );
+
   return (
     <div>
       <section className="border-b border-line bg-cream px-4 sm:px-6 md:px-10 pt-11 pb-7">
         <div className="max-w-layout mx-auto">
-          <div className="flex items-end justify-between mb-7">
+          <div className="flex flex-col gap-4 mb-7 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="text-[13px] font-semibold text-ink tracking-wide08 mb-2.5">
                 EXPLORE · 동아리 탐색
               </div>
-              <h1 className="text-[48px] mb-3">
+              <h1 className="text-[28px] sm:text-[36px] md:text-[48px] mb-3">
                 {totalElements > 0 ? `${totalElements}개 동아리를 둘러보세요` : '동아리를 둘러보세요'}
                 <SparkleFull
                   size={28}
@@ -163,7 +248,7 @@ export function ClubExplorePage() {
 
             <form
               onSubmit={handleSearchSubmit}
-              className="flex items-center gap-2 p-1 w-[360px] bg-paper rounded-[14px] border border-line"
+              className="flex items-center gap-2 p-1 w-full md:w-[360px] bg-paper rounded-[14px] border border-line"
             >
               <div className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5">
                 <Icon.search className="text-charcoal-3 w-[18px] h-[18px]" />
@@ -171,7 +256,7 @@ export function ClubExplorePage() {
                   value={keywordDraft}
                   onChange={(event) => setKeywordDraft(event.target.value)}
                   placeholder="동아리 이름·소개 검색"
-                  className="flex-1 border-none outline-none text-sm bg-transparent"
+                  className="flex-1 min-w-0 border-none outline-none text-sm bg-transparent"
                   style={{ fontFamily: 'inherit' }}
                 />
               </div>
@@ -179,7 +264,7 @@ export function ClubExplorePage() {
             </form>
           </div>
 
-          <div className="flex gap-1.5 mb-4">
+          <div className="flex flex-wrap gap-1.5 mb-4">
             {(
               [
                 { key: '전체', hint: '모든 동아리' },
@@ -248,103 +333,53 @@ export function ClubExplorePage() {
       </section>
 
       <section className="px-4 sm:px-6 md:px-10 pt-8 pb-20">
-        <div className="max-w-layout mx-auto grid grid-cols-[256px_1fr] gap-8">
-          <aside>
+        <nav className="max-w-layout mx-auto mb-6 flex gap-5 overflow-x-auto border-b border-line">
+          {[{ value: null, label: '전체' }, ...CATEGORY_OPTIONS].map((option) => {
+            const on = params.category === option.value;
+            return (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => updateParams({ category: option.value, page: 1 })}
+                className={cn(
+                  '-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2.5 text-[14px] font-semibold transition-colors',
+                  on ? 'border-ink text-ink' : 'border-transparent text-charcoal-3 hover:text-charcoal',
+                )}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="max-w-layout mx-auto grid grid-cols-1 md:grid-cols-[256px_1fr] gap-8">
+          <aside className="hidden md:block">
             <div className="sticky top-6 bg-paper rounded-[18px] border border-line px-[22px] py-5">
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="text-base font-body text-ink-deep">필터</h3>
-                <button
-                  type="button"
-                  onClick={handleResetFilters}
-                  className="text-xs font-semibold text-charcoal-3 hover:text-ink"
-                >
-                  초기화
-                </button>
-              </div>
-
-              <FilterGroup title="카테고리">
-                {CATEGORY_OPTIONS.map((option) => (
-                  <FilterRow
-                    key={option.value}
-                    label={option.label}
-                    checked={params.category === option.value}
-                    onChange={() =>
-                      updateParams({
-                        category: params.category === option.value ? null : option.value,
-                        page: 1,
-                      })
-                    }
-                  />
-                ))}
-              </FilterGroup>
-
-              <FilterGroup title="모집 상태">
-                {(['available', 'upcoming', 'closed'] as const).map((value) => (
-                  <FilterRow
-                    key={value}
-                    label={RECRUITMENT_LABEL[value]}
-                    checked={params.recruitment === value}
-                    onChange={() => handleRecruitmentSelect(value)}
-                  />
-                ))}
-              </FilterGroup>
-
-              <FilterGroup title="활동 요일">
-                <div className="flex gap-1 flex-wrap">
-                  {DAY_ORDER.map((day) => {
-                    const on = params.activeDays.includes(day);
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        onClick={() => handleToggleActiveDay(day)}
-                        className={`w-[30px] h-[30px] rounded-full text-[13px] font-semibold border ${on ? 'bg-ink text-white border-ink' : 'bg-paper text-charcoal-2 border-line'}`}
-                      >
-                        {dayLabel(day)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </FilterGroup>
-
-              <FilterGroup title={params.scope === '중앙' ? '분과' : '단과대학'} last>
-                {params.scope === '중앙'
-                  ? DIVISIONS.map((d) => (
-                      <FilterRow
-                        key={d}
-                        label={`${d}분과`}
-                        checked={params.division === d}
-                        onChange={() =>
-                          handleDivisionChange(params.division === d ? '전체' : (d as Division))
-                        }
-                      />
-                    ))
-                  : COLLEGE_OPTIONS.map((option) => (
-                      <FilterRow
-                        key={option.code}
-                        label={option.label}
-                        checked={params.college === option.code}
-                        onChange={() =>
-                          updateParams({
-                            college: params.college === option.code ? null : option.code,
-                            page: 1,
-                          })
-                        }
-                      />
-                    ))}
-              </FilterGroup>
+              {filterPanelContent}
             </div>
           </aside>
 
           <div>
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex flex-wrap items-center justify-between gap-y-3 mb-5">
               <div className="text-sm text-charcoal-2">
-                <span className="font-bold text-ink">{visibleClubs.length}개</span>{' '}
-                <span className="text-charcoal-3">
-                  · 현재 페이지 (전체 {totalElements}개)
-                </span>
+                지금 <span className="font-bold text-ink">{recruitingCount}곳</span> 모집 중
+                <span className="text-charcoal-3"> · 전체 {totalElements}곳</span>
               </div>
               <div className="flex items-center gap-3">
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-line bg-paper px-3.5 py-2 text-[13.5px] font-semibold text-charcoal-2 md:hidden"
+                    >
+                      <Icon.filter className="h-4 w-4" />
+                      필터
+                    </button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-[300px] px-[22px] pb-6 pt-12">
+                    <SheetTitle className="sr-only">필터</SheetTitle>
+                    {filterPanelContent}
+                  </SheetContent>
+                </Sheet>
                 <select
                   value={params.sort}
                   onChange={(event) =>
@@ -438,11 +473,12 @@ export function ClubExplorePage() {
             )}
 
             {visibleClubs.length > 0 && (
-              <div className="grid grid-cols-4 gap-[18px]">
-                {visibleClubs.map((club) => (
+              <div className="flex flex-col gap-3">
+                {visibleClubs.map((club, index) => (
                   <ClubCard
                     key={club.id}
                     club={club}
+                    recommended={index === 0 && params.page === 1}
                     liked={likedIds.has(club.id)}
                     isLikeBusy={
                       favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id
