@@ -2,7 +2,6 @@ package com.duing.domain.user.service;
 
 import com.duing.domain.user.entity.EmailVerification;
 import com.duing.domain.user.exception.EmailVerificationException;
-import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.EmailVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.ConfirmEmailVerificationCommand;
@@ -35,24 +34,35 @@ public class GeneralEmailVerificationService implements EmailVerificationService
     public EmailVerificationSendResult sendCode(SendEmailVerificationCommand sendCommand, String clientIp) {
         LocalDateTime now = LocalDateTime.now();
         rateLimiter.assertAndRecordIpRequest(clientIp, now);
-        if (userRepository.existsByEmail(sendCommand.email())) {
-            throw new UserException.DuplicateEmailException();
-        }
+
+        // 계정 열거(account enumeration) 방지 — 이미 가입된 이메일도 미가입과 '구분 불가능한' 응답을
+        // 주기 위해 코드 생성·해시·upsert(email_verifications 행 생성/갱신)와 전역 쿼터 예약까지 동일하게
+        // 태운다. 그래야 첫 발송 201/만료, 쿨다운 429, 쿼터 소진 503 이 가입 여부와 무관하게 같아진다.
+        // 단, 가입자에게는 실제 코드 메일을 보내지 않고(코드 유출·이메일 폭탄 방지) 예약한 쿼터를 곧바로
+        // 반납한다(가입 이메일로 일일 한도를 소진시키는 악용 방지). 중복 가입 차단은 signup 단계의
+        // existsByEmail 재검증으로 유지되므로 이 분기를 없애도 약화되지 않는다.
+        boolean alreadyRegistered = userRepository.existsByEmail(sendCommand.email());
 
         String code = verificationCodeManager.generateCode();
         String codeHash = verificationCodeManager.hash(sendCommand.email(), code);
         EmailVerification emailVerification = upsertVerification(sendCommand.email(), codeHash, now);
 
-        // 발송 직전에 전역 일일 쿼터를 원자적으로 예약 — 중복/쿨다운으로 발송에 이르지 못한
-        // 요청은 쿼터를 소비하지 않는다. 한도 초과 시 503.
+        // 전역 일일 쿼터는 가입 여부와 무관하게 예약한다 — 한도 초과 시 양쪽 모두 503 이 되어 응답으로
+        // 가입 여부가 새지 않는다(중복/쿨다운으로 여기까지 못 온 요청은 애초에 쿼터를 소비하지 않는다).
         rateLimiter.reserveGlobalQuota(now);
         try {
-            emailSender.send(new EmailMessage(sendCommand.email(), SUBJECT, buildHtml(code)));
+            if (!alreadyRegistered) {
+                emailSender.send(new EmailMessage(sendCommand.email(), SUBJECT, buildHtml(code)));
+            }
         } catch (RuntimeException sendFailure) {
             // 발송 실패 시 예약한 전역 쿼터를 복구한다 — Resend 장애가 일일 한도를 소진해
             // 정상 가입을 막는 자폭을 방지. DB 변경(쿨다운 행)은 트랜잭션 롤백으로 별도 복구된다.
             rateLimiter.releaseGlobalQuota(now);
             throw sendFailure;
+        }
+        if (alreadyRegistered) {
+            // 가입자는 실제 발송이 없으므로 예약분을 반납한다(순소비 0) — 위 예약은 503 동등성 확보용일 뿐.
+            rateLimiter.releaseGlobalQuota(now);
         }
         return new EmailVerificationSendResult(
                 emailVerification.getExpiresAt(),
