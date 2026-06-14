@@ -46,6 +46,9 @@ dependencies {
     // JWT
     implementation("com.auth0:java-jwt:4.4.0")
 
+    // HTML sanitizer — 공지 본문(HTML 포맷) 서버측 XSS 정제
+    implementation("org.jsoup:jsoup:1.18.3")
+
     // 파일 스토리지
     implementation("software.amazon.awssdk:s3")
 

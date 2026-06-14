@@ -90,6 +90,8 @@ public class Notice extends BaseEntity {
         this.audience = audience;
         this.contentFormat = contentFormat == null ? NoticeContentFormat.MARKDOWN : contentFormat;
         this.authorId = authorId;
+        // HTML 포맷 본문은 서버측에서 정제한다(저장형 XSS 방어). MARKDOWN/null 은 그대로 둔다.
+        this.content = NoticeHtmlSanitizer.sanitize(this.content, this.contentFormat);
     }
 
     public static Notice create(String title, String summary, String content, String coverImageUrl,
@@ -184,6 +186,11 @@ public class Notice extends BaseEntity {
         if (payload.contentFormat() != null) {
             this.contentFormat = payload.contentFormat();
         }
+        // 최종 포맷이 HTML 이면 본문을 정제한다 — 본문 변경뿐 아니라 포맷만 HTML 로 승격된 경우(기존
+        // MARKDOWN 본문이 HTML 로 재해석되는 경우)까지 커버해 저장 본문이 항상 안전하게 유지된다.
+        if (this.contentFormat == NoticeContentFormat.HTML) {
+            this.content = NoticeHtmlSanitizer.sanitize(this.content, this.contentFormat);
+        }
     }
 
     /** LEADER/OFFICER 의 CLUB_SCOPED 공지 부분 수정 — null 필드는 건너뛴다. */
@@ -192,7 +199,7 @@ public class Notice extends BaseEntity {
                                       java.time.LocalDateTime expiresAt) {
         if (title != null) this.title = title;
         if (summary != null) this.summary = summary;
-        if (content != null) this.content = content;
+        if (content != null) this.content = NoticeHtmlSanitizer.sanitize(content, this.contentFormat);
         if (coverImageUrl != null) this.coverImageUrl = coverImageUrl;
         if (pinned != null) this.pinned = pinned;
         if (expiresAt != null) this.expiresAt = expiresAt;
