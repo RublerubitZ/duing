@@ -48,10 +48,10 @@ describe('ClubDetailTabs', () => {
         photos={[]}
       />,
     );
-    expect(screen.getByRole('button', { name: '소개' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '활동' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Q&A' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '동아리 상세정보' })).toBeNull();
+    expect(screen.getByRole('tab', { name: '소개' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '활동' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Q&A' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: '동아리 상세정보' })).toBeNull();
   });
 
   it('faqs 만 있으면 Q&A 탭이 첫 활성 탭이 되고 콘텐츠가 보인다', () => {
@@ -64,7 +64,7 @@ describe('ClubDetailTabs', () => {
         photos={[]}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Q&A' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Q&A' })).toBeInTheDocument();
     expect(screen.getByText(/Q\. 회비/)).toBeInTheDocument();
   });
 
@@ -82,9 +82,13 @@ describe('ClubDetailTabs', () => {
         photos={[]}
       />,
     );
-    expect(screen.getByRole('button', { name: '소개' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '활동' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Q&A' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '동아리 상세정보' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '소개' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '활동' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Q&A' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '동아리 상세정보' })).toBeInTheDocument();
+
+    // 첫 탭(소개)이 기본 활성이고, 활성 패널 1개만 노출된다
+    expect(screen.getByRole('tab', { name: '소개' })).toHaveAttribute('data-state', 'active');
+    expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
   });
 });
