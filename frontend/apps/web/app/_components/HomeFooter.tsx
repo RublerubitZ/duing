@@ -5,7 +5,7 @@ const linkClass = 'hover:text-ink';
 
 export function HomeFooter() {
   return (
-    <footer className="mt-10 border-t border-line bg-cream-2 px-10 py-14">
+    <footer className="mt-10 border-t border-line bg-cream-2 px-4 sm:px-6 md:px-10 py-14">
       <div className="max-w-layout mx-auto grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           <BrandMark size={28} />

@@ -12,7 +12,7 @@ export async function RecruitmentTicker() {
 
   return (
     <section className="relative mt-16 overflow-hidden bg-ink-deep py-5 text-white">
-      <div className="max-w-layout mx-auto flex items-center gap-6 px-10">
+      <div className="max-w-layout mx-auto flex items-center gap-6 px-4 sm:px-6 md:px-10">
         <div
           className="flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold tracking-wide04 text-sage"
           style={{ background: 'rgba(157,182,160,0.18)' }}

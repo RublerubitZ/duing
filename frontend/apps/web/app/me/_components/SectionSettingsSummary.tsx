@@ -11,7 +11,7 @@ export function SectionSettingsSummary({ onGoToSettings }: Props) {
     <section
       data-section="settings"
       id="sec-settings"
-      className="px-10 pt-8 pb-20 scroll-mt-[60px]"
+      className="px-4 sm:px-6 md:px-10 pt-8 pb-20 scroll-mt-[60px]"
     >
       <div className="max-w-layout mx-auto">
         <SectionHeader

@@ -45,7 +45,7 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
 
   if (detailQuery.isLoading) {
     return (
-      <main className="max-w-layout mx-auto px-10 py-10">
+      <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
         <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
       </main>
     );
@@ -53,7 +53,7 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
 
   if (detailQuery.isError || !request) {
     return (
-      <main className="max-w-layout mx-auto px-10 py-10">
+      <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
         <p className="py-12 text-center text-coral text-[13px]">
           홍보 요청 정보를 불러오지 못했습니다.
         </p>
@@ -67,7 +67,7 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
   const safeSuggestedBanner = safeExternalHref(request.suggestedBannerImageUrl);
 
   return (
-    <main className="max-w-layout mx-auto px-10 py-10">
+    <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6 flex items-center gap-3">
         <Link
           href="/admin/promotion-requests"

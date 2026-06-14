@@ -2,7 +2,7 @@ import { SparkleFull } from '@/components/duing/Sparkle';
 
 export function Solution() {
   return (
-    <section id="section-2" className="bg-sage-mist px-10 pb-[120px] pt-20">
+    <section id="section-2" className="bg-sage-mist px-4 sm:px-6 md:px-10 pb-[120px] pt-20">
       <div className="relative mx-auto max-w-[1100px] text-center">
         <SparkleFull size={48} color="#1F4A36" className="inline-block" />
         <h2 className="mb-7 mt-6 text-[76px] leading-[1.05] tracking-[-0.03em] text-ink-deep">

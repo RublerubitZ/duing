@@ -92,7 +92,7 @@ function SettingsPageTabs() {
   const [activeTab, setActiveTab] = useState<(typeof TAB_LABELS)[number]>('프로필 정보');
 
   return (
-    <nav className="border-b border-line px-10 pt-4">
+    <nav className="border-b border-line px-4 sm:px-6 md:px-10 pt-4">
       <div className="max-w-layout mx-auto flex gap-6 flex-wrap items-center">
         <Link
           href="/me"
@@ -154,7 +154,7 @@ export function SettingsPage() {
       />
       <SettingsPageTabs />
 
-      <section className="px-10 py-8 pb-20">
+      <section className="px-4 sm:px-6 md:px-10 py-8 pb-20">
         <div className="max-w-[880px] mx-auto">
 
           <SettingsCard

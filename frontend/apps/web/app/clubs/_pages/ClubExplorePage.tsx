@@ -141,7 +141,7 @@ export function ClubExplorePage() {
 
   return (
     <div>
-      <section className="border-b border-line bg-cream px-10 pt-11 pb-7">
+      <section className="border-b border-line bg-cream px-4 sm:px-6 md:px-10 pt-11 pb-7">
         <div className="max-w-layout mx-auto">
           <div className="flex items-end justify-between mb-7">
             <div>
@@ -247,7 +247,7 @@ export function ClubExplorePage() {
         </div>
       </section>
 
-      <section className="px-10 pt-8 pb-20">
+      <section className="px-4 sm:px-6 md:px-10 pt-8 pb-20">
         <div className="max-w-layout mx-auto grid grid-cols-[256px_1fr] gap-8">
           <aside>
             <div className="sticky top-6 bg-paper rounded-[18px] border border-line px-[22px] py-5">

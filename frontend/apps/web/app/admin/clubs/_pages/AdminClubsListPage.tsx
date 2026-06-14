@@ -152,7 +152,7 @@ export function AdminClubsListPage() {
   const totalElements = clubsQuery.data?.totalElements ?? 0;
 
   return (
-    <main className="max-w-layout mx-auto px-10 py-10">
+    <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6">
         <p className="text-charcoal-3 text-xs font-semibold">총동연 콘솔</p>
         <h1 className="mt-1 text-2xl font-bold text-ink">동아리 관리</h1>

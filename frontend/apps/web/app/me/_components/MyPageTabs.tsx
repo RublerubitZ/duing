@@ -17,7 +17,7 @@ type Props = {
 
 export function MyPageTabs({ sections, active, onSelect }: Props) {
   return (
-    <div className="sticky top-0 z-[5] bg-cream border-b border-line px-10">
+    <div className="sticky top-0 z-[5] bg-cream border-b border-line px-4 sm:px-6 md:px-10">
       <div className="max-w-layout mx-auto flex gap-6 flex-wrap">
         {sections.map((section) => {
           const isActive = section.id === active;

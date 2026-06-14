@@ -74,7 +74,7 @@ export function BannerCarouselClient({ slides }: Props) {
     .filter((slide): slide is CarouselSlide => slide !== undefined && slide.key !== activeSlide.key);
 
   return (
-    <section className="px-10 pt-2">
+    <section className="px-4 sm:px-6 md:px-10 pt-2">
       <div className="max-w-layout relative mx-auto">
         <div className="grid gap-4 md:grid-cols-[1fr_340px]">
           <div className="relative aspect-[24/8] overflow-hidden rounded-xl">

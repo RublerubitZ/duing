@@ -38,7 +38,7 @@ export function SectionArchived({ applications }: Props) {
     <section
       data-section="archived"
       id="sec-archived"
-      className="px-10 pt-8 pb-6 scroll-mt-[60px]"
+      className="px-4 sm:px-6 md:px-10 pt-8 pb-6 scroll-mt-[60px]"
     >
       <div className="max-w-layout mx-auto">
         <SectionHeader

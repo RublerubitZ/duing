@@ -17,7 +17,7 @@ const LEADER_FEATURES: ReadonlyArray<string> = [
 
 export function Audiences() {
   return (
-    <section className="px-10 py-[120px]">
+    <section className="px-4 sm:px-6 md:px-10 py-[120px]">
       <div className="max-w-layout mx-auto">
         <div className="mb-14 text-center">
           <div className="mb-3.5 text-[13px] font-bold tracking-wide16 text-ink">

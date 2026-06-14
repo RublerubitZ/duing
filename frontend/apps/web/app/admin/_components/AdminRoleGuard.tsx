@@ -11,11 +11,11 @@ export function AdminRoleGuard({ children }: { children: React.ReactNode }) {
   const meQuery = useMeQuery();
 
   if (meQuery.isLoading) {
-    return <p className="text-charcoal-3 px-10 py-12 text-sm">불러오는 중…</p>;
+    return <p className="text-charcoal-3 px-4 sm:px-6 md:px-10 py-12 text-sm">불러오는 중…</p>;
   }
   if (meQuery.data?.role !== 'ADMIN') {
     return (
-      <p className="text-coral px-10 py-12 text-sm">
+      <p className="text-coral px-4 sm:px-6 md:px-10 py-12 text-sm">
         총동연(관리자) 권한이 필요합니다.
       </p>
     );
