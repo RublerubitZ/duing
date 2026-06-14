@@ -108,15 +108,19 @@ export function ClubListItem({
       <div className="min-w-0 flex-1">
         <div className="truncate text-[15.5px] font-bold leading-tight text-ink-deep">{club.name}</div>
         <div className="mt-0.5 truncate text-[11.5px] text-charcoal-3">{club.tag}</div>
-        <div className="mt-2 flex items-center gap-1.5">
-          <span className={cn(cat.pill, 'text-[10px]')}>{club.cat}</span>
+        <div className="mt-2 flex min-w-0 items-center gap-1.5">
+          <span className={cn(cat.pill, 'shrink-0 text-[10px]')}>{club.cat}</span>
           <span
             className={cn(
-              'rounded-full px-2 py-[3px] text-[10.5px] font-bold',
+              'min-w-0 truncate rounded-full px-2 py-[3px] text-[10.5px] font-bold',
               club.scope === '중앙' ? 'bg-sage-mist text-ink-deep' : 'bg-graysoft text-charcoal-2',
             )}
           >
-            {club.scope === '중앙' ? '중앙' : '과'}
+            {club.scope === '중앙'
+              ? club.division
+                ? `중앙 · ${club.division}`
+                : '중앙'
+              : '학과'}
           </span>
         </div>
       </div>

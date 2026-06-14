@@ -22,16 +22,21 @@ const baseClub: Club = {
 };
 
 describe('ClubListItem — 모바일 가로형 카드', () => {
-  it('scope="중앙" → 소속 칩이 "중앙"(이모지 없음)', () => {
-    render(<ClubListItem club={{ ...baseClub, scope: '중앙' }} />);
-    const chip = screen.getByText('중앙');
+  it('scope="중앙" + division → "중앙 · {분과}"(이모지 없음)', () => {
+    render(<ClubListItem club={{ ...baseClub, scope: '중앙', division: '컴퓨터정보공학분과' }} />);
+    const chip = screen.getByText('중앙 · 컴퓨터정보공학분과');
     expect(chip).toBeInTheDocument();
     expect(chip.textContent).not.toContain('🏛️');
   });
 
-  it('scope="학과" → 소속 칩이 "과"', () => {
+  it('scope="중앙" + division=null → "중앙" 만', () => {
+    render(<ClubListItem club={{ ...baseClub, scope: '중앙', division: null }} />);
+    expect(screen.getByText('중앙')).toBeInTheDocument();
+  });
+
+  it('scope="학과" → 소속 칩이 "학과"', () => {
     render(<ClubListItem club={{ ...baseClub, scope: '학과' }} />);
-    expect(screen.getByText('과')).toBeInTheDocument();
+    expect(screen.getByText('학과')).toBeInTheDocument();
   });
 
   it('OPEN(마감일 있음) → D-day 뱃지', () => {
