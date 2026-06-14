@@ -35,8 +35,12 @@ public class AuthController implements AuthApi {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest loginRequest) {
-        LoginResponse loginResponse = LoginResponse.from(userService.login(loginRequest.toCommand()));
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Valid @RequestBody LoginRequest loginRequest,
+            HttpServletRequest httpServletRequest) {
+        String clientIp = httpServletRequest.getRemoteAddr();
+        LoginResponse loginResponse =
+                LoginResponse.from(userService.login(loginRequest.toCommand(), clientIp));
         return ResponseEntity.ok(ApiResponse.success(loginResponse));
     }
 

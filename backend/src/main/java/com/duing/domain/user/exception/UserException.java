@@ -56,4 +56,20 @@ public class UserException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class AccountLockedException extends UserException {
+        private static final String MESSAGE = "로그인 시도가 너무 많아 계정이 일시적으로 잠겼습니다. 잠시 후 다시 시도해주세요.";
+
+        public AccountLockedException() {
+            super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
+        }
+    }
+
+    public static class TooManyLoginAttemptsException extends UserException {
+        private static final String MESSAGE = "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.";
+
+        public TooManyLoginAttemptsException() {
+            super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
+        }
+    }
 }
