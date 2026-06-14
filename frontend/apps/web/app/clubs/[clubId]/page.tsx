@@ -5,6 +5,7 @@ import { use } from 'react';
 import { useClubDetailQuery, useClubPhotosQuery } from '@duing/hooks';
 
 import { ClubContactCard } from './_components/ClubContactCard';
+import { ClubDetailApplyBar } from './_components/ClubDetailApplyBar';
 import { ClubDetailHero } from './_components/ClubDetailHero';
 import { ClubDetailStats } from './_components/ClubDetailStats';
 import { ClubDetailTabs } from './_components/ClubDetailTabs';
@@ -56,6 +57,9 @@ export default function ClubDetailPage({
           </div>
         </div>
       </section>
+
+      {/* 모바일 전용 하단 고정 지원 바 (md:hidden). 데스크탑은 우측 모집 카드를 그대로 쓴다. */}
+      <ClubDetailApplyBar recruitment={club.activeRecruitment ?? undefined} />
     </>
   );
 }

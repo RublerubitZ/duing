@@ -26,8 +26,14 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: '탐색' })).not.toHaveAttribute('aria-current');
   });
 
-  it('상세/하위 경로(/clubs/123)도 탐색이 활성이다', () => {
+  it('동아리 상세(/clubs/123)는 자체 하단 지원 바를 쓰므로 탭바를 미노출한다', () => {
     mockUsePathname.mockReturnValue('/clubs/123');
+    const { container } = render(<BottomNav />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('상세 단독 경로만 숨기고 하위 경로(/clubs/123/sub)는 탐색이 활성이다', () => {
+    mockUsePathname.mockReturnValue('/clubs/123/sub');
     render(<BottomNav />);
     expect(screen.getByRole('link', { name: '탐색' })).toHaveAttribute('aria-current', 'page');
   });

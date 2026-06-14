@@ -1,15 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import type { StudentRecruitmentProjection } from '@duing/types';
-import { useAuthStore } from '@duing/stores';
 import {
   displayStatusLabel,
   recruitmentDaysLeft,
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
-import { safeExternalHref, toRoute } from '../../../_lib/route';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
+import { useClubApply } from '../_lib/useClubApply';
 
 type Props = {
   /** 진행 중인 모집(없으면 undefined). 모집중·예정·상시·마감 모두 받아 처리한다. */
@@ -18,11 +16,9 @@ type Props = {
 };
 
 export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
-  const authStatus = useAuthStore((state) => state.status);
-  const router = useRouter();
+  const { canApply, handleApply, applyButtonLabel } = useClubApply(recruitment);
 
   const status = recruitment?.displayStatus;
-  const canApply = status === 'OPEN' || status === 'ALWAYS_OPEN';
   const daysLeft = recruitment ? recruitmentDaysLeft(recruitment.endDate) : null;
 
   const header = (() => {
@@ -40,25 +36,6 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
     if (status === 'UPCOMING') return '곧 모집이\n시작돼요';
     return '이번 모집은\n종료됐어요';
   })();
-
-  const applyButtonLabel = recruitment?.applicationMode === 'EXTERNAL'
-    ? '외부 폼으로 이동'
-    : '지원하기';
-
-  function handleApply() {
-    if (!recruitment || !canApply) return;
-    if (recruitment.applicationMode === 'EXTERNAL' && recruitment.externalFormUrl) {
-      const externalUrl = safeExternalHref(recruitment.externalFormUrl);
-      if (externalUrl) window.open(externalUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    const applyPath: `/${string}` = `/apply/${recruitment.id}`;
-    if (authStatus !== 'authenticated') {
-      router.push(toRoute(`/login?next=${encodeURIComponent(applyPath)}`));
-      return;
-    }
-    router.push(toRoute(applyPath));
-  }
 
   return (
     <aside className="space-y-4">
@@ -106,11 +83,12 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
           </p>
         )}
 
+        {/* 지원 버튼: 데스크탑(md+)에서만. 모바일은 하단 고정 지원 바(ClubDetailApplyBar)가 대신한다. */}
         <button
           type="button"
           onClick={handleApply}
           disabled={!canApply}
-          className="btn btn-primary btn-big mb-2.5 w-full disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn btn-primary btn-big mb-2.5 hidden w-full disabled:cursor-not-allowed disabled:opacity-40 md:inline-flex"
         >
           {applyButtonLabel}
         </button>
