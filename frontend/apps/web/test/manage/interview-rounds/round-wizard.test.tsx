@@ -454,7 +454,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     // DRAFT 감지 다이얼로그 노출
     await waitFor(() => {
-      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
       expect(screen.getByText(/작성 중인 라운드/)).toBeInTheDocument();
       expect(screen.getByText(/2차 면접/)).toBeInTheDocument();
     });
@@ -490,7 +490,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     // DRAFT 다이얼로그 → [폐기하고 새로 만들기]
     await waitFor(() => {
-      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
     await userEvent.click(screen.getByRole('button', { name: /폐기하고 새로 만들기/ }));
 

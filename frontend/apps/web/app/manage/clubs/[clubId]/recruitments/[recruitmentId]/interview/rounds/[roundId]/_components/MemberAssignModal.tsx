@@ -1,8 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+
 import type { InterviewRoundDetailMember, InterviewRoundDetailSlot } from '@duing/types';
+
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 // 수동 배정 모달 — ASSIGNING 한정 + SCHEDULED 일정 변경(재배정) 겸용.
 // showRescheduleNotice=true 시 "변경 시 지원자에게 일정 변경 알림이 발송됩니다" 안내 노출.
@@ -28,28 +37,33 @@ export function MemberAssignModal({
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(member.assignedSlotId);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
-      onClick={onCancel}
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onCancel();
+      }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="member-assign-modal-title"
-        className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
+      <DialogContent
+        className="max-w-sm"
+        aria-describedby={undefined}
+        onPointerDownOutside={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
       >
-        <h2 id="member-assign-modal-title" className="text-base font-semibold text-slate-900">
-          {member.userName} 수동 배정
-        </h2>
+        <DialogHeader>
+          <DialogTitle>{member.userName} 수동 배정</DialogTitle>
+        </DialogHeader>
 
         <fieldset>
-          <legend className="mb-2 text-sm font-medium text-slate-700">슬롯 선택</legend>
+          <legend className="mb-2 text-sm font-medium text-charcoal-2">슬롯 선택</legend>
           <div className="space-y-2">
             {slots.map((slot) => (
               <label
                 key={slot.slotId}
-                className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50"
+                className="flex cursor-pointer items-center gap-3 rounded-md border border-line px-3 py-2 transition-colors hover:bg-sage-tint"
               >
                 <input
                   type="radio"
@@ -57,9 +71,9 @@ export function MemberAssignModal({
                   value={slot.slotId}
                   checked={selectedSlotId === slot.slotId}
                   onChange={() => setSelectedSlotId(slot.slotId)}
-                  className="accent-purple-600"
+                  className="accent-ink"
                 />
-                <span className="text-sm text-slate-700">
+                <span className="text-sm text-charcoal">
                   {formatSlotRange(slot.startTime, slot.endTime)} · 정원 {slot.capacity}명
                 </span>
               </label>
@@ -73,25 +87,20 @@ export function MemberAssignModal({
           </p>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-            className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-          >
+        <DialogFooter>
+          <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
             취소
           </button>
           <button
             type="button"
             onClick={() => selectedSlotId !== null && onAssign(selectedSlotId)}
             disabled={isPending || selectedSlotId === null}
-            className="rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+            className="btn btn-primary btn-sm disabled:opacity-50"
           >
             {isPending ? '처리 중…' : '배정'}
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

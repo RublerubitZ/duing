@@ -1,6 +1,13 @@
 'use client';
 
-import { cn } from '@/app/_lib/cn';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 // 범용 확인 모달 — 라운드 취소·멤버 제외 등 단순 확인 흐름에 공용.
 
@@ -24,43 +31,44 @@ export function ConfirmDialog({
   destructive = false,
 }: ConfirmDialogProps) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
-      onClick={onCancel}
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onCancel();
+      }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
+      <DialogContent
+        className="max-w-sm"
+        onPointerDownOutside={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
       >
-        <h2 id="confirm-dialog-title" className="text-base font-semibold text-slate-900">
-          {title}
-        </h2>
-        <p className="text-sm text-slate-600">{description}</p>
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-            className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-          >
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter>
+          <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
             취소
           </button>
           <button
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50',
-              destructive ? 'bg-rose-600 hover:bg-rose-700' : 'bg-purple-600 hover:bg-purple-700',
-            )}
+            className={
+              destructive
+                ? 'btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50'
+                : 'btn btn-primary btn-sm disabled:opacity-50'
+            }
           >
             {isPending ? '처리 중…' : confirmLabel}
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
