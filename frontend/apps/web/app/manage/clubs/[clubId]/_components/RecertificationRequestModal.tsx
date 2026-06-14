@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+
 import {
   useRecertificationContextQuery,
   useSubmitRecertificationRequestMutation,
@@ -11,7 +11,14 @@ import {
 import { submitRecertificationRequestSchema } from '@duing/schemas';
 import type { SubmitRecertificationRequestInput } from '@duing/schemas';
 import type { LeaderRecertificationContext } from '@duing/types';
+
 import { cn } from '@/app/_lib/cn';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 type Props = {
   clubId: number;
@@ -20,41 +27,26 @@ type Props = {
 };
 
 export function RecertificationRequestModal({ clubId, clubName, onClose }: Props) {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const { data: context, isLoading, isError, refetch } = useRecertificationContextQuery(clubId);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
-  const handleOverlayClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.target === overlayRef.current) onClose();
-  };
-
   return (
-    <div
-      ref={overlayRef}
-      onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-label="재인증 신청"
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-ink">재인증 신청</h2>
-            <p className="mt-0.5 text-xs text-charcoal-3">{clubName}</p>
-          </div>
+      <DialogContent className="max-w-lg" aria-describedby={undefined}>
+        <div className="flex items-start justify-between gap-3">
+          <DialogHeader>
+            <DialogTitle>재인증 신청</DialogTitle>
+            <p className="text-xs text-charcoal-3">{clubName}</p>
+          </DialogHeader>
           <button
             type="button"
             onClick={onClose}
             aria-label="닫기"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-charcoal-3 hover:bg-graysoft hover:text-ink"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-charcoal-3 transition-colors hover:bg-graysoft hover:text-ink"
           >
             <CloseIcon />
           </button>
@@ -64,24 +56,22 @@ export function RecertificationRequestModal({ clubId, clubName, onClose }: Props
 
         {isError && (
           <div className="space-y-3">
-            <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-coral">
+            <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">
               정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
             </p>
             <button
               type="button"
               onClick={() => refetch()}
-              className="rounded-xl border border-line px-4 py-2 text-sm text-charcoal-2 hover:bg-graysoft"
+              className="rounded-md border border-line px-4 py-2 text-sm text-charcoal-2 transition-colors hover:bg-graysoft"
             >
               다시 시도
             </button>
           </div>
         )}
 
-        {context && (
-          <ContextBody clubId={clubId} context={context} onClose={onClose} />
-        )}
-      </div>
-    </div>
+        {context && <ContextBody clubId={clubId} context={context} onClose={onClose} />}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -95,9 +85,7 @@ function ContextBody({
   onClose: () => void;
 }) {
   if (!context.centralClub) {
-    return (
-      <InfoNotice message="중앙동아리만 신청할 수 있습니다." onClose={onClose} />
-    );
+    return <InfoNotice message="중앙동아리만 신청할 수 있습니다." onClose={onClose} />;
   }
   if (context.openRound === null) {
     return (
@@ -133,7 +121,7 @@ function InfoNotice({ message, onClose }: { message: string; onClose: () => void
       <button
         type="button"
         onClick={onClose}
-        className="w-full rounded-xl border border-line py-3 text-sm font-semibold text-charcoal-2 hover:bg-graysoft"
+        className="w-full rounded-md border border-line py-3 text-sm font-semibold text-charcoal-2 transition-colors hover:bg-graysoft"
       >
         닫기
       </button>
@@ -152,7 +140,7 @@ function PendingNotice({
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-line bg-cream px-4 py-3 text-sm text-charcoal-2">
+      <div className="rounded-lg border border-line bg-cream px-4 py-3 text-sm text-charcoal-2">
         <p className="font-semibold text-ink">이미 신청하신 건이 있습니다.</p>
         <dl className="mt-2 space-y-1 text-xs">
           <Row label="라운드">{roundLabel}</Row>
@@ -165,7 +153,7 @@ function PendingNotice({
       <button
         type="button"
         onClick={onClose}
-        className="w-full rounded-xl border border-line py-3 text-sm font-semibold text-charcoal-2 hover:bg-graysoft"
+        className="w-full rounded-md border border-line py-3 text-sm font-semibold text-charcoal-2 transition-colors hover:bg-graysoft"
       >
         닫기
       </button>
@@ -232,17 +220,12 @@ function RecertificationForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-      <div className="rounded-xl border border-line bg-sage-tint px-4 py-3 text-sm text-ink">
+      <div className="rounded-lg border border-line bg-sage-tint px-4 py-3 text-sm text-ink">
         <p className="font-semibold">{openRoundLabel}</p>
         <p className="mt-0.5 text-xs text-charcoal-2">운영 연도 {openRoundYear}</p>
       </div>
 
-      <Field
-        id="recert-email"
-        label="대표 이메일"
-        required
-        error={errors.contactEmail?.message}
-      >
+      <Field id="recert-email" label="대표 이메일" required error={errors.contactEmail?.message}>
         <input
           id="recert-email"
           type="email"
@@ -252,12 +235,7 @@ function RecertificationForm({
         />
       </Field>
 
-      <Field
-        id="recert-phone"
-        label="대표 연락처"
-        required
-        error={errors.contactPhone?.message}
-      >
+      <Field id="recert-phone" label="대표 연락처" required error={errors.contactPhone?.message}>
         <input
           id="recert-phone"
           type="tel"
@@ -267,12 +245,7 @@ function RecertificationForm({
         />
       </Field>
 
-      <Field
-        id="recert-notes"
-        label="보충 메모"
-        hint="(선택, 최대 2000자)"
-        error={errors.notes?.message}
-      >
+      <Field id="recert-notes" label="보충 메모" hint="(선택, 최대 2000자)" error={errors.notes?.message}>
         <textarea
           id="recert-notes"
           rows={4}
@@ -286,7 +259,7 @@ function RecertificationForm({
       </Field>
 
       {submitRequest.isError && (
-        <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-coral">
+        <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">
           {submitRequest.error instanceof Error
             ? submitRequest.error.message
             : '신청 처리 중 오류가 발생했습니다.'}
@@ -297,7 +270,7 @@ function RecertificationForm({
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 rounded-xl border border-line py-3 text-sm font-semibold text-charcoal-2 hover:bg-graysoft"
+          className="flex-1 rounded-md border border-line py-3 text-sm font-semibold text-charcoal-2 transition-colors hover:bg-graysoft"
         >
           취소
         </button>
@@ -305,8 +278,8 @@ function RecertificationForm({
           type="submit"
           disabled={isSubmitting || submitRequest.isPending}
           className={cn(
-            'flex-1 rounded-xl py-3 text-sm font-semibold text-white transition-colors',
-            'bg-ink hover:bg-ink/90',
+            'flex-1 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
+            'bg-ink hover:bg-ink-deep',
             (isSubmitting || submitRequest.isPending) && 'cursor-not-allowed opacity-60',
           )}
         >
@@ -347,10 +320,10 @@ function Field({
 
 function inputClass(hasError: boolean) {
   return cn(
-    'w-full rounded-xl border px-4 py-3 text-sm outline-none transition-colors',
+    'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors',
     'border-line placeholder:text-charcoal-3',
-    'focus:border-ink focus:ring-1 focus:ring-ink',
-    hasError && 'border-coral focus:border-coral focus:ring-coral',
+    'focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink',
+    hasError && 'border-coral focus-visible:border-coral focus-visible:ring-coral',
   );
 }
 
