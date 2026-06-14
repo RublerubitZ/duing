@@ -34,6 +34,7 @@
     "@tiptap/starter-kit": "^3.26.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.40.0",
     "isomorphic-dompurify": "^3.16.0",
     "ky": "^1.7.2",
     "lucide-react": "^1.17.0",
