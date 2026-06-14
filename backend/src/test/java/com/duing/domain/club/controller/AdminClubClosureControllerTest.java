@@ -14,7 +14,6 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -150,7 +149,7 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("INACTIVE 동아리 폐쇄 시 OPEN 모집은 CLOSED 로, SUBMITTED 지원서는 REJECTED 로 cascade 전환된다")
+    @DisplayName("INACTIVE 동아리 폐쇄 시 모집은 soft-delete 되고 SUBMITTED 지원서는 REJECTED 로 cascade 전환된다")
     void closureRecruitmentAndApplicationCascade() throws Exception {
         // ACTIVE 상태에서 모집·지원서 생성 후 INACTIVE 로 전환
         Club club = saveClubWithLeader("cascade테스트클럽", ClubStatus.ACTIVE);
@@ -178,12 +177,50 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
                 .then()
                     .statusCode(HttpStatus.NO_CONTENT.value());
 
-        // 폐쇄 후 — 모집은 CLOSED, 지원서는 REJECTED
-        Recruitment closedRecruitment = recruitmentRepository.findById(recruitmentId).orElseThrow();
-        Assertions.assertEquals(RecruitmentStatus.CLOSED, closedRecruitment.getStatus());
+        // 폐쇄 후 — 모집은 soft-delete 되어 @SQLRestriction 으로 조회에서 제외되고, 지원서는 REJECTED
+        Assertions.assertTrue(recruitmentRepository.findById(recruitmentId).isEmpty());
+        LocalDateTime recruitmentDeletedAt = jdbcTemplate.queryForObject(
+                "SELECT deleted_at FROM recruitment WHERE id = ?", LocalDateTime.class, recruitmentId);
+        Assertions.assertNotNull(recruitmentDeletedAt);
 
         Application rejectedApplication = applicationRepository.findById(applicationId).orElseThrow();
         Assertions.assertEquals(ApplicationStatus.REJECTED, rejectedApplication.getStatus());
+    }
+
+    @Test
+    @DisplayName("동아리 폐쇄 후 공개 모집 캘린더는 500 이 아니라 200 을, 상세는 404 를 반환한다 (소프트삭제 정합성)")
+    void closedClubRecruitmentNotServedByPublicEndpoints() throws Exception {
+        Club club = saveClubWithLeader("캘린더회귀클럽", ClubStatus.ACTIVE);
+        Recruitment recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "폐쇄될모집", "내용",
+                        LocalDate.of(2030, 6, 1), LocalDate.of(2030, 6, 30), 5));
+        long recruitmentId = recruitment.getId();
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                .when()
+                    .post("/api/v1/admin/clubs/{clubId}/close", club.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        // 폐쇄된 동아리의 모집이 deleted_at NULL 로 남으면 club 프록시 로딩에서 터져 공개 캘린더가
+        // 500 이 된다(회귀 방지). soft-delete 후에는 조회에서 제외되어 200 이어야 한다.
+        RestAssured
+                .given()
+                .when()
+                    .get("/api/v1/recruitments?yearMonth=2030-06")
+                .then()
+                    .statusCode(HttpStatus.OK.value());
+
+        RestAssured
+                .given()
+                .when()
+                    .get("/api/v1/recruitments/{recruitmentId}", recruitmentId)
+                .then()
+                    .statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     private User saveUser(String name, UserRole role) {

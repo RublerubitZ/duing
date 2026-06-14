@@ -53,9 +53,12 @@ public class GeneralClubClosureService implements ClubClosureService {
         leaderSuccessionService.cancelPendingOnClubClosure(clubId, actorAdminUserId, reason);
 
         // 2. 모집 → 지원 → 면접 (모집 id 체인)
+        // 모집의 soft-delete 는 지원/면접 cascade 가 모집을 참조해 처리할 수 있도록 가장 마지막에 한다.
+        // (먼저 삭제하면 @SQLRestriction 으로 모집이 가려져 cascade 가 누락된다.)
         List<Long> recruitmentIds = recruitmentService.closeAllOnClubClosure(clubId);
         applicationService.rejectActiveOnClubClosure(recruitmentIds);
         interviewRoundService.softDeleteAllOnClubClosure(recruitmentIds);
+        recruitmentService.softDeleteAllOnClubClosure(recruitmentIds);
 
         // 3. 인증 · 홍보 · 이벤트 · 즐겨찾기
         recertificationRequestService.rejectPendingOnClubClosure(clubId, actorAdminUserId, reason);
