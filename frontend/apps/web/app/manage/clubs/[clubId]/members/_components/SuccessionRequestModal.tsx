@@ -1,12 +1,20 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+
 import { useSubmitSuccessionRequestMutation } from '@duing/hooks';
 import { submitSuccessionRequestSchema } from '@duing/schemas';
 import type { SubmitSuccessionRequestInput } from '@duing/schemas';
+
 import { cn } from '@/app/_lib/cn';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 type Props = {
   clubId: number;
@@ -15,7 +23,6 @@ type Props = {
 };
 
 export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const submitSuccession = useSubmitSuccessionRequestMutation(clubId);
 
   const {
@@ -29,18 +36,6 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
 
   const reasonValue = watch('reason') ?? '';
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
-  const handleOverlayClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.target === overlayRef.current) onClose();
-  };
-
   const onSubmit = (formData: SubmitSuccessionRequestInput) => {
     submitSuccession.mutate(formData, {
       onSuccess: () => {
@@ -51,43 +46,38 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
   };
 
   return (
-    <div
-      ref={overlayRef}
-      onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-label="회장 승계 요청"
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !submitSuccession.isPending) onClose();
+      }}
     >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <DialogContent className="max-w-md">
         {/* 헤더 */}
-        <div className="mb-1 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-ink">회장 승계 요청</h2>
-            <p className="mt-0.5 text-xs text-charcoal-3">{clubName}</p>
-          </div>
+        <div className="flex items-start justify-between gap-3">
+          <DialogHeader>
+            <DialogTitle>회장 승계 요청</DialogTitle>
+            <p className="text-xs text-charcoal-3">{clubName}</p>
+          </DialogHeader>
           <button
             type="button"
             onClick={onClose}
+            disabled={submitSuccession.isPending}
             aria-label="닫기"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-charcoal-3 hover:bg-graysoft hover:text-ink"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-charcoal-3 transition-colors hover:bg-graysoft hover:text-ink disabled:opacity-50"
           >
             <CloseIcon />
           </button>
         </div>
 
-        <p className="mb-5 text-sm text-charcoal-2">
-          현재 회장이 장기간 활동이 없을 경우, 운영진이 총동연에 회장 승계를 요청할 수 있습니다.
-          요청은 총동연 검토 후 처리됩니다.
-        </p>
+        <DialogDescription className="text-sm text-charcoal-2">
+          현재 회장이 장기간 활동이 없을 경우, 운영진이 총동연에 회장 승계를 요청할 수 있습니다. 요청은 총동연 검토 후 처리됩니다.
+        </DialogDescription>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
           {/* 사유 */}
           <div>
-            <label
-              htmlFor="succession-reason"
-              className="mb-1.5 block text-sm font-semibold text-ink"
-            >
+            <label htmlFor="succession-reason" className="mb-1.5 block text-sm font-semibold text-ink">
               요청 사유 <span className="text-coral">*</span>
               <span className="ml-1 text-xs font-normal text-charcoal-3">(최대 1000자)</span>
             </label>
@@ -97,10 +87,10 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
               placeholder="회장이 연락 두절된 기간, 동아리 운영에 미치는 영향 등을 구체적으로 적어주세요."
               {...register('reason')}
               className={cn(
-                'w-full resize-none rounded-xl border px-4 py-3 text-sm outline-none transition-colors',
+                'w-full resize-none rounded-md border px-4 py-3 text-sm outline-none transition-colors',
                 'border-line placeholder:text-charcoal-3',
-                'focus:border-ink focus:ring-1 focus:ring-ink',
-                errors.reason && 'border-coral focus:border-coral focus:ring-coral',
+                'focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink',
+                errors.reason && 'border-coral focus-visible:border-coral focus-visible:ring-coral',
               )}
             />
             <div className="mt-1 flex justify-between">
@@ -115,7 +105,7 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
 
           {/* 제출 에러 */}
           {submitSuccession.isError && (
-            <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-coral">
+            <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">
               {submitSuccession.error instanceof Error
                 ? submitSuccession.error.message
                 : '요청 중 오류가 발생했습니다. 다시 시도해주세요.'}
@@ -127,7 +117,8 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-line py-3 text-sm font-semibold text-charcoal-2 hover:bg-graysoft"
+              disabled={submitSuccession.isPending}
+              className="flex-1 rounded-md border border-line py-3 text-sm font-semibold text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
             >
               취소
             </button>
@@ -135,8 +126,8 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
               type="submit"
               disabled={isSubmitting || submitSuccession.isPending}
               className={cn(
-                'flex-1 rounded-xl py-3 text-sm font-semibold text-white transition-colors',
-                'bg-ink hover:bg-ink/90',
+                'flex-1 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
+                'bg-ink hover:bg-ink-deep',
                 (isSubmitting || submitSuccession.isPending) && 'cursor-not-allowed opacity-60',
               )}
             >
@@ -144,8 +135,8 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
