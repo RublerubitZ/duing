@@ -1,8 +1,15 @@
 'use client';
 
-import { useEffect, useId } from 'react';
-
 import type { BulkUpdateApplicationStatusPayload } from '@duing/types';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 type TargetStatus = BulkUpdateApplicationStatusPayload['status'];
 
@@ -26,18 +33,15 @@ const LABEL: Record<GenericTargetStatus, string> = {
 
 const DESCRIPTION: Record<GenericTargetStatus, string> = {
   UNDER_REVIEW: '선택한 지원자를 서류 검토 중 상태로 일괄 변경합니다.',
-  ACCEPTED:
-    '선택한 지원자가 동아리 회원으로 자동 등록되며, 알림이 발송될 수 있습니다.',
+  ACCEPTED: '선택한 지원자가 동아리 회원으로 자동 등록되며, 알림이 발송될 수 있습니다.',
   REJECTED: '되돌릴 수 없습니다. 잘못 누른 항목이 있으면 취소하고 선택을 다시 확인하세요.',
 };
 
+// 불합격만 위험(coral), 그 외는 기본(ink) — 두잉은 상태별 솔리드 버튼색을 두지 않는다.
 const CONFIRM_BUTTON_CLASS: Record<GenericTargetStatus, string> = {
-  UNDER_REVIEW:
-    'rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50',
-  ACCEPTED:
-    'rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50',
-  REJECTED:
-    'rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50',
+  UNDER_REVIEW: 'btn btn-primary btn-sm disabled:opacity-50',
+  ACCEPTED: 'btn btn-primary btn-sm disabled:opacity-50',
+  REJECTED: 'btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50',
 };
 
 export function BulkConfirmDialog({
@@ -47,61 +51,40 @@ export function BulkConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
-  const titleId = useId();
-  const descId = useId();
-
-  // ESC 닫기 — BulkPromoteDialog 와 동일 패턴으로 일관성 유지.
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        if (!isPending) onCancel();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isPending, onCancel]);
-
   return (
-    <div
-      role="alertdialog"
-      aria-labelledby={titleId}
-      aria-describedby={descId}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
-      onClick={() => {
-        if (!isPending) onCancel();
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onCancel();
       }}
     >
-      <div
-        className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
+      <DialogContent
+        className="max-w-sm"
+        onPointerDownOutside={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
       >
-        <h2 id={titleId} className="text-base font-semibold text-slate-900">
-          {selectedCount}건을 일괄 {LABEL[targetStatus]} 처리할까요?
-        </h2>
-        <p id={descId} className="text-sm text-slate-600">
-          {DESCRIPTION[targetStatus]}{' '}
-          현재 상태에서 전이가 불가능한 항목은 자동으로 건너뜁니다.
-        </p>
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-            className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-          >
+        <DialogHeader>
+          <DialogTitle>
+            {selectedCount}건을 일괄 {LABEL[targetStatus]} 처리할까요?
+          </DialogTitle>
+          <DialogDescription>
+            {DESCRIPTION[targetStatus]} 현재 상태에서 전이가 불가능한 항목은 자동으로 건너뜁니다.
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter>
+          <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
             취소
           </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isPending}
-            className={CONFIRM_BUTTON_CLASS[targetStatus]}
-          >
+          <button type="button" onClick={onConfirm} disabled={isPending} className={CONFIRM_BUTTON_CLASS[targetStatus]}>
             {isPending ? '처리 중…' : LABEL[targetStatus]}
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
