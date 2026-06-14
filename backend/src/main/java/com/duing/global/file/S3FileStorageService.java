@@ -22,6 +22,12 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
  * <p>업로드 body 는 {@link RequestBody#fromBytes(byte[])} 사용. AWS SDK v2 가 서명/재시도
  * 시 body 를 재읽기 하므로 non-resettable InputStream 은 간헐적 실패 위험. 5MB 상한이라
  * byte[] 전체 적재 안전.
+ *
+ * <p>저장형 XSS 방어: 매직바이트로 검증된 이미지 MIME 만 Content-Type 으로 박고(클라이언트 헤더
+ * 무시), Content-Disposition=inline 으로 둔다. 다만 매직바이트는 polyglot(유효 헤더+HTML 페이로드)을
+ * 걸러내지 못하므로, 공개 CDN(R2) 가 직접 서빙할 때 브라우저 MIME 스니핑을 막는
+ * {@code X-Content-Type-Options: nosniff} 응답 헤더를 <b>R2/Cloudflare 엣지(Transform Rule)에서</b>
+ * 추가해야 한다 — S3 PutObject 메타데이터로는 이 응답 헤더를 emit 할 수 없다(배포 체크리스트 항목).
  */
 @Slf4j
 @Service
@@ -60,6 +66,11 @@ public class S3FileStorageService implements FileStorageService {
                             .bucket(properties.bucket())
                             .key(key)
                             .contentType(contentType)
+                            // inline 유지(로고/커버/아바타가 <img> 로 렌더되어야 함). Content-Type 이
+                            // 이미지로 고정돼 있어 직접 탐색 시 HTML 로 실행되지 않는다.
+                            .contentDisposition("inline")
+                            // UUID 키는 덮어쓰지 않으므로 영구 캐시 가능.
+                            .cacheControl("public, max-age=31536000, immutable")
                             .build(),
                     RequestBody.fromBytes(body));
         } catch (SdkException exception) {
