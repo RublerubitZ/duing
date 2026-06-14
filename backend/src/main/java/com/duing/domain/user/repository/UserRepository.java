@@ -22,6 +22,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.email = :email")
     Optional<User> findByEmailForUpdate(@Param("email") String email);
 
+    /**
+     * token_version 증가(로그아웃·강제 폐기)의 동시성 보호를 위해 사용자 행을 잠그고 조회한다.
+     * 동시 로그아웃이 같은 버전을 읽어 증가분을 덮어쓰는 lost update 를 막는다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.id = :id")
+    Optional<User> findByIdForUpdate(@Param("id") Long id);
+
     boolean existsByEmail(String email);
 
     boolean existsByStudentId(String studentId);

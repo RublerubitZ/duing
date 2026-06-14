@@ -14,6 +14,8 @@ public interface UserService {
 
     LoginResult login(LoginCommand loginCommand, String clientIp);
 
+    void logout(Long userId);
+
     UserQuery getById(Long userId);
 
     Page<UserSearchResultQuery> searchForAdmin(String query, Pageable pageable);
