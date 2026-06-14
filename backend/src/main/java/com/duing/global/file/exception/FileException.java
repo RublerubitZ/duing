@@ -24,4 +24,11 @@ public class FileException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class UploadRateLimitedException extends FileException {
+        private static final String MESSAGE = "업로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
+        public UploadRateLimitedException() {
+            super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
+        }
+    }
 }

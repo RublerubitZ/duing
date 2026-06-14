@@ -58,13 +58,22 @@ class FileApiTest extends IntegrationTestBase {
         return new byte[size];
     }
 
+    // 유효한 JPEG 매직 바이트(FF D8 FF)로 시작하는 더미 이미지 — 매직 바이트 검증을 통과한다.
+    private byte[] jpegBytesOfSize(int size) {
+        byte[] bytes = new byte[size];
+        bytes[0] = (byte) 0xFF;
+        bytes[1] = (byte) 0xD8;
+        bytes[2] = (byte) 0xFF;
+        return bytes;
+    }
+
     @Test
     @DisplayName("정상 JPG 가 5MB 미만이면 201 과 URL 을 반환한다")
     void uploadsValidJpeg() {
         RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                    .multiPart("file", "sample.jpg", bytesOfSize(1024), "image/jpeg")
+                    .multiPart("file", "sample.jpg", jpegBytesOfSize(1024), "image/jpeg")
                     .queryParam("purpose", "NOTICE_COVER")
                 .when()
                     .post("/api/v1/files")
@@ -79,7 +88,7 @@ class FileApiTest extends IntegrationTestBase {
         RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                    .multiPart("file", "max.jpg", bytesOfSize((int) FileUploadPolicy.MAX_BYTES), "image/jpeg")
+                    .multiPart("file", "max.jpg", jpegBytesOfSize((int) FileUploadPolicy.MAX_BYTES), "image/jpeg")
                     .queryParam("purpose", "NOTICE_COVER")
                 .when()
                     .post("/api/v1/files")
@@ -172,12 +181,28 @@ class FileApiTest extends IntegrationTestBase {
         RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                    .multiPart("file", "banner.jpg", bytesOfSize(1024), "image/jpeg")
+                    .multiPart("file", "banner.jpg", jpegBytesOfSize(1024), "image/jpeg")
                     .queryParam("purpose", "PROMOTION_REQUEST_BANNER")
                 .when()
                     .post("/api/v1/files")
                 .then()
                     .statusCode(HttpStatus.CREATED.value())
                     .body("data.url", org.hamcrest.Matchers.containsString("promotion-request/banner"));
+    }
+
+    @Test
+    @DisplayName("Content-Type 이 image/png 라도 실제 바이트가 이미지가 아니면 매직 바이트 검증으로 400 거부된다")
+    void rejectsSpoofedImageBytes() {
+        byte[] htmlBytes = "<html><script>alert(1)</script></html>".getBytes();
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "evil.png", htmlBytes, "image/png")
+                    .queryParam("purpose", "NOTICE_COVER")
+                .when()
+                    .post("/api/v1/files")
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("message", org.hamcrest.Matchers.containsString("지원하지 않는"));
     }
 }

@@ -18,7 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class StubFileStorageService implements FileStorageService {
 
     @Override
-    public String upload(MultipartFile file, String directory) {
+    public String upload(MultipartFile file, String directory, String contentType) {
         String name = file == null ? "null" : file.getOriginalFilename();
         return "/files/stub/" + directory + "/" + name;
     }

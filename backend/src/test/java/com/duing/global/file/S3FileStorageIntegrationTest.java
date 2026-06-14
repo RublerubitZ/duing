@@ -87,7 +87,7 @@ class S3FileStorageIntegrationTest extends IntegrationTestBase {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "p.webp", "image/webp", new byte[]{1, 2, 3});
 
-        String url = service.upload(file, "club/cover");
+        String url = service.upload(file, "club/cover", "image/webp");
         String key = url.substring((MINIO.getS3URL() + "/duing-test/").length());
 
         String contentType = s3Client.headObject(HeadObjectRequest.builder()
@@ -103,8 +103,8 @@ class S3FileStorageIntegrationTest extends IntegrationTestBase {
         MockMultipartFile file2 = new MockMultipartFile(
                 "file", "b.png", "image/png", new byte[]{2});
 
-        String url1 = service.upload(file1, "club/cover");
-        String url2 = service.upload(file2, "club/cover");
+        String url1 = service.upload(file1, "club/cover", "image/png");
+        String url2 = service.upload(file2, "club/cover", "image/png");
 
         assertThat(url1).isNotEqualTo(url2);
     }
@@ -115,7 +115,7 @@ class S3FileStorageIntegrationTest extends IntegrationTestBase {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "p.png", "image/png", new byte[]{1});
 
-        String url = service.upload(file, "club/cover");
+        String url = service.upload(file, "club/cover", "image/png");
         String key = url.substring((MINIO.getS3URL() + "/duing-test/").length());
 
         // HeadObject 성공 = 객체 존재 = key 일치
@@ -128,7 +128,7 @@ class S3FileStorageIntegrationTest extends IntegrationTestBase {
     void deletedObjectIsActuallyGone() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "p.png", "image/png", new byte[]{1});
-        String url = service.upload(file, "club/cover");
+        String url = service.upload(file, "club/cover", "image/png");
         String key = url.substring((MINIO.getS3URL() + "/duing-test/").length());
 
         service.delete(url);
@@ -143,7 +143,7 @@ class S3FileStorageIntegrationTest extends IntegrationTestBase {
     void deleteOfForeignUrlIsSafe() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "p.png", "image/png", new byte[]{1});
-        String url = service.upload(file, "club/cover");
+        String url = service.upload(file, "club/cover", "image/png");
         String key = url.substring((MINIO.getS3URL() + "/duing-test/").length());
 
         service.delete("https://other-host.example/abc.png");

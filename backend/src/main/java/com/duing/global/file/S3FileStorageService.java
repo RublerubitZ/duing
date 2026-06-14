@@ -39,16 +39,13 @@ public class S3FileStorageService implements FileStorageService {
     }
 
     @Override
-    public String upload(MultipartFile file, String directory) {
+    public String upload(MultipartFile file, String directory, String contentType) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("업로드할 파일이 비어 있습니다.");
         }
-        String originalFilename = StringUtils.cleanPath(
-                file.getOriginalFilename() == null ? "file" : file.getOriginalFilename());
-        String extension = StringUtils.getFilenameExtension(originalFilename);
+        String extension = FileUploadPolicy.EXTENSION_BY_MIME.getOrDefault(contentType, "bin");
         String sanitizedDirectory = StringUtils.cleanPath(directory);
-        String key = sanitizedDirectory + "/" + UUID.randomUUID()
-                + (extension != null ? "." + extension : "");
+        String key = sanitizedDirectory + "/" + UUID.randomUUID() + "." + extension;
 
         byte[] body;
         try {
@@ -62,7 +59,7 @@ public class S3FileStorageService implements FileStorageService {
                     PutObjectRequest.builder()
                             .bucket(properties.bucket())
                             .key(key)
-                            .contentType(resolveContentType(file.getContentType()))
+                            .contentType(contentType)
                             .build(),
                     RequestBody.fromBytes(body));
         } catch (SdkException exception) {
@@ -94,12 +91,5 @@ public class S3FileStorageService implements FileStorageService {
         } catch (SdkException exception) {
             log.warn("S3 Storage 삭제 실패: key={}", key, exception);
         }
-    }
-
-    private static String resolveContentType(String value) {
-        if (value == null || value.isBlank()) {
-            return "application/octet-stream";
-        }
-        return value;
     }
 }

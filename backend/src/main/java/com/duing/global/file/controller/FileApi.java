@@ -1,5 +1,6 @@
 package com.duing.global.file.controller;
 
+import com.duing.global.auth.UserPrincipal;
 import com.duing.global.file.controller.dto.FilePurpose;
 import com.duing.global.file.controller.dto.FileUploadResponse;
 import com.duing.global.response.ApiResponse;
@@ -7,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,5 +24,6 @@ public interface FileApi {
     @PostMapping(consumes = "multipart/form-data")
     ResponseEntity<ApiResponse<FileUploadResponse>> upload(
             @RequestPart("file") MultipartFile file,
-            @RequestParam("purpose") FilePurpose purpose);
+            @RequestParam("purpose") FilePurpose purpose,
+            @AuthenticationPrincipal UserPrincipal currentUser);
 }
