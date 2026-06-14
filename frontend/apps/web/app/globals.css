@@ -266,6 +266,100 @@ body {
       text-align: center;
     }
   }
+
+  /* /calendar 모바일 — 데스크탑 사이드 패널을 바텀시트로, 캘린더 단일 컬럼, 셀은 점. (인라인 스타일 위에 미디어쿼리로 덮음) */
+  .cal-sheet-handle {
+    display: none;
+  }
+  @media (max-width: 767px) {
+    .cal-section {
+      padding-left: 16px !important;
+      padding-right: 16px !important;
+    }
+    .cal-header {
+      padding-top: 28px !important;
+      padding-bottom: 16px !important;
+    }
+    .cal-header-row {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 16px !important;
+    }
+    .cal-h1 {
+      font-size: 30px !important;
+    }
+    .cal-stats {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 10px !important;
+    }
+    .cal-monthnav-hint {
+      display: none !important;
+    }
+    .cal-main-grid {
+      grid-template-columns: minmax(0, 1fr) !important;
+      column-gap: 0 !important;
+      height: auto !important;
+      min-height: 0 !important;
+    }
+    .cal-center-rail {
+      display: none !important;
+    }
+    .cal-cell {
+      min-height: 60px !important;
+      padding: 5px 4px !important;
+      gap: 4px !important;
+    }
+    .cal-chips {
+      flex-direction: row !important;
+      flex-wrap: wrap !important;
+      gap: 3px !important;
+    }
+    .cal-chip {
+      width: 6px !important;
+      height: 6px !important;
+      min-width: 6px !important;
+      padding: 0 !important;
+      border-radius: 999px !important;
+      border-left-width: 6px !important;
+      font-size: 0 !important;
+      line-height: 0 !important;
+      overflow: hidden !important;
+    }
+    .cal-upcoming {
+      grid-template-columns: 1fr !important;
+    }
+    .cal-sheet-handle {
+      display: block;
+      width: 40px;
+      height: 4px;
+      border-radius: 999px;
+      background: var(--gray-line);
+      margin: 2px auto 10px;
+    }
+    .cal-detail {
+      position: fixed !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: auto !important;
+      max-width: none !important;
+      max-height: 78dvh !important;
+      z-index: 50 !important;
+      border-radius: 20px 20px 0 0 !important;
+      background: var(--cream) !important;
+      box-shadow: 0 -10px 34px rgba(0, 0, 0, 0.2) !important;
+      padding: 8px 14px calc(16px + env(safe-area-inset-bottom)) !important;
+      transform: translateY(0) !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      overflow-y: auto !important;
+      transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) !important;
+    }
+    .cal-detail[data-open='false'] {
+      transform: translateY(110%) !important;
+      pointer-events: none !important;
+    }
+  }
 }
 
 /* ===== Introduce page animations ===== */
