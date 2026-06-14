@@ -2,7 +2,15 @@
 
 import { useState } from 'react';
 
-// 마감 연장 모달 — COLLECTING 한정. 연장만 가능(단축 거부)하며 서버 거부 메시지는 모달 내부 alert 로 노출.
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+
+// 마감 연장 모달 — COLLECTING 한정. 연장만 가능(단축 거부)하며 서버 거부 메시지는 모달 내부에 노출.
 
 type ExtendDeadlineModalProps = {
   currentDeadline: string | null;
@@ -23,25 +31,31 @@ export function ExtendDeadlineModal({
   const [newDeadline, setNewDeadline] = useState(currentDeadline ?? '');
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
-      onClick={onCancel}
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onCancel();
+      }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="extend-deadline-modal-title"
-        className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
+      <DialogContent
+        className="max-w-sm"
+        aria-describedby={undefined}
+        onPointerDownOutside={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
       >
-        <h2 id="extend-deadline-modal-title" className="text-base font-semibold text-slate-900">
-          마감 연장
-        </h2>
-        <p className="text-sm text-amber-700 rounded-md bg-amber-50 px-3 py-2">
+        <DialogHeader>
+          <DialogTitle>마감 연장</DialogTitle>
+        </DialogHeader>
+
+        <p className="rounded-md border border-warm/40 bg-warm/10 px-3 py-2 text-sm text-[#8e6620]">
           마감 일시는 현재보다 연장만 가능합니다.
         </p>
         <div>
-          <label htmlFor="extend-deadline" className="block text-sm font-medium text-slate-700">
+          <label htmlFor="extend-deadline" className="block text-sm font-medium text-charcoal-2">
             마감 일시
           </label>
           <input
@@ -49,36 +63,29 @@ export function ExtendDeadlineModal({
             type="datetime-local"
             value={newDeadline}
             onChange={(event) => setNewDeadline(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="mt-1 w-full rounded-md border border-line bg-paper px-3 py-1.5 text-sm text-charcoal transition-colors focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
         {errorMessage && (
-          <div
-            role="alert"
-            className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
-          >
+          <div role="alert" className="rounded-md border border-coral/20 bg-coral/5 px-3 py-2 text-sm text-coral">
             {errorMessage}
           </div>
         )}
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-            className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-          >
+
+        <DialogFooter>
+          <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
             취소
           </button>
           <button
             type="button"
             onClick={() => newDeadline && onSave(newDeadline)}
             disabled={isPending || !newDeadline}
-            className="rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+            className="btn btn-primary btn-sm disabled:opacity-50"
           >
             {isPending ? '처리 중…' : '저장'}
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
