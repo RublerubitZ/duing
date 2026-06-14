@@ -52,5 +52,6 @@ public interface AuthApi {
     @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "인증 성공"))
     @PostMapping("/auth/email-verifications/confirm")
     ResponseEntity<ApiResponse<Void>> confirmEmailVerification(
-            @Valid @RequestBody ConfirmEmailVerificationRequest confirmRequest);
+            @Valid @RequestBody ConfirmEmailVerificationRequest confirmRequest,
+            HttpServletRequest httpServletRequest);
 }
