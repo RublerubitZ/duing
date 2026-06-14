@@ -381,3 +381,50 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 - 뉴트럴 섀도(`shadow-md` 등)를 잉크틴트 `shadow-2/3` 로 바꾼다.
 - 포탈 컴포넌트(Dialog·Popover·Dropdown)는 `document.body` 직하(= `.duing` 스코프 밖, body 는 흰색)에 렌더된다. 콘텐츠는 자체 `bg-card`/`bg-popover` 토큰을 쓰되, 인라인 `var(--ink)` 등 스코프 토큰이 필요하면 포탈 콘텐츠 래퍼에 `duing` 클래스를 부여한다.
 - 버튼·뱃지·카드는 shadcn 으로 만들지 않고 기존 `.btn`/`.pill`/`.card` 를 쓴다.
+
+## Mobile
+
+> 데스크탑 기준 토큰/규칙을 **모바일로 확장**한 규칙(새 디자인 시스템 아님). 현 코드는 데스크탑 퍼스트(`md:`=768px 단일 분기)이므로, 신규/수정 레이아웃은 **기본(unprefixed)=모바일, `md:`=데스크탑** 을 기본값으로 작성한다. 화면별 진단·로드맵은 `DESIGN-MOBILE.md` 참조.
+
+### Breakpoints
+- 정식 지원 폭: **320 / 360 / 390 / 430**(모바일) · **768**(태블릿→데스크탑 전환).
+- **기본 클래스 = 모바일**, **`md:`(768) = 데스크탑** 이 1차 분기. `sm:`(640)은 큰 폰/소형 태블릿 미세조정 보조용.
+- 모바일 우선으로 기본을 작성하고 데스크탑 강화는 `md:`. 기본값은 "기본=세로 스택/단일 컬럼, `md:`=다컬럼".
+- 컨테이너 `max-w-layout`(1280)은 유지하되 좌우 패딩을 **`px-4 sm:px-6 md:px-10`** 으로 단계화(현 `px-10` 고정 대체).
+
+### Touch Target
+- 최소 인터랙티브 크기 **44×44pt(iOS HIG) / 48dp(Material)**. 모바일 단독 탭 대상은 **`min-h-11 min-w-11`** 보장.
+- `.btn`(`px-5 py-3`)≈44px 충족 / `.btn-sm`·`.pill`·행내 `px-2 py-1` 아이콘 버튼은 미달 → 모바일에서 히트 영역 확대(투명 패딩 또는 `before:absolute before:-inset-*`).
+
+### Safe Area
+- `app/layout.tsx` viewport: `viewport-fit=cover`, `width=device-width, initial-scale=1`, `themeColor:'#F6F3EC'`(cream), `maximumScale` 미설정(확대 허용).
+- `env(safe-area-inset-*)`: 상단 sticky 네비(`pt-[env(safe-area-inset-top)]`), 하단 고정 액션바·바텀시트(`pb-[env(safe-area-inset-bottom)]`).
+- 풀하이트는 **`min-h-[100dvh]`**(현 `min-h-screen`=100vh는 모바일 크롬에서 잘림). 신규 영역은 `dvh` 사용.
+
+### Navigation
+모바일 네비는 **shadcn 두잉 셋업의 Sheet/Drawer 로 전 영역 통일**(stone 금지 — `bg-card`·`border-line`·`shadow-3`·스크림 `bg-ink/35`, 열림은 `slide-in-*` 400ms 토큰 재사용).
+
+| 영역 | 패턴 |
+|------|------|
+| 공개(홈/탐색/공지/소개) | 상단 Header 축약(브랜드마크 + 햄버거) → **Sheet 좌측 드로어**(네비 + 로그인/가입) |
+| 지원자 인증(`/me/*`) | 동일 — 상단바 햄버거 → **Sheet 드로어**(하단 탭바 미도입) |
+| 운영진(`/manage/*`) | `ManageShell` 사이드바(248px) → 모바일 상단바 + **Sheet 드로어**(ClubSelector + ManageNav 수용) |
+| 관리자(`/admin/*`) | `AdminSidebar`(`hidden md:block`) 유지 + 상단바 햄버거 → **Sheet 드로어** |
+
+무한 마퀴·과한 스프링 금지(Motion 원칙 준수).
+
+### Dialog vs Sheet
+- 폼·다단 입력·긴 콘텐츠·하단 액션 묶음 → **Bottom Sheet(Drawer)**, 상단만 둥근 `rounded-t-xl`.
+- 단순 확인·파괴 액션 → **AlertDialog 중앙 유지**, 360px에서 **`w-[calc(100%-2rem)]`** 폭 가드.
+- 셀렉트/콤보박스 → 인라인 Popover(현 `SearchCombobox`) 유지, 모바일 풀폭·터치 높이만 보정.
+- 스크림 `bg-ink/35`, 패널 `bg-card`·`shadow-3` — 두잉 토큰 고정.
+
+### Table vs Card
+- **유지**(컬럼 ≤3) / **가로 스크롤**(`overflow-x-auto` 래핑 — 열람 위주, 조작 적음) / **카드 변환**(조작 빈도 높고 모바일 잦음).
+- **관리자 콘솔 = 가로 스크롤**(데이터 밀도형, P2). **운영진 지원자 테이블 = 카드 변환**(회장 모바일 합/불 처리 잦음).
+- 카드 규칙: 1차=이름+학과/학번, 2차=상태 배지(`.pill`+라이브 도트)·일시, 액션=하단/우측. `.card` 어휘 재사용. 테이블 텍스트 최소 `text-[13px]`.
+
+### Form
+- **입력 16px 하한(iOS 줌 차단):** `<input>/<textarea>/<select>` 모바일 `text-[16px]`. 데스크탑 밀도 유지는 **`text-[16px] md:text-[14px]`**. 현 `text-sm`/`text-[12.5~15px]` 입력 전수 대상.
+- 입력·셀렉트·날짜피커 높이 ≥44px(`py-2.5`+). 다단 폼은 기본 단일 컬럼, **`md:grid-cols-2`**.
+- 포커스 시 `scrollIntoView`(키보드 가림 방지), 하단 액션은 시트 내부 권장. 에러·필수 표기는 기존 카피(합쇼체)·색(`coral`/`charcoal-3`) 준수 — 새 색·아이콘 도입 금지.
