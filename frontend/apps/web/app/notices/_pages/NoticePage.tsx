@@ -218,7 +218,7 @@ export function NoticePage() {
 
   return (
     <div className="duing" style={{ background: 'var(--cream)', minHeight: '100vh' }}>
-      <ExploreNav active="공지" />
+      <ExploreNav active="공지" slimOnMobile />
 
       <div style={{
         maxWidth: 1280, margin: '0 auto',
