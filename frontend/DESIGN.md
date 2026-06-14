@@ -381,3 +381,88 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 - 뉴트럴 섀도(`shadow-md` 등)를 잉크틴트 `shadow-2/3` 로 바꾼다.
 - 포탈 컴포넌트(Dialog·Popover·Dropdown)는 `document.body` 직하(= `.duing` 스코프 밖, body 는 흰색)에 렌더된다. 콘텐츠는 자체 `bg-card`/`bg-popover` 토큰을 쓰되, 인라인 `var(--ink)` 등 스코프 토큰이 필요하면 포탈 콘텐츠 래퍼에 `duing` 클래스를 부여한다.
 - 버튼·뱃지·카드는 shadcn 으로 만들지 않고 기존 `.btn`/`.pill`/`.card` 를 쓴다.
+
+## Mobile
+
+> 데스크탑 기준 토큰/규칙을 **모바일로 확장**한 규칙(새 디자인 시스템 아님). 현 코드는 데스크탑 퍼스트(`md:`=768px 단일 분기)이므로, 신규/수정 레이아웃은 **기본(unprefixed)=모바일, `md:`=데스크탑** 을 기본값으로 작성한다. 화면별 진단·로드맵은 `DESIGN-MOBILE.md` 참조.
+
+### Breakpoints
+- 정식 지원 폭: **320 / 360 / 390 / 430**(모바일) · **768**(태블릿→데스크탑 전환).
+- **기본 클래스 = 모바일**, **`md:`(768) = 데스크탑** 이 1차 분기. `sm:`(640)은 큰 폰/소형 태블릿 미세조정 보조용.
+- 모바일 우선으로 기본을 작성하고 데스크탑 강화는 `md:`. 기본값은 "기본=세로 스택/단일 컬럼, `md:`=다컬럼".
+- 컨테이너 `max-w-layout`(1280)은 유지하되 좌우 패딩을 **`px-4 sm:px-6 md:px-10`** 으로 단계화(현 `px-10` 고정 대체).
+
+### Touch Target
+- 최소 인터랙티브 크기 **44×44pt(iOS HIG) / 48dp(Material)**. 모바일 단독 탭 대상은 **`min-h-11 min-w-11`** 보장.
+- `.btn`(`px-5 py-3`)≈44px 충족 / `.btn-sm`·`.pill`·행내 `px-2 py-1` 아이콘 버튼은 미달 → 모바일에서 히트 영역 확대(투명 패딩 또는 `before:absolute before:-inset-*`).
+
+### Safe Area
+- `app/layout.tsx` viewport: `viewport-fit=cover`, `width=device-width, initial-scale=1`, `themeColor:'#F6F3EC'`(cream), `maximumScale` 미설정(확대 허용).
+- `env(safe-area-inset-*)`: 상단 sticky 네비(`pt-[env(safe-area-inset-top)]`), 하단 고정 액션바·바텀시트(`pb-[env(safe-area-inset-bottom)]`).
+- 풀하이트는 **`min-h-[100dvh]`**(현 `min-h-screen`=100vh는 모바일 크롬에서 잘림). 신규 영역은 `dvh` 사용.
+
+### Navigation
+모바일 네비는 **하이브리드** — 공개 콘텐츠 탐색은 **하단 탭바(앱형)**, 도구형 콘솔(운영/관리)은 **Sheet 드로어**, 개인영역(`/me`)은 **상단 우측 유저메뉴**. 드로어·시트는 shadcn 두잉 셋업(stone 금지 — `bg-card`·`border-line`·`shadow-3`·스크림 `bg-ink/35`, 열림은 `slide-in-*` 400ms).
+
+**① 하단 탭바 — 공개 콘텐츠 (mobile only, `md:hidden`)**
+- 탭 4개: **홈(`/`) · 탐색(`/clubs`) · 캘린더(`/calendar`) · 공지(`/notices`)** — 모두 공개 라우트(인증 불요)라 게스트도 동일 동작. 3~5개 범위 준수(소개 등은 탭에 넣지 않음).
+- 스타일: `fixed inset-x-0 bottom-0` + `bg-cream/90 backdrop-blur` + 상단 헤어라인 `border-t border-line` + `pb-[env(safe-area-inset-bottom)]`. 활성 `text-ink`(+ ink 도트/언더라인 모티프), 비활성 `text-charcoal-3`. 아이콘은 **thin-stroke 두잉 아이콘**(`@/components/duing/Icon` 확장 — 현재 home/explore/calendar/notice 아이콘 부재, 추가 필요), 라벨 `text-[10~11px]`.
+- 가시성: 4탭 루트 + 그 하위 콘텐츠/상세에 노출. **포커스 플로우(`/apply` 지원서)에서는 숨김.** `md:` 이상은 기존 상단 HomeNav.
+- 콘텐츠는 탭바 높이 + 세이프에어리어만큼 하단 패딩으로 가림 방지. **공개 공지 탭 ≠ 개인 알림 벨**(벨은 상단 우측 유지, 둘을 합치지 않는다).
+
+**② 프로필(`/me`) — 상단 우측 유저메뉴**
+- 하단 탭이 아니라 현 shadcn `UserMenu`(아바타)로 진입. 비로그인 시 그 자리에 **로그인·가입**. (인증 게이팅된 개인영역을 항상보이는 바에서 분리 — X/YouTube 식.)
+
+**③ 도구형 콘솔 — Sheet 드로어 (하단 탭바 없음)**
+
+| 영역 | 패턴 |
+|------|------|
+| 운영진(`/manage/*`) | `ManageShell` 사이드바(248px) → 모바일 상단바 + **Sheet 드로어**(ClubSelector + ManageNav 수용) |
+| 관리자(`/admin/*`) | `AdminSidebar`(`hidden md:block`) 유지 + 상단바 햄버거 → **Sheet 드로어** |
+
+공개 영역은 하단 탭바가 네비를 대체하므로 **별도 드로어를 두지 않는다**. 무한 마퀴·과한 스프링 금지(Motion 원칙 준수).
+
+### Dialog vs Sheet
+모바일 모달성 UI는 아래 **결정 규칙(위에서부터 먼저 맞는 행)** 으로 형태를 정한다 — 임의 판단 금지.
+
+| # | 조건 | 형태 | 비고 |
+|---|------|------|------|
+| 1 | **파괴/되돌릴 수 없는 단순 확인**(삭제·탈퇴·거절 등, 버튼 1~2개·본문 짧음) | **AlertDialog**(중앙) | `role=alertdialog`·포커스 트랩, Esc/스크림 닫힘 허용하되 **파괴 실행은 명시 버튼만**. 360px `w-[calc(100%-2rem)]` 폭 가드 |
+| 2 | **폼·다단 입력·긴 리스트·액션 3개+·스크롤 필요** | **Bottom Sheet** | 입력/엄지 동선, 풀폭 |
+| 3 | **단일 값 선택**(셀렉트·콤보·날짜) | **Popover/인라인**(현 `SearchCombobox`) | 모바일 풀폭·터치 높이만 보정, 기존 UX 보존 |
+| 4 | 위에 안 맞고 콘텐츠가 화면을 거의 채움(마법사형 다단계 등) | **풀스크린 시트**(`h-[100dvh]`) | — |
+
+**판단 순서:** "①파괴 확인? → ②입력/스크롤/다중액션? → ③단일 선택?" 으로 내려가 처음 맞는 행 채택. 데스크탑은 동일 콘텐츠를 `md` 이상에서 Dialog 로(반응형 분기 `md:` 기준).
+
+**Bottom Sheet 규격:** `fixed inset-x-0 bottom-0` + `rounded-t-xl` + `max-h-[90dvh] overflow-y-auto` + `pb-[env(safe-area-inset-bottom)]`. 상단 sticky 헤더(타이틀+닫기) + 하단 sticky 액션, 그래버(`h-1 w-9 rounded-full bg-line`) 선택. **닫힘 가드:** 비동기 저장/파괴 진행 중 스크림·드래그·Esc 닫힘 차단(기존 Dialog 비동기 패턴 동일). **키보드:** 입력 포커스 시 내부 스크롤로 가림 방지, 하단 액션 sticky 유지.
+
+**현 모달 매핑(예):** AlertDialog 유지(폭 가드만) = `AdminClubDeleteDialog`·`RemoveMemberDialog`·각 처리 거절 등 확인형 · Sheet 전환 후보 = 모집 마감(`RecruitmentDetailPage`)·일괄 처리(`BulkConfirmDialog`/`BulkPromoteDialog`)·지원서 미리보기·면접 슬롯 배정(`MemberAssignModal`).
+
+**토큰:** 스크림 `bg-ink/35`, 패널 `bg-card`(시트 `rounded-t-xl` / 중앙 `rounded-lg`)·`shadow-3` — **두잉 토큰 고정, stone 금지.** **금지:** 중앙 Dialog 안 긴 세로 스크롤(상하 잘림) · 키보드가 액션 가리는 배치 · 파괴 액션을 스크림/Esc 로 실행.
+
+### Table vs Card
+- **유지**(컬럼 ≤3) / **가로 스크롤**(`overflow-x-auto` 래핑 — 열람 위주, 조작 적음) / **카드 변환**(조작 빈도 높고 모바일 잦음).
+- **관리자 콘솔 = 가로 스크롤**(데이터 밀도형, P2). **운영진 지원자 테이블 = 카드 변환**(회장 모바일 합/불 처리 잦음).
+- 카드 규칙: 1차=이름+학과/학번, 2차=상태 배지(`.pill`+라이브 도트)·일시, 액션=하단/우측. `.card` 어휘 재사용. 테이블 텍스트 최소 `text-[13px]`.
+
+### Form
+- **입력 16px 하한(iOS 줌 차단):** `<input>/<textarea>/<select>` 모바일 `text-[16px]`. 데스크탑 밀도 유지는 **`text-[16px] md:text-[14px]`**. 현 `text-sm`/`text-[12.5~15px]` 입력 전수 대상.
+- 입력·셀렉트·날짜피커 높이 ≥44px(`py-2.5`+). 다단 폼은 기본 단일 컬럼, **`md:grid-cols-2`**.
+- 포커스 시 `scrollIntoView`(키보드 가림 방지), 하단 액션은 시트 내부 권장. 에러·필수 표기는 기존 카피(합쇼체)·색(`coral`/`charcoal-3`) 준수 — 새 색·아이콘 도입 금지.
+
+### Performance
+모바일 4G/중급기 기준 예산: **LCP < 2.5s · CLS < 0.1 · INP < 200ms.** 현 코드 상태 기준 권고:
+
+- **폰트(현재 외부 CDN):** GmarketSans 는 `globals.css` `@font-face` 로 jsdelivr `.woff` 3웨이트(`font-display: swap`) — 외부 도메인이라 연결 비용이 있다. **`<link rel="preconnect">`(cdn.jsdelivr.net)** 로 핸드셰이크 단축, 가능하면 **woff2**(약 30% 작음) 또는 `next/font/local` 셀프호스팅으로 옮긴다. swap 으로 FOUT 은 허용(Pretendard/system 폴백). 추가 웨이트 로딩은 자제.
+- **이미지:** 현재 `<img>` 직접 사용이 13곳(사용자 업로드 배너 + onError 폴백)이고 `next/image` 는 3파일뿐. 모바일 절감을 위해 콘텐츠 이미지는 가능하면 **`next/image`(자동 lazy·포맷·`sizes`)** 로, raw `<img>` 는 **명시적 `width/height`(또는 `aspect-ratio`) + `loading="lazy"`** 로 CLS·전송량을 줄인다. 카테고리 타일 `sizes`(`(max-width:768px) 50vw, 25vw`)처럼 모바일 뷰포트에 맞춘 `sizes` 필수. **LCP 이미지(히어로/배너)** 는 `priority`(현재 2곳뿐 — 첫 화면 핵심 이미지에 확대).
+- **JS / 모션:** framer-motion 을 현재 전체 `motion` 으로 import — 사용처가 늘면 **`LazyMotion` + `domAnimation` feature(또는 `m` 컴포넌트)** 로 번들을 줄인다. `'use client'` 남발 금지(서버 컴포넌트 우선 — 프로젝트 규칙)로 모바일 하이드레이션 비용 억제. 스크롤 리빌은 `once:true`(현 `FadeIn`), `transform`/`opacity` 만 애니메이트(레이아웃 thrash·리플로 금지), 무한 애니메이션 금지(Motion 원칙).
+- **렌더링/데이터:** `force-dynamic` 홈은 런타임 BE fetch → 모바일 네트워크 TTFB 영향. 섹션별 **Suspense + 스켈레톤**으로 체감 단축, 빈 데이터는 섹션 `return null`(기존 규칙). 긴 리스트는 페이지네이션, 무한 스크롤 도입 시 가상화 검토.
+- **CLS 가드:** 폰트 swap·무치수 이미지·동적 삽입이 시프트 유발 — 이미지 치수/`aspect-ratio` 명시. **하단 탭바/고정 액션바는 `fixed` 라 플로우에 영향 없으나**, 콘텐츠에 그 높이만큼 하단 패딩을 둬 가림을 막는다(시프트 아님).
+- **접근성×성능:** `prefers-reduced-motion` 존중(현 `MotionConfig reducedMotion="user"`) — 모션 비용도 함께 절감.
+
+### Testing (실기기 기준)
+- **뷰포트 매트릭스:** **320**(iPhone SE·소형 안드로이드) · **360**(갤럭시 표준) · **390**(iPhone 13/14) · **430**(Pro Max) · **768**(태블릿 전환). 머지 전 최소 **320 · 390 · 768** 확인.
+- **엔진/실기기:** **iOS Safari(WebKit)** + **Android Chrome(Blink)** 각 1대 이상. DevTools 디바이스 모드는 1차 스크리닝용 — **세이프에어리어·입력 포커스 줌·`100dvh` 잘림·키보드 가림·`backdrop-blur` 는 에뮬레이터가 부정확하므로 실기기 필수.**
+- **머지 전 체크리스트:** ①가로 스크롤 0(overflow) ②입력 포커스 시 줌 없음(16px) ③터치타겟 ≥44px ④하단 탭바·액션바가 세이프에어리어/키보드와 충돌 없음 ⑤`100dvh` 잘림 없음 ⑥`prefers-reduced-motion` 에서 콘텐츠 정상 노출 ⑦스크림/시트 닫힘 가드 동작.
+- **자동화(보조):** Playwright `channel:'chrome'` 로 320/390/768 스크린샷 + 가로 overflow·콘솔 에러 검증, `emulateMedia({ reducedMotion })` 점검(기존 모션 QA 패턴 재사용). CI 머지 게이트는 기존 lint/typecheck/build/test 유지 — 실기기 QA 는 사람이 수행.
+- **접근성:** 핵심 플로우(지원자 여정) 1회 스크린리더(VoiceOver/TalkBack) + 포커스 순서 확인. 라이트 고정이므로 명도대비는 두잉 토큰 범위 내 유지.
