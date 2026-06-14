@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { BottomNav } from './_components/BottomNav';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko" suppressHydrationWarning>
       <body>
         <Providers>{children}</Providers>
+        <BottomNav />
       </body>
     </html>
   );
