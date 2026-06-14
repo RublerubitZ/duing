@@ -22,6 +22,10 @@ export function toRoute(path: `/${string}`): Route {
  */
 export function toLinkRoute(url: string | null): Route | null {
   if (!url) return null;
+  // 브라우저 URL 파서는 파싱 전에 탭(\t)·개행(\n)·CR(\r)을 문자열 어디서든 제거한다. 이를 끼워 넣은
+  // `/\t/host`·`/\n//host` 는 `//host` 로 정규화돼 오프-오리진으로 빠지므로, 이 문자가 섞인 값은
+  // 프리픽스 검사 전에 내부 경로로 인정하지 않는다(open redirect 우회 차단).
+  if (/[\t\n\r]/.test(url)) return null;
   if (!url.startsWith('/')) return null;
   // 프로토콜 상대경로(//host)·역슬래시(/\\host)는 브라우저가 오프-오리진으로 해석하므로 내부 경로로 취급하지 않는다.
   if (url.startsWith('//') || url.startsWith('/\\')) return null;
