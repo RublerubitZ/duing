@@ -1,0 +1,10 @@
+# 두잉 API 리버스 프록시 — Let's Encrypt 로 api.duings.com TLS 자동 발급/갱신.
+# 전제: api.duings.com A레코드가 이 서버 고정 IP 를 가리키고, 방화벽에서 80/443 이 열려 있어야 한다.
+api.duings.com {
+	encode zstd gzip
+
+	# 단일 업스트림이라 active health check 로 업스트림을 빼면 DB 일시장애 시 전체 차단이 되므로
+	# 두지 않는다. Caddy 가 Host 헤더를 보존하고 X-Forwarded-* 를 주입하면, 백엔드는
+	# forward-headers-strategy=native 로 원 클라이언트 IP/프로토콜을 인식한다.
+	reverse_proxy backend:8080
+}
