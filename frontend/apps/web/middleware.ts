@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
+// Edge 런타임(미들웨어)에서는 @duing/api 배럴 대신 Edge-safe 한 auth 서브패스만 import 한다.
+// 배럴은 ky 클라이언트·@duing/storage(window/localStorage) 를 끌어와 Edge 번들에서 거부된다.
 import {
   AUTH_TOKEN_COOKIE_NAME,
   decodeJwt,
   isExpired,
-} from "@duing/api";
+} from "@duing/api/auth";
 
 const STUDENT_PREFIXES = ["/apply", "/me"];
 const MANAGE_PREFIX = "/manage";
