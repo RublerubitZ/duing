@@ -55,7 +55,7 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
   const textColor = hasImage ? '#fff' : slide.fg;
   const body = (
     <div
-      className="relative flex h-full flex-col justify-between px-12 py-11"
+      className="relative flex h-full flex-col justify-between px-5 py-3.5 sm:px-12 sm:py-11"
       style={{ background: slide.bg, color: textColor }}
     >
       {hasImage && (
@@ -86,21 +86,22 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
       )}
       {slide.emoji && (
         <div
-          className="pointer-events-none absolute -right-2.5 -top-5 text-[110px] leading-none opacity-[0.18] sm:text-[160px] md:text-[220px]"
+          className="pointer-events-none absolute -right-2.5 -top-4 text-[72px] leading-none opacity-[0.18] sm:-top-5 sm:text-[160px] md:text-[220px]"
           style={{ transform: 'rotate(-12deg)' }}
         >
           {slide.emoji}
         </div>
       )}
+      {/* 장식 스파클은 데스크탑 좌표 기준 — 좁은 모바일 배너에선 숨김 */}
       <SparkleFull
         size={32}
         color={slide.accent}
-        className="absolute right-[200px] top-7 opacity-85"
+        className="absolute right-[200px] top-7 hidden opacity-85 sm:block"
       />
       <SparkleFull
         size={20}
         color={slide.accent}
-        className="absolute bottom-12 right-[320px] opacity-50"
+        className="absolute bottom-12 right-[320px] hidden opacity-50 sm:block"
       />
 
       {slide.tag && (
@@ -118,14 +119,14 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
       )}
       <div className="relative">
         <h2
-          className="mb-2.5 whitespace-pre-line text-5xl leading-[1.05] tracking-[-0.025em]"
+          className="mb-1 line-clamp-2 whitespace-pre-line text-[21px] leading-[1.1] tracking-[-0.025em] sm:mb-2.5 sm:line-clamp-none sm:text-5xl sm:leading-[1.05]"
           style={{ color: textColor }}
         >
           {slide.title}
         </h2>
         {slide.sub && (
           <p
-            className="mb-6 max-w-[460px] text-[15.5px] leading-[1.5]"
+            className="mb-2 line-clamp-1 max-w-[460px] text-[12.5px] leading-[1.4] sm:mb-6 sm:line-clamp-none sm:text-[15.5px] sm:leading-[1.5]"
             style={{ color: textColor, opacity: 0.85 }}
           >
             {slide.sub}
@@ -133,7 +134,7 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
         )}
         {slide.cta && (
           <span
-            className="btn rounded-md px-[22px] py-3 font-bold"
+            className="btn rounded-md px-4 py-2 text-[13px] font-bold sm:px-[22px] sm:py-3 sm:text-[15px]"
             style={{
               background: isDarkText ? '#9DB6A0' : slide.accent,
               color: isDarkText ? '#143025' : '#fff',

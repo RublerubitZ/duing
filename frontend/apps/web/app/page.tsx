@@ -6,6 +6,7 @@ import { BannerCarousel } from './_components/sections/BannerCarousel';
 import { Categories } from './_components/sections/Categories';
 import { FeaturedClubs } from './_components/sections/FeaturedClubs';
 import { HomeHero } from './_components/sections/HomeHero';
+import { HomeMobileSearchBar } from './_components/sections/HomeMobileSearchBar';
 import { LeaderCta } from './_components/sections/LeaderCta';
 import { RecruitmentTicker } from './_components/sections/RecruitmentTicker';
 
@@ -17,6 +18,7 @@ export default function HomePage() {
   return (
     <div className="duing min-h-dvh bg-cream">
       <HomeNav slimOnMobile />
+      <HomeMobileSearchBar />
       <HomeHero />
       <BannerCarousel />
       <RecruitmentTicker />

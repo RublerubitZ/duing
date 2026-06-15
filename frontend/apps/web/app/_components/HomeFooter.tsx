@@ -5,7 +5,29 @@ const linkClass = 'hover:text-ink';
 
 export function HomeFooter() {
   return (
-    <footer className="mt-10 border-t border-line bg-cream-2 px-4 sm:px-6 md:px-10 py-14">
+    <>
+      {/* 모바일 간소 푸터 — 로고·태그라인 + 약관·문의·카피라이트 (데스크탑은 아래 풀 푸터) */}
+      <footer className="border-t border-line bg-cream-2 px-4 py-8 md:hidden">
+        <div className="max-w-layout mx-auto">
+          <BrandMark size={26} />
+          <p className="mt-3 text-[13px] leading-relaxed text-charcoal-2">
+            탐색부터 운영까지, 두잉 하나로.
+          </p>
+          <div className="mt-5 border-t border-line pt-4 text-[12px] leading-relaxed text-charcoal-3">
+            <div>이용약관 및 개인정보 처리방침</div>
+            <div className="mt-1.5">
+              문의사항 :{' '}
+              <a href="mailto:duing.official@gmail.com" className="hover:text-ink">
+                duing.official@gmail.com
+              </a>
+            </div>
+            <div className="mt-3 text-charcoal-3/80">© DUING · All Rights Reserved</div>
+          </div>
+        </div>
+      </footer>
+
+      {/* 데스크탑 풀 푸터 */}
+      <footer className="hidden mt-10 border-t border-line bg-cream-2 px-4 sm:px-6 md:px-10 py-14 md:block">
       <div className="max-w-layout mx-auto grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           <BrandMark size={28} />
@@ -60,7 +82,8 @@ export function HomeFooter() {
           <span>개인정보 처리방침</span>
         </div>
       </div>
-    </footer>
+      </footer>
+    </>
   );
 }
 

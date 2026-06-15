@@ -32,23 +32,24 @@ export async function FeaturedClubs() {
   if (clubs.length === 0) return null;
 
   return (
-    <section className="px-4 sm:px-6 md:px-10 py-16">
+    <section className="px-4 sm:px-6 md:px-10 py-8 sm:py-16">
       <div className="max-w-layout mx-auto">
         <div className="mb-9 flex items-end justify-between">
           <div>
             <div className="mb-2.5 text-[13px] font-semibold tracking-wide08 text-ink">
               FEATURED · 이번 주 주목
             </div>
-            <h2 className="text-[44px]">지금 가장 활발한 곳</h2>
+            <h2 className="text-[26px] sm:text-[36px] md:text-[44px]">지금 가장 활발한 곳</h2>
           </div>
           <Link
             href="/clubs"
-            className="flex items-center gap-1.5 text-sm font-semibold text-ink hover:gap-2"
+            className="flex shrink-0 items-center gap-1.5 text-sm font-semibold text-ink hover:gap-2"
           >
             전체 보기 <ArrowRight />
           </Link>
         </div>
-        <div className="grid gap-5 md:grid-cols-4">
+        {/* 모바일 2×2(최대 4개) / 데스크탑 4열 */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
           {clubs.map((club) => (
             <FeaturedCard key={club.id} club={club} />
           ))}

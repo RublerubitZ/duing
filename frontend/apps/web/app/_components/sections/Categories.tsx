@@ -1,13 +1,37 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import {
+  Church,
+  Drama,
+  Dumbbell,
+  Gamepad2,
+  GraduationCap,
+  HeartHandshake,
+  Palette,
+  Shapes,
+  type LucideIcon,
+} from 'lucide-react';
+import type { ClubCategory } from '@duing/types';
 
 import { HOME_CATEGORIES, type HomeCategoryMeta } from '@/app/_lib/homeCategories';
 
+// 모바일 4×2 아이콘 타일용 — 카테고리별 lucide 아이콘.
+const CATEGORY_ICON: Record<ClubCategory, LucideIcon> = {
+  ACADEMIC: GraduationCap,
+  CULTURE: Drama,
+  ART: Palette,
+  SPORTS: Dumbbell,
+  VOLUNTEER: HeartHandshake,
+  RELIGION: Church,
+  HOBBY: Gamepad2,
+  OTHER: Shapes,
+};
+
 export function Categories() {
   return (
-    <section className="px-4 sm:px-6 md:px-10 pb-10 pt-24">
+    <section className="px-4 sm:px-6 md:px-10 pb-8 pt-10 sm:pb-10 sm:pt-24">
       <div className="max-w-layout mx-auto">
-        <div className="mb-9 flex items-end justify-between gap-5">
+        <div className="mb-6 flex flex-col items-start gap-2 sm:mb-9 sm:flex-row sm:items-end sm:justify-between sm:gap-5">
           <div>
             <p
               className="mb-3 font-mono text-[11.5px] font-semibold uppercase"
@@ -37,13 +61,46 @@ export function Categories() {
           </Link>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        {/* 모바일: 큰 이미지 카드 대신 4×2 아이콘 타일로 한눈에 */}
+        <div className="grid grid-cols-4 gap-2.5 md:hidden">
+          {HOME_CATEGORIES.map((category) => (
+            <CategoryIconTile key={category.value} category={category} />
+          ))}
+        </div>
+
+        {/* 데스크탑: 기존 이미지 카드 */}
+        <div className="hidden gap-4 md:grid md:grid-cols-4">
           {HOME_CATEGORIES.map((category) => (
             <CategoryTile key={category.value} category={category} />
           ))}
         </div>
       </div>
     </section>
+  );
+}
+
+// 모바일 전용 콤팩트 아이콘 타일 (4×2 그리드).
+function CategoryIconTile({ category }: { category: HomeCategoryMeta }) {
+  const Icon = CATEGORY_ICON[category.value];
+  return (
+    <Link
+      href={`/clubs?category=${category.value}`}
+      className="group flex flex-col items-center gap-2 rounded-2xl border bg-paper px-1 py-3.5 text-inherit no-underline transition-[transform,border-color] active:scale-[0.97]"
+      style={{ borderColor: '#e6e1d2' }}
+    >
+      <span
+        className="grid h-11 w-11 place-items-center rounded-full"
+        style={{ background: `${category.accent}1f`, color: category.accent }}
+      >
+        <Icon size={20} strokeWidth={1.8} aria-hidden />
+      </span>
+      <span
+        className="text-[12px] font-semibold leading-none"
+        style={{ color: '#2c4124', letterSpacing: '-0.01em' }}
+      >
+        {category.label}
+      </span>
+    </Link>
   );
 }
 
