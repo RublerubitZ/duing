@@ -54,7 +54,8 @@ describe('ApplicantTable 확장', () => {
         recruitmentId={1}
       />,
     );
-    expect(screen.getByText('4 / 5')).toBeInTheDocument();
+    // 표(데스크탑) + 카드(모바일) 둘 다 DOM 에 있어 2개씩.
+    expect(screen.getAllByText('4 / 5').length).toBeGreaterThan(0);
   });
 
   it('ACCEPTED 행 체크박스는 disabled 이고 tooltip 이 있다', () => {
@@ -69,9 +70,11 @@ describe('ApplicantTable 확장', () => {
         recruitmentId={1}
       />,
     );
-    const checkbox = screen.getByRole('checkbox', { name: '홍길동 선택' });
-    expect(checkbox).toBeDisabled();
-    expect(checkbox).toHaveAttribute('title', expect.stringContaining('최종 상태'));
+    const checkboxes = screen.getAllByRole('checkbox', { name: '홍길동 선택' });
+    checkboxes.forEach((checkbox) => {
+      expect(checkbox).toBeDisabled();
+      expect(checkbox).toHaveAttribute('title', expect.stringContaining('최종 상태'));
+    });
   });
 
   it('REJECTED 행 체크박스는 disabled 이고 tooltip 이 있다', () => {
@@ -86,9 +89,11 @@ describe('ApplicantTable 확장', () => {
         recruitmentId={1}
       />,
     );
-    const checkbox = screen.getByRole('checkbox', { name: '홍길동 선택' });
-    expect(checkbox).toBeDisabled();
-    expect(checkbox).toHaveAttribute('title', expect.stringContaining('최종 상태'));
+    const checkboxes = screen.getAllByRole('checkbox', { name: '홍길동 선택' });
+    checkboxes.forEach((checkbox) => {
+      expect(checkbox).toBeDisabled();
+      expect(checkbox).toHaveAttribute('title', expect.stringContaining('최종 상태'));
+    });
   });
 
   it('SUBMITTED 행 체크박스는 disabled 가 아니다', () => {
@@ -103,8 +108,8 @@ describe('ApplicantTable 확장', () => {
         recruitmentId={1}
       />,
     );
-    const checkbox = screen.getByRole('checkbox', { name: '홍길동 선택' });
-    expect(checkbox).not.toBeDisabled();
+    const checkboxes = screen.getAllByRole('checkbox', { name: '홍길동 선택' });
+    checkboxes.forEach((checkbox) => expect(checkbox).not.toBeDisabled());
   });
 
   it('useInterview=false 면 면접일정 컬럼 헤더가 렌더되지 않는다', () => {
@@ -149,8 +154,7 @@ describe('ApplicantTable 확장', () => {
         recruitmentId={1}
       />,
     );
-    const badge = screen.getByText('5 / 5');
-    expect(badge.className).toContain('emerald');
+    screen.getAllByText('5 / 5').forEach((badge) => expect(badge.className).toContain('emerald'));
   });
 
   it('myScore 색상 — 2 이하이면 빨강 뱃지', () => {
@@ -165,7 +169,6 @@ describe('ApplicantTable 확장', () => {
         recruitmentId={1}
       />,
     );
-    const badge = screen.getByText('2 / 5');
-    expect(badge.className).toContain('rose');
+    screen.getAllByText('2 / 5').forEach((badge) => expect(badge.className).toContain('rose'));
   });
 });
