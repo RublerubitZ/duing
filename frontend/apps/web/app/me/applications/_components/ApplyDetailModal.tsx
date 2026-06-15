@@ -154,7 +154,7 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
               <ApplicationStepper detail={detail} phase={phase} />
             </div>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.65fr', gap: 18 }}>
+          <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-[1fr_1.65fr]">
             {/* Left — club brief + timeline */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
@@ -188,11 +188,8 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
                   funnel 진행 표시는 detail 기반 ApplicationStepper 가 authoritative 다. */}
             </div>
 
-            {/* Right — detail table */}
-            <div style={{
-              borderLeft: '1px solid var(--gray-line)',
-              paddingLeft: 22,
-            }}>
+            {/* Right — detail table (모바일은 위쪽 그리드 gap 으로 구분, sm 이상은 좌측 구분선) */}
+            <div className="sm:border-l sm:border-line sm:pl-[22px]">
               <DetailRow label="지원일" value={app.appliedAt} />
               {detail ? (
                 detail.questions.length > 0 ? (
