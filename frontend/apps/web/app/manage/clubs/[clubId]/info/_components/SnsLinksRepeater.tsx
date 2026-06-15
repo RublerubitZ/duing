@@ -44,7 +44,7 @@ export function SnsLinksRepeater({
   return (
     <div className="space-y-1.5">
       {value.map((link, idx) => (
-        <div key={idx} className="grid grid-cols-[140px_1fr_auto] gap-2 items-center">
+        <div key={idx} className="grid grid-cols-[110px_1fr_auto] gap-2 items-center sm:grid-cols-[140px_1fr_auto]">
           <select
             value={link.platform}
             onChange={(event) => {
