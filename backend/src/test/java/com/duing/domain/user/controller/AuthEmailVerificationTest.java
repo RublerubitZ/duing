@@ -126,51 +126,53 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("이미 가입된 이메일로 코드 발송을 요청해도 미가입과 같은 201 과 만료 시간을 반환한다")
-    void registeredEmailSendReturnsSameSuccessAsUnregistered() {
+    @DisplayName("이미 가입된 이메일로 코드 발송을 요청하면 409 와 EMAIL_ALREADY_REGISTERED 를 반환하고 메일을 보내지 않는다")
+    void registeredEmailSendReturnsConflict() {
         String registeredEmail = "registered@daegu.ac.kr";
         saveRegisteredUser(registeredEmail);
         EmailMessage lastMessageBeforeSend = stubEmailSender.lastMessage();
 
-        // 가입 여부가 응답으로 새지 않아야 한다 — 409/CONFLICT 가 아니라 미가입과 똑같은 201 + 만료 응답.
+        // 막다른 길(오지 않는 코드를 기다림) 대신 발송 단계에서 즉시 가입 사실을 안내한다.
         given().contentType(ContentType.JSON).body(Map.of("email", registeredEmail))
                 .when().post("/api/v1/auth/email-verifications")
-                .then().statusCode(HttpStatus.CREATED.value())
-                .body("data.expiresInSeconds", equalTo(EXPECTED_EXPIRES_IN_SECONDS));
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("EMAIL_ALREADY_REGISTERED"));
 
-        // 가입자에게는 실제 인증 코드 메일을 발송하지 않는다 — 코드 유출·이메일 폭탄 방지.
+        // 가입자에게는 실제 인증 코드 메일을 보내지 않는다.
         assertThat(stubEmailSender.lastMessage()).isSameAs(lastMessageBeforeSend);
     }
 
     @Test
-    @DisplayName("이미 가입된 이메일도 60초 쿨다운 내 재요청이면 미가입과 같은 429 를 반환한다")
-    void registeredEmailReturnsSameCooldownAsUnregistered() {
+    @DisplayName("이미 가입된 이메일은 반복 요청해도 쿨다운(429)이 아니라 항상 409 를 반환한다")
+    void registeredEmailAlwaysReturnsConflictNotCooldown() {
         String registeredEmail = "cooldown@daegu.ac.kr";
         saveRegisteredUser(registeredEmail);
 
-        requestSend(registeredEmail, HttpStatus.CREATED.value());
+        // existsByEmail 검사가 쿨다운 검사보다 먼저이므로 첫 요청부터 줄곧 409 다.
+        requestSend(registeredEmail, HttpStatus.CONFLICT.value());
         given().contentType(ContentType.JSON).body(Map.of("email", registeredEmail))
                 .when().post("/api/v1/auth/email-verifications")
-                .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
-                .body("code", equalTo("VERIFICATION_COOLDOWN"));
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("EMAIL_ALREADY_REGISTERED"));
     }
 
     @Test
-    @DisplayName("전역 발송 한도가 소진되면 가입 이메일도 미가입과 같은 503 을 반환한다")
-    void registeredEmailReturnsSameQuotaExceededAsUnregistered() {
+    @DisplayName("전역 발송 한도가 소진돼도 이미 가입된 이메일은 409 를 먼저 반환한다 (미가입은 503)")
+    void registeredEmailReturnsConflictBeforeQuotaCheck() {
         String registeredEmail = "quota@daegu.ac.kr";
         saveRegisteredUser(registeredEmail);
         exhaustGlobalQuota();
 
-        // 한도 소진 상태에서 미가입·가입 모두 503(EMAIL_SEND_QUOTA_EXCEEDED) — 응답으로 가입 여부가 새지 않는다.
+        // 미가입 이메일은 한도 소진으로 503 을 받는다.
         given().contentType(ContentType.JSON).body(Map.of("email", "unregistered-quota@daegu.ac.kr"))
                 .when().post("/api/v1/auth/email-verifications")
                 .then().statusCode(HttpStatus.SERVICE_UNAVAILABLE.value())
                 .body("code", equalTo("EMAIL_SEND_QUOTA_EXCEEDED"));
+        // 가입 이메일은 existsByEmail 가 쿼터 검사보다 먼저라 409 를 받는다.
         given().contentType(ContentType.JSON).body(Map.of("email", registeredEmail))
                 .when().post("/api/v1/auth/email-verifications")
-                .then().statusCode(HttpStatus.SERVICE_UNAVAILABLE.value())
-                .body("code", equalTo("EMAIL_SEND_QUOTA_EXCEEDED"));
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("EMAIL_ALREADY_REGISTERED"));
     }
 
     @Test
