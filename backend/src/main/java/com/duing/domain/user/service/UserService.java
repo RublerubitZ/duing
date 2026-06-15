@@ -1,7 +1,9 @@
 package com.duing.domain.user.service;
 
+import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
 import com.duing.domain.user.service.dto.command.LoginCommand;
 import com.duing.domain.user.service.dto.command.SignupCommand;
+import com.duing.domain.user.service.dto.command.UpdateProfileCommand;
 import com.duing.domain.user.service.dto.query.LoginResult;
 import com.duing.domain.user.service.dto.query.UserQuery;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
@@ -15,6 +17,10 @@ public interface UserService {
     LoginResult login(LoginCommand loginCommand, String clientIp);
 
     void logout(Long userId);
+
+    void updateProfile(UpdateProfileCommand updateProfileCommand);
+
+    void changePassword(ChangePasswordCommand changePasswordCommand);
 
     void withdraw(Long userId);
 

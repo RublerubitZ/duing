@@ -143,4 +143,15 @@ public class User extends BaseEntity {
     public void bumpTokenVersion() {
         this.tokenVersion += 1;
     }
+
+    /** 프로필(이름·전화번호)을 수정한다. 학번·이메일은 변경 대상이 아니다. */
+    public void updateProfile(String name, String phone) {
+        this.name = name;
+        this.phone = phone;
+    }
+
+    /** 비밀번호 해시를 교체한다. 인코딩은 호출 측(서비스)에서 책임진다. */
+    public void changePassword(String newPasswordHash) {
+        this.passwordHash = newPasswordHash;
+    }
 }
