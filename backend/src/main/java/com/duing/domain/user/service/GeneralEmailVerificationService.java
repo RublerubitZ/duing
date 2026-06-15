@@ -35,34 +35,27 @@ public class GeneralEmailVerificationService implements EmailVerificationService
         LocalDateTime now = LocalDateTime.now();
         rateLimiter.assertAndRecordIpRequest(clientIp, now);
 
-        // 계정 열거(account enumeration) 방지 — 이미 가입된 이메일도 미가입과 '구분 불가능한' 응답을
-        // 주기 위해 코드 생성·해시·upsert(email_verifications 행 생성/갱신)와 전역 쿼터 예약까지 동일하게
-        // 태운다. 그래야 첫 발송 201/만료, 쿨다운 429, 쿼터 소진 503 이 가입 여부와 무관하게 같아진다.
-        // 단, 가입자에게는 실제 코드 메일을 보내지 않고(코드 유출·이메일 폭탄 방지) 예약한 쿼터를 곧바로
-        // 반납한다(가입 이메일로 일일 한도를 소진시키는 악용 방지). 중복 가입 차단은 signup 단계의
-        // existsByEmail 재검증으로 유지되므로 이 분기를 없애도 약화되지 않는다.
-        boolean alreadyRegistered = userRepository.existsByEmail(sendCommand.email());
+        // 이미 가입된 이메일이면 발송하지 않고 즉시 안내한다(409). 오지 않는 코드를 기다리는 막다른 길을
+        // 없애려는 UX 결정으로, 발송 단계의 계정 열거(account enumeration)는 감수한다. 자동화된 열거
+        // 탐색 속도는 위의 IP 레이트리밋이 제한하고, 권위 있는 중복 가입 차단은 signup 단계의
+        // existsByEmail 재검증이 그대로 담당한다(이 분기는 그 방어를 대체하지 않는다).
+        // IP 레이트리밋 다음에 두어 가입 여부 확인 요청도 IP 윈도우를 소비하게 한다.
+        if (userRepository.existsByEmail(sendCommand.email())) {
+            throw new EmailVerificationException.EmailAlreadyRegisteredException();
+        }
 
         String code = verificationCodeManager.generateCode();
         String codeHash = verificationCodeManager.hash(sendCommand.email(), code);
         EmailVerification emailVerification = upsertVerification(sendCommand.email(), codeHash, now);
 
-        // 전역 일일 쿼터는 가입 여부와 무관하게 예약한다 — 한도 초과 시 양쪽 모두 503 이 되어 응답으로
-        // 가입 여부가 새지 않는다(중복/쿨다운으로 여기까지 못 온 요청은 애초에 쿼터를 소비하지 않는다).
         rateLimiter.reserveGlobalQuota(now);
         try {
-            if (!alreadyRegistered) {
-                emailSender.send(new EmailMessage(sendCommand.email(), SUBJECT, buildHtml(code)));
-            }
+            emailSender.send(new EmailMessage(sendCommand.email(), SUBJECT, buildHtml(code)));
         } catch (RuntimeException sendFailure) {
             // 발송 실패 시 예약한 전역 쿼터를 복구한다 — Resend 장애가 일일 한도를 소진해
             // 정상 가입을 막는 자폭을 방지. DB 변경(쿨다운 행)은 트랜잭션 롤백으로 별도 복구된다.
             rateLimiter.releaseGlobalQuota(now);
             throw sendFailure;
-        }
-        if (alreadyRegistered) {
-            // 가입자는 실제 발송이 없으므로 예약분을 반납한다(순소비 0) — 위 예약은 503 동등성 확보용일 뿐.
-            rateLimiter.releaseGlobalQuota(now);
         }
         return new EmailVerificationSendResult(
                 emailVerification.getExpiresAt(),

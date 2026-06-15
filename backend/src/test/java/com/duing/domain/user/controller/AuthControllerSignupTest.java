@@ -225,16 +225,17 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("이미 가입된 이메일로 인증코드 발송을 요청해도 미가입과 같은 201 을 반환한다")
-    void sendVerificationDoesNotRevealRegisteredEmail() {
+    @DisplayName("이미 가입된 이메일로 인증코드 발송을 요청하면 409 와 EMAIL_ALREADY_REGISTERED 를 반환한다")
+    void sendVerificationRejectsRegisteredEmail() {
         prepareVerifiedEmail("hong@daegu.ac.kr");
         given().contentType(ContentType.JSON).body(validBody())
                 .when().post("/api/v1/auth/signup")
                 .then().statusCode(HttpStatus.CREATED.value());
 
-        // 가입 여부가 응답으로 드러나면 계정 열거가 가능하므로, 409 가 아니라 미가입과 똑같은 201 이어야 한다.
+        // 오지 않는 코드를 기다리는 막다른 길 대신, 발송 단계에서 즉시 가입 사실을 안내한다.
         given().contentType(ContentType.JSON).body(Map.of("email", "hong@daegu.ac.kr"))
                 .when().post("/api/v1/auth/email-verifications")
-                .then().statusCode(HttpStatus.CREATED.value());
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("EMAIL_ALREADY_REGISTERED"));
     }
 }
