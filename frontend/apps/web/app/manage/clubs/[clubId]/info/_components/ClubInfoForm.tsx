@@ -362,7 +362,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
           <span className={groupLegendCls}>상세 정보</span>
 
           <fieldset disabled={readOnly} className="border-0 p-0 m-0 space-y-[18px]">
-            <div className="grid grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <div className={fieldCls.replace('mb-[18px]', '')}>
                 <label htmlFor="f-year" className={labelCls}>창설년도</label>
                 <input
