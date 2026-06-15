@@ -71,6 +71,8 @@ import type {
   RecruitmentSummary,
   UpdateRecruitmentPayload,
   SignupPayload,
+  UpdateProfilePayload,
+  ChangePasswordPayload,
   SendEmailVerificationPayload,
   ConfirmEmailVerificationPayload,
   EmailVerificationResult,
@@ -187,6 +189,9 @@ export type DuingApiClient = {
     me(): Promise<User>;
     myApplications(scope?: ApplicationScope): Promise<ApplicationSummary[]>;
     myClubs(): Promise<MyClubSummary[]>;
+    updateProfile(payload: UpdateProfilePayload): Promise<void>;
+    changePassword(payload: ChangePasswordPayload): Promise<void>;
+    withdraw(): Promise<void>;
   };
   clubs: {
     list(params?: ClubSearchParams): Promise<PageResponse<ClubSummary>>;
@@ -511,6 +516,9 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           }),
         ),
       myClubs: () => jsonOk<MyClubSummary[]>(http.get('me/clubs')),
+      updateProfile: (payload) => jsonVoid(http.patch('users/me', { json: payload })),
+      changePassword: (payload) => jsonVoid(http.patch('users/me/password', { json: payload })),
+      withdraw: () => jsonVoid(http.delete('users/me')),
     },
     clubs: {
       list: (params) =>

@@ -78,7 +78,18 @@ export type User = {
   studentId: string;
   name: string;
   email: string;
+  phone: string;
   role: UserRole;
+};
+
+export type UpdateProfilePayload = {
+  name: string;
+  phone: string;
+};
+
+export type ChangePasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
 };
 
 export type SignupPayload = {

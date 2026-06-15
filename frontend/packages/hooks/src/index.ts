@@ -4,6 +4,9 @@ export {
   useSignupMutation,
   useLogout,
   useMeQuery,
+  useUpdateProfileMutation,
+  useChangePasswordMutation,
+  useWithdrawAccountMutation,
   useSendEmailVerificationMutation,
   useConfirmEmailVerificationMutation,
 } from './auth';
