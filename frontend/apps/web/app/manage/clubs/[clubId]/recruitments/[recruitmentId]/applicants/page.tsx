@@ -153,7 +153,13 @@ export default function ApplicantsPage({ params }: PageParams) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10 pb-24">
+    <div
+      className={`mx-auto max-w-5xl px-6 py-10 ${
+        selectedIds.length > 0
+          ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-24'
+          : 'pb-24'
+      }`}
+    >
       {/* 헤더 */}
       <div className="mb-6 flex flex-col gap-1">
         <Link
