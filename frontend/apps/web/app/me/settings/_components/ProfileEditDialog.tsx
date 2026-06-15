@@ -10,6 +10,14 @@ import { useToast } from '@/app/_components/toast/ToastProvider';
 
 const PHONE_PATTERN = /^010-\d{4}-\d{4}$/;
 
+// 숫자만 받아 010-XXXX-XXXX 형태로 하이픈을 자동 삽입한다.
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -85,9 +93,10 @@ export function ProfileEditDialog({ open, onClose, currentName, currentPhone }: 
             <span className="text-[13px] font-semibold text-charcoal-2">전화번호</span>
             <input
               value={phone}
-              onChange={(event) => setPhone(event.target.value)}
+              onChange={(event) => setPhone(formatPhone(event.target.value))}
               placeholder="010-0000-0000"
               inputMode="numeric"
+              maxLength={13}
               className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
             />
           </label>
