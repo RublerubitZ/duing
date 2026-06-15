@@ -51,6 +51,18 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+# Sentry — 에러 모니터링. SENTRY_DSN 이 없으면(local/test) 자동 비활성이라 이벤트를 전송하지 않는다.
+# logback ERROR 레벨만 이벤트로 보낸다 → GlobalExceptionHandler.handleUnexpected 의 5xx 만 잡히고
+# 4xx(검증·권한·낙관적/비관적 잠금)는 log.warn 이라 전송되지 않아 알림 노이즈가 없다.
+# send-default-pii=false: 요청 바디·헤더·쿠키·IP 등 개인정보를 이벤트에 자동 첨부하지 않는다(PII 보호).
+sentry:
+  dsn: ${SENTRY_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:local}
+  send-default-pii: false
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: info
+
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/tmp/duing/uploads}
   storage:

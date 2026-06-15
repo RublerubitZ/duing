@@ -72,6 +72,12 @@ logging:
     org.hibernate.SQL: warn
     org.hibernate.orm.jdbc.bind: warn
 
+# 운영 Sentry — DSN 을 폴백 없이 주입(누락 시 fail-fast). 모니터링이 조용히 꺼진 채 배포되는
+# 사일런트 결손을 막는다(CORS·email 등 다른 운영 필수값과 동일 정책). 의도적으로 끄려면 빈 값을 준다.
+sentry:
+  dsn: ${SENTRY_DSN}
+  environment: production
+
 file:
   storage:
     provider: s3
