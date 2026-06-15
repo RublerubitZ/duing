@@ -19,6 +19,8 @@ import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.List;
@@ -53,6 +55,9 @@ class ClubFavoriteServiceTest {
     @Autowired
     private RecruitmentRepository recruitmentRepository;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
@@ -65,6 +70,36 @@ class ClubFavoriteServiceTest {
 
         assertThatThrownBy(() -> favoriteService.add(student.getId(), club.getId()))
                 .isInstanceOf(FavoriteException.AlreadyFavoritedException.class);
+    }
+
+    @Test
+    @DisplayName("찜 해제 후 같은 동아리를 다시 찜하면 예외 없이 재활성화되어 목록에 다시 포함된다")
+    void reFavoriteAfterRemoveReactivates() throws Exception {
+        User student = saveStudent("학생E");
+        Club club = saveActiveClub("재찜동아리E");
+
+        favoriteService.add(student.getId(), club.getId());
+        flushAndClear();
+
+        favoriteService.remove(student.getId(), club.getId());
+        flushAndClear();
+
+        // 해제 직후에는 내 찜 목록에서 빠진다.
+        assertThat(favoriteService.getMyFavoriteClubIds(student.getId()))
+                .doesNotContain(club.getId());
+
+        // 다시 찜 — 소프트 삭제된 행이 점유한 유니크 슬롯 때문에 실패하면 안 된다.
+        favoriteService.add(student.getId(), club.getId());
+        flushAndClear();
+
+        // 다시 찜한 동아리는 목록에 정확히 한 번 포함된다.
+        assertThat(favoriteService.getMyFavoriteClubIds(student.getId()))
+                .containsOnlyOnce(club.getId());
+    }
+
+    private void flushAndClear() {
+        entityManager.flush();
+        entityManager.clear();
     }
 
     @Test

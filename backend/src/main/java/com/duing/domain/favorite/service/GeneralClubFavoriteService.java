@@ -33,6 +33,15 @@ public class GeneralClubFavoriteService implements ClubFavoriteService {
         }
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
+
+        // 과거에 찜했다가 해제(soft delete)한 이력이 있으면, 유니크 제약 충돌을 피하기 위해
+        // 새 행을 INSERT 하는 대신 기존 행을 되살린다.
+        if (favoriteRepository.reactivateSoftDeleted(userId, clubId) > 0) {
+            return favoriteRepository.findByUserIdAndClubId(userId, clubId)
+                    .map(ClubFavorite::getId)
+                    .orElseThrow(() -> new IllegalStateException("재활성화한 찜을 조회하지 못했습니다."));
+        }
+
         User user = userRepository.getReferenceById(userId);
         return favoriteRepository.save(ClubFavorite.create(user, club)).getId();
     }
