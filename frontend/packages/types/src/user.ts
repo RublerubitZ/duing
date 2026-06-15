@@ -1,14 +1,15 @@
 // Global role (시스템 전역). Club-scoped role 은 ClubMemberRole 참조.
 export type UserRole = 'STUDENT' | 'ADMIN';
 
-export type Grade = 'FRESHMAN' | 'SOPHOMORE' | 'JUNIOR' | 'SENIOR' | 'GRADUATE_DEFERRED';
+export type Grade = 'FRESHMAN' | 'SOPHOMORE' | 'JUNIOR' | 'SENIOR' | 'ON_LEAVE' | 'GRADUATED';
 
 export const GRADE_DISPLAY_NAME: Record<Grade, string> = {
   FRESHMAN: '1학년',
   SOPHOMORE: '2학년',
   JUNIOR: '3학년',
   SENIOR: '4학년',
-  GRADUATE_DEFERRED: '졸업유예',
+  ON_LEAVE: '휴학생',
+  GRADUATED: '졸업생',
 };
 
 export const GRADE_OPTIONS: ReadonlyArray<Grade> = [
@@ -16,7 +17,8 @@ export const GRADE_OPTIONS: ReadonlyArray<Grade> = [
   'SOPHOMORE',
   'JUNIOR',
   'SENIOR',
-  'GRADUATE_DEFERRED',
+  'ON_LEAVE',
+  'GRADUATED',
 ];
 
 export type College =
