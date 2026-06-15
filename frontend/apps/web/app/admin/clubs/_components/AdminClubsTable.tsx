@@ -29,7 +29,7 @@ export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick
   }
 
   return (
-    <div className="border-line overflow-hidden rounded-md border bg-white">
+    <div className="border-line overflow-x-auto rounded-md border bg-white">
       <table className="w-full text-sm">
         <thead className="border-line bg-graysoft border-b text-[12px] uppercase text-slate-500">
           <tr>

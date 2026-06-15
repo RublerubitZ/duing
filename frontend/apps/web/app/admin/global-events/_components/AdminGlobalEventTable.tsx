@@ -23,7 +23,7 @@ export function AdminGlobalEventTable({ items, onDeleteClick }: Props) {
     );
   }
   return (
-    <div className="border border-line rounded-lg bg-paper overflow-hidden">
+    <div className="border border-line rounded-lg bg-paper overflow-x-auto">
       <table className="w-full text-[13.5px]">
         <thead className="bg-cream-2 text-charcoal-2">
           <tr>
