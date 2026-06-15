@@ -66,4 +66,20 @@ public class UserException extends ApplicationException {
             super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
         }
     }
+
+    public static class InvalidCurrentPasswordException extends UserException {
+        private static final String MESSAGE = "현재 비밀번호가 일치하지 않습니다.";
+
+        public InvalidCurrentPasswordException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class SamePasswordException extends UserException {
+        private static final String MESSAGE = "새 비밀번호는 기존 비밀번호와 달라야 합니다.";
+
+        public SamePasswordException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }

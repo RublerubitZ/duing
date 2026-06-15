@@ -1,13 +1,17 @@
 package com.duing.domain.user.controller;
 
 import com.duing.domain.user.api.UserApi;
+import com.duing.domain.user.controller.dto.request.ChangePasswordRequest;
+import com.duing.domain.user.controller.dto.request.UpdateProfileRequest;
 import com.duing.domain.user.controller.dto.response.UserResponse;
 import com.duing.domain.user.service.UserService;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,6 +26,24 @@ public class UserController implements UserApi {
     public ResponseEntity<ApiResponse<UserResponse>> getMe(@AuthenticationPrincipal UserPrincipal currentUser) {
         UserResponse userResponse = UserResponse.from(userService.getById(currentUser.id()));
         return ResponseEntity.ok(ApiResponse.success(userResponse));
+    }
+
+    @Override
+    public ResponseEntity<Void> updateProfile(
+            @Valid @RequestBody UpdateProfileRequest updateProfileRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        userService.updateProfile(updateProfileRequest.toCommand(currentUser.id()));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest changePasswordRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        userService.changePassword(changePasswordRequest.toCommand(currentUser.id()));
+        return ResponseEntity.noContent().build();
     }
 
     @Override

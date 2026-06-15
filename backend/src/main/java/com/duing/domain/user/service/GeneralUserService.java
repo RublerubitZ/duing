@@ -7,8 +7,10 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.EmailVerificationService;
+import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
 import com.duing.domain.user.service.dto.command.LoginCommand;
 import com.duing.domain.user.service.dto.command.SignupCommand;
+import com.duing.domain.user.service.dto.command.UpdateProfileCommand;
 import com.duing.domain.user.service.dto.query.LoginResult;
 import com.duing.domain.user.service.dto.query.UserQuery;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
@@ -125,6 +127,38 @@ public class GeneralUserService implements UserService {
         // 동시 로그아웃의 token_version lost update 를 막기 위해 행을 잠그고 조회한다.
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(UserException.UserNotFoundException::new);
+        user.bumpTokenVersion();
+    }
+
+    @Override
+    @Transactional
+    public void updateProfile(UpdateProfileCommand updateProfileCommand) {
+        User user = userRepository.findById(updateProfileCommand.userId())
+                .orElseThrow(UserException.UserNotFoundException::new);
+        // 전화번호를 다른 회원이 이미 쓰고 있으면 막는다(가입과 동일 정책). DB 유니크 위반으로
+        // 떨어지면 원인을 알 수 없는 generic 409 가 되므로 도메인에서 먼저 검증한다.
+        // 어떤 필드가 중복인지는 계정 열거 방지를 위해 generic 예외로 가린다.
+        if (!updateProfileCommand.phone().equals(user.getPhone())
+                && userRepository.existsByPhone(updateProfileCommand.phone())) {
+            throw new UserException.DuplicateAccountException();
+        }
+        user.updateProfile(updateProfileCommand.name(), updateProfileCommand.phone());
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(ChangePasswordCommand changePasswordCommand) {
+        // token_version lost update 를 막기 위해 행을 잠그고 조회한다(logout/withdraw 와 동일).
+        User user = userRepository.findByIdForUpdate(changePasswordCommand.userId())
+                .orElseThrow(UserException.UserNotFoundException::new);
+        if (!passwordEncoder.matches(changePasswordCommand.currentPassword(), user.getPasswordHash())) {
+            throw new UserException.InvalidCurrentPasswordException();
+        }
+        if (passwordEncoder.matches(changePasswordCommand.newPassword(), user.getPasswordHash())) {
+            throw new UserException.SamePasswordException();
+        }
+        user.changePassword(passwordEncoder.encode(changePasswordCommand.newPassword()));
+        // 변경 후 재로그인 강제 — 발급된 모든 토큰을 무효화한다(탈취된 세션 차단).
         user.bumpTokenVersion();
     }
 
