@@ -236,6 +236,7 @@ export type DuingApiClient = {
       payload: BulkUpdateApplicationStatusPayload,
     ): Promise<BulkUpdateApplicationStatusResult>;
     myDetail(applicationId: number): Promise<MyApplicationDetail>;
+    withdraw(applicationId: number): Promise<void>;
     detail(applicationId: number): Promise<ApplicantDetail>;
     upsertMyApplicationEvaluation(
       applicationId: number,
@@ -624,6 +625,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         ),
       myDetail: (applicationId) =>
         jsonOk<MyApplicationDetail>(http.get(`users/me/applications/${applicationId}`)),
+      withdraw: (applicationId) =>
+        jsonVoid(http.delete(`users/me/applications/${applicationId}`)),
       detail: (applicationId) =>
         jsonOk<ApplicantDetail>(http.get(`leader/applications/${applicationId}`)),
       upsertMyApplicationEvaluation: (applicationId, payload) =>
