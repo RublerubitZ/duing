@@ -44,7 +44,8 @@ public class ResendEmailSender implements EmailSender {
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientException sendFailure) {
-            log.error("Resend 발송 실패: to={}", emailMessage.to(), sendFailure);
+            // 수신자 이메일(PII)은 로그에 남기지 않는다 — ERROR 로그는 Sentry 로 전송되므로 PII 유출을 막는다.
+            log.error("Resend 이메일 발송 실패", sendFailure);
             throw new EmailException.SendFailedException();
         }
     }
