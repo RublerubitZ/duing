@@ -27,6 +27,19 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
+# Actuator — 배포/프록시 헬스체크용으로 /actuator/health 하나만 외부에 노출한다.
+# info·metrics·env·beans 등 다른 endpoint 는 web exposure 에서 제외해 정보 노출/정찰 표면을 차단하고,
+# 공개되는 health 응답은 show-details=never 로 DB·디스크 등 내부 컴포넌트 상태를 숨긴다.
+# (SecurityConfig 가 정확히 "/actuator/health" 만 permitAll — 하위 경로는 인증 필요)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
 jwt:
   secret: ${JWT_SECRET}
   expiry-ms: ${JWT_EXPIRY_MS:3600000}
