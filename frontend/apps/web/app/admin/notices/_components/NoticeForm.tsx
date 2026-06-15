@@ -83,7 +83,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
 
       <fieldset className="space-y-3 rounded-md border border-line p-4">
         <legend className="px-1 text-[12.5px] font-semibold text-charcoal-2">행사 정보 (선택)</legend>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="block text-[12px] text-charcoal-3 mb-1">시작 일시</span>
             <input
@@ -112,7 +112,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
             className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
           />
         </label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="block text-[12px] text-charcoal-3 mb-1">주최</span>
             <input
