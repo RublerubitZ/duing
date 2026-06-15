@@ -357,7 +357,7 @@ export function AdminPromotionForm(props: Props) {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="CTA 라벨 (선택, ≤40자)">
               <input
                 type="text"
@@ -548,7 +548,7 @@ export function AdminPromotionForm(props: Props) {
           </label>
         </div>
         {state.scheduleMode === 'SCHEDULED' && (
-          <div className="grid grid-cols-2 gap-3 pt-1">
+          <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
             <label className="block">
               <span className="block text-[12px] font-semibold text-charcoal-3 mb-1">시작</span>
               <input
@@ -567,7 +567,7 @@ export function AdminPromotionForm(props: Props) {
                 className="w-full px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
               />
             </label>
-            <p className="col-span-2 text-[12px] text-charcoal-3">
+            <p className="col-span-1 text-[12px] text-charcoal-3 sm:col-span-2">
               한쪽만 비워두면 그 방향은 상시(시작 미지정=즉시 / 종료 미지정=만료 없음) 처리됩니다.
             </p>
           </div>
