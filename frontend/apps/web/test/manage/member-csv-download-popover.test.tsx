@@ -57,4 +57,17 @@ describe('MemberCsvDownloadPopover', () => {
     const [, content] = firstCall ?? [];
     expect(content).toContain('이름,학번,학과,휴대전화,역할,가입일');
   });
+
+  it('export 실패 시 오류 메시지를 표시하고 팝오버를 닫지 않는다', async () => {
+    mutateAsync.mockRejectedValueOnce(new Error('서버 오류'));
+    const user = userEvent.setup();
+    render(<MemberCsvDownloadPopover clubId={1} clubName="AI동아리" />);
+
+    await user.click(screen.getByRole('button', { name: '멤버 명단 다운로드' }));
+    await user.click(await screen.findByRole('button', { name: '다운로드' }));
+
+    expect(await screen.findByText('서버 오류')).toBeInTheDocument();
+    expect(downloadTextFile).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '다운로드' })).toBeInTheDocument();
+  });
 });

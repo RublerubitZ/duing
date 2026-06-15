@@ -11,5 +11,6 @@ export function downloadTextFile(
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(url);
+  // Firefox 는 click 직후 동기 revoke 시 다운로드가 깨질 수 있어 다음 틱으로 미룬다.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
