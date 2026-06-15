@@ -1,6 +1,6 @@
 'use client';
 
-import type { ClubDetail, ClubPhoto } from '@duing/types';
+import type { ClubDetail, ClubPhoto, MyClubMembership } from '@duing/types';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { activityScheduleLabel } from '../../_lib/activeDaysLabel';
@@ -8,14 +8,21 @@ import { ClubDetailAbout } from './ClubDetailAbout';
 import { ClubDetailActivity } from './ClubDetailActivity';
 import { ClubDetailInfoList } from './ClubDetailInfoList';
 import { ClubDetailQna } from './ClubDetailQna';
+import { ClubDetailNotices } from './ClubDetailNotices';
+import { ClubDetailEvents } from './ClubDetailEvents';
 
-type TabKey = 'intro' | 'activity' | 'qna' | 'info';
+type TabKey = 'intro' | 'activity' | 'qna' | 'info' | 'notices' | 'events';
 
 type Tab = { key: TabKey; label: string };
 
-type Props = { club: ClubDetail; photos: ClubPhoto[] };
+type Props = {
+  club: ClubDetail;
+  photos: ClubPhoto[];
+  /** 해당 동아리에 가입한 경우의 멤버십. 멤버에게만 공지/일정 탭을 노출한다. */
+  membership?: MyClubMembership | null;
+};
 
-export function ClubDetailTabs({ club, photos }: Props) {
+export function ClubDetailTabs({ club, photos, membership }: Props) {
   const hasIntro = club.description !== null
     || club.tagline !== null
     || club.highlights.length > 0
@@ -29,11 +36,18 @@ export function ClubDetailTabs({ club, photos }: Props) {
     || club.location !== null
     || club.contactEmail !== null;
 
+  // 가입한 멤버에게만 공지/일정 탭을 노출한다.
+  const isMember = membership != null;
+
   const tabs: Tab[] = [];
   if (hasIntro) tabs.push({ key: 'intro', label: '소개' });
   if (hasActivity) tabs.push({ key: 'activity', label: '활동' });
   if (hasQna) tabs.push({ key: 'qna', label: 'Q&A' });
   if (hasInfo) tabs.push({ key: 'info', label: '동아리 상세정보' });
+  if (isMember) {
+    tabs.push({ key: 'notices', label: '공지' });
+    tabs.push({ key: 'events', label: '일정' });
+  }
 
   const firstTab = tabs[0];
   if (!firstTab) return null;
@@ -76,6 +90,16 @@ export function ClubDetailTabs({ club, photos }: Props) {
         <TabsContent value="info">
           <ClubDetailInfoList club={club} />
         </TabsContent>
+      )}
+      {isMember && (
+        <>
+          <TabsContent value="notices">
+            <ClubDetailNotices clubId={club.id} />
+          </TabsContent>
+          <TabsContent value="events">
+            <ClubDetailEvents clubId={club.id} />
+          </TabsContent>
+        </>
       )}
     </Tabs>
   );

@@ -2,7 +2,8 @@
 
 import { use } from 'react';
 
-import { useClubDetailQuery, useClubPhotosQuery } from '@duing/hooks';
+import { useClubDetailQuery, useClubPhotosQuery, useClubMembershipQuery } from '@duing/hooks';
+import { useAuthStore } from '@duing/stores';
 
 import { ClubContactCard } from './_components/ClubContactCard';
 import { ClubDetailApplyBar } from './_components/ClubDetailApplyBar';
@@ -22,6 +23,9 @@ export default function ClubDetailPage({
 
   const detail = useClubDetailQuery(clubId);
   const photos = useClubPhotosQuery(clubId);
+  // 멤버에게만 공지/일정 탭을 노출한다. 비로그인 시 null 로 비활성화해 불필요한 요청을 막는다.
+  const isAuthenticated = useAuthStore((state) => state.status === 'authenticated');
+  const membership = useClubMembershipQuery(isAuthenticated ? clubId : null);
 
   if (detail.isLoading) {
     return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
@@ -49,7 +53,7 @@ export default function ClubDetailPage({
             <div className="mb-6 md:hidden">
               <ClubRecruitmentSummary recruitment={club.activeRecruitment ?? undefined} />
             </div>
-            <ClubDetailTabs club={club} photos={photos.data ?? []} />
+            <ClubDetailTabs club={club} photos={photos.data ?? []} membership={membership.data ?? null} />
           </div>
 
           <div className="space-y-4">
