@@ -83,7 +83,9 @@ export function ApplicantTable({
   };
 
   return (
-    <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+    <>
+    {/* 데스크탑/태블릿: 표 (모바일은 아래 카드 리스트) */}
+    <div className="mt-4 hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
         <thead className="bg-slate-50">
           <tr>
@@ -160,5 +162,64 @@ export function ApplicantTable({
         </tbody>
       </table>
     </div>
+
+      {/* 모바일: 카드 리스트 (표 대신) */}
+      <div className="mt-4 space-y-2.5 md:hidden">
+        {applicants.map((applicant) => {
+          const isTerminal = isTerminalStatus(applicant.status);
+          const isSelected = selectedSet.has(applicant.applicationId);
+          return (
+            <div
+              key={applicant.applicationId}
+              onClick={() => navigateToDetail(applicant.applicationId)}
+              className={`cursor-pointer rounded-xl border p-3.5 transition ${
+                isSelected ? 'border-slate-400 bg-slate-50' : 'border-slate-200 bg-white'
+              }`}
+            >
+              <div className="flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  aria-label={`${applicant.userName} 선택`}
+                  checked={isSelected}
+                  disabled={isTerminal}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={() => toggleRow(applicant.applicationId, applicant.status)}
+                  title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-medium text-slate-900">{applicant.userName}</span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_BADGE_CLASS[applicant.status]}`}
+                    >
+                      {APPLICATION_STATUS_LABEL[applicant.status]}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-[12.5px] text-slate-600">
+                    {COLLEGE_DISPLAY_NAME[applicant.college]} · {applicant.major}
+                  </div>
+                  <div className="text-[12px] text-slate-500">
+                    학번 {applicant.studentId} · {GRADE_DISPLAY_NAME[applicant.grade]}
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[11.5px] text-slate-500">
+                    <span>지원 {new Date(applicant.submittedAt).toLocaleDateString('ko-KR')}</span>
+                    <MyScoreBadge score={applicant.myScore} />
+                  </div>
+                  {useInterview && (
+                    <div className="mt-1 text-[11.5px] text-slate-500">
+                      면접{' '}
+                      {applicant.interviewStartAt
+                        ? new Date(applicant.interviewStartAt).toLocaleString('ko-KR')
+                        : '—'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
