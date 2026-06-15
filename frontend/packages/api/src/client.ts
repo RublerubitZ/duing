@@ -55,6 +55,7 @@ import type {
   PageResponse,
   ClubDetail,
   ClubMember,
+  ClubMemberExportRow,
   ClubPhoto,
   ClubSearchParams,
   ClubSummary,
@@ -200,6 +201,7 @@ export type DuingApiClient = {
     reorderPhotos(clubId: number, payload: ReorderClubPhotosPayload): Promise<ClubPhoto[]>;
     deletePhoto(clubId: number, photoId: number): Promise<void>;
     members(clubId: number): Promise<ClubMember[]>;
+    membersExport(clubId: number, includePhone: boolean): Promise<ClubMemberExportRow[]>;
     updateMemberRole(clubId: number, memberId: number, payload: UpdateMemberRolePayload): Promise<void>;
     removeMember(clubId: number, memberId: number): Promise<void>;
     leaveClub(clubId: number): Promise<void>;
@@ -528,6 +530,12 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonVoid(http.delete(`clubs/${clubId}/photos/${photoId}`)),
       members: (clubId) =>
         jsonOk<ClubMember[]>(http.get(`clubs/${clubId}/members`)),
+      membersExport: (clubId, includePhone) =>
+        jsonOk<ClubMemberExportRow[]>(
+          http.get(`clubs/${clubId}/members/export`, {
+            searchParams: { includePhone: String(includePhone) },
+          }),
+        ),
       updateMemberRole: (clubId, memberId, payload) =>
         jsonVoid(http.patch(`clubs/${clubId}/members/${memberId}/role`, { json: payload })),
       removeMember: (clubId, memberId) =>

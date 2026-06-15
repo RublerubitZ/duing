@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  ClubMemberExportRow,
   ClubSearchParams,
   CreateClubPhotoPayload,
   ReorderClubPhotosPayload,
@@ -202,5 +203,13 @@ export function useTransferLeaderMutation(clubId: number) {
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.managed() });
       queryClient.invalidateQueries({ queryKey: userQueryKeys.me() });
     },
+  });
+}
+
+export function useClubMembersExportMutation(clubId: number) {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (includePhone: boolean): Promise<ClubMemberExportRow[]> =>
+      client.clubs.membersExport(clubId, includePhone),
   });
 }

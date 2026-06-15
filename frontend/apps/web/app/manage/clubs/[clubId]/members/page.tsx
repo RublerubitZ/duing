@@ -12,6 +12,7 @@ import {
 import { MemberSection } from './_components/MemberSection';
 import { SuccessionRequestModal } from './_components/SuccessionRequestModal';
 import { TransferLeaderDialog } from './_components/TransferLeaderDialog';
+import { MemberCsvDownloadPopover } from './_components/MemberCsvDownloadPopover';
 
 export default function ClubMembersPage({
   params,
@@ -66,15 +67,20 @@ export default function ClubMembersPage({
             역할별 멤버를 확인하고, 회장은 역할 변경·강퇴·인계를 할 수 있습니다.
           </p>
         </div>
-        {managedClub.myRole === 'OFFICER' && (
-          <button
-            type="button"
-            onClick={() => setSuccessionOpen(true)}
-            className="shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
-          >
-            회장 승계 요청
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {managedClub.myRole === 'LEADER' && (
+            <MemberCsvDownloadPopover clubId={currentClubId} clubName={managedClub.clubName} />
+          )}
+          {managedClub.myRole === 'OFFICER' && (
+            <button
+              type="button"
+              onClick={() => setSuccessionOpen(true)}
+              className="shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
+            >
+              회장 승계 요청
+            </button>
+          )}
+        </div>
       </header>
 
       <MemberSection

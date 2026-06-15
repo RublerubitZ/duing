@@ -20,6 +20,7 @@ export {
   useReorderPhotosMutation,
   useDeletePhotoMutation,
   useClubMembersQuery,
+  useClubMembersExportMutation,
   useUpdateMemberRoleMutation,
   useRemoveMemberMutation,
   useLeaveClubMutation,
