@@ -1,22 +1,28 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect } from 'react';
 import { useManagedClubsQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 
-export default function ManagePage() {
+function ManageRedirect() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: managedClubs, isLoading } = useManagedClubsQuery();
 
-  const firstClub = managedClubs?.[0];
+  // 마이페이지 "관리" 버튼은 `?clubId=` 로 어떤 동아리를 관리할지 전달한다.
+  // 이 값이 관리 가능한 동아리 목록에 있으면 그 동아리로, 없거나 비어 있으면 첫 동아리로 이동한다.
+  const requestedClubId = searchParams.get('clubId');
+  const targetClub =
+    managedClubs?.find((club) => String(club.clubId) === requestedClubId) ??
+    managedClubs?.[0];
 
   useEffect(() => {
-    if (!isLoading && firstClub) {
-      router.push(toRoute(`/manage/clubs/${firstClub.clubId}`));
+    if (!isLoading && targetClub) {
+      router.push(toRoute(`/manage/clubs/${targetClub.clubId}`));
     }
-  }, [isLoading, firstClub, router]);
+  }, [isLoading, targetClub, router]);
 
   if (isLoading) {
     return (
@@ -40,10 +46,24 @@ export default function ManagePage() {
     );
   }
 
-  // 동아리가 있고 로딩도 끝났으면 위 useEffect가 첫 동아리로 리다이렉트 중인 상태다.
+  // 동아리가 있고 로딩도 끝났으면 위 useEffect가 대상 동아리로 리다이렉트 중인 상태다.
   return (
     <div className="flex min-h-dvh items-center justify-center">
       <p className="text-sm text-charcoal-3">이동 중…</p>
     </div>
+  );
+}
+
+export default function ManagePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="duing flex min-h-dvh items-center justify-center bg-cream">
+          <p className="text-sm text-charcoal-3">불러오는 중…</p>
+        </div>
+      }
+    >
+      <ManageRedirect />
+    </Suspense>
   );
 }
