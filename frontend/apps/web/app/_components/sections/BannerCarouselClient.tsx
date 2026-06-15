@@ -129,6 +129,41 @@ export function BannerCarouselClient({ slides }: Props) {
                 <SystemComposedSlide variant="main" slide={activeSlide} />
               )}
             </div>
+
+            {/* 모바일: 배너 양 끝 화살표(이동) + 내부 점 인디케이터(비상호작용) (#4) */}
+            {slides.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="이전 배너"
+                  onClick={goPrev}
+                  className="absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-ink/40 text-white backdrop-blur-sm active:bg-ink/60 md:hidden"
+                >
+                  <ArrowLeft />
+                </button>
+                <button
+                  type="button"
+                  aria-label="다음 배너"
+                  onClick={goNext}
+                  className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-ink/40 text-white backdrop-blur-sm active:bg-ink/60 md:hidden"
+                >
+                  <ArrowRight />
+                </button>
+                <div
+                  aria-hidden
+                  className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-ink/30 px-2 py-1 backdrop-blur-sm md:hidden"
+                >
+                  {slides.map((slide, idx) => (
+                    <span
+                      key={slide.key}
+                      className={`h-1.5 rounded-full transition-all ${
+                        idx === activeIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/55'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* 보조 배너 프리뷰 — 모바일은 메인 1개만(#4), 데스크탑만 노출 */}
@@ -164,7 +199,8 @@ export function BannerCarouselClient({ slides }: Props) {
           </div>
         </div>
 
-        <div className="mt-[18px] flex items-center gap-3.5">
+        {/* 하단 컨트롤 바 — 모바일은 배너 내부 화살표·점으로 대체(#4), 데스크탑만 노출 */}
+        <div className="mt-[18px] hidden items-center gap-3.5 md:flex">
           <div className="flex items-center gap-2">
             {slides.map((slide, idx) => (
               <button

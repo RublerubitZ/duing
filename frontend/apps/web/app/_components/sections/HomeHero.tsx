@@ -14,7 +14,7 @@ const SUGGESTED_QUERIES: ReadonlyArray<string> = [
 export async function HomeHero() {
   const { totalCount, recruitingCount } = await fetchClubStats();
   return (
-    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-8 pt-16">
+    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-5 pt-9 sm:pb-8 sm:pt-16">
       <div className="bg-grid absolute inset-0 opacity-50" />
       <div
         className="absolute -right-40 -top-32 h-[520px] w-[520px] rounded-full opacity-70 blur-[8px]"
@@ -25,17 +25,14 @@ export async function HomeHero() {
 
       <div className="max-w-layout relative mx-auto grid items-center gap-16 md:grid-cols-[1.15fr_1fr]">
         <div className="relative">
-          {/* 모바일: 헤드라인 우측 여백의 작은 통계 칩 (#2) — 데스크탑은 우측 카드스택이 담당 */}
-          <div className="md:hidden absolute right-0 top-[60px] z-[3] w-[118px] rounded-2xl border border-sage-soft bg-sage-mist/95 px-3 py-2.5 backdrop-blur-sm">
-            <div className="font-display text-[28px] font-bold leading-none text-ink">
+          {/* 모바일: 헤드라인 우측 여백의 모집 통계 — 데스크탑 카드스택과 같은 톤으로 깔끔한 2줄 (#1) */}
+          <div className="md:hidden absolute right-0 top-[64px] z-[3] rounded-xl border border-sage-soft bg-sage-mist px-4 py-3 shadow-1">
+            <div className="font-display text-[32px] font-bold leading-none text-ink">
               {recruitingCount}
-              <span className="text-[15px] font-bold">곳</span>
+              <span className="text-base font-bold">곳</span>
             </div>
-            <div className="mt-1 text-[11px] font-medium leading-tight text-ink/80">
+            <div className="mt-1 text-[11px] font-medium leading-tight text-ink/75">
               이번 학기 모집중
-            </div>
-            <div className="mt-1.5 border-t border-ink/10 pt-1.5 text-[10.5px] leading-tight text-ink/80">
-              {totalCount}개 동아리 ing중
             </div>
           </div>
 
@@ -44,7 +41,7 @@ export async function HomeHero() {
             DU + ING
           </div>
 
-          <h1 className="mb-12 text-[44px] leading-none tracking-[-0.035em] sm:text-[60px] md:text-[84px]">
+          <h1 className="mb-4 text-[44px] leading-none tracking-[-0.035em] sm:mb-12 sm:text-[60px] md:text-[84px]">
             오늘,
             <br />
             캠퍼스의
@@ -77,17 +74,15 @@ export async function HomeHero() {
             .
           </h1>
 
-          <p className="mb-9 max-w-[500px] text-base leading-[1.6] text-charcoal-2 sm:text-lg">
+          {/* 본문 카피 — 모바일에선 숨겨 히어로를 압축(#2·#6), 데스크탑만 노출 */}
+          <p className="mb-9 hidden max-w-[500px] text-lg leading-[1.6] text-charcoal-2 md:block">
             대구대학교 학생자치회 공식 동아리 플랫폼.
-            {/* 통계 문구는 모바일에선 우측 칩으로 이동, 데스크탑에선 본문 유지 (#2) */}
-            <span className="hidden md:inline">
-              <br />
-              {totalCount}개 동아리가 지금도{' '}
-              <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
-                ing
-              </em>{' '}
-              중 — 이번 학기 {recruitingCount}곳 모집 중이에요.
-            </span>
+            <br />
+            {totalCount}개 동아리가 지금도{' '}
+            <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
+              ing
+            </em>{' '}
+            중 — 이번 학기 {recruitingCount}곳 모집 중이에요.
           </p>
 
           {/* 데스크탑 전용 검색 — 모바일은 상단 고정 검색 바(HomeMobileSearchBar)가 담당 (#3) */}
@@ -107,7 +102,8 @@ export async function HomeHero() {
             </button>
           </form>
 
-          <div className="mt-5 flex flex-wrap items-center gap-2.5">
+          {/* 추천 검색어 — 모바일에선 숨김(#3), 데스크탑만 노출 */}
+          <div className="mt-5 hidden flex-wrap items-center gap-2.5 md:flex">
             <span className="text-[13px] text-charcoal-3">요즘 많이 찾는</span>
             {SUGGESTED_QUERIES.map((query) => (
               <Link
