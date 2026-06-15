@@ -1,6 +1,7 @@
 package com.duing.domain.clubmember.api;
 
 import com.duing.domain.clubmember.controller.dto.request.UpdateMemberRoleRequest;
+import com.duing.domain.clubmember.controller.dto.response.ClubMemberExportResponse;
 import com.duing.domain.clubmember.controller.dto.response.ClubMemberResponse;
 import com.duing.domain.clubmember.controller.dto.response.TransferLeaderResponse;
 import com.duing.global.auth.UserPrincipal;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "동아리 멤버", description = "동아리 멤버 관리 (운영진)")
 public interface ClubMemberApi {
@@ -29,6 +31,16 @@ public interface ClubMemberApi {
     @GetMapping("/clubs/{clubId}/members")
     ResponseEntity<ApiResponse<List<ClubMemberResponse>>> listMembers(
             @PathVariable Long clubId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "멤버 명단 CSV용 export (LEADER)",
+            description = "회장 전용. includePhone=true 면 전화번호 포함(기본 false). CSV 생성은 프론트.")
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/clubs/{clubId}/members/export")
+    ResponseEntity<ApiResponse<List<ClubMemberExportResponse>>> exportMembers(
+            @PathVariable Long clubId,
+            @RequestParam(defaultValue = "false") boolean includePhone,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 

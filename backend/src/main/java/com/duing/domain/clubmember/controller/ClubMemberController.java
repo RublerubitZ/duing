@@ -2,6 +2,7 @@ package com.duing.domain.clubmember.controller;
 
 import com.duing.domain.clubmember.api.ClubMemberApi;
 import com.duing.domain.clubmember.controller.dto.request.UpdateMemberRoleRequest;
+import com.duing.domain.clubmember.controller.dto.response.ClubMemberExportResponse;
 import com.duing.domain.clubmember.controller.dto.response.ClubMemberResponse;
 import com.duing.domain.clubmember.controller.dto.response.TransferLeaderResponse;
 import com.duing.domain.clubmember.service.ClubMemberCommandService;
@@ -19,6 +20,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -36,6 +38,19 @@ public class ClubMemberController implements ClubMemberApi {
     ) {
         List<ClubMemberResponse> members = clubMemberQueryService.getMembers(clubId, currentUser.id()).stream()
                 .map(ClubMemberResponse::from)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(members));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<List<ClubMemberExportResponse>>> exportMembers(
+            @PathVariable Long clubId,
+            @RequestParam(defaultValue = "false") boolean includePhone,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        List<ClubMemberExportResponse> members = clubMemberQueryService
+                .getMembersForExport(clubId, currentUser.id(), includePhone).stream()
+                .map(ClubMemberExportResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(members));
     }
