@@ -11,7 +11,7 @@ export async function RecruitmentTicker() {
   const today = new Date();
 
   return (
-    <section className="relative mt-16 overflow-hidden bg-ink-deep py-5 text-white">
+    <section className="relative mt-8 overflow-hidden bg-ink-deep py-5 text-white sm:mt-16">
       <div className="max-w-layout mx-auto flex items-center gap-6 px-4 sm:px-6 md:px-10">
         <div
           className="flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold tracking-wide04 text-sage"

@@ -32,7 +32,7 @@ export async function FeaturedClubs() {
   if (clubs.length === 0) return null;
 
   return (
-    <section className="px-4 sm:px-6 md:px-10 py-16">
+    <section className="px-4 sm:px-6 md:px-10 py-8 sm:py-16">
       <div className="max-w-layout mx-auto">
         <div className="mb-9 flex items-end justify-between">
           <div>
