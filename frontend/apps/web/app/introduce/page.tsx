@@ -9,7 +9,7 @@ import { Problem } from './_components/sections/Problem';
 import { Stats } from './_components/sections/Stats';
 
 export const metadata: Metadata = {
-  title: '두잉 — 대구대학교 동아리, 하나로',
+  title: '두잉 | 대구대학교 동아리 플랫폼',
   description:
     '대구대학교 학생자치회 공식 동아리 플랫폼 두잉(Duing). 동아리 탐색부터 지원, 운영까지 한 곳에서.',
 };

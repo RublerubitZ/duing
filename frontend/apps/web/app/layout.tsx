@@ -4,7 +4,7 @@ import { BottomNav } from './_components/BottomNav';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Du-ing 두잉',
+  title: '두잉 | 대구대학교 동아리 플랫폼',
   description: '대구대학교 동아리 통합 플랫폼',
 };
 
