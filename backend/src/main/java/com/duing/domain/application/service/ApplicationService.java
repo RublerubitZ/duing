@@ -22,6 +22,8 @@ public interface ApplicationService {
 
     MyApplicationDetailQuery getMyApplicationDetail(Long applicationId, Long currentUserId);
 
+    void withdraw(Long applicationId, Long currentUserId);
+
     List<ApplicantQuery> getApplicants(Long recruitmentId, Long currentUserId, ApplicantSearchCondition condition);
 
     ApplicantDetailQuery getApplicantDetail(Long applicationId, Long currentUserId);

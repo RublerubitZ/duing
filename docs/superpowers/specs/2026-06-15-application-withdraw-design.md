@@ -15,7 +15,7 @@
 
 ## 백엔드
 
-- **엔드포인트:** `DELETE /api/v1/applications/{applicationId}` → `204 No Content`. (`ApplicationApi` 인터페이스에 정의, `ApplicationController` 구현)
+- **엔드포인트:** `DELETE /api/v1/users/me/applications/{applicationId}` → `204 No Content` (기존 학생 지원 경로와 동일 prefix). (`ApplicationApi` 인터페이스에 정의, `ApplicationController` 구현)
 - **서비스:** `ApplicationService.withdraw(Long applicationId, Long currentUserId)`
   1. `findById` → 없으면 `ApplicationNotFoundException`(404).
   2. 소유자 검증 → 본인 아니면 `ForbiddenApplicationAccessException`(403). (기존 `getMyApplicationDetail` 패턴 재사용)

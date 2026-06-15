@@ -10,6 +10,7 @@ import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.entity.ApplicationStatusHistory;
+import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.application.service.dto.command.BulkUpdateApplicationStatusCommand;
@@ -37,6 +38,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -222,5 +225,68 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
 
         Application reloaded = applicationRepository.findById(applicationId).orElseThrow();
         assertThat(reloaded.getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // 5. 지원 철회 (SUBMITTED 소프트 삭제)
+    // ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("SUBMITTED 상태의 본인 지원을 철회하면 목록에서 빠지고 같은 공고에 재지원할 수 있다")
+    void withdrawSubmittedApplicationFreesSlot() throws Exception {
+        setupClubAndLeader("철회-기본동아리");
+        User applicant = saveUser("철회지원자", UserRole.STUDENT);
+        Long applicationId = applicationRepository.save(
+                Application.submit(activeRecruitment, applicant, List.of())).getId();
+
+        applicationService.withdraw(applicationId, applicant.getId());
+
+        // 소프트 삭제 → @SQLRestriction 으로 더 이상 조회되지 않는다.
+        assertThat(applicationRepository.findById(applicationId)).isEmpty();
+        // 부분 유니크 인덱스(WHERE deleted_at IS NULL)라 슬롯이 비어 재지원이 막히지 않는다.
+        assertThat(applicationRepository
+                .existsByRecruitmentIdAndUserId(activeRecruitment.getId(), applicant.getId()))
+                .isFalse();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ApplicationStatus.class, names = {"UNDER_REVIEW", "ACCEPTED", "REJECTED"})
+    @DisplayName("검토가 시작된(SUBMITTED 가 아닌) 지원은 철회할 수 없다")
+    void cannotWithdrawNonSubmittedApplication(ApplicationStatus status) throws Exception {
+        setupClubAndLeader("철회-비제출동아리");
+        User applicant = saveUser("비제출지원자", UserRole.STUDENT);
+        Application application = applicationRepository.save(
+                Application.submit(activeRecruitment, applicant, List.of()));
+        application.transitionTo(ApplicationStatus.UNDER_REVIEW, false);
+        if (status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED) {
+            application.transitionTo(status, false);
+        }
+        applicationRepository.save(application);
+
+        assertThatThrownBy(() -> applicationService.withdraw(application.getId(), applicant.getId()))
+                .isInstanceOf(ApplicationDomainException.CannotWithdrawApplicationException.class);
+    }
+
+    @Test
+    @DisplayName("본인 지원이 아니면 철회할 수 없다")
+    void cannotWithdrawOthersApplication() throws Exception {
+        setupClubAndLeader("철회-타인동아리");
+        User owner = saveUser("소유자", UserRole.STUDENT);
+        User other = saveUser("타인", UserRole.STUDENT);
+        Long applicationId = applicationRepository.save(
+                Application.submit(activeRecruitment, owner, List.of())).getId();
+
+        assertThatThrownBy(() -> applicationService.withdraw(applicationId, other.getId()))
+                .isInstanceOf(ApplicationDomainException.ForbiddenApplicationAccessException.class);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 지원은 철회할 수 없다")
+    void cannotWithdrawMissingApplication() throws Exception {
+        setupClubAndLeader("철회-없음동아리");
+        User applicant = saveUser("없음지원자", UserRole.STUDENT);
+
+        assertThatThrownBy(() -> applicationService.withdraw(999_999L, applicant.getId()))
+                .isInstanceOf(ApplicationDomainException.ApplicationNotFoundException.class);
     }
 }
