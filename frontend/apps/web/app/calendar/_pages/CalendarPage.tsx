@@ -300,14 +300,14 @@ export function CalendarPage() {
       )}
 
       {/* ===== Header ===== */}
-      <section style={{ padding: '48px 40px 28px', borderBottom: '1px solid var(--gray-line)' }}>
+      <section className="cal-section cal-header" style={{ padding: '48px 40px 28px', borderBottom: '1px solid var(--gray-line)' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 32, marginBottom: 28 }}>
+          <div className="cal-header-row" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 32, marginBottom: 28 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', letterSpacing: '0.08em', marginBottom: 10 }}>
                 CAMPUS CALENDAR · 캠퍼스 캘린더
               </div>
-              <h1 style={{ fontSize: 56, marginBottom: 12, lineHeight: 1.05 }}>
+              <h1 className="cal-h1" style={{ fontSize: 56, marginBottom: 12, lineHeight: 1.05 }}>
                 이번 달, 캠퍼스에는
                 <SparkleFull size={28} color="var(--sage)" style={{ display: 'inline-block', margin: '0 6px 0 12px', verticalAlign: 'middle' }} />
                 <br />
@@ -339,7 +339,7 @@ export function CalendarPage() {
           </div>
 
           {/* Stats row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          <div className="cal-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
             {[
               { label: '이번 달 전체 일정', num: stats.total,    color: 'var(--ink)',      dot: 'var(--sage)' },
               { label: '행사·일정',         num: stats.system,   color: '#8E6620',         dot: '#E8B968'     },
@@ -395,7 +395,7 @@ export function CalendarPage() {
       </section>
 
       {/* ===== Main: month grid + day panel ===== */}
-      <section style={{ padding: '32px 40px 0' }}>
+      <section className="cal-section" style={{ padding: '32px 40px 0' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           {/* Month nav */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
@@ -420,7 +420,7 @@ export function CalendarPage() {
                 }}
               ><Icon.arrowRight style={{ width: 16, height: 16 }} /></button>
             </div>
-            <div style={{
+            <div className="cal-monthnav-hint" style={{
               display: 'inline-flex', alignItems: 'center', gap: 7,
               padding: '7px 12px', borderRadius: 999,
               background: 'rgba(157,182,160,0.12)',
@@ -441,7 +441,7 @@ export function CalendarPage() {
           </div>
 
           {/* Calendar grid + slide-in day panel */}
-          <div style={{
+          <div className="cal-main-grid" style={{
             display: 'grid',
             gridTemplateColumns: detailOpen ? 'minmax(0, 1fr) 28px 360px' : 'minmax(0, 1120px) 0px 0px',
             columnGap: detailOpen ? 10 : 0,
@@ -493,7 +493,7 @@ export function CalendarPage() {
                   const rowIdx     = Math.floor(i / 7);
 
                   return (
-                    <button key={i} onClick={() => { setSelectedDate(cell.iso); setDetailOpen(true); }} style={{
+                    <button key={i} className="cal-cell" onClick={() => { setSelectedDate(cell.iso); setDetailOpen(true); }} style={{
                       minHeight: detailOpen ? 102 : 120,
                       padding: detailOpen ? 7 : 10,
                       border: 'none', background: 'transparent',
@@ -530,11 +530,11 @@ export function CalendarPage() {
                       </div>
 
                       {/* Event pills (max 3, summarize rest) */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <div className="cal-chips" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                         {cellEvents.slice(0, cellEvents.length > 3 ? 2 : 3).map((event) => {
                           const accent = ACCENT[event.accent];
                           return (
-                            <div key={event.id} style={{
+                            <div key={event.id} className="cal-chip" style={{
                               fontSize: detailOpen ? 9.2 : 10.5,
                               lineHeight: 1.22, fontWeight: 600,
                               padding: detailOpen ? '3px 4px 3px 6px' : '3px 6px 3px 8px',
@@ -557,7 +557,7 @@ export function CalendarPage() {
             </div>
 
             {/* —— Center rail: detail panel toggle —— */}
-            <div style={{
+            <div className="cal-center-rail" style={{
               width: detailOpen ? 28 : 0,
               minWidth: 0,
               height: '100%',
@@ -607,7 +607,7 @@ export function CalendarPage() {
             </div>
 
             {/* —— Right rail: selected day —— */}
-            <aside style={{
+            <aside className="cal-detail" data-open={detailOpen} style={{
               width: 360,
               minWidth: 0,
               minHeight: 0,
@@ -620,6 +620,7 @@ export function CalendarPage() {
               pointerEvents: detailOpen ? 'auto' : 'none',
               transition: 'transform .42s cubic-bezier(.22,.61,.36,1), opacity .28s ease',
             }}>
+              <div className="cal-sheet-handle" aria-hidden />
               {/* Day header card */}
               <div style={{
                 background: 'var(--ink)', color: '#fff',
@@ -718,7 +719,7 @@ export function CalendarPage() {
       </section>
 
       {/* ===== Upcoming timeline ===== */}
-      <section style={{ padding: '48px 40px 32px' }}>
+      <section className="cal-section" style={{ padding: '48px 40px 32px' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'end', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
@@ -731,7 +732,7 @@ export function CalendarPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          <div className="cal-upcoming" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             {upcoming.map((event) => {
               const accent = ACCENT[event.accent];
               const dleft = (() => {
@@ -822,6 +823,15 @@ export function CalendarPage() {
           </div>
         </div>
       </section>
+
+      {/* 모바일 바텀시트 백드롭 — 상세 패널(cal-detail)이 모바일 시트로 뜰 때 뒤를 덮고 탭하면 닫는다. */}
+      {detailOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-ink/45 md:hidden"
+          onClick={() => setDetailOpen(false)}
+          aria-hidden
+        />
+      )}
 
       {/* ===== 모달 ===== */}
       <AddEventDispatcher open={addModalOpen} onClose={() => setAddModalOpen(false)} />
