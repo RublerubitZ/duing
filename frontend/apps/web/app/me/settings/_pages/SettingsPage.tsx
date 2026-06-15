@@ -11,39 +11,9 @@ import { HomeNav } from '@/app/_components/HomeNav';
 import { SparkleFull } from '@/components/duing/Sparkle';
 
 import { MyPageHeader } from '../../_components/MyPageHeader';
-
-/* ── Toggle Switch ── */
-type ToggleRowProps = {
-  label: string;
-  hint?: string;
-  defaultOn?: boolean;
-};
-
-function ToggleRow({ label, hint, defaultOn = false }: ToggleRowProps) {
-  const [on, setOn] = useState(defaultOn);
-
-  return (
-    <div className="flex items-center gap-4 py-4 border-b border-line">
-      <div className="flex-1">
-        <div className="text-sm font-semibold text-ink-deep">{label}</div>
-        {hint && <div className="text-[12px] text-charcoal-3 mt-0.5">{hint}</div>}
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        onClick={() => setOn((v) => !v)}
-        className="relative w-11 h-[26px] rounded-full shrink-0 transition-colors duration-150"
-        style={{ background: on ? '#1F4A36' : '#E5E2DA' }}
-      >
-        <span
-          className="absolute top-[3px] w-5 h-5 rounded-full bg-white shadow-sm transition-[left] duration-150"
-          style={{ left: on ? 21 : 3 }}
-        />
-      </button>
-    </div>
-  );
-}
+import { ProfileEditDialog } from '../_components/ProfileEditDialog';
+import { PasswordChangeDialog } from '../_components/PasswordChangeDialog';
+import { WithdrawAccountDialog } from '../_components/WithdrawAccountDialog';
 
 /* ── Settings Row ── */
 type SettingsRowProps = {
@@ -136,6 +106,10 @@ export function SettingsPage() {
   const joinedCount = managedClubsQuery.data?.length ?? 0;
   const savedCount = favoriteListQuery.data?.content.length ?? 0;
 
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+
   const handleLogout = async () => {
     await logout();
     router.replace('/');
@@ -164,9 +138,18 @@ export function SettingsPage() {
             <SettingsRow
               label="이름"
               value={user?.name ?? '—'}
-              action={<button type="button" className="btn btn-ghost btn-sm">수정</button>}
+              action={
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen(true)}
+                  className="btn btn-ghost btn-sm"
+                >
+                  수정
+                </button>
+              }
             />
             <SettingsRow label="학번" value={user?.studentId ?? '—'} />
+            <SettingsRow label="전화번호" value={user?.phone ?? '—'} />
             <SettingsRow
               label="이메일"
               value={
@@ -187,20 +170,24 @@ export function SettingsPage() {
                 <span className="font-mono tracking-[0.2em]">••••••••</span>
               }
               action={
-                <button type="button" className="btn btn-secondary btn-sm">변경하기</button>
+                <button
+                  type="button"
+                  onClick={() => setPasswordOpen(true)}
+                  className="btn btn-secondary btn-sm"
+                >
+                  변경하기
+                </button>
               }
             />
           </SettingsCard>
 
-          <SettingsCard
-            title="알림 설정"
-            hint="중요한 일정은 항상 카톡으로도 한 번 더 보내드려요."
-          >
-            <ToggleRow label="지원 결과 알림" hint="서류 결과 · 면접 일정 · 합격 발표" defaultOn />
-            <ToggleRow label="찜한 동아리 마감 임박 알림" hint="모집 마감 3일 전 알림" defaultOn />
-            <ToggleRow label="가입한 동아리 모임 알림" hint="다음 모임 24시간 전" defaultOn />
-            <ToggleRow label="공지·이벤트 소식" hint="박람회 · 학생자치회 안내" />
-            <ToggleRow label="제휴 혜택·마케팅 알림" hint="제휴 매장 할인 등" />
+          <SettingsCard title="알림 설정">
+            <div className="py-6 text-center">
+              <p className="text-sm font-semibold text-ink-deep">알림 설정은 준비 중이에요</p>
+              <p className="mt-1 text-[12.5px] text-charcoal-3">
+                지금은 앱 안에서 알림을 확인할 수 있어요. 채널별 알림 설정은 곧 제공할게요.
+              </p>
+            </div>
           </SettingsCard>
 
           <SettingsCard title="계정" danger hint="세션 종료와 계정 삭제는 한 번 더 확인 후 진행됩니다.">
@@ -219,6 +206,7 @@ export function SettingsPage() {
               </button>
               <button
                 type="button"
+                onClick={() => setWithdrawOpen(true)}
                 className="btn btn-ghost btn-big rounded-[14px] text-coral"
                 style={{ border: '1px solid rgba(217,119,87,0.3)' }}
               >
@@ -255,6 +243,15 @@ export function SettingsPage() {
           </p>
         </div>
       </section>
+
+      <ProfileEditDialog
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        currentName={user?.name ?? ''}
+        currentPhone={user?.phone ?? ''}
+      />
+      <PasswordChangeDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
+      <WithdrawAccountDialog open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />
     </div>
   );
 }
