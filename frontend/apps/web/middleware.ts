@@ -1,11 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-// Edge 런타임(미들웨어)에서는 @duing/api 배럴 대신 Edge-safe 한 auth 서브패스만 import 한다.
-// 배럴은 ky 클라이언트·@duing/storage(window/localStorage) 를 끌어와 Edge 번들에서 거부된다.
-import {
-  AUTH_TOKEN_COOKIE_NAME,
-  decodeJwt,
-  isExpired,
-} from "@duing/api/auth";
+// 미들웨어(Edge 런타임)는 워크스페이스 패키지를 import 하지 않는다 — Vercel Edge 번들러가
+// @duing/* 를 unsupported module 로 거부하므로, JWT/쿠키 유틸을 앱 로컬 파일로 인라인해 쓴다.
+import { AUTH_TOKEN_COOKIE_NAME, decodeJwt, isExpired } from "@/app/_lib/edge-auth";
 
 const STUDENT_PREFIXES = ["/apply", "/me"];
 const MANAGE_PREFIX = "/manage";
