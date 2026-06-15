@@ -43,6 +43,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                 src={club.coverUrl}
                 alt=""
                 aria-hidden
+                decoding="async"
                 className="absolute inset-0 h-full w-full object-cover opacity-50"
               />
               {/* cream 오버레이 — 텍스트 가독성 보존. 좌하단에서 우상단으로 갈수록 cover 살짝 더 비침. */}
@@ -115,7 +116,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
           {club.coverUrl ? (
             <div className="relative h-[150px] w-full overflow-hidden bg-sage-mist">
               {/* eslint-disable-next-line @next/next/no-img-element -- 외부 Storage URL. 모바일 커버 배너. */}
-              <img src={club.coverUrl} alt="" aria-hidden className="h-full w-full object-cover" />
+              <img src={club.coverUrl} alt="" aria-hidden decoding="async" className="h-full w-full object-cover" />
               {/* 배너 하단을 cream 으로 페이드 — 아래 콘텐츠와 매끄럽게 잇고 겹친 로고를 받쳐준다. */}
               <div
                 className="absolute inset-0 bg-gradient-to-t from-cream via-cream/20 to-transparent"

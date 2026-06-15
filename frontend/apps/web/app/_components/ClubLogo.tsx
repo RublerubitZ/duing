@@ -30,6 +30,8 @@ export function ClubLogo({ logoUrl, alt, children }: Props) {
       <img
         src={logoUrl}
         alt={alt ?? ''}
+        loading="lazy"
+        decoding="async"
         className="absolute inset-0 w-full h-full object-cover"
         onError={() => setErrorSrc(logoUrl)}
       />

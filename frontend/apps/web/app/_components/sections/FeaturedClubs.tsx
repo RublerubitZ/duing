@@ -74,7 +74,13 @@ function FeaturedCard({ club }: { club: ClubSummary }) {
       >
         {club.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={club.logoUrl} alt={club.name} className="h-20 w-20 rounded-full object-cover" />
+          <img
+            src={club.logoUrl}
+            alt={club.name}
+            loading="lazy"
+            decoding="async"
+            className="h-20 w-20 rounded-full object-cover"
+          />
         ) : (
           <span className="text-[44px] font-bold" style={{ color }}>
             {club.name.charAt(0)}
