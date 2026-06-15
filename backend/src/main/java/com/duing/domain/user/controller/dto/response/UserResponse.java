@@ -8,6 +8,7 @@ public record UserResponse(
         String studentId,
         String name,
         String email,
+        String phone,
         UserRole role
 ) {
     public static UserResponse from(UserQuery userQuery) {
@@ -16,6 +17,7 @@ public record UserResponse(
                 userQuery.studentId(),
                 userQuery.name(),
                 userQuery.email(),
+                userQuery.phone(),
                 userQuery.role()
         );
     }

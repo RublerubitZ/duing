@@ -8,6 +8,7 @@ public record UserQuery(
         String studentId,
         String name,
         String email,
+        String phone,
         UserRole role
 ) {
     public static UserQuery from(User user) {
@@ -16,6 +17,7 @@ public record UserQuery(
                 user.getStudentId(),
                 user.getName(),
                 user.getEmail(),
+                user.getPhone(),
                 user.getRole()
         );
     }
