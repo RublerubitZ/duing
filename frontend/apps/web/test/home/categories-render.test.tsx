@@ -17,8 +17,9 @@ describe('Categories', () => {
   it('8개 카테고리 라벨이 모두 렌더된다', () => {
     render(<Categories />);
 
+    // 모바일 아이콘 타일 + 데스크탑 이미지 카드 이중 렌더 — 각 라벨이 두 번 등장한다.
     for (const label of ['학술', '문화', '예술', '운동', '봉사', '종교', '취미', '기타']) {
-      expect(screen.getByText(label)).toBeInTheDocument();
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
   });
 

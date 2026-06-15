@@ -24,7 +24,21 @@ export async function HomeHero() {
       />
 
       <div className="max-w-layout relative mx-auto grid items-center gap-16 md:grid-cols-[1.15fr_1fr]">
-        <div>
+        <div className="relative">
+          {/* 모바일: 헤드라인 우측 여백의 작은 통계 칩 (#2) — 데스크탑은 우측 카드스택이 담당 */}
+          <div className="md:hidden absolute right-0 top-[60px] z-[3] w-[118px] rounded-2xl border border-sage-soft bg-sage-mist/95 px-3 py-2.5 backdrop-blur-sm">
+            <div className="font-display text-[28px] font-bold leading-none text-ink">
+              {recruitingCount}
+              <span className="text-[15px] font-bold">곳</span>
+            </div>
+            <div className="mt-1 text-[11px] font-medium leading-tight text-ink/80">
+              이번 학기 모집중
+            </div>
+            <div className="mt-1.5 border-t border-ink/10 pt-1.5 text-[10.5px] leading-tight text-ink/80">
+              {totalCount}개 동아리 ing중
+            </div>
+          </div>
+
           <div className="mb-[22px] inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 font-mono text-[11.5px] font-bold tracking-[0.14em] text-ink-deep">
             <Sparkle size={11} color="#143025" />
             DU + ING
@@ -63,17 +77,21 @@ export async function HomeHero() {
             .
           </h1>
 
-          <p className="mb-9 max-w-[500px] text-lg leading-[1.6] text-charcoal-2">
+          <p className="mb-9 max-w-[500px] text-base leading-[1.6] text-charcoal-2 sm:text-lg">
             대구대학교 학생자치회 공식 동아리 플랫폼.
-            <br />
-            {totalCount}개 동아리가 지금도{' '}
-            <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
-              ing
-            </em>{' '}
-            중 — 이번 학기 {recruitingCount}곳 모집 중이에요.
+            {/* 통계 문구는 모바일에선 우측 칩으로 이동, 데스크탑에선 본문 유지 (#2) */}
+            <span className="hidden md:inline">
+              <br />
+              {totalCount}개 동아리가 지금도{' '}
+              <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
+                ing
+              </em>{' '}
+              중 — 이번 학기 {recruitingCount}곳 모집 중이에요.
+            </span>
           </p>
 
-          <form action="/clubs" method="get" className="flex max-w-[540px] items-center gap-1.5 rounded-lg bg-paper p-1.5 shadow-2">
+          {/* 데스크탑 전용 검색 — 모바일은 상단 고정 검색 바(HomeMobileSearchBar)가 담당 (#3) */}
+          <form action="/clubs" method="get" className="hidden max-w-[540px] items-center gap-1.5 rounded-lg bg-paper p-1.5 shadow-2 md:flex">
             <label className="flex flex-1 items-center gap-3 px-[18px] py-3.5">
               <Search className="text-charcoal-3" />
               <input

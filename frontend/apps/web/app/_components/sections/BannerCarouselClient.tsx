@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type TouchEvent } from 'react';
 import { cn } from '@/app/_lib/cn';
 import type { CarouselSlide } from '@/app/_lib/promotion';
 import { ArrowLeft, ArrowRight } from '@/components/duing/Icon';
@@ -20,6 +20,8 @@ export function BannerCarouselClient({ slides }: Props) {
   const [direction, setDirection] = useState<'left' | 'right'>('left');
   const [exitingSlide, setExitingSlide] = useState<CarouselSlide | null>(null);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 모바일 스와이프 (#4) — 가로 드래그 40px 이상이면 슬라이드 이동.
+  const touchStartXRef = useRef<number | null>(null);
 
   const slideAt = useCallback(
     (index: number): CarouselSlide | undefined => slides[index % slides.length],
@@ -68,6 +70,19 @@ export function BannerCarouselClient({ slides }: Props) {
     return () => window.clearInterval(timer);
   }, [isPlaying, goNext, slides.length]);
 
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    touchStartXRef.current = event.touches[0]?.clientX ?? null;
+  };
+  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    const startX = touchStartXRef.current;
+    touchStartXRef.current = null;
+    if (startX === null || slides.length <= 1) return;
+    const deltaX = (event.changedTouches[0]?.clientX ?? startX) - startX;
+    if (Math.abs(deltaX) < 40) return;
+    if (deltaX < 0) goNext();
+    else goPrev();
+  };
+
   const activeSlide = slideAt(activeIndex);
   if (!activeSlide) return null;
   const previewSlides: CarouselSlide[] = [slideAt(activeIndex + 1), slideAt(activeIndex + 2)]
@@ -77,7 +92,11 @@ export function BannerCarouselClient({ slides }: Props) {
     <section className="px-4 sm:px-6 md:px-10 pt-2">
       <div className="max-w-layout relative mx-auto">
         <div className="grid gap-4 md:grid-cols-[1fr_340px]">
-          <div className="relative aspect-[24/8] overflow-hidden rounded-xl">
+          <div
+            className="relative aspect-[24/8] touch-pan-y select-none overflow-hidden rounded-xl"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
             {exitingSlide && (
               <div
                 key={`exit-${exitingSlide.key}`}
@@ -112,7 +131,8 @@ export function BannerCarouselClient({ slides }: Props) {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3">
+          {/* 보조 배너 프리뷰 — 모바일은 메인 1개만(#4), 데스크탑만 노출 */}
+          <div className="hidden flex-col gap-3 md:flex">
             {previewSlides.map((slide, idx) => {
               const previewProps = {
                 slide,
@@ -170,7 +190,7 @@ export function BannerCarouselClient({ slides }: Props) {
           <button
             type="button"
             onClick={() => setIsPlaying((prev) => !prev)}
-            className="btn btn-ghost btn-sm gap-1"
+            className="btn btn-ghost btn-sm hidden gap-1 md:inline-flex"
           >
             <span className="text-sm">{isPlaying ? '⏸' : '▶'}</span>
             <span className="text-xs">{isPlaying ? '자동재생 중' : '정지됨'}</span>
@@ -179,7 +199,7 @@ export function BannerCarouselClient({ slides }: Props) {
             type="button"
             aria-label="이전 배너"
             onClick={goPrev}
-            className="btn btn-secondary grid h-9 w-9 place-items-center rounded-full p-0"
+            className="btn btn-secondary hidden h-9 w-9 place-items-center rounded-full p-0 md:grid"
           >
             <ArrowLeft />
           </button>
@@ -187,7 +207,7 @@ export function BannerCarouselClient({ slides }: Props) {
             type="button"
             aria-label="다음 배너"
             onClick={goNext}
-            className="btn btn-primary grid h-9 w-9 place-items-center rounded-full p-0"
+            className="btn btn-primary hidden h-9 w-9 place-items-center rounded-full p-0 md:grid"
           >
             <ArrowRight />
           </button>
