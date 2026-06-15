@@ -8,6 +8,7 @@ export type SignupFormState = {
   // step 2
   name: string;
   studentId: string;
+  studentIdConfirm: string;
   grade: Grade | '';
   college: College | '';
   major: string;
@@ -22,6 +23,7 @@ export const initialSignupState: SignupFormState = {
   passwordConfirm: '',
   name: '',
   studentId: '',
+  studentIdConfirm: '',
   grade: '',
   college: '',
   major: '',

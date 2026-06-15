@@ -58,17 +58,25 @@ export function SignupFormPanel() {
   const passwordMismatch =
     state.passwordConfirm.length > 0 && state.password !== state.passwordConfirm;
 
+  const studentIdMismatch =
+    state.studentIdConfirm.length > 0 && state.studentId !== state.studentIdConfirm;
+
   const canSubmit =
     state.termsOfServiceAgreed &&
     state.privacyPolicyAgreed &&
     !signup.isPending &&
     !passwordMismatch &&
+    state.studentId === state.studentIdConfirm &&
     emailVerification.verified;
 
   async function handleSubmit(submitEvent: React.FormEvent) {
     submitEvent.preventDefault();
     if (passwordMismatch) {
       setError('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+    if (state.studentId !== state.studentIdConfirm) {
+      setError('학번이 일치하지 않습니다.');
       return;
     }
     setError(null);
@@ -242,11 +250,14 @@ export function SignupFormPanel() {
                 <input
                   id="signup-student-id"
                   required
-                  pattern="\d{7,10}"
+                  pattern="\d{8}"
                   inputMode="numeric"
+                  maxLength={8}
                   value={state.studentId}
-                  onChange={(changeEvent) => setField('studentId', changeEvent.target.value)}
-                  placeholder="2021123456"
+                  onChange={(changeEvent) =>
+                    setField('studentId', changeEvent.target.value.replace(/\D/g, '').slice(0, 8))
+                  }
+                  placeholder="8자리 숫자"
                   className={inputCls}
                 />
               </div>
@@ -259,6 +270,37 @@ export function SignupFormPanel() {
                   onChange={(grade: Grade) => setField('grade', grade)}
                 />
               </div>
+            </div>
+
+            {/* Student ID confirm — 학번은 가입 후 수정 불가라 한 번 더 입력해 확인한다 */}
+            <div>
+              <label
+                htmlFor="signup-student-id-confirm"
+                className="mb-1.5 block text-sm font-medium text-charcoal"
+              >
+                학번 확인
+              </label>
+              <input
+                id="signup-student-id-confirm"
+                required
+                pattern="\d{8}"
+                inputMode="numeric"
+                maxLength={8}
+                value={state.studentIdConfirm}
+                onChange={(changeEvent) =>
+                  setField(
+                    'studentIdConfirm',
+                    changeEvent.target.value.replace(/\D/g, '').slice(0, 8),
+                  )
+                }
+                placeholder="학번을 한 번 더 입력해주세요"
+                className={inputCls}
+              />
+              {studentIdMismatch && (
+                <p className="mt-1.5 text-xs text-coral" aria-live="polite">
+                  학번이 일치하지 않아요
+                </p>
+              )}
             </div>
 
             {/* College + Major */}

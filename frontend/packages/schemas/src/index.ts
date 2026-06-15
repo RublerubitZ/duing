@@ -6,7 +6,7 @@ import { passwordSchema } from './password';
 
 export { passwordSchema } from './password';
 
-const GRADE_VALUES = ['FRESHMAN', 'SOPHOMORE', 'JUNIOR', 'SENIOR', 'GRADUATE_DEFERRED'] as const;
+const GRADE_VALUES = ['FRESHMAN', 'SOPHOMORE', 'JUNIOR', 'SENIOR', 'ON_LEAVE', 'GRADUATED'] as const;
 const COLLEGE_VALUES = [
   'PUBLIC_LEADERS',
   'GLOBAL_BUSINESS',
@@ -42,7 +42,7 @@ export const signupSchema = z.object({
   studentId: z
     .string()
     .min(1, '학번은 필수 입력값입니다.')
-    .regex(/^\d{7,10}$/, '학번은 7~10자리 숫자여야 합니다.'),
+    .regex(/^\d{8}$/, '학번은 8자리 숫자여야 합니다.'),
   name: z
     .string()
     .min(1, '이름은 필수 입력값입니다.')
