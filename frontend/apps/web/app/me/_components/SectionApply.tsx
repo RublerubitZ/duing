@@ -103,12 +103,12 @@ export function SectionApply({ applications }: Props) {
                 key={app.id}
                 className={cn(
                   'relative bg-paper rounded-[18px] px-5 py-5',
-                  'grid gap-5 items-center',
+                  'grid gap-4 sm:gap-5 items-start sm:items-center',
+                  'grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_360px_auto]',
                   'transition-[transform,box-shadow,border-color] duration-150',
                   'hover:-translate-y-0.5 hover:shadow-2',
                   isInterview ? 'border border-ink' : 'border border-line',
                 )}
-                style={{ gridTemplateColumns: 'auto 1fr 360px auto' }}
               >
                 {isInterview && (
                   <div className="absolute -top-2.5 left-5 px-2.5 py-0.5 rounded-full bg-ink text-white text-[11px] font-bold">
@@ -134,7 +134,7 @@ export function SectionApply({ applications }: Props) {
                 </div>
 
                 {/* Step progress */}
-                <div>
+                <div className="col-span-2 sm:col-span-1">
                   <div className="text-[11.5px] font-semibold text-charcoal-3 tracking-wide04 mb-2">
                     진행 상태
                   </div>
@@ -175,7 +175,7 @@ export function SectionApply({ applications }: Props) {
                 <Link
                   href={`/me/applications/${app.id}`}
                   className={cn(
-                    'btn btn-sm flex items-center gap-1.5',
+                    'btn btn-sm flex items-center gap-1.5 col-span-2 justify-self-start sm:col-span-1',
                     isInterview ? 'btn-primary' : 'btn-secondary',
                   )}
                 >
