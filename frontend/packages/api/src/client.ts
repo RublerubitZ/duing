@@ -1,4 +1,5 @@
 import ky, { type KyInstance, type ResponsePromise, HTTPError } from 'ky';
+import { notifyUnauthorized } from './unauthorized-context';
 import type {
   InterviewRoundCandidate,
   InterviewRoundSummary,
@@ -456,6 +457,15 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           const token = await readToken();
           if (token) {
             request.headers.set('Authorization', `Bearer ${token}`);
+          }
+        },
+      ],
+      afterResponse: [
+        (request, _options, response) => {
+          // 인증 토큰을 실어 보낸 요청이 401 이면 세션 만료로 간주하고 앱에 알린다.
+          // (토큰 없는 로그인 실패 401 은 Authorization 헤더가 없어 제외된다)
+          if (response.status === 401 && request.headers.has('Authorization')) {
+            notifyUnauthorized();
           }
         },
       ],
