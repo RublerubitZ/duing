@@ -8,6 +8,9 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
@@ -17,6 +20,7 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.service.GeneralClubMemberQueryService;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -29,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -166,6 +171,39 @@ class ClubMemberExportControllerTest extends IntegrationTestBase {
                 .then()
                     .extract().statusCode();
         assertThat(status).isIn(401, 403);
+    }
+
+    @Test
+    @DisplayName("export 성공 시 누가·전화포함여부·건수를 구조화 로그로 남긴다 (전화번호 값은 미포함)")
+    void exportWritesStructuredLog() {
+        Logger serviceLogger = (Logger) LoggerFactory.getLogger(GeneralClubMemberQueryService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        serviceLogger.addAppender(appender);
+
+        try {
+            RestAssured
+                    .given()
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                        .queryParam("includePhone", true)
+                    .when()
+                        .get("/api/v1/clubs/{clubId}/members/export", club.getId())
+                    .then()
+                        .statusCode(HttpStatus.OK.value());
+
+            assertThat(appender.list)
+                    .anySatisfy(event -> {
+                        String message = event.getFormattedMessage();
+                        assertThat(message).contains("club member export");
+                        assertThat(message).contains("includePhone=true");
+                        assertThat(message).contains("count=3");
+                        assertThat(message).doesNotContain(leaderUser.getPhone());
+                        assertThat(message).doesNotContain(officerUser.getPhone());
+                        assertThat(message).doesNotContain(memberUser.getPhone());
+                    });
+        } finally {
+            serviceLogger.detachAppender(appender);
+        }
     }
 
     private User saveUser(String name) {
