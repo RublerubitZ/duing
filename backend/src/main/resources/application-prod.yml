@@ -16,6 +16,19 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    # Supabase Supavisor(세션 풀러, :5432) 를 공유하므로 연결 예산을 보수적으로 잡는다.
+    # 풀 크기는 DB_POOL_MAX_SIZE 로 주입(기본 10) — Supabase 플랜의 풀러 연결 한도와 Flyway·관리도구·
+    # 향후 레플리카 몫까지 감안해 한도 안에서 정한다(레플리카 N 대면 인스턴스당 한도÷N). 한 노브로
+    # maximum-pool-size 와 minimum-idle 을 같게 둬 고정 풀(fixed pool) 로 운영 — 유휴 시에도 연결 수를
+    # 일정하게 유지해 풀러가 보는 연결 수를 예측 가능하게 한다(HikariCP 권장 구성).
+    # max-lifetime 은 풀러의 서버측 idle 타임아웃보다 짧게 두어 stale connection 재사용을 막는다.
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MAX_SIZE:10}
+      connection-timeout: 30000
+      max-lifetime: 280000
+      keepalive-time: 60000
+      leak-detection-threshold: 60000
   jpa:
     properties:
       hibernate:
@@ -41,6 +54,12 @@ duing:
   notification:
     jobs:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:true}
+  # 개인정보 처리방침의 45일 보관/파기 잡을 운영에서만 활성화한다. base application.yml 기본값은 false
+  # (로컬은 꺼짐) 이고 여기서만 켜서 운영 DB 의 soft-delete PII 가 45일 후 비식별화/삭제되게 한다.
+  # DUING_PII_RETENTION_ENABLED=false 로 끌 수 있다.
+  privacy:
+    retention:
+      enabled: ${DUING_PII_RETENTION_ENABLED:true}
 
 # 이메일 발송 — 운영은 항상 Resend 를 쓴다. EMAIL_PROVIDER 누락 시 공통 yml 의 기본값(logging)
 # 으로 조용히 떨어져 인증 메일이 발송되지 않는 사고를 막기 위해 프로파일에서 하드코딩한다.
