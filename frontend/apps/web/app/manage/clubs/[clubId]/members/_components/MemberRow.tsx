@@ -64,7 +64,7 @@ export function MemberRow({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-white px-3 py-2">
+    <div className="flex flex-col items-stretch gap-2 rounded-md border border-slate-100 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <div className="min-w-0">
         <p className="text-sm font-medium text-slate-900">
           {member.name}
@@ -75,14 +75,14 @@ export function MemberRow({
         </p>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
         {/* LEADER viewer, 본인 LEADER 행 */}
         {isLeaderViewer && isSelf && isLeader && (
           <button
             type="button"
             disabled
             title="회장 인계 후 가능"
-            className="rounded-md px-2 py-1 text-xs text-slate-300 cursor-not-allowed"
+            className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-slate-300 cursor-not-allowed"
           >
             탈퇴
           </button>
@@ -94,21 +94,21 @@ export function MemberRow({
             <button
               type="button"
               onClick={() => changeRole('MEMBER')}
-              className="rounded-md px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+              className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-slate-700 hover:bg-slate-100"
             >
               MEMBER 로 강등
             </button>
             <button
               type="button"
               onClick={() => onTransferLeader(member)}
-              className="rounded-md px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+              className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-slate-700 hover:bg-slate-100"
             >
               회장 인계
             </button>
             <button
               type="button"
               onClick={() => setShowRemoveDialog(true)}
-              className="rounded-md px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+              className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-rose-600 hover:bg-rose-50"
             >
               강퇴
             </button>
@@ -121,21 +121,21 @@ export function MemberRow({
             <button
               type="button"
               onClick={() => changeRole('OFFICER')}
-              className="rounded-md px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+              className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-slate-700 hover:bg-slate-100"
             >
               OFFICER 로 승급
             </button>
             <button
               type="button"
               onClick={() => onTransferLeader(member)}
-              className="rounded-md px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+              className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-slate-700 hover:bg-slate-100"
             >
               회장 인계
             </button>
             <button
               type="button"
               onClick={() => setShowRemoveDialog(true)}
-              className="rounded-md px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+              className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-rose-600 hover:bg-rose-50"
             >
               강퇴
             </button>
@@ -147,7 +147,7 @@ export function MemberRow({
           <button
             type="button"
             onClick={doLeave}
-            className="rounded-md px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+            className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-rose-600 hover:bg-rose-50"
           >
             탈퇴
           </button>
