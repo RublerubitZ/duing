@@ -28,11 +28,11 @@ describe('SectionMyClubs', () => {
     expect(link).toHaveAttribute('href', '/manage?clubId=1');
   });
 
-  it('MEMBER 카드는 "회원" pill 과 "둘러보기" 링크 (/clubs/{id}) 를 노출한다', () => {
+  it('MEMBER 카드는 "회원" pill 과 "둘러보기" 링크 (/clubs/{id}/member) 를 노출한다', () => {
     render(<SectionMyClubs myClubs={[make({ myRole: 'MEMBER', clubId: 42, clubName: '회원동' })]} />);
     expect(screen.getByText('회원')).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /둘러보기/ });
-    expect(link).toHaveAttribute('href', '/clubs/42');
+    expect(link).toHaveAttribute('href', '/clubs/42/member');
   });
 
   it('빈 배열이면 안내 문구를 노출한다', () => {

@@ -96,7 +96,7 @@ export function SectionMyClubs({ myClubs }: Props) {
                     </Link>
                   ) : (
                     <Link
-                      href={`/clubs/${club.clubId}`}
+                      href={`/clubs/${club.clubId}/member`}
                       className="btn btn-ghost btn-sm"
                       aria-label={`${club.clubName} 둘러보기`}
                     >
