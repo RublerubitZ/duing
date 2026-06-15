@@ -1,13 +1,16 @@
 package com.duing.domain.clubmember.service;
 
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.service.dto.query.ClubMemberExportQuery;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
 import com.duing.domain.clubmember.service.dto.query.MyClubQuery;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -27,5 +30,17 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     @Override
     public List<MyClubQuery> findMyClubs(Long userId) {
         return clubMemberRepository.findMyClubsByUser(userId);
+    }
+
+    @Override
+    public List<ClubMemberExportQuery> getMembersForExport(Long clubId, Long requesterId, boolean includePhone) {
+        clubAuthService.requireLeader(requesterId, clubId);
+        List<ClubMemberExportQuery> rows = clubMemberRepository
+                .findAllByClubIdOrderedByRoleAndJoinedAt(clubId).stream()
+                .map(clubMember -> ClubMemberExportQuery.from(clubMember, includePhone))
+                .toList();
+        log.info("club member export: clubId={}, actorId={}, includePhone={}, count={}",
+                clubId, requesterId, includePhone, rows.size());
+        return rows;
     }
 }
