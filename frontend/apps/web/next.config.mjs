@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -32,4 +34,8 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry 빌드 통합. 소스맵 업로드는 SENTRY_AUTH_TOKEN·org·project 가 설정됐을 때만 동작하고,
+// 미설정(MVP)이면 스킵된다 — 런타임 에러 캡처는 DSN 만으로 동작한다.
+export default withSentryConfig(nextConfig, {
+  silent: true,
+});
