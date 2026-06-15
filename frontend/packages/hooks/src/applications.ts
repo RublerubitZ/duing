@@ -25,6 +25,17 @@ export function useSubmitApplicationMutation(recruitmentId: number) {
   });
 }
 
+export function useWithdrawApplicationMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (applicationId: number) => client.applications.withdraw(applicationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: applicationQueryKeys.allMyLists });
+    },
+  });
+}
+
 export function useMyApplicationsQuery(scope: ApplicationScope = 'ALL') {
   const client = useApiClient();
   const status = useAuthStore((s) => s.status);

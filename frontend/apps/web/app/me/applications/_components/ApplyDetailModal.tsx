@@ -1,9 +1,15 @@
+'use client';
+
 /* a-apply-status-page.jsx → TypeScript 변환: DetailRow + ApplyDetailModal */
 
 import type React from 'react';
+import { useEffect, useState } from 'react';
 
 import type { MyApplicationDetail } from '@duing/types';
-import { useMyInterviewQuery } from '@duing/hooks';
+import { ApiError } from '@duing/api';
+import { useMyInterviewQuery, useWithdrawApplicationMutation } from '@duing/hooks';
+
+import { useToast } from '@/app/_components/toast/ToastProvider';
 
 import { ApplicationStepper } from '../[applicationId]/_components/ApplicationStepper';
 import { ApplicantInterviewCard } from '../[applicationId]/_components/ApplicantInterviewCard';
@@ -85,9 +91,38 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
     { enabled: applicationId !== undefined },
   );
 
+  const { addToast } = useToast();
+  const withdrawMutation = useWithdrawApplicationMutation();
+  const [confirmingWithdraw, setConfirmingWithdraw] = useState(false);
+
+  // 다른 지원을 열면 철회 확인 상태를 초기화한다.
+  useEffect(() => {
+    setConfirmingWithdraw(false);
+  }, [app?.id]);
+
   if (!app) return null;
 
   const phase = interviewView?.phase ?? null;
+  // 제출 직후(SUBMITTED)에만 본인이 철회할 수 있다.
+  const canWithdraw = app.status === 'applied';
+  const withdrawApplicationId = Number(app.id);
+
+  const handleWithdraw = () => {
+    withdrawMutation.mutate(withdrawApplicationId, {
+      onSuccess: () => {
+        addToast('지원을 철회했어요.');
+        onClose();
+      },
+      onError: (error) => {
+        addToast(
+          error instanceof ApiError
+            ? error.message
+            : '철회에 실패했어요. 잠시 후 다시 시도해 주세요.',
+          { variant: 'error' },
+        );
+      },
+    });
+  };
 
   return (
     <>
@@ -213,6 +248,64 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
             </div>
           </div>
         </div>
+
+        {/* 푸터 — 제출 직후 지원은 본인이 철회할 수 있다. */}
+        {canWithdraw && (
+          <div style={{
+            borderTop: '1px solid var(--gray-line)',
+            padding: '12px 20px',
+            display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10,
+            flexWrap: 'wrap',
+          }}>
+            {confirmingWithdraw ? (
+              <>
+                <span style={{
+                  fontSize: 12, color: 'var(--charcoal-2)', marginRight: 'auto',
+                  wordBreak: 'keep-all', lineHeight: 1.4,
+                }}>
+                  철회하면 되돌릴 수 없어요. 같은 공고에 다시 지원할 수 있어요.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingWithdraw(false)}
+                  disabled={withdrawMutation.isPending}
+                  style={{
+                    fontSize: 13, fontWeight: 600, padding: '8px 14px', borderRadius: 10,
+                    border: '1px solid var(--gray-line)', background: 'var(--paper)',
+                    color: 'var(--charcoal-2)', cursor: 'pointer',
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleWithdraw}
+                  disabled={withdrawMutation.isPending}
+                  style={{
+                    fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10,
+                    border: 'none', background: 'var(--coral)', color: '#fff',
+                    cursor: withdrawMutation.isPending ? 'not-allowed' : 'pointer',
+                    opacity: withdrawMutation.isPending ? 0.6 : 1,
+                  }}
+                >
+                  {withdrawMutation.isPending ? '철회 중…' : '철회하기'}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingWithdraw(true)}
+                style={{
+                  fontSize: 13, fontWeight: 600, padding: '8px 16px', borderRadius: 10,
+                  border: '1px solid var(--coral)', background: 'transparent',
+                  color: 'var(--coral)', cursor: 'pointer',
+                }}
+              >
+                지원 철회
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
