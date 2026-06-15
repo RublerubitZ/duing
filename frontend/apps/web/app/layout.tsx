@@ -21,6 +21,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" suppressHydrationWarning>
+      <head>
+        {/* 폰트 CDN(cdn.jsdelivr.net — Pretendard·GmarketSans) 연결을 미리 맺어
+            globals.css 의 @import·@font-face 가 실행될 때 DNS·TLS 왕복을 절약한다.
+            웹폰트는 CORS(anonymous) 요청이라 preconnect 도 crossOrigin 이어야 커넥션이 재사용된다.
+            dns-prefetch 는 preconnect 미지원 브라우저용 폴백. */}
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+      </head>
       <body>
         <Providers>{children}</Providers>
         <BottomNav />
