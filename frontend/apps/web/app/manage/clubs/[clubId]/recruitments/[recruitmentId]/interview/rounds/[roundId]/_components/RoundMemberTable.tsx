@@ -37,7 +37,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
             <div
               key={member.memberId}
               className={cn(
-                'flex items-center justify-between gap-3 px-5 py-3',
+                'flex flex-col items-stretch gap-2.5 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3',
                 member.unresponded && 'bg-amber-50',
               )}
             >
@@ -73,13 +73,13 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
                 {/* 수동 배정 — ASSIGNING 한정 */}
                 {status === 'ASSIGNING' && member.status !== 'EXCLUDED' && (
                   <button
                     type="button"
                     onClick={() => onManualAssign(member)}
-                    className="rounded-md px-2 py-1 text-xs text-purple-600 hover:bg-purple-50"
+                    className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-purple-600 hover:bg-purple-50"
                   >
                     수동 배정
                   </button>
@@ -89,7 +89,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                   <button
                     type="button"
                     onClick={() => onManualAssign(member)}
-                    className="rounded-md px-2 py-1 text-xs text-sky-600 hover:bg-sky-50"
+                    className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-sky-600 hover:bg-sky-50"
                   >
                     일정 변경
                   </button>
@@ -99,7 +99,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                   <button
                     type="button"
                     onClick={() => onExclude(member)}
-                    className="rounded-md px-2 py-1 text-xs text-rose-500 hover:bg-rose-50"
+                    className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-rose-500 hover:bg-rose-50"
                   >
                     제외
                   </button>
