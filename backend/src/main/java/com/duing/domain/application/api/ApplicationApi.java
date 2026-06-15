@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,6 +43,14 @@ public interface ApplicationApi {
     @Operation(summary = "내 지원 상세 조회", description = "본인 지원만 조회 가능. 답변·면접 일시·장소 포함.")
     @GetMapping("/users/me/applications/{applicationId}")
     ResponseEntity<ApiResponse<MyApplicationDetailResponse>> getMyApplicationDetail(
+            @PathVariable Long applicationId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "지원 철회",
+            description = "본인의 SUBMITTED 상태 지원을 철회한다. 검토가 시작된 지원은 철회할 수 없다.")
+    @DeleteMapping("/users/me/applications/{applicationId}")
+    ResponseEntity<Void> withdraw(
             @PathVariable Long applicationId,
             @AuthenticationPrincipal UserPrincipal currentUser
     );

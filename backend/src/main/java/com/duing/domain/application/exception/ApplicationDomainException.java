@@ -82,7 +82,7 @@ public class ApplicationDomainException extends ApplicationException {
     }
 
     public static class ForbiddenApplicationAccessException extends ApplicationDomainException {
-        private static final String MESSAGE = "본인의 지원 내역만 조회할 수 있습니다.";
+        private static final String MESSAGE = "본인의 지원 내역만 접근할 수 있습니다.";
 
         public ForbiddenApplicationAccessException() {
             super(MESSAGE, HttpStatus.FORBIDDEN);
@@ -101,6 +101,14 @@ public class ApplicationDomainException extends ApplicationException {
         private static final String MESSAGE = "다른 운영진이 먼저 상태를 변경했습니다. 새로고침 후 다시 시도해주세요.";
 
         public ConcurrentStatusUpdateException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    public static class CannotWithdrawApplicationException extends ApplicationDomainException {
+        private static final String MESSAGE = "제출 직후에만 철회할 수 있어요. 검토가 시작된 지원은 철회할 수 없습니다.";
+
+        public CannotWithdrawApplicationException() {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }

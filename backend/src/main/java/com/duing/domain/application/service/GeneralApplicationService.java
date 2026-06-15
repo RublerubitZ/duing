@@ -195,6 +195,29 @@ public class GeneralApplicationService implements ApplicationService {
     }
 
     @Override
+    @Transactional
+    public void withdraw(Long applicationId, Long currentUserId) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+        if (!application.getUser().getId().equals(currentUserId)) {
+            throw new ApplicationDomainException.ForbiddenApplicationAccessException();
+        }
+        // 운영진이 검토를 시작하기 전(SUBMITTED)에만 학생이 스스로 철회할 수 있다.
+        if (application.getStatus() != ApplicationStatus.SUBMITTED) {
+            throw new ApplicationDomainException.CannotWithdrawApplicationException();
+        }
+        // 소프트 삭제(@SQLDelete). 부분 유니크 인덱스(WHERE deleted_at IS NULL) 덕에 같은 공고 재지원이 가능하다.
+        applicationRepository.delete(application);
+        // 운영진이 동시에 상태를 전이하면 @Version 불일치로 soft-delete UPDATE 가 0 row → 충돌.
+        // 명시적 flush 로 트랜잭션 안에서 잡아 친절한 409 로 변환한다 (updateStatus 와 동일 패턴).
+        try {
+            applicationRepository.flush();
+        } catch (ObjectOptimisticLockingFailureException concurrentUpdate) {
+            throw new ApplicationDomainException.ConcurrentStatusUpdateException();
+        }
+    }
+
+    @Override
     public List<ApplicantQuery> getApplicants(Long recruitmentId, Long currentUserId, ApplicantSearchCondition condition) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
