@@ -14,7 +14,7 @@ const SUGGESTED_QUERIES: ReadonlyArray<string> = [
 export async function HomeHero() {
   const { totalCount, recruitingCount } = await fetchClubStats();
   return (
-    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-5 pt-9 sm:pb-8 sm:pt-16">
+    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-5 sm:pb-8 sm:pt-16">
       <div className="bg-grid absolute inset-0 opacity-50" />
       <div
         className="absolute -right-40 -top-32 h-[520px] w-[520px] rounded-full opacity-70 blur-[8px]"
@@ -26,7 +26,7 @@ export async function HomeHero() {
       <div className="max-w-layout relative mx-auto grid items-center gap-16 md:grid-cols-[1.15fr_1fr]">
         <div className="relative">
           {/* 모바일: 헤드라인 우측 여백의 모집 통계 — 데스크탑 카드스택과 같은 톤으로 깔끔한 2줄 (#1) */}
-          <div className="md:hidden absolute right-0 top-[64px] z-[3] rounded-xl border border-sage-soft bg-sage-mist px-4 py-3 shadow-1">
+          <div className="md:hidden absolute right-0 top-[54px] z-[3] rounded-xl border border-sage-soft bg-sage-mist px-4 py-3 shadow-1">
             <div className="font-display text-[32px] font-bold leading-none text-ink">
               {recruitingCount}
               <span className="text-base font-bold">곳</span>
@@ -36,12 +36,12 @@ export async function HomeHero() {
             </div>
           </div>
 
-          <div className="mb-[22px] inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 font-mono text-[11.5px] font-bold tracking-[0.14em] text-ink-deep">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 font-mono text-[11.5px] font-bold tracking-[0.14em] text-ink-deep sm:mb-[22px]">
             <Sparkle size={11} color="#143025" />
             DU + ING
           </div>
 
-          <h1 className="mb-4 text-[44px] leading-none tracking-[-0.035em] sm:mb-12 sm:text-[60px] md:text-[84px]">
+          <h1 className="mb-2.5 text-[40px] leading-none tracking-[-0.035em] sm:mb-12 sm:text-[60px] md:text-[84px]">
             오늘,
             <br />
             캠퍼스의

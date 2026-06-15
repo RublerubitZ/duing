@@ -137,7 +137,7 @@ export function BannerCarouselClient({ slides }: Props) {
                   type="button"
                   aria-label="이전 배너"
                   onClick={goPrev}
-                  className="absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-ink/40 text-white backdrop-blur-sm active:bg-ink/60 md:hidden"
+                  className="absolute left-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-ink/40 text-white backdrop-blur-sm active:bg-ink/60 sm:grid md:hidden"
                 >
                   <ArrowLeft />
                 </button>
@@ -145,7 +145,7 @@ export function BannerCarouselClient({ slides }: Props) {
                   type="button"
                   aria-label="다음 배너"
                   onClick={goNext}
-                  className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-ink/40 text-white backdrop-blur-sm active:bg-ink/60 md:hidden"
+                  className="absolute right-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-ink/40 text-white backdrop-blur-sm active:bg-ink/60 sm:grid md:hidden"
                 >
                   <ArrowRight />
                 </button>
