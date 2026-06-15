@@ -17,10 +17,23 @@ export function getStatusTransitions(
 ): NextStatus[] {
   const TRANSITIONS: Record<ApplicationStatus, NextStatus[]> = {
     SUBMITTED: ['UNDER_REVIEW'],
-    UNDER_REVIEW: useInterview ? ['INTERVIEW_PENDING'] : ['ACCEPTED', 'REJECTED'],
+    UNDER_REVIEW: useInterview
+      ? ['INTERVIEW_PENDING', 'REJECTED']
+      : ['ACCEPTED', 'REJECTED'],
     INTERVIEW_PENDING: ['ACCEPTED', 'REJECTED'],
     ACCEPTED: [],
     REJECTED: [],
   };
   return TRANSITIONS[currentStatus];
+}
+
+/**
+ * 상세 페이지 StatusActionBar 에서 사용.
+ * getStatusTransitions 와 동일한 로직 — 단일 진실 보장을 위해 위임.
+ */
+export function allowedTransitionsFrom(
+  status: ApplicationStatus,
+  useInterview: boolean,
+): NextStatus[] {
+  return getStatusTransitions(status, useInterview);
 }

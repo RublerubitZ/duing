@@ -5,7 +5,7 @@ export default async function LoginPage() {
   const { totalCount, recruitingCount } = await fetchClubStats();
 
   return (
-    <div className="duing flex min-h-screen">
+    <div className="duing flex min-h-dvh">
       {/* ─── Left decorative panel ─── */}
       <aside className="relative hidden overflow-hidden lg:flex lg:w-[420px] lg:shrink-0 lg:flex-col xl:w-[480px] bg-ink-deep">
         <div className="absolute inset-0 bg-grid opacity-20" />
@@ -33,7 +33,7 @@ export default async function LoginPage() {
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide16 text-sage-soft">
             WELCOME BACK
           </p>
-          <h2 className="mb-4 text-[2.5rem] font-bold leading-tight tracking-tightx text-paper">
+          <h2 className="mb-4 text-[2.5rem] font-bold leading-tight tracking-tightx !text-cream">
             다시 만나서
             <br />
             반가워요

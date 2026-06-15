@@ -1,7 +1,9 @@
 package com.duing.domain.club.repository;
 
+import static com.duing.domain.application.entity.QApplication.application;
 import static com.duing.domain.club.entity.QClub.club;
 import static com.duing.domain.clubmember.entity.QClubMember.clubMember;
+import static com.duing.domain.favorite.entity.QClubFavorite.clubFavorite;
 import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
 import static com.duing.domain.user.entity.QUser.user;
 
@@ -26,8 +28,12 @@ import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -52,6 +58,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 recruitmentStatusFilter(effectiveStatus),
                 centralClubEq(condition.centralClub()),
                 collegeEq(condition.college()),
+                activeDaysOverlap(condition.effectiveActiveDays()),
         };
 
         List<Club> content = queryFactory
@@ -148,8 +155,21 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private BooleanExpression keywordContains(String keyword) {
         if (!StringUtils.hasText(keyword)) return null;
-        return club.name.containsIgnoreCase(keyword)
-                .or(club.description.containsIgnoreCase(keyword));
+        String normalized = keyword.replaceFirst("^#+", "").trim();
+        if (normalized.isEmpty()) return null;
+
+        // Hibernate HQL semantic 분석이 function() 의 String 반환 타입을 like 의 피연산자로
+        // 인식하지 못하는 케이스가 있어, stringTemplate 으로 명시적 String 타입을 부여한 뒤
+        // .like() 를 호출한다. ilike 를 위해 lower() 로 양쪽을 소문자화한다.
+        BooleanExpression tagMatch = Expressions.stringTemplate(
+                "lower(function('array_to_string', {0}, {1}))",
+                club.tags,
+                ","
+        ).like("%" + normalized.toLowerCase(Locale.ROOT) + "%");
+
+        return club.name.containsIgnoreCase(normalized)
+                .or(club.description.containsIgnoreCase(normalized))
+                .or(tagMatch);
     }
 
     private BooleanExpression tagsOverlap(List<String> tags) {
@@ -163,6 +183,20 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
         return Expressions.booleanTemplate(
                 "function('array_overlap_text', {0}, {1}) = true",
                 club.tags,
+                csv
+        );
+    }
+
+    private BooleanExpression activeDaysOverlap(Set<DayOfWeek> days) {
+        if (days == null) return null;
+        String csv = days.stream()
+                .map(DayOfWeek::name)
+                .collect(Collectors.joining(","));
+        // active_days 는 CSV TEXT. array_overlap_csv 가 양쪽을 string_to_array 로 펼쳐
+        // PostgreSQL && 로 한 원소라도 겹치는지 검사한다. 빈 문자열은 nullif 로 NULL 처리.
+        return Expressions.booleanTemplate(
+                "function('array_overlap_csv', {0}, {1}) = true",
+                club.activeDays,
                 csv
         );
     }
@@ -284,6 +318,40 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                         new OrderSpecifier<>(Order.ASC, openEndDateAsc, OrderSpecifier.NullHandling.NullsLast),
                         new OrderSpecifier<>(Order.ASC, upcomingStartDateAsc, OrderSpecifier.NullHandling.NullsLast),
                         new OrderSpecifier<>(Order.DESC, closedEndDateDesc, OrderSpecifier.NullHandling.NullsLast),
+                        club.createdAt.desc()
+                };
+            }
+            case POPULAR -> {
+                LocalDate today = LocalDate.now();
+
+                // tier 1: 활성 모집들의 application 수 합
+                var applicationCount = JPAExpressions.select(application.count())
+                        .from(application)
+                        .join(application.recruitment, recruitment)
+                        .where(recruitment.club.eq(club),
+                                recruitment.status.eq(RecruitmentStatus.OPEN),
+                                recruitment.startDate.loe(today),
+                                recruitment.endDate.isNull().or(recruitment.endDate.goe(today)));
+
+                // tier 2: 즐겨찾기 수
+                var favoriteCount = JPAExpressions.select(clubFavorite.count())
+                        .from(clubFavorite)
+                        .where(clubFavorite.club.eq(club));
+
+                // tier 3: 가장 최근 활성 모집의 시작일
+                var latestActiveStart = JPAExpressions.select(recruitment.startDate.max())
+                        .from(recruitment)
+                        .where(recruitment.club.eq(club),
+                                recruitment.status.eq(RecruitmentStatus.OPEN),
+                                recruitment.startDate.loe(today),
+                                recruitment.endDate.isNull().or(recruitment.endDate.goe(today)));
+
+                // tier 1·2 는 COUNT 가 0 반환 → DESC 정렬 시 자연스럽게 후순위.
+                // tier 3 만 활성 모집 부재 시 NULL 가능 → NULLS LAST 명시.
+                yield new OrderSpecifier<?>[]{
+                        new OrderSpecifier<>(Order.DESC, applicationCount),
+                        new OrderSpecifier<>(Order.DESC, favoriteCount),
+                        new OrderSpecifier<>(Order.DESC, latestActiveStart, OrderSpecifier.NullHandling.NullsLast),
                         club.createdAt.desc()
                 };
             }

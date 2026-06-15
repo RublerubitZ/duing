@@ -14,6 +14,8 @@ import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
+import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -21,16 +23,21 @@ import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.draft.service.ApplicationDraftService;
+import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
+import com.duing.domain.interview.repository.InterviewSlotRepository;
+import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.global.notification.InterviewNotificationService;
+import java.time.Clock;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 
 class ApplicationStatusServiceTest {
@@ -40,9 +47,15 @@ class ApplicationStatusServiceTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
-    private final InterviewNotificationService interviewNotificationService = mock(InterviewNotificationService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
-    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+    private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
+    private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
+    private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
+    private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
+    private final InterviewRoundRepository interviewRoundRepository = mock(InterviewRoundRepository.class);
+    private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
+    private final InterviewRoundMemberRepositoryCustom interviewRoundMemberRepository = mock(InterviewRoundMemberRepositoryCustom.class);
+    private final Clock clock = Clock.systemDefaultZone();
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
             applicationRepository,
@@ -50,9 +63,15 @@ class ApplicationStatusServiceTest {
             userRepository,
             clubMemberRepository,
             clubAuthService,
-            interviewNotificationService,
             applicationDraftService,
-            eventPublisher);
+            applicationStatusHistoryRepository,
+            applicationEvaluationRepository,
+            interviewAvailabilityRepository,
+            interviewScheduleRepository,
+            interviewRoundRepository,
+            interviewSlotRepository,
+            interviewRoundMemberRepository,
+            clock);
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더
@@ -90,6 +109,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         applicationService.updateStatus(
                 new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.UNDER_REVIEW));
@@ -121,7 +141,8 @@ class ApplicationStatusServiceTest {
                 new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ACCEPTED)))
                 .isInstanceOf(ApplicationDomainException.InvalidStatusTransitionException.class);
 
-        // 상태 전이가 차단되므로 ClubMember 행 조작은 발생하지 않아야 한다
+        // 상태 전이가 차단되므로 userRepository 조회 및 ClubMember 행 조작은 발생하지 않아야 한다
+        verify(userRepository, never()).findById(any());
         verify(clubMemberRepository, never()).findByClubIdAndUserId(any(), any());
         verify(clubMemberRepository, never()).save(any());
     }
@@ -140,6 +161,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.OFFICER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
         when(clubMemberRepository.findByClubIdAndUserId(clubId, applicantId))
                 .thenReturn(Optional.empty());
 
@@ -165,6 +187,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.OFFICER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         ClubMember existingMembership = mock(ClubMember.class);
         when(existingMembership.getRole()).thenReturn(ClubMemberRole.MEMBER);
@@ -192,6 +215,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         ClubMember existingMembership = mock(ClubMember.class);
         when(existingMembership.getRole()).thenReturn(ClubMemberRole.OFFICER);
@@ -229,5 +253,34 @@ class ApplicationStatusServiceTest {
 
         // 권한 차단 후 상태 변경 로직이 실행되어서는 안 된다
         verify(application, never()).transitionTo(any(), any(boolean.class));
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // 7. OptimisticLock 충돌은 도메인 예외(ConcurrentStatusUpdateException) 로 변환된다
+    //    — bulkUpdateStatus 의 ApplicationException 분기로 흘러가야 사용자 메시지가 정확히 응답된다.
+    // ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("flush 시점에 ObjectOptimisticLockingFailureException 이 발생하면 ConcurrentStatusUpdateException 으로 변환된다")
+    void optimisticLockFailureIsConvertedToDomainException() {
+        Long applicationId = 7L;
+        Long managerId = 10L;
+        Long clubId = 5L;
+
+        Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
+
+        // 다른 트랜잭션이 먼저 status 를 변경한 상황을 모사한다.
+        doThrow(new ObjectOptimisticLockingFailureException(Application.class, applicationId))
+                .when(applicationRepository).flush();
+
+        assertThatThrownBy(() -> applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.REJECTED)))
+                .isInstanceOf(ApplicationDomainException.ConcurrentStatusUpdateException.class);
+
+        // 권한 확인 및 도메인 전이는 충돌 검출 이전에 호출되었어야 한다
+        verify(clubAuthService).requireManager(managerId, clubId);
+        verify(application).transitionTo(ApplicationStatus.REJECTED, false);
     }
 }

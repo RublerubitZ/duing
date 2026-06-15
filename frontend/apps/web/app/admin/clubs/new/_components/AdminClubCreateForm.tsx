@@ -8,8 +8,10 @@ import { ApiError } from '@duing/api';
 import { useCreateClubMutation } from '@duing/hooks';
 import type { AdminUserSearchResult, ClubCategory, College, CreateClubPayload } from '@duing/types';
 import { LeaderSearchCombobox } from '../../_components/LeaderSearchCombobox';
+import { ImageUploader } from '../../../../_components/ImageUploader';
 import { toRoute } from '../../../../_lib/route';
 import { COLLEGE_OPTIONS } from '../../../../_lib/college';
+import { DIVISIONS } from '../../../../clubs/_lib/clubs';
 
 const CATEGORIES: ReadonlyArray<ClubCategory> = [
   'ACADEMIC',
@@ -53,7 +55,7 @@ export function AdminClubCreateForm() {
     if (trimmedName.length === 0) return '동아리 이름은 필수 입력값입니다.';
     if (trimmedName.length > 100) return '동아리 이름은 100자 이하여야 합니다.';
     if (division.trim().length > 50) return '분류는 50자 이하여야 합니다.';
-    if (logoUrl.trim().length > 500) return '로고 URL은 500자 이하여야 합니다.';
+    if (logoUrl.trim().length > 500) return '로고 이미지 경로가 너무 깁니다.';
     if (!leader) return '동아리장(회장) 을 검색해 선택해주세요.';
     return null;
   }
@@ -121,44 +123,49 @@ export function AdminClubCreateForm() {
         </select>
       </Field>
 
-      <Field label="분류 (학생회 / 분과 등)">
-        <input
-          type="text"
-          value={division}
-          onChange={(event) => setDivision(event.target.value)}
-          maxLength={50}
-          placeholder="예: 컴퓨터정보공학부"
-          className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
-        />
-      </Field>
-
-      <label className="block">
-        <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">
-          단과대학 (학과동아리만 해당, 선택)
-        </span>
-        <select
-          value={college}
-          onChange={(event) => setCollege(event.target.value as College | '')}
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
-        >
-          <option value="">선택 안 함 (중앙동아리)</option>
-          {COLLEGE_OPTIONS.map((option) => (
-            <option key={option.code} value={option.code}>{option.label}</option>
-          ))}
-        </select>
-      </label>
-
       <Field label="중앙동아리 여부">
         <label className="inline-flex items-center gap-2 text-sm text-slate-700">
           <input
             type="checkbox"
             checked={centralClub}
-            onChange={(event) => setCentralClub(event.target.checked)}
+            onChange={(event) => {
+              setCentralClub(event.target.checked);
+              setDivision('');
+              setCollege('');
+            }}
             className="h-4 w-4 rounded border-slate-300"
           />
           중앙동아리로 지정 (공개 화면에 🏛️ 배지 노출)
         </label>
       </Field>
+
+      {centralClub ? (
+        <Field label="분과">
+          <select
+            value={division}
+            onChange={(event) => setDivision(event.target.value)}
+            className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">분과 선택</option>
+            {DIVISIONS.map((option) => (
+              <option key={option} value={option}>{option}분과</option>
+            ))}
+          </select>
+        </Field>
+      ) : (
+        <Field label="단과대학">
+          <select
+            value={college}
+            onChange={(event) => setCollege(event.target.value as College | '')}
+            className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">단과대학 선택</option>
+            {COLLEGE_OPTIONS.map((option) => (
+              <option key={option.code} value={option.code}>{option.label}</option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       <Field label="설명">
         <textarea
@@ -170,14 +177,14 @@ export function AdminClubCreateForm() {
         />
       </Field>
 
-      <Field label="로고 URL">
-        <input
-          type="url"
+      <Field label="로고 이미지 (선택)">
+        <ImageUploader
           value={logoUrl}
-          onChange={(event) => setLogoUrl(event.target.value)}
-          maxLength={500}
-          placeholder="https://..."
-          className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          onChange={setLogoUrl}
+          purpose="LOGO"
+          aspectRatio="1/1"
+          placeholder="로고 이미지를 업로드하세요 (선택)"
+          altText="로고"
         />
       </Field>
 

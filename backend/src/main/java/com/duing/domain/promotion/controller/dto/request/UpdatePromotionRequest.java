@@ -1,14 +1,19 @@
 package com.duing.domain.promotion.controller.dto.request;
 
 import com.duing.domain.promotion.entity.PromotionPalette;
+import com.duing.domain.promotion.entity.PromotionRenderMode;
 import com.duing.domain.promotion.service.dto.command.UpdatePromotionCommand;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.time.LocalDateTime;
 
 public record UpdatePromotionRequest(
         @Size(max = 120, message = "제목은 120자 이하여야 합니다.") String title,
         @Size(max = 500, message = "배너 이미지 URL은 500자 이하여야 합니다.") String bannerImageUrl,
-        @Size(max = 2000, message = "링크는 2000자 이하여야 합니다.") String linkUrl,
+        @Size(max = 2000, message = "링크는 2000자 이하여야 합니다.")
+        @Pattern(regexp = "^$|^https?://.+$", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.") String linkUrl,
         Long clubId,
         Boolean active,
         @Min(value = 0, message = "정렬 순서는 0 이상이어야 합니다.") Integer displayOrder,
@@ -18,16 +23,56 @@ public record UpdatePromotionRequest(
         @Size(max = 40, message = "CTA 라벨은 40자 이하여야 합니다.") String ctaLabel,
         @Size(max = 8, message = "이모지는 8자 이하여야 합니다.") String emoji,
         PromotionPalette palette,
+        PromotionRenderMode renderMode,
+        @Size(max = 200, message = "Alt Text는 200자 이하여야 합니다.") String imageAltText,
+        LocalDateTime startAt,
+        LocalDateTime endAt,
         Boolean clearBannerImageUrl,
+        Boolean clearLinkUrl,
         Boolean clearTag,
         Boolean clearSubtitle,
         Boolean clearCtaLabel,
-        Boolean clearEmoji
+        Boolean clearEmoji,
+        Boolean clearStartAt,
+        Boolean clearEndAt,
+        Boolean clearImageAltText,
+        Long noticeId,
+        Boolean clearNoticeId
 ) {
+    @AssertTrue(message = "노출 종료 시각은 시작 시각 이후여야 합니다.")
+    public boolean isScheduleRangeValid() {
+        return startAt == null || endAt == null || startAt.isBefore(endAt);
+    }
+
+    @AssertTrue(message = "완성 이미지형 배너는 Alt Text가 필수입니다.")
+    public boolean isImageAltTextRequiredForFullBleed() {
+        return renderMode != PromotionRenderMode.FULL_BLEED_IMAGE
+                || (imageAltText != null && !imageAltText.isBlank());
+    }
+
+    @AssertTrue(message = "완성 이미지형 배너는 배너 이미지가 필수입니다.")
+    public boolean isBannerImageRequiredForFullBleed() {
+        return renderMode != PromotionRenderMode.FULL_BLEED_IMAGE
+                || (bannerImageUrl != null && !bannerImageUrl.isBlank());
+    }
+
+    @AssertTrue(message = "링크 대상은 외부 URL / 공지 / 동아리 중 하나만 선택 가능합니다.")
+    public boolean isSingleLinkTarget() {
+        int count = 0;
+        if (linkUrl != null && !linkUrl.isBlank()) count++;
+        if (noticeId != null) count++;
+        if (clubId != null) count++;
+        return count <= 1;
+    }
+
     public UpdatePromotionCommand toCommand(Long promotionId) {
         return new UpdatePromotionCommand(
                 promotionId, title, bannerImageUrl, linkUrl, clubId, active, displayOrder, clearClubId,
                 tag, subtitle, ctaLabel, emoji, palette,
-                clearBannerImageUrl, clearTag, clearSubtitle, clearCtaLabel, clearEmoji);
+                renderMode, imageAltText,
+                startAt, endAt,
+                clearBannerImageUrl, clearLinkUrl, clearTag, clearSubtitle, clearCtaLabel, clearEmoji,
+                clearStartAt, clearEndAt,
+                clearImageAltText, noticeId, clearNoticeId);
     }
 }

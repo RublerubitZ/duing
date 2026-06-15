@@ -2,6 +2,7 @@ package com.duing.domain.promotion.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,11 +14,15 @@ class PromotionTest {
         Promotion promotion = Promotion.create(
                 42L, "행사 배너", "/files/banner.png", "https://example.com",
                 false, 10, 99L,
-                null, null, null, null, PromotionPalette.INK);
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
         assertThat(promotion.isActive()).isFalse();
         assertThat(promotion.getDisplayOrder()).isEqualTo(10);
         assertThat(promotion.getCreatedBy()).isEqualTo(99L);
         assertThat(promotion.getPalette()).isEqualTo(PromotionPalette.INK);
+        assertThat(promotion.getStartAt()).isNull();
+        assertThat(promotion.getEndAt()).isNull();
     }
 
     @Test
@@ -25,8 +30,24 @@ class PromotionTest {
     void paletteNullFallsBackToInk() {
         Promotion promotion = Promotion.create(
                 null, "T", null, null, true, 0, 1L,
-                null, null, null, null, null);
+                null, null, null, null, null,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
         assertThat(promotion.getPalette()).isEqualTo(PromotionPalette.INK);
+    }
+
+    @Test
+    @DisplayName("startAt/endAt 가 지정되어 생성되면 그대로 저장된다")
+    void createWithSchedule() {
+        LocalDateTime start = LocalDateTime.of(2026, 6, 1, 0, 0);
+        LocalDateTime end = LocalDateTime.of(2026, 6, 10, 0, 0);
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 1L,
+                null, null, null, null, PromotionPalette.INK,
+                start, end,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
+        assertThat(promotion.getStartAt()).isEqualTo(start);
+        assertThat(promotion.getEndAt()).isEqualTo(end);
     }
 
     @Test
@@ -34,12 +55,18 @@ class PromotionTest {
     void partialUpdate() {
         Promotion promotion = Promotion.create(
                 42L, "원래 제목", "/files/old.png", "https://old", true, 1, 99L,
-                "TAG", "sub", "더보기", "🎉", PromotionPalette.SAGE);
+                "TAG", "sub", "더보기", "🎉", PromotionPalette.SAGE,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
 
         promotion.update(new Promotion.UpdatePayload(
                 "새 제목", null, null, null, false, null, null,
                 null, null, null, null, null,
-                null, null, null, null, null));
+                null, null,
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null, null, null));
 
         assertThat(promotion.getTitle()).isEqualTo("새 제목");
         assertThat(promotion.getBannerImageUrl()).isEqualTo("/files/old.png");
@@ -55,11 +82,17 @@ class PromotionTest {
     void clearClubId() {
         Promotion promotion = Promotion.create(
                 42L, "T", "/files/b.png", null, true, 0, 99L,
-                null, null, null, null, PromotionPalette.INK);
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
         promotion.update(new Promotion.UpdatePayload(
                 null, null, null, null, null, null, true,
                 null, null, null, null, null,
-                null, null, null, null, null));
+                null, null,
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null, null, null));
         assertThat(promotion.getClubId()).isNull();
     }
 
@@ -68,11 +101,17 @@ class PromotionTest {
     void updateClubIdWithClearPrecedence() {
         Promotion promotion = Promotion.create(
                 42L, "T", "/files/b.png", null, true, 0, 99L,
-                null, null, null, null, PromotionPalette.INK);
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
         promotion.update(new Promotion.UpdatePayload(
                 null, null, null, 7L, null, null, true,
                 null, null, null, null, null,
-                null, null, null, null, null));
+                null, null,
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null, null, null));
         assertThat(promotion.getClubId()).isNull();
     }
 
@@ -81,12 +120,252 @@ class PromotionTest {
     void clearBannerImageUrl() {
         Promotion promotion = Promotion.create(
                 null, "T", "/files/b.png", null, true, 0, 99L,
-                null, null, null, null, PromotionPalette.WARM);
+                null, null, null, null, PromotionPalette.WARM,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
         promotion.update(new Promotion.UpdatePayload(
                 null, null, null, null, null, null, null,
                 null, null, null, null, null,
-                true, null, null, null, null));
+                null, null,
+                null, null,
+                true, null, null, null, null, null,
+                null, null,
+                null, null, null));
         assertThat(promotion.getBannerImageUrl()).isNull();
         assertThat(promotion.getPalette()).isEqualTo(PromotionPalette.WARM);
+    }
+
+    @Test
+    @DisplayName("clearLinkUrl=true 면 linkUrl 이 null 로 비워진다")
+    void clearLinkUrl() {
+        Promotion promotion = Promotion.create(
+                42L, "T", "/files/b.png", "https://old.example.com", true, 0, 99L,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                null, null,
+                null, null,
+                null, true, null, null, null, null,
+                null, null,
+                null, null, null));
+        assertThat(promotion.getLinkUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("clearLinkUrl=true 가 linkUrl=새 값 보다 우선 적용된다")
+    void clearLinkUrlPrecedence() {
+        Promotion promotion = Promotion.create(
+                42L, "T", "/files/b.png", "https://old.example.com", true, 0, 99L,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, "https://new.example.com", null, null, null, null,
+                null, null, null, null, null,
+                null, null,
+                null, null,
+                null, true, null, null, null, null,
+                null, null,
+                null, null, null));
+        assertThat(promotion.getLinkUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("startAt/endAt 갱신은 명시된 값으로 덮어쓴다")
+    void updateSchedule() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 99L,
+                null, null, null, null, PromotionPalette.INK,
+                LocalDateTime.of(2026, 6, 1, 0, 0), LocalDateTime.of(2026, 6, 10, 0, 0),
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
+        LocalDateTime newStart = LocalDateTime.of(2026, 7, 1, 0, 0);
+        LocalDateTime newEnd = LocalDateTime.of(2026, 7, 20, 0, 0);
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                null, null,
+                newStart, newEnd,
+                null, null, null, null, null, null,
+                null, null,
+                null, null, null));
+        assertThat(promotion.getStartAt()).isEqualTo(newStart);
+        assertThat(promotion.getEndAt()).isEqualTo(newEnd);
+    }
+
+    @Test
+    @DisplayName("clearStartAt=true / clearEndAt=true 면 기간이 비워져 상시 노출이 된다")
+    void clearSchedule() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 99L,
+                null, null, null, null, PromotionPalette.INK,
+                LocalDateTime.of(2026, 6, 1, 0, 0), LocalDateTime.of(2026, 6, 10, 0, 0),
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                null, null,
+                null, null,
+                null, null, null, null, null, null,
+                true, true,
+                null, null, null));
+        assertThat(promotion.getStartAt()).isNull();
+        assertThat(promotion.getEndAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("renderMode 가 명시되지 않은 create 는 SYSTEM_COMPOSED 로 폴백된다")
+    void createDefaultsToSystemComposed() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 1L,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                null, null, null);
+        assertThat(promotion.getRenderMode()).isEqualTo(PromotionRenderMode.SYSTEM_COMPOSED);
+        assertThat(promotion.getImageAltText()).isNull();
+    }
+
+    @Test
+    @DisplayName("FULL_BLEED_IMAGE + imageAltText 가 지정된 create 는 그대로 저장된다")
+    void createWithFullBleed() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 1L,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.FULL_BLEED_IMAGE, "2026 해커톤 포스터", null);
+        assertThat(promotion.getRenderMode()).isEqualTo(PromotionRenderMode.FULL_BLEED_IMAGE);
+        assertThat(promotion.getImageAltText()).isEqualTo("2026 해커톤 포스터");
+    }
+
+    @Test
+    @DisplayName("update 에서 renderMode 가 null 이면 기존 모드를 유지한다 (partial-update 규칙)")
+    void updateRenderModeNullIsNoChange() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 1L,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.FULL_BLEED_IMAGE, "alt", null);
+        promotion.update(new Promotion.UpdatePayload(
+                "새 제목", null, null, null, null, null, null,
+                null, null, null, null, null,
+                null, null,
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null, null, null));
+        assertThat(promotion.getRenderMode()).isEqualTo(PromotionRenderMode.FULL_BLEED_IMAGE);
+        assertThat(promotion.getImageAltText()).isEqualTo("alt");
+    }
+
+    @Test
+    @DisplayName("renderMode 만 토글하는 update 가 다른 필드를 건드리지 않는다 (모드 보존 가드)")
+    void updateRenderModeToggleDoesNotClearOtherFields() {
+        Promotion promotion = Promotion.create(
+                null, "원래 제목", "/files/b.png", "https://x", true, 0, 1L,
+                "TAG", "sub", "CTA", "🎉", PromotionPalette.WARM,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                PromotionRenderMode.FULL_BLEED_IMAGE, null,
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null, null, null));
+        assertThat(promotion.getRenderMode()).isEqualTo(PromotionRenderMode.FULL_BLEED_IMAGE);
+        assertThat(promotion.getTitle()).isEqualTo("원래 제목");
+        assertThat(promotion.getTag()).isEqualTo("TAG");
+        assertThat(promotion.getSubtitle()).isEqualTo("sub");
+        assertThat(promotion.getCtaLabel()).isEqualTo("CTA");
+        assertThat(promotion.getEmoji()).isEqualTo("🎉");
+        assertThat(promotion.getPalette()).isEqualTo(PromotionPalette.WARM);
+        assertThat(promotion.getLinkUrl()).isEqualTo("https://x");
+        assertThat(promotion.getBannerImageUrl()).isEqualTo("/files/b.png");
+    }
+
+    @Test
+    @DisplayName("clearImageAltText=true 면 imageAltText 가 null 로 비워진다")
+    void clearImageAltText() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 1L,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, "기존 alt", null);
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                null, null,
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                true, null, null));
+        assertThat(promotion.getImageAltText()).isNull();
+    }
+
+    @Test
+    @DisplayName("FULL_BLEED 로 update 후 SYSTEM_COMPOSED 로 되돌리면 imageAltText 가 보존된다 (왕복 토글 보존)")
+    void updateRenderModeRoundTripPreservesImageAltText() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 1L,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null);
+        // 1) SYSTEM → FULL_BLEED 로 전환하며 alt 입력
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                PromotionRenderMode.FULL_BLEED_IMAGE, "포스터 alt",
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null, null, null));
+        assertThat(promotion.getImageAltText()).isEqualTo("포스터 alt");
+        // 2) FULL_BLEED → SYSTEM 으로 되돌릴 때 imageAltText 는 보존되어야 한다
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null, null, null));
+        assertThat(promotion.getRenderMode()).isEqualTo(PromotionRenderMode.SYSTEM_COMPOSED);
+        assertThat(promotion.getImageAltText()).isEqualTo("포스터 alt");
+    }
+
+    @Test
+    @DisplayName("noticeId 가 지정된 create 는 그대로 저장된다")
+    void createWithNoticeId() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 1L,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                42L);
+        assertThat(promotion.getNoticeId()).isEqualTo(42L);
+    }
+
+    @Test
+    @DisplayName("clearNoticeId=true 면 noticeId 가 null 로 비워진다")
+    void clearNoticeId() {
+        Promotion promotion = Promotion.create(
+                null, "T", "/files/b.png", null, true, 0, 1L,
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                42L);
+        promotion.update(new Promotion.UpdatePayload(
+                null, null, null, null, null, null, null,
+                null, null, null, null, null,
+                null, null,
+                null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null,
+                null, true));
+        assertThat(promotion.getNoticeId()).isNull();
     }
 }

@@ -31,19 +31,28 @@ public class JwtTokenProvider {
     }
 
     public String createToken(Long userId, String role) {
+        return createToken(userId, role, 0);
+    }
+
+    public String createToken(Long userId, String role, int tokenVersion) {
         Date now = new Date();
         return JWT.create()
                 .withSubject(String.valueOf(userId))
                 .withClaim("role", role)
+                .withClaim("tokenVersion", tokenVersion)
                 .withIssuedAt(now)
                 .withExpiresAt(new Date(now.getTime() + expiryMs))
                 .sign(algorithm);
     }
 
-    public UserPrincipal parse(String token) throws JWTVerificationException {
+    public TokenClaims parse(String token) throws JWTVerificationException {
         DecodedJWT decoded = verifier.verify(token);
         Long userId = Long.parseLong(decoded.getSubject());
-        String role = decoded.getClaim("role").asString();
-        return UserPrincipal.of(userId, role);
+        Integer tokenVersion = decoded.getClaim("tokenVersion").asInt();
+        // 이 변경 이전에 발급된 토큰은 tokenVersion 클레임이 없으므로 0(기본값)으로 간주한다.
+        return new TokenClaims(userId, tokenVersion == null ? 0 : tokenVersion);
+    }
+
+    public record TokenClaims(Long userId, int tokenVersion) {
     }
 }

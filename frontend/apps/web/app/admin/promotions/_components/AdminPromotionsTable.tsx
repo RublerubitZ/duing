@@ -2,8 +2,16 @@
 
 import Link from 'next/link';
 import type { AdminPromotionSummary } from '@duing/types';
+import { ImageWithFallback } from '../../../_components/ImageWithFallback';
 import { toRoute } from '../../../_lib/route';
-import { CURATION_LABEL, getActiveBadgeClass, getActiveLabel } from '../_lib/promotionLabels';
+import {
+  CURATION_LABEL,
+  DISPLAY_STATUS_BADGE_CLASS,
+  DISPLAY_STATUS_LABEL,
+  RENDER_MODE_BADGE_CLASS,
+  RENDER_MODE_LABEL,
+  resolveDisplayStatus,
+} from '../_lib/promotionLabels';
 
 type Props = {
   items: AdminPromotionSummary[];
@@ -27,7 +35,9 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
             <Th>썸네일</Th>
             <Th>제목</Th>
             <Th>동아리</Th>
-            <Th>활성</Th>
+            <Th>유형</Th>
+            <Th>상태</Th>
+            <Th>노출 기간</Th>
             <Th>순서</Th>
             <Th>등록자</Th>
             <Th>등록일</Th>
@@ -38,20 +48,12 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
           {items.map((promotion) => (
             <tr key={promotion.id} className="border-t border-line">
               <Td>
-                <div className="relative w-16 h-9 rounded overflow-hidden bg-graysoft">
-                  {promotion.bannerImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL (Local / Supabase Storage)
-                    <img
-                      src={promotion.bannerImageUrl}
-                      alt={promotion.title}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="absolute inset-0 grid place-items-center text-[9px] text-charcoal-3">
-                      이미지 없음
-                    </span>
-                  )}
-                </div>
+                <ImageWithFallback
+                  src={promotion.bannerImageUrl}
+                  alt={promotion.title}
+                  className="w-16 h-9 rounded overflow-hidden"
+                  emptyMessage="이미지 없음"
+                />
               </Td>
               <Td>
                 <Link
@@ -70,9 +72,32 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
               </Td>
               <Td>
                 <span
-                  className={`inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold ${getActiveBadgeClass(promotion.active)}`}
+                  className={`inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold ${RENDER_MODE_BADGE_CLASS[promotion.renderMode]}`}
                 >
-                  {getActiveLabel(promotion.active)}
+                  {RENDER_MODE_LABEL[promotion.renderMode]}
+                </span>
+              </Td>
+              <Td>
+                {(() => {
+                  const status = resolveDisplayStatus(
+                    promotion.active,
+                    promotion.startAt,
+                    promotion.endAt,
+                  );
+                  return (
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold ${DISPLAY_STATUS_BADGE_CLASS[status]}`}
+                    >
+                      {DISPLAY_STATUS_LABEL[status]}
+                    </span>
+                  );
+                })()}
+              </Td>
+              <Td>
+                <span className="text-charcoal-3 text-[12px]">
+                  {promotion.startAt === null && promotion.endAt === null
+                    ? '상시'
+                    : `${formatScheduleEdge(promotion.startAt) ?? '즉시'} ~ ${formatScheduleEdge(promotion.endAt) ?? '무기한'}`}
                 </span>
               </Td>
               <Td>{promotion.displayOrder}</Td>
@@ -109,3 +134,9 @@ const Th = ({ children }: { children: React.ReactNode }) => (
 const Td = ({ children }: { children: React.ReactNode }) => (
   <td className="px-3 py-2 align-middle">{children}</td>
 );
+
+function formatScheduleEdge(iso: string | null): string | null {
+  if (iso === null) return null;
+  const date = new Date(iso);
+  return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}

@@ -10,6 +10,7 @@ type Props = {
 
 export function NoticeTagInput({ value, onChange, max = 8 }: Props) {
   const [draft, setDraft] = useState('');
+  const [isComposing, setIsComposing] = useState(false);
 
   const addTag = () => {
     const tag = draft.trim();
@@ -45,7 +46,14 @@ export function NoticeTagInput({ value, onChange, max = 8 }: Props) {
           type="text"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
           onKeyDown={(event) => {
+            // 한글 등 IME 조합 중/확정 keydown 은 무시한다 (동아리 TagsInput #269 와 동일 가드).
+            // isComposing 단독으로는 일부 브라우저의 확정 keydown(keyCode 229, isComposing=false)을
+            // 놓쳐 "안녕" → "안녕"+"녕" 이중 등록이 발생하므로 keyCode 229·조합 상태도 함께 확인한다.
+            if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+            if (isComposing) return;
             if (event.key === 'Enter') {
               event.preventDefault();
               addTag();

@@ -8,6 +8,7 @@ import com.duing.domain.notice.broadcast.entity.NoticeBroadcastRead;
 import com.duing.domain.notice.broadcast.repository.NoticeBroadcastRepositoryCustom.BroadcastSlice;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.repository.NoticeRepository;
 import com.duing.domain.user.entity.College;
@@ -23,13 +24,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
-@DirtiesContext
 class NoticeBroadcastRepositoryImplTest {
 
     @Autowired NoticeBroadcastRepository broadcastRepository;
@@ -129,7 +128,8 @@ class NoticeBroadcastRepositoryImplTest {
         return noticeRepository.save(Notice.create(
                 "공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
-                NoticeVisibility.PUBLIC, null, false, null, true, authorId));
+                NoticeVisibility.PUBLIC, null, false, null, true,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
     }
 
     private Long saveUser(UserRole role) {

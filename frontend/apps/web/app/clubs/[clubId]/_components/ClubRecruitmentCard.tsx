@@ -1,15 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import type { StudentRecruitmentProjection } from '@duing/types';
-import { useAuthStore } from '@duing/stores';
 import {
   displayStatusLabel,
   recruitmentDaysLeft,
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
-import { toRoute } from '../../../_lib/route';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
+import { useClubApply } from '../_lib/useClubApply';
 
 type Props = {
   /** 진행 중인 모집(없으면 undefined). 모집중·예정·상시·마감 모두 받아 처리한다. */
@@ -18,11 +16,9 @@ type Props = {
 };
 
 export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
-  const authStatus = useAuthStore((state) => state.status);
-  const router = useRouter();
+  const { canApply, handleApply, applyButtonLabel } = useClubApply(recruitment);
 
   const status = recruitment?.displayStatus;
-  const canApply = status === 'OPEN' || status === 'ALWAYS_OPEN';
   const daysLeft = recruitment ? recruitmentDaysLeft(recruitment.endDate) : null;
 
   const header = (() => {
@@ -41,27 +37,9 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
     return '이번 모집은\n종료됐어요';
   })();
 
-  const applyButtonLabel = recruitment?.applicationMode === 'EXTERNAL'
-    ? '외부 폼으로 이동'
-    : '지원하기';
-
-  function handleApply() {
-    if (!recruitment || !canApply) return;
-    if (recruitment.applicationMode === 'EXTERNAL' && recruitment.externalFormUrl) {
-      window.open(recruitment.externalFormUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    const applyPath: `/${string}` = `/apply/${recruitment.id}`;
-    if (authStatus !== 'authenticated') {
-      router.push(toRoute(`/login?next=${encodeURIComponent(applyPath)}`));
-      return;
-    }
-    router.push(toRoute(applyPath));
-  }
-
   return (
     <aside className="space-y-4">
-      <div className="sticky top-6 rounded-[24px] border border-line bg-paper p-7 shadow-2">
+      <div className="lg:sticky lg:top-6 rounded-[24px] border border-line bg-paper p-7 shadow-2">
         <div className="mb-3 text-xs font-bold tracking-wide06 text-ink">
           {header}
         </div>

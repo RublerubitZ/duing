@@ -9,6 +9,9 @@ spring:
     name: duing
   servlet:
     multipart:
+      # 이미지 업로드 정책 한도는 FileUploadPolicy.MAX_BYTES (5MB). 서블릿 한도는
+      # 그보다 큰 값을 두어 5MB 초과 파일도 우리 검증(FileController.validate)이 먼저
+      # 받아 한국어 400 메시지를 내려준다. ClubPhoto 등 향후 다른 업로드까지 감안해 10MB.
       max-file-size: 10MB
       max-request-size: 10MB
   jpa:
@@ -38,13 +41,24 @@ springdoc:
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/tmp/duing/uploads}
   storage:
-    provider: ${FILE_STORAGE_PROVIDER:local}   # local | supabase
+    provider: ${FILE_STORAGE_PROVIDER:local}   # local | s3  (test 전용: stub)
 
-supabase:
-  storage:
-    url: ${SUPABASE_URL:}
-    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
-    bucket: ${SUPABASE_STORAGE_BUCKET:duing}
+s3:
+  endpoint: ${S3_ENDPOINT:}
+  region: ${S3_REGION:auto}
+  access-key: ${S3_ACCESS_KEY:}
+  secret-key: ${S3_SECRET_KEY:}
+  bucket: ${S3_BUCKET:duing}
+  public-base-url: ${S3_PUBLIC_BASE_URL:}
+
+email:
+  provider: ${EMAIL_PROVIDER:logging}   # logging | resend  (test 전용: stub)
+  verification:
+    secret: ${EMAIL_VERIFICATION_SECRET}   # HMAC 키 — 기본값 없음(필수), .env 로 주입
+
+resend:
+  api-key: ${RESEND_API_KEY}
+  from: '${RESEND_FROM:두잉 <noreply@duings.com>}'
 
 duing:
   notice:
@@ -52,8 +66,17 @@ duing:
   notification:
     jobs:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:false}
+  privacy:
+    retention:
+      # 탈퇴/폐쇄로 soft-delete 된 PII 의 보관기간 = 45일(P45D). 이후 파기 잡이 비식별화/삭제한다.
+      # 기본 비활성 — 운영에서 DUING_PII_RETENTION_ENABLED=true 주입 시 활성화(개인정보 처리방침의 45일 보관과 일치).
+      enabled: ${DUING_PII_RETENTION_ENABLED:false}
+      window: ${DUING_PII_RETENTION_WINDOW:P45D}
 
+# 기본은 안전값(warn). bind 파라미터 로깅(org.hibernate.orm.jdbc.bind=trace)은 이메일·인증코드·학번 등
+# PII 를 평문으로 남기므로 base 를 warn 으로 둔다. local 프로파일만 개발 편의로 trace 를 다시 켜고
+# (application-local.yml), 운영은 warn(application-prod.yml). 그 외/오설정 프로파일은 base warn 으로 안전하다.
 logging:
   level:
-    org.hibernate.SQL: debug
-    org.hibernate.orm.jdbc.bind: trace
+    org.hibernate.SQL: warn
+    org.hibernate.orm.jdbc.bind: warn

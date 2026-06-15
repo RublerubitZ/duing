@@ -19,3 +19,13 @@ export type TransferLeaderResult = {
   formerLeader: ClubMember;
   newLeader: ClubMember;
 };
+
+export type ClubMemberExportRow = {
+  memberId: number;
+  name: string;
+  studentId: string;
+  major: string;
+  phone: string | null;
+  role: ClubMemberRole;
+  joinedAt: string;
+};

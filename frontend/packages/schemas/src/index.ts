@@ -6,7 +6,7 @@ import { passwordSchema } from './password';
 
 export { passwordSchema } from './password';
 
-const GRADE_VALUES = ['FRESHMAN', 'SOPHOMORE', 'JUNIOR', 'SENIOR', 'GRADUATE_DEFERRED'] as const;
+const GRADE_VALUES = ['FRESHMAN', 'SOPHOMORE', 'JUNIOR', 'SENIOR', 'ON_LEAVE', 'GRADUATED'] as const;
 const COLLEGE_VALUES = [
   'PUBLIC_LEADERS',
   'GLOBAL_BUSINESS',
@@ -24,24 +24,30 @@ const COLLEGE_VALUES = [
   'FREE_MAJOR',
 ] as const;
 
+export const schoolEmailSchema = z
+  .string()
+  .min(1, '이메일은 필수 입력값입니다.')
+  .email('올바른 이메일 형식이 아닙니다.')
+  .max(100, '이메일은 100자 이하여야 합니다.')
+  .regex(
+    /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*daegu\.ac\.kr$/,
+    '대구대학교 이메일(@daegu.ac.kr)만 사용할 수 있습니다.',
+  );
+
+export const verificationCodeSchema = z
+  .string()
+  .regex(/^\d{6}$/, '인증코드는 6자리 숫자입니다.');
+
 export const signupSchema = z.object({
   studentId: z
     .string()
     .min(1, '학번은 필수 입력값입니다.')
-    .regex(/^\d{7,10}$/, '학번은 7~10자리 숫자여야 합니다.'),
+    .regex(/^\d{8}$/, '학번은 8자리 숫자여야 합니다.'),
   name: z
     .string()
     .min(1, '이름은 필수 입력값입니다.')
     .max(50, '이름은 50자 이하여야 합니다.'),
-  email: z
-    .string()
-    .min(1, '이메일은 필수 입력값입니다.')
-    .email('올바른 이메일 형식이 아닙니다.')
-    .max(100, '이메일은 100자 이하여야 합니다.')
-    .regex(
-      /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*daegu\.ac\.kr$/,
-      '대구대학교 이메일(@daegu.ac.kr)만 사용할 수 있습니다.',
-    ),
+  email: schoolEmailSchema,
   password: passwordSchema,
   grade: z.enum(GRADE_VALUES, { errorMap: () => ({ message: '학년을 선택해주세요.' }) }),
   college: z.enum(COLLEGE_VALUES, { errorMap: () => ({ message: '단과대학을 선택해주세요.' }) }),
@@ -285,6 +291,30 @@ export const submitPromotionRequestSchema = z.object({
 
 export type SubmitPromotionRequestInput = z.infer<typeof submitPromotionRequestSchema>;
 
+export const submitRecertificationRequestSchema = z.object({
+  contactEmail: z
+    .string()
+    .min(1, '이메일은 필수 입력값입니다.')
+    .email('이메일 형식이 올바르지 않습니다.')
+    .max(255, '이메일은 255자 이하여야 합니다.'),
+  contactPhone: z
+    .string()
+    .min(1, '연락처는 필수 입력값입니다.')
+    .max(40, '연락처는 40자 이하여야 합니다.'),
+  operatingYear: z
+    .number()
+    .int()
+    .min(2000, '운영 연도는 2000 이상이어야 합니다.')
+    .max(2100, '운영 연도는 2100 이하여야 합니다.'),
+  notes: z
+    .string()
+    .max(2000, '메모는 2000자 이하여야 합니다.')
+    .optional()
+    .or(z.literal('')),
+});
+
+export type SubmitRecertificationRequestInput = z.infer<typeof submitRecertificationRequestSchema>;
+
 const REPORT_TARGET_TYPE_VALUES = ['CLUB', 'RECRUITMENT'] as const;
 const REPORT_REASON_CODE_VALUES = [
   'SPAM',
@@ -309,3 +339,150 @@ export const submitReportSchema = z.object({
 });
 
 export type SubmitReportInput = z.infer<typeof submitReportSchema>;
+
+export const createClubNoticeSchema = z.object({
+  title: z
+    .string()
+    .min(1, '제목은 필수 입력값입니다.')
+    .max(120, '제목은 120자 이하여야 합니다.')
+    .refine((value) => value.trim().length > 0, '공백만으로 이루어진 제목은 입력할 수 없습니다.'),
+  summary: z.string().max(500, '요약은 500자 이하여야 합니다.').optional().or(z.literal('')),
+  content: z
+    .string()
+    .min(1, '본문은 필수 입력값입니다.')
+    .max(20000, '본문은 20000자 이하여야 합니다.'),
+  coverImageUrl: z.string().max(500, '이미지 URL 은 500자 이하여야 합니다.').optional().or(z.literal('')),
+  pinned: z.boolean().optional(),
+  expiresAt: z.string().optional().or(z.literal('')),
+});
+
+export type CreateClubNoticeInput = z.infer<typeof createClubNoticeSchema>;
+
+export const updateClubNoticeSchema = createClubNoticeSchema.partial();
+export type UpdateClubNoticeInput = z.infer<typeof updateClubNoticeSchema>;
+
+export const createClubEventSchema = z.object({
+  title: z
+    .string()
+    .min(1, '제목은 필수 입력값입니다.')
+    .max(120, '제목은 120자 이하여야 합니다.')
+    .refine((value) => value.trim().length > 0, '공백만으로 이루어진 제목은 입력할 수 없습니다.'),
+  description: z.string().max(2000, '설명은 2000자 이하여야 합니다.').optional().or(z.literal('')),
+  startAt: z.string().min(1, '시작 시각은 필수입니다.'),
+  endAt: z.string().min(1, '종료 시각은 필수입니다.'),
+  location: z.string().max(200, '장소는 200자 이하여야 합니다.').optional().or(z.literal('')),
+}).refine((data) => new Date(data.endAt) >= new Date(data.startAt), {
+  message: '종료 시각은 시작 시각 이후여야 합니다.',
+  path: ['endAt'],
+});
+
+export type CreateClubEventInput = z.infer<typeof createClubEventSchema>;
+
+export const updateClubEventSchema = z.object({
+  title: z.string().min(1).max(120).optional(),
+  description: z.string().max(2000).optional().or(z.literal('')),
+  startAt: z.string().optional(),
+  endAt: z.string().optional(),
+  location: z.string().max(200).optional().or(z.literal('')),
+});
+
+export type UpdateClubEventInput = z.infer<typeof updateClubEventSchema>;
+
+const LINK_URL_PATTERN = /^https?:\/\/.+/;
+
+export const createGlobalEventSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1, '제목은 필수 입력값입니다.')
+      .max(120, '제목은 120자 이하여야 합니다.')
+      .refine((value) => value.trim().length > 0, '공백만으로 이루어진 제목은 입력할 수 없습니다.'),
+    description: z.string().max(2000, '설명은 2000자 이하여야 합니다.').optional().or(z.literal('')),
+    startAt: z.string().min(1, '시작 시각은 필수입니다.'),
+    endAt: z.string().min(1, '종료 시각은 필수입니다.'),
+    location: z.string().max(200, '장소는 200자 이하여야 합니다.').optional().or(z.literal('')),
+    // linkUrl 빈 문자열은 의도된 "미입력" 신호 — regex 우회.
+    // `.optional().or(z.literal(''))` 만으로는 zod 의 union 평가 타이밍 때문에
+    // 빈 문자열 입력 시 regex 에러가 먼저 노출되는 케이스가 있어 conditional refine 으로 명시.
+    linkUrl: z
+      .string()
+      .max(500, '링크는 500자 이하여야 합니다.')
+      .refine(
+        (value) => value === '' || LINK_URL_PATTERN.test(value),
+        '링크는 http:// 또는 https:// 로 시작해야 합니다.',
+      )
+      .optional()
+      .or(z.literal('')),
+    coverImageUrl: z
+      .string()
+      .max(500, '이미지 URL은 500자 이하여야 합니다.')
+      .optional()
+      .or(z.literal('')),
+    category: z.enum(['FAIR', 'FESTIVAL', 'APPLICATION', 'CONTEST', 'UNION', 'OTHER'], {
+      errorMap: () => ({ message: '카테고리를 선택해주세요.' }),
+    }),
+  })
+  .refine((data) => new Date(data.endAt) >= new Date(data.startAt), {
+    message: '종료 시각은 시작 시각 이후여야 합니다.',
+    path: ['endAt'],
+  });
+
+export type CreateGlobalEventInput = z.infer<typeof createGlobalEventSchema>;
+
+export const updateGlobalEventSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1, '제목은 필수 입력값입니다.')
+      .max(120, '제목은 120자 이하여야 합니다.')
+      .refine((value) => value.trim().length > 0, '공백만으로 이루어진 제목은 입력할 수 없습니다.')
+      .optional(),
+    description: z.string().max(2000).optional().or(z.literal('')),
+    startAt: z.string().optional(),
+    endAt: z.string().optional(),
+    location: z.string().max(200).optional().or(z.literal('')),
+    // linkUrl 빈 문자열은 의도된 "미입력" 신호 — regex 우회 (createGlobalEventSchema 와 동일 패턴).
+    linkUrl: z
+      .string()
+      .max(500)
+      .refine(
+        (value) => value === '' || LINK_URL_PATTERN.test(value),
+        '링크는 http:// 또는 https:// 로 시작해야 합니다.',
+      )
+      .optional()
+      .or(z.literal('')),
+    coverImageUrl: z
+      .string()
+      .max(500, '이미지 URL은 500자 이하여야 합니다.')
+      .optional()
+      .or(z.literal('')),
+    clearCoverImage: z.boolean().optional(),
+    category: z.enum(['FAIR', 'FESTIVAL', 'APPLICATION', 'CONTEST', 'UNION', 'OTHER']).optional(),
+  })
+  // partial update 에서도 startAt / endAt 둘 다 제공되면 순서 검증. 한쪽만 제공된 경우는 백엔드 entity 의 validatePeriod 가 최종 방어선.
+  .superRefine((data, ctx) => {
+    if (data.startAt && data.endAt) {
+      if (new Date(data.endAt) < new Date(data.startAt)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: '종료 시각은 시작 시각 이후여야 합니다.',
+          path: ['endAt'],
+        });
+      }
+    }
+  });
+
+export type UpdateGlobalEventInput = z.infer<typeof updateGlobalEventSchema>;
+
+export {
+  createInterviewConfigSchema,
+  updateInterviewConfigSchema,
+  slotPatternSchema,
+  updateAvailabilitySchema,
+} from './interview';
+export type {
+  CreateInterviewConfigInput,
+  UpdateInterviewConfigInput,
+  SlotPatternInput,
+  UpdateAvailabilityInput,
+} from './interview';

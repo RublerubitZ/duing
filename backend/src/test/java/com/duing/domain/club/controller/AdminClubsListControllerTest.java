@@ -16,6 +16,8 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.common.IntegrationTestBase;
+import com.duing.common.TestcontainersConfiguration;
 import io.restassured.RestAssured;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
@@ -28,11 +30,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.context.annotation.Import;
 
+@Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class AdminClubsListControllerTest {
+class AdminClubsListControllerTest extends IntegrationTestBase {
 
     @LocalServerPort int port;
 

@@ -43,6 +43,12 @@ public class ClubAuthService {
         return findMembershipOrThrow(userId, clubId);
     }
 
+    /** 멤버십 판정 — 클럽 미존재/비-멤버는 NotAMember 로 통일 (가드 응답 일관성). */
+    public ClubMember resolveMembership(Long userId, Long clubId) {
+        return clubMemberRepository.findByClubIdAndUserId(clubId, userId)
+                .orElseThrow(ClubMemberException.NotAMember::new);
+    }
+
     public ClubMember requireOfficer(Long userId, Long clubId) {
         ClubMember clubMember = findMembershipOrThrow(userId, clubId);
         if (clubMember.getRole() != ClubMemberRole.OFFICER) {

@@ -7,18 +7,6 @@ import type {
 import { useApiClient } from './api-context';
 import { adminQueryKeys } from './adminQueryKeys';
 
-const publicPromotionKey = ['promotions', 'public'] as const;
-
-/** 비로그인 사용자도 호출 가능한 공개 활성 배너 목록 (GET /promotions). */
-export function usePublicPromotionsQuery() {
-  const client = useApiClient();
-  return useQuery({
-    queryKey: publicPromotionKey,
-    queryFn: () => client.promotions.list(),
-    staleTime: 60_000,
-  });
-}
-
 export function useAdminPromotionListQuery(params: AdminPromotionSearchParams = {}) {
   const client = useApiClient();
   return useQuery({

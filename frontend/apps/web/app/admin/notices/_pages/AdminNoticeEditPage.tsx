@@ -9,7 +9,7 @@ import {
 import { NoticeForm } from '../_components/NoticeForm';
 import {
   EMPTY_NOTICE_FORM,
-  toCreatePayload,
+  toUpdatePayload,
   type NoticeFormState,
 } from '../_lib/parseNoticeFormState';
 import { extractErrorMessage } from '../_lib/extractErrorMessage';
@@ -54,6 +54,12 @@ export function AdminNoticeEditPage() {
     pinned: notice.pinned,
     expiresAt: notice.expiresAt,
     notifyOnPublish: notice.notifyOnPublish,
+    eventStartAt: notice.eventInfo?.startAt ? notice.eventInfo.startAt.slice(0, 16) : '',
+    eventEndAt: notice.eventInfo?.endAt ? notice.eventInfo.endAt.slice(0, 16) : '',
+    location: notice.eventInfo?.location ?? '',
+    host: notice.eventInfo?.host ?? '',
+    audience: notice.eventInfo?.audience ?? '',
+    contentFormat: notice.contentFormat,
   };
 
   return (
@@ -69,7 +75,7 @@ export function AdminNoticeEditPage() {
         onSubmit={(state) => {
           if (noticeId === null) return;
           setErrorMessage(null);
-          const payload = toCreatePayload(state);
+          const payload = toUpdatePayload(state);
           updateMutation.mutate({ noticeId, payload }, {
             onSuccess: () => router.push('/admin/notices'),
             onError: (error) => {

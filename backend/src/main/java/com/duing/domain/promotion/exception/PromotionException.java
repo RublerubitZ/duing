@@ -29,4 +29,18 @@ public class PromotionException extends ApplicationException {
         private static final String MESSAGE = "홍보 배너를 찾을 수 없습니다.";
         public PromotionNotFoundException() { super(MESSAGE, HttpStatus.NOT_FOUND); }
     }
+
+    public static class MultipleLinkTargetsException extends PromotionException {
+        public MultipleLinkTargetsException() {
+            super("링크 대상은 외부 URL / 공지 / 동아리 중 하나만 선택 가능합니다.",
+                  HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+    }
+
+    public static class NonPublicNoticeLinkException extends PromotionException {
+        public NonPublicNoticeLinkException() {
+            super("공지 배너 연결은 공개 공지(PUBLIC) 만 가능합니다.",
+                  HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+    }
 }

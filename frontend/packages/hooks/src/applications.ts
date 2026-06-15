@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  ApplicationScope,
+  ApplicantsFilters,
   BulkUpdateApplicationStatusPayload,
   BulkUpdateApplicationStatusResult,
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
-  UpdateInterviewPayload,
+  UpsertApplicationEvaluationPayload,
 } from '@duing/types';
 import { useAuthStore } from '@duing/stores';
 import { useApiClient } from './api-context';
@@ -18,17 +20,28 @@ export function useSubmitApplicationMutation(recruitmentId: number) {
     mutationFn: (payload: SubmitApplicationPayload) =>
       client.applications.submit(recruitmentId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: applicationQueryKeys.myList() });
+      queryClient.invalidateQueries({ queryKey: applicationQueryKeys.allMyLists });
     },
   });
 }
 
-export function useMyApplicationsQuery() {
+export function useWithdrawApplicationMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (applicationId: number) => client.applications.withdraw(applicationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: applicationQueryKeys.allMyLists });
+    },
+  });
+}
+
+export function useMyApplicationsQuery(scope: ApplicationScope = 'ALL') {
   const client = useApiClient();
   const status = useAuthStore((s) => s.status);
   return useQuery({
-    queryKey: applicationQueryKeys.myList(),
-    queryFn: () => client.users.myApplications(),
+    queryKey: applicationQueryKeys.myList(scope),
+    queryFn: () => client.users.myApplications(scope),
     enabled: status === 'authenticated',
   });
 }
@@ -51,18 +64,21 @@ export function useMyApplicationDetailQuery(applicationId: number | undefined) {
   });
 }
 
-export function useApplicantsQuery(recruitmentId: number | undefined) {
+export function useApplicantsQuery(
+  recruitmentId: number | undefined,
+  filters?: ApplicantsFilters,
+) {
   const client = useApiClient();
   return useQuery({
     queryKey:
       recruitmentId !== undefined
-        ? applicationQueryKeys.applicants(recruitmentId)
+        ? applicationQueryKeys.applicants(recruitmentId, filters)
         : ['applications', 'applicants', undefined],
     queryFn: () => {
       if (recruitmentId === undefined) {
         throw new Error('recruitmentId is required');
       }
-      return client.applications.applicants(recruitmentId);
+      return client.applications.applicants(recruitmentId, filters);
     },
     enabled: recruitmentId !== undefined,
   });
@@ -108,6 +124,10 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
       });
+      // 상태 변경 시 이웃 순서가 바뀔 수 있으므로 (필터 상태 기반 정렬) 모두 무효화한다.
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.applicantNeighborsAll(),
+      });
     },
   });
 }
@@ -126,11 +146,29 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
       });
+      // 일괄 상태 변경도 이웃 순서에 영향을 주므로 neighbors 캐시 전체 무효화.
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.applicantNeighborsAll(),
+      });
     },
   });
 }
 
-export function useUpdateInterviewMutation(recruitmentId: number) {
+export function useApplicantNeighborsQuery(
+  recruitmentId: number,
+  applicationId: number,
+  filters?: ApplicantsFilters,
+) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: applicationQueryKeys.applicantNeighbors(recruitmentId, applicationId, filters),
+    queryFn: () =>
+      client.applications.applicantNeighbors(recruitmentId, applicationId, filters),
+    enabled: Number.isFinite(recruitmentId) && Number.isFinite(applicationId),
+  });
+}
+
+export function useUpsertMyApplicationEvaluationMutation() {
   const client = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({
@@ -139,18 +177,30 @@ export function useUpdateInterviewMutation(recruitmentId: number) {
       payload,
     }: {
       applicationId: number;
-      payload: UpdateInterviewPayload;
-    }) => client.applications.updateInterview(applicationId, payload),
-    onSuccess: (_data, variables) => {
+      payload: UpsertApplicationEvaluationPayload;
+    }) => client.applications.upsertMyApplicationEvaluation(applicationId, payload),
+    onSuccess: (_, { applicationId }) => {
       queryClient.invalidateQueries({
-        queryKey: applicationQueryKeys.applicants(recruitmentId),
+        queryKey: applicationQueryKeys.applicantDetail(applicationId),
       });
+      // applicants 목록의 myScore 갱신을 위해 접두키로 무효화
+      queryClient.invalidateQueries({ queryKey: applicationQueryKeys.applicantsAll() });
+    },
+  });
+}
+
+export function useDeleteMyApplicationEvaluationMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (applicationId: number) =>
+      client.applications.deleteMyApplicationEvaluation(applicationId),
+    onSuccess: (_, applicationId) => {
       queryClient.invalidateQueries({
-        queryKey: applicationQueryKeys.applicantDetail(variables.applicationId),
+        queryKey: applicationQueryKeys.applicantDetail(applicationId),
       });
-      queryClient.invalidateQueries({
-        queryKey: statsQueryKeys.byRecruitment(recruitmentId),
-      });
+      // applicants 목록의 myScore 갱신을 위해 접두키로 무효화
+      queryClient.invalidateQueries({ queryKey: applicationQueryKeys.applicantsAll() });
     },
   });
 }

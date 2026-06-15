@@ -100,6 +100,7 @@ export type ClubSearchParams = {
   recruitmentStatus?: 'AVAILABLE' | 'UPCOMING' | 'CLOSED';
   centralClub?: boolean;
   college?: College;
+  activeDays?: ClubDayOfWeek[];
   page?: number;
   size?: number;
   sort?: string;
@@ -121,6 +122,10 @@ export type UpdateClubStatusPayload = {
   rejectionReason?: string;
 };
 
+export type CloseClubPayload = {
+  closureReason?: string;
+};
+
 export type UpdateClubCentralClubPayload = {
   centralClub: boolean;
 };
@@ -133,6 +138,17 @@ export type ManagedClub = {
   logoUrl: string | null;
   myRole: ClubRole;
   activeRecruitmentCount: number;
+};
+
+export type MyClubRole = 'LEADER' | 'OFFICER' | 'MEMBER';
+
+export type MyClubSummary = {
+  clubId: number;
+  clubName: string;
+  logoUrl: string | null;
+  myRole: MyClubRole;
+  activeRecruitmentCount: number;
+  joinedAt: string; // ISO datetime
 };
 
 export type UpdateClubPayload = {
@@ -159,7 +175,7 @@ export type UpdateClubPayload = {
   majorProjects?: string | null;
 };
 
-export type FilePurpose = 'LOGO' | 'COVER' | 'PHOTO' | 'NOTICE_COVER' | 'PROMOTION_BANNER';
+export type FilePurpose = 'LOGO' | 'COVER' | 'PHOTO' | 'NOTICE_COVER' | 'NOTICE_BODY' | 'PROMOTION_BANNER' | 'GLOBAL_EVENT_COVER' | 'PROMOTION_REQUEST_BANNER';
 
 export type FileUploadResult = {
   storageKey: string;

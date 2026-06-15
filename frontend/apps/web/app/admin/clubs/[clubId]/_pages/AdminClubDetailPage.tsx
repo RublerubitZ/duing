@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAdminClubDetailQuery, useClubMembersQuery } from '@duing/hooks';
 import type { ClubMember } from '@duing/types';
 import { cn } from '../../../../_lib/cn';
+import { ClubLogo } from '../../../../_components/ClubLogo';
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from '../../_lib/clubStatus';
 import { AdminAssignLeaderCard } from '../_components/AdminAssignLeaderCard';
 
@@ -80,7 +81,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
   const hasNoLeader = leaders.length === 0;
 
   return (
-    <main className="max-w-layout mx-auto px-10 py-10">
+    <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6 flex flex-wrap items-center gap-3">
         <Link
           href="/admin/clubs"
@@ -164,11 +165,9 @@ export function AdminClubDetailPage({ clubId }: Props) {
                 <div>
                   <dt className="text-[11px] font-semibold uppercase text-slate-400">로고</dt>
                   <dd>
-                    <img
-                      src={club.logoUrl}
-                      alt={`${club.name} 로고`}
-                      className="mt-0.5 h-10 w-10 rounded-md object-cover"
-                    />
+                    <div className="relative mt-0.5 h-10 w-10 overflow-hidden rounded-md bg-graysoft">
+                      <ClubLogo logoUrl={club.logoUrl} alt={`${club.name} 로고`} />
+                    </div>
                   </dd>
                 </div>
               )}

@@ -2,6 +2,7 @@ package com.duing.domain.notice;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -9,6 +10,8 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.common.IntegrationTestBase;
+import com.duing.common.TestcontainersConfiguration;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDateTime;
@@ -21,11 +24,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.context.annotation.Import;
 
+@Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class NoticeAdminAcceptanceTest {
+class NoticeAdminAcceptanceTest extends IntegrationTestBase {
 
     @LocalServerPort int port;
 
@@ -118,6 +121,196 @@ class NoticeAdminAcceptanceTest {
                 .post("/api/v1/admin/notices")
             .then()
                 .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("행사정보가 담긴 공지를 작성하면 상세 응답에 eventInfo 가 노출된다")
+    void noticeWithEventIsExposedInDetail() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "동아리 박람회",
+                      "summary": "가을 박람회 안내",
+                      "content": "본문",
+                      "coverImageUrl": "https://example.com/cover.png",
+                      "category": "FAIR",
+                      "visibility": "PUBLIC",
+                      "pinned": false,
+                      "notifyOnPublish": false,
+                      "eventStartAt": "2026-09-25T10:00:00",
+                      "eventEndAt": "2026-09-27T18:00:00",
+                      "location": "중앙광장 · 학생회관 1층",
+                      "host": "학생자치회",
+                      "audience": "재학생 누구나"
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.eventInfo", notNullValue())
+                .body("data.eventInfo.location", equalTo("중앙광장 · 학생회관 1층"))
+                .body("data.eventInfo.host", equalTo("학생자치회"))
+                .body("data.eventInfo.audience", equalTo("재학생 누구나"));
+    }
+
+    @Test
+    @DisplayName("행사정보가 없는 공지는 상세 응답의 eventInfo 가 null 이다")
+    void noticeWithoutEventHasNullEventInfo() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "일반 공지", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "GENERAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.eventInfo", nullValue());
+    }
+
+    @Test
+    @DisplayName("행사 종료 일시가 시작보다 빠르면 400 을 반환한다")
+    void createNoticeWithReversedEventRangeReturnsBadRequest() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "행사", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "FESTIVAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false,
+                      "eventStartAt": "2026-09-27T18:00:00",
+                      "eventEndAt": "2026-09-25T10:00:00"
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("clearEvent=true 로 수정하면 행사정보가 모두 비워진다")
+    void updateWithClearEventRemovesEventInfo() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "행사", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "FESTIVAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false,
+                      "eventStartAt": "2026-09-25T10:00:00", "location": "광장"
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("{ \"clearEvent\": true }")
+            .when()
+                .patch("/api/v1/admin/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.eventInfo", nullValue());
+    }
+
+    @Test
+    @DisplayName("contentFormat=HTML 로 작성하면 상세 응답의 contentFormat 이 HTML 이다")
+    void noticeWithHtmlContentFormatIsExposed() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "HTML 공지", "summary": "요약", "content": "<p>본문</p>",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "GENERAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false,
+                      "contentFormat": "HTML"
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.contentFormat", equalTo("HTML"));
+    }
+
+    @Test
+    @DisplayName("contentFormat 미지정 작성 시 기본값 MARKDOWN 으로 노출된다")
+    void noticeWithoutContentFormatDefaultsToMarkdown() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "기본 공지", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "GENERAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.contentFormat", equalTo("MARKDOWN"));
     }
 
     private User saveUser(UserRole role) {

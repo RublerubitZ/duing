@@ -41,7 +41,7 @@ export function AdminSuccessionDetailPage({ requestId }: Props) {
 
   if (detailQuery.isLoading) {
     return (
-      <main className="max-w-layout mx-auto px-10 py-10">
+      <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
         <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
       </main>
     );
@@ -49,7 +49,7 @@ export function AdminSuccessionDetailPage({ requestId }: Props) {
 
   if (detailQuery.isError || !succession) {
     return (
-      <main className="max-w-layout mx-auto px-10 py-10">
+      <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
         <p className="py-12 text-center text-coral text-[13px]">
           승계 요청 정보를 불러오지 못했습니다.
         </p>
@@ -58,7 +58,7 @@ export function AdminSuccessionDetailPage({ requestId }: Props) {
   }
 
   return (
-    <main className="max-w-layout mx-auto px-10 py-10">
+    <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6 flex items-center gap-3">
         <Link href="/admin/leader-succession" className="text-[13px] text-charcoal-2 hover:text-ink">
           ← 목록으로

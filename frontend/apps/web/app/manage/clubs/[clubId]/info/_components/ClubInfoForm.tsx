@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { ClubDetail, ClubDayOfWeek, UpdateClubPayload } from '@duing/types';
+import type { ClubDetail, ClubDayOfWeek, College, UpdateClubPayload } from '@duing/types';
 import { updateClubSchema } from '@duing/schemas';
 import { useUpdateClubMutation } from '@duing/hooks';
 import { TagsInput } from './TagsInput';
@@ -9,6 +9,10 @@ import { SnsLinksRepeater } from './SnsLinksRepeater';
 import { FaqsRepeater } from './FaqsRepeater';
 import { HighlightsRepeater } from './HighlightsRepeater';
 import { ActiveDaysToggle } from './ActiveDaysToggle';
+import { DIVISIONS } from '../../../../../clubs/_lib/clubs';
+import { COLLEGE_OPTIONS } from '../../../../../_lib/college';
+import { ImageUploader } from '@/app/_components/ImageUploader';
+import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
 
 type ClubInfoFormProps = {
   clubId: number;
@@ -54,6 +58,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
   const [name, setName] = useState(detail.name);
   const [category, setCategory] = useState(detail.category);
   const [division, setDivision] = useState(detail.division ?? '');
+  const [college, setCollege] = useState<College | ''>(detail.college ?? '');
   const [description, setDescription] = useState(detail.description ?? '');
   const [logoUrl, setLogoUrl] = useState(detail.logoUrl ?? '');
   const [coverUrl, setCoverUrl] = useState(detail.coverUrl ?? '');
@@ -87,6 +92,14 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
     if (name !== detail.name) payload.name = name;
     if (category !== detail.category) payload.category = category;
     if (division !== (detail.division ?? '')) payload.division = division || null;
+    const previousCollege: College | '' = detail.college ?? '';
+    if (college !== previousCollege) {
+      if (college === '') {
+        payload.clearCollege = true;
+      } else {
+        payload.college = college;
+      }
+    }
     if (description !== (detail.description ?? '')) payload.description = description || null;
     if (logoUrl !== (detail.logoUrl ?? '')) payload.logoUrl = logoUrl || null;
     if (coverUrl !== (detail.coverUrl ?? '')) payload.coverUrl = coverUrl || null;
@@ -209,17 +222,53 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
             </select>
           </div>
 
-          <div className={fieldCls}>
-            <label htmlFor="f-div" className={labelCls}>분류</label>
-            <input
-              id="f-div"
-              type="text"
-              value={division}
-              onChange={(event) => setDivision(event.target.value)}
-              placeholder="예: 중앙동아리"
-              className={inputCls}
-            />
-          </div>
+          {detail.centralClub ? (
+            <div className={fieldCls}>
+              <label htmlFor="f-div" className={labelCls}>분과</label>
+              <select
+                id="f-div"
+                value={division}
+                onChange={(event) => setDivision(event.target.value)}
+                className={selectCls}
+                style={{
+                  backgroundImage:
+                    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5247' d='M2 4l4 4 4-4'/%3E%3C/svg%3E\")",
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 12px center',
+                  backgroundSize: '12px',
+                  paddingRight: '36px',
+                }}
+              >
+                <option value="">분과 선택</option>
+                {DIVISIONS.map((option) => (
+                  <option key={option} value={option}>{option}분과</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className={fieldCls}>
+              <label htmlFor="f-college" className={labelCls}>단과대학</label>
+              <select
+                id="f-college"
+                value={college}
+                onChange={(event) => setCollege(event.target.value as College | '')}
+                className={selectCls}
+                style={{
+                  backgroundImage:
+                    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5247' d='M2 4l4 4 4-4'/%3E%3C/svg%3E\")",
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 12px center',
+                  backgroundSize: '12px',
+                  paddingRight: '36px',
+                }}
+              >
+                <option value="">단과대학 선택</option>
+                {COLLEGE_OPTIONS.map((option) => (
+                  <option key={option.code} value={option.code}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className={fieldCls}>
             <label htmlFor="f-intro" className={labelCls}>소개</label>
@@ -233,35 +282,76 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
           </div>
 
           <div className={fieldCls}>
-            <label htmlFor="f-logo" className={labelCls}>로고 URL</label>
-            <input
-              id="f-logo"
-              type="url"
-              value={logoUrl}
-              onChange={(event) => setLogoUrl(event.target.value)}
-              placeholder="https://..."
-              className={inputCls}
-            />
+            <p className={labelCls}>로고 이미지</p>
+            {readOnly ? (
+              <ImageWithFallback
+                src={logoUrl}
+                alt="로고"
+                className="aspect-square rounded-xl overflow-hidden border border-line max-w-[240px]"
+                emptyMessage="로고 이미지가 없습니다"
+              />
+            ) : (
+              <div className="max-w-[240px]">
+                <ImageUploader
+                  value={logoUrl}
+                  onChange={setLogoUrl}
+                  purpose="LOGO"
+                  aspectRatio="1/1"
+                  placeholder="로고 이미지를 업로드하세요"
+                  altText="로고"
+                />
+              </div>
+            )}
           </div>
 
           <div className={fieldCls}>
-            <label htmlFor="f-cover" className={labelCls}>커버 URL</label>
-            <input
-              id="f-cover"
-              type="url"
-              value={coverUrl}
-              onChange={(event) => setCoverUrl(event.target.value)}
-              placeholder="https://..."
-              className={inputCls}
-            />
+            <p className={labelCls}>커버 이미지</p>
+            {readOnly ? (
+              <ImageWithFallback
+                src={coverUrl}
+                alt="커버"
+                className="aspect-[16/9] rounded-xl overflow-hidden border border-line"
+                emptyMessage="커버 이미지가 없습니다"
+              />
+            ) : (
+              <ImageUploader
+                value={coverUrl}
+                onChange={setCoverUrl}
+                purpose="COVER"
+                aspectRatio="16/9"
+                placeholder="커버 이미지를 업로드하세요"
+                altText="커버"
+              />
+            )}
           </div>
         </fieldset>
 
         <div className={fieldCls}>
-          <span className={labelCls}>
-            태그 <span className="text-[11.5px] font-normal text-[#8a8f83]">(최대 20개)</span>
-          </span>
+          <div className="flex items-baseline justify-between">
+            <span className={labelCls}>
+              태그 <span className="text-[11.5px] font-normal text-[#8a8f83]">(최대 5개)</span>
+            </span>
+            <span
+              className={`text-[11.5px] font-medium ${
+                tags.length > 5
+                  ? 'text-[#b04a2a]'
+                  : tags.length === 5
+                    ? 'text-[#3e5b34]'
+                    : 'text-[#8a8f83]'
+              }`}
+            >
+              {tags.length}/5
+            </span>
+          </div>
           <TagsInput value={tags} onChange={setTags} readOnly={readOnly} />
+          {tags.length > 5 && (
+            <p className="mt-1.5 text-[12px] text-[#b04a2a]">
+              이전에 등록된 태그가 5개를 초과합니다. 새 태그를 추가하려면 먼저 일부를 삭제해 주세요.
+            </p>
+          )}
+          {tags.length === 5 && (
+            <p className="mt-1.5 text-[12px] text-[#8a8f83]">최대 5개까지 추가할 수 있어요.</p>
+          )}
         </div>
 
         {/* 상세 정보 그룹 카드 */}
@@ -272,7 +362,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
           <span className={groupLegendCls}>상세 정보</span>
 
           <fieldset disabled={readOnly} className="border-0 p-0 m-0 space-y-[18px]">
-            <div className="grid grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <div className={fieldCls.replace('mb-[18px]', '')}>
                 <label htmlFor="f-year" className={labelCls}>창설년도</label>
                 <input
@@ -425,8 +515,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
             <button
               type="submit"
               disabled={mutation.isPending}
-              className="inline-flex items-center gap-2 bg-[#3e5b34] text-[#f6f1dd] border-none rounded-[8px] px-[22px] py-[11px] text-[14px] font-semibold cursor-pointer transition-colors hover:bg-[#4a6b3f] active:translate-y-px disabled:opacity-50"
-              style={{ boxShadow: '0 1px 0 rgba(0,0,0,.04), 0 6px 16px rgba(62,91,52,.18)' }}
+              className="btn btn-primary disabled:opacity-50"
             >
               {mutation.isPending ? '저장 중…' : '저장'}
             </button>

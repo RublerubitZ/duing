@@ -7,14 +7,13 @@ import java.nio.file.Paths;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
-@Profile("local")
+@ConditionalOnProperty(name = "file.storage.provider", havingValue = "local", matchIfMissing = true)
 public class LocalFileStorageService implements FileStorageService {
 
     private final Path rootDir;
@@ -30,6 +29,7 @@ public class LocalFileStorageService implements FileStorageService {
         } catch (IOException exception) {
             throw new IllegalStateException("파일 저장 디렉터리를 생성할 수 없습니다: " + this.rootDir, exception);
         }
+        log.warn("Active storage backend = LOCAL (root={})", this.rootDir);
     }
 
     private static String stripTrailingSlash(String url) {
@@ -40,7 +40,7 @@ public class LocalFileStorageService implements FileStorageService {
     }
 
     @Override
-    public String upload(MultipartFile file, String directory) {
+    public String upload(MultipartFile file, String directory, String contentType) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("업로드할 파일이 비어 있습니다.");
         }
@@ -48,10 +48,8 @@ public class LocalFileStorageService implements FileStorageService {
             Path targetDir = rootDir.resolve(directory).normalize();
             Files.createDirectories(targetDir);
 
-            String originalFilename = StringUtils.cleanPath(
-                    file.getOriginalFilename() == null ? "file" : file.getOriginalFilename());
-            String extension = StringUtils.getFilenameExtension(originalFilename);
-            String storedFilename = UUID.randomUUID() + (extension != null ? "." + extension : "");
+            String extension = FileUploadPolicy.EXTENSION_BY_MIME.getOrDefault(contentType, "bin");
+            String storedFilename = UUID.randomUUID() + "." + extension;
 
             Path destination = targetDir.resolve(storedFilename);
             file.transferTo(destination);

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useCreatePhotoMutation, useFileUploadMutation } from '@duing/hooks';
+import { IMAGE_UPLOAD_POLICY, validateImageFile } from '@/app/_components/imageUploadPolicy';
 
 type PhotoUploaderProps = {
   clubId: number;
@@ -20,6 +21,12 @@ export function PhotoUploader({ clubId }: PhotoUploaderProps) {
     setErrors([]);
     const failures: string[] = [];
     for (const file of Array.from(fileList)) {
+      // 클라이언트 선검증 — 위반 시 서버 호출 없이 즉시 skip. 백엔드 정책(5MB / JPG·PNG·WEBP) 과 동일.
+      const validationError = validateImageFile(file);
+      if (validationError) {
+        failures.push(`${file.name}: ${validationError}`);
+        continue;
+      }
       try {
         const uploaded = await uploadFile.mutateAsync({ file, purpose: 'PHOTO' });
         await createPhoto.mutateAsync({
@@ -42,12 +49,13 @@ export function PhotoUploader({ clubId }: PhotoUploaderProps) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={IMAGE_UPLOAD_POLICY.acceptAttribute}
         multiple
         disabled={busy}
         onChange={(e) => handleFiles(e.target.files)}
         className="block text-sm"
       />
+      <p className="text-xs text-slate-500">JPG · PNG · WEBP, 파일당 최대 5MB</p>
       {busy && <p className="text-sm text-slate-500">업로드 중…</p>}
       {errors.length > 0 && (
         <ul className="text-sm text-rose-600">

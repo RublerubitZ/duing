@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   activityScheduleLabel,
   dayLabel,
-} from '../../app/clubs/[clubId]/_lib/activeDaysLabel';
+} from '../../app/clubs/_lib/activeDaysLabel';
 
 describe('dayLabel', () => {
   it.each([

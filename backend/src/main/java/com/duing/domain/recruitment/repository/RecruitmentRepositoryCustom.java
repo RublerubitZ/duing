@@ -23,6 +23,13 @@ public interface RecruitmentRepositoryCustom {
     Optional<Recruitment> findActiveByClubId(Long clubId);
 
     /**
+     * status=OPEN 인 모집 1건 조회. endDate 필터를 적용하지 않으므로 endDate 가 지난 OPEN 행도 반환된다.
+     * uk_recruitment_club_active 인덱스는 endDate 와 무관하게 status='OPEN' 만 보므로,
+     * 새 모집을 만들기 전 만료된 OPEN 행을 자동 마감 처리하기 위해 사용한다.
+     */
+    Optional<Recruitment> findOpenByClubId(Long clubId);
+
+    /**
      * 동아리 id 묶음에 대해 대표 모집을 1건씩 조회한다.
      *
      * <p>대표 선택 규칙:

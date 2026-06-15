@@ -2,6 +2,7 @@ package com.duing.domain.notice.service.dto.command;
 
 import com.duing.domain.notice.entity.NoticeCategory;
 import com.duing.domain.notice.entity.NoticeClubScopeRole;
+import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,5 +21,11 @@ public record CreateNoticeCommand(
         boolean pinned,
         LocalDateTime expiresAt,
         boolean notifyOnPublish,
+        LocalDateTime eventStartAt,
+        LocalDateTime eventEndAt,
+        String location,
+        String host,
+        String audience,
+        NoticeContentFormat contentFormat,
         Long authorId
 ) {}

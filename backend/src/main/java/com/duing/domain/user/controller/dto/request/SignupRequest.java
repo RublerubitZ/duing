@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Size;
 
 public record SignupRequest(
         @NotBlank(message = "학번은 필수 입력값입니다.")
-        @Pattern(regexp = "\\d{7,10}", message = "학번은 7~10자리 숫자여야 합니다.")
+        @Pattern(regexp = "\\d{8}", message = "학번은 8자리 숫자여야 합니다.")
         String studentId,
 
         @NotBlank(message = "이름은 필수 입력값입니다.")

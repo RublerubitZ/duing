@@ -7,6 +7,7 @@ import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.service.dto.query.ManagedClubQuery;
+import com.duing.domain.clubmember.service.dto.query.MyClubQuery;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.CaseBuilder;
@@ -25,12 +26,7 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
     public List<ManagedClubQuery> findActiveManagedClubsByUser(Long userId) {
         LocalDate today = LocalDate.now();
 
-        NumberExpression<Integer> activeRecruitmentFlag = new CaseBuilder()
-                .when(recruitment.status.eq(RecruitmentStatus.OPEN)
-                        .and(recruitment.endDate.goe(today))
-                        .and(recruitment.deletedAt.isNull()))
-                .then(1)
-                .otherwise(0);
+        NumberExpression<Integer> activeRecruitmentFlag = activeRecruitmentFlag(today);
 
         return queryFactory
                 .select(Projections.constructor(
@@ -52,5 +48,39 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                 .groupBy(club.id, club.name, club.logoUrl, clubMember.role)
                 .orderBy(club.name.asc())
                 .fetch();
+    }
+
+    @Override
+    public List<MyClubQuery> findMyClubsByUser(Long userId) {
+        LocalDate today = LocalDate.now();
+
+        NumberExpression<Integer> activeRecruitmentFlag = activeRecruitmentFlag(today);
+
+        return queryFactory
+                .select(Projections.constructor(
+                        MyClubQuery.class,
+                        club.id,
+                        club.name,
+                        club.logoUrl,
+                        clubMember.role,
+                        activeRecruitmentFlag.sum().longValue().coalesce(0L),
+                        clubMember.createdAt
+                ))
+                .from(clubMember)
+                .join(clubMember.club, club)
+                .leftJoin(recruitment).on(recruitment.club.id.eq(club.id))
+                .where(clubMember.user.id.eq(userId))
+                .groupBy(club.id, club.name, club.logoUrl, clubMember.role, clubMember.createdAt)
+                .orderBy(clubMember.createdAt.desc())
+                .fetch();
+    }
+
+    private NumberExpression<Integer> activeRecruitmentFlag(LocalDate today) {
+        return new CaseBuilder()
+                .when(recruitment.status.eq(RecruitmentStatus.OPEN)
+                        .and(recruitment.endDate.goe(today))
+                        .and(recruitment.deletedAt.isNull()))
+                .then(1)
+                .otherwise(0);
     }
 }

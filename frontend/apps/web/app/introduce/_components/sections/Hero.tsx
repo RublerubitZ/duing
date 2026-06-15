@@ -121,7 +121,7 @@ export function Hero() {
             >
               마음에 드는 분야부터
             </h3>
-            <div className="grid grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
               {HERO_CATEGORIES.map((cat) => (
                 <div
                   key={cat.label}

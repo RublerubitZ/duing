@@ -7,7 +7,7 @@ const STEPS: ReadonlyArray<{ number: string; title: string; description: string 
 
 export function HowItWorks() {
   return (
-    <section id="section-3" className="bg-cream-2 px-10 pb-[120px] pt-20">
+    <section id="section-3" className="bg-cream-2 px-4 sm:px-6 md:px-10 pb-[120px] pt-20">
       <div className="max-w-layout mx-auto">
         <div className="mb-14 text-center">
           <div className="mb-3.5 text-[13px] font-bold tracking-wide16 text-ink">

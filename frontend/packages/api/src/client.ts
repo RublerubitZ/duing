@@ -1,4 +1,21 @@
 import ky, { type KyInstance, type ResponsePromise, HTTPError } from 'ky';
+import { notifyUnauthorized } from './unauthorized-context';
+import type {
+  InterviewRoundCandidate,
+  InterviewRoundSummary,
+  InterviewRoundDetail,
+  CreateInterviewRoundPayload,
+  CreateInterviewRoundResult,
+  CreateRoundSlotsPayload,
+  CreateRoundSlotsResult,
+  UpdateInterviewRoundPayload,
+  AvailabilityRequestResult,
+  ApplicantInterviewView,
+  RespondAvailabilityPayload,
+  RoundAutoAssignResult,
+  RoundConfirmResult,
+  UpdateInterviewSlotPayload,
+} from '@duing/types';
 import type {
   AdminClubSearchParams,
   AdminClubSummary,
@@ -39,6 +56,7 @@ import type {
   PageResponse,
   ClubDetail,
   ClubMember,
+  ClubMemberExportRow,
   ClubPhoto,
   ClubSearchParams,
   ClubSummary,
@@ -49,18 +67,28 @@ import type {
   ManagedClub,
   MyApplicationDetail,
   ApplicantDetail,
-  UpdateInterviewPayload,
   RecruitmentDetail,
   RecruitmentSummary,
   UpdateRecruitmentPayload,
   SignupPayload,
+  UpdateProfilePayload,
+  ChangePasswordPayload,
+  SendEmailVerificationPayload,
+  ConfirmEmailVerificationPayload,
+  EmailVerificationResult,
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
   UpdateClubPayload,
   UpdateClubStatusPayload,
   UpdateClubCentralClubPayload,
+  CloseClubPayload,
   Applicant,
+  ApplicantsFilters,
+  ApplicantNeighbors,
+  UpsertApplicationEvaluationPayload,
+  ApplicationScope,
   ApplicationSummary,
+  MyClubSummary,
   BulkUpdateApplicationStatusPayload,
   BulkUpdateApplicationStatusResult,
   User,
@@ -87,6 +115,25 @@ import type {
   FileUploadResult,
   FilePurpose,
   PromotionCard,
+  LeaderRecertificationContext,
+  SubmitRecertificationRequestPayload,
+  MyClubMembership,
+  CreateClubNoticePayload,
+  UpdateClubNoticePayload,
+  ClubEventCard,
+  ClubEventDetail,
+  ClubEventListParams,
+  CreateClubEventPayload,
+  UpdateClubEventPayload,
+  AdminGlobalEventDetail,
+  AdminGlobalEventListParams,
+  AdminGlobalEventSummary,
+  CreateGlobalEventPayload,
+  GlobalEventCard,
+  GlobalEventCategoryStats,
+  GlobalEventDetail,
+  GlobalEventListParams,
+  UpdateGlobalEventPayload,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -94,6 +141,8 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    public readonly payload?: unknown,
+    public readonly code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -103,15 +152,21 @@ export class ApiError extends Error {
 async function toApiError(error: unknown): Promise<never> {
   if (error instanceof HTTPError) {
     let message = `요청 실패 (${error.response.status})`;
+    let payload: unknown;
+    let code: string | undefined;
     try {
       const body = (await error.response.json()) as ApiResponse<unknown>;
       if (body && typeof body.message === 'string') {
         message = body.message;
       }
+      if (body && typeof body.code === 'string') {
+        code = body.code;
+      }
+      payload = body.data;
     } catch {
       // ignore json parse failure
     }
-    throw new ApiError(error.response.status, message);
+    throw new ApiError(error.response.status, message, payload, code);
   }
   throw error;
 }
@@ -127,10 +182,16 @@ export type DuingApiClient = {
   auth: {
     signup(payload: SignupPayload): Promise<number>;
     login(payload: LoginPayload): Promise<LoginResult>;
+    sendEmailVerification(payload: SendEmailVerificationPayload): Promise<EmailVerificationResult>;
+    confirmEmailVerification(payload: ConfirmEmailVerificationPayload): Promise<void>;
   };
   users: {
     me(): Promise<User>;
-    myApplications(): Promise<ApplicationSummary[]>;
+    myApplications(scope?: ApplicationScope): Promise<ApplicationSummary[]>;
+    myClubs(): Promise<MyClubSummary[]>;
+    updateProfile(payload: UpdateProfilePayload): Promise<void>;
+    changePassword(payload: ChangePasswordPayload): Promise<void>;
+    withdraw(): Promise<void>;
   };
   clubs: {
     list(params?: ClubSearchParams): Promise<PageResponse<ClubSummary>>;
@@ -139,12 +200,14 @@ export type DuingApiClient = {
     update(clubId: number, payload: UpdateClubPayload): Promise<ClubDetail>;
     updateStatus(clubId: number, payload: UpdateClubStatusPayload): Promise<void>;
     updateCentralClub(clubId: number, payload: UpdateClubCentralClubPayload): Promise<void>;
+    close(clubId: number, payload: CloseClubPayload): Promise<void>;
     photos(clubId: number): Promise<ClubPhoto[]>;
     createPhoto(clubId: number, payload: CreateClubPhotoPayload): Promise<ClubPhoto>;
     updatePhoto(clubId: number, photoId: number, payload: UpdateClubPhotoPayload): Promise<void>;
     reorderPhotos(clubId: number, payload: ReorderClubPhotosPayload): Promise<ClubPhoto[]>;
     deletePhoto(clubId: number, photoId: number): Promise<void>;
     members(clubId: number): Promise<ClubMember[]>;
+    membersExport(clubId: number, includePhone: boolean): Promise<ClubMemberExportRow[]>;
     updateMemberRole(clubId: number, memberId: number, payload: UpdateMemberRolePayload): Promise<void>;
     removeMember(clubId: number, memberId: number): Promise<void>;
     leaveClub(clubId: number): Promise<void>;
@@ -164,7 +227,12 @@ export type DuingApiClient = {
   };
   applications: {
     submit(recruitmentId: number, payload: SubmitApplicationPayload): Promise<number>;
-    applicants(recruitmentId: number): Promise<Applicant[]>;
+    applicants(recruitmentId: number, filters?: ApplicantsFilters): Promise<Applicant[]>;
+    applicantNeighbors(
+      recruitmentId: number,
+      applicationId: number,
+      filters?: ApplicantsFilters,
+    ): Promise<ApplicantNeighbors>;
     updateStatus(
       applicationId: number,
       payload: UpdateApplicationStatusPayload,
@@ -173,8 +241,13 @@ export type DuingApiClient = {
       payload: BulkUpdateApplicationStatusPayload,
     ): Promise<BulkUpdateApplicationStatusResult>;
     myDetail(applicationId: number): Promise<MyApplicationDetail>;
+    withdraw(applicationId: number): Promise<void>;
     detail(applicationId: number): Promise<ApplicantDetail>;
-    updateInterview(applicationId: number, payload: UpdateInterviewPayload): Promise<void>;
+    upsertMyApplicationEvaluation(
+      applicationId: number,
+      payload: UpsertApplicationEvaluationPayload,
+    ): Promise<void>;
+    deleteMyApplicationEvaluation(applicationId: number): Promise<void>;
   };
   stats: {
     summary(recruitmentId: number): Promise<StatsSummary>;
@@ -218,6 +291,33 @@ export type DuingApiClient = {
   promotionRequests: {
     submit(clubId: number, payload: SubmitPromotionRequestPayload): Promise<number>;
   };
+  recertificationRequests: {
+    context(clubId: number): Promise<LeaderRecertificationContext>;
+    submit(clubId: number, payload: SubmitRecertificationRequestPayload): Promise<number>;
+  };
+  clubMembership: {
+    get(clubId: number): Promise<MyClubMembership>;
+  };
+  clubNotices: {
+    listForClub(
+      clubId: number,
+      params: { page?: number; size?: number },
+    ): Promise<PageResponse<NoticeCardItem>>;
+    create(clubId: number, payload: CreateClubNoticePayload): Promise<number>;
+    update(clubId: number, noticeId: number, payload: UpdateClubNoticePayload): Promise<void>;
+    remove(clubId: number, noticeId: number): Promise<void>;
+  };
+  clubEvents: {
+    list(clubId: number, params?: ClubEventListParams): Promise<ClubEventCard[]>;
+    get(clubId: number, eventId: number): Promise<ClubEventDetail>;
+    create(clubId: number, payload: CreateClubEventPayload): Promise<number>;
+    update(clubId: number, eventId: number, payload: UpdateClubEventPayload): Promise<void>;
+    remove(clubId: number, eventId: number): Promise<void>;
+  };
+  globalEvents: {
+    list(params?: GlobalEventListParams): Promise<GlobalEventCard[]>;
+    get(eventId: number): Promise<GlobalEventDetail>;
+  };
   reports: {
     submit(payload: SubmitReportPayload): Promise<number>;
   };
@@ -242,6 +342,14 @@ export type DuingApiClient = {
       create(payload: CreateNoticePayload): Promise<number>;
       update(noticeId: number, payload: UpdateNoticePayload): Promise<void>;
       remove(noticeId: number): Promise<void>;
+    };
+    globalEvents: {
+      list(params: AdminGlobalEventListParams): Promise<PageResponse<AdminGlobalEventSummary>>;
+      detail(eventId: number): Promise<AdminGlobalEventDetail>;
+      create(payload: CreateGlobalEventPayload): Promise<number>;
+      update(eventId: number, payload: UpdateGlobalEventPayload): Promise<void>;
+      remove(eventId: number): Promise<void>;
+      categoryStats(): Promise<GlobalEventCategoryStats>;
     };
     reports: {
       list(params: AdminReportSearchParams): Promise<PageResponse<AdminReportSummary>>;
@@ -279,6 +387,65 @@ export type DuingApiClient = {
       delete(promotionId: number): Promise<void>;
     };
   };
+  interviewRounds: {
+    // === 면접 라운드 후보 조회 (BE#2) ===
+    // GET /leader/recruitments/{recruitmentId}/interview-round-candidates
+    candidates(recruitmentId: number, includeUnderReview: boolean): Promise<InterviewRoundCandidate[]>;
+    // === 면접 라운드 목록 (BE#6) ===
+    // GET /leader/recruitments/{recruitmentId}/interview-rounds
+    list(recruitmentId: number): Promise<InterviewRoundSummary[]>;
+    // === 면접 라운드 상세 (BE#6) ===
+    // GET /leader/interview-rounds/{roundId}
+    detail(roundId: number): Promise<InterviewRoundDetail>;
+    // === 면접 라운드 생성 (BE#3) ===
+    // POST /leader/recruitments/{recruitmentId}/interview-rounds
+    create(recruitmentId: number, payload: CreateInterviewRoundPayload): Promise<CreateInterviewRoundResult>;
+    // === 면접 라운드 수정 (BE#12) ===
+    // PATCH /leader/interview-rounds/{roundId}
+    update(roundId: number, payload: UpdateInterviewRoundPayload): Promise<void>;
+    // === 면접 라운드 취소 ===
+    // POST /leader/interview-rounds/{roundId}/cancel
+    cancel(roundId: number): Promise<void>;
+    // === 슬롯 일괄 생성 (BE#4) ===
+    // POST /leader/interview-rounds/{roundId}/slots
+    createSlots(roundId: number, payload: CreateRoundSlotsPayload): Promise<CreateRoundSlotsResult>;
+    // === 슬롯 삭제 ===
+    // DELETE /leader/interview-slots/{slotId}
+    deleteSlot(slotId: number): Promise<void>;
+    // === 가능시간 요청 발송 (BE#5) ===
+    // POST /leader/interview-rounds/{roundId}/request-availability
+    requestAvailability(roundId: number): Promise<AvailabilityRequestResult>;
+    // === 자동배정 실행 (BE#11) ===
+    // POST /leader/interview-rounds/{roundId}/auto-assign
+    autoAssign(roundId: number): Promise<RoundAutoAssignResult>;
+    // === 수동 배정 (BE#11) ===
+    // PUT /leader/interview-rounds/{roundId}/members/{memberId}/schedule
+    assignMemberSchedule(roundId: number, memberId: number, payload: { slotId: number }): Promise<void>;
+    // === 배정 해제 (BE#11) ===
+    // DELETE /leader/interview-rounds/{roundId}/members/{memberId}/schedule
+    unassignMemberSchedule(roundId: number, memberId: number): Promise<void>;
+    // === 멤버 제외 (BE#11) ===
+    // POST /leader/interview-rounds/{roundId}/members/{memberId}/exclude
+    excludeMember(roundId: number, memberId: number): Promise<void>;
+    // === 라운드 확정 (BE#11) — force=false 시 409 + UnresolvedMembersPayload ===
+    // POST /leader/interview-rounds/{roundId}/confirm?force=
+    confirm(roundId: number, force: boolean): Promise<RoundConfirmResult>;
+    // === 재알림 발송 (BE#11) ===
+    // POST /leader/interview-rounds/{roundId}/remind
+    // 발송과 동일 응답 형태 (notifiedMemberCount)
+    remind(roundId: number): Promise<AvailabilityRequestResult>;
+    // === 슬롯 수정 (BE#11) ===
+    // PATCH /leader/interview-slots/{slotId}
+    updateSlot(slotId: number, payload: UpdateInterviewSlotPayload): Promise<void>;
+  };
+  applicantInterview: {
+    // === 지원자 면접 진행 단계 조회 (BE#7) ===
+    // GET /applications/{applicationId}/interview
+    view(applicationId: number): Promise<ApplicantInterviewView>;
+    // === 면접 가능 시간 응답 (BE#8 — XOR payload) ===
+    // PUT /applications/{applicationId}/interview-availability
+    respond(applicationId: number, payload: RespondAvailabilityPayload): Promise<void>;
+  };
   raw: KyInstance;
 };
 
@@ -296,6 +463,15 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           const token = await readToken();
           if (token) {
             request.headers.set('Authorization', `Bearer ${token}`);
+          }
+        },
+      ],
+      afterResponse: [
+        (request, _options, response) => {
+          // 인증 토큰을 실어 보낸 요청이 401 이면 세션 만료로 간주하고 앱에 알린다.
+          // (토큰 없는 로그인 실패 401 은 Authorization 헤더가 없어 제외된다)
+          if (response.status === 401 && request.headers.has('Authorization')) {
+            notifyUnauthorized();
           }
         },
       ],
@@ -326,10 +502,23 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<number>(http.post('auth/signup', { json: payload })),
       login: (payload) =>
         jsonOk<LoginResult>(http.post('auth/login', { json: payload })),
+      sendEmailVerification: (payload) =>
+        jsonOk<EmailVerificationResult>(http.post('auth/email-verifications', { json: payload })),
+      confirmEmailVerification: (payload) =>
+        jsonVoid(http.post('auth/email-verifications/confirm', { json: payload })),
     },
     users: {
       me: () => jsonOk<User>(http.get('users/me')),
-      myApplications: () => jsonOk<ApplicationSummary[]>(http.get('users/me/applications')),
+      myApplications: (scope) =>
+        jsonOk<ApplicationSummary[]>(
+          http.get('users/me/applications', {
+            searchParams: scope ? { scope } : undefined,
+          }),
+        ),
+      myClubs: () => jsonOk<MyClubSummary[]>(http.get('me/clubs')),
+      updateProfile: (payload) => jsonVoid(http.patch('users/me', { json: payload })),
+      changePassword: (payload) => jsonVoid(http.patch('users/me/password', { json: payload })),
+      withdraw: () => jsonVoid(http.delete('users/me')),
     },
     clubs: {
       list: (params) =>
@@ -347,6 +536,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonVoid(http.patch(`admin/clubs/${clubId}/status`, { json: payload })),
       updateCentralClub: (clubId, payload) =>
         jsonVoid(http.patch(`admin/clubs/${clubId}/central-club`, { json: payload })),
+      close: (clubId, payload) =>
+        jsonVoid(http.post(`admin/clubs/${clubId}/close`, { json: payload })),
       photos: (clubId) => jsonOk<ClubPhoto[]>(http.get(`clubs/${clubId}/photos`)),
       createPhoto: (clubId, payload) =>
         jsonOk<ClubPhoto>(http.post(`clubs/${clubId}/photos`, { json: payload })),
@@ -358,6 +549,12 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonVoid(http.delete(`clubs/${clubId}/photos/${photoId}`)),
       members: (clubId) =>
         jsonOk<ClubMember[]>(http.get(`clubs/${clubId}/members`)),
+      membersExport: (clubId, includePhone) =>
+        jsonOk<ClubMemberExportRow[]>(
+          http.get(`clubs/${clubId}/members/export`, {
+            searchParams: { includePhone: String(includePhone) },
+          }),
+        ),
       updateMemberRole: (clubId, memberId, payload) =>
         jsonVoid(http.patch(`clubs/${clubId}/members/${memberId}/role`, { json: payload })),
       removeMember: (clubId, memberId) =>
@@ -404,8 +601,28 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<number>(
           http.post(`recruitments/${recruitmentId}/applications`, { json: payload }),
         ),
-      applicants: (recruitmentId) =>
-        jsonOk<Applicant[]>(http.get(`leader/recruitments/${recruitmentId}/applications`)),
+      applicants: (recruitmentId, filters) => {
+        const search = new URLSearchParams();
+        if (filters?.status) search.set('status', filters.status);
+        if (filters?.college) search.set('college', filters.college);
+        if (filters?.q) search.set('q', filters.q);
+        if (filters?.submittedFrom) search.set('submittedFrom', filters.submittedFrom);
+        if (filters?.submittedTo) search.set('submittedTo', filters.submittedTo);
+        const qs = search.toString();
+        const path = `leader/recruitments/${recruitmentId}/applications${qs ? `?${qs}` : ''}`;
+        return jsonOk<Applicant[]>(http.get(path));
+      },
+      applicantNeighbors: (recruitmentId, applicationId, filters) => {
+        const search = new URLSearchParams();
+        if (filters?.status) search.set('status', filters.status);
+        if (filters?.college) search.set('college', filters.college);
+        if (filters?.q) search.set('q', filters.q);
+        if (filters?.submittedFrom) search.set('submittedFrom', filters.submittedFrom);
+        if (filters?.submittedTo) search.set('submittedTo', filters.submittedTo);
+        const qs = search.toString();
+        const path = `leader/recruitments/${recruitmentId}/applications/${applicationId}/neighbors${qs ? `?${qs}` : ''}`;
+        return jsonOk<ApplicantNeighbors>(http.get(path));
+      },
       updateStatus: (applicationId, payload) =>
         jsonVoid(
           http.patch(`leader/applications/${applicationId}/status`, { json: payload }),
@@ -416,11 +633,17 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         ),
       myDetail: (applicationId) =>
         jsonOk<MyApplicationDetail>(http.get(`users/me/applications/${applicationId}`)),
+      withdraw: (applicationId) =>
+        jsonVoid(http.delete(`users/me/applications/${applicationId}`)),
       detail: (applicationId) =>
         jsonOk<ApplicantDetail>(http.get(`leader/applications/${applicationId}`)),
-      updateInterview: (applicationId, payload) =>
+      upsertMyApplicationEvaluation: (applicationId, payload) =>
         jsonVoid(
-          http.patch(`leader/applications/${applicationId}/interview`, { json: payload }),
+          http.put(`leader/applications/${applicationId}/evaluations/me`, { json: payload }),
+        ),
+      deleteMyApplicationEvaluation: (applicationId) =>
+        jsonVoid(
+          http.delete(`leader/applications/${applicationId}/evaluations/me`),
         ),
     },
     stats: {
@@ -497,6 +720,54 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           http.post(`clubs/${clubId}/promotion-requests`, { json: payload }),
         ),
     },
+    recertificationRequests: {
+      context: (clubId) =>
+        jsonOk<LeaderRecertificationContext>(
+          http.get(`clubs/${clubId}/recertification-context`),
+        ),
+      submit: (clubId, payload) =>
+        jsonOk<number>(
+          http.post(`clubs/${clubId}/recertification-requests`, { json: payload }),
+        ),
+    },
+    clubMembership: {
+      get: (clubId) =>
+        jsonOk<MyClubMembership>(http.get(`clubs/${clubId}/membership`)),
+    },
+    clubNotices: {
+      listForClub: (clubId, params) =>
+        jsonOk<PageResponse<NoticeCardItem>>(
+          http.get(`clubs/${clubId}/notices`, { searchParams: cleanParams(params) }),
+        ),
+      create: (clubId, payload) =>
+        jsonOk<number>(http.post(`clubs/${clubId}/notices`, { json: payload })),
+      update: (clubId, noticeId, payload) =>
+        jsonVoid(http.patch(`clubs/${clubId}/notices/${noticeId}`, { json: payload })),
+      remove: (clubId, noticeId) =>
+        jsonVoid(http.delete(`clubs/${clubId}/notices/${noticeId}`)),
+    },
+    clubEvents: {
+      list: (clubId, params) =>
+        jsonOk<ClubEventCard[]>(
+          http.get(`clubs/${clubId}/events`, { searchParams: cleanParams(params ?? {}) }),
+        ),
+      get: (clubId, eventId) =>
+        jsonOk<ClubEventDetail>(http.get(`clubs/${clubId}/events/${eventId}`)),
+      create: (clubId, payload) =>
+        jsonOk<number>(http.post(`clubs/${clubId}/events`, { json: payload })),
+      update: (clubId, eventId, payload) =>
+        jsonVoid(http.patch(`clubs/${clubId}/events/${eventId}`, { json: payload })),
+      remove: (clubId, eventId) =>
+        jsonVoid(http.delete(`clubs/${clubId}/events/${eventId}`)),
+    },
+    globalEvents: {
+      list: (params) =>
+        jsonOk<GlobalEventCard[]>(
+          http.get('global-events', { searchParams: cleanParams(params ?? {}) }),
+        ),
+      get: (eventId) =>
+        jsonOk<GlobalEventDetail>(http.get(`global-events/${eventId}`)),
+    },
     reports: {
       submit: (payload) =>
         jsonOk<number>(http.post('reports', { json: payload })),
@@ -536,6 +807,26 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonVoid(http.patch(`admin/notices/${noticeId}`, { json: payload })),
         remove: (noticeId) =>
           jsonVoid(http.delete(`admin/notices/${noticeId}`)),
+      },
+      globalEvents: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminGlobalEventSummary>>(
+            http.get('admin/global-events', { searchParams: cleanParams(params) }),
+          ),
+        detail: (eventId) =>
+          jsonOk<AdminGlobalEventDetail>(http.get(`admin/global-events/${eventId}`)),
+        create: (payload) =>
+          jsonOk<number>(http.post('admin/global-events', { json: payload })),
+        update: (eventId, payload) =>
+          jsonVoid(http.patch(`admin/global-events/${eventId}`, { json: payload })),
+        remove: (eventId) =>
+          jsonVoid(http.delete(`admin/global-events/${eventId}`)),
+        categoryStats: async () => {
+          const wrapper = await jsonOk<{ distribution: GlobalEventCategoryStats }>(
+            http.get('admin/global-events/category-stats'),
+          );
+          return wrapper.distribution;
+        },
       },
       reports: {
         list: (params) =>
@@ -615,6 +906,76 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         delete: (promotionId) =>
           jsonVoid(http.delete(`admin/promotions/${promotionId}`)),
       },
+    },
+    applicantInterview: {
+      view: (applicationId) =>
+        jsonOk<ApplicantInterviewView>(http.get(`applications/${applicationId}/interview`)),
+      respond: (applicationId, payload) =>
+        jsonVoid(http.put(`applications/${applicationId}/interview-availability`, { json: payload })),
+    },
+    interviewRounds: {
+      candidates: (recruitmentId, includeUnderReview) =>
+        jsonOk<InterviewRoundCandidate[]>(
+          http.get(`leader/recruitments/${recruitmentId}/interview-round-candidates`, {
+            searchParams: { includeUnderReview },
+          }),
+        ),
+      list: (recruitmentId) =>
+        jsonOk<InterviewRoundSummary[]>(
+          http.get(`leader/recruitments/${recruitmentId}/interview-rounds`),
+        ),
+      detail: (roundId) =>
+        jsonOk<InterviewRoundDetail>(
+          http.get(`leader/interview-rounds/${roundId}`),
+        ),
+      create: (recruitmentId, payload) =>
+        jsonOk<CreateInterviewRoundResult>(
+          http.post(`leader/recruitments/${recruitmentId}/interview-rounds`, { json: payload }),
+        ),
+      update: (roundId, payload) =>
+        jsonVoid(http.patch(`leader/interview-rounds/${roundId}`, { json: payload })),
+      cancel: (roundId) =>
+        jsonVoid(http.post(`leader/interview-rounds/${roundId}/cancel`)),
+      createSlots: (roundId, payload) =>
+        jsonOk<CreateRoundSlotsResult>(
+          http.post(`leader/interview-rounds/${roundId}/slots`, { json: payload }),
+        ),
+      deleteSlot: (slotId) =>
+        jsonVoid(http.delete(`leader/interview-slots/${slotId}`)),
+      requestAvailability: (roundId) =>
+        jsonOk<AvailabilityRequestResult>(
+          http.post(`leader/interview-rounds/${roundId}/request-availability`),
+        ),
+      autoAssign: (roundId) =>
+        jsonOk<RoundAutoAssignResult>(
+          http.post(`leader/interview-rounds/${roundId}/auto-assign`),
+        ),
+      assignMemberSchedule: (roundId, memberId, payload) =>
+        jsonVoid(
+          http.put(`leader/interview-rounds/${roundId}/members/${memberId}/schedule`, { json: payload }),
+        ),
+      unassignMemberSchedule: (roundId, memberId) =>
+        jsonVoid(
+          http.delete(`leader/interview-rounds/${roundId}/members/${memberId}/schedule`),
+        ),
+      excludeMember: (roundId, memberId) =>
+        jsonVoid(
+          http.post(`leader/interview-rounds/${roundId}/members/${memberId}/exclude`),
+        ),
+      confirm: (roundId, force) =>
+        jsonOk<RoundConfirmResult>(
+          http.post(`leader/interview-rounds/${roundId}/confirm`, {
+            searchParams: { force },
+          }),
+        ),
+      remind: (roundId) =>
+        jsonOk<AvailabilityRequestResult>(
+          http.post(`leader/interview-rounds/${roundId}/remind`),
+        ),
+      updateSlot: (slotId, payload) =>
+        jsonVoid(
+          http.patch(`leader/interview-slots/${slotId}`, { json: payload }),
+        ),
     },
     raw: http,
   };

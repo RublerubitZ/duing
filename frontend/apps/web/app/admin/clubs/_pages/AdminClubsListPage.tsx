@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import {
   useAdminClubsQuery,
+  useCloseClubMutation,
   useUpdateClubCentralClubMutation,
   useUpdateClubStatusMutation,
 } from '@duing/hooks';
 import type { AdminClubSummary, ClubStatus } from '@duing/types';
 import { AdminClubCentralClubToggleDialog } from '../_components/AdminClubCentralClubToggleDialog';
+import { AdminClubDeleteDialog } from '../_components/AdminClubDeleteDialog';
 import { AdminClubStatusChangeDialog } from '../_components/AdminClubStatusChangeDialog';
 import { AdminClubStatusFilter } from '../_components/AdminClubStatusFilter';
 import { AdminClubsTable } from '../_components/AdminClubsTable';
@@ -32,6 +34,9 @@ export function AdminClubsListPage() {
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [centralClubDialog, setCentralClubDialog] = useState<AdminClubSummary | null>(null);
   const [centralClubError, setCentralClubError] = useState<string | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<AdminClubSummary | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const closeMutation = useCloseClubMutation();
 
   const params = useMemo(
     () => ({
@@ -89,6 +94,32 @@ export function AdminClubsListPage() {
     setDialogError(null);
   }
 
+  function handleCloseClick(club: AdminClubSummary) {
+    setDeleteError(null);
+    setDeleteDialog(club);
+  }
+
+  function handleCloseConfirm(closureReason?: string) {
+    if (!deleteDialog) return;
+    setDeleteError(null);
+    closeMutation.mutate(
+      { clubId: deleteDialog.id, payload: { ...(closureReason !== undefined && { closureReason }) } },
+      {
+        onSuccess: () => setDeleteDialog(null),
+        onError: (mutationError) => {
+          const message =
+            mutationError instanceof ApiError ? mutationError.message : '폐쇄에 실패했습니다.';
+          setDeleteError(message);
+        },
+      },
+    );
+  }
+
+  function handleCloseCancel() {
+    setDeleteDialog(null);
+    setDeleteError(null);
+  }
+
   function handleCentralClubToggleClick(club: AdminClubSummary) {
     setCentralClubError(null);
     setCentralClubDialog(club);
@@ -121,7 +152,7 @@ export function AdminClubsListPage() {
   const totalElements = clubsQuery.data?.totalElements ?? 0;
 
   return (
-    <main className="max-w-layout mx-auto px-10 py-10">
+    <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6">
         <p className="text-charcoal-3 text-xs font-semibold">총동연 콘솔</p>
         <h1 className="mt-1 text-2xl font-bold text-ink">동아리 관리</h1>
@@ -181,6 +212,7 @@ export function AdminClubsListPage() {
               setDialogError(null);
             }}
             onCentralClubToggleClick={handleCentralClubToggleClick}
+            onCloseClick={handleCloseClick}
           />
           <footer className="mt-4 flex items-center justify-between text-xs text-slate-500">
             <span>총 {totalElements}건</span>
@@ -227,6 +259,15 @@ export function AdminClubsListPage() {
           errorMessage={centralClubError}
           onConfirm={handleCentralClubConfirm}
           onCancel={handleCentralClubCancel}
+        />
+      )}
+      {deleteDialog && (
+        <AdminClubDeleteDialog
+          club={deleteDialog}
+          isPending={closeMutation.isPending}
+          errorMessage={deleteError}
+          onConfirm={handleCloseConfirm}
+          onCancel={handleCloseCancel}
         />
       )}
     </main>

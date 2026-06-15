@@ -14,4 +14,6 @@ public interface ClubFavoriteService {
     Page<FavoriteClubQuery> getMyFavorites(Long userId, Pageable pageable);
 
     List<Long> getMyFavoriteClubIds(Long userId);
+
+    void removeAllOnClubClosure(Long clubId);
 }

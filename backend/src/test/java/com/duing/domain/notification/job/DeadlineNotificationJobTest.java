@@ -20,19 +20,19 @@ import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.annotation.DirtiesContext;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = "duing.notification.jobs.enabled=true")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class DeadlineNotificationJobTest {
+class DeadlineNotificationJobTest extends IntegrationTestBase {
 
     @Autowired
     private DeadlineNotificationJob job;
@@ -67,21 +67,26 @@ class DeadlineNotificationJobTest {
         User favoringUserB = saveStudent("찜유저B");
         User nonFavoringUser = saveStudent("비찜유저C");
 
-        Club targetClub = saveActiveClub("대상동아리");
+        // V38 partial unique 인덱스로 동아리당 OPEN 모집은 1건만 허용된다.
+        // 각 deadline 케이스를 동아리별로 분리하고 두 찜 유저가 모든 동아리를 찜하도록 구성한다.
+        Club d3Club = saveActiveClub("D3동아리");
+        Club d1Club = saveActiveClub("D1동아리");
+        Club d0Club = saveActiveClub("D0동아리");
+        Club unrelatedClub = saveActiveClub("무관동아리");
+        Club closedClub = saveActiveClub("마감동아리");
 
-        saveFavorite(favoringUserA, targetClub);
-        saveFavorite(favoringUserB, targetClub);
+        for (Club club : List.of(d3Club, d1Club, d0Club, unrelatedClub, closedClub)) {
+            saveFavorite(favoringUserA, club);
+            saveFavorite(favoringUserB, club);
+        }
 
-        // D-3 모집
-        saveOpenRecruitment(targetClub, "D3모집", today.minusDays(5), today.plusDays(3));
-        // D-1 모집
-        saveOpenRecruitment(targetClub, "D1모집", today.minusDays(5), today.plusDays(1));
-        // D-0 모집
-        saveOpenRecruitment(targetClub, "D0모집", today.minusDays(5), today);
+        saveOpenRecruitment(d3Club, "D3모집", today.minusDays(5), today.plusDays(3));
+        saveOpenRecruitment(d1Club, "D1모집", today.minusDays(5), today.plusDays(1));
+        saveOpenRecruitment(d0Club, "D0모집", today.minusDays(5), today);
         // 관련 없음 (D-7)
-        saveOpenRecruitment(targetClub, "무관모집", today.minusDays(1), today.plusDays(7));
+        saveOpenRecruitment(unrelatedClub, "무관모집", today.minusDays(1), today.plusDays(7));
         // CLOSED 모집 (마감일이 today+3 이지만 상태가 CLOSED)
-        saveClosedRecruitment(targetClub, "CLOSED모집", today.minusDays(5), today.plusDays(3));
+        saveClosedRecruitment(closedClub, "CLOSED모집", today.minusDays(5), today.plusDays(3));
 
         long beforeCount = notificationRepository.count();
         job.run();
@@ -126,6 +131,28 @@ class DeadlineNotificationJobTest {
                 .filter(n -> n.getUserId().equals(favoringUser.getId()))
                 .anyMatch(n -> n.getDedupKey().startsWith("RECRUITMENT_OPENED:r="));
         assertThat(hasOpenedKey).isTrue();
+    }
+
+    @Test
+    @DisplayName("soft-delete 된 동아리의 OPEN 모집은 마감 알림 후보에서 제외된다")
+    void softDeletedClubRecruitmentIsExcluded() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+
+        User favoringUser = saveStudent("찜유저E");
+        Club club = saveActiveClub("삭제예정동아리");
+        saveFavorite(favoringUser, club);
+        saveOpenRecruitment(club, "삭제동아리모집", today.minusDays(5), today.plusDays(3)); // D-3 후보
+
+        // 클로저 cascade 를 거치지 않고 동아리만 soft-delete 한다(@SQLDelete 로 deleted_at 설정).
+        // 모집 행은 OPEN·미삭제로 남으므로, 클럽 soft-delete 만으로 후보에서 빠지는지를 검증한다.
+        clubRepository.delete(club);
+
+        long beforeCount = notificationRepository.count();
+        job.run();
+        long createdCount = notificationRepository.count() - beforeCount;
+
+        // native query 가 c.deleted_at IS NULL 로 걸러 알림이 생성되지 않아야 한다.
+        assertThat(createdCount).isZero();
     }
 
     private User saveStudent(String name) {

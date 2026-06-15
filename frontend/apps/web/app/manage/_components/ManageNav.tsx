@@ -12,11 +12,13 @@ type ManageNavProps = {
 export function ManageNav({ currentClubId }: ManageNavProps) {
   const pathname = usePathname();
 
+  const dashboardPath = toRoute(`/manage/clubs/${currentClubId}`);
   const recruitmentsPath = toRoute(`/manage/clubs/${currentClubId}/recruitments`);
   const photosPath = toRoute(`/manage/clubs/${currentClubId}/photos`);
   const membersPath = toRoute(`/manage/clubs/${currentClubId}/members`);
   const infoPath = toRoute(`/manage/clubs/${currentClubId}/info`);
 
+  const isDashboardActive = pathname === dashboardPath;
   const isRecruitmentsActive = pathname.startsWith(recruitmentsPath);
   const isPhotosActive = pathname.startsWith(photosPath);
   const isMembersActive = pathname.startsWith(membersPath);
@@ -24,7 +26,28 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
 
   return (
     <nav className="flex flex-col gap-0.5 px-2">
-      <p className="px-2.5 pt-1 pb-1.5 text-[11px] uppercase tracking-[0.12em] text-[#9aa191]">
+      <Link
+        href={dashboardPath}
+        className={cn(
+          'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
+          isDashboardActive
+            ? 'bg-ink text-cream font-semibold'
+            : 'text-cream/80 hover:bg-ink/60',
+        )}
+      >
+        <svg
+          className={cn('w-4 h-4 flex-shrink-0', isDashboardActive ? 'text-cream' : 'text-sage')}
+          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
+        >
+          <rect x="2" y="2" width="5" height="5" rx="1" />
+          <rect x="9" y="2" width="5" height="5" rx="1" />
+          <rect x="2" y="9" width="5" height="5" rx="1" />
+          <rect x="9" y="9" width="5" height="5" rx="1" />
+        </svg>
+        대시보드
+      </Link>
+
+      <p className="px-2.5 pt-3 pb-1.5 text-[11px] uppercase tracking-[0.12em] text-cream/50">
         모집
       </p>
 
@@ -33,12 +56,12 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
         className={cn(
           'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
           isRecruitmentsActive
-            ? 'bg-[#48563f] text-[#fbf6e6] font-semibold'
-            : 'text-[#d9d4c3] hover:bg-[#3a4738]',
+            ? 'bg-ink text-cream font-semibold'
+            : 'text-cream/80 hover:bg-ink/60',
         )}
       >
         <svg
-          className={cn('w-4 h-4 flex-shrink-0', isRecruitmentsActive ? 'text-[#c9d6a8]' : 'text-[#5b7e4d]')}
+          className={cn('w-4 h-4 flex-shrink-0', isRecruitmentsActive ? 'text-cream' : 'text-sage')}
           viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
         >
           <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
@@ -47,29 +70,29 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
         모집 관리
       </Link>
 
-      <span className="flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] text-[#6e7568] cursor-not-allowed select-none">
-        <svg className="w-4 h-4 text-[#3d4938] flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <span className="flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] text-cream/40 cursor-not-allowed select-none">
+        <svg className="w-4 h-4 text-cream/30 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
           <circle cx="7" cy="6" r="3" />
           <path d="M2 14c.5-2.5 2.5-4 5-4s4.5 1.5 5 4" />
           <circle cx="12.5" cy="5.5" r="2" />
         </svg>
         지원자
-        <small className="text-[#5b6256] text-[11.5px] font-normal ml-0.5">
+        <small className="text-cream/30 text-[11.5px] font-normal ml-0.5">
           (모집을 먼저 선택하세요)
         </small>
       </span>
 
-      <span className="flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] text-[#6e7568] cursor-not-allowed select-none">
-        <svg className="w-4 h-4 text-[#3d4938] flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <span className="flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] text-cream/40 cursor-not-allowed select-none">
+        <svg className="w-4 h-4 text-cream/30 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
           <path d="M2 13V7M6 13V4M10 13V8M14 13V6" />
         </svg>
         통계
-        <small className="text-[#5b6256] text-[11.5px] font-normal ml-0.5">
+        <small className="text-cream/30 text-[11.5px] font-normal ml-0.5">
           (모집을 먼저 선택하세요)
         </small>
       </span>
 
-      <p className="px-2.5 pt-3.5 pb-1.5 text-[11px] uppercase tracking-[0.12em] text-[#9aa191]">
+      <p className="px-2.5 pt-3.5 pb-1.5 text-[11px] uppercase tracking-[0.12em] text-cream/50">
         관리
       </p>
 
@@ -78,12 +101,12 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
         className={cn(
           'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
           isInfoActive
-            ? 'bg-[#48563f] text-[#fbf6e6] font-semibold'
-            : 'text-[#d9d4c3] hover:bg-[#3a4738]',
+            ? 'bg-ink text-cream font-semibold'
+            : 'text-cream/80 hover:bg-ink/60',
         )}
       >
         <svg
-          className={cn('w-4 h-4 flex-shrink-0', isInfoActive ? 'text-[#c9d6a8]' : 'text-[#5b7e4d]')}
+          className={cn('w-4 h-4 flex-shrink-0', isInfoActive ? 'text-cream' : 'text-sage')}
           viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
         >
           <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
@@ -97,12 +120,12 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
         className={cn(
           'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
           isPhotosActive
-            ? 'bg-[#48563f] text-[#fbf6e6] font-semibold'
-            : 'text-[#d9d4c3] hover:bg-[#3a4738]',
+            ? 'bg-ink text-cream font-semibold'
+            : 'text-cream/80 hover:bg-ink/60',
         )}
       >
         <svg
-          className={cn('w-4 h-4 flex-shrink-0', isPhotosActive ? 'text-[#c9d6a8]' : 'text-[#5b7e4d]')}
+          className={cn('w-4 h-4 flex-shrink-0', isPhotosActive ? 'text-cream' : 'text-sage')}
           viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
         >
           <rect x="2.5" y="3.5" width="11" height="9" rx="1.5" />
@@ -117,12 +140,12 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
         className={cn(
           'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
           isMembersActive
-            ? 'bg-[#48563f] text-[#fbf6e6] font-semibold'
-            : 'text-[#d9d4c3] hover:bg-[#3a4738]',
+            ? 'bg-ink text-cream font-semibold'
+            : 'text-cream/80 hover:bg-ink/60',
         )}
       >
         <svg
-          className={cn('w-4 h-4 flex-shrink-0', isMembersActive ? 'text-[#c9d6a8]' : 'text-[#5b7e4d]')}
+          className={cn('w-4 h-4 flex-shrink-0', isMembersActive ? 'text-cream' : 'text-sage')}
           viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
         >
           <circle cx="6" cy="6" r="2.4" />

@@ -4,17 +4,17 @@ import { Sparkle, SparkleFull } from '@/components/duing/Sparkle';
 import { fetchClubStats } from '@/app/_lib/club-stats';
 
 const SUGGESTED_QUERIES: ReadonlyArray<string> = [
-  '주니어 개발자',
-  'K-pop 댄스',
-  '투자 스터디',
-  '산악회',
-  '그림 그리기',
+  '개발',
+  '공모전',
+  '봉사',
+  '축구',
+  '창업',
 ];
 
 export async function HomeHero() {
   const { totalCount, recruitingCount } = await fetchClubStats();
   return (
-    <section className="relative overflow-hidden px-10 pb-8 pt-16">
+    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-5 sm:pb-8 sm:pt-16">
       <div className="bg-grid absolute inset-0 opacity-50" />
       <div
         className="absolute -right-40 -top-32 h-[520px] w-[520px] rounded-full opacity-70 blur-[8px]"
@@ -24,13 +24,24 @@ export async function HomeHero() {
       />
 
       <div className="max-w-layout relative mx-auto grid items-center gap-16 md:grid-cols-[1.15fr_1fr]">
-        <div>
-          <div className="mb-[22px] inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 font-mono text-[11.5px] font-bold tracking-[0.14em] text-ink-deep">
+        <div className="relative">
+          {/* 모바일: 헤드라인 우측 여백의 모집 통계 — 데스크탑 카드스택과 같은 톤으로 깔끔한 2줄 (#1) */}
+          <div className="md:hidden absolute right-0 top-[54px] z-[3] rounded-xl border border-sage-soft bg-sage-mist px-4 py-3 shadow-1">
+            <div className="font-display text-[32px] font-bold leading-none text-ink">
+              {recruitingCount}
+              <span className="text-base font-bold">곳</span>
+            </div>
+            <div className="mt-1 text-[11px] font-medium leading-tight text-ink/75">
+              이번 학기 모집중
+            </div>
+          </div>
+
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 font-mono text-[11.5px] font-bold tracking-[0.14em] text-ink-deep sm:mb-[22px]">
             <Sparkle size={11} color="#143025" />
             DU + ING
           </div>
 
-          <h1 className="mb-12 text-[84px] leading-none tracking-[-0.035em]">
+          <h1 className="mb-2.5 text-[40px] leading-none tracking-[-0.035em] sm:mb-12 sm:text-[60px] md:text-[84px]">
             오늘,
             <br />
             캠퍼스의
@@ -63,7 +74,8 @@ export async function HomeHero() {
             .
           </h1>
 
-          <p className="mb-9 max-w-[500px] text-lg leading-[1.6] text-charcoal-2">
+          {/* 본문 카피 — 모바일에선 숨겨 히어로를 압축(#2·#6), 데스크탑만 노출 */}
+          <p className="mb-9 hidden max-w-[500px] text-lg leading-[1.6] text-charcoal-2 md:block">
             대구대학교 학생자치회 공식 동아리 플랫폼.
             <br />
             {totalCount}개 동아리가 지금도{' '}
@@ -73,12 +85,13 @@ export async function HomeHero() {
             중 — 이번 학기 {recruitingCount}곳 모집 중이에요.
           </p>
 
-          <form action="/clubs" method="get" className="flex max-w-[540px] items-center gap-1.5 rounded-lg bg-paper p-1.5 shadow-2">
+          {/* 데스크탑 전용 검색 — 모바일은 상단 고정 검색 바(HomeMobileSearchBar)가 담당 (#3) */}
+          <form action="/clubs" method="get" className="hidden max-w-[540px] items-center gap-1.5 rounded-lg bg-paper p-1.5 shadow-2 md:flex">
             <label className="flex flex-1 items-center gap-3 px-[18px] py-3.5">
               <Search className="text-charcoal-3" />
               <input
                 type="search"
-                name="keyword"
+                name="q"
                 placeholder="동아리 이름, 키워드, 카테고리로 검색"
                 className="flex-1 border-none bg-transparent text-[15px] text-charcoal outline-none"
               />
@@ -89,12 +102,13 @@ export async function HomeHero() {
             </button>
           </form>
 
-          <div className="mt-5 flex flex-wrap items-center gap-2.5">
+          {/* 추천 검색어 — 모바일에선 숨김(#3), 데스크탑만 노출 */}
+          <div className="mt-5 hidden flex-wrap items-center gap-2.5 md:flex">
             <span className="text-[13px] text-charcoal-3">요즘 많이 찾는</span>
             {SUGGESTED_QUERIES.map((query) => (
               <Link
                 key={query}
-                href={`/clubs?keyword=${encodeURIComponent(query)}`}
+                href={`/clubs?q=${encodeURIComponent(query)}`}
                 className="rounded-full border border-dashed border-line px-3 py-[5px] text-[13px] font-medium text-charcoal-2 hover:border-ink hover:text-ink"
               >
                 {query}
@@ -110,8 +124,9 @@ export async function HomeHero() {
 }
 
 function HeroCardStack({ recruitingCount }: { recruitingCount: number }) {
+  // 회전 콜라주는 360px 폭에서 절대배치 카드들이 bleed 되므로 모바일에선 숨긴다(장식 — 정보는 서브카피·검색이 담당).
   return (
-    <div className="relative h-[540px]">
+    <div className="relative hidden h-[540px] md:block">
       <div
         className="absolute right-10 top-10 w-[280px] rounded-lg border border-line bg-paper p-4 shadow-2"
         style={{ transform: 'rotate(7deg)' }}

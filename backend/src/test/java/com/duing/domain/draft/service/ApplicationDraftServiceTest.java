@@ -32,13 +32,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.duing.common.TestcontainersConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
-@DirtiesContext
 class ApplicationDraftServiceTest {
 
     @Autowired
@@ -102,6 +100,50 @@ class ApplicationDraftServiceTest {
 
         Optional<ApplicationDraftQuery> result = draftService.find(student.getId(), openRecruitment.getId());
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("discard 는 호출한 (user, recruitment) 의 draft 만 삭제하고 다른 사용자·모집의 draft 는 보존한다")
+    void discardOnlyAffectsTargetUserAndRecruitment() throws Exception {
+        User studentTarget = saveStudent("대상학생");
+        User studentOther = saveStudent("다른학생");
+        Recruitment targetRecruitment = saveOpenRecruitment("대상모집");
+        Recruitment otherRecruitment = saveOpenRecruitment("다른모집");
+
+        draftService.upsert(new UpsertDraftCommand(studentTarget.getId(), targetRecruitment.getId(),
+                List.of(new DraftAnswer(1L, "대상"))));
+        draftService.upsert(new UpsertDraftCommand(studentOther.getId(), targetRecruitment.getId(),
+                List.of(new DraftAnswer(1L, "다른 사용자, 같은 모집"))));
+        draftService.upsert(new UpsertDraftCommand(studentTarget.getId(), otherRecruitment.getId(),
+                List.of(new DraftAnswer(1L, "같은 사용자, 다른 모집"))));
+
+        draftService.discard(studentTarget.getId(), targetRecruitment.getId());
+
+        assertThat(draftService.find(studentTarget.getId(), targetRecruitment.getId())).isEmpty();
+        assertThat(draftService.find(studentOther.getId(), targetRecruitment.getId())).isPresent();
+        assertThat(draftService.find(studentTarget.getId(), otherRecruitment.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("deleteAllByRecruitmentId 는 해당 모집의 모든 draft 를 삭제하고 다른 모집의 draft 는 보존한다")
+    void deleteAllByRecruitmentIdRemovesOnlyTargetRecruitmentDrafts() throws Exception {
+        User studentA = saveStudent("학생A");
+        User studentB = saveStudent("학생B");
+        Recruitment targetRecruitment = saveOpenRecruitment("대상모집");
+        Recruitment otherRecruitment = saveOpenRecruitment("보존모집");
+
+        draftService.upsert(new UpsertDraftCommand(studentA.getId(), targetRecruitment.getId(),
+                List.of(new DraftAnswer(1L, "A-대상"))));
+        draftService.upsert(new UpsertDraftCommand(studentB.getId(), targetRecruitment.getId(),
+                List.of(new DraftAnswer(1L, "B-대상"))));
+        draftService.upsert(new UpsertDraftCommand(studentA.getId(), otherRecruitment.getId(),
+                List.of(new DraftAnswer(1L, "A-보존"))));
+
+        draftRepository.deleteAllByRecruitmentId(targetRecruitment.getId());
+
+        assertThat(draftService.find(studentA.getId(), targetRecruitment.getId())).isEmpty();
+        assertThat(draftService.find(studentB.getId(), targetRecruitment.getId())).isEmpty();
+        assertThat(draftService.find(studentA.getId(), otherRecruitment.getId())).isPresent();
     }
 
     private User saveStudent(String name) {

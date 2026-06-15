@@ -1,29 +1,30 @@
 import Link from 'next/link';
 
-import type { ApplicationStatus, ApplicationSummary } from '@duing/types';
+import type { ApplicationSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
 
 import { SectionHeader } from './SectionHeader';
 
-const STEPS = ['서류', '검토', '면접', '결과'] as const;
+type ActiveApplicationStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'INTERVIEW_PENDING';
 
-const STATUS_STEP: Record<ApplicationStatus, number> = {
+const STEPS = ['서류', '검토', '면접'] as const;
+
+const STATUS_STEP: Record<ActiveApplicationStatus, number> = {
   SUBMITTED: 1,
   UNDER_REVIEW: 2,
   INTERVIEW_PENDING: 3,
-  ACCEPTED: 4,
-  REJECTED: 4,
 };
 
-const ACTION_LABEL: Record<ApplicationStatus, string> = {
+const ACTION_LABEL: Record<ActiveApplicationStatus, string> = {
   SUBMITTED: '지원서 보기',
   UNDER_REVIEW: '지원서 보기',
   INTERVIEW_PENDING: '면접 일정 보기',
-  ACCEPTED: '합격 확인',
-  REJECTED: '결과 보기',
 };
+
+const isActiveStatus = (status: string): status is ActiveApplicationStatus =>
+  status in STATUS_STEP;
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleString('ko-KR', {
@@ -35,19 +36,19 @@ const formatDate = (iso: string) =>
   });
 
 const statusNote = (app: ApplicationSummary): string => {
-  if (app.status === 'INTERVIEW_PENDING' && app.interviewAt) {
-    const at = new Date(app.interviewAt).toLocaleString('ko-KR', {
+  if (app.status === 'INTERVIEW_PENDING' && app.interview) {
+    const at = new Date(app.interview.startAt).toLocaleString('ko-KR', {
       month: 'numeric',
       day: 'numeric',
       weekday: 'short',
       hour: '2-digit',
       minute: '2-digit',
     });
-    return `면접: ${at}${app.interviewLocation ? ` — ${app.interviewLocation}` : ''}`;
+    return app.interview.location
+      ? `면접: ${at} — ${app.interview.location}`
+      : `면접: ${at}`;
   }
   if (app.status === 'UNDER_REVIEW') return '동아리에서 검토 중입니다';
-  if (app.status === 'ACCEPTED') return '합격을 축하드립니다!';
-  if (app.status === 'REJECTED') return '아쉽게도 이번에는 함께하지 못했어요';
   return '지원서 작성 완료';
 };
 
@@ -61,7 +62,7 @@ export function SectionApply({ applications }: Props) {
       <section
         data-section="apply"
         id="sec-apply"
-        className="px-10 pt-10 pb-6 scroll-mt-[60px]"
+        className="px-4 sm:px-6 md:px-10 pt-10 pb-6 scroll-mt-[60px]"
       >
         <div className="max-w-layout mx-auto">
           <SectionHeader
@@ -83,7 +84,7 @@ export function SectionApply({ applications }: Props) {
     <section
       data-section="apply"
       id="sec-apply"
-      className="px-10 pt-10 pb-6 scroll-mt-[60px]"
+      className="px-4 sm:px-6 md:px-10 pt-10 pb-6 scroll-mt-[60px]"
     >
       <div className="max-w-layout mx-auto">
         <SectionHeader
@@ -93,6 +94,7 @@ export function SectionApply({ applications }: Props) {
 
         <div className="flex flex-col gap-3">
           {applications.map((app) => {
+            if (!isActiveStatus(app.status)) return null;
             const step = STATUS_STEP[app.status];
             const isInterview = app.status === 'INTERVIEW_PENDING';
 
@@ -101,12 +103,12 @@ export function SectionApply({ applications }: Props) {
                 key={app.id}
                 className={cn(
                   'relative bg-paper rounded-[18px] px-5 py-5',
-                  'grid gap-5 items-center',
+                  'grid gap-4 sm:gap-5 items-start sm:items-center',
+                  'grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_360px_auto]',
                   'transition-[transform,box-shadow,border-color] duration-150',
                   'hover:-translate-y-0.5 hover:shadow-2',
                   isInterview ? 'border border-ink' : 'border border-line',
                 )}
-                style={{ gridTemplateColumns: 'auto 1fr 360px auto' }}
               >
                 {isInterview && (
                   <div className="absolute -top-2.5 left-5 px-2.5 py-0.5 rounded-full bg-ink text-white text-[11px] font-bold">
@@ -132,7 +134,7 @@ export function SectionApply({ applications }: Props) {
                 </div>
 
                 {/* Step progress */}
-                <div>
+                <div className="col-span-2 sm:col-span-1">
                   <div className="text-[11.5px] font-semibold text-charcoal-3 tracking-wide04 mb-2">
                     진행 상태
                   </div>
@@ -165,7 +167,7 @@ export function SectionApply({ applications }: Props) {
                     })}
                   </div>
                   <div className="text-[12px] text-charcoal-3 font-mono">
-                    {app.interviewAt ? `면접: ${formatDate(app.interviewAt)}` : formatDate(app.submittedAt)}
+                    {app.interview ? `면접: ${formatDate(app.interview.startAt)}` : formatDate(app.submittedAt)}
                   </div>
                 </div>
 
@@ -173,7 +175,7 @@ export function SectionApply({ applications }: Props) {
                 <Link
                   href={`/me/applications/${app.id}`}
                   className={cn(
-                    'btn btn-sm flex items-center gap-1.5',
+                    'btn btn-sm flex items-center gap-1.5 col-span-2 justify-self-start sm:col-span-1',
                     isInterview ? 'btn-primary' : 'btn-secondary',
                   )}
                 >

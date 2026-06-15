@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useLoginMutation } from '@duing/hooks';
 import { loginSchema } from '@duing/schemas';
 import { cn } from '@/app/_lib/cn';
-import { toRoute } from '@/app/_lib/route';
+import { toLinkRoute, toRoute } from '@/app/_lib/route';
 
 function IconMail() {
   return (
@@ -66,8 +66,9 @@ function IconChevronDown() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const rawNext = searchParams.get('next') ?? '/me';
-  const next = /^\/(?!\/)/.test(rawNext) ? toRoute(`/${rawNext.slice(1)}`) : toRoute('/me');
+  // next 는 공격자가 조작할 수 있는 값이므로 내부 절대경로만 허용한다 — toLinkRoute 가 프로토콜
+  // 상대경로(//host)·역슬래시(/\host)처럼 브라우저가 오프-오리진으로 해석하는 값을 걸러내 open redirect 를 막는다.
+  const next = toLinkRoute(searchParams.get('next')) ?? toRoute('/me');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

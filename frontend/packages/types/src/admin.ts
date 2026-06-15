@@ -329,7 +329,28 @@ export type AdminPromotionBannerUserRef = { id: number; name: string };
  * 랜딩 hero 배너의 색 톤 프리셋. 실제 bg/fg/accent hex 매핑은
  * frontend/apps/web/app/_lib/promotionPalette.ts 에 위치.
  */
-export type PromotionPalette = 'INK' | 'SAGE' | 'WARM' | 'CORAL' | 'BERRY' | 'SKY';
+export type PromotionPalette = 'INK' | 'PLAIN' | 'SAGE' | 'WARM' | 'CORAL' | 'BERRY' | 'SKY';
+
+/** 프로모션 배너 렌더 모드. SYSTEM_COMPOSED=시스템 조합형, FULL_BLEED_IMAGE=완성 이미지형. */
+export type PromotionRenderMode = 'SYSTEM_COMPOSED' | 'FULL_BLEED_IMAGE';
+
+/** 백엔드 derived. NONE=클릭 불가, URL=직접 URL, NOTICE=공지 연결, CLUB=동아리 연결. */
+export type PromotionLinkType = 'NONE' | 'URL' | 'NOTICE' | 'CLUB';
+
+/** 어드민 응답 — 운영자가 비공개/삭제 공지도 식별 가능해야 하므로 title 그대로. */
+export type AdminPromotionNoticeRef = {
+  id: number;
+  title: string;
+  visibility: 'PUBLIC' | 'OFFICERS_ALL' | 'CLUB_SCOPED' | null;
+  isAccessible: boolean;
+};
+
+/** 공개 응답 — isAccessible=false 면 title 이 빈 문자열로 옴 (백엔드 누출 방지). */
+export type PublicPromotionNoticeRef = {
+  id: number;
+  title: string;
+  isAccessible: boolean;
+};
 
 export type AdminPromotionSummary = {
   id: number;
@@ -347,6 +368,14 @@ export type AdminPromotionSummary = {
   ctaLabel: string | null;
   emoji: string | null;
   palette: PromotionPalette;
+  /** ISO 8601 — 노출 시작 시각. null=상시(즉시 노출). */
+  startAt: string | null;
+  /** ISO 8601 — 노출 종료 시각. null=상시(만료 없음). */
+  endAt: string | null;
+  renderMode: PromotionRenderMode;
+  imageAltText: string | null;
+  notice: AdminPromotionNoticeRef | null;
+  linkType: PromotionLinkType;
 };
 
 export type AdminPromotionSearchParams = {
@@ -369,6 +398,11 @@ export type CreatePromotionPayload = {
   subtitle?: string | null;
   ctaLabel?: string | null;
   emoji?: string | null;
+  startAt?: string | null;
+  endAt?: string | null;
+  renderMode?: PromotionRenderMode | null;
+  imageAltText?: string | null;
+  noticeId?: number | null;
 };
 
 export type UpdatePromotionPayload = {
@@ -384,11 +418,21 @@ export type UpdatePromotionPayload = {
   subtitle?: string;
   ctaLabel?: string;
   emoji?: string;
+  startAt?: string;
+  endAt?: string;
+  renderMode?: PromotionRenderMode;
+  imageAltText?: string;
   clearBannerImageUrl?: boolean;
+  clearLinkUrl?: boolean;
   clearTag?: boolean;
   clearSubtitle?: boolean;
   clearCtaLabel?: boolean;
   clearEmoji?: boolean;
+  clearStartAt?: boolean;
+  clearEndAt?: boolean;
+  clearImageAltText?: boolean;
+  noticeId?: number;
+  clearNoticeId?: boolean;
 };
 
 /** 비로그인 사용자도 볼 수 있는 공개 배너 카드 응답 (GET /promotions). */
@@ -405,4 +449,7 @@ export type PromotionCard = {
   ctaLabel: string | null;
   emoji: string | null;
   palette: PromotionPalette;
+  renderMode: PromotionRenderMode;
+  imageAltText: string | null;
+  notice: PublicPromotionNoticeRef | null;
 };

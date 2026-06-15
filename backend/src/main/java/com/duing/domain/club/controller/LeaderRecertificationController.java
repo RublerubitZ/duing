@@ -2,6 +2,7 @@ package com.duing.domain.club.controller;
 
 import com.duing.domain.club.api.LeaderRecertificationApi;
 import com.duing.domain.club.controller.dto.request.CreateRecertificationRequestRequest;
+import com.duing.domain.club.controller.dto.response.RecertificationContextResponse;
 import com.duing.domain.club.service.RecertificationRequestService;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.global.auth.UserPrincipal;
@@ -22,6 +23,16 @@ public class LeaderRecertificationController implements LeaderRecertificationApi
 
     private final RecertificationRequestService requestService;
     private final ClubAuthService clubAuthService;
+
+    @Override
+    public ResponseEntity<ApiResponse<RecertificationContextResponse>> getContext(
+            Long clubId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        clubAuthService.requireLeader(currentUser.id(), clubId);
+        RecertificationContextResponse context = requestService.getLeaderContext(clubId);
+        return ResponseEntity.ok(ApiResponse.success(context));
+    }
 
     @Override
     public ResponseEntity<ApiResponse<Long>> createRequest(

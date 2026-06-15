@@ -13,6 +13,10 @@ spring:
     # Testcontainers 가 매 실행마다 새로 만드는 임시 컨테이너의 더미 자격 — 실 시크릿 아님.
     username: test
     password: test
+  servlet:
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 6MB
   jpa:
     open-in-view: false
     hibernate:
@@ -20,6 +24,20 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+file:
+  storage:
+    provider: stub
+
+email:
+  provider: stub
+  verification:
+    # 테스트 전용 더미 키 — 실 시크릿 아님.
+    secret: duing-test-email-verification-secret
+
+resend:
+  api-key: ""
+  from: Du-ing <noreply@duings.com>
 
 jwt:
   secret: duing-test-jwt-secret-key-that-is-long-enough-for-hs256-algorithm
@@ -29,3 +47,7 @@ duing:
   notification:
     jobs:
       enabled: false
+  privacy:
+    retention:
+      enabled: false
+      window: P1Y

@@ -1,23 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import type { ClubDetail, ClubPhoto, MyClubMembership } from '@duing/types';
 
-import type { ClubDetail, ClubPhoto } from '@duing/types';
-
-import { cn } from '../../../_lib/cn';
-import { activityScheduleLabel } from '../_lib/activeDaysLabel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { activityScheduleLabel } from '../../_lib/activeDaysLabel';
 import { ClubDetailAbout } from './ClubDetailAbout';
 import { ClubDetailActivity } from './ClubDetailActivity';
 import { ClubDetailInfoList } from './ClubDetailInfoList';
 import { ClubDetailQna } from './ClubDetailQna';
+import { ClubDetailNotices } from './ClubDetailNotices';
+import { ClubDetailEvents } from './ClubDetailEvents';
 
-type TabKey = 'intro' | 'activity' | 'qna' | 'info';
+type TabKey = 'intro' | 'activity' | 'qna' | 'info' | 'notices' | 'events';
 
 type Tab = { key: TabKey; label: string };
 
-type Props = { club: ClubDetail; photos: ClubPhoto[] };
+type Props = {
+  club: ClubDetail;
+  photos: ClubPhoto[];
+  /** 해당 동아리에 가입한 경우의 멤버십. 멤버에게만 공지/일정 탭을 노출한다. */
+  membership?: MyClubMembership | null;
+};
 
-export function ClubDetailTabs({ club, photos }: Props) {
+export function ClubDetailTabs({ club, photos, membership }: Props) {
   const hasIntro = club.description !== null
     || club.tagline !== null
     || club.highlights.length > 0
@@ -31,54 +36,71 @@ export function ClubDetailTabs({ club, photos }: Props) {
     || club.location !== null
     || club.contactEmail !== null;
 
+  // 가입한 멤버에게만 공지/일정 탭을 노출한다.
+  const isMember = membership != null;
+
   const tabs: Tab[] = [];
   if (hasIntro) tabs.push({ key: 'intro', label: '소개' });
   if (hasActivity) tabs.push({ key: 'activity', label: '활동' });
   if (hasQna) tabs.push({ key: 'qna', label: 'Q&A' });
   if (hasInfo) tabs.push({ key: 'info', label: '동아리 상세정보' });
+  if (isMember) {
+    tabs.push({ key: 'notices', label: '공지' });
+    tabs.push({ key: 'events', label: '일정' });
+  }
 
   const firstTab = tabs[0];
-  const [active, setActive] = useState<TabKey | null>(
-    firstTab ? firstTab.key : null,
-  );
-
-  if (tabs.length === 0) return null;
+  if (!firstTab) return null;
 
   return (
-    <div>
-      <div className="mb-8 flex gap-8 border-b border-line">
-        {tabs.map((tab) => {
-          const on = active === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActive(tab.key)}
-              className={cn(
-                'border-b-[2.5px] px-0 py-3.5 text-[15px] font-semibold transition',
-                on
-                  ? 'border-ink text-ink'
-                  : 'border-transparent text-charcoal-3 hover:text-charcoal',
-              )}
-              style={{ marginBottom: '-1.5px' }}
-            >
+    <Tabs defaultValue={firstTab.key}>
+      {/* 모바일에서 탭이 넘치면 가로 스크롤 — 래퍼가 overflow 를 맡아 활성 탭 언더라인(-mb)의 세로 클립을 막는다.
+          TabsList 는 w-max+min-w-full 로 평소엔 전체폭 레일, 넘칠 때만 콘텐츠폭. 데스크탑(md+)은 기존 그대로. */}
+      <div className="mb-8 overflow-x-auto pb-px md:overflow-visible md:pb-0">
+        <TabsList className="w-max min-w-full gap-5 md:gap-8">
+          {tabs.map((tab) => (
+            <TabsTrigger key={tab.key} value={tab.key} className="shrink-0">
               {tab.label}
-            </button>
-          );
-        })}
+            </TabsTrigger>
+          ))}
+        </TabsList>
       </div>
 
-      {active === 'intro' && (
-        <ClubDetailAbout
-          description={club.description}
-          tagline={club.tagline}
-          highlights={club.highlights}
-          majorProjects={club.majorProjects}
-        />
+      {hasIntro && (
+        <TabsContent value="intro">
+          <ClubDetailAbout
+            description={club.description}
+            tagline={club.tagline}
+            highlights={club.highlights}
+            majorProjects={club.majorProjects}
+          />
+        </TabsContent>
       )}
-      {active === 'activity' && <ClubDetailActivity club={club} photos={photos} />}
-      {active === 'qna' && <ClubDetailQna faqs={club.faqs} />}
-      {active === 'info' && <ClubDetailInfoList club={club} />}
-    </div>
+      {hasActivity && (
+        <TabsContent value="activity">
+          <ClubDetailActivity club={club} photos={photos} />
+        </TabsContent>
+      )}
+      {hasQna && (
+        <TabsContent value="qna">
+          <ClubDetailQna faqs={club.faqs} />
+        </TabsContent>
+      )}
+      {hasInfo && (
+        <TabsContent value="info">
+          <ClubDetailInfoList club={club} />
+        </TabsContent>
+      )}
+      {isMember && (
+        <>
+          <TabsContent value="notices">
+            <ClubDetailNotices clubId={club.id} />
+          </TabsContent>
+          <TabsContent value="events">
+            <ClubDetailEvents clubId={club.id} />
+          </TabsContent>
+        </>
+      )}
+    </Tabs>
   );
 }

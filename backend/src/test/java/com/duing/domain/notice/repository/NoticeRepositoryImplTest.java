@@ -9,6 +9,7 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
 import com.duing.domain.notice.entity.NoticeClubScopeRole;
+import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeTargetClub;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
@@ -29,13 +30,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
-@DirtiesContext
 class NoticeRepositoryImplTest {
 
     @Autowired NoticeRepository noticeRepository;
@@ -52,11 +51,13 @@ class NoticeRepositoryImplTest {
         Notice publicNotice = noticeRepository.save(Notice.create(
                 "전체 공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
-                NoticeVisibility.PUBLIC, null, false, null, false, authorId));
+                NoticeVisibility.PUBLIC, null, false, null, false,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
         Notice officersNotice = noticeRepository.save(Notice.create(
                 "운영진 공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
-                NoticeVisibility.OFFICERS_ALL, null, false, null, true, authorId));
+                NoticeVisibility.OFFICERS_ALL, null, false, null, true,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
 
         Page<Notice> result = noticeRepository.findFeed(
                 new NoticeSearchCondition(null, null, null),
@@ -74,7 +75,8 @@ class NoticeRepositoryImplTest {
         Notice officersNotice = noticeRepository.save(Notice.create(
                 "운영진 공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
-                NoticeVisibility.OFFICERS_ALL, null, false, null, true, authorId));
+                NoticeVisibility.OFFICERS_ALL, null, false, null, true,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
 
         ViewerScope student = new ViewerScope(UserRole.STUDENT, 2L, Set.of(10L), Set.of());
         ViewerScope officer = new ViewerScope(UserRole.STUDENT, 3L, Set.of(10L), Set.of(10L));
@@ -98,7 +100,8 @@ class NoticeRepositoryImplTest {
                 "클럽 멤버 공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.CLUB_SCOPED, NoticeClubScopeRole.ALL_MEMBERS,
-                false, null, true, authorId));
+                false, null, true,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
         targetClubRepository.save(new NoticeTargetClub(scopedNotice.getId(), targetClub.getId()));
 
         ViewerScope memberOfTarget = new ViewerScope(UserRole.STUDENT, 7L, Set.of(targetClub.getId()), Set.of());
@@ -121,7 +124,8 @@ class NoticeRepositoryImplTest {
                 "만료 공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
                 NoticeVisibility.PUBLIC, null, false,
-                LocalDateTime.now().minusDays(1), false, authorId));
+                LocalDateTime.now().minusDays(1), false,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
 
         Page<Notice> anonFeed = noticeRepository.findFeed(
                 new NoticeSearchCondition(null, null, null), ViewerScope.anonymous(), PageRequest.of(0, 10));

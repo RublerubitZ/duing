@@ -15,13 +15,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
-@DirtiesContext
 class ClubSearchStatusFilterTest {
 
     @Autowired ClubRepository clubRepository;
@@ -34,7 +32,7 @@ class ClubSearchStatusFilterTest {
         saveClubWithStatus("활성동아리테스트", ClubStatus.ACTIVE);
 
         var page = clubRepository.findByCondition(
-                new ClubSearchCondition(null, null, "동아리테스트", null, null, null, null, null, null),
+                new ClubSearchCondition(null, null, "동아리테스트", null, null, null, null, null, null, null),
                 PageRequest.of(0, 10));
 
         assertThat(page.getContent())

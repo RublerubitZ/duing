@@ -5,45 +5,15 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { useLogout, useMeQuery } from '@duing/hooks';
+import { useFavoriteListQuery, useLogout, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
 
 import { HomeNav } from '@/app/_components/HomeNav';
 import { SparkleFull } from '@/components/duing/Sparkle';
 
 import { MyPageHeader } from '../../_components/MyPageHeader';
-
-/* ── Toggle Switch ── */
-type ToggleRowProps = {
-  label: string;
-  hint?: string;
-  defaultOn?: boolean;
-};
-
-function ToggleRow({ label, hint, defaultOn = false }: ToggleRowProps) {
-  const [on, setOn] = useState(defaultOn);
-
-  return (
-    <div className="flex items-center gap-4 py-4 border-b border-line">
-      <div className="flex-1">
-        <div className="text-sm font-semibold text-ink-deep">{label}</div>
-        {hint && <div className="text-[12px] text-charcoal-3 mt-0.5">{hint}</div>}
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        onClick={() => setOn((v) => !v)}
-        className="relative w-11 h-[26px] rounded-full shrink-0 transition-colors duration-150"
-        style={{ background: on ? '#1F4A36' : '#E5E2DA' }}
-      >
-        <span
-          className="absolute top-[3px] w-5 h-5 rounded-full bg-white shadow-sm transition-[left] duration-150"
-          style={{ left: on ? 21 : 3 }}
-        />
-      </button>
-    </div>
-  );
-}
+import { ProfileEditDialog } from '../_components/ProfileEditDialog';
+import { PasswordChangeDialog } from '../_components/PasswordChangeDialog';
+import { WithdrawAccountDialog } from '../_components/WithdrawAccountDialog';
 
 /* ── Settings Row ── */
 type SettingsRowProps = {
@@ -55,9 +25,9 @@ type SettingsRowProps = {
 function SettingsRow({ label, value, action }: SettingsRowProps) {
   return (
     <div className="flex items-center gap-4 py-4 border-b border-line">
-      <div className="w-[140px] text-[13px] font-semibold text-charcoal-2">{label}</div>
-      <div className="flex-1 text-[14.5px] text-ink-deep font-medium">{value}</div>
-      {action}
+      <div className="w-20 shrink-0 text-[13px] font-semibold text-charcoal-2 sm:w-[140px]">{label}</div>
+      <div className="min-w-0 flex-1 text-[14.5px] text-ink-deep font-medium">{value}</div>
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
@@ -92,7 +62,7 @@ function SettingsPageTabs() {
   const [activeTab, setActiveTab] = useState<(typeof TAB_LABELS)[number]>('프로필 정보');
 
   return (
-    <nav className="border-b border-line px-10 pt-4">
+    <nav className="border-b border-line px-4 sm:px-6 md:px-10 pt-4">
       <div className="max-w-layout mx-auto flex gap-6 flex-wrap items-center">
         <Link
           href="/me"
@@ -125,10 +95,20 @@ function SettingsPageTabs() {
 /* ── Settings Page ── */
 export function SettingsPage() {
   const meQuery = useMeQuery();
+  const applicationsQuery = useMyApplicationsQuery();
+  const managedClubsQuery = useManagedClubsQuery();
+  const favoriteListQuery = useFavoriteListQuery(0, 20);
   const logout = useLogout();
   const router = useRouter();
 
   const user = meQuery.data;
+  const applyCount = applicationsQuery.data?.length ?? 0;
+  const joinedCount = managedClubsQuery.data?.length ?? 0;
+  const savedCount = favoriteListQuery.data?.content.length ?? 0;
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -136,19 +116,19 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="duing bg-cream min-h-screen">
-      <HomeNav />
+    <div className="duing bg-cream min-h-dvh">
+      <HomeNav slimOnMobile />
       <MyPageHeader
         name={user?.name ?? '—'}
         studentId={user?.studentId ?? '—'}
         email={user?.email ?? '—'}
-        applyCount={0}
-        joinedCount={0}
-        savedCount={0}
+        applyCount={applyCount}
+        joinedCount={joinedCount}
+        savedCount={savedCount}
       />
       <SettingsPageTabs />
 
-      <section className="px-10 py-8 pb-20">
+      <section className="px-4 sm:px-6 md:px-10 py-8 pb-20">
         <div className="max-w-[880px] mx-auto">
 
           <SettingsCard
@@ -158,15 +138,24 @@ export function SettingsPage() {
             <SettingsRow
               label="이름"
               value={user?.name ?? '—'}
-              action={<button type="button" className="btn btn-ghost btn-sm">수정</button>}
+              action={
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen(true)}
+                  className="btn btn-ghost btn-sm"
+                >
+                  수정
+                </button>
+              }
             />
             <SettingsRow label="학번" value={user?.studentId ?? '—'} />
+            <SettingsRow label="전화번호" value={user?.phone ?? '—'} />
             <SettingsRow
               label="이메일"
               value={
                 <span className="flex items-center gap-2">
                   {user?.email ?? '—'}
-                  <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-sage-mist text-ink-deep">
+                  <span className="shrink-0 whitespace-nowrap text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-sage-mist text-ink-deep">
                     인증완료
                   </span>
                 </span>
@@ -181,20 +170,24 @@ export function SettingsPage() {
                 <span className="font-mono tracking-[0.2em]">••••••••</span>
               }
               action={
-                <button type="button" className="btn btn-secondary btn-sm">변경하기</button>
+                <button
+                  type="button"
+                  onClick={() => setPasswordOpen(true)}
+                  className="btn btn-secondary btn-sm"
+                >
+                  변경하기
+                </button>
               }
             />
           </SettingsCard>
 
-          <SettingsCard
-            title="알림 설정"
-            hint="중요한 일정은 항상 카톡으로도 한 번 더 보내드려요."
-          >
-            <ToggleRow label="지원 결과 알림" hint="서류 결과 · 면접 일정 · 합격 발표" defaultOn />
-            <ToggleRow label="찜한 동아리 마감 임박 알림" hint="모집 마감 3일 전 알림" defaultOn />
-            <ToggleRow label="가입한 동아리 모임 알림" hint="다음 모임 24시간 전" defaultOn />
-            <ToggleRow label="공지·이벤트 소식" hint="박람회 · 학생자치회 안내" />
-            <ToggleRow label="제휴 혜택·마케팅 알림" hint="제휴 매장 할인 등" />
+          <SettingsCard title="알림 설정">
+            <div className="py-6 text-center">
+              <p className="text-sm font-semibold text-ink-deep">알림 설정은 준비 중이에요</p>
+              <p className="mt-1 text-[12.5px] text-charcoal-3">
+                지금은 앱 안에서 알림을 확인할 수 있어요. 채널별 알림 설정은 곧 제공할게요.
+              </p>
+            </div>
           </SettingsCard>
 
           <SettingsCard title="계정" danger hint="세션 종료와 계정 삭제는 한 번 더 확인 후 진행됩니다.">
@@ -213,6 +206,7 @@ export function SettingsPage() {
               </button>
               <button
                 type="button"
+                onClick={() => setWithdrawOpen(true)}
                 className="btn btn-ghost btn-big rounded-[14px] text-coral"
                 style={{ border: '1px solid rgba(217,119,87,0.3)' }}
               >
@@ -223,13 +217,13 @@ export function SettingsPage() {
 
           {/* 설정 섹션 링크 CTA */}
           <div
-            className="relative overflow-hidden rounded-[24px] px-8 py-7 flex items-center gap-6 justify-between"
+            className="relative overflow-hidden rounded-[24px] px-6 py-6 sm:px-8 sm:py-7 flex items-center gap-6 justify-between"
             style={{ background: 'linear-gradient(120deg, #1F4A36 0%, #143025 100%)' }}
           >
             <SparkleFull
               size={48}
               color="rgba(157,182,160,0.35)"
-              className="absolute top-4 right-[240px] pointer-events-none"
+              className="absolute top-4 right-[240px] pointer-events-none hidden sm:block"
             />
             <div className="relative z-[1]">
               <div className="text-[11.5px] font-bold text-sage tracking-wide16 mb-1.5">SETTINGS</div>
@@ -243,12 +237,21 @@ export function SettingsPage() {
           </div>
 
           <p className="text-[12px] text-charcoal-3 text-center py-4 leading-relaxed">
-            두잉 v2.4.0 · 마지막 업데이트 2025.09.18
+            두잉 v2.4.0 · 마지막 업데이트 2026.05.26
             <br />
             문의: support@duing.daegu.ac.kr
           </p>
         </div>
       </section>
+
+      <ProfileEditDialog
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        currentName={user?.name ?? ''}
+        currentPhone={user?.phone ?? ''}
+      />
+      <PasswordChangeDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
+      <WithdrawAccountDialog open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />
     </div>
   );
 }

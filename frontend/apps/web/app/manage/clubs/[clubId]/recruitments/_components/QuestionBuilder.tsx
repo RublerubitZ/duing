@@ -57,7 +57,7 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
               type="button"
               onClick={() => handleMoveUp(index)}
               disabled={index === 0}
-              className="rounded px-1.5 py-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30"
+              className="grid h-9 w-9 place-items-center rounded text-slate-400 hover:bg-slate-100 disabled:opacity-30"
               aria-label="위로 이동"
             >
               ▲
@@ -66,7 +66,7 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
               type="button"
               onClick={() => handleMoveDown(index)}
               disabled={index === questions.length - 1}
-              className="rounded px-1.5 py-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30"
+              className="grid h-9 w-9 place-items-center rounded text-slate-400 hover:bg-slate-100 disabled:opacity-30"
               aria-label="아래로 이동"
             >
               ▼
@@ -74,7 +74,7 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
             <button
               type="button"
               onClick={() => handleRemove(index)}
-              className="rounded px-1.5 py-1 text-rose-400 hover:bg-rose-50"
+              className="grid h-9 w-9 place-items-center rounded text-rose-400 hover:bg-rose-50"
               aria-label="삭제"
             >
               ✕

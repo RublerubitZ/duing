@@ -39,3 +39,53 @@ describe('exploreParams — RecruitmentFilter 라운드 트립', () => {
     expect(api.recruitmentStatus).toBeUndefined();
   });
 });
+
+describe('exploreParams — activeDays 라운드 트립 및 정규화', () => {
+  it('activeDays 값들이 URL 직렬화 후 같은 값으로 파싱된다', () => {
+    const query = serializeExploreParams({
+      ...DEFAULT_EXPLORE_PARAMS,
+      activeDays: ['MONDAY', 'WEDNESDAY'],
+    });
+    const parsed = parseExploreParams(new URLSearchParams(query));
+    expect(parsed.activeDays).toEqual(['MONDAY', 'WEDNESDAY']);
+  });
+
+  it('URL 의 잘못된 활동요일 값은 화이트리스트 필터링되어 무시된다', () => {
+    const parsed = parseExploreParams(
+      new URLSearchParams('activeDays=MONDAY&activeDays=BANANA'),
+    );
+    expect(parsed.activeDays).toEqual(['MONDAY']);
+  });
+
+  it('URL 에 activeDays 가 없으면 빈 배열로 파싱된다', () => {
+    const parsed = parseExploreParams(new URLSearchParams(''));
+    expect(parsed.activeDays).toEqual([]);
+  });
+
+  it('activeDays 빈 배열이면 toApiParams 에서 undefined', () => {
+    const api = toApiParams({ ...DEFAULT_EXPLORE_PARAMS, activeDays: [] }, 20);
+    expect(api.activeDays).toBeUndefined();
+  });
+
+  it('activeDays 7개 전체이면 toApiParams 에서 undefined (정규화)', () => {
+    const api = toApiParams(
+      {
+        ...DEFAULT_EXPLORE_PARAMS,
+        activeDays: [
+          'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY',
+          'FRIDAY', 'SATURDAY', 'SUNDAY',
+        ],
+      },
+      20,
+    );
+    expect(api.activeDays).toBeUndefined();
+  });
+
+  it('activeDays 부분 선택은 toApiParams 에 그대로 전달된다', () => {
+    const api = toApiParams(
+      { ...DEFAULT_EXPLORE_PARAMS, activeDays: ['MONDAY', 'WEDNESDAY'] },
+      20,
+    );
+    expect(api.activeDays).toEqual(['MONDAY', 'WEDNESDAY']);
+  });
+});

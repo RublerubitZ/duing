@@ -12,6 +12,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class ApplicationController implements ApplicationApi {
 
     private final ApplicationService applicationService;
@@ -38,10 +40,11 @@ public class ApplicationController implements ApplicationApi {
 
     @Override
     public ResponseEntity<ApiResponse<List<ApplicationSummaryResponse>>> getMyApplications(
+            ApplicationScope scope,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         List<ApplicationSummaryResponse> myApplications = applicationService
-                .getMyApplications(currentUser.id()).stream()
+                .getMyApplications(currentUser.id(), scope.toStatuses()).stream()
                 .map(ApplicationSummaryResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(myApplications));
@@ -55,5 +58,14 @@ public class ApplicationController implements ApplicationApi {
         MyApplicationDetailResponse myApplicationDetail = MyApplicationDetailResponse.from(
                 applicationService.getMyApplicationDetail(applicationId, currentUser.id()));
         return ResponseEntity.ok(ApiResponse.success(myApplicationDetail));
+    }
+
+    @Override
+    public ResponseEntity<Void> withdraw(
+            @PathVariable Long applicationId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        applicationService.withdraw(applicationId, currentUser.id());
+        return ResponseEntity.noContent().build();
     }
 }

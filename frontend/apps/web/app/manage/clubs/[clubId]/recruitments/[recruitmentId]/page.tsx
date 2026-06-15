@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRecruitmentDetailQuery, useCloseRecruitmentMutation } from '@duing/hooks';
 import { toRoute } from '../../../../../_lib/route';
 import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
+import { InterviewStageChip } from './_components/InterviewStageChip';
 
 export default function RecruitmentDetailPage({
   params,
@@ -94,6 +95,14 @@ export default function RecruitmentDetailPage({
           <dt className="w-24 shrink-0 text-sm text-slate-500">면접 여부</dt>
           <dd className="text-sm text-slate-900">{recruitment.useInterview ? '있음' : '없음'}</dd>
         </div>
+        {recruitment.useInterview && (
+          <div className="flex gap-4">
+            <dt className="w-24 shrink-0 text-sm text-slate-500">면접 단계</dt>
+            <dd>
+              <InterviewStageChip clubId={clubId} recruitmentId={recruitmentId} />
+            </dd>
+          </div>
+        )}
       </dl>
 
       {/* 내용 */}
@@ -126,6 +135,14 @@ export default function RecruitmentDetailPage({
         >
           지원자 관리
         </Link>
+        {recruitment.useInterview && (
+          <Link
+            href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`)}
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            면접 관리
+          </Link>
+        )}
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/stats`)}
           className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"

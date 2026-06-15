@@ -1,7 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+
 import type { ClubMember } from '@duing/types';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 type TransferLeaderDialogProps = {
   target: ClubMember;
@@ -10,6 +20,9 @@ type TransferLeaderDialogProps = {
   onConfirm: () => void;
   onCancel: () => void;
 };
+
+const fieldCls =
+  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function TransferLeaderDialog({
   target,
@@ -23,56 +36,64 @@ export function TransferLeaderDialog({
   const canConfirm = typed.trim() === clubName;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40">
-      <div className="w-full max-w-md space-y-4 rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="text-base font-semibold text-slate-900">회장 인계</h2>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isPending) onCancel();
+      }}
+    >
+      <DialogContent
+        className="max-w-md"
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>회장 인계</DialogTitle>
+        </DialogHeader>
 
         {step === 1 ? (
           <>
-            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-              <p className="text-sm font-medium text-slate-900">{target.name}</p>
-              <p className="text-xs text-slate-500">학번 {target.studentId} · {target.role}</p>
+            <div className="rounded-md border border-line bg-graysoft p-3">
+              <p className="text-sm font-medium text-charcoal">{target.name}</p>
+              <p className="text-xs text-charcoal-3">학번 {target.studentId} · {target.role}</p>
             </div>
-            <p className="text-sm text-slate-600">
+            <DialogDescription className="text-sm text-charcoal-2">
               회장을 인계하면 본인은 OFFICER 가 됩니다. 되돌릴 수 없습니다.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={onCancel}
-                className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
-              >
+            </DialogDescription>
+            <DialogFooter>
+              <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
                 취소
               </button>
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
-              >
+              <button type="button" onClick={() => setStep(2)} className="btn btn-primary btn-sm">
                 다음
               </button>
-            </div>
+            </DialogFooter>
           </>
         ) : (
           <>
-            <p className="text-sm text-slate-600">
-              확인을 위해 동아리명{' '}
-              <span className="font-medium text-slate-900">{clubName}</span> 를 그대로 입력해주세요.
-            </p>
+            <DialogDescription className="text-sm text-charcoal-2">
+              확인을 위해 동아리명 <span className="font-medium text-charcoal">{clubName}</span> 를 그대로 입력해주세요.
+            </DialogDescription>
             <input
               type="text"
+              aria-label="동아리명 입력 확인"
               value={typed}
-              onChange={(e) => setTyped(e.target.value)}
+              onChange={(event) => setTyped(event.target.value)}
               placeholder={clubName}
               disabled={isPending}
-              className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className={fieldCls}
             />
-            <div className="flex justify-end gap-2">
+            <DialogFooter>
               <button
                 type="button"
-                onClick={() => { setStep(1); setTyped(''); }}
+                onClick={() => {
+                  setStep(1);
+                  setTyped('');
+                }}
                 disabled={isPending}
-                className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+                className="btn btn-ghost btn-sm"
               >
                 이전
               </button>
@@ -80,14 +101,14 @@ export function TransferLeaderDialog({
                 type="button"
                 onClick={onConfirm}
                 disabled={!canConfirm || isPending}
-                className="rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
               >
                 {isPending ? '인계 중…' : '인계'}
               </button>
-            </div>
+            </DialogFooter>
           </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

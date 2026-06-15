@@ -1,7 +1,9 @@
 package com.duing.domain.notice.service;
 
 import com.duing.domain.notice.entity.Notice;
+import com.duing.domain.notice.service.dto.command.CreateClubNoticeCommand;
 import com.duing.domain.notice.service.dto.command.CreateNoticeCommand;
+import com.duing.domain.notice.service.dto.command.UpdateClubNoticeCommand;
 import com.duing.domain.notice.service.dto.command.UpdateNoticeCommand;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
@@ -24,4 +26,16 @@ public interface NoticeService {
 
     /** 어드민 공지 목록 — Notice 엔티티 노출 없이 평탄화된 Query DTO 페이지를 반환한다. */
     Page<NoticeAdminSummaryQuery> listForAdmin(NoticeAdminSearchCondition condition, Pageable pageable);
+
+    /** LEADER/OFFICER 가 본인 클럽 CLUB_SCOPED+ALL_MEMBERS 공지를 생성. */
+    Long createForClub(CreateClubNoticeCommand command);
+
+    /** LEADER/OFFICER 가 본인 클럽 공지를 수정. */
+    void updateForClub(UpdateClubNoticeCommand command);
+
+    /** LEADER 가 본인 클럽 공지를 삭제 (soft). */
+    void deleteForClub(Long clubId, Long noticeId);
+
+    /** 회원이 본 클럽 공지 페이지 조회 (서버 강제 정렬). */
+    Page<Notice> findClubScopedForMember(Long clubId, Pageable pageable);
 }

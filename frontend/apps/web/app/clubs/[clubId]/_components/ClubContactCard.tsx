@@ -1,4 +1,5 @@
 import type { ClubSnsLink } from '@duing/types';
+import { safeExternalHref } from '../../../_lib/route';
 
 type Props = {
   snsLinks: ClubSnsLink[];
@@ -19,18 +20,25 @@ export function ClubContactCard({ snsLinks, location, contactEmail }: Props) {
             📨 <a href={`mailto:${contactEmail}`} className="hover:underline">{contactEmail}</a>
           </li>
         )}
-        {snsLinks.map((link) => (
-          <li key={link.url}>
-            <a
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:underline"
-            >
-              {link.platform} · {link.url}
-            </a>
-          </li>
-        ))}
+        {snsLinks.map((link) => {
+          const safeUrl = safeExternalHref(link.url);
+          return (
+            <li key={link.url}>
+              {safeUrl ? (
+                <a
+                  href={safeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  {link.platform} · {link.url}
+                </a>
+              ) : (
+                <span>{link.platform} · {link.url}</span>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

@@ -1,17 +1,29 @@
 export { ApiClientProvider, useApiClient } from './api-context';
-export { useLoginMutation, useSignupMutation, useLogout, useMeQuery } from './auth';
+export {
+  useLoginMutation,
+  useSignupMutation,
+  useLogout,
+  useMeQuery,
+  useUpdateProfileMutation,
+  useChangePasswordMutation,
+  useWithdrawAccountMutation,
+  useSendEmailVerificationMutation,
+  useConfirmEmailVerificationMutation,
+} from './auth';
 export {
   useClubListQuery,
   useClubDetailQuery,
   useClubPhotosQuery,
   useClubRecruitmentsQuery,
   useManagedClubsQuery,
+  useMyClubsQuery,
   useUpdateClubMutation,
   useCreatePhotoMutation,
   useUpdatePhotoMutation,
   useReorderPhotosMutation,
   useDeletePhotoMutation,
   useClubMembersQuery,
+  useClubMembersExportMutation,
   useUpdateMemberRoleMutation,
   useRemoveMemberMutation,
   useLeaveClubMutation,
@@ -26,13 +38,16 @@ export {
 } from './recruitments';
 export {
   useSubmitApplicationMutation,
+  useWithdrawApplicationMutation,
   useMyApplicationsQuery,
   useMyApplicationDetailQuery,
   useApplicantsQuery,
   useApplicantDetailQuery,
   useUpdateApplicationStatusMutation,
   useBulkUpdateApplicationStatusMutation,
-  useUpdateInterviewMutation,
+  useApplicantNeighborsQuery,
+  useUpsertMyApplicationEvaluationMutation,
+  useDeleteMyApplicationEvaluationMutation,
 } from './applications';
 export {
   useRecruitmentStatsSummaryQuery,
@@ -81,6 +96,7 @@ export {
   useAdminUserSearchQuery,
   useCreateClubMutation,
   useUpdateClubStatusMutation,
+  useCloseClubMutation,
   useUpdateClubCentralClubMutation,
 } from './admin';
 export { adminQueryKeys } from './adminQueryKeys';
@@ -116,10 +132,76 @@ export {
   useProcessPromotionRequestMutation,
 } from './promotionRequests';
 export {
+  useRecertificationContextQuery,
+  useSubmitRecertificationRequestMutation,
+} from './leaderRecertification';
+export { leaderRecertificationKeys } from './leaderRecertificationQueryKeys';
+export {
   useAdminPromotionListQuery,
   useAdminPromotionDetailQuery,
-  usePublicPromotionsQuery,
   useCreatePromotionMutation,
   useUpdatePromotionMutation,
   useDeletePromotionMutation,
 } from './promotions';
+export { useClubMembershipQuery } from './clubMembership';
+export {
+  useClubNoticeListQuery,
+  useCreateClubNoticeMutation,
+  useUpdateClubNoticeMutation,
+  useRemoveClubNoticeMutation,
+} from './clubNotices';
+export { clubMembershipKeys, clubNoticeKeys } from './clubMembershipQueryKeys';
+export {
+  useClubEventListQuery,
+  useClubEventDetailQuery,
+  useCreateClubEventMutation,
+  useUpdateClubEventMutation,
+  useRemoveClubEventMutation,
+} from './clubEvents';
+export { clubEventKeys } from './clubEventQueryKeys';
+export {
+  useGlobalEventListQuery,
+  useGlobalEventDetailQuery,
+  useAdminGlobalEventListQuery,
+  useAdminGlobalEventDetailQuery,
+  useGlobalEventCategoryStatsQuery,
+  useAdminGlobalEventCreateMutation,
+  useAdminGlobalEventUpdateMutation,
+  useAdminGlobalEventDeleteMutation,
+} from './globalEvents';
+export { globalEventKeys } from './globalEventQueryKeys';
+export { useCalendarMonthQuery, addDaysIso } from './calendarMonth';
+export type { CalendarMonthOptions, CalendarMonthResult } from './calendarMonth';
+export {
+  useInterviewRoundCandidatesQuery,
+  useInterviewRoundsQuery,
+  useInterviewRoundDetailQuery,
+  useCreateInterviewRoundMutation,
+  useUpdateInterviewRoundMutation,
+  useCancelInterviewRoundMutation,
+  useCreateRoundSlotsMutation,
+  useDeleteRoundSlotMutation,
+  useRequestAvailabilityMutation,
+  useRoundAutoAssignMutation,
+  useAssignMemberScheduleMutation,
+  useUnassignMemberScheduleMutation,
+  useExcludeMemberMutation,
+  useConfirmRoundMutation,
+  useRemindMutation,
+  useUpdateRoundSlotMutation,
+} from './interviewRound';
+export { interviewRoundKeys } from './interviewRoundQueryKeys';
+export {
+  useMyInterviewQuery,
+  useRespondAvailabilityMutation,
+} from './applicantInterview';
+export { parseKstInstant, daysUntilKst } from './dashboardDate';
+export { CLOSING_SOON_DAYS } from './dashboardSelectors';
+export {
+  DASHBOARD_QUERY_OPTIONS,
+  useActiveRecruitments,
+  useApplicantSummary,
+  useClubActionItems,
+  useTodaySchedule,
+  useClubFeedCounts,
+} from './dashboard';

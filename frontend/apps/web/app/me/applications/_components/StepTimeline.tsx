@@ -1,7 +1,6 @@
 /* a-apply-status.jsx → TypeScript 변환: StepNode + StepTimeline */
 
 import type { Step, StepState } from '../_constants/data';
-import type React from 'react';
 
 /* ============================================================
    StepNode

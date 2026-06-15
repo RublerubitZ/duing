@@ -16,4 +16,6 @@ public interface PromotionService {
     Page<Promotion> findPublic(Pageable pageable);
     Page<PromotionAdminListQuery> listForAdmin(PromotionAdminSearchCondition condition, Pageable pageable);
     PromotionAdminListQuery getAdminItemById(Long promotionId);
+
+    void removeAllOnClubClosure(Long clubId);
 }

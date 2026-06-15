@@ -65,26 +65,50 @@ public class ApplicationDomainException extends ApplicationException {
         }
     }
 
-    public static class InvalidInterviewScheduleException extends ApplicationDomainException {
-        private static final String MESSAGE = "면접 일정 정보가 올바르지 않습니다.";
+    public static class AlreadyClubMemberException extends ApplicationDomainException {
+        private static final String MESSAGE = "이미 해당 동아리 소속이라 일반 모집에는 지원할 수 없습니다.";
 
-        public InvalidInterviewScheduleException() {
-            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        public AlreadyClubMemberException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    public static class IneligibleOfficerApplicantException extends ApplicationDomainException {
+        private static final String MESSAGE = "이미 운영진 권한이 있어 운영진 모집에 지원할 수 없습니다.";
+
+        public IneligibleOfficerApplicantException() {
+            super(MESSAGE, HttpStatus.FORBIDDEN);
         }
     }
 
     public static class ForbiddenApplicationAccessException extends ApplicationDomainException {
-        private static final String MESSAGE = "본인의 지원 내역만 조회할 수 있습니다.";
+        private static final String MESSAGE = "본인의 지원 내역만 접근할 수 있습니다.";
 
         public ForbiddenApplicationAccessException() {
             super(MESSAGE, HttpStatus.FORBIDDEN);
         }
     }
 
-    public static class InvalidInterviewStateException extends ApplicationDomainException {
-        private static final String MESSAGE = "면접 일정은 INTERVIEW_PENDING 상태에서만 입력할 수 있습니다.";
+    public static class InvalidDateRangeException extends ApplicationDomainException {
+        private static final String MESSAGE = "submittedFrom 은 submittedTo 보다 늦을 수 없습니다.";
 
-        public InvalidInterviewStateException() {
+        public InvalidDateRangeException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class ConcurrentStatusUpdateException extends ApplicationDomainException {
+        private static final String MESSAGE = "다른 운영진이 먼저 상태를 변경했습니다. 새로고침 후 다시 시도해주세요.";
+
+        public ConcurrentStatusUpdateException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    public static class CannotWithdrawApplicationException extends ApplicationDomainException {
+        private static final String MESSAGE = "제출 직후에만 철회할 수 있어요. 검토가 시작된 지원은 철회할 수 없습니다.";
+
+        public CannotWithdrawApplicationException() {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }

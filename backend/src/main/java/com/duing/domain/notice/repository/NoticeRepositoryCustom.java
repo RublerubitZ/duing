@@ -15,4 +15,7 @@ public interface NoticeRepositoryCustom {
     Optional<Notice> findVisibleById(Long noticeId, ViewerScope viewer);
 
     Page<Notice> findAdminList(NoticeAdminSearchCondition condition, Pageable pageable);
+
+    /** 회원 페이지용 — 본 클럽의 CLUB_SCOPED+ALL_MEMBERS 활성 공지를 pinned·createdAt 순으로 페이지 반환. */
+    Page<Notice> findClubScopedForMember(Long clubId, Pageable pageable);
 }

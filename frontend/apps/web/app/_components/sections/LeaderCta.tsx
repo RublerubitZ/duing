@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
+import { RegisterClubButton } from './RegisterClubButton';
 
 export function LeaderCta() {
   return (
-    <section className="px-10 pb-6 pt-20">
+    <section className="px-4 sm:px-6 md:px-10 pb-6 pt-10 sm:pt-20">
       <div className="max-w-layout relative mx-auto grid items-center gap-8 overflow-hidden rounded-xl bg-sage-mist px-14 py-11 md:grid-cols-[1fr_auto]">
         <SparkleFull
           size={48}
@@ -28,10 +28,7 @@ export function LeaderCta() {
           </p>
         </div>
         <div className="flex flex-col gap-2">
-          <Link href="/manage" className="btn btn-primary btn-big rounded-lg">
-            동아리 등록 신청
-            <ArrowRight />
-          </Link>
+          <RegisterClubButton />
           <Link
             href="/introduce#section-3"
             className="btn btn-ghost btn-sm text-ink-deep"

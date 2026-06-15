@@ -1,14 +1,15 @@
 // Global role (시스템 전역). Club-scoped role 은 ClubMemberRole 참조.
 export type UserRole = 'STUDENT' | 'ADMIN';
 
-export type Grade = 'FRESHMAN' | 'SOPHOMORE' | 'JUNIOR' | 'SENIOR' | 'GRADUATE_DEFERRED';
+export type Grade = 'FRESHMAN' | 'SOPHOMORE' | 'JUNIOR' | 'SENIOR' | 'ON_LEAVE' | 'GRADUATED';
 
 export const GRADE_DISPLAY_NAME: Record<Grade, string> = {
   FRESHMAN: '1학년',
   SOPHOMORE: '2학년',
   JUNIOR: '3학년',
   SENIOR: '4학년',
-  GRADUATE_DEFERRED: '졸업유예',
+  ON_LEAVE: '휴학생',
+  GRADUATED: '졸업생',
 };
 
 export const GRADE_OPTIONS: ReadonlyArray<Grade> = [
@@ -16,7 +17,8 @@ export const GRADE_OPTIONS: ReadonlyArray<Grade> = [
   'SOPHOMORE',
   'JUNIOR',
   'SENIOR',
-  'GRADUATE_DEFERRED',
+  'ON_LEAVE',
+  'GRADUATED',
 ];
 
 export type College =
@@ -52,6 +54,10 @@ export const COLLEGE_DISPLAY_NAME: Record<College, string> = {
   FREE_MAJOR: '자유전공학부',
 };
 
+export function isCollege(value: unknown): value is College {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(COLLEGE_DISPLAY_NAME, value);
+}
+
 export const COLLEGE_OPTIONS: ReadonlyArray<College> = [
   'PUBLIC_LEADERS',
   'GLOBAL_BUSINESS',
@@ -74,7 +80,18 @@ export type User = {
   studentId: string;
   name: string;
   email: string;
+  phone: string;
   role: UserRole;
+};
+
+export type UpdateProfilePayload = {
+  name: string;
+  phone: string;
+};
+
+export type ChangePasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
 };
 
 export type SignupPayload = {
@@ -99,4 +116,18 @@ export type LoginResult = {
   accessToken: string;
   tokenType: 'Bearer';
   user: User;
+};
+
+export type SendEmailVerificationPayload = {
+  email: string;
+};
+
+export type ConfirmEmailVerificationPayload = {
+  email: string;
+  code: string;
+};
+
+export type EmailVerificationResult = {
+  expiresAt: string;
+  expiresInSeconds: number;
 };

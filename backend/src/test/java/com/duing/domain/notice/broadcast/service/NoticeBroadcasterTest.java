@@ -3,6 +3,7 @@ package com.duing.domain.notice.broadcast.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -14,6 +15,7 @@ import com.duing.domain.notice.broadcast.entity.NoticeBroadcast;
 import com.duing.domain.notice.broadcast.repository.NoticeBroadcastRepository;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.exception.NoticeException;
 import com.duing.domain.notice.repository.NoticeRepository;
@@ -33,14 +35,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
-@DirtiesContext
-class NoticeBroadcasterTest {
+class NoticeBroadcasterTest extends IntegrationTestBase {
 
     @Autowired NoticeBroadcaster broadcaster;
     @Autowired NoticeRepository noticeRepository;
@@ -143,6 +143,7 @@ class NoticeBroadcasterTest {
         return noticeRepository.save(Notice.create(
                 "공지", "요약", "본문", "https://example.com/cover.png", null,
                 NoticeCategory.GENERAL, List.of(),
-                visibility, null, false, null, notifyOnPublish, authorId));
+                visibility, null, false, null, notifyOnPublish,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
     }
 }

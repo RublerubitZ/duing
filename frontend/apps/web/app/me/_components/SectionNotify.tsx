@@ -113,7 +113,7 @@ export function SectionNotify({ notifications }: Props) {
     <section
       data-section="notify"
       id="sec-notify"
-      className="px-10 pt-8 pb-6 scroll-mt-[60px]"
+      className="px-4 sm:px-6 md:px-10 pt-8 pb-6 scroll-mt-[60px]"
     >
       <div className="max-w-layout mx-auto">
 
@@ -175,7 +175,7 @@ export function SectionNotify({ notifications }: Props) {
         <div className="flex justify-center pt-[22px] pb-1">
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-[22px] py-2.5 rounded-full bg-paper border border-line text-charcoal-2 text-[13px] font-semibold transition-[background,border-color,color,transform] duration-150 hover:bg-sage-tint hover:border-ink hover:text-ink hover:-translate-y-px"
+            className="inline-flex items-center gap-2 px-[22px] py-2.5 rounded-full bg-paper border border-line text-charcoal-2 text-[13px] font-semibold transition-[background,border-color,color] duration-150 hover:bg-sage-tint hover:border-ink hover:text-ink"
           >
             더 많은 알림 보기
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

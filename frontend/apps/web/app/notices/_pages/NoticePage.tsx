@@ -6,9 +6,11 @@ import Link from 'next/link';
 import type { NoticeCategory } from '@duing/types';
 import { useNoticeListQuery } from '@duing/hooks';
 import { ExploreNav } from '../../_components/ExploreNav';
+import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { SparkleFull } from '../../_components/Sparkle';
 import { toRoute } from '../../_lib/route';
 import { NOTICE_CATEGORY_LABEL, NOTICE_CATEGORY_OPTIONS } from '../_lib/categoryLabels';
+import { CATEGORY_TAG_STYLES } from '../_lib/categoryTagStyles';
 
 /* ---------- Local icon set (inline-style 페이지 전용) ---------- */
 type IconProps = SVGProps<SVGSVGElement>;
@@ -45,17 +47,6 @@ const Icon = {
       <path d="M5 12h14M13 5l7 7-7 7" />
     </svg>
   ),
-};
-
-/* ---------- 카테고리 태그 스타일 ---------- */
-type TagStyle = { bg: string; fg: string };
-
-const CATEGORY_TAG_STYLES: Record<NoticeCategory, TagStyle> = {
-  FESTIVAL: { bg: '#FCE2D9',           fg: '#9A3F23' },
-  FAIR:     { bg: 'var(--sage-mist)',  fg: 'var(--ink-deep)' },
-  FUNDING:  { bg: '#DDE8F1',           fg: '#2F557A' },
-  CONTEST:  { bg: '#FBEFD7',           fg: '#8E6620' },
-  GENERAL:  { bg: 'var(--gray-soft)', fg: 'var(--charcoal-2)' },
 };
 
 /* ---------- 미니 컴포넌트 ---------- */
@@ -227,16 +218,14 @@ export function NoticePage() {
 
   return (
     <div className="duing" style={{ background: 'var(--cream)', minHeight: '100vh' }}>
-      <ExploreNav active="공지" />
+      <ExploreNav active="공지" slimOnMobile />
 
-      <div style={{
-        maxWidth: 1280, margin: '0 auto',
-        padding: '32px 40px 80px',
-        display: 'grid', gridTemplateColumns: '220px 1fr',
-        gap: 40, alignItems: 'start',
-      }}>
-        {/* ===== Left sidebar ===== */}
-        <aside style={{
+      <div
+        className="mx-auto grid grid-cols-1 items-start gap-7 px-4 pb-20 pt-8 md:grid-cols-[220px_1fr] md:gap-10 md:px-10"
+        style={{ maxWidth: 1280 }}
+      >
+        {/* ===== Left sidebar (데스크탑 전용 — 모바일은 태그 칩이 카테고리 필터 제공) ===== */}
+        <aside className="hidden md:block" style={{
           background: 'var(--paper)',
           border: '1px solid var(--gray-line)',
           borderRadius: 18,
@@ -269,7 +258,7 @@ export function NoticePage() {
         {/* ===== Main column ===== */}
         <main>
           {/* Hero */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, marginBottom: 22 }}>
+          <div className="mb-[22px] flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
             <div>
               <div style={{
                 fontSize: 11.5, fontWeight: 700, color: 'var(--ink)',
@@ -284,15 +273,15 @@ export function NoticePage() {
               </p>
             </div>
 
-            {/* Search + 글쓰기 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: 4 }}>
-              <div style={{
+            {/* Search */}
+            <div className="flex w-full items-center gap-2 md:mt-1 md:w-auto md:shrink-0">
+              <div className="w-full md:w-[280px]" style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 background: 'var(--paper)',
                 border: '1px solid var(--gray-line)',
                 borderRadius: 10,
                 padding: '0 4px 0 14px',
-                width: 280, height: 40,
+                height: 40,
               }}>
                 <input
                   value={keywordInput}
@@ -362,7 +351,7 @@ export function NoticePage() {
               {/* Pinned cards */}
               {pinnedItems.length > 0 && (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 10 }}>
+                  <div className="mb-2.5 grid grid-cols-1 gap-3.5 md:grid-cols-2">
                     {pinnedItems.slice(0, 2).map((n, i) => {
                       const isDark = i === 0;
                       return (
@@ -443,12 +432,11 @@ export function NoticePage() {
                             borderRadius: 12, overflow: 'hidden',
                             background: isDark ? 'rgba(255,255,255,0.06)' : 'var(--gray-soft)',
                           }}>
-                            {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL */}
-                            <img
+                            <ImageWithFallback
                               src={n.coverImageUrl}
                               alt=""
-                              aria-hidden
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              className="w-full h-full !bg-transparent"
+                              emptyMessage="이미지 없음"
                             />
                           </div>
                         </Link>
@@ -479,9 +467,8 @@ export function NoticePage() {
                 border: '1px solid var(--gray-line)',
                 borderRadius: 14, overflow: 'hidden',
               }}>
-                {/* Header row */}
-                <div style={{
-                  display: 'grid',
+                {/* Header row (데스크탑 전용 — 모바일은 카드형 행) */}
+                <div className="hidden md:grid" style={{
                   gridTemplateColumns: '56px 56px 72px 1fr 110px',
                   padding: '12px 22px', gap: 14, alignItems: 'center',
                   background: '#FAF8F2',
@@ -500,36 +487,33 @@ export function NoticePage() {
                   <Link
                     key={n.id}
                     href={toRoute(`/notices/${n.id}`)}
+                    className="notice-row"
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: '56px 56px 72px 1fr 110px',
-                      padding: '13px 22px', gap: 14, alignItems: 'center',
+                      padding: '13px 22px',
                       borderBottom: i < restItems.length - 1 ? '1px solid var(--gray-line)' : 'none',
                       fontSize: 13.5, cursor: 'pointer',
                       color: 'var(--charcoal)', textDecoration: 'none',
                     }}
                   >
-                    <span style={{
+                    <span className="nr-no" style={{
                       fontSize: 12, color: 'var(--charcoal-3)',
                       fontFamily: 'var(--font-mono)',
                     }}>
                       {String(n.id).padStart(4, '0')}
                     </span>
-                    <span style={{
+                    <div className="nr-img" style={{
                       width: 40, height: 40, borderRadius: 8,
-                      overflow: 'hidden', background: 'var(--gray-soft)',
-                      display: 'block',
+                      overflow: 'hidden',
                     }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL */}
-                      <img
+                      <ImageWithFallback
                         src={n.coverImageUrl}
                         alt=""
-                        aria-hidden
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        className="w-full h-full !bg-transparent"
+                        emptyMessage="이미지 없음"
                       />
-                    </span>
-                    <span><NTagPill category={n.category} /></span>
-                    <span style={{
+                    </div>
+                    <span className="nr-cat"><NTagPill category={n.category} /></span>
+                    <span className="nr-title" style={{
                       fontSize: 13.5, fontWeight: 500, color: 'var(--charcoal)',
                       display: 'inline-flex', alignItems: 'center',
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -537,9 +521,9 @@ export function NoticePage() {
                       {n.title}
                       {isNewItem(n.createdAt) && <NewBadge />}
                     </span>
-                    <span style={{
+                    <span className="nr-date" style={{
                       fontSize: 12, color: 'var(--charcoal-3)',
-                      fontFamily: 'var(--font-mono)', textAlign: 'center',
+                      fontFamily: 'var(--font-mono)',
                     }}>{formatDate(n.createdAt)}</span>
                   </Link>
                 ))}

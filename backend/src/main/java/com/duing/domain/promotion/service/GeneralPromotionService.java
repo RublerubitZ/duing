@@ -3,6 +3,10 @@ package com.duing.domain.promotion.service;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.notice.entity.Notice;
+import com.duing.domain.notice.entity.NoticeVisibility;
+import com.duing.domain.notice.exception.NoticeException;
+import com.duing.domain.notice.repository.NoticeRepository;
 import com.duing.domain.promotion.entity.Promotion;
 import com.duing.domain.promotion.exception.PromotionException;
 import com.duing.domain.promotion.repository.PromotionRepository;
@@ -14,6 +18,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -32,10 +37,13 @@ public class GeneralPromotionService implements PromotionService {
     private final PromotionRepository promotionRepository;
     private final ClubRepository clubRepository;
     private final UserRepository userRepository;
+    private final NoticeRepository noticeRepository;
 
     @Override
     @Transactional
     public Long create(CreatePromotionCommand command) {
+        validateSingleLinkTarget(command.linkUrl(), command.noticeId(), command.clubId());
+        validateNoticeIsPublic(command.noticeId());
         if (command.clubId() != null && clubRepository.findById(command.clubId()).isEmpty()) {
             throw new ClubException.ClubNotFoundException();
         }
@@ -43,7 +51,9 @@ public class GeneralPromotionService implements PromotionService {
                 command.clubId(), command.title(), command.bannerImageUrl(), command.linkUrl(),
                 command.active(), command.displayOrder(), command.createdBy(),
                 command.tag(), command.subtitle(), command.ctaLabel(), command.emoji(),
-                command.palette()
+                command.palette(), command.startAt(), command.endAt(),
+                command.renderMode(), command.imageAltText(),
+                command.noticeId()
         )).getId();
     }
 
@@ -52,6 +62,9 @@ public class GeneralPromotionService implements PromotionService {
     public void update(UpdatePromotionCommand command) {
         Promotion promotion = promotionRepository.findById(command.promotionId())
                 .orElseThrow(PromotionException.PromotionNotFoundException::new);
+
+        validateSingleLinkTarget(command.linkUrl(), command.noticeId(), command.clubId());
+        validateNoticeIsPublic(command.noticeId());
 
         if (command.clubId() != null
                 && !Boolean.TRUE.equals(command.clearClubId())
@@ -64,8 +77,14 @@ public class GeneralPromotionService implements PromotionService {
                 command.clubId(), command.active(), command.displayOrder(), command.clearClubId(),
                 command.tag(), command.subtitle(), command.ctaLabel(), command.emoji(),
                 command.palette(),
-                command.clearBannerImageUrl(), command.clearTag(), command.clearSubtitle(),
-                command.clearCtaLabel(), command.clearEmoji()
+                command.renderMode(), command.imageAltText(),
+                command.startAt(), command.endAt(),
+                command.clearBannerImageUrl(), command.clearLinkUrl(),
+                command.clearTag(), command.clearSubtitle(),
+                command.clearCtaLabel(), command.clearEmoji(),
+                command.clearStartAt(), command.clearEndAt(),
+                command.clearImageAltText(),
+                command.noticeId(), command.clearNoticeId()
         ));
     }
 
@@ -125,10 +144,35 @@ public class GeneralPromotionService implements PromotionService {
                 resolveUserRef(promotion.getCreatedBy(), userMap.get(promotion.getCreatedBy()))));
     }
 
+    private void validateSingleLinkTarget(String linkUrl, Long noticeId, Long clubId) {
+        int count = 0;
+        if (linkUrl != null && !linkUrl.isBlank()) count++;
+        if (noticeId != null) count++;
+        if (clubId != null) count++;
+        if (count > 1) {
+            throw new PromotionException.MultipleLinkTargetsException();
+        }
+    }
+
+    private void validateNoticeIsPublic(Long noticeId) {
+        if (noticeId == null) return;
+        Notice notice = noticeRepository.findById(noticeId)
+                .orElseThrow(NoticeException.NoticeNotFoundException::new);
+        if (notice.getVisibility() != NoticeVisibility.PUBLIC) {
+            throw new PromotionException.NonPublicNoticeLinkException();
+        }
+    }
+
     private PromotionAdminListQuery.ClubRef resolveClubRef(Long clubId, Club club) {
         if (clubId == null) return null;
         if (club == null) return new PromotionAdminListQuery.ClubRef(clubId, AdminLabels.DELETED);
         return new PromotionAdminListQuery.ClubRef(club.getId(), club.getName());
+    }
+
+    @Override
+    @Transactional
+    public void removeAllOnClubClosure(Long clubId) {
+        promotionRepository.deleteAll(promotionRepository.findAllByClubId(clubId));
     }
 
     private PromotionAdminListQuery.UserRef resolveUserRef(Long userId, User user) {

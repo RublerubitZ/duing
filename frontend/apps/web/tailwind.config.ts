@@ -1,5 +1,7 @@
 import type { Config } from 'tailwindcss';
 
+import tailwindcssAnimate from 'tailwindcss-animate';
+
 const config: Config = {
   content: [
     './app/**/*.{ts,tsx}',
@@ -35,7 +37,55 @@ const config: Config = {
         warm: '#E8B968',
         coral: '#D97757',
         berry: '#B65672',
-        sky: '#6A95B8',
+        sky: {
+          DEFAULT: '#6A95B8',
+          50: '#f0f9ff',
+          100: '#e0f2fe',
+          200: '#bae6fd',
+          300: '#7dd3fc',
+          400: '#38bdf8',
+          500: '#0ea5e9',
+          600: '#0284c7',
+          700: '#0369a1',
+          800: '#075985',
+          900: '#0c4a6e',
+          950: '#082f49',
+        },
+        // shadcn/ui 시맨틱 토큰 — 두잉 토큰(globals.css :root)에 매핑. 기존 팔레트/borderRadius 는 유지.
+        // `<alpha-value>` 슬롯으로 opacity 모디파이어(bg-primary/50 등) 지원.
+        border: 'hsl(var(--border) / <alpha-value>)',
+        input: 'hsl(var(--input) / <alpha-value>)',
+        ring: 'hsl(var(--ring) / <alpha-value>)',
+        background: 'hsl(var(--background) / <alpha-value>)',
+        foreground: 'hsl(var(--foreground) / <alpha-value>)',
+        primary: {
+          DEFAULT: 'hsl(var(--primary) / <alpha-value>)',
+          foreground: 'hsl(var(--primary-foreground) / <alpha-value>)',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary) / <alpha-value>)',
+          foreground: 'hsl(var(--secondary-foreground) / <alpha-value>)',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive) / <alpha-value>)',
+          foreground: 'hsl(var(--destructive-foreground) / <alpha-value>)',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted) / <alpha-value>)',
+          foreground: 'hsl(var(--muted-foreground) / <alpha-value>)',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent) / <alpha-value>)',
+          foreground: 'hsl(var(--accent-foreground) / <alpha-value>)',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover) / <alpha-value>)',
+          foreground: 'hsl(var(--popover-foreground) / <alpha-value>)',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card) / <alpha-value>)',
+          foreground: 'hsl(var(--card-foreground) / <alpha-value>)',
+        },
       },
       fontFamily: {
         display: ['GmarketSans', 'Pretendard', 'system-ui', 'sans-serif'],
@@ -52,6 +102,15 @@ const config: Config = {
         1: '0 1px 2px rgb(31 74 54 / 0.04), 0 2px 8px rgb(31 74 54 / 0.04)',
         2: '0 2px 6px rgb(31 74 54 / 0.05), 0 12px 32px rgb(31 74 54 / 0.08)',
         3: '0 6px 20px rgb(31 74 54 / 0.08), 0 24px 60px rgb(31 74 54 / 0.12)',
+      },
+      // 두잉 모션 토큰 — 임의값(duration-[250ms]·ease-[cubic-bezier(...)])이 tailwindcss-animate 와
+      // 충돌해 ambiguous 경고를 내므로 명명 유틸리티로 승격(duration-250·ease-duing).
+      transitionDuration: {
+        250: '250ms',
+        600: '600ms',
+      },
+      transitionTimingFunction: {
+        duing: 'cubic-bezier(.2, .7, .2, 1)',
       },
       maxWidth: {
         layout: '1280px',
@@ -95,6 +154,14 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateY(-16px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
       },
       animation: {
         'slide-in-right': 'slide-in-from-right 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
@@ -103,11 +170,13 @@ const config: Config = {
         'slide-out-right': 'slide-out-to-right 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
         'preview-in': 'preview-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
         'preview-in-reverse': 'preview-in-reverse 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
       },
     },
   },
   safelist: ['animate-preview-in', 'animate-preview-in-reverse'],
-  plugins: [],
+  plugins: [tailwindcssAnimate],
 };
 
 export default config;

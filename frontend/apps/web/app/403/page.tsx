@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export default function ForbiddenPage() {
   return (
-    <main className="bg-cream grid min-h-screen place-items-center px-6">
+    <main className="bg-cream grid min-h-dvh place-items-center px-6">
       <div className="max-w-md text-center">
         <p className="text-charcoal-3 text-sm font-semibold">403 Forbidden</p>
         <h1 className="mt-2 text-2xl font-bold text-ink">접근 권한이 없어요.</h1>

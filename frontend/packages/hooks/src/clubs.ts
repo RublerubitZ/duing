@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  ClubMemberExportRow,
   ClubSearchParams,
   CreateClubPhotoPayload,
   ReorderClubPhotosPayload,
@@ -12,11 +13,21 @@ import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
 import { userQueryKeys } from './userQueryKeys';
 
-export function useManagedClubsQuery() {
+export function useManagedClubsQuery(options?: { enabled?: boolean }) {
   const client = useApiClient();
   return useQuery({
     queryKey: clubQueryKeys.managed(),
     queryFn: () => client.clubs.managedByMe(),
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function useMyClubsQuery(options?: { enabled?: boolean }) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: userQueryKeys.myClubs(),
+    queryFn: () => client.users.myClubs(),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -192,5 +203,13 @@ export function useTransferLeaderMutation(clubId: number) {
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.managed() });
       queryClient.invalidateQueries({ queryKey: userQueryKeys.me() });
     },
+  });
+}
+
+export function useClubMembersExportMutation(clubId: number) {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (includePhone: boolean): Promise<ClubMemberExportRow[]> =>
+      client.clubs.membersExport(clubId, includePhone),
   });
 }

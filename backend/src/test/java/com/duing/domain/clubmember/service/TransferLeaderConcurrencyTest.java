@@ -2,6 +2,7 @@ package com.duing.domain.clubmember.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -28,12 +29,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.annotation.DirtiesContext;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class TransferLeaderConcurrencyTest {
+class TransferLeaderConcurrencyTest extends IntegrationTestBase {
 
     @Autowired ClubMemberCommandService clubMemberCommandService;
     @Autowired ClubMemberRepository clubMemberRepository;

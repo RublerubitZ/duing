@@ -38,6 +38,13 @@ public class ClubException extends ApplicationException {
         }
     }
 
+    public static class ClubNotClosableException extends ClubException {
+        public ClubNotClosableException(String currentStatus) {
+            super("운영 중단(INACTIVE) 상태의 동아리만 폐쇄할 수 있습니다. 현재 상태: " + currentStatus,
+                    HttpStatus.BAD_REQUEST);
+        }
+    }
+
     public static class RoundNotFoundException extends ClubException {
         public RoundNotFoundException() {
             super("재인증 라운드를 찾을 수 없습니다.", HttpStatus.NOT_FOUND);

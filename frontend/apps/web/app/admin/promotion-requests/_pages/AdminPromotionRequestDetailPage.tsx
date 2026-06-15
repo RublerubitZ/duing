@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useAdminPromotionRequestDetailQuery, useProcessPromotionRequestMutation } from '@duing/hooks';
 import type { ProcessPromotionRequestPayload } from '@duing/types';
 import { cn } from '../../../_lib/cn';
+import { safeExternalHref } from '../../../_lib/route';
+import { ImageWithFallback } from '../../../_components/ImageWithFallback';
 import { AdminPromotionRequestProcessDialog } from '../_components/AdminPromotionRequestProcessDialog';
 import {
   PROMOTION_REQUEST_STATUS_LABEL,
@@ -43,7 +45,7 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
 
   if (detailQuery.isLoading) {
     return (
-      <main className="max-w-layout mx-auto px-10 py-10">
+      <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
         <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
       </main>
     );
@@ -51,7 +53,7 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
 
   if (detailQuery.isError || !request) {
     return (
-      <main className="max-w-layout mx-auto px-10 py-10">
+      <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
         <p className="py-12 text-center text-coral text-[13px]">
           홍보 요청 정보를 불러오지 못했습니다.
         </p>
@@ -59,8 +61,13 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
     );
   }
 
+  // 제안 URL 은 운영진이 직접 입력 → javascript:/data: 등 비-http 스킴은 클릭 가능한
+  // 링크로 만들지 않는다. (값 자체는 텍스트로 노출해 관리자가 검토·반려할 수 있게 둔다.)
+  const safeSuggestedLink = safeExternalHref(request.suggestedLinkUrl);
+  const safeSuggestedBanner = safeExternalHref(request.suggestedBannerImageUrl);
+
   return (
-    <main className="max-w-layout mx-auto px-10 py-10">
+    <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6 flex items-center gap-3">
         <Link
           href="/admin/promotion-requests"
@@ -118,20 +125,23 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
           <div>
             <dt className="text-[12px] font-semibold text-charcoal-2 mb-2">제안 배너 이미지</dt>
             <dd>
-              <img
+              <ImageWithFallback
                 src={request.suggestedBannerImageUrl}
                 alt="제안 배너 이미지"
-                className="max-w-full rounded-lg border border-line object-contain"
-                style={{ maxHeight: 240 }}
+                objectFit="contain"
+                className="h-[240px] w-full rounded-lg border border-line"
+                errorMessage="제안 배너 이미지를 불러올 수 없습니다"
               />
-              <a
-                href={request.suggestedBannerImageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 inline-block text-[12px] text-charcoal-2 hover:text-ink hover:underline"
-              >
-                원본 보기
-              </a>
+              {safeSuggestedBanner && (
+                <a
+                  href={safeSuggestedBanner}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-block text-[12px] text-charcoal-2 hover:text-ink hover:underline"
+                >
+                  원본 보기
+                </a>
+              )}
             </dd>
           </div>
         )}
@@ -141,14 +151,18 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
           <div>
             <dt className="text-[12px] font-semibold text-charcoal-2 mb-1">제안 링크 URL</dt>
             <dd>
-              <a
-                href={request.suggestedLinkUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[13.5px] text-blue-600 hover:underline break-all"
-              >
-                {request.suggestedLinkUrl}
-              </a>
+              {safeSuggestedLink ? (
+                <a
+                  href={safeSuggestedLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[13.5px] text-blue-600 hover:underline break-all"
+                >
+                  {request.suggestedLinkUrl}
+                </a>
+              ) : (
+                <span className="text-[13.5px] text-charcoal break-all">{request.suggestedLinkUrl}</span>
+              )}
             </dd>
           </div>
         )}

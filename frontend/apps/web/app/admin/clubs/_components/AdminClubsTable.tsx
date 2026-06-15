@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { cn } from '../../../_lib/cn';
 import type { AdminClubSummary } from '@duing/types';
+import { clubCategoryLabel } from '../../../clubs/[clubId]/_lib/clubCategoryLabel';
 import {
   STATUS_ACTIONS,
   STATUS_BADGE_CLASS,
@@ -15,9 +16,10 @@ type Props = {
   clubs: ReadonlyArray<AdminClubSummary>;
   onActionClick: (club: AdminClubSummary, action: StatusAction) => void;
   onCentralClubToggleClick: (club: AdminClubSummary) => void;
+  onCloseClick: (club: AdminClubSummary) => void;
 };
 
-export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick }: Props) {
+export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick, onCloseClick }: Props) {
   if (clubs.length === 0) {
     return (
       <p className="border-line text-charcoal-3 rounded-md border bg-white py-10 text-center text-sm">
@@ -27,7 +29,7 @@ export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick
   }
 
   return (
-    <div className="border-line overflow-hidden rounded-md border bg-white">
+    <div className="border-line overflow-x-auto rounded-md border bg-white">
       <table className="w-full text-sm">
         <thead className="border-line bg-graysoft border-b text-[12px] uppercase text-slate-500">
           <tr>
@@ -67,7 +69,7 @@ export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-slate-500">{club.category}</div>
+                    <div className="text-xs text-slate-500">{clubCategoryLabel(club.category)}</div>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{club.division ?? '—'}</td>
                   <td className="px-4 py-3">
@@ -115,6 +117,15 @@ export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick
                           {action.label}
                         </button>
                       ))}
+                      {club.status === 'INACTIVE' && (
+                        <button
+                          type="button"
+                          onClick={() => onCloseClick(club)}
+                          className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                        >
+                          폐쇄
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

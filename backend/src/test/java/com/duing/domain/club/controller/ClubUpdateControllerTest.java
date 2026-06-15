@@ -15,6 +15,8 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.common.IntegrationTestBase;
+import com.duing.common.TestcontainersConfiguration;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.lang.reflect.Field;
@@ -28,11 +30,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.context.annotation.Import;
 
+@Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class ClubUpdateControllerTest {
+class ClubUpdateControllerTest extends IntegrationTestBase {
 
     @LocalServerPort int port;
 
@@ -187,6 +189,63 @@ class ClubUpdateControllerTest {
                     .patch("/api/v1/clubs/{clubId}", club.getId())
                 .then()
                     .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("logoUrl 이 javascript 스킴이면 400 을 반환한다")
+    void rejectsJavascriptSchemeLogoUrl() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("logoUrl", "javascript:alert(1)"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("coverUrl 이 프로토콜 상대경로(//)면 400 을 반환한다")
+    void rejectsProtocolRelativeCoverUrl() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("coverUrl", "//evil.com/x.png"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("logoUrl 이 역슬래시(/\\)로 시작하면 400 을 반환한다")
+    void rejectsBackslashLogoUrl() {
+        // 브라우저가 `\` 를 `/` 로 정규화해 `//evil` 로 해석하므로 프로토콜 상대경로와 동일하게 차단한다.
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("logoUrl", "/\\evil.com/x.png"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("logoUrl 이 / 로 시작하는 내부 경로면 200 으로 허용된다")
+    void allowsRelativeInternalLogoUrl() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("logoUrl", "/files/club/logo.png"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value());
     }
 
     @Test

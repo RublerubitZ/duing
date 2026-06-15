@@ -1,0 +1,47 @@
+// 백엔드 LocalDateTime(타임존 없는 'YYYY-MM-DDTHH:mm:ss')을 클라이언트 로컬 시각으로 해석해 표시한다.
+// 'Z'/오프셋이 붙은 문자열이 들어오면 로컬로 변환되므로, 백엔드 직렬화 계약(타임존 없음)이 바뀌면 재검토.
+import type { NoticeEventInfo } from '@duing/types';
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function parts(iso: string): { date: string; time: string } {
+  const value = new Date(iso);
+  const date = `${value.getMonth() + 1}.${value.getDate()}(${WEEKDAYS[value.getDay()] ?? ''})`;
+  const hours = String(value.getHours()).padStart(2, '0');
+  const minutes = String(value.getMinutes()).padStart(2, '0');
+  return { date, time: `${hours}:${minutes}` };
+}
+
+export function formatEventRange(startAt: string, endAt: string | null): string {
+  const start = parts(startAt);
+  if (!endAt) return `${start.date} ${start.time}`;
+  const end = parts(endAt);
+  if (start.date === end.date) return `${start.date} ${start.time}–${end.time}`;
+  return `${start.date} ~ ${end.date} · ${start.time}–${end.time}`;
+}
+
+export function formatDdayLabel(expiresAt: string): string {
+  const diffMs = new Date(expiresAt).getTime() - Date.now();
+  if (diffMs < 0) return '마감';
+  const days = Math.ceil(diffMs / 86_400_000);
+  if (days === 0) return 'D-DAY';
+  return `D-${days}`;
+}
+
+export function formatPublishedDate(iso: string): string {
+  const value = new Date(iso);
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${value.getFullYear()}.${month}.${day}`;
+}
+
+// 이벤트 정보 → 라벨/값 행(일시 항상, 장소·주최·대상은 값이 있을 때만). 카드/요약이 공유한다.
+export function buildEventRows(eventInfo: NoticeEventInfo): { label: string; value: string }[] {
+  const rows: { label: string; value: string }[] = [
+    { label: '일시', value: formatEventRange(eventInfo.startAt, eventInfo.endAt) },
+  ];
+  if (eventInfo.location) rows.push({ label: '장소', value: eventInfo.location });
+  if (eventInfo.host) rows.push({ label: '주최', value: eventInfo.host });
+  if (eventInfo.audience) rows.push({ label: '대상', value: eventInfo.audience });
+  return rows;
+}

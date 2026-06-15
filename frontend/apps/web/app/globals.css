@@ -5,21 +5,21 @@
   font-weight: 300;
   font-style: normal;
   font-display: swap;
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansTTFLight.woff') format('woff');
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansLight.woff') format('woff');
 }
 @font-face {
   font-family: 'GmarketSans';
   font-weight: 500;
   font-style: normal;
   font-display: swap;
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansTTFMedium.woff') format('woff');
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff') format('woff');
 }
 @font-face {
   font-family: 'GmarketSans';
   font-weight: 700;
   font-style: normal;
   font-display: swap;
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansTTFBold.woff') format('woff');
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansBold.woff') format('woff');
 }
 
 @tailwind base;
@@ -32,6 +32,36 @@
 
 body {
   @apply bg-white text-slate-900 antialiased;
+}
+
+/* shadcn/ui 시맨틱 토큰 — 두잉 토큰에 매핑 (두잉 전용 셋업).
+   stone 기본값을 버리고 모든 시맨틱 변수를 두잉 팔레트 HSL로 고정한다 (DESIGN이 SoT, 충돌 시 두잉 우선).
+   tailwind.config 가 hsl(var(--x)) 로 소비하므로 HSL 트리플렛 포맷을 유지한다 (opacity 모디파이어 호환).
+   격리 통합: 전역 리셋(`* { @apply border-border }`)·body 오버라이드는 의도적으로 넣지 않는다.
+   radius/shadow 는 컴포넌트 추가 시 두잉 4값 어휘·잉크틴트로 사람이 수동 보정한다 (완전 자동화 금지). */
+@layer base {
+  :root {
+    --background: 42 35.7% 94.5%;             /* cream  #F6F3EC */
+    --foreground: 168 5.1% 19.4%;             /* charcoal #2F3433 */
+    --card: 0 0% 100%;                        /* paper  #FFFFFF */
+    --card-foreground: 168 5.1% 19.4%;        /* charcoal */
+    --popover: 0 0% 100%;                     /* paper */
+    --popover-foreground: 168 5.1% 19.4%;     /* charcoal */
+    --primary: 152.1 41% 20.6%;               /* ink    #1F4A36 */
+    --primary-foreground: 0 0% 100%;          /* paper */
+    --secondary: 120 15% 92.2%;               /* sage-mist #E8EEE8 */
+    --secondary-foreground: 152.1 41% 20.6%;  /* ink */
+    --muted: 43.6 26.8% 92%;                  /* graysoft #F0EDE5 */
+    --muted-foreground: 170 2.6% 44.7%;       /* charcoal-3 #6F7574 */
+    --accent: 120 16.7% 95.3%;                /* sage-tint #F1F5F1 (hover·선택 배경) */
+    --accent-foreground: 152.1 41% 20.6%;     /* ink */
+    --destructive: 14.8 63.1% 59.6%;          /* coral  #D97757 (위험·로그아웃) */
+    --destructive-foreground: 0 0% 100%;      /* paper */
+    --border: 43.6 17.5% 87.6%;               /* line   #E5E2DA */
+    --input: 43.6 17.5% 87.6%;                /* line */
+    --ring: 152.1 41% 20.6%;                  /* ink */
+    --radius: 0.875rem;                        /* 14px = 버튼 기준(rounded-md). 카드 20px 등은 컴포넌트별 수동 보정 */
+  }
 }
 
 /* Duing 디자인 토큰은 .duing 스코프 안에서만 적용되어 다른 라우트에 영향을 주지 않는다 */
@@ -156,6 +186,180 @@ body {
     align-self: flex-start;
     transform: translateY(-2px);
   }
+
+  /* /me/applications ApplyRow — 데스크탑 1행 5칸, 모바일 2행 카드(헤더[로고·정보·배지] + 타임라인 풀폭) */
+  .apply-row {
+    display: grid;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 14px;
+    grid-template-columns: 50px 1fr auto;
+    grid-template-areas:
+      'logo info status'
+      'timeline timeline timeline';
+  }
+  .apply-row > .ar-logo {
+    grid-area: logo;
+  }
+  .apply-row > .ar-info {
+    grid-area: info;
+    min-width: 0;
+  }
+  .apply-row > .ar-timeline {
+    grid-area: timeline;
+  }
+  .apply-row > .ar-status {
+    grid-area: status;
+  }
+  .apply-row > .ar-arrow {
+    grid-area: arrow;
+  }
+  @media (min-width: 768px) {
+    .apply-row {
+      column-gap: 10px;
+      row-gap: 0;
+      grid-template-columns: 50px 1fr 220px 108px 12px;
+      grid-template-areas: 'logo info timeline status arrow';
+    }
+  }
+
+  /* /notices 목록 NoticeRow — 데스크탑 5칸 테이블 행, 모바일 2행 카드(이미지 + 제목/분류·등록일) */
+  .notice-row {
+    display: grid;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 3px;
+    grid-template-columns: 40px auto 1fr;
+    grid-template-areas:
+      'img title title'
+      'img cat date';
+  }
+  .notice-row > .nr-no {
+    grid-area: no;
+    display: none;
+  }
+  .notice-row > .nr-img {
+    grid-area: img;
+  }
+  .notice-row > .nr-cat {
+    grid-area: cat;
+  }
+  .notice-row > .nr-title {
+    grid-area: title;
+    min-width: 0;
+  }
+  .notice-row > .nr-date {
+    grid-area: date;
+    text-align: left;
+  }
+  @media (min-width: 768px) {
+    .notice-row {
+      column-gap: 14px;
+      row-gap: 0;
+      grid-template-columns: 56px 56px 72px 1fr 110px;
+      grid-template-areas: 'no img cat title date';
+    }
+    .notice-row > .nr-no {
+      display: block;
+    }
+    .notice-row > .nr-date {
+      text-align: center;
+    }
+  }
+
+  /* /calendar 모바일 — 데스크탑 사이드 패널을 바텀시트로, 캘린더 단일 컬럼, 셀은 점. (인라인 스타일 위에 미디어쿼리로 덮음) */
+  .cal-sheet-handle {
+    display: none;
+  }
+  @media (max-width: 767px) {
+    .cal-section {
+      padding-left: 16px !important;
+      padding-right: 16px !important;
+    }
+    .cal-header {
+      padding-top: 28px !important;
+      padding-bottom: 16px !important;
+    }
+    .cal-header-row {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 16px !important;
+    }
+    .cal-h1 {
+      font-size: 30px !important;
+    }
+    .cal-stats {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 10px !important;
+    }
+    .cal-monthnav-hint {
+      display: none !important;
+    }
+    .cal-main-grid {
+      grid-template-columns: minmax(0, 1fr) !important;
+      column-gap: 0 !important;
+      height: auto !important;
+      min-height: 0 !important;
+    }
+    .cal-center-rail {
+      display: none !important;
+    }
+    .cal-cell {
+      min-height: 60px !important;
+      padding: 5px 4px !important;
+      gap: 4px !important;
+    }
+    .cal-chips {
+      flex-direction: row !important;
+      flex-wrap: wrap !important;
+      gap: 3px !important;
+    }
+    .cal-chip {
+      width: 6px !important;
+      height: 6px !important;
+      min-width: 6px !important;
+      padding: 0 !important;
+      border-radius: 999px !important;
+      border-left-width: 6px !important;
+      font-size: 0 !important;
+      line-height: 0 !important;
+      overflow: hidden !important;
+    }
+    .cal-upcoming {
+      grid-template-columns: 1fr !important;
+    }
+    .cal-sheet-handle {
+      display: block;
+      width: 40px;
+      height: 4px;
+      border-radius: 999px;
+      background: var(--gray-line);
+      margin: 2px auto 10px;
+    }
+    .cal-detail {
+      position: fixed !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: auto !important;
+      max-width: none !important;
+      max-height: 78dvh !important;
+      z-index: 50 !important;
+      border-radius: 20px 20px 0 0 !important;
+      background: var(--cream) !important;
+      box-shadow: 0 -10px 34px rgba(0, 0, 0, 0.2) !important;
+      padding: 8px 14px calc(16px + env(safe-area-inset-bottom)) !important;
+      transform: translateY(0) !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      overflow-y: auto !important;
+      transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) !important;
+    }
+    .cal-detail[data-open='false'] {
+      transform: translateY(110%) !important;
+      pointer-events: none !important;
+    }
+  }
 }
 
 /* ===== Introduce page animations ===== */
@@ -180,6 +384,10 @@ body {
 .animate-float-b   { animation: float-b  6.5s ease-in-out infinite; animation-delay: 1.2s; }
 .animate-pulse-ring { animation: pulse-ring 1.8s ease-out infinite; }
 .animate-pop-in    { animation: pop-in .6s .8s cubic-bezier(.2,.9,.3,1.4) both; }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
 @keyframes notify-bell-sway {
   0%, 100% { transform: rotate(-6deg); }
@@ -230,4 +438,17 @@ body {
 .feature-visible .feature-visual {
   opacity: 1;
   transform: scale(1);
+}
+
+/* iOS Safari 포커스 자동 줌 방지 — 모바일(<768px)에서 폼 입력 폰트를 16px 하한으로 강제한다.
+   < 16px 입력에 포커스하면 iOS 가 페이지를 자동 확대하는데, 이를 막는 표준 처치다.
+   데스크탑(>=768px, md 경계)은 각 입력의 기존 밀도(text-[13~15px])를 그대로 둔다.
+   Tailwind v3 는 네이티브 cascade layer 를 쓰지 않아 유틸리티 text-* / 인라인 style 을
+   확실히 덮으려면 !important 가 필요하다(iOS 줌 방지라는 보편 규칙 한정 예외). */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }

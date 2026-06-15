@@ -32,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,6 +81,15 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
 
         if (command.status() == SuccessionStatus.REJECTED) {
             preview.process(command.handlerAdminId(), SuccessionStatus.REJECTED, command.actionNote());
+            // REJECTED 경로는 락도 재조회도 없어 stale entity 의 in-memory terminal 체크만으로 UPDATE 를 쏜다.
+            // 다른 운영진이 먼저 APPROVED 처리해 club_member 권한을 이전한 뒤 이 REJECTED UPDATE 가
+            // status='REJECTED' 로 덮어쓰면 정합성이 깨진다. @Version 기반 OptimisticLock 충돌을
+            // 현재 트랜잭션 안에서 잡아 도메인 예외(409) 로 변환한다.
+            try {
+                requestRepository.flush();
+            } catch (ObjectOptimisticLockingFailureException concurrentProcess) {
+                throw new ClubMemberException.ConcurrentSuccessionUpdateException();
+            }
             return;
         }
 
@@ -116,6 +126,15 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
                 ClubMemberRole.OFFICER, ClubMemberRole.LEADER, command.actionNote());
 
         request.process(command.handlerAdminId(), SuccessionStatus.APPROVED, command.actionNote());
+
+        // APPROVED 경로도 @Version 보호 대상이 되도록 마무리 flush + 좁은 catch.
+        // PESSIMISTIC_WRITE 가 1차 방어이고 OptimisticLock 은 2차 안전망 — 새 진입 경로가
+        // 추가되거나 락 범위 밖에서 request 가 갱신되는 케이스에서도 정합성을 보장한다.
+        try {
+            requestRepository.flush();
+        } catch (ObjectOptimisticLockingFailureException concurrentProcess) {
+            throw new ClubMemberException.ConcurrentSuccessionUpdateException();
+        }
     }
 
     @Override
@@ -192,6 +211,13 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
 
         return SuccessionRequestAdminDetailQuery.of(
                 request, clubRef, requesterRef, currentLeaderRef, handlerRef);
+    }
+
+    @Override
+    @Transactional
+    public void cancelPendingOnClubClosure(Long clubId, Long actorAdminId, String reason) {
+        requestRepository.findByClubIdAndStatus(clubId, SuccessionStatus.PENDING)
+                .ifPresent(request -> request.process(actorAdminId, SuccessionStatus.REJECTED, reason));
     }
 
     @Override

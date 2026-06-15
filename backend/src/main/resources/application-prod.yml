@@ -1,3 +1,15 @@
+# 운영은 LB/프록시 뒤 — 톰캣 RemoteIpValve 가 신뢰 프록시(사설망)에서 온 X-Forwarded-For 만
+# getRemoteAddr 에 반영한다. 직접 클라이언트가 보낸 위조 XFF 는 무시되어 IP 레이트리밋 우회를 막는다.
+server:
+  forward-headers-strategy: native
+
+# 운영 CORS 허용 Origin — default 없이 주입한다. 누락 시 부팅이 실패(fail-fast)하여 잘못된
+# localhost 폴백을 차단한다. SecurityConfig 의 @Value 기본값(http://localhost:3000)은 로컬/테스트
+# 전용이며, 운영에서는 이 값이 우선하므로 CORS_ALLOWED_ORIGINS 가 비면 기동되지 않는다.
+# (allowCredentials=true 환경) 여러 Origin 은 콤마로 구분: https://duings.com,https://www.duings.com
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
 spring:
   datasource:
     url: ${DB_URL}
@@ -13,6 +25,15 @@ spring:
     # 로컬 시드(V12~) 가 운영 DB 로 흘러 들어가지 않는다.
     locations: classpath:db/migration
 
+# API 문서(Swagger UI / OpenAPI JSON)는 운영에서 비활성화한다. SecurityConfig 가 /swagger-ui/**,
+# /v3/api-docs/** 를 permitAll 로 열어두므로, 운영에 노출되면 전체 엔드포인트·요청 스키마가 인증 없이
+# 공개되어 공격 표면 정찰에 악용된다. springdoc 을 끄면 두 경로 모두 404 가 되어 문서가 노출되지 않는다.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 # 알림 스케줄러 — 운영에서는 항상 켜져있어야 한다.
 # 별도 환경변수 셋업을 잊는 사일런트 결손을 막기 위해 프로파일에서 하드코딩한다.
 # 끄고 싶으면 DUING_NOTIFICATION_JOBS_ENABLED=false 로 env var 오버라이드 가능.
@@ -21,7 +42,28 @@ duing:
     jobs:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:true}
 
+# 이메일 발송 — 운영은 항상 Resend 를 쓴다. EMAIL_PROVIDER 누락 시 공통 yml 의 기본값(logging)
+# 으로 조용히 떨어져 인증 메일이 발송되지 않는 사고를 막기 위해 프로파일에서 하드코딩한다.
+# RESEND_API_KEY / EMAIL_VERIFICATION_SECRET 은 공통 yml 에서 default 없이 주입 = 누락 시 fail-fast.
+email:
+  provider: resend
+
 logging:
   level:
     org.hibernate.SQL: warn
     org.hibernate.orm.jdbc.bind: warn
+
+file:
+  storage:
+    provider: s3
+
+# 환경변수는 vendor(R2) 가 아니라 provider-neutral 한 S3_* 로 통일한다 — 내부 프로퍼티가
+# s3.*, 구현체가 S3FileStorageService 이고 로컬 개발도 같은 S3_* 를 쓰므로 환경 불문 동일
+# 변수명, 값(버킷/엔드포인트)만 환경별로 다르게 주입. default 없음 = credential 누락 시 fail-fast.
+s3:
+  endpoint: ${S3_ENDPOINT}
+  region: auto
+  access-key: ${S3_ACCESS_KEY}
+  secret-key: ${S3_SECRET_KEY}
+  bucket: ${S3_BUCKET:duing}
+  public-base-url: ${S3_PUBLIC_BASE_URL}

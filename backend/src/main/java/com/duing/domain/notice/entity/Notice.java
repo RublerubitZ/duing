@@ -49,6 +49,20 @@ public class Notice extends BaseEntity {
     @Column(name = "notify_on_publish", nullable = false) private boolean notifyOnPublish;
     @Column(name = "author_id", nullable = false) private Long authorId;
 
+    @Column(name = "event_start_at") private LocalDateTime eventStartAt;
+    @Column(name = "event_end_at")   private LocalDateTime eventEndAt;
+    @Column(length = 200) private String location;
+    @Column(length = 200) private String host;
+    @Column(length = 200) private String audience;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "content_format", nullable = false, length = 20)
+    private NoticeContentFormat contentFormat = NoticeContentFormat.MARKDOWN;
+
+    // 클럽이 작성한 공지의 소유 클럽. createForClub 에서만 설정되며, 관리자 작성 공지는 NULL.
+    @Column(name = "owning_club_id")
+    private Long owningClubId;
+
     public List<String> getTags() {
         return tags == null ? Collections.emptyList() : Collections.unmodifiableList(Arrays.asList(tags));
     }
@@ -57,7 +71,10 @@ public class Notice extends BaseEntity {
     private Notice(String title, String summary, String content, String coverImageUrl, String linkUrl,
                    NoticeCategory category, String[] tags, NoticeVisibility visibility,
                    NoticeClubScopeRole clubScopeRole, boolean pinned, LocalDateTime expiresAt,
-                   boolean notifyOnPublish, Long authorId) {
+                   boolean notifyOnPublish,
+                   LocalDateTime eventStartAt, LocalDateTime eventEndAt,
+                   String location, String host, String audience, NoticeContentFormat contentFormat,
+                   Long authorId) {
         this.title = title;
         this.summary = summary;
         this.content = content;
@@ -70,15 +87,26 @@ public class Notice extends BaseEntity {
         this.pinned = pinned;
         this.expiresAt = expiresAt;
         this.notifyOnPublish = notifyOnPublish;
+        this.eventStartAt = eventStartAt;
+        this.eventEndAt = eventEndAt;
+        this.location = location;
+        this.host = host;
+        this.audience = audience;
+        this.contentFormat = contentFormat == null ? NoticeContentFormat.MARKDOWN : contentFormat;
         this.authorId = authorId;
+        // HTML 포맷 본문은 서버측에서 정제한다(저장형 XSS 방어). MARKDOWN/null 은 그대로 둔다.
+        this.content = NoticeHtmlSanitizer.sanitize(this.content, this.contentFormat);
     }
 
     public static Notice create(String title, String summary, String content, String coverImageUrl,
                                 String linkUrl, NoticeCategory category, List<String> tags,
                                 NoticeVisibility visibility, NoticeClubScopeRole clubScopeRole,
                                 boolean pinned, LocalDateTime expiresAt, boolean notifyOnPublish,
+                                LocalDateTime eventStartAt, LocalDateTime eventEndAt,
+                                String location, String host, String audience, NoticeContentFormat contentFormat,
                                 Long authorId) {
         validateScope(visibility, clubScopeRole);
+        validateEventRange(eventStartAt, eventEndAt);
         boolean normalizedNotify = (visibility != NoticeVisibility.PUBLIC) || notifyOnPublish;
         String[] tagArray = tags == null
                 ? new String[0]
@@ -89,7 +117,11 @@ public class Notice extends BaseEntity {
                 .category(category).tags(tagArray)
                 .visibility(visibility).clubScopeRole(clubScopeRole)
                 .pinned(pinned).expiresAt(expiresAt)
-                .notifyOnPublish(normalizedNotify).authorId(authorId)
+                .notifyOnPublish(normalizedNotify)
+                .eventStartAt(eventStartAt).eventEndAt(eventEndAt)
+                .location(location).host(host).audience(audience)
+                .contentFormat(contentFormat)
+                .authorId(authorId)
                 .build();
     }
 
@@ -98,7 +130,10 @@ public class Notice extends BaseEntity {
             NoticeCategory category, List<String> tags,
             NoticeVisibility visibility, NoticeClubScopeRole clubScopeRole,
             Boolean pinned, LocalDateTime expiresAt, Boolean clearExpiresAt,
-            Boolean notifyOnPublish
+            Boolean notifyOnPublish,
+            LocalDateTime eventStartAt, LocalDateTime eventEndAt,
+            String location, String host, String audience, Boolean clearEvent,
+            NoticeContentFormat contentFormat
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -133,6 +168,50 @@ public class Notice extends BaseEntity {
         if (payload.notifyOnPublish() != null && this.visibility == NoticeVisibility.PUBLIC) {
             this.notifyOnPublish = payload.notifyOnPublish();
         }
+        boolean clearEvent = Boolean.TRUE.equals(payload.clearEvent());
+        LocalDateTime nextEventStart = clearEvent ? null
+                : (payload.eventStartAt() != null ? payload.eventStartAt() : this.eventStartAt);
+        LocalDateTime nextEventEnd = clearEvent ? null
+                : (payload.eventEndAt() != null ? payload.eventEndAt() : this.eventEndAt);
+        validateEventRange(nextEventStart, nextEventEnd);
+        if (clearEvent) {
+            this.eventStartAt = null;
+            this.eventEndAt = null;
+            this.location = null;
+            this.host = null;
+            this.audience = null;
+        } else {
+            if (payload.eventStartAt() != null) this.eventStartAt = payload.eventStartAt();
+            if (payload.eventEndAt() != null) this.eventEndAt = payload.eventEndAt();
+            if (payload.location() != null) this.location = payload.location();
+            if (payload.host() != null) this.host = payload.host();
+            if (payload.audience() != null) this.audience = payload.audience();
+        }
+        if (payload.contentFormat() != null) {
+            this.contentFormat = payload.contentFormat();
+        }
+        // 최종 포맷이 HTML 이면 본문을 정제한다 — 본문 변경뿐 아니라 포맷만 HTML 로 승격된 경우(기존
+        // MARKDOWN 본문이 HTML 로 재해석되는 경우)까지 커버해 저장 본문이 항상 안전하게 유지된다.
+        if (this.contentFormat == NoticeContentFormat.HTML) {
+            this.content = NoticeHtmlSanitizer.sanitize(this.content, this.contentFormat);
+        }
+    }
+
+    /** LEADER/OFFICER 의 CLUB_SCOPED 공지 부분 수정 — null 필드는 건너뛴다. */
+    public void applyClubScopedUpdate(String title, String summary, String content,
+                                      String coverImageUrl, Boolean pinned,
+                                      java.time.LocalDateTime expiresAt) {
+        if (title != null) this.title = title;
+        if (summary != null) this.summary = summary;
+        if (content != null) this.content = NoticeHtmlSanitizer.sanitize(content, this.contentFormat);
+        if (coverImageUrl != null) this.coverImageUrl = coverImageUrl;
+        if (pinned != null) this.pinned = pinned;
+        if (expiresAt != null) this.expiresAt = expiresAt;
+    }
+
+    /** 클럽이 작성한 공지의 소유 클럽을 지정한다(createForClub 전용). 관리자 작성 공지는 호출하지 않아 NULL 로 둔다. */
+    public void assignOwningClub(Long clubId) {
+        this.owningClubId = clubId;
     }
 
     private static void validateScope(NoticeVisibility visibility, NoticeClubScopeRole clubScopeRole) {
@@ -141,6 +220,12 @@ public class Notice extends BaseEntity {
         }
         if (visibility != NoticeVisibility.CLUB_SCOPED && clubScopeRole != null) {
             throw new NoticeException.InvalidNoticeScopeException("CLUB_SCOPED 가 아닌 공지에는 club_scope_role 을 둘 수 없습니다.");
+        }
+    }
+
+    private static void validateEventRange(LocalDateTime start, LocalDateTime end) {
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new NoticeException.InvalidNoticeEventException("종료 일시가 시작 일시보다 빠를 수 없습니다.");
         }
     }
 }

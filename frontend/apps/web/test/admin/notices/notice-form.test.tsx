@@ -2,9 +2,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
-// NoticeCoverUploader 는 useFileUploadMutation 에 의존하므로 간단한 input 으로 대체
-vi.mock('../../../app/admin/notices/_components/NoticeCoverUploader', () => ({
-  NoticeCoverUploader: ({ value, onChange }: { value: string; onChange: (url: string) => void }) => (
+// ImageUploader 는 useFileUploadMutation 에 의존하므로 간단한 input 으로 대체
+vi.mock('../../../app/_components/ImageUploader', () => ({
+  ImageUploader: ({ value, onChange }: { value: string; onChange: (url: string) => void }) => (
     <input
       data-testid="cover-uploader"
       value={value}
@@ -13,11 +13,9 @@ vi.mock('../../../app/admin/notices/_components/NoticeCoverUploader', () => ({
   ),
 }));
 
-// NoticeMarkdownEditor 는 react-markdown 에 의존하므로 단순 textarea 로 대체
-vi.mock('../../../app/admin/notices/_components/NoticeMarkdownEditor', () => ({
-  NoticeMarkdownEditor: ({ value, onChange }: { value: string; onChange: (next: string) => void }) => (
-    <textarea data-testid="markdown-editor" value={value} onChange={(event) => onChange(event.target.value)} />
-  ),
+// NoticeRichEditor 는 Tiptap 에 의존하므로 단순 div 로 대체
+vi.mock('../../../app/admin/notices/_components/NoticeRichEditor', () => ({
+  NoticeRichEditor: ({ value }: { value: string }) => <div data-testid="rich-editor">{value}</div>,
 }));
 
 const mockUseAdminClubsQuery = vi.fn();
@@ -135,5 +133,25 @@ describe('NoticeForm', () => {
     // 여전히 8개
     const removeButtonsAfter = screen.getAllByRole('button', { name: /태그 제거/ });
     expect(removeButtonsAfter).toHaveLength(8);
+  });
+
+  it('행사 정보 입력 필드(시작/종료/장소/주최/대상)와 리치 에디터가 렌더링된다', () => {
+    mockUseAdminClubsQuery.mockReturnValue(makeClubsResponse());
+
+    render(
+      <NoticeForm
+        initialState={EMPTY_NOTICE_FORM}
+        submitLabel="저장"
+        isSubmitting={false}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('시작 일시')).toBeInTheDocument();
+    expect(screen.getByText('종료 일시')).toBeInTheDocument();
+    expect(screen.getByText('장소')).toBeInTheDocument();
+    expect(screen.getByText('주최')).toBeInTheDocument();
+    expect(screen.getByText('대상')).toBeInTheDocument();
+    expect(screen.getByTestId('rich-editor')).toBeInTheDocument();
   });
 });

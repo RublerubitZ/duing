@@ -3,12 +3,17 @@ package com.duing.domain.notice.service;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.notice.broadcast.service.NoticeBroadcaster;
 import com.duing.domain.notice.entity.Notice;
+import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.domain.notice.entity.NoticeClubScopeRole;
+import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeTargetClub;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.exception.NoticeException;
 import com.duing.domain.notice.repository.NoticeRepository;
 import com.duing.domain.notice.repository.NoticeTargetClubRepository;
+import com.duing.domain.notice.service.dto.command.CreateClubNoticeCommand;
 import com.duing.domain.notice.service.dto.command.CreateNoticeCommand;
+import com.duing.domain.notice.service.dto.command.UpdateClubNoticeCommand;
 import com.duing.domain.notice.service.dto.command.UpdateNoticeCommand;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
@@ -46,8 +51,10 @@ public class GeneralNoticeService implements NoticeService {
                 command.coverImageUrl(), command.linkUrl(),
                 command.category(), command.tags(),
                 command.visibility(), command.clubScopeRole(),
-                command.pinned(), command.expiresAt(),
-                command.notifyOnPublish(), command.authorId()
+                command.pinned(), command.expiresAt(), command.notifyOnPublish(),
+                command.eventStartAt(), command.eventEndAt(),
+                command.location(), command.host(), command.audience(), command.contentFormat(),
+                command.authorId()
         ));
 
         if (command.visibility() == NoticeVisibility.CLUB_SCOPED) {
@@ -81,7 +88,10 @@ public class GeneralNoticeService implements NoticeService {
                 command.category(), command.tags(),
                 command.visibility(), command.clubScopeRole(),
                 command.pinned(), command.expiresAt(), command.clearExpiresAt(),
-                command.notifyOnPublish()
+                command.notifyOnPublish(),
+                command.eventStartAt(), command.eventEndAt(),
+                command.location(), command.host(), command.audience(), command.clearEvent(),
+                command.contentFormat()
         ));
 
         if (command.targetClubIds() != null) {
@@ -121,6 +131,74 @@ public class GeneralNoticeService implements NoticeService {
     @Override
     public Page<NoticeAdminSummaryQuery> listForAdmin(NoticeAdminSearchCondition condition, Pageable pageable) {
         return noticeRepository.findAdminList(condition, pageable).map(NoticeAdminSummaryQuery::from);
+    }
+
+    @Override
+    @Transactional
+    public Long createForClub(CreateClubNoticeCommand command) {
+        if (command.coverImageUrl() != null && !command.coverImageUrl().isBlank()) {
+            validateCoverImageUrl(command.coverImageUrl());
+        }
+        String safeSummary = command.summary() != null ? command.summary() : "";
+        String safeCoverImageUrl = command.coverImageUrl() != null ? command.coverImageUrl() : "";
+        Notice saved = noticeRepository.save(Notice.create(
+                command.title(), safeSummary, command.content(),
+                safeCoverImageUrl, null /* linkUrl */,
+                NoticeCategory.GENERAL,
+                List.of() /* tags */,
+                NoticeVisibility.CLUB_SCOPED,
+                NoticeClubScopeRole.ALL_MEMBERS,
+                command.pinned(), command.expiresAt(), false /* notifyOnPublish */,
+                null, null, null, null, null /* event */, NoticeContentFormat.MARKDOWN,
+                command.authorId()
+        ));
+        saved.assignOwningClub(command.clubId());
+        persistTargetClubs(saved.getId(), List.of(command.clubId()));
+        broadcaster.publish(saved, List.of(command.clubId()));
+        return saved.getId();
+    }
+
+    @Override
+    @Transactional
+    public void updateForClub(UpdateClubNoticeCommand command) {
+        Notice found = noticeRepository.findById(command.noticeId())
+                .orElseThrow(NoticeException.NoticeNotFoundException::new);
+        // 클럽이 작성했고(owning_club_id) 현재도 그 클럽을 대상으로 하는 공지만 그 클럽 운영진이
+        // 수정할 수 있다. owning_club_id 로 관리자 브로드캐스트(NULL)·타 클럽 소유 공지를 차단하고,
+        // 대상 재검증으로 관리자가 대상을 다른 클럽으로 옮긴 공지에 대한 잔존 권한도 막는다.
+        boolean owned = found.getOwningClubId() != null && found.getOwningClubId().equals(command.clubId());
+        boolean stillTargetsClub = targetClubRepository.findAllByIdNoticeId(found.getId())
+                .stream().anyMatch(targetClub -> targetClub.getClubId().equals(command.clubId()));
+        if (!owned || !stillTargetsClub) {
+            throw new NoticeException.NoticeAccessDeniedException();
+        }
+        if (command.coverImageUrl() != null && !command.coverImageUrl().isBlank()) {
+            validateCoverImageUrl(command.coverImageUrl());
+        }
+        found.applyClubScopedUpdate(
+                command.title(), command.summary(), command.content(),
+                command.coverImageUrl(), command.pinned(), command.expiresAt()
+        );
+    }
+
+    @Override
+    @Transactional
+    public void deleteForClub(Long clubId, Long noticeId) {
+        Notice found = noticeRepository.findById(noticeId)
+                .orElseThrow(NoticeException.NoticeNotFoundException::new);
+        // 클럽이 작성했고(owning_club_id) 현재도 그 클럽을 대상으로 하는 공지만 삭제할 수 있다.
+        boolean owned = found.getOwningClubId() != null && found.getOwningClubId().equals(clubId);
+        boolean stillTargetsClub = targetClubRepository.findAllByIdNoticeId(found.getId())
+                .stream().anyMatch(targetClub -> targetClub.getClubId().equals(clubId));
+        if (!owned || !stillTargetsClub) {
+            throw new NoticeException.NoticeAccessDeniedException();
+        }
+        noticeRepository.delete(found);
+    }
+
+    @Override
+    public Page<Notice> findClubScopedForMember(Long clubId, Pageable pageable) {
+        return noticeRepository.findClubScopedForMember(clubId, pageable);
     }
 
     private void validateCoverImageUrl(String url) {

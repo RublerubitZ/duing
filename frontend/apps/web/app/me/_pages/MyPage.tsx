@@ -2,22 +2,25 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useFavoriteListQuery, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
+import { useFavoriteListQuery, useMeQuery, useMyApplicationsQuery, useMyClubsQuery } from '@duing/hooks';
 
 import { HomeNav } from '@/app/_components/HomeNav';
 
+import { AcceptanceBanner } from '../_components/AcceptanceBanner';
 import { MyPageHeader } from '../_components/MyPageHeader';
 import { MyPageTabs } from '../_components/MyPageTabs';
 import { SectionApply } from '../_components/SectionApply';
-import { SectionJoined } from '../_components/SectionJoined';
+import { SectionArchived } from '../_components/SectionArchived';
+import { SectionMyClubs } from '../_components/SectionMyClubs';
 import { SectionSaved } from '../_components/SectionSaved';
 
-type SectionId = 'apply' | 'joined' | 'saved';
+type SectionId = 'apply' | 'joined' | 'saved' | 'archived';
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'apply', label: '지원 현황' },
   { id: 'joined', label: '가입한 동아리' },
   { id: 'saved', label: '찜한 동아리' },
+  { id: 'archived', label: '지난 지원' },
 ];
 
 export function MyPage() {
@@ -30,13 +33,15 @@ export function MyPage() {
 
   /* ── Data ── */
   const meQuery = useMeQuery();
-  const applicationsQuery = useMyApplicationsQuery();
-  const managedClubsQuery = useManagedClubsQuery();
+  const applicationsQuery = useMyApplicationsQuery('ACTIVE');
+  const archivedApplicationsQuery = useMyApplicationsQuery('ARCHIVED');
+  const myClubsQuery = useMyClubsQuery();
   const favoriteListQuery = useFavoriteListQuery(0, 20);
 
   const user = meQuery.data;
   const applications = applicationsQuery.data ?? [];
-  const managedClubs = managedClubsQuery.data ?? [];
+  const archivedApplications = archivedApplicationsQuery.data ?? [];
+  const myClubs = myClubsQuery.data ?? [];
   const favorites = favoriteListQuery.data?.content ?? [];
 
   /* ── 탭 클릭 → 해당 섹션 헤더로 스무스 스크롤 ── */
@@ -130,8 +135,10 @@ export function MyPage() {
       section.id === 'apply'
         ? applications.length
         : section.id === 'joined'
-          ? managedClubs.length
-          : favorites.length;
+          ? myClubs.length
+          : section.id === 'saved'
+            ? favorites.length
+            : archivedApplications.length;
     return { ...section, count };
   });
 
@@ -140,7 +147,7 @@ export function MyPage() {
       className="duing bg-cream"
       style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
     >
-      <HomeNav />
+      <HomeNav slimOnMobile />
 
       <div
         ref={scrollRef}
@@ -151,9 +158,11 @@ export function MyPage() {
           studentId={user?.studentId ?? '—'}
           email={user?.email ?? '—'}
           applyCount={applications.length}
-          joinedCount={managedClubs.length}
+          joinedCount={myClubs.length}
           savedCount={favorites.length}
         />
+
+        <AcceptanceBanner myClubs={myClubs} />
 
         <MyPageTabs
           sections={sectionsWithCount}
@@ -165,10 +174,13 @@ export function MyPage() {
           <SectionApply applications={applications} />
         </div>
         <div ref={refFor('joined')} data-section="joined">
-          <SectionJoined managedClubs={managedClubs} />
+          <SectionMyClubs myClubs={myClubs} />
         </div>
         <div ref={refFor('saved')} data-section="saved">
           <SectionSaved favorites={favorites} />
+        </div>
+        <div ref={refFor('archived')} data-section="archived">
+          <SectionArchived applications={archivedApplications} />
         </div>
 
         {/* 마지막 섹션이 탭 클릭 시 충분히 스크롤될 수 있도록 하는 스페이서 */}

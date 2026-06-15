@@ -1,6 +1,6 @@
 import type { ClubDetail } from '@duing/types';
 
-import { activityScheduleLabel } from '../_lib/activeDaysLabel';
+import { activityScheduleLabel } from '../../_lib/activeDaysLabel';
 
 type Props = { club: ClubDetail };
 
@@ -23,7 +23,7 @@ export function ClubDetailStats({ club }: Props) {
   if (cells.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-4 border-y border-line py-5">
+    <div className="grid grid-cols-3 border-y border-line py-5">
       {cells.map((cell) => (
         <div key={cell.label}>
           <div className="mb-1.5 text-xs tracking-wide04 text-charcoal-3">{cell.label}</div>

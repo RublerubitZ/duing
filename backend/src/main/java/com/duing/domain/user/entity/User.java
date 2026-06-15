@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -54,6 +55,15 @@ public class User extends BaseEntity {
 
     @Column(name = "terms_agreed_at", nullable = false)
     private LocalDateTime termsAgreedAt;
+
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts;
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
+
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion;
 
     @Builder(access = AccessLevel.PRIVATE)
     private User(
@@ -104,5 +114,44 @@ public class User extends BaseEntity {
                 .phone(phone)
                 .termsAgreedAt(termsAgreedAt)
                 .build();
+    }
+
+    /** 현재 시각 기준으로 계정이 로그인 잠금 상태인지 판정한다. */
+    public boolean isLocked(LocalDateTime now) {
+        return lockedUntil != null && lockedUntil.isAfter(now);
+    }
+
+    /**
+     * 로그인 실패를 1건 기록한다. 연속 실패가 {@code maxAttempts} 에 도달하면
+     * {@code lockDuration} 만큼 계정을 잠그고 실패 카운터를 0으로 리셋한다.
+     */
+    public void recordFailedLogin(int maxAttempts, Duration lockDuration, LocalDateTime now) {
+        this.failedLoginAttempts += 1;
+        if (this.failedLoginAttempts >= maxAttempts) {
+            this.lockedUntil = now.plus(lockDuration);
+            this.failedLoginAttempts = 0;
+        }
+    }
+
+    /** 로그인 성공 시 실패 카운터와 잠금 상태를 초기화한다. */
+    public void recordSuccessfulLogin() {
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
+    }
+
+    /** 토큰 버전을 올려 기존에 발급된 모든 액세스 토큰을 무효화한다(로그아웃·강제 폐기). */
+    public void bumpTokenVersion() {
+        this.tokenVersion += 1;
+    }
+
+    /** 프로필(이름·전화번호)을 수정한다. 학번·이메일은 변경 대상이 아니다. */
+    public void updateProfile(String name, String phone) {
+        this.name = name;
+        this.phone = phone;
+    }
+
+    /** 비밀번호 해시를 교체한다. 인코딩은 호출 측(서비스)에서 책임진다. */
+    public void changePassword(String newPasswordHash) {
+        this.passwordHash = newPasswordHash;
     }
 }

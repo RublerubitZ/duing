@@ -19,6 +19,8 @@ import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.List;
@@ -31,13 +33,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
-@DirtiesContext
 class ClubFavoriteServiceTest {
 
     @Autowired
@@ -55,6 +55,9 @@ class ClubFavoriteServiceTest {
     @Autowired
     private RecruitmentRepository recruitmentRepository;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
@@ -67,6 +70,36 @@ class ClubFavoriteServiceTest {
 
         assertThatThrownBy(() -> favoriteService.add(student.getId(), club.getId()))
                 .isInstanceOf(FavoriteException.AlreadyFavoritedException.class);
+    }
+
+    @Test
+    @DisplayName("찜 해제 후 같은 동아리를 다시 찜하면 예외 없이 재활성화되어 목록에 다시 포함된다")
+    void reFavoriteAfterRemoveReactivates() throws Exception {
+        User student = saveStudent("학생E");
+        Club club = saveActiveClub("재찜동아리E");
+
+        favoriteService.add(student.getId(), club.getId());
+        flushAndClear();
+
+        favoriteService.remove(student.getId(), club.getId());
+        flushAndClear();
+
+        // 해제 직후에는 내 찜 목록에서 빠진다.
+        assertThat(favoriteService.getMyFavoriteClubIds(student.getId()))
+                .doesNotContain(club.getId());
+
+        // 다시 찜 — 소프트 삭제된 행이 점유한 유니크 슬롯 때문에 실패하면 안 된다.
+        favoriteService.add(student.getId(), club.getId());
+        flushAndClear();
+
+        // 다시 찜한 동아리는 목록에 정확히 한 번 포함된다.
+        assertThat(favoriteService.getMyFavoriteClubIds(student.getId()))
+                .containsOnlyOnce(club.getId());
+    }
+
+    private void flushAndClear() {
+        entityManager.flush();
+        entityManager.clear();
     }
 
     @Test
@@ -89,10 +122,12 @@ class ClubFavoriteServiceTest {
         Club clubWithOpen = saveActiveClub("모집중동아리C");
         Club clubWithClosed = saveActiveClub("마감동아리C");
 
+        // V38 partial unique 인덱스로 동아리당 OPEN 모집은 1건만 허용된다.
+        // clubWithOpen 은 진행 중 OPEN 1건, clubWithClosed 는 endDate 가 지난 OPEN 1건으로 분리해
+        // openRecruitmentCount 가 OPEN+future 만 카운트하는 의미를 검증한다.
         LocalDate today = LocalDate.now();
-        saveRecruitment(clubWithOpen, "진행모집1", today.minusDays(1), today.plusDays(7), RecruitmentStatus.OPEN);
-        saveRecruitment(clubWithOpen, "진행모집2", today, today.plusDays(14), RecruitmentStatus.OPEN);
-        saveRecruitment(clubWithClosed, "마감모집", today.minusDays(30), today.minusDays(1), RecruitmentStatus.OPEN);
+        saveRecruitment(clubWithOpen, "진행모집", today.minusDays(1), today.plusDays(7), RecruitmentStatus.OPEN);
+        saveRecruitment(clubWithClosed, "기간만료모집", today.minusDays(30), today.minusDays(1), RecruitmentStatus.OPEN);
 
         favoriteService.add(student.getId(), clubWithOpen.getId());
         favoriteService.add(student.getId(), clubWithClosed.getId());
@@ -104,7 +139,7 @@ class ClubFavoriteServiceTest {
                 .filter(query -> query.clubId().equals(clubWithOpen.getId()))
                 .findFirst()
                 .orElseThrow();
-        assertThat(openClubQuery.openRecruitmentCount()).isEqualTo(2);
+        assertThat(openClubQuery.openRecruitmentCount()).isEqualTo(1);
 
         FavoriteClubQuery closedClubQuery = result.getContent().stream()
                 .filter(query -> query.clubId().equals(clubWithClosed.getId()))

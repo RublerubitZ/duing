@@ -1,12 +1,21 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useController } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+
 import { useSubmitPromotionRequestMutation } from '@duing/hooks';
 import { submitPromotionRequestSchema } from '@duing/schemas';
 import type { SubmitPromotionRequestInput } from '@duing/schemas';
+
 import { cn } from '@/app/_lib/cn';
+import { ImageUploader } from '@/app/_components/ImageUploader';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 type PromotionRequestModalProps = {
   clubId: number;
@@ -14,33 +23,30 @@ type PromotionRequestModalProps = {
   onClose: () => void;
 };
 
+const inputCls =
+  'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors border-line placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
+
 export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRequestModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const submitPromotion = useSubmitPromotionRequestMutation(clubId);
 
   const {
     register,
     handleSubmit,
     watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<SubmitPromotionRequestInput>({
     resolver: zodResolver(submitPromotionRequestSchema),
   });
 
+  const { field: bannerField } = useController({
+    control,
+    name: 'suggestedBannerImageUrl',
+    defaultValue: '',
+  });
+
   const titleValue = watch('title') ?? '';
   const descriptionValue = watch('description') ?? '';
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
-  const handleOverlayClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.target === overlayRef.current) onClose();
-  };
 
   const onSubmit = (formData: SubmitPromotionRequestInput) => {
     submitPromotion.mutate(
@@ -60,33 +66,33 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
   };
 
   return (
-    <div
-      ref={overlayRef}
-      onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-label="홍보 요청"
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !submitPromotion.isPending) onClose();
+      }}
     >
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-1 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-ink">홍보 요청</h2>
-            <p className="mt-0.5 text-xs text-charcoal-3">{clubName}</p>
-          </div>
+      <DialogContent className="max-w-lg">
+        {/* 헤더 */}
+        <div className="flex items-start justify-between gap-3">
+          <DialogHeader>
+            <DialogTitle>홍보 요청</DialogTitle>
+            <p className="text-xs text-charcoal-3">{clubName}</p>
+          </DialogHeader>
           <button
             type="button"
             onClick={onClose}
+            disabled={isSubmitting || submitPromotion.isPending}
             aria-label="닫기"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-charcoal-3 hover:bg-graysoft hover:text-ink"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-charcoal-3 transition-colors hover:bg-graysoft hover:text-ink disabled:opacity-50"
           >
             <CloseIcon />
           </button>
         </div>
 
-        <p className="mb-5 text-sm text-charcoal-2">
+        <DialogDescription className="text-sm text-charcoal-2">
           총동연에 홍보 배너 게재를 요청합니다. 요청 내용 검토 후 메인 화면에 노출됩니다.
-        </p>
+        </DialogDescription>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
           <div>
@@ -99,28 +105,16 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
               type="text"
               placeholder="홍보 배너에 표시될 제목"
               {...register('title')}
-              className={cn(
-                'w-full rounded-xl border px-4 py-3 text-sm outline-none transition-colors',
-                'border-line placeholder:text-charcoal-3',
-                'focus:border-ink focus:ring-1 focus:ring-ink',
-                errors.title && 'border-coral focus:border-coral focus:ring-coral',
-              )}
+              className={cn(inputCls, errors.title && 'border-coral focus-visible:border-coral focus-visible:ring-coral')}
             />
             <div className="mt-1 flex justify-between">
-              {errors.title ? (
-                <p className="text-xs text-coral">{errors.title.message}</p>
-              ) : (
-                <span />
-              )}
+              {errors.title ? <p className="text-xs text-coral">{errors.title.message}</p> : <span />}
               <span className="text-xs text-charcoal-3">{titleValue.length} / 80</span>
             </div>
           </div>
 
           <div>
-            <label
-              htmlFor="promo-description"
-              className="mb-1.5 block text-sm font-semibold text-ink"
-            >
+            <label htmlFor="promo-description" className="mb-1.5 block text-sm font-semibold text-ink">
               설명 <span className="text-coral">*</span>
               <span className="ml-1 text-xs font-normal text-charcoal-3">(최대 2000자)</span>
             </label>
@@ -130,10 +124,9 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
               placeholder="동아리 소개 및 홍보 내용을 구체적으로 작성해주세요."
               {...register('description')}
               className={cn(
-                'w-full resize-none rounded-xl border px-4 py-3 text-sm outline-none transition-colors',
-                'border-line placeholder:text-charcoal-3',
-                'focus:border-ink focus:ring-1 focus:ring-ink',
-                errors.description && 'border-coral focus:border-coral focus:ring-coral',
+                inputCls,
+                'resize-none',
+                errors.description && 'border-coral focus-visible:border-coral focus-visible:ring-coral',
               )}
             />
             <div className="mt-1 flex justify-between">
@@ -147,25 +140,17 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
           </div>
 
           <div>
-            <label
-              htmlFor="promo-banner-url"
-              className="mb-1.5 block text-sm font-semibold text-ink"
-            >
-              희망 배너 이미지 URL
+            <p className="mb-1.5 block text-sm font-semibold text-ink">
+              희망 배너 이미지
               <span className="ml-1 text-xs font-normal text-charcoal-3">(선택)</span>
-            </label>
-            <input
-              id="promo-banner-url"
-              type="url"
-              placeholder="https://..."
-              {...register('suggestedBannerImageUrl')}
-              className={cn(
-                'w-full rounded-xl border px-4 py-3 text-sm outline-none transition-colors',
-                'border-line placeholder:text-charcoal-3',
-                'focus:border-ink focus:ring-1 focus:ring-ink',
-                errors.suggestedBannerImageUrl &&
-                  'border-coral focus:border-coral focus:ring-coral',
-              )}
+            </p>
+            <ImageUploader
+              value={bannerField.value ?? ''}
+              onChange={bannerField.onChange}
+              purpose="PROMOTION_REQUEST_BANNER"
+              aspectRatio="16/9"
+              placeholder="희망 배너 이미지를 업로드하세요 (선택)"
+              altText="희망 배너"
             />
             {errors.suggestedBannerImageUrl && (
               <p className="mt-1 text-xs text-coral">{errors.suggestedBannerImageUrl.message}</p>
@@ -173,10 +158,7 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
           </div>
 
           <div>
-            <label
-              htmlFor="promo-link-url"
-              className="mb-1.5 block text-sm font-semibold text-ink"
-            >
+            <label htmlFor="promo-link-url" className="mb-1.5 block text-sm font-semibold text-ink">
               희망 링크 URL
               <span className="ml-1 text-xs font-normal text-charcoal-3">(선택)</span>
             </label>
@@ -185,12 +167,7 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
               type="url"
               placeholder="https://..."
               {...register('suggestedLinkUrl')}
-              className={cn(
-                'w-full rounded-xl border px-4 py-3 text-sm outline-none transition-colors',
-                'border-line placeholder:text-charcoal-3',
-                'focus:border-ink focus:ring-1 focus:ring-ink',
-                errors.suggestedLinkUrl && 'border-coral focus:border-coral focus:ring-coral',
-              )}
+              className={cn(inputCls, errors.suggestedLinkUrl && 'border-coral focus-visible:border-coral focus-visible:ring-coral')}
             />
             {errors.suggestedLinkUrl && (
               <p className="mt-1 text-xs text-coral">{errors.suggestedLinkUrl.message}</p>
@@ -198,7 +175,7 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
           </div>
 
           {submitPromotion.isError && (
-            <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-coral">
+            <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">
               {submitPromotion.error instanceof Error
                 ? submitPromotion.error.message
                 : '요청 중 오류가 발생했습니다. 다시 시도해주세요.'}
@@ -209,7 +186,8 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-line py-3 text-sm font-semibold text-charcoal-2 hover:bg-graysoft"
+              disabled={isSubmitting || submitPromotion.isPending}
+              className="flex-1 rounded-md border border-line py-3 text-sm font-semibold text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
             >
               취소
             </button>
@@ -217,8 +195,8 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
               type="submit"
               disabled={isSubmitting || submitPromotion.isPending}
               className={cn(
-                'flex-1 rounded-xl py-3 text-sm font-semibold text-white transition-colors',
-                'bg-ink hover:bg-ink/90',
+                'flex-1 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
+                'bg-ink hover:bg-ink-deep',
                 (isSubmitting || submitPromotion.isPending) && 'cursor-not-allowed opacity-60',
               )}
             >
@@ -226,8 +204,8 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

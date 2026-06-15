@@ -8,8 +8,8 @@ type Props = {
 
 export default function CalendarLayout({ children }: Props) {
   return (
-    <div className="duing min-h-screen bg-cream">
-      <ExploreNav />
+    <div className="duing min-h-dvh bg-cream">
+      <ExploreNav slimOnMobile />
       {children}
     </div>
   );

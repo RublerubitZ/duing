@@ -27,7 +27,7 @@ export function SectionActivity({ stats, timeline }: Props) {
     <section
       data-section="activity"
       id="sec-activity"
-      className="px-10 pt-8 pb-6 scroll-mt-[60px]"
+      className="px-4 sm:px-6 md:px-10 pt-8 pb-6 scroll-mt-[60px]"
     >
       <div className="max-w-layout mx-auto">
         <SectionHeader
@@ -36,7 +36,7 @@ export function SectionActivity({ stats, timeline }: Props) {
         />
 
         {/* Stats grid */}
-        <div className="grid grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
           {stats.map((stat) => (
             <div
               key={stat.label}

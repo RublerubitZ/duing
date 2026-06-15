@@ -3,6 +3,8 @@ import Link from 'next/link';
 import type { FavoriteClub } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { ClubLogo } from '@/app/_components/ClubLogo';
+import { clubCategoryLabel } from '@/app/clubs/[clubId]/_lib/clubCategoryLabel';
 
 import { SectionHeader } from './SectionHeader';
 
@@ -26,7 +28,7 @@ export function SectionSaved({ favorites }: Props) {
     <section
       data-section="saved"
       id="sec-saved"
-      className="px-10 pt-8 pb-[260px] scroll-mt-[60px]"
+      className="px-4 sm:px-6 md:px-10 pt-8 pb-[260px] scroll-mt-[60px]"
     >
       <div className="max-w-layout mx-auto">
         <SectionHeader
@@ -42,7 +44,7 @@ export function SectionSaved({ favorites }: Props) {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {favorites.map((club) => {
               const isRecruiting = club.openRecruitmentCount > 0;
 
@@ -60,18 +62,11 @@ export function SectionSaved({ favorites }: Props) {
                   {/* Header row */}
                   <div className="flex items-center justify-between">
                     <div
-                      className="w-11 h-11 rounded-[12px] grid place-items-center text-[22px] bg-sage-mist text-ink-deep overflow-hidden"
+                      className="w-11 h-11 rounded-[12px] grid place-items-center text-[22px] bg-sage-mist text-ink-deep overflow-hidden relative"
                     >
-                      {club.logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={club.logoUrl}
-                          alt={club.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        CATEGORY_EMOJI[club.category] ?? '✨'
-                      )}
+                      <ClubLogo logoUrl={club.logoUrl} alt={club.name}>
+                        <span>{CATEGORY_EMOJI[club.category] ?? '✨'}</span>
+                      </ClubLogo>
                     </div>
                     {/* heart icon */}
                     <svg
@@ -99,7 +94,7 @@ export function SectionSaved({ favorites }: Props) {
 
                   {/* Footer */}
                   <div className="flex items-center justify-between text-[11px] pt-2 border-t border-line">
-                    <span className="pill text-[10px]">{club.category}</span>
+                    <span className="pill text-[10px]">{clubCategoryLabel(club.category)}</span>
                     <span
                       className={cn(
                         'font-semibold font-mono',

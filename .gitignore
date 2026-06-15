@@ -44,6 +44,7 @@ bin/
 ### Du-ing ###
 .env
 .env.local
+.env.example
 *.log
 HELP.md
 src/main/generated/
@@ -53,9 +54,16 @@ src/main/generated/
 .claude/settings.json
 .claude/settings.local.json
 .claude/skills/
+.claude/scheduled_tasks.lock
 .mcp.json
 skills-lock.json
 .coderabbit.yaml
 
 ### Design handoff (디자인 참조용, 커밋 금지) ###
 handoff/
+
+### Superpowers brainstorming 임시 산출물 (visual companion mockup + 로컬 서버 state) ###
+.superpowers/
+
+### Codex 로컬 에이전트 설정 (사용자별, 커밋 금지) ###
+.codex/

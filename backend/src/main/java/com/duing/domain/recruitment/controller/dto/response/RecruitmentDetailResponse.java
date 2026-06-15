@@ -6,6 +6,7 @@ import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record RecruitmentDetailResponse(
@@ -28,7 +29,8 @@ public record RecruitmentDetailResponse(
         LocalDate interviewStartDate,
         LocalDate interviewEndDate,
         boolean showApplicantCount,
-        Integer applicantCount
+        Integer applicantCount,
+        LocalDateTime interviewAvailabilityDeadline
 ) {
     public static RecruitmentDetailResponse from(RecruitmentDetailQuery detailQuery) {
         return new RecruitmentDetailResponse(
@@ -51,7 +53,8 @@ public record RecruitmentDetailResponse(
                 detailQuery.interviewStartDate(),
                 detailQuery.interviewEndDate(),
                 detailQuery.showApplicantCount(),
-                detailQuery.applicantCount()
+                detailQuery.applicantCount(),
+                detailQuery.interviewAvailabilityDeadline()
         );
     }
 }

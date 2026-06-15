@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { NOTICE_CATEGORY_OPTIONS } from '../../../notices/_lib/categoryLabels';
-import { NoticeCoverUploader } from './NoticeCoverUploader';
-import { NoticeMarkdownEditor } from './NoticeMarkdownEditor';
+import { ImageUploader } from '../../../_components/ImageUploader';
+import { NoticeRichEditor } from './NoticeRichEditor';
 import { NoticeTagInput } from './NoticeTagInput';
 import { VisibilityPicker } from './VisibilityPicker';
 import type { NoticeFormState } from '../_lib/parseNoticeFormState';
@@ -52,13 +52,25 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
         />
       </Field>
 
-      <Field label="대표 이미지">
-        <NoticeCoverUploader value={state.coverImageUrl} onChange={(url) => update('coverImageUrl', url)} />
+      <Field label="대표 이미지 (3:4 세로형 권장)">
+        <ImageUploader
+          value={state.coverImageUrl}
+          onChange={(url) => update('coverImageUrl', url)}
+          purpose="NOTICE_COVER"
+          aspectRatio="3/4"
+          placeholder="대표 이미지를 업로드하세요"
+          altText="대표 이미지"
+        />
       </Field>
 
-      <Field label="본문 (마크다운)">
-        <NoticeMarkdownEditor value={state.content} onChange={(next) => update('content', next)} />
-      </Field>
+      <div>
+        <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">본문</span>
+        <NoticeRichEditor
+          value={state.content}
+          format={state.contentFormat}
+          onChange={(html) => update('content', html)}
+        />
+      </div>
 
       <Field label="외부 링크 (선택)">
         <input
@@ -68,6 +80,59 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
           className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
         />
       </Field>
+
+      <fieldset className="space-y-3 rounded-md border border-line p-4">
+        <legend className="px-1 text-[12.5px] font-semibold text-charcoal-2">행사 정보 (선택)</legend>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="block text-[12px] text-charcoal-3 mb-1">시작 일시</span>
+            <input
+              type="datetime-local"
+              value={state.eventStartAt}
+              onChange={(event) => update('eventStartAt', event.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-[12px] text-charcoal-3 mb-1">종료 일시</span>
+            <input
+              type="datetime-local"
+              value={state.eventEndAt}
+              onChange={(event) => update('eventEndAt', event.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+            />
+          </label>
+        </div>
+        <label className="block">
+          <span className="block text-[12px] text-charcoal-3 mb-1">장소</span>
+          <input
+            type="text" maxLength={200}
+            value={state.location}
+            onChange={(event) => update('location', event.target.value)}
+            className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          />
+        </label>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="block text-[12px] text-charcoal-3 mb-1">주최</span>
+            <input
+              type="text" maxLength={200}
+              value={state.host}
+              onChange={(event) => update('host', event.target.value)}
+              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-[12px] text-charcoal-3 mb-1">대상</span>
+            <input
+              type="text" maxLength={200}
+              value={state.audience}
+              onChange={(event) => update('audience', event.target.value)}
+              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            />
+          </label>
+        </div>
+      </fieldset>
 
       <Field label="카테고리">
         <select
