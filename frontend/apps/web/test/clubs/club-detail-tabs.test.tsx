@@ -1,9 +1,22 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import type { ClubDetail } from '@duing/types';
+import type { ClubDetail, MyClubMembership } from '@duing/types';
 
 import { ClubDetailTabs } from '../../app/clubs/[clubId]/_components/ClubDetailTabs';
+
+const memberMembership: MyClubMembership = {
+  role: 'MEMBER',
+  joinedAt: '2026-01-01T00:00:00Z',
+  permissions: {
+    canPostNotice: false,
+    canEditNotice: false,
+    canDeleteNotice: false,
+    canPostEvent: false,
+    canEditEvent: false,
+    canDeleteEvent: false,
+  },
+};
 
 const baseClub: ClubDetail = {
   id: 1,
@@ -90,5 +103,26 @@ describe('ClubDetailTabs', () => {
     // 첫 탭(소개)이 기본 활성이고, 활성 패널 1개만 노출된다
     expect(screen.getByRole('tab', { name: '소개' })).toHaveAttribute('data-state', 'active');
     expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
+  });
+
+  it('membership 이 없으면 공지/일정 탭을 노출하지 않는다', () => {
+    render(<ClubDetailTabs club={{ ...baseClub, description: '본문' }} photos={[]} />);
+    expect(screen.getByRole('tab', { name: '소개' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '공지' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: '일정' })).toBeNull();
+  });
+
+  it('가입한 멤버에게는 공지/일정 탭을 추가로 노출한다', () => {
+    render(
+      <ClubDetailTabs
+        club={{ ...baseClub, description: '본문' }}
+        photos={[]}
+        membership={memberMembership}
+      />,
+    );
+    // 기본 활성 탭은 여전히 소개 — 공지/일정은 트리거만 노출(비활성 콘텐츠는 마운트되지 않음)
+    expect(screen.getByRole('tab', { name: '소개' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '공지' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '일정' })).toBeInTheDocument();
   });
 });
