@@ -55,9 +55,9 @@ type SettingsRowProps = {
 function SettingsRow({ label, value, action }: SettingsRowProps) {
   return (
     <div className="flex items-center gap-4 py-4 border-b border-line">
-      <div className="w-[140px] text-[13px] font-semibold text-charcoal-2">{label}</div>
-      <div className="flex-1 text-[14.5px] text-ink-deep font-medium">{value}</div>
-      {action}
+      <div className="w-20 shrink-0 text-[13px] font-semibold text-charcoal-2 sm:w-[140px]">{label}</div>
+      <div className="min-w-0 flex-1 text-[14.5px] text-ink-deep font-medium">{value}</div>
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
@@ -172,7 +172,7 @@ export function SettingsPage() {
               value={
                 <span className="flex items-center gap-2">
                   {user?.email ?? '—'}
-                  <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-sage-mist text-ink-deep">
+                  <span className="shrink-0 whitespace-nowrap text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-sage-mist text-ink-deep">
                     인증완료
                   </span>
                 </span>
@@ -229,13 +229,13 @@ export function SettingsPage() {
 
           {/* 설정 섹션 링크 CTA */}
           <div
-            className="relative overflow-hidden rounded-[24px] px-8 py-7 flex items-center gap-6 justify-between"
+            className="relative overflow-hidden rounded-[24px] px-6 py-6 sm:px-8 sm:py-7 flex items-center gap-6 justify-between"
             style={{ background: 'linear-gradient(120deg, #1F4A36 0%, #143025 100%)' }}
           >
             <SparkleFull
               size={48}
               color="rgba(157,182,160,0.35)"
-              className="absolute top-4 right-[240px] pointer-events-none"
+              className="absolute top-4 right-[240px] pointer-events-none hidden sm:block"
             />
             <div className="relative z-[1]">
               <div className="text-[11.5px] font-bold text-sage tracking-wide16 mb-1.5">SETTINGS</div>
