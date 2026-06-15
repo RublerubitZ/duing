@@ -42,9 +42,12 @@ bin/
 .DS_Store
 
 ### Du-ing ###
+# 실제 시크릿이 담기는 환경파일은 커밋 금지(.env, .env.local, .env.production 등)
 .env
-.env.local
-.env.example
+.env.*
+# 단, 커밋되는 예시 템플릿(.env.example, .env.local.example 등)은 추적 허용
+!.env.example
+!.env.*.example
 *.log
 HELP.md
 src/main/generated/

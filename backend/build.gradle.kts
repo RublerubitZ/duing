@@ -102,3 +102,8 @@ tasks.named<Delete>("clean") {
 tasks.test {
     useJUnitPlatform()
 }
+
+// 컨테이너 이미지에는 실행가능한 bootJar 하나만 필요하므로 plain jar 생성을 끈다(build/libs 단일화 → Dockerfile COPY 단순화).
+tasks.named("jar") {
+    enabled = false
+}
