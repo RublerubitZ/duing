@@ -39,7 +39,7 @@ export function SectionMyClubs({ myClubs }: Props) {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {myClubs.map((club) => {
               const isManager = club.myRole === 'LEADER' || club.myRole === 'OFFICER';
               const roleLabel = ROLE_LABEL[club.myRole];
