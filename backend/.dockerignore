@@ -1,0 +1,15 @@
+# 빌드 산출물/캐시 — 이미지 안에서 새로 빌드한다
+build/
+.gradle/
+
+# 로컬 시크릿/환경파일 — 절대 빌드 컨텍스트에 포함하지 않는다
+.env
+.env.*
+
+# IDE / VCS / 로그 / 문서
+.git/
+.gitignore
+.idea/
+*.iml
+*.log
+HELP.md
