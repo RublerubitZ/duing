@@ -10,6 +10,8 @@ import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
 import { hydrateAuthFromStorage } from '@duing/stores';
 import { webCookieAdapter } from './_lib/cookie-adapter';
+import { ToastProvider } from './_components/toast/ToastProvider';
+import { SessionExpiryHandler } from './_components/SessionExpiryHandler';
 
 setStorage(webStorage);
 registerCookieAdapter(webCookieAdapter);
@@ -47,7 +49,12 @@ export function Providers({ children }: { children: ReactNode }) {
     // reducedMotion="user" — OS 의 '동작 줄이기' 설정 시 transform 모션을 자동 비활성화한다.
     <MotionConfig reducedMotion="user">
       <QueryClientProvider client={queryClient}>
-        <ApiClientProvider client={apiClient}>{children}</ApiClientProvider>
+        <ApiClientProvider client={apiClient}>
+          <ToastProvider>
+            <SessionExpiryHandler />
+            {children}
+          </ToastProvider>
+        </ApiClientProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </MotionConfig>
