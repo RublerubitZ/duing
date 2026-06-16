@@ -20,3 +20,4 @@ export * from './interview';
 export * from './interviewRound';
 export * from './applicantInterview';
 export * from './dashboard';
+export * from './fee';

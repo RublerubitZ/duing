@@ -2,6 +2,7 @@
 // 한국어 메시지는 백엔드와 동일하게 유지한다.
 
 import { z } from 'zod';
+import type { GenerateBillsPayload } from '@duing/types';
 import { passwordSchema } from './password';
 
 export { passwordSchema } from './password';
@@ -486,3 +487,59 @@ export type {
   SlotPatternInput,
   UpdateAvailabilityInput,
 } from './interview';
+
+// === 회비(fee) ===
+// 정책 생성: CreateFeePolicyRequest(@NotBlank name/@Size(100), @NotNull @PositiveOrZero amount, @NotNull billingType) 미러.
+export const createFeePolicySchema = z.object({
+  name: z.string().min(1, '정책 이름은 필수입니다.').max(100, '정책 이름은 100자 이하여야 합니다.'),
+  amount: z.coerce
+    .number({ invalid_type_error: '금액은 숫자여야 합니다.' })
+    .int('금액은 정수여야 합니다.')
+    .min(0, '금액은 0 이상이어야 합니다.'),
+  billingType: z.enum(['MONTHLY', 'SEMESTER', 'YEARLY', 'ONE_TIME'], {
+    errorMap: () => ({ message: '회비 유형을 선택해주세요.' }),
+  }),
+});
+
+export type CreateFeePolicyInput = z.infer<typeof createFeePolicySchema>;
+
+// 청구 발행 폼 검증은 선택 정책의 billingType 으로 분기한다(discriminatedUnion).
+// 와이어 페이로드는 flat(GenerateBillsPayload, billingType 미포함)이며 toGenerateBillsPayload 가 변환한다.
+const monthlyBillsSchema = z.object({
+  billingType: z.literal('MONTHLY'),
+  billingPeriod: z.string().min(1, '회차(YYYY-MM)는 필수입니다.'),
+  dueDate: z.string().optional(),
+});
+const yearlyBillsSchema = z.object({
+  billingType: z.literal('YEARLY'),
+  billingPeriod: z.string().min(1, '연도는 필수입니다.'),
+  dueDate: z.string().optional(),
+});
+const semesterBillsSchema = z.object({
+  billingType: z.literal('SEMESTER'),
+  billingPeriod: z.string().min(1, '라벨은 필수입니다.'),
+  billingStartDate: z.string().min(1, '시작일은 필수입니다.'),
+  billingEndDate: z.string().min(1, '종료일은 필수입니다.'),
+  dueDate: z.string().min(1, '마감일은 필수입니다.'),
+});
+const oneTimeBillsSchema = z.object({
+  billingType: z.literal('ONE_TIME'),
+  billingPeriod: z.string().min(1, '라벨은 필수입니다.'),
+  billingStartDate: z.string().min(1, '행사일은 필수입니다.'),
+  dueDate: z.string().min(1, '마감일은 필수입니다.'),
+});
+
+export const generateBillsSchema = z.discriminatedUnion('billingType', [
+  monthlyBillsSchema,
+  yearlyBillsSchema,
+  semesterBillsSchema,
+  oneTimeBillsSchema,
+]);
+
+export type GenerateBillsInput = z.infer<typeof generateBillsSchema>;
+
+// 제출 시 billingType discriminator 를 떼어 flat 와이어 페이로드로 변환한다(백엔드 단일 DTO 와 정합).
+export const toGenerateBillsPayload = (input: GenerateBillsInput): GenerateBillsPayload => {
+  const { billingType: _billingType, ...payload } = input;
+  return payload;
+};
