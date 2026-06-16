@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface FeeBillRepository extends JpaRepository<FeeBill, Long> {
+public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBillRepositoryCustom {
     Optional<FeeBill> findByIdAndClubId(Long id, Long clubId);
 
     // 발행 이력 존재(불변성·삭제 가드 공유). 취소·soft-delete 행까지 모두 포함해야 하므로

@@ -8,14 +8,19 @@ import com.duing.domain.fee.entity.FeePolicy;
 import com.duing.domain.fee.entity.FeeStatus;
 import com.duing.domain.fee.exception.FeeBillException;
 import com.duing.domain.fee.exception.FeePolicyException;
+import com.duing.domain.fee.controller.dto.response.FeeBillResponse;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
 import com.duing.domain.fee.service.dto.command.GenerateBillsCommand;
+import com.duing.domain.fee.service.dto.query.BillSearchQuery;
+import com.duing.domain.fee.service.dto.query.FeeBillQuery;
 import com.duing.domain.fee.service.dto.query.GenerateBillsResult;
 import java.time.Clock;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,6 +79,15 @@ public class GeneralFeeBillService implements FeeBillService {
         FeeStatus previous = bill.getStatus();
         bill.cancel(); // 이미 CANCELLED 면 멱등 no-op
         log.info("fee bill cancelled: actorId={}, billId={}, previousStatus={}", actorId, billId, previous);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<FeeBillResponse> getBills(Long clubId, Long actorId, BillSearchQuery query, Pageable pageable) {
+        clubAuthService.requireManager(actorId, clubId);
+        return feeBillRepository.searchClubBills(clubId, query, pageable)
+                .map(FeeBillQuery::from)
+                .map(FeeBillResponse::from);
     }
 
     private BillingPeriodResolver.Resolved resolve(BillingType type, GenerateBillsCommand command) {
