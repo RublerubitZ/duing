@@ -13,6 +13,11 @@ spring:
     # Testcontainers 가 매 실행마다 새로 만드는 임시 컨테이너의 더미 자격 — 실 시크릿 아님.
     username: test
     password: test
+    hikari:
+      # 동시성 테스트(10 스레드)가 스레드당 연결을 트랜잭션 내내 점유해도 여유를 두기 위해
+      # 풀 크기를 스레드 수보다 크게(20) 잡는다. 풀==스레드면 부수적 연결 사용 시 60s 풀 획득
+      # 타임아웃으로 빠져 플래키해진다. 테스트 전용 설정으로, 운영(application-prod) 풀은 건드리지 않는다.
+      maximum-pool-size: 20
   servlet:
     multipart:
       max-file-size: 6MB
