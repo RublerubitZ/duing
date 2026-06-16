@@ -133,8 +133,8 @@ ALTER TABLE fee_bill ENABLE ROW LEVEL SECURITY;
 
 `due_date`를 확정한 직후 다음을 검증한다(모든 비교는 주입된 `Clock`[Asia/Seoul] 기준, `LocalDate.now()` 직접 호출 금지).
 
-1. **정합성 — 전 타입**: `due_date >= billing_start_date`. 위반 시 `400 InvalidBillingPeriod`(code=`DUE_DATE_BEFORE_PERIOD`). DB `chk_fee_bill_due_in_range`로 이중 방어한다.
-2. **과거 마감 차단 — 운영자 override 한정**: 운영자가 `dueDate`를 **명시**했고 그 값이 발행일(오늘)보다 과거이면 `400 InvalidBillingPeriod`(code=`DUE_DATE_IN_PAST`). `due_date == 오늘`은 허용(`isBefore`로 비교). **서버 자동 기본값에는 적용하지 않는다** — 시스템이 만든 기본값 때문에 사용자가 영문 모를 400을 맞는 것을 막기 위함이다(그래서 YEARLY 기본값을 위에서 미래로 고정했다).
+1. **정합성 — 전 타입**: `due_date >= billing_start_date`. 위반 시 `400 InvalidBillingPeriodException`(code=`DUE_DATE_BEFORE_PERIOD`). DB `chk_fee_bill_due_in_range`로 이중 방어한다.
+2. **과거 마감 차단 — 운영자 override 한정**: 운영자가 `dueDate`를 **명시**했고 그 값이 발행일(오늘)보다 과거이면 `400 InvalidBillingPeriodException`(code=`DUE_DATE_IN_PAST`). `due_date == 오늘`은 허용(`isBefore`로 비교). **서버 자동 기본값에는 적용하지 않는다** — 시스템이 만든 기본값 때문에 사용자가 영문 모를 400을 맞는 것을 막기 위함이다(그래서 YEARLY 기본값을 위에서 미래로 고정했다).
 3. **ONE_TIME 면제**: 이미 끝난 행사비를 사후 기록하는 것은 정상 업무이므로 ONE_TIME은 2번(과거 차단)에서 면제한다(1번 정합성은 적용). 운영자가 과거 행사일·과거 마감일을 의도적으로 넣을 수 있다.
 
 > 시스템은 마감일을 자동 보정하지 않는다. 정합성에 어긋나거나(1) 운영자가 명백히 과거 마감을 명시하면(2) 거부하고, 운영자가 올바른 값을 입력하게 한다.
@@ -146,7 +146,7 @@ ALTER TABLE fee_bill ENABLE ROW LEVEL SECURITY;
 ### 회비 정책 — `LeaderFeePolicyController` (`LeaderFeePolicyApi` 인터페이스)
 - `POST   /api/v1/leader/clubs/{clubId}/fee-policies` → 201, 생성된 id
 - `GET    /api/v1/leader/clubs/{clubId}/fee-policies` → 200, 목록
-- `PATCH  /api/v1/leader/clubs/{clubId}/fee-policies/{policyId}` → 204 (`name`·`amount`·`active`만 수정; `billing_type`은 발행 이력 있으면 변경 불가 → 409 `BillingTypeImmutable`)
+- `PATCH  /api/v1/leader/clubs/{clubId}/fee-policies/{policyId}` → 204 (`name`·`amount`·`active`만 수정; `billing_type`은 발행 이력 있으면 변경 불가 → 409 `FeePolicyBillingTypeImmutableException`)
 - `DELETE /api/v1/leader/clubs/{clubId}/fee-policies/{policyId}` → 204 (soft delete; 발행 이력 있으면 거부하고 `active=false` 유도)
 
 ### 회비 청구 — `LeaderFeeBillController` (`LeaderFeeBillApi`)
@@ -167,7 +167,7 @@ ALTER TABLE fee_bill ENABLE ROW LEVEL SECURITY;
 
 ### FeePolicyService
 - `create(CreateFeePolicyCommand)` → `Long`: `requireManager` 후 정책 저장
-- `update(UpdateFeePolicyCommand)` → `void`: `name`·`amount`·`active`만 반영. `billing_type`이 **실제로 달라지는** 요청에서 발행 이력이 있으면 `BillingTypeImmutable`(409) — 동일값 PATCH는 통과. `amount`는 스냅샷(§2.5)이라 기존 청구액에 영향 없음.
+- `update(UpdateFeePolicyCommand)` → `void`: `name`·`amount`·`active`만 반영. `billing_type`이 **실제로 달라지는** 요청에서 발행 이력이 있으면 `FeePolicyBillingTypeImmutableException`(409) — 동일값 PATCH는 통과. `amount`는 스냅샷(§2.5)이라 기존 청구액에 영향 없음.
 - `getPolicies(clubId)` → 목록 Query
 - `delete(clubId, policyId)` → `void`: 발행 이력 존재 시 `DeleteForbidden`, 아니면 soft delete
 
@@ -177,7 +177,7 @@ ALTER TABLE fee_bill ENABLE ROW LEVEL SECURITY;
 `generateBills(GenerateBillsCommand)` → `GenerateBillsResult(created, skipped)`:
 1. `clubAuthService.requireManager(actorId, clubId)`
 2. 정책 행을 **비관적 잠금**(`@Lock(PESSIMISTIC_WRITE)`, `findByIdForUpdate`)으로 조회 → `club_id` 일치·`active=true` 검증 (`Inactive` 시 409). 잠금으로 발행 도중 정책 비활성화·삭제(§7 `update`/`delete`)와의 경합을 직렬화한다.
-3. **단일 flat `GenerateBillsRequest`**를 정책 `billing_type`에 맞춰 조건 검증하고, 5절 규칙으로 `billing_period`·`start`·`end`·`due_date`를 확정한 뒤 5.1절 due_date 검증을 통과시킨다 (`InvalidBillingPeriod` 시 400). 다형성/`@JsonTypeInfo` 역직렬화는 정책 로드 **전**에 일어나 정책과 대조가 불가능하고 한국어 `@Valid` 메시지를 우회하므로 쓰지 않는다.
+3. **단일 flat `GenerateBillsRequest`**를 정책 `billing_type`에 맞춰 조건 검증하고, 5절 규칙으로 `billing_period`·`start`·`end`·`due_date`를 확정한 뒤 5.1절 due_date 검증을 통과시킨다 (`InvalidBillingPeriodException` 시 400). 다형성/`@JsonTypeInfo` 역직렬화는 정책 로드 **전**에 일어나 정책과 대조가 불가능하고 한국어 `@Valid` 메시지를 우회하므로 쓰지 않는다.
 4. **단일 원자적 발행 SQL** — 활성 회원을 앱으로 읽어 `saveAll`하지 않고 아래 한 문장으로 발행한다(대상 선별과 삽입이 한 statement → 멤버 집합 TOCTOU 없음):
 
    ```sql
@@ -212,8 +212,10 @@ DTO 2계층: `controller/dto/{request,response}`(HTTP 경계, `@Valid`/한국어
 - 관리 컨트롤러: 클래스 `@PreAuthorize("isAuthenticated()")`, 서비스 진입부에서 `clubAuthService.requireManager(actorId, clubId)`(LEADER·OFFICER 허용). LEADER 전용 작업 없음.
 - `/my/fees`: `@PreAuthorize("isAuthenticated()")` + `currentUser.id()`로 본인 데이터 한정.
 - 예외(`ApplicationException` 상속, `{Domain}Exception` 부모 + static final inner):
-  - `FeePolicyException`: `NotFound`(404), `ClubMismatch`(403), `Inactive`(409), `DeleteForbidden`(409, 발행 이력 존재), `BillingTypeImmutable`(409, 발행 이력 있는 정책의 `billing_type` 변경)
-  - `FeeBillException`: `NotFound`(404), `ClubMismatch`(403), `InvalidBillingPeriod`(400). 마감일 검증 실패도 `InvalidBillingPeriod`로 통일하되 `ApplicationException`의 `code`로 구분한다: `DUE_DATE_BEFORE_PERIOD`(§5.1-1), `DUE_DATE_IN_PAST`(§5.1-2). 별도 `InvalidDueDate` 예외는 만들지 않는다(같은 400 상태를 쪼개 택소노미를 분산시키지 않음; 프론트 분기는 `code`로).
+  - `FeePolicyException`: `FeePolicyNotFoundException`(404), `InactiveFeePolicyException`(409), `FeePolicyDeleteForbiddenException`(409, 발행 이력 존재), `FeePolicyBillingTypeImmutableException`(409, 발행 이력 있는 정책의 `billing_type` 변경)
+  - `FeeBillException`: `FeeBillNotFoundException`(404), `InvalidBillingPeriodException`(400).
+  - inner 예외 클래스명은 코드베이스 컨벤션인 풀네임 `{Predicate}{Domain}Exception`을 따른다(예: `ClubNotFoundException`).
+  - **cross-club 접근**(경로 `clubId`와 다른 동아리의 정책·청구 id)은 별도 `ClubMismatch` 예외를 두지 않고 `findByIdAndClubId`(존재하지 않음) → `NotFound`(404)로 처리한다(코드베이스에 `ClubMismatch`가 없는 기존 컨벤션; 404가 리소스 존재를 노출하지 않아 보안상 유리). 해당 동아리의 매니저가 아닌 경우는 `requireManager`의 403이 먼저 걸린다. 마감일 검증 실패도 `InvalidBillingPeriodException`로 통일하되 `ApplicationException`의 `code`로 구분한다: `DUE_DATE_BEFORE_PERIOD`(§5.1-1), `DUE_DATE_IN_PAST`(§5.1-2). 별도 `InvalidDueDate` 예외는 만들지 않는다(같은 400 상태를 쪼개 택소노미를 분산시키지 않음; 프론트 분기는 `code`로).
 - `generateBills`는 동시 충돌을 DB `ON CONFLICT`로 무음 흡수하므로, 기존 도메인들의 `catch DataIntegrityViolationException(23505) → 도메인 예외` 패턴을 **적용하지 않는다**(의도된 예외, §7-6).
 - 권한 실패는 `ClubAuthService`의 `AccessDeniedException`(403)으로 일관 처리(전역 핸들러).
 
@@ -249,7 +251,7 @@ DTO 2계층: `controller/dto/{request,response}`(HTTP 경계, `@Valid`/한국어
 - billing_type별 기간·마감 산출: MONTHLY 자동(청구월 말일), SEMESTER/YEARLY/ONE_TIME 명시값, `dueDate` override
 - **due_date 검증**: YEARLY를 연중(예 06-15)에 발행해도 기본 마감일이 과거가 아니다. `due_date < billing_start_date`는 400(`DUE_DATE_BEFORE_PERIOD`, DB CHECK로도 차단). 운영자 override가 발행일 이전이면 400(`DUE_DATE_IN_PAST`)이고 `== 오늘`은 통과. ONE_TIME 과거 행사 기록은 허용된다. (날짜는 고정 `Clock`로 결정적으로 검증)
 - 취소: `CANCELLED` 전이 후 같은 회원·회차 재발행이 가능하다
-- **billing_type 불변**: 발행 후(취소·soft-delete 포함) `billing_type` 변경 시 409 `BillingTypeImmutable`(동일값 PATCH는 통과)
+- **billing_type 불변**: 발행 후(취소·soft-delete 포함) `billing_type` 변경 시 409 `FeePolicyBillingTypeImmutableException`(동일값 PATCH는 통과)
 - 권한: 일반 MEMBER가 발행/조회 시 403, `/my/fees`는 본인 것만 반환된다
 - 비활성 정책으로 청구 시 409, 발행 이력 있는 정책 삭제 시 409
 - 잘못된 `billing_type`/회차 입력 시 400

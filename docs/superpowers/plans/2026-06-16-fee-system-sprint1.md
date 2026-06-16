@@ -456,20 +456,21 @@ public class FeePolicyException extends ApplicationException {
         super(message, status);
     }
 
-    public static class NotFound extends FeePolicyException {
-        public NotFound() { super("회비 정책을 찾을 수 없습니다.", HttpStatus.NOT_FOUND); }
+    // inner 예외명은 코드베이스 컨벤션(풀네임 {Predicate}{Domain}Exception)을 따른다(예: ClubNotFoundException).
+    public static class FeePolicyNotFoundException extends FeePolicyException {
+        public FeePolicyNotFoundException() { super("회비 정책을 찾을 수 없습니다.", HttpStatus.NOT_FOUND); }
     }
 
-    public static class Inactive extends FeePolicyException {
-        public Inactive() { super("비활성 상태의 회비 정책으로는 청구할 수 없습니다.", HttpStatus.CONFLICT); }
+    public static class InactiveFeePolicyException extends FeePolicyException {
+        public InactiveFeePolicyException() { super("비활성 상태의 회비 정책으로는 청구할 수 없습니다.", HttpStatus.CONFLICT); }
     }
 
-    public static class DeleteForbidden extends FeePolicyException {
-        public DeleteForbidden() { super("이미 청구 이력이 있는 정책은 삭제할 수 없습니다. 비활성화하세요.", HttpStatus.CONFLICT); }
+    public static class FeePolicyDeleteForbiddenException extends FeePolicyException {
+        public FeePolicyDeleteForbiddenException() { super("이미 청구 이력이 있는 정책은 삭제할 수 없습니다. 비활성화하세요.", HttpStatus.CONFLICT); }
     }
 
-    public static class BillingTypeImmutable extends FeePolicyException {
-        public BillingTypeImmutable() { super("이미 청구 이력이 있는 정책의 회비 유형은 변경할 수 없습니다.", HttpStatus.CONFLICT); }
+    public static class FeePolicyBillingTypeImmutableException extends FeePolicyException {
+        public FeePolicyBillingTypeImmutableException() { super("이미 청구 이력이 있는 정책의 회비 유형은 변경할 수 없습니다.", HttpStatus.CONFLICT); }
     }
 }
 ```
@@ -559,12 +560,12 @@ public class GeneralFeePolicyService implements FeePolicyService {
         clubAuthService.requireManager(command.actorId(), command.clubId());
         // 잠금 조회로 동시 발행(generate)과 직렬화 — 발행 중 billing_type 변경/삭제 경합 방지.
         FeePolicy policy = feePolicyRepository.findByIdAndClubIdForUpdate(command.policyId(), command.clubId())
-                .orElseThrow(FeePolicyException.NotFound::new);
+                .orElseThrow(FeePolicyException.FeePolicyNotFoundException::new);
         // billing_type 은 발행 이력(취소·soft-delete 포함)이 있으면 불변. 값이 실제로 달라질 때만 검사(동일값 PATCH 통과).
         boolean changesBillingType = command.billingType() != null
                 && command.billingType() != policy.getBillingType();
         if (changesBillingType && feeBillRepository.existsByFeePolicyId(command.policyId())) {
-            throw new FeePolicyException.BillingTypeImmutable();
+            throw new FeePolicyException.FeePolicyBillingTypeImmutableException();
         }
         policy.update(command.name(), command.amount(), command.billingType(), command.active());
     }
@@ -574,9 +575,9 @@ public class GeneralFeePolicyService implements FeePolicyService {
     public void delete(Long clubId, Long actorId, Long policyId) {
         clubAuthService.requireManager(actorId, clubId);
         FeePolicy policy = feePolicyRepository.findByIdAndClubIdForUpdate(policyId, clubId)
-                .orElseThrow(FeePolicyException.NotFound::new);
+                .orElseThrow(FeePolicyException.FeePolicyNotFoundException::new);
         if (feeBillRepository.existsByFeePolicyId(policyId)) { // update 와 동일한 '발행 이력 존재' 검사 공유
-            throw new FeePolicyException.DeleteForbidden();
+            throw new FeePolicyException.FeePolicyDeleteForbiddenException();
         }
         feePolicyRepository.delete(policy); // @SQLDelete soft delete
     }
@@ -859,7 +860,7 @@ public class BillingPeriodResolver {
 
     public Resolved resolveExplicit(String label, LocalDate start, LocalDate end, LocalDate due) {
         if (start == null || end == null || due == null || end.isBefore(start)) {
-            throw new FeeBillException.InvalidBillingPeriod();
+            throw new FeeBillException.InvalidBillingPeriodException();
         }
         return new Resolved(label, start, end, due);
     }
@@ -874,13 +875,13 @@ public class BillingPeriodResolver {
             String[] parts = yearMonth.split("-");
             return LocalDate.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), 1);
         } catch (RuntimeException invalid) {
-            throw new FeeBillException.InvalidBillingPeriod();
+            throw new FeeBillException.InvalidBillingPeriodException();
         }
     }
 
     private int parseYear(String year) {
         try { return Integer.parseInt(year.trim()); }
-        catch (NumberFormatException invalid) { throw new FeeBillException.InvalidBillingPeriod(); }
+        catch (NumberFormatException invalid) { throw new FeeBillException.InvalidBillingPeriodException(); }
     }
 }
 ```
@@ -896,18 +897,19 @@ public class FeeBillException extends ApplicationException {
     public FeeBillException(String message, HttpStatus status) { super(message, status); }
     // code 를 실어 프론트가 마감일 오류를 구분(§5.1). ApplicationException(message, status, code) 시그니처에 정렬.
     public FeeBillException(String message, HttpStatus status, String code) { super(message, status, code); }
-    public static class NotFound extends FeeBillException {
-        public NotFound() { super("청구서를 찾을 수 없습니다.", HttpStatus.NOT_FOUND); }
+    // inner 예외명은 코드베이스 컨벤션(풀네임)을 따른다.
+    public static class FeeBillNotFoundException extends FeeBillException {
+        public FeeBillNotFoundException() { super("청구서를 찾을 수 없습니다.", HttpStatus.NOT_FOUND); }
     }
-    public static class InvalidBillingPeriod extends FeeBillException {
-        public InvalidBillingPeriod() { super("청구 회차/기간 입력이 올바르지 않습니다.", HttpStatus.BAD_REQUEST); }
-        private InvalidBillingPeriod(String message, String code) { super(message, HttpStatus.BAD_REQUEST, code); }
+    public static class InvalidBillingPeriodException extends FeeBillException {
+        public InvalidBillingPeriodException() { super("청구 회차/기간 입력이 올바르지 않습니다.", HttpStatus.BAD_REQUEST); }
+        private InvalidBillingPeriodException(String message, String code) { super(message, HttpStatus.BAD_REQUEST, code); }
         // 마감일 검증(§5.1)은 별도 예외를 만들지 않고 같은 400 을 code 로 구분한다.
-        public static InvalidBillingPeriod dueBeforePeriod() {
-            return new InvalidBillingPeriod("마감일은 청구 기간 시작일 이후여야 합니다.", "DUE_DATE_BEFORE_PERIOD");
+        public static InvalidBillingPeriodException dueBeforePeriod() {
+            return new InvalidBillingPeriodException("마감일은 청구 기간 시작일 이후여야 합니다.", "DUE_DATE_BEFORE_PERIOD");
         }
-        public static InvalidBillingPeriod dueInPast() {
-            return new InvalidBillingPeriod("마감일은 발행일보다 과거일 수 없습니다.", "DUE_DATE_IN_PAST");
+        public static InvalidBillingPeriodException dueInPast() {
+            return new InvalidBillingPeriodException("마감일은 발행일보다 과거일 수 없습니다.", "DUE_DATE_IN_PAST");
         }
     }
 }
@@ -988,9 +990,9 @@ public class GeneralFeeBillService implements FeeBillService {
         clubAuthService.requireManager(command.actorId(), command.clubId());
         // 비관적 잠금: 발행 도중 정책 비활성화·삭제(update/delete)와의 경합을 직렬화한다.
         FeePolicy policy = feePolicyRepository.findByIdAndClubIdForUpdate(command.policyId(), command.clubId())
-                .orElseThrow(FeePolicyException.NotFound::new);
+                .orElseThrow(FeePolicyException.FeePolicyNotFoundException::new);
         if (!policy.isActive()) {
-            throw new FeePolicyException.Inactive();
+            throw new FeePolicyException.InactiveFeePolicyException();
         }
         BillingPeriodResolver.Resolved resolved = resolve(policy.getBillingType(), command);
         validateDueDate(resolved, command.dueDate(), policy.getBillingType());
@@ -1012,7 +1014,7 @@ public class GeneralFeeBillService implements FeeBillService {
     public void cancel(Long clubId, Long actorId, Long billId) {
         clubAuthService.requireManager(actorId, clubId);
         FeeBill bill = feeBillRepository.findByIdAndClubId(billId, clubId)
-                .orElseThrow(FeeBillException.NotFound::new);
+                .orElseThrow(FeeBillException.FeeBillNotFoundException::new);
         FeeStatus previous = bill.getStatus();
         bill.cancel(); // 이미 CANCELLED 면 멱등 no-op
         log.info("fee bill cancelled: actorId={}, billId={}, previousStatus={}", actorId, billId, previous);
@@ -1030,12 +1032,12 @@ public class GeneralFeeBillService implements FeeBillService {
     // §5.1 마감일 검증. 1) 정합성(전 타입): due >= start. 2) 과거 차단(운영자 override 한정, ONE_TIME 면제).
     private void validateDueDate(BillingPeriodResolver.Resolved resolved, LocalDate dueOverride, BillingType type) {
         if (resolved.dueDate().isBefore(resolved.startDate())) {
-            throw FeeBillException.InvalidBillingPeriod.dueBeforePeriod();
+            throw FeeBillException.InvalidBillingPeriodException.dueBeforePeriod();
         }
         boolean operatorOverride = dueOverride != null;
         if (operatorOverride && type != BillingType.ONE_TIME
                 && resolved.dueDate().isBefore(LocalDate.now(clock))) {
-            throw FeeBillException.InvalidBillingPeriod.dueInPast();
+            throw FeeBillException.InvalidBillingPeriodException.dueInPast();
         }
     }
 }
