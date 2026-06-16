@@ -184,6 +184,7 @@ export type DuingApiClient = {
     login(payload: LoginPayload): Promise<LoginResult>;
     sendEmailVerification(payload: SendEmailVerificationPayload): Promise<EmailVerificationResult>;
     confirmEmailVerification(payload: ConfirmEmailVerificationPayload): Promise<void>;
+    logout(): Promise<void>;
   };
   users: {
     me(): Promise<User>;
@@ -453,6 +454,10 @@ export type CreateApiClientOptions = {
   baseUrl: string;
 };
 
+// 로그아웃의 서버 폐기는 best-effort 다. 백엔드가 행(hang)/오프라인이어도 로컬 로그아웃이
+// 전역 타임아웃(15s)까지 묶이지 않도록 짧은 타임아웃을 둔다(실패해도 로컬 정리는 계속 진행).
+const LOGOUT_REVOKE_TIMEOUT_MS = 5_000;
+
 export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiClient {
   const http = ky.create({
     prefixUrl: baseUrl.replace(/\/$/, ''),
@@ -470,7 +475,11 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         (request, _options, response) => {
           // 인증 토큰을 실어 보낸 요청이 401 이면 세션 만료로 간주하고 앱에 알린다.
           // (토큰 없는 로그인 실패 401 은 Authorization 헤더가 없어 제외된다)
-          if (response.status === 401 && request.headers.has('Authorization')) {
+          // 단, 로그아웃 요청의 401 은 세션 만료 신호가 아니다 — 사용자가 의도적으로 로그아웃 중이며
+          // 이미 만료/무효화된 토큰으로도 폐기를 시도하므로 401 이 정상이다. 전역 만료 핸들러
+          // (세션만료 에러 토스트 + 홈 이동)를 깨우면 의도적 로그아웃에 오탐 에러가 뜬다.
+          const isLogoutRequest = request.url.endsWith('/auth/logout');
+          if (response.status === 401 && request.headers.has('Authorization') && !isLogoutRequest) {
             notifyUnauthorized();
           }
         },
@@ -506,6 +515,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<EmailVerificationResult>(http.post('auth/email-verifications', { json: payload })),
       confirmEmailVerification: (payload) =>
         jsonVoid(http.post('auth/email-verifications/confirm', { json: payload })),
+      logout: () => jsonVoid(http.post('auth/logout', { timeout: LOGOUT_REVOKE_TIMEOUT_MS })),
     },
     users: {
       me: () => jsonOk<User>(http.get('users/me')),
