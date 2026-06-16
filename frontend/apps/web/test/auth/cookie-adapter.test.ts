@@ -44,6 +44,15 @@ describe('webCookieAdapter', () => {
     expect(cookie).toContain('Secure');
   });
 
+  it('토큰 쿠키 Max-Age 를 백엔드 JWT TTL(1시간=3600s)과 정렬한다', () => {
+    withProtocol('https:');
+
+    webCookieAdapter.set('jwt-token');
+
+    // 쿠키가 토큰보다 오래 남으면 만료 토큰으로 인증 상태가 잠시 복원됐다가 첫 401 로 끊긴다.
+    expect(written.at(-1) ?? '').toContain('Max-Age=3600');
+  });
+
   it('로컬 http 에서는 Secure 를 붙이지 않아 쿠키가 저장되게 한다', () => {
     withProtocol('http:');
 
