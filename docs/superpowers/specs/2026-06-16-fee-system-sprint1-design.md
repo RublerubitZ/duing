@@ -201,7 +201,7 @@ ALTER TABLE fee_bill ENABLE ROW LEVEL SECURITY;
 7. **감사 로그**: 발행 완료 시 구조화 INFO 로그(`actorId`·`clubId`·`policyId`·`billingPeriod`·`created`·`skipped`)를 남긴다 — 무음 멱등으로 사라진 "몇 건 skip됐는가" 신호를 보완하고, 머니 기능의 감사 추적을 제공한다(Sprint 1 범위; 단순 로깅, `notification_log`(Sprint 2)와 무관).
 
 기타:
-- `cancelBill(clubId, billId)` → `void`: `requireManager` 후 `status='CANCELLED'` 전이(이미 `CANCELLED`면 멱등 no-op). 감사 로그(`actorId`·`billId`·이전 상태) 기록.
+- `cancelBill(clubId, billId)` → `void`: `requireManager` 후, 발행(generate)과 직렬화하기 위해 같은 `fee_policy` 행을 비관적 잠금(`findByIdAndClubIdForUpdate`)한 뒤 `status='CANCELLED'` 전이(이미 `CANCELLED`면 멱등 no-op). 취소-재발행 동시 경합을 방어하며 정책-우선 락 순서로 데드락이 없다. 감사 로그(`actorId`·`billId`·이전 상태) 기록.
 - `getBills(clubId, BillSearchQuery, pageable)`: QueryDSL `BooleanExpression` 동적 필터(`billingPeriod`/`status`/`userId`)
 - `getMyFees(userId, MyFeeSearchQuery)`: `user_id` 기준, 옵션 `clubId`/`status` 필터
 

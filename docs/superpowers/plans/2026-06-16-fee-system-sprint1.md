@@ -1015,6 +1015,8 @@ public class GeneralFeeBillService implements FeeBillService {
         clubAuthService.requireManager(actorId, clubId);
         FeeBill bill = feeBillRepository.findByIdAndClubId(billId, clubId)
                 .orElseThrow(FeeBillException.FeeBillNotFoundException::new);
+        // 발행(generate)과 같은 fee_policy 행을 비관적 잠금해 직렬화한다(취소-재발행 동시 경합 방어, 정책-우선 락 순서로 데드락 없음).
+        feePolicyRepository.findByIdAndClubIdForUpdate(bill.getFeePolicyId(), clubId);
         FeeStatus previous = bill.getStatus();
         bill.cancel(); // 이미 CANCELLED 면 멱등 no-op
         log.info("fee bill cancelled: actorId={}, billId={}, previousStatus={}", actorId, billId, previous);
