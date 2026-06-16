@@ -1408,7 +1408,7 @@ export const formatWon = (amount: number) => `${amount.toLocaleString('ko-KR')}�
 
 - [ ] **Step 3: ClubFeesPage.tsx** — 2탭(`정책`/`청구`) 상태, 정책 탭은 `PolicyList` + "정책 추가" 버튼→`CreatePolicyDialog`. `useClubFeePoliciesQuery(clubId)` 로딩/빈 상태 처리.
 
-- [ ] **Step 4: PolicyList.tsx** — 정책 카드/행(이름·금액 `formatWon`·`billingTypeLabel`·활성 토글), 활성 토글은 `useUpdateFeePolicyMutation`. 정책 수정 UI(수정 다이얼로그/인라인)는 발행 이력이 있으면 `billingType` 입력을 비활성화하고(서버 409 `BillingTypeImmutable` 방지), 금액 입력 옆에 "기존 발행 청구액은 바뀌지 않습니다" 안내를 노출한다.
+- [ ] **Step 4: PolicyList.tsx** — 정책 카드/행(이름·금액 `formatWon`·`billingTypeLabel`·활성 토글), 활성 토글은 `useUpdateFeePolicyMutation`. 정책 수정 UI(수정 다이얼로그/인라인)에서 `billingType`은 **읽기 전용**(생성 후 변경 불가 — `FeePolicyResponse`에 발행 이력 플래그가 없어 보수적으로 잠금; 유형 변경은 새 정책 생성 유도), 금액 입력 옆에 "기존 발행 청구액은 바뀌지 않습니다" 안내. 삭제는 `useDeleteFeePolicyMutation` 실패(409 `DeleteForbidden`) 시 토스트로 reactively 안내(비활성화 유도).
 
 - [ ] **Step 5: CreatePolicyDialog.tsx** — `Dialog` + `useForm(zodResolver(createFeePolicySchema))` + `cn()` 에러 표시, 제출 시 `useCreateFeePolicyMutation`, `onSuccess` 닫기(추출된 `PromotionRequestModal` 폼 패턴 그대로).
 

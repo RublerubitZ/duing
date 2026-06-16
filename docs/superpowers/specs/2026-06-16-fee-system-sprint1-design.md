@@ -225,7 +225,7 @@ DTO 2계층: `controller/dto/{request,response}`(HTTP 경계, `@Valid`/한국어
 
 ### 총무 관리 — `/manage/clubs/[clubId]/fees` (2탭)
 - 서버 컴포넌트 `page.tsx` → 클라이언트 `_pages/ClubFeesPage.tsx`(탭) → `_containers/` → `_components/` + `_lib/`
-- **[정책] 탭**: 정책 목록(테이블/카드) + "정책 추가" 다이얼로그(`name`·`amount`·`billing_type`) + 수정·활성 토글. 수정 다이얼로그는 발행 이력이 있으면 `billing_type`을 비활성화하고(409 방지), `amount` 옆에 "기존 발행 청구액은 바뀌지 않습니다" 안내를 노출한다.
+- **[정책] 탭**: 정책 목록(테이블/카드) + "정책 추가" 다이얼로그(`name`·`amount`·`billing_type`) + 수정·활성 토글. 수정 다이얼로그에서 **`billing_type`은 읽기 전용**으로 둔다 — `FeePolicyResponse`에 발행 이력 플래그가 없어 클라이언트가 발행 여부를 판단할 수 없고 유형 변경은 드문 케이스이므로 UI는 보수적으로 잠근다(API는 무이력 시 변경을 허용하나 UI에 노출하지 않으며, 유형을 바꾸려면 새 정책 생성을 유도). `amount` 옆에 "기존 발행 청구액은 바뀌지 않습니다" 안내. 삭제는 시도 후 `DeleteForbidden`(409) 시 "이미 청구 이력이 있는 정책은 삭제할 수 없습니다" 토스트로 reactively 처리하고 비활성화를 유도한다.
 - **[청구] 탭**: "청구 발행" 다이얼로그(정책 선택 → MONTHLY는 회차만, SEMESTER/YEARLY/ONE_TIME은 기간·마감·라벨 입력) + 청구 현황 테이블(회차·상태·회원 필터, 행별 취소). 발행 결과 토스트는 "발행 완료(신규 N · 기존 M)"로 표기하고, mutation 성공 후 청구 목록을 **무조건 refetch**한다(동시 발행으로 `created=0`이어도 목록을 갱신).
 
 ### 회원 — `/me/fees`
