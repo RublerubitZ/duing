@@ -198,10 +198,18 @@ public class FeePolicy extends BaseEntity {
     }
 
     public void update(String name, Long amount, BillingType billingType, Boolean active) {
-        if (name != null) this.name = name;
-        if (amount != null) this.amount = amount;
-        if (billingType != null) this.billingType = billingType;
-        if (active != null) this.active = active;
+        if (name != null) {
+            this.name = name;
+        }
+        if (amount != null) {
+            this.amount = amount;
+        }
+        if (billingType != null) {
+            this.billingType = billingType;
+        }
+        if (active != null) {
+            this.active = active;
+        }
     }
 }
 ```
@@ -338,7 +346,8 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long> {
     // 멱등 발행: club_member 에서 활성 회원을 직접 SELECT 해 단일 원자 INSERT 한다(대상 선별=삽입, TOCTOU 없음).
     // 부분 유니크 인덱스(uk_fee_bill_idem) 술어를 ON CONFLICT 에 그대로 명시해야 매칭된다(생략 시 Postgres 에러).
     // 반환값 = 실제 INSERT 된 행 수(=created). saveAll 금지(충돌 시 트랜잭션 전체 롤백).
-    @Modifying(clearAutomatically = true)
+    // flushAutomatically: 같은 TX의 선행 ClubMember 변경을 flush 후 네이티브 SELECT가 최신 상태를 읽도록(stale read 방지, 기존 ClubFavoriteRepository 선례 정렬).
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             INSERT INTO fee_bill (club_id, user_id, fee_policy_id, amount, billing_period,
                                   billing_start_date, billing_end_date, due_date, status)
