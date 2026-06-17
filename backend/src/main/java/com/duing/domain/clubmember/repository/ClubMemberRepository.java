@@ -95,4 +95,8 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
             WHERE cm.role IN ('LEADER','OFFICER')
             """)
     List<Long> findAllOfficerUserIds();
+
+    /** 활성 회원 수. @SQLRestriction("deleted_at IS NULL") 가 자동 적용돼 회비 발행의 skipped 계산에 쓰는 카운트만 센다. */
+    @Query("SELECT COUNT(cm) FROM ClubMember cm WHERE cm.club.id = :clubId")
+    long countActiveByClubId(@Param("clubId") Long clubId);
 }
