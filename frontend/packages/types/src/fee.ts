@@ -46,13 +46,17 @@ export type FeeAccountPayload = {
   accountHolder: string;
 };
 
-// FeePolicyResponse(id, name, amount, billingType, active) 미러.
+// FeePolicyResponse(id, name, amount, billingType, active, autoIssue, issueDay, dueDay) 미러.
+// autoIssue=true 인 MONTHLY 정책만 issueDay/dueDay 가 채워진다(그 외엔 null).
 export type FeePolicy = {
   id: number;
   name: string;
   amount: number;
   billingType: BillingType;
   active: boolean;
+  autoIssue: boolean;
+  issueDay: number | null;
+  dueDay: number | null;
 };
 
 // FeeBillResponse 미러(운영진 청구 현황). LocalDate 는 ISO 문자열(YYYY-MM-DD)로 직렬화된다.
@@ -132,8 +136,16 @@ export type FeeSummaryParams = {
 // GenerateBillsResponse(created, skipped) 미러.
 export type GenerateBillsResult = { created: number; skipped: number };
 
-// CreateFeePolicyRequest(name, amount, billingType) 미러.
-export type CreateFeePolicyPayload = { name: string; amount: number; billingType: BillingType };
+// CreateFeePolicyRequest(name, amount, billingType, autoIssue?, issueDay?, dueDay?) 미러.
+// autoIssue=true 일 때만 issueDay/dueDay 를 동봉한다(MONTHLY 한정, 백엔드 검증과 정합).
+export type CreateFeePolicyPayload = {
+  name: string;
+  amount: number;
+  billingType: BillingType;
+  autoIssue?: boolean;
+  issueDay?: number;
+  dueDay?: number;
+};
 
 // UpdateFeePolicyRequest(name?, amount?, billingType?, active?) 미러(부분 수정).
 export type UpdateFeePolicyPayload = Partial<CreateFeePolicyPayload> & { active?: boolean };

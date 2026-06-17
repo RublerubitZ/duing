@@ -17,6 +17,9 @@ const yearlyPolicy = {
   amount: 50000,
   billingType: 'YEARLY' as const,
   active: true,
+  autoIssue: false,
+  issueDay: null,
+  dueDay: null,
 };
 
 describe('CreatePolicyDialog', () => {
@@ -74,6 +77,42 @@ describe('CreatePolicyDialog', () => {
     ];
     expect(firstArg.policyId).toBe(5);
     expect(firstArg.payload).not.toHaveProperty('billingType');
-    expect(firstArg.payload).toEqual({ name: '연 회비', amount: 50000 });
+    // autoIssue=false 이므로 issueDay/dueDay 는 동봉하지 않는다.
+    expect(firstArg.payload).toEqual({ name: '연 회비', amount: 50000, autoIssue: false });
+  });
+
+  it('MONTHLY 자동발행을 켜고 발행일·마감일을 입력하면 페이로드에 실려 생성된다', async () => {
+    const user = userEvent.setup();
+    mockCreateMutate.mockImplementation((_payload: unknown, options: { onSuccess: () => void }) =>
+      options.onSuccess(),
+    );
+    render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
+
+    await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.click(screen.getByLabelText('매월 자동 발행'));
+    await user.type(screen.getByLabelText('발행일(1~28)'), '5');
+    await user.type(screen.getByLabelText('마감일(1~28)'), '20');
+    await user.click(screen.getByRole('button', { name: '추가' }));
+
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalled());
+    expect(mockCreateMutate.mock.calls[0]?.[0]).toMatchObject({
+      autoIssue: true,
+      issueDay: 5,
+      dueDay: 20,
+    });
+  });
+
+  it('마감일이 발행일보다 앞서면 검증 에러를 보여준다', async () => {
+    const user = userEvent.setup();
+    render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
+
+    await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.click(screen.getByLabelText('매월 자동 발행'));
+    await user.type(screen.getByLabelText('발행일(1~28)'), '20');
+    await user.type(screen.getByLabelText('마감일(1~28)'), '5');
+    await user.click(screen.getByRole('button', { name: '추가' }));
+
+    expect(await screen.findByText('마감일은 발행일과 같거나 이후여야 합니다.')).toBeInTheDocument();
+    expect(mockCreateMutate).not.toHaveBeenCalled();
   });
 });
