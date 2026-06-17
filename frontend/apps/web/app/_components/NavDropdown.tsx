@@ -16,6 +16,7 @@ const MENU_ITEMS: MenuItem[] = [
   { icon: '▦', label: '내 두잉',    description: '지원 현황·찜한 동아리', href: '/me' },
   { icon: '♡', label: '찜한 동아리', description: '8곳',               href: '/me/favorites' },
   { icon: '📋', label: '지원 현황',  description: '진행 중인 지원',       href: '/me/applications' },
+  { icon: '💳', label: '내 회비',    description: '청구된 회비 내역',     href: '/me/fees' },
   { icon: '⚙',  label: '설정',       description: '프로필·알림·계정',    href: '/me/settings' },
 ];
 

@@ -134,6 +134,15 @@ import type {
   GlobalEventDetail,
   GlobalEventListParams,
   UpdateGlobalEventPayload,
+  FeePolicy,
+  FeeBill,
+  MyFee,
+  GenerateBillsResult,
+  CreateFeePolicyPayload,
+  UpdateFeePolicyPayload,
+  GenerateBillsPayload,
+  BillSearchParams,
+  MyFeeSearchParams,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -446,6 +455,26 @@ export type DuingApiClient = {
     // === 면접 가능 시간 응답 (BE#8 — XOR payload) ===
     // PUT /applications/{applicationId}/interview-availability
     respond(applicationId: number, payload: RespondAvailabilityPayload): Promise<void>;
+  };
+  leader: {
+    // === 회비(fee) 정책·청구 (운영진 LEADER/OFFICER) ===
+    fees: {
+      listPolicies(clubId: number): Promise<FeePolicy[]>;
+      createPolicy(clubId: number, payload: CreateFeePolicyPayload): Promise<number>;
+      updatePolicy(clubId: number, policyId: number, payload: UpdateFeePolicyPayload): Promise<void>;
+      deletePolicy(clubId: number, policyId: number): Promise<void>;
+      generateBills(
+        clubId: number,
+        policyId: number,
+        payload: GenerateBillsPayload,
+      ): Promise<GenerateBillsResult>;
+      listBills(clubId: number, params: BillSearchParams): Promise<PageResponse<FeeBill>>;
+      cancelBill(clubId: number, billId: number): Promise<void>;
+    };
+  };
+  my: {
+    // === 회원 본인 회비 조회 ===
+    fees(params: MyFeeSearchParams): Promise<MyFee[]>;
   };
   raw: KyInstance;
 };
@@ -922,6 +951,32 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<ApplicantInterviewView>(http.get(`applications/${applicationId}/interview`)),
       respond: (applicationId, payload) =>
         jsonVoid(http.put(`applications/${applicationId}/interview-availability`, { json: payload })),
+    },
+    leader: {
+      fees: {
+        listPolicies: (clubId) =>
+          jsonOk<FeePolicy[]>(http.get(`leader/clubs/${clubId}/fee-policies`)),
+        createPolicy: (clubId, payload) =>
+          jsonOk<number>(http.post(`leader/clubs/${clubId}/fee-policies`, { json: payload })),
+        updatePolicy: (clubId, policyId, payload) =>
+          jsonVoid(http.patch(`leader/clubs/${clubId}/fee-policies/${policyId}`, { json: payload })),
+        deletePolicy: (clubId, policyId) =>
+          jsonVoid(http.delete(`leader/clubs/${clubId}/fee-policies/${policyId}`)),
+        generateBills: (clubId, policyId, payload) =>
+          jsonOk<GenerateBillsResult>(
+            http.post(`leader/clubs/${clubId}/fee-policies/${policyId}/bills`, { json: payload }),
+          ),
+        listBills: (clubId, params) =>
+          jsonOk<PageResponse<FeeBill>>(
+            http.get(`leader/clubs/${clubId}/fee-bills`, { searchParams: cleanParams(params) }),
+          ),
+        cancelBill: (clubId, billId) =>
+          jsonVoid(http.delete(`leader/clubs/${clubId}/fee-bills/${billId}`)),
+      },
+    },
+    my: {
+      fees: (params) =>
+        jsonOk<MyFee[]>(http.get('my/fees', { searchParams: cleanParams(params) })),
     },
     interviewRounds: {
       candidates: (recruitmentId, includeUnderReview) =>

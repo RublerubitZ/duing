@@ -1,3 +1,6 @@
+import Link from 'next/link';
+
+import { toRoute } from '@/app/_lib/route';
 import { SparkleFull } from '@/components/duing/Sparkle';
 
 type Props = {
@@ -53,6 +56,13 @@ export function MyPageHeader({
               <span>·</span>
               <span>📨 {email}</span>
             </div>
+            <Link
+              href={toRoute('/me/fees')}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-medium text-cream ring-1 ring-inset ring-white/15 transition-colors hover:bg-white/15"
+            >
+              💳 내 회비 보기
+              <span aria-hidden>→</span>
+            </Link>
           </div>
 
           <div className="flex gap-6 items-center z-[1]">

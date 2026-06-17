@@ -16,12 +16,14 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
   const recruitmentsPath = toRoute(`/manage/clubs/${currentClubId}/recruitments`);
   const photosPath = toRoute(`/manage/clubs/${currentClubId}/photos`);
   const membersPath = toRoute(`/manage/clubs/${currentClubId}/members`);
+  const feesPath = toRoute(`/manage/clubs/${currentClubId}/fees`);
   const infoPath = toRoute(`/manage/clubs/${currentClubId}/info`);
 
   const isDashboardActive = pathname === dashboardPath;
   const isRecruitmentsActive = pathname.startsWith(recruitmentsPath);
   const isPhotosActive = pathname.startsWith(photosPath);
   const isMembersActive = pathname.startsWith(membersPath);
+  const isFeesActive = pathname.startsWith(feesPath);
   const isInfoActive = pathname.startsWith(infoPath);
 
   return (
@@ -154,6 +156,25 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
           <path d="M11 12.6c.5-1.5 1.7-2.5 3-2.5" />
         </svg>
         멤버 관리
+      </Link>
+
+      <Link
+        href={feesPath}
+        className={cn(
+          'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
+          isFeesActive
+            ? 'bg-ink text-cream font-semibold'
+            : 'text-cream/80 hover:bg-ink/60',
+        )}
+      >
+        <svg
+          className={cn('w-4 h-4 flex-shrink-0', isFeesActive ? 'text-cream' : 'text-sage')}
+          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
+        >
+          <circle cx="8" cy="8" r="6" />
+          <path d="M6 6l2 3 2-3M8 9v2M6.3 8.4h3.4" />
+        </svg>
+        회비 관리
       </Link>
     </nav>
   );

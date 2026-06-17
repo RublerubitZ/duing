@@ -1,0 +1,277 @@
+'use client';
+
+import { useState } from 'react';
+
+import { useCancelBillMutation, useClubFeeBillsQuery } from '@duing/hooks';
+import type { BillSearchParams, FeeBill, FeeStatus } from '@duing/types';
+
+import { cn } from '@/app/_lib/cn';
+import { useToast } from '@/app/_components/toast/ToastProvider';
+
+import { feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
+
+type BillListProps = {
+  clubId: number;
+};
+
+const PAGE_SIZE = 20;
+
+const STATUS_OPTIONS: FeeStatus[] = [
+  'PENDING',
+  'PAID',
+  'PARTIAL_PAID',
+  'OVERDUE',
+  'CANCELLED',
+];
+
+// 상태별 뱃지 색. CANCELLED 는 회색, 미납/부분납부는 warm, 연체는 coral, 납부완료는 sage.
+const STATUS_BADGE_CLS: Record<FeeStatus, string> = {
+  PENDING: 'bg-warm/15 text-charcoal',
+  PAID: 'bg-sage/20 text-sage',
+  PARTIAL_PAID: 'bg-warm/15 text-charcoal',
+  OVERDUE: 'bg-coral/10 text-coral',
+  CANCELLED: 'bg-graysoft text-charcoal-3',
+};
+
+const inputCls =
+  'rounded-md border border-line px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
+
+export function BillList({ clubId }: BillListProps) {
+  const [page, setPage] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<FeeStatus | ''>('');
+  const [periodFilter, setPeriodFilter] = useState('');
+
+  const params: BillSearchParams = {
+    page,
+    size: PAGE_SIZE,
+    ...(statusFilter ? { status: statusFilter } : {}),
+    ...(periodFilter.trim() ? { billingPeriod: periodFilter.trim() } : {}),
+  };
+
+  const { data: bills, isLoading } = useClubFeeBillsQuery(clubId, params);
+  const [cancelTarget, setCancelTarget] = useState<FeeBill | null>(null);
+
+  const page0Based = bills?.page ?? 0;
+  const totalPages = bills?.totalPages ?? 0;
+  const totalElements = bills?.totalElements ?? 0;
+  const hasNext = bills?.hasNext ?? false;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="bill-filter-period" className="text-xs font-semibold text-charcoal-2">
+            회차
+          </label>
+          <input
+            id="bill-filter-period"
+            type="text"
+            placeholder="2026-07"
+            value={periodFilter}
+            onChange={(event) => {
+              setPeriodFilter(event.target.value);
+              setPage(0);
+            }}
+            className={inputCls}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="bill-filter-status" className="text-xs font-semibold text-charcoal-2">
+            상태
+          </label>
+          <select
+            id="bill-filter-status"
+            aria-label="청구 상태 필터"
+            value={statusFilter}
+            onChange={(event) => {
+              const nextStatus = event.target.value;
+              setStatusFilter(isFeeStatus(nextStatus) ? nextStatus : '');
+              setPage(0);
+            }}
+            className={inputCls}
+          >
+            <option value="">전체</option>
+            {STATUS_OPTIONS.map((status) => (
+              <option key={status} value={status}>
+                {feeStatusLabel(status)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+      ) : !bills || bills.content.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
+          <p className="text-sm text-charcoal-2">발행된 청구가 없습니다.</p>
+          <p className="mt-1 text-xs text-charcoal-3">
+            {'"청구 발행"'} 버튼으로 활성 회원에게 청구서를 발행하세요.
+          </p>
+        </div>
+      ) : (
+        <>
+          <ul className="space-y-2">
+            {bills.content.map((bill) => (
+              <BillRow
+                key={bill.id}
+                clubId={clubId}
+                bill={bill}
+                onCancel={() => setCancelTarget(bill)}
+              />
+            ))}
+          </ul>
+
+          <footer className="flex items-center justify-between text-xs text-charcoal-3">
+            <span>총 {totalElements}건</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.max(0, current - 1))}
+                disabled={page0Based === 0}
+                className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
+              >
+                이전
+              </button>
+              <span>
+                {page0Based + 1} / {Math.max(1, totalPages)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((current) => current + 1)}
+                disabled={!hasNext}
+                className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
+              >
+                다음
+              </button>
+            </div>
+          </footer>
+        </>
+      )}
+
+      {cancelTarget && (
+        <CancelBillConfirm
+          clubId={clubId}
+          bill={cancelTarget}
+          onClose={() => setCancelTarget(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+type BillRowProps = {
+  clubId: number;
+  bill: FeeBill;
+  onCancel: () => void;
+};
+
+function BillRow({ bill, onCancel }: BillRowProps) {
+  const isCancelled = bill.status === 'CANCELLED';
+
+  return (
+    <li className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-semibold text-ink">회원 #{bill.userId}</p>
+          <span
+            className={cn(
+              'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
+              STATUS_BADGE_CLS[bill.status],
+            )}
+          >
+            {feeStatusLabel(bill.status)}
+          </span>
+        </div>
+        <p className="mt-0.5 text-xs text-charcoal-3">
+          {bill.billingPeriod} · {formatWon(bill.amount)} · 마감 {bill.dueDate}
+        </p>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isCancelled}
+          className={cn(
+            'rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors',
+            isCancelled
+              ? 'cursor-not-allowed border-line text-charcoal-3 opacity-50'
+              : 'border-line text-coral hover:bg-coral/5',
+          )}
+        >
+          {isCancelled ? '취소됨' : '취소'}
+        </button>
+      </div>
+    </li>
+  );
+}
+
+type CancelBillConfirmProps = {
+  clubId: number;
+  bill: FeeBill;
+  onClose: () => void;
+};
+
+function CancelBillConfirm({ clubId, bill, onClose }: CancelBillConfirmProps) {
+  const cancelBill = useCancelBillMutation(clubId);
+  const { addToast } = useToast();
+
+  const confirmCancel = () => {
+    cancelBill.mutate(bill.id, {
+      onSuccess: () => {
+        addToast('청구를 취소했습니다.');
+        onClose();
+      },
+      onError: (error) => {
+        addToast(error instanceof Error ? error.message : '청구 취소에 실패했습니다.', {
+          variant: 'error',
+        });
+        onClose();
+      },
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] grid place-items-center bg-black/40 px-4"
+      role="presentation"
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-label="청구 취소 확인"
+        className="w-full max-w-sm rounded-xl bg-paper p-5 shadow-3"
+      >
+        <h2 className="text-base font-bold text-ink">청구 취소</h2>
+        <p className="mt-2 text-sm text-charcoal-2">
+          <span className="font-medium text-ink">회원 #{bill.userId}</span> 의{' '}
+          <span className="font-medium text-ink">{bill.billingPeriod}</span> 청구를 취소할까요?
+          취소된 청구는 목록에 남으며 같은 회차로 다시 발행할 수 있습니다.
+        </p>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={cancelBill.isPending}
+            className="flex-1 rounded-md border border-line py-2.5 text-sm font-semibold text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
+          >
+            닫기
+          </button>
+          <button
+            type="button"
+            onClick={confirmCancel}
+            disabled={cancelBill.isPending}
+            className="flex-1 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+          >
+            {cancelBill.isPending ? '취소 중…' : '청구 취소'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function isFeeStatus(value: string): value is FeeStatus {
+  return STATUS_OPTIONS.some((status) => status === value);
+}
