@@ -147,7 +147,7 @@ export type CreateFeePolicyPayload = {
   dueDay?: number;
 };
 
-// UpdateFeePolicyRequest(name?, amount?, billingType?, active?) 미러(부분 수정).
+// UpdateFeePolicyRequest(name?, amount?, billingType?, active?, autoIssue?, issueDay?, dueDay?) 미러(부분 수정).
 export type UpdateFeePolicyPayload = Partial<CreateFeePolicyPayload> & { active?: boolean };
 
 // GenerateBillsRequest(billingPeriod, billingStartDate?, billingEndDate?, dueDate?) 미러.
