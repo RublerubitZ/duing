@@ -20,7 +20,7 @@ public class FeePaidAmountReader {
         }
         return paymentRepository.sumActiveGroupedByFeeBillIds(feeBillIds).stream()
                 .collect(Collectors.toMap(
-                        row -> (Long) row[0],
+                        row -> ((Number) row[0]).longValue(),
                         row -> ((Number) row[1]).longValue()));
     }
 }

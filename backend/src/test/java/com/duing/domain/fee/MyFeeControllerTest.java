@@ -98,11 +98,15 @@ class MyFeeControllerTest extends IntegrationTestBase {
         return feeBillRepository.save(FeeBillFixture.withStatus(clubIdValue, userId, policyIdValue, period, status));
     }
 
-    /** billId 청구에 ACTIVE 납부 1건을 직접 적재한다(합계 보강 검증용). */
-    private void recordPayment(Long billId, long amount) {
-        paymentRepository.save(Payment.record(
+    /** billId 청구에 지정 상태의 납부 1건을 직접 적재한다(VOIDED 는 합계에서 제외돼야 한다). */
+    private void recordPayment(Long billId, long amount, boolean voided) {
+        Payment payment = Payment.record(
                 billId, amount, PaymentMethod.CASH, LocalDateTime.of(2026, 6, 10, 0, 0),
-                userA.getId(), null));
+                userA.getId(), null);
+        if (voided) {
+            payment.voidPayment(userA.getId(), "정정", LocalDateTime.of(2026, 6, 11, 0, 0));
+        }
+        paymentRepository.save(payment);
     }
 
     @Test
@@ -172,11 +176,12 @@ class MyFeeControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("내 회비 응답은 청구별 납부 합계(paidAmount)와 남은 금액(remainingAmount)을 담는다")
+    @DisplayName("내 회비 응답은 청구별 납부 합계(paidAmount)와 남은 금액(remainingAmount)을 담고 VOIDED 납부는 제외한다")
     void carriesPaidAndRemainingAmount() {
-        // 청구액 10000 에 4000 부분 납부 → paidAmount=4000, remainingAmount=6000
+        // 청구액 10000 에 ACTIVE 4000 + VOIDED 3000 → paidAmount=4000(VOID 제외), remainingAmount=6000
         FeeBill partiallyPaid = saveBill(clubId, policyId, userA.getId(), "2026-07", FeeStatus.PENDING);
-        recordPayment(partiallyPaid.getId(), 4000L);
+        recordPayment(partiallyPaid.getId(), 4000L, false);
+        recordPayment(partiallyPaid.getId(), 3000L, true);
         // 납부가 없는 청구는 paidAmount=0, remainingAmount=청구액(10000)
         saveBill(clubId, policyId, userA.getId(), "2026-08", FeeStatus.PENDING);
 
