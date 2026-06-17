@@ -77,4 +77,34 @@ public class BankMatchingException extends ApplicationException {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
+
+    /**
+     * 승인하려는 청구가 해당 입금의 매칭 후보(잔액=입금액·같은 동아리·미납)가 아닌 경우.
+     * 잘못된 feeBillId·타 동아리 청구·잔액 불일치를 모두 잘못된 요청(400)으로 막는다.
+     */
+    public static class InvalidMatchCandidateException extends BankMatchingException {
+        private static final String MESSAGE = "선택한 청구는 이 입금의 매칭 후보가 아닙니다.";
+
+        public InvalidMatchCandidateException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /** 매칭되지 않은(PENDING/IGNORED) 거래에 매칭취소를 요청한 경우. 취소할 매칭이 없으므로 400 으로 막는다. */
+    public static class NotMatchedException extends BankMatchingException {
+        private static final String MESSAGE = "매칭된 거래만 매칭취소할 수 있습니다.";
+
+        public NotMatchedException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /** 매칭된 거래로 표시돼 있으나 연결된 활성 납부를 찾지 못한 경우(데이터 정합성 이상). */
+    public static class MatchedPaymentNotFoundException extends BankMatchingException {
+        private static final String MESSAGE = "매칭된 거래의 납부 내역을 찾을 수 없습니다.";
+
+        public MatchedPaymentNotFoundException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
 }
