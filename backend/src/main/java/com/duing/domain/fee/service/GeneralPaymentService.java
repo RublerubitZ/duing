@@ -10,13 +10,16 @@ import com.duing.domain.fee.exception.PaymentException;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.PaymentRepository;
 import com.duing.domain.fee.service.dto.command.RecordPaymentCommand;
+import com.duing.domain.fee.service.dto.command.VoidPaymentCommand;
 import com.duing.domain.fee.service.dto.query.PaymentQuery;
+import com.duing.domain.notification.event.FeePaymentConfirmedEvent;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +35,7 @@ public class GeneralPaymentService implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final ClubAuthService clubAuthService;
     private final FeeBillStatusCalculator statusCalculator;
-    private final FeePaymentNotifier notifier;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     @Override
@@ -61,7 +64,9 @@ public class GeneralPaymentService implements PaymentService {
         long newSum = activePaid + command.amount();
         FeeStatus newStatus = statusCalculator.calculate(bill.getAmount(), bill.getDueDate(), newSum);
         bill.updateStatus(newStatus);
-        notifier.notifyPaymentConfirmed(bill, newStatus, bill.getAmount() - newSum, payment.getId());
+        eventPublisher.publishEvent(new FeePaymentConfirmedEvent(
+                bill.getUserId(), bill.getId(), bill.getBillingPeriod(), newStatus,
+                bill.getAmount() - newSum, payment.getId()));
 
         log.info("payment recorded: actorId={}, clubId={}, billId={}, paymentId={}, amount={}, newStatus={}",
                 command.actorId(), command.clubId(), command.billId(), payment.getId(), command.amount(), newStatus);
@@ -70,21 +75,21 @@ public class GeneralPaymentService implements PaymentService {
 
     @Override
     @Transactional
-    public void voidPayment(Long clubId, Long actorId, Long billId, Long paymentId, String reason) {
-        clubAuthService.requireManager(actorId, clubId);
+    public void voidPayment(VoidPaymentCommand command) {
+        clubAuthService.requireManager(command.actorId(), command.clubId());
         // 정정도 같은 청구 행을 비관적 잠금해 동시 납부 기록과 합계 재계산을 직렬화한다.
-        FeeBill bill = feeBillRepository.findByIdAndClubIdForUpdate(billId, clubId)
+        FeeBill bill = feeBillRepository.findByIdAndClubIdForUpdate(command.billId(), command.clubId())
                 .orElseThrow(FeeBillException.FeeBillNotFoundException::new);
-        Payment payment = paymentRepository.findByIdAndFeeBillId(paymentId, billId)
+        Payment payment = paymentRepository.findByIdAndFeeBillId(command.paymentId(), command.billId())
                 .orElseThrow(PaymentException.PaymentNotFoundException::new);
 
-        payment.voidPayment(actorId, reason, LocalDateTime.now(clock)); // 이미 VOIDED 면 멱등 no-op
-        long activePaid = paymentRepository.sumActiveByFeeBillId(billId);
+        payment.voidPayment(command.actorId(), command.reason(), LocalDateTime.now(clock)); // 이미 VOIDED 면 멱등 no-op
+        long activePaid = paymentRepository.sumActiveByFeeBillId(command.billId());
         // CANCELLED 청구는 updateStatus 가 멱등 no-op 이라 정정으로 되살아나지 않는다.
         bill.updateStatus(statusCalculator.calculate(bill.getAmount(), bill.getDueDate(), activePaid));
 
         log.info("payment voided: actorId={}, clubId={}, billId={}, paymentId={}, activePaid={}",
-                actorId, clubId, billId, paymentId, activePaid);
+                command.actorId(), command.clubId(), command.billId(), command.paymentId(), activePaid);
     }
 
     @Override

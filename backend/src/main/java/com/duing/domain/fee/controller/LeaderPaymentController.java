@@ -58,7 +58,7 @@ public class LeaderPaymentController implements LeaderPaymentApi {
             @Valid @RequestBody VoidPaymentRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        paymentService.voidPayment(clubId, currentUser.id(), billId, paymentId, request.reason());
+        paymentService.voidPayment(request.toCommand(clubId, currentUser.id(), billId, paymentId));
         return ResponseEntity.noContent().build();
     }
 }
