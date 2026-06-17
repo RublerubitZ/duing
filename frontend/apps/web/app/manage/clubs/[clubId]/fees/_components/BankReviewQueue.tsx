@@ -37,10 +37,12 @@ export function BankReviewQueue({ clubId }: BankReviewQueueProps) {
   const {
     data: pendingPage,
     isLoading: isPendingLoading,
+    isError: isPendingError,
   } = useBankTransactionsQuery(clubId, { status: 'PENDING' });
   const {
     data: autoMatchedPage,
     isLoading: isAutoMatchedLoading,
+    isError: isAutoMatchedError,
   } = useBankTransactionsQuery(clubId, { status: 'AUTO_MATCHED' });
 
   const pendingTransactions = pendingPage?.content ?? [];
@@ -52,6 +54,8 @@ export function BankReviewQueue({ clubId }: BankReviewQueueProps) {
         <h2 className="text-sm font-bold text-ink">검토 대기</h2>
         {isPendingLoading ? (
           <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+        ) : isPendingError ? (
+          <QueryErrorCard />
         ) : pendingTransactions.length === 0 ? (
           <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
             <p className="text-sm text-charcoal-2">검토할 입금 거래가 없습니다.</p>
@@ -73,6 +77,8 @@ export function BankReviewQueue({ clubId }: BankReviewQueueProps) {
         <h2 className="text-sm font-bold text-ink">자동매칭 내역</h2>
         {isAutoMatchedLoading ? (
           <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+        ) : isAutoMatchedError ? (
+          <QueryErrorCard />
         ) : matchedTransactions.length === 0 ? (
           <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
             <p className="text-sm text-charcoal-2">자동매칭된 거래가 없습니다.</p>
@@ -89,6 +95,17 @@ export function BankReviewQueue({ clubId }: BankReviewQueueProps) {
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+// 일시적인 조회 실패 시 빈 상태 대신 보여줄 안내 카드. 원본 에러는 노출하지 않는다.
+function QueryErrorCard() {
+  return (
+    <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
+      <p className="text-sm text-charcoal-2">
+        거래를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
+      </p>
     </div>
   );
 }

@@ -12,13 +12,21 @@ const mockUnmatchMutate = vi.fn();
 const mockPendingContent = vi.fn<() => BankTransaction[]>(() => []);
 const mockMatchedContent = vi.fn<() => BankTransaction[]>(() => []);
 
+// PENDING 조회를 에러 상태로 강제하기 위한 훅. null 이면 정상 데이터 응답.
+const mockPendingError = vi.fn<() => unknown | null>(() => null);
+
 vi.mock('@duing/hooks', () => ({
   useBankTransactionsQuery: (clubId: number, params: { status?: string }) => {
     void clubId;
+    const pendingError = params.status === 'AUTO_MATCHED' ? null : mockPendingError();
+    if (pendingError !== null) {
+      return { data: undefined, isLoading: false, isError: true, error: pendingError };
+    }
     const content = params.status === 'AUTO_MATCHED' ? mockMatchedContent() : mockPendingContent();
     return {
       data: { content, page: 0, size: 20, totalElements: content.length, totalPages: 1, hasNext: false },
       isLoading: false,
+      isError: false,
       error: null,
     };
   },
@@ -83,6 +91,7 @@ describe('BankReviewQueue', () => {
     vi.clearAllMocks();
     mockPendingContent.mockReturnValue([]);
     mockMatchedContent.mockReturnValue([]);
+    mockPendingError.mockReturnValue(null);
   });
 
   it('검토 대기 입금과 후보 청구 행을 렌더링한다', () => {
@@ -133,6 +142,16 @@ describe('BankReviewQueue', () => {
   it('검토 대기가 없으면 빈 상태 안내를 노출한다', () => {
     render(<BankReviewQueue clubId={1} />);
     expect(screen.getByText('검토할 입금 거래가 없습니다.')).toBeInTheDocument();
+  });
+
+  it('검토 대기 조회가 실패하면 빈 상태 대신 오류 안내를 노출한다', () => {
+    mockPendingError.mockReturnValue(new MockApiError(500, 'internal'));
+    render(<BankReviewQueue clubId={1} />);
+
+    expect(
+      screen.getByText('거래를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('검토할 입금 거래가 없습니다.')).not.toBeInTheDocument();
   });
 
   it('자동매칭 내역의 [매칭취소] 확인 시 거래 id 로 해제 뮤테이션을 호출한다', async () => {
