@@ -1,12 +1,18 @@
 package com.duing.domain.fee.repository;
 
 import static com.duing.domain.fee.entity.QFeeBill.feeBill;
+import static com.duing.domain.fee.entity.QPayment.payment;
 
 import com.duing.domain.fee.entity.FeeBill;
 import com.duing.domain.fee.entity.FeeStatus;
+import com.duing.domain.fee.entity.PaymentStatus;
 import com.duing.domain.fee.service.dto.query.BillSearchQuery;
+import com.duing.domain.fee.service.dto.query.FeeBillSummaryQuery;
 import com.duing.domain.fee.service.dto.query.MyFeeSearchQuery;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.util.List;
 import java.util.Objects;
@@ -67,6 +73,62 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                 )
                 .orderBy(feeBill.dueDate.desc(), feeBill.id.desc())
                 .fetch();
+    }
+
+    @Override
+    public FeeBillSummaryProjection summarizeBills(Long clubId, FeeBillSummaryQuery query) {
+        // clubId 는 동아리 격리의 필수 조건이다(searchClubBills 와 동일 가드). null 이면 전 동아리 집계가 노출된다.
+        Objects.requireNonNull(clubId, "clubId must not be null");
+        // 청구 그레인 단독 집계. payment 를 조인하면 1:N fan-out 으로 totalBilled 가 납부 건수만큼 중복 합산되므로
+        // 납부 합계는 sumActivePaid 의 별도 쿼리에서 산출한다.
+        FeeBillSummaryProjection projection = queryFactory
+                .select(Projections.constructor(FeeBillSummaryProjection.class,
+                        feeBill.amount.sum().coalesce(0L),
+                        feeBill.count(),
+                        statusCount(FeeStatus.PENDING),
+                        statusCount(FeeStatus.PARTIAL_PAID),
+                        statusCount(FeeStatus.OVERDUE),
+                        statusCount(FeeStatus.PAID)))
+                .from(feeBill)
+                .where(
+                        feeBill.clubId.eq(clubId),
+                        billingPeriodEq(query.billingPeriod()),
+                        feePolicyIdEq(query.feePolicyId()),
+                        feeBill.status.ne(FeeStatus.CANCELLED)
+                )
+                .fetchOne();
+        // 청구가 0건이면 집계 함수가 null 행을 반환할 수 있어 0 으로 정규화한다.
+        return projection != null ? projection : new FeeBillSummaryProjection(0L, 0L, 0L, 0L, 0L, 0L);
+    }
+
+    @Override
+    public long sumActivePaid(Long clubId, FeeBillSummaryQuery query) {
+        Objects.requireNonNull(clubId, "clubId must not be null");
+        // 같은 청구 필터(동아리·회차·정책·비취소)에 걸린 청구의 활성 납부만 합산한다.
+        // VOIDED 납부는 payment.status.eq(ACTIVE) 로, soft-delete 청구·납부는 @SQLRestriction 으로 제외된다.
+        Long total = queryFactory
+                .select(payment.amount.sum().coalesce(0L))
+                .from(payment)
+                .join(feeBill).on(payment.feeBillId.eq(feeBill.id))
+                .where(
+                        feeBill.clubId.eq(clubId),
+                        billingPeriodEq(query.billingPeriod()),
+                        feePolicyIdEq(query.feePolicyId()),
+                        feeBill.status.ne(FeeStatus.CANCELLED),
+                        payment.status.eq(PaymentStatus.ACTIVE)
+                )
+                .fetchOne();
+        return total != null ? total : 0L;
+    }
+
+    private NumberExpression<Long> statusCount(FeeStatus status) {
+        return new CaseBuilder()
+                .when(feeBill.status.eq(status)).then(1L).otherwise(0L)
+                .sum().coalesce(0L);
+    }
+
+    private BooleanExpression feePolicyIdEq(Long feePolicyId) {
+        return feePolicyId != null ? feeBill.feePolicyId.eq(feePolicyId) : null;
     }
 
     private BooleanExpression clubIdEq(Long clubId) {
