@@ -65,4 +65,11 @@ class FeeBillStatusCalculatorTest {
         FeeStatus status = calculator.calculate(10000L, LocalDate.of(2026, 6, 15), 0L);
         assertThat(status).isEqualTo(FeeStatus.PENDING);
     }
+
+    @Test
+    @DisplayName("일부만 납부했고 마감일이 오늘이면 아직 연체가 아니므로 PARTIAL_PAID 로 산출된다")
+    void partiallyPaidOnDueDateIsPartialPaid() {
+        FeeStatus status = calculator.calculate(10000L, LocalDate.of(2026, 6, 15), 4000L);
+        assertThat(status).isEqualTo(FeeStatus.PARTIAL_PAID);
+    }
 }

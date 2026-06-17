@@ -25,4 +25,14 @@ class FeeBillTest {
         bill.cancel();
         assertThat(bill.getStatus()).isEqualTo(FeeStatus.CANCELLED);
     }
+
+    @Test
+    @DisplayName("취소된 청구는 자동 산출 상태 전이로 덮어써지지 않는다")
+    void updateStatusDoesNotOverrideCancelledBill() {
+        FeeBill bill = FeeBill.issue(1L, 2L, 3L, 10000L, "2026-07",
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31), LocalDate.of(2026, 7, 31));
+        bill.cancel();
+        bill.updateStatus(FeeStatus.OVERDUE);
+        assertThat(bill.getStatus()).isEqualTo(FeeStatus.CANCELLED);
+    }
 }
