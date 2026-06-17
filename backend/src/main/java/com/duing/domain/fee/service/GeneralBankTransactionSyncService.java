@@ -44,6 +44,7 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
     private final BankApiClient bankApiClient;
     private final TransactionHasher transactionHasher;
     private final BankTransactionRepository bankTransactionRepository;
+    private final TransactionMatcher transactionMatcher;
     private final Clock clock;
     /** 외부 BANK 호출은 트랜잭션 밖에서 끝내고, 적재 단계만 이 템플릿으로 짧게 트랜잭션을 연다. */
     private final TransactionTemplate transactionTemplate;
@@ -57,6 +58,7 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
             BankApiClient bankApiClient,
             TransactionHasher transactionHasher,
             BankTransactionRepository bankTransactionRepository,
+            TransactionMatcher transactionMatcher,
             Clock clock,
             PlatformTransactionManager platformTransactionManager) {
         this.clubAuthService = clubAuthService;
@@ -67,6 +69,7 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         this.bankApiClient = bankApiClient;
         this.transactionHasher = transactionHasher;
         this.bankTransactionRepository = bankTransactionRepository;
+        this.transactionMatcher = transactionMatcher;
         this.clock = clock;
         this.transactionTemplate = new TransactionTemplate(platformTransactionManager);
     }
@@ -102,10 +105,25 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
                         startDate, today));
 
         // 외부 조회가 끝난 뒤에만 짧은 쓰기 트랜잭션을 열어 적재한다(native insert 는 활성 트랜잭션 필요).
-        return transactionTemplate.execute(status -> persist(command.clubId(), bankCode, fetchedTransactions));
+        PersistResult persistResult = transactionTemplate.execute(
+                status -> persist(command.clubId(), bankCode, fetchedTransactions));
+
+        // 적재 트랜잭션이 커밋된 뒤에야 매칭을 시도한다. 각 tryAutoMatch 는 거래·청구를 비관적 잠금하고
+        // 자체 트랜잭션으로 납부를 생성하며, 자동확인 알림(AFTER_COMMIT)도 매칭별로 개별 발화한다.
+        // 매칭 루프는 적재 템플릿 밖에 둬야 한다 — 같은 트랜잭션이면 AFTER_COMMIT 알림이 동기화 종료까지 미뤄진다.
+        List<BankTransaction> newDeposits = persistResult.newDeposits();
+        int autoMatched = 0;
+        for (BankTransaction deposit : newDeposits) {
+            if (transactionMatcher.tryAutoMatch(deposit, command.actorId())) {
+                autoMatched++;
+            }
+        }
+        return new SyncResult(
+                fetchedTransactions.size(), persistResult.newlyStored(),
+                autoMatched, newDeposits.size() - autoMatched);
     }
 
-    private SyncResult persist(Long clubId, String bankCode, List<BankTransactionData> fetchedTransactions) {
+    private PersistResult persist(Long clubId, String bankCode, List<BankTransactionData> fetchedTransactions) {
         List<String> insertedHashes = new ArrayList<>();
         for (BankTransactionData transaction : fetchedTransactions) {
             String transactionHash = transactionHasher.hash(clubId, bankCode, transaction);
@@ -122,20 +140,23 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
             }
         }
 
-        int newDepositCount = countNewlyStoredDeposits(insertedHashes);
-        // 매칭은 BE-5 에서 — 지금은 자동매칭 0, 신규 입금은 전부 검토 대기로 집계한다.
-        return new SyncResult(fetchedTransactions.size(), insertedHashes.size(), 0, newDepositCount);
+        // 매칭은 트랜잭션 밖에서 수행하므로, 이번에 신규 적재된 PENDING 입금 엔티티(=매칭 후보)를 그대로 넘긴다.
+        List<BankTransaction> newDeposits = findNewlyStoredDeposits(insertedHashes);
+        return new PersistResult(insertedHashes.size(), newDeposits);
     }
 
-    private int countNewlyStoredDeposits(List<String> insertedHashes) {
+    private List<BankTransaction> findNewlyStoredDeposits(List<String> insertedHashes) {
         if (insertedHashes.isEmpty()) {
-            return 0;
+            return List.of();
         }
-        return (int) bankTransactionRepository.findByTransactionHashIn(insertedHashes).stream()
+        return bankTransactionRepository.findByTransactionHashIn(insertedHashes).stream()
                 .filter(BankTransaction::isPending)
                 .filter(BankTransaction::isDeposit)
-                .count();
+                .toList();
     }
+
+    /** 적재 트랜잭션 산출물. 신규 적재 건수와, 트랜잭션 밖에서 매칭할 신규 PENDING 입금 거래들을 함께 전달한다. */
+    private record PersistResult(int newlyStored, List<BankTransaction> newDeposits) {}
 
     /**
      * 조회 시작일을 결정한다. 마지막 적재 거래가 있으면 그 하루 전부터(경계 거래 누락 방지),
