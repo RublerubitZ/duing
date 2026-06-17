@@ -8,21 +8,31 @@ const mockApproveMutate = vi.fn();
 const mockIgnoreMutate = vi.fn();
 const mockUnmatchMutate = vi.fn();
 
-// status 필터별로 다른 페이지를 돌려준다(PENDING=검토 큐, AUTO_MATCHED=자동매칭 내역).
+// status 필터별로 다른 페이지를 돌려준다
+// (PENDING=검토 큐, AUTO_MATCHED=자동 매칭, MANUAL_MATCHED=수동 매칭 — 둘은 '매칭 내역'으로 합쳐 노출).
 const mockPendingContent = vi.fn<() => BankTransaction[]>(() => []);
-const mockMatchedContent = vi.fn<() => BankTransaction[]>(() => []);
+const mockAutoMatchedContent = vi.fn<() => BankTransaction[]>(() => []);
+const mockManualMatchedContent = vi.fn<() => BankTransaction[]>(() => []);
 
 // PENDING 조회를 에러 상태로 강제하기 위한 훅. null 이면 정상 데이터 응답.
 const mockPendingError = vi.fn<() => unknown | null>(() => null);
 
+function matchedContentFor(status?: string): BankTransaction[] {
+  if (status === 'AUTO_MATCHED') return mockAutoMatchedContent();
+  if (status === 'MANUAL_MATCHED') return mockManualMatchedContent();
+  return mockPendingContent();
+}
+
 vi.mock('@duing/hooks', () => ({
   useBankTransactionsQuery: (clubId: number, params: { status?: string }) => {
     void clubId;
-    const pendingError = params.status === 'AUTO_MATCHED' ? null : mockPendingError();
+    const isMatchedQuery =
+      params.status === 'AUTO_MATCHED' || params.status === 'MANUAL_MATCHED';
+    const pendingError = isMatchedQuery ? null : mockPendingError();
     if (pendingError !== null) {
       return { data: undefined, isLoading: false, isError: true, error: pendingError };
     }
-    const content = params.status === 'AUTO_MATCHED' ? mockMatchedContent() : mockPendingContent();
+    const content = matchedContentFor(params.status);
     return {
       data: { content, page: 0, size: 20, totalElements: content.length, totalPages: 1, hasNext: false },
       isLoading: false,
@@ -90,7 +100,8 @@ describe('BankReviewQueue', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPendingContent.mockReturnValue([]);
-    mockMatchedContent.mockReturnValue([]);
+    mockAutoMatchedContent.mockReturnValue([]);
+    mockManualMatchedContent.mockReturnValue([]);
     mockPendingError.mockReturnValue(null);
   });
 
@@ -154,9 +165,9 @@ describe('BankReviewQueue', () => {
     expect(screen.queryByText('검토할 입금 거래가 없습니다.')).not.toBeInTheDocument();
   });
 
-  it('자동매칭 내역의 [매칭취소] 확인 시 거래 id 로 해제 뮤테이션을 호출한다', async () => {
+  it('매칭 내역(자동매칭)의 [매칭취소] 확인 시 거래 id 로 해제 뮤테이션을 호출한다', async () => {
     const user = userEvent.setup();
-    mockMatchedContent.mockReturnValue([
+    mockAutoMatchedContent.mockReturnValue([
       {
         id: 777,
         transactionAt: '2026-06-10T08:00:00',
@@ -177,5 +188,66 @@ describe('BankReviewQueue', () => {
     await waitFor(() => expect(mockUnmatchMutate).toHaveBeenCalled());
     const [txId] = mockUnmatchMutate.mock.calls[0] as [number];
     expect(txId).toBe(777);
+  });
+
+  it('수동 매칭(MANUAL_MATCHED) 거래도 매칭 내역에 노출되어 [매칭취소]로 해제할 수 있다', async () => {
+    const user = userEvent.setup();
+    mockManualMatchedContent.mockReturnValue([
+      {
+        id: 888,
+        transactionAt: '2026-06-12T07:00:00',
+        amount: 25000,
+        counterparty: '이수동',
+        transactionType: 'DEPOSIT',
+        matchStatus: 'MANUAL_MATCHED',
+        matchedFeeBillId: 2002,
+        candidates: [],
+      },
+    ]);
+    render(<BankReviewQueue clubId={1} />);
+
+    expect(screen.getByText('25,000원')).toBeInTheDocument();
+    expect(screen.getByText(/입금시각 2026-06-12 07:00 · 이수동/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '매칭취소' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '매칭 취소 확인' });
+    await user.click(within(dialog).getByRole('button', { name: '매칭 취소' }));
+
+    await waitFor(() => expect(mockUnmatchMutate).toHaveBeenCalled());
+    const [txId] = mockUnmatchMutate.mock.calls[0] as [number];
+    expect(txId).toBe(888);
+  });
+
+  it('자동·수동 매칭이 모두 있으면 한 매칭 내역에 합쳐 노출한다', () => {
+    mockAutoMatchedContent.mockReturnValue([
+      {
+        id: 777,
+        transactionAt: '2026-06-10T08:00:00',
+        amount: 12000,
+        counterparty: '박두잉',
+        transactionType: 'DEPOSIT',
+        matchStatus: 'AUTO_MATCHED',
+        matchedFeeBillId: 1001,
+        candidates: [],
+      },
+    ]);
+    mockManualMatchedContent.mockReturnValue([
+      {
+        id: 888,
+        transactionAt: '2026-06-12T07:00:00',
+        amount: 25000,
+        counterparty: '이수동',
+        transactionType: 'DEPOSIT',
+        matchStatus: 'MANUAL_MATCHED',
+        matchedFeeBillId: 2002,
+        candidates: [],
+      },
+    ]);
+    render(<BankReviewQueue clubId={1} />);
+
+    expect(screen.getByText('12,000원')).toBeInTheDocument();
+    expect(screen.getByText('25,000원')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '매칭취소' })).toHaveLength(2);
+    expect(screen.queryByText('매칭된 거래가 없습니다.')).not.toBeInTheDocument();
   });
 });

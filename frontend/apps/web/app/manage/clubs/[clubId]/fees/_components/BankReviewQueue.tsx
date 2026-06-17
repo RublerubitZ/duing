@@ -44,9 +44,21 @@ export function BankReviewQueue({ clubId }: BankReviewQueueProps) {
     isLoading: isAutoMatchedLoading,
     isError: isAutoMatchedError,
   } = useBankTransactionsQuery(clubId, { status: 'AUTO_MATCHED' });
+  const {
+    data: manualMatchedPage,
+    isLoading: isManualMatchedLoading,
+    isError: isManualMatchedError,
+  } = useBankTransactionsQuery(clubId, { status: 'MANUAL_MATCHED' });
 
   const pendingTransactions = pendingPage?.content ?? [];
-  const matchedTransactions = autoMatchedPage?.content ?? [];
+
+  // 매칭 상태 필터가 단일 값이라 자동/수동 매칭을 각각 조회한 뒤 합쳐 하나의 '매칭 내역' 목록으로 보여준다.
+  const isMatchedLoading = isAutoMatchedLoading || isManualMatchedLoading;
+  const isMatchedError = isAutoMatchedError || isManualMatchedError;
+  const matchedTransactions = [
+    ...(autoMatchedPage?.content ?? []),
+    ...(manualMatchedPage?.content ?? []),
+  ].sort((first, second) => second.transactionAt.localeCompare(first.transactionAt));
 
   return (
     <div className="space-y-8">
@@ -74,14 +86,14 @@ export function BankReviewQueue({ clubId }: BankReviewQueueProps) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-bold text-ink">자동매칭 내역</h2>
-        {isAutoMatchedLoading ? (
+        <h2 className="text-sm font-bold text-ink">매칭 내역</h2>
+        {isMatchedLoading ? (
           <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
-        ) : isAutoMatchedError ? (
+        ) : isMatchedError ? (
           <QueryErrorCard />
         ) : matchedTransactions.length === 0 ? (
           <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
-            <p className="text-sm text-charcoal-2">자동매칭된 거래가 없습니다.</p>
+            <p className="text-sm text-charcoal-2">매칭된 거래가 없습니다.</p>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -273,7 +285,15 @@ function MatchedTransactionRow({ clubId, transaction }: MatchedTransactionRowPro
   return (
     <li className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-ink">{formatWon(transaction.amount)}</p>
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+          {formatWon(transaction.amount)}
+          {transaction.matchStatus === 'MANUAL_MATCHED' && (
+            <span className="text-xs font-medium text-charcoal-3">수동</span>
+          )}
+          {transaction.matchStatus === 'AUTO_MATCHED' && (
+            <span className="text-xs font-medium text-charcoal-3">자동</span>
+          )}
+        </p>
         <p className="mt-0.5 text-xs text-charcoal-3">
           입금시각 {formatTransactionAt(transaction.transactionAt)}
           {transaction.counterparty && ` · ${transaction.counterparty}`}
