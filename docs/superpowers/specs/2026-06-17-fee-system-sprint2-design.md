@@ -34,7 +34,7 @@ Sprint 2 성공 기준: 총무가 납부를 기록/정정하면 청구 상태와
 ### In Scope (Sprint 2)
 - `payment` 테이블 + 납부 **기록**·**취소(VOID)**·**내역 조회** + bill 상태 자동 산출.
 - 연체 자동화 크론(`PENDING`·`PARTIAL_PAID` → `OVERDUE`).
-- 인앱 알림 3종(청구 발행 · 연체 · 납부 확인) — 기존 Notification 재사용.
+- 인앱 알림 4종(청구 발행 · 연체 · 부분 납부 확인 · 완납 확인) — 기존 Notification 재사용.
 - 집계 대시보드(총 청구액·수납액·미수금·수납률·상태별 건수) — 총무 화면.
 - 프론트: 청구 탭 납부 기록 다이얼로그·납부 내역(VOID)·상태 반영·진행률, 청구 탭 상단 요약 카드, `/me/fees` 진행률(읽기 전용). 알림은 기존 알림 피드/벨 재사용.
 
@@ -54,8 +54,9 @@ CREATE TABLE payment (
     id            BIGSERIAL PRIMARY KEY,
     fee_bill_id   BIGINT NOT NULL REFERENCES fee_bill(id) ON DELETE RESTRICT,
     amount        BIGINT NOT NULL CHECK (amount > 0),                 -- 납부액(정수 원)
-    method        VARCHAR(20) NOT NULL CHECK (method IN ('CASH','TRANSFER','OTHER')),
-    paid_at       DATE NOT NULL,                                      -- 납부일
+    method        VARCHAR(20) NOT NULL
+                  CHECK (method IN ('CASH','TRANSFER','OTHER','AUTO_MATCHED')),  -- AUTO_MATCHED=Sprint 3 자동매칭 전용
+    paid_at       TIMESTAMP WITH TIME ZONE NOT NULL,                  -- 납부 시각(UI 는 yyyy-MM-dd 표시)
     recorded_by   BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,  -- 기록한 총무
     memo          VARCHAR(200),
     status        VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
@@ -73,7 +74,9 @@ ALTER TABLE payment ENABLE ROW LEVEL SECURITY;
 
 설계 노트:
 - **VOID는 `status`로 처리하고 삭제하지 않는다.** `payment`는 물리/소프트 삭제 대상이 아니다(정정은 VOID). `deleted_at`은 BaseEntity 표준 컬럼으로 남기지만 사용하지 않으며, `@SQLRestriction(deleted_at IS NULL)`은 항상 참이다. 상태 산출에 "활성"은 `status='ACTIVE'`로 판정한다.
-- `paid_at`은 DATE(납부일). `voided_at`은 정정 시각(감사용 timestamptz).
+- `paid_at`은 `timestamptz`(납부 시각). UI 는 `yyyy-MM-dd`로 표시하되, 같은 날 기록·정정·재기록이 섞여도 시각 단위로 추적 가능하다(이벤트 순서는 `created_at`/`voided_at`로도 보강).
+- **`method='AUTO_MATCHED'`는 Sprint 3 BANK API 자동매칭이 생성하는 납부 전용**이다(동일 `payment` 엔티티 공유 → 자동/수동 구분). **총무 수동 기록 경로(API·UI·Zod)는 `CASH`/`TRANSFER`/`OTHER`만 허용**하고 `AUTO_MATCHED` 입력은 거부한다(400).
+- **`paidAmount`는 캐시 없이 `ACTIVE` 납부 합계로 실시간 산출**한다(과설계 회피, 단일 진실원 = `payment` 행). 향후 데이터 규모가 커지면 `fee_bill.paid_amount` 캐시 컬럼을 도입할 수 있도록 열어 둔다(현재는 미도입).
 - `fee_bill.status`(Sprint 1 enum)는 그대로 쓰고 본 스프린트에서 `PAID`/`PARTIAL_PAID`/`OVERDUE` 전이를 채운다.
 
 ## 5. bill 상태 산출 규칙 (재계산 로직)
@@ -130,15 +133,16 @@ ALTER TABLE payment ENABLE ROW LEVEL SECURITY;
 ### OverdueBillJob (연체 크론)
 - 기존 `@EnableScheduling`/job-config 패턴 재사용. **매일 1회**(예 00:10 Asia/Seoul). 플래그 `duing.fee.overdue.enabled`(기본 true; 테스트 off).
 - `status IN ('PENDING','PARTIAL_PAID') AND due_date < 오늘(Clock) AND deleted_at IS NULL` 인 bill을 set-based로 `OVERDUE`로 전이(멱등). `PAID`/`CANCELLED` 제외.
-- 알림용으로 전이 대상의 `(bill_id, user_id, billing_period)`를 확보한다 — `UPDATE ... RETURNING` 네이티브 쿼리로 전이된 행을 받아 **연체 알림** fan-out(또는 전이 전 조회→UPDATE→알림; 일 1회 저빈도라 허용).
+- **알림 멱등성**: `UPDATE ... RETURNING (bill_id, user_id, billing_period)` 네이티브 쿼리로 **이번 실행에서 실제 `PENDING`/`PARTIAL_PAID` → `OVERDUE`로 전이된 행만** 받아 연체 알림을 fan-out한다. 이미 `OVERDUE`인 청구는 WHERE에서 제외되어 전이되지 않으므로 **알림이 재발송되지 않는다**(크론 재실행에도 중복 연체 알림 없음).
 
 ### FeeBillSummaryService (대시보드)
 - `getSummary(clubId, actorId, SummaryQuery)`: `requireManager` 후 QueryDSL 집계 — `fee_bill`(필터: club, 옵션 billingPeriod/policy, `deleted_at IS NULL`) 기준 총 청구액·건수, `payment`(ACTIVE) join 으로 수납액, 상태별 건수. 미수금=총−수납, 수납률=수납/총.
 
 ### 알림 (기존 notification 도메인 재사용)
-- **청구 발행 시**: Sprint 1 `GeneralFeeBillService.generateBills`에 fan-out hook을 **추가**한다 — 청구받은 회원들에게 인앱 알림("○○ 동아리 회비(회차) 청구 · 마감 ○○", 링크 `/me/fees`). 기존 알림 fan-out/브로드캐스트 패턴 재사용.
-- **연체 시**: `OverdueBillJob`이 전이된 청구의 회원에게("회비 연체").
-- **납부 확인 시**: `record()`가 회원에게("납부 확인 · 완납/부분").
+`notification` 도메인의 타입 enum에 fee 알림 타입 4종을 추가한다: `FEE_BILL_ISSUED`·`FEE_BILL_OVERDUE`·`FEE_PARTIAL_PAYMENT_CONFIRMED`·`FEE_PAID_CONFIRMED`. 모두 인앱 전용, 링크 `/me/fees`.
+- **청구 발행 시** (`FEE_BILL_ISSUED`): Sprint 1 `GeneralFeeBillService.generateBills`에 fan-out hook을 **추가**한다 — 청구받은 회원들에게 인앱 알림("○○ 동아리 회비(회차) 청구 · 마감 ○○"). 기존 알림 fan-out/브로드캐스트 패턴 재사용.
+- **연체 시** (`FEE_BILL_OVERDUE`): `OverdueBillJob`이 이번 실행에서 전이된 청구의 회원에게만(위 멱등성).
+- **납부 확인 시**: `record()`가 재계산 결과에 따라 — **완납이면 `FEE_PAID_CONFIRMED`**("회비 납부가 완료되었습니다"), **부분이면 `FEE_PARTIAL_PAYMENT_CONFIRMED`**("회비 일부 납부가 확인되었습니다 · 남은 금액 ○○").
 - 알림 생성은 기존 `notification` 도메인의 생성 경로를 그대로 호출한다(구현 시 실제 API 확인). 별도 로그 테이블 없음.
 
 ## 8. 권한 · 예외
@@ -166,18 +170,18 @@ ALTER TABLE payment ENABLE ROW LEVEL SECURITY;
 - `packages/types`: `Payment`·`PaymentMethod`·`FeeBillSummary`·보강된 `FeeBill`/`MyFee`(paidAmount·remainingAmount).
 - `packages/api`: `leader.fees.payments.{record,list,void}` + `leader.fees.summary`.
 - `packages/hooks`: `useBillPaymentsQuery`·`useRecordPaymentMutation`·`useVoidPaymentMutation`·`useClubFeeSummaryQuery` + 무효화.
-- `packages/schemas`: 납부 기록 입력 Zod(금액·수단 enum·납부일·메모).
-- `_lib/feeLabels`: `paymentMethodLabel`(현금/계좌이체/기타) 추가(상태 라벨은 기존 재사용).
+- `packages/schemas`: 납부 기록 입력 Zod(금액·**수단 enum `{CASH,TRANSFER,OTHER}`**·납부일·메모) — `AUTO_MATCHED`는 수동 입력 불가.
+- `_lib/feeLabels`: `paymentMethodLabel`(현금/계좌이체/기타/자동매칭) 추가 — 표시는 4종이나 납부 기록 폼 select 는 수동 3종만(`AUTO_MATCHED`는 Sprint 3 시스템 생성). 상태 라벨은 기존 재사용.
 
 ## 10. 테스트 전략
 
 ### 백엔드 (RestAssured + TestContainers(실 Postgres))
 - 납부 기록 → 상태 산출: 부분→`PARTIAL_PAID`, 완납→`PAID`, 마감 지난 미납/부분→`OVERDUE`.
-- 초과입금 차단(남은액 초과 → 400), 취소된 청구 납부(→ 409).
+- 초과입금 차단(남은액 초과 → 400), 취소된 청구 납부(→ 409), **수동 기록에 `method=AUTO_MATCHED` → 400**(수동 경로 거부).
 - VOID: 취소 후 합계·상태 재계산, **payment 행은 보존되고 `VOIDED` 표시**(내역 조회에 노출), 이미 VOIDED면 멱등.
 - 동시성: 같은 bill에 동시 납부 기록 시 상태 재계산이 직렬화되어 합계·상태가 일관.
 - 연체 크론: 마감 지난 PENDING/PARTIAL_PAID만 OVERDUE 전이, PAID/CANCELLED 제외, 멱등(재실행 무변), 고정 `Clock`로 결정적.
-- 알림: 발행·연체·납부확인 각각 회원 알림이 생성된다(기존 Notification 경로).
+- 알림: 발행(`FEE_BILL_ISSUED`)·연체(`FEE_BILL_OVERDUE`)·납부확인(완납 `FEE_PAID_CONFIRMED` / 부분 `FEE_PARTIAL_PAYMENT_CONFIRMED`) 생성. **연체 알림은 실제 전이된 청구만, 크론 재실행 시 중복 발송 없음**.
 - 대시보드 집계: 수납액=ACTIVE payment 합계, 미수금·수납률·상태별 건수 정확.
 - 권한: 비총무 403, cross-club 404. `IntegrationTestBase` TRUNCATE에 `payment` 추가(자식→부모 순).
 
