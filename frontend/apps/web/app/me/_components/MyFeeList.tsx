@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 
-import { useMyClubsQuery, useMyFeesQuery } from '@duing/hooks';
+import { useMemberFeeAccountQuery, useMyClubsQuery, useMyFeesQuery } from '@duing/hooks';
 import type { FeeStatus, MyFee } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
-import { feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
+import { useToast } from '@/app/_components/toast/ToastProvider';
+import { bankLabel, feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
 
 // 상태별 뱃지 색. 운영진 청구 현황(BillList)과 동일한 팔레트를 사용한다.
 const STATUS_BADGE_CLS: Record<FeeStatus, string> = {
@@ -78,15 +80,82 @@ export function MyFeeList() {
   return (
     <div className="space-y-6">
       {groups.map((group) => (
-        <section key={group.clubId} className="space-y-2">
-          <h2 className="text-sm font-bold text-ink">{group.clubName}</h2>
-          <ul className="space-y-2">
-            {group.bills.map((bill) => (
-              <MyFeeRow key={bill.id} bill={bill} />
-            ))}
-          </ul>
-        </section>
+        <ClubFeeGroup key={group.clubId} group={group} />
       ))}
+    </div>
+  );
+}
+
+type ClubFeeGroupProps = {
+  group: ClubGroup;
+};
+
+// 동아리 1개 그룹. 회비 계좌 조회 훅은 컴포넌트 인스턴스당 1번만 호출해야 하므로(React Hooks 규칙)
+// MyFeeList 의 map 안에서 직접 부르지 않고 그룹 단위 자식 컴포넌트로 분리한다.
+function ClubFeeGroup({ group }: ClubFeeGroupProps) {
+  return (
+    <section className="space-y-2">
+      <h2 className="text-sm font-bold text-ink">{group.clubName}</h2>
+      <FeeAccountNotice clubId={group.clubId} />
+      <ul className="space-y-2">
+        {group.bills.map((bill) => (
+          <MyFeeRow key={bill.id} bill={bill} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+type FeeAccountNoticeProps = {
+  clubId: number;
+};
+
+// 동아리원이 회비를 입금할 납부 계좌 안내. 미등록(404)은 정상적인 빈 상태이므로 에러로 표시하지 않고
+// 옅은 힌트만 노출한다. 로딩 중에는 청구 목록을 막지 않도록 아무것도 그리지 않는다.
+function FeeAccountNotice({ clubId }: FeeAccountNoticeProps) {
+  const { data: account, isLoading } = useMemberFeeAccountQuery(clubId);
+  const { addToast } = useToast();
+  const [copied, setCopied] = useState(false);
+
+  if (isLoading) {
+    return null;
+  }
+
+  // 미등록(404)은 ApiError 로 surface 되어 data 가 비어 있다 — 에러 UI 가 아니라 옅은 안내로 처리한다.
+  if (!account) {
+    return <p className="px-1 text-xs text-charcoal-3">납부 계좌가 등록되지 않았어요.</p>;
+  }
+
+  const copyAccountNumber = async () => {
+    try {
+      await navigator.clipboard.writeText(account.accountNumber);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+      addToast('계좌번호를 복사했어요');
+    } catch {
+      setCopied(false);
+      addToast('계좌번호 복사에 실패했어요', { variant: 'error' });
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-graysoft/40 px-4 py-2.5">
+      <p className="min-w-0 truncate text-xs text-charcoal-2">
+        <span className="font-semibold text-charcoal-3">납부 계좌</span>{' '}
+        {bankLabel(account.bank)} {account.accountNumber} · 예금주 {account.accountHolder}
+      </p>
+      <button
+        type="button"
+        onClick={copyAccountNumber}
+        aria-label="계좌번호 복사"
+        className={cn(
+          'inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors',
+          'text-charcoal-2 hover:bg-sage-tint hover:text-ink',
+        )}
+      >
+        {copied ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
+        {copied ? '복사됨' : '복사'}
+      </button>
     </div>
   );
 }
