@@ -17,7 +17,7 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
 
     Optional<BankTransaction> findByIdAndClubId(Long id, Long clubId);
 
-    Page<BankTransaction> findByClubIdAndMatchStatus(Long clubId, MatchStatus matchStatus, Pageable pageable);
+    Page<BankTransaction> findByClubIdAndMatchStatusOrderByTransactionAtDesc(Long clubId, MatchStatus matchStatus, Pageable pageable);
 
     List<BankTransaction> findByTransactionHashIn(List<String> transactionHashes);
 
