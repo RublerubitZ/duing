@@ -6,28 +6,24 @@ import static org.hamcrest.Matchers.hasSize;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.ClubFixture;
+import com.duing.common.fixture.FeeBillFixture;
+import com.duing.common.fixture.FeePolicyFixture;
+import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
-import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.fee.entity.BillingType;
-import com.duing.domain.fee.entity.FeeBill;
 import com.duing.domain.fee.entity.FeePolicy;
 import com.duing.domain.fee.entity.FeeStatus;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
-import com.duing.domain.user.entity.College;
-import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
-import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,8 +54,6 @@ class LeaderFeeBillQueryControllerTest extends IntegrationTestBase {
     @Autowired
     JwtTokenProvider jwtTokenProvider;
 
-    private final AtomicLong sequence = new AtomicLong(System.nanoTime());
-
     private Long clubId;
     private Long policyId;
     private User memberUser;
@@ -69,42 +63,27 @@ class LeaderFeeBillQueryControllerTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
-        Club club = clubRepository.save(Club.create("동아리A", ClubCategory.ACADEMIC, null, "설명", null));
+        Club club = clubRepository.save(ClubFixture.academic("동아리A"));
         clubId = club.getId();
 
-        User leader = saveUser();
-        memberUser = saveUser();
+        User leader = userRepository.save(UserFixture.unique());
+        memberUser = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         clubMemberRepository.save(ClubMember.of(club, memberUser, ClubMemberRole.MEMBER));
 
-        FeePolicy policy = feePolicyRepository.save(FeePolicy.create(clubId, "회비", 10000L, BillingType.MONTHLY));
+        FeePolicy policy = feePolicyRepository.save(FeePolicyFixture.of(clubId, BillingType.MONTHLY, 10000L));
         policyId = policy.getId();
 
         leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
         memberToken = jwtTokenProvider.createToken(memberUser.getId(), memberUser.getRole().name());
     }
 
-    private User saveUser() {
-        long seq = sequence.incrementAndGet();
-        return userRepository.save(User.create("20" + seq, "U" + seq,
-                "u" + seq + "@duing.ac.kr", "h", UserRole.STUDENT,
-                Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
-    }
-
     private Long saveUserId() {
-        return saveUser().getId();
+        return userRepository.save(UserFixture.unique()).getId();
     }
 
     private void saveBill(Long clubIdValue, Long userId, String period, FeeStatus status) {
-        // billingStartDate 를 "YYYY-MM" 회차에서 파생해 (fee_policy_id, user_id, billing_start_date) 유니크
-        // 인덱스가 회차별로 달라지게 한다(같은 회원의 여러 회차 저장 시 충돌 방지).
-        LocalDate start = LocalDate.parse(period + "-01");
-        LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
-        FeeBill bill = FeeBill.issue(clubIdValue, userId, policyId, 10000L, period, start, end, end);
-        if (status == FeeStatus.CANCELLED) {
-            bill.cancel();
-        }
-        feeBillRepository.save(bill);
+        feeBillRepository.save(FeeBillFixture.withStatus(clubIdValue, userId, policyId, period, status));
     }
 
     @Test

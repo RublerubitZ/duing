@@ -5,8 +5,10 @@ import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.ClubFixture;
+import com.duing.common.fixture.FeePolicyFixture;
+import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
-import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
@@ -17,10 +19,7 @@ import com.duing.domain.fee.entity.FeePolicy;
 import com.duing.domain.fee.entity.FeeStatus;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
-import com.duing.domain.user.entity.College;
-import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
-import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
@@ -28,7 +27,6 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,7 +37,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -93,8 +90,6 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     @Autowired
     TransactionTemplate transactionTemplate;
 
-    private final AtomicLong sequence = new AtomicLong(System.nanoTime());
-
     private String leaderToken;
     private String memberToken;
     private Long clubId;
@@ -102,12 +97,11 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
-        Club club = clubRepository.save(Club.create("동아리A",
-                ClubCategory.ACADEMIC, null, "설명", null));
+        Club club = clubRepository.save(ClubFixture.academic("동아리A"));
         clubId = club.getId();
 
-        User leader = saveUser();
-        User member = saveUser();
+        User leader = userRepository.save(UserFixture.unique());
+        User member = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         clubMemberRepository.save(ClubMember.of(club, member, ClubMemberRole.MEMBER));
 
@@ -115,19 +109,12 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         memberToken = jwtTokenProvider.createToken(member.getId(), member.getRole().name());
     }
 
-    private User saveUser() {
-        long seq = sequence.incrementAndGet();
-        return userRepository.save(User.create("20" + seq, "U" + seq,
-                "u" + seq + "@duing.ac.kr", "h", UserRole.STUDENT,
-                Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
-    }
-
     /** clubId 동아리에 활성 회원 count 명을 추가로 만든다(setUp 의 leader+member 와 별개). */
     private List<Long> addActiveMembers(int count) {
         Club club = clubRepository.findById(clubId).orElseThrow();
         List<Long> userIds = new ArrayList<>();
         for (int index = 0; index < count; index++) {
-            User user = saveUser();
+            User user = userRepository.save(UserFixture.unique());
             clubMemberRepository.save(ClubMember.asMember(club, user));
             userIds.add(user.getId());
         }
@@ -135,13 +122,11 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     }
 
     private FeePolicy savePolicy(BillingType billingType, long amount) {
-        return feePolicyRepository.save(FeePolicy.create(clubId, "회비", amount, billingType));
+        return feePolicyRepository.save(FeePolicyFixture.of(clubId, billingType, amount));
     }
 
     private FeePolicy saveInactivePolicy() {
-        FeePolicy policy = FeePolicy.create(clubId, "비활성 회비", 10000L, BillingType.MONTHLY);
-        policy.update(null, null, null, false);
-        return feePolicyRepository.save(policy);
+        return feePolicyRepository.save(FeePolicyFixture.inactive(clubId));
     }
 
     private Map<String, Object> monthlyBody(String billingPeriod) {
@@ -310,10 +295,9 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         // HTTP 발행은 actor 가 requireManager 를 통과해야 하고 매니저 본인도 활성 회원이라
         // '활성 0명' 은 HTTP 경로로는 도달 불가능하다. 발행 SQL(bulkInsertBills) 자체를
         // 멤버가 전혀 없는 club 에 직접 실행해 created=0·skipped=0(클램프) 산출을 검증한다(Sprint 2 cron 경로).
-        Club emptyClub = clubRepository.save(Club.create("빈 동아리",
-                ClubCategory.ACADEMIC, null, "설명", null));
+        Club emptyClub = clubRepository.save(ClubFixture.academic("빈 동아리"));
         FeePolicy policy = feePolicyRepository.save(
-                FeePolicy.create(emptyClub.getId(), "회비", 10000L, BillingType.MONTHLY));
+                FeePolicyFixture.of(emptyClub.getId(), BillingType.MONTHLY, 10000L));
 
         int created = transactionTemplate.execute(status -> feeBillRepository.bulkInsertBills(
                 emptyClub.getId(), policy.getId(), 10000L, "2026-07",
@@ -330,13 +314,12 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     @DisplayName("활성 회원이 매니저 1명뿐인 동아리 발행은 created=1 skipped=0 이다")
     void onlyManagerMember() {
         // 활성 회원이 매니저 1명뿐이면 created=1·skipped=0 (DB INSERT...SELECT 가 활성 회원 전원 대상)
-        Club soloClub = clubRepository.save(Club.create("1인 동아리",
-                ClubCategory.ACADEMIC, null, "설명", null));
-        User soloManager = saveUser();
+        Club soloClub = clubRepository.save(ClubFixture.academic("1인 동아리"));
+        User soloManager = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(soloClub, soloManager));
         String token = jwtTokenProvider.createToken(soloManager.getId(), soloManager.getRole().name());
         FeePolicy policy = feePolicyRepository.save(
-                FeePolicy.create(soloClub.getId(), "회비", 10000L, BillingType.MONTHLY));
+                FeePolicyFixture.of(soloClub.getId(), BillingType.MONTHLY, 10000L));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
@@ -460,13 +443,12 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     void concurrentReissueAfterCancel() throws Exception {
         // 활성 회원 1명(member)만 두기 위해 setUp 의 leader 멤버십은 매니저로 유지하되,
         // 매니저(leader)도 활성 회원이므로 대상은 leader+member 2명. 단순화를 위해 1인 동아리로 재구성한다.
-        Club soloClub = clubRepository.save(Club.create("재발행 동아리",
-                ClubCategory.ACADEMIC, null, "설명", null));
-        User soloManager = saveUser();
+        Club soloClub = clubRepository.save(ClubFixture.academic("재발행 동아리"));
+        User soloManager = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(soloClub, soloManager));
         String token = jwtTokenProvider.createToken(soloManager.getId(), soloManager.getRole().name());
         FeePolicy policy = feePolicyRepository.save(
-                FeePolicy.create(soloClub.getId(), "회비", 10000L, BillingType.MONTHLY));
+                FeePolicyFixture.of(soloClub.getId(), BillingType.MONTHLY, 10000L));
 
         // 1건 발행 → cancel
         RestAssured.given()
@@ -525,13 +507,12 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         // 없이 두 작업이 완료되고 (2) 활성 청구 ≤ 1 이며 (3) 단발 재발행이 항상 정확히 1건으로 복구
         // (= 청구는 영구 소실되지 않는다) 함을 여러 라운드 반복으로 검증한다.
         // 단일 사용자(1인 동아리)로 (policy,user,period) 를 한 키로 고정해 결정적으로 만든다.
-        Club soloClub = clubRepository.save(Club.create("동시 취소·재발행 동아리",
-                ClubCategory.ACADEMIC, null, "설명", null));
-        User soloManager = saveUser();
+        Club soloClub = clubRepository.save(ClubFixture.academic("동시 취소·재발행 동아리"));
+        User soloManager = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(soloClub, soloManager));
         String token = jwtTokenProvider.createToken(soloManager.getId(), soloManager.getRole().name());
         FeePolicy policy = feePolicyRepository.save(
-                FeePolicy.create(soloClub.getId(), "회비", 10000L, BillingType.MONTHLY));
+                FeePolicyFixture.of(soloClub.getId(), BillingType.MONTHLY, 10000L));
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
