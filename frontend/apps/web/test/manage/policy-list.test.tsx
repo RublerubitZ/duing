@@ -62,7 +62,7 @@ describe('PolicyList', () => {
   it('활성 토글을 누르면 active 를 반전하여 update 뮤테이션을 호출한다', () => {
     mockUseClubFeePoliciesQuery.mockReturnValue({ data: [buildPolicy({ active: true })], isLoading: false });
     render(<PolicyList clubId={1} />);
-    fireEvent.click(screen.getByRole('switch', { name: /활성 상태/ }));
+    fireEvent.click(screen.getByRole('switch', { name: /활성화/ }));
     expect(mockUpdateMutate).toHaveBeenCalledWith(
       { policyId: 1, payload: { active: false } },
       expect.any(Object),

@@ -100,45 +100,52 @@ function PolicyRow({ clubId, policy, onEdit, onDelete }: PolicyRowProps) {
   };
 
   return (
-    <li className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
+    <li
+      className={cn(
+        'flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3 transition-opacity',
+        !policy.active && 'opacity-60',
+      )}
+    >
       <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-semibold text-ink">{policy.name}</p>
-          <span
-            className={cn(
-              'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
-              policy.active ? 'bg-sage/20 text-sage' : 'bg-graysoft text-charcoal-3',
-            )}
-          >
-            {policy.active ? '활성' : '비활성'}
-          </span>
-        </div>
+        <p className="truncate text-sm font-semibold text-ink">{policy.name}</p>
         <p className="mt-0.5 text-xs text-charcoal-3">
           {billingTypeLabel(policy.billingType)} · {formatWon(policy.amount)}
         </p>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={policy.active}
-          aria-label={`${policy.name} 활성 상태`}
-          disabled={updatePolicy.isPending}
-          onClick={toggleActive}
-          className={cn(
-            'relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50',
-            policy.active ? 'bg-ink' : 'bg-line',
-          )}
-        >
+      <div className="flex shrink-0 items-center gap-3">
+        <span className="flex items-center gap-2">
           <span
-            aria-hidden
             className={cn(
-              'absolute top-0.5 h-5 w-5 rounded-full bg-paper transition-transform',
-              policy.active ? 'translate-x-[22px]' : 'translate-x-0.5',
+              'text-xs font-medium tabular-nums',
+              policy.active ? 'text-sage' : 'text-charcoal-3',
             )}
-          />
-        </button>
+          >
+            {policy.active ? '활성' : '비활성'}
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={policy.active}
+            aria-label={`${policy.name} 활성화`}
+            disabled={updatePolicy.isPending}
+            onClick={toggleActive}
+            className={cn(
+              'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+              policy.active ? 'bg-sage' : 'bg-charcoal-3/30',
+            )}
+          >
+            <span
+              aria-hidden
+              className={cn(
+                'absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-paper shadow-sm transition-transform',
+                policy.active && 'translate-x-4',
+              )}
+            />
+          </button>
+        </span>
+        <span className="h-4 w-px bg-line" aria-hidden />
         <button
           type="button"
           onClick={onEdit}
