@@ -14,7 +14,7 @@ Sprint 1~3(청구·납부·연체·알림·대시보드·BANK 자동매칭) 위�
 ## 2. 핵심 결정 (합의됨)
 
 - **영수증 = 프론트 인쇄용**(서버 PDF 생성·저장 안 함). 백엔드는 영수증 데이터만 주고, 프론트가 인쇄 전용 화면 + `window.print()`로 PDF 저장. → PDF 라이브러리·파일 저장소·인터페이스 변경 불필요.
-- **영수증 단위 = `fee_bill`**. ACTIVE 납부가 1건 이상인 청구에만 발급.
+- **영수증 단위 = `fee_bill`**. **발급 조건 = ACTIVE 납부 합계 > 0 (≥1건) AND status ≠ CANCELLED**. → PAID·PARTIAL_PAID 항상 발급, **OVERDUE도 부분 납부가 있으면 발급**(늦게라도 낸 회원의 증빙), PENDING·미납 OVERDUE(납부 0)·CANCELLED은 불가. (취소 청구는 Sprint 2 취소가 납부를 void하지 않아 ACTIVE payment가 남을 수 있으므로 `status ≠ CANCELLED`로 명시 제외.)
 - **영수증 번호 = `RCP-{YYYYMM}-{billId}`** (예: `RCP-202607-12345`). `YYYYMM`은 항상 값이 있는 `billing_start_date`에서 도출(MONTHLY 외 타입도 안전). 청구 id 직접 노출보다 식별성 우선.
 - **자동발행은 MONTHLY 정책 한정 opt-in**. 정책에 `auto_issue` + `issue_day`(발행일) + `due_day`(마감일) 추가.
 - **크론 발행 조건 = `오늘 >= issue_day` (그 달 캐치업)**. `== issue_day` 가 아니다 — 서버가 발행일 하루 죽으면 그 달 발행이 영구 누락되므로, `>=` + **기존 ON CONFLICT 멱등 발행**(이미 발행이면 created=0·재발송 없음)으로 며칠 장애 뒤에도 그 달 안에서 자동으로 따라잡는다.
@@ -54,6 +54,7 @@ ReceiptResponse(
   amount,          // 청구액
   paidTotal,       // ACTIVE 납부 합계
   remaining,       // amount - paidTotal
+  paymentCount,    // ACTIVE 납부 건수(= payments.length). "총 N회 납부" 표시용
   status,          // FeeStatus (완납/부분 등)
   issuedAt,        // 발급 시각(now)
   payments: [ { amount, method, paidAt, memo } ]   // ACTIVE 납부 내역(VOIDED 제외)
@@ -63,14 +64,14 @@ ReceiptResponse(
 ### 6. API
 - `GET /api/v1/me/fees/{billId}/receipt` (회원 본인) → 200 `ApiResponse<ReceiptResponse>`. 본인 청구가 아니면 404(타인 청구 존재 비노출).
 - `GET /api/v1/leader/clubs/{clubId}/fee-bills/{billId}/receipt` (총무 LEADER/OFFICER) → 200. `requireManager` + 청구가 그 동아리 소속(아니면 404).
-- 두 경우 모두 **ACTIVE 납부가 0건이면 404**(`ReceiptUnavailableException`, "납부 내역이 없어 영수증을 발급할 수 없습니다."). CANCELLED 청구도 동일(납부 없음).
+- 두 경우 모두 **ACTIVE 납부가 0건이거나 status=CANCELLED 이면 404**(`ReceiptUnavailableException`, "납부 내역이 없어 영수증을 발급할 수 없습니다."). → PAID·PARTIAL_PAID·**부분 납부가 있는 OVERDUE**는 발급 가능(늦게라도 낸 회원의 증빙), 미납 OVERDUE(납부 0)·PENDING·CANCELLED은 불가.
 
 ### 7. 도메인 서비스 (영수증)
 `ReceiptService`(interface) + `GeneralReceiptService`: `ReceiptView getMemberReceipt(Long userId, Long billId)` / `ReceiptView getClubReceipt(Long clubId, Long actorId, Long billId)`.
 - 청구 조회(본인/동아리 격리), ACTIVE 납부 목록(`PaymentRepository.findByFeeBillIdOrderByCreatedAtAsc` 중 ACTIVE만, 또는 전용 조회), 회원명/정책명/동아리명 조인.
-- ACTIVE 납부 0건 → `ReceiptUnavailableException`(404).
+- **발급 불가 → `ReceiptUnavailableException`(404)**: ACTIVE 납부 0건 **또는** `status == CANCELLED`. (PAID·PARTIAL_PAID·부분 납부 있는 OVERDUE는 발급.)
 - `receiptNumber` = `"RCP-" + billingStartDate.format("yyyyMM") + "-" + billId`.
-- `paidTotal` = ACTIVE 납부 합계(`PaymentRepository.sumActiveByFeeBillId` 재사용), `remaining` = amount − paidTotal.
+- `paidTotal` = ACTIVE 납부 합계(`PaymentRepository.sumActiveByFeeBillId` 재사용), `remaining` = amount − paidTotal, `paymentCount` = ACTIVE 납부 목록 size.
 
 ### 8. 프론트 (영수증)
 - `packages/types`: `Receipt`(위 응답 1:1), `packages/api`: `my.feeReceipt(billId)` / `leader.fees.receipt(clubId, billId)`, `packages/hooks`: `useMyFeeReceiptQuery(billId)` / `useClubFeeReceiptQuery(clubId, billId)`.
@@ -99,9 +100,10 @@ ALTER TABLE fee_policy ADD CONSTRAINT ck_fee_policy_auto_issue CHECK (
 (`SMALLINT` ↔ Java `Integer` nullable. 1~28 제한으로 말일·달 길이 엣지 회피.)
 
 ### 10. opt-in 검증 (정책 생성/수정)
-`FeePolicy`에 `autoIssue`/`issueDay`/`dueDay` 필드 + 설정 메서드. 정책 수정 API(`UpdateFeePolicyRequest`)에 세 필드를 추가하고, 서비스에서 검증:
+`FeePolicy`에 `autoIssue`/`issueDay`/`dueDay` 필드 + 설정 메서드. **정책 생성(`CreateFeePolicyRequest`)·수정(`UpdateFeePolicyRequest`) 양쪽에** 세 필드를 추가하고, **공유 검증 로직**(`validateAutoIssue(billingType, autoIssue, issueDay, dueDay)`)으로 생성·수정 모두 동일하게 검증:
 - `autoIssue=true`면 `billingType == MONTHLY`(아니면 `AutoIssueNotMonthlyException` 400), `issueDay`/`dueDay` 1~28, **`dueDay >= issueDay`**(아니면 `InvalidIssueScheduleException` 400, "마감일은 발행일과 같거나 이후여야 합니다.").
-- `autoIssue=false`면 `issueDay`/`dueDay`는 무시(null 허용). DB CHECK 가 최종 가드.
+- `autoIssue=false`(또는 생성 시 미지정 → 기본 false)면 `issueDay`/`dueDay`는 무시(null 허용). DB CHECK 가 최종 가드.
+- 생성 예: `{ "name":"월 회비", "amount":10000, "billingType":"MONTHLY", "autoIssue":true, "issueDay":5, "dueDay":20 }` → 정책 생성과 동시에 자동발행 활성(운영 UX 단순화).
 
 ### 11. 크론 — MonthlyBillIssueJob
 Sprint 3 `FeeJobConfig`/`OverdueBillJob` 패턴.
@@ -121,26 +123,29 @@ Sprint 3 `FeeJobConfig`/`OverdueBillJob` 패턴.
 - `created > 0`이면 Sprint 3 `FeeBillsIssuedEvent` 발행(발행 알림 fan-out, AFTER_COMMIT). created=0이면 이벤트 없음(재알림 방지) — 기존 `generate`의 `created>0` 가드와 동일.
 
 ### 13. API (자동발행 설정)
-신규 엔드포인트 없음 — 기존 정책 수정(`PATCH /leader/clubs/{clubId}/fee-policies/{policyId}`)에 `autoIssue`/`issueDay`/`dueDay`를 추가한다. 생성(`POST`)에도 선택적으로 받을 수 있으나, MVP는 **수정에서만** 설정(생성은 기존 그대로, 이후 수정으로 자동발행 켜기)해도 충분 — 구현 단순. (생성에도 추가할지는 구현 시 기존 폼 구조 보고 결정; 검증 로직은 공유.)
+신규 엔드포인트 없음 — **기존 두 엔드포인트에 `autoIssue`/`issueDay`/`dueDay`를 추가**한다:
+- `POST /leader/clubs/{clubId}/fee-policies` (생성) — 세 필드 선택 입력. 미지정 시 `autoIssue=false`(기존 동작 유지).
+- `PATCH /leader/clubs/{clubId}/fee-policies/{policyId}` (수정) — 세 필드로 자동발행 켜기/끄기·일자 변경.
+- 두 경로 모두 §10의 공유 검증(`validateAutoIssue`)을 거친다. 생성 한 번에 자동발행 정책을 만들 수 있어 운영 UX가 단순해진다.
 
 ### 14. 프론트 (자동발행 설정)
-- `packages/types`: `FeePolicy`/`UpdateFeePolicyPayload`에 `autoIssue`/`issueDay`/`dueDay` 추가. `packages/schemas`: 정책 수정 스키마에 세 필드 + `dueDay >= issueDay` superRefine 검증(MONTHLY일 때만).
-- 정책 수정 폼(`CreatePolicyDialog`/정책 편집): **billingType이 MONTHLY일 때만** "매월 자동 발행" 토글 노출 → 켜면 발행일(1~28)·마감일(1~28) 입력. 마감일 < 발행일이면 폼 검증 에러.
+- `packages/types`: `FeePolicy`/`CreateFeePolicyPayload`/`UpdateFeePolicyPayload`에 `autoIssue`/`issueDay`/`dueDay` 추가. `packages/schemas`: 정책 생성·수정 스키마 양쪽에 세 필드 + `dueDay >= issueDay` superRefine 검증(MONTHLY·autoIssue=true일 때만, 공유 refine 함수).
+- 정책 생성·수정 폼(`CreatePolicyDialog`/정책 편집): **billingType이 MONTHLY일 때만** "매월 자동 발행" 토글 노출 → 켜면 발행일(1~28)·마감일(1~28) 입력. 마감일 < 발행일이면 폼 검증 에러. 생성 폼에서도 동일하게 토글·일자 입력 가능.
 - 정책 목록(`PolicyList`)에 자동발행 ON 정책은 "자동발행 매월 N일" 배지 표시(선택).
 
 ---
 
 ## 15. 권한 · 예외
 
-- **영수증**: 회원 API는 본인 청구만(타인 → 404). 총무 API는 `requireManager` + 동아리 격리(타 동아리 청구 → 404). ACTIVE 납부 0 → 404 `ReceiptUnavailableException`.
+- **영수증**: 회원 API는 본인 청구만(타인 → 404). 총무 API는 `requireManager` + 동아리 격리(타 동아리 청구 → 404). ACTIVE 납부 0건 또는 CANCELLED → 404 `ReceiptUnavailableException`.
 - **자동발행 설정**: 정책 수정은 기존 `requireManager`. 검증 예외 `AutoIssueNotMonthlyException`(400)·`InvalidIssueScheduleException`(400, due<issue).
 - **크론**: 권한 주체 없음(시스템). `MonthlyBillIssueJob`은 플래그로만 활성. 발행은 정책의 club_id 범위 내에서만.
 - 예외는 풀네임 inner(`{Domain}Exception`) 컨벤션.
 
 ## 16. 테스트
 
-- **영수증(통합)**: ACTIVE 납부 있는 청구 → 영수증 데이터(번호 `RCP-202607-{id}`·납부합계·잔액·납부내역) 정확; VOIDED 납부는 내역·합계에서 제외; 납부 0건/CANCELLED → 404; 타인 청구(회원)·타 동아리(총무) → 404; 비총무 → 403.
-- **자동발행 검증(단위/통합)**: `autoIssue=true` + 비-MONTHLY → 400; `dueDay < issueDay` → 400; 유효 설정 저장.
+- **영수증(통합)**: ACTIVE 납부 있는 청구 → 영수증 데이터(번호 `RCP-202607-{id}`·납부합계·잔액·`paymentCount`·납부내역) 정확; VOIDED 납부는 내역·합계·`paymentCount`에서 제외; **부분 납부 후 마감 경과(OVERDUE)인데 ACTIVE 납부 있음 → 200 발급**(의도 검증); 납부 0건(PENDING/미납 OVERDUE) → 404; **CANCELLED은 ACTIVE 납부가 있어도 → 404**; 타인 청구(회원)·타 동아리(총무) → 404; 비총무 → 403.
+- **자동발행 검증(단위/통합)**: `autoIssue=true` + 비-MONTHLY → 400; `dueDay < issueDay` → 400; 유효 설정 저장; **생성(POST)·수정(PATCH) 양쪽에서 동일 검증·저장**.
 - **크론(통합)**: 고정 Clock. `today.day >= issue_day`인 활성 MONTHLY auto_issue 정책 → 그 달 청구 발행(회원 수만큼, FEE_BILL_ISSUED 알림); `today.day < issue_day` → 미발행; **재실행 멱등**(2회 실행에도 청구·알림 중복 없음 = 캐치업 안전); 비활성/비-MONTHLY/auto_issue 꺼짐 정책 제외; 마감일 과거인 캐치업 발행도 성공(과거 검증 미적용). BANK/외부 호출 없음.
 - 백엔드: RestAssured + TestContainers. 크론은 `@SpringBootTest(properties="duing.fee.auto-issue.enabled=true")` + 잡 직접 호출(Sprint 3 OverdueBillJobTest 패턴).
 
@@ -154,7 +159,7 @@ Sprint 3 `FeeJobConfig`/`OverdueBillJob` 패턴.
 3. `feat(frontend)`: 영수증 인쇄용 페이지 + /me·총무 진입 버튼 + 인쇄 CSS.
 
 **자동발행**
-4. `feat(backend)`: V65(fee_policy auto_issue/issue_day/due_day + CHECK) + FeePolicy 필드·검증 + 정책 수정 API 확장 + 테스트.
+4. `feat(backend)`: V65(fee_policy auto_issue/issue_day/due_day + CHECK) + FeePolicy 필드·공유 검증 + 정책 생성(POST)·수정(PATCH) API 확장 + 테스트.
 5. `feat(backend)`: `autoIssueMonthly` 발행 경로 + `MonthlyBillIssueJob` + `FeeAutoIssueJobConfig` + env 플래그 + 멱등/캐치업 테스트.
 6. `feat(frontend)`: 정책 폼 자동발행 토글·발행일·마감일(MONTHLY 한정) + 스키마 검증 + 테스트.
 
