@@ -45,4 +45,12 @@ public class FeeBillException extends ApplicationException {
             return new InvalidBillingPeriodException(DUE_IN_PAST_MESSAGE, "DUE_DATE_IN_PAST");
         }
     }
+
+    public static class ReceiptUnavailableException extends FeeBillException {
+        private static final String MESSAGE = "납부 내역이 없어 영수증을 발급할 수 없습니다.";
+
+        public ReceiptUnavailableException() {
+            super(MESSAGE, HttpStatus.NOT_FOUND);
+        }
+    }
 }

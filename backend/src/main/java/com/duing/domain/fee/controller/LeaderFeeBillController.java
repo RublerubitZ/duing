@@ -4,8 +4,10 @@ import com.duing.domain.fee.api.LeaderFeeBillApi;
 import com.duing.domain.fee.controller.dto.request.GenerateBillsRequest;
 import com.duing.domain.fee.controller.dto.response.FeeBillResponse;
 import com.duing.domain.fee.controller.dto.response.GenerateBillsResponse;
+import com.duing.domain.fee.controller.dto.response.ReceiptResponse;
 import com.duing.domain.fee.entity.FeeStatus;
 import com.duing.domain.fee.service.FeeBillService;
+import com.duing.domain.fee.service.ReceiptService;
 import com.duing.domain.fee.service.dto.query.BillSearchQuery;
 import com.duing.domain.fee.service.dto.query.GenerateBillsResult;
 import com.duing.global.auth.UserPrincipal;
@@ -32,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class LeaderFeeBillController implements LeaderFeeBillApi {
 
     private final FeeBillService feeBillService;
+    private final ReceiptService receiptService;
 
     @Override
     public ResponseEntity<ApiResponse<GenerateBillsResponse>> generate(
@@ -68,5 +71,15 @@ public class LeaderFeeBillController implements LeaderFeeBillApi {
     ) {
         feeBillService.cancel(clubId, currentUser.id(), billId);
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<ReceiptResponse>> getReceipt(
+            @PathVariable Long clubId,
+            @PathVariable Long billId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        ReceiptResponse receipt = receiptService.getClubReceipt(clubId, currentUser.id(), billId);
+        return ResponseEntity.ok(ApiResponse.success(receipt));
     }
 }
