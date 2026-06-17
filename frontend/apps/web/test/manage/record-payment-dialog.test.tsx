@@ -57,16 +57,18 @@ describe('RecordPaymentDialog', () => {
     mockRecordPending = false;
   });
 
-  it('기본 납부 금액은 남은 미납액으로 채워진다', () => {
-    render(<RecordPaymentDialog clubId={1} bill={buildBill()} onClose={() => {}} />);
+  it('기본 납부 금액은 남은 미납액으로 채워지고 설명에 회원 이름이 보인다', () => {
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="김민지" onClose={() => {}} />);
     const amountInput = screen.getByLabelText(/납부 금액/);
     expect(amountInput).toHaveValue(6000);
     expect(screen.getByText(/남은 미납액 6,000원/)).toBeInTheDocument();
+    // 설명에 `회원 #id` 대신 전달받은 이름이 노출된다.
+    expect(screen.getByText(/김민지 · 2026-07 청구에 납부 내역을 기록합니다\./)).toBeInTheDocument();
   });
 
   it('납부 수단을 선택하고 제출하면 폼 페이로드로 기록 뮤테이션을 호출한다', async () => {
     const user = userEvent.setup();
-    render(<RecordPaymentDialog clubId={1} bill={buildBill()} onClose={() => {}} />);
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="김민지" onClose={() => {}} />);
 
     await user.selectOptions(screen.getByLabelText(/납부 수단/), 'TRANSFER');
     await user.click(screen.getByRole('button', { name: '기록' }));
@@ -84,7 +86,7 @@ describe('RecordPaymentDialog', () => {
     mockRecordMutate.mockImplementation(
       (_payload: unknown, options: { onSuccess: () => void }) => options.onSuccess(),
     );
-    render(<RecordPaymentDialog clubId={1} bill={buildBill()} onClose={onClose} />);
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="김민지" onClose={onClose} />);
 
     await user.click(screen.getByRole('button', { name: '기록' }));
 
@@ -94,13 +96,13 @@ describe('RecordPaymentDialog', () => {
 
   it('ApiError(400) 메시지를 에러 배너로 노출한다', () => {
     mockRecordError = new MockApiError(400, '납부 금액이 남은 미납액을 초과합니다.');
-    render(<RecordPaymentDialog clubId={1} bill={buildBill()} onClose={() => {}} />);
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="김민지" onClose={() => {}} />);
     expect(screen.getByText('납부 금액이 남은 미납액을 초과합니다.')).toBeInTheDocument();
   });
 
   it('금액이 0/음수면 검증에서 막히고 뮤테이션을 호출하지 않는다', async () => {
     const user = userEvent.setup();
-    render(<RecordPaymentDialog clubId={1} bill={buildBill()} onClose={() => {}} />);
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="김민지" onClose={() => {}} />);
 
     const amountInput = screen.getByLabelText(/납부 금액/);
     await user.clear(amountInput);

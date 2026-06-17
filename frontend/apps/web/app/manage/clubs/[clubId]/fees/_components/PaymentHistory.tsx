@@ -20,6 +20,7 @@ import { formatWon, paymentMethodLabel } from '@/app/_lib/feeLabels';
 type PaymentHistoryProps = {
   clubId: number;
   bill: FeeBill;
+  memberName: string;
   onClose: () => void;
 };
 
@@ -28,7 +29,7 @@ function paidDate(paidAt: string): string {
   return paidAt.slice(0, 10);
 }
 
-export function PaymentHistory({ clubId, bill, onClose }: PaymentHistoryProps) {
+export function PaymentHistory({ clubId, bill, memberName, onClose }: PaymentHistoryProps) {
   const { data: payments, isLoading } = useBillPaymentsQuery(clubId, bill.id);
   const [voidTarget, setVoidTarget] = useState<Payment | null>(null);
 
@@ -36,7 +37,7 @@ export function PaymentHistory({ clubId, bill, onClose }: PaymentHistoryProps) {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>납부 내역 · 회원 #{bill.userId}</DialogTitle>
+          <DialogTitle>납부 내역 · {memberName}</DialogTitle>
           <DialogDescription className="text-sm text-charcoal-2">
             {bill.billingPeriod} 청구의 납부 기록입니다. 취소된 기록도 함께 표시됩니다.
           </DialogDescription>

@@ -24,6 +24,7 @@ import { formatWon, paymentMethodLabel } from '@/app/_lib/feeLabels';
 type RecordPaymentDialogProps = {
   clubId: number;
   bill: FeeBill;
+  memberName: string;
   onClose: () => void;
 };
 
@@ -43,7 +44,12 @@ function todayLocalDate(): string {
   return `${year}-${month}-${day}`;
 }
 
-export function RecordPaymentDialog({ clubId, bill, onClose }: RecordPaymentDialogProps) {
+export function RecordPaymentDialog({
+  clubId,
+  bill,
+  memberName,
+  onClose,
+}: RecordPaymentDialogProps) {
   const recordPayment = useRecordPaymentMutation(clubId, bill.id);
   const { addToast } = useToast();
 
@@ -86,7 +92,7 @@ export function RecordPaymentDialog({ clubId, bill, onClose }: RecordPaymentDial
         <DialogHeader>
           <DialogTitle>납부 기록</DialogTitle>
           <DialogDescription className="text-sm text-charcoal-2">
-            회원 #{bill.userId} · {bill.billingPeriod} 청구에 납부 내역을 기록합니다.
+            {memberName} · {bill.billingPeriod} 청구에 납부 내역을 기록합니다.
           </DialogDescription>
         </DialogHeader>
 

@@ -1,9 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { useCancelBillMutation, useClubFeeBillsQuery } from '@duing/hooks';
-import type { BillSearchParams, FeeBill, FeeStatus } from '@duing/types';
+import {
+  useCancelBillMutation,
+  useClubFeeBillsQuery,
+  useClubMembersQuery,
+} from '@duing/hooks';
+import type { BillSearchParams, ClubMember, FeeBill, FeeStatus } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -39,22 +43,69 @@ const STATUS_BADGE_CLS: Record<FeeStatus, string> = {
 const inputCls =
   'rounded-md border border-line px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 
+// 회원 검색 드롭다운에 한 번에 보여줄 최대 결과 수.
+const MEMBER_SEARCH_LIMIT = 8;
+
 export function BillList({ clubId }: BillListProps) {
   const [page, setPage] = useState(0);
   const [statusFilter, setStatusFilter] = useState<FeeStatus | ''>('');
   const [periodFilter, setPeriodFilter] = useState('');
+  const [selectedMember, setSelectedMember] = useState<ClubMember | null>(null);
+  const [memberQuery, setMemberQuery] = useState('');
+
+  const { data: members } = useClubMembersQuery(clubId);
+
+  // userId → ClubMember 매핑. 청구 행/다이얼로그에서 이름·학번을 빠르게 조회한다.
+  const memberByUserId = useMemo(() => {
+    const map = new Map<number, ClubMember>();
+    for (const member of members ?? []) {
+      map.set(member.userId, member);
+    }
+    return map;
+  }, [members]);
+
+  const memberOf = (userId: number): ClubMember | undefined => memberByUserId.get(userId);
+  // 표시용 라벨 — 회원을 못 찾으면(탈퇴 등) `회원 #id` 로 폴백한다.
+  const memberLabel = (userId: number): string => memberOf(userId)?.name ?? `회원 #${userId}`;
+
+  // 이름·학번 부분 일치(대소문자 무시) 검색 결과. 비어 있는 질의는 빈 배열.
+  const memberSearchResults = useMemo(() => {
+    const query = memberQuery.trim().toLowerCase();
+    if (!query) {
+      return [];
+    }
+    return (members ?? [])
+      .filter(
+        (member) =>
+          member.name.toLowerCase().includes(query) ||
+          member.studentId.toLowerCase().includes(query),
+      )
+      .slice(0, MEMBER_SEARCH_LIMIT);
+  }, [members, memberQuery]);
 
   const params: BillSearchParams = {
     page,
     size: PAGE_SIZE,
     ...(statusFilter ? { status: statusFilter } : {}),
     ...(periodFilter.trim() ? { billingPeriod: periodFilter.trim() } : {}),
+    ...(selectedMember ? { userId: selectedMember.userId } : {}),
   };
 
   const { data: bills, isLoading } = useClubFeeBillsQuery(clubId, params);
   const [cancelTarget, setCancelTarget] = useState<FeeBill | null>(null);
   const [recordTarget, setRecordTarget] = useState<FeeBill | null>(null);
   const [historyTarget, setHistoryTarget] = useState<FeeBill | null>(null);
+
+  const selectMember = (member: ClubMember) => {
+    setSelectedMember(member);
+    setMemberQuery('');
+    setPage(0);
+  };
+
+  const clearMember = () => {
+    setSelectedMember(null);
+    setPage(0);
+  };
 
   const page0Based = bills?.page ?? 0;
   const totalPages = bills?.totalPages ?? 0;
@@ -103,6 +154,52 @@ export function BillList({ clubId }: BillListProps) {
             ))}
           </select>
         </div>
+        <div className="relative flex flex-col gap-1">
+          <span className="text-xs font-semibold text-charcoal-2">회원</span>
+          {selectedMember ? (
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-graysoft px-3 py-2 text-sm text-ink">
+              {selectedMember.name} · {selectedMember.studentId}
+              <button
+                type="button"
+                aria-label="회원 필터 해제"
+                onClick={clearMember}
+                className="text-charcoal-3 transition-colors hover:text-coral"
+              >
+                ×
+              </button>
+            </span>
+          ) : (
+            <>
+              <input
+                type="text"
+                aria-label="회원 검색"
+                placeholder="회원 이름·학번 검색"
+                value={memberQuery}
+                onChange={(event) => setMemberQuery(event.target.value)}
+                className={inputCls}
+              />
+              {memberQuery.trim() && (
+                <ul className="absolute left-0 top-full z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-line bg-paper py-1 shadow-2">
+                  {memberSearchResults.length === 0 ? (
+                    <li className="px-3 py-2 text-sm text-charcoal-3">검색 결과 없음</li>
+                  ) : (
+                    memberSearchResults.map((member) => (
+                      <li key={member.userId}>
+                        <button
+                          type="button"
+                          onClick={() => selectMember(member)}
+                          className="flex w-full items-center px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-graysoft"
+                        >
+                          {member.name} · {member.studentId}
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -122,6 +219,7 @@ export function BillList({ clubId }: BillListProps) {
                 key={bill.id}
                 clubId={clubId}
                 bill={bill}
+                member={memberOf(bill.userId)}
                 onCancel={() => setCancelTarget(bill)}
                 onRecord={() => setRecordTarget(bill)}
                 onHistory={() => setHistoryTarget(bill)}
@@ -160,6 +258,7 @@ export function BillList({ clubId }: BillListProps) {
         <CancelBillConfirm
           clubId={clubId}
           bill={cancelTarget}
+          memberName={memberLabel(cancelTarget.userId)}
           onClose={() => setCancelTarget(null)}
         />
       )}
@@ -168,6 +267,7 @@ export function BillList({ clubId }: BillListProps) {
         <RecordPaymentDialog
           clubId={clubId}
           bill={recordTarget}
+          memberName={memberLabel(recordTarget.userId)}
           onClose={() => setRecordTarget(null)}
         />
       )}
@@ -176,6 +276,7 @@ export function BillList({ clubId }: BillListProps) {
         <PaymentHistory
           clubId={clubId}
           bill={historyTarget}
+          memberName={memberLabel(historyTarget.userId)}
           onClose={() => setHistoryTarget(null)}
         />
       )}
@@ -186,12 +287,13 @@ export function BillList({ clubId }: BillListProps) {
 type BillRowProps = {
   clubId: number;
   bill: FeeBill;
+  member: ClubMember | undefined;
   onCancel: () => void;
   onRecord: () => void;
   onHistory: () => void;
 };
 
-function BillRow({ bill, onCancel, onRecord, onHistory }: BillRowProps) {
+function BillRow({ bill, member, onCancel, onRecord, onHistory }: BillRowProps) {
   const isCancelled = bill.status === 'CANCELLED';
   // 이미 완납(remainingAmount<=0)이거나 취소된 청구는 추가 납부 기록 불가(백엔드 400) — 버튼 비활성화.
   const isFullyPaid = bill.remainingAmount <= 0;
@@ -205,7 +307,12 @@ function BillRow({ bill, onCancel, onRecord, onHistory }: BillRowProps) {
     <li className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-semibold text-ink">회원 #{bill.userId}</p>
+          <p className="truncate text-sm font-semibold text-ink">
+            {member ? member.name : `회원 #${bill.userId}`}
+            {member && (
+              <span className="ml-1.5 text-xs font-normal text-charcoal-3">{member.studentId}</span>
+            )}
+          </p>
           <span
             className={cn(
               'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
@@ -277,10 +384,11 @@ function BillRow({ bill, onCancel, onRecord, onHistory }: BillRowProps) {
 type CancelBillConfirmProps = {
   clubId: number;
   bill: FeeBill;
+  memberName: string;
   onClose: () => void;
 };
 
-function CancelBillConfirm({ clubId, bill, onClose }: CancelBillConfirmProps) {
+function CancelBillConfirm({ clubId, bill, memberName, onClose }: CancelBillConfirmProps) {
   const cancelBill = useCancelBillMutation(clubId);
   const { addToast } = useToast();
 
@@ -312,7 +420,7 @@ function CancelBillConfirm({ clubId, bill, onClose }: CancelBillConfirmProps) {
       >
         <h2 className="text-base font-bold text-ink">청구 취소</h2>
         <p className="mt-2 text-sm text-charcoal-2">
-          <span className="font-medium text-ink">회원 #{bill.userId}</span> 의{' '}
+          <span className="font-medium text-ink">{memberName}</span> 의{' '}
           <span className="font-medium text-ink">{bill.billingPeriod}</span> 청구를 취소할까요?
           취소된 청구는 목록에 남으며 같은 회차로 다시 발행할 수 있습니다.
         </p>

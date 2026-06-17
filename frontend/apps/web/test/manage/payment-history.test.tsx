@@ -60,10 +60,12 @@ describe('PaymentHistory', () => {
     vi.clearAllMocks();
   });
 
-  it('납부가 없으면 빈 상태 안내를 표시한다', () => {
+  it('납부가 없으면 빈 상태 안내를 표시하고 제목에 회원 이름이 보인다', () => {
     mockUseBillPaymentsQuery.mockReturnValue({ data: [], isLoading: false });
-    render(<PaymentHistory clubId={1} bill={bill} onClose={() => {}} />);
+    render(<PaymentHistory clubId={1} bill={bill} memberName="김민지" onClose={() => {}} />);
     expect(screen.getByText('기록된 납부가 없습니다.')).toBeInTheDocument();
+    // 제목에 `회원 #id` 대신 전달받은 이름이 노출된다.
+    expect(screen.getByText('납부 내역 · 김민지')).toBeInTheDocument();
   });
 
   it('ACTIVE 행은 취소 버튼, VOIDED 행은 취소됨 뱃지·사유를 표시한다', () => {
@@ -71,7 +73,7 @@ describe('PaymentHistory', () => {
       data: [activePayment, voidedPayment],
       isLoading: false,
     });
-    render(<PaymentHistory clubId={1} bill={bill} onClose={() => {}} />);
+    render(<PaymentHistory clubId={1} bill={bill} memberName="김민지" onClose={() => {}} />);
 
     const [activeRow, voidedRow] = screen.getAllByRole('listitem');
     if (!activeRow || !voidedRow) {
@@ -92,7 +94,7 @@ describe('PaymentHistory', () => {
     mockVoidMutate.mockImplementation(
       (_vars: unknown, options: { onSuccess: () => void }) => options.onSuccess(),
     );
-    render(<PaymentHistory clubId={1} bill={bill} onClose={() => {}} />);
+    render(<PaymentHistory clubId={1} bill={bill} memberName="김민지" onClose={() => {}} />);
 
     fireEvent.click(screen.getByRole('button', { name: '취소' }));
     const confirm = screen.getByRole('alertdialog', { name: '납부 기록 취소 확인' });
