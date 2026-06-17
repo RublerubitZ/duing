@@ -1,5 +1,7 @@
 package com.duing.domain.fee.service;
 
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.fee.entity.BillingType;
@@ -15,11 +17,13 @@ import com.duing.domain.fee.service.dto.command.GenerateBillsCommand;
 import com.duing.domain.fee.service.dto.query.BillSearchQuery;
 import com.duing.domain.fee.service.dto.query.FeeBillQuery;
 import com.duing.domain.fee.service.dto.query.GenerateBillsResult;
+import com.duing.domain.notification.event.FeeBillsIssuedEvent;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -34,9 +38,11 @@ public class GeneralFeeBillService implements FeeBillService {
     private final FeePolicyRepository feePolicyRepository;
     private final FeeBillRepository feeBillRepository;
     private final ClubMemberRepository clubMemberRepository;
+    private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
     private final BillingPeriodResolver periodResolver;
     private final FeePaidAmountReader paidAmountReader;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock; // Asia/Seoul Clock 빈(due_date 과거 검증의 '오늘')
 
     @Override
@@ -61,6 +67,15 @@ public class GeneralFeeBillService implements FeeBillService {
 
         log.info("fee bills generated: actorId={}, clubId={}, policyId={}, period={}, created={}, skipped={}",
                 command.actorId(), command.clubId(), policy.getId(), resolved.billingPeriod(), created, skipped);
+
+        // 새로 생성된 청구가 있을 때만 발행 알림을 fan-out 한다(변동 없으면 dedup 이 어차피 흡수하므로 작업 생략).
+        if (created > 0) {
+            String clubName = clubRepository.findById(command.clubId())
+                    .map(Club::getName).orElse("동아리");
+            eventPublisher.publishEvent(new FeeBillsIssuedEvent(
+                    command.clubId(), clubName, policy.getId(), resolved.billingPeriod(),
+                    resolved.startDate(), resolved.dueDate()));
+        }
         return new GenerateBillsResult(created, skipped);
     }
 

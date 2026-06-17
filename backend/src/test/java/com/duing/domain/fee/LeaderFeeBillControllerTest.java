@@ -617,4 +617,94 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
                 Long.class, policy.getId());
         assertThat(distinctUsers).isEqualTo(50L);
     }
+
+    /** policy 로 발행된 (id, user_id) 청구 목록(비취소·미삭제)을 user_id 순으로 반환한다. */
+    private List<Map<String, Object>> issuedBills(Long policyId) {
+        return jdbcTemplate.queryForList(
+                "SELECT id, user_id FROM fee_bill WHERE fee_policy_id = ?"
+                        + " AND status <> 'CANCELLED' AND deleted_at IS NULL ORDER BY user_id",
+                policyId);
+    }
+
+    private long countIssuedNotifications(Long userId) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM notification WHERE user_id = ? AND type = 'FEE_BILL_ISSUED'",
+                Long.class, userId);
+        return count == null ? 0L : count;
+    }
+
+    @Test
+    @DisplayName("청구를 발행하면 청구된 각 회원에게 FEE_BILL_ISSUED 알림이 생성된다")
+    void issuedNotificationFanOut() {
+        FeePolicy policy = savePolicy(BillingType.MONTHLY, 10000L); // 활성 2명(leader+member)
+
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(2));
+
+        List<Map<String, Object>> bills = issuedBills(policy.getId());
+        assertThat(bills).hasSize(2);
+        for (Map<String, Object> bill : bills) {
+            Long billId = ((Number) bill.get("id")).longValue();
+            Long userId = ((Number) bill.get("user_id")).longValue();
+            Map<String, Object> notification = jdbcTemplate.queryForMap(
+                    "SELECT type, link_url, dedup_key FROM notification"
+                            + " WHERE user_id = ? AND type = 'FEE_BILL_ISSUED'",
+                    userId);
+            assertThat(notification.get("type")).isEqualTo("FEE_BILL_ISSUED");
+            assertThat(notification.get("link_url")).isEqualTo("/me/fees");
+            assertThat(notification.get("dedup_key")).isEqualTo("FEE_BILL_ISSUED:b=" + billId);
+        }
+    }
+
+    @Test
+    @DisplayName("같은 회차를 재발행해도 발행 알림이 중복 생성되지 않는다")
+    void issuedNotificationIsIdempotentOnReissue() {
+        FeePolicy policy = savePolicy(BillingType.MONTHLY, 10000L); // 활성 2명(leader+member)
+
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(2));
+
+        List<Map<String, Object>> bills = issuedBills(policy.getId());
+        assertThat(bills).hasSize(2);
+        for (Map<String, Object> bill : bills) {
+            assertThat(countIssuedNotifications(((Number) bill.get("user_id")).longValue())).isEqualTo(1L);
+        }
+
+        // 같은 회차를 재발행(created=0) — 신규 청구가 없어 이벤트가 발행되지 않고, 설령 발행돼도 dedup 으로 알림은 1건씩 유지된다.
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(0));
+
+        for (Map<String, Object> bill : bills) {
+            assertThat(countIssuedNotifications(((Number) bill.get("user_id")).longValue())).isEqualTo(1L);
+        }
+    }
+
+    @Test
+    @DisplayName("재발행 시점에 새로 가입한 회원에게만 추가 발행 알림이 생성된다")
+    void issuedNotificationForNewlyJoinedMemberOnly() {
+        FeePolicy policy = savePolicy(BillingType.MONTHLY, 10000L); // 활성 2명(leader+member)
+
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(2));
+
+        // 발행 후 회원 1명 추가 가입 → 재발행 시 그 회원에게만 신규 청구 + 신규 알림.
+        Long newMemberId = addActiveMembers(1).get(0);
+        assertThat(countIssuedNotifications(newMemberId)).isZero();
+
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(1));
+
+        // 신규 회원에게 정확히 1건, 기존 회원들은 여전히 각 1건(중복 없음).
+        assertThat(countIssuedNotifications(newMemberId)).isEqualTo(1L);
+        Long totalIssued = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM notification WHERE type = 'FEE_BILL_ISSUED' AND user_id IN ("
+                        + "SELECT user_id FROM fee_bill WHERE fee_policy_id = ? AND status <> 'CANCELLED')",
+                Long.class, policy.getId());
+        assertThat(totalIssued).isEqualTo(3L);
+    }
 }
