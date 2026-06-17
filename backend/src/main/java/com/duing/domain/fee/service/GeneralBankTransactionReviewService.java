@@ -86,15 +86,25 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
         if (!transaction.isPending()) {
             throw new BankMatchingException.AlreadyMatchedException();
         }
-        // 선택한 청구가 실제 매칭 후보(잔액=입금액·같은 동아리·미납)인지 검증한다. 후보가 아니면 400.
-        boolean isCandidate = feeBillRepository.findMatchCandidates(clubId, transaction.getAmount()).stream()
-                .anyMatch(candidate -> candidate.feeBillId().equals(feeBillId));
-        if (!isCandidate) {
+        // 부분 매칭 허용: 선택한 청구가 정확 후보(잔액=입금액)가 아니어도 같은 동아리의 미납 청구이고
+        // 입금액이 잔액 이하면 부분 납부로 적용할 수 있다. 청구 자체를 먼저 잠가 잔액·상태를 검증한다
+        // (createMatchedPayment 가 같은 트랜잭션에서 재진입 잠금하므로 안전).
+        FeeBill bill = feeBillRepository.findByIdAndClubIdForUpdate(feeBillId, clubId)
+                .orElseThrow(BankMatchingException.InvalidMatchCandidateException::new);
+        if (bill.getStatus() == FeeStatus.PAID || bill.getStatus() == FeeStatus.CANCELLED) {
+            // 완납·취소된 청구는 매칭 대상이 아니다.
+            throw new BankMatchingException.InvalidMatchCandidateException();
+        }
+        long remaining = bill.getAmount() - paymentRepository.sumActiveByFeeBillId(bill.getId());
+        if (transaction.getAmount() > remaining) {
+            // 입금액이 잔액을 초과하면 부분 납부로도 적용할 수 없다.
             throw new BankMatchingException.InvalidMatchCandidateException();
         }
         // 실제 납부·상태 전이는 BE-5a 의 매칭 납부 생성에 위임한다(거래 재잠금·PENDING 재확인·잔액 재검증 포함).
-        // 수동 승인이므로 MANUAL_MATCHED·autoMatched=false → 표준 "확인" 알림 문구로 발송된다.
-        matchedPaymentService.createMatchedPayment(transaction, feeBillId, actorId, MatchStatus.MANUAL_MATCHED, false);
+        // 수동 승인이므로 MANUAL_MATCHED·autoMatched=false → 표준 "확인"/부분 납부 알림 문구로 발송되고,
+        // allowPartial=true 로 입금액 ≤ 잔액 부분 납부를 허용한다.
+        matchedPaymentService.createMatchedPayment(
+                transaction, feeBillId, actorId, MatchStatus.MANUAL_MATCHED, false, true);
 
         log.info("bank transaction approved: actorId={}, clubId={}, txId={}, feeBillId={}",
                 actorId, clubId, txId, feeBillId);

@@ -230,6 +230,38 @@ class BankTransactionSyncMatchTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("동기화한 입금이 잔액보다 작으면(부분 금액) 자동매칭은 부분 납부를 하지 않아 autoMatched=0·검토 대기로 남고 청구는 그대로다")
+    void syncDoesNotAutoMatchPartialDeposit() {
+        Club club = saveEnabledClub("부분입금동아리");
+        Long clubId = club.getId();
+        FeePolicy policy = savePolicy(clubId);
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+        User member = joinAs(club, ClubMemberRole.MEMBER);
+        FeeBill bill = saveBill(clubId, policy.getId(), member.getId(), 10000L, "2026-07"); // 잔액 10000
+
+        LocalDateTime now = LocalDateTime.now();
+        stubBankApiClient.transactionsToReturn = List.of(deposit(now.minusDays(1), 5000L, "홍길동")); // 부분 입금 5000
+
+        syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.fetched", equalTo(1))
+                .body("data.newlyStored", equalTo(1))
+                .body("data.autoMatched", equalTo(0))
+                .body("data.pendingReview", equalTo(1));
+
+        // 자동매칭은 정확 일치만 하므로 부분 입금은 PENDING 으로 남고 청구·납부는 변동이 없다.
+        String matchStatus = jdbcTemplate.queryForObject(
+                "SELECT match_status FROM bank_transaction WHERE club_id = ? AND transaction_type = 'DEPOSIT'",
+                String.class, clubId);
+        assertThat(matchStatus).isEqualTo("PENDING");
+        assertThat(feeBillRepository.findById(bill.getId()).orElseThrow().getStatus()).isEqualTo(FeeStatus.PENDING);
+        Integer paymentCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM payment p JOIN fee_bill b ON p.fee_bill_id = b.id WHERE b.club_id = ?",
+                Integer.class, clubId);
+        assertThat(paymentCount).isZero();
+    }
+
+    @Test
     @DisplayName("동기화한 입금에 잔액 일치 미납 청구 후보가 2건(비KB)이면 자동매칭하지 않아 autoMatched=0·검토 대기(pendingReview)로 남는다")
     void syncLeavesAmbiguousNonKbDepositPending() {
         Club club = saveEnabledClub("모호동아리"); // NH(비KB)

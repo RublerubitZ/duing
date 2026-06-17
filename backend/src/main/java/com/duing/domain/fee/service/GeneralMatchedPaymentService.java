@@ -33,7 +33,7 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
     @Override
     @Transactional
     public void createMatchedPayment(BankTransaction tx, Long feeBillId, Long actorId,
-                                     MatchStatus matchStatus, boolean autoMatched) {
+                                     MatchStatus matchStatus, boolean autoMatched, boolean allowPartial) {
         // 호출 측이 넘긴 거래가 다른 영속성 컨텍스트의 detached 엔티티일 수 있으므로, 이 트랜잭션에 영속된
         // 인스턴스를 비관적 잠금으로 다시 조회해 matchTo() 변경이 확실히 flush 되게 한다(동아리 격리도 함께).
         // 거래 행 잠금으로 같은 입금을 서로 다른 청구로 동시 매칭하려는 호출들이 직렬화되어 한 입금의 이중 소비를 막는다.
@@ -53,16 +53,22 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
         }
         long activePaid = paymentRepository.sumActiveByFeeBillId(bill.getId());
         long remaining = bill.getAmount() - activePaid;
-        if (remaining != transaction.getAmount()) {
-            // 동시성: 잠금 획득 사이에 잔액이 변동되어 더 이상 정확히 일치하지 않음 → 자동 매칭 불가(검토 큐로).
+        if (transaction.getAmount() > remaining) {
+            // 초과 입금은 부분 매칭이라도 항상 거부한다(잔액을 넘는 납부 기록·음수 잔액을 막는다).
+            throw new BankMatchingException.MatchAmountMismatchException();
+        }
+        if (!allowPartial && transaction.getAmount() != remaining) {
+            // 자동/정확 매칭은 잔액과 정확히 일치해야 한다. 동시성으로 잔액이 변동돼 불일치하면 검토 큐로 보낸다.
             throw new BankMatchingException.MatchAmountMismatchException();
         }
 
+        // 입금액을 그대로 적용한다(부분 매칭이면 잔액 미만, 정확 매칭이면 잔액과 동일).
+        long appliedAmount = transaction.getAmount();
         Payment payment = paymentRepository.save(Payment.record(
-                bill.getId(), remaining, PaymentMethod.TRANSFER, transaction.getTransactionAt(), actorId, "BANK 매칭"));
+                bill.getId(), appliedAmount, PaymentMethod.TRANSFER, transaction.getTransactionAt(), actorId, "BANK 매칭"));
         payment.linkBankTransaction(transaction.getId());
 
-        long newSum = activePaid + remaining;
+        long newSum = activePaid + appliedAmount;
         FeeStatus newStatus = statusCalculator.calculate(bill.getAmount(), bill.getDueDate(), newSum);
         bill.updateStatus(newStatus);
         transaction.matchTo(bill.getId(), matchStatus);
@@ -72,8 +78,8 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
                 bill.getAmount() - newSum, payment.getId(), autoMatched));
 
         log.info("matched payment created: actorId={}, clubId={}, billId={}, paymentId={}, txId={}, "
-                        + "amount={}, matchStatus={}, autoMatched={}, newStatus={}",
+                        + "amount={}, matchStatus={}, autoMatched={}, allowPartial={}, newStatus={}",
                 actorId, transaction.getClubId(), bill.getId(), payment.getId(), transaction.getId(),
-                remaining, matchStatus, autoMatched, newStatus);
+                appliedAmount, matchStatus, autoMatched, allowPartial, newStatus);
     }
 }

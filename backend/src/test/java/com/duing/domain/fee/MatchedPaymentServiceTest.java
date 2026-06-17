@@ -148,7 +148,7 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
         FeeBill bill = saveBill(10000L, "2026-07"); // 마감 2026-07-31, 미경과
         BankTransaction tx = saveDeposit(10000L);
 
-        matchedPaymentService.createMatchedPayment(tx, bill.getId(), actorId, MatchStatus.AUTO_MATCHED, true);
+        matchedPaymentService.createMatchedPayment(tx, bill.getId(), actorId, MatchStatus.AUTO_MATCHED, true, false);
 
         // 납부: TRANSFER · 금액=잔액 · bank_transaction_id 연결
         Long paymentBankTxId = jdbcTemplate.queryForObject(
@@ -176,7 +176,7 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
         FeeBill bill = saveBill(10000L, "2026-07");
         BankTransaction tx = saveDeposit(10000L);
 
-        matchedPaymentService.createMatchedPayment(tx, bill.getId(), actorId, MatchStatus.MANUAL_MATCHED, false);
+        matchedPaymentService.createMatchedPayment(tx, bill.getId(), actorId, MatchStatus.MANUAL_MATCHED, false, false);
 
         assertThat(billStatus(bill.getId())).isEqualTo(FeeStatus.PAID);
         BankTransaction matched = bankTransactionRepository.findById(tx.getId()).orElseThrow();
@@ -187,13 +187,47 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("allowPartial=true 면 입금액이 잔액보다 작아도 입금액 그대로 부분 납부가 기록되고 청구는 PARTIAL_PAID 로 전이한다")
+    void allowPartialRecordsDepositAndTransitionsToPartialPaid() {
+        FeeBill bill = saveBill(10000L, "2026-07"); // 잔액 10000, 마감 2026-07-31(미경과)
+        BankTransaction tx = saveDeposit(5000L);    // 부분 입금 5000
+
+        matchedPaymentService.createMatchedPayment(tx, bill.getId(), actorId, MatchStatus.MANUAL_MATCHED, false, true);
+
+        // 입금액 5000 이 그대로 기록되고 잔액 미만이라 PARTIAL_PAID.
+        assertThat(paymentRepository.sumActiveByFeeBillId(bill.getId())).isEqualTo(5000L);
+        assertThat(billStatus(bill.getId())).isEqualTo(FeeStatus.PARTIAL_PAID);
+        Long paymentAmount = jdbcTemplate.queryForObject(
+                "SELECT amount FROM payment WHERE bank_transaction_id = ?", Long.class, tx.getId());
+        assertThat(paymentAmount).isEqualTo(5000L);
+        BankTransaction matched = bankTransactionRepository.findById(tx.getId()).orElseThrow();
+        assertThat(matched.getMatchStatus()).isEqualTo(MatchStatus.MANUAL_MATCHED);
+    }
+
+    @Test
+    @DisplayName("allowPartial=true 라도 입금액이 잔액을 초과하면 매칭 불가 예외(409)가 발생하고 납부가 생성되지 않는다")
+    void allowPartialStillRejectsOverpay() {
+        FeeBill bill = saveBill(10000L, "2026-07");
+        BankTransaction tx = saveDeposit(15000L); // 잔액 10000 < 입금 15000
+
+        assertThatThrownBy(() ->
+                matchedPaymentService.createMatchedPayment(tx, bill.getId(), actorId, MatchStatus.MANUAL_MATCHED, false, true))
+                .isInstanceOf(BankMatchingException.MatchAmountMismatchException.class);
+
+        assertThat(paymentRepository.sumActiveByFeeBillId(bill.getId())).isZero();
+        assertThat(billStatus(bill.getId())).isEqualTo(FeeStatus.PENDING);
+        assertThat(bankTransactionRepository.findById(tx.getId()).orElseThrow().getMatchStatus())
+                .isEqualTo(MatchStatus.PENDING);
+    }
+
+    @Test
     @DisplayName("입금액이 청구 잔액과 일치하지 않으면 매칭 불가 예외(409)가 발생하고 납부가 생성되지 않는다")
     void mismatchedAmountThrows() {
         FeeBill bill = saveBill(10000L, "2026-07");
         BankTransaction tx = saveDeposit(7000L); // 잔액 10000 ≠ 입금 7000
 
         assertThatThrownBy(() ->
-                matchedPaymentService.createMatchedPayment(tx, bill.getId(), actorId, MatchStatus.AUTO_MATCHED, true))
+                matchedPaymentService.createMatchedPayment(tx, bill.getId(), actorId, MatchStatus.AUTO_MATCHED, true, false))
                 .isInstanceOf(BankMatchingException.MatchAmountMismatchException.class);
 
         assertThat(paymentRepository.sumActiveByFeeBillId(bill.getId())).isZero();
@@ -217,7 +251,7 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
         // clubId(동아리A) 소속 입금 거래로 동아리B 청구를 매칭 시도 → bill 잠금 조회가 cross-club 으로 404.
         BankTransaction tx = saveDeposit(10000L);
         assertThatThrownBy(() ->
-                matchedPaymentService.createMatchedPayment(tx, otherBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true))
+                matchedPaymentService.createMatchedPayment(tx, otherBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true, false))
                 .isInstanceOf(com.duing.domain.fee.exception.FeeBillException.FeeBillNotFoundException.class);
 
         assertThat(paymentRepository.sumActiveByFeeBillId(otherBill.getId())).isZero();
@@ -262,7 +296,7 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
         // PAID 청구(완납 매칭 후 제외돼야 함)
         FeeBill paidBill = saveBill(memberA.getId(), 10000L, "2026-11");
         BankTransaction payTx = saveDeposit(10000L);
-        matchedPaymentService.createMatchedPayment(payTx, paidBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true);
+        matchedPaymentService.createMatchedPayment(payTx, paidBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true, false);
 
         // CANCELLED 청구(제외돼야 함)
         FeeBill cancelledBill = saveBill(memberA.getId(), 10000L, "2026-12");
@@ -293,7 +327,7 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
         // 다른 청구: 완납(매칭) 처리해 후보에서 빠져야 한다.
         FeeBill paidBill = saveBill(10000L, "2026-08");
         BankTransaction payTx = saveDeposit(10000L);
-        matchedPaymentService.createMatchedPayment(payTx, paidBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true);
+        matchedPaymentService.createMatchedPayment(payTx, paidBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true, false);
 
         // 입금 4000 후보 = 부분 납부 청구의 잔액 4000 과 일치 → partialBill 포함.
         List<MatchCandidate> candidatesFor4000 = feeBillRepository.findMatchCandidates(clubId, 4000L);
@@ -329,7 +363,7 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
                 barrier.await(10, TimeUnit.SECONDS); // 두 스레드가 같은 거래를 서로 다른 청구로 동시에 매칭 시도
                 try {
                     matchedPaymentService.createMatchedPayment(
-                            tx, targetBillId, actorId, MatchStatus.AUTO_MATCHED, true);
+                            tx, targetBillId, actorId, MatchStatus.AUTO_MATCHED, true, false);
                     return "OK";
                 } catch (Exception failure) {
                     // 앱 가드(AlreadyMatchedException) 또는 DB 유니크(V64) 중 먼저 발동한 쪽으로 실패.
@@ -381,7 +415,7 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
     void alreadyMatchedTransactionRejectsReMatch() {
         FeeBill firstBill = saveBill(memberUserId, 10000L, "2026-07");
         BankTransaction tx = saveDeposit(10000L);
-        matchedPaymentService.createMatchedPayment(tx, firstBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true);
+        matchedPaymentService.createMatchedPayment(tx, firstBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true, false);
 
         // 같은 거래(이미 AUTO_MATCHED)를 다른 청구로 재매칭 시도 → PENDING 가드에서 차단.
         User memberB = userRepository.save(UserFixture.unique());
@@ -389,7 +423,7 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
         FeeBill secondBill = saveBill(memberB.getId(), 10000L, "2026-08");
 
         assertThatThrownBy(() ->
-                matchedPaymentService.createMatchedPayment(tx, secondBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true))
+                matchedPaymentService.createMatchedPayment(tx, secondBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true, false))
                 .isInstanceOf(BankMatchingException.AlreadyMatchedException.class);
 
         // 두 번째 청구엔 납부가 생기지 않고, 이 거래를 참조하는 ACTIVE 납부는 여전히 1건.
@@ -412,7 +446,7 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
         BankTransaction tx = saveDeposit(10000L);
 
         assertThatThrownBy(() ->
-                matchedPaymentService.createMatchedPayment(tx, bill.getId(), actorId, MatchStatus.MANUAL_MATCHED, false))
+                matchedPaymentService.createMatchedPayment(tx, bill.getId(), actorId, MatchStatus.MANUAL_MATCHED, false, false))
                 .isInstanceOf(BankMatchingException.BillNotMatchableException.class);
 
         // 취소된 청구에 활성 납부가 붙지 않고, 거래는 검토 큐(PENDING)에 그대로 남는다.

@@ -198,6 +198,88 @@ class LeaderBankTransactionReviewTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("부분 승인: 잔액 10000 청구에 5000 입금을 승인하면 청구 PARTIAL_PAID + payment 5000(TRANSFER) + 거래 MANUAL_MATCHED + 부분 납부 알림")
+    void approveAppliesPartialDepositToBill() {
+        User member = joinMember(club);
+        // 마감일이 먼 미래(2099-12)라 부분 납부 후 청구는 PARTIAL_PAID 로 남는다(OVERDUE 아님).
+        FeeBill bill = saveBill(clubId, policyId, member.getId(), DEPOSIT_AMOUNT, "2099-12");
+        BankTransaction deposit = savePendingDeposit(clubId, 5000L, "홍길동");
+
+        authed(leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("feeBillId", bill.getId()))
+                .when().post("/api/v1/leader/clubs/" + clubId + "/bank-transactions/" + deposit.getId() + "/approve")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(feeBillRepository.findById(bill.getId()).orElseThrow().getStatus())
+                .isEqualTo(FeeStatus.PARTIAL_PAID);
+        assertThat(bankTransactionRepository.findById(deposit.getId()).orElseThrow().getMatchStatus())
+                .isEqualTo(MatchStatus.MANUAL_MATCHED);
+
+        Long amount = jdbcTemplate.queryForObject(
+                "SELECT amount FROM payment WHERE bank_transaction_id = ?", Long.class, deposit.getId());
+        String method = jdbcTemplate.queryForObject(
+                "SELECT method FROM payment WHERE bank_transaction_id = ?", String.class, deposit.getId());
+        assertThat(amount).isEqualTo(5000L);
+        assertThat(method).isEqualTo(PaymentMethod.TRANSFER.name());
+
+        // 부분 납부 확인 알림(FEE_PARTIAL_PAYMENT_CONFIRMED)이 회원에게 생성된다(AFTER_COMMIT 동기 발화).
+        Long partialNotificationCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM notification WHERE user_id = ? AND type = 'FEE_PARTIAL_PAYMENT_CONFIRMED'",
+                Long.class, member.getId());
+        assertThat(partialNotificationCount).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("초과 입금 승인: 입금액이 청구 잔액을 초과하면 400 이고 납부가 생성되지 않는다")
+    void approveRejectsOverpay() {
+        User member = joinMember(club);
+        FeeBill bill = saveBill(clubId, policyId, member.getId(), DEPOSIT_AMOUNT, "2026-07"); // 잔액 10000
+        BankTransaction deposit = savePendingDeposit(clubId, 15000L, "홍길동");                // 입금 15000 > 잔액
+
+        authed(leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("feeBillId", bill.getId()))
+                .when().post("/api/v1/leader/clubs/" + clubId + "/bank-transactions/" + deposit.getId() + "/approve")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+
+        assertThat(feeBillRepository.findById(bill.getId()).orElseThrow().getStatus()).isEqualTo(FeeStatus.PENDING);
+        assertThat(bankTransactionRepository.findById(deposit.getId()).orElseThrow().getMatchStatus())
+                .isEqualTo(MatchStatus.PENDING);
+        Long paymentCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM payment WHERE bank_transaction_id = ?", Long.class, deposit.getId());
+        assertThat(paymentCount).isZero();
+    }
+
+    @Test
+    @DisplayName("완납·취소된 청구 승인 → 400")
+    void approveRejectsPaidOrCancelledBill() {
+        User paidMember = joinMember(club);
+        FeeBill paidBill = saveBill(clubId, policyId, paidMember.getId(), DEPOSIT_AMOUNT, "2026-07");
+        // 완납으로 만들어 둔다(매칭 거래 + ACTIVE 납부 + PAID).
+        saveMatchedDeposit(paidBill, MatchStatus.MANUAL_MATCHED);
+        BankTransaction depositForPaid = savePendingDeposit(clubId, DEPOSIT_AMOUNT, "홍길동");
+
+        authed(leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("feeBillId", paidBill.getId()))
+                .when().post("/api/v1/leader/clubs/" + clubId + "/bank-transactions/" + depositForPaid.getId() + "/approve")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+
+        User cancelledMember = joinMember(club);
+        FeeBill cancelledBill = saveBill(clubId, policyId, cancelledMember.getId(), DEPOSIT_AMOUNT, "2026-08");
+        cancelledBill.cancel();
+        feeBillRepository.save(cancelledBill);
+        BankTransaction depositForCancelled = savePendingDeposit(clubId, DEPOSIT_AMOUNT, "홍길동");
+
+        authed(leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("feeBillId", cancelledBill.getId()))
+                .when().post("/api/v1/leader/clubs/" + clubId + "/bank-transactions/" + depositForCancelled.getId() + "/approve")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("매칭 내역 조회: 매칭된 거래에 매칭 회원 이름·회차가 함께 내려와 입금자명과 대조할 수 있다")
     void listMatchedAttachesMatchedMemberNameAndPeriod() {
         // 청구의 주인은 '구승율'이고 입금자명은 '이승민'이라, 총무가 두 이름을 비교해 오매칭을 잡을 수 있어야 한다.
@@ -234,20 +316,11 @@ class LeaderBankTransactionReviewTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("후보가 아닌(잔액≠입금액 또는 타 동아리) feeBillId 승인 → 400")
-    void approveRejectsNonCandidateBill() {
-        User member = joinMember(club);
-        // 잔액(20000)이 입금액(10000)과 달라 후보가 아니다.
-        FeeBill mismatchBill = saveBill(clubId, policyId, member.getId(), 20000L, "2026-07");
+    @DisplayName("타 동아리 청구 승인 → 400(동아리 격리)")
+    void approveRejectsOtherClubBill() {
         BankTransaction deposit = savePendingDeposit(clubId, DEPOSIT_AMOUNT, "홍길동");
 
-        authed(leaderToken)
-                .contentType(ContentType.JSON)
-                .body(Map.of("feeBillId", mismatchBill.getId()))
-                .when().post("/api/v1/leader/clubs/" + clubId + "/bank-transactions/" + deposit.getId() + "/approve")
-                .then().statusCode(HttpStatus.BAD_REQUEST.value());
-
-        // 타 동아리 청구도 후보가 아니다(동아리 격리).
+        // 타 동아리 청구는 운영 동아리 범위에서 잠금 조회되지 않아 매칭 후보가 아니다.
         Club otherClub = clubRepository.save(ClubFixture.academic("다른동아리"));
         FeePolicy otherPolicy = feePolicyRepository.save(
                 FeePolicyFixture.of(otherClub.getId(), BillingType.MONTHLY, DEPOSIT_AMOUNT));

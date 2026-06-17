@@ -15,7 +15,11 @@ public interface MatchedPaymentService {
      *
      * @param matchStatus 거래에 기록할 매칭 상태(AUTO_MATCHED / MANUAL_MATCHED)
      * @param autoMatched 자동 매칭 여부 — 납부 확인 알림 문구를 분기한다
+     * @param allowPartial 입금액이 잔액보다 작은 부분 납부를 허용할지 여부.
+     *                     자동매칭은 {@code false}(잔액과 정확히 일치해야 매칭),
+     *                     총무의 수동 승인은 {@code true}(입금액 ≤ 잔액이면 부분 납부로 기록).
+     *                     초과 입금(입금액 &gt; 잔액)은 어느 경우든 거부된다.
      */
     void createMatchedPayment(BankTransaction tx, Long feeBillId, Long actorId,
-                              MatchStatus matchStatus, boolean autoMatched);
+                              MatchStatus matchStatus, boolean autoMatched, boolean allowPartial);
 }
