@@ -129,6 +129,19 @@ class OverdueBillJobTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("마감일이 오늘인 청구는 아직 연체가 아니므로 전이되지 않는다")
+    void dueTodayIsNotYetOverdue() {
+        LocalDate today = LocalDate.now(clock);
+
+        Long member = saveActiveMember();
+        FeeBill dueToday = saveBill(member, "2026-01", today, FeeStatus.PENDING);
+
+        job.run();
+
+        assertThat(statusOf(dueToday.getId())).isEqualTo(FeeStatus.PENDING);
+    }
+
+    @Test
     @DisplayName("전이된 청구의 회원에게 FEE_BILL_OVERDUE 알림이 생성된다")
     void sendsOverdueNotificationToTransitionedMembers() {
         LocalDate today = LocalDate.now(clock);

@@ -33,17 +33,18 @@ public class OverdueBillJob {
     @Transactional
     public void run() {
         LocalDate today = LocalDate.now(clock);
-        List<Object[]> candidates = feeBillRepository.lockOverdueCandidates(today);
-        if (candidates.isEmpty()) {
+        List<Object[]> overdueBillRows = feeBillRepository.lockOverdueCandidates(today);
+        if (overdueBillRows.isEmpty()) {
             log.info("OverdueBillJob: 전이 대상 없음");
             return;
         }
-        List<Long> ids = candidates.stream().map(row -> ((Number) row[0]).longValue()).toList();
+        List<Long> ids = overdueBillRows.stream().map(overdueBillRow -> ((Number) overdueBillRow[0]).longValue()).toList();
         int transitioned = feeBillRepository.markOverdue(ids);
         log.info("OverdueBillJob: transitioned={}", transitioned);
-        for (Object[] row : candidates) {
+        for (Object[] overdueBillRow : overdueBillRows) {
             eventPublisher.publishEvent(new FeeBillOverdueEvent(
-                    ((Number) row[0]).longValue(), ((Number) row[1]).longValue(), (String) row[2]));
+                    ((Number) overdueBillRow[0]).longValue(), ((Number) overdueBillRow[1]).longValue(),
+                    (String) overdueBillRow[2]));
         }
     }
 }

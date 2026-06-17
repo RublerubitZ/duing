@@ -59,7 +59,7 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBill
     List<Object[]> lockOverdueCandidates(@Param("today") LocalDate today);
 
     // 잠근 후보를 OVERDUE 로 일괄 전이(updated_at 갱신). 반환 = 전이된 행 수.
-    @Modifying(clearAutomatically = true)
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = "UPDATE fee_bill SET status = 'OVERDUE', updated_at = now() WHERE id IN (:ids)", nativeQuery = true)
     int markOverdue(@Param("ids") java.util.Collection<Long> ids);
 }
