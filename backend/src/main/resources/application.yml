@@ -44,6 +44,12 @@ jwt:
   secret: ${JWT_SECRET}
   expiry-ms: ${JWT_EXPIRY_MS:3600000}
 
+# 회비 계좌번호 AES-256-GCM 암호화 키. base64 인코딩된 32바이트(256bit) 값을 FEE_ACCOUNT_ENC_KEY 환경변수로 주입한다.
+# 기본값 없음(빈 문자열) — 키 미주입 시 FeeAccountCipher 가 기동 시점에 실패한다(fail fast). 운영은 env var 필수, yml/코드에 실키 금지.
+security:
+  fee-account:
+    encryption-key: ${FEE_ACCOUNT_ENC_KEY:}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
