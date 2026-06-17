@@ -134,7 +134,7 @@ ALTER TABLE payment ENABLE ROW LEVEL SECURITY;
 ### OverdueBillJob (연체 크론)
 - 기존 `@EnableScheduling`/job-config 패턴 재사용. **매일 1회**(예 00:10 Asia/Seoul). 플래그 `duing.fee.overdue.enabled`(기본 true; 테스트 off).
 - `status IN ('PENDING','PARTIAL_PAID') AND due_date < 오늘(Clock) AND deleted_at IS NULL` 인 bill을 set-based로 `OVERDUE`로 전이(멱등). `PAID`/`CANCELLED` 제외.
-- **알림 멱등성**: `UPDATE ... RETURNING (bill_id, user_id, billing_period)` 네이티브 쿼리로 **이번 실행에서 실제 `PENDING`/`PARTIAL_PAID` → `OVERDUE`로 전이된 행만** 받아 연체 알림을 fan-out한다. 이미 `OVERDUE`인 청구는 WHERE에서 제외되어 전이되지 않으므로 **알림이 재발송되지 않는다**(크론 재실행에도 중복 연체 알림 없음).
+- **전이/알림 멱등성(구현)**: 후보를 `SELECT id, user_id, billing_period ... WHERE status IN ('PENDING','PARTIAL_PAID') AND due_date < :today AND deleted_at IS NULL FOR UPDATE` 로 **잠근 뒤**(동시 납부 기록의 bill 행 잠금과 직렬화) 그 id 들만 `UPDATE ... SET status='OVERDUE'` 로 일괄 전이하고, **잠긴 후보(=이번 실행 전이 대상)** 별로 연체 알림 이벤트를 발행한다. 이미 `OVERDUE`인 청구는 WHERE에서 제외되어 후보가 되지 않으므로 **알림이 재발송되지 않는다**(크론 재실행에도 중복 연체 알림 없음). 알림은 크론 트랜잭션 커밋 후(`@TransactionalEventListener(AFTER_COMMIT)`)에만 발송되어 전이가 롤백되면 알림도 없다. (FOR UPDATE 후보잠금 2단계는 `UPDATE ... RETURNING` 단일 쿼리와 기능 동치이며, 동시성 직렬화가 더 명확하다.)
 
 ### FeeBillSummaryService (대시보드)
 - `getSummary(clubId, actorId, SummaryQuery)`: `requireManager` 후 QueryDSL 집계 — `fee_bill`(필터: club, 옵션 billingPeriod/policy, `deleted_at IS NULL`) 기준 총 청구액·건수, `payment`(ACTIVE) join 으로 수납액, 상태별 건수. 미수금=총−수납, 수납률=수납/총.
