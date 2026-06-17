@@ -2,6 +2,7 @@
 // 한국어 메시지는 백엔드와 동일하게 유지한다.
 
 import { z } from 'zod';
+import { BANKS } from '@duing/types';
 import type { GenerateBillsPayload } from '@duing/types';
 import { passwordSchema } from './password';
 
@@ -557,3 +558,25 @@ export const toGenerateBillsPayload = (input: GenerateBillsInput): GenerateBills
   }
   return payload;
 };
+
+// === 회비 계좌(fee account) ===
+// UpsertFeeAccountRequest 미러:
+//   bank        @NotNull Bank(19개 코드) — @duing/types 의 BANKS 단일 출처에서 파생.
+//   accountNumber @NotBlank @Size(max=30) @Pattern(^[0-9-]+$)
+//   accountHolder @NotBlank @Size(max=50)
+export const feeAccountSchema = z.object({
+  bank: z.enum(BANKS, {
+    errorMap: () => ({ message: '은행을 선택해주세요.' }),
+  }),
+  accountNumber: z
+    .string()
+    .min(1, '계좌번호는 필수입니다.')
+    .max(30, '계좌번호는 30자 이하여야 합니다.')
+    .regex(/^[0-9-]+$/, '계좌번호는 숫자와 하이픈(-)만 입력할 수 있습니다.'),
+  accountHolder: z
+    .string()
+    .min(1, '예금주는 필수입니다.')
+    .max(50, '예금주는 50자 이하여야 합니다.'),
+});
+
+export type FeeAccountInput = z.infer<typeof feeAccountSchema>;

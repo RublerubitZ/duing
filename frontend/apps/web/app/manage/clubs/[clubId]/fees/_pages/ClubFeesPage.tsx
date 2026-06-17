@@ -6,6 +6,7 @@ import { cn } from '@/app/_lib/cn';
 
 import { BillList } from '../_components/BillList';
 import { CreatePolicyDialog } from '../_components/CreatePolicyDialog';
+import { FeeAccountSection } from '../_components/FeeAccountSection';
 import { GenerateBillsDialog } from '../_components/GenerateBillsDialog';
 import { PolicyList } from '../_components/PolicyList';
 
@@ -13,11 +14,12 @@ type ClubFeesPageProps = {
   clubId: number;
 };
 
-type FeeTab = 'policy' | 'bill';
+type FeeTab = 'policy' | 'bill' | 'account';
 
 const TABS: { id: FeeTab; label: string }[] = [
   { id: 'policy', label: '정책' },
   { id: 'bill', label: '청구' },
+  { id: 'account', label: '계좌' },
 ];
 
 export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
@@ -103,6 +105,17 @@ export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
           {isGenerateOpen && (
             <GenerateBillsDialog clubId={clubId} onClose={() => setGenerateOpen(false)} />
           )}
+        </section>
+      )}
+
+      {activeTab === 'account' && (
+        <section
+          id="fee-panel-account"
+          role="tabpanel"
+          aria-labelledby="fee-tab-account"
+          className="space-y-4"
+        >
+          <FeeAccountSection clubId={clubId} />
         </section>
       )}
     </div>

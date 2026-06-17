@@ -8,4 +8,10 @@ export const feeQueryKeys = {
   bills: (clubId: number, params: BillSearchParams) =>
     [...feeQueryKeys.billsByClub(clubId), params] as const,
   myFees: (params: MyFeeSearchParams) => [...feeQueryKeys.all, 'my', params] as const,
+  // 동아리별 회비 계좌의 무효화 prefix — 운영진/동아리원 조회를 한 번에 무효화한다.
+  accountByClub: (clubId: number) => [...feeQueryKeys.all, 'account', clubId] as const,
+  // 운영진(편집용) 계좌 조회.
+  account: (clubId: number) => [...feeQueryKeys.accountByClub(clubId), 'leader'] as const,
+  // 동아리원(입금용) 계좌 조회.
+  memberAccount: (clubId: number) => [...feeQueryKeys.accountByClub(clubId), 'member'] as const,
 };

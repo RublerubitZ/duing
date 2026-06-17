@@ -4,6 +4,48 @@
 export type BillingType = 'MONTHLY' | 'SEMESTER' | 'YEARLY' | 'ONE_TIME';
 export type FeeStatus = 'PENDING' | 'PAID' | 'PARTIAL_PAID' | 'OVERDUE' | 'CANCELLED';
 
+// 회비 계좌 은행 코드. 백엔드 Bank enum(V61 bank CHECK 제약)과 정확히 일치한다.
+// 한글 표시명은 프론트(apps/web/app/_lib/feeLabels)가 보유한다.
+// 단일 출처(tuple) — 스키마(z.enum)·select 옵션·라벨 맵이 모두 이 순서를 그대로 파생한다.
+export const BANKS = [
+  'KB',
+  'SHINHAN',
+  'WOORI',
+  'HANA',
+  'NH',
+  'IBK',
+  'KAKAO',
+  'TOSS',
+  'SC',
+  'BUSAN',
+  'IM',
+  'KYONGNAM',
+  'GWANGJU',
+  'JEONBUK',
+  'MG',
+  'SHINHYUP',
+  'POST',
+  'KDB',
+  'SUHYUP',
+] as const;
+
+export type Bank = (typeof BANKS)[number];
+
+// FeeAccountResponse(bank, accountNumber, accountHolder) 미러. accountNumber 는 서버가 복호화한 평문.
+// 백엔드 응답에 id 가 없어(동아리당 1건) 타입에도 두지 않는다.
+export type FeeAccount = {
+  bank: Bank;
+  accountNumber: string;
+  accountHolder: string;
+};
+
+// UpsertFeeAccountRequest(bank, accountNumber, accountHolder) 미러. 동아리당 1건 — 없으면 생성, 있으면 갱신.
+export type FeeAccountPayload = {
+  bank: Bank;
+  accountNumber: string;
+  accountHolder: string;
+};
+
 // FeePolicyResponse(id, name, amount, billingType, active) 미러.
 export type FeePolicy = {
   id: number;

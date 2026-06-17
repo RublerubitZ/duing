@@ -1,4 +1,4 @@
-import type { BillingType, FeeStatus } from '@duing/types';
+import type { Bank, BillingType, FeeStatus } from '@duing/types';
 
 const BILLING_TYPE_LABEL: Record<BillingType, string> = {
   MONTHLY: '월 회비',
@@ -15,8 +15,33 @@ const FEE_STATUS_LABEL: Record<FeeStatus, string> = {
   CANCELLED: '취소됨',
 };
 
+// 회비 계좌 은행 코드 → 한글 표시명. 백엔드 Bank enum(19개 코드)과 1:1 대응한다.
+const BANK_LABEL: Record<Bank, string> = {
+  KB: 'KB국민',
+  SHINHAN: '신한',
+  WOORI: '우리',
+  HANA: '하나',
+  NH: 'NH농협',
+  IBK: 'IBK기업',
+  KAKAO: '카카오뱅크',
+  TOSS: '토스뱅크',
+  SC: 'SC제일',
+  BUSAN: '부산',
+  IM: 'iM뱅크(대구)',
+  KYONGNAM: '경남',
+  GWANGJU: '광주',
+  JEONBUK: '전북',
+  MG: '새마을금고',
+  SHINHYUP: '신협',
+  POST: '우체국',
+  KDB: 'KDB산업',
+  SUHYUP: '수협',
+};
+
 export const billingTypeLabel = (type: BillingType): string => BILLING_TYPE_LABEL[type];
 
 export const feeStatusLabel = (status: FeeStatus): string => FEE_STATUS_LABEL[status];
+
+export const bankLabel = (bank: Bank): string => BANK_LABEL[bank];
 
 export const formatWon = (amount: number): string => `${amount.toLocaleString('ko-KR')}원`;
