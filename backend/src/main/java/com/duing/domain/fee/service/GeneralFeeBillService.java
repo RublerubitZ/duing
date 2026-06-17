@@ -17,6 +17,7 @@ import com.duing.domain.fee.service.dto.query.FeeBillQuery;
 import com.duing.domain.fee.service.dto.query.GenerateBillsResult;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -35,6 +36,7 @@ public class GeneralFeeBillService implements FeeBillService {
     private final ClubMemberRepository clubMemberRepository;
     private final ClubAuthService clubAuthService;
     private final BillingPeriodResolver periodResolver;
+    private final FeePaidAmountReader paidAmountReader;
     private final Clock clock; // Asia/Seoul Clock 빈(due_date 과거 검증의 '오늘')
 
     @Override
@@ -85,9 +87,11 @@ public class GeneralFeeBillService implements FeeBillService {
     @Transactional(readOnly = true)
     public Page<FeeBillResponse> getBills(Long clubId, Long actorId, BillSearchQuery query, Pageable pageable) {
         clubAuthService.requireManager(actorId, clubId);
-        return feeBillRepository.searchClubBills(clubId, query, pageable)
-                .map(FeeBillQuery::from)
-                .map(FeeBillResponse::from);
+        Page<FeeBill> page = feeBillRepository.searchClubBills(clubId, query, pageable);
+        Map<Long, Long> paidByBill = paidAmountReader.paidAmountByBillId(
+                page.getContent().stream().map(FeeBill::getId).toList());
+        return page.map(bill -> FeeBillResponse.from(
+                FeeBillQuery.from(bill, paidByBill.getOrDefault(bill.getId(), 0L))));
     }
 
     private BillingPeriodResolver.Resolved resolve(BillingType type, GenerateBillsCommand command) {

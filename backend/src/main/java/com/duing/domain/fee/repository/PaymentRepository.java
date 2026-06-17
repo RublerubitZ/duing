@@ -1,6 +1,7 @@
 package com.duing.domain.fee.repository;
 
 import com.duing.domain.fee.entity.Payment;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,4 +18,13 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             WHERE p.feeBillId = :feeBillId AND p.status = com.duing.domain.fee.entity.PaymentStatus.ACTIVE
             """)
     long sumActiveByFeeBillId(@Param("feeBillId") Long feeBillId);
+
+    @Query("""
+            SELECT p.feeBillId, COALESCE(SUM(p.amount), 0)
+            FROM Payment p
+            WHERE p.feeBillId IN :feeBillIds
+              AND p.status = com.duing.domain.fee.entity.PaymentStatus.ACTIVE
+            GROUP BY p.feeBillId
+            """)
+    List<Object[]> sumActiveGroupedByFeeBillIds(@Param("feeBillIds") Collection<Long> feeBillIds);
 }
