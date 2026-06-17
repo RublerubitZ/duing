@@ -401,6 +401,30 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
         assertThat(paymentsForTx).isEqualTo(1L);
     }
 
+    @Test
+    @DisplayName("취소된 청구에 매칭하면 매칭 불가 예외(409)가 발생하고 납부가 생성되지 않으며 거래는 PENDING 으로 남는다")
+    void cancelledBillRejectsMatchAndCreatesNoPayment() {
+        // 후보 조회 후 청구가 취소된 TOCTOU 상황을 청구를 직접 취소해 재현한다.
+        FeeBill bill = saveBill(10000L, "2026-07");
+        FeeBill toCancel = feeBillRepository.findById(bill.getId()).orElseThrow();
+        toCancel.cancel();
+        feeBillRepository.saveAndFlush(toCancel);
+        BankTransaction tx = saveDeposit(10000L);
+
+        assertThatThrownBy(() ->
+                matchedPaymentService.createMatchedPayment(tx, bill.getId(), actorId, MatchStatus.MANUAL_MATCHED, false))
+                .isInstanceOf(BankMatchingException.BillNotMatchableException.class);
+
+        // 취소된 청구에 활성 납부가 붙지 않고, 거래는 검토 큐(PENDING)에 그대로 남는다.
+        Long paymentsForBill = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM payment WHERE fee_bill_id = ? AND status = 'ACTIVE' AND deleted_at IS NULL",
+                Long.class, bill.getId());
+        assertThat(paymentsForBill).isZero();
+        assertThat(billStatus(bill.getId())).isEqualTo(FeeStatus.CANCELLED);
+        assertThat(bankTransactionRepository.findById(tx.getId()).orElseThrow().getMatchStatus())
+                .isEqualTo(MatchStatus.PENDING);
+    }
+
     /** 동시성 실패 원인을 앱 예외/DB 제약 어느 쪽이든 식별할 수 있게 원인 체인을 따라가 가장 의미 있는 단순명을 고른다. */
     private String rootCauseSimpleName(Throwable failure) {
         Throwable current = failure;

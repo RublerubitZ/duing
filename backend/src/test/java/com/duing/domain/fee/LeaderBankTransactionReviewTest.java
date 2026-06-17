@@ -172,7 +172,7 @@ class LeaderBankTransactionReviewTest extends IntegrationTestBase {
                 .contentType(ContentType.JSON)
                 .body(Map.of("feeBillId", bill.getId()))
                 .when().post("/api/v1/leader/clubs/" + clubId + "/bank-transactions/" + deposit.getId() + "/approve")
-                .then().statusCode(HttpStatus.OK.value());
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
 
         assertThat(feeBillRepository.findById(bill.getId()).orElseThrow().getStatus()).isEqualTo(FeeStatus.PAID);
         assertThat(bankTransactionRepository.findById(deposit.getId()).orElseThrow().getMatchStatus())

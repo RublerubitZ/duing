@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@Tag(name = "회비 거래 동기화 (운영진)", description = "LEADER/OFFICER BANK 거래 동기화")
+@Tag(name = "회비 거래 관리 (운영진)", description = "LEADER/OFFICER BANK 거래 동기화·검토")
 @SecurityRequirement(name = "BearerAuth")
 public interface LeaderBankTransactionApi {
 

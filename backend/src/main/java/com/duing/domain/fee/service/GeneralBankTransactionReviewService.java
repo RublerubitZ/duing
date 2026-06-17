@@ -50,7 +50,7 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
                     List<MatchCandidate> candidates = transaction.isPending()
                             ? feeBillRepository.findMatchCandidates(clubId, transaction.getAmount())
                             : List.of();
-                    return BankTransactionView.of(transaction, candidates);
+                    return BankTransactionView.from(transaction, candidates);
                 });
     }
 
@@ -58,7 +58,9 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
     @Transactional
     public void approve(Long clubId, Long actorId, Long txId, Long feeBillId) {
         clubAuthService.requireManager(actorId, clubId);
-        BankTransaction transaction = bankTransactionRepository.findByIdAndClubId(txId, clubId)
+        // 거래를 잠근 채 후보 검증을 수행한다(ignore/unmatch 와 일관). approve 는 @Transactional 이고
+        // createMatchedPayment 가 같은 거래를 다시 잠그지만 같은 트랜잭션에 재진입하므로 재잠금은 안전하다.
+        BankTransaction transaction = bankTransactionRepository.findByIdAndClubIdForUpdate(txId, clubId)
                 .orElseThrow(BankMatchingException.BankTransactionNotFoundException::new);
         if (!transaction.isPending()) {
             throw new BankMatchingException.AlreadyMatchedException();

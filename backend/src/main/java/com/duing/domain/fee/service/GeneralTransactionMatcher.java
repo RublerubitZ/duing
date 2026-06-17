@@ -47,8 +47,9 @@ public class GeneralTransactionMatcher implements TransactionMatcher {
                     transaction, chosen.feeBillId(), actorId, MatchStatus.AUTO_MATCHED, true);
             return true;
         } catch (BankMatchingException.MatchAmountMismatchException
-                 | BankMatchingException.AlreadyMatchedException raceLost) {
-            // 동시성: 후보 조회와 잠금 획득 사이에 잔액/상태가 변동됨 → 자동매칭 포기, 검토 큐로.
+                 | BankMatchingException.AlreadyMatchedException
+                 | BankMatchingException.BillNotMatchableException raceLost) {
+            // 동시성: 후보 조회와 잠금 획득 사이에 잔액/상태가 변동되거나 청구가 취소됨 → 자동매칭 포기, 검토 큐로.
             log.debug("자동매칭 동시성 충돌 — 검토 큐로 이전: bankTransactionId={}", transaction.getId());
             return false;
         }

@@ -99,6 +99,18 @@ public class BankMatchingException extends ApplicationException {
         }
     }
 
+    /**
+     * 매칭 시점에 잠근 청구가 이미 취소(CANCELLED)된 경우. 후보 조회와 청구 잠금 획득 사이에 운영진이
+     * 청구를 취소·커밋하면 잠금 후에야 드러난다. 취소된 청구에 활성 납부가 붙는 것을 막으려 409 로 거부한다.
+     */
+    public static class BillNotMatchableException extends BankMatchingException {
+        private static final String MESSAGE = "취소된 청구에는 매칭할 수 없습니다.";
+
+        public BillNotMatchableException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
     /** 매칭된 거래로 표시돼 있으나 연결된 활성 납부를 찾지 못한 경우(데이터 정합성 이상). */
     public static class MatchedPaymentNotFoundException extends BankMatchingException {
         private static final String MESSAGE = "매칭된 거래의 납부 내역을 찾을 수 없습니다.";

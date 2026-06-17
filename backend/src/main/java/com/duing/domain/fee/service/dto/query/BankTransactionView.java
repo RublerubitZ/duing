@@ -21,7 +21,7 @@ public record BankTransactionView(
         Long matchedFeeBillId,
         List<MatchCandidate> candidates
 ) {
-    public static BankTransactionView of(BankTransaction transaction, List<MatchCandidate> candidates) {
+    public static BankTransactionView from(BankTransaction transaction, List<MatchCandidate> candidates) {
         return new BankTransactionView(
                 transaction.getId(),
                 transaction.getTransactionAt(),

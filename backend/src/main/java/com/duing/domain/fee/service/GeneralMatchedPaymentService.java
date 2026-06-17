@@ -46,6 +46,11 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
         // 비관적 잠금: 같은 청구에 대한 동시 수동 납부·매칭이 잔액 검증과 합계 산출을 직렬화하도록 한다(거래의 동아리로 격리).
         FeeBill bill = feeBillRepository.findByIdAndClubIdForUpdate(feeBillId, transaction.getClubId())
                 .orElseThrow(FeeBillException.FeeBillNotFoundException::new);
+        if (bill.getStatus() == FeeStatus.CANCELLED) {
+            // 후보 조회 후 청구 잠금을 얻기 전에 청구가 취소·커밋됐을 수 있다. 취소된 청구에 활성 납부가
+            // 붙고 updateStatus 가 CANCELLED 가드로 no-op 되어 거짓 "확인" 알림이 나가는 것을 막는다.
+            throw new BankMatchingException.BillNotMatchableException();
+        }
         long activePaid = paymentRepository.sumActiveByFeeBillId(bill.getId());
         long remaining = bill.getAmount() - activePaid;
         if (remaining != transaction.getAmount()) {

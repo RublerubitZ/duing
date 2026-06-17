@@ -65,7 +65,7 @@ public class LeaderBankTransactionController implements LeaderBankTransactionApi
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         bankTransactionReviewService.approve(clubId, currentUser.id(), txId, request.feeBillId());
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return ResponseEntity.noContent().build();
     }
 
     @Override
