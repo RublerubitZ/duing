@@ -1,13 +1,22 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { MyFee } from '@duing/types';
+import { ApiError } from '@duing/api';
+import type { FeeAccount, MyFee } from '@duing/types';
 
 const mockUseMyFeesQuery = vi.fn();
 const mockUseMyClubsQuery = vi.fn();
+const mockUseMemberFeeAccountQuery = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useMyFeesQuery: (params: unknown) => mockUseMyFeesQuery(params),
   useMyClubsQuery: () => mockUseMyClubsQuery(),
+  useMemberFeeAccountQuery: (clubId: number) => mockUseMemberFeeAccountQuery(clubId),
+}));
+
+const mockAddToast = vi.fn();
+vi.mock('@/app/_components/toast/ToastProvider', () => ({
+  useToast: () => ({ addToast: mockAddToast }),
 }));
 
 import { MyFeeList } from '@/app/me/_components/MyFeeList';
@@ -34,10 +43,25 @@ const buildClub = (clubId: number, clubName: string) => ({
   joinedAt: '2026-01-01T00:00:00Z',
 });
 
+const buildAccount = (over: Partial<FeeAccount> = {}): FeeAccount => ({
+  bank: 'SHINHAN',
+  accountNumber: '110-123-456789',
+  accountHolder: '홍길동',
+  ...over,
+});
+
+// 미등록(404) 기본 상태 — 대부분의 기존 테스트는 계좌 안내를 검증하지 않으므로 빈 상태로 둔다.
+const notFoundAccount = {
+  data: undefined,
+  isLoading: false,
+  error: new ApiError(404, '회비 계좌가 없습니다.'),
+};
+
 describe('MyFeeList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseMyClubsQuery.mockReturnValue({ data: [] });
+    mockUseMemberFeeAccountQuery.mockReturnValue(notFoundAccount);
   });
 
   it('불러오는 중에는 로딩 안내를 표시한다', () => {
@@ -109,5 +133,69 @@ describe('MyFeeList', () => {
 
     expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '동아리 #10' })).not.toBeInTheDocument();
+  });
+
+  it('동아리별로 납부 계좌(은행 라벨·계좌번호·예금주)를 표시한다', () => {
+    mockUseMyFeesQuery.mockReturnValue({ data: [buildFee({ clubId: 10 })], isLoading: false });
+    mockUseMyClubsQuery.mockReturnValue({ data: [buildClub(10, '두잉 코딩')] });
+    mockUseMemberFeeAccountQuery.mockReturnValue({
+      data: buildAccount(),
+      isLoading: false,
+      error: null,
+    });
+    render(<MyFeeList />);
+
+    expect(
+      screen.getByText('신한 110-123-456789 · 예금주 홍길동', { exact: false }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '계좌번호 복사' })).toBeInTheDocument();
+  });
+
+  it('계좌가 미등록(404)이면 에러 없이 옅은 안내만 표시한다', () => {
+    mockUseMyFeesQuery.mockReturnValue({ data: [buildFee({ clubId: 10 })], isLoading: false });
+    mockUseMyClubsQuery.mockReturnValue({ data: [buildClub(10, '두잉 코딩')] });
+    mockUseMemberFeeAccountQuery.mockReturnValue(notFoundAccount);
+    render(<MyFeeList />);
+
+    expect(screen.getByText('납부 계좌가 등록되지 않았어요.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '계좌번호 복사' })).not.toBeInTheDocument();
+  });
+
+  it('계좌 로딩 중에는 청구 목록을 막지 않고 계좌 블록을 그리지 않는다', () => {
+    mockUseMyFeesQuery.mockReturnValue({ data: [buildFee({ clubId: 10 })], isLoading: false });
+    mockUseMyClubsQuery.mockReturnValue({ data: [buildClub(10, '두잉 코딩')] });
+    mockUseMemberFeeAccountQuery.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      error: null,
+    });
+    render(<MyFeeList />);
+
+    expect(screen.getByRole('listitem')).toBeInTheDocument();
+    expect(screen.queryByText('납부 계좌가 등록되지 않았어요.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '계좌번호 복사' })).not.toBeInTheDocument();
+  });
+
+  it('복사 버튼은 계좌번호를 클립보드에 복사하고 성공 토스트를 띄운다', async () => {
+    // navigator 전체를 stub 하면 userEvent 내부가 깨지므로 clipboard 만 정의한다.
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+
+    mockUseMyFeesQuery.mockReturnValue({ data: [buildFee({ clubId: 10 })], isLoading: false });
+    mockUseMyClubsQuery.mockReturnValue({ data: [buildClub(10, '두잉 코딩')] });
+    mockUseMemberFeeAccountQuery.mockReturnValue({
+      data: buildAccount({ accountNumber: '110-123-456789' }),
+      isLoading: false,
+      error: null,
+    });
+    render(<MyFeeList />);
+
+    await userEvent.click(screen.getByRole('button', { name: '계좌번호 복사' }));
+
+    expect(writeText).toHaveBeenCalledWith('110-123-456789');
+    await waitFor(() => expect(mockAddToast).toHaveBeenCalledWith('계좌번호를 복사했어요'));
   });
 });

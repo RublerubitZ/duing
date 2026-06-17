@@ -143,6 +143,8 @@ import type {
   GenerateBillsPayload,
   BillSearchParams,
   MyFeeSearchParams,
+  FeeAccount,
+  FeeAccountPayload,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -224,6 +226,8 @@ export type DuingApiClient = {
     transferLeader(clubId: number, memberId: number): Promise<TransferLeaderResult>;
     recruitmentsByClub(clubId: number): Promise<RecruitmentSummary[]>;
     managedByMe(): Promise<ManagedClub[]>;
+    // 동아리원 회비 입금 계좌 조회. 미등록 시 404 — 호출부(훅)가 ApiError 로 빈 상태를 판별한다.
+    feeAccount(clubId: number): Promise<FeeAccount>;
   };
   files: {
     upload(file: File, purpose: FilePurpose): Promise<FileUploadResult>;
@@ -470,6 +474,13 @@ export type DuingApiClient = {
       ): Promise<GenerateBillsResult>;
       listBills(clubId: number, params: BillSearchParams): Promise<PageResponse<FeeBill>>;
       cancelBill(clubId: number, billId: number): Promise<void>;
+      // 회비 계좌 (동아리당 1건 — upsert 는 생성된/갱신된 계좌 id 반환).
+      // get 은 계좌 미등록 시 404 — 호출부(훅)가 ApiError(status 404)로 빈 상태를 판별한다(null 로 삼키지 않는다).
+      account: {
+        get(clubId: number): Promise<FeeAccount>;
+        upsert(clubId: number, payload: FeeAccountPayload): Promise<number>;
+        remove(clubId: number): Promise<void>;
+      };
     };
   };
   my: {
@@ -606,6 +617,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<RecruitmentSummary[]>(http.get(`clubs/${clubId}/recruitments`)),
       managedByMe: () =>
         jsonOk<ManagedClub[]>(http.get('leader/clubs/me/managed')),
+      feeAccount: (clubId) =>
+        jsonOk<FeeAccount>(http.get(`clubs/${clubId}/fee-account`)),
     },
     files: {
       upload: (file, purpose) => {
@@ -972,6 +985,14 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           ),
         cancelBill: (clubId, billId) =>
           jsonVoid(http.delete(`leader/clubs/${clubId}/fee-bills/${billId}`)),
+        account: {
+          get: (clubId) =>
+            jsonOk<FeeAccount>(http.get(`leader/clubs/${clubId}/fee-account`)),
+          upsert: (clubId, payload) =>
+            jsonOk<number>(http.put(`leader/clubs/${clubId}/fee-account`, { json: payload })),
+          remove: (clubId) =>
+            jsonVoid(http.delete(`leader/clubs/${clubId}/fee-account`)),
+        },
       },
     },
     my: {
