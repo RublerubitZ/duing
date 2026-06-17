@@ -539,7 +539,21 @@ export const generateBillsSchema = z.discriminatedUnion('billingType', [
 export type GenerateBillsInput = z.infer<typeof generateBillsSchema>;
 
 // 제출 시 billingType discriminator 를 떼어 flat 와이어 페이로드로 변환한다(백엔드 단일 DTO 와 정합).
+// 빈 문자열 optional(예: MONTHLY/YEARLY 의 미입력 dueDate)은 와이어에서 제외한다 —
+// 백엔드 GenerateBillsRequest 의 LocalDate 필드는 "" 를 역직렬화하지 못해 400 이 나기 때문이다.
 export const toGenerateBillsPayload = (input: GenerateBillsInput): GenerateBillsPayload => {
-  const { billingType: _billingType, ...payload } = input;
+  const payload: GenerateBillsPayload = { billingPeriod: input.billingPeriod };
+  const billingStartDate = 'billingStartDate' in input ? input.billingStartDate : undefined;
+  const billingEndDate = 'billingEndDate' in input ? input.billingEndDate : undefined;
+  const dueDate = 'dueDate' in input ? input.dueDate : undefined;
+  if (billingStartDate) {
+    payload.billingStartDate = billingStartDate;
+  }
+  if (billingEndDate) {
+    payload.billingEndDate = billingEndDate;
+  }
+  if (dueDate) {
+    payload.dueDate = dueDate;
+  }
   return payload;
 };

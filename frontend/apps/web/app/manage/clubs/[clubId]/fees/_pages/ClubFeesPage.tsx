@@ -4,7 +4,9 @@ import { useState } from 'react';
 
 import { cn } from '@/app/_lib/cn';
 
+import { BillList } from '../_components/BillList';
 import { CreatePolicyDialog } from '../_components/CreatePolicyDialog';
+import { GenerateBillsDialog } from '../_components/GenerateBillsDialog';
 import { PolicyList } from '../_components/PolicyList';
 
 type ClubFeesPageProps = {
@@ -21,6 +23,7 @@ const TABS: { id: FeeTab; label: string }[] = [
 export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
   const [activeTab, setActiveTab] = useState<FeeTab>('policy');
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [isGenerateOpen, setGenerateOpen] = useState(false);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-6 py-10">
@@ -85,10 +88,21 @@ export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
           aria-labelledby="fee-tab-bill"
           className="space-y-4"
         >
-          {/* 청구 발행/현황 UI 는 FE-3 에서 구현된다(GenerateBillsDialog, BillList). */}
-          <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
-            <p className="text-sm text-charcoal-2">청구 발행·현황 기능은 준비 중입니다.</p>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setGenerateOpen(true)}
+              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-ink-deep"
+            >
+              청구 발행
+            </button>
           </div>
+
+          <BillList clubId={clubId} />
+
+          {isGenerateOpen && (
+            <GenerateBillsDialog clubId={clubId} onClose={() => setGenerateOpen(false)} />
+          )}
         </section>
       )}
     </div>
