@@ -1,7 +1,6 @@
 package com.duing.domain.fee.controller.dto.response;
 
 import com.duing.domain.fee.entity.FeeStatus;
-import com.duing.domain.fee.entity.Payment;
 import com.duing.domain.fee.entity.PaymentMethod;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -25,10 +24,5 @@ public record ReceiptResponse(
         List<PaymentLine> payments) {
 
     // ACTIVE 납부 1건(VOIDED 제외). id·status·voidReason 은 영수증에 불필요해 싣지 않는다.
-    public record PaymentLine(Long amount, PaymentMethod method, LocalDateTime paidAt, String memo) {
-        public static PaymentLine from(Payment payment) {
-            return new PaymentLine(payment.getAmount(), payment.getMethod(),
-                    payment.getPaidAt(), payment.getMemo());
-        }
-    }
+    public record PaymentLine(Long amount, PaymentMethod method, LocalDateTime paidAt, String memo) {}
 }

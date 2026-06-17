@@ -72,6 +72,9 @@ public class GeneralReceiptService implements ReceiptService {
                 bill.getBillingStartDate(), bill.getBillingEndDate(), bill.getDueDate(),
                 bill.getAmount(), paidTotal, bill.getAmount() - paidTotal, activePayments.size(),
                 bill.getStatus(), LocalDateTime.now(clock),
-                activePayments.stream().map(ReceiptResponse.PaymentLine::from).toList());
+                activePayments.stream()
+                        .map(payment -> new ReceiptResponse.PaymentLine(
+                                payment.getAmount(), payment.getMethod(), payment.getPaidAt(), payment.getMemo()))
+                        .toList());
     }
 }

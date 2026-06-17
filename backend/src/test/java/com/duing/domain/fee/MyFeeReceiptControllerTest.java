@@ -76,6 +76,16 @@ class MyFeeReceiptControllerTest extends IntegrationTestBase {
         return feeBillRepository.save(FeeBillFixture.withStatus(clubId, userId, policyId, period, status));
     }
 
+    // 공유 픽스처(withStatus)는 CANCELLED 만 실제 전이하므로, PENDING 저장 후 목표 상태로 전이해 진짜 상태를 만든다.
+    private FeeBill saveBillWithStatus(Long userId, String period, FeeStatus status) {
+        FeeBill bill = saveBill(userId, period, FeeStatus.PENDING);
+        if (status != FeeStatus.PENDING && status != FeeStatus.CANCELLED) {
+            bill.updateStatus(status);
+            bill = feeBillRepository.save(bill);
+        }
+        return bill;
+    }
+
     private void recordPayment(Long billId, long amount, boolean voided) {
         Payment payment = Payment.record(billId, amount, PaymentMethod.CASH,
                 LocalDateTime.of(2026, 7, 10, 0, 0), userA.getId(), "현금 납부");
@@ -88,7 +98,7 @@ class MyFeeReceiptControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("ACTIVE 납부가 있는 청구는 영수증 번호·납부합계·건수·내역을 정확히 반환한다")
     void receiptReturnsAccurateData() {
-        FeeBill bill = saveBill(userA.getId(), "2026-07", FeeStatus.PARTIAL_PAID);
+        FeeBill bill = saveBillWithStatus(userA.getId(), "2026-07", FeeStatus.PARTIAL_PAID);
         recordPayment(bill.getId(), 4000L, false);
         recordPayment(bill.getId(), 3000L, false);
         recordPayment(bill.getId(), 9999L, true); // VOIDED — 제외돼야 한다
@@ -102,19 +112,21 @@ class MyFeeReceiptControllerTest extends IntegrationTestBase {
                 .body("data.paidTotal", equalTo(7000))
                 .body("data.remaining", equalTo(3000))
                 .body("data.paymentCount", equalTo(2))
+                .body("data.status", equalTo("PARTIAL_PAID"))
                 .body("data.payments", hasSize(2));
     }
 
     @Test
     @DisplayName("부분 납부가 있는 OVERDUE 청구도 영수증을 발급한다")
     void overdueWithPaymentIssuesReceipt() {
-        FeeBill bill = saveBill(userA.getId(), "2026-07", FeeStatus.OVERDUE);
+        FeeBill bill = saveBillWithStatus(userA.getId(), "2026-07", FeeStatus.OVERDUE);
         recordPayment(bill.getId(), 5000L, false);
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
                 .when().get("/api/v1/my/fees/" + bill.getId() + "/receipt")
                 .then().statusCode(HttpStatus.OK.value())
+                .body("data.status", equalTo("OVERDUE"))
                 .body("data.paidTotal", equalTo(5000));
     }
 
