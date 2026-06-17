@@ -69,7 +69,7 @@ CREATE TABLE bank_transaction (
     match_status      VARCHAR(20) NOT NULL CHECK (match_status IN ('PENDING','AUTO_MATCHED','MANUAL_MATCHED','IGNORED')),
     matched_fee_bill_id BIGINT REFERENCES fee_bill(id) ON DELETE RESTRICT,  -- 매칭된 청구(회원은 fee_bill.user_id로 도출)
     transaction_hash  VARCHAR(64) NOT NULL UNIQUE,     -- SHA-256 정규화 해시(멱등 적재)
-    raw_payload       JSONB NOT NULL,                  -- BANK API 원본 거래 객체
+    raw_payload       JSONB NOT NULL,                  -- BANK API 거래 "응답" 객체 원본(거래 1건). 요청 인증정보(비번·주민번호)는 절대 미포함
     created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted_at        TIMESTAMP WITH TIME ZONE
@@ -77,7 +77,7 @@ CREATE TABLE bank_transaction (
 CREATE INDEX idx_bank_tx_club_status ON bank_transaction (club_id, match_status) WHERE deleted_at IS NULL;
 ALTER TABLE bank_transaction ENABLE ROW LEVEL SECURITY;
 ```
-- **`transaction_hash`** = `SHA-256( club_id ∥ '|' ∥ bank_code ∥ '|' ∥ transaction_at(ISO) ∥ '|' ∥ amount ∥ '|' ∥ balance ∥ '|' ∥ transaction_type ∥ '|' ∥ counterparty )`. **파싱된 정규화 필드**로 계산한다(JSON 블롭 통째 해시 금지 — 키 순서·공백 차이로 같은 거래가 다른 해시가 날 수 있음). `club_id` 포함 → 해시만으로 전역 유니크(동아리 격리 자동). 적재는 `INSERT … ON CONFLICT (transaction_hash) DO NOTHING`.
+- **`transaction_hash`** = `SHA-256( club_id ∥ bank_code ∥ transaction_at(ISO) ∥ amount ∥ balance ∥ transaction_type ∥ counterparty ∥ description ∥ branch ∥ memo )` (각 필드 `'|'` 구분, null/빈값은 빈 문자열로 정규화). BANK API 가 **거래 고유 ID를 주지 않으므로 가용한 모든 식별 필드**(counterparty 외 description·branch·memo 까지)를 포함해 NH·WR 빈 counterparty 환경에서도 중복 적재를 최소화한다. **파싱된 정규화 필드**로 계산한다(JSON 블롭 통째 해시 금지 — 키 순서·공백 차이로 같은 거래가 다른 해시가 날 수 있음). `club_id` 포함 → 해시만으로 전역 유니크(동아리 격리 자동). 적재는 `INSERT … ON CONFLICT (transaction_hash) DO NOTHING`.
 - DEPOSIT 은 `match_status='PENDING'`으로, WITHDRAWAL 은 `'IGNORED'`로 적재 시작.
 - `matched_fee_bill_id` 는 매칭 시 세팅. 생성되는 `payment.fee_bill_id` 와 동일 청구를 가리킨다.
 
@@ -131,13 +131,16 @@ CREATE INDEX idx_payment_bank_tx ON payment (bank_transaction_id) WHERE deleted_
 
 ## 8. API 목록
 
-### ADMIN (전역 운영자)
-- `PUT  /admin/clubs/{clubId}/bank-matching` `{ active }` → 허용/해제. `active=true` 시 서버가 `fee_account` 존재·은행 적격 검증 후 BANK API 계좌 등록 → **등록 성공해야 `active=api_registered=true` 적용**(등록 실패 시 400, 상태 미변경 — 원자적). `active=false` 시 등록 해제(슬롯 반환). 200. (5계좌 초과 시 `ACCOUNT_LIMIT_EXCEEDED` → 400 안내, 허용 동아리 ≤5 운영.)
-- `GET  /admin/clubs/bank-matching` → 허용 동아리 목록 + 등록 현황(`GET /v1/accounts`의 remaining 표시).
+### ADMIN (전역 운영자 — 총동연 관리 페이지)
+- `PUT  /admin/clubs/{clubId}/bank-matching` `{ active }` → 등록/해제. **외부 부수효과 먼저, DB 나중(원자성)**:
+  - `active=true`: ① `fee_account` 존재·은행 적격(`bank ∈ {NH,KB,WOORI}`) 검증 → ② **BANK API 계좌 등록 호출(`POST /v1/accounts`)** → ③ **성공 시에만** DB 반영(`active=api_registered=true`). 등록 실패(한도 초과·인증 등)면 **DB 미변경**(`active=false` 유지) + 400 안내. **"DB 먼저 바꾸고 API 호출" 순서 금지** — DB 상태 ≠ BANK API 실제 상태 불일치 방지.
+  - `active=false`: ① **BANK API 등록 해제(`DELETE /v1/accounts`)** → ② 성공 시 DB `active=false`(슬롯 반환). (이미 미등록이면 멱등 처리.)
+  - 200. 5계좌 초과 → `ACCOUNT_LIMIT_EXCEEDED` → 400("등록 한도(5)를 초과했습니다"), 허용 동아리 ≤5 운영.
+- `GET  /admin/clubs/bank-matching` → 동아리 목록(검색) + 각 동아리 **적격성**(fee_account 존재·은행 적격 여부·사유) + 등록 상태 + 전역 슬롯 현황(`GET /v1/accounts` 의 `registeredCount/maxAccounts/remaining`). 총동연이 한눈에 보고 등록/해제.
 
 ### 총무 (LEADER/OFFICER)
 - `POST /leader/clubs/{clubId}/bank-transactions/sync` `{ accountPassword, residentNumber }` → 동기화. 200 `SyncResultResponse`.
-- `GET  /leader/clubs/{clubId}/bank-transactions?status=` → 거래 목록(검토 큐). PENDING 항목은 **후보 청구**(C, 각 회원·청구종류·잔액) 동봉. 200 페이지.
+- `GET  /leader/clubs/{clubId}/bank-transactions?status=` → 거래 목록(검토 큐). PENDING 항목은 **후보 청구**(C, 각 회원·청구종류·잔액) 동봉. 후보는 **① `due_date` 오름차순(가장 급한 청구) → ② `created_at` 내림차순 → ③ `fee_bill_id` 오름차순**으로 정렬해 총무가 가능성 높은 후보를 먼저 본다. 200 페이지.
 - `POST /leader/clubs/{clubId}/bank-transactions/{txId}/approve` `{ feeBillId }` → 후보 1건 승인 → `MANUAL_MATCHED` + payment 생성. 200/201.
 - `POST /leader/clubs/{clubId}/bank-transactions/{txId}/ignore` → `IGNORED`. 204.
 - `POST /leader/clubs/{clubId}/bank-transactions/{txId}/unmatch` → 매칭취소: 연결된 payment VOID + 거래 `PENDING` 복귀. 204.
@@ -148,7 +151,7 @@ CREATE INDEX idx_payment_bank_tx ON payment (bank_transaction_id) WHERE deleted_
 ## 9. 도메인 서비스
 
 ### 9.1 BankMatchingAdminService
-ADMIN 허용/해제 + BANK API 계좌 등록/해제 + 적격성 검증(fee_account·은행). `bank_matching_setting` 관리.
+ADMIN 허용/해제 + 적격성 검증(fee_account·은행). **외부 API 등록/해제를 먼저 호출해 성공한 뒤에만 `bank_matching_setting` DB 상태를 반영한다**(§8 원자성 — DB↔BANK API 상태 불일치 방지).
 
 ### 9.2 BankTransactionSyncService
 동기화 오케스트레이션: 적격 검증 → 계좌번호 복호화 → BANK API 조회 → 정규화·해시·멱등 적재 → 매칭 엔진 호출 → 결과 집계. **인증정보는 메서드 인자로만 흐르고 즉시 폐기.**
@@ -157,18 +160,25 @@ ADMIN 허용/해제 + BANK API 계좌 등록/해제 + 적격성 검증(fee_accou
 - `TransactionMatcher.match(tx)`: §5 규칙으로 후보 C 산출 → Tier 1/2 판정 → 자동매칭 또는 PENDING 유지.
 - **청구→납부 생성**(자동·수동 공통): 대상 `fee_bill`을 **Sprint 2 `findByIdAndClubIdForUpdate` 비관적 잠금**으로 잠그고 잔액 재확인(== tx.amount) 후 `payment` 생성(method=TRANSFER, amount=잔액, paid_at=tx.transaction_at 날짜, recorded_by=동기화/승인한 총무, bank_transaction_id=tx.id) → Sprint 2 `FeeBillStatusCalculator`로 상태 재계산 → `bank_transaction`(match_status, matched_fee_bill_id) 갱신. 동시 매칭 경합 시 잔액 불일치로 두 번째는 자동매칭 실패(PENDING 유지) → 검토 큐.
 - **매칭취소(unmatch)**: 연결 payment를 Sprint 2 VOID 경로로 취소 → 거래 `PENDING` 복귀 + `matched_fee_bill_id=NULL`.
-- 매칭 알림은 신규 타입 없이 Sprint 2 `FEE_PAID_CONFIRMED`/`FEE_PARTIAL_PAYMENT_CONFIRMED`(AFTER_COMMIT 이벤트)를 그대로 재사용 → 회원이 자동 통보받는다.
+- 매칭 알림은 **신규 타입 없이** Sprint 2 `FEE_PAID_CONFIRMED`(AFTER_COMMIT 이벤트)를 재사용하되 **문구만 매칭 경로로 구분**한다(회원 혼란 방지):
+  - **자동매칭(Tier 1·2)**: "회비 납부가 **자동으로** 확인되었습니다."
+  - **수동 승인(검토 큐) 및 Sprint 2 직접 기록**: "회비 납부가 확인되었습니다."(기존 문구 유지)
+  - 구현: Sprint 2 `FeePaymentConfirmedEvent`/`FeePaymentConfirmedListener`에 `autoMatched`(boolean, 기본 false) 차원을 더해 리스너가 본문을 분기한다. Tier 1·2 자동매칭만 `true`로 발행. (작은 Sprint 2 확장 — 타입·dedupKey 불변.)
 
 ## 10. 권한 · 예외 · 보안
 
 - **권한**: ADMIN 엔드포인트 = 전역 운영자만. 총무 엔드포인트 = `requireManager`(LEADER/OFFICER). 동아리 격리(clubId 경로 + 조회 가드).
-- **민감정보 비노출(핵심)**: `accountPassword`·`residentNumber` 는 (1) DB·캐시·이벤트 저장 금지 (2) 로그 출력 금지 — 요청 DTO에 `@ToString` 금지/마스킹, `GlobalExceptionHandler`·접근 로그가 본문을 찍지 않도록 확인, 검증 실패 메시지에 값 미포함 (3) 처리 후 즉시 메모리 해제. BANK API 호출 코드도 이 값을 로깅하지 않는다.
+- **민감정보 비노출(핵심)**: BANK API 요청 파라미터 `accountPassword`·`residentNumber` 는 **`raw_payload`·로그·예외 메시지·이벤트·감사 로그 어느 곳에도 포함될 수 없다.** 구체적으로 (1) DB(컬럼·`raw_payload`)·캐시·이벤트·감사 로그 저장 금지 — `raw_payload` 는 BANK API **응답(거래)** 만 담고 요청 인증정보는 절대 안 담는다 (2) 로그 출력 금지 — 요청 DTO에 `@ToString`/`@Slf4j` 노출 금지(필드 마스킹), `GlobalExceptionHandler`·접근 로그가 본문을 찍지 않도록 확인, 검증 실패 메시지에 값 미포함, BANK API 호출 코드도 이 값을 로깅하지 않음 (3) 처리(API 호출) 후 즉시 메모리 해제(변수 스코프 종료). → §12 보안 회귀 테스트로 가드.
 - **예외(풀네임 inner)**: `BankMatchingNotEnabledException`(403/409), `UnsupportedBankException`(400), `BankApiException`(502, BANK API 4xx/5xx 변환 — rate limit/인증/미등록 구분 code), `TransactionNotFoundException`(404), `InvalidMatchCandidateException`(400, 후보 아님/잔액 불일치/취소된 청구), `AlreadyMatchedException`(409, PENDING 아님).
 - RLS: 신규 테이블 모두 `ENABLE ROW LEVEL SECURITY`(V59 패턴, 앱 소유 롤 우회).
 
 ## 11. 프론트
 
-- **ADMIN 화면**: 동아리별 BANK 매칭 허용 토글 + 등록 슬롯 현황(`remaining/maxAccounts`). 적격 아님(fee_account 없음/미지원 은행) 사유 표시.
+- **ADMIN 총동연 관리 페이지 — "BANK API 동아리 등록"** (기존 admin 영역에 섹션 추가):
+  - 동아리 목록(검색) — 각 행: 동아리명 · **적격성**(fee_account 존재·은행 적격 여부, 부적격 시 사유: "회비 계좌 미등록" / "미지원 은행(NH·KB·우리만)") · **등록 상태**(등록됨/미등록) · [등록]/[해제] 버튼(부적격이면 비활성).
+  - 상단에 **전역 슬롯 현황** `registeredCount / maxAccounts(5) · 남은 N` 표시 → 한도 차면 [등록] 비활성 + 안내.
+  - [등록] = `PUT .../bank-matching {active:true}`(API 등록 성공 시에만 반영), [해제] = `{active:false}`.
+- **게이팅(등록 동아리만 사용)**: 등록(`active && api_registered && 은행 적격`)된 동아리에서만 총무의 "거래" 탭(동기화·검토 큐)이 노출·동작한다. 미등록 동아리는 탭 자체를 숨기고, 백엔드도 총무 동기화/검토 엔드포인트에서 매칭 가능 여부(§4.1)를 재검증해 차단한다(프론트 우회 방지).
 - **총무 회비 관리 — 신규 "거래" 탭(또는 청구 탭 내 섹션)**:
   - **[거래내역 동기화]** 버튼 → 모달(계좌 비밀번호·주민번호6) → 동기화 → 결과 토스트. (매칭 미허용/미지원 은행이면 버튼 비활성 + 안내.)
   - **검토 큐**: PENDING 입금 카드 — 입금액·입금시각·후보 청구 리스트(회원명·청구종류·잔액) + 각 후보 [승인] · [무시]. 자동매칭/수동매칭 거래는 이력으로 노출 + [매칭취소].
@@ -180,7 +190,9 @@ ADMIN 허용/해제 + BANK API 계좌 등록/해제 + 적격성 검증(fee_accou
 - **매칭 규칙(단위)**: Tier 1 `|C|==1` 자동; `|C|>=2` 비KB → 검토 큐; `|C|>=2` KB 이름으로 1건 좁힘 → 자동, 동명이인 → 검토 큐; `|C|==0` → 검토 큐; PARTIAL_PAID 잔액 기준 후보 산출.
 - **멱등 적재(통합)**: 같은 기간 2회 동기화 → 중복 거래 0건 추가(`transaction_hash` ON CONFLICT). 정규화 필드 동일 시 같은 해시.
 - **동기화·매칭 통합**: 신규 입금 → 자동매칭 → payment(TRANSFER, bank_transaction_id) 생성 + 청구 PAID + `FEE_PAID_CONFIRMED` 알림. 동시성(같은 청구로 두 거래 자동매칭 시도) → 한 건만 성공.
-- **검토 큐**: 승인 → MANUAL_MATCHED + payment; 무시 → IGNORED; 매칭취소 → payment VOID + 거래 PENDING 복귀; 후보 아닌 feeBillId 승인 → 400.
+- **검토 큐**: 승인 → MANUAL_MATCHED + payment; 무시 → IGNORED; 매칭취소 → payment VOID + 거래 PENDING 복귀; 후보 아닌 feeBillId 승인 → 400. **후보 정렬**(due_date asc → created_at desc → id asc) 검증.
+- **ADMIN 등록 원자성**: BANK API 스텁이 등록 성공 → `active=api_registered=true`; 등록 실패(한도초과/에러) → **DB 미변경**(active=false 유지); 해제도 API 해제 성공 후 DB 반영. (DB 먼저 변경 안 함.)
+- **알림 문구**: 자동매칭(Tier 1·2) 완납 → "자동으로 확인", 수동 승인·직접 기록 완납 → "확인되었습니다"(타입·dedupKey 동일).
 - **권한·격리**: 비총무 403, 타 동아리 거래 404, 비허용 동아리 동기화 차단.
 - **보안(회귀 가드)**: 동기화 요청·예외 경로에서 password/resident 가 로그·응답·DB 어디에도 나타나지 않음을 단언.
 - 백엔드: RestAssured + TestContainers(실 Postgres). BANK API 는 테스트에서 `BankApiClient` 스텁/목으로 대체(실제 외부 호출 금지).
