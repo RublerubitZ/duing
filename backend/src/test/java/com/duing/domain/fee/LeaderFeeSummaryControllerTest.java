@@ -295,4 +295,35 @@ class LeaderFeeSummaryControllerTest extends IntegrationTestBase {
         getSummaryAs(memberToken, "")
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
     }
+
+    @Test
+    @DisplayName("청구가 없으면 모든 집계값이 0으로 반환된다")
+    void allZerosWhenNoActiveBills() {
+        // 유일한 청구를 취소(CANCELLED)해 유효 청구가 0건이 되게 한다 → summarizeBills 의 null 프로젝션 coalesce 경로를 탄다.
+        FeeBill onlyBill = saveBill(memberUserId, 50000L, FUTURE_PERIOD);
+        FeeBill reloaded = feeBillRepository.findById(onlyBill.getId()).orElseThrow();
+        reloaded.cancel();
+        feeBillRepository.saveAndFlush(reloaded);
+
+        Response response = getSummaryAs(leaderToken, "");
+        response.then().statusCode(HttpStatus.OK.value());
+
+        assertThat(response.jsonPath().getLong("data.totalBilled")).isZero();
+        assertThat(response.jsonPath().getLong("data.totalPaid")).isZero();
+        assertThat(response.jsonPath().getLong("data.outstanding")).isZero();
+        assertThat(response.jsonPath().getDouble("data.collectionRate")).isEqualTo(0.0);
+        assertThat(response.jsonPath().getLong("data.billCount")).isZero();
+        assertThat(response.jsonPath().getLong("data.pendingCount")).isZero();
+        assertThat(response.jsonPath().getLong("data.partialPaidCount")).isZero();
+        assertThat(response.jsonPath().getLong("data.overdueCount")).isZero();
+        assertThat(response.jsonPath().getLong("data.paidCount")).isZero();
+    }
+
+    @Test
+    @DisplayName("인증 없이 수납 현황을 조회하면 401 을 반환한다")
+    void unauthenticatedRejected() {
+        RestAssured.given()
+                .when().get("/api/v1/leader/clubs/" + clubId + "/fee-bills/summary")
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
 }
