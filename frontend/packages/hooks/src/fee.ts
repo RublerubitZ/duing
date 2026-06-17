@@ -191,3 +191,25 @@ export function useMemberFeeAccountQuery(clubId: number) {
     retry: retryUnlessNotFound,
   });
 }
+
+// 총무 청구 영수증 조회. 발급 불가(납부 0건/취소)·타 동아리 청구는 404 → 재시도 없이 빈 상태로 surface.
+export function useClubFeeReceiptQuery(clubId: number, billId: number) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: feeQueryKeys.receipt(clubId, billId),
+    queryFn: () => client.leader.fees.receipt(clubId, billId),
+    staleTime: 30 * 1000,
+    retry: retryUnlessNotFound,
+  });
+}
+
+// 회원 본인 영수증 조회. 발급 불가(납부 0건/취소)·타인 청구는 404 → 재시도 없이 빈 상태로 surface.
+export function useMyFeeReceiptQuery(billId: number) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: feeQueryKeys.myReceipt(billId),
+    queryFn: () => client.my.feeReceipt(billId),
+    staleTime: 30 * 1000,
+    retry: retryUnlessNotFound,
+  });
+}
