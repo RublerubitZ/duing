@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateBillsSchema, toGenerateBillsPayload } from '../src/index';
+import { feeAccountSchema, generateBillsSchema, toGenerateBillsPayload } from '../src/index';
 
 describe('generateBillsSchema (discriminatedUnion)', () => {
   it('MONTHLY 는 회차만 필수다', () => {
@@ -75,5 +75,100 @@ describe('toGenerateBillsPayload', () => {
       dueDate: '2026-05-25',
     });
     expect(payload).not.toHaveProperty('billingEndDate');
+  });
+});
+
+describe('feeAccountSchema', () => {
+  it('유효한 계좌(은행·숫자/하이픈 계좌번호·예금주)는 통과한다', () => {
+    expect(
+      feeAccountSchema.safeParse({
+        bank: 'KAKAO',
+        accountNumber: '3333-01-1234567',
+        accountHolder: '김두잉',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('지원하지 않는 은행 코드는 거부한다', () => {
+    expect(
+      feeAccountSchema.safeParse({
+        bank: 'CITI',
+        accountNumber: '12345',
+        accountHolder: '홍길동',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('계좌번호에 숫자·하이픈 외 문자가 있으면 거부한다', () => {
+    const result = feeAccountSchema.safeParse({
+      bank: 'KB',
+      accountNumber: '110-abc',
+      accountHolder: '홍길동',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((issue) => issue.message);
+      expect(messages).toContain('계좌번호는 숫자와 하이픈(-)만 입력할 수 있습니다.');
+    }
+  });
+
+  it('계좌번호는 30자 초과 시 거부한다(백엔드 @Size(max=30))', () => {
+    expect(
+      feeAccountSchema.safeParse({
+        bank: 'KB',
+        accountNumber: '1'.repeat(31),
+        accountHolder: '홍길동',
+      }).success,
+    ).toBe(false);
+    expect(
+      feeAccountSchema.safeParse({
+        bank: 'KB',
+        accountNumber: '1'.repeat(30),
+        accountHolder: '홍길동',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('예금주는 필수이며 50자 초과 시 거부한다', () => {
+    expect(
+      feeAccountSchema.safeParse({ bank: 'KB', accountNumber: '12345', accountHolder: '' }).success,
+    ).toBe(false);
+    expect(
+      feeAccountSchema.safeParse({
+        bank: 'KB',
+        accountNumber: '12345',
+        accountHolder: '가'.repeat(51),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('19개 은행 코드를 모두 허용한다', () => {
+    const banks = [
+      'KB',
+      'SHINHAN',
+      'WOORI',
+      'HANA',
+      'NH',
+      'IBK',
+      'KAKAO',
+      'TOSS',
+      'SC',
+      'BUSAN',
+      'IM',
+      'KYONGNAM',
+      'GWANGJU',
+      'JEONBUK',
+      'MG',
+      'SHINHYUP',
+      'POST',
+      'KDB',
+      'SUHYUP',
+    ];
+    for (const bank of banks) {
+      expect(
+        feeAccountSchema.safeParse({ bank, accountNumber: '12345', accountHolder: '홍길동' })
+          .success,
+      ).toBe(true);
+    }
   });
 });

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { billingTypeLabel, feeStatusLabel, formatWon } from '../../app/_lib/feeLabels';
+import type { Bank } from '@duing/types';
+
+import { bankLabel, billingTypeLabel, feeStatusLabel, formatWon } from '../../app/_lib/feeLabels';
 
 describe('feeLabels', () => {
   describe('billingTypeLabel', () => {
@@ -27,6 +29,35 @@ describe('feeLabels', () => {
       expect(formatWon(10000)).toBe('10,000원');
       expect(formatWon(0)).toBe('0원');
       expect(formatWon(1234567)).toBe('1,234,567원');
+    });
+  });
+
+  describe('bankLabel', () => {
+    it('은행 코드별 한국어 라벨을 반환한다', () => {
+      const expected: Record<Bank, string> = {
+        KB: 'KB국민',
+        SHINHAN: '신한',
+        WOORI: '우리',
+        HANA: '하나',
+        NH: 'NH농협',
+        IBK: 'IBK기업',
+        KAKAO: '카카오뱅크',
+        TOSS: '토스뱅크',
+        SC: 'SC제일',
+        BUSAN: '부산',
+        IM: 'iM뱅크(대구)',
+        KYONGNAM: '경남',
+        GWANGJU: '광주',
+        JEONBUK: '전북',
+        MG: '새마을금고',
+        SHINHYUP: '신협',
+        POST: '우체국',
+        KDB: 'KDB산업',
+        SUHYUP: '수협',
+      };
+      for (const [bank, label] of Object.entries(expected)) {
+        expect(bankLabel(bank as Bank)).toBe(label);
+      }
     });
   });
 });

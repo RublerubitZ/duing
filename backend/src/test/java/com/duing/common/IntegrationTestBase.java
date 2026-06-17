@@ -26,6 +26,7 @@ public abstract class IntegrationTestBase {
                 "TRUNCATE TABLE " +
                 "fee_bill, " +
                 "fee_policy, " +
+                "fee_account, " +
                 "interview_schedule, " +
                 "interview_availability, " +
                 "interview_slot, " +
