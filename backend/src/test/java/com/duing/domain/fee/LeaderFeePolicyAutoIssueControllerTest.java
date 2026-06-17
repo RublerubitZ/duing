@@ -133,4 +133,35 @@ class LeaderFeePolicyAutoIssueControllerTest extends IntegrationTestBase {
         assertThat(unchanged.isAutoIssue()).isTrue();
         assertThat(unchanged.getIssueDay()).isEqualTo(5);
     }
+
+    @Test
+    @DisplayName("자동발행 켜진 정책에 autoIssue=false 를 전송하면 발행일·마감일이 null 로 초기화된다")
+    void disableAutoIssueClearsSchedule() {
+        FeePolicy policy = feePolicyRepository.save(
+                com.duing.common.fixture.FeePolicyFixture.autoIssue(clubId, 5, 20));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("autoIssue", false))
+                .when().patch("/api/v1/leader/clubs/" + clubId + "/fee-policies/" + policy.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        FeePolicy updated = feePolicyRepository.findById(policy.getId()).orElseThrow();
+        assertThat(updated.isAutoIssue()).isFalse();
+        assertThat(updated.getIssueDay()).isNull();
+        assertThat(updated.getDueDay()).isNull();
+    }
+
+    @Test
+    @DisplayName("자동발행을 켜면서 마감일을 누락하면 400 을 반환한다")
+    void autoIssueWithMissingDueDayRejected() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("name", "월 회비", "amount", 10000, "billingType", "MONTHLY",
+                        "autoIssue", true, "issueDay", 5))
+                .when().post("/api/v1/leader/clubs/" + clubId + "/fee-policies")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
 }
