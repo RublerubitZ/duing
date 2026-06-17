@@ -31,6 +31,8 @@ const buildFee = (over: Partial<MyFee> = {}): MyFee => ({
   billingEndDate: '2026-07-31',
   dueDate: '2026-07-31',
   status: 'PENDING',
+  paidAmount: 0,
+  remainingAmount: 10000,
   ...over,
 });
 

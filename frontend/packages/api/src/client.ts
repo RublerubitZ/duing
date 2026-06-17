@@ -145,6 +145,10 @@ import type {
   MyFeeSearchParams,
   FeeAccount,
   FeeAccountPayload,
+  Payment,
+  RecordPaymentPayload,
+  FeeBillSummary,
+  FeeSummaryParams,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -474,6 +478,12 @@ export type DuingApiClient = {
       ): Promise<GenerateBillsResult>;
       listBills(clubId: number, params: BillSearchParams): Promise<PageResponse<FeeBill>>;
       cancelBill(clubId: number, billId: number): Promise<void>;
+      payments: {
+        record(clubId: number, billId: number, payload: RecordPaymentPayload): Promise<number>;
+        list(clubId: number, billId: number): Promise<Payment[]>;
+        void(clubId: number, billId: number, paymentId: number, reason?: string): Promise<void>;
+      };
+      summary(clubId: number, params: FeeSummaryParams): Promise<FeeBillSummary>;
       // 회비 계좌 (동아리당 1건 — upsert 는 생성된/갱신된 계좌 id 반환).
       // get 은 계좌 미등록 시 404 — 호출부(훅)가 ApiError(status 404)로 빈 상태를 판별한다(null 로 삼키지 않는다).
       account: {
@@ -985,6 +995,16 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           ),
         cancelBill: (clubId, billId) =>
           jsonVoid(http.delete(`leader/clubs/${clubId}/fee-bills/${billId}`)),
+        payments: {
+          record: (clubId, billId, payload) =>
+            jsonOk<number>(http.post(`leader/clubs/${clubId}/fee-bills/${billId}/payments`, { json: payload })),
+          list: (clubId, billId) =>
+            jsonOk<Payment[]>(http.get(`leader/clubs/${clubId}/fee-bills/${billId}/payments`)),
+          void: (clubId, billId, paymentId, reason) =>
+            jsonVoid(http.post(`leader/clubs/${clubId}/fee-bills/${billId}/payments/${paymentId}/void`, { json: { reason } })),
+        },
+        summary: (clubId, params) =>
+          jsonOk<FeeBillSummary>(http.get(`leader/clubs/${clubId}/fee-bills/summary`, { searchParams: cleanParams(params) })),
         account: {
           get: (clubId) =>
             jsonOk<FeeAccount>(http.get(`leader/clubs/${clubId}/fee-account`)),
