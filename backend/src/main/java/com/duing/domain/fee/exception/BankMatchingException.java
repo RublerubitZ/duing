@@ -64,4 +64,17 @@ public class BankMatchingException extends ApplicationException {
             super(MESSAGE, HttpStatus.NOT_FOUND);
         }
     }
+
+    /**
+     * 매칭 시점에 잠근 거래가 이미 매칭(AUTO/MANUAL)되었거나 무시(IGNORED)되어 더 이상 PENDING 이 아닌 경우.
+     * 같은 거래를 두 청구로 동시 매칭할 때 거래 행 잠금으로 직렬화된 두 번째 호출이 여기로 떨어져
+     * 한 입금이 두 청구에 이중 반영되는 것을 막는다.
+     */
+    public static class AlreadyMatchedException extends BankMatchingException {
+        private static final String MESSAGE = "이미 매칭되었거나 처리된 거래입니다.";
+
+        public AlreadyMatchedException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
 }

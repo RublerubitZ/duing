@@ -3,12 +3,14 @@ package com.duing.domain.fee.repository;
 import com.duing.domain.fee.entity.BankTransaction;
 import com.duing.domain.fee.entity.MatchStatus;
 import com.duing.domain.fee.entity.TransactionType;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,6 +18,12 @@ import org.springframework.data.repository.query.Param;
 public interface BankTransactionRepository extends JpaRepository<BankTransaction, Long> {
 
     Optional<BankTransaction> findByIdAndClubId(Long id, Long clubId);
+
+    // 매칭 납부 생성이 같은 거래 행에 대해 직렬화되도록 비관적 쓰기 잠금으로 조회한다.
+    // 서로 다른 청구로의 동시 매칭이라도 같은 거래 행 잠금에서 경합해 한 입금의 이중 소비를 막는다(동아리로 격리).
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM BankTransaction t WHERE t.id = :id AND t.clubId = :clubId")
+    Optional<BankTransaction> findByIdAndClubIdForUpdate(@Param("id") Long id, @Param("clubId") Long clubId);
 
     Page<BankTransaction> findByClubIdAndMatchStatusOrderByTransactionAtDesc(Long clubId, MatchStatus matchStatus, Pageable pageable);
 

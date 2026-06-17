@@ -35,9 +35,14 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
     public void createMatchedPayment(BankTransaction tx, Long feeBillId, Long actorId,
                                      MatchStatus matchStatus, boolean autoMatched) {
         // 호출 측이 넘긴 거래가 다른 영속성 컨텍스트의 detached 엔티티일 수 있으므로, 이 트랜잭션에 영속된
-        // 인스턴스를 다시 조회해 matchTo() 변경이 확실히 flush 되게 한다(동아리 격리도 함께).
-        BankTransaction transaction = bankTransactionRepository.findByIdAndClubId(tx.getId(), tx.getClubId())
+        // 인스턴스를 비관적 잠금으로 다시 조회해 matchTo() 변경이 확실히 flush 되게 한다(동아리 격리도 함께).
+        // 거래 행 잠금으로 같은 입금을 서로 다른 청구로 동시 매칭하려는 호출들이 직렬화되어 한 입금의 이중 소비를 막는다.
+        BankTransaction transaction = bankTransactionRepository.findByIdAndClubIdForUpdate(tx.getId(), tx.getClubId())
                 .orElseThrow(BankMatchingException.BankTransactionNotFoundException::new);
+        if (!transaction.isPending()) {
+            // 거래 잠금을 먼저 획득한 호출이 커밋한 뒤 두 번째 호출이 여기 도달 → 이미 매칭/무시된 거래이므로 중단.
+            throw new BankMatchingException.AlreadyMatchedException();
+        }
         // 비관적 잠금: 같은 청구에 대한 동시 수동 납부·매칭이 잔액 검증과 합계 산출을 직렬화하도록 한다(거래의 동아리로 격리).
         FeeBill bill = feeBillRepository.findByIdAndClubIdForUpdate(feeBillId, transaction.getClubId())
                 .orElseThrow(FeeBillException.FeeBillNotFoundException::new);

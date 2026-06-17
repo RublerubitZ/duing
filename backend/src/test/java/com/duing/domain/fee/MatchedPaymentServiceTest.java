@@ -34,7 +34,13 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -298,5 +304,117 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
         List<MatchCandidate> candidatesFor10000 = feeBillRepository.findMatchCandidates(clubId, 10000L);
         assertThat(candidatesFor10000).extracting(MatchCandidate::feeBillId)
                 .doesNotContain(partialBill.getId(), paidBill.getId());
+    }
+
+    @Test
+    @DisplayName("같은 입금 거래를 서로 다른 두 청구로 동시에 매칭하면 정확히 한 건만 성공하고 입금은 한 번만 소비된다")
+    void sameBankTransactionMatchedToTwoBillsConcurrentlyConsumesDepositOnce() throws Exception {
+        // 잔액이 입금액과 정확히 일치하는 미납 청구 2건과 입금 거래 1건. 거래 행 잠금이 없으면
+        // 두 스레드가 서로 다른 청구 행만 잠가 상호 배제가 안 되고, 한 입금이 두 청구에 이중 반영된다.
+        User memberB = userRepository.save(UserFixture.unique());
+        clubMemberRepository.save(ClubMember.of(club, memberB, ClubMemberRole.MEMBER));
+        FeeBill billOne = saveBill(memberUserId, 10000L, "2026-07");
+        FeeBill billTwo = saveBill(memberB.getId(), 10000L, "2026-08");
+        BankTransaction tx = saveDeposit(10000L);
+
+        int threadCount = 2;
+        Long[] targetBillIds = {billOne.getId(), billTwo.getId()};
+        CyclicBarrier barrier = new CyclicBarrier(threadCount);
+        ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+        List<Future<String>> futures = new ArrayList<>();
+        for (int index = 0; index < threadCount; index++) {
+            Long targetBillId = targetBillIds[index];
+            futures.add(pool.submit(() -> {
+                // 배리어 실패(셋업 오류)는 매칭 실패와 구분해 즉시 드러내고, 매칭 호출 결과만 분류한다.
+                barrier.await(10, TimeUnit.SECONDS); // 두 스레드가 같은 거래를 서로 다른 청구로 동시에 매칭 시도
+                try {
+                    matchedPaymentService.createMatchedPayment(
+                            tx, targetBillId, actorId, MatchStatus.AUTO_MATCHED, true);
+                    return "OK";
+                } catch (Exception failure) {
+                    // 앱 가드(AlreadyMatchedException) 또는 DB 유니크(V64) 중 먼저 발동한 쪽으로 실패.
+                    return rootCauseSimpleName(failure);
+                }
+            }));
+        }
+        pool.shutdown();
+        assertThat(pool.awaitTermination(60, TimeUnit.SECONDS)).isTrue();
+
+        int success = 0;
+        int blockedByGuard = 0;
+        for (Future<String> future : futures) {
+            String outcome = future.get();
+            if ("OK".equals(outcome)) {
+                success++;
+            } else {
+                // 거래 비관적 잠금으로 직렬화된 두 번째 호출은 PENDING 가드(AlreadyMatchedException) 또는,
+                // 그보다 DB 유니크가 먼저 걸리면 제약 위반으로 막힌다.
+                assertThat(outcome).matches("AlreadyMatchedException|ConstraintViolationException"
+                        + "|DataIntegrityViolationException|PSQLException");
+                blockedByGuard++;
+            }
+        }
+
+        // 정확히 한 건만 성공, 다른 한 건은 가드/제약으로 차단.
+        assertThat(success).isEqualTo(1);
+        assertThat(blockedByGuard).isEqualTo(1);
+
+        // 입금은 한 번만 소비: 이 거래를 참조하는 ACTIVE 납부는 정확히 1건.
+        Long paymentsForTx = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM payment WHERE bank_transaction_id = ? AND status = 'ACTIVE' AND deleted_at IS NULL",
+                Long.class, tx.getId());
+        assertThat(paymentsForTx).isEqualTo(1L);
+
+        // 거래는 한 번만 매칭됨(AUTO/MANUAL), 두 청구 중 정확히 한 건만 PAID.
+        BankTransaction matched = bankTransactionRepository.findById(tx.getId()).orElseThrow();
+        assertThat(matched.getMatchStatus())
+                .isIn(MatchStatus.AUTO_MATCHED, MatchStatus.MANUAL_MATCHED);
+        long paidBills = List.of(billOne.getId(), billTwo.getId()).stream()
+                .filter(billId -> billStatus(billId) == FeeStatus.PAID)
+                .count();
+        assertThat(paidBills).isEqualTo(1L);
+        assertThat(matched.getMatchedFeeBillId()).isIn(billOne.getId(), billTwo.getId());
+    }
+
+    @Test
+    @DisplayName("이미 AUTO_MATCHED 된 거래를 다시 매칭하면 이미 처리된 거래 예외(409)가 발생하고 새 납부가 생성되지 않는다")
+    void alreadyMatchedTransactionRejectsReMatch() {
+        FeeBill firstBill = saveBill(memberUserId, 10000L, "2026-07");
+        BankTransaction tx = saveDeposit(10000L);
+        matchedPaymentService.createMatchedPayment(tx, firstBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true);
+
+        // 같은 거래(이미 AUTO_MATCHED)를 다른 청구로 재매칭 시도 → PENDING 가드에서 차단.
+        User memberB = userRepository.save(UserFixture.unique());
+        clubMemberRepository.save(ClubMember.of(club, memberB, ClubMemberRole.MEMBER));
+        FeeBill secondBill = saveBill(memberB.getId(), 10000L, "2026-08");
+
+        assertThatThrownBy(() ->
+                matchedPaymentService.createMatchedPayment(tx, secondBill.getId(), actorId, MatchStatus.AUTO_MATCHED, true))
+                .isInstanceOf(BankMatchingException.AlreadyMatchedException.class);
+
+        // 두 번째 청구엔 납부가 생기지 않고, 이 거래를 참조하는 ACTIVE 납부는 여전히 1건.
+        assertThat(paymentRepository.sumActiveByFeeBillId(secondBill.getId())).isZero();
+        assertThat(billStatus(secondBill.getId())).isEqualTo(FeeStatus.PENDING);
+        Long paymentsForTx = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM payment WHERE bank_transaction_id = ? AND status = 'ACTIVE' AND deleted_at IS NULL",
+                Long.class, tx.getId());
+        assertThat(paymentsForTx).isEqualTo(1L);
+    }
+
+    /** 동시성 실패 원인을 앱 예외/DB 제약 어느 쪽이든 식별할 수 있게 원인 체인을 따라가 가장 의미 있는 단순명을 고른다. */
+    private String rootCauseSimpleName(Throwable failure) {
+        Throwable current = failure;
+        String lastMeaningful = current.getClass().getSimpleName();
+        while (current != null) {
+            String simpleName = current.getClass().getSimpleName();
+            if (simpleName.equals("AlreadyMatchedException")
+                    || simpleName.equals("ConstraintViolationException")
+                    || simpleName.equals("DataIntegrityViolationException")
+                    || simpleName.equals("PSQLException")) {
+                lastMeaningful = simpleName;
+            }
+            current = current.getCause();
+        }
+        return lastMeaningful;
     }
 }
