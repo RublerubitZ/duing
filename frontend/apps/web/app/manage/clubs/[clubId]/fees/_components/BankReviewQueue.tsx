@@ -13,6 +13,7 @@ import type { BankTransaction, MatchCandidate } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
+import { cn } from '@/app/_lib/cn';
 import { formatWon } from '@/app/_lib/feeLabels';
 
 type BankReviewQueueProps = {
@@ -24,6 +25,18 @@ function formatTransactionAt(transactionAt: string): string {
   const date = transactionAt.slice(0, 10);
   const time = transactionAt.slice(11, 16);
   return time ? `${date} ${time}` : date;
+}
+
+// 이름 비교용 정규화: 앞뒤·내부 공백을 모두 제거한다('홍 길동' vs '홍길동' 같은 표기 차이를 무시).
+function normalizeName(name: string): string {
+  return name.replace(/\s+/g, '');
+}
+
+// 입금자명이 있고(NH/우리는 비어 있음) 매칭 회원명과 다르면 오매칭 가능성 → 총무가 확인하도록 경고를 띄운다.
+// 입금자명이 없으면 대조할 대상이 없어 경고하지 않는다(대리 입금처럼 다른 게 정상인 경우도 있어 매칭 로직은 그대로다).
+function hasNameMismatch(counterparty: string | null, matchedMemberName: string | null): boolean {
+  if (!counterparty || !matchedMemberName) return false;
+  return normalizeName(counterparty) !== normalizeName(matchedMemberName);
 }
 
 function mutationErrorMessage(error: unknown, fallback: string): string {
@@ -287,8 +300,16 @@ function MatchedTransactionRow({ clubId, transaction }: MatchedTransactionRowPro
   const { addToast } = useToast();
   const [isUnmatchOpen, setUnmatchOpen] = useState(false);
 
+  const hasCounterparty = Boolean(transaction.counterparty);
+  const isMismatch = hasNameMismatch(transaction.counterparty, transaction.matchedMemberName);
+
   return (
-    <li className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
+    <li
+      className={cn(
+        'flex items-center justify-between gap-4 rounded-xl border px-4 py-3',
+        isMismatch ? 'border-coral/40 bg-coral/5' : 'border-line',
+      )}
+    >
       <div className="min-w-0">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
           {formatWon(transaction.amount)}
@@ -299,10 +320,20 @@ function MatchedTransactionRow({ clubId, transaction }: MatchedTransactionRowPro
             <span className="text-xs font-medium text-charcoal-3">자동</span>
           )}
         </p>
+        <p className="mt-0.5 truncate text-xs text-charcoal-2">
+          {hasCounterparty
+            ? `입금자 ${transaction.counterparty} → 매칭 ${transaction.matchedMemberName ?? '—'}`
+            : `매칭 ${transaction.matchedMemberName ?? '—'}`}
+          {transaction.matchedBillingPeriod && ` · ${transaction.matchedBillingPeriod}`}
+        </p>
         <p className="mt-0.5 text-xs text-charcoal-3">
           입금시각 {formatTransactionAt(transaction.transactionAt)}
-          {transaction.counterparty && ` · ${transaction.counterparty}`}
         </p>
+        {isMismatch && (
+          <span className="mt-1.5 inline-flex items-center rounded-full bg-coral/10 px-2 py-0.5 text-[11px] font-semibold text-coral">
+            입금자명 불일치 — 확인 필요
+          </span>
+        )}
       </div>
       <button
         type="button"

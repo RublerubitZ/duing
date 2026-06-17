@@ -6,7 +6,11 @@ import com.duing.domain.fee.service.dto.query.BankTransactionView;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/** 검토 큐 거래 1건. PENDING 입금이면 candidates 에 매칭 후보 청구가 채워진다. */
+/**
+ * 검토 큐 거래 1건. PENDING 입금이면 candidates 에 매칭 후보 청구가 채워진다.
+ * matchedMemberName/matchedBillingPeriod 는 이미 매칭된 거래에서만 채워지고(총무가 입금자명과 대조),
+ * PENDING/무시 거래에서는 null 이다.
+ */
 public record BankTransactionResponse(
         Long id,
         LocalDateTime transactionAt,
@@ -15,7 +19,9 @@ public record BankTransactionResponse(
         TransactionType transactionType,
         MatchStatus matchStatus,
         Long matchedFeeBillId,
-        List<MatchCandidateResponse> candidates
+        List<MatchCandidateResponse> candidates,
+        String matchedMemberName,
+        String matchedBillingPeriod
 ) {
     public static BankTransactionResponse from(BankTransactionView view) {
         return new BankTransactionResponse(
@@ -26,6 +32,8 @@ public record BankTransactionResponse(
                 view.transactionType(),
                 view.matchStatus(),
                 view.matchedFeeBillId(),
-                view.candidates().stream().map(MatchCandidateResponse::from).toList());
+                view.candidates().stream().map(MatchCandidateResponse::from).toList(),
+                view.matchedMemberName(),
+                view.matchedBillingPeriod());
     }
 }

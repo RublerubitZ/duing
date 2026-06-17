@@ -11,12 +11,15 @@ import com.duing.domain.fee.exception.BankMatchingException;
 import com.duing.domain.fee.exception.FeeBillException;
 import com.duing.domain.fee.repository.BankTransactionRepository;
 import com.duing.domain.fee.repository.FeeBillRepository;
-import com.duing.domain.fee.repository.MatchCandidate;
+import com.duing.domain.fee.repository.MatchedBillInfo;
 import com.duing.domain.fee.repository.PaymentRepository;
 import com.duing.domain.fee.service.dto.query.BankTransactionView;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -43,15 +46,33 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
     @Override
     public Page<BankTransactionView> list(Long clubId, Long actorId, MatchStatus status, Pageable pageable) {
         clubAuthService.requireManager(actorId, clubId);
-        return bankTransactionRepository
-                .findByClubIdAndMatchStatusOrderByTransactionAtDesc(clubId, status, pageable)
-                .map(transaction -> {
-                    // 후보 청구는 검토가 필요한 PENDING 입금에만 동봉한다(이미 매칭·무시된 거래는 후보 없음).
-                    List<MatchCandidate> candidates = transaction.isPending()
-                            ? feeBillRepository.findMatchCandidates(clubId, transaction.getAmount())
-                            : List.of();
-                    return BankTransactionView.from(transaction, candidates);
-                });
+        Page<BankTransaction> page =
+                bankTransactionRepository.findByClubIdAndMatchStatusOrderByTransactionAtDesc(clubId, status, pageable);
+
+        // 매칭된(AUTO/MANUAL + matchedFeeBillId 존재) 거래의 매칭 회원 이름·회차를 한 번에 모아둔다(N+1 방지).
+        // 총무가 입금자명(counterparty)과 대조해 오매칭을 잡도록 매칭 내역에 표시할 정보다.
+        // IGNORED 거래는 matchedFeeBillId 가 null 이라 여기서 자연히 제외된다(매칭 정보를 채울 게 없다).
+        List<Long> matchedFeeBillIds = page.getContent().stream()
+                .filter(transaction -> transaction.getMatchedFeeBillId() != null)
+                .map(BankTransaction::getMatchedFeeBillId)
+                .toList();
+        Map<Long, MatchedBillInfo> matchedInfoByBillId =
+                feeBillRepository.findMatchedBillInfo(clubId, matchedFeeBillIds).stream()
+                        .collect(Collectors.toMap(MatchedBillInfo::feeBillId, Function.identity()));
+
+        return page.map(transaction -> {
+            if (transaction.isPending()) {
+                // 후보 청구는 검토가 필요한 PENDING 입금에만 동봉한다(이미 매칭·무시된 거래는 후보 없음).
+                return BankTransactionView.pending(
+                        transaction, feeBillRepository.findMatchCandidates(clubId, transaction.getAmount()));
+            }
+            // 매칭된 거래는 회원 이름·회차를 채운다. IGNORED(matchedFeeBillId=null) 또는 청구가 사라진 경우는
+            // get(null)/미스로 matchedInfo 가 null 이라 이름·회차가 null 로 남는다.
+            MatchedBillInfo matchedInfo = matchedInfoByBillId.get(transaction.getMatchedFeeBillId());
+            String matchedMemberName = matchedInfo != null ? matchedInfo.memberName() : null;
+            String matchedBillingPeriod = matchedInfo != null ? matchedInfo.billingPeriod() : null;
+            return BankTransactionView.matched(transaction, matchedMemberName, matchedBillingPeriod);
+        });
     }
 
     @Override

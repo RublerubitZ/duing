@@ -25,6 +25,8 @@ export type MatchCandidate = {
 // BankTransactionResponse 미러. 검토 큐 거래 1건.
 // transactionAt 은 LocalDateTime(ISO 일시 문자열). counterparty/matchedFeeBillId 는 null 가능.
 // candidates 는 PENDING 입금이면 매칭 후보 청구가 채워지고, 그 외엔 빈 배열이다.
+// matchedMemberName/matchedBillingPeriod 는 이미 매칭된 거래에서만 채워지고(총무가 입금자명과 대조해
+// 오매칭을 잡도록), PENDING/무시 거래에서는 null 이다. 탈퇴 회원이면 이름이 null 일 수 있다.
 export type BankTransaction = {
   id: number;
   transactionAt: string;
@@ -34,6 +36,8 @@ export type BankTransaction = {
   matchStatus: MatchStatus;
   matchedFeeBillId: number | null;
   candidates: MatchCandidate[];
+  matchedMemberName: string | null;
+  matchedBillingPeriod: string | null;
 };
 
 // SyncResultResponse 미러. 거래 동기화 결과(적재 건수). 인증정보는 어떤 필드에도 포함되지 않는다.

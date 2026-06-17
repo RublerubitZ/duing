@@ -93,6 +93,8 @@ const pendingWithCandidate: BankTransaction = {
       remaining: 30000,
     },
   ],
+  matchedMemberName: null,
+  matchedBillingPeriod: null,
 };
 
 const pendingNoCandidate: BankTransaction = {
@@ -104,6 +106,8 @@ const pendingNoCandidate: BankTransaction = {
   matchStatus: 'PENDING',
   matchedFeeBillId: null,
   candidates: [],
+  matchedMemberName: null,
+  matchedBillingPeriod: null,
 };
 
 describe('BankReviewQueue', () => {
@@ -187,6 +191,8 @@ describe('BankReviewQueue', () => {
         matchStatus: 'AUTO_MATCHED',
         matchedFeeBillId: 1001,
         candidates: [],
+        matchedMemberName: '박두잉',
+        matchedBillingPeriod: '2026-06',
       },
     ]);
     render(<BankReviewQueue clubId={1} />);
@@ -212,12 +218,15 @@ describe('BankReviewQueue', () => {
         matchStatus: 'MANUAL_MATCHED',
         matchedFeeBillId: 2002,
         candidates: [],
+        matchedMemberName: '이수동',
+        matchedBillingPeriod: '2026-06',
       },
     ]);
     render(<BankReviewQueue clubId={1} />);
 
     expect(screen.getByText('25,000원')).toBeInTheDocument();
-    expect(screen.getByText(/입금시각 2026-06-12 07:00 · 이수동/)).toBeInTheDocument();
+    expect(screen.getByText(/입금자 이수동 → 매칭 이수동 · 2026-06/)).toBeInTheDocument();
+    expect(screen.getByText(/입금시각 2026-06-12 07:00/)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '매칭취소' }));
     const dialog = await screen.findByRole('alertdialog', { name: '매칭 취소 확인' });
@@ -239,6 +248,8 @@ describe('BankReviewQueue', () => {
         matchStatus: 'AUTO_MATCHED',
         matchedFeeBillId: 1001,
         candidates: [],
+        matchedMemberName: '박두잉',
+        matchedBillingPeriod: '2026-06',
       },
     ]);
     mockManualMatchedContent.mockReturnValue([
@@ -251,6 +262,8 @@ describe('BankReviewQueue', () => {
         matchStatus: 'MANUAL_MATCHED',
         matchedFeeBillId: 2002,
         candidates: [],
+        matchedMemberName: '이수동',
+        matchedBillingPeriod: '2026-06',
       },
     ]);
     render(<BankReviewQueue clubId={1} />);
@@ -259,6 +272,70 @@ describe('BankReviewQueue', () => {
     expect(screen.getByText('25,000원')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: '매칭취소' })).toHaveLength(2);
     expect(screen.queryByText('매칭된 거래가 없습니다.')).not.toBeInTheDocument();
+  });
+
+  it('매칭 내역에 입금자명과 매칭 회원명을 함께 노출하고, 두 이름이 다르면 불일치 경고를 띄운다', () => {
+    mockAutoMatchedContent.mockReturnValue([
+      {
+        id: 999,
+        transactionAt: '2026-06-13T09:00:00',
+        amount: 10000,
+        counterparty: '이승민',
+        transactionType: 'DEPOSIT',
+        matchStatus: 'AUTO_MATCHED',
+        matchedFeeBillId: 3003,
+        candidates: [],
+        matchedMemberName: '구승율',
+        matchedBillingPeriod: '2026-07',
+      },
+    ]);
+    render(<BankReviewQueue clubId={1} />);
+
+    expect(screen.getByText(/입금자 이승민 → 매칭 구승율 · 2026-07/)).toBeInTheDocument();
+    expect(screen.getByText('입금자명 불일치 — 확인 필요')).toBeInTheDocument();
+  });
+
+  it('입금자명이 매칭 회원명과 같으면 불일치 경고를 띄우지 않는다', () => {
+    mockAutoMatchedContent.mockReturnValue([
+      {
+        id: 1010,
+        transactionAt: '2026-06-13T09:00:00',
+        amount: 10000,
+        counterparty: '구승율',
+        transactionType: 'DEPOSIT',
+        matchStatus: 'AUTO_MATCHED',
+        matchedFeeBillId: 4004,
+        candidates: [],
+        matchedMemberName: '구승율',
+        matchedBillingPeriod: '2026-07',
+      },
+    ]);
+    render(<BankReviewQueue clubId={1} />);
+
+    expect(screen.getByText(/입금자 구승율 → 매칭 구승율 · 2026-07/)).toBeInTheDocument();
+    expect(screen.queryByText('입금자명 불일치 — 확인 필요')).not.toBeInTheDocument();
+  });
+
+  it('입금자명이 없으면(NH/우리) 매칭 회원명만 노출하고 불일치 경고를 띄우지 않는다', () => {
+    mockAutoMatchedContent.mockReturnValue([
+      {
+        id: 1111,
+        transactionAt: '2026-06-13T09:00:00',
+        amount: 10000,
+        counterparty: null,
+        transactionType: 'DEPOSIT',
+        matchStatus: 'AUTO_MATCHED',
+        matchedFeeBillId: 5005,
+        candidates: [],
+        matchedMemberName: '구승율',
+        matchedBillingPeriod: '2026-07',
+      },
+    ]);
+    render(<BankReviewQueue clubId={1} />);
+
+    expect(screen.getByText(/매칭 구승율 · 2026-07/)).toBeInTheDocument();
+    expect(screen.queryByText(/입금자/)).not.toBeInTheDocument();
+    expect(screen.queryByText('입금자명 불일치 — 확인 필요')).not.toBeInTheDocument();
   });
 
   it('[무시]가 409(이미 처리됨)로 실패하면 친절한 안내 토스트를 노출한다', async () => {

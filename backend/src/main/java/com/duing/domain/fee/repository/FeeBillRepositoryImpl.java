@@ -17,6 +17,7 @@ import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
@@ -155,6 +156,31 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                         feeBill.status.in(FeeStatus.PENDING, FeeStatus.PARTIAL_PAID, FeeStatus.OVERDUE),
                         remaining.eq(depositAmount))
                 .orderBy(feeBill.dueDate.asc(), feeBill.createdAt.desc(), feeBill.id.asc())
+                .fetch();
+    }
+
+    @Override
+    public List<MatchedBillInfo> findMatchedBillInfo(Long clubId, Collection<Long> feeBillIds) {
+        // clubId 는 동아리 격리의 필수 조건이다(findMatchCandidates 와 동일 가드). 다른 동아리 청구가 섞이면 안 된다.
+        Objects.requireNonNull(clubId, "clubId must not be null");
+        // 빈 입력이면 IN () 가 비정상 쿼리가 되므로 쿼리를 생략하고 빈 목록을 반환한다.
+        if (feeBillIds == null || feeBillIds.isEmpty()) {
+            return List.of();
+        }
+        // 매칭된 청구는 PAID 라 미납 후보 집합에 없으므로 상태 필터 없이 동아리·id 로만 조회한다.
+        // 회원 이름은 findMatchCandidates 와 동일하게 club_member(club_id + user_id) → user 로 LEFT JOIN 한다.
+        // ON 절에 deletedAt.isNull() 을 두어 탈퇴 회원은 청구 행은 유지하고 이름만 null 로 남긴다.
+        return queryFactory
+                .select(Projections.constructor(MatchedBillInfo.class,
+                        feeBill.id,
+                        clubMember.user.name,
+                        feeBill.billingPeriod))
+                .from(feeBill)
+                .leftJoin(clubMember)
+                .on(clubMember.club.id.eq(feeBill.clubId),
+                        clubMember.user.id.eq(feeBill.userId),
+                        clubMember.deletedAt.isNull())
+                .where(feeBill.clubId.eq(clubId), feeBill.id.in(feeBillIds))
                 .fetch();
     }
 

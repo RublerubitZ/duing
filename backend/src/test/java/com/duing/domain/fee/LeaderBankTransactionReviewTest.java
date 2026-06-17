@@ -107,6 +107,12 @@ class LeaderBankTransactionReviewTest extends IntegrationTestBase {
         return member;
     }
 
+    private User joinMemberWithName(Club targetClub, String name) {
+        User member = userRepository.save(UserFixture.withName(name));
+        clubMemberRepository.save(ClubMember.of(targetClub, member, ClubMemberRole.MEMBER));
+        return member;
+    }
+
     private FeeBill saveBill(Long ownerClubId, Long ownerPolicyId, Long userId, long amount, String period) {
         LocalDate start = LocalDate.parse(period + "-01");
         LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
@@ -124,7 +130,12 @@ class LeaderBankTransactionReviewTest extends IntegrationTestBase {
 
     /** 입금 거래를 청구에 매칭(MANUAL/AUTO)하고, 연결된 ACTIVE TRANSFER 납부 1건을 적재한다(검토취소 입력 상태). */
     private BankTransaction saveMatchedDeposit(FeeBill bill, MatchStatus matchStatus) {
-        BankTransaction transaction = savePendingDeposit(bill.getClubId(), bill.getAmount(), "홍길동");
+        return saveMatchedDeposit(bill, matchStatus, "홍길동");
+    }
+
+    /** 입금자명을 지정해 매칭된 거래를 적재한다(입금자명 ↔ 매칭 회원명 대조 검증용). */
+    private BankTransaction saveMatchedDeposit(FeeBill bill, MatchStatus matchStatus, String counterparty) {
+        BankTransaction transaction = savePendingDeposit(bill.getClubId(), bill.getAmount(), counterparty);
         transaction.matchTo(bill.getId(), matchStatus);
         bankTransactionRepository.save(transaction);
         Payment payment = Payment.record(bill.getId(), bill.getAmount(), PaymentMethod.TRANSFER,
@@ -184,6 +195,42 @@ class LeaderBankTransactionReviewTest extends IntegrationTestBase {
                 "SELECT bank_transaction_id FROM payment WHERE fee_bill_id = ?", Long.class, bill.getId());
         assertThat(method).isEqualTo(PaymentMethod.TRANSFER.name());
         assertThat(linkedTxId).isEqualTo(deposit.getId());
+    }
+
+    @Test
+    @DisplayName("매칭 내역 조회: 매칭된 거래에 매칭 회원 이름·회차가 함께 내려와 입금자명과 대조할 수 있다")
+    void listMatchedAttachesMatchedMemberNameAndPeriod() {
+        // 청구의 주인은 '구승율'이고 입금자명은 '이승민'이라, 총무가 두 이름을 비교해 오매칭을 잡을 수 있어야 한다.
+        User member = joinMemberWithName(club, "구승율");
+        FeeBill bill = saveBill(clubId, policyId, member.getId(), DEPOSIT_AMOUNT, "2026-07");
+        BankTransaction deposit = saveMatchedDeposit(bill, MatchStatus.MANUAL_MATCHED, "이승민");
+
+        authed(leaderToken)
+                .when().get("/api/v1/leader/clubs/" + clubId + "/bank-transactions?status=MANUAL_MATCHED")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize(1))
+                .body("data.content[0].id", equalTo(deposit.getId().intValue()))
+                .body("data.content[0].counterparty", equalTo("이승민"))
+                .body("data.content[0].matchedMemberName", equalTo("구승율"))
+                .body("data.content[0].matchedBillingPeriod", equalTo("2026-07"));
+    }
+
+    @Test
+    @DisplayName("매칭 내역 조회: 매칭 후 회원이 탈퇴하면 매칭 회원 이름은 null 이고 회차는 그대로 내려온다")
+    void listMatchedKeepsPeriodButNullsNameForWithdrawnMember() {
+        User member = joinMemberWithName(club, "구승율");
+        FeeBill bill = saveBill(clubId, policyId, member.getId(), DEPOSIT_AMOUNT, "2026-07");
+        BankTransaction deposit = saveMatchedDeposit(bill, MatchStatus.AUTO_MATCHED, "이승민");
+        // 매칭 이후 회원을 탈퇴(soft-delete)시키면 LEFT JOIN ON deletedAt.isNull() 로 이름만 null 로 남는다.
+        clubMemberRepository.delete(clubMemberRepository.findByClubIdAndUserId(clubId, member.getId()).orElseThrow());
+
+        authed(leaderToken)
+                .when().get("/api/v1/leader/clubs/" + clubId + "/bank-transactions?status=AUTO_MATCHED")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize(1))
+                .body("data.content[0].id", equalTo(deposit.getId().intValue()))
+                .body("data.content[0].matchedMemberName", org.hamcrest.Matchers.nullValue())
+                .body("data.content[0].matchedBillingPeriod", equalTo("2026-07"));
     }
 
     @Test
