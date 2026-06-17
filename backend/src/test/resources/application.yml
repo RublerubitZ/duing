@@ -72,6 +72,8 @@ duing:
   fee:
     overdue:
       enabled: false
+    auto-issue:
+      enabled: false
   privacy:
     retention:
       enabled: false

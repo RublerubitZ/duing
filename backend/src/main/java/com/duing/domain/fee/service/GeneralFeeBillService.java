@@ -20,6 +20,7 @@ import com.duing.domain.fee.service.dto.query.GenerateBillsResult;
 import com.duing.domain.notification.event.FeeBillsIssuedEvent;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GeneralFeeBillService implements FeeBillService {
+
+    private static final DateTimeFormatter AUTO_ISSUE_YEAR_MONTH = DateTimeFormatter.ofPattern("yyyy-MM");
 
     private final FeePolicyRepository feePolicyRepository;
     private final FeeBillRepository feeBillRepository;
@@ -77,6 +80,35 @@ public class GeneralFeeBillService implements FeeBillService {
                     resolved.startDate(), resolved.dueDate()));
         }
         return new GenerateBillsResult(created, skipped);
+    }
+
+    @Override
+    @Transactional
+    public void autoIssueMonthly(FeePolicy policy, LocalDate today) {
+        // 방어적 no-op: 크론 조회와 발행 사이 상태가 바뀌었을 수 있으므로 다시 확인(권한 검증은 없음 — 시스템 권위).
+        if (!policy.isActive() || policy.getBillingType() != BillingType.MONTHLY || !policy.isAutoIssue()) {
+            return;
+        }
+        String yearMonth = today.format(AUTO_ISSUE_YEAR_MONTH); // "2026-07"
+        BillingPeriodResolver.Resolved resolved = periodResolver.resolveMonthly(yearMonth);
+        // 마감일은 정책 dueDay 로 산출(말일 아님). 과거 검증 없음 — 캐치업 발행 시 과거여도 정상(연체 크론이 처리).
+        LocalDate dueDate = LocalDate.of(today.getYear(), today.getMonth(), policy.getDueDay());
+
+        int created = feeBillRepository.bulkInsertBills(
+                policy.getClubId(), policy.getId(), policy.getAmount(), resolved.billingPeriod(),
+                resolved.startDate(), resolved.endDate(), dueDate);
+
+        log.info("auto-issue monthly bills: clubId={}, policyId={}, period={}, created={}",
+                policy.getClubId(), policy.getId(), resolved.billingPeriod(), created);
+
+        // 새 청구가 생성된 경우에만 발행 알림(이미 그 달 발행이면 created=0 → 재알림 없음, 캐치업 안전).
+        if (created > 0) {
+            String clubName = clubRepository.findById(policy.getClubId())
+                    .map(Club::getName).orElse("동아리");
+            eventPublisher.publishEvent(new FeeBillsIssuedEvent(
+                    policy.getClubId(), clubName, policy.getId(), resolved.billingPeriod(),
+                    resolved.startDate(), dueDate));
+        }
     }
 
     @Override

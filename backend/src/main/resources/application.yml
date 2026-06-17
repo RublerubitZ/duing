@@ -110,6 +110,10 @@ duing:
       # 회비 연체 전이 크론(매일 00:10 Asia/Seoul) — 마감 지난 PENDING·PARTIAL_PAID 청구를 OVERDUE 로 전이.
       # 기본 비활성 — 운영에서 DUING_FEE_OVERDUE_ENABLED=true 주입 시 활성화한다.
       enabled: ${DUING_FEE_OVERDUE_ENABLED:false}
+    auto-issue:
+      # 회비 자동 월발행 크론(매일 00:20 Asia/Seoul) — MONTHLY auto_issue 정책의 그 달 청구를 자동 발행.
+      # 기본 비활성 — 운영에서 DUING_FEE_AUTO_ISSUE_ENABLED=true 주입 시 활성화한다.
+      enabled: ${DUING_FEE_AUTO_ISSUE_ENABLED:false}
   privacy:
     retention:
       # 탈퇴/폐쇄로 soft-delete 된 PII 의 보관기간 = 45일(P45D). 이후 파기 잡이 비식별화/삭제한다.
