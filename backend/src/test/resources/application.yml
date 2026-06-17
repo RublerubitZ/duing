@@ -49,6 +49,13 @@ resend:
   api-key: ""
   from: Du-ing <noreply@duings.com>
 
+bank-api:
+  # 테스트 전용 더미 baseUrl — @NotBlank fail-fast 충족용. 실제 호출은 발생하지 않는다.
+  # 통합테스트는 BankApiClient 를 @Primary stub 으로 대체하므로 이 URL 로 나가는 외부 호출이 없다.
+  base-url: http://localhost:0/bank-api-stub
+  api-key: ""
+  secret-key: ""
+
 jwt:
   secret: duing-test-jwt-secret-key-that-is-long-enough-for-hs256-algorithm
   expiry-ms: 3600000

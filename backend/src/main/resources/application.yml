@@ -91,6 +91,14 @@ resend:
   api-key: ${RESEND_API_KEY}
   from: '${RESEND_FROM:두잉 <noreply@duings.com>}'
 
+# BANK API(bankapi.co.kr) 연동 — 회비 자동매칭(거래 조회/계좌 등록)용.
+# 인증은 Bearer {api-key}:{secret-key} 헤더. 키는 환경변수로만 주입하고 yml/코드에 실키 금지.
+# 키 미설정(빈 값) 시 자동매칭 기능만 비동작하며 그 외 기동에는 영향이 없다.
+bank-api:
+  base-url: https://api.bankapi.co.kr
+  api-key: ${BANK_API_KEY:}
+  secret-key: ${BANK_API_SECRET:}
+
 duing:
   notice:
     cover-image-url-prefix: ${NOTICE_COVER_IMAGE_URL_PREFIX:}

@@ -2,8 +2,14 @@
 
 import { useState } from 'react';
 
-import { cn } from '@/app/_lib/cn';
+import { ApiError } from '@duing/api';
+import { useBankTransactionsQuery, useClubFeeAccountQuery } from '@duing/hooks';
 
+import { cn } from '@/app/_lib/cn';
+import { bankLabel } from '@/app/_lib/feeLabels';
+
+import { BankReviewQueue } from '../_components/BankReviewQueue';
+import { BankSyncDialog } from '../_components/BankSyncDialog';
 import { BillList } from '../_components/BillList';
 import { CreatePolicyDialog } from '../_components/CreatePolicyDialog';
 import { FeeAccountSection } from '../_components/FeeAccountSection';
@@ -15,12 +21,13 @@ type ClubFeesPageProps = {
   clubId: number;
 };
 
-type FeeTab = 'policy' | 'bill' | 'account';
+type FeeTab = 'policy' | 'bill' | 'account' | 'bank';
 
 const TABS: { id: FeeTab; label: string }[] = [
   { id: 'policy', label: '정책' },
   { id: 'bill', label: '청구' },
   { id: 'account', label: '계좌' },
+  { id: 'bank', label: '거래' },
 ];
 
 export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
@@ -120,6 +127,68 @@ export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
         >
           <FeeAccountSection clubId={clubId} />
         </section>
+      )}
+
+      {activeTab === 'bank' && (
+        <section
+          id="fee-panel-bank"
+          role="tabpanel"
+          aria-labelledby="fee-tab-bank"
+          className="space-y-4"
+        >
+          <BankTabPanel clubId={clubId} />
+        </section>
+      )}
+    </div>
+  );
+}
+
+type BankTabPanelProps = {
+  clubId: number;
+};
+
+// 거래 탭 본문. BANK 자동매칭 미사용 동아리는 검토 큐 조회가 403 으로 내려오므로(훅이 403 은 재시도 안 함)
+// 안내 카드만 노출하고 동기화 버튼·검토 큐는 숨긴다. fee_account 가 등록돼 있으면 동기화 모달에 그 은행 라벨을 넘긴다.
+function BankTabPanel({ clubId }: BankTabPanelProps) {
+  const [isSyncOpen, setSyncOpen] = useState(false);
+  const { error: queueError } = useBankTransactionsQuery(clubId, { status: 'PENDING' });
+  const { data: feeAccount } = useClubFeeAccountQuery(clubId);
+
+  const isNotEnabled = queueError instanceof ApiError && queueError.status === 403;
+  if (isNotEnabled) {
+    return (
+      <div className="rounded-xl border border-line bg-graysoft px-6 py-12 text-center">
+        <p className="text-sm text-charcoal-2">
+          이 동아리는 BANK 자동매칭을 사용하지 않습니다. (총동연 등록 필요)
+        </p>
+      </div>
+    );
+  }
+
+  // 계좌 미등록(404 등)이면 은행 라벨을 알 수 없다 — 동기화 모달은 빈 상태에서도 열 수 있으나
+  // 라벨 자리에는 안내 문구를 보여준다.
+  const syncBankLabel = feeAccount ? bankLabel(feeAccount.bank) : '등록된 회비 계좌 없음';
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setSyncOpen(true)}
+          className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-ink-deep"
+        >
+          거래내역 동기화
+        </button>
+      </div>
+
+      <BankReviewQueue clubId={clubId} />
+
+      {isSyncOpen && (
+        <BankSyncDialog
+          clubId={clubId}
+          bankLabel={syncBankLabel}
+          onClose={() => setSyncOpen(false)}
+        />
       )}
     </div>
   );

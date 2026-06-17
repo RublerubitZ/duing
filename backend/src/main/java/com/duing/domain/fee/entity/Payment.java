@@ -54,6 +54,10 @@ public class Payment extends BaseEntity {
     @Column(name = "void_reason", length = 200)
     private String voidReason;
 
+    // BANK 거래 매칭으로 생성된 납부만 채워진다(수동 납부는 null). V63 의 payment.bank_transaction_id 컬럼에 매핑.
+    @Column(name = "bank_transaction_id")
+    private Long bankTransactionId;
+
     @Builder(access = AccessLevel.PRIVATE)
     private Payment(Long feeBillId, Long amount, PaymentMethod method, LocalDateTime paidAt,
                     Long recordedBy, String memo, PaymentStatus status) {
@@ -72,6 +76,11 @@ public class Payment extends BaseEntity {
                 .feeBillId(feeBillId).amount(amount).method(method).paidAt(paidAt)
                 .recordedBy(recordedBy).memo(memo).status(PaymentStatus.ACTIVE)
                 .build();
+    }
+
+    /** 매칭된 BANK 거래 id 를 연결한다. 매칭 납부 생성 시에만 호출된다. */
+    public void linkBankTransaction(Long bankTransactionId) {
+        this.bankTransactionId = bankTransactionId;
     }
 
     /** 납부를 정정(무효화)한다. 이미 정정된 경우 기존 이력을 보존하기 위해 멱등 no-op 으로 처리한다. */

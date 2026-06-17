@@ -43,6 +43,12 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     group: '동아리',
   },
   {
+    href: '/admin/bank-matching',
+    title: 'BANK 자동매칭',
+    description: '은행 입금 자동매칭에 사용할 동아리 등록·해제',
+    group: '동아리',
+  },
+  {
     href: '/admin/recertification/rounds',
     title: '재인증 라운드',
     description: '중앙동아리 연간 재인증 라운드 개설·종료',

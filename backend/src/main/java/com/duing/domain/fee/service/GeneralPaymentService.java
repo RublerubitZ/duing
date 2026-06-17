@@ -66,7 +66,7 @@ public class GeneralPaymentService implements PaymentService {
         bill.updateStatus(newStatus);
         eventPublisher.publishEvent(new FeePaymentConfirmedEvent(
                 bill.getUserId(), bill.getId(), bill.getBillingPeriod(), newStatus,
-                bill.getAmount() - newSum, payment.getId()));
+                bill.getAmount() - newSum, payment.getId(), false)); // 수동 납부 기록은 자동매칭이 아니다
 
         log.info("payment recorded: actorId={}, clubId={}, billId={}, paymentId={}, amount={}, newStatus={}",
                 command.actorId(), command.clubId(), command.billId(), payment.getId(), command.amount(), newStatus);

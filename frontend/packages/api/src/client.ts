@@ -149,6 +149,11 @@ import type {
   RecordPaymentPayload,
   FeeBillSummary,
   FeeSummaryParams,
+  BankTransaction,
+  BankTransactionSearchParams,
+  SyncResult,
+  SyncBankTransactionsPayload,
+  BankMatchingOverview,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -404,6 +409,13 @@ export type DuingApiClient = {
       update(promotionId: number, payload: UpdatePromotionPayload): Promise<void>;
       delete(promotionId: number): Promise<void>;
     };
+    // === BANK 자동매칭 관리 (Sprint 3) ===
+    bankMatching: {
+      // GET /admin/clubs/bank-matching — 동아리별 상태 목록 + 전역 슬롯 현황(slots 는 BANK API 장애 시 null).
+      overview(): Promise<BankMatchingOverview>;
+      // PUT /admin/clubs/{clubId}/bank-matching — 동아리 자동매칭 허용/해제.
+      setActive(clubId: number, active: boolean): Promise<void>;
+    };
   };
   interviewRounds: {
     // === 면접 라운드 후보 조회 (BE#2) ===
@@ -491,6 +503,20 @@ export type DuingApiClient = {
         upsert(clubId: number, payload: FeeAccountPayload): Promise<number>;
         remove(clubId: number): Promise<void>;
       };
+      // === BANK 매칭 (Sprint 3) ===
+      // 민감 인증정보(계좌 비번·주민번호)는 sync 페이로드로만 전달하고 어디에도 영속화/로깅하지 않는다.
+      bank: {
+        // POST /leader/clubs/{clubId}/bank-transactions/sync — 거래 동기화(적재 건수 반환).
+        sync(clubId: number, payload: SyncBankTransactionsPayload): Promise<SyncResult>;
+        // GET /leader/clubs/{clubId}/bank-transactions — 검토 큐 조회(status 미지정 시 백엔드 PENDING).
+        list(clubId: number, params: BankTransactionSearchParams): Promise<PageResponse<BankTransaction>>;
+        // POST /leader/clubs/{clubId}/bank-transactions/{txId}/approve — 후보 청구로 매칭 승인.
+        approve(clubId: number, txId: number, feeBillId: number): Promise<void>;
+        // POST /leader/clubs/{clubId}/bank-transactions/{txId}/ignore — 거래 무시 처리.
+        ignore(clubId: number, txId: number): Promise<void>;
+        // POST /leader/clubs/{clubId}/bank-transactions/{txId}/unmatch — 매칭 해제(납부 무효화).
+        unmatch(clubId: number, txId: number): Promise<void>;
+      };
     };
   };
   my: {
@@ -507,6 +533,10 @@ export type CreateApiClientOptions = {
 // 로그아웃의 서버 폐기는 best-effort 다. 백엔드가 행(hang)/오프라인이어도 로컬 로그아웃이
 // 전역 타임아웃(15s)까지 묶이지 않도록 짧은 타임아웃을 둔다(실패해도 로컬 정리는 계속 진행).
 const LOGOUT_REVOKE_TIMEOUT_MS = 5_000;
+
+// 거래 동기화는 백엔드가 외부 은행 API 를 조회한다(connect 5s + read 15s + 처리). 전역 타임아웃(15s)
+// 으로는 백엔드 응답 전에 프론트가 먼저 끊긴다 — 이 호출만 더 넉넉한 타임아웃을 둔다.
+const BANK_SYNC_TIMEOUT_MS = 30_000; // 외부 은행 조회(백엔드 connect5s+read15s) 보다 길게
 
 export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiClient {
   const http = ky.create({
@@ -968,6 +998,12 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         delete: (promotionId) =>
           jsonVoid(http.delete(`admin/promotions/${promotionId}`)),
       },
+      bankMatching: {
+        overview: () =>
+          jsonOk<BankMatchingOverview>(http.get('admin/clubs/bank-matching')),
+        setActive: (clubId, active) =>
+          jsonVoid(http.put(`admin/clubs/${clubId}/bank-matching`, { json: { active } })),
+      },
     },
     applicantInterview: {
       view: (applicationId) =>
@@ -1012,6 +1048,30 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
             jsonOk<number>(http.put(`leader/clubs/${clubId}/fee-account`, { json: payload })),
           remove: (clubId) =>
             jsonVoid(http.delete(`leader/clubs/${clubId}/fee-account`)),
+        },
+        bank: {
+          // 보안: payload(계좌 비번·주민번호)는 절대 로깅/영속화하지 않는다 — 요청 본문으로만 전달한다.
+          sync: (clubId, payload) =>
+            jsonOk<SyncResult>(
+              http.post(`leader/clubs/${clubId}/bank-transactions/sync`, {
+                json: payload,
+                timeout: BANK_SYNC_TIMEOUT_MS,
+              }),
+            ),
+          list: (clubId, params) =>
+            jsonOk<PageResponse<BankTransaction>>(
+              http.get(`leader/clubs/${clubId}/bank-transactions`, { searchParams: cleanParams(params) }),
+            ),
+          approve: (clubId, txId, feeBillId) =>
+            jsonVoid(
+              http.post(`leader/clubs/${clubId}/bank-transactions/${txId}/approve`, {
+                json: { feeBillId },
+              }),
+            ),
+          ignore: (clubId, txId) =>
+            jsonVoid(http.post(`leader/clubs/${clubId}/bank-transactions/${txId}/ignore`)),
+          unmatch: (clubId, txId) =>
+            jsonVoid(http.post(`leader/clubs/${clubId}/bank-transactions/${txId}/unmatch`)),
         },
       },
     },

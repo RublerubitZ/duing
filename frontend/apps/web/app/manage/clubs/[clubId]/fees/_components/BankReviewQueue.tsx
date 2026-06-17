@@ -1,0 +1,422 @@
+'use client';
+
+import { useState } from 'react';
+
+import { ApiError } from '@duing/api';
+import {
+  useApproveMatchMutation,
+  useBankTransactionsQuery,
+  useIgnoreTransactionMutation,
+  useUnmatchTransactionMutation,
+} from '@duing/hooks';
+import type { BankTransaction, MatchCandidate } from '@duing/types';
+
+import { useToast } from '@/app/_components/toast/ToastProvider';
+
+import { cn } from '@/app/_lib/cn';
+import { formatWon } from '@/app/_lib/feeLabels';
+
+import { ManualMatchDialog } from './ManualMatchDialog';
+
+type BankReviewQueueProps = {
+  clubId: number;
+};
+
+// ISO 일시 문자열(YYYY-MM-DDTHH:mm:ss)을 'YYYY-MM-DD HH:mm' 로 보기 좋게 자른다.
+function formatTransactionAt(transactionAt: string): string {
+  const date = transactionAt.slice(0, 10);
+  const time = transactionAt.slice(11, 16);
+  return time ? `${date} ${time}` : date;
+}
+
+// 이름 비교용 정규화: 앞뒤·내부 공백을 모두 제거한다('홍 길동' vs '홍길동' 같은 표기 차이를 무시).
+function normalizeName(name: string): string {
+  return name.replace(/\s+/g, '');
+}
+
+// 입금자명이 있고(NH/우리는 비어 있음) 매칭 회원명과 다르면 오매칭 가능성 → 총무가 확인하도록 경고를 띄운다.
+// 입금자명이 없으면 대조할 대상이 없어 경고하지 않는다(대리 입금처럼 다른 게 정상인 경우도 있어 매칭 로직은 그대로다).
+function hasNameMismatch(counterparty: string | null, matchedMemberName: string | null): boolean {
+  if (!counterparty || !matchedMemberName) return false;
+  return normalizeName(counterparty) !== normalizeName(matchedMemberName);
+}
+
+function mutationErrorMessage(error: unknown, fallback: string): string {
+  // 409(AlreadyMatched): 동기화 타임아웃 등으로 서버 상태가 이미 바뀐 거래에 승인/무시를 시도한 경우다.
+  // onSettled 무효화로 큐는 이미 새로고침되므로, 서버 메시지 대신 상황을 설명하는 안내를 노출한다.
+  if (error instanceof ApiError && error.status === 409) {
+    return '이미 처리된 거래예요. 목록을 새로고침했어요.';
+  }
+  if (error instanceof ApiError || error instanceof Error) {
+    return error.message;
+  }
+  return fallback;
+}
+
+export function BankReviewQueue({ clubId }: BankReviewQueueProps) {
+  const {
+    data: pendingPage,
+    isLoading: isPendingLoading,
+    isError: isPendingError,
+  } = useBankTransactionsQuery(clubId, { status: 'PENDING' });
+  const {
+    data: autoMatchedPage,
+    isLoading: isAutoMatchedLoading,
+    isError: isAutoMatchedError,
+  } = useBankTransactionsQuery(clubId, { status: 'AUTO_MATCHED' });
+  const {
+    data: manualMatchedPage,
+    isLoading: isManualMatchedLoading,
+    isError: isManualMatchedError,
+  } = useBankTransactionsQuery(clubId, { status: 'MANUAL_MATCHED' });
+
+  const pendingTransactions = pendingPage?.content ?? [];
+
+  // 매칭 상태 필터가 단일 값이라 자동/수동 매칭을 각각 조회한 뒤 합쳐 하나의 '매칭 내역' 목록으로 보여준다.
+  const isMatchedLoading = isAutoMatchedLoading || isManualMatchedLoading;
+  const isMatchedError = isAutoMatchedError || isManualMatchedError;
+  const matchedTransactions = [
+    ...(autoMatchedPage?.content ?? []),
+    ...(manualMatchedPage?.content ?? []),
+  ].sort((first, second) => second.transactionAt.localeCompare(first.transactionAt));
+
+  return (
+    <div className="space-y-8">
+      <section className="space-y-3">
+        <h2 className="text-sm font-bold text-ink">검토 대기</h2>
+        {isPendingLoading ? (
+          <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+        ) : isPendingError ? (
+          <QueryErrorCard />
+        ) : pendingTransactions.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
+            <p className="text-sm text-charcoal-2">검토할 입금 거래가 없습니다.</p>
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {pendingTransactions.map((transaction) => (
+              <PendingTransactionCard
+                key={transaction.id}
+                clubId={clubId}
+                transaction={transaction}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-bold text-ink">매칭 내역</h2>
+        {isMatchedLoading ? (
+          <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+        ) : isMatchedError ? (
+          <QueryErrorCard />
+        ) : matchedTransactions.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
+            <p className="text-sm text-charcoal-2">매칭된 거래가 없습니다.</p>
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {matchedTransactions.map((transaction) => (
+              <MatchedTransactionRow
+                key={transaction.id}
+                clubId={clubId}
+                transaction={transaction}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+// 일시적인 조회 실패 시 빈 상태 대신 보여줄 안내 카드. 원본 에러는 노출하지 않는다.
+function QueryErrorCard() {
+  return (
+    <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
+      <p className="text-sm text-charcoal-2">
+        거래를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
+      </p>
+    </div>
+  );
+}
+
+type PendingTransactionCardProps = {
+  clubId: number;
+  transaction: BankTransaction;
+};
+
+function PendingTransactionCard({ clubId, transaction }: PendingTransactionCardProps) {
+  const approveMatch = useApproveMatchMutation(clubId);
+  const ignoreTransaction = useIgnoreTransactionMutation(clubId);
+  const { addToast } = useToast();
+  const [isIgnoreOpen, setIgnoreOpen] = useState(false);
+  const [isManualMatchOpen, setManualMatchOpen] = useState(false);
+
+  const approve = (candidate: MatchCandidate) => {
+    approveMatch.mutate(
+      { txId: transaction.id, feeBillId: candidate.feeBillId },
+      {
+        onSuccess: () => addToast('매칭을 승인했습니다.'),
+        onError: (error) =>
+          addToast(mutationErrorMessage(error, '매칭 승인에 실패했습니다.'), { variant: 'error' }),
+      },
+    );
+  };
+
+  const hasCandidates = transaction.candidates.length > 0;
+  const isPending = approveMatch.isPending || ignoreTransaction.isPending;
+
+  return (
+    <li className="rounded-xl border border-line px-4 py-3">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-ink">{formatWon(transaction.amount)}</p>
+          <p className="mt-0.5 text-xs text-charcoal-3">
+            입금시각 {formatTransactionAt(transaction.transactionAt)}
+            {transaction.counterparty && ` · ${transaction.counterparty}`}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setManualMatchOpen(true)}
+            disabled={isPending}
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-graysoft disabled:opacity-50"
+          >
+            회원 선택 후 매칭
+          </button>
+          <button
+            type="button"
+            onClick={() => setIgnoreOpen(true)}
+            disabled={isPending}
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
+          >
+            무시
+          </button>
+        </div>
+      </div>
+
+      {hasCandidates ? (
+        <ul className="mt-3 space-y-2 border-t border-line pt-3">
+          {transaction.candidates.map((candidate) => (
+            <li
+              key={candidate.feeBillId}
+              className="flex items-center justify-between gap-4 rounded-md bg-graysoft px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-ink">
+                  {candidate.memberName} · {candidate.billingPeriod}
+                </p>
+                <p className="mt-0.5 text-xs text-charcoal-3">
+                  잔액 {formatWon(candidate.remaining)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => approve(candidate)}
+                disabled={isPending}
+                className="shrink-0 rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-paper transition-colors hover:bg-ink-deep disabled:opacity-50"
+              >
+                승인
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 border-t border-line pt-3 text-xs text-charcoal-3">
+          일치하는 청구가 없습니다
+        </p>
+      )}
+
+      {isIgnoreOpen && (
+        <IgnoreTransactionConfirm
+          transaction={transaction}
+          mutation={ignoreTransaction}
+          onClose={() => setIgnoreOpen(false)}
+        />
+      )}
+
+      {isManualMatchOpen && (
+        <ManualMatchDialog
+          clubId={clubId}
+          txId={transaction.id}
+          depositAmount={transaction.amount}
+          counterparty={transaction.counterparty}
+          onClose={() => setManualMatchOpen(false)}
+        />
+      )}
+    </li>
+  );
+}
+
+type IgnoreTransactionConfirmProps = {
+  transaction: BankTransaction;
+  mutation: ReturnType<typeof useIgnoreTransactionMutation>;
+  onClose: () => void;
+};
+
+function IgnoreTransactionConfirm({
+  transaction,
+  mutation,
+  onClose,
+}: IgnoreTransactionConfirmProps) {
+  const { addToast } = useToast();
+
+  const confirmIgnore = () => {
+    mutation.mutate(transaction.id, {
+      onSuccess: () => {
+        addToast('거래를 무시 처리했습니다.');
+        onClose();
+      },
+      onError: (error) => {
+        addToast(mutationErrorMessage(error, '무시 처리에 실패했습니다.'), { variant: 'error' });
+        onClose();
+      },
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/40 px-4" role="presentation">
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-label="거래 무시 확인"
+        className="w-full max-w-sm rounded-xl bg-paper p-5 shadow-3"
+      >
+        <h2 className="text-base font-bold text-ink">거래 무시</h2>
+        <p className="mt-2 text-sm text-charcoal-2">
+          <span className="font-medium text-ink">{formatWon(transaction.amount)}</span> 입금 거래를
+          무시할까요? 무시한 거래는 검토 큐에서 사라집니다.
+        </p>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={mutation.isPending}
+            className="flex-1 rounded-md border border-line py-2.5 text-sm font-semibold text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={confirmIgnore}
+            disabled={mutation.isPending}
+            className="flex-1 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+          >
+            {mutation.isPending ? '처리 중…' : '무시'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type MatchedTransactionRowProps = {
+  clubId: number;
+  transaction: BankTransaction;
+};
+
+function MatchedTransactionRow({ clubId, transaction }: MatchedTransactionRowProps) {
+  const unmatchTransaction = useUnmatchTransactionMutation(clubId);
+  const { addToast } = useToast();
+  const [isUnmatchOpen, setUnmatchOpen] = useState(false);
+
+  const hasCounterparty = Boolean(transaction.counterparty);
+  const isMismatch = hasNameMismatch(transaction.counterparty, transaction.matchedMemberName);
+
+  return (
+    <li
+      className={cn(
+        'flex items-center justify-between gap-4 rounded-xl border px-4 py-3',
+        isMismatch ? 'border-coral/40 bg-coral/5' : 'border-line',
+      )}
+    >
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+          {formatWon(transaction.amount)}
+          {transaction.matchStatus === 'MANUAL_MATCHED' && (
+            <span className="text-xs font-medium text-charcoal-3">수동</span>
+          )}
+          {transaction.matchStatus === 'AUTO_MATCHED' && (
+            <span className="text-xs font-medium text-charcoal-3">자동</span>
+          )}
+        </p>
+        <p className="mt-0.5 truncate text-xs text-charcoal-2">
+          {hasCounterparty
+            ? `입금자 ${transaction.counterparty} → 매칭 ${transaction.matchedMemberName ?? '—'}`
+            : `매칭 ${transaction.matchedMemberName ?? '—'}`}
+          {transaction.matchedBillingPeriod && ` · ${transaction.matchedBillingPeriod}`}
+        </p>
+        <p className="mt-0.5 text-xs text-charcoal-3">
+          입금시각 {formatTransactionAt(transaction.transactionAt)}
+        </p>
+        {isMismatch && (
+          <span className="mt-1.5 inline-flex items-center rounded-full bg-coral/10 px-2 py-0.5 text-[11px] font-semibold text-coral">
+            입금자명 불일치 — 확인 필요
+          </span>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => setUnmatchOpen(true)}
+        disabled={unmatchTransaction.isPending}
+        className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50"
+      >
+        매칭취소
+      </button>
+
+      {isUnmatchOpen && (
+        <div
+          className="fixed inset-0 z-[70] grid place-items-center bg-black/40 px-4"
+          role="presentation"
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-label="매칭 취소 확인"
+            className="w-full max-w-sm rounded-xl bg-paper p-5 shadow-3"
+          >
+            <h2 className="text-base font-bold text-ink">매칭 취소</h2>
+            <p className="mt-2 text-sm text-charcoal-2">
+              <span className="font-medium text-ink">{formatWon(transaction.amount)}</span> 거래의
+              매칭을 취소할까요? 연결된 납부 기록이 무효화되고 청구 잔액이 다시 계산됩니다.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setUnmatchOpen(false)}
+                disabled={unmatchTransaction.isPending}
+                className="flex-1 rounded-md border border-line py-2.5 text-sm font-semibold text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  unmatchTransaction.mutate(transaction.id, {
+                    onSuccess: () => {
+                      addToast('매칭을 취소했습니다.');
+                      setUnmatchOpen(false);
+                    },
+                    onError: (error) => {
+                      addToast(mutationErrorMessage(error, '매칭 취소에 실패했습니다.'), {
+                        variant: 'error',
+                      });
+                      setUnmatchOpen(false);
+                    },
+                  })
+                }
+                disabled={unmatchTransaction.isPending}
+                className="flex-1 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+              >
+                {unmatchTransaction.isPending ? '취소 중…' : '매칭 취소'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
