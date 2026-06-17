@@ -45,9 +45,9 @@ public class MonthlyBillIssueJob {
             try {
                 feeBillService.autoIssueMonthly(policy, today);
                 succeeded++;
-            } catch (Exception failure) {
+            } catch (Exception policyIssueFailure) {
                 log.warn("MonthlyBillIssueJob: 정책 자동발행 실패 clubId={}, policyId={}",
-                        policy.getClubId(), policy.getId(), failure);
+                        policy.getClubId(), policy.getId(), policyIssueFailure);
             }
         }
         log.info("MonthlyBillIssueJob: 대상 {}건 중 {}건 처리", duePolicies.size(), succeeded);
