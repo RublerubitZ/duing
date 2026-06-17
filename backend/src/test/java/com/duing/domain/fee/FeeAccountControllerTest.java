@@ -53,7 +53,9 @@ class FeeAccountControllerTest extends IntegrationTestBase {
     private String memberToken;
     private String nonMemberToken;
     private String otherClubLeaderToken;
+    private String otherClubMemberToken;
     private Long clubId;
+    private Long otherClubId;
 
     @BeforeEach
     void setUp() {
@@ -69,10 +71,13 @@ class FeeAccountControllerTest extends IntegrationTestBase {
         clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
         clubMemberRepository.save(ClubMember.of(club, member, ClubMemberRole.MEMBER));
 
-        // 다른 동아리의 회장 — 이 동아리에 대해서는 멤버가 아니다.
+        // 다른 동아리(B) — 이 동아리(A)에 대해서는 멤버가 아니다.
         Club otherClub = clubRepository.save(ClubFixture.academic("동아리B"));
+        otherClubId = otherClub.getId();
         User otherClubLeader = userRepository.save(UserFixture.unique());
+        User otherClubMember = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(otherClub, otherClubLeader));
+        clubMemberRepository.save(ClubMember.of(otherClub, otherClubMember, ClubMemberRole.MEMBER));
 
         leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
         officerToken = jwtTokenProvider.createToken(officer.getId(), officer.getRole().name());
@@ -80,6 +85,8 @@ class FeeAccountControllerTest extends IntegrationTestBase {
         nonMemberToken = jwtTokenProvider.createToken(nonMember.getId(), nonMember.getRole().name());
         otherClubLeaderToken =
                 jwtTokenProvider.createToken(otherClubLeader.getId(), otherClubLeader.getRole().name());
+        otherClubMemberToken =
+                jwtTokenProvider.createToken(otherClubMember.getId(), otherClubMember.getRole().name());
     }
 
     private static Map<String, Object> accountBody(String bank, String accountNumber, String accountHolder) {
@@ -134,6 +141,38 @@ class FeeAccountControllerTest extends IntegrationTestBase {
                 .when().get("/api/v1/leader/clubs/" + clubId + "/fee-account")
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.accountNumber", equalTo(plaintextAccountNumber));
+    }
+
+    @Test
+    @DisplayName("한 동아리(A)의 계좌 암호문을 다른 동아리(B) 행에 끼워 넣고 B 멤버가 조회하면 "
+            + "AAD(clubId) 불일치로 복호화가 실패해 500 을 반환한다(치환 방어)")
+    void substitutedCiphertextFromAnotherClubFailsToDecrypt() {
+        // 1) 동아리 A 에 계좌 등록 → 암호문은 A 의 clubId 에 AAD 로 바인딩된다.
+        String plaintextAccountNumber = "352-1234-5678-90";
+        upsertAs(leaderToken, accountBody("KB", plaintextAccountNumber, "동아리A회비"));
+
+        // 2) 동아리 A 행의 원본 암호문을 직접 읽는다.
+        String clubACiphertext = jdbcTemplate.queryForObject(
+                "SELECT account_number FROM fee_account WHERE club_id = ? AND deleted_at IS NULL",
+                String.class, clubId);
+
+        // 3) 서비스/암호화를 우회해 동아리 B 행에 A 의 암호문을 그대로 INSERT 한다(치환 공격 모사).
+        jdbcTemplate.update(
+                "INSERT INTO fee_account (club_id, bank, account_number, account_holder) "
+                        + "VALUES (?, ?, ?, ?)",
+                otherClubId, "KB", clubACiphertext, "동아리B회비");
+
+        // 4) 동아리 B 의 멤버가 B 의 계좌를 조회하면 AAD(clubId) 가 어긋나 복호화가 실패한다.
+        //    A 의 평문 계좌번호가 새지 않고 복호화 실패 전용 응답으로 500 이 닫힌다(fail closed).
+        //    message 까지 검증해 무관한 원인의 500(DB 오류 등)과 구별한다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherClubMemberToken)
+                .when().get("/api/v1/clubs/" + otherClubId + "/fee-account")
+                .then().statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .body("ok", equalTo(false))
+                .body("data", org.hamcrest.Matchers.nullValue())
+                .body("message", equalTo("회비 계좌 정보를 불러올 수 없습니다."))
+                .body("accountNumber", org.hamcrest.Matchers.nullValue());
     }
 
     @Test

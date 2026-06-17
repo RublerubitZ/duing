@@ -33,7 +33,9 @@ class FeeAccountCipherWiringTest {
         assertThat(feeAccountCipher).isNotNull();
 
         String plaintext = "352-9999-1111-22";
-        assertThat(feeAccountCipher.decrypt(feeAccountCipher.encrypt(plaintext))).isEqualTo(plaintext);
+        long clubId = 1L;
+        assertThat(feeAccountCipher.decrypt(feeAccountCipher.encrypt(plaintext, clubId), clubId))
+                .isEqualTo(plaintext);
     }
 
     @Test
