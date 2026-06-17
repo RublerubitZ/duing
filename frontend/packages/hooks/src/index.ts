@@ -224,3 +224,13 @@ export {
   useMemberFeeAccountQuery,
 } from './fee';
 export { feeQueryKeys } from './feeQueryKeys';
+export {
+  useBankSyncMutation,
+  useBankTransactionsQuery,
+  useApproveMatchMutation,
+  useIgnoreTransactionMutation,
+  useUnmatchTransactionMutation,
+  useAdminBankMatchingQuery,
+  useSetBankMatchingMutation,
+} from './bank';
+export { bankQueryKeys } from './bankQueryKeys';

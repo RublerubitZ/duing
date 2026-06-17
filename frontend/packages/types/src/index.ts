@@ -21,3 +21,4 @@ export * from './interviewRound';
 export * from './applicantInterview';
 export * from './dashboard';
 export * from './fee';
+export * from './bank';

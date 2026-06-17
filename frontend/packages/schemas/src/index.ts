@@ -596,3 +596,15 @@ export const feeAccountSchema = z.object({
 });
 
 export type FeeAccountInput = z.infer<typeof feeAccountSchema>;
+
+// === BANK 매칭 동기화(bank transaction sync) ===
+// SyncBankTransactionsRequest 미러:
+//   accountPassword @NotBlank — 계좌 비밀번호
+//   residentNumber  @NotBlank — 주민등록번호 앞 6자리
+// 민감 인증정보 — 영속화/로깅 금지. 폼은 제출 후 즉시 리셋한다(호출부 FE-2 책임).
+export const syncBankTransactionsSchema = z.object({
+  accountPassword: z.string().min(1, '계좌 비밀번호는 필수입니다.'),
+  residentNumber: z.string().regex(/^\d{6}$/, '주민등록번호 앞 6자리를 입력해 주세요.'),
+});
+
+export type SyncBankTransactionsInput = z.infer<typeof syncBankTransactionsSchema>;

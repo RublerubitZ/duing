@@ -8,5 +8,6 @@ public record FeePaymentConfirmedEvent(
         String billingPeriod,
         FeeStatus newStatus,
         long remaining,
-        Long paymentId
+        Long paymentId,
+        boolean autoMatched
 ) {}
