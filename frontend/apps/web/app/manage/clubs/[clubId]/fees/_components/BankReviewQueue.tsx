@@ -16,6 +16,8 @@ import { useToast } from '@/app/_components/toast/ToastProvider';
 import { cn } from '@/app/_lib/cn';
 import { formatWon } from '@/app/_lib/feeLabels';
 
+import { ManualMatchDialog } from './ManualMatchDialog';
+
 type BankReviewQueueProps = {
   clubId: number;
 };
@@ -150,6 +152,7 @@ function PendingTransactionCard({ clubId, transaction }: PendingTransactionCardP
   const ignoreTransaction = useIgnoreTransactionMutation(clubId);
   const { addToast } = useToast();
   const [isIgnoreOpen, setIgnoreOpen] = useState(false);
+  const [isManualMatchOpen, setManualMatchOpen] = useState(false);
 
   const approve = (candidate: MatchCandidate) => {
     approveMatch.mutate(
@@ -175,14 +178,24 @@ function PendingTransactionCard({ clubId, transaction }: PendingTransactionCardP
             {transaction.counterparty && ` · ${transaction.counterparty}`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setIgnoreOpen(true)}
-          disabled={isPending}
-          className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
-        >
-          무시
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setManualMatchOpen(true)}
+            disabled={isPending}
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-graysoft disabled:opacity-50"
+          >
+            회원 선택 후 매칭
+          </button>
+          <button
+            type="button"
+            onClick={() => setIgnoreOpen(true)}
+            disabled={isPending}
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
+          >
+            무시
+          </button>
+        </div>
       </div>
 
       {hasCandidates ? (
@@ -222,6 +235,16 @@ function PendingTransactionCard({ clubId, transaction }: PendingTransactionCardP
           transaction={transaction}
           mutation={ignoreTransaction}
           onClose={() => setIgnoreOpen(false)}
+        />
+      )}
+
+      {isManualMatchOpen && (
+        <ManualMatchDialog
+          clubId={clubId}
+          txId={transaction.id}
+          depositAmount={transaction.amount}
+          counterparty={transaction.counterparty}
+          onClose={() => setManualMatchOpen(false)}
         />
       )}
     </li>

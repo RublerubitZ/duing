@@ -2,11 +2,33 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { BankTransaction } from '@duing/types';
+import type { BankTransaction, ClubMember, FeeBill } from '@duing/types';
 
 const mockApproveMutate = vi.fn();
 const mockIgnoreMutate = vi.fn();
 const mockUnmatchMutate = vi.fn();
+
+// ManualMatchDialog(회원 선택 후 매칭)가 쓰는 훅들.
+// 회원 목록은 고정, 청구 목록은 선택된 회원의 userId 로 분기해 돌려준다.
+const manualMatchMembers: ClubMember[] = [
+  {
+    memberId: 1,
+    userId: 42,
+    name: '구승율',
+    studentId: '20210001',
+    role: 'MEMBER',
+    joinedAt: '2026-01-01',
+  },
+  {
+    memberId: 2,
+    userId: 99,
+    name: '박서준',
+    studentId: '20210002',
+    role: 'OFFICER',
+    joinedAt: '2026-01-02',
+  },
+];
+const mockFeeBillsByUserId = vi.fn<(userId?: number) => FeeBill[]>(() => []);
 
 // status 필터별로 다른 페이지를 돌려준다
 // (PENDING=검토 큐, AUTO_MATCHED=자동 매칭, MANUAL_MATCHED=수동 매칭 — 둘은 '매칭 내역'으로 합쳐 노출).
@@ -43,6 +65,18 @@ vi.mock('@duing/hooks', () => ({
   useApproveMatchMutation: () => ({ mutate: mockApproveMutate, isPending: false, error: null }),
   useIgnoreTransactionMutation: () => ({ mutate: mockIgnoreMutate, isPending: false, error: null }),
   useUnmatchTransactionMutation: () => ({ mutate: mockUnmatchMutate, isPending: false, error: null }),
+  useClubMembersQuery: (clubId: number) => {
+    void clubId;
+    return { data: manualMatchMembers, isLoading: false };
+  },
+  useClubFeeBillsQuery: (clubId: number, params: { userId?: number }) => {
+    void clubId;
+    const content = mockFeeBillsByUserId(params.userId);
+    return {
+      data: { content, page: 0, size: 50, totalElements: content.length, totalPages: 1, hasNext: false },
+      isLoading: false,
+    };
+  },
 }));
 
 // 무시 뮤테이션이 특정 에러로 실패하도록 강제하기 위한 헬퍼.
@@ -110,6 +144,22 @@ const pendingNoCandidate: BankTransaction = {
   matchedBillingPeriod: null,
 };
 
+const buildFeeBill = (over: Partial<FeeBill> = {}): FeeBill => ({
+  id: 700,
+  clubId: 1,
+  userId: 42,
+  feePolicyId: 7,
+  amount: 10000,
+  billingPeriod: '2026-06',
+  billingStartDate: '2026-06-01',
+  billingEndDate: '2026-06-30',
+  dueDate: '2026-06-30',
+  status: 'PENDING',
+  paidAmount: 0,
+  remainingAmount: 10000,
+  ...over,
+});
+
 describe('BankReviewQueue', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -117,6 +167,7 @@ describe('BankReviewQueue', () => {
     mockAutoMatchedContent.mockReturnValue([]);
     mockManualMatchedContent.mockReturnValue([]);
     mockPendingError.mockReturnValue(null);
+    mockFeeBillsByUserId.mockReturnValue([]);
   });
 
   it('검토 대기 입금과 후보 청구 행을 렌더링한다', () => {
@@ -354,5 +405,89 @@ describe('BankReviewQueue', () => {
         { variant: 'error' },
       ),
     );
+  });
+
+  describe('회원 선택 후 매칭(부분 매칭)', () => {
+    // 입금액(5,000)에 정확히 맞는 후보가 없는 PENDING 거래로 부분 매칭 경로를 검증한다.
+    const partialDeposit: BankTransaction = {
+      id: 601,
+      transactionAt: '2026-06-16T11:00:00',
+      amount: 5000,
+      counterparty: '구승율',
+      transactionType: 'DEPOSIT',
+      matchStatus: 'PENDING',
+      matchedFeeBillId: null,
+      candidates: [],
+      matchedMemberName: null,
+      matchedBillingPeriod: null,
+    };
+
+    async function openDialogAndSelectMember(memberName: string) {
+      const user = userEvent.setup();
+      mockPendingContent.mockReturnValue([partialDeposit]);
+      render(<BankReviewQueue clubId={1} />);
+
+      await user.click(screen.getByRole('button', { name: '회원 선택 후 매칭' }));
+      const dialog = await screen.findByRole('dialog');
+
+      // counterparty 로 검색어가 미리 채워져 있으므로 비우고 원하는 회원으로 검색한다.
+      const searchInput = within(dialog).getByRole('textbox', { name: '회원 검색' });
+      await user.clear(searchInput);
+      await user.type(searchInput, memberName);
+      await user.click(within(dialog).getByRole('button', { name: new RegExp(memberName) }));
+
+      return { user, dialog };
+    }
+
+    it('회원을 검색·선택하면 적용 가능한 미납 청구(잔액 ≥ 입금액)만 노출하고, 잔액<입금액 청구는 제외한다', async () => {
+      // 잔액 10,000(적용 가능) / 잔액 3,000(입금 5,000 미만 → 제외) / 완납(제외).
+      mockFeeBillsByUserId.mockImplementation((userId) =>
+        userId === 42
+          ? [
+              buildFeeBill({ id: 700, billingPeriod: '2026-06', remainingAmount: 10000, status: 'PENDING' }),
+              buildFeeBill({ id: 701, billingPeriod: '2026-05', remainingAmount: 3000, status: 'PARTIAL_PAID', paidAmount: 7000 }),
+              buildFeeBill({ id: 702, billingPeriod: '2026-04', remainingAmount: 0, status: 'PAID', paidAmount: 10000 }),
+            ]
+          : [],
+      );
+
+      const { dialog } = await openDialogAndSelectMember('구승율');
+
+      expect(within(dialog).getByText(/2026-06 · 잔액 10,000원/)).toBeInTheDocument();
+      expect(within(dialog).queryByText(/2026-05/)).not.toBeInTheDocument();
+      expect(within(dialog).queryByText(/2026-04/)).not.toBeInTheDocument();
+      expect(within(dialog).getAllByRole('button', { name: '이 청구에 적용' })).toHaveLength(1);
+    });
+
+    it('[이 청구에 적용] 클릭 시 {txId, feeBillId} 로 승인 뮤테이션을 호출한다', async () => {
+      mockFeeBillsByUserId.mockImplementation((userId) =>
+        userId === 42
+          ? [buildFeeBill({ id: 700, billingPeriod: '2026-06', remainingAmount: 10000 })]
+          : [],
+      );
+
+      const { user, dialog } = await openDialogAndSelectMember('구승율');
+      await user.click(within(dialog).getByRole('button', { name: '이 청구에 적용' }));
+
+      await waitFor(() => expect(mockApproveMutate).toHaveBeenCalled());
+      const [payload] = mockApproveMutate.mock.calls[0] as [Record<string, unknown>];
+      expect(payload).toEqual({ txId: 601, feeBillId: 700 });
+    });
+
+    it('적용 가능한 미납 청구가 없으면 안내 문구를 노출한다', async () => {
+      // 잔액(2,000)이 입금액(5,000)보다 작아 적용 불가 → 빈 안내.
+      mockFeeBillsByUserId.mockImplementation((userId) =>
+        userId === 99
+          ? [buildFeeBill({ id: 800, userId: 99, remainingAmount: 2000, status: 'PARTIAL_PAID', paidAmount: 8000 })]
+          : [],
+      );
+
+      const { dialog } = await openDialogAndSelectMember('박서준');
+
+      expect(
+        within(dialog).getByText(/적용 가능한 미납 청구가 없어요/),
+      ).toBeInTheDocument();
+      expect(within(dialog).queryByRole('button', { name: '이 청구에 적용' })).not.toBeInTheDocument();
+    });
   });
 });
