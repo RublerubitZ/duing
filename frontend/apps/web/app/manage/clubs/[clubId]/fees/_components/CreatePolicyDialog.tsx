@@ -48,6 +48,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateFeePolicyInput>({
     resolver: zodResolver(createFeePolicySchema),
@@ -173,7 +174,15 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
               <select
                 id="policy-billing-type"
                 aria-label="회비 유형"
-                {...register('billingType')}
+                {...register('billingType', {
+                  onChange: (event) => {
+                    if (event.target.value !== 'MONTHLY') {
+                      setValue('autoIssue', false);
+                      setValue('issueDay', undefined);
+                      setValue('dueDay', undefined);
+                    }
+                  },
+                })}
                 className={cn(inputCls, errors.billingType && errorInputCls)}
               >
                 {BILLING_TYPE_OPTIONS.map((option) => (

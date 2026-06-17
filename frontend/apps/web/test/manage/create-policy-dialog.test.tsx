@@ -102,6 +102,28 @@ describe('CreatePolicyDialog', () => {
     });
   });
 
+  it('자동발행을 켠 뒤 회비 유형을 비-MONTHLY로 바꾸면 막힘 없이 autoIssue=false 로 제출된다', async () => {
+    const user = userEvent.setup();
+    mockCreateMutate.mockImplementation((_payload: unknown, options: { onSuccess: () => void }) =>
+      options.onSuccess(),
+    );
+    render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
+
+    await user.type(screen.getByLabelText(/정책 이름/), '회비');
+    await user.click(screen.getByLabelText('매월 자동 발행'));
+    await user.type(screen.getByLabelText('발행일(1~28)'), '5');
+    await user.type(screen.getByLabelText('마감일(1~28)'), '20');
+    // 유형을 YEARLY로 변경 → 자동발행 필드 리셋되어야 함
+    await user.selectOptions(screen.getByLabelText('회비 유형'), 'YEARLY');
+    await user.click(screen.getByRole('button', { name: '추가' }));
+
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalled());
+    const submitted = mockCreateMutate.mock.calls[0]?.[0];
+    expect(submitted).toMatchObject({ billingType: 'YEARLY', autoIssue: false });
+    expect(submitted).not.toHaveProperty('issueDay');
+    expect(submitted).not.toHaveProperty('dueDay');
+  });
+
   it('마감일이 발행일보다 앞서면 검증 에러를 보여준다', async () => {
     const user = userEvent.setup();
     render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
