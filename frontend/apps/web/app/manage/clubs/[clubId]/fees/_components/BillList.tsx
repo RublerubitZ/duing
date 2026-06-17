@@ -10,6 +10,9 @@ import { useToast } from '@/app/_components/toast/ToastProvider';
 
 import { feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
 
+import { RecordPaymentDialog } from './RecordPaymentDialog';
+import { PaymentHistory } from './PaymentHistory';
+
 type BillListProps = {
   clubId: number;
 };
@@ -50,6 +53,8 @@ export function BillList({ clubId }: BillListProps) {
 
   const { data: bills, isLoading } = useClubFeeBillsQuery(clubId, params);
   const [cancelTarget, setCancelTarget] = useState<FeeBill | null>(null);
+  const [recordTarget, setRecordTarget] = useState<FeeBill | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<FeeBill | null>(null);
 
   const page0Based = bills?.page ?? 0;
   const totalPages = bills?.totalPages ?? 0;
@@ -118,6 +123,8 @@ export function BillList({ clubId }: BillListProps) {
                 clubId={clubId}
                 bill={bill}
                 onCancel={() => setCancelTarget(bill)}
+                onRecord={() => setRecordTarget(bill)}
+                onHistory={() => setHistoryTarget(bill)}
               />
             ))}
           </ul>
@@ -156,6 +163,22 @@ export function BillList({ clubId }: BillListProps) {
           onClose={() => setCancelTarget(null)}
         />
       )}
+
+      {recordTarget && (
+        <RecordPaymentDialog
+          clubId={clubId}
+          bill={recordTarget}
+          onClose={() => setRecordTarget(null)}
+        />
+      )}
+
+      {historyTarget && (
+        <PaymentHistory
+          clubId={clubId}
+          bill={historyTarget}
+          onClose={() => setHistoryTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -164,14 +187,23 @@ type BillRowProps = {
   clubId: number;
   bill: FeeBill;
   onCancel: () => void;
+  onRecord: () => void;
+  onHistory: () => void;
 };
 
-function BillRow({ bill, onCancel }: BillRowProps) {
+function BillRow({ bill, onCancel, onRecord, onHistory }: BillRowProps) {
   const isCancelled = bill.status === 'CANCELLED';
+  // 이미 완납(remainingAmount<=0)이거나 취소된 청구는 추가 납부 기록 불가(백엔드 400) — 버튼 비활성화.
+  const isFullyPaid = bill.remainingAmount <= 0;
+  const recordDisabled = isCancelled || isFullyPaid;
+
+  // 진행률 = paidAmount / amount(0 나눔 방지), 0~100% 로 클램프.
+  const progressPercent =
+    bill.amount > 0 ? Math.min(100, Math.max(0, (bill.paidAmount / bill.amount) * 100)) : 0;
 
   return (
     <li className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-semibold text-ink">회원 #{bill.userId}</p>
           <span
@@ -186,9 +218,44 @@ function BillRow({ bill, onCancel }: BillRowProps) {
         <p className="mt-0.5 text-xs text-charcoal-3">
           {bill.billingPeriod} · {formatWon(bill.amount)} · 마감 {bill.dueDate}
         </p>
+
+        <div className="mt-2">
+          <p className="text-xs text-charcoal-2">
+            납부 {formatWon(bill.paidAmount)} / {formatWon(bill.amount)}
+            {bill.remainingAmount > 0 && (
+              <span className="text-charcoal-3"> · 남은 {formatWon(bill.remainingAmount)}</span>
+            )}
+          </p>
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-graysoft">
+            <div
+              className="h-full rounded-full bg-sage transition-all"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onRecord}
+          disabled={recordDisabled}
+          className={cn(
+            'rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors',
+            recordDisabled
+              ? 'cursor-not-allowed border-line text-charcoal-3 opacity-50'
+              : 'border-line text-ink hover:bg-graysoft',
+          )}
+        >
+          납부 기록
+        </button>
+        <button
+          type="button"
+          onClick={onHistory}
+          className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-charcoal-2 transition-colors hover:bg-graysoft"
+        >
+          내역
+        </button>
         <button
           type="button"
           onClick={onCancel}

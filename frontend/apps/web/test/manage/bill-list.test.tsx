@@ -3,11 +3,36 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockUseClubFeeBillsQuery = vi.fn();
 const mockCancelMutate = vi.fn();
+const mockUseBillPaymentsQuery = vi.fn((_clubId: number, _billId: number) => ({
+  data: [] as unknown[],
+  isLoading: false,
+}));
+const mockRecordMutate = vi.fn();
+const mockVoidMutate = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useClubFeeBillsQuery: (clubId: number, params: unknown) =>
     mockUseClubFeeBillsQuery(clubId, params),
   useCancelBillMutation: () => ({ mutate: mockCancelMutate, isPending: false, error: null }),
+  // FE-2a: BillRow 가 여는 RecordPaymentDialog/PaymentHistory 가 쓰는 훅도 모킹해 둔다.
+  useBillPaymentsQuery: (clubId: number, billId: number) =>
+    mockUseBillPaymentsQuery(clubId, billId),
+  useRecordPaymentMutation: () => ({ mutate: mockRecordMutate, isPending: false, error: null }),
+  useVoidPaymentMutation: () => ({ mutate: mockVoidMutate, isPending: false, error: null }),
 }));
+
+// RecordPaymentDialog 가 import 하는 ApiError(분기 해소용).
+const { MockApiError } = vi.hoisted(() => {
+  class MockApiError extends Error {
+    status: number;
+    constructor(status: number, message = 'api error') {
+      super(message);
+      this.status = status;
+      this.name = 'ApiError';
+    }
+  }
+  return { MockApiError };
+});
+vi.mock('@duing/api', () => ({ ApiError: MockApiError }));
 
 const mockAddToast = vi.fn();
 vi.mock('@/app/_components/toast/ToastProvider', () => ({
@@ -27,6 +52,8 @@ const buildBill = (over: Partial<Record<string, unknown>> = {}) => ({
   billingEndDate: '2026-07-31',
   dueDate: '2026-07-31',
   status: 'PENDING' as const,
+  paidAmount: 0,
+  remainingAmount: 10000,
   ...over,
 });
 
@@ -96,5 +123,53 @@ describe('BillList', () => {
 
     const lastCall = mockUseClubFeeBillsQuery.mock.calls.at(-1);
     expect(lastCall?.[1]).toMatchObject({ status: 'CANCELLED', page: 0 });
+  });
+
+  it('행에 납부 진행률(납부/총액)을 표시한다', () => {
+    mockUseClubFeeBillsQuery.mockReturnValue({
+      data: buildPage([
+        buildBill({ paidAmount: 4000, remainingAmount: 6000, status: 'PARTIAL_PAID' }),
+      ]),
+      isLoading: false,
+    });
+    render(<BillList clubId={1} />);
+    const row = screen.getByRole('listitem');
+    expect(within(row).getByText(/납부 4,000원 \/ 10,000원/)).toBeInTheDocument();
+    expect(within(row).getByText(/남은 6,000원/)).toBeInTheDocument();
+  });
+
+  it('완납(remainingAmount<=0) 또는 CANCELLED 청구는 납부 기록 버튼이 비활성화된다', () => {
+    mockUseClubFeeBillsQuery.mockReturnValue({
+      data: buildPage([
+        buildBill({ id: 1, paidAmount: 10000, remainingAmount: 0, status: 'PAID' }),
+        buildBill({ id: 2, status: 'CANCELLED' }),
+      ]),
+      isLoading: false,
+    });
+    render(<BillList clubId={1} />);
+    const [paidRecordButton, cancelledRecordButton] = screen.getAllByRole('button', {
+      name: '납부 기록',
+    });
+    expect(paidRecordButton).toBeDisabled();
+    expect(cancelledRecordButton).toBeDisabled();
+  });
+
+  it('납부 기록 버튼을 누르면 납부 기록 다이얼로그를 연다', () => {
+    mockUseClubFeeBillsQuery.mockReturnValue({ data: buildPage([buildBill()]), isLoading: false });
+    render(<BillList clubId={1} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '납부 기록' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('납부 기록')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/납부 금액/)).toBeInTheDocument();
+  });
+
+  it('내역 버튼을 누르면 납부 내역 다이얼로그를 연다', () => {
+    mockUseClubFeeBillsQuery.mockReturnValue({ data: buildPage([buildBill()]), isLoading: false });
+    mockUseBillPaymentsQuery.mockReturnValue({ data: [], isLoading: false });
+    render(<BillList clubId={1} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '내역' }));
+    expect(screen.getByText('납부 내역 · 회원 #42')).toBeInTheDocument();
   });
 });

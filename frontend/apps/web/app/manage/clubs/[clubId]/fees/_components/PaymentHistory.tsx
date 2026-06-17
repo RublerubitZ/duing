@@ -1,0 +1,213 @@
+'use client';
+
+import { useState } from 'react';
+
+import { useBillPaymentsQuery, useVoidPaymentMutation } from '@duing/hooks';
+import type { FeeBill, Payment } from '@duing/types';
+
+import { cn } from '@/app/_lib/cn';
+import { useToast } from '@/app/_components/toast/ToastProvider';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+
+import { formatWon, paymentMethodLabel } from '@/app/_lib/feeLabels';
+
+type PaymentHistoryProps = {
+  clubId: number;
+  bill: FeeBill;
+  onClose: () => void;
+};
+
+// ISO 일시 문자열에서 날짜부(YYYY-MM-DD)만 잘라낸다.
+function paidDate(paidAt: string): string {
+  return paidAt.slice(0, 10);
+}
+
+export function PaymentHistory({ clubId, bill, onClose }: PaymentHistoryProps) {
+  const { data: payments, isLoading } = useBillPaymentsQuery(clubId, bill.id);
+  const [voidTarget, setVoidTarget] = useState<Payment | null>(null);
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>납부 내역 · 회원 #{bill.userId}</DialogTitle>
+          <DialogDescription className="text-sm text-charcoal-2">
+            {bill.billingPeriod} 청구의 납부 기록입니다. 취소된 기록도 함께 표시됩니다.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+        ) : !payments || payments.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
+            <p className="text-sm text-charcoal-2">기록된 납부가 없습니다.</p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {payments.map((payment) => (
+              <PaymentRow
+                key={payment.id}
+                payment={payment}
+                onVoid={() => setVoidTarget(payment)}
+              />
+            ))}
+          </ul>
+        )}
+
+        {/* 무효화 확인은 Radix 포털(DialogContent) 안에 두어 focus-trap/aria-hidden 바깥으로
+            밀려나지 않게 한다 — 바깥에 두면 alertdialog 가 aria-hidden 처리되어 접근 불가. */}
+        {voidTarget && (
+          <VoidPaymentConfirm
+            clubId={clubId}
+            billId={bill.id}
+            payment={voidTarget}
+            onClose={() => setVoidTarget(null)}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type PaymentRowProps = {
+  payment: Payment;
+  onVoid: () => void;
+};
+
+function PaymentRow({ payment, onVoid }: PaymentRowProps) {
+  const isVoided = payment.status === 'VOIDED';
+
+  return (
+    <li className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <p
+            className={cn(
+              'truncate text-sm font-semibold',
+              isVoided ? 'text-charcoal-3 line-through' : 'text-ink',
+            )}
+          >
+            {formatWon(payment.amount)}
+          </p>
+          {isVoided && (
+            <span className="shrink-0 rounded-full bg-graysoft px-2 py-0.5 text-[11px] font-medium text-charcoal-3">
+              취소됨
+            </span>
+          )}
+        </div>
+        <p
+          className={cn(
+            'mt-0.5 text-xs',
+            isVoided ? 'text-charcoal-3 line-through' : 'text-charcoal-3',
+          )}
+        >
+          {paymentMethodLabel(payment.method)} · 납부일 {paidDate(payment.paidAt)}
+        </p>
+        {isVoided && payment.voidReason && (
+          <p className="mt-0.5 text-xs text-charcoal-2">사유: {payment.voidReason}</p>
+        )}
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        {!isVoided && (
+          <button
+            type="button"
+            onClick={onVoid}
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-coral transition-colors hover:bg-coral/5"
+          >
+            취소
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+type VoidPaymentConfirmProps = {
+  clubId: number;
+  billId: number;
+  payment: Payment;
+  onClose: () => void;
+};
+
+function VoidPaymentConfirm({ clubId, billId, payment, onClose }: VoidPaymentConfirmProps) {
+  const voidPayment = useVoidPaymentMutation(clubId, billId);
+  const { addToast } = useToast();
+  const [reason, setReason] = useState('');
+
+  const confirmVoid = () => {
+    const trimmedReason = reason.trim();
+    voidPayment.mutate(
+      { paymentId: payment.id, reason: trimmedReason ? trimmedReason : undefined },
+      {
+        onSuccess: () => {
+          addToast('납부 기록을 취소했습니다.');
+          onClose();
+        },
+        onError: (error) => {
+          addToast(error instanceof Error ? error.message : '납부 기록 취소에 실패했습니다.', {
+            variant: 'error',
+          });
+          onClose();
+        },
+      },
+    );
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] grid place-items-center bg-black/40 px-4"
+      role="presentation"
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-label="납부 기록 취소 확인"
+        className="w-full max-w-sm rounded-xl bg-paper p-5 shadow-3"
+      >
+        <h2 className="text-base font-bold text-ink">납부 기록 취소</h2>
+        <p className="mt-2 text-sm text-charcoal-2">
+          <span className="font-medium text-ink">{formatWon(payment.amount)}</span> 납부 기록을
+          취소할까요? 취소하면 청구 잔액과 수납 현황이 다시 계산됩니다.
+        </p>
+        <div className="mt-3">
+          <label htmlFor="void-reason" className="mb-1.5 block text-sm font-semibold text-ink">
+            취소 사유 (선택)
+          </label>
+          <input
+            id="void-reason"
+            type="text"
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="예: 중복 기록"
+            className="w-full rounded-md border border-line px-4 py-2.5 text-sm outline-none transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
+          />
+        </div>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={voidPayment.isPending}
+            className="flex-1 rounded-md border border-line py-2.5 text-sm font-semibold text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
+          >
+            닫기
+          </button>
+          <button
+            type="button"
+            onClick={confirmVoid}
+            disabled={voidPayment.isPending}
+            className="flex-1 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+          >
+            {voidPayment.isPending ? '취소 중…' : '기록 취소'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
