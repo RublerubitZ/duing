@@ -20,7 +20,7 @@ public interface AdminBankMatchingApi {
     @Operation(summary = "동아리 BANK 자동매칭 허용/해제",
             description = "외부 BANK API 등록/해제를 먼저 수행하고 성공 시에만 설정을 반영한다(원자성).")
     @PutMapping("/admin/clubs/{clubId}/bank-matching")
-    ResponseEntity<ApiResponse<Void>> updateBankMatching(
+    ResponseEntity<Void> updateBankMatching(
             @PathVariable Long clubId,
             @Valid @RequestBody UpdateBankMatchingRequest request
     );

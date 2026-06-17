@@ -23,11 +23,11 @@ public class AdminBankMatchingController implements AdminBankMatchingApi {
     private final BankMatchingAdminService bankMatchingAdminService;
 
     @Override
-    public ResponseEntity<ApiResponse<Void>> updateBankMatching(
+    public ResponseEntity<Void> updateBankMatching(
             @PathVariable Long clubId, @Valid @RequestBody UpdateBankMatchingRequest request
     ) {
         bankMatchingAdminService.setActive(clubId, request.active());
-        return ResponseEntity.ok(ApiResponse.success());
+        return ResponseEntity.noContent().build();
     }
 
     @Override

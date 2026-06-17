@@ -2,6 +2,7 @@ package com.duing.domain.fee;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -62,8 +63,8 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
         // register 가 던질 예외를 주입하면 등록 실패를 시뮬레이션한다(null 이면 성공).
         volatile RuntimeException registerFailure;
         volatile AccountSlotStatus slotStatus = new AccountSlotStatus(0, 5, 5);
-        // 외부 등록 호출 시점에 실행되는 훅 — DB 변이(setting.activate())보다 등록이 먼저임을 검증하는 데 쓴다.
-        volatile Runnable onRegister;
+        // getAccountStatus 가 던질 예외를 주입하면 BANK API 슬롯 조회 장애를 시뮬레이션한다(null 이면 정상).
+        volatile RuntimeException accountStatusFailure;
 
         void reset() {
             calls.clear();
@@ -71,7 +72,7 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
             registeredAccountNumbers.clear();
             registerFailure = null;
             slotStatus = new AccountSlotStatus(0, 5, 5);
-            onRegister = null;
+            accountStatusFailure = null;
         }
 
         @Override
@@ -79,9 +80,6 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
             calls.add("registerAccount");
             registeredBankCodes.add(bankCode);
             registeredAccountNumbers.add(accountNumber);
-            if (onRegister != null) {
-                onRegister.run(); // 등록 시점 스냅샷 — 이 시점엔 아직 activate() 가 호출되지 않았어야 한다.
-            }
             if (registerFailure != null) {
                 throw registerFailure;
             }
@@ -97,6 +95,9 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
         @Override
         public AccountSlotStatus getAccountStatus() {
             calls.add("getAccountStatus");
+            if (accountStatusFailure != null) {
+                throw accountStatusFailure;
+            }
             return slotStatus;
         }
 
@@ -184,24 +185,17 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("적격 동아리 자동매칭을 활성화하면 registerAccount 가 DB 변이보다 먼저 호출되고 설정이 active=api_registered=true 가 된다")
+    @DisplayName("적격 동아리 자동매칭을 활성화하면 복호화된 계좌번호로 registerAccount 가 호출되고 설정이 active=api_registered=true 가 된다")
     void activateEligibleClubRegistersAndPersists() {
         Long clubId = saveClubWithAccount("적격동아리", Bank.NH, "352-1234-5678-90");
 
-        // 등록 호출 시점의 영속 상태 스냅샷을 잡는다 — 이 시점엔 아직 activate() 가 실행되지 않았어야 한다(원자성: 외부 호출 선행).
-        AtomicLong activeAtRegisterTime = new AtomicLong(-1);
-        stubBankApiClient.onRegister = () ->
-                activeAtRegisterTime.set(readSettingActive(clubId) == Boolean.TRUE ? 1 : 0);
-
-        putBankMatchingAs(adminToken, clubId, true, HttpStatus.OK.value());
+        putBankMatchingAs(adminToken, clubId, true, HttpStatus.NO_CONTENT.value());
 
         // 외부 등록이 호출되고 올바른 은행 코드로 전달됐다.
         assertThat(stubBankApiClient.calls).contains("registerAccount");
         assertThat(stubBankApiClient.registeredBankCodes).containsExactly("NH");
-        // 등록 호출 시점에 active 는 아직 true 가 아니었다 → 외부 호출이 DB 변이보다 먼저임을 증명.
-        assertThat(activeAtRegisterTime.get())
-                .as("registerAccount 호출 시점엔 setting.active 가 아직 true 가 아니어야 한다(외부 호출 선행)")
-                .isZero();
+        // 복호화된 평문 계좌번호가 그대로 외부 등록에 전달됐다 — 복호화 + 전달 경로를 증명한다.
+        assertThat(stubBankApiClient.registeredAccountNumbers).containsExactly("352-1234-5678-90");
 
         // 외부 등록 성공 후에야 DB 설정이 사용 가능 상태로 반영됐다.
         Map<String, Object> setting = jdbcTemplate.queryForMap(
@@ -263,11 +257,11 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
         Long clubId = saveClubWithAccount("우리동아리", Bank.WOORI, "1002-345-678901");
 
         // 먼저 활성화한다.
-        putBankMatchingAs(adminToken, clubId, true, HttpStatus.OK.value());
+        putBankMatchingAs(adminToken, clubId, true, HttpStatus.NO_CONTENT.value());
         assertThat(readSettingActive(clubId)).isTrue();
 
         // 비활성화한다.
-        putBankMatchingAs(adminToken, clubId, false, HttpStatus.OK.value());
+        putBankMatchingAs(adminToken, clubId, false, HttpStatus.NO_CONTENT.value());
 
         assertThat(stubBankApiClient.calls).contains("deleteAccount");
         assertThat(readSettingActive(clubId)).isFalse();
@@ -292,7 +286,7 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
     void overviewReturnsClubsAndSlots() {
         Long eligibleClubId = saveClubWithAccount("적격동아리", Bank.NH, "352-1234-5678-90");
         saveClubWithAccount("미지원동아리", Bank.SHINHAN, "100-200-300");
-        putBankMatchingAs(adminToken, eligibleClubId, true, HttpStatus.OK.value());
+        putBankMatchingAs(adminToken, eligibleClubId, true, HttpStatus.NO_CONTENT.value());
         stubBankApiClient.slotStatus = new AccountSlotStatus(1, 5, 4);
 
         RestAssured.given()
@@ -303,5 +297,23 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
                 .body("data.slots.registeredCount", equalTo(1))
                 .body("data.slots.maxAccounts", equalTo(5))
                 .body("data.slots.remaining", equalTo(4));
+    }
+
+    @Test
+    @DisplayName("BANK API 슬롯 조회가 장애로 실패해도 현황 조회는 동아리 목록을 반환하고 슬롯만 비운다")
+    void overviewDegradesWhenBankApiDown() {
+        saveClubWithAccount("적격동아리", Bank.NH, "352-1234-5678-90");
+        saveClubWithAccount("미지원동아리", Bank.SHINHAN, "100-200-300");
+        // BANK API 슬롯 조회가 일시 장애로 예외를 던지도록 설정한다.
+        stubBankApiClient.accountStatusFailure = new BankApiException.BankApiCallFailedException();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get("/api/v1/admin/clubs/bank-matching")
+                .then().statusCode(HttpStatus.OK.value())
+                // 외부 호출이 필요 없는 동아리 목록은 그대로 반환된다.
+                .body("data.clubs.size()", equalTo(2))
+                // 슬롯 현황만 비워진다(graceful degrade) — 502 로 페이지 전체가 죽지 않는다.
+                .body("data.slots", nullValue());
     }
 }

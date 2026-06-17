@@ -30,4 +30,17 @@ public class BankMatchingException extends ApplicationException {
             super(MESSAGE, HttpStatus.FORBIDDEN);
         }
     }
+
+    /**
+     * 저장된 회비 계좌 암호문을 복호화하지 못해(키 회전·AAD 불일치·암호문 손상) 자동매칭 등록/해제를
+     * 진행할 수 없는 경우. 불투명한 500 대신 처리 불가(422)로 매핑한다.
+     * 암호·평문·키 등 어떤 세부정보도 메시지에 싣지 않는다.
+     */
+    public static class AccountDecryptFailedException extends BankMatchingException {
+        private static final String MESSAGE = "회비 계좌 복호화에 실패했습니다. 계좌를 다시 등록해 주세요.";
+
+        public AccountDecryptFailedException() {
+            super(MESSAGE, HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+    }
 }
