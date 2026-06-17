@@ -18,7 +18,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 
-import { billingTypeLabel } from '../_lib/feeLabels';
+import { billingTypeLabel } from '@/app/_lib/feeLabels';
 
 type CreatePolicyDialogProps = {
   clubId: number;

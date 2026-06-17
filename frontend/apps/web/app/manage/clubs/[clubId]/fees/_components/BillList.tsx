@@ -8,7 +8,7 @@ import type { BillSearchParams, FeeBill, FeeStatus } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
-import { feeStatusLabel, formatWon } from '../_lib/feeLabels';
+import { feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
 
 type BillListProps = {
   clubId: number;

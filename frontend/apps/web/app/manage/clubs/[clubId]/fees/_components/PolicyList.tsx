@@ -13,7 +13,8 @@ import type { FeePolicy } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
-import { billingTypeLabel, formatWon } from '../_lib/feeLabels';
+import { billingTypeLabel, formatWon } from '@/app/_lib/feeLabels';
+
 import { CreatePolicyDialog } from './CreatePolicyDialog';
 
 type PolicyListProps = {

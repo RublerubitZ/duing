@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { billingTypeLabel, feeStatusLabel, formatWon } from '../../app/manage/clubs/[clubId]/fees/_lib/feeLabels';
+import { billingTypeLabel, feeStatusLabel, formatWon } from '../../app/_lib/feeLabels';
 
 describe('feeLabels', () => {
   describe('billingTypeLabel', () => {
