@@ -15,29 +15,35 @@ import org.springframework.stereotype.Component;
  *
  * <p>null 필드는 빈 문자열로 정규화하고, type 은 입금/출금을 DEPOSIT/WITHDRAWAL 로 정규화한다.
  * 같은 거래는 항상 같은 64자리 소문자 hex 를 만든다.
+ *
+ * <p>자유 텍스트 필드(상대방·내용·메모)에 구분자가 들어가도 서로 다른 거래가 같은 해시 입력을 만들지
+ * 않도록, 각 필드를 {@code "길이:값"} 으로 길이 프리픽스 직렬화한 뒤 이어 붙인다(구분자 인젝션 차단).
  */
 @Component
 public class TransactionHasher {
 
-    private static final String DELIMITER = "|";
-
     public String hash(Long clubId, String bankCode, BankTransactionData transaction) {
-        String input = String.join(DELIMITER,
-                normalize(clubId == null ? null : clubId.toString()),
-                normalize(bankCode),
-                normalize(transaction.transactionAt() == null ? null : transaction.transactionAt().toString()),
-                Long.toString(transaction.amount()),
-                normalize(transaction.balance() == null ? null : transaction.balance().toString()),
-                normalizeType(transaction.type()),
-                normalize(transaction.counterparty()),
-                normalize(transaction.description()),
-                normalize(transaction.branch()),
-                normalize(transaction.memo()));
-        return toSha256Hex(input);
+        StringBuilder input = new StringBuilder();
+        appendField(input, clubId == null ? null : clubId.toString());
+        appendField(input, bankCode);
+        appendField(input, transaction.transactionAt() == null ? null : transaction.transactionAt().toString());
+        appendField(input, Long.toString(transaction.amount()));
+        appendField(input, transaction.balance() == null ? null : transaction.balance().toString());
+        appendField(input, normalizeType(transaction.type()));
+        appendField(input, transaction.counterparty());
+        appendField(input, transaction.description());
+        appendField(input, transaction.branch());
+        appendField(input, transaction.memo());
+        return toSha256Hex(input.toString());
     }
 
-    private String normalize(String value) {
-        return value == null ? "" : value;
+    /**
+     * 각 필드를 {@code "길이:값"} 으로 직렬화해 구분자 인젝션을 방지한다(필드 안에 {@code ':'} 나
+     * 구분자가 있어도 길이가 경계를 확정하므로 모호하지 않다). null 은 빈 문자열로 정규화한다.
+     */
+    private void appendField(StringBuilder input, String value) {
+        String normalized = value == null ? "" : value;
+        input.append(normalized.length()).append(':').append(normalized);
     }
 
     private String normalizeType(String type) {

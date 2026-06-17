@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -124,18 +125,47 @@ public class BankApiHttpClient implements BankApiClient {
         if (!transactions.isArray()) {
             return result;
         }
+        int missingDate = 0;
+        int unparseable = 0;
         for (JsonNode transaction : transactions) {
-            result.add(toTransactionData(transaction));
+            SkipReason skipReason = appendTransaction(transaction, result);
+            if (skipReason == SkipReason.MISSING_DATE) {
+                missingDate++;
+            } else if (skipReason == SkipReason.UNPARSEABLE) {
+                unparseable++;
+            }
+        }
+        if (missingDate > 0 || unparseable > 0) {
+            // 사유별 건수만 남긴다 — 거래 내용은 민감 가능성이 있어 로깅하지 않는다.
+            log.warn("BANK API 거래 매핑 건너뜀: missingDate={}, unparseable={}", missingDate, unparseable);
         }
         return result;
     }
 
-    private BankTransactionData toTransactionData(JsonNode transaction) {
+    /**
+     * 거래 1건을 매핑해 결과에 추가한다. {@code time} 이 비면 자정으로 보정하고, {@code date} 가 비거나
+     * 파싱 불가면 건너뛴다(한 건의 빈 값이 동기화 배치 전체를 크래시시키지 않도록 한다).
+     * 추가하면 {@code null}, 건너뛰면 사유({@link SkipReason})를 반환한다.
+     */
+    private SkipReason appendTransaction(JsonNode transaction, List<BankTransactionData> result) {
         // date·time 은 이미 KST 벽시계 값이므로 타임존 변환 없이 그대로 조립한다.
-        LocalDate date = LocalDate.parse(transaction.path("date").asText());
-        LocalTime time = LocalTime.parse(transaction.path("time").asText());
+        String dateText = transaction.path("date").asText("");
+        if (dateText.isBlank()) {
+            // 날짜 없는 거래는 식별 불가(transaction_at NOT NULL·해시 입력) → 제외한다.
+            return SkipReason.MISSING_DATE;
+        }
+        LocalDate date;
+        LocalTime time;
+        try {
+            date = LocalDate.parse(dateText);
+            String timeText = transaction.path("time").asText("");
+            time = timeText.isBlank() ? LocalTime.MIDNIGHT : LocalTime.parse(timeText);
+        } catch (DateTimeParseException malformed) {
+            // 파싱 불가 거래는 제외한다(배치 전체 크래시 방지). PII 없는 사유는 호출부가 건수로 집계한다.
+            return SkipReason.UNPARSEABLE;
+        }
         LocalDateTime transactionAt = LocalDateTime.of(date, time);
-        return new BankTransactionData(
+        result.add(new BankTransactionData(
                 transactionAt,
                 transaction.path("amount").asLong(),
                 transaction.hasNonNull("balance") ? transaction.path("balance").asLong() : null,
@@ -144,7 +174,13 @@ public class BankApiHttpClient implements BankApiClient {
                 transaction.path("description").asText(""),
                 transaction.path("branch").asText(""),
                 transaction.path("memo").asText(""),
-                writeRawJson(transaction));
+                writeRawJson(transaction)));
+        return null;
+    }
+
+    private enum SkipReason {
+        MISSING_DATE,
+        UNPARSEABLE
     }
 
     private String writeRawJson(JsonNode transaction) {
@@ -217,7 +253,8 @@ public class BankApiHttpClient implements BankApiClient {
             }
             return merged;
         } catch (IOException readFailure) {
-            // 바디 자체에 민감정보가 없으나, 보수적으로 내용은 로그에 남기지 않는다.
+            // ClientHttpResponse.getStatusCode() 가 IOException 을 선언하므로 이 catch 는 도달 가능하다
+            // (응답 상태 읽기 단계의 실제 스트림 IO). 바디 자체에 민감정보가 없으나, 보수적으로 내용은 로그에 남기지 않는다.
             log.warn("BANK API 응답 본문 읽기 실패", readFailure);
             throw new BankApiException.BankApiCallFailedException();
         }

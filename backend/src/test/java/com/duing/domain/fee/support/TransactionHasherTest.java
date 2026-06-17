@@ -97,4 +97,24 @@ class TransactionHasherTest {
 
         assertThat(first).isNotEqualTo(second);
     }
+
+    @Test
+    @DisplayName("필드 안에 구분자가 들어가 경계가 옮겨가도 다른 거래는 다른 해시를 만든다(구분자 인젝션 차단)")
+    void delimiterInsideFieldDoesNotCollide() {
+        // description/memo 경계가 구분자 인젝션으로 모호해지면 두 거래가 같은 해시 입력을 만들 수 있다.
+        String boundaryShifted = hasher.hash(CLUB_ID, BANK_CODE, transaction("홍길동", "A|B", "본점", "C"));
+        String boundaryOriginal = hasher.hash(CLUB_ID, BANK_CODE, transaction("홍길동", "A", "본점", "B|C"));
+
+        assertThat(boundaryShifted).isNotEqualTo(boundaryOriginal);
+    }
+
+    @Test
+    @DisplayName("필드 안에 길이 프리픽스 구분자(:)가 들어가도 다른 거래는 다른 해시를 만든다")
+    void lengthPrefixSeparatorInsideFieldDoesNotCollide() {
+        // 길이 프리픽스 직렬화의 실제 구분자(:)를 값에 넣어도 경계가 모호해지지 않아야 한다.
+        String first = hasher.hash(CLUB_ID, BANK_CODE, transaction("홍길동", "A:B", "본점", "C"));
+        String second = hasher.hash(CLUB_ID, BANK_CODE, transaction("홍길동", "A", "본점", "B:C"));
+
+        assertThat(first).isNotEqualTo(second);
+    }
 }
