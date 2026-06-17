@@ -49,6 +49,7 @@ public class GeneralTransactionMatcher implements TransactionMatcher {
         } catch (BankMatchingException.MatchAmountMismatchException
                  | BankMatchingException.AlreadyMatchedException raceLost) {
             // 동시성: 후보 조회와 잠금 획득 사이에 잔액/상태가 변동됨 → 자동매칭 포기, 검토 큐로.
+            log.debug("자동매칭 동시성 충돌 — 검토 큐로 이전: bankTransactionId={}", transaction.getId());
             return false;
         }
     }
@@ -56,7 +57,7 @@ public class GeneralTransactionMatcher implements TransactionMatcher {
     /**
      * Tier 규칙으로 자동매칭 대상 후보 1건을 고른다. 좁혀지지 않으면 {@code null}(검토 큐).
      *
-     * <p>Tier 1(전 은행): 잔액==입금액 후보가 정확히 1건. Tier 2(KB 한정): 후보가 2건 이상이면 입금자명으로
+     * <p>Tier 1(전 은행): 잔액==입금액 후보가 정확히 1건. Tier 2(KB 한정): 후보 2건 이상에서 KB 입금자명으로
      * 정확히 1건으로 좁혀질 때만 자동매칭. KB 가 아니거나 이름이 비었거나 동명이인으로 1건이 안 되면 보류.
      */
     private MatchCandidate chooseCandidate(BankTransaction transaction, List<MatchCandidate> candidates) {

@@ -157,6 +157,24 @@ class TransactionMatcherTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("후보가 2건이고 KB 이며 입금자명에 공백이 섞여 있어도 공백 정규화 후 회원 이름과 1건 일치하면 자동매칭한다")
+    void twoCandidatesKbWhitespaceNormalizedByName() {
+        User target = joinMemberNamed("김철수");
+        User other = joinMemberNamed("이영희");
+        FeeBill targetBill = saveBill(target.getId(), 10000L, "2026-07");
+        saveBill(other.getId(), 10000L, "2026-08");
+        BankTransaction tx = saveDeposit("KB", 10000L, "김 철 수"); // 공백 → 정규화 후 "김철수" 1건 일치
+
+        boolean matched = transactionMatcher.tryAutoMatch(tx, actorId);
+
+        assertThat(matched).isTrue();
+        assertThat(billStatus(targetBill.getId())).isEqualTo(FeeStatus.PAID);
+        BankTransaction reloaded = bankTransactionRepository.findById(tx.getId()).orElseThrow();
+        assertThat(reloaded.getMatchStatus()).isEqualTo(MatchStatus.AUTO_MATCHED);
+        assertThat(reloaded.getMatchedFeeBillId()).isEqualTo(targetBill.getId());
+    }
+
+    @Test
     @DisplayName("후보가 2건이고 KB 이지만 동명이인으로 이름이 2명 일치하면 1건으로 좁혀지지 않아 자동매칭하지 않는다")
     void twoCandidatesKbHomonymStaysPending() {
         User sameNameOne = joinMemberNamed("김철수");

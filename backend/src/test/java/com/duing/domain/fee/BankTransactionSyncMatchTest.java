@@ -63,8 +63,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class BankTransactionSyncMatchTest extends IntegrationTestBase {
 
-    private static final String ACCOUNT_PASSWORD = "secretPw1234";
-    private static final String RESIDENT_NUMBER = "900101";
+    private static final String ACCOUNT_PASSWORD = "test-pw";
+    private static final String RESIDENT_NUMBER = "000000";
 
     static class StubBankApiClient implements BankApiClient {
 

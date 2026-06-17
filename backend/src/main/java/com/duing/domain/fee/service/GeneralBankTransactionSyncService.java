@@ -107,6 +107,10 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         // 외부 조회가 끝난 뒤에만 짧은 쓰기 트랜잭션을 열어 적재한다(native insert 는 활성 트랜잭션 필요).
         PersistResult persistResult = transactionTemplate.execute(
                 status -> persist(command.clubId(), bankCode, fetchedTransactions));
+        // execute 는 rollback-only 등에서 null 을 반환할 수 있다(@Nullable). 적재 결과가 없으면 매칭 없이 조회 건수만 보고한다.
+        if (persistResult == null) {
+            return new SyncResult(fetchedTransactions.size(), 0, 0, 0);
+        }
 
         // 적재 트랜잭션이 커밋된 뒤에야 매칭을 시도한다. 각 tryAutoMatch 는 거래·청구를 비관적 잠금하고
         // 자체 트랜잭션으로 납부를 생성하며, 자동확인 알림(AFTER_COMMIT)도 매칭별로 개별 발화한다.
@@ -127,9 +131,9 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         List<String> insertedHashes = new ArrayList<>();
         for (BankTransactionData transaction : fetchedTransactions) {
             String transactionHash = transactionHasher.hash(clubId, bankCode, transaction);
-            boolean deposit = transaction.isDeposit();
-            String transactionType = deposit ? "DEPOSIT" : "WITHDRAWAL";
-            String matchStatus = deposit ? "PENDING" : "IGNORED";
+            boolean isDeposit = transaction.isDeposit();
+            String transactionType = isDeposit ? "DEPOSIT" : "WITHDRAWAL";
+            String matchStatus = isDeposit ? "PENDING" : "IGNORED";
             int inserted = bankTransactionRepository.insertIgnoringConflict(
                     clubId, bankCode, transaction.transactionAt(),
                     transaction.amount(), transaction.balance(), transaction.counterparty(),
