@@ -62,7 +62,7 @@ ReceiptResponse(
 ```
 
 ### 6. API
-- `GET /api/v1/me/fees/{billId}/receipt` (회원 본인) → 200 `ApiResponse<ReceiptResponse>`. 본인 청구가 아니면 404(타인 청구 존재 비노출).
+- `GET /api/v1/my/fees/{billId}/receipt` (회원 본인) → 200 `ApiResponse<ReceiptResponse>`. 본인 청구가 아니면 404(타인 청구 존재 비노출). (기존 `MyFeeApi` 베이스가 `/my/fees` — 프론트 라우트·알림 link_url 의 `/me/fees` 와 다르니 백엔드 경로는 `/my` 로 확정.)
 - `GET /api/v1/leader/clubs/{clubId}/fee-bills/{billId}/receipt` (총무 LEADER/OFFICER) → 200. `requireManager` + 청구가 그 동아리 소속(아니면 404).
 - 두 경우 모두 **ACTIVE 납부가 0건이거나 status=CANCELLED 이면 404**(`ReceiptUnavailableException`, "납부 내역이 없어 영수증을 발급할 수 없습니다."). → PAID·PARTIAL_PAID·**부분 납부가 있는 OVERDUE**는 발급 가능(늦게라도 낸 회원의 증빙), 미납 OVERDUE(납부 0)·PENDING·CANCELLED은 불가.
 
