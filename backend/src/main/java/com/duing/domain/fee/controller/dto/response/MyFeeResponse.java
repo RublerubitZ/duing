@@ -13,7 +13,9 @@ public record MyFeeResponse(
         LocalDate billingStartDate,
         LocalDate billingEndDate,
         LocalDate dueDate,
-        FeeStatus status
+        FeeStatus status,
+        Long paidAmount,
+        Long remainingAmount
 ) {
     public static MyFeeResponse from(FeeBillQuery query) {
         return new MyFeeResponse(
@@ -25,6 +27,8 @@ public record MyFeeResponse(
                 query.billingStartDate(),
                 query.billingEndDate(),
                 query.dueDate(),
-                query.status());
+                query.status(),
+                query.paidAmount(),
+                query.remainingAmount());
     }
 }

@@ -17,14 +17,19 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.fee.entity.BillingType;
+import com.duing.domain.fee.entity.FeeBill;
 import com.duing.domain.fee.entity.FeePolicy;
 import com.duing.domain.fee.entity.FeeStatus;
+import com.duing.domain.fee.entity.Payment;
+import com.duing.domain.fee.entity.PaymentMethod;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
+import com.duing.domain.fee.repository.PaymentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,6 +57,8 @@ class MyFeeControllerTest extends IntegrationTestBase {
     FeePolicyRepository feePolicyRepository;
     @Autowired
     FeeBillRepository feeBillRepository;
+    @Autowired
+    PaymentRepository paymentRepository;
     @Autowired
     JwtTokenProvider jwtTokenProvider;
 
@@ -87,8 +94,19 @@ class MyFeeControllerTest extends IntegrationTestBase {
         tokenB = jwtTokenProvider.createToken(userB.getId(), userB.getRole().name());
     }
 
-    private void saveBill(Long clubIdValue, Long policyIdValue, Long userId, String period, FeeStatus status) {
-        feeBillRepository.save(FeeBillFixture.withStatus(clubIdValue, userId, policyIdValue, period, status));
+    private FeeBill saveBill(Long clubIdValue, Long policyIdValue, Long userId, String period, FeeStatus status) {
+        return feeBillRepository.save(FeeBillFixture.withStatus(clubIdValue, userId, policyIdValue, period, status));
+    }
+
+    /** billId 청구에 지정 상태의 납부 1건을 직접 적재한다(VOIDED 는 합계에서 제외돼야 한다). */
+    private void recordPayment(Long billId, long amount, boolean voided) {
+        Payment payment = Payment.record(
+                billId, amount, PaymentMethod.CASH, LocalDateTime.of(2026, 6, 10, 0, 0),
+                userA.getId(), null);
+        if (voided) {
+            payment.voidPayment(userA.getId(), "정정", LocalDateTime.of(2026, 6, 11, 0, 0));
+        }
+        paymentRepository.save(payment);
     }
 
     @Test
@@ -155,6 +173,27 @@ class MyFeeControllerTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data", hasSize(1))
                 .body("data[0].status", equalTo("PENDING"));
+    }
+
+    @Test
+    @DisplayName("내 회비 응답은 청구별 납부 합계(paidAmount)와 남은 금액(remainingAmount)을 담고 VOIDED 납부는 제외한다")
+    void carriesPaidAndRemainingAmount() {
+        // 청구액 10000 에 ACTIVE 4000 + VOIDED 3000 → paidAmount=4000(VOID 제외), remainingAmount=6000
+        FeeBill partiallyPaid = saveBill(clubId, policyId, userA.getId(), "2026-07", FeeStatus.PENDING);
+        recordPayment(partiallyPaid.getId(), 4000L, false);
+        recordPayment(partiallyPaid.getId(), 3000L, true);
+        // 납부가 없는 청구는 paidAmount=0, remainingAmount=청구액(10000)
+        saveBill(clubId, policyId, userA.getId(), "2026-08", FeeStatus.PENDING);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                .when().get("/api/v1/my/fees")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(2))
+                .body("data.find { it.billingPeriod == '2026-07' }.paidAmount", equalTo(4000))
+                .body("data.find { it.billingPeriod == '2026-07' }.remainingAmount", equalTo(6000))
+                .body("data.find { it.billingPeriod == '2026-08' }.paidAmount", equalTo(0))
+                .body("data.find { it.billingPeriod == '2026-08' }.remainingAmount", equalTo(10000));
     }
 
     @Test

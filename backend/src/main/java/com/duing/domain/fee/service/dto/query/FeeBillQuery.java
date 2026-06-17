@@ -14,9 +14,11 @@ public record FeeBillQuery(
         LocalDate billingStartDate,
         LocalDate billingEndDate,
         LocalDate dueDate,
-        FeeStatus status
+        FeeStatus status,
+        Long paidAmount,
+        Long remainingAmount
 ) {
-    public static FeeBillQuery from(FeeBill bill) {
+    public static FeeBillQuery from(FeeBill bill, long paidAmount) {
         return new FeeBillQuery(
                 bill.getId(),
                 bill.getClubId(),
@@ -27,6 +29,8 @@ public record FeeBillQuery(
                 bill.getBillingStartDate(),
                 bill.getBillingEndDate(),
                 bill.getDueDate(),
-                bill.getStatus());
+                bill.getStatus(),
+                paidAmount,
+                bill.getAmount() - paidAmount);
     }
 }

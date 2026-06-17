@@ -1,4 +1,4 @@
-import type { Bank, BillingType, FeeStatus } from '@duing/types';
+import type { Bank, BillingType, FeeStatus, PaymentMethod } from '@duing/types';
 
 const BILLING_TYPE_LABEL: Record<BillingType, string> = {
   MONTHLY: '월 회비',
@@ -38,10 +38,20 @@ const BANK_LABEL: Record<Bank, string> = {
   SUHYUP: '수협',
 };
 
+// 납부 수단 코드 → 한글 표시명. 표시는 4종 모두 다루고, 수동 기록 폼은 3종만 노출(스키마가 강제).
+const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  CASH: '현금',
+  TRANSFER: '계좌이체',
+  OTHER: '기타',
+  AUTO_MATCHED: '자동매칭',
+};
+
 export const billingTypeLabel = (type: BillingType): string => BILLING_TYPE_LABEL[type];
 
 export const feeStatusLabel = (status: FeeStatus): string => FEE_STATUS_LABEL[status];
 
 export const bankLabel = (bank: Bank): string => BANK_LABEL[bank];
+
+export const paymentMethodLabel = (method: PaymentMethod): string => PAYMENT_METHOD_LABEL[method];
 
 export const formatWon = (amount: number): string => `${amount.toLocaleString('ko-KR')}원`;
