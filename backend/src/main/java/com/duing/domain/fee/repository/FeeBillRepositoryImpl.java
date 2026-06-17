@@ -1,5 +1,6 @@
 package com.duing.domain.fee.repository;
 
+import static com.duing.domain.clubmember.entity.QClubMember.clubMember;
 import static com.duing.domain.fee.entity.QFeeBill.feeBill;
 import static com.duing.domain.fee.entity.QPayment.payment;
 
@@ -12,7 +13,9 @@ import com.duing.domain.fee.service.dto.query.MyFeeSearchQuery;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.util.List;
 import java.util.Objects;
@@ -119,6 +122,40 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                 )
                 .fetchOne();
         return total != null ? total : 0L;
+    }
+
+    @Override
+    public List<MatchCandidate> findMatchCandidates(Long clubId, long depositAmount) {
+        // clubId 는 동아리 격리의 필수 조건이다(다른 동아리 청구에 입금이 매칭되면 안 됨).
+        Objects.requireNonNull(clubId, "clubId must not be null");
+        // 청구별 활성 납부 합계를 상관 서브쿼리로 산출한다(VOIDED 제외). payment 를 조인하면 1:N fan-out 으로
+        // 같은 청구가 납부 건수만큼 중복되므로 서브쿼리로 청구 그레인을 유지한다.
+        NumberExpression<Long> activePaidSum = Expressions.asNumber(JPAExpressions
+                .select(payment.amount.sum().coalesce(0L))
+                .from(payment)
+                .where(payment.feeBillId.eq(feeBill.id), payment.status.eq(PaymentStatus.ACTIVE)));
+        NumberExpression<Long> remaining = feeBill.amount.subtract(activePaidSum);
+        return queryFactory
+                .select(Projections.constructor(MatchCandidate.class,
+                        feeBill.id,
+                        feeBill.userId,
+                        clubMember.user.name,
+                        feeBill.billingPeriod,
+                        feeBill.dueDate,
+                        remaining))
+                .from(feeBill)
+                // 회원 이름은 club_member(club_id + user_id) → user 로 조인해 얻는다. FeeBill 은 raw userId 만 가지므로 명시 조인.
+                // ON 절에 deletedAt.isNull() 을 명시해 탈퇴(soft-delete) 회원도 청구 행은 유지하고 이름만 null 로 남긴다(LEFT JOIN 보존).
+                .leftJoin(clubMember)
+                .on(clubMember.club.id.eq(feeBill.clubId),
+                        clubMember.user.id.eq(feeBill.userId),
+                        clubMember.deletedAt.isNull())
+                .where(
+                        feeBill.clubId.eq(clubId),
+                        feeBill.status.in(FeeStatus.PENDING, FeeStatus.PARTIAL_PAID, FeeStatus.OVERDUE),
+                        remaining.eq(depositAmount))
+                .orderBy(feeBill.dueDate.asc(), feeBill.createdAt.desc(), feeBill.id.asc())
+                .fetch();
     }
 
     private NumberExpression<Long> statusCount(FeeStatus status) {

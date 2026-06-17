@@ -43,4 +43,25 @@ public class BankMatchingException extends ApplicationException {
             super(MESSAGE, HttpStatus.UNPROCESSABLE_ENTITY);
         }
     }
+
+    /**
+     * 매칭 시점에 잠근 청구의 잔액이 입금액과 더 이상 일치하지 않는 경우(동시 분할 납부로 잔액이 변동).
+     * 자동 매칭은 진행하지 않고 검토 큐로 보내야 하므로 409 로 매핑한다.
+     */
+    public static class MatchAmountMismatchException extends BankMatchingException {
+        private static final String MESSAGE = "입금 금액이 청구 잔액과 일치하지 않습니다.";
+
+        public MatchAmountMismatchException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    /** 매칭하려는 입금 거래를 동아리 범위에서 찾지 못한 경우(잘못된 거래 id 또는 cross-club 접근). */
+    public static class BankTransactionNotFoundException extends BankMatchingException {
+        private static final String MESSAGE = "입금 거래를 찾을 수 없습니다.";
+
+        public BankTransactionNotFoundException() {
+            super(MESSAGE, HttpStatus.NOT_FOUND);
+        }
+    }
 }

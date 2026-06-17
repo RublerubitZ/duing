@@ -17,4 +17,7 @@ public interface FeeBillRepositoryCustom {
     FeeBillSummaryProjection summarizeBills(Long clubId, FeeBillSummaryQuery query);
 
     long sumActivePaid(Long clubId, FeeBillSummaryQuery query);
+
+    // 입금액과 잔액(청구액 − 활성 납부합)이 정확히 일치하는 동아리 내 미납 청구 후보를 마감일 오름차순으로 반환한다.
+    List<MatchCandidate> findMatchCandidates(Long clubId, long depositAmount);
 }

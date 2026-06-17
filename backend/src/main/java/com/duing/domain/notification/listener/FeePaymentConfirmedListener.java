@@ -23,9 +23,14 @@ public class FeePaymentConfirmedListener {
     public void handle(FeePaymentConfirmedEvent event) {
         try {
             if (event.newStatus() == FeeStatus.PAID) {
+                // 자동매칭으로 확인된 납부는 운영자가 직접 기록한 게 아님을 알 수 있도록 문구를 달리한다(타입·dedupKey 는 동일).
+                String title = event.autoMatched() ? "회비 납부가 자동으로 확인되었어요" : "회비 납부가 완료되었어요";
+                String body = event.autoMatched()
+                        ? event.billingPeriod() + " 회비가 자동으로 확인되었습니다"
+                        : event.billingPeriod() + " 회비 완납 확인";
                 notificationService.createIfAbsent(new CreateNotificationCommand(
                         event.userId(), NotificationType.FEE_PAID_CONFIRMED,
-                        "회비 납부가 완료되었어요", event.billingPeriod() + " 회비 완납 확인",
+                        title, body,
                         "/me/fees", Map.of("billId", event.billId()),
                         "FEE_PAID_CONFIRMED:b=" + event.billId()));
             } else if (event.newStatus() == FeeStatus.PARTIAL_PAID || event.newStatus() == FeeStatus.OVERDUE) {
