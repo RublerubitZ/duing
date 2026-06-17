@@ -45,6 +45,16 @@ vi.mock('@duing/hooks', () => ({
   useUnmatchTransactionMutation: () => ({ mutate: mockUnmatchMutate, isPending: false, error: null }),
 }));
 
+// 무시 뮤테이션이 특정 에러로 실패하도록 강제하기 위한 헬퍼.
+// .mutate(txId, { onSuccess, onError }) 호출부의 onError 콜백을 주어진 에러로 호출한다.
+function makeIgnoreRejectWith(error: unknown): void {
+  mockIgnoreMutate.mockImplementation(
+    (_txId: number, options?: { onError?: (error: unknown) => void }) => {
+      options?.onError?.(error);
+    },
+  );
+}
+
 const mockAddToast = vi.fn();
 vi.mock('@/app/_components/toast/ToastProvider', () => ({
   useToast: () => ({ addToast: mockAddToast }),
@@ -249,5 +259,23 @@ describe('BankReviewQueue', () => {
     expect(screen.getByText('25,000원')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: '매칭취소' })).toHaveLength(2);
     expect(screen.queryByText('매칭된 거래가 없습니다.')).not.toBeInTheDocument();
+  });
+
+  it('[무시]가 409(이미 처리됨)로 실패하면 친절한 안내 토스트를 노출한다', async () => {
+    const user = userEvent.setup();
+    mockPendingContent.mockReturnValue([pendingWithCandidate]);
+    makeIgnoreRejectWith(new MockApiError(409, '이미 매칭된 거래입니다'));
+    render(<BankReviewQueue clubId={1} />);
+
+    await user.click(screen.getByRole('button', { name: '무시' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '거래 무시 확인' });
+    await user.click(within(dialog).getByRole('button', { name: '무시' }));
+
+    await waitFor(() =>
+      expect(mockAddToast).toHaveBeenCalledWith(
+        '이미 처리된 거래예요. 목록을 새로고침했어요.',
+        { variant: 'error' },
+      ),
+    );
   });
 });

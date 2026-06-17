@@ -16,7 +16,10 @@ function retryUnlessForbidden(failureCount: number, error: unknown): boolean {
 }
 
 // 매칭/무시/해제는 검토 큐뿐 아니라 Sprint 2 청구 잔액·수납 집계에도 영향을 준다(납부 생성/무효화).
-// 따라서 동기화·승인·무시·해제 성공 시 검토 큐 + 동아리 청구 목록 + 수납 집계를 함께 무효화한다.
+// 따라서 동기화·승인·무시·해제 후 검토 큐 + 동아리 청구 목록 + 수납 집계를 함께 무효화한다.
+// onSettled(성공/실패 무관)로 무효화하는 이유: 동기화가 프론트에서 타임아웃돼도 백엔드는 이미
+// 저장·자동매칭을 끝냈을 수 있다. 이때 큐를 다시 받아 와야 stale PENDING 행이 사라지고, 이미 매칭된
+// 거래에 무시/승인을 시도해 409(AlreadyMatched) 가 반복되는 문제를 자가 치유한다.
 function invalidateBankAndFees(
   queryClient: ReturnType<typeof useQueryClient>,
   clubId: number,
@@ -33,7 +36,7 @@ export function useBankSyncMutation(clubId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: SyncBankTransactionsPayload) => client.leader.fees.bank.sync(clubId, payload),
-    onSuccess: () => invalidateBankAndFees(queryClient, clubId),
+    onSettled: () => invalidateBankAndFees(queryClient, clubId),
   });
 }
 
@@ -55,7 +58,7 @@ export function useApproveMatchMutation(clubId: number) {
   return useMutation({
     mutationFn: ({ txId, feeBillId }: { txId: number; feeBillId: number }) =>
       client.leader.fees.bank.approve(clubId, txId, feeBillId),
-    onSuccess: () => invalidateBankAndFees(queryClient, clubId),
+    onSettled: () => invalidateBankAndFees(queryClient, clubId),
   });
 }
 
@@ -65,7 +68,7 @@ export function useIgnoreTransactionMutation(clubId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (txId: number) => client.leader.fees.bank.ignore(clubId, txId),
-    onSuccess: () => invalidateBankAndFees(queryClient, clubId),
+    onSettled: () => invalidateBankAndFees(queryClient, clubId),
   });
 }
 
@@ -75,7 +78,7 @@ export function useUnmatchTransactionMutation(clubId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (txId: number) => client.leader.fees.bank.unmatch(clubId, txId),
-    onSuccess: () => invalidateBankAndFees(queryClient, clubId),
+    onSettled: () => invalidateBankAndFees(queryClient, clubId),
   });
 }
 

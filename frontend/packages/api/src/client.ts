@@ -534,6 +534,10 @@ export type CreateApiClientOptions = {
 // 전역 타임아웃(15s)까지 묶이지 않도록 짧은 타임아웃을 둔다(실패해도 로컬 정리는 계속 진행).
 const LOGOUT_REVOKE_TIMEOUT_MS = 5_000;
 
+// 거래 동기화는 백엔드가 외부 은행 API 를 조회한다(connect 5s + read 15s + 처리). 전역 타임아웃(15s)
+// 으로는 백엔드 응답 전에 프론트가 먼저 끊긴다 — 이 호출만 더 넉넉한 타임아웃을 둔다.
+const BANK_SYNC_TIMEOUT_MS = 30_000; // 외부 은행 조회(백엔드 connect5s+read15s) 보다 길게
+
 export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiClient {
   const http = ky.create({
     prefixUrl: baseUrl.replace(/\/$/, ''),
@@ -1049,7 +1053,10 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           // 보안: payload(계좌 비번·주민번호)는 절대 로깅/영속화하지 않는다 — 요청 본문으로만 전달한다.
           sync: (clubId, payload) =>
             jsonOk<SyncResult>(
-              http.post(`leader/clubs/${clubId}/bank-transactions/sync`, { json: payload }),
+              http.post(`leader/clubs/${clubId}/bank-transactions/sync`, {
+                json: payload,
+                timeout: BANK_SYNC_TIMEOUT_MS,
+              }),
             ),
           list: (clubId, params) =>
             jsonOk<PageResponse<BankTransaction>>(

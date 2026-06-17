@@ -27,6 +27,11 @@ function formatTransactionAt(transactionAt: string): string {
 }
 
 function mutationErrorMessage(error: unknown, fallback: string): string {
+  // 409(AlreadyMatched): 동기화 타임아웃 등으로 서버 상태가 이미 바뀐 거래에 승인/무시를 시도한 경우다.
+  // onSettled 무효화로 큐는 이미 새로고침되므로, 서버 메시지 대신 상황을 설명하는 안내를 노출한다.
+  if (error instanceof ApiError && error.status === 409) {
+    return '이미 처리된 거래예요. 목록을 새로고침했어요.';
+  }
   if (error instanceof ApiError || error instanceof Error) {
     return error.message;
   }
