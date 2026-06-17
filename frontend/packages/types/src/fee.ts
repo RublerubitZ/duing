@@ -56,6 +56,7 @@ export type FeePolicy = {
 };
 
 // FeeBillResponse 미러(운영진 청구 현황). LocalDate 는 ISO 문자열(YYYY-MM-DD)로 직렬화된다.
+// paidAmount/remainingAmount 는 납부 집계 결과(remainingAmount = amount - paidAmount, 음수 없음).
 export type FeeBill = {
   id: number;
   clubId: number;
@@ -67,9 +68,12 @@ export type FeeBill = {
   billingEndDate: string;
   dueDate: string;
   status: FeeStatus;
+  paidAmount: number;
+  remainingAmount: number;
 };
 
 // MyFeeResponse 미러(회원 본인 조회). 본인 데이터라 userId 가 없다(백엔드 DTO 와 정합).
+// paidAmount/remainingAmount 는 납부 집계 결과(remainingAmount = amount - paidAmount, 음수 없음).
 export type MyFee = {
   id: number;
   clubId: number;
@@ -80,6 +84,49 @@ export type MyFee = {
   billingEndDate: string;
   dueDate: string;
   status: FeeStatus;
+  paidAmount: number;
+  remainingAmount: number;
+};
+
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'OTHER' | 'AUTO_MATCHED';
+export type PaymentStatus = 'ACTIVE' | 'VOIDED';
+
+// PaymentResponse 미러. paidAt 은 ISO 일시 문자열(백엔드 timestamptz). voidReason/memo 는 null 가능.
+export type Payment = {
+  id: number;
+  amount: number;
+  method: PaymentMethod;
+  paidAt: string;
+  memo: string | null;
+  status: PaymentStatus;
+  voidReason: string | null;
+};
+
+// 납부 기록 요청. 수동 기록은 CASH/TRANSFER/OTHER 만(AUTO_MATCHED 는 시스템 전용).
+export type RecordPaymentPayload = {
+  amount: number;
+  method: 'CASH' | 'TRANSFER' | 'OTHER';
+  paidAt: string; // YYYY-MM-DD
+  memo?: string;
+};
+
+// FeeSummaryResponse 미러(수납 현황 집계).
+export type FeeBillSummary = {
+  totalBilled: number;
+  totalPaid: number;
+  outstanding: number;
+  collectionRate: number;
+  billCount: number;
+  pendingCount: number;
+  partialPaidCount: number;
+  overdueCount: number;
+  paidCount: number;
+};
+
+// GET /leader/clubs/{clubId}/fee-bills/summary 의 옵션 필터.
+export type FeeSummaryParams = {
+  billingPeriod?: string;
+  policyId?: number;
 };
 
 // GenerateBillsResponse(created, skipped) 미러.

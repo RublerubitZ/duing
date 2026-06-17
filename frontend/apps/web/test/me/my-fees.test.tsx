@@ -31,6 +31,8 @@ const buildFee = (over: Partial<MyFee> = {}): MyFee => ({
   billingEndDate: '2026-07-31',
   dueDate: '2026-07-31',
   status: 'PENDING',
+  paidAmount: 0,
+  remainingAmount: 10000,
   ...over,
 });
 
@@ -84,6 +86,32 @@ describe('MyFeeList', () => {
     expect(within(row).getByText('2026-07')).toBeInTheDocument();
     expect(within(row).getByText('10,000원 · 마감 2026-07-31')).toBeInTheDocument();
     expect(within(row).getByText('납부대기')).toBeInTheDocument();
+  });
+
+  it('부분 납부 청구는 납부 진행률과 남은 금액을 표시한다', () => {
+    mockUseMyFeesQuery.mockReturnValue({
+      data: [buildFee({ amount: 10000, paidAmount: 4000, remainingAmount: 6000 })],
+      isLoading: false,
+    });
+    render(<MyFeeList />);
+
+    const row = screen.getByRole('listitem');
+    expect(within(row).getByText(/납부 4,000원 \/ 10,000원/)).toBeInTheDocument();
+    expect(within(row).getByText('· 남은 6,000원', { exact: false })).toBeInTheDocument();
+  });
+
+  it('완납 청구는 남은 금액 문구를 표시하지 않는다', () => {
+    mockUseMyFeesQuery.mockReturnValue({
+      data: [
+        buildFee({ amount: 10000, paidAmount: 10000, remainingAmount: 0, status: 'PAID' }),
+      ],
+      isLoading: false,
+    });
+    render(<MyFeeList />);
+
+    const row = screen.getByRole('listitem');
+    expect(within(row).getByText(/납부 10,000원 \/ 10,000원/)).toBeInTheDocument();
+    expect(within(row).queryByText('남은', { exact: false })).not.toBeInTheDocument();
   });
 
   it('가입한 동아리명으로 청구를 그룹화한다', () => {

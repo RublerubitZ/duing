@@ -165,9 +165,13 @@ type MyFeeRowProps = {
 };
 
 function MyFeeRow({ bill }: MyFeeRowProps) {
+  // 진행률 = paidAmount / amount(0 나눔 방지), 0~100% 로 클램프. 운영진 청구 현황(BillRow)과 동일.
+  const progressPercent =
+    bill.amount > 0 ? Math.min(100, Math.max(0, (bill.paidAmount / bill.amount) * 100)) : 0;
+
   return (
     <li className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-semibold text-ink">{bill.billingPeriod}</p>
           <span
@@ -182,6 +186,21 @@ function MyFeeRow({ bill }: MyFeeRowProps) {
         <p className="mt-0.5 text-xs text-charcoal-3">
           {formatWon(bill.amount)} · 마감 {bill.dueDate}
         </p>
+
+        <div className="mt-2">
+          <p className="text-xs text-charcoal-2">
+            납부 {formatWon(bill.paidAmount)} / {formatWon(bill.amount)}
+            {bill.remainingAmount > 0 && (
+              <span className="text-charcoal-3"> · 남은 {formatWon(bill.remainingAmount)}</span>
+            )}
+          </p>
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-graysoft">
+            <div
+              className="h-full rounded-full bg-sage transition-all"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
       </div>
     </li>
   );

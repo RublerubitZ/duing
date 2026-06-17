@@ -504,6 +504,22 @@ export const createFeePolicySchema = z.object({
 
 export type CreateFeePolicyInput = z.infer<typeof createFeePolicySchema>;
 
+// 납부 기록: RecordPaymentRequest(amount @Positive, method CASH/TRANSFER/OTHER, paidAt @NotNull, memo @Size(200)) 미러.
+// AUTO_MATCHED 는 수동 기록 불가(시스템 전용) — enum 에 포함하지 않는다.
+export const recordPaymentSchema = z.object({
+  amount: z.coerce
+    .number({ invalid_type_error: '납부 금액을 입력해 주세요.' })
+    .int('납부 금액은 정수여야 합니다.')
+    .positive('납부 금액은 1원 이상이어야 합니다.'),
+  method: z.enum(['CASH', 'TRANSFER', 'OTHER'], {
+    errorMap: () => ({ message: '납부 수단을 선택해 주세요.' }),
+  }),
+  paidAt: z.string().min(1, '납부일은 필수입니다.'),
+  memo: z.string().max(200, '메모는 200자 이하여야 합니다.').optional(),
+});
+
+export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
+
 // 청구 발행 폼 검증은 선택 정책의 billingType 으로 분기한다(discriminatedUnion).
 // 와이어 페이로드는 flat(GenerateBillsPayload, billingType 미포함)이며 toGenerateBillsPayload 가 변환한다.
 const monthlyBillsSchema = z.object({

@@ -4,8 +4,10 @@ import type {
   BillSearchParams,
   CreateFeePolicyPayload,
   FeeAccountPayload,
+  FeeSummaryParams,
   GenerateBillsPayload,
   MyFeeSearchParams,
+  RecordPaymentPayload,
   UpdateFeePolicyPayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
@@ -85,6 +87,56 @@ export function useCancelBillMutation(clubId: number) {
     mutationFn: (billId: number) => client.leader.fees.cancelBill(clubId, billId),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: feeQueryKeys.billsByClub(clubId) }),
+  });
+}
+
+// 청구별 납부 내역 조회(VOIDED 행 포함, 기록 시각 순).
+export function useBillPaymentsQuery(clubId: number, billId: number) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: feeQueryKeys.billPayments(clubId, billId),
+    queryFn: () => client.leader.fees.payments.list(clubId, billId),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useRecordPaymentMutation(clubId: number, billId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: RecordPaymentPayload) =>
+      client.leader.fees.payments.record(clubId, billId, payload),
+    // 납부 기록은 청구 잔액·납부 내역·수납 집계에 모두 영향을 준다.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: feeQueryKeys.billsByClub(clubId) });
+      queryClient.invalidateQueries({ queryKey: feeQueryKeys.billPayments(clubId, billId) });
+      queryClient.invalidateQueries({ queryKey: feeQueryKeys.summaryByClub(clubId) });
+    },
+  });
+}
+
+export function useVoidPaymentMutation(clubId: number, billId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ paymentId, reason }: { paymentId: number; reason?: string }) =>
+      client.leader.fees.payments.void(clubId, billId, paymentId, reason),
+    // 무효화도 청구 잔액·납부 내역·수납 집계에 모두 영향을 준다.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: feeQueryKeys.billsByClub(clubId) });
+      queryClient.invalidateQueries({ queryKey: feeQueryKeys.billPayments(clubId, billId) });
+      queryClient.invalidateQueries({ queryKey: feeQueryKeys.summaryByClub(clubId) });
+    },
+  });
+}
+
+// 동아리 수납 현황 집계 조회(billingPeriod/policyId 필터).
+export function useClubFeeSummaryQuery(clubId: number, params: FeeSummaryParams) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: feeQueryKeys.summary(clubId, params),
+    queryFn: () => client.leader.fees.summary(clubId, params),
+    staleTime: 30 * 1000,
   });
 }
 

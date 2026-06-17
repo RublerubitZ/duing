@@ -62,6 +62,9 @@ duing:
   notification:
     jobs:
       enabled: false
+  fee:
+    overdue:
+      enabled: false
   privacy:
     retention:
       enabled: false

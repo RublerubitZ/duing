@@ -76,4 +76,12 @@ public class FeeBill extends BaseEntity {
     public void cancel() {
         this.status = FeeStatus.CANCELLED;
     }
+
+    /** 납부 재계산·연체 크론이 산출한 상태로 전이한다. 운영자가 취소(CANCELLED)한 청구는 자동 산출로 덮어쓰지 않는다. */
+    public void updateStatus(FeeStatus newStatus) {
+        if (this.status == FeeStatus.CANCELLED) {
+            return;
+        }
+        this.status = newStatus;
+    }
 }

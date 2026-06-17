@@ -1,15 +1,23 @@
 package com.duing.domain.fee.repository;
 
 import com.duing.domain.fee.entity.FeeBill;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBillRepositoryCustom {
     Optional<FeeBill> findByIdAndClubId(Long id, Long clubId);
+
+    // 납부 기록·취소가 같은 청구 행에 대해 직렬화되도록 비관적 쓰기 잠금으로 조회한다(분할 입금 합계 경합 방지).
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM FeeBill b WHERE b.id = :id AND b.clubId = :clubId")
+    Optional<FeeBill> findByIdAndClubIdForUpdate(@Param("id") Long id, @Param("clubId") Long clubId);
 
     // 발행 이력 존재(불변성·삭제 가드 공유). 취소·soft-delete 행까지 모두 포함해야 하므로
     // @SQLRestriction 을 우회하는 네이티브 쿼리로 deleted_at·status 무관하게 본다(= uk_fee_bill_idem 의 역).
@@ -37,4 +45,32 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBill
                         @Param("amount") Long amount, @Param("billingPeriod") String billingPeriod,
                         @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate,
                         @Param("dueDate") LocalDate dueDate);
+
+    // 한 회차(정책+기간 시작일)로 발행된 비취소 청구의 (billId, userId) — 발행 알림 fan-out 대상.
+    @Query("""
+            SELECT new com.duing.domain.fee.repository.BillRecipient(b.id, b.userId)
+            FROM FeeBill b
+            WHERE b.feePolicyId = :feePolicyId
+              AND b.billingStartDate = :startDate
+              AND b.status <> com.duing.domain.fee.entity.FeeStatus.CANCELLED
+            """)
+    List<BillRecipient> findIssuedBillRecipients(@Param("feePolicyId") Long feePolicyId,
+                                                 @Param("startDate") LocalDate startDate);
+
+    // 연체 후보(마감 지난 미납·부분납부)를 FOR UPDATE 로 잠가 동시 납부 기록과 직렬화하고, 이번 실행의 전이 대상을 확정한다.
+    @Query(value = """
+            SELECT id, user_id, billing_period
+            FROM fee_bill
+            WHERE status IN ('PENDING','PARTIAL_PAID')
+              AND due_date < :today
+              AND deleted_at IS NULL
+            ORDER BY id
+            FOR UPDATE
+            """, nativeQuery = true)
+    List<Object[]> lockOverdueCandidates(@Param("today") LocalDate today);
+
+    // 잠근 후보를 OVERDUE 로 일괄 전이(updated_at 갱신). 반환 = 전이된 행 수.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE fee_bill SET status = 'OVERDUE', updated_at = now() WHERE id IN (:ids)", nativeQuery = true)
+    int markOverdue(@Param("ids") java.util.Collection<Long> ids);
 }

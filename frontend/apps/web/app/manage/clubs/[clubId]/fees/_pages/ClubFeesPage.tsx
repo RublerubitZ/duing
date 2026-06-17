@@ -7,6 +7,7 @@ import { cn } from '@/app/_lib/cn';
 import { BillList } from '../_components/BillList';
 import { CreatePolicyDialog } from '../_components/CreatePolicyDialog';
 import { FeeAccountSection } from '../_components/FeeAccountSection';
+import { FeeSummaryCards } from '../_components/FeeSummaryCards';
 import { GenerateBillsDialog } from '../_components/GenerateBillsDialog';
 import { PolicyList } from '../_components/PolicyList';
 
@@ -90,6 +91,8 @@ export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
           aria-labelledby="fee-tab-bill"
           className="space-y-4"
         >
+          <FeeSummaryCards clubId={clubId} />
+
           <div className="flex justify-end">
             <button
               type="button"

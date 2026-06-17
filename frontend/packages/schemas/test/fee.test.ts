@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { feeAccountSchema, generateBillsSchema, toGenerateBillsPayload } from '../src/index';
+import {
+  feeAccountSchema,
+  generateBillsSchema,
+  recordPaymentSchema,
+  toGenerateBillsPayload,
+} from '../src/index';
 
 describe('generateBillsSchema (discriminatedUnion)', () => {
   it('MONTHLY 는 회차만 필수다', () => {
@@ -75,6 +80,73 @@ describe('toGenerateBillsPayload', () => {
       dueDate: '2026-05-25',
     });
     expect(payload).not.toHaveProperty('billingEndDate');
+  });
+});
+
+describe('recordPaymentSchema', () => {
+  it('유효한 납부 기록(금액·수단·납부일·메모)은 통과한다', () => {
+    expect(
+      recordPaymentSchema.safeParse({
+        amount: 10000,
+        method: 'CASH',
+        paidAt: '2026-06-17',
+        memo: '6월 회비',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('메모는 선택값이라 없어도 통과한다', () => {
+    expect(
+      recordPaymentSchema.safeParse({
+        amount: 5000,
+        method: 'TRANSFER',
+        paidAt: '2026-06-17',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('금액 0/음수/비정수는 거부한다', () => {
+    expect(
+      recordPaymentSchema.safeParse({ amount: 0, method: 'CASH', paidAt: '2026-06-17' }).success,
+    ).toBe(false);
+    expect(
+      recordPaymentSchema.safeParse({ amount: -100, method: 'CASH', paidAt: '2026-06-17' }).success,
+    ).toBe(false);
+    expect(
+      recordPaymentSchema.safeParse({ amount: 1000.5, method: 'CASH', paidAt: '2026-06-17' }).success,
+    ).toBe(false);
+  });
+
+  it('AUTO_MATCHED 는 수동 기록 수단으로 거부한다(시스템 전용)', () => {
+    expect(
+      recordPaymentSchema.safeParse({ amount: 1000, method: 'AUTO_MATCHED', paidAt: '2026-06-17' })
+        .success,
+    ).toBe(false);
+  });
+
+  it('메모는 200자 초과 시 거부한다(백엔드 @Size(200))', () => {
+    expect(
+      recordPaymentSchema.safeParse({
+        amount: 1000,
+        method: 'CASH',
+        paidAt: '2026-06-17',
+        memo: '가'.repeat(201),
+      }).success,
+    ).toBe(false);
+    expect(
+      recordPaymentSchema.safeParse({
+        amount: 1000,
+        method: 'CASH',
+        paidAt: '2026-06-17',
+        memo: '가'.repeat(200),
+      }).success,
+    ).toBe(true);
+  });
+
+  it('납부일이 비어 있으면 거부한다', () => {
+    expect(
+      recordPaymentSchema.safeParse({ amount: 1000, method: 'CASH', paidAt: '' }).success,
+    ).toBe(false);
   });
 });
 
