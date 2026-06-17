@@ -3,6 +3,7 @@ package com.duing.domain.fee.repository;
 import com.duing.domain.fee.entity.FeeBill;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -44,4 +45,21 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBill
                         @Param("amount") Long amount, @Param("billingPeriod") String billingPeriod,
                         @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate,
                         @Param("dueDate") LocalDate dueDate);
+
+    // 연체 후보(마감 지난 미납·부분납부)를 FOR UPDATE 로 잠가 동시 납부 기록과 직렬화하고, 이번 실행의 전이 대상을 확정한다.
+    @Query(value = """
+            SELECT id, user_id, billing_period
+            FROM fee_bill
+            WHERE status IN ('PENDING','PARTIAL_PAID')
+              AND due_date < :today
+              AND deleted_at IS NULL
+            ORDER BY id
+            FOR UPDATE
+            """, nativeQuery = true)
+    List<Object[]> lockOverdueCandidates(@Param("today") LocalDate today);
+
+    // 잠근 후보를 OVERDUE 로 일괄 전이(updated_at 갱신). 반환 = 전이된 행 수.
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE fee_bill SET status = 'OVERDUE', updated_at = now() WHERE id IN (:ids)", nativeQuery = true)
+    int markOverdue(@Param("ids") java.util.Collection<Long> ids);
 }

@@ -97,6 +97,11 @@ duing:
   notification:
     jobs:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:false}
+  fee:
+    overdue:
+      # 회비 연체 전이 크론(매일 00:10 Asia/Seoul) — 마감 지난 PENDING·PARTIAL_PAID 청구를 OVERDUE 로 전이.
+      # 기본 비활성 — 운영에서 DUING_FEE_OVERDUE_ENABLED=true 주입 시 활성화한다.
+      enabled: ${DUING_FEE_OVERDUE_ENABLED:false}
   privacy:
     retention:
       # 탈퇴/폐쇄로 soft-delete 된 PII 의 보관기간 = 45일(P45D). 이후 파기 잡이 비식별화/삭제한다.
