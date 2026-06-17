@@ -1,15 +1,22 @@
 package com.duing.domain.fee.repository;
 
 import com.duing.domain.fee.entity.FeeBill;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBillRepositoryCustom {
     Optional<FeeBill> findByIdAndClubId(Long id, Long clubId);
+
+    // 납부 기록·취소가 같은 청구 행에 대해 직렬화되도록 비관적 쓰기 잠금으로 조회한다(분할 입금 합계 경합 방지).
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM FeeBill b WHERE b.id = :id AND b.clubId = :clubId")
+    Optional<FeeBill> findByIdAndClubIdForUpdate(@Param("id") Long id, @Param("clubId") Long clubId);
 
     // 발행 이력 존재(불변성·삭제 가드 공유). 취소·soft-delete 행까지 모두 포함해야 하므로
     // @SQLRestriction 을 우회하는 네이티브 쿼리로 deleted_at·status 무관하게 본다(= uk_fee_bill_idem 의 역).
