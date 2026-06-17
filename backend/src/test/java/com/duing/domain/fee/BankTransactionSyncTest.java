@@ -237,7 +237,7 @@ class BankTransactionSyncTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("미허용(미등록) 동아리 동기화 → 403(BankMatchingNotEnabled)")
+    @DisplayName("자동매칭 미등록 동아리는 거래 동기화를 요청하면 거부된다")
     void notEnabledClubForbidden() {
         Club club = saveNotEnabledClub("미등록동아리");
         Long clubId = club.getId();
@@ -251,7 +251,7 @@ class BankTransactionSyncTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("비총무(일반 회원) 동기화 → 403")
+    @DisplayName("운영진이 아닌 일반 회원은 거래 동기화를 요청할 수 없다")
     void nonManagerForbidden() {
         Club club = saveEnabledClub("권한동아리");
         Long clubId = club.getId();

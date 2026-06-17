@@ -19,9 +19,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * {@link BankTransactionSyncService} 기본 구현체.
@@ -31,8 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
  * 어디에도 저장하거나 출력하지 않는다. 호출 직후 별도 참조 없이 메서드 스코프 종료로 폐기된다.
  */
 @Service
-@RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class GeneralBankTransactionSyncService implements BankTransactionSyncService {
 
     /** 동기화 조회 기간 하한(오늘 기준 N 일 전). 최초 동기화·오래된 마지막 거래 모두 이 하한으로 제한한다. */
@@ -47,9 +45,42 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
     private final TransactionHasher transactionHasher;
     private final BankTransactionRepository bankTransactionRepository;
     private final Clock clock;
+    /** 외부 BANK 호출은 트랜잭션 밖에서 끝내고, 적재 단계만 이 템플릿으로 짧게 트랜잭션을 연다. */
+    private final TransactionTemplate transactionTemplate;
 
+    public GeneralBankTransactionSyncService(
+            ClubAuthService clubAuthService,
+            BankMatchingAdminService bankMatchingAdminService,
+            FeeAccountRepository feeAccountRepository,
+            FeeAccountCipher feeAccountCipher,
+            BankCodeMapper bankCodeMapper,
+            BankApiClient bankApiClient,
+            TransactionHasher transactionHasher,
+            BankTransactionRepository bankTransactionRepository,
+            Clock clock,
+            PlatformTransactionManager platformTransactionManager) {
+        this.clubAuthService = clubAuthService;
+        this.bankMatchingAdminService = bankMatchingAdminService;
+        this.feeAccountRepository = feeAccountRepository;
+        this.feeAccountCipher = feeAccountCipher;
+        this.bankCodeMapper = bankCodeMapper;
+        this.bankApiClient = bankApiClient;
+        this.transactionHasher = transactionHasher;
+        this.bankTransactionRepository = bankTransactionRepository;
+        this.clock = clock;
+        this.transactionTemplate = new TransactionTemplate(platformTransactionManager);
+    }
+
+    /**
+     * 외부 BANK API 호출을 DB 트랜잭션 밖에서 수행하는 fetch-then-persist 구조다.
+     *
+     * <p>권한·사용가능 검증, 계좌 복호화, 시작일 계산, 외부 거래 조회까지는 쓰기 트랜잭션을 잡지 않고
+     * (조회는 독립 auto-commit 으로 충분) 진행한다. 이렇게 해야 응답이 느리거나 멈춘 BANK API 가
+     * 고정 크기 커넥션 풀의 슬롯을 점유해 무관한 요청까지 막는 일을 방지할 수 있다. 적재(native insert)는
+     * 활성 트랜잭션을 요구하므로, 외부 조회 결과를 받은 뒤에만 {@link TransactionTemplate} 로
+     * 짧은 트랜잭션을 열어 처리한다.
+     */
     @Override
-    @Transactional
     public SyncResult sync(SyncTransactionsCommand command) {
         clubAuthService.requireManager(command.actorId(), command.clubId());      // 권한: 운영진(LEADER/OFFICER)
         bankMatchingAdminService.requireActiveUsable(command.clubId());           // 사용 가능(active && api_registered) 검증
@@ -63,20 +94,26 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
 
         // 민감 인증정보(계좌 비번·주민번호 앞 6자리)는 오직 이 BANK API 호출에만 전달한다.
         // 이후 어떤 변수에도 보관하지 않으며, 적재·로깅·예외에 절대 싣지 않는다.
+        // DB 커넥션을 잡지 않은 상태에서 호출해, 느린 BANK API 가 풀 슬롯을 점유하지 않게 한다.
         List<BankTransactionData> fetchedTransactions = bankApiClient.getTransactions(
                 new TransactionLookupCommand(
                         bankCode, accountNumber,
                         command.accountPassword(), command.residentNumber(),
                         startDate, today));
 
+        // 외부 조회가 끝난 뒤에만 짧은 쓰기 트랜잭션을 열어 적재한다(native insert 는 활성 트랜잭션 필요).
+        return transactionTemplate.execute(status -> persist(command.clubId(), bankCode, fetchedTransactions));
+    }
+
+    private SyncResult persist(Long clubId, String bankCode, List<BankTransactionData> fetchedTransactions) {
         List<String> insertedHashes = new ArrayList<>();
         for (BankTransactionData transaction : fetchedTransactions) {
-            String transactionHash = transactionHasher.hash(command.clubId(), bankCode, transaction);
+            String transactionHash = transactionHasher.hash(clubId, bankCode, transaction);
             boolean deposit = transaction.isDeposit();
             String transactionType = deposit ? "DEPOSIT" : "WITHDRAWAL";
             String matchStatus = deposit ? "PENDING" : "IGNORED";
             int inserted = bankTransactionRepository.insertIgnoringConflict(
-                    command.clubId(), bankCode, transaction.transactionAt(),
+                    clubId, bankCode, transaction.transactionAt(),
                     transaction.amount(), transaction.balance(), transaction.counterparty(),
                     transactionType, matchStatus, null, transactionHash,
                     transaction.rawJson());   // raw_payload 는 BANK API 응답 거래만 — 인증정보는 절대 들어가지 않는다
