@@ -18,6 +18,11 @@ spring:
       # 풀 크기를 스레드 수보다 크게(20) 잡는다. 풀==스레드면 부수적 연결 사용 시 60s 풀 획득
       # 타임아웃으로 빠져 플래키해진다. 테스트 전용 설정으로, 운영(application-prod) 풀은 건드리지 않는다.
       maximum-pool-size: 20
+      # minimum-idle 기본값은 maximum-pool-size 와 같아, 전체 스위트의 여러 Spring 컨텍스트가
+      # 각각 20개 유휴 커넥션을 쟁여두면 단일 Testcontainers Postgres 의 max_connections 를 넘겨
+      # "too many clients already" 로 무관한 통합테스트가 컨텍스트 로드에 실패한다. 유휴 점유를 1로
+      # 낮춰 컨텍스트당 상시 점유를 최소화하고, 버스트는 max(20)까지 온디맨드로 확장한다.
+      minimum-idle: 1
   servlet:
     multipart:
       max-file-size: 6MB
