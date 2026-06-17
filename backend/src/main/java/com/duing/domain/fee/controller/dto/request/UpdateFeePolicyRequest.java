@@ -2,6 +2,8 @@ package com.duing.domain.fee.controller.dto.request;
 
 import com.duing.domain.fee.entity.BillingType;
 import com.duing.domain.fee.service.dto.command.UpdateFeePolicyCommand;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -12,9 +14,13 @@ public record UpdateFeePolicyRequest(
         @Pattern(regexp = "^\\s*\\S.*$", message = "정책 이름은 공백일 수 없습니다.")
         @Size(max = 100, message = "정책 이름은 100자 이하여야 합니다.") String name,
         @PositiveOrZero(message = "금액은 0 이상이어야 합니다.") Long amount,
-        BillingType billingType, Boolean active) {
+        BillingType billingType, Boolean active,
+        Boolean autoIssue,
+        @Min(value = 1, message = "발행일은 1~28 사이여야 합니다.") @Max(value = 28, message = "발행일은 1~28 사이여야 합니다.") Integer issueDay,
+        @Min(value = 1, message = "마감일은 1~28 사이여야 합니다.") @Max(value = 28, message = "마감일은 1~28 사이여야 합니다.") Integer dueDay) {
 
     public UpdateFeePolicyCommand toCommand(Long clubId, Long actorId, Long policyId) {
-        return new UpdateFeePolicyCommand(clubId, actorId, policyId, name, amount, billingType, active);
+        return new UpdateFeePolicyCommand(clubId, actorId, policyId, name, amount, billingType, active,
+                autoIssue, issueDay, dueDay);
     }
 }

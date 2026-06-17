@@ -22,4 +22,11 @@ public final class FeePolicyFixture {
         policy.update(null, null, null, false);
         return policy;
     }
+
+    /** 자동 월발행이 켜진 MONTHLY 정책(issueDay/dueDay 지정). */
+    public static FeePolicy autoIssue(Long clubId, int issueDay, int dueDay) {
+        FeePolicy policy = FeePolicy.create(clubId, "자동 월 회비", 10000L, BillingType.MONTHLY);
+        policy.applyAutoIssue(true, issueDay, dueDay);
+        return policy;
+    }
 }

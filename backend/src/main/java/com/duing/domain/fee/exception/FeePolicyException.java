@@ -40,4 +40,21 @@ public class FeePolicyException extends ApplicationException {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
+
+    public static class AutoIssueNotMonthlyException extends FeePolicyException {
+        private static final String MESSAGE = "자동 발행은 매월(MONTHLY) 정책에서만 설정할 수 있습니다.";
+
+        public AutoIssueNotMonthlyException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class InvalidIssueScheduleException extends FeePolicyException {
+        private static final String MESSAGE =
+                "발행일·마감일은 1~28 사이여야 하며, 마감일은 발행일과 같거나 이후여야 합니다.";
+
+        public InvalidIssueScheduleException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }
