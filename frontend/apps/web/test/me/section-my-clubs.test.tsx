@@ -35,6 +35,23 @@ describe('SectionMyClubs', () => {
     expect(link).toHaveAttribute('href', '/clubs/42/member');
   });
 
+  it('MEMBER 카드는 "탈퇴" 버튼을 노출한다', () => {
+    render(<SectionMyClubs myClubs={[make({ myRole: 'MEMBER', clubName: '회원동' })]} />);
+    expect(screen.getByRole('button', { name: /회원동 탈퇴/ })).toBeInTheDocument();
+  });
+
+  it('LEADER · OFFICER 카드는 "탈퇴" 버튼을 노출하지 않는다 (이번 범위는 평회원 한정)', () => {
+    render(
+      <SectionMyClubs
+        myClubs={[
+          make({ myRole: 'LEADER', clubId: 1, clubName: '리더동' }),
+          make({ myRole: 'OFFICER', clubId: 2, clubName: '운영동' }),
+        ]}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /탈퇴/ })).not.toBeInTheDocument();
+  });
+
   it('빈 배열이면 안내 문구를 노출한다', () => {
     render(<SectionMyClubs myClubs={[]} />);
     expect(screen.getByText(/아직 가입한 동아리가 없어요/)).toBeInTheDocument();
