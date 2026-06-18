@@ -144,8 +144,8 @@ class LeaderCashbookControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("수동 항목을 수정·삭제할 수 있다")
-    void updateAndDeleteManual() {
+    @DisplayName("수동 항목의 카테고리·금액을 수정할 수 있다")
+    void updateManualEntry() {
         CashbookEntry entry = cashbookEntryRepository.save(
                 CashbookEntryFixture.manualExpense(clubId, CashbookCategory.MT, 30000L, LocalDate.of(2026, 9, 3)));
 
@@ -156,13 +156,23 @@ class LeaderCashbookControllerTest extends IntegrationTestBase {
                         "transactionDate", "2026-09-04"))
                 .when().patch("/api/v1/leader/clubs/" + clubId + "/cashbook/" + entry.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
-        assertThat(cashbookEntryRepository.findById(entry.getId()).orElseThrow().getCategoryCode())
-                .isEqualTo(CashbookCategory.DINING);
+
+        CashbookEntry updated = cashbookEntryRepository.findById(entry.getId()).orElseThrow();
+        assertThat(updated.getCategoryCode()).isEqualTo(CashbookCategory.DINING);
+        assertThat(updated.getAmount()).isEqualTo(35000L);
+    }
+
+    @Test
+    @DisplayName("수동 항목을 삭제하면 장부에서 제외된다")
+    void deleteManualEntry() {
+        CashbookEntry entry = cashbookEntryRepository.save(
+                CashbookEntryFixture.manualExpense(clubId, CashbookCategory.MT, 30000L, LocalDate.of(2026, 9, 3)));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .when().delete("/api/v1/leader/clubs/" + clubId + "/cashbook/" + entry.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
+
         assertThat(cashbookEntryRepository.findById(entry.getId())).isEmpty();
     }
 

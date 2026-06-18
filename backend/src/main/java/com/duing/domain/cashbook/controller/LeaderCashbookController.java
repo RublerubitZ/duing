@@ -43,12 +43,12 @@ public class LeaderCashbookController implements LeaderCashbookApi {
             @RequestParam(required = false) CashbookCategory categoryCode,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String keyword,
             Pageable pageable,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         Page<CashbookEntryResponse> entries = cashbookService.getEntries(
-                clubId, currentUser.id(), new CashbookSearchQuery(entryType, categoryCode, from, to, q), pageable);
+                clubId, currentUser.id(), new CashbookSearchQuery(entryType, categoryCode, from, to, keyword), pageable);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(entries)));
     }
 
@@ -59,11 +59,11 @@ public class LeaderCashbookController implements LeaderCashbookApi {
             @RequestParam(required = false) CashbookCategory categoryCode,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String keyword,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         CashbookSummaryResponse summary = cashbookService.getSummary(
-                clubId, currentUser.id(), new CashbookSearchQuery(entryType, categoryCode, from, to, q));
+                clubId, currentUser.id(), new CashbookSearchQuery(entryType, categoryCode, from, to, keyword));
         return ResponseEntity.ok(ApiResponse.success(summary));
     }
 

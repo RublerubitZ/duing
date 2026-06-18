@@ -40,7 +40,7 @@ public interface LeaderCashbookApi {
             @RequestParam(required = false) CashbookCategory categoryCode,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String keyword,
             Pageable pageable,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
@@ -54,7 +54,7 @@ public interface LeaderCashbookApi {
             @RequestParam(required = false) CashbookCategory categoryCode,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String keyword,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 

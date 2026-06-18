@@ -32,7 +32,7 @@ public class CashbookEntryRepositoryImpl implements CashbookEntryRepositoryCusto
         List<CashbookEntry> content = queryFactory
                 .selectFrom(cashbookEntry)
                 .where(clubIdEq(clubId), entryTypeEq(query.entryType()), categoryEq(query.categoryCode()),
-                        dateFrom(query.from()), dateTo(query.to()), keyword(query.q()))
+                        dateFrom(query.from()), dateTo(query.to()), keyword(query.keyword()))
                 .orderBy(cashbookEntry.transactionDate.desc(), cashbookEntry.id.desc())
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -41,7 +41,7 @@ public class CashbookEntryRepositoryImpl implements CashbookEntryRepositoryCusto
                 .select(cashbookEntry.count())
                 .from(cashbookEntry)
                 .where(clubIdEq(clubId), entryTypeEq(query.entryType()), categoryEq(query.categoryCode()),
-                        dateFrom(query.from()), dateTo(query.to()), keyword(query.q()))
+                        dateFrom(query.from()), dateTo(query.to()), keyword(query.keyword()))
                 .fetchOne();
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
     }
@@ -54,7 +54,7 @@ public class CashbookEntryRepositoryImpl implements CashbookEntryRepositoryCusto
                         sumByType(CashbookEntryType.INCOME), sumByType(CashbookEntryType.EXPENSE)))
                 .from(cashbookEntry)
                 .where(clubIdEq(clubId), entryTypeEq(query.entryType()), categoryEq(query.categoryCode()),
-                        dateFrom(query.from()), dateTo(query.to()), keyword(query.q()))
+                        dateFrom(query.from()), dateTo(query.to()), keyword(query.keyword()))
                 .fetchOne();
         return projection != null ? projection : new CashbookSummaryProjection(0L, 0L);
     }
@@ -86,11 +86,11 @@ public class CashbookEntryRepositoryImpl implements CashbookEntryRepositoryCusto
     }
 
     // 설명·메모·직접입력 카테고리 부분일치(대소문자 무시).
-    private BooleanExpression keyword(String q) {
-        if (!StringUtils.hasText(q)) {
+    private BooleanExpression keyword(String searchKeyword) {
+        if (!StringUtils.hasText(searchKeyword)) {
             return null;
         }
-        String trimmed = q.trim();
+        String trimmed = searchKeyword.trim();
         return cashbookEntry.description.containsIgnoreCase(trimmed)
                 .or(cashbookEntry.memo.containsIgnoreCase(trimmed))
                 .or(cashbookEntry.customCategory.containsIgnoreCase(trimmed));
