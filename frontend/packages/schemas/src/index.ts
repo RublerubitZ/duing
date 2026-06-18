@@ -490,17 +490,60 @@ export type {
 } from './interview';
 
 // === 회비(fee) ===
-// 정책 생성: CreateFeePolicyRequest(@NotBlank name/@Size(100), @NotNull @PositiveOrZero amount, @NotNull billingType) 미러.
-export const createFeePolicySchema = z.object({
-  name: z.string().min(1, '정책 이름은 필수입니다.').max(100, '정책 이름은 100자 이하여야 합니다.'),
-  amount: z.coerce
-    .number({ invalid_type_error: '금액은 숫자여야 합니다.' })
-    .int('금액은 정수여야 합니다.')
-    .min(0, '금액은 0 이상이어야 합니다.'),
-  billingType: z.enum(['MONTHLY', 'SEMESTER', 'YEARLY', 'ONE_TIME'], {
-    errorMap: () => ({ message: '회비 유형을 선택해주세요.' }),
-  }),
-});
+// 빈 number 입력("")을 undefined 로 정규화한다 — z.coerce.number()는 ""→0 으로 강제하므로(자동발행 off 시 오탐) 전처리가 필요.
+const optionalDay = (label: string) =>
+  z.preprocess(
+    (raw) => (raw === '' || raw === undefined || raw === null ? undefined : raw),
+    z.coerce
+      .number({ invalid_type_error: `${label}은 숫자여야 합니다.` })
+      .int(`${label}은 정수여야 합니다.`)
+      .min(1, `${label}은 1~28 사이여야 합니다.`)
+      .max(28, `${label}은 1~28 사이여야 합니다.`)
+      .optional(),
+  );
+
+// 정책 생성: CreateFeePolicyRequest(@NotBlank name/@Size(100), @NotNull @PositiveOrZero amount, @NotNull billingType,
+//   autoIssue, issueDay, dueDay) 미러. autoIssue=true 면 MONTHLY 강제·발행일/마감일 필수·마감일≥발행일.
+export const createFeePolicySchema = z
+  .object({
+    name: z.string().min(1, '정책 이름은 필수입니다.').max(100, '정책 이름은 100자 이하여야 합니다.'),
+    amount: z.coerce
+      .number({ invalid_type_error: '금액은 숫자여야 합니다.' })
+      .int('금액은 정수여야 합니다.')
+      .min(0, '금액은 0 이상이어야 합니다.'),
+    billingType: z.enum(['MONTHLY', 'SEMESTER', 'YEARLY', 'ONE_TIME'], {
+      errorMap: () => ({ message: '회비 유형을 선택해주세요.' }),
+    }),
+    autoIssue: z.boolean().default(false),
+    issueDay: optionalDay('발행일'),
+    dueDay: optionalDay('마감일'),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.autoIssue) {
+      return;
+    }
+    if (value.billingType !== 'MONTHLY') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['autoIssue'],
+        message: '자동 발행은 매월(MONTHLY) 정책에서만 설정할 수 있습니다.',
+      });
+      return;
+    }
+    if (value.issueDay === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['issueDay'], message: '발행일을 입력해 주세요.' });
+    }
+    if (value.dueDay === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['dueDay'], message: '마감일을 입력해 주세요.' });
+    }
+    if (value.issueDay !== undefined && value.dueDay !== undefined && value.dueDay < value.issueDay) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['dueDay'],
+        message: '마감일은 발행일과 같거나 이후여야 합니다.',
+      });
+    }
+  });
 
 export type CreateFeePolicyInput = z.infer<typeof createFeePolicySchema>;
 

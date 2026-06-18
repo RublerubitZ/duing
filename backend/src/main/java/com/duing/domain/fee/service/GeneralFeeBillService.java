@@ -20,6 +20,7 @@ import com.duing.domain.fee.service.dto.query.GenerateBillsResult;
 import com.duing.domain.notification.event.FeeBillsIssuedEvent;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GeneralFeeBillService implements FeeBillService {
+
+    private static final DateTimeFormatter AUTO_ISSUE_YEAR_MONTH = DateTimeFormatter.ofPattern("yyyy-MM");
 
     private final FeePolicyRepository feePolicyRepository;
     private final FeeBillRepository feeBillRepository;
@@ -77,6 +80,42 @@ public class GeneralFeeBillService implements FeeBillService {
                     resolved.startDate(), resolved.dueDate()));
         }
         return new GenerateBillsResult(created, skipped);
+    }
+
+    @Override
+    @Transactional
+    public void autoIssueMonthly(FeePolicy policy, LocalDate today) {
+        // 크론 조회(findAutoIssueDue, 비트랜잭션)와 발행 사이의 정책 변경/비활성/삭제 경합을 막기 위해
+        // TX 내에서 정책 행을 재조회+비관 잠금한다(generate 와 동일한 policy-only 잠금 → 락 순서 일관, 데드락 없음).
+        // 삭제된 정책은 @SQLRestriction 으로 빈 Optional → no-op.
+        FeePolicy lockedPolicy = feePolicyRepository
+                .findByIdAndClubIdForUpdate(policy.getId(), policy.getClubId())
+                .orElse(null);
+        // 방어적 no-op: 잠금 후 fresh 상태로 재확인(권한 검증은 없음 — 시스템 권위).
+        if (lockedPolicy == null || !lockedPolicy.isActive()
+                || lockedPolicy.getBillingType() != BillingType.MONTHLY || !lockedPolicy.isAutoIssue()) {
+            return;
+        }
+        String yearMonth = today.format(AUTO_ISSUE_YEAR_MONTH);
+        BillingPeriodResolver.Resolved resolved = periodResolver.resolveMonthly(yearMonth);
+        // 마감일은 정책 dueDay 로 산출(말일 아님). 과거 검증 없음 — 캐치업 발행 시 과거여도 정상(연체 크론이 처리).
+        LocalDate dueDate = LocalDate.of(today.getYear(), today.getMonth(), lockedPolicy.getDueDay());
+
+        int created = feeBillRepository.bulkInsertBills(
+                lockedPolicy.getClubId(), lockedPolicy.getId(), lockedPolicy.getAmount(), resolved.billingPeriod(),
+                resolved.startDate(), resolved.endDate(), dueDate);
+
+        log.info("auto-issue monthly bills: clubId={}, policyId={}, period={}, created={}",
+                lockedPolicy.getClubId(), lockedPolicy.getId(), resolved.billingPeriod(), created);
+
+        // 새 청구가 생성된 경우에만 발행 알림(이미 그 달 발행이면 created=0 → 재알림 없음, 캐치업 안전).
+        if (created > 0) {
+            String clubName = clubRepository.findById(lockedPolicy.getClubId())
+                    .map(Club::getName).orElse("동아리");
+            eventPublisher.publishEvent(new FeeBillsIssuedEvent(
+                    lockedPolicy.getClubId(), clubName, lockedPolicy.getId(), resolved.billingPeriod(),
+                    resolved.startDate(), dueDate));
+        }
     }
 
     @Override

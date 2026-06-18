@@ -7,7 +7,12 @@ import { ApiError } from '@duing/api';
 import { useCreateFeePolicyMutation, useUpdateFeePolicyMutation } from '@duing/hooks';
 import { createFeePolicySchema } from '@duing/schemas';
 import type { CreateFeePolicyInput } from '@duing/schemas';
-import type { BillingType, FeePolicy } from '@duing/types';
+import type {
+  BillingType,
+  CreateFeePolicyPayload,
+  FeePolicy,
+  UpdateFeePolicyPayload,
+} from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import {
@@ -42,30 +47,56 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateFeePolicyInput>({
     resolver: zodResolver(createFeePolicySchema),
     defaultValues: policy
-      ? { name: policy.name, amount: policy.amount, billingType: policy.billingType }
-      : { name: '', amount: 0, billingType: 'MONTHLY' },
+      ? {
+          name: policy.name,
+          amount: policy.amount,
+          billingType: policy.billingType,
+          autoIssue: policy.autoIssue,
+          issueDay: policy.issueDay ?? undefined,
+          dueDay: policy.dueDay ?? undefined,
+        }
+      : { name: '', amount: 0, billingType: 'MONTHLY', autoIssue: false, issueDay: undefined, dueDay: undefined },
   });
+
+  // 자동발행은 MONTHLY 정책만. 생성 모드는 선택 중인 유형, 수정 모드는 (잠긴) 기존 유형을 본다.
+  const watchedBillingType = watch('billingType');
+  const watchedAutoIssue = watch('autoIssue');
+  const effectiveBillingType = isEditMode ? policy.billingType : watchedBillingType;
+  const showAutoIssue = effectiveBillingType === 'MONTHLY';
 
   const onSubmit = (formData: CreateFeePolicyInput) => {
     if (isEditMode) {
       // billingType 은 수정 모드에서 읽기 전용이므로 와이어에 싣지 않는다(보수적 잠금).
-      updatePolicy.mutate(
-        {
-          policyId: policy.id,
-          payload: { name: formData.name.trim(), amount: formData.amount },
-        },
-        { onSuccess: onClose },
-      );
+      // autoIssue=true 면 백엔드 검증을 위해 issueDay/dueDay 를 항상 함께 보낸다.
+      const payload: UpdateFeePolicyPayload = {
+        name: formData.name.trim(),
+        amount: formData.amount,
+        autoIssue: formData.autoIssue,
+      };
+      if (formData.autoIssue) {
+        payload.issueDay = formData.issueDay;
+        payload.dueDay = formData.dueDay;
+      }
+      updatePolicy.mutate({ policyId: policy.id, payload }, { onSuccess: onClose });
       return;
     }
-    createPolicy.mutate(
-      { name: formData.name.trim(), amount: formData.amount, billingType: formData.billingType },
-      { onSuccess: onClose },
-    );
+    const payload: CreateFeePolicyPayload = {
+      name: formData.name.trim(),
+      amount: formData.amount,
+      billingType: formData.billingType,
+      autoIssue: formData.autoIssue,
+    };
+    if (formData.autoIssue) {
+      payload.issueDay = formData.issueDay;
+      payload.dueDay = formData.dueDay;
+    }
+    createPolicy.mutate(payload, { onSuccess: onClose });
   };
 
   const submitError = activeMutation.error;
@@ -143,7 +174,15 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
               <select
                 id="policy-billing-type"
                 aria-label="회비 유형"
-                {...register('billingType')}
+                {...register('billingType', {
+                  onChange: (event) => {
+                    if (event.target.value !== 'MONTHLY') {
+                      setValue('autoIssue', false);
+                      setValue('issueDay', undefined);
+                      setValue('dueDay', undefined);
+                    }
+                  },
+                })}
                 className={cn(inputCls, errors.billingType && errorInputCls)}
               >
                 {BILLING_TYPE_OPTIONS.map((option) => (
@@ -157,6 +196,55 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
               <p className="mt-1 text-xs text-coral">{errors.billingType.message}</p>
             )}
           </div>
+
+          {showAutoIssue && (
+            <div className="rounded-md border border-line p-3">
+              <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <input type="checkbox" {...register('autoIssue')} className="h-4 w-4 accent-ink" />
+                매월 자동 발행
+              </label>
+              <p className="mt-1 text-xs text-charcoal-3">
+                매월 발행일이 되면 활성 회원에게 이 정책의 청구를 자동으로 발행합니다.
+              </p>
+              {watchedAutoIssue && (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="policy-issue-day" className="mb-1 block text-xs font-semibold text-charcoal-2">
+                      발행일(1~28)
+                    </label>
+                    <input
+                      id="policy-issue-day"
+                      type="number"
+                      min={1}
+                      max={28}
+                      placeholder="5"
+                      {...register('issueDay')}
+                      className={cn(inputCls, errors.issueDay && errorInputCls)}
+                    />
+                    {errors.issueDay && (
+                      <p className="mt-1 text-xs text-coral">{errors.issueDay.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="policy-due-day" className="mb-1 block text-xs font-semibold text-charcoal-2">
+                      마감일(1~28)
+                    </label>
+                    <input
+                      id="policy-due-day"
+                      type="number"
+                      min={1}
+                      max={28}
+                      placeholder="20"
+                      {...register('dueDay')}
+                      className={cn(inputCls, errors.dueDay && errorInputCls)}
+                    />
+                    {errors.dueDay && <p className="mt-1 text-xs text-coral">{errors.dueDay.message}</p>}
+                  </div>
+                </div>
+              )}
+              {errors.autoIssue && <p className="mt-1 text-xs text-coral">{errors.autoIssue.message}</p>}
+            </div>
+          )}
 
           {submitErrorMessage && (
             <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
