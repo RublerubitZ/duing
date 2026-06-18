@@ -651,3 +651,44 @@ export const syncBankTransactionsSchema = z.object({
 });
 
 export type SyncBankTransactionsInput = z.infer<typeof syncBankTransactionsSchema>;
+
+// === 금전출납부(cashbook) ===
+// 백엔드 chk_cashbook_category / validateCategory 와 동일한 코드 집합(OTHER 는 수입·지출 공용).
+const CASHBOOK_INCOME_CODES = ['FEE', 'SPONSOR', 'SUBSIDY', 'OTHER'] as const;
+const CASHBOOK_EXPENSE_CODES = ['MT', 'DINING', 'SNACK', 'SUPPLY', 'MARKETING', 'OTHER'] as const;
+
+export const createCashbookEntrySchema = z
+  .object({
+    entryType: z.enum(['INCOME', 'EXPENSE'], { errorMap: () => ({ message: '수입/지출을 선택해 주세요.' }) }),
+    categoryCode: z.enum(['FEE', 'SPONSOR', 'SUBSIDY', 'MT', 'DINING', 'SNACK', 'SUPPLY', 'MARKETING', 'OTHER'], {
+      errorMap: () => ({ message: '카테고리를 선택해 주세요.' }),
+    }),
+    customCategory: z.string().max(40, '직접입력 카테고리는 40자 이하여야 합니다.').optional(),
+    amount: z.coerce
+      .number({ invalid_type_error: '금액은 숫자여야 합니다.' })
+      .int('금액은 정수여야 합니다.')
+      .positive('금액은 1원 이상이어야 합니다.'),
+    description: z.string().min(1, '설명은 필수입니다.').max(100, '설명은 100자 이하여야 합니다.'),
+    transactionDate: z.string().min(1, '거래일은 필수입니다.'),
+    memo: z.string().max(200, '메모는 200자 이하여야 합니다.').optional(),
+  })
+  .superRefine((value, ctx) => {
+    const allowed: readonly string[] =
+      value.entryType === 'INCOME' ? CASHBOOK_INCOME_CODES : CASHBOOK_EXPENSE_CODES;
+    if (!allowed.includes(value.categoryCode)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['categoryCode'],
+        message: '선택한 카테고리가 수입/지출 유형에 맞지 않습니다.',
+      });
+    }
+    if (value.categoryCode !== 'OTHER' && value.customCategory) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['customCategory'],
+        message: '직접입력은 카테고리가 기타일 때만 가능합니다.',
+      });
+    }
+  });
+
+export type CreateCashbookEntryInput = z.infer<typeof createCashbookEntrySchema>;

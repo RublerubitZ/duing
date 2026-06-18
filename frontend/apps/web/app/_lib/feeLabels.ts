@@ -1,4 +1,11 @@
-import type { Bank, BillingType, FeeStatus, PaymentMethod } from '@duing/types';
+import type {
+  Bank,
+  BillingType,
+  CashbookCategory,
+  CashbookEntryType,
+  FeeStatus,
+  PaymentMethod,
+} from '@duing/types';
 
 const BILLING_TYPE_LABEL: Record<BillingType, string> = {
   MONTHLY: '월 회비',
@@ -55,3 +62,28 @@ export const bankLabel = (bank: Bank): string => BANK_LABEL[bank];
 export const paymentMethodLabel = (method: PaymentMethod): string => PAYMENT_METHOD_LABEL[method];
 
 export const formatWon = (amount: number): string => `${amount.toLocaleString('ko-KR')}원`;
+
+// 금전출납부 카테고리 코드 → 한글 표시명. 백엔드 CashbookCategory enum 과 1:1 대응(OTHER 는 수입·지출 공용).
+const CASHBOOK_CATEGORY_LABEL: Record<CashbookCategory, string> = {
+  FEE: '회비',
+  SPONSOR: '후원금',
+  SUBSIDY: '지원금',
+  MT: 'MT',
+  DINING: '회식',
+  SNACK: '간식',
+  SUPPLY: '비품',
+  MARKETING: '홍보비',
+  OTHER: '기타',
+};
+
+// OTHER + customCategory 가 있으면 직접입력 값을 우선 표시한다.
+export function cashbookCategoryLabel(categoryCode: CashbookCategory, customCategory?: string | null): string {
+  if (categoryCode === 'OTHER' && customCategory) {
+    return customCategory;
+  }
+  return CASHBOOK_CATEGORY_LABEL[categoryCode];
+}
+
+export function cashbookEntryTypeLabel(entryType: CashbookEntryType): string {
+  return entryType === 'INCOME' ? '수입' : '지출';
+}

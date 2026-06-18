@@ -11,6 +11,7 @@ import { bankLabel } from '@/app/_lib/feeLabels';
 import { BankReviewQueue } from '../_components/BankReviewQueue';
 import { BankSyncDialog } from '../_components/BankSyncDialog';
 import { BillList } from '../_components/BillList';
+import { CashbookPanel } from '../_components/CashbookPanel';
 import { CreatePolicyDialog } from '../_components/CreatePolicyDialog';
 import { FeeAccountSection } from '../_components/FeeAccountSection';
 import { FeeSummaryCards } from '../_components/FeeSummaryCards';
@@ -21,13 +22,14 @@ type ClubFeesPageProps = {
   clubId: number;
 };
 
-type FeeTab = 'policy' | 'bill' | 'account' | 'bank';
+type FeeTab = 'policy' | 'bill' | 'account' | 'bank' | 'cashbook';
 
 const TABS: { id: FeeTab; label: string }[] = [
   { id: 'policy', label: '정책' },
   { id: 'bill', label: '청구' },
   { id: 'account', label: '계좌' },
   { id: 'bank', label: '거래' },
+  { id: 'cashbook', label: '장부' },
 ];
 
 export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
@@ -137,6 +139,17 @@ export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
           className="space-y-4"
         >
           <BankTabPanel clubId={clubId} />
+        </section>
+      )}
+
+      {activeTab === 'cashbook' && (
+        <section
+          id="fee-panel-cashbook"
+          role="tabpanel"
+          aria-labelledby="fee-tab-cashbook"
+          className="space-y-4"
+        >
+          <CashbookPanel clubId={clubId} />
         </section>
       )}
     </div>
