@@ -22,3 +22,4 @@ export * from './applicantInterview';
 export * from './dashboard';
 export * from './fee';
 export * from './bank';
+export * from './cashbook';
