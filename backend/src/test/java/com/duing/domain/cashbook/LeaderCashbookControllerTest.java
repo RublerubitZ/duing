@@ -33,6 +33,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -46,6 +47,7 @@ class LeaderCashbookControllerTest extends IntegrationTestBase {
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired CashbookEntryRepository cashbookEntryRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private Long clubId;
     private Long otherClubId;
@@ -177,6 +179,50 @@ class LeaderCashbookControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("BANK 자동 생성 항목의 금액을 수정하려 하면 400 을 반환한다")
+    void rejectAmountUpdateOnBankApiEntry() {
+        Long bankEntryId = insertBankApiEntry();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("categoryCode", "FEE", "amount", 50000))
+                .when().patch("/api/v1/leader/clubs/" + clubId + "/cashbook/" + bankEntryId)
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("BANK 자동 생성 항목의 카테고리·메모만 수정하면 204 를 반환한다")
+    void updateCategoryAndMemoOnBankApiEntry() {
+        Long bankEntryId = insertBankApiEntry();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("categoryCode", "FEE", "memo", "회비"))
+                .when().patch("/api/v1/leader/clubs/" + clubId + "/cashbook/" + bankEntryId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        CashbookEntry updated = cashbookEntryRepository.findByIdAndClubId(bankEntryId, clubId).orElseThrow();
+        assertThat(updated.getCategoryCode()).isEqualTo(CashbookCategory.FEE);
+        assertThat(updated.getMemo()).isEqualTo("회비");
+        assertThat(updated.getAmount()).isEqualTo(10000L);
+    }
+
+    @Test
+    @DisplayName("BANK 자동 생성 항목은 삭제할 수 없다(409)")
+    void rejectDeleteOnBankApiEntry() {
+        Long bankEntryId = insertBankApiEntry();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/leader/clubs/" + clubId + "/cashbook/" + bankEntryId)
+                .then().statusCode(HttpStatus.CONFLICT.value());
+
+        assertThat(cashbookEntryRepository.findByIdAndClubId(bankEntryId, clubId)).isPresent();
+    }
+
+    @Test
     @DisplayName("타 동아리 항목 조회·비총무 접근은 격리된다")
     void isolation() {
         CashbookEntry otherEntry = cashbookEntryRepository.save(
@@ -193,5 +239,25 @@ class LeaderCashbookControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
                 .when().get("/api/v1/leader/clubs/" + clubId + "/cashbook")
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    // BANK_API 장부 항목은 엔티티 팩토리(createManual)로 만들 수 없어 raw INSERT 로 셋업한다.
+    // chk_cashbook_bank_link 충족을 위해 bank_transaction 1행을 먼저 넣고 그 id 를 FK 로 연결한다.
+    private Long insertBankApiEntry() {
+        jdbcTemplate.update(
+                "INSERT INTO bank_transaction "
+                        + "(club_id, bank_code, transaction_at, amount, transaction_type, match_status, transaction_hash, raw_payload) "
+                        + "VALUES (?, 'KB', now(), 10000, 'DEPOSIT', 'IGNORED', ?, '{}'::jsonb)",
+                clubId, "hash-bank-1");
+        Long bankTransactionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM bank_transaction WHERE transaction_hash = ?", Long.class, "hash-bank-1");
+
+        jdbcTemplate.update(
+                "INSERT INTO cashbook_entry "
+                        + "(club_id, entry_type, source, category_code, amount, description, transaction_date, bank_transaction_id) "
+                        + "VALUES (?, 'INCOME', 'BANK_API', 'OTHER', 10000, '입금', DATE '2026-09-01', ?)",
+                clubId, bankTransactionId);
+        return jdbcTemplate.queryForObject(
+                "SELECT id FROM cashbook_entry WHERE bank_transaction_id = ?", Long.class, bankTransactionId);
     }
 }

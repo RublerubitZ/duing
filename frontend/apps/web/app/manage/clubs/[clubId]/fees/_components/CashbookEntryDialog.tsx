@@ -32,6 +32,15 @@ const inputCls =
   'w-full rounded-md border border-line px-4 py-3 text-sm outline-none transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 const errorInputCls = 'border-coral focus-visible:border-coral focus-visible:ring-coral';
 
+// 오늘 날짜를 LOCAL 기준 YYYY-MM-DD 로 만든다(toISOString 은 UTC 라 KST 에서 하루 어긋날 수 있음).
+function todayLocalDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 type CashbookEntryDialogProps = {
   clubId: number;
   // 등록 모드에서 결정되는 유형(수입/지출). 수정 모드면 entry 로 대체.
@@ -73,7 +82,7 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
           customCategory: undefined,
           amount: 0,
           description: '',
-          transactionDate: new Date().toISOString().slice(0, 10),
+          transactionDate: todayLocalDate(),
           memo: undefined,
         },
   });
