@@ -11,7 +11,7 @@ import { Stats } from './_components/sections/Stats';
 export const metadata: Metadata = {
   title: '두잉 | 대구대학교 동아리 플랫폼',
   description:
-    '대구대학교 학생자치회 공식 동아리 플랫폼 두잉(Duing). 동아리 탐색부터 지원, 운영까지 한 곳에서.',
+    '대구대학교 동아리 플랫폼 두잉(Duing). 동아리 탐색부터 지원, 운영까지 한 곳에서.',
 };
 
 export default function IntroducePage() {
