@@ -129,13 +129,15 @@ private List<Long> memberIds; // SELECTED_MEMBERS일 때만 사용
 - `SELECTED_MEMBERS`: `skippedUserIds = 요청 memberIds − createdUserIds`(탈퇴·기 발행 모두 포함), `skipped = skippedUserIds.size()`.
 - `ALL_MEMBERS`: `skippedUserIds = []`(개별 열거 안 함), `skipped = max(0, countActiveByClubId − created)`(현행 유지).
 
-**created=0 가드**: **수동 발행 경로(`generate`)에서 `created == 0`이면 409 Conflict**(신규 예외, 메시지 "새로 생성된 청구가 없습니다 — 선택한 회원/회차가 이미 모두 발행되었습니다"). **자동 월발행 크론(`autoIssueMonthly`)은 `created=0`이 정상(캐치업)이라 무음 no-op 유지** — 두 메서드가 분리돼 있어 가드를 수동 경로에만 둔다.
+**created=0 가드 (SELECTED_MEMBERS 한정)**: **`SELECTED_MEMBERS` 수동 발행에서 새로 생성된 청구가 0이면 409 Conflict**(신규 예외 `NoBillsCreatedException`, 메시지 "새로 생성된 청구가 없습니다. 선택한 회원이 이미 모두 발행되었습니다"). 운영진이 특정 회원을 골라 발행했는데 전원 이미 발행됨 = 무의미한 동작이므로 표면화한다.
 
-> 트레이드오프: 네트워크 재시도로 동일 요청이 재도달하면 409가 뜬다. 데이터는 안전(중복 청구 없음)하고 수동 확인 UI라 수용한다. (기존 "재발행 시 created=0 무음" 동작을 기대하는 테스트는 409 기대로 갱신.)
+> **`ALL_MEMBERS` 수동 발행은 기존 멱등(created=0 → 201) 동작을 그대로 유지한다.** 이유: 전체 발행은 재클릭·동시 발행이 정상 시나리오이고, 동시성 안전성 통합테스트(`concurrentGenerateIsIdempotent` 등 10스레드 중 9건이 created=0/201을 기대)가 이 계약에 의존한다. 여기에 409를 도입하면 멱등·동시성 계약이 깨진다. 따라서 가드는 **SELECTED 경로에만** 둔다.
+> 자동 월발행 크론(`autoIssueMonthly`)은 ALL_MEMBERS 전용이고 `created=0`이 캐치업 정상이라 무음 no-op 유지(가드 없음).
+> SELECTED 트레이드오프: 네트워크 재시도로 동일 SELECTED 요청이 재도달하면 409가 뜬다. 데이터는 안전(중복 청구 없음)하고 수동 확인 UI라 수용한다.
 
-### 5.5 알림 fan-out 정정
+### 5.5 알림 fan-out (변경 없음)
 
-기존 `FeeBillsIssuedEvent` fan-out은 "그 회차 비취소 청구 전체"(`findIssuedBillRecipients(policyId, startDate)`)를 알림 대상으로 본다. SELECTED에서 같은 회차에 인원을 나눠 발행하면 기존 회원이 재알림된다. → **이번에 새로 생성된 `createdUserIds`에게만 알림**하도록 정정한다. `created>0`일 때만 이벤트 발행하는 현행 조건은 유지. ALL_MEMBERS에도 동일 적용(증분 발행 시 새 회원만 알림 — 더 정확).
+기존 `FeeBillsIssuedListener`는 `notificationService.createIfAbsent(... dedupKey="FEE_BILL_ISSUED:b="+billId)`로 **billId 단위 멱등 알림**을 만든다. 그래서 SELECTED에서 같은 회차에 인원을 나눠 발행해도, 두 번째 발행 시 리스너가 그 회차 전체를 순회하더라도 **기존 회원의 알림은 dedup으로 재생성되지 않고 새 회원에게만 생성**된다. 즉 재알림 방지가 이미 보장되므로 이벤트·리스너를 **수정하지 않는다**. (`created>0`일 때만 이벤트 발행하는 현행 조건도 그대로 유지.)
 
 ## 6. 하류 영향 (없음)
 
@@ -155,10 +157,10 @@ private List<Long> memberIds; // SELECTED_MEMBERS일 때만 사용
 **백엔드**
 - 정책 생성: SELECTED 생성 성공, `autoIssue=true + SELECTED` 거부(서비스·DB CHECK).
 - 발행 검증: ALL+memberIds 전달 400, SELECTED+빈 memberIds 400, 타 동아리 user_id 섞임 400, `@Size(max=500)` 초과 400.
-- 발행 동작: SELECTED 정상 발행(선택 회원만 created), 탈퇴 회원 섞임 → 그 회원만 skippedUserIds, 일부 기 발행 → 그 회원 skippedUserIds, **전원 기 발행 → created=0 → 409**.
-- ALL 경로 회귀: 기존 전체 발행 동작·skipped 카운트 보존.
-- 자동발행 크론: SELECTED 정책은 `findAutoIssueDue`에 안 잡힘(autoIssue=ALL만), 캐치업 재실행 created=0이 **409가 아니라 무음 no-op**임을 검증.
-- 알림: 증분 발행 시 새 회원만 fan-out 대상.
+- 발행 동작(SELECTED): 선택 회원만 created, 탈퇴 회원 섞임 → 그 회원만 skippedUserIds, 일부 기 발행 → 그 회원 skippedUserIds, **선택 회원 전원 기 발행 → 409 NoBillsCreated**.
+- ALL 경로 멱등 회귀(불변): 기존 전체 발행·재발행 created=0/201·skipped 카운트·동시성 테스트가 **그대로 통과**해야 한다(ALL에는 409 가드 없음).
+- 자동발행 크론: SELECTED 정책은 `autoIssue=true`로 만들 수 없어(생성·수정 400 + DB CHECK) 크론 대상이 되지 않음을 검증. ALL 캐치업 재실행 created=0 무음 no-op은 기존 동작 유지.
+- 알림: 기존 billId dedup 테스트(`issuedNotificationForNewlyJoinedMemberOnly` 등)가 재알림 방지를 이미 커버 — 추가 변경/테스트 불필요.
 - 격리/멱등: 타 동아리 정책 404, 동일 요청 재호출 안전성(409 동작 포함).
 
 **프론트**
