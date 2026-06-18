@@ -89,7 +89,7 @@ SELECT bt.club_id,
        'BANK_API', 'OTHER', NULL, bt.amount,
        COALESCE(NULLIF(bt.counterparty, ''),
                 CASE WHEN bt.transaction_type = 'DEPOSIT' THEN '입금' ELSE '출금' END),
-       (bt.transaction_at AT TIME ZONE 'Asia/Seoul')::date, NULL, bt.id, now(), now()
+       (bt.transaction_at AT TIME ZONE 'UTC')::date, NULL, bt.id, now(), now()  -- §6 타임존 규약 참조
 FROM bank_transaction bt
 WHERE bt.deleted_at IS NULL;
 ```
@@ -110,7 +110,8 @@ WHERE bt.deleted_at IS NULL;
 
 ## 6. BANK API 연동
 
-- **자동 생성**: 동기화(Sprint 3 거래 적재 경로)에서 신규 `bank_transaction`이 영속될 때, 1:1로 `cashbook_entry`를 생성한다. `transaction_type` DEPOSIT→INCOME, WITHDRAWAL→EXPENSE. `source=BANK_API`, `amount=bt.amount`, `transaction_date=bt.transaction_at`(Asia/Seoul)::date, `description=counterparty 또는 입금/출금`, `categoryCode=OTHER`, `bank_transaction_id=bt.id`. **매칭 상태(PENDING/IGNORED 등) 무관** — 돈이 움직였으면 장부에 기록.
+- **자동 생성**: 동기화(Sprint 3 거래 적재 경로)에서 신규 `bank_transaction`이 영속될 때, 1:1로 `cashbook_entry`를 생성한다. `transaction_type` DEPOSIT→INCOME, WITHDRAWAL→EXPENSE. `source=BANK_API`, `amount=bt.amount`, `transaction_date=(bt.transaction_at AT TIME ZONE 'UTC')::date`, `description=counterparty 또는 입금/출금`, `categoryCode=OTHER`, `bank_transaction_id=bt.id`. **매칭 상태(PENDING/IGNORED 등) 무관** — 돈이 움직였으면 장부에 기록.
+- **타임존 규약(중요)**: `bank_transaction.transaction_at`은 BANK API가 주는 **KST 벽시계**를 naive `LocalDateTime`으로 적재한 값이고, 앱은 고정 TZ 없이(JVM=UTC) 운영되어 이 값이 UTC instant로 저장된다. 따라서 그 **저장된 벽시계(=KST 날짜)를 복원**하려면 `AT TIME ZONE 'UTC'`(naive 복원)를 쓴다. `AT TIME ZONE 'Asia/Seoul'`을 쓰면 instant를 한 번 더 +9h 변환해 KST 저녁 거래의 날짜가 +1일 어긋난다. 이는 `RecruitmentStatsRepositoryImpl`이 timestamp를 `AT TIME ZONE 'UTC'`로 다루는 앱의 기존 규약과 일관된다. (근본 TZ 모호성·bare `now()` 정리는 별도 전역 하드닝 트랙으로 분리.)
 - **멱등성**: `uk_cashbook_bank_tx`(부분 유니크)로 재동기화해도 중복 안 생김. 생성은 `INSERT ... ON CONFLICT (bank_transaction_id) WHERE ... DO NOTHING` 또는 존재 검사로 처리.
 - **이중계상 없음**: 장부는 `bank_transaction`만 계상. 회비 매칭으로 만들어진 `Payment`는 장부 소스가 아니다(매칭된 입금도 장부엔 그 입금 1건만).
 - **보정/삭제**: BANK_API 항목은 `categoryCode`·`customCategory`·`memo`만 수정 가능(금액·날짜·유형·설명 등 그 외 필드 변경 요청 → 400 `CashbookEntryImmutableException`). **삭제 불가**(→ 409). MANUAL 항목은 entryType 제외 전체 수정·소프트삭제 가능.
@@ -120,7 +121,7 @@ WHERE bt.deleted_at IS NULL;
 
 베이스 `/api/v1/leader/clubs/{clubId}/cashbook` (Swagger `LeaderCashbookApi` + `LeaderCashbookController`, 클럽 격리 + `requireManager`).
 
-- `GET /cashbook` — 목록. 쿼리: `entryType`(INCOME/EXPENSE, 옵션), `categoryCode`(옵션), `from`/`to`(거래일 범위, 옵션), `q`(검색어 — description/memo/customCategory 부분일치, 옵션), `page`/`size`. 정렬 `transaction_date DESC, id DESC`. → `PageResponse<CashbookEntryResponse>`.
+- `GET /cashbook` — 목록. 쿼리: `entryType`(INCOME/EXPENSE, 옵션), `categoryCode`(옵션), `from`/`to`(거래일 범위, 옵션), `keyword`(검색어 — description/memo/customCategory 부분일치, 옵션), `page`/`size`. 정렬 `transaction_date DESC, id DESC`. → `PageResponse<CashbookEntryResponse>`.
 - `GET /cashbook/summary` — 요약(목록과 **동일 필터** 적용, 페이지 무관). → `CashbookSummaryResponse(totalIncome, totalExpense, bookBalance)`.
 - `POST /cashbook` — 수동 항목 등록(`source=MANUAL` 강제). → 201 `ApiResponse<Long>`(id).
 - `PATCH /cashbook/{entryId}` — 수정. MANUAL=entryType 제외 전체(category/custom/amount/description/transaction_date/memo), BANK_API=`categoryCode`·`customCategory`·`memo`만. → 204.
