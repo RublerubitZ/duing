@@ -11,6 +11,7 @@ import com.duing.domain.cashbook.service.dto.command.CreateCashbookEntryCommand;
 import com.duing.domain.cashbook.service.dto.command.UpdateCashbookEntryCommand;
 import com.duing.domain.cashbook.service.dto.query.CashbookSearchQuery;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import java.util.Collection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -72,6 +73,13 @@ public class GeneralCashbookService implements CashbookService {
             throw new CashbookEntryException.CashbookEntryNotDeletableException();
         }
         cashbookEntryRepository.delete(entry); // @SQLDelete soft delete
+    }
+
+    @Override
+    @Transactional
+    public int generateFromBankTransactions(Collection<String> transactionHashes) {
+        // BANK 동기화 적재 트랜잭션에 REQUIRED 로 합류해 적재+장부 생성의 원자성을 유지한다.
+        return cashbookEntryRepository.generateFromBankTransactions(transactionHashes);
     }
 
     @Override

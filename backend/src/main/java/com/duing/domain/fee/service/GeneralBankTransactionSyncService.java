@@ -1,6 +1,6 @@
 package com.duing.domain.fee.service;
 
-import com.duing.domain.cashbook.repository.CashbookEntryRepository;
+import com.duing.domain.cashbook.service.CashbookService;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.fee.entity.BankTransaction;
 import com.duing.domain.fee.entity.FeeAccount;
@@ -49,8 +49,8 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
     private final Clock clock;
     /** 외부 BANK 호출은 트랜잭션 밖에서 끝내고, 적재 단계만 이 템플릿으로 짧게 트랜잭션을 연다. */
     private final TransactionTemplate transactionTemplate;
-    /** 신규 적재된 BANK 거래를 회계 장부(cashbook_entry)에 멱등 생성한다. */
-    private final CashbookEntryRepository cashbookEntryRepository;
+    /** 신규 적재된 BANK 거래를 회계 장부(cashbook_entry)에 멱등 생성한다(타 도메인은 서비스 인터페이스로만 교차). */
+    private final CashbookService cashbookService;
 
     public GeneralBankTransactionSyncService(
             ClubAuthService clubAuthService,
@@ -64,7 +64,7 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
             TransactionMatcher transactionMatcher,
             Clock clock,
             PlatformTransactionManager platformTransactionManager,
-            CashbookEntryRepository cashbookEntryRepository) {
+            CashbookService cashbookService) {
         this.clubAuthService = clubAuthService;
         this.bankMatchingAdminService = bankMatchingAdminService;
         this.feeAccountRepository = feeAccountRepository;
@@ -76,7 +76,7 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         this.transactionMatcher = transactionMatcher;
         this.clock = clock;
         this.transactionTemplate = new TransactionTemplate(platformTransactionManager);
-        this.cashbookEntryRepository = cashbookEntryRepository;
+        this.cashbookService = cashbookService;
     }
 
     /**
@@ -151,7 +151,7 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
 
         // 신규 적재된 BANK 거래(입금/출금 모두)를 회계 장부에 멱등 생성한다(같은 적재 트랜잭션 내 원자적).
         if (!insertedHashes.isEmpty()) {
-            cashbookEntryRepository.generateFromBankTransactions(insertedHashes);
+            cashbookService.generateFromBankTransactions(insertedHashes);
         }
 
         // 매칭은 트랜잭션 밖에서 수행하므로, 이번에 신규 적재된 PENDING 입금 엔티티(=매칭 후보)를 그대로 넘긴다.
