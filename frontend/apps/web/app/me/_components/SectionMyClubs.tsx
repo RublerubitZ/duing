@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 
 import type { MyClubSummary } from '@duing/types';
@@ -6,6 +9,7 @@ import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 
+import { LeaveClubDialog } from './LeaveClubDialog';
 import { SectionHeader } from './SectionHeader';
 
 const ROLE_LABEL: Record<MyClubSummary['myRole'], string> = {
@@ -19,6 +23,8 @@ type Props = {
 };
 
 export function SectionMyClubs({ myClubs }: Props) {
+  const [leaveTarget, setLeaveTarget] = useState<MyClubSummary | null>(null);
+
   return (
     <section
       data-section="joined"
@@ -95,19 +101,37 @@ export function SectionMyClubs({ myClubs }: Props) {
                       <ArrowRight size={14} />
                     </Link>
                   ) : (
-                    <Link
-                      href={`/clubs/${club.clubId}/member`}
-                      className="btn btn-ghost btn-sm"
-                      aria-label={`${club.clubName} 둘러보기`}
-                    >
-                      둘러보기
-                      <ArrowRight size={14} />
-                    </Link>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Link
+                        href={`/clubs/${club.clubId}/member`}
+                        className="btn btn-ghost btn-sm"
+                        aria-label={`${club.clubName} 둘러보기`}
+                      >
+                        둘러보기
+                        <ArrowRight size={14} />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setLeaveTarget(club)}
+                        className="btn btn-ghost btn-sm text-coral"
+                        aria-label={`${club.clubName} 탈퇴`}
+                      >
+                        탈퇴
+                      </button>
+                    </div>
                   )}
                 </div>
               );
             })}
           </div>
+        )}
+
+        {leaveTarget && (
+          <LeaveClubDialog
+            key={leaveTarget.clubId}
+            club={{ clubId: leaveTarget.clubId, clubName: leaveTarget.clubName }}
+            onClose={() => setLeaveTarget(null)}
+          />
         )}
       </div>
     </section>
