@@ -3,6 +3,7 @@ package com.duing.domain.cashbook.controller;
 import com.duing.domain.cashbook.api.LeaderCashbookApi;
 import com.duing.domain.cashbook.controller.dto.request.CreateCashbookEntryRequest;
 import com.duing.domain.cashbook.controller.dto.request.UpdateCashbookEntryRequest;
+import com.duing.domain.cashbook.controller.dto.request.UpdateCashbookExclusionRequest;
 import com.duing.domain.cashbook.controller.dto.response.CashbookEntryResponse;
 import com.duing.domain.cashbook.controller.dto.response.CashbookSummaryResponse;
 import com.duing.domain.cashbook.entity.CashbookCategory;
@@ -44,11 +45,13 @@ public class LeaderCashbookController implements LeaderCashbookApi {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean hideExcluded,
             Pageable pageable,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         Page<CashbookEntryResponse> entries = cashbookService.getEntries(
-                clubId, currentUser.id(), new CashbookSearchQuery(entryType, categoryCode, from, to, keyword), pageable);
+                clubId, currentUser.id(),
+                new CashbookSearchQuery(entryType, categoryCode, from, to, keyword, hideExcluded), pageable);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(entries)));
     }
 
@@ -63,7 +66,8 @@ public class LeaderCashbookController implements LeaderCashbookApi {
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         CashbookSummaryResponse summary = cashbookService.getSummary(
-                clubId, currentUser.id(), new CashbookSearchQuery(entryType, categoryCode, from, to, keyword));
+                clubId, currentUser.id(),
+                new CashbookSearchQuery(entryType, categoryCode, from, to, keyword, null));
         return ResponseEntity.ok(ApiResponse.success(summary));
     }
 
@@ -95,6 +99,17 @@ public class LeaderCashbookController implements LeaderCashbookApi {
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         cashbookService.delete(clubId, currentUser.id(), entryId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> setExclusion(
+            @PathVariable Long clubId,
+            @PathVariable Long entryId,
+            @Valid @RequestBody UpdateCashbookExclusionRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        cashbookService.setExclusion(clubId, currentUser.id(), entryId, request.excluded());
         return ResponseEntity.noContent().build();
     }
 }

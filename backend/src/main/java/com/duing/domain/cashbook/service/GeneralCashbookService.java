@@ -77,6 +77,15 @@ public class GeneralCashbookService implements CashbookService {
 
     @Override
     @Transactional
+    public void setExclusion(Long clubId, Long actorId, Long entryId, boolean excluded) {
+        clubAuthService.requireManager(actorId, clubId);
+        CashbookEntry entry = cashbookEntryRepository.findByIdAndClubId(entryId, clubId)
+                .orElseThrow(CashbookEntryException.CashbookEntryNotFoundException::new);
+        entry.updateExcluded(excluded); // 수동·BANK 자동 둘 다 토글 가능(메타 정보)
+    }
+
+    @Override
+    @Transactional
     public int generateFromBankTransactions(Collection<String> transactionHashes) {
         // BANK 동기화 적재 트랜잭션에 REQUIRED 로 합류해 적재+장부 생성의 원자성을 유지한다.
         return cashbookEntryRepository.generateFromBankTransactions(transactionHashes);

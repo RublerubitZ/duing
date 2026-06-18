@@ -5,5 +5,5 @@ import com.duing.domain.cashbook.entity.CashbookEntryType;
 import java.time.LocalDate;
 
 public record CashbookSearchQuery(CashbookEntryType entryType, CashbookCategory categoryCode,
-                                  LocalDate from, LocalDate to, String keyword) {
+                                  LocalDate from, LocalDate to, String keyword, Boolean hideExcluded) {
 }

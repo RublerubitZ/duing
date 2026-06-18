@@ -32,7 +32,8 @@ public class CashbookEntryRepositoryImpl implements CashbookEntryRepositoryCusto
         List<CashbookEntry> content = queryFactory
                 .selectFrom(cashbookEntry)
                 .where(clubIdEq(clubId), entryTypeEq(query.entryType()), categoryEq(query.categoryCode()),
-                        dateFrom(query.from()), dateTo(query.to()), keyword(query.keyword()))
+                        dateFrom(query.from()), dateTo(query.to()), keyword(query.keyword()),
+                        notExcludedIf(query.hideExcluded()))
                 .orderBy(cashbookEntry.transactionDate.desc(), cashbookEntry.id.desc())
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -41,7 +42,8 @@ public class CashbookEntryRepositoryImpl implements CashbookEntryRepositoryCusto
                 .select(cashbookEntry.count())
                 .from(cashbookEntry)
                 .where(clubIdEq(clubId), entryTypeEq(query.entryType()), categoryEq(query.categoryCode()),
-                        dateFrom(query.from()), dateTo(query.to()), keyword(query.keyword()))
+                        dateFrom(query.from()), dateTo(query.to()), keyword(query.keyword()),
+                        notExcludedIf(query.hideExcluded()))
                 .fetchOne();
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
     }
@@ -54,7 +56,8 @@ public class CashbookEntryRepositoryImpl implements CashbookEntryRepositoryCusto
                         sumByType(CashbookEntryType.INCOME), sumByType(CashbookEntryType.EXPENSE)))
                 .from(cashbookEntry)
                 .where(clubIdEq(clubId), entryTypeEq(query.entryType()), categoryEq(query.categoryCode()),
-                        dateFrom(query.from()), dateTo(query.to()), keyword(query.keyword()))
+                        dateFrom(query.from()), dateTo(query.to()), keyword(query.keyword()),
+                        cashbookEntry.excluded.isFalse())
                 .fetchOne();
         return projection != null ? projection : new CashbookSummaryProjection(0L, 0L);
     }
@@ -83,6 +86,11 @@ public class CashbookEntryRepositoryImpl implements CashbookEntryRepositoryCusto
 
     private BooleanExpression dateTo(LocalDate to) {
         return to != null ? cashbookEntry.transactionDate.loe(to) : null;
+    }
+
+    // 목록 전용: hideExcluded=true 면 제외 항목을 가린다. 요약은 항상 제외 항목을 빼므로 별도 처리한다.
+    private BooleanExpression notExcludedIf(Boolean hideExcluded) {
+        return Boolean.TRUE.equals(hideExcluded) ? cashbookEntry.excluded.isFalse() : null;
     }
 
     // 설명·메모·직접입력 카테고리 부분일치(대소문자 무시).

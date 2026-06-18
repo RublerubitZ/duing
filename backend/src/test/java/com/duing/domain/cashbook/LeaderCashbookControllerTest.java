@@ -241,6 +241,99 @@ class LeaderCashbookControllerTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
     }
 
+    @Test
+    @DisplayName("수동 항목을 집계에서 제외하면 요약(총수입)에서 빠진다")
+    void excludeManualEntryDropsFromSummary() {
+        CashbookEntry kept = cashbookEntryRepository.save(
+                CashbookEntryFixture.manualIncome(clubId, CashbookCategory.FEE, 100000L, LocalDate.of(2026, 9, 1)));
+        CashbookEntry excluded = cashbookEntryRepository.save(
+                CashbookEntryFixture.manualIncome(clubId, CashbookCategory.SPONSOR, 50000L, LocalDate.of(2026, 9, 2)));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("excluded", true))
+                .when().patch("/api/v1/leader/clubs/" + clubId + "/cashbook/" + excluded.getId() + "/exclusion")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(cashbookEntryRepository.findById(excluded.getId()).orElseThrow().isExcluded()).isTrue();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/clubs/" + clubId + "/cashbook/summary")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.totalIncome", equalTo(100000)); // kept 만 합산, excluded 제외
+        // 보존 확인: 제외해도 항목 자체는 남는다
+        assertThat(cashbookEntryRepository.findById(kept.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("BANK 자동 항목도 집계에서 제외할 수 있다")
+    void excludeBankApiEntry() {
+        Long bankEntryId = insertBankApiEntry();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("excluded", true))
+                .when().patch("/api/v1/leader/clubs/" + clubId + "/cashbook/" + bankEntryId + "/exclusion")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(cashbookEntryRepository.findById(bankEntryId).orElseThrow().isExcluded()).isTrue();
+    }
+
+    @Test
+    @DisplayName("hideExcluded=true 면 목록에서 제외 항목이 빠진다")
+    void listHidesExcluded() {
+        cashbookEntryRepository.save(
+                CashbookEntryFixture.manualIncome(clubId, CashbookCategory.FEE, 100000L, LocalDate.of(2026, 9, 1)));
+        CashbookEntry excluded = cashbookEntryRepository.save(
+                CashbookEntryFixture.manualExpense(clubId, CashbookCategory.MT, 30000L, LocalDate.of(2026, 9, 2)));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("excluded", true))
+                .when().patch("/api/v1/leader/clubs/" + clubId + "/cashbook/" + excluded.getId() + "/exclusion")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        // 기본(필터 없음): 2건, excluded 필드 노출
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/clubs/" + clubId + "/cashbook")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize(2));
+        // hideExcluded=true: 1건
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .queryParam("hideExcluded", true)
+                .when().get("/api/v1/leader/clubs/" + clubId + "/cashbook")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize(1))
+                .body("data.content[0].excluded", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("타 동아리 항목 제외 토글은 404, 비총무는 403")
+    void exclusionIsolation() {
+        CashbookEntry otherEntry = cashbookEntryRepository.save(
+                CashbookEntryFixture.manualIncome(otherClubId, CashbookCategory.FEE, 1000L, LocalDate.of(2026, 9, 1)));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("excluded", true))
+                .when().patch("/api/v1/leader/clubs/" + clubId + "/cashbook/" + otherEntry.getId() + "/exclusion")
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+
+        CashbookEntry ourEntry = cashbookEntryRepository.save(
+                CashbookEntryFixture.manualIncome(clubId, CashbookCategory.FEE, 1000L, LocalDate.of(2026, 9, 1)));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("excluded", true))
+                .when().patch("/api/v1/leader/clubs/" + clubId + "/cashbook/" + ourEntry.getId() + "/exclusion")
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
     // BANK_API 장부 항목은 엔티티 팩토리(createManual)로 만들 수 없어 raw INSERT 로 셋업한다.
     // chk_cashbook_bank_link 충족을 위해 bank_transaction 1행을 먼저 넣고 그 id 를 FK 로 연결한다.
     private Long insertBankApiEntry() {

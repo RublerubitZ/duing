@@ -2,6 +2,7 @@ package com.duing.domain.cashbook.api;
 
 import com.duing.domain.cashbook.controller.dto.request.CreateCashbookEntryRequest;
 import com.duing.domain.cashbook.controller.dto.request.UpdateCashbookEntryRequest;
+import com.duing.domain.cashbook.controller.dto.request.UpdateCashbookExclusionRequest;
 import com.duing.domain.cashbook.controller.dto.response.CashbookEntryResponse;
 import com.duing.domain.cashbook.controller.dto.response.CashbookSummaryResponse;
 import com.duing.domain.cashbook.entity.CashbookCategory;
@@ -32,7 +33,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface LeaderCashbookApi {
 
     @Operation(summary = "장부 조회 (LEADER/OFFICER)",
-            description = "수입/지출 유형·카테고리·기간·검색어로 거래일 역순 조회한다.")
+            description = "수입/지출 유형·카테고리·기간·검색어로 거래일 역순 조회한다. hideExcluded=true 면 집계 제외 항목을 숨긴다.")
     @GetMapping("/leader/clubs/{clubId}/cashbook")
     ResponseEntity<ApiResponse<PageResponse<CashbookEntryResponse>>> getEntries(
             @PathVariable Long clubId,
@@ -41,6 +42,7 @@ public interface LeaderCashbookApi {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean hideExcluded,
             Pageable pageable,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
@@ -82,6 +84,16 @@ public interface LeaderCashbookApi {
     ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable Long clubId,
             @PathVariable Long entryId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "장부 항목 집계 제외 토글 (LEADER/OFFICER)",
+            description = "항목을 집계(총수입·총지출·장부 잔액)에서 제외하거나 복원한다. 수동·BANK 자동 항목 둘 다 가능.")
+    @PatchMapping("/leader/clubs/{clubId}/cashbook/{entryId}/exclusion")
+    ResponseEntity<ApiResponse<Void>> setExclusion(
+            @PathVariable Long clubId,
+            @PathVariable Long entryId,
+            @Valid @RequestBody UpdateCashbookExclusionRequest request,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }

@@ -58,6 +58,9 @@ public class CashbookEntry extends BaseEntity {
     @Column(name = "bank_transaction_id")
     private Long bankTransactionId;
 
+    @Column(nullable = false)
+    private boolean excluded;
+
     @Builder(access = AccessLevel.PRIVATE)
     private CashbookEntry(Long clubId, CashbookEntryType entryType, CashbookSource source,
                           CashbookCategory categoryCode, String customCategory, Long amount,
@@ -101,6 +104,11 @@ public class CashbookEntry extends BaseEntity {
         this.categoryCode = categoryCode;
         this.customCategory = customCategory;
         this.memo = memo;
+    }
+
+    /** 집계 제외 플래그 설정(true=집계 제외). 메타 정보라 BANK_API·MANUAL 무관하게 변경 가능. */
+    public void updateExcluded(boolean excluded) {
+        this.excluded = excluded;
     }
 
     public boolean isBankApi() {

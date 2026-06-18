@@ -16,6 +16,8 @@ public interface CashbookService {
 
     void delete(Long clubId, Long actorId, Long entryId);
 
+    void setExclusion(Long clubId, Long actorId, Long entryId, boolean excluded);
+
     Page<CashbookEntryResponse> getEntries(Long clubId, Long actorId, CashbookSearchQuery query, Pageable pageable);
 
     CashbookSummaryResponse getSummary(Long clubId, Long actorId, CashbookSearchQuery query);

@@ -11,12 +11,12 @@ public record CashbookEntryResponse(
         Long id, CashbookEntryType entryType, CashbookSource source,
         CashbookCategory categoryCode, String customCategory, Long amount, String description,
         LocalDate transactionDate, String memo, String attachmentUrl, Long bankTransactionId,
-        LocalDateTime createdAt) {
+        boolean excluded, LocalDateTime createdAt) {
 
     public static CashbookEntryResponse from(CashbookEntry entry) {
         return new CashbookEntryResponse(entry.getId(), entry.getEntryType(), entry.getSource(),
                 entry.getCategoryCode(), entry.getCustomCategory(), entry.getAmount(), entry.getDescription(),
                 entry.getTransactionDate(), entry.getMemo(), entry.getAttachmentUrl(),
-                entry.getBankTransactionId(), entry.getCreatedAt());
+                entry.getBankTransactionId(), entry.isExcluded(), entry.getCreatedAt());
     }
 }
