@@ -8,6 +8,7 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.EmailVerificationService;
 import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
+import com.duing.domain.user.service.dto.command.ForceLogoutCommand;
 import com.duing.domain.user.service.dto.command.LoginCommand;
 import com.duing.domain.user.service.dto.command.SignupCommand;
 import com.duing.domain.user.service.dto.command.UpdateProfileCommand;
@@ -18,6 +19,7 @@ import com.duing.global.auth.JwtTokenProvider;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,6 +30,7 @@ import org.springframework.util.StringUtils;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class GeneralUserService implements UserService {
 
     private final UserRepository userRepository;
@@ -128,6 +131,18 @@ public class GeneralUserService implements UserService {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();
+    }
+
+    @Override
+    @Transactional
+    public void forceLogout(ForceLogoutCommand forceLogoutCommand) {
+        // 관리자가 대상 사용자의 모든 토큰을 즉시 무효화한다 — logout 과 동일하게 행을 잠가
+        // token_version lost update 를 막는다. bump 즉시 인증 필터의 버전 비교에서 기존 토큰이 401 이 된다.
+        User user = userRepository.findByIdForUpdate(forceLogoutCommand.targetUserId())
+                .orElseThrow(UserException.UserNotFoundException::new);
+        user.bumpTokenVersion();
+        log.info("Admin force logout. actorId={}, targetUserId={}",
+                forceLogoutCommand.actorUserId(), forceLogoutCommand.targetUserId());
     }
 
     @Override
