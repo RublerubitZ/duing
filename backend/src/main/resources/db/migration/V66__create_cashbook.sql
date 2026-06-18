@@ -46,5 +46,5 @@ SELECT bt.club_id,
                 CASE WHEN bt.transaction_type = 'DEPOSIT' THEN '입금' ELSE '출금' END),
        (bt.transaction_at AT TIME ZONE 'Asia/Seoul')::date, NULL, NULL, bt.id, now(), now()
 FROM bank_transaction bt
-WHERE bt.deleted_at IS NULL
+WHERE bt.deleted_at IS NULL AND bt.amount > 0
 ON CONFLICT (bank_transaction_id) WHERE bank_transaction_id IS NOT NULL AND deleted_at IS NULL DO NOTHING;

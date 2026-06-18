@@ -30,7 +30,7 @@ public class CashbookEntry extends BaseEntity {
     private CashbookEntryType entryType;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(name = "source", nullable = false, length = 10)
     private CashbookSource source;
 
     @Enumerated(EnumType.STRING)
