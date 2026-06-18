@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Check, Copy } from 'lucide-react';
 
 import { useMemberFeeAccountQuery, useMyClubsQuery, useMyFeesQuery } from '@duing/hooks';
@@ -9,6 +10,7 @@ import type { FeeStatus, MyFee } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { bankLabel, feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
+import { toRoute } from '@/app/_lib/route';
 
 // 상태별 뱃지 색. 운영진 청구 현황(BillList)과 동일한 팔레트를 사용한다.
 const STATUS_BADGE_CLS: Record<FeeStatus, string> = {
@@ -202,6 +204,14 @@ function MyFeeRow({ bill }: MyFeeRowProps) {
           </div>
         </div>
       </div>
+      {bill.paidAmount > 0 && bill.status !== 'CANCELLED' && (
+        <Link
+          href={toRoute(`/me/fees/${bill.id}/receipt`)}
+          className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-charcoal-2 transition-colors hover:bg-graysoft"
+        >
+          영수증
+        </Link>
+      )}
     </li>
   );
 }

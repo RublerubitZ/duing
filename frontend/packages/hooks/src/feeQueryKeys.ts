@@ -21,4 +21,9 @@ export const feeQueryKeys = {
   account: (clubId: number) => [...feeQueryKeys.accountByClub(clubId), 'leader'] as const,
   // 동아리원(입금용) 계좌 조회.
   memberAccount: (clubId: number) => [...feeQueryKeys.accountByClub(clubId), 'member'] as const,
+  // 총무 청구 영수증.
+  receipt: (clubId: number, billId: number) =>
+    [...feeQueryKeys.all, 'receipt', clubId, billId] as const,
+  // 회원 본인 영수증.
+  myReceipt: (billId: number) => [...feeQueryKeys.all, 'my', 'receipt', billId] as const,
 };

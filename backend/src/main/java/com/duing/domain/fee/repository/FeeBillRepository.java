@@ -14,6 +14,9 @@ import org.springframework.data.repository.query.Param;
 public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBillRepositoryCustom {
     Optional<FeeBill> findByIdAndClubId(Long id, Long clubId);
 
+    // 회원 영수증: 본인(userId) 청구만 노출(타인 청구는 빈 Optional → 404, 존재 비노출). @SQLRestriction 이 soft-delete 제외.
+    Optional<FeeBill> findByIdAndUserId(Long id, Long userId);
+
     // 납부 기록·취소가 같은 청구 행에 대해 직렬화되도록 비관적 쓰기 잠금으로 조회한다(분할 입금 합계 경합 방지).
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT b FROM FeeBill b WHERE b.id = :id AND b.clubId = :clubId")
