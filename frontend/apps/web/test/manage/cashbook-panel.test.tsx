@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { CashbookEntry } from '@duing/types';
@@ -42,5 +43,18 @@ describe('금전출납부 패널', () => {
     mockUseSummary.mockReturnValue({ data: { totalIncome: 0, totalExpense: 30000, bookBalance: -30000 } });
     render(<CashbookPanel clubId={1} />);
     expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument();
+  });
+
+  it('카테고리 필터를 바꾸면 categoryCode 가 params 에 실린다', async () => {
+    const user = userEvent.setup();
+    mockUseEntries.mockReturnValue({ data: buildPage([buildEntry()]), isLoading: false });
+    mockUseSummary.mockReturnValue({ data: { totalIncome: 0, totalExpense: 30000, bookBalance: -30000 } });
+    render(<CashbookPanel clubId={1} />);
+
+    await user.selectOptions(screen.getByLabelText('카테고리 필터'), 'DINING');
+
+    await waitFor(() =>
+      expect(mockUseEntries).toHaveBeenLastCalledWith(1, expect.objectContaining({ categoryCode: 'DINING' })),
+    );
   });
 });

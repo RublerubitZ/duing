@@ -126,7 +126,7 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-          <input type="hidden" {...register('entryType')} value={effectiveType} />
+          <input type="hidden" {...register('entryType')} />
 
           <div>
             <label htmlFor="cb-category" className="mb-1.5 block text-sm font-semibold text-ink">카테고리</label>

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 
 import { useCashbookEntriesQuery, useCashbookSummaryQuery, useDeleteCashbookEntryMutation } from '@duing/hooks';
-import type { CashbookEntry, CashbookEntryType } from '@duing/types';
+import type { CashbookCategory, CashbookEntry, CashbookEntryType } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -18,10 +18,19 @@ type CashbookPanelProps = {
 type TypeFilter = 'ALL' | CashbookEntryType;
 
 const PAGE_SIZE = 20;
+const TYPE_FILTERS: TypeFilter[] = ['ALL', 'INCOME', 'EXPENSE'];
+const ALL_CATEGORIES: CashbookCategory[] = ['FEE', 'SPONSOR', 'SUBSIDY', 'MT', 'DINING', 'SNACK', 'SUPPLY', 'MARKETING', 'OTHER'];
+
+function isCashbookCategory(value: string): value is CashbookCategory {
+  return ALL_CATEGORIES.some((code) => code === value);
+}
 
 export function CashbookPanel({ clubId }: CashbookPanelProps) {
   const { addToast } = useToast();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
+  const [categoryFilter, setCategoryFilter] = useState<CashbookCategory | 'ALL'>('ALL');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [keyword, setKeyword] = useState('');
   const [registerType, setRegisterType] = useState<CashbookEntryType | null>(null);
   const [editTarget, setEditTarget] = useState<CashbookEntry | null>(null);
@@ -29,11 +38,14 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
   const params = useMemo(
     () => ({
       ...(typeFilter !== 'ALL' ? { entryType: typeFilter } : {}),
+      ...(categoryFilter !== 'ALL' ? { categoryCode: categoryFilter } : {}),
+      ...(fromDate ? { from: fromDate } : {}),
+      ...(toDate ? { to: toDate } : {}),
       ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
       page: 0,
       size: PAGE_SIZE,
     }),
-    [typeFilter, keyword],
+    [typeFilter, categoryFilter, fromDate, toDate, keyword],
   );
 
   const { data: page, isLoading } = useCashbookEntriesQuery(clubId, params);
@@ -57,7 +69,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {(['ALL', 'INCOME', 'EXPENSE'] as TypeFilter[]).map((value) => (
+        {TYPE_FILTERS.map((value) => (
           <button
             key={value}
             type="button"
@@ -70,6 +82,31 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
             {value === 'ALL' ? '전체' : value === 'INCOME' ? '수입' : '지출'}
           </button>
         ))}
+        <select
+          aria-label="카테고리 필터"
+          value={categoryFilter}
+          onChange={(event) => setCategoryFilter(isCashbookCategory(event.target.value) ? event.target.value : 'ALL')}
+          className="rounded-md border border-line px-3 py-1.5 text-sm outline-none focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
+        >
+          <option value="ALL">전체 카테고리</option>
+          {ALL_CATEGORIES.map((code) => (
+            <option key={code} value={code}>{cashbookCategoryLabel(code)}</option>
+          ))}
+        </select>
+        <input
+          type="date"
+          aria-label="시작일"
+          value={fromDate}
+          onChange={(event) => setFromDate(event.target.value)}
+          className="rounded-md border border-line px-3 py-1.5 text-sm outline-none focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
+        />
+        <input
+          type="date"
+          aria-label="종료일"
+          value={toDate}
+          onChange={(event) => setToDate(event.target.value)}
+          className="rounded-md border border-line px-3 py-1.5 text-sm outline-none focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
+        />
         <input
           type="text"
           aria-label="장부 검색"
