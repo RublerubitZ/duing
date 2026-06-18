@@ -102,6 +102,33 @@ export type Payment = {
   voidReason: string | null;
 };
 
+// ReceiptResponse.payments[] 항목 미러(ACTIVE 납부, VOIDED 제외).
+export type ReceiptPaymentLine = {
+  amount: number;
+  method: PaymentMethod;
+  paidAt: string; // ISO 일시
+  memo: string | null;
+};
+
+// ReceiptResponse 미러. receiptNumber = "RCP-{YYYYMM}-{billId}".
+export type Receipt = {
+  receiptNumber: string;
+  clubName: string;
+  memberName: string;
+  policyName: string;
+  billingPeriod: string;
+  billingStartDate: string;
+  billingEndDate: string;
+  dueDate: string;
+  amount: number;
+  paidTotal: number;
+  remaining: number;
+  paymentCount: number;
+  status: FeeStatus;
+  issuedAt: string; // ISO 일시(발급 시각)
+  payments: ReceiptPaymentLine[];
+};
+
 // 납부 기록 요청. 수동 기록은 CASH/TRANSFER/OTHER 만(AUTO_MATCHED 는 시스템 전용).
 export type RecordPaymentPayload = {
   amount: number;

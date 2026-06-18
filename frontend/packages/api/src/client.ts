@@ -147,6 +147,7 @@ import type {
   FeeAccountPayload,
   Payment,
   RecordPaymentPayload,
+  Receipt,
   FeeBillSummary,
   FeeSummaryParams,
   BankTransaction,
@@ -496,6 +497,8 @@ export type DuingApiClient = {
         void(clubId: number, billId: number, paymentId: number, reason?: string): Promise<void>;
       };
       summary(clubId: number, params: FeeSummaryParams): Promise<FeeBillSummary>;
+      // 청구 영수증(ACTIVE 납부 없거나 취소 청구면 404).
+      receipt(clubId: number, billId: number): Promise<Receipt>;
       // 회비 계좌 (동아리당 1건 — upsert 는 생성된/갱신된 계좌 id 반환).
       // get 은 계좌 미등록 시 404 — 호출부(훅)가 ApiError(status 404)로 빈 상태를 판별한다(null 로 삼키지 않는다).
       account: {
@@ -522,6 +525,8 @@ export type DuingApiClient = {
   my: {
     // === 회원 본인 회비 조회 ===
     fees(params: MyFeeSearchParams): Promise<MyFee[]>;
+    // 회원 본인 청구 영수증(ACTIVE 납부 없거나 취소·타인 청구면 404).
+    feeReceipt(billId: number): Promise<Receipt>;
   };
   raw: KyInstance;
 };
@@ -1041,6 +1046,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         },
         summary: (clubId, params) =>
           jsonOk<FeeBillSummary>(http.get(`leader/clubs/${clubId}/fee-bills/summary`, { searchParams: cleanParams(params) })),
+        receipt: (clubId, billId) =>
+          jsonOk<Receipt>(http.get(`leader/clubs/${clubId}/fee-bills/${billId}/receipt`)),
         account: {
           get: (clubId) =>
             jsonOk<FeeAccount>(http.get(`leader/clubs/${clubId}/fee-account`)),
@@ -1078,6 +1085,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
     my: {
       fees: (params) =>
         jsonOk<MyFee[]>(http.get('my/fees', { searchParams: cleanParams(params) })),
+      feeReceipt: (billId) =>
+        jsonOk<Receipt>(http.get(`my/fees/${billId}/receipt`)),
     },
     interviewRounds: {
       candidates: (recruitmentId, includeUnderReview) =>

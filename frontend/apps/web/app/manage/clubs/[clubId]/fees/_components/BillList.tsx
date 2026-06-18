@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 
 import {
   useCancelBillMutation,
@@ -13,6 +14,7 @@ import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
 import { feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
+import { toRoute } from '@/app/_lib/route';
 
 import { RecordPaymentDialog } from './RecordPaymentDialog';
 import { PaymentHistory } from './PaymentHistory';
@@ -293,7 +295,7 @@ type BillRowProps = {
   onHistory: () => void;
 };
 
-function BillRow({ bill, member, onCancel, onRecord, onHistory }: BillRowProps) {
+function BillRow({ clubId, bill, member, onCancel, onRecord, onHistory }: BillRowProps) {
   const isCancelled = bill.status === 'CANCELLED';
   // 이미 완납(remainingAmount<=0)이거나 취소된 청구는 추가 납부 기록 불가(백엔드 400) — 버튼 비활성화.
   const isFullyPaid = bill.remainingAmount <= 0;
@@ -343,6 +345,14 @@ function BillRow({ bill, member, onCancel, onRecord, onHistory }: BillRowProps) 
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        {bill.paidAmount > 0 && bill.status !== 'CANCELLED' && (
+          <Link
+            href={toRoute(`/manage/clubs/${clubId}/fees/${bill.id}/receipt`)}
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-charcoal-2 transition-colors hover:bg-graysoft"
+          >
+            영수증
+          </Link>
+        )}
         <button
           type="button"
           onClick={onRecord}

@@ -3,6 +3,7 @@ package com.duing.domain.fee.api;
 import com.duing.domain.fee.controller.dto.request.GenerateBillsRequest;
 import com.duing.domain.fee.controller.dto.response.FeeBillResponse;
 import com.duing.domain.fee.controller.dto.response.GenerateBillsResponse;
+import com.duing.domain.fee.controller.dto.response.ReceiptResponse;
 import com.duing.domain.fee.entity.FeeStatus;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -50,6 +51,15 @@ public interface LeaderFeeBillApi {
     @Operation(summary = "회비 청구 취소 (LEADER/OFFICER)")
     @DeleteMapping("/leader/clubs/{clubId}/fee-bills/{billId}")
     ResponseEntity<ApiResponse<Void>> cancel(
+            @PathVariable Long clubId,
+            @PathVariable Long billId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "회비 영수증 조회 (LEADER/OFFICER)",
+            description = "동아리 청구의 영수증 데이터를 반환한다. ACTIVE 납부가 없거나 취소된 청구는 404, 타 동아리 청구도 404.")
+    @GetMapping("/leader/clubs/{clubId}/fee-bills/{billId}/receipt")
+    ResponseEntity<ApiResponse<ReceiptResponse>> getReceipt(
             @PathVariable Long clubId,
             @PathVariable Long billId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
