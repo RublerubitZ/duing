@@ -8,6 +8,7 @@ import com.duing.domain.fee.entity.BillingType;
 import com.duing.domain.fee.entity.FeeBill;
 import com.duing.domain.fee.entity.FeePolicy;
 import com.duing.domain.fee.entity.FeeStatus;
+import com.duing.domain.fee.entity.FeeTargetType;
 import com.duing.domain.fee.exception.FeeBillException;
 import com.duing.domain.fee.exception.FeePolicyException;
 import com.duing.domain.fee.controller.dto.response.FeeBillResponse;
@@ -21,7 +22,10 @@ import com.duing.domain.notification.event.FeeBillsIssuedEvent;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -61,25 +65,66 @@ public class GeneralFeeBillService implements FeeBillService {
         BillingPeriodResolver.Resolved resolved = resolve(policy.getBillingType(), command);
         validateDueDate(resolved, command.dueDate(), policy.getBillingType());
 
+        if (policy.getTargetType() == FeeTargetType.SELECTED_MEMBERS) {
+            return generateForSelectedMembers(command, policy, resolved);
+        }
+        return generateForAllMembers(command, policy, resolved);
+    }
+
+    // ALL_MEMBERS: 활성 회원 전원에게 발행(기존 동작). created=0 은 멱등으로 그대로 허용(409 없음).
+    private GenerateBillsResult generateForAllMembers(GenerateBillsCommand command, FeePolicy policy,
+                                                      BillingPeriodResolver.Resolved resolved) {
+        if (command.memberIds() != null && !command.memberIds().isEmpty()) {
+            throw FeeBillException.InvalidBillRecipientsException.notAllowedForAllMembers();
+        }
         // 단일 원자 INSERT...SELECT...ON CONFLICT DO NOTHING. created = 실제 INSERT 된 행 수.
         int created = feeBillRepository.bulkInsertBills(
                 command.clubId(), policy.getId(), policy.getAmount(), resolved.billingPeriod(),
                 resolved.startDate(), resolved.endDate(), resolved.dueDate());
         long activeCount = clubMemberRepository.countActiveByClubId(command.clubId());
         int skipped = (int) Math.max(0L, activeCount - created); // 동시 멤버 변동으로 음수가 되지 않게 클램프
-
-        log.info("fee bills generated: actorId={}, clubId={}, policyId={}, period={}, created={}, skipped={}",
+        log.info("fee bills generated(all): actorId={}, clubId={}, policyId={}, period={}, created={}, skipped={}",
                 command.actorId(), command.clubId(), policy.getId(), resolved.billingPeriod(), created, skipped);
+        publishIssuedEventIfAny(command.clubId(), policy.getId(), resolved, created);
+        return new GenerateBillsResult(created, skipped, List.of());
+    }
 
-        // 새로 생성된 청구가 있을 때만 발행 알림을 fan-out 한다(변동 없으면 dedup 이 어차피 흡수하므로 작업 생략).
+    // SELECTED_MEMBERS: 지정 회원만 발행. created=0 이면 409(선택 회원 전원 이미 발행).
+    private GenerateBillsResult generateForSelectedMembers(GenerateBillsCommand command, FeePolicy policy,
+                                                           BillingPeriodResolver.Resolved resolved) {
+        List<Long> requested = command.memberIds();
+        if (requested == null || requested.isEmpty()) {
+            throw FeeBillException.InvalidBillRecipientsException.requiredForSelectedMembers();
+        }
+        List<Long> memberIds = requested.stream().distinct().toList();
+        Set<Long> clubMemberIds = new HashSet<>(
+                clubMemberRepository.findClubMemberUserIdsIncludingDeleted(command.clubId(), memberIds));
+        if (!clubMemberIds.containsAll(memberIds)) {
+            throw FeeBillException.InvalidBillRecipientsException.notClubMembers();
+        }
+        List<Long> createdUserIds = feeBillRepository.bulkInsertBillsForMembers(
+                command.clubId(), policy.getId(), policy.getAmount(), resolved.billingPeriod(),
+                resolved.startDate(), resolved.endDate(), resolved.dueDate(), memberIds);
+        if (createdUserIds.isEmpty()) {
+            throw new FeeBillException.NoBillsCreatedException();
+        }
+        Set<Long> createdSet = new HashSet<>(createdUserIds);
+        List<Long> skippedUserIds = memberIds.stream().filter(userId -> !createdSet.contains(userId)).toList();
+        log.info("fee bills generated(selected): actorId={}, clubId={}, policyId={}, period={}, created={}, skipped={}",
+                command.actorId(), command.clubId(), policy.getId(), resolved.billingPeriod(),
+                createdUserIds.size(), skippedUserIds.size());
+        publishIssuedEventIfAny(command.clubId(), policy.getId(), resolved, createdUserIds.size());
+        return new GenerateBillsResult(createdUserIds.size(), skippedUserIds.size(), skippedUserIds);
+    }
+
+    // 새 청구가 있을 때만 발행 알림을 fan-out 한다(billId dedup 으로 재알림은 리스너에서 흡수).
+    private void publishIssuedEventIfAny(Long clubId, Long policyId, BillingPeriodResolver.Resolved resolved, int created) {
         if (created > 0) {
-            String clubName = clubRepository.findById(command.clubId())
-                    .map(Club::getName).orElse("동아리");
+            String clubName = clubRepository.findById(clubId).map(Club::getName).orElse("동아리");
             eventPublisher.publishEvent(new FeeBillsIssuedEvent(
-                    command.clubId(), clubName, policy.getId(), resolved.billingPeriod(),
+                    clubId, clubName, policyId, resolved.billingPeriod(),
                     resolved.startDate(), resolved.dueDate()));
         }
-        return new GenerateBillsResult(created, skipped);
     }
 
     @Override

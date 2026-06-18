@@ -57,4 +57,12 @@ public class FeePolicyException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class AutoIssueRequiresAllMembersException extends FeePolicyException {
+        private static final String MESSAGE = "자동 발행은 전체 회원(ALL_MEMBERS) 정책에서만 설정할 수 있습니다.";
+
+        public AutoIssueRequiresAllMembersException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }

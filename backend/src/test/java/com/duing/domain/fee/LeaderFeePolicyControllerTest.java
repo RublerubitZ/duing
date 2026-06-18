@@ -97,6 +97,7 @@ class LeaderFeePolicyControllerTest extends IntegrationTestBase {
         body.put("name", "월 회비");
         body.put("amount", 10000);
         body.put("billingType", "MONTHLY");
+        body.put("targetType", "ALL_MEMBERS");
         return body;
     }
 
@@ -295,5 +296,61 @@ class LeaderFeePolicyControllerTest extends IntegrationTestBase {
                 .body(sameType)
                 .when().patch("/api/v1/leader/clubs/" + clubId + "/fee-policies/" + policy.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
+    @DisplayName("청구 대상을 SELECTED_MEMBERS 로 지정해 정책을 생성하면 응답에 targetType 이 담긴다")
+    void createSelectedMembersPolicy() {
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", "MT 참가비");
+        body.put("amount", 50000);
+        body.put("billingType", "ONE_TIME");
+        body.put("targetType", "SELECTED_MEMBERS");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON).body(body)
+                .when().post("/api/v1/leader/clubs/" + clubId + "/fee-policies")
+                .then().statusCode(HttpStatus.CREATED.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/clubs/" + clubId + "/fee-policies")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.find { it.name == 'MT 참가비' }.targetType", equalTo("SELECTED_MEMBERS"));
+    }
+
+    @Test
+    @DisplayName("targetType 을 생략하면 400 을 반환한다")
+    void targetTypeRequired() {
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", "회비");
+        body.put("amount", 10000);
+        body.put("billingType", "MONTHLY");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON).body(body)
+                .when().post("/api/v1/leader/clubs/" + clubId + "/fee-policies")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("SELECTED_MEMBERS 정책에 자동발행을 켜면 400 을 반환한다")
+    void autoIssueRequiresAllMembers() {
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", "자동 참가비");
+        body.put("amount", 10000);
+        body.put("billingType", "MONTHLY");
+        body.put("targetType", "SELECTED_MEMBERS");
+        body.put("autoIssue", true);
+        body.put("issueDay", 5);
+        body.put("dueDay", 20);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON).body(body)
+                .when().post("/api/v1/leader/clubs/" + clubId + "/fee-policies")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 }

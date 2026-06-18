@@ -61,6 +61,7 @@ class LeaderFeePolicyAutoIssueControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
                 .body(Map.of("name", "월 회비", "amount", 10000, "billingType", "MONTHLY",
+                        "targetType", "ALL_MEMBERS",
                         "autoIssue", true, "issueDay", 5, "dueDay", 20))
                 .when().post("/api/v1/leader/clubs/" + clubId + "/fee-policies")
                 .then().statusCode(HttpStatus.CREATED.value())
@@ -79,6 +80,7 @@ class LeaderFeePolicyAutoIssueControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
                 .body(Map.of("name", "학기 회비", "amount", 50000, "billingType", "SEMESTER",
+                        "targetType", "ALL_MEMBERS",
                         "autoIssue", true, "issueDay", 5, "dueDay", 20))
                 .when().post("/api/v1/leader/clubs/" + clubId + "/fee-policies")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
@@ -91,6 +93,7 @@ class LeaderFeePolicyAutoIssueControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
                 .body(Map.of("name", "월 회비", "amount", 10000, "billingType", "MONTHLY",
+                        "targetType", "ALL_MEMBERS",
                         "autoIssue", true, "issueDay", 20, "dueDay", 5))
                 .when().post("/api/v1/leader/clubs/" + clubId + "/fee-policies")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
@@ -160,6 +163,7 @@ class LeaderFeePolicyAutoIssueControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
                 .body(Map.of("name", "월 회비", "amount", 10000, "billingType", "MONTHLY",
+                        "targetType", "ALL_MEMBERS",
                         "autoIssue", true, "issueDay", 5))
                 .when().post("/api/v1/leader/clubs/" + clubId + "/fee-policies")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());

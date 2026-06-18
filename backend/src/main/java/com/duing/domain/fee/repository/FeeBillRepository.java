@@ -3,6 +3,7 @@ package com.duing.domain.fee.repository;
 import com.duing.domain.fee.entity.FeeBill;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -48,6 +49,28 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBill
                         @Param("amount") Long amount, @Param("billingPeriod") String billingPeriod,
                         @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate,
                         @Param("dueDate") LocalDate dueDate);
+
+    // SELECTED_MEMBERS 발행: 활성 회원 중 지정된 user_id 만 대상으로 단일 원자 INSERT 한다.
+    // RETURNING user_id 로 '실제로 새로 INSERT 된' user_id 만 받는다(ON CONFLICT 로 스킵된 행은 RETURNING 에 잡히지 않음).
+    // @Modifying 을 붙이지 않는다 — getResultList 로 반환행을 받아야 하며, 네이티브 쿼리라 Hibernate 가 실행 전 세션을 flush 한다.
+    @Query(value = """
+            INSERT INTO fee_bill (club_id, user_id, fee_policy_id, amount, billing_period,
+                                  billing_start_date, billing_end_date, due_date, status)
+            SELECT :clubId, cm.user_id, :policyId, :amount, :billingPeriod,
+                   :startDate, :endDate, :dueDate, 'PENDING'
+            FROM club_member cm
+            WHERE cm.club_id = :clubId AND cm.deleted_at IS NULL AND cm.user_id IN (:memberIds)
+            ORDER BY cm.user_id
+            ON CONFLICT (fee_policy_id, user_id, billing_start_date)
+              WHERE deleted_at IS NULL AND status <> 'CANCELLED'
+            DO NOTHING
+            RETURNING user_id
+            """, nativeQuery = true)
+    List<Long> bulkInsertBillsForMembers(@Param("clubId") Long clubId, @Param("policyId") Long policyId,
+                                         @Param("amount") Long amount, @Param("billingPeriod") String billingPeriod,
+                                         @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate,
+                                         @Param("dueDate") LocalDate dueDate,
+                                         @Param("memberIds") Collection<Long> memberIds);
 
     // 한 회차(정책+기간 시작일)로 발행된 비취소 청구의 (billId, userId) — 발행 알림 fan-out 대상.
     @Query("""

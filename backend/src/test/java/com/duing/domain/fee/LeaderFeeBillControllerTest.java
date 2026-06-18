@@ -150,6 +150,114 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         return count == null ? 0L : count;
     }
 
+    private FeePolicy saveSelectedPolicy(BillingType billingType, long amount) {
+        return feePolicyRepository.save(FeePolicyFixture.selected(clubId, billingType, amount));
+    }
+
+    private Map<String, Object> selectedBody(String billingPeriod, List<Long> memberIds) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("billingPeriod", billingPeriod);
+        body.put("billingStartDate", "2026-09-01");
+        body.put("billingEndDate", "2026-09-01");
+        body.put("dueDate", "2026-09-30");
+        body.put("memberIds", memberIds);
+        return body;
+    }
+
+    @Test
+    @DisplayName("SELECTED 정책은 지정한 회원에게만 청구가 생성된다")
+    void selectedMembersOnly() {
+        List<Long> added = addActiveMembers(3);
+        FeePolicy policy = saveSelectedPolicy(BillingType.ONE_TIME, 50000L);
+        List<Long> targets = List.of(added.get(0), added.get(1));
+        generateAs(leaderToken, policy.getId(), selectedBody("MT 참가비", targets))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(2))
+                .body("data.skipped", equalTo(0))
+                .body("data.skippedUserIds.size()", equalTo(0));
+        assertThat(countBills(policy.getId())).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("SELECTED 발행에서 이미 발행된 회원은 skippedUserIds 로 보고된다")
+    void selectedAlreadyIssuedSkipped() {
+        List<Long> added = addActiveMembers(2);
+        FeePolicy policy = saveSelectedPolicy(BillingType.ONE_TIME, 50000L);
+        Long first = added.get(0);
+        Long second = added.get(1);
+        generateAs(leaderToken, policy.getId(), selectedBody("MT", List.of(first)))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(1));
+        generateAs(leaderToken, policy.getId(), selectedBody("MT", List.of(first, second)))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(1))
+                .body("data.skipped", equalTo(1))
+                .body("data.skippedUserIds", org.hamcrest.Matchers.contains(first.intValue()));
+    }
+
+    @Test
+    @DisplayName("SELECTED 발행에서 선택 회원이 전원 이미 발행됐으면 409 를 반환한다")
+    void selectedAllAlreadyIssuedConflict() {
+        List<Long> added = addActiveMembers(1);
+        FeePolicy policy = saveSelectedPolicy(BillingType.ONE_TIME, 50000L);
+        List<Long> targets = List.of(added.get(0));
+        generateAs(leaderToken, policy.getId(), selectedBody("MT", targets))
+                .then().statusCode(HttpStatus.CREATED.value()).body("data.created", equalTo(1));
+        generateAs(leaderToken, policy.getId(), selectedBody("MT", targets))
+                .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("SELECTED 발행에서 탈퇴한 회원은 거부 없이 제외되어 skippedUserIds 로 보고된다")
+    void selectedExcludesDeletedMember() {
+        List<Long> added = addActiveMembers(2);
+        Long activeUser = added.get(0);
+        Long leftUser = added.get(1);
+        ClubMember target = clubMemberRepository.findByClubIdAndUserId(clubId, leftUser).orElseThrow();
+        clubMemberRepository.delete(target);
+        FeePolicy policy = saveSelectedPolicy(BillingType.ONE_TIME, 50000L);
+        generateAs(leaderToken, policy.getId(), selectedBody("MT", List.of(activeUser, leftUser)))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(1))
+                .body("data.skippedUserIds", org.hamcrest.Matchers.contains(leftUser.intValue()));
+    }
+
+    @Test
+    @DisplayName("SELECTED 발행에 타 동아리 회원 id 가 섞이면 400 을 반환한다")
+    void selectedRejectsForeignMember() {
+        List<Long> added = addActiveMembers(1);
+        Club otherClub = clubRepository.save(ClubFixture.academic("동아리B"));
+        User otherUser = userRepository.save(UserFixture.unique());
+        clubMemberRepository.save(ClubMember.asMember(otherClub, otherUser));
+        FeePolicy policy = saveSelectedPolicy(BillingType.ONE_TIME, 50000L);
+        generateAs(leaderToken, policy.getId(), selectedBody("MT", List.of(added.get(0), otherUser.getId())))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("SELECTED 정책에 memberIds 없이 발행하면 400 을 반환한다")
+    void selectedRequiresMemberIds() {
+        FeePolicy policy = saveSelectedPolicy(BillingType.ONE_TIME, 50000L);
+        Map<String, Object> body = new HashMap<>();
+        body.put("billingPeriod", "MT");
+        body.put("billingStartDate", "2026-09-01");
+        body.put("billingEndDate", "2026-09-01");
+        body.put("dueDate", "2026-09-30");
+        generateAs(leaderToken, policy.getId(), body)
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("ALL_MEMBERS 정책에 memberIds 를 보내면 400 을 반환한다")
+    void allMembersRejectsMemberIds() {
+        List<Long> added = addActiveMembers(1);
+        FeePolicy policy = savePolicy(BillingType.MONTHLY, 10000L);
+        Map<String, Object> body = monthlyBody("2026-07");
+        body.put("memberIds", List.of(added.get(0)));
+        generateAs(leaderToken, policy.getId(), body)
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
     @Test
     @DisplayName("동일 정책·회차로 두 번 발행하면 두 번째는 created 0, skipped N 이다")
     void idempotentGenerate() {

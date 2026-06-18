@@ -4,6 +4,9 @@
 export type BillingType = 'MONTHLY' | 'SEMESTER' | 'YEARLY' | 'ONE_TIME';
 export type FeeStatus = 'PENDING' | 'PAID' | 'PARTIAL_PAID' | 'OVERDUE' | 'CANCELLED';
 
+// 정책 청구 대상. ALL_MEMBERS=전체 회원 일괄 발행, SELECTED_MEMBERS=발행 시 대상 회원 선택.
+export type FeeTargetType = 'ALL_MEMBERS' | 'SELECTED_MEMBERS';
+
 // 회비 계좌 은행 코드. 백엔드 Bank enum(V61 bank CHECK 제약)과 정확히 일치한다.
 // 한글 표시명은 프론트(apps/web/app/_lib/feeLabels)가 보유한다.
 // 단일 출처(tuple) — 스키마(z.enum)·select 옵션·라벨 맵이 모두 이 순서를 그대로 파생한다.
@@ -46,13 +49,14 @@ export type FeeAccountPayload = {
   accountHolder: string;
 };
 
-// FeePolicyResponse(id, name, amount, billingType, active, autoIssue, issueDay, dueDay) 미러.
+// FeePolicyResponse(id, name, amount, billingType, targetType, active, autoIssue, issueDay, dueDay) 미러.
 // autoIssue=true 인 MONTHLY 정책만 issueDay/dueDay 가 채워진다(그 외엔 null).
 export type FeePolicy = {
   id: number;
   name: string;
   amount: number;
   billingType: BillingType;
+  targetType: FeeTargetType;
   active: boolean;
   autoIssue: boolean;
   issueDay: number | null;
@@ -160,15 +164,17 @@ export type FeeSummaryParams = {
   policyId?: number;
 };
 
-// GenerateBillsResponse(created, skipped) 미러.
-export type GenerateBillsResult = { created: number; skipped: number };
+// GenerateBillsResponse(created, skipped, skippedUserIds) 미러.
+// skippedUserIds = SELECTED_MEMBERS 발행 시 대상이 아니어서 건너뛴 회원의 userId 목록.
+export type GenerateBillsResult = { created: number; skipped: number; skippedUserIds: number[] };
 
-// CreateFeePolicyRequest(name, amount, billingType, autoIssue?, issueDay?, dueDay?) 미러.
+// CreateFeePolicyRequest(name, amount, billingType, targetType, autoIssue?, issueDay?, dueDay?) 미러.
 // autoIssue=true 일 때만 issueDay/dueDay 를 동봉한다(MONTHLY 한정, 백엔드 검증과 정합).
 export type CreateFeePolicyPayload = {
   name: string;
   amount: number;
   billingType: BillingType;
+  targetType: FeeTargetType;
   autoIssue?: boolean;
   issueDay?: number;
   dueDay?: number;
@@ -177,13 +183,14 @@ export type CreateFeePolicyPayload = {
 // UpdateFeePolicyRequest(name?, amount?, billingType?, active?, autoIssue?, issueDay?, dueDay?) 미러(부분 수정).
 export type UpdateFeePolicyPayload = Partial<CreateFeePolicyPayload> & { active?: boolean };
 
-// GenerateBillsRequest(billingPeriod, billingStartDate?, billingEndDate?, dueDate?) 미러.
+// GenerateBillsRequest(billingPeriod, billingStartDate?, billingEndDate?, dueDate?, memberIds?) 미러.
 // 단일 flat 와이어 페이로드 — billingType discriminator 를 싣지 않는다(백엔드 단일 DTO 와 정합).
 export type GenerateBillsPayload = {
   billingPeriod: string;
   billingStartDate?: string;
   billingEndDate?: string;
   dueDate?: string;
+  memberIds?: number[]; // SELECTED_MEMBERS 정책 발행 시 대상 회원의 userId 목록
 };
 
 // GET /leader/clubs/{clubId}/fee-bills 의 동적 필터 + 페이지네이션 쿼리.
