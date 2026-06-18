@@ -34,6 +34,10 @@ public class FeePolicy extends BaseEntity {
     @Column(name = "billing_type", nullable = false, length = 20)
     private BillingType billingType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "target_type", nullable = false, length = 30)
+    private FeeTargetType targetType;
+
     @Column(nullable = false)
     private boolean active;
 
@@ -47,17 +51,21 @@ public class FeePolicy extends BaseEntity {
     private Integer dueDay;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private FeePolicy(Long clubId, String name, Long amount, BillingType billingType, boolean active) {
+    private FeePolicy(Long clubId, String name, Long amount, BillingType billingType,
+                      FeeTargetType targetType, boolean active) {
         this.clubId = clubId;
         this.name = name;
         this.amount = amount;
         this.billingType = billingType;
+        this.targetType = targetType;
         this.active = active;
     }
 
-    public static FeePolicy create(Long clubId, String name, Long amount, BillingType billingType) {
+    public static FeePolicy create(Long clubId, String name, Long amount, BillingType billingType,
+                                   FeeTargetType targetType) {
         return FeePolicy.builder()
-                .clubId(clubId).name(name).amount(amount).billingType(billingType).active(true)
+                .clubId(clubId).name(name).amount(amount).billingType(billingType)
+                .targetType(targetType).active(true)
                 .build();
     }
 

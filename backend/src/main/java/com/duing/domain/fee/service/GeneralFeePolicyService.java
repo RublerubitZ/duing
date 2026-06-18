@@ -3,6 +3,7 @@ package com.duing.domain.fee.service;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.fee.entity.BillingType;
 import com.duing.domain.fee.entity.FeePolicy;
+import com.duing.domain.fee.entity.FeeTargetType;
 import com.duing.domain.fee.exception.FeePolicyException;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
@@ -27,7 +28,8 @@ public class GeneralFeePolicyService implements FeePolicyService {
     @Transactional
     public Long create(CreateFeePolicyCommand command) {
         clubAuthService.requireManager(command.actorId(), command.clubId());
-        FeePolicy policy = FeePolicy.create(command.clubId(), command.name(), command.amount(), command.billingType());
+        FeePolicy policy = FeePolicy.create(command.clubId(), command.name(), command.amount(),
+                command.billingType(), FeeTargetType.ALL_MEMBERS);
         if (Boolean.TRUE.equals(command.autoIssue())) {
             validateAutoIssue(command.billingType(), command.issueDay(), command.dueDay());
             policy.applyAutoIssue(true, command.issueDay(), command.dueDay());
