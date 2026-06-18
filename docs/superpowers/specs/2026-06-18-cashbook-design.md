@@ -179,3 +179,46 @@ UpdateCashbookEntryRequest(   // 부분 수정, 모두 nullable
 
 ## 12. 이후 스프린트 (참고)
 - 영수증/증빙 파일 첨부 업로드(FileStorageService), 회원 공개(투명성 조회), 실제 계좌 잔액 병기, 월별·카테고리 통계 차트, CSV/엑셀 내보내기, 예산 대비 집행.
+
+---
+
+## 13. 추가: 항목 집계 제외(excluded) — Sprint 5 확장
+
+### 13.1 배경 / 목표
+계좌 거래 중 회계에 잡으면 안 되는 항목(계좌 간 이체·잘못 들어온 입금·본인 충전 등)이 있다. BANK 자동 항목은 **삭제가 안 되므로**(§6), 이를 **집계에서 제외**할 수단이 필요하다. 항목당 **"집계 제외(excluded)" 토글**을 두어, 제외 항목은 **총수입·총지출·장부 잔액에서 빠지되 원본은 보존**하고 목록에는 흐리게 남긴다(필요 시 필터로 가림). 수동·BANK 자동 항목 **둘 다** 토글 가능하다.
+
+### 13.2 데이터 (Flyway V67)
+기존 마이그레이션 수정 금지. 최신 V66(이 브랜치) → 신규 **V67**.
+```sql
+-- 항목 집계 제외 플래그. true 면 총수입·총지출·장부 잔액 집계에서 제외(원본은 보존).
+ALTER TABLE cashbook_entry ADD COLUMN excluded BOOLEAN NOT NULL DEFAULT FALSE;
+```
+`CashbookEntry`에 `boolean excluded`(@Column nullable=false) + `updateExcluded(boolean)` 추가. (메타 플래그이므로 BANK_API·MANUAL 무관하게 토글 가능 — §6의 금액·날짜 불변 규칙과 별개.) 인덱스 불요(소량·기존 idx_cashbook_club_date로 충분).
+
+### 13.3 동작 규칙
+- **요약(`/cashbook/summary`)**: **항상 `excluded = false`만 합산**(제외 항목은 어떤 경우에도 집계에서 빠짐). 나머지 필터(유형·카테고리·기간·검색)는 그대로 반영.
+- **목록(`/cashbook`)**: 기본은 제외 항목도 **표시**(응답 `excluded=true`로 내려 프론트가 흐리게 + "제외됨" 배지). 신규 필터 `hideExcluded=true` 면 목록에서 `excluded=false`만 반환(가림). 요약은 `hideExcluded`와 무관하게 항상 제외 항목을 빼므로 목록 필터와 독립.
+- **토글**: 신규 **`PATCH /api/v1/leader/clubs/{clubId}/cashbook/{entryId}/exclusion`** body `{ "excluded": true/false }` → 204. `requireManager` + 동아리 격리(`findByIdAndClubId`, 아니면 404). 수동·BANK 자동 항목 둘 다 허용. 기존 수정(`PATCH .../{entryId}`)에는 `excluded`를 넣지 않는다(BANK_API 불변 분기와 분리해 단순 유지).
+
+### 13.4 DTO 변경
+- `CashbookEntryResponse`에 `excluded`(boolean) 추가.
+- `CashbookSearchQuery`에 `hideExcluded`(Boolean, nullable) 추가 — 목록에만 적용. 요약은 `excluded=false`를 항상 강제.
+- 신규 `UpdateCashbookExclusionRequest(@NotNull Boolean excluded)` → `toCommand(clubId, actorId, entryId)`. 서비스 `void setExclusion(Long clubId, Long actorId, Long entryId, boolean excluded)`(또는 command) — requireManager + findByIdAndClubId + `entry.updateExcluded(excluded)`.
+
+### 13.5 프론트
+- `CashbookEntry` 타입에 `excluded: boolean`, `CashbookSearchParams`에 `hideExcluded?: boolean`.
+- `client.leader.cashbook.setExclusion(clubId, entryId, excluded)` → `PATCH .../{entryId}/exclusion`. 훅 `useToggleCashbookExclusionMutation(clubId)`(onSuccess byClub 무효화).
+- 장부 목록: 항목별 **"제외 / 복원" 버튼**(현재 excluded면 "복원", 아니면 "제외") → 토글. 제외 항목은 **취소선/회색 + "제외됨" 배지**. 필터 바에 **"제외 항목 숨기기" 토글** → `hideExcluded`.
+- 요약 카드는 백엔드가 제외 반영 — 별도 처리 불필요.
+
+### 13.6 테스트
+- 백엔드: 수동·BANK 자동 항목 둘 다 제외 토글(204·저장), 제외 항목이 요약(총수입/총지출/bookBalance)에서 빠짐, `hideExcluded` 목록 필터(제외 항목 제외), 응답 `excluded` 필드, 권한/격리(비총무 403·타 동아리 404).
+- 프론트: 제외 항목 배지·흐림 표시, 제외/복원 버튼이 토글 mutation 호출, "제외 항목 숨기기" 필터가 `hideExcluded` 파라미터 연결.
+
+### 13.7 빌드 순서 (이 확장)
+1. `feat(backend)`: V67 + 엔티티 `excluded`/`updateExcluded` + DTO(`excluded`/`hideExcluded`/`UpdateCashbookExclusionRequest`) + 요약 항상 제외·목록 hideExcluded + 토글 엔드포인트 + 통합테스트.
+2. `feat(frontend)`: 타입·client·훅 배선 + 목록 제외/복원 버튼·배지·흐림·"제외 항목 숨기기" 필터 + 테스트.
+
+### 13.8 범위
+- **In**: excluded 컬럼(V67)·토글 엔드포인트(양 타입)·요약 항상 제외·목록 hideExcluded 필터·FE 토글/배지/흐림/숨기기 필터.
+- **Out**: 제외 사유 기록, 일괄 제외, 복식부기·승인 흐름 — 후속.
