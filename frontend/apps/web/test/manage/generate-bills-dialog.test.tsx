@@ -157,7 +157,7 @@ describe('GenerateBillsDialog', () => {
     expect(firstArg.payload.billingPeriod).toBe('2026-07');
   });
 
-  it('성공 시 신규 건수 토스트를 띄우고 닫는다', async () => {
+  it('ALL_MEMBERS 성공 시 신규·기존(이미 발행) 건수 토스트를 띄우고 닫는다', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     mockGenerateMutate.mockImplementation(
@@ -176,7 +176,30 @@ describe('GenerateBillsDialog', () => {
     await user.click(screen.getByRole('button', { name: '발행' }));
 
     await waitFor(() => expect(mockAddToast).toHaveBeenCalled());
-    expect(mockAddToast).toHaveBeenCalledWith('발행 완료 (신규 3)');
+    expect(mockAddToast).toHaveBeenCalledWith('발행 완료 (신규 3 · 기존 2)');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('ALL_MEMBERS 성공 시 기존(skipped) 0 이면 신규 건수만 토스트한다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    mockGenerateMutate.mockImplementation(
+      (
+        _vars: unknown,
+        options: {
+          onSuccess: (result: { created: number; skipped: number; skippedUserIds: number[] }) => void;
+        },
+      ) => options.onSuccess({ created: 5, skipped: 0, skippedUserIds: [] }),
+    );
+    mockUseClubFeePoliciesQuery.mockReturnValue({ data: [monthlyPolicy], isLoading: false });
+    render(<GenerateBillsDialog clubId={1} onClose={onClose} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '1');
+    await user.type(screen.getByLabelText(/청구 회차/), '2026-07');
+    await user.click(screen.getByRole('button', { name: '발행' }));
+
+    await waitFor(() => expect(mockAddToast).toHaveBeenCalled());
+    expect(mockAddToast).toHaveBeenCalledWith('발행 완료 (신규 5)');
     expect(onClose).toHaveBeenCalled();
   });
 

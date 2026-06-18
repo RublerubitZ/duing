@@ -150,8 +150,15 @@ function GenerateBillsForm({ clubId, policy, onClose }: GenerateBillsFormProps) 
       {
         onSuccess: (result) => {
           // created=0 이어도(동시 발행) 훅이 청구 목록을 무효화하므로 응답값만으로 성공 안내만 한다(§9).
-          const skippedNote =
-            result.skippedUserIds.length > 0 ? ` · 제외 ${result.skippedUserIds.length}` : '';
+          // ALL_MEMBERS 는 skippedUserIds 를 열거하지 않고 skipped 카운트(이미 발행된 회원 수)만 내려준다.
+          // SELECTED_MEMBERS 는 제외된 회원 id 를 그대로 보여준다.
+          const skippedNote = isSelected
+            ? result.skippedUserIds.length > 0
+              ? ` · 제외 ${result.skippedUserIds.length}`
+              : ''
+            : result.skipped > 0
+              ? ` · 기존 ${result.skipped}`
+              : '';
           addToast(`발행 완료 (신규 ${result.created}${skippedNote})`);
           onClose();
         },
