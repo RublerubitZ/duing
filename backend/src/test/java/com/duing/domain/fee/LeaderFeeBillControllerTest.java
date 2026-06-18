@@ -501,6 +501,29 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("일회성 발행은 종료일 없이 행사일·마감일만으로 발행되고 종료일은 행사일로 채워진다")
+    void oneTimeWithoutEndDate() {
+        FeePolicy policy = savePolicy(BillingType.ONE_TIME, 20000L);
+        Map<String, Object> body = new HashMap<>();
+        body.put("billingPeriod", "MT 참가비");
+        body.put("billingStartDate", "2026-06-18"); // 행사일 — UI 일회성 폼과 동일하게 종료일은 미전송
+        body.put("dueDate", "2026-06-20");
+
+        generateAs(leaderToken, policy.getId(), body)
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(2));
+
+        List<FeeBill> bills = feeBillRepository.findAll().stream()
+                .filter(candidate -> candidate.getFeePolicyId().equals(policy.getId()))
+                .toList();
+        assertThat(bills).isNotEmpty();
+        assertThat(bills).allSatisfy(bill -> {
+            assertThat(bill.getBillingStartDate()).isEqualTo(LocalDate.of(2026, 6, 18));
+            assertThat(bill.getBillingEndDate()).isEqualTo(LocalDate.of(2026, 6, 18));
+        });
+    }
+
+    @Test
     @DisplayName("같은 정책·회차를 10개 스레드가 동시에 발행해도 청구는 회원 수만큼만 생성된다")
     void concurrentGenerateIsIdempotent() throws Exception {
         addActiveMembers(98); // setUp 활성 2명(leader+member) + 98명 = 100명

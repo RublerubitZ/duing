@@ -197,9 +197,18 @@ public class GeneralFeeBillService implements FeeBillService {
         return switch (type) {
             case MONTHLY -> periodResolver.resolveMonthly(command.billingPeriod());
             case YEARLY -> periodResolver.resolveYearly(command.billingPeriod(), command.dueDate());
-            case SEMESTER, ONE_TIME -> periodResolver.resolveExplicit(
+            case SEMESTER -> periodResolver.resolveExplicit(
                     command.billingPeriod(), command.billingStartDate(),
                     command.billingEndDate(), command.dueDate());
+            case ONE_TIME -> {
+                // 일회성 행사는 단일 행사일(종료일=행사일). 발행 폼이 종료일을 받지 않으므로 비어 있으면 행사일로 채운다.
+                LocalDate effectiveEndDate = command.billingEndDate() != null
+                        ? command.billingEndDate()
+                        : command.billingStartDate();
+                yield periodResolver.resolveExplicit(
+                        command.billingPeriod(), command.billingStartDate(),
+                        effectiveEndDate, command.dueDate());
+            }
         };
     }
 
