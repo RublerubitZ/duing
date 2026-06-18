@@ -37,6 +37,15 @@ public class FeePolicy extends BaseEntity {
     @Column(nullable = false)
     private boolean active;
 
+    @Column(name = "auto_issue", nullable = false)
+    private boolean autoIssue;
+
+    @Column(name = "issue_day")
+    private Integer issueDay;
+
+    @Column(name = "due_day")
+    private Integer dueDay;
+
     @Builder(access = AccessLevel.PRIVATE)
     private FeePolicy(Long clubId, String name, Long amount, BillingType billingType, boolean active) {
         this.clubId = clubId;
@@ -65,5 +74,15 @@ public class FeePolicy extends BaseEntity {
         if (active != null) {
             this.active = active;
         }
+    }
+
+    /**
+     * 자동 월발행 설정을 반영한다. 끄는 경우(autoIssue=false) 발행일·마감일을 함께 비운다(DB CHECK 정합).
+     * 켜는 경우 호출 전 검증(MONTHLY·1~28·dueDay>=issueDay)을 통과했다고 가정한다.
+     */
+    public void applyAutoIssue(boolean autoIssue, Integer issueDay, Integer dueDay) {
+        this.autoIssue = autoIssue;
+        this.issueDay = autoIssue ? issueDay : null;
+        this.dueDay = autoIssue ? dueDay : null;
     }
 }
