@@ -5,10 +5,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { ApiError } from '@duing/api';
-import { useClubFeePoliciesQuery, useGenerateBillsMutation } from '@duing/hooks';
+import {
+  useClubFeePoliciesQuery,
+  useClubMembersQuery,
+  useGenerateBillsMutation,
+} from '@duing/hooks';
 import { generateBillsSchema, toGenerateBillsPayload } from '@duing/schemas';
 import type { GenerateBillsInput } from '@duing/schemas';
-import type { FeePolicy } from '@duing/types';
+import type { FeePolicy, GenerateBillsPayload } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -43,7 +47,7 @@ export function GenerateBillsDialog({ clubId, onClose }: GenerateBillsDialogProp
         <DialogHeader>
           <DialogTitle>회비 청구 발행</DialogTitle>
           <DialogDescription className="text-sm text-charcoal-2">
-            정책을 선택하고 회차·기간을 입력해 활성 회원 전원에게 청구서를 발행합니다.
+            정책을 선택하고 회차·기간을 입력해 청구서를 발행합니다. 특정 회원 정책은 대상 회원을 선택합니다.
           </DialogDescription>
         </DialogHeader>
 
@@ -108,6 +112,20 @@ function GenerateBillsForm({ clubId, policy, onClose }: GenerateBillsFormProps) 
   const generateBills = useGenerateBillsMutation(clubId);
   const { addToast } = useToast();
 
+  const isSelected = policy.targetType === 'SELECTED_MEMBERS';
+  const { data: members, isLoading: membersLoading } = useClubMembersQuery(
+    isSelected ? clubId : undefined,
+  );
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [memberError, setMemberError] = useState<string | null>(null);
+
+  const toggleMember = (userId: number) => {
+    setMemberError(null);
+    setSelectedUserIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
+    );
+  };
+
   // discriminant(billingType)는 사용자 입력이 아니라 선택 정책의 유형으로 고정한다.
   const {
     register,
@@ -119,13 +137,22 @@ function GenerateBillsForm({ clubId, policy, onClose }: GenerateBillsFormProps) 
   });
 
   const onSubmit = (formData: GenerateBillsInput) => {
-    const payload = toGenerateBillsPayload(formData);
+    if (isSelected && selectedUserIds.length === 0) {
+      setMemberError('청구할 회원을 1명 이상 선택해 주세요.');
+      return;
+    }
+    const payload: GenerateBillsPayload = {
+      ...toGenerateBillsPayload(formData),
+      ...(isSelected ? { memberIds: selectedUserIds } : {}),
+    };
     generateBills.mutate(
       { policyId: policy.id, payload },
       {
         onSuccess: (result) => {
           // created=0 이어도(동시 발행) 훅이 청구 목록을 무효화하므로 응답값만으로 성공 안내만 한다(§9).
-          addToast(`발행 완료 (신규 ${result.created} · 기존 ${result.skipped})`);
+          const skippedNote =
+            result.skippedUserIds.length > 0 ? ` · 제외 ${result.skippedUserIds.length}` : '';
+          addToast(`발행 완료 (신규 ${result.created}${skippedNote})`);
           onClose();
         },
       },
@@ -145,6 +172,43 @@ function GenerateBillsForm({ clubId, policy, onClose }: GenerateBillsFormProps) 
       {/* discriminant(billingType)는 사용자 입력이 아니라 defaultValues 로 선택 정책 유형이 고정되며,
           hidden 으로 register 해 제출 데이터에 포함되도록만 한다(폼은 정책별 key 로 리마운트됨). */}
       <input type="hidden" {...register('billingType')} />
+
+      {isSelected && (
+        <div>
+          <span className="mb-1.5 block text-sm font-semibold text-ink">
+            청구 대상 회원 <span className="text-coral">*</span>
+          </span>
+          {membersLoading ? (
+            <p className="text-sm text-charcoal-3">회원을 불러오는 중…</p>
+          ) : !members || members.length === 0 ? (
+            <p className="rounded-md border border-dashed border-line px-4 py-3 text-sm text-charcoal-2">
+              활성 회원이 없습니다.
+            </p>
+          ) : (
+            <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-line p-2">
+              {members.map((member) => (
+                <label
+                  key={member.userId}
+                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-graysoft"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedUserIds.includes(member.userId)}
+                    onChange={() => toggleMember(member.userId)}
+                    className="h-4 w-4 accent-ink"
+                  />
+                  <span className="text-ink">{member.name}</span>
+                  <span className="text-xs text-charcoal-3">{member.studentId}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          {selectedUserIds.length > 0 && (
+            <p className="mt-1 text-xs text-charcoal-3">{selectedUserIds.length}명 선택됨</p>
+          )}
+          {memberError && <p className="mt-1 text-xs text-coral">{memberError}</p>}
+        </div>
+      )}
 
       {policy.billingType === 'MONTHLY' && (
         <Field
