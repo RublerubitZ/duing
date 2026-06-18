@@ -533,6 +533,7 @@ export type DuingApiClient = {
       create(clubId: number, payload: CreateCashbookEntryPayload): Promise<number>;
       update(clubId: number, entryId: number, payload: UpdateCashbookEntryPayload): Promise<void>;
       remove(clubId: number, entryId: number): Promise<void>;
+      setExclusion(clubId: number, entryId: number, excluded: boolean): Promise<void>;
     };
   };
   my: {
@@ -1109,6 +1110,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonVoid(http.patch(`leader/clubs/${clubId}/cashbook/${entryId}`, { json: payload })),
         remove: (clubId, entryId) =>
           jsonVoid(http.delete(`leader/clubs/${clubId}/cashbook/${entryId}`)),
+        setExclusion: (clubId, entryId, excluded) =>
+          jsonVoid(http.patch(`leader/clubs/${clubId}/cashbook/${entryId}/exclusion`, { json: { excluded } })),
       },
     },
     my: {

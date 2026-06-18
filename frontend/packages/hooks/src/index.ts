@@ -242,5 +242,6 @@ export {
   useCreateCashbookEntryMutation,
   useUpdateCashbookEntryMutation,
   useDeleteCashbookEntryMutation,
+  useToggleCashbookExclusionMutation,
 } from './cashbook';
 export { cashbookQueryKeys } from './cashbookQueryKeys';

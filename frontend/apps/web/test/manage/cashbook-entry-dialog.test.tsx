@@ -17,7 +17,7 @@ import { CashbookEntryDialog } from '@/app/manage/clubs/[clubId]/fees/_component
 const buildEntry = (over: Partial<CashbookEntry> = {}): CashbookEntry => ({
   id: 7, entryType: 'EXPENSE', source: 'BANK_API', categoryCode: 'OTHER', customCategory: null,
   amount: 30000, description: '자동 출금', transactionDate: '2026-09-03', memo: null,
-  attachmentUrl: null, bankTransactionId: 9, createdAt: '2026-09-03T00:00:00', ...over,
+  attachmentUrl: null, bankTransactionId: 9, excluded: false, createdAt: '2026-09-03T00:00:00', ...over,
 });
 
 beforeEach(() => {

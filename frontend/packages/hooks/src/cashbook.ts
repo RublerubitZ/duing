@@ -53,3 +53,14 @@ export function useDeleteCashbookEntryMutation(clubId: number) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: cashbookQueryKeys.byClub(clubId) }),
   });
 }
+
+export function useToggleCashbookExclusionMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ entryId, excluded }: { entryId: number; excluded: boolean }) =>
+      client.leader.cashbook.setExclusion(clubId, entryId, excluded),
+    // 제외/복원은 목록·요약 모두 바꾸므로 동아리 prefix 전체 무효화.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: cashbookQueryKeys.byClub(clubId) }),
+  });
+}

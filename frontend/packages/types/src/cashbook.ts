@@ -20,6 +20,7 @@ export type CashbookEntry = {
   memo: string | null;
   attachmentUrl: string | null;
   bankTransactionId: number | null;
+  excluded: boolean;
   createdAt: string;
 };
 
@@ -38,6 +39,7 @@ export type CashbookSearchParams = {
   from?: string;
   to?: string;
   keyword?: string;
+  hideExcluded?: boolean;
   page?: number;
   size?: number;
 };

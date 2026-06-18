@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from 'react';
 
-import { useCashbookEntriesQuery, useCashbookSummaryQuery, useDeleteCashbookEntryMutation } from '@duing/hooks';
+import {
+  useCashbookEntriesQuery,
+  useCashbookSummaryQuery,
+  useDeleteCashbookEntryMutation,
+  useToggleCashbookExclusionMutation,
+} from '@duing/hooks';
 import type { CashbookCategory, CashbookEntry, CashbookEntryType } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
@@ -32,6 +37,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [keyword, setKeyword] = useState('');
+  const [hideExcluded, setHideExcluded] = useState(false);
   const [registerType, setRegisterType] = useState<CashbookEntryType | null>(null);
   const [editTarget, setEditTarget] = useState<CashbookEntry | null>(null);
 
@@ -42,15 +48,17 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
       ...(fromDate ? { from: fromDate } : {}),
       ...(toDate ? { to: toDate } : {}),
       ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
+      ...(hideExcluded ? { hideExcluded: true } : {}),
       page: 0,
       size: PAGE_SIZE,
     }),
-    [typeFilter, categoryFilter, fromDate, toDate, keyword],
+    [typeFilter, categoryFilter, fromDate, toDate, keyword, hideExcluded],
   );
 
   const { data: page, isLoading } = useCashbookEntriesQuery(clubId, params);
   const { data: summary } = useCashbookSummaryQuery(clubId, params);
   const deleteEntry = useDeleteCashbookEntryMutation(clubId);
+  const toggleExclusion = useToggleCashbookExclusionMutation(clubId);
 
   const onDelete = (entry: CashbookEntry) => {
     deleteEntry.mutate(entry.id, {
@@ -58,6 +66,17 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
       onError: (error) =>
         addToast(error instanceof Error ? error.message : '삭제에 실패했습니다.', { variant: 'error' }),
     });
+  };
+
+  const onToggleExclusion = (entry: CashbookEntry) => {
+    toggleExclusion.mutate(
+      { entryId: entry.id, excluded: !entry.excluded },
+      {
+        onSuccess: () => addToast(entry.excluded ? '집계에 다시 포함했습니다.' : '집계에서 제외했습니다.'),
+        onError: (error) =>
+          addToast(error instanceof Error ? error.message : '처리에 실패했습니다.', { variant: 'error' }),
+      },
+    );
   };
 
   return (
@@ -82,6 +101,16 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
             {value === 'ALL' ? '전체' : value === 'INCOME' ? '수입' : '지출'}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setHideExcluded((current) => !current)}
+          className={cn(
+            'rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors',
+            hideExcluded ? 'border-ink bg-ink text-paper' : 'border-line text-charcoal-2 hover:bg-graysoft',
+          )}
+        >
+          제외 항목 숨기기
+        </button>
         <select
           aria-label="카테고리 필터"
           value={categoryFilter}
@@ -132,7 +161,13 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
       ) : (
         <ul className="space-y-2">
           {page.content.map((entry) => (
-            <li key={entry.id} className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
+            <li
+              key={entry.id}
+              className={cn(
+                'flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3',
+                entry.excluded && 'opacity-60',
+              )}
+            >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-ink">
                   {entry.description}
@@ -142,13 +177,30 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
                   {entry.source === 'BANK_API' && (
                     <span className="ml-1.5 rounded bg-graysoft px-1.5 py-0.5 text-[10px] text-charcoal-3">자동</span>
                   )}
+                  {entry.excluded && (
+                    <span className="ml-1.5 rounded bg-coral/10 px-1.5 py-0.5 text-[10px] text-coral">제외됨</span>
+                  )}
                 </p>
                 <p className="mt-0.5 text-xs text-charcoal-3">{entry.transactionDate}{entry.memo ? ` · ${entry.memo}` : ''}</p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
-                <span className={cn('text-sm font-bold', entry.entryType === 'INCOME' ? 'text-sage' : 'text-coral')}>
+                <span
+                  className={cn(
+                    'text-sm font-bold',
+                    entry.entryType === 'INCOME' ? 'text-sage' : 'text-coral',
+                    entry.excluded && 'line-through',
+                  )}
+                >
                   {entry.entryType === 'INCOME' ? '+' : '−'}{formatWon(entry.amount)}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => onToggleExclusion(entry)}
+                  disabled={toggleExclusion.isPending}
+                  className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
+                >
+                  {entry.excluded ? '복원' : '제외'}
+                </button>
                 <button type="button" onClick={() => setEditTarget(entry)} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-charcoal-2 transition-colors hover:bg-graysoft">수정</button>
                 {entry.source === 'MANUAL' && (
                   <button type="button" onClick={() => onDelete(entry)} disabled={deleteEntry.isPending} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50">삭제</button>
