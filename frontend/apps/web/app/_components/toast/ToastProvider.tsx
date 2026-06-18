@@ -89,7 +89,11 @@ function Toaster({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: numbe
   if (!mounted) return null;
 
   return createPortal(
-    <div className="duing pointer-events-none fixed inset-x-0 top-0 z-[80] flex flex-col items-center gap-2 px-4 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+    // `.duing` 스코프는 토스트 카드의 폰트·디자인 토큰을 위해 유지하되, 이 스코프가 함께 거는
+    // `bg-cream` 은 명시적으로 끈다(bg-transparent). 이 컨테이너는 top-0·전폭·고정 오버레이라
+    // 배경이 칠해지면 토스트가 없어도 화면 최상단(헤더 위)에 크림색 가로 띠로 보인다.
+    // 실제 배경은 각 토스트 카드(bg-ink-deep)가 가지므로 컨테이너는 투명해야 한다.
+    <div className="duing pointer-events-none fixed inset-x-0 top-0 z-[80] flex flex-col items-center gap-2 bg-transparent px-4 pt-[calc(0.75rem+env(safe-area-inset-top))]">
       {toasts.map((toast) => (
         <div
           key={toast.id}
