@@ -16,6 +16,19 @@ const yearlyPolicy = {
   name: '연 회비',
   amount: 50000,
   billingType: 'YEARLY' as const,
+  targetType: 'ALL_MEMBERS' as const,
+  active: true,
+  autoIssue: false,
+  issueDay: null,
+  dueDay: null,
+};
+
+const selectedMembersPolicy = {
+  id: 9,
+  name: 'MT 참가비',
+  amount: 30000,
+  billingType: 'ONE_TIME' as const,
+  targetType: 'SELECTED_MEMBERS' as const,
   active: true,
   autoIssue: false,
   issueDay: null,
@@ -35,7 +48,7 @@ describe('CreatePolicyDialog', () => {
   it('수정 모드에서는 billingType 이 읽기 전용이고 금액 불변 안내를 표시한다', () => {
     render(<CreatePolicyDialog clubId={1} policy={yearlyPolicy} onClose={() => {}} />);
     expect(screen.queryByRole('combobox', { name: '회비 유형' })).not.toBeInTheDocument();
-    expect(screen.getByText(/변경할 수 없습니다/)).toBeInTheDocument();
+    expect(screen.getByText(/유형은 변경할 수 없습니다/)).toBeInTheDocument();
     expect(screen.getByText('기존 발행 청구액은 바뀌지 않습니다.')).toBeInTheDocument();
   });
 
@@ -136,5 +149,48 @@ describe('CreatePolicyDialog', () => {
 
     expect(await screen.findByText('마감일은 발행일과 같거나 이후여야 합니다.')).toBeInTheDocument();
     expect(mockCreateMutate).not.toHaveBeenCalled();
+  });
+
+  it('생성 모드에서 전체 회원·특정 회원 청구 대상 라디오를 노출한다', () => {
+    render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
+    expect(screen.getByRole('radio', { name: '전체 회원' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '특정 회원' })).toBeInTheDocument();
+  });
+
+  it('특정 회원을 선택하면 자동발행 토글이 사라진다', async () => {
+    const user = userEvent.setup();
+    render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
+
+    // MONTHLY·전체 회원 기본값이라 자동발행 토글이 보인다.
+    expect(screen.getByLabelText('매월 자동 발행')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: '특정 회원' }));
+
+    expect(screen.queryByLabelText('매월 자동 발행')).not.toBeInTheDocument();
+  });
+
+  it('특정 회원 정책을 생성하면 payload 에 targetType=SELECTED_MEMBERS 가 실린다', async () => {
+    const user = userEvent.setup();
+    mockCreateMutate.mockImplementation((_payload: unknown, options: { onSuccess: () => void }) =>
+      options.onSuccess(),
+    );
+    render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
+
+    await user.type(screen.getByLabelText(/정책 이름/), 'MT 참가비');
+    await user.click(screen.getByRole('radio', { name: '특정 회원' }));
+    await user.click(screen.getByRole('button', { name: '추가' }));
+
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalled());
+    expect(mockCreateMutate.mock.calls[0]?.[0]).toMatchObject({
+      name: 'MT 참가비',
+      targetType: 'SELECTED_MEMBERS',
+      autoIssue: false,
+    });
+  });
+
+  it('수정 모드에서 특정 회원 정책은 청구 대상이 읽기 전용으로 표시된다', () => {
+    render(<CreatePolicyDialog clubId={1} policy={selectedMembersPolicy} onClose={() => {}} />);
+    expect(screen.queryByRole('radio', { name: '전체 회원' })).not.toBeInTheDocument();
+    expect(screen.getByText('특정 회원')).toBeInTheDocument();
   });
 });

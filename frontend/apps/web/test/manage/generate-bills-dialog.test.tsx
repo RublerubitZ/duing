@@ -39,6 +39,7 @@ const monthlyPolicy = {
   name: '월 회비',
   amount: 10000,
   billingType: 'MONTHLY' as const,
+  targetType: 'ALL_MEMBERS' as const,
   active: true,
 };
 const semesterPolicy = {
@@ -46,6 +47,7 @@ const semesterPolicy = {
   name: '학기 회비',
   amount: 50000,
   billingType: 'SEMESTER' as const,
+  targetType: 'ALL_MEMBERS' as const,
   active: true,
 };
 const inactivePolicy = {
@@ -53,6 +55,7 @@ const inactivePolicy = {
   name: '옛 회비',
   amount: 1000,
   billingType: 'MONTHLY' as const,
+  targetType: 'ALL_MEMBERS' as const,
   active: false,
 };
 
@@ -144,8 +147,10 @@ describe('GenerateBillsDialog', () => {
     mockGenerateMutate.mockImplementation(
       (
         _vars: unknown,
-        options: { onSuccess: (result: { created: number; skipped: number }) => void },
-      ) => options.onSuccess({ created: 3, skipped: 2 }),
+        options: {
+          onSuccess: (result: { created: number; skipped: number; skippedUserIds: number[] }) => void;
+        },
+      ) => options.onSuccess({ created: 3, skipped: 2, skippedUserIds: [] }),
     );
     mockUseClubFeePoliciesQuery.mockReturnValue({ data: [monthlyPolicy], isLoading: false });
     render(<GenerateBillsDialog clubId={1} onClose={onClose} />);

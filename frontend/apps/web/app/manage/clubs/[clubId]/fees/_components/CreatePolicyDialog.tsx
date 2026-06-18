@@ -57,18 +57,29 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
           name: policy.name,
           amount: policy.amount,
           billingType: policy.billingType,
+          targetType: policy.targetType,
           autoIssue: policy.autoIssue,
           issueDay: policy.issueDay ?? undefined,
           dueDay: policy.dueDay ?? undefined,
         }
-      : { name: '', amount: 0, billingType: 'MONTHLY', autoIssue: false, issueDay: undefined, dueDay: undefined },
+      : {
+          name: '',
+          amount: 0,
+          billingType: 'MONTHLY',
+          targetType: 'ALL_MEMBERS',
+          autoIssue: false,
+          issueDay: undefined,
+          dueDay: undefined,
+        },
   });
 
-  // 자동발행은 MONTHLY 정책만. 생성 모드는 선택 중인 유형, 수정 모드는 (잠긴) 기존 유형을 본다.
+  // 자동발행은 전체 회원 MONTHLY 정책만. 생성 모드는 선택 중인 값, 수정 모드는 (잠긴) 기존 값을 본다.
   const watchedBillingType = watch('billingType');
   const watchedAutoIssue = watch('autoIssue');
+  const watchedTargetType = watch('targetType');
   const effectiveBillingType = isEditMode ? policy.billingType : watchedBillingType;
-  const showAutoIssue = effectiveBillingType === 'MONTHLY';
+  const effectiveTargetType = isEditMode ? policy.targetType : watchedTargetType;
+  const showAutoIssue = effectiveBillingType === 'MONTHLY' && effectiveTargetType === 'ALL_MEMBERS';
 
   const onSubmit = (formData: CreateFeePolicyInput) => {
     if (isEditMode) {
@@ -90,6 +101,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
       name: formData.name.trim(),
       amount: formData.amount,
       billingType: formData.billingType,
+      targetType: formData.targetType,
       autoIssue: formData.autoIssue,
     };
     if (formData.autoIssue) {
@@ -195,6 +207,58 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
             {errors.billingType && (
               <p className="mt-1 text-xs text-coral">{errors.billingType.message}</p>
             )}
+          </div>
+
+          <div>
+            <span className="mb-1.5 block text-sm font-semibold text-ink">청구 대상</span>
+            {isEditMode ? (
+              <p
+                className="rounded-md border border-line bg-graysoft px-4 py-3 text-sm text-charcoal-2"
+                aria-readonly="true"
+              >
+                {policy.targetType === 'SELECTED_MEMBERS' ? '특정 회원' : '전체 회원'}
+                <span className="ml-2 text-xs text-charcoal-3">
+                  (청구 대상은 변경할 수 없습니다. 변경하려면 새 정책을 만드세요.)
+                </span>
+              </p>
+            ) : (
+              <div className="flex gap-2">
+                <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-line px-4 py-3 text-sm">
+                  <input
+                    type="radio"
+                    value="ALL_MEMBERS"
+                    {...register('targetType', {
+                      onChange: () => {
+                        setValue('autoIssue', false);
+                        setValue('issueDay', undefined);
+                        setValue('dueDay', undefined);
+                      },
+                    })}
+                    className="accent-ink"
+                  />
+                  전체 회원
+                </label>
+                <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-line px-4 py-3 text-sm">
+                  <input
+                    type="radio"
+                    value="SELECTED_MEMBERS"
+                    {...register('targetType', {
+                      onChange: () => {
+                        setValue('autoIssue', false);
+                        setValue('issueDay', undefined);
+                        setValue('dueDay', undefined);
+                      },
+                    })}
+                    className="accent-ink"
+                  />
+                  특정 회원
+                </label>
+              </div>
+            )}
+            <p className="mt-1 text-xs text-charcoal-3">
+              특정 회원은 발행할 때마다 대상 회원을 선택합니다(MT·행사 참가비 등).
+            </p>
+            {errors.targetType && <p className="mt-1 text-xs text-coral">{errors.targetType.message}</p>}
           </div>
 
           {showAutoIssue && (
