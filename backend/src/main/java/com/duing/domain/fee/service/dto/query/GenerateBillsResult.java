@@ -1,4 +1,6 @@
 package com.duing.domain.fee.service.dto.query;
 
-public record GenerateBillsResult(int created, int skipped) {
+import java.util.List;
+
+public record GenerateBillsResult(int created, int skipped, List<Long> skippedUserIds) {
 }

@@ -514,12 +514,23 @@ export const createFeePolicySchema = z
     billingType: z.enum(['MONTHLY', 'SEMESTER', 'YEARLY', 'ONE_TIME'], {
       errorMap: () => ({ message: '회비 유형을 선택해주세요.' }),
     }),
+    targetType: z.enum(['ALL_MEMBERS', 'SELECTED_MEMBERS'], {
+      errorMap: () => ({ message: '청구 대상을 선택해주세요.' }),
+    }),
     autoIssue: z.boolean().default(false),
     issueDay: optionalDay('발행일'),
     dueDay: optionalDay('마감일'),
   })
   .superRefine((value, ctx) => {
     if (!value.autoIssue) {
+      return;
+    }
+    if (value.targetType !== 'ALL_MEMBERS') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['autoIssue'],
+        message: '자동 발행은 전체 회원 정책에서만 설정할 수 있습니다.',
+      });
       return;
     }
     if (value.billingType !== 'MONTHLY') {

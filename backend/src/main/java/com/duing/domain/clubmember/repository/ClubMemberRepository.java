@@ -99,4 +99,16 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     /** 활성 회원 수. @SQLRestriction("deleted_at IS NULL") 가 자동 적용돼 회비 발행의 skipped 계산에 쓰는 카운트만 센다. */
     @Query("SELECT COUNT(cm) FROM ClubMember cm WHERE cm.club.id = :clubId")
     long countActiveByClubId(@Param("clubId") Long clubId);
+
+    /**
+     * 청구 대상 검증용: soft-delete(탈퇴) 포함, 이 동아리의 멤버였던 user_id 집합을 반환한다.
+     * @SQLRestriction 을 우회하는 네이티브 쿼리라 탈퇴 회원도 포함된다 — 요청 memberIds 중 이 집합에
+     * 없는 id 는 타 동아리/미존재(IDOR)로 400 처리하고, 탈퇴 회원은 발행 단계(활성 join)에서 자연 제외한다.
+     */
+    @Query(value = """
+            SELECT DISTINCT cm.user_id FROM club_member cm
+            WHERE cm.club_id = :clubId AND cm.user_id IN (:userIds)
+            """, nativeQuery = true)
+    List<Long> findClubMemberUserIdsIncludingDeleted(@Param("clubId") Long clubId,
+                                                     @Param("userIds") Collection<Long> userIds);
 }

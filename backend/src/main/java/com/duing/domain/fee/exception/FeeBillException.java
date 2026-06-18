@@ -53,4 +53,35 @@ public class FeeBillException extends ApplicationException {
             super(MESSAGE, HttpStatus.NOT_FOUND);
         }
     }
+
+    // 청구 대상(memberIds) 입력 검증 — 전부 400. code 로 사유 구분.
+    public static class InvalidBillRecipientsException extends FeeBillException {
+        private InvalidBillRecipientsException(String message, String code) {
+            super(message, HttpStatus.BAD_REQUEST, code);
+        }
+
+        public static InvalidBillRecipientsException notAllowedForAllMembers() {
+            return new InvalidBillRecipientsException(
+                    "전체 회원 정책에는 청구 대상 회원을 지정할 수 없습니다.", "MEMBER_IDS_NOT_ALLOWED");
+        }
+
+        public static InvalidBillRecipientsException requiredForSelectedMembers() {
+            return new InvalidBillRecipientsException(
+                    "특정 회원 정책은 청구 대상 회원을 1명 이상 지정해야 합니다.", "MEMBER_IDS_REQUIRED");
+        }
+
+        public static InvalidBillRecipientsException notClubMembers() {
+            return new InvalidBillRecipientsException(
+                    "청구 대상에 이 동아리 회원이 아닌 사용자가 포함되어 있습니다.", "INVALID_BILL_RECIPIENTS");
+        }
+    }
+
+    // SELECTED 발행에서 새로 생성된 청구가 0건 — 선택 회원이 이미 전원 발행됨(409).
+    public static class NoBillsCreatedException extends FeeBillException {
+        private static final String MESSAGE = "새로 생성된 청구가 없습니다. 선택한 회원이 이미 모두 발행되었습니다.";
+
+        public NoBillsCreatedException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
 }

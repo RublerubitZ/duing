@@ -3,6 +3,7 @@ package com.duing.domain.fee.service;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.fee.entity.BillingType;
 import com.duing.domain.fee.entity.FeePolicy;
+import com.duing.domain.fee.entity.FeeTargetType;
 import com.duing.domain.fee.exception.FeePolicyException;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
@@ -27,9 +28,10 @@ public class GeneralFeePolicyService implements FeePolicyService {
     @Transactional
     public Long create(CreateFeePolicyCommand command) {
         clubAuthService.requireManager(command.actorId(), command.clubId());
-        FeePolicy policy = FeePolicy.create(command.clubId(), command.name(), command.amount(), command.billingType());
+        FeePolicy policy = FeePolicy.create(command.clubId(), command.name(), command.amount(),
+                command.billingType(), command.targetType());
         if (Boolean.TRUE.equals(command.autoIssue())) {
-            validateAutoIssue(command.billingType(), command.issueDay(), command.dueDay());
+            validateAutoIssue(command.billingType(), command.targetType(), command.issueDay(), command.dueDay());
             policy.applyAutoIssue(true, command.issueDay(), command.dueDay());
         }
         return feePolicyRepository.save(policy).getId();
@@ -52,8 +54,8 @@ public class GeneralFeePolicyService implements FeePolicyService {
         // autoIssue 미전송(null)은 기존 자동발행 설정 유지. 명시 true/false 일 때만 반영한다.
         if (command.autoIssue() != null) {
             if (command.autoIssue()) {
-                // billingType 미전송 시 기존 타입 유지되므로 policy 의 최신 타입으로 검증한다.
-                validateAutoIssue(policy.getBillingType(), command.issueDay(), command.dueDay());
+                // billingType 미전송 시 기존 타입 유지되므로 policy 의 최신 타입으로 검증한다. targetType 은 불변.
+                validateAutoIssue(policy.getBillingType(), policy.getTargetType(), command.issueDay(), command.dueDay());
                 policy.applyAutoIssue(true, command.issueDay(), command.dueDay());
             } else {
                 policy.applyAutoIssue(false, null, null);
@@ -65,9 +67,12 @@ public class GeneralFeePolicyService implements FeePolicyService {
         }
     }
 
-    // 생성·수정 공유 검증: 자동발행은 MONTHLY 한정, 발행일·마감일 1~28, 마감일 >= 발행일.
+    // 생성·수정 공유 검증: 자동발행은 ALL_MEMBERS + MONTHLY 한정, 발행일·마감일 1~28, 마감일 >= 발행일.
     // dueDay >= issueDay 교차 조건은 Bean Validation(@Min/@Max)으로 표현 불가하여 여기서만 검증한다.
-    private void validateAutoIssue(BillingType billingType, Integer issueDay, Integer dueDay) {
+    private void validateAutoIssue(BillingType billingType, FeeTargetType targetType, Integer issueDay, Integer dueDay) {
+        if (targetType != FeeTargetType.ALL_MEMBERS) {
+            throw new FeePolicyException.AutoIssueRequiresAllMembersException();
+        }
         if (billingType != BillingType.MONTHLY) {
             throw new FeePolicyException.AutoIssueNotMonthlyException();
         }

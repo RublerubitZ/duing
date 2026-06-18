@@ -3,9 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockUseClubFeePoliciesQuery = vi.fn();
+const mockUseClubMembersQuery = vi.fn();
 const mockGenerateMutate = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useClubFeePoliciesQuery: (clubId: number) => mockUseClubFeePoliciesQuery(clubId),
+  useClubMembersQuery: (clubId: number | undefined) => mockUseClubMembersQuery(clubId),
   useGenerateBillsMutation: () => ({
     mutate: mockGenerateMutate,
     isPending: false,
@@ -39,6 +41,7 @@ const monthlyPolicy = {
   name: '월 회비',
   amount: 10000,
   billingType: 'MONTHLY' as const,
+  targetType: 'ALL_MEMBERS' as const,
   active: true,
 };
 const semesterPolicy = {
@@ -46,6 +49,7 @@ const semesterPolicy = {
   name: '학기 회비',
   amount: 50000,
   billingType: 'SEMESTER' as const,
+  targetType: 'ALL_MEMBERS' as const,
   active: true,
 };
 const inactivePolicy = {
@@ -53,12 +57,27 @@ const inactivePolicy = {
   name: '옛 회비',
   amount: 1000,
   billingType: 'MONTHLY' as const,
+  targetType: 'ALL_MEMBERS' as const,
   active: false,
 };
+const selectedPolicy = {
+  id: 4,
+  name: '임원 회비',
+  amount: 30000,
+  billingType: 'MONTHLY' as const,
+  targetType: 'SELECTED_MEMBERS' as const,
+  active: true,
+};
+
+const members = [
+  { memberId: 11, userId: 101, name: '김유신', studentId: '20230001', role: 'OFFICER' as const, joinedAt: '2026-03-01' },
+  { memberId: 12, userId: 102, name: '이순신', studentId: '20230002', role: 'MEMBER' as const, joinedAt: '2026-03-02' },
+];
 
 describe('GenerateBillsDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseClubMembersQuery.mockReturnValue({ data: members, isLoading: false });
   });
 
   it('활성 정책만 선택지로 노출한다', () => {
@@ -138,14 +157,16 @@ describe('GenerateBillsDialog', () => {
     expect(firstArg.payload.billingPeriod).toBe('2026-07');
   });
 
-  it('성공 시 신규·기존 건수 토스트를 띄우고 닫는다', async () => {
+  it('ALL_MEMBERS 성공 시 신규·기존(이미 발행) 건수 토스트를 띄우고 닫는다', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     mockGenerateMutate.mockImplementation(
       (
         _vars: unknown,
-        options: { onSuccess: (result: { created: number; skipped: number }) => void },
-      ) => options.onSuccess({ created: 3, skipped: 2 }),
+        options: {
+          onSuccess: (result: { created: number; skipped: number; skippedUserIds: number[] }) => void;
+        },
+      ) => options.onSuccess({ created: 3, skipped: 2, skippedUserIds: [] }),
     );
     mockUseClubFeePoliciesQuery.mockReturnValue({ data: [monthlyPolicy], isLoading: false });
     render(<GenerateBillsDialog clubId={1} onClose={onClose} />);
@@ -156,6 +177,115 @@ describe('GenerateBillsDialog', () => {
 
     await waitFor(() => expect(mockAddToast).toHaveBeenCalled());
     expect(mockAddToast).toHaveBeenCalledWith('발행 완료 (신규 3 · 기존 2)');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('ALL_MEMBERS 성공 시 기존(skipped) 0 이면 신규 건수만 토스트한다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    mockGenerateMutate.mockImplementation(
+      (
+        _vars: unknown,
+        options: {
+          onSuccess: (result: { created: number; skipped: number; skippedUserIds: number[] }) => void;
+        },
+      ) => options.onSuccess({ created: 5, skipped: 0, skippedUserIds: [] }),
+    );
+    mockUseClubFeePoliciesQuery.mockReturnValue({ data: [monthlyPolicy], isLoading: false });
+    render(<GenerateBillsDialog clubId={1} onClose={onClose} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '1');
+    await user.type(screen.getByLabelText(/청구 회차/), '2026-07');
+    await user.click(screen.getByRole('button', { name: '발행' }));
+
+    await waitFor(() => expect(mockAddToast).toHaveBeenCalled());
+    expect(mockAddToast).toHaveBeenCalledWith('발행 완료 (신규 5)');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('ALL_MEMBERS 정책은 회원 선택 UI 없이 그대로 발행한다', async () => {
+    const user = userEvent.setup();
+    mockUseClubFeePoliciesQuery.mockReturnValue({ data: [monthlyPolicy], isLoading: false });
+    render(<GenerateBillsDialog clubId={1} onClose={() => {}} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '1');
+
+    expect(screen.queryByText(/청구 대상 회원/)).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/청구 회차/), '2026-07');
+    await user.click(screen.getByRole('button', { name: '발행' }));
+
+    await waitFor(() => expect(mockGenerateMutate).toHaveBeenCalled());
+    const [firstArg] = mockGenerateMutate.mock.calls[0] as [
+      { policyId: number; payload: Record<string, unknown> },
+    ];
+    expect(firstArg.payload).not.toHaveProperty('memberIds');
+  });
+
+  it('SELECTED_MEMBERS 정책 선택 시 회원 체크박스를 노출한다', async () => {
+    const user = userEvent.setup();
+    mockUseClubFeePoliciesQuery.mockReturnValue({ data: [selectedPolicy], isLoading: false });
+    render(<GenerateBillsDialog clubId={1} onClose={() => {}} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '4');
+
+    expect(screen.getByText(/청구 대상 회원/)).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /김유신/ })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /이순신/ })).toBeInTheDocument();
+  });
+
+  it('SELECTED_MEMBERS 정책에서 회원 미선택 제출은 에러를 띄우고 발행하지 않는다', async () => {
+    const user = userEvent.setup();
+    mockUseClubFeePoliciesQuery.mockReturnValue({ data: [selectedPolicy], isLoading: false });
+    render(<GenerateBillsDialog clubId={1} onClose={() => {}} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '4');
+    await user.type(screen.getByLabelText(/청구 회차/), '2026-07');
+    await user.click(screen.getByRole('button', { name: '발행' }));
+
+    expect(await screen.findByText('청구할 회원을 1명 이상 선택해 주세요.')).toBeInTheDocument();
+    expect(mockGenerateMutate).not.toHaveBeenCalled();
+  });
+
+  it('SELECTED_MEMBERS 정책에서 선택한 회원의 userId 배열을 payload.memberIds 로 발행한다', async () => {
+    const user = userEvent.setup();
+    mockUseClubFeePoliciesQuery.mockReturnValue({ data: [selectedPolicy], isLoading: false });
+    render(<GenerateBillsDialog clubId={1} onClose={() => {}} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '4');
+    await user.click(screen.getByRole('checkbox', { name: /김유신/ }));
+    await user.type(screen.getByLabelText(/청구 회차/), '2026-07');
+    await user.click(screen.getByRole('button', { name: '발행' }));
+
+    await waitFor(() => expect(mockGenerateMutate).toHaveBeenCalled());
+    const [firstArg] = mockGenerateMutate.mock.calls[0] as [
+      { policyId: number; payload: Record<string, unknown> },
+    ];
+    expect(firstArg.policyId).toBe(4);
+    expect(firstArg.payload.memberIds).toEqual([101]);
+  });
+
+  it('skippedUserIds 가 있으면 토스트에 제외 건수를 함께 표시한다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    mockGenerateMutate.mockImplementation(
+      (
+        _vars: unknown,
+        options: {
+          onSuccess: (result: { created: number; skipped: number; skippedUserIds: number[] }) => void;
+        },
+      ) => options.onSuccess({ created: 1, skipped: 0, skippedUserIds: [102] }),
+    );
+    mockUseClubFeePoliciesQuery.mockReturnValue({ data: [selectedPolicy], isLoading: false });
+    render(<GenerateBillsDialog clubId={1} onClose={onClose} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '4');
+    await user.click(screen.getByRole('checkbox', { name: /김유신/ }));
+    await user.type(screen.getByLabelText(/청구 회차/), '2026-07');
+    await user.click(screen.getByRole('button', { name: '발행' }));
+
+    await waitFor(() => expect(mockAddToast).toHaveBeenCalled());
+    expect(mockAddToast).toHaveBeenCalledWith('발행 완료 (신규 1 · 제외 1)');
     expect(onClose).toHaveBeenCalled();
   });
 });
