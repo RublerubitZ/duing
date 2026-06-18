@@ -114,6 +114,10 @@ duing:
       # 회비 자동 월발행 크론(매일 00:20 Asia/Seoul) — MONTHLY auto_issue 정책의 그 달 청구를 자동 발행.
       # 기본 비활성 — 운영에서 DUING_FEE_AUTO_ISSUE_ENABLED=true 주입 시 활성화한다.
       enabled: ${DUING_FEE_AUTO_ISSUE_ENABLED:false}
+    reminder:
+      # 회비 마감 임박 리마인더 크론(매일 06:00 Asia/Seoul) — D-3/D-1/D-0 미납 청구의 회원에게 FEE_BILL_DUE_SOON 인앱 알림.
+      # 기본 비활성 — 운영에서 DUING_FEE_REMINDER_ENABLED=true 주입 시 활성화한다.
+      enabled: ${DUING_FEE_REMINDER_ENABLED:false}
   privacy:
     retention:
       # 탈퇴/폐쇄로 soft-delete 된 PII 의 보관기간 = 45일(P45D). 이후 파기 잡이 비식별화/삭제한다.

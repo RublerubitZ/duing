@@ -83,6 +83,19 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBill
     List<BillRecipient> findIssuedBillRecipients(@Param("feePolicyId") Long feePolicyId,
                                                  @Param("startDate") LocalDate startDate);
 
+    // 마감 임박(오늘/오늘+1/오늘+3 등 지정 일자) 미납·부분납부 청구를 리마인더 대상으로 조회한다.
+    // Club 을 조인해 동아리명을 함께 싣는다 — FeeBill·Club 모두 @SQLRestriction 으로 soft-delete·폐쇄 동아리는 자동 제외.
+    @Query("""
+            SELECT new com.duing.domain.fee.repository.FeeBillDueSoonRow(
+                       b.id, b.userId, b.clubId, c.name, b.billingPeriod, b.dueDate)
+            FROM FeeBill b JOIN Club c ON c.id = b.clubId
+            WHERE b.status IN (com.duing.domain.fee.entity.FeeStatus.PENDING,
+                               com.duing.domain.fee.entity.FeeStatus.PARTIAL_PAID)
+              AND b.dueDate IN :dueDates
+            ORDER BY b.id
+            """)
+    List<FeeBillDueSoonRow> findDueSoonUnpaidBills(@Param("dueDates") Collection<LocalDate> dueDates);
+
     // 연체 후보(마감 지난 미납·부분납부)를 FOR UPDATE 로 잠가 동시 납부 기록과 직렬화하고, 이번 실행의 전이 대상을 확정한다.
     @Query(value = """
             SELECT id, user_id, billing_period
