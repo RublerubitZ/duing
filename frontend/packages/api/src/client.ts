@@ -155,6 +155,11 @@ import type {
   SyncResult,
   SyncBankTransactionsPayload,
   BankMatchingOverview,
+  CashbookEntry,
+  CashbookSummary,
+  CashbookSearchParams,
+  CreateCashbookEntryPayload,
+  UpdateCashbookEntryPayload,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -520,6 +525,14 @@ export type DuingApiClient = {
         // POST /leader/clubs/{clubId}/bank-transactions/{txId}/unmatch — 매칭 해제(납부 무효화).
         unmatch(clubId: number, txId: number): Promise<void>;
       };
+    };
+    // === 금전출납부(cashbook) — 동아리 회계 장부(수입·지출) ===
+    cashbook: {
+      list(clubId: number, params: CashbookSearchParams): Promise<PageResponse<CashbookEntry>>;
+      summary(clubId: number, params: CashbookSearchParams): Promise<CashbookSummary>;
+      create(clubId: number, payload: CreateCashbookEntryPayload): Promise<number>;
+      update(clubId: number, entryId: number, payload: UpdateCashbookEntryPayload): Promise<void>;
+      remove(clubId: number, entryId: number): Promise<void>;
     };
   };
   my: {
@@ -1080,6 +1093,22 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           unmatch: (clubId, txId) =>
             jsonVoid(http.post(`leader/clubs/${clubId}/bank-transactions/${txId}/unmatch`)),
         },
+      },
+      cashbook: {
+        list: (clubId, params) =>
+          jsonOk<PageResponse<CashbookEntry>>(
+            http.get(`leader/clubs/${clubId}/cashbook`, { searchParams: cleanParams(params) }),
+          ),
+        summary: (clubId, params) =>
+          jsonOk<CashbookSummary>(
+            http.get(`leader/clubs/${clubId}/cashbook/summary`, { searchParams: cleanParams(params) }),
+          ),
+        create: (clubId, payload) =>
+          jsonOk<number>(http.post(`leader/clubs/${clubId}/cashbook`, { json: payload })),
+        update: (clubId, entryId, payload) =>
+          jsonVoid(http.patch(`leader/clubs/${clubId}/cashbook/${entryId}`, { json: payload })),
+        remove: (clubId, entryId) =>
+          jsonVoid(http.delete(`leader/clubs/${clubId}/cashbook/${entryId}`)),
       },
     },
     my: {
