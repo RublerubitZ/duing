@@ -6,14 +6,20 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import jakarta.annotation.PostConstruct;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 @Component
 @RequiredArgsConstructor
 public class JwtTokenProvider {
+
+    // HS256 은 RFC 7518 §3.2 상 해시 출력 크기(256비트=32바이트) 이상의 키를 요구한다.
+    // 더 짧은 키는 그만큼 보안 강도가 떨어지므로 기동 단계에서 막는다.
+    private static final int MIN_SECRET_BYTES = 32;
 
     @Value("${jwt.secret}")
     private String secret;
@@ -25,7 +31,22 @@ public class JwtTokenProvider {
     private JWTVerifier verifier;
 
     @PostConstruct
-    void init() {
+    private void init() {
+        // 설정에 키가 없으면 ${jwt.secret} placeholder 미해석으로 부팅 단계에서 먼저 막히지만,
+        // 빈 문자열이 주입되는 경우까지 여기서 명시적으로 잡아 원인을 분명히 한다.
+        if (!StringUtils.hasText(secret)) {
+            throw new IllegalStateException(
+                    "JWT 서명 키(jwt.secret)가 비어 있습니다. "
+                            + "JWT_SECRET 환경변수로 최소 32바이트(256비트) 키를 주입하세요.");
+        }
+        // HMAC256 은 키 문자열의 UTF-8 바이트를 그대로 사용하므로 바이트 길이로 검증한다.
+        int secretByteLength = secret.getBytes(StandardCharsets.UTF_8).length;
+        if (secretByteLength < MIN_SECRET_BYTES) {
+            throw new IllegalStateException(
+                    "JWT 서명 키(jwt.secret)는 최소 " + MIN_SECRET_BYTES
+                            + "바이트(256비트, HS256 권장)여야 합니다. 실제: " + secretByteLength
+                            + "바이트. JWT_SECRET 환경변수를 더 긴 값으로 교체하세요.");
+        }
         this.algorithm = Algorithm.HMAC256(secret);
         this.verifier = JWT.require(algorithm).build();
     }
