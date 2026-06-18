@@ -18,6 +18,8 @@
 #   LIGHTSAIL_SSH_PORT   (선택) SSH 포트, 기본 22
 #   DEPLOY_DIR           (선택) 서버 배포 디렉터리 절대경로, 기본 /home/ubuntu/duing
 # GHCR push/pull 은 워크플로 기본 GITHUB_TOKEN(packages 권한)으로 처리한다.
+# 패키지가 Private 이어도 동작한다 — 이 레포가 패키지를 발행하며 admin 권한을 자동 보유하기 때문.
+# 단, 서버에서의 *수동* pull 은 별도 classic PAT(read:packages) 로그인이 필요하다(deploy/README.md).
 #
 # 보안 메모: 서드파티 액션(appleboy/*)은 SSH 키를 다루므로, 공급망 강화를 원하면 태그 대신
 # 커밋 SHA 로 핀 고정하는 것을 권장한다. 배포 승인 게이트가 필요하면 GitHub 의
@@ -99,6 +101,14 @@ jobs:
           script: |
             set -euo pipefail
             cd "$DEPLOY_DIR"
+            # 임시 DOCKER_CONFIG 로 격리 로그인 — 서버에 상주하는 수동 pull 용 PAT 로그인
+            # (~/.docker/config.json)을 덮어쓰지 않는다. GITHUB_TOKEN 은 잡 종료 시 만료되므로
+            # 운영자 PAT 와 분리해 둬야 배포 후에도 수동 docker pull 이 깨지지 않는다.
+            export DOCKER_CONFIG="$(mktemp -d)"
+            trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+            # 기존 docker 설정(credHelpers·타 레지스트리 인증 등)은 보존하고 ghcr 로그인만 격리 사본에 덮어쓴다
+            # — caddy 등 비-GHCR 이미지 pull 이 영향받지 않게.
+            cp -a "${HOME}/.docker/config.json" "$DOCKER_CONFIG/config.json" 2>/dev/null || true
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
             # 롤백 대비: 현재 .env 에 적힌 이미지 태그를 보관한다.
