@@ -1,246 +1,124 @@
 import Link from 'next/link';
 import { toRoute } from '@/app/_lib/route';
+import { SparkleFull } from '@/components/duing/Sparkle';
+import { HeroParallax } from '../motion/HeroParallax';
 
-type HeroCategory = { emoji: string; label: string; selected: boolean };
+/** 모집 관리 미니 카드 — 콜라주 주 카드. */
+function RecruitCard() {
+  return (
+    <div className="rounded-lg border border-line bg-paper p-4 shadow-3">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
+          RECRUITING
+        </span>
+        <span className="pill pill-solid gap-1.5 text-[11px]">
+          <span className="h-1.5 w-1.5 rounded-full bg-sage" />
+          모집중
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <div
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-md font-mono text-base font-bold text-ink"
+          style={{ background: 'linear-gradient(135deg, #1F4A3622 0%, #1F4A3611 100%)' }}
+        >
+          {'{ }'}
+        </div>
+        <div>
+          <div className="text-[15px] font-bold leading-tight text-ink-deep">두잉코드 26기 모집</div>
+          <div className="mt-0.5 font-mono text-[11px] text-charcoal-3">지원자 24 · 마감 D-3</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-const HERO_CATEGORIES: ReadonlyArray<HeroCategory> = [
-  { emoji: '🎸', label: '음악', selected: true },
-  { emoji: '📊', label: '학술', selected: false },
-  { emoji: '🏀', label: '운동', selected: false },
-  { emoji: '💻', label: 'IT', selected: false },
-];
+/** 회비 현황 미니 카드. */
+function FeeCard() {
+  return (
+    <div className="rounded-lg border border-line bg-paper p-3.5 shadow-3">
+      <div className="mb-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
+        FEES · 6월 회비
+      </div>
+      <div className="flex items-end gap-2">
+        <span className="font-mono text-[26px] font-bold leading-none text-ink-deep">38</span>
+        <span className="pb-0.5 text-[12px] text-charcoal-3">/ 43명 납부</span>
+      </div>
+      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-sage-mist">
+        <div className="h-full rounded-full bg-ink" style={{ width: '88%' }} />
+      </div>
+    </div>
+  );
+}
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden px-8 pb-20 pt-14">
-      <div className="mx-auto grid max-w-[1180px] items-center gap-14 md:grid-cols-[1.05fr_0.95fr]">
-
-        {/* ── Text column ── */}
+    <section className="bg-grid relative overflow-hidden">
+      <div className="mx-auto grid max-w-layout items-center gap-10 px-4 pb-16 pt-12 sm:px-6 md:grid-cols-[1.05fr_0.95fr] md:gap-14 md:px-10 md:pb-24 md:pt-16">
+        {/* ── 텍스트 ── */}
         <div>
-          {/* Eyebrow */}
-          <div
-            className="mb-[22px] inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12.5px] font-medium"
-            style={{ background: '#e7ebd9', borderColor: '#cfd6b3', color: '#3e5b34' }}
-          >
-            <span
-              className="h-[7px] w-[7px] shrink-0 rounded-full animate-pulse-ring"
-              style={{ background: '#5b7e4d' }}
-            />
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-paper px-3 py-1.5 text-[12.5px] font-medium text-ink">
+            <span className="animate-pulse-ring h-[7px] w-[7px] shrink-0 rounded-full bg-sage" />
             대구대학교 동아리 플랫폼
           </div>
 
-          {/* Heading */}
           <h1
-            className="mb-[22px] font-bold leading-[1.04]"
-            style={{ fontSize: 'clamp(40px, 5.6vw, 64px)', letterSpacing: '-0.035em', color: '#2c4124' }}
+            className="mb-5"
+            style={{ fontSize: 'clamp(38px, 6vw, 66px)', lineHeight: 1.05, letterSpacing: '-0.035em' }}
           >
-            흩어져 있던 동아리,
+            동아리 운영, 이제
             <br />
-            <span className="relative inline-block" style={{ color: '#3e5b34' }}>
-              두잉
-              <span
-                className="absolute inset-x-0 bottom-1 -z-10 h-3 rounded-sm"
-                style={{ background: '#e7ebd9' }}
-              />
-            </span>
-            에 다 있어요.
+            <em className="border-b-[3px] border-sage pb-1 not-italic">두잉</em>으로.
           </h1>
 
-          {/* Lead */}
-          <p
-            className="mb-[14px] leading-[1.55]"
-            style={{ fontSize: '17.5px', color: '#4a5247', maxWidth: '480px' }}
-          >
-            탐색부터 지원, 동아리 운영까지.
+          <p className="mb-3 max-w-[480px] text-lg leading-[1.6] text-charcoal-2">
+            모집·공지·회비·멤버 관리까지.
             <br />
-            대구대학교 모든 동아리를 한 곳에서 만나요.
+            대구대학교 동아리 운영을 한 곳에서.
+          </p>
+          <p className="mb-7 text-[15px] text-charcoal-3">
+            탐색하고 지원하는 부원도, 운영하는 회장단도 두잉 하나로.
           </p>
 
-          {/* Sub */}
-          <p className="mb-8 text-[15px]" style={{ color: '#8a8f83' }}>
-            매 학기 업데이트되는 동아리 정보를 두잉에서 바로 확인하세요.
-          </p>
-
-          {/* CTA buttons */}
-          <div className="mb-[22px] flex flex-wrap gap-3">
-            <Link
-              href={toRoute('/clubs')}
-              className="inline-flex items-center gap-2 rounded-full px-5 py-[11px] text-sm font-semibold no-underline transition-colors"
-              style={{
-                background: '#3e5b34',
-                color: '#f6f1dd',
-                boxShadow: '0 1px 0 rgba(0,0,0,.04), 0 8px 20px rgba(62,91,52,.22)',
-              }}
-            >
-              동아리 둘러보기 →
+          <div className="mb-5 flex flex-wrap gap-3">
+            <Link href={toRoute('/clubs')} className="btn btn-primary rounded-full">
+              동아리 둘러보기
+              <span aria-hidden>→</span>
             </Link>
-            <Link
-              href={toRoute('/signup')}
-              className="inline-flex items-center gap-2 rounded-full border px-5 py-[11px] text-sm font-semibold no-underline transition-colors hover:bg-[rgba(62,91,52,.06)]"
-              style={{ background: 'transparent', color: '#2c4124', borderColor: '#d9d4c3' }}
-            >
-              우리 동아리 등록하기
+            <Link href={toRoute('/signup')} className="btn btn-secondary rounded-full">
+              우리 동아리 등록
             </Link>
           </div>
 
-          {/* Meta */}
-          <div className="inline-flex items-center gap-1.5 text-[12.5px]" style={{ color: '#8a8f83' }}>
-            <span
-              className="inline-flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
-              style={{ background: '#3e5b34', color: '#fbf6e6' }}
-            >
+          <div className="inline-flex items-center gap-1.5 text-[12.5px] text-charcoal-3">
+            <span className="grid h-[15px] w-[15px] shrink-0 place-items-center rounded-full bg-ink text-[9px] font-bold text-paper">
               ✓
             </span>
-            대구대 학생증 이메일로 30초 만에 가입
+            이메일 인증으로 30초 만에 가입
           </div>
         </div>
 
-        {/* ── Visual column ── */}
-        <div className="relative min-h-[560px]">
-
-          {/* Card 1: Choose interest */}
-          <div
-            className="animate-float-a absolute left-0 top-0 rounded-[18px] border p-[22px]"
-            style={{
-              width: '78%',
-              background: '#ffffff',
-              borderColor: '#d9d4c3',
-              boxShadow: '0 4px 16px rgba(47,58,46,.08), 0 24px 48px rgba(47,58,46,.08)',
-              zIndex: 1,
-            }}
-          >
+        {/* ── 비주얼 콜라주 ── */}
+        <HeroParallax className="relative">
+          <SparkleFull
+            size={40}
+            className="absolute -left-2 -top-3 z-10 opacity-60 md:left-4"
+            aria-hidden
+          />
+          <div className="relative mx-auto min-h-[300px] max-w-[420px] md:min-h-[420px]">
             <div
-              className="mb-4 inline-flex items-center gap-1.5 rounded-full px-[10px] py-[5px] font-mono text-[10.5px] font-semibold uppercase"
-              style={{ letterSpacing: '.14em', background: '#e7ebd9', color: '#3e5b34' }}
+              className="animate-float-a md:absolute md:left-0 md:top-2 md:w-[86%]"
+              style={{ transform: 'rotate(-2deg)' }}
             >
-              STEP 1 · 관심사 고르기
+              <RecruitCard />
             </div>
-            <h3
-              className="mb-4 text-[17px] font-bold leading-tight"
-              style={{ color: '#2c4124', letterSpacing: '-0.02em' }}
+            <div
+              className="animate-float-b mt-4 md:absolute md:right-0 md:top-[210px] md:mt-0 md:w-[72%]"
+              style={{ transform: 'rotate(2.5deg)' }}
             >
-              마음에 드는 분야부터
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-              {HERO_CATEGORIES.map((cat) => (
-                <div
-                  key={cat.label}
-                  className="relative rounded-[12px] px-2 pb-3 pt-[18px] text-center"
-                  style={
-                    cat.selected
-                      ? {
-                          background: 'linear-gradient(135deg, #e7ebd9, #f0f3dc)',
-                          border: '1.5px solid #3e5b34',
-                          transform: 'translateY(-3px)',
-                          boxShadow: '0 6px 18px rgba(62,91,52,.18)',
-                        }
-                      : { background: '#faf7ee', border: '1.5px solid #e6e1d2' }
-                  }
-                >
-                  {cat.selected && (
-                    <span
-                      className="absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold"
-                      style={{ background: '#3e5b34', color: '#fbf6e6' }}
-                    >
-                      ✓
-                    </span>
-                  )}
-                  <div className="mb-2 text-2xl leading-none">{cat.emoji}</div>
-                  <div
-                    className="text-[12px]"
-                    style={{
-                      color: cat.selected ? '#2c4124' : '#4a5247',
-                      fontWeight: cat.selected ? 700 : 500,
-                    }}
-                  >
-                    {cat.label}
-                  </div>
-                </div>
-              ))}
+              <FeeCard />
             </div>
           </div>
-
-          {/* Card 2: Application success */}
-          <div
-            className="animate-float-b absolute right-0 rounded-[18px] border p-[22px]"
-            style={{
-              top: '330px',
-              width: '78%',
-              background: '#ffffff',
-              borderColor: '#d9d4c3',
-              boxShadow: '0 4px 16px rgba(47,58,46,.08), 0 24px 48px rgba(47,58,46,.08)',
-              zIndex: 2,
-            }}
-          >
-            {/* Success header */}
-            <div className="mb-[14px] flex items-center gap-[10px]">
-              <span
-                className="animate-pop-in inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold"
-                style={{ background: '#3e5b34', color: '#fbf6e6', boxShadow: '0 0 0 5px rgba(91,126,77,.16)' }}
-              >
-                ✓
-              </span>
-              <span
-                className="text-[14.5px] font-bold"
-                style={{ color: '#2c4124', letterSpacing: '-0.01em' }}
-              >
-                트레몰로 지원이 완료됐어요
-              </span>
-            </div>
-
-            {/* Club line */}
-            <div
-              className="mb-3 flex items-center gap-3 rounded-[12px] border p-[12px]"
-              style={{ background: 'linear-gradient(135deg, #e7ebd9, #f0f3dc)', borderColor: '#d6dcb6' }}
-            >
-              <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border bg-white text-xl"
-                style={{ borderColor: '#d6dcb6' }}
-              >
-                🎸
-              </div>
-              <div>
-                <div className="text-[15px] font-bold leading-tight" style={{ color: '#2c4124' }}>
-                  트레몰로
-                </div>
-                <div
-                  className="mt-0.5 font-mono text-[11px]"
-                  style={{ letterSpacing: '.04em', color: '#4a6b3f' }}
-                >
-                  밴드 동아리 · 12명
-                </div>
-              </div>
-            </div>
-
-            {/* Ticket row */}
-            <div
-              className="flex items-center gap-3 rounded-[12px] border border-dashed p-3"
-              style={{ borderColor: '#cfd6b3', background: '#faf7ee' }}
-            >
-              <div
-                className="flex h-[52px] w-[46px] shrink-0 flex-col items-center justify-center rounded-[10px]"
-                style={{ background: '#2c4124', color: '#fbf6e6', boxShadow: '0 4px 12px rgba(44,65,36,.28)' }}
-              >
-                <span className="font-mono text-[10px] opacity-85" style={{ letterSpacing: '.1em' }}>
-                  NOV
-                </span>
-                <span className="text-[22px] font-extrabold leading-none">21</span>
-              </div>
-              <div>
-                <div
-                  className="font-mono text-[10.5px] uppercase"
-                  style={{ letterSpacing: '.08em', color: '#8a8f83' }}
-                >
-                  면접 일정
-                </div>
-                <div className="mt-0.5 text-[14.5px] font-bold" style={{ color: '#2a2f27' }}>
-                  토 · 오후 1:30
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
+        </HeroParallax>
       </div>
     </section>
   );
