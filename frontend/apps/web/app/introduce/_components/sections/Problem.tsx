@@ -1,23 +1,24 @@
+import { CalendarDays, Link2, type LucideIcon, Search } from 'lucide-react';
 import { FadeIn } from '@/components/motion/FadeIn';
 import { Stagger, StaggerItem } from '../motion/Stagger';
 
-type PainPoint = { emoji: string; title: string; desc: string };
+type PainPoint = { icon: LucideIcon; title: string; desc: string };
 
 const PAIN_POINTS: ReadonlyArray<PainPoint> = [
   {
-    emoji: '💬',
-    title: '공지는 카톡, 자료는 어디에',
-    desc: '카카오톡 공지는 금세 묻히고, 활동 자료는 단톡방·드라이브에 흩어져요.',
+    icon: Search,
+    title: '어떤 동아리가 있는지 몰라요',
+    desc: '에브리타임·인스타·과 단톡에 흩어진 정보를 일일이 찾아다녀야 했어요.',
   },
   {
-    emoji: '📊',
-    title: '회비는 엑셀로 손이 많이 가요',
-    desc: '입금 내역을 일일이 대조하고, 미납자는 따로 챙겨 연락해야 해요.',
+    icon: CalendarDays,
+    title: '모집 기간을 놓쳤어요',
+    desc: '공고가 올라온지도 모르고 지나가 버린 적이 한두 번이 아니에요.',
   },
   {
-    emoji: '📝',
-    title: '지원·면접 관리가 제각각',
-    desc: '구글폼으로 받고, 면접 시간은 댓글로 조율하고… 매번 처음부터예요.',
+    icon: Link2,
+    title: '지원 절차가 제각각이에요',
+    desc: '구글폼·인스타 DM·방문 신청… 동아리마다 매번 새로 알아봐야 했어요.',
   },
 ];
 
@@ -27,20 +28,20 @@ export function Problem() {
       <div className="mx-auto max-w-layout">
         <FadeIn>
           <p className="mb-4 font-mono text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
-            PROBLEM · 이런 적 있죠?
+            FOR STUDENTS · 동아리를 찾고 있나요?
           </p>
           <h2 className="mb-12 max-w-[760px]" style={{ fontSize: 'clamp(30px, 4vw, 44px)' }}>
-            동아리 운영, 흩어진 도구로
+            관심 가는 동아리,
             <br />
-            버티고 있지 않나요?
+            찾기 번거롭지 않았나요?
           </h2>
         </FadeIn>
 
         <Stagger className="mb-12 grid gap-4 md:grid-cols-3">
           {PAIN_POINTS.map((point) => (
             <StaggerItem key={point.title} className="card p-6 shadow-1">
-              <div className="mb-4 grid h-11 w-11 place-items-center rounded-md bg-sage-mist text-xl">
-                {point.emoji}
+              <div className="mb-4 grid h-11 w-11 place-items-center rounded-md bg-sage-mist text-ink">
+                <point.icon size={20} strokeWidth={1.75} aria-hidden />
               </div>
               <h3 className="mb-2 text-[16px]">{point.title}</h3>
               <p className="text-[13.5px] leading-[1.6] text-charcoal-2">{point.desc}</p>
@@ -53,7 +54,7 @@ export function Problem() {
             className="text-center font-display font-bold text-ink-deep"
             style={{ fontSize: 'clamp(24px, 3vw, 32px)', letterSpacing: '-0.02em' }}
           >
-            그래서 두잉이 하나로 모았어요.
+            두잉 하나면 충분합니다.
           </p>
         </FadeIn>
       </div>

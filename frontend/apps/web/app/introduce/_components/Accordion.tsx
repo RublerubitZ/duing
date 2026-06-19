@@ -6,8 +6,7 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import { useId, useState } from 'react';
-
-const EASE_DUING = [0.2, 0.7, 0.2, 1] as const;
+import { EASE_DUING } from './motion/constants';
 
 export type AccordionItemData = { question: string; answer: string };
 
@@ -50,8 +49,10 @@ function AccordionRow({ item, index, defaultOpen }: { item: AccordionItemData; i
       </button>
       <motion.div
         id={panelId}
-        role="region"
-        aria-labelledby={buttonId}
+        // 닫힌 패널은 시각적으로만 접히는 게 아니라 포커스·스크린리더에서도 빠지도록 inert + aria-hidden.
+        // FAQ 스케일에서 role="region" 랜드마크는 과도하므로 두지 않는다.
+        aria-hidden={!open}
+        inert={!open}
         initial={false}
         animate={{ height: open ? 'auto' : 0, opacity: open ? 1 : 0 }}
         transition={shouldReduce ? { duration: 0 } : { duration: 0.32, ease: EASE_DUING }}

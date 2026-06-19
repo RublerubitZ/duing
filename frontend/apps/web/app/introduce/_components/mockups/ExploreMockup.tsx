@@ -1,4 +1,5 @@
 import { promoClubs } from '../../_data';
+import { CategoryIcon } from '../CategoryIcon';
 
 const FILTER_CHIPS = ['전체', '학술', '음악', 'IT'] as const;
 
@@ -18,14 +19,15 @@ export function ExploreMockup() {
       <div className="grid grid-cols-2 gap-2.5">
         {clubs.map((club) => (
           <div key={club.id} className="flex items-center gap-3 rounded-md border border-line bg-cream p-3">
-            <div
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-md text-base"
+            <span
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-md"
               style={{
                 background: `linear-gradient(135deg, ${club.accent}22 0%, ${club.accent}11 100%)`,
+                color: club.accent,
               }}
             >
-              {club.avatar}
-            </div>
+              <CategoryIcon cat={club.cat} size={18} />
+            </span>
             <div className="min-w-0">
               <span className="pill mb-1 px-2 py-0.5 text-[10px]">{club.cat}</span>
               <div className="truncate text-[13.5px] font-bold leading-tight text-ink-deep">

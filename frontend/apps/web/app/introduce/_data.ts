@@ -11,18 +11,17 @@ export type PromoClub = {
   members: number;
   /** 카테고리 틴트용 액센트 hex (DESIGN.md 토큰값) */
   accent: string;
-  avatar: string;
 };
 
 export const promoClubs: ReadonlyArray<PromoClub> = [
-  { id: 'code', name: '두잉코드', cat: 'IT', members: 64, accent: '#1F4A36', avatar: '{ }' },
-  { id: 'stat', name: 'STAT 통계학회', cat: '학술', members: 48, accent: '#2E6149', avatar: '📊' },
-  { id: 'trem', name: '트레몰로', cat: '음악', members: 32, accent: '#B65672', avatar: '🎸' },
-  { id: 'rebd', name: '리바운드', cat: '운동', members: 56, accent: '#E8B968', avatar: '🏀' },
-  { id: 'cine', name: '씨네두잉', cat: '문화', members: 40, accent: '#6A95B8', avatar: '🎬' },
-  { id: 'tog', name: '함께해요', cat: '봉사', members: 38, accent: '#D97757', avatar: '🤝' },
-  { id: 'pix', name: '픽셀팩토리', cat: 'IT', members: 31, accent: '#1F4A36', avatar: '▣' },
-  { id: 'book', name: '북클럽 두잉', cat: '학술', members: 22, accent: '#2E6149', avatar: '📖' },
+  { id: 'code', name: '두잉코드', cat: 'IT', members: 64, accent: '#1F4A36' },
+  { id: 'stat', name: 'STAT 통계학회', cat: '학술', members: 48, accent: '#2E6149' },
+  { id: 'trem', name: '트레몰로', cat: '음악', members: 32, accent: '#B65672' },
+  { id: 'rebd', name: '리바운드', cat: '운동', members: 56, accent: '#E8B968' },
+  { id: 'cine', name: '씨네두잉', cat: '문화', members: 40, accent: '#6A95B8' },
+  { id: 'tog', name: '함께해요', cat: '봉사', members: 38, accent: '#D97757' },
+  { id: 'pix', name: '픽셀팩토리', cat: 'IT', members: 31, accent: '#1F4A36' },
+  { id: 'book', name: '북클럽 두잉', cat: '학술', members: 22, accent: '#2E6149' },
 ];
 
 export type PromoApplicantStatus = '검토중' | '면접확정' | '합격';

@@ -1,7 +1,6 @@
-import { Check } from '@/components/duing/Icon';
+import { Check } from 'lucide-react';
 import { FadeIn } from '@/components/motion/FadeIn';
 import { Reveal } from '../motion/Reveal';
-import { Stagger, StaggerItem } from '../motion/Stagger';
 
 type OldTool = { tool: string; task: string; tilt: string };
 
@@ -25,7 +24,7 @@ export function BeforeAfter() {
       <div className="mx-auto max-w-layout">
         <FadeIn>
           <p className="mb-4 font-mono text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
-            BEFORE · AFTER
+            FOR LEADERS · 동아리를 운영한다면
           </p>
           <h2 className="mb-3 max-w-[820px]" style={{ fontSize: 'clamp(28px, 3.8vw, 44px)' }}>
             공지는 카카오톡, 지원서는 구글폼,
@@ -42,19 +41,18 @@ export function BeforeAfter() {
           <Reveal x={-28}>
             <div className="rounded-lg border border-line bg-graysoft/60 p-6 md:p-7">
               <span className="pill pill-outline mb-5">기존 방식</span>
-              <Stagger className="flex flex-col gap-2.5" gap={0.07}>
+              <div className="flex flex-col gap-2.5">
                 {OLD_WAY.map((item) => (
-                  <StaggerItem key={item.tool}>
-                    <div
-                      className="flex items-center justify-between rounded-md border border-dashed border-line bg-paper/70 px-3.5 py-3"
-                      style={{ transform: `rotate(${item.tilt})` }}
-                    >
-                      <span className="text-[14px] font-semibold text-charcoal-2">{item.tool}</span>
-                      <span className="font-mono text-[11.5px] text-charcoal-3">{item.task}</span>
-                    </div>
-                  </StaggerItem>
+                  <div
+                    key={item.tool}
+                    className="flex items-center justify-between rounded-md border border-dashed border-line bg-paper/70 px-3.5 py-3"
+                    style={{ transform: `rotate(${item.tilt})` }}
+                  >
+                    <span className="text-[14px] font-semibold text-charcoal-2">{item.tool}</span>
+                    <span className="font-mono text-[11.5px] text-charcoal-3">{item.task}</span>
+                  </div>
                 ))}
-              </Stagger>
+              </div>
             </div>
           </Reveal>
 
@@ -78,7 +76,7 @@ export function BeforeAfter() {
                 {NEW_WAY.map((item) => (
                   <li key={item} className="flex items-center gap-2.5 text-[14.5px] font-medium text-ink-deep">
                     <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-sage-mist text-ink">
-                      <Check size={12} />
+                      <Check size={12} strokeWidth={2.5} aria-hidden />
                     </span>
                     {item}
                   </li>
