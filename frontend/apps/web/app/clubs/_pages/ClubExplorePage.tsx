@@ -213,7 +213,7 @@ export function ClubExplorePage() {
             {(
               [
                 { key: '전체', hint: '모든 동아리' },
-                { key: '중앙', hint: '학생자치회 5개 분과' },
+                { key: '중앙', hint: '5개 분과' },
                 { key: '학과', hint: '학과 · 단과대 산하' },
               ] as const
             ).map((segment) => {

@@ -245,15 +245,6 @@ function LoginForm() {
           {/* Footer links */}
           <div className="mt-6 space-y-2 text-center text-sm text-charcoal-2">
             <p>
-              학생자치회 운영자이신가요?{' '}
-              <Link
-                href="/manage"
-                className="font-medium text-charcoal transition-colors hover:text-ink"
-              >
-                콘솔 로그인 →
-              </Link>
-            </p>
-            <p>
               아직 두잉이 처음이세요?{' '}
               <Link
                 href="/signup"
