@@ -114,6 +114,30 @@ describe('MyFeeList', () => {
     expect(within(row).queryByText('남은', { exact: false })).not.toBeInTheDocument();
   });
 
+  it('상단 통합 요약에 총 미납액과 미납 건수를 표시한다', () => {
+    mockUseMyFeesQuery.mockReturnValue({
+      data: [
+        buildFee({ id: 1, clubId: 10, amount: 10000, remainingAmount: 10000, status: 'PENDING', dueDate: '2026-09-30' }),
+        buildFee({
+          id: 2,
+          clubId: 20,
+          amount: 50000,
+          paidAmount: 20000,
+          remainingAmount: 30000,
+          status: 'PARTIAL_PAID',
+          dueDate: '2026-08-31',
+        }),
+      ],
+      isLoading: false,
+    });
+    mockUseMyClubsQuery.mockReturnValue({ data: [buildClub(10, '두잉 코딩'), buildClub(20, '두잉 밴드')] });
+    render(<MyFeeList />);
+
+    expect(screen.getByText('미납 회비')).toBeInTheDocument();
+    expect(screen.getByText('40,000원')).toBeInTheDocument(); // 10,000 + 30,000
+    expect(screen.getByText(/미납 2건/)).toBeInTheDocument();
+  });
+
   it('가입한 동아리명으로 청구를 그룹화한다', () => {
     mockUseMyFeesQuery.mockReturnValue({
       data: [
