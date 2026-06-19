@@ -65,7 +65,16 @@ export function HomeFooter() {
               운영자 가이드
             </Link>
           </li>
-          <li>문의하기</li>
+          <li>
+            <a
+              href="https://open.kakao.com/o/s6JruOzi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={linkClass}
+            >
+              문의하기
+            </a>
+          </li>
         </FooterColumn>
 
         <FooterColumn title="문의">
