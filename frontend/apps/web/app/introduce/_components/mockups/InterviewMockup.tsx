@@ -1,12 +1,13 @@
 import { promoInterviewSlots } from '../../_data';
 
 // 가능시간 격자 — 지원자들이 응답한 슬롯을 흉내낸 정적 히트맵.
-const AVAILABILITY: ReadonlyArray<ReadonlyArray<number>> = [
-  [2, 3, 1, 0],
-  [1, 3, 3, 2],
-  [0, 2, 3, 1],
-];
+// 열(금/토/일) 3개에 맞춰 각 행도 3칸이다.
 const SLOT_LABELS = ['금', '토', '일'] as const;
+const AVAILABILITY: ReadonlyArray<ReadonlyArray<number>> = [
+  [2, 3, 1],
+  [1, 3, 3],
+  [0, 2, 3],
+];
 
 function slotTint(level: number): string {
   if (level >= 3) return 'var(--ink)';
@@ -20,9 +21,9 @@ export function InterviewMockup() {
   return (
     <div className="rounded-lg border border-line bg-paper p-4 shadow-2">
       <div className="mb-3.5 flex items-center justify-between">
-        <h4 className="font-mono text-[11.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
+        <p className="font-mono text-[11.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
           INTERVIEW · 1라운드
-        </h4>
+        </p>
         <span className="pill pill-solid gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-sage" />
           자동 배정 완료
@@ -46,7 +47,7 @@ export function InterviewMockup() {
             <div className="flex gap-2 pl-2">
               {row.map((level, colIdx) => (
                 <span
-                  key={`${SLOT_LABELS[rowIdx]}-${SLOT_LABELS[colIdx]}`}
+                  key={`cell-${rowIdx}-${colIdx}`}
                   className="h-7 w-7 rounded-sm"
                   style={{ background: slotTint(level) }}
                 />

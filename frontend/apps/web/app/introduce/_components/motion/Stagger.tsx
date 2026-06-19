@@ -27,7 +27,10 @@ export function Stagger({ children, className, gap = 0.06 }: StaggerProps) {
       animate={shouldReduce ? 'show' : undefined}
       whileInView={shouldReduce ? undefined : 'show'}
       viewport={{ once: true, margin: '0px 0px -10% 0px' }}
-      variants={{ show: { transition: { staggerChildren: shouldReduce ? 0 : gap } } }}
+      variants={{
+        hidden: {},
+        show: { transition: { staggerChildren: shouldReduce ? 0 : gap } },
+      }}
     >
       {children}
     </motion.div>

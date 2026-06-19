@@ -74,6 +74,7 @@ export type PromoFeeMatch = {
   matched: boolean;
 };
 
+// 마지막 항목은 입금자명이 마스킹돼(박**) 부원과 자동 매칭되지 않는 "확인 필요" 상태를 시연한다.
 export const promoFeeMatches: ReadonlyArray<PromoFeeMatch> = [
   { id: 'f1', payer: '김도윤', member: '김도윤', amount: 30000, matched: true },
   { id: 'f2', payer: '이서연', member: '이서연', amount: 30000, matched: true },

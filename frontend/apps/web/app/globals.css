@@ -429,6 +429,20 @@ body {
   animation: blink-cursor 1s steps(2) infinite;
 }
 
+/* 접근성: OS '동작 줄이기' 설정 시 무한 반복되는 장식 애니메이션을 멈춘다.
+   framer-motion 은 MotionConfig reducedMotion="user" 로 이미 처리되지만,
+   CSS 키프레임 유틸리티는 별도 가드가 없으면 계속 재생되므로 여기서 함께 끈다. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-a,
+  .animate-float-b,
+  .animate-pulse-ring,
+  .animate-blink-cursor,
+  .animate-bell-sway,
+  .animate-badge-pulse {
+    animation: none;
+  }
+}
+
 /* ===== Introduce — Feature scroll-reveal ===== */
 .feature-text-left {
   opacity: 0;

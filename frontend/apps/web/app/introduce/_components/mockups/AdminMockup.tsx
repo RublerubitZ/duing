@@ -20,7 +20,7 @@ export function AdminMockup() {
             <div className="flex h-16 w-full items-end">
               <div
                 className="w-full rounded-sm bg-ink"
-                style={{ height: `${Math.round((stage.value / maxFunnel) * 100)}%` }}
+                style={{ height: `${Math.max(8, Math.round((stage.value / maxFunnel) * 100))}%` }}
               />
             </div>
             <span className="text-[10.5px] text-charcoal-3">{stage.label}</span>

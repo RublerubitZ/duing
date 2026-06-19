@@ -27,9 +27,9 @@ export function FeesMockup() {
         ))}
       </div>
 
-      <h4 className="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
+      <p className="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
         은행 입금 자동매칭
-      </h4>
+      </p>
       <div className="overflow-hidden rounded-md border border-line">
         {promoFeeMatches.map((row, idx) => (
           <div

@@ -15,7 +15,7 @@ export function Cta() {
             aria-hidden
           />
           <h2
-            className="mb-3.5 text-paper"
+            className="mb-3.5"
             style={{ fontSize: 'clamp(32px, 4.4vw, 50px)', color: '#F6F3EC' }}
           >
             동아리 운영을
