@@ -13,7 +13,7 @@ const EFFECTIVE_DATE = '2026-06-19';
 const OPERATOR = '두잉(Duing) 운영팀';
 const CONTACT_EMAIL = 'duing.official@gmail.com';
 const PRIVACY_OFFICER = '구승율';
-const PRIVACY_OFFICER_TITLE = '두잉 운영팀 대표';
+const PRIVACY_OFFICER_TITLE = '팀장';
 // 회원 탈퇴 시 개인정보 파기 잡(PII Retention)의 실제 보관기간과 일치시킨다.
 const RETENTION_PERIOD = '탈퇴 후 45일';
 
