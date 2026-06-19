@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { FadeIn } from '@/components/motion/FadeIn';
 import { ExploreMockup } from '../mockups/ExploreMockup';
-import { ApplyMockup } from '../mockups/ApplyMockup';
 import { InterviewMockup } from '../mockups/InterviewMockup';
 import { FeesMockup } from '../mockups/FeesMockup';
 import { AdminMockup } from '../mockups/AdminMockup';
