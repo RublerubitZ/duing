@@ -39,7 +39,7 @@ export default async function LoginPage() {
             반가워요
           </h2>
           <p className="text-sm leading-relaxed text-cream/55">
-            대구대학교 학생자치회 공식 동아리 플랫폼.
+            대구대학교 동아리 플랫폼.
             <br />
             {totalCount}개 동아리 · {recruitingCount}곳 이번 학기 모집 중.
           </p>

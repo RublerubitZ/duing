@@ -1,25 +1,41 @@
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
-
+/* 폰트 self-host(/public/fonts) — CDN·OS 폴백 의존을 없애 OS(맥·윈도)별 렌더 차이를 제거한다.
+   Pretendard(본문)·JetBrains Mono(숫자/모노)는 가변 폰트 1개로 전 weight 를 커버하고,
+   GmarketSans(디스플레이)는 3 weight 를 직접 호스팅한다.
+   tailwind fontFamily 와 .duing CSS 변수는 이 family 이름들을 그대로 참조한다. */
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/PretendardVariable.woff2') format('woff2');
+}
 @font-face {
   font-family: 'GmarketSans';
   font-weight: 300;
   font-style: normal;
   font-display: swap;
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansLight.woff') format('woff');
+  src: url('/fonts/GmarketSansLight.woff') format('woff');
 }
 @font-face {
   font-family: 'GmarketSans';
   font-weight: 500;
   font-style: normal;
   font-display: swap;
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff') format('woff');
+  src: url('/fonts/GmarketSansMedium.woff') format('woff');
 }
 @font-face {
   font-family: 'GmarketSans';
   font-weight: 700;
   font-style: normal;
   font-display: swap;
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansBold.woff') format('woff');
+  src: url('/fonts/GmarketSansBold.woff') format('woff');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/JetBrainsMono-Variable.woff2') format('woff2');
 }
 
 @tailwind base;

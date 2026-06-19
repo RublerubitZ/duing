@@ -12,6 +12,8 @@ import { useToast } from '@/app/_components/toast/ToastProvider';
 import { bankLabel, feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
 import { toRoute } from '@/app/_lib/route';
 
+import { MyFeeSummary } from './MyFeeSummary';
+
 // 상태별 뱃지 색. 운영진 청구 현황(BillList)과 동일한 팔레트를 사용한다.
 const STATUS_BADGE_CLS: Record<FeeStatus, string> = {
   PENDING: 'bg-warm/15 text-charcoal',
@@ -81,6 +83,7 @@ export function MyFeeList() {
 
   return (
     <div className="space-y-6">
+      <MyFeeSummary fees={myFees} today={new Date()} />
       {groups.map((group) => (
         <ClubFeeGroup key={group.clubId} group={group} />
       ))}

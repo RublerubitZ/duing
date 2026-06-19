@@ -184,9 +184,12 @@ export function useLeaveClubMutation(clubId: number) {
   return useMutation({
     mutationFn: () => client.clubs.leaveClub(clubId),
     onSuccess: () => {
-      // 떠난 동아리는 managed 목록에서 빠져야 한다.
+      // 떠난 동아리는 멤버·관리 목록과 마이페이지의 내 동아리 목록에서 빠져야 한다.
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.members(clubId) });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.managed() });
+      queryClient.invalidateQueries({ queryKey: userQueryKeys.myClubs() });
+      // 회원 전용 뷰가 멤버십 여부에 따라 달라지므로 해당 동아리 상세도 갱신한다.
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
     },
   });
 }

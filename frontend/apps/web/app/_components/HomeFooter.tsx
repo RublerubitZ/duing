@@ -14,7 +14,9 @@ export function HomeFooter() {
             탐색부터 운영까지, 두잉 하나로.
           </p>
           <div className="mt-5 border-t border-line pt-4 text-[12px] leading-relaxed text-charcoal-3">
-            <div>이용약관 및 개인정보 처리방침</div>
+            <Link href="/terms" className="hover:text-ink">
+              이용약관 및 개인정보 처리방침
+            </Link>
             <div className="mt-1.5">
               문의사항 :{' '}
               <a href="mailto:duing.official@gmail.com" className="hover:text-ink">
@@ -32,8 +34,6 @@ export function HomeFooter() {
         <div>
           <BrandMark size={28} />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-charcoal-2">
-            대구대학교 학생자치회 공식 동아리 플랫폼.
-            <br />
             탐색부터 운영까지, 두잉 하나로.
           </p>
         </div>
@@ -67,19 +67,35 @@ export function HomeFooter() {
               운영자 가이드
             </Link>
           </li>
-          <li>문의하기</li>
+          <li>
+            <a
+              href="https://open.kakao.com/o/s6JruOzi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={linkClass}
+            >
+              문의하기
+            </a>
+          </li>
         </FooterColumn>
 
         <FooterColumn title="문의">
-          <li>help@duing.daegu.ac.kr</li>
-          <li>대구대 학생자치회</li>
+          <li>
+            <a href="mailto:duing.official@gmail.com" className={linkClass}>
+              duing.official@gmail.com
+            </a>
+          </li>
         </FooterColumn>
       </div>
       <div className="max-w-layout mx-auto mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6 text-xs text-charcoal-3">
-        <div>© 2026 Duing · 대구대학교 학생자치회</div>
+        <div>© DUING · All Rights Reserved</div>
         <div className="flex gap-5">
-          <span>이용약관</span>
-          <span>개인정보 처리방침</span>
+          <Link href="/terms#terms" className={linkClass}>
+            이용약관
+          </Link>
+          <Link href="/terms#privacy" className={linkClass}>
+            개인정보 처리방침
+          </Link>
         </div>
       </div>
       </footer>

@@ -76,7 +76,7 @@ export async function HomeHero() {
 
           {/* 본문 카피 — 모바일에선 숨겨 히어로를 압축(#2·#6), 데스크탑만 노출 */}
           <p className="mb-9 hidden max-w-[500px] text-lg leading-[1.6] text-charcoal-2 md:block">
-            대구대학교 학생자치회 공식 동아리 플랫폼.
+            대구대학교 동아리 플랫폼.
             <br />
             {totalCount}개 동아리가 지금도{' '}
             <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">

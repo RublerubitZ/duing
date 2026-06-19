@@ -7,7 +7,7 @@ const FAQ_ITEMS: ReadonlyArray<FaqItem> = [
   },
   {
     question: '동아리 운영자는 어떻게 등록하나요?',
-    answer: '회장단이 동아리 등록 신청서를 작성하면, 학생자치회 검토 후 2영업일 내 승인됩니다.',
+    answer: '회장단이 동아리 등록 신청서를 작성하면, 운영자 검토 후 승인됩니다.',
   },
   {
     question: '지원 비용이 드나요?',
