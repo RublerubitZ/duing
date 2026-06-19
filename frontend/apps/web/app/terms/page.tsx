@@ -37,7 +37,6 @@ export default function TermsPage() {
 
         <div className="mt-5 rounded-lg border border-warm/40 bg-warm/10 px-4 py-3 text-[13px] leading-relaxed text-charcoal-2">
           두잉은 <strong className="font-semibold text-ink">대구대학교 학생들이 운영하는 서비스</strong>입니다.
-          게시 전 운영팀이 사실관계를 최종 확인합니다.
         </div>
 
         <nav className="mt-6 flex flex-wrap gap-2 text-[13px]">
@@ -205,7 +204,7 @@ export default function TermsPage() {
               items={[
                 'Amazon Web Services(AWS) — 서버 인프라(Lightsail, 서울 리전) 운영·호스팅',
                 'Supabase — 데이터베이스 호스팅 및 관리(한국 리전)',
-                'Cloudflare — 업로드 파일 저장(R2, 한국 리전) 및 콘텐츠 전송(CDN)·보안',
+                'Cloudflare — 업로드 파일 저장(R2) 및 콘텐츠 전송(CDN)·보안',
                 'Vercel — 웹 프런트엔드 호스팅·렌더링',
                 'Resend — 인증·알림 이메일 발송',
               ]}
@@ -213,18 +212,15 @@ export default function TermsPage() {
           </Article>
 
           <Article title="6. 개인정보의 국외 이전">
-            AWS(서울)·Supabase·Cloudflare R2는 국내(한국) 리전에서 처리되어 국외 이전에 해당하지 않습니다. 다만 아래
-            사업자는 국외에 서버를 두고 있어 일부 개인정보가 국외로 이전됩니다. 이전 일시 및 방법은 서비스 이용 시점에
-            정보통신망을 통한 전송입니다.
+            AWS 및 Supabase는 운영자가 선택한 한국 리전에서 처리됩니다. 다만 Cloudflare R2는 글로벌 인프라를 기반으로
+            운영될 수 있으며, 기술적 처리 과정에서 국외 서버를 경유할 수 있습니다. 아래 사업자는 국외에 서버를 두고 있어
+            일부 개인정보가 국외로 이전되며, 이전 일시 및 방법은 서비스 이용 시점에 정보통신망을 통한 전송입니다.
             <List
               items={[
-                'Vercel Inc. / 국가: 미국 / 이전 항목: 서비스 이용 과정의 요청·접속 정보 / 이전 목적: 웹 호스팅·렌더링 / 보유·이용기간: 위탁계약 종료 시까지',
-                'Resend / 국가: 미국 / 이전 항목: 이메일 주소 / 이전 목적: 인증·알림 이메일 발송 / 보유·이용기간: 발송 목적 달성 시까지',
+                'Vercel Inc. / 이전 항목: IP 주소, 브라우저 정보, 접속 로그, 서비스 이용 기록 등 서비스 제공 과정에서 생성되는 정보 / 이전 목적: 웹 호스팅·렌더링 / 보유·이용기간: 위탁계약 종료 시까지',
+                'Resend / 이전 항목: 이메일 주소, 이메일 발송에 필요한 메시지 정보 / 이전 목적: 인증·알림 이메일 발송 / 보유·이용기간: 발송 및 장애 대응을 위한 기간 동안 보관 후 삭제되며, 구체적인 기간은 Resend의 정책에 따릅니다',
               ]}
             />
-            <p className="mt-2 text-[12.5px] text-charcoal-3">
-              각 사업자의 보유기간은 해당 사업자의 정책을 따르며, 운영팀이 게시 전 최종 확인합니다.
-            </p>
           </Article>
 
           <Article title="7. 정보주체의 권리·의무 및 행사방법">
