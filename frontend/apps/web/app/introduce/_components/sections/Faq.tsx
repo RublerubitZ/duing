@@ -1,8 +1,7 @@
 import { FadeIn } from '@/components/motion/FadeIn';
+import { Accordion, type AccordionItemData } from '../Accordion';
 
-type FaqItem = { question: string; answer: string };
-
-const FAQ_ITEMS: ReadonlyArray<FaqItem> = [
+const FAQ_ITEMS: ReadonlyArray<AccordionItemData> = [
   {
     question: '누구나 가입할 수 있나요?',
     answer: '대구대학교 재학생·휴학생 누구나 가입할 수 있어요. 이메일 인증을 거쳐 30초면 가입돼요.',
@@ -45,32 +44,7 @@ export function Faq() {
         </FadeIn>
 
         <FadeIn>
-          <div className="flex flex-col gap-3">
-            {FAQ_ITEMS.map((item, idx) => (
-              <details
-                key={item.question}
-                open={idx === 0}
-                className="group card px-5 py-4 transition hover:shadow-2 md:px-6 md:py-5"
-              >
-                <summary className="flex cursor-pointer list-none items-center gap-3.5">
-                  <span className="shrink-0 font-mono text-[12px] font-semibold tracking-[0.12em] text-ink">
-                    Q.{String(idx + 1).padStart(2, '0')}
-                  </span>
-                  <span className="flex-1 text-[15px] font-bold text-ink-deep">{item.question}</span>
-                  <span
-                    className="relative grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink text-paper transition-colors group-open:bg-ink-deep"
-                    aria-hidden
-                  >
-                    <span className="absolute h-[2px] w-[11px] rounded-[2px] bg-paper transition-opacity group-open:opacity-0" />
-                    <span className="absolute h-[11px] w-[2px] rounded-[2px] bg-paper transition-transform group-open:rotate-90 group-open:opacity-0" />
-                  </span>
-                </summary>
-                <div className="mt-3.5 border-t border-dashed border-line pt-3.5 text-[14px] leading-[1.65] text-charcoal-2">
-                  {item.answer}
-                </div>
-              </details>
-            ))}
-          </div>
+          <Accordion items={FAQ_ITEMS} />
         </FadeIn>
       </div>
     </section>

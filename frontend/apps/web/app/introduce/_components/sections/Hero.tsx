@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { toRoute } from '@/app/_lib/route';
 import { SparkleFull } from '@/components/duing/Sparkle';
+import { HeroBackdrop } from '../motion/HeroBackdrop';
 import { HeroParallax } from '../motion/HeroParallax';
 
 /** 모집 관리 미니 카드 — 콜라주 주 카드. */
@@ -53,9 +54,10 @@ function FeeCard() {
 export function Hero() {
   return (
     <section className="bg-grid relative overflow-hidden">
-      <div className="mx-auto grid max-w-layout items-center gap-10 px-4 pb-16 pt-12 sm:px-6 md:grid-cols-[1.05fr_0.95fr] md:gap-14 md:px-10 md:pb-24 md:pt-16">
-        {/* ── 텍스트 ── */}
-        <div>
+      <HeroBackdrop />
+      <div className="relative z-10 mx-auto grid max-w-layout items-center gap-10 px-4 pb-16 pt-12 sm:px-6 md:grid-cols-[1.05fr_0.95fr] md:gap-14 md:px-10 md:pb-24 md:pt-16">
+        {/* ── 텍스트 (은은한 패럴랙스) ── */}
+        <HeroParallax y={[0, -16]} scale={[1, 1]}>
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-paper px-3 py-1.5 text-[12.5px] font-medium text-ink">
             <span className="animate-pulse-ring h-[7px] w-[7px] shrink-0 rounded-full bg-sage" />
             대구대학교 동아리 플랫폼
@@ -95,7 +97,7 @@ export function Hero() {
             </span>
             이메일 인증으로 30초 만에 가입
           </div>
-        </div>
+        </HeroParallax>
 
         {/* ── 비주얼 콜라주 ── */}
         <HeroParallax className="relative">

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { FadeIn } from '@/components/motion/FadeIn';
+import { Reveal } from '../motion/Reveal';
 import { ExploreMockup } from '../mockups/ExploreMockup';
 import { InterviewMockup } from '../mockups/InterviewMockup';
 import { FeesMockup } from '../mockups/FeesMockup';
@@ -33,21 +34,22 @@ type FeatureBlockProps = {
 
 function FeatureBlock({ index, label, title, desc, items, visual, reverse }: FeatureBlockProps) {
   return (
-    <FadeIn>
-      <div className="grid items-center gap-10 border-b border-dashed border-line py-12 last:border-b-0 md:grid-cols-2 md:gap-16 md:py-16">
-        <div className={reverse ? 'md:order-2' : undefined}>
-          <p className="mb-3.5 font-mono text-[11.5px] font-semibold uppercase tracking-[0.2em] text-ink">
-            {index} · {label}
-          </p>
-          <h3 className="mb-4" style={{ fontSize: 'clamp(26px, 3.2vw, 36px)' }}>
-            {title}
-          </h3>
-          <p className="mb-6 text-[15.5px] leading-[1.6] text-charcoal-2">{desc}</p>
-          <CheckList items={items} />
-        </div>
-        <div className={reverse ? 'md:order-1' : undefined}>{visual}</div>
-      </div>
-    </FadeIn>
+    <div className="grid items-center gap-10 border-b border-dashed border-line py-12 last:border-b-0 md:grid-cols-2 md:gap-16 md:py-16">
+      {/* 텍스트는 자기 쪽에서, 비주얼은 반대쪽에서 슬라이드 진입 — 좌우 교차 리듬 강화 */}
+      <Reveal x={reverse ? 40 : -40} y={0} className={reverse ? 'md:order-2' : undefined}>
+        <p className="mb-3.5 font-mono text-[11.5px] font-semibold uppercase tracking-[0.2em] text-ink">
+          {index} · {label}
+        </p>
+        <h3 className="mb-4" style={{ fontSize: 'clamp(26px, 3.2vw, 36px)' }}>
+          {title}
+        </h3>
+        <p className="mb-6 text-[15.5px] leading-[1.6] text-charcoal-2">{desc}</p>
+        <CheckList items={items} />
+      </Reveal>
+      <Reveal x={reverse ? -40 : 40} y={0} delay={0.08} className={reverse ? 'md:order-1' : undefined}>
+        {visual}
+      </Reveal>
+    </div>
   );
 }
 
