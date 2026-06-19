@@ -26,7 +26,7 @@ export function Hero() {
               className="h-[7px] w-[7px] shrink-0 rounded-full animate-pulse-ring"
               style={{ background: '#5b7e4d' }}
             />
-            대구대학교 학생자치회 공식 동아리 플랫폼
+            대구대학교 동아리 플랫폼
           </div>
 
           {/* Heading */}

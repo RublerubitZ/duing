@@ -3,7 +3,7 @@ type FooterColumn = { title: string; items: ReadonlyArray<string> };
 const FOOTER_COLUMNS: ReadonlyArray<FooterColumn> = [
   { title: '서비스', items: ['동아리 탐색', '캘린더', '공지', 'FAQ'] },
   { title: '운영자', items: ['우리 동아리 등록', '운영자 가이드', '문의하기'] },
-  { title: '문의', items: ['help@duing.daegu.ac.kr', '대구대 학생자치회'] },
+  { title: '문의', items: ['duing.official@gmail.com'] },
 ];
 
 export function PromoFooter() {
@@ -20,8 +20,6 @@ export function PromoFooter() {
               Du<span style={{ color: '#5b7e4d' }}>·</span>ing
             </div>
             <p className="max-w-[220px] leading-relaxed" style={{ color: 'rgba(243,239,228,.6)' }}>
-              대구대학교 학생자치회 공식 동아리 플랫폼.
-              <br />
               탐색부터 운영까지, 두잉 하나로.
             </p>
           </div>
@@ -40,7 +38,7 @@ export function PromoFooter() {
                   {col.items.map((item) => (
                     <li key={item}>
                       <a
-                        href="#"
+                        href={item.includes('@') ? `mailto:${item}` : '#'}
                         className="no-underline transition-colors hover:text-[#f6f1dd]"
                         style={{ color: 'rgba(243,239,228,.55)' }}
                       >
@@ -59,7 +57,7 @@ export function PromoFooter() {
           className="mt-8 border-t pt-[18px] text-center text-[12px]"
           style={{ borderColor: '#34402f', color: 'rgba(243,239,228,.4)' }}
         >
-          © 2026 Duing · 대구대학교 학생자치회 &nbsp;·&nbsp; 이용약관 &nbsp;·&nbsp; 개인정보 처리방침
+          © DUING · All Rights Reserved &nbsp;·&nbsp; 이용약관 &nbsp;·&nbsp; 개인정보 처리방침
         </div>
       </div>
     </footer>

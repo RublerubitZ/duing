@@ -24,7 +24,7 @@ export function LeaderCta() {
             우리 동아리도 두잉에 등록하고 싶어요
           </h2>
           <p className="max-w-[580px] text-[15.5px] leading-[1.55] text-ink-deep/70">
-            지원자 관리 · 공지 발송 · 회비 정산까지. 학생자치회 검토 후 2영업일 내 승인됩니다.
+            지원자 관리 · 공지 발송 · 회비 정산까지. 운영자 검토 후 승인됩니다.
           </p>
         </div>
         <div className="flex flex-col gap-2">

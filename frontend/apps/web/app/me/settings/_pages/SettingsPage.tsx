@@ -239,7 +239,7 @@ export function SettingsPage() {
           <p className="text-[12px] text-charcoal-3 text-center py-4 leading-relaxed">
             두잉 v2.4.0 · 마지막 업데이트 2026.05.26
             <br />
-            문의: support@duing.daegu.ac.kr
+            문의: duing.official@gmail.com
           </p>
         </div>
       </section>
