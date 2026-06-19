@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 type FooterColumn = { title: string; items: ReadonlyArray<string> };
 
 const FOOTER_COLUMNS: ReadonlyArray<FooterColumn> = [
@@ -57,7 +59,14 @@ export function PromoFooter() {
           className="mt-8 border-t pt-[18px] text-center text-[12px]"
           style={{ borderColor: '#34402f', color: 'rgba(243,239,228,.4)' }}
         >
-          © DUING · All Rights Reserved &nbsp;·&nbsp; 이용약관 &nbsp;·&nbsp; 개인정보 처리방침
+          © DUING · All Rights Reserved &nbsp;·&nbsp;{' '}
+          <Link href="/terms#terms" className="transition-colors hover:text-[#f6f1dd]">
+            이용약관
+          </Link>{' '}
+          &nbsp;·&nbsp;{' '}
+          <Link href="/terms#privacy" className="transition-colors hover:text-[#f6f1dd]">
+            개인정보 처리방침
+          </Link>
         </div>
       </div>
     </footer>

@@ -14,7 +14,9 @@ export function HomeFooter() {
             탐색부터 운영까지, 두잉 하나로.
           </p>
           <div className="mt-5 border-t border-line pt-4 text-[12px] leading-relaxed text-charcoal-3">
-            <div>이용약관 및 개인정보 처리방침</div>
+            <Link href="/terms" className="hover:text-ink">
+              이용약관 및 개인정보 처리방침
+            </Link>
             <div className="mt-1.5">
               문의사항 :{' '}
               <a href="mailto:duing.official@gmail.com" className="hover:text-ink">
@@ -88,8 +90,12 @@ export function HomeFooter() {
       <div className="max-w-layout mx-auto mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6 text-xs text-charcoal-3">
         <div>© DUING · All Rights Reserved</div>
         <div className="flex gap-5">
-          <span>이용약관</span>
-          <span>개인정보 처리방침</span>
+          <Link href="/terms#terms" className={linkClass}>
+            이용약관
+          </Link>
+          <Link href="/terms#privacy" className={linkClass}>
+            개인정보 처리방침
+          </Link>
         </div>
       </div>
       </footer>
