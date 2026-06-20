@@ -39,9 +39,16 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
     private final FeeBillRepository feeBillRepository;
     private final PaymentRepository paymentRepository;
     private final ClubAuthService clubAuthService;
+    private final BankMatchingAdminService bankMatchingAdminService;
     private final MatchedPaymentService matchedPaymentService;
     private final FeeBillStatusCalculator statusCalculator;
     private final Clock clock;
+
+    @Override
+    public boolean isMatchingEnabled(Long clubId, Long actorId) {
+        clubAuthService.requireManager(actorId, clubId);
+        return bankMatchingAdminService.isActiveUsable(clubId);
+    }
 
     @Override
     public Page<BankTransactionView> list(Long clubId, Long actorId, MatchStatus status, Pageable pageable) {

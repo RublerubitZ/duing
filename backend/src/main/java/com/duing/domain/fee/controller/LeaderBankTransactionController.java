@@ -3,6 +3,7 @@ package com.duing.domain.fee.controller;
 import com.duing.domain.fee.api.LeaderBankTransactionApi;
 import com.duing.domain.fee.controller.dto.request.ApproveMatchRequest;
 import com.duing.domain.fee.controller.dto.request.SyncBankTransactionsRequest;
+import com.duing.domain.fee.controller.dto.response.BankMatchingStatusResponse;
 import com.duing.domain.fee.controller.dto.response.BankTransactionResponse;
 import com.duing.domain.fee.controller.dto.response.SyncResultResponse;
 import com.duing.domain.fee.entity.MatchStatus;
@@ -32,6 +33,15 @@ public class LeaderBankTransactionController implements LeaderBankTransactionApi
 
     private final BankTransactionSyncService bankTransactionSyncService;
     private final BankTransactionReviewService bankTransactionReviewService;
+
+    @Override
+    public ResponseEntity<ApiResponse<BankMatchingStatusResponse>> matchingStatus(
+            @PathVariable Long clubId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        boolean enabled = bankTransactionReviewService.isMatchingEnabled(clubId, currentUser.id());
+        return ResponseEntity.ok(ApiResponse.success(BankMatchingStatusResponse.of(enabled)));
+    }
 
     @Override
     public ResponseEntity<ApiResponse<SyncResultResponse>> sync(

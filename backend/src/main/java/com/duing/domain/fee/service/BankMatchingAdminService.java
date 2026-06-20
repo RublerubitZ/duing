@@ -26,6 +26,13 @@ public interface BankMatchingAdminService {
     BankMatchingOverview getMatchingClubs();
 
     /**
+     * 자동매칭이 실제로 동작 가능한 상태(설정이 active && api_registered 이고 계좌 은행이 지원 대상)인지 반환한다.
+     * 예외를 던지지 않는 판정 메서드로, 동기화 가드({@link #requireActiveUsable})와 운영진의 사용 가능 여부
+     * 조회가 동일한 기준을 공유하도록 단일 진실 소스 역할을 한다.
+     */
+    boolean isActiveUsable(Long clubId);
+
+    /**
      * 자동매칭이 실제로 동작 가능한지 검증한다. 설정이 사용 가능(active && api_registered) 상태가 아니거나
      * 계좌 은행이 지원 대상이 아니면 예외를 던진다. 다른 도메인(BE-4 청구 매칭·BE-6 정산)에서 재사용한다.
      */

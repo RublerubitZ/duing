@@ -116,14 +116,24 @@ public class GeneralBankMatchingAdminService implements BankMatchingAdminService
     }
 
     @Override
-    public void requireActiveUsable(Long clubId) {
-        BankMatchingSetting setting = bankMatchingSettingRepository.findByClubId(clubId)
-                .orElseThrow(BankMatchingException.BankMatchingNotEnabledException::new);
-        boolean bankEligible = feeAccountRepository.findByClubId(clubId)
+    public boolean isActiveUsable(Long clubId) {
+        // 설정이 사용 불가하면 계좌 적격성은 볼 필요가 없다 — 기존 requireActiveUsable 의 평가 순서(설정 → 계좌)와
+        // 동치를 유지하면서, 설정 미존재/미사용 시 불필요한 계좌 조회를 피하도록 단락 평가한다.
+        boolean settingUsable = bankMatchingSettingRepository.findByClubId(clubId)
+                .map(BankMatchingSetting::isUsable)
+                .orElse(false);
+        if (!settingUsable) {
+            return false;
+        }
+        return feeAccountRepository.findByClubId(clubId)
                 .map(FeeAccount::getBank)
                 .map(bankCodeMapper::isEligible)
                 .orElse(false);
-        if (!setting.isUsable() || !bankEligible) {
+    }
+
+    @Override
+    public void requireActiveUsable(Long clubId) {
+        if (!isActiveUsable(clubId)) {
             throw new BankMatchingException.BankMatchingNotEnabledException();
         }
     }
