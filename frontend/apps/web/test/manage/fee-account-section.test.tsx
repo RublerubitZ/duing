@@ -195,7 +195,7 @@ describe('FeeAccountSection', () => {
 
     expect(within(dialog).getByText(/자동매칭이 활성화된 계좌입니다/)).toBeInTheDocument();
     expect(within(dialog).getByText(/자동매칭 계좌 및 동아리 연동이 끊기고/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/재등록을 원하실 경우 운영진 문의가 필요합니다/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/재등록을 원하실 경우 총동연/)).toBeInTheDocument();
   });
 
   it('자동매칭이 비활성(enabled=false)이면 삭제 모달에 기본 안내만 노출한다', async () => {
