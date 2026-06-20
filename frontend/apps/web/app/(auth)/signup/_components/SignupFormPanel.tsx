@@ -266,6 +266,7 @@ export function SignupFormPanel() {
                   학년
                 </label>
                 <GradeSelect
+                  id="signup-grade"
                   value={state.grade}
                   onChange={(grade: Grade) => setField('grade', grade)}
                 />

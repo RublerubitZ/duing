@@ -106,8 +106,8 @@ export function ProfileEditDialog({ open, onClose, currentName, currentPhone, cu
             />
           </label>
           <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-semibold text-charcoal-2">학년</span>
-            <GradeSelect value={grade} onChange={setGrade} />
+            <label htmlFor="profile-grade" className="text-[13px] font-semibold text-charcoal-2">학년</label>
+            <GradeSelect id="profile-grade" value={grade} onChange={setGrade} />
           </div>
           {error && <p className="text-[12.5px] text-coral">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">

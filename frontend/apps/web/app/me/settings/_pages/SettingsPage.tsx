@@ -143,6 +143,7 @@ export function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setProfileOpen(true)}
+                  disabled={!user}
                   className="btn btn-ghost btn-sm"
                 >
                   수정

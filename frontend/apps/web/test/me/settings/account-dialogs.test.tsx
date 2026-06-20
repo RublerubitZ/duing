@@ -107,10 +107,10 @@ describe('ProfileEditDialog', () => {
   });
 
   it('학년 셀렉트가 렌더되고, 학년을 변경하면 PATCH 페이로드에 grade가 포함된다', async () => {
-    let capturedBody: Record<string, unknown> | null = null;
+    let capturedBody: unknown = null;
     server.use(
       http.patch(`${BASE}/users/me`, async ({ request }) => {
-        capturedBody = await request.json() as Record<string, unknown>;
+        capturedBody = await request.json();
         return ok204();
       }),
     );
