@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 import { ApiError } from '@duing/api';
 import {
+  useClubBankMatchingStatusQuery,
   useClubFeeAccountQuery,
   useDeleteFeeAccountMutation,
   useUpsertFeeAccountMutation,
@@ -28,6 +29,9 @@ const errorInputCls = 'border-coral focus-visible:border-coral focus-visible:rin
 
 export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
   const { data: account, isLoading, error } = useClubFeeAccountQuery(clubId);
+  // 자동매칭 사용 가능 여부 — 삭제 모달에서 "삭제 시 자동매칭도 해제됨" 경고 노출 판단에 쓴다.
+  const { data: matchingStatus } = useClubBankMatchingStatusQuery(clubId);
+  const bankMatchingActive = matchingStatus?.enabled === true;
   const upsertAccount = useUpsertFeeAccountMutation(clubId);
   const { addToast } = useToast();
   const [isDeleteOpen, setDeleteOpen] = useState(false);
@@ -203,6 +207,7 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
       {isDeleteOpen && account && (
         <DeleteFeeAccountConfirm
           clubId={clubId}
+          bankMatchingActive={bankMatchingActive}
           onClose={() => setDeleteOpen(false)}
           onDeleted={() => reset({ bank: BANKS[0], accountNumber: '', accountHolder: '' })}
         />
@@ -213,11 +218,17 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
 
 type DeleteFeeAccountConfirmProps = {
   clubId: number;
+  bankMatchingActive: boolean;
   onClose: () => void;
   onDeleted: () => void;
 };
 
-function DeleteFeeAccountConfirm({ clubId, onClose, onDeleted }: DeleteFeeAccountConfirmProps) {
+function DeleteFeeAccountConfirm({
+  clubId,
+  bankMatchingActive,
+  onClose,
+  onDeleted,
+}: DeleteFeeAccountConfirmProps) {
   const deleteAccount = useDeleteFeeAccountMutation(clubId);
   const { addToast } = useToast();
 
@@ -243,12 +254,23 @@ function DeleteFeeAccountConfirm({ clubId, onClose, onDeleted }: DeleteFeeAccoun
         role="alertdialog"
         aria-modal="true"
         aria-label="회비 계좌 삭제 확인"
+        aria-describedby="delete-account-desc"
         className="w-full max-w-sm rounded-xl bg-paper p-5 shadow-3"
       >
         <h2 className="text-base font-bold text-ink">회비 계좌 삭제</h2>
-        <p className="mt-2 text-sm text-charcoal-2">
-          등록된 회비 계좌를 삭제할까요? 동아리원이 더 이상 입금 계좌를 확인할 수 없습니다.
-        </p>
+        {bankMatchingActive ? (
+          <p
+            id="delete-account-desc"
+            className="mt-2 rounded-md border border-coral/30 bg-coral/5 px-3 py-2 text-sm text-coral"
+          >
+            현재 자동매칭이 활성화된 계좌입니다. 삭제하면 자동매칭 계좌 및 동아리 연동이 끊기고 이후 입금 내역
+            자동 조회가 중단됩니다. 재등록을 원하실 경우 총동연(관리자) 문의가 필요합니다. 정말 삭제하시겠습니까?
+          </p>
+        ) : (
+          <p id="delete-account-desc" className="mt-2 text-sm text-charcoal-2">
+            등록된 회비 계좌를 삭제할까요? 동아리원이 더 이상 입금 계좌를 확인할 수 없습니다.
+          </p>
+        )}
         <div className="mt-4 flex gap-2">
           <button
             type="button"

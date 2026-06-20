@@ -251,6 +251,36 @@ class BankTransactionSyncTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("저장된 회비 계좌를 복호화할 수 없으면 동기화가 422 로 닫히고 BANK API 조회에 도달하지 않는다")
+    void undecryptableAccountReturnsUnprocessable() {
+        // 적격 은행 + 사용 가능 설정을 갖췄지만, 계좌 암호문이 다른 clubId 의 AAD 로 만들어져 복호화가 실패하는 상태.
+        Club club = clubRepository.save(ClubFixture.academic("복호화실패동아리"));
+        Long clubId = club.getId();
+        String plaintextAccount = "352-1234-5678-90";
+        // FeeAccountCipher 는 clubId 를 AES-GCM 의 AAD 로 바인딩한다 — 다른 clubId 로 암호화하면 복호화 시
+        // GCM 태그 인증이 실패(IllegalStateException)해 실제 "복호화 불가" 상태를 재현한다.
+        String mismatchedCiphertext = feeAccountCipher.encrypt(plaintextAccount, clubId + 1000L);
+        feeAccountRepository.save(FeeAccount.create(clubId, Bank.NH, mismatchedCiphertext, "동아리회비"));
+        BankMatchingSetting setting = BankMatchingSetting.of(clubId);
+        setting.activate();
+        bankMatchingSettingRepository.save(setting);
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+
+        String errorBody = syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.UNPROCESSABLE_ENTITY.value())
+                .extract().asString();
+
+        // 복호화 실패는 BANK API 조회 전에 차단된다.
+        assertThat(stubBankApiClient.capturedLookup).isNull();
+        // 고정된 도메인 메시지만 반환된다 — 스택·cause 가 응답으로 새지 않는다.
+        assertThat(errorBody).contains("회비 계좌 복호화에 실패했습니다");
+        // 평문 계좌번호도, 인증정보(계좌 비번·주민번호)도 응답에 새지 않는다.
+        assertThat(errorBody).doesNotContain(plaintextAccount);
+        assertThat(errorBody).doesNotContain(ACCOUNT_PASSWORD);
+        assertThat(errorBody).doesNotContain(RESIDENT_NUMBER);
+    }
+
+    @Test
     @DisplayName("운영진이 아닌 일반 회원은 거래 동기화를 요청할 수 없다")
     void nonManagerForbidden() {
         Club club = saveEnabledClub("권한동아리");

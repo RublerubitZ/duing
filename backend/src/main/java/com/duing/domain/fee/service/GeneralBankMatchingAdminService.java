@@ -9,6 +9,8 @@ import com.duing.domain.fee.repository.BankMatchingSettingRepository;
 import com.duing.domain.fee.repository.FeeAccountRepository;
 import com.duing.domain.fee.service.dto.query.BankMatchingClubResult;
 import com.duing.domain.fee.service.dto.query.BankMatchingOverview;
+import com.duing.domain.fee.support.AccountNumberMasker;
+import com.duing.domain.fee.support.BankAccountAuditEvent;
 import com.duing.domain.fee.support.BankCodeMapper;
 import com.duing.global.bank.BankApiClient;
 import com.duing.global.bank.dto.AccountSlotStatus;
@@ -20,6 +22,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 엔티티 변이가 실행되지 않으므로, DB 상태와 BANK API 상태가 어긋나는(state drift) 일이 없다.
  * 절대 "DB 먼저 변경 → API 호출" 순서로 뒤집지 않는다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -41,6 +45,7 @@ public class GeneralBankMatchingAdminService implements BankMatchingAdminService
     private final ClubRepository clubRepository;
     private final BankApiClient bankApiClient;
     private final BankCodeMapper bankCodeMapper;
+    private final AccountNumberMasker accountNumberMasker;
     private final FeeAccountCipher feeAccountCipher;
 
     @Override
@@ -65,9 +70,51 @@ public class GeneralBankMatchingAdminService implements BankMatchingAdminService
         if (active) {
             bankApiClient.registerAccount(bankCode, accountNumber);     // ① 외부 등록(실패 시 예외 → 아래 DB 반영 안 됨)
             setting.activate();                                         // ② 성공 시에만 DB
+            log.info("bankAccountAudit event={} clubId={}",
+                    BankAccountAuditEvent.BANK_ACCOUNT_REGISTERED, clubId);
         } else {
             bankApiClient.deleteAccount(bankCode, accountNumber);       // ① 외부 해제
             setting.deactivate();                                      // ②
+            log.info("bankAccountAudit event={} clubId={}",
+                    BankAccountAuditEvent.BANK_ACCOUNT_UNREGISTERED, clubId);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void unregisterForAccountRemoval(Long clubId) {
+        BankMatchingSetting setting = bankMatchingSettingRepository.findByClubId(clubId).orElse(null);
+        if (setting == null) {
+            return; // 자동매칭 설정 흔적이 없으면 외부에 정리할 등록도 없다.
+        }
+        // 외부 해제는 best-effort — 복호화 실패·BANK API 장애를 흡수하고 계좌 삭제를 막지 않는다.
+        FeeAccount account = feeAccountRepository.findByClubId(clubId).orElse(null);
+        boolean externalCleared = false;
+        if (account != null) {
+            try {
+                String bankCode = bankCodeMapper.toApiCode(account.getBank());
+                String accountNumber = feeAccountCipher.decrypt(account.getAccountNumber(), clubId);
+                // 등록/해제 같은 경량 BANK 호출은 setActive 와 동일하게 트랜잭션 내에서 수행한다
+                // (느린 거래 조회만 트랜잭션 밖으로 빼는 정책 — 이 단건 해제는 경량·저빈도라 예외).
+                bankApiClient.deleteAccount(bankCode, accountNumber); // 멱등 — 미등록 계좌에도 안전
+                externalCleared = true;
+            } catch (RuntimeException externalFailure) {
+                log.warn("bankAccountAudit event={} clubId={} errorCode={}",
+                        BankAccountAuditEvent.BANK_ACCOUNT_UNREGISTER_FAILED, clubId,
+                        externalFailure.getClass().getSimpleName());
+            }
+        } else {
+            log.warn("bankAccountAudit event={} clubId={} errorCode={}",
+                    BankAccountAuditEvent.BANK_ACCOUNT_UNREGISTER_FAILED, clubId, "ACCOUNT_MISSING");
+        }
+        setting.deactivate();
+        bankMatchingSettingRepository.save(setting); // 비활성 영속을 코드에 명시(dirty checking 의존 X)
+        if (externalCleared) {
+            log.info("bankAccountAudit event={} clubId={}",
+                    BankAccountAuditEvent.BANK_ACCOUNT_UNREGISTERED, clubId);
+        } else {
+            log.warn("bankAccountAudit event={} clubId={}",
+                    BankAccountAuditEvent.BANK_ACCOUNT_FORCE_DEACTIVATED, clubId);
         }
     }
 
@@ -107,23 +154,53 @@ public class GeneralBankMatchingAdminService implements BankMatchingAdminService
         boolean registered = Optional.ofNullable(settingsByClubId.get(account.getClubId()))
                 .map(BankMatchingSetting::isUsable)
                 .orElse(false);
+        String maskedAccountNumber = resolveMaskedAccountNumber(account);
         return new BankMatchingClubResult(
                 account.getClubId(),
                 clubNamesById.get(account.getClubId()),
+                account.getBank(),
+                account.getAccountHolder(),
+                maskedAccountNumber,
                 eligible,
                 ineligibleReason,
                 registered);
     }
 
+    /**
+     * 계좌번호를 복호화해 끝 4자리만 마스킹한다. 복호화 실패(키 회전·AAD 불일치·암호문 손상)는 그 행만
+     * 비우도록 null 을 반환하고 경고 로그를 남긴다 — 페이지 전체를 죽이지 않는 graceful degrade.
+     * 평문·암호문·키는 절대 로깅하지 않는다(clubId·원인만 남긴다).
+     */
+    private String resolveMaskedAccountNumber(FeeAccount account) {
+        try {
+            return accountNumberMasker.mask(
+                    feeAccountCipher.decrypt(account.getAccountNumber(), account.getClubId()));
+        } catch (IllegalArgumentException | IllegalStateException decryptFailure) {
+            log.warn("bank-matching overview 계좌 복호화 실패 — 해당 행 마스킹 생략: clubId={}",
+                    account.getClubId(), decryptFailure);
+            return null;
+        }
+    }
+
     @Override
-    public void requireActiveUsable(Long clubId) {
-        BankMatchingSetting setting = bankMatchingSettingRepository.findByClubId(clubId)
-                .orElseThrow(BankMatchingException.BankMatchingNotEnabledException::new);
-        boolean bankEligible = feeAccountRepository.findByClubId(clubId)
+    public boolean isActiveUsable(Long clubId) {
+        // 설정이 사용 불가하면 계좌 적격성은 볼 필요가 없다 — 기존 requireActiveUsable 의 평가 순서(설정 → 계좌)와
+        // 동치를 유지하면서, 설정 미존재/미사용 시 불필요한 계좌 조회를 피하도록 단락 평가한다.
+        boolean settingUsable = bankMatchingSettingRepository.findByClubId(clubId)
+                .map(BankMatchingSetting::isUsable)
+                .orElse(false);
+        if (!settingUsable) {
+            return false;
+        }
+        return feeAccountRepository.findByClubId(clubId)
                 .map(FeeAccount::getBank)
                 .map(bankCodeMapper::isEligible)
                 .orElse(false);
-        if (!setting.isUsable() || !bankEligible) {
+    }
+
+    @Override
+    public void requireActiveUsable(Long clubId) {
+        if (!isActiveUsable(clubId)) {
             throw new BankMatchingException.BankMatchingNotEnabledException();
         }
     }

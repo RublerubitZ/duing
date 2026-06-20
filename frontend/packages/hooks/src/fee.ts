@@ -11,6 +11,7 @@ import type {
   UpdateFeePolicyPayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
+import { bankQueryKeys } from './bankQueryKeys';
 import { feeQueryKeys } from './feeQueryKeys';
 
 // 계좌 미등록은 404(FeeAccountNotFoundException) 로 내려온다 — 정상적인 "빈 상태"이므로 재시도하지 않고
@@ -166,8 +167,11 @@ export function useUpsertFeeAccountMutation(clubId: number) {
   return useMutation({
     mutationFn: (payload: FeeAccountPayload) => client.leader.fees.account.upsert(clubId, payload),
     // 운영진/동아리원 조회 모두 무효화한다(같은 계좌를 다른 엔드포인트로 본다).
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: feeQueryKeys.accountByClub(clubId) }),
+    // 계좌 은행이 BANK 자동매칭 사용 가능 여부(enabled)의 입력이므로 거래 탭 게이트도 함께 무효화한다.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: feeQueryKeys.accountByClub(clubId) });
+      queryClient.invalidateQueries({ queryKey: bankQueryKeys.matchingStatus(clubId) });
+    },
   });
 }
 
@@ -176,8 +180,11 @@ export function useDeleteFeeAccountMutation(clubId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => client.leader.fees.account.remove(clubId),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: feeQueryKeys.accountByClub(clubId) }),
+    // 계좌 삭제는 BANK 자동매칭 사용 가능 여부(enabled)를 false 로 바꿀 수 있어 거래 탭 게이트도 함께 무효화한다.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: feeQueryKeys.accountByClub(clubId) });
+      queryClient.invalidateQueries({ queryKey: bankQueryKeys.matchingStatus(clubId) });
+    },
   });
 }
 

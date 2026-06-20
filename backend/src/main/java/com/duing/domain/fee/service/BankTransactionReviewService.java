@@ -11,6 +11,12 @@ import org.springframework.data.domain.Pageable;
  */
 public interface BankTransactionReviewService {
 
+    /**
+     * 운영진이 자기 동아리의 BANK 자동매칭(거래 동기화) 사용 가능 여부를 조회한다.
+     * 동기화 가드와 동일한 기준으로 판정해, 프론트가 거래 동기화 노출 여부를 사전에 결정할 수 있게 한다.
+     */
+    boolean isMatchingEnabled(Long clubId, Long actorId);
+
     /** 거래를 상태별로 페이지 조회한다. PENDING 입금에는 잔액=입금액 후보 청구를 동봉한다. */
     Page<BankTransactionView> list(Long clubId, Long actorId, MatchStatus status, Pageable pageable);
 

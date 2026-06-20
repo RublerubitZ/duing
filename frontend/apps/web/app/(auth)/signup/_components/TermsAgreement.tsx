@@ -77,6 +77,8 @@ function ConsentRow({ checked, onChange, label, href }: ConsentRowProps) {
       </label>
       <Link
         href={href}
+        target="_blank"
+        rel="noopener noreferrer"
         className="shrink-0 text-xs text-charcoal-2 underline underline-offset-2 hover:text-charcoal"
       >
         보기

@@ -30,4 +30,12 @@ public final class UserFixture {
                 "u" + seq + "@duing.ac.kr", "h", UserRole.STUDENT,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now());
     }
+
+    /** ADMIN 역할 User 를 생성한다(학번·이메일은 유일). 어드민 권한 통합 테스트용. */
+    public static User admin() {
+        long seq = SEQUENCE.incrementAndGet();
+        return User.create("20" + seq, "관리자" + seq,
+                "admin" + seq + "@duing.ac.kr", "h", UserRole.ADMIN,
+                Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now());
+    }
 }
