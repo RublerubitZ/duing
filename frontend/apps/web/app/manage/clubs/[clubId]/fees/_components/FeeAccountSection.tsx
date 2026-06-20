@@ -263,8 +263,8 @@ function DeleteFeeAccountConfirm({
             id="delete-account-desc"
             className="mt-2 rounded-md border border-coral/30 bg-coral/5 px-3 py-2 text-sm text-coral"
           >
-            현재 자동매칭이 활성화된 계좌입니다. 계좌를 삭제하면 자동매칭도 함께 해제되며, 이후 입금 내역
-            자동 조회가 중단됩니다. 정말 삭제하시겠습니까?
+            현재 자동매칭이 활성화된 계좌입니다. 삭제하면 자동매칭 계좌 및 동아리 연동이 끊기고 이후 입금 내역
+            자동 조회가 중단됩니다. 재등록을 원하실 경우 운영진 문의가 필요합니다. 정말 삭제하시겠습니까?
           </p>
         ) : (
           <p id="delete-account-desc" className="mt-2 text-sm text-charcoal-2">
