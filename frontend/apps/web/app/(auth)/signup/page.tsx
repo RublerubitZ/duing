@@ -74,7 +74,7 @@ export default async function SignupPage() {
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide16 text-sage-soft">
             JOIN DUING
           </p>
-          <h2 className="mb-4 text-[2.5rem] font-bold leading-tight tracking-tightx text-paper">
+          <h2 className="mb-4 text-[2.5rem] font-bold leading-tight tracking-tightx text-white">
             30초 만에
             <br />
             두잉 시작
