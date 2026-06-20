@@ -7,6 +7,7 @@ import { useAdminBankMatchingQuery, useSetBankMatchingMutation } from '@duing/ho
 import type { BankMatchingClub, BankMatchingSlots } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { bankLabel } from '@/app/_lib/feeLabels';
 
 function mutationErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError || error instanceof Error) {
@@ -138,8 +139,11 @@ function BankMatchingClubRow({ club, slots }: BankMatchingClubRowProps) {
     <li className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-ink">{club.clubName}</p>
+        <p className="mt-0.5 truncate text-xs text-charcoal-2">
+          {bankLabel(club.bank)} · {club.accountHolder} · {club.maskedAccountNumber ?? '계좌 확인 불가'}
+        </p>
         <p className="mt-0.5 text-xs text-charcoal-3">
-          {club.registered ? '등록됨' : '미등록'}
+          {club.registered ? '자동매칭 활성' : '자동매칭 비활성'}
           {!club.eligible && club.ineligibleReason && (
             <span className="text-charcoal-3"> · {club.ineligibleReason}</span>
           )}

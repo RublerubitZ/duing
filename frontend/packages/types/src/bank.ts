@@ -1,6 +1,8 @@
 // BANK 매칭(bank) 도메인 타입 — 백엔드 fee 도메인의 BANK 거래/매칭 컨트롤러 응답/요청 DTO 와 1:1 매핑.
 // 페이지(PageResponse<T>)는 ./api 의 것을 재사용한다.
 
+import type { Bank } from './fee';
+
 // MatchStatus enum 미러. 검토 큐 거래 1건의 매칭 상태.
 //   PENDING        — 미검토(매칭 후보 candidates 가 채워짐)
 //   AUTO_MATCHED   — 동기화 시 자동 매칭됨
@@ -57,9 +59,13 @@ export type SyncBankTransactionsPayload = {
 
 // BankMatchingClubResponse 미러. ADMIN BANK 자동매칭 관리 화면의 동아리 한 행.
 // eligible=false 면 ineligibleReason 에 사유가 담기고, true 면 null 이다.
+// maskedAccountNumber 는 끝 4자리만 노출한 마스킹 문자열이며, 복호화 실패 시 null 이다.
 export type BankMatchingClub = {
   clubId: number;
   clubName: string;
+  bank: Bank;
+  accountHolder: string;
+  maskedAccountNumber: string | null;
   eligible: boolean;
   ineligibleReason: string | null;
   registered: boolean;
