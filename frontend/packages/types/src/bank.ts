@@ -79,6 +79,13 @@ export type BankMatchingOverview = {
   slots: BankMatchingSlots | null;
 };
 
+// GET /leader/clubs/{clubId}/bank-matching 응답(BankMatchingStatusResponse 미러).
+// enabled=true 면 거래 동기화를 사용할 수 있는 상태(자동매칭 설정 사용 가능 + 지원 은행 계좌)이고,
+// false 면 미사용 상태다. 거래 탭은 이 값으로 동기화 노출 여부를 사전에 결정한다(동기화를 눌러야 알게 되지 않도록).
+export type BankMatchingStatus = {
+  enabled: boolean;
+};
+
 // GET /leader/clubs/{clubId}/bank-transactions 의 동적 필터 + 페이지네이션 쿼리.
 // status 미지정 시 백엔드는 PENDING 으로 기본 동작한다.
 export type BankTransactionSearchParams = {
