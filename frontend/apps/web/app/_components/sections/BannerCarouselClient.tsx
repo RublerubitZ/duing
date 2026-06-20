@@ -173,8 +173,14 @@ export function BannerCarouselClient({ slides }: Props) {
             )}
           </div>
 
-          {/* 보조 배너 프리뷰 — md 미만 숨김(모바일은 메인만), md~xl 하단 2-up, xl 우측 세로 1열 */}
-          <div className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-1">
+          {/* 보조 배너 프리뷰 — md 미만 숨김(모바일은 메인만), md~xl 하단 2-up, xl 우측 세로 1열.
+              프리뷰가 1장뿐(전체 2슬라이드)일 땐 md~xl 에서 빈 셀이 생기지 않게 1열로 전환. */}
+          <div
+            className={cn(
+              'hidden gap-3 md:grid xl:grid-cols-1',
+              previewSlides.length > 1 ? 'md:grid-cols-2' : 'md:grid-cols-1',
+            )}
+          >
             {previewSlides.map((slide, idx) => {
               const previewProps = {
                 slide,
