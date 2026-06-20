@@ -19,15 +19,16 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@duing/stores', () => ({
   useAuthStore: (selector: (state: { status: string }) => unknown) => mockUseAuthStore(selector),
 }));
 vi.mock('@duing/hooks', () => ({
   useUnreadCountQuery: () => mockUnreadCount(),
-  useNotificationListQuery: () => ({ data: { pages: [{ content: [] }] } }),
-  useNotificationSourceAwareReadMutation: () => ({ mutate: vi.fn() }),
-  useNotificationReadAllMutation: () => ({ mutate: vi.fn() }),
+}));
+// 트리거 로직만 검증하기 위해 패널 본체는 가벼운 더미로 대체한다(별도 테스트에서 실물 검증).
+vi.mock('../../app/_components/NotificationSheet', () => ({
+  NotificationSheet: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog" aria-label="알림 패널" /> : null,
 }));
 
 import { NotificationBell } from '../../app/_components/NotificationBell';
@@ -38,7 +39,7 @@ function setStatus(status: string) {
   );
 }
 
-describe('NotificationBell — 모바일/데스크탑 분기', () => {
+describe('NotificationBell — 태블릿·모바일/데스크탑 분기', () => {
   beforeEach(() => {
     mockUnreadCount.mockReturnValue({ data: { count: 3 } });
   });
@@ -49,30 +50,31 @@ describe('NotificationBell — 모바일/데스크탑 분기', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('모바일 트리거는 전체 알림 페이지(/notifications)로 가는 링크이고 md:hidden 이다', () => {
+  it('lg 미만 트리거는 전체 알림 페이지(/notifications)로 가는 링크이고 lg:hidden 이다', () => {
     setStatus('authenticated');
     render(<NotificationBell />);
 
-    const mobileTrigger = screen.getByRole('link', { name: /알림 3개/ });
-    expect(mobileTrigger).toHaveAttribute('href', '/notifications');
-    expect(mobileTrigger).toHaveClass('md:hidden');
+    const compactTrigger = screen.getByRole('link', { name: /알림 3개/ });
+    expect(compactTrigger).toHaveAttribute('href', '/notifications');
+    expect(compactTrigger).toHaveClass('lg:hidden');
   });
 
-  it('데스크탑 트리거는 버튼이며(hidden md:inline-flex) 클릭 시 미리보기 드롭다운이 열린다', () => {
+  it('lg 이상 트리거는 버튼이며(hidden lg:inline-flex) 클릭 시 우측 알림 패널이 열린다', () => {
     setStatus('authenticated');
     render(<NotificationBell />);
 
     const desktopTrigger = screen.getByRole('button', { name: /알림 3개/ });
     expect(desktopTrigger).toHaveClass('hidden');
-    expect(desktopTrigger).toHaveClass('md:inline-flex');
-    // 클릭 전에는 미리보기 패널이 없다.
-    expect(screen.queryByRole('heading', { name: '알림' })).not.toBeInTheDocument();
+    expect(desktopTrigger).toHaveClass('lg:inline-flex');
+    expect(desktopTrigger).toHaveAttribute('aria-expanded', 'false');
+    // 클릭 전에는 패널이 없다.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     fireEvent.click(desktopTrigger);
-    expect(screen.getByRole('heading', { name: '알림' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '알림 패널' })).toBeInTheDocument();
   });
 
-  it('읽지 않은 개수 뱃지가 모바일·데스크탑 트리거 양쪽에 표시된다', () => {
+  it('읽지 않은 개수 뱃지가 양쪽 트리거에 표시된다', () => {
     setStatus('authenticated');
     render(<NotificationBell />);
     expect(screen.getAllByText('3')).toHaveLength(2);

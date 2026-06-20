@@ -10,7 +10,7 @@ import {
 import { useAuthStore } from '@duing/stores';
 import type { Notification } from '@duing/types';
 import { toLinkRoute } from '../_lib/route';
-import { NotificationItem } from './_components/NotificationItem';
+import { NotificationItem } from '../_components/NotificationItem';
 
 export default function NotificationsPage() {
   const authStatus = useAuthStore((state) => state.status);
