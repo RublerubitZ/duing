@@ -208,4 +208,33 @@ describe('FeeAccountSection', () => {
     expect(within(dialog).queryByText(/자동매칭도 함께 해제되며/)).not.toBeInTheDocument();
     expect(within(dialog).getByText(/동아리원이 더 이상 입금 계좌를 확인할 수 없습니다/)).toBeInTheDocument();
   });
+
+  it('매칭 상태 조회 중(data=undefined)이면 삭제 모달에 기본 안내만 노출한다', async () => {
+    const user = userEvent.setup();
+    mockUseClubFeeAccountQuery.mockReturnValue({ data: registeredAccount, isLoading: false, error: null });
+    mockUseClubBankMatchingStatusQuery.mockReturnValue({ data: undefined, isLoading: true });
+    render(<FeeAccountSection clubId={1} />);
+
+    await user.click(screen.getByRole('button', { name: '삭제' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '회비 계좌 삭제 확인' });
+
+    expect(within(dialog).queryByText(/자동매칭도 함께 해제되며/)).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/동아리원이 더 이상 입금 계좌를 확인할 수 없습니다/)).toBeInTheDocument();
+  });
+
+  it('매칭 상태 조회가 403 으로 실패해도 삭제 모달에 기본 안내만 노출한다', async () => {
+    const user = userEvent.setup();
+    mockUseClubFeeAccountQuery.mockReturnValue({ data: registeredAccount, isLoading: false, error: null });
+    mockUseClubBankMatchingStatusQuery.mockReturnValue({
+      data: undefined,
+      error: new ApiError(403, '권한이 없습니다.'),
+    });
+    render(<FeeAccountSection clubId={1} />);
+
+    await user.click(screen.getByRole('button', { name: '삭제' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '회비 계좌 삭제 확인' });
+
+    expect(within(dialog).queryByText(/자동매칭도 함께 해제되며/)).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/동아리원이 더 이상 입금 계좌를 확인할 수 없습니다/)).toBeInTheDocument();
+  });
 });

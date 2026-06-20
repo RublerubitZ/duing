@@ -254,16 +254,20 @@ function DeleteFeeAccountConfirm({
         role="alertdialog"
         aria-modal="true"
         aria-label="회비 계좌 삭제 확인"
+        aria-describedby="delete-account-desc"
         className="w-full max-w-sm rounded-xl bg-paper p-5 shadow-3"
       >
         <h2 className="text-base font-bold text-ink">회비 계좌 삭제</h2>
         {bankMatchingActive ? (
-          <p className="mt-2 text-sm text-coral">
+          <p
+            id="delete-account-desc"
+            className="mt-2 rounded-md border border-coral/30 bg-coral/5 px-3 py-2 text-sm text-coral"
+          >
             현재 자동매칭이 활성화된 계좌입니다. 계좌를 삭제하면 자동매칭도 함께 해제되며, 이후 입금 내역
             자동 조회가 중단됩니다. 정말 삭제하시겠습니까?
           </p>
         ) : (
-          <p className="mt-2 text-sm text-charcoal-2">
+          <p id="delete-account-desc" className="mt-2 text-sm text-charcoal-2">
             등록된 회비 계좌를 삭제할까요? 동아리원이 더 이상 입금 계좌를 확인할 수 없습니다.
           </p>
         )}
