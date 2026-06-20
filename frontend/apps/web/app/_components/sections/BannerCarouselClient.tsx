@@ -91,9 +91,16 @@ export function BannerCarouselClient({ slides }: Props) {
   return (
     <section className="px-4 sm:px-6 md:px-10 pt-2">
       <div className="max-w-layout relative mx-auto">
-        <div className="grid gap-4 md:grid-cols-[1fr_340px]">
+        {/*
+         * 반응형 위계 전략:
+         * - md 미만: 메인만 (보조 숨김) — 모바일.
+         * - md~xl: 단일 컬럼 → 메인 전체폭 상단 + 보조 2-up 하단 (중간 구간 위계 보강).
+         * - xl 이상: [1fr_340px] 좌우 배치 (메인 폭이 보조의 2.5배라 위계 충분).
+         * items-start 로 stretch 제거 → 메인이 보조 컬럼 높이로 늘어나지 않고 aspect-[24/8] 유지.
+         */}
+        <div className="grid items-start gap-4 xl:grid-cols-[1fr_340px]">
           <div
-            className="relative aspect-[2/1] touch-pan-y select-none overflow-hidden rounded-xl sm:aspect-[24/8]"
+            className="relative aspect-[2/1] touch-pan-y select-none overflow-hidden rounded-xl sm:aspect-[24/8] md:min-h-[200px]"
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
@@ -166,8 +173,8 @@ export function BannerCarouselClient({ slides }: Props) {
             )}
           </div>
 
-          {/* 보조 배너 프리뷰 — 모바일은 메인 1개만(#4), 데스크탑만 노출 */}
-          <div className="hidden flex-col gap-3 md:flex">
+          {/* 보조 배너 프리뷰 — md 미만 숨김(모바일은 메인만), md~xl 하단 2-up, xl 우측 세로 1열 */}
+          <div className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-1">
             {previewSlides.map((slide, idx) => {
               const previewProps = {
                 slide,
