@@ -9,6 +9,7 @@ import com.duing.domain.fee.repository.BankMatchingSettingRepository;
 import com.duing.domain.fee.repository.FeeAccountRepository;
 import com.duing.domain.fee.service.dto.query.BankMatchingClubResult;
 import com.duing.domain.fee.service.dto.query.BankMatchingOverview;
+import com.duing.domain.fee.support.AccountNumberMasker;
 import com.duing.domain.fee.support.BankCodeMapper;
 import com.duing.global.bank.BankApiClient;
 import com.duing.global.bank.dto.AccountSlotStatus;
@@ -41,6 +42,7 @@ public class GeneralBankMatchingAdminService implements BankMatchingAdminService
     private final ClubRepository clubRepository;
     private final BankApiClient bankApiClient;
     private final BankCodeMapper bankCodeMapper;
+    private final AccountNumberMasker accountNumberMasker;
     private final FeeAccountCipher feeAccountCipher;
 
     @Override
@@ -107,9 +109,21 @@ public class GeneralBankMatchingAdminService implements BankMatchingAdminService
         boolean registered = Optional.ofNullable(settingsByClubId.get(account.getClubId()))
                 .map(BankMatchingSetting::isUsable)
                 .orElse(false);
+        // 계좌번호는 복호화해 끝 4자리만 마스킹한다. 한 계좌의 복호화가 실패해도(키 회전·암호문 손상)
+        // 그 행만 maskedAccountNumber=null 로 비우고 페이지는 정상 반환한다(graceful degrade).
+        String maskedAccountNumber;
+        try {
+            maskedAccountNumber = accountNumberMasker.mask(
+                    feeAccountCipher.decrypt(account.getAccountNumber(), account.getClubId()));
+        } catch (RuntimeException decryptFailure) {
+            maskedAccountNumber = null;
+        }
         return new BankMatchingClubResult(
                 account.getClubId(),
                 clubNamesById.get(account.getClubId()),
+                account.getBank(),
+                account.getAccountHolder(),
+                maskedAccountNumber,
                 eligible,
                 ineligibleReason,
                 registered);

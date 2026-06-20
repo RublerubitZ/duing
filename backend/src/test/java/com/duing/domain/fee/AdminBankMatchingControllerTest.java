@@ -316,4 +316,37 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
                 // 슬롯 현황만 비워진다(graceful degrade) — 502 로 페이지 전체가 죽지 않는다.
                 .body("data.slots", nullValue());
     }
+
+    @Test
+    @DisplayName("현황 조회 응답에 동아리별 은행·예금주·마스킹 계좌번호가 채워진다")
+    void overviewIncludesMaskedAccountFields() {
+        saveClubWithAccount("적격동아리", Bank.NH, "352-1234-5678-90");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get("/api/v1/admin/clubs/bank-matching")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.clubs.find { it.clubName == '적격동아리' }.bank", equalTo("NH"))
+                .body("data.clubs.find { it.clubName == '적격동아리' }.accountHolder", equalTo("동아리회비"))
+                .body("data.clubs.find { it.clubName == '적격동아리' }.maskedAccountNumber", equalTo("****7890"));
+    }
+
+    @Test
+    @DisplayName("한 계좌의 복호화가 실패해도 그 행만 maskedAccountNumber=null 로 비우고 나머지·페이지는 정상 반환된다")
+    void overviewDegradesPerRowOnDecryptFailure() {
+        saveClubWithAccount("정상동아리", Bank.NH, "352-1234-5678-90");
+        // 유효한 base64 가 아닌 손상된 암호문을 직접 저장해 복호화 실패를 유발한다.
+        Club broken = clubRepository.save(ClubFixture.academic("손상동아리"));
+        feeAccountRepository.save(FeeAccount.create(broken.getId(), Bank.KB, "not-a-valid-ciphertext", "총무"));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get("/api/v1/admin/clubs/bank-matching")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.clubs.size()", equalTo(2))
+                .body("data.clubs.find { it.clubName == '정상동아리' }.maskedAccountNumber", equalTo("****7890"))
+                .body("data.clubs.find { it.clubName == '손상동아리' }.bank", equalTo("KB"))
+                .body("data.clubs.find { it.clubName == '손상동아리' }.accountHolder", equalTo("총무"))
+                .body("data.clubs.find { it.clubName == '손상동아리' }.maskedAccountNumber", nullValue());
+    }
 }
