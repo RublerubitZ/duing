@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 @Import(TestcontainersConfiguration.class)
@@ -35,6 +36,7 @@ class NoticeBroadcastRepositoryImplTest {
     @Autowired NoticeBroadcastReadRepository broadcastReadRepository;
     @Autowired NoticeRepository noticeRepository;
     @Autowired UserRepository userRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -120,6 +122,36 @@ class NoticeBroadcastRepositoryImplTest {
         long afterCount = broadcastRepository.countUnreadForUser(userId);
 
         assertThat(afterCount - beforeCount).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("생성 후 30일이 지난 공지는 노출 슬라이스와 보존기간 카운트에서 제외된다")
+    void excludesBroadcastsOlderThanRetentionWindow() {
+        Long authorId = saveUser(UserRole.ADMIN);
+        long unusedUserId = Long.MAX_VALUE;
+
+        long beforeCount = broadcastRepository.countWithinRetention();
+
+        Notice recentNotice = persistNotice(authorId);
+        Notice oldNotice = persistNotice(authorId);
+        NoticeBroadcast recent = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(recentNotice.getId(), "최근 공지", "내용", "/notices/recent"));
+        NoticeBroadcast old = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(oldNotice.getId(), "오래된 공지", "내용", "/notices/old"));
+        backdateBroadcastCreatedAt(old.getId(), 40);
+
+        long afterCount = broadcastRepository.countWithinRetention();
+        List<Long> sliceIds = broadcastRepository.findSliceForUser(unusedUserId, 50).stream()
+                .map(slice -> slice.broadcast().getId())
+                .toList();
+
+        assertThat(afterCount - beforeCount).isEqualTo(1L);
+        assertThat(sliceIds).contains(recent.getId()).doesNotContain(old.getId());
+    }
+
+    private void backdateBroadcastCreatedAt(Long broadcastId, int daysAgo) {
+        jdbcTemplate.update("UPDATE notice_broadcast SET created_at = ? WHERE id = ?",
+                java.sql.Timestamp.valueOf(LocalDateTime.now().minusDays(daysAgo)), broadcastId);
     }
 
     // ---- fixture helpers ----
