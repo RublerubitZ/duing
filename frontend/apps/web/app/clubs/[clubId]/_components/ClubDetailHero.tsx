@@ -8,6 +8,7 @@ import { cn } from '@/app/_lib/cn';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
 import { clubCategoryLabel } from '../_lib/clubCategoryLabel';
+import { pickColor } from '../../_lib/clubAdapter';
 import { ClubDetailTopBar } from './ClubDetailTopBar';
 
 type Props = {
@@ -19,6 +20,8 @@ type Props = {
 export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   const categoryLabel = clubCategoryLabel(club.category);
   const initial = club.name.trim().charAt(0);
+  // 로고 없는 동아리의 로고박스 배경 — 카드/리스트와 동일 색을 써 모핑 중 배경 점프를 없앤다.
+  const logoColor = pickColor(club.id);
   const authStatus = useAuthStore((state) => state.status);
   const isAuthenticated = authStatus === 'authenticated';
 
@@ -57,7 +60,14 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             <div className="flex flex-col items-start gap-6 md:flex-row">
               <div
                 className="relative grid h-[140px] w-[140px] shrink-0 place-items-center overflow-hidden rounded-[28px] text-white shadow-2"
-                style={{ background: 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)' }}
+                style={{
+                  // 로고 있으면 ink(이미지가 덮음), 없으면 카드와 동일 시그니처 색 → 모핑 중 배경 일치.
+                  background: club.logoUrl
+                    ? 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)'
+                    : `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`,
+                  // 공유요소 전환 — 목록 카드 로고에서 모핑되어 들어온다.
+                  viewTransitionName: `club-logo-${club.id}`,
+                }}
               >
                 <ClubLogo logoUrl={club.logoUrl}>
                   <span className="font-display text-[56px] font-bold leading-none">
@@ -135,7 +145,14 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
               'relative inline-grid h-20 w-20 place-items-center overflow-hidden rounded-[22px] text-white shadow-2',
               club.coverUrl ? '-mt-12 ring-4 ring-cream' : 'mt-1',
             )}
-            style={{ background: 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)' }}
+            style={{
+              // 로고 있으면 ink(이미지가 덮음), 없으면 카드/리스트와 동일 시그니처 색 → 모핑 중 배경 일치.
+              background: club.logoUrl
+                ? 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)'
+                : `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`,
+              // 공유요소 전환 — 목록 카드 로고에서 모핑되어 들어온다(모바일 히어로).
+              viewTransitionName: `club-logo-${club.id}`,
+            }}
           >
             <ClubLogo logoUrl={club.logoUrl}>
               <span className="font-display text-[34px] font-bold leading-none">{initial}</span>

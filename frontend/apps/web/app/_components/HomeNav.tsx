@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Link } from 'next-view-transitions';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { cn } from '@/app/_lib/cn';
 import { HomeNavAdminLink } from './HomeNavAdminLink';

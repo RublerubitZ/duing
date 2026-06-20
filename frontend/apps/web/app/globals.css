@@ -429,6 +429,20 @@ body {
   animation: blink-cursor 1s steps(2) infinite;
 }
 
+/* 접근성: OS '동작 줄이기' 설정 시 무한 반복되는 장식 애니메이션을 멈춘다.
+   framer-motion 은 MotionConfig reducedMotion="user" 로 이미 처리되지만,
+   CSS 키프레임 유틸리티는 별도 가드가 없으면 계속 재생되므로 여기서 함께 끈다. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-a,
+  .animate-float-b,
+  .animate-pulse-ring,
+  .animate-blink-cursor,
+  .animate-bell-sway,
+  .animate-badge-pulse {
+    animation: none;
+  }
+}
+
 /* ===== Introduce — Feature scroll-reveal ===== */
 .feature-text-left {
   opacity: 0;
@@ -488,5 +502,27 @@ body {
   }
   .no-print {
     display: none !important;
+  }
+}
+
+/* ===================================================================
+ * View Transitions — 페이지 전환 (전역 최소 크로스페이드 + 공유요소 모핑)
+ * next-view-transitions 가 App Router 네비게이션을 startViewTransition 으로 감싼다.
+ * 여기선 지속시간/이징만 차분하게 잡는다(기본 동작=루트 페이드 유지).
+ * 공유요소(동아리 로고)는 view-transition-name: club-logo-<id> 로 자동 모핑된다.
+ * =================================================================== */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* OS '동작 줄이기' 존중 — 전환 모션 제거(즉시 전환). */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

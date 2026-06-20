@@ -19,7 +19,8 @@ const COLOR_PALETTE = [
   '#9A3F23', '#2F557A', '#8E6620', '#7E2A45',
 ] as const;
 
-const pickColor = (id: number): string =>
+// 동아리 로고 박스 시그니처 컬러 — 카드/리스트/상세 히어로가 동일 색을 쓰도록 공유(공유요소 전환 배경 일치).
+export const pickColor = (id: number): string =>
   COLOR_PALETTE[Math.abs(id) % COLOR_PALETTE.length] ?? '#1F4A36';
 
 const deriveScope = (centralClub: boolean): ClubScope =>
