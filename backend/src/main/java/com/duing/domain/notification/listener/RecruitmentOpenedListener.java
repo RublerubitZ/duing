@@ -5,6 +5,7 @@ import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
+import com.duing.domain.notification.support.RecruitmentDeadlineLabel;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +24,11 @@ public class RecruitmentOpenedListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(RecruitmentOpenedEvent event) {
         String dedupKey = "RECRUITMENT_OPENED:r=" + event.recruitmentId();
-        String linkUrl = "/clubs/" + event.clubId() + "/recruitments/" + event.recruitmentId();
+        // 학생측 모집 상세 라우트는 #98 PR 에서 제거되었다. active 모집은 동아리 상세 카드에
+        // 임베드되어 노출되므로 동아리 상세로 보낸다. payload 의 recruitmentId 는 그대로 유지.
+        String linkUrl = "/clubs/" + event.clubId();
         String title = "찜한 " + event.clubName() + "의 새 모집이 시작됐어요";
-        String body = event.recruitmentTitle() + " · 마감 " + event.endDate();
+        String body = event.recruitmentTitle() + " · " + RecruitmentDeadlineLabel.of(event.endDate());
 
         favoriteRepository.findUserIdsByClubId(event.clubId()).forEach(userId -> {
             try {
