@@ -504,3 +504,25 @@ body {
     display: none !important;
   }
 }
+
+/* ===================================================================
+ * View Transitions — 페이지 전환 (전역 최소 크로스페이드 + 공유요소 모핑)
+ * next-view-transitions 가 App Router 네비게이션을 startViewTransition 으로 감싼다.
+ * 여기선 지속시간/이징만 차분하게 잡는다(기본 동작=루트 페이드 유지).
+ * 공유요소(동아리 로고)는 view-transition-name: club-logo-<id> 로 자동 모핑된다.
+ * =================================================================== */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* OS '동작 줄이기' 존중 — 전환 모션 제거(즉시 전환). */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

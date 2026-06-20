@@ -6,7 +6,7 @@
 // root(layout.tsx)에 1회 마운트하고 usePathname 으로 가시성/활성을 판단한다.
 // 데스크탑은 기존 상단 HomeNav/ExploreNav 유지(이 바는 md:hidden).
 
-import Link from 'next/link';
+import { Link } from 'next-view-transitions';
 import { usePathname } from 'next/navigation';
 
 import { cn } from '@/app/_lib/cn';

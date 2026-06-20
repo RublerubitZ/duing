@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { Link } from 'next-view-transitions';
 
 import { SparkleFull } from '../../_components/Sparkle';
 import { ClubLogo } from '../../_components/ClubLogo';
@@ -102,6 +102,8 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
             fontSize: size === 'lg' ? 44 : 30,
             letterSpacing: '-0.03em',
             filter: isDimmed ? 'saturate(0.6)' : undefined,
+            // 공유요소 전환 — 상세 히어로의 같은 이름 로고로 모핑된다(clubs 목록 → 상세).
+            viewTransitionName: `club-logo-${club.id}`,
           }}
           aria-label={`${club.name} 로고`}
         >
