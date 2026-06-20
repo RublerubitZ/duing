@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Notification } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
-import { NotificationItem } from '../../app/notifications/_components/NotificationItem';
+import { NotificationItem } from '../../app/_components/NotificationItem';
 
 /* ── 테스트 데이터 ───────────────────────────────────────────── */
 function makeNotification(overrides: Partial<Notification> = {}): Notification {

@@ -1,129 +1,50 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import Link from 'next/link';
-import {
-  useUnreadCountQuery,
-  useNotificationListQuery,
-  useNotificationSourceAwareReadMutation,
-  useNotificationReadAllMutation,
-} from '@duing/hooks';
+import { useUnreadCountQuery } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
-import type { Notification } from '@duing/types';
-import { toLinkRoute } from '../_lib/route';
+import { NotificationSheet } from './NotificationSheet';
 
-// 모바일 Link·데스크탑 button 두 트리거가 공유하는 원형 히트 영역 스타일.
-// 가시성(inline-flex md:hidden / hidden md:inline-flex)만 각자 덧붙인다.
+// 모바일·태블릿 Link / 데스크탑 button 두 트리거가 공유하는 원형 히트 영역 스타일.
+// 가시성(inline-flex lg:hidden / hidden lg:inline-flex)만 각자 덧붙인다.
 const bellButtonClass =
   'relative h-10 w-10 items-center justify-center rounded-full hover:bg-graysoft';
 
 export function NotificationBell() {
-  const authStatus = useAuthStore((state) => state.status);
-  const isAuthenticated = authStatus === 'authenticated';
-
+  const isAuthenticated = useAuthStore((state) => state.status === 'authenticated');
   const [open, setOpen] = useState(false);
-  const [hasOpened, setHasOpened] = useState(false);
-
   const unreadCountQuery = useUnreadCountQuery(isAuthenticated);
-  const listQuery = useNotificationListQuery(false, isAuthenticated && hasOpened);
-  const readMutation = useNotificationSourceAwareReadMutation();
-  const readAllMutation = useNotificationReadAllMutation();
-  const router = useRouter();
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
 
   if (!isAuthenticated) return null;
 
   const unreadCount = unreadCountQuery.data?.count ?? 0;
-  const recentFive = (listQuery.data?.pages?.[0]?.content ?? []).slice(0, 5);
-
-  const handleItemClick = (notification: Notification) => {
-    readMutation.mutate({ source: notification.source, id: notification.id });
-    setOpen(false);
-    const destination = toLinkRoute(notification.linkUrl);
-    if (destination) router.push(destination);
-  };
 
   return (
-    <div ref={containerRef} className="relative">
-      {/* 모바일: 좁은 화면에선 미리보기 드롭다운 대신 전체 알림 페이지로 직행 */}
+    <>
+      {/* 모바일·태블릿(lg 미만): 좁은 화면에선 전체 알림 페이지로 직행 */}
       <Link
         href="/notifications"
         aria-label={`알림 ${unreadCount}개`}
-        className={`${bellButtonClass} inline-flex md:hidden`}
+        className={`${bellButtonClass} inline-flex lg:hidden`}
       >
         <BellGlyph unreadCount={unreadCount} />
       </Link>
 
-      {/* 데스크탑: 벨 클릭 시 최근 5개 미리보기 드롭다운 토글 */}
+      {/* 데스크탑(lg 이상): 현재 화면을 유지한 채 우측 알림 패널을 연다 */}
       <button
         type="button"
-        onClick={() => { setHasOpened(true); setOpen((previous) => !previous); }}
+        onClick={() => setOpen(true)}
         aria-label={`알림 ${unreadCount}개`}
-        className={`${bellButtonClass} hidden md:inline-flex`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={`${bellButtonClass} hidden lg:inline-flex`}
       >
         <BellGlyph unreadCount={unreadCount} />
       </button>
-      {open && (
-        <div className="absolute right-0 z-50 mt-2 hidden w-80 overflow-hidden rounded-xl border border-line bg-white shadow-lg md:block">
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <h3 className="text-sm font-semibold">알림</h3>
-            <button
-              type="button"
-              onClick={() => readAllMutation.mutate()}
-              className="text-xs text-slate-500 hover:text-slate-900"
-            >
-              모두 읽음
-            </button>
-          </div>
-          {recentFive.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-slate-500">새 알림이 없어요</p>
-          ) : (
-            <ul>
-              {recentFive.map((notification) => (
-                <li key={notification.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleItemClick(notification)}
-                    className="block w-full px-4 py-3 text-left hover:bg-slate-50"
-                  >
-                    <div className="flex items-start gap-2">
-                      {!notification.isRead && (
-                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-rose-500" />
-                      )}
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{notification.title}</p>
-                        <p className="truncate text-xs text-slate-500">{notification.body}</p>
-                      </div>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="border-t px-4 py-2 text-center">
-            <Link
-              href="/notifications"
-              onClick={() => setOpen(false)}
-              className="text-xs font-medium text-slate-700 hover:text-slate-900"
-            >
-              전체 보기 →
-            </Link>
-          </div>
-        </div>
-      )}
-    </div>
+
+      <NotificationSheet open={open} onOpenChange={setOpen} unreadCount={unreadCount} />
+    </>
   );
 }
 
