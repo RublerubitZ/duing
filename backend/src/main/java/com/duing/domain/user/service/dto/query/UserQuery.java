@@ -1,5 +1,6 @@
 package com.duing.domain.user.service.dto.query;
 
+import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 
@@ -9,7 +10,8 @@ public record UserQuery(
         String name,
         String email,
         String phone,
-        UserRole role
+        UserRole role,
+        Grade grade
 ) {
     public static UserQuery from(User user) {
         return new UserQuery(
@@ -18,7 +20,8 @@ public record UserQuery(
                 user.getName(),
                 user.getEmail(),
                 user.getPhone(),
-                user.getRole()
+                user.getRole(),
+                user.getGrade()
         );
     }
 }

@@ -1,5 +1,6 @@
 package com.duing.domain.user.controller.dto.response;
 
+import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.service.dto.query.UserQuery;
 
@@ -9,7 +10,8 @@ public record UserResponse(
         String name,
         String email,
         String phone,
-        UserRole role
+        UserRole role,
+        Grade grade
 ) {
     public static UserResponse from(UserQuery userQuery) {
         return new UserResponse(
@@ -18,7 +20,8 @@ public record UserResponse(
                 userQuery.name(),
                 userQuery.email(),
                 userQuery.phone(),
-                userQuery.role()
+                userQuery.role(),
+                userQuery.grade()
         );
     }
 }
