@@ -78,7 +78,7 @@ public class GeneralNotificationService implements NotificationService {
                 .toList();
         long broadcastTotal = unreadOnly
                 ? broadcastRepository.countUnreadForUser(userId)
-                : broadcastRepository.count(); // @SQLRestriction 이 soft-deleted 항목을 자동 제외
+                : broadcastRepository.countWithinRetention(); // 노출 기간(30일) 이내 공지만 집계
 
         // merge + sort (null-safe: createdAt 이 null 이면 맨 뒤로)
         List<NotificationResponse> merged = new ArrayList<>(personal.size() + broadcast.size());
@@ -97,7 +97,7 @@ public class GeneralNotificationService implements NotificationService {
 
     @Override
     public long unreadCount(Long userId) {
-        long personal = notificationRepository.countByUserIdAndReadAtIsNull(userId);
+        long personal = notificationRepository.countUnreadWithinRetention(userId);
         long broadcast = broadcastRepository.countUnreadForUser(userId);
         return personal + broadcast;
     }

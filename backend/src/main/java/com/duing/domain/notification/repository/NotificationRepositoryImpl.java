@@ -2,6 +2,7 @@ package com.duing.domain.notification.repository;
 
 import static com.duing.domain.notification.entity.QNotification.notification;
 
+import com.duing.domain.notification.NotificationRetention;
 import com.duing.domain.notification.entity.Notification;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -19,10 +20,13 @@ public class NotificationRepositoryImpl implements NotificationRepositoryCustom 
 
     @Override
     public Page<Notification> findMine(Long userId, boolean unreadOnly, Pageable pageable) {
+        LocalDateTime visibilityFloor = NotificationRetention.visibilityFloor();
+
         List<Notification> content = queryFactory
                 .selectFrom(notification)
                 .where(
                         notification.userId.eq(userId),
+                        notification.createdAt.goe(visibilityFloor),
                         unreadOnlyCondition(unreadOnly)
                 )
                 .orderBy(notification.createdAt.desc())
@@ -35,11 +39,26 @@ public class NotificationRepositoryImpl implements NotificationRepositoryCustom 
                 .from(notification)
                 .where(
                         notification.userId.eq(userId),
+                        notification.createdAt.goe(visibilityFloor),
                         unreadOnlyCondition(unreadOnly)
                 )
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
+    @Override
+    public long countUnreadWithinRetention(Long userId) {
+        Long count = queryFactory
+                .select(notification.count())
+                .from(notification)
+                .where(
+                        notification.userId.eq(userId),
+                        notification.readAt.isNull(),
+                        notification.createdAt.goe(NotificationRetention.visibilityFloor())
+                )
+                .fetchOne();
+        return count == null ? 0L : count;
     }
 
     @Override
@@ -54,6 +73,14 @@ public class NotificationRepositoryImpl implements NotificationRepositoryCustom 
                 .execute();
 
         return (int) updatedCount;
+    }
+
+    @Override
+    public int deleteCreatedBefore(LocalDateTime cutoff) {
+        return (int) queryFactory
+                .delete(notification)
+                .where(notification.createdAt.lt(cutoff))
+                .execute();
     }
 
     private BooleanExpression unreadOnlyCondition(boolean unreadOnly) {

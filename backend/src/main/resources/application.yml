@@ -105,6 +105,10 @@ duing:
   notification:
     jobs:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:false}
+      retention:
+        # 30일 경과 개인 알림 파기 잡(매일 05:00 Asia/Seoul). 기본 비활성 —
+        # 운영에서 DUING_NOTIFICATION_RETENTION_ENABLED=true 주입 시 활성화한다(스케줄링도 켜져 있어야 동작).
+        enabled: ${DUING_NOTIFICATION_RETENTION_ENABLED:false}
   fee:
     overdue:
       # 회비 연체 전이 크론(매일 00:10 Asia/Seoul) — 마감 지난 PENDING·PARTIAL_PAID 청구를 OVERDUE 로 전이.

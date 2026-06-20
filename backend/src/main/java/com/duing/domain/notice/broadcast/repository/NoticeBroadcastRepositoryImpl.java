@@ -3,9 +3,11 @@ package com.duing.domain.notice.broadcast.repository;
 import static com.duing.domain.notice.broadcast.entity.QNoticeBroadcast.noticeBroadcast;
 import static com.duing.domain.notice.broadcast.entity.QNoticeBroadcastRead.noticeBroadcastRead;
 
+import com.duing.domain.notification.NotificationRetention;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +25,7 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
                 .select(noticeBroadcast, noticeBroadcastRead.readAt)
                 .from(noticeBroadcast)
                 .leftJoin(noticeBroadcastRead).on(readJoin)
+                .where(noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor()))
                 .orderBy(noticeBroadcast.createdAt.desc())
                 .limit(limit)
                 .fetch();
@@ -43,7 +46,20 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
                 .select(noticeBroadcast.count())
                 .from(noticeBroadcast)
                 .leftJoin(noticeBroadcastRead).on(readJoin)
-                .where(noticeBroadcastRead.id.userId.isNull())
+                .where(
+                        noticeBroadcastRead.id.userId.isNull(),
+                        noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor())
+                )
+                .fetchOne();
+        return count == null ? 0L : count;
+    }
+
+    @Override
+    public long countWithinRetention() {
+        Long count = queryFactory
+                .select(noticeBroadcast.count())
+                .from(noticeBroadcast)
+                .where(noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor()))
                 .fetchOne();
         return count == null ? 0L : count;
     }
