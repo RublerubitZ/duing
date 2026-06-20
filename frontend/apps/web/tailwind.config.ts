@@ -146,12 +146,14 @@ const config: Config = {
           '0%': { transform: 'translateX(0%)' },
           '100%': { transform: 'translateX(100%)' },
         },
+        // 진입 오버슈트를 8px 로 둔다 — 16px 일 때 카드가 컨테이너 밖으로 잠깐(<0.1s) 새던 현상 완화.
+        // 컨테이너 overflow-hidden 은 프리뷰 버튼 포커스 링까지 잘라 a11y 를 해치므로 오버슈트 축소로 대응.
         'preview-in': {
-          '0%': { opacity: '0', transform: 'translateY(16px)' },
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         'preview-in-reverse': {
-          '0%': { opacity: '0', transform: 'translateY(-16px)' },
+          '0%': { opacity: '0', transform: 'translateY(-8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         'accordion-down': {
