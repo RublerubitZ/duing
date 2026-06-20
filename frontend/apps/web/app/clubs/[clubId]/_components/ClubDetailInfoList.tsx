@@ -10,7 +10,7 @@ export function ClubDetailInfoList({ club }: Props) {
   if (club.cohortNumber !== null) rows.push({ label: '현재 기수', value: `${club.cohortNumber}기` });
   if (club.membershipFee !== null) rows.push({ label: '회비', value: club.membershipFee });
   if (club.location !== null) rows.push({ label: '위치', value: club.location });
-  if (club.contactEmail !== null) rows.push({ label: '컨택', value: club.contactEmail });
+  if (club.contactEmail !== null) rows.push({ label: '연락처', value: club.contactEmail });
 
   if (rows.length === 0) return null;
 

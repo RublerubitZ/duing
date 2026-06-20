@@ -10,6 +10,8 @@ type Props = {
 export function ClubContactCard({ snsLinks, location, contactEmail }: Props) {
   const hasAny = snsLinks.length > 0 || location !== null || contactEmail !== null;
   if (!hasAny) return null;
+  // 연락처는 자유 입력 — http(s) 값만 외부 링크로, 그 외(전화·카톡 텍스트 등)는 일반 텍스트로 표시.
+  const contactHref = contactEmail !== null ? safeExternalHref(contactEmail) : null;
   return (
     <div className="rounded-[18px] bg-sage-mist p-5">
       <div className="mb-3 text-xs font-bold tracking-wide06 text-ink-deep">CONTACT</div>
@@ -17,7 +19,19 @@ export function ClubContactCard({ snsLinks, location, contactEmail }: Props) {
         {location !== null && <li>📍 {location}</li>}
         {contactEmail !== null && (
           <li>
-            📨 <a href={`mailto:${contactEmail}`} className="hover:underline">{contactEmail}</a>
+            📞{' '}
+            {contactHref ? (
+              <a
+                href={contactHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                {contactEmail}
+              </a>
+            ) : (
+              <span>{contactEmail}</span>
+            )}
           </li>
         )}
         {snsLinks.map((link) => {
