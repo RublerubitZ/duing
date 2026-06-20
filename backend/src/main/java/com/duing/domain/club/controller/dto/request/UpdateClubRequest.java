@@ -6,7 +6,6 @@ import com.duing.domain.club.entity.ClubSnsLink;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.user.entity.College;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
@@ -56,8 +55,8 @@ public record UpdateClubRequest(
         @Size(max = 200, message = "위치는 200자 이하여야 합니다.")
         String location,
 
-        @Email(message = "이메일 형식이 올바르지 않습니다.")
-        @Size(max = 200, message = "이메일은 200자 이하여야 합니다.")
+        // 이메일 전용에서 자유 입력(전화/카톡 오픈채팅/인스타 DM 등)으로 정책 변경 — @Email 제거, 길이 제한만 유지.
+        @Size(max = 200, message = "연락처는 200자 이하여야 합니다.")
         String contactEmail,
 
         @Min(value = 1, message = "활동 빈도는 1 이상이어야 합니다.")
