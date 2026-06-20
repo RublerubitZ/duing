@@ -2,6 +2,7 @@ package com.duing.domain.fee.api;
 
 import com.duing.domain.fee.controller.dto.request.ApproveMatchRequest;
 import com.duing.domain.fee.controller.dto.request.SyncBankTransactionsRequest;
+import com.duing.domain.fee.controller.dto.response.BankMatchingStatusResponse;
 import com.duing.domain.fee.controller.dto.response.BankTransactionResponse;
 import com.duing.domain.fee.controller.dto.response.SyncResultResponse;
 import com.duing.domain.fee.entity.MatchStatus;
@@ -25,6 +26,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Tag(name = "회비 거래 관리 (운영진)", description = "LEADER/OFFICER BANK 거래 동기화·검토")
 @SecurityRequirement(name = "BearerAuth")
 public interface LeaderBankTransactionApi {
+
+    @Operation(summary = "BANK 자동매칭 사용 가능 여부 조회 (LEADER/OFFICER)",
+            description = "동아리가 BANK 자동매칭(거래 동기화)을 사용할 수 있는 상태인지 반환한다. 동기화 가드와 동일한 "
+                    + "기준(설정 사용 가능 + 지원 은행 계좌)으로 판정하며, 프론트는 이 값으로 거래 동기화 노출 여부를 사전에 결정한다.")
+    @GetMapping("/leader/clubs/{clubId}/bank-matching")
+    ResponseEntity<ApiResponse<BankMatchingStatusResponse>> matchingStatus(
+            @PathVariable Long clubId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
 
     @Operation(summary = "BANK 거래 동기화 (LEADER/OFFICER)",
             description = "계좌 비밀번호와 주민등록번호 앞 6자리로 BANK API 를 호출해 기간 내 거래를 멱등 적재한다. "
