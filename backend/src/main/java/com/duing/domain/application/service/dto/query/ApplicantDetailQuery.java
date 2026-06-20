@@ -10,6 +10,8 @@ import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,7 +36,8 @@ public record ApplicantDetailQuery(
         InterviewRoundBriefQuery interviewRound
 ) {
 
-    public record ApplicantInfoQuery(Long userId, String name, String studentId, String email) {}
+    public record ApplicantInfoQuery(Long userId, String name, String studentId, String email,
+                                     College college, String major, Grade grade) {}
 
     public record QuestionAnswerQuery(String question, String answer) {}
 
@@ -131,7 +134,10 @@ public record ApplicantDetailQuery(
                 applicationUser.getId(),
                 applicationUser.getName(),
                 applicationUser.getStudentId(),
-                applicationUser.getEmail()
+                applicationUser.getEmail(),
+                applicationUser.getCollege(),
+                applicationUser.getMajor(),
+                applicationUser.getGrade()
         );
 
         List<QuestionAnswerQuery> pairedAnswers = buildPairedAnswers(recruitment, application);

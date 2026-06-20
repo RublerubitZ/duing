@@ -10,6 +10,8 @@ import com.duing.domain.application.service.dto.query.ApplicantDetailQuery.Avail
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -108,6 +110,22 @@ class ApplicantDetailQueryTest {
                 application, List.of(), List.of(), null, List.of(), null, null, null);
 
         assertThat(detailQuery.interview()).isNull();
+    }
+
+    @Test
+    @DisplayName("fromAll 은 지원자의 단과대·학과·학년을 applicant 정보에 포함한다")
+    void applicantInfoIncludesCollegeMajorGrade() {
+        Application application = stubApplication();
+        when(application.getUser().getCollege()).thenReturn(College.IT_ENGINEERING);
+        when(application.getUser().getMajor()).thenReturn("컴퓨터정보공학");
+        when(application.getUser().getGrade()).thenReturn(Grade.JUNIOR);
+
+        ApplicantDetailQuery detailQuery = ApplicantDetailQuery.fromAll(
+                application, List.of(), List.of(), null, List.of(), null, null, null);
+
+        assertThat(detailQuery.applicant().college()).isEqualTo(College.IT_ENGINEERING);
+        assertThat(detailQuery.applicant().major()).isEqualTo("컴퓨터정보공학");
+        assertThat(detailQuery.applicant().grade()).isEqualTo(Grade.JUNIOR);
     }
 
     private Application stubApplication() {

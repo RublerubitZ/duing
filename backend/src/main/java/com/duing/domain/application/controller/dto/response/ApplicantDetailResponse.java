@@ -4,6 +4,8 @@ import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.Grade;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -26,7 +28,8 @@ public record ApplicantDetailResponse(
         InterviewRoundBrief interviewRound
 ) {
 
-    public record ApplicantInfo(Long userId, String name, String studentId, String email) {}
+    public record ApplicantInfo(Long userId, String name, String studentId, String email,
+                                College college, String major, Grade grade) {}
 
     public record QuestionAnswer(String question, String answer) {}
 
@@ -86,7 +89,10 @@ public record ApplicantDetailResponse(
                 detailQuery.applicant().userId(),
                 detailQuery.applicant().name(),
                 detailQuery.applicant().studentId(),
-                detailQuery.applicant().email()
+                detailQuery.applicant().email(),
+                detailQuery.applicant().college(),
+                detailQuery.applicant().major(),
+                detailQuery.applicant().grade()
         );
 
         List<QuestionAnswer> questionAnswers = detailQuery.answers().stream()

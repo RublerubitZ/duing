@@ -119,6 +119,22 @@ class ClubMemberQueryServiceTest {
         assertThat(result).extracting(ClubMemberQuery::name).containsExactly("리더5");
     }
 
+    @Test
+    @DisplayName("멤버 조회 결과에 학과·학년·전화번호가 사용자 정보에서 채워진다")
+    void memberRowsCarryUserProfileFields() throws Exception {
+        User leader = saveUser("리더프로필");
+        Club club = saveActiveClub("프로필동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        List<ClubMemberQuery> result = clubMemberQueryService.getMembers(club.getId(), leader.getId());
+
+        assertThat(result).hasSize(1);
+        ClubMemberQuery row = result.get(0);
+        assertThat(row.major()).isEqualTo("미설정");
+        assertThat(row.grade()).isEqualTo(Grade.FRESHMAN);
+        assertThat(row.phone()).isEqualTo("010-0000-0000");
+    }
+
     private User saveUser(String name) {
         long unique = sequence.getAndIncrement();
         return userRepository.save(User.create(
