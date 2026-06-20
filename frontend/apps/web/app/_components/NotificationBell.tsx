@@ -13,6 +13,11 @@ import { useAuthStore } from '@duing/stores';
 import type { Notification } from '@duing/types';
 import { toLinkRoute } from '../_lib/route';
 
+// 모바일 Link·데스크탑 button 두 트리거가 공유하는 원형 히트 영역 스타일.
+// 가시성(inline-flex md:hidden / hidden md:inline-flex)만 각자 덧붙인다.
+const bellButtonClass =
+  'relative h-10 w-10 items-center justify-center rounded-full hover:bg-graysoft';
+
 export function NotificationBell() {
   const authStatus = useAuthStore((state) => state.status);
   const isAuthenticated = authStatus === 'authenticated';
@@ -52,21 +57,26 @@ export function NotificationBell() {
 
   return (
     <div ref={containerRef} className="relative">
+      {/* 모바일: 좁은 화면에선 미리보기 드롭다운 대신 전체 알림 페이지로 직행 */}
+      <Link
+        href="/notifications"
+        aria-label={`알림 ${unreadCount}개`}
+        className={`${bellButtonClass} inline-flex md:hidden`}
+      >
+        <BellGlyph unreadCount={unreadCount} />
+      </Link>
+
+      {/* 데스크탑: 벨 클릭 시 최근 5개 미리보기 드롭다운 토글 */}
       <button
         type="button"
         onClick={() => { setHasOpened(true); setOpen((previous) => !previous); }}
         aria-label={`알림 ${unreadCount}개`}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-graysoft"
+        className={`${bellButtonClass} hidden md:inline-flex`}
       >
-        <BellIcon />
-        {unreadCount > 0 && (
-          <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
+        <BellGlyph unreadCount={unreadCount} />
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-line bg-white shadow-lg">
+        <div className="absolute right-0 z-50 mt-2 hidden w-80 overflow-hidden rounded-xl border border-line bg-white shadow-lg md:block">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <h3 className="text-sm font-semibold">알림</h3>
             <button
@@ -114,6 +124,19 @@ export function NotificationBell() {
         </div>
       )}
     </div>
+  );
+}
+
+function BellGlyph({ unreadCount }: { unreadCount: number }) {
+  return (
+    <>
+      <BellIcon />
+      {unreadCount > 0 && (
+        <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+          {unreadCount > 99 ? '99+' : unreadCount}
+        </span>
+      )}
+    </>
   );
 }
 
