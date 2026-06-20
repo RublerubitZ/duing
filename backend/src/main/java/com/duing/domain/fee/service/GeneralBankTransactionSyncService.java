@@ -95,7 +95,14 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         FeeAccount account = feeAccountRepository.findByClubId(command.clubId())
                 .orElseThrow(BankMatchingException.FeeAccountRequiredException::new);
         String bankCode = bankCodeMapper.toApiCode(account.getBank());
-        String accountNumber = feeAccountCipher.decrypt(account.getAccountNumber(), command.clubId());
+        // 복호화 실패(키 회전·AAD 불일치·암호문 손상)는 불투명한 500 대신 처리 불가(422)로 닫는다 — setActive 와 동일 정책.
+        // 암호·평문·인증정보 등 어떤 세부정보도 메시지에 싣지 않는다.
+        String accountNumber;
+        try {
+            accountNumber = feeAccountCipher.decrypt(account.getAccountNumber(), command.clubId());
+        } catch (RuntimeException decryptFailure) {
+            throw new BankMatchingException.AccountDecryptFailedException();
+        }
 
         LocalDate today = LocalDate.now(clock);
         LocalDate startDate = resolveStartDate(command.clubId(), today);
