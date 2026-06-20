@@ -74,7 +74,12 @@ export default async function SignupPage() {
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide16 text-sage-soft">
             JOIN DUING
           </p>
-          <h2 className="mb-4 text-[2.5rem] font-bold leading-tight tracking-tightx text-white">
+          {/* `.duing h2` 가 text-ink-deep(어두운 색) 를 강제해 Tailwind 텍스트 색 유틸리티를 덮으므로,
+              다크 패널에서는 인라인 스타일로 흰색을 지정해 배경(ink-deep)과 묻히지 않게 한다(brand-mark 와 동일 패턴). */}
+          <h2
+            className="mb-4 text-[2.5rem] font-bold leading-tight tracking-tightx"
+            style={{ color: '#fff' }}
+          >
             30초 만에
             <br />
             두잉 시작
