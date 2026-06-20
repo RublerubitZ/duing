@@ -28,7 +28,8 @@ export default function HomePage() {
       <FadeIn>
         <FeaturedClubs />
       </FadeIn>
-      <FadeIn>
+      {/* 운영자용 동아리 등록 CTA — 모바일에선 숨기고 md+ 에서만 노출 */}
+      <FadeIn className="hidden md:block">
         <LeaderCta />
       </FadeIn>
       <HomeFooter />
