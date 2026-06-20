@@ -24,6 +24,7 @@
 - 어드민 화면에 계좌 **삭제** 버튼 추가 — 계좌 삭제는 운영진 권한으로 유지.
 - 활성 중 편집을 막는 프론트 사전 차단(버튼 비활성 등) — 백엔드 409 메시지를 기존 토스트로 노출하는 선에서 처리.
 - 드리프트 상태(`active`≠`apiRegistered`)를 어드민 화면에 분리 노출 — 상태 표시는 기존 `registered` 재사용으로 한정.
+- **레거시 외부 고아 슬롯 회수** — 과거 버그로 외부 BANK에만 등록이 남고 DB 기록이 없는 계좌의 정리는 외부 측 관리 도구가 필요하므로 이번 범위 밖이다. 이번 PR3는 *신규* 고아 발생을 막고, `setting`이 남은 드리프트는 삭제 시 정리한다.
 
 ---
 
@@ -58,7 +59,7 @@
 
 표시:
 - `{bankLabel(bank)} · {accountHolder} · {maskedAccountNumber}` (은행 한글 라벨은 기존 `app/_lib/feeLabels.ts`의 `bankLabel` 재사용) → 예: `KB국민은행 · 홍길동 · ****1234`
-- `maskedAccountNumber === null`이면 "복호화 실패" 등으로 degrade 표시(행은 유지)
+- `maskedAccountNumber === null`이면 **"계좌 확인 불가"** 로 degrade 표시(행은 유지). 암호화/복호화 같은 내부 구현 용어는 UI에 노출하지 않는다.
 - 활성 뱃지: `registered === true` → "자동매칭 활성", `false` → "자동매칭 비활성"
 
 ---
@@ -88,13 +89,20 @@ upsert(command):
 
 운영 규칙: 자동매칭 ON → 계좌 잠금 / 자동매칭 OFF → 계좌 수정 가능.
 
+**신규 등록 vs 수정 — 정확한 동작 명시.** `isActiveUsable(clubId)`는 내부적으로 **회비 계좌 존재를 전제**한다(`feeAccountRepository.findByClubId(...).map(은행 적격성).orElse(false)`). 따라서 가드의 실제 효과는 다음과 같다:
+
+- **회비 계좌가 존재 + 자동매칭 사용 가능 → 기존 계좌 수정 차단**(이번 가드의 핵심 목적).
+- **회비 계좌가 없는 상태 → `isActiveUsable=false` → 신규 등록 허용**. 설정 행이 사용 가능 상태로 남아 있더라도(레거시 드리프트) 신규 등록은 막지 않는다.
+
+이렇게 신규 등록을 막지 않는 것은 **의도된 설계**다. 해제 경로 `setActive(clubId, false)` 역시 회비 계좌 존재를 전제(`FeeAccountRequiredException`)하므로, 계좌가 없는 상태에서 신규 등록까지 막으면 **"등록도 해제도 불가능한 교착"** 이 생긴다. 그래서 실질 정책은 **"계좌가 존재하고 자동매칭이 켜져 있는 동안 그 계좌의 수정(은행·번호·예금주)을 차단하고, 변경하려면 자동매칭을 먼저 해제한다"** 이다. 회비 계좌가 없는 빈 상태에서의 최초 등록은 정상 허용한다.
+
 ### B-2. 계좌 삭제 never-block + 외부 등록 정리 (백엔드)
 
 정책: **삭제는 외부 연동·복호화 실패로 절대 막지 않는다.** 외부 해제는 best-effort, 내부 설정은 강제 비활성, `fee_account`는 항상 soft delete.
 
 수정 파일:
 - `service/BankMatchingAdminService.java` — 인터페이스에 `void unregisterForAccountRemoval(Long clubId)` 추가
-- `service/GeneralBankMatchingAdminService.java` — 위 메서드 구현 + `setActive()`의 해제 로직 일부 재사용
+- `service/GeneralBankMatchingAdminService.java` — 위 메서드 구현(메서드에 `@Transactional` 쓰기 명시) + `setActive()`의 해제 로직 일부 재사용
 - `service/GeneralFeeAccountService.java#delete()` — soft delete 전에 `unregisterForAccountRemoval` 호출
 
 `unregisterForAccountRemoval(clubId)` — never throws(외부/암호 실패를 내부에서 흡수):
@@ -112,11 +120,16 @@ try:
 catch (RuntimeException failure):
     log.warn("BANK_ACCOUNT_UNREGISTER_FAILED clubId={} errorCode={}", clubId, codeOf(failure))
 setting.deactivate()                          // 항상 강제 비활성
+bankMatchingSettingRepository.save(setting)   // 비활성 영속을 코드에 명시(dirty checking 의존 X)
 if externalCleared:
     log.info("BANK_ACCOUNT_UNREGISTERED clubId={}", clubId)
 else:
     log.warn("BANK_ACCOUNT_FORCE_DEACTIVATED clubId={}", clubId)
 ```
+
+비활성 영속 보장:
+- `unregisterForAccountRemoval`는 **`@Transactional`(쓰기)로 명시 선언**한다. `GeneralBankMatchingAdminService`는 클래스 레벨이 `@Transactional(readOnly = true)`라, 향후 이 메서드를 다른 경로에서 직접 호출하면 readOnly 트랜잭션에서 flush가 생략돼 비활성이 영속되지 않을 수 있다.
+- `deactivate()` 직후 **`bankMatchingSettingRepository.save(setting)`** 를 호출해 영속 의도를 코드에 드러낸다. 영속 컨텍스트에 이미 붙은 엔티티라 사실상 no-op이지만, 트랜잭션 설정·계층 리팩토링 중 "외부 해제 성공 → `setting.active=true` 잔존" 드리프트를 방지한다.
 
 핵심:
 - **unregister 시도 기준은 `setting != null`(존재 여부)** 이지 `isActiveUsable`가 아니다. `active=false`인데 외부엔 등록 남은 드리프트까지 정리한다. 외부 `deleteAccount`는 멱등이라 미등록 계좌에 호출해도 안전.
@@ -148,6 +161,7 @@ delete(clubId, actorId):
 - 로그 필드: `clubId`, `event`, `errorCode`(optional)
 - **PII(계좌번호·예금주)는 절대 기록하지 않는다.**
 - 이벤트명은 `BankAccountAuditEvent` enum(또는 상수)으로 정의해 오타·표류를 막는다.
+- **네이밍**: `REGISTERED`/`UNREGISTERED`/`UNREGISTER_FAILED`는 외부 `/v1/accounts`(계좌 등록·해제)에 1:1로 대응하므로 `BANK_ACCOUNT_*` 접두사를 유지한다. `FORCE_DEACTIVATED`만 매칭 설정 의미에 가깝지만, 한 패밀리의 접두사 일관성을 위해 같은 계열로 둔다. (`BANK_MATCHING_*` 계열 통일은 선택사항으로 남기되 이번 범위에서는 보류.)
 - 영속 감사 이력이 필요해지면 후속 PR에서 `bank_matching_event` 테이블을 별도 설계한다.
 
 ### B-4. 운영진 삭제 모달 경고 (프론트, PR4)
@@ -180,6 +194,8 @@ delete(clubId, actorId):
 - 한 계좌의 복호화가 실패해도 그 행만 `maskedAccountNumber=null`이고 페이지는 정상 반환된다(행별 degrade).
 - 활성 계좌 편집 시도 시 409가 발생하고 DB가 변경되지 않는다.
 - 비활성 계좌는 편집이 정상 동작한다(신규 등록 포함).
+- 회비 계좌가 없는 상태에서는 설정 행 잔존 여부와 무관하게 신규 등록이 허용된다(`isActiveUsable=false`).
+- 삭제 cascade 후 `bank_matching_setting.active`가 false로 영속된다(저장 누락 없음).
 - 활성 계좌 삭제 시 외부 `deleteAccount`가 호출되고 설정이 비활성화되며 계좌가 soft delete 된다.
 - 외부 `deleteAccount`가 예외를 던져도 삭제가 성공하고 설정이 강제 비활성화된다(never-block).
 - 복호화가 실패해도 삭제가 성공하고 설정이 강제 비활성화된다(never-block).
