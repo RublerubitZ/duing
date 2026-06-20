@@ -4,6 +4,7 @@ import com.duing.domain.favorite.repository.ClubFavoriteRepository;
 import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
+import com.duing.domain.notification.support.RecruitmentDeadlineLabel;
 import com.duing.domain.recruitment.repository.DeadlineRow;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import java.time.Clock;
@@ -68,7 +69,7 @@ public class DeadlineNotificationJob {
                 userId,
                 NotificationType.RECRUITMENT_OPENED,
                 "찜한 " + row.getClubName() + "의 새 모집이 시작됐어요",
-                row.getTitle() + " · 마감 " + row.getEndDate(),
+                row.getTitle() + " · " + RecruitmentDeadlineLabel.of(row.getEndDate()),
                 // 학생측 모집 상세 라우트는 #98 PR 에서 제거되었다. active 모집은 동아리 상세 카드에
                 // 임베드되어 노출되므로 동아리 상세로 보낸다. payload 의 recruitmentId 는 그대로 유지.
                 "/clubs/" + row.getClubId(),
