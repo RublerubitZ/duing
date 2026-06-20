@@ -42,6 +42,9 @@ function makeClub(overrides: Partial<BankMatchingClub> = {}): BankMatchingClub {
   return {
     clubId: 1,
     clubName: '두잉 동아리',
+    bank: 'NH',
+    accountHolder: '홍길동',
+    maskedAccountNumber: '****7890',
     eligible: true,
     ineligibleReason: null,
     registered: false,
@@ -174,5 +177,45 @@ describe('BankMatchingClubs', () => {
 
     expect(screen.getByText('재즈 동아리')).toBeInTheDocument();
     expect(screen.queryByText('코딩 동아리')).not.toBeInTheDocument();
+  });
+
+  it('등록 계좌의 은행 라벨·예금주·마스킹 번호와 자동매칭 활성 뱃지를 렌더링한다', () => {
+    mockOverview.mockReturnValue({
+      clubs: [
+        makeClub({
+          clubId: 1,
+          clubName: '코딩 동아리',
+          bank: 'KB',
+          accountHolder: '김두잉',
+          maskedAccountNumber: '****1234',
+          registered: true,
+        }),
+      ],
+      slots,
+    });
+    render(<BankMatchingClubs />);
+
+    expect(screen.getByText('KB국민 · 김두잉 · ****1234')).toBeInTheDocument();
+    expect(screen.getByText('자동매칭 활성')).toBeInTheDocument();
+  });
+
+  it('maskedAccountNumber 가 null 이면 "계좌 확인 불가" 로 표시하고 비활성 뱃지를 노출한다', () => {
+    mockOverview.mockReturnValue({
+      clubs: [
+        makeClub({
+          clubId: 2,
+          clubName: '재즈 동아리',
+          bank: 'NH',
+          accountHolder: '총무',
+          maskedAccountNumber: null,
+          registered: false,
+        }),
+      ],
+      slots,
+    });
+    render(<BankMatchingClubs />);
+
+    expect(screen.getByText('NH농협 · 총무 · 계좌 확인 불가')).toBeInTheDocument();
+    expect(screen.getByText('자동매칭 비활성')).toBeInTheDocument();
   });
 });
