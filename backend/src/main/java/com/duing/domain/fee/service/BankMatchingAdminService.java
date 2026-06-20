@@ -42,7 +42,8 @@ public interface BankMatchingAdminService {
      * 회비 계좌 삭제에 앞서 외부 BANK 등록을 정리한다. {@code bank_matching_setting} 행이 존재하면
      * 외부 해제를 best-effort 로 시도하고(실패해도 흡수), 설정을 강제 비활성화한다.
      *
-     * <p>외부/복호화 실패로 <b>절대 예외를 던지지 않는다</b> — 계좌 삭제가 외부 장애로 막혀선 안 되기 때문이다.
+     * <p>외부/복호화 실패로는 <b>예외를 던지지 않는다</b>(흡수) — 계좌 삭제가 외부 장애로 막혀선 안 되기 때문이다.
+     * 단, 설정 영속(save) 같은 DB 실패는 트랜잭션과 함께 정상적으로 전파된다.
      * 트리거 기준은 설정의 active 여부가 아니라 행 <em>존재</em> 여부다(active=false·외부 등록 잔존 드리프트까지 정리).
      */
     void unregisterForAccountRemoval(Long clubId);

@@ -202,7 +202,7 @@ class FeeAccountBankMatchingCascadeTest extends IntegrationTestBase {
 
         leaderDelete(HttpStatus.NO_CONTENT.value());
 
-        assertThat(stubBankApiClient.calls).contains("deleteAccount");
+        assertThat(stubBankApiClient.calls).containsExactly("deleteAccount");
         assertThat(readSettingActive()).isFalse();
         assertThat(feeAccountExists()).isFalse();
     }
@@ -217,7 +217,7 @@ class FeeAccountBankMatchingCascadeTest extends IntegrationTestBase {
 
         leaderDelete(HttpStatus.NO_CONTENT.value());
 
-        assertThat(stubBankApiClient.calls).contains("deleteAccount");
+        assertThat(stubBankApiClient.calls).containsExactly("deleteAccount");
         assertThat(readSettingActive()).isFalse();
         assertThat(feeAccountExists()).isFalse();
     }
@@ -231,6 +231,28 @@ class FeeAccountBankMatchingCascadeTest extends IntegrationTestBase {
         leaderDelete(HttpStatus.NO_CONTENT.value());
 
         assertThat(stubBankApiClient.calls).doesNotContain("deleteAccount");
+        assertThat(feeAccountExists()).isFalse();
+    }
+
+    @Test
+    @DisplayName("계좌 복호화가 실패해도(키 회전·암호문 손상) 삭제는 성공하고 설정이 강제 비활성화된다(never-block)")
+    void deleteNeverBlockedByDecryptFailure() {
+        leaderUpsert("NH", "352-1234-5678-90", "총무", HttpStatus.OK.value());
+        adminSetActive(true);
+        assertThat(readSettingActive()).isTrue();
+        // 활성화 후 암호문을 손상시켜(키 회전·at-rest 손상 모사) 복호화가 실패하도록 만든다.
+        jdbcTemplate.update(
+                "UPDATE fee_account SET account_number = 'not-a-valid-ciphertext' "
+                        + "WHERE club_id = ? AND deleted_at IS NULL",
+                clubId);
+        stubBankApiClient.calls.clear();
+
+        leaderDelete(HttpStatus.NO_CONTENT.value());
+
+        // 복호화가 외부 호출보다 먼저 실패하므로 deleteAccount 는 호출되지 못하지만,
+        // 삭제는 성공하고 설정은 강제 비활성화된다(never-block).
+        assertThat(stubBankApiClient.calls).doesNotContain("deleteAccount");
+        assertThat(readSettingActive()).isFalse();
         assertThat(feeAccountExists()).isFalse();
     }
 }

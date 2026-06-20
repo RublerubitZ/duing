@@ -94,6 +94,8 @@ public class GeneralBankMatchingAdminService implements BankMatchingAdminService
             try {
                 String bankCode = bankCodeMapper.toApiCode(account.getBank());
                 String accountNumber = feeAccountCipher.decrypt(account.getAccountNumber(), clubId);
+                // 등록/해제 같은 경량 BANK 호출은 setActive 와 동일하게 트랜잭션 내에서 수행한다
+                // (느린 거래 조회만 트랜잭션 밖으로 빼는 정책 — 이 단건 해제는 경량·저빈도라 예외).
                 bankApiClient.deleteAccount(bankCode, accountNumber); // 멱등 — 미등록 계좌에도 안전
                 externalCleared = true;
             } catch (RuntimeException externalFailure) {
