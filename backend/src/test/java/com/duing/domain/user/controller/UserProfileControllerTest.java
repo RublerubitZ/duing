@@ -61,7 +61,7 @@ class UserProfileControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("GET /users/me 응답에 학년(grade) 필드가 포함된다")
+    @DisplayName("내 정보 조회 시 학년이 응답에 포함된다")
     void getMeIncludesGrade() {
         User user = saveUser(Grade.JUNIOR);
 
@@ -74,7 +74,7 @@ class UserProfileControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("PATCH /users/me 로 학년을 변경하면 이후 GET /users/me 에서 바뀐 학년이 반환된다")
+    @DisplayName("프로필 수정 후 내 정보를 조회하면 변경된 학년이 반환된다")
     void updateProfileChangesGrade() {
         User user = saveUser(Grade.FRESHMAN);
         String token = tokenFor(user);
@@ -96,7 +96,7 @@ class UserProfileControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("PATCH /users/me 에서 grade 를 누락하면 400 을 반환한다")
+    @DisplayName("프로필 수정 요청에서 학년을 누락하면 잘못된 요청으로 거부된다")
     void updateProfileWithoutGradeReturns400() {
         User user = saveUser(Grade.FRESHMAN);
 
