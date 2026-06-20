@@ -28,11 +28,18 @@ public class GeneralFeeAccountService implements FeeAccountService {
     private final FeeAccountRepository feeAccountRepository;
     private final ClubAuthService clubAuthService;
     private final FeeAccountCipher feeAccountCipher;
+    private final BankMatchingAdminService bankMatchingAdminService;
 
     @Override
     @Transactional
     public Long upsert(UpsertFeeAccountCommand command) {
         clubAuthService.requireManager(command.actorId(), command.clubId());
+        // 자동매칭이 사용 가능한(계좌 존재 + 사용 가능 설정 + 지원 은행) 동안에는 계좌를 잠근다 —
+        // 외부에 등록된 번호와 DB 가 어긋나는 드리프트를 막는다. 변경하려면 자동매칭을 먼저 해제해야 한다.
+        // 계좌가 없는 최초 등록은 isActiveUsable=false 라 정상 통과한다.
+        if (bankMatchingAdminService.isActiveUsable(command.clubId())) {
+            throw new FeeAccountException.BankMatchingActiveException();
+        }
         // 평문 계좌번호는 저장 직전에 암호화한다 — 영속 계층에는 암호문만 들어간다.
         // clubId 를 AAD 로 바인딩해 다른 동아리 행에 끼워 넣어도 복호화되지 않게 한다.
         String encryptedAccountNumber = feeAccountCipher.encrypt(command.accountNumber(), command.clubId());
@@ -64,7 +71,11 @@ public class GeneralFeeAccountService implements FeeAccountService {
     @Transactional
     public void delete(Long clubId, Long actorId) {
         clubAuthService.requireManager(actorId, clubId);
-        feeAccountRepository.delete(loadByClubId(clubId)); // @SQLDelete soft delete
+        FeeAccount account = loadByClubId(clubId);
+        // 삭제는 외부/암호 실패로 막지 않는다. 외부 BANK 등록은 best-effort 로 정리하고 설정을 강제 비활성화한다.
+        // (soft delete 전에 호출해야 account 암호문이 살아 있어 외부 해제에 쓸 수 있다.)
+        bankMatchingAdminService.unregisterForAccountRemoval(clubId);
+        feeAccountRepository.delete(account); // @SQLDelete soft delete
     }
 
     private FeeAccount loadByClubId(Long clubId) {
