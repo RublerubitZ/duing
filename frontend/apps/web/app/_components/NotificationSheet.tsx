@@ -66,7 +66,7 @@ export function NotificationSheet({ open, onOpenChange, unreadCount }: Props) {
       <SheetContent
         side="right"
         hideClose
-        className="duing inset-y-6 right-6 flex h-auto w-[400px] max-w-[90vw] flex-col overflow-hidden rounded-3xl border border-line bg-cream p-0 shadow-3"
+        className="duing inset-y-[8vh] right-8 flex h-auto max-h-[88vh] w-[420px] max-w-[90vw] flex-col overflow-hidden rounded-[32px] border border-line bg-cream p-0 shadow-4"
       >
         {/* 상단 — 제목·안읽음 개수·모두 읽음·닫기 */}
         <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
