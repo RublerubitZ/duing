@@ -25,6 +25,9 @@ export function ApplicantProfilePanel({ detail }: { detail: ApplicantDetail }) {
         <dt className="text-neutral-500">이메일</dt>
         <dd className="text-slate-900">{detail.applicant.email}</dd>
 
+        <dt className="text-neutral-500">휴대폰</dt>
+        <dd className="text-slate-900">{detail.applicant.phone}</dd>
+
         <dt className="text-neutral-500">지원일시</dt>
         <dd className="text-slate-900">
           {new Date(detail.submittedAt).toLocaleString('ko-KR')}

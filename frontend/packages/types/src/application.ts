@@ -152,6 +152,7 @@ export type ApplicantDetail = {
     college: College;
     major: string;
     grade: Grade;
+    phone: string;
   };
   answers: { question: string; answer: string }[];
   status: ApplicationStatus;
