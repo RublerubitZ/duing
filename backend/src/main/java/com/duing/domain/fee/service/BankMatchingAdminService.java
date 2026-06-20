@@ -37,4 +37,13 @@ public interface BankMatchingAdminService {
      * 계좌 은행이 지원 대상이 아니면 예외를 던진다. 다른 도메인(BE-4 청구 매칭·BE-6 정산)에서 재사용한다.
      */
     void requireActiveUsable(Long clubId);
+
+    /**
+     * 회비 계좌 삭제에 앞서 외부 BANK 등록을 정리한다. {@code bank_matching_setting} 행이 존재하면
+     * 외부 해제를 best-effort 로 시도하고(실패해도 흡수), 설정을 강제 비활성화한다.
+     *
+     * <p>외부/복호화 실패로 <b>절대 예외를 던지지 않는다</b> — 계좌 삭제가 외부 장애로 막혀선 안 되기 때문이다.
+     * 트리거 기준은 설정의 active 여부가 아니라 행 <em>존재</em> 여부다(active=false·외부 등록 잔존 드리프트까지 정리).
+     */
+    void unregisterForAccountRemoval(Long clubId);
 }

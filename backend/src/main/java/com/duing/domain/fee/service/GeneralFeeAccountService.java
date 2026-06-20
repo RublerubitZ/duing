@@ -71,7 +71,11 @@ public class GeneralFeeAccountService implements FeeAccountService {
     @Transactional
     public void delete(Long clubId, Long actorId) {
         clubAuthService.requireManager(actorId, clubId);
-        feeAccountRepository.delete(loadByClubId(clubId)); // @SQLDelete soft delete
+        FeeAccount account = loadByClubId(clubId);
+        // 삭제는 외부/암호 실패로 막지 않는다. 외부 BANK 등록은 best-effort 로 정리하고 설정을 강제 비활성화한다.
+        // (soft delete 전에 호출해야 account 암호문이 살아 있어 외부 해제에 쓸 수 있다.)
+        bankMatchingAdminService.unregisterForAccountRemoval(clubId);
+        feeAccountRepository.delete(account); // @SQLDelete soft delete
     }
 
     private FeeAccount loadByClubId(Long clubId) {

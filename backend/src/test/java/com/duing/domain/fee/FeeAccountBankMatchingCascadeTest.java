@@ -10,10 +10,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
-import com.duing.domain.user.entity.College;
-import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
-import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.bank.BankApiClient;
@@ -23,12 +20,10 @@ import com.duing.global.bank.dto.TransactionLookupCommand;
 import com.duing.global.crypto.FeeAccountCipher;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -108,8 +103,6 @@ class FeeAccountBankMatchingCascadeTest extends IntegrationTestBase {
     @Autowired
     JdbcTemplate jdbcTemplate;
 
-    private final AtomicLong sequence = new AtomicLong(System.nanoTime());
-
     private String adminToken;
     private String leaderToken;
     private Long clubId;
@@ -119,7 +112,7 @@ class FeeAccountBankMatchingCascadeTest extends IntegrationTestBase {
         RestAssured.port = port;
         stubBankApiClient.reset();
 
-        User admin = userRepository.save(adminUser());
+        User admin = userRepository.save(UserFixture.admin());
         adminToken = jwtTokenProvider.createToken(admin.getId(), admin.getRole().name());
 
         Club club = clubRepository.save(ClubFixture.academic("동아리A"));
@@ -127,13 +120,6 @@ class FeeAccountBankMatchingCascadeTest extends IntegrationTestBase {
         User leader = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
-    }
-
-    private User adminUser() {
-        long seq = sequence.incrementAndGet();
-        return User.create("20" + seq, "관리자" + seq, "admin" + seq + "@duing.ac.kr", "h",
-                UserRole.ADMIN, Grade.FRESHMAN, College.IT_ENGINEERING, "미설정",
-                "010-0000-0000", LocalDateTime.now());
     }
 
     private void leaderUpsert(String bank, String accountNumber, String accountHolder, int expectedStatus) {
@@ -204,5 +190,47 @@ class FeeAccountBankMatchingCascadeTest extends IntegrationTestBase {
         leaderUpsert("KB", "111-222-333", "새총무", HttpStatus.OK.value());
 
         assertThat(feeAccountCipher.decrypt(storedAccountNumber(), clubId)).isEqualTo("111-222-333");
+    }
+
+    @Test
+    @DisplayName("자동매칭 활성 계좌를 운영진이 삭제하면 외부 deleteAccount 가 호출되고 설정이 비활성화되며 계좌가 soft delete 된다")
+    void deleteActiveAccountCascades() {
+        leaderUpsert("NH", "352-1234-5678-90", "총무", HttpStatus.OK.value());
+        adminSetActive(true);
+        assertThat(readSettingActive()).isTrue();
+        stubBankApiClient.calls.clear();
+
+        leaderDelete(HttpStatus.NO_CONTENT.value());
+
+        assertThat(stubBankApiClient.calls).contains("deleteAccount");
+        assertThat(readSettingActive()).isFalse();
+        assertThat(feeAccountExists()).isFalse();
+    }
+
+    @Test
+    @DisplayName("외부 deleteAccount 가 실패해도 계좌 삭제는 성공하고 설정이 강제 비활성화된다(never-block)")
+    void deleteNeverBlockedByExternalFailure() {
+        leaderUpsert("NH", "352-1234-5678-90", "총무", HttpStatus.OK.value());
+        adminSetActive(true);
+        stubBankApiClient.deleteFailure = new RuntimeException("BANK API down");
+        stubBankApiClient.calls.clear();
+
+        leaderDelete(HttpStatus.NO_CONTENT.value());
+
+        assertThat(stubBankApiClient.calls).contains("deleteAccount");
+        assertThat(readSettingActive()).isFalse();
+        assertThat(feeAccountExists()).isFalse();
+    }
+
+    @Test
+    @DisplayName("자동매칭 설정이 없는 계좌 삭제는 외부 호출 없이 soft delete 된다")
+    void deleteWithoutSettingSkipsExternal() {
+        leaderUpsert("NH", "352-1234-5678-90", "총무", HttpStatus.OK.value());
+        stubBankApiClient.calls.clear();
+
+        leaderDelete(HttpStatus.NO_CONTENT.value());
+
+        assertThat(stubBankApiClient.calls).doesNotContain("deleteAccount");
+        assertThat(feeAccountExists()).isFalse();
     }
 }

@@ -10,6 +10,7 @@ import com.duing.domain.fee.repository.FeeAccountRepository;
 import com.duing.domain.fee.service.dto.query.BankMatchingClubResult;
 import com.duing.domain.fee.service.dto.query.BankMatchingOverview;
 import com.duing.domain.fee.support.AccountNumberMasker;
+import com.duing.domain.fee.support.BankAccountAuditEvent;
 import com.duing.domain.fee.support.BankCodeMapper;
 import com.duing.global.bank.BankApiClient;
 import com.duing.global.bank.dto.AccountSlotStatus;
@@ -69,9 +70,49 @@ public class GeneralBankMatchingAdminService implements BankMatchingAdminService
         if (active) {
             bankApiClient.registerAccount(bankCode, accountNumber);     // ① 외부 등록(실패 시 예외 → 아래 DB 반영 안 됨)
             setting.activate();                                         // ② 성공 시에만 DB
+            log.info("bankAccountAudit event={} clubId={}",
+                    BankAccountAuditEvent.BANK_ACCOUNT_REGISTERED, clubId);
         } else {
             bankApiClient.deleteAccount(bankCode, accountNumber);       // ① 외부 해제
             setting.deactivate();                                      // ②
+            log.info("bankAccountAudit event={} clubId={}",
+                    BankAccountAuditEvent.BANK_ACCOUNT_UNREGISTERED, clubId);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void unregisterForAccountRemoval(Long clubId) {
+        BankMatchingSetting setting = bankMatchingSettingRepository.findByClubId(clubId).orElse(null);
+        if (setting == null) {
+            return; // 자동매칭 설정 흔적이 없으면 외부에 정리할 등록도 없다.
+        }
+        // 외부 해제는 best-effort — 복호화 실패·BANK API 장애를 흡수하고 계좌 삭제를 막지 않는다.
+        FeeAccount account = feeAccountRepository.findByClubId(clubId).orElse(null);
+        boolean externalCleared = false;
+        if (account != null) {
+            try {
+                String bankCode = bankCodeMapper.toApiCode(account.getBank());
+                String accountNumber = feeAccountCipher.decrypt(account.getAccountNumber(), clubId);
+                bankApiClient.deleteAccount(bankCode, accountNumber); // 멱등 — 미등록 계좌에도 안전
+                externalCleared = true;
+            } catch (RuntimeException externalFailure) {
+                log.warn("bankAccountAudit event={} clubId={} errorCode={}",
+                        BankAccountAuditEvent.BANK_ACCOUNT_UNREGISTER_FAILED, clubId,
+                        externalFailure.getClass().getSimpleName());
+            }
+        } else {
+            log.warn("bankAccountAudit event={} clubId={} errorCode={}",
+                    BankAccountAuditEvent.BANK_ACCOUNT_UNREGISTER_FAILED, clubId, "ACCOUNT_MISSING");
+        }
+        setting.deactivate();
+        bankMatchingSettingRepository.save(setting); // 비활성 영속을 코드에 명시(dirty checking 의존 X)
+        if (externalCleared) {
+            log.info("bankAccountAudit event={} clubId={}",
+                    BankAccountAuditEvent.BANK_ACCOUNT_UNREGISTERED, clubId);
+        } else {
+            log.warn("bankAccountAudit event={} clubId={}",
+                    BankAccountAuditEvent.BANK_ACCOUNT_FORCE_DEACTIVATED, clubId);
         }
     }
 
