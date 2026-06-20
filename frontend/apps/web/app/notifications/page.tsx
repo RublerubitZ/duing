@@ -112,10 +112,8 @@ type GroupProps = {
 function NotificationGroup({ title, items, onClick }: GroupProps) {
   return (
     <section>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-charcoal-3">
-        {title}
-      </h2>
-      <ul className="divide-y divide-line rounded-xl border border-line bg-white">
+      <h2 className="mb-2 px-1 text-xs font-bold tracking-[0.04em] text-charcoal-3">{title}</h2>
+      <ul className="space-y-1.5">
         {items.map((notification) => (
           <li key={notification.id}>
             <NotificationItem notification={notification} onClick={onClick} />

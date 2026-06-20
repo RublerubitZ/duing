@@ -101,7 +101,7 @@ export function NotificationSheet({ open, onOpenChange, unreadCount }: Props) {
           {notifications.length === 0 ? (
             <p className="px-5 py-12 text-center text-sm text-charcoal-3">새 알림이 없어요</p>
           ) : (
-            <ul className="divide-y divide-line">
+            <ul className="space-y-1 px-2 py-1.5">
               {notifications.map((notification) => (
                 <li key={notification.id}>
                   <NotificationItem notification={notification} onClick={handleItemClick} />
