@@ -29,7 +29,7 @@ public record ApplicantDetailResponse(
 ) {
 
     public record ApplicantInfo(Long userId, String name, String studentId, String email,
-                                College college, String major, Grade grade) {}
+                                College college, String major, Grade grade, String phone) {}
 
     public record QuestionAnswer(String question, String answer) {}
 
@@ -92,7 +92,8 @@ public record ApplicantDetailResponse(
                 detailQuery.applicant().email(),
                 detailQuery.applicant().college(),
                 detailQuery.applicant().major(),
-                detailQuery.applicant().grade()
+                detailQuery.applicant().grade(),
+                detailQuery.applicant().phone()
         );
 
         List<QuestionAnswer> questionAnswers = detailQuery.answers().stream()
