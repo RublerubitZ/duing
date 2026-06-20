@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { ClubMember, ClubMemberRole } from '@duing/types';
+import { GRADE_DISPLAY_NAME } from '@duing/types';
 import {
   useLeaveClubMutation,
   useRemoveMemberMutation,
@@ -72,6 +73,10 @@ export function MemberRow({
         </p>
         <p className="text-xs text-slate-500">
           학번 {member.studentId} · 가입 {member.joinedAt.slice(0, 10)}
+        </p>
+        <p className="text-xs text-slate-500">
+          {member.major} · {GRADE_DISPLAY_NAME[member.grade]}
+          {member.phoneMasked && ` · ${member.phoneMasked}`}
         </p>
       </div>
 

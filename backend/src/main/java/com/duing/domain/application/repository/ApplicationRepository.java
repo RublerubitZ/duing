@@ -49,6 +49,15 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     Optional<Application> findWithRecruitmentAndClubById(@Param("applicationId") Long applicationId);
 
     /**
+     * 인가 확인용 경량 조회 — 지원자(User) 등 상세 데이터를 로드하지 않고 소속 동아리 ID 만 가져온다.
+     * 비인가 요청에서 전화번호 등 민감 데이터를 메모리에 올리지 않도록, 상세 페치보다 먼저 호출한다.
+     * recruitment·club 을 명시적으로 inner join 해 {@link #findWithRecruitmentAndClubById} 와 동일하게
+     * soft-delete(@SQLRestriction) 된 모집/동아리를 걸러 두 조회의 가시성을 일치시킨다.
+     */
+    @Query("SELECT c.id FROM Application a JOIN a.recruitment r JOIN r.club c WHERE a.id = :applicationId")
+    Optional<Long> findClubIdByApplicationId(@Param("applicationId") Long applicationId);
+
+    /**
      * 배치 잡 등에서 다건 페치 조인 조회용. {@link #findWithRecruitmentAndClubById} 의 plural 버전으로,
      * recruitment → club, user, recruitment → form(nullable) 을 한 번에 로드해 N+1 을 방지한다.
      */

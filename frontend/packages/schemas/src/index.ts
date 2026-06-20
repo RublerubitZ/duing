@@ -230,10 +230,10 @@ export const updateClubSchema = z.object({
     .max(200, '위치는 200자 이하여야 합니다.')
     .nullable()
     .optional(),
+  // 이메일 전용에서 자유 입력(전화/카톡 오픈채팅/인스타 DM 등)으로 정책 변경 — 형식 검증 제거, 길이 제한만 유지.
   contactEmail: z
     .string()
-    .email('이메일 형식이 올바르지 않습니다.')
-    .max(200, '이메일은 200자 이하여야 합니다.')
+    .max(200, '연락처는 200자 이하여야 합니다.')
     .nullable()
     .or(z.literal(''))
     .optional(),

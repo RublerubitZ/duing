@@ -117,6 +117,51 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
                 .toList();
         assertThat(notifiedUserIds).containsExactlyInAnyOrder(favorUser1.getId(), favorUser2.getId());
         assertThat(notifiedUserIds).doesNotContain(nonFavorUser.getId());
+
+        Notification sampleNotification = openedNotifications.get(0);
+        assertThat(sampleNotification.getLinkUrl()).isEqualTo("/clubs/" + club.getId());
+        assertThat(sampleNotification.getLinkUrl()).doesNotContain("/recruitments/");
+        assertThat(sampleNotification.getBody()).contains("마감 ");
+    }
+
+    @Test
+    @DisplayName("마감일이 없는 상시모집이 오늘 시작하면 알림은 동아리 상세로 링크되고 body 에 '상시 모집' 으로 표기된다")
+    void alwaysOpenRecruitmentNotificationLinksToClubAndShowsAlwaysLabel() throws Exception {
+        User leader = saveUser("상시리더");
+        User favorUser = saveUser("상시찜유저");
+        Club club = saveActiveClub("상시모집동아리");
+
+        saveMembership(club, leader, ClubMemberRole.LEADER);
+        saveFavorite(favorUser, club);
+
+        recruitmentService.create(new CreateRecruitmentCommand(
+                club.getId(),
+                leader.getId(),
+                "상시 신입 모집",
+                "내용",
+                LocalDate.now(),
+                null,
+                20,
+                ApplicationMode.SELF,
+                null,
+                false,
+                TargetRole.MEMBER,
+                List.of("지원 동기"),
+                null,
+                null,
+                false
+        ));
+
+        List<Notification> openedNotifications = notificationRepository.findAll().stream()
+                .filter(notification -> notification.getType() == NotificationType.RECRUITMENT_OPENED)
+                .toList();
+
+        assertThat(openedNotifications).hasSize(1);
+
+        Notification openedNotification = openedNotifications.get(0);
+        assertThat(openedNotification.getLinkUrl()).isEqualTo("/clubs/" + club.getId());
+        assertThat(openedNotification.getBody()).contains("상시 모집");
+        assertThat(openedNotification.getBody()).doesNotContain("null");
     }
 
     @Test
@@ -133,7 +178,7 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
                 NotificationType.RECRUITMENT_OPENED,
                 "찜한 " + club.getName() + "의 새 모집이 시작됐어요",
                 "멱등 모집 · 마감 " + LocalDate.now().plusDays(7),
-                "/clubs/" + club.getId() + "/recruitments/9999",
+                "/clubs/" + club.getId(),
                 Map.of("recruitmentId", 9999L, "clubId", club.getId()),
                 dedupKey
         );
@@ -142,7 +187,7 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
                 NotificationType.RECRUITMENT_OPENED,
                 "찜한 " + club.getName() + "의 새 모집이 시작됐어요",
                 "멱등 모집 · 마감 " + LocalDate.now().plusDays(7),
-                "/clubs/" + club.getId() + "/recruitments/9999",
+                "/clubs/" + club.getId(),
                 Map.of("recruitmentId", 9999L, "clubId", club.getId()),
                 dedupKey
         );

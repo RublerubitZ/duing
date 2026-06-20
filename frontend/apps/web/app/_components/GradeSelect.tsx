@@ -5,17 +5,18 @@ import { GRADE_DISPLAY_NAME, GRADE_OPTIONS, type Grade } from '@duing/types';
 type Props = {
   value: Grade | '';
   onChange: (next: Grade) => void;
+  id?: string;
 };
 
 function isGrade(value: string): value is Grade {
   return GRADE_OPTIONS.some((grade) => grade === value);
 }
 
-export function GradeSelect({ value, onChange }: Props) {
+export function GradeSelect({ value, onChange, id }: Props) {
   return (
     <div className="relative">
       <select
-        id="signup-grade"
+        id={id}
         required
         value={value}
         onChange={(changeEvent) => {

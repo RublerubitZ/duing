@@ -63,7 +63,7 @@ describe('ProfileEditDialog', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderWithProviders(
-      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentPhone="010-1111-2222" />,
+      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentPhone="010-1111-2222" currentGrade="JUNIOR" />,
     );
 
     const phone = screen.getByDisplayValue('010-1111-2222');
@@ -78,7 +78,7 @@ describe('ProfileEditDialog', () => {
   it('숫자만 입력해도 하이픈이 자동으로 들어간다', async () => {
     const user = userEvent.setup();
     renderWithProviders(
-      <ProfileEditDialog open onClose={vi.fn()} currentName="홍길동" currentPhone="010-1111-2222" />,
+      <ProfileEditDialog open onClose={vi.fn()} currentName="홍길동" currentPhone="010-1111-2222" currentGrade="JUNIOR" />,
     );
 
     const phone = screen.getByDisplayValue('010-1111-2222');
@@ -94,7 +94,7 @@ describe('ProfileEditDialog', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderWithProviders(
-      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentPhone="010-1111-2222" />,
+      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentPhone="010-1111-2222" currentGrade="JUNIOR" />,
     );
 
     const name = screen.getByDisplayValue('홍길동');
@@ -104,6 +104,32 @@ describe('ProfileEditDialog', () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(await screen.findByText('프로필을 수정했어요.')).toBeInTheDocument();
+  });
+
+  it('학년 셀렉트가 렌더되고, 학년을 변경하면 PATCH 페이로드에 grade가 포함된다', async () => {
+    let capturedBody: unknown = null;
+    server.use(
+      http.patch(`${BASE}/users/me`, async ({ request }) => {
+        capturedBody = await request.json();
+        return ok204();
+      }),
+    );
+
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentPhone="010-1111-2222" currentGrade="JUNIOR" />,
+    );
+
+    // 학년 셀렉트가 노출되고 현재 값(3학년)이 선택되어 있다.
+    expect(screen.getByRole('option', { name: '3학년' })).toBeInTheDocument();
+
+    // 학년을 4학년으로 변경한다.
+    await user.selectOptions(screen.getByRole('combobox'), '4학년');
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(capturedBody).toMatchObject({ grade: 'SENIOR' });
   });
 });
 

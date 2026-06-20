@@ -3,7 +3,7 @@
 import type { College, Grade } from '@duing/types';
 import type { SignupFormState } from '../_lib/signup-state';
 import { CollegeSelect } from './CollegeSelect';
-import { GradeSelect } from './GradeSelect';
+import { GradeSelect } from '@/app/_components/GradeSelect';
 import { PhoneInput } from './PhoneInput';
 import { TermsAgreement } from './TermsAgreement';
 

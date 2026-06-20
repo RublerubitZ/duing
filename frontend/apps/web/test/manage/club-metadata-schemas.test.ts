@@ -27,11 +27,18 @@ describe('updateClubSchema — 메타 필드 검증', () => {
     }
   });
 
-  it('contactEmail 이 잘못된 형식이면 검증 실패한다', () => {
-    const result = updateClubSchema.safeParse({ ...validBase, contactEmail: 'not-an-email' });
+  it('contactEmail 은 이메일이 아닌 자유 입력(전화번호·오픈채팅 링크)도 허용한다', () => {
+    expect(updateClubSchema.safeParse({ ...validBase, contactEmail: '010-0000-0000' }).success).toBe(true);
+    expect(
+      updateClubSchema.safeParse({ ...validBase, contactEmail: 'https://open.kakao.com/o/abc123' }).success,
+    ).toBe(true);
+  });
+
+  it('contactEmail 이 200자를 초과하면 검증 실패한다', () => {
+    const result = updateClubSchema.safeParse({ ...validBase, contactEmail: 'a'.repeat(201) });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0]?.message).toContain('이메일');
+      expect(result.error.issues[0]?.message).toContain('연락처');
     }
   });
 

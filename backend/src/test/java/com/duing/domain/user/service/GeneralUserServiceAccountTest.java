@@ -61,16 +61,17 @@ class GeneralUserServiceAccountTest {
     }
 
     @Test
-    @DisplayName("프로필 수정 시 이름과 전화번호가 변경된다")
-    void updateProfileChangesNameAndPhone() {
+    @DisplayName("프로필 수정 시 이름·전화번호·학년이 변경된다")
+    void updateProfileChangesNamePhoneAndGrade() {
         User user = saveUserWithPassword("Old1234!");
 
-        userService.updateProfile(new UpdateProfileCommand(user.getId(), "새이름", "010-9999-8888"));
+        userService.updateProfile(new UpdateProfileCommand(user.getId(), "새이름", "010-9999-8888", Grade.SENIOR));
         flushAndClear();
 
         User reloaded = userRepository.findById(user.getId()).orElseThrow();
         assertThat(reloaded.getName()).isEqualTo("새이름");
         assertThat(reloaded.getPhone()).isEqualTo("010-9999-8888");
+        assertThat(reloaded.getGrade()).isEqualTo(Grade.SENIOR);
     }
 
     @Test
@@ -80,7 +81,7 @@ class GeneralUserServiceAccountTest {
         User me = saveUserWithPassword("Old1234!");
 
         assertThatThrownBy(() -> userService.updateProfile(
-                new UpdateProfileCommand(me.getId(), "새이름", existing.getPhone())))
+                new UpdateProfileCommand(me.getId(), "새이름", existing.getPhone(), Grade.JUNIOR)))
                 .isInstanceOf(UserException.DuplicateAccountException.class);
     }
 
@@ -88,7 +89,7 @@ class GeneralUserServiceAccountTest {
     @DisplayName("존재하지 않는 사용자의 프로필 수정은 UserNotFoundException")
     void updateProfileForMissingUserThrows() {
         assertThatThrownBy(() -> userService.updateProfile(
-                new UpdateProfileCommand(999_999L, "새이름", "010-9999-8888")))
+                new UpdateProfileCommand(999_999L, "새이름", "010-9999-8888", Grade.JUNIOR)))
                 .isInstanceOf(UserException.UserNotFoundException.class);
     }
 

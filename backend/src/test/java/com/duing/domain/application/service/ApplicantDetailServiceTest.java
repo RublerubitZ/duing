@@ -2,6 +2,7 @@ package com.duing.domain.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -42,6 +43,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
@@ -78,6 +80,12 @@ class ApplicantDetailServiceTest {
             interviewSlotRepository,
             interviewRoundMemberRepository,
             clock);
+
+    @BeforeEach
+    void stubClubIdLookup() {
+        // 상세 페치 전 인가용 경량 clubId 조회. requireManager 가 void mock 이라 clubId 값과 무관하게 통과한다.
+        when(applicationRepository.findClubIdByApplicationId(anyLong())).thenReturn(Optional.of(5L));
+    }
 
     @Test
     @DisplayName("SELF 모집의 지원서를 동아리 운영진이 조회하면 질문·답변이 인덱스 기준으로 매핑되어 반환된다")
@@ -176,22 +184,7 @@ class ApplicantDetailServiceTest {
     @Test
     @DisplayName("다른 동아리의 운영진이 조회를 시도하면 AccessDeniedException 이 발생한다")
     void differentClubOfficerCannotReadApplicantDetail() {
-        Club club = mock(Club.class);
-        when(club.getId()).thenReturn(5L);
-
-        Recruitment recruitment = mock(Recruitment.class);
-        when(recruitment.getClub()).thenReturn(club);
-        when(recruitment.getApplicationMode()).thenReturn(ApplicationMode.SELF);
-
-        User applicant = mock(User.class);
-
-        Application application = mock(Application.class);
-        when(application.getUser()).thenReturn(applicant);
-        when(application.getRecruitment()).thenReturn(recruitment);
-
-        when(applicationRepository.findWithRecruitmentAndClubById(1L)).thenReturn(Optional.of(application));
-
-        // 다른 동아리의 운영진(userId=777)은 club 5에 권한이 없으므로 AccessDeniedException
+        // @BeforeEach 가 경량 조회로 clubId=5 를 돌려준다. 다른 동아리 운영진(userId=777)은 권한이 없어 거부된다.
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
                 .when(clubAuthService).requireManager(777L, 5L);
 
@@ -200,9 +193,23 @@ class ApplicantDetailServiceTest {
     }
 
     @Test
+    @DisplayName("인가에 실패하면 지원자 상세(전화번호 포함)를 페치하지 않는다 — 권한-우선 조회")
+    void unauthorizedRequestDoesNotFetchApplicantDetail() {
+        when(applicationRepository.findClubIdByApplicationId(1L)).thenReturn(Optional.of(5L));
+        doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
+                .when(clubAuthService).requireManager(777L, 5L);
+
+        assertThatThrownBy(() -> applicationService.getApplicantDetail(1L, 777L))
+                .isInstanceOf(AccessDeniedException.class);
+
+        verify(applicationRepository, never()).findWithRecruitmentAndClubById(anyLong());
+    }
+
+    @Test
     @DisplayName("존재하지 않는 applicationId 로 조회하면 ApplicationNotFoundException 이 발생한다")
     void missingApplicationIdThrowsNotFoundException() {
-        when(applicationRepository.findWithRecruitmentAndClubById(404L)).thenReturn(Optional.empty());
+        // 경량 clubId 조회가 비어 있으면(존재하지 않는 지원서) 인가 이전 단계에서 NotFound 가 발생한다.
+        when(applicationRepository.findClubIdByApplicationId(404L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> applicationService.getApplicantDetail(404L, 99L))
                 .isInstanceOf(ApplicationDomainException.ApplicationNotFoundException.class);

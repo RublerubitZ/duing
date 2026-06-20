@@ -8,6 +8,8 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.favorite.entity.ClubFavorite;
 import com.duing.domain.favorite.repository.ClubFavoriteRepository;
+import com.duing.domain.notification.entity.Notification;
+import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
@@ -131,6 +133,32 @@ class DeadlineNotificationJobTest extends IntegrationTestBase {
                 .filter(n -> n.getUserId().equals(favoringUser.getId()))
                 .anyMatch(n -> n.getDedupKey().startsWith("RECRUITMENT_OPENED:r="));
         assertThat(hasOpenedKey).isTrue();
+    }
+
+    @Test
+    @DisplayName("마감일이 없는 상시모집이 오늘 시작하면 RECRUITMENT_OPENED 알림 body 에 '상시 모집' 으로 표기되고 동아리 상세로 링크된다")
+    void openedKindWithoutEndDateShowsAlwaysLabel() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+
+        User favoringUser = saveStudent("찜유저상시");
+        Club club = saveActiveClub("상시모집동아리");
+        saveFavorite(favoringUser, club);
+
+        // 오늘 시작하는 상시모집 (마감일 없음)
+        saveOpenRecruitment(club, "상시 신입모집", today, null);
+
+        long beforeCount = notificationRepository.count();
+        job.run();
+        assertThat(notificationRepository.count() - beforeCount).isEqualTo(1);
+
+        Notification openedNotification = notificationRepository.findAll().stream()
+                .filter(notification -> notification.getUserId().equals(favoringUser.getId()))
+                .filter(notification -> notification.getType() == NotificationType.RECRUITMENT_OPENED)
+                .findFirst()
+                .orElseThrow();
+        assertThat(openedNotification.getBody()).contains("상시 모집");
+        assertThat(openedNotification.getBody()).doesNotContain("null");
+        assertThat(openedNotification.getLinkUrl()).isEqualTo("/clubs/" + club.getId());
     }
 
     @Test

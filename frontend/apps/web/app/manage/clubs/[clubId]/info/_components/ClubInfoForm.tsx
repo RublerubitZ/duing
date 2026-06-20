@@ -403,13 +403,13 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
             </div>
 
             <div className={fieldCls.replace('mb-[18px]', '')}>
-              <label htmlFor="f-email" className={labelCls}>컨택 이메일</label>
+              <label htmlFor="f-contact" className={labelCls}>연락처</label>
               <input
-                id="f-email"
-                type="email"
+                id="f-contact"
+                type="text"
                 value={contactEmail}
                 onChange={(event) => setContactEmail(event.target.value)}
-                placeholder="예: club@daegu.ac.kr"
+                placeholder="예: 010-0000-0000"
                 className={inputCls}
               />
             </div>
