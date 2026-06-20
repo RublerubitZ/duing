@@ -9,6 +9,7 @@ import com.duing.domain.fee.repository.BankMatchingSettingRepository;
 import com.duing.domain.fee.repository.FeeAccountRepository;
 import com.duing.domain.fee.service.dto.query.BankMatchingClubResult;
 import com.duing.domain.fee.service.dto.query.BankMatchingOverview;
+import com.duing.domain.fee.support.AccountNumberMasker;
 import com.duing.domain.fee.support.BankCodeMapper;
 import com.duing.global.bank.BankApiClient;
 import com.duing.global.bank.dto.AccountSlotStatus;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 엔티티 변이가 실행되지 않으므로, DB 상태와 BANK API 상태가 어긋나는(state drift) 일이 없다.
  * 절대 "DB 먼저 변경 → API 호출" 순서로 뒤집지 않는다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -41,6 +44,7 @@ public class GeneralBankMatchingAdminService implements BankMatchingAdminService
     private final ClubRepository clubRepository;
     private final BankApiClient bankApiClient;
     private final BankCodeMapper bankCodeMapper;
+    private final AccountNumberMasker accountNumberMasker;
     private final FeeAccountCipher feeAccountCipher;
 
     @Override
@@ -107,12 +111,32 @@ public class GeneralBankMatchingAdminService implements BankMatchingAdminService
         boolean registered = Optional.ofNullable(settingsByClubId.get(account.getClubId()))
                 .map(BankMatchingSetting::isUsable)
                 .orElse(false);
+        String maskedAccountNumber = resolveMaskedAccountNumber(account);
         return new BankMatchingClubResult(
                 account.getClubId(),
                 clubNamesById.get(account.getClubId()),
+                account.getBank(),
+                account.getAccountHolder(),
+                maskedAccountNumber,
                 eligible,
                 ineligibleReason,
                 registered);
+    }
+
+    /**
+     * 계좌번호를 복호화해 끝 4자리만 마스킹한다. 복호화 실패(키 회전·AAD 불일치·암호문 손상)는 그 행만
+     * 비우도록 null 을 반환하고 경고 로그를 남긴다 — 페이지 전체를 죽이지 않는 graceful degrade.
+     * 평문·암호문·키는 절대 로깅하지 않는다(clubId·원인만 남긴다).
+     */
+    private String resolveMaskedAccountNumber(FeeAccount account) {
+        try {
+            return accountNumberMasker.mask(
+                    feeAccountCipher.decrypt(account.getAccountNumber(), account.getClubId()));
+        } catch (IllegalArgumentException | IllegalStateException decryptFailure) {
+            log.warn("bank-matching overview 계좌 복호화 실패 — 해당 행 마스킹 생략: clubId={}",
+                    account.getClubId(), decryptFailure);
+            return null;
+        }
     }
 
     @Override
