@@ -30,6 +30,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -43,6 +44,9 @@ class NotificationServiceTest extends IntegrationTestBase {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -179,6 +183,28 @@ class NotificationServiceTest extends IntegrationTestBase {
                 java.time.LocalDateTime.now()
         );
         return userRepository.save(user);
+    }
+
+    @Test
+    @DisplayName("생성 후 30일이 지난 알림은 목록과 안읽음 개수에서 제외된다")
+    void excludesNotificationsOlderThanRetentionWindow() {
+        User user = saveUser("보존노출유저");
+        notificationService.createIfAbsent(buildCommand(user.getId(), "fresh-1", "최근 알림"));
+        notificationService.createIfAbsent(buildCommand(user.getId(), "old-1", "오래된 알림"));
+        backdateCreatedAt(user.getId(), "old-1", 40);
+
+        Page<NotificationResponse> page =
+                notificationService.listMine(user.getId(), false, PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).extracting(NotificationResponse::title).containsExactly("최근 알림");
+        assertThat(notificationService.unreadCount(user.getId())).isEqualTo(1);
+    }
+
+    private void backdateCreatedAt(Long userId, String dedupKey, int daysAgo) {
+        jdbcTemplate.update(
+                "UPDATE notification SET created_at = ? WHERE user_id = ? AND dedup_key = ?",
+                java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusDays(daysAgo)),
+                userId, dedupKey);
     }
 
     private CreateNotificationCommand buildCommand(Long userId, String dedupKey, String title) {

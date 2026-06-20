@@ -102,6 +102,8 @@ const config: Config = {
         1: '0 1px 2px rgb(31 74 54 / 0.04), 0 2px 8px rgb(31 74 54 / 0.04)',
         2: '0 2px 6px rgb(31 74 54 / 0.05), 0 12px 32px rgb(31 74 54 / 0.08)',
         3: '0 6px 20px rgb(31 74 54 / 0.08), 0 24px 60px rgb(31 74 54 / 0.12)',
+        // 4: 떠 있는 플로팅 패널용 — 카드(3)보다 한 단계 높은 elevation.
+        4: '0 12px 32px rgb(20 48 37 / 0.14), 0 36px 90px rgb(20 48 37 / 0.22)',
       },
       // 두잉 모션 토큰 — 임의값(duration-[250ms]·ease-[cubic-bezier(...)])이 tailwindcss-animate 와
       // 충돌해 ambiguous 경고를 내므로 명명 유틸리티로 승격(duration-250·ease-duing).

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@duing/stores';
 import { useLogout, useMeQuery } from '@duing/hooks';
 
+import { toRoute } from '@/app/_lib/route';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +29,7 @@ export function UserMenu() {
 
   const userName = meQuery.data?.name ?? '회원';
   const initial = userName.slice(-2).charAt(0);
+  const isAdmin = meQuery.data?.role === 'ADMIN';
 
   const handleLogout = async () => {
     await logout();
@@ -57,6 +59,14 @@ export function UserMenu() {
             <Link href={item.href}>{item.label}</Link>
           </DropdownMenuItem>
         ))}
+        {isAdmin && (
+          <DropdownMenuItem
+            asChild
+            className="rounded-none border-b border-line px-4 py-3 text-[13.5px] font-semibold text-ink-deep"
+          >
+            <Link href={toRoute('/admin/clubs')}>총동연 콘솔</Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onSelect={handleLogout}
           className="rounded-none px-4 py-3 text-[13.5px] font-bold text-coral"
