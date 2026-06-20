@@ -296,7 +296,8 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
                 .body("data.clubs.size()", equalTo(2))
                 .body("data.slots.registeredCount", equalTo(1))
                 .body("data.slots.maxAccounts", equalTo(5))
-                .body("data.slots.remaining", equalTo(4));
+                .body("data.slots.remaining", equalTo(4))
+                .body("data.clubs.find { it.clubName == '미지원동아리' }.bank", equalTo("SHINHAN"));
     }
 
     @Test
