@@ -11,6 +11,13 @@ vi.mock('next-view-transitions', async () => {
     Link: ({ children, href, ...rest }: { children?: ReactNode; href: string }) =>
       createElement('a', { href, ...rest }, children),
     ViewTransitions: ({ children }: { children?: ReactNode }) => children,
-    useTransitionRouter: () => ({ push: () => undefined, replace: () => undefined }),
+    useTransitionRouter: () => ({
+      push: () => undefined,
+      replace: () => undefined,
+      back: () => undefined,
+      forward: () => undefined,
+      prefetch: () => undefined,
+      refresh: () => undefined,
+    }),
   };
 });
