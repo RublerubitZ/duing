@@ -3,7 +3,7 @@
 // 모바일 전용 가로형 리스트 카드(media-object) — 데스크탑은 세로형 ClubCard 를 쓴다(ClubExplorePage 에서 분기).
 // 리딩 모노그램 + 이름/태그 + 카테고리·소속 칩 + 우측(상단 D-day · 하단 찜). 첫 항목은 추천 강조(잉크 보더).
 
-import Link from 'next/link';
+import { Link } from 'next-view-transitions';
 
 import { cn } from '@/app/_lib/cn';
 import { Sparkle, SparkleFull } from '../../_components/Sparkle';
@@ -98,6 +98,8 @@ export function ClubListItem({
             : `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
           letterSpacing: '-0.03em',
           filter: isDimmed ? 'saturate(0.6)' : undefined,
+          // 공유요소 전환 — 모바일 목록 로고에서 상세 히어로로 모핑(데스크탑 ClubCard 와 동일 규칙).
+          viewTransitionName: `club-logo-${club.id}`,
         }}
         aria-label={`${club.name} 로고`}
       >
