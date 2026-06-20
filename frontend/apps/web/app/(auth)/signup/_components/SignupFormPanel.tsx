@@ -10,7 +10,7 @@ import { initialSignupState, signupReducer, type SignupFormState } from '../_lib
 import { useEmailVerification } from '../_lib/use-email-verification';
 import { CollegeSelect } from './CollegeSelect';
 import { EmailVerificationField } from './EmailVerificationField';
-import { GradeSelect } from './GradeSelect';
+import { GradeSelect } from '@/app/_components/GradeSelect';
 import { PhoneInput } from './PhoneInput';
 import { TermsAgreement } from './TermsAgreement';
 import type { College, Grade } from '@duing/types';

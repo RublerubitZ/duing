@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { useFavoriteListQuery, useLogout, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
+import { GRADE_DISPLAY_NAME } from '@duing/types';
 
 import { HomeNav } from '@/app/_components/HomeNav';
 import { SparkleFull } from '@/components/duing/Sparkle';
@@ -149,6 +150,7 @@ export function SettingsPage() {
               }
             />
             <SettingsRow label="학번" value={user?.studentId ?? '—'} />
+            <SettingsRow label="학년" value={user?.grade ? GRADE_DISPLAY_NAME[user.grade] : '—'} />
             <SettingsRow label="전화번호" value={user?.phone ?? '—'} />
             <SettingsRow
               label="이메일"
@@ -249,6 +251,7 @@ export function SettingsPage() {
         onClose={() => setProfileOpen(false)}
         currentName={user?.name ?? ''}
         currentPhone={user?.phone ?? ''}
+        currentGrade={user?.grade ?? 'FRESHMAN'}
       />
       <PasswordChangeDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
       <WithdrawAccountDialog open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />

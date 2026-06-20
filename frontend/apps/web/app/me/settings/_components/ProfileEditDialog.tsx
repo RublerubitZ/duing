@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 
 import { ApiError } from '@duing/api';
 import { useUpdateProfileMutation } from '@duing/hooks';
+import type { Grade } from '@duing/types';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { GradeSelect } from '@/app/_components/GradeSelect';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
 const PHONE_PATTERN = /^010-\d{4}-\d{4}$/;
@@ -23,13 +25,15 @@ type Props = {
   onClose: () => void;
   currentName: string;
   currentPhone: string;
+  currentGrade: Grade;
 };
 
-export function ProfileEditDialog({ open, onClose, currentName, currentPhone }: Props) {
+export function ProfileEditDialog({ open, onClose, currentName, currentPhone, currentGrade }: Props) {
   const { addToast } = useToast();
   const updateMutation = useUpdateProfileMutation();
   const [name, setName] = useState(currentName);
   const [phone, setPhone] = useState(currentPhone);
+  const [grade, setGrade] = useState<Grade>(currentGrade);
   const [error, setError] = useState<string | null>(null);
 
   // 열릴 때마다 현재 값으로 초기화한다.
@@ -37,9 +41,10 @@ export function ProfileEditDialog({ open, onClose, currentName, currentPhone }: 
     if (open) {
       setName(currentName);
       setPhone(currentPhone);
+      setGrade(currentGrade);
       setError(null);
     }
-  }, [open, currentName, currentPhone]);
+  }, [open, currentName, currentPhone, currentGrade]);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -53,7 +58,7 @@ export function ProfileEditDialog({ open, onClose, currentName, currentPhone }: 
     }
     setError(null);
     updateMutation.mutate(
-      { name: name.trim(), phone },
+      { name: name.trim(), phone, grade },
       {
         onSuccess: () => {
           addToast('프로필을 수정했어요.');
@@ -100,6 +105,10 @@ export function ProfileEditDialog({ open, onClose, currentName, currentPhone }: 
               className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
             />
           </label>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-semibold text-charcoal-2">학년</span>
+            <GradeSelect value={grade} onChange={setGrade} />
+          </div>
           {error && <p className="text-[12.5px] text-coral">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <button
