@@ -230,10 +230,15 @@ public class GeneralApplicationService implements ApplicationService {
 
     @Override
     public ApplicantDetailQuery getApplicantDetail(Long applicationId, Long currentUserId) {
+        // 인가를 데이터 페치보다 먼저 수행한다. 비인가 요청이 지원자 개인정보(전화번호 등)를
+        // 메모리에 올리지 않도록, 소속 동아리 ID 만 가볍게 조회해 운영진 권한을 먼저 확인한 뒤 전체를 페치한다.
+        Long clubId = applicationRepository.findClubIdByApplicationId(applicationId)
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+        clubAuthService.requireManager(currentUserId, clubId);
+
+        // 경량 조회→인가 사이에 동시 soft-delete 가 일어난 경우에만 비어 있을 수 있으며, 404 응답이 안전하다.
         Application application = applicationRepository.findWithRecruitmentAndClubById(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
-        Long clubId = application.getRecruitment().getClub().getId();
-        clubAuthService.requireManager(currentUserId, clubId);
 
         List<ApplicationStatusHistory> historyRows =
                 applicationStatusHistoryRepository.findByApplicationIdOrderByCreatedAtDesc(applicationId);
