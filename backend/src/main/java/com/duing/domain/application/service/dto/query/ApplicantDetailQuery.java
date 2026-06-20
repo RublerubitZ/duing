@@ -37,7 +37,7 @@ public record ApplicantDetailQuery(
 ) {
 
     public record ApplicantInfoQuery(Long userId, String name, String studentId, String email,
-                                     College college, String major, Grade grade) {}
+                                     College college, String major, Grade grade, String phone) {}
 
     public record QuestionAnswerQuery(String question, String answer) {}
 
@@ -137,7 +137,8 @@ public record ApplicantDetailQuery(
                 applicationUser.getEmail(),
                 applicationUser.getCollege(),
                 applicationUser.getMajor(),
-                applicationUser.getGrade()
+                applicationUser.getGrade(),
+                applicationUser.getPhone()
         );
 
         List<QuestionAnswerQuery> pairedAnswers = buildPairedAnswers(recruitment, application);
