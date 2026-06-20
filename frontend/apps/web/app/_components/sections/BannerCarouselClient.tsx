@@ -100,7 +100,7 @@ export function BannerCarouselClient({ slides }: Props) {
          */}
         <div className="grid items-start gap-4 xl:grid-cols-[1fr_340px]">
           <div
-            className="relative aspect-[2/1] touch-pan-y select-none overflow-hidden rounded-xl sm:aspect-[24/8] md:min-h-[200px]"
+            className="relative aspect-[2/1] touch-pan-y select-none overflow-hidden rounded-xl sm:aspect-[24/8]"
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
