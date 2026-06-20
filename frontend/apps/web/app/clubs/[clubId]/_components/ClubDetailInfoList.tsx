@@ -6,6 +6,7 @@ type Row = { label: string; value: string };
 
 export function ClubDetailInfoList({ club }: Props) {
   const rows: Row[] = [];
+  if (club.leaderName !== null) rows.push({ label: '동아리 회장', value: club.leaderName });
   if (club.foundedYear !== null) rows.push({ label: '창설년도', value: `${club.foundedYear}년` });
   if (club.cohortNumber !== null) rows.push({ label: '현재 기수', value: `${club.cohortNumber}기` });
   if (club.membershipFee !== null) rows.push({ label: '회비', value: club.membershipFee });
