@@ -152,6 +152,7 @@ import type {
   FeeSummaryParams,
   BankTransaction,
   BankTransactionSearchParams,
+  BankMatchingStatus,
   SyncResult,
   SyncBankTransactionsPayload,
   BankMatchingOverview,
@@ -514,6 +515,8 @@ export type DuingApiClient = {
       // === BANK 매칭 (Sprint 3) ===
       // 민감 인증정보(계좌 비번·주민번호)는 sync 페이로드로만 전달하고 어디에도 영속화/로깅하지 않는다.
       bank: {
+        // GET /leader/clubs/{clubId}/bank-matching — 자동매칭 사용 가능 여부(거래 동기화 사전 게이팅용).
+        status(clubId: number): Promise<BankMatchingStatus>;
         // POST /leader/clubs/{clubId}/bank-transactions/sync — 거래 동기화(적재 건수 반환).
         sync(clubId: number, payload: SyncBankTransactionsPayload): Promise<SyncResult>;
         // GET /leader/clubs/{clubId}/bank-transactions — 검토 큐 조회(status 미지정 시 백엔드 PENDING).
@@ -1071,6 +1074,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
             jsonVoid(http.delete(`leader/clubs/${clubId}/fee-account`)),
         },
         bank: {
+          status: (clubId) =>
+            jsonOk<BankMatchingStatus>(http.get(`leader/clubs/${clubId}/bank-matching`)),
           // 보안: payload(계좌 비번·주민번호)는 절대 로깅/영속화하지 않는다 — 요청 본문으로만 전달한다.
           sync: (clubId, payload) =>
             jsonOk<SyncResult>(

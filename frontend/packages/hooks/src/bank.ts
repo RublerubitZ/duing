@@ -40,6 +40,19 @@ export function useBankSyncMutation(clubId: number) {
   });
 }
 
+// BANK 자동매칭 사용 가능 여부 조회. 거래 탭이 동기화 노출 여부를 사전에 결정하는 데 쓴다 —
+// 미연동 동아리가 동기화를 눌러야만 403 으로 미사용임을 알게 되던 동작을 막는다.
+export function useClubBankMatchingStatusQuery(clubId: number) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: bankQueryKeys.matchingStatus(clubId),
+    queryFn: () => client.leader.fees.bank.status(clubId),
+    staleTime: 30 * 1000,
+    // 403(비운영진)은 재시도해도 결과가 바뀌지 않으므로 즉시 중단한다(검토 큐 조회와 동일 정책).
+    retry: retryUnlessForbidden,
+  });
+}
+
 // 검토 큐 조회(status/page/size 필터).
 export function useBankTransactionsQuery(clubId: number, params: BankTransactionSearchParams) {
   const client = useApiClient();
@@ -99,6 +112,10 @@ export function useSetBankMatchingMutation() {
   return useMutation({
     mutationFn: ({ clubId, active }: { clubId: number; active: boolean }) =>
       client.admin.bankMatching.setActive(clubId, active),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: bankQueryKeys.adminOverview() }),
+    onSuccess: (_data, { clubId }) => {
+      queryClient.invalidateQueries({ queryKey: bankQueryKeys.adminOverview() });
+      // 어드민이 자동매칭을 허용/해제하면 해당 동아리의 운영진 거래 탭 사용 가능 여부도 바뀐다.
+      queryClient.invalidateQueries({ queryKey: bankQueryKeys.matchingStatus(clubId) });
+    },
   });
 }

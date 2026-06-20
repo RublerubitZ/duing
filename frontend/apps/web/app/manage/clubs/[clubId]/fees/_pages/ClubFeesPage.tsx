@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
-import { ApiError } from '@duing/api';
-import { useBankTransactionsQuery, useClubFeeAccountQuery } from '@duing/hooks';
+import { useClubBankMatchingStatusQuery, useClubFeeAccountQuery } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
 import { bankLabel } from '@/app/_lib/feeLabels';
@@ -160,21 +159,55 @@ type BankTabPanelProps = {
   clubId: number;
 };
 
-// 거래 탭 본문. BANK 자동매칭 미사용 동아리는 검토 큐 조회가 403 으로 내려오므로(훅이 403 은 재시도 안 함)
+// 거래 탭에서 동기화 버튼 대신 보여주는 안내 카드(로딩·오류·미사용 상태 공용).
+function BankTabNotice({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-line bg-graysoft px-6 py-12 text-center">
+      {children}
+    </div>
+  );
+}
+
+// 거래 탭 본문. BANK 자동매칭 사용 가능 여부를 먼저 조회해, 미사용 동아리는 동기화를 눌러보기 전에
 // 안내 카드만 노출하고 동기화 버튼·검토 큐는 숨긴다. fee_account 가 등록돼 있으면 동기화 모달에 그 은행 라벨을 넘긴다.
 function BankTabPanel({ clubId }: BankTabPanelProps) {
   const [isSyncOpen, setSyncOpen] = useState(false);
-  const { error: queueError } = useBankTransactionsQuery(clubId, { status: 'PENDING' });
+  const {
+    data: matchingStatus,
+    isLoading: isStatusLoading,
+    isError: isStatusError,
+  } = useClubBankMatchingStatusQuery(clubId);
   const { data: feeAccount } = useClubFeeAccountQuery(clubId);
 
-  const isNotEnabled = queueError instanceof ApiError && queueError.status === 403;
-  if (isNotEnabled) {
+  // 사용 가능 여부가 확정되기 전에는 동기화 버튼을 노출하지 않는다 — 미연동인데 잠깐 버튼이 보였다 사라지는 깜빡임 방지.
+  if (isStatusLoading) {
     return (
-      <div className="rounded-xl border border-line bg-graysoft px-6 py-12 text-center">
+      <BankTabNotice>
+        <p className="text-sm text-charcoal-3">불러오는 중…</p>
+      </BankTabNotice>
+    );
+  }
+
+  // 조회 실패 시에는 미사용으로 단정하지 않는다 — 정상 연동 동아리가 일시 오류로 "미사용" 안내를 받지 않도록
+  // 별도 오류 안내를 보여준다(동기화 버튼은 여전히 숨긴다).
+  if (isStatusError) {
+    return (
+      <BankTabNotice>
+        <p className="text-sm text-charcoal-2">
+          BANK 자동매칭 사용 가능 여부를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
+        </p>
+      </BankTabNotice>
+    );
+  }
+
+  // 미사용(enabled=false) 동아리는 동기화를 누르기 전에 안내 카드만 노출한다.
+  if (!matchingStatus?.enabled) {
+    return (
+      <BankTabNotice>
         <p className="text-sm text-charcoal-2">
           이 동아리는 BANK 자동매칭을 사용하지 않습니다. (총동연 등록 필요)
         </p>
-      </div>
+      </BankTabNotice>
     );
   }
 

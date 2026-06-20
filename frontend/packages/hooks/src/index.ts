@@ -228,6 +228,7 @@ export {
 export { feeQueryKeys } from './feeQueryKeys';
 export {
   useBankSyncMutation,
+  useClubBankMatchingStatusQuery,
   useBankTransactionsQuery,
   useApproveMatchMutation,
   useIgnoreTransactionMutation,
