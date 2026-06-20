@@ -157,7 +157,7 @@ public class GeneralUserService implements UserService {
                 && userRepository.existsByPhone(updateProfileCommand.phone())) {
             throw new UserException.DuplicateAccountException();
         }
-        user.updateProfile(updateProfileCommand.name(), updateProfileCommand.phone());
+        user.updateProfile(updateProfileCommand.name(), updateProfileCommand.phone(), updateProfileCommand.grade());
     }
 
     @Override
