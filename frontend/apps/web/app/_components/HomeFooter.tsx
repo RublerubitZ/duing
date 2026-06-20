@@ -14,9 +14,14 @@ export function HomeFooter() {
             탐색부터 운영까지, 두잉 하나로.
           </p>
           <div className="mt-5 border-t border-line pt-4 text-[12px] leading-relaxed text-charcoal-3">
-            <Link href="/terms" className="hover:text-ink">
-              이용약관 및 개인정보 처리방침
+            <Link href="/introduce" className="hover:text-ink">
+              서비스 소개
             </Link>
+            <div className="mt-1.5">
+              <Link href="/terms" className="hover:text-ink">
+                이용약관 및 개인정보 처리방침
+              </Link>
+            </div>
             <div className="mt-1.5">
               문의사항 :{' '}
               <a href="mailto:duing.official@gmail.com" className="hover:text-ink">
