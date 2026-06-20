@@ -96,16 +96,24 @@ class UserProfileControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("프로필 수정 요청에서 학년을 누락하면 잘못된 요청으로 거부된다")
-    void updateProfileWithoutGradeReturns400() {
-        User user = saveUser(Grade.FRESHMAN);
+    @DisplayName("학년을 생략하고 프로필을 수정하면 기존 학년이 그대로 유지된다")
+    void updateProfileWithoutGradeKeepsExistingGrade() {
+        User user = saveUser(Grade.JUNIOR);
+        String token = tokenFor(user);
 
         RestAssured.given()
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(user))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(ContentType.JSON)
-                .body("{\"name\":\"수정이름\",\"phone\":\"010-1234-5678\"}")
+                .body("{\"name\":\"수정이름\",\"phone\":\"010-9876-5432\"}")
                 .when().patch("/api/v1/users/me")
                 .then()
-                .statusCode(HttpStatus.BAD_REQUEST.value());
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .when().get("/api/v1/users/me")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.grade", equalTo("JUNIOR"));
     }
 }
