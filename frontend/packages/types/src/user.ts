@@ -81,12 +81,14 @@ export type User = {
   name: string;
   email: string;
   phone: string;
+  grade: Grade;
   role: UserRole;
 };
 
 export type UpdateProfilePayload = {
   name: string;
   phone: string;
+  grade: Grade;
 };
 
 export type ChangePasswordPayload = {
