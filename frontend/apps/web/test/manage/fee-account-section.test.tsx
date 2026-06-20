@@ -7,10 +7,12 @@ import { ApiError } from '@duing/api';
 const mockUseClubFeeAccountQuery = vi.fn();
 const mockUpsertMutate = vi.fn();
 const mockDeleteMutate = vi.fn();
+const mockUseClubBankMatchingStatusQuery = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useClubFeeAccountQuery: (clubId: number) => mockUseClubFeeAccountQuery(clubId),
   useUpsertFeeAccountMutation: () => ({ mutate: mockUpsertMutate, isPending: false, error: null }),
   useDeleteFeeAccountMutation: () => ({ mutate: mockDeleteMutate, isPending: false, error: null }),
+  useClubBankMatchingStatusQuery: (clubId: number) => mockUseClubBankMatchingStatusQuery(clubId),
 }));
 
 const mockAddToast = vi.fn();
@@ -29,6 +31,7 @@ const registeredAccount = {
 describe('FeeAccountSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseClubBankMatchingStatusQuery.mockReturnValue({ data: { enabled: false } });
   });
 
   it('등록된 계좌가 있으면 은행 라벨·계좌번호·예금주를 표시하고 수정 버튼을 노출한다', () => {
@@ -179,5 +182,30 @@ describe('FeeAccountSection', () => {
     await user.click(within(dialog).getByRole('button', { name: '삭제' }));
 
     await waitFor(() => expect(mockDeleteMutate).toHaveBeenCalled());
+  });
+
+  it('자동매칭이 활성(enabled=true)이면 삭제 모달에 자동매칭 해제 경고를 노출한다', async () => {
+    const user = userEvent.setup();
+    mockUseClubFeeAccountQuery.mockReturnValue({ data: registeredAccount, isLoading: false, error: null });
+    mockUseClubBankMatchingStatusQuery.mockReturnValue({ data: { enabled: true } });
+    render(<FeeAccountSection clubId={1} />);
+
+    await user.click(screen.getByRole('button', { name: '삭제' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '회비 계좌 삭제 확인' });
+
+    expect(within(dialog).getByText(/자동매칭도 함께 해제되며/)).toBeInTheDocument();
+  });
+
+  it('자동매칭이 비활성(enabled=false)이면 삭제 모달에 기본 안내만 노출한다', async () => {
+    const user = userEvent.setup();
+    mockUseClubFeeAccountQuery.mockReturnValue({ data: registeredAccount, isLoading: false, error: null });
+    mockUseClubBankMatchingStatusQuery.mockReturnValue({ data: { enabled: false } });
+    render(<FeeAccountSection clubId={1} />);
+
+    await user.click(screen.getByRole('button', { name: '삭제' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '회비 계좌 삭제 확인' });
+
+    expect(within(dialog).queryByText(/자동매칭도 함께 해제되며/)).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/동아리원이 더 이상 입금 계좌를 확인할 수 없습니다/)).toBeInTheDocument();
   });
 });
