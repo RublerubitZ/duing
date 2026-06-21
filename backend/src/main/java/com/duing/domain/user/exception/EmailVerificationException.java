@@ -72,12 +72,4 @@ public class EmailVerificationException extends ApplicationException {
             super(MESSAGE, HttpStatus.SERVICE_UNAVAILABLE, "EMAIL_SEND_QUOTA_EXCEEDED");
         }
     }
-
-    public static class EmailAlreadyRegisteredException extends EmailVerificationException {
-        private static final String MESSAGE = "이미 가입된 이메일입니다. 로그인 후 이용해주세요.";
-
-        public EmailAlreadyRegisteredException() {
-            super(MESSAGE, HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED");
-        }
-    }
 }

@@ -11,6 +11,7 @@ import com.duing.domain.user.entity.EmailVerification;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.EmailVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.EmailVerificationRateLimiter;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDateTime;
@@ -41,6 +42,9 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private EmailVerificationRateLimiter rateLimiter;
+
     /** 인증 완료 상태의 email_verifications 행을 만든다 — 가드 통과용. */
     private void prepareVerifiedEmail(String email) {
         LocalDateTime now = LocalDateTime.now();
@@ -52,6 +56,8 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
+        // @SpringBootTest 컨텍스트 공유로 RateLimiter 빈이 누적되므로 테스트마다 초기화한다.
+        rateLimiter.reset();
     }
 
     private Map<String, Object> validBody() {
@@ -168,7 +174,7 @@ class AuthControllerSignupTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.CREATED.value());
 
         // 가입 성공으로 인증 행은 consume(삭제)됐다. 같은 이메일 재가입은 인증 행이 없지만,
-        // 미인증(403)이 아니라 중복(409)으로 막혀야 한다(기존 계약 보존).
+        // 미인증(403)이 아니라 중복(409)으로 막아 "이미 가입됨"을 명확히 안내한다(중복 409 우선).
         given().contentType(ContentType.JSON).body(validBody())
                 .when().post("/api/v1/auth/signup")
                 .then().statusCode(HttpStatus.CONFLICT.value());
@@ -225,17 +231,17 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("이미 가입된 이메일로 인증코드 발송을 요청하면 409 와 EMAIL_ALREADY_REGISTERED 를 반환한다")
-    void sendVerificationRejectsRegisteredEmail() {
+    @DisplayName("이미 가입된 이메일로 인증코드 발송을 요청해도 201 을 반환해 가입 여부를 노출하지 않는다")
+    void sendVerificationDoesNotLeakRegisteredEmail() {
         prepareVerifiedEmail("hong@daegu.ac.kr");
         given().contentType(ContentType.JSON).body(validBody())
                 .when().post("/api/v1/auth/signup")
                 .then().statusCode(HttpStatus.CREATED.value());
 
-        // 오지 않는 코드를 기다리는 막다른 길 대신, 발송 단계에서 즉시 가입 사실을 안내한다.
+        // 가입 완료 후 같은 이메일로 다시 발송을 요청해도 신규와 동일하게 201 — 응답으로 가입 여부가 새지 않는다.
+        // (가입자에겐 인증코드 대신 로그인 안내 메일이 발송된다 — 메일 내용 검증은 AuthEmailVerificationTest 가 담당)
         given().contentType(ContentType.JSON).body(Map.of("email", "hong@daegu.ac.kr"))
                 .when().post("/api/v1/auth/email-verifications")
-                .then().statusCode(HttpStatus.CONFLICT.value())
-                .body("code", equalTo("EMAIL_ALREADY_REGISTERED"));
+                .then().statusCode(HttpStatus.CREATED.value());
     }
 }

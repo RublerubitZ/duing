@@ -49,9 +49,10 @@ public class GeneralUserService implements UserService {
     @Override
     @Transactional
     public Long signup(SignupCommand signupCommand) {
-        // 중복(409) 검사를 인증 가드(403) 보다 먼저 둔다 — 이미 가입된 이메일은 발송 단계에서 409 로
-        // 막혀 인증을 완료할 수 없으므로, 가드를 앞에 두면 중복 이메일이 403(미인증) 으로 가려져
-        // 기존 회원가입 계약(중복 409)이 회귀한다.
+        // 중복(409) 검사를 인증 가드(403) 보다 먼저 둔다 — 이미 가입된 이메일에 "이미 가입됨"을 명확히
+        // 안내(409)하는 것을 우선하는 의도된 선택이다. 이 순서는 signup 응답이 가입 여부(409-vs-403)를
+        // 드러내는 계정 열거를 감수하는 대신, 명확한 중복 안내 UX 를 택한 것이다(발송 단계의 계정 열거는
+        // GeneralEmailVerificationService 에서 별도로 차단한다).
         if (userRepository.existsByEmail(signupCommand.email())
                 || userRepository.existsByStudentId(signupCommand.studentId())
                 || userRepository.existsByPhone(signupCommand.phone())) {
