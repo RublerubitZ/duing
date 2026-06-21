@@ -84,7 +84,7 @@ public class GeneralNoticeService implements NoticeService {
 
         found.update(new Notice.UpdatePayload(
                 command.title(), command.summary(), command.content(),
-                command.coverImageUrl(), command.linkUrl(),
+                command.coverImageUrl(), command.linkUrl(), command.clearExternalLink(),
                 command.category(), command.tags(),
                 command.visibility(), command.clubScopeRole(),
                 command.pinned(), command.expiresAt(), command.clearExpiresAt(),
@@ -177,7 +177,7 @@ public class GeneralNoticeService implements NoticeService {
         }
         found.applyClubScopedUpdate(
                 command.title(), command.summary(), command.content(),
-                command.coverImageUrl(), command.pinned(), command.expiresAt()
+                command.coverImageUrl(), command.clearCoverImage(), command.pinned(), command.expiresAt()
         );
     }
 

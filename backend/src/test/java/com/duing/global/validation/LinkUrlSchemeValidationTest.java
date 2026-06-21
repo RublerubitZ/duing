@@ -139,7 +139,7 @@ class LinkUrlSchemeValidationTest {
 
     private static UpdateNoticeRequest noticeUpdate(String linkUrl) {
         return new UpdateNoticeRequest(
-                null, null, null, null, linkUrl,
+                null, null, null, null, linkUrl, null,
                 null, null, null, null, null,
                 null, null, null, null, null,
                 null, null, null, null, null, null);

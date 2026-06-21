@@ -169,6 +169,11 @@ public class Club extends BaseEntity {
         return builder.toString();
     }
 
+    /** 빈 문자열·공백만 있는 텍스트는 null 로 정규화한다(프론트의 비우기 의도 ""를 저장은 null 로 통일). */
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
     @Builder(access = AccessLevel.PRIVATE)
     private Club(String name, ClubCategory category, String division, String description,
                  String logoUrl, ClubStatus status, boolean centralClub, College college) {
@@ -258,29 +263,39 @@ public class Club extends BaseEntity {
             List<String> highlights,
             String majorProjects,
             College college,
-            Boolean clearCollege
+            Boolean clearCollege,
+            Boolean clearLogoImage,
+            Boolean clearCoverImage
     ) {}
 
     public void update(UpdatePayload payload) {
         if (payload.name() != null) this.name = payload.name();
         if (payload.category() != null) this.category = payload.category();
-        if (payload.division() != null) this.division = payload.division();
-        if (payload.description() != null) this.description = payload.description();
-        if (payload.logoUrl() != null) this.logoUrl = payload.logoUrl();
-        if (payload.coverUrl() != null) this.coverUrl = payload.coverUrl();
+        if (payload.division() != null) this.division = blankToNull(payload.division());
+        if (payload.description() != null) this.description = blankToNull(payload.description());
+        if (Boolean.TRUE.equals(payload.clearLogoImage())) {
+            this.logoUrl = null;
+        } else if (payload.logoUrl() != null) {
+            this.logoUrl = payload.logoUrl();
+        }
+        if (Boolean.TRUE.equals(payload.clearCoverImage())) {
+            this.coverUrl = null;
+        } else if (payload.coverUrl() != null) {
+            this.coverUrl = payload.coverUrl();
+        }
         if (payload.tags() != null) this.tags = payload.tags().stream().distinct().toArray(String[]::new);
         if (payload.snsLinks() != null) this.snsLinks = new ArrayList<>(payload.snsLinks());
         if (payload.faqs() != null) this.faqs = new ArrayList<>(payload.faqs());
         if (payload.foundedYear() != null) this.foundedYear = payload.foundedYear();
         if (payload.cohortNumber() != null) this.cohortNumber = payload.cohortNumber();
-        if (payload.location() != null) this.location = payload.location();
-        if (payload.contactEmail() != null) this.contactEmail = payload.contactEmail();
+        if (payload.location() != null) this.location = blankToNull(payload.location());
+        if (payload.contactEmail() != null) this.contactEmail = blankToNull(payload.contactEmail());
         if (payload.activityFrequency() != null) this.activityFrequency = payload.activityFrequency();
         if (payload.activeDays() != null) this.activeDays = toActiveDaysCsv(payload.activeDays());
-        if (payload.membershipFee() != null) this.membershipFee = payload.membershipFee();
-        if (payload.tagline() != null) this.tagline = payload.tagline();
+        if (payload.membershipFee() != null) this.membershipFee = blankToNull(payload.membershipFee());
+        if (payload.tagline() != null) this.tagline = blankToNull(payload.tagline());
         if (payload.highlights() != null) this.highlights = new ArrayList<>(payload.highlights());
-        if (payload.majorProjects() != null) this.majorProjects = payload.majorProjects();
+        if (payload.majorProjects() != null) this.majorProjects = blankToNull(payload.majorProjects());
         if (Boolean.TRUE.equals(payload.clearCollege())) {
             this.college = null;
         } else if (payload.college() != null) {

@@ -14,6 +14,7 @@ public record UpdateNoticeCommand(
         String content,
         String coverImageUrl,
         String linkUrl,
+        Boolean clearExternalLink,
         NoticeCategory category,
         List<String> tags,
         NoticeVisibility visibility,

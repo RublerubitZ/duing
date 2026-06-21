@@ -95,7 +95,7 @@ class GeneralNoticeServiceTest {
 
         UpdateNoticeCommand updateCommand = new UpdateNoticeCommand(
                 savedId,
-                null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null,
                 NoticeVisibility.PUBLIC, null, null,
                 null, null, null, null,
                 null, null, null, null, null, null, null

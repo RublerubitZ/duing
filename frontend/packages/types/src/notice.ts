@@ -85,4 +85,5 @@ export type UpdateNoticePayload = Partial<Omit<CreateNoticePayload, 'targetClubI
   targetClubIds?: number[];
   clearExpiresAt?: boolean;
   clearEvent?: boolean;
+  clearExternalLink?: boolean;
 };

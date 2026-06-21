@@ -127,6 +127,7 @@ public class Notice extends BaseEntity {
 
     public record UpdatePayload(
             String title, String summary, String content, String coverImageUrl, String linkUrl,
+            Boolean clearExternalLink,
             NoticeCategory category, List<String> tags,
             NoticeVisibility visibility, NoticeClubScopeRole clubScopeRole,
             Boolean pinned, LocalDateTime expiresAt, Boolean clearExpiresAt,
@@ -152,7 +153,8 @@ public class Notice extends BaseEntity {
         if (payload.summary() != null) this.summary = payload.summary();
         if (payload.content() != null) this.content = payload.content();
         if (payload.coverImageUrl() != null) this.coverImageUrl = payload.coverImageUrl();
-        if (payload.linkUrl() != null) this.linkUrl = payload.linkUrl();
+        if (Boolean.TRUE.equals(payload.clearExternalLink())) this.linkUrl = null;
+        else if (payload.linkUrl() != null) this.linkUrl = payload.linkUrl();
         if (payload.category() != null) this.category = payload.category();
         if (payload.tags() != null) this.tags = payload.tags().stream().distinct().toArray(String[]::new);
         if (payload.visibility() != null) {
@@ -199,12 +201,14 @@ public class Notice extends BaseEntity {
 
     /** LEADER/OFFICER 의 CLUB_SCOPED 공지 부분 수정 — null 필드는 건너뛴다. */
     public void applyClubScopedUpdate(String title, String summary, String content,
-                                      String coverImageUrl, Boolean pinned,
+                                      String coverImageUrl, Boolean clearCoverImage, Boolean pinned,
                                       java.time.LocalDateTime expiresAt) {
         if (title != null) this.title = title;
         if (summary != null) this.summary = summary;
         if (content != null) this.content = NoticeHtmlSanitizer.sanitize(content, this.contentFormat);
-        if (coverImageUrl != null) this.coverImageUrl = coverImageUrl;
+        // cover_image_url 은 NOT NULL 컬럼 — clear 시 createForClub 의 기본값과 동일하게 빈 문자열로 비운다.
+        if (Boolean.TRUE.equals(clearCoverImage)) this.coverImageUrl = "";
+        else if (coverImageUrl != null) this.coverImageUrl = coverImageUrl;
         if (pinned != null) this.pinned = pinned;
         if (expiresAt != null) this.expiresAt = expiresAt;
     }

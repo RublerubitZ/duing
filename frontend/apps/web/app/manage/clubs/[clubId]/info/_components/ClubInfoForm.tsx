@@ -91,7 +91,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
     const payload: UpdateClubPayload = {};
     if (name !== detail.name) payload.name = name;
     if (category !== detail.category) payload.category = category;
-    if (division !== (detail.division ?? '')) payload.division = division || null;
+    if (division !== (detail.division ?? '')) payload.division = division;
     const previousCollege: College | '' = detail.college ?? '';
     if (college !== previousCollege) {
       if (college === '') {
@@ -100,9 +100,21 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
         payload.college = college;
       }
     }
-    if (description !== (detail.description ?? '')) payload.description = description || null;
-    if (logoUrl !== (detail.logoUrl ?? '')) payload.logoUrl = logoUrl || null;
-    if (coverUrl !== (detail.coverUrl ?? '')) payload.coverUrl = coverUrl || null;
+    if (description !== (detail.description ?? '')) payload.description = description;
+    if (logoUrl !== (detail.logoUrl ?? '')) {
+      if (logoUrl === '') {
+        payload.clearLogoImage = true;
+      } else {
+        payload.logoUrl = logoUrl;
+      }
+    }
+    if (coverUrl !== (detail.coverUrl ?? '')) {
+      if (coverUrl === '') {
+        payload.clearCoverImage = true;
+      } else {
+        payload.coverUrl = coverUrl;
+      }
+    }
     if (JSON.stringify(tags) !== JSON.stringify(detail.tags)) payload.tags = tags;
     if (JSON.stringify(snsLinks) !== JSON.stringify(detail.snsLinks)) payload.snsLinks = snsLinks;
     if (JSON.stringify(faqs) !== JSON.stringify(detail.faqs)) payload.faqs = faqs;
@@ -110,15 +122,15 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
     if (newFoundedYear !== detail.foundedYear) payload.foundedYear = newFoundedYear;
     const newCohortNumber = cohortNumber.trim() === '' ? null : Number(cohortNumber);
     if (newCohortNumber !== detail.cohortNumber) payload.cohortNumber = newCohortNumber;
-    if (location !== (detail.location ?? '')) payload.location = location || null;
-    if (contactEmail !== (detail.contactEmail ?? '')) payload.contactEmail = contactEmail || null;
+    if (location !== (detail.location ?? '')) payload.location = location;
+    if (contactEmail !== (detail.contactEmail ?? '')) payload.contactEmail = contactEmail;
     const newActivityFrequency = activityFrequency.trim() === '' ? null : Number(activityFrequency);
     if (newActivityFrequency !== detail.activityFrequency) payload.activityFrequency = newActivityFrequency;
     if (JSON.stringify(activeDays) !== JSON.stringify(detail.activeDays)) payload.activeDays = activeDays;
-    if (membershipFee !== (detail.membershipFee ?? '')) payload.membershipFee = membershipFee || null;
-    if (tagline !== (detail.tagline ?? '')) payload.tagline = tagline || null;
+    if (membershipFee !== (detail.membershipFee ?? '')) payload.membershipFee = membershipFee;
+    if (tagline !== (detail.tagline ?? '')) payload.tagline = tagline;
     if (JSON.stringify(highlights) !== JSON.stringify(detail.highlights)) payload.highlights = highlights;
-    if (majorProjects !== (detail.majorProjects ?? '')) payload.majorProjects = majorProjects || null;
+    if (majorProjects !== (detail.majorProjects ?? '')) payload.majorProjects = majorProjects;
     return payload;
   }
 

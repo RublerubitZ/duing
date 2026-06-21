@@ -7,4 +7,6 @@ export type CreateClubNoticePayload = {
   expiresAt?: string;
 };
 
-export type UpdateClubNoticePayload = Partial<CreateClubNoticePayload>;
+export type UpdateClubNoticePayload = Partial<CreateClubNoticePayload> & {
+  clearCoverImage?: boolean;
+};
