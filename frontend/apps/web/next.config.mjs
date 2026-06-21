@@ -57,8 +57,12 @@ const nextConfig = {
   },
 };
 
-// Sentry 빌드 통합. 소스맵 업로드는 SENTRY_AUTH_TOKEN·org·project 가 설정됐을 때만 동작하고,
-// 미설정(MVP)이면 스킵된다 — 런타임 에러 캡처는 DSN 만으로 동작한다.
+// Sentry 빌드 통합. org·project 슬러그는 시크릿이 아니라 코드에 둔다(공식 권장). 시크릿인 authToken 만
+// 빌드 env(Vercel)로 주입하며, 토큰이 있을 때만 소스맵을 업로드해 스택트레이스를 원본 TS 로 보이게 한다.
+// 토큰 미설정(로컬·미설정 환경)이면 업로드는 자동 스킵되고, 런타임 에러 캡처는 DSN 만으로 동작한다.
 export default withSentryConfig(nextConfig, {
+  org: 'duing',
+  project: 'next-duing',
+  authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: true,
 });
