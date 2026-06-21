@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneralEmailVerificationService implements EmailVerificationService {
 
     private static final String SUBJECT = "[DUING] 두잉 동아리 서비스 인증 코드";
-    private static final String ALREADY_REGISTERED_SUBJECT = "[DUING] 이미 가입된 계정 안내";
 
     private final EmailVerificationRepository emailVerificationRepository;
     private final UserRepository userRepository;
@@ -36,15 +35,13 @@ public class GeneralEmailVerificationService implements EmailVerificationService
         LocalDateTime now = LocalDateTime.now();
         rateLimiter.assertAndRecordIpRequest(clientIp, now);
 
-        // 계정 열거(account enumeration) 차단: 가입 여부와 무관하게 동일한 행 생성·쿨다운·전역쿼터·응답
-        // 흐름을 그대로 탄다. 가입 여부로 갈리는 것은 "보내는 메일 내용"뿐 — 이미 가입된 주소엔 인증코드
-        // 대신 로그인 안내 메일을 보낸다. 이렇게 해야 HTTP 상태·본문은 물론 두 번째 요청의 쿨다운(429)·
-        // 한도 소진(503) 동작까지 동일해져, 응답만으로 가입 여부를 구분할 수 없다(오지 않는 코드를 기다리는
-        // 막다른 길도 안내 메일로 해소). 권위 있는 중복 가입 차단은 signup 단계의 existsByEmail 가 담당한다.
-        // 트레이드오프: 가입된 이메일도 upsertVerification·reserveGlobalQuota 를 거쳐 전역 발송 쿼터를 1건
-        // 소비하고 실제 사용자에게 안내 메일이 간다. 단일 이메일은 60초 쿨다운, 전체 발송량은 IP 레이트리밋·
-        // 전역 쿼터로 상한이 걸려 수용한다(이메일당 일일 상한은 후속 하드닝 과제).
-        boolean alreadyRegistered = userRepository.existsByEmail(sendCommand.email());
+        // 이미 가입된 이메일이면 발송하지 않고 즉시 409 로 안내한다 — "이미 가입됨"을 사용자에게 바로
+        // 보여주는 UX 를 우선한다. 그 대가로 발송 응답이 가입 여부를 드러내는 계정 열거는 감수하며(signup
+        // 의 중복 409 우선과 동일한 방향), 자동화된 열거 속도는 위의 IP 레이트리밋이 제한한다. 권위 있는
+        // 중복 가입 차단은 signup 단계의 existsByEmail 재검증이 그대로 담당한다.
+        if (userRepository.existsByEmail(sendCommand.email())) {
+            throw new EmailVerificationException.EmailAlreadyRegisteredException();
+        }
 
         String code = verificationCodeManager.generateCode();
         String codeHash = verificationCodeManager.hash(sendCommand.email(), code);
@@ -52,7 +49,7 @@ public class GeneralEmailVerificationService implements EmailVerificationService
 
         rateLimiter.reserveGlobalQuota(now);
         try {
-            emailSender.send(buildMessage(sendCommand.email(), code, alreadyRegistered));
+            emailSender.send(new EmailMessage(sendCommand.email(), SUBJECT, buildHtml(code)));
         } catch (RuntimeException sendFailure) {
             // 발송 실패 시 예약한 전역 쿼터를 복구한다 — Resend 장애가 일일 한도를 소진해
             // 정상 가입을 막는 자폭을 방지. DB 변경(쿨다운 행)은 트랜잭션 롤백으로 별도 복구된다.
@@ -126,12 +123,6 @@ public class GeneralEmailVerificationService implements EmailVerificationService
             // (PostgreSQL 은 제약 위반 후 같은 트랜잭션에서 추가 쿼리 불가 → 재조회 금지)
             throw new EmailVerificationException.VerificationCooldownException();
         }
-    }
-
-    private EmailMessage buildMessage(String email, String code, boolean alreadyRegistered) {
-        return alreadyRegistered
-                ? new EmailMessage(email, ALREADY_REGISTERED_SUBJECT, buildAlreadyRegisteredHtml())
-                : new EmailMessage(email, SUBJECT, buildHtml(code));
     }
 
     private String buildHtml(String code) {
@@ -208,64 +199,5 @@ public class GeneralEmailVerificationService implements EmailVerificationService
                 </body>
                 </html>
                 """.replace("{{CODE}}", code);
-    }
-
-    private String buildAlreadyRegisteredHtml() {
-        // buildHtml 과 동일한 테이블 레이아웃·인라인 CSS·브랜드 토큰을 쓴다. 가입자에겐 코드를 발급하지
-        // 않으므로 인증코드 블록(6자리 숫자)을 두지 않고, 로그인으로 유도한다.
-        // 색상 주의: ink-deep(#143025) 등 순수 6자리 십진수 hex 는 쓰지 않는다 — 테스트의
-        // CODE_PATTERN(\\d{6})에 오매칭되어 "코드 미포함" 단언이 깨진다.
-        return """
-                <!DOCTYPE html>
-                <html lang="ko">
-                <head>
-                  <meta charset="utf-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1">
-                </head>
-                <body style="margin:0;padding:0;background-color:#F6F3EC;">
-                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F6F3EC;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-                    <tr>
-                      <td align="center">
-                        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:480px;max-width:480px;background-color:#FFFFFF;border:1px solid #EFEBE0;border-radius:16px;">
-                          <tr>
-                            <td style="padding:32px 36px 0;">
-                              <a href="https://duings.com" target="_blank" style="display:inline-block;text-decoration:none;">
-                                <img src="https://files.duings.com/logo/duing-logo-small.png" alt="두잉" width="84" height="56" style="width:84px;height:56px;border:0;display:block;outline:none;text-decoration:none;">
-                              </a>
-                            </td>
-                          </tr>
-                          <tr>
-                            <td style="padding:22px 36px 4px;">
-                              <h1 style="margin:0 0 8px;font-size:21px;font-weight:700;color:#1F4A36;">이미 가입된 계정이에요</h1>
-                              <p style="margin:0;font-size:15px;line-height:1.6;color:#4A504F;">입력하신 이메일은 이미 두잉 회원으로 가입되어 있어요. 새로 가입하지 않아도 로그인하면 바로 이용할 수 있어요.</p>
-                            </td>
-                          </tr>
-                          <tr>
-                            <td align="center" style="padding:24px 36px;">
-                              <a href="https://duings.com/login" target="_blank" style="display:inline-block;background-color:#1F4A36;color:#FFFFFF;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:8px;">로그인하러 가기 →</a>
-                            </td>
-                          </tr>
-                          <tr>
-                            <td style="padding:0 36px 24px;">
-                              <div style="border-top:1px solid #EFEBE0;padding-top:16px;">
-                                <p style="margin:0;font-size:12px;line-height:1.6;color:#6F7574;">본인이 요청하지 않았다면 이 메일을 무시해주세요. 누군가 이메일 주소를 잘못 입력했을 수 있어요. 비밀번호는 안전하게 보관되어 있어요.</p>
-                              </div>
-                            </td>
-                          </tr>
-                        </table>
-                        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:480px;max-width:480px;">
-                          <tr>
-                            <td align="center" style="padding:18px 0;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;">
-                              <p style="margin:0 0 6px;font-size:12px;color:#6F7574;">본 메일은 발신 전용이에요. 이 메일로 회신하셔도 답변을 받을 수 없어요.</p>
-                              <p style="margin:0;font-size:12px;color:#6F7574;">DUING · 대구대학교 동아리 플랫폼</p>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                    </tr>
-                  </table>
-                </body>
-                </html>
-                """;
     }
 }
