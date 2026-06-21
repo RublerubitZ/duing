@@ -166,6 +166,11 @@ const config: Config = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
+        // 마감 임박 티커 — 데이터를 2배 복제하고 한 세트 폭(-50%)만큼 좌측 이동해 seamless 무한 루프.
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
       },
       animation: {
         'slide-in-right': 'slide-in-from-right 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
@@ -176,6 +181,7 @@ const config: Config = {
         'preview-in-reverse': 'preview-in-reverse 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        marquee: 'marquee 30s linear infinite',
       },
     },
   },
