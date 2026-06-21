@@ -25,7 +25,7 @@ class ClubUpdateTest {
                 List.of(new ClubFaq("Q1", "A1", 0)),
                 null, null, null, null, null, null, null,
                 null, null, null,
-                null, null
+                null, null, null, null
         ));
 
         assertThat(club.getName()).isEqualTo("두잉 NEW");
@@ -48,7 +48,7 @@ class ClubUpdateTest {
                 List.of("코딩", "스터디", "코딩"), null, null,
                 null, null, null, null, null, null, null,
                 null, null, null,
-                null, null));
+                null, null, null, null));
 
         assertThat(club.getTags()).containsExactly("코딩", "스터디");
     }
@@ -61,12 +61,51 @@ class ClubUpdateTest {
         club.update(new Club.UpdatePayload(null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null,
-                null, null));
+                null, null, null, null));
 
         assertThat(club.getName()).isEqualTo("두잉");
         assertThat(club.getCategory()).isEqualTo(ClubCategory.ACADEMIC);
         assertThat(club.getTags()).isEmpty();
         assertThat(club.getSnsLinks()).isEmpty();
         assertThat(club.getFaqs()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("clearLogoImage/clearCoverImage 가 true 면 로고·커버가 null 로 비워지고 같은 요청의 새 값보다 우선한다")
+    void clearsImagesWithPrecedence() {
+        Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");
+        club.update(new Club.UpdatePayload(null, null, null, null, null, "https://cover",
+                null, null, null,
+                null, null, null, null, null, null, null,
+                null, null, null,
+                null, null, null, null));
+        assertThat(club.getCoverUrl()).isEqualTo("https://cover");
+
+        club.update(new Club.UpdatePayload(null, null, null, null, "https://new-logo", "https://new-cover",
+                null, null, null,
+                null, null, null, null, null, null, null,
+                null, null, null,
+                null, null, true, true));
+
+        assertThat(club.getLogoUrl()).isNull();
+        assertThat(club.getCoverUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("빈 문자열로 텍스트 필드를 비우면 null 로 정규화되어 저장된다")
+    void blankTextNormalizedToNull() {
+        Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "원본 설명", "https://logo");
+
+        club.update(new Club.UpdatePayload(
+                null, null, null, "",     // name, category, division, description=""
+                null, null,               // logoUrl, coverUrl
+                null, null, null,         // tags, snsLinks, faqs
+                null, null, "",           // foundedYear, cohortNumber, location=""
+                null, null, null, null,   // contactEmail, activityFrequency, activeDays, membershipFee
+                null, null, null,         // tagline, highlights, majorProjects
+                null, null, null, null)); // college, clearCollege, clearLogoImage, clearCoverImage
+
+        assertThat(club.getDescription()).isNull();
+        assertThat(club.getLocation()).isNull();
     }
 }

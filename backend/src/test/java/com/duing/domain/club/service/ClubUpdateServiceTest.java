@@ -51,7 +51,7 @@ class ClubUpdateServiceTest {
                 List.of("코딩"), null, null,
                 null, null, null, null, null, null, null,
                 null, null, null,
-                null, null
+                null, null, null, null
         ));
 
         Club reloaded = clubRepository.findById(club.getId()).orElseThrow();
@@ -72,7 +72,7 @@ class ClubUpdateServiceTest {
                 "변경시도", null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null,
-                null, null
+                null, null, null, null
         ))).isInstanceOf(AccessDeniedException.class);
     }
 
@@ -87,7 +87,7 @@ class ClubUpdateServiceTest {
                 "변경시도", null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null,
-                null, null
+                null, null, null, null
         ))).isInstanceOf(ClubMemberException.NotAMember.class);
     }
 
@@ -104,7 +104,7 @@ class ClubUpdateServiceTest {
                 other.getName(), null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null,
-                null, null
+                null, null, null, null
         ))).isInstanceOf(ClubException.DuplicateClubNameException.class);
     }
 
@@ -120,7 +120,7 @@ class ClubUpdateServiceTest {
                 club.getName(), null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null,
-                null, null
+                null, null, null, null
         ));
 
         assertThat(clubRepository.findById(club.getId()).orElseThrow().getName())

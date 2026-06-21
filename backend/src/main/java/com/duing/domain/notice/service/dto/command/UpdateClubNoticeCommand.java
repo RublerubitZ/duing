@@ -9,6 +9,7 @@ public record UpdateClubNoticeCommand(
         String summary,
         String content,
         String coverImageUrl,
+        Boolean clearCoverImage,
         Boolean pinned,
         LocalDateTime expiresAt
 ) {}

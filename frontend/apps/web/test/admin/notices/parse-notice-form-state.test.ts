@@ -53,4 +53,28 @@ describe('parseNoticeFormState', () => {
     expect(payload.clearEvent).toBeUndefined();
     expect(payload.location).toBe('중앙광장');
   });
+
+  it('toUpdatePayload: 외부 링크를 비우면 clearExternalLink=true 와 linkUrl=null 을 보낸다', () => {
+    const payload = toUpdatePayload({ ...filledEvent, linkUrl: '   ' });
+    expect(payload.clearExternalLink).toBe(true);
+    expect(payload.linkUrl).toBeNull();
+  });
+
+  it('toUpdatePayload: 외부 링크가 있으면 clearExternalLink 를 보내지 않고 링크를 그대로 담는다', () => {
+    const payload = toUpdatePayload({ ...filledEvent, linkUrl: 'https://example.com/apply' });
+    expect(payload.clearExternalLink).toBeUndefined();
+    expect(payload.linkUrl).toBe('https://example.com/apply');
+  });
+
+  it('toUpdatePayload: 만료일을 비우면 clearExpiresAt=true 와 expiresAt=null 을 보낸다', () => {
+    const payload = toUpdatePayload({ ...filledEvent, expiresAt: null });
+    expect(payload.clearExpiresAt).toBe(true);
+    expect(payload.expiresAt).toBeNull();
+  });
+
+  it('toUpdatePayload: 만료일이 있으면 clearExpiresAt 를 보내지 않고 만료일을 그대로 담는다', () => {
+    const payload = toUpdatePayload({ ...filledEvent, expiresAt: '2026-12-31T23:59' });
+    expect(payload.clearExpiresAt).toBeUndefined();
+    expect(payload.expiresAt).toBe('2026-12-31T23:59');
+  });
 });

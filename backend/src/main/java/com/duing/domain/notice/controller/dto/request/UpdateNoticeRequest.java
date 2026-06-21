@@ -17,6 +17,7 @@ public record UpdateNoticeRequest(
         @Size(max = 500) String coverImageUrl,
         @Size(max = 2000)
         @Pattern(regexp = "^$|^https?://.+$", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.") String linkUrl,
+        Boolean clearExternalLink,
         NoticeCategory category,
         @Size(max = 8) List<@Size(max = 20) String> tags,
         NoticeVisibility visibility,
@@ -36,7 +37,7 @@ public record UpdateNoticeRequest(
 ) {
     public UpdateNoticeCommand toCommand(Long noticeId) {
         return new UpdateNoticeCommand(
-                noticeId, title, summary, content, coverImageUrl, linkUrl,
+                noticeId, title, summary, content, coverImageUrl, linkUrl, clearExternalLink,
                 category, tags, visibility, clubScopeRole, targetClubIds,
                 pinned, expiresAt, clearExpiresAt, notifyOnPublish,
                 eventStartAt, eventEndAt, location, host, audience, clearEvent, contentFormat

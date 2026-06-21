@@ -9,11 +9,12 @@ public record UpdateClubNoticeRequest(
         @Size(max = 500, message = "요약은 500자 이하여야 합니다.") String summary,
         @Size(max = 20000, message = "본문은 20000자 이하여야 합니다.") String content,
         @Size(max = 500, message = "표지 이미지 URL 은 500자 이하여야 합니다.") String coverImageUrl,
+        Boolean clearCoverImage,
         Boolean pinned,
         LocalDateTime expiresAt
 ) {
     public UpdateClubNoticeCommand toCommand(Long clubId, Long noticeId) {
         return new UpdateClubNoticeCommand(clubId, noticeId, title, summary, content,
-                coverImageUrl, pinned, expiresAt);
+                coverImageUrl, clearCoverImage, pinned, expiresAt);
     }
 }

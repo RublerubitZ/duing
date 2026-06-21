@@ -43,7 +43,8 @@ class UpdateClubRequestValidationTest {
                 contactEmail,                                           // contactEmail
                 null, null, null,                                       // activityFrequency, activeDays, membershipFee
                 null, null, null,                                       // tagline, highlights, majorProjects
-                null, null                                              // college, clearCollege
+                null, null,                                             // college, clearCollege
+                null, null                                              // clearLogoImage, clearCoverImage
         );
     }
 }

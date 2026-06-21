@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createClubNoticeSchema } from '@duing/schemas';
 import type { CreateClubNoticeInput } from '@duing/schemas';
+import type { UpdateClubNoticePayload } from '@duing/types';
 import { useCreateClubNoticeMutation, useUpdateClubNoticeMutation } from '@duing/hooks';
 import { cn } from '@/app/_lib/cn';
 
@@ -49,22 +50,39 @@ export function ClubNoticeFormModal(props: Props) {
   };
 
   const onSubmit = (formData: CreateClubNoticeInput) => {
-    const payload = {
-      title: formData.title.trim(),
-      content: formData.content.trim(),
-      summary: formData.summary?.trim() || undefined,
-      coverImageUrl: formData.coverImageUrl?.trim() || undefined,
-      pinned: formData.pinned ?? false,
-      expiresAt: formData.expiresAt || undefined,
-    };
+    const title = formData.title.trim();
+    const content = formData.content.trim();
+    const pinned = formData.pinned ?? false;
+    const expiresAt = formData.expiresAt || undefined;
+
     if (props.mode === 'create') {
-      createMutation.mutate(payload, { onSuccess: () => props.onClose() });
-    } else {
-      updateMutation.mutate(
-        { noticeId: props.noticeId, payload },
+      createMutation.mutate(
+        {
+          title,
+          content,
+          summary: formData.summary?.trim() || undefined,
+          coverImageUrl: formData.coverImageUrl?.trim() || undefined,
+          pinned,
+          expiresAt,
+        },
         { onSuccess: () => props.onClose() },
       );
+      return;
     }
+
+    // 수정: 요약은 빈 문자열을 그대로 보내 비우기를 반영한다(summary 컬럼 NOT NULL).
+    // 표지 이미지는 이 모달에 입력 UI 가 없어 편집 대상이 아니므로 payload 에서 제외해 기존 커버를 보존한다.
+    const payload: UpdateClubNoticePayload = {
+      title,
+      content,
+      summary: formData.summary?.trim() ?? '',
+      pinned,
+      expiresAt,
+    };
+    updateMutation.mutate(
+      { noticeId: props.noticeId, payload },
+      { onSuccess: () => props.onClose() },
+    );
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
