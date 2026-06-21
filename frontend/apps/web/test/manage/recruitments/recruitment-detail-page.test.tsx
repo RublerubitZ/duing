@@ -7,14 +7,38 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
+import type { StatsSummary } from '@duing/types';
 import RecruitmentDetailPage from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/page';
 
-// 운영진 모집 상세 페이지 — useInterview 토글에 따른 "면접 관리" 링크 노출 검증.
-// 다른 페이지 테스트와 동일하게 MSW + ApiClient 조합.
+// 운영진 모집 상세 페이지 — useInterview 토글에 따른 "면접 관리" 링크 노출 +
+// 지원 현황 요약/지원자 수 노출 검증. 다른 페이지 테스트와 동일하게 MSW + ApiClient 조합.
 
 const CLUB_ID = 1;
 const RECRUITMENT_ID = 10;
-const server = setupServer();
+
+// 상세 페이지가 통계 요약(stats/summary)을 1회 호출하므로 onUnhandledRequest:'error' 에서
+// 항상 핸들러가 필요하다. 기본 핸들러를 setupServer 에 등록해 resetHandlers 후에도 유지한다.
+function statsSummaryHandler(summary: Partial<StatsSummary> = {}) {
+  return http.get(`*/leader/recruitments/${RECRUITMENT_ID}/stats/summary`, () =>
+    HttpResponse.json({
+      ok: true,
+      data: {
+        total: 0,
+        submitted: 0,
+        underReview: 0,
+        interviewPending: 0,
+        accepted: 0,
+        rejected: 0,
+        capacity: 10,
+        ratio: 0,
+        ...summary,
+      },
+      message: null,
+    }),
+  );
+}
+
+const server = setupServer(statsSummaryHandler());
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 function mockRecruitmentDetail(useInterview: boolean) {
@@ -118,10 +142,53 @@ describe('RecruitmentDetailPage — 면접 관리 진입 링크 (Issue 1)', () =
     renderPage();
 
     // 다른 액션 버튼이 먼저 떠야 페이지 로딩이 끝났음을 알 수 있다.
-    await screen.findByRole('link', { name: '지원자 관리' });
+    // 지원자 수 배지가 라벨에 붙을 수 있으므로 부분 일치로 찾는다.
+    await screen.findByRole('link', { name: /지원자 관리/ });
     await waitFor(() =>
       expect(screen.queryByRole('link', { name: '면접 관리' })).not.toBeInTheDocument(),
     );
+  });
+});
+
+describe('RecruitmentDetailPage — 지원 현황 요약 + 지원자 수 (모집 관리 UX 개선)', () => {
+  it('통계 요약이 오면 지원자 관리 버튼에 지원자 수가, 요약 칩에 합격·합격률이 노출된다', async () => {
+    server.use(
+      mockRecruitmentDetail(false),
+      statsSummaryHandler({ total: 14, accepted: 5, capacity: 10, ratio: 0.5 }),
+    );
+
+    renderPage();
+
+    // 지원자 관리 버튼 라벨에 총 지원자 수(14)가 함께 노출된다.
+    await waitFor(() =>
+      expect(
+        screen.getByRole('link', { name: /지원자 관리\s*14/ }),
+      ).toBeInTheDocument(),
+    );
+
+    // 요약 칩 — 합격 인원과 합격률(50.0%) 미리보기.
+    expect(screen.getByText('합격')).toBeInTheDocument();
+    expect(screen.getByText('50.0%')).toBeInTheDocument();
+  });
+
+  it('통계 요약 호출이 실패하면 요약 칩과 지원자 수 없이 버튼만 정상 노출된다', async () => {
+    server.use(
+      mockRecruitmentDetail(false),
+      http.get(`*/leader/recruitments/${RECRUITMENT_ID}/stats/summary`, () =>
+        HttpResponse.json({ ok: false, data: null, message: 'error' }, { status: 500 }),
+      ),
+    );
+
+    renderPage();
+
+    // 지원자 관리 링크는 숫자 없이도 항상 활성으로 노출된다(버그/비활성 아님).
+    const applicantsLink = await screen.findByRole('link', { name: /지원자 관리/ });
+    expect(applicantsLink).toHaveAttribute(
+      'href',
+      `/manage/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/applicants`,
+    );
+    // 합격률 미리보기 칩은 데이터가 없으므로 렌더되지 않는다.
+    expect(screen.queryByText('합격률')).not.toBeInTheDocument();
   });
 });
 
