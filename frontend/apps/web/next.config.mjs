@@ -1,5 +1,27 @@
 import { withSentryConfig } from '@sentry/nextjs';
 
+// 강제(enforce) CSP 는 frame-ancestors 'none'(클릭재킹) 만 유지하고, script/style/img/connect 까지 포함한
+// "후보 전체 정책" 은 운영(prod)에서만 Report-Only 로 내보낸다(headers() 참고) — 차단하지 않고 위반만
+// 보고하므로 무중단으로 실제 위반 출처를 실측하고, 검증 뒤 nonce 미들웨어로 script-src 를 좁혀 enforce 로
+// 승격한다(후속). dev 에서 빼는 이유는 localhost 이미지·API·HMR eval 위반이 폭주해 관찰 신호가 묻히기 때문.
+//  - script/style 의 'unsafe-inline' 은 Next 15/React 19 하이드레이션 인라인 자산의 임시 허용이다.
+//  - img-src 의 https://files.duings.com 은 R2 공개 이미지 호스트, connect-src 의 api.duings.com 은 백엔드 API.
+//  - Sentry 인제스트 와일드카드는 DSN 연동 시 실제 호스트(oXXX.ingest.<region>.sentry.io)로 정확히 교체한다.
+//  - 운영 Sentry 미연동 상태라 report-uri 는 아직 두지 않는다(운영 빌드 콘솔로 관찰, 연동 후 수집처 추가).
+const CONTENT_SECURITY_POLICY_REPORT_ONLY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://files.duings.com",
+  "font-src 'self' data:",
+  "connect-src 'self' https://api.duings.com https://*.sentry.io https://*.ingest.sentry.io",
+  "worker-src 'self' blob:",
+].join('; ');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -14,23 +36,24 @@ const nextConfig = {
   ],
   typedRoutes: true,
   async headers() {
-    // 앱 깨짐 위험이 없는 안전 보안 헤더만 우선 적용한다. script/style/img/connect-src 까지 강제하는
-    // 전체 CSP 는 Next 15/React 19 인라인 자산·런타임 이미지 호스트 검증이 필요해 별도 후속으로 둔다.
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          // HTTPS 강제 (http://localhost 에는 브라우저가 무시하므로 로컬 개발에 영향 없음).
-          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
-          // 클릭재킹 차단 — 레거시 X-Frame-Options 와 최신 CSP frame-ancestors 를 함께 둔다.
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
-          // MIME 스니핑 차단(폴리글랏 업로드 대비), 외부로의 Referer 경로 노출 최소화.
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        ],
-      },
+    const headers = [
+      // HTTPS 강제 (http://localhost 에는 브라우저가 무시하므로 로컬 개발에 영향 없음).
+      { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+      // 클릭재킹 차단 — 레거시 X-Frame-Options 와 최신 CSP frame-ancestors 를 함께 둔다.
+      { key: 'X-Frame-Options', value: 'DENY' },
+      { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+      // MIME 스니핑 차단(폴리글랏 업로드 대비), 외부로의 Referer 경로 노출 최소화.
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
     ];
+    // 전체 CSP 후보는 운영에서만 Report-Only 로 관찰한다 — dev 의 localhost·HMR 위반 잡음 제외(상단 주석 참고).
+    if (process.env.NODE_ENV === 'production') {
+      headers.push({
+        key: 'Content-Security-Policy-Report-Only',
+        value: CONTENT_SECURITY_POLICY_REPORT_ONLY,
+      });
+    }
+    return [{ source: '/:path*', headers }];
   },
 };
 
