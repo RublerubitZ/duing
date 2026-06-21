@@ -5,7 +5,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createClubNoticeSchema } from '@duing/schemas';
 import type { CreateClubNoticeInput } from '@duing/schemas';
+import type { UpdateClubNoticePayload } from '@duing/types';
 import { useCreateClubNoticeMutation, useUpdateClubNoticeMutation } from '@duing/hooks';
+import { ImageUploader } from '@/app/_components/ImageUploader';
 import { cn } from '@/app/_lib/cn';
 
 type CommonProps = { clubId: number; onClose: () => void };
@@ -27,6 +29,7 @@ export function ClubNoticeFormModal(props: Props) {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateClubNoticeInput>({
     resolver: zodResolver(createClubNoticeSchema),
@@ -35,6 +38,7 @@ export function ClubNoticeFormModal(props: Props) {
 
   const titleValue = watch('title') ?? '';
   const contentValue = watch('content') ?? '';
+  const coverImageUrl = watch('coverImageUrl') ?? '';
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -49,22 +53,48 @@ export function ClubNoticeFormModal(props: Props) {
   };
 
   const onSubmit = (formData: CreateClubNoticeInput) => {
-    const payload = {
-      title: formData.title.trim(),
-      content: formData.content.trim(),
-      summary: formData.summary?.trim() || undefined,
-      coverImageUrl: formData.coverImageUrl?.trim() || undefined,
-      pinned: formData.pinned ?? false,
-      expiresAt: formData.expiresAt || undefined,
-    };
+    const title = formData.title.trim();
+    const content = formData.content.trim();
+    const pinned = formData.pinned ?? false;
+    const expiresAt = formData.expiresAt || undefined;
+
     if (props.mode === 'create') {
-      createMutation.mutate(payload, { onSuccess: () => props.onClose() });
-    } else {
-      updateMutation.mutate(
-        { noticeId: props.noticeId, payload },
+      createMutation.mutate(
+        {
+          title,
+          content,
+          summary: formData.summary?.trim() || undefined,
+          coverImageUrl: formData.coverImageUrl?.trim() || undefined,
+          pinned,
+          expiresAt,
+        },
         { onSuccess: () => props.onClose() },
       );
+      return;
     }
+
+    // 수정: 요약은 빈 문자열을 그대로 보내 비우기를 반영한다(summary 컬럼 NOT NULL).
+    const payload: UpdateClubNoticePayload = {
+      title,
+      content,
+      summary: formData.summary?.trim() ?? '',
+      pinned,
+      expiresAt,
+    };
+    // 표지 이미지는 시드된 원본 대비 변경됐을 때만 반영한다 — 비우면 clear 플래그, 새 URL 이면 그대로 전송.
+    const cover = formData.coverImageUrl?.trim() ?? '';
+    const originalCover = (props.defaultValues.coverImageUrl ?? '').trim();
+    if (cover !== originalCover) {
+      if (cover === '') {
+        payload.clearCoverImage = true;
+      } else {
+        payload.coverImageUrl = cover;
+      }
+    }
+    updateMutation.mutate(
+      { noticeId: props.noticeId, payload },
+      { onSuccess: () => props.onClose() },
+    );
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -135,6 +165,20 @@ export function ClubNoticeFormModal(props: Props) {
               ) : <span />}
               <span className="text-xs text-charcoal-3">{contentValue.length} / 20000</span>
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-ink">
+              표지 이미지 <span className="text-xs font-normal text-charcoal-3">(선택)</span>
+            </label>
+            <ImageUploader
+              value={coverImageUrl}
+              onChange={(url) => setValue('coverImageUrl', url, { shouldDirty: true })}
+              purpose="NOTICE_COVER"
+              aspectRatio="16/9"
+              placeholder="표지 이미지를 업로드하세요"
+              altText="공지 표지"
+            />
           </div>
 
           <div className="flex items-center gap-2">

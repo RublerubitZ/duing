@@ -32,7 +32,9 @@ public record UpdateClubCommand(
         List<String> highlights,
         String majorProjects,
         College college,
-        Boolean clearCollege
+        Boolean clearCollege,
+        Boolean clearLogoImage,
+        Boolean clearCoverImage
 ) {
     public Club.UpdatePayload toPayload() {
         return new Club.UpdatePayload(
@@ -56,7 +58,9 @@ public record UpdateClubCommand(
                 highlights(),
                 majorProjects(),
                 college(),
-                clearCollege()
+                clearCollege(),
+                clearLogoImage(),
+                clearCoverImage()
         );
     }
 }

@@ -22,7 +22,7 @@ class NoticeContentSanitizationTest {
 
     private static Notice.UpdatePayload formatOnly(NoticeContentFormat format) {
         return new Notice.UpdatePayload(
-                null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, format);
     }
 

@@ -157,6 +157,8 @@ export type UpdateClubPayload = {
   division?: string | null;
   college?: College;
   clearCollege?: boolean;
+  clearLogoImage?: boolean;
+  clearCoverImage?: boolean;
   description?: string | null;
   logoUrl?: string | null;
   coverUrl?: string | null;

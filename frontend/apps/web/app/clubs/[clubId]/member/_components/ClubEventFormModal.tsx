@@ -45,21 +45,38 @@ export function ClubEventFormModal(props: Props) {
   };
 
   const onSubmit = (formData: CreateClubEventInput) => {
-    const payload = {
-      title: formData.title.trim(),
-      description: formData.description?.trim() || undefined,
-      startAt: new Date(formData.startAt).toISOString(),
-      endAt: new Date(formData.endAt).toISOString(),
-      location: formData.location?.trim() || undefined,
-    };
+    const title = formData.title.trim();
+    const startAt = new Date(formData.startAt).toISOString();
+    const endAt = new Date(formData.endAt).toISOString();
+
     if (props.mode === 'create') {
-      createMutation.mutate(payload, { onSuccess: () => props.onClose() });
-    } else {
-      updateMutation.mutate(
-        { eventId: props.eventId, payload },
+      createMutation.mutate(
+        {
+          title,
+          description: formData.description?.trim() || undefined,
+          startAt,
+          endAt,
+          location: formData.location?.trim() || undefined,
+        },
         { onSuccess: () => props.onClose() },
       );
+      return;
     }
+
+    // 수정: 설명/장소는 빈 문자열을 그대로 보내 비우기를 반영한다(백엔드는 ''를 그대로 저장).
+    updateMutation.mutate(
+      {
+        eventId: props.eventId,
+        payload: {
+          title,
+          description: formData.description?.trim() ?? '',
+          startAt,
+          endAt,
+          location: formData.location?.trim() ?? '',
+        },
+      },
+      { onSuccess: () => props.onClose() },
+    );
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;

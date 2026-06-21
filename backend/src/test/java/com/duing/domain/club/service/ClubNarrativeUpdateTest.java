@@ -51,7 +51,7 @@ class ClubNarrativeUpdateTest {
                 "코드를 두잉",
                 List.of("개발 기초 다진 사람", "사이드 프로젝트 동료 필요한 사람"),
                 "올해는 이번 학기 박람회 부스 안내 앱을 만들고 있어요.",
-                null, null
+                null, null, null, null
         ));
 
         ClubDetailQuery detail = clubService.getById(club.getId());
@@ -74,7 +74,7 @@ class ClubNarrativeUpdateTest {
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
                 null, List.of(), null,
-                null, null
+                null, null, null, null
         ));
 
         ClubDetailQuery detail = clubService.getById(club.getId());

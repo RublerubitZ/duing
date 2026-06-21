@@ -168,7 +168,7 @@ class AuthControllerSignupTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.CREATED.value());
 
         // 가입 성공으로 인증 행은 consume(삭제)됐다. 같은 이메일 재가입은 인증 행이 없지만,
-        // 미인증(403)이 아니라 중복(409)으로 막혀야 한다(기존 계약 보존).
+        // 미인증(403)이 아니라 중복(409)으로 막아 "이미 가입됨"을 명확히 안내한다(중복 409 우선).
         given().contentType(ContentType.JSON).body(validBody())
                 .when().post("/api/v1/auth/signup")
                 .then().statusCode(HttpStatus.CONFLICT.value());
@@ -232,7 +232,7 @@ class AuthControllerSignupTest extends IntegrationTestBase {
                 .when().post("/api/v1/auth/signup")
                 .then().statusCode(HttpStatus.CREATED.value());
 
-        // 오지 않는 코드를 기다리는 막다른 길 대신, 발송 단계에서 즉시 가입 사실을 안내한다.
+        // 가입 완료 후 같은 이메일로 다시 발송을 요청하면 메일 없이 즉시 409 로 "이미 가입됨"을 안내한다.
         given().contentType(ContentType.JSON).body(Map.of("email", "hong@daegu.ac.kr"))
                 .when().post("/api/v1/auth/email-verifications")
                 .then().statusCode(HttpStatus.CONFLICT.value())

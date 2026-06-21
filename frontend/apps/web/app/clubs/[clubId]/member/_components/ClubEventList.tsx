@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useClubEventListQuery, useRemoveClubEventMutation } from '@duing/hooks';
+import { useClubEventDetailQuery, useClubEventListQuery, useRemoveClubEventMutation } from '@duing/hooks';
 import type { ClubEventCard as Event } from '@duing/types';
 import { useMembership } from './MembershipContext';
 import { ClubEventCard } from './ClubEventCard';
@@ -16,6 +16,8 @@ export function ClubEventList({ clubId }: Props) {
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [editing, setEditing] = useState<Event | null>(null);
+  // 목록 카드에는 description 이 없으므로, 수정 시 상세를 시드해야 사용자가 기존 설명을 보고 편집/비우기할 수 있다.
+  const { data: editingDetail } = useClubEventDetailQuery(clubId, editing?.id ?? null);
 
   if (isLoading) return <p className="px-6 py-4 text-sm text-charcoal-3">불러오는 중…</p>;
 
@@ -66,16 +68,18 @@ export function ClubEventList({ clubId }: Props) {
           onClose={() => setComposeOpen(false)}
         />
       )}
-      {editing && (
+      {editing && editingDetail && (
         <ClubEventFormModal
+          key={editing.id}
           mode="edit"
           clubId={clubId}
           eventId={editing.id}
           defaultValues={{
-            title: editing.title,
-            startAt: editing.startAt.slice(0, 16),
-            endAt: editing.endAt.slice(0, 16),
-            location: editing.location ?? '',
+            title: editingDetail.title,
+            description: editingDetail.description ?? '',
+            startAt: editingDetail.startAt.slice(0, 16),
+            endAt: editingDetail.endAt.slice(0, 16),
+            location: editingDetail.location ?? '',
           }}
           onClose={() => setEditing(null)}
         />

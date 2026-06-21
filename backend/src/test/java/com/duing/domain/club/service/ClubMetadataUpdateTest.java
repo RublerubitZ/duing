@@ -58,7 +58,7 @@ class ClubMetadataUpdateTest {
                 days,
                 "학기당 30,000원",
                 null, null, null,
-                null, null
+                null, null, null, null
         ));
 
         ClubDetailQuery detail = clubService.getById(club.getId());
@@ -86,7 +86,8 @@ class ClubMetadataUpdateTest {
                 freeFormContact,                                        // contactEmail (자유 형식)
                 null, null, null,                                       // activityFrequency, activeDays, membershipFee
                 null, null, null,                                       // tagline, highlights, majorProjects
-                null, null                                              // college, clearCollege
+                null, null,                                             // college, clearCollege
+                null, null                                              // clearLogoImage, clearCoverImage
         ));
 
         ClubDetailQuery detail = clubService.getById(club.getId());

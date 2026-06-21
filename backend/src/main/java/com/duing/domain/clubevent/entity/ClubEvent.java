@@ -62,10 +62,10 @@ public class ClubEvent extends BaseEntity {
             validateTitle(title);
             this.title = title.trim();
         }
-        if (description != null) this.description = description;
+        if (description != null) this.description = blankToNull(description);
         if (startAt != null) this.startAt = startAt;
         if (endAt != null) this.endAt = endAt;
-        if (location != null) this.location = location;
+        if (location != null) this.location = blankToNull(location);
     }
 
     private static void validatePeriod(LocalDateTime start, LocalDateTime end) {
@@ -81,5 +81,10 @@ public class ClubEvent extends BaseEntity {
         if (title == null || title.trim().isEmpty()) {
             throw new ClubEventException.InvalidTitleException();
         }
+    }
+
+    /** 빈 문자열·공백만 있는 텍스트는 null 로 정규화한다(비우기 의도 ""를 저장은 null 로 통일). */
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 }

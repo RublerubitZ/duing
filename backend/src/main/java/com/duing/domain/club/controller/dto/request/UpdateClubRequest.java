@@ -77,7 +77,11 @@ public record UpdateClubRequest(
 
         College college,
 
-        Boolean clearCollege
+        Boolean clearCollege,
+
+        Boolean clearLogoImage,
+
+        Boolean clearCoverImage
 ) {
     public UpdateClubCommand toCommand(Long clubId, Long requesterId) {
         return new UpdateClubCommand(
@@ -87,7 +91,7 @@ public record UpdateClubRequest(
                 foundedYear, cohortNumber, location, contactEmail,
                 activityFrequency, activeDays, membershipFee,
                 tagline, highlights, majorProjects,
-                college, clearCollege
+                college, clearCollege, clearLogoImage, clearCoverImage
         );
     }
 }

@@ -35,11 +35,10 @@ public class GeneralEmailVerificationService implements EmailVerificationService
         LocalDateTime now = LocalDateTime.now();
         rateLimiter.assertAndRecordIpRequest(clientIp, now);
 
-        // 이미 가입된 이메일이면 발송하지 않고 즉시 안내한다(409). 오지 않는 코드를 기다리는 막다른 길을
-        // 없애려는 UX 결정으로, 발송 단계의 계정 열거(account enumeration)는 감수한다. 자동화된 열거
-        // 탐색 속도는 위의 IP 레이트리밋이 제한하고, 권위 있는 중복 가입 차단은 signup 단계의
-        // existsByEmail 재검증이 그대로 담당한다(이 분기는 그 방어를 대체하지 않는다).
-        // IP 레이트리밋 다음에 두어 가입 여부 확인 요청도 IP 윈도우를 소비하게 한다.
+        // 이미 가입된 이메일이면 발송하지 않고 즉시 409 로 안내한다 — "이미 가입됨"을 사용자에게 바로
+        // 보여주는 UX 를 우선한다. 그 대가로 발송 응답이 가입 여부를 드러내는 계정 열거는 감수하며(signup
+        // 의 중복 409 우선과 동일한 방향), 자동화된 열거 속도는 위의 IP 레이트리밋이 제한한다. 권위 있는
+        // 중복 가입 차단은 signup 단계의 existsByEmail 재검증이 그대로 담당한다.
         if (userRepository.existsByEmail(sendCommand.email())) {
             throw new EmailVerificationException.EmailAlreadyRegisteredException();
         }

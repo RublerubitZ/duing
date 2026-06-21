@@ -19,6 +19,7 @@ import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -84,7 +85,7 @@ public class GeneralNoticeService implements NoticeService {
 
         found.update(new Notice.UpdatePayload(
                 command.title(), command.summary(), command.content(),
-                command.coverImageUrl(), command.linkUrl(),
+                command.coverImageUrl(), command.linkUrl(), command.clearExternalLink(),
                 command.category(), command.tags(),
                 command.visibility(), command.clubScopeRole(),
                 command.pinned(), command.expiresAt(), command.clearExpiresAt(),
@@ -177,7 +178,7 @@ public class GeneralNoticeService implements NoticeService {
         }
         found.applyClubScopedUpdate(
                 command.title(), command.summary(), command.content(),
-                command.coverImageUrl(), command.pinned(), command.expiresAt()
+                command.coverImageUrl(), command.clearCoverImage(), command.pinned(), command.expiresAt()
         );
     }
 
@@ -199,6 +200,25 @@ public class GeneralNoticeService implements NoticeService {
     @Override
     public Page<Notice> findClubScopedForMember(Long clubId, Pageable pageable) {
         return noticeRepository.findClubScopedForMember(clubId, pageable);
+    }
+
+    @Override
+    public Notice getClubScopedForMember(Long clubId, Long noticeId) {
+        Notice found = noticeRepository.findById(noticeId)
+                .orElseThrow(NoticeException.NoticeNotFoundException::new);
+        // 동아리가 작성했고(owning_club_id) 현재도 회원 목록(findClubScopedForMember)과 동일한 가시성을
+        // 가진 공지만 상세 조회를 허용한다 — 관리자가 OFFICERS_ONLY 로 바꾸거나 대상 클럽을 옮기거나
+        // 만료시킨 공지를 일반 회원이 직접 id 로 열람하는 권한 상승, 타 클럽 id 추측 접근을 모두 차단한다.
+        boolean owned = found.getOwningClubId() != null && found.getOwningClubId().equals(clubId);
+        boolean stillTargetsClub = targetClubRepository.findAllByIdNoticeId(found.getId())
+                .stream().anyMatch(targetClub -> targetClub.getClubId().equals(clubId));
+        boolean memberVisible = found.getVisibility() == NoticeVisibility.CLUB_SCOPED
+                && found.getClubScopeRole() == NoticeClubScopeRole.ALL_MEMBERS
+                && (found.getExpiresAt() == null || found.getExpiresAt().isAfter(LocalDateTime.now()));
+        if (!owned || !stillTargetsClub || !memberVisible) {
+            throw new NoticeException.NoticeAccessDeniedException();
+        }
+        return found;
     }
 
     private void validateCoverImageUrl(String url) {

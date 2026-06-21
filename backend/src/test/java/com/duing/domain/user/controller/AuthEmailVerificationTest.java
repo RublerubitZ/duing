@@ -132,13 +132,13 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
         saveRegisteredUser(registeredEmail);
         EmailMessage lastMessageBeforeSend = stubEmailSender.lastMessage();
 
-        // 막다른 길(오지 않는 코드를 기다림) 대신 발송 단계에서 즉시 가입 사실을 안내한다.
+        // 메일을 보내지 않고 즉시 409 로 "이미 가입됨"을 안내한다 — 사용자에게 바로 보여주는 UX 우선.
         given().contentType(ContentType.JSON).body(Map.of("email", registeredEmail))
                 .when().post("/api/v1/auth/email-verifications")
                 .then().statusCode(HttpStatus.CONFLICT.value())
                 .body("code", equalTo("EMAIL_ALREADY_REGISTERED"));
 
-        // 가입자에게는 실제 인증 코드 메일을 보내지 않는다.
+        // 가입자에게는 어떤 메일도 발송하지 않는다.
         assertThat(stubEmailSender.lastMessage()).isSameAs(lastMessageBeforeSend);
     }
 

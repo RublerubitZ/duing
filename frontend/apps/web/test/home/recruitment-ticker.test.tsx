@@ -16,9 +16,19 @@ vi.mock('../../app/_lib/home-data', () => ({
 
 import { RecruitmentTicker } from '../../app/_components/sections/RecruitmentTicker';
 
-function makeSummary(name: string, endDate: string | null): ClubSummary {
+// 티커는 서버에서 new Date() 를 쓰므로, 실제 오늘 기준 상대 날짜(로컬 달력)로 픽스처를 만든다.
+function isoInDays(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function makeSummary(id: number, name: string, endDate: string | null): ClubSummary {
   return {
-    id: name.length,
+    id,
     name,
     category: 'ACADEMIC',
     division: '학술분과',
@@ -27,33 +37,30 @@ function makeSummary(name: string, endDate: string | null): ClubSummary {
     status: 'ACTIVE',
     tags: [],
     centralClub: true,
-    activeRecruitment: endDate === null ? null : {
-      recruitmentId: 1,
-      displayStatus: 'OPEN',
-      startDate: '2026-09-10',
-      endDate,
-    },
+    activeRecruitment:
+      endDate === null
+        ? null
+        : { recruitmentId: 1, displayStatus: 'OPEN', startDate: isoInDays(-10), endDate },
   };
 }
 
 describe('RecruitmentTicker (server component)', () => {
-  it('helper 가 endDate=null 항목을 사전 필터하므로 도착한 데이터만 그대로 렌더된다', async () => {
+  it('마감 D-7 이내 모집을 배지로 렌더한다 (seamless 루프용 2배 복제 포함)', async () => {
     mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce([
-      makeSummary('알파', '2026-09-21'),
-      makeSummary('베타', '2026-09-22'),
+      makeSummary(1, '알파', isoInDays(2)),
+      makeSummary(2, '베타', isoInDays(5)),
     ]);
 
     const Component = await RecruitmentTicker();
     render(<>{Component}</>);
 
-    expect(screen.getByText('알파')).toBeInTheDocument();
-    expect(screen.getByText('베타')).toBeInTheDocument();
+    // 마퀴 seamless 루프를 위해 트랙을 2배 복제하므로 각 이름이 2번 렌더된다.
+    expect(screen.getAllByText('알파')).toHaveLength(2);
+    expect(screen.getAllByText('베타')).toHaveLength(2);
   });
 
-  it('섹션 라벨은 "마감 임박" 으로 표기된다 (쿼리는 7일 범위로 제한하지 않음)', async () => {
-    mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce([
-      makeSummary('감마', '2026-10-15'),
-    ]);
+  it('섹션 라벨은 "마감 임박" 으로 표기된다', async () => {
+    mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce([makeSummary(3, '감마', isoInDays(3))]);
 
     const Component = await RecruitmentTicker();
     render(<>{Component}</>);
@@ -61,7 +68,15 @@ describe('RecruitmentTicker (server component)', () => {
     expect(screen.getByText('마감 임박')).toBeInTheDocument();
   });
 
-  it('helper 가 모두 필터해 0건이면 섹션 자체가 미렌더', async () => {
+  it('마감 D-8 이상만 있으면(윈도우 밖) 섹션이 미렌더된다', async () => {
+    mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce([makeSummary(4, '머나먼', isoInDays(30))]);
+
+    const Component = await RecruitmentTicker();
+
+    expect(Component).toBeNull();
+  });
+
+  it('데이터가 0건이면 섹션 자체가 미렌더', async () => {
     mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce([]);
 
     const Component = await RecruitmentTicker();
