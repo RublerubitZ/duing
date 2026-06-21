@@ -2,6 +2,7 @@ package com.duing.domain.notice.api;
 
 import com.duing.domain.notice.controller.dto.request.CreateClubNoticeRequest;
 import com.duing.domain.notice.controller.dto.request.UpdateClubNoticeRequest;
+import com.duing.domain.notice.controller.dto.response.ClubNoticeDetailResponse;
 import com.duing.domain.notice.controller.dto.response.NoticeCardResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -31,6 +32,14 @@ public interface LeaderClubNoticeApi {
             @PathVariable Long clubId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "동아리 공지 상세 (MEMBER+)")
+    @GetMapping("/clubs/{clubId}/notices/{noticeId}")
+    ResponseEntity<ApiResponse<ClubNoticeDetailResponse>> getDetail(
+            @PathVariable Long clubId,
+            @PathVariable Long noticeId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 

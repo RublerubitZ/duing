@@ -146,6 +146,7 @@ export {
 export { useClubMembershipQuery } from './clubMembership';
 export {
   useClubNoticeListQuery,
+  useClubNoticeDetailQuery,
   useCreateClubNoticeMutation,
   useUpdateClubNoticeMutation,
   useRemoveClubNoticeMutation,

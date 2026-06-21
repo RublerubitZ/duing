@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useClubNoticeListQuery, useRemoveClubNoticeMutation } from '@duing/hooks';
+import { useClubNoticeDetailQuery, useClubNoticeListQuery, useRemoveClubNoticeMutation } from '@duing/hooks';
 import type { NoticeCardItem } from '@duing/types';
 import { useMembership } from './MembershipContext';
 import { ClubNoticeCard } from './ClubNoticeCard';
@@ -17,6 +17,8 @@ export function ClubNoticeList({ clubId }: Props) {
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [editing, setEditing] = useState<NoticeCardItem | null>(null);
+  // 목록 카드에는 content 가 없으므로, 수정 시 상세를 시드해야 본문 재입력 없이 편집할 수 있다.
+  const { data: editingDetail } = useClubNoticeDetailQuery(clubId, editing?.id ?? null);
 
   if (isLoading) return <p className="px-6 py-4 text-sm text-charcoal-3">불러오는 중…</p>;
 
@@ -93,16 +95,19 @@ export function ClubNoticeList({ clubId }: Props) {
           onClose={() => setComposeOpen(false)}
         />
       )}
-      {editing && (
+      {editing && editingDetail && (
         <ClubNoticeFormModal
+          key={editing.id}
           mode="edit"
           clubId={clubId}
           noticeId={editing.id}
           defaultValues={{
-            title: editing.title,
-            content: '',
-            summary: editing.summary ?? '',
-            pinned: editing.pinned,
+            title: editingDetail.title,
+            content: editingDetail.content,
+            summary: editingDetail.summary,
+            coverImageUrl: editingDetail.coverImageUrl,
+            pinned: editingDetail.pinned,
+            expiresAt: editingDetail.expiresAt ?? undefined,
           }}
           onClose={() => setEditing(null)}
         />
