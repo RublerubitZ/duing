@@ -166,30 +166,18 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("미인증 상태의 회원가입은 가입 여부와 무관하게 동일한 403 을 반환한다(가입 여부 비노출)")
-    void signupReturnsSameForbiddenRegardlessOfRegistration() {
-        // hong 을 정식 가입시킨다(가입 성공으로 인증 행은 consume 되어 사라진다).
+    @DisplayName("이미 가입된 이메일로 인증 없이 재가입하면 인증 가드보다 먼저 409 를 반환한다")
+    void signupRejectsAlreadyRegisteredEmailBeforeVerificationGuard() {
         prepareVerifiedEmail("hong@daegu.ac.kr");
         given().contentType(ContentType.JSON).body(validBody())
                 .when().post("/api/v1/auth/signup")
                 .then().statusCode(HttpStatus.CREATED.value());
 
-        // 이미 가입된 이메일을 인증 없이 재가입 시도 → 403(EMAIL_NOT_VERIFIED).
-        // 인증 가드를 중복 검사보다 앞에 둬, 아래 미가입 이메일과 응답이 같아 가입 여부가 새지 않는다.
+        // 가입 성공으로 인증 행은 consume(삭제)됐다. 같은 이메일 재가입은 인증 행이 없지만,
+        // 미인증(403)이 아니라 중복(409)으로 막아 "이미 가입됨"을 명확히 안내한다(중복 409 우선).
         given().contentType(ContentType.JSON).body(validBody())
                 .when().post("/api/v1/auth/signup")
-                .then().statusCode(HttpStatus.FORBIDDEN.value())
-                .body("code", equalTo("EMAIL_NOT_VERIFIED"));
-
-        // 한 번도 가입된 적 없는 이메일도 동일하게 403(EMAIL_NOT_VERIFIED) — 응답만으로 구분 불가.
-        java.util.Map<String, Object> unregisteredBody = new java.util.HashMap<>(validBody());
-        unregisteredBody.put("email", "never@daegu.ac.kr");
-        unregisteredBody.put("studentId", "20240777");
-        unregisteredBody.put("phone", "010-7777-0000");
-        given().contentType(ContentType.JSON).body(unregisteredBody)
-                .when().post("/api/v1/auth/signup")
-                .then().statusCode(HttpStatus.FORBIDDEN.value())
-                .body("code", equalTo("EMAIL_NOT_VERIFIED"));
+                .then().statusCode(HttpStatus.CONFLICT.value());
     }
 
     @Test
