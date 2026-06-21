@@ -12,6 +12,18 @@ export function useClubNoticeListQuery(clubId: number, page = 0, size = 20) {
   });
 }
 
+export function useClubNoticeDetailQuery(clubId: number, noticeId: number | null) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: clubNoticeKeys.detail(clubId, noticeId ?? -1),
+    queryFn: () => {
+      if (noticeId === null) throw new Error('noticeId is null');
+      return client.clubNotices.get(clubId, noticeId);
+    },
+    enabled: noticeId !== null,
+  });
+}
+
 export function useCreateClubNoticeMutation(clubId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();

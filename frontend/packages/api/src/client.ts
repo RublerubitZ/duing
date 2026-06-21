@@ -120,6 +120,7 @@ import type {
   MyClubMembership,
   CreateClubNoticePayload,
   UpdateClubNoticePayload,
+  ClubNoticeDetail,
   ClubEventCard,
   ClubEventDetail,
   ClubEventListParams,
@@ -333,6 +334,7 @@ export type DuingApiClient = {
       clubId: number,
       params: { page?: number; size?: number },
     ): Promise<PageResponse<NoticeCardItem>>;
+    get(clubId: number, noticeId: number): Promise<ClubNoticeDetail>;
     create(clubId: number, payload: CreateClubNoticePayload): Promise<number>;
     update(clubId: number, noticeId: number, payload: UpdateClubNoticePayload): Promise<void>;
     remove(clubId: number, noticeId: number): Promise<void>;
@@ -853,6 +855,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<PageResponse<NoticeCardItem>>(
           http.get(`clubs/${clubId}/notices`, { searchParams: cleanParams(params) }),
         ),
+      get: (clubId, noticeId) =>
+        jsonOk<ClubNoticeDetail>(http.get(`clubs/${clubId}/notices/${noticeId}`)),
       create: (clubId, payload) =>
         jsonOk<number>(http.post(`clubs/${clubId}/notices`, { json: payload })),
       update: (clubId, noticeId, payload) =>
