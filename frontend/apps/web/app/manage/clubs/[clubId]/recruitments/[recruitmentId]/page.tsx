@@ -2,7 +2,11 @@
 
 import { use, useState } from 'react';
 import Link from 'next/link';
-import { useRecruitmentDetailQuery, useCloseRecruitmentMutation } from '@duing/hooks';
+import {
+  useRecruitmentDetailQuery,
+  useCloseRecruitmentMutation,
+  useRecruitmentStatsSummaryQuery,
+} from '@duing/hooks';
 import { toRoute } from '../../../../../_lib/route';
 import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
 import { InterviewStageChip } from './_components/InterviewStageChip';
@@ -23,6 +27,11 @@ export default function RecruitmentDetailPage({
     isNaN(recruitmentId) ? undefined : recruitmentId,
   );
   const closeRecruitment = useCloseRecruitmentMutation(recruitmentId);
+  // 통계 페이지 진입 전 핵심 지표(지원자·합격·합격률)를 상세에서 미리 보여주기 위한 1회 호출.
+  // 통계 페이지와 동일 훅·쿼리키를 공유하므로 통계로 이동 시 캐시가 재사용된다.
+  const { data: statsSummary } = useRecruitmentStatsSummaryQuery(
+    isNaN(recruitmentId) ? undefined : recruitmentId,
+  );
 
   if (isLoading || !recruitment) {
     return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
@@ -32,6 +41,17 @@ export default function RecruitmentDetailPage({
   const applicationModeLabel =
     recruitment.applicationMode === 'EXTERNAL' ? '외부 폼' : '자체 폼';
   const targetRoleLabel = recruitment.targetRole === 'OFFICER' ? '운영진' : '부원';
+
+  // 운영진이 가장 자주 확인하는 지원자 수를 액션 버튼에 직접 노출한다.
+  // 통계 요약(authoritative total)을 단일 출처로 써서 통계 페이지 수치와 항상 일치시킨다.
+  const applicantTotal = statsSummary?.total ?? null;
+
+  // 액션 버튼 시각 위계: "지원자 관리"가 1차 액션(채움), 나머지는 명확히 클릭 가능한 보조 액션(그림자+테두리 강조).
+  // 기존엔 "수정"만 채워진 버튼이라 회색 아웃라인인 지원자/통계가 비활성처럼 보이던 문제를 해소한다.
+  const primaryActionClass =
+    'inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700';
+  const secondaryActionClass =
+    'inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50';
 
   async function handleClose() {
     setCloseError(null);
@@ -127,41 +147,70 @@ export default function RecruitmentDetailPage({
         </div>
       )}
 
-      {/* 액션 버튼 */}
+      {/* 지원 현황 요약 — 통계 페이지 진입 전 핵심 지표 미리보기 */}
+      {statsSummary && (
+        <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xs text-slate-500">지원자</span>
+            <span className="text-lg font-bold tabular-nums text-slate-900">{statsSummary.total}</span>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xs text-slate-500">합격</span>
+            <span className="text-lg font-bold tabular-nums text-slate-900">{statsSummary.accepted}</span>
+          </div>
+          {statsSummary.capacity > 0 && (
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xs text-slate-500">합격률</span>
+              <span className="text-lg font-bold tabular-nums text-slate-900">
+                {(statsSummary.ratio * 100).toFixed(1)}%
+              </span>
+            </div>
+          )}
+          <span className="ml-auto text-xs text-slate-400">정원 {statsSummary.capacity}명</span>
+        </div>
+      )}
+
+      {/* 액션 버튼 — 지원자 관리가 1차 액션(운영진이 가장 자주 확인), 나머지는 보조 액션 */}
       <div className="flex flex-wrap gap-3">
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants`)}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className={primaryActionClass}
         >
           지원자 관리
+          {applicantTotal !== null && (
+            <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tabular-nums">
+              {applicantTotal}
+              <span className="sr-only">명</span>
+            </span>
+          )}
+        </Link>
+        <Link
+          href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/stats`)}
+          className={secondaryActionClass}
+        >
+          통계
         </Link>
         {recruitment.useInterview && (
           <Link
             href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`)}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className={secondaryActionClass}
           >
             면접 관리
           </Link>
         )}
-        <Link
-          href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/stats`)}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          통계
-        </Link>
 
         {!isClosed && (
           <>
             <Link
               href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/edit`)}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+              className={secondaryActionClass}
             >
               수정
             </Link>
             <button
               type="button"
               onClick={() => setShowCloseConfirm(true)}
-              className="rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
+              className="inline-flex items-center gap-2 rounded-md border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-600 shadow-sm transition-colors hover:border-rose-400 hover:bg-rose-50"
             >
               마감
             </button>
