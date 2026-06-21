@@ -17,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -56,6 +57,20 @@ public class SecurityConfig {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
+                // 보안 응답 헤더를 코드로 명시 고정한다. nosniff·X-Frame-Options DENY·HSTS 는 Spring Security
+                // 기본값이지만, 암묵적 기본값에만 의존하면 향후 설정 변경으로 조용히 빠질 수 있어 의도를 코드에 고정하고
+                // 회귀를 테스트로 막는다. Referrer-Policy·Permissions-Policy 는 기본값에 없어 여기서 추가한다.
+                // HSTS 는 보안(HTTPS) 요청에만 emit 된다 — 운영은 forward-headers-strategy=native 로 프록시 뒤에서도
+                // 적용되고, 로컬 http 응답에는 붙지 않는다(정상).
+                .headers(headers -> headers
+                        .contentTypeOptions(Customizer.withDefaults())
+                        .frameOptions(frame -> frame.deny())
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(63_072_000))
+                        .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                        .permissionsPolicyHeader(permissions ->
+                                permissions.policy("camera=(), microphone=(), geolocation=(), payment=()")))
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
