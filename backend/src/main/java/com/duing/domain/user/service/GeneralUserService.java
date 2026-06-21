@@ -49,15 +49,17 @@ public class GeneralUserService implements UserService {
     @Override
     @Transactional
     public Long signup(SignupCommand signupCommand) {
-        // 중복(409) 검사를 인증 가드(403) 보다 먼저 둔다 — 이미 가입된 이메일은 발송 단계에서 409 로
-        // 막혀 인증을 완료할 수 없으므로, 가드를 앞에 두면 중복 이메일이 403(미인증) 으로 가려져
-        // 기존 회원가입 계약(중복 409)이 회귀한다.
+        // 인증 가드(403)를 중복 검사(409)보다 먼저 둔다 — 미인증 요청은 가입 여부와 무관하게 403 을 받아
+        // signup 응답(409-vs-403)으로 이메일 가입 여부를 알아내는 계정 열거를 차단한다. 이미 가입된 이메일은
+        // 발송 단계에서 인증코드가 아니라 안내 메일만 받아 끝내 인증을 완료할 수 없으므로(verified 가 될 수
+        // 없음), 이 순서에서도 중복 이메일이 409 로 가입에 성공하는 일은 없다. 중복 409 는 인증을 마친 요청의
+        // 학번/전화번호 충돌에서만 발생한다.
+        emailVerificationService.assertVerified(signupCommand.email());
         if (userRepository.existsByEmail(signupCommand.email())
                 || userRepository.existsByStudentId(signupCommand.studentId())
                 || userRepository.existsByPhone(signupCommand.phone())) {
             throw new UserException.DuplicateAccountException();
         }
-        emailVerificationService.assertVerified(signupCommand.email());
 
         String passwordHash = passwordEncoder.encode(signupCommand.rawPassword());
         User user = User.create(
