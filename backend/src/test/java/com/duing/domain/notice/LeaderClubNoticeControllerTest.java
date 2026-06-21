@@ -214,4 +214,100 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
                 .when().delete("/api/v1/clubs/" + clubId + "/notices/" + noticeId)
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
     }
+
+    @Test
+    @DisplayName("회원이 동아리 공지 상세를 조회하면 본문과 표지를 포함해 200 을 반환한다")
+    void memberCanReadDetailWithContent() {
+        Long noticeId = createNoticeAs(leaderToken, "상세 공지");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/notices/" + noticeId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.id", equalTo(noticeId.intValue()))
+                .body("data.title", equalTo("상세 공지"))
+                .body("data.content", equalTo("본문"))
+                .body("data.coverImageUrl", equalTo("https://example.com/cover.png"));
+    }
+
+    @Test
+    @DisplayName("비-회원이 동아리 공지 상세를 조회하면 403 을 반환한다")
+    void nonMemberCannotReadDetail() {
+        Long noticeId = createNoticeAs(leaderToken, "비밀 공지");
+        User stranger = saveUser();
+        String strangerToken = jwtTokenProvider.createToken(stranger.getId(), stranger.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + strangerToken)
+                .when().get("/api/v1/clubs/" + clubId + "/notices/" + noticeId)
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("관리자가 작성한(소유 클럽 없는) 공지는 대상 클럽 네임스페이스 상세로 조회할 수 없다 (403)")
+    void adminAuthoredNoticeNotReadableViaClubDetail() {
+        Long authorId = saveUser().getId();
+        Notice adminNotice = noticeRepository.save(Notice.create(
+                "관리자 공지", "요약", "본문", "https://example.com/c.png", null,
+                NoticeCategory.GENERAL, List.of(), NoticeVisibility.CLUB_SCOPED,
+                NoticeClubScopeRole.ALL_MEMBERS, false, null, false,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
+        targetClubRepository.save(new NoticeTargetClub(adminNotice.getId(), clubId));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/notices/" + adminNotice.getId())
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 공지 상세를 조회하면 404 를 반환한다")
+    void notFoundDetailReturns404() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/notices/999999")
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("관리자가 OFFICERS_ONLY 로 전환한 동아리 작성 공지는 일반 회원이 상세 조회할 수 없다 (403)")
+    void officersOnlyOwnedNoticeNotReadableByMember() {
+        Long authorId = saveUser().getId();
+        Notice officersNotice = Notice.create(
+                "운영진 공지", "요약", "본문", "https://example.com/c.png", null,
+                NoticeCategory.GENERAL, List.of(), NoticeVisibility.CLUB_SCOPED,
+                NoticeClubScopeRole.OFFICERS_ONLY, false, null, false,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId);
+        officersNotice.assignOwningClub(clubId);
+        noticeRepository.save(officersNotice);
+        targetClubRepository.save(new NoticeTargetClub(officersNotice.getId(), clubId));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/notices/" + officersNotice.getId())
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("다른 동아리가 작성한 공지를 현재 동아리 네임스페이스 상세로 조회하면 403 을 반환한다")
+    void crossClubOwnedNoticeNotReadableViaClubDetail() {
+        Club otherClub = clubRepository.save(Club.create("동아리B", ClubCategory.ACADEMIC, null, "설명", null));
+        User otherLeader = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(otherClub, otherLeader));
+        String otherLeaderToken = jwtTokenProvider.createToken(otherLeader.getId(), otherLeader.getRole().name());
+
+        Long otherNoticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherLeaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("title", "B 공지", "summary", "요약", "content", "본문",
+                        "coverImageUrl", "https://example.com/cover.png"))
+                .when().post("/api/v1/clubs/" + otherClub.getId() + "/notices")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/notices/" + otherNoticeId)
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
 }

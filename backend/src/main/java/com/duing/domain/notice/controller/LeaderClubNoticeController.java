@@ -4,7 +4,9 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.notice.api.LeaderClubNoticeApi;
 import com.duing.domain.notice.controller.dto.request.CreateClubNoticeRequest;
 import com.duing.domain.notice.controller.dto.request.UpdateClubNoticeRequest;
+import com.duing.domain.notice.controller.dto.response.ClubNoticeDetailResponse;
 import com.duing.domain.notice.controller.dto.response.NoticeCardResponse;
+import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.service.NoticeService;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -36,6 +38,16 @@ public class LeaderClubNoticeController implements LeaderClubNoticeApi {
         var result = noticeService.findClubScopedForMember(clubId, PageRequest.of(page, size))
                 .map(NoticeCardResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(result)));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<ClubNoticeDetailResponse>> getDetail(
+            Long clubId, Long noticeId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        clubAuthService.requireMember(currentUser.id(), clubId);
+        Notice notice = noticeService.getClubScopedForMember(clubId, noticeId);
+        return ResponseEntity.ok(ApiResponse.success(ClubNoticeDetailResponse.from(notice)));
     }
 
     @Override

@@ -38,4 +38,7 @@ public interface NoticeService {
 
     /** 회원이 본 클럽 공지 페이지 조회 (서버 강제 정렬). */
     Page<Notice> findClubScopedForMember(Long clubId, Pageable pageable);
+
+    /** 회원이 본 클럽 공지 단건 상세 조회 (본문 포함, 동아리 작성 공지만). */
+    Notice getClubScopedForMember(Long clubId, Long noticeId);
 }
