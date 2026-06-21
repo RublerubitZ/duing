@@ -11,7 +11,6 @@ import com.duing.domain.user.entity.EmailVerification;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.EmailVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.domain.user.service.EmailVerificationRateLimiter;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDateTime;
@@ -42,9 +41,6 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private EmailVerificationRateLimiter rateLimiter;
-
     /** 인증 완료 상태의 email_verifications 행을 만든다 — 가드 통과용. */
     private void prepareVerifiedEmail(String email) {
         LocalDateTime now = LocalDateTime.now();
@@ -56,8 +52,6 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
-        // @SpringBootTest 컨텍스트 공유로 RateLimiter 빈이 누적되므로 테스트마다 초기화한다.
-        rateLimiter.reset();
     }
 
     private Map<String, Object> validBody() {
@@ -231,17 +225,17 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("이미 가입된 이메일로 인증코드 발송을 요청해도 201 을 반환해 가입 여부를 노출하지 않는다")
-    void sendVerificationDoesNotLeakRegisteredEmail() {
+    @DisplayName("이미 가입된 이메일로 인증코드 발송을 요청하면 409 와 EMAIL_ALREADY_REGISTERED 를 반환한다")
+    void sendVerificationRejectsRegisteredEmail() {
         prepareVerifiedEmail("hong@daegu.ac.kr");
         given().contentType(ContentType.JSON).body(validBody())
                 .when().post("/api/v1/auth/signup")
                 .then().statusCode(HttpStatus.CREATED.value());
 
-        // 가입 완료 후 같은 이메일로 다시 발송을 요청해도 신규와 동일하게 201 — 응답으로 가입 여부가 새지 않는다.
-        // (가입자에겐 인증코드 대신 로그인 안내 메일이 발송된다 — 메일 내용 검증은 AuthEmailVerificationTest 가 담당)
+        // 가입 완료 후 같은 이메일로 다시 발송을 요청하면 메일 없이 즉시 409 로 "이미 가입됨"을 안내한다.
         given().contentType(ContentType.JSON).body(Map.of("email", "hong@daegu.ac.kr"))
                 .when().post("/api/v1/auth/email-verifications")
-                .then().statusCode(HttpStatus.CREATED.value());
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("EMAIL_ALREADY_REGISTERED"));
     }
 }

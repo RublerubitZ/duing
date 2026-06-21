@@ -41,9 +41,11 @@ public interface AuthApi {
 
     @Operation(summary = "이메일 인증코드 발송",
             description = "회원가입용 6자리 인증코드를 학교 이메일로 발송한다. 코드는 20분 유효, 재발송은 60초 쿨다운. "
-                    + "계정 열거(account enumeration) 방지를 위해 가입 여부와 무관하게 201 로 응답하며, "
-                    + "이미 가입된 이메일에는 인증코드 대신 로그인 안내 메일을 보낸다.")
-    @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "발송됨"))
+                    + "이미 가입된 이메일이면 메일을 보내지 않고 409(EMAIL_ALREADY_REGISTERED) 로 즉시 안내한다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "발송됨"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 가입된 이메일")
+    })
     @PostMapping("/auth/email-verifications")
     ResponseEntity<ApiResponse<EmailVerificationResponse>> sendEmailVerification(
             @Valid @RequestBody SendEmailVerificationRequest sendRequest,
