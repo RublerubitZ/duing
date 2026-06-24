@@ -15,6 +15,12 @@ type Props = {
    * 'contain' — 원본 비율 유지하며 letterbox. 검토용 미리보기 등 잘리면 안 되는 케이스.
    */
   objectFit?: 'cover' | 'contain';
+  /**
+   * img 의 네이티브 드래그 허용 여부. 미지정 시 브라우저 기본값(허용).
+   * dnd-kit 등 포인터 기반 드래그 영역 안에 둘 때는 false 로 꺼야 한다 —
+   * 로드된 이미지의 네이티브 드래그가 dragstart 로 제스처를 가로채 정렬이 중단된다.
+   */
+  draggable?: boolean;
 };
 
 export function ImageWithFallback({
@@ -24,6 +30,7 @@ export function ImageWithFallback({
   emptyMessage = '대표 이미지 없음',
   errorMessage = '이미지를 불러올 수 없습니다',
   objectFit = 'cover',
+  draggable,
 }: Props) {
   // src 가 바뀌면 errorSrc 가 자동으로 stale 해져 isError 가 false 로 복귀.
   // useEffect 로 reset 하던 패턴 대신 derived state — 새 URL 진입 시 깜빡임 없음.
@@ -39,6 +46,7 @@ export function ImageWithFallback({
         <img
           src={src}
           alt={alt}
+          draggable={draggable}
           className={cn('absolute inset-0 w-full h-full', fitClass)}
           onError={() => setErrorSrc(src)}
         />

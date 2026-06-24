@@ -65,6 +65,7 @@ export function PhotoCard({ clubId, photo }: PhotoCardProps) {
           className="aspect-square w-full rounded-sm"
           emptyMessage="사진 없음"
           errorMessage="불러올 수 없습니다"
+          draggable={false}
         />
       </button>
       <input
