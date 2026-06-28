@@ -73,3 +73,7 @@ handoff/
 
 ### Codex 로컬 에이전트 설정 (사용자별, 커밋 금지) ###
 .codex/
+
+### pnpm 로컬 콘텐츠 스토어 / Playwright MCP QA 산출물 (로컬 캐시·임시, 커밋 금지) ###
+.pnpm-store/
+.playwright-mcp/
