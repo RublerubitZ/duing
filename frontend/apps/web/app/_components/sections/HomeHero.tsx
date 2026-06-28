@@ -31,20 +31,24 @@ export async function HomeHero() {
 
       <div className="max-w-layout relative mx-auto grid items-center gap-8 md:grid-cols-[1.15fr_1fr] lg:grid-cols-[0.82fr_1.18fr]">
         <div className="relative">
-          {/* 모바일: 헤드라인 우측 여백의 모집 통계 카드 — 데스크탑 카드와 동일 톤.
-              우측 비주얼이 숨겨지는 모바일에서도 모집 현황 카드를 항상 보여준다.
-              stats null(조회 실패) 시에도 카드는 유지하고 "—곳"으로 폴백(데스크탑 카드와 동일 규약). */}
-          <div className="md:hidden absolute right-0 top-[54px] z-[3] rounded-xl border border-sage-soft bg-sage-mist px-4 py-3 shadow-1">
-            <div
-              className="font-display text-[32px] font-bold leading-none text-ink"
-              aria-label={stats ? undefined : '모집 현황 정보 없음'}
-            >
-              {stats ? stats.recruitingCount : '—'}
-              <span className="text-base font-bold">곳</span>
+          {/* 모바일: 헤드라인 우측 — 모집 현황 카드 + 활동 토스트 2개를 작게 세로로 노출.
+              우측 비주얼(일러스트·토스트)이 숨겨지는 모바일에서도 모집 현황과 활동 분위기를 전달한다.
+              stats null(조회 실패) 시에도 카드는 "—곳"으로 폴백(데스크탑 카드와 동일 규약). */}
+          <div className="md:hidden absolute right-0 top-[44px] z-[3] flex w-[150px] flex-col items-stretch gap-2">
+            <div className="rounded-xl border border-sage-soft bg-sage-mist px-3.5 py-2.5 shadow-1">
+              <div
+                className="font-display text-[28px] font-bold leading-none text-ink"
+                aria-label={stats ? undefined : '모집 현황 정보 없음'}
+              >
+                {stats ? stats.recruitingCount : '—'}
+                <span className="text-sm font-bold">곳</span>
+              </div>
+              <div className="mt-0.5 text-[10.5px] font-medium leading-tight text-ink/75">
+                이번 학기 모집중
+              </div>
             </div>
-            <div className="mt-1 text-[11px] font-medium leading-tight text-ink/75">
-              이번 학기 모집중
-            </div>
+            <HeroActivityToast {...toasts[0]} />
+            <HeroActivityToast {...toasts[1]} />
           </div>
 
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 font-mono text-[11.5px] font-bold tracking-[0.14em] text-ink-deep sm:mb-[22px]">
@@ -52,7 +56,7 @@ export async function HomeHero() {
             DU + ING
           </div>
 
-          <h1 className="mb-2.5 text-[40px] leading-none tracking-[-0.035em] sm:mb-12 sm:text-[60px] md:text-[84px]">
+          <h1 className="mb-2.5 text-[40px] leading-none tracking-[-0.035em] sm:mb-12 sm:text-[52px] md:text-[64px] lg:text-[72px] xl:text-[84px]">
             오늘,
             <br />
             캠퍼스의
@@ -147,14 +151,14 @@ export async function HomeHero() {
   );
 }
 
-// 테스트용 export — 런타임에선 같은 파일의 HeroRightVisual 이 렌더한다.
-// 사이즈는 반응형: 태블릿(기본)에선 작게, 데스크탑(lg)에선 기본 크기로 보인다.
+// 테스트용 export — 런타임에선 HeroRightVisual(데스크탑·태블릿)과 HomeHero(모바일 스택)가 렌더한다.
+// 사이즈 3단: 모바일(기본) 최소 · 태블릿(md) 중간 · 데스크탑(lg) 기본.
 export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroToast) {
   const isDark = variant === 'dark';
   return (
     <div
       className={cn(
-        'w-[182px] rounded-md px-3 py-2 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none lg:w-[230px] lg:px-4 lg:py-3',
+        'w-[150px] rounded-md px-2.5 py-1.5 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none md:w-[182px] md:px-3 md:py-2 lg:w-[230px] lg:px-4 lg:py-3',
         isDark ? 'bg-ink-deep text-cream' : 'border border-line bg-paper text-ink',
       )}
     >
@@ -163,16 +167,26 @@ export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroT
           aria-hidden
           className={cn('h-1.5 w-1.5 shrink-0 rounded-full lg:h-2 lg:w-2', isDark ? 'bg-warm' : 'bg-sage')}
         />
-        <span className={cn('text-[11.5px] font-bold lg:text-[13px]', isDark ? 'text-cream' : 'text-ink')}>
+        <span
+          className={cn(
+            'text-[10.5px] font-bold md:text-[11.5px] lg:text-[13px]',
+            isDark ? 'text-cream' : 'text-ink',
+          )}
+        >
           {clubName}
         </span>
-        <span className={cn('ml-auto text-[10px] lg:text-[11px]', isDark ? 'text-cream/60' : 'text-charcoal-3')}>
+        <span
+          className={cn(
+            'ml-auto text-[9px] md:text-[10px] lg:text-[11px]',
+            isDark ? 'text-cream/60' : 'text-charcoal-3',
+          )}
+        >
           {timeAgo}
         </span>
       </div>
       <div
         className={cn(
-          'mt-0.5 text-[11px] leading-snug lg:mt-1 lg:text-[12.5px]',
+          'mt-0.5 text-[10px] leading-snug md:text-[11px] lg:mt-1 lg:text-[12.5px]',
           isDark ? 'text-cream/85' : 'text-charcoal-2',
         )}
       >
