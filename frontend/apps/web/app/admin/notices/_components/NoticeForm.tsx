@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { NOTICE_CATEGORY_OPTIONS } from '../../../notices/_lib/categoryLabels';
 import { ImageUploader } from '../../../_components/ImageUploader';
-import { NoticeRichEditor } from './NoticeRichEditor';
+import { NoticeRichEditor } from '../../../_components/NoticeRichEditor';
 import { NoticeTagInput } from './NoticeTagInput';
 import { VisibilityPicker } from './VisibilityPicker';
 import type { NoticeFormState } from '../_lib/parseNoticeFormState';

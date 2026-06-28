@@ -6,6 +6,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { ClubPhoto } from '@duing/types';
 import { useDeletePhotoMutation, useUpdatePhotoMutation } from '@duing/hooks';
 import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 
 type PhotoCardProps = {
   clubId: number;
@@ -21,6 +22,7 @@ export function PhotoCard({ clubId, photo }: PhotoCardProps) {
 
   const [caption, setCaption] = useState(photo.caption ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   async function commitCaption() {
     const next = caption.trim() || null;
@@ -34,10 +36,10 @@ export function PhotoCard({ clubId, photo }: PhotoCardProps) {
     }
   }
 
-  async function handleDelete() {
-    if (!confirm('이 사진을 삭제할까요?')) return;
+  async function runDelete() {
     try {
       await deletePhoto.mutateAsync(photo.id);
+      setConfirmOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : '삭제 실패');
     }
@@ -80,12 +82,21 @@ export function PhotoCard({ clubId, photo }: PhotoCardProps) {
       />
       <button
         type="button"
-        onClick={handleDelete}
+        onClick={() => setConfirmOpen(true)}
         className="text-xs text-slate-500 hover:text-rose-600"
       >
         삭제
       </button>
       {error && <p className="text-xs text-rose-600">{error}</p>}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="이 사진을 삭제할까요?"
+        description="삭제한 사진은 복구할 수 없습니다."
+        isPending={deletePhoto.isPending}
+        onConfirm={runDelete}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }

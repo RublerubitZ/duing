@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useClubEventDetailQuery, useClubEventListQuery, useRemoveClubEventMutation } from '@duing/hooks';
 import type { ClubEventCard as Event } from '@duing/types';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useMembership } from './MembershipContext';
 import { ClubEventCard } from './ClubEventCard';
 import { ClubEventFormModal } from './ClubEventFormModal';
@@ -16,14 +17,15 @@ export function ClubEventList({ clubId }: Props) {
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [editing, setEditing] = useState<Event | null>(null);
+  const [deleting, setDeleting] = useState<Event | null>(null);
   // 목록 카드에는 description 이 없으므로, 수정 시 상세를 시드해야 사용자가 기존 설명을 보고 편집/비우기할 수 있다.
   const { data: editingDetail } = useClubEventDetailQuery(clubId, editing?.id ?? null);
 
   if (isLoading) return <p className="px-6 py-4 text-sm text-charcoal-3">불러오는 중…</p>;
 
-  const onDelete = (eventId: number) => {
-    if (!confirm('이 일정을 삭제하시겠습니까?')) return;
-    removeMutation.mutate(eventId);
+  const confirmDelete = () => {
+    if (!deleting) return;
+    removeMutation.mutate(deleting.id, { onSuccess: () => setDeleting(null) });
   };
 
   return (
@@ -55,7 +57,7 @@ export function ClubEventList({ clubId }: Props) {
               canEdit={permissions.canEditEvent}
               canDelete={permissions.canDeleteEvent}
               onEdit={() => setEditing(event)}
-              onDelete={() => onDelete(event.id)}
+              onDelete={() => setDeleting(event)}
             />
           ))}
         </ul>
@@ -84,6 +86,15 @@ export function ClubEventList({ clubId }: Props) {
           onClose={() => setEditing(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title="일정을 삭제할까요?"
+        description={deleting ? `"${deleting.title}" 일정이 더 이상 노출되지 않습니다.` : undefined}
+        isPending={removeMutation.isPending}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleting(null)}
+      />
     </section>
   );
 }
