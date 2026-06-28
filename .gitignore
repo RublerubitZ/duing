@@ -9,6 +9,9 @@ build/
 .idea/jarRepositories.xml
 .idea/compiler.xml
 .idea/libraries/
+.idea/claudeCodeTabState.xml
+.idea/prettier.xml
+.idea/inspectionProfiles/
 *.iws
 *.iml
 *.ipr
