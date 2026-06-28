@@ -1,7 +1,10 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, Search } from '@/components/duing/Icon';
 import { Sparkle, SparkleFull } from '@/components/duing/Sparkle';
 import { fetchClubStats } from '@/app/_lib/club-stats';
+import { cn } from '@/app/_lib/cn';
+import { resolveHeroToasts, type HeroToast } from './hero-activity';
 
 const SUGGESTED_QUERIES: ReadonlyArray<string> = [
   '개발',
@@ -13,6 +16,9 @@ const SUGGESTED_QUERIES: ReadonlyArray<string> = [
 
 export async function HomeHero() {
   const stats = await fetchClubStats();
+  // Phase A: 실활동 미조회 → 빈 입력으로 폴백 토스트 2개. Phase C 에서 [] 를 실데이터로 교체.
+  const now = new Date();
+  const toasts = resolveHeroToasts([], now);
   return (
     <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-5 sm:pb-8 sm:pt-16">
       <div className="bg-grid absolute inset-0 opacity-50" />
@@ -132,92 +138,81 @@ export async function HomeHero() {
           </div>
         </div>
 
-        <HeroCardStack recruitingCount={stats?.recruitingCount ?? null} />
+        <HeroRightVisual recruitingCount={stats?.recruitingCount ?? null} toasts={toasts} />
       </div>
     </section>
   );
 }
 
-function HeroCardStack({ recruitingCount }: { recruitingCount: number | null }) {
-  // 회전 콜라주는 360px 폭에서 절대배치 카드들이 bleed 되므로 모바일에선 숨긴다(장식 — 정보는 서브카피·검색이 담당).
+// Test-only export — 테스트에서 직접 렌더하기 위해 노출(런타임은 HomeHero 만 사용).
+export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroToast) {
+  const isDark = variant === 'dark';
   return (
-    <div className="relative hidden h-[540px] md:block">
-      <div
-        className="absolute right-10 top-10 w-[280px] rounded-lg border border-line bg-paper p-4 shadow-2"
-        style={{ transform: 'rotate(7deg)' }}
-      >
-        <div
-          className="grid h-[132px] place-items-center rounded-md text-[48px]"
-          style={{
-            background: 'linear-gradient(135deg, #B6567222 0%, #B6567211 100%)',
-          }}
-        >
-          🎸
-        </div>
-        <div className="mt-3">
-          <span className="pill pill-berry" style={{ fontSize: 11 }}>
-            음악
-          </span>
-          <h3 className="mt-2 text-[17px]">트레몰로</h3>
-          <p className="text-[12.5px] text-charcoal-3">어쿠스틱 기타 합주</p>
-        </div>
-      </div>
-
-      <div
-        className="absolute right-[200px] top-[110px] w-[300px] rounded-lg border border-line bg-paper p-4 shadow-3"
-        style={{ transform: 'rotate(-4deg)' }}
-      >
-        <div
-          className="grid h-[156px] place-items-center rounded-md font-mono text-[44px] font-bold text-ink"
-          style={{
-            background: 'linear-gradient(135deg, #1F4A3622 0%, #1F4A3611 100%)',
-          }}
-        >
-          {'{ }'}
-        </div>
-        <div className="mt-3">
-          <div className="flex items-center gap-1.5">
-            <span className="pill" style={{ fontSize: 11 }}>
-              IT
-            </span>
-            <span className="text-[11.5px] text-charcoal-3">· 10기</span>
-          </div>
-          <h3 className="mt-2 text-[18px]">두잉코드</h3>
-          <p className="text-[12.5px] text-charcoal-3">주니어 개발자 모임</p>
-          <div className="mt-3 flex justify-between border-t border-dashed border-line pt-2.5 text-xs">
-            <span className="text-charcoal-2">모집 20명</span>
-            <span className="font-bold text-ink">~ 9.27</span>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="absolute right-20 top-[360px] w-[220px] rounded-md bg-ink p-3 text-white shadow-3"
-        style={{ transform: 'rotate(3deg)' }}
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-11 w-11 place-items-center rounded-md bg-white/15 text-[22px]">
-            📊
-          </div>
-          <div>
-            <div className="text-sm font-bold">STAT</div>
-            <div className="text-[11.5px] opacity-75">면접 확정!</div>
-          </div>
-          <Sparkle size={20} color="#9DB6A0" className="ml-auto" />
-        </div>
-      </div>
-
-      {recruitingCount !== null && (
-        <div
-          className="absolute left-7 top-0 rounded-md border border-sage-soft bg-sage-mist px-5 py-4"
-          style={{ transform: 'rotate(-6deg)' }}
-        >
-          <div className="font-display text-[36px] font-bold leading-none text-ink">
-            {recruitingCount}<span className="text-lg">곳</span>
-          </div>
-          <div className="mt-1 text-[11.5px] text-ink/70">이번 학기 모집중</div>
-        </div>
+    <div
+      className={cn(
+        'w-[230px] rounded-md px-4 py-3 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none',
+        isDark ? 'bg-ink-deep text-cream' : 'border border-line bg-paper text-ink',
       )}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden
+          className={cn('h-2 w-2 shrink-0 rounded-full', isDark ? 'bg-warm' : 'bg-sage')}
+        />
+        <span className={cn('text-[13px] font-bold', isDark ? 'text-cream' : 'text-ink')}>
+          {clubName}
+        </span>
+        <span className={cn('ml-auto text-[11px]', isDark ? 'text-cream/60' : 'text-charcoal-3')}>
+          {timeAgo}
+        </span>
+      </div>
+      <div className={cn('mt-1 text-[12.5px]', isDark ? 'text-cream/85' : 'text-charcoal-2')}>
+        {message}
+      </div>
+    </div>
+  );
+}
+
+// Test-only export — 테스트에서 직접 렌더하기 위해 노출(런타임은 HomeHero 만 사용).
+export function HeroRightVisual({
+  recruitingCount,
+  toasts,
+}: {
+  recruitingCount: number | null;
+  toasts: [HeroToast, HeroToast];
+}) {
+  return (
+    <div className="relative hidden h-[540px] md:block lg:h-[560px]">
+      {/* 모집중 카드 — flow 상단(회전·absolute 제거). null="—곳"(중립), 0="0곳"(정당한 0). */}
+      <div className="inline-block rounded-md border border-sage-soft bg-sage-mist px-5 py-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-150 motion-reduce:animate-none">
+        <div className="font-display text-[36px] font-bold leading-none text-ink">
+          {recruitingCount === null ? '—' : recruitingCount}
+          <span className="text-lg">곳</span>
+        </div>
+        <div className="mt-1 text-[11.5px] text-ink/70">이번 학기 모집중</div>
+      </div>
+
+      {/* 브랜드 일러스트 — 우측 메인 비주얼. drop-shadow 없음, 드래그 방지. */}
+      <Image
+        src="/duing-illustration.png"
+        alt="두잉 — 캠퍼스 동아리 활동 일러스트레이션"
+        width={1536}
+        height={1024}
+        priority
+        fetchPriority="high"
+        draggable={false}
+        className="mx-auto mt-4 h-auto w-full max-w-[480px] object-contain animate-in fade-in-0 zoom-in-95 duration-700 motion-reduce:animate-none md:max-w-[400px] lg:max-w-[480px]"
+      />
+
+      {/* Toast 1 (좌하단) — offset 은 기준값, 최종은 후속 시각 QA 로 확정. */}
+      <div className="absolute bottom-6 left-0 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-300 motion-reduce:animate-none md:bottom-4 md:left-2">
+        <HeroActivityToast {...toasts[0]} />
+      </div>
+
+      {/* Toast 2 (우중단) — offset 은 기준값, 최종은 후속 시각 QA 로 확정. */}
+      <div className="absolute right-0 top-28 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-500 motion-reduce:animate-none md:right-2 md:top-20">
+        <HeroActivityToast {...toasts[1]} />
+      </div>
     </div>
   );
 }
