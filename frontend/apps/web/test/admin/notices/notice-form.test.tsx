@@ -14,7 +14,7 @@ vi.mock('../../../app/_components/ImageUploader', () => ({
 }));
 
 // NoticeRichEditor 는 Tiptap 에 의존하므로 단순 div 로 대체
-vi.mock('../../../app/admin/notices/_components/NoticeRichEditor', () => ({
+vi.mock('../../../app/_components/NoticeRichEditor', () => ({
   NoticeRichEditor: ({ value }: { value: string }) => <div data-testid="rich-editor">{value}</div>,
 }));
 

@@ -85,81 +85,83 @@ export function ClubEventFormModal(props: Props) {
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={props.mode === 'create' ? '일정 추가' : '일정 수정'}
     >
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="mb-4 text-base font-bold text-ink">
-          {props.mode === 'create' ? '일정 추가' : '일정 수정'}
-        </h2>
+      <div className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex min-h-0 flex-1 flex-col">
+          <h2 className="shrink-0 px-6 pb-4 pt-6 text-base font-bold text-ink">
+            {props.mode === 'create' ? '일정 추가' : '일정 수정'}
+          </h2>
 
-        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-ink">
-              제목 <span className="text-coral">*</span>
-            </label>
-            <input
-              type="text"
-              {...register('title')}
-              className={cn(
-                'w-full rounded-xl border px-4 py-3 text-sm outline-none',
-                'border-line focus:border-ink focus:ring-1 focus:ring-ink',
-                errors.title && 'border-coral focus:border-coral focus:ring-coral',
-              )}
-            />
-            {errors.title && <p className="mt-1 text-xs text-coral">{errors.title.message}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6">
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-ink">
-                시작 <span className="text-coral">*</span>
+                제목 <span className="text-coral">*</span>
               </label>
               <input
-                type="datetime-local"
-                {...register('startAt')}
-                className="w-full rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                type="text"
+                {...register('title')}
+                className={cn(
+                  'w-full rounded-xl border px-4 py-3 text-sm outline-none',
+                  'border-line focus:border-ink focus:ring-1 focus:ring-ink',
+                  errors.title && 'border-coral focus:border-coral focus:ring-coral',
+                )}
               />
-              {errors.startAt && <p className="mt-1 text-xs text-coral">{errors.startAt.message}</p>}
+              {errors.title && <p className="mt-1 text-xs text-coral">{errors.title.message}</p>}
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-ink">
+                  시작 <span className="text-coral">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  {...register('startAt')}
+                  className="w-full rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                />
+                {errors.startAt && <p className="mt-1 text-xs text-coral">{errors.startAt.message}</p>}
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-ink">
+                  종료 <span className="text-coral">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  {...register('endAt')}
+                  className="w-full rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                />
+                {errors.endAt && <p className="mt-1 text-xs text-coral">{errors.endAt.message}</p>}
+              </div>
+            </div>
+
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-ink">
-                종료 <span className="text-coral">*</span>
+                장소 <span className="text-xs font-normal text-charcoal-3">(선택)</span>
               </label>
               <input
-                type="datetime-local"
-                {...register('endAt')}
+                type="text"
+                {...register('location')}
                 className="w-full rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
               />
-              {errors.endAt && <p className="mt-1 text-xs text-coral">{errors.endAt.message}</p>}
+            </div>
+
+            <div className="pb-1">
+              <label className="mb-1.5 block text-sm font-semibold text-ink">
+                설명 <span className="text-xs font-normal text-charcoal-3">(선택)</span>
+              </label>
+              <textarea
+                rows={4}
+                {...register('description')}
+                className="w-full resize-none rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+              />
             </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-ink">
-              장소 <span className="text-xs font-normal text-charcoal-3">(선택)</span>
-            </label>
-            <input
-              type="text"
-              {...register('location')}
-              className="w-full rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-ink">
-              설명 <span className="text-xs font-normal text-charcoal-3">(선택)</span>
-            </label>
-            <textarea
-              rows={4}
-              {...register('description')}
-              className="w-full resize-none rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
-            />
-          </div>
-
-          <div className="flex gap-2 pt-1">
+          <div className="flex shrink-0 gap-2 border-t border-line px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <button
               type="button"
               onClick={props.onClose}
