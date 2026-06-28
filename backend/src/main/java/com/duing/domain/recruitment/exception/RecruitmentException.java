@@ -62,4 +62,20 @@ public class RecruitmentException extends ApplicationException {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
+
+    public static class ApplicationsExistException extends RecruitmentException {
+        private static final String MESSAGE = "이미 지원자가 있는 모집 공고는 삭제할 수 없습니다. 마감을 사용하세요.";
+
+        public ApplicationsExistException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    public static class OpenRecruitmentNotDeletableException extends RecruitmentException {
+        private static final String MESSAGE = "진행 중인 모집 공고는 마감한 뒤에 삭제할 수 있습니다.";
+
+        public OpenRecruitmentNotDeletableException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
 }
