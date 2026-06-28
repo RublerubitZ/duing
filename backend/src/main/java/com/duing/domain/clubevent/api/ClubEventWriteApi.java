@@ -38,7 +38,7 @@ public interface ClubEventWriteApi {
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "동아리 일정 삭제 (LEADER 만)")
+    @Operation(summary = "동아리 일정 삭제 (LEADER/OFFICER)")
     @DeleteMapping("/clubs/{clubId}/events/{eventId}")
     ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable Long clubId,

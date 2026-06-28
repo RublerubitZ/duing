@@ -105,13 +105,31 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("OFFICER 의 삭제 시도는 403 을 반환한다")
-    void officerCannotDelete() {
+    @DisplayName("OFFICER 가 삭제하면 회원 조회 결과에서 사라진다")
+    void officerCanDelete() {
         LocalDateTime start = LocalDateTime.now().plusDays(1).withNano(0);
         Long eventId = createEventAs(leaderToken, start, start.plusHours(1));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
+                .when().delete("/api/v1/clubs/" + clubId + "/events/" + eventId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/events")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(0));
+    }
+
+    @Test
+    @DisplayName("MEMBER 의 삭제 시도는 403 을 반환한다")
+    void memberCannotDelete() {
+        LocalDateTime start = LocalDateTime.now().plusDays(1).withNano(0);
+        Long eventId = createEventAs(leaderToken, start, start.plusHours(1));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
                 .when().delete("/api/v1/clubs/" + clubId + "/events/" + eventId)
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
     }

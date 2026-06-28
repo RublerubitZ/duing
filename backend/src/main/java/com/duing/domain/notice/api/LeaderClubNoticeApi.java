@@ -60,7 +60,7 @@ public interface LeaderClubNoticeApi {
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "동아리 공지 삭제 (LEADER 만)")
+    @Operation(summary = "동아리 공지 삭제 (LEADER/OFFICER)")
     @DeleteMapping("/clubs/{clubId}/notices/{noticeId}")
     ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable Long clubId,

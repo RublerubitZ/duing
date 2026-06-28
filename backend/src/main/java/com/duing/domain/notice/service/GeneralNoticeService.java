@@ -150,7 +150,7 @@ public class GeneralNoticeService implements NoticeService {
                 NoticeVisibility.CLUB_SCOPED,
                 NoticeClubScopeRole.ALL_MEMBERS,
                 command.pinned(), command.expiresAt(), false /* notifyOnPublish */,
-                null, null, null, null, null /* event */, NoticeContentFormat.MARKDOWN,
+                null, null, null, null, null /* event */, NoticeContentFormat.HTML,
                 command.authorId()
         ));
         saved.assignOwningClub(command.clubId());
