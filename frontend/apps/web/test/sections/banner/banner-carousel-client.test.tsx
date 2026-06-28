@@ -1,0 +1,144 @@
+import { render, screen, fireEvent, createEvent } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('next/link', () => ({
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
+import { BannerCarouselClient } from '../../../app/_components/sections/BannerCarouselClient';
+import {
+  FALLBACK_BANNERS,
+  fallbackBannerToSlide,
+  type CarouselSlide,
+} from '../../../app/_lib/promotion';
+
+function makeSlides(count: number): CarouselSlide[] {
+  return FALLBACK_BANNERS.slice(0, count).map(fallbackBannerToSlide);
+}
+
+/** jsdom 의 getBoundingClientRect 는 0 을 반환하므로 뷰포트 너비를 고정한다. */
+function mockViewportWidth(width = 1000) {
+  const viewport = screen.getByTestId('banner-carousel-viewport');
+  vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({
+    width,
+    height: 100,
+    top: 0,
+    left: 0,
+    right: width,
+    bottom: 100,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as DOMRect);
+  return viewport;
+}
+
+/**
+ * 포인터 이벤트를 발사하되 timeStamp 를 명시 제어한다.
+ * jsdom 의 자동 timeStamp 는 불안정해 velocity 판정이 흔들리므로, down/up 의 시각을 고정해
+ * 거리 경로와 플릭 경로를 결정적으로 테스트한다.
+ */
+function dispatchPointer(target: HTMLElement, event: Event, timeStamp?: number) {
+  if (timeStamp !== undefined) {
+    Object.defineProperty(event, 'timeStamp', { value: timeStamp });
+  }
+  fireEvent(target, event);
+}
+
+describe('BannerCarouselClient — 포인터 스와이프', () => {
+  it('거리 임계를 넘게 좌로 드래그하면 다음 배너로 넘어간다(거리 경로)', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const viewport = mockViewportWidth();
+
+    // dt 2000ms → velocity 0.2px/ms (<0.5) 이므로 순수 거리(|−400| ≥ 300) 로 커밋.
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1000);
+    dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -400, clientY: 0 }));
+    dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -400, clientY: 0 }), 3000);
+
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('02 / 04');
+  });
+
+  it('거리 임계를 넘게 우로 드래그하면 이전 배너로 넘어간다(무한 루프: 첫→마지막)', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const viewport = mockViewportWidth();
+
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1000);
+    dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: 400, clientY: 0 }));
+    dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: 400, clientY: 0 }), 3000);
+
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('04 / 04');
+  });
+
+  it('짧지만 빠른 플릭은 거리 미달이어도 다음 배너로 넘어간다(속도 경로)', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const viewport = mockViewportWidth();
+
+    // |−50| < 300(거리 미달) 이지만 dt 20ms → velocity 2.5px/ms (≥0.5) 이므로 플릭으로 커밋.
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1000);
+    dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -50, clientY: 0 }));
+    dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -50, clientY: 0 }), 1020);
+
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('02 / 04');
+  });
+
+  it('거리·속도 모두 미달인 드래그는 전환 없이 현재 배너를 유지한다(복귀)', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const viewport = mockViewportWidth();
+
+    // |−10| < 300 이고 dt 2000ms → velocity 0.005 (<0.5) → 복귀.
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1000);
+    dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -10, clientY: 0 }));
+    dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -10, clientY: 0 }), 3000);
+
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('01 / 04');
+  });
+
+  it('세로 우세 제스처는 전환을 일으키지 않는다(스크롤 양보)', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const viewport = mockViewportWidth();
+
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1000);
+    dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: 0, clientY: -200 }));
+    dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: 0, clientY: -200 }), 3000);
+
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('01 / 04');
+  });
+
+  it('드래그 후 발생한 클릭은 억제된다(링크 이동 방지)', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const viewport = mockViewportWidth();
+
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1000);
+    dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -400, clientY: 0 }));
+    dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -400, clientY: 0 }), 3000);
+
+    const clickEvent = createEvent.click(viewport);
+    fireEvent(viewport, clickEvent);
+    expect(clickEvent.defaultPrevented).toBe(true);
+  });
+
+  it('단순 탭(드래그 아님)의 클릭은 억제되지 않는다', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const viewport = mockViewportWidth();
+
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1000);
+    dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1100);
+
+    const clickEvent = createEvent.click(viewport);
+    fireEvent(viewport, clickEvent);
+    expect(clickEvent.defaultPrevented).toBe(false);
+  });
+
+  it('슬라이드가 1장이면 드래그를 무시한다', () => {
+    render(<BannerCarouselClient slides={makeSlides(1)} />);
+    const viewport = mockViewportWidth();
+
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1000);
+    dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -400, clientY: 0 }));
+    dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -400, clientY: 0 }), 3000);
+
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('01 / 01');
+  });
+});
