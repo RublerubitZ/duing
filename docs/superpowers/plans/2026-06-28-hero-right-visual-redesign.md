@@ -12,6 +12,14 @@
 
 ---
 
+## 보정 노트 (코드 리뷰 반영)
+
+이 레포는 `tsconfig.base.json` 에 `noUncheckedIndexedAccess: true` 가 켜져 있다. 배열 인덱싱이 `T | undefined` 가 되므로:
+
+- **`resolveHeroToasts` 는 `HeroToast[]` 가 아니라 튜플 `[HeroToast, HeroToast]` 를 반환**한다. 슬롯별 폴백 상수 `FALLBACK_LIGHT`/`FALLBACK_DARK` + `toHeroToast(activity, fallback, now)` 헬퍼로 구성한다. 튜플 반환이라 호출부 `toasts[0]`/`toasts[1]` 접근이 `noUncheckedIndexedAccess` 에서도 안전하다(`as`/`!` 단언 불필요). → 아래 Task 1 코드의 `FALLBACK_TOASTS` 배열/`MAX_TOASTS`/`Array.from` 버전은 이 **튜플 버전으로 대체**되었다.
+- **Task 2 `HeroRightVisual` 의 prop 타입은 `toasts: [HeroToast, HeroToast]`** (배열 아님). 그래야 내부 `toasts[0]`/`toasts[1]` 가 타입 에러 없이 정의된다.
+- 각 Task 검증에 **`pnpm typecheck` 통과를 필수**로 포함한다. vitest(esbuild)는 타입 에러를 못 잡으므로 typecheck 를 별도로 돌려야 한다.
+
 ## File Structure
 
 - **Create** `frontend/apps/web/app/_components/sections/hero-activity.ts` — 토스트 순수 로직: 타입(`HeroActivityType`/`HeroActivity`/`HeroToastVariant`/`HeroToast`), 매핑/폴백 상수, `formatRelativeTime`, `resolveHeroToasts`. React/DOM 비의존.
