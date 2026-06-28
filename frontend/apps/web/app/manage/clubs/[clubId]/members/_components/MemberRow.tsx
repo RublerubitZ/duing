@@ -8,6 +8,7 @@ import {
   useRemoveMemberMutation,
   useUpdateMemberRoleMutation,
 } from '@duing/hooks';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { RemoveMemberDialog } from './RemoveMemberDialog';
 
 type MemberRowProps = {
@@ -27,6 +28,7 @@ export function MemberRow({
   const leaveClub = useLeaveClubMutation(clubId);
 
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isSelf = member.userId === viewerUserId;
@@ -54,11 +56,11 @@ export function MemberRow({
     }
   }
 
-  async function doLeave() {
-    if (!confirm('정말 동아리를 탈퇴할까요?')) return;
+  async function confirmLeave() {
     setError(null);
     try {
       await leaveClub.mutateAsync();
+      setShowLeaveConfirm(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : '탈퇴 실패');
     }
@@ -151,7 +153,7 @@ export function MemberRow({
         {viewerRole === 'OFFICER' && isSelf && (
           <button
             type="button"
-            onClick={doLeave}
+            onClick={() => setShowLeaveConfirm(true)}
             className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-rose-600 hover:bg-rose-50"
           >
             탈퇴
@@ -171,6 +173,17 @@ export function MemberRow({
           onCancel={() => setShowRemoveDialog(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={showLeaveConfirm}
+        title="동아리를 탈퇴할까요?"
+        description="탈퇴하면 이 동아리에서 빠지며, 되돌리려면 다시 가입해야 합니다."
+        confirmLabel="탈퇴"
+        pendingLabel="탈퇴 중…"
+        isPending={leaveClub.isPending}
+        onConfirm={confirmLeave}
+        onCancel={() => setShowLeaveConfirm(false)}
+      />
     </div>
   );
 }

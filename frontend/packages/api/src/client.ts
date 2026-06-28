@@ -255,6 +255,7 @@ export type DuingApiClient = {
     create(clubId: number, payload: CreateRecruitmentPayload): Promise<number>;
     update(recruitmentId: number, payload: UpdateRecruitmentPayload): Promise<void>;
     close(recruitmentId: number): Promise<void>;
+    remove(recruitmentId: number): Promise<void>;
   };
   applications: {
     submit(recruitmentId: number, payload: SubmitApplicationPayload): Promise<number>;
@@ -711,6 +712,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         ),
       close: (recruitmentId) =>
         jsonVoid(http.patch(`leader/recruitments/${recruitmentId}/close`)),
+      remove: (recruitmentId) =>
+        jsonVoid(http.delete(`leader/recruitments/${recruitmentId}`)),
     },
     applications: {
       submit: (recruitmentId, payload) =>
