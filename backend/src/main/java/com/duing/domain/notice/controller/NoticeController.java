@@ -10,6 +10,7 @@ import com.duing.domain.notice.entity.NoticeTargetClub;
 import com.duing.domain.notice.repository.NoticeTargetClubRepository;
 import com.duing.domain.notice.service.NoticeService;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
+import com.duing.domain.notice.service.dto.query.NoticeSource;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.global.auth.UserPrincipal;
@@ -17,6 +18,7 @@ import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -42,13 +44,20 @@ public class NoticeController implements NoticeApi {
             @RequestParam(required = false) NoticeCategory category,
             @RequestParam(required = false) List<String> tags,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) NoticeSource source,
             Pageable pageable,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         ViewerScope viewer = buildViewerScope(currentUser);
-        NoticeSearchCondition condition = new NoticeSearchCondition(category, tags, keyword);
-        Page<NoticeCardResponse> page = noticeService.searchFeed(condition, viewer, pageable)
-                .map(NoticeCardResponse::from);
+        NoticeSearchCondition condition = new NoticeSearchCondition(category, tags, keyword, source);
+        Page<Notice> noticePage = noticeService.searchFeed(condition, viewer, pageable);
+        // 동아리 공지 카드에 동아리명을 붙이기 위해 페이지 내 owningClubId 들을 한 번에 조회한다(N+1 방지).
+        Map<Long, String> clubNames = noticeService.findClubNamesByIds(
+                noticePage.getContent().stream().map(Notice::getOwningClubId).toList());
+        Page<NoticeCardResponse> page = noticePage.map(notice -> NoticeCardResponse.from(
+                notice,
+                // 학교 공지는 owningClubId 가 null — 불변 Map.of() 는 get(null) 에 NPE 를 던지므로 null 을 먼저 거른다.
+                notice.getOwningClubId() == null ? null : clubNames.get(notice.getOwningClubId())));
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
     }
 
@@ -62,7 +71,11 @@ public class NoticeController implements NoticeApi {
         List<Long> targetClubIds = targetClubRepository.findAllByIdNoticeId(notice.getId())
                 .stream().map(NoticeTargetClub::getClubId).toList();
         boolean exposeAdmin = viewer.isAdmin();
-        return ResponseEntity.ok(ApiResponse.success(NoticeDetailResponse.from(notice, targetClubIds, exposeAdmin)));
+        String clubName = notice.getOwningClubId() == null ? null
+                : noticeService.findClubNamesByIds(List.of(notice.getOwningClubId()))
+                        .get(notice.getOwningClubId());
+        return ResponseEntity.ok(ApiResponse.success(
+                NoticeDetailResponse.from(notice, targetClubIds, exposeAdmin, clubName)));
     }
 
     private ViewerScope buildViewerScope(UserPrincipal currentUser) {

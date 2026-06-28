@@ -83,6 +83,8 @@ public class AdminNoticeController implements AdminNoticeApi {
         Notice notice = noticeService.getVisible(noticeId, adminScope);
         List<Long> targetClubIds = targetClubRepository.findAllByIdNoticeId(notice.getId())
                 .stream().map(NoticeTargetClub::getClubId).toList();
-        return ResponseEntity.ok(ApiResponse.success(NoticeDetailResponse.from(notice, targetClubIds, true)));
+        // 관리자 화면은 owningClubId·targetClubIds·visibility 로 출처를 다루므로 공개용 clubName 라벨은 생략한다.
+        return ResponseEntity.ok(ApiResponse.success(
+                NoticeDetailResponse.from(notice, targetClubIds, true, null)));
     }
 }

@@ -9,6 +9,8 @@ import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
+import java.util.Collection;
+import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -23,6 +25,12 @@ public interface NoticeService {
     Notice getVisible(Long noticeId, ViewerScope viewer);
 
     Page<Notice> searchFeed(NoticeSearchCondition condition, ViewerScope viewer, Pageable pageable);
+
+    /**
+     * 공지 카드/상세의 출처 라벨용 — owningClubId 집합으로 동아리명을 한 번에 조회한다(N+1 방지).
+     * null id 는 무시하고, 소프트삭제·미존재 동아리는 결과에서 빠진다(호출 측에서 null 라벨로 처리).
+     */
+    Map<Long, String> findClubNamesByIds(Collection<Long> clubIds);
 
     /** 어드민 공지 목록 — Notice 엔티티 노출 없이 평탄화된 Query DTO 페이지를 반환한다. */
     Page<NoticeAdminSummaryQuery> listForAdmin(NoticeAdminSearchCondition condition, Pageable pageable);
