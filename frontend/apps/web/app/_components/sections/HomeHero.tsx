@@ -29,20 +29,23 @@ export async function HomeHero() {
         }}
       />
 
-      <div className="max-w-layout relative mx-auto grid items-center gap-16 md:grid-cols-[1.15fr_1fr]">
+      <div className="max-w-layout relative mx-auto grid items-center gap-10 md:grid-cols-[0.9fr_1.1fr]">
         <div className="relative">
-          {/* 모바일: 헤드라인 우측 여백의 모집 통계 — 데스크탑 카드스택과 같은 톤으로 깔끔한 2줄 (#1) */}
-          {stats && (
-            <div className="md:hidden absolute right-0 top-[54px] z-[3] rounded-xl border border-sage-soft bg-sage-mist px-4 py-3 shadow-1">
-              <div className="font-display text-[32px] font-bold leading-none text-ink">
-                {stats.recruitingCount}
-                <span className="text-base font-bold">곳</span>
-              </div>
-              <div className="mt-1 text-[11px] font-medium leading-tight text-ink/75">
-                이번 학기 모집중
-              </div>
+          {/* 모바일: 헤드라인 우측 여백의 모집 통계 카드 — 데스크탑 카드와 동일 톤.
+              우측 비주얼이 숨겨지는 모바일에서도 모집 현황 카드를 항상 보여준다.
+              stats null(조회 실패) 시에도 카드는 유지하고 "—곳"으로 폴백(데스크탑 카드와 동일 규약). */}
+          <div className="md:hidden absolute right-0 top-[54px] z-[3] rounded-xl border border-sage-soft bg-sage-mist px-4 py-3 shadow-1">
+            <div
+              className="font-display text-[32px] font-bold leading-none text-ink"
+              aria-label={stats ? undefined : '모집 현황 정보 없음'}
+            >
+              {stats ? stats.recruitingCount : '—'}
+              <span className="text-base font-bold">곳</span>
             </div>
-          )}
+            <div className="mt-1 text-[11px] font-medium leading-tight text-ink/75">
+              이번 학기 모집중
+            </div>
+          </div>
 
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 font-mono text-[11.5px] font-bold tracking-[0.14em] text-ink-deep sm:mb-[22px]">
             <Sparkle size={11} color="#143025" />
@@ -182,7 +185,7 @@ export function HeroRightVisual({
   toasts: [HeroToast, HeroToast];
 }) {
   return (
-    <div className="relative hidden h-[500px] md:block lg:h-[600px]">
+    <div className="relative hidden h-[520px] md:block lg:h-[640px]">
       {/* 모집중 카드 — flow 상단(회전·absolute 제거). null="—곳"(중립), 0="0곳"(정당한 0). */}
       <div className="inline-block rounded-md border border-sage-soft bg-sage-mist px-5 py-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-150 motion-reduce:animate-none">
         <div
@@ -204,7 +207,7 @@ export function HeroRightVisual({
         priority
         fetchPriority="high"
         draggable={false}
-        className="mx-auto mt-4 h-auto w-full max-w-[460px] object-contain animate-in fade-in-0 zoom-in-95 duration-700 motion-reduce:animate-none lg:max-w-[560px]"
+        className="mx-auto mt-4 h-auto w-full max-w-[520px] object-contain animate-in fade-in-0 zoom-in-95 duration-700 motion-reduce:animate-none lg:max-w-[680px]"
       />
 
       {/* Toast 1 (좌하단) — offset 은 기준값, 최종은 후속 시각 QA 로 확정. */}
