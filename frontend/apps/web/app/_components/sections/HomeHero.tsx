@@ -182,7 +182,7 @@ export function HeroRightVisual({
   toasts: [HeroToast, HeroToast];
 }) {
   return (
-    <div className="relative hidden h-[540px] md:block lg:h-[560px]">
+    <div className="relative hidden h-[500px] md:block lg:h-[600px]">
       {/* 모집중 카드 — flow 상단(회전·absolute 제거). null="—곳"(중립), 0="0곳"(정당한 0). */}
       <div className="inline-block rounded-md border border-sage-soft bg-sage-mist px-5 py-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-150 motion-reduce:animate-none">
         <div
@@ -204,7 +204,7 @@ export function HeroRightVisual({
         priority
         fetchPriority="high"
         draggable={false}
-        className="mx-auto mt-4 h-auto w-full max-w-[480px] object-contain animate-in fade-in-0 zoom-in-95 duration-700 motion-reduce:animate-none md:max-w-[400px] lg:max-w-[480px]"
+        className="mx-auto mt-4 h-auto w-full max-w-[460px] object-contain animate-in fade-in-0 zoom-in-95 duration-700 motion-reduce:animate-none lg:max-w-[560px]"
       />
 
       {/* Toast 1 (좌하단) — offset 은 기준값, 최종은 후속 시각 QA 로 확정. */}
