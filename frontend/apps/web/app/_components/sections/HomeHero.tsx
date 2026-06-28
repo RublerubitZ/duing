@@ -34,7 +34,7 @@ export async function HomeHero() {
           {/* 모바일: 헤드라인 우측 — 모집 현황 카드 + 활동 토스트 2개를 작게 세로로 노출.
               우측 비주얼(일러스트·토스트)이 숨겨지는 모바일에서도 모집 현황과 활동 분위기를 전달한다.
               stats null(조회 실패) 시에도 카드는 "—곳"으로 폴백(데스크탑 카드와 동일 규약). */}
-          <div className="md:hidden absolute right-0 top-[44px] z-[3] flex w-[150px] flex-col items-stretch gap-2">
+          <div className="md:hidden absolute right-0 top-[44px] z-[3] flex w-[130px] flex-col items-stretch gap-1.5">
             <div className="rounded-xl border border-sage-soft bg-sage-mist px-3.5 py-2.5 shadow-1">
               <div
                 className="font-display text-[28px] font-bold leading-none text-ink"
@@ -158,7 +158,7 @@ export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroT
   return (
     <div
       className={cn(
-        'w-[150px] rounded-md px-2.5 py-1.5 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none md:w-[182px] md:px-3 md:py-2 lg:w-[230px] lg:px-4 lg:py-3',
+        'w-[130px] rounded-md px-2 py-1 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none md:w-[182px] md:px-3 md:py-2 lg:w-[230px] lg:px-4 lg:py-3',
         isDark ? 'bg-ink-deep text-cream' : 'border border-line bg-paper text-ink',
       )}
     >
@@ -169,7 +169,7 @@ export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroT
         />
         <span
           className={cn(
-            'text-[10.5px] font-bold md:text-[11.5px] lg:text-[13px]',
+            'text-[9.5px] font-bold md:text-[11.5px] lg:text-[13px]',
             isDark ? 'text-cream' : 'text-ink',
           )}
         >
@@ -177,7 +177,7 @@ export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroT
         </span>
         <span
           className={cn(
-            'ml-auto text-[9px] md:text-[10px] lg:text-[11px]',
+            'ml-auto text-[8px] md:text-[10px] lg:text-[11px]',
             isDark ? 'text-cream/60' : 'text-charcoal-3',
           )}
         >
@@ -186,7 +186,7 @@ export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroT
       </div>
       <div
         className={cn(
-          'mt-0.5 text-[10px] leading-snug md:text-[11px] lg:mt-1 lg:text-[12.5px]',
+          'mt-0.5 text-[9px] leading-snug md:text-[11px] lg:mt-1 lg:text-[12.5px]',
           isDark ? 'text-cream/85' : 'text-charcoal-2',
         )}
       >
