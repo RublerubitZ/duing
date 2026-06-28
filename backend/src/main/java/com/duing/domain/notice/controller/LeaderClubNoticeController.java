@@ -75,7 +75,7 @@ public class LeaderClubNoticeController implements LeaderClubNoticeApi {
             Long clubId, Long noticeId,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        clubAuthService.requireLeader(currentUser.id(), clubId);
+        clubAuthService.requireManager(currentUser.id(), clubId);
         noticeService.deleteForClub(clubId, noticeId);
         return ResponseEntity.noContent().build();
     }
