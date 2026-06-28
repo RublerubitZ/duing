@@ -144,7 +144,7 @@ export async function HomeHero() {
   );
 }
 
-// Test-only export — 테스트에서 직접 렌더하기 위해 노출(런타임은 HomeHero 만 사용).
+// 테스트용 export — 런타임에선 같은 파일의 HeroRightVisual 이 렌더한다.
 export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroToast) {
   const isDark = variant === 'dark';
   return (
@@ -173,7 +173,7 @@ export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroT
   );
 }
 
-// Test-only export — 테스트에서 직접 렌더하기 위해 노출(런타임은 HomeHero 만 사용).
+// 테스트용 export — 런타임에선 HomeHero 가 렌더한다.
 export function HeroRightVisual({
   recruitingCount,
   toasts,
@@ -185,7 +185,10 @@ export function HeroRightVisual({
     <div className="relative hidden h-[540px] md:block lg:h-[560px]">
       {/* 모집중 카드 — flow 상단(회전·absolute 제거). null="—곳"(중립), 0="0곳"(정당한 0). */}
       <div className="inline-block rounded-md border border-sage-soft bg-sage-mist px-5 py-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-150 motion-reduce:animate-none">
-        <div className="font-display text-[36px] font-bold leading-none text-ink">
+        <div
+          className="font-display text-[36px] font-bold leading-none text-ink"
+          aria-label={recruitingCount === null ? '모집 현황 정보 없음' : undefined}
+        >
           {recruitingCount === null ? '—' : recruitingCount}
           <span className="text-lg">곳</span>
         </div>
