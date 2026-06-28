@@ -35,8 +35,9 @@ public class LeaderClubNoticeController implements LeaderClubNoticeApi {
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         clubAuthService.requireMember(currentUser.id(), clubId);
+        // 동아리 페이지 내부 목록이라 출처 배지가 필요 없어 clubName 은 생략한다(owningClubId 는 그대로 포함).
         var result = noticeService.findClubScopedForMember(clubId, PageRequest.of(page, size))
-                .map(NoticeCardResponse::from);
+                .map(notice -> NoticeCardResponse.from(notice, null));
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(result)));
     }
 
@@ -75,7 +76,7 @@ public class LeaderClubNoticeController implements LeaderClubNoticeApi {
             Long clubId, Long noticeId,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        clubAuthService.requireLeader(currentUser.id(), clubId);
+        clubAuthService.requireManager(currentUser.id(), clubId);
         noticeService.deleteForClub(clubId, noticeId);
         return ResponseEntity.noContent().build();
     }

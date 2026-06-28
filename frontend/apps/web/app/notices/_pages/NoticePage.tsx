@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import type { SVGProps } from 'react';
 import Link from 'next/link';
-import type { NoticeCategory } from '@duing/types';
+import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { useNoticeListQuery } from '@duing/hooks';
+import { useAuthStore } from '@duing/stores';
 import { ExploreNav } from '../../_components/ExploreNav';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { SparkleFull } from '../../_components/Sparkle';
@@ -179,13 +180,21 @@ type SidebarItem = {
 };
 
 export function NoticePage() {
+  const isAuthenticated = useAuthStore((state) => state.status === 'authenticated');
+  // 출처 세그먼트 — 학교 공지(관리자) / 내 동아리(가입 동아리 작성). 로그인 사용자만 '내 동아리' 선택 가능.
+  const [source, setSource] = useState<NoticeSource>('SCHOOL');
   const [category, setCategory] = useState<NoticeCategory | 'ALL'>('ALL');
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
   const [page, setPage] = useState(0);
 
+  // 비로그인이면 항상 학교 공지 — 내 동아리 세그먼트가 숨겨지고, 로그아웃 직후의 stale CLUB 상태도 흡수한다.
+  const activeSource: NoticeSource = isAuthenticated ? source : 'SCHOOL';
+
+  // 내 동아리 공지는 카테고리 체계가 없어 카테고리 필터를 적용하지 않는다.
   const listQuery = useNoticeListQuery({
-    category: category === 'ALL' ? undefined : category,
+    source: activeSource,
+    category: activeSource === 'SCHOOL' && category !== 'ALL' ? category : undefined,
     keyword: keyword || undefined,
     page,
     size: PAGE_SIZE,
@@ -201,6 +210,13 @@ export function NoticePage() {
     setCategory(next);
     setPage(0);
   };
+
+  const handleSourceChange = (next: NoticeSource) => {
+    setSource(next);
+    setPage(0);
+  };
+
+  const isClubSource = activeSource === 'CLUB';
 
   const handleSearch = () => {
     setKeyword(keywordInput);
@@ -239,24 +255,61 @@ export function NoticePage() {
             borderBottom: '1px solid var(--gray-line)',
             marginBottom: 10,
           }}>
-            캠퍼스 소식
+            {isClubSource ? '내 동아리' : '캠퍼스 소식'}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {sidebarItems.map((item) => (
-              <SideItem
-                key={item.value}
-                icon={item.icon}
-                label={item.label}
-                count={category === item.value ? totalElements : undefined}
-                active={category === item.value}
-                onClick={() => handleCategoryChange(item.value)}
-              />
-            ))}
-          </div>
+          {isClubSource ? (
+            <p style={{ padding: '4px 14px', fontSize: 13, lineHeight: 1.6, color: 'var(--charcoal-3)' }}>
+              가입한 동아리가 올린 공지입니다. 각 공지에 어느 동아리 소식인지 표시됩니다.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {sidebarItems.map((item) => (
+                <SideItem
+                  key={item.value}
+                  icon={item.icon}
+                  label={item.label}
+                  count={category === item.value ? totalElements : undefined}
+                  active={category === item.value}
+                  onClick={() => handleCategoryChange(item.value)}
+                />
+              ))}
+            </div>
+          )}
         </aside>
 
         {/* ===== Main column ===== */}
         <main>
+          {/* 출처 세그먼트 — 학교 공지 / 내 동아리 (로그인 시) */}
+          <div style={{
+            display: 'inline-flex', gap: 4, marginBottom: 18,
+            padding: 4, borderRadius: 12,
+            background: 'var(--paper)', border: '1px solid var(--gray-line)',
+          }}>
+            {([
+              { value: 'SCHOOL' as const, label: '학교 공지' },
+              ...(isAuthenticated ? [{ value: 'CLUB' as const, label: '내 동아리' }] : []),
+            ]).map((seg) => {
+              const segActive = activeSource === seg.value;
+              return (
+                <button
+                  key={seg.value}
+                  type="button"
+                  aria-pressed={segActive}
+                  onClick={() => handleSourceChange(seg.value)}
+                  style={{
+                    padding: '8px 18px', borderRadius: 9, border: 'none',
+                    background: segActive ? 'var(--ink)' : 'transparent',
+                    color: segActive ? '#fff' : 'var(--charcoal-2)',
+                    fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+                    cursor: 'pointer', transition: 'background .15s',
+                  }}
+                >
+                  {seg.label}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Hero */}
           <div className="mb-[22px] flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
             <div>
@@ -309,30 +362,32 @@ export function NoticePage() {
             </div>
           </div>
 
-          {/* Tag pills */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
-            {NOTICE_CATEGORY_OPTIONS.map((opt) => {
-              const isActive = opt.value === category;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => handleCategoryChange(opt.value)}
-                  style={{
-                    padding: '7px 14px', borderRadius: 999,
-                    border: `1px solid ${isActive ? 'var(--ink)' : 'var(--gray-line)'}`,
-                    background: isActive ? 'var(--ink)' : 'var(--paper)',
-                    color: isActive ? '#fff' : 'var(--charcoal-2)',
-                    fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
+          {/* Tag pills — 카테고리는 학교 공지에만 적용된다(내 동아리 공지는 카테고리 체계 없음) */}
+          {!isClubSource && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
+              {NOTICE_CATEGORY_OPTIONS.map((opt) => {
+                const isActive = opt.value === category;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => handleCategoryChange(opt.value)}
+                    style={{
+                      padding: '7px 14px', borderRadius: 999,
+                      border: `1px solid ${isActive ? 'var(--ink)' : 'var(--gray-line)'}`,
+                      background: isActive ? 'var(--ink)' : 'var(--paper)',
+                      color: isActive ? '#fff' : 'var(--charcoal-2)',
+                      fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Loading / Error */}
           {listQuery.isLoading && (
@@ -381,6 +436,16 @@ export function NoticePage() {
                               }}>{NOTICE_CATEGORY_LABEL[n.category]}</span>
                             ) : (
                               <NTagPill category={n.category} />
+                            )}
+                            {n.owningClubId != null && (
+                              <span style={{
+                                padding: '3px 9px', borderRadius: 6,
+                                display: 'inline-block', maxWidth: 200, verticalAlign: 'middle',
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                background: isDark ? 'rgba(157,182,160,0.18)' : 'var(--sage-mist)',
+                                color: isDark ? 'var(--sage)' : 'var(--ink)',
+                                fontSize: 11, fontWeight: 700, letterSpacing: '0.02em',
+                              }}>🏛 {n.clubName ?? '동아리 공지'}</span>
                             )}
                             <span style={{
                               fontSize: 12, fontFamily: 'var(--font-mono)',
@@ -457,7 +522,7 @@ export function NoticePage() {
                   fontSize: 15, fontFamily: 'var(--font-body)', fontWeight: 700,
                   color: 'var(--ink-deep)',
                 }}>
-                  전체 공지 · {totalElements}
+                  {isClubSource ? '내 동아리 공지' : '전체 공지'} · {totalElements}
                 </h2>
               </div>
 
@@ -518,6 +583,15 @@ export function NoticePage() {
                       display: 'inline-flex', alignItems: 'center',
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
+                      {n.owningClubId != null && (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 3,
+                          padding: '1px 7px', borderRadius: 999, flexShrink: 0, marginRight: 7,
+                          maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          background: 'var(--sage-mist)', color: 'var(--ink)',
+                          fontSize: 11, fontWeight: 700,
+                        }}>🏛 {n.clubName ?? '동아리 공지'}</span>
+                      )}
                       {n.title}
                       {isNewItem(n.createdAt) && <NewBadge />}
                     </span>
@@ -530,7 +604,9 @@ export function NoticePage() {
 
                 {restItems.length === 0 && (
                   <p style={{ padding: '32px 22px', textAlign: 'center', color: 'var(--charcoal-3)', fontSize: 13 }}>
-                    {keyword ? '검색 결과가 없습니다.' : '아직 공지가 없습니다'}
+                    {keyword
+                      ? '검색 결과가 없습니다.'
+                      : isClubSource ? '가입한 동아리의 공지가 없습니다' : '아직 공지가 없습니다'}
                   </p>
                 )}
               </div>

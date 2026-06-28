@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CreateNoticePayload, NoticeCategory, NoticeVisibility, UpdateNoticePayload } from '@duing/types';
+import type { CreateNoticePayload, NoticeCategory, NoticeSource, NoticeVisibility, UpdateNoticePayload } from '@duing/types';
 import { useApiClient } from './api-context';
 import { noticeQueryKeys } from './noticeQueryKeys';
 
@@ -7,6 +7,7 @@ type ListParams = {
   category?: NoticeCategory;
   tags?: string[];
   keyword?: string;
+  source?: NoticeSource;
   page: number;
   size: number;
 };

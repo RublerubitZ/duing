@@ -35,6 +35,18 @@ describe('ImageWithFallback', () => {
     expect(img.className).not.toContain('object-contain');
   });
 
+  it('draggable 미지정 시 img 에 draggable 속성을 강제하지 않는다', () => {
+    render(<ImageWithFallback src="https://example.com/a.jpg" alt="표지" />);
+    const img = screen.getByAltText('표지');
+    expect(img).not.toHaveAttribute('draggable');
+  });
+
+  it('draggable={false} 지정 시 img 의 네이티브 드래그를 끈다 (dnd-kit 정렬 영역용)', () => {
+    render(<ImageWithFallback src="https://example.com/a.jpg" alt="표지" draggable={false} />);
+    const img = screen.getByAltText('표지');
+    expect(img).toHaveAttribute('draggable', 'false');
+  });
+
   it('objectFit="contain" 지정 시 img 에 object-contain 이 적용된다', () => {
     render(
       <ImageWithFallback

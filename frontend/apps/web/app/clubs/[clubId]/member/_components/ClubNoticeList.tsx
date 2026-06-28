@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useClubNoticeDetailQuery, useClubNoticeListQuery, useRemoveClubNoticeMutation } from '@duing/hooks';
 import type { NoticeCardItem } from '@duing/types';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useMembership } from './MembershipContext';
 import { ClubNoticeCard } from './ClubNoticeCard';
 import { ClubNoticeFormModal } from './ClubNoticeFormModal';
@@ -17,6 +18,7 @@ export function ClubNoticeList({ clubId }: Props) {
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [editing, setEditing] = useState<NoticeCardItem | null>(null);
+  const [deleting, setDeleting] = useState<NoticeCardItem | null>(null);
   // 목록 카드에는 content 가 없으므로, 수정 시 상세를 시드해야 본문 재입력 없이 편집할 수 있다.
   const { data: editingDetail } = useClubNoticeDetailQuery(clubId, editing?.id ?? null);
 
@@ -24,9 +26,9 @@ export function ClubNoticeList({ clubId }: Props) {
 
   const notices = data?.content ?? [];
 
-  const onDelete = (noticeId: number) => {
-    if (!confirm('이 공지를 삭제하시겠습니까?')) return;
-    removeMutation.mutate(noticeId);
+  const confirmDelete = () => {
+    if (!deleting) return;
+    removeMutation.mutate(deleting.id, { onSuccess: () => setDeleting(null) });
   };
 
   return (
@@ -58,7 +60,7 @@ export function ClubNoticeList({ clubId }: Props) {
               canEdit={permissions.canEditNotice}
               canDelete={permissions.canDeleteNotice}
               onEdit={() => setEditing(notice)}
-              onDelete={() => onDelete(notice.id)}
+              onDelete={() => setDeleting(notice)}
             />
           ))}
         </ul>
@@ -109,9 +111,19 @@ export function ClubNoticeList({ clubId }: Props) {
             pinned: editingDetail.pinned,
             expiresAt: editingDetail.expiresAt ?? undefined,
           }}
+          defaultContentFormat={editingDetail.contentFormat}
           onClose={() => setEditing(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title="공지를 삭제할까요?"
+        description={deleting ? `"${deleting.title}" 공지가 더 이상 노출되지 않습니다.` : undefined}
+        isPending={removeMutation.isPending}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleting(null)}
+      />
     </section>
   );
 }

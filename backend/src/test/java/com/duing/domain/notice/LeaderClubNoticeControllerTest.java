@@ -1,7 +1,9 @@
 package com.duing.domain.notice;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 
 import com.duing.common.IntegrationTestBase;
@@ -128,12 +130,29 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("OFFICER 의 삭제 시도는 403 을 반환한다")
-    void officerCannotDelete() {
+    @DisplayName("OFFICER 가 삭제하면 회원 피드에서 사라진다")
+    void officerCanDelete() {
         Long noticeId = createNoticeAs(leaderToken, "삭제 후보");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
+                .when().delete("/api/v1/clubs/" + clubId + "/notices/" + noticeId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/notices")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.totalElements", equalTo(0));
+    }
+
+    @Test
+    @DisplayName("MEMBER 의 삭제 시도는 403 을 반환한다")
+    void memberCannotDelete() {
+        Long noticeId = createNoticeAs(leaderToken, "삭제 후보");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
                 .when().delete("/api/v1/clubs/" + clubId + "/notices/" + noticeId)
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
     }
@@ -228,6 +247,29 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
                 .body("data.title", equalTo("상세 공지"))
                 .body("data.content", equalTo("본문"))
                 .body("data.coverImageUrl", equalTo("https://example.com/cover.png"));
+    }
+
+    @Test
+    @DisplayName("HTML 본문 공지는 이미지를 보존하고 스크립트를 제거한 채 HTML 포맷으로 저장된다")
+    void clubNoticeStoresSanitizedHtml() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("title", "리치 공지", "summary", "요약",
+                        "content", "<p>안내</p><img src=\"https://example.com/a.png\" alt=\"포스터\">"
+                                + "<script>alert(1)</script>",
+                        "coverImageUrl", "https://example.com/cover.png"))
+                .when().post("/api/v1/clubs/" + clubId + "/notices")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/notices/" + noticeId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.contentFormat", equalTo("HTML"))
+                .body("data.content", containsString("https://example.com/a.png"))
+                .body("data.content", not(containsString("<script")));
     }
 
     @Test

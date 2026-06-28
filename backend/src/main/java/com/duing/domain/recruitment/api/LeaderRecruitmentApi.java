@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,6 +49,13 @@ public interface LeaderRecruitmentApi {
     @Operation(summary = "모집 공고 수동 마감", description = "OPEN 상태의 모집 공고를 즉시 마감한다. 이미 마감된 공고에 호출하면 409 반환.")
     @PatchMapping("/leader/recruitments/{recruitmentId}/close")
     ResponseEntity<Void> closeRecruitment(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "모집 공고 삭제", description = "지원자가 없는 모집 공고만 삭제할 수 있다. 지원자가 1명이라도 있으면 409 — 진행 중 공고는 마감을 사용한다. 운영진(LEADER/OFFICER) 권한 필요.")
+    @DeleteMapping("/leader/recruitments/{recruitmentId}")
+    ResponseEntity<Void> deleteRecruitment(
             @PathVariable Long recruitmentId,
             @AuthenticationPrincipal UserPrincipal currentUser
     );

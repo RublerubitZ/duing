@@ -33,7 +33,7 @@ export default function ClubPhotosPage({
       <header>
         <h1 className="text-xl font-bold">활동사진</h1>
         <p className="mt-1 text-sm text-slate-500">
-          업로드 후 드래그로 순서를 바꿀 수 있습니다 (1초 후 자동 저장).
+          사진을 드래그해 순서를 바꿀 수 있습니다 (1초 후 자동 저장).
         </p>
       </header>
 

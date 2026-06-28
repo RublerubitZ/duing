@@ -6,5 +6,6 @@ import java.util.List;
 public record NoticeSearchCondition(
         NoticeCategory category,
         List<String> tags,
-        String keyword
+        String keyword,
+        NoticeSource source
 ) {}

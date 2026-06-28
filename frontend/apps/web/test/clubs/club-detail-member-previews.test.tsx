@@ -44,6 +44,8 @@ const makeNotice = (id: number, overrides: Partial<NoticeCardItem> = {}): Notice
   pinned: false,
   expiresAt: null,
   createdAt: '2026-06-01T10:00:00Z',
+  owningClubId: null,
+  clubName: null,
   ...overrides,
 });
 

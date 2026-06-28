@@ -63,3 +63,16 @@ export function useCloseRecruitmentMutation(recruitmentId: number) {
     },
   });
 }
+
+export function useDeleteRecruitmentMutation(clubId: number, recruitmentId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => client.recruitments.remove(recruitmentId),
+    onSuccess: () => {
+      // 동아리 모집 목록을 갱신하고, 삭제된 상세 캐시도 무효화해 뒤로가기 시 구 데이터가 남지 않게 한다.
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.recruitments(clubId) });
+      queryClient.invalidateQueries({ queryKey: recruitmentQueryKeys.detail(recruitmentId) });
+    },
+  });
+}

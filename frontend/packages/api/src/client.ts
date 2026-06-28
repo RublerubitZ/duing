@@ -104,6 +104,7 @@ import type {
   NoticeDetail,
   NoticeCategory,
   NoticeVisibility,
+  NoticeSource,
   AdminNoticeSummary,
   CreateNoticePayload,
   UpdateNoticePayload,
@@ -255,6 +256,7 @@ export type DuingApiClient = {
     create(clubId: number, payload: CreateRecruitmentPayload): Promise<number>;
     update(recruitmentId: number, payload: UpdateRecruitmentPayload): Promise<void>;
     close(recruitmentId: number): Promise<void>;
+    remove(recruitmentId: number): Promise<void>;
   };
   applications: {
     submit(recruitmentId: number, payload: SubmitApplicationPayload): Promise<number>;
@@ -301,6 +303,7 @@ export type DuingApiClient = {
       category?: NoticeCategory;
       tags?: string[];
       keyword?: string;
+      source?: NoticeSource;
       page: number;
       size: number;
     }): Promise<PageResponse<NoticeCardItem>>;
@@ -711,6 +714,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         ),
       close: (recruitmentId) =>
         jsonVoid(http.patch(`leader/recruitments/${recruitmentId}/close`)),
+      remove: (recruitmentId) =>
+        jsonVoid(http.delete(`leader/recruitments/${recruitmentId}`)),
     },
     applications: {
       submit: (recruitmentId, payload) =>
@@ -794,12 +799,13 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonVoid(http.delete(`recruitments/${recruitmentId}/draft`)),
     },
     notices: {
-      list: ({ category, tags, keyword, page, size }) => {
+      list: ({ category, tags, keyword, source, page, size }) => {
         const searchParams = new URLSearchParams();
         searchParams.append('page', String(page));
         searchParams.append('size', String(size));
         if (category) searchParams.append('category', category);
         if (keyword) searchParams.append('keyword', keyword);
+        if (source) searchParams.append('source', source);
         (tags ?? []).forEach((tag) => searchParams.append('tags', tag));
         return jsonOk<PageResponse<NoticeCardItem>>(
           http.get(`notices?${searchParams.toString()}`),

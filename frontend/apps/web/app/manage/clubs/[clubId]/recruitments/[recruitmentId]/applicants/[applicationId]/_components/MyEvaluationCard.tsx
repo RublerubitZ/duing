@@ -6,6 +6,7 @@ import {
   useUpsertMyApplicationEvaluationMutation,
 } from '@duing/hooks';
 import type { ApplicationEvaluation } from '@duing/types';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 
 type Props = {
   applicationId: number;
@@ -16,6 +17,7 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
   const [isEditing, setIsEditing] = useState(myEvaluation === null);
   const [score, setScore] = useState<number>(myEvaluation?.score ?? 3);
   const [memo, setMemo] = useState(myEvaluation?.memo ?? '');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const upsertMutation = useUpsertMyApplicationEvaluationMutation();
   const deleteMutation = useDeleteMyApplicationEvaluationMutation();
@@ -28,9 +30,9 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
     setIsEditing(false);
   };
 
-  const handleDelete = async () => {
-    if (!confirm('내 평가를 삭제할까요?')) return;
+  const confirmDelete = async () => {
     await deleteMutation.mutateAsync(applicationId);
+    setShowDeleteConfirm(false);
     setScore(3);
     setMemo('');
     setIsEditing(true);
@@ -53,7 +55,7 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
           </button>
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={() => setShowDeleteConfirm(true)}
             className="text-xs text-rose-600 hover:underline"
           >
             삭제
@@ -62,6 +64,15 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
         {myEvaluation.memo && (
           <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-800">{myEvaluation.memo}</p>
         )}
+
+        <ConfirmDialog
+          open={showDeleteConfirm}
+          title="내 평가를 삭제할까요?"
+          description="삭제하면 작성한 점수와 메모가 사라집니다."
+          isPending={deleteMutation.isPending}
+          onConfirm={confirmDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
       </section>
     );
   }

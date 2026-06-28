@@ -1,9 +1,10 @@
-import type { NoticeCategory, NoticeVisibility } from '@duing/types';
+import type { NoticeCategory, NoticeSource, NoticeVisibility } from '@duing/types';
 
 type ListFilters = {
   category?: NoticeCategory;
   tags?: string[];
   keyword?: string;
+  source?: NoticeSource;
   page: number;
   size: number;
 };

@@ -12,7 +12,7 @@ import {
 import { useFileUploadMutation } from '@duing/hooks';
 import type { NoticeContentFormat } from '@duing/types';
 import { IMAGE_UPLOAD_POLICY, validateImageFile } from '@/app/_components/imageUploadPolicy';
-import { sanitizeNoticeHtml } from '../../../notices/_lib/sanitizeHtml';
+import { sanitizeNoticeHtml } from '@/app/notices/_lib/sanitizeHtml';
 
 const MAX_INLINE_IMAGES = 20;
 const MARKDOWN_BLOCK = /(^|\n)\s*(#{1,6}\s|[-*]\s|\d+\.\s|>\s|```)/;

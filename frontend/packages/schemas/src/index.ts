@@ -342,6 +342,12 @@ export const submitReportSchema = z.object({
 
 export type SubmitReportInput = z.infer<typeof submitReportSchema>;
 
+// 리치 에디터(Tiptap)는 빈 문서를 '<p></p>' 로 직렬화하므로 min(1) 만으로는 빈 본문을 막지 못한다.
+// DOM 없이(공유 스키마는 DOM API 금지) 태그를 제거한 가시 텍스트 또는 이미지 유무로 빈 본문을 판정한다.
+const hasVisibleNoticeBody = (html: string): boolean =>
+  /<img\b/i.test(html) ||
+  html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').replace(/\s+/g, '').length > 0;
+
 export const createClubNoticeSchema = z.object({
   title: z
     .string()
@@ -352,7 +358,8 @@ export const createClubNoticeSchema = z.object({
   content: z
     .string()
     .min(1, '본문은 필수 입력값입니다.')
-    .max(20000, '본문은 20000자 이하여야 합니다.'),
+    .max(20000, '본문은 20000자 이하여야 합니다.')
+    .refine(hasVisibleNoticeBody, '본문은 필수 입력값입니다.'),
   coverImageUrl: z.string().max(500, '이미지 URL 은 500자 이하여야 합니다.').optional().or(z.literal('')),
   pinned: z.boolean().optional(),
   expiresAt: z.string().optional().or(z.literal('')),

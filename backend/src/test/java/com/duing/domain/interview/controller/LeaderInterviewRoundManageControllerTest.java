@@ -22,6 +22,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -152,12 +153,14 @@ class LeaderInterviewRoundManageControllerTest extends InterviewControllerTestSu
     void draftRoundUpdatesAllFields() {
         InterviewRound round = interviewRoundRepository.save(
                 InterviewRoundFixture.draft(recruitment.getId(), LocalDateTime.now().plusDays(7)));
-        LocalDateTime newDeadline = LocalDateTime.parse("2026-06-25T23:59:00");
+        // 마감은 미래여야 한다(DRAFT). 고정 날짜는 시간이 지나면 과거가 되어 테스트가 깨지므로 현재 기준 상대값을 쓴다.
+        String newDeadlineText = LocalDate.now().plusDays(10) + "T23:59:00";
+        LocalDateTime newDeadline = LocalDateTime.parse(newDeadlineText);
 
         givenLeader()
                 .contentType(ContentType.JSON)
                 .body(Map.of("title", "1차 대면 면접", "location", "본관 201호",
-                        "availabilityDeadline", "2026-06-25T23:59:00"))
+                        "availabilityDeadline", newDeadlineText))
                 .when().patch(ROUND_PATH, round.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
@@ -187,22 +190,24 @@ class LeaderInterviewRoundManageControllerTest extends InterviewControllerTestSu
     @Test
     @DisplayName("응답 수집 중 마감을 연장하면 지원자 화면에도 새 마감이 보인다")
     void collectingDeadlineExtensionReflectsToApplicant() {
-        LocalDateTime original = LocalDateTime.parse("2026-06-18T23:59:00");
-        InterviewRound round = saveRound(RoundStatus.COLLECTING, original);
+        // 마감은 미래여야 하고 연장만 가능하다. 고정 날짜는 시간이 지나면 깨지므로 현재 기준 상대값을 쓴다.
+        InterviewRound round = saveRound(RoundStatus.COLLECTING, LocalDateTime.now().plusDays(5));
         Application application = saveInterviewPendingApplication(recruitment, "연장수혜자");
         saveMember(round, application, RoundMemberStatus.INVITED);
-        saveSlot(round, "2026-06-20T14:00:00");
+        saveSlot(round, LocalDate.now().plusDays(6) + "T14:00:00");
+
+        String extendedDeadlineText = LocalDate.now().plusDays(7) + "T23:59:00";
 
         givenLeader()
                 .contentType(ContentType.JSON)
-                .body(Map.of("availabilityDeadline", "2026-06-21T23:59:00"))
+                .body(Map.of("availabilityDeadline", extendedDeadlineText))
                 .when().patch(ROUND_PATH, round.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
         givenApplicant(application)
                 .when().get(VIEW_PATH, application.getId())
                 .then().body("data.phase", equalTo("AVAILABILITY_REQUESTED"))
-                .body("data.availabilityDeadline", equalTo("2026-06-21T23:59:00"));
+                .body("data.availabilityDeadline", equalTo(extendedDeadlineText));
     }
 
     @Test

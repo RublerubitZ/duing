@@ -49,7 +49,7 @@ public class ClubEventWriteController implements ClubEventWriteApi {
             Long clubId, Long eventId,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        clubAuthService.requireLeader(currentUser.id(), clubId);
+        clubAuthService.requireManager(currentUser.id(), clubId);
         eventService.delete(clubId, eventId);
         return ResponseEntity.noContent().build();
     }

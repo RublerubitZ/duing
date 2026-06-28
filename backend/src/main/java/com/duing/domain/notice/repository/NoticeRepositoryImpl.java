@@ -9,6 +9,7 @@ import com.duing.domain.notice.entity.NoticeClubScopeRole;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
+import com.duing.domain.notice.service.dto.query.NoticeSource;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
@@ -34,6 +35,7 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
         BooleanExpression[] predicates = {
                 notExpired(),
                 visibilityForViewer(viewer),
+                sourceEq(condition.source()),
                 categoryEq(condition.category()),
                 keywordContains(condition.keyword()),
                 tagsOverlap(condition.tags())
@@ -121,6 +123,17 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
 
     private BooleanExpression categoryEq(NoticeCategory category) {
         return category == null ? null : notice.category.eq(category);
+    }
+
+    // 출처는 작성 주체(owning_club_id)로 가른다 — 학교(관리자) 작성은 NULL, 동아리 작성은 NOT NULL.
+    // null/not-null 로 가시 공지를 완전 분할하므로 어떤 공지도 두 탭 사이로 새지 않는다(놓치지 않기).
+    // 관리자가 특정 동아리를 대상으로 쓴 CLUB_SCOPED 공지도 owning_club_id 가 NULL 이라 SCHOOL 로 분류된다
+    // — 동아리가 직접 쓴 공지가 아니므로 "내 동아리"(가입 동아리 작성)에 넣지 않는 것이 의도다.
+    private BooleanExpression sourceEq(NoticeSource source) {
+        if (source == null) return null;
+        return source == NoticeSource.SCHOOL
+                ? notice.owningClubId.isNull()
+                : notice.owningClubId.isNotNull();
     }
 
     private BooleanExpression visibilityEq(NoticeVisibility visibility) {

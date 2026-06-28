@@ -1,8 +1,11 @@
 import { fetchClubStats } from '@/app/_lib/club-stats';
 import { LoginFormPanel } from './_components/LoginFormPanel';
 
+// 통계는 매 요청 SSR 로 가져온다(빌드 시점 정적 폴백이 HTML 에 박히지 않도록).
+export const dynamic = 'force-dynamic';
+
 export default async function LoginPage() {
-  const { totalCount, recruitingCount } = await fetchClubStats();
+  const stats = await fetchClubStats();
 
   return (
     <div className="duing flex min-h-dvh">
@@ -40,19 +43,19 @@ export default async function LoginPage() {
           </h2>
           <p className="text-sm leading-relaxed text-cream/55">
             대구대학교 동아리 플랫폼.
-            <br />
-            {totalCount}개 동아리 · {recruitingCount}곳 이번 학기 모집 중.
+            {stats && (
+              <>
+                <br />
+                {stats.totalCount}개 동아리 · {stats.recruitingCount}곳 이번 학기 모집 중.
+              </>
+            )}
           </p>
         </div>
 
         {/* Footer */}
         <div className="relative z-10 px-8 pb-6">
-          <div className="flex items-center justify-between text-[11px] text-cream/35">
-            <span>© 2025 Duing · 대구대학교</span>
-            <span className="flex gap-3">
-              <span>도움말</span>
-              <span>이용약관</span>
-            </span>
+          <div className="text-[11px] text-cream/35">
+            <span>© DUING</span>
           </div>
         </div>
       </aside>

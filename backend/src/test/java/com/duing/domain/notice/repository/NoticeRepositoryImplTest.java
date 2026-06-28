@@ -13,6 +13,7 @@ import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeTargetClub;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
+import com.duing.domain.notice.service.dto.query.NoticeSource;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -60,7 +61,7 @@ class NoticeRepositoryImplTest {
                 null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
 
         Page<Notice> result = noticeRepository.findFeed(
-                new NoticeSearchCondition(null, null, null),
+                new NoticeSearchCondition(null, null, null, null),
                 ViewerScope.anonymous(),
                 PageRequest.of(0, 10));
 
@@ -82,9 +83,9 @@ class NoticeRepositoryImplTest {
         ViewerScope officer = new ViewerScope(UserRole.STUDENT, 3L, Set.of(10L), Set.of(10L));
 
         Page<Notice> studentFeed = noticeRepository.findFeed(
-                new NoticeSearchCondition(null, null, null), student, PageRequest.of(0, 10));
+                new NoticeSearchCondition(null, null, null, null), student, PageRequest.of(0, 10));
         Page<Notice> officerFeed = noticeRepository.findFeed(
-                new NoticeSearchCondition(null, null, null), officer, PageRequest.of(0, 10));
+                new NoticeSearchCondition(null, null, null, null), officer, PageRequest.of(0, 10));
 
         assertThat(studentFeed.getContent()).extracting(Notice::getId).doesNotContain(officersNotice.getId());
         assertThat(officerFeed.getContent()).extracting(Notice::getId).contains(officersNotice.getId());
@@ -108,12 +109,46 @@ class NoticeRepositoryImplTest {
         ViewerScope memberOfOther  = new ViewerScope(UserRole.STUDENT, 8L, Set.of(999_999L), Set.of());
 
         Page<Notice> targetFeed = noticeRepository.findFeed(
-                new NoticeSearchCondition(null, null, null), memberOfTarget, PageRequest.of(0, 10));
+                new NoticeSearchCondition(null, null, null, null), memberOfTarget, PageRequest.of(0, 10));
         Page<Notice> otherFeed = noticeRepository.findFeed(
-                new NoticeSearchCondition(null, null, null), memberOfOther, PageRequest.of(0, 10));
+                new NoticeSearchCondition(null, null, null, null), memberOfOther, PageRequest.of(0, 10));
 
         assertThat(targetFeed.getContent()).extracting(Notice::getId).contains(scopedNotice.getId());
         assertThat(otherFeed.getContent()).extracting(Notice::getId).doesNotContain(scopedNotice.getId());
+    }
+
+    @Test
+    @DisplayName("source=SCHOOL 은 학교(관리자) 공지만, source=CLUB 은 동아리 작성 공지만 반환한다")
+    void sourceFilterSplitsSchoolAndClubNotices() {
+        Long authorId = saveAuthor();
+        Club club = saveClub();
+
+        Notice schoolNotice = noticeRepository.save(Notice.create(
+                "학교 공지", "요약", "본문", "https://example.com/cover.png", null,
+                NoticeCategory.GENERAL, List.of(),
+                NoticeVisibility.PUBLIC, null, false, null, true,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
+
+        Notice clubNotice = Notice.create(
+                "동아리 공지", "요약", "본문", "https://example.com/cover.png", null,
+                NoticeCategory.GENERAL, List.of(),
+                NoticeVisibility.CLUB_SCOPED, NoticeClubScopeRole.ALL_MEMBERS, false, null, true,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId);
+        clubNotice.assignOwningClub(club.getId());
+        noticeRepository.save(clubNotice);
+        targetClubRepository.save(new NoticeTargetClub(clubNotice.getId(), club.getId()));
+
+        ViewerScope member = new ViewerScope(UserRole.STUDENT, 7L, Set.of(club.getId()), Set.of());
+
+        Page<Notice> schoolFeed = noticeRepository.findFeed(
+                new NoticeSearchCondition(null, null, null, NoticeSource.SCHOOL), member, PageRequest.of(0, 10));
+        Page<Notice> clubFeed = noticeRepository.findFeed(
+                new NoticeSearchCondition(null, null, null, NoticeSource.CLUB), member, PageRequest.of(0, 10));
+
+        assertThat(schoolFeed.getContent()).extracting(Notice::getId)
+                .contains(schoolNotice.getId()).doesNotContain(clubNotice.getId());
+        assertThat(clubFeed.getContent()).extracting(Notice::getId)
+                .contains(clubNotice.getId()).doesNotContain(schoolNotice.getId());
     }
 
     @Test
@@ -128,7 +163,7 @@ class NoticeRepositoryImplTest {
                 null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
 
         Page<Notice> anonFeed = noticeRepository.findFeed(
-                new NoticeSearchCondition(null, null, null), ViewerScope.anonymous(), PageRequest.of(0, 10));
+                new NoticeSearchCondition(null, null, null, null), ViewerScope.anonymous(), PageRequest.of(0, 10));
         assertThat(anonFeed.getContent()).extracting(Notice::getId).doesNotContain(expiredNotice.getId());
 
         ViewerScope adminScope = new ViewerScope(UserRole.ADMIN, 99L, Set.of(), Set.of());

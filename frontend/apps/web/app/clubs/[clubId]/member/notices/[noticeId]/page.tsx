@@ -2,15 +2,17 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { useNoticeDetailQuery } from '@duing/hooks';
+import { useClubNoticeDetailQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
+import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
+import { NoticeContent } from '@/app/notices/_components/NoticeContent';
 
 export default function MemberNoticeDetailPage({
   params,
 }: { params: Promise<{ clubId: string; noticeId: string }> }) {
   const { clubId, noticeId: noticeIdParam } = use(params);
   const noticeId = Number(noticeIdParam);
-  const { data: notice, isLoading, isError } = useNoticeDetailQuery(noticeId);
+  const { data: notice, isLoading, isError } = useClubNoticeDetailQuery(Number(clubId), noticeId);
 
   if (isLoading) return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
   if (isError || !notice) {
@@ -39,7 +41,17 @@ export default function MemberNoticeDetailPage({
       <p className="mt-2 text-xs text-charcoal-3">
         {new Date(notice.createdAt).toLocaleString('ko-KR')}
       </p>
-      <div className="mt-6 whitespace-pre-wrap text-sm text-charcoal-2">{notice.content}</div>
+      {notice.coverImageUrl ? (
+        <ImageWithFallback
+          src={notice.coverImageUrl}
+          alt={notice.title}
+          className="mt-6 aspect-[16/9] w-full rounded-xl"
+          errorMessage="표지를 불러올 수 없습니다"
+        />
+      ) : null}
+      <div className="mt-6">
+        <NoticeContent content={notice.content} format={notice.contentFormat} />
+      </div>
     </article>
   );
 }

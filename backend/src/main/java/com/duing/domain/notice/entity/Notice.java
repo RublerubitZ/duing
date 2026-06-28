@@ -205,7 +205,12 @@ public class Notice extends BaseEntity {
                                       java.time.LocalDateTime expiresAt) {
         if (title != null) this.title = title;
         if (summary != null) this.summary = summary;
-        if (content != null) this.content = NoticeHtmlSanitizer.sanitize(content, this.contentFormat);
+        if (content != null) {
+            // 동아리 공지 본문은 리치 에디터(Tiptap)가 항상 HTML 을 보낸다. 레거시 MARKDOWN 공지를
+            // 수정하면 HTML 로 승격하고, 저장 본문은 항상 sanitize 한다(저장형 XSS 방어).
+            this.contentFormat = NoticeContentFormat.HTML;
+            this.content = NoticeHtmlSanitizer.sanitize(content, this.contentFormat);
+        }
         // cover_image_url 은 NOT NULL 컬럼 — clear 시 createForClub 의 기본값과 동일하게 빈 문자열로 비운다.
         if (Boolean.TRUE.equals(clearCoverImage)) this.coverImageUrl = "";
         else if (coverImageUrl != null) this.coverImageUrl = coverImageUrl;

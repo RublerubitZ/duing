@@ -90,7 +90,7 @@ class ClubMembershipControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("OFFICER 는 작성·수정 가능, 삭제는 false 로 응답된다")
+    @DisplayName("OFFICER 는 공지·일정의 작성·수정·삭제가 모두 true 로 응답된다")
     void officer() {
         User user = saveUser();
         saveMembership(user, ClubMemberRole.OFFICER);
@@ -102,8 +102,10 @@ class ClubMembershipControllerTest extends IntegrationTestBase {
                 .body("data.role", equalTo("OFFICER"))
                 .body("data.permissions.canPostNotice", equalTo(true))
                 .body("data.permissions.canEditNotice", equalTo(true))
-                .body("data.permissions.canDeleteNotice", equalTo(false))
-                .body("data.permissions.canDeleteEvent", equalTo(false));
+                .body("data.permissions.canDeleteNotice", equalTo(true))
+                .body("data.permissions.canPostEvent", equalTo(true))
+                .body("data.permissions.canEditEvent", equalTo(true))
+                .body("data.permissions.canDeleteEvent", equalTo(true));
     }
 
     @Test
