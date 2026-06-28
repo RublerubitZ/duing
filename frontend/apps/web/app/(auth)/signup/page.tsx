@@ -42,8 +42,11 @@ const BENEFITS = [
   },
 ];
 
+// 통계는 매 요청 SSR 로 가져온다(빌드 시점 정적 폴백이 HTML 에 박히지 않도록).
+export const dynamic = 'force-dynamic';
+
 export default async function SignupPage() {
-  const { totalCount, recruitingCount } = await fetchClubStats();
+  const stats = await fetchClubStats();
 
   return (
     <div className="duing flex min-h-dvh">
@@ -86,8 +89,12 @@ export default async function SignupPage() {
           </h2>
           <p className="mb-8 text-sm leading-relaxed text-cream/55">
             대구대학교 동아리 플랫폼.
-            <br />
-            {totalCount}개 동아리 · {recruitingCount}곳 이번 학기 모집 중.
+            {stats && (
+              <>
+                <br />
+                {stats.totalCount}개 동아리 · {stats.recruitingCount}곳 이번 학기 모집 중.
+              </>
+            )}
           </p>
 
           {/* Benefits list */}
@@ -105,7 +112,7 @@ export default async function SignupPage() {
                     {benefit.icon}
                   </span>
                   <span className="text-sm text-cream/80">
-                    {index === 0 ? `${totalCount}개 ${benefit.label}` : benefit.label}
+                    {index === 0 && stats ? `${stats.totalCount}개 ${benefit.label}` : benefit.label}
                   </span>
                 </li>
               ))}
