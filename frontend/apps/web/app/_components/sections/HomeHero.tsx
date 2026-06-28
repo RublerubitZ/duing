@@ -12,7 +12,7 @@ const SUGGESTED_QUERIES: ReadonlyArray<string> = [
 ];
 
 export async function HomeHero() {
-  const { totalCount, recruitingCount } = await fetchClubStats();
+  const stats = await fetchClubStats();
   return (
     <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-5 sm:pb-8 sm:pt-16">
       <div className="bg-grid absolute inset-0 opacity-50" />
@@ -26,15 +26,17 @@ export async function HomeHero() {
       <div className="max-w-layout relative mx-auto grid items-center gap-16 md:grid-cols-[1.15fr_1fr]">
         <div className="relative">
           {/* 모바일: 헤드라인 우측 여백의 모집 통계 — 데스크탑 카드스택과 같은 톤으로 깔끔한 2줄 (#1) */}
-          <div className="md:hidden absolute right-0 top-[54px] z-[3] rounded-xl border border-sage-soft bg-sage-mist px-4 py-3 shadow-1">
-            <div className="font-display text-[32px] font-bold leading-none text-ink">
-              {recruitingCount}
-              <span className="text-base font-bold">곳</span>
+          {stats && (
+            <div className="md:hidden absolute right-0 top-[54px] z-[3] rounded-xl border border-sage-soft bg-sage-mist px-4 py-3 shadow-1">
+              <div className="font-display text-[32px] font-bold leading-none text-ink">
+                {stats.recruitingCount}
+                <span className="text-base font-bold">곳</span>
+              </div>
+              <div className="mt-1 text-[11px] font-medium leading-tight text-ink/75">
+                이번 학기 모집중
+              </div>
             </div>
-            <div className="mt-1 text-[11px] font-medium leading-tight text-ink/75">
-              이번 학기 모집중
-            </div>
-          </div>
+          )}
 
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 font-mono text-[11.5px] font-bold tracking-[0.14em] text-ink-deep sm:mb-[22px]">
             <Sparkle size={11} color="#143025" />
@@ -74,15 +76,28 @@ export async function HomeHero() {
             .
           </h1>
 
-          {/* 본문 카피 — 모바일에선 숨겨 히어로를 압축(#2·#6), 데스크탑만 노출 */}
+          {/* 본문 카피 — 모바일에선 숨겨 히어로를 압축(#2·#6), 데스크탑만 노출.
+              통계 미가용(stats=null) 시 숫자 없는 기본 카피로 우아하게 폴백한다. */}
           <p className="mb-9 hidden max-w-[500px] text-lg leading-[1.6] text-charcoal-2 md:block">
             대구대학교 동아리 플랫폼.
             <br />
-            {totalCount}개 동아리가 지금도{' '}
-            <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
-              ing
-            </em>{' '}
-            중 — 이번 학기 {recruitingCount}곳 모집 중이에요.
+            {stats ? (
+              <>
+                {stats.totalCount}개 동아리가 지금도{' '}
+                <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
+                  ing
+                </em>{' '}
+                중 — 이번 학기 {stats.recruitingCount}곳 모집 중이에요.
+              </>
+            ) : (
+              <>
+                캠퍼스의 모든 동아리가 지금도{' '}
+                <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
+                  ing
+                </em>{' '}
+                중이에요.
+              </>
+            )}
           </p>
 
           {/* 데스크탑 전용 검색 — 모바일은 상단 고정 검색 바(HomeMobileSearchBar)가 담당 (#3) */}
@@ -117,13 +132,13 @@ export async function HomeHero() {
           </div>
         </div>
 
-        <HeroCardStack recruitingCount={recruitingCount} />
+        <HeroCardStack recruitingCount={stats?.recruitingCount ?? null} />
       </div>
     </section>
   );
 }
 
-function HeroCardStack({ recruitingCount }: { recruitingCount: number }) {
+function HeroCardStack({ recruitingCount }: { recruitingCount: number | null }) {
   // 회전 콜라주는 360px 폭에서 절대배치 카드들이 bleed 되므로 모바일에선 숨긴다(장식 — 정보는 서브카피·검색이 담당).
   return (
     <div className="relative hidden h-[540px] md:block">
@@ -192,15 +207,17 @@ function HeroCardStack({ recruitingCount }: { recruitingCount: number }) {
         </div>
       </div>
 
-      <div
-        className="absolute left-7 top-0 rounded-md border border-sage-soft bg-sage-mist px-5 py-4"
-        style={{ transform: 'rotate(-6deg)' }}
-      >
-        <div className="font-display text-[36px] font-bold leading-none text-ink">
-          {recruitingCount}<span className="text-lg">곳</span>
+      {recruitingCount !== null && (
+        <div
+          className="absolute left-7 top-0 rounded-md border border-sage-soft bg-sage-mist px-5 py-4"
+          style={{ transform: 'rotate(-6deg)' }}
+        >
+          <div className="font-display text-[36px] font-bold leading-none text-ink">
+            {recruitingCount}<span className="text-lg">곳</span>
+          </div>
+          <div className="mt-1 text-[11.5px] text-ink/70">이번 학기 모집중</div>
         </div>
-        <div className="mt-1 text-[11.5px] text-ink/70">이번 학기 모집중</div>
-      </div>
+      )}
     </div>
   );
 }
