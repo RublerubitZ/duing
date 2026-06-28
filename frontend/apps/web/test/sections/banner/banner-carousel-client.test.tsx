@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, createEvent } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
@@ -48,6 +48,11 @@ function dispatchPointer(target: HTMLElement, event: Event, timeStamp?: number) 
 }
 
 describe('BannerCarouselClient — 포인터 스와이프', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   it('거리 임계를 넘게 좌로 드래그하면 다음 배너로 넘어간다(거리 경로)', () => {
     render(<BannerCarouselClient slides={makeSlides(4)} />);
     const viewport = mockViewportWidth();
@@ -140,5 +145,40 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -400, clientY: 0 }), 3000);
 
     expect(screen.getByTestId('banner-pager')).toHaveTextContent('01 / 01');
+  });
+
+  it('복귀 중 re-grab 후 탭으로 끝내도 track 이 0으로 복귀한다(어긋남 고정 방지)', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const viewport = mockViewportWidth();
+    const track = viewport.firstElementChild as HTMLElement;
+
+    // readTranslateX 가 7 을 읽도록 DOMMatrixReadOnly 폴리필 + track 의 computed transform 스텁.
+    class FakeMatrix {
+      m41: number;
+      constructor(transform: string) {
+        const match = /translateX\(([-\d.]+)px\)/.exec(transform);
+        this.m41 = match ? Number(match[1]) : 0;
+      }
+    }
+    vi.stubGlobal('DOMMatrixReadOnly', FakeMatrix);
+    const realGetComputedStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el: Element, pseudo?: string | null) =>
+      el === track
+        ? ({ transform: 'translateX(7px)' } as unknown as CSSStyleDeclaration)
+        : realGetComputedStyle(el, pseudo ?? undefined),
+    );
+
+    // 1) 임계 미만 수평 드래그 → 복귀(settle) 시작 (settleTimer 가동, dragOffset 0 으로 transition 중)
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1000);
+    dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -20, clientY: 0 }));
+    dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -20, clientY: 0 }), 3000);
+
+    // 2) 복귀 중 re-grab → readTranslateX 7 시드 → track translateX(7px)
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 3100);
+    // 3) 수평 드래그 없이 탭으로 종료
+    dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 3200);
+
+    // track 이 0 으로 복귀해야 한다(7px 고정이면 버그).
+    expect((viewport.firstElementChild as HTMLElement).style.transform).toBe('translateX(0px)');
   });
 });

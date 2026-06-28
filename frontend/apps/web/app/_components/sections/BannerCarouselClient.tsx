@@ -140,6 +140,7 @@ export function BannerCarouselClient({ slides }: Props) {
       settleTimerRef.current = setTimeout(() => {
         setIsSettling(false);
         settleTimerRef.current = null;
+        didDragRef.current = false;
       }, duration);
     },
     [goNext, goPrev, releasePointer],
@@ -161,7 +162,11 @@ export function BannerCarouselClient({ slides }: Props) {
     pointerStartRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
     containerWidthRef.current = containerRef.current?.getBoundingClientRect().width ?? 0;
     pointerIdRef.current = event.pointerId;
-    containerRef.current?.setPointerCapture?.(event.pointerId);
+    try {
+      containerRef.current?.setPointerCapture?.(event.pointerId);
+    } catch {
+      // 포인터가 이미 비활성이면 throw 할 수 있다 — 캡처는 향상 기능이라 무시하고 진행.
+    }
     lockedRef.current = 'none';
     didDragRef.current = false;
   };
@@ -186,9 +191,14 @@ export function BannerCarouselClient({ slides }: Props) {
   const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     const start = pointerStartRef.current;
     if (lockedRef.current !== 'horizontal' || !start) {
-      releasePointer();
-      pointerStartRef.current = null;
-      lockedRef.current = 'none';
+      // re-grab 으로 비-0 offset 이 시드됐는데 수평 드래그 없이(탭/세로) 끝나면, track 이 어긋난 채 고정되지 않게 0으로 복귀.
+      if (dragOffset !== 0) {
+        settleAfterDrag(false, 0);
+      } else {
+        releasePointer();
+        pointerStartRef.current = null;
+        lockedRef.current = 'none';
+      }
       return;
     }
     const deltaX = event.clientX - start.x;
@@ -202,7 +212,7 @@ export function BannerCarouselClient({ slides }: Props) {
   };
 
   const handlePointerCancel = () => {
-    if (lockedRef.current === 'horizontal') {
+    if (lockedRef.current === 'horizontal' || dragOffset !== 0) {
       settleAfterDrag(false, 0);
     } else {
       releasePointer();
