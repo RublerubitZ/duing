@@ -14,9 +14,15 @@ type Props = {
   pinned: boolean;
   expiresAt: string | null;
   createdAt: string;
+  // 동아리 작성 공지면 채워진다(폐쇄 동아리 시 owningClubId 만 있고 clubName 은 null 일 수 있음).
+  owningClubId?: number | null;
+  clubName?: string | null;
 };
 
-export function NoticeArticleHeader({ category, title, pinned, expiresAt, createdAt }: Props) {
+export function NoticeArticleHeader({
+  category, title, pinned, expiresAt, createdAt, owningClubId, clubName,
+}: Props) {
+  const isClubNotice = owningClubId != null;
   const tag = CATEGORY_TAG_STYLES[category];
   const dday = expiresAt ? formatDdayLabel(expiresAt) : null;
   const expired = expiresAt !== null && new Date(expiresAt).getTime() < Date.now();
@@ -58,11 +64,23 @@ export function NoticeArticleHeader({ category, title, pinned, expiresAt, create
       </h1>
 
       <div className="flex items-center gap-3 mt-4">
-        <span className="grid place-items-center w-9 h-9 rounded-full bg-ink text-paper text-[11px] font-bold shrink-0 font-mono tracking-[0.08em]">DU</span>
-        <div className="flex flex-col">
-          <span className="text-[13.5px] font-bold text-ink-deep">두잉 공지</span>
-          <span className="text-[12px] text-charcoal-3">{NOTICE_CATEGORY_LABEL[category]} 채널</span>
-        </div>
+        {isClubNotice ? (
+          <>
+            <span className="grid place-items-center w-9 h-9 rounded-full bg-sage-mist text-ink text-[15px] shrink-0" aria-hidden>🏛</span>
+            <div className="flex flex-col min-w-0">
+              <span className="block truncate max-w-[240px] text-[13.5px] font-bold text-ink-deep">{clubName ?? '동아리 공지'}</span>
+              <span className="text-[12px] text-charcoal-3">동아리 공지</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <span className="grid place-items-center w-9 h-9 rounded-full bg-ink text-paper text-[11px] font-bold shrink-0 font-mono tracking-[0.08em]">DU</span>
+            <div className="flex flex-col">
+              <span className="text-[13.5px] font-bold text-ink-deep">두잉 공지</span>
+              <span className="text-[12px] text-charcoal-3">{NOTICE_CATEGORY_LABEL[category]} 채널</span>
+            </div>
+          </>
+        )}
         <span className="w-px h-7 bg-line mx-1" />
         <span className="font-mono text-[12.5px] text-charcoal-3">{formatPublishedDate(createdAt)}</span>
       </div>

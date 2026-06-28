@@ -30,10 +30,17 @@ export function NoticeCard({ notice }: Props) {
         )}
       </div>
       <div className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="px-2 py-0.5 rounded-full bg-graysoft text-charcoal-2 text-[11px] font-semibold">
-            {NOTICE_CATEGORY_LABEL[notice.category]}
-          </span>
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          {notice.owningClubId != null ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sage-mist text-ink text-[11px] font-semibold max-w-[180px]">
+              <span aria-hidden>🏛</span>
+              <span className="truncate">{notice.clubName ?? '동아리 공지'}</span>
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full bg-graysoft text-charcoal-2 text-[11px] font-semibold">
+              {NOTICE_CATEGORY_LABEL[notice.category]}
+            </span>
+          )}
           {notice.linkUrl && (
             <span aria-label="외부 링크" className="text-charcoal-3 text-xs">↗</span>
           )}

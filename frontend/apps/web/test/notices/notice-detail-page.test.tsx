@@ -48,6 +48,8 @@ function makeDetail(overrides: Partial<NoticeDetail> = {}): NoticeDetail {
     expiresAt: null,
     createdAt: '2026-05-01T00:00:00Z',
     updatedAt: '2026-05-01T00:00:00Z',
+    owningClubId: null,
+    clubName: null,
     eventInfo: null,
     ...overrides,
   };

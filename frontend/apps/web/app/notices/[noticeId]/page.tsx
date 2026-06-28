@@ -75,6 +75,8 @@ export default function NoticeDetailPage() {
           pinned={notice.pinned}
           expiresAt={notice.expiresAt}
           createdAt={notice.createdAt}
+          owningClubId={notice.owningClubId}
+          clubName={notice.clubName}
         />
 
         {expiredAndPast && notice.expiresAt && (
