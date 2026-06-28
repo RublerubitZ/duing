@@ -26,6 +26,12 @@ describe('formatRelativeTime', () => {
   it('일 단위', () => {
     expect(formatRelativeTime(isoAgo(3 * 24 * 60 * 60_000), NOW)).toBe('3일 전');
   });
+  it('정확히 60_000ms 경계는 "1분 전"', () => {
+    expect(formatRelativeTime(isoAgo(60_000), NOW)).toBe('1분 전');
+  });
+  it('60_000ms 직전(59_999)은 "방금 전"', () => {
+    expect(formatRelativeTime(isoAgo(59_999), NOW)).toBe('방금 전');
+  });
   it('파싱 실패 시 "방금 전"', () => {
     expect(formatRelativeTime('not-a-date', NOW)).toBe('방금 전');
   });
