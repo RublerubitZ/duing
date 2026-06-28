@@ -140,6 +140,32 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     @Override
     @Transactional
+    public void delete(Long recruitmentId, Long currentUserId) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+
+        Long clubId = recruitment.getClub().getId();
+        clubAuthService.requireManager(currentUserId, clubId);
+
+        // 마감(CLOSED)된 공고만 삭제할 수 있다. OPEN 공고는 지원이 동시에 들어올 수 있어
+        // "지원자 0명 확인 → soft-delete" 사이에 INSERT 된 지원서가 고아가 되는 경쟁이 생긴다.
+        // 마감 후에는 새 지원이 불가능하므로 0명이 안정적이다 — 진행 중 공고는 먼저 마감한다.
+        if (recruitment.getStatus() != RecruitmentStatus.CLOSED) {
+            throw new RecruitmentException.OpenRecruitmentNotDeletableException();
+        }
+
+        // 마감 전 들어온 지원이 1건이라도 있으면 지원서·상태이력·면접 데이터가 고아가 되므로 삭제를 막는다.
+        // 잘못/중복 생성한 빈 공고만 삭제 대상이다.
+        if (applicationRepository.countByRecruitmentId(recruitmentId) > 0) {
+            throw new RecruitmentException.ApplicationsExistException();
+        }
+
+        // @SQLDelete 로 soft-delete 된다. RecruitmentForm 은 cascade 로 함께 정리된다.
+        recruitmentRepository.delete(recruitment);
+    }
+
+    @Override
+    @Transactional
     public Long replaceActive(CreateRecruitmentCommand command) {
         Club club = clubRepository.findById(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
