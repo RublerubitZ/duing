@@ -6,6 +6,9 @@ export type NoticeClubScopeRole = 'OFFICERS_ONLY' | 'ALL_MEMBERS';
 
 export type NoticeContentFormat = 'MARKDOWN' | 'HTML';
 
+// 공지 출처 필터 — SCHOOL: 학교(관리자) 작성, CLUB: 가입 동아리가 작성한 공지.
+export type NoticeSource = 'SCHOOL' | 'CLUB';
+
 export type NoticeEventInfo = {
   startAt: string;
   endAt: string | null;
@@ -25,6 +28,9 @@ export type NoticeCardItem = {
   pinned: boolean;
   expiresAt: string | null;
   createdAt: string;
+  // 출처 — 동아리 작성 공지면 채워지고(clubName 은 폐쇄 동아리 시 null 가능), 학교 공지면 둘 다 null.
+  owningClubId: number | null;
+  clubName: string | null;
 };
 
 export type NoticeDetail = {
@@ -45,6 +51,8 @@ export type NoticeDetail = {
   createdAt: string;
   updatedAt: string;
   contentFormat: NoticeContentFormat;
+  owningClubId: number | null;
+  clubName: string | null;
   eventInfo: NoticeEventInfo | null;
 };
 
