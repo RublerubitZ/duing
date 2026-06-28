@@ -121,12 +121,8 @@ export default async function SignupPage() {
         </div>
 
         {/* Footer */}
-        <div className="relative z-10 flex items-center justify-between px-8 pb-6 text-[11px] text-cream/35">
-          <span>© 2025 Duing · 대구대학교</span>
-          <span className="flex gap-3">
-            <span>도움말</span>
-            <span>이용약관</span>
-          </span>
+        <div className="relative z-10 px-8 pb-6 text-[11px] text-cream/35">
+          <span>© DUING</span>
         </div>
       </aside>
 
