@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, createEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../app/notices/_components/NoticeMarkdown', () => ({
@@ -28,5 +28,78 @@ describe('NoticeContent', () => {
     expect(container.querySelector('h2')?.textContent).toBe('제목');
     expect(container.querySelector('strong')?.textContent).toBe('굵게');
     expect(screen.queryByTestId('markdown')).toBeNull();
+  });
+
+  it('본문 이미지를 탭하면 그 이미지로 라이트박스가 열리고, 닫은 뒤 다른 이미지를 탭하면 전환된다', () => {
+    render(
+      <NoticeContent
+        format="HTML"
+        content={'<p><img src="https://cdn.test/a.jpg" alt="A" /><img src="https://cdn.test/b.jpg" alt="B" /></p>'}
+      />,
+    );
+    const first = screen.getByAltText('A');
+    const second = screen.getByAltText('B');
+
+    fireEvent.pointerDown(first, { clientX: 0, clientY: 0 });
+    fireEvent.pointerUp(first, { clientX: 0, clientY: 0 });
+    expect(screen.getByTestId('notice-lightbox-image')).toHaveAttribute('src', 'https://cdn.test/a.jpg');
+
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+
+    fireEvent.pointerDown(second, { clientX: 0, clientY: 0 });
+    fireEvent.pointerUp(second, { clientX: 0, clientY: 0 });
+    expect(screen.getByTestId('notice-lightbox-image')).toHaveAttribute('src', 'https://cdn.test/b.jpg');
+  });
+
+  it('이미지에서 시작해도 이동량이 크면(스크롤 제스처) 라이트박스가 열리지 않는다', () => {
+    render(
+      <NoticeContent format="HTML" content={'<p><img src="https://cdn.test/a.jpg" alt="A" /></p>'} />,
+    );
+    const image = screen.getByAltText('A');
+
+    fireEvent.pointerDown(image, { clientX: 0, clientY: 0 });
+    fireEvent.pointerUp(image, { clientX: 200, clientY: 200 });
+    expect(screen.queryByTestId('notice-lightbox-image')).not.toBeInTheDocument();
+  });
+
+  it('본문 텍스트(이미지 아님)를 탭하면 라이트박스가 열리지 않는다', () => {
+    render(
+      <NoticeContent format="HTML" content={'<p>본문 텍스트</p>'} />,
+    );
+    const paragraph = screen.getByText('본문 텍스트');
+
+    fireEvent.pointerDown(paragraph, { clientX: 0, clientY: 0 });
+    fireEvent.pointerUp(paragraph, { clientX: 0, clientY: 0 });
+    expect(screen.queryByTestId('notice-lightbox-image')).not.toBeInTheDocument();
+  });
+
+  it('<a> 로 감싼 본문 이미지는 탭 시 링크 이동 대신 라이트박스가 열린다', () => {
+    render(
+      <NoticeContent
+        format="HTML"
+        content={'<p><a href="https://ext.example.com"><img src="https://cdn.test/c.jpg" alt="C" /></a></p>'}
+      />,
+    );
+    const image = screen.getByAltText('C');
+
+    const clickEvent = createEvent.click(image);
+    fireEvent(image, clickEvent);
+    expect(clickEvent.defaultPrevented).toBe(true);
+
+    fireEvent.pointerDown(image, { clientX: 0, clientY: 0 });
+    fireEvent.pointerUp(image, { clientX: 0, clientY: 0 });
+    expect(screen.getByTestId('notice-lightbox-image')).toHaveAttribute('src', 'https://cdn.test/c.jpg');
+  });
+
+  it('pointercancel 로 취소된 제스처는 이어진 pointerup 에서 라이트박스를 열지 않는다', () => {
+    render(
+      <NoticeContent format="HTML" content={'<p><img src="https://cdn.test/a.jpg" alt="A" /></p>'} />,
+    );
+    const image = screen.getByAltText('A');
+
+    fireEvent.pointerDown(image, { clientX: 0, clientY: 0 });
+    fireEvent.pointerCancel(image);
+    fireEvent.pointerUp(image, { clientX: 0, clientY: 0 });
+    expect(screen.queryByTestId('notice-lightbox-image')).not.toBeInTheDocument();
   });
 });
