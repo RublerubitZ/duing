@@ -181,4 +181,12 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     // track 이 0 으로 복귀해야 한다(7px 고정이면 버그).
     expect((viewport.firstElementChild as HTMLElement).style.transform).toBe('translateX(0px)');
   });
+
+  it('네이티브 드래그(dragstart)를 막아 데스크탑 마우스 스와이프가 끊기지 않는다', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const viewport = screen.getByTestId('banner-carousel-viewport');
+    const dragEvent = createEvent.dragStart(viewport);
+    fireEvent(viewport, dragEvent);
+    expect(dragEvent.defaultPrevented).toBe(true);
+  });
 });

@@ -257,6 +257,8 @@ export function BannerCarouselClient({ slides }: Props) {
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerCancel}
             onClickCapture={handleClickCapture}
+            // 앵커/이미지 등의 네이티브 드래그(dragstart)를 막아 데스크탑 마우스 스와이프가 pointercancel 로 끊기지 않게 한다.
+            onDragStart={(event) => event.preventDefault()}
           >
             {/* peek/커밋/복귀 변위를 담는 안정적인 track — 키 변경으로 remount 되는 슬라이드와 달리 마운트 유지. */}
             <div
