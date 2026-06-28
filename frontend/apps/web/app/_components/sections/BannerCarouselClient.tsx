@@ -162,11 +162,6 @@ export function BannerCarouselClient({ slides }: Props) {
     pointerStartRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
     containerWidthRef.current = containerRef.current?.getBoundingClientRect().width ?? 0;
     pointerIdRef.current = event.pointerId;
-    try {
-      containerRef.current?.setPointerCapture?.(event.pointerId);
-    } catch {
-      // 포인터가 이미 비활성이면 throw 할 수 있다 — 캡처는 향상 기능이라 무시하고 진행.
-    }
     lockedRef.current = 'none';
     didDragRef.current = false;
   };
@@ -179,7 +174,16 @@ export function BannerCarouselClient({ slides }: Props) {
     if (lockedRef.current === 'none') {
       if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) <= DRAG_ACTIVATE_PX) return;
       lockedRef.current = Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical';
-      if (lockedRef.current === 'horizontal') setIsDragging(true);
+      if (lockedRef.current === 'horizontal') {
+        setIsDragging(true);
+        // 캡처는 가로 드래그가 확정된 뒤에만 건다. pointerdown 에서 미리 걸면 내부 화살표 버튼 '탭'의
+        // click 이 캡처 대상(컨테이너)으로 리다이렉트돼 버튼 onClick 이 죽는다(실브라우저 확인).
+        try {
+          containerRef.current?.setPointerCapture?.(event.pointerId);
+        } catch {
+          // 포인터가 이미 비활성이면 throw 가능 — 캡처는 향상 기능이라 무시.
+        }
+      }
     }
     if (lockedRef.current === 'horizontal') {
       didDragRef.current = true;

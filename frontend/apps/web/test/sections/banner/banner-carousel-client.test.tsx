@@ -189,4 +189,31 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     fireEvent(viewport, dragEvent);
     expect(dragEvent.defaultPrevented).toBe(true);
   });
+
+  // 포인터 캡처를 pointerdown 에 걸면, 컨테이너 내부 화살표 버튼을 '탭' 했을 때 click 이 캡처 대상(컨테이너)으로
+  // 리다이렉트돼 버튼 onClick 이 안 불린다(실브라우저에서 확인). 캡처는 '가로 드래그가 잠긴 뒤'에만 걸어야 한다.
+  it('단순 탭(드래그 아님)은 setPointerCapture 를 호출하지 않는다 — 내부 화살표 버튼 클릭을 가로채지 않도록', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const viewport = screen.getByTestId('banner-carousel-viewport');
+    const setPointerCapture = vi.fn();
+    Object.assign(viewport, { setPointerCapture }); // jsdom 미구현 → 메서드 주입해 호출 시점 검증
+
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1000);
+    dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1100);
+
+    expect(setPointerCapture).not.toHaveBeenCalled();
+  });
+
+  it('가로 드래그가 잠길 때 비로소 setPointerCapture 를 호출한다', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const viewport = screen.getByTestId('banner-carousel-viewport');
+    const setPointerCapture = vi.fn();
+    Object.assign(viewport, { setPointerCapture });
+
+    dispatchPointer(viewport, createEvent.pointerDown(viewport, { pointerId: 1, clientX: 0, clientY: 0 }), 1000);
+    expect(setPointerCapture).not.toHaveBeenCalled(); // 아직 탭 단계 — 캡처 안 함
+
+    dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -40, clientY: 0 }));
+    expect(setPointerCapture).toHaveBeenCalledTimes(1); // 가로 락 시 캡처
+  });
 });
