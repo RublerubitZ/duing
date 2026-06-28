@@ -21,40 +21,19 @@
 - **Create** `frontend/apps/web/app/notices/_components/NoticeImageLightbox.tsx` — 단일 이미지 라이트박스 + `NoticeImage` 타입 export. 책임: 전체화면 표시·닫기(버튼/ESC/배경/스와이프)·a11y.
 - **Modify** `frontend/apps/web/app/notices/_components/NoticePosterHero.tsx` — 커버를 `<button>` 화하고 라이트박스 연결. `'use client'` 전환.
 - **Modify** `frontend/apps/web/app/notices/_components/NoticeContent.tsx` — 본문 Pointer 위임 + 라이트박스 연결 + 확대 커서. `'use client'` 전환.
-- **Modify** `frontend/apps/web/test/setup.ts` — jsdom 용 `PointerEvent` 최소 폴리필 추가(포인터 위임 테스트의 `clientX/clientY` 보존).
 - **Create** `frontend/apps/web/test/notices/notice-image-lightbox.test.tsx` — 라이트박스 단위 테스트.
 - **Create** `frontend/apps/web/test/notices/notice-poster-hero.test.tsx` — 커버 클릭 테스트.
 - **Modify** `frontend/apps/web/test/notices/notice-content.test.tsx` — 본문 탭 테스트 보강.
 
 ---
 
-## Task 1: PointerEvent 폴리필 + NoticeImageLightbox 컴포넌트
+## Task 1: NoticeImageLightbox 컴포넌트
 
 **Files:**
-- Modify: `frontend/apps/web/test/setup.ts`
 - Create: `frontend/apps/web/app/notices/_components/NoticeImageLightbox.tsx`
 - Test: `frontend/apps/web/test/notices/notice-image-lightbox.test.tsx`
 
-- [ ] **Step 1: jsdom PointerEvent 폴리필 추가**
-
-`frontend/apps/web/test/setup.ts` 파일 **맨 끝에** 아래 블록을 추가한다(기존 `vi.mock(...)` 블록은 그대로 둔다). jsdom 은 `PointerEvent` 를 구현하지 않아, `fireEvent.pointerDown/Up` 의 `clientX/clientY` 가 유실된다. `MouseEvent` 기반 최소 폴리필로 좌표를 보존한다.
-
-```ts
-// jsdom 은 PointerEvent 를 구현하지 않는다 — 포인터 위임 테스트가 clientX/clientY 를 쓰므로
-// MouseEvent 기반 최소 폴리필을 전역에 추가한다(없을 때만).
-if (typeof window.PointerEvent === 'undefined') {
-  class PointerEventPolyfill extends MouseEvent {
-    constructor(type: string, params: PointerEventInit = {}) {
-      super(type, params);
-    }
-  }
-  Object.defineProperty(window, 'PointerEvent', {
-    configurable: true,
-    writable: true,
-    value: PointerEventPolyfill,
-  });
-}
-```
+> **참고(실행 중 검증됨):** jsdom(이 프로젝트 버전)은 `PointerEvent` 를 네이티브로 지원하고 `fireEvent.pointerDown` 의 `clientX/clientY` 가 핸들러까지 전달된다. 별도 폴리필이 필요 없으므로 `test/setup.ts` 는 건드리지 않는다. (Task 3 의 slop 테스트도 폴리필 없이 동작한다.)
 
 - [ ] **Step 2: 실패하는 테스트 작성**
 
@@ -240,7 +219,7 @@ Expected: PASS (5 tests).
 - [ ] **Step 6: 커밋**
 
 ```bash
-git add frontend/apps/web/test/setup.ts frontend/apps/web/app/notices/_components/NoticeImageLightbox.tsx frontend/apps/web/test/notices/notice-image-lightbox.test.tsx
+git add frontend/apps/web/app/notices/_components/NoticeImageLightbox.tsx frontend/apps/web/test/notices/notice-image-lightbox.test.tsx
 git commit -m "feat(web): 공지 상세 단일 이미지 라이트박스 컴포넌트 추가"
 ```
 
