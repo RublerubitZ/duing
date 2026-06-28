@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MyEvaluationCard } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/[applicationId]/_components/MyEvaluationCard';
@@ -85,22 +85,27 @@ describe('MyEvaluationCard', () => {
     });
   });
 
-  it('삭제 confirm 통과 시 delete mutation 이 호출된다', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-
+  it('삭제 확인 모달에서 삭제를 누르면 delete mutation 이 호출된다', async () => {
     wrap(<MyEvaluationCard applicationId={1} myEvaluation={existingEvaluation} />);
 
+    // 카드의 삭제 버튼은 확인 모달만 연다(즉시 삭제하지 않는다).
     await userEvent.click(screen.getByRole('button', { name: '삭제' }));
+    expect(mockDelete).not.toHaveBeenCalled();
+
+    // 모달 안의 삭제 버튼을 눌러야 실제로 호출된다.
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
 
     expect(mockDelete).toHaveBeenCalledWith(1);
   });
 
-  it('삭제 confirm 취소 시 delete mutation 이 호출되지 않는다', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-
+  it('삭제 확인 모달에서 취소를 누르면 delete mutation 이 호출되지 않는다', async () => {
     wrap(<MyEvaluationCard applicationId={1} myEvaluation={existingEvaluation} />);
 
     await userEvent.click(screen.getByRole('button', { name: '삭제' }));
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
 
     expect(mockDelete).not.toHaveBeenCalled();
   });

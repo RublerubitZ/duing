@@ -35,6 +35,7 @@ export {
   useRecruitmentDetailQuery,
   useUpdateRecruitmentMutation,
   useCloseRecruitmentMutation,
+  useDeleteRecruitmentMutation,
 } from './recruitments';
 export {
   useSubmitApplicationMutation,
