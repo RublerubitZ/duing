@@ -65,6 +65,7 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
             src={slide.bannerImageUrl ?? ''}
             alt=""
             aria-hidden
+            draggable={false}
             className="pointer-events-none absolute inset-0 h-full w-full object-cover"
             onError={(event) => {
               event.currentTarget.style.display = 'none';
@@ -198,6 +199,7 @@ function PreviewSlideBody({ slide, direction, animationDelay, onSelect }: Previe
             src={slide.bannerImageUrl ?? ''}
             alt=""
             aria-hidden
+            draggable={false}
             className="pointer-events-none absolute inset-0 h-full w-full object-cover"
             onError={(event) => {
               event.currentTarget.style.display = 'none';

@@ -42,6 +42,7 @@ function FullBleedMainBody({ slide }: { slide: FullBleedSlideData }) {
     <img
       src={slide.bannerImageUrl}
       alt={slide.imageAltText ?? ''}
+      draggable={false}
       className="block h-full w-full object-cover"
       onError={(event) => {
         event.currentTarget.style.display = 'none';
@@ -100,6 +101,7 @@ function FullBleedPreviewBody({
         <img
           src={slide.bannerImageUrl}
           alt={slide.imageAltText ?? ''}
+          draggable={false}
           className="block h-full w-full object-cover"
           onError={(event) => {
             event.currentTarget.style.display = 'none';
