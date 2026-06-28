@@ -2,6 +2,11 @@ package com.duing.domain.notice;
 
 import static org.hamcrest.Matchers.equalTo;
 
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -32,6 +37,8 @@ class NoticePublicAcceptanceTest extends IntegrationTestBase {
 
     @Autowired UserRepository userRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired ClubRepository clubRepository;
+    @Autowired ClubMemberRepository clubMemberRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -72,6 +79,50 @@ class NoticePublicAcceptanceTest extends IntegrationTestBase {
                 .get("/api/v1/notices/" + noticeId)
             .then()
                 .statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("가입 동아리 공지는 피드에 동아리명·owningClubId 와 함께 노출되고 source 로 학교/동아리를 가른다")
+    void clubNoticeAppearsInFeedWithClubNameAndSource() {
+        seedPublicNotice("학교 공지");
+
+        Club club = clubRepository.save(Club.create("알고리즘 동아리", ClubCategory.ACADEMIC, null, "설명", null));
+        User leaderUser = saveUser(UserRole.STUDENT);
+        clubMemberRepository.save(ClubMember.asLeader(club, leaderUser));
+        String leaderToken = jwtTokenProvider.createToken(leaderUser.getId(), leaderUser.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title":"MT 안내", "summary":"요약", "content":"본문",
+                      "coverImageUrl":"https://example.com/c.png" }
+                    """)
+            .when()
+                .post("/api/v1/clubs/" + club.getId() + "/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value());
+
+        // source=CLUB: 가입 동아리 공지만, 동아리명·owningClubId 포함
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+            .when()
+                .get("/api/v1/notices?source=CLUB")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.find { it.title == 'MT 안내' }.clubName", equalTo("알고리즘 동아리"))
+                .body("data.content.find { it.title == 'MT 안내' }.owningClubId", equalTo(club.getId().intValue()))
+                .body("data.content.findAll { it.title == '학교 공지' }.size()", equalTo(0));
+
+        // source=SCHOOL: 학교 공지만, clubName 없음
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+            .when()
+                .get("/api/v1/notices?source=SCHOOL")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.find { it.title == '학교 공지' }.clubName", equalTo(null))
+                .body("data.content.findAll { it.title == 'MT 안내' }.size()", equalTo(0));
     }
 
     // ---- seeders via admin POST ----

@@ -15,14 +15,18 @@ public record NoticeCardResponse(
         List<String> tags,
         boolean pinned,
         LocalDateTime expiresAt,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        // 출처 — 동아리 작성 공지면 owningClubId·clubName 이 채워지고, 학교(관리자) 공지면 둘 다 null.
+        Long owningClubId,
+        String clubName
 ) {
-    public static NoticeCardResponse from(Notice notice) {
+    public static NoticeCardResponse from(Notice notice, String clubName) {
         return new NoticeCardResponse(
                 notice.getId(), notice.getTitle(), notice.getSummary(),
                 notice.getCoverImageUrl(), notice.getLinkUrl(),
                 notice.getCategory(), notice.getTags(),
-                notice.isPinned(), notice.getExpiresAt(), notice.getCreatedAt()
+                notice.isPinned(), notice.getExpiresAt(), notice.getCreatedAt(),
+                notice.getOwningClubId(), clubName
         );
     }
 }

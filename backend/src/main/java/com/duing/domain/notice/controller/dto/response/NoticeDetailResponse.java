@@ -26,6 +26,9 @@ public record NoticeDetailResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         NoticeContentFormat contentFormat,
+        // 출처 — 동아리 작성 공지면 채워지고(전체 뷰어 노출), 학교(관리자) 공지면 null.
+        Long owningClubId,
+        String clubName,
         EventInfo eventInfo
 ) {
     public record EventInfo(
@@ -47,7 +50,8 @@ public record NoticeDetailResponse(
         }
     }
 
-    public static NoticeDetailResponse from(Notice notice, List<Long> targetClubIds, boolean exposeAdminFields) {
+    public static NoticeDetailResponse from(Notice notice, List<Long> targetClubIds,
+                                            boolean exposeAdminFields, String clubName) {
         return new NoticeDetailResponse(
                 notice.getId(), notice.getTitle(), notice.getSummary(), notice.getContent(),
                 notice.getCoverImageUrl(), notice.getLinkUrl(),
@@ -59,6 +63,7 @@ public record NoticeDetailResponse(
                 exposeAdminFields && notice.isNotifyOnPublish(),
                 notice.getCreatedAt(), notice.getUpdatedAt(),
                 notice.getContentFormat(),
+                notice.getOwningClubId(), clubName,
                 EventInfo.from(notice)
         );
     }

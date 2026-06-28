@@ -1,5 +1,6 @@
 package com.duing.domain.notice.service;
 
+import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.notice.broadcast.service.NoticeBroadcaster;
 import com.duing.domain.notice.entity.Notice;
@@ -20,7 +21,12 @@ import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -127,6 +133,16 @@ public class GeneralNoticeService implements NoticeService {
     @Override
     public Page<Notice> searchFeed(NoticeSearchCondition condition, ViewerScope viewer, Pageable pageable) {
         return noticeRepository.findFeed(condition, viewer, pageable);
+    }
+
+    @Override
+    public Map<Long, String> findClubNamesByIds(Collection<Long> clubIds) {
+        Set<Long> distinctIds = clubIds.stream().filter(Objects::nonNull).collect(Collectors.toSet());
+        if (distinctIds.isEmpty()) {
+            return Map.of();
+        }
+        return clubRepository.findAllById(distinctIds).stream()
+                .collect(Collectors.toMap(Club::getId, Club::getName));
     }
 
     @Override
