@@ -12,6 +12,7 @@ build/
 .idea/claudeCodeTabState.xml
 .idea/prettier.xml
 .idea/inspectionProfiles/
+.idea/material_theme_project_new.xml
 *.iws
 *.iml
 *.ipr
@@ -73,3 +74,19 @@ handoff/
 
 ### Codex 로컬 에이전트 설정 (사용자별, 커밋 금지) ###
 .codex/
+
+### pnpm 로컬 콘텐츠 스토어 / Playwright MCP QA 산출물 (로컬 캐시·임시, 커밋 금지) ###
+.pnpm-store/
+.playwright-mcp/
+
+### 의존성 설치 디렉터리 — 어느 깊이든(루트·frontend 등) 무시 (로컬, 커밋 금지) ###
+node_modules/
+
+### Claude 에이전트 git worktree (로컬 작업 격리본, 커밋 금지) ###
+.claude/worktrees/
+
+### 빌드 캐시·배포·커버리지·증분빌드 정보 (로컬, 커밋 금지) ###
+.turbo/
+.vercel/
+coverage/
+*.tsbuildinfo
