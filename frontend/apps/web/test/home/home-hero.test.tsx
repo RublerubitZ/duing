@@ -49,6 +49,22 @@ describe('HeroRightVisual', () => {
     expect(screen.getByText('신규 모집 오픈')).toBeInTheDocument();
     expect(screen.getByText('합격자 발표')).toBeInTheDocument();
   });
+
+  it('실활동 토스트는 동아리명·발생문구를 렌더한다(폴백 대체)', () => {
+    const toasts = resolveHeroToasts(
+      [
+        { type: 'NOTICE_CREATED', clubName: '두잉코딩', occurredAt: '2026-06-28T11:30:00.000Z' },
+        { type: 'INTERVIEW_RESULT', clubName: '캠퍼스밴드', occurredAt: '2026-06-28T09:00:00.000Z' },
+      ],
+      NOW,
+    );
+    render(<HeroRightVisual recruitingCount={1} toasts={toasts} />);
+    expect(screen.getByText('두잉코딩')).toBeInTheDocument();
+    expect(screen.getByText('새 공지 등록')).toBeInTheDocument();
+    expect(screen.getByText('캠퍼스밴드')).toBeInTheDocument();
+    expect(screen.getByText('합격자 발표')).toBeInTheDocument();
+    expect(screen.queryByText('캠퍼스 동아리')).not.toBeInTheDocument();
+  });
 });
 
 describe('HeroActivityToast', () => {
