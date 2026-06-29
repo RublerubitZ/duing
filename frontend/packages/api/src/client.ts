@@ -163,6 +163,8 @@ import type {
   CashbookSearchParams,
   CreateCashbookEntryPayload,
   UpdateCashbookEntryPayload,
+  PublicActivityFeed,
+  PublicActivityListParams,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -311,6 +313,10 @@ export type DuingApiClient = {
   };
   promotions: {
     list(): Promise<PageResponse<PromotionCard>>;
+  };
+  publicActivities: {
+    // GET /api/v1/public-activities — 공개·인증불요. 6도메인 최근 활동 집계(occurredAt DESC).
+    list(params?: PublicActivityListParams): Promise<PublicActivityFeed>;
   };
   notifications: {
     list(unreadOnly: boolean, page: number, size: number): Promise<PageResponse<Notification>>;
@@ -816,6 +822,12 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
     },
     promotions: {
       list: () => jsonOk<PageResponse<PromotionCard>>(http.get('promotions')),
+    },
+    publicActivities: {
+      list: (params) =>
+        jsonOk<PublicActivityFeed>(
+          http.get('public-activities', { searchParams: cleanParams(params) }),
+        ),
     },
     notifications: {
       list: (unreadOnly, page, size) =>

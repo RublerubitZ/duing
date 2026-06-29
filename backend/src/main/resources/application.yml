@@ -128,6 +128,10 @@ duing:
       # 기본 비활성 — 운영에서 DUING_PII_RETENTION_ENABLED=true 주입 시 활성화(개인정보 처리방침의 45일 보관과 일치).
       enabled: ${DUING_PII_RETENTION_ENABLED:false}
       window: ${DUING_PII_RETENTION_WINDOW:P45D}
+  public-activity:
+    window-days: ${DUING_PUBLIC_ACTIVITY_WINDOW_DAYS:30}
+    default-limit: ${DUING_PUBLIC_ACTIVITY_DEFAULT_LIMIT:10}
+    max-limit: ${DUING_PUBLIC_ACTIVITY_MAX_LIMIT:20}
 
 # 기본은 안전값(warn). bind 파라미터 로깅(org.hibernate.orm.jdbc.bind=trace)은 이메일·인증코드·학번 등
 # PII 를 평문으로 남기므로 base 를 warn 으로 둔다. local 프로파일만 개발 편의로 trace 를 다시 켜고

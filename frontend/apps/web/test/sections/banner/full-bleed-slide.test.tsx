@@ -23,6 +23,11 @@ function makeSlide(overrides: Partial<FullBleedSlideData> = {}): FullBleedSlideD
 }
 
 describe('FullBleedSlide — main variant', () => {
+  it('이미지에 draggable=false 가 설정된다 (바탕화면 드래그 다운로드 차단)', () => {
+    render(<FullBleedSlide variant="main" slide={makeSlide()} />);
+    expect(screen.getByAltText('2026 해커톤 포스터')).toHaveAttribute('draggable', 'false');
+  });
+
   it('이미지가 alt 와 함께 렌더링된다', () => {
     render(<FullBleedSlide variant="main" slide={makeSlide()} />);
     const img = screen.getByAltText('2026 해커톤 포스터');
@@ -75,6 +80,18 @@ describe('FullBleedSlide — main variant', () => {
 });
 
 describe('FullBleedSlide — preview variant', () => {
+  it('preview 이미지에 draggable=false 가 설정된다', () => {
+    render(
+      <FullBleedSlide
+        variant="preview"
+        slide={makeSlide()}
+        direction="left"
+        onSelect={() => undefined}
+      />,
+    );
+    expect(screen.getByAltText('2026 해커톤 포스터')).toHaveAttribute('draggable', 'false');
+  });
+
   it('button 으로 렌더되고 alt 를 aria-label 로 사용한다', () => {
     render(
       <FullBleedSlide

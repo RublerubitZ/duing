@@ -32,6 +32,15 @@ function makeSlide(overrides: Partial<SystemComposedSlideData> = {}): SystemComp
 }
 
 describe('SystemComposedSlide — main variant', () => {
+  it('이미지가 있으면 draggable=false 가 설정된다 (바탕화면 드래그 다운로드 차단)', () => {
+    const { container } = render(
+      <SystemComposedSlide variant="main" slide={makeSlide({ bannerImageUrl: 'https://cdn.test/x.jpg' })} />,
+    );
+    const image = container.querySelector('img');
+    expect(image).not.toBeNull();
+    expect(image).toHaveAttribute('draggable', 'false');
+  });
+
   it('제목/부제/CTA 가 모두 렌더링된다', () => {
     render(<SystemComposedSlide variant="main" slide={makeSlide()} />);
     expect(screen.getByText('테스트 배너 제목')).toBeInTheDocument();
