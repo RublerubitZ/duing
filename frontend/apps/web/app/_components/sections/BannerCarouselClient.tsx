@@ -350,15 +350,13 @@ export function BannerCarouselClient({ slides }: Props) {
             )}
           </div>
 
-          {/* 보조 배너 프리뷰 — md 미만 숨김(모바일은 메인만), md~lg 하단 2-up, lg 우측 세로 1열.
-              md~lg 카드 폭을 ≤360px 로 상한 → lg 경계에서 보조 카드가 옆 컬럼(340·≈148h)에서
-              전체폭 2-up(≈258h)으로 급증하던 "창 줄일 때 보조 커짐" 점프를 막는다. */}
+          {/* 보조 배너 프리뷰 — md 미만 숨김(모바일은 메인만), md~lg 하단 2-up(전체폭 채움), lg 우측 세로 1열.
+              md~lg 에선 카드가 폭을 꽉 채우되 높이를 max-h 로 상한(≈옆 컬럼 카드 높이)해, lg 경계에서 보조가
+              옆 컬럼(340·≈148h)→전체폭 2-up 으로 급증하던 "창 줄일 때 보조 커짐"을 막는다(여백 없이 비율만 가변). */}
           <div
             className={cn(
               'hidden gap-3 md:grid lg:grid-cols-1',
-              previewSlides.length > 1
-                ? 'md:grid-cols-[repeat(2,minmax(0,360px))]'
-                : 'md:grid-cols-[minmax(0,360px)]',
+              previewSlides.length > 1 ? 'md:grid-cols-2' : 'md:grid-cols-1',
             )}
           >
             {previewSlides.map((slide, idx) => {
