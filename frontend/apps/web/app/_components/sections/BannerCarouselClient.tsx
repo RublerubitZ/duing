@@ -249,13 +249,19 @@ export function BannerCarouselClient({ slides }: Props) {
          * - md 미만: 메인만 (보조 숨김) — 모바일.
          * - md~xl: 단일 컬럼 → 메인 전체폭 상단 + 보조 2-up 하단 (중간 구간 위계 보강).
          * - xl 이상: [1fr_340px] 좌우 배치 (메인 폭이 보조의 2.5배라 위계 충분).
-         * items-start 로 stretch 제거 → 메인이 보조 컬럼 높이로 늘어나지 않고 aspect-[24/8] 유지.
+         * items-start 로 stretch 제거 → 메인이 보조 컬럼 높이로 늘어나지 않고 자체 높이(연속 clamp)를 유지.
          */}
         <div className="grid items-start gap-4 xl:grid-cols-[1fr_340px]">
           <div
             ref={containerRef}
             data-testid="banner-carousel-viewport"
-            className="relative aspect-[2/1] touch-pan-y select-none overflow-hidden rounded-xl sm:aspect-[24/8]"
+            className="relative touch-pan-y select-none overflow-hidden rounded-xl"
+            // 높이를 breakpoint 비율(예전 aspect-[2/1]↔sm:aspect-[24/8])이 아니라 viewport 의 '연속 1차식'으로 잡는다.
+            // 비율을 끊으면 640px 에서 높이가 점프(198↔304)하고 xl(1280px) 그리드 재배치에서도 점프(282↔400)해
+            // 리사이즈 중 "줄이는데 커졌다 작아지는" 레이아웃 점프가 생긴다. clamp 1차식은 모바일 ~2:1·데스크탑 ~3:1
+            // 인상을 유지하면서 전 구간 단조 증가(점프 0)·CLS 0. 상한 308px 는 xl 보조 컬럼(프리뷰 2장 스택)
+            // 높이와 맞춰 데스크탑에서 메인 하단이 보조 컬럼과 정렬되게 한 값(감각 상수, 필요 시 조정).
+            style={{ height: 'clamp(160px, 108px + 18vw, 308px)' }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
