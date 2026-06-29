@@ -55,7 +55,7 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
   const textColor = hasImage ? '#fff' : slide.fg;
   const body = (
     <div
-      className="relative flex h-full flex-col justify-between px-5 py-3.5 sm:px-12 sm:py-11"
+      className="relative flex h-full flex-col justify-between px-5 py-3.5 sm:px-12 sm:py-5 lg:py-11"
       style={{ background: slide.bg, color: textColor }}
     >
       {hasImage && (
@@ -127,7 +127,7 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
         </h2>
         {slide.sub && (
           <p
-            className="mb-2 line-clamp-1 max-w-[460px] text-[12.5px] leading-[1.4] sm:mb-6 sm:line-clamp-none sm:text-[15.5px] sm:leading-[1.5]"
+            className="mb-2 line-clamp-1 max-w-[460px] text-[12.5px] leading-[1.4] sm:mb-3 sm:line-clamp-none sm:text-[15.5px] sm:leading-[1.5] lg:mb-6"
             style={{ color: textColor, opacity: 0.85 }}
           >
             {slide.sub}
