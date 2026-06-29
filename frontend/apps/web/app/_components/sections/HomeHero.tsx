@@ -5,6 +5,7 @@ import { Sparkle, SparkleFull } from '@/components/duing/Sparkle';
 import { fetchClubStats } from '@/app/_lib/club-stats';
 import { cn } from '@/app/_lib/cn';
 import { resolveHeroToasts, type HeroToast } from './hero-activity';
+import { fetchPublicActivities } from '@/app/_lib/public-activities';
 
 const SUGGESTED_QUERIES: ReadonlyArray<string> = [
   '개발',
@@ -15,10 +16,10 @@ const SUGGESTED_QUERIES: ReadonlyArray<string> = [
 ];
 
 export async function HomeHero() {
-  const stats = await fetchClubStats();
-  // Phase A: 실활동 미조회 → 빈 입력으로 폴백 토스트 2개. Phase C 에서 [] 를 실데이터로 교체.
+  // 통계·활동을 병렬 조회. 활동 조회 실패 시 [] → resolveHeroToasts 가 폴백 토스트로 채운다.
+  const [stats, activities] = await Promise.all([fetchClubStats(), fetchPublicActivities()]);
   const now = new Date();
-  const toasts = resolveHeroToasts([], now);
+  const toasts = resolveHeroToasts(activities, now);
   return (
     <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-5 sm:pb-8 sm:pt-16">
       <div className="bg-grid absolute inset-0 opacity-50" />
