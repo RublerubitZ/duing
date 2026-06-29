@@ -18,9 +18,9 @@ import com.querydsl.core.types.dsl.DateTimePath;
 import com.querydsl.core.types.dsl.NumberPath;
 import com.querydsl.core.types.dsl.StringPath;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -32,7 +32,6 @@ import org.springframework.stereotype.Repository;
 public class PublicActivityQueryRepository {
 
     private final JPAQueryFactory queryFactory;
-    private final Clock clock;
 
     public List<ActivityItem> findRecentRecruitOpen(LocalDateTime since, int limit) {
         List<Tuple> rows = queryFactory
@@ -149,7 +148,11 @@ public class PublicActivityQueryRepository {
 
     // occurredAt 소스는 쿼리 구성상 non-null 이다(createdAt 은 NOT NULL, assignmentCompletedAt 은 isNotNull 가드).
     // 따라서 본 헬퍼는 non-null 을 전제한다.
+    //
+    // created_at 등은 JPA 감사가 JVM 기본 존으로 기록한다(앱에 별도 DateTimeProvider/TZ 없음).
+    // 저장된 LocalDateTime 은 'JVM 기본 존(systemDefault)의 벽시계'이므로 같은 존으로 해석해야
+    // 올바른 절대 시각이 된다. (seoulClock 존으로 해석하면 prod(UTC)에서 ~9h 어긋남.)
     private Instant toInstant(LocalDateTime ldt) {
-        return ldt.atZone(clock.getZone()).toInstant();
+        return ldt.atZone(ZoneId.systemDefault()).toInstant();
     }
 }
