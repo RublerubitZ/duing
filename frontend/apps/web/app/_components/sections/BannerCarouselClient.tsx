@@ -247,11 +247,11 @@ export function BannerCarouselClient({ slides }: Props) {
         {/*
          * 반응형 위계 전략:
          * - md 미만: 메인만 (보조 숨김) — 모바일.
-         * - md~xl: 단일 컬럼 → 메인 전체폭 상단 + 보조 2-up 하단 (중간 구간 위계 보강).
-         * - xl 이상: [1fr_340px] 좌우 배치 (메인 폭이 보조의 2.5배라 위계 충분).
+         * - md~lg: 단일 컬럼 → 메인 전체폭 상단 + 보조 2-up 하단(카드 폭 상한으로 과대 방지).
+         * - lg 이상: [1fr_340px] 좌우 배치 — 보조를 옆 컬럼으로 빼 리사이즈 시 보조가 급증하지 않게 한다.
          * items-start 로 stretch 제거 → 메인이 보조 컬럼 높이로 늘어나지 않고 자체 높이(연속 clamp)를 유지.
          */}
-        <div className="grid items-start gap-4 xl:grid-cols-[1fr_340px]">
+        <div className="grid items-start gap-4 lg:grid-cols-[1fr_340px]">
           <div
             ref={containerRef}
             data-testid="banner-carousel-viewport"
@@ -259,9 +259,9 @@ export function BannerCarouselClient({ slides }: Props) {
             // 높이를 breakpoint 비율(예전 aspect-[2/1]↔sm:aspect-[24/8])이 아니라 viewport 의 '연속 1차식'으로 잡는다.
             // 비율을 끊으면 640px 에서 높이가 점프(198↔304)하고 xl(1280px) 그리드 재배치에서도 점프(282↔400)해
             // 리사이즈 중 "줄이는데 커졌다 작아지는" 레이아웃 점프가 생긴다. clamp 1차식은 모바일 ~2:1·데스크탑 ~3:1
-            // 인상을 유지하면서 전 구간 단조 증가(점프 0)·CLS 0. 상한 308px 는 xl 보조 컬럼(프리뷰 2장 스택)
-            // 높이와 맞춰 데스크탑에서 메인 하단이 보조 컬럼과 정렬되게 한 값(감각 상수, 필요 시 조정).
-            style={{ height: 'clamp(160px, 108px + 18vw, 308px)' }}
+            // 인상을 유지하면서 전 구간 단조 증가(점프 0)·CLS 0. 상한 308px 는 lg+ 옆 보조 컬럼(프리뷰 2장
+            // 스택) 높이와 같아, 옆배치 구간에서 메인이 보조보다 커지지 않는다(감각 상수, 필요 시 조정).
+            style={{ height: 'clamp(160px, 108px + 19.5vw, 308px)' }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -350,10 +350,12 @@ export function BannerCarouselClient({ slides }: Props) {
             )}
           </div>
 
-          {/* 보조 배너 프리뷰 — md 미만 숨김(모바일은 메인만), md~xl 하단 2-up, xl 우측 세로 1열. */}
+          {/* 보조 배너 프리뷰 — md 미만 숨김(모바일은 메인만), md~lg 하단 2-up(전체폭 채움), lg 우측 세로 1열.
+              md~lg 에선 카드가 폭을 꽉 채우되 높이를 max-h 로 상한(≈옆 컬럼 카드 높이)해, lg 경계에서 보조가
+              옆 컬럼(340·≈148h)→전체폭 2-up 으로 급증하던 "창 줄일 때 보조 커짐"을 막는다(여백 없이 비율만 가변). */}
           <div
             className={cn(
-              'hidden gap-3 md:grid xl:grid-cols-1',
+              'hidden gap-3 md:grid lg:grid-cols-1',
               previewSlides.length > 1 ? 'md:grid-cols-2' : 'md:grid-cols-1',
             )}
           >
