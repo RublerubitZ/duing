@@ -78,3 +78,7 @@ duing:
     retention:
       enabled: false
       window: P1Y
+  public-activity:
+    window-days: 30
+    default-limit: 10
+    max-limit: 20
