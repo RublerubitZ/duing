@@ -24,3 +24,4 @@ export * from './fee';
 export * from './bank';
 export * from './cashbook';
 export * from './publicActivity';
+export * from './facility';
