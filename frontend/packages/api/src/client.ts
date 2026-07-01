@@ -165,6 +165,9 @@ import type {
   UpdateCashbookEntryPayload,
   PublicActivityFeed,
   PublicActivityListParams,
+  FacilitySummary,
+  FacilityUsageResponse,
+  FacilityDetailResponse,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -317,6 +320,14 @@ export type DuingApiClient = {
   publicActivities: {
     // GET /api/v1/public-activities — 공개·인증불요. 6도메인 최근 활동 집계(occurredAt DESC).
     list(params?: PublicActivityListParams): Promise<PublicActivityFeed>;
+  };
+  facilities: {
+    // GET /api/v1/facilities — 공개·인증불요. 활성 시설 목록(가벼움).
+    list(): Promise<FacilitySummary[]>;
+    // GET /api/v1/facilities/usage?yearMonth=YYYY-MM — yearMonth 생략 시 현재월.
+    usage(yearMonth?: string): Promise<FacilityUsageResponse>;
+    // GET /api/v1/facilities/{facilityId}?yearMonth=YYYY-MM — 단일 시설 상세(타임라인용).
+    get(facilityId: number, yearMonth?: string): Promise<FacilityDetailResponse>;
   };
   notifications: {
     list(unreadOnly: boolean, page: number, size: number): Promise<PageResponse<Notification>>;
@@ -827,6 +838,21 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       list: (params) =>
         jsonOk<PublicActivityFeed>(
           http.get('public-activities', { searchParams: cleanParams(params) }),
+        ),
+    },
+    facilities: {
+      list: () => jsonOk<FacilitySummary[]>(http.get('facilities')),
+      usage: (yearMonth) =>
+        jsonOk<FacilityUsageResponse>(
+          http.get('facilities/usage', {
+            searchParams: yearMonth ? { yearMonth } : undefined,
+          }),
+        ),
+      get: (facilityId, yearMonth) =>
+        jsonOk<FacilityDetailResponse>(
+          http.get(`facilities/${facilityId}`, {
+            searchParams: yearMonth ? { yearMonth } : undefined,
+          }),
         ),
     },
     notifications: {
