@@ -48,6 +48,11 @@ export function HomeNav({ slimOnMobile = false }: Props) {
               공지
             </Link>
           </li>
+          <li>
+            <Link href="/facilities" className={inactiveLink}>
+              시설
+            </Link>
+          </li>
           <li className="ml-6">
             <Link href="/introduce" className={inactiveLink}>
               서비스 소개

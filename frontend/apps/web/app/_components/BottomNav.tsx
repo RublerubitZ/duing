@@ -10,11 +10,12 @@ import { Link } from 'next-view-transitions';
 import { usePathname } from 'next/navigation';
 
 import { cn } from '@/app/_lib/cn';
-import { Calendar, Compass, Home, Megaphone } from '@/components/duing/Icon';
+import { Building, Calendar, Compass, Home, Megaphone } from '@/components/duing/Icon';
 
 const TABS = [
   { label: '홈', href: '/', Icon: Home },
   { label: '탐색', href: '/clubs', Icon: Compass },
+  { label: '시설', href: '/facilities', Icon: Building },
   { label: '캘린더', href: '/calendar', Icon: Calendar },
   { label: '공지', href: '/notices', Icon: Megaphone },
 ] as const;
@@ -23,7 +24,7 @@ const TABS = [
 function matchTabHref(pathname: string): string | null {
   if (pathname === '/') return '/';
   // 동아리·공지 상세(/clubs/{id}, /notices/{id})는 자체 상단 액션바를 쓰는 포커스 뷰라 탭바를 숨긴다.
-  if (/^\/(clubs|notices)\/\d+$/.test(pathname)) return null;
+  if (/^\/(clubs|notices|facilities)\/\d+$/.test(pathname)) return null;
   const matched = TABS.find(
     (tab) => tab.href !== '/' && (pathname === tab.href || pathname.startsWith(`${tab.href}/`)),
   );

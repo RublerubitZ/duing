@@ -12,6 +12,7 @@ import { HomeNavAuthSlot } from './HomeNavAuthSlot';
 const NAV_ITEMS = [
   { label: '홈', href: '/' },
   { label: '탐색', href: '/clubs' },
+  { label: '시설', href: '/facilities' },
   { label: '캘린더', href: '/calendar' },
   { label: '공지', href: '/notices' },
 ] as const;
@@ -30,7 +31,7 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
   const pathname = usePathname();
 
   // 동아리·공지 상세(/clubs/{id}, /notices/{id})는 자체 상단 액션바를 쓰는 포커스 뷰라 모바일에서 이 브랜드 바를 숨긴다.
-  const isDetailFocus = /^\/(clubs|notices)\/\d+$/.test(pathname);
+  const isDetailFocus = /^\/(clubs|notices|facilities)\/\d+$/.test(pathname);
 
   const isActive = (item: NavItem): boolean => {
     if (active) return item.label === active;
