@@ -2170,8 +2170,40 @@ class FacilityCrawlServiceTest {
         assertThat(summary.succeededRooms()).isEqualTo(1);
         assertThat(summary.status()).isEqualTo(FetchStatus.PARTIAL);
     }
+
+    @Test
+    @DisplayName("fetch 는 성공했지만 스냅샷 쓰기가 실패하면 그 달을 성공으로 집계하지 않고 실패 메타로 기록한다(C1)")
+    void writeFailureIsNotCountedAsSuccess() {
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        when(client.fetchReservations(anyInt(), eq(july))).thenReturn(objectMapper.createArrayNode());
+        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+        doThrow(new org.springframework.dao.DataIntegrityViolationException("schedule_seq 충돌"))
+                .when(snapshotWriter).replaceReservations(any(), any(), any(), any());
+
+        CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
+
+        // 쓰기 실패 → 성공 메타 기록 금지, 실패 메타로 crawled_at 보존
+        verify(snapshotWriter, never()).recordSuccessfulMeta(any(), any(), any(), any(), any());
+        verify(snapshotWriter, times(1)).recordFailureMeta(eq(july), any(), any());
+        assertThat(summary.failedRooms()).containsExactly(4);
+        assertThat(summary.status()).isEqualTo(FetchStatus.FAILED);
+    }
+
+    @Test
+    @DisplayName("활성 시설이 하나도 없으면 크롤 결과는 FAILED 다(C2)")
+    void emptyFacilitiesIsFailed() {
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of());
+
+        CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
+
+        assertThat(summary.status()).isEqualTo(FetchStatus.FAILED);
+        assertThat(summary.totalRooms()).isZero();
+    }
 }
 ```
+
+> `writeFailureIsNotCountedAsSuccess`/`emptyFacilitiesIsFailed` 는 `static org.mockito.Mockito.doThrow` 를 추가로 import 한다.
 
 - [ ] 실행 → FAIL:
   `cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend && ./gradlew test --tests "com.duing.domain.facility.service.FacilityCrawlServiceTest"` → `BUILD FAILED`.
@@ -2253,8 +2285,6 @@ public class FacilityCrawlService {
                     JsonNode body = client.fetchReservations(facility.getRoomSeq(), month);
                     List<ParsedReservation> parsed = reservationParser.parse(body, month);
                     fetchedByMonth.put(month, parsed);
-                    anySuccess.put(month, true);
-                    reservationCount.merge(month, parsed.size(), Integer::sum);
                 } catch (FacilityClientException fetchFailure) {
                     roomFailed = true;
                     anyFailure.put(month, true);
@@ -2265,6 +2295,12 @@ public class FacilityCrawlService {
                 try {
                     snapshotWriter.replaceReservations(
                             facility.getId(), new ArrayList<>(fetchedByMonth.keySet()), fetchedByMonth, crawledAt);
+                    // 영속 성공 후에만 성공으로 집계한다 — 쓰기 실패(유니크 충돌 등)를 성공으로 오집계해
+                    // crawled_at 을 갱신(신선 처리)하고 옛 스냅샷을 최신인 양 서빙하는 것을 막는다(C1).
+                    fetchedByMonth.forEach((month, reservations) -> {
+                        anySuccess.put(month, true);
+                        reservationCount.merge(month, reservations.size(), Integer::sum);
+                    });
                 } catch (RuntimeException replaceFailure) {
                     // schedule_seq unique 충돌 등 — fail-safe: 해당 시설 기존 스냅샷 유지, 다음 주기에 정합.
                     roomFailed = true;
@@ -2290,9 +2326,11 @@ public class FacilityCrawlService {
 
         int totalReservations = reservationCount.values().stream().mapToInt(Integer::intValue).sum();
         FetchStatus overall;
-        if (failedRooms.isEmpty()) {
+        if (facilities.isEmpty()) {
+            overall = FetchStatus.FAILED; // 활성 시설이 없으면 수집 대상이 없음(콜드/오설정)
+        } else if (failedRooms.isEmpty()) {
             overall = FetchStatus.SUCCESS;
-        } else if (failedRooms.size() >= facilities.size() && !facilities.isEmpty()) {
+        } else if (failedRooms.size() >= facilities.size()) {
             overall = FetchStatus.FAILED;
         } else {
             overall = FetchStatus.PARTIAL;
@@ -2356,6 +2394,7 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
     private static final int CURRENT_NEXT_TTL_MINUTES = 10;
     private static final int OTHER_TTL_HOURS = 24;
 
+    // 월별 single-flight 락. 키는 Task 17 의 ±12개월 조회 범위로 제한되므로 사실상 소수(최대 ~25)로 유지된다.
     private final ConcurrentHashMap<YearMonth, ReentrantLock> monthLocks = new ConcurrentHashMap<>();
 
     /**
@@ -3297,7 +3336,7 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
 
 ### Task 22: 통합(Acceptance) 테스트 — 비로그인 200 + 필드 존재 + room_seq 미노출
 
-신선한 월 스냅샷을 시드해 `ensureFresh` 가 캐시히트(외부 호출 없음)로 빠지게 한다. 상대날짜(today) 사용, Asia/Seoul 기준.
+신선한 월 스냅샷을 시드해 `ensureFresh` 가 캐시히트(외부 호출 없음)로 빠지게 한다. 상대날짜(today) 사용, Asia/Seoul 기준. **또한 이 테스트는 `FacilitySnapshotWriter` 의 실제 스냅샷 교체(delete→insert 원자성·롤백 fail-safe)를 실 DB(Testcontainers)로 최소 1회 검증해 C4 커버리지 공백(라이터 단위 테스트 부재)을 메운다.**
 
 **Files:**
 - Create: `backend/src/test/java/com/duing/domain/facility/FacilityUsageAcceptanceTest.java`

@@ -50,6 +50,7 @@ public class FacilityCrawlService {
     private static final int CURRENT_NEXT_TTL_MINUTES = 10;
     private static final int OTHER_TTL_HOURS = 24;
 
+    // 월별 single-flight 락. 키는 Task 17 의 ±12개월 조회 범위로 제한되므로 사실상 소수(최대 ~25)로 유지된다.
     private final ConcurrentHashMap<YearMonth, ReentrantLock> monthLocks = new ConcurrentHashMap<>();
 
     /**
@@ -118,8 +119,6 @@ public class FacilityCrawlService {
                     JsonNode body = client.fetchReservations(facility.getRoomSeq(), month);
                     List<ParsedReservation> parsed = reservationParser.parse(body, month);
                     fetchedByMonth.put(month, parsed);
-                    anySuccess.put(month, true);
-                    reservationCount.merge(month, parsed.size(), Integer::sum);
                 } catch (FacilityClientException fetchFailure) {
                     roomFailed = true;
                     anyFailure.put(month, true);
@@ -130,6 +129,12 @@ public class FacilityCrawlService {
                 try {
                     snapshotWriter.replaceReservations(
                             facility.getId(), new ArrayList<>(fetchedByMonth.keySet()), fetchedByMonth, crawledAt);
+                    // 영속 성공 후에만 성공으로 집계한다 — 쓰기 실패(유니크 충돌 등)를 성공으로 오집계해
+                    // crawled_at 을 갱신(신선 처리)하고 옛 스냅샷을 최신인 양 서빙하는 것을 막는다(C1).
+                    fetchedByMonth.forEach((month, reservations) -> {
+                        anySuccess.put(month, true);
+                        reservationCount.merge(month, reservations.size(), Integer::sum);
+                    });
                 } catch (RuntimeException replaceFailure) {
                     // schedule_seq unique 충돌 등 — fail-safe: 해당 시설 기존 스냅샷 유지, 다음 주기에 정합.
                     roomFailed = true;
@@ -155,9 +160,11 @@ public class FacilityCrawlService {
 
         int totalReservations = reservationCount.values().stream().mapToInt(Integer::intValue).sum();
         FetchStatus overall;
-        if (failedRooms.isEmpty()) {
+        if (facilities.isEmpty()) {
+            overall = FetchStatus.FAILED; // 활성 시설이 없으면 수집 대상이 없음(콜드/오설정)
+        } else if (failedRooms.isEmpty()) {
             overall = FetchStatus.SUCCESS;
-        } else if (failedRooms.size() >= facilities.size() && !facilities.isEmpty()) {
+        } else if (failedRooms.size() >= facilities.size()) {
             overall = FetchStatus.FAILED;
         } else {
             overall = FetchStatus.PARTIAL;

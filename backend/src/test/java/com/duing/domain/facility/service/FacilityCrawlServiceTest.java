@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -115,6 +116,36 @@ class FacilityCrawlServiceTest {
         assertThat(summary.failedRooms()).containsExactly(6);
         assertThat(summary.succeededRooms()).isEqualTo(1);
         assertThat(summary.status()).isEqualTo(FetchStatus.PARTIAL);
+    }
+
+    @Test
+    @DisplayName("fetch 는 성공했지만 스냅샷 쓰기가 실패하면 그 달을 성공으로 집계하지 않고 실패 메타로 기록한다(C1)")
+    void writeFailureIsNotCountedAsSuccess() {
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        when(client.fetchReservations(anyInt(), eq(july))).thenReturn(objectMapper.createArrayNode());
+        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+        doThrow(new org.springframework.dao.DataIntegrityViolationException("schedule_seq 충돌"))
+                .when(snapshotWriter).replaceReservations(any(), any(), any(), any());
+
+        CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
+
+        // 쓰기 실패 → 성공 메타 기록 금지, 실패 메타로 crawled_at 보존
+        verify(snapshotWriter, never()).recordSuccessfulMeta(any(), any(), any(), any(), any());
+        verify(snapshotWriter, times(1)).recordFailureMeta(eq(july), any(), any());
+        assertThat(summary.failedRooms()).containsExactly(4);
+        assertThat(summary.status()).isEqualTo(FetchStatus.FAILED);
+    }
+
+    @Test
+    @DisplayName("활성 시설이 하나도 없으면 크롤 결과는 FAILED 다(C2)")
+    void emptyFacilitiesIsFailed() {
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of());
+
+        CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
+
+        assertThat(summary.status()).isEqualTo(FetchStatus.FAILED);
+        assertThat(summary.totalRooms()).isZero();
     }
 
     @Test
