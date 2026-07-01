@@ -4,7 +4,9 @@ import com.duing.domain.facility.config.FacilityCrawlerProperties;
 import com.duing.domain.facility.crawler.SchoolFacilityClient;
 import com.duing.domain.facility.crawler.exception.FacilityClientException;
 import com.duing.domain.facility.entity.CrawlSource;
+import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
+import com.duing.domain.facility.entity.FacilityMonthSnapshot;
 import com.duing.domain.facility.entity.FetchStatus;
 import com.duing.domain.facility.parser.ParsedReservation;
 import com.duing.domain.facility.parser.ReservationParser;
@@ -21,6 +23,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,6 +46,47 @@ public class FacilityCrawlService {
     private final FacilitySnapshotWriter snapshotWriter;
     private final FacilityCrawlerProperties properties;
     private final Clock clock;
+
+    private static final int CURRENT_NEXT_TTL_MINUTES = 10;
+    private static final int OTHER_TTL_HOURS = 24;
+
+    private final ConcurrentHashMap<YearMonth, ReentrantLock> monthLocks = new ConcurrentHashMap<>();
+
+    /**
+     * 온디맨드 조회 신선도 보장(§5.5). 신선하면 CACHE, 만료/미캐시면 single-flight 락으로 그 월을
+     * 전 시설 fetch·교체 후 LIVE_FETCH(성공)/STALE_CACHE(라이브 실패, 옛 캐시 또는 콜드)를 반환한다.
+     */
+    public DataSource ensureFresh(YearMonth yearMonth) {
+        if (isFresh(yearMonth)) {
+            return DataSource.CACHE;
+        }
+        ReentrantLock lock = monthLocks.computeIfAbsent(yearMonth, key -> new ReentrantLock());
+        lock.lock();
+        try {
+            if (isFresh(yearMonth)) {
+                return DataSource.CACHE; // 더블체크: 대기 중 다른 스레드가 채웠다면 fetch 생략
+            }
+            CrawlSummary summary = crawlAndReplace(List.of(yearMonth), CrawlSource.ON_DEMAND);
+            return summary.succeededRooms() > 0 ? DataSource.LIVE_FETCH : DataSource.STALE_CACHE;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private boolean isFresh(YearMonth yearMonth) {
+        return snapshotRepository.findByYearMonth(yearMonth)
+                .map(snapshot -> Duration.between(snapshot.getCrawledAt(), LocalDateTime.now(clock))
+                        .compareTo(ttl(yearMonth)) < 0)
+                .orElse(false);
+    }
+
+    private Duration ttl(YearMonth yearMonth) {
+        YearMonth current = YearMonth.now(clock);
+        if (yearMonth.equals(current) || yearMonth.equals(current.plusMonths(1))) {
+            return Duration.ofMinutes(CURRENT_NEXT_TTL_MINUTES);
+        }
+        return Duration.ofHours(OTHER_TTL_HOURS);
+    }
 
     public CrawlSummary crawlAndReplace(List<YearMonth> months, CrawlSource source) {
         long startNanos = System.nanoTime();
