@@ -959,7 +959,8 @@ Crawler 계층은 HTTP 만 담당한다. `fetchRoomListHtml()` 은 Jsoup GET(1�
 package com.duing.domain.facility.crawler.exception;
 
 /**
- * 시설 학교 클라이언트 예외. 크롤 서비스는 부모 타입으로 잡아 "룸 실패"로 처리한다(격리).
+ * 크롤러 계층 내부 예외(HTTP 실패 분류 전용). 컨트롤러/사용자에게 노출되지 않고 크롤 서비스가 부모 타입으로
+ * 잡아 "룸 실패"로 처리하므로, HttpStatus 를 싣는 도메인 예외(ApplicationException)가 아니라 RuntimeException 을 상속한다.
  * 재시도 여부만 하위 타입으로 구분한다 — @Retryable 은 {@link FacilityFetchException} 에만 반응한다.
  */
 public class FacilityClientException extends RuntimeException {
@@ -1010,6 +1011,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
@@ -1051,9 +1053,9 @@ public class SchoolFacilityClient {
     }
 
     /**
-     * 특정 룸·월 예약 JSON 배열(POST). 5xx·네트워크·타임아웃 → FacilityFetchException(재시도),
-     * 4xx → FacilityBadResponseException(비재시도). retryFor 가 재시도 대상을 FacilityFetchException 로
-     * 제한하므로 4xx 는 즉시 전파된다. 재시도 소진 후 마지막 예외가 호출부로 전파된다.
+     * 특정 룸·월 예약 JSON 배열(POST). 상태코드를 먼저 판정하고 2xx 일 때만 본문을 파싱한다.
+     * 5xx·네트워크·타임아웃 → FacilityFetchException(재시도), 4xx·비 JSON/깨진 본문 → FacilityBadResponseException(비재시도).
+     * 본문을 상태 판정 전에 파싱하지 않으므로 4xx HTML 응답이 재시도되거나 파싱 예외가 예외 계층 밖으로 새지 않는다.
      */
     @Retryable(
             retryFor = FacilityFetchException.class,
@@ -1065,42 +1067,51 @@ public class SchoolFacilityClient {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("room_seq", String.valueOf(roomSeq));
         form.add("schedule_date", yearMonth.format(YEAR_MONTH));
-
-        StatusBody statusBody;
         try {
-            statusBody = facilitySchoolRestClient.post()
+            return facilitySchoolRestClient.post()
                     .uri(properties.dataPath())
                     .header("X-Requested-With", "XMLHttpRequest")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body(form)
-                    .exchange((request, response) ->
-                            new StatusBody(response.getStatusCode(), response.bodyTo(JsonNode.class)), false);
+                    .exchange((request, response) -> classify(roomSeq, response));
         } catch (RestClientException networkOrTimeout) {
-            // 연결 실패·읽기 타임아웃 등 — 재시도 대상.
+            // 연결 실패·읽기 타임아웃 등 — 재시도 대상. (FacilityClientException 은 RestClientException 이 아니므로 여기 안 걸리고 그대로 전파된다.)
             log.warn("시설 예약 fetch 네트워크 실패: roomSeq={}, yearMonth={}", roomSeq, yearMonth.format(YEAR_MONTH));
             throw new FacilityFetchException("시설 예약 fetch 네트워크 실패", networkOrTimeout);
         }
+    }
 
-        HttpStatusCode status = statusBody.status();
-        if (status.is2xxSuccessful()) {
-            JsonNode body = statusBody.body();
-            if (body == null || !body.isArray()) {
-                // 200 인데 배열이 아니면 형식 오류 → 비재시도(파싱 불가). 내용은 로깅하지 않는다.
-                log.warn("시설 예약 응답이 JSON 배열이 아님: roomSeq={}, status={}", roomSeq, status.value());
-                throw new FacilityBadResponseException("시설 예약 응답 형식 오류");
-            }
-            return body;
+    /** 상태코드 우선 판정 후 2xx 에서만 JSON 배열로 파싱한다. 단일 인자 exchange 콜백이라 close=true 로 응답이 닫힌다. */
+    private JsonNode classify(int roomSeq, ClientHttpResponse response) {
+        HttpStatusCode status;
+        try {
+            status = response.getStatusCode();
+        } catch (IOException statusReadError) {
+            log.warn("시설 예약 응답 상태 판독 실패: roomSeq={}", roomSeq);
+            throw new FacilityFetchException("시설 예약 응답 상태 판독 실패", statusReadError); // 재시도
         }
         if (status.is5xxServerError()) {
             log.warn("시설 예약 fetch 5xx: roomSeq={}, status={}", roomSeq, status.value());
-            throw new FacilityFetchException("시설 예약 fetch 5xx: " + status.value());
+            throw new FacilityFetchException("시설 예약 fetch 5xx: " + status.value()); // 재시도
         }
-        // 4xx 및 기타 — 비재시도.
-        log.warn("시설 예약 fetch 4xx: roomSeq={}, status={}", roomSeq, status.value());
-        throw new FacilityBadResponseException("시설 예약 fetch 4xx: " + status.value());
+        if (!status.is2xxSuccessful()) {
+            log.warn("시설 예약 fetch 4xx: roomSeq={}, status={}", roomSeq, status.value());
+            throw new FacilityBadResponseException("시설 예약 fetch 4xx: " + status.value()); // 비재시도
+        }
+        JsonNode body;
+        try {
+            body = objectMapper.readTree(response.getBody());
+        } catch (IOException malformed) {
+            // 2xx 인데 HTML/깨진 JSON(세션만료·차단 페이지 등) — 비재시도, 예외 계층 안에 유지.
+            log.warn("시설 예약 응답 JSON 파싱 실패: roomSeq={}, status={}", roomSeq, status.value());
+            throw new FacilityBadResponseException("시설 예약 응답 JSON 파싱 실패");
+        }
+        if (body == null || !body.isArray()) {
+            log.warn("시설 예약 응답이 JSON 배열이 아님: roomSeq={}, status={}", roomSeq, status.value());
+            throw new FacilityBadResponseException("시설 예약 응답 형식 오류");
+        }
+        return body;
     }
-
-    private record StatusBody(HttpStatusCode status, JsonNode body) {}
 }
 ```
 
@@ -1129,6 +1140,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -1175,6 +1187,30 @@ class SchoolFacilityClientRetryTest {
         assertThatThrownBy(() -> client.fetchReservations(4, YearMonth.of(2026, 7)))
                 .isInstanceOf(FacilityBadResponseException.class);
         mockServer.verify(); // 재시도 없이 1회만
+    }
+
+    @Test
+    @DisplayName("4xx 응답 본문이 HTML(비 JSON)이어도 재시도 없이 1회만 요청하고 FacilityBadResponseException 을 던진다")
+    void clientErrorWithHtmlBodyNotRetried() {
+        mockServer.expect(ExpectedCount.times(1), requestTo("https://school.test/room/data/list"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.TEXT_HTML).body("<html>error</html>"));
+
+        assertThatThrownBy(() -> client.fetchReservations(4, YearMonth.of(2026, 7)))
+                .isInstanceOf(FacilityBadResponseException.class);
+        mockServer.verify(); // 4xx = 비재시도, 1회만
+    }
+
+    @Test
+    @DisplayName("200 이지만 본문이 HTML/깨진 JSON 이면 재시도 없이 FacilityBadResponseException(파싱 실패)을 던진다")
+    void malformedOkBodyNotRetried() {
+        mockServer.expect(ExpectedCount.times(1), requestTo("https://school.test/room/data/list"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.OK).contentType(MediaType.TEXT_HTML).body("<html>blocked</html>"));
+
+        assertThatThrownBy(() -> client.fetchReservations(4, YearMonth.of(2026, 7)))
+                .isInstanceOf(FacilityBadResponseException.class);
+        mockServer.verify(); // 파싱 실패도 계층 안에서 비재시도
     }
 
     @Configuration

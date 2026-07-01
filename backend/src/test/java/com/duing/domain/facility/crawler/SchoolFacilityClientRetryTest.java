@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -66,6 +67,30 @@ class SchoolFacilityClientRetryTest {
         assertThatThrownBy(() -> client.fetchReservations(4, YearMonth.of(2026, 7)))
                 .isInstanceOf(FacilityBadResponseException.class);
         mockServer.verify(); // 재시도 없이 1회만
+    }
+
+    @Test
+    @DisplayName("4xx 응답 본문이 HTML(비 JSON)이어도 재시도 없이 1회만 요청하고 FacilityBadResponseException 을 던진다")
+    void clientErrorWithHtmlBodyNotRetried() {
+        mockServer.expect(ExpectedCount.times(1), requestTo("https://school.test/room/data/list"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.TEXT_HTML).body("<html>error</html>"));
+
+        assertThatThrownBy(() -> client.fetchReservations(4, YearMonth.of(2026, 7)))
+                .isInstanceOf(FacilityBadResponseException.class);
+        mockServer.verify(); // 4xx = 비재시도, 1회만
+    }
+
+    @Test
+    @DisplayName("200 이지만 본문이 HTML/깨진 JSON 이면 재시도 없이 FacilityBadResponseException(파싱 실패)을 던진다")
+    void malformedOkBodyNotRetried() {
+        mockServer.expect(ExpectedCount.times(1), requestTo("https://school.test/room/data/list"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.OK).contentType(MediaType.TEXT_HTML).body("<html>blocked</html>"));
+
+        assertThatThrownBy(() -> client.fetchReservations(4, YearMonth.of(2026, 7)))
+                .isInstanceOf(FacilityBadResponseException.class);
+        mockServer.verify(); // 파싱 실패도 계층 안에서 비재시도
     }
 
     @Configuration
