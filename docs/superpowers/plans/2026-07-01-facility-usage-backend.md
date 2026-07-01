@@ -37,7 +37,8 @@
 - `backend/src/main/java/com/duing/domain/facility/service/FacilitySyncService.java` — 시설 목록 reconcile
 - `backend/src/main/java/com/duing/domain/facility/service/FacilitySnapshotWriter.java` — `@Transactional` 원자적 교체 + 메타 upsert
 - `backend/src/main/java/com/duing/domain/facility/service/FacilityCrawlService.java` — 수집 오케스트레이션 + single-flight + TTL
-- `backend/src/main/java/com/duing/domain/facility/service/FacilityUsageService.java` — 조회 조립 + 상태계산(Asia/Seoul)
+- `backend/src/main/java/com/duing/domain/facility/service/FacilityUsageService.java` — 조회 조립 + 상태계산(Asia/Seoul) 인터페이스
+- `backend/src/main/java/com/duing/domain/facility/service/GeneralFacilityUsageService.java` — 위 인터페이스 구현체(`backend/CLAUDE.md` Service 컨벤션)
 - `backend/src/main/java/com/duing/domain/facility/scheduler/FacilityCrawlScheduler.java` — `@Scheduled` 예약(10분)/시설목록(1일) + overlap guard
 - `backend/src/main/java/com/duing/domain/facility/service/dto/query/CrawlSummary.java` — 구조화 로그용 결과 record
 - `backend/src/main/java/com/duing/domain/facility/service/dto/query/ReservationSlot.java` — 상태 계산 후 슬롯 record(내부)
@@ -2511,12 +2512,15 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
 
 `ensureFresh` 로 신선도 보장 후 시설 + 예약을 로드해 `SlotMerger` 병합, 주입된 `Clock`(seoulClock, Asia/Seoul) 기준으로 status/isUsingNow/currentReservation/nextReservation 을 계산한다. `lastUpdatedAt`(crawled_at → +09:00)·stale·source 를 조립한다. 월 범위 `현재월 ±12개월` 초과는 400. **테스트는 하드코딩 미래 절대날짜 금지 — 고정 Clock + 상대날짜.**
 
+컨트롤러 대면 도메인 서비스는 `backend/CLAUDE.md` 컨벤션(`{Domain}Service` 인터페이스 + `General{Domain}Service` 구현체, `PublicActivityService`/`GeneralPublicActivityService` 선례)에 따라 인터페이스 + `GeneralFacilityUsageService` 구현체로 분리한다.
+
 **Files:**
 - Create: `backend/src/main/java/com/duing/domain/facility/service/dto/query/ReservationSlot.java`
 - Create: `backend/src/main/java/com/duing/domain/facility/service/dto/query/FacilityUsageItem.java`
 - Create: `backend/src/main/java/com/duing/domain/facility/service/dto/query/FacilityUsageResult.java`
 - Create: `backend/src/main/java/com/duing/domain/facility/exception/FacilityException.java`
-- Create: `backend/src/main/java/com/duing/domain/facility/service/FacilityUsageService.java`
+- Create: `backend/src/main/java/com/duing/domain/facility/service/FacilityUsageService.java` (인터페이스)
+- Create: `backend/src/main/java/com/duing/domain/facility/service/GeneralFacilityUsageService.java` (구현체)
 - Test: `backend/src/test/java/com/duing/domain/facility/service/FacilityUsageServiceTest.java`
 
 - [ ] `ReservationSlot.java`:
@@ -2653,7 +2657,7 @@ class FacilityUsageServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new FacilityUsageService(crawlService, facilityRepository, reservationRepository,
+        service = new GeneralFacilityUsageService(crawlService, facilityRepository, reservationRepository,
                 snapshotRepository, slotMerger, clock);
     }
 
@@ -2728,8 +2732,9 @@ class FacilityUsageServiceTest {
     @DisplayName("yearMonth 가 null 이면 현재월로 조회한다")
     void defaultsToCurrentMonth() throws Exception {
         when(crawlService.ensureFresh(july)).thenReturn(DataSource.CACHE);
+        // 시설 목록이 비어있으면 구현체가 reservationRepository 조회를 생략하므로(빈 facilityIds 단락)
+        // 그 스텁은 두지 않는다(strict stubbing 시 UnnecessaryStubbingException).
         when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of());
-        when(reservationRepository.findByFacilityIdInAndYearMonth(any(), eq(july))).thenReturn(List.of());
         when(snapshotRepository.findByYearMonth(july)).thenReturn(Optional.empty());
 
         FacilityUsageResult result = service.getUsage(null);
@@ -2742,7 +2747,31 @@ class FacilityUsageServiceTest {
 
 - [ ] 실행 → FAIL:
   `cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend && ./gradlew test --tests "com.duing.domain.facility.service.FacilityUsageServiceTest"` → `BUILD FAILED`.
-- [ ] 구현 `FacilityUsageService.java`:
+- [ ] 인터페이스 `FacilityUsageService.java` (`backend/CLAUDE.md`: `{Domain}Service` 인터페이스 + `General{Domain}Service` 구현체, `PublicActivityService`/`GeneralPublicActivityService` 선례):
+
+```java
+package com.duing.domain.facility.service;
+
+import com.duing.domain.facility.entity.Facility;
+import com.duing.domain.facility.service.dto.query.FacilityUsageResult;
+import java.time.YearMonth;
+import java.util.List;
+
+/** 시설 이용현황 조회(공개 API 용). 조회 시점 상태계산은 구현체가 담당한다. */
+public interface FacilityUsageService {
+
+    /** §7.1 활성 시설 목록(가벼움). */
+    List<Facility> getActiveFacilities();
+
+    /** §7.2 이용현황. yearMonth 가 null 이면 현재월. 범위 초과는 400. */
+    FacilityUsageResult getUsage(YearMonth requestedMonth);
+
+    /** §7.3 단일 시설 상세 — usage 의 시설 1건 슬라이스. */
+    FacilityUsageResult getDetail(Long facilityId, YearMonth requestedMonth);
+}
+```
+
+- [ ] 구현 `GeneralFacilityUsageService.java`:
 
 ```java
 package com.duing.domain.facility.service;
@@ -2765,6 +2794,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -2782,7 +2812,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class FacilityUsageService {
+public class GeneralFacilityUsageService implements FacilityUsageService {
 
     private static final int MONTH_WINDOW = 12;
     private static final int CURRENT_NEXT_TTL_MINUTES = 10;
@@ -2796,11 +2826,13 @@ public class FacilityUsageService {
     private final Clock clock;
 
     /** §7.1 활성 시설 목록(가벼움). */
+    @Override
     public List<Facility> getActiveFacilities() {
         return facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc();
     }
 
     /** §7.2 이용현황. yearMonth 가 null 이면 현재월. 범위 초과는 400. */
+    @Override
     public FacilityUsageResult getUsage(YearMonth requestedMonth) {
         YearMonth yearMonth = (requestedMonth == null) ? YearMonth.now(clock) : requestedMonth;
         assertWithinWindow(yearMonth);
@@ -2810,6 +2842,7 @@ public class FacilityUsageService {
     }
 
     /** §7.3 단일 시설 상세 — usage 의 시설 1건 슬라이스. */
+    @Override
     public FacilityUsageResult getDetail(Long facilityId, YearMonth requestedMonth) {
         YearMonth yearMonth = (requestedMonth == null) ? YearMonth.now(clock) : requestedMonth;
         assertWithinWindow(yearMonth);
@@ -2824,7 +2857,7 @@ public class FacilityUsageService {
 
     private void assertWithinWindow(YearMonth yearMonth) {
         YearMonth current = YearMonth.now(clock);
-        long months = Math.abs(java.time.temporal.ChronoUnit.MONTHS.between(current, yearMonth));
+        long months = Math.abs(ChronoUnit.MONTHS.between(current, yearMonth));
         if (months > MONTH_WINDOW) {
             throw new FacilityException.MonthOutOfRangeException();
         }
@@ -2905,7 +2938,7 @@ public class FacilityUsageService {
 - [ ] 커밋:
 
 ```bash
-cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/duing/domain/facility/service/dto/query/ReservationSlot.java backend/src/main/java/com/duing/domain/facility/service/dto/query/FacilityUsageItem.java backend/src/main/java/com/duing/domain/facility/service/dto/query/FacilityUsageResult.java backend/src/main/java/com/duing/domain/facility/exception/FacilityException.java backend/src/main/java/com/duing/domain/facility/service/FacilityUsageService.java backend/src/test/java/com/duing/domain/facility/service/FacilityUsageServiceTest.java && git commit -m "feat(backend): 이용현황 조회 조립·상태계산(Asia/Seoul)·월 범위 제한"
+cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/duing/domain/facility/service/dto/query/ReservationSlot.java backend/src/main/java/com/duing/domain/facility/service/dto/query/FacilityUsageItem.java backend/src/main/java/com/duing/domain/facility/service/dto/query/FacilityUsageResult.java backend/src/main/java/com/duing/domain/facility/exception/FacilityException.java backend/src/main/java/com/duing/domain/facility/service/FacilityUsageService.java backend/src/main/java/com/duing/domain/facility/service/GeneralFacilityUsageService.java backend/src/test/java/com/duing/domain/facility/service/FacilityUsageServiceTest.java && git commit -m "feat(backend): 이용현황 조회 조립·상태계산(Asia/Seoul)·월 범위 제한"
 ```
 
 ---
