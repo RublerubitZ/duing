@@ -123,7 +123,7 @@ curl -sS -A "Mozilla/5.0 (compatible; DuingFacilityBot/1.0)" \
   -o /Users/ksy/Desktop/BASIC/Coding/Duing/backend/src/test/resources/facility/room_detail.html
 ```
 
-성공하면 `grep -c 'id="room_' .../room_detail.html` 이 10 이상인지 확인. 차단되면 다음 폴백 HTML을 저장한다(파서는 `li[id^=room_]` 만 읽으므로 나머지 마크업은 최소화). `room_seq` 매핑은 §2.1 실측: 1/2/3=커뮤니티룸(1~3), 4/6/22/41=공동연습실(1~4), 82=빛광장, 102=자유광장(노천강당), 143=웅지관 강당.
+성공하면 `grep -c 'id="room_' .../room_detail.html` 이 10 이상인지 확인. 차단되면 다음 폴백 HTML을 저장한다(파서는 `li[id^=room_]` 만 읽으므로 나머지 마크업은 최소화). **`room_seq` 매핑은 §2.1 실측(불연속·비단조)**: 1/2/3=커뮤니티룸(1)(1503호)/(2)(1527호)/(3)(1425호), 4=공동연습실(1)(2105), 6=공동연습실(3)(2109), 82=공동연습실(2)(2107), 102=공동연습실(4)(1506호), 22=빛광장, 41=자유광장(노천강당), 143=웅지관 강당. (공동연습실 번호가 room_seq 순서와 일치하지 않음에 주의)
 
 - [ ] `room_detail.html` (폴백) 내용:
 
@@ -133,30 +133,20 @@ curl -sS -A "Mozilla/5.0 (compatible; DuingFacilityBot/1.0)" \
 <body>
 <ul class="room_tab">
   <li class="fst active" id="room_1"><a onclick="tab_menu2(1);" href="#none">커뮤니티룸(1)(1503호)</a><h3 class="heading_title">커뮤니티룸(1)(1503호)</h3></li>
-  <li id="room_2"><a onclick="tab_menu2(2);" href="#none">커뮤니티룸(2)(1504호)</a><h3 class="heading_title">커뮤니티룸(2)(1504호)</h3></li>
-  <li id="room_3"><a onclick="tab_menu2(3);" href="#none">커뮤니티룸(3)(1505호)</a><h3 class="heading_title">커뮤니티룸(3)(1505호)</h3></li>
+  <li id="room_2"><a onclick="tab_menu2(2);" href="#none">커뮤니티룸(2)(1527호)</a><h3 class="heading_title">커뮤니티룸(2)(1527호)</h3></li>
+  <li id="room_3"><a onclick="tab_menu2(3);" href="#none">커뮤니티룸(3)(1425호)</a><h3 class="heading_title">커뮤니티룸(3)(1425호)</h3></li>
   <li id="room_4"><a onclick="tab_menu2(4);" href="#none">공동연습실(1)(2105)</a><h3 class="heading_title">공동연습실(1)(2105)</h3></li>
-  <li id="room_6"><a onclick="tab_menu2(6);" href="#none">공동연습실(2)(2106)</a><h3 class="heading_title">공동연습실(2)(2106)</h3></li>
-  <li id="room_22"><a onclick="tab_menu2(22);" href="#none">공동연습실(3)(2107)</a><h3 class="heading_title">공동연습실(3)(2107)</h3></li>
-  <li id="room_41"><a onclick="tab_menu2(41);" href="#none">공동연습실(4)(2108)</a><h3 class="heading_title">공동연습실(4)(2108)</h3></li>
-  <li id="room_82"><a onclick="tab_menu2(82);" href="#none">빛광장</a><h3 class="heading_title">빛광장</h3></li>
-  <li id="room_102"><a onclick="tab_menu2(102);" href="#none">자유광장(노천강당)</a><h3 class="heading_title">자유광장(노천강당)</h3></li>
+  <li id="room_6"><a onclick="tab_menu2(6);" href="#none">공동연습실(3)(2109)</a><h3 class="heading_title">공동연습실(3)(2109)</h3></li>
+  <li id="room_22"><a onclick="tab_menu2(22);" href="#none">빛광장</a><h3 class="heading_title">빛광장</h3></li>
+  <li id="room_41"><a onclick="tab_menu2(41);" href="#none">자유광장(노천강당)</a><h3 class="heading_title">자유광장(노천강당)</h3></li>
+  <li id="room_82"><a onclick="tab_menu2(82);" href="#none">공동연습실(2)(2107)</a><h3 class="heading_title">공동연습실(2)(2107)</h3></li>
+  <li id="room_102"><a onclick="tab_menu2(102);" href="#none">공동연습실(4)(1506호)</a><h3 class="heading_title">공동연습실(4)(1506호)</h3></li>
   <li id="room_143"><a onclick="tab_menu2(143);" href="#none">웅지관 강당</a><h3 class="heading_title">웅지관 강당</h3></li>
 </ul>
 </body></html>
 ```
 
-- [ ] (1순위) 실 JSON 재수집 시도(무상태·쿠키 불필요):
-
-```bash
-curl -sS -X POST "https://www.daegu.ac.kr/room/data/list" \
-  -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  --data "room_seq=4&schedule_date=2026-07" \
-  -o /Users/ksy/Desktop/BASIC/Coding/Duing/backend/src/test/resources/facility/room_data_list_room4.json
-```
-
-차단/불가 시 아래 폴백 JSON을 저장한다. room4 폴백은 파서 검증에 필요한 세 케이스를 포함한다: (a) dept 꼬리 시간표기 정리 대상 `고정관념(9:00~20:00)`, (b) 비인접 두 슬롯(09-10 · 19-20), (c) 인접 두 슬롯(09-10 · 10-11) 동일 단체(병합 대상), (d) `schedule_seq` 중복 1건(distinct 검증).
+- [ ] **JSON 픽스처는 아래 크래프트 내용을 그대로 저장한다(라이브 curl 로 덮어쓰지 말 것).** Task 11 테스트가 실데이터에 없는 특정 케이스에 의존하기 때문이다 — 라이브 실 JSON(고정관념 09-10·19-20 뿐)로 덮으면 Task 11 의 `parsesRoom4`(size=4, seq [18134,18135,18140,18141]) 가 깨진다. room4 크래프트는 파서 검증 네 케이스를 포함한다: (a) dept 꼬리 시간표기 정리 대상 `고정관념(9:00~20:00)`, (b) 비인접 두 슬롯(09-10 · 19-20), (c) 인접 두 슬롯(09-10 · 10-11) 동일 단체(병합 대상), (d) `schedule_seq` 중복 1건(distinct 검증). (참고: 구조 확인용 라이브 조회는 `curl -sS -X POST https://www.daegu.ac.kr/room/data/list -H "X-Requested-With: XMLHttpRequest" --data "room_seq=4&schedule_date=2026-07"` 로 가능하나 픽스처로는 쓰지 않는다.)
 
 - [ ] `room_data_list_room4.json` (폴백):
 
@@ -1316,10 +1306,15 @@ class FacilityListParserTest {
         Map<Integer, ParsedFacility> byRoomSeq = parser.parse(loadFixture()).stream()
                 .collect(Collectors.toMap(ParsedFacility::roomSeq, Function.identity()));
 
-        assertThat(byRoomSeq.get(82).roomName()).isEqualTo("빛광장");
-        assertThat(byRoomSeq.get(82).location()).isNull();
-        assertThat(byRoomSeq.get(102).roomName()).isEqualTo("자유광장(노천강당)");
-        assertThat(byRoomSeq.get(102).location()).isNull();
+        assertThat(byRoomSeq.get(22).roomName()).isEqualTo("빛광장");
+        assertThat(byRoomSeq.get(22).location()).isNull();
+        assertThat(byRoomSeq.get(41).roomName()).isEqualTo("자유광장(노천강당)");
+        assertThat(byRoomSeq.get(41).location()).isNull();
+        // room_82/102 는 공동연습실(2)/(4) — 실측 매핑(번호가 room_seq 순서와 불일치) 고정
+        assertThat(byRoomSeq.get(82).roomName()).isEqualTo("공동연습실(2)");
+        assertThat(byRoomSeq.get(82).location()).isEqualTo("2107");
+        assertThat(byRoomSeq.get(102).roomName()).isEqualTo("공동연습실(4)");
+        assertThat(byRoomSeq.get(102).location()).isEqualTo("1506호");
     }
 }
 ```
