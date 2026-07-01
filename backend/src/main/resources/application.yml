@@ -132,6 +132,21 @@ duing:
     window-days: ${DUING_PUBLIC_ACTIVITY_WINDOW_DAYS:30}
     default-limit: ${DUING_PUBLIC_ACTIVITY_DEFAULT_LIMIT:10}
     max-limit: ${DUING_PUBLIC_ACTIVITY_MAX_LIMIT:20}
+  facility:
+    crawler:
+      # 시설 예약 크롤 스케줄러(10분)/시설목록 동기화(1일). 로컬/테스트 기본 비활성 —
+      # 운영에서 DUING_FACILITY_CRAWLER_ENABLED=true(application-prod.yml)로 활성화한다.
+      # 온디맨드 조회(FacilitySchoolClientConfig)는 이 토글과 무관하게 항상 동작한다.
+      enabled: ${DUING_FACILITY_CRAWLER_ENABLED:false}
+      base-url: ${DUING_FACILITY_BASE_URL:https://www.daegu.ac.kr}
+      list-path: /room/detail
+      data-path: /room/data/list
+      user-agent: ${DUING_FACILITY_USER_AGENT:Mozilla/5.0 (compatible; DuingFacilityBot/1.0)}
+      connect-timeout-millis: 3000
+      read-timeout-millis: 5000
+      retry-max-attempts: 4
+      retry-backoff-millis: 500
+      room-delay-millis: 100
 
 # 기본은 안전값(warn). bind 파라미터 로깅(org.hibernate.orm.jdbc.bind=trace)은 이메일·인증코드·학번 등
 # PII 를 평문으로 남기므로 base 를 warn 으로 둔다. local 프로파일만 개발 편의로 trace 를 다시 켜고

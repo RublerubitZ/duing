@@ -60,6 +60,11 @@ duing:
   privacy:
     retention:
       enabled: ${DUING_PII_RETENTION_ENABLED:true}
+  # 시설 크롤 스케줄러 — 운영에서는 항상 켠다. 별도 env 셋업 누락으로 조용히 꺼지는 사고를 막는다.
+  # 끄고 싶으면 DUING_FACILITY_CRAWLER_ENABLED=false 로 오버라이드한다.
+  facility:
+    crawler:
+      enabled: ${DUING_FACILITY_CRAWLER_ENABLED:true}
 
 # 이메일 발송 — 운영은 항상 Resend 를 쓴다. EMAIL_PROVIDER 누락 시 공통 yml 의 기본값(logging)
 # 으로 조용히 떨어져 인증 메일이 발송되지 않는 사고를 막기 위해 프로파일에서 하드코딩한다.
