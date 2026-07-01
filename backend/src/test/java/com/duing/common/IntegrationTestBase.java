@@ -24,6 +24,9 @@ public abstract class IntegrationTestBase {
         // RESTART IDENTITY: PK 시퀀스 초기화 → 테스트 간 id 누출 방지.
         jdbcTemplate.execute(
                 "TRUNCATE TABLE " +
+                "facility_reservation, " +
+                "facility_month_snapshot, " +
+                "facility, " +
                 "cashbook_entry, " +
                 "bank_transaction, " +
                 "bank_matching_setting, " +
