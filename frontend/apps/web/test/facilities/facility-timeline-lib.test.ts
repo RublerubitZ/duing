@@ -7,6 +7,10 @@ import {
   seoulDateIso,
   daysInMonth,
   formatLastUpdated,
+  nextSlotLabel,
+  monthDiff,
+  shiftYearMonth,
+  yearMonthLabel,
 } from '../../app/facilities/_lib/facilityTimeline';
 
 const slots: ReservationSlot[] = [
@@ -75,6 +79,48 @@ describe('daysInMonth', () => {
     ['2026-07', 31],
   ] as const)('%s → %d일', (yearMonth, expected) => {
     expect(daysInMonth(yearMonth)).toBe(expected);
+  });
+});
+
+describe('nextSlotLabel', () => {
+  const slot: ReservationSlot = {
+    date: '2026-07-04',
+    start: '16:00',
+    end: '17:00',
+    organization: '고정관념',
+    status: 'UPCOMING',
+  };
+
+  it('오늘 예약이면 시간만 표기한다', () => {
+    expect(nextSlotLabel(slot, '2026-07-04')).toBe('16:00~17:00');
+  });
+
+  it('오늘이 아니면 M/D 를 병기한다(0패딩 제거)', () => {
+    expect(nextSlotLabel(slot, '2026-07-02')).toBe('7/4 16:00~17:00');
+  });
+});
+
+describe('monthDiff / shiftYearMonth / yearMonthLabel', () => {
+  it('monthDiff 는 to - from 개월 차를 준다', () => {
+    expect(monthDiff('2026-07', '2026-07')).toBe(0);
+    expect(monthDiff('2026-07', '2026-08')).toBe(1);
+    expect(monthDiff('2026-07', '2025-07')).toBe(-12);
+    expect(monthDiff('2026-07', '2027-07')).toBe(12);
+    expect(monthDiff('2026-12', '2027-01')).toBe(1);
+  });
+
+  it('shiftYearMonth 는 연 경계를 넘어도 안전하다', () => {
+    expect(shiftYearMonth('2026-07', 1)).toBe('2026-08');
+    expect(shiftYearMonth('2026-07', -1)).toBe('2026-06');
+    expect(shiftYearMonth('2026-12', 1)).toBe('2027-01');
+    expect(shiftYearMonth('2026-01', -1)).toBe('2025-12');
+    expect(shiftYearMonth('2026-07', -12)).toBe('2025-07');
+    expect(shiftYearMonth('2026-07', 12)).toBe('2027-07');
+  });
+
+  it('yearMonthLabel 은 "YYYY년 M월"(0패딩 제거) 형식이다', () => {
+    expect(yearMonthLabel('2026-07')).toBe('2026년 7월');
+    expect(yearMonthLabel('2026-12')).toBe('2026년 12월');
   });
 });
 
