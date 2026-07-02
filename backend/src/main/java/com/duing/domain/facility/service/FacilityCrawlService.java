@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReentrantLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,11 +51,14 @@ public class FacilityCrawlService {
     private static final int CURRENT_NEXT_TTL_MINUTES = 10;
     private static final int OTHER_TTL_HOURS = 24;
     private static final int ON_DEMAND_COOLDOWN_SECONDS = 30;
+    private static final int ON_DEMAND_MAX_CONCURRENT = 3;
 
     // 월별 single-flight 락. 키는 Task 17 의 ±12개월 조회 범위로 제한되므로 사실상 소수(최대 ~25)로 유지된다.
     private final ConcurrentHashMap<YearMonth, ReentrantLock> monthLocks = new ConcurrentHashMap<>();
     // 월별 최근 수집 시도(성공·실패 불문) 시각 — 온디맨드 실패 쿨다운 판정용.
     private final ConcurrentHashMap<YearMonth, LocalDateTime> lastAttemptAt = new ConcurrentHashMap<>();
+    // 온디맨드(공개 GET) 동시 크롤 전역 상한 — 월 순회 남용/업스트림 장애 시 요청 스레드 폭주 방지.
+    private final Semaphore onDemandSlots = new Semaphore(ON_DEMAND_MAX_CONCURRENT);
 
     /** 스케줄러용: 해당 월을 monthLocks 로 직렬화한 채 강제 수집한다(온디맨드와 같은 락 → 경합 제거). */
     public CrawlSummary refreshMonthLocked(YearMonth yearMonth, CrawlSource source) {
@@ -69,15 +73,21 @@ public class FacilityCrawlService {
     }
 
     /**
-     * 온디맨드 조회 신선도 보장(§5.5). 신선하면 CACHE, 만료/미캐시면 single-flight 락으로 그 월을
-     * 전 시설 fetch·교체 후 LIVE_FETCH(성공)/STALE_CACHE(라이브 실패, 옛 캐시 또는 콜드)를 반환한다.
+     * 온디맨드 조회 신선도 보장(§5.5). 신선하면 CACHE, 만료/미캐시면 그 월을 전 시설 fetch·교체 후
+     * LIVE_FETCH(성공)/STALE_CACHE(라이브 실패, 옛 캐시 또는 콜드)를 반환한다.
+     * 공개 GET 이 요청 스레드를 무한정 점유하지 않도록 두 단계로 유입을 제한한다(경합/폭주 시 STALE_CACHE 즉시 반환,
+     * 대기 없음): (1) 월별 락은 {@code tryLock()} — 같은 월을 다른 요청이 이미 갱신 중이면 대기하지 않고 반환.
+     * (2) 전역 {@link #onDemandSlots} 세마포어 — 월이 달라도 동시 온디맨드 크롤은 {@link #ON_DEMAND_MAX_CONCURRENT}개로 상한.
      */
     public DataSource ensureFresh(YearMonth yearMonth) {
         if (isFresh(yearMonth)) {
             return DataSource.CACHE;
         }
         ReentrantLock lock = monthLocks.computeIfAbsent(yearMonth, key -> new ReentrantLock());
-        lock.lock();
+        if (!lock.tryLock()) {
+            // 같은 월을 다른 요청이 이미 갱신 중 — 요청 스레드를 붙잡지 않고 캐시(스테일) 즉시 반환.
+            return DataSource.STALE_CACHE;
+        }
         try {
             if (isFresh(yearMonth)) {
                 return DataSource.CACHE; // 더블체크: 대기 중 다른 스레드가 채웠다면 fetch 생략
@@ -86,9 +96,17 @@ public class FacilityCrawlService {
                 // 최근 수집 시도(실패 포함) 후 쿨다운 내 — 학교 서버 연쇄 재요청·스레드 점유 폭주 방지(STALE_CACHE 서빙).
                 return DataSource.STALE_CACHE;
             }
-            lastAttemptAt.put(yearMonth, LocalDateTime.now(clock));
-            CrawlSummary summary = crawlAndReplace(List.of(yearMonth), CrawlSource.ON_DEMAND);
-            return summary.succeededRooms() > 0 ? DataSource.LIVE_FETCH : DataSource.STALE_CACHE;
+            if (!onDemandSlots.tryAcquire()) {
+                // 온디맨드 동시 크롤 상한 초과(월 순회 남용/장애 시 폭주 방지) — 스테일 즉시 반환.
+                return DataSource.STALE_CACHE;
+            }
+            try {
+                lastAttemptAt.put(yearMonth, LocalDateTime.now(clock));
+                CrawlSummary summary = crawlAndReplace(List.of(yearMonth), CrawlSource.ON_DEMAND);
+                return summary.succeededRooms() > 0 ? DataSource.LIVE_FETCH : DataSource.STALE_CACHE;
+            } finally {
+                onDemandSlots.release();
+            }
         } finally {
             lock.unlock();
         }
@@ -102,8 +120,9 @@ public class FacilityCrawlService {
 
     private boolean isFresh(YearMonth yearMonth) {
         return snapshotRepository.findByYearMonth(yearMonth)
-                .map(snapshot -> Duration.between(snapshot.getCrawledAt(), LocalDateTime.now(clock))
-                        .compareTo(ttl(yearMonth)) < 0)
+                .map(snapshot -> snapshot.getFetchStatus() == FetchStatus.SUCCESS
+                        && Duration.between(snapshot.getCrawledAt(), LocalDateTime.now(clock))
+                                .compareTo(ttl(yearMonth)) < 0)
                 .orElse(false);
     }
 

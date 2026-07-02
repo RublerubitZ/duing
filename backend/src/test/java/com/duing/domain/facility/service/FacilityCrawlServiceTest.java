@@ -34,7 +34,9 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
@@ -161,50 +163,73 @@ class FacilityCrawlServiceTest {
     }
 
     @Test
-    @DisplayName("동시 미스 2건은 single-flight 락으로 학교 fetch 1회로 수렴한다")
-    void concurrentMissesCollapseToSingleFetch() throws InterruptedException {
+    @DisplayName("같은 월을 갱신 중인 요청이 있으면 두 번째 요청은 비블로킹(tryLock)이라 첫 크롤 완료를 기다리지 않고 STALE_CACHE 를 즉시 반환하고, 학교 fetch 는 1회로 수렴한다")
+    void concurrentMissesCollapseToSingleFetch() throws Exception {
+        // 타이밍(sleep)에 의존하지 않도록 래치로 순서를 결정론적으로 강제한다:
+        // 첫 스레드가 월별 락을 쥔 채 크롤에 진입한 뒤에야 둘째 스레드를 실행해 tryLock 실패를 확정한다.
         YearMonth current = YearMonth.now(clock);
         Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
         when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
-
-        AtomicReference<FacilityMonthSnapshot> stored = new AtomicReference<>(null);
-        when(snapshotRepository.findByYearMonth(current))
-                .thenAnswer(invocation -> Optional.ofNullable(stored.get()));
+        when(snapshotRepository.findByYearMonth(current)).thenReturn(Optional.empty());
 
         AtomicInteger fetchCount = new AtomicInteger();
+        AtomicBoolean firstCrawlFinished = new AtomicBoolean(false);
+        AtomicReference<Boolean> firstDoneWhenSecondReturned = new AtomicReference<>();
+        CountDownLatch firstHoldsLock = new CountDownLatch(1);
+        CountDownLatch secondReturned = new CountDownLatch(1);
         when(client.fetchReservations(anyInt(), eq(current))).thenAnswer(invocation -> {
             fetchCount.incrementAndGet();
-            Thread.sleep(200); // 첫 스레드가 락을 쥐고 있는 동안 둘째가 대기하도록
+            firstHoldsLock.countDown();                  // 첫 스레드가 월별 락을 쥔 채 크롤 진입을 알림
+            secondReturned.await(3, TimeUnit.SECONDS);   // 둘째가 결과를 확정할 때까지 락을 계속 보유
             return objectMapper.createArrayNode();
         });
         when(reservationParser.parse(any(), eq(current))).thenReturn(List.of());
-        // 성공 메타 기록 시 스냅샷이 신선해지도록 상태를 채운다 → 둘째 스레드의 더블체크가 CACHE 로 빠진다.
         doAnswer(invocation -> {
-            stored.set(FacilityMonthSnapshot.create(current, LocalDateTime.now(clock),
-                    CrawlSource.ON_DEMAND, FetchStatus.SUCCESS, null));
+            firstCrawlFinished.set(true); // 크롤 종료(락 해제 직전) 표식 — 둘째가 이 시점 이후에 반환하면 블로킹 회귀다
             return null;
         }).when(snapshotWriter).recordSuccessfulMeta(eq(current), any(), any(), any(), any());
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
-        CountDownLatch ready = new CountDownLatch(2);
-        CountDownLatch go = new CountDownLatch(1);
-        Runnable task = () -> {
-            ready.countDown();
-            try {
-                go.await();
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
-            service.ensureFresh(current);
-        };
-        pool.submit(task);
-        pool.submit(task);
-        ready.await();
-        go.countDown();
+        Future<DataSource> first = pool.submit(() -> service.ensureFresh(current));
+        assertThat(firstHoldsLock.await(3, TimeUnit.SECONDS)).isTrue(); // 첫 스레드가 락 획득+크롤 진입할 때까지 대기
+        Future<DataSource> second = pool.submit(() -> {
+            DataSource result = service.ensureFresh(current); // 첫 스레드가 락 보유 중 → tryLock 실패
+            firstDoneWhenSecondReturned.set(firstCrawlFinished.get()); // 반환 시점에 첫 크롤이 아직 안 끝났음
+            secondReturned.countDown();                       // 이제 첫 스레드가 크롤을 마치도록 해제
+            return result;
+        });
+
+        DataSource secondResult = second.get(3, TimeUnit.SECONDS);
+        DataSource firstResult = first.get(3, TimeUnit.SECONDS);
         pool.shutdown();
         assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
 
-        assertThat(fetchCount.get()).isEqualTo(1); // 동시 미스가 fetch 1회로 수렴
+        assertThat(fetchCount.get()).isEqualTo(1); // 동시 미스가 fetch 1회로 수렴(둘째는 재크롤하지 않음)
+        assertThat(firstResult).isEqualTo(DataSource.LIVE_FETCH); // 락을 얻은 쪽은 실제 수집 성공
+        assertThat(secondResult).isEqualTo(DataSource.STALE_CACHE); // tryLock 실패 → 대기 없이 스테일
+        // 둘째가 첫 크롤 완료 전에 반환했음을 증명(블로킹 lock() 이면 완료 후에야 반환했을 것).
+        assertThat(firstDoneWhenSecondReturned.get()).isFalse();
+    }
+
+    @Test
+    @DisplayName("PARTIAL 스냅샷은 crawled_at 이 최근이어도 신선 취급하지 않고(isFresh=false) 재수집을 시도한다")
+    void partialSnapshotIsNotTreatedAsFresh() {
+        YearMonth current = YearMonth.now(clock);
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        FacilityMonthSnapshot partial = FacilityMonthSnapshot.create(
+                current, LocalDateTime.now(clock), CrawlSource.SCHEDULER, FetchStatus.PARTIAL, "일부 룸 실패");
+        when(snapshotRepository.findByYearMonth(current)).thenReturn(Optional.of(partial));
+        when(client.fetchReservations(anyInt(), eq(current))).thenReturn(objectMapper.createArrayNode());
+        when(reservationParser.parse(any(), eq(current))).thenReturn(List.of());
+
+        DataSource result = service.ensureFresh(current);
+
+        // CACHE 로 단락되지 않고 실제 재수집을 시도했음을 fetch 호출로 증명한다.
+        verify(client, times(1)).fetchReservations(anyInt(), eq(current));
+        // 단일 스레드·전 룸 성공 스텁이라 재수집은 결정적으로 성공(succeededRooms==1) → LIVE_FETCH.
+        // STALE_CACHE 를 허용하면 재수집 회귀(CACHE 단락 등)를 놓칠 수 있어 정확히 단언한다.
+        assertThat(result).isEqualTo(DataSource.LIVE_FETCH);
     }
 
     @Test

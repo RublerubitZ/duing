@@ -4,6 +4,7 @@ import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
 import com.duing.domain.facility.entity.FacilityReservation;
+import com.duing.domain.facility.entity.FetchStatus;
 import com.duing.domain.facility.entity.ReservationStatus;
 import com.duing.domain.facility.exception.FacilityException;
 import com.duing.domain.facility.parser.ParsedReservation;
@@ -135,12 +136,14 @@ public class GeneralFacilityUsageService implements FacilityUsageService {
     private FacilityUsageResult buildResult(YearMonth yearMonth, DataSource source, List<FacilityUsageItem> items) {
         Optional<FacilityMonthSnapshot> snapshot = snapshotRepository.findByYearMonth(yearMonth);
         LocalDateTime crawledAt = snapshot.map(FacilityMonthSnapshot::getCrawledAt).orElse(null);
-        boolean stale = isStale(yearMonth, crawledAt, source);
+        FetchStatus fetchStatus = snapshot.map(FacilityMonthSnapshot::getFetchStatus).orElse(null);
+        boolean stale = isStale(yearMonth, crawledAt, fetchStatus, source);
         return new FacilityUsageResult(yearMonth, crawledAt, source, stale, items);
     }
 
-    private boolean isStale(YearMonth yearMonth, LocalDateTime crawledAt, DataSource source) {
-        if (source == DataSource.STALE_CACHE || crawledAt == null) {
+    /** PARTIAL(일부 룸만 성공)은 신선 취급하지 않는다 — 누락된 룸 데이터를 최신으로 오표기하지 않기 위함. */
+    private boolean isStale(YearMonth yearMonth, LocalDateTime crawledAt, FetchStatus fetchStatus, DataSource source) {
+        if (source == DataSource.STALE_CACHE || crawledAt == null || fetchStatus != FetchStatus.SUCCESS) {
             return true;
         }
         Duration ttl = ttl(yearMonth);

@@ -357,7 +357,7 @@ Flyway 위치 `backend/src/main/resources/db/migration/`, 현재 최신 `V68` �
 
 ## 14. 알려진 한계 (Known limitations)
 
-- **월 단위 신선도 granularity**: `facility_month_snapshot`은 월 1행이라 `stale`/신선도가 월 단위다. PARTIAL 크롤(일부 룸만 성공)에서 한 룸이라도 성공하면 `crawled_at`이 갱신돼 `stale=false`가 되므로, **지속적으로 실패하는 특정 룸**의 보존된 옛/빈 스냅샷이 "최신"으로 표시될 수 있다. 룸별 신선도가 필요하면 예약 행의 `crawled_at`(이미 존재)을 응답에 노출하거나 룸별 상태 컬럼을 추가해야 한다(스키마 변경 → 후속). 학교 장애가 특정 룸에만 지속되는 드문 경우에 한함(MINOR).
+- **월 단위 신선도 granularity**: `facility_month_snapshot`은 월 1행이라 `stale`/신선도가 월 단위다. PARTIAL 크롤(일부 룸만 성공)은 `fetch_status=PARTIAL`로 기록되고, `isFresh`/`stale` 판정 모두 `fetch_status==SUCCESS`를 요구하므로 **PARTIAL 월은 항상 `stale=true`로 노출되고 계속 재시도된다**(과거처럼 한 룸만 성공해도 "최신"으로 오표기되지 않음, §15 참조). 다만 판정 단위 자체는 여전히 월 단위라, PARTIAL 안에서 **어느 룸**이 실패했는지는 응답에서 구분되지 않는다(`failedRooms`는 로그·Sentry breadcrumb에만 존재). 룸별 신선도/실패 노출이 필요하면 예약 행의 `crawled_at`(이미 존재)을 응답에 노출하거나 룸별 상태 컬럼을 추가해야 한다(스키마 변경 → 후속, MINOR).
 
 ## 15. 최종 코드리뷰 후속 수정 (2026-07-02)
 
@@ -367,3 +367,5 @@ Flyway 위치 `backend/src/main/resources/db/migration/`, 현재 최신 `V68` �
 - **메타 기록 방어**: 월 메타 기록 실패가 공개 GET로 전파되지 않도록 try/catch로 격리.
 - **프론트 `lastUpdatedAt` null 처리**: 콜드/미수집 월(null) 시 `1970-01-01` 오표기 방지(업데이트 줄 숨김, 타입 `string|null`).
 - **타임라인 시간축 라벨 정렬**: 09~22 선형 트랙에 절대 좌표로 정렬(`justify-between` 어긋남 수정). 카드 트랜지션 `motion-safe:` 통일.
+- **온디맨드 동시성 상한(2026-07-02 adversarial review)**: `ensureFresh`의 월별 락을 블로킹 `lock()`에서 비블로킹 `tryLock()`으로 바꿔, 같은 월을 다른 요청이 이미 갱신 중이면 대기하지 않고 `STALE_CACHE`를 즉시 반환한다. 추가로 전역 `Semaphore(3)`(`onDemandSlots`)로 월이 달라도 동시 온디맨드 크롤을 최대 3개로 제한한다(초과분도 대기 없이 `STALE_CACHE`). 인증 없는 클라이언트가 ±12개월 창을 순회하며 요청 스레드를 무한정 점유하거나 학교 서버를 연쇄 호출시키는 것을 막는다. 스케줄러 전용 `refreshMonthLocked`는 블로킹 `lock()`과 세마포어 미적용을 그대로 유지(배경 잡은 반드시 완주해야 함); `ensureFresh`만 월락→세마포어 순으로 획득하는 유일한 경로라 락 순서 역전에 의한 교착 가능성은 없다.
+- **PARTIAL 스테일 노출(2026-07-02 adversarial review)**: 이전에는 PARTIAL 크롤도 `recordSuccessfulMeta`로 `crawled_at`이 갱신되고, `isFresh`/`isStale`이 `crawled_at`만 봐서 일부 룸이 계속 실패해도 `stale=false`로 마스킹됐다(§14 이전 버전 한계). 이제 `FacilityCrawlService.isFresh`와 `GeneralFacilityUsageService.isStale` 모두 `fetch_status==SUCCESS`를 함께 요구해, PARTIAL 월은 `isFresh=false`(계속 재시도)·`stale=true`(클라이언트 배너 노출)로 정확히 드러난다. 응답 필드는 추가하지 않고 기존 `stale`만으로 표현한다.

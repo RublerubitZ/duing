@@ -118,6 +118,22 @@ class FacilityUsageServiceTest {
     }
 
     @Test
+    @DisplayName("PARTIAL 크롤 스냅샷은 crawled_at 이 최근이고 source=CACHE 여도 stale=true 로 노출된다(일부 룸 누락을 최신으로 오표기하지 않음)")
+    void partialSnapshotIsReportedAsStale() throws Exception {
+        Facility facility = facilityWithId(1L, 4, "공동연습실(1)", "2105");
+        when(crawlService.ensureFresh(july)).thenReturn(DataSource.CACHE);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        when(reservationRepository.findByFacilityIdInAndYearMonth(any(), eq(july))).thenReturn(List.of());
+        when(snapshotRepository.findByYearMonth(july)).thenReturn(Optional.of(FacilityMonthSnapshot.create(
+                july, LocalDateTime.now(clock), CrawlSource.SCHEDULER, FetchStatus.PARTIAL, "일부 룸 실패")));
+
+        FacilityUsageResult result = service.getUsage(july);
+
+        assertThat(result.stale()).isTrue();
+        assertThat(result.crawledAt()).isEqualTo(LocalDateTime.now(clock)); // lastUpdatedAt 은 마지막 성공 시각 그대로 유지
+    }
+
+    @Test
     @DisplayName("현재월 기준 +13개월 조회는 MonthOutOfRangeException(400)이다")
     void rejectsOutOfWindow() {
         assertThatThrownBy(() -> service.getUsage(july.plusMonths(13)))

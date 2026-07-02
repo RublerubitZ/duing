@@ -2397,21 +2397,28 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
 
 **리뷰 후속 강화(스케줄러↔온디맨드 락 단일화 + 실패 쿨다운):** 스케줄러가 `crawlAndReplace` 를 락 없이 직접 호출해 `ensureFresh` 의 `monthLocks` 와 같은 월의 delete+insert·메타 first-insert 를 경합하는 문제를 막기 위해, 스케줄러 전용 `refreshMonthLocked(YearMonth, CrawlSource)` 를 같은 `monthLocks` 로 직렬화한 채 추가한다(항상 강제 수집). 또한 온디맨드 실패 경로가 `isFresh` 를 갱신하지 않아 업스트림 장애 중 동시 요청마다 매번 풀 크롤을 도는 문제를 막기 위해, 월별 `lastAttemptAt`(성공·실패 불문 최근 시도 시각) 을 두고 30초 쿨다운 내 재요청은 크롤 없이 `STALE_CACHE` 를 반환한다.
 
+**adversarial review 후속 강화 1(2026-07-02, 온디맨드 동시성 상한 — public GET DoS 차단):** `ensureFresh` 가 인증 없는 공개 GET에서 직접 호출되는데, 기존 `lock.lock()` 은 블로킹이라 같은 월을 동시에 조회하는 요청 스레드들이 큐잉되고, 서로 다른 월을 순회(±12개월 창)하면 동시 크롤 수에 상한이 없어 요청 스레드·학교 서버가 폭주할 수 있었다(confirmed [high]). 두 단계로 유입을 제한해 정상 부하에서는 즉시 조회를 유지하면서 폭주만 차단한다: (1) 월별 락을 `lock.lock()` → `lock.tryLock()` 으로 바꿔, 같은 월을 다른 요청이 이미 갱신 중이면 대기하지 않고 `STALE_CACHE` 를 즉시 반환한다. (2) 전역 `Semaphore(ON_DEMAND_MAX_CONCURRENT=3)`(`onDemandSlots`) 로 월이 달라도 동시 온디맨드 크롤을 3개로 상한하고, 초과분도 대기 없이 `STALE_CACHE` 를 반환한다. 스케줄러 전용 `refreshMonthLocked` 는 배경 잡이 반드시 완주해야 하므로 블로킹 `lock.lock()` 과 세마포어 미적용을 그대로 유지한다 — `ensureFresh` 만 월락→세마포어 순으로 두 락을 모두 획득하는 유일한 경로이므로 락 순서 역전에 의한 교착 가능성은 없다.
+
+**adversarial review 후속 강화 2(2026-07-02, PARTIAL 은 신선/비스테일로 승격되지 않음):** PARTIAL 크롤(일부 룸만 성공)도 `recordSuccessfulMeta` 로 `crawled_at` 이 갱신되는데, `isFresh`/`isStale` 이 `crawled_at` 만 보고 판정해 특정 룸이 계속 실패해도 TTL 내에는 `stale=false` 로 마스킹되는 문제가 있었다(confirmed [high], §14 참조). `isFresh` 에 `fetchStatus == FetchStatus.SUCCESS` 조건을 추가해, PARTIAL 월은 항상 `isFresh=false`(계속 재시도)가 되도록 고친다. 대응하는 조회측 수정은 Task 17 `isStale` 참조.
+
 **Files:**
 - Modify: `backend/src/main/java/com/duing/domain/facility/service/FacilityCrawlService.java`
 - Test: `backend/src/test/java/com/duing/domain/facility/service/FacilityCrawlServiceTest.java` (테스트 추가)
 
-- [ ] `FacilityCrawlService` 에 필드·메서드 추가. import 에 다음을 더한다: `com.duing.domain.facility.entity.DataSource`, `com.duing.domain.facility.entity.FacilityMonthSnapshot`, `java.util.concurrent.ConcurrentHashMap`, `java.util.concurrent.locks.ReentrantLock`. 클래스 필드와 메서드:
+- [ ] `FacilityCrawlService` 에 필드·메서드 추가. import 에 다음을 더한다: `com.duing.domain.facility.entity.DataSource`, `com.duing.domain.facility.entity.FacilityMonthSnapshot`, `com.duing.domain.facility.entity.FetchStatus`(온디맨드 동시성 상한 후속에서 `isFresh` 가 PARTIAL 을 제외하는 데 사용), `java.util.concurrent.ConcurrentHashMap`, `java.util.concurrent.Semaphore`(온디맨드 동시성 상한 후속), `java.util.concurrent.locks.ReentrantLock`. 클래스 필드와 메서드:
 
 ```java
     private static final int CURRENT_NEXT_TTL_MINUTES = 10;
     private static final int OTHER_TTL_HOURS = 24;
     private static final int ON_DEMAND_COOLDOWN_SECONDS = 30;
+    private static final int ON_DEMAND_MAX_CONCURRENT = 3;
 
     // 월별 single-flight 락. 키는 Task 17 의 ±12개월 조회 범위로 제한되므로 사실상 소수(최대 ~25)로 유지된다.
     private final ConcurrentHashMap<YearMonth, ReentrantLock> monthLocks = new ConcurrentHashMap<>();
     // 월별 최근 수집 시도(성공·실패 불문) 시각 — 온디맨드 실패 쿨다운 판정용.
     private final ConcurrentHashMap<YearMonth, LocalDateTime> lastAttemptAt = new ConcurrentHashMap<>();
+    // 온디맨드(공개 GET) 동시 크롤 전역 상한 — 월 순회 남용/업스트림 장애 시 요청 스레드 폭주 방지.
+    private final Semaphore onDemandSlots = new Semaphore(ON_DEMAND_MAX_CONCURRENT);
 
     /** 스케줄러용: 해당 월을 monthLocks 로 직렬화한 채 강제 수집한다(온디맨드와 같은 락 → 경합 제거). */
     public CrawlSummary refreshMonthLocked(YearMonth yearMonth, CrawlSource source) {
@@ -2426,15 +2433,21 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
     }
 
     /**
-     * 온디맨드 조회 신선도 보장(§5.5). 신선하면 CACHE, 만료/미캐시면 single-flight 락으로 그 월을
-     * 전 시설 fetch·교체 후 LIVE_FETCH(성공)/STALE_CACHE(라이브 실패, 옛 캐시 또는 콜드)를 반환한다.
+     * 온디맨드 조회 신선도 보장(§5.5). 신선하면 CACHE, 만료/미캐시면 그 월을 전 시설 fetch·교체 후
+     * LIVE_FETCH(성공)/STALE_CACHE(라이브 실패, 옛 캐시 또는 콜드)를 반환한다.
+     * 공개 GET 이 요청 스레드를 무한정 점유하지 않도록 두 단계로 유입을 제한한다(경합/폭주 시 STALE_CACHE 즉시 반환,
+     * 대기 없음): (1) 월별 락은 {@code tryLock()} — 같은 월을 다른 요청이 이미 갱신 중이면 대기하지 않고 반환.
+     * (2) 전역 {@link #onDemandSlots} 세마포어 — 월이 달라도 동시 온디맨드 크롤은 {@link #ON_DEMAND_MAX_CONCURRENT}개로 상한.
      */
     public DataSource ensureFresh(YearMonth yearMonth) {
         if (isFresh(yearMonth)) {
             return DataSource.CACHE;
         }
         ReentrantLock lock = monthLocks.computeIfAbsent(yearMonth, key -> new ReentrantLock());
-        lock.lock();
+        if (!lock.tryLock()) {
+            // 같은 월을 다른 요청이 이미 갱신 중 — 요청 스레드를 붙잡지 않고 캐시(스테일) 즉시 반환.
+            return DataSource.STALE_CACHE;
+        }
         try {
             if (isFresh(yearMonth)) {
                 return DataSource.CACHE; // 더블체크: 대기 중 다른 스레드가 채웠다면 fetch 생략
@@ -2443,9 +2456,17 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
                 // 최근 수집 시도(실패 포함) 후 쿨다운 내 — 학교 서버 연쇄 재요청·스레드 점유 폭주 방지(STALE_CACHE 서빙).
                 return DataSource.STALE_CACHE;
             }
-            lastAttemptAt.put(yearMonth, LocalDateTime.now(clock));
-            CrawlSummary summary = crawlAndReplace(List.of(yearMonth), CrawlSource.ON_DEMAND);
-            return summary.succeededRooms() > 0 ? DataSource.LIVE_FETCH : DataSource.STALE_CACHE;
+            if (!onDemandSlots.tryAcquire()) {
+                // 온디맨드 동시 크롤 상한 초과(월 순회 남용/장애 시 폭주 방지) — 스테일 즉시 반환.
+                return DataSource.STALE_CACHE;
+            }
+            try {
+                lastAttemptAt.put(yearMonth, LocalDateTime.now(clock));
+                CrawlSummary summary = crawlAndReplace(List.of(yearMonth), CrawlSource.ON_DEMAND);
+                return summary.succeededRooms() > 0 ? DataSource.LIVE_FETCH : DataSource.STALE_CACHE;
+            } finally {
+                onDemandSlots.release();
+            }
         } finally {
             lock.unlock();
         }
@@ -2457,10 +2478,12 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
                 && Duration.between(attempted, LocalDateTime.now(clock)).compareTo(Duration.ofSeconds(ON_DEMAND_COOLDOWN_SECONDS)) < 0;
     }
 
+    // fetchStatus == SUCCESS 를 함께 요구한다 — PARTIAL(일부 룸만 성공)은 crawled_at 이 갱신돼도 신선 취급하지 않는다.
     private boolean isFresh(YearMonth yearMonth) {
         return snapshotRepository.findByYearMonth(yearMonth)
-                .map(snapshot -> Duration.between(snapshot.getCrawledAt(), LocalDateTime.now(clock))
-                        .compareTo(ttl(yearMonth)) < 0)
+                .map(snapshot -> snapshot.getFetchStatus() == FetchStatus.SUCCESS
+                        && Duration.between(snapshot.getCrawledAt(), LocalDateTime.now(clock))
+                                .compareTo(ttl(yearMonth)) < 0)
                 .orElse(false);
     }
 
@@ -2473,9 +2496,11 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
     }
 ```
 
+- [ ] adversarial review 후속(2026-07-02) 테스트 추가 — `concurrentMissesCollapseToSingleFetch` 를 tryLock 의미론에 맞게 갱신한다: 두 스레드 중 월별 락을 얻지 못한 쪽은 더 이상 대기 후 `CACHE` 로 승격되지 않고, 대기 없이 즉시 `STALE_CACHE` 를 반환한다(`fetchCount==1` 단언은 유지). 또한 PARTIAL 스냅샷이 `isFresh` 에서 신선 취급되지 않음을 증명하는 `partialSnapshotIsNotTreatedAsFresh` 를 추가한다: `snapshotRepository.findByYearMonth` 가 `FetchStatus.PARTIAL` + 최근 `crawledAt` 스냅샷을 반환하도록 스텁하고, `ensureFresh` 가 `CACHE` 로 단락되지 않고 실제로 `client.fetchReservations` 를 호출(재수집 시도)함을 검증한다.
+
 - [ ] 리뷰 후속 테스트 추가 — 실패한 온디맨드 수집 직후 즉시 재요청이 쿨다운으로 디듀프되는지 검증(`FacilityCrawlServiceTest#failedAttemptIsCooledDownBeforeRetry`): 모든 룸 fetch 가 `FacilityFetchException` 을 던지도록 스텁한 콜드 월에 대해 `ensureFresh` 를 연속 2회 호출 — 첫 호출은 STALE_CACHE 반환 + `client` 1회 호출, 즉시 이어지는 둘째 호출도 STALE_CACHE 반환하지만 `client` 는 추가 호출되지 않음을 검증한다.
 
-- [ ] `FacilityCrawlServiceTest` 에 신선도·single-flight 테스트를 추가한다(파일 상단 import 에 `java.time.LocalDateTime`, `java.util.Optional`, `java.util.concurrent.CountDownLatch`, `java.util.concurrent.ExecutorService`, `java.util.concurrent.Executors`, `java.util.concurrent.TimeUnit`, `java.util.concurrent.atomic.AtomicInteger`, `java.util.concurrent.atomic.AtomicReference`, `com.duing.domain.facility.entity.CrawlSource` 이미 존재, `com.duing.domain.facility.entity.DataSource`, `com.duing.domain.facility.entity.FacilityMonthSnapshot`, `com.duing.domain.facility.entity.FetchStatus` 이미 존재, `static org.mockito.Mockito.doAnswer`):
+- [ ] `FacilityCrawlServiceTest` 에 신선도·single-flight 테스트를 추가한다(파일 상단 import 에 `java.time.LocalDateTime`, `java.util.Optional`, `java.util.concurrent.CountDownLatch`, `java.util.concurrent.ExecutorService`, `java.util.concurrent.Executors`, `java.util.concurrent.Future`, `java.util.concurrent.TimeUnit`, `java.util.concurrent.atomic.AtomicBoolean`, `java.util.concurrent.atomic.AtomicInteger`, `java.util.concurrent.atomic.AtomicReference`, `com.duing.domain.facility.entity.CrawlSource` 이미 존재, `com.duing.domain.facility.entity.DataSource`, `com.duing.domain.facility.entity.FacilityMonthSnapshot`, `com.duing.domain.facility.entity.FetchStatus` 이미 존재, `static org.mockito.Mockito.doAnswer`). `Future`/`AtomicBoolean` 은 adversarial review 후속(2026-07-02)에서 tryLock 비블로킹 동작을 결정론적으로(래치 기반, sleep 무의존) 검증하기 위해 추가됐다:
 
 ```java
     @Test
@@ -2491,50 +2516,72 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
     }
 
     @Test
-    @DisplayName("동시 미스 2건은 single-flight 락으로 학교 fetch 1회로 수렴한다")
-    void concurrentMissesCollapseToSingleFetch() throws InterruptedException {
+    @DisplayName("같은 월을 갱신 중인 요청이 있으면 두 번째 요청은 비블로킹(tryLock)이라 첫 크롤 완료를 기다리지 않고 STALE_CACHE 를 즉시 반환하고, 학교 fetch 는 1회로 수렴한다")
+    void concurrentMissesCollapseToSingleFetch() throws Exception {
+        // 타이밍(sleep)에 의존하지 않도록 래치로 순서를 결정론적으로 강제한다:
+        // 첫 스레드가 월별 락을 쥔 채 크롤에 진입한 뒤에야 둘째 스레드를 실행해 tryLock 실패를 확정한다.
         YearMonth current = YearMonth.now(clock);
         Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
         when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
-
-        AtomicReference<FacilityMonthSnapshot> stored = new AtomicReference<>(null);
-        when(snapshotRepository.findByYearMonth(current))
-                .thenAnswer(invocation -> Optional.ofNullable(stored.get()));
+        when(snapshotRepository.findByYearMonth(current)).thenReturn(Optional.empty());
 
         AtomicInteger fetchCount = new AtomicInteger();
+        AtomicBoolean firstCrawlFinished = new AtomicBoolean(false);
+        AtomicReference<Boolean> firstDoneWhenSecondReturned = new AtomicReference<>();
+        CountDownLatch firstHoldsLock = new CountDownLatch(1);
+        CountDownLatch secondReturned = new CountDownLatch(1);
         when(client.fetchReservations(anyInt(), eq(current))).thenAnswer(invocation -> {
             fetchCount.incrementAndGet();
-            Thread.sleep(200); // 첫 스레드가 락을 쥐고 있는 동안 둘째가 대기하도록
+            firstHoldsLock.countDown();                  // 첫 스레드가 월별 락을 쥔 채 크롤 진입을 알림
+            secondReturned.await(3, TimeUnit.SECONDS);   // 둘째가 결과를 확정할 때까지 락을 계속 보유
             return objectMapper.createArrayNode();
         });
         when(reservationParser.parse(any(), eq(current))).thenReturn(List.of());
-        // 성공 메타 기록 시 스냅샷이 신선해지도록 상태를 채운다 → 둘째 스레드의 더블체크가 CACHE 로 빠진다.
         doAnswer(invocation -> {
-            stored.set(FacilityMonthSnapshot.create(current, LocalDateTime.now(clock),
-                    CrawlSource.ON_DEMAND, FetchStatus.SUCCESS, null));
+            firstCrawlFinished.set(true); // 크롤 종료(락 해제 직전) 표식 — 둘째가 이 시점 이후에 반환하면 블로킹 회귀다
             return null;
         }).when(snapshotWriter).recordSuccessfulMeta(eq(current), any(), any(), any(), any());
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
-        CountDownLatch ready = new CountDownLatch(2);
-        CountDownLatch go = new CountDownLatch(1);
-        Runnable task = () -> {
-            ready.countDown();
-            try {
-                go.await();
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
-            service.ensureFresh(current);
-        };
-        pool.submit(task);
-        pool.submit(task);
-        ready.await();
-        go.countDown();
+        Future<DataSource> first = pool.submit(() -> service.ensureFresh(current));
+        assertThat(firstHoldsLock.await(3, TimeUnit.SECONDS)).isTrue(); // 첫 스레드가 락 획득+크롤 진입할 때까지 대기
+        Future<DataSource> second = pool.submit(() -> {
+            DataSource result = service.ensureFresh(current); // 첫 스레드가 락 보유 중 → tryLock 실패
+            firstDoneWhenSecondReturned.set(firstCrawlFinished.get()); // 반환 시점에 첫 크롤이 아직 안 끝났음
+            secondReturned.countDown();                       // 이제 첫 스레드가 크롤을 마치도록 해제
+            return result;
+        });
+
+        DataSource secondResult = second.get(3, TimeUnit.SECONDS);
+        DataSource firstResult = first.get(3, TimeUnit.SECONDS);
         pool.shutdown();
         assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
 
-        assertThat(fetchCount.get()).isEqualTo(1); // 동시 미스가 fetch 1회로 수렴
+        assertThat(fetchCount.get()).isEqualTo(1); // 동시 미스가 fetch 1회로 수렴(둘째는 재크롤하지 않음)
+        assertThat(firstResult).isEqualTo(DataSource.LIVE_FETCH); // 락을 얻은 쪽은 실제 수집 성공
+        assertThat(secondResult).isEqualTo(DataSource.STALE_CACHE); // tryLock 실패 → 대기 없이 스테일
+        // 둘째가 첫 크롤 완료 전에 반환했음을 증명(블로킹 lock() 이면 완료 후에야 반환했을 것).
+        assertThat(firstDoneWhenSecondReturned.get()).isFalse();
+    }
+
+    @Test
+    @DisplayName("PARTIAL 스냅샷은 crawled_at 이 최근이어도 신선 취급하지 않고(isFresh=false) 재수집을 시도한다")
+    void partialSnapshotIsNotTreatedAsFresh() {
+        YearMonth current = YearMonth.now(clock);
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        FacilityMonthSnapshot partial = FacilityMonthSnapshot.create(
+                current, LocalDateTime.now(clock), CrawlSource.SCHEDULER, FetchStatus.PARTIAL, "일부 룸 실패");
+        when(snapshotRepository.findByYearMonth(current)).thenReturn(Optional.of(partial));
+        when(client.fetchReservations(anyInt(), eq(current))).thenReturn(objectMapper.createArrayNode());
+        when(reservationParser.parse(any(), eq(current))).thenReturn(List.of());
+
+        DataSource result = service.ensureFresh(current);
+
+        // CACHE 로 단락되지 않고 실제 재수집을 시도했음을 fetch 호출로 증명한다.
+        verify(client, times(1)).fetchReservations(anyInt(), eq(current));
+        // 단일 스레드·전 룸 성공 스텁이라 재수집은 결정적으로 성공(succeededRooms==1) → LIVE_FETCH.
+        assertThat(result).isEqualTo(DataSource.LIVE_FETCH);
     }
 ```
 
@@ -2551,6 +2598,8 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
 ### Task 17: FacilityUsageService — 조회 조립 + 상태계산(Asia/Seoul) + 월 범위 제한
 
 `ensureFresh` 로 신선도 보장 후 시설 + 예약을 로드해 `SlotMerger` 병합, 주입된 `Clock`(seoulClock, Asia/Seoul) 기준으로 status/isUsingNow/currentReservation/nextReservation 을 계산한다. `lastUpdatedAt`(crawled_at → +09:00)·stale·source 를 조립한다. 월 범위 `현재월 ±12개월` 초과는 400. **테스트는 하드코딩 미래 절대날짜 금지 — 고정 Clock + 상대날짜.**
+
+**adversarial review 후속(2026-07-02, PARTIAL 은 stale=true 로 노출):** 기존 `isStale` 은 `crawledAt` 만 보고 판정해, PARTIAL 크롤(일부 룸만 성공)이 `crawled_at` 을 갱신하면 TTL 내에서 `stale=false` 로 마스킹됐다(confirmed [high], §14 참조). `buildResult` 에서 스냅샷을 한 번만 조회해 `crawledAt`·`fetchStatus` 를 함께 꺼내고, `isStale` 에 `fetchStatus` 파라미터를 추가해 `fetchStatus != SUCCESS` 도 stale 조건에 포함시킨다(`source==STALE_CACHE || crawledAt==null || fetchStatus!=SUCCESS || TTL 초과`). `lastUpdatedAt`(=crawledAt)은 그대로 마지막 성공 시각을 유지한다 — 응답에 새 필드를 추가하지 않고 기존 `stale` 로만 표현한다.
 
 컨트롤러 대면 도메인 서비스는 `backend/CLAUDE.md` 컨벤션(`{Domain}Service` 인터페이스 + `General{Domain}Service` 구현체, `PublicActivityService`/`GeneralPublicActivityService` 선례)에 따라 인터페이스 + `GeneralFacilityUsageService` 구현체로 분리한다.
 
@@ -2820,6 +2869,7 @@ import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
 import com.duing.domain.facility.entity.FacilityReservation;
+import com.duing.domain.facility.entity.FetchStatus;
 import com.duing.domain.facility.entity.ReservationStatus;
 import com.duing.domain.facility.exception.FacilityException;
 import com.duing.domain.facility.parser.ParsedReservation;
@@ -2951,12 +3001,14 @@ public class GeneralFacilityUsageService implements FacilityUsageService {
     private FacilityUsageResult buildResult(YearMonth yearMonth, DataSource source, List<FacilityUsageItem> items) {
         Optional<FacilityMonthSnapshot> snapshot = snapshotRepository.findByYearMonth(yearMonth);
         LocalDateTime crawledAt = snapshot.map(FacilityMonthSnapshot::getCrawledAt).orElse(null);
-        boolean stale = isStale(yearMonth, crawledAt, source);
+        FetchStatus fetchStatus = snapshot.map(FacilityMonthSnapshot::getFetchStatus).orElse(null);
+        boolean stale = isStale(yearMonth, crawledAt, fetchStatus, source);
         return new FacilityUsageResult(yearMonth, crawledAt, source, stale, items);
     }
 
-    private boolean isStale(YearMonth yearMonth, LocalDateTime crawledAt, DataSource source) {
-        if (source == DataSource.STALE_CACHE || crawledAt == null) {
+    /** PARTIAL(일부 룸만 성공)은 신선 취급하지 않는다 — 누락된 룸 데이터를 최신으로 오표기하지 않기 위함. */
+    private boolean isStale(YearMonth yearMonth, LocalDateTime crawledAt, FetchStatus fetchStatus, DataSource source) {
+        if (source == DataSource.STALE_CACHE || crawledAt == null || fetchStatus != FetchStatus.SUCCESS) {
             return true;
         }
         Duration ttl = ttl(yearMonth);
@@ -2971,6 +3023,26 @@ public class GeneralFacilityUsageService implements FacilityUsageService {
         return Duration.ofHours(OTHER_TTL_HOURS);
     }
 }
+```
+
+- [ ] adversarial review 후속(2026-07-02) 테스트 추가 — `FacilityUsageServiceTest` 에 PARTIAL 스냅샷이 `stale=true` 로 노출됨을 검증하는 테스트를 추가한다: `snapshotRepository.findByYearMonth` 가 `FetchStatus.PARTIAL` + 최근 `crawledAt` 스냅샷을 반환하도록 스텁(`crawlService.ensureFresh` 는 `DataSource.CACHE` 로 스텁해도 무방 — `isStale` 이 `fetchStatus` 만으로도 stale 을 강제함을 보이기 위함), `service.getUsage(july)` 결과의 `stale()` 이 `true` 임을 단언한다. 기존 SUCCESS 스냅샷 테스트(`computesUsingAndNext` 등, `stale=false`)는 그대로 통과해야 한다.
+
+```java
+    @Test
+    @DisplayName("PARTIAL 크롤 스냅샷은 crawled_at 이 최근이고 source=CACHE 여도 stale=true 로 노출된다(일부 룸 누락을 최신으로 오표기하지 않음)")
+    void partialSnapshotIsReportedAsStale() throws Exception {
+        Facility facility = facilityWithId(1L, 4, "공동연습실(1)", "2105");
+        when(crawlService.ensureFresh(july)).thenReturn(DataSource.CACHE);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        when(reservationRepository.findByFacilityIdInAndYearMonth(any(), eq(july))).thenReturn(List.of());
+        when(snapshotRepository.findByYearMonth(july)).thenReturn(Optional.of(FacilityMonthSnapshot.create(
+                july, LocalDateTime.now(clock), CrawlSource.SCHEDULER, FetchStatus.PARTIAL, "일부 룸 실패")));
+
+        FacilityUsageResult result = service.getUsage(july);
+
+        assertThat(result.stale()).isTrue();
+        assertThat(result.crawledAt()).isEqualTo(LocalDateTime.now(clock)); // lastUpdatedAt 은 마지막 성공 시각 그대로 유지
+    }
 ```
 
 - [ ] 실행 → PASS:
