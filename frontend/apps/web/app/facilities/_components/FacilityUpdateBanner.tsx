@@ -6,14 +6,15 @@ export function FacilityUpdateBanner({
   lastUpdatedAt,
   stale,
 }: {
-  lastUpdatedAt: string;
+  lastUpdatedAt: string | null;
   stale: boolean;
 }) {
+  const updatedLabel = formatLastUpdated(lastUpdatedAt);
   return (
     <div>
-      <p className="text-[12.5px] text-charcoal-3">
-        마지막 업데이트 {formatLastUpdated(lastUpdatedAt)}
-      </p>
+      {updatedLabel && (
+        <p className="text-[12.5px] text-charcoal-3">마지막 업데이트 {updatedLabel}</p>
+      )}
       {stale && (
         <p
           role="status"

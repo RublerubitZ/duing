@@ -95,8 +95,9 @@ export function daysInMonth(yearMonth: string): number {
   return new Date(year ?? 1970, month ?? 1, 0).getDate();
 }
 
-// lastUpdatedAt(+09:00 ISO)를 'YYYY-MM-DD HH:mm'(KST)로 표시.
-export function formatLastUpdated(iso: string): string {
+// lastUpdatedAt(+09:00 ISO)를 'YYYY-MM-DD HH:mm'(KST)로 표시. 콜드/미수집(null) 은 빈 문자열.
+export function formatLastUpdated(iso: string | null): string {
+  if (!iso) return ''; // null/빈 값: new Date(null)=epoch(0) 은 NaN 이 아니라 1970 이 되므로 먼저 차단
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
   const parts = new Intl.DateTimeFormat('en-CA', {

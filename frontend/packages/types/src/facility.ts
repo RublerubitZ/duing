@@ -38,7 +38,7 @@ export type FacilitySummary = {
 // GET /api/v1/facilities/usage?yearMonth=YYYY-MM (§7.2, 주력).
 export type FacilityUsageResponse = {
   yearMonth: string; // YYYY-MM
-  lastUpdatedAt: string; // ISO 8601 (+09:00)
+  lastUpdatedAt: string | null; // ISO 8601 (+09:00) — 콜드/미수집 월은 null
   stale: boolean;
   source: DataSource;
   facilities: FacilityItem[];
@@ -47,7 +47,7 @@ export type FacilityUsageResponse = {
 // GET /api/v1/facilities/{facilityId}?yearMonth=YYYY-MM (§7.3) — usage 의 단일 시설 슬라이스.
 export type FacilityDetailResponse = {
   yearMonth: string;
-  lastUpdatedAt: string;
+  lastUpdatedAt: string | null;
   stale: boolean;
   source: DataSource;
   facility: FacilityItem;
