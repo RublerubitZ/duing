@@ -43,12 +43,20 @@ public class FacilityReservation extends BaseEntity {
     @Column(name = "organization_name", nullable = false, length = 200)
     private String organizationName;
 
+    /** 꼬리 (H:MM~H:MM) 운영시간(§16.1) — 표기 없음/파싱 실패면 null(조회 시 SlotMerger 폴백). */
+    @Column(name = "reserved_start_time")
+    private LocalTime reservedStartTime;
+
+    @Column(name = "reserved_end_time")
+    private LocalTime reservedEndTime;
+
     @Column(name = "crawled_at", nullable = false)
     private LocalDateTime crawledAt;
 
     @Builder(access = AccessLevel.PRIVATE)
     private FacilityReservation(Long facilityId, Long scheduleSeq, YearMonth yearMonth, LocalDate reservationDate,
-                                LocalTime startTime, LocalTime endTime, String organizationName, LocalDateTime crawledAt) {
+                                LocalTime startTime, LocalTime endTime, String organizationName,
+                                LocalTime reservedStartTime, LocalTime reservedEndTime, LocalDateTime crawledAt) {
         this.facilityId = facilityId;
         this.scheduleSeq = scheduleSeq;
         this.yearMonth = yearMonth;
@@ -56,12 +64,15 @@ public class FacilityReservation extends BaseEntity {
         this.startTime = startTime;
         this.endTime = endTime;
         this.organizationName = organizationName;
+        this.reservedStartTime = reservedStartTime;
+        this.reservedEndTime = reservedEndTime;
         this.crawledAt = crawledAt;
     }
 
     public static FacilityReservation create(Long facilityId, Long scheduleSeq, YearMonth yearMonth,
                                              LocalDate reservationDate, LocalTime startTime, LocalTime endTime,
-                                             String organizationName, LocalDateTime crawledAt) {
+                                             String organizationName, LocalTime reservedStartTime,
+                                             LocalTime reservedEndTime, LocalDateTime crawledAt) {
         return FacilityReservation.builder()
                 .facilityId(facilityId)
                 .scheduleSeq(scheduleSeq)
@@ -70,6 +81,8 @@ public class FacilityReservation extends BaseEntity {
                 .startTime(startTime)
                 .endTime(endTime)
                 .organizationName(organizationName)
+                .reservedStartTime(reservedStartTime)
+                .reservedEndTime(reservedEndTime)
                 .crawledAt(crawledAt)
                 .build();
     }

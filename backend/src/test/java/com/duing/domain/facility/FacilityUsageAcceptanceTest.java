@@ -59,7 +59,8 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
         snapshotRepository.save(FacilityMonthSnapshot.create(
                 current, now, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null));
         reservationRepository.save(FacilityReservation.create(
-                facility.getId(), 90001L, current, today, LocalTime.of(9, 0), LocalTime.of(10, 0), "댄스동아리", now));
+                facility.getId(), 90001L, current, today, LocalTime.of(9, 0), LocalTime.of(10, 0), "댄스동아리",
+                null, null, now));
     }
 
     @Test
@@ -104,15 +105,18 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
 
         Facility facility = facilityRepository.save(Facility.create(5, "테스트연습실", "테스트동", 1));
         reservationRepository.save(FacilityReservation.create(
-                facility.getId(), 90101L, currentMonth, today, LocalTime.of(11, 0), LocalTime.of(12, 0), "기존단체1", now));
+                facility.getId(), 90101L, currentMonth, today, LocalTime.of(11, 0), LocalTime.of(12, 0), "기존단체1",
+                null, null, now));
         reservationRepository.save(FacilityReservation.create(
-                facility.getId(), 90102L, currentMonth, today, LocalTime.of(13, 0), LocalTime.of(14, 0), "기존단체2", now));
+                facility.getId(), 90102L, currentMonth, today, LocalTime.of(13, 0), LocalTime.of(14, 0), "기존단체2",
+                null, null, now));
 
         long newSeq = 90201L;
         snapshotWriter.replaceReservations(
                 facility.getId(),
                 List.of(currentMonth),
-                Map.of(currentMonth, List.of(new ParsedReservation(newSeq, today, LocalTime.of(9, 0), LocalTime.of(10, 0), "새단체"))),
+                Map.of(currentMonth, List.of(new ParsedReservation(newSeq, today, LocalTime.of(9, 0), LocalTime.of(10, 0),
+                        "새단체", LocalTime.of(9, 0), LocalTime.of(17, 0)))),
                 now);
 
         List<FacilityReservation> afterReplace =
@@ -120,6 +124,9 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
         assertThat(afterReplace).hasSize(1);
         assertThat(afterReplace.get(0).getScheduleSeq()).isEqualTo(newSeq);
         assertThat(afterReplace.get(0).getOrganizationName()).isEqualTo("새단체");
+        // 운영시간(§16.1) 라운드트립 — 파서 추출값이 컬럼에 그대로 영속된다.
+        assertThat(afterReplace.get(0).getReservedStartTime()).isEqualTo(LocalTime.of(9, 0));
+        assertThat(afterReplace.get(0).getReservedEndTime()).isEqualTo(LocalTime.of(17, 0));
 
         snapshotWriter.replaceReservations(
                 facility.getId(), List.of(currentMonth), Map.of(currentMonth, List.of()), now);

@@ -78,6 +78,9 @@ class FacilityOnDemandCrawlIntegrationTest extends IntegrationTestBase {
         assertThat(persistedReservations.get(0).getScheduleSeq()).isEqualTo(18134L);
         assertThat(persistedReservations.get(0).getOrganizationName()).isEqualTo("고정관념");
         assertThat(persistedReservations.get(0).getStartTime()).isEqualTo(LocalTime.of(19, 0));
+        // 꼬리 (9:00~20:00) 운영시간이 파서→라이터→DB 까지 관통 저장된다(§16.1).
+        assertThat(persistedReservations.get(0).getReservedStartTime()).isEqualTo(LocalTime.of(9, 0));
+        assertThat(persistedReservations.get(0).getReservedEndTime()).isEqualTo(LocalTime.of(20, 0));
 
         FacilityMonthSnapshot monthMeta = snapshotRepository.findByYearMonth(pastMonth).orElseThrow();
         assertThat(monthMeta.getFetchStatus()).isEqualTo(FetchStatus.SUCCESS);
