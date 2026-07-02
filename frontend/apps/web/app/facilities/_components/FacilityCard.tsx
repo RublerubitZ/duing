@@ -3,6 +3,7 @@
 import { Link } from 'next-view-transitions';
 
 import { toRoute } from '../../_lib/route';
+import { seoulDateIso } from '../_lib/facilityTimeline';
 import type { FacilityItem, ReservationSlot } from '@duing/types';
 
 const INK = '#1F4A36';
@@ -12,6 +13,13 @@ const MUTED = '#6F7574';
 
 function slotTime(slot: ReservationSlot): string {
   return `${slot.start}~${slot.end}`;
+}
+
+// nextReservation 은 '월 내 가장 이른 예약'이라 오늘이 아닐 수 있다 — 오늘이 아니면 날짜(M/D)를 함께 표기.
+function nextSlotLabel(slot: ReservationSlot): string {
+  if (slot.date === seoulDateIso(new Date())) return slotTime(slot);
+  const [, month, day] = slot.date.split('-');
+  return `${Number(month)}/${Number(day)} ${slotTime(slot)}`;
 }
 
 export function FacilityCard({ facility }: { facility: FacilityItem }) {
@@ -51,7 +59,7 @@ export function FacilityCard({ facility }: { facility: FacilityItem }) {
           </p>
         ) : facility.nextReservation ? (
           <p className="text-charcoal-3">
-            다음 예약 {slotTime(facility.nextReservation)} · {facility.nextReservation.organization}
+            다음 예약 {nextSlotLabel(facility.nextReservation)} · {facility.nextReservation.organization}
           </p>
         ) : (
           <p className="text-charcoal-3">예정된 예약이 없어요</p>
