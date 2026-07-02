@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import {
   AXIS_START_HOUR,
+  AXIS_END_HOUR,
   TIMELINE_HOURS,
   buildTimelineSegments,
   daysInMonth,
@@ -98,10 +99,16 @@ export function FacilityTimeline({
           )}
         </div>
 
-        {/* 시간 라벨(짝수 시각만) */}
-        <div className="mt-1.5 flex justify-between text-[10px] text-charcoal-3" style={{ fontFamily: 'var(--font-mono)' }}>
+        {/* 시간 라벨(짝수 시각만) — 트랙과 동일한 선형 좌표에 절대배치(justify-between 은 09~22 선형축과 어긋남). */}
+        <div className="relative mt-1.5 h-3 text-[10px] text-charcoal-3" style={{ fontFamily: 'var(--font-mono)' }}>
           {TIMELINE_HOURS.filter((hour) => hour % 2 === AXIS_START_HOUR % 2).map((hour) => (
-            <span key={hour}>{pad2(hour)}</span>
+            <span
+              key={hour}
+              className="absolute -translate-x-1/2"
+              style={{ left: `${((hour - AXIS_START_HOUR) / (AXIS_END_HOUR - AXIS_START_HOUR)) * 100}%` }}
+            >
+              {pad2(hour)}
+            </span>
           ))}
         </div>
       </div>

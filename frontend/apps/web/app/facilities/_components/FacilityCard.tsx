@@ -21,7 +21,7 @@ export function FacilityCard({ facility }: { facility: FacilityItem }) {
   return (
     <Link
       href={toRoute(`/facilities/${facility.id}`)}
-      className="relative flex flex-col gap-3 overflow-hidden rounded-[18px] border border-line bg-paper p-[18px] transition hover:shadow-2"
+      className="relative flex flex-col gap-3 overflow-hidden rounded-[18px] border border-line bg-paper p-[18px] motion-safe:transition hover:shadow-2"
     >
       <div className="flex items-center gap-2">
         <span
