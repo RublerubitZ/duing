@@ -71,6 +71,13 @@ class FacilityUsageServiceTest {
                 LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), org, null, null, LocalDateTime.now(clock));
     }
 
+    private FacilityReservation rangedReservation(long facilityId, long seq, LocalDate date, int startHour, int endHour,
+                                                  String org, int reservedStartHour, int reservedEndHour) {
+        return FacilityReservation.create(facilityId, seq, july, date,
+                LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), org,
+                LocalTime.of(reservedStartHour, 0), LocalTime.of(reservedEndHour, 0), LocalDateTime.now(clock));
+    }
+
     @Test
     @DisplayName("현재 시각을 포함하는 예약은 USING·isUsingNow=true·currentReservation 으로 계산되고 다음 예약은 가장 이른 미래로 선택된다")
     void computesUsingAndNext() throws Exception {
@@ -115,6 +122,78 @@ class FacilityUsageServiceTest {
         assertThat(item.isUsingNow()).isFalse();
         assertThat(item.currentReservation()).isNull();
         assertThat(item.nextReservation()).isNull();
+    }
+
+    @Test
+    @DisplayName("운영시간이 같은 두 마커 슬롯(09-10·16-17)은 운영시간 범위 예약 1건(09:00~17:00)으로 병합되고 슬롯 밖 현재시각(14:00)도 USING 이다")
+    void mergesRangedSlotsIntoSingleReservationTrustingOperatingHours() throws Exception {
+        Facility facility = facilityWithId(1L, 4, "공동연습실(1)", "2105");
+        when(crawlService.ensureFresh(july)).thenReturn(DataSource.CACHE);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        // 학교 데이터: 시작/끝 마커 슬롯 2건 + 꼬리 운영시간 (09:00~17:00) — 실제 예약은 전체 구간(§16.1 정책 ①).
+        when(reservationRepository.findByFacilityIdInAndYearMonth(any(), eq(july))).thenReturn(List.of(
+                rangedReservation(1L, 20, today, 9, 10, "비호상무회", 9, 17),
+                rangedReservation(1L, 21, today, 16, 17, "비호상무회", 9, 17)));
+        when(snapshotRepository.findByYearMonth(july)).thenReturn(Optional.of(FacilityMonthSnapshot.create(
+                july, LocalDateTime.now(clock), CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null)));
+
+        FacilityUsageItem item = service.getUsage(july).facilities().get(0);
+
+        assertThat(item.reservations()).hasSize(1); // 그룹 dedup — 슬롯별 중복 없음
+        assertThat(item.reservations().get(0).start()).isEqualTo(LocalTime.of(9, 0));
+        assertThat(item.reservations().get(0).end()).isEqualTo(LocalTime.of(17, 0));
+        assertThat(item.reservations().get(0).organization()).isEqualTo("비호상무회");
+        // 현재 14:00 은 어느 원본 슬롯에도 없지만 운영시간을 신뢰해 USING(정책 ① — 모순이어도 운영시간 우선).
+        assertThat(item.reservations().get(0).status()).isEqualTo(ReservationStatus.USING);
+        assertThat(item.isUsingNow()).isTrue();
+        assertThat(item.currentReservation().start()).isEqualTo(LocalTime.of(9, 0));
+    }
+
+    @Test
+    @DisplayName("같은 날 같은 단체라도 운영시간이 다르면 각각 별개 예약으로 유지된다")
+    void keepsDifferentOperatingHourRangesSeparate() throws Exception {
+        Facility facility = facilityWithId(1L, 4, "공동연습실(1)", "2105");
+        when(crawlService.ensureFresh(july)).thenReturn(DataSource.CACHE);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        when(reservationRepository.findByFacilityIdInAndYearMonth(any(), eq(july))).thenReturn(List.of(
+                rangedReservation(1L, 20, today, 9, 10, "비호상무회", 9, 12),
+                rangedReservation(1L, 21, today, 11, 12, "비호상무회", 9, 12),   // 같은 범위 → dedup
+                rangedReservation(1L, 22, today, 16, 17, "비호상무회", 14, 17))); // 다른 범위 → 별개(정책 ②)
+        when(snapshotRepository.findByYearMonth(july)).thenReturn(Optional.of(FacilityMonthSnapshot.create(
+                july, LocalDateTime.now(clock), CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null)));
+
+        FacilityUsageItem item = service.getUsage(july).facilities().get(0);
+
+        assertThat(item.reservations()).hasSize(2);
+        assertThat(item.reservations().get(0).start()).isEqualTo(LocalTime.of(9, 0));
+        assertThat(item.reservations().get(0).end()).isEqualTo(LocalTime.of(12, 0));
+        assertThat(item.reservations().get(1).start()).isEqualTo(LocalTime.of(14, 0));
+        assertThat(item.reservations().get(1).end()).isEqualTo(LocalTime.of(17, 0));
+    }
+
+    @Test
+    @DisplayName("운영시간 있는 단체와 없는 단체가 섞이면 전자는 운영시간 범위로, 후자는 SlotMerger 연속 병합으로 각각 처리된다")
+    void mixesRangedAndUnrangedOrganizations() throws Exception {
+        Facility facility = facilityWithId(1L, 4, "공동연습실(1)", "2105");
+        when(crawlService.ensureFresh(july)).thenReturn(DataSource.CACHE);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        when(reservationRepository.findByFacilityIdInAndYearMonth(any(), eq(july))).thenReturn(List.of(
+                rangedReservation(1L, 20, today, 9, 10, "비호상무회", 9, 17),
+                rangedReservation(1L, 21, today, 16, 17, "비호상무회", 9, 17),
+                reservation(1L, 30, today.plusDays(1), 13, 14, "댄스동아리"),
+                reservation(1L, 31, today.plusDays(1), 14, 15, "댄스동아리"))); // 인접 → SlotMerger 병합
+        when(snapshotRepository.findByYearMonth(july)).thenReturn(Optional.of(FacilityMonthSnapshot.create(
+                july, LocalDateTime.now(clock), CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null)));
+
+        FacilityUsageItem item = service.getUsage(july).facilities().get(0);
+
+        assertThat(item.reservations()).hasSize(2);
+        assertThat(item.reservations().get(0).organization()).isEqualTo("비호상무회");
+        assertThat(item.reservations().get(0).start()).isEqualTo(LocalTime.of(9, 0));
+        assertThat(item.reservations().get(0).end()).isEqualTo(LocalTime.of(17, 0));
+        assertThat(item.reservations().get(1).organization()).isEqualTo("댄스동아리");
+        assertThat(item.reservations().get(1).start()).isEqualTo(LocalTime.of(13, 0));
+        assertThat(item.reservations().get(1).end()).isEqualTo(LocalTime.of(15, 0));
     }
 
     @Test
