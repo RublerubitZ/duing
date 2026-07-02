@@ -67,7 +67,7 @@ public class ReservationParser {
             LocalTime start = LocalTime.parse(slot[0].trim(), TIME);
             LocalTime end = LocalTime.parse(slot[1].trim(), TIME);
             String organization = TRAILING_TIME.matcher(deptText.trim()).replaceAll("").trim();
-            return new ParsedReservation(scheduleSeq, reservationDate, start, end, organization);
+            return new ParsedReservation(scheduleSeq, reservationDate, start, end, organization, null, null);
         } catch (NumberFormatException | DateTimeException malformed) {
             return null; // 개별 원소 오류는 스킵(내용은 로깅하지 않음)
         }

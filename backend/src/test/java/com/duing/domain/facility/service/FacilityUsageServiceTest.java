@@ -68,7 +68,7 @@ class FacilityUsageServiceTest {
 
     private FacilityReservation reservation(long facilityId, long seq, LocalDate date, int startHour, int endHour, String org) {
         return FacilityReservation.create(facilityId, seq, july, date,
-                LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), org, LocalDateTime.now(clock));
+                LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), org, null, null, LocalDateTime.now(clock));
     }
 
     @Test

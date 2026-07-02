@@ -103,7 +103,8 @@ public class GeneralFacilityUsageService implements FacilityUsageService {
         for (Facility facility : facilities) {
             List<ParsedReservation> raw = byFacility.getOrDefault(facility.getId(), List.of()).stream()
                     .map(row -> new ParsedReservation(row.getScheduleSeq(), row.getReservationDate(),
-                            row.getStartTime(), row.getEndTime(), row.getOrganizationName()))
+                            row.getStartTime(), row.getEndTime(), row.getOrganizationName(),
+                            row.getReservedStartTime(), row.getReservedEndTime()))
                     .toList();
             List<ReservationSlot> slots = slotMerger.merge(raw).stream()
                     .map(merged -> toSlot(merged, now))

@@ -38,7 +38,8 @@ public class FacilitySnapshotWriter {
             for (ParsedReservation reservation : fetchedByMonth.getOrDefault(yearMonth, List.of())) {
                 toInsert.add(FacilityReservation.create(
                         facilityId, reservation.scheduleSeq(), yearMonth, reservation.reservationDate(),
-                        reservation.startTime(), reservation.endTime(), reservation.organizationName(), crawledAt));
+                        reservation.startTime(), reservation.endTime(), reservation.organizationName(),
+                        reservation.reservedStartTime(), reservation.reservedEndTime(), crawledAt));
             }
         }
         if (!toInsert.isEmpty()) {
