@@ -24,7 +24,8 @@ const TABS = [
 function matchTabHref(pathname: string): string | null {
   if (pathname === '/') return '/';
   // 동아리·공지 상세(/clubs/{id}, /notices/{id})는 자체 상단 액션바를 쓰는 포커스 뷰라 탭바를 숨긴다.
-  if (/^\/(clubs|notices|facilities)\/\d+$/.test(pathname)) return null;
+  // 시설 상세(/facilities/{id})는 자체 액션바가 없는 유틸리티 뷰라 탭바를 유지한다(포커스 뷰 아님).
+  if (/^\/(clubs|notices)\/\d+$/.test(pathname)) return null;
   const matched = TABS.find(
     (tab) => tab.href !== '/' && (pathname === tab.href || pathname.startsWith(`${tab.href}/`)),
   );

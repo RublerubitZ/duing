@@ -31,7 +31,8 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
   const pathname = usePathname();
 
   // 동아리·공지 상세(/clubs/{id}, /notices/{id})는 자체 상단 액션바를 쓰는 포커스 뷰라 모바일에서 이 브랜드 바를 숨긴다.
-  const isDetailFocus = /^\/(clubs|notices|facilities)\/\d+$/.test(pathname);
+  // 시설 상세(/facilities/{id})는 자체 액션바가 없는 유틸리티 뷰라 브랜드 바를 유지한다.
+  const isDetailFocus = /^\/(clubs|notices)\/\d+$/.test(pathname);
 
   const isActive = (item: NavItem): boolean => {
     if (active) return item.label === active;
