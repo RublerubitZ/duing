@@ -47,6 +47,11 @@ dependencies {
     // JWT
     implementation("com.auth0:java-jwt:4.4.0")
 
+    // spring-retry — SchoolFacilityClient 룸 단위 재시도(@Retryable, 총 4회 / 0.5·1·2초 / 5xx·네트워크·타임아웃만).
+    // @Retryable 은 AOP 프록시로 동작하므로 spring-boot-starter-aop 가 필요하다. 버전은 Spring Boot BOM 이 관리한다.
+    implementation("org.springframework.retry:spring-retry")
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
     // HTML sanitizer — 공지 본문(HTML 포맷) 서버측 XSS 정제
     implementation("org.jsoup:jsoup:1.18.3")
 

@@ -82,3 +82,16 @@ duing:
     window-days: 30
     default-limit: 10
     max-limit: 20
+  facility:
+    crawler:
+      enabled: false
+      # 테스트 전용 더미 baseUrl — 온디맨드 fetch 는 신선한 스냅샷을 시드해 캐시히트로 우회하므로 실제 호출 없음.
+      base-url: http://localhost:0/facility-stub
+      list-path: /room/detail
+      data-path: /room/data/list
+      user-agent: DuingFacilityTest/1.0
+      connect-timeout-millis: 500
+      read-timeout-millis: 500
+      retry-max-attempts: 4
+      retry-backoff-millis: 1
+      room-delay-millis: 1

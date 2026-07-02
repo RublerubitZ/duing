@@ -1,0 +1,7 @@
+[
+  { "schedule_seq": "18134", "schedule_dept": "고정관념(9:00~20:00)", "schedule_date": "01", "schedule_time": "09:00~10:00", "room_seq": null, "room_title": null, "year": null, "month": null, "code_name": null },
+  { "schedule_seq": "18135", "schedule_dept": "고정관념(9:00~20:00)", "schedule_date": "01", "schedule_time": "19:00~20:00", "room_seq": null, "room_title": null, "year": null, "month": null, "code_name": null },
+  { "schedule_seq": "18140", "schedule_dept": "댄스동아리", "schedule_date": "02", "schedule_time": "09:00~10:00", "room_seq": null, "room_title": null, "year": null, "month": null, "code_name": null },
+  { "schedule_seq": "18141", "schedule_dept": "댄스동아리", "schedule_date": "02", "schedule_time": "10:00~11:00", "room_seq": null, "room_title": null, "year": null, "month": null, "code_name": null },
+  { "schedule_seq": "18141", "schedule_dept": "댄스동아리", "schedule_date": "02", "schedule_time": "10:00~11:00", "room_seq": null, "room_title": null, "year": null, "month": null, "code_name": null }
+]
