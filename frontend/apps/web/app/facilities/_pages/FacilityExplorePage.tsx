@@ -2,7 +2,7 @@
 
 import { useFacilityUsageQuery } from '@duing/hooks';
 
-import { FacilityCard } from '../_components/FacilityCard';
+import { FacilityOverviewTimeline } from '../_components/FacilityOverviewTimeline';
 import { FacilityUpdateBanner } from '../_components/FacilityUpdateBanner';
 
 export function FacilityExplorePage() {
@@ -38,11 +38,7 @@ export function FacilityExplorePage() {
             <p className="text-sm text-charcoal-2">표시할 시설이 없어요.</p>
           )}
           {usageQuery.data && usageQuery.data.facilities.length > 0 && (
-            <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
-              {usageQuery.data.facilities.map((facility) => (
-                <FacilityCard key={facility.id} facility={facility} />
-              ))}
-            </div>
+            <FacilityOverviewTimeline facilities={usageQuery.data.facilities} />
           )}
         </div>
       </section>
