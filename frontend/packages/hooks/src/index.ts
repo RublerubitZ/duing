@@ -248,3 +248,5 @@ export {
   useToggleCashbookExclusionMutation,
 } from './cashbook';
 export { cashbookQueryKeys } from './cashbookQueryKeys';
+export { useFacilityUsageQuery, useFacilityDetailQuery } from './facilities';
+export { facilityQueryKeys } from './facilityQueryKeys';

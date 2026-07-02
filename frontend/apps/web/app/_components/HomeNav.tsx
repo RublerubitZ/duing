@@ -39,6 +39,11 @@ export function HomeNav({ slimOnMobile = false }: Props) {
             </Link>
           </li>
           <li>
+            <Link href="/facilities" className={inactiveLink}>
+              시설
+            </Link>
+          </li>
+          <li>
             <Link href="/calendar" className={inactiveLink}>
               캘린더
             </Link>

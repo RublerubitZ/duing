@@ -9,14 +9,27 @@ vi.mock('next/navigation', () => ({
 import { BottomNav } from '../../app/_components/BottomNav';
 
 describe('BottomNav', () => {
-  it('공개 탭 영역(/clubs)에서 4탭이 노출되고 탐색이 활성이다', () => {
+  it('공개 탭 영역(/clubs)에서 5탭(홈·탐색·시설·캘린더·공지)이 노출되고 탐색이 활성이다', () => {
     mockUsePathname.mockReturnValue('/clubs');
     render(<BottomNav />);
 
     expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeInTheDocument();
-    expect(screen.getAllByRole('link')).toHaveLength(4);
+    expect(screen.getAllByRole('link')).toHaveLength(5);
+    expect(screen.getByRole('link', { name: '시설' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '탐색' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('시설 목록(/facilities)에서는 시설 탭이 활성이다', () => {
+    mockUsePathname.mockReturnValue('/facilities');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: '시설' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('시설 상세(/facilities/12)는 유틸리티 뷰라 탭바를 유지하고 시설 탭이 활성이다', () => {
+    mockUsePathname.mockReturnValue('/facilities/12');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: '시설' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('홈(/)에서는 홈 탭이 정확히 활성이다', () => {
