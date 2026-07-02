@@ -352,3 +352,18 @@ Flyway 위치 `backend/src/main/resources/db/migration/`, 현재 최신 `V68` �
 15. public GET에 **`Cache-Control: public, max-age=60`**.
 16. 응답에 **`nextReservation`**(now 이후 가장 이른 병합 예약) 추가.
 17. 실측 **HTML/JSON fixture**를 `src/test/resources/facility/`에 박제해 파서 회귀 테스트.
+
+---
+
+## 14. 알려진 한계 (Known limitations)
+
+- **월 단위 신선도 granularity**: `facility_month_snapshot`은 월 1행이라 `stale`/신선도가 월 단위다. PARTIAL 크롤(일부 룸만 성공)에서 한 룸이라도 성공하면 `crawled_at`이 갱신돼 `stale=false`가 되므로, **지속적으로 실패하는 특정 룸**의 보존된 옛/빈 스냅샷이 "최신"으로 표시될 수 있다. 룸별 신선도가 필요하면 예약 행의 `crawled_at`(이미 존재)을 응답에 노출하거나 룸별 상태 컬럼을 추가해야 한다(스키마 변경 → 후속). 학교 장애가 특정 룸에만 지속되는 드문 경우에 한함(MINOR).
+
+## 15. 최종 코드리뷰 후속 수정 (2026-07-02)
+
+- **스케줄러 single-flight 통합**: 스케줄러도 `refreshMonthLocked`로 on-demand와 동일한 월별 락을 거쳐, 스케줄러↔온디맨드가 같은 월의 delete+insert·메타 first-insert를 경합하던 문제 제거.
+- **온디맨드 실패 쿨다운(30s)**: 학교 장애 시 공개 GET이 연쇄 재크롤로 스레드풀·상류를 폭주시키지 않도록, 최근 시도 후 쿨다운 내에는 `STALE_CACHE` 즉시 반환.
+- **인터럽트 중단**: 크롤 루프가 shutdown 인터럽트를 룸 경계에서 감지해 중단.
+- **메타 기록 방어**: 월 메타 기록 실패가 공개 GET로 전파되지 않도록 try/catch로 격리.
+- **프론트 `lastUpdatedAt` null 처리**: 콜드/미수집 월(null) 시 `1970-01-01` 오표기 방지(업데이트 줄 숨김, 타입 `string|null`).
+- **타임라인 시간축 라벨 정렬**: 09~22 선형 트랙에 절대 좌표로 정렬(`justify-between` 어긋남 수정). 카드 트랜지션 `motion-safe:` 통일.
