@@ -206,4 +206,20 @@ class FacilityCrawlServiceTest {
 
         assertThat(fetchCount.get()).isEqualTo(1); // 동시 미스가 fetch 1회로 수렴
     }
+
+    @Test
+    @DisplayName("실패한 온디맨드 수집 직후 재요청은 쿨다운 내라 재수집 없이 STALE_CACHE 를 반환한다")
+    void failedAttemptIsCooledDownBeforeRetry() {
+        YearMonth current = YearMonth.now(clock);
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        when(snapshotRepository.findByYearMonth(current)).thenReturn(Optional.empty());
+        when(client.fetchReservations(anyInt(), eq(current))).thenThrow(new FacilityFetchException("5xx"));
+
+        assertThat(service.ensureFresh(current)).isEqualTo(DataSource.STALE_CACHE);
+        verify(client, times(1)).fetchReservations(anyInt(), eq(current));
+
+        assertThat(service.ensureFresh(current)).isEqualTo(DataSource.STALE_CACHE);
+        verify(client, times(1)).fetchReservations(anyInt(), eq(current)); // 쿨다운 내 재요청 — 추가 fetch 없음
+    }
 }

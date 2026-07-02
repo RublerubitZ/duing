@@ -49,9 +49,24 @@ public class FacilityCrawlService {
 
     private static final int CURRENT_NEXT_TTL_MINUTES = 10;
     private static final int OTHER_TTL_HOURS = 24;
+    private static final int ON_DEMAND_COOLDOWN_SECONDS = 30;
 
     // 월별 single-flight 락. 키는 Task 17 의 ±12개월 조회 범위로 제한되므로 사실상 소수(최대 ~25)로 유지된다.
     private final ConcurrentHashMap<YearMonth, ReentrantLock> monthLocks = new ConcurrentHashMap<>();
+    // 월별 최근 수집 시도(성공·실패 불문) 시각 — 온디맨드 실패 쿨다운 판정용.
+    private final ConcurrentHashMap<YearMonth, LocalDateTime> lastAttemptAt = new ConcurrentHashMap<>();
+
+    /** 스케줄러용: 해당 월을 monthLocks 로 직렬화한 채 강제 수집한다(온디맨드와 같은 락 → 경합 제거). */
+    public CrawlSummary refreshMonthLocked(YearMonth yearMonth, CrawlSource source) {
+        ReentrantLock lock = monthLocks.computeIfAbsent(yearMonth, key -> new ReentrantLock());
+        lock.lock();
+        try {
+            lastAttemptAt.put(yearMonth, LocalDateTime.now(clock));
+            return crawlAndReplace(List.of(yearMonth), source);
+        } finally {
+            lock.unlock();
+        }
+    }
 
     /**
      * 온디맨드 조회 신선도 보장(§5.5). 신선하면 CACHE, 만료/미캐시면 single-flight 락으로 그 월을
@@ -67,11 +82,22 @@ public class FacilityCrawlService {
             if (isFresh(yearMonth)) {
                 return DataSource.CACHE; // 더블체크: 대기 중 다른 스레드가 채웠다면 fetch 생략
             }
+            if (withinCooldown(yearMonth)) {
+                // 최근 수집 시도(실패 포함) 후 쿨다운 내 — 학교 서버 연쇄 재요청·스레드 점유 폭주 방지(STALE_CACHE 서빙).
+                return DataSource.STALE_CACHE;
+            }
+            lastAttemptAt.put(yearMonth, LocalDateTime.now(clock));
             CrawlSummary summary = crawlAndReplace(List.of(yearMonth), CrawlSource.ON_DEMAND);
             return summary.succeededRooms() > 0 ? DataSource.LIVE_FETCH : DataSource.STALE_CACHE;
         } finally {
             lock.unlock();
         }
+    }
+
+    private boolean withinCooldown(YearMonth yearMonth) {
+        LocalDateTime attempted = lastAttemptAt.get(yearMonth);
+        return attempted != null
+                && Duration.between(attempted, LocalDateTime.now(clock)).compareTo(Duration.ofSeconds(ON_DEMAND_COOLDOWN_SECONDS)) < 0;
     }
 
     private boolean isFresh(YearMonth yearMonth) {
@@ -107,6 +133,10 @@ public class FacilityCrawlService {
 
         boolean firstRoom = true;
         for (Facility facility : facilities) {
+            if (Thread.currentThread().isInterrupted()) {
+                log.warn("시설 수집 인터럽트 감지 — 남은 룸 수집 중단");
+                break;
+            }
             if (!firstRoom) {
                 sleepBetweenRooms();
             }
@@ -149,12 +179,15 @@ public class FacilityCrawlService {
         }
 
         for (YearMonth month : months) {
-            if (Boolean.TRUE.equals(anySuccess.get(month))) {
-                FetchStatus status = Boolean.TRUE.equals(anyFailure.get(month)) ? FetchStatus.PARTIAL : FetchStatus.SUCCESS;
-                snapshotWriter.recordSuccessfulMeta(month, status, crawledAt, source,
-                        status == FetchStatus.PARTIAL ? lastError : null);
-            } else {
-                snapshotWriter.recordFailureMeta(month, source, lastError);
+            try {
+                if (Boolean.TRUE.equals(anySuccess.get(month))) {
+                    FetchStatus status = Boolean.TRUE.equals(anyFailure.get(month)) ? FetchStatus.PARTIAL : FetchStatus.SUCCESS;
+                    snapshotWriter.recordSuccessfulMeta(month, status, crawledAt, source, status == FetchStatus.PARTIAL ? lastError : null);
+                } else {
+                    snapshotWriter.recordFailureMeta(month, source, lastError);
+                }
+            } catch (RuntimeException metaFailure) {
+                log.warn("월 메타 기록 실패(무시): yearMonth={}", month, metaFailure);
             }
         }
 

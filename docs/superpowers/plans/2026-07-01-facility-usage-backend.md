@@ -2042,6 +2042,8 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
 
 per-facility 로 대상 월들을 fetch(재시도 포함)→파싱→검증(트랜잭션 밖)→성공 월만 원자적 교체. **HTTP-200 빈 배열 → 빈 스냅샷 교체; timeout/network/5xx/파싱 예외 → 기존 스냅샷 유지(교체 호출 자체를 하지 않음).** 룸 실패는 격리. 월 메타 SUCCESS/PARTIAL/FAILED 갱신. §9 구조화 로그 + Sentry breadcrumb.
 
+**리뷰 후속 강화(단일화 락·쿨다운 적용 시 함께 반영):** per-facility 루프 최상단에 `Thread.currentThread().isInterrupted()` 체크를 추가해 인터럽트 시 남은 룸 수집을 조기 중단한다(break). 월별 메타 기록(`recordSuccessfulMeta`/`recordFailureMeta`) 루프는 try/catch(RuntimeException) 로 감싸 메타 쓰기 실패가 공개 GET 으로 전파되지 않도록 방어한다(로그만 남기고 무시).
+
 **Files:**
 - Create: `backend/src/main/java/com/duing/domain/facility/service/dto/query/CrawlSummary.java`
 - Create: `backend/src/main/java/com/duing/domain/facility/service/FacilityCrawlService.java`
@@ -2274,6 +2276,10 @@ public class FacilityCrawlService {
 
         boolean firstRoom = true;
         for (Facility facility : facilities) {
+            if (Thread.currentThread().isInterrupted()) {
+                log.warn("시설 수집 인터럽트 감지 — 남은 룸 수집 중단");
+                break;
+            }
             if (!firstRoom) {
                 sleepBetweenRooms();
             }
@@ -2316,12 +2322,16 @@ public class FacilityCrawlService {
         }
 
         for (YearMonth month : months) {
-            if (Boolean.TRUE.equals(anySuccess.get(month))) {
-                FetchStatus status = Boolean.TRUE.equals(anyFailure.get(month)) ? FetchStatus.PARTIAL : FetchStatus.SUCCESS;
-                snapshotWriter.recordSuccessfulMeta(month, status, crawledAt, source,
-                        status == FetchStatus.PARTIAL ? lastError : null);
-            } else {
-                snapshotWriter.recordFailureMeta(month, source, lastError);
+            try {
+                if (Boolean.TRUE.equals(anySuccess.get(month))) {
+                    FetchStatus status = Boolean.TRUE.equals(anyFailure.get(month)) ? FetchStatus.PARTIAL : FetchStatus.SUCCESS;
+                    snapshotWriter.recordSuccessfulMeta(month, status, crawledAt, source, status == FetchStatus.PARTIAL ? lastError : null);
+                } else {
+                    snapshotWriter.recordFailureMeta(month, source, lastError);
+                }
+            } catch (RuntimeException metaFailure) {
+                // 메타 기록 실패는 공개 GET 에 전파하지 않는다 — 방어적 가드(defense-in-depth).
+                log.warn("월 메타 기록 실패(무시): yearMonth={}", month, metaFailure);
             }
         }
 
@@ -2385,6 +2395,8 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
 
 같은 `FacilityCrawlService` 에 `ensureFresh(YearMonth)` 를 추가한다. TTL: 현재월·다음월=10분 / 그 외=24시간. `ConcurrentHashMap<YearMonth, ReentrantLock>` + 더블체크로 동시 미스 N건을 fetch 1회로 수렴시킨다.
 
+**리뷰 후속 강화(스케줄러↔온디맨드 락 단일화 + 실패 쿨다운):** 스케줄러가 `crawlAndReplace` 를 락 없이 직접 호출해 `ensureFresh` 의 `monthLocks` 와 같은 월의 delete+insert·메타 first-insert 를 경합하는 문제를 막기 위해, 스케줄러 전용 `refreshMonthLocked(YearMonth, CrawlSource)` 를 같은 `monthLocks` 로 직렬화한 채 추가한다(항상 강제 수집). 또한 온디맨드 실패 경로가 `isFresh` 를 갱신하지 않아 업스트림 장애 중 동시 요청마다 매번 풀 크롤을 도는 문제를 막기 위해, 월별 `lastAttemptAt`(성공·실패 불문 최근 시도 시각) 을 두고 30초 쿨다운 내 재요청은 크롤 없이 `STALE_CACHE` 를 반환한다.
+
 **Files:**
 - Modify: `backend/src/main/java/com/duing/domain/facility/service/FacilityCrawlService.java`
 - Test: `backend/src/test/java/com/duing/domain/facility/service/FacilityCrawlServiceTest.java` (테스트 추가)
@@ -2394,9 +2406,24 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
 ```java
     private static final int CURRENT_NEXT_TTL_MINUTES = 10;
     private static final int OTHER_TTL_HOURS = 24;
+    private static final int ON_DEMAND_COOLDOWN_SECONDS = 30;
 
     // 월별 single-flight 락. 키는 Task 17 의 ±12개월 조회 범위로 제한되므로 사실상 소수(최대 ~25)로 유지된다.
     private final ConcurrentHashMap<YearMonth, ReentrantLock> monthLocks = new ConcurrentHashMap<>();
+    // 월별 최근 수집 시도(성공·실패 불문) 시각 — 온디맨드 실패 쿨다운 판정용.
+    private final ConcurrentHashMap<YearMonth, LocalDateTime> lastAttemptAt = new ConcurrentHashMap<>();
+
+    /** 스케줄러용: 해당 월을 monthLocks 로 직렬화한 채 강제 수집한다(온디맨드와 같은 락 → 경합 제거). */
+    public CrawlSummary refreshMonthLocked(YearMonth yearMonth, CrawlSource source) {
+        ReentrantLock lock = monthLocks.computeIfAbsent(yearMonth, key -> new ReentrantLock());
+        lock.lock();
+        try {
+            lastAttemptAt.put(yearMonth, LocalDateTime.now(clock));
+            return crawlAndReplace(List.of(yearMonth), source);
+        } finally {
+            lock.unlock();
+        }
+    }
 
     /**
      * 온디맨드 조회 신선도 보장(§5.5). 신선하면 CACHE, 만료/미캐시면 single-flight 락으로 그 월을
@@ -2412,11 +2439,22 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
             if (isFresh(yearMonth)) {
                 return DataSource.CACHE; // 더블체크: 대기 중 다른 스레드가 채웠다면 fetch 생략
             }
+            if (withinCooldown(yearMonth)) {
+                // 최근 수집 시도(실패 포함) 후 쿨다운 내 — 학교 서버 연쇄 재요청·스레드 점유 폭주 방지(STALE_CACHE 서빙).
+                return DataSource.STALE_CACHE;
+            }
+            lastAttemptAt.put(yearMonth, LocalDateTime.now(clock));
             CrawlSummary summary = crawlAndReplace(List.of(yearMonth), CrawlSource.ON_DEMAND);
             return summary.succeededRooms() > 0 ? DataSource.LIVE_FETCH : DataSource.STALE_CACHE;
         } finally {
             lock.unlock();
         }
+    }
+
+    private boolean withinCooldown(YearMonth yearMonth) {
+        LocalDateTime attempted = lastAttemptAt.get(yearMonth);
+        return attempted != null
+                && Duration.between(attempted, LocalDateTime.now(clock)).compareTo(Duration.ofSeconds(ON_DEMAND_COOLDOWN_SECONDS)) < 0;
     }
 
     private boolean isFresh(YearMonth yearMonth) {
@@ -2434,6 +2472,8 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
         return Duration.ofHours(OTHER_TTL_HOURS);
     }
 ```
+
+- [ ] 리뷰 후속 테스트 추가 — 실패한 온디맨드 수집 직후 즉시 재요청이 쿨다운으로 디듀프되는지 검증(`FacilityCrawlServiceTest#failedAttemptIsCooledDownBeforeRetry`): 모든 룸 fetch 가 `FacilityFetchException` 을 던지도록 스텁한 콜드 월에 대해 `ensureFresh` 를 연속 2회 호출 — 첫 호출은 STALE_CACHE 반환 + `client` 1회 호출, 즉시 이어지는 둘째 호출도 STALE_CACHE 반환하지만 `client` 는 추가 호출되지 않음을 검증한다.
 
 - [ ] `FacilityCrawlServiceTest` 에 신선도·single-flight 테스트를 추가한다(파일 상단 import 에 `java.time.LocalDateTime`, `java.util.Optional`, `java.util.concurrent.CountDownLatch`, `java.util.concurrent.ExecutorService`, `java.util.concurrent.Executors`, `java.util.concurrent.TimeUnit`, `java.util.concurrent.atomic.AtomicInteger`, `java.util.concurrent.atomic.AtomicReference`, `com.duing.domain.facility.entity.CrawlSource` 이미 존재, `com.duing.domain.facility.entity.DataSource`, `com.duing.domain.facility.entity.FacilityMonthSnapshot`, `com.duing.domain.facility.entity.FetchStatus` 이미 존재, `static org.mockito.Mockito.doAnswer`):
 
@@ -2946,6 +2986,8 @@ cd /Users/ksy/Desktop/BASIC/Coding/Duing && git add backend/src/main/java/com/du
 ### Task 18: FacilityCrawlScheduler — @Scheduled + 중복 실행 방지
 
 `@ConditionalOnProperty(prefix="duing.facility.crawler", name="enabled", havingValue="true")`. 예약 잡(10분, `cron="0 */10 * * * *"`, zone Asia/Seoul)은 현재월+다음월을 크롤. 시설목록 잡(1일). `AtomicBoolean.compareAndSet` 로 in-JVM 겹침 방지(진행 중이면 skip+로그). 구조화 로그·Sentry breadcrumb 는 `FacilityCrawlService` 가 담당하므로 스케줄러는 overlap guard + 호출만.
+
+**리뷰 후속 강화(스케줄러↔온디맨드 락 단일화):** 예약 잡은 더 이상 락 없는 `crawlAndReplace(List.of(current, next), ...)` 단일 호출을 쓰지 않는다. 대신 Task 16 에서 추가한 `crawlService.refreshMonthLocked(current, CrawlSource.SCHEDULER)` 와 `crawlService.refreshMonthLocked(next, CrawlSource.SCHEDULER)` 를 월별로 각각 호출해, on-demand(`ensureFresh`) 와 같은 `monthLocks` 로 직렬화한다 — 스케줄러와 온디맨드가 같은 월의 스냅샷 delete+insert·메타 first-insert 를 경합하지 않는다. in-JVM overlap guard(`AtomicBoolean`)는 그대로 유지한다.
 
 **Files:**
 - Create: `backend/src/main/java/com/duing/domain/facility/scheduler/FacilityCrawlScheduler.java`
