@@ -96,7 +96,7 @@ export function daysInMonth(yearMonth: string): number {
 }
 
 // 'HH:mm~HH:mm' 시간 구간 라벨.
-export function slotTimeRange(slot: ReservationSlot): string {
+function slotTimeRange(slot: ReservationSlot): string {
   return `${slot.start}~${slot.end}`;
 }
 

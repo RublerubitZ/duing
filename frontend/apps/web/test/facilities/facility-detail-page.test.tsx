@@ -33,11 +33,8 @@ function renderPage() {
   return render(<FacilityDetailPage params={fulfilledParams({ facilityId: '12' })} />);
 }
 
-// 현재월 기본값·±12 클램프가 '오늘' 기준이므로 시각을 고정한다(2026-07-01 11:20 KST → 현재월 2026-07).
-beforeEach(() => {
-  vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date('2026-07-01T02:20:00Z'));
-  useFacilityDetailQueryMock.mockImplementation((_facilityId: number, yearMonth?: string) => ({
+function detailResponseFor(yearMonth?: string) {
+  return {
     isLoading: false,
     data: {
       yearMonth: yearMonth ?? '2026-07',
@@ -46,7 +43,16 @@ beforeEach(() => {
       source: 'CACHE',
       facility,
     },
-  }));
+  };
+}
+
+// 현재월 기본값·±12 클램프가 '오늘' 기준이므로 시각을 고정한다(2026-07-01 11:20 KST → 현재월 2026-07).
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-07-01T02:20:00Z'));
+  useFacilityDetailQueryMock.mockImplementation((_facilityId: number, yearMonth?: string) =>
+    detailResponseFor(yearMonth),
+  );
 });
 
 afterEach(() => {
@@ -115,9 +121,38 @@ describe('FacilityDetailPage — 월 이동', () => {
     expect(screen.getByRole('button', { name: '5' })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('로딩 중이면 기존 로딩 문구를 유지한다(온디맨드 수집 대기)', () => {
+  it('로딩 중이면 기존 로딩 문구를 유지하고 월 내비게이션은 계속 렌더된다', () => {
     useFacilityDetailQueryMock.mockImplementation(() => ({ isLoading: true, data: undefined }));
     renderPage();
     expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
+    expect(screen.getByText('2026년 7월')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '← 이전 달' })).toBeInTheDocument();
+  });
+
+  it('미캐시 월 로딩(온디맨드 수집) 중에도 월 이동으로 되돌아올 수 있다', () => {
+    useFacilityDetailQueryMock.mockImplementation((_facilityId: number, yearMonth?: string) =>
+      yearMonth === '2026-06' ? { isLoading: true, data: undefined } : detailResponseFor(yearMonth),
+    );
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: '← 이전 달' }));
+    expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
+    expect(screen.getByText('2026년 6월')).toBeInTheDocument();
+    // 로딩 중에도 다음 달 버튼으로 복귀 가능 — 전면 로딩으로 내비게이션이 사라지면 안 된다.
+    fireEvent.click(screen.getByRole('button', { name: '다음 달 →' }));
+    expect(screen.getByText('2026년 7월')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '공동연습실(1)' })).toBeInTheDocument();
+  });
+
+  it('월 조회 실패(데이터 없음) 시에도 월 내비게이션이 유지된다', () => {
+    useFacilityDetailQueryMock.mockImplementation((_facilityId: number, yearMonth?: string) =>
+      yearMonth === '2026-06'
+        ? { isLoading: false, data: undefined }
+        : detailResponseFor(yearMonth),
+    );
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: '← 이전 달' }));
+    expect(screen.getByText('시설을 찾을 수 없습니다.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '다음 달 →' }));
+    expect(screen.getByRole('heading', { name: '공동연습실(1)' })).toBeInTheDocument();
   });
 });
