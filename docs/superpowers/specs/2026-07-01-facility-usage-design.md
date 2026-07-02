@@ -369,3 +369,10 @@ Flyway 위치 `backend/src/main/resources/db/migration/`, 현재 최신 `V68` �
 - **타임라인 시간축 라벨 정렬**: 09~22 선형 트랙에 절대 좌표로 정렬(`justify-between` 어긋남 수정). 카드 트랜지션 `motion-safe:` 통일.
 - **온디맨드 동시성 상한(2026-07-02 adversarial review)**: `ensureFresh`의 월별 락을 블로킹 `lock()`에서 비블로킹 `tryLock()`으로 바꿔, 같은 월을 다른 요청이 이미 갱신 중이면 대기하지 않고 `STALE_CACHE`를 즉시 반환한다. 추가로 전역 `Semaphore(3)`(`onDemandSlots`)로 월이 달라도 동시 온디맨드 크롤을 최대 3개로 제한한다(초과분도 대기 없이 `STALE_CACHE`). 인증 없는 클라이언트가 ±12개월 창을 순회하며 요청 스레드를 무한정 점유하거나 학교 서버를 연쇄 호출시키는 것을 막는다. 스케줄러 전용 `refreshMonthLocked`는 블로킹 `lock()`과 세마포어 미적용을 그대로 유지(배경 잡은 반드시 완주해야 함); `ensureFresh`만 월락→세마포어 순으로 획득하는 유일한 경로라 락 순서 역전에 의한 교착 가능성은 없다.
 - **PARTIAL 스테일 노출(2026-07-02 adversarial review)**: 이전에는 PARTIAL 크롤도 `recordSuccessfulMeta`로 `crawled_at`이 갱신되고, `isFresh`/`isStale`이 `crawled_at`만 봐서 일부 룸이 계속 실패해도 `stale=false`로 마스킹됐다(§14 이전 버전 한계). 이제 `FacilityCrawlService.isFresh`와 `GeneralFacilityUsageService.isStale` 모두 `fetch_status==SUCCESS`를 함께 요구해, PARTIAL 월은 `isFresh=false`(계속 재시도)·`stale=true`(클라이언트 배너 노출)로 정확히 드러난다. 응답 필드는 추가하지 않고 기존 `stale`만으로 표현한다.
+
+### 설계 리뷰(Fable, 2026-07-02) 후속
+
+- **조회 트랜잭션 경계 분리(CRITICAL)**: `GeneralFacilityUsageService`의 클래스 레벨 `@Transactional(readOnly = true)`가 온디맨드 크롤(`ensureFresh` → `FacilitySnapshotWriter.replaceReservations`)의 delete+insert 를 read-only 트랜잭션에 편승시켜 PostgreSQL 25006 → 공개 GET 500·영속 실패를 유발했다. 어노테이션을 제거해 조회 조립을 무트랜잭션 오케스트레이션으로 두고, `FacilitySnapshotWriter`의 `@Transactional`이 유일한 쓰기 경계가 되도록 했다(§5.4). 실 PG 회귀 테스트 `FacilityOnDemandCrawlIntegrationTest` 추가(200+LIVE_FETCH+영속 검증).
+- **스키마 드리프트 가드(HIGH)**: 200 + 비어있지 않은 배열이 전 원소 파싱 실패로 빈 리스트가 되면(학교 필드 개명 등) 진짜 빈 달과 구분 없이 빈 스냅샷으로 교체·SUCCESS 기록되던 것을, `crawlAndReplace`에서 `FacilityBadResponseException`으로 룸 실패 처리해 기존 스냅샷을 보존한다(§1 fail-safe, `FacilitySyncService`의 파싱 0건 스킵과 동일 원칙).
+- **콜드 스타트 시설 동기화(MEDIUM)**: §5.1의 '최초 기동 시 비어 있으면 동기화'가 미구현이라 첫 배포 후 04:00 잡 전까지 빈 목록이 서빙되던 것을, `FacilityCrawlScheduler`에 `ApplicationReadyEvent` 리스너로 `facility` 테이블이 비어 있을 때 1회 `sync()` 실행(실패해도 기동 계속)으로 구현.
+- **쿨다운 스탬프 완료 시점 이동(하드닝)**: `lastAttemptAt`을 크롤 시작 전이 아니라 완료 시점(finally)에 찍어, 크롤이 30초를 초과하는 장애 상황에서 쿨다운이 무력화되어 연속 재크롤이 일어나는 것을 방지.

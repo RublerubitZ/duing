@@ -28,15 +28,18 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 이용현황 조회 조립 + 조회 시점 상태계산(Asia/Seoul). 저장된 reservation_date(DATE)+time(TIME)(KST 벽시계)을
  * LocalDateTime.now(seoulClock) 와 비교하므로 JVM 타임존(prod=UTC)과 무관하게 정확하다.
+ *
+ * <p>조회 조립은 트랜잭션 없는 오케스트레이션이다(각 조회는 리포지토리 단건 호출로 자체 트랜잭션을 가지며,
+ * 다중 쿼리 정합 요구가 없다). ensureFresh 가 어떤 트랜잭션에도 참여하지 않아야
+ * {@link FacilitySnapshotWriter} 의 쓰기 경계가 유일해진다(§5.4) — 클래스 레벨 readOnly 트랜잭션은
+ * 온디맨드 크롤의 delete+insert 를 read-only 커넥션에 편승시켜 PostgreSQL 25006 → 공개 GET 500 을 유발했다.
  */
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class GeneralFacilityUsageService implements FacilityUsageService {
 
     private static final int MONTH_WINDOW = 12;

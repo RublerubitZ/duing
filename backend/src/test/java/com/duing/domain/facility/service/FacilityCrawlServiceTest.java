@@ -24,6 +24,7 @@ import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.service.dto.query.CrawlSummary;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -84,6 +85,28 @@ class FacilityCrawlServiceTest {
         verify(snapshotWriter, times(1)).replaceReservations(any(), any(), any(), any());
         verify(snapshotWriter, times(1)).recordSuccessfulMeta(eq(july), eq(FetchStatus.SUCCESS), any(), any(), any());
         assertThat(summary.failedRooms()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("200 에 비어있지 않은 배열이 왔지만 전 원소가 파싱 불가면(스키마 드리프트) 빈 스냅샷으로 교체하지 않고 룸 실패로 처리한다")
+    void schemaDriftDoesNotReplaceWithEmptySnapshot() {
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        // 학교가 필드명을 바꾼 상황: 원소는 2건 있지만 기존 파서 기준으로는 전부 파싱 불가.
+        ArrayNode driftedBody = objectMapper.createArrayNode();
+        driftedBody.add(objectMapper.createObjectNode().put("renamed_seq", "18134").put("renamed_time", "19:00~20:00"));
+        driftedBody.add(objectMapper.createObjectNode().put("renamed_seq", "18135").put("renamed_time", "20:00~21:00"));
+        when(client.fetchReservations(anyInt(), eq(july))).thenReturn(driftedBody);
+        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+
+        CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
+
+        // 기존 스냅샷을 빈 데이터로 덮어쓰지 않고(§1 fail-safe) 실패 메타만 남긴다.
+        verify(snapshotWriter, never()).replaceReservations(any(), any(), any(), any());
+        verify(snapshotWriter, never()).recordSuccessfulMeta(any(), any(), any(), any(), any());
+        verify(snapshotWriter, times(1)).recordFailureMeta(eq(july), any(), any());
+        assertThat(summary.failedRooms()).containsExactly(4);
+        assertThat(summary.status()).isEqualTo(FetchStatus.FAILED);
     }
 
     @Test

@@ -55,7 +55,8 @@ public class FacilityCrawlService {
 
     // 월별 single-flight 락. 키는 Task 17 의 ±12개월 조회 범위로 제한되므로 사실상 소수(최대 ~25)로 유지된다.
     private final ConcurrentHashMap<YearMonth, ReentrantLock> monthLocks = new ConcurrentHashMap<>();
-    // 월별 최근 수집 시도(성공·실패 불문) 시각 — 온디맨드 실패 쿨다운 판정용.
+    // 월별 최근 수집 시도 완료(성공·실패 불문) 시각 — 온디맨드 실패 쿨다운 판정용.
+    // 시작이 아니라 완료 시점에 찍는다: 시작 시점 스탬프는 크롤이 쿨다운(30s)보다 오래 걸리면 쿨다운을 무력화한다(장애 시 연속 재크롤).
     private final ConcurrentHashMap<YearMonth, LocalDateTime> lastAttemptAt = new ConcurrentHashMap<>();
     // 온디맨드(공개 GET) 동시 크롤 전역 상한 — 월 순회 남용/업스트림 장애 시 요청 스레드 폭주 방지.
     private final Semaphore onDemandSlots = new Semaphore(ON_DEMAND_MAX_CONCURRENT);
@@ -65,9 +66,9 @@ public class FacilityCrawlService {
         ReentrantLock lock = monthLocks.computeIfAbsent(yearMonth, key -> new ReentrantLock());
         lock.lock();
         try {
-            lastAttemptAt.put(yearMonth, LocalDateTime.now(clock));
             return crawlAndReplace(List.of(yearMonth), source);
         } finally {
+            lastAttemptAt.put(yearMonth, LocalDateTime.now(clock)); // 완료 시점 스탬프(쿨다운 기준)
             lock.unlock();
         }
     }
@@ -101,10 +102,10 @@ public class FacilityCrawlService {
                 return DataSource.STALE_CACHE;
             }
             try {
-                lastAttemptAt.put(yearMonth, LocalDateTime.now(clock));
                 CrawlSummary summary = crawlAndReplace(List.of(yearMonth), CrawlSource.ON_DEMAND);
                 return summary.succeededRooms() > 0 ? DataSource.LIVE_FETCH : DataSource.STALE_CACHE;
             } finally {
+                lastAttemptAt.put(yearMonth, LocalDateTime.now(clock)); // 완료 시점 스탬프(쿨다운 기준)
                 onDemandSlots.release();
             }
         } finally {
@@ -167,6 +168,11 @@ public class FacilityCrawlService {
                 try {
                     JsonNode body = client.fetchReservations(facility.getRoomSeq(), month);
                     List<ParsedReservation> parsed = reservationParser.parse(body, month);
+                    if (body.size() > 0 && parsed.isEmpty()) {
+                        // 200 + 비어있지 않은 배열인데 전원소 파싱 실패 — 학교 스키마 드리프트로 판단, 빈 스냅샷 교체(데이터 소실) 대신 룸 실패 처리(§1 fail-safe).
+                        throw new FacilityClientException.FacilityBadResponseException(
+                                "시설 예약 응답 스키마 불일치 의심: 원소 " + body.size() + "건 전부 파싱 불가");
+                    }
                     fetchedByMonth.put(month, parsed);
                 } catch (FacilityClientException fetchFailure) {
                     roomFailed = true;
