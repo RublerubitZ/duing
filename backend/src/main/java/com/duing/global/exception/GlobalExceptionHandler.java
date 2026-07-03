@@ -5,6 +5,7 @@ import com.duing.domain.interview.exception.InterviewException;
 import com.duing.global.response.ApiResponse;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -16,6 +17,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -114,6 +116,15 @@ public class GlobalExceptionHandler {
             cause = cause.getCause();
         }
         return cause.getMessage();
+    }
+
+    /**
+     * 클라이언트가 응답 수신 전에 연결을 끊은 경우(브라우저 타임아웃·요청 취소·탭 이탈).
+     * 서버 오류가 아니므로 ERROR/Sentry 노이즈를 만들지 않고, 죽은 소켓에 응답 재작성도 시도하지 않는다(void).
+     */
+    @ExceptionHandler({AsyncRequestNotUsableException.class, ClientAbortException.class})
+    public void handleClientDisconnect(Exception exception) {
+        log.debug("클라이언트 연결 종료로 응답 미전송: {}", exception.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
