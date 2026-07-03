@@ -4,6 +4,7 @@ import { useFacilityUsageQuery } from '@duing/hooks';
 
 import { FacilityOverviewTimeline } from '../_components/FacilityOverviewTimeline';
 import { FacilityUpdateBanner } from '../_components/FacilityUpdateBanner';
+import { FacilityUsageGuide } from '../_components/FacilityUsageGuide';
 
 export function FacilityExplorePage() {
   const usageQuery = useFacilityUsageQuery();
@@ -30,7 +31,7 @@ export function FacilityExplorePage() {
         </div>
       </section>
 
-      <section className="px-4 sm:px-6 md:px-10 pt-6 pb-20">
+      <section className="px-4 sm:px-6 md:px-10 pt-6 pb-10">
         <div className="max-w-layout mx-auto">
           {usageQuery.isLoading && <p className="text-sm text-charcoal-2">불러오는 중…</p>}
           {usageQuery.error && <p className="text-sm text-coral">시설 정보를 불러오지 못했어요.</p>}
@@ -40,6 +41,13 @@ export function FacilityExplorePage() {
           {usageQuery.data && usageQuery.data.facilities.length > 0 && (
             <FacilityOverviewTimeline facilities={usageQuery.data.facilities} />
           )}
+        </div>
+      </section>
+
+      {/* 정적 안내라 이용현황 로딩·에러와 무관하게 항상 노출한다. */}
+      <section className="px-4 sm:px-6 md:px-10 pb-20">
+        <div className="max-w-layout mx-auto">
+          <FacilityUsageGuide />
         </div>
       </section>
     </div>

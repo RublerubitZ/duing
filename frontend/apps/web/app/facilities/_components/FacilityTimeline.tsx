@@ -120,7 +120,7 @@ export function FacilityTimeline({
             <span className="font-bold" style={{ color: RESERVED_FILL }}>
               {activeSegment.startLabel} ~ {activeSegment.endLabel}
             </span>{' '}
-            · 단체 {activeSegment.organization}
+            · {activeSegment.organization}
           </p>
         ) : (
           <p className="text-charcoal-3">예약 구간을 눌러 사용 단체와 시간을 확인하세요.</p>

@@ -31,6 +31,22 @@ function pad2(value: number): string {
   return String(value).padStart(2, '0');
 }
 
+// 행 정보 줄 — 사용 중이면 '누가·언제까지'를, 아니면 다음 예약(단체 병기)을 보여준다.
+// location 이 없으면 구분점 없이 뒷부분만 잇는다(빈 앞토막에 '· ' 가 남지 않게 join 으로 처리).
+function rowInfoLine(facility: FacilityItem, todayIso: string): string {
+  const infoParts: string[] = facility.location ? [facility.location] : [];
+  const current = facility.currentReservation;
+  if (facility.isUsingNow && current) {
+    infoParts.push(`${current.organization} ${current.start}~${current.end} 사용 중`);
+  } else if (facility.nextReservation) {
+    infoParts.push(`다음 예약 ${nextSlotLabel(facility.nextReservation, todayIso)}`);
+    infoParts.push(facility.nextReservation.organization);
+  } else {
+    infoParts.push('예정된 예약이 없어요');
+  }
+  return infoParts.join(' · ');
+}
+
 function OverviewRow({
   facility,
   todayIso,
@@ -67,10 +83,7 @@ function OverviewRow({
             </span>
           </div>
           <p className="mt-1 truncate pl-4 text-[12.5px] text-charcoal-3">
-            {facility.location ? `${facility.location} · ` : ''}
-            {facility.nextReservation
-              ? `다음 예약 ${nextSlotLabel(facility.nextReservation, todayIso)}`
-              : '예정된 예약이 없어요'}
+            {rowInfoLine(facility, todayIso)}
           </p>
         </div>
 
