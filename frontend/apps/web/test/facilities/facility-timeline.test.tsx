@@ -28,7 +28,9 @@ describe('FacilityTimeline', () => {
     render(<FacilityTimeline reservations={reservations} yearMonth="2026-07" />);
     fireEvent.click(screen.getByRole('button', { name: '고정관념 예약' }));
     expect(screen.getByText(/09:00 ~ 11:00/)).toBeInTheDocument();
-    expect(screen.getByText(/단체 고정관념/)).toBeInTheDocument();
+    expect(screen.getByText(/· 고정관념/)).toBeInTheDocument();
+    // '단체 ' 접두어는 붙이지 않는다(단체명만 표기).
+    expect(screen.queryByText(/단체 고정관념/)).toBeNull();
   });
 
   it('다른 날짜(2일) 선택 시 해당일 예약으로 전환된다', () => {
