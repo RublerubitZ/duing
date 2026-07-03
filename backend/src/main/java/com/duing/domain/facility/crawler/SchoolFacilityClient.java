@@ -26,8 +26,10 @@ import org.springframework.web.client.RestClientException;
  * 학생회관 시설 학교 서버 HTTP 클라이언트(HTTP 만 담당, 파싱은 Parser 계층).
  *
  * <p>시설 목록은 정적 HTML(Jsoup GET), 예약은 월 단위 JSON(RestClient POST 폼)이다.
- * 예약 fetch 는 룸 단위 재시도(총 4회 / 0.5·1·2초)를 적용하되 5xx·네트워크·타임아웃만 재시도하고
- * 4xx 는 재시도하지 않는다(§5.3). .exchange() 로 상태코드를 직접 판정해 재시도 예외를 분류한다.
+ * 예약 fetch 는 룸 단위 재시도를 적용하되 5xx·네트워크·타임아웃만 재시도하고 4xx 는 재시도하지
+ * 않는다(§5.3). 재시도 예산은 호출 경로별로 분리된다 — 스케줄러 {@link #fetchReservations}(총 4회 /
+ * 0.5·1·2초) vs 온디맨드 {@link #fetchReservationsOnDemand}(총 2회, FE 타임아웃 내 응답).
+ * .exchange() 로 상태코드를 직접 판정해 재시도 예외를 분류한다.
  */
 @Slf4j
 @Component
@@ -55,7 +57,7 @@ public class SchoolFacilityClient {
     }
 
     /**
-     * 특정 룸·월 예약 JSON 배열(POST). 상태코드를 먼저 판정하고 2xx 일 때만 본문을 파싱한다.
+     * 특정 룸·월 예약 JSON 배열(POST) — 스케줄러 예산(총 4회 / 0.5·1·2초). 상태코드를 먼저 판정하고 2xx 일 때만 본문을 파싱한다.
      * 5xx·네트워크·타임아웃 → FacilityFetchException(재시도), 4xx·비 JSON/깨진 본문 → FacilityBadResponseException(비재시도).
      * 본문을 상태 판정 전에 파싱하지 않으므로 4xx HTML 응답이 재시도되거나 파싱 예외가 예외 계층 밖으로 새지 않는다.
      */
@@ -66,6 +68,25 @@ public class SchoolFacilityClient {
                     delayExpression = "${duing.facility.crawler.retry-backoff-millis}",
                     multiplier = 2))
     public JsonNode fetchReservations(int roomSeq, YearMonth yearMonth) {
+        return doFetchReservations(roomSeq, yearMonth);
+    }
+
+    /**
+     * {@link #fetchReservations(int, YearMonth)} 와 동일하되 온디맨드(공개 GET 유발) 예산을 적용한다 —
+     * FE 15초 타임아웃 안에 응답해야 하므로 룸당 재시도를 총 2회로 줄인다. 두 공개 메서드 모두 프록시를
+     * 통과하도록 private 본문에 위임한다(어노테이션 메서드 간 self-invocation 시 재시도 미적용).
+     */
+    @Retryable(
+            retryFor = FacilityFetchException.class,
+            maxAttemptsExpression = "${duing.facility.crawler.on-demand-retry-max-attempts}",
+            backoff = @Backoff(
+                    delayExpression = "${duing.facility.crawler.retry-backoff-millis}",
+                    multiplier = 2))
+    public JsonNode fetchReservationsOnDemand(int roomSeq, YearMonth yearMonth) {
+        return doFetchReservations(roomSeq, yearMonth);
+    }
+
+    private JsonNode doFetchReservations(int roomSeq, YearMonth yearMonth) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("room_seq", String.valueOf(roomSeq));
         form.add("schedule_date", yearMonth.format(YEAR_MONTH));

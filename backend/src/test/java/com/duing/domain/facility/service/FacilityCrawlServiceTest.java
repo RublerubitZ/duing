@@ -62,8 +62,12 @@ class FacilityCrawlServiceTest {
     final YearMonth july = YearMonth.of(2026, 7);
 
     private FacilityCrawlerProperties props() {
+        return propsWithOnDemandDeadline(10);
+    }
+
+    private FacilityCrawlerProperties propsWithOnDemandDeadline(int onDemandDeadlineSeconds) {
         return new FacilityCrawlerProperties("http://x", "/room/detail", "/room/data/list",
-                "UA", 500, 500, 4, 1, 1, false);
+                "UA", 500, 500, 4, 1, 2, onDemandDeadlineSeconds, 1, false);
     }
 
     @BeforeEach
@@ -200,7 +204,7 @@ class FacilityCrawlServiceTest {
         AtomicReference<Boolean> firstDoneWhenSecondReturned = new AtomicReference<>();
         CountDownLatch firstHoldsLock = new CountDownLatch(1);
         CountDownLatch secondReturned = new CountDownLatch(1);
-        when(client.fetchReservations(anyInt(), eq(current))).thenAnswer(invocation -> {
+        when(client.fetchReservationsOnDemand(anyInt(), eq(current))).thenAnswer(invocation -> {
             fetchCount.incrementAndGet();
             firstHoldsLock.countDown();                  // 첫 스레드가 월별 락을 쥔 채 크롤 진입을 알림
             secondReturned.await(3, TimeUnit.SECONDS);   // 둘째가 결과를 확정할 때까지 락을 계속 보유
@@ -243,13 +247,13 @@ class FacilityCrawlServiceTest {
         FacilityMonthSnapshot partial = FacilityMonthSnapshot.create(
                 current, LocalDateTime.now(clock), CrawlSource.SCHEDULER, FetchStatus.PARTIAL, "일부 룸 실패");
         when(snapshotRepository.findByYearMonth(current)).thenReturn(Optional.of(partial));
-        when(client.fetchReservations(anyInt(), eq(current))).thenReturn(objectMapper.createArrayNode());
+        when(client.fetchReservationsOnDemand(anyInt(), eq(current))).thenReturn(objectMapper.createArrayNode());
         when(reservationParser.parse(any(), eq(current))).thenReturn(List.of());
 
         DataSource result = service.ensureFresh(current);
 
         // CACHE 로 단락되지 않고 실제 재수집을 시도했음을 fetch 호출로 증명한다.
-        verify(client, times(1)).fetchReservations(anyInt(), eq(current));
+        verify(client, times(1)).fetchReservationsOnDemand(anyInt(), eq(current));
         // 단일 스레드·전 룸 성공 스텁이라 재수집은 결정적으로 성공(succeededRooms==1) → LIVE_FETCH.
         // STALE_CACHE 를 허용하면 재수집 회귀(CACHE 단락 등)를 놓칠 수 있어 정확히 단언한다.
         assertThat(result).isEqualTo(DataSource.LIVE_FETCH);
@@ -262,12 +266,68 @@ class FacilityCrawlServiceTest {
         Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
         when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
         when(snapshotRepository.findByYearMonth(current)).thenReturn(Optional.empty());
-        when(client.fetchReservations(anyInt(), eq(current))).thenThrow(new FacilityFetchException("5xx"));
+        when(client.fetchReservationsOnDemand(anyInt(), eq(current))).thenThrow(new FacilityFetchException("5xx"));
 
         assertThat(service.ensureFresh(current)).isEqualTo(DataSource.STALE_CACHE);
-        verify(client, times(1)).fetchReservations(anyInt(), eq(current));
+        verify(client, times(1)).fetchReservationsOnDemand(anyInt(), eq(current));
 
         assertThat(service.ensureFresh(current)).isEqualTo(DataSource.STALE_CACHE);
-        verify(client, times(1)).fetchReservations(anyInt(), eq(current)); // 쿨다운 내 재요청 — 추가 fetch 없음
+        verify(client, times(1)).fetchReservationsOnDemand(anyInt(), eq(current)); // 쿨다운 내 재요청 — 추가 fetch 없음
+    }
+
+    @Test
+    @DisplayName("온디맨드 수집은 축소 재시도 예산의 fetchReservationsOnDemand 만 호출하고 스케줄러 예산 메서드는 호출하지 않는다")
+    void onDemandCrawlUsesOnDemandBudget() {
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        when(client.fetchReservationsOnDemand(anyInt(), eq(july))).thenReturn(objectMapper.createArrayNode());
+        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+
+        service.crawlAndReplace(List.of(july), CrawlSource.ON_DEMAND);
+
+        verify(client, times(1)).fetchReservationsOnDemand(anyInt(), eq(july));
+        verify(client, never()).fetchReservations(anyInt(), any());
+    }
+
+    @Test
+    @DisplayName("스케줄러 수집은 전체 재시도 예산의 fetchReservations 만 호출하고 온디맨드 예산 메서드는 호출하지 않는다")
+    void schedulerCrawlUsesFullBudget() {
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        when(client.fetchReservations(anyInt(), eq(july))).thenReturn(objectMapper.createArrayNode());
+        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+
+        service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
+
+        verify(client, times(1)).fetchReservations(anyInt(), eq(july));
+        verify(client, never()).fetchReservationsOnDemand(anyInt(), any());
+    }
+
+    @Test
+    @DisplayName("온디맨드 데드라인을 초과하면 남은 룸은 시도하지 않고 중단하며, 스킵이 있는 수집은 SUCCESS 로 기록되지 않는다")
+    void onDemandDeadlineSkipsRemainingRoomsAndNeverRecordsSuccess() {
+        FacilityCrawlService deadlineService = new FacilityCrawlService(facilityRepository, snapshotRepository,
+                client, reservationParser, snapshotWriter, propsWithOnDemandDeadline(1), clock);
+        Facility slow = Facility.create(4, "공동연습실(1)", "2105", 0);
+        Facility skipped = Facility.create(6, "공동연습실(2)", "2106", 1);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(slow, skipped));
+        // 첫 룸 fetch 가 데드라인(1s)을 넘겨 끝난다 — 둘째 룸은 룸 경계 데드라인 체크에서 스킵되어야 한다.
+        when(client.fetchReservationsOnDemand(eq(4), eq(july))).thenAnswer(invocation -> {
+            Thread.sleep(1200);
+            return objectMapper.createArrayNode();
+        });
+        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+
+        CrawlSummary summary = deadlineService.crawlAndReplace(List.of(july), CrawlSource.ON_DEMAND);
+
+        verify(client, times(1)).fetchReservationsOnDemand(eq(4), eq(july));
+        verify(client, never()).fetchReservationsOnDemand(eq(6), eq(july)); // 스킵 룸은 시도 자체가 없다
+        verify(snapshotWriter, times(1)).replaceReservations(any(), any(), any(), any()); // 완료한 룸만 영속
+        // 스킵이 있으면 그 달을 신선(SUCCESS)으로 기록하면 안 된다 — PARTIAL(stale=true)로 남아 재시도된다.
+        verify(snapshotWriter, times(1)).recordSuccessfulMeta(
+                eq(july), eq(FetchStatus.PARTIAL), any(), any(), eq("온디맨드 데드라인 초과"));
+        assertThat(summary.status()).isEqualTo(FetchStatus.PARTIAL);
+        assertThat(summary.succeededRooms()).isEqualTo(1); // 스킵 룸을 성공으로 오집계하지 않는다
+        assertThat(summary.failedRooms()).isEmpty(); // 시도하지 않은 룸은 실패도 아니다
     }
 }

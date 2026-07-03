@@ -94,4 +94,6 @@ duing:
       read-timeout-millis: 500
       retry-max-attempts: 4
       retry-backoff-millis: 1
+      on-demand-retry-max-attempts: 2
+      on-demand-deadline-seconds: 10
       room-delay-millis: 1

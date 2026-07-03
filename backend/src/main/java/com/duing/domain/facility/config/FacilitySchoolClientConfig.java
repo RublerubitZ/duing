@@ -15,7 +15,8 @@ import org.springframework.web.client.RestClient;
  * 로 connect/read 타임아웃을 고정한다(§3: connect 3s / read 5s). 온디맨드 조회는 스케줄러 토글과
  * 무관하게 동작해야 하므로 이 설정은 @ConditionalOnProperty 로 게이트하지 않는다.
  *
- * <p>{@link EnableRetry} 는 {@code SchoolFacilityClient#fetchReservations} 의 @Retryable AOP 를 켠다.
+ * <p>{@link EnableRetry} 는 {@code SchoolFacilityClient} 의 fetchReservations/fetchReservationsOnDemand
+ * 재시도 AOP({@code @Retryable})를 켠다.
  */
 @Configuration
 @EnableRetry

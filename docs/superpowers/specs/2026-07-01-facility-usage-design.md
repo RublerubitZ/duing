@@ -377,6 +377,11 @@ Flyway 위치 `backend/src/main/resources/db/migration/`, 현재 최신 `V68` �
 - **콜드 스타트 시설 동기화(MEDIUM)**: §5.1의 '최초 기동 시 비어 있으면 동기화'가 미구현이라 첫 배포 후 04:00 잡 전까지 빈 목록이 서빙되던 것을, `FacilityCrawlScheduler`에 `ApplicationReadyEvent` 리스너로 `facility` 테이블이 비어 있을 때 1회 `sync()` 실행(실패해도 기동 계속)으로 구현.
 - **쿨다운 스탬프 완료 시점 이동(하드닝)**: `lastAttemptAt`을 크롤 시작 전이 아니라 완료 시점(finally)에 찍어, 크롤이 30초를 초과하는 장애 상황에서 쿨다운이 무력화되어 연속 재크롤이 일어나는 것을 방지.
 
+### 운영 노이즈 후속 (2026-07-03)
+
+- **온디맨드 크롤 예산 분리(L1 후속)**: 공개 GET 유발 크롤이 FE 15초 타임아웃 내에 응답하도록 룸당 재시도 총 2회(`on-demand-retry-max-attempts`) + 전체 데드라인 10초(`on-demand-deadline-seconds`)를 적용한다. 데드라인 초과 시 남은 룸은 시도 없이 스킵(기존 스냅샷 유지)하고 그 달은 SUCCESS 로 기록하지 않고 PARTIAL(`stale=true`)로 남겨 재시도되게 한다. 스케줄러(`fetchReservations`)는 기존 예산(총 4회 / 0.5·1·2초)을 그대로 쓴다. 잔여 한계: 데드라인은 룸 경계에서만 판정되고 connect/read 타임아웃(3s/5s)은 스케줄러와 공유하므로, 단일 룸 최악(2회 × read 5s + 백오프 0.5s ≈ 10.5s)은 데드라인을 넘길 수 있다 — 여러 느린 룸의 총합 폭주를 막는 상한이지 룸 단위 하드 컷은 아니다.
+- **클라이언트 단절 조용 처리**: 브라우저 타임아웃·요청 취소로 응답 쓰기 중 연결이 끊기면(`AsyncRequestNotUsableException`/`ClientAbortException`) catch-all 이 ERROR + Sentry 가짜 오류를 만들던 것을, `GlobalExceptionHandler` 전용 void 핸들러(DEBUG 로깅·바디 재작성 없음)로 흡수한다.
+
 ---
 
 ## 16. 2차 개선 (2026-07-02 사용자 합의)
