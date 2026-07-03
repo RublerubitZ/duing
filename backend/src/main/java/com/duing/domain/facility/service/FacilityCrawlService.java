@@ -151,6 +151,13 @@ public class FacilityCrawlService {
         List<Integer> failedRooms = new ArrayList<>();
         String lastError = null;
 
+        // 온디맨드(공개 GET)는 FE 15초 타임아웃 안에 응답해야 하므로 전체 데드라인을 건다.
+        // 초과 시 남은 룸은 시도 자체를 생략(스킵)하고 기존 스냅샷을 그대로 서빙한다(fail-safe 불변).
+        boolean onDemand = source == CrawlSource.ON_DEMAND;
+        long deadlineNanos = startNanos + Duration.ofSeconds(properties.onDemandDeadlineSeconds()).toNanos();
+        boolean deadlineExceeded = false;
+        int processedRooms = 0;
+
         boolean firstRoom = true;
         for (Facility facility : facilities) {
             if (Thread.currentThread().isInterrupted()) {
@@ -161,12 +168,20 @@ public class FacilityCrawlService {
                 sleepBetweenRooms();
             }
             firstRoom = false;
+            // 데드라인 판정은 룸 간 sleep 뒤에 한다 — sleep 중 데드라인을 넘긴 채 다음 룸 fetch 를 시작하지 않도록.
+            if (onDemand && System.nanoTime() > deadlineNanos) {
+                deadlineExceeded = true;
+                log.warn("온디맨드 크롤 데드라인 초과 — 남은 룸 수집 중단(스테일 서빙)");
+                break;
+            }
 
             Map<YearMonth, List<ParsedReservation>> fetchedByMonth = new LinkedHashMap<>();
             boolean roomFailed = false;
             for (YearMonth month : months) {
                 try {
-                    JsonNode body = client.fetchReservations(facility.getRoomSeq(), month);
+                    JsonNode body = onDemand
+                            ? client.fetchReservationsOnDemand(facility.getRoomSeq(), month)
+                            : client.fetchReservations(facility.getRoomSeq(), month);
                     List<ParsedReservation> parsed = reservationParser.parse(body, month);
                     if (body.size() > 0 && parsed.isEmpty()) {
                         // 200 + 비어있지 않은 배열인데 전원소 파싱 실패 — 학교 스키마 드리프트로 판단, 빈 스냅샷 교체(데이터 소실) 대신 룸 실패 처리(§1 fail-safe).
@@ -201,6 +216,17 @@ public class FacilityCrawlService {
             if (roomFailed) {
                 failedRooms.add(facility.getRoomSeq());
             }
+            processedRooms++;
+        }
+
+        // 데드라인 스킵 룸은 시도 자체가 없었으므로 failedRooms 로 집계하지 않되,
+        // 스킵이 있었던 달을 SUCCESS(신선)로 기록하면 안 된다 — anyFailure 를 세워 PARTIAL(stale=true)로 남겨 재시도되게 한다.
+        int deadlineSkippedRooms = deadlineExceeded ? facilities.size() - processedRooms : 0;
+        if (deadlineSkippedRooms > 0) {
+            lastError = "온디맨드 데드라인 초과";
+            for (YearMonth month : months) {
+                anyFailure.put(month, true);
+            }
         }
 
         for (YearMonth month : months) {
@@ -217,17 +243,20 @@ public class FacilityCrawlService {
         }
 
         int totalReservations = reservationCount.values().stream().mapToInt(Integer::intValue).sum();
+        // 데드라인 스킵 룸은 성공도 실패도 아니므로 성공 수에서 제외한다 — 스킵을 성공으로 오집계하면
+        // succeededRooms>0 기준(LIVE_FETCH 판정)과 SUCCESS 오기록으로 스테일이 신선으로 둔갑한다.
+        int succeededRoomCount = facilities.size() - failedRooms.size() - deadlineSkippedRooms;
         FetchStatus overall;
         if (facilities.isEmpty()) {
             overall = FetchStatus.FAILED; // 활성 시설이 없으면 수집 대상이 없음(콜드/오설정)
-        } else if (failedRooms.isEmpty()) {
+        } else if (failedRooms.isEmpty() && deadlineSkippedRooms == 0) {
             overall = FetchStatus.SUCCESS;
-        } else if (failedRooms.size() >= facilities.size()) {
+        } else if (succeededRoomCount <= 0) {
             overall = FetchStatus.FAILED;
         } else {
             overall = FetchStatus.PARTIAL;
         }
-        CrawlSummary summary = new CrawlSummary(overall, facilities.size(), facilities.size() - failedRooms.size(),
+        CrawlSummary summary = new CrawlSummary(overall, facilities.size(), succeededRoomCount,
                 totalReservations, failedRooms, Duration.ofNanos(System.nanoTime() - startNanos));
         logSummary(summary);
         return summary;
@@ -250,13 +279,16 @@ public class FacilityCrawlService {
         String base = String.format("Facility Crawl %s rooms=%d/%d reservations=%d duration=%.1fs",
                 summary.status(), summary.succeededRooms(), summary.totalRooms(), summary.reservations(),
                 summary.duration().toMillis() / 1000.0);
-        if (summary.failedRooms().isEmpty()) {
+        // 심각도는 상태 기준 — 데드라인 스킵 PARTIAL 은 failedRooms 가 비어도 저하 상태이므로 WARN 으로 남긴다.
+        if (summary.status() == FetchStatus.SUCCESS) {
             log.info(base);
             Sentry.addBreadcrumb(base);
         } else {
-            String withFailed = base + " failedRooms=" + summary.failedRooms();
-            log.warn(withFailed);
-            Sentry.addBreadcrumb(withFailed);
+            String degraded = summary.failedRooms().isEmpty()
+                    ? base
+                    : base + " failedRooms=" + summary.failedRooms();
+            log.warn(degraded);
+            Sentry.addBreadcrumb(degraded);
         }
     }
 }

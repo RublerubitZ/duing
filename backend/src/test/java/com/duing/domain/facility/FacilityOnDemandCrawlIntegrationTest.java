@@ -60,7 +60,8 @@ class FacilityOnDemandCrawlIntegrationTest extends IntegrationTestBase {
         Facility savedFacility = facilityRepository.save(Facility.create(4, "공동연습실(1)", "2105", 0));
 
         ObjectMapper objectMapper = new ObjectMapper();
-        when(schoolFacilityClient.fetchReservations(anyInt(), any())).thenReturn(objectMapper.readTree(
+        // 공개 GET → ensureFresh 는 온디맨드 예산 메서드로 fetch 한다.
+        when(schoolFacilityClient.fetchReservationsOnDemand(anyInt(), any())).thenReturn(objectMapper.readTree(
                 """
                 [{"schedule_seq":"18134","schedule_dept":"고정관념(9:00~20:00)",
                   "schedule_date":"01","schedule_time":"19:00~20:00"}]

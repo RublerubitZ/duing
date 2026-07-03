@@ -33,6 +33,7 @@ import org.springframework.web.client.RestClient;
 @ContextConfiguration(classes = SchoolFacilityClientRetryTest.RetryTestConfig.class)
 @TestPropertySource(properties = {
         "duing.facility.crawler.retry-max-attempts=4",
+        "duing.facility.crawler.on-demand-retry-max-attempts=2", // 온디맨드는 FE 타임아웃 내 응답 위해 축소 예산
         "duing.facility.crawler.retry-backoff-millis=1" // 테스트 가속(0.5s 실대기 회피)
 })
 class SchoolFacilityClientRetryTest {
@@ -55,6 +56,18 @@ class SchoolFacilityClientRetryTest {
         assertThatThrownBy(() -> client.fetchReservations(4, YearMonth.of(2026, 7)))
                 .isInstanceOf(FacilityFetchException.class);
         mockServer.verify(); // 정확히 4회 요청 수신을 단언
+    }
+
+    @Test
+    @DisplayName("온디맨드 예산의 5xx 응답은 총 2회(초기 1 + 재시도 1)까지만 재시도한 뒤 FacilityFetchException 을 던진다")
+    void onDemandServerErrorRetriesOnlyTwice() {
+        mockServer.expect(ExpectedCount.times(2), requestTo("https://school.test/room/data/list"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withServerError());
+
+        assertThatThrownBy(() -> client.fetchReservationsOnDemand(4, YearMonth.of(2026, 7)))
+                .isInstanceOf(FacilityFetchException.class);
+        mockServer.verify(); // 정확히 2회 요청 수신을 단언 — 스케줄러 예산(4회)과 분리
     }
 
     @Test
@@ -122,7 +135,7 @@ class SchoolFacilityClientRetryTest {
         FacilityCrawlerProperties facilityCrawlerProperties() {
             return new FacilityCrawlerProperties(
                     "https://school.test", "/room/detail", "/room/data/list",
-                    "DuingFacilityTest/1.0", 500, 500, 4, 1, 1, false);
+                    "DuingFacilityTest/1.0", 500, 500, 4, 1, 2, 10, 1, false);
         }
 
         @Bean
