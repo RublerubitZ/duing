@@ -12,6 +12,7 @@ import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCatego
 import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCommand;
 import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -95,7 +96,8 @@ public class GeneralFederationFaqService implements FederationFaqService {
         Set<Long> currentIds = currentFaqs.stream().map(FederationFaq::getId).collect(Collectors.toSet());
         List<Long> orderedIds = command.orderedIds();
         // 전체 교체 계약: 현재 전체 id 집합과 payload 가 정확히 일치해야 한다 (ClubPhoto reorder 전례)
-        if (orderedIds.size() != currentIds.size() || !currentIds.equals(Set.copyOf(orderedIds))) {
+        // Set.copyOf 는 중복/null 원소에 예외(500)를 던지므로, 이를 관용하는 HashSet 비교로 400 경로를 보장한다.
+        if (orderedIds.size() != currentIds.size() || !currentIds.equals(new HashSet<>(orderedIds))) {
             throw new FederationFaqException.FaqOrderMismatchException();
         }
         Map<Long, FederationFaq> faqById = currentFaqs.stream()

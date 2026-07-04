@@ -251,6 +251,22 @@ class FederationFaqAdminAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("정렬 요청에 중복 id가 섞이면 400을 받는다")
+    void reorderWithDuplicateIdsFails() {
+        Long firstId = seedFaq("질문 A", true, 0);
+        seedFaq("질문 B", true, 1);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("{ \"orderedIds\": [%d, %d] }".formatted(firstId, firstId))
+            .when()
+                .put("/api/v1/admin/federation/faqs/order")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("질문이 비어 있는 FAQ 생성 요청은 400을 받는다")
     void createWithBlankQuestionFails() {
         RestAssured.given()
