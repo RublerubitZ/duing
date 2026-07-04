@@ -152,6 +152,17 @@ class FederationFaqPublicAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("공개 FAQ 목록의 페이지 크기는 상한 100으로 제한된다")
+    void listPageSizeIsCappedAt100() {
+        RestAssured.given()
+            .when()
+                .get("/api/v1/federation/faqs?size=500")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.size", equalTo(100));
+    }
+
+    @Test
     @DisplayName("같은 프리픽스의 비밀문의 경로는 익명 접근 시 401로 차단된다 — /federation/** 와일드카드 금지 잠금")
     void anonymousBlockedOnInquiryPrefix() {
         RestAssured.given()

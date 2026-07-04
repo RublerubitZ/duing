@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,6 +27,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class FederationFaqController implements FederationFaqApi {
 
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final FederationFaqService federationFaqService;
 
     @Override
@@ -34,8 +37,12 @@ public class FederationFaqController implements FederationFaqApi {
             @RequestParam(required = false) String keyword,
             Pageable pageable
     ) {
+        // 비로그인 공개 API — Spring Data 기본 상한(2000)보다 좁게 잠가 대량 size 요청의 DoS 표면을 줄인다.
+        Pageable cappedPageable = pageable.getPageSize() > MAX_PAGE_SIZE
+                ? PageRequest.of(pageable.getPageNumber(), MAX_PAGE_SIZE, pageable.getSort())
+                : pageable;
         FederationFaqSearchCondition condition = new FederationFaqSearchCondition(categoryId, keyword);
-        Page<FederationFaq> faqPage = federationFaqService.searchPublished(condition, pageable);
+        Page<FederationFaq> faqPage = federationFaqService.searchPublished(condition, cappedPageable);
         Map<Long, String> categoryNames = faqPage.isEmpty() ? Map.of() : categoryNameMap();
         Page<FederationFaqResponse> responsePage = faqPage.map(
                 faq -> FederationFaqResponse.from(faq, categoryNames.get(faq.getCategoryId())));
