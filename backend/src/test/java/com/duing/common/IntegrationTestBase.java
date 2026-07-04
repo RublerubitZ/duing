@@ -27,6 +27,8 @@ public abstract class IntegrationTestBase {
                 "facility_reservation, " +
                 "facility_month_snapshot, " +
                 "facility, " +
+                "federation_faq, " +
+                "federation_faq_category, " +
                 "cashbook_entry, " +
                 "bank_transaction, " +
                 "bank_matching_setting, " +
