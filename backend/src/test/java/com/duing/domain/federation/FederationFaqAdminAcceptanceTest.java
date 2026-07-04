@@ -282,6 +282,45 @@ class FederationFaqAdminAcceptanceTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
+    @Test
+    @DisplayName("존재하지 않는 FAQ의 수정·삭제 요청은 404를 받는다")
+    void updateOrDeleteMissingFaqFails() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "categoryId": %d, "question": "질문", "answer": "답변",
+                      "pinned": false, "published": true }
+                    """.formatted(categoryId))
+            .when()
+                .patch("/api/v1/admin/federation/faqs/999999")
+            .then()
+                .statusCode(HttpStatus.NOT_FOUND.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faqs/999999")
+            .then()
+                .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("카테고리 이름을 다른 카테고리와 겹치게 수정하면 409를 받는다")
+    void updateCategoryToDuplicateNameFails() {
+        String existingName = "테스트-기존" + sequence.incrementAndGet();
+        categoryRepository.save(FederationFaqCategory.create(existingName, 5));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("{ \"name\": \"%s\", \"sortOrder\": 0 }".formatted(existingName))
+            .when()
+                .patch("/api/v1/admin/federation/faq-categories/" + categoryId)
+            .then()
+                .statusCode(HttpStatus.CONFLICT.value());
+    }
+
     // ---- helpers ----
 
     private Long seedFaq(String question, boolean published, int sortOrder) {

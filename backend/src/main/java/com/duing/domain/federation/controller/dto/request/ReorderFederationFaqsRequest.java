@@ -5,7 +5,8 @@ import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 
 public record ReorderFederationFaqsRequest(
-        @NotEmpty List<Long> orderedIds
+        @NotEmpty(message = "정렬할 FAQ 목록이 비어 있습니다.")
+        List<Long> orderedIds
 ) {
     public ReorderFederationFaqsCommand toCommand() {
         return new ReorderFederationFaqsCommand(orderedIds);

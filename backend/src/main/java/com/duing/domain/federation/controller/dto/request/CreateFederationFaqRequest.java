@@ -6,9 +6,17 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record CreateFederationFaqRequest(
-        @NotNull Long categoryId,
-        @NotBlank @Size(max = 300) String question,
-        @NotBlank @Size(max = 4000) String answer,
+        @NotNull(message = "카테고리는 필수 입력값입니다.")
+        Long categoryId,
+
+        @NotBlank(message = "질문은 필수 입력값입니다.")
+        @Size(max = 300, message = "질문은 300자 이하여야 합니다.")
+        String question,
+
+        @NotBlank(message = "답변은 필수 입력값입니다.")
+        @Size(max = 4000, message = "답변은 4000자 이하여야 합니다.")
+        String answer,
+
         boolean pinned,
         boolean published
 ) {
