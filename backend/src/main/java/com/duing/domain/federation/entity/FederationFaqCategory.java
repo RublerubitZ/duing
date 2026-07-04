@@ -37,4 +37,9 @@ public class FederationFaqCategory extends BaseEntity {
                 .sortOrder(sortOrder)
                 .build();
     }
+
+    public void update(String name, int sortOrder) {
+        this.name = name;
+        this.sortOrder = sortOrder;
+    }
 }

@@ -70,4 +70,16 @@ public class FederationFaq extends BaseEntity {
                 .authorId(authorId)
                 .build();
     }
+
+    public void update(Long categoryId, String question, String answer, boolean pinned, boolean published) {
+        this.categoryId = categoryId;
+        this.question = question;
+        this.answer = answer;
+        this.pinned = pinned;
+        this.published = published;
+    }
+
+    public void changeSortOrder(int sortOrder) {
+        this.sortOrder = sortOrder;
+    }
 }
