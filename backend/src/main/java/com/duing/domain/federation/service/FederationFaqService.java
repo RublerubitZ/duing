@@ -14,4 +14,6 @@ public interface FederationFaqService {
     FederationFaq getPublished(Long faqId);
 
     List<FederationFaqCategory> getCategories();
+
+    String getCategoryName(Long categoryId);
 }

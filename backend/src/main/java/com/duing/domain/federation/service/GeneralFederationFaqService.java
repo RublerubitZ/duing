@@ -38,4 +38,11 @@ public class GeneralFederationFaqService implements FederationFaqService {
     public List<FederationFaqCategory> getCategories() {
         return categoryRepository.findAllByOrderBySortOrderAscIdAsc();
     }
+
+    @Override
+    public String getCategoryName(Long categoryId) {
+        return categoryRepository.findById(categoryId)
+                .map(FederationFaqCategory::getName)
+                .orElse(null);
+    }
 }

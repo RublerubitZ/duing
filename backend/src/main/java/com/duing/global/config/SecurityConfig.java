@@ -87,6 +87,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs", "/api/v1/clubs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recruitments", "/api/v1/recruitments/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/notices", "/api/v1/notices/**").permitAll()
+                        // 총동연 FAQ 공개 GET — 정확 경로만 허용. "/api/v1/federation/**" 와일드카드 금지:
+                        // 같은 프리픽스의 비밀문의(/federation/inquiries/**)가 URL 레이어 방어를 잃는다.
+                        // (스펙 2026-07-04-federation-qna-design §5, 회귀 잠금: FederationFaqPublicAcceptanceTest)
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/federation/faqs",
+                                "/api/v1/federation/faqs/*",
+                                "/api/v1/federation/faq-categories").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/global-events", "/api/v1/global-events/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/promotions").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/public-activities", "/api/v1/public-activities/**").permitAll()
