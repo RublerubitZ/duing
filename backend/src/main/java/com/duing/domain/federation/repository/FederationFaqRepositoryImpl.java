@@ -3,6 +3,7 @@ package com.duing.domain.federation.repository;
 import static com.duing.domain.federation.entity.QFederationFaq.federationFaq;
 
 import com.duing.domain.federation.entity.FederationFaq;
+import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -46,6 +47,40 @@ public class FederationFaqRepositoryImpl implements FederationFaqRepositoryCusto
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
+    @Override
+    public Page<FederationFaq> searchForAdmin(FederationFaqAdminSearchCondition condition, Pageable pageable) {
+        BooleanExpression[] predicates = {
+                federationFaq.deletedAt.isNull(),
+                publishedEq(condition.published()),
+                categoryIdEq(condition.categoryId()),
+                keywordContains(condition.keyword())
+        };
+
+        List<FederationFaq> content = queryFactory
+                .selectFrom(federationFaq)
+                .where(predicates)
+                .orderBy(
+                        federationFaq.pinned.desc(),
+                        federationFaq.sortOrder.asc(),
+                        federationFaq.id.desc()
+                )
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory
+                .select(federationFaq.count())
+                .from(federationFaq)
+                .where(predicates)
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
+    private BooleanExpression publishedEq(Boolean published) {
+        return published != null ? federationFaq.published.eq(published) : null;
     }
 
     private BooleanExpression categoryIdEq(Long categoryId) {
