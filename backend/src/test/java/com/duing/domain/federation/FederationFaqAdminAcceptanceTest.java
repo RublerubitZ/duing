@@ -250,6 +250,22 @@ class FederationFaqAdminAcceptanceTest extends IntegrationTestBase {
                 .body("data.find { it.id == %d }.sortOrder".formatted(createdCategoryId), equalTo(3));
     }
 
+    @Test
+    @DisplayName("질문이 비어 있는 FAQ 생성 요청은 400을 받는다")
+    void createWithBlankQuestionFails() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "categoryId": %d, "question": "  ", "answer": "답변",
+                      "pinned": false, "published": true }
+                    """.formatted(categoryId))
+            .when()
+                .post("/api/v1/admin/federation/faqs")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
     // ---- helpers ----
 
     private Long seedFaq(String question, boolean published, int sortOrder) {
