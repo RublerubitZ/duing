@@ -200,7 +200,7 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("접수 상태에서 버전 없이 바로 답변하면 409를 받고, 최신 버전을 담으면 성공한다")
+    @DisplayName("접수 상태에서 버전 없이 바로 답변하면 409를 받고, 숫자 버전이 있어도 그 사이 문의가 수정돼 stale 해지면 409를 받으며, 최신 버전을 담으면 성공한다")
     void directAnswerFromReceivedRequiresVersionEcho() {
         Long inquiryId = createInquiry(studentToken, "제목", "내용");
 
@@ -210,6 +210,21 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
                 .body("""
                     { "content": "답변 내용" }
                     """)
+            .when()
+                .post("/api/v1/admin/federation/inquiries/" + inquiryId + "/answer")
+            .then()
+                .statusCode(HttpStatus.CONFLICT.value());
+
+        // 관리자가 쥔 버전이 숫자로 존재하더라도, 그 사이 학생이 수정해 버전을 올렸다면 stale 이라 409.
+        Long staleVersion = adminDetailVersion(inquiryId);
+        updateInquiry(inquiryId, "수정된 제목", "수정된 내용", HttpStatus.NO_CONTENT);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "content": "답변 내용", "version": %d }
+                    """.formatted(staleVersion))
             .when()
                 .post("/api/v1/admin/federation/inquiries/" + inquiryId + "/answer")
             .then()
