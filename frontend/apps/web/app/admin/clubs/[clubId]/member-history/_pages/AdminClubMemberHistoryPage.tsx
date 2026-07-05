@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAdminClubMemberHistoryQuery } from '@duing/hooks';
-import { Pagination } from '../../../../../notices/_components/Pagination';
+import { Pagination } from '@/components/Pagination';
 import { AdminClubMemberHistoryTable } from '../_components/AdminClubMemberHistoryTable';
 
 const PAGE_SIZE = 20;

@@ -4,9 +4,10 @@ type Props = {
   page: number;
   totalPages: number;
   onChange: (next: number) => void;
+  ariaLabel?: string;
 };
 
-export function Pagination({ page, totalPages, onChange }: Props) {
+export function Pagination({ page, totalPages, onChange, ariaLabel = '페이지' }: Props) {
   if (totalPages <= 1) return null;
 
   const windowSize = 5;
@@ -16,7 +17,7 @@ export function Pagination({ page, totalPages, onChange }: Props) {
   for (let i = start; i < end; i++) visible.push(i);
 
   return (
-    <nav aria-label="공지 페이지" className="flex items-center justify-center gap-1.5 mt-8">
+    <nav aria-label={ariaLabel} className="flex items-center justify-center gap-1.5 mt-8">
       <button
         type="button"
         onClick={() => onChange(page - 1)}

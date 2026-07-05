@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import type { SuccessionStatus } from '@duing/types';
 import { useAdminSuccessionListQuery } from '@duing/hooks';
+import { Pagination } from '@/components/Pagination';
 import { AdminSuccessionFilterBar } from '../_components/AdminSuccessionFilterBar';
 import { AdminSuccessionTable } from '../_components/AdminSuccessionTable';
-import { Pagination } from '../../../notices/_components/Pagination';
 import { SUCCESSION_STATUS_LABEL } from '../_lib/successionLabels';
 
 const PAGE_SIZE = 20;

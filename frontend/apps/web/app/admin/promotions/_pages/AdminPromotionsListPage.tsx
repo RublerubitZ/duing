@@ -6,10 +6,10 @@ import {
   useAdminPromotionListQuery,
   useDeletePromotionMutation,
 } from '@duing/hooks';
+import { Pagination } from '@/components/Pagination';
 import { AdminPromotionsFilterBar } from '../_components/AdminPromotionsFilterBar';
 import { AdminPromotionsTable } from '../_components/AdminPromotionsTable';
 import { AdminPromotionDeleteDialog } from '../_components/AdminPromotionDeleteDialog';
-import { Pagination } from '../../../notices/_components/Pagination';
 
 type ActiveFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 

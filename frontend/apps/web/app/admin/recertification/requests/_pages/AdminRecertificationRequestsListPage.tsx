@@ -6,9 +6,9 @@ import {
   useAdminRecertificationRequestListQuery,
   useAdminRecertificationRoundListQuery,
 } from '@duing/hooks';
+import { Pagination } from '@/components/Pagination';
 import { AdminRecertificationRequestsFilterBar } from '../_components/AdminRecertificationRequestsFilterBar';
 import { AdminRecertificationRequestsTable } from '../_components/AdminRecertificationRequestsTable';
-import { Pagination } from '../../../../notices/_components/Pagination';
 import { RECERTIFICATION_STATUS_LABEL } from '../_lib/recertificationRequestLabels';
 
 const PAGE_SIZE = 20;
