@@ -1,9 +1,10 @@
 'use client';
 
-// 총동연 FAQ 공개 페이지. NoticePage.tsx 의 검색(draft/확정)·칩 필터 패턴을 따르되,
-// 사이드바 없이 단일 컬럼으로 구성한다. 아코디언 항목은 pinned 뱃지·카테고리 캡션이 필요해 자체 렌더한다.
+// 총동연 FAQ 공개 페이지. 필터 상태(카테고리·검색어·페이지·딥링크 item)는 URL searchParams 가
+// 소스다 — ClubExplorePage 의 parse/serialize/updateParams 패턴(새로고침·공유·뒤로가기 유지).
+// 검색 인풋 draft 만 로컬 상태. 아코디언 항목은 pinned 뱃지·카테고리 캡션이 필요해 자체 렌더한다.
 
-import { useId, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -13,19 +14,14 @@ import type { FederationFaqItem } from '@duing/types';
 
 import { Pagination } from '@/components/Pagination';
 import { cn } from '@/app/_lib/cn';
-import { EASE_DUING } from '@/app/introduce/_components/motion/constants';
+import { EASE_DUING } from '@/components/motion/constants';
 import { ExploreNav } from '../../_components/ExploreNav';
 import { HomeFooter } from '../../_components/HomeFooter';
 import { toRoute } from '../../_lib/route';
 import { FaqDeepLinkCard } from '../_components/FaqDeepLinkCard';
+import { parseFaqParams, serializeFaqParams, type FaqParams } from '../_lib/faqParams';
 
 const PAGE_SIZE = 20;
-
-function parseDeepLinkId(raw: string | null): number | null {
-  if (!raw) return null;
-  const parsed = Number(raw);
-  return Number.isInteger(parsed) ? parsed : null;
-}
 
 function FaqAccordionRow({ faq, index }: { faq: FederationFaqItem; index: number }) {
   const [open, setOpen] = useState(false);
@@ -101,48 +97,49 @@ function FaqAccordionRow({ faq, index }: { faq: FederationFaqItem; index: number
 export function FaqPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const deepLinkId = useMemo(
-    () => parseDeepLinkId(searchParams?.get('item') ?? null),
+  const params = useMemo<FaqParams>(
+    () => parseFaqParams(new URLSearchParams(searchParams?.toString() ?? '')),
     [searchParams],
   );
 
-  const [keywordInput, setKeywordInput] = useState('');
-  const [keyword, setKeyword] = useState('');
-  const [categoryId, setCategoryId] = useState<number | 'ALL'>('ALL');
-  const [page, setPage] = useState(0);
+  /** 검색 인풋은 입력 중 URL 을 흔들지 않도록 별도 로컬 상태로 둔다 */
+  const [keywordDraft, setKeywordDraft] = useState(params.keyword);
+
+  const updateParams = useCallback(
+    (patch: Partial<FaqParams>) => {
+      const next: FaqParams = { ...params, ...patch };
+      const query = serializeFaqParams(next);
+      router.replace(toRoute(`/faq${query ? `?${query}` : ''}`), { scroll: false });
+    },
+    [params, router],
+  );
 
   const categoriesQuery = useFederationFaqCategoriesQuery();
   const listQuery = useFederationFaqListQuery({
-    categoryId: categoryId !== 'ALL' ? categoryId : undefined,
-    keyword: keyword || undefined,
-    page,
+    categoryId: params.categoryId !== 'ALL' ? params.categoryId : undefined,
+    keyword: params.keyword || undefined,
+    page: params.page - 1,
     size: PAGE_SIZE,
   });
 
   const items = listQuery.data?.content ?? [];
   const totalPages = listQuery.data?.totalPages ?? 0;
 
-  const clearDeepLink = () => {
-    if (deepLinkId !== null) {
-      router.replace(toRoute('/faq'), { scroll: false });
-    }
-  };
-
+  // 검색 확정·칩·페이지 변경은 전부 딥링크 item 을 함께 제거한다(맥락이 바뀐 카드 잔존 방지).
   const handleSearch = () => {
-    setKeyword(keywordInput);
-    setPage(0);
-    clearDeepLink();
+    updateParams({ keyword: keywordDraft.trim(), page: 1, item: null });
   };
 
   const handleCategoryChange = (next: number | 'ALL') => {
-    setCategoryId(next);
-    setPage(0);
-    clearDeepLink();
+    updateParams({ categoryId: next, page: 1, item: null });
   };
 
-  const handlePageChange = (next: number) => {
-    setPage(next);
-    clearDeepLink();
+  const handlePageChange = (nextZeroBasedPage: number) => {
+    updateParams({ page: nextZeroBasedPage + 1, item: null });
+  };
+
+  const handleDeepLinkClose = () => {
+    updateParams({ item: null });
   };
 
   return (
@@ -160,8 +157,8 @@ export function FaqPage() {
         {/* Search */}
         <div className="mb-5 flex items-center gap-2 rounded-[14px] border border-line bg-paper px-4 py-2.5 md:max-w-[420px]">
           <input
-            value={keywordInput}
-            onChange={(event) => setKeywordInput(event.target.value)}
+            value={keywordDraft}
+            onChange={(event) => setKeywordDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') handleSearch();
             }}
@@ -181,7 +178,7 @@ export function FaqPage() {
             onClick={() => handleCategoryChange('ALL')}
             className={cn(
               'shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-[13px] font-semibold',
-              categoryId === 'ALL'
+              params.categoryId === 'ALL'
                 ? 'border-ink bg-ink text-paper'
                 : 'border-line bg-paper text-charcoal-2',
             )}
@@ -195,7 +192,7 @@ export function FaqPage() {
               onClick={() => handleCategoryChange(category.id)}
               className={cn(
                 'shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-[13px] font-semibold',
-                categoryId === category.id
+                params.categoryId === category.id
                   ? 'border-ink bg-ink text-paper'
                   : 'border-line bg-paper text-charcoal-2',
               )}
@@ -206,8 +203,8 @@ export function FaqPage() {
         </div>
 
         {/* 딥링크 카드 — 필터/페이지 변경 시 handleXxx 에서 item 을 제거한다 */}
-        {deepLinkId !== null && (
-          <FaqDeepLinkCard faqId={deepLinkId} onClose={clearDeepLink} />
+        {params.item !== null && (
+          <FaqDeepLinkCard faqId={params.item} onClose={handleDeepLinkClose} />
         )}
 
         {listQuery.isLoading && (
@@ -230,7 +227,7 @@ export function FaqPage() {
             )}
 
             <Pagination
-              page={page}
+              page={params.page - 1}
               totalPages={totalPages}
               onChange={handlePageChange}
               ariaLabel="FAQ 페이지"

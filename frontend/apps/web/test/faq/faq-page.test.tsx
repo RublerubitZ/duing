@@ -19,12 +19,14 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+// 필터 상태는 URL searchParams 가 소스 — 테스트는 URLSearchParams 로 URL 상태를 주입하고,
+// 상태 변경은 router.replace 호출 인자로 단언한다(FaqPage 의 parse/serialize 계약).
 const mockRouterReplace = vi.fn();
-let mockItemParam: string | null = null;
+let mockSearchParams = new URLSearchParams();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockRouterReplace, push: vi.fn() }),
-  useSearchParams: () => ({ get: (key: string) => (key === 'item' ? mockItemParam : null) }),
+  useSearchParams: () => mockSearchParams,
 }));
 
 const mockUseFederationFaqCategoriesQuery = vi.fn();
@@ -66,7 +68,7 @@ function makeListResponse(items: FederationFaqItem[]) {
 describe('FaqPage', () => {
   beforeEach(() => {
     mockRouterReplace.mockReset();
-    mockItemParam = null;
+    mockSearchParams = new URLSearchParams();
     mockUseFederationFaqCategoriesQuery.mockReset().mockReturnValue({ data: [] });
     mockUseFederationFaqListQuery.mockReset().mockReturnValue(makeListResponse([]));
     mockUseFederationFaqDetailQuery
@@ -98,22 +100,32 @@ describe('FaqPage', () => {
     expect(screen.getByText('탈퇴')).toBeInTheDocument();
   });
 
-  it('검색어 입력만으로는 keyword 가 전달되지 않고, Enter 로 확정해야 keyword 를 포함한 인자로 훅이 호출된다', () => {
+  it('URL 의 category·keyword·page 가 목록 조회 훅 인자로 매핑된다 (page 는 0-based 변환)', () => {
+    mockSearchParams = new URLSearchParams('category=3&keyword=회비&page=2');
+
+    render(<FaqPage />);
+
+    expect(mockUseFederationFaqListQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ categoryId: 3, keyword: '회비', page: 1, size: 20 }),
+    );
+  });
+
+  it('검색어 입력만으로는 URL 이 갱신되지 않고, Enter 로 확정해야 keyword 를 포함해 router.replace 가 호출된다', () => {
     render(<FaqPage />);
 
     const input = screen.getByPlaceholderText('질문을 검색하세요');
     fireEvent.change(input, { target: { value: '휴학' } });
 
-    // 입력만 한 상태에서는 훅 호출 인자에 keyword 가 아직 반영되지 않는다.
+    // 입력만 한 상태에서는 URL 갱신도, 훅 호출 인자 반영도 없다.
+    expect(mockRouterReplace).not.toHaveBeenCalled();
     expect(
       mockUseFederationFaqListQuery.mock.calls.some((call) => call[0]?.keyword === '휴학'),
     ).toBe(false);
 
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    expect(mockUseFederationFaqListQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ keyword: '휴학', page: 0 }),
-    );
+    const expectedQuery = new URLSearchParams({ keyword: '휴학' }).toString();
+    expect(mockRouterReplace).toHaveBeenCalledWith(`/faq?${expectedQuery}`, { scroll: false });
   });
 
   it('검색 결과가 없으면 안내 문구와 1:1 문의 CTA 가 노출된다', () => {
@@ -127,7 +139,7 @@ describe('FaqPage', () => {
   });
 
   it('item 쿼리스트링으로 진입하면 FaqDeepLinkCard 가 렌더되고 해당 id 로 상세 조회 훅이 호출된다', () => {
-    mockItemParam = '5';
+    mockSearchParams = new URLSearchParams('item=5');
     mockUseFederationFaqDetailQuery.mockReturnValue({
       data: makeFaqItem({ id: 5, question: '공유된 질문 내용' }),
       isLoading: false,
@@ -141,8 +153,21 @@ describe('FaqPage', () => {
     expect(mockUseFederationFaqDetailQuery).toHaveBeenCalledWith(5);
   });
 
+  it('item 이 양의 안전 정수가 아니면(-3, abc) 딥링크 카드를 렌더하지 않는다', () => {
+    mockSearchParams = new URLSearchParams('item=-3');
+    const { unmount } = render(<FaqPage />);
+    expect(screen.queryByText('공유된 질문')).not.toBeInTheDocument();
+    expect(mockUseFederationFaqDetailQuery).not.toHaveBeenCalled();
+    unmount();
+
+    mockSearchParams = new URLSearchParams('item=abc');
+    render(<FaqPage />);
+    expect(screen.queryByText('공유된 질문')).not.toBeInTheDocument();
+    expect(mockUseFederationFaqDetailQuery).not.toHaveBeenCalled();
+  });
+
   it('딥링크 대상 FAQ 조회가 에러이면 "해당 FAQ를 찾을 수 없어요" 문구가 보인다', () => {
-    mockItemParam = '5';
+    mockSearchParams = new URLSearchParams('item=5');
     mockUseFederationFaqDetailQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -152,5 +177,23 @@ describe('FaqPage', () => {
     render(<FaqPage />);
 
     expect(screen.getByText('해당 FAQ를 찾을 수 없어요')).toBeInTheDocument();
+  });
+
+  it('딥링크가 열린 상태에서 카테고리 칩을 누르면 item 이 제거된 URL 로 교체된다', () => {
+    mockSearchParams = new URLSearchParams('item=5');
+    mockUseFederationFaqCategoriesQuery.mockReturnValue({
+      data: [{ id: 3, name: '가입', sortOrder: 1 }],
+    });
+    mockUseFederationFaqDetailQuery.mockReturnValue({
+      data: makeFaqItem({ id: 5 }),
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<FaqPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: '가입' }));
+
+    expect(mockRouterReplace).toHaveBeenCalledWith('/faq?category=3', { scroll: false });
   });
 });

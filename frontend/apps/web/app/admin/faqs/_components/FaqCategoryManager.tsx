@@ -6,7 +6,7 @@ import {
   useAdminFederationFaqCategoryCreateMutation,
   useAdminFederationFaqCategoryUpdateMutation,
 } from '@duing/hooks';
-import { extractErrorMessage } from '../_lib/extractErrorMessage';
+import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 
 // 카테고리 관리 카드 — 목록 상단 접이식. 이름 인라인 수정 + 순서 위/아래(인접 sortOrder 교환,
 // update 2회 순차 호출) + 신규 생성. 삭제는 P2(스펙 §8) — 여기서는 구현하지 않는다.

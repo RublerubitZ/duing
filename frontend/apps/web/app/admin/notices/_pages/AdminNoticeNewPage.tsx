@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAdminNoticeCreateMutation } from '@duing/hooks';
 import { NoticeForm } from '../_components/NoticeForm';
 import { EMPTY_NOTICE_FORM, toCreatePayload } from '../_lib/parseNoticeFormState';
-import { extractErrorMessage } from '../_lib/extractErrorMessage';
+import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 
 export function AdminNoticeNewPage() {
   const router = useRouter();

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminFederationFaqCreateMutation } from '@duing/hooks';
 import { FaqForm, EMPTY_FAQ_FORM } from '../_components/FaqForm';
-import { extractErrorMessage } from '../_lib/extractErrorMessage';
+import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 
 export function AdminFaqNewPage() {
   const router = useRouter();

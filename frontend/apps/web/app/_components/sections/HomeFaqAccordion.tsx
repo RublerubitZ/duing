@@ -11,7 +11,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import type { FederationFaqItem } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
-import { EASE_DUING } from '@/app/introduce/_components/motion/constants';
+import { EASE_DUING } from '@/components/motion/constants';
 import { toRoute } from '@/app/_lib/route';
 
 function HomeFaqAccordionRow({ faq }: { faq: FederationFaqItem }) {

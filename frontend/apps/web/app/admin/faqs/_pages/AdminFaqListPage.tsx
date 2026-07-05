@@ -15,7 +15,7 @@ import { cn } from '@/app/_lib/cn';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { toRoute } from '../../../_lib/route';
 import { FaqCategoryManager } from '../_components/FaqCategoryManager';
-import { extractErrorMessage } from '../_lib/extractErrorMessage';
+import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { FAQ_FULL_LIST_SIZE } from '../_lib/faqListConstants';
 
 const PAGE_SIZE = 20;

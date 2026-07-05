@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAdminFederationFaqListQuery, useAdminFederationFaqUpdateMutation } from '@duing/hooks';
 import { FaqForm, type FaqFormState } from '../_components/FaqForm';
-import { extractErrorMessage } from '../_lib/extractErrorMessage';
+import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { FAQ_FULL_LIST_SIZE } from '../_lib/faqListConstants';
 
 // 상세 조회 API 가 없으므로(스펙 §6) admin 목록을 전체 창(FAQ_FULL_LIST_SIZE)으로 불러와 해당 id 행을
