@@ -1,8 +1,10 @@
 package com.duing.domain.user.repository;
 
 import com.duing.domain.user.entity.User;
+import com.duing.domain.user.entity.UserRole;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,6 +17,9 @@ import org.springframework.data.repository.query.Param;
 public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
+
+    // 총동연 문의 접수 알림 수신자 조회 — ADMIN 은 극소수라 별도 페이징 없이 전체 조회.
+    List<User> findAllByRole(UserRole role);
 
     /**
      * 로그인 실패 카운터 증가의 동시성 보호를 위해 사용자 행을 잠그고 조회한다.

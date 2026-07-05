@@ -112,6 +112,9 @@ tasks.named<Delete>("clean") {
 
 tasks.test {
     useJUnitPlatform()
+    // @SpringBootTest 컨텍스트가 늘며 기본 힙(512m)으로는 스위트 후반에 OOM 으로 컨텍스트 로드가
+    // 실패한다(예: PrivacyRetentionSchedulingWiringTest). 캐시된 컨텍스트를 수용할 상한을 명시한다.
+    maxHeapSize = "2g"
 }
 
 // 컨테이너 이미지에는 실행가능한 bootJar 하나만 필요하므로 plain jar 생성을 끈다(build/libs 단일화 → Dockerfile COPY 단순화).
