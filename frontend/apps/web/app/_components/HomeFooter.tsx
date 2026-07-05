@@ -72,25 +72,44 @@ export function HomeFooter() {
               운영자 가이드
             </Link>
           </li>
-          <li>
-            <a
-              href="https://open.kakao.com/o/s6JruOzi"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={linkClass}
-            >
-              문의하기
-            </a>
-          </li>
         </FooterColumn>
 
-        <FooterColumn title="문의">
-          <li>
-            <a href="mailto:duing.official@gmail.com" className={linkClass}>
-              duing.official@gmail.com
-            </a>
-          </li>
-        </FooterColumn>
+        <div>
+          {/* 두잉팀(서비스 운영)과 총동연(FAQ·1:1 문의) 은 수신 주체가 다르므로 라벨로 명확히 구분한다.
+              카카오 링크는 기존 '운영자' 컬럼에 있던 것을 이 섹션으로 이전(중복 노출 방지). */}
+          <div className="text-xs font-bold tracking-wide06 text-ink-deep">두잉 서비스 문의</div>
+          <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
+            <li>
+              <a
+                href="https://open.kakao.com/o/s6JruOzi"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={linkClass}
+              >
+                두잉팀 카카오 문의
+              </a>
+            </li>
+            <li>
+              <a href="mailto:duing.official@gmail.com" className={linkClass}>
+                duing.official@gmail.com
+              </a>
+            </li>
+          </ul>
+
+          <div className="mt-6 text-xs font-bold tracking-wide06 text-ink-deep">총동연 문의</div>
+          <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
+            <li>
+              <Link href="/faq" className={linkClass}>
+                자주 묻는 질문
+              </Link>
+            </li>
+            <li>
+              <Link href="/me/inquiries/new" className={linkClass}>
+                1:1 문의
+              </Link>
+            </li>
+          </ul>
+        </div>
       </div>
       <div className="max-w-layout mx-auto mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6 text-xs text-charcoal-3">
         <div>© DUING · All Rights Reserved</div>
