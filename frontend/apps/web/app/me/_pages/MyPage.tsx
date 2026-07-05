@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useFavoriteListQuery, useMeQuery, useMyApplicationsQuery, useMyClubsQuery } from '@duing/hooks';
+import {
+  useFavoriteListQuery,
+  useMeQuery,
+  useMyApplicationsQuery,
+  useMyClubsQuery,
+  useMyFederationInquiriesQuery,
+} from '@duing/hooks';
 
 import { HomeNav } from '@/app/_components/HomeNav';
 
@@ -11,15 +17,17 @@ import { MyPageHeader } from '../_components/MyPageHeader';
 import { MyPageTabs } from '../_components/MyPageTabs';
 import { SectionApply } from '../_components/SectionApply';
 import { SectionArchived } from '../_components/SectionArchived';
+import { SectionInquiries } from '../_components/SectionInquiries';
 import { SectionMyClubs } from '../_components/SectionMyClubs';
 import { SectionSaved } from '../_components/SectionSaved';
 
-type SectionId = 'apply' | 'joined' | 'saved' | 'archived';
+type SectionId = 'apply' | 'joined' | 'saved' | 'inquiries' | 'archived';
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'apply', label: '지원 현황' },
   { id: 'joined', label: '가입한 동아리' },
   { id: 'saved', label: '찜한 동아리' },
+  { id: 'inquiries', label: '내 문의' },
   { id: 'archived', label: '지난 지원' },
 ];
 
@@ -37,12 +45,15 @@ export function MyPage() {
   const archivedApplicationsQuery = useMyApplicationsQuery('ARCHIVED');
   const myClubsQuery = useMyClubsQuery();
   const favoriteListQuery = useFavoriteListQuery(0, 20);
+  const myInquiriesQuery = useMyFederationInquiriesQuery({ page: 0, size: 3 });
 
   const user = meQuery.data;
   const applications = applicationsQuery.data ?? [];
   const archivedApplications = archivedApplicationsQuery.data ?? [];
   const myClubs = myClubsQuery.data ?? [];
   const favorites = favoriteListQuery.data?.content ?? [];
+  const myInquiries = myInquiriesQuery.data?.content ?? [];
+  const myInquiriesTotalCount = myInquiriesQuery.data?.totalElements ?? 0;
 
   /* ── 탭 클릭 → 해당 섹션 헤더로 스무스 스크롤 ── */
   const scrollToSection = useCallback((id: string) => {
@@ -138,7 +149,9 @@ export function MyPage() {
           ? myClubs.length
           : section.id === 'saved'
             ? favorites.length
-            : archivedApplications.length;
+            : section.id === 'inquiries'
+              ? myInquiriesTotalCount
+              : archivedApplications.length;
     return { ...section, count };
   });
 
@@ -178,6 +191,9 @@ export function MyPage() {
         </div>
         <div ref={refFor('saved')} data-section="saved">
           <SectionSaved favorites={favorites} />
+        </div>
+        <div ref={refFor('inquiries')} data-section="inquiries">
+          <SectionInquiries inquiries={myInquiries} totalCount={myInquiriesTotalCount} />
         </div>
         <div ref={refFor('archived')} data-section="archived">
           <SectionArchived applications={archivedApplications} />
