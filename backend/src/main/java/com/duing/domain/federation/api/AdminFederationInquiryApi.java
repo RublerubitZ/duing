@@ -3,7 +3,8 @@ package com.duing.domain.federation.api;
 import com.duing.domain.federation.controller.dto.request.AnswerFederationInquiryRequest;
 import com.duing.domain.federation.controller.dto.request.UpdateFederationInquiryAnswerRequest;
 import com.duing.domain.federation.controller.dto.request.UpdateFederationInquiryStatusRequest;
-import com.duing.domain.federation.controller.dto.response.AdminFederationInquiryResponse;
+import com.duing.domain.federation.controller.dto.response.AdminFederationInquiryDetailResponse;
+import com.duing.domain.federation.controller.dto.response.AdminFederationInquirySummaryResponse;
 import com.duing.domain.federation.entity.FederationInquiryStatus;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -29,7 +30,7 @@ public interface AdminFederationInquiryApi {
 
     @Operation(summary = "문의 관리 목록", description = "status/keyword 필터. 탈퇴 작성자는 '(삭제됨)' 표기.")
     @GetMapping("/admin/federation/inquiries")
-    ResponseEntity<ApiResponse<PageResponse<AdminFederationInquiryResponse>>> getInquiries(
+    ResponseEntity<ApiResponse<PageResponse<AdminFederationInquirySummaryResponse>>> getInquiries(
             @RequestParam(required = false) FederationInquiryStatus status,
             @RequestParam(required = false) String keyword,
             @Parameter(hidden = true) Pageable pageable
@@ -37,7 +38,7 @@ public interface AdminFederationInquiryApi {
 
     @Operation(summary = "문의 상세", description = "작성자가 삭제한 문의는 410.")
     @GetMapping("/admin/federation/inquiries/{inquiryId}")
-    ResponseEntity<ApiResponse<AdminFederationInquiryResponse>> getInquiry(@PathVariable Long inquiryId);
+    ResponseEntity<ApiResponse<AdminFederationInquiryDetailResponse>> getInquiry(@PathVariable Long inquiryId);
 
     @Operation(summary = "상태 변경", description = "IN_PROGRESS(답변 작성 CTA — version 필수) 또는 CLOSED(사유 선택).")
     @PatchMapping("/admin/federation/inquiries/{inquiryId}/status")

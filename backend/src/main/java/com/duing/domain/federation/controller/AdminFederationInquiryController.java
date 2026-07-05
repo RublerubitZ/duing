@@ -4,15 +4,12 @@ import com.duing.domain.federation.api.AdminFederationInquiryApi;
 import com.duing.domain.federation.controller.dto.request.AnswerFederationInquiryRequest;
 import com.duing.domain.federation.controller.dto.request.UpdateFederationInquiryAnswerRequest;
 import com.duing.domain.federation.controller.dto.request.UpdateFederationInquiryStatusRequest;
-import com.duing.domain.federation.controller.dto.response.AdminFederationInquiryResponse;
+import com.duing.domain.federation.controller.dto.response.AdminFederationInquiryDetailResponse;
+import com.duing.domain.federation.controller.dto.response.AdminFederationInquirySummaryResponse;
 import com.duing.domain.federation.entity.FederationInquiryStatus;
 import com.duing.domain.federation.service.FederationInquiryService;
 import com.duing.domain.federation.service.dto.query.FederationInquiryAdminSearchCondition;
-import com.duing.domain.federation.service.dto.query.FederationInquiryDetailQuery;
-import com.duing.domain.user.entity.User;
-import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.UserPrincipal;
-import com.duing.global.constant.AdminLabels;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import jakarta.validation.Valid;
@@ -36,28 +33,23 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminFederationInquiryController implements AdminFederationInquiryApi {
 
     private final FederationInquiryService federationInquiryService;
-    private final UserRepository userRepository;
 
     @Override
-    public ResponseEntity<ApiResponse<PageResponse<AdminFederationInquiryResponse>>> getInquiries(
+    public ResponseEntity<ApiResponse<PageResponse<AdminFederationInquirySummaryResponse>>> getInquiries(
             @RequestParam(required = false) FederationInquiryStatus status,
             @RequestParam(required = false) String keyword,
             Pageable pageable) {
-        Page<AdminFederationInquiryResponse> page = federationInquiryService
+        Page<AdminFederationInquirySummaryResponse> page = federationInquiryService
                 .searchForAdmin(new FederationInquiryAdminSearchCondition(status, keyword), pageable)
-                .map(AdminFederationInquiryResponse::fromQuery);
+                .map(AdminFederationInquirySummaryResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
     }
 
     @Override
-    public ResponseEntity<ApiResponse<AdminFederationInquiryResponse>> getInquiry(@PathVariable Long inquiryId) {
-        FederationInquiryDetailQuery detail = federationInquiryService.getForAdmin(inquiryId);
-        // 탈퇴 회원은 @SQLRestriction 으로 조회에서 빠짐 → '(삭제됨)' 폴백
-        User author = userRepository.findById(detail.inquiry().getAuthorId()).orElse(null);
-        return ResponseEntity.ok(ApiResponse.success(AdminFederationInquiryResponse.fromDetail(
-                detail,
-                author != null ? author.getName() : AdminLabels.DELETED,
-                author != null ? author.getStudentId() : AdminLabels.DELETED)));
+    public ResponseEntity<ApiResponse<AdminFederationInquiryDetailResponse>> getInquiry(@PathVariable Long inquiryId) {
+        // 탈퇴 작성자 '(삭제됨)' 폴백은 서비스(getForAdmin)에서 해석해 내려온다.
+        return ResponseEntity.ok(ApiResponse.success(AdminFederationInquiryDetailResponse.from(
+                federationInquiryService.getForAdmin(inquiryId))));
     }
 
     @Override

@@ -11,6 +11,7 @@ import com.duing.domain.federation.service.dto.command.ChangeInquiryStatusComman
 import com.duing.domain.federation.service.dto.command.CreateFederationInquiryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationInquiryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateInquiryAnswerCommand;
+import com.duing.domain.federation.service.dto.query.AdminFederationInquiryDetailQuery;
 import com.duing.domain.federation.service.dto.query.AdminFederationInquiryQuery;
 import com.duing.domain.federation.service.dto.query.FederationInquiryAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationInquiryDetailQuery;
@@ -119,10 +120,16 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     }
 
     @Override
-    public FederationInquiryDetailQuery getForAdmin(Long inquiryId) {
+    public AdminFederationInquiryDetailQuery getForAdmin(Long inquiryId) {
         FederationInquiry inquiry = getInquiryForAdmin(inquiryId);
-        return new FederationInquiryDetailQuery(
-                inquiry, answerRepository.findByInquiryId(inquiry.getId()).orElse(null));
+        // 탈퇴 회원은 @SQLRestriction 으로 findById 결과에서 빠진다 → AdminLabels.DELETED 폴백
+        // (searchForAdmin 목록과 동일한 해석을 서비스 한 곳에서 — 단건이라 findById 로 충분).
+        User author = userRepository.findById(inquiry.getAuthorId()).orElse(null);
+        return new AdminFederationInquiryDetailQuery(
+                inquiry,
+                answerRepository.findByInquiryId(inquiry.getId()).orElse(null),
+                author != null ? author.getName() : AdminLabels.DELETED,
+                author != null ? author.getStudentId() : AdminLabels.DELETED);
     }
 
     @Override

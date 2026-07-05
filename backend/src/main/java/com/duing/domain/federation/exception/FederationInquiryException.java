@@ -9,6 +9,10 @@ public class FederationInquiryException extends ApplicationException {
         super(message, status);
     }
 
+    protected FederationInquiryException(String message, HttpStatus status, String code) {
+        super(message, status, code);
+    }
+
     // 타인 문의 접근도 404 — 존재 자체를 은닉한다(스펙 §5·§7).
     public static class FederationInquiryNotFoundException extends FederationInquiryException {
         private static final String MESSAGE = "문의를 찾을 수 없습니다.";
@@ -18,7 +22,7 @@ public class FederationInquiryException extends ApplicationException {
     // admin 상세 전용 — 관리자는 접수 알림으로 존재를 이미 알아 은닉 실익이 없다(스펙 §4 삭제 정책).
     public static class InquiryDeletedException extends FederationInquiryException {
         private static final String MESSAGE = "작성자가 삭제한 문의입니다.";
-        public InquiryDeletedException() { super(MESSAGE, HttpStatus.GONE); }
+        public InquiryDeletedException() { super(MESSAGE, HttpStatus.GONE, "INQUIRY_DELETED"); }
     }
 
     // version echo 불일치 — stale-render 방어(스펙 §4 상태머신).

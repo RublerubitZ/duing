@@ -7,6 +7,7 @@ import com.duing.domain.federation.service.dto.command.ChangeInquiryStatusComman
 import com.duing.domain.federation.service.dto.command.CreateFederationInquiryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationInquiryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateInquiryAnswerCommand;
+import com.duing.domain.federation.service.dto.query.AdminFederationInquiryDetailQuery;
 import com.duing.domain.federation.service.dto.query.AdminFederationInquiryQuery;
 import com.duing.domain.federation.service.dto.query.FederationInquiryAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationInquiryDetailQuery;
@@ -27,7 +28,7 @@ public interface FederationInquiryService {
 
     Page<AdminFederationInquiryQuery> searchForAdmin(FederationInquiryAdminSearchCondition condition, Pageable pageable);
 
-    FederationInquiryDetailQuery getForAdmin(Long inquiryId);
+    AdminFederationInquiryDetailQuery getForAdmin(Long inquiryId);
 
     void changeStatus(ChangeInquiryStatusCommand command);
 

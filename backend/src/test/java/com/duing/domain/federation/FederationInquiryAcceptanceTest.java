@@ -31,8 +31,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
 /**
- * 총동연 1:1 비밀문의 인수 테스트 (P1-PR3). 컨트롤러 도입 전 RED 단계 — 스펙
- * 2026-07-04-federation-qna-design.md §4·§5 의 15개 시나리오를 고정한다.
+ * 총동연 1:1 비밀문의 인수 테스트 (P1-PR3) — 스펙 2026-07-04-federation-qna-design.md
+ * §4·§5 의 시나리오를 학생·관리자 API 전 구간(등록~답변~종료~삭제·도배 가드)에 걸쳐 고정한다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -370,6 +370,28 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
                 .contentType(ContentType.JSON)
                 .body("""
                     { "title": "여섯 번째 문의", "content": "여섯 번째 문의 내용" }
+                    """)
+            .when()
+                .post("/api/v1/federation/inquiries")
+            .then()
+                .statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("삭제한 문의도 24시간 생성 한도에 포함되어 삭제 후 재작성 루프를 막는다")
+    void deletedInquiriesStillCountTowardDailyLimit() {
+        for (int i = 0; i < 10; i++) {
+            FederationInquiry inquiry = federationInquiryRepository.save(
+                    FederationInquiry.create(studentId, "도배 " + i, "내용"));
+            federationInquiryRepository.delete(inquiry); // soft delete — native 카운트에는 남는다
+        }
+
+        // 열린 RECEIVED 0건이지만 24h 생성 10건 → 가드 (b)가 차단
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title": "재작성 문의", "content": "재작성 문의 내용" }
                     """)
             .when()
                 .post("/api/v1/federation/inquiries")
