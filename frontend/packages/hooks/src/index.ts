@@ -90,6 +90,19 @@ export {
   useAdminNoticeDeleteMutation,
 } from './notices';
 export { noticeQueryKeys } from './noticeQueryKeys';
+export {
+  useFederationFaqListQuery,
+  useFederationFaqDetailQuery,
+  useFederationFaqCategoriesQuery,
+  useAdminFederationFaqListQuery,
+  useAdminFederationFaqCreateMutation,
+  useAdminFederationFaqUpdateMutation,
+  useAdminFederationFaqDeleteMutation,
+  useAdminFederationFaqReorderMutation,
+  useAdminFederationFaqCategoryCreateMutation,
+  useAdminFederationFaqCategoryUpdateMutation,
+} from './federationFaqs';
+export { federationFaqQueryKeys } from './federationFaqQueryKeys';
 export { useFileUploadMutation } from './files';
 export {
   useAdminClubsQuery,
