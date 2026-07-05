@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import type { ReportStatus, ReportTargetType } from '@duing/types';
 import { useAdminReportListQuery } from '@duing/hooks';
+import { Pagination } from '@/components/Pagination';
 import { AdminReportsFilterBar } from '../_components/AdminReportsFilterBar';
 import { AdminReportsTable } from '../_components/AdminReportsTable';
-import { Pagination } from '../../../notices/_components/Pagination';
 import { REPORT_STATUS_LABEL } from '../_lib/reportLabels';
 
 const PAGE_SIZE = 20;

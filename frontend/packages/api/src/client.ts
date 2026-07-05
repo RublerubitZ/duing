@@ -168,6 +168,13 @@ import type {
   FacilitySummary,
   FacilityUsageResponse,
   FacilityDetailResponse,
+  FederationFaqCategory,
+  FederationFaqItem,
+  AdminFederationFaqSummary,
+  CreateFederationFaqPayload,
+  UpdateFederationFaqPayload,
+  CreateFederationFaqCategoryPayload,
+  UpdateFederationFaqCategoryPayload,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -314,6 +321,18 @@ export type DuingApiClient = {
     }): Promise<PageResponse<NoticeCardItem>>;
     detail(noticeId: number): Promise<NoticeDetail>;
   };
+  federationFaqs: {
+    list(params: {
+      categoryId?: number;
+      keyword?: string;
+      page: number;
+      size: number;
+    }): Promise<PageResponse<FederationFaqItem>>;
+    detail(faqId: number): Promise<FederationFaqItem>;
+  };
+  federationFaqCategories: {
+    list(): Promise<FederationFaqCategory[]>;
+  };
   promotions: {
     list(): Promise<PageResponse<PromotionCard>>;
   };
@@ -394,6 +413,23 @@ export type DuingApiClient = {
       create(payload: CreateNoticePayload): Promise<number>;
       update(noticeId: number, payload: UpdateNoticePayload): Promise<void>;
       remove(noticeId: number): Promise<void>;
+    };
+    federationFaqs: {
+      list(params: {
+        published?: boolean;
+        categoryId?: number;
+        keyword?: string;
+        page: number;
+        size: number;
+      }): Promise<PageResponse<AdminFederationFaqSummary>>;
+      create(payload: CreateFederationFaqPayload): Promise<number>;
+      update(faqId: number, payload: UpdateFederationFaqPayload): Promise<void>;
+      remove(faqId: number): Promise<void>;
+      reorder(orderedIds: number[]): Promise<void>;
+    };
+    federationFaqCategories: {
+      create(payload: CreateFederationFaqCategoryPayload): Promise<number>;
+      update(categoryId: number, payload: UpdateFederationFaqCategoryPayload): Promise<void>;
     };
     globalEvents: {
       list(params: AdminGlobalEventListParams): Promise<PageResponse<AdminGlobalEventSummary>>;
@@ -831,6 +867,16 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       detail: (noticeId) =>
         jsonOk<NoticeDetail>(http.get(`notices/${noticeId}`)),
     },
+    federationFaqs: {
+      list: (params) =>
+        jsonOk<PageResponse<FederationFaqItem>>(
+          http.get('federation/faqs', { searchParams: cleanParams(params) }),
+        ),
+      detail: (faqId) => jsonOk<FederationFaqItem>(http.get(`federation/faqs/${faqId}`)),
+    },
+    federationFaqCategories: {
+      list: () => jsonOk<FederationFaqCategory[]>(http.get('federation/faq-categories')),
+    },
     promotions: {
       list: () => jsonOk<PageResponse<PromotionCard>>(http.get('promotions')),
     },
@@ -969,6 +1015,24 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonVoid(http.patch(`admin/notices/${noticeId}`, { json: payload })),
         remove: (noticeId) =>
           jsonVoid(http.delete(`admin/notices/${noticeId}`)),
+      },
+      federationFaqs: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminFederationFaqSummary>>(
+            http.get('admin/federation/faqs', { searchParams: cleanParams(params) }),
+          ),
+        create: (payload) => jsonOk<number>(http.post('admin/federation/faqs', { json: payload })),
+        update: (faqId, payload) =>
+          jsonVoid(http.patch(`admin/federation/faqs/${faqId}`, { json: payload })),
+        remove: (faqId) => jsonVoid(http.delete(`admin/federation/faqs/${faqId}`)),
+        reorder: (orderedIds) =>
+          jsonVoid(http.put('admin/federation/faqs/order', { json: { orderedIds } })),
+      },
+      federationFaqCategories: {
+        create: (payload) =>
+          jsonOk<number>(http.post('admin/federation/faq-categories', { json: payload })),
+        update: (categoryId, payload) =>
+          jsonVoid(http.patch(`admin/federation/faq-categories/${categoryId}`, { json: payload })),
       },
       globalEvents: {
         list: (params) =>

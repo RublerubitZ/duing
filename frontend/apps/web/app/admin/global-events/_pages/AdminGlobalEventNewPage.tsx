@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminGlobalEventCreateMutation } from '@duing/hooks';
 import { AdminGlobalEventForm } from '../_components/AdminGlobalEventForm';
-import { extractErrorMessage } from '../_lib/extractErrorMessage';
+import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { EMPTY_GLOBAL_EVENT_FORM, toCreatePayload } from '../_lib/parseGlobalEventFormState';
 import { toRoute } from '../../../_lib/route';
 

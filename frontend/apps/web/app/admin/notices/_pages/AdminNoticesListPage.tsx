@@ -7,10 +7,10 @@ import {
   useAdminNoticeListQuery,
   useAdminNoticeDeleteMutation,
 } from '@duing/hooks';
+import { Pagination } from '@/components/Pagination';
 import { AdminNoticesFilterBar } from '../_components/AdminNoticesFilterBar';
 import { AdminNoticesTable } from '../_components/AdminNoticesTable';
 import { AdminNoticeDeleteDialog } from '../_components/AdminNoticeDeleteDialog';
-import { Pagination } from '../../../notices/_components/Pagination';
 
 const PAGE_SIZE = 20;
 

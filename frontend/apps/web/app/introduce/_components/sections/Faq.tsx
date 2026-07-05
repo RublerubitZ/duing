@@ -1,5 +1,5 @@
 import { FadeIn } from '@/components/motion/FadeIn';
-import { Accordion, type AccordionItemData } from '../Accordion';
+import { Accordion, type AccordionItemData } from '@/components/Accordion';
 
 const FAQ_ITEMS: ReadonlyArray<AccordionItemData> = [
   {

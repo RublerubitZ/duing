@@ -7,7 +7,7 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import type { ReactNode } from 'react';
-import { EASE_DUING } from './constants';
+import { EASE_DUING } from '@/components/motion/constants';
 
 type StaggerProps = {
   children: ReactNode;

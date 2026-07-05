@@ -25,3 +25,4 @@ export * from './bank';
 export * from './cashbook';
 export * from './publicActivity';
 export * from './facility';
+export * from './federationFaq';

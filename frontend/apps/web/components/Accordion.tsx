@@ -6,7 +6,7 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import { useId, useState } from 'react';
-import { EASE_DUING } from './motion/constants';
+import { EASE_DUING } from '@/components/motion/constants';
 
 export type AccordionItemData = { question: string; answer: string };
 
