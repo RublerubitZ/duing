@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 
 import { ApiError } from '@duing/api';
@@ -26,7 +26,8 @@ const ANSWER_MAX_LENGTH = 4000;
 const VERSION_CONFLICT_MESSAGE = '문의가 수정되었습니다. 내용을 다시 확인해 주세요.';
 
 type Props = {
-  inquiryId: number;
+  // 라우트 세그먼트가 유효한 양의 안전 정수가 아니면 null (parseInquiryId 참조)
+  inquiryId: number | null;
 };
 
 export function AdminInquiryDetailPage({ inquiryId }: Props) {
@@ -52,45 +53,60 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
 
   const inquiry = detailQuery.data;
 
+  // refetch await 구간에서 isPending 이 잠깐 풀려 버튼이 재활성화되는 좁은 윈도우를 막는 동기 가드.
+  const isStartingAnswerRef = useRef(false);
+
   // RECEIVED → IN_PROGRESS 전환 CTA. 409(version 충돌) 시 최신 detail 을 refetch 해 얻은
   // version 으로 정확히 1회만 자동 재시도한다(암묵적 재시도 금지 — 순차 try/catch 로 명시).
   async function handleStartAnswer() {
-    if (!inquiry) return;
+    if (inquiryId === null || !inquiry) return;
+    if (isStartingAnswerRef.current) return;
+    isStartingAnswerRef.current = true;
     setCtaError(null);
 
     try {
-      await changeStatusMutation.mutateAsync({
-        inquiryId,
-        payload: { status: 'IN_PROGRESS', version: inquiry.version },
-      });
-      setIsAnswerFormOpen(true);
-      return;
-    } catch (firstAttemptError) {
-      if (!(firstAttemptError instanceof ApiError) || firstAttemptError.status !== 409) {
-        setCtaError(extractErrorMessage(firstAttemptError) ?? '답변 작성 시작에 실패했습니다.');
+      try {
+        await changeStatusMutation.mutateAsync({
+          inquiryId,
+          payload: { status: 'IN_PROGRESS', version: inquiry.version },
+        });
+        setIsAnswerFormOpen(true);
+        return;
+      } catch (firstAttemptError) {
+        if (!(firstAttemptError instanceof ApiError) || firstAttemptError.status !== 409) {
+          setCtaError(extractErrorMessage(firstAttemptError) ?? '답변 작성 시작에 실패했습니다.');
+          return;
+        }
+      }
+
+      const refreshed = await detailQuery.refetch();
+      const freshVersion = refreshed.data?.version;
+      if (freshVersion == null) {
+        setCtaError(VERSION_CONFLICT_MESSAGE);
         return;
       }
-    }
 
-    const refreshed = await detailQuery.refetch();
-    const freshVersion = refreshed.data?.version;
-    if (freshVersion == null) {
-      setCtaError(VERSION_CONFLICT_MESSAGE);
-      return;
-    }
-
-    try {
-      await changeStatusMutation.mutateAsync({
-        inquiryId,
-        payload: { status: 'IN_PROGRESS', version: freshVersion },
-      });
-      setIsAnswerFormOpen(true);
-    } catch {
-      setCtaError(VERSION_CONFLICT_MESSAGE);
+      try {
+        await changeStatusMutation.mutateAsync({
+          inquiryId,
+          payload: { status: 'IN_PROGRESS', version: freshVersion },
+        });
+        setIsAnswerFormOpen(true);
+      } catch (retryError) {
+        // 재시도 실패도 409(또 수정됨)만 버전 충돌 안내로, 그 외(네트워크·5xx)는 원인 메시지로 구분.
+        setCtaError(
+          retryError instanceof ApiError && retryError.status === 409
+            ? VERSION_CONFLICT_MESSAGE
+            : (extractErrorMessage(retryError) ?? '답변 작성 시작에 실패했습니다.'),
+        );
+      }
+    } finally {
+      isStartingAnswerRef.current = false;
     }
   }
 
   async function handleSubmitAnswer() {
+    if (inquiryId === null) return;
     setAnswerError(null);
     try {
       await answerMutation.mutateAsync({ inquiryId, payload: { content: answerContent } });
@@ -117,6 +133,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
   }
 
   async function handleUpdateAnswer() {
+    if (inquiryId === null) return;
     setEditAnswerError(null);
     try {
       await updateAnswerMutation.mutateAsync({
@@ -132,6 +149,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
   }
 
   async function handleCloseConfirm(closedReason: string | undefined) {
+    if (inquiryId === null) return;
     setCloseError(null);
     try {
       await changeStatusMutation.mutateAsync({
@@ -154,14 +172,16 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
     );
   }
 
-  if (detailQuery.isError || !inquiry) {
+  if (inquiryId === null || detailQuery.isError || !inquiry) {
     const detailError = detailQuery.error;
     const message =
-      detailError instanceof ApiError && detailError.code === 'INQUIRY_DELETED'
-        ? '작성자가 삭제한 문의입니다'
-        : detailError instanceof ApiError && detailError.status === 404
-          ? '문의를 찾을 수 없습니다'
-          : '문의 정보를 불러오지 못했습니다.';
+      inquiryId === null
+        ? '문의를 찾을 수 없습니다'
+        : detailError instanceof ApiError && detailError.code === 'INQUIRY_DELETED'
+          ? '작성자가 삭제한 문의입니다'
+          : detailError instanceof ApiError && detailError.status === 404
+            ? '문의를 찾을 수 없습니다'
+            : '문의 정보를 불러오지 못했습니다.';
 
     return (
       <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">

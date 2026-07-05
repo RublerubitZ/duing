@@ -8,6 +8,7 @@ import { useMyFederationInquiriesQuery } from '@duing/hooks';
 
 import { Pagination } from '@/components/Pagination';
 import { cn } from '@/app/_lib/cn';
+import { formatDateDot } from '@/app/_lib/formatDateDot';
 import { toRoute } from '@/app/_lib/route';
 import {
   INQUIRY_STATUS_BADGE_CLASS,
@@ -23,12 +24,6 @@ const STATUS_TABS: (FederationInquiryStatus | 'ALL')[] = [
   'ANSWERED',
   'CLOSED',
 ];
-
-// 백엔드 ISO 타임스탬프를 YYYY.MM.DD 로 표기한다. SectionArchived/ApplicationsPage 와 동일한 패턴.
-function formatDateDot(iso: string): string {
-  const date = new Date(iso);
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
-}
 
 export function MyInquiriesPage() {
   const [statusFilter, setStatusFilter] = useState<FederationInquiryStatus | 'ALL'>('ALL');

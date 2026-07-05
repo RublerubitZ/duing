@@ -12,6 +12,7 @@ import {
 } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
+import { formatDateDot } from '@/app/_lib/formatDateDot';
 import { toRoute } from '@/app/_lib/route';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -23,22 +24,17 @@ import {
 const TITLE_MAX_LENGTH = 120;
 const CONTENT_MAX_LENGTH = 2000;
 
-// 백엔드 ISO 타임스탬프를 YYYY.MM.DD 로 표기한다. MyInquiriesPage 와 동일한 패턴.
-function formatDateDot(iso: string): string {
-  const date = new Date(iso);
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
-}
-
 type Props = {
-  inquiryId: number;
+  // 라우트 세그먼트가 유효한 양의 안전 정수가 아니면 null (parseInquiryId 참조)
+  inquiryId: number | null;
 };
 
 export function InquiryDetailPage({ inquiryId }: Props) {
-  const isValidId = !Number.isNaN(inquiryId);
+  const isValidId = inquiryId !== null;
   const router = useRouter();
   const { addToast } = useToast();
 
-  const detailQuery = useFederationInquiryDetailQuery(isValidId ? inquiryId : null);
+  const detailQuery = useFederationInquiryDetailQuery(inquiryId);
   const updateMutation = useUpdateFederationInquiryMutation();
   const deleteMutation = useDeleteFederationInquiryMutation();
 
@@ -89,6 +85,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
   }
 
   async function handleSaveEdit() {
+    if (inquiryId === null) return;
     setEditError(null);
     try {
       await updateMutation.mutateAsync({
@@ -107,6 +104,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
   }
 
   async function handleDelete() {
+    if (inquiryId === null) return;
     setDeleteError(null);
     try {
       await deleteMutation.mutateAsync(inquiryId);
@@ -173,7 +171,11 @@ export function InquiryDetailPage({ inquiryId }: Props) {
                 <button
                   type="button"
                   onClick={handleSaveEdit}
-                  disabled={updateMutation.isPending}
+                  disabled={
+                    updateMutation.isPending ||
+                    editTitle.trim() === '' ||
+                    editContent.trim() === ''
+                  }
                   className="btn btn-primary btn-sm"
                 >
                   {updateMutation.isPending ? '저장 중…' : '저장'}

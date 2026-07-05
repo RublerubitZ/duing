@@ -1,3 +1,5 @@
+import { parseInquiryId } from '@/app/_lib/federationInquiryId';
+
 import { AdminInquiryDetailPage } from './_pages/AdminInquiryDetailPage';
 
 type Props = {
@@ -6,5 +8,5 @@ type Props = {
 
 export default async function Page({ params }: Props) {
   const { inquiryId } = await params;
-  return <AdminInquiryDetailPage inquiryId={Number(inquiryId)} />;
+  return <AdminInquiryDetailPage inquiryId={parseInquiryId(inquiryId)} />;
 }

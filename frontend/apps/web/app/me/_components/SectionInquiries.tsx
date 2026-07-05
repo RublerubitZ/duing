@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { FederationInquirySummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { formatDateDot } from '@/app/_lib/formatDateDot';
 import { toRoute } from '@/app/_lib/route';
 import { ArrowRight } from '@/components/duing/Icon';
 import {
@@ -11,12 +12,6 @@ import {
 } from '@/app/_lib/federationInquiryLabels';
 
 import { SectionHeader } from './SectionHeader';
-
-// SectionArchived 와 동일한 YYYY.MM.DD 포맷.
-const formatCreatedAt = (iso: string): string => {
-  const date = new Date(iso);
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
-};
 
 type Props = {
   inquiries: FederationInquirySummary[];
@@ -83,7 +78,7 @@ export function SectionInquiries({ inquiries, totalCount }: Props) {
                     </span>
                   </div>
                   <div className="mt-1 font-mono text-[12px] text-charcoal-3">
-                    {formatCreatedAt(inquiry.createdAt)}
+                    {formatDateDot(inquiry.createdAt)}
                   </div>
                 </div>
 
