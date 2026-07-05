@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { useNoticeListQuery } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
+import { ArrowRight } from '@/components/duing/Icon';
 import { ExploreNav } from '../../_components/ExploreNav';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { SparkleFull } from '../../_components/Sparkle';
@@ -160,6 +161,28 @@ function SideItem({ icon, label, count, active = false, onClick }: SideItemProps
   );
 }
 
+// 카테고리 필터(SideItem, onClick 상태변경)와 달리 실제 페이지 이동이므로 next/link 사용.
+function SideLinkItem({ icon, label, href }: { icon: React.ReactNode; label: string; href: `/${string}` }) {
+  return (
+    <Link
+      href={toRoute(href)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '11px 14px', borderRadius: 10,
+        color: 'var(--charcoal-2)',
+        fontSize: 14, fontWeight: 500,
+        textDecoration: 'none',
+      }}
+    >
+      <span style={{
+        color: 'var(--charcoal-3)',
+        display: 'grid', placeItems: 'center', width: 18, height: 18,
+      }}>{icon}</span>
+      <span style={{ flex: 1 }}>{label}</span>
+    </Link>
+  );
+}
+
 /* ---------- 헬퍼 ---------- */
 const isNewItem = (createdAt: string): boolean =>
   new Date(createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -275,6 +298,11 @@ export function NoticePage() {
               ))}
             </div>
           )}
+
+          {/* 총동연 FAQ 진입점 — 공지 카테고리와 별개 섹션(구분선 뒤), 세그먼트와 무관하게 항상 노출 */}
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--gray-line)' }}>
+            <SideLinkItem icon={<ArrowRight />} label="자주 묻는 질문" href="/faq" />
+          </div>
         </aside>
 
         {/* ===== Main column ===== */}
@@ -324,6 +352,18 @@ export function NoticePage() {
               <p style={{ fontSize: 14, color: 'var(--charcoal-2)', lineHeight: 1.55 }}>
                 두잉과 대구대 동아리에서 전하는 공지·모집·행사·혜택 소식입니다.
               </p>
+              {/* 데스크톱은 좌측 사이드바에 동일 진입점이 있어 모바일에서만 노출 */}
+              <Link
+                href={toRoute('/faq')}
+                className="md:hidden"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  marginTop: 10, fontSize: 12.5, fontWeight: 700,
+                  color: 'var(--ink-deep)', textDecoration: 'none',
+                }}
+              >
+                총동연 자주 묻는 질문 <Icon.arrowRight style={{ width: 12, height: 12 }} />
+              </Link>
             </div>
 
             {/* Search */}
