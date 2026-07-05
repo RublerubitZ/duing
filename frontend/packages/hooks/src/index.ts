@@ -103,6 +103,19 @@ export {
   useAdminFederationFaqCategoryUpdateMutation,
 } from './federationFaqs';
 export { federationFaqQueryKeys } from './federationFaqQueryKeys';
+export {
+  useMyFederationInquiriesQuery,
+  useFederationInquiryDetailQuery,
+  useCreateFederationInquiryMutation,
+  useUpdateFederationInquiryMutation,
+  useDeleteFederationInquiryMutation,
+  useAdminFederationInquiryListQuery,
+  useAdminFederationInquiryDetailQuery,
+  useChangeFederationInquiryStatusMutation,
+  useAnswerFederationInquiryMutation,
+  useUpdateFederationInquiryAnswerMutation,
+} from './federationInquiries';
+export { federationInquiryQueryKeys } from './federationInquiryQueryKeys';
 export { useFileUploadMutation } from './files';
 export {
   useAdminClubsQuery,

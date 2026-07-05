@@ -175,6 +175,16 @@ import type {
   UpdateFederationFaqPayload,
   CreateFederationFaqCategoryPayload,
   UpdateFederationFaqCategoryPayload,
+  FederationInquiryStatus,
+  FederationInquirySummary,
+  FederationInquiryDetail,
+  AdminFederationInquirySummary,
+  AdminFederationInquiryDetail,
+  CreateFederationInquiryPayload,
+  UpdateFederationInquiryPayload,
+  ChangeFederationInquiryStatusPayload,
+  AnswerFederationInquiryPayload,
+  UpdateFederationInquiryAnswerPayload,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -333,6 +343,17 @@ export type DuingApiClient = {
   federationFaqCategories: {
     list(): Promise<FederationFaqCategory[]>;
   };
+  federationInquiries: {
+    create(payload: CreateFederationInquiryPayload): Promise<number>;
+    listMine(params: {
+      status?: FederationInquiryStatus;
+      page: number;
+      size: number;
+    }): Promise<PageResponse<FederationInquirySummary>>;
+    detail(inquiryId: number): Promise<FederationInquiryDetail>;
+    update(inquiryId: number, payload: UpdateFederationInquiryPayload): Promise<void>;
+    remove(inquiryId: number): Promise<void>;
+  };
   promotions: {
     list(): Promise<PageResponse<PromotionCard>>;
   };
@@ -430,6 +451,18 @@ export type DuingApiClient = {
     federationFaqCategories: {
       create(payload: CreateFederationFaqCategoryPayload): Promise<number>;
       update(categoryId: number, payload: UpdateFederationFaqCategoryPayload): Promise<void>;
+    };
+    federationInquiries: {
+      list(params: {
+        status?: FederationInquiryStatus;
+        keyword?: string;
+        page: number;
+        size: number;
+      }): Promise<PageResponse<AdminFederationInquirySummary>>;
+      detail(inquiryId: number): Promise<AdminFederationInquiryDetail>;
+      changeStatus(inquiryId: number, payload: ChangeFederationInquiryStatusPayload): Promise<void>;
+      answer(inquiryId: number, payload: AnswerFederationInquiryPayload): Promise<number>;
+      updateAnswer(inquiryId: number, payload: UpdateFederationInquiryAnswerPayload): Promise<void>;
     };
     globalEvents: {
       list(params: AdminGlobalEventListParams): Promise<PageResponse<AdminGlobalEventSummary>>;
@@ -877,6 +910,20 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
     federationFaqCategories: {
       list: () => jsonOk<FederationFaqCategory[]>(http.get('federation/faq-categories')),
     },
+    federationInquiries: {
+      create: (payload) =>
+        jsonOk<number>(http.post('federation/inquiries', { json: payload })),
+      listMine: (params) =>
+        jsonOk<PageResponse<FederationInquirySummary>>(
+          http.get('me/federation-inquiries', { searchParams: cleanParams(params) }),
+        ),
+      detail: (inquiryId) =>
+        jsonOk<FederationInquiryDetail>(http.get(`federation/inquiries/${inquiryId}`)),
+      update: (inquiryId, payload) =>
+        jsonVoid(http.patch(`federation/inquiries/${inquiryId}`, { json: payload })),
+      remove: (inquiryId) =>
+        jsonVoid(http.delete(`federation/inquiries/${inquiryId}`)),
+    },
     promotions: {
       list: () => jsonOk<PageResponse<PromotionCard>>(http.get('promotions')),
     },
@@ -1033,6 +1080,22 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonOk<number>(http.post('admin/federation/faq-categories', { json: payload })),
         update: (categoryId, payload) =>
           jsonVoid(http.patch(`admin/federation/faq-categories/${categoryId}`, { json: payload })),
+      },
+      federationInquiries: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminFederationInquirySummary>>(
+            http.get('admin/federation/inquiries', { searchParams: cleanParams(params) }),
+          ),
+        detail: (inquiryId) =>
+          jsonOk<AdminFederationInquiryDetail>(http.get(`admin/federation/inquiries/${inquiryId}`)),
+        changeStatus: (inquiryId, payload) =>
+          jsonVoid(http.patch(`admin/federation/inquiries/${inquiryId}/status`, { json: payload })),
+        answer: (inquiryId, payload) =>
+          jsonOk<number>(
+            http.post(`admin/federation/inquiries/${inquiryId}/answer`, { json: payload }),
+          ),
+        updateAnswer: (inquiryId, payload) =>
+          jsonVoid(http.patch(`admin/federation/inquiries/${inquiryId}/answer`, { json: payload })),
       },
       globalEvents: {
         list: (params) =>

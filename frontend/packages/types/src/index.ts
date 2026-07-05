@@ -26,3 +26,4 @@ export * from './cashbook';
 export * from './publicActivity';
 export * from './facility';
 export * from './federationFaq';
+export * from './federationInquiry';
