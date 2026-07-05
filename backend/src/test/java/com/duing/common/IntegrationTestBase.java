@@ -29,6 +29,8 @@ public abstract class IntegrationTestBase {
                 "facility, " +
                 "federation_faq, " +
                 "federation_faq_category, " +
+                "federation_inquiry_answer, " +
+                "federation_inquiry, " +
                 "cashbook_entry, " +
                 "bank_transaction, " +
                 "bank_matching_setting, " +
