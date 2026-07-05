@@ -146,12 +146,13 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     }
 
     private void startProgress(FederationInquiry inquiry, Long version) {
-        if (inquiry.getStatus() == FederationInquiryStatus.IN_PROGRESS) {
-            return; // 다른 관리자가 이미 시작 — 멱등 no-op(쓰기 전 조기 반환이라 안전)
-        }
-        // version echo — 관리자 화면 렌더 후 학생이 수정한 stale-render 창을 노력 투입 전에 차단(스펙 §4).
+        // version echo 를 멱등 반환보다 먼저 — 이미 답변중이어도 stale 화면(옛 내용을 보고 있는
+        // 관리자)은 409 로 걸러 refetch 를 유도한다. 멱등 204 는 최신 화면임이 확인된 경우만.
         if (version == null || !version.equals(inquiry.getVersion())) {
             throw new FederationInquiryException.InquiryContentChangedException();
+        }
+        if (inquiry.getStatus() == FederationInquiryStatus.IN_PROGRESS) {
+            return; // 다른 관리자가 이미 시작 — 최신 화면 검증 후의 멱등 no-op
         }
         inquiry.startProgress();
         // 동시 전이 경합은 flush 로 현재 트랜잭션 안에서 감지한다. rollback-only 특성상 204 수렴은
@@ -190,7 +191,8 @@ public class GeneralFederationInquiryService implements FederationInquiryService
                             "종료된 문의에는 답변을 등록할 수 없습니다.");
         }
         // RECEIVED 직행(전이 API 생략 fallback)은 작성 시간 전체가 stale-view 에 노출 — echo 필수.
-        // IN_PROGRESS 경로는 전이 시점 잠금(학생 수정 차단)이 이미 보장하므로 echo 불요(스펙 §4).
+        // IN_PROGRESS 경로는 전이 시점 잠금(학생 수정 차단)이 이미 보장하므로 echo 불요(스펙 §4)
+        // — 전이 게이트(startProgress)가 version 을 검증하므로 IN_PROGRESS 진입 자체가 최신 화면 증명.
         if (inquiry.getStatus() == FederationInquiryStatus.RECEIVED
                 && (command.version() == null || !command.version().equals(inquiry.getVersion()))) {
             throw new FederationInquiryException.InquiryContentChangedException();

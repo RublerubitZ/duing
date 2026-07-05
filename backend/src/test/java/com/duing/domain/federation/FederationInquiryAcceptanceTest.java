@@ -156,23 +156,48 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("답변중 상태로의 전이를 다시 요청해도 멱등하게 204를 받는다")
+    @DisplayName("이미 답변중인 문의에 최신 버전으로 전이를 재요청하면 멱등하게 204를 받는다")
     void inProgressTransitionIsIdempotent() {
         Long inquiryId = createInquiry(studentToken, "제목", "내용");
-        Long version = adminDetailVersion(inquiryId);
-        transitionToInProgress(inquiryId, version);
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
 
-        // 이미 IN_PROGRESS 인 상태에서 재요청 — 버전이 stale 해도 쓰기 전 조기 반환이라 통과한다.
+        // 전이가 version 을 올리므로(v→v+1) 최신 version 을 재조회해 보낸다 — 최신 화면 검증 후의 멱등 no-op.
+        Long latestVersion = adminDetailVersion(inquiryId);
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .contentType(ContentType.JSON)
                 .body("""
                     { "status": "IN_PROGRESS", "version": %d }
-                    """.formatted(version))
+                    """.formatted(latestVersion))
             .when()
                 .patch("/api/v1/admin/federation/inquiries/" + inquiryId + "/status")
             .then()
                 .statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
+    @DisplayName("이미 답변중인 문의라도 옛 version으로 전환을 요청하면 409로 걸러진다")
+    void staleViewCannotJoinInProgress() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+        Long staleVersion = adminDetailVersion(inquiryId);
+
+        // 학생이 내용을 수정해 버전을 올린다 — staleVersion 을 쥔 관리자 화면은 옛 내용.
+        updateInquiry(inquiryId, "수정된 제목", "수정된 내용", HttpStatus.NO_CONTENT);
+
+        // 다른 관리자가 최신 버전으로 전이에 성공한다(204).
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
+
+        // stale 화면의 관리자가 옛 버전으로 재요청 — 멱등 204 가 아니라 409 로 걸러 refetch 를 유도한다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "status": "IN_PROGRESS", "version": %d }
+                    """.formatted(staleVersion))
+            .when()
+                .patch("/api/v1/admin/federation/inquiries/" + inquiryId + "/status")
+            .then()
+                .statusCode(HttpStatus.CONFLICT.value());
     }
 
     @Test
