@@ -2,7 +2,7 @@
 
 // 공개 콘텐츠용 모바일 하단 탭바 (md:hidden) — 홈·탐색·캘린더·공지 4탭.
 // 4탭 모두 공개 라우트라 게스트도 동일 동작. 개인영역(/me)·도구 콘솔(/manage·/admin)·
-// 포커스 플로우(/apply)·인증·소개에서는 미노출(activeHref === null → return null).
+// 포커스 플로우(/apply)·인증·탭 외 공개 콘텐츠(소개·FAQ)에서는 미노출(activeHref === null → return null).
 // root(layout.tsx)에 1회 마운트하고 usePathname 으로 가시성/활성을 판단한다.
 // 데스크탑은 기존 상단 HomeNav/ExploreNav 유지(이 바는 md:hidden).
 
