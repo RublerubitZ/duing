@@ -19,8 +19,9 @@ import org.hibernate.annotations.SQLRestriction;
 @SQLRestriction("deleted_at IS NULL")
 public class FederationFaq extends BaseEntity {
 
-    // 필수 FK지만 의도적으로 @ManyToOne 미사용 — 카테고리 유효성·삭제 경합은 서비스 레이어에서
-    // PESSIMISTIC_WRITE 잠금+재검증으로 다룬다(스펙 2026-07-04-federation-qna-design §4). 연관관계로 바꾸지 말 것.
+    // 필수 FK지만 의도적으로 @ManyToOne 미사용 — 카테고리 유효성은 서비스 레이어에서 재검증하고,
+    // 삭제 경합 잠금(PESSIMISTIC_WRITE)은 카테고리 삭제 기능(P2) 도입 시 함께 들어간다
+    // (스펙 2026-07-04-federation-qna-design §4). 연관관계로 바꾸지 말 것.
     @Column(name = "category_id", nullable = false)
     private Long categoryId;
 
