@@ -23,7 +23,7 @@ public class FederationInquiryReceivedListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(FederationInquiryReceivedEvent event) {
-        String dedupKey = "federation-inquiry-received:" + event.inquiryId();
+        String dedupKey = "FEDERATION_INQUIRY_RECEIVED:i=" + event.inquiryId();
         String linkUrl = "/admin/inquiries/" + event.inquiryId();
         // 총동연(ADMIN)은 극소수 — createIfAbsent loop 로 충분(대량이면 broadcaster 방식).
         userRepository.findAllByRole(UserRole.ADMIN).forEach(admin -> {

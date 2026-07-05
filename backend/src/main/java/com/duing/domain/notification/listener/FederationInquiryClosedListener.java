@@ -32,7 +32,7 @@ public class FederationInquiryClosedListener {
                     body,
                     "/me/inquiries/" + event.inquiryId(),
                     Map.of("inquiryId", event.inquiryId()),
-                    "federation-inquiry-closed:" + event.inquiryId()));
+                    "FEDERATION_INQUIRY_CLOSED:i=" + event.inquiryId()));
         } catch (Exception failure) {
             log.warn("FEDERATION_INQUIRY_CLOSED 알림 실패: inquiryId={}", event.inquiryId(), failure);
         }

@@ -11,7 +11,7 @@ import com.duing.domain.federation.service.dto.command.ChangeInquiryStatusComman
 import com.duing.domain.federation.service.dto.command.CreateFederationInquiryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationInquiryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateInquiryAnswerCommand;
-import com.duing.domain.federation.service.dto.query.AdminFederationInquiryRow;
+import com.duing.domain.federation.service.dto.query.AdminFederationInquiryQuery;
 import com.duing.domain.federation.service.dto.query.FederationInquiryAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationInquiryDetailQuery;
 import com.duing.domain.notification.event.FederationInquiryAnsweredEvent;
@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -48,6 +49,7 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     @Override
     @Transactional
     public Long create(CreateFederationInquiryCommand command) {
+        // count-then-insert TOCTOU 로 동시 요청 수만큼 초과 가능 — 스팸 완화용 소프트 가드라 수용.
         if (inquiryRepository.countByAuthorIdAndStatus(command.authorId(), FederationInquiryStatus.RECEIVED)
                 >= MAX_OPEN_INQUIRIES
                 || inquiryRepository.countRecentIncludingDeleted(command.authorId()) >= MAX_DAILY_CREATIONS) {
@@ -76,6 +78,12 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     public void update(UpdateFederationInquiryCommand command) {
         FederationInquiry inquiry = getOwned(command.inquiryId(), command.authorId());
         inquiry.updateContent(command.title(), command.content());
+        // 관리자 전이·답변 커밋과의 레이스를 flush 로 감지해 도메인 메시지로 변환(withdraw 전례).
+        try {
+            inquiryRepository.flush();
+        } catch (ObjectOptimisticLockingFailureException concurrentChange) {
+            throw new FederationInquiryException.ConcurrentInquiryUpdateException();
+        }
     }
 
     @Override
@@ -83,12 +91,17 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     public void delete(Long inquiryId, Long authorId) {
         FederationInquiry inquiry = getOwned(inquiryId, authorId);
         // 전 상태 허용(스펙 §4 삭제 정책 — soft delete 라 감사 이력 보존). 동시 답변 커밋과의 레이스는
-        // @SQLDelete 의 version 조건이 감지 → 전역 핸들러가 409 변환.
+        // @SQLDelete 의 version 조건이 감지 → flush 로 잡아 도메인 메시지로 변환.
         inquiryRepository.delete(inquiry);
+        try {
+            inquiryRepository.flush();
+        } catch (ObjectOptimisticLockingFailureException concurrentChange) {
+            throw new FederationInquiryException.ConcurrentInquiryUpdateException();
+        }
     }
 
     @Override
-    public Page<AdminFederationInquiryRow> searchForAdmin(
+    public Page<AdminFederationInquiryQuery> searchForAdmin(
             FederationInquiryAdminSearchCondition condition, Pageable pageable) {
         Page<FederationInquiry> page = inquiryRepository.searchForAdmin(condition, pageable);
         // 탈퇴 회원은 @SQLRestriction 으로 findAllById 결과에서 빠진다 → AdminLabels.DELETED 폴백
@@ -98,7 +111,7 @@ public class GeneralFederationInquiryService implements FederationInquiryService
                 .collect(Collectors.toMap(User::getId, user -> user));
         return page.map(inquiry -> {
             User author = authorById.get(inquiry.getAuthorId());
-            return new AdminFederationInquiryRow(
+            return new AdminFederationInquiryQuery(
                     inquiry,
                     author != null ? author.getName() : AdminLabels.DELETED,
                     author != null ? author.getStudentId() : AdminLabels.DELETED);
@@ -146,6 +159,12 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     private void close(FederationInquiry inquiry, String closedReason) {
         boolean hadAnswer = answerRepository.findByInquiryId(inquiry.getId()).isPresent();
         inquiry.close(closedReason);
+        // 동시 답변·다른 관리자 종결과의 레이스를 flush 로 감지해 도메인 메시지로 변환(withdraw 전례).
+        try {
+            inquiryRepository.flush();
+        } catch (ObjectOptimisticLockingFailureException concurrentChange) {
+            throw new FederationInquiryException.ConcurrentInquiryUpdateException();
+        }
         if (!hadAnswer) {
             // 무답변 종결만 알림 — 답변 후 종결은 이미 답변 알림을 받았다(스펙 §5 알림 표).
             eventPublisher.publishEvent(new FederationInquiryClosedEvent(
@@ -158,7 +177,10 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     public Long answer(AnswerFederationInquiryCommand command) {
         FederationInquiry inquiry = getInquiryForAdmin(command.inquiryId());
         if (!inquiry.getStatus().canReceiveAnswer()) {
-            throw new FederationInquiryException.InquiryAlreadyAnsweredException();
+            throw inquiry.getStatus() == FederationInquiryStatus.ANSWERED
+                    ? new FederationInquiryException.InquiryAlreadyAnsweredException()
+                    : new FederationInquiryException.InvalidInquiryStatusException(
+                            "종료된 문의에는 답변을 등록할 수 없습니다.");
         }
         // RECEIVED 직행(전이 API 생략 fallback)은 작성 시간 전체가 stale-view 에 노출 — echo 필수.
         // IN_PROGRESS 경로는 전이 시점 잠금(학생 수정 차단)이 이미 보장하므로 echo 불요(스펙 §4).
@@ -169,16 +191,20 @@ public class GeneralFederationInquiryService implements FederationInquiryService
         if (answerRepository.findByInquiryId(inquiry.getId()).isPresent()) {
             throw new FederationInquiryException.InquiryAlreadyAnsweredException();
         }
-        FederationInquiryAnswer answer = answerRepository.save(
-                FederationInquiryAnswer.create(inquiry.getId(), command.content(), command.answeredBy()));
-        inquiry.markAnswered(); // dirty checking — version 증가(JPQL 벌크 금지)
+        FederationInquiryAnswer answer;
         try {
-            // 동시 답변(다른 관리자)·학생 수정/삭제와의 경합을 커밋 전에 감지.
-            // DB partial unique(uq_federation_inquiry_answer)가 최종 백스톱.
-            answerRepository.flush();
+            // IDENTITY 전략은 save 시점에 INSERT 가 즉시 실행 — partial unique 백스톱과
+            // 낙관락 충돌을 모두 이 블록에서 잡기 위해 save 와 flush 를 함께 둔다.
+            answer = answerRepository.save(FederationInquiryAnswer.create(
+                    inquiry.getId(), command.content(), command.answeredBy()));
+            inquiry.markAnswered(); // dirty checking — version 증가(JPQL 벌크 금지)
             inquiryRepository.flush();
-        } catch (ObjectOptimisticLockingFailureException | org.springframework.dao.DataIntegrityViolationException race) {
+        } catch (DataIntegrityViolationException duplicateAnswer) {
+            // uq_federation_inquiry_answer 백스톱 — 다른 관리자가 먼저 답변을 커밋함
             throw new FederationInquiryException.InquiryAlreadyAnsweredException();
+        } catch (ObjectOptimisticLockingFailureException concurrentChange) {
+            // 학생 수정·삭제 또는 다른 관리자의 종결과 겹침 — 재조회 유도
+            throw new FederationInquiryException.InquiryContentChangedException();
         }
         eventPublisher.publishEvent(new FederationInquiryAnsweredEvent(
                 inquiry.getId(), inquiry.getAuthorId(), inquiry.getTitle(), answer.getId()));

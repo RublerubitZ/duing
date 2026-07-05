@@ -28,7 +28,7 @@ public class FederationInquiryAnsweredListener {
                     event.inquiryTitle(),
                     "/me/inquiries/" + event.inquiryId(),
                     Map.of("inquiryId", event.inquiryId()),
-                    "federation-inquiry-answered:" + event.inquiryId() + ":" + event.answerId()));
+                    "FEDERATION_INQUIRY_ANSWERED:i=" + event.inquiryId() + ":a=" + event.answerId()));
         } catch (Exception failure) {
             log.warn("FEDERATION_INQUIRY_ANSWERED 알림 실패: inquiryId={}", event.inquiryId(), failure);
         }

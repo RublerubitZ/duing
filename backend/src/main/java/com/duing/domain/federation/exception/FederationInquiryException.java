@@ -36,6 +36,11 @@ public class FederationInquiryException extends ApplicationException {
         public InquiryAlreadyAnsweredException() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
 
+    public static class ConcurrentInquiryUpdateException extends FederationInquiryException {
+        private static final String MESSAGE = "다른 처리와 동시에 요청되어 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+        public ConcurrentInquiryUpdateException() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
     public static class TooManyOpenInquiriesException extends FederationInquiryException {
         private static final String MESSAGE = "처리 대기 중인 문의가 많아 새 문의를 등록할 수 없습니다. 답변 후 다시 시도해 주세요.";
         public TooManyOpenInquiriesException() { super(MESSAGE, HttpStatus.CONFLICT); }

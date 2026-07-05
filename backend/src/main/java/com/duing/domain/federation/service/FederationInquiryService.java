@@ -7,7 +7,7 @@ import com.duing.domain.federation.service.dto.command.ChangeInquiryStatusComman
 import com.duing.domain.federation.service.dto.command.CreateFederationInquiryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationInquiryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateInquiryAnswerCommand;
-import com.duing.domain.federation.service.dto.query.AdminFederationInquiryRow;
+import com.duing.domain.federation.service.dto.query.AdminFederationInquiryQuery;
 import com.duing.domain.federation.service.dto.query.FederationInquiryAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationInquiryDetailQuery;
 import org.springframework.data.domain.Page;
@@ -25,7 +25,7 @@ public interface FederationInquiryService {
 
     void delete(Long inquiryId, Long authorId);
 
-    Page<AdminFederationInquiryRow> searchForAdmin(FederationInquiryAdminSearchCondition condition, Pageable pageable);
+    Page<AdminFederationInquiryQuery> searchForAdmin(FederationInquiryAdminSearchCondition condition, Pageable pageable);
 
     FederationInquiryDetailQuery getForAdmin(Long inquiryId);
 
