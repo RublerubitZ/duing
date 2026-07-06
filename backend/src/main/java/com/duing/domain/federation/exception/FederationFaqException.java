@@ -28,4 +28,9 @@ public class FederationFaqException extends ApplicationException {
         private static final String MESSAGE = "정렬 대상 FAQ 목록이 현재 목록과 일치하지 않습니다.";
         public FaqOrderMismatchException() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
     }
+
+    public static class FaqFeedbackSessionKeyRequiredException extends FederationFaqException {
+        private static final String MESSAGE = "세션 키는 필수 입력값입니다.";
+        public FaqFeedbackSessionKeyRequiredException() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
+    }
 }

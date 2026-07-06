@@ -5,6 +5,7 @@ import com.duing.domain.federation.entity.FederationFaqCategory;
 import com.duing.domain.federation.service.dto.command.CreateFederationFaqCategoryCommand;
 import com.duing.domain.federation.service.dto.command.CreateFederationFaqCommand;
 import com.duing.domain.federation.service.dto.command.ReorderFederationFaqsCommand;
+import com.duing.domain.federation.service.dto.command.SubmitFederationFaqFeedbackCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCategoryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCommand;
 import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
@@ -36,4 +37,6 @@ public interface FederationFaqService {
     Long createCategory(CreateFederationFaqCategoryCommand command);
 
     void updateCategory(UpdateFederationFaqCategoryCommand command);
+
+    void submitFeedback(SubmitFederationFaqFeedbackCommand command);
 }
