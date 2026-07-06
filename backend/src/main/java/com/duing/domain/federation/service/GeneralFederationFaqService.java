@@ -13,9 +13,11 @@ import com.duing.domain.federation.service.dto.command.ReorderFederationFaqsComm
 import com.duing.domain.federation.service.dto.command.SubmitFederationFaqFeedbackCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCategoryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCommand;
+import com.duing.domain.federation.service.dto.query.FaqFeedbackCount;
 import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +76,17 @@ public class GeneralFederationFaqService implements FederationFaqService {
     @Override
     public Page<FederationFaq> searchForAdmin(FederationFaqAdminSearchCondition condition, Pageable pageable) {
         return federationFaqRepository.searchForAdmin(condition, pageable);
+    }
+
+    @Override
+    public Map<Long, Map<Boolean, Long>> getFeedbackCounts(Collection<Long> faqIds) {
+        // 빈 페이지(검색 결과 없음)에서 IN() 빈 컬렉션 호출을 생략한다 (InterviewRoundService.getRounds() 전례).
+        if (faqIds.isEmpty()) {
+            return Map.of();
+        }
+        return feedbackRepository.countGroupedByFaqIdAndHelpful(faqIds).stream()
+                .collect(Collectors.groupingBy(FaqFeedbackCount::faqId,
+                        Collectors.toMap(FaqFeedbackCount::helpful, FaqFeedbackCount::count)));
     }
 
     @Override

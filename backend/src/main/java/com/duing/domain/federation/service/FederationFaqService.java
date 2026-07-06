@@ -10,7 +10,9 @@ import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCatego
 import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCommand;
 import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -25,6 +27,9 @@ public interface FederationFaqService {
     String getCategoryName(Long categoryId);
 
     Page<FederationFaq> searchForAdmin(FederationFaqAdminSearchCondition condition, Pageable pageable);
+
+    /** admin FAQ 목록 전용 — faqId → {helpful: count} 집계(카운트 없는 faqId는 결과에서 생략). */
+    Map<Long, Map<Boolean, Long>> getFeedbackCounts(Collection<Long> faqIds);
 
     Long create(CreateFederationFaqCommand command);
 

@@ -49,8 +49,12 @@ public class AdminFederationFaqController implements AdminFederationFaqApi {
                 new FederationFaqAdminSearchCondition(published, categoryId, keyword);
         Page<FederationFaq> faqPage = federationFaqService.searchForAdmin(condition, pageable);
         Map<Long, String> categoryNames = faqPage.isEmpty() ? Map.of() : categoryNameMap();
+        // 목록 1쿼리 + 페이지에 담긴 faqId만 IN 집계 1쿼리 — 페이지 크기 한정이라 N+1 없이 안전하다.
+        Map<Long, Map<Boolean, Long>> feedbackCountsByFaqId = federationFaqService.getFeedbackCounts(
+                faqPage.getContent().stream().map(FederationFaq::getId).toList());
         Page<AdminFederationFaqResponse> responsePage = faqPage.map(
-                faq -> AdminFederationFaqResponse.from(faq, categoryNames.get(faq.getCategoryId())));
+                faq -> AdminFederationFaqResponse.from(faq, categoryNames.get(faq.getCategoryId()),
+                        feedbackCountsByFaqId.getOrDefault(faq.getId(), Map.of())));
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(responsePage)));
     }
 
