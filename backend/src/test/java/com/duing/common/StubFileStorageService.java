@@ -1,6 +1,10 @@
 package com.duing.common;
 
 import com.duing.global.file.FileStorageService;
+import com.duing.global.file.FileUploadPolicy;
+import com.duing.global.file.StoredFile;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -57,5 +61,22 @@ public class StubFileStorageService implements FileStorageService {
             return null;
         }
         return 1024L;
+    }
+
+    // 실제 I/O 없는 stub — 다운로드 인수 테스트가 소비할 더미 바이트만 흘려보낸다.
+    @Override
+    public StoredFile download(String storageKey) {
+        if (storageKey == null || storageKey.isBlank() || storageKey.contains(MISSING_MARKER)) {
+            return null;
+        }
+        byte[] content = ("stub-file-content:" + storageKey).getBytes(StandardCharsets.UTF_8);
+        return new StoredFile(new ByteArrayInputStream(content), resolveContentType(storageKey), content.length);
+    }
+
+    // Local 구현과 동일하게 저장 확장자로부터 Content-Type 을 복원한다(실제 스토리지 메타데이터가 없으므로).
+    private String resolveContentType(String storageKey) {
+        int dotIndex = storageKey.lastIndexOf('.');
+        String extension = dotIndex >= 0 ? storageKey.substring(dotIndex + 1).toLowerCase() : "";
+        return FileUploadPolicy.MIME_BY_EXTENSION.getOrDefault(extension, "application/octet-stream");
     }
 }

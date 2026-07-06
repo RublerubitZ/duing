@@ -7,10 +7,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -142,6 +145,28 @@ public class S3FileStorageService implements FileStorageService {
             return null;
         } catch (SdkException exception) {
             log.warn("S3 Storage 크기 조회 실패: key={}", storageKey, exception);
+            return null;
+        }
+    }
+
+    @Override
+    public StoredFile download(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        try {
+            // try-with-resources 금지 — 이 스트림은 컨트롤러가 HTTP 응답으로 그대로 흘려보낸 뒤
+            // 소비 완료 시점에 닫는다. 여기서 닫으면 응답 본문이 비게 된다.
+            ResponseInputStream<GetObjectResponse> objectStream = s3Client.getObject(GetObjectRequest.builder()
+                    .bucket(properties.bucket())
+                    .key(storageKey)
+                    .build());
+            GetObjectResponse metadata = objectStream.response();
+            return new StoredFile(objectStream, metadata.contentType(), metadata.contentLength());
+        } catch (NoSuchKeyException notFound) {
+            return null;
+        } catch (SdkException exception) {
+            log.warn("S3 Storage 다운로드 실패: key={}", storageKey, exception);
             return null;
         }
     }

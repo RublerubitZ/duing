@@ -1,5 +1,6 @@
 package com.duing.global.file;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -121,5 +122,33 @@ public class LocalFileStorageService implements FileStorageService {
             log.warn("파일 크기 조회 실패: {}", storageKey, exception);
             return null;
         }
+    }
+
+    @Override
+    public StoredFile download(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        // 경로 탈출 가드 — "../../etc/passwd" 등이 rootDir 밖을 가리키면 정규화 후에도
+        // rootDir 프리픽스를 벗어나므로 여기서 걸러낸다.
+        Path resolved = rootDir.resolve(storageKey).normalize();
+        if (!resolved.startsWith(rootDir) || !Files.isRegularFile(resolved)) {
+            return null;
+        }
+        try {
+            long contentLength = Files.size(resolved);
+            return new StoredFile(new FileInputStream(resolved.toFile()), resolveContentType(storageKey), contentLength);
+        } catch (IOException exception) {
+            log.warn("파일 다운로드 실패: {}", storageKey, exception);
+            return null;
+        }
+    }
+
+    // 로컬 저장소는 S3 객체 메타데이터 같은 별도 Content-Type 저장소가 없으므로, 업로드 시점과
+    // 동일하게 저장 확장자(FileUploadPolicy.EXTENSION_BY_MIME 로 부여됨)로부터 안전하게 복원한다.
+    private String resolveContentType(String storageKey) {
+        int dotIndex = storageKey.lastIndexOf('.');
+        String extension = dotIndex >= 0 ? storageKey.substring(dotIndex + 1).toLowerCase() : "";
+        return FileUploadPolicy.MIME_BY_EXTENSION.getOrDefault(extension, "application/octet-stream");
     }
 }

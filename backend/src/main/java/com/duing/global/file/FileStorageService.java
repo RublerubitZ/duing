@@ -47,4 +47,15 @@ public interface FileStorageService {
      * @return 객체가 존재하면 바이트 크기, 존재하지 않으면 {@code null}
      */
     Long sizeOf(String storageKey);
+
+    /**
+     * 스토리지 키에 대응하는 객체를 스트림으로 조회한다 — 인증 프록시 다운로드 전용.
+     *
+     * <p>호출측(서비스)이 권한 검증(작성자 본인 또는 ADMIN 등)을 이미 마친 뒤에만 호출해야 한다 —
+     * 이 메서드 자체는 권한을 검사하지 않는다. 반환된 {@link StoredFile#stream()} 은 HTTP 응답에서
+     * 소비 후 닫힌다 — 이 메서드가 미리 닫지 않는다.
+     *
+     * @return 키에 대응하는 객체가 존재하면 {@link StoredFile}, 존재하지 않으면 {@code null}(호출측이 404 결정)
+     */
+    StoredFile download(String storageKey);
 }

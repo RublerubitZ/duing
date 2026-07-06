@@ -9,14 +9,19 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -314,5 +319,55 @@ class S3FileStorageServiceTest {
         assertThat(service.sizeOf("   ")).isNull();
 
         verify(s3Client, never()).headObject(any(HeadObjectRequest.class));
+    }
+
+    @Test
+    @DisplayName("download 는 getObject 응답을 StoredFile 로 감싸 스트림·Content-Type·Content-Length 를 그대로 전달한다")
+    void downloadReturnsStoredFileFromGetObject() throws IOException {
+        byte[] body = "hello world".getBytes();
+        ResponseInputStream<GetObjectResponse> responseStream = new ResponseInputStream<>(
+                GetObjectResponse.builder().contentType("image/jpeg").contentLength((long) body.length).build(),
+                new ByteArrayInputStream(body));
+        when(s3Client.getObject(any(GetObjectRequest.class))).thenReturn(responseStream);
+
+        StoredFile storedFile = service.download("federation/inquiry/abc.jpg");
+
+        assertThat(storedFile).isNotNull();
+        assertThat(storedFile.contentType()).isEqualTo("image/jpeg");
+        assertThat(storedFile.contentLength()).isEqualTo(body.length);
+        assertThat(storedFile.stream().readAllBytes()).isEqualTo(body);
+
+        ArgumentCaptor<GetObjectRequest> captor = ArgumentCaptor.forClass(GetObjectRequest.class);
+        verify(s3Client).getObject(captor.capture());
+        assertThat(captor.getValue().bucket()).isEqualTo("duing");
+        assertThat(captor.getValue().key()).isEqualTo("federation/inquiry/abc.jpg");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 키는 NoSuchKeyException 을 잡아 download 가 null 을 반환한다")
+    void downloadReturnsNullWhenKeyDoesNotExist() {
+        when(s3Client.getObject(any(GetObjectRequest.class)))
+                .thenThrow(NoSuchKeyException.builder().message("no such key").build());
+
+        assertThat(service.download("federation/inquiry/missing.jpg")).isNull();
+    }
+
+    @Test
+    @DisplayName("일반 SdkException 이 발생해도 download 는 예외를 전파하지 않고 null 을 반환한다")
+    void downloadReturnsNullOnSdkException() {
+        when(s3Client.getObject(any(GetObjectRequest.class)))
+                .thenThrow(SdkClientException.create("network"));
+
+        assertThat(service.download("federation/inquiry/abc.jpg")).isNull();
+    }
+
+    @Test
+    @DisplayName("null 또는 빈 키는 download 에서 getObject 호출 없이 null 을 반환한다")
+    void downloadHandlesNullAndBlank() {
+        assertThat(service.download(null)).isNull();
+        assertThat(service.download("")).isNull();
+        assertThat(service.download("   ")).isNull();
+
+        verify(s3Client, never()).getObject(any(GetObjectRequest.class));
     }
 }
