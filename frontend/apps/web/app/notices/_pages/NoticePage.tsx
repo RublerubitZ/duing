@@ -352,12 +352,13 @@ export function NoticePage() {
               <p style={{ fontSize: 14, color: 'var(--charcoal-2)', lineHeight: 1.55 }}>
                 두잉과 대구대 동아리에서 전하는 공지·모집·행사·혜택 소식입니다.
               </p>
-              {/* 데스크톱은 좌측 사이드바에 동일 진입점이 있어 모바일에서만 노출 */}
+              {/* 데스크톱은 좌측 사이드바에 동일 진입점이 있어 모바일에서만 노출.
+                  display 는 인라인 style 에 두면 md:hidden(클래스)을 덮어쓰므로 클래스로만 제어한다. */}
               <Link
                 href={toRoute('/faq')}
-                className="md:hidden"
+                className="inline-flex md:hidden"
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  alignItems: 'center', gap: 4,
                   marginTop: 10, fontSize: 12.5, fontWeight: 700,
                   color: 'var(--ink-deep)', textDecoration: 'none',
                 }}
