@@ -42,6 +42,7 @@ function makeDetail(overrides: Partial<FederationInquiryDetail> = {}): Federatio
     createdAt: '2026-06-01T00:00:00Z',
     closedReason: null,
     answer: null,
+    attachments: [],
     ...overrides,
   };
 }

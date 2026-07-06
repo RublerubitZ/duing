@@ -54,6 +54,7 @@ function makeAdminDetail(overrides: Partial<AdminFederationInquiryDetail> = {}):
     answeredAt: null,
     closedReason: null,
     answer: null,
+    attachments: [],
     ...overrides,
   };
 }

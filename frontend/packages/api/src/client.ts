@@ -353,6 +353,8 @@ export type DuingApiClient = {
     detail(inquiryId: number): Promise<FederationInquiryDetail>;
     update(inquiryId: number, payload: UpdateFederationInquiryPayload): Promise<void>;
     remove(inquiryId: number): Promise<void>;
+    // 원본 바이트 스트리밍 — ApiResponse 로 감싸지 않는다(작성자 본인 또는 ADMIN 만 접근, 그 외 404).
+    downloadAttachment(inquiryId: number, attachmentId: number): Promise<Blob>;
   };
   promotions: {
     list(): Promise<PageResponse<PromotionCard>>;
@@ -698,6 +700,18 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
     }
   }
 
+  // 원본 바이트 응답(ApiResponse 미래핑) 전용 — 성공 시 body 를 blob 으로 읽는다.
+  // 실패(HTTPError)는 GlobalExceptionHandler 가 이 엔드포인트에서도 ApiResponse JSON 을 그대로
+  // 내려주므로 jsonOk/jsonVoid 와 동일하게 toApiError 로 위임한다.
+  async function blobOk(promise: ResponsePromise): Promise<Blob> {
+    try {
+      const res = await promise;
+      return await res.blob();
+    } catch (error) {
+      return toApiError(error);
+    }
+  }
+
   return {
     auth: {
       signup: (payload) =>
@@ -923,6 +937,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonVoid(http.patch(`federation/inquiries/${inquiryId}`, { json: payload })),
       remove: (inquiryId) =>
         jsonVoid(http.delete(`federation/inquiries/${inquiryId}`)),
+      downloadAttachment: (inquiryId, attachmentId) =>
+        blobOk(http.get(`federation/inquiries/${inquiryId}/attachments/${attachmentId}`)),
     },
     promotions: {
       list: () => jsonOk<PageResponse<PromotionCard>>(http.get('promotions')),
