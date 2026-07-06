@@ -210,6 +210,165 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("IN_PROGRESS 문의를 최신 version으로 되돌리면 204이고 상세가 RECEIVED다")
+    void revertToReceivedSucceedsWithFreshVersion() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
+
+        revertToReceived(inquiryId, adminDetailVersion(inquiryId), HttpStatus.NO_CONTENT);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/admin/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.status", equalTo("RECEIVED"));
+    }
+
+    @Test
+    @DisplayName("되돌린 문의는 학생 본인이 다시 수정할 수 있다")
+    void authorCanEditAfterRevert() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
+
+        // IN_PROGRESS 인 동안은 기존 규칙대로 학생 수정이 잠긴다.
+        updateInquiry(inquiryId, "잠금 중 수정 시도", "잠금 중 수정 시도 내용", HttpStatus.CONFLICT);
+
+        revertToReceived(inquiryId, adminDetailVersion(inquiryId), HttpStatus.NO_CONTENT);
+
+        // 되돌리기 후에는 영구 잠금이 아니라 다시 수정할 수 있다 — 이 태스크의 핵심 시나리오.
+        updateInquiry(inquiryId, "되돌린 후 수정", "되돌린 후 수정된 내용", HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    @DisplayName("stale version으로 되돌리면 409다")
+    void revertWithStaleVersionReturns409() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
+        Long staleVersion = adminDetailVersion(inquiryId);
+
+        // 다른 관리자가 먼저 되돌렸다가 재진입한다 — 여전히 IN_PROGRESS 이지만 version 은 두 번 올라
+        // staleVersion 을 쥔 첫 관리자의 화면은 이제 옛 버전이다.
+        revertToReceived(inquiryId, adminDetailVersion(inquiryId), HttpStatus.NO_CONTENT);
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
+
+        revertToReceived(inquiryId, staleVersion, HttpStatus.CONFLICT);
+    }
+
+    @Test
+    @DisplayName("이미 RECEIVED인 문의를 최신 version으로 되돌리면 204 멱등이다")
+    void revertOnAlreadyReceivedIsIdempotent() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+
+        // 관리자가 startProgress 를 거치지 않고도 최신 echo 로 RECEIVED 를 재요청 — 다른 관리자가
+        // 먼저 되돌린 경우와 동등하게 멱등 204 로 수렴한다.
+        revertToReceived(inquiryId, adminDetailVersion(inquiryId), HttpStatus.NO_CONTENT);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/admin/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.status", equalTo("RECEIVED"));
+    }
+
+    @Test
+    @DisplayName("ANSWERED 문의는 RECEIVED로 되돌릴 수 없다")
+    void cannotRevertAnsweredInquiry() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+        answerInquiry(inquiryId, "답변 내용"); // RECEIVED 직행 답변 — ANSWERED 로 전환
+
+        revertToReceived(inquiryId, adminDetailVersion(inquiryId), HttpStatus.CONFLICT);
+    }
+
+    @Test
+    @DisplayName("CLOSED 문의는 RECEIVED로 되돌릴 수 없다")
+    void cannotRevertClosedInquiry() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "status": "CLOSED", "closedReason": "중복 문의" }
+                    """)
+            .when()
+                .patch("/api/v1/admin/federation/inquiries/" + inquiryId + "/status")
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        revertToReceived(inquiryId, adminDetailVersion(inquiryId), HttpStatus.CONFLICT);
+    }
+
+    @Test
+    @DisplayName("되돌리기 후 학생이 수정하면, 옛 version으로의 RECEIVED 직행 답변은 409다")
+    void staleDirectAnswerAfterRevertReturns409() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
+        revertToReceived(inquiryId, adminDetailVersion(inquiryId), HttpStatus.NO_CONTENT);
+
+        Long staleVersion = adminDetailVersion(inquiryId);
+        updateInquiry(inquiryId, "수정된 제목", "수정된 내용", HttpStatus.NO_CONTENT);
+
+        // 되돌리기 후 학생 수정으로 version 이 올라갔음에도 기존 echo 규칙(RECEIVED 직행은 echo 필수)이
+        // 그대로 방어한다 — 역전이 도입이 기존 안전성을 깨지 않았는지 재확인.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "content": "답변 내용", "version": %d }
+                    """.formatted(staleVersion))
+            .when()
+                .post("/api/v1/admin/federation/inquiries/" + inquiryId + "/answer")
+            .then()
+                .statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("IN_PROGRESS 답변에 stale version을 제공하면 409다")
+    void inProgressAnswerWithStaleVersionReturns409() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
+        Long staleVersion = adminDetailVersion(inquiryId);
+
+        // 다른 관리자가 되돌렸다가 재진입 — 여전히 IN_PROGRESS 이지만 version 은 두 번 올라간다
+        // (A 가 답변 작성 중 stale version 을 쥔 채로 남는 신규 조건부 echo 시나리오).
+        revertToReceived(inquiryId, adminDetailVersion(inquiryId), HttpStatus.NO_CONTENT);
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "content": "답변 내용", "version": %d }
+                    """.formatted(staleVersion))
+            .when()
+                .post("/api/v1/admin/federation/inquiries/" + inquiryId + "/answer")
+            .then()
+                .statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("IN_PROGRESS 답변에 version을 제공하지 않으면 기존대로 성공한다")
+    void inProgressAnswerWithoutVersionStillSucceeds() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
+
+        // 배포된 FE 가 아직 version 을 동봉하지 않는 하위호환 경로 — 미제공은 검증하지 않는다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "content": "답변 내용" }
+                    """)
+            .when()
+                .post("/api/v1/admin/federation/inquiries/" + inquiryId + "/answer")
+            .then()
+                .statusCode(HttpStatus.CREATED.value());
+    }
+
+    @Test
     @DisplayName("답변이 등록되면 문의가 답변완료로 전환되고 작성자에게 답변 알림이 발송된다")
     void answerFlowMarksAnsweredAndNotifies() {
         Long inquiryId = createInquiry(studentToken, "제목", "내용");
@@ -353,6 +512,56 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
                 .anyMatch(notification -> notification.getUserId().equals(studentId)
                         && notification.getType() == NotificationType.FEDERATION_INQUIRY_CLOSED);
         assertThat(studentNotified).isTrue();
+    }
+
+    @Test
+    @DisplayName("되돌리기 후 학생이 수정한 문의를 옛 version을 제공해 종결하면 409다")
+    void closeWithStaleVersionAfterRevertReturns409() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
+        Long staleVersion = adminDetailVersion(inquiryId); // IN_PROGRESS 화면의 관리자가 쥔 버전
+
+        // 다른 관리자가 되돌리고 학생이 수정 — staleVersion 을 쥔 관리자 화면은 이제 옛 내용.
+        revertToReceived(inquiryId, staleVersion, HttpStatus.NO_CONTENT);
+        updateInquiry(inquiryId, "수정된 제목", "수정된 내용", HttpStatus.NO_CONTENT);
+
+        // 옛 내용 기준의 종결은 조건부 echo 가 409 로 걸러 refetch 를 유도한다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "status": "CLOSED", "closedReason": "처리 완료", "version": %d }
+                    """.formatted(staleVersion))
+            .when()
+                .patch("/api/v1/admin/federation/inquiries/" + inquiryId + "/status")
+            .then()
+                .statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("version을 제공하지 않은 종결은 기존대로 성공한다")
+    void closeWithoutVersionStillSucceeds() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+
+        // 배포된 FE 가 종결에 version 을 동봉하기 전까지의 하위호환 경로 — 미제공은 검증하지 않는다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "status": "CLOSED", "closedReason": "중복 문의" }
+                    """)
+            .when()
+                .patch("/api/v1/admin/federation/inquiries/" + inquiryId + "/status")
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/admin/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.status", equalTo("CLOSED"));
     }
 
     @Test
@@ -872,7 +1081,21 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.NO_CONTENT.value());
     }
 
-    // RECEIVED 에서는 version echo 가 필수, IN_PROGRESS 에서는 무시되므로 매번 최신 버전을 함께 보낸다.
+    private void revertToReceived(Long inquiryId, Long version, HttpStatus expectedStatus) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "status": "RECEIVED", "version": %d }
+                    """.formatted(version))
+            .when()
+                .patch("/api/v1/admin/federation/inquiries/" + inquiryId + "/status")
+            .then()
+                .statusCode(expectedStatus.value());
+    }
+
+    // RECEIVED 에서는 version echo 가 필수, IN_PROGRESS 에서는 제공 시에만 검증되므로(조건부 echo)
+    // 항상 최신 버전을 함께 보내 두 상태 모두에서 안전하게 통과시킨다.
     private Long answerInquiry(Long inquiryId, String content) {
         Long version = adminDetailVersion(inquiryId);
         return RestAssured.given()

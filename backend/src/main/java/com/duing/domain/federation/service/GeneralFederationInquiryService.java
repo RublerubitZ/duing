@@ -236,8 +236,9 @@ public class GeneralFederationInquiryService implements FederationInquiryService
         FederationInquiry inquiry = getInquiryForAdmin(command.inquiryId());
         switch (command.status()) {
             case IN_PROGRESS -> startProgress(inquiry, command.version());
-            case CLOSED -> close(inquiry, command.closedReason());
-            // ANSWERED 는 답변 등록으로만 진입, RECEIVED 역전이는 미지원(스펙 §4)
+            case CLOSED -> close(inquiry, command.closedReason(), command.version());
+            case RECEIVED -> revertToReceived(inquiry, command.version());
+            // ANSWERED 는 답변 등록으로만 진입(수동 지정 불가)
             default -> throw new FederationInquiryException.InvalidInquiryStatusException(
                     "직접 지정할 수 없는 상태입니다: " + command.status());
         }
@@ -250,7 +251,10 @@ public class GeneralFederationInquiryService implements FederationInquiryService
             throw new FederationInquiryException.InquiryContentChangedException();
         }
         if (inquiry.getStatus() == FederationInquiryStatus.IN_PROGRESS) {
-            return; // 다른 관리자가 이미 시작 — 최신 화면 검증 후의 멱등 no-op
+            // 다른 관리자가 이미 시작 — 최신 화면 검증 후의 멱등 no-op. 멱등 204 는 echo 로 "최신
+            // 화면"임만 보증하며, 직후 반대 전이가 커밋되면 최종 상태는 다를 수 있다(순차 요청과
+            // 등가 — 낙관락 모델의 본질, FE 는 mutation 후 refetch 로 수렴한다).
+            return;
         }
         inquiry.startProgress();
         // 동시 전이 경합은 flush 로 현재 트랜잭션 안에서 감지한다. rollback-only 특성상 204 수렴은
@@ -262,7 +266,45 @@ public class GeneralFederationInquiryService implements FederationInquiryService
         }
     }
 
-    private void close(FederationInquiry inquiry, String closedReason) {
+    // 관리자 "접수로 되돌리기" CTA — startProgress 와 완전 대칭 구조(echo → 멱등 → flush).
+    private void revertToReceived(FederationInquiry inquiry, Long version) {
+        // echo 검증을 멱등 반환보다 먼저 — stale 화면(옛 내용을 보고 있는 관리자)의 되돌리기 요청은
+        // 409 로 걸러 refetch 를 유도한다(startProgress 근거 동일).
+        if (version == null || !version.equals(inquiry.getVersion())) {
+            throw new FederationInquiryException.InquiryContentChangedException();
+        }
+        if (inquiry.getStatus() == FederationInquiryStatus.RECEIVED) {
+            // 다른 관리자가 이미 되돌림 — 최신 화면 검증 후의 멱등 no-op. 멱등 204 는 echo 로 "최신
+            // 화면"임만 보증하며, 직후 반대 전이가 커밋되면 최종 상태는 다를 수 있다(순차 요청과
+            // 등가 — 낙관락 모델의 본질, FE 는 mutation 후 refetch 로 수렴한다).
+            return;
+        }
+        inquiry.revertToReceived();
+        // 동시 전이 경합은 flush 로 현재 트랜잭션 안에서 감지한다(startProgress 전례 그대로).
+        try {
+            inquiryRepository.flush();
+        } catch (ObjectOptimisticLockingFailureException concurrentTransition) {
+            throw new FederationInquiryException.InquiryContentChangedException();
+        }
+        // 알림 발행 없음 — 스펙 §5 알림 표(접수→ADMIN/답변→작성자/무답변 종결→작성자)에 revert 없음.
+        // 학생에게는 조용히 수정 가능이 복원된다(비밀문의 특성상 상태 노출 최소화).
+    }
+
+    // 조건부 echo 의 공통 stale 판정(answer·close 공유) — version 이 제공됐는데 최신이 아니면 true.
+    // 미제공(null)은 stale 로 보지 않는다: 배포된 FE 가 version 을 동봉하기 전까지의 하위호환 경로.
+    private boolean isVersionStale(FederationInquiry inquiry, Long version) {
+        return version != null && !version.equals(inquiry.getVersion());
+    }
+
+    private void close(FederationInquiry inquiry, String closedReason, Long version) {
+        // 조건부 echo — IN_PROGRESS → RECEIVED 역전이 도입으로 "stale IN_PROGRESS 화면의 관리자가
+        // (다른 관리자의 revert → 학생 수정 이후) 옛 내용 기준으로 문의를 그대로 종결"하는 경로가
+        // 넓어졌다. answer() 와 동일한 2단계 봉합: version 이 제공된 경우에만 불일치를 409 로 거르고,
+        // 미제공은 기존대로 통과시켜 하위호환을 지킨다 — FE 후속 작업에서 항상 version 을 동봉하면
+        // 방어가 완성된다.
+        if (isVersionStale(inquiry, version)) {
+            throw new FederationInquiryException.InquiryContentChangedException();
+        }
         boolean hadAnswer = answerRepository.findByInquiryId(inquiry.getId()).isPresent();
         inquiry.close(closedReason);
         // 동시 답변·다른 관리자 종결과의 레이스를 flush 로 감지해 도메인 메시지로 변환(withdraw 전례).
@@ -288,11 +330,19 @@ public class GeneralFederationInquiryService implements FederationInquiryService
                     : new FederationInquiryException.InvalidInquiryStatusException(
                             "종료된 문의에는 답변을 등록할 수 없습니다.");
         }
-        // RECEIVED 직행(전이 API 생략 fallback)은 작성 시간 전체가 stale-view 에 노출 — echo 필수.
-        // IN_PROGRESS 경로는 전이 시점 잠금(학생 수정 차단)이 이미 보장하므로 echo 불요(스펙 §4)
-        // — 전이 게이트(startProgress)가 version 을 검증하므로 IN_PROGRESS 진입 자체가 최신 화면 증명.
-        if (inquiry.getStatus() == FederationInquiryStatus.RECEIVED
-                && (command.version() == null || !command.version().equals(inquiry.getVersion()))) {
+        // RECEIVED 직행(전이 API 생략 fallback)은 작성 시간 전체가 stale-view 에 노출 — echo 필수(미제공도 거부).
+        //
+        // IN_PROGRESS 경로의 기존 전제("전이 게이트가 version 을 검증하므로 IN_PROGRESS 진입 자체가
+        // 최신 화면 증명이라 echo 불요")는 IN_PROGRESS → RECEIVED 역전이가 없다는 가정 위에 있었다.
+        // 역전이 도입 후에는 구멍이 생긴다: 관리자 A 가 IN_PROGRESS 에서 답변을 작성하는 도중 →
+        // 관리자 B 가 RECEIVED 로 되돌림 → 학생이 수정(version 증가) → 관리자 C 가 재진입(IN_PROGRESS)
+        // → A 의 stale 답변 POST 가 echo 없이 그대로 통과한다.
+        // 2단계 봉합: 지금은 "version 이 제공된 경우에만" 검증한다(RECEIVED 는 기존대로 미제공도 거부).
+        // 배포된 FE 는 아직 IN_PROGRESS 답변에 version 을 보내지 않으므로 무조건 요구하면 배포 사이
+        // 답변 등록이 전부 409 가 된다 — 하위호환을 위해 "제공 시에만" 으로 시작하고, FE 후속 작업에서
+        // 항상 version 을 동봉하면 무조건 검증으로 강화한다.
+        if ((inquiry.getStatus() == FederationInquiryStatus.RECEIVED && command.version() == null)
+                || isVersionStale(inquiry, command.version())) {
             throw new FederationInquiryException.InquiryContentChangedException();
         }
         if (answerRepository.findByInquiryId(inquiry.getId()).isPresent()) {

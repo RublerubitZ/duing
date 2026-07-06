@@ -3,12 +3,16 @@ package com.duing.domain.federation.entity;
 public enum FederationInquiryStatus {
     RECEIVED, IN_PROGRESS, ANSWERED, CLOSED;
 
-    /** 관리자 상태 변경 API가 허용하는 전이. ANSWERED 는 답변 등록으로만 진입(수동 지정 불가). */
+    /**
+     * 관리자 상태 변경 API가 허용하는 전이. ANSWERED 는 답변 등록으로만 진입(수동 지정 불가).
+     * IN_PROGRESS → RECEIVED 역전이는 관리자가 답변 작성을 눌러놓고 방치할 때 학생이 문의를
+     * 영구 수정 잠금당하는 상태머신 구멍을 막는 수동 탈출구다(auto-revert 잡을 대체).
+     */
     public boolean canTransitionTo(FederationInquiryStatus next) {
         if (this == next) return false;
         return switch (this) {
             case RECEIVED -> next == IN_PROGRESS || next == CLOSED;
-            case IN_PROGRESS -> next == CLOSED;
+            case IN_PROGRESS -> next == CLOSED || next == RECEIVED;
             case ANSWERED -> next == CLOSED;
             case CLOSED -> false;
         };
