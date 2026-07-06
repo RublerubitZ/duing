@@ -125,4 +125,26 @@ describe('FaqFeedback', () => {
     );
     expect(window.localStorage.getItem(CHOICES_STORAGE_KEY)).toBeNull();
   });
+
+  it('mutateAsync 가 아직 완료되기 전(React Query isPending 반영 전) 두 버튼을 빠르게 번갈아 눌러도 mutateAsync 는 정확히 1회만 호출된다', async () => {
+    // isPending 이 false 로 고정된 채로도(같은 이벤트 루프에서 버튼이 재활성 상태) 동기 ref 가드가
+    // 막아주는지를 검증하기 위해 mutateAsync 를 의도적으로 지연 resolve 시킨다.
+    let resolveMutate: (() => void) | undefined;
+    mockMutateAsync.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveMutate = resolve;
+        }),
+    );
+
+    render(<FaqFeedback faqId={13} />);
+    fireEvent.click(screen.getByRole('button', { name: '👍 도움됐어요' }));
+    fireEvent.click(screen.getByRole('button', { name: '👎 아쉬워요' }));
+
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+
+    resolveMutate?.();
+    await waitFor(() => expect(screen.getByText('의견이 반영되었어요')).toBeInTheDocument());
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+  });
 });

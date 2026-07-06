@@ -4,7 +4,7 @@
 // 카운트(helpfulCount/notHelpfulCount)는 admin 전용 갭 신호이므로 이 화면 어디에도 표시하지 않는다.
 // 이 기기에서 이미 제출한 선택은 localStorage 로 복원하고, 반대 버튼을 누르면 값을 갱신(재제출)한다.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSubmitFaqFeedbackMutation } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
@@ -30,7 +30,14 @@ export function FaqFeedback({ faqId }: Props) {
     setSelectedHelpful(getMyFaqFeedback(faqId));
   }, [faqId]);
 
+  // React Query 의 isPending 이 아직 반영되지 않은 같은 이벤트 루프 구간에서 두 버튼을 빠르게
+  // 번갈아 누르면 mutateAsync 가 중복 발사될 수 있어 동기 플래그로 막는다.
+  // (AdminInquiryDetailPage.handleStartAnswer 의 isStartingAnswerRef 와 동일 패턴.)
+  const isSubmittingRef = useRef(false);
+
   const handleSubmit = async (helpful: boolean) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     try {
       await feedbackMutation.mutateAsync({
         faqId,
@@ -40,6 +47,8 @@ export function FaqFeedback({ faqId }: Props) {
       setSelectedHelpful(helpful);
     } catch (error) {
       addToast(extractErrorMessage(error) ?? '피드백 제출에 실패했어요', { variant: 'error' });
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 

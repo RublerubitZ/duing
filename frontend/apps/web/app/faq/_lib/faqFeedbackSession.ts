@@ -12,7 +12,15 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** 비로그인 사용자를 식별할 세션 키. 없으면 생성해 저장한다. SSR(서버)에서는 null. */
+// localStorage 차단 환경(시크릿 모드 정책 등)에서의 in-memory 폴백 — 모듈 스코프에 UUID 를
+// 최초 1회만 생성해 재사용한다. 탭(페이지 세션)이 떠 있는 동안은 동일 키가 유지되어 dedup 이
+// 계속 동작하지만, 탭을 닫으면 소멸해 다음 방문엔 새 키로 취급된다(수용 가능한 저하 — YAGNI).
+let inMemorySessionKeyFallback: string | null = null;
+
+/**
+ * 비로그인 사용자를 식별할 세션 키. localStorage 에 없으면 생성해 저장한다.
+ * localStorage 접근이 차단되면 in-memory 폴백(위 참고)으로 대체한다. SSR(서버)에서는 null.
+ */
 export function getFaqFeedbackSessionKey(): string | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -22,9 +30,11 @@ export function getFaqFeedbackSessionKey(): string | null {
     window.localStorage.setItem(SESSION_STORAGE_KEY, generated);
     return generated;
   } catch {
-    // localStorage 차단 환경(시크릿 모드 정책 등) — 세션 키를 유지할 수 없어 null 로 폴백한다.
-    // 호출부는 undefined 로 보내 로그인 사용자 취급(비로그인이면 백엔드가 400)과 구분한다.
-    return null;
+    // localStorage 차단 — 이번 페이지 세션 동안만 유지되는 in-memory 키로 폴백한다.
+    if (!inMemorySessionKeyFallback) {
+      inMemorySessionKeyFallback = crypto.randomUUID();
+    }
+    return inMemorySessionKeyFallback;
   }
 }
 
