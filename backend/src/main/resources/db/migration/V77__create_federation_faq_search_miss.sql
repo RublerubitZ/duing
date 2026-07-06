@@ -13,4 +13,7 @@ CREATE TABLE federation_faq_search_miss (
     deleted_at       TIMESTAMP WITH TIME ZONE
 );
 CREATE UNIQUE INDEX uq_ffsm_keyword ON federation_faq_search_miss (keyword);
+-- admin 목록의 고정 정렬(miss_count DESC, last_searched_at DESC)을 받치는 인덱스.
+-- 이 테이블은 비로그인 공개 검색이 행을 늘릴 수 있어(고유 키워드당 1행) 정렬 비용을 상수화해 둔다.
+CREATE INDEX idx_ffsm_sort ON federation_faq_search_miss (miss_count DESC, last_searched_at DESC);
 ALTER TABLE federation_faq_search_miss ENABLE ROW LEVEL SECURITY;

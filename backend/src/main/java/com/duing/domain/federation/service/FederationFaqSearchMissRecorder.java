@@ -68,11 +68,12 @@ public class FederationFaqSearchMissRecorder {
         }
     }
 
-    // trim + 연속 공백 1개 압축 + lower — 대소문자·공백 변형이 한 행으로 모이도록 정규화한다.
+    // strip + 연속 공백 1개 압축 + lower — 대소문자·공백 변형이 한 행으로 모이도록 정규화한다.
+    // 유니코드 공백(NBSP 등 \p{Z}) 포함 — FederationFaqSearchCondition의 정규화와 동일한 형태를 유지해야 한다.
     private String normalize(String rawKeyword) {
         if (rawKeyword == null) {
             return "";
         }
-        return rawKeyword.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+        return rawKeyword.strip().replaceAll("[\\s\\p{Z}]+", " ").toLowerCase(Locale.ROOT);
     }
 }

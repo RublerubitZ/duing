@@ -167,6 +167,20 @@ class FederationFaqSearchMissAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("NBSP 등 유니코드 공백이 낀 검색어도 일반 공백으로 정규화되어 결과가 있으면 기록되지 않는다")
+    void keywordWithUnicodeWhitespaceIsNormalizedBeforeSearch() {
+        RestAssured.given()
+            .queryParam("keyword", "동아리\u00A0등록")  // NBSP — Java \s로는 안 잡히는 유니코드 공백
+            .when()
+                .get("/api/v1/federation/faqs")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.size()", equalTo(1));
+
+        assertThat(searchMissRepository.findAll()).isEmpty();
+    }
+
+    @Test
     @DisplayName("무결과 검색어 목록은 miss_count 내림차순으로 정렬되어 반환된다")
     void searchMissesAreSortedByMissCountDescending() {
         seedSearchMisses();
