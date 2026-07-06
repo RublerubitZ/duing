@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import type { AdminFederationFaqSummary } from '@duing/types';
+import type { AdminFederationFaqSummary, AdminFaqSearchMiss } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 vi.mock('next/link', () => ({
@@ -11,6 +11,7 @@ vi.mock('next/link', () => ({
 
 const mockUseFederationFaqCategoriesQuery = vi.fn();
 const mockUseAdminFederationFaqListQuery = vi.fn();
+const mockUseAdminFaqSearchMissesQuery = vi.fn();
 const mockUpdateMutate = vi.fn();
 const mockDeleteMutate = vi.fn();
 const mockReorderMutate = vi.fn();
@@ -25,6 +26,8 @@ vi.mock('@duing/hooks', () => ({
   // 모듈 전체 모킹 시 정의되어 있지 않으면 호출 시 TypeError 가 난다.
   useAdminFederationFaqCategoryCreateMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useAdminFederationFaqCategoryUpdateMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  // FaqSearchMissPanel(접힌 상태로 렌더)가 물고 있는 훅 — 위와 동일한 이유로 팩토리에 위임 필요.
+  useAdminFederationFaqSearchMissesQuery: (...args: unknown[]) => mockUseAdminFaqSearchMissesQuery(...args),
 }));
 
 /* ── 테스트 데이터 ───────────────────────────────────────────── */
@@ -67,11 +70,22 @@ function mockListAndFullList(items: AdminFederationFaqSummary[]) {
   mockUseAdminFederationFaqListQuery.mockImplementation(() => makeListResponse(items));
 }
 
+function makeSearchMissResponse(items: AdminFaqSearchMiss[], totalPages = 1) {
+  return {
+    data: { content: items, totalPages, totalElements: items.length },
+    isLoading: false,
+    isSuccess: true,
+    isError: false,
+    error: null,
+  };
+}
+
 /* ── 테스트 ─────────────────────────────────────────────────── */
 describe('AdminFaqListPage', () => {
   beforeEach(() => {
     mockUseFederationFaqCategoriesQuery.mockReset().mockReturnValue({ data: [], isLoading: false, isSuccess: true });
     mockUseAdminFederationFaqListQuery.mockReset();
+    mockUseAdminFaqSearchMissesQuery.mockReset().mockReturnValue(makeSearchMissResponse([]));
     mockUpdateMutate.mockReset();
     mockDeleteMutate.mockReset();
     mockReorderMutate.mockReset();
@@ -168,5 +182,65 @@ describe('AdminFaqListPage', () => {
     expect(upButtonsAfter[1]).toHaveAttribute('title', '필터를 해제하면 순서를 바꿀 수 있어요');
     expect(downButtonsAfter[1]).toBeDisabled();
     expect(downButtonsAfter[1]).toHaveAttribute('title', '필터를 해제하면 순서를 바꿀 수 있어요');
+  });
+
+  it('무결과 검색어 패널은 기본 접힘으로 렌더되고 내용은 노출되지 않는다', () => {
+    mockListAndFullList([]);
+    mockUseAdminFaqSearchMissesQuery.mockReturnValue(
+      makeSearchMissResponse([{ keyword: '동아리방 예약', missCount: 5, lastSearchedAt: '2026-07-01T12:00:00' }]),
+    );
+
+    render(<AdminFaqListPage />);
+
+    const panelToggle = screen.getByRole('button', { name: /무결과 검색어/ });
+    expect(panelToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('동아리방 예약')).not.toBeInTheDocument();
+  });
+
+  it('패널을 펼치면 무결과 검색어가 횟수·마지막 검색일과 함께 테이블로 노출된다', () => {
+    mockListAndFullList([]);
+    mockUseAdminFaqSearchMissesQuery.mockReturnValue(
+      makeSearchMissResponse([
+        { keyword: '동아리방 예약', missCount: 5, lastSearchedAt: '2026-07-01T12:00:00' },
+        { keyword: '주차 등록', missCount: 2, lastSearchedAt: '2026-06-15T09:30:00' },
+      ]),
+    );
+
+    render(<AdminFaqListPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /무결과 검색어/ }));
+
+    expect(screen.getByRole('button', { name: /무결과 검색어/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('동아리방 예약')).toBeInTheDocument();
+    expect(screen.getByText('주차 등록')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('2026. 7. 1.')).toBeInTheDocument();
+  });
+
+  it('무결과 검색어가 없으면 빈 상태 문구가 노출된다', () => {
+    mockListAndFullList([]);
+    mockUseAdminFaqSearchMissesQuery.mockReturnValue(makeSearchMissResponse([]));
+
+    render(<AdminFaqListPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /무결과 검색어/ }));
+
+    expect(screen.getByText('아직 무결과 검색어가 없어요')).toBeInTheDocument();
+  });
+
+  it('무결과 검색어가 여러 페이지면 페이지네이션이 노출된다', () => {
+    mockListAndFullList([]);
+    mockUseAdminFaqSearchMissesQuery.mockReturnValue(
+      makeSearchMissResponse(
+        [{ keyword: '동아리방 예약', missCount: 5, lastSearchedAt: '2026-07-01T12:00:00' }],
+        2,
+      ),
+    );
+
+    render(<AdminFaqListPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /무결과 검색어/ }));
+
+    expect(screen.getByRole('navigation', { name: '무결과 검색어 페이지' })).toBeInTheDocument();
   });
 });
