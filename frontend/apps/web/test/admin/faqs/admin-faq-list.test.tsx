@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import type { AdminFederationFaqSummary, AdminFaqSearchMiss } from '@duing/types';
+import type { AdminFederationFaqSummary, AdminFederationFaqSearchMiss } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 vi.mock('next/link', () => ({
@@ -70,7 +70,7 @@ function mockListAndFullList(items: AdminFederationFaqSummary[]) {
   mockUseAdminFederationFaqListQuery.mockImplementation(() => makeListResponse(items));
 }
 
-function makeSearchMissResponse(items: AdminFaqSearchMiss[], totalPages = 1) {
+function makeSearchMissResponse(items: AdminFederationFaqSearchMiss[], totalPages = 1) {
   return {
     data: { content: items, totalPages, totalElements: items.length },
     isLoading: false,
@@ -195,6 +195,8 @@ describe('AdminFaqListPage', () => {
     const panelToggle = screen.getByRole('button', { name: /무결과 검색어/ });
     expect(panelToggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText('동아리방 예약')).not.toBeInTheDocument();
+    // 접힌 동안은 enabled=false 로 fetch 하지 않는다(lazy) — 훅 배선 회귀 방어.
+    expect(mockUseAdminFaqSearchMissesQuery).toHaveBeenCalledWith({ page: 0, size: 10 }, false);
   });
 
   it('패널을 펼치면 무결과 검색어가 횟수·마지막 검색일과 함께 테이블로 노출된다', () => {
@@ -215,6 +217,8 @@ describe('AdminFaqListPage', () => {
     expect(screen.getByText('주차 등록')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
     expect(screen.getByText('2026. 7. 1.')).toBeInTheDocument();
+    // 펼치면 enabled=true 로 fetch 가 켜진다 — 훅 배선 회귀 방어.
+    expect(mockUseAdminFaqSearchMissesQuery).toHaveBeenLastCalledWith({ page: 0, size: 10 }, true);
   });
 
   it('무결과 검색어가 없으면 빈 상태 문구가 노출된다', () => {
@@ -241,6 +245,11 @@ describe('AdminFaqListPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /무결과 검색어/ }));
 
-    expect(screen.getByRole('navigation', { name: '무결과 검색어 페이지' })).toBeInTheDocument();
+    const paginationNav = screen.getByRole('navigation', { name: '무결과 검색어 페이지' });
+    expect(paginationNav).toBeInTheDocument();
+
+    // 페이지 버튼 클릭이 훅의 page 파라미터로 이어지는지(onChange 배선) 단언한다.
+    fireEvent.click(within(paginationNav).getByRole('button', { name: '2' }));
+    expect(mockUseAdminFaqSearchMissesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10 }, true);
   });
 });

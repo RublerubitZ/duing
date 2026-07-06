@@ -44,7 +44,7 @@ export type UpdateFederationFaqCategoryPayload = { name: string; sortOrder: numb
 
 export type FederationFaqFeedbackPayload = { helpful: boolean; sessionKey?: string };
 
-export type AdminFaqSearchMiss = {
+export type AdminFederationFaqSearchMiss = {
   keyword: string;
   missCount: number;
   lastSearchedAt: string;
