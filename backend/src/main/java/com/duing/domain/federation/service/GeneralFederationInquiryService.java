@@ -16,15 +16,18 @@ import com.duing.domain.federation.service.dto.command.UpdateInquiryAnswerComman
 import com.duing.domain.federation.service.dto.query.AdminFederationInquiryDetailQuery;
 import com.duing.domain.federation.service.dto.query.AdminFederationInquiryQuery;
 import com.duing.domain.federation.service.dto.query.FederationInquiryAdminSearchCondition;
+import com.duing.domain.federation.service.dto.query.FederationInquiryAttachmentDownload;
 import com.duing.domain.federation.service.dto.query.FederationInquiryDetailQuery;
 import com.duing.domain.notification.event.FederationInquiryAnsweredEvent;
 import com.duing.domain.notification.event.FederationInquiryClosedEvent;
 import com.duing.domain.notification.event.FederationInquiryReceivedEvent;
 import com.duing.domain.user.entity.User;
+import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
 import com.duing.global.file.FileStorageService;
 import com.duing.global.file.FileUploadPolicy;
+import com.duing.global.file.StoredFile;
 import com.duing.global.file.controller.dto.FilePurpose;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,6 +108,26 @@ public class GeneralFederationInquiryService implements FederationInquiryService
         } catch (ObjectOptimisticLockingFailureException concurrentChange) {
             throw new FederationInquiryException.ConcurrentInquiryUpdateException();
         }
+    }
+
+    @Override
+    public FederationInquiryAttachmentDownload downloadAttachment(
+            Long inquiryId, Long attachmentId, Long currentUserId, UserRole currentUserRole) {
+        FederationInquiry inquiry = inquiryRepository.findById(inquiryId)
+                .orElseThrow(FederationInquiryException.FederationInquiryNotFoundException::new);
+        // ADMIN 이 아니면 작성자 본인만 — 그 외는 미존재와 동일하게 404 로 응답해 존재를 은닉한다.
+        if (currentUserRole != UserRole.ADMIN && !inquiry.isAuthor(currentUserId)) {
+            throw new FederationInquiryException.FederationInquiryNotFoundException();
+        }
+        FederationInquiryAttachment attachment = attachmentRepository
+                .findByIdAndInquiryId(attachmentId, inquiryId)
+                .orElseThrow(FederationInquiryException.FederationInquiryNotFoundException::new);
+        StoredFile storedFile = fileStorageService.download(attachment.getStorageKey());
+        if (storedFile == null) {
+            // 스토리지에서 사라진 키(운영 이슈 등) — 존재 은닉 관례와 동일하게 404 로 취급한다.
+            throw new FederationInquiryException.FederationInquiryNotFoundException();
+        }
+        return new FederationInquiryAttachmentDownload(attachment.getFileName(), storedFile);
     }
 
     // 첨부 URL → 스토리지 키 변환·검증 후 신규 attachment 엔티티 목록을 만든다(아직 저장 전).

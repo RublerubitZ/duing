@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -66,6 +67,16 @@ public interface FederationInquiryApi {
     @DeleteMapping("/federation/inquiries/{inquiryId}")
     ResponseEntity<ApiResponse<Void>> deleteInquiry(
             @PathVariable Long inquiryId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "문의 첨부 다운로드", description = "작성자 본인 또는 ADMIN 만 접근 가능 — 그 외(타 학생·미존재·"
+            + "삭제된 문의)는 존재 은닉을 위해 모두 404. 원본 바이트를 그대로 스트리밍하므로 이 응답만 "
+            + "ApiResponse 로 감싸지 않는다.")
+    @GetMapping("/federation/inquiries/{inquiryId}/attachments/{attachmentId}")
+    ResponseEntity<InputStreamResource> downloadAttachment(
+            @PathVariable Long inquiryId,
+            @PathVariable Long attachmentId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }

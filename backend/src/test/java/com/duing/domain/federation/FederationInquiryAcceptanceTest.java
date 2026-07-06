@@ -575,6 +575,116 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
                 .body("data.attachments.size()", equalTo(1));
     }
 
+    @Test
+    @DisplayName("작성자는 첨부를 다운로드할 수 있고 Content-Type·nosniff·RFC 5987 파일명 헤더가 함께 내려온다")
+    void authorDownloadsOwnAttachment() {
+        String attachmentUrl = uploadAttachment(studentToken, "photo1.jpg");
+        Long inquiryId = createInquiryWithAttachments(studentToken, "제목", "내용", List.of(attachmentUrl));
+        Long attachmentId = firstAttachmentId(studentToken, inquiryId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId + "/attachments/" + attachmentId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .contentType("image/jpeg")
+                .header("X-Content-Type-Options", equalTo("nosniff"))
+                // 서버 생성 파일명("첨부 이미지 1")이 RFC 5987 percent-encoding 으로 실린다 —
+                // 공백이 '+' 가 아닌 %20 으로 인코딩되는지까지 회귀 고정(URLEncoder 함정).
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        equalTo("inline; filename*=UTF-8''%EC%B2%A8%EB%B6%80%20%EC%9D%B4%EB%AF%B8%EC%A7%80%201"));
+    }
+
+    @Test
+    @DisplayName("본인 문의의 URL에 다른 문의 소속 첨부 id를 끼워 넣으면 404를 받는다")
+    void attachmentIdFromAnotherInquiryReturns404() {
+        // 문의 A(첨부 없음)와 문의 B(첨부 1개) 모두 같은 학생 소유 — 소유권 검증은 통과하지만
+        // 첨부가 문의 A 소속이 아니므로 inquiryId 매칭 실패로 404(IDOR 방어 회귀 고정).
+        Long inquiryIdWithoutAttachment = createInquiry(studentToken, "문의 A", "첨부 없는 문의");
+        String attachmentUrl = uploadAttachment(studentToken, "photo1.jpg");
+        Long inquiryIdWithAttachment = createInquiryWithAttachments(
+                studentToken, "문의 B", "첨부 있는 문의", List.of(attachmentUrl));
+        Long otherInquiryAttachmentId = firstAttachmentId(studentToken, inquiryIdWithAttachment);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryIdWithoutAttachment
+                        + "/attachments/" + otherInquiryAttachmentId)
+            .then()
+                .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("ADMIN 은 학생이 작성한 문의의 첨부도 다운로드할 수 있다")
+    void adminDownloadsOthersAttachment() {
+        String attachmentUrl = uploadAttachment(studentToken, "photo1.jpg");
+        Long inquiryId = createInquiryWithAttachments(studentToken, "제목", "내용", List.of(attachmentUrl));
+        Long attachmentId = firstAttachmentId(studentToken, inquiryId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId + "/attachments/" + attachmentId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .contentType("image/jpeg");
+    }
+
+    @Test
+    @DisplayName("다른 학생은 문의 첨부에 접근할 수 없고 404를 받는다")
+    void otherStudentCannotDownloadAttachment() {
+        String attachmentUrl = uploadAttachment(studentToken, "photo1.jpg");
+        Long inquiryId = createInquiryWithAttachments(studentToken, "제목", "내용", List.of(attachmentUrl));
+        Long attachmentId = firstAttachmentId(studentToken, inquiryId);
+        User otherStudent = saveUser(UserRole.STUDENT);
+        String otherStudentToken = jwtTokenProvider.createToken(otherStudent.getId(), otherStudent.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherStudentToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId + "/attachments/" + attachmentId)
+            .then()
+                .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("비로그인 사용자는 문의 첨부를 다운로드할 수 없고 401을 받는다")
+    void anonymousCannotDownloadAttachment() {
+        String attachmentUrl = uploadAttachment(studentToken, "photo1.jpg");
+        Long inquiryId = createInquiryWithAttachments(studentToken, "제목", "내용", List.of(attachmentUrl));
+        Long attachmentId = firstAttachmentId(studentToken, inquiryId);
+
+        RestAssured.given()
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId + "/attachments/" + attachmentId)
+            .then()
+                .statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
+
+    @Test
+    @DisplayName("문의를 삭제하면 작성자도 남아 있던 첨부를 더 이상 다운로드할 수 없고 404를 받는다")
+    void deletedInquiryAttachmentDownloadReturns404() {
+        String attachmentUrl = uploadAttachment(studentToken, "photo1.jpg");
+        Long inquiryId = createInquiryWithAttachments(studentToken, "제목", "내용", List.of(attachmentUrl));
+        Long attachmentId = firstAttachmentId(studentToken, inquiryId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .delete("/api/v1/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId + "/attachments/" + attachmentId)
+            .then()
+                .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
     // ---- helpers ----
 
     private Long createInquiry(String token, String title, String content) {
@@ -656,6 +766,16 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
         bytes[1] = (byte) 0xD8;
         bytes[2] = (byte) 0xFF;
         return bytes;
+    }
+
+    private Long firstAttachmentId(String token, Long inquiryId) {
+        return RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .extract().jsonPath().getLong("data.attachments[0].id");
     }
 
     private Long adminDetailVersion(Long inquiryId) {
