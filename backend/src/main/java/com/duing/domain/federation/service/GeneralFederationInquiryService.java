@@ -150,7 +150,9 @@ public class GeneralFederationInquiryService implements FederationInquiryService
 
     private String validateAndExtractStorageKey(String attachmentUrl) {
         String storageKey = fileStorageService.toStorageKey(attachmentUrl);
-        if (storageKey == null || !storageKey.startsWith(ATTACHMENT_KEY_PREFIX)) {
+        // ".." 세그먼트 포함 키 거부 — S3 는 리터럴 키라 자연 방어되지만, local 은 sizeOf/download 가
+        // Path#normalize 로 해석하므로 provider 구현 세부에 기대지 않고 서비스 레벨에서 원천 차단한다.
+        if (storageKey == null || !storageKey.startsWith(ATTACHMENT_KEY_PREFIX) || storageKey.contains("..")) {
             throw new FederationInquiryException.InvalidInquiryException();
         }
         return storageKey;

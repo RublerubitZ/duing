@@ -540,6 +540,24 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("첨부 URL에 \"..\" 경로 탈출 세그먼트가 섞여 있으면 400을 받는다")
+    void rejectsAttachmentUrlWithPathTraversalSegment() {
+        // prefix(federation/inquiry/)는 통과하지만 "../../" 로 다른 purpose 디렉터리를 가리키려는 위조 키.
+        String traversalUrl = "/files/stub/federation/inquiry/../../club/logo/x.jpg";
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title": "제목", "content": "내용", "attachmentUrls": ["%s"] }
+                    """.formatted(traversalUrl))
+            .when()
+                .post("/api/v1/federation/inquiries")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("접수 상태에서 첨부를 빈 배열로 수정하면 비워지고, 이후 새 배열로 수정하면 전체 교체된다")
     void receivedUpdateClearsThenReplacesAttachments() {
         String attachmentUrl1 = uploadAttachment(studentToken, "before1.jpg");
