@@ -381,14 +381,21 @@ app/me/_pages/MyPage.tsx                '내 문의' 요약 블록
 5. 문의 프론트 (학생 3페이지 + /me 블록 + admin 2페이지)
 6. 진입점 마무리 ('/faq 미노출' 테스트 + 공지 링크 + Footer 재구성 + ExploreNav 헤더 확인)
 
-**P2** (우선순위순):
-1. Helpful 피드백 "도움이 되었나요?" — 카운트 비공개(admin 갭 신호 전용), 로그인 userId dedup/비로그인 세션 dedup
-2. 무결과 검색어 로깅 — P1 ILIKE 검색 위에 얹음, FAQ 갭 발견 직접 신호
-3. 답변 소요시간 표시 — 중앙값, 최근 90일 표본 5건 미만 미표시, "최근 문의는 보통 N일 내 답변되었어요"(과거형), 집계는 삭제 포함
-4. 조회수(+POST /view) — 홈 섹션 보충 로직에만(목록 정렬 옵션은 P3)
-5. 이미지 첨부, 드래그 정렬, RECEIVED 7일+ 리마인더 잡, 무답변 IN_PROGRESS auto-revert 잡(env 플래그), 카테고리 삭제(+FAQ 일괄 이관 moveToCategoryId), admin 검색 고도화, in_progress_by "작성 중" 표시
+**P2** (우선순위순 — 2026-07-06 재검토 확정. 원칙: 신호 수집 기능은 일찍 심고 신호 소비 기능은 데이터 확보 후, 자동화(잡)보다 수동 탈출구 먼저):
+1. **문의 이미지 첨부** — 학생 사용 빈도·가치 최상(오류 스크린샷·모집 이미지·시설 사진), 왕복 질문 감소. `FilePurpose.FEDERATION_INQUIRY` + V75 attachment 테이블 + 최대 5장. **비밀문의이므로 공개 URL 금지 — 인증 다운로드(작성자·ADMIN만) 필수 설계**. 첨부는 질문 측만(답변 측 첨부는 스키마 슬롯 유지, 후속)
+2. **Helpful 피드백** "도움이 되었나요?" — 카운트 비공개(admin 갭 신호 전용), 로그인 userId dedup/비로그인 세션 dedup
+3. **무결과 검색어 로깅** — P1 ILIKE 검색 위에 얹음, FAQ 갭 발견 직접 신호. 최저비용
+4. **IN_PROGRESS 수동 되돌리기** — `IN_PROGRESS → RECEIVED` 전이 허용(enum) + admin 상세 "접수로 되돌리기" 버튼(기존 changeStatus API 재사용). 관리자 방치로 인한 학생 수정 영구 잠금의 탈출구 — auto-revert 잡을 대체
+5. **admin 갭 신호 화면** — 2·3이 수집한 데이터를 보는 화면(도움안됨 상위 FAQ + 무결과 검색어 목록). 수집 기능과 같은 PR로 출시
 
-**P3**: PDF 첨부, 문의→FAQ 승격 UX(프리필+PII 체크리스트 — ①② 신호 주 N건 초과 시 P2.5 앞당김 트리거, 그 전엔 admin 수동 작성), pg_trgm, 조회수 목록 정렬, 재오픈, ANSWERED 자동 종결 배치, 만족도 평가, Role 분리, NAV_TABS 상수화, /faq/[id] SEO 승격, '삭제 포함 보기' 토글, 문의 본문+notification 파기 배치
+**P3** (진행 조건 명시 — 운영 데이터 확보 후):
+- **문의→FAQ 승격 UX** — Helpful 부정·무결과 검색어 주 N건 초과 시. 설계 확정: ANSWERED/CLOSED 상세 "FAQ로 승격" 버튼 → 새 초안 프리필(질문→제목, 답변→본문, 원본 불변) → **PII 제거 체크리스트 모달 필수**(이름·학번·연락처·개인 식별 상황 — 자동 마스킹 아닌 관리자 확인 강제) → 카테고리 선택 → `is_published=false` 저장 → 기존 발행 플로우 검토. `source_inquiry_id`(nullable) 출처 추적, 학생 알림 없음(비밀성 유지)
+- **auto-revert 잡 / RECEIVED 7일+ 리마인더 잡** — IN_PROGRESS 방치·미답변 적체가 실제 관측될 때(env 플래그, FeeBillDueSoonReminderJob 패턴)
+- **답변 소요시간 표시** — 표본 5건 미만 미표시 규칙상 초기 무의미 → 90일 표본 충족 무렵. 중앙값·과거형 문구·삭제 포함 집계 설계 유지
+- **조회수(+POST /view)** — Helpful이 더 나은 품질 신호라 강등. 펼침 시 기록(FE 세션 1회+BE 쿨다운), GET 증가 금지. 무결과 검색어 데이터로 활용처 확정 후
+- **드래그 정렬** — FAQ 30개+ 규모에서 위/아래 버튼이 실제 불편해질 때(dnd-kit img draggable=false 가드)
+- 카테고리 삭제(+moveToCategoryId 일괄 이관) / admin 검색 고도화 / in_progress_by "작성 중" 표시(관리자 2인+ 시)
+- PDF 첨부, pg_trgm, 조회수 목록 정렬, 재오픈, ANSWERED 자동 종결 배치, 만족도 평가, Role 분리, NAV_TABS 상수화, /faq/[id] SEO 승격, '삭제 포함 보기' 토글, 문의 본문+notification 파기 배치
 
 ## 9. 장기 확장 방향
 
