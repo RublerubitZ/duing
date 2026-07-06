@@ -193,7 +193,7 @@ export function AdminFaqListPage() {
             <table className="w-full text-[13px]">
               <thead className="bg-graysoft text-charcoal-2">
                 <tr>
-                  <Th>질문</Th><Th>카테고리</Th><Th>공개</Th><Th>조회수</Th><Th>수정일</Th><Th>순서</Th><Th>액션</Th>
+                  <Th>질문</Th><Th>카테고리</Th><Th>공개</Th><Th>조회수</Th><Th>피드백</Th><Th>수정일</Th><Th>순서</Th><Th>액션</Th>
                 </tr>
               </thead>
               <tbody>
@@ -224,6 +224,18 @@ export function AdminFaqListPage() {
                         >{faq.published ? '공개' : '비공개'}</span>
                       </Td>
                       <Td>{faq.viewCount}</Td>
+                      <Td>
+                        <span
+                          className={cn(
+                            'font-medium tabular-nums',
+                            faq.notHelpfulCount > faq.helpfulCount ? 'text-coral' : 'text-charcoal-2',
+                          )}
+                          title={`도움됐어요 ${faq.helpfulCount} · 아쉬워요 ${faq.notHelpfulCount}`}
+                          aria-label={`도움됐어요 ${faq.helpfulCount}건 · 아쉬워요 ${faq.notHelpfulCount}건`}
+                        >
+                          {faq.helpfulCount} / {faq.notHelpfulCount}
+                        </span>
+                      </Td>
                       <Td>{new Date(faq.updatedAt).toLocaleDateString('ko-KR')}</Td>
                       <Td>
                         <div className="flex gap-1">

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CreateFederationFaqCategoryPayload,
   CreateFederationFaqPayload,
+  FederationFaqFeedbackPayload,
   UpdateFederationFaqCategoryPayload,
   UpdateFederationFaqPayload,
 } from '@duing/types';
@@ -35,6 +36,16 @@ export function useFederationFaqDetailQuery(faqId: number | null, enabled = true
     },
     enabled: enabled && faqId !== null,
     staleTime: 30_000,
+  });
+}
+
+// 공개 표면(학생 화면)에는 카운트가 없어 무효화할 캐시가 없다 — admin 목록은 다음 조회 시
+// 자연스럽게 최신 집계를 받는다(별도 invalidate 불필요).
+export function useSubmitFaqFeedbackMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: ({ faqId, payload }: { faqId: number; payload: FederationFaqFeedbackPayload }) =>
+      client.federationFaqs.submitFeedback(faqId, payload),
   });
 }
 

@@ -41,6 +41,8 @@ function makeAdminFaqItem(overrides: Partial<AdminFederationFaqSummary> = {}): A
     published: true,
     sortOrder: 0,
     viewCount: 0,
+    helpfulCount: 0,
+    notHelpfulCount: 0,
     updatedAt: '2026-05-01T00:00:00Z',
     ...overrides,
   };
@@ -111,6 +113,32 @@ describe('AdminFaqListPage', () => {
     fireEvent.click(deleteButtons[deleteButtons.length - 1]!);
 
     expect(mockDeleteMutate).toHaveBeenCalledWith(42, expect.any(Object));
+  });
+
+  it('피드백 컬럼에 도움됨/아쉬움 카운트가 "N / M" 형태로 노출되고 aria-label 이 부여된다', () => {
+    const items = [
+      makeAdminFaqItem({ id: 1, question: '피드백 질문', helpfulCount: 12, notHelpfulCount: 3 }),
+    ];
+    mockListAndFullList(items);
+
+    render(<AdminFaqListPage />);
+
+    const feedbackCell = screen.getByLabelText('도움됐어요 12건 · 아쉬워요 3건');
+    expect(feedbackCell).toHaveTextContent('12 / 3');
+    expect(feedbackCell).toHaveAttribute('title', '도움됐어요 12 · 아쉬워요 3');
+    expect(feedbackCell).not.toHaveClass('text-coral');
+  });
+
+  it('아쉬워요가 도움됐어요보다 많으면 피드백 카운트가 text-coral 로 강조된다', () => {
+    const items = [
+      makeAdminFaqItem({ id: 1, question: '갭 질문', helpfulCount: 2, notHelpfulCount: 5 }),
+    ];
+    mockListAndFullList(items);
+
+    render(<AdminFaqListPage />);
+
+    const feedbackCell = screen.getByLabelText('도움됐어요 2건 · 아쉬워요 5건');
+    expect(feedbackCell).toHaveClass('text-coral');
   });
 
   it('키워드 검색을 확정하면(필터 활성) 순서 이동 버튼이 비활성화되고 안내 tooltip 이 노출된다', () => {
