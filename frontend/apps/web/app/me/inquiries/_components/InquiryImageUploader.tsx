@@ -57,11 +57,11 @@ export function InquiryImageUploader({
   }, []);
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const fileList = event.target.files;
+    // input.files 는 라이브 FileList — value 리셋보다 먼저 배열로 스냅숏을 떠야 한다.
+    // (리셋이 먼저면 실브라우저에서 FileList 가 그 자리에서 비워져 업로드가 조용히 불발된다)
+    const selectedFiles = Array.from(event.target.files ?? []);
     event.target.value = '';
-    if (!fileList || fileList.length === 0) return;
-
-    const selectedFiles = Array.from(fileList);
+    if (selectedFiles.length === 0) return;
     const availableSlots = MAX_ATTACHMENTS - attachmentUrls.length;
 
     if (availableSlots <= 0) {
