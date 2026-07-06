@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { AdminFederationInquiryDetail } from '@duing/types';
@@ -137,11 +137,135 @@ describe('AdminInquiryDetailPage', () => {
     await waitFor(() => {
       expect(mockAnswerMutateAsync).toHaveBeenCalledWith({
         inquiryId: INQUIRY_ID,
-        payload: { content: '테스트 답변 내용' },
+        payload: { content: '테스트 답변 내용', version: 3 },
       });
     });
     expect(screen.getByRole('alert')).toHaveTextContent('답변 등록에 실패했습니다.');
     expect(textarea).toHaveValue('테스트 답변 내용');
+  });
+
+  it('IN_PROGRESS 문의에는 접수로 되돌리기 버튼이 노출된다', () => {
+    mockUseAdminFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(makeAdminDetail({ status: 'IN_PROGRESS' })),
+    );
+
+    render(<AdminInquiryDetailPage inquiryId={INQUIRY_ID} />);
+
+    expect(screen.getByRole('button', { name: '접수로 되돌리기' })).toBeInTheDocument();
+  });
+
+  it('RECEIVED 문의에는 접수로 되돌리기 버튼이 노출되지 않는다', () => {
+    mockUseAdminFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(makeAdminDetail({ status: 'RECEIVED' })),
+    );
+
+    render(<AdminInquiryDetailPage inquiryId={INQUIRY_ID} />);
+
+    expect(screen.queryByRole('button', { name: '접수로 되돌리기' })).not.toBeInTheDocument();
+  });
+
+  it('접수로 되돌리기를 클릭하면 RECEIVED 전환이 현재 version과 함께 요청되고 성공 토스트가 뜬다', async () => {
+    const user = userEvent.setup();
+    mockUseAdminFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(makeAdminDetail({ status: 'IN_PROGRESS', version: 3 })),
+    );
+    mockChangeStatusMutateAsync.mockResolvedValue(undefined);
+
+    render(<AdminInquiryDetailPage inquiryId={INQUIRY_ID} />);
+
+    await user.click(screen.getByRole('button', { name: '접수로 되돌리기' }));
+
+    await waitFor(() => {
+      expect(mockChangeStatusMutateAsync).toHaveBeenCalledWith({
+        inquiryId: INQUIRY_ID,
+        payload: { status: 'RECEIVED', version: 3 },
+      });
+    });
+    expect(mockAddToast).toHaveBeenCalledWith('접수 상태로 되돌렸어요');
+  });
+
+  it('되돌리기 409 충돌 시 최신 version으로 정확히 1회 재시도한다', async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue({ data: makeAdminDetail({ status: 'IN_PROGRESS', version: 4 }) });
+    mockUseAdminFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(makeAdminDetail({ status: 'IN_PROGRESS', version: 3 }), refetch),
+    );
+    mockChangeStatusMutateAsync
+      .mockRejectedValueOnce(new ApiError(409, '문의가 이미 처리 중입니다.', undefined, undefined))
+      .mockResolvedValueOnce(undefined);
+
+    render(<AdminInquiryDetailPage inquiryId={INQUIRY_ID} />);
+
+    await user.click(screen.getByRole('button', { name: '접수로 되돌리기' }));
+
+    await waitFor(() => expect(mockChangeStatusMutateAsync).toHaveBeenCalledTimes(2));
+    expect(mockChangeStatusMutateAsync).toHaveBeenNthCalledWith(1, {
+      inquiryId: INQUIRY_ID,
+      payload: { status: 'RECEIVED', version: 3 },
+    });
+    expect(mockChangeStatusMutateAsync).toHaveBeenNthCalledWith(2, {
+      inquiryId: INQUIRY_ID,
+      payload: { status: 'RECEIVED', version: 4 },
+    });
+    // 1회차 = 재시도 전 fresh version 확보, 2회차 = 재시도 성공 후 화면 확정 refetch.
+    expect(refetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('되돌리기 재시도도 409로 실패하면 버전 충돌 안내가 노출된다', async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue({ data: makeAdminDetail({ status: 'IN_PROGRESS', version: 4 }) });
+    mockUseAdminFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(makeAdminDetail({ status: 'IN_PROGRESS', version: 3 }), refetch),
+    );
+    mockChangeStatusMutateAsync
+      .mockRejectedValueOnce(new ApiError(409, '문의가 이미 처리 중입니다.', undefined, undefined))
+      .mockRejectedValueOnce(new ApiError(409, '문의가 이미 처리 중입니다.', undefined, undefined));
+
+    render(<AdminInquiryDetailPage inquiryId={INQUIRY_ID} />);
+
+    await user.click(screen.getByRole('button', { name: '접수로 되돌리기' }));
+
+    await waitFor(() => expect(mockChangeStatusMutateAsync).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '문의가 수정되었습니다. 내용을 다시 확인해 주세요.',
+    );
+    expect(mockAddToast).not.toHaveBeenCalled();
+  });
+
+  it('ANSWERED/CLOSED 문의에는 접수로 되돌리기 버튼이 노출되지 않는다', () => {
+    mockUseAdminFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(makeAdminDetail({ status: 'ANSWERED' })),
+    );
+    const { rerender } = render(<AdminInquiryDetailPage inquiryId={INQUIRY_ID} />);
+    expect(screen.queryByRole('button', { name: '접수로 되돌리기' })).not.toBeInTheDocument();
+
+    mockUseAdminFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(makeAdminDetail({ status: 'CLOSED' })),
+    );
+    rerender(<AdminInquiryDetailPage inquiryId={INQUIRY_ID} />);
+    expect(screen.queryByRole('button', { name: '접수로 되돌리기' })).not.toBeInTheDocument();
+  });
+
+  it('문의 종결 확인 시 현재 version이 함께 전송된다', async () => {
+    const user = userEvent.setup();
+    mockUseAdminFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(makeAdminDetail({ status: 'RECEIVED', version: 3 })),
+    );
+    mockChangeStatusMutateAsync.mockResolvedValue(undefined);
+
+    render(<AdminInquiryDetailPage inquiryId={INQUIRY_ID} />);
+
+    await user.click(screen.getByRole('button', { name: '종료' }));
+
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: '종료' }));
+
+    await waitFor(() => {
+      expect(mockChangeStatusMutateAsync).toHaveBeenCalledWith({
+        inquiryId: INQUIRY_ID,
+        payload: { status: 'CLOSED', closedReason: undefined, version: 3 },
+      });
+    });
   });
 
   it('detail 조회가 410(INQUIRY_DELETED) 이면 "작성자가 삭제한 문의입니다" 를 보여준다', () => {
