@@ -88,6 +88,19 @@ public class FederationInquiry extends BaseEntity {
         this.status = FederationInquiryStatus.IN_PROGRESS;
     }
 
+    /**
+     * 관리자 "접수로 되돌리기" CTA — IN_PROGRESS 에서만. 답변 작성 방치로 인한 학생 영구 수정
+     * 잠금의 수동 탈출구(startProgress 전례와 동일 구조 — dirty checking 으로 version 증가).
+     * 이미 RECEIVED 인 멱등 처리는 서비스에서.
+     */
+    public void revertToReceived() {
+        if (!this.status.canTransitionTo(FederationInquiryStatus.RECEIVED)) {
+            throw new FederationInquiryException.InvalidInquiryStatusException(
+                    "접수 상태로 되돌릴 수 없는 상태입니다: " + this.status);
+        }
+        this.status = FederationInquiryStatus.RECEIVED;
+    }
+
     /** 답변 등록 시 자동 전이 — dirty checking 으로 version 이 증가한다(JPQL 벌크 금지). */
     public void markAnswered() {
         if (!this.status.canReceiveAnswer()) {
