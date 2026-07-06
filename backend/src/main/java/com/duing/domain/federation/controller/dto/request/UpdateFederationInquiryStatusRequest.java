@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 public record UpdateFederationInquiryStatusRequest(
         @NotNull(message = "변경할 상태는 필수 입력값입니다.")
         FederationInquiryStatus status,
-        Long version,   // IN_PROGRESS 전이 시 필수(서비스 검증 — stale-render 방어)
+        Long version,   // IN_PROGRESS·RECEIVED 전이 시 필수, CLOSED 는 제공 시 검증(서비스 검증 — stale-render 방어)
         @Size(max = 200, message = "종료 사유는 200자 이하여야 합니다.")
         String closedReason
 ) {

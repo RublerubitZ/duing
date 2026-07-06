@@ -515,6 +515,56 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("되돌리기 후 학생이 수정한 문의를 옛 version을 제공해 종결하면 409다")
+    void closeWithStaleVersionAfterRevertReturns409() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+        transitionToInProgress(inquiryId, adminDetailVersion(inquiryId));
+        Long staleVersion = adminDetailVersion(inquiryId); // IN_PROGRESS 화면의 관리자가 쥔 버전
+
+        // 다른 관리자가 되돌리고 학생이 수정 — staleVersion 을 쥔 관리자 화면은 이제 옛 내용.
+        revertToReceived(inquiryId, staleVersion, HttpStatus.NO_CONTENT);
+        updateInquiry(inquiryId, "수정된 제목", "수정된 내용", HttpStatus.NO_CONTENT);
+
+        // 옛 내용 기준의 종결은 조건부 echo 가 409 로 걸러 refetch 를 유도한다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "status": "CLOSED", "closedReason": "처리 완료", "version": %d }
+                    """.formatted(staleVersion))
+            .when()
+                .patch("/api/v1/admin/federation/inquiries/" + inquiryId + "/status")
+            .then()
+                .statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("version을 제공하지 않은 종결은 기존대로 성공한다")
+    void closeWithoutVersionStillSucceeds() {
+        Long inquiryId = createInquiry(studentToken, "제목", "내용");
+
+        // 배포된 FE 가 종결에 version 을 동봉하기 전까지의 하위호환 경로 — 미제공은 검증하지 않는다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "status": "CLOSED", "closedReason": "중복 문의" }
+                    """)
+            .when()
+                .patch("/api/v1/admin/federation/inquiries/" + inquiryId + "/status")
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/admin/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.status", equalTo("CLOSED"));
+    }
+
+    @Test
     @DisplayName("작성자는 언제든 문의를 삭제할 수 있고, 삭제 후 관리자 상세 조회는 410을 받는다")
     void authorDeletesAnytimeAndAdminSees410() {
         Long inquiryId = createInquiry(studentToken, "제목", "내용");
