@@ -4,14 +4,18 @@ import com.duing.domain.federation.entity.FederationFaq;
 import com.duing.domain.federation.entity.FederationFaqCategory;
 import com.duing.domain.federation.exception.FederationFaqException;
 import com.duing.domain.federation.repository.FederationFaqCategoryRepository;
+import com.duing.domain.federation.repository.FederationFaqFeedbackRepository;
 import com.duing.domain.federation.repository.FederationFaqRepository;
 import com.duing.domain.federation.service.dto.command.CreateFederationFaqCategoryCommand;
 import com.duing.domain.federation.service.dto.command.CreateFederationFaqCommand;
 import com.duing.domain.federation.service.dto.command.ReorderFederationFaqsCommand;
+import com.duing.domain.federation.service.dto.command.SubmitFederationFaqFeedbackCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCategoryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCommand;
+import com.duing.domain.federation.service.dto.query.FaqFeedbackCount;
 import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +26,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +35,7 @@ public class GeneralFederationFaqService implements FederationFaqService {
 
     private final FederationFaqRepository federationFaqRepository;
     private final FederationFaqCategoryRepository categoryRepository;
+    private final FederationFaqFeedbackRepository feedbackRepository;
 
     @Override
     public Page<FederationFaq> searchPublished(FederationFaqSearchCondition condition, Pageable pageable) {
@@ -59,6 +65,17 @@ public class GeneralFederationFaqService implements FederationFaqService {
     @Override
     public Page<FederationFaq> searchForAdmin(FederationFaqAdminSearchCondition condition, Pageable pageable) {
         return federationFaqRepository.searchForAdmin(condition, pageable);
+    }
+
+    @Override
+    public Map<Long, Map<Boolean, Long>> getFeedbackCounts(Collection<Long> faqIds) {
+        // 빈 페이지(검색 결과 없음)에서 IN() 빈 컬렉션 호출을 생략한다 (InterviewRoundService.getRounds() 전례).
+        if (faqIds.isEmpty()) {
+            return Map.of();
+        }
+        return feedbackRepository.countGroupedByFaqIdAndHelpful(faqIds).stream()
+                .collect(Collectors.groupingBy(FaqFeedbackCount::faqId,
+                        Collectors.toMap(FaqFeedbackCount::helpful, FaqFeedbackCount::count)));
     }
 
     @Override
@@ -128,6 +145,21 @@ public class GeneralFederationFaqService implements FederationFaqService {
             throw new FederationFaqException.DuplicateFederationFaqCategoryNameException();
         }
         category.update(command.name(), command.sortOrder());
+    }
+
+    @Override
+    @Transactional
+    public void submitFeedback(SubmitFederationFaqFeedbackCommand command) {
+        // 발행된 FAQ만 대상 — 비공개·미존재 모두 404(공개 단건 조회 규칙과 동일).
+        FederationFaq faq = getPublished(command.faqId());
+        if (command.userId() != null) {
+            feedbackRepository.upsertByFaqIdAndUserId(faq.getId(), command.userId(), command.helpful());
+            return;
+        }
+        if (!StringUtils.hasText(command.sessionKey())) {
+            throw new FederationFaqException.FaqFeedbackSessionKeyRequiredException();
+        }
+        feedbackRepository.upsertByFaqIdAndSessionKey(faq.getId(), command.sessionKey(), command.helpful());
     }
 
     private FederationFaq getFaqForAdmin(Long faqId) {

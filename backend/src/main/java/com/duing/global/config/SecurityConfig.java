@@ -94,6 +94,9 @@ public class SecurityConfig {
                                 "/api/v1/federation/faqs",
                                 "/api/v1/federation/faqs/*",
                                 "/api/v1/federation/faq-categories").permitAll()
+                        // FAQ 도움됨 피드백 제출 — 정확 경로의 POST 1개만 허용(광역 금지 원칙 유지, 위와 동일 이유로
+                        // "/api/v1/federation/**" 와일드카드는 쓰지 않는다). 비밀문의 경로는 여전히 인증을 요구한다.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/federation/faqs/*/feedback").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/global-events", "/api/v1/global-events/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/promotions").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/public-activities", "/api/v1/public-activities/**").permitAll()

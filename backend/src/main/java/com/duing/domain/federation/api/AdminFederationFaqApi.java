@@ -30,7 +30,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 @SecurityRequirement(name = "BearerAuth")
 public interface AdminFederationFaqApi {
 
-    @Operation(summary = "FAQ 관리 목록", description = "비공개 포함. published/categoryId/keyword 필터.")
+    @Operation(summary = "FAQ 관리 목록", description = "비공개 포함. published/categoryId/keyword 필터. "
+            + "각 FAQ에 \"도움됨\" 피드백 집계(helpfulCount/notHelpfulCount)를 포함한다 — 학생 공개 표면에는 노출되지 않는 admin 전용 정보.")
     @GetMapping("/admin/federation/faqs")
     ResponseEntity<ApiResponse<PageResponse<AdminFederationFaqResponse>>> getAdminFaqs(
             @RequestParam(required = false) Boolean published,

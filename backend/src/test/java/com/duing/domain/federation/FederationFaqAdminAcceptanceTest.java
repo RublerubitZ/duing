@@ -17,6 +17,7 @@ import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -319,6 +320,62 @@ class FederationFaqAdminAcceptanceTest extends IntegrationTestBase {
                 .patch("/api/v1/admin/federation/faq-categories/" + categoryId)
             .then()
                 .statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("피드백 3건(도움 2·안됨 1, sessionKey 2개+로그인 1명)이 쌓이면 admin 목록 집계가 2/1로 표시된다")
+    void adminListShowsFeedbackAggregates() {
+        Long faqId = seedFaq("피드백 집계 대상 질문", true, 0);
+
+        // 서로 다른 식별자(sessionKey 2개 + 로그인 사용자 1명)로 3건 시딩 — T1 POST API 재사용.
+        RestAssured.given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("helpful", true, "sessionKey", "session-admin-agg-1"))
+            .when()
+                .post("/api/v1/federation/faqs/" + faqId + "/feedback")
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("helpful", false, "sessionKey", "session-admin-agg-2"))
+            .when()
+                .post("/api/v1/federation/faqs/" + faqId + "/feedback")
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("helpful", true))
+            .when()
+                .post("/api/v1/federation/faqs/" + faqId + "/feedback")
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/admin/federation/faqs")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.find { it.id == %d }.helpfulCount".formatted(faqId), equalTo(2))
+                .body("data.content.find { it.id == %d }.notHelpfulCount".formatted(faqId), equalTo(1));
+    }
+
+    @Test
+    @DisplayName("피드백이 없는 FAQ는 admin 목록에서 도움됨/안됨 집계가 0/0으로 표시된다")
+    void adminListShowsZeroAggregateWithoutFeedback() {
+        Long faqId = seedFaq("피드백 없는 질문", true, 0);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/admin/federation/faqs")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.find { it.id == %d }.helpfulCount".formatted(faqId), equalTo(0))
+                .body("data.content.find { it.id == %d }.notHelpfulCount".formatted(faqId), equalTo(0));
     }
 
     // ---- helpers ----

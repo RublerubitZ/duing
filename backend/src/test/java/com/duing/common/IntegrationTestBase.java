@@ -27,6 +27,7 @@ public abstract class IntegrationTestBase {
                 "facility_reservation, " +
                 "facility_month_snapshot, " +
                 "facility, " +
+                "federation_faq_feedback, " +
                 "federation_faq, " +
                 "federation_faq_category, " +
                 "federation_inquiry_attachment, " +

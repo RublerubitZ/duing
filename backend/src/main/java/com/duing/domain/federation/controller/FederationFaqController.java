@@ -1,14 +1,17 @@
 package com.duing.domain.federation.controller;
 
 import com.duing.domain.federation.api.FederationFaqApi;
+import com.duing.domain.federation.controller.dto.request.SubmitFederationFaqFeedbackRequest;
 import com.duing.domain.federation.controller.dto.response.FederationFaqCategoryResponse;
 import com.duing.domain.federation.controller.dto.response.FederationFaqResponse;
 import com.duing.domain.federation.entity.FederationFaq;
 import com.duing.domain.federation.entity.FederationFaqCategory;
 import com.duing.domain.federation.service.FederationFaqService;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
+import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -17,7 +20,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -62,6 +67,18 @@ public class FederationFaqController implements FederationFaqApi {
                 .map(FederationFaqCategoryResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(categories));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> submitFeedback(
+            @PathVariable Long faqId,
+            @Valid @RequestBody SubmitFederationFaqFeedbackRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        // permitAll 경로 — 비로그인이면 currentUser 가 null(AuthenticationPrincipalArgumentResolver 기본 동작).
+        Long currentUserId = currentUser != null ? currentUser.id() : null;
+        federationFaqService.submitFeedback(request.toCommand(faqId, currentUserId));
+        return ResponseEntity.noContent().build();
     }
 
     // 카테고리는 소량(≤10) 전체 테이블이라 전량 Map으로 이름을 해석한다
