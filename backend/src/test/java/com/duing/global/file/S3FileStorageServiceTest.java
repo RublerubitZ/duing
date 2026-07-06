@@ -215,4 +215,41 @@ class S3FileStorageServiceTest {
 
         verify(s3Client, never()).deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class));
     }
+
+    @Test
+    @DisplayName("publicBaseUrl 프리픽스로 시작하는 URL 은 프리픽스를 벗긴 키를 반환한다")
+    void toStorageKeyStripsPublicBaseUrlPrefix() {
+        String key = service.toStorageKey("https://files.duing.app/federation/inquiry/abc.webp");
+
+        assertThat(key).isEqualTo("federation/inquiry/abc.webp");
+    }
+
+    @Test
+    @DisplayName("publicBaseUrl 끝에 슬래시가 있어도 toStorageKey 의 prefix 매칭은 정확히 일치한다")
+    void toStorageKeyHandlesTrailingSlashInBaseUrl() {
+        S3StorageProperties propertiesWithSlash = new S3StorageProperties(
+                "https://example.com", "auto", "ak", "sk", "duing",
+                "https://files.duing.app/");
+        S3FileStorageService serviceWithSlash = new S3FileStorageService(s3Client, propertiesWithSlash);
+
+        String key = serviceWithSlash.toStorageKey("https://files.duing.app/federation/inquiry/abc.webp");
+
+        assertThat(key).isEqualTo("federation/inquiry/abc.webp");
+    }
+
+    @Test
+    @DisplayName("publicBaseUrl 과 prefix 가 일치하지 않는 URL 은 null 을 반환한다")
+    void toStorageKeyReturnsNullWhenPrefixMismatches() {
+        String key = service.toStorageKey("https://other-host.example/federation/inquiry/abc.webp");
+
+        assertThat(key).isNull();
+    }
+
+    @Test
+    @DisplayName("null 또는 빈 URL 은 toStorageKey 에서 null 을 반환한다")
+    void toStorageKeyHandlesNullAndBlank() {
+        assertThat(service.toStorageKey(null)).isNull();
+        assertThat(service.toStorageKey("")).isNull();
+        assertThat(service.toStorageKey("   ")).isNull();
+    }
 }

@@ -103,4 +103,16 @@ public class S3FileStorageService implements FileStorageService {
             log.warn("S3 Storage 삭제 실패: key={}", key, exception);
         }
     }
+
+    @Override
+    public String toStorageKey(String fileUrl) {
+        if (fileUrl == null || fileUrl.isBlank()) {
+            return null;
+        }
+        String prefix = properties.publicBaseUrl() + "/";
+        if (!fileUrl.startsWith(prefix)) {
+            return null;
+        }
+        return fileUrl.substring(prefix.length());
+    }
 }

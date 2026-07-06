@@ -17,14 +17,24 @@ import org.springframework.web.multipart.MultipartFile;
 @ConditionalOnProperty(name = "file.storage.provider", havingValue = "stub")
 public class StubFileStorageService implements FileStorageService {
 
+    private static final String PREFIX = "/files/stub/";
+
     @Override
     public String upload(MultipartFile file, String directory, String contentType) {
         String name = file == null ? "null" : file.getOriginalFilename();
-        return "/files/stub/" + directory + "/" + name;
+        return PREFIX + directory + "/" + name;
     }
 
     @Override
     public void delete(String fileUrl) {
         // no-op
+    }
+
+    @Override
+    public String toStorageKey(String fileUrl) {
+        if (fileUrl == null || !fileUrl.startsWith(PREFIX)) {
+            return null;
+        }
+        return fileUrl.substring(PREFIX.length());
     }
 }

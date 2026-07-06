@@ -39,6 +39,11 @@ public class LocalFileStorageService implements FileStorageService {
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
+    // upload() 가 반환하는 URL 은 항상 이 프리픽스 + "{directory}/{storedFilename}" 형태다.
+    private String filesPrefix() {
+        return baseUrl + "/files/";
+    }
+
     @Override
     public String upload(MultipartFile file, String directory, String contentType) {
         if (file == null || file.isEmpty()) {
@@ -79,5 +84,17 @@ public class LocalFileStorageService implements FileStorageService {
         } catch (IOException exception) {
             log.warn("파일 삭제 실패: {}", fileUrl, exception);
         }
+    }
+
+    @Override
+    public String toStorageKey(String fileUrl) {
+        if (fileUrl == null || fileUrl.isBlank()) {
+            return null;
+        }
+        String prefix = filesPrefix();
+        if (!fileUrl.startsWith(prefix)) {
+            return null;
+        }
+        return fileUrl.substring(prefix.length());
     }
 }
