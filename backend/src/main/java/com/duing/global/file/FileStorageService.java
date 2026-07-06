@@ -31,9 +31,10 @@ public interface FileStorageService {
     /**
      * 스토리지 키를 공개 URL 로 재조립한다({@link #toStorageKey} 의 역변환).
      *
-     * <p>비밀 첨부를 교체할 때 목록에서 제거된 객체를 물리적으로 정리하려면 기존
-     * {@link #delete(String)}(URL 기반)를 호출해야 하는데, DB 에는 키만 저장돼 있으므로
-     * 삭제 직전에만 이 메서드로 URL 을 복원한다.
+     * <p>비밀 첨부(총동연 문의 등)는 교체·삭제 시에도 스토리지 물리 삭제를 트랜잭션 안에서 하지
+     * 않는다(ClubPhoto 전례 — 롤백 시 파일 복구 불가). 현재 이 메서드의 호출측은 없고, 고아가 된
+     * 스토리지 객체를 정리하는 후속 파기 배치가 {@link #delete(String)}(URL 기반)를 호출하기 전에
+     * DB 에 저장된 키를 URL 로 복원하는 용도로 쓸 예정이다.
      */
     String toFileUrl(String storageKey);
 

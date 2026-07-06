@@ -144,8 +144,10 @@ public class S3FileStorageService implements FileStorageService {
         } catch (NoSuchKeyException notFound) {
             return null;
         } catch (SdkException exception) {
-            log.warn("S3 Storage 크기 조회 실패: key={}", storageKey, exception);
-            return null;
+            // 미존재(NoSuchKeyException)와 달리 그 외 SdkException 은 일시적 스토리지 장애일 수 있다 —
+            // null 로 삼키면 호출측이 "위조된 키"(400)로 오판한다. 500 이 정직한 응답이라 전파한다.
+            log.error("S3 Storage 크기 조회 실패: key={}", storageKey, exception);
+            throw new IllegalStateException("S3 Storage 크기 조회에 실패했습니다.", exception);
         }
     }
 
@@ -166,8 +168,9 @@ public class S3FileStorageService implements FileStorageService {
         } catch (NoSuchKeyException notFound) {
             return null;
         } catch (SdkException exception) {
-            log.warn("S3 Storage 다운로드 실패: key={}", storageKey, exception);
-            return null;
+            // sizeOf 와 동일한 원칙 — 일시적 장애를 null(404 로 위장)로 삼키지 않고 500 으로 정직하게 전파한다.
+            log.error("S3 Storage 다운로드 실패: key={}", storageKey, exception);
+            throw new IllegalStateException("S3 Storage 다운로드에 실패했습니다.", exception);
         }
     }
 }

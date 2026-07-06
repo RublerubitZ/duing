@@ -303,12 +303,14 @@ class S3FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("일반 SdkException 이 발생해도 sizeOf 는 예외를 전파하지 않고 null 을 반환한다")
-    void sizeOfReturnsNullOnSdkException() {
+    @DisplayName("일반 SdkException 이 발생하면 sizeOf 는 null 로 삼키지 않고 IllegalStateException 으로 전파한다")
+    void sizeOfPropagatesOnSdkException() {
         when(s3Client.headObject(any(HeadObjectRequest.class)))
                 .thenThrow(SdkClientException.create("network"));
 
-        assertThat(service.sizeOf("federation/inquiry/abc.webp")).isNull();
+        assertThatThrownBy(() -> service.sizeOf("federation/inquiry/abc.webp"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("S3 Storage 크기 조회에 실패했습니다.");
     }
 
     @Test
@@ -353,12 +355,14 @@ class S3FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("일반 SdkException 이 발생해도 download 는 예외를 전파하지 않고 null 을 반환한다")
-    void downloadReturnsNullOnSdkException() {
+    @DisplayName("일반 SdkException 이 발생하면 download 는 null 로 삼키지 않고 IllegalStateException 으로 전파한다")
+    void downloadPropagatesOnSdkException() {
         when(s3Client.getObject(any(GetObjectRequest.class)))
                 .thenThrow(SdkClientException.create("network"));
 
-        assertThat(service.download("federation/inquiry/abc.jpg")).isNull();
+        assertThatThrownBy(() -> service.download("federation/inquiry/abc.jpg"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("S3 Storage 다운로드에 실패했습니다.");
     }
 
     @Test

@@ -119,8 +119,9 @@ public class LocalFileStorageService implements FileStorageService {
         try {
             return Files.size(target);
         } catch (IOException exception) {
-            log.warn("파일 크기 조회 실패: {}", storageKey, exception);
-            return null;
+            // 존재 확인(isRegularFile)을 이미 통과했으므로 여기서의 IOException 은 "미존재"가 아니라
+            // 실제 I/O 장애(권한 등) — S3 sizeOf 의 SdkException 전파와 동일한 원칙으로 전파한다.
+            throw new IllegalStateException("파일 크기 조회에 실패했습니다: " + storageKey, exception);
         }
     }
 
@@ -139,8 +140,8 @@ public class LocalFileStorageService implements FileStorageService {
             long contentLength = Files.size(resolved);
             return new StoredFile(new FileInputStream(resolved.toFile()), resolveContentType(storageKey), contentLength);
         } catch (IOException exception) {
-            log.warn("파일 다운로드 실패: {}", storageKey, exception);
-            return null;
+            // sizeOf 와 동일한 원칙 — 존재 확인 통과 후의 IOException 은 실제 I/O 장애이므로 전파한다.
+            throw new IllegalStateException("파일 다운로드에 실패했습니다: " + storageKey, exception);
         }
     }
 

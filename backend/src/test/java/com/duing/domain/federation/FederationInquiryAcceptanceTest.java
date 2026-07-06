@@ -18,8 +18,10 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.file.FileStorageService;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +52,7 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired FederationInquiryRepository federationInquiryRepository;
     @Autowired NotificationRepository notificationRepository;
+    @Autowired FileStorageService fileStorageService;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -447,6 +450,12 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
         String attachmentUrl1 = uploadAttachment(studentToken, "photo1.jpg");
         String attachmentUrl2 = uploadAttachment(studentToken, "photo2.jpg");
         String attachmentUrl3 = uploadAttachment(studentToken, "photo3.jpg");
+        // 업로드 응답 URL 에서 실제 storageKey 3개를 모두 파생시켜, 상세 응답 body 어디에도 이 값이
+        // 그대로 노출되지 않는지를 검증한다 — 테스트 스토리지 prefix 가 애초에 "http" 를 만들지 않아
+        // 항상 통과하던 장식용 not(containsString("http")) 단언을 실질적인 값 기반 단언으로 교체.
+        String storageKey1 = fileStorageService.toStorageKey(attachmentUrl1);
+        String storageKey2 = fileStorageService.toStorageKey(attachmentUrl2);
+        String storageKey3 = fileStorageService.toStorageKey(attachmentUrl3);
 
         Long inquiryId = createInquiryWithAttachments(studentToken, "첨부 문의", "사진 첨부합니다.",
                 List.of(attachmentUrl1, attachmentUrl2, attachmentUrl3));
@@ -461,8 +470,9 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
                 .body("data.attachments[0].id", notNullValue())
                 .body("data.attachments[0].fileName", notNullValue())
                 .body("data.attachments[0].contentType", equalTo("image/jpeg"))
-                .body(not(Matchers.containsString("http")))
-                .body(not(Matchers.containsString("federation/inquiry")));
+                .body(not(Matchers.containsString(storageKey1)))
+                .body(not(Matchers.containsString(storageKey2)))
+                .body(not(Matchers.containsString(storageKey3)));
     }
 
     @Test
@@ -558,6 +568,43 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("첨부 [A,B]로 생성 후 [A,C]로 부분 겹침 교체하면 첨부가 2개로 유지되고, A는 교체 후에도 다운로드된다")
+    void partialOverlapReplaceKeepsSharedAttachmentDownloadable() {
+        String attachmentUrlA = uploadAttachment(studentToken, "a.jpg");
+        String attachmentUrlB = uploadAttachment(studentToken, "b.jpg");
+        Long inquiryId = createInquiryWithAttachments(
+                studentToken, "제목", "내용", List.of(attachmentUrlA, attachmentUrlB));
+
+        String attachmentUrlC = uploadAttachment(studentToken, "c.jpg");
+        updateInquiryWithAttachments(
+                inquiryId, "제목", "내용", List.of(attachmentUrlA, attachmentUrlC), HttpStatus.NO_CONTENT);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.attachments.size()", equalTo(2))
+                // sortOrder 는 교체 요청 배열 순서([A, C])를 그대로 반영한다(buildAttachments 의
+                // index 기반 sortOrder·라벨 회귀 고정).
+                .body("data.attachments[0].fileName", equalTo("첨부 이미지 1"))
+                .body("data.attachments[1].fileName", equalTo("첨부 이미지 2"));
+
+        // 교체 후 attachments[0]은 A를 가리키는 새 행(같은 storageKey, 새 id)이다 — 재사용된
+        // storageKey 가 교체 후에도 정상 서빙되는지 회귀 고정(낙관락 충돌로 인한 롤백 시나리오까지는
+        // 동시성 재현이 필요해 별도 — 이 테스트는 정상 경로에서 물리 삭제가 실행되지 않음을 확인한다).
+        Long attachmentIdA = firstAttachmentId(studentToken, inquiryId);
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId + "/attachments/" + attachmentIdA)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .contentType("image/jpeg");
+    }
+
+    @Test
     @DisplayName("attachmentUrls 없이 수정하면 기존 첨부가 유지된다")
     void updateWithoutAttachmentUrlsKeepsExistingAttachments() {
         String attachmentUrl = uploadAttachment(studentToken, "keep1.jpg");
@@ -576,11 +623,15 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("작성자는 첨부를 다운로드할 수 있고 Content-Type·nosniff·RFC 5987 파일명 헤더가 함께 내려온다")
+    @DisplayName("작성자는 첨부를 다운로드할 수 있고 Content-Type·Content-Length·Cache-Control·nosniff·RFC 5987 파일명 헤더가 함께 내려온다")
     void authorDownloadsOwnAttachment() {
         String attachmentUrl = uploadAttachment(studentToken, "photo1.jpg");
         Long inquiryId = createInquiryWithAttachments(studentToken, "제목", "내용", List.of(attachmentUrl));
         Long attachmentId = firstAttachmentId(studentToken, inquiryId);
+        // StubFileStorageService.download 는 "stub-file-content:" + storageKey 바이트를 흘려보낸다 —
+        // 실제 Content-Length 를 이 값에서 파생시켜 하드코딩 없이 정확한 기대치로 고정한다.
+        String storageKey = fileStorageService.toStorageKey(attachmentUrl);
+        int expectedContentLength = ("stub-file-content:" + storageKey).getBytes(StandardCharsets.UTF_8).length;
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
@@ -589,6 +640,8 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
             .then()
                 .statusCode(HttpStatus.OK.value())
                 .contentType("image/jpeg")
+                .header(HttpHeaders.CONTENT_LENGTH, equalTo(String.valueOf(expectedContentLength)))
+                .header(HttpHeaders.CACHE_CONTROL, equalTo("private, max-age=300"))
                 .header("X-Content-Type-Options", equalTo("nosniff"))
                 // 서버 생성 파일명("첨부 이미지 1")이 RFC 5987 percent-encoding 으로 실린다 —
                 // 공백이 '+' 가 아닌 %20 으로 인코딩되는지까지 회귀 고정(URLEncoder 함정).
