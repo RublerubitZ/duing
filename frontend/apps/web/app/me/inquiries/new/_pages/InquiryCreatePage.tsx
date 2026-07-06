@@ -23,6 +23,7 @@ export function InquiryCreatePage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [attachmentUrls, setAttachmentUrls] = useState<string[]>([]);
+  const [isAttachmentUploading, setIsAttachmentUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent) {
@@ -89,6 +90,7 @@ export function InquiryCreatePage() {
             attachmentUrls={attachmentUrls}
             onChange={setAttachmentUrls}
             disabled={createMutation.isPending}
+            onUploadingChange={setIsAttachmentUploading}
           />
         </div>
 
@@ -101,7 +103,7 @@ export function InquiryCreatePage() {
         <div className="flex items-center justify-end gap-3 pt-1">
           <button
             type="submit"
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || isAttachmentUploading}
             className="btn btn-primary px-7 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {createMutation.isPending ? '등록 중…' : '등록'}

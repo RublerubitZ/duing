@@ -48,6 +48,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
   // 켜지면 새로 업로드한 목록으로 전체 교체한다.
   const [isAttachmentEditMode, setIsAttachmentEditMode] = useState(false);
   const [editAttachmentUrls, setEditAttachmentUrls] = useState<string[]>([]);
+  const [isAttachmentUploading, setIsAttachmentUploading] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -84,6 +85,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
     setEditError(null);
     setIsAttachmentEditMode(false);
     setEditAttachmentUrls([]);
+    setIsAttachmentUploading(false);
     setIsEditing(true);
   }
 
@@ -92,6 +94,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
     setEditError(null);
     setIsAttachmentEditMode(false);
     setEditAttachmentUrls([]);
+    setIsAttachmentUploading(false);
   }
 
   async function handleSaveEdit() {
@@ -111,6 +114,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
       setIsEditing(false);
       setIsAttachmentEditMode(false);
       setEditAttachmentUrls([]);
+      setIsAttachmentUploading(false);
     } catch (updateError) {
       if (updateError instanceof ApiError) {
         setEditError(updateError.message || '수정에 실패했습니다.');
@@ -206,16 +210,23 @@ export function InquiryDetailPage({ inquiryId }: Props) {
                     <p className="text-[12px] text-charcoal-2">
                       첨부를 변경하면 기존 첨부는 모두 교체됩니다
                     </p>
+                    {editAttachmentUrls.length === 0 && inquiry.attachments.length > 0 && (
+                      <p className="text-[12px] font-semibold text-coral">
+                        새 첨부가 없어 저장하면 기존 첨부가 모두 삭제됩니다
+                      </p>
+                    )}
                     <InquiryImageUploader
                       attachmentUrls={editAttachmentUrls}
                       onChange={setEditAttachmentUrls}
                       disabled={updateMutation.isPending}
+                      onUploadingChange={setIsAttachmentUploading}
                     />
                     <button
                       type="button"
                       onClick={() => {
                         setIsAttachmentEditMode(false);
                         setEditAttachmentUrls([]);
+                        setIsAttachmentUploading(false);
                       }}
                       disabled={updateMutation.isPending}
                       className="btn btn-ghost btn-sm self-start"
@@ -246,7 +257,8 @@ export function InquiryDetailPage({ inquiryId }: Props) {
                   disabled={
                     updateMutation.isPending ||
                     editTitle.trim() === '' ||
-                    editContent.trim() === ''
+                    editContent.trim() === '' ||
+                    isAttachmentUploading
                   }
                   className="btn btn-primary btn-sm"
                 >

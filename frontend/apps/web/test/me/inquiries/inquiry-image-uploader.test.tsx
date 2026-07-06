@@ -71,7 +71,27 @@ describe('InquiryImageUploader', () => {
 
     expect(mockUploadMutateAsync).not.toHaveBeenCalled();
     expect(handleChange).not.toHaveBeenCalled();
-    expect(mockAddToast).toHaveBeenCalledWith('5MB 이하 이미지만 업로드할 수 있어요', { variant: 'error' });
+    expect(mockAddToast).toHaveBeenCalledWith('이미지 크기는 5MB 이하여야 합니다.', { variant: 'error' });
+  });
+
+  it('지원하지 않는 이미지 형식(HEIC 등)은 서버 호출 없이 즉시 에러 토스트로 안내한다', async () => {
+    // applyAccept: false — input[accept] 기반 브라우저 필터링을 건너뛰어, 드래그앤드롭 등으로
+    // accept 필터를 우회한 파일이 들어와도 컴포넌트 자체의 MIME 검증(validateImageFile)이
+    // 동작하는지를 검증한다.
+    const user = userEvent.setup({ applyAccept: false });
+    const handleChange = vi.fn();
+
+    render(<InquiryImageUploader attachmentUrls={[]} onChange={handleChange} />);
+
+    const heicFile = makeFile('photo.heic', 100, 'image/heic');
+    await user.upload(getFileInput(), heicFile);
+
+    expect(mockUploadMutateAsync).not.toHaveBeenCalled();
+    expect(handleChange).not.toHaveBeenCalled();
+    expect(mockAddToast).toHaveBeenCalledWith(
+      '지원하지 않는 이미지 형식입니다. (JPG, PNG, WEBP만 가능)',
+      { variant: 'error' },
+    );
   });
 
   it('항목의 X 버튼을 클릭하면 해당 URL 이 제거된 배열로 onChange 가 호출된다', async () => {
