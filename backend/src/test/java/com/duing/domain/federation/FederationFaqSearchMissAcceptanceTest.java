@@ -214,6 +214,25 @@ class FederationFaqSearchMissAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("miss_count가 같으면 마지막 검색 시각이 최근인 검색어가 먼저 온다")
+    void tiedMissCountsAreOrderedByLastSearchedAtDescending() {
+        // 순차 HTTP 호출이라 뒤 키워드의 last_searched_at이 항상 더 최근이다 (PG NOW()는 트랜잭션별 시각이라 결정적).
+        searchFaqs("동률키워드하나");
+        searchFaqs("동률키워드둘");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/admin/federation/faq-search-misses")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content[0].keyword", equalTo("동률키워드둘"))
+                .body("data.content[0].missCount", equalTo(1))
+                .body("data.content[1].keyword", equalTo("동률키워드하나"))
+                .body("data.content[1].missCount", equalTo(1));
+    }
+
+    @Test
     @DisplayName("ADMIN이 아닌 사용자가 무결과 검색어 목록을 조회하면 403이 반환된다")
     void nonAdminCannotViewSearchMisses() {
         RestAssured.given()
