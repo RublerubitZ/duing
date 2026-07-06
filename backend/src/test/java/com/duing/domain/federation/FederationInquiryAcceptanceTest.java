@@ -2,6 +2,8 @@ package com.duing.domain.federation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
@@ -19,7 +21,11 @@ import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -435,6 +441,140 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.FORBIDDEN.value());
     }
 
+    @Test
+    @DisplayName("첨부 3개로 문의를 등록하면 상세 응답에 id·fileName만 노출되고 원본 URL·저장 키는 노출되지 않는다")
+    void createWithAttachmentsExposesOnlyIdAndFileName() {
+        String attachmentUrl1 = uploadAttachment(studentToken, "photo1.jpg");
+        String attachmentUrl2 = uploadAttachment(studentToken, "photo2.jpg");
+        String attachmentUrl3 = uploadAttachment(studentToken, "photo3.jpg");
+
+        Long inquiryId = createInquiryWithAttachments(studentToken, "첨부 문의", "사진 첨부합니다.",
+                List.of(attachmentUrl1, attachmentUrl2, attachmentUrl3));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.attachments.size()", equalTo(3))
+                .body("data.attachments[0].id", notNullValue())
+                .body("data.attachments[0].fileName", notNullValue())
+                .body("data.attachments[0].contentType", equalTo("image/jpeg"))
+                .body(not(Matchers.containsString("http")))
+                .body(not(Matchers.containsString("federation/inquiry")));
+    }
+
+    @Test
+    @DisplayName("첨부가 5개를 초과하면 400을 받는다")
+    void rejectsMoreThanFiveAttachments() {
+        List<String> attachmentUrls = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            attachmentUrls.add(uploadAttachment(studentToken, "over" + i + ".jpg"));
+        }
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title": "제목", "content": "내용", "attachmentUrls": %s }
+                    """.formatted(toJsonArray(attachmentUrls)))
+            .when()
+                .post("/api/v1/federation/inquiries")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("총동연 문의 목적이 아닌 URL을 첨부로 보내면 400을 받는다")
+    void rejectsAttachmentUrlFromOtherPurpose() {
+        String clubLogoUrl = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .multiPart("file", "logo.jpg", jpegBytesOfSize(1024), "image/jpeg")
+                .queryParam("purpose", "LOGO")
+            .when()
+                .post("/api/v1/files")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getString("data.url");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title": "제목", "content": "내용", "attachmentUrls": ["%s"] }
+                    """.formatted(clubLogoUrl))
+            .when()
+                .post("/api/v1/federation/inquiries")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("federation/inquiry 프리픽스이지만 스토리지에 실체가 없는 위조 키는 400을 받는다")
+    void rejectsAttachmentUrlWhenStorageObjectDoesNotExist() {
+        // 실제 업로드를 거치지 않고 prefix 만 맞춘 URL — StubFileStorageService.sizeOf 가 null 을
+        // 반환하는 sentinel(__missing__)을 심어 "존재하지 않는 키" 분기를 검증한다.
+        String forgedUrl = "/files/stub/federation/inquiry/__missing__.jpg";
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title": "제목", "content": "내용", "attachmentUrls": ["%s"] }
+                    """.formatted(forgedUrl))
+            .when()
+                .post("/api/v1/federation/inquiries")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("접수 상태에서 첨부를 빈 배열로 수정하면 비워지고, 이후 새 배열로 수정하면 전체 교체된다")
+    void receivedUpdateClearsThenReplacesAttachments() {
+        String attachmentUrl1 = uploadAttachment(studentToken, "before1.jpg");
+        String attachmentUrl2 = uploadAttachment(studentToken, "before2.jpg");
+        Long inquiryId = createInquiryWithAttachments(
+                studentToken, "제목", "내용", List.of(attachmentUrl1, attachmentUrl2));
+
+        updateInquiryWithAttachments(inquiryId, "제목", "내용", List.of(), HttpStatus.NO_CONTENT);
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.attachments.size()", equalTo(0));
+
+        String attachmentUrl3 = uploadAttachment(studentToken, "after1.jpg");
+        updateInquiryWithAttachments(inquiryId, "제목", "내용", List.of(attachmentUrl3), HttpStatus.NO_CONTENT);
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.attachments.size()", equalTo(1));
+    }
+
+    @Test
+    @DisplayName("attachmentUrls 없이 수정하면 기존 첨부가 유지된다")
+    void updateWithoutAttachmentUrlsKeepsExistingAttachments() {
+        String attachmentUrl = uploadAttachment(studentToken, "keep1.jpg");
+        Long inquiryId = createInquiryWithAttachments(studentToken, "제목", "내용", List.of(attachmentUrl));
+
+        // 기존 updateInquiry 헬퍼는 attachmentUrls 필드 자체를 담지 않는다 — null=유지 검증.
+        updateInquiry(inquiryId, "수정된 제목", "수정된 내용", HttpStatus.NO_CONTENT);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.attachments.size()", equalTo(1));
+    }
+
     // ---- helpers ----
 
     private Long createInquiry(String token, String title, String content) {
@@ -462,6 +602,60 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
                 .patch("/api/v1/federation/inquiries/" + inquiryId)
             .then()
                 .statusCode(expectedStatus.value());
+    }
+
+    private Long createInquiryWithAttachments(String token, String title, String content, List<String> attachmentUrls) {
+        return RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title": "%s", "content": "%s", "attachmentUrls": %s }
+                    """.formatted(title, content, toJsonArray(attachmentUrls)))
+            .when()
+                .post("/api/v1/federation/inquiries")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+    }
+
+    private void updateInquiryWithAttachments(
+            Long inquiryId, String title, String content, List<String> attachmentUrls, HttpStatus expectedStatus) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title": "%s", "content": "%s", "attachmentUrls": %s }
+                    """.formatted(title, content, toJsonArray(attachmentUrls)))
+            .when()
+                .patch("/api/v1/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(expectedStatus.value());
+    }
+
+    private String toJsonArray(List<String> values) {
+        return values.stream().map(value -> "\"" + value + "\"").collect(Collectors.joining(",", "[", "]"));
+    }
+
+    // 파일 업로드 API(POST /api/v1/files)를 실제로 호출해 첨부 URL을 발급받는다 — FileApiTest 전례.
+    private String uploadAttachment(String token, String filename) {
+        return RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .multiPart("file", filename, jpegBytesOfSize(1024), "image/jpeg")
+                .queryParam("purpose", "FEDERATION_INQUIRY")
+            .when()
+                .post("/api/v1/files")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getString("data.url");
+    }
+
+    // 유효한 JPEG 매직 바이트(FF D8 FF)로 시작하는 더미 이미지 — 매직 바이트 검증을 통과한다.
+    private byte[] jpegBytesOfSize(int size) {
+        byte[] bytes = new byte[size];
+        bytes[0] = (byte) 0xFF;
+        bytes[1] = (byte) 0xD8;
+        bytes[2] = (byte) 0xFF;
+        return bytes;
     }
 
     private Long adminDetailVersion(Long inquiryId) {

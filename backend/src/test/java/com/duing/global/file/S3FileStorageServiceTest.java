@@ -17,6 +17,9 @@ import org.springframework.mock.web.MockMultipartFile;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
@@ -251,5 +254,65 @@ class S3FileStorageServiceTest {
         assertThat(service.toStorageKey(null)).isNull();
         assertThat(service.toStorageKey("")).isNull();
         assertThat(service.toStorageKey("   ")).isNull();
+    }
+
+    @Test
+    @DisplayName("toFileUrl 은 키 앞에 publicBaseUrl 을 붙여 toStorageKey 의 역변환을 수행한다")
+    void toFileUrlReassemblesPublicUrl() {
+        String url = service.toFileUrl("federation/inquiry/abc.webp");
+
+        assertThat(url).isEqualTo("https://files.duing.app/federation/inquiry/abc.webp");
+        assertThat(service.toStorageKey(url)).isEqualTo("federation/inquiry/abc.webp");
+    }
+
+    @Test
+    @DisplayName("null 또는 빈 키는 toFileUrl 에서 null 을 반환한다")
+    void toFileUrlHandlesNullAndBlank() {
+        assertThat(service.toFileUrl(null)).isNull();
+        assertThat(service.toFileUrl("")).isNull();
+        assertThat(service.toFileUrl("   ")).isNull();
+    }
+
+    @Test
+    @DisplayName("sizeOf 는 headObject 의 Content-Length 를 그대로 반환한다")
+    void sizeOfReturnsContentLengthFromHeadObject() {
+        when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenReturn(HeadObjectResponse.builder().contentLength(2048L).build());
+
+        Long size = service.sizeOf("federation/inquiry/abc.webp");
+
+        assertThat(size).isEqualTo(2048L);
+        ArgumentCaptor<HeadObjectRequest> captor = ArgumentCaptor.forClass(HeadObjectRequest.class);
+        verify(s3Client).headObject(captor.capture());
+        assertThat(captor.getValue().bucket()).isEqualTo("duing");
+        assertThat(captor.getValue().key()).isEqualTo("federation/inquiry/abc.webp");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 키는 NoSuchKeyException 을 잡아 sizeOf 가 null 을 반환한다")
+    void sizeOfReturnsNullWhenKeyDoesNotExist() {
+        when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenThrow(NoSuchKeyException.builder().message("no such key").build());
+
+        assertThat(service.sizeOf("federation/inquiry/missing.webp")).isNull();
+    }
+
+    @Test
+    @DisplayName("일반 SdkException 이 발생해도 sizeOf 는 예외를 전파하지 않고 null 을 반환한다")
+    void sizeOfReturnsNullOnSdkException() {
+        when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenThrow(SdkClientException.create("network"));
+
+        assertThat(service.sizeOf("federation/inquiry/abc.webp")).isNull();
+    }
+
+    @Test
+    @DisplayName("null 또는 빈 키는 sizeOf 에서 headObject 호출 없이 null 을 반환한다")
+    void sizeOfHandlesNullAndBlank() {
+        assertThat(service.sizeOf(null)).isNull();
+        assertThat(service.sizeOf("")).isNull();
+        assertThat(service.sizeOf("   ")).isNull();
+
+        verify(s3Client, never()).headObject(any(HeadObjectRequest.class));
     }
 }

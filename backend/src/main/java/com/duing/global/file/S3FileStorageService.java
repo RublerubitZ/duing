@@ -11,6 +11,9 @@ import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 /**
@@ -114,5 +117,32 @@ public class S3FileStorageService implements FileStorageService {
             return null;
         }
         return fileUrl.substring(prefix.length());
+    }
+
+    @Override
+    public String toFileUrl(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        return properties.publicBaseUrl() + "/" + storageKey;
+    }
+
+    @Override
+    public Long sizeOf(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        try {
+            HeadObjectResponse response = s3Client.headObject(HeadObjectRequest.builder()
+                    .bucket(properties.bucket())
+                    .key(storageKey)
+                    .build());
+            return response.contentLength();
+        } catch (NoSuchKeyException notFound) {
+            return null;
+        } catch (SdkException exception) {
+            log.warn("S3 Storage 크기 조회 실패: key={}", storageKey, exception);
+            return null;
+        }
     }
 }

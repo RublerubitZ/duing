@@ -27,4 +27,24 @@ public interface FileStorageService {
      * (타 스토리지 URL·형식 불일치) 값이 비어 있으면 {@code null}
      */
     String toStorageKey(String fileUrl);
+
+    /**
+     * 스토리지 키를 공개 URL 로 재조립한다({@link #toStorageKey} 의 역변환).
+     *
+     * <p>비밀 첨부를 교체할 때 목록에서 제거된 객체를 물리적으로 정리하려면 기존
+     * {@link #delete(String)}(URL 기반)를 호출해야 하는데, DB 에는 키만 저장돼 있으므로
+     * 삭제 직전에만 이 메서드로 URL 을 복원한다.
+     */
+    String toFileUrl(String storageKey);
+
+    /**
+     * 스토리지 키에 대응하는 객체의 실제 바이트 크기를 조회한다.
+     *
+     * <p>비밀 첨부는 업로드 API 가 반환한 URL 만 전달받으므로, 표시용 메타데이터(file_size)를
+     * 클라이언트 입력이 아니라 스토리지 실측값으로 채워 신뢰도를 확보한다. 부수적으로 키에
+     * 대응하는 객체가 실제로 존재하는지 확인하는 역할도 겸한다.
+     *
+     * @return 객체가 존재하면 바이트 크기, 존재하지 않으면 {@code null}
+     */
+    Long sizeOf(String storageKey);
 }

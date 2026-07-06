@@ -3,6 +3,7 @@ package com.duing.domain.federation.controller.dto.request;
 import com.duing.domain.federation.service.dto.command.CreateFederationInquiryCommand;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 
 public record CreateFederationInquiryRequest(
         @NotBlank(message = "제목은 필수 입력값입니다.")
@@ -10,9 +11,11 @@ public record CreateFederationInquiryRequest(
         String title,
         @NotBlank(message = "내용은 필수 입력값입니다.")
         @Size(max = 2000, message = "내용은 2000자 이하여야 합니다.")
-        String content
+        String content,
+        @Size(max = 5, message = "첨부는 최대 5개까지 등록할 수 있습니다.")
+        List<String> attachmentUrls
 ) {
     public CreateFederationInquiryCommand toCommand(Long authorId) {
-        return new CreateFederationInquiryCommand(authorId, title, content);
+        return new CreateFederationInquiryCommand(authorId, title, content, attachmentUrls);
     }
 }

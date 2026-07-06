@@ -97,4 +97,29 @@ public class LocalFileStorageService implements FileStorageService {
         }
         return fileUrl.substring(prefix.length());
     }
+
+    @Override
+    public String toFileUrl(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        return filesPrefix() + storageKey;
+    }
+
+    @Override
+    public Long sizeOf(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        Path target = rootDir.resolve(storageKey).normalize();
+        if (!target.startsWith(rootDir) || !Files.isRegularFile(target)) {
+            return null;
+        }
+        try {
+            return Files.size(target);
+        } catch (IOException exception) {
+            log.warn("파일 크기 조회 실패: {}", storageKey, exception);
+            return null;
+        }
+    }
 }

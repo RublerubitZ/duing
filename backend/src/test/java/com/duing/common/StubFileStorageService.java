@@ -37,4 +37,25 @@ public class StubFileStorageService implements FileStorageService {
         }
         return fileUrl.substring(PREFIX.length());
     }
+
+    @Override
+    public String toFileUrl(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        return PREFIX + storageKey;
+    }
+
+    // 실제 존재하지 않는 키(위조된 URL 등)를 흉내내기 위한 테스트 전용 sentinel.
+    private static final String MISSING_MARKER = "__missing__";
+
+    @Override
+    public Long sizeOf(String storageKey) {
+        // 실제 I/O 없는 stub — 존재 여부를 추적하지 않으므로, sentinel 이 없는 한 유효한 키 형식이면
+        // 고정 크기를 반환한다. sentinel 포함 키는 "스토리지에 실체가 없는 키" 분기를 테스트하기 위한 것.
+        if (storageKey == null || storageKey.isBlank() || storageKey.contains(MISSING_MARKER)) {
+            return null;
+        }
+        return 1024L;
+    }
 }
