@@ -6,6 +6,7 @@ import com.duing.domain.federation.controller.dto.request.ReorderFederationFaqsR
 import com.duing.domain.federation.controller.dto.request.UpdateFederationFaqCategoryRequest;
 import com.duing.domain.federation.controller.dto.request.UpdateFederationFaqRequest;
 import com.duing.domain.federation.controller.dto.response.AdminFederationFaqResponse;
+import com.duing.domain.federation.controller.dto.response.FederationFaqSearchMissResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
@@ -73,5 +74,13 @@ public interface AdminFederationFaqApi {
     ResponseEntity<ApiResponse<Void>> updateCategory(
             @PathVariable Long categoryId,
             @Valid @RequestBody UpdateFederationFaqCategoryRequest request
+    );
+
+    @Operation(summary = "무결과 검색어 목록", description = "공개 FAQ 검색(GET /federation/faqs?keyword=)에서 결과 0건이었던 "
+            + "정규화 키워드의 집계다. 정렬은 miss_count 내림차순·last_searched_at 내림차순으로 서버가 고정하며 정렬 파라미터는 "
+            + "지원하지 않는다. \"학생이 찾는데 없는 FAQ\"를 발견하는 admin 전용 갭 신호.")
+    @GetMapping("/admin/federation/faq-search-misses")
+    ResponseEntity<ApiResponse<PageResponse<FederationFaqSearchMissResponse>>> getSearchMisses(
+            @Parameter(hidden = true) Pageable pageable
     );
 }

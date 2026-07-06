@@ -2,6 +2,7 @@ package com.duing.domain.federation.service;
 
 import com.duing.domain.federation.entity.FederationFaq;
 import com.duing.domain.federation.entity.FederationFaqCategory;
+import com.duing.domain.federation.entity.FederationFaqSearchMiss;
 import com.duing.domain.federation.service.dto.command.CreateFederationFaqCategoryCommand;
 import com.duing.domain.federation.service.dto.command.CreateFederationFaqCommand;
 import com.duing.domain.federation.service.dto.command.ReorderFederationFaqsCommand;
@@ -44,4 +45,7 @@ public interface FederationFaqService {
     void updateCategory(UpdateFederationFaqCategoryCommand command);
 
     void submitFeedback(SubmitFederationFaqFeedbackCommand command);
+
+    /** admin 무결과 검색어 목록 — 정렬은 miss_count 내림차순·last_searched_at 내림차순 고정(클라이언트 sort 무시). */
+    Page<FederationFaqSearchMiss> getSearchMisses(Pageable pageable);
 }
