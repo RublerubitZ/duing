@@ -87,8 +87,10 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
 
       const refreshed = await detailQuery.refetch();
       const freshVersion = refreshed.data?.version;
-      if (freshVersion == null) {
-        setCtaError(VERSION_CONFLICT_MESSAGE);
+      // refetch 실패 시 TanStack Query 는 기존 캐시 data 를 유지하므로 isError 를 함께 보지 않으면
+      // stale version 으로 재시도하게 된다. refetch 실패는 버전 충돌이 아니라 조회 실패 — 원인 메시지로 종료.
+      if (refreshed.isError || freshVersion == null) {
+        setCtaError(extractErrorMessage(refreshed.error) ?? '답변 작성 시작에 실패했습니다.');
         return;
       }
 
@@ -140,8 +142,10 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
 
       const refreshed = await detailQuery.refetch();
       const freshVersion = refreshed.data?.version;
-      if (freshVersion == null) {
-        setRevertError(VERSION_CONFLICT_MESSAGE);
+      // refetch 실패 시 TanStack Query 는 기존 캐시 data 를 유지하므로 isError 를 함께 보지 않으면
+      // stale version 으로 재시도하게 된다. refetch 실패는 버전 충돌이 아니라 조회 실패 — 원인 메시지로 종료.
+      if (refreshed.isError || freshVersion == null) {
+        setRevertError(extractErrorMessage(refreshed.error) ?? '접수 상태로 되돌리기에 실패했습니다.');
         return;
       }
 
@@ -151,9 +155,12 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
           payload: { status: 'RECEIVED', version: freshVersion },
         });
         addToast('접수 상태로 되돌렸어요');
-        // freshVersion 은 위 refetch 로 이미 확보했으므로 재조회를 한 번 더 하지 않는다.
+        // 재시도 성공도 1차 성공과 동일하게 refetch 로 화면을 확정한다 — 409 처리 중의 refetch 는
+        // mutation 이전 데이터라 되돌리기 결과(RECEIVED)를 반영하지 못한다.
+        await detailQuery.refetch();
         setIsAnswerFormOpen(false);
       } catch (retryError) {
+        // 재시도 실패도 409(또 수정됨)만 버전 충돌 안내로, 그 외(네트워크·5xx)는 원인 메시지로 구분.
         setRevertError(
           retryError instanceof ApiError && retryError.status === 409
             ? VERSION_CONFLICT_MESSAGE
@@ -423,7 +430,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
               {answerError}
             </p>
           )}
-          {revertError && (
+          {inquiry.status === 'IN_PROGRESS' && revertError && (
             <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral">
               {revertError}
             </p>
