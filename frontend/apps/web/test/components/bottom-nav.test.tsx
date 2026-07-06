@@ -75,6 +75,12 @@ describe('BottomNav', () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it('총동연 FAQ(/faq)에서도 탭바가 미노출이다', () => {
+    mockUsePathname.mockReturnValue('/faq');
+    const { container } = render(<BottomNav />);
+    expect(container.firstChild).toBeNull();
+  });
+
   it('유사 접두 경로(/notifications)를 공지로 오매칭하지 않는다', () => {
     mockUsePathname.mockReturnValue('/notifications');
     const { container } = render(<BottomNav />);
