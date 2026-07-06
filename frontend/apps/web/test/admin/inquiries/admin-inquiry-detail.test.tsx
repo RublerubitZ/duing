@@ -16,6 +16,7 @@ const mockUseAdminFederationInquiryDetailQuery = vi.fn();
 const mockChangeStatusMutateAsync = vi.fn();
 const mockAnswerMutateAsync = vi.fn();
 const mockUpdateAnswerMutateAsync = vi.fn();
+const mockUseFederationInquiryAttachmentQuery = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useAdminFederationInquiryDetailQuery: (...args: unknown[]) =>
@@ -29,6 +30,8 @@ vi.mock('@duing/hooks', () => ({
     mutateAsync: mockUpdateAnswerMutateAsync,
     isPending: false,
   }),
+  // AttachmentImage(첨부 그리드)가 내부에서 사용 — 이 파일의 테스트는 첨부 렌더 여부만 확인한다.
+  useFederationInquiryAttachmentQuery: (...args: unknown[]) => mockUseFederationInquiryAttachmentQuery(...args),
 }));
 
 const mockAddToast = vi.fn();
@@ -69,6 +72,7 @@ describe('AdminInquiryDetailPage', () => {
     mockChangeStatusMutateAsync.mockReset();
     mockAnswerMutateAsync.mockReset();
     mockUpdateAnswerMutateAsync.mockReset();
+    mockUseFederationInquiryAttachmentQuery.mockReset();
     mockAddToast.mockReset();
   });
 
@@ -153,5 +157,30 @@ describe('AdminInquiryDetailPage', () => {
 
     expect(screen.getByText('작성자가 삭제한 문의입니다')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '← 목록으로' })).toHaveAttribute('href', '/admin/inquiries');
+  });
+
+  it('attachments 가 있는 detail 이면 첨부 이미지 그리드가 렌더된다', () => {
+    mockUseFederationInquiryAttachmentQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    });
+    mockUseAdminFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(
+        makeAdminDetail({
+          attachments: [
+            { id: 1, fileName: '증빙1.png', contentType: 'image/png', fileSize: 100 },
+            { id: 2, fileName: '증빙2.png', contentType: 'image/png', fileSize: 200 },
+          ],
+        }),
+      ),
+    );
+
+    render(<AdminInquiryDetailPage inquiryId={INQUIRY_ID} />);
+
+    expect(screen.getByText('첨부 이미지')).toBeInTheDocument();
+    expect(screen.getByText('증빙1.png')).toBeInTheDocument();
+    expect(screen.getByText('증빙2.png')).toBeInTheDocument();
+    expect(screen.getAllByRole('img')).toHaveLength(2);
   });
 });
