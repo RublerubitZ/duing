@@ -23,6 +23,8 @@ export type AdminFederationFaqSummary = {
   published: boolean;
   sortOrder: number;
   viewCount: number;
+  helpfulCount: number;
+  notHelpfulCount: number;
   updatedAt: string;
 };
 
@@ -39,3 +41,5 @@ export type UpdateFederationFaqPayload = CreateFederationFaqPayload;
 export type CreateFederationFaqCategoryPayload = { name: string };
 
 export type UpdateFederationFaqCategoryPayload = { name: string; sortOrder: number };
+
+export type FederationFaqFeedbackPayload = { helpful: boolean; sessionKey?: string };

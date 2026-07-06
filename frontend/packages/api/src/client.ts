@@ -173,6 +173,7 @@ import type {
   AdminFederationFaqSummary,
   CreateFederationFaqPayload,
   UpdateFederationFaqPayload,
+  FederationFaqFeedbackPayload,
   CreateFederationFaqCategoryPayload,
   UpdateFederationFaqCategoryPayload,
   FederationInquiryStatus,
@@ -339,6 +340,7 @@ export type DuingApiClient = {
       size: number;
     }): Promise<PageResponse<FederationFaqItem>>;
     detail(faqId: number): Promise<FederationFaqItem>;
+    submitFeedback(faqId: number, payload: FederationFaqFeedbackPayload): Promise<void>;
   };
   federationFaqCategories: {
     list(): Promise<FederationFaqCategory[]>;
@@ -920,6 +922,10 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           http.get('federation/faqs', { searchParams: cleanParams(params) }),
         ),
       detail: (faqId) => jsonOk<FederationFaqItem>(http.get(`federation/faqs/${faqId}`)),
+      // 비로그인도 호출 가능한 공개 경로(permitAll) — http 인스턴스는 토큰이 없으면
+      // Authorization 헤더 자체를 붙이지 않으므로(beforeRequest 훅) 별도 분기 불필요.
+      submitFeedback: (faqId, payload) =>
+        jsonVoid(http.post(`federation/faqs/${faqId}/feedback`, { json: payload })),
     },
     federationFaqCategories: {
       list: () => jsonOk<FederationFaqCategory[]>(http.get('federation/faq-categories')),

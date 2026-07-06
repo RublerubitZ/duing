@@ -41,6 +41,8 @@ function makeAdminFaqItem(overrides: Partial<AdminFederationFaqSummary> = {}): A
     published: true,
     sortOrder: 0,
     viewCount: 0,
+    helpfulCount: 0,
+    notHelpfulCount: 0,
     updatedAt: '2026-05-01T00:00:00Z',
     ...overrides,
   };
