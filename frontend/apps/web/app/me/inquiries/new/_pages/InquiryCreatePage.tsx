@@ -10,6 +10,7 @@ import { useCreateFederationInquiryMutation } from '@duing/hooks';
 
 import { toRoute } from '@/app/_lib/route';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { InquiryImageUploader } from '../../_components/InquiryImageUploader';
 
 const TITLE_MAX_LENGTH = 120;
 const CONTENT_MAX_LENGTH = 2000;
@@ -21,6 +22,8 @@ export function InquiryCreatePage() {
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [attachmentUrls, setAttachmentUrls] = useState<string[]>([]);
+  const [isAttachmentUploading, setIsAttachmentUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent) {
@@ -31,6 +34,7 @@ export function InquiryCreatePage() {
       const inquiryId = await createMutation.mutateAsync({
         title: title.trim(),
         content: content.trim(),
+        attachmentUrls: attachmentUrls.length > 0 ? attachmentUrls : undefined,
       });
       addToast('문의가 등록되었어요');
       router.push(toRoute(`/me/inquiries/${inquiryId}`));
@@ -80,6 +84,16 @@ export function InquiryCreatePage() {
           />
         </label>
 
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-semibold text-charcoal-2">첨부 이미지</span>
+          <InquiryImageUploader
+            attachmentUrls={attachmentUrls}
+            onChange={setAttachmentUrls}
+            disabled={createMutation.isPending}
+            onUploadingChange={setIsAttachmentUploading}
+          />
+        </div>
+
         {error && (
           <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral">
             {error}
@@ -89,7 +103,7 @@ export function InquiryCreatePage() {
         <div className="flex items-center justify-end gap-3 pt-1">
           <button
             type="submit"
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || isAttachmentUploading}
             className="btn btn-primary px-7 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {createMutation.isPending ? '등록 중…' : '등록'}

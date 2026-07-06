@@ -15,6 +15,7 @@ import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
+import { AttachmentImage } from '@/app/_components/AttachmentImage';
 import {
   INQUIRY_STATUS_BADGE_CLASS,
   INQUIRY_STATUS_LABEL,
@@ -241,6 +242,17 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
             {inquiry.content}
           </dd>
         </div>
+
+        {inquiry.attachments.length > 0 && (
+          <div>
+            <dt className="text-[12px] font-semibold text-charcoal-2 mb-1">첨부 이미지</dt>
+            <dd className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+              {inquiry.attachments.map((attachment) => (
+                <AttachmentImage key={attachment.id} inquiryId={inquiry.id} attachment={attachment} />
+              ))}
+            </dd>
+          </div>
+        )}
 
         {inquiry.status === 'CLOSED' && inquiry.closedReason && (
           <div className="border-t border-line pt-5">

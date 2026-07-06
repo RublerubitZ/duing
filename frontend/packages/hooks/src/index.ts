@@ -106,6 +106,7 @@ export { federationFaqQueryKeys } from './federationFaqQueryKeys';
 export {
   useMyFederationInquiriesQuery,
   useFederationInquiryDetailQuery,
+  useFederationInquiryAttachmentQuery,
   useCreateFederationInquiryMutation,
   useUpdateFederationInquiryMutation,
   useDeleteFederationInquiryMutation,

@@ -45,6 +45,23 @@ export function useFederationInquiryDetailQuery(inquiryId: number | null) {
   });
 }
 
+// 첨부 원본 바이트(Blob) 조회 — inquiryId·attachmentId 둘 다 확정된 뒤에만 활성화한다.
+export function useFederationInquiryAttachmentQuery(inquiryId: number | null, attachmentId: number | null) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: federationInquiryQueryKeys.attachment(inquiryId ?? -1, attachmentId ?? -1),
+    queryFn: () => {
+      if (inquiryId === null || attachmentId === null) {
+        throw new Error('inquiryId or attachmentId is null but query is enabled');
+      }
+      return client.federationInquiries.downloadAttachment(inquiryId, attachmentId);
+    },
+    enabled: inquiryId !== null && attachmentId !== null,
+    staleTime: 5 * 60 * 1000,
+    retry: retryUnlessClientError,
+  });
+}
+
 export function useCreateFederationInquiryMutation() {
   const client = useApiClient();
   const queryClient = useQueryClient();

@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { FederationInquiryDetail } from '@duing/types';
 
@@ -16,11 +17,18 @@ vi.mock('next/navigation', () => ({
 }));
 
 const mockUseFederationInquiryDetailQuery = vi.fn();
+const mockUpdateMutateAsync = vi.fn();
+const mockUseFederationInquiryAttachmentQuery = vi.fn();
+// 편집 모드에서 첨부 변경 토글을 켜면 실제 InquiryImageUploader 가 렌더되며 사용한다.
+const mockUploadMutateAsync = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useFederationInquiryDetailQuery: (...args: unknown[]) => mockUseFederationInquiryDetailQuery(...args),
-  useUpdateFederationInquiryMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateFederationInquiryMutation: () => ({ mutateAsync: mockUpdateMutateAsync, isPending: false }),
   useDeleteFederationInquiryMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  // AttachmentImage(첨부 그리드)가 내부에서 사용 — 이 파일의 테스트는 첨부 렌더 개수만 확인한다.
+  useFederationInquiryAttachmentQuery: (...args: unknown[]) => mockUseFederationInquiryAttachmentQuery(...args),
+  useFileUploadMutation: () => ({ mutateAsync: mockUploadMutateAsync, isPending: false }),
 }));
 
 const mockAddToast = vi.fn();
@@ -42,6 +50,7 @@ function makeDetail(overrides: Partial<FederationInquiryDetail> = {}): Federatio
     createdAt: '2026-06-01T00:00:00Z',
     closedReason: null,
     answer: null,
+    attachments: [],
     ...overrides,
   };
 }
@@ -53,6 +62,9 @@ function detailSuccess(detail: FederationInquiryDetail) {
 describe('InquiryDetailPage', () => {
   beforeEach(() => {
     mockUseFederationInquiryDetailQuery.mockReset();
+    mockUpdateMutateAsync.mockReset();
+    mockUseFederationInquiryAttachmentQuery.mockReset();
+    mockUploadMutateAsync.mockReset();
     mockAddToast.mockReset();
   });
 
@@ -129,5 +141,104 @@ describe('InquiryDetailPage', () => {
       'href',
       '/me/inquiries',
     );
+  });
+
+  it('attachments 2개인 detail 이면 첨부 이미지 2개가 렌더된다', () => {
+    mockUseFederationInquiryAttachmentQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    });
+    mockUseFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(
+        makeDetail({
+          attachments: [
+            { id: 1, fileName: '사진1.png', contentType: 'image/png', fileSize: 100 },
+            { id: 2, fileName: '사진2.png', contentType: 'image/png', fileSize: 200 },
+          ],
+        }),
+      ),
+    );
+
+    render(<InquiryDetailPage inquiryId={INQUIRY_ID} />);
+
+    expect(screen.getByText('사진1.png')).toBeInTheDocument();
+    expect(screen.getByText('사진2.png')).toBeInTheDocument();
+    expect(screen.getAllByRole('img')).toHaveLength(2);
+  });
+
+  it('수정 모드에서 첨부 변경 토글을 켜지 않고 저장하면 update payload 에 attachmentUrls 필드가 없다', async () => {
+    const user = userEvent.setup();
+    mockUpdateMutateAsync.mockResolvedValue(undefined);
+    mockUseFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(makeDetail({ status: 'RECEIVED' })),
+    );
+
+    render(<InquiryDetailPage inquiryId={INQUIRY_ID} />);
+
+    await user.click(screen.getByRole('button', { name: '수정' }));
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1));
+    const lastCall = mockUpdateMutateAsync.mock.calls.at(-1)?.[0];
+    expect(lastCall?.payload).not.toHaveProperty('attachmentUrls');
+  });
+
+  it('첨부 변경 토글을 켜고 업로드 없이 저장하면 update payload 의 attachmentUrls 는 빈 배열로 전송된다', async () => {
+    const user = userEvent.setup();
+    mockUpdateMutateAsync.mockResolvedValue(undefined);
+    mockUseFederationInquiryAttachmentQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    });
+    mockUseFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(
+        makeDetail({
+          status: 'RECEIVED',
+          attachments: [{ id: 1, fileName: '사진1.png', contentType: 'image/png', fileSize: 100 }],
+        }),
+      ),
+    );
+
+    render(<InquiryDetailPage inquiryId={INQUIRY_ID} />);
+
+    await user.click(screen.getByRole('button', { name: '수정' }));
+    await user.click(screen.getByRole('button', { name: '첨부 변경' }));
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1));
+    const lastCall = mockUpdateMutateAsync.mock.calls.at(-1)?.[0];
+    expect(lastCall?.payload).toMatchObject({ attachmentUrls: [] });
+  });
+
+  it('첨부 변경 토글 ON + 미업로드 상태이면 "기존 첨부가 모두 삭제됩니다" 경고가 노출된다', async () => {
+    const user = userEvent.setup();
+    mockUseFederationInquiryAttachmentQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    });
+    mockUseFederationInquiryDetailQuery.mockReturnValue(
+      detailSuccess(
+        makeDetail({
+          status: 'RECEIVED',
+          attachments: [{ id: 1, fileName: '사진1.png', contentType: 'image/png', fileSize: 100 }],
+        }),
+      ),
+    );
+
+    render(<InquiryDetailPage inquiryId={INQUIRY_ID} />);
+
+    await user.click(screen.getByRole('button', { name: '수정' }));
+    expect(
+      screen.queryByText('새 첨부가 없어 저장하면 기존 첨부가 모두 삭제됩니다'),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '첨부 변경' }));
+
+    expect(
+      screen.getByText('새 첨부가 없어 저장하면 기존 첨부가 모두 삭제됩니다'),
+    ).toBeInTheDocument();
   });
 });
