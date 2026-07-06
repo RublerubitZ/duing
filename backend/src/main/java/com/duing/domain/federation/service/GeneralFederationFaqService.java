@@ -2,10 +2,12 @@ package com.duing.domain.federation.service;
 
 import com.duing.domain.federation.entity.FederationFaq;
 import com.duing.domain.federation.entity.FederationFaqCategory;
+import com.duing.domain.federation.entity.FederationFaqSearchMiss;
 import com.duing.domain.federation.exception.FederationFaqException;
 import com.duing.domain.federation.repository.FederationFaqCategoryRepository;
 import com.duing.domain.federation.repository.FederationFaqFeedbackRepository;
 import com.duing.domain.federation.repository.FederationFaqRepository;
+import com.duing.domain.federation.repository.FederationFaqSearchMissRepository;
 import com.duing.domain.federation.service.dto.command.CreateFederationFaqCategoryCommand;
 import com.duing.domain.federation.service.dto.command.CreateFederationFaqCommand;
 import com.duing.domain.federation.service.dto.command.ReorderFederationFaqsCommand;
@@ -23,7 +25,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -36,6 +40,7 @@ public class GeneralFederationFaqService implements FederationFaqService {
     private final FederationFaqRepository federationFaqRepository;
     private final FederationFaqCategoryRepository categoryRepository;
     private final FederationFaqFeedbackRepository feedbackRepository;
+    private final FederationFaqSearchMissRepository searchMissRepository;
 
     @Override
     public Page<FederationFaq> searchPublished(FederationFaqSearchCondition condition, Pageable pageable) {
@@ -160,6 +165,15 @@ public class GeneralFederationFaqService implements FederationFaqService {
             throw new FederationFaqException.FaqFeedbackSessionKeyRequiredException();
         }
         feedbackRepository.upsertByFaqIdAndSessionKey(faq.getId(), command.sessionKey(), command.helpful());
+    }
+
+    @Override
+    public Page<FederationFaqSearchMiss> getSearchMisses(Pageable pageable) {
+        // 클라이언트가 보낸 sort는 무시하고 정렬을 서버가 고정한다 — 갭 신호의 우선순위는 검색 횟수(miss_count)이고,
+        // admin 화면 계약을 단순화하기 위해 정렬 파라미터 자체를 지원하지 않는다(YAGNI).
+        Pageable fixedSortPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Order.desc("missCount"), Sort.Order.desc("lastSearchedAt")));
+        return searchMissRepository.findAll(fixedSortPageable);
     }
 
     private FederationFaq getFaqForAdmin(Long faqId) {

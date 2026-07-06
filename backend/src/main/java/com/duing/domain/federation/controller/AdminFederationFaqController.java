@@ -7,8 +7,10 @@ import com.duing.domain.federation.controller.dto.request.ReorderFederationFaqsR
 import com.duing.domain.federation.controller.dto.request.UpdateFederationFaqCategoryRequest;
 import com.duing.domain.federation.controller.dto.request.UpdateFederationFaqRequest;
 import com.duing.domain.federation.controller.dto.response.AdminFederationFaqResponse;
+import com.duing.domain.federation.controller.dto.response.FederationFaqSearchMissResponse;
 import com.duing.domain.federation.entity.FederationFaq;
 import com.duing.domain.federation.entity.FederationFaqCategory;
+import com.duing.domain.federation.entity.FederationFaqSearchMiss;
 import com.duing.domain.federation.service.FederationFaqService;
 import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
 import com.duing.global.auth.UserPrincipal;
@@ -98,6 +100,15 @@ public class AdminFederationFaqController implements AdminFederationFaqApi {
             @PathVariable Long categoryId, @Valid @RequestBody UpdateFederationFaqCategoryRequest request) {
         federationFaqService.updateCategory(request.toCommand(categoryId));
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<PageResponse<FederationFaqSearchMissResponse>>> getSearchMisses(
+            Pageable pageable
+    ) {
+        Page<FederationFaqSearchMiss> searchMissPage = federationFaqService.getSearchMisses(pageable);
+        return ResponseEntity.ok(ApiResponse.success(
+                PageResponse.from(searchMissPage.map(FederationFaqSearchMissResponse::from))));
     }
 
     // 카테고리는 소량(≤10) 전체 테이블이라 전량 Map으로 이름을 해석한다 (FederationFaqController와 동일 전략).
