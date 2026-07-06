@@ -20,7 +20,13 @@ import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -200,6 +206,58 @@ class FederationFaqFeedbackAcceptanceTest extends IntegrationTestBase {
         assertThat(feedbackRepository.count()).isEqualTo(2);
         assertThat(feedbackRepository.findByFaqIdAndUserId(publishedFaqId, loginUser.getId())).isPresent();
         assertThat(feedbackRepository.findByFaqIdAndSessionKey(publishedFaqId, "session-independent")).isPresent();
+    }
+
+    @Test
+    @DisplayName("같은 sessionKey 로 두 요청이 동시에 최초 제출해도 둘 다 성공하고 최종 1건만 남는다")
+    void concurrentFirstSubmissionsWithSameSessionKeyResultInSingleRow() throws Exception {
+        // find→분기→save/update + 23505 catch 구조였을 때는, 진 쪽 트랜잭션이 실패한 insert 를
+        // 액션 큐에 남긴 채 조용히 반환해 커밋 시점 재flush 가 abort 된 PG 트랜잭션에서 재시도되며
+        // 500 이 났다(codex High). ON CONFLICT DO UPDATE 원자 upsert 로 교체한 뒤에는 두 요청 모두
+        // 정상 2xx 로 끝나고 행은 정확히 1건이어야 한다.
+        String sessionKey = "session-concurrent-" + sequence.incrementAndGet();
+        int threadCount = 2;
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(threadCount);
+        List<Integer> statusCodes = new CopyOnWriteArrayList<>();
+        ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+
+        try {
+            pool.submit(() -> submitConcurrently(start, done, statusCodes, sessionKey, true));
+            pool.submit(() -> submitConcurrently(start, done, statusCodes, sessionKey, false));
+            start.countDown();
+            assertThat(done.await(10, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            pool.shutdown();
+            assertThat(pool.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        }
+
+        assertThat(statusCodes).hasSize(2);
+        assertThat(statusCodes).allMatch(statusCode -> statusCode == HttpStatus.NO_CONTENT.value());
+
+        // 어느 요청의 helpful 값이 남는지는 인터리빙에 따라 달라지므로 단언하지 않는다
+        // (TransferLeaderConcurrencyTest 전례) — 핵심 불변식은 "해당 identity 로 행이 정확히 1건".
+        assertThat(feedbackRepository.count()).isEqualTo(1);
+        assertThat(feedbackRepository.findByFaqIdAndSessionKey(publishedFaqId, sessionKey)).isPresent();
+    }
+
+    private void submitConcurrently(CountDownLatch start, CountDownLatch done, List<Integer> statusCodes,
+                                     String sessionKey, boolean helpful) {
+        try {
+            start.await();
+            int statusCode = RestAssured.given()
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("helpful", helpful, "sessionKey", sessionKey))
+                    .when()
+                        .post("/api/v1/federation/faqs/" + publishedFaqId + "/feedback")
+                    .then()
+                        .extract().statusCode();
+            statusCodes.add(statusCode);
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+        } finally {
+            done.countDown();
+        }
     }
 
     // ---- helpers ----

@@ -2,7 +2,6 @@ package com.duing.domain.federation.service;
 
 import com.duing.domain.federation.entity.FederationFaq;
 import com.duing.domain.federation.entity.FederationFaqCategory;
-import com.duing.domain.federation.entity.FederationFaqFeedback;
 import com.duing.domain.federation.exception.FederationFaqException;
 import com.duing.domain.federation.repository.FederationFaqCategoryRepository;
 import com.duing.domain.federation.repository.FederationFaqFeedbackRepository;
@@ -16,16 +15,13 @@ import com.duing.domain.federation.service.dto.command.UpdateFederationFaqComman
 import com.duing.domain.federation.service.dto.query.FaqFeedbackCount;
 import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
-import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -36,13 +32,6 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GeneralFederationFaqService implements FederationFaqService {
-
-    // uq_fff_faq_user / uq_fff_faq_session 백스톱 위반인지 판별 — 다른 무결성 위반은 그대로 위로
-    // 전파한다(GeneralRecruitmentService.isRecruitmentActiveDuplicate() 전례).
-    private static final String FEEDBACK_USER_UNIQUE_INDEX = "uq_fff_faq_user";
-    private static final String FEEDBACK_SESSION_UNIQUE_INDEX = "uq_fff_faq_session";
-    // PostgreSQL unique_violation.
-    private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
 
     private final FederationFaqRepository federationFaqRepository;
     private final FederationFaqCategoryRepository categoryRepository;
@@ -164,49 +153,13 @@ public class GeneralFederationFaqService implements FederationFaqService {
         // 발행된 FAQ만 대상 — 비공개·미존재 모두 404(공개 단건 조회 규칙과 동일).
         FederationFaq faq = getPublished(command.faqId());
         if (command.userId() != null) {
-            upsertFeedback(faq, command.userId(), null, command.helpful());
+            feedbackRepository.upsertByFaqIdAndUserId(faq.getId(), command.userId(), command.helpful());
             return;
         }
         if (!StringUtils.hasText(command.sessionKey())) {
             throw new FederationFaqException.FaqFeedbackSessionKeyRequiredException();
         }
-        upsertFeedback(faq, null, command.sessionKey(), command.helpful());
-    }
-
-    // 식별자(userId 또는 sessionKey)당 1건 upsert. 기존 행이 있으면 값만 갱신하고, 없으면 insert한다.
-    // 동시 최초 제출 경합(둘 다 "기존 없음"을 보고 동시에 insert)은 partial unique 인덱스 위반으로 감지한다.
-    // PostgreSQL 은 제약 위반 후 같은 트랜잭션에서 추가 쿼리가 불가능해(SQLState 25P02) 재조회는 하지
-    // 않는다(GeneralEmailVerificationService.issue() 의 "재조회 금지" 전례). 진 쪽 요청은 상대가 이미
-    // 같은 identity 로 1건을 만들어 최종 상태가 여전히 "피드백 존재"이므로 조용히 성공 처리한다.
-    private void upsertFeedback(FederationFaq faq, Long userId, String sessionKey, boolean helpful) {
-        Optional<FederationFaqFeedback> existingFeedback = userId != null
-                ? feedbackRepository.findByFaqIdAndUserId(faq.getId(), userId)
-                : feedbackRepository.findByFaqIdAndSessionKey(faq.getId(), sessionKey);
-        if (existingFeedback.isPresent()) {
-            existingFeedback.get().updateHelpful(helpful);
-            return;
-        }
-        try {
-            feedbackRepository.save(FederationFaqFeedback.create(faq, userId, sessionKey, helpful));
-            feedbackRepository.flush();
-        } catch (DataIntegrityViolationException concurrentInsert) {
-            if (!isFeedbackIdentityRace(concurrentInsert)) {
-                throw concurrentInsert;
-            }
-        }
-    }
-
-    private static boolean isFeedbackIdentityRace(DataIntegrityViolationException exception) {
-        Throwable mostSpecific = exception.getMostSpecificCause();
-        if (!(mostSpecific instanceof SQLException sqlException)) {
-            return false;
-        }
-        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
-            return false;
-        }
-        String message = sqlException.getMessage();
-        return message != null
-                && (message.contains(FEEDBACK_USER_UNIQUE_INDEX) || message.contains(FEEDBACK_SESSION_UNIQUE_INDEX));
+        feedbackRepository.upsertByFaqIdAndSessionKey(faq.getId(), command.sessionKey(), command.helpful());
     }
 
     private FederationFaq getFaqForAdmin(Long faqId) {
