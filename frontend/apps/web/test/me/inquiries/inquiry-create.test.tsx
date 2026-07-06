@@ -9,6 +9,8 @@ const mockCreateMutateAsync = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useCreateFederationInquiryMutation: () => ({ mutateAsync: mockCreateMutateAsync, isPending: false }),
+  // InquiryCreatePage 가 렌더하는 InquiryImageUploader 가 내부에서 사용 — 이 테스트는 첨부 업로드 자체는 다루지 않는다.
+  useFileUploadMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 const mockAddToast = vi.fn();

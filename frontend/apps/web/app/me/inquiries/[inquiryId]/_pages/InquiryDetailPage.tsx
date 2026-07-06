@@ -16,10 +16,12 @@ import { formatDateDot } from '@/app/_lib/formatDateDot';
 import { toRoute } from '@/app/_lib/route';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { AttachmentImage } from '@/app/_components/AttachmentImage';
 import {
   INQUIRY_STATUS_BADGE_CLASS,
   INQUIRY_STATUS_LABEL,
 } from '@/app/_lib/federationInquiryLabels';
+import { InquiryImageUploader } from '../../_components/InquiryImageUploader';
 
 const TITLE_MAX_LENGTH = 120;
 const CONTENT_MAX_LENGTH = 2000;
@@ -42,6 +44,10 @@ export function InquiryDetailPage({ inquiryId }: Props) {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
+  // 첨부 변경 토글 — 계획서의 단순화 계약: 꺼진 동안은 attachmentUrls 미전송(기존 유지),
+  // 켜지면 새로 업로드한 목록으로 전체 교체한다.
+  const [isAttachmentEditMode, setIsAttachmentEditMode] = useState(false);
+  const [editAttachmentUrls, setEditAttachmentUrls] = useState<string[]>([]);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -76,12 +82,16 @@ export function InquiryDetailPage({ inquiryId }: Props) {
     setEditTitle(inquiry.title);
     setEditContent(inquiry.content);
     setEditError(null);
+    setIsAttachmentEditMode(false);
+    setEditAttachmentUrls([]);
     setIsEditing(true);
   }
 
   function cancelEdit() {
     setIsEditing(false);
     setEditError(null);
+    setIsAttachmentEditMode(false);
+    setEditAttachmentUrls([]);
   }
 
   async function handleSaveEdit() {
@@ -90,10 +100,17 @@ export function InquiryDetailPage({ inquiryId }: Props) {
     try {
       await updateMutation.mutateAsync({
         inquiryId,
-        payload: { title: editTitle.trim(), content: editContent.trim() },
+        payload: {
+          title: editTitle.trim(),
+          content: editContent.trim(),
+          // 토글이 꺼져 있으면 attachmentUrls 를 아예 실지 않는다 — clear-intent 규약상 생략=기존 유지.
+          ...(isAttachmentEditMode ? { attachmentUrls: editAttachmentUrls } : {}),
+        },
       });
       await detailQuery.refetch();
       setIsEditing(false);
+      setIsAttachmentEditMode(false);
+      setEditAttachmentUrls([]);
     } catch (updateError) {
       if (updateError instanceof ApiError) {
         setEditError(updateError.message || '수정에 실패했습니다.');
@@ -154,6 +171,61 @@ export function InquiryDetailPage({ inquiryId }: Props) {
                   className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
                 />
               </label>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[13px] font-semibold text-charcoal-2">첨부 이미지</span>
+                {!isAttachmentEditMode ? (
+                  <>
+                    {inquiry.attachments.length > 0 ? (
+                      <ul className="flex flex-wrap gap-2">
+                        {inquiry.attachments.map((attachment) => (
+                          <li
+                            key={attachment.id}
+                            className="rounded-full bg-graysoft px-3 py-1 text-[12px] text-charcoal-2"
+                          >
+                            {attachment.fileName}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-[12px] text-charcoal-3">첨부된 이미지가 없습니다</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAttachmentEditMode(true);
+                        setEditAttachmentUrls([]);
+                      }}
+                      className="btn btn-ghost btn-sm self-start"
+                    >
+                      첨부 변경
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[12px] text-charcoal-2">
+                      첨부를 변경하면 기존 첨부는 모두 교체됩니다
+                    </p>
+                    <InquiryImageUploader
+                      attachmentUrls={editAttachmentUrls}
+                      onChange={setEditAttachmentUrls}
+                      disabled={updateMutation.isPending}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAttachmentEditMode(false);
+                        setEditAttachmentUrls([]);
+                      }}
+                      disabled={updateMutation.isPending}
+                      className="btn btn-ghost btn-sm self-start"
+                    >
+                      취소하고 기존 첨부 유지
+                    </button>
+                  </>
+                )}
+              </div>
+
               {editError && (
                 <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral">
                   {editError}
@@ -197,6 +269,13 @@ export function InquiryDetailPage({ inquiryId }: Props) {
               </div>
               <p className="mt-1 text-xs text-charcoal-3">작성 {formatDateDot(inquiry.createdAt)}</p>
               <p className="mt-4 whitespace-pre-wrap text-sm text-ink-deep">{inquiry.content}</p>
+              {inquiry.attachments.length > 0 && (
+                <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {inquiry.attachments.map((attachment) => (
+                    <AttachmentImage key={attachment.id} inquiryId={inquiry.id} attachment={attachment} />
+                  ))}
+                </div>
+              )}
             </>
           )}
         </section>
