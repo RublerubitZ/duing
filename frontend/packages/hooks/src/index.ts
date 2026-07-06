@@ -96,6 +96,7 @@ export {
   useFederationFaqCategoriesQuery,
   useSubmitFaqFeedbackMutation,
   useAdminFederationFaqListQuery,
+  useAdminFederationFaqSearchMissesQuery,
   useAdminFederationFaqCreateMutation,
   useAdminFederationFaqUpdateMutation,
   useAdminFederationFaqDeleteMutation,

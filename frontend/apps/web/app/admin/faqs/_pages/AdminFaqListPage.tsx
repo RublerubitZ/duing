@@ -15,6 +15,7 @@ import { cn } from '@/app/_lib/cn';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { toRoute } from '../../../_lib/route';
 import { FaqCategoryManager } from '../_components/FaqCategoryManager';
+import { FaqSearchMissPanel } from '../_components/FaqSearchMissPanel';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { FAQ_FULL_LIST_SIZE } from '../_lib/faqListConstants';
 
@@ -179,6 +180,10 @@ export function AdminFaqListPage() {
           />
           <button type="submit" className="px-3 py-1.5 rounded-md bg-ink text-paper text-[13px] font-semibold">검색</button>
         </form>
+      </div>
+
+      <div className="mb-5">
+        <FaqSearchMissPanel />
       </div>
 
       {actionError && <p className="mb-4 text-[13px] text-coral">{actionError}</p>}

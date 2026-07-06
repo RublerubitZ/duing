@@ -13,4 +13,6 @@ export const federationFaqQueryKeys = {
   detail: (faqId: number) => ['federation-faqs', 'detail', faqId] as const,
   categories: ['federation-faqs', 'categories'] as const,
   adminList: (filters: AdminListFilters) => ['federation-faqs', 'admin', 'list', filters] as const,
+  adminSearchMisses: (filters: { page: number; size: number }) =>
+    ['federation-faqs', 'admin', 'search-misses', filters] as const,
 };
