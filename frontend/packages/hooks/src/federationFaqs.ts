@@ -76,6 +76,18 @@ export function useAdminFederationFaqListQuery(params: AdminListParams, enabled 
   });
 }
 
+// 읽기 전용 admin 갭 신호(무결과 검색어 집계) — mutation 이 없어 캐시 무효화 대상이 없다.
+export function useAdminFederationFaqSearchMissesQuery(
+    params: { page: number; size: number }, enabled = true) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: federationFaqQueryKeys.adminSearchMisses(params),
+    queryFn: () => client.admin.federationFaqs.searchMisses(params),
+    enabled,
+    staleTime: 15_000,
+  });
+}
+
 export function useAdminFederationFaqCreateMutation() {
   const client = useApiClient();
   const queryClient = useQueryClient();

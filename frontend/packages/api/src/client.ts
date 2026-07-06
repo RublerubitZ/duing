@@ -174,6 +174,7 @@ import type {
   CreateFederationFaqPayload,
   UpdateFederationFaqPayload,
   FederationFaqFeedbackPayload,
+  AdminFaqSearchMiss,
   CreateFederationFaqCategoryPayload,
   UpdateFederationFaqCategoryPayload,
   FederationInquiryStatus,
@@ -451,6 +452,8 @@ export type DuingApiClient = {
       update(faqId: number, payload: UpdateFederationFaqPayload): Promise<void>;
       remove(faqId: number): Promise<void>;
       reorder(orderedIds: number[]): Promise<void>;
+      // 정렬 서버 고정(missCount desc·lastSearchedAt desc), sort 파라미터 미지원.
+      searchMisses(params: { page: number; size: number }): Promise<PageResponse<AdminFaqSearchMiss>>;
     };
     federationFaqCategories: {
       create(payload: CreateFederationFaqCategoryPayload): Promise<number>;
@@ -1096,6 +1099,10 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         remove: (faqId) => jsonVoid(http.delete(`admin/federation/faqs/${faqId}`)),
         reorder: (orderedIds) =>
           jsonVoid(http.put('admin/federation/faqs/order', { json: { orderedIds } })),
+        searchMisses: (params) =>
+          jsonOk<PageResponse<AdminFaqSearchMiss>>(
+            http.get('admin/federation/faq-search-misses', { searchParams: cleanParams(params) }),
+          ),
       },
       federationFaqCategories: {
         create: (payload) =>
