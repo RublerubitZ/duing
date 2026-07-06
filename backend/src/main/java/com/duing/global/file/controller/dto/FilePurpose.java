@@ -8,7 +8,8 @@ public enum FilePurpose {
     NOTICE_BODY("notice/body"),
     PROMOTION_BANNER("promotion/banner"),
     GLOBAL_EVENT_COVER("global-event/cover"),
-    PROMOTION_REQUEST_BANNER("promotion-request/banner");
+    PROMOTION_REQUEST_BANNER("promotion-request/banner"),
+    FEDERATION_INQUIRY("federation/inquiry");
 
     private final String directory;
 
