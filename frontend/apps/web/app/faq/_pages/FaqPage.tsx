@@ -19,6 +19,7 @@ import { ExploreNav } from '../../_components/ExploreNav';
 import { HomeFooter } from '../../_components/HomeFooter';
 import { toRoute } from '../../_lib/route';
 import { FaqDeepLinkCard } from '../_components/FaqDeepLinkCard';
+import { FaqFeedback } from '../_components/FaqFeedback';
 import { parseFaqParams, serializeFaqParams, type FaqParams } from '../_lib/faqParams';
 
 const PAGE_SIZE = 20;
@@ -86,8 +87,11 @@ function FaqAccordionRow({ faq, index }: { faq: FederationFaqItem; index: number
         transition={shouldReduce ? { duration: 0 } : { duration: 0.32, ease: EASE_DUING }}
         className="overflow-hidden"
       >
-        <div className="whitespace-pre-line border-t border-dashed border-line pb-5 pt-3.5 text-[14px] leading-[1.65] text-charcoal-2">
-          {faq.answer}
+        <div className="border-t border-dashed border-line pb-5 pt-3.5">
+          <p className="whitespace-pre-line text-[14px] leading-[1.65] text-charcoal-2">
+            {faq.answer}
+          </p>
+          <FaqFeedback faqId={faq.id} />
         </div>
       </motion.div>
     </div>

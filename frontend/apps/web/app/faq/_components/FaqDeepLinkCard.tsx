@@ -5,6 +5,8 @@
 
 import { useFederationFaqDetailQuery } from '@duing/hooks';
 
+import { FaqFeedback } from './FaqFeedback';
+
 type Props = {
   faqId: number;
   onClose: () => void;
@@ -52,6 +54,7 @@ export function FaqDeepLinkCard({ faqId, onClose }: Props) {
           <p className="whitespace-pre-line text-[14px] leading-[1.65] text-charcoal-2">
             {faq.answer}
           </p>
+          <FaqFeedback faqId={faq.id} />
         </div>
       )}
     </div>

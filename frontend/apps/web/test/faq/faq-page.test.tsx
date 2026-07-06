@@ -32,11 +32,20 @@ vi.mock('next/navigation', () => ({
 const mockUseFederationFaqCategoriesQuery = vi.fn();
 const mockUseFederationFaqListQuery = vi.fn();
 const mockUseFederationFaqDetailQuery = vi.fn();
+// FaqAccordionRow/FaqDeepLinkCard 가 하단에 FaqFeedback 을 물고 있어(펼침 여부와 무관하게 항상
+// 마운트) FAQ 본문과 무관한 이 훅도 모킹해 둔다 — 실제 동작은 faq-feedback.test.tsx 에서 검증한다.
+const mockSubmitFeedbackMutateAsync = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useFederationFaqCategoriesQuery: (...args: unknown[]) => mockUseFederationFaqCategoriesQuery(...args),
   useFederationFaqListQuery: (...args: unknown[]) => mockUseFederationFaqListQuery(...args),
   useFederationFaqDetailQuery: (...args: unknown[]) => mockUseFederationFaqDetailQuery(...args),
+  useSubmitFaqFeedbackMutation: () => ({ mutateAsync: mockSubmitFeedbackMutateAsync, isPending: false }),
+}));
+
+// useToast 는 ToastProvider 컨텍스트 밖에서 호출되면 예외를 던진다 — FAQ 본문과 무관하므로 스텁한다.
+vi.mock('@/app/_components/toast/ToastProvider', () => ({
+  useToast: () => ({ addToast: vi.fn() }),
 }));
 
 /* ── 테스트 데이터 ───────────────────────────────────────────── */
@@ -74,6 +83,7 @@ describe('FaqPage', () => {
     mockUseFederationFaqDetailQuery
       .mockReset()
       .mockReturnValue({ data: undefined, isLoading: false, isError: false });
+    mockSubmitFeedbackMutateAsync.mockReset();
   });
 
   it('목록에 고정 뱃지·질문·카테고리명이 노출된다', () => {
