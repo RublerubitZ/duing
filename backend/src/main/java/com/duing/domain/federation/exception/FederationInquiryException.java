@@ -49,4 +49,12 @@ public class FederationInquiryException extends ApplicationException {
         private static final String MESSAGE = "처리 대기 중인 문의가 많아 새 문의를 등록할 수 없습니다. 답변 후 다시 시도해 주세요.";
         public TooManyOpenInquiriesException() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
+
+    // 첨부 URL 이 이 스토리지의 URL 이 아니거나(toStorageKey 실패), federation/inquiry 목적으로
+    // 업로드된 키가 아니거나(타 purpose 키 주입), ".." 경로 탈출 세그먼트를 포함하거나(순회 키),
+    // 실제로 스토리지에 존재하지 않는 경우(위조된 키).
+    public static class InvalidInquiryException extends FederationInquiryException {
+        private static final String MESSAGE = "유효하지 않은 첨부 파일입니다.";
+        public InvalidInquiryException() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
+    }
 }

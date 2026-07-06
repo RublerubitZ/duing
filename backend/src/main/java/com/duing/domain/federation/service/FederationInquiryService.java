@@ -10,7 +10,9 @@ import com.duing.domain.federation.service.dto.command.UpdateInquiryAnswerComman
 import com.duing.domain.federation.service.dto.query.AdminFederationInquiryDetailQuery;
 import com.duing.domain.federation.service.dto.query.AdminFederationInquiryQuery;
 import com.duing.domain.federation.service.dto.query.FederationInquiryAdminSearchCondition;
+import com.duing.domain.federation.service.dto.query.FederationInquiryAttachmentDownload;
 import com.duing.domain.federation.service.dto.query.FederationInquiryDetailQuery;
+import com.duing.domain.user.entity.UserRole;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -21,6 +23,10 @@ public interface FederationInquiryService {
     Page<FederationInquiry> listMine(Long authorId, FederationInquiryStatus status, Pageable pageable);
 
     FederationInquiryDetailQuery getMine(Long inquiryId, Long authorId);
+
+    // 작성자 본인 또는 ADMIN 만 — 그 외(미존재·타 학생·soft deleted)는 전부 404(존재 은닉).
+    FederationInquiryAttachmentDownload downloadAttachment(
+            Long inquiryId, Long attachmentId, Long currentUserId, UserRole currentUserRole);
 
     void update(UpdateFederationInquiryCommand command);
 

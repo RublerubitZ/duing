@@ -29,6 +29,7 @@ public abstract class IntegrationTestBase {
                 "facility, " +
                 "federation_faq, " +
                 "federation_faq_category, " +
+                "federation_inquiry_attachment, " +
                 "federation_inquiry_answer, " +
                 "federation_inquiry, " +
                 "cashbook_entry, " +

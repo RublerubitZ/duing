@@ -1,5 +1,6 @@
 package com.duing.global.file;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,6 +38,11 @@ public class LocalFileStorageService implements FileStorageService {
             return "";
         }
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+    }
+
+    // upload() 가 반환하는 URL 은 항상 이 프리픽스 + "{directory}/{storedFilename}" 형태다.
+    private String filesPrefix() {
+        return baseUrl + "/files/";
     }
 
     @Override
@@ -79,5 +85,71 @@ public class LocalFileStorageService implements FileStorageService {
         } catch (IOException exception) {
             log.warn("파일 삭제 실패: {}", fileUrl, exception);
         }
+    }
+
+    @Override
+    public String toStorageKey(String fileUrl) {
+        if (fileUrl == null || fileUrl.isBlank()) {
+            return null;
+        }
+        String prefix = filesPrefix();
+        if (!fileUrl.startsWith(prefix)) {
+            return null;
+        }
+        return fileUrl.substring(prefix.length());
+    }
+
+    @Override
+    public String toFileUrl(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        return filesPrefix() + storageKey;
+    }
+
+    @Override
+    public Long sizeOf(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        Path target = rootDir.resolve(storageKey).normalize();
+        if (!target.startsWith(rootDir) || !Files.isRegularFile(target)) {
+            return null;
+        }
+        try {
+            return Files.size(target);
+        } catch (IOException exception) {
+            // 존재 확인(isRegularFile)을 이미 통과했으므로 여기서의 IOException 은 "미존재"가 아니라
+            // 실제 I/O 장애(권한 등) — S3 sizeOf 의 SdkException 전파와 동일한 원칙으로 전파한다.
+            throw new IllegalStateException("파일 크기 조회에 실패했습니다: " + storageKey, exception);
+        }
+    }
+
+    @Override
+    public StoredFile download(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        // 경로 탈출 가드 — "../../etc/passwd" 등이 rootDir 밖을 가리키면 정규화 후에도
+        // rootDir 프리픽스를 벗어나므로 여기서 걸러낸다.
+        Path resolved = rootDir.resolve(storageKey).normalize();
+        if (!resolved.startsWith(rootDir) || !Files.isRegularFile(resolved)) {
+            return null;
+        }
+        try {
+            long contentLength = Files.size(resolved);
+            return new StoredFile(new FileInputStream(resolved.toFile()), resolveContentType(storageKey), contentLength);
+        } catch (IOException exception) {
+            // sizeOf 와 동일한 원칙 — 존재 확인 통과 후의 IOException 은 실제 I/O 장애이므로 전파한다.
+            throw new IllegalStateException("파일 다운로드에 실패했습니다: " + storageKey, exception);
+        }
+    }
+
+    // 로컬 저장소는 S3 객체 메타데이터 같은 별도 Content-Type 저장소가 없으므로, 업로드 시점과
+    // 동일하게 저장 확장자(FileUploadPolicy.EXTENSION_BY_MIME 로 부여됨)로부터 안전하게 복원한다.
+    private String resolveContentType(String storageKey) {
+        int dotIndex = storageKey.lastIndexOf('.');
+        String extension = dotIndex >= 0 ? storageKey.substring(dotIndex + 1).toLowerCase() : "";
+        return FileUploadPolicy.MIME_BY_EXTENSION.getOrDefault(extension, "application/octet-stream");
     }
 }

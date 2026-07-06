@@ -36,7 +36,8 @@ public interface AdminFederationInquiryApi {
             @Parameter(hidden = true) Pageable pageable
     );
 
-    @Operation(summary = "문의 상세", description = "작성자가 삭제한 문의는 410.")
+    @Operation(summary = "문의 상세", description = "작성자가 삭제한 문의는 410. "
+            + "attachments 는 id·파일명·타입·용량만 포함하고 원본 URL·저장 키는 노출하지 않는다(비밀성).")
     @GetMapping("/admin/federation/inquiries/{inquiryId}")
     ResponseEntity<ApiResponse<AdminFederationInquiryDetailResponse>> getInquiry(@PathVariable Long inquiryId);
 

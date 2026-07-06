@@ -21,6 +21,19 @@ public final class FileUploadPolicy {
     );
 
     /**
+     * 저장 파일 확장자 → 검증된 MIME 타입 (EXTENSION_BY_MIME 의 역방향).
+     *
+     * <p>스토리지 키만 아는 상황(비밀 첨부 등 URL 을 저장하지 않는 도메인)에서, 업로드 시
+     * 매직바이트로 이미 검증됐던 Content-Type 을 키의 확장자로부터 안전하게 복원할 때 쓴다 —
+     * 확장자는 이 정책의 upload 경로에서만 부여되므로 값이 항상 이 맵의 키 중 하나와 일치한다.
+     */
+    public static final Map<String, String> MIME_BY_EXTENSION = Map.of(
+            "jpg", "image/jpeg",
+            "png", "image/png",
+            "webp", "image/webp"
+    );
+
+    /**
      * 파일 선두 바이트(매직 넘버)로 실제 이미지 형식을 판별한다. 허용 형식이 아니면 null 을 반환한다.
      * 클라이언트가 보낸 Content-Type 헤더는 위조 가능하므로 신뢰하지 않고 바이트로 직접 판별한다.
      */

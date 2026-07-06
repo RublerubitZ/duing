@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,7 +29,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 @SecurityRequirement(name = "BearerAuth")
 public interface FederationInquiryApi {
 
-    @Operation(summary = "문의 작성", description = "열린 문의 5건·24시간 10건 초과 시 409.")
+    @Operation(summary = "문의 작성", description = "열린 문의 5건·24시간 10건 초과 시 409. "
+            + "attachmentUrls 는 POST /api/v1/files(purpose=FEDERATION_INQUIRY) 로 업로드한 URL 만 허용(최대 5개) — "
+            + "그 외 목적의 URL 이면 400.")
     @PostMapping("/federation/inquiries")
     ResponseEntity<ApiResponse<Long>> createInquiry(
             @Valid @RequestBody CreateFederationInquiryRequest request,
@@ -43,14 +46,16 @@ public interface FederationInquiryApi {
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "문의 상세", description = "작성자 전용 — 타인 접근은 404(존재 은닉).")
+    @Operation(summary = "문의 상세", description = "작성자 전용 — 타인 접근은 404(존재 은닉). "
+            + "attachments 는 id·파일명·타입·용량만 포함하고 원본 URL·저장 키는 노출하지 않는다(비밀성).")
     @GetMapping("/federation/inquiries/{inquiryId}")
     ResponseEntity<ApiResponse<FederationInquiryDetailResponse>> getInquiry(
             @PathVariable Long inquiryId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "문의 수정", description = "접수(RECEIVED) 상태에서만 — 답변 작성 시작 후 409.")
+    @Operation(summary = "문의 수정", description = "접수(RECEIVED) 상태에서만 — 답변 작성 시작 후 409. "
+            + "attachmentUrls 를 생략하면 기존 첨부 유지, 빈 배열이면 전체 삭제, 값을 담으면 전체 교체(PUT 의미론).")
     @PatchMapping("/federation/inquiries/{inquiryId}")
     ResponseEntity<ApiResponse<Void>> updateInquiry(
             @PathVariable Long inquiryId,
@@ -62,6 +67,16 @@ public interface FederationInquiryApi {
     @DeleteMapping("/federation/inquiries/{inquiryId}")
     ResponseEntity<ApiResponse<Void>> deleteInquiry(
             @PathVariable Long inquiryId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "문의 첨부 다운로드", description = "작성자 본인 또는 ADMIN 만 접근 가능 — 그 외(타 학생·미존재·"
+            + "삭제된 문의)는 존재 은닉을 위해 모두 404. 원본 바이트를 그대로 스트리밍하므로 이 응답만 "
+            + "ApiResponse 로 감싸지 않는다.")
+    @GetMapping("/federation/inquiries/{inquiryId}/attachments/{attachmentId}")
+    ResponseEntity<InputStreamResource> downloadAttachment(
+            @PathVariable Long inquiryId,
+            @PathVariable Long attachmentId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }

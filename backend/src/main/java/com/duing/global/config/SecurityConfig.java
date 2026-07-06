@@ -98,6 +98,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/promotions").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/public-activities", "/api/v1/public-activities/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/facilities", "/api/v1/facilities/**").permitAll()
+                        // 비밀문의 첨부는 인증 프록시(GET /federation/inquiries/{id}/attachments/{id})로만
+                        // 서빙 — 공개 정적 경로 차단. prod(S3/R2)는 인프라(프라이빗 버킷/엣지 룰) 몫.
+                        // 아래 /files/** permitAll 보다 반드시 앞에 위치해야 first-match 원칙상 차단이 적용된다.
+                        .requestMatchers("/files/federation/inquiry/**").denyAll()
                         .requestMatchers(
                                 "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
                                 "/actuator/health", "/files/**"

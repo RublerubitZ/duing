@@ -2,9 +2,11 @@ package com.duing.domain.federation.service;
 
 import com.duing.domain.federation.entity.FederationInquiry;
 import com.duing.domain.federation.entity.FederationInquiryAnswer;
+import com.duing.domain.federation.entity.FederationInquiryAttachment;
 import com.duing.domain.federation.entity.FederationInquiryStatus;
 import com.duing.domain.federation.exception.FederationInquiryException;
 import com.duing.domain.federation.repository.FederationInquiryAnswerRepository;
+import com.duing.domain.federation.repository.FederationInquiryAttachmentRepository;
 import com.duing.domain.federation.repository.FederationInquiryRepository;
 import com.duing.domain.federation.service.dto.command.AnswerFederationInquiryCommand;
 import com.duing.domain.federation.service.dto.command.ChangeInquiryStatusCommand;
@@ -14,13 +16,20 @@ import com.duing.domain.federation.service.dto.command.UpdateInquiryAnswerComman
 import com.duing.domain.federation.service.dto.query.AdminFederationInquiryDetailQuery;
 import com.duing.domain.federation.service.dto.query.AdminFederationInquiryQuery;
 import com.duing.domain.federation.service.dto.query.FederationInquiryAdminSearchCondition;
+import com.duing.domain.federation.service.dto.query.FederationInquiryAttachmentDownload;
 import com.duing.domain.federation.service.dto.query.FederationInquiryDetailQuery;
 import com.duing.domain.notification.event.FederationInquiryAnsweredEvent;
 import com.duing.domain.notification.event.FederationInquiryClosedEvent;
 import com.duing.domain.notification.event.FederationInquiryReceivedEvent;
 import com.duing.domain.user.entity.User;
+import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
+import com.duing.global.file.FileStorageService;
+import com.duing.global.file.FileUploadPolicy;
+import com.duing.global.file.StoredFile;
+import com.duing.global.file.controller.dto.FilePurpose;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -42,10 +51,16 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     private static final int MAX_OPEN_INQUIRIES = 5;
     private static final int MAX_DAILY_CREATIONS = 10;
 
+    // 첨부 URL 은 반드시 이 목적으로 업로드된 키(FilePurpose.FEDERATION_INQUIRY)여야 한다 —
+    // 타 purpose(club/logo 등) 키를 그대로 붙여 넣는 것을 막는다.
+    private static final String ATTACHMENT_KEY_PREFIX = FilePurpose.FEDERATION_INQUIRY.directory() + "/";
+
     private final FederationInquiryRepository inquiryRepository;
     private final FederationInquiryAnswerRepository answerRepository;
+    private final FederationInquiryAttachmentRepository attachmentRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final FileStorageService fileStorageService;
 
     @Override
     @Transactional
@@ -58,6 +73,9 @@ public class GeneralFederationInquiryService implements FederationInquiryService
         }
         FederationInquiry inquiry = inquiryRepository.save(
                 FederationInquiry.create(command.authorId(), command.title(), command.content()));
+        if (command.attachmentUrls() != null && !command.attachmentUrls().isEmpty()) {
+            attachmentRepository.saveAll(buildAttachments(inquiry, command.attachmentUrls()));
+        }
         eventPublisher.publishEvent(new FederationInquiryReceivedEvent(inquiry.getId(), inquiry.getTitle()));
         return inquiry.getId();
     }
@@ -71,7 +89,8 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     public FederationInquiryDetailQuery getMine(Long inquiryId, Long authorId) {
         FederationInquiry inquiry = getOwned(inquiryId, authorId);
         return new FederationInquiryDetailQuery(
-                inquiry, answerRepository.findByInquiryId(inquiry.getId()).orElse(null));
+                inquiry, answerRepository.findByInquiryId(inquiry.getId()).orElse(null),
+                attachmentRepository.findAllByInquiryIdAndAnswerIdIsNullOrderBySortOrderAsc(inquiry.getId()));
     }
 
     @Override
@@ -79,11 +98,89 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     public void update(UpdateFederationInquiryCommand command) {
         FederationInquiry inquiry = getOwned(command.inquiryId(), command.authorId());
         inquiry.updateContent(command.title(), command.content());
+        if (command.attachmentUrls() != null) {
+            replaceAttachments(inquiry, command.attachmentUrls());
+        }
         // 관리자 전이·답변 커밋과의 레이스를 flush 로 감지해 도메인 메시지로 변환(withdraw 전례).
         try {
             inquiryRepository.flush();
         } catch (ObjectOptimisticLockingFailureException concurrentChange) {
             throw new FederationInquiryException.ConcurrentInquiryUpdateException();
+        }
+    }
+
+    @Override
+    public FederationInquiryAttachmentDownload downloadAttachment(
+            Long inquiryId, Long attachmentId, Long currentUserId, UserRole currentUserRole) {
+        FederationInquiry inquiry = inquiryRepository.findById(inquiryId)
+                .orElseThrow(FederationInquiryException.FederationInquiryNotFoundException::new);
+        // ADMIN 이 아니면 작성자 본인만 — 그 외는 미존재와 동일하게 404 로 응답해 존재를 은닉한다.
+        if (currentUserRole != UserRole.ADMIN && !inquiry.isAuthor(currentUserId)) {
+            throw new FederationInquiryException.FederationInquiryNotFoundException();
+        }
+        FederationInquiryAttachment attachment = attachmentRepository
+                .findByIdAndInquiryId(attachmentId, inquiryId)
+                .orElseThrow(FederationInquiryException.FederationInquiryNotFoundException::new);
+        StoredFile storedFile = fileStorageService.download(attachment.getStorageKey());
+        if (storedFile == null) {
+            // 스토리지에서 사라진 키(운영 이슈 등) — 존재 은닉 관례와 동일하게 404 로 취급한다.
+            throw new FederationInquiryException.FederationInquiryNotFoundException();
+        }
+        return new FederationInquiryAttachmentDownload(attachment.getFileName(), storedFile);
+    }
+
+    // 첨부 URL → 스토리지 키 변환·검증 후 신규 attachment 엔티티 목록을 만든다(아직 저장 전).
+    // fileName·contentType 은 storage key 자체(=비밀)에서 도출하지 않는다 — 노출돼도 무해한
+    // 값(순번 라벨·확장자 기반 MIME)만 사용해 응답에 원본 위치가 드러나지 않게 한다.
+    private List<FederationInquiryAttachment> buildAttachments(FederationInquiry inquiry, List<String> attachmentUrls) {
+        List<FederationInquiryAttachment> attachments = new ArrayList<>();
+        for (int index = 0; index < attachmentUrls.size(); index++) {
+            String storageKey = validateAndExtractStorageKey(attachmentUrls.get(index));
+            String contentType = resolveContentType(storageKey);
+            Long fileSize = fileStorageService.sizeOf(storageKey);
+            if (fileSize == null) {
+                // 프리픽스는 맞지만 스토리지에 실체가 없는 키(위조 등) — 유효하지 않은 첨부로 취급.
+                throw new FederationInquiryException.InvalidInquiryException();
+            }
+            attachments.add(FederationInquiryAttachment.create(
+                    inquiry, storageKey, "첨부 이미지 " + (index + 1), contentType, fileSize, index));
+        }
+        return attachments;
+    }
+
+    private String validateAndExtractStorageKey(String attachmentUrl) {
+        String storageKey = fileStorageService.toStorageKey(attachmentUrl);
+        // ".." 세그먼트 포함 키 거부 — S3 는 리터럴 키라 자연 방어되지만, local 은 sizeOf/download 가
+        // Path#normalize 로 해석하므로 provider 구현 세부에 기대지 않고 서비스 레벨에서 원천 차단한다.
+        if (storageKey == null || !storageKey.startsWith(ATTACHMENT_KEY_PREFIX) || storageKey.contains("..")) {
+            throw new FederationInquiryException.InvalidInquiryException();
+        }
+        return storageKey;
+    }
+
+    private String resolveContentType(String storageKey) {
+        int dotIndex = storageKey.lastIndexOf('.');
+        String extension = dotIndex >= 0 ? storageKey.substring(dotIndex + 1).toLowerCase() : "";
+        String contentType = FileUploadPolicy.MIME_BY_EXTENSION.get(extension);
+        if (contentType == null) {
+            throw new FederationInquiryException.InvalidInquiryException();
+        }
+        return contentType;
+    }
+
+    // 수정(RECEIVED 전용, 호출자가 상태 검증 완료)의 첨부는 PUT 의미론 — 전체 교체.
+    // 스토리지 물리 삭제는 트랜잭션 안전성(롤백 시 파일 복구 불가) 때문에 하지 않는다 — ClubPhoto
+    // 전례(GeneralClubPhotoService.delete() 참조)와 동일. 물리 삭제를 flush(낙관락 충돌 감지)보다
+    // 먼저 실행하면, 409 로 롤백될 때 DB 행은 되살아나는데 파일만 사라지는 원자성 결함이 생긴다.
+    // 기존 행은 전부 soft delete 하고 새 목록을 insert 하며, 고아 객체 정리는 후속 파기 배치 몫이다.
+    private void replaceAttachments(FederationInquiry inquiry, List<String> attachmentUrls) {
+        List<FederationInquiryAttachment> existingAttachments =
+                attachmentRepository.findAllByInquiryIdAndAnswerIdIsNullOrderBySortOrderAsc(inquiry.getId());
+        List<FederationInquiryAttachment> newAttachments = buildAttachments(inquiry, attachmentUrls);
+
+        existingAttachments.forEach(attachmentRepository::delete);
+        if (!newAttachments.isEmpty()) {
+            attachmentRepository.saveAll(newAttachments);
         }
     }
 
@@ -129,7 +226,8 @@ public class GeneralFederationInquiryService implements FederationInquiryService
                 inquiry,
                 answerRepository.findByInquiryId(inquiry.getId()).orElse(null),
                 author != null ? author.getName() : AdminLabels.DELETED,
-                author != null ? author.getStudentId() : AdminLabels.DELETED);
+                author != null ? author.getStudentId() : AdminLabels.DELETED,
+                attachmentRepository.findAllByInquiryIdAndAnswerIdIsNullOrderBySortOrderAsc(inquiry.getId()));
     }
 
     @Override
