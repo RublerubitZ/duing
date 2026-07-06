@@ -6,6 +6,7 @@ import com.duing.domain.federation.controller.dto.response.FederationFaqCategory
 import com.duing.domain.federation.controller.dto.response.FederationFaqResponse;
 import com.duing.domain.federation.entity.FederationFaq;
 import com.duing.domain.federation.entity.FederationFaqCategory;
+import com.duing.domain.federation.service.FederationFaqSearchMissRecorder;
 import com.duing.domain.federation.service.FederationFaqService;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
 import com.duing.global.auth.UserPrincipal;
@@ -35,6 +36,7 @@ public class FederationFaqController implements FederationFaqApi {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final FederationFaqService federationFaqService;
+    private final FederationFaqSearchMissRecorder searchMissRecorder;
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<FederationFaqResponse>>> getFaqs(
@@ -48,6 +50,9 @@ public class FederationFaqController implements FederationFaqApi {
                 : pageable;
         FederationFaqSearchCondition condition = new FederationFaqSearchCondition(categoryId, keyword);
         Page<FederationFaq> faqPage = federationFaqService.searchPublished(condition, cappedPageable);
+        // 검색 서비스의 readOnly 트랜잭션이 커넥션을 반납한 뒤(서비스 밖) 기록해 이중 커넥션 점유를
+        // 피한다 — 기록 실패는 recorder 내부에서 흡수되므로 이 호출은 응답 흐름에 영향을 주지 않는다.
+        searchMissRecorder.recordIfMissed(condition.keyword(), faqPage.getTotalElements());
         Map<Long, String> categoryNames = faqPage.isEmpty() ? Map.of() : categoryNameMap();
         Page<FederationFaqResponse> responsePage = faqPage.map(
                 faq -> FederationFaqResponse.from(faq, categoryNames.get(faq.getCategoryId())));
