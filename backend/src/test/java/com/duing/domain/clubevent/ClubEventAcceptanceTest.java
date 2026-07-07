@@ -110,6 +110,24 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("운영 중단된 동아리에서는 일정을 생성할 수 없다")
+    void inactiveClubCannotCreateEvent() {
+        // 셋업은 ACTIVE — 운영 중단(INACTIVE) 상태로 직접 전환해 운영 행위 게이트(Part C)를 검증한다.
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("title", "정기 모임", "startAt", start.toString(),
+                        "endAt", start.plusHours(2).toString(), "location", "동아리방"))
+                .when().post("/api/v1/clubs/" + clubId + "/events")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
+    }
+
+    @Test
     @DisplayName("OFFICER 가 삭제하면 회원 조회 결과에서 사라진다")
     void officerCanDelete() {
         LocalDateTime start = LocalDateTime.now().plusDays(1).withNano(0);

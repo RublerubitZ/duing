@@ -94,6 +94,9 @@ class LeaderBankTransactionReviewTest extends IntegrationTestBase {
         RestAssured.port = port;
         club = clubRepository.save(ClubFixture.academic("회비동아리"));
         clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 거래 검토·매칭(총무 경로)은 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
         leader = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         FeePolicy policy = feePolicyRepository.save(FeePolicyFixture.of(clubId, BillingType.MONTHLY, DEPOSIT_AMOUNT));

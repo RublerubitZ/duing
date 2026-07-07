@@ -134,6 +134,9 @@ class BankTransactionSyncTest extends IntegrationTestBase {
     private Club saveEnabledClub(String clubName) {
         Club club = clubRepository.save(ClubFixture.academic(clubName));
         Long clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 거래 동기화(총무 경로)는 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
         String encrypted = feeAccountCipher.encrypt("352-1234-5678-90", clubId);
         feeAccountRepository.save(FeeAccount.create(clubId, Bank.NH, encrypted, "동아리회비"));
         BankMatchingSetting setting = BankMatchingSetting.of(clubId);
@@ -146,6 +149,9 @@ class BankTransactionSyncTest extends IntegrationTestBase {
     private Club saveNotEnabledClub(String clubName) {
         Club club = clubRepository.save(ClubFixture.academic(clubName));
         Long clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 거래 동기화(총무 경로)는 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
         String encrypted = feeAccountCipher.encrypt("352-9999-8888-77", clubId);
         feeAccountRepository.save(FeeAccount.create(clubId, Bank.NH, encrypted, "동아리회비"));
         return club;
@@ -256,6 +262,9 @@ class BankTransactionSyncTest extends IntegrationTestBase {
         // 적격 은행 + 사용 가능 설정을 갖췄지만, 계좌 암호문이 다른 clubId 의 AAD 로 만들어져 복호화가 실패하는 상태.
         Club club = clubRepository.save(ClubFixture.academic("복호화실패동아리"));
         Long clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 거래 동기화(총무 경로)는 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
         String plaintextAccount = "352-1234-5678-90";
         // FeeAccountCipher 는 clubId 를 AES-GCM 의 AAD 로 바인딩한다 — 다른 clubId 로 암호화하면 복호화 시
         // GCM 태그 인증이 실패(IllegalStateException)해 실제 "복호화 불가" 상태를 재현한다.
