@@ -219,7 +219,6 @@ class FeeAccountControllerTest extends IntegrationTestBase {
 
     @ParameterizedTest(name = "{0} 동아리의 멤버가 회비 계좌를 조회하면 403 과 상태별 안내 메시지를 반환한다")
     @EnumSource(value = ClubStatus.class, names = {"PENDING_APPROVAL", "REJECTED", "INACTIVE"})
-    @DisplayName("승인 대기·거절·운영 중단 동아리의 멤버는 회비 계좌를 조회할 수 없다")
     void nonActiveClubMemberGetForbidden(ClubStatus nonActiveStatus) {
         upsertAs(leaderToken, accountBody("KB", "777-777-777", "예금주"));
         jdbcTemplate.update("UPDATE club SET status = ? WHERE id = ?", nonActiveStatus.name(), clubId);

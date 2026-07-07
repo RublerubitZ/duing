@@ -162,7 +162,8 @@ public class ClubMemberException extends ApplicationException {
             return switch (clubStatus) {
                 case PENDING_APPROVAL -> "승인 대기 중인 동아리입니다.";
                 case REJECTED -> "거절된 동아리입니다.";
-                default -> "운영 종료된 동아리입니다.";
+                case INACTIVE -> "운영 종료된 동아리입니다.";
+                case ACTIVE -> throw new IllegalStateException("ACTIVE 상태는 NotActiveClub 을 던지지 않는다.");
             };
         }
     }
