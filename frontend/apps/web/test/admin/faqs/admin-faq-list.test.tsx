@@ -266,10 +266,15 @@ describe('AdminFaqListPage', () => {
   });
 
   describe('카테고리 삭제', () => {
-    function renderWithCategories() {
+    const defaultCategories = [
+      makeCategory({ id: 1, name: '일반', sortOrder: 0 }),
+      makeCategory({ id: 2, name: '행사', sortOrder: 1 }),
+    ];
+
+    function renderWithCategories(categories: FederationFaqCategory[] = defaultCategories) {
       mockListAndFullList([]);
       mockUseFederationFaqCategoriesQuery.mockReturnValue({
-        data: [makeCategory({ id: 1, name: '일반', sortOrder: 0 }), makeCategory({ id: 2, name: '행사', sortOrder: 1 })],
+        data: categories,
         isLoading: false,
         isSuccess: true,
       });
@@ -282,10 +287,10 @@ describe('AdminFaqListPage', () => {
     it('카테고리 행에 삭제 버튼이 노출되고 클릭하면 삭제 다이얼로그가 열린다', () => {
       renderWithCategories();
 
-      const deleteButtons = screen.getAllByRole('button', { name: '카테고리 삭제' });
-      expect(deleteButtons).toHaveLength(2);
+      // aria-label 에 카테고리명이 포함돼 스크린리더가 행을 구분할 수 있다.
+      expect(screen.getByRole('button', { name: "'행사' 카테고리 삭제" })).toBeInTheDocument();
 
-      fireEvent.click(deleteButtons[0]!);
+      fireEvent.click(screen.getByRole('button', { name: "'일반' 카테고리 삭제" }));
 
       expect(screen.getByText('카테고리를 삭제할까요?')).toBeInTheDocument();
     });
@@ -293,7 +298,7 @@ describe('AdminFaqListPage', () => {
     it('이관 없이 삭제를 확인하면 moveToCategoryId 없이 요청된다', () => {
       renderWithCategories();
 
-      fireEvent.click(screen.getAllByRole('button', { name: '카테고리 삭제' })[0]!);
+      fireEvent.click(screen.getByRole('button', { name: "'일반' 카테고리 삭제" }));
       fireEvent.click(screen.getByRole('button', { name: '삭제' }));
 
       expect(mockCategoryDeleteMutate).toHaveBeenCalledWith(
@@ -305,7 +310,7 @@ describe('AdminFaqListPage', () => {
     it('이관 대상을 선택하고 확인하면 moveToCategoryId가 함께 요청된다', () => {
       renderWithCategories();
 
-      fireEvent.click(screen.getAllByRole('button', { name: '카테고리 삭제' })[0]!);
+      fireEvent.click(screen.getByRole('button', { name: "'일반' 카테고리 삭제" }));
       fireEvent.click(screen.getByRole('radio', { name: /행사/ }));
       fireEvent.click(screen.getByRole('button', { name: '삭제' }));
 
@@ -315,13 +320,45 @@ describe('AdminFaqListPage', () => {
       );
     });
 
+    it('삭제가 성공하면 다이얼로그가 닫힌다', () => {
+      mockCategoryDeleteMutate.mockImplementation((_variables, options) => {
+        options?.onSuccess?.();
+      });
+      renderWithCategories();
+
+      fireEvent.click(screen.getByRole('button', { name: "'일반' 카테고리 삭제" }));
+      fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+
+      expect(screen.queryByText('카테고리를 삭제할까요?')).not.toBeInTheDocument();
+    });
+
+    it('이관 선택지에 삭제 대상 카테고리 자신은 나타나지 않는다', () => {
+      renderWithCategories();
+
+      fireEvent.click(screen.getByRole('button', { name: "'일반' 카테고리 삭제" }));
+
+      // 자기 자신 이관은 서버가 400 으로 거절 — 선택지 필터가 이를 구조적으로 막는다.
+      expect(screen.queryByRole('radio', { name: /일반/ })).not.toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /행사/ })).toBeInTheDocument();
+    });
+
+    it('카테고리가 하나뿐이면 이관 선택지 없이 기본 삭제만 노출된다', () => {
+      renderWithCategories([makeCategory({ id: 1, name: '일반', sortOrder: 0 })]);
+
+      fireEvent.click(screen.getByRole('button', { name: "'일반' 카테고리 삭제" }));
+
+      const radios = screen.getAllByRole('radio');
+      expect(radios).toHaveLength(1);
+      expect(screen.getByRole('radio', { name: '이관하지 않고 삭제' })).toBeChecked();
+    });
+
     it('삭제가 409로 실패하면 다이얼로그에 서버 안내가 표시된다', () => {
       mockCategoryDeleteMutate.mockImplementation((_variables, options) => {
         options?.onError?.({ message: 'FAQ가 있는 카테고리는 삭제할 수 없습니다. 이관할 카테고리를 지정해 주세요.' });
       });
       renderWithCategories();
 
-      fireEvent.click(screen.getAllByRole('button', { name: '카테고리 삭제' })[0]!);
+      fireEvent.click(screen.getByRole('button', { name: "'일반' 카테고리 삭제" }));
       fireEvent.click(screen.getByRole('button', { name: '삭제' }));
 
       expect(screen.getByRole('alert')).toHaveTextContent(

@@ -90,6 +90,8 @@ export function FaqCategoryManager() {
 
   const handleDeleteConfirm = (moveToCategoryId: number | null) => {
     if (!deleteTarget) return;
+    // 진행 중 재클릭이 중복 삭제 요청을 겹쳐 보내지 않도록 차단(버튼 disabled 와 이중 방어).
+    if (deleteMutation.isPending) return;
     setDeleteErrorMessage(null);
     deleteMutation.mutate(
       { categoryId: deleteTarget.id, moveToCategoryId: moveToCategoryId ?? undefined },
@@ -161,7 +163,7 @@ export function FaqCategoryManager() {
                     setDeleteTarget({ id: category.id, name: category.name });
                   }}
                   disabled={updateMutation.isPending || deleteMutation.isPending}
-                  aria-label="카테고리 삭제"
+                  aria-label={`'${category.name}' 카테고리 삭제`}
                   className="grid h-7 w-7 place-items-center rounded text-coral hover:bg-coral/10 disabled:opacity-30"
                 >×</button>
               </div>
@@ -205,6 +207,9 @@ export function FaqCategoryManager() {
 
       {deleteTarget && (
         <FaqCategoryDeleteDialog
+          // 언마운트 없이 대상만 교체될 경우 선택 상태가 이월되지 않도록 대상별로 리마운트한다
+          // (현재 흐름상 도달 불가하지만 방어).
+          key={deleteTarget.id}
           category={deleteTarget}
           otherCategories={categories
             .filter((category) => category.id !== deleteTarget.id)

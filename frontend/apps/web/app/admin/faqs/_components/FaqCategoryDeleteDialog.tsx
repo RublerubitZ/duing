@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,14 @@ export function FaqCategoryDeleteDialog({
 }: FaqCategoryDeleteDialogProps) {
   const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
 
+  // 선택해둔 이관 대상이 목록에서 사라지면(다른 세션의 삭제 등으로 categories 쿼리 갱신)
+  // 기본 선택으로 되돌려, 화면에 보이지 않는 대상 id 가 전송되는 것을 방지한다.
+  useEffect(() => {
+    if (selectedTargetId !== null && !otherCategories.some((category) => category.id === selectedTargetId)) {
+      setSelectedTargetId(null);
+    }
+  }, [otherCategories, selectedTargetId]);
+
   return (
     <Dialog
       open
@@ -43,9 +51,9 @@ export function FaqCategoryDeleteDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        // 파괴적 다이얼로그는 외부 클릭으로 dismiss 하지 않는다(admin 파괴 다이얼로그 공통 관례) —
+        // 닫기는 명시 취소 버튼/ESC 로만.
+        onPointerDownOutside={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => {
           if (isPending) event.preventDefault();
         }}
