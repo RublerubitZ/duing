@@ -169,7 +169,8 @@ public class GeneralClubService implements ClubService {
     @Override
     @Transactional
     public void updateStatus(UpdateClubStatusCommand updateClubStatusCommand) {
-        Club club = clubRepository.findById(updateClubStatusCommand.clubId())
+        // 폐쇄·상태변경 동시 요청이 같은 행을 직렬화하도록 잠금 (stale 검증 방지)
+        Club club = clubRepository.findByIdForUpdate(updateClubStatusCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         club.changeStatus(
                 updateClubStatusCommand.status(),
