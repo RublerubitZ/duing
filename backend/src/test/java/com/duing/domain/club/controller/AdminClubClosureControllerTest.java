@@ -121,6 +121,44 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("ADMIN 이 거절(REJECTED) 동아리를 폐쇄하면 204 가 반환되고 soft-delete 되며 멤버십이 제거된다")
+    void adminClosesRejectedClub() throws Exception {
+        Club rejectedClub = saveClubWithLeader("거절폐쇄클럽", ClubStatus.REJECTED);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                .when()
+                    .post("/api/v1/admin/clubs/{clubId}/close", rejectedClub.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        Assertions.assertTrue(
+                clubMemberRepository.findByClubIdAndUserId(rejectedClub.getId(), leaderUser.getId()).isEmpty());
+
+        LocalDateTime clubDeletedAt = jdbcTemplate.queryForObject(
+                "SELECT deleted_at FROM club WHERE id = ?", LocalDateTime.class, rejectedClub.getId());
+        Assertions.assertNotNull(clubDeletedAt);
+    }
+
+    @Test
+    @DisplayName("승인 대기(PENDING_APPROVAL) 동아리를 폐쇄하려 하면 400 이 반환된다")
+    void closingPendingClubIsRejected() throws Exception {
+        Club pendingClub = saveClubWithLeader("승인대기폐쇄거부클럽", ClubStatus.PENDING_APPROVAL);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                .when()
+                    .post("/api/v1/admin/clubs/{clubId}/close", pendingClub.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("ok", equalTo(false));
+    }
+
+    @Test
     @DisplayName("STUDENT 가 폐쇄 엔드포인트를 호출하면 403 이 반환된다")
     void studentCannotCloseClub() throws Exception {
         Club inactiveClub = saveClubWithLeader("학생폐쇄거부클럽", ClubStatus.INACTIVE);

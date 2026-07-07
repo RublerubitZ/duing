@@ -225,9 +225,9 @@ public class Club extends BaseEntity {
         this.statusChangedAt = LocalDateTime.now();
     }
 
-    /** 폐쇄 가능 여부 검증. 운영 중단(INACTIVE) 상태만 허용한다. */
+    /** 폐쇄 가능 여부 검증. 운영 중단(INACTIVE) 또는 거절(REJECTED) 상태만 허용한다. */
     public void validateClosable() {
-        if (this.status != ClubStatus.INACTIVE) {
+        if (this.status != ClubStatus.INACTIVE && this.status != ClubStatus.REJECTED) {
             throw new ClubException.ClubNotClosableException(this.status.name());
         }
     }
