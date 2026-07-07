@@ -33,6 +33,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -44,6 +45,7 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -58,6 +60,9 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
         Club club = clubRepository.save(Club.create("동아리E",
                 ClubCategory.ACADEMIC, null, "설명", null));
         clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 멤버용 일정 조회는 ACTIVE 동아리만 허용되므로,
+        // 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
 
         User leader = saveUser();
         User officer = saveUser();
@@ -168,6 +173,36 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
                 .when().get("/api/v1/clubs/" + clubId + "/events")
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리의 멤버는 일정 목록을 조회할 수 없다")
+    void inactiveClubMemberCannotListEvents() {
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        createEventAs(leaderToken, start, start.plusHours(2));
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/events")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리의 멤버는 일정 상세를 조회할 수 없다")
+    void inactiveClubMemberCannotGetEventDetail() {
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        Long eventId = createEventAs(leaderToken, start, start.plusHours(2));
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/events/" + eventId)
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
     }
 
     @Test
