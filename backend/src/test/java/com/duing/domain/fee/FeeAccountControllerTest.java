@@ -241,6 +241,21 @@ class FeeAccountControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("삭제된 동아리의 잔존 멤버십으로는 회비 계좌를 조회할 수 없다")
+    void deletedClubResidualMembershipGetForbidden() {
+        upsertAs(leaderToken, accountBody("KB", "777-777-777", "예금주"));
+        // 동아리만 soft-delete 하고 멤버십 행은 남긴다 — 폐쇄 cascade 가 누락된 정합 깨짐 상태 재현.
+        jdbcTemplate.update("UPDATE club SET deleted_at = NOW() WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/fee-account")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("해당 동아리의 멤버가 아닙니다."));
+    }
+
+    @Test
     @DisplayName("동아리원이 아닌 사용자가 회비 계좌를 조회하면 403 을 반환한다")
     void nonMemberGetForbidden() {
         upsertAs(leaderToken, accountBody("KB", "999-999-999", "예금주"));

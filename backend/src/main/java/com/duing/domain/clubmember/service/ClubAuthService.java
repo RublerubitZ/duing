@@ -1,6 +1,8 @@
 package com.duing.domain.clubmember.service;
 
+import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ClubAuthService {
 
     private final ClubMemberRepository clubMemberRepository;
+    private final ClubRepository clubRepository;
 
     public ClubMember requireLeader(Long userId, Long clubId) {
         ClubMember clubMember = findMembershipOrThrow(userId, clubId);
@@ -50,7 +53,11 @@ public class ClubAuthService {
      */
     public ClubMember requireActiveMember(Long userId, Long clubId) {
         ClubMember clubMember = findMembershipOrThrow(userId, clubId);
-        ClubStatus clubStatus = clubMember.getClub().getStatus();
+        // soft-delete 된 동아리는 @SQLRestriction 으로 조회되지 않는다 — 잔존 멤버십(정합 깨짐)은 비멤버로 취급해
+        // lazy 프록시 초기화 실패(500)를 방지한다.
+        ClubStatus clubStatus = clubRepository.findById(clubId)
+                .map(Club::getStatus)
+                .orElseThrow(ClubMemberException.NotAMember::new);
         if (clubStatus != ClubStatus.ACTIVE) {
             throw new ClubMemberException.NotActiveClub(clubStatus);
         }
