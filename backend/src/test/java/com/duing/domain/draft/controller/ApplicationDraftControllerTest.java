@@ -36,6 +36,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -58,6 +59,9 @@ class ApplicationDraftControllerTest extends IntegrationTestBase {
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -181,6 +185,29 @@ class ApplicationDraftControllerTest extends IntegrationTestBase {
                     .put("/api/v1/recruitments/{recruitmentId}/draft", closedRecruitment.getId())
                 .then()
                     .statusCode(HttpStatus.GONE.value())
+                    .body("ok", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("PUT draft — 운영 중이 아닌 동아리의 모집에 upsert 하면 404 반환한다")
+    void upsertDraftOnInactiveClubRecruitmentReturns404() throws Exception {
+        Club deactivatedClub = saveActiveClub("중단임시저장동아리");
+        Recruitment hiddenRecruitment = saveOpenRecruitment(deactivatedClub, "중단임시저장모집");
+        // 벌크 마감을 우회해 club 만 INACTIVE 로 바꿔 정합 깨진 레거시 상태를 재현한다 —
+        // 숨겨진 동아리의 모집에는 임시저장(쓰기)도 404 존재 은닉이어야 한다 (공개 상세와 동일 의미론).
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", deactivatedClub.getId());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                    .contentType(ContentType.JSON)
+                    .body("""
+                            {"answers": [{"questionId": 1, "value": "답변"}]}
+                            """)
+                .when()
+                    .put("/api/v1/recruitments/{recruitmentId}/draft", hiddenRecruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.NOT_FOUND.value())
                     .body("ok", equalTo(false));
     }
 

@@ -24,6 +24,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,11 +47,15 @@ public class GeneralRecruitmentService implements RecruitmentService {
     @Override
     @Transactional
     public Long create(CreateRecruitmentCommand createRecruitmentCommand) {
-        Club club = clubRepository.findById(createRecruitmentCommand.clubId())
+        // 행 잠금 — 운영 중단 전환(updateStatus, findByIdForUpdate)과 직렬화해
+        // "ACTIVE 확인 통과 후 전환 커밋 → INACTIVE 동아리에 OPEN 모집 INSERT" 경합을 차단한다.
+        Club club = clubRepository.findByIdForUpdate(createRecruitmentCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
 
         // 동아리 운영진(LEADER/OFFICER)만 모집 공고를 생성할 수 있다.
         clubAuthService.requireManager(createRecruitmentCommand.currentUserId(), club.getId());
+
+        requireActiveClub(club);
 
         // uk_recruitment_club_active (V38) 는 endDate 와 무관하게 status='OPEN' 만 보고 1건만 허용한다.
         // 한편 사용자/사전 체크가 인식하는 "활성" 의 의미는 status=OPEN AND endDate>=today 라서
@@ -88,6 +93,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
     public RecruitmentDetailQuery getById(Long recruitmentId) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+        // 비공개 상태 동아리의 모집은 존재를 숨긴다(404). 이 메서드의 호출처는 공개 컨트롤러 1곳뿐이다.
+        if (recruitment.getClub().getStatus() != ClubStatus.ACTIVE) {
+            throw new RecruitmentException.RecruitmentNotFoundException();
+        }
         Integer applicantCount = recruitment.isShowApplicantCount()
                 ? (int) applicationRepository.countByRecruitmentId(recruitmentId)
                 : null;
@@ -172,10 +181,14 @@ public class GeneralRecruitmentService implements RecruitmentService {
     @Override
     @Transactional
     public Long replaceActive(CreateRecruitmentCommand command) {
-        Club club = clubRepository.findById(command.clubId())
+        // 행 잠금 — 운영 중단 전환(updateStatus, findByIdForUpdate)과 직렬화해
+        // "ACTIVE 확인 통과 후 전환 커밋 → INACTIVE 동아리에 OPEN 모집 INSERT" 경합을 차단한다.
+        Club club = clubRepository.findByIdForUpdate(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
 
         clubAuthService.requireManager(command.currentUserId(), club.getId());
+
+        requireActiveClub(club);
 
         // close() 는 메모리상의 status 만 바꾸므로 그 다음 buildAndPersist 의 INSERT 가
         // flush 될 때 Hibernate 기본 액션 순서(INSERT → UPDATE) 상 UPDATE 가 뒤로 밀려
@@ -203,6 +216,12 @@ public class GeneralRecruitmentService implements RecruitmentService {
         return recruitments.stream().map(Recruitment::getId).toList();
     }
 
+    @Override
+    @Transactional
+    public int closeAllOnClubDeactivation(Long clubId) {
+        return recruitmentRepository.closeAllOpenByClubId(clubId);
+    }
+
     // 모집의 soft-delete 는 지원/면접 cascade(반환된 id 사용) 가 끝난 뒤 호출해야 한다. 모집을 먼저
     // 삭제하면 지원/면접 조회가 @SQLRestriction 으로 모집을 찾지 못해 cascade 가 누락된다. 폐쇄된
     // 동아리의 모집이 살아남아 공개 캘린더/상세/목록 조회를 500 으로 만드는 것을 막기 위해, cascade
@@ -214,6 +233,18 @@ public class GeneralRecruitmentService implements RecruitmentService {
             return;
         }
         recruitmentRepository.softDeleteByIds(recruitmentIds, LocalDateTime.now());
+    }
+
+    /**
+     * 운영 중(ACTIVE) 동아리만 모집을 열 수 있다 — 운영 중단 전환의 "모집 활동 정지" 불변식 (스펙 Part A/C).
+     * findByIdForUpdate 로 잠근 club 을 전달해야 운영 중단 전환과 직렬화된다 — 잠금 없는 엔티티로 검사하면
+     * 검사와 INSERT 커밋 사이에 전환이 끼어들어 INACTIVE 동아리에 OPEN 모집이 남을 수 있다.
+     * 전면적인 운영 행위 게이트(requireActiveManager)는 Part C 에서 도입 예정.
+     */
+    private void requireActiveClub(Club club) {
+        if (club.getStatus() != ClubStatus.ACTIVE) {
+            throw new AccessDeniedException("운영 중(ACTIVE) 동아리에서만 모집을 열 수 있습니다.");
+        }
     }
 
     private Long buildAndPersist(Club club, CreateRecruitmentCommand command) {

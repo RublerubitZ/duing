@@ -12,7 +12,7 @@ import org.springframework.data.repository.query.Param;
 public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>, RecruitmentRepositoryCustom {
 
     /**
-     * Deadline 알림 후보를 조회한다.
+     * Deadline 알림 후보를 조회한다. 운영 중(ACTIVE) 동아리의 모집만 대상이다.
      * - OPENED: 오늘 시작하는 OPEN 모집
      * - DEADLINE: 마감 3일 / 1일 / 당일인 OPEN 모집
      */
@@ -26,6 +26,7 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
                    (r.end_date - :today) AS daysToEnd
               FROM recruitment r JOIN club c ON c.id = r.club_id
              WHERE r.status = 'OPEN' AND r.deleted_at IS NULL AND c.deleted_at IS NULL
+               AND c.status = 'ACTIVE'
                AND (
                      r.start_date = :today
                      OR ( r.end_date IS NOT NULL AND (r.end_date - :today) IN (3,1,0) )
@@ -43,4 +44,19 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE Recruitment r SET r.deletedAt = :deletedAt WHERE r.id IN :ids AND r.deletedAt IS NULL")
     void softDeleteByIds(@Param("ids") List<Long> ids, @Param("deletedAt") LocalDateTime deletedAt);
+
+    /**
+     * 동아리 운영 중단(INACTIVE) 전환 시 OPEN 모집을 일괄 마감한다 (스펙 Part A · D1).
+     * 벌크 UPDATE 에는 @SQLRestriction 이 적용되지 않으므로 deletedAt IS NULL 을 명시한다.
+     * 행 잠금 하 updateStatus 트랜잭션의 1차 캐시와 어긋나지 않도록 flush/clear 를 자동 수행한다.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE Recruitment r
+               SET r.status = com.duing.domain.recruitment.entity.RecruitmentStatus.CLOSED
+             WHERE r.club.id = :clubId
+               AND r.status = com.duing.domain.recruitment.entity.RecruitmentStatus.OPEN
+               AND r.deletedAt IS NULL
+            """)
+    int closeAllOpenByClubId(@Param("clubId") Long clubId);
 }
