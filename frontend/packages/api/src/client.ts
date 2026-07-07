@@ -458,6 +458,8 @@ export type DuingApiClient = {
     federationFaqCategories: {
       create(payload: CreateFederationFaqCategoryPayload): Promise<number>;
       update(categoryId: number, payload: UpdateFederationFaqCategoryPayload): Promise<void>;
+      // moveToCategoryId 지정 시 소속 FAQ 전부 이관 후 삭제, 미지정 시 FAQ 가 있으면 409.
+      remove(categoryId: number, moveToCategoryId?: number): Promise<void>;
     };
     federationInquiries: {
       list(params: {
@@ -1109,6 +1111,12 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonOk<number>(http.post('admin/federation/faq-categories', { json: payload })),
         update: (categoryId, payload) =>
           jsonVoid(http.patch(`admin/federation/faq-categories/${categoryId}`, { json: payload })),
+        remove: (categoryId, moveToCategoryId) =>
+          jsonVoid(
+            http.delete(`admin/federation/faq-categories/${categoryId}`, {
+              searchParams: cleanParams({ moveToCategoryId }),
+            }),
+          ),
       },
       federationInquiries: {
         list: (params) =>

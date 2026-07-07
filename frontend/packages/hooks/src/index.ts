@@ -103,6 +103,7 @@ export {
   useAdminFederationFaqReorderMutation,
   useAdminFederationFaqCategoryCreateMutation,
   useAdminFederationFaqCategoryUpdateMutation,
+  useAdminFederationFaqCategoryDeleteMutation,
 } from './federationFaqs';
 export { federationFaqQueryKeys } from './federationFaqQueryKeys';
 export {
