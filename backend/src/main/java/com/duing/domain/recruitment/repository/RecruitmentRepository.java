@@ -43,4 +43,19 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE Recruitment r SET r.deletedAt = :deletedAt WHERE r.id IN :ids AND r.deletedAt IS NULL")
     void softDeleteByIds(@Param("ids") List<Long> ids, @Param("deletedAt") LocalDateTime deletedAt);
+
+    /**
+     * 동아리 운영 중단(INACTIVE) 전환 시 OPEN 모집을 일괄 마감한다 (스펙 Part A · D1).
+     * 벌크 UPDATE 에는 @SQLRestriction 이 적용되지 않으므로 deletedAt IS NULL 을 명시한다.
+     * 행 잠금 하 updateStatus 트랜잭션의 1차 캐시와 어긋나지 않도록 flush/clear 를 자동 수행한다.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE Recruitment r
+               SET r.status = com.duing.domain.recruitment.entity.RecruitmentStatus.CLOSED
+             WHERE r.club.id = :clubId
+               AND r.status = com.duing.domain.recruitment.entity.RecruitmentStatus.OPEN
+               AND r.deletedAt IS NULL
+            """)
+    int closeAllOpenByClubId(@Param("clubId") Long clubId);
 }

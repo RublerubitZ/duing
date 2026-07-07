@@ -23,6 +23,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.repository.ClubActiveRecruitmentRow;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
@@ -47,6 +48,7 @@ public class GeneralClubService implements ClubService {
     private final ClubPhotoRepository clubPhotoRepository;
     private final ClubAuthService clubAuthService;
     private final RecruitmentRepository recruitmentRepository;
+    private final RecruitmentService recruitmentService;
     private final ApplicationRepository applicationRepository;
 
     @Override
@@ -177,6 +179,10 @@ public class GeneralClubService implements ClubService {
                 updateClubStatusCommand.rejectionReason(),
                 updateClubStatusCommand.actorUserId()
         );
+        if (updateClubStatusCommand.status() == ClubStatus.INACTIVE) {
+            // 운영 중단 = 신규 모집 활동 정지. OPEN 모집을 일괄 마감해 공개 표면·알림에 남지 않게 한다 (스펙 Part A).
+            recruitmentService.closeAllOnClubDeactivation(club.getId());
+        }
     }
 
     @Override

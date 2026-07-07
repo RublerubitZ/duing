@@ -203,6 +203,12 @@ public class GeneralRecruitmentService implements RecruitmentService {
         return recruitments.stream().map(Recruitment::getId).toList();
     }
 
+    @Override
+    @Transactional
+    public int closeAllOnClubDeactivation(Long clubId) {
+        return recruitmentRepository.closeAllOpenByClubId(clubId);
+    }
+
     // 모집의 soft-delete 는 지원/면접 cascade(반환된 id 사용) 가 끝난 뒤 호출해야 한다. 모집을 먼저
     // 삭제하면 지원/면접 조회가 @SQLRestriction 으로 모집을 찾지 못해 cascade 가 누락된다. 폐쇄된
     // 동아리의 모집이 살아남아 공개 캘린더/상세/목록 조회를 500 으로 만드는 것을 막기 위해, cascade
