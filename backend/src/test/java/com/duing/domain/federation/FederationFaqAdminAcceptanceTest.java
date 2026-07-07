@@ -1,6 +1,8 @@
 package com.duing.domain.federation;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -17,6 +19,7 @@ import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -376,6 +379,189 @@ class FederationFaqAdminAcceptanceTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.OK.value())
                 .body("data.content.find { it.id == %d }.helpfulCount".formatted(faqId), equalTo(0))
                 .body("data.content.find { it.id == %d }.notHelpfulCount".formatted(faqId), equalTo(0));
+    }
+
+    @Test
+    @DisplayName("빈 카테고리를 삭제하면 204이고 공개 카테고리 목록에서 사라진다")
+    void adminDeletesEmptyCategory() {
+        Long emptyCategoryId = categoryRepository
+                .save(FederationFaqCategory.create("테스트-빈카테고리" + sequence.incrementAndGet(), 2)).getId();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faq-categories/" + emptyCategoryId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+            .when()
+                .get("/api/v1/federation/faq-categories")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.find { it.id == %d }".formatted(emptyCategoryId), nullValue());
+    }
+
+    @Test
+    @DisplayName("FAQ가 있는 카테고리를 이관 없이 삭제하면 409다")
+    void deleteCategoryWithFaqsWithoutMoveTargetFails() {
+        seedFaq("삭제 대상 카테고리 질문", true, 0);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faq-categories/" + categoryId)
+            .then()
+                .statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("FAQ가 있는 카테고리를 이관 대상과 함께 삭제하면 FAQ가 모두 이관되고 카테고리는 사라진다")
+    void deleteCategoryWithMoveTargetReassignsFaqs() {
+        Long firstFaqId = seedFaq("이관 대상 질문 A", true, 0);
+        Long secondFaqId = seedFaq("이관 대상 질문 B", true, 1);
+        String targetCategoryName = "테스트-이관대상" + sequence.incrementAndGet();
+        Long targetCategoryId = categoryRepository.save(FederationFaqCategory.create(targetCategoryName, 3)).getId();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faq-categories/" + categoryId
+                        + "?moveToCategoryId=" + targetCategoryId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(faqRepository.findAllById(List.of(firstFaqId, secondFaqId)))
+                .extracting(FederationFaq::getCategoryId)
+                .containsOnly(targetCategoryId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/admin/federation/faqs")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.find { it.id == %d }.categoryName".formatted(firstFaqId),
+                        equalTo(targetCategoryName))
+                .body("data.content.find { it.id == %d }.categoryName".formatted(secondFaqId),
+                        equalTo(targetCategoryName));
+
+        RestAssured.given()
+            .when()
+                .get("/api/v1/federation/faq-categories")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.find { it.id == %d }".formatted(categoryId), nullValue());
+    }
+
+    @Test
+    @DisplayName("이관 대상을 삭제하려는 카테고리와 같게 지정하면 400이다")
+    void deleteCategoryWithSameMoveTargetFails() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faq-categories/" + categoryId + "?moveToCategoryId=" + categoryId)
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 이관 대상을 지정하면 404다")
+    void deleteCategoryWithMissingMoveTargetFails() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faq-categories/" + categoryId + "?moveToCategoryId=999999")
+            .then()
+                .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 카테고리를 삭제하면 404다")
+    void deleteMissingCategoryFails() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faq-categories/999999")
+            .then()
+                .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("삭제된 카테고리의 이름으로 새 카테고리를 만들 수 있다")
+    void createCategoryWithNameOfDeletedCategorySucceeds() {
+        String name = "테스트-재사용" + sequence.incrementAndGet();
+        Long reusableCategoryId = categoryRepository.save(FederationFaqCategory.create(name, 4)).getId();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faq-categories/" + reusableCategoryId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("{ \"name\": \"%s\" }".formatted(name))
+            .when()
+                .post("/api/v1/admin/federation/faq-categories")
+            .then()
+                .statusCode(HttpStatus.CREATED.value());
+    }
+
+    @Test
+    @DisplayName("ADMIN이 아닌 사용자가 카테고리를 삭제하면 403이다")
+    void deleteCategoryByNonAdminFails() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .delete("/api/v1/admin/federation/faq-categories/" + categoryId)
+            .then()
+                .statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("삭제된 카테고리를 수정하면 404다")
+    void updateDeletedCategoryFails() {
+        Long deletedCategoryId = categoryRepository
+                .save(FederationFaqCategory.create("테스트-삭제후수정" + sequence.incrementAndGet(), 6)).getId();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faq-categories/" + deletedCategoryId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("{ \"name\": \"삭제후수정시도\", \"sortOrder\": 0 }")
+            .when()
+                .patch("/api/v1/admin/federation/faq-categories/" + deletedCategoryId)
+            .then()
+                .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("삭제된 FAQ만 남은 카테고리는 이관 없이 삭제된다")
+    void deleteCategoryWithOnlySoftDeletedFaqsSucceeds() {
+        Long faqId = seedFaq("삭제될 질문", true, 0);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faqs/" + faqId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faq-categories/" + categoryId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
     }
 
     // ---- helpers ----

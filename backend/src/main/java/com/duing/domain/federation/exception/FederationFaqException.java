@@ -33,4 +33,14 @@ public class FederationFaqException extends ApplicationException {
         private static final String MESSAGE = "세션 키는 필수 입력값입니다.";
         public FaqFeedbackSessionKeyRequiredException() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
     }
+
+    public static class FederationFaqCategoryInUseException extends FederationFaqException {
+        private static final String MESSAGE = "FAQ가 있는 카테고리는 삭제할 수 없습니다. 이관할 카테고리를 지정해 주세요.";
+        public FederationFaqCategoryInUseException() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    public static class InvalidCategoryMoveTargetException extends FederationFaqException {
+        private static final String MESSAGE = "이관 대상은 삭제하려는 카테고리와 달라야 합니다.";
+        public InvalidCategoryMoveTargetException() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
+    }
 }

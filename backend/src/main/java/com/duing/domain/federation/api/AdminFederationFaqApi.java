@@ -76,6 +76,17 @@ public interface AdminFederationFaqApi {
             @Valid @RequestBody UpdateFederationFaqCategoryRequest request
     );
 
+    @Operation(summary = "FAQ 카테고리 삭제", description = "카테고리가 비어 있으면 즉시 soft delete(204). "
+            + "moveToCategoryId를 지정하면 소속 FAQ를 전부 그 카테고리로 이관한 후 삭제한다. "
+            + "FAQ가 남아 있는데 moveToCategoryId를 지정하지 않으면 409. "
+            + "moveToCategoryId를 삭제하려는 카테고리와 같게 지정하면 400. "
+            + "삭제하려는 카테고리 또는 moveToCategoryId 카테고리가 존재하지 않으면 404.")
+    @DeleteMapping("/admin/federation/faq-categories/{categoryId}")
+    ResponseEntity<ApiResponse<Void>> deleteCategory(
+            @PathVariable Long categoryId,
+            @RequestParam(required = false) Long moveToCategoryId
+    );
+
     @Operation(summary = "무결과 검색어 목록", description = "공개 FAQ 검색(GET /federation/faqs?keyword=)에서 결과 0건이었던 "
             + "정규화 키워드의 집계다. 정렬은 miss_count 내림차순·last_searched_at 내림차순으로 서버가 고정하며 정렬 파라미터는 "
             + "지원하지 않는다. \"학생이 찾는데 없는 FAQ\"를 발견하는 admin 전용 갭 신호.")
