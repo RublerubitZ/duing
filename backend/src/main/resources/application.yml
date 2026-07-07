@@ -122,6 +122,13 @@ duing:
       # 회비 마감 임박 리마인더 크론(매일 06:00 Asia/Seoul) — D-3/D-1/D-0 미납 청구의 회원에게 FEE_BILL_DUE_SOON 인앱 알림.
       # 기본 비활성 — 운영에서 DUING_FEE_REMINDER_ENABLED=true 주입 시 활성화한다.
       enabled: ${DUING_FEE_REMINDER_ENABLED:false}
+  federation-inquiry:
+    purge:
+      # 삭제된 총동연 1:1 문의 본문·첨부 파기 잡(매일 04:40 Asia/Seoul). 보관기간 = 45일(P45D) —
+      # 개인정보 처리방침의 45일 보관을 준용(privacy.retention 과 동일 window). 기본 비활성 —
+      # 운영에서 DUING_FEDERATION_INQUIRY_PURGE_ENABLED=true 주입 시 활성화한다.
+      enabled: ${DUING_FEDERATION_INQUIRY_PURGE_ENABLED:false}
+      window: ${DUING_FEDERATION_INQUIRY_PURGE_WINDOW:P45D}
   privacy:
     retention:
       # 탈퇴/폐쇄로 soft-delete 된 PII 의 보관기간 = 45일(P45D). 이후 파기 잡이 비식별화/삭제한다.

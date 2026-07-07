@@ -172,7 +172,9 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     // 스토리지 물리 삭제는 트랜잭션 안전성(롤백 시 파일 복구 불가) 때문에 하지 않는다 — ClubPhoto
     // 전례(GeneralClubPhotoService.delete() 참조)와 동일. 물리 삭제를 flush(낙관락 충돌 감지)보다
     // 먼저 실행하면, 409 로 롤백될 때 DB 행은 되살아나는데 파일만 사라지는 원자성 결함이 생긴다.
-    // 기존 행은 전부 soft delete 하고 새 목록을 insert 하며, 고아 객체 정리는 후속 파기 배치 몫이다.
+    // 기존 행은 전부 soft delete 하고 새 목록을 insert 하며, 고아 객체 정리는 후속 파기 배치 몫이다
+    // (domain.federation.job.FederationInquiryPurgeJob 이 그 후속 — attachment.deleted_at 경과분을
+    // findPurgeTargets 로 조회해 스토리지 객체·행을 함께 파기한다).
     private void replaceAttachments(FederationInquiry inquiry, List<String> attachmentUrls) {
         List<FederationInquiryAttachment> existingAttachments =
                 attachmentRepository.findAllByInquiryIdAndAnswerIdIsNullOrderBySortOrderAsc(inquiry.getId());
