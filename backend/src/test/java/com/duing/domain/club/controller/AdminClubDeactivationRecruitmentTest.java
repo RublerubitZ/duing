@@ -119,6 +119,40 @@ class AdminClubDeactivationRecruitmentTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("운영 중단 동아리의 리더는 새 모집을 열 수 없다")
+    void deactivatedClubLeaderCannotOpenNewRecruitment() throws Exception {
+        Club club = saveClubWithLeader("모집개설차단클럽", ClubStatus.ACTIVE);
+        patchStatus(club.getId(), ClubStatus.INACTIVE);
+
+        String leaderToken = jwtTokenProvider.createToken(leaderUser.getId(), leaderUser.getRole().name());
+        String createRecruitmentBody = """
+                {"title":"중단후모집","content":"내용","startDate":"%s","endDate":"%s",
+                 "capacity":5,"applicationMode":"EXTERNAL","externalFormUrl":"https://example.com/form"}
+                """.formatted(LocalDate.now(), LocalDate.now().plusDays(7));
+
+        // 벌크 마감(Task 1) 이후에도 생성·교체 경로로 새 OPEN 모집을 만들 수 있으면
+        // "운영 중단 = 모집 활동 정지" 불변식이 우회된다 — 두 경로 모두 403 으로 차단돼야 한다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(createRecruitmentBody)
+                .when().post("/api/v1/leader/clubs/{clubId}/recruitments", club.getId())
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(createRecruitmentBody)
+                .when().post("/api/v1/leader/clubs/{clubId}/recruitments/replace-active", club.getId())
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false));
+
+        Assertions.assertEquals(0, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM recruitment WHERE club_id = ?", Integer.class, club.getId()));
+    }
+
+    @Test
     @DisplayName("운영 중단 동아리의 모집은 공개 달력과 공개 상세에서 노출되지 않는다")
     void deactivatedClubRecruitmentIsHiddenFromPublicSurfaces() throws Exception {
         Club club = saveClubWithLeader("공개차단클럽", ClubStatus.ACTIVE);

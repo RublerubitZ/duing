@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -145,6 +146,8 @@ class RecruitmentCreateGuardsTest {
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(CLUB_ID);
         when(clubRepository.findById(CLUB_ID)).thenReturn(Optional.of(club));
+        // 비 ACTIVE 동아리 모집 개설 차단 가드 통과용 — 이 테스트의 관심사는 활성 모집 중복 가드다.
+        when(clubRepository.existsByIdAndStatus(CLUB_ID, ClubStatus.ACTIVE)).thenReturn(true);
         // clubAuthService.requireManager 는 void 라 기본 stub 으로 통과.
     }
 
