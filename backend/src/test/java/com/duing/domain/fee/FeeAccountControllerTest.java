@@ -8,6 +8,7 @@ import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
@@ -22,6 +23,8 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -78,6 +81,10 @@ class FeeAccountControllerTest extends IntegrationTestBase {
         User otherClubMember = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(otherClub, otherClubLeader));
         clubMemberRepository.save(ClubMember.of(otherClub, otherClubMember, ClubMemberRole.MEMBER));
+
+        // Club.create 기본 상태는 PENDING_APPROVAL — 멤버용 회비 계좌 조회는 ACTIVE 동아리만
+        // 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 두 동아리 모두 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id IN (?, ?)", clubId, otherClubId);
 
         leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
         officerToken = jwtTokenProvider.createToken(officer.getId(), officer.getRole().name());
@@ -208,6 +215,44 @@ class FeeAccountControllerTest extends IntegrationTestBase {
                 .body("data.bank", equalTo("NH"))
                 .body("data.accountNumber", equalTo(plaintextAccountNumber))
                 .body("data.accountHolder", equalTo("동아리회비"));
+    }
+
+    @ParameterizedTest(name = "{0} 동아리의 멤버가 회비 계좌를 조회하면 403 과 상태별 안내 메시지를 반환한다")
+    @EnumSource(value = ClubStatus.class, names = {"PENDING_APPROVAL", "REJECTED", "INACTIVE"})
+    void nonActiveClubMemberGetForbidden(ClubStatus nonActiveStatus) {
+        upsertAs(leaderToken, accountBody("KB", "777-777-777", "예금주"));
+        jdbcTemplate.update("UPDATE club SET status = ? WHERE id = ?", nonActiveStatus.name(), clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/fee-account")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo(expectedNonActiveClubMessage(nonActiveStatus)));
+    }
+
+    private static String expectedNonActiveClubMessage(ClubStatus clubStatus) {
+        return switch (clubStatus) {
+            case PENDING_APPROVAL -> "승인 대기 중인 동아리입니다.";
+            case REJECTED -> "거절된 동아리입니다.";
+            case INACTIVE -> "운영 종료된 동아리입니다.";
+            default -> throw new IllegalArgumentException("비 ACTIVE 상태가 아닙니다: " + clubStatus);
+        };
+    }
+
+    @Test
+    @DisplayName("삭제된 동아리의 잔존 멤버십으로는 회비 계좌를 조회할 수 없다")
+    void deletedClubResidualMembershipGetForbidden() {
+        upsertAs(leaderToken, accountBody("KB", "777-777-777", "예금주"));
+        // 동아리만 soft-delete 하고 멤버십 행은 남긴다 — 폐쇄 cascade 가 누락된 정합 깨짐 상태 재현.
+        jdbcTemplate.update("UPDATE club SET deleted_at = NOW() WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/fee-account")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("해당 동아리의 멤버가 아닙니다."));
     }
 
     @Test

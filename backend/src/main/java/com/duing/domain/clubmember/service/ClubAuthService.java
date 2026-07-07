@@ -1,5 +1,8 @@
 package com.duing.domain.clubmember.service;
 
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
@@ -22,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ClubAuthService {
 
     private final ClubMemberRepository clubMemberRepository;
+    private final ClubRepository clubRepository;
 
     public ClubMember requireLeader(Long userId, Long clubId) {
         ClubMember clubMember = findMembershipOrThrow(userId, clubId);
@@ -41,6 +45,23 @@ public class ClubAuthService {
 
     public ClubMember requireMember(Long userId, Long clubId) {
         return findMembershipOrThrow(userId, clubId);
+    }
+
+    /**
+     * 멤버십과 동아리 운영 상태(ACTIVE)를 함께 요구한다 — 비 ACTIVE 동아리의 멤버 내부 영역
+     * 접근 차단 (스펙 Part B). 소속 멤버에게는 존재 은닉이 무의미하므로 404 가 아닌 403 + 상태별 안내.
+     */
+    public ClubMember requireActiveMember(Long userId, Long clubId) {
+        ClubMember clubMember = findMembershipOrThrow(userId, clubId);
+        // soft-delete 된 동아리는 @SQLRestriction 으로 조회되지 않는다 — 잔존 멤버십(정합 깨짐)은 비멤버로 취급해
+        // lazy 프록시 초기화 실패(500)를 방지한다.
+        ClubStatus clubStatus = clubRepository.findById(clubId)
+                .map(Club::getStatus)
+                .orElseThrow(ClubMemberException.NotAMember::new);
+        if (clubStatus != ClubStatus.ACTIVE) {
+            throw new ClubMemberException.NotActiveClub(clubStatus);
+        }
+        return clubMember;
     }
 
     /** 멤버십 판정 — 클럽 미존재/비-멤버는 NotAMember 로 통일 (가드 응답 일관성). */

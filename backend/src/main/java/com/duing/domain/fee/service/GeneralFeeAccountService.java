@@ -63,7 +63,7 @@ public class GeneralFeeAccountService implements FeeAccountService {
 
     @Override
     public FeeAccountQuery getForMember(Long clubId, Long actorId) {
-        clubAuthService.requireMember(actorId, clubId);
+        clubAuthService.requireActiveMember(actorId, clubId);
         return toDecryptedQuery(loadByClubId(clubId));
     }
 

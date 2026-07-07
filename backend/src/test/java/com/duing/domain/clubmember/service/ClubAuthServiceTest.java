@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
@@ -18,7 +19,8 @@ import org.springframework.security.access.AccessDeniedException;
 class ClubAuthServiceTest {
 
     private final ClubMemberRepository repository = mock(ClubMemberRepository.class);
-    private final ClubAuthService service = new ClubAuthService(repository);
+    private final ClubRepository clubRepository = mock(ClubRepository.class);
+    private final ClubAuthService service = new ClubAuthService(repository, clubRepository);
 
     private ClubMember memberWithRole(ClubMemberRole role) {
         ClubMember member = mock(ClubMember.class);
