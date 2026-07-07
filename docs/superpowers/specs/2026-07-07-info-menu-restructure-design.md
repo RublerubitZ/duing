@@ -53,6 +53,13 @@
 10. **상세 페이지 정책 유지**: 정보 섹션에 속하더라도 상세 페이지(예: `/notices/[id]`)에서는
     기존 정책을 그대로 유지한다 — BottomNav 미노출(상세 숨김 정규식), InfoTabs 미노출.
     읽기에 집중하는 화면에는 섹션 전환 UI를 얹지 않는다. 향후 FAQ 상세 등이 생겨도 동일 원칙.
+11. **PC HomeNav Hover Quick Menu** (후속 추가, 사용자 확인 완료): HomeNav 의 "정보" 메뉴에
+    hover 시 허브 4개로 직행하는 Quick Menu 를 붙인다. **컴포넌트 단위 적용** — HomeNav 가
+    렌더되는 모든 화면(`/`·`/admin`·`/me`·`/me/settings`)에서 동작한다(사용자 확인: 전체 적용).
+    제외 조건은 자연 충족된다: ExploreNav 는 별도 구현이라 미적용, 정보 섹션 4페이지는 HomeNav
+    를 쓰지 않음, 모바일은 slimOnMobile 로 링크 숨김, 터치 태블릿은 hover 이벤트가 없어 메뉴가
+    뜨지 않고 탭=클릭=기존 이동. **클릭 정책 불변**: "정보" 클릭은 `getLastInfoPath()`,
+    Quick Menu 항목 클릭은 해당 URL 직행. 정보 섹션의 메인 내비게이션은 계속 InfoTabs 다.
 
 ## 3. 상세 설계
 
@@ -178,7 +185,21 @@ export const DEFAULT_INFO_PATH = '/notices'
 부수 라벨 통일: 홈 섹션(HomeQnaSection)의 "FAQ 전체 보기" 버튼 문구 →
 "자주 묻는 질문 전체 보기" (FAQ 명칭 통일 원칙).
 
-### 3.5 테스트
+### 3.5 InfoNavLink Hover Quick Menu (결정 11)
+
+`InfoNavLink` 내부에 경량 커스텀 hover 패널을 구현한다 (shadcn NavigationMenu 미설치·
+Radix DropdownMenu 는 클릭-오픈 전용이라 신규 의존성 없이 구현):
+
+- **열림**: 래퍼 mouse enter 또는 focus 진입(키보드 접근). **닫힘**: mouse leave,
+  포커스가 래퍼 밖으로 이탈, Escape. 트리거 링크에 `aria-expanded` 반영.
+- **패널**: `absolute top-full` + 상단 `pt-2` 브리지(패널 wrapper 의 패딩이라 hover 연속성
+  유지 — 데드존 없음). 항목은 `INFO_MENU_ITEMS` SoT 를 순회 — 새 정보 페이지 추가 시
+  Quick Menu 도 자동 반영. 스타일은 UserMenu 드롭다운과 같은 계열 토큰(bg-paper·border-line·
+  rounded-md·shadow, 항목 hover bg-cream).
+- **트리거 href 는 기존 그대로** `useLastInfoPath` — Quick Menu 항목만 직행 URL.
+- 터치 기기: hover 이벤트 부재로 메뉴가 열리지 않고 탭=클릭 이동(모바일·태블릿 제외 충족).
+
+### 3.6 테스트
 
 기존 테스트 갱신:
 
