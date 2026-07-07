@@ -89,24 +89,30 @@ public class S3FileStorageService implements FileStorageService {
     }
 
     @Override
-    public void delete(String fileUrl) {
+    public boolean delete(String fileUrl) {
         if (fileUrl == null || fileUrl.isBlank()) {
-            return;
+            return false;
         }
         String prefix = properties.publicBaseUrl() + "/";
         if (!fileUrl.startsWith(prefix)) {
+            // 이 구현이 관리하지 않는 URL 은 삭제를 확정할 수 없다 — true 를 주면 호출자(파기 배치)가
+            // 객체가 남아 있는데도 DB 행을 지워버린다.
             log.warn("외부 storage URL 스킵 — prefix 불일치");
-            return;
+            return false;
         }
         String key = fileUrl.substring(prefix.length());
 
         try {
+            // S3 DeleteObject 는 미존재 키에도 성공으로 응답한다 — "객체 부재 = 삭제 확정" 멱등
+            // 의미론이 API 차원에서 자연 충족된다.
             s3Client.deleteObject(DeleteObjectRequest.builder()
                     .bucket(properties.bucket())
                     .key(key)
                     .build());
+            return true;
         } catch (SdkException exception) {
             log.warn("S3 Storage 삭제 실패: key={}", key, exception);
+            return false;
         }
     }
 

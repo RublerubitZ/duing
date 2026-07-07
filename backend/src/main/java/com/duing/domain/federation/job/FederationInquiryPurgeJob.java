@@ -1,5 +1,6 @@
 package com.duing.domain.federation.job;
 
+import com.duing.domain.federation.config.FederationInquiryPurgeProperties;
 import com.duing.domain.federation.repository.FederationInquiryAnswerRepository;
 import com.duing.domain.federation.repository.FederationInquiryAttachmentPurgeTarget;
 import com.duing.domain.federation.repository.FederationInquiryAttachmentRepository;
@@ -98,28 +99,38 @@ public class FederationInquiryPurgeJob {
     }
 
     /**
-     * 첨부는 트랜잭션 밖에서 외부 스토리지 호출을 마친 뒤, 성공한 건만 개별 짧은 트랜잭션으로 행을
-     * 삭제한다(GeneralBankTransactionSyncService 전례 — 외부 호출을 DB 트랜잭션 안에 두지 않는다).
-     * 개별 항목의 실패는 warn 로그 후 skip 하고 다음 첨부로 계속 진행한다(DeadlineNotificationJob
-     * 루프 전례) — 실패한 행은 보존되어 다음 실행이 자연 재시도한다.
+     * 첨부는 트랜잭션 밖에서 외부 스토리지 호출을 마친 뒤, 삭제가 확정된 건만 개별 짧은 트랜잭션으로
+     * 행을 삭제한다(GeneralBankTransactionSyncService 전례 — 외부 호출을 DB 트랜잭션 안에 두지 않는다).
+     * 개별 항목의 실패는 skip 후 다음 첨부로 계속 진행한다(DeadlineNotificationJob 루프 전례) —
+     * 실패한 행은 보존되어 다음 실행이 자연 재시도한다.
      */
     private PurgeResult purgeAttachments(LocalDateTime cutoff) {
         List<FederationInquiryAttachmentPurgeTarget> targets = attachmentRepository.findPurgeTargets(cutoff);
         int purged = 0;
         int skipped = 0;
         for (FederationInquiryAttachmentPurgeTarget target : targets) {
-            try {
-                fileStorageService.delete(fileStorageService.toFileUrl(target.getStorageKey()));
-            } catch (Exception storageDeleteFailure) {
-                log.warn("[문의 보관기간 파기] 첨부 스토리지 삭제 실패로 행 보존(다음 실행 재시도) - attachmentId={}",
-                        target.getId(), storageDeleteFailure);
-                skipped++;
+            if (!deleteFromStorage(target)) {
+                skipped++; // 행 보존 → 다음 실행 자연 재시도
                 continue;
             }
             transactionTemplate.executeWithoutResult(status -> attachmentRepository.hardDeleteById(target.getId()));
             purged++;
         }
         return new PurgeResult(purged, skipped);
+    }
+
+    // FileStorageService 구현(S3/Local)은 스토리지 예외를 던지지 않고 warn 로그로 삼키는 best-effort
+    // 의미론이라 boolean 반환값이 유일한 성공 신호다 — false 반환과 (방어적으로) 예외 둘 다
+    // "삭제 미확정"으로 수렴시켜 행을 보존한다. 확정 없이 행을 지우면 일시적 스토리지 장애(503 등)에도
+    // PII 객체가 재시도 핸들 없이 영구 고아가 된다.
+    private boolean deleteFromStorage(FederationInquiryAttachmentPurgeTarget target) {
+        try {
+            return fileStorageService.delete(fileStorageService.toFileUrl(target.getStorageKey()));
+        } catch (Exception storageDeleteFailure) {
+            log.warn("[문의 보관기간 파기] 첨부 스토리지 삭제 실패로 행 보존(다음 실행 재시도) - attachmentId={}",
+                    target.getId(), storageDeleteFailure);
+            return false;
+        }
     }
 
     private record ScrubResult(int inquiriesScrubbed, int answersScrubbed) {}

@@ -29,7 +29,9 @@ public interface FederationInquiryAttachmentRepository extends JpaRepository<Fed
      */
     @Query(value = "SELECT a.id AS id, a.storage_key AS storageKey FROM federation_inquiry_attachment a "
             + "JOIN federation_inquiry i ON i.id = a.inquiry_id "
-            + "WHERE a.deleted_at < :cutoff OR i.deleted_at < :cutoff",
+            + "WHERE a.deleted_at < :cutoff OR i.deleted_at < :cutoff "
+            // 처리 순서 결정화 — 개별 실패 후 "다음 첨부 계속 처리" 계약을 순서 우연 없이 검증 가능하게 한다.
+            + "ORDER BY a.id ASC",
             nativeQuery = true)
     List<FederationInquiryAttachmentPurgeTarget> findPurgeTargets(@Param("cutoff") LocalDateTime cutoff);
 

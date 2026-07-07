@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.domain.federation.config.FederationInquiryPurgeProperties;
 import com.duing.domain.federation.entity.FederationInquiry;
 import com.duing.domain.federation.entity.FederationInquiryAnswer;
 import com.duing.domain.federation.entity.FederationInquiryAttachment;
@@ -34,6 +35,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * {@link FederationInquiryPurgeJob} 통합 테스트 (PiiRetentionJobTest 패턴 미러) — JdbcTemplate 로
@@ -143,6 +145,38 @@ class FederationInquiryPurgeJobTest extends IntegrationTestBase {
         assertThat(secondAnswer).isEqualTo(firstAnswer);
         // 첨부는 첫 실행에서 이미 물리 삭제됐으므로 두 번째 실행에서는 대상이 없어 delete 가 재호출되지 않는다.
         verify(fileStorageService, times(1)).delete(anyString());
+
+        // 상태 동등성만으로는 "가드 덕에 0건 매치"와 "동일 값으로 재UPDATE"를 구분할 수 없다(native
+        // UPDATE 는 행 상태로 재실행이 관측 불가) — scrub 메서드의 int 반환 0 을 직접 잠가 멱등 가드
+        // 제거 회귀를 잡는다. @Modifying 쿼리는 활성 트랜잭션이 필요해 TransactionTemplate 로 감싼다.
+        LocalDateTime cutoff = LocalDateTime.now(clock).minusDays(45);
+        TransactionTemplate transactionTemplate = new TransactionTemplate(platformTransactionManager);
+        Integer thirdInquiryScrubCount = transactionTemplate.execute(status ->
+                inquiryRepository.scrubExpiredDeletedInquiries(cutoff, "(파기된 문의)", "(보관기간 경과로 파기되었습니다)"));
+        Integer thirdAnswerScrubCount = transactionTemplate.execute(status ->
+                answerRepository.scrubAnswersOfExpiredInquiries(cutoff, "(보관기간 경과로 파기되었습니다)"));
+        assertThat(thirdInquiryScrubCount).isZero();
+        assertThat(thirdAnswerScrubCount).isZero();
+    }
+
+    @Test
+    @DisplayName("본문이 파기 문구와 동일하게 작성된 문의라도 제목과 종결사유는 파기된다 (멱등 술어가 세 컬럼 전체를 본다)")
+    void scrubsTitleAndClosedReasonEvenWhenContentAlreadyEqualsPlaceholder() {
+        stubFileStorage();
+        User author = saveUser();
+        // 사용자가 본문을 정확히 placeholder 문구로 작성한 극단 케이스 — content 단독 가드라면
+        // 이 행 전체가 파기를 비켜가 제목·종결사유의 PII 가 영구 잔존한다.
+        FederationInquiry inquiry = saveInquiry(author.getId(), "PII 가 담긴 제목", "(보관기간 경과로 파기되었습니다)");
+        inquiry.close("연락처 010-1234-5678 로 안내 완료");
+        inquiry = inquiryRepository.save(inquiry);
+        softDeleteInquiry(inquiry, 46);
+
+        job.run();
+
+        Map<String, Object> row = inquiryRow(inquiry.getId());
+        assertThat(row.get("title")).isEqualTo("(파기된 문의)");
+        assertThat(row.get("content")).isEqualTo("(보관기간 경과로 파기되었습니다)");
+        assertThat(row.get("closed_reason")).isNull();
     }
 
     @Test
@@ -165,14 +199,18 @@ class FederationInquiryPurgeJobTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("스토리지 삭제가 실패한 첨부는 행이 보존되고, 나머지 첨부는 계속 파기된다")
-    void keepsRowWhenStorageDeleteFailsButContinuesOtherAttachments() {
+    @DisplayName("스토리지 delete 가 false(삭제 미확정)를 반환한 첨부는 행이 보존되고, 나머지 첨부는 계속 파기된다")
+    void keepsRowWhenStorageDeleteReturnsFalseButContinuesOtherAttachments() {
+        // 실제 구현(S3/Local)의 실패 의미론 — 예외를 삼키고 false 만 반환한다. 반환값이 유일한 성공 신호.
         when(fileStorageService.toFileUrl(anyString()))
                 .thenAnswer(invocation -> "resolved:" + invocation.getArgument(0, String.class));
-        doThrow(new RuntimeException("스토리지 장애")).when(fileStorageService).delete("resolved:federation/inquiry/fails.jpg");
+        when(fileStorageService.delete("resolved:federation/inquiry/fails.jpg")).thenReturn(false);
+        when(fileStorageService.delete("resolved:federation/inquiry/ok.jpg")).thenReturn(true);
 
         User author = saveUser();
         FederationInquiry inquiry = saveInquiry(author.getId(), "실패 시나리오 문의", "실패 시나리오 본문");
+        // 실패 첨부를 먼저 시드(작은 id) — findPurgeTargets 가 ORDER BY id ASC 로 순서를 결정화하므로
+        // "실패 후에도 다음 첨부를 계속 처리"가 순서 우연이 아닌 계약으로 잠긴다.
         FederationInquiryAttachment failingAttachment = attachmentRepository.save(FederationInquiryAttachment.create(
                 inquiry, "federation/inquiry/fails.jpg", "fails.jpg", "image/jpeg", 1024L, 0));
         FederationInquiryAttachment okAttachment = attachmentRepository.save(FederationInquiryAttachment.create(
@@ -184,6 +222,29 @@ class FederationInquiryPurgeJobTest extends IntegrationTestBase {
 
         assertThat(attachmentCountByStorageKey("federation/inquiry/fails.jpg")).isEqualTo(1); // 행 보존 → 다음 실행 재시도
         assertThat(attachmentCountByStorageKey("federation/inquiry/ok.jpg")).isZero(); // 계속 처리되어 파기됨
+    }
+
+    @Test
+    @DisplayName("스토리지 delete 가 예외를 던져도(방어 경로) 행이 보존되고, 나머지 첨부는 계속 파기된다")
+    void keepsRowWhenStorageDeleteThrowsButContinuesOtherAttachments() {
+        when(fileStorageService.toFileUrl(anyString()))
+                .thenAnswer(invocation -> "resolved:" + invocation.getArgument(0, String.class));
+        doThrow(new RuntimeException("스토리지 장애")).when(fileStorageService).delete("resolved:federation/inquiry/throws.jpg");
+        when(fileStorageService.delete("resolved:federation/inquiry/next.jpg")).thenReturn(true);
+
+        User author = saveUser();
+        FederationInquiry inquiry = saveInquiry(author.getId(), "예외 시나리오 문의", "예외 시나리오 본문");
+        FederationInquiryAttachment throwingAttachment = attachmentRepository.save(FederationInquiryAttachment.create(
+                inquiry, "federation/inquiry/throws.jpg", "throws.jpg", "image/jpeg", 1024L, 0));
+        FederationInquiryAttachment nextAttachment = attachmentRepository.save(FederationInquiryAttachment.create(
+                inquiry, "federation/inquiry/next.jpg", "next.jpg", "image/jpeg", 1024L, 1));
+        softDeleteAttachment(throwingAttachment, 46);
+        softDeleteAttachment(nextAttachment, 46);
+
+        job.run();
+
+        assertThat(attachmentCountByStorageKey("federation/inquiry/throws.jpg")).isEqualTo(1);
+        assertThat(attachmentCountByStorageKey("federation/inquiry/next.jpg")).isZero();
     }
 
     @Test
@@ -222,9 +283,12 @@ class FederationInquiryPurgeJobTest extends IntegrationTestBase {
         assertThat(row.get("title")).isEqualTo("오설정 문의");
     }
 
+    // toFileUrl 은 키를 식별 가능한 URL 로 에코하고, delete 는 항상 삭제 확정(true)으로 응답한다 —
+    // mock 의 boolean 기본값은 false(=삭제 미확정 → 전부 skip)라 명시 stub 이 없으면 파기가 일어나지 않는다.
     private void stubFileStorage() {
         when(fileStorageService.toFileUrl(anyString()))
                 .thenAnswer(invocation -> "resolved:" + invocation.getArgument(0, String.class));
+        when(fileStorageService.delete(anyString())).thenReturn(true);
     }
 
     private FederationInquiry saveInquiry(Long authorId, String title, String content) {

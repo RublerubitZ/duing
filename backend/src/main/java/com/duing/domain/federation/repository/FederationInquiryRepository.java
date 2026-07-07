@@ -29,12 +29,14 @@ public interface FederationInquiryRepository extends JpaRepository<FederationInq
      * 보관기간(FederationInquiryPurgeJob 의 window)을 넘긴 soft-delete 문의의 title/content/
      * closed_reason 을 placeholder 로 비운다(행 보존 — 감사 이력 유지, users 익명화 전례). 대상이
      * soft-delete 행이라 @SQLRestriction 을 우회하려 nativeQuery 를 쓴다(PiiRetentionJob 전례).
-     * content <> :placeholderContent 로 재실행 시 이미 비운 행을 다시 건드리지 않는다(멱등 —
-     * ApplicationRepository.scrubExpiredApplicationAnswers 전례).
+     * 멱등 술어는 세 컬럼 전체를 본다(ApplicationRepository.scrubExpiredApplicationAnswers 의
+     * "이미 비운 행 제외" 전례 확장) — content 단독 가드면 사용자가 본문을 우연히 placeholder 문구와
+     * 동일하게 쓴 행에서 title/closed_reason 의 PII 가 파기를 영영 비켜간다.
      */
     @Modifying(clearAutomatically = true)
     @Query(value = "UPDATE federation_inquiry SET title = :placeholderTitle, content = :placeholderContent, "
-            + "closed_reason = NULL WHERE deleted_at < :cutoff AND content <> :placeholderContent",
+            + "closed_reason = NULL WHERE deleted_at < :cutoff "
+            + "AND (content <> :placeholderContent OR title <> :placeholderTitle OR closed_reason IS NOT NULL)",
             nativeQuery = true)
     int scrubExpiredDeletedInquiries(
             @Param("cutoff") LocalDateTime cutoff,

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.domain.federation.config.FederationInquiryPurgeJobConfig;
 import com.duing.domain.fee.job.MonthlyBillIssueJob;
 import com.duing.domain.fee.job.OverdueBillJob;
 import com.duing.domain.notification.job.DeadlineNotificationJob;
