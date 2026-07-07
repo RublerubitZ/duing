@@ -32,6 +32,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -43,6 +44,7 @@ class LeaderSuccessionAcceptanceTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -67,6 +69,9 @@ class LeaderSuccessionAcceptanceTest extends IntegrationTestBase {
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
         clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 승계 요청 제출은 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
     }
 
     private User saveUser(UserRole role) {
@@ -87,6 +92,22 @@ class LeaderSuccessionAcceptanceTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.CREATED.value())
                 .body("ok", equalTo(true))
                 .body("data", notNullValue());
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리에서는 회장 승계를 요청할 수 없다")
+    void inactiveClubCannotCreateSuccessionRequest() {
+        // 셋업은 ACTIVE — 운영 중단(INACTIVE) 상태로 직접 전환해 운영 행위 게이트(Part C)를 검증한다.
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("reason", "잠수 3개월"))
+                .when().post("/api/v1/clubs/" + clubId + "/leader-succession-requests")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
     }
 
     @Test
