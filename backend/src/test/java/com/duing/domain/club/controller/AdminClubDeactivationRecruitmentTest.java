@@ -28,6 +28,11 @@ import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -171,6 +176,70 @@ class AdminClubDeactivationRecruitmentTest extends IntegrationTestBase {
                 .when().get("/api/v1/recruitments/{recruitmentId}", recruitment.getId())
                 .then().statusCode(HttpStatus.NOT_FOUND.value())
                 .body("ok", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("운영 중단 전환과 모집 개설이 동시에 요청되어도 운영 중단 동아리에 OPEN 모집이 남지 않는다")
+    void concurrentDeactivationAndRecruitmentCreateLeavesNoOpenRecruitment() throws Exception {
+        Club club = saveClubWithLeader("경합모집개설클럽", ClubStatus.ACTIVE);
+        long clubId = club.getId();
+        String leaderToken = jwtTokenProvider.createToken(leaderUser.getId(), leaderUser.getRole().name());
+        String createRecruitmentBody = """
+                {"title":"경합모집","content":"내용","startDate":"%s","endDate":"%s",
+                 "capacity":5,"applicationMode":"EXTERNAL","externalFormUrl":"https://example.com/form"}
+                """.formatted(LocalDate.now(), LocalDate.now().plusDays(7));
+
+        // 트랜잭션 밖에서 실제 HTTP 요청 2개를 동시에 출발시켜, 모집 생성이 운영 중단 전환과 같은
+        // club 행 잠금으로 직렬화되는지 검증한다 (팀 전례: ExecutorService + CountDownLatch 실스레드 경합).
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        int deactivateStatusCode;
+        int createStatusCode;
+        try {
+            Future<Integer> deactivateFuture = executor.submit(() -> {
+                ready.countDown();
+                start.await(5, TimeUnit.SECONDS);
+                return RestAssured.given()
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(ContentType.JSON)
+                        .body("{\"status\":\"INACTIVE\"}")
+                        .when().patch("/api/v1/admin/clubs/{clubId}/status", clubId)
+                        .then().extract().statusCode();
+            });
+            Future<Integer> createFuture = executor.submit(() -> {
+                ready.countDown();
+                start.await(5, TimeUnit.SECONDS);
+                return RestAssured.given()
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                        .contentType(ContentType.JSON)
+                        .body(createRecruitmentBody)
+                        .when().post("/api/v1/leader/clubs/{clubId}/recruitments", clubId)
+                        .then().extract().statusCode();
+            });
+            ready.await(5, TimeUnit.SECONDS);
+            start.countDown();
+            deactivateStatusCode = deactivateFuture.get(30, TimeUnit.SECONDS);
+            createStatusCode = createFuture.get(30, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        // 전환은 어느 순서에서도 성공(204)하고, 생성은 순서에 따라 201(먼저) 또는 403(나중) — 5xx 는 없다.
+        Assertions.assertEquals(HttpStatus.NO_CONTENT.value(), deactivateStatusCode);
+        Assertions.assertTrue(
+                createStatusCode == HttpStatus.CREATED.value()
+                        || createStatusCode == HttpStatus.FORBIDDEN.value(),
+                "모집 생성 응답 코드: " + createStatusCode);
+
+        // 불변식: 어떤 직렬화 순서에서도 "INACTIVE 동아리 + OPEN 모집" 조합은 남지 않는다.
+        // (생성이 먼저면 벌크 마감이 새 모집까지 CLOSED, 전환이 먼저면 생성이 403)
+        Integer orphanOpenCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM recruitment r JOIN club c ON c.id = r.club_id "
+                        + "WHERE r.club_id = ? AND r.status = 'OPEN' AND c.status = 'INACTIVE' "
+                        + "AND r.deleted_at IS NULL",
+                Integer.class, clubId);
+        Assertions.assertEquals(0, orphanOpenCount);
     }
 
     private void patchStatus(Long clubId, ClubStatus next) {
