@@ -110,4 +110,11 @@ describe('BottomNav', () => {
     render(<BottomNav />);
     expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/notices');
   });
+
+  it('허브 페이지에서 정보 탭은 직전 허브가 아니라 현재 페이지로 이동한다', () => {
+    window.localStorage.setItem('duing:info-last-path', '/terms');
+    mockUsePathname.mockReturnValue('/faq');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/faq');
+  });
 });

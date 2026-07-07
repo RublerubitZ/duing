@@ -78,4 +78,18 @@ describe('ExploreNav — 정보 메뉴', () => {
     render(<ExploreNav />);
     expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/notices');
   });
+
+  it('허브 페이지에서는 정보 메뉴가 직전 허브가 아니라 현재 페이지로 이동한다', () => {
+    window.localStorage.setItem('duing:info-last-path', '/terms');
+    mockUsePathname.mockReturnValue('/faq');
+    render(<ExploreNav />);
+    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/faq');
+  });
+
+  it('활성 메뉴에 aria-current="page" 를 표시한다', () => {
+    mockUsePathname.mockReturnValue('/faq');
+    render(<ExploreNav />);
+    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '탐색' })).not.toHaveAttribute('aria-current');
+  });
 });

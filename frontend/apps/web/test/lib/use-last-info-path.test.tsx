@@ -31,4 +31,10 @@ describe('useLastInfoPath', () => {
     rerender({ pathname: '/faq' });
     expect(result.current).toBe('/faq');
   });
+
+  it('현재 경로가 허브 페이지면 저장값보다 현재 경로를 우선한다', () => {
+    window.localStorage.setItem(STORAGE_KEY, '/terms');
+    const { result } = renderHook(() => useLastInfoPath('/faq'));
+    expect(result.current).toBe('/faq');
+  });
 });

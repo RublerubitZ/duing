@@ -77,6 +77,7 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
               <li key={item.label}>
                 <Link
                   href={linkHref}
+                  aria-current={on ? 'page' : undefined}
                   className={`relative py-1 ${on ? 'text-ink-deep' : 'text-charcoal-3 hover:text-charcoal'}`}
                 >
                   {item.label}
