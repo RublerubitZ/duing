@@ -4,6 +4,7 @@ import static com.duing.domain.club.entity.QClub.club;
 import static com.duing.domain.favorite.entity.QClubFavorite.clubFavorite;
 import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
 
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.favorite.service.dto.query.FavoriteClubQuery;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.querydsl.core.types.Projections;
@@ -44,7 +45,11 @@ public class ClubFavoriteRepositoryImpl implements ClubFavoriteRepositoryCustom 
                 ))
                 .from(clubFavorite)
                 .join(clubFavorite.club, club)
-                .where(clubFavorite.user.id.eq(userId))
+                .where(
+                        clubFavorite.user.id.eq(userId),
+                        // 학생에게 노출되는 ACTIVE 동아리만 포함한다 (비공개 상태 노출 차단)
+                        club.status.eq(ClubStatus.ACTIVE)
+                )
                 .orderBy(clubFavorite.createdAt.desc())
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -53,7 +58,11 @@ public class ClubFavoriteRepositoryImpl implements ClubFavoriteRepositoryCustom 
         Long total = queryFactory
                 .select(clubFavorite.count())
                 .from(clubFavorite)
-                .where(clubFavorite.user.id.eq(userId))
+                .join(clubFavorite.club, club)
+                .where(
+                        clubFavorite.user.id.eq(userId),
+                        club.status.eq(ClubStatus.ACTIVE)
+                )
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total == null ? 0L : total);

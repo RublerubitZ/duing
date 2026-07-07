@@ -2,6 +2,7 @@ package com.duing.domain.recruitment.service;
 
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
@@ -100,6 +101,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     @Override
     public List<RecruitmentSummaryQuery> getByClubId(Long clubId) {
+        // 공개 엔드포인트 전용 — 비 ACTIVE 동아리는 존재 은닉을 위해 404 로 응답한다.
+        if (!clubRepository.existsByIdAndStatus(clubId, ClubStatus.ACTIVE)) {
+            throw new ClubException.ClubNotFoundException();
+        }
         LocalDate today = LocalDate.now();
         return recruitmentRepository
                 .findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId)

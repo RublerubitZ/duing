@@ -1,6 +1,7 @@
 package com.duing.domain.club.photo.service;
 
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.photo.entity.ClubPhoto;
 import com.duing.domain.club.photo.exception.ClubPhotoException;
@@ -31,6 +32,10 @@ public class GeneralClubPhotoService implements ClubPhotoService {
 
     @Override
     public List<ClubPhotoQuery> getPhotosByClubId(Long clubId) {
+        // 공개 엔드포인트 전용 — 비 ACTIVE 동아리는 존재 은닉을 위해 404 로 응답한다.
+        if (!clubRepository.existsByIdAndStatus(clubId, ClubStatus.ACTIVE)) {
+            throw new ClubException.ClubNotFoundException();
+        }
         return clubPhotoRepository.findByClubIdOrderByDisplayOrderAsc(clubId).stream()
                 .map(ClubPhotoQuery::from)
                 .toList();

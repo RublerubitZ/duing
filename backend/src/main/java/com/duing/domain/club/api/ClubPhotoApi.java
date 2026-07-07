@@ -25,7 +25,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 @Tag(name = "동아리 사진", description = "동아리 활동사진")
 public interface ClubPhotoApi {
 
-    @Operation(summary = "활동사진 목록 (공개)", description = "displayOrder 오름차순.")
+    @Operation(summary = "활동사진 목록 (공개)",
+            description = "displayOrder 오름차순. 운영 중(ACTIVE) 동아리만 조회할 수 있으며, 그 외 상태는 404 를 반환한다.")
     @GetMapping("/clubs/{clubId}/photos")
     ResponseEntity<ApiResponse<List<ClubPhotoResponse>>> listPhotos(@PathVariable Long clubId);
 

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.favorite.entity.ClubFavorite;
 import com.duing.domain.favorite.exception.FavoriteException;
@@ -27,6 +28,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.duing.common.TestcontainersConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -111,7 +114,9 @@ class ClubFavoriteServiceTest {
         favoriteService.remove(student.getId(), club.getId());
         favoriteService.remove(student.getId(), club.getId());
 
-        long count = favoriteRepository.findAllByUserIdOrderByCreatedAtDesc(student.getId()).size();
+        long count = favoriteRepository
+                .findAllByUserIdAndClubStatusOrderByCreatedAtDesc(student.getId(), ClubStatus.ACTIVE)
+                .size();
         assertThat(count).isZero();
     }
 
@@ -148,6 +153,76 @@ class ClubFavoriteServiceTest {
         assertThat(closedClubQuery.openRecruitmentCount()).isZero();
     }
 
+    @ParameterizedTest(name = "{0} 상태 동아리 찜 추가는 ClubNotFoundException")
+    @EnumSource(value = ClubStatus.class, names = {"PENDING_APPROVAL", "INACTIVE", "REJECTED"})
+    @DisplayName("학생에게 노출되지 않는 비 ACTIVE 동아리를 찜하면 ClubNotFoundException 이 발생한다")
+    void addFavoriteToNonActiveClubThrowsClubNotFound(ClubStatus nonActiveStatus) throws Exception {
+        User student = saveStudent("학생F");
+        Club nonActiveClub = saveClubWithStatus("비활성동아리F", nonActiveStatus);
+
+        assertThatThrownBy(() -> favoriteService.add(student.getId(), nonActiveClub.getId()))
+                .isInstanceOf(ClubException.ClubNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("찜한 동아리가 비 ACTIVE 로 전환되면 찜 목록과 ID 목록에서 제외된다")
+    void favoritesOfNonActiveClubAreHiddenFromListAndIds() throws Exception {
+        User student = saveStudent("학생G");
+        Club club = saveActiveClub("휴면전환동아리G");
+
+        favoriteService.add(student.getId(), club.getId());
+        flushAndClear();
+
+        changeClubStatus(club.getId(), ClubStatus.INACTIVE);
+
+        Page<FavoriteClubQuery> favoritePage =
+                favoriteService.getMyFavorites(student.getId(), PageRequest.of(0, 10));
+        assertThat(favoritePage.getTotalElements()).isZero();
+        assertThat(favoritePage.getContent()).isEmpty();
+        assertThat(favoriteService.getMyFavoriteClubIds(student.getId()))
+                .doesNotContain(club.getId());
+    }
+
+    @Test
+    @DisplayName("숨겨졌던 동아리가 다시 ACTIVE 로 전환되면 기존 찜이 목록에 다시 나타난다")
+    void favoriteReappearsWhenClubReactivated() throws Exception {
+        User student = saveStudent("학생H");
+        Club club = saveActiveClub("재활성동아리H");
+
+        favoriteService.add(student.getId(), club.getId());
+        flushAndClear();
+
+        changeClubStatus(club.getId(), ClubStatus.INACTIVE);
+        assertThat(favoriteService.getMyFavoriteClubIds(student.getId()))
+                .doesNotContain(club.getId());
+
+        changeClubStatus(club.getId(), ClubStatus.ACTIVE);
+
+        assertThat(favoriteService.getMyFavoriteClubIds(student.getId()))
+                .containsExactly(club.getId());
+        Page<FavoriteClubQuery> favoritePage =
+                favoriteService.getMyFavorites(student.getId(), PageRequest.of(0, 10));
+        assertThat(favoritePage.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("비 ACTIVE 동아리에 대한 기존 찜도 해제는 정상 동작한다")
+    void removeFavoriteOfNonActiveClubStillWorks() throws Exception {
+        User student = saveStudent("학생I");
+        Club club = saveActiveClub("해제가능동아리I");
+
+        favoriteService.add(student.getId(), club.getId());
+        flushAndClear();
+
+        changeClubStatus(club.getId(), ClubStatus.INACTIVE);
+
+        favoriteService.remove(student.getId(), club.getId());
+        flushAndClear();
+
+        assertThat(favoriteRepository.findByUserIdAndClubId(student.getId(), club.getId()))
+                .isEmpty();
+    }
+
     @Test
     @DisplayName("내 찜한 동아리 ID 목록은 찜한 시각 역순으로 반환된다")
     void favoriteClubIdsReturnedInDescCreatedAtOrder() throws Exception {
@@ -182,12 +257,27 @@ class ClubFavoriteServiceTest {
     }
 
     private Club saveActiveClub(String name) throws Exception {
+        return saveClubWithStatus(name, ClubStatus.ACTIVE);
+    }
+
+    private Club saveClubWithStatus(String name, ClubStatus status) throws Exception {
         String uniqueName = name + "-" + sequence.getAndIncrement();
         Club club = Club.create(uniqueName, ClubCategory.OTHER, "분과", "설명", null);
+        setClubStatus(club, status);
+        return clubRepository.save(club);
+    }
+
+    // 상태 전이 규칙(canTransitionTo)을 우회해 테스트 시나리오에 필요한 상태를 직접 만든다.
+    private void changeClubStatus(Long clubId, ClubStatus status) throws Exception {
+        Club club = clubRepository.findById(clubId).orElseThrow();
+        setClubStatus(club, status);
+        flushAndClear();
+    }
+
+    private void setClubStatus(Club club, ClubStatus status) throws Exception {
         Field statusField = Club.class.getDeclaredField("status");
         statusField.setAccessible(true);
-        statusField.set(club, ClubStatus.ACTIVE);
-        return clubRepository.save(club);
+        statusField.set(club, status);
     }
 
     private void saveRecruitment(Club club, String title, LocalDate start, LocalDate end,
