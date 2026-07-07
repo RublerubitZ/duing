@@ -6,8 +6,16 @@ vi.mock('next/navigation', () => ({ usePathname: () => mockUsePathname() }));
 
 import { InfoNavLink } from '../../app/_components/InfoNavLink';
 
+// hover 지원 기기 게이트(matchMedia('(hover: hover)')) 제어용 — 기본은 hover 지원(PC).
+const mockMatchMediaMatches = { value: true };
+
 beforeEach(() => {
   window.localStorage.clear();
+  mockMatchMediaMatches.value = true;
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockImplementation(() => ({ matches: mockMatchMediaMatches.value })),
+  );
 });
 
 describe('InfoNavLink — HomeNav 용 정보 링크 슬롯', () => {
@@ -92,6 +100,14 @@ describe('InfoNavLink — Hover Quick Menu', () => {
     expect(screen.getAllByRole('link')).toHaveLength(5);
 
     fireEvent.blur(trigger, { relatedTarget: document.body });
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
+  it('hover 미지원 기기(터치)에서는 mouseOver 로 메뉴가 열리지 않는다', () => {
+    mockMatchMediaMatches.value = false;
+    mockUsePathname.mockReturnValue('/');
+    render(<InfoNavLink />);
+    fireEvent.mouseOver(screen.getByRole('link', { name: '정보' }));
     expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 });

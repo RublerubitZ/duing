@@ -11,8 +11,8 @@ import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
  * HomeNav(Server Component)용 "정보" 링크 + PC Hover Quick Menu.
  * - "정보" 클릭: 마지막 방문 허브 경로(getLastInfoPath 단일 정책, 기본 /notices)로 이동.
  * - hover(또는 키보드 포커스 진입) 시 허브 4개로 직행하는 Quick Menu 를 펼친다 — HomeNav 가
- *   렌더되는 모든 화면에서 동작(스펙 결정 11, 컴포넌트 단위 적용). 터치 기기는 hover 이벤트가
- *   없어 메뉴 없이 클릭 이동만 동작한다(모바일·태블릿 제외는 자연 충족).
+ *   렌더되는 모든 화면에서 동작(스펙 결정 11, 컴포넌트 단위 적용). 터치 기기는 첫 탭이 hover 를
+ *   합성할 수 있어 matchMedia('(hover: hover)') 게이트로 막는다 — 탭은 곧바로 클릭 이동.
  * - ExploreNav/정보 섹션 내부에는 이 메뉴를 두지 않는다 — 섹션 내비게이션은 InfoTabs 담당.
  */
 export function InfoNavLink({ className }: { className?: string }) {
@@ -20,10 +20,18 @@ export function InfoNavLink({ className }: { className?: string }) {
   const lastInfoPath = useLastInfoPath(pathname);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
 
+  // 터치 기기는 첫 탭에 hover 합성 이벤트(ghost-hover)를 만들 수 있어, hover 지원 기기에서만
+  // 메뉴를 연다 — 터치의 탭은 곧바로 클릭 이동이어야 한다(스펙 결정 11). 키보드 포커스 열림은 유지.
+  const openIfHoverCapable = () => {
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(hover: hover)').matches) {
+      setQuickMenuOpen(true);
+    }
+  };
+
   return (
     <div
       className="relative"
-      onMouseEnter={() => setQuickMenuOpen(true)}
+      onMouseEnter={openIfHoverCapable}
       onMouseLeave={() => setQuickMenuOpen(false)}
       onFocus={() => setQuickMenuOpen(true)}
       onBlur={(blurEvent) => {
