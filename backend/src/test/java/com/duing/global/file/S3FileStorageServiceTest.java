@@ -167,10 +167,11 @@ class S3FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("공개 URL 에서 key 가 leading slash 없이 추출되어 DeleteObject 가 호출된다")
+    @DisplayName("공개 URL 에서 key 가 leading slash 없이 추출되어 DeleteObject 가 호출되고 삭제 확정(true)을 반환한다")
     void deleteExtractsKeyWithoutLeadingSlash() {
-        service.delete("https://files.duing.app/club/cover/abc.webp");
+        boolean deleted = service.delete("https://files.duing.app/club/cover/abc.webp");
 
+        assertThat(deleted).isTrue();
         ArgumentCaptor<software.amazon.awssdk.services.s3.model.DeleteObjectRequest> captor =
                 ArgumentCaptor.forClass(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class);
         verify(s3Client).deleteObject(captor.capture());
@@ -196,30 +197,33 @@ class S3FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("publicBaseUrl 과 prefix 가 일치하지 않는 URL 은 삭제 호출 없이 무시된다")
+    @DisplayName("publicBaseUrl 과 prefix 가 일치하지 않는 URL 은 삭제 호출 없이 무시되고 삭제 미확정(false)을 반환한다")
     void deleteIgnoresUrlOutsideBaseUrl() {
-        service.delete("https://other-host.example/club/cover/abc.webp");
+        boolean deleted = service.delete("https://other-host.example/club/cover/abc.webp");
 
+        assertThat(deleted).isFalse(); // 관리 밖 URL 을 true 로 응답하면 파기 배치가 객체가 남은 행을 지운다
         verify(s3Client, never()).deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class));
     }
 
     @Test
-    @DisplayName("삭제 중 SdkException 이 발생해도 예외가 전파되지 않고 warn 로그만 남는다")
-    void deleteSwallowsSdkException() {
+    @DisplayName("삭제 중 SdkException 이 발생해도 예외가 전파되지 않고 삭제 미확정(false)을 반환한다")
+    void deleteSwallowsSdkExceptionAndReturnsFalse() {
         when(s3Client.deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class)))
                 .thenThrow(software.amazon.awssdk.awscore.exception.AwsServiceException.builder()
                         .message("conflict").build());
 
-        assertThatCode(() -> service.delete("https://files.duing.app/club/cover/abc.webp"))
+        // 예외를 삼키는 best-effort 의미론이므로 false 반환값이 호출자(파기 배치)의 유일한 실패 신호다.
+        assertThatCode(() ->
+                assertThat(service.delete("https://files.duing.app/club/cover/abc.webp")).isFalse())
                 .doesNotThrowAnyException();
     }
 
     @Test
-    @DisplayName("null 또는 빈 URL 은 delete 호출 없이 즉시 반환된다")
+    @DisplayName("null 또는 빈 URL 은 delete 호출 없이 삭제 미확정(false)을 반환한다")
     void deleteHandlesNullAndBlank() {
-        service.delete(null);
-        service.delete("");
-        service.delete("   ");
+        assertThat(service.delete(null)).isFalse();
+        assertThat(service.delete("")).isFalse();
+        assertThat(service.delete("   ")).isFalse();
 
         verify(s3Client, never()).deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class));
     }

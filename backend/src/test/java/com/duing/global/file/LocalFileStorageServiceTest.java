@@ -74,6 +74,36 @@ class LocalFileStorageServiceTest {
     }
 
     @Test
+    @DisplayName("존재하는 파일을 delete 하면 파일이 제거되고 삭제 확정(true)을 반환한다")
+    void deleteReturnsTrueAndRemovesExistingFile() throws IOException {
+        Path directory = rootDir.resolve("federation/inquiry");
+        Files.createDirectories(directory);
+        Path file = directory.resolve("purge-target.jpg");
+        Files.write(file, "bytes".getBytes());
+
+        boolean deleted = service.delete("/files/federation/inquiry/purge-target.jpg");
+
+        assertThat(deleted).isTrue();
+        assertThat(Files.exists(file)).isFalse();
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 파일의 delete 도 삭제 확정(true)을 반환한다 (객체 부재 = 삭제 확정, 멱등)")
+    void deleteReturnsTrueForMissingFile() {
+        // 파기 배치 재실행·크래시 윈도우에서 이미 지워진 객체를 다시 지워도 성공으로 수렴해야
+        // 남은 DB 행이 영구 재시도 루프에 빠지지 않는다.
+        assertThat(service.delete("/files/federation/inquiry/already-gone.jpg")).isTrue();
+    }
+
+    @Test
+    @DisplayName("rootDir 밖을 가리키는 URL 과 null/빈 URL 의 delete 는 삭제 미확정(false)을 반환한다")
+    void deleteReturnsFalseForUnmanagedUrls() {
+        assertThat(service.delete("/files/../../etc/passwd")).isFalse(); // 경로 탈출 — 관리 밖 경로
+        assertThat(service.delete(null)).isFalse();
+        assertThat(service.delete("")).isFalse();
+    }
+
+    @Test
     @DisplayName("존재 확인은 통과했지만 실제 읽기 권한이 없는 파일은 null 이 아니라 IllegalStateException 을 전파한다")
     void downloadPropagatesIOExceptionAfterExistenceCheckPasses() throws IOException {
         Path directory = rootDir.resolve("federation/inquiry");

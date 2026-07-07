@@ -54,12 +54,23 @@ duing:
   notification:
     jobs:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:true}
+      retention:
+        # 알림 30일 파기 잡도 다른 잡들과 동일한 하드코딩 관례로 운영 기본 활성화한다. base
+        # application.yml 기본값은 false 라 지금까지 이 오버라이드가 없어 prod 에서 조용히 꺼져
+        # 있었다(운영 갭) — 문의 알림(dedupKey FEDERATION_INQUIRY_*) 등의 제목이 notification body 에
+        # 무기한 잔존하는 문제를 이 활성화로 봉합한다. DUING_NOTIFICATION_RETENTION_ENABLED=false 로 끌 수 있다.
+        enabled: ${DUING_NOTIFICATION_RETENTION_ENABLED:true}
   # 개인정보 처리방침의 45일 보관/파기 잡을 운영에서만 활성화한다. base application.yml 기본값은 false
   # (로컬은 꺼짐) 이고 여기서만 켜서 운영 DB 의 soft-delete PII 가 45일 후 비식별화/삭제되게 한다.
   # DUING_PII_RETENTION_ENABLED=false 로 끌 수 있다.
   privacy:
     retention:
       enabled: ${DUING_PII_RETENTION_ENABLED:true}
+  # 삭제된 총동연 문의 본문·첨부 파기 잡 — 다른 파기 잡들과 동일한 하드코딩 관례로 운영 기본
+  # 활성화한다. DUING_FEDERATION_INQUIRY_PURGE_ENABLED=false 로 끌 수 있다.
+  federation-inquiry:
+    purge:
+      enabled: ${DUING_FEDERATION_INQUIRY_PURGE_ENABLED:true}
   # 시설 크롤 스케줄러 — 운영에서는 항상 켠다. 별도 env 셋업 누락으로 조용히 꺼지는 사고를 막는다.
   # 끄고 싶으면 DUING_FACILITY_CRAWLER_ENABLED=false 로 오버라이드한다.
   facility:

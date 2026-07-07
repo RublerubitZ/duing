@@ -68,9 +68,9 @@ public class LocalFileStorageService implements FileStorageService {
     }
 
     @Override
-    public void delete(String fileUrl) {
+    public boolean delete(String fileUrl) {
         if (fileUrl == null || fileUrl.isBlank()) {
-            return;
+            return false;
         }
         try {
             // 절대 URL (`http://.../files/...`) 과 상대 경로 (`/files/...`) 모두 지원.
@@ -79,11 +79,16 @@ public class LocalFileStorageService implements FileStorageService {
                     ? fileUrl.substring(filesIndex + "/files/".length())
                     : fileUrl;
             Path target = rootDir.resolve(relative).normalize();
-            if (target.startsWith(rootDir)) {
-                Files.deleteIfExists(target);
+            if (!target.startsWith(rootDir)) {
+                // rootDir 밖(경로 탈출)은 이 구현이 관리하지 않는 경로 — 삭제 확정 불가.
+                return false;
             }
+            // 삭제 성공·파일 부재 모두 "객체가 더 이상 없음" = 삭제 확정(멱등).
+            Files.deleteIfExists(target);
+            return true;
         } catch (IOException exception) {
             log.warn("파일 삭제 실패: {}", fileUrl, exception);
+            return false;
         }
     }
 

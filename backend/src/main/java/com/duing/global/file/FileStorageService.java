@@ -12,7 +12,18 @@ public interface FileStorageService {
      */
     String upload(MultipartFile file, String directory, String contentType);
 
-    void delete(String fileUrl);
+    /**
+     * 파일을 삭제하고 삭제 확정 여부를 반환한다.
+     *
+     * <p>구현(S3/Local)은 스토리지 예외를 던지지 않고 warn 로그로 삼키는 best-effort 의미론이므로,
+     * 이 반환값이 호출자에게 전달되는 <b>유일한 성공 신호</b>다. 파기 배치처럼 "객체 삭제 확정 후에만
+     * DB 행을 지워야 하는" 호출자는 반드시 이 값을 확인해야 한다.
+     *
+     * @return {@code true} = 삭제 확정. 객체가 애초에 없던 경우를 포함한다(멱등 — 재실행이나 크래시
+     * 윈도우에서 이미 지워진 객체도 성공으로 간주). {@code false} = 삭제 미확정(스토리지 장애,
+     * 이 구현이 관리하지 않는 URL 등) — 재시도 책임은 호출자에게 있다.
+     */
+    boolean delete(String fileUrl);
 
     /**
      * 공개 URL 에서 스토리지 키를 추출한다.

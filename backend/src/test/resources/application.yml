@@ -78,6 +78,10 @@ duing:
     retention:
       enabled: false
       window: P1Y
+  federation-inquiry:
+    purge:
+      enabled: false
+      window: P45D
   public-activity:
     window-days: 30
     default-limit: 10
