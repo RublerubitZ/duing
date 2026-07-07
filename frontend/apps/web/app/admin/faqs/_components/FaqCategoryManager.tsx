@@ -5,21 +5,26 @@ import {
   useFederationFaqCategoriesQuery,
   useAdminFederationFaqCategoryCreateMutation,
   useAdminFederationFaqCategoryUpdateMutation,
+  useAdminFederationFaqCategoryDeleteMutation,
 } from '@duing/hooks';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
+import { FaqCategoryDeleteDialog } from './FaqCategoryDeleteDialog';
 
 // 카테고리 관리 카드 — 목록 상단 접이식. 이름 인라인 수정 + 순서 위/아래(인접 sortOrder 교환,
-// update 2회 순차 호출) + 신규 생성. 삭제는 P2(스펙 §8) — 여기서는 구현하지 않는다.
+// update 2회 순차 호출) + 신규 생성 + 삭제(빈 카테고리는 즉시, FAQ 보유 시 이관 대상 선택).
 export function FaqCategoryManager() {
   const [expanded, setExpanded] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
   const [newName, setNewName] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
 
   const categoriesQuery = useFederationFaqCategoriesQuery();
   const createMutation = useAdminFederationFaqCategoryCreateMutation();
   const updateMutation = useAdminFederationFaqCategoryUpdateMutation();
+  const deleteMutation = useAdminFederationFaqCategoryDeleteMutation();
 
   const categories = categoriesQuery.data ?? [];
 
@@ -83,6 +88,22 @@ export function FaqCategoryManager() {
     );
   };
 
+  const handleDeleteConfirm = (moveToCategoryId: number | null) => {
+    if (!deleteTarget) return;
+    setDeleteErrorMessage(null);
+    deleteMutation.mutate(
+      { categoryId: deleteTarget.id, moveToCategoryId: moveToCategoryId ?? undefined },
+      {
+        onSuccess: () => {
+          setDeleteTarget(null);
+          setDeleteErrorMessage(null);
+        },
+        onError: (error) =>
+          setDeleteErrorMessage(extractErrorMessage(error) ?? '카테고리 삭제에 실패했습니다.'),
+      },
+    );
+  };
+
   return (
     <div className="rounded-xl border border-line bg-paper">
       <button
@@ -133,6 +154,16 @@ export function FaqCategoryManager() {
                   aria-label="카테고리 아래로 이동"
                   className="grid h-7 w-7 place-items-center rounded text-charcoal-2 hover:bg-graysoft disabled:opacity-30"
                 >▼</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteErrorMessage(null);
+                    setDeleteTarget({ id: category.id, name: category.name });
+                  }}
+                  disabled={updateMutation.isPending || deleteMutation.isPending}
+                  aria-label="카테고리 삭제"
+                  className="grid h-7 w-7 place-items-center rounded text-coral hover:bg-coral/10 disabled:opacity-30"
+                >×</button>
               </div>
 
               {editingId === category.id ? (
@@ -170,6 +201,22 @@ export function FaqCategoryManager() {
             >추가</button>
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <FaqCategoryDeleteDialog
+          category={deleteTarget}
+          otherCategories={categories
+            .filter((category) => category.id !== deleteTarget.id)
+            .map((category) => ({ id: category.id, name: category.name }))}
+          isPending={deleteMutation.isPending}
+          errorMessage={deleteErrorMessage}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => {
+            setDeleteTarget(null);
+            setDeleteErrorMessage(null);
+          }}
+        />
       )}
     </div>
   );

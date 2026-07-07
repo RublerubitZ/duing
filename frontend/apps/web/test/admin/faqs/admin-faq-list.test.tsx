@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import type { AdminFederationFaqSummary, AdminFederationFaqSearchMiss } from '@duing/types';
+import type { AdminFederationFaqSummary, AdminFederationFaqSearchMiss, FederationFaqCategory } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 vi.mock('next/link', () => ({
@@ -15,6 +15,7 @@ const mockUseAdminFaqSearchMissesQuery = vi.fn();
 const mockUpdateMutate = vi.fn();
 const mockDeleteMutate = vi.fn();
 const mockReorderMutate = vi.fn();
+const mockCategoryDeleteMutate = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useFederationFaqCategoriesQuery: (...args: unknown[]) => mockUseFederationFaqCategoriesQuery(...args),
@@ -26,6 +27,7 @@ vi.mock('@duing/hooks', () => ({
   // 모듈 전체 모킹 시 정의되어 있지 않으면 호출 시 TypeError 가 난다.
   useAdminFederationFaqCategoryCreateMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useAdminFederationFaqCategoryUpdateMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useAdminFederationFaqCategoryDeleteMutation: () => ({ mutate: mockCategoryDeleteMutate, isPending: false }),
   // FaqSearchMissPanel(접힌 상태로 렌더)가 물고 있는 훅 — 위와 동일한 이유로 팩토리에 위임 필요.
   useAdminFederationFaqSearchMissesQuery: (...args: unknown[]) => mockUseAdminFaqSearchMissesQuery(...args),
 }));
@@ -47,6 +49,15 @@ function makeAdminFaqItem(overrides: Partial<AdminFederationFaqSummary> = {}): A
     helpfulCount: 0,
     notHelpfulCount: 0,
     updatedAt: '2026-05-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+function makeCategory(overrides: Partial<FederationFaqCategory> = {}): FederationFaqCategory {
+  return {
+    id: 1,
+    name: '일반',
+    sortOrder: 0,
     ...overrides,
   };
 }
@@ -89,6 +100,7 @@ describe('AdminFaqListPage', () => {
     mockUpdateMutate.mockReset();
     mockDeleteMutate.mockReset();
     mockReorderMutate.mockReset();
+    mockCategoryDeleteMutate.mockReset();
   });
 
   it('테이블에 공개/비공개 뱃지·질문·카테고리명이 노출된다', () => {
@@ -251,5 +263,72 @@ describe('AdminFaqListPage', () => {
     // 페이지 버튼 클릭이 훅의 page 파라미터로 이어지는지(onChange 배선) 단언한다.
     fireEvent.click(within(paginationNav).getByRole('button', { name: '2' }));
     expect(mockUseAdminFaqSearchMissesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10 }, true);
+  });
+
+  describe('카테고리 삭제', () => {
+    function renderWithCategories() {
+      mockListAndFullList([]);
+      mockUseFederationFaqCategoriesQuery.mockReturnValue({
+        data: [makeCategory({ id: 1, name: '일반', sortOrder: 0 }), makeCategory({ id: 2, name: '행사', sortOrder: 1 })],
+        isLoading: false,
+        isSuccess: true,
+      });
+
+      render(<AdminFaqListPage />);
+      // 카테고리 매니저는 기본 접힘 상태로 렌더되므로 펼쳐야 행이 노출된다.
+      fireEvent.click(screen.getByRole('button', { name: /카테고리 관리/ }));
+    }
+
+    it('카테고리 행에 삭제 버튼이 노출되고 클릭하면 삭제 다이얼로그가 열린다', () => {
+      renderWithCategories();
+
+      const deleteButtons = screen.getAllByRole('button', { name: '카테고리 삭제' });
+      expect(deleteButtons).toHaveLength(2);
+
+      fireEvent.click(deleteButtons[0]!);
+
+      expect(screen.getByText('카테고리를 삭제할까요?')).toBeInTheDocument();
+    });
+
+    it('이관 없이 삭제를 확인하면 moveToCategoryId 없이 요청된다', () => {
+      renderWithCategories();
+
+      fireEvent.click(screen.getAllByRole('button', { name: '카테고리 삭제' })[0]!);
+      fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+
+      expect(mockCategoryDeleteMutate).toHaveBeenCalledWith(
+        { categoryId: 1, moveToCategoryId: undefined },
+        expect.anything(),
+      );
+    });
+
+    it('이관 대상을 선택하고 확인하면 moveToCategoryId가 함께 요청된다', () => {
+      renderWithCategories();
+
+      fireEvent.click(screen.getAllByRole('button', { name: '카테고리 삭제' })[0]!);
+      fireEvent.click(screen.getByRole('radio', { name: /행사/ }));
+      fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+
+      expect(mockCategoryDeleteMutate).toHaveBeenCalledWith(
+        { categoryId: 1, moveToCategoryId: 2 },
+        expect.anything(),
+      );
+    });
+
+    it('삭제가 409로 실패하면 다이얼로그에 서버 안내가 표시된다', () => {
+      mockCategoryDeleteMutate.mockImplementation((_variables, options) => {
+        options?.onError?.({ message: 'FAQ가 있는 카테고리는 삭제할 수 없습니다. 이관할 카테고리를 지정해 주세요.' });
+      });
+      renderWithCategories();
+
+      fireEvent.click(screen.getAllByRole('button', { name: '카테고리 삭제' })[0]!);
+      fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'FAQ가 있는 카테고리는 삭제할 수 없습니다. 이관할 카테고리를 지정해 주세요.',
+      );
+      // 다이얼로그가 닫히지 않고 재선택 가능한 상태로 유지된다.
+      expect(screen.getByText('카테고리를 삭제할까요?')).toBeInTheDocument();
+    });
   });
 });
