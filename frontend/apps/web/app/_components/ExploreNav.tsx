@@ -4,20 +4,28 @@ import { Link } from 'next-view-transitions';
 import { usePathname } from 'next/navigation';
 
 import { cn } from '@/app/_lib/cn';
+import { DEFAULT_INFO_PATH, isInfoSection, type InfoPath } from '@/app/_lib/infoMenu';
+import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
 
 import { BrandMark } from './BrandMark';
 import { NotificationBell } from './NotificationBell';
 import { HomeNavAuthSlot } from './HomeNavAuthSlot';
 
-const NAV_ITEMS = [
+type NavItem = {
+  label: string;
+  href: '/' | '/clubs' | '/facilities' | '/calendar' | InfoPath;
+  /** 단일 prefix 로 판정할 수 없는 항목(정보)만 지정 — 있으면 기본 exact+prefix 규칙 대신 사용. */
+  match?: (pathname: string) => boolean;
+};
+
+const NAV_ITEMS: readonly NavItem[] = [
   { label: '홈', href: '/' },
   { label: '탐색', href: '/clubs' },
   { label: '시설', href: '/facilities' },
   { label: '캘린더', href: '/calendar' },
-  { label: '공지', href: '/notices' },
-] as const;
-
-type NavItem = (typeof NAV_ITEMS)[number];
+  // 정보: /notices·/faq·/terms·/introduce 전체에서 활성, 이동은 마지막 방문 허브 경로(아래 참고).
+  { label: '정보', href: DEFAULT_INFO_PATH, match: isInfoSection },
+];
 
 type Props = {
   /** pathname 대신 레이블로 강제 활성화할 때 사용. */
@@ -29,6 +37,7 @@ type Props = {
 
 export function ExploreNav({ active, floating = false, slimOnMobile = false }: Props) {
   const pathname = usePathname();
+  const lastInfoPath = useLastInfoPath(pathname);
 
   // 동아리·공지 상세(/clubs/{id}, /notices/{id})는 자체 상단 액션바를 쓰는 포커스 뷰라 모바일에서 이 브랜드 바를 숨긴다.
   // 시설 상세(/facilities/{id})는 자체 액션바가 없는 유틸리티 뷰라 브랜드 바를 유지한다.
@@ -36,6 +45,7 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
 
   const isActive = (item: NavItem): boolean => {
     if (active) return item.label === active;
+    if (item.match) return item.match(pathname);
     if (item.href === '/') return pathname === '/';
     return pathname === item.href || pathname.startsWith(item.href + '/');
   };
@@ -61,10 +71,12 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
         >
           {NAV_ITEMS.map((item) => {
             const on = isActive(item);
+            // match 가 있는 항목(정보)은 고정 href 대신 마지막 방문 허브 경로로 이동한다(getLastInfoPath 단일 정책).
+            const linkHref = item.match ? lastInfoPath : item.href;
             return (
               <li key={item.label}>
                 <Link
-                  href={item.href}
+                  href={linkHref}
                   className={`relative py-1 ${on ? 'text-ink-deep' : 'text-charcoal-3 hover:text-charcoal'}`}
                 >
                   {item.label}

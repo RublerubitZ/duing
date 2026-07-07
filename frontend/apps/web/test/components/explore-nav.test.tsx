@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUsePathname = vi.fn<() => string>();
 vi.mock('next/navigation', () => ({ usePathname: () => mockUsePathname() }));
@@ -14,7 +14,11 @@ vi.mock('../../app/_components/HomeNavAuthSlot', () => ({ HomeNavAuthSlot: () =>
 
 import { ExploreNav } from '../../app/_components/ExploreNav';
 
-describe('ExploreNav — 동아리 상세 모바일 숨김', () => {
+beforeEach(() => {
+  window.localStorage.clear();
+});
+
+describe('ExploreNav — 동아리·공지 상세 모바일 숨김', () => {
   it('동아리 목록(/clubs)에서는 브랜드 바가 모바일에서도 노출(hidden 아님)', () => {
     mockUsePathname.mockReturnValue('/clubs');
     render(<ExploreNav slimOnMobile />);
@@ -37,9 +41,46 @@ describe('ExploreNav — 동아리 상세 모바일 숨김', () => {
 
   it('공지 상세(/notices/123)에서도 모바일에서 브랜드 바를 숨긴다', () => {
     mockUsePathname.mockReturnValue('/notices/123');
-    render(<ExploreNav active="공지" slimOnMobile />);
+    render(<ExploreNav slimOnMobile />);
     const banner = screen.getByRole('banner');
     expect(banner).toHaveClass('hidden');
     expect(banner).toHaveClass('md:block');
+  });
+});
+
+describe('ExploreNav — 정보 메뉴', () => {
+  it('메뉴 라벨은 공지가 아니라 정보다', () => {
+    mockUsePathname.mockReturnValue('/clubs');
+    render(<ExploreNav />);
+    expect(screen.getByRole('link', { name: '정보' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '공지' })).not.toBeInTheDocument();
+  });
+
+  it.each(['/notices', '/faq', '/terms', '/introduce', '/notices/123'])(
+    '%s 에서 정보 메뉴가 활성이다',
+    (path) => {
+      mockUsePathname.mockReturnValue(path);
+      render(<ExploreNav />);
+      expect(screen.getByRole('link', { name: '정보' })).toHaveClass('text-ink-deep');
+    },
+  );
+
+  it('정보 섹션 밖(/clubs)에서는 정보 메뉴가 비활성이다', () => {
+    mockUsePathname.mockReturnValue('/clubs');
+    render(<ExploreNav />);
+    expect(screen.getByRole('link', { name: '정보' })).not.toHaveClass('text-ink-deep');
+  });
+
+  it('정보 메뉴는 마지막 방문 허브 경로로 이동한다', () => {
+    window.localStorage.setItem('duing:info-last-path', '/faq');
+    mockUsePathname.mockReturnValue('/clubs');
+    render(<ExploreNav />);
+    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/faq');
+  });
+
+  it('방문 이력이 없으면 정보 메뉴는 /notices 로 이동한다', () => {
+    mockUsePathname.mockReturnValue('/clubs');
+    render(<ExploreNav />);
+    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/notices');
   });
 });
