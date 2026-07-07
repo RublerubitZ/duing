@@ -43,6 +43,10 @@ public class ClubAuthService {
         return clubMember;
     }
 
+    /**
+     * 현재 프로덕션 호출처 없음 — 비 ACTIVE 접근 정책(Part B) 도입으로 requireActiveMember 가 멤버 검증의
+     * 기본 진입점이다. 상태 무관 멤버십 검증이 필요한 새 기능을 위해 유지한다.
+     */
     public ClubMember requireMember(Long userId, Long clubId) {
         return findMembershipOrThrow(userId, clubId);
     }
@@ -64,7 +68,11 @@ public class ClubAuthService {
         return clubMember;
     }
 
-    /** 멤버십 판정 — 클럽 미존재/비-멤버는 NotAMember 로 통일 (가드 응답 일관성). */
+    /**
+     * 멤버십 판정 — 클럽 미존재/비-멤버는 NotAMember 로 통일 (가드 응답 일관성).
+     * 현재 프로덕션 호출처 없음 — 비 ACTIVE 접근 정책(Part B) 도입으로 requireActiveMember 가 멤버 검증의
+     * 기본 진입점이다. 상태 무관 멤버십 검증이 필요한 새 기능을 위해 유지한다.
+     */
     public ClubMember resolveMembership(Long userId, Long clubId) {
         return clubMemberRepository.findByClubIdAndUserId(clubId, userId)
                 .orElseThrow(ClubMemberException.NotAMember::new);

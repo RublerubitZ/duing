@@ -28,6 +28,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -39,6 +40,7 @@ class ClubMembershipControllerTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
     private Long clubId;
@@ -49,6 +51,9 @@ class ClubMembershipControllerTest extends IntegrationTestBase {
         Club club = clubRepository.save(Club.create("테스트동아리",
                 ClubCategory.ACADEMIC, null, "설명", null));
         clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 멤버십 조회는 ACTIVE 동아리만 허용되므로,
+        // 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
     }
 
     private User saveUser() {
@@ -122,6 +127,21 @@ class ClubMembershipControllerTest extends IntegrationTestBase {
                 .body("data.permissions.canPostNotice", equalTo(false))
                 .body("data.permissions.canEditNotice", equalTo(false))
                 .body("data.permissions.canDeleteNotice", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리의 멤버는 멤버십 정보를 조회할 수 없다")
+    void inactiveClubMemberCannotGetMembership() {
+        User user = saveUser();
+        saveMembership(user, ClubMemberRole.MEMBER);
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(user))
+                .when().get("/api/v1/clubs/" + clubId + "/membership")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
     }
 
     @Test

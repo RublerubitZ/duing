@@ -28,6 +28,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -39,6 +40,7 @@ class NoticePublicAcceptanceTest extends IntegrationTestBase {
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -87,6 +89,8 @@ class NoticePublicAcceptanceTest extends IntegrationTestBase {
         seedPublicNotice("학교 공지");
 
         Club club = clubRepository.save(Club.create("알고리즘 동아리", ClubCategory.ACADEMIC, null, "설명", null));
+        // Club.create 기본 상태는 PENDING_APPROVAL — 내부 공지 가시성은 ACTIVE 동아리만 인정된다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", club.getId());
         User leaderUser = saveUser(UserRole.STUDENT);
         clubMemberRepository.save(ClubMember.asLeader(club, leaderUser));
         String leaderToken = jwtTokenProvider.createToken(leaderUser.getId(), leaderUser.getRole().name());

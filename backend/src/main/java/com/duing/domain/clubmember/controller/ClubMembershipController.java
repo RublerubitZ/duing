@@ -26,7 +26,7 @@ public class ClubMembershipController implements ClubMembershipApi {
             Long clubId,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        ClubMember clubMember = clubAuthService.resolveMembership(currentUser.id(), clubId);
+        ClubMember clubMember = clubAuthService.requireActiveMember(currentUser.id(), clubId);
         return ResponseEntity.ok(ApiResponse.success(MyClubMembershipResponse.from(clubMember)));
     }
 }

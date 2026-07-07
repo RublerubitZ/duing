@@ -72,12 +72,19 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     Optional<ClubMember> findByClubIdAndUserIdForUpdate(@Param("clubId") Long clubId,
                                                         @Param("userId") Long userId);
 
-    @Query("SELECT cm.club.id FROM ClubMember cm WHERE cm.user.id = :userId")
+    /** 공지 뷰어 스코프 전용 — 비 ACTIVE 동아리는 내부 공지 가시성에서 제외한다 (스펙 Part B). */
+    @Query("""
+            SELECT cm.club.id FROM ClubMember cm
+            WHERE cm.user.id = :userId
+              AND cm.club.status = com.duing.domain.club.entity.ClubStatus.ACTIVE
+            """)
     List<Long> findClubIdsByUserId(@Param("userId") Long userId);
 
+    /** 공지 뷰어 스코프 전용 — 비 ACTIVE 동아리는 내부 공지 가시성에서 제외한다 (스펙 Part B). */
     @Query("""
             SELECT cm.club.id FROM ClubMember cm
             WHERE cm.user.id = :userId AND cm.role IN ('LEADER','OFFICER')
+              AND cm.club.status = com.duing.domain.club.entity.ClubStatus.ACTIVE
             """)
     List<Long> findOfficerClubIdsByUserId(@Param("userId") Long userId);
 
