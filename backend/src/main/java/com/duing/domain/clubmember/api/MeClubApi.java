@@ -17,8 +17,9 @@ public interface MeClubApi {
 
     @Operation(
             summary = "내가 가입한 동아리 목록 조회",
-            description = "현재 사용자가 LEADER / OFFICER / MEMBER 중 어떤 역할로든 소속된 동아리를 가입일(최신) 순으로 반환한다. " +
-                    "운영자용 /leader/clubs/me/managed 와는 별개이며, 마이페이지 '가입한 동아리' 섹션에서 사용한다."
+            description = "현재 사용자가 LEADER / OFFICER / MEMBER 중 어떤 역할로든 소속된 운영 중(ACTIVE) 동아리를 "
+                    + "가입일(최신) 순으로 반환한다. 승인 대기·거절·운영 중단·폐쇄 상태의 동아리는 제외된다. "
+                    + "운영자용 /leader/clubs/me/managed 와는 별개이며, 마이페이지 '가입한 동아리' 섹션에서 사용한다."
     )
     @GetMapping("/me/clubs")
     ResponseEntity<ApiResponse<List<MyClubResponse>>> getMyClubs(

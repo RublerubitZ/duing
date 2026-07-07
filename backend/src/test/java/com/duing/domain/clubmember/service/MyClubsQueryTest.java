@@ -95,6 +95,38 @@ class MyClubsQueryTest {
     }
 
     @Test
+    @DisplayName("승인 대기·운영 중단·거절 상태 동아리는 소속 목록에서 제외되고 ACTIVE 만 반환된다")
+    void nonActiveClubMembershipsAreExcluded() throws Exception {
+        User currentUser = saveStudent("상태필터검증");
+        Club pendingClub = saveClubWithStatus("승인대기동아리", ClubStatus.PENDING_APPROVAL);
+        Club inactiveClub = saveClubWithStatus("중단동아리", ClubStatus.INACTIVE);
+        Club rejectedClub = saveClubWithStatus("거절동아리", ClubStatus.REJECTED);
+        Club activeClub = saveClubWithStatus("운영중동아리", ClubStatus.ACTIVE);
+        saveMembership(pendingClub, currentUser, ClubMemberRole.LEADER);
+        saveMembership(inactiveClub, currentUser, ClubMemberRole.OFFICER);
+        saveMembership(rejectedClub, currentUser, ClubMemberRole.MEMBER);
+        saveMembership(activeClub, currentUser, ClubMemberRole.MEMBER);
+
+        List<MyClubQuery> result = clubMemberRepository.findMyClubsByUser(currentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).clubId()).isEqualTo(activeClub.getId());
+    }
+
+    @Test
+    @DisplayName("소속 동아리 응답에 동아리 상태(ACTIVE)가 포함된다")
+    void statusFieldIsPopulated() throws Exception {
+        User currentUser = saveStudent("상태필드검증");
+        Club activeClub = saveClubWithStatus("상태필드동아리", ClubStatus.ACTIVE);
+        saveMembership(activeClub, currentUser, ClubMemberRole.MEMBER);
+
+        List<MyClubQuery> result = clubMemberRepository.findMyClubsByUser(currentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).status()).isEqualTo(ClubStatus.ACTIVE);
+    }
+
+    @Test
     @DisplayName("joinedAt 필드가 null 이 아니다")
     void joinedAtIsPopulated() throws Exception {
         User currentUser = saveStudent("가입일검증");
@@ -128,11 +160,15 @@ class MyClubsQueryTest {
     }
 
     private Club saveActiveClub(String name) throws Exception {
+        return saveClubWithStatus(name, ClubStatus.ACTIVE);
+    }
+
+    private Club saveClubWithStatus(String name, ClubStatus status) throws Exception {
         String uniqueName = name + "-" + sequence.getAndIncrement();
         Club club = Club.create(uniqueName, ClubCategory.OTHER, "분과", "설명", null);
         Field statusField = Club.class.getDeclaredField("status");
         statusField.setAccessible(true);
-        statusField.set(club, ClubStatus.ACTIVE);
+        statusField.set(club, status);
         return clubRepository.save(club);
     }
 
