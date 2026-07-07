@@ -27,6 +27,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -40,6 +41,7 @@ class LeaderFeePolicyAutoIssueControllerTest extends IntegrationTestBase {
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired FeePolicyRepository feePolicyRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private Long clubId;
     private String leaderToken;
@@ -49,6 +51,9 @@ class LeaderFeePolicyAutoIssueControllerTest extends IntegrationTestBase {
         RestAssured.port = port;
         Club club = clubRepository.save(ClubFixture.academic("동아리A"));
         clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 회비 정책 관리(총무 경로)는 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
         User leader = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());

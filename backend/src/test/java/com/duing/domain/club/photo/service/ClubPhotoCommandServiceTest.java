@@ -16,6 +16,7 @@ import com.duing.domain.club.photo.service.dto.command.UpdateClubPhotoCommand;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.College;
@@ -73,6 +74,46 @@ class ClubPhotoCommandServiceTest {
         assertThatThrownBy(() -> clubPhotoService.create(new CreateClubPhotoCommand(
                 club.getId(), memberUser.getId(), "k.jpg", null, null, null
         ))).isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("승인 대기(PENDING_APPROVAL) 동아리의 리더도 심사 보완을 위해 사진을 올릴 수 있다")
+    void pendingClubLeaderCanUploadPhoto() throws Exception {
+        User leader = saveUser("대기리더");
+        Club club = saveClubWithStatus("두잉포토대기", ClubStatus.PENDING_APPROVAL);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        Long photoId = clubPhotoService.create(new CreateClubPhotoCommand(
+                club.getId(), leader.getId(), "pending.jpg", "보완 사진", 100, 100)).id();
+
+        assertThat(clubPhotoRepository.findById(photoId)).isPresent();
+    }
+
+    @Test
+    @DisplayName("거절(REJECTED)된 동아리의 리더도 재심사 보완을 위해 사진을 올릴 수 있다")
+    void rejectedClubLeaderCanUploadPhoto() throws Exception {
+        User leader = saveUser("거절리더");
+        Club club = saveClubWithStatus("두잉포토거절", ClubStatus.REJECTED);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        Long photoId = clubPhotoService.create(new CreateClubPhotoCommand(
+                club.getId(), leader.getId(), "rejected.jpg", "보완 사진", 100, 100)).id();
+
+        assertThat(clubPhotoRepository.findById(photoId)).isPresent();
+    }
+
+    @Test
+    @DisplayName("운영 종료(INACTIVE)된 동아리의 리더는 사진을 올릴 수 없다")
+    void inactiveClubLeaderCannotUploadPhoto() throws Exception {
+        User leader = saveUser("종료리더");
+        Club club = saveClubWithStatus("두잉포토종료", ClubStatus.INACTIVE);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        assertThatThrownBy(() -> clubPhotoService.create(new CreateClubPhotoCommand(
+                club.getId(), leader.getId(), "inactive.jpg", null, null, null
+        )))
+                .isInstanceOf(ClubMemberException.NotActiveClub.class)
+                .hasMessage("운영 종료된 동아리입니다.");
     }
 
     @Test
@@ -214,11 +255,15 @@ class ClubPhotoCommandServiceTest {
     }
 
     private Club saveActiveClub(String name) throws Exception {
+        return saveClubWithStatus(name, ClubStatus.ACTIVE);
+    }
+
+    private Club saveClubWithStatus(String name, ClubStatus status) throws Exception {
         String uniqueName = name + "-" + sequence.getAndIncrement();
         Club club = Club.create(uniqueName, ClubCategory.ACADEMIC, "분과", "설명", null);
         Field statusField = Club.class.getDeclaredField("status");
         statusField.setAccessible(true);
-        statusField.set(club, ClubStatus.ACTIVE);
+        statusField.set(club, status);
         return clubRepository.save(club);
     }
 }

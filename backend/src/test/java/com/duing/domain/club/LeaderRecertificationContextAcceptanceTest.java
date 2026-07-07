@@ -32,6 +32,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -43,6 +44,7 @@ class LeaderRecertificationContextAcceptanceTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -64,6 +66,9 @@ class LeaderRecertificationContextAcceptanceTest extends IntegrationTestBase {
         clubRepository.save(club);
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         centralClubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 재인증 컨텍스트 조회·신청은 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", centralClubId);
     }
 
     private User saveUser(UserRole role) {
@@ -141,6 +146,8 @@ class LeaderRecertificationContextAcceptanceTest extends IntegrationTestBase {
     void contextWithNonCentralClub() {
         Club nonCentral = clubRepository.save(Club.create("일반동아리",
                 ClubCategory.HOBBY, null, "설명", null));
+        // 운영 행위 게이트(Part C)로 ACTIVE 동아리만 컨텍스트 조회가 가능하므로 승격한다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", nonCentral.getId());
         User leader2 = saveUser(UserRole.STUDENT);
         clubMemberRepository.save(ClubMember.asLeader(nonCentral, leader2));
         String token = jwtTokenProvider.createToken(leader2.getId(), leader2.getRole().name());

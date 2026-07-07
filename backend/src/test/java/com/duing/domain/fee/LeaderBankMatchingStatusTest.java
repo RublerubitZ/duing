@@ -39,6 +39,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import({TestcontainersConfiguration.class, LeaderBankMatchingStatusTest.StubBankApiConfig.class})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -91,6 +92,8 @@ class LeaderBankMatchingStatusTest extends IntegrationTestBase {
     JwtTokenProvider jwtTokenProvider;
     @Autowired
     FeeAccountCipher feeAccountCipher;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void setUp() {
@@ -105,6 +108,9 @@ class LeaderBankMatchingStatusTest extends IntegrationTestBase {
     private Club saveClubWithAccount(String clubName, Bank bank, boolean usableSetting) {
         Club club = clubRepository.save(ClubFixture.academic(clubName));
         Long clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 자동매칭 상태 조회(총무 경로)는 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
         String encrypted = feeAccountCipher.encrypt("352-1234-5678-90", clubId);
         feeAccountRepository.save(FeeAccount.create(clubId, bank, encrypted, "동아리회비"));
         if (usableSetting) {
@@ -168,6 +174,9 @@ class LeaderBankMatchingStatusTest extends IntegrationTestBase {
     @DisplayName("설정은 사용 가능하지만 회비 계좌가 없는 동아리면 사용 불가(enabled=false)로 조회된다")
     void usableSettingWithoutAccountReturnsFalse() {
         Club club = clubRepository.save(ClubFixture.academic("계좌없는동아리"));
+        // Club.create 기본 상태는 PENDING_APPROVAL — 자동매칭 상태 조회(총무 경로)는 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", club.getId());
         BankMatchingSetting setting = BankMatchingSetting.of(club.getId());
         setting.activate();
         bankMatchingSettingRepository.save(setting);
