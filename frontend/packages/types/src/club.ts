@@ -146,6 +146,7 @@ export type MyClubSummary = {
   clubId: number;
   clubName: string;
   logoUrl: string | null;
+  status: ClubStatus;
   myRole: MyClubRole;
   activeRecruitmentCount: number;
   joinedAt: string; // ISO datetime

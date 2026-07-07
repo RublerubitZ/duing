@@ -14,6 +14,7 @@ const make = (overrides: Partial<MyClubSummary> = {}): MyClubSummary => ({
   clubId: 1,
   clubName: '두잉',
   logoUrl: null,
+  status: 'ACTIVE',
   myRole: 'MEMBER',
   activeRecruitmentCount: 0,
   joinedAt: new Date().toISOString(),

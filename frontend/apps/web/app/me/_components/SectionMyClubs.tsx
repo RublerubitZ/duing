@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
-import type { MyClubSummary } from '@duing/types';
+import type { ClubStatus, MyClubSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
@@ -16,6 +16,17 @@ const ROLE_LABEL: Record<MyClubSummary['myRole'], string> = {
   LEADER: '동아리장',
   OFFICER: '운영진',
   MEMBER: '회원',
+};
+
+/**
+ * 알려진 비 ACTIVE 상태 안내 문구. 백엔드(#591)가 마이페이지 목록을 ACTIVE 로 필터하고
+ * status 를 내려주므로 정상 흐름에선 노출되지 않지만, FE-BE 정책 일치(심층 방어)를 위해
+ * 상태 기반으로 액션을 가드한다.
+ */
+const STATUS_NOTICE: Record<Exclude<ClubStatus, 'ACTIVE'>, string> = {
+  PENDING_APPROVAL: '승인 대기 중인 동아리입니다.',
+  REJECTED: '거절된 동아리입니다.',
+  INACTIVE: '운영 종료된 동아리입니다.',
 };
 
 type Props = {
@@ -49,6 +60,9 @@ export function SectionMyClubs({ myClubs }: Props) {
             {myClubs.map((club) => {
               const isManager = club.myRole === 'LEADER' || club.myRole === 'OFFICER';
               const roleLabel = ROLE_LABEL[club.myRole];
+              // BE(#591)가 status 를 내려주기 전(배포 전환기)이나 미지의 상태값에서는
+              // 기존 동작(액션 노출)으로 폴백한다 — 비 ACTIVE 차단의 1차 방어선은 백엔드 필터다.
+              const statusNotice = club.status === 'ACTIVE' ? null : STATUS_NOTICE[club.status];
 
               return (
                 <div
@@ -91,7 +105,9 @@ export function SectionMyClubs({ myClubs }: Props) {
                     )}
                   </div>
 
-                  {isManager ? (
+                  {statusNotice ? (
+                    <span className="text-[12px] text-charcoal-3 shrink-0">{statusNotice}</span>
+                  ) : isManager ? (
                     <Link
                       href={`/manage?clubId=${club.clubId}`}
                       className="btn btn-primary btn-sm"
