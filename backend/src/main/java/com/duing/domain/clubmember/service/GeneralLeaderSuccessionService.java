@@ -54,15 +54,10 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
     @Transactional
     public Long create(CreateSuccessionCommand command) {
         // 운영 행위 게이트(Part C · D5) — 승계 요청은 멤버 관리 운영 행위이므로 ClubAuthService 단일
-        // 진입점으로 멤버십·OFFICER 역할·동아리 ACTIVE 상태를 함께 검증한다 (비 ACTIVE 는 403).
-        // 클럽 미존재·비멤버·비-OFFICER 직접 판정(404/400)은 게이트의 NotAMember/AccessDenied(403) 로
-        // 통일된다 — ClubAuthService 의 가드 응답 일관성 하드닝과 동일한 계약.
-        ClubMember requester = clubAuthService.requireOfficer(command.requesterUserId(), command.clubId());
-        // 게이트가 OFFICER 역할을 이미 보장하지만, "승계 요청은 OFFICER 만 제출" 도메인 불변식은
-        // 게이트 의미론과 독립적으로 유지한다 (게이트 완화 시 2차 방어선).
-        if (requester.getRole() != ClubMemberRole.OFFICER) {
-            throw new ClubMemberException.SuccessionRequiresOfficer();
-        }
+        // 진입점을 태운다. requireOfficer 가 OFFICER 역할과 동아리 ACTIVE 상태를 함께 보장한다
+        // (비 ACTIVE 는 403). 클럽 미존재·비멤버·비-OFFICER 직접 판정(404/400)은 게이트의
+        // NotAMember/AccessDenied(403) 로 통일된다 — ClubAuthService 의 가드 응답 일관성 하드닝과 동일한 계약.
+        clubAuthService.requireOfficer(command.requesterUserId(), command.clubId());
         requestRepository.findByClubIdAndStatus(command.clubId(), SuccessionStatus.PENDING)
                 .ifPresent(existing -> { throw new ClubMemberException.DuplicatePendingSuccession(); });
 

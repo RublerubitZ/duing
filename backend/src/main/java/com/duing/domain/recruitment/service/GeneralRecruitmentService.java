@@ -55,7 +55,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
         // 동아리 운영진(LEADER/OFFICER)만 모집 공고를 생성할 수 있다.
         clubAuthService.requireManager(createRecruitmentCommand.currentUserId(), club.getId());
 
-        requireActiveClub(club);
+        requireActiveClubUnderLock(club);
 
         // uk_recruitment_club_active (V38) 는 endDate 와 무관하게 status='OPEN' 만 보고 1건만 허용한다.
         // 한편 사용자/사전 체크가 인식하는 "활성" 의 의미는 status=OPEN AND endDate>=today 라서
@@ -188,7 +188,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
         clubAuthService.requireManager(command.currentUserId(), club.getId());
 
-        requireActiveClub(club);
+        requireActiveClubUnderLock(club);
 
         // close() 는 메모리상의 status 만 바꾸므로 그 다음 buildAndPersist 의 INSERT 가
         // flush 될 때 Hibernate 기본 액션 순서(INSERT → UPDATE) 상 UPDATE 가 뒤로 밀려
@@ -239,9 +239,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
      * 운영 중(ACTIVE) 동아리만 모집을 열 수 있다 — 운영 중단 전환의 "모집 활동 정지" 불변식 (스펙 Part A/C).
      * findByIdForUpdate 로 잠근 club 을 전달해야 운영 중단 전환과 직렬화된다 — 잠금 없는 엔티티로 검사하면
      * 검사와 INSERT 커밋 사이에 전환이 끼어들어 INACTIVE 동아리에 OPEN 모집이 남을 수 있다.
-     * requireManager 에 내장된 기본 게이트(Part C)와 별개로, 잠금 하 원자 판정용으로 유지한다.
+     * ClubAuthService(requireManager)에 내장된 기본 게이트(Part C)는 잠금 없이 별도 조회로 판정하므로
+     * 이 잠금 하 원자 판정을 대체하지 못한다 — 기본 게이트가 있다는 이유로 제거하면 PR-1 동시성 보호가 사라진다.
      */
-    private void requireActiveClub(Club club) {
+    private void requireActiveClubUnderLock(Club club) {
         if (club.getStatus() != ClubStatus.ACTIVE) {
             throw new AccessDeniedException("운영 중(ACTIVE) 동아리에서만 모집을 열 수 있습니다.");
         }

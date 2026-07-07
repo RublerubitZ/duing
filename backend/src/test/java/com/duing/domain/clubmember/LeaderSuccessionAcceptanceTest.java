@@ -111,6 +111,22 @@ class LeaderSuccessionAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("동아리 비멤버는 회장 승계를 요청할 수 없다")
+    void nonMemberCannotCreateSuccessionRequest() {
+        // 운영 행위 게이트(requireOfficer) 도입으로 비멤버는 도메인 400 이 아닌 403 으로 차단된다 — 계약 고정.
+        User stranger = saveUser(UserRole.STUDENT);
+        String strangerToken = jwtTokenProvider.createToken(stranger.getId(), stranger.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + strangerToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("reason", "외부인 시도"))
+                .when().post("/api/v1/clubs/" + clubId + "/leader-succession-requests")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false));
+    }
+
+    @Test
     @DisplayName("미인증 요청은 401")
     void unauthenticatedRejected() {
         RestAssured.given()
