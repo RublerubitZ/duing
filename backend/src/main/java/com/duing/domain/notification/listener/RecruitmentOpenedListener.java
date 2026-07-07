@@ -29,6 +29,8 @@ public class RecruitmentOpenedListener {
         // AFTER_COMMIT 시점 재검증 — 생성 커밋과 fanout 사이에 동아리가 운영 중단(비 ACTIVE)으로
         // 전환됐을 수 있다. 비 ACTIVE 동아리의 모집 오픈 알림은 보내지 않는다.
         if (!clubRepository.existsByIdAndStatus(event.clubId(), ClubStatus.ACTIVE)) {
+            log.debug("모집 오픈 알림 스킵 — 동아리가 운영 중이 아님. recruitmentId={}, clubId={}",
+                    event.recruitmentId(), event.clubId());
             return;
         }
         String dedupKey = "RECRUITMENT_OPENED:r=" + event.recruitmentId();
