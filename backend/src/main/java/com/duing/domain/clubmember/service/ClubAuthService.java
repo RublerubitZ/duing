@@ -1,5 +1,6 @@
 package com.duing.domain.clubmember.service;
 
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
@@ -41,6 +42,19 @@ public class ClubAuthService {
 
     public ClubMember requireMember(Long userId, Long clubId) {
         return findMembershipOrThrow(userId, clubId);
+    }
+
+    /**
+     * 멤버십과 동아리 운영 상태(ACTIVE)를 함께 요구한다 — 비 ACTIVE 동아리의 멤버 내부 영역
+     * 접근 차단 (스펙 Part B). 소속 멤버에게는 존재 은닉이 무의미하므로 404 가 아닌 403 + 상태별 안내.
+     */
+    public ClubMember requireActiveMember(Long userId, Long clubId) {
+        ClubMember clubMember = findMembershipOrThrow(userId, clubId);
+        ClubStatus clubStatus = clubMember.getClub().getStatus();
+        if (clubStatus != ClubStatus.ACTIVE) {
+            throw new ClubMemberException.NotActiveClub(clubStatus);
+        }
+        return clubMember;
     }
 
     /** 멤버십 판정 — 클럽 미존재/비-멤버는 NotAMember 로 통일 (가드 응답 일관성). */

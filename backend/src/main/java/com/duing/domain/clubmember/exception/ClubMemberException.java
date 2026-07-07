@@ -1,5 +1,6 @@
 package com.duing.domain.clubmember.exception;
 
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.global.exception.ApplicationException;
 import org.springframework.http.HttpStatus;
 
@@ -148,6 +149,21 @@ public class ClubMemberException extends ApplicationException {
         public ConcurrentSuccessionUpdateException() {
             super("다른 운영진이 먼저 요청을 처리했습니다. 새로고침 후 다시 시도해주세요.",
                   HttpStatus.CONFLICT);
+        }
+    }
+
+    /** 비 ACTIVE 동아리의 멤버 내부 영역 접근 차단 (스펙 Part B · D3/D4). 메시지는 마이페이지 안내 문구와 통일. */
+    public static final class NotActiveClub extends ClubMemberException {
+        public NotActiveClub(ClubStatus clubStatus) {
+            super(messageFor(clubStatus), HttpStatus.FORBIDDEN);
+        }
+
+        private static String messageFor(ClubStatus clubStatus) {
+            return switch (clubStatus) {
+                case PENDING_APPROVAL -> "승인 대기 중인 동아리입니다.";
+                case REJECTED -> "거절된 동아리입니다.";
+                default -> "운영 종료된 동아리입니다.";
+            };
         }
     }
 }
