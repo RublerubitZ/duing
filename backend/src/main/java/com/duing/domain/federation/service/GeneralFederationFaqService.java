@@ -145,7 +145,10 @@ public class GeneralFederationFaqService implements FederationFaqService {
     @Override
     @Transactional
     public void updateCategory(UpdateFederationFaqCategoryCommand command) {
-        FederationFaqCategory category = categoryRepository.findById(command.categoryId())
+        // 삭제와 같은 잠금 프로토콜 참여 — 잠금 없는 findById로는 "수정 조회 → 삭제 커밋 → 삭제된 행에 이름/순서
+        // UPDATE 후 204"의 stale write가 가능하다(카테고리는 @Version이 없어 낙관락 방어도 없음).
+        // 잠그면 삭제가 먼저 커밋된 경우 @SQLRestriction에 걸러진 빈 결과로 404에 수렴한다.
+        FederationFaqCategory category = categoryRepository.findByIdForUpdate(command.categoryId())
                 .orElseThrow(FederationFaqException.FederationFaqCategoryNotFoundException::new);
         if (!category.getName().equals(command.name()) && categoryRepository.existsByName(command.name())) {
             throw new FederationFaqException.DuplicateFederationFaqCategoryNameException();
@@ -192,7 +195,8 @@ public class GeneralFederationFaqService implements FederationFaqService {
             federationFaqRepository.reassignCategory(categoryId, moveToCategoryId);
         }
 
-        // 5. soft delete
+        // 5. soft delete — reassignCategory의 clearAutomatically로 category가 detached 상태라 Spring Data가
+        // merge(재SELECT) 후 remove하는 폴백을 타지만, DB 행 잠금은 트랜잭션 끝까지 유지되고 @SQLDelete가 정상 적용된다.
         categoryRepository.delete(category);
     }
 

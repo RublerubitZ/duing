@@ -522,6 +522,29 @@ class FederationFaqAdminAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("삭제된 카테고리를 수정하면 404다")
+    void updateDeletedCategoryFails() {
+        Long deletedCategoryId = categoryRepository
+                .save(FederationFaqCategory.create("테스트-삭제후수정" + sequence.incrementAndGet(), 6)).getId();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/federation/faq-categories/" + deletedCategoryId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("{ \"name\": \"삭제후수정시도\", \"sortOrder\": 0 }")
+            .when()
+                .patch("/api/v1/admin/federation/faq-categories/" + deletedCategoryId)
+            .then()
+                .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
     @DisplayName("삭제된 FAQ만 남은 카테고리는 이관 없이 삭제된다")
     void deleteCategoryWithOnlySoftDeletedFaqsSucceeds() {
         Long faqId = seedFaq("삭제될 질문", true, 0);
