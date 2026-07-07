@@ -3,11 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUsePathname = vi.fn<() => string>();
 vi.mock('next/navigation', () => ({ usePathname: () => mockUsePathname() }));
-vi.mock('next/link', () => ({
-  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
-    <a href={href} {...rest}>{children}</a>
-  ),
-}));
 vi.mock('../../app/_components/BrandMark', () => ({ BrandMark: () => <span>두잉</span> }));
 vi.mock('../../app/_components/NotificationBell', () => ({ NotificationBell: () => <button>알림</button> }));
 vi.mock('../../app/_components/HomeNavAuthSlot', () => ({ HomeNavAuthSlot: () => <span>인증</span> }));
