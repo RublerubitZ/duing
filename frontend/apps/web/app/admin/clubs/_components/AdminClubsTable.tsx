@@ -117,13 +117,13 @@ export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick
                           {action.label}
                         </button>
                       ))}
-                      {club.status === 'INACTIVE' && (
+                      {(club.status === 'INACTIVE' || club.status === 'REJECTED') && (
                         <button
                           type="button"
                           onClick={() => onCloseClick(club)}
                           className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
                         >
-                          폐쇄
+                          삭제
                         </button>
                       )}
                     </div>

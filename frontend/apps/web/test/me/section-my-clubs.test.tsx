@@ -14,6 +14,7 @@ const make = (overrides: Partial<MyClubSummary> = {}): MyClubSummary => ({
   clubId: 1,
   clubName: '두잉',
   logoUrl: null,
+  status: 'ACTIVE',
   myRole: 'MEMBER',
   activeRecruitmentCount: 0,
   joinedAt: '2026-05-20T10:00:00Z',
@@ -64,5 +65,45 @@ describe('SectionMyClubs', () => {
       />,
     );
     expect(screen.getByText(/가입한 동아리 · 2/)).toBeInTheDocument();
+  });
+
+  it('INACTIVE 동아리 카드는 관리·둘러보기·탈퇴를 모두 숨기고 "운영 종료된 동아리입니다." 를 노출한다', () => {
+    render(
+      <SectionMyClubs
+        myClubs={[make({ myRole: 'LEADER', status: 'INACTIVE', clubName: '중단동' })]}
+      />,
+    );
+    expect(screen.queryByRole('link', { name: /관리/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /둘러보기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /탈퇴/ })).not.toBeInTheDocument();
+    expect(screen.getByText('운영 종료된 동아리입니다.')).toBeInTheDocument();
+  });
+
+  it('PENDING_APPROVAL 동아리 카드는 액션 없이 "승인 대기 중인 동아리입니다." 를 노출한다', () => {
+    render(
+      <SectionMyClubs
+        myClubs={[make({ myRole: 'MEMBER', status: 'PENDING_APPROVAL', clubName: '대기동' })]}
+      />,
+    );
+    expect(screen.queryByRole('link', { name: /둘러보기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /탈퇴/ })).not.toBeInTheDocument();
+    expect(screen.getByText('승인 대기 중인 동아리입니다.')).toBeInTheDocument();
+  });
+
+  it('REJECTED 동아리 카드는 액션 없이 "거절된 동아리입니다." 를 노출한다', () => {
+    render(
+      <SectionMyClubs
+        myClubs={[make({ myRole: 'OFFICER', status: 'REJECTED', clubName: '거절동' })]}
+      />,
+    );
+    expect(screen.queryByRole('link', { name: /관리/ })).not.toBeInTheDocument();
+    expect(screen.getByText('거절된 동아리입니다.')).toBeInTheDocument();
+  });
+
+  it('status 필드가 없는 구 백엔드 응답에서는 기존처럼 액션을 노출한다 (배포 전환기 fail-open)', () => {
+    // BE #591 배포 전 전환기 페이로드 재현 — status 부재를 타입 체계 밖에서 주입해야 하므로 예외적으로 이중 단언 사용
+    const legacyClub = { ...make({ myRole: 'LEADER', clubName: '레거시동' }), status: undefined } as unknown as MyClubSummary;
+    render(<SectionMyClubs myClubs={[legacyClub]} />);
+    expect(screen.getByRole('link', { name: /관리/ })).toBeInTheDocument();
   });
 });
