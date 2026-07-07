@@ -10,6 +10,7 @@ import com.duing.domain.federation.repository.FederationFaqRepository;
 import com.duing.domain.federation.repository.FederationFaqSearchMissRepository;
 import com.duing.domain.federation.service.dto.command.CreateFederationFaqCategoryCommand;
 import com.duing.domain.federation.service.dto.command.CreateFederationFaqCommand;
+import com.duing.domain.federation.service.dto.command.DeleteFederationFaqCategoryCommand;
 import com.duing.domain.federation.service.dto.command.ReorderFederationFaqsCommand;
 import com.duing.domain.federation.service.dto.command.SubmitFederationFaqFeedbackCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCategoryCommand;
@@ -154,6 +155,49 @@ public class GeneralFederationFaqService implements FederationFaqService {
 
     @Override
     @Transactional
+    public void deleteCategory(DeleteFederationFaqCategoryCommand command) {
+        Long categoryId = command.categoryId();
+        Long moveToCategoryId = command.moveToCategoryId();
+        boolean reassigning = moveToCategoryId != null;
+
+        // 1. 잠금 전 선검증 — 자기 자신 이관은 요청 자체가 모순이므로 잠금보다 먼저 걸러낸다.
+        if (reassigning && moveToCategoryId.equals(categoryId)) {
+            throw new FederationFaqException.InvalidCategoryMoveTargetException();
+        }
+
+        // 2. 잠금 획득. 이관이면 두 카테고리 행을 id 오름차순으로 순차 잠근다 — A→B 삭제와 B→A 삭제가
+        // 동시에 실행될 때 정렬 없이 잠그면 서로 반대 순서로 잠가 교착(deadlock)에 빠질 수 있다.
+        // 원본 엔티티는 삭제 대상이므로 정렬된 두 결과 중 categoryId와 일치하는 쪽을 구분해 보관한다.
+        FederationFaqCategory category;
+        if (reassigning) {
+            Long smallerId = Math.min(categoryId, moveToCategoryId);
+            Long largerId = Math.max(categoryId, moveToCategoryId);
+            FederationFaqCategory smaller = categoryRepository.findByIdForUpdate(smallerId)
+                    .orElseThrow(FederationFaqException.FederationFaqCategoryNotFoundException::new);
+            FederationFaqCategory larger = categoryRepository.findByIdForUpdate(largerId)
+                    .orElseThrow(FederationFaqException.FederationFaqCategoryNotFoundException::new);
+            category = smallerId.equals(categoryId) ? smaller : larger;
+        } else {
+            category = categoryRepository.findByIdForUpdate(categoryId)
+                    .orElseThrow(FederationFaqException.FederationFaqCategoryNotFoundException::new);
+        }
+
+        // 3. 이관 미지정 시 FAQ 존재 여부 검사 — 사용 중이라 삭제 불가(선행조건 위반)는 409.
+        if (!reassigning && federationFaqRepository.existsByCategoryId(categoryId)) {
+            throw new FederationFaqException.FederationFaqCategoryInUseException();
+        }
+
+        // 4. 이관 지정 시 일괄 이관(카테고리가 비어 있어도 no-op으로 안전).
+        if (reassigning) {
+            federationFaqRepository.reassignCategory(categoryId, moveToCategoryId);
+        }
+
+        // 5. soft delete
+        categoryRepository.delete(category);
+    }
+
+    @Override
+    @Transactional
     public void submitFeedback(SubmitFederationFaqFeedbackCommand command) {
         // 발행된 FAQ만 대상 — 비공개·미존재 모두 404(공개 단건 조회 규칙과 동일).
         FederationFaq faq = getPublished(command.faqId());
@@ -182,9 +226,12 @@ public class GeneralFederationFaqService implements FederationFaqService {
     }
 
     private void requireCategory(Long categoryId) {
-        // FAQ 생성·수정 트랜잭션 안에서 카테고리 유효성 재검증 (스펙 §4 — @SQLRestriction이 삭제 카테고리를 걸러줌)
-        if (!categoryRepository.existsById(categoryId)) {
-            throw new FederationFaqException.FederationFaqCategoryNotFoundException();
-        }
+        // FAQ 생성·수정 트랜잭션 안에서 카테고리 유효성을 잠금 조회로 재검증한다 — FederationFaq 엔티티 주석이
+        // 예약해둔 삭제 경합 잠금(PESSIMISTIC_WRITE)의 이행이다. existsById(잠금 없음)로는 "존재 검사 통과 →
+        // 카테고리 삭제 커밋 → 고아 FAQ 삽입" 레이스가 남는다. 잠그면 두 시나리오 모두 수렴한다:
+        // FAQ 생성/수정이 먼저면 삭제 트랜잭션이 대기했다가 실제 FAQ를 보고 409, 삭제가 먼저 커밋되면
+        // 생성/수정이 대기했다가 @SQLRestriction에 걸러진 빈 결과로 404.
+        categoryRepository.findByIdForUpdate(categoryId)
+                .orElseThrow(FederationFaqException.FederationFaqCategoryNotFoundException::new);
     }
 }

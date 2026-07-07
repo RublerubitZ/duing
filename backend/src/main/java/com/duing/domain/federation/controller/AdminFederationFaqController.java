@@ -12,6 +12,7 @@ import com.duing.domain.federation.entity.FederationFaq;
 import com.duing.domain.federation.entity.FederationFaqCategory;
 import com.duing.domain.federation.entity.FederationFaqSearchMiss;
 import com.duing.domain.federation.service.FederationFaqService;
+import com.duing.domain.federation.service.dto.command.DeleteFederationFaqCategoryCommand;
 import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -99,6 +100,13 @@ public class AdminFederationFaqController implements AdminFederationFaqApi {
     public ResponseEntity<ApiResponse<Void>> updateCategory(
             @PathVariable Long categoryId, @Valid @RequestBody UpdateFederationFaqCategoryRequest request) {
         federationFaqService.updateCategory(request.toCommand(categoryId));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> deleteCategory(
+            @PathVariable Long categoryId, @RequestParam(required = false) Long moveToCategoryId) {
+        federationFaqService.deleteCategory(new DeleteFederationFaqCategoryCommand(categoryId, moveToCategoryId));
         return ResponseEntity.noContent().build();
     }
 
