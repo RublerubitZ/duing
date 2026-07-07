@@ -67,4 +67,33 @@ describe('AcceptanceBanner', () => {
     expect(screen.getByText(/최근합격/)).toBeInTheDocument();
     expect(screen.queryByText(/오래된합격/)).not.toBeInTheDocument();
   });
+
+  it('비 ACTIVE(INACTIVE) 동아리는 배너 후보에서 제외되고 다른 ACTIVE 동아리가 노출된다', () => {
+    const older = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+    const newer = new Date().toISOString();
+    render(
+      <AcceptanceBanner
+        myClubs={[
+          make({ clubId: 1, clubName: '활동동', status: 'ACTIVE', joinedAt: older }),
+          make({ clubId: 2, clubName: '중단동', status: 'INACTIVE', joinedAt: newer }),
+        ]}
+      />,
+    );
+    expect(screen.queryByText(/중단동/)).not.toBeInTheDocument();
+    expect(screen.getByText(/활동동/)).toBeInTheDocument();
+  });
+
+  it('비 ACTIVE 동아리만 있으면 배너를 노출하지 않는다', () => {
+    render(
+      <AcceptanceBanner myClubs={[make({ clubName: '대기동', status: 'PENDING_APPROVAL' })]} />,
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('status 필드가 없는 구 백엔드 응답에서는 기존처럼 배너를 노출한다 (배포 전환기 fail-open)', () => {
+    // BE #591 배포 전 전환기 페이로드 재현 — status 부재를 타입 체계 밖에서 주입해야 하므로 예외적으로 이중 단언 사용
+    const legacyClub = { ...make({ clubName: '레거시동' }), status: undefined } as unknown as MyClubSummary;
+    render(<AcceptanceBanner myClubs={[legacyClub]} />);
+    expect(screen.getByText(/레거시동/)).toBeInTheDocument();
+  });
 });
