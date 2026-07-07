@@ -8,6 +8,7 @@ import { useNoticeListQuery } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ExploreNav } from '../../_components/ExploreNav';
+import { InfoTabs } from '../../_components/InfoTabs';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { SparkleFull } from '../../_components/Sparkle';
 import { toRoute } from '../../_lib/route';
@@ -257,7 +258,8 @@ export function NoticePage() {
 
   return (
     <div className="duing" style={{ background: 'var(--cream)', minHeight: '100vh' }}>
-      <ExploreNav active="공지" slimOnMobile />
+      <ExploreNav slimOnMobile />
+      <InfoTabs />
 
       <div
         className="mx-auto grid grid-cols-1 items-start gap-7 px-4 pb-20 pt-8 md:grid-cols-[220px_1fr] md:gap-10 md:px-10"

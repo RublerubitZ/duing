@@ -9,6 +9,10 @@ vi.mock('../../app/_components/ExploreNav', () => ({
   ExploreNav: () => <nav aria-label="탐색 네비게이션" />,
 }));
 
+vi.mock('../../app/_components/InfoTabs', () => ({
+  InfoTabs: () => <nav aria-label="정보" />,
+}));
+
 vi.mock('../../app/_components/HomeFooter', () => ({
   HomeFooter: () => <footer aria-label="푸터" />,
 }));

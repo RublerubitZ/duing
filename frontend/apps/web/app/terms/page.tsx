@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
-import { BrandMark } from '@/components/duing/BrandMark';
+import { ExploreNav } from '@/app/_components/ExploreNav';
+import { InfoTabs } from '@/app/_components/InfoTabs';
 import { HomeFooter } from '@/app/_components/HomeFooter';
 
 export const metadata: Metadata = {
@@ -20,16 +20,8 @@ const RETENTION_PERIOD = '탈퇴 후 45일';
 export default function TermsPage() {
   return (
     <div className="duing min-h-dvh bg-cream">
-      <header className="border-b border-line bg-cream-2">
-        <div className="max-w-layout mx-auto flex items-center justify-between px-5 py-4 sm:px-8">
-          <Link href="/" aria-label="두잉 홈으로">
-            <BrandMark size={24} />
-          </Link>
-          <Link href="/" className="text-[13px] text-charcoal-2 hover:text-ink">
-            ← 홈으로
-          </Link>
-        </div>
-      </header>
+      <ExploreNav slimOnMobile />
+      <InfoTabs />
 
       <main className="mx-auto max-w-3xl px-5 py-10 sm:py-14">
         <h1 className="text-2xl font-bold text-ink-deep sm:text-3xl">이용약관 · 개인정보 처리방침</h1>

@@ -16,6 +16,7 @@ import { Pagination } from '@/components/Pagination';
 import { cn } from '@/app/_lib/cn';
 import { EASE_DUING } from '@/components/motion/constants';
 import { ExploreNav } from '../../_components/ExploreNav';
+import { InfoTabs } from '../../_components/InfoTabs';
 import { HomeFooter } from '../../_components/HomeFooter';
 import { toRoute } from '../../_lib/route';
 import { FaqDeepLinkCard } from '../_components/FaqDeepLinkCard';
@@ -149,6 +150,7 @@ export function FaqPage() {
   return (
     <div className="duing min-h-dvh bg-cream">
       <ExploreNav slimOnMobile />
+      <InfoTabs />
 
       <div className="max-w-layout mx-auto px-4 pb-20 pt-8 sm:px-6 md:px-10">
         <div className="mb-7">
