@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUsePathname = vi.fn();
 vi.mock('next/navigation', () => ({
@@ -9,13 +9,18 @@ vi.mock('next/navigation', () => ({
 import { BottomNav } from '../../app/_components/BottomNav';
 
 describe('BottomNav', () => {
-  it('공개 탭 영역(/clubs)에서 5탭(홈·탐색·시설·캘린더·공지)이 노출되고 탐색이 활성이다', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('공개 탭 영역(/clubs)에서 5탭(홈·탐색·시설·캘린더·정보)이 노출되고 탐색이 활성이다', () => {
     mockUsePathname.mockReturnValue('/clubs');
     render(<BottomNav />);
 
     expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeInTheDocument();
     expect(screen.getAllByRole('link')).toHaveLength(5);
-    expect(screen.getByRole('link', { name: '시설' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '정보' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '공지' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '탐색' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
   });
@@ -57,10 +62,10 @@ describe('BottomNav', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('공지 목록(/notices)에서는 공지 탭이 활성이다', () => {
+  it('공지 목록(/notices)에서는 정보 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/notices');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '공지' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('개인영역(/me)에서는 렌더링하지 않는다', () => {
@@ -69,21 +74,40 @@ describe('BottomNav', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('비-탭 공개 경로(/introduce)에서도 미노출이다', () => {
+  it('서비스 소개(/introduce)는 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/introduce');
-    const { container } = render(<BottomNav />);
-    expect(container.firstChild).toBeNull();
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('총동연 FAQ(/faq)에서도 탭바가 미노출이다', () => {
+  it('자주 묻는 질문(/faq)은 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/faq');
-    const { container } = render(<BottomNav />);
-    expect(container.firstChild).toBeNull();
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('유사 접두 경로(/notifications)를 공지로 오매칭하지 않는다', () => {
     mockUsePathname.mockReturnValue('/notifications');
     const { container } = render(<BottomNav />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it('운영정책(/terms)도 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
+    mockUsePathname.mockReturnValue('/terms');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('정보 탭은 마지막 방문 허브 경로로 이동한다', () => {
+    window.localStorage.setItem('duing:info-last-path', '/terms');
+    mockUsePathname.mockReturnValue('/clubs');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/terms');
+  });
+
+  it('방문 이력이 없으면 정보 탭은 /notices 로 이동한다', () => {
+    mockUsePathname.mockReturnValue('/clubs');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/notices');
   });
 });
