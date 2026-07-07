@@ -239,7 +239,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
      * 운영 중(ACTIVE) 동아리만 모집을 열 수 있다 — 운영 중단 전환의 "모집 활동 정지" 불변식 (스펙 Part A/C).
      * findByIdForUpdate 로 잠근 club 을 전달해야 운영 중단 전환과 직렬화된다 — 잠금 없는 엔티티로 검사하면
      * 검사와 INSERT 커밋 사이에 전환이 끼어들어 INACTIVE 동아리에 OPEN 모집이 남을 수 있다.
-     * 전면적인 운영 행위 게이트(requireActiveManager)는 Part C 에서 도입 예정.
+     * requireManager 에 내장된 기본 게이트(Part C)와 별개로, 잠금 하 원자 판정용으로 유지한다.
      */
     private void requireActiveClub(Club club) {
         if (club.getStatus() != ClubStatus.ACTIVE) {

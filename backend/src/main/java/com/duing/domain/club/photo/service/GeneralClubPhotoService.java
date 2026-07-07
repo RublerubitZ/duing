@@ -44,7 +44,8 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     @Override
     @Transactional
     public ClubPhotoQuery create(CreateClubPhotoCommand command) {
-        clubAuthService.requireManager(command.requesterId(), command.clubId());
+        // 사진 관리 4곳은 프로필 보완 게이트(D6) — 재심사 보완(PENDING_APPROVAL·REJECTED)을 허용한다.
+        clubAuthService.requireEditableClubManager(command.requesterId(), command.clubId());
         Club club = clubRepository.findById(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
 
@@ -59,7 +60,7 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     @Override
     @Transactional
     public void updateCaption(UpdateClubPhotoCommand command) {
-        clubAuthService.requireManager(command.requesterId(), command.clubId());
+        clubAuthService.requireEditableClubManager(command.requesterId(), command.clubId());
         ClubPhoto photo = findPhotoInClub(command.photoId(), command.clubId());
         photo.updateCaption(command.caption());
     }
@@ -67,7 +68,7 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     @Override
     @Transactional
     public List<ClubPhotoQuery> reorder(ReorderClubPhotosCommand command) {
-        clubAuthService.requireManager(command.requesterId(), command.clubId());
+        clubAuthService.requireEditableClubManager(command.requesterId(), command.clubId());
 
         List<ClubPhoto> current = clubPhotoRepository.findByClubId(command.clubId());
         Set<Long> currentIds = current.stream().map(ClubPhoto::getId).collect(Collectors.toSet());
@@ -103,7 +104,7 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     @Override
     @Transactional
     public void delete(Long clubId, Long requesterId, Long photoId) {
-        clubAuthService.requireManager(requesterId, clubId);
+        clubAuthService.requireEditableClubManager(requesterId, clubId);
         ClubPhoto photo = findPhotoInClub(photoId, clubId);
         // 스펙 §3.2d: Storage 객체 정리는 별도 정리 잡(Phase 5)에서 처리한다.
         // 여기서는 DB 레코드만 soft-delete.
