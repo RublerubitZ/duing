@@ -162,3 +162,16 @@ export function useAdminFederationFaqCategoryUpdateMutation() {
     },
   });
 }
+
+export function useAdminFederationFaqCategoryDeleteMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ categoryId, moveToCategoryId }: { categoryId: number; moveToCategoryId?: number }) =>
+      client.admin.federationFaqCategories.remove(categoryId, moveToCategoryId),
+    onSuccess: () => {
+      // FAQ 목록의 categoryName 도 갱신되어야 하므로 루트 무효화가 정확하다.
+      queryClient.invalidateQueries({ queryKey: federationFaqQueryKeys.all });
+    },
+  });
+}
