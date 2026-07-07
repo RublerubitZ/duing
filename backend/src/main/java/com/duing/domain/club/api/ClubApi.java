@@ -48,7 +48,8 @@ public interface ClubApi {
             @Parameter(hidden = true) Pageable pageable
     );
 
-    @Operation(summary = "동아리 상세 조회")
+    @Operation(summary = "동아리 상세 조회",
+            description = "운영 중(ACTIVE) 동아리만 조회할 수 있다. 승인 대기·거절·운영 중단·폐쇄 상태는 404 를 반환한다.")
     @GetMapping("/clubs/{clubId}")
     ResponseEntity<ApiResponse<ClubDetailResponse>> getClub(@PathVariable Long clubId);
 

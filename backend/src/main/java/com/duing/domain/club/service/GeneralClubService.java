@@ -2,6 +2,7 @@ package com.duing.domain.club.service;
 
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
@@ -111,6 +112,22 @@ public class GeneralClubService implements ClubService {
     public ClubDetailQuery getById(Long clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
+        return toDetailQuery(club);
+    }
+
+    @Override
+    public ClubDetailQuery getActiveById(Long clubId) {
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(ClubException.ClubNotFoundException::new);
+        // 존재 여부를 숨기기 위해 403 이 아닌 404 로 동일하게 응답한다.
+        if (club.getStatus() != ClubStatus.ACTIVE) {
+            throw new ClubException.ClubNotFoundException();
+        }
+        return toDetailQuery(club);
+    }
+
+    private ClubDetailQuery toDetailQuery(Club club) {
+        Long clubId = club.getId();
         List<ClubPhotoQuery> photos = clubPhotoRepository.findByClubIdOrderByDisplayOrderAsc(clubId)
                 .stream()
                 .map(ClubPhotoQuery::from)

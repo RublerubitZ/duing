@@ -60,7 +60,7 @@ public class ClubController implements ClubApi {
 
     @Override
     public ResponseEntity<ApiResponse<ClubDetailResponse>> getClub(@PathVariable Long clubId) {
-        ClubDetailResponse response = ClubDetailResponse.from(clubService.getById(clubId));
+        ClubDetailResponse response = ClubDetailResponse.from(clubService.getActiveById(clubId));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
