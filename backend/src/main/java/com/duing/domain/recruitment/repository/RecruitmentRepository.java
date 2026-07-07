@@ -12,7 +12,7 @@ import org.springframework.data.repository.query.Param;
 public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>, RecruitmentRepositoryCustom {
 
     /**
-     * Deadline 알림 후보를 조회한다.
+     * Deadline 알림 후보를 조회한다. 운영 중(ACTIVE) 동아리의 모집만 대상이다.
      * - OPENED: 오늘 시작하는 OPEN 모집
      * - DEADLINE: 마감 3일 / 1일 / 당일인 OPEN 모집
      */
@@ -26,6 +26,7 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
                    (r.end_date - :today) AS daysToEnd
               FROM recruitment r JOIN club c ON c.id = r.club_id
              WHERE r.status = 'OPEN' AND r.deleted_at IS NULL AND c.deleted_at IS NULL
+               AND c.status = 'ACTIVE'
                AND (
                      r.start_date = :today
                      OR ( r.end_date IS NOT NULL AND (r.end_date - :today) IN (3,1,0) )

@@ -1,5 +1,7 @@
 package com.duing.domain.club.controller;
 
+import static org.hamcrest.Matchers.equalTo;
+
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
@@ -114,6 +116,27 @@ class AdminClubDeactivationRecruitmentTest extends IntegrationTestBase {
         String status = jdbcTemplate.queryForObject(
                 "SELECT status FROM recruitment WHERE id = ?", String.class, recruitment.getId());
         Assertions.assertEquals("OPEN", status);
+    }
+
+    @Test
+    @DisplayName("운영 중단 동아리의 모집은 공개 달력과 공개 상세에서 노출되지 않는다")
+    void deactivatedClubRecruitmentIsHiddenFromPublicSurfaces() throws Exception {
+        Club club = saveClubWithLeader("공개차단클럽", ClubStatus.ACTIVE);
+        Recruitment recruitment = recruitmentRepository.save(Recruitment.create(
+                club, "차단대상모집", "내용", LocalDate.of(2031, 3, 2), LocalDate.of(2031, 3, 20), 5));
+        // 벌크 마감(Task 1)을 우회해 "OPEN 인 채 club 만 INACTIVE" 인 정합 깨진 상태를 직접 SQL 로 만든다 —
+        // 조회 방어선이 벌크 마감과 독립적으로 동작하는지 검증 (이중 방어).
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+
+        RestAssured.given()
+                .when().get("/api/v1/recruitments?yearMonth=2031-03")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.findAll { it.id == " + recruitment.getId() + " }.size()", equalTo(0));
+
+        RestAssured.given()
+                .when().get("/api/v1/recruitments/{recruitmentId}", recruitment.getId())
+                .then().statusCode(HttpStatus.NOT_FOUND.value())
+                .body("ok", equalTo(false));
     }
 
     private void patchStatus(Long clubId, ClubStatus next) {

@@ -88,6 +88,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
     public RecruitmentDetailQuery getById(Long recruitmentId) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+        // 비공개 상태 동아리의 모집은 존재를 숨긴다(404). 이 메서드의 호출처는 공개 컨트롤러 1곳뿐이다.
+        if (recruitment.getClub().getStatus() != ClubStatus.ACTIVE) {
+            throw new RecruitmentException.RecruitmentNotFoundException();
+        }
         Integer applicantCount = recruitment.isShowApplicantCount()
                 ? (int) applicationRepository.countByRecruitmentId(recruitmentId)
                 : null;
