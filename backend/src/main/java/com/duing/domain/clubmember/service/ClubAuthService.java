@@ -27,19 +27,51 @@ public class ClubAuthService {
     private final ClubMemberRepository clubMemberRepository;
     private final ClubRepository clubRepository;
 
+    /** 운영 행위 기본 게이트 내장 — 리더 역할 검증 후 비 ACTIVE 동아리는 차단한다 (스펙 Part C · D5). */
     public ClubMember requireLeader(Long userId, Long clubId) {
         ClubMember clubMember = findMembershipOrThrow(userId, clubId);
         if (clubMember.getRole() != ClubMemberRole.LEADER) {
             throw new AccessDeniedException("해당 동아리의 회장만 가능한 작업입니다.");
         }
+        requireActiveClub(clubId);
         return clubMember;
     }
 
+    /** 운영 행위 기본 게이트 내장 — 운영진 역할 검증 후 비 ACTIVE 동아리는 차단한다 (스펙 Part C · D5). */
     public ClubMember requireManager(Long userId, Long clubId) {
         ClubMember clubMember = findMembershipOrThrow(userId, clubId);
         if (!clubMember.canManageClub()) {
             throw new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다.");
         }
+        requireActiveClub(clubId);
+        return clubMember;
+    }
+
+    /**
+     * 프로필 보완 게이트 — 리더 역할 검증 후 D6 매트릭스를 적용한다:
+     * PENDING_APPROVAL·REJECTED(재심사 보완)·ACTIVE 허용, INACTIVE(운영 종료)만 차단.
+     * 동아리 정보 수정 등 "운영 행위"가 아닌 프로필 보완 경로 전용.
+     */
+    public ClubMember requireEditableClubLeader(Long userId, Long clubId) {
+        ClubMember clubMember = findMembershipOrThrow(userId, clubId);
+        if (clubMember.getRole() != ClubMemberRole.LEADER) {
+            throw new AccessDeniedException("해당 동아리의 회장만 가능한 작업입니다.");
+        }
+        requireEditableClub(clubId);
+        return clubMember;
+    }
+
+    /**
+     * 프로필 보완 게이트 — 운영진 역할 검증 후 D6 매트릭스를 적용한다:
+     * PENDING_APPROVAL·REJECTED(재심사 보완)·ACTIVE 허용, INACTIVE(운영 종료)만 차단.
+     * 동아리 사진 관리 등 "운영 행위"가 아닌 프로필 보완 경로 전용.
+     */
+    public ClubMember requireEditableClubManager(Long userId, Long clubId) {
+        ClubMember clubMember = findMembershipOrThrow(userId, clubId);
+        if (!clubMember.canManageClub()) {
+            throw new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다.");
+        }
+        requireEditableClub(clubId);
         return clubMember;
     }
 
@@ -57,14 +89,7 @@ public class ClubAuthService {
      */
     public ClubMember requireActiveMember(Long userId, Long clubId) {
         ClubMember clubMember = findMembershipOrThrow(userId, clubId);
-        // soft-delete 된 동아리는 @SQLRestriction 으로 조회되지 않는다 — 잔존 멤버십(정합 깨짐)은 비멤버로 취급해
-        // lazy 프록시 초기화 실패(500)를 방지한다.
-        ClubStatus clubStatus = clubRepository.findById(clubId)
-                .map(Club::getStatus)
-                .orElseThrow(ClubMemberException.NotAMember::new);
-        if (clubStatus != ClubStatus.ACTIVE) {
-            throw new ClubMemberException.NotActiveClub(clubStatus);
-        }
+        requireActiveClub(clubId);
         return clubMember;
     }
 
@@ -78,11 +103,13 @@ public class ClubAuthService {
                 .orElseThrow(ClubMemberException.NotAMember::new);
     }
 
+    /** 운영 행위 기본 게이트 내장 — OFFICER 역할 검증 후 비 ACTIVE 동아리는 차단한다 (스펙 Part C · D5). */
     public ClubMember requireOfficer(Long userId, Long clubId) {
         ClubMember clubMember = findMembershipOrThrow(userId, clubId);
         if (clubMember.getRole() != ClubMemberRole.OFFICER) {
             throw new AccessDeniedException("해당 동아리의 운영진(OFFICER)만 가능한 작업입니다.");
         }
+        requireActiveClub(clubId);
         return clubMember;
     }
 
@@ -102,6 +129,32 @@ public class ClubAuthService {
 
     private ClubMember findMembershipOrThrow(Long userId, Long clubId) {
         return clubMemberRepository.findByClubIdAndUserId(clubId, userId)
+                .orElseThrow(ClubMemberException.NotAMember::new);
+    }
+
+    /** 운영 행위 공통 게이트 — 비 ACTIVE 동아리에서는 운영 행위를 차단한다 (스펙 Part C · D5). */
+    private void requireActiveClub(Long clubId) {
+        ClubStatus clubStatus = resolveClubStatusOrThrow(clubId);
+        if (clubStatus != ClubStatus.ACTIVE) {
+            throw new ClubMemberException.NotActiveClub(clubStatus);
+        }
+    }
+
+    /** 프로필 보완 게이트 — 재심사 보완(PENDING_APPROVAL·REJECTED)은 허용, 운영 종료(INACTIVE)만 차단 (D6). */
+    private void requireEditableClub(Long clubId) {
+        ClubStatus clubStatus = resolveClubStatusOrThrow(clubId);
+        if (clubStatus == ClubStatus.INACTIVE) {
+            throw new ClubMemberException.NotActiveClub(clubStatus);
+        }
+    }
+
+    /**
+     * soft-delete 된 동아리는 @SQLRestriction 으로 조회되지 않는다 — 잔존 멤버십(정합 깨짐)은 비멤버로 취급해
+     * lazy 프록시 초기화 실패(500)를 방지한다 (PR-2 하드닝과 동일).
+     */
+    private ClubStatus resolveClubStatusOrThrow(Long clubId) {
+        return clubRepository.findById(clubId)
+                .map(Club::getStatus)
                 .orElseThrow(ClubMemberException.NotAMember::new);
     }
 }
