@@ -1,5 +1,6 @@
 package com.duing.domain.favorite.repository;
 
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.favorite.entity.ClubFavorite;
 import java.util.List;
 import java.util.Optional;
@@ -25,7 +26,8 @@ public interface ClubFavoriteRepository
             nativeQuery = true)
     int reactivateSoftDeleted(@Param("userId") Long userId, @Param("clubId") Long clubId);
 
-    List<ClubFavorite> findAllByUserIdOrderByCreatedAtDesc(Long userId);
+    // club 조인으로 상태를 필터링해, 학생에게 노출되는 ACTIVE 동아리 찜만 반환한다 (비공개 상태 노출 차단)
+    List<ClubFavorite> findAllByUserIdAndClubStatusOrderByCreatedAtDesc(Long userId, ClubStatus clubStatus);
 
     List<ClubFavorite> findAllByClubId(Long clubId);
 
