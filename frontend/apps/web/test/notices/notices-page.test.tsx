@@ -8,6 +8,10 @@ vi.mock('../../app/_components/ExploreNav', () => ({
   ExploreNav: () => <nav aria-label="탐색 네비게이션" />,
 }));
 
+vi.mock('../../app/_components/InfoTabs', () => ({
+  InfoTabs: () => <nav aria-label="정보" />,
+}));
+
 // next/link 는 단순 <a> 로 대체
 vi.mock('next/link', () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (

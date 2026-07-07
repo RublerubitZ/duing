@@ -31,7 +31,7 @@ export async function HomeQnaSection() {
             href="/faq"
             className="rounded-full border border-line bg-paper px-5 py-2.5 text-[14px] font-semibold text-charcoal-2"
           >
-            FAQ 전체 보기
+            자주 묻는 질문 전체 보기
           </Link>
         </div>
       </div>
