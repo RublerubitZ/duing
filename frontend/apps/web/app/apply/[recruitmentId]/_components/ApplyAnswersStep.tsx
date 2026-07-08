@@ -156,15 +156,15 @@ export function ApplyAnswersStep({
             )}
 
             {/*
-              그룹 의미(role=group)와 이름은 바깥 fieldset/legend 가 이미 제공한다.
-              여기에 role="group" 을 또 붙이면 group 이 지원하지 않는 aria-invalid 를 달게 되므로,
-              컨테이너는 포커스 타깃 + 에러 연결 역할만 맡는 무role div 로 둔다.
+              그룹 의미와 이름은 바깥 fieldset/legend 가 이미 제공하므로 안쪽 role 은 불필요하다.
+              컨테이너는 검증 실패 시 포커스를 받는 타깃 + 에러 연결(aria-describedby) 역할만 맡는다.
+              필수 여부·오류 상태는 aria-required/aria-invalid 를 Supported 로 두는 role=checkbox
+              (= 개별 input)에 실어야 보조기술에 전달된다 — 그룹 컨테이너로는 전달되지 않는다.
             */}
             {question.type === 'MULTIPLE_CHOICE' && (
               <div
                 id={controlId}
                 tabIndex={-1}
-                aria-invalid={hasError}
                 aria-describedby={describedBy}
                 className={CHOICE_GROUP_CLASS}
               >
@@ -176,6 +176,8 @@ export function ApplyAnswersStep({
                       value={choice.id}
                       checked={selectedValues.includes(choice.id)}
                       disabled={disabled}
+                      aria-required={question.required}
+                      aria-invalid={hasError}
                       onChange={(event) =>
                         handleMultipleChoiceToggle(question, choice.id, event.target.checked)
                       }

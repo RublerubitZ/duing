@@ -2,6 +2,19 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { RecruitmentDetail } from '@duing/types';
 import { RecruitmentForm } from '../../app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
+import { toBuilderQuestions } from '../../app/manage/clubs/[clubId]/recruitments/_components/QuestionBuilder';
+
+describe('toBuilderQuestions — undefined(구 BE) 와 [](신 BE 외부 폼) 구분', () => {
+  it('빈 배열이면 legacy questions 텍스트로 fallback 하지 않는다', () => {
+    expect(toBuilderQuestions([], ['서버가 이미 없다고 답한 질문'], () => 'key-1')).toEqual([]);
+  });
+
+  it('undefined 면 legacy questions 텍스트를 주관식으로 시드한다', () => {
+    expect(toBuilderQuestions(undefined, ['지원 동기는?'], () => 'key-1')).toEqual([
+      { key: 'key-1', id: null, text: '지원 동기는?', type: 'TEXT', required: true, choices: [] },
+    ]);
+  });
+});
 
 describe('RecruitmentForm — 상시모집 토글', () => {
   it('상시모집 체크박스를 켜면 종료일 입력이 disabled 되고 값이 비워진다', () => {
@@ -271,7 +284,29 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     ]);
   });
 
-  it('구 백엔드 응답처럼 questionItems 가 없으면 questions 텍스트를 주관식으로 시드한다', async () => {
+  // 구 BE 는 questionItems 를 미지 필드로 버리고, questions 누락을 "질문 미변경"으로 처리해 200 을 준다.
+  // 즉 빌더를 열어두면 리더의 질문 편집이 조용히 사라진다 — 편집 자체를 막는 편이 정직하다.
+  // ([] 는 신 BE 의 외부 폼 응답이므로 undefined 와 반드시 구분해야 한다.)
+  it('questionItems 가 없는 상세(구 BE)면 수정 모드에서 질문 편집 UI 대신 안내를 보여준다', () => {
+    render(
+      <RecruitmentForm
+        mode="edit"
+        initialValues={{ ...baseRecruitmentDetail, questions: ['지원 동기는?'] }}
+        onSubmit={vi.fn()}
+        isPending={false}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: '+ 질문 추가' })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('지원 동기는?')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/서버 업데이트 이후에 질문을 수정할 수 있습니다/),
+    ).toBeInTheDocument();
+    // 현재 질문은 읽기 전용으로 확인할 수 있다.
+    expect(screen.getByText('지원 동기는?')).toBeInTheDocument();
+  });
+
+  it('구 BE 상세로 수정 저장하면 payload 에 questionItems 키가 아예 없다', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(
       <RecruitmentForm
@@ -282,15 +317,35 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
       />,
     );
 
-    expect(screen.getByDisplayValue('지원 동기는?')).toBeInTheDocument();
-    expect(screen.getByLabelText('주관식')).toBeChecked();
-
     fireEvent.click(screen.getByRole('button', { name: /수정 저장/ }));
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
-    expect(onSubmit.mock.calls[0]?.[0]?.questionItems).toEqual([
-      { id: null, text: '지원 동기는?', type: 'TEXT', required: true, choices: [] },
-    ]);
+    const submittedValues = onSubmit.mock.calls[0]?.[0];
+    // 보내봐야 구 BE 가 버리므로 키 자체를 싣지 않는다(JSON.stringify 가 undefined 를 제거한다).
+    expect(submittedValues).not.toHaveProperty('questionItems');
+    // 나머지 항목은 정상 저장된다.
+    expect(submittedValues).toMatchObject({ title: '기존 모집', capacity: 5 });
+  });
+
+  it('questionItems 가 빈 배열(신 BE 외부 폼)이면 구 BE 안내를 띄우지 않는다', () => {
+    render(
+      <RecruitmentForm
+        mode="edit"
+        initialValues={{
+          ...baseRecruitmentDetail,
+          applicationMode: 'EXTERNAL',
+          externalFormUrl: 'https://forms.example.com/apply',
+          questions: [],
+          questionItems: [],
+        }}
+        onSubmit={vi.fn()}
+        isPending={false}
+      />,
+    );
+
+    expect(
+      screen.queryByText(/서버 업데이트 이후에 질문을 수정할 수 있습니다/),
+    ).not.toBeInTheDocument();
   });
 
   it('선택형에서 주관식으로 되돌리면 선택지 초안은 화면에서 감춰지고 빈 배열로 제출된다', async () => {

@@ -44,7 +44,8 @@ export type EditFormValues = {
   endDate: string;
   capacity: number;
   useInterview: boolean;
-  questionItems: QuestionItemPayload[];
+  // 구 BE 상세(questionItems 부재)에서는 아예 생략한다 — 아래 isLegacyQuestionsBackend 주석 참조.
+  questionItems?: QuestionItemPayload[];
   interviewStartDate: string | null;
   interviewEndDate: string | null;
   showApplicantCount: boolean;
@@ -59,6 +60,17 @@ const fieldInputClass =
 export function RecruitmentForm(props: RecruitmentFormProps) {
   const isEditMode = props.mode === 'edit';
   const initialData = isEditMode ? props.initialValues : null;
+
+  /**
+   * 구 BE 는 상세에 questionItems 를 아예 싣지 않는다(신 BE 는 자체 폼이면 최소 1개, 외부 폼이면 []
+   * 를 항상 내려주므로 undefined 와 [] 를 구분해야 한다).
+   *
+   * 구 BE 의 수정 API 는 미지 필드 questionItems 를 조용히 버리고, questions 누락은 "질문 미변경"
+   * 으로 처리해 200 을 돌려준다. 그대로 빌더를 열어두면 리더는 저장에 성공했다고 믿지만 질문은
+   * 그대로 남는다. 생성·제출 경로처럼 시끄럽게 실패하지 않으므로, 수정 모드에서는 편집을 막고
+   * payload 에서도 questionItems 를 제외한다.
+   */
+  const isLegacyQuestionsBackend = isEditMode && initialData?.questionItems === undefined;
 
   const [title, setTitle] = useState(initialData?.title ?? '');
   const [content, setContent] = useState(initialData?.content ?? '');
@@ -85,7 +97,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   const keyCounter = useRef(0);
   const nextKey = useCallback(() => `bq-${(keyCounter.current += 1)}`, []);
   const [questionItems, setQuestionItems] = useState<BuilderQuestion[]>(() =>
-    isEditMode ? toBuilderQuestions(initialData?.questionItems, initialData?.questions ?? [], nextKey) : [],
+    isEditMode && !isLegacyQuestionsBackend
+      ? toBuilderQuestions(initialData?.questionItems, initialData?.questions ?? [], nextKey)
+      : [],
   );
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -98,6 +112,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     setSubmitError(null);
 
     if (isEditMode) {
+      const editableQuestionItems =
+        isSelfForm && !isLegacyQuestionsBackend ? toQuestionItemsPayload(questionItems) : undefined;
       const parsed = updateRecruitmentSchema.safeParse({
         title,
         content: content || undefined,
@@ -105,7 +121,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         endDate,
         capacity,
         useInterview,
-        questionItems: isSelfForm ? toQuestionItemsPayload(questionItems) : undefined,
+        questionItems: editableQuestionItems,
         interviewStartDate: useInterview && interviewStartDate ? interviewStartDate : null,
         interviewEndDate: useInterview && interviewEndDate ? interviewEndDate : null,
         showApplicantCount,
@@ -122,7 +138,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           endDate: parsed.data.endDate,
           capacity: parsed.data.capacity,
           useInterview: parsed.data.useInterview,
-          questionItems: parsed.data.questionItems ?? [],
+          // undefined 면 JSON 직렬화에서 키가 통째로 빠진다 — 구 BE 에 무의미한 필드를 싣지 않는다.
+          ...(parsed.data.questionItems === undefined
+            ? {}
+            : { questionItems: parsed.data.questionItems }),
           interviewStartDate: parsed.data.interviewStartDate ?? null,
           interviewEndDate: parsed.data.interviewEndDate ?? null,
           showApplicantCount: parsed.data.showApplicantCount ?? false,
@@ -415,8 +434,30 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         <span className="text-sm text-slate-700">현재 지원자 수를 학생에게 공개</span>
       </label>
 
-      {/* 자체 폼 질문 빌더 */}
-      {isSelfForm && (
+      {/* 자체 폼 질문 빌더 — 구 BE 상세에서는 읽기 전용 안내로 대체한다 */}
+      {isSelfForm && isLegacyQuestionsBackend && (
+        <div>
+          <p className={cn(fieldLabelClass, 'mb-3')}>
+            지원 질문 <span className="font-normal text-slate-400">(수정 불가)</span>
+          </p>
+          <div className="rounded-md bg-slate-50 p-4">
+            <p className="text-sm text-slate-600">
+              서버 업데이트 이후에 질문을 수정할 수 있습니다. 다른 항목은 지금 저장할 수 있어요.
+            </p>
+            {initialData !== null && initialData.questions.length > 0 && (
+              <ol className="mt-3 list-decimal space-y-1 pl-5">
+                {initialData.questions.map((question, index) => (
+                  <li key={index} className="text-sm text-slate-500">
+                    {question}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isSelfForm && !isLegacyQuestionsBackend && (
         <div>
           <p className={cn(fieldLabelClass, 'mb-3')}>
             지원 질문 <span className="text-rose-500">*</span>

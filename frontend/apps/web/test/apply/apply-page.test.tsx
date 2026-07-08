@@ -61,6 +61,20 @@ const MIXED_QUESTION_ITEMS: RecruitmentQuestionItem[] = [
   },
 ];
 
+/** 필수 복수 선택 단일 질문 — 체크박스 그룹의 필수 여부 전달(aria-required) 검증용. */
+const REQUIRED_MULTI_QUESTION_ITEMS: RecruitmentQuestionItem[] = [
+  {
+    id: MULTI_QUESTION_ID,
+    text: '관심 분야를 모두 고르세요',
+    type: 'MULTIPLE_CHOICE',
+    required: true,
+    choices: [
+      { id: MULTI_CHOICE_FRONTEND_ID, label: '프론트엔드' },
+      { id: MULTI_CHOICE_BACKEND_ID, label: '백엔드' },
+    ],
+  },
+];
+
 // 딥링크 가드 테스트(ApplyPage 전체 렌더)가 recruitment 상세·draft·eligibility 세 요청을 모두
 // 거치므로, resetHandlers 이후에도 유지되도록 기본 200 핸들러를 setupServer 초기 목록에 둔다.
 // ApplyForm 을 직접 렌더하는 기존 테스트들은 이 핸들러들을 타지 않으므로 영향이 없다.
@@ -313,6 +327,61 @@ describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () =
     const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
     expect(textarea).toHaveAttribute('aria-invalid', 'true');
     expect(textarea).toHaveAttribute('aria-describedby', `q-${TEXT_QUESTION_ID}-error`);
+  });
+
+  it('필수 복수 선택 질문은 체크박스마다 aria-required 로 필수 여부를 전달한다', async () => {
+    const capturedBodies: unknown[] = [];
+    server.use(captureSubmit(capturedBodies));
+
+    const user = userEvent.setup();
+    renderForm({ questionItems: REQUIRED_MULTI_QUESTION_ITEMS });
+
+    // `*` 는 aria-hidden 이므로 필수 여부는 aria-required 로만 보조기술에 전달된다.
+    const frontendCheckbox = screen.getByRole('checkbox', { name: '프론트엔드' });
+    expect(frontendCheckbox).toHaveAttribute('aria-required', 'true');
+    expect(frontendCheckbox).toHaveAttribute('aria-invalid', 'false');
+
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '필수 질문입니다. 항목을 선택해주세요.',
+    );
+    expect(capturedBodies).toHaveLength(0);
+    expect(screen.getByRole('checkbox', { name: '프론트엔드' })).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(screen.getByRole('checkbox', { name: '백엔드' })).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+  });
+
+  it('선택(비필수) 복수 선택 질문의 체크박스는 aria-required=false 다', () => {
+    renderForm({ questionItems: MIXED_QUESTION_ITEMS });
+
+    expect(screen.getByRole('checkbox', { name: '프론트엔드' })).toHaveAttribute(
+      'aria-required',
+      'false',
+    );
+  });
+
+  it('공백만 입력한 필수 주관식은 제출되지 않고 인라인 안내가 뜬다', async () => {
+    const capturedBodies: unknown[] = [];
+    server.use(captureSubmit(capturedBodies));
+
+    const user = userEvent.setup();
+    renderForm({ questionItems: MIXED_QUESTION_ITEMS });
+
+    await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '   ');
+    await user.click(screen.getByRole('radio', { name: '월요일' }));
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent('필수 질문입니다. 답변을 입력해주세요.');
+    expect(capturedBodies).toHaveLength(0);
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: /지원 동기/ }));
   });
 
   it('답변을 채운 질문의 안내는 사라지고 다음 위반 컨트롤(라디오 그룹)로 포커스가 이동한다', async () => {
@@ -577,6 +646,46 @@ describe('ApplyPage — 임시저장 시드', () => {
         { questionId: TEXT_QUESTION_ID, values: ['저장된 답'] },
         { questionId: SINGLE_QUESTION_ID, values: [SINGLE_CHOICE_TUESDAY_ID] },
         { questionId: MULTI_QUESTION_ID, values: [MULTI_CHOICE_FRONTEND_ID] },
+      ],
+    });
+  });
+
+  it('단일 선택 임시저장에 유효한 선택지가 2개 있어도 첫 하나만 시드된다', async () => {
+    const capturedBodies: unknown[] = [];
+    server.use(
+      mockRecruitmentDetailHandler(makeRecruitment({ questionItems: MIXED_QUESTION_ITEMS })),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [
+              { questionId: TEXT_QUESTION_ID, values: ['저장된 답'] },
+              // 단일 선택인데 값이 2개 — 그대로 시드하면 제출 시 백엔드가 400 으로 막는다.
+              { questionId: SINGLE_QUESTION_ID, values: [SINGLE_CHOICE_MONDAY_ID, SINGLE_CHOICE_TUESDAY_ID] },
+            ],
+            updatedAt: '2026-01-01T09:00:00',
+          },
+          message: null,
+        }),
+      ),
+      captureSubmit(capturedBodies, 654),
+    );
+
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    expect(await screen.findByRole('radio', { name: '월요일' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: '화요일' })).not.toBeChecked();
+
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    await waitFor(() => expect(capturedBodies).toHaveLength(1));
+    expect(capturedBodies[0]).toEqual({
+      answerItems: [
+        { questionId: TEXT_QUESTION_ID, values: ['저장된 답'] },
+        { questionId: SINGLE_QUESTION_ID, values: [SINGLE_CHOICE_MONDAY_ID] },
+        { questionId: MULTI_QUESTION_ID, values: [] },
       ],
     });
   });

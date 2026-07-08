@@ -104,11 +104,16 @@ export default function ApplyPage({
       ? draft.answers.find((answer) => answer.questionId === question.id)
       : undefined;
     const savedValues = saved?.values ?? [];
+    if (question.type === 'TEXT') {
+      return { questionId: question.id, values: savedValues.slice(0, 1) };
+    }
     // 임시저장 이후 폼이 수정됐을 수 있다 — 사라진 선택지 id 를 그대로 되살리면 제출이 400 난다.
+    const knownValues = savedValues.filter((value) =>
+      question.choices.some((choice) => choice.id === value),
+    );
+    // 단일 선택은 2개 이상을 되살리면 라디오가 여러 개 checked 로 시드되고 제출도 400 이 된다.
     const values =
-      question.type === 'TEXT'
-        ? savedValues.slice(0, 1)
-        : savedValues.filter((value) => question.choices.some((choice) => choice.id === value));
+      question.type === 'SINGLE_CHOICE' ? knownValues.slice(0, 1) : knownValues;
     return { questionId: question.id, values };
   });
 

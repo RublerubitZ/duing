@@ -21,13 +21,16 @@ const QUESTION_TYPE_OPTIONS: ReadonlyArray<{ value: QuestionType; label: string 
   { value: 'MULTIPLE_CHOICE', label: '객관식(복수 선택)' },
 ];
 
-/** 상세 응답 → 빌더 상태. questionItems 부재(구 BE 배포 시차) 시 questions 텍스트로 fallback 한다. */
+/**
+ * 상세 응답 → 빌더 상태. questionItems 부재(구 BE 배포 시차) 시 questions 텍스트로 fallback 한다.
+ * 빈 배열([])은 신 BE 의 외부 폼 응답이라 "질문 없음"을 뜻하므로 fallback 대상이 아니다 — undefined 와 구분한다.
+ */
 export function toBuilderQuestions(
   items: RecruitmentQuestionItem[] | undefined,
   legacyTexts: string[],
   nextKey: () => string,
 ): BuilderQuestion[] {
-  if (items !== undefined && items.length > 0) {
+  if (items !== undefined) {
     return items.map((item) => ({
       key: nextKey(),
       id: item.id,
