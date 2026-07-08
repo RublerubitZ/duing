@@ -59,6 +59,19 @@ class RecruitmentQuestionTest {
     }
 
     @Test
+    @DisplayName("선택지 id 가 중복 저장된 질문도 조회 표시 문자열 생성이 깨지지 않고 첫 선택지 라벨을 사용한다")
+    void formatAnswerValuesDoesNotBreakOnDuplicateChoiceId() {
+        // validateDefinitions 가 등록을 막지만, 조회 경로는 이미 저장된 데이터를 믿을 수 없으므로 방어한다.
+        QuestionChoice backend = QuestionChoice.create("백엔드");
+        QuestionChoice duplicateChoiceId = new QuestionChoice(backend.id(), "프론트엔드");
+        RecruitmentQuestion choiceQuestion = new RecruitmentQuestion(
+                "question-id", "관심 분야는?", QuestionType.SINGLE_CHOICE, true,
+                List.of(backend, duplicateChoiceId));
+
+        assertThat(choiceQuestion.formatAnswerValues(List.of(backend.id()))).isEqualTo("백엔드");
+    }
+
+    @Test
     @DisplayName("정상적인 질문 정의 목록은 예외 없이 검증을 통과한다")
     void validateDefinitionsAcceptsValidQuestions() {
         RecruitmentQuestion textQuestion = RecruitmentQuestion.createText("지원 동기는?");
