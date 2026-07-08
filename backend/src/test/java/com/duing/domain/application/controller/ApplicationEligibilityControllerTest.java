@@ -1,5 +1,6 @@
 package com.duing.domain.application.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.common.IntegrationTestBase;
@@ -23,9 +24,12 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -156,16 +160,65 @@ class ApplicationEligibilityControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("미인증 요청은 인증 오류를 반환한다")
     void unauthenticatedRequestReturnsAuthError() {
-        // @PreAuthorize("isAuthenticated()") 가 서비스 호출 전에 막으므로 recruitmentId 가 실제로
-        // 존재할 필요는 없다. /api/v1/recruitments/** 는 SecurityConfig 상 GET permitAll 이라 URL
-        // 레이어가 아닌 컨트롤러 레이어에서만 인증을 요구하는데, 그 거부(AccessDeniedException)는
-        // Spring MVC 컨트롤러 어드바이스(GlobalExceptionHandler.handleAccessDenied)가 먼저 잡아 403
-        // 으로 응답한다 — Security 필터 체인의 ExceptionTranslationFilter(익명이면 401)까지 전파되지
-        // 않는다. URL 레이어에서 authenticated() 로 막히는 엔드포인트(예: /api/v1/my/fees, 401)와는
-        // 인증 거부가 발생하는 레이어 자체가 다르다 (JwtAccessDeniedHandler 클래스 주석 참고).
+        // eligibility GET 은 SecurityConfig 에서 recruitments/** permitAll 보다 앞선
+        // .requestMatchers(GET, "/api/v1/recruitments/*/applications/eligibility").authenticated() 로
+        // URL 레이어에서부터 인증을 요구한다. 따라서 익명 요청은 컨트롤러에 도달하지 못하고
+        // Security 필터 체인의 ExceptionTranslationFilter → JwtAuthenticationEntryPoint 가 401 로 응답한다
+        // (컨트롤러 레이어의 @PreAuthorize 거부와 달리 403 이 아니다). 프론트는 401 에서만 세션 만료
+        // 재로그인 흐름을 타므로, 만료 토큰 사용자가 "권한 없음" 으로 잘못 안내받지 않도록 하는 것이 목적이다.
+        // recruitmentId 가 실제로 존재할 필요는 없다 — URL 레이어에서 이미 막힌다.
         RestAssured.given()
                 .when().get("/api/v1/recruitments/{recruitmentId}/applications/eligibility", 1L)
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
+
+    @Test
+    @DisplayName("중복 지원 사유는 사전 확인 GET 과 제출 POST 가 동일한 상태코드와 메시지를 반환한다")
+    void duplicateApplicationEligibilityMatchesSubmitFailure() {
+        Club club = saveActiveClub("정책동등동아리1");
+        Recruitment recruitment = saveOpenRecruitment(club, "정책동등모집1");
+        User applicant = saveUser("정책동등지원자1");
+        applicationRepository.save(Application.submit(recruitment, applicant, List.of()));
+        String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
+
+        Response eligibilityResponse = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/recruitments/{recruitmentId}/applications/eligibility", recruitment.getId());
+        Response submitResponse = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("answers", List.of()))
+                .when().post("/api/v1/recruitments/{recruitmentId}/applications", recruitment.getId());
+
+        assertThat(eligibilityResponse.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
+        assertThat(eligibilityResponse.statusCode()).isEqualTo(submitResponse.statusCode());
+        assertThat(eligibilityResponse.jsonPath().getString("message"))
+                .isEqualTo(submitResponse.jsonPath().getString("message"));
+    }
+
+    @Test
+    @DisplayName("마감된 모집 사유는 사전 확인 GET 과 제출 POST 가 동일한 상태코드와 메시지를 반환한다")
+    void closedRecruitmentEligibilityMatchesSubmitFailure() {
+        Club club = saveActiveClub("정책동등동아리2");
+        Recruitment recruitment = saveOpenRecruitment(club, "정책동등모집2");
+        recruitment.close();
+        recruitmentRepository.save(recruitment);
+        User applicant = saveUser("정책동등지원자2");
+        String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
+
+        Response eligibilityResponse = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/recruitments/{recruitmentId}/applications/eligibility", recruitment.getId());
+        Response submitResponse = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("answers", List.of()))
+                .when().post("/api/v1/recruitments/{recruitmentId}/applications", recruitment.getId());
+
+        assertThat(eligibilityResponse.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(eligibilityResponse.statusCode()).isEqualTo(submitResponse.statusCode());
+        assertThat(eligibilityResponse.jsonPath().getString("message"))
+                .isEqualTo(submitResponse.jsonPath().getString("message"));
     }
 
     private User saveUser(String nameSuffix) {

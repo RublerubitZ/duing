@@ -96,6 +96,10 @@ public class SecurityConfig {
                         // 멤버 변경 엔드포인트는 모두 인증 필요. (PATCH role / DELETE member / DELETE me / POST transfer-leader)
                         .requestMatchers("/api/v1/clubs/*/members/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs", "/api/v1/clubs/**").permitAll()
+                        // 지원 가능 여부 사전 확인은 현재 사용자 기준 판정이므로 인증이 필요하다.
+                        // 아래 recruitments/** permitAll 보다 반드시 앞에 위치해야 first-match 원칙상
+                        // 인증 가드가 적용된다 (미인증은 401 → 클라이언트 세션 만료 처리 경로).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/recruitments/*/applications/eligibility").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recruitments", "/api/v1/recruitments/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/notices", "/api/v1/notices/**").permitAll()
                         // 총동연 FAQ 공개 GET — 정확 경로만 허용. "/api/v1/federation/**" 와일드카드 금지:
