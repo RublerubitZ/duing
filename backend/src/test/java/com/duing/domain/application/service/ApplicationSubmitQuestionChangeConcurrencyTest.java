@@ -106,7 +106,7 @@ class ApplicationSubmitQuestionChangeConcurrencyTest extends IntegrationTestBase
         Recruitment recruitment = saveSelfRecruitmentWithSingleTextQuestion(club, ORIGINAL_QUESTION_TEXT);
 
         SubmitApplicationCommand submitCommand = new SubmitApplicationCommand(
-                recruitment.getId(), applicant.getId(), List.of("동아리 활동에 참여하고 싶습니다."));
+                recruitment.getId(), applicant.getId(), List.of("동아리 활동에 참여하고 싶습니다."), null);
         UpdateRecruitmentCommand questionChangeCommand = new UpdateRecruitmentCommand(
                 recruitment.getId(), leader.getId(), null, null, null, null, null, null,
                 List.of("가장 자신 있는 활동은 무엇인가요?"), null, null, null, null);
@@ -164,10 +164,10 @@ class ApplicationSubmitQuestionChangeConcurrencyTest extends IntegrationTestBase
         executor = Executors.newFixedThreadPool(2);
 
         Future<Throwable> firstOutcome = executor.submit(() -> runSubmitAwaitingPeer(
-                new SubmitApplicationCommand(recruitment.getId(), firstApplicant.getId(), List.of("첫 번째 답변")),
+                new SubmitApplicationCommand(recruitment.getId(), firstApplicant.getId(), List.of("첫 번째 답변"), null),
                 bothSubmitted));
         Future<Throwable> secondOutcome = executor.submit(() -> runSubmitAwaitingPeer(
-                new SubmitApplicationCommand(recruitment.getId(), secondApplicant.getId(), List.of("두 번째 답변")),
+                new SubmitApplicationCommand(recruitment.getId(), secondApplicant.getId(), List.of("두 번째 답변"), null),
                 bothSubmitted));
 
         assertThat(firstOutcome.get(TASK_TIMEOUT_SECONDS, TimeUnit.SECONDS))
@@ -257,7 +257,7 @@ class ApplicationSubmitQuestionChangeConcurrencyTest extends IntegrationTestBase
                 fixture.recruitmentId(), fixture.firstManagerId(), null, null, null, null, null, null,
                 List.of("가장 자신 있는 활동은 무엇인가요?"), null, null, null, null)));
         runInSeparateTransaction(() -> applicationService.submit(new SubmitApplicationCommand(
-                fixture.recruitmentId(), fixture.applicantId(), List.of("동아리 활동에 참여하고 싶습니다."))));
+                fixture.recruitmentId(), fixture.applicantId(), List.of("동아리 활동에 참여하고 싶습니다."), null)));
     }
 
     private void assertStoredAnswersPointAtCurrentQuestions(StaleSnapshotFixture fixture) {

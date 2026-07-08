@@ -24,7 +24,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 @SecurityRequirement(name = "BearerAuth")
 public interface ApplicationApi {
 
-    @Operation(summary = "지원 제출", description = "모집 공고에 지원한다. 답변 개수는 RecruitmentForm 의 질문 개수와 일치해야 한다.")
+    @Operation(summary = "지원 제출",
+            description = "모집 공고에 지원한다. answers(위치 기반 legacy) 와 answerItems(questionId 기반) 중 "
+                    + "정확히 하나만 보내야 하며, 답변 개수는 RecruitmentForm 의 질문 개수와 일치해야 한다. "
+                    + "선택형 질문이 있는 폼은 answerItems 로만 제출할 수 있고, 값에는 선택지 id 를 담는다.")
     @PostMapping("/recruitments/{recruitmentId}/applications")
     ResponseEntity<ApiResponse<Long>> submit(
             @PathVariable Long recruitmentId,

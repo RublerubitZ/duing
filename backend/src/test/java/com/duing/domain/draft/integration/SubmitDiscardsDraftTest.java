@@ -74,7 +74,7 @@ class SubmitDiscardsDraftTest extends IntegrationTestBase {
                 .isPresent();
 
         SubmitApplicationCommand submitCommand = new SubmitApplicationCommand(
-                openRecruitment.getId(), student.getId(), List.of()
+                openRecruitment.getId(), student.getId(), List.of(), null
         );
         applicationService.submit(submitCommand);
 
@@ -98,7 +98,7 @@ class SubmitDiscardsDraftTest extends IntegrationTestBase {
 
         // 먼저 한 번 제출해서 중복 상태를 만든다
         SubmitApplicationCommand firstSubmit = new SubmitApplicationCommand(
-                openRecruitment.getId(), student.getId(), List.of()
+                openRecruitment.getId(), student.getId(), List.of(), null
         );
         applicationService.submit(firstSubmit);
 
@@ -110,7 +110,7 @@ class SubmitDiscardsDraftTest extends IntegrationTestBase {
 
         // 중복 지원 시도 → DuplicateApplicationException 발생, discard 도달 전에 throw
         SubmitApplicationCommand duplicateSubmit = new SubmitApplicationCommand(
-                openRecruitment.getId(), student.getId(), List.of()
+                openRecruitment.getId(), student.getId(), List.of(), null
         );
         assertThatThrownBy(() -> applicationService.submit(duplicateSubmit))
                 .isInstanceOf(RuntimeException.class);
