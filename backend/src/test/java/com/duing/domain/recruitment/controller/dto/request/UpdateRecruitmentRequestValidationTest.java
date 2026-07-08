@@ -22,6 +22,7 @@ class UpdateRecruitmentRequestValidationTest {
                 null, null, null, null, 0, null, null,
                 null,
                 null,
+                null,
                 null
         );
         Set<ConstraintViolation<UpdateRecruitmentRequest>> violations = validator.validate(request);
@@ -35,6 +36,7 @@ class UpdateRecruitmentRequestValidationTest {
         UpdateRecruitmentRequest request = new UpdateRecruitmentRequest(
                 null, null, null, null, null, null,
                 List.of("가".repeat(501)),
+                null,
                 null, null, null
         );
         assertThat(validator.validate(request)).anyMatch(violation ->
@@ -50,6 +52,7 @@ class UpdateRecruitmentRequestValidationTest {
         UpdateRecruitmentRequest request = new UpdateRecruitmentRequest(
                 null, null, null, null, null, null,
                 questions,
+                null,
                 null, null, null
         );
         assertThat(validator.validate(request)).anyMatch(violation ->
