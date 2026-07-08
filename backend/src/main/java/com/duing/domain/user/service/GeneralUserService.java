@@ -97,7 +97,7 @@ public class GeneralUserService implements UserService {
         if (user == null) {
             // 존재하지 않는 이메일도 BCrypt 비교 비용을 동일하게 소비해 타이밍 기반 이메일 열거를 막는다.
             burnPasswordComparison(loginCommand.rawPassword());
-            loginAttemptRateLimiter.recordFailure(clientIp, now);
+            loginAttemptRateLimiter.recordFailureOrThrow(clientIp, now);
             throw new UserException.InvalidCredentialsException();
         }
 
@@ -105,13 +105,13 @@ public class GeneralUserService implements UserService {
         // 무한히 두드려 IP 볼륨 제한을 완전히 우회할 수 있다(무료 프로브). 계정 카운터(recordFailedLogin)는
         // 이미 잠긴 계정을 다시 잠글 필요가 없어 건드리지 않고, IP 윈도우에만 실패로 기록한다.
         if (user.isLocked(now)) {
-            loginAttemptRateLimiter.recordFailure(clientIp, now);
+            loginAttemptRateLimiter.recordFailureOrThrow(clientIp, now);
             throw new UserException.AccountLockedException();
         }
 
         if (!passwordEncoder.matches(loginCommand.rawPassword(), user.getPasswordHash())) {
             user.recordFailedLogin(MAX_FAILED_LOGIN_ATTEMPTS, LOGIN_LOCK_DURATION, now);
-            loginAttemptRateLimiter.recordFailure(clientIp, now);
+            loginAttemptRateLimiter.recordFailureOrThrow(clientIp, now);
             throw new UserException.InvalidCredentialsException();
         }
 

@@ -138,6 +138,54 @@ class LoginRateLimitAcceptanceTest extends IntegrationTestBase {
         }
     }
 
+    @Test
+    @DisplayName("같은 IP 에서 실패 로그인이 동시에 몰려도 정확히 한도만큼만 허용되고 초과분은 429로 차단된다")
+    void concurrentFailedLoginsFromSameIpAreCappedAtTheLimit() throws Exception {
+        // 분당 실패 한도(LoginAttemptRateLimiter.PER_MINUTE_LIMIT = 10). 초과분이 동시에 몰려도, 원자적
+        // 검사·기록(recordFailureOrThrow)이 윈도우를 한도로 고정하므로 정확히 한도만큼만 401(자격 증명
+        // 실패)로 기록되고 나머지는 429 가 된다. 이른 검사만 있던 구현이라면 동시 요청이 모두 401 로
+        // 빠져나가 한도를 동시성 수준만큼 초과했을 시나리오다.
+        int expectedRecorded = 10;
+        int totalRequests = expectedRecorded * 2;
+
+        ExecutorService pool = Executors.newFixedThreadPool(totalRequests);
+        CountDownLatch ready = new CountDownLatch(totalRequests);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<Integer>> statuses = new ArrayList<>();
+        try {
+            for (int index = 0; index < totalRequests; index++) {
+                String email = "nobody" + index + "@daegu.ac.kr"; // 존재하지 않는 계정 — 계정 잠금과 무관
+                statuses.add(pool.submit(() -> {
+                    ready.countDown();
+                    start.await();
+                    return RestAssured.given()
+                            .contentType(ContentType.JSON)
+                            .body(Map.of("email", email, "password", "wrong-password"))
+                            .when().post("/api/v1/auth/login")
+                            .statusCode();
+                }));
+            }
+            ready.await();
+            start.countDown();
+
+            long recorded = 0;
+            long blocked = 0;
+            for (Future<Integer> status : statuses) {
+                int code = status.get();
+                if (code == HttpStatus.UNAUTHORIZED.value()) {
+                    recorded++;
+                } else if (code == HttpStatus.TOO_MANY_REQUESTS.value()) {
+                    blocked++;
+                }
+            }
+            assertThat(recorded).isEqualTo(expectedRecorded);
+            assertThat(blocked).isEqualTo(totalRequests - expectedRecorded);
+        } finally {
+            pool.shutdown();
+            pool.awaitTermination(30, TimeUnit.SECONDS);
+        }
+    }
+
     private String saveUserWithPassword() {
         long seq = sequence.incrementAndGet();
         String email = "u" + seq + "@daegu.ac.kr";
