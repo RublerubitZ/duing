@@ -1,6 +1,7 @@
 package com.duing.domain.recruitment;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -52,9 +53,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *
  * <p>Testcontainers 가 스키마 초기화 시 V78 을 이미 1회 실행하지만, 그 시점엔 데이터가 없어
  * SQL 문법만 검증된다. 이 테스트는 legacy 형태로 강제 치환한 실데이터에 V78 의 3개 UPDATE 문을
- * "그대로" 다시 실행해 변환 결과를 단언한다 — 같은 SQL 을 재실행하는 것이므로 멱등성도 함께
- * 검증하는 셈이다 (재실행 시 이미 새 형태인 다른 행을 건드리지 않아야 한다는 것은 WHERE 절의
- * bool_and 가드로 보장되며, 이 테스트에서는 legacy 행이 정확히 변환되는지에 집중한다).
+ * "그대로" 다시 실행해 변환 결과를 단언한다.
+ *
+ * <p>변환 정확성뿐 아니라 다음 두 가지를 함께 지킨다.
+ * <ul>
+ *   <li><b>총체성</b> — 어떤 legacy·malformed 형태도 미변환으로 남지 않는다. 남으면 Hibernate 가
+ *       record 로 역직렬화하다 실패해 조회가 HTTP 500 이 된다.</li>
+ *   <li><b>멱등성</b> — 이미 신형인 행에 SQL 을 다시 실행해도 질문 id 와 내용이 바뀌지 않는다.
+ *       (legacy 행만 보는 테스트는 이 성질을 검증하지 못하므로 별도 케이스를 둔다.)</li>
+ * </ul>
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -236,6 +243,169 @@ class RecruitmentQuestionMigrationTest extends IntegrationTestBase {
         // JPA 로도 예외 없이 정상 조회된다 — 고정 전에는 이 지점에서 500(UnrecognizedPropertyException)
         // 위험이 있었다.
         assertThat(draftRepository.findByUserIdAndRecruitmentId(student.getId(), recruitment.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("질문 배열에 JSON null 원소가 남아 있어도 마이그레이션이 빈 문자열 질문으로 변환해 조회가 실패하지 않는다")
+    void v78MigrationNormalizesNullQuestionElementToEmptyText() throws Exception {
+        // #604 이전 UpdateRecruitmentRequest.questions 는 List<String> 에 원소 검증이 없어 PATCH 로
+        // ["질문1", null] 저장이 가능했다. "모든 원소가 문자열" 게이트는 이 행을 건너뛰어 legacy 로
+        // 남기고, 다음 조회에서 Hibernate 가 String → RecruitmentQuestion 역직렬화에 실패해 500 이 된다.
+        Club club = saveActiveClub();
+        User student = saveStudent();
+        Recruitment recruitment = saveSelfRecruitmentWithForm(club);
+        Application application = applicationRepository.save(Application.submit(recruitment, student,
+                List.of(new ApplicationAnswer("placeholder", List.of("placeholder")))));
+
+        jdbcTemplate.update("UPDATE recruitment_form SET questions = ?::jsonb WHERE recruitment_id = ?",
+                "[\"질문1\", null]", recruitment.getId());
+        jdbcTemplate.update("UPDATE application SET answers = ?::jsonb WHERE id = ?",
+                "[\"답변1\", \"답변2\"]", application.getId());
+
+        runV78MigrationSql();
+
+        JsonNode questions = fetchJsonColumn(
+                "SELECT questions::text FROM recruitment_form WHERE recruitment_id = ?", recruitment.getId());
+        assertThat(questions.size()).isEqualTo(2);
+        assertThat(questions.get(0).get("text").textValue()).isEqualTo("질문1");
+        // JSON null 원소는 빈 문자열로 정규화된다. COALESCE 가 없으면 text 가 JSON null 이라
+        // textValue() 가 null 이 되어 아래 단언이 실패한다.
+        assertThat(questions.get(1).get("text").textValue()).isEmpty();
+        assertThat(questions.get(1).get("type").asText()).isEqualTo("TEXT");
+        assertThat(questions.get(1).get("required").asBoolean()).isTrue();
+        assertThat(questions.get(1).get("choices").size()).isZero();
+        assertThat(questions.get(1).get("id").asText()).isNotBlank();
+
+        // and: JPA 로 실제 조회해도 역직렬화 예외 없이 200 을 반환한다 — 게이트를 뒤집은 진짜 목적.
+        RestAssured.port = port;
+        String studentToken = jwtTokenProvider.createToken(student.getId(), student.getRole().name());
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .get("/api/v1/users/me/applications/{applicationId}", application.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("ok", equalTo(true))
+                    .body("data.questions", contains("질문1", ""))
+                    .body("data.answers", contains("답변1", "답변2"));
+    }
+
+    @Test
+    @DisplayName("임시저장 questionId 가 Long 최대값이어도 마이그레이션이 실패하지 않고 해당 원소만 폐기한다")
+    void v78MigrationSurvivesOutOfRangeDraftQuestionId() throws Exception {
+        // UpsertDraftRequest.DraftAnswerPayload.questionId 는 Long 에 범위 검증이 없어 Long.MAX_VALUE
+        // 저장이 가능했다. 가드가 없으면 (questionId)::bigint + 1 이 "bigint out of range" 로 터져
+        // 마이그레이션 전체가 실패한다 — 한 행 때문에 배포가 막히는 상황.
+        Club club = saveActiveClub();
+        User student = saveStudent();
+        Recruitment recruitment = saveSelfRecruitmentWithForm(club);
+        jdbcTemplate.update("UPDATE recruitment_form SET questions = ?::jsonb WHERE recruitment_id = ?",
+                "[\"질문1\"]", recruitment.getId());
+        ApplicationDraft draft = draftRepository.save(ApplicationDraft.create(
+                student.getId(), recruitment.getId(),
+                List.of(new ApplicationDraft.DraftAnswer("placeholder", List.of("placeholder")))));
+
+        jdbcTemplate.update("UPDATE application_draft SET answers = ?::jsonb WHERE id = ?",
+                "[{\"questionId\":0,\"value\":\"정상\"},"
+                        + "{\"questionId\":9223372036854775807,\"value\":\"오버플로\"}]",
+                draft.getId());
+
+        assertThatCode(this::runV78MigrationSql).doesNotThrowAnyException();
+
+        JsonNode formQuestions = fetchJsonColumn(
+                "SELECT questions::text FROM recruitment_form WHERE recruitment_id = ?", recruitment.getId());
+        String questionId = formQuestions.get(0).get("id").asText();
+
+        // 안전 범위를 벗어난 원소는 폐기된다(애초에 매칭될 질문이 없다). 유효한 원소는 정상 변환된다.
+        JsonNode draftAnswers = fetchJsonColumn(
+                "SELECT answers::text FROM application_draft WHERE id = ?", draft.getId());
+        assertThat(draftAnswers.size()).isEqualTo(1);
+        assertThat(draftAnswers.get(0).get("questionId").asText()).isEqualTo(questionId);
+        assertThat(draftAnswers.get(0).get("values").get(0).asText()).isEqualTo("정상");
+
+        assertThat(draftRepository.findByUserIdAndRecruitmentId(student.getId(), recruitment.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("이미 신형으로 변환된 질문·답변·임시저장 행은 마이그레이션을 다시 실행해도 질문 id 와 내용이 그대로 유지된다")
+    void v78MigrationIsIdempotentAcrossQuestionsAnswersAndDrafts() throws Exception {
+        Club club = saveActiveClub();
+        User student = saveStudent();
+        Recruitment recruitment = saveSelfRecruitmentWithForm(club);
+        Application application = applicationRepository.save(Application.submit(recruitment, student,
+                List.of(new ApplicationAnswer("placeholder", List.of("placeholder")))));
+        ApplicationDraft draft = draftRepository.save(ApplicationDraft.create(student.getId(), recruitment.getId(),
+                List.of(new ApplicationDraft.DraftAnswer("placeholder", List.of("placeholder")))));
+
+        jdbcTemplate.update("UPDATE recruitment_form SET questions = ?::jsonb WHERE recruitment_id = ?",
+                "[\"질문1\", \"질문2\"]", recruitment.getId());
+        // 잉여 답변(3번째)과 범위 밖 인덱스(99)는 1 회차에서 questionId=null 로 무손실 보존된다.
+        // 2 회차 게이트가 이 행을 "아직 legacy" 로 오판하면 원소가 전부 폐기되어 '[]' 로 날아간다 —
+        // 멱등성의 핵심 회귀 지점이라 두 케이스를 반드시 포함한다.
+        jdbcTemplate.update("UPDATE application SET answers = ?::jsonb WHERE id = ?",
+                "[\"답변1\", \"답변2\", \"잉여답변\"]", application.getId());
+        jdbcTemplate.update("UPDATE application_draft SET answers = ?::jsonb WHERE id = ?",
+                "[{\"questionId\":0,\"value\":\"초안0\"},{\"questionId\":99,\"value\":\"범위밖\"}]", draft.getId());
+
+        runV78MigrationSql();
+
+        JsonNode questionsAfterFirstRun = fetchJsonColumn(
+                "SELECT questions::text FROM recruitment_form WHERE recruitment_id = ?", recruitment.getId());
+        JsonNode answersAfterFirstRun = fetchJsonColumn(
+                "SELECT answers::text FROM application WHERE id = ?", application.getId());
+        JsonNode draftAfterFirstRun = fetchJsonColumn(
+                "SELECT answers::text FROM application_draft WHERE id = ?", draft.getId());
+        // 전제 조건: 1 회차 결과에 questionId=null 보존 원소가 실제로 존재해야 이 테스트가 의미를 갖는다.
+        assertThat(answersAfterFirstRun.get(2).get("questionId").isNull()).isTrue();
+        assertThat(draftAfterFirstRun.size()).isEqualTo(2);
+        assertThat(draftAfterFirstRun.get(1).get("questionId").isNull()).isTrue();
+
+        // when: 이미 신형인 데이터 위에 같은 SQL 을 한 번 더 실행한다 (부분 적용·복구 재실행 시나리오).
+        runV78MigrationSql();
+
+        // then: 세 테이블 모두 1 회차 결과와 완전히 동일하다 — 질문 uuid 재발급도, 원소 폐기도 없다.
+        assertThat(fetchJsonColumn(
+                "SELECT questions::text FROM recruitment_form WHERE recruitment_id = ?", recruitment.getId()))
+                .isEqualTo(questionsAfterFirstRun);
+        assertThat(fetchJsonColumn("SELECT answers::text FROM application WHERE id = ?", application.getId()))
+                .isEqualTo(answersAfterFirstRun);
+        assertThat(fetchJsonColumn("SELECT answers::text FROM application_draft WHERE id = ?", draft.getId()))
+                .isEqualTo(draftAfterFirstRun);
+    }
+
+    @Test
+    @DisplayName("답변 배열에 JSON null 원소가 있어도 마이그레이션이 빈 문자열 답변으로 변환한다")
+    void v78MigrationNormalizesNullAnswerElementToEmptyString() throws Exception {
+        Club club = saveActiveClub();
+        User student = saveStudent();
+        Recruitment recruitment = saveSelfRecruitmentWithForm(club);
+        Application application = applicationRepository.save(Application.submit(recruitment, student,
+                List.of(new ApplicationAnswer("placeholder", List.of("placeholder")))));
+
+        jdbcTemplate.update("UPDATE recruitment_form SET questions = ?::jsonb WHERE recruitment_id = ?",
+                "[\"질문1\", \"질문2\"]", recruitment.getId());
+        jdbcTemplate.update("UPDATE application SET answers = ?::jsonb WHERE id = ?",
+                "[\"답변1\", null]", application.getId());
+
+        runV78MigrationSql();
+
+        JsonNode answers = fetchJsonColumn("SELECT answers::text FROM application WHERE id = ?", application.getId());
+        assertThat(answers.size()).isEqualTo(2);
+        assertThat(answers.get(0).get("values").get(0).textValue()).isEqualTo("답변1");
+        assertThat(answers.get(1).get("values").get(0).textValue()).isEmpty();
+
+        RestAssured.port = port;
+        String studentToken = jwtTokenProvider.createToken(student.getId(), student.getRole().name());
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .get("/api/v1/users/me/applications/{applicationId}", application.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("ok", equalTo(true))
+                    .body("data.answers", contains("답변1", ""));
     }
 
     private void runV78MigrationSql() throws Exception {
