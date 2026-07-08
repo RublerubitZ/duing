@@ -1,10 +1,15 @@
 package com.duing.domain.application.service.dto.query;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public record MyApplicationDetailQuery(
         Long id,
@@ -41,14 +46,30 @@ public record MyApplicationDetailQuery(
         var recruitment = application.getRecruitment();
         var club = recruitment.getClub();
         RecruitmentForm form = recruitment.getForm();
+        List<RecruitmentQuestion> formQuestions = form == null ? List.of() : form.getQuestions();
+
+        // 위치가 아닌 questionId 로 답변을 페어링한다 (스펙 §2.4). 동일 questionId 가 중복되면 첫 번째만
+        // 채택 — 정상 제출은 항상 1:1 이며, 중복은 방어적 처리일 뿐이다.
+        Map<String, ApplicationAnswer> answerByQuestionId = application.getAnswers().stream()
+                .filter(answer -> answer.questionId() != null)
+                .collect(Collectors.toMap(ApplicationAnswer::questionId, Function.identity(),
+                        (first, duplicate) -> first));
+        List<String> questions = formQuestions.stream().map(RecruitmentQuestion::text).toList();
+        List<String> answers = formQuestions.stream()
+                .map(question -> {
+                    ApplicationAnswer answer = answerByQuestionId.get(question.id());
+                    return question.formatAnswerValues(answer == null ? List.of() : answer.values());
+                })
+                .toList();
+
         return new MyApplicationDetailQuery(
                 application.getId(),
                 recruitment.getId(),
                 recruitment.getTitle(),
                 club.getId(),
                 club.getName(),
-                form == null ? List.of() : form.getQuestions(),
-                application.getAnswers(),
+                questions,
+                answers,
                 application.getStatus(),
                 interview,
                 application.getCreatedAt(),

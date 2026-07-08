@@ -33,27 +33,27 @@ public class RecruitmentForm extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
-    private List<String> questions;
+    private List<RecruitmentQuestion> questions;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private RecruitmentForm(Recruitment recruitment, List<String> questions) {
+    private RecruitmentForm(Recruitment recruitment, List<RecruitmentQuestion> questions) {
         this.recruitment = recruitment;
         this.questions = questions;
     }
 
-    public static RecruitmentForm create(Recruitment recruitment, List<String> questions) {
-        List<String> sanitized = questions == null ? new ArrayList<>() : new ArrayList<>(questions);
+    public static RecruitmentForm create(Recruitment recruitment, List<RecruitmentQuestion> questions) {
+        List<RecruitmentQuestion> sanitized = questions == null ? new ArrayList<>() : new ArrayList<>(questions);
         return RecruitmentForm.builder()
                 .recruitment(recruitment)
                 .questions(sanitized)
                 .build();
     }
 
-    public List<String> getQuestions() {
+    public List<RecruitmentQuestion> getQuestions() {
         return Collections.unmodifiableList(questions);
     }
 
-    public void replaceQuestions(List<String> newQuestions) {
+    public void replaceQuestions(List<RecruitmentQuestion> newQuestions) {
         this.questions = List.copyOf(newQuestions);
     }
 }

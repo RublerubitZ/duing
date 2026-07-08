@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -15,6 +16,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.RecruitmentService;
@@ -94,11 +96,12 @@ class ClubDetailActiveRecruitmentTest {
                 club.getId(), leader.getId(), "공개카운트", null,
                 LocalDate.now(), LocalDate.now().plusDays(7), 10,
                 ApplicationMode.SELF, null, false,
-                TargetRole.MEMBER, List.of("자기소개"), null, null, true
+                TargetRole.MEMBER, List.of(RecruitmentQuestion.createText("자기소개")), null, null, true
         ));
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId).orElseThrow();
         User applicant = saveUser("지원자");
-        applicationRepository.save(Application.submit(recruitment, applicant, List.of("안녕")));
+        applicationRepository.save(Application.submit(recruitment, applicant,
+                List.of(new ApplicationAnswer("q1", List.of("안녕")))));
 
         ClubDetailQuery detail = clubService.getById(club.getId());
         assertThat(detail.activeRecruitment()).isNotNull();

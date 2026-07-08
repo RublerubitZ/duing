@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
@@ -31,6 +32,7 @@ import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
@@ -95,11 +97,15 @@ class MyApplicationDetailAccessTest {
         Application application = stubOwnedApplication(1L, 10L, 3L, false);
         // useInterview=false 이므로 INTERVIEW_PENDING 가 아닌 SUBMITTED 로 가정한다.
         when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
-        when(application.getAnswers()).thenReturn(List.of("A1", "A2"));
 
+        RecruitmentQuestion questionOne = RecruitmentQuestion.createText("Q1");
+        RecruitmentQuestion questionTwo = RecruitmentQuestion.createText("Q2");
         RecruitmentForm form = mock(RecruitmentForm.class);
-        when(form.getQuestions()).thenReturn(List.of("Q1", "Q2"));
+        when(form.getQuestions()).thenReturn(List.of(questionOne, questionTwo));
         when(application.getRecruitment().getForm()).thenReturn(form);
+        when(application.getAnswers()).thenReturn(List.of(
+                new ApplicationAnswer(questionOne.id(), List.of("A1")),
+                new ApplicationAnswer(questionTwo.id(), List.of("A2"))));
 
         LocalDateTime submittedAt = LocalDateTime.of(2026, 5, 15, 9, 30);
         when(application.getCreatedAt()).thenReturn(submittedAt);
@@ -266,8 +272,9 @@ class MyApplicationDetailAccessTest {
         when(club.getId()).thenReturn(7L);
         when(club.getName()).thenReturn("동아리");
 
+        RecruitmentQuestion question = RecruitmentQuestion.createText("Q1");
         RecruitmentForm form = mock(RecruitmentForm.class);
-        when(form.getQuestions()).thenReturn(List.of("Q1"));
+        when(form.getQuestions()).thenReturn(List.of(question));
 
         Recruitment recruitment = mock(Recruitment.class);
         when(recruitment.getId()).thenReturn(recruitmentId);
@@ -280,7 +287,7 @@ class MyApplicationDetailAccessTest {
         when(application.getId()).thenReturn(applicationId);
         when(application.getUser()).thenReturn(owner);
         when(application.getRecruitment()).thenReturn(recruitment);
-        when(application.getAnswers()).thenReturn(List.of("A1"));
+        when(application.getAnswers()).thenReturn(List.of(new ApplicationAnswer(question.id(), List.of("A1"))));
         when(application.getStatus()).thenReturn(ApplicationStatus.INTERVIEW_PENDING);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 15, 9, 30));
         return application;

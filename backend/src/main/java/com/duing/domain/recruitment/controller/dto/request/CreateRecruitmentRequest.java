@@ -1,6 +1,7 @@
 package com.duing.domain.recruitment.controller.dto.request;
 
 import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
 import jakarta.validation.constraints.Min;
@@ -66,7 +67,7 @@ public record CreateRecruitmentRequest(
                 externalFormUrl,
                 Boolean.TRUE.equals(useInterview),
                 targetRole,
-                questions,
+                questions == null ? null : questions.stream().map(RecruitmentQuestion::createText).toList(),
                 interviewStartDate,
                 interviewEndDate,
                 Boolean.TRUE.equals(showApplicantCount)

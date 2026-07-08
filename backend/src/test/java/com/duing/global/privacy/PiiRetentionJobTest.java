@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -146,7 +147,8 @@ class PiiRetentionJobTest extends IntegrationTestBase {
                 club, "보관모집", null, LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
         User applicant = saveUser("applicant@daegu.ac.kr");
         Application application = applicationRepository.save(
-                Application.submit(recruitment, applicant, List.of("주소·연락처 등 개인정보 답변")));
+                Application.submit(recruitment, applicant,
+                        List.of(new ApplicationAnswer("q1", List.of("주소·연락처 등 개인정보 답변")))));
         softDeleteDaysAgo("application", application.getId(), 400);
 
         job.run();
