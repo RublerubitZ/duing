@@ -16,7 +16,8 @@ type Props = {
 };
 
 export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
-  const { canApply, handleApply, applyButtonLabel } = useClubApply(recruitment);
+  const { canApply, handleApply, applyButtonLabel, isCheckingEligibility } =
+    useClubApply(recruitment);
 
   const status = recruitment?.displayStatus;
   const daysLeft = recruitment ? recruitmentDaysLeft(recruitment.endDate) : null;
@@ -86,10 +87,10 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
         <button
           type="button"
           onClick={handleApply}
-          disabled={!canApply}
+          disabled={!canApply || isCheckingEligibility}
           className="btn btn-primary btn-big mb-2.5 w-full disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {applyButtonLabel}
+          {isCheckingEligibility ? '확인 중…' : applyButtonLabel}
         </button>
 
         <div className="flex gap-2">
