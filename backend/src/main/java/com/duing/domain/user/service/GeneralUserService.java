@@ -88,23 +88,30 @@ public class GeneralUserService implements UserService {
     })
     public LoginResult login(LoginCommand loginCommand, String clientIp) {
         LocalDateTime now = LocalDateTime.now();
-        // IP 단위 시도 제한(credential stuffing/spraying) — 계정 조회 이전에 차단한다.
-        loginAttemptRateLimiter.assertAndRecordAttempt(clientIp, now);
+        // IP 단위 실패 제한(credential stuffing/spraying) — 계정 조회 이전에, 이미 실패 한도를 넘긴 IP 를
+        // 차단한다. 성공 로그인은 세지 않으므로 공유 IP(교내 NAT) 의 정상 사용자는 막히지 않는다.
+        loginAttemptRateLimiter.assertWithinLimit(clientIp, now);
 
         // 같은 계정에 대한 동시 실패가 실패 카운터 증가를 덮어쓰지 않도록 행을 잠그고 조회한다.
         User user = userRepository.findByEmailForUpdate(loginCommand.email()).orElse(null);
         if (user == null) {
             // 존재하지 않는 이메일도 BCrypt 비교 비용을 동일하게 소비해 타이밍 기반 이메일 열거를 막는다.
             burnPasswordComparison(loginCommand.rawPassword());
+            loginAttemptRateLimiter.recordFailureOrThrow(clientIp, now);
             throw new UserException.InvalidCredentialsException();
         }
 
+        // 잠긴 계정에 대한 시도도 IP 실패로 센다. 세지 않으면 공격자가 계정 하나를 잠근 뒤 그 계정을
+        // 무한히 두드려 IP 볼륨 제한을 완전히 우회할 수 있다(무료 프로브). 계정 카운터(recordFailedLogin)는
+        // 이미 잠긴 계정을 다시 잠글 필요가 없어 건드리지 않고, IP 윈도우에만 실패로 기록한다.
         if (user.isLocked(now)) {
+            loginAttemptRateLimiter.recordFailureOrThrow(clientIp, now);
             throw new UserException.AccountLockedException();
         }
 
         if (!passwordEncoder.matches(loginCommand.rawPassword(), user.getPasswordHash())) {
             user.recordFailedLogin(MAX_FAILED_LOGIN_ATTEMPTS, LOGIN_LOCK_DURATION, now);
+            loginAttemptRateLimiter.recordFailureOrThrow(clientIp, now);
             throw new UserException.InvalidCredentialsException();
         }
 
