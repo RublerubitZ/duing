@@ -2,6 +2,7 @@ package com.duing.domain.recruitment.controller.dto.request;
 
 import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.List;
@@ -21,7 +22,11 @@ public record UpdateRecruitmentRequest(
 
         Boolean useInterview,
 
-        List<String> questions,
+        // 질문 개수 상한(50)은 CreateRecruitmentRequest·지원서 답변 개수 상한과 일치해야 한다
+        // (제출 시 answers.size() == questions.size() 검증). 상세는 CreateRecruitmentRequest 주석 참조.
+        @Size(max = 50, message = "질문은 최대 50개까지 등록할 수 있습니다.")
+        List<@NotBlank(message = "질문 항목은 빈 문자열일 수 없습니다.")
+                @Size(max = 500, message = "질문은 500자 이하여야 합니다.") String> questions,
 
         LocalDate interviewStartDate,
 
