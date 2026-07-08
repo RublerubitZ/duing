@@ -39,6 +39,8 @@ export {
 } from './recruitments';
 export {
   useSubmitApplicationMutation,
+  useCheckEligibilityMutation,
+  useApplicationEligibilityQuery,
   useWithdrawApplicationMutation,
   useMyApplicationsQuery,
   useMyApplicationDetailQuery,

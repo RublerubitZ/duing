@@ -40,7 +40,8 @@ function barLabels(recruitment: StudentRecruitmentProjection | undefined): {
 }
 
 export function ClubDetailApplyBar({ recruitment }: Props) {
-  const { canApply, handleApply, applyButtonLabel } = useClubApply(recruitment);
+  const { canApply, handleApply, applyButtonLabel, isCheckingEligibility } =
+    useClubApply(recruitment);
   const { top, main } = barLabels(recruitment);
 
   return (
@@ -55,14 +56,14 @@ export function ClubDetailApplyBar({ recruitment }: Props) {
         <button
           type="button"
           onClick={handleApply}
-          disabled={!canApply}
+          disabled={!canApply || isCheckingEligibility}
           className={cn(
             'btn btn-primary flex-1 rounded-[14px] py-3.5 text-[15px]',
             'disabled:cursor-not-allowed disabled:opacity-40',
           )}
         >
-          {applyButtonLabel}
-          {canApply && <ArrowRight size={16} />}
+          {isCheckingEligibility ? '확인 중…' : applyButtonLabel}
+          {canApply && !isCheckingEligibility && <ArrowRight size={16} />}
         </button>
       </div>
     </>

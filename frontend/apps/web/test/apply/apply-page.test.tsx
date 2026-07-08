@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import { Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -17,9 +18,13 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { ApplyForm } from '@/app/apply/[recruitmentId]/_components/ApplyForm';
+import ApplyPage from '@/app/apply/[recruitmentId]/page';
 
 const RECRUITMENT_ID = 42;
-const server = setupServer();
+// 딥링크 가드 테스트(ApplyPage 전체 렌더)가 recruitment 상세·draft·eligibility 세 요청을 모두
+// 거치므로, resetHandlers 이후에도 유지되도록 기본 200 핸들러를 setupServer 초기 목록에 둔다.
+// ApplyForm 을 직접 렌더하는 기존 테스트들은 이 핸들러들을 타지 않으므로 영향이 없다.
+const server = setupServer(mockRecruitmentDetailHandler(), mockDraftHandler(), mockEligibilityHandler(200));
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 beforeAll(() =>
@@ -79,6 +84,25 @@ function makeRecruitment({
 function mockSubmitApplication(applicationId = 999) {
   return http.post(`*/recruitments/${RECRUITMENT_ID}/applications`, () =>
     HttpResponse.json({ ok: true, data: applicationId, message: null }),
+  );
+}
+
+// ApplyPage 전체 렌더 테스트 전용 핸들러 — 상세/임시저장/사전 확인 세 요청을 모두 담당한다.
+function mockRecruitmentDetailHandler(recruitment: RecruitmentDetail = makeRecruitment()) {
+  return http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
+    HttpResponse.json({ ok: true, data: recruitment, message: null }),
+  );
+}
+
+function mockDraftHandler() {
+  return http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+    HttpResponse.json({ ok: true, data: { exists: false, answers: [], updatedAt: null }, message: null }),
+  );
+}
+
+function mockEligibilityHandler(status: number, message: string | null = null) {
+  return http.get(`*/recruitments/${RECRUITMENT_ID}/applications/eligibility`, () =>
+    HttpResponse.json({ ok: status < 300, data: null, message }, { status }),
   );
 }
 
@@ -185,5 +209,95 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     });
     expect(capturedBody).not.toHaveProperty('interviewSlotIds');
     expect(capturedBody?.['answers']).toEqual(['열정']);
+  });
+});
+
+function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchOnWindowFocus: false },
+      mutations: { retry: false },
+    },
+  });
+}
+
+// 재마운트 회귀 테스트만 QueryClient 를 공유한다(실제 앱의 루트 QueryClient 가 SPA 네비게이션
+// 내내 유지되는 상황 재현). 나머지 테스트는 매 렌더마다 새 인스턴스로 격리된 상태에서 돈다.
+function renderApplyPage(queryClient: QueryClient = makeQueryClient()) {
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ApiClientProvider client={apiClient}>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      </ApiClientProvider>
+    );
+  }
+
+  // React 19 의 use(thenable) 이 정상 fulfilled 상태로 재진입 없이 동기적으로 값을 꺼내가도록
+  // status/value 가 미리 태깅된 thenable 을 전달한다 (server-rendered params 와 동일 모양).
+  // 일반 Promise.resolve 를 넘기면 use 가 한 번 suspend 한 뒤 microtask 가 act 경계를 벗어나
+  // jsdom + vitest 환경에서 영구 loading 으로 막힌다.
+  const paramsValue = { recruitmentId: String(RECRUITMENT_ID) };
+  const params = Object.assign(Promise.resolve(paramsValue), {
+    status: 'fulfilled' as const,
+    value: paramsValue,
+  });
+
+  return render(
+    <Wrapper>
+      <Suspense fallback={<p>loading…</p>}>
+        <ApplyPage params={params} />
+      </Suspense>
+    </Wrapper>,
+  );
+}
+
+describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
+  it('지원 가능하면 기존과 동일하게 지원 폼이 렌더된다', async () => {
+    renderApplyPage();
+
+    expect(await screen.findByRole('button', { name: '제출' })).toBeInTheDocument();
+  });
+
+  it('부적격 딥링크 진입은 지원 폼 대신 안내 패널을 보여준다', async () => {
+    server.use(mockEligibilityHandler(409, '이미 지원한 모집 공고입니다.'));
+
+    renderApplyPage();
+
+    expect(await screen.findByText('이미 지원한 모집 공고입니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
+    // makeRecruitment() 의 clubId 고정값(1)에 대응하는 동아리 상세로 돌아가는 링크.
+    const backLink = screen.getByRole('link', { name: '동아리 페이지로 돌아가기' });
+    expect(backLink).toHaveAttribute('href', '/clubs/1');
+  });
+
+  it('재진입 시 직전 판정 캐시로 지원 폼을 먼저 그리지 않는다', async () => {
+    // 루트 QueryClient 는 SPA 네비게이션 내내 살아 있으므로, 캐시가 남아 있으면
+    // 재마운트 시 status 가 'success' 라 isLoading=false → 로딩 게이트가 백그라운드
+    // refetch 를 기다리지 않고 통과해 버린다. gcTime:0 이 이 경로를 막는다.
+    const sharedQueryClient = makeQueryClient();
+
+    // 1) 적격 상태로 첫 진입 — 폼이 뜨고 '적격' 판정이 캐시에 남는다.
+    const firstVisit = renderApplyPage(sharedQueryClient);
+    expect(await screen.findByRole('button', { name: '제출' })).toBeInTheDocument();
+    firstVisit.unmount();
+
+    // gcTime 만료는 setTimeout 으로 스케줄되므로 매크로태스크 한 틱을 흘려보낸다.
+    // 실제 라우트 이동도 언마운트와 재마운트가 같은 동기 구간에서 일어나지 않으므로 이 편이 실제에 가깝다.
+    // (gcTime 이 기본값 5분이면 이 틱으로는 캐시가 사라지지 않아 아래 단언이 그대로 깨진다.)
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // 2) 이탈한 사이 모집이 마감돼 부적격으로 바뀐 상태에서 재진입.
+    server.use(mockEligibilityHandler(400, '마감된 모집 공고에는 지원할 수 없습니다.'));
+    renderApplyPage(sharedQueryClient);
+
+    // 캐시된 '적격' 판정으로 지원 폼이 한 프레임이라도 그려지면 사용자가 입력을 시작해 버린다.
+    expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
+    expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
+
+    // 재확인 결과가 도착하면 차단 패널로 확정된다 — 그 사이에도 폼은 등장하지 않는다.
+    expect(
+      await screen.findByText('마감된 모집 공고에는 지원할 수 없습니다.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
   });
 });

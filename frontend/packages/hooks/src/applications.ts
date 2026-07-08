@@ -25,6 +25,35 @@ export function useSubmitApplicationMutation(recruitmentId: number) {
   });
 }
 
+/** 지원하기 버튼 클릭 시점의 사전 확인 — pending 상태로 중복 클릭을 막는다. */
+export function useCheckEligibilityMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (recruitmentId: number) => client.applications.checkEligibility(recruitmentId),
+  });
+}
+
+/** /apply 딥링크 가드용 — 부적격(4xx)은 기대 결과이므로 재시도하지 않는다. */
+export function useApplicationEligibilityQuery(recruitmentId: number, enabled: boolean) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: applicationQueryKeys.eligibility(recruitmentId),
+    queryFn: async () => {
+      await client.applications.checkEligibility(recruitmentId);
+      return true;
+    },
+    enabled,
+    retry: false,
+    staleTime: 0,
+    // 루트 QueryClient 는 SPA 네비게이션 내내 살아 있어, 캐시가 남으면 재진입 시 status 가
+    // 'success'|'error' 라 isLoading=false 가 되고 로딩 게이트가 재확인을 기다리지 않고 통과한다.
+    // 그러면 그 사이 마감된 모집에도 지원 폼이 먼저 그려져 사용자가 입력을 시작해 버린다.
+    // 폼 진입 전 1회성 확인이라 캐시 자체가 의미 없으므로 즉시 버린다
+    // (동일 용도의 useRecertificationContextQuery 선례와 같은 staleTime:0 + gcTime:0 조합).
+    gcTime: 0,
+  });
+}
+
 export function useWithdrawApplicationMutation() {
   const client = useApiClient();
   const queryClient = useQueryClient();
