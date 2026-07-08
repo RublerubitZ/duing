@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -77,6 +78,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleNotReadable(HttpMessageNotReadableException exception) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error("요청 본문을 해석할 수 없습니다."));
+    }
+
+    /**
+     * 멀티파트 업로드가 서블릿 한도(spring.servlet.multipart.max-*-size, 10MB)를 초과한 경우.
+     * catch-all 로 흘러가면 500 + Sentry ERROR 로 잘못 승격되므로, 클라이언트 입력 오류인 413 으로 응답한다.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSize(MaxUploadSizeExceededException exception) {
+        log.warn("업로드 크기 초과 (413 변환): {}", exception.getMessage());
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ApiResponse.error("업로드 가능한 최대 크기를 초과했습니다."));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
