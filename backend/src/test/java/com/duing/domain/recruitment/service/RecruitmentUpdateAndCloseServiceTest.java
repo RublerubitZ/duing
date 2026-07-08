@@ -14,6 +14,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -76,6 +77,12 @@ class RecruitmentUpdateAndCloseServiceTest {
     private Recruitment openExternalRecruitment() {
         Recruitment recruitment = openSelfRecruitment();
         setField(recruitment, "applicationMode", ApplicationMode.EXTERNAL);
+        return recruitment;
+    }
+
+    private Recruitment openSelfRecruitmentWithForm(List<String> questions) {
+        Recruitment recruitment = openSelfRecruitment();
+        recruitment.attachForm(RecruitmentForm.create(recruitment, questions));
         return recruitment;
     }
 
@@ -179,6 +186,117 @@ class RecruitmentUpdateAndCloseServiceTest {
 
         assertThatThrownBy(() -> recruitmentService.update(updateCommand))
                 .isInstanceOf(RecruitmentException.InvalidApplicationModeException.class);
+    }
+
+    @Test
+    @DisplayName("이미 지원자가 있는 모집 공고에서 질문을 변경하려 하면 409 예외가 발생하고 질문은 그대로 유지된다")
+    void updateQuestionsWithExistingApplicationsThrowsConflict() {
+        Recruitment recruitment = openSelfRecruitmentWithForm(List.of("기존 질문1", "기존 질문2"));
+        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(applicationRepository.countByRecruitmentId(RECRUITMENT_ID)).thenReturn(2L);
+
+        UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
+                RECRUITMENT_ID,
+                MANAGER_USER_ID,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of("이름", "기존 질문1", "기존 질문2"), // 앞에 질문을 추가해 기존 답변의 위치가 밀린다
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> recruitmentService.update(updateCommand))
+                .isInstanceOf(RecruitmentException.QuestionsNotEditableWithApplicationsException.class);
+        assertThat(recruitment.getForm().getQuestions()).containsExactly("기존 질문1", "기존 질문2");
+    }
+
+    @Test
+    @DisplayName("지원자가 없는 모집 공고는 질문을 변경할 수 있다")
+    void updateQuestionsWithoutApplicationsSucceeds() {
+        Recruitment recruitment = openSelfRecruitmentWithForm(List.of("기존 질문1"));
+        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(applicationRepository.countByRecruitmentId(RECRUITMENT_ID)).thenReturn(0L);
+
+        UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
+                RECRUITMENT_ID,
+                MANAGER_USER_ID,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of("새 질문1", "새 질문2"),
+                null,
+                null,
+                null
+        );
+
+        recruitmentService.update(updateCommand);
+
+        assertThat(recruitment.getForm().getQuestions()).containsExactly("새 질문1", "새 질문2");
+    }
+
+    @Test
+    @DisplayName("지원자가 있어도 기존과 동일한 질문을 그대로 다시 전달하면 다른 필드 수정과 함께 허용된다")
+    void resubmittingIdenticalQuestionsWithApplicationsSucceeds() {
+        Recruitment recruitment = openSelfRecruitmentWithForm(List.of("질문1", "질문2"));
+        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+
+        UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
+                RECRUITMENT_ID,
+                MANAGER_USER_ID,
+                "수정된 제목",
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of("질문1", "질문2"), // 내용 동일 — 위치 어긋남이 없어 허용
+                null,
+                null,
+                null
+        );
+
+        recruitmentService.update(updateCommand);
+
+        assertThat(recruitment.getTitle()).isEqualTo("수정된 제목");
+        assertThat(recruitment.getForm().getQuestions()).containsExactly("질문1", "질문2");
+        // 질문이 바뀌지 않았으므로 지원자 수 조회 자체를 건너뛴다.
+        verify(applicationRepository, never()).countByRecruitmentId(RECRUITMENT_ID);
+    }
+
+    @Test
+    @DisplayName("지원자가 있어도 질문 외 필드(제목·정원 등)는 수정할 수 있다")
+    void updateNonQuestionFieldsWithApplicationsSucceeds() {
+        Recruitment recruitment = openSelfRecruitmentWithForm(List.of("질문1"));
+        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+
+        UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
+                RECRUITMENT_ID,
+                MANAGER_USER_ID,
+                "새 제목",
+                null,
+                null,
+                null,
+                30,
+                null,
+                null, // questions 미전달 — 질문 가드 미적용
+                null,
+                null,
+                null
+        );
+
+        recruitmentService.update(updateCommand);
+
+        assertThat(recruitment.getTitle()).isEqualTo("새 제목");
+        assertThat(recruitment.getCapacity()).isEqualTo(30);
+        verify(applicationRepository, never()).countByRecruitmentId(RECRUITMENT_ID);
     }
 
     @Test
