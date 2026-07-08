@@ -25,6 +25,29 @@ export function useSubmitApplicationMutation(recruitmentId: number) {
   });
 }
 
+/** 지원하기 버튼 클릭 시점의 사전 확인 — pending 상태로 중복 클릭을 막는다. */
+export function useCheckEligibilityMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (recruitmentId: number) => client.applications.checkEligibility(recruitmentId),
+  });
+}
+
+/** /apply 딥링크 가드용 — 부적격(4xx)은 기대 결과이므로 재시도하지 않는다. */
+export function useApplicationEligibilityQuery(recruitmentId: number, enabled: boolean) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: applicationQueryKeys.eligibility(recruitmentId),
+    queryFn: async () => {
+      await client.applications.checkEligibility(recruitmentId);
+      return true;
+    },
+    enabled,
+    retry: false,
+    staleTime: 0,
+  });
+}
+
 export function useWithdrawApplicationMutation() {
   const client = useApiClient();
   const queryClient = useQueryClient();

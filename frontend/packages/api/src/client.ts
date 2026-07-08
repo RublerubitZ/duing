@@ -284,6 +284,7 @@ export type DuingApiClient = {
   };
   applications: {
     submit(recruitmentId: number, payload: SubmitApplicationPayload): Promise<number>;
+    checkEligibility(recruitmentId: number): Promise<void>;
     applicants(recruitmentId: number, filters?: ApplicantsFilters): Promise<Applicant[]>;
     applicantNeighbors(
       recruitmentId: number,
@@ -829,6 +830,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<number>(
           http.post(`recruitments/${recruitmentId}/applications`, { json: payload }),
         ),
+      checkEligibility: (recruitmentId) =>
+        jsonVoid(http.get(`recruitments/${recruitmentId}/applications/eligibility`)),
       applicants: (recruitmentId, filters) => {
         const search = new URLSearchParams();
         if (filters?.status) search.set('status', filters.status);
