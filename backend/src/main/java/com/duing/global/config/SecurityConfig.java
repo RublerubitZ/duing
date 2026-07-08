@@ -1,5 +1,6 @@
 package com.duing.global.config;
 
+import com.duing.global.auth.JwtAccessDeniedHandler;
 import com.duing.global.auth.JwtAuthenticationEntryPoint;
 import com.duing.global.auth.JwtAuthenticationFilter;
 import jakarta.annotation.PostConstruct;
@@ -31,6 +32,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     // 로컬/테스트 기본값은 localhost. 운영(application-prod.yml)은 default 없는 ${CORS_ALLOWED_ORIGINS}
     // 로 이 값을 덮어쓰므로, 운영에서 해당 env 가 비면 기동이 실패한다(잘못된 localhost 폴백 차단).
@@ -71,7 +73,11 @@ public class SecurityConfig {
                         .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                         .permissionsPolicyHeader(permissions ->
                                 permissions.policy("camera=(), microphone=(), geolocation=(), payment=()")))
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                        // URL 레이어 인가 거부(예: 비 ADMIN 의 /api/v1/admin/**)를 403 ApiResponse 로 통일한다.
+                        // 미지정 시 ExceptionTranslationFilter 가 인증 진입점(401)으로 넘겨 @PreAuthorize 거부(403)와 어긋난다.
+                        .accessDeniedHandler(jwtAccessDeniedHandler))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -79,6 +85,11 @@ public class SecurityConfig {
                         // 로그아웃은 현재 사용자 식별이 필요하므로 auth/** permitAll 보다 앞에서 인증을 요구한다.
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        // 관리자 API 전체(/api/v1/admin/**)는 URL 레이어에서도 ADMIN 역할을 요구한다. 각 Admin
+                        // 컨트롤러의 @PreAuthorize("hasRole('ADMIN')") 가 1차 방어이지만, 새 Admin 컨트롤러가
+                        // 어노테이션을 빠뜨리면 인증된 일반 사용자에게 그대로 노출된다(단일 실패점). URL 레이어
+                        // 백스톱으로 그 실패점을 이중화한다 — 모든 관리자 엔드포인트는 /api/v1/admin/ 하위에만 있다.
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // /clubs/*/members 는 운영진 전용. 아래 clubs/** permitAll 보다
                         // 반드시 앞에 위치해야 first-match 원칙상 인증 가드가 적용된다.
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/members").authenticated()
