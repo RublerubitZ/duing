@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -20,7 +21,6 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "동아리 공지 (회원 페이지)", description = "회원 조회 + LEADER/OFFICER CRUD")
 @SecurityRequirement(name = "BearerAuth")
@@ -30,8 +30,7 @@ public interface LeaderClubNoticeApi {
     @GetMapping("/clubs/{clubId}/notices")
     ResponseEntity<ApiResponse<PageResponse<NoticeCardResponse>>> listForMember(
             @PathVariable Long clubId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @Parameter(hidden = true) Pageable pageable,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 

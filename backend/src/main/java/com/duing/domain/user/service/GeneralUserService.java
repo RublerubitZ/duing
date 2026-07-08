@@ -16,8 +16,10 @@ import com.duing.domain.user.service.dto.query.LoginResult;
 import com.duing.domain.user.service.dto.query.UserQuery;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.web.SortWhitelist;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -209,11 +211,17 @@ public class GeneralUserService implements UserService {
         return UserQuery.from(user);
     }
 
+    // 관리자 사용자 검색에서 정렬 가능한 필드. 클라이언트 sort 가 JPQL @Query 의 ORDER BY 로 그대로
+    // 들어가므로, 허용 목록 밖 속성은 SortWhitelist 가 400 으로 거부한다(임의 필드 정렬·오류 쿼리 차단).
+    private static final Set<String> ALLOWED_ADMIN_USER_SORT =
+            Set.of("studentId", "name", "email", "createdAt");
+
     @Override
     public Page<UserSearchResultQuery> searchForAdmin(String query, Pageable pageable) {
         if (!StringUtils.hasText(query)) {
             throw new UserException.InvalidSearchQueryException();
         }
+        SortWhitelist.assertAllowed(pageable.getSort(), ALLOWED_ADMIN_USER_SORT);
         return userRepository.searchForAdmin(query.trim(), pageable)
                 .map(UserSearchResultQuery::from);
     }

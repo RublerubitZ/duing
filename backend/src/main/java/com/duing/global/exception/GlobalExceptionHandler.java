@@ -3,11 +3,15 @@ package com.duing.global.exception;
 import com.duing.domain.interview.controller.dto.response.UnresolvedMembersResponse;
 import com.duing.domain.interview.exception.InterviewException;
 import com.duing.global.response.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.catalina.connector.ClientAbortException;
+import org.hibernate.query.sqm.PathElementException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -139,6 +143,50 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("지원하지 않는 미디어 타입입니다."));
     }
 
+    /**
+     * 정렬(sort) 파라미터가 존재하지 않는 속성을 가리키는 경우. Spring Data 가 정렬 속성을 엔티티에
+     * 매핑하지 못하면 던지며(파생 쿼리·QueryDSL 은 직접, JPQL @Query 는 InvalidDataAccessApiUsage 로 래핑),
+     * 핸들러가 없으면 catch-all 로 500 이 된다. 단, <b>요청이 실제로 sort 파라미터를 넘겼을 때만</b>
+     * 클라이언트 입력 오류(400)로 본다 — sort 없이 이 예외가 나면 정적 쿼리의 스키마 드리프트·엔티티
+     * 리네임 같은 서버측 회귀이므로 500 + 스택트레이스로 알린다(관측성 유지).
+     */
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidSortProperty(
+            PropertyReferenceException exception, HttpServletRequest request) {
+        return invalidSortOrServerError(exception, request);
+    }
+
+    @ExceptionHandler(InvalidDataAccessApiUsageException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidDataAccessApiUsage(
+            InvalidDataAccessApiUsageException exception, HttpServletRequest request) {
+        // 존재하지 않는 정렬 속성이 쿼리에 적용되면, 파생 쿼리는 PropertyReferenceException, JPQL @Query 는
+        // Hibernate PathElementException 이 이 예외로 래핑되어 올라온다.
+        if (hasCause(exception, PropertyReferenceException.class)
+                || hasCause(exception, PathElementException.class)) {
+            return invalidSortOrServerError(exception, request);
+        }
+        log.error("Invalid data access API usage", exception);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("서버 오류가 발생했습니다."));
+    }
+
+    /**
+     * 경로/속성 해석 실패를 클라이언트 정렬 오류(400)와 서버측 쿼리 회귀(500)로 가른다. 요청이 sort
+     * 파라미터를 실제로 넘겼을 때만 400 — 그렇지 않으면 정적 쿼리가 깨진 서버 문제이므로 500 + 스택트레이스로
+     * 남겨 알림에서 숨지 않게 한다.
+     */
+    private ResponseEntity<ApiResponse<Void>> invalidSortOrServerError(
+            Throwable exception, HttpServletRequest request) {
+        if (request.getParameter("sort") != null) {
+            log.warn("잘못된 정렬 속성 (400 변환): {}", rootCauseMessage(exception));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("지원하지 않는 정렬 조건입니다."));
+        }
+        log.error("정렬 파라미터 없이 발생한 쿼리 경로 오류 — 서버측 회귀로 간주(500)", exception);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("서버 오류가 발생했습니다."));
+    }
+
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException exception) {
         log.warn("NoResourceFoundException: {}", exception.getMessage());
@@ -176,6 +224,20 @@ public class GlobalExceptionHandler {
             cause = cause.getCause();
         }
         return cause.getMessage();
+    }
+
+    private boolean hasCause(Throwable throwable, Class<? extends Throwable> causeType) {
+        Throwable cause = throwable;
+        while (cause != null) {
+            if (causeType.isInstance(cause)) {
+                return true;
+            }
+            if (cause.getCause() == cause) {
+                break;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     /**

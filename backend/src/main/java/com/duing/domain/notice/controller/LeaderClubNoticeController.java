@@ -12,7 +12,7 @@ import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,12 +31,13 @@ public class LeaderClubNoticeController implements LeaderClubNoticeApi {
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<NoticeCardResponse>>> listForMember(
-            Long clubId, int page, int size,
+            Long clubId, Pageable pageable,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         clubAuthService.requireActiveMember(currentUser.id(), clubId);
         // 동아리 페이지 내부 목록이라 출처 배지가 필요 없어 clubName 은 생략한다(owningClubId 는 그대로 포함).
-        var result = noticeService.findClubScopedForMember(clubId, PageRequest.of(page, size))
+        // Pageable 로 받아 전역 size 상한(PageableConfig)이 적용되게 한다(원시 page/size 는 클램프 우회).
+        var result = noticeService.findClubScopedForMember(clubId, pageable)
                 .map(notice -> NoticeCardResponse.from(notice, null));
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(result)));
     }
