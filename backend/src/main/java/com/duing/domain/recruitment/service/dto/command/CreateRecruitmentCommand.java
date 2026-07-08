@@ -1,6 +1,7 @@
 package com.duing.domain.recruitment.service.dto.command;
 
 import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import java.time.LocalDate;
@@ -23,7 +24,7 @@ public record CreateRecruitmentCommand(
         String externalFormUrl,
         boolean useInterview,
         TargetRole targetRole,
-        List<String> questions,
+        List<RecruitmentQuestion> questions,
         LocalDate interviewStartDate,
         LocalDate interviewEndDate,
         boolean showApplicantCount
@@ -31,7 +32,7 @@ public record CreateRecruitmentCommand(
     public CreateRecruitmentCommand {
         ApplicationMode resolvedMode = applicationMode == null ? ApplicationMode.SELF : applicationMode;
         TargetRole resolvedTargetRole = targetRole == null ? TargetRole.MEMBER : targetRole;
-        List<String> resolvedQuestions = questions == null ? List.of() : List.copyOf(questions);
+        List<RecruitmentQuestion> resolvedQuestions = questions == null ? List.of() : List.copyOf(questions);
 
         if (resolvedMode == ApplicationMode.EXTERNAL) {
             if (externalFormUrl == null || externalFormUrl.isBlank()) {

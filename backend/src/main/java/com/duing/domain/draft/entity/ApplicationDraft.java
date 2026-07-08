@@ -63,5 +63,10 @@ public class ApplicationDraft {
         return Collections.unmodifiableList(answers);
     }
 
-    public record DraftAnswer(Long questionId, String value) {}
+    public record DraftAnswer(String questionId, List<String> values) {
+
+        public DraftAnswer {
+            values = values == null ? List.of() : List.copyOf(values);
+        }
+    }
 }

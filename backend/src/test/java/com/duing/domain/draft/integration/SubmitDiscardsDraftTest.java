@@ -67,7 +67,7 @@ class SubmitDiscardsDraftTest extends IntegrationTestBase {
 
         draftRepository.save(ApplicationDraft.create(
                 student.getId(), openRecruitment.getId(),
-                List.of(new ApplicationDraft.DraftAnswer(1L, "임시저장"))
+                List.of(new ApplicationDraft.DraftAnswer("1", List.of("임시저장")))
         ));
 
         assertThat(draftRepository.findByUserIdAndRecruitmentId(student.getId(), openRecruitment.getId()))
@@ -93,7 +93,7 @@ class SubmitDiscardsDraftTest extends IntegrationTestBase {
 
         draftRepository.save(ApplicationDraft.create(
                 student.getId(), openRecruitment.getId(),
-                List.of(new ApplicationDraft.DraftAnswer(1L, "임시저장"))
+                List.of(new ApplicationDraft.DraftAnswer("1", List.of("임시저장")))
         ));
 
         // 먼저 한 번 제출해서 중복 상태를 만든다
@@ -105,7 +105,7 @@ class SubmitDiscardsDraftTest extends IntegrationTestBase {
         // draft 는 첫 번째 제출에서 삭제됨 — 두 번째 submit 을 위해 다시 저장
         draftRepository.save(ApplicationDraft.create(
                 student.getId(), openRecruitment.getId(),
-                List.of(new ApplicationDraft.DraftAnswer(1L, "두번째 임시저장"))
+                List.of(new ApplicationDraft.DraftAnswer("1", List.of("두번째 임시저장")))
         ));
 
         // 중복 지원 시도 → DuplicateApplicationException 발생, discard 도달 전에 throw

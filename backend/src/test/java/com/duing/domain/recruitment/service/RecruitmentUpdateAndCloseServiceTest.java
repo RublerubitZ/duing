@@ -15,6 +15,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -80,10 +81,15 @@ class RecruitmentUpdateAndCloseServiceTest {
         return recruitment;
     }
 
-    private Recruitment openSelfRecruitmentWithForm(List<String> questions) {
+    private Recruitment openSelfRecruitmentWithForm(List<String> questionTexts) {
         Recruitment recruitment = openSelfRecruitment();
+        List<RecruitmentQuestion> questions = questionTexts.stream().map(RecruitmentQuestion::createText).toList();
         recruitment.attachForm(RecruitmentForm.create(recruitment, questions));
         return recruitment;
+    }
+
+    private static List<String> questionTexts(Recruitment recruitment) {
+        return recruitment.getForm().getQuestions().stream().map(RecruitmentQuestion::text).toList();
     }
 
     private Recruitment closedRecruitment() {
@@ -212,7 +218,7 @@ class RecruitmentUpdateAndCloseServiceTest {
 
         assertThatThrownBy(() -> recruitmentService.update(updateCommand))
                 .isInstanceOf(RecruitmentException.QuestionsNotEditableWithApplicationsException.class);
-        assertThat(recruitment.getForm().getQuestions()).containsExactly("기존 질문1", "기존 질문2");
+        assertThat(questionTexts(recruitment)).containsExactly("기존 질문1", "기존 질문2");
     }
 
     @Test
@@ -239,7 +245,7 @@ class RecruitmentUpdateAndCloseServiceTest {
 
         recruitmentService.update(updateCommand);
 
-        assertThat(recruitment.getForm().getQuestions()).containsExactly("새 질문1", "새 질문2");
+        assertThat(questionTexts(recruitment)).containsExactly("새 질문1", "새 질문2");
     }
 
     @Test
@@ -266,7 +272,7 @@ class RecruitmentUpdateAndCloseServiceTest {
         recruitmentService.update(updateCommand);
 
         assertThat(recruitment.getTitle()).isEqualTo("수정된 제목");
-        assertThat(recruitment.getForm().getQuestions()).containsExactly("질문1", "질문2");
+        assertThat(questionTexts(recruitment)).containsExactly("질문1", "질문2");
         // 질문이 바뀌지 않았으므로 지원자 수 조회 자체를 건너뛴다.
         verify(applicationRepository, never()).countByRecruitmentId(RECRUITMENT_ID);
     }

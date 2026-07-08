@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
@@ -36,6 +37,7 @@ import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
@@ -100,8 +102,10 @@ class ApplicantDetailServiceTest {
         when(club.getId()).thenReturn(5L);
         when(club.getName()).thenReturn("두잉 동아리");
 
+        RecruitmentQuestion motivationQuestion = RecruitmentQuestion.createText("지원 동기는?");
+        RecruitmentQuestion goalQuestion = RecruitmentQuestion.createText("장기 목표는?");
         RecruitmentForm form = mock(RecruitmentForm.class);
-        when(form.getQuestions()).thenReturn(List.of("지원 동기는?", "장기 목표는?"));
+        when(form.getQuestions()).thenReturn(List.of(motivationQuestion, goalQuestion));
 
         Recruitment recruitment = mock(Recruitment.class);
         when(recruitment.getId()).thenReturn(3L);
@@ -116,7 +120,9 @@ class ApplicantDetailServiceTest {
         when(application.getId()).thenReturn(1L);
         when(application.getUser()).thenReturn(applicant);
         when(application.getRecruitment()).thenReturn(recruitment);
-        when(application.getAnswers()).thenReturn(List.of("동아리에 관심이 많습니다.", "부회장을 목표로 합니다."));
+        when(application.getAnswers()).thenReturn(List.of(
+                new ApplicationAnswer(motivationQuestion.id(), List.of("동아리에 관심이 많습니다.")),
+                new ApplicationAnswer(goalQuestion.id(), List.of("부회장을 목표로 합니다."))));
         when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
         when(application.getCreatedAt()).thenReturn(submittedAt);
 
@@ -216,8 +222,8 @@ class ApplicantDetailServiceTest {
     }
 
     @Test
-    @DisplayName("질문 수가 답변 수보다 적을 때 짧은 쪽 길이까지만 매핑되고 초과 답변은 무시된다")
-    void questionsLessThanAnswersMapsByMinLength() {
+    @DisplayName("질문에 매칭되지 않는 잉여 답변(questionId=null)은 무시되고 실제 질문만 매핑된다")
+    void unmatchedAnswersWithNullQuestionIdAreIgnored() {
         User applicant = mock(User.class);
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("이영희");
@@ -228,9 +234,10 @@ class ApplicantDetailServiceTest {
         when(club.getId()).thenReturn(5L);
         when(club.getName()).thenReturn("두잉 동아리");
 
-        // 질문 1개, 답변 3개 — 짧은 쪽(질문) 길이만큼만 매핑되어야 함
+        // 질문 1개. 답변은 3개인데 그중 2개는 questionId=null(마이그레이션의 잉여 답변 보존값) — 무시되어야 함.
+        RecruitmentQuestion motivationQuestion = RecruitmentQuestion.createText("지원 동기는?");
         RecruitmentForm form = mock(RecruitmentForm.class);
-        when(form.getQuestions()).thenReturn(List.of("지원 동기는?"));
+        when(form.getQuestions()).thenReturn(List.of(motivationQuestion));
 
         Recruitment recruitment = mock(Recruitment.class);
         when(recruitment.getId()).thenReturn(5L);
@@ -243,7 +250,10 @@ class ApplicantDetailServiceTest {
         when(application.getId()).thenReturn(3L);
         when(application.getUser()).thenReturn(applicant);
         when(application.getRecruitment()).thenReturn(recruitment);
-        when(application.getAnswers()).thenReturn(List.of("동기 답변", "여분 답변 1", "여분 답변 2"));
+        when(application.getAnswers()).thenReturn(List.of(
+                new ApplicationAnswer(motivationQuestion.id(), List.of("동기 답변")),
+                new ApplicationAnswer(null, List.of("여분 답변 1")),
+                new ApplicationAnswer(null, List.of("여분 답변 2"))));
         when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 11, 0));
 
@@ -251,7 +261,7 @@ class ApplicantDetailServiceTest {
 
         ApplicantDetailQuery detail = applicationService.getApplicantDetail(3L, 99L);
 
-        // 질문 1개까지만 매핑, 초과 답변 2개는 무시됨
+        // 실제 질문 1개만 매핑되고, questionId=null 인 잉여 답변 2개는 무시됨
         assertThat(detail.answers()).hasSize(1);
         assertThat(detail.answers().get(0).question()).isEqualTo("지원 동기는?");
         assertThat(detail.answers().get(0).answer()).isEqualTo("동기 답변");
@@ -465,8 +475,8 @@ class ApplicantDetailServiceTest {
     }
 
     @Test
-    @DisplayName("답변 수가 질문 수보다 적을 때 짧은 쪽 길이까지만 매핑되고 초과 질문은 무시된다")
-    void answersLessThanQuestionsMapsByMinLength() {
+    @DisplayName("답변이 없는 질문도 목록에 그대로 노출되고 답변은 빈 문자열로 채워진다")
+    void questionsWithoutMatchingAnswerAreShownWithBlankAnswer() {
         User applicant = mock(User.class);
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("이영희");
@@ -477,9 +487,12 @@ class ApplicantDetailServiceTest {
         when(club.getId()).thenReturn(5L);
         when(club.getName()).thenReturn("두잉 동아리");
 
-        // 질문 3개, 답변 1개 — 짧은 쪽(답변) 길이만큼만 매핑되어야 함
+        // 질문 3개, 그중 1개만 답변이 있음 — 질문 순서대로 전 질문이 노출되어야 함
+        RecruitmentQuestion motivationQuestion = RecruitmentQuestion.createText("지원 동기는?");
+        RecruitmentQuestion extraQuestionOne = RecruitmentQuestion.createText("여분 질문 1");
+        RecruitmentQuestion extraQuestionTwo = RecruitmentQuestion.createText("여분 질문 2");
         RecruitmentForm form = mock(RecruitmentForm.class);
-        when(form.getQuestions()).thenReturn(List.of("지원 동기는?", "여분 질문 1", "여분 질문 2"));
+        when(form.getQuestions()).thenReturn(List.of(motivationQuestion, extraQuestionOne, extraQuestionTwo));
 
         Recruitment recruitment = mock(Recruitment.class);
         when(recruitment.getId()).thenReturn(5L);
@@ -492,7 +505,8 @@ class ApplicantDetailServiceTest {
         when(application.getId()).thenReturn(4L);
         when(application.getUser()).thenReturn(applicant);
         when(application.getRecruitment()).thenReturn(recruitment);
-        when(application.getAnswers()).thenReturn(List.of("동기 답변"));
+        when(application.getAnswers()).thenReturn(
+                List.of(new ApplicationAnswer(motivationQuestion.id(), List.of("동기 답변"))));
         when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 16, 11, 0));
 
@@ -500,9 +514,13 @@ class ApplicantDetailServiceTest {
 
         ApplicantDetailQuery detail = applicationService.getApplicantDetail(4L, 99L);
 
-        // 답변 1개까지만 매핑, 초과 질문 2개는 무시됨
-        assertThat(detail.answers()).hasSize(1);
+        // 질문 3개 모두 노출되며, 답변이 없는 질문은 빈 문자열로 채워진다 (스펙 §2.4).
+        assertThat(detail.answers()).hasSize(3);
         assertThat(detail.answers().get(0).question()).isEqualTo("지원 동기는?");
         assertThat(detail.answers().get(0).answer()).isEqualTo("동기 답변");
+        assertThat(detail.answers().get(1).question()).isEqualTo("여분 질문 1");
+        assertThat(detail.answers().get(1).answer()).isEqualTo("");
+        assertThat(detail.answers().get(2).question()).isEqualTo("여분 질문 2");
+        assertThat(detail.answers().get(2).answer()).isEqualTo("");
     }
 }

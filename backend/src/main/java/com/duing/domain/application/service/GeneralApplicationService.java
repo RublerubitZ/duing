@@ -1,6 +1,7 @@
 package com.duing.domain.application.service;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.entity.ApplicationStatusHistory;
 import com.duing.domain.application.exception.ApplicationDomainException;
@@ -41,6 +42,7 @@ import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -59,6 +61,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -119,10 +122,12 @@ public class GeneralApplicationService implements ApplicationService {
                 submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
         Recruitment recruitment = eligibilityTarget.recruitment();
 
-        validateAnswersAgainstForm(recruitment, submitApplicationCommand.answers());
+        List<ApplicationAnswer> resolvedAnswers =
+                resolveLegacyAnswers(recruitment, submitApplicationCommand.answers());
+        validateAnswersAgainstForm(recruitment, resolvedAnswers);
 
         Application application =
-                Application.submit(recruitment, eligibilityTarget.user(), submitApplicationCommand.answers());
+                Application.submit(recruitment, eligibilityTarget.user(), resolvedAnswers);
         Long savedApplicationId;
         try {
             savedApplicationId = applicationRepository.save(application).getId();
@@ -568,12 +573,40 @@ public class GeneralApplicationService implements ApplicationService {
         }
     }
 
-    private void validateAnswersAgainstForm(Recruitment recruitment, List<String> answers) {
-        RecruitmentForm form = recruitment.getForm();
-        int expected = form == null ? 0 : form.getQuestions().size();
-        int actual = answers == null ? 0 : answers.size();
-        if (expected != actual) {
+    /** legacy string[] 답변을 위치 순으로 질문 id 에 매핑한다. TODO(legacy-questions-v1): 신 FE 전환 후 제거. */
+    private List<ApplicationAnswer> resolveLegacyAnswers(Recruitment recruitment, List<String> legacyAnswers) {
+        List<RecruitmentQuestion> questions = questionsOf(recruitment);
+        List<String> answers = legacyAnswers == null ? List.of() : legacyAnswers;
+        if (questions.size() != answers.size()) {
             throw new ApplicationDomainException.InvalidAnswersException();
+        }
+        return IntStream.range(0, questions.size())
+                .mapToObj(index -> new ApplicationAnswer(
+                        questions.get(index).id(), Collections.singletonList(answers.get(index))))
+                .toList();
+    }
+
+    private List<RecruitmentQuestion> questionsOf(Recruitment recruitment) {
+        RecruitmentForm form = recruitment.getForm();
+        return form == null ? List.of() : form.getQuestions();
+    }
+
+    private void validateAnswersAgainstForm(Recruitment recruitment, List<ApplicationAnswer> answers) {
+        List<RecruitmentQuestion> questions = questionsOf(recruitment);
+        if (questions.size() != answers.size()) {
+            throw new ApplicationDomainException.InvalidAnswersException();
+        }
+        Map<String, ApplicationAnswer> answerByQuestionId = new HashMap<>();
+        for (ApplicationAnswer answer : answers) {
+            if (answer.questionId() == null
+                    || answerByQuestionId.put(answer.questionId(), answer) != null) {
+                throw new ApplicationDomainException.InvalidAnswersException();
+            }
+        }
+        for (RecruitmentQuestion question : questions) {
+            if (!answerByQuestionId.containsKey(question.id())) {
+                throw new ApplicationDomainException.InvalidAnswersException();
+            }
         }
     }
 

@@ -11,6 +11,7 @@ import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
@@ -131,28 +132,46 @@ public class GeneralRecruitmentService implements RecruitmentService {
         Long clubId = recruitment.getClub().getId();
         clubAuthService.requireManager(updateRecruitmentCommand.currentUserId(), clubId);
 
+        List<RecruitmentQuestion> resolvedQuestions = null;
         if (updateRecruitmentCommand.questions() != null) {
             if (recruitment.getApplicationMode() != ApplicationMode.SELF) {
                 throw new RecruitmentException.InvalidApplicationModeException(
                         "자체 폼 모집에서만 질문을 수정할 수 있습니다.");
             }
-            // 지원서 답변(Application.answers)은 위치 기반 List<String> 이라 질문의 추가·삭제·순서·문구가
-            // 바뀌면 기존 지원서의 답변이 다른 질문에 매핑되어 합불 판정 데이터가 왜곡된다. 실제로 질문이
-            // 바뀌는 경우에만, 이미 제출된 지원서가 있으면 수정을 막는다(동일 질문 재전송은 허용해 다른
-            // 필드 수정과 함께 questions 를 실어 보내도 문제되지 않게 한다).
+            resolvedQuestions = resolveLegacyQuestions(recruitment.getForm(), updateRecruitmentCommand.questions());
+            // 지원서 답변(Application.answers)은 questionId 기반이라, 질문의 추가·삭제·순서·문구가
+            // 바뀌면(=새 id 발급) 기존 지원서의 답변이 사라진 질문 id 를 가리키게 되어 합불 판정 데이터가
+            // 왜곡된다. 실제로 질문이 바뀌는 경우에만, 이미 제출된 지원서가 있으면 수정을 막는다(동일 질문
+            // 재전송은 허용해 다른 필드 수정과 함께 questions 를 실어 보내도 문제되지 않게 한다).
             // delete() 가드와 달리 이 수정은 OPEN 상태에서 일어나므로, "지원자 0명 확인 → 질문 교체 커밋"
             // 사이에 기존 질문으로 지원서가 INSERT 되는 좁은 경합이 남는다(완전한 원자적 보장은 아님).
             // 발생 창이 수십 ms 로 좁고, 이 한 가드 때문에 전 수정 필드에 비관적 잠금을 도입하는 것은
             // 과하다고 판단해 수용한다 — 필요 시 RecruitmentRepository 에 행 잠금 조회를 도입해 강화한다.
             boolean questionsChanged = recruitment.getForm() == null
-                    || !recruitment.getForm().getQuestions().equals(updateRecruitmentCommand.questions());
+                    || !recruitment.getForm().getQuestions().equals(resolvedQuestions);
             if (questionsChanged
                     && applicationRepository.countByRecruitmentId(recruitment.getId()) > 0) {
                 throw new RecruitmentException.QuestionsNotEditableWithApplicationsException();
             }
         }
 
-        recruitment.update(updateRecruitmentCommand);
+        recruitment.update(updateRecruitmentCommand, resolvedQuestions);
+    }
+
+    /**
+     * legacy string[] 질문 수정 통로 (스펙 §2.5 안전 규칙 1·3 — 규칙 2 는 다음 태스크에서 추가).
+     * 규칙 1: 텍스트가 현재 질문과 순서까지 동일하면 no-op(id 보존) — 구 FE 가 다른 필드 수정과 함께
+     *         동일 질문을 재전송하는 일반 경로를 보호한다.
+     * 규칙 3: 다르면 전체 교체(신규 id 발급, 위 #603 가드 적용).
+     * TODO(legacy-questions-v1): 신 FE 전환 후 제거.
+     */
+    private List<RecruitmentQuestion> resolveLegacyQuestions(RecruitmentForm form, List<String> legacyTexts) {
+        List<RecruitmentQuestion> currentQuestions = form == null ? List.of() : form.getQuestions();
+        List<String> currentTexts = currentQuestions.stream().map(RecruitmentQuestion::text).toList();
+        if (currentTexts.equals(legacyTexts)) {
+            return currentQuestions;
+        }
+        return legacyTexts.stream().map(RecruitmentQuestion::createText).toList();
     }
 
     @Override
