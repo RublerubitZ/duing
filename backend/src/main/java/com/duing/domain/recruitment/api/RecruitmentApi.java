@@ -24,7 +24,10 @@ public interface RecruitmentApi {
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth
     );
 
-    @Operation(summary = "모집 공고 상세 조회")
+    @Operation(summary = "모집 공고 상세 조회",
+            description = "지원서 질문을 두 형태로 함께 반환한다. questions 는 질문 텍스트 배열(legacy)이고, "
+                    + "questionItems 는 유형·필수 여부·선택지를 담은 구조화 질문이다. "
+                    + "지원 제출(answerItems)에 실을 questionId 와 choiceId 는 questionItems 에서만 얻을 수 있다.")
     @GetMapping("/recruitments/{recruitmentId}")
     ResponseEntity<ApiResponse<RecruitmentDetailResponse>> getRecruitment(@PathVariable Long recruitmentId);
 }
