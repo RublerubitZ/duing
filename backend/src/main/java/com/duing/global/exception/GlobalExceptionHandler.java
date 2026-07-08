@@ -6,8 +6,11 @@ import com.duing.global.response.ApiResponse;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.catalina.connector.ClientAbortException;
+import org.hibernate.query.sqm.PathElementException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -139,6 +142,36 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("지원하지 않는 미디어 타입입니다."));
     }
 
+    /**
+     * 정렬(sort) 파라미터가 존재하지 않는 속성을 가리키는 경우. Spring Data 가 정렬 속성을 엔티티에
+     * 매핑하지 못하면 던지며(파생 쿼리·QueryDSL 은 직접, JPQL @Query 는 InvalidDataAccessApiUsage 로 래핑),
+     * 핸들러가 없으면 catch-all 로 500 이 된다. 클라이언트 입력 오류이므로 400 으로 응답한다.
+     * (공개 목록 API 는 서버 고정 정렬만 쓰므로 이 경로는 정렬을 받는 인증 엔드포인트에서만 발생한다.)
+     */
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidSortProperty(PropertyReferenceException exception) {
+        log.warn("잘못된 정렬 속성 (400 변환): {}", exception.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("지원하지 않는 정렬 조건입니다."));
+    }
+
+    @ExceptionHandler(InvalidDataAccessApiUsageException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidDataAccessApiUsage(
+            InvalidDataAccessApiUsageException exception) {
+        // 존재하지 않는 정렬 속성이 쿼리에 적용되면, 파생 쿼리는 PropertyReferenceException, JPQL @Query 는
+        // Hibernate PathElementException 이 이 예외로 래핑되어 올라온다 — 두 경우만 400(잘못된 정렬)으로
+        // 돌리고, 나머지는 실제 API 오용이므로 500 을 유지한다.
+        if (hasCause(exception, PropertyReferenceException.class)
+                || hasCause(exception, PathElementException.class)) {
+            log.warn("잘못된 정렬 속성 (400 변환): {}", rootCauseMessage(exception));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("지원하지 않는 정렬 조건입니다."));
+        }
+        log.error("Invalid data access API usage", exception);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("서버 오류가 발생했습니다."));
+    }
+
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException exception) {
         log.warn("NoResourceFoundException: {}", exception.getMessage());
@@ -176,6 +209,20 @@ public class GlobalExceptionHandler {
             cause = cause.getCause();
         }
         return cause.getMessage();
+    }
+
+    private boolean hasCause(Throwable throwable, Class<? extends Throwable> causeType) {
+        Throwable cause = throwable;
+        while (cause != null) {
+            if (causeType.isInstance(cause)) {
+                return true;
+            }
+            if (cause.getCause() == cause) {
+                break;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     /**

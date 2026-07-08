@@ -18,7 +18,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -33,8 +32,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class FederationFaqController implements FederationFaqApi {
 
-    private static final int MAX_PAGE_SIZE = 100;
-
     private final FederationFaqService federationFaqService;
     private final FederationFaqSearchMissRecorder searchMissRecorder;
 
@@ -44,12 +41,9 @@ public class FederationFaqController implements FederationFaqApi {
             @RequestParam(required = false) String keyword,
             Pageable pageable
     ) {
-        // 비로그인 공개 API — Spring Data 기본 상한(2000)보다 좁게 잠가 대량 size 요청의 DoS 표면을 줄인다.
-        Pageable cappedPageable = pageable.getPageSize() > MAX_PAGE_SIZE
-                ? PageRequest.of(pageable.getPageNumber(), MAX_PAGE_SIZE, pageable.getSort())
-                : pageable;
+        // size 상한은 전역 PageableConfig(100)가 컨트롤러 진입 전에 클램프한다 — 대량 size 요청의 DoS 표면을 줄인다.
         FederationFaqSearchCondition condition = new FederationFaqSearchCondition(categoryId, keyword);
-        Page<FederationFaq> faqPage = federationFaqService.searchPublished(condition, cappedPageable);
+        Page<FederationFaq> faqPage = federationFaqService.searchPublished(condition, pageable);
         // 검색 서비스의 readOnly 트랜잭션이 커넥션을 반납한 뒤(서비스 밖) 기록해 이중 커넥션 점유를
         // 피한다 — 기록 실패는 recorder 내부에서 흡수되므로 이 호출은 응답 흐름에 영향을 주지 않는다.
         searchMissRecorder.recordIfMissed(condition.keyword(), faqPage.getTotalElements());
