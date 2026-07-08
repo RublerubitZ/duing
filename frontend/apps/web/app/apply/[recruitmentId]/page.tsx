@@ -3,7 +3,7 @@
 import { use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { DraftAnswer } from '@duing/types';
+import type { DraftAnswer, RecruitmentQuestionItem } from '@duing/types';
 import {
   useRecruitmentDetailQuery,
   useApplicationDraftQuery,
@@ -86,20 +86,37 @@ export default function ApplyPage({
     );
   }
 
+  const questionItems: RecruitmentQuestionItem[] =
+    recruitment.questionItems ??
+    recruitment.questions.map((text, index) => ({
+      // 구 BE 시차 fallback — 제출은 신 BE 배포 전까지 400 으로 명확히 실패한다.
+      id: `legacy-${index}`,
+      text,
+      type: 'TEXT',
+      required: true,
+      choices: [],
+    }));
+
   // draft 가 settle 된 뒤 mount 하므로 자식은 initialAnswers 만 받아 useState 초기값으로 쓴다.
   const draft = draftQuery.data;
-  const initialAnswers: DraftAnswer[] = recruitment.questions.map((_, idx) => ({
-    questionId: idx,
-    value:
-      draft?.exists
-        ? draft.answers.find((answer) => answer.questionId === idx)?.value ?? ''
-        : '',
-  }));
+  const initialAnswers: DraftAnswer[] = questionItems.map((question) => {
+    const saved = draft?.exists
+      ? draft.answers.find((answer) => answer.questionId === question.id)
+      : undefined;
+    const savedValues = saved?.values ?? [];
+    // 임시저장 이후 폼이 수정됐을 수 있다 — 사라진 선택지 id 를 그대로 되살리면 제출이 400 난다.
+    const values =
+      question.type === 'TEXT'
+        ? savedValues.slice(0, 1)
+        : savedValues.filter((value) => question.choices.some((choice) => choice.id === value));
+    return { questionId: question.id, values };
+  });
 
   return (
     <ApplyForm
       recruitment={recruitment}
       recruitmentId={recruitmentId}
+      questionItems={questionItems}
       initialAnswers={initialAnswers}
     />
   );

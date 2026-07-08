@@ -7,7 +7,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
-import type { StatsSummary } from '@duing/types';
+import type { RecruitmentQuestionItem, StatsSummary } from '@duing/types';
 import RecruitmentDetailPage from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/page';
 
 // 운영진 모집 상세 페이지 — useInterview 토글에 따른 "면접 관리" 링크 노출 +
@@ -41,7 +41,15 @@ function statsSummaryHandler(summary: Partial<StatsSummary> = {}) {
 const server = setupServer(statsSummaryHandler());
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
-function mockRecruitmentDetail(useInterview: boolean) {
+type QuestionsMockOpts = {
+  questions?: string[];
+  questionItems?: RecruitmentQuestionItem[];
+};
+
+function mockRecruitmentDetail(
+  useInterview: boolean,
+  { questions = [], questionItems }: QuestionsMockOpts = {},
+) {
   return http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
     HttpResponse.json({
       ok: true,
@@ -61,7 +69,8 @@ function mockRecruitmentDetail(useInterview: boolean) {
         useInterview,
         targetRole: 'MEMBER',
         content: null,
-        questions: [],
+        questions,
+        ...(questionItems === undefined ? {} : { questionItems }),
         interviewStartDate: null,
         interviewEndDate: null,
         showApplicantCount: false,
@@ -189,6 +198,58 @@ describe('RecruitmentDetailPage — 지원 현황 요약 + 지원자 수 (모집
     );
     // 합격률 미리보기 칩은 데이터가 없으므로 렌더되지 않는다.
     expect(screen.queryByText('합격률')).not.toBeInTheDocument();
+  });
+});
+
+describe('RecruitmentDetailPage — 지원 질문 유형·선택지 표시', () => {
+  it('questionItems 가 오면 질문마다 유형·필수 여부 배지와 선택지 목록이 노출된다', async () => {
+    server.use(
+      mockRecruitmentDetail(false, {
+        questions: ['지원 동기는?', '주 활동 요일은?'],
+        questionItems: [
+          { id: 'q-text', text: '지원 동기는?', type: 'TEXT', required: true, choices: [] },
+          {
+            id: 'q-single',
+            text: '주 활동 요일은?',
+            type: 'SINGLE_CHOICE',
+            required: false,
+            choices: [
+              { id: 'c-mon', label: '월요일' },
+              { id: 'c-tue', label: '화요일' },
+            ],
+          },
+        ],
+      }),
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('지원 질문')).toBeInTheDocument();
+    expect(screen.getByText('지원 동기는?')).toBeInTheDocument();
+    expect(screen.getByText('주 활동 요일은?')).toBeInTheDocument();
+
+    // 유형 배지 — 리더 빌더의 라벨과 동일한 표기
+    expect(screen.getByText('주관식')).toBeInTheDocument();
+    expect(screen.getByText('객관식(단일 선택)')).toBeInTheDocument();
+
+    // 필수/선택 표시
+    expect(screen.getByText('필수')).toBeInTheDocument();
+    expect(screen.getByText('선택')).toBeInTheDocument();
+
+    // 선택형 질문의 선택지 라벨
+    expect(screen.getByText('월요일')).toBeInTheDocument();
+    expect(screen.getByText('화요일')).toBeInTheDocument();
+  });
+
+  it('questionItems 가 없으면(구 BE 시차) 기존 질문 텍스트 목록으로 fallback 한다', async () => {
+    server.use(mockRecruitmentDetail(false, { questions: ['지원 동기는?'] }));
+
+    renderPage();
+
+    expect(await screen.findByText('지원 질문')).toBeInTheDocument();
+    expect(screen.getByText('지원 동기는?')).toBeInTheDocument();
+    // 유형 배지는 questionItems 가 있을 때만 렌더된다.
+    expect(screen.queryByText('주관식')).not.toBeInTheDocument();
   });
 });
 

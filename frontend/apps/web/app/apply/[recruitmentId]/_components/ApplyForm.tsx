@@ -5,7 +5,12 @@ import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@duing/api';
-import type { DraftAnswer, RecruitmentDetail } from '@duing/types';
+import type {
+  DraftAnswer,
+  RecruitmentDetail,
+  RecruitmentQuestionItem,
+  SubmitApplicationPayload,
+} from '@duing/types';
 import { useSubmitApplicationMutation, draftQueryKeys } from '@duing/hooks';
 import { useAutosaveDraft } from '../_hooks/useAutosaveDraft';
 import { ApplyAnswersStep } from './ApplyAnswersStep';
@@ -14,15 +19,41 @@ import { toRoute } from '../../../_lib/route';
 type Props = {
   recruitment: RecruitmentDetail;
   recruitmentId: number;
+  questionItems: RecruitmentQuestionItem[];
   initialAnswers: DraftAnswer[];
 };
 
-export function ApplyForm({ recruitment, recruitmentId, initialAnswers }: Props) {
+const TEXT_REQUIRED_MESSAGE = '필수 질문입니다. 답변을 입력해주세요.';
+const CHOICE_REQUIRED_MESSAGE = '필수 질문입니다. 항목을 선택해주세요.';
+
+/**
+ * 필수 응답 검증 — 체크박스 그룹은 HTML `required` 로 표현할 수 없으므로
+ * 주관식까지 포함해 JS 로 일원화한다(브라우저 기본 말풍선과 인라인 안내의 이중 노출 방지).
+ */
+function collectRequiredViolations(
+  questionItems: RecruitmentQuestionItem[],
+  answers: DraftAnswer[],
+): Record<string, string> {
+  const violations: Record<string, string> = {};
+  questionItems.forEach((question) => {
+    if (!question.required) return;
+    const values = answers.find((answer) => answer.questionId === question.id)?.values ?? [];
+    if (question.type === 'TEXT') {
+      if ((values[0] ?? '').trim() === '') violations[question.id] = TEXT_REQUIRED_MESSAGE;
+      return;
+    }
+    if (values.length === 0) violations[question.id] = CHOICE_REQUIRED_MESSAGE;
+  });
+  return violations;
+}
+
+export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAnswers }: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const submit = useSubmitApplicationMutation(recruitmentId);
 
   const [answers, setAnswers] = useState<DraftAnswer[]>(initialAnswers);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   const autosaveStatus = useAutosaveDraft(answers, {
@@ -42,7 +73,28 @@ export function ApplyForm({ recruitment, recruitmentId, initialAnswers }: Props)
   }
 
   function handleAnswersChange(next: DraftAnswer[]) {
+    // 답변이 바뀐 질문의 안내만 걷어낸다 — 아직 손대지 않은 다른 위반은 그대로 남긴다.
+    const changedQuestionIds = next
+      .filter((nextAnswer) => {
+        const previous = answers.find((answer) => answer.questionId === nextAnswer.questionId);
+        return (
+          previous === undefined ||
+          JSON.stringify(previous.values) !== JSON.stringify(nextAnswer.values)
+        );
+      })
+      .map((nextAnswer) => nextAnswer.questionId);
+
     setAnswers(next);
+
+    if (changedQuestionIds.length > 0) {
+      setFieldErrors((current) => {
+        const remaining = { ...current };
+        changedQuestionIds.forEach((questionId) => {
+          delete remaining[questionId];
+        });
+        return remaining;
+      });
+    }
   }
 
   const submitDisabled = submit.isPending || isClosedByDraft;
@@ -50,9 +102,23 @@ export function ApplyForm({ recruitment, recruitmentId, initialAnswers }: Props)
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+
+    const violations = collectRequiredViolations(questionItems, answers);
+    setFieldErrors(violations);
+    const firstViolatedQuestion = questionItems.find(
+      (question) => violations[question.id] !== undefined,
+    );
+    if (firstViolatedQuestion !== undefined) {
+      // 안내가 붙는 컨트롤(주관식 textarea / 선택형 그룹 컨테이너)로 바로 포커스를 옮긴다.
+      document.getElementById(`q-${firstViolatedQuestion.id}`)?.focus();
+      return;
+    }
+
     try {
       // 면접 가능시간 응답은 지원 시점이 아니라 선정 후 라운드 발송을 받고 나서 한다 (재설계 §3).
-      const payload = { answers: answers.map((answer) => answer.value) };
+      const payload: SubmitApplicationPayload = {
+        answerItems: answers.map(({ questionId, values }) => ({ questionId, values })),
+      };
       const applicationId = await submit.mutateAsync(payload);
       queryClient.invalidateQueries({ queryKey: draftQueryKeys.byRecruitment(recruitmentId) });
       router.push(toRoute(`/me/applications/${applicationId}`));
@@ -122,10 +188,11 @@ export function ApplyForm({ recruitment, recruitmentId, initialAnswers }: Props)
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-7">
+        <form onSubmit={handleSubmit} noValidate className="space-y-7">
           <ApplyAnswersStep
-            questions={recruitment.questions}
+            questions={questionItems}
             answers={answers}
+            errors={fieldErrors}
             onChange={handleAnswersChange}
             disabled={isClosedByDraft}
           />

@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import type { DraftAnswer, RecruitmentDetail } from '@duing/types';
+import type { DraftAnswer, RecruitmentDetail, RecruitmentQuestionItem } from '@duing/types';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 
@@ -21,6 +21,46 @@ import { ApplyForm } from '@/app/apply/[recruitmentId]/_components/ApplyForm';
 import ApplyPage from '@/app/apply/[recruitmentId]/page';
 
 const RECRUITMENT_ID = 42;
+
+// 질문 id 는 V78 이후 서버가 발급하는 UUID 다 — 배열 인덱스가 아니라는 점이 드러나도록 UUID 형태로 둔다.
+// (makeRecruitment 의 기본 인자로 쓰이므로 setupServer 호출보다 위에 있어야 TDZ 를 피한다.)
+const TEXT_QUESTION_ID = '11111111-1111-1111-1111-111111111111';
+const SINGLE_QUESTION_ID = '22222222-2222-2222-2222-222222222222';
+const MULTI_QUESTION_ID = '33333333-3333-3333-3333-333333333333';
+const SINGLE_CHOICE_MONDAY_ID = 'c1111111-0000-0000-0000-000000000001';
+const SINGLE_CHOICE_TUESDAY_ID = 'c1111111-0000-0000-0000-000000000002';
+const MULTI_CHOICE_FRONTEND_ID = 'c2222222-0000-0000-0000-000000000001';
+const MULTI_CHOICE_BACKEND_ID = 'c2222222-0000-0000-0000-000000000002';
+
+const TEXT_ONLY_QUESTION_ITEMS: RecruitmentQuestionItem[] = [
+  { id: TEXT_QUESTION_ID, text: '지원 동기는?', type: 'TEXT', required: true, choices: [] },
+];
+
+/** 주관식(필수) + 단일 선택(필수) + 복수 선택(선택) — 세 유형과 필수/선택을 한 번에 덮는 픽스처. */
+const MIXED_QUESTION_ITEMS: RecruitmentQuestionItem[] = [
+  { id: TEXT_QUESTION_ID, text: '지원 동기는?', type: 'TEXT', required: true, choices: [] },
+  {
+    id: SINGLE_QUESTION_ID,
+    text: '주 활동 요일은?',
+    type: 'SINGLE_CHOICE',
+    required: true,
+    choices: [
+      { id: SINGLE_CHOICE_MONDAY_ID, label: '월요일' },
+      { id: SINGLE_CHOICE_TUESDAY_ID, label: '화요일' },
+    ],
+  },
+  {
+    id: MULTI_QUESTION_ID,
+    text: '관심 분야를 모두 고르세요',
+    type: 'MULTIPLE_CHOICE',
+    required: false,
+    choices: [
+      { id: MULTI_CHOICE_FRONTEND_ID, label: '프론트엔드' },
+      { id: MULTI_CHOICE_BACKEND_ID, label: '백엔드' },
+    ],
+  },
+];
+
 // 딥링크 가드 테스트(ApplyPage 전체 렌더)가 recruitment 상세·draft·eligibility 세 요청을 모두
 // 거치므로, resetHandlers 이후에도 유지되도록 기본 200 핸들러를 setupServer 초기 목록에 둔다.
 // ApplyForm 을 직접 렌더하는 기존 테스트들은 이 핸들러들을 타지 않으므로 영향이 없다.
@@ -47,13 +87,13 @@ afterAll(() => server.close());
 
 type RecruitmentDetailMockOpts = {
   useInterview?: boolean;
-  questions?: string[];
+  questionItems?: RecruitmentQuestionItem[];
   interviewAvailabilityDeadline?: string | null;
 };
 
 function makeRecruitment({
   useInterview = false,
-  questions = ['지원 동기는?'],
+  questionItems = TEXT_ONLY_QUESTION_ITEMS,
   interviewAvailabilityDeadline = null,
 }: RecruitmentDetailMockOpts = {}): RecruitmentDetail {
   return {
@@ -72,7 +112,9 @@ function makeRecruitment({
     useInterview,
     targetRole: 'MEMBER',
     content: null,
-    questions,
+    // 구 BE 호환 필드 — 신 BE 는 questionItems 와 함께 텍스트 목록도 그대로 내려준다.
+    questions: questionItems.map((question) => question.text),
+    questionItems,
     interviewStartDate: null,
     interviewEndDate: null,
     showApplicantCount: false,
@@ -123,9 +165,10 @@ function renderForm(opts: RecruitmentDetailMockOpts = {}) {
   }
 
   const recruitment = makeRecruitment(opts);
-  const initialAnswers: DraftAnswer[] = recruitment.questions.map((_, idx) => ({
-    questionId: idx,
-    value: '',
+  const questionItems = recruitment.questionItems ?? [];
+  const initialAnswers: DraftAnswer[] = questionItems.map((question) => ({
+    questionId: question.id,
+    values: [],
   }));
 
   return render(
@@ -133,6 +176,7 @@ function renderForm(opts: RecruitmentDetailMockOpts = {}) {
       <ApplyForm
         recruitment={recruitment}
         recruitmentId={RECRUITMENT_ID}
+        questionItems={questionItems}
         initialAnswers={initialAnswers}
       />
     </Wrapper>,
@@ -208,8 +252,196 @@ describe('ApplyForm — 단일 스텝 지원', () => {
       expect(capturedBody).not.toBeNull();
     });
     expect(capturedBody).not.toHaveProperty('interviewSlotIds');
-    expect(capturedBody?.['answers']).toEqual(['열정']);
+    expect(capturedBody?.['answerItems']).toEqual([
+      { questionId: TEXT_QUESTION_ID, values: ['열정'] },
+    ]);
   });
+});
+
+/** 제출 엔드포인트 호출 여부와 body 를 함께 캡처한다 — "요청이 나가지 않는다" 단언용. */
+function captureSubmit(capturedBodies: unknown[], applicationId = 999) {
+  return http.post(`*/recruitments/${RECRUITMENT_ID}/applications`, async ({ request }) => {
+    capturedBodies.push(await request.json());
+    return HttpResponse.json({ ok: true, data: applicationId, message: null });
+  });
+}
+
+describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () => {
+  it('질문 유형에 따라 주관식·단일 선택·복수 선택 컨트롤이 렌더된다', () => {
+    renderForm({ questionItems: MIXED_QUESTION_ITEMS });
+
+    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '월요일' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '화요일' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: '프론트엔드' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: '백엔드' })).toBeInTheDocument();
+
+    // 필수 여부는 aria-required(스크린리더) + (선택) 배지(시각)로 함께 전달한다.
+    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveAttribute(
+      'aria-required',
+      'true',
+    );
+    expect(screen.getByRole('radiogroup', { name: /주 활동 요일/ })).toHaveAttribute(
+      'aria-required',
+      'true',
+    );
+    expect(screen.getByText('(선택)')).toBeInTheDocument();
+  });
+
+  it('필수 질문을 비우고 제출하면 질문별 안내가 뜨고 요청이 나가지 않는다', async () => {
+    const capturedBodies: unknown[] = [];
+    server.use(captureSubmit(capturedBodies));
+
+    const user = userEvent.setup();
+    renderForm({ questionItems: MIXED_QUESTION_ITEMS });
+
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    // 필수 주관식 + 필수 단일 선택 두 건. 복수 선택은 선택 질문이라 위반이 아니다.
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts).toHaveLength(2);
+    expect(alerts[0]).toHaveTextContent('필수 질문입니다. 답변을 입력해주세요.');
+    expect(alerts[1]).toHaveTextContent('필수 질문입니다. 항목을 선택해주세요.');
+
+    expect(capturedBodies).toHaveLength(0);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+
+    // 첫 위반 질문(주관식)으로 포커스가 이동한다.
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: /지원 동기/ }));
+
+    // 오류 컨트롤은 aria-invalid + aria-describedby 로 안내와 연결된다.
+    const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
+    expect(textarea).toHaveAttribute('aria-invalid', 'true');
+    expect(textarea).toHaveAttribute('aria-describedby', `q-${TEXT_QUESTION_ID}-error`);
+  });
+
+  it('답변을 채운 질문의 안내는 사라지고 다음 위반 컨트롤(라디오 그룹)로 포커스가 이동한다', async () => {
+    const capturedBodies: unknown[] = [];
+    server.use(captureSubmit(capturedBodies));
+
+    const user = userEvent.setup();
+    renderForm({ questionItems: MIXED_QUESTION_ITEMS });
+
+    await user.click(screen.getByRole('button', { name: '제출' }));
+    expect(await screen.findAllByRole('alert')).toHaveLength(2);
+
+    // 주관식을 채우면 그 질문의 에러만 해제된다.
+    await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(capturedBodies).toHaveLength(0);
+    // 선택형 위반은 radiogroup 컨테이너(tabIndex=-1)로 포커스를 옮긴다.
+    expect(document.activeElement).toBe(
+      screen.getByRole('radiogroup', { name: /주 활동 요일/ }),
+    );
+  });
+
+  it('선택 질문은 비워도 제출되고 payload 는 answerItems 형태다', async () => {
+    const capturedBodies: unknown[] = [];
+    server.use(captureSubmit(capturedBodies, 777));
+
+    const user = userEvent.setup();
+    renderForm({ questionItems: MIXED_QUESTION_ITEMS });
+
+    await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
+    await user.click(screen.getByRole('radio', { name: '월요일' }));
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    await waitFor(() => expect(capturedBodies).toHaveLength(1));
+    expect(capturedBodies[0]).toEqual({
+      answerItems: [
+        { questionId: TEXT_QUESTION_ID, values: ['열정'] },
+        { questionId: SINGLE_QUESTION_ID, values: [SINGLE_CHOICE_MONDAY_ID] },
+        { questionId: MULTI_QUESTION_ID, values: [] },
+      ],
+    });
+  });
+
+  it('복수 선택은 여러 개를 고르면 선택지 정의 순서대로 values 에 모두 담긴다', async () => {
+    const capturedBodies: unknown[] = [];
+    server.use(captureSubmit(capturedBodies));
+
+    const user = userEvent.setup();
+    renderForm({ questionItems: MIXED_QUESTION_ITEMS });
+
+    await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
+    await user.click(screen.getByRole('radio', { name: '월요일' }));
+    // 정의 역순으로 클릭해도 values 는 선택지 정의 순서로 정규화된다(BE 는 중복·순서 무관하나 결정성 확보).
+    await user.click(screen.getByRole('checkbox', { name: '백엔드' }));
+    await user.click(screen.getByRole('checkbox', { name: '프론트엔드' }));
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    await waitFor(() => expect(capturedBodies).toHaveLength(1));
+    expect(capturedBodies[0]).toEqual({
+      answerItems: [
+        { questionId: TEXT_QUESTION_ID, values: ['열정'] },
+        { questionId: SINGLE_QUESTION_ID, values: [SINGLE_CHOICE_MONDAY_ID] },
+        { questionId: MULTI_QUESTION_ID, values: [MULTI_CHOICE_FRONTEND_ID, MULTI_CHOICE_BACKEND_ID] },
+      ],
+    });
+  });
+
+  it('복수 선택을 해제하면 values 에서 빠진다', async () => {
+    const capturedBodies: unknown[] = [];
+    server.use(captureSubmit(capturedBodies));
+
+    const user = userEvent.setup();
+    renderForm({ questionItems: MIXED_QUESTION_ITEMS });
+
+    await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
+    await user.click(screen.getByRole('radio', { name: '월요일' }));
+    await user.click(screen.getByRole('checkbox', { name: '프론트엔드' }));
+    await user.click(screen.getByRole('checkbox', { name: '백엔드' }));
+    await user.click(screen.getByRole('checkbox', { name: '프론트엔드' }));
+    expect(screen.getByRole('checkbox', { name: '프론트엔드' })).not.toBeChecked();
+
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    await waitFor(() => expect(capturedBodies).toHaveLength(1));
+    expect(capturedBodies[0]).toEqual({
+      answerItems: [
+        { questionId: TEXT_QUESTION_ID, values: ['열정'] },
+        { questionId: SINGLE_QUESTION_ID, values: [SINGLE_CHOICE_MONDAY_ID] },
+        { questionId: MULTI_QUESTION_ID, values: [MULTI_CHOICE_BACKEND_ID] },
+      ],
+    });
+  });
+
+  it(
+    '임시저장은 questionId 와 values 로 저장된다',
+    async () => {
+      const draftBodies: unknown[] = [];
+      server.use(
+        http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+          draftBodies.push(await request.json());
+          return HttpResponse.json({ ok: true, data: null, message: null });
+        }),
+      );
+
+      const user = userEvent.setup();
+      renderForm({ questionItems: MIXED_QUESTION_ITEMS });
+
+      await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
+      await user.click(screen.getByRole('checkbox', { name: '백엔드' }));
+
+      // useAutosaveDraft 의 2초 debounce 이후 마지막 상태가 PUT 된다.
+      await waitFor(
+        () =>
+          expect(draftBodies.at(-1)).toEqual({
+            answers: [
+              { questionId: TEXT_QUESTION_ID, values: ['열정'] },
+              { questionId: SINGLE_QUESTION_ID, values: [] },
+              { questionId: MULTI_QUESTION_ID, values: [MULTI_CHOICE_BACKEND_ID] },
+            ],
+          }),
+        { timeout: 6000 },
+      );
+    },
+    10000,
+  );
 });
 
 function makeQueryClient() {
@@ -299,5 +531,53 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
       await screen.findByText('마감된 모집 공고에는 지원할 수 없습니다.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ApplyPage — 임시저장 시드', () => {
+  it('저장된 임시저장에 없는 선택지 id 는 시드에서 걸러진다', async () => {
+    const capturedBodies: unknown[] = [];
+    server.use(
+      mockRecruitmentDetailHandler(makeRecruitment({ questionItems: MIXED_QUESTION_ITEMS })),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [
+              // 주관식은 첫 값만 살아남는다.
+              { questionId: TEXT_QUESTION_ID, values: ['저장된 답', '버려질 두 번째 값'] },
+              { questionId: SINGLE_QUESTION_ID, values: [SINGLE_CHOICE_TUESDAY_ID] },
+              // 임시저장 이후 삭제된 선택지 id 는 제출 시 400 이 되므로 시드 단계에서 걸러야 한다.
+              { questionId: MULTI_QUESTION_ID, values: [MULTI_CHOICE_FRONTEND_ID, 'deleted-choice-id'] },
+            ],
+            updatedAt: '2026-01-01T09:00:00',
+          },
+          message: null,
+        }),
+      ),
+      captureSubmit(capturedBodies, 321),
+    );
+
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    const textarea = await screen.findByRole('textbox', { name: /지원 동기/ });
+    expect(textarea).toHaveValue('저장된 답');
+    expect(screen.getByRole('radio', { name: '화요일' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: '월요일' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: '프론트엔드' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: '백엔드' })).not.toBeChecked();
+
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    await waitFor(() => expect(capturedBodies).toHaveLength(1));
+    expect(capturedBodies[0]).toEqual({
+      answerItems: [
+        { questionId: TEXT_QUESTION_ID, values: ['저장된 답'] },
+        { questionId: SINGLE_QUESTION_ID, values: [SINGLE_CHOICE_TUESDAY_ID] },
+        { questionId: MULTI_QUESTION_ID, values: [MULTI_CHOICE_FRONTEND_ID] },
+      ],
+    });
   });
 });

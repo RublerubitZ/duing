@@ -115,8 +115,15 @@ export type UpsertApplicationEvaluationPayload = {
   memo: string | null;
 };
 
+/** 제출 응답 1건 — values 의미는 DraftAnswer 와 동일(TEXT=본문 1개 / 선택형=choiceId 목록). */
+export type SubmitAnswerItem = {
+  questionId: string;
+  values: string[];
+};
+
+// 구 `answers: string[]` 과 동시 전송하면 백엔드가 400 으로 거절한다.
 export type SubmitApplicationPayload = {
-  answers: string[];
+  answerItems: SubmitAnswerItem[];
 };
 
 export type UpdateApplicationStatusPayload = {
