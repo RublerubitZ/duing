@@ -235,6 +235,30 @@ class ApplicationDraftControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("PUT draft — answers 배열의 null 원소는 400 으로 거부된다 — 500 이 아니다")
+    void upsertDraftWithNullAnswerElementReturns400() {
+        // 컨테이너 @Size 도 원소 @Valid 캐스케이드도 null 원소를 유효로 통과시킨다(Bean Validation 규약).
+        // 원소 @NotNull 이 없으면 toCommand 가 payload.questionId() 에서 NPE 를 던져 500 이 된다.
+        String nullAnswerElementPayload = """
+                {"answers": [null]}
+                """;
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                    .contentType(ContentType.JSON)
+                    .body(nullAnswerElementPayload)
+                .when()
+                    .put("/api/v1/recruitments/{recruitmentId}/draft", openRecruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("ok", equalTo(false));
+
+        assertThat(draftRepository.findByUserIdAndRecruitmentId(student.getId(), openRecruitment.getId()))
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("PUT draft — 마감된 모집에 upsert 하면 410 반환한다")
     void upsertDraftOnClosedRecruitmentReturns410() throws Exception {
         Club activeClub = saveActiveClub("마감동아리");

@@ -17,8 +17,10 @@ import java.util.List;
 
 /**
  * 모집 공고 생성 요청. 외부 폼 / 자체 폼 분기 검증과 질문 정의의 유형별 의미 검증은
- * {@link CreateRecruitmentCommand} 의 compact constructor 에서 한 번에 수행되므로,
- * 본 DTO 는 필드 단위 형식 검증만 책임진다.
+ * {@link CreateRecruitmentCommand} 의 compact constructor 에서 한 번에 수행된다.
+ * 본 DTO 는 필드 단위 형식 검증에 더해, questions / questionItems 상호 배타성만
+ * 여기서 거부한다 — Command 는 이미 해석된 질문 목록 하나만 받으므로 두 통로의
+ * 동시 전송을 Command 에서는 관찰할 수 없기 때문이다 (수정 경로는 서비스에서 거부한다).
  */
 public record CreateRecruitmentRequest(
         @NotBlank(message = "제목은 필수 입력값입니다.")

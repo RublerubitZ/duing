@@ -393,6 +393,70 @@ class RecruitmentQuestionItemsUpdateTest {
     }
 
     @Test
+    @DisplayName("자체 폼 모집의 질문을 questionItems 빈 배열로 모두 지우려 하면 400 으로 거부된다")
+    void clearingAllQuestionsWithEmptyQuestionItemsIsRejected() {
+        RecruitmentQuestion motiveQuestion = RecruitmentQuestion.createText("지원 동기는?");
+        Recruitment recruitment = selfRecruitmentWith(List.of(motiveQuestion));
+
+        assertThatThrownBy(() -> recruitmentService.update(withQuestionItems(List.of())))
+                .isInstanceOf(RecruitmentException.InvalidApplicationModeException.class)
+                .hasMessageContaining("자체 폼 모집은 최소 1개 이상의 질문이 필요합니다.");
+        assertThat(storedQuestions(recruitment)).containsExactly(motiveQuestion);
+        // 성공할 수 없는 요청이라 행 잠금·지원자 수 조회에 도달하지 않는다.
+        verify(recruitmentRepository, never()).lockFormForQuestionChange(RECRUITMENT_ID);
+        verify(applicationRepository, never()).countByRecruitmentId(RECRUITMENT_ID);
+    }
+
+    @Test
+    @DisplayName("자체 폼 모집의 질문을 legacy questions 빈 배열로 모두 지우려 하면 400 으로 거부된다")
+    void clearingAllQuestionsWithEmptyLegacyQuestionsIsRejected() {
+        RecruitmentQuestion motiveQuestion = RecruitmentQuestion.createText("지원 동기는?");
+        Recruitment recruitment = selfRecruitmentWith(List.of(motiveQuestion));
+
+        assertThatThrownBy(() -> recruitmentService.update(withLegacyQuestions(List.of())))
+                .isInstanceOf(RecruitmentException.InvalidApplicationModeException.class)
+                .hasMessageContaining("자체 폼 모집은 최소 1개 이상의 질문이 필요합니다.");
+        assertThat(storedQuestions(recruitment)).containsExactly(motiveQuestion);
+        verify(recruitmentRepository, never()).lockFormForQuestionChange(RECRUITMENT_ID);
+        verify(applicationRepository, never()).countByRecruitmentId(RECRUITMENT_ID);
+    }
+
+    @Test
+    @DisplayName("지원자가 있어도 질문을 빈 배열로 지우려는 요청은 409 가 아니라 400 으로 거부된다")
+    void clearingAllQuestionsWithApplicationsIsRejectedAsBadRequest() {
+        RecruitmentQuestion motiveQuestion = RecruitmentQuestion.createText("지원 동기는?");
+        Recruitment recruitment = selfRecruitmentWith(List.of(motiveQuestion));
+        when(applicationRepository.countByRecruitmentId(RECRUITMENT_ID)).thenReturn(3L);
+
+        // 지원자를 지우면 통과한다는 잘못된 신호(409)를 주지 않도록, 요청 자체의 무효를 먼저 알린다.
+        assertThatThrownBy(() -> recruitmentService.update(withQuestionItems(List.of())))
+                .isInstanceOf(RecruitmentException.InvalidApplicationModeException.class)
+                .hasMessageContaining("자체 폼 모집은 최소 1개 이상의 질문이 필요합니다.");
+        assertThat(storedQuestions(recruitment)).containsExactly(motiveQuestion);
+    }
+
+    @Test
+    @DisplayName("질문을 보내지 않는 부분 갱신은 기존 질문에 영향을 주지 않는다")
+    void partialUpdateWithoutQuestionsKeepsExistingQuestions() {
+        RecruitmentQuestion motiveQuestion = RecruitmentQuestion.createText("지원 동기는?");
+        RecruitmentQuestion skillQuestion = RecruitmentQuestion.createText("특기는?");
+        Recruitment recruitment = selfRecruitmentWith(List.of(motiveQuestion, skillQuestion));
+
+        recruitmentService.update(new UpdateRecruitmentCommand(
+                RECRUITMENT_ID, MANAGER_USER_ID, "새 제목", null, null, null, 30, null,
+                null,
+                null,
+                null, null, null));
+
+        assertThat(recruitment.getTitle()).isEqualTo("새 제목");
+        assertThat(recruitment.getCapacity()).isEqualTo(30);
+        assertThat(storedQuestions(recruitment)).containsExactly(motiveQuestion, skillQuestion);
+        // 질문 변경 경로에 진입하지 않으므로 행 잠금·지원자 수 조회도 일어나지 않는다.
+        verify(recruitmentRepository, never()).lockFormForQuestionChange(RECRUITMENT_ID);
+        verify(applicationRepository, never()).countByRecruitmentId(RECRUITMENT_ID);
+    }
+
+    @Test
     @DisplayName("외부 폼 모집에 questionItems 를 전달하면 400 예외가 발생한다")
     void updateExternalRecruitmentWithQuestionItemsIsRejected() {
         Recruitment recruitment = Recruitment.create(

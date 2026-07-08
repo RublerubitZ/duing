@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.duing.domain.draft.controller.dto.request.UpsertDraftRequest.DraftAnswerPayload;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
@@ -51,6 +52,17 @@ class UpsertDraftRequestValidationTest {
                 List.of(new DraftAnswerPayload("1", null, values)));
         assertThat(validator.validate(request)).anyMatch(violation ->
                 violation.getMessage().contains("최대 20개"));
+    }
+
+    @Test
+    @DisplayName("임시저장 답변 항목이 null 이면 Bean Validation 에서 거부된다")
+    void nullDraftAnswerElementIsRejected() {
+        // 컨테이너 @Size 도 원소 @Valid 캐스케이드도 null 원소를 통과시키므로 원소 @NotNull 이 유일한 방어선이다.
+        List<DraftAnswerPayload> answersWithNullElement = new ArrayList<>();
+        answersWithNullElement.add(null);
+        UpsertDraftRequest request = new UpsertDraftRequest(answersWithNullElement);
+        assertThat(validator.validate(request)).anyMatch(violation ->
+                violation.getMessage().contains("임시저장 답변 항목은 null 일 수 없습니다."));
     }
 
     @Test

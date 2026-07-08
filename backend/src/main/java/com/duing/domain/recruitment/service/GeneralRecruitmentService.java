@@ -152,6 +152,20 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 throw new RecruitmentException.InvalidApplicationModeException(
                         "자체 폼 모집에서만 질문을 수정할 수 있습니다.");
             }
+            // 자체 폼은 질문 0개로 존재할 수 없다 — 생성 경로(CreateRecruitmentCommand 컴팩트 생성자)의 불변식을
+            // 수정 경로에도 세운다. 없으면 questions:[] / questionItems:[] 가 replaceQuestions(빈 목록)까지 도달해
+            // 질문 0개짜리 자체 폼이 만들어지고, 그 뒤 answerItems:[] 제출이 개수 비교(0 == 0)를 통과한다.
+            // 해석(resolve)·행 잠금보다 앞에 둔다 — (1) 지원자 수와 무관하게 요청 자체가 무효라 400 이어야 하고
+            // (지원자 존재 409 는 "지원자를 지우면 통과한다" 는 잘못된 신호를 준다), (2) legacy 통로는 빈 배열에
+            // "구 버전 형식으로는…" 이라는 엉뚱한 메시지를 먼저 던지며, (3) 성공할 수 없는 요청에 행 잠금을
+            // 잡지 않는다. 비어 있지 않은 목록은 해석 후에도 비지 않으므로(1:1 매핑) 원본 목록으로 판정해도 충분하다.
+            boolean clearsAllQuestions = updateRecruitmentCommand.questionItems() != null
+                    ? updateRecruitmentCommand.questionItems().isEmpty()
+                    : updateRecruitmentCommand.questions().isEmpty();
+            if (clearsAllQuestions) {
+                throw new RecruitmentException.InvalidApplicationModeException(
+                        "자체 폼 모집은 최소 1개 이상의 질문이 필요합니다.");
+            }
             // 진행 중인 제출(공유 잠금)이 끝날 때까지 대기한 뒤 지원자 수를 확인한다.
             // 이 잠금이 없으면 "0명 확인 → 교체 커밋" 사이에 들어온 제출의 답변이
             // 교체된 질문 id 를 참조하지 못해 유실된 것처럼 보인다.
