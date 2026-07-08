@@ -251,29 +251,34 @@ class AuthEmailVerificationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("같은 IP 에서 1분 내 6번째 발송 요청은 429 와 VERIFICATION_RATE_LIMITED 를 반환한다")
+    @DisplayName("같은 IP 에서 분당 발송 한도까지는 허용되고 그 다음 요청은 429 와 VERIFICATION_RATE_LIMITED 를 반환한다")
     void ipRateLimitReturns429() {
-        // 쿨다운(이메일 단위)에 걸리지 않도록 서로 다른 이메일 사용. 같은 getRemoteAddr(127.0.0.1) 라
-        // IP 윈도우가 누적되어 6번째에 RATE_LIMITED 가 떠야 한다(setUp 의 reset() 으로 테스트 격리).
-        for (int request = 1; request <= 5; request++) {
+        // 쿨다운(이메일 단위)에 걸리지 않도록 서로 다른 이메일 사용. 같은 getRemoteAddr(127.0.0.1) 라 IP
+        // 윈도우가 누적된다. 한도값(20)은 EmailVerificationRateLimiter.PER_MINUTE_LIMIT 와 동기화 — 공유 IP
+        // 단체 가입을 수용하도록 상향했고, 그 수만큼 정상 발송이 허용됨을 for 루프로 함께 검증한다.
+        int sendPerMinuteLimit = 20;
+        for (int request = 1; request <= sendPerMinuteLimit; request++) {
             requestSend("student" + request + "@daegu.ac.kr", HttpStatus.CREATED.value());
         }
-        given().contentType(ContentType.JSON).body(Map.of("email", "student6@daegu.ac.kr"))
+        given().contentType(ContentType.JSON)
+                .body(Map.of("email", "student" + (sendPerMinuteLimit + 1) + "@daegu.ac.kr"))
                 .when().post("/api/v1/auth/email-verifications")
                 .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
                 .body("code", equalTo("VERIFICATION_RATE_LIMITED"));
     }
 
     @Test
-    @DisplayName("같은 IP 에서 confirm 요청도 1분 내 11번째는 429 와 VERIFICATION_RATE_LIMITED 를 반환한다")
+    @DisplayName("같은 IP 에서 confirm 은 분당 한도까지 허용되고 그 다음은 429 와 VERIFICATION_RATE_LIMITED 를 반환한다")
     void confirmIpRateLimitReturns429() {
-        // confirm 전용 윈도우는 10/분. 미존재 이메일이라 1~10번째는 400(NOT_FOUND)이지만 IP 가드가
-        // 먼저 돌아 윈도우를 소비하므로, 11번째에서 IP 제한(429)이 걸려야 한다(setUp 의 reset() 으로 격리).
-        for (int request = 1; request <= 10; request++) {
+        // confirm 전용 윈도우 한도값(30)은 CONFIRM_PER_MINUTE_LIMIT 와 동기화. 미존재 이메일이라 한도 내
+        // 요청은 400(NOT_FOUND)이지만 IP 가드가 먼저 돌아 윈도우를 소비하므로, 한도 초과 시 429 가 걸린다
+        // (setUp 의 reset() 으로 격리).
+        int confirmPerMinuteLimit = 30;
+        for (int request = 1; request <= confirmPerMinuteLimit; request++) {
             confirm("nobody" + request + "@daegu.ac.kr", "123456", HttpStatus.BAD_REQUEST.value());
         }
         given().contentType(ContentType.JSON)
-                .body(Map.of("email", "nobody11@daegu.ac.kr", "code", "123456"))
+                .body(Map.of("email", "nobody" + (confirmPerMinuteLimit + 1) + "@daegu.ac.kr", "code", "123456"))
                 .when().post("/api/v1/auth/email-verifications/confirm")
                 .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
                 .body("code", equalTo("VERIFICATION_RATE_LIMITED"));

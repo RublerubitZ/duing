@@ -13,10 +13,20 @@ import org.springframework.stereotype.Component;
 /**
  * 인증 메일 발송·코드 확인(confirm) 레이트리밋 — in-memory, 단일 인스턴스 전제 (spec §4.2).
  *
- * <p>발송 IP 슬라이딩 윈도우(1분 5회 / 1시간 50회)와 confirm 전용 IP 윈도우(1분 10회 / 1시간 100회)는
+ * <p>발송 IP 슬라이딩 윈도우(1분 20회 / 1시간 120회)와 confirm 전용 IP 윈도우(1분 30회 / 1시간 200회)는
  * 서로 독립이며 <b>허용된 요청만</b> 기록한다. 거절(429)된 요청은 기록하지 않는다 — 단일 IP 가 무한히
  * 때려 deque 를 채우는 메모리 고갈을 막고, 허용 카운트만으로도 이메일 열거·코드 무차별 대입이
  * 충분히 제한되기 때문이다.
+ *
+ * <p><b>IP 한도를 캠퍼스 공유 IP 에 맞춰 잡는다.</b> 교내 WiFi(NAT)·통신사 CGNAT 뒤에서는 신입생 OT 등
+ * 단체 가입 때 서로 다른 학생 다수가 한 공인 IP 를 공유한다. 발송 IP 한도가 낮으면 그 IP 의 정상 학생들이
+ * 인증 메일을 못 받아 가입이 막힌다. 그래서 발송을 이메일 자체가 아니라 IP 로 촘촘히 막기보다, 실제 남용
+ * 방어를 세 겹으로 두고(① @daegu.ac.kr 도메인 제한 — 외부 임의 주소로는 못 보냄, ② 이메일당 60초 재발송
+ * 쿨다운 — 같은 주소 스팸 차단, ③ 전역 일일 상한 5,000건 — Resend 비용 상한) IP 창은 단체 가입 버스트를
+ * 수용하도록 잡는다. 발송 시간당 120건은 100명 규모 OT 에 정상 재시도(오타 정정·중복 클릭) 여유를 더해
+ * 커버하면서도, 한 IP 가 하루 최대 120×24=2,880건으로 전역 상한 5,000 을 단독으로 소진하지 못하게 한다
+ * (더 큰 단체가 한 IP 를 공유하면 이 값을 올리되 전역 상한 대비 여유를 확인한다). confirm 은 메일을 보내지
+ * 않아 전역 쿼터와 무관하며, 이메일당 5회 시도 제한과 짧은 코드 수명이 무차별 대입을 별도로 막으므로 더 높게 둔다.
  *
  * <p>전역 일일 상한(5,000건)은 Resend 쿼터 보호용이며, 발송 직전에 단일 원자 연산
  * {@link #reserveGlobalQuota}로 예약한다(검사+증가 일체) — 동시 요청이 상한을 넘기는
@@ -28,13 +38,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class EmailVerificationRateLimiter {
 
-    static final int PER_MINUTE_LIMIT = 5;
-    static final int PER_HOUR_LIMIT = 50;
+    // 발송 IP 한도 — 캠퍼스 공유 IP(교내 NAT/CGNAT)의 단체 가입 버스트를 수용한다. 실제 남용은 도메인
+    // 제한·이메일당 60초 쿨다운·전역 일일 상한이 막으므로, IP 창은 정상 다수 가입을 막지 않게 넉넉히 둔다.
+    static final int PER_MINUTE_LIMIT = 20;
+    static final int PER_HOUR_LIMIT = 120;
     static final int DAILY_GLOBAL_LIMIT = 5_000;
-    // confirm(코드 확인) 전용 — 발송보다 완화한다. 정상 사용자의 코드 재입력은 막지 않으면서
-    // 이메일을 갈아끼우며 IP 한 곳에서 코드를 무차별 대입하는 총량만 제한하기 위함이다.
-    static final int CONFIRM_PER_MINUTE_LIMIT = 10;
-    static final int CONFIRM_PER_HOUR_LIMIT = 100;
+    // confirm(코드 확인) 전용 — 발송보다 완화한다. 메일을 보내지 않아 전역 쿼터와 무관하고, 이메일당 5회
+    // 시도 제한과 짧은 코드 수명이 무차별 대입을 막으므로, 단체 가입 시 다수의 코드 확인을 넉넉히 허용한다.
+    static final int CONFIRM_PER_MINUTE_LIMIT = 30;
+    static final int CONFIRM_PER_HOUR_LIMIT = 200;
 
     private final ConcurrentHashMap<String, Deque<LocalDateTime>> requestTimesByIp = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Deque<LocalDateTime>> confirmTimesByIp = new ConcurrentHashMap<>();
