@@ -152,6 +152,11 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 throw new RecruitmentException.InvalidApplicationModeException(
                         "자체 폼 모집에서만 질문을 수정할 수 있습니다.");
             }
+            // 진행 중인 제출(공유 잠금)이 끝날 때까지 대기한 뒤 지원자 수를 확인한다.
+            // 이 잠금이 없으면 "0명 확인 → 교체 커밋" 사이에 들어온 제출의 답변이
+            // 교체된 질문 id 를 참조하지 못해 유실된 것처럼 보인다.
+            recruitmentRepository.lockFormForQuestionChange(recruitment.getId());
+
             resolvedQuestions = updateRecruitmentCommand.questionItems() != null
                     ? resolveQuestionItems(recruitment.getForm(), updateRecruitmentCommand.questionItems())
                     : resolveLegacyQuestions(recruitment.getForm(), updateRecruitmentCommand.questions());
@@ -162,10 +167,16 @@ public class GeneralRecruitmentService implements RecruitmentService {
             // #603 확장: id 를 보존해 보낸 수정도 텍스트·유형·필수 여부·선택지가 바뀌면 이미 제출된 답변의
             // 의미가 달라지므로(예: 선택지 라벨 교체) 똑같이 막는다 (스펙 §2.3). record equals 가 choices 의
             // id·label·순서까지 비교하므로 별도 필드별 비교가 필요 없다.
-            // delete() 가드와 달리 이 수정은 OPEN 상태에서 일어나므로, "지원자 0명 확인 → 질문 교체 커밋"
-            // 사이에 기존 질문으로 지원서가 INSERT 되는 좁은 경합이 남는다(완전한 원자적 보장은 아님).
-            // 발생 창이 수십 ms 로 좁고, 이 한 가드 때문에 전 수정 필드에 비관적 잠금을 도입하는 것은
-            // 과하다고 판단해 수용한다 — 필요 시 RecruitmentRepository 에 행 잠금 조회를 도입해 강화한다.
+            // delete() 가드와 달리 이 수정은 OPEN 상태에서 일어나 제출과 동시에 진행될 수 있는데,
+            // 위 lockFormForQuestionChange(FOR UPDATE)가 제출측 공유 잠금(FOR SHARE)과 직렬화하므로
+            // "지원자 0명 확인 → 질문 교체 커밋" 사이에 지원서가 INSERT 되는 경합 창은 닫혀 있다.
+            // 아래 countByRecruitmentId 는 반드시 잠금 획득 뒤에 실행되어야 한다 — 순서를 바꾸면 가드가 다시 뚫린다.
+            // 참고: recruitment.getForm() 은 위 findById 가 이미 적재한 값이라(mappedBy @OneToOne 은
+            // 바이트코드 강화 없이는 eager) 다른 운영진의 동시 수정 기준으로는 낡을 수 있다. 그래도 답변이
+            // 죽은 질문을 가리키는 일은 없다 — 낡은 값과 동일하게 재전송되면 questionsChanged=false 라
+            // Hibernate 가 UPDATE 자체를 내지 않고, 조금이라도 다르면 questionsChanged=true 라 이 잠금
+            // 뒤의 지원자 수 확인이 실행되어 막힌다. 남는 것은 지원자 0명일 때의 수정끼리 last-writer-wins
+            // 뿐이며(RecruitmentForm 에 @Version 없음) 답변 유실과는 무관하다.
             boolean questionsChanged = recruitment.getForm() == null
                     || !recruitment.getForm().getQuestions().equals(resolvedQuestions);
             if (questionsChanged
