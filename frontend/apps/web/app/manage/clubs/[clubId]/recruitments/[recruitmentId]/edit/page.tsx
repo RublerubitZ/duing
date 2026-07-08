@@ -46,7 +46,7 @@ export default function EditRecruitmentPage({
       endDate: values.endDate,
       capacity: values.capacity,
       useInterview: values.useInterview,
-      questions: isSelfMode ? values.questions : undefined,
+      questionItems: isSelfMode ? values.questionItems : undefined,
       interviewStartDate: values.interviewStartDate ?? undefined,
       interviewEndDate: values.interviewEndDate ?? undefined,
       showApplicantCount: values.showApplicantCount,

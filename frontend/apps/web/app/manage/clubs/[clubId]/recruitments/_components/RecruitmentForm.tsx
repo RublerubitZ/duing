@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import type { RecruitmentDetail } from '@duing/types';
+import type { QuestionItemPayload, RecruitmentDetail } from '@duing/types';
 import { createRecruitmentSchema, updateRecruitmentSchema } from '@duing/schemas';
 import { cn } from '../../../../../_lib/cn';
-import { QuestionBuilder } from './QuestionBuilder';
+import { QuestionBuilder, toBuilderQuestions, toQuestionItemsPayload } from './QuestionBuilder';
+import type { BuilderQuestion } from './QuestionBuilder';
 
 type CreateMode = {
   mode: 'create';
@@ -30,7 +31,7 @@ export type CreateFormValues = {
   externalFormUrl: string;
   useInterview: boolean;
   targetRole: 'MEMBER' | 'OFFICER';
-  questions: string[];
+  questionItems: QuestionItemPayload[];
   interviewStartDate: string | null;
   interviewEndDate: string | null;
   showApplicantCount: boolean;
@@ -43,7 +44,7 @@ export type EditFormValues = {
   endDate: string;
   capacity: number;
   useInterview: boolean;
-  questions: string[];
+  questionItems: QuestionItemPayload[];
   interviewStartDate: string | null;
   interviewEndDate: string | null;
   showApplicantCount: boolean;
@@ -80,11 +81,16 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   const [targetRole, setTargetRole] = useState<'MEMBER' | 'OFFICER'>(
     initialData?.targetRole ?? 'MEMBER',
   );
-  const [questions, setQuestions] = useState<string[]>(
-    initialData?.questions ?? [],
+  // 서버 id 와 무관한 React key 발급기 — jsdom 에 crypto.randomUUID 가 없어 카운터로 만든다.
+  const keyCounter = useRef(0);
+  const nextKey = useCallback(() => `bq-${(keyCounter.current += 1)}`, []);
+  const [questionItems, setQuestionItems] = useState<BuilderQuestion[]>(() =>
+    isEditMode ? toBuilderQuestions(initialData?.questionItems, initialData?.questions ?? [], nextKey) : [],
   );
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const isSelfForm = isEditMode ? initialData?.applicationMode === 'SELF' : applicationMode === 'SELF';
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -99,7 +105,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         endDate,
         capacity,
         useInterview,
-        questions: applicationMode === 'SELF' ? questions : undefined,
+        questionItems: isSelfForm ? toQuestionItemsPayload(questionItems) : undefined,
         interviewStartDate: useInterview && interviewStartDate ? interviewStartDate : null,
         interviewEndDate: useInterview && interviewEndDate ? interviewEndDate : null,
         showApplicantCount,
@@ -116,7 +122,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           endDate: parsed.data.endDate,
           capacity: parsed.data.capacity,
           useInterview: parsed.data.useInterview,
-          questions: parsed.data.questions ?? [],
+          questionItems: parsed.data.questionItems ?? [],
           interviewStartDate: parsed.data.interviewStartDate ?? null,
           interviewEndDate: parsed.data.interviewEndDate ?? null,
           showApplicantCount: parsed.data.showApplicantCount ?? false,
@@ -137,7 +143,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       externalFormUrl: externalFormUrl || undefined,
       useInterview,
       targetRole,
-      questions: applicationMode === 'SELF' ? questions : undefined,
+      questionItems: isSelfForm ? toQuestionItemsPayload(questionItems) : undefined,
       interviewStartDate: useInterview && interviewStartDate ? interviewStartDate : null,
       interviewEndDate: useInterview && interviewEndDate ? interviewEndDate : null,
       showApplicantCount,
@@ -157,7 +163,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         externalFormUrl: parsed.data.externalFormUrl ?? '',
         useInterview: parsed.data.useInterview,
         targetRole: parsed.data.targetRole,
-        questions: parsed.data.questions ?? [],
+        questionItems: parsed.data.questionItems ?? [],
         interviewStartDate: parsed.data.interviewStartDate ?? null,
         interviewEndDate: parsed.data.interviewEndDate ?? null,
         showApplicantCount: parsed.data.showApplicantCount ?? false,
@@ -410,13 +416,17 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       </label>
 
       {/* 자체 폼 질문 빌더 */}
-      {(isEditMode ? initialData?.applicationMode === 'SELF' : applicationMode === 'SELF') && (
+      {isSelfForm && (
         <div>
           <p className={cn(fieldLabelClass, 'mb-3')}>
             지원 질문 <span className="text-rose-500">*</span>
             <span className="ml-1 font-normal text-slate-400">(최소 1개)</span>
           </p>
-          <QuestionBuilder questions={questions} onChange={setQuestions} />
+          <QuestionBuilder
+            questions={questionItems}
+            onChange={setQuestionItems}
+            nextKey={nextKey}
+          />
         </div>
       )}
 
