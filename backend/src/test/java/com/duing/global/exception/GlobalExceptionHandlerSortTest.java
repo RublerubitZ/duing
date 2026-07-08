@@ -34,19 +34,29 @@ class GlobalExceptionHandlerSortTest {
     }
 
     @Test
-    @DisplayName("파생 쿼리 정렬 오류(PropertyReferenceException)는 400 과 정렬 안내로 응답한다")
-    void propertyReferenceExceptionMapsTo400() throws Exception {
-        mockMvc.perform(get("/sort-stub/property-reference"))
+    @DisplayName("sort 파라미터가 있는 요청의 파생 쿼리 정렬 오류(PropertyReferenceException)는 400 과 정렬 안내로 응답한다")
+    void propertyReferenceExceptionWithSortParamMapsTo400() throws Exception {
+        mockMvc.perform(get("/sort-stub/property-reference").param("sort", "bogus"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("지원하지 않는 정렬 조건입니다."));
     }
 
     @Test
-    @DisplayName("JPQL @Query 정렬 오류(Hibernate PathElementException 래핑)도 400 으로 응답한다")
-    void invalidSortInJpqlQueryMapsTo400() throws Exception {
-        mockMvc.perform(get("/sort-stub/jpql-path"))
+    @DisplayName("sort 파라미터가 있는 요청의 JPQL @Query 정렬 오류(Hibernate PathElementException 래핑)도 400 으로 응답한다")
+    void invalidSortInJpqlQueryWithSortParamMapsTo400() throws Exception {
+        mockMvc.perform(get("/sort-stub/jpql-path").param("sort", "bogus"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("지원하지 않는 정렬 조건입니다."));
+    }
+
+    @Test
+    @DisplayName("sort 파라미터 없이 발생한 경로 오류(PathElementException)는 서버측 회귀로 보고 500 을 유지한다")
+    void pathElementExceptionWithoutSortParamStays500() throws Exception {
+        // 정적 쿼리가 스키마 드리프트·엔티티 리네임으로 깨진 경우 — 클라이언트 sort 가 없으므로 400 으로
+        // 위장하지 않고 500 + 스택트레이스로 알린다(관측성 유지).
+        mockMvc.perform(get("/sort-stub/jpql-path"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("서버 오류가 발생했습니다."));
     }
 
     @Test
