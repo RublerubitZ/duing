@@ -100,6 +100,11 @@ bank-api:
   secret-key: ${BANK_API_SECRET:}
 
 duing:
+  request:
+    # 비멀티파트(JSON 등) 요청 바디 상한(바이트, 기본 2MB). RequestBodySizeLimitFilter 가 Content-Length 로
+    # 확인해 초과 시 413 을 반환한다. 멀티파트 업로드는 제외(서블릿 multipart 한도·업로드 정책이 별도 강제).
+    # 운영 엣지(Caddy request_body max_size 11MB)가 1차 방어이며, 이 값은 앱 레이어 심층 방어다.
+    max-body-bytes: ${DUING_REQUEST_MAX_BODY_BYTES:2097152}
   notice:
     cover-image-url-prefix: ${NOTICE_COVER_IMAGE_URL_PREFIX:}
   notification:
