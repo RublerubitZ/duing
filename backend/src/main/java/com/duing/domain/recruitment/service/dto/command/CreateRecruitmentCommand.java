@@ -8,9 +8,11 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 모집 공고 생성 명령. 외부폼/자체폼 분기 검증을 compact constructor 에서 수행한다.
+ * 모집 공고 생성 명령. 외부폼/자체폼 분기 검증과 질문 정의 검증을 compact constructor 에서 수행한다.
  * - applicationMode=EXTERNAL: externalFormUrl 필수, questions 는 비어 있어야 한다.
  * - applicationMode=SELF: externalFormUrl 은 null 이어야 하며 questions 는 최소 1개.
+ * - 유형별 질문 정의(선택형 선택지 2개 이상·주관식 선택지 금지·id/라벨 중복 금지)는
+ *   {@link RecruitmentQuestion#validateDefinitions(List)} 가 검사한다.
  */
 public record CreateRecruitmentCommand(
         Long clubId,
@@ -53,6 +55,10 @@ public record CreateRecruitmentCommand(
                         "자체 폼 모집은 최소 1개 이상의 질문이 필요합니다.");
             }
         }
+
+        // EXTERNAL 은 위 가드로 항상 빈 리스트라 무해하고, SELF 는 questionItems·legacy questions
+        // 어느 통로로 들어왔든 이 지점에서 유형별 의미 검증을 한 번만 통과한다 (생성 경로의 단일 진입점).
+        RecruitmentQuestion.validateDefinitions(resolvedQuestions);
 
         applicationMode = resolvedMode;
         targetRole = resolvedTargetRole;

@@ -135,6 +135,7 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null
         );
 
@@ -154,6 +155,7 @@ class RecruitmentUpdateAndCloseServiceTest {
                 RECRUITMENT_ID,
                 MANAGER_USER_ID,
                 "수정 시도",
+                null,
                 null,
                 null,
                 null,
@@ -187,6 +189,7 @@ class RecruitmentUpdateAndCloseServiceTest {
                 List.of("질문1", "질문2"),
                 null,
                 null,
+                null,
                 null
         );
 
@@ -211,6 +214,7 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 List.of("이름", "기존 질문1", "기존 질문2"), // 앞에 질문을 추가해 기존 답변의 위치가 밀린다
+                null,
                 null,
                 null,
                 null
@@ -240,6 +244,7 @@ class RecruitmentUpdateAndCloseServiceTest {
                 List.of("새 질문1", "새 질문2"),
                 null,
                 null,
+                null,
                 null
         );
 
@@ -264,6 +269,7 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 List.of("질문1", "질문2"), // 내용 동일 — 위치 어긋남이 없어 허용
+                null,
                 null,
                 null,
                 null
@@ -295,6 +301,7 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null, // questions 미전달 — 질문 가드 미적용
                 null,
                 null,
+                null,
                 null
         );
 
@@ -318,6 +325,7 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 LocalDate.now().minusDays(1),
+                null,
                 null,
                 null,
                 null,
@@ -419,6 +427,7 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null
         );
 
@@ -436,6 +445,7 @@ class RecruitmentUpdateAndCloseServiceTest {
                 RECRUITMENT_ID,
                 MANAGER_USER_ID,
                 "   ",
+                null,
                 null,
                 null,
                 null,
