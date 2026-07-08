@@ -14,12 +14,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -89,6 +93,50 @@ public class GlobalExceptionHandler {
         log.warn("업로드 크기 초과 (413 변환): {}", exception.getMessage());
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(ApiResponse.error("업로드 가능한 최대 크기를 초과했습니다."));
+    }
+
+    // 아래 4종은 Spring MVC 표준 요청 오류(필수 파라미터·요청 항목 누락, 미지원 메서드·미디어 타입)로,
+    // 모두 클라이언트 요청 형식 오류다. 명시적 핸들러가 없으면 catch-all(handleUnexpected) 로 흘러가
+    // 500 + ERROR 로그 + Sentry 이벤트로 잘못 승격되므로, 각각 올바른 4xx 와 한국어 안내로 응답한다.
+    // 정상 클라이언트의 입력 실수 성격이 강한 400(파라미터·항목 누락)은 무로그로 두어 알림 노이즈를 막고,
+    // 엔드포인트는 있으나 잘못 호출한 405·415 는 404(handleNoResourceFound)와 같은 취지로 debug 로 남긴다.
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingParameter(
+            MissingServletRequestParameterException exception) {
+        String message = String.format("필수 요청 파라미터 '%s' 가 없습니다.", exception.getParameterName());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(message));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingPart(
+            MissingServletRequestPartException exception) {
+        String message = String.format("필수 요청 항목 '%s' 가 없습니다.", exception.getRequestPartName());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(message));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException exception) {
+        log.debug("지원하지 않는 요청 메서드: {}", exception.getMethod());
+        String message = String.format("지원하지 않는 요청 메서드입니다: %s", exception.getMethod());
+        // RFC 9110 §15.5.6 — 405 는 Allow 헤더를 반드시 포함해야 한다. 예외가 지원 메서드로 채워둔
+        // 헤더(Allow)를 그대로 실어 보낸다.
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .headers(exception.getHeaders())
+                .body(ApiResponse.error(message));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException exception) {
+        log.debug("지원하지 않는 미디어 타입: {}", exception.getContentType());
+        // 예외가 지원 미디어 타입으로 채워둔 헤더(Accept 등)를 함께 실어 클라이언트가 재시도 시 참고하게 한다.
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .headers(exception.getHeaders())
+                .body(ApiResponse.error("지원하지 않는 미디어 타입입니다."));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
