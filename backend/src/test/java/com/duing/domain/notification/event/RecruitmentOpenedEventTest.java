@@ -18,6 +18,7 @@ import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
 import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
@@ -108,7 +109,7 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("지원 동기"),
+                List.of(RecruitmentQuestion.createText("지원 동기")),
                 null,
                 null,
                 false
@@ -154,7 +155,7 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("지원 동기"),
+                List.of(RecruitmentQuestion.createText("지원 동기")),
                 null,
                 null,
                 false
@@ -236,7 +237,7 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("자기소개"),
+                List.of(RecruitmentQuestion.createText("자기소개")),
                 null,
                 null,
                 false

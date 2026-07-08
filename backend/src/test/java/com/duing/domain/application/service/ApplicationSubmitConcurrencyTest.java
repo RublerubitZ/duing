@@ -67,7 +67,7 @@ class ApplicationSubmitConcurrencyTest extends IntegrationTestBase {
                         LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
         User applicant = saveUser("동시제출자");
         SubmitApplicationCommand submitCommand =
-                new SubmitApplicationCommand(recruitment.getId(), applicant.getId(), List.of());
+                new SubmitApplicationCommand(recruitment.getId(), applicant.getId(), List.of(), null);
 
         // existsBy 사전 체크만으로는 두 스레드가 모두 통과할 수 있는 경합 구간을 재현해야 하므로,
         // start 래치로 두 제출을 최대한 동시에 출발시킨다 (TransferLeaderConcurrencyTest 와 동일 패턴).

@@ -1,6 +1,7 @@
 package com.duing.domain.draft.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.domain.club.entity.Club;
@@ -10,6 +11,8 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.draft.entity.ApplicationDraft;
 import com.duing.domain.draft.repository.ApplicationDraftRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -97,7 +100,7 @@ class ApplicationDraftControllerTest extends IntegrationTestBase {
     @DisplayName("GET draft — 임시저장이 있을 때 exists=true 와 answers 를 200 으로 반환한다")
     void getDraftWhenExistsReturns200WithExistsTrue() {
         List<ApplicationDraft.DraftAnswer> savedAnswers = List.of(
-                new ApplicationDraft.DraftAnswer(1L, "가나다")
+                new ApplicationDraft.DraftAnswer("q1", List.of("가나다"))
         );
         draftRepository.save(ApplicationDraft.create(student.getId(), openRecruitment.getId(), savedAnswers));
 
@@ -163,7 +166,96 @@ class ApplicationDraftControllerTest extends IntegrationTestBase {
         Optional<ApplicationDraft> draft = draftRepository
                 .findByUserIdAndRecruitmentId(student.getId(), openRecruitment.getId());
         assertThat(draft).isPresent();
-        assertThat(draft.get().getAnswers().get(0).value()).isEqualTo("두번째");
+        assertThat(draft.get().getAnswers().get(0).values()).containsExactly("두번째");
+    }
+
+    @Test
+    @DisplayName("PUT draft — legacy 숫자 questionId(JSON number) 는 Jackson 이 String 으로 강제변환하고, "
+            + "GET 조회 시 같은 위치 폼 질문의 uuid questionId 와 values 배열로 응답된다")
+    void upsertDraftWithLegacyNumericQuestionIdIsCoercedAndResolvedToUuid() {
+        String legacyNumericPayload = """
+                {"answers": [{"questionId": 0, "value": "임시"}]}
+                """;
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                    .contentType(ContentType.JSON)
+                    .body(legacyNumericPayload)
+                .when()
+                    .put("/api/v1/recruitments/{recruitmentId}/draft", openRecruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        String firstQuestionId = openRecruitment.getForm().getQuestions().get(0).id();
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .get("/api/v1/recruitments/{recruitmentId}/draft", openRecruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.exists", equalTo(true))
+                    .body("data.answers[0].questionId", equalTo(firstQuestionId))
+                    .body("data.answers[0].values", contains("임시"));
+    }
+
+    @Test
+    @DisplayName("PUT draft — values 안의 null 원소는 빈 문자열(무응답)로 정규화되어 저장된다 — 500 이 아니다")
+    void upsertDraftWithNullValueElementIsNormalizedToBlank() {
+        // Bean Validation 규약상 @Size 는 null 원소를 유효로 간주하므로 values:[null] 이 서비스까지 도달한다.
+        // 정규화가 없으면 List.copyOf 가 NPE 를 던져 500 이 된다 (#604 규칙을 DraftAnswer 에도 적용).
+        String nullValuePayload = """
+                {"answers": [{"questionId": 0, "values": [null]}]}
+                """;
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                    .contentType(ContentType.JSON)
+                    .body(nullValuePayload)
+                .when()
+                    .put("/api/v1/recruitments/{recruitmentId}/draft", openRecruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        String firstQuestionId = openRecruitment.getForm().getQuestions().get(0).id();
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .get("/api/v1/recruitments/{recruitmentId}/draft", openRecruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.exists", equalTo(true))
+                    .body("data.answers[0].questionId", equalTo(firstQuestionId))
+                    .body("data.answers[0].values", contains(""));
+    }
+
+    @Test
+    @DisplayName("PUT draft — answers 배열의 null 원소는 400 으로 거부된다 — 500 이 아니다")
+    void upsertDraftWithNullAnswerElementReturns400() {
+        // 컨테이너 @Size 도 원소 @Valid 캐스케이드도 null 원소를 유효로 통과시킨다(Bean Validation 규약).
+        // 원소 @NotNull 이 없으면 toCommand 가 payload.questionId() 에서 NPE 를 던져 500 이 된다.
+        String nullAnswerElementPayload = """
+                {"answers": [null]}
+                """;
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                    .contentType(ContentType.JSON)
+                    .body(nullAnswerElementPayload)
+                .when()
+                    .put("/api/v1/recruitments/{recruitmentId}/draft", openRecruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("ok", equalTo(false));
+
+        assertThat(draftRepository.findByUserIdAndRecruitmentId(student.getId(), openRecruitment.getId()))
+                .isEmpty();
     }
 
     @Test
@@ -321,6 +413,9 @@ class ApplicationDraftControllerTest extends IntegrationTestBase {
         LocalDate today = LocalDate.now();
         Recruitment recruitment = Recruitment.create(club, title + "-" + sequence.getAndIncrement(),
                 null, today.minusDays(1), today.plusDays(7), 10);
+        // legacy 숫자 인덱스(questionId=1 등) upsert 케이스를 검증하려면 최소 2문항 폼이 필요하다.
+        recruitment.attachForm(RecruitmentForm.create(recruitment,
+                List.of(RecruitmentQuestion.createText("질문1"), RecruitmentQuestion.createText("질문2"))));
         return recruitmentRepository.save(recruitment);
     }
 

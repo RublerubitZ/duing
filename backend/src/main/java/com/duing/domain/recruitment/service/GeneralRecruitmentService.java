@@ -8,19 +8,28 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.QuestionChoice;
+import com.duing.domain.recruitment.entity.QuestionType;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
+import com.duing.domain.recruitment.service.dto.command.QuestionItemCommand;
 import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -131,28 +140,140 @@ public class GeneralRecruitmentService implements RecruitmentService {
         Long clubId = recruitment.getClub().getId();
         clubAuthService.requireManager(updateRecruitmentCommand.currentUserId(), clubId);
 
-        if (updateRecruitmentCommand.questions() != null) {
+        // 두 통로를 함께 보내면 어느 쪽이 진실인지 알 수 없다 — 조용히 한쪽을 버리면 질문이 소실된다.
+        if (updateRecruitmentCommand.questions() != null && updateRecruitmentCommand.questionItems() != null) {
+            throw new RecruitmentException.InvalidQuestionDefinitionException(
+                    "questions 와 questionItems 는 함께 보낼 수 없습니다.");
+        }
+
+        List<RecruitmentQuestion> resolvedQuestions = null;
+        if (updateRecruitmentCommand.questions() != null || updateRecruitmentCommand.questionItems() != null) {
             if (recruitment.getApplicationMode() != ApplicationMode.SELF) {
                 throw new RecruitmentException.InvalidApplicationModeException(
                         "자체 폼 모집에서만 질문을 수정할 수 있습니다.");
             }
-            // 지원서 답변(Application.answers)은 위치 기반 List<String> 이라 질문의 추가·삭제·순서·문구가
-            // 바뀌면 기존 지원서의 답변이 다른 질문에 매핑되어 합불 판정 데이터가 왜곡된다. 실제로 질문이
-            // 바뀌는 경우에만, 이미 제출된 지원서가 있으면 수정을 막는다(동일 질문 재전송은 허용해 다른
-            // 필드 수정과 함께 questions 를 실어 보내도 문제되지 않게 한다).
-            // delete() 가드와 달리 이 수정은 OPEN 상태에서 일어나므로, "지원자 0명 확인 → 질문 교체 커밋"
-            // 사이에 기존 질문으로 지원서가 INSERT 되는 좁은 경합이 남는다(완전한 원자적 보장은 아님).
-            // 발생 창이 수십 ms 로 좁고, 이 한 가드 때문에 전 수정 필드에 비관적 잠금을 도입하는 것은
-            // 과하다고 판단해 수용한다 — 필요 시 RecruitmentRepository 에 행 잠금 조회를 도입해 강화한다.
+            // 자체 폼은 질문 0개로 존재할 수 없다 — 생성 경로(CreateRecruitmentCommand 컴팩트 생성자)의 불변식을
+            // 수정 경로에도 세운다. 없으면 questions:[] / questionItems:[] 가 replaceQuestions(빈 목록)까지 도달해
+            // 질문 0개짜리 자체 폼이 만들어지고, 그 뒤 answerItems:[] 제출이 개수 비교(0 == 0)를 통과한다.
+            // 해석(resolve)·행 잠금보다 앞에 둔다 — (1) 지원자 수와 무관하게 요청 자체가 무효라 400 이어야 하고
+            // (지원자 존재 409 는 "지원자를 지우면 통과한다" 는 잘못된 신호를 준다), (2) legacy 통로는 빈 배열에
+            // "구 버전 형식으로는…" 이라는 엉뚱한 메시지를 먼저 던지며, (3) 성공할 수 없는 요청에 행 잠금을
+            // 잡지 않는다. 비어 있지 않은 목록은 해석 후에도 비지 않으므로(1:1 매핑) 원본 목록으로 판정해도 충분하다.
+            boolean clearsAllQuestions = updateRecruitmentCommand.questionItems() != null
+                    ? updateRecruitmentCommand.questionItems().isEmpty()
+                    : updateRecruitmentCommand.questions().isEmpty();
+            if (clearsAllQuestions) {
+                throw new RecruitmentException.InvalidApplicationModeException(
+                        "자체 폼 모집은 최소 1개 이상의 질문이 필요합니다.");
+            }
+            // 진행 중인 제출(공유 잠금)이 끝날 때까지 대기한 뒤 지원자 수를 확인한다.
+            // 이 잠금이 없으면 "0명 확인 → 교체 커밋" 사이에 들어온 제출의 답변이
+            // 교체된 질문 id 를 참조하지 못해 유실된 것처럼 보인다.
+            recruitmentRepository.lockFormForQuestionChange(recruitment.getId());
+
+            resolvedQuestions = updateRecruitmentCommand.questionItems() != null
+                    ? resolveQuestionItems(recruitment.getForm(), updateRecruitmentCommand.questionItems())
+                    : resolveLegacyQuestions(recruitment.getForm(), updateRecruitmentCommand.questions());
+            // 지원서 답변(Application.answers)은 questionId 기반이라, 질문의 추가·삭제·순서·문구가
+            // 바뀌면(=새 id 발급) 기존 지원서의 답변이 사라진 질문 id 를 가리키게 되어 합불 판정 데이터가
+            // 왜곡된다. 실제로 질문이 바뀌는 경우에만, 이미 제출된 지원서가 있으면 수정을 막는다(동일 질문
+            // 재전송은 허용해 다른 필드 수정과 함께 questions 를 실어 보내도 문제되지 않게 한다).
+            // #603 확장: id 를 보존해 보낸 수정도 텍스트·유형·필수 여부·선택지가 바뀌면 이미 제출된 답변의
+            // 의미가 달라지므로(예: 선택지 라벨 교체) 똑같이 막는다 (스펙 §2.3). record equals 가 choices 의
+            // id·label·순서까지 비교하므로 별도 필드별 비교가 필요 없다.
+            // delete() 가드와 달리 이 수정은 OPEN 상태에서 일어나 제출과 동시에 진행될 수 있는데,
+            // 위 lockFormForQuestionChange(FOR UPDATE)가 제출측 공유 잠금(FOR SHARE)과 직렬화하므로
+            // "지원자 0명 확인 → 질문 교체 커밋" 사이에 지원서가 INSERT 되는 경합 창은 닫혀 있다.
+            // 아래 countByRecruitmentId 는 반드시 잠금 획득 뒤에 실행되어야 한다 — 순서를 바꾸면 가드가 다시 뚫린다.
+            // 참고: recruitment.getForm() 은 위 findById 가 이미 적재한 값이라(mappedBy @OneToOne 은
+            // 바이트코드 강화 없이는 eager) 다른 운영진의 동시 수정 기준으로는 낡을 수 있다. 그래도 답변이
+            // 죽은 질문을 가리키는 일은 없다 — 낡은 값과 동일하게 재전송되면 questionsChanged=false 라
+            // Hibernate 가 UPDATE 자체를 내지 않고, 조금이라도 다르면 questionsChanged=true 라 이 잠금
+            // 뒤의 지원자 수 확인이 실행되어 막힌다. 남는 것은 지원자 0명일 때의 수정끼리 last-writer-wins
+            // 뿐이며(RecruitmentForm 에 @Version 없음) 답변 유실과는 무관하다.
             boolean questionsChanged = recruitment.getForm() == null
-                    || !recruitment.getForm().getQuestions().equals(updateRecruitmentCommand.questions());
+                    || !recruitment.getForm().getQuestions().equals(resolvedQuestions);
             if (questionsChanged
                     && applicationRepository.countByRecruitmentId(recruitment.getId()) > 0) {
                 throw new RecruitmentException.QuestionsNotEditableWithApplicationsException();
             }
         }
 
-        recruitment.update(updateRecruitmentCommand);
+        recruitment.update(updateRecruitmentCommand, resolvedQuestions);
+    }
+
+    /**
+     * legacy string[] 질문 수정 통로 (스펙 §2.5 안전 규칙 1·2·3).
+     * 규칙 1: 텍스트가 현재 질문과 순서까지 동일하면 no-op(id 보존) — 구 FE 가 다른 필드 수정과 함께
+     *         동일 질문을 재전송하는 일반 경로를 보호한다.
+     * 규칙 2: 현재 폼이 legacy 형태(전부 필수 주관식·선택지 없음)가 아니면 거부 — 구 FE 가 선택형 질문을
+     *         주관식으로 덮어써 선택지가 소실되는 것을 막는다.
+     * 규칙 3: 다르면 전체 교체(신규 id 발급, 위 #603 가드 적용).
+     * TODO(legacy-questions-v1): 신 FE 전환 후 제거.
+     */
+    private List<RecruitmentQuestion> resolveLegacyQuestions(RecruitmentForm form, List<String> legacyTexts) {
+        List<RecruitmentQuestion> currentQuestions = form == null ? List.of() : form.getQuestions();
+        List<String> currentTexts = currentQuestions.stream().map(RecruitmentQuestion::text).toList();
+        if (currentTexts.equals(legacyTexts)) {
+            return currentQuestions;
+        }
+        boolean currentAllLegacyShape = currentQuestions.stream().allMatch(question ->
+                question.type() == QuestionType.TEXT && question.required() && question.choices().isEmpty());
+        if (!currentAllLegacyShape) {
+            throw new RecruitmentException.InvalidQuestionDefinitionException(
+                    "구 버전 형식으로는 선택형 질문이 있는 지원서를 수정할 수 없습니다.");
+        }
+        return legacyTexts.stream().map(RecruitmentQuestion::createText).toList();
+    }
+
+    /**
+     * 구조화 질문 수정 통로의 id 왕복 해석 — 기존 id 는 절대 재생성하지 않고, 현재 폼에 없는 id 는 400 (스펙 §2.2).
+     * 요청 안에서 같은 기존 id 를 두 번 보내면 resolved 에 중복 id 가 생겨 validateDefinitions 가 잡는다.
+     */
+    private List<RecruitmentQuestion> resolveQuestionItems(RecruitmentForm form, List<QuestionItemCommand> items) {
+        Map<String, RecruitmentQuestion> currentQuestionById = form == null ? Map.of()
+                : form.getQuestions().stream()
+                        // 저장된 데이터의 질문 id 중복은 validateDefinitions 가 쓰기 시점에 막지만, 이미 저장된
+                        // 데이터를 믿지 않고 merge function 으로 방어한다 — 없으면 IllegalStateException(500).
+                        .collect(Collectors.toMap(RecruitmentQuestion::id, Function.identity(),
+                                (first, duplicate) -> first));
+        List<RecruitmentQuestion> resolvedQuestions = new ArrayList<>();
+        for (QuestionItemCommand questionItem : items) {
+            if (questionItem.id() == null) {
+                resolvedQuestions.add(RecruitmentQuestion.create(questionItem.text(), questionItem.type(),
+                        questionItem.required(), resolveChoices(null, questionItem.choices())));
+                continue;
+            }
+            RecruitmentQuestion existingQuestion = currentQuestionById.get(questionItem.id());
+            if (existingQuestion == null) {
+                throw new RecruitmentException.InvalidQuestionDefinitionException("존재하지 않는 질문 id 입니다.");
+            }
+            resolvedQuestions.add(new RecruitmentQuestion(existingQuestion.id(), questionItem.text(),
+                    questionItem.type(), questionItem.required(),
+                    resolveChoices(existingQuestion, questionItem.choices())));
+        }
+        RecruitmentQuestion.validateDefinitions(resolvedQuestions);
+        return resolvedQuestions;
+    }
+
+    /** 선택지 id 왕복 해석. existingQuestion 이 null 이면 신규 질문이라 모든 선택지가 새 id 를 받는다. */
+    private List<QuestionChoice> resolveChoices(RecruitmentQuestion existingQuestion,
+                                                List<QuestionItemCommand.ChoiceItemCommand> choices) {
+        Set<String> existingChoiceIds = existingQuestion == null ? Set.of()
+                : existingQuestion.choices().stream().map(QuestionChoice::id).collect(Collectors.toSet());
+        return choices.stream()
+                .map(choice -> {
+                    if (choice.id() == null) {
+                        return QuestionChoice.create(choice.label());
+                    }
+                    // "그 질문의" 선택지인지까지 검증 — 타 질문 선택지 id 유입 차단 (스펙 §2.2).
+                    if (!existingChoiceIds.contains(choice.id())) {
+                        throw new RecruitmentException.InvalidQuestionDefinitionException(
+                                "존재하지 않는 선택지 id 입니다.");
+                    }
+                    return new QuestionChoice(choice.id(), choice.label());
+                })
+                .toList();
     }
 
     @Override

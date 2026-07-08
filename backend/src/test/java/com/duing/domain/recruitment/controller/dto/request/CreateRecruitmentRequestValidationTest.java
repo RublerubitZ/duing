@@ -28,6 +28,7 @@ class CreateRecruitmentRequestValidationTest {
                 questions,
                 null,
                 null,
+                null,
                 null
         );
     }

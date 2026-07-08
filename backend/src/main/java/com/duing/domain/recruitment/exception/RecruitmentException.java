@@ -87,4 +87,10 @@ public class RecruitmentException extends ApplicationException {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
+
+    public static class InvalidQuestionDefinitionException extends RecruitmentException {
+        public InvalidQuestionDefinitionException(String message) {
+            super(message, HttpStatus.BAD_REQUEST);
+        }
+    }
 }

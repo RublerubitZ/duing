@@ -85,7 +85,7 @@ class ApplicationSubmitGuardsTest {
         when(externalRecruitment.getApplicationMode()).thenReturn(ApplicationMode.EXTERNAL);
         when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(externalRecruitment));
 
-        SubmitApplicationCommand submitCommand = new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of());
+        SubmitApplicationCommand submitCommand = new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of(), null);
 
         assertThatThrownBy(() -> applicationService.submit(submitCommand))
                 .isInstanceOf(ApplicationDomainException.ExternalFormSubmitException.class);
@@ -194,7 +194,7 @@ class ApplicationSubmitGuardsTest {
     }
 
     private SubmitApplicationCommand submitCommand() {
-        return new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of());
+        return new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of(), null);
     }
 
     private void stubMemberRecruitment() {

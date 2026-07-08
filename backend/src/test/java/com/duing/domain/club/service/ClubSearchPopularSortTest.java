@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -218,7 +219,8 @@ class ClubSearchPopularSortTest {
         List<Application> saved = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             User user = saveUser("popAppUser");
-            Application application = Application.submit(recruitment, user, List.of("answer"));
+            Application application = Application.submit(recruitment, user,
+                    List.of(new ApplicationAnswer("q1", List.of("answer"))));
             saved.add(applicationRepository.save(application));
         }
         return saved;

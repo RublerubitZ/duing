@@ -3,6 +3,7 @@ package com.duing.domain.recruitment.stats.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
@@ -78,7 +79,8 @@ class RecruitmentStatsRepositoryTest {
 
     private Application saveApplicationWithStatus(Recruitment recruitment, User user,
                                                    ApplicationStatus status) throws Exception {
-        Application application = Application.submit(recruitment, user, List.of("답변"));
+        Application application = Application.submit(recruitment, user,
+                List.of(new ApplicationAnswer("q1", List.of("답변"))));
         Field statusField = Application.class.getDeclaredField("status");
         statusField.setAccessible(true);
         statusField.set(application, status);

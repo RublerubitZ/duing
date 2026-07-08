@@ -15,6 +15,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -159,7 +160,7 @@ public class Recruitment extends BaseEntity {
         return endDate == null || !today.isAfter(endDate);
     }
 
-    public void update(UpdateRecruitmentCommand command) {
+    public void update(UpdateRecruitmentCommand command, List<RecruitmentQuestion> resolvedQuestions) {
         if (this.status == RecruitmentStatus.CLOSED) {
             throw new RecruitmentException.RecruitmentAlreadyClosedException();
         }
@@ -195,11 +196,11 @@ public class Recruitment extends BaseEntity {
         if (command.useInterview() != null) {
             this.useInterview = command.useInterview();
         }
-        if (command.questions() != null) {
+        if (resolvedQuestions != null) {
             if (this.form == null) {
                 throw new IllegalStateException("자체 폼이 없는 모집 공고에서 질문을 수정할 수 없습니다.");
             }
-            this.form.replaceQuestions(command.questions());
+            this.form.replaceQuestions(resolvedQuestions);
         }
         if (command.interviewStartDate() != null || command.interviewEndDate() != null) {
             LocalDate resolvedInterviewStart = command.interviewStartDate() != null

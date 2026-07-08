@@ -117,7 +117,7 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
     }
 
     private SubmitApplicationCommand submitCommand(Long recruitmentId, Long userId) {
-        return new SubmitApplicationCommand(recruitmentId, userId, List.of());
+        return new SubmitApplicationCommand(recruitmentId, userId, List.of(), null);
     }
 
     // ── 테스트 ────────────────────────────────────────────────────────────────

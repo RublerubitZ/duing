@@ -45,7 +45,7 @@ public class Application extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
-    private List<String> answers;
+    private List<ApplicationAnswer> answers;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -58,19 +58,27 @@ public class Application extends BaseEntity {
     private Long version;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private Application(Recruitment recruitment, User user, List<String> answers, ApplicationStatus status) {
+    private Application(Recruitment recruitment, User user, List<ApplicationAnswer> answers, ApplicationStatus status) {
         this.recruitment = recruitment;
         this.user = user;
         this.answers = answers;
         this.status = status;
     }
 
-    public static Application submit(Recruitment recruitment, User user, List<String> answers) {
-        List<String> sanitized = answers == null ? new ArrayList<>() : new ArrayList<>(answers);
-        // null 답변 원소는 빈 문자열(무응답)로 정규화한다. @Size 컨테이너 제약은 null 을 유효로 간주하므로
-        // (Bean Validation 규약) DTO 검증만으로는 null 이 jsonb 에 저장되어 응답에 노출될 수 있다.
-        // 빈 문자열("")은 이미 허용되는 "무응답"이므로 null 을 그 정규형으로 수렴시킨다.
-        sanitized.replaceAll(answer -> answer == null ? "" : answer);
+    public static Application submit(Recruitment recruitment, User user, List<ApplicationAnswer> answers) {
+        // 답변 원소(ApplicationAnswer) 자체가 null 이면 방어적으로 제거한다. 원소 내부 values 의 null 항목은
+        // 빈 문자열(무응답)로 정규화되는데, 그 정규화는 ApplicationAnswer 컴팩트 생성자가 담당한다.
+        // @Size 컨테이너 제약은 null 을 유효로 간주하므로(Bean Validation 규약) DTO 검증만으로는 null 이
+        // jsonb 에 저장되어 응답에 노출될 수 있다 — 빈 문자열("")은 이미 허용되는 "무응답"이므로 null 을
+        // 그 정규형으로 수렴시킨다 (#604 null 정규화 의도 계승).
+        List<ApplicationAnswer> sanitized = new ArrayList<>();
+        if (answers != null) {
+            for (ApplicationAnswer answer : answers) {
+                if (answer != null) {
+                    sanitized.add(answer);
+                }
+            }
+        }
         return Application.builder()
                 .recruitment(recruitment)
                 .user(user)
@@ -98,7 +106,7 @@ public class Application extends BaseEntity {
         };
     }
 
-    public List<String> getAnswers() {
+    public List<ApplicationAnswer> getAnswers() {
         return Collections.unmodifiableList(answers);
     }
 }

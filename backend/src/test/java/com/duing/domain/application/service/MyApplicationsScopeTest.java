@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.controller.ApplicationScope;
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
@@ -143,7 +144,8 @@ class MyApplicationsScopeTest {
     }
 
     private Application saveApplication(Recruitment recruitment, User user, ApplicationStatus status) throws Exception {
-        Application application = Application.submit(recruitment, user, List.of("답변-" + sequence.getAndIncrement()));
+        Application application = Application.submit(recruitment, user,
+                List.of(new ApplicationAnswer("q1", List.of("답변-" + sequence.getAndIncrement()))));
         if (status != ApplicationStatus.SUBMITTED) {
             Field statusField = Application.class.getDeclaredField("status");
             statusField.setAccessible(true);
