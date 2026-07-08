@@ -40,7 +40,12 @@ public record CreateRecruitmentRequest(
 
         TargetRole targetRole,
 
-        List<@NotBlank(message = "질문 항목은 빈 문자열일 수 없습니다.") String> questions,
+        // 질문 개수 상한(50)은 지원서 답변 개수 상한과 반드시 일치해야 한다 — 제출 시
+        // answers.size() == questions.size() 를 검증하므로(GeneralApplicationService.validateAnswersAgainstForm),
+        // 답변 캡보다 질문 캡이 크면 정상 폼의 제출이 답변 캡에 걸려 막힌다.
+        @Size(max = 50, message = "질문은 최대 50개까지 등록할 수 있습니다.")
+        List<@NotBlank(message = "질문 항목은 빈 문자열일 수 없습니다.")
+                @Size(max = 500, message = "질문은 500자 이하여야 합니다.") String> questions,
 
         LocalDate interviewStartDate,
 

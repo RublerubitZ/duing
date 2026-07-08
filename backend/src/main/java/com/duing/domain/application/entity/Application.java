@@ -67,6 +67,10 @@ public class Application extends BaseEntity {
 
     public static Application submit(Recruitment recruitment, User user, List<String> answers) {
         List<String> sanitized = answers == null ? new ArrayList<>() : new ArrayList<>(answers);
+        // null 답변 원소는 빈 문자열(무응답)로 정규화한다. @Size 컨테이너 제약은 null 을 유효로 간주하므로
+        // (Bean Validation 규약) DTO 검증만으로는 null 이 jsonb 에 저장되어 응답에 노출될 수 있다.
+        // 빈 문자열("")은 이미 허용되는 "무응답"이므로 null 을 그 정규형으로 수렴시킨다.
+        sanitized.replaceAll(answer -> answer == null ? "" : answer);
         return Application.builder()
                 .recruitment(recruitment)
                 .user(user)
