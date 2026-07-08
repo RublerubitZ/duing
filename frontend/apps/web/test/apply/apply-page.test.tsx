@@ -212,14 +212,18 @@ describe('ApplyForm — 단일 스텝 지원', () => {
   });
 });
 
-function renderApplyPage() {
-  const queryClient = new QueryClient({
+function makeQueryClient() {
+  return new QueryClient({
     defaultOptions: {
       queries: { retry: false, refetchOnWindowFocus: false },
       mutations: { retry: false },
     },
   });
+}
 
+// 재마운트 회귀 테스트만 QueryClient 를 공유한다(실제 앱의 루트 QueryClient 가 SPA 네비게이션
+// 내내 유지되는 상황 재현). 나머지 테스트는 매 렌더마다 새 인스턴스로 격리된 상태에서 돈다.
+function renderApplyPage(queryClient: QueryClient = makeQueryClient()) {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <ApiClientProvider client={apiClient}>
@@ -264,5 +268,36 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
     // makeRecruitment() 의 clubId 고정값(1)에 대응하는 동아리 상세로 돌아가는 링크.
     const backLink = screen.getByRole('link', { name: '동아리 페이지로 돌아가기' });
     expect(backLink).toHaveAttribute('href', '/clubs/1');
+  });
+
+  it('재진입 시 직전 판정 캐시로 지원 폼을 먼저 그리지 않는다', async () => {
+    // 루트 QueryClient 는 SPA 네비게이션 내내 살아 있으므로, 캐시가 남아 있으면
+    // 재마운트 시 status 가 'success' 라 isLoading=false → 로딩 게이트가 백그라운드
+    // refetch 를 기다리지 않고 통과해 버린다. gcTime:0 이 이 경로를 막는다.
+    const sharedQueryClient = makeQueryClient();
+
+    // 1) 적격 상태로 첫 진입 — 폼이 뜨고 '적격' 판정이 캐시에 남는다.
+    const firstVisit = renderApplyPage(sharedQueryClient);
+    expect(await screen.findByRole('button', { name: '제출' })).toBeInTheDocument();
+    firstVisit.unmount();
+
+    // gcTime 만료는 setTimeout 으로 스케줄되므로 매크로태스크 한 틱을 흘려보낸다.
+    // 실제 라우트 이동도 언마운트와 재마운트가 같은 동기 구간에서 일어나지 않으므로 이 편이 실제에 가깝다.
+    // (gcTime 이 기본값 5분이면 이 틱으로는 캐시가 사라지지 않아 아래 단언이 그대로 깨진다.)
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // 2) 이탈한 사이 모집이 마감돼 부적격으로 바뀐 상태에서 재진입.
+    server.use(mockEligibilityHandler(400, '마감된 모집 공고에는 지원할 수 없습니다.'));
+    renderApplyPage(sharedQueryClient);
+
+    // 캐시된 '적격' 판정으로 지원 폼이 한 프레임이라도 그려지면 사용자가 입력을 시작해 버린다.
+    expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
+    expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
+
+    // 재확인 결과가 도착하면 차단 패널로 확정된다 — 그 사이에도 폼은 등장하지 않는다.
+    expect(
+      await screen.findByText('마감된 모집 공고에는 지원할 수 없습니다.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
   });
 });
