@@ -32,6 +32,15 @@ public interface ApplicationApi {
             @AuthenticationPrincipal UserPrincipal currentUser
     );
 
+    @Operation(summary = "지원 가능 여부 사전 확인",
+            description = "지원서 작성 화면 진입 전에 제출과 동일한 정책(마감·중복 지원·회원 자격 등)으로 "
+                    + "지원 가능 여부를 확인한다. 가능하면 200, 불가하면 제출 시와 동일한 상태코드·메시지로 실패한다.")
+    @GetMapping("/recruitments/{recruitmentId}/applications/eligibility")
+    ResponseEntity<ApiResponse<Void>> checkEligibility(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
     @Operation(summary = "내 지원 목록 조회",
             description = "본인이 제출한 지원을 최신순으로 반환한다. scope 로 상태 그룹 필터링: all(기본·전체) / active(SUBMITTED·UNDER_REVIEW·INTERVIEW_PENDING) / archived(ACCEPTED·REJECTED).")
     @GetMapping("/users/me/applications")

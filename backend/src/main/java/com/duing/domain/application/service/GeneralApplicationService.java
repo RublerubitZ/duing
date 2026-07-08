@@ -80,6 +80,8 @@ public class GeneralApplicationService implements ApplicationService {
 
     // V7 partial unique 인덱스. (club_id, user_id) WHERE deleted_at IS NULL.
     private static final String CLUB_MEMBER_UNIQUE_CONSTRAINT = "uk_club_member_club_user_active";
+    // V6 partial unique 인덱스. (recruitment_id, user_id) WHERE deleted_at IS NULL.
+    private static final String APPLICATION_UNIQUE_CONSTRAINT = "uk_application_recruitment_user_active";
     // PostgreSQL unique_violation.
     private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
     // 일괄 상태 변경의 건별 실패 사유 — 미존재(NotFound)와 타 클럽 권한없음(NotAMember)을 동일 메시지로
@@ -113,7 +115,45 @@ public class GeneralApplicationService implements ApplicationService {
     @Override
     @Transactional
     public Long submit(SubmitApplicationCommand submitApplicationCommand) {
-        Recruitment recruitment = recruitmentRepository.findById(submitApplicationCommand.recruitmentId())
+        EligibilityTarget eligibilityTarget = validateEligibility(
+                submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
+        Recruitment recruitment = eligibilityTarget.recruitment();
+
+        validateAnswersAgainstForm(recruitment, submitApplicationCommand.answers());
+
+        Application application =
+                Application.submit(recruitment, eligibilityTarget.user(), submitApplicationCommand.answers());
+        Long savedApplicationId;
+        try {
+            savedApplicationId = applicationRepository.save(application).getId();
+            // 사전 중복 체크(existsBy...)와 INSERT 사이의 동시 제출 경합은 partial unique 인덱스가 막는다.
+            // 명시적 flush 로 커밋이 아닌 현재 트랜잭션 안에서 충돌을 잡아, 순차 중복 제출과 동일한
+            // 사용자 메시지(DuplicateApplicationException)로 변환한다.
+            applicationRepository.flush();
+        } catch (DataIntegrityViolationException racedSubmission) {
+            if (!isApplicationDuplicate(racedSubmission)) {
+                throw racedSubmission;
+            }
+            throw new ApplicationDomainException.DuplicateApplicationException();
+        }
+
+        applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
+        return savedApplicationId;
+    }
+
+    @Override
+    public void checkEligibility(Long userId, Long recruitmentId) {
+        validateEligibility(userId, recruitmentId);
+    }
+
+    /**
+     * 지원 사전 가드의 단일 소스. checkEligibility(사전 확인)와 submit(최종 검증)이
+     * 이 메서드만 호출한다 — 검증 로직을 두 곳에 두는 것을 금지한다 (스펙 §1.2).
+     * 사전 확인 통과 후 제출 사이에 상태가 변해도(TOCTOU) submit 이 같은 메서드를
+     * 다시 통과하므로 최종 일관성이 보장된다.
+     */
+    private EligibilityTarget validateEligibility(Long userId, Long recruitmentId) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         // 비공개 상태 동아리의 모집에는 지원할 수 없다 — 존재 은닉을 위해 404 (공개 상세와 동일 의미론).
@@ -129,7 +169,7 @@ public class GeneralApplicationService implements ApplicationService {
             throw new ApplicationDomainException.ExternalFormSubmitException();
         }
 
-        User user = userRepository.findById(submitApplicationCommand.userId())
+        User user = userRepository.findById(userId)
                 .orElseThrow(UserException.UserNotFoundException::new);
 
         if (applicationRepository.existsByRecruitmentIdAndUserId(recruitment.getId(), user.getId())) {
@@ -138,14 +178,11 @@ public class GeneralApplicationService implements ApplicationService {
 
         validateClubMembershipPolicy(recruitment, user);
 
-        validateAnswersAgainstForm(recruitment, submitApplicationCommand.answers());
-
-        Application application = Application.submit(recruitment, user, submitApplicationCommand.answers());
-        Long savedApplicationId = applicationRepository.save(application).getId();
-
-        applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
-        return savedApplicationId;
+        return new EligibilityTarget(recruitment, user);
     }
+
+    /** validateEligibility 통과 결과 — submit 이 후속 저장에 재사용한다. */
+    private record EligibilityTarget(Recruitment recruitment, User user) {}
 
     @Override
     public List<ApplicationSummaryQuery> getMyApplications(Long userId, Set<ApplicationStatus> statuses) {
@@ -484,6 +521,22 @@ public class GeneralApplicationService implements ApplicationService {
     }
 
     /**
+     * 동시 제출로 인한 application 중복 삽입 only true.
+     * 향후 application 에 새 unique / CHECK / FK 가 추가되어도 그 위반은 그대로 위로 전파된다.
+     */
+    private static boolean isApplicationDuplicate(DataIntegrityViolationException exception) {
+        Throwable mostSpecific = exception.getMostSpecificCause();
+        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
+            return false;
+        }
+        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
+            return false;
+        }
+        String message = sqlException.getMessage();
+        return message != null && message.contains(APPLICATION_UNIQUE_CONSTRAINT);
+    }
+
+    /**
      * 모집 대상 역할별 지원 자격을 검증한다.
      * - MEMBER 모집: 해당 동아리에 소속된 사용자(역할 무관) 는 재지원 불가. 다른 동아리 소속은 영향 없음.
      * - OFFICER 모집: 해당 동아리의 MEMBER 만 지원 가능. 멤버십 없음은 차단,
@@ -510,6 +563,8 @@ public class GeneralApplicationService implements ApplicationService {
                     throw new ApplicationDomainException.IneligibleOfficerApplicantException();
                 }
             }
+            default -> throw new IllegalStateException(
+                    "지원 자격 정책이 정의되지 않은 모집 대상입니다: " + recruitment.getTargetRole());
         }
     }
 

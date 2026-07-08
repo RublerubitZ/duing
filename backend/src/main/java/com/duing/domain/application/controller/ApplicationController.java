@@ -39,6 +39,15 @@ public class ApplicationController implements ApplicationApi {
     }
 
     @Override
+    public ResponseEntity<ApiResponse<Void>> checkEligibility(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        applicationService.checkEligibility(currentUser.id(), recruitmentId);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Override
     public ResponseEntity<ApiResponse<List<ApplicationSummaryResponse>>> getMyApplications(
             ApplicationScope scope,
             @AuthenticationPrincipal UserPrincipal currentUser
