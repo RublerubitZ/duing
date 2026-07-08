@@ -66,7 +66,12 @@ public class ApplicationDraft {
     public record DraftAnswer(String questionId, List<String> values) {
 
         public DraftAnswer {
-            values = values == null ? List.of() : List.copyOf(values);
+            // null 원소는 빈 문자열(무응답)로 정규화 — ApplicationAnswer 와 동일한 #604 규칙.
+            // @Size 컨테이너 제약은 null 원소를 유효로 간주하므로(Bean Validation 규약) 요청 DTO 검증만으로는
+            // values:[null] 이 그대로 흘러들어온다. 정규화 없이 List.copyOf 를 쓰면 NPE(500)가 된다.
+            List<String> sanitized = values == null ? new ArrayList<>() : new ArrayList<>(values);
+            sanitized.replaceAll(value -> value == null ? "" : value);
+            values = List.copyOf(sanitized);
         }
     }
 }

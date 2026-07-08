@@ -41,8 +41,12 @@ public record RecruitmentQuestion(
         if (type == QuestionType.TEXT) {
             return values.get(0);
         }
+        // 선택지 id 중복은 validateDefinitions 가 등록 시점에 막지만, 조회 경로가 저장 데이터를 믿고
+        // 깨지지 않도록 merge function 으로 방어한다 — 중복 시 첫 선택지 라벨을 채택
+        // (MyApplicationDetailQuery 의 questionId 중복 방어와 동일 원칙). 없으면 IllegalStateException 으로 조회가 죽는다.
         Map<String, String> labelByChoiceId = choices.stream()
-                .collect(Collectors.toMap(QuestionChoice::id, QuestionChoice::label));
+                .collect(Collectors.toMap(QuestionChoice::id, QuestionChoice::label,
+                        (first, duplicate) -> first));
         return values.stream()
                 .map(labelByChoiceId::get)
                 .filter(Objects::nonNull)

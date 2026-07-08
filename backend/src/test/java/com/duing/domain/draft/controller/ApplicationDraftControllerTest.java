@@ -202,6 +202,39 @@ class ApplicationDraftControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("PUT draft — values 안의 null 원소는 빈 문자열(무응답)로 정규화되어 저장된다 — 500 이 아니다")
+    void upsertDraftWithNullValueElementIsNormalizedToBlank() {
+        // Bean Validation 규약상 @Size 는 null 원소를 유효로 간주하므로 values:[null] 이 서비스까지 도달한다.
+        // 정규화가 없으면 List.copyOf 가 NPE 를 던져 500 이 된다 (#604 규칙을 DraftAnswer 에도 적용).
+        String nullValuePayload = """
+                {"answers": [{"questionId": 0, "values": [null]}]}
+                """;
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                    .contentType(ContentType.JSON)
+                    .body(nullValuePayload)
+                .when()
+                    .put("/api/v1/recruitments/{recruitmentId}/draft", openRecruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        String firstQuestionId = openRecruitment.getForm().getQuestions().get(0).id();
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .get("/api/v1/recruitments/{recruitmentId}/draft", openRecruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.exists", equalTo(true))
+                    .body("data.answers[0].questionId", equalTo(firstQuestionId))
+                    .body("data.answers[0].values", contains(""));
+    }
+
+    @Test
     @DisplayName("PUT draft — 마감된 모집에 upsert 하면 410 반환한다")
     void upsertDraftOnClosedRecruitmentReturns410() throws Exception {
         Club activeClub = saveActiveClub("마감동아리");
