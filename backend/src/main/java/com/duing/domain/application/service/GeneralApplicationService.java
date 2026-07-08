@@ -113,7 +113,33 @@ public class GeneralApplicationService implements ApplicationService {
     @Override
     @Transactional
     public Long submit(SubmitApplicationCommand submitApplicationCommand) {
-        Recruitment recruitment = recruitmentRepository.findById(submitApplicationCommand.recruitmentId())
+        EligibilityTarget eligibilityTarget = validateEligibility(
+                submitApplicationCommand.recruitmentId(), submitApplicationCommand.userId());
+        Recruitment recruitment = eligibilityTarget.recruitment();
+
+        validateAnswersAgainstForm(recruitment, submitApplicationCommand.answers());
+
+        Application application =
+                Application.submit(recruitment, eligibilityTarget.user(), submitApplicationCommand.answers());
+        Long savedApplicationId = applicationRepository.save(application).getId();
+
+        applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
+        return savedApplicationId;
+    }
+
+    @Override
+    public void checkEligibility(Long userId, Long recruitmentId) {
+        validateEligibility(recruitmentId, userId);
+    }
+
+    /**
+     * 지원 사전 가드의 단일 소스. checkEligibility(사전 확인)와 submit(최종 검증)이
+     * 이 메서드만 호출한다 — 검증 로직을 두 곳에 두는 것을 금지한다 (스펙 §1.2).
+     * 사전 확인 통과 후 제출 사이에 상태가 변해도(TOCTOU) submit 이 같은 메서드를
+     * 다시 통과하므로 최종 일관성이 보장된다.
+     */
+    private EligibilityTarget validateEligibility(Long recruitmentId, Long userId) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         // 비공개 상태 동아리의 모집에는 지원할 수 없다 — 존재 은닉을 위해 404 (공개 상세와 동일 의미론).
@@ -129,7 +155,7 @@ public class GeneralApplicationService implements ApplicationService {
             throw new ApplicationDomainException.ExternalFormSubmitException();
         }
 
-        User user = userRepository.findById(submitApplicationCommand.userId())
+        User user = userRepository.findById(userId)
                 .orElseThrow(UserException.UserNotFoundException::new);
 
         if (applicationRepository.existsByRecruitmentIdAndUserId(recruitment.getId(), user.getId())) {
@@ -138,14 +164,11 @@ public class GeneralApplicationService implements ApplicationService {
 
         validateClubMembershipPolicy(recruitment, user);
 
-        validateAnswersAgainstForm(recruitment, submitApplicationCommand.answers());
-
-        Application application = Application.submit(recruitment, user, submitApplicationCommand.answers());
-        Long savedApplicationId = applicationRepository.save(application).getId();
-
-        applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
-        return savedApplicationId;
+        return new EligibilityTarget(recruitment, user);
     }
+
+    /** validateEligibility 통과 결과 — submit 이 후속 저장에 재사용한다. */
+    private record EligibilityTarget(Recruitment recruitment, User user) {}
 
     @Override
     public List<ApplicationSummaryQuery> getMyApplications(Long userId, Set<ApplicationStatus> statuses) {
