@@ -118,6 +118,10 @@ public class GeneralApplicationService implements ApplicationService {
     @Override
     @Transactional
     public Long submit(SubmitApplicationCommand submitApplicationCommand) {
+        // 질문 정의를 읽기 전에 폼을 공유 잠금해, 읽는 도중 질문이 교체되어
+        // 답변이 사라진 질문 id 를 참조하게 되는 경합을 막는다 (질문 변경은 배타 잠금).
+        recruitmentRepository.lockFormForSubmission(submitApplicationCommand.recruitmentId());
+
         EligibilityTarget eligibilityTarget = validateEligibility(
                 submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
         Recruitment recruitment = eligibilityTarget.recruitment();
