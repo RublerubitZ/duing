@@ -70,6 +70,8 @@ public abstract class IntegrationTestBase {
                 "promotion, " +
                 "promotion_request, " +
                 "email_verifications, " +
+                "phone_verification_events, " +
+                "phone_verifications, " +
                 "club, " +
                 "users " +
                 "RESTART IDENTITY CASCADE"
