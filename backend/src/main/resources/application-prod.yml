@@ -86,6 +86,10 @@ duing:
 email:
   provider: resend
 
+# MO 인증 — 운영 기본은 실조회(octomo). stub 으로 남으면 인증이 영영 완료되지 않는 조용한 장애가 된다.
+mo:
+  provider: ${MO_PROVIDER:octomo}
+
 logging:
   level:
     org.hibernate.SQL: warn
