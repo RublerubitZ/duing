@@ -11,7 +11,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 /**
- * Resend 이메일 서비스 RestClient 설정.
+ * Resend 이메일 서비스 RestClient 설정 — {@link com.duing.global.email.ResendMailProvider} 가 사용.
  *
  * <p>{@code email.provider=resend} 일 때만 활성. {@link ResendProperties} 는
  * 여기서만 등록되어 provider 가 resend 가 아닐 때는 빈 검증이 돌지 않는다 (local 까지 죽이는

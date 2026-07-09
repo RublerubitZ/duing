@@ -52,6 +52,9 @@ dependencies {
     implementation("org.springframework.retry:spring-retry")
     implementation("org.springframework.boot:spring-boot-starter-aop")
 
+    // Spring Mail — Brevo SMTP 폴백 발송(JavaMailSender). Resend 장애(429/5xx/타임아웃) 시에만 사용.
+    implementation("org.springframework.boot:spring-boot-starter-mail")
+
     // HTML sanitizer — 공지 본문(HTML 포맷) 서버측 XSS 정제
     implementation("org.jsoup:jsoup:1.18.3")
 
