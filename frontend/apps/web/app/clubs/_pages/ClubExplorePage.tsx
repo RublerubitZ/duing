@@ -606,6 +606,7 @@ export function ClubExplorePage() {
         <SheetContent
           side="bottom"
           hideClose
+          aria-describedby={undefined}
           className="flex max-h-[88%] flex-col overflow-hidden rounded-t-[26px] bg-cream px-0 pb-0"
         >
           <SheetTitle className="sr-only">필터</SheetTitle>

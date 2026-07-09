@@ -82,7 +82,8 @@ export function ProfileEditDialog({ open, onClose, currentName, currentPhone, cu
         if (!next) onClose();
       }}
     >
-      <DialogContent>
+      {/* 별도 설명 문구가 없는 폼 다이얼로그 — Description 연결을 명시적으로 해제한다(Radix a11y 경고 억제). */}
+      <DialogContent aria-describedby={undefined}>
         <DialogTitle>프로필 수정</DialogTitle>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">

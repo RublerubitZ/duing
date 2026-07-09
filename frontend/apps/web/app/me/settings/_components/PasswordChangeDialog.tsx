@@ -9,7 +9,7 @@ import { useChangePasswordMutation } from '@duing/hooks';
 import { passwordSchema } from '@duing/schemas';
 import { useAuthStore } from '@duing/stores';
 
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
 
@@ -81,7 +81,9 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
     >
       <DialogContent>
         <DialogTitle>비밀번호 변경</DialogTitle>
-        <p className="text-[12.5px] text-charcoal-3">변경하면 보안을 위해 다시 로그인해야 해요.</p>
+        <DialogDescription className="text-[12.5px]">
+          변경하면 보안을 위해 다시 로그인해야 해요.
+        </DialogDescription>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
             <span className="text-[13px] font-semibold text-charcoal-2">현재 비밀번호</span>
