@@ -2,14 +2,20 @@ package com.duing.domain.user.controller;
 
 import com.duing.domain.user.api.AuthApi;
 import com.duing.domain.user.controller.dto.request.ConfirmEmailVerificationRequest;
+import com.duing.domain.user.controller.dto.request.IssuePhoneVerificationRequest;
 import com.duing.domain.user.controller.dto.request.LoginRequest;
 import com.duing.domain.user.controller.dto.request.SendEmailVerificationRequest;
 import com.duing.domain.user.controller.dto.request.SignupRequest;
 import com.duing.domain.user.controller.dto.response.EmailVerificationResponse;
 import com.duing.domain.user.controller.dto.response.LoginResponse;
+import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueResponse;
+import com.duing.domain.user.controller.dto.response.PhoneVerificationStatusResponse;
 import com.duing.domain.user.service.EmailVerificationService;
+import com.duing.domain.user.service.PhoneVerificationService;
 import com.duing.domain.user.service.UserService;
 import com.duing.domain.user.service.dto.query.EmailVerificationSendResult;
+import com.duing.domain.user.service.dto.query.PhoneVerificationIssueResult;
+import com.duing.domain.user.service.dto.query.PhoneVerificationStatusResult;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,8 +24,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -29,6 +37,7 @@ public class AuthController implements AuthApi {
 
     private final UserService userService;
     private final EmailVerificationService emailVerificationService;
+    private final PhoneVerificationService phoneVerificationService;
 
     @Override
     public ResponseEntity<ApiResponse<Long>> signup(@Valid @RequestBody SignupRequest signupRequest) {
@@ -70,6 +79,29 @@ public class AuthController implements AuthApi {
         String clientIp = httpServletRequest.getRemoteAddr();
         emailVerificationService.confirmCode(confirmRequest.toCommand(), clientIp);
         return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<PhoneVerificationIssueResponse>> issuePhoneVerification(
+            @Valid @RequestBody IssuePhoneVerificationRequest issueRequest,
+            @RequestParam(name = "qr", defaultValue = "false") boolean includeQr,
+            HttpServletRequest httpServletRequest) {
+        String clientIp = httpServletRequest.getRemoteAddr();
+        PhoneVerificationIssueResult issueResult =
+                phoneVerificationService.issue(issueRequest.toCommand(includeQr), clientIp);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(PhoneVerificationIssueResponse.from(issueResult)));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<PhoneVerificationStatusResponse>> getPhoneVerificationStatus(
+            @PathVariable("verificationToken") String verificationToken,
+            HttpServletRequest httpServletRequest) {
+        String clientIp = httpServletRequest.getRemoteAddr();
+        String userAgent = httpServletRequest.getHeader("User-Agent");
+        PhoneVerificationStatusResult statusResult =
+                phoneVerificationService.getStatus(verificationToken, clientIp, userAgent);
+        return ResponseEntity.ok(ApiResponse.success(PhoneVerificationStatusResponse.from(statusResult)));
     }
 
 }
