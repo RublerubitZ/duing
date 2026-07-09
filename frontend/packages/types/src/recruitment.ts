@@ -20,9 +20,40 @@ export type RecruitmentSummary = {
   targetRole: TargetRole;
 };
 
+export type QuestionType = 'TEXT' | 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
+
+export type RecruitmentQuestionChoice = {
+  id: string;
+  label: string;
+};
+
+export type RecruitmentQuestionItem = {
+  id: string;
+  text: string;
+  type: QuestionType;
+  required: boolean;
+  choices: RecruitmentQuestionChoice[];
+};
+
+/** 생성·수정 페이로드용 — id 는 수정 시 왕복(신규 항목은 null), 서버가 발급·보존한다. */
+export type QuestionChoicePayload = {
+  id?: string | null;
+  label: string;
+};
+
+export type QuestionItemPayload = {
+  id?: string | null;
+  text: string;
+  type: QuestionType;
+  required: boolean;
+  choices: QuestionChoicePayload[];
+};
+
 export type RecruitmentDetail = RecruitmentSummary & {
   content: string | null;
   questions: string[];
+  // TODO(legacy-questions-v1): 구 BE 소멸 후 required 로 승격
+  questionItems?: RecruitmentQuestionItem[];
   interviewStartDate: string | null;
   interviewEndDate: string | null;
   showApplicantCount: boolean;
@@ -58,7 +89,9 @@ export type CreateRecruitmentPayload = {
   startDate: string;
   endDate?: string | null;
   capacity: number;
+  // TODO(legacy-questions-v1): 신 FE 는 사용하지 않음 — 제거 예정. questionItems 와 동시 전송 시 백엔드 400.
   questions?: string[];
+  questionItems?: QuestionItemPayload[];
   applicationMode?: ApplicationMode;
   externalFormUrl?: string;
   useInterview?: boolean;
@@ -75,7 +108,9 @@ export type UpdateRecruitmentPayload = {
   endDate?: string;
   capacity?: number;
   useInterview?: boolean;
+  // TODO(legacy-questions-v1): 신 FE 는 사용하지 않음 — 제거 예정. questionItems 와 동시 전송 시 백엔드 400.
   questions?: string[];
+  questionItems?: QuestionItemPayload[];
   interviewStartDate?: string | null;
   interviewEndDate?: string | null;
   showApplicantCount?: boolean;

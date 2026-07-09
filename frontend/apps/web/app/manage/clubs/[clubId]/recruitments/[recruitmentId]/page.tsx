@@ -13,6 +13,7 @@ import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { toRoute } from '../../../../../_lib/route';
 import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
 import { InterviewStageChip } from './_components/InterviewStageChip';
+import { RecruitmentQuestionItemList } from './_components/RecruitmentQuestionItemList';
 
 export default function RecruitmentDetailPage({
   params,
@@ -48,6 +49,13 @@ export default function RecruitmentDetailPage({
   const applicationModeLabel =
     recruitment.applicationMode === 'EXTERNAL' ? '외부 폼' : '자체 폼';
   const targetRoleLabel = recruitment.targetRole === 'OFFICER' ? '운영진' : '부원';
+
+  // 외부 폼 모집은 questionItems 가 빈 배열로 내려온다 — 두 목록 모두 비어 있으면 섹션 자체를 감춘다.
+  const questionItems = recruitment.questionItems ?? [];
+  const hasQuestionItems = questionItems.length > 0;
+  const showQuestions =
+    recruitment.applicationMode === 'SELF' &&
+    (hasQuestionItems || recruitment.questions.length > 0);
 
   // 운영진이 가장 자주 확인하는 지원자 수를 액션 버튼에 직접 노출한다.
   // 통계 요약(authoritative total)을 단일 출처로 써서 통계 페이지 수치와 항상 일치시킨다.
@@ -157,17 +165,21 @@ export default function RecruitmentDetailPage({
         </div>
       )}
 
-      {/* 질문 목록 */}
-      {recruitment.applicationMode === 'SELF' && recruitment.questions.length > 0 && (
+      {/* 질문 목록 — questionItems 가 있으면 유형·필수 여부·선택지까지, 없으면(구 BE 시차) 텍스트만 */}
+      {showQuestions && (
         <div className="mb-8">
           <h2 className="mb-2 text-sm font-medium text-slate-700">지원 질문</h2>
-          <ol className="list-decimal pl-5 space-y-1">
-            {recruitment.questions.map((question, index) => (
-              <li key={index} className="text-sm text-slate-600">
-                {question}
-              </li>
-            ))}
-          </ol>
+          {hasQuestionItems ? (
+            <RecruitmentQuestionItemList items={questionItems} />
+          ) : (
+            <ol className="list-decimal pl-5 space-y-1">
+              {recruitment.questions.map((question, index) => (
+                <li key={index} className="text-sm text-slate-600">
+                  {question}
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       )}
 
