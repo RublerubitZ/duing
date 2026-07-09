@@ -242,19 +242,19 @@ global/mo/
 │     비2xx·타임아웃 → MoProviderException (호출부: exists는 PENDING 유지, QR은 empty)
 ├── StubMoVerificationClient.java    @ConditionalOnProperty(..., havingValue=stub, matchIfMissing=true)
 │     테스트: (번호,본문) 쌍 주입식. 로컬: mo.stub.auto-verify-after-seconds 옵션
-├── OctomoProperties.java            @ConfigurationProperties(prefix="octomo") — apiKey, baseUrl, moNumber
+├── OctomoProperties.java            @ConfigurationProperties(prefix="octomo") — apiKey, baseUrl
 └── MoProviderException.java
 ```
 
 ```yaml
 mo:
   provider: ${MO_PROVIDER:stub}        # stub | octomo
+  inbound-number: "16663538"           # 수신 대표번호 — 벤더 중립 키 (안내·딥링크·QR 본문용)
 phone-verification:
   secret: ${PHONE_VERIFICATION_SECRET} # 코드 파생 HMAC 키 — 기본값 없음(필수)
 octomo:
   api-key: ${OCTOMO_API_KEY:}
   base-url: https://api.octoverse.kr
-  mo-number: "16663538"                # 안내·딥링크용 대표번호
 ```
 
 - 재시도 정책: **없음**. exists는 폴링 자체가 재시도이고, QR은 폴백(텍스트 안내)이 있다. 재시도 루프는 지연·쿼터만 태운다.
