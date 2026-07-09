@@ -2,7 +2,7 @@
 
 두잉 백엔드를 Lightsail VM 한 대에서 Docker 로 운영한다. Caddy 가 `api.duings.com` 의 TLS 종단과
 리버스 프록시를 맡고, 백엔드 컨테이너는 내부 네트워크에서만 8080 을 노출한다.
-프론트(Vercel)·DB(Supabase prod)·스토리지(R2)·메일(Resend)은 외부 매니지드 서비스다.
+프론트(Vercel)·DB(Supabase prod)·스토리지(R2)·메일(Resend 주 발송 + Brevo SMTP 폴백)은 외부 매니지드 서비스다.
 
 ## 사전 준비 (1회)
 
@@ -10,6 +10,8 @@
 2. **방화벽**: 22(SSH), 80, 443 인바운드만 개방(8080 은 호스트로 열지 않는다 — Caddy 경유).
 3. **DNS**: `api.duings.com` A 레코드를 인스턴스 고정 IP 로 지정.
 4. **Resend**: `duings.com` 발신 도메인 검증(SPF/DKIM).
+   **Brevo(폴백)**: 동일 발신 도메인을 Brevo 에서도 발신자 인증(SPF/DKIM)하고, SMTP 키를 발급해
+   `.env` 의 `BREVO_SMTP_LOGIN`/`BREVO_SMTP_KEY` 로 주입한다(미주입 시 폴백만 비활성, 발송은 Resend 단독).
 5. **GHCR (Private 패키지)**: CD 가 이미지를 push·pull 하도록 설정한다(deploy 워크플로가 GITHUB_TOKEN 으로 처리).
    패키지가 **Private** 이므로 서버에서 *수동* pull 을 하려면 먼저 classic PAT 로 로그인해야 한다:
    ```bash

@@ -77,9 +77,12 @@ duing:
     crawler:
       enabled: ${DUING_FACILITY_CRAWLER_ENABLED:true}
 
-# 이메일 발송 — 운영은 항상 Resend 를 쓴다. EMAIL_PROVIDER 누락 시 공통 yml 의 기본값(logging)
-# 으로 조용히 떨어져 인증 메일이 발송되지 않는 사고를 막기 위해 프로파일에서 하드코딩한다.
+# 이메일 발송 — 운영은 항상 실발송 체인(Resend 주 + Brevo SMTP 폴백)을 쓴다. EMAIL_PROVIDER 누락 시
+# 공통 yml 의 기본값(logging)으로 조용히 떨어져 인증 메일이 발송되지 않는 사고를 막기 위해 프로파일에서
+# 하드코딩한다. 값 resend 는 체인 전체를 켜는 스위치다(운영 env 변경 없이 폴백이 도입되도록 기존 값 유지).
 # RESEND_API_KEY / EMAIL_VERIFICATION_SECRET 은 공통 yml 에서 default 없이 주입 = 누락 시 fail-fast.
+# Brevo 크레덴셜(BREVO_SMTP_LOGIN/KEY)은 default 빈 값 — 미주입이어도 부팅·Resend 발송은 정상이고
+# 폴백 시도만 인증 실패한다(도입 시 서버 .env 에 추가 필요, backend/.env.example 참조).
 email:
   provider: resend
 
