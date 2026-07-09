@@ -121,6 +121,8 @@ resend:
 # Brevo 발신자 표기 — Resend 와 동일한 발신자를 기본값으로 유지한다(수신함에서 Provider 가 바뀌어도
 # 동일 발신자로 보이게). RESEND_FROM 을 커스텀했다면 BREVO_FROM 도 같이 맞춰 주입한다.
 # SMTP 크레덴셜(BREVO_SMTP_LOGIN/KEY)은 spring.mail 에서 주입한다.
+# ⚠️ 한글 발신자명 env 오버라이드는 운영(진짜 환경변수) 전용 — 로컬 backend/.env 경유는
+# properties(ISO-8859-1) 로 읽혀 mojibake 가 된다(backend/.env.example 경고 참조).
 brevo:
   from: '${BREVO_FROM:두잉 <noreply@duings.com>}'
 
