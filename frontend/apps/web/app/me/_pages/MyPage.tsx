@@ -169,7 +169,6 @@ export function MyPage() {
         <MyPageHeader
           name={user?.name ?? '—'}
           studentId={user?.studentId ?? '—'}
-          email={user?.email ?? '—'}
           applyCount={applications.length}
           joinedCount={myClubs.length}
           savedCount={favorites.length}

@@ -6,7 +6,6 @@ import { SparkleFull } from '@/components/duing/Sparkle';
 type Props = {
   name: string;
   studentId: string;
-  email: string;
   /** 진행 중인 지원 수 */
   applyCount: number;
   /** 가입한 동아리 수 */
@@ -18,7 +17,6 @@ type Props = {
 export function MyPageHeader({
   name,
   studentId,
-  email,
   applyCount,
   joinedCount,
   savedCount,
@@ -53,8 +51,6 @@ export function MyPageHeader({
               <span>🎓 학생</span>
               <span>·</span>
               <span className="font-mono">{studentId}</span>
-              <span>·</span>
-              <span>📨 {email}</span>
             </div>
             <Link
               href={toRoute('/me/fees')}

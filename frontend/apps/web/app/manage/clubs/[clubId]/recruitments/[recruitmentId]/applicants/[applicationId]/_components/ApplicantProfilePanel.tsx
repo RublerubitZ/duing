@@ -22,9 +22,6 @@ export function ApplicantProfilePanel({ detail }: { detail: ApplicantDetail }) {
         <dt className="text-neutral-500">학년</dt>
         <dd className="text-slate-900">{GRADE_DISPLAY_NAME[detail.applicant.grade]}</dd>
 
-        <dt className="text-neutral-500">이메일</dt>
-        <dd className="text-slate-900">{detail.applicant.email}</dd>
-
         <dt className="text-neutral-500">휴대폰</dt>
         <dd className="text-slate-900">{detail.applicant.phone}</dd>
 

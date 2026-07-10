@@ -7,11 +7,10 @@ import { useSignupMutation } from '@duing/hooks';
 import { signupSchema } from '@duing/schemas';
 import { ApiError } from '@duing/api';
 import { initialSignupState, signupReducer, type SignupFormState } from '../_lib/signup-state';
-import { useEmailVerification } from '../_lib/use-email-verification';
+import { usePhoneVerification } from '../_lib/use-phone-verification';
 import { CollegeSelect } from './CollegeSelect';
-import { EmailVerificationField } from './EmailVerificationField';
 import { GradeSelect } from '@/app/_components/GradeSelect';
-import { PhoneInput } from './PhoneInput';
+import { PhoneVerificationField } from './PhoneVerificationField';
 import { TermsAgreement } from './TermsAgreement';
 import type { College, Grade } from '@duing/types';
 
@@ -53,7 +52,7 @@ export function SignupFormPanel() {
     dispatch({ type: 'SET_FIELD', field, value });
   }
 
-  const emailVerification = useEmailVerification(state.email);
+  const phoneVerification = usePhoneVerification(state.phone);
 
   const passwordMismatch =
     state.passwordConfirm.length > 0 && state.password !== state.passwordConfirm;
@@ -67,7 +66,7 @@ export function SignupFormPanel() {
     !signup.isPending &&
     !passwordMismatch &&
     state.studentId === state.studentIdConfirm &&
-    emailVerification.verified;
+    phoneVerification.verified;
 
   async function handleSubmit(submitEvent: React.FormEvent) {
     submitEvent.preventDefault();
@@ -83,12 +82,11 @@ export function SignupFormPanel() {
     const parsed = signupSchema.safeParse({
       studentId: state.studentId,
       name: state.name,
-      email: state.email,
       password: state.password,
       grade: state.grade,
       college: state.college,
       major: state.major,
-      phone: state.phone,
+      verificationToken: phoneVerification.verificationToken ?? '',
       termsOfServiceAgreed: state.termsOfServiceAgreed,
       privacyPolicyAgreed: state.privacyPolicyAgreed,
     });
@@ -100,9 +98,9 @@ export function SignupFormPanel() {
       await signup.mutateAsync(parsed.data);
       router.replace('/login?next=/me');
     } catch (signupError) {
-      if (signupError instanceof ApiError && signupError.code === 'EMAIL_NOT_VERIFIED') {
-        emailVerification.reset();
-        setError('이메일 인증이 만료되었어요. 다시 인증해주세요.');
+      if (signupError instanceof ApiError && signupError.code === 'PHONE_NOT_VERIFIED') {
+        phoneVerification.reset();
+        setError('휴대폰 인증이 만료됐어요. 다시 인증해주세요.');
         return;
       }
       setError(signupError instanceof Error ? signupError.message : '회원가입에 실패했습니다.');
@@ -162,22 +160,22 @@ export function SignupFormPanel() {
           )}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Email + 인증 */}
-            <EmailVerificationField
-              email={state.email}
-              onEmailChange={(email) => setField('email', email)}
-              status={emailVerification.status}
-              code={emailVerification.code}
-              onCodeChange={emailVerification.setCode}
-              remainingSeconds={emailVerification.remainingSeconds}
-              resendCooldownSeconds={emailVerification.resendCooldownSeconds}
-              sending={emailVerification.sending}
-              confirming={emailVerification.confirming}
-              canSend={emailVerification.canSend}
-              errorMessage={emailVerification.errorMessage}
-              onSend={emailVerification.send}
-              onConfirm={emailVerification.confirm}
-              onEditEmail={emailVerification.reset}
+            {/* 휴대폰 MO 인증 */}
+            <PhoneVerificationField
+              phone={state.phone}
+              onPhoneChange={(phone) => setField('phone', phone)}
+              status={phoneVerification.status}
+              code={phoneVerification.code}
+              moNumber={phoneVerification.moNumber}
+              qrCode={phoneVerification.qrCode}
+              remainingSeconds={phoneVerification.remainingSeconds}
+              resendCooldownSeconds={phoneVerification.resendCooldownSeconds}
+              issuing={phoneVerification.issuing}
+              canIssue={phoneVerification.canIssue}
+              errorMessage={phoneVerification.errorMessage}
+              onIssue={phoneVerification.issue}
+              onSent={phoneVerification.markSent}
+              onReset={phoneVerification.reset}
             />
 
             {/* Password + Password Confirm */}
@@ -324,18 +322,6 @@ export function SignupFormPanel() {
                   className={inputCls}
                 />
               </div>
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label htmlFor="signup-phone" className="mb-1.5 block text-sm font-medium text-charcoal">
-                전화번호
-              </label>
-              <PhoneInput
-                value={state.phone}
-                onChange={(phone) => setField('phone', phone)}
-              />
-              <p className="mt-1.5 text-xs text-charcoal-3">연락 인증·경력 안내 번호에 사용되요</p>
             </div>
 
             {/* Terms */}

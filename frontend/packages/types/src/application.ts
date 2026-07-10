@@ -69,7 +69,6 @@ export type Applicant = {
   userId: number;
   userName: string;
   studentId: string;
-  email: string;
   college: College;
   major: string;
   grade: Grade;
@@ -155,7 +154,6 @@ export type ApplicantDetail = {
     userId: number;
     name: string;
     studentId: string;
-    email: string;
     college: College;
     major: string;
     grade: Grade;

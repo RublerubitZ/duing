@@ -7,9 +7,10 @@ export {
   useUpdateProfileMutation,
   useChangePasswordMutation,
   useWithdrawAccountMutation,
-  useSendEmailVerificationMutation,
-  useConfirmEmailVerificationMutation,
+  useStartPhoneVerificationMutation,
+  usePhoneVerificationStatusQuery,
 } from './auth';
+export { authQueryKeys } from './authQueryKeys';
 export {
   useClubListQuery,
   useClubDetailQuery,

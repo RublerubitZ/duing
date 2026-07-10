@@ -73,9 +73,9 @@ import type {
   SignupPayload,
   UpdateProfilePayload,
   ChangePasswordPayload,
-  SendEmailVerificationPayload,
-  ConfirmEmailVerificationPayload,
-  EmailVerificationResult,
+  StartPhoneVerificationPayload,
+  PhoneVerificationSession,
+  PhoneVerificationStatus,
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
   UpdateClubPayload,
@@ -235,8 +235,11 @@ export type DuingApiClient = {
   auth: {
     signup(payload: SignupPayload): Promise<number>;
     login(payload: LoginPayload): Promise<LoginResult>;
-    sendEmailVerification(payload: SendEmailVerificationPayload): Promise<EmailVerificationResult>;
-    confirmEmailVerification(payload: ConfirmEmailVerificationPayload): Promise<void>;
+    startPhoneVerification(
+      payload: StartPhoneVerificationPayload,
+      includeQr: boolean,
+    ): Promise<PhoneVerificationSession>;
+    getPhoneVerificationStatus(verificationToken: string): Promise<PhoneVerificationStatus>;
     logout(): Promise<void>;
   };
   users: {
@@ -726,10 +729,17 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<number>(http.post('auth/signup', { json: payload })),
       login: (payload) =>
         jsonOk<LoginResult>(http.post('auth/login', { json: payload })),
-      sendEmailVerification: (payload) =>
-        jsonOk<EmailVerificationResult>(http.post('auth/email-verifications', { json: payload })),
-      confirmEmailVerification: (payload) =>
-        jsonVoid(http.post('auth/email-verifications/confirm', { json: payload })),
+      startPhoneVerification: (payload, includeQr) =>
+        jsonOk<PhoneVerificationSession>(
+          http.post('auth/phone-verifications', {
+            json: payload,
+            searchParams: includeQr ? { qr: 'true' } : undefined,
+          }),
+        ),
+      getPhoneVerificationStatus: (verificationToken) =>
+        jsonOk<PhoneVerificationStatus>(
+          http.get(`auth/phone-verifications/${verificationToken}`),
+        ),
       logout: () => jsonVoid(http.post('auth/logout', { timeout: LOGOUT_REVOKE_TIMEOUT_MS })),
     },
     users: {

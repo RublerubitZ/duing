@@ -1,0 +1,180 @@
+import { describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { PhoneVerificationField } from '../../../app/(auth)/signup/_components/PhoneVerificationField';
+
+const baseProps = {
+  phone: '010-1234-5678',
+  onPhoneChange: () => {},
+  status: 'idle' as const,
+  code: '',
+  moNumber: '',
+  qrCode: null,
+  remainingSeconds: 0,
+  resendCooldownSeconds: 0,
+  issuing: false,
+  canIssue: true,
+  errorMessage: null,
+  onIssue: () => {},
+  onSent: () => {},
+  onReset: () => {},
+};
+
+// 컴포넌트는 navigator.userAgent 로 모바일/iOS 를 판정한다. jsdom 기본 UA 는 비모바일이므로
+// 모바일 분기 검증 시에만 오버라이드하고, 각 테스트 후 원래 프로토타입 getter 로 복원한다.
+function stubUserAgent(userAgent: string) {
+  Object.defineProperty(navigator, 'userAgent', { value: userAgent, configurable: true });
+}
+function restoreUserAgent() {
+  Reflect.deleteProperty(navigator, 'userAgent');
+}
+
+const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)';
+const DESKTOP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
+
+describe('PhoneVerificationField', () => {
+  it('idle 에서 유효 번호면 인증 시작 버튼이 활성화된다', () => {
+    render(<PhoneVerificationField {...baseProps} />);
+    expect(screen.getByRole('button', { name: '인증 시작' })).not.toBeDisabled();
+  });
+
+  it('canIssue=false 면 인증 시작 버튼이 비활성화된다', () => {
+    render(<PhoneVerificationField {...baseProps} canIssue={false} />);
+    expect(screen.getByRole('button', { name: '인증 시작' })).toBeDisabled();
+  });
+
+  it('issued 에서 코드와 수신번호, 문자를 보냈어요 버튼을 노출한다', () => {
+    render(
+      <PhoneVerificationField
+        {...baseProps}
+        status="issued"
+        code="7K3M9PXQ"
+        moNumber="16663538"
+        remainingSeconds={300}
+      />,
+    );
+    expect(screen.getByText('7K3M9PXQ')).toBeInTheDocument();
+    expect(screen.getByText(/1666-3538/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '문자를 보냈어요' })).toBeInTheDocument();
+  });
+
+  it('문자를 보냈어요를 누르면 onSent 를 호출한다', async () => {
+    const onSent = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <PhoneVerificationField
+        {...baseProps}
+        status="issued"
+        code="7K3M9PXQ"
+        moNumber="16663538"
+        onSent={onSent}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: '문자를 보냈어요' }));
+    expect(onSent).toHaveBeenCalled();
+  });
+
+  it('모바일 UA 에서 issued 면 sms 딥링크 앵커를 노출하고 클릭 시 onSent 를 호출한다', async () => {
+    stubUserAgent(IPHONE_UA);
+    try {
+      const onSent = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <PhoneVerificationField
+          {...baseProps}
+          status="issued"
+          code="7K3M9PXQ"
+          moNumber="16663538"
+          onSent={onSent}
+        />,
+      );
+      const smsLink = screen.getByRole('link', { name: '문자 앱으로 보내기' });
+      // iOS 는 비표준 `&body=` 구분자를 쓴다(buildSmsDeeplink 의 ios 분기).
+      expect(smsLink).toHaveAttribute('href', 'sms:16663538&body=7K3M9PXQ');
+      await user.click(smsLink);
+      expect(onSent).toHaveBeenCalled();
+    } finally {
+      restoreUserAgent();
+    }
+  });
+
+  it('데스크톱 UA 에서 qrCode 가 있으면 QR 이미지를 노출한다', () => {
+    stubUserAgent(DESKTOP_UA);
+    try {
+      render(
+        <PhoneVerificationField
+          {...baseProps}
+          status="issued"
+          code="7K3M9PXQ"
+          moNumber="16663538"
+          qrCode="data:image/png;base64,iVBORw0KGgo="
+        />,
+      );
+      const qrImage = screen.getByRole('img', { name: '문자 전송 QR' });
+      expect(qrImage).toHaveAttribute('src', 'data:image/png;base64,iVBORw0KGgo=');
+      // 데스크톱에서는 sms 딥링크 앵커가 없어야 한다.
+      expect(screen.queryByRole('link', { name: '문자 앱으로 보내기' })).not.toBeInTheDocument();
+    } finally {
+      restoreUserAgent();
+    }
+  });
+
+  it('코드 복사 버튼이 clipboard 에 코드를 쓴다', async () => {
+    const user = userEvent.setup();
+    // userEvent.setup() 이 navigator.clipboard 를 자체 스텁으로 덮어쓰므로, 반드시 setup 이후에 정의한다.
+    const writeText = vi.fn();
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+    render(
+      <PhoneVerificationField {...baseProps} status="issued" code="7K3M9PXQ" moNumber="16663538" />,
+    );
+    await user.click(screen.getByRole('button', { name: '코드 복사' }));
+    expect(writeText).toHaveBeenCalledWith('7K3M9PXQ');
+  });
+
+  it('waiting 에서 확인 중 텍스트가 보인다', () => {
+    render(
+      <PhoneVerificationField
+        {...baseProps}
+        status="waiting"
+        code="7K3M9PXQ"
+        moNumber="16663538"
+      />,
+    );
+    expect(screen.getByText(/확인 중/)).toBeInTheDocument();
+  });
+
+  it('재발급 쿨다운 중에는 재발급 버튼이 비활성화된다', () => {
+    render(
+      <PhoneVerificationField
+        {...baseProps}
+        status="issued"
+        code="7K3M9PXQ"
+        moNumber="16663538"
+        resendCooldownSeconds={45}
+        canIssue={false}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /재발급/ })).toBeDisabled();
+  });
+
+  it('verified 에서 인증 완료 문구를 보여준다', () => {
+    render(<PhoneVerificationField {...baseProps} status="verified" />);
+    expect(screen.getByText(/인증됐어요/)).toBeInTheDocument();
+  });
+
+  it('expired 에서 다시 인증 버튼이 onReset 을 호출한다', async () => {
+    const onReset = vi.fn();
+    const user = userEvent.setup();
+    render(<PhoneVerificationField {...baseProps} status="expired" onReset={onReset} />);
+    await user.click(screen.getByRole('button', { name: '다시 인증' }));
+    expect(onReset).toHaveBeenCalled();
+  });
+
+  it('errorMessage 를 alert 로 노출한다', () => {
+    render(<PhoneVerificationField {...baseProps} errorMessage="인증에 실패했어요." />);
+    expect(screen.getByRole('alert')).toHaveTextContent('인증에 실패했어요.');
+  });
+});

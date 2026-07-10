@@ -4,7 +4,7 @@ import { Accordion, type AccordionItemData } from '@/components/Accordion';
 const FAQ_ITEMS: ReadonlyArray<AccordionItemData> = [
   {
     question: '누구나 가입할 수 있나요?',
-    answer: '대구대학교 재학생·휴학생 누구나 가입할 수 있어요. 이메일 인증을 거쳐 30초면 가입돼요.',
+    answer: '대구대학교 재학생·휴학생 누구나 가입할 수 있어요. 휴대폰 인증을 거쳐 30초면 가입돼요.',
   },
   {
     question: '대구대학교 전용인가요?',
