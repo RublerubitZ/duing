@@ -239,7 +239,6 @@ export function SettingsPage() {
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
         currentName={user?.name ?? ''}
-        currentPhone={user?.phone ?? ''}
         currentGrade={user?.grade ?? 'FRESHMAN'}
       />
       <PasswordChangeDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />

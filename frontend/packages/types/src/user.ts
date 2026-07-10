@@ -86,7 +86,6 @@ export type User = {
 
 export type UpdateProfilePayload = {
   name: string;
-  phone: string;
   grade: Grade;
 };
 
