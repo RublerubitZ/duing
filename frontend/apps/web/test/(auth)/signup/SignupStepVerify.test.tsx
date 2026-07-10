@@ -54,4 +54,48 @@ describe('SignupStepVerify', () => {
     await userEvent.click(nextButton);
     expect(onNext).toHaveBeenCalledOnce();
   });
+
+  it('idle 이면 풀 히어로(서브 문구 + 일러스트)를 보여준다', () => {
+    render(
+      <SignupStepVerify
+        phone="010-1234-5678"
+        onPhoneChange={vi.fn()}
+        verification={makeController({ status: 'idle' })}
+        onNext={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: '문자로 코드를 보내주세요' })).toBeInTheDocument();
+    expect(screen.getByText('문자 한 통이면 본인 인증 끝')).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: '문자로 코드를 보내 본인 인증하는 방법 안내' }),
+    ).toBeInTheDocument();
+  });
+
+  it('issued 면 제목은 유지하되 일러스트·서브 문구는 숨긴다', () => {
+    render(
+      <SignupStepVerify
+        phone="010-1234-5678"
+        onPhoneChange={vi.fn()}
+        verification={makeController({ status: 'issued', code: '7K3M9PXQ' })}
+        onNext={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: '문자로 코드를 보내주세요' })).toBeInTheDocument();
+    expect(screen.queryByText('문자 한 통이면 본인 인증 끝')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('img', { name: /본인 인증하는 방법/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('verified 면 히어로 제목을 숨긴다', () => {
+    render(
+      <SignupStepVerify
+        phone="010-1234-5678"
+        onPhoneChange={vi.fn()}
+        verification={makeController({ status: 'verified', verified: true })}
+        onNext={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('heading', { name: '문자로 코드를 보내주세요' })).not.toBeInTheDocument();
+  });
 });
