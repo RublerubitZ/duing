@@ -13,6 +13,7 @@ import com.duing.global.mo.MoProviderException;
 import com.duing.global.mo.MoVerificationClient;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -81,9 +82,7 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
                 sessionManager.upsert(issueCommand.phone(), token, issueCommand.purpose(), now);
         String code = codeDeriver.deriveCode(token);
         // QR 발급(외부 콜)은 upsert 트랜잭션 커밋 이후 — 행잠금을 쥔 채 외부 지연을 기다리지 않는다.
-        String qrCode = issueCommand.includeQr()
-                ? moVerificationClient.createSmsQrCode(code).orElse(null)
-                : null;
+        String qrCode = issueCommand.includeQr() ? createQrCodeWithinQuota(code, now) : null;
         return new PhoneVerificationIssueResult(
                 phoneVerification.getToken(), code, moInboundNumber, qrCode,
                 phoneVerification.getExpiresAt(), phoneVerification.remainingSeconds(now));
@@ -109,6 +108,26 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
                 phoneVerification.status(now),
                 phoneVerification.remainingSeconds(now),
                 PhoneMasker.mask(phoneVerification.getPhone()));
+    }
+
+    /**
+     * QR 발급도 실제 Octomo 콜이므로 일일 쿼터를 소비한다 (spec §6 예산의 "PC QR 1콜") — 발급이
+     * permitAll 이라 계상 없이는 qr=true 반복으로 내부 카운터가 0 인 채 벤더 쿼터만 소진된다.
+     * 쿼터 소진·벤더 실패 어느 쪽도 발급 자체는 막지 않는다 — QR 은 부가 기능이라 텍스트 안내로 폴백한다.
+     */
+    private String createQrCodeWithinQuota(String code, LocalDateTime now) {
+        try {
+            moPollThrottle.reserveDailyQuota(now);
+        } catch (PhoneVerificationException.SmsPollQuotaExceededException quotaExhausted) {
+            // 소진 경보는 reserveDailyQuota 가 하루 1회 ERROR 로 남긴다 — 여기서는 조용히 강등만.
+            return null;
+        }
+        Optional<String> qrCode = moVerificationClient.createSmsQrCode(code);
+        if (qrCode.isEmpty()) {
+            // 벤더 호출 실패 — 실패 콜의 쿼터는 반환한다 (exists 경로와 동일 정책).
+            moPollThrottle.releaseDailyQuota(now);
+        }
+        return qrCode.orElse(null);
     }
 
     private boolean inboundMessageArrived(PhoneVerification phoneVerification, LocalDateTime now) {

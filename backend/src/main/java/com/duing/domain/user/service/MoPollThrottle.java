@@ -58,7 +58,9 @@ public class MoPollThrottle {
      * 하루 예산을 넘지 않는다 (호출 빈도가 낮은 경로라 락 경합은 무시 가능). 날짜는 호출부가 주입한
      * 시각(운영은 seoulClock=KST) 기준으로 전진만 한다 — 늦게 도착한 전날 요청은 현재 카운터를 소비한다
      * (과대 계상이 안전한 방향).
-     * 계약: {@link #tryAcquire} 통과 후에만 호출한다 (간격 미통과 폴링이 쿼터를 소비하지 않도록).
+     * 계약: 폴링(exists) 경로는 {@link #tryAcquire} 통과 후에만 호출한다 (간격 미통과 폴링이 쿼터를
+     * 소비하지 않도록). QR 발급 경로는 세션 간격 개념이 없어 직접 예약한다 — 어느 쪽이든 실제 Octomo
+     * 콜 1건 = 예약 1건이 계약이다.
      */
     public synchronized void reserveDailyQuota(LocalDateTime now) {
         LocalDate requestDate = now.toLocalDate();

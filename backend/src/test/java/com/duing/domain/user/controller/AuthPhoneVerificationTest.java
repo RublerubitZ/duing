@@ -337,6 +337,29 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("qr=true 발급은 실제 옥토모 콜이므로 일일 쿼터를 1건 소비한다 — 무계상 우회 방지")
+    void qrIssuanceConsumesDailyQuota() {
+        given().contentType(ContentType.JSON).body(Map.of("phone", PHONE))
+                .when().post("/api/v1/auth/phone-verifications?qr=true")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.qrCode", equalTo(StubMoVerificationClient.STUB_QR_DATA_URL));
+
+        assertThat(moPollThrottle.consumedDailyCalls()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("일일 쿼터 소진 시 qr=true 발급은 실패하지 않고 qrCode=null 텍스트 폴백으로 강등된다")
+    void qrIssuanceDegradesGracefullyWhenQuotaExhausted() {
+        exhaustDailyQuota();
+
+        given().contentType(ContentType.JSON).body(Map.of("phone", PHONE))
+                .when().post("/api/v1/auth/phone-verifications?qr=true")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.qrCode", equalTo(null))
+                .body("data.code", org.hamcrest.Matchers.notNullValue());
+    }
+
+    @Test
     @DisplayName("옥토모 장애 중의 폴링은 PENDING 을 유지하고 일일 쿼터를 소진하지 않는다 — 복구 후 정상 인증")
     void providerOutageDoesNotDrainDailyQuota() {
         IssuedSession session = issue(PHONE);
