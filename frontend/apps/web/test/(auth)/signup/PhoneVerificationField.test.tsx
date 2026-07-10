@@ -20,6 +20,18 @@ const baseProps = {
   onReset: () => {},
 };
 
+// 컴포넌트는 navigator.userAgent 로 모바일/iOS 를 판정한다. jsdom 기본 UA 는 비모바일이므로
+// 모바일 분기 검증 시에만 오버라이드하고, 각 테스트 후 원래 프로토타입 getter 로 복원한다.
+function stubUserAgent(userAgent: string) {
+  Object.defineProperty(navigator, 'userAgent', { value: userAgent, configurable: true });
+}
+function restoreUserAgent() {
+  Reflect.deleteProperty(navigator, 'userAgent');
+}
+
+const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)';
+const DESKTOP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
+
 describe('PhoneVerificationField', () => {
   it('idle 에서 유효 번호면 인증 시작 버튼이 활성화된다', () => {
     render(<PhoneVerificationField {...baseProps} />);
@@ -60,6 +72,51 @@ describe('PhoneVerificationField', () => {
     );
     await user.click(screen.getByRole('button', { name: '문자를 보냈어요' }));
     expect(onSent).toHaveBeenCalled();
+  });
+
+  it('모바일 UA 에서 issued 면 sms 딥링크 앵커를 노출하고 클릭 시 onSent 를 호출한다', async () => {
+    stubUserAgent(IPHONE_UA);
+    try {
+      const onSent = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <PhoneVerificationField
+          {...baseProps}
+          status="issued"
+          code="7K3M9PXQ"
+          moNumber="16663538"
+          onSent={onSent}
+        />,
+      );
+      const smsLink = screen.getByRole('link', { name: '문자 앱으로 보내기' });
+      // iOS 는 비표준 `&body=` 구분자를 쓴다(buildSmsDeeplink 의 ios 분기).
+      expect(smsLink).toHaveAttribute('href', 'sms:16663538&body=7K3M9PXQ');
+      await user.click(smsLink);
+      expect(onSent).toHaveBeenCalled();
+    } finally {
+      restoreUserAgent();
+    }
+  });
+
+  it('데스크톱 UA 에서 qrCode 가 있으면 QR 이미지를 노출한다', () => {
+    stubUserAgent(DESKTOP_UA);
+    try {
+      render(
+        <PhoneVerificationField
+          {...baseProps}
+          status="issued"
+          code="7K3M9PXQ"
+          moNumber="16663538"
+          qrCode="data:image/png;base64,iVBORw0KGgo="
+        />,
+      );
+      const qrImage = screen.getByRole('img', { name: '문자 전송 QR' });
+      expect(qrImage).toHaveAttribute('src', 'data:image/png;base64,iVBORw0KGgo=');
+      // 데스크톱에서는 sms 딥링크 앵커가 없어야 한다.
+      expect(screen.queryByRole('link', { name: '문자 앱으로 보내기' })).not.toBeInTheDocument();
+    } finally {
+      restoreUserAgent();
+    }
   });
 
   it('코드 복사 버튼이 clipboard 에 코드를 쓴다', async () => {

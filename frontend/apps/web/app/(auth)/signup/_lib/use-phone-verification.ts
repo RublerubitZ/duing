@@ -53,10 +53,13 @@ export function usePhoneVerification(phone: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [poll.data?.status]);
 
+  // 폴링(status==='waiting') 단계에서만 유효한 에러 처리. 일시적 폴링 실패는 에러를 띄우고,
+  // 이후 성공 폴링(PENDING/VERIFIED)이 오면 다시 null 로 지운다(성공 후에도 배너가 남지 않도록).
+  // status 가드로 issue/발급 단계에서 세팅한 errorMessage(mapIssueError)를 이 effect 가 덮어쓰지 않게 분리한다.
   useEffect(() => {
-    if (!poll.error) return;
-    setErrorMessage(mapStatusError(poll.error));
-  }, [poll.error]);
+    if (status !== 'waiting') return;
+    setErrorMessage(poll.error ? mapStatusError(poll.error) : null);
+  }, [status, poll.error]);
 
   // 1초 틱 — 만료·재발급 쿨다운 카운트다운
   useEffect(() => {

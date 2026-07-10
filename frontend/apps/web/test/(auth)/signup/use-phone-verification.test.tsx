@@ -122,6 +122,58 @@ describe('usePhoneVerification', () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
     expect(result.current.status).toBe('verified');
+
+    // VERIFIED 확정 후에는 refetchInterval=false 로 폴링이 멈춘다 — 타이머를 더 진행해도 재요청이 없다.
+    const pollCountAtVerified = pollCount;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9000);
+    });
+    expect(pollCount).toBe(pollCountAtVerified);
+  });
+
+  it('일시적 폴링 실패 후 다음 성공 폴링에서 에러 메시지가 지워진다', async () => {
+    mockIssue();
+    let pollCount = 0;
+    server.use(
+      http.get('*/auth/phone-verifications/:token', () => {
+        pollCount += 1;
+        // 첫 폴링만 앱 레벨 실패(HTTP 200 + ok:false). 5xx 면 ky 가 백오프 타이머로 자동 재시도해
+        // 한 폴링에 핸들러가 여러 번 불려 pollCount 가 어긋나므로, 재시도 없는 200 으로 결정적으로 1회 실패시킨다.
+        if (pollCount === 1) {
+          return HttpResponse.json({ ok: false, data: null, message: '일시적 확인 오류' });
+        }
+        return HttpResponse.json({
+          ok: true,
+          data: { status: 'VERIFIED', expiresInSeconds: 290, maskedPhone: '010-****-5678' },
+          message: null,
+        });
+      }),
+    );
+
+    const { result } = renderHook(() => usePhoneVerification(VALID_PHONE), {
+      wrapper: makeWrapper(newQueryClient()),
+    });
+
+    await act(async () => {
+      await result.current.issue(false);
+    });
+    act(() => {
+      result.current.markSent();
+    });
+
+    // 최초 즉시 폴링 — 503 실패로 에러 메시지가 노출된다.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.errorMessage).not.toBeNull();
+    expect(result.current.status).toBe('waiting');
+
+    // 3초 뒤 재폴링 — VERIFIED 성공으로 에러 메시지가 지워지고 verified 로 전이한다.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(result.current.status).toBe('verified');
+    expect(result.current.errorMessage).toBeNull();
   });
 
   it('remainingSeconds 가 0 이 되면 expired 로 전이한다', async () => {
