@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@Tag(name = "인증", description = "회원가입, 로그인 및 이메일 인증")
+@Tag(name = "인증", description = "회원가입, 로그인, 이메일 인증 및 휴대폰 MO 인증")
 public interface AuthApi {
 
     @Operation(summary = "회원가입", description = "학번/이름/이메일/비밀번호로 STUDENT 계정을 생성한다.")

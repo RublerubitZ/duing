@@ -11,6 +11,7 @@ import com.duing.domain.user.service.dto.query.PhoneVerificationStatusResult;
 import com.duing.domain.user.support.PhoneMasker;
 import com.duing.global.mo.MoProviderException;
 import com.duing.global.mo.MoVerificationClient;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,9 @@ import org.springframework.stereotype.Service;
  * <p>Octomo 외부 콜이 커넥션을 점유하지 않도록, 행잠금 쓰기(발급 upsert·인증 확정)는
  * {@link PhoneVerificationSessionManager} 의 짧은 자체 트랜잭션으로 위임한다. 무트랜잭션 조회가
  * 반환하는 엔티티는 detached 스냅샷이며(지연 로딩 연관 없음) 판정·응답 조립에만 쓴다.
+ *
+ * <p>시각은 seoulClock 기준 — 일일 쿼터의 KST 자정 롤오버와 PII 파기 잡의 cutoff 정합을 위해
+ * (prod JVM 은 UTC).
  */
 @Slf4j
 @Service
@@ -38,6 +42,7 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
     private final PhoneVerificationRateLimiter rateLimiter;
     private final MoPollThrottle moPollThrottle;
     private final MoVerificationClient moVerificationClient;
+    private final Clock clock;
     private final String moInboundNumber;
 
     public GeneralPhoneVerificationService(PhoneVerificationRepository phoneVerificationRepository,
@@ -47,6 +52,7 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
                                            PhoneVerificationRateLimiter rateLimiter,
                                            MoPollThrottle moPollThrottle,
                                            MoVerificationClient moVerificationClient,
+                                           Clock clock,
                                            @Value("${mo.inbound-number}") String moInboundNumber) {
         this.phoneVerificationRepository = phoneVerificationRepository;
         this.sessionManager = sessionManager;
@@ -55,12 +61,13 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
         this.rateLimiter = rateLimiter;
         this.moPollThrottle = moPollThrottle;
         this.moVerificationClient = moVerificationClient;
+        this.clock = clock;
         this.moInboundNumber = moInboundNumber;
     }
 
     @Override
     public PhoneVerificationIssueResult issue(IssuePhoneVerificationCommand issueCommand, String clientIp) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         rateLimiter.assertAndRecordIssueIpRequest(clientIp, now);
 
         // 이미 가입된 번호면 발급하지 않고 즉시 409 — 이메일 인증의 발송 전 409 와 동일한 UX 우선
@@ -84,7 +91,7 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
 
     @Override
     public PhoneVerificationStatusResult getStatus(String verificationToken, String clientIp, String userAgent) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         rateLimiter.assertAndRecordStatusIpRequest(clientIp, now);
         PhoneVerification phoneVerification = phoneVerificationRepository.findByToken(verificationToken)
                 .orElseThrow(PhoneVerificationException.PhoneVerificationNotFoundException::new);

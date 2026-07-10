@@ -8,6 +8,7 @@ import com.duing.domain.user.repository.PhoneVerificationEventRepository;
 import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.service.dto.query.PhoneVerificationStatusResult;
 import com.duing.domain.user.support.PhoneMasker;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -28,6 +29,7 @@ public class PhoneVerificationSessionManager {
 
     private final PhoneVerificationRepository phoneVerificationRepository;
     private final PhoneVerificationEventRepository phoneVerificationEventRepository;
+    private final Clock clock;
 
     /** 번호당 1행 upsert — 행잠금으로 동시 발급의 쿨다운 우회·코드 덮어쓰기를 막는다 (spec §9.5). */
     @Transactional
@@ -59,7 +61,7 @@ public class PhoneVerificationSessionManager {
     public PhoneVerificationStatusResult confirmIfPending(String verificationToken, String clientIp,
                                                           String userAgent) {
         // 외부(Octomo) 콜 지연 동안 시간이 흘렀을 수 있다 — 만료 판정·확정 시각은 잠금 시점에 재계산한다.
-        LocalDateTime confirmedAt = LocalDateTime.now();
+        LocalDateTime confirmedAt = LocalDateTime.now(clock);
         PhoneVerification lockedVerification = phoneVerificationRepository
                 .findByTokenForUpdate(verificationToken)
                 .orElseThrow(PhoneVerificationException.PhoneVerificationNotFoundException::new);
