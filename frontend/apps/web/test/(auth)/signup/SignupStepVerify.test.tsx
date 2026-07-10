@@ -71,6 +71,20 @@ describe('SignupStepVerify', () => {
     ).toBeInTheDocument();
   });
 
+  it('expired 이면 idle 처럼 풀 히어로(서브 문구 + 일러스트)를 보여준다', () => {
+    render(
+      <SignupStepVerify
+        phone="010-1234-5678"
+        onPhoneChange={vi.fn()}
+        verification={makeController({ status: 'expired' })}
+        onNext={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: '문자로 코드를 보내주세요' })).toBeInTheDocument();
+    expect(screen.getByText('문자 한 통이면 본인 인증 끝')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /본인 인증하는 방법/ })).toBeInTheDocument();
+  });
+
   it('issued 면 제목은 유지하되 일러스트·서브 문구는 숨긴다', () => {
     render(
       <SignupStepVerify

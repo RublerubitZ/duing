@@ -244,6 +244,26 @@ describe('PhoneVerificationField', () => {
     expect(onReset).toHaveBeenCalled();
   });
 
+  it('모바일에서 재발급으로 코드가 바뀌면 다시 CTA만 남고 보냈어요는 숨는다', async () => {
+    stubUserAgent(IPHONE_UA);
+    try {
+      const user = userEvent.setup();
+      const { rerender } = render(
+        <PhoneVerificationField {...baseProps} status="issued" code="7K3M9PXQ" moNumber="16663538" />,
+      );
+      await user.click(screen.getByRole('link', { name: '문자앱으로 코드 보내기' }));
+      expect(screen.getByRole('button', { name: '문자를 보냈어요' })).toBeInTheDocument();
+      // 재발급으로 새 코드가 오면 linkOpened 가 리셋되어 다시 CTA 만 남는다.
+      rerender(
+        <PhoneVerificationField {...baseProps} status="issued" code="NEWCODE9" moNumber="16663538" />,
+      );
+      expect(screen.queryByRole('button', { name: '문자를 보냈어요' })).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: '문자앱으로 코드 보내기' })).toBeInTheDocument();
+    } finally {
+      restoreUserAgent();
+    }
+  });
+
   it('errorMessage 를 alert 로 노출한다', () => {
     render(<PhoneVerificationField {...baseProps} errorMessage="인증에 실패했어요." />);
     expect(screen.getByRole('alert')).toHaveTextContent('인증에 실패했어요.');
