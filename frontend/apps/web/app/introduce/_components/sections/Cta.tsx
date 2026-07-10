@@ -15,7 +15,7 @@ export function Cta() {
             <br />더 쉽고 체계적으로
           </h2>
           <p className="mx-auto mb-9 max-w-[440px] text-[16px] text-charcoal-2">
-            이메일 인증으로 30초면 시작할 수 있어요. 지금 두잉에서 우리 동아리를 만나보세요.
+            휴대폰 인증으로 30초면 시작할 수 있어요. 지금 두잉에서 우리 동아리를 만나보세요.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link href={toRoute('/signup')} className="btn btn-primary btn-big rounded-full">

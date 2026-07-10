@@ -108,7 +108,7 @@ export function Hero() {
             <span className="grid h-[15px] w-[15px] shrink-0 place-items-center rounded-full bg-ink text-[9px] font-bold text-paper">
               ✓
             </span>
-            이메일 인증으로 30초 만에 가입
+            휴대폰 인증으로 30초 만에 가입
           </div>
         </HeroParallax>
 
