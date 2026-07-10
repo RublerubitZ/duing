@@ -95,7 +95,7 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
             // 외부 콜은 트랜잭션·커넥션 미점유 상태에서 수행한다.
             if (inboundMessageArrived(phoneVerification)) {
                 // 확정은 신선한 영속성 컨텍스트의 행잠금 트랜잭션에서 — 멱등 가드가 stale 없이 동작한다.
-                return sessionManager.confirmIfPending(verificationToken, clientIp, userAgent, now);
+                return sessionManager.confirmIfPending(verificationToken, clientIp, userAgent);
             }
         }
         return new PhoneVerificationStatusResult(

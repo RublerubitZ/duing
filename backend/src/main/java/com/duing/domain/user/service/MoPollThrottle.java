@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
  * <p>실패한 호출도 쿼터를 소비한 것으로 둔다(반환 없음) — "보호" 목적상 과대 계상이 안전한 방향이다.
  * 완료·만료 세션의 간격 엔트리 정리와 멀티 인스턴스 대응(Redis)은 백로그다 (spec §11.1).
  */
+@Slf4j
 @Component
 public class MoPollThrottle {
 
@@ -26,6 +28,7 @@ public class MoPollThrottle {
     private final ConcurrentHashMap<String, LocalDateTime> lastPolledAtByToken = new ConcurrentHashMap<>();
     private LocalDate quotaDate;
     private int dailyCallCount;
+    private boolean quotaExhaustionLogged;
 
     /**
      * 세션당 최소 간격을 검사하고, 허용이면 이번 시각을 기록한다. compute 콜백이라 검사+기록이 원자적이다.
@@ -55,8 +58,15 @@ public class MoPollThrottle {
         if (quotaDate == null || quotaDate.isBefore(requestDate)) {
             quotaDate = requestDate;
             dailyCallCount = 0;
+            quotaExhaustionLogged = false;
         }
         if (dailyCallCount >= DAILY_CALL_LIMIT) {
+            if (!quotaExhaustionLogged) {
+                quotaExhaustionLogged = true;
+                // ERROR 는 Sentry 이벤트가 된다 — 소진 시 하루 1회만 경보한다 (스팸 방지).
+                log.error("Octomo 일일 호출 상한({}건) 소진 — 인증 상태조회가 503 으로 제한된다. Pro 플랜 전환을 검토하라.",
+                        DAILY_CALL_LIMIT);
+            }
             throw new PhoneVerificationException.SmsPollQuotaExceededException();
         }
         dailyCallCount++;
@@ -67,5 +77,6 @@ public class MoPollThrottle {
         lastPolledAtByToken.clear();
         quotaDate = null;
         dailyCallCount = 0;
+        quotaExhaustionLogged = false;
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * Octomo(octoverse.kr) MO 조회 어댑터 — 공식 샘플 코드의 계약을 따른다 (spec §2).
@@ -42,8 +43,12 @@ public class OctomoMoVerificationClient implements MoVerificationClient {
                     .retrieve()
                     .body(ExistsResponse.class);
             return existsResponse != null && existsResponse.exists();
+        } catch (RestClientResponseException httpFailure) {
+            throw new MoProviderException(
+                    "Octomo exists 조회 실패(HTTP " + httpFailure.getStatusCode().value() + ")", httpFailure);
         } catch (RestClientException existsFailure) {
-            throw new MoProviderException("Octomo exists 조회 실패", existsFailure);
+            throw new MoProviderException(
+                    "Octomo exists 조회 실패(" + existsFailure.getClass().getSimpleName() + ")", existsFailure);
         }
     }
 

@@ -1,6 +1,7 @@
 package com.duing.domain.user.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,5 +42,12 @@ class PhoneVerificationCodeDeriverTest {
     @DisplayName("고정 (secret, token) 입력의 파생 코드는 항상 같은 값이다 — 비트 연산 리팩토링 회귀 핀")
     void fixedInputDerivesPinnedCode() {
         assertThat(codeDeriver.deriveCode("golden-vector-token")).isEqualTo("XXHXEQVE");
+    }
+
+    @Test
+    @DisplayName("secret 이 비어 있으면 기동 시점에 실패한다 — 운영 설정 실수를 늦게 발견하지 않도록")
+    void blankSecretFailsFast() {
+        assertThatThrownBy(() -> new PhoneVerificationCodeDeriver(" "))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

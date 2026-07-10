@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
  * 로컬 수동 확인: {@code mo.stub.auto-verify-after-seconds} 가 양수(N)면 최초 조회 후 N초 지난
  * 세션을 수신된 것으로 간주한다 (기본 0 = 비활성. 자동화 테스트에서는 사용 금지 — 시간 의존 플래키).
  */
+@Slf4j
 @Component
 @ConditionalOnProperty(name = "mo.provider", havingValue = "stub", matchIfMissing = true)
 public class StubMoVerificationClient implements MoVerificationClient {
@@ -28,6 +30,10 @@ public class StubMoVerificationClient implements MoVerificationClient {
     public StubMoVerificationClient(
             @Value("${mo.stub.auto-verify-after-seconds:0}") long autoVerifyAfterSeconds) {
         this.autoVerifyAfterSeconds = autoVerifyAfterSeconds;
+        if (autoVerifyAfterSeconds > 0) {
+            log.warn("MO 스텁 auto-verify 활성({}초) — 실제 문자 수신 없이 인증이 완료된다. 로컬 수동 확인 전용 설정이다.",
+                    autoVerifyAfterSeconds);
+        }
     }
 
     @Override

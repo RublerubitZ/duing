@@ -24,6 +24,11 @@ public class PhoneVerificationCodeDeriver {
     private final String secret;
 
     public PhoneVerificationCodeDeriver(@Value("${phone-verification.secret}") String secret) {
+        if (secret == null || secret.isBlank()) {
+            // 공백 secret 은 HMAC 초기화 시점의 런타임 500 으로 늦게 드러난다 — 기동에서 즉시 실패시킨다.
+            throw new IllegalStateException(
+                    "phone-verification.secret(PHONE_VERIFICATION_SECRET) 이 비어 있습니다. 배포 환경변수를 확인하세요.");
+        }
         this.secret = secret;
     }
 

@@ -57,18 +57,20 @@ public class PhoneVerificationSessionManager {
      */
     @Transactional
     public PhoneVerificationStatusResult confirmIfPending(String verificationToken, String clientIp,
-                                                          String userAgent, LocalDateTime now) {
+                                                          String userAgent) {
+        // 외부(Octomo) 콜 지연 동안 시간이 흘렀을 수 있다 — 만료 판정·확정 시각은 잠금 시점에 재계산한다.
+        LocalDateTime confirmedAt = LocalDateTime.now();
         PhoneVerification lockedVerification = phoneVerificationRepository
                 .findByTokenForUpdate(verificationToken)
                 .orElseThrow(PhoneVerificationException.PhoneVerificationNotFoundException::new);
-        if (!lockedVerification.isVerified() && !lockedVerification.isExpired(now)) {
-            lockedVerification.markVerified(now);
+        if (!lockedVerification.isVerified() && !lockedVerification.isExpired(confirmedAt)) {
+            lockedVerification.markVerified(confirmedAt);
             phoneVerificationEventRepository.save(
                     PhoneVerificationEvent.verified(lockedVerification, clientIp, userAgent));
         }
         return new PhoneVerificationStatusResult(
-                lockedVerification.status(now),
-                lockedVerification.remainingSeconds(now),
+                lockedVerification.status(confirmedAt),
+                lockedVerification.remainingSeconds(confirmedAt),
                 PhoneMasker.mask(lockedVerification.getPhone()));
     }
 }
