@@ -66,6 +66,7 @@ export function NotificationSheet({ open, onOpenChange, unreadCount }: Props) {
       <SheetContent
         side="right"
         hideClose
+        aria-describedby={undefined}
         className="duing inset-y-[8vh] right-8 flex h-auto max-h-[88vh] w-[420px] max-w-[90vw] flex-col overflow-hidden rounded-[32px] border border-line bg-cream p-0 shadow-4"
       >
         {/* 상단 — 제목·안읽음 개수·모두 읽음·닫기 */}

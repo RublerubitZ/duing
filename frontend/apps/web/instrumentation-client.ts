@@ -11,14 +11,32 @@ Sentry.init({
   tracesSampleRate: 0,
   // 요청/사용자 PII 자동 첨부 차단(개인정보 보호).
   sendDefaultPii: false,
-  // next-view-transitions(View Transitions API)가 문서 비활성 상태(백그라운드 탭·bfcache 복원·
-  // 중단된 연속 이동)에서 startViewTransition 프로미스를 reject 하며 내는 무해한 unhandled rejection.
-  // 페이지 이동은 정상이고 시각 전환만 스킵되며 사용자 영향 0(Sentry NEXT-DUING-4) → 운영 노이즈만 끈다.
-  // 이 메시지에만 최소 범위로 매칭하고, 다른 InvalidStateError 는 그대로 수집한다.
-  ignoreErrors: ['Transition was aborted because of invalid state'],
+  // next-view-transitions(View Transitions API)가 내는 무해한 unhandled rejection 2종 —
+  // invalid state(백그라운드 탭·bfcache 복원·중단된 연속 이동, Sentry NEXT-DUING-4)와
+  // timeout(라우트 전환 중 DOM 업데이트가 브라우저 제한 약 4초를 넘김 — 느린 네트워크·dev 온디맨드
+  // 컴파일, Sentry NEXT-DUING-9).
+  // 둘 다 페이지 이동은 정상이고 시각 전환만 스킵되며 사용자 영향 0 → 운영 노이즈만 끈다.
+  // 이 두 메시지에만 최소 범위로 매칭하고, 다른 InvalidStateError/TimeoutError 는 그대로 수집한다.
+  ignoreErrors: [
+    'Transition was aborted because of invalid state',
+    'Transition was aborted because of timeout in DOM update',
+  ],
   // 요청 URL·브레드크럼(fetch/xhr/navigation)의 쿼리스트링 PII 제거.
   beforeSend: scrubEvent,
   beforeBreadcrumb: scrubBreadcrumb,
+});
+
+// 위 ignoreErrors 는 Sentry 전송만 거를 뿐 브라우저 콘솔의 "Uncaught (in promise)" 노이즈는 남는다.
+// next-view-transitions(0.3.5 가 최신)가 잡지 않고 흘리는 View Transition abort rejection 에만
+// 기본 동작(콘솔 출력)을 막는다 — preventDefault 는 다른 리스너(Sentry 포함)에 영향이 없고,
+// 조건 밖의 모든 rejection 은 평소처럼 노출된다.
+window.addEventListener('unhandledrejection', (event) => {
+  const reason: unknown = event.reason;
+  const isViewTransitionAbort =
+    reason instanceof DOMException &&
+    (reason.name === 'InvalidStateError' || reason.name === 'TimeoutError') &&
+    reason.message.includes('Transition was aborted');
+  if (isViewTransitionAbort) event.preventDefault();
 });
 
 // App Router 네비게이션 계측 훅(추적 비활성 시 no-op).
