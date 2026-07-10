@@ -191,7 +191,7 @@ export function AdminClubCreateForm() {
       <Field label="동아리장 (회장)" required>
         <LeaderSearchCombobox selectedLeader={leader} onSelect={setLeader} />
         <p className="text-charcoal-3 mt-1 text-xs">
-          학번/이름/이메일로 검색해 선택하세요. 등록 즉시 해당 사용자가 LEADER 로 자동 등록됩니다.
+          학번/이름으로 검색해 선택하세요. 등록 즉시 해당 사용자가 LEADER 로 자동 등록됩니다.
         </p>
       </Field>
 
