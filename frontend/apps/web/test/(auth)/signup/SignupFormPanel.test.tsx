@@ -206,4 +206,45 @@ describe('SignupFormPanel — 2-step 오케스트레이터', () => {
     });
     expect(mockRouterReplace).toHaveBeenCalledWith('/login?next=/me');
   });
+
+  it('가입이 403(PHONE_NOT_VERIFIED)로 실패하면 인증을 리셋하고 Step1로 복귀한다', async () => {
+    vi.useFakeTimers();
+    renderPanel();
+
+    await issueVerifyAndAdvance();
+
+    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '김도윤' } });
+    fireEvent.change(screen.getByLabelText('학번'), { target: { value: '20240001' } });
+    fireEvent.change(screen.getByLabelText('학번 확인'), { target: { value: '20240001' } });
+    fireEvent.change(screen.getByLabelText('학년'), { target: { value: 'FRESHMAN' } });
+    fireEvent.change(screen.getByLabelText(/단과대학/), { target: { value: 'IT_ENGINEERING' } });
+    fireEvent.change(screen.getByPlaceholderText(/학과명 입력/), { target: { value: '컴퓨터정보공학부' } });
+    fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'duing1234!' } });
+    fireEvent.change(screen.getByLabelText('비밀번호 확인'), { target: { value: 'duing1234!' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: '약관에 모두 동의합니다' }));
+
+    // 서버가 세션 만료를 이유로 403(PHONE_NOT_VERIFIED)을 반환한다 — toApiError 가 body.code 를 ApiError.code 로 읽는다.
+    server.use(
+      http.post('*/auth/signup', () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '휴대폰 인증이 만료됐어요.', code: 'PHONE_NOT_VERIFIED' },
+          { status: 403 },
+        ),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /가입하고 두잉 시작하기/ }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // 복구: 만료 안내 배너가 뜨고 Step1 로 돌아간다.
+    expect(screen.getByText(/휴대폰 인증이 만료됐어요/)).toBeInTheDocument();
+    // Step2(기본정보) 필드는 사라진다 → 다시 Step1.
+    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument();
+    // reset() 이 세션을 비워 verified 배지도 사라진다(미인증 번호 입력 뷰로 복귀).
+    expect(screen.queryByText(/이 번호로 인증됐어요/)).not.toBeInTheDocument();
+    // 실패 시 리다이렉트는 없다.
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+  });
 });

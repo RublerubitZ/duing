@@ -47,7 +47,7 @@ describe('SignupStepProfile', () => {
     expect(submitButton).toHaveAttribute('type', 'submit');
   });
 
-  it('학번·학년·학과 필수 필드를 렌더한다', () => {
+  it('이름·학번·학년·학과 필수 필드를 렌더한다', () => {
     render(
       <SignupStepProfile
         state={baseState} setField={vi.fn()} passwordMismatch={false}
@@ -57,5 +57,7 @@ describe('SignupStepProfile', () => {
     expect(screen.getByLabelText('이름')).toBeInTheDocument();
     expect(screen.getByLabelText('학번')).toBeInTheDocument();
     expect(screen.getByLabelText('학년')).toBeInTheDocument();
+    // 학과(major) 입력은 전용 label 이 없어 placeholder 로 검증한다.
+    expect(screen.getByPlaceholderText(/학과명/)).toBeInTheDocument();
   });
 });
