@@ -96,7 +96,6 @@ class ApplicantDetailServiceTest {
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("홍길동");
         when(applicant.getStudentId()).thenReturn("20251234");
-        when(applicant.getEmail()).thenReturn("hong@example.com");
 
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(5L);
@@ -138,7 +137,6 @@ class ApplicantDetailServiceTest {
         assertThat(detail.applicant().userId()).isEqualTo(20L);
         assertThat(detail.applicant().name()).isEqualTo("홍길동");
         assertThat(detail.applicant().studentId()).isEqualTo("20251234");
-        assertThat(detail.applicant().email()).isEqualTo("hong@example.com");
         assertThat(detail.answers()).hasSize(2);
         assertThat(detail.answers().get(0).question()).isEqualTo("지원 동기는?");
         assertThat(detail.answers().get(0).answer()).isEqualTo("동아리에 관심이 많습니다.");
@@ -157,7 +155,6 @@ class ApplicantDetailServiceTest {
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("김철수");
         when(applicant.getStudentId()).thenReturn("20251111");
-        when(applicant.getEmail()).thenReturn("kim@example.com");
 
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(5L);
@@ -228,7 +225,6 @@ class ApplicantDetailServiceTest {
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("이영희");
         when(applicant.getStudentId()).thenReturn("20252222");
-        when(applicant.getEmail()).thenReturn("lee@example.com");
 
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(5L);
@@ -274,7 +270,6 @@ class ApplicantDetailServiceTest {
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("지원자");
         when(applicant.getStudentId()).thenReturn("20251234");
-        when(applicant.getEmail()).thenReturn("hong@example.com");
 
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(5L);
@@ -331,7 +326,6 @@ class ApplicantDetailServiceTest {
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("지원자");
         when(applicant.getStudentId()).thenReturn("20251234");
-        when(applicant.getEmail()).thenReturn("hong@example.com");
 
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(5L);
@@ -369,7 +363,6 @@ class ApplicantDetailServiceTest {
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("지원자");
         when(applicant.getStudentId()).thenReturn("20251234");
-        when(applicant.getEmail()).thenReturn("hong@example.com");
 
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(5L);
@@ -427,7 +420,6 @@ class ApplicantDetailServiceTest {
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("지원자");
         when(applicant.getStudentId()).thenReturn("20251234");
-        when(applicant.getEmail()).thenReturn("hong@example.com");
 
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(5L);
@@ -481,7 +473,6 @@ class ApplicantDetailServiceTest {
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("이영희");
         when(applicant.getStudentId()).thenReturn("20252222");
-        when(applicant.getEmail()).thenReturn("lee@example.com");
 
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(5L);

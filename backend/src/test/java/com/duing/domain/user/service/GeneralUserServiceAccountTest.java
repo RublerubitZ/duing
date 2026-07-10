@@ -45,7 +45,6 @@ class GeneralUserServiceAccountTest {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 "기존이름",
-                "acct" + unique + "@daegu.ac.kr",
                 passwordEncoder.encode(rawPassword),
                 UserRole.STUDENT,
                 Grade.FRESHMAN,
@@ -61,35 +60,23 @@ class GeneralUserServiceAccountTest {
     }
 
     @Test
-    @DisplayName("프로필 수정 시 이름·전화번호·학년이 변경된다")
-    void updateProfileChangesNamePhoneAndGrade() {
+    @DisplayName("프로필 수정 시 이름·학년이 변경된다")
+    void updateProfileChangesNameAndGrade() {
         User user = saveUserWithPassword("Old1234!");
 
-        userService.updateProfile(new UpdateProfileCommand(user.getId(), "새이름", "010-9999-8888", Grade.SENIOR));
+        userService.updateProfile(new UpdateProfileCommand(user.getId(), "새이름", Grade.SENIOR));
         flushAndClear();
 
         User reloaded = userRepository.findById(user.getId()).orElseThrow();
         assertThat(reloaded.getName()).isEqualTo("새이름");
-        assertThat(reloaded.getPhone()).isEqualTo("010-9999-8888");
         assertThat(reloaded.getGrade()).isEqualTo(Grade.SENIOR);
-    }
-
-    @Test
-    @DisplayName("이미 다른 회원이 쓰는 전화번호로 바꾸면 DuplicateAccountException")
-    void updateProfileWithDuplicatePhoneThrows() {
-        User existing = saveUserWithPassword("Old1234!");
-        User me = saveUserWithPassword("Old1234!");
-
-        assertThatThrownBy(() -> userService.updateProfile(
-                new UpdateProfileCommand(me.getId(), "새이름", existing.getPhone(), Grade.JUNIOR)))
-                .isInstanceOf(UserException.DuplicateAccountException.class);
     }
 
     @Test
     @DisplayName("존재하지 않는 사용자의 프로필 수정은 UserNotFoundException")
     void updateProfileForMissingUserThrows() {
         assertThatThrownBy(() -> userService.updateProfile(
-                new UpdateProfileCommand(999_999L, "새이름", "010-9999-8888", Grade.JUNIOR)))
+                new UpdateProfileCommand(999_999L, "새이름", Grade.JUNIOR)))
                 .isInstanceOf(UserException.UserNotFoundException.class);
     }
 

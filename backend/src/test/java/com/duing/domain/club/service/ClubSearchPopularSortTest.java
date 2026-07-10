@@ -238,7 +238,6 @@ class ClubSearchPopularSortTest {
         return userRepository.save(User.create(
                 String.format("%010d", seq % 10_000_000_000L),
                 prefix + seq,
-                "u" + seq + "@duing.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

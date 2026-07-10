@@ -2,11 +2,12 @@ package com.duing.domain.user.service;
 
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
+import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.domain.user.service.EmailVerificationService;
 import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
 import com.duing.domain.user.service.dto.command.ForceLogoutCommand;
 import com.duing.domain.user.service.dto.command.LoginCommand;
@@ -17,6 +18,7 @@ import com.duing.domain.user.service.dto.query.UserQuery;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.web.SortWhitelist;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -38,44 +40,53 @@ public class GeneralUserService implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final EmailVerificationService emailVerificationService;
     private final LoginAttemptRateLimiter loginAttemptRateLimiter;
     private final ClubMemberRepository clubMemberRepository;
+    private final PhoneVerificationSessionManager phoneVerificationSessionManager;
+    private final Clock clock;
 
     private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
     private static final Duration LOGIN_LOCK_DURATION = Duration.ofMinutes(15);
 
-    // 존재하지 않는 이메일 분기의 BCrypt 타이밍 평탄화용 더미 해시 (지연 초기화, 비밀 아님).
+    // 존재하지 않는 학번 분기의 BCrypt 타이밍 평탄화용 더미 해시 (지연 초기화, 비밀 아님).
     private volatile String dummyPasswordHash;
 
     @Override
     @Transactional
-    public Long signup(SignupCommand signupCommand) {
-        // 중복(409) 검사를 인증 가드(403) 보다 먼저 둔다 — 이미 가입된 이메일에 "이미 가입됨"을 명확히
-        // 안내(409)하는 것을 우선하는 의도된 선택이다. signup 응답이 가입 여부(409-vs-403)를 드러내는
-        // 계정 열거는 감수하며, 발송 단계(GeneralEmailVerificationService)도 같은 방향으로 즉시 409 안내한다.
-        if (userRepository.existsByEmail(signupCommand.email())
-                || userRepository.existsByStudentId(signupCommand.studentId())
-                || userRepository.existsByPhone(signupCommand.phone())) {
+    public Long signup(SignupCommand signupCommand, String clientIp, String userAgent) {
+        // 가입 한 건의 시각 필드(세션 판정·phoneVerifiedAt·termsAgreedAt)가 서로 다른 기준을 갖지 않도록
+        // 단일 now 를 쓴다. 세션 만료·완료 창 판정은 발급(seoulClock) 과 같은 기준이어야 한다 (prod JVM 은 UTC).
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        // 세션 검증(403)을 중복(409)보다 먼저 둔다 — 전화번호가 세션에서 나오므로 순서상 선행이 필수이고,
+        // 유효한 인증 없이는 가입 여부(409)를 응답으로 노출하지 않는다 (spec §7.3). 행잠금은 같은 토큰의
+        // 동시 가입(이중 소비)을 직렬화한다.
+        PhoneVerification verifiedSession = phoneVerificationSessionManager
+                .getVerifiedSessionForUpdate(signupCommand.verificationToken(), VerificationPurpose.SIGNUP, now);
+        String verifiedPhone = verifiedSession.getPhone();
+
+        // 발급 시점의 existsByPhone(409)은 UX 안내일 뿐 — 인증~가입 사이 창에서 생긴 중복은 여기서
+        // 재검증한다(TOCTOU). 최종 방어는 uk_users_student_id_active·ux_users_phone 유니크 인덱스.
+        if (userRepository.existsByStudentId(signupCommand.studentId())
+                || userRepository.existsByPhone(verifiedPhone)) {
             throw new UserException.DuplicateAccountException();
         }
-        emailVerificationService.assertVerified(signupCommand.email());
 
         String passwordHash = passwordEncoder.encode(signupCommand.rawPassword());
         User user = User.create(
                 signupCommand.studentId(),
                 signupCommand.name(),
-                signupCommand.email(),
                 passwordHash,
                 UserRole.STUDENT,
                 signupCommand.grade(),
                 signupCommand.college(),
                 signupCommand.major(),
-                signupCommand.phone(),
-                java.time.LocalDateTime.now()
+                verifiedPhone,
+                now
         );
+        user.markPhoneVerified(now);
         Long userId = userRepository.save(user).getId();
-        emailVerificationService.consume(signupCommand.email());
+        phoneVerificationSessionManager.consume(verifiedSession, userId, clientIp, userAgent);
         return userId;
     }
 
@@ -95,9 +106,9 @@ public class GeneralUserService implements UserService {
         loginAttemptRateLimiter.assertWithinLimit(clientIp, now);
 
         // 같은 계정에 대한 동시 실패가 실패 카운터 증가를 덮어쓰지 않도록 행을 잠그고 조회한다.
-        User user = userRepository.findByEmailForUpdate(loginCommand.email()).orElse(null);
+        User user = userRepository.findByStudentIdForUpdate(loginCommand.studentId()).orElse(null);
         if (user == null) {
-            // 존재하지 않는 이메일도 BCrypt 비교 비용을 동일하게 소비해 타이밍 기반 이메일 열거를 막는다.
+            // 존재하지 않는 학번도 BCrypt 비교 비용을 동일하게 소비해 타이밍 기반 학번 열거를 막는다.
             burnPasswordComparison(loginCommand.rawPassword());
             loginAttemptRateLimiter.recordFailureOrThrow(clientIp, now);
             throw new UserException.InvalidCredentialsException();
@@ -123,7 +134,7 @@ public class GeneralUserService implements UserService {
         return new LoginResult(accessToken, UserQuery.from(user));
     }
 
-    /** 존재하지 않는 이메일 분기에서도 BCrypt 비교 비용을 소비해 타이밍 오라클을 제거한다. */
+    /** 존재하지 않는 학번 분기에서도 BCrypt 비교 비용을 소비해 타이밍 오라클을 제거한다. */
     private void burnPasswordComparison(String rawPassword) {
         String hash = dummyPasswordHash;
         if (hash == null) {
@@ -159,14 +170,7 @@ public class GeneralUserService implements UserService {
     public void updateProfile(UpdateProfileCommand updateProfileCommand) {
         User user = userRepository.findById(updateProfileCommand.userId())
                 .orElseThrow(UserException.UserNotFoundException::new);
-        // 전화번호를 다른 회원이 이미 쓰고 있으면 막는다(가입과 동일 정책). DB 유니크 위반으로
-        // 떨어지면 원인을 알 수 없는 generic 409 가 되므로 도메인에서 먼저 검증한다.
-        // 어떤 필드가 중복인지는 계정 열거 방지를 위해 generic 예외로 가린다.
-        if (!updateProfileCommand.phone().equals(user.getPhone())
-                && userRepository.existsByPhone(updateProfileCommand.phone())) {
-            throw new UserException.DuplicateAccountException();
-        }
-        user.updateProfile(updateProfileCommand.name(), updateProfileCommand.phone(), updateProfileCommand.grade());
+        user.updateProfile(updateProfileCommand.name(), updateProfileCommand.grade());
     }
 
     @Override
@@ -214,7 +218,7 @@ public class GeneralUserService implements UserService {
     // 관리자 사용자 검색에서 정렬 가능한 필드. 클라이언트 sort 가 JPQL @Query 의 ORDER BY 로 그대로
     // 들어가므로, 허용 목록 밖 속성은 SortWhitelist 가 400 으로 거부한다(임의 필드 정렬·오류 쿼리 차단).
     private static final Set<String> ALLOWED_ADMIN_USER_SORT =
-            Set.of("studentId", "name", "email", "createdAt");
+            Set.of("studentId", "name", "createdAt");
 
     @Override
     public Page<UserSearchResultQuery> searchForAdmin(String query, Pageable pageable) {

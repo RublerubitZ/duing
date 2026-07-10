@@ -2,6 +2,7 @@ package com.duing.domain.user.controller;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 
 import com.duing.domain.user.entity.College;
@@ -42,8 +43,8 @@ class AdminUsersSearchControllerTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
-        User adminUser = saveUser("2026010001", "총동연관리자", "admin@daegu.ac.kr", UserRole.ADMIN);
-        User studentUser = saveUser("2026010002", "학생사용자", "student@daegu.ac.kr", UserRole.STUDENT);
+        User adminUser = saveUser("2026010001", "총동연관리자", UserRole.ADMIN);
+        User studentUser = saveUser("2026010002", "학생사용자", UserRole.STUDENT);
         adminToken = jwtTokenProvider.createToken(adminUser.getId(), adminUser.getRole().name());
         studentToken = jwtTokenProvider.createToken(studentUser.getId(), studentUser.getRole().name());
     }
@@ -51,8 +52,8 @@ class AdminUsersSearchControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("학번 prefix 로 검색하면 해당 학번 사용자가 반환된다")
     void searchByStudentIdPrefix() {
-        User target = saveUser("2024030001", "김학번", "kim@daegu.ac.kr", UserRole.STUDENT);
-        saveUser("2025040002", "박다름", "park@daegu.ac.kr", UserRole.STUDENT);
+        User target = saveUser("2024030001", "김학번", UserRole.STUDENT);
+        saveUser("2025040002", "박다름", UserRole.STUDENT);
 
         RestAssured
                 .given()
@@ -69,7 +70,7 @@ class AdminUsersSearchControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("이름 부분일치(대소문자 무시) 로 검색된다")
     void searchByNameContains() {
-        User target = saveUser("2024030010", "이름검색대상", "name@daegu.ac.kr", UserRole.STUDENT);
+        User target = saveUser("2024030010", "이름검색대상", UserRole.STUDENT);
 
         RestAssured
                 .given()
@@ -82,24 +83,9 @@ class AdminUsersSearchControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("이메일 부분일치(대소문자 무시) 로 검색된다")
-    void searchByEmailContains() {
-        User target = saveUser("2024030020", "메일검색", "Findme@daegu.ac.kr", UserRole.STUDENT);
-
-        RestAssured
-                .given()
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
-                .when()
-                    .get("/api/v1/admin/users?q=findme")
-                .then()
-                    .statusCode(HttpStatus.OK.value())
-                    .body("data.content.id", hasItem(target.getId().intValue()));
-    }
-
-    @Test
     @DisplayName("응답에 passwordHash 등 민감 필드는 노출되지 않는다")
     void responseDoesNotLeakSensitiveFields() {
-        saveUser("2024030030", "필드검사", "fieldcheck@daegu.ac.kr", UserRole.STUDENT);
+        saveUser("2024030030", "필드검사", UserRole.STUDENT);
 
         RestAssured
                 .given()
@@ -110,7 +96,8 @@ class AdminUsersSearchControllerTest extends IntegrationTestBase {
                     .statusCode(HttpStatus.OK.value())
                     .body("data.content[0].studentId", equalTo("2024030030"))
                     .body("data.content[0]", not(hasItem("passwordHash")))
-                    .body("data.content[0]", not(hasItem("phone")));
+                    .body("data.content[0]", not(hasItem("phone")))
+                    .body("data.content[0]", not(hasKey("email")));
     }
 
     @Test
@@ -137,12 +124,11 @@ class AdminUsersSearchControllerTest extends IntegrationTestBase {
                     .statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
-    private User saveUser(String studentId, String name, String email, UserRole role) {
+    private User saveUser(String studentId, String name, UserRole role) {
         long unique = sequence.getAndIncrement();
         return userRepository.save(User.create(
                 studentId,
                 name,
-                email,
                 "hashed",
                 role,
                 Grade.FRESHMAN,

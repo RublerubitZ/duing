@@ -32,7 +32,6 @@ class ApplicationStatusTransitionTest {
         User user = User.create(
                 "20251234",
                 "홍길동",
-                "hong@example.com",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

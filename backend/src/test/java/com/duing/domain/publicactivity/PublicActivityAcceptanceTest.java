@@ -92,7 +92,7 @@ class PublicActivityAcceptanceTest extends IntegrationTestBase {
         // notice.author_id / event.created_by 등은 users(id) FK 참조 — 활동 시드 전 최소 1명 생성
         long seq = sequence.incrementAndGet();
         User author = userRepository.save(User.create(
-                "20" + seq, "작성자" + seq, "author" + seq + "@duing.ac.kr", "hash",
+                "20" + seq, "작성자" + seq, "hash",
                 UserRole.STUDENT, Grade.FRESHMAN, College.IT_ENGINEERING,
                 "미설정", "010-0000-0000", LocalDateTime.now()));
         authorId = author.getId();

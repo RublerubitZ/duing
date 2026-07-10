@@ -66,7 +66,6 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 nameSuffix + unique,
-                "decouple" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

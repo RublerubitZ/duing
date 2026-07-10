@@ -457,7 +457,6 @@ class ApplicationAnswerValidationTest {
         return User.create(
                 "2020123456",
                 "지원자",
-                "applicant@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

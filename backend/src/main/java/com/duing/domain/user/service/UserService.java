@@ -13,7 +13,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface UserService {
 
-    Long signup(SignupCommand signupCommand);
+    Long signup(SignupCommand signupCommand, String clientIp, String userAgent);
 
     LoginResult login(LoginCommand loginCommand, String clientIp);
 

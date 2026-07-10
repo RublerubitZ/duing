@@ -109,7 +109,6 @@ class AuthWithdrawalTest extends IntegrationTestBase {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 "탈퇴테스터",
-                "withdraw-" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.JUNIOR,

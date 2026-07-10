@@ -8,7 +8,6 @@ public record UserResponse(
         Long id,
         String studentId,
         String name,
-        String email,
         String phone,
         UserRole role,
         Grade grade
@@ -18,7 +17,6 @@ public record UserResponse(
                 userQuery.id(),
                 userQuery.studentId(),
                 userQuery.name(),
-                userQuery.email(),
                 userQuery.phone(),
                 userQuery.role(),
                 userQuery.grade()

@@ -88,8 +88,7 @@ class ClubScopedNoticeAccessTest extends IntegrationTestBase {
 
     private User saveUser() {
         long seq = sequence.incrementAndGet();
-        return userRepository.save(User.create("20" + seq, "U" + seq,
-                "u" + seq + "@duing.ac.kr", "h", UserRole.STUDENT,
+        return userRepository.save(User.create("20" + seq, "U" + seq, "h", UserRole.STUDENT,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
     }
 
@@ -155,8 +154,7 @@ class ClubScopedNoticeAccessTest extends IntegrationTestBase {
 
     private User saveAdmin() {
         long seq = sequence.incrementAndGet();
-        return userRepository.save(User.create("20" + seq, "관리자" + seq,
-                "admin" + seq + "@duing.ac.kr", "h", UserRole.ADMIN,
+        return userRepository.save(User.create("20" + seq, "관리자" + seq, "h", UserRole.ADMIN,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
     }
 }

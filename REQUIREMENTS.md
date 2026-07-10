@@ -55,19 +55,21 @@ ClubMember 운영(승급/강등·추방·탈퇴·정상 인계)은 이미 제공
 
 ### 2.1 User (사용자)
 
-**엔티티 필드**: `id`, `studentId`, `name`, `email`, `passwordHash`, `role`
+**엔티티 필드**: `id`, `studentId`, `name`, `passwordHash`, `role`, `grade`, `college`, `major`, `phone`, `phoneVerifiedAt`
 
 | ID | 기능 | 입력 | 출력 | 예외 |
 |---|---|---|---|---|
-| U-1 | 회원가입 | `studentId`(7~10자리 숫자), `name`(≤50), `email`, `password`(8~72자) | 생성된 `userId` (201) | 중복 이메일 409, 중복 학번 409, 입력 검증 실패 400 |
-| U-2 | 로그인 | `email`, `password` | `accessToken`, `tokenType="Bearer"`, `user` (200) | 자격 증명 실패 401 |
-| U-3 | 내 정보 조회 | (JWT) | `id`, `studentId`, `name`, `email`, `role` (200) | 미인증 401 |
+| U-1 | 회원가입 | `studentId`(8자리 숫자), `name`(≤50), `password`(8~20자·2종 조합), `grade`, `college`, `major`, `verificationToken`(MO 인증 세션), 약관 동의 2종 | 생성된 `userId` (201) | 미인증·만료·용도 불일치 토큰 403(`PHONE_NOT_VERIFIED`), 중복 학번·전화번호 409, 입력 검증 실패 400 |
+| U-2 | 로그인 | `studentId`(8자리 숫자), `password` | `accessToken`, `tokenType="Bearer"`, `user` (200) | 자격 증명 실패 401 |
+| U-3 | 내 정보 조회 | (JWT) | `id`, `studentId`, `name`, `phone`, `role`, `grade` (200) | 미인증 401 |
+| U-4 | 휴대폰 MO 인증 시작 | `phone`, `?qr=true` | `verificationToken`, `code`, `moNumber`, `qrCode?`, 만료 정보 (201) | 가입된 번호 409, 쿨다운·IP 한도 429 |
+| U-5 | 휴대폰 MO 인증 상태 조회 | `verificationToken` (path) | `status`(PENDING/VERIFIED/EXPIRED), `expiresInSeconds`, `maskedPhone` (200) | 미존재 토큰 404, IP 한도 429, 일일 쿼터 초과 503 |
 
 **비기능 요구사항**
 - 비밀번호는 `BCryptPasswordEncoder` 로 해싱 후 저장 (평문 저장 금지).
 - JWT 는 `HS256`, 만료 시간은 `JWT_EXPIRY_MS` 환경변수로 제어.
 - 가입 시 기본 role 은 `STUDENT`. `LEADER` / `ADMIN` 승격은 별도 admin API 로만 가능(현재 미구현).
-- 회원가입 시 `email` 은 학교 도메인 정규식 `^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*daegu\.ac\.kr$` 통과 필수. 인증 메일 발송은 Phase 2.
+- 가입 진위 확인은 휴대폰 MO 인증(Octomo, 대표번호 1666-3538)으로만 수행한다 — 전화번호는 인증 세션에서 확정된 값이 저장되고, 사용된 세션은 즉시 소비된다. 이메일 필드·이메일 인증은 제거됨(물리 컬럼 drop 은 안정화 후). 상세는 docs/superpowers/specs/2026-07-09-student-id-login-mo-auth-design.md
 
 ---
 
@@ -319,3 +321,4 @@ ClubMember 운영(승급/강등·추방·탈퇴·정상 인계)은 이미 제공
 |---|---|
 | 2026-05-14 | 최초 작성. User/Club/Recruitment 구현 완료, Application 명세 확정 |
 | 2026-05-15 | MVP 재정의 (Phase 0 토대): clubs(cover_url/tags/sns_links/faqs), club_photo 테이블, recruitment(application_mode/external_form_url/use_interview/target_role), application(interview_at/interview_location), ApplicationStatus 5단계, 학교 도메인 이메일 검증, Supabase Storage 어댑터, InterviewNotificationService 추상화, ClubAuthService 권한 헬퍼. 상세는 docs/superpowers/specs/2026-05-15-duing-full-flow-design.md |
+| 2026-07-10 | 학번 로그인 + 휴대폰 MO 인증 전환 (PR2): U-1~U-3 개정, U-4·U-5(MO 인증 API) 추가. 로그인 식별자 email→studentId(8자리), 가입은 verificationToken 소비 방식, 이메일 인증 API·email 노출 제거, users.email nullable(V80). 상세는 docs/superpowers/specs/2026-07-09-student-id-login-mo-auth-design.md |

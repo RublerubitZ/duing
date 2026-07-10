@@ -1,7 +1,6 @@
 package com.duing.global.privacy;
 
 import com.duing.domain.application.repository.ApplicationRepository;
-import com.duing.domain.user.repository.EmailVerificationRepository;
 import com.duing.domain.user.repository.PhoneVerificationEventRepository;
 import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
@@ -23,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>네이티브 벌크 쿼리를 쓰는 이유: 대상이 soft-delete 된 행(@SQLRestriction 으로 JPA 가 못 보는 행)이라
  * JPQL 로는 접근할 수 없다. 사용자/지원서의 PII 컬럼은 비식별화하여(append-only 감사 로그·FK 무결성 보존)
- * PIPA 파기 의무를 만족시키고, email_verifications 의 일회용 코드(raw 이메일)는 물리 삭제한다.
+ * PIPA 파기 의무를 만족시킨다.
  */
 @Slf4j
 @Component
@@ -37,7 +36,6 @@ public class PiiRetentionJob {
     private final Clock clock;
     private final UserRepository userRepository;
     private final ApplicationRepository applicationRepository;
-    private final EmailVerificationRepository emailVerificationRepository;
     private final PhoneVerificationRepository phoneVerificationRepository;
     private final PhoneVerificationEventRepository phoneVerificationEventRepository;
 
@@ -57,13 +55,12 @@ public class PiiRetentionJob {
         LocalDateTime cutoff = LocalDateTime.now(clock).minus(window);
         int anonymizedUsers = userRepository.anonymizeExpiredUsers(cutoff);
         int scrubbedApplications = applicationRepository.scrubExpiredApplicationAnswers(cutoff);
-        int deletedVerifications = emailVerificationRepository.deleteExpiredVerifications(cutoff);
         int deletedPhoneVerifications = phoneVerificationRepository
                 .deleteExpiredVerifications(LocalDateTime.now(clock).minus(PHONE_VERIFICATION_RETENTION));
         int deletedPhoneVerificationEvents = phoneVerificationEventRepository.deleteExpiredEvents(cutoff);
-        log.info("[PII 보관기간 파기] usersAnonymized={}, applicationsScrubbed={}, verificationsDeleted={}, "
+        log.info("[PII 보관기간 파기] usersAnonymized={}, applicationsScrubbed={}, "
                         + "phoneVerificationsDeleted={}, phoneVerificationEventsDeleted={}, cutoff={}",
-                anonymizedUsers, scrubbedApplications, deletedVerifications,
+                anonymizedUsers, scrubbedApplications,
                 deletedPhoneVerifications, deletedPhoneVerificationEvents, cutoff);
     }
 }

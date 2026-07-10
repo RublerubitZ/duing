@@ -112,7 +112,6 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 nameSuffix + unique,
-                "hist" + unique + "@daegu.ac.kr",
                 "hashed",
                 role,
                 Grade.FRESHMAN,

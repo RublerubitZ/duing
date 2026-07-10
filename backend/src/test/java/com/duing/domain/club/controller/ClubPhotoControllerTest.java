@@ -208,7 +208,6 @@ class ClubPhotoControllerTest extends IntegrationTestBase {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 name,
-                "u" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

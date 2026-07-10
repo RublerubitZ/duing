@@ -8,7 +8,6 @@ public record UserQuery(
         Long id,
         String studentId,
         String name,
-        String email,
         String phone,
         UserRole role,
         Grade grade
@@ -18,7 +17,6 @@ public record UserQuery(
                 user.getId(),
                 user.getStudentId(),
                 user.getName(),
-                user.getEmail(),
                 user.getPhone(),
                 user.getRole(),
                 user.getGrade()

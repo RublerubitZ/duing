@@ -25,7 +25,6 @@ public class PhoneVerificationException extends ApplicationException {
         }
     }
 
-    /** 코드 문자열은 이메일 인증과 공유하지만 클래스는 분리한다 — PR2 에서 EmailVerificationException 이 삭제된다. */
     public static class VerificationRateLimitedException extends PhoneVerificationException {
         private static final String MESSAGE = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
 
@@ -47,6 +46,15 @@ public class PhoneVerificationException extends ApplicationException {
 
         public SmsPollQuotaExceededException() {
             super(MESSAGE, HttpStatus.SERVICE_UNAVAILABLE, "SMS_POLL_QUOTA_EXCEEDED");
+        }
+    }
+
+    /** 미존재·미인증·만료(완료 창 초과 포함)·용도 불일치 세션으로 완료(signup 등)를 시도 — 사유 미특정 단일 403 (spec §7.8). */
+    public static class PhoneNotVerifiedException extends PhoneVerificationException {
+        private static final String MESSAGE = "휴대폰 인증이 완료되지 않았습니다. 인증 후 다시 시도해주세요.";
+
+        public PhoneNotVerifiedException() {
+            super(MESSAGE, HttpStatus.FORBIDDEN, "PHONE_NOT_VERIFIED");
         }
     }
 }

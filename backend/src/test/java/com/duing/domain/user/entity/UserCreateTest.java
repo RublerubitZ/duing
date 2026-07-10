@@ -16,7 +16,6 @@ class UserCreateTest {
         User user = User.create(
                 "20240001",
                 "홍길동",
-                "hong@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.JUNIOR,
@@ -31,5 +30,21 @@ class UserCreateTest {
         assertThat(user.getMajor()).isEqualTo("컴퓨터정보공학부");
         assertThat(user.getPhone()).isEqualTo("010-1234-5678");
         assertThat(user.getTermsAgreedAt()).isEqualTo(termsAgreedAt);
+    }
+
+    @Test
+    @DisplayName("생성 직후 phoneVerifiedAt 은 null(미인증)이고, markPhoneVerified 로 인증 시각이 기록된다")
+    void markPhoneVerifiedRecordsVerificationTime() {
+        LocalDateTime verifiedAt = LocalDateTime.now();
+        User user = User.create(
+                "20240001", "홍길동", "hashed", UserRole.STUDENT,
+                Grade.JUNIOR, College.IT_ENGINEERING, "컴퓨터정보공학부", "010-1234-5678",
+                verifiedAt.minusMinutes(1));
+
+        assertThat(user.getPhoneVerifiedAt()).isNull();
+
+        user.markPhoneVerified(verifiedAt);
+
+        assertThat(user.getPhoneVerifiedAt()).isEqualTo(verifiedAt);
     }
 }

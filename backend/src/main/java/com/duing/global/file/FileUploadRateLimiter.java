@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * Cloudflare R2 의 스토리지/전송 비용을 폭증시키는 재정적 DoS 를 막는다. 성공·실패와 무관하게
  * 검증 통과 직전에 시도를 기록한다.
  *
- * <p>{@link com.duing.domain.user.service.EmailVerificationRateLimiter} 의 IP 윈도우와 동일한 전략.
+ * <p>{@link com.duing.domain.user.service.PhoneVerificationRateLimiter} 의 IP 윈도우와 동일한 전략.
  * 재시작 시 카운터 리셋·멀티 인스턴스(Redis)·만료 엔트리 정리(Caffeine)는 백로그다.
  */
 @Component

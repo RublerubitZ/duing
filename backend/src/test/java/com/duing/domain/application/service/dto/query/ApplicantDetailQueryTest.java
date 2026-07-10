@@ -145,7 +145,6 @@ class ApplicantDetailQueryTest {
         when(applicant.getId()).thenReturn(20L);
         when(applicant.getName()).thenReturn("지원자");
         when(applicant.getStudentId()).thenReturn("20251234");
-        when(applicant.getEmail()).thenReturn("applicant@daegu.ac.kr");
         when(applicant.getPhone()).thenReturn("010-0000-0000");
 
         Application application = mock(Application.class);

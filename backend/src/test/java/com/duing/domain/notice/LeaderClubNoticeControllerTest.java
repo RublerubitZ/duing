@@ -90,8 +90,7 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
 
     private User saveUser() {
         long seq = sequence.incrementAndGet();
-        return userRepository.save(User.create("20" + seq, "U" + seq,
-                "u" + seq + "@duing.ac.kr", "h", UserRole.STUDENT,
+        return userRepository.save(User.create("20" + seq, "U" + seq, "h", UserRole.STUDENT,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
     }
 
