@@ -61,6 +61,8 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @DisplayName("보관기간을 넘긴 soft-delete 사용자는 PII 가 비식별화되고 anonymized_at 이 기록된다")
     void anonymizesExpiredSoftDeletedUser() {
         User user = saveUser();
+        // 엔티티가 email 을 더 이상 저장하지 않으므로(PR2) 레거시 실값 파기를 검증하려면 직접 심는다.
+        jdbcTemplate.update("UPDATE users SET email = ? WHERE id = ?", "expired@daegu.ac.kr", user.getId());
         softDeleteDaysAgo("users", user.getId(), 400); // 1년(window) 초과
 
         job.run();

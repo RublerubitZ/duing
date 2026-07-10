@@ -24,7 +24,7 @@ public interface UserApi {
     @GetMapping("/users/me")
     ResponseEntity<ApiResponse<UserResponse>> getMe(@AuthenticationPrincipal UserPrincipal currentUser);
 
-    @Operation(summary = "프로필 수정", description = "이름·전화번호·학년을 수정한다. 학년은 생략 시 기존 값을 유지한다. 학번·이메일은 변경할 수 없다.")
+    @Operation(summary = "프로필 수정", description = "이름·전화번호·학년을 수정한다. 학년은 생략 시 기존 값을 유지한다. 학번은 변경할 수 없다.")
     @SecurityRequirement(name = "BearerAuth")
     @PatchMapping("/users/me")
     ResponseEntity<Void> updateProfile(

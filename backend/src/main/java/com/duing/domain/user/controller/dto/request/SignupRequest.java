@@ -37,6 +37,7 @@ public record SignupRequest(
 
         // 전화번호 입력란은 없다 — 번호는 MO 인증 스텝에서 입력되고, 저장 값은 항상 인증 세션에서 나온다 (spec §7.3).
         @NotBlank(message = "휴대폰 인증을 완료해주세요.")
+        @Size(max = 36, message = "휴대폰 인증 정보가 올바르지 않습니다.")
         String verificationToken,
 
         @AssertTrue(message = "이용약관에 동의해야 합니다.")
