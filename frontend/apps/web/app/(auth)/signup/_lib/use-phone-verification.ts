@@ -47,8 +47,11 @@ export function usePhoneVerification(phone: string) {
   const latestPhoneRef = useRef(phone);
   latestPhoneRef.current = phone;
 
+  // 대기 40초가 지나면 자동 폴링을 멈추고 수동 [지금 확인]으로 전환한다(방치 세션 exists 콜 절감).
+  const stalled = status === 'waiting' && waitingSeconds >= WAITING_STALL_SECONDS;
+
   const poll = usePhoneVerificationStatusQuery(session?.verificationToken ?? null, {
-    enabled: status === 'waiting',
+    enabled: status === 'waiting' && !stalled,
   });
 
   // 폴링 결과 반영 — VERIFIED/EXPIRED 로 확정되면 상태를 전이한다(PENDING 은 폴링을 계속한다).
@@ -125,6 +128,12 @@ export function usePhoneVerification(phone: string) {
     setWaitingSeconds(0);
   }
 
+  // 스톨로 자동 폴링이 멈춘 상태에서 사용자가 문자 도착 후 직접 재확인한다(단발 조회).
+  // VERIFIED 면 poll.data effect 가 verified 로 전이하고, PENDING 이면 스톨을 유지한다(자동 재개 없음).
+  function recheck() {
+    void poll.refetch();
+  }
+
   const canIssue =
     PHONE_PATTERN.test(phone) &&
     !startMutation.isPending &&
@@ -141,12 +150,13 @@ export function usePhoneVerification(phone: string) {
     qrCode: session?.qrCode ?? null,
     remainingSeconds,
     resendCooldownSeconds,
-    stalled: status === 'waiting' && waitingSeconds >= WAITING_STALL_SECONDS,
+    stalled,
     issuing: startMutation.isPending,
     canIssue,
     errorMessage,
     issue,
     markSent,
     reset,
+    recheck,
   };
 }

@@ -20,6 +20,7 @@ type Props = {
   onIssue: (includeQr: boolean) => void;
   onSent: () => void;
   onReset: () => void;
+  onRecheck: () => void;
 };
 
 /** moNumber(8자리 숫자 문자열)를 "1666-3538" 형태로 표시한다. 형식이 다르면 원본을 그대로 보여준다. */
@@ -44,6 +45,7 @@ export function PhoneVerificationField({
   onIssue,
   onSent,
   onReset,
+  onRecheck,
 }: Props) {
   const isMobile = typeof navigator !== 'undefined' && isMobileUserAgent(navigator.userAgent);
   const isIos = typeof navigator !== 'undefined' && isIosUserAgent(navigator.userAgent);
@@ -149,9 +151,14 @@ export function PhoneVerificationField({
 
           {status === 'waiting' &&
             (stalled ? (
-              <p className="mt-1.5 text-xs text-coral" aria-live="polite">
-                아직 확인되지 않았어요. 문자에 코드만 담아 그대로 보냈는지 확인하고, 계속 안 되면 위 재발급을 눌러주세요.
-              </p>
+              <>
+                <p className="mt-1.5 text-xs text-coral" aria-live="polite">
+                  아직 확인되지 않았어요. 문자에 코드만 담아 그대로 보냈는지 확인하고, 문자 도착 후 아래 [지금 확인]을 누르거나, 계속 안 되면 재발급하세요.
+                </p>
+                <button type="button" onClick={onRecheck} className="btn btn-sm mt-2">
+                  지금 확인
+                </button>
+              </>
             ) : (
               <p className="mt-1.5 text-xs text-charcoal-3" aria-live="polite">
                 확인 중…

@@ -207,7 +207,8 @@ describe('usePhoneVerification', () => {
     expect(result.current.status).toBe('waiting');
     expect(result.current.stalled).toBe(true);
 
-    // 이후 폴링이 VERIFIED 를 받으면 waiting 을 벗어나고 stalled 도 false 로 돌아온다
+    // 스톨로 자동 폴링이 멈춘 상태이므로, 재확인(recheck)으로 VERIFIED 를 받으면
+    // waiting 을 벗어나고 stalled 도 false 로 돌아온다.
     server.use(
       http.get('*/auth/phone-verifications/:token', () =>
         HttpResponse.json({
@@ -218,11 +219,144 @@ describe('usePhoneVerification', () => {
       ),
     );
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
+      result.current.recheck();
+      await vi.advanceTimersByTimeAsync(0);
     });
 
     expect(result.current.status).toBe('verified');
     expect(result.current.stalled).toBe(false);
+  });
+
+  it('40초 스톨 후에는 자동 폴링이 멈춘다', async () => {
+    mockIssue();
+    let pollCount = 0;
+    server.use(
+      http.get('*/auth/phone-verifications/:token', () => {
+        pollCount += 1;
+        return HttpResponse.json({
+          ok: true,
+          data: { status: 'PENDING', expiresInSeconds: 290, maskedPhone: '010-****-5678' },
+          message: null,
+        });
+      }),
+    );
+
+    const { result } = renderHook(() => usePhoneVerification(VALID_PHONE), {
+      wrapper: makeWrapper(newQueryClient()),
+    });
+
+    await act(async () => {
+      await result.current.issue(false);
+    });
+    act(() => {
+      result.current.markSent();
+    });
+
+    // 스톨 시점(40초)까지는 3초 간격 자동 폴링이 누적된다.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(45000);
+    });
+    expect(result.current.stalled).toBe(true);
+    const pollCountAtStall = pollCount;
+
+    // 스톨 이후에는 타이머를 더 진행해도 자동 폴링이 늘지 않는다(정지).
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+    expect(pollCount).toBe(pollCountAtStall);
+  });
+
+  it('recheck 는 정지 상태에서도 단발 조회를 한 번 더 한다', async () => {
+    mockIssue();
+    let pollCount = 0;
+    let polledStatus = 'PENDING';
+    server.use(
+      http.get('*/auth/phone-verifications/:token', () => {
+        pollCount += 1;
+        return HttpResponse.json({
+          ok: true,
+          data: { status: polledStatus, expiresInSeconds: 290, maskedPhone: '010-****-5678' },
+          message: null,
+        });
+      }),
+    );
+
+    const { result } = renderHook(() => usePhoneVerification(VALID_PHONE), {
+      wrapper: makeWrapper(newQueryClient()),
+    });
+
+    await act(async () => {
+      await result.current.issue(false);
+    });
+    act(() => {
+      result.current.markSent();
+    });
+
+    // 40초 스톨로 자동 폴링이 정지된다.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(45000);
+    });
+    expect(result.current.stalled).toBe(true);
+    const pollCountAtStall = pollCount;
+
+    // 서버는 이제 VERIFIED 를 반환한다.
+    polledStatus = 'VERIFIED';
+
+    // 정지 상태여도 recheck() 는 단발 조회를 한 번 더 수행하고, VERIFIED 면 verified 로 전이한다.
+    await act(async () => {
+      result.current.recheck();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(pollCount).toBe(pollCountAtStall + 1);
+    expect(result.current.status).toBe('verified');
+  });
+
+  it('스톨 후 PENDING 재확인은 자동 폴링을 재개하지 않는다', async () => {
+    mockIssue();
+    let pollCount = 0;
+    server.use(
+      http.get('*/auth/phone-verifications/:token', () => {
+        pollCount += 1;
+        return HttpResponse.json({
+          ok: true,
+          data: { status: 'PENDING', expiresInSeconds: 290, maskedPhone: '010-****-5678' },
+          message: null,
+        });
+      }),
+    );
+
+    const { result } = renderHook(() => usePhoneVerification(VALID_PHONE), {
+      wrapper: makeWrapper(newQueryClient()),
+    });
+
+    await act(async () => {
+      await result.current.issue(false);
+    });
+    act(() => {
+      result.current.markSent();
+    });
+
+    // 40초 스톨로 자동 폴링 정지
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(45000);
+    });
+    expect(result.current.stalled).toBe(true);
+
+    // PENDING 인 채로 recheck → 단발 조회 1회만 늘고 스톨은 유지된다.
+    await act(async () => {
+      result.current.recheck();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    const pollCountAfterRecheck = pollCount;
+    expect(result.current.status).toBe('waiting');
+    expect(result.current.stalled).toBe(true);
+
+    // 이후 타이머를 크게 진행해도 자동 폴링이 재개되지 않는다(수동 확인 전환 유지).
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+    expect(pollCount).toBe(pollCountAfterRecheck);
   });
 
   it('일시적 폴링 실패 후 다음 성공 폴링에서 에러 메시지가 지워진다', async () => {
