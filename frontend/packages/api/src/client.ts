@@ -76,6 +76,9 @@ import type {
   SendEmailVerificationPayload,
   ConfirmEmailVerificationPayload,
   EmailVerificationResult,
+  StartPhoneVerificationPayload,
+  PhoneVerificationSession,
+  PhoneVerificationStatus,
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
   UpdateClubPayload,
@@ -237,6 +240,11 @@ export type DuingApiClient = {
     login(payload: LoginPayload): Promise<LoginResult>;
     sendEmailVerification(payload: SendEmailVerificationPayload): Promise<EmailVerificationResult>;
     confirmEmailVerification(payload: ConfirmEmailVerificationPayload): Promise<void>;
+    startPhoneVerification(
+      payload: StartPhoneVerificationPayload,
+      includeQr: boolean,
+    ): Promise<PhoneVerificationSession>;
+    getPhoneVerificationStatus(verificationToken: string): Promise<PhoneVerificationStatus>;
     logout(): Promise<void>;
   };
   users: {
@@ -730,6 +738,17 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<EmailVerificationResult>(http.post('auth/email-verifications', { json: payload })),
       confirmEmailVerification: (payload) =>
         jsonVoid(http.post('auth/email-verifications/confirm', { json: payload })),
+      startPhoneVerification: (payload, includeQr) =>
+        jsonOk<PhoneVerificationSession>(
+          http.post('auth/phone-verifications', {
+            json: payload,
+            searchParams: includeQr ? { qr: 'true' } : undefined,
+          }),
+        ),
+      getPhoneVerificationStatus: (verificationToken) =>
+        jsonOk<PhoneVerificationStatus>(
+          http.get(`auth/phone-verifications/${verificationToken}`),
+        ),
       logout: () => jsonVoid(http.post('auth/logout', { timeout: LOGOUT_REVOKE_TIMEOUT_MS })),
     },
     users: {

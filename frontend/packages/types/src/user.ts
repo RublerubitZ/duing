@@ -133,3 +133,24 @@ export type EmailVerificationResult = {
   expiresAt: string;
   expiresInSeconds: number;
 };
+
+export type StartPhoneVerificationPayload = {
+  phone: string;
+};
+
+export type PhoneVerificationSession = {
+  verificationToken: string;
+  code: string;
+  moNumber: string;
+  qrCode: string | null;
+  expiresAt: string;
+  expiresInSeconds: number;
+};
+
+export type PhoneVerificationStatusValue = 'PENDING' | 'VERIFIED' | 'EXPIRED';
+
+export type PhoneVerificationStatus = {
+  status: PhoneVerificationStatusValue;
+  expiresInSeconds: number;
+  maskedPhone: string | null;
+};
