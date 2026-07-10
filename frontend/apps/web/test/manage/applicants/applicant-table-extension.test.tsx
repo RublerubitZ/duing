@@ -13,7 +13,6 @@ const baseApplicant: Applicant = {
   userId: 1,
   userName: '홍길동',
   studentId: '20200001',
-  email: 'hong@example.com',
   college: 'IT_ENGINEERING',
   major: '컴퓨터공학과',
   grade: 'JUNIOR',

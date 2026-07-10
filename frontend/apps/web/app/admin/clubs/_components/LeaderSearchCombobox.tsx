@@ -25,7 +25,7 @@ export function LeaderSearchCombobox({ selectedLeader, onSelect }: Props) {
     return (
       <ComboboxSelectedValue
         primary={selectedLeader.name}
-        secondary={`${selectedLeader.studentId} · ${selectedLeader.email}`}
+        secondary={selectedLeader.studentId}
         onClear={() => onSelect(null)}
       />
     );
@@ -47,12 +47,10 @@ export function LeaderSearchCombobox({ selectedLeader, onSelect }: Props) {
       renderItem={(user) => (
         <>
           <div className="text-sm font-medium text-charcoal">{user.name}</div>
-          <div className="text-xs text-charcoal-3">
-            {user.studentId} · {user.email}
-          </div>
+          <div className="text-xs text-charcoal-3">{user.studentId}</div>
         </>
       )}
-      placeholder="학번 / 이름 / 이메일로 회장 검색"
+      placeholder="학번 / 이름으로 회장 검색"
     />
   );
 }

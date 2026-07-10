@@ -47,7 +47,6 @@ const TEST_USER: User = {
   id: 1,
   studentId: '20240001',
   name: '홍길동',
-  email: '20240001@daegu.ac.kr',
   phone: '010-1234-5678',
   grade: 'FRESHMAN',
   role: 'STUDENT',

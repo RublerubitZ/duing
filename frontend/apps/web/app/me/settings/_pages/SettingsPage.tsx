@@ -122,7 +122,6 @@ export function SettingsPage() {
       <MyPageHeader
         name={user?.name ?? '—'}
         studentId={user?.studentId ?? '—'}
-        email={user?.email ?? '—'}
         applyCount={applyCount}
         joinedCount={joinedCount}
         savedCount={savedCount}
@@ -153,17 +152,6 @@ export function SettingsPage() {
             <SettingsRow label="학번" value={user?.studentId ?? '—'} />
             <SettingsRow label="학년" value={user?.grade ? GRADE_DISPLAY_NAME[user.grade] : '—'} />
             <SettingsRow label="전화번호" value={user?.phone ?? '—'} />
-            <SettingsRow
-              label="이메일"
-              value={
-                <span className="flex items-center gap-2">
-                  {user?.email ?? '—'}
-                  <span className="shrink-0 whitespace-nowrap text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-sage-mist text-ink-deep">
-                    인증완료
-                  </span>
-                </span>
-              }
-            />
           </SettingsCard>
 
           <SettingsCard title="계정 보안">

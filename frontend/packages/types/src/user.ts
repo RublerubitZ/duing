@@ -79,7 +79,6 @@ export type User = {
   id: number;
   studentId: string;
   name: string;
-  email: string;
   phone: string;
   grade: Grade;
   role: UserRole;
