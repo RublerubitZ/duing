@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS phone_verifications (
 CREATE UNIQUE INDEX IF NOT EXISTS uk_phone_verifications_phone ON phone_verifications (phone);
 CREATE UNIQUE INDEX IF NOT EXISTS uk_phone_verifications_token ON phone_verifications (token);
 
+ALTER TABLE phone_verifications ENABLE ROW LEVEL SECURITY;
+
 -- 인증 감사 이벤트 (insert-only, spec §9.3). raw phone(PII) 포함 — PiiRetentionJob 이 45일 후 물리 삭제.
 CREATE TABLE IF NOT EXISTS phone_verification_events (
     id          BIGSERIAL    PRIMARY KEY,
@@ -31,6 +33,8 @@ CREATE TABLE IF NOT EXISTS phone_verification_events (
 
 CREATE INDEX IF NOT EXISTS idx_pve_phone ON phone_verification_events (phone);
 CREATE INDEX IF NOT EXISTS idx_pve_user ON phone_verification_events (user_id);
+
+ALTER TABLE phone_verification_events ENABLE ROW LEVEL SECURITY;
 
 -- MO 인증 완료 시각. null = 미인증(레거시 자기신고 번호). 엔티티 매핑·기록은 PR2 에서 (spec §9.1).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP;
