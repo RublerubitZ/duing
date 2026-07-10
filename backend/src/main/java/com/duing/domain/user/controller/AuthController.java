@@ -40,8 +40,12 @@ public class AuthController implements AuthApi {
     private final PhoneVerificationService phoneVerificationService;
 
     @Override
-    public ResponseEntity<ApiResponse<Long>> signup(@Valid @RequestBody SignupRequest signupRequest) {
-        Long userId = userService.signup(signupRequest.toCommand());
+    public ResponseEntity<ApiResponse<Long>> signup(
+            @Valid @RequestBody SignupRequest signupRequest,
+            HttpServletRequest httpServletRequest) {
+        String clientIp = httpServletRequest.getRemoteAddr();
+        String userAgent = httpServletRequest.getHeader("User-Agent");
+        Long userId = userService.signup(signupRequest.toCommand(), clientIp, userAgent);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(userId));
     }
 

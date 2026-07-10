@@ -6,10 +6,9 @@ import com.duing.domain.user.entity.Grade;
 public record SignupCommand(
         String studentId,
         String name,
-        String email,
         String rawPassword,
         Grade grade,
         College college,
         String major,
-        String phone
+        String verificationToken
 ) {}

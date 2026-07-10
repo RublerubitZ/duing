@@ -4,7 +4,6 @@ import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.service.dto.command.SignupCommand;
 import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -18,15 +17,6 @@ public record SignupRequest(
         @NotBlank(message = "이름은 필수 입력값입니다.")
         @Size(max = 50, message = "이름은 50자 이하여야 합니다.")
         String name,
-
-        @NotBlank(message = "이메일은 필수 입력값입니다.")
-        @Email(message = "올바른 이메일 형식이 아닙니다.")
-        @Pattern(
-                regexp = "^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\\.)*daegu\\.ac\\.kr$",
-                message = "대구대학교 이메일(@daegu.ac.kr)만 사용할 수 있습니다."
-        )
-        @Size(max = 100, message = "이메일은 100자 이하여야 합니다.")
-        String email,
 
         @NotBlank(message = "비밀번호는 필수 입력값입니다.")
         @Pattern(
@@ -45,9 +35,9 @@ public record SignupRequest(
         @Size(max = 50, message = "전공 학과는 50자 이하여야 합니다.")
         String major,
 
-        @NotBlank(message = "전화번호는 필수 입력값입니다.")
-        @Pattern(regexp = "^010-\\d{4}-\\d{4}$", message = "전화번호는 010-XXXX-XXXX 형식이어야 합니다.")
-        String phone,
+        // 전화번호 입력란은 없다 — 번호는 MO 인증 스텝에서 입력되고, 저장 값은 항상 인증 세션에서 나온다 (spec §7.3).
+        @NotBlank(message = "휴대폰 인증을 완료해주세요.")
+        String verificationToken,
 
         @AssertTrue(message = "이용약관에 동의해야 합니다.")
         Boolean termsOfServiceAgreed,
@@ -56,6 +46,6 @@ public record SignupRequest(
         Boolean privacyPolicyAgreed
 ) {
     public SignupCommand toCommand() {
-        return new SignupCommand(studentId, name, email, password, grade, college, major, phone);
+        return new SignupCommand(studentId, name, password, grade, college, major, verificationToken);
     }
 }

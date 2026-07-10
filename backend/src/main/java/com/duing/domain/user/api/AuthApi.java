@@ -24,13 +24,22 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@Tag(name = "인증", description = "회원가입, 로그인, 이메일 인증 및 휴대폰 MO 인증")
+@Tag(name = "인증", description = "회원가입, 로그인 및 휴대폰 MO 인증")
 public interface AuthApi {
 
-    @Operation(summary = "회원가입", description = "학번/이름/이메일/비밀번호로 STUDENT 계정을 생성한다.")
-    @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "생성됨"))
+    @Operation(summary = "회원가입",
+            description = "학번(8자리)/이름/비밀번호와 MO 인증 토큰(verificationToken)으로 STUDENT 계정을 생성한다. "
+                    + "전화번호는 인증 세션에서 확정된 값이 저장되며, 사용된 세션은 즉시 소비(삭제)된다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "생성됨"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403",
+                    description = "미인증·만료·용도 불일치 세션(PHONE_NOT_VERIFIED)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 가입된 학번 또는 전화번호")
+    })
     @PostMapping("/auth/signup")
-    ResponseEntity<ApiResponse<Long>> signup(@Valid @RequestBody SignupRequest signupRequest);
+    ResponseEntity<ApiResponse<Long>> signup(
+            @Valid @RequestBody SignupRequest signupRequest,
+            HttpServletRequest httpServletRequest);
 
     @Operation(summary = "로그인", description = "이메일과 비밀번호로 인증 후 JWT를 발급한다.")
     @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"))
