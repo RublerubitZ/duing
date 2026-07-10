@@ -99,12 +99,11 @@ export type ChangePasswordPayload = {
 export type SignupPayload = {
   studentId: string;
   name: string;
-  email: string;
   password: string;
   grade: Grade;
   college: College;
   major: string;
-  phone: string;
+  verificationToken: string;
   termsOfServiceAgreed: boolean;
   privacyPolicyAgreed: boolean;
 };
