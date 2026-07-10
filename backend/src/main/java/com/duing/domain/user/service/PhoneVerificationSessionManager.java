@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -23,6 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
  * (타임아웃 최대 6초)이 트랜잭션 안에 있으면 폴링마다 DB 커넥션을 점유해 풀(운영 10개) 고갈 시
  * 무관한 API 까지 번진다. 또한 별도 트랜잭션 = 새 영속성 컨텍스트라, 확정 시 행잠금 조회가 항상
  * DB 의 신선한 상태를 읽어 무잠금 선조회의 1차 캐시 stale 문제(멱등 가드 무력화)가 원천 차단된다.
+ *
+ * <p>예외적으로 소비 경로 2종(getVerifiedSessionForUpdate·consume)은 반대로 <b>호출자 트랜잭션 참여를
+ * 강제한다(MANDATORY)</b> — 세션 소비가 가입 저장과 원자적으로 커밋되고, 행잠금이 호출자 커밋까지
+ * 유지되어야 하기 때문이다.
  */
 @Component
 @RequiredArgsConstructor
@@ -80,10 +85,10 @@ public class PhoneVerificationSessionManager {
     /**
      * 완료(소비) 직전 검증 — 행잠금으로 같은 토큰의 동시 완료(이중 소비)를 직렬화한다. 미존재·미인증·
      * 만료(완료 창 초과 포함)·용도 불일치 전부 사유 미특정 단일 403 (spec §7.3·7.8). 호출자(signup 등)의
-     * 트랜잭션에 참여(REQUIRED)하므로 잠금은 호출자 커밋까지 유지된다 — 패자는 커밋 후 삭제된 행을
-     * 보게 되어 403 으로 수렴한다.
+     * 트랜잭션 참여를 강제한다(MANDATORY — 무트랜잭션 호출은 예외) — 잠금이 호출자 커밋까지 유지되어야 이중 소비 방어가 성립하기 때문.
+     * 패자는 커밋 후 삭제된 행을 보게 되어 403 으로 수렴한다.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.MANDATORY)
     public PhoneVerification getVerifiedSessionForUpdate(String verificationToken,
                                                          VerificationPurpose expectedPurpose,
                                                          LocalDateTime now) {
@@ -99,9 +104,9 @@ public class PhoneVerificationSessionManager {
 
     /**
      * 용도 완료 — 세션 행을 삭제(재사용 차단, spec §5.1)하고 userId 를 포함한 CONSUMED 감사 이벤트를
-     * 남긴다 (spec §9.3). 호출자 트랜잭션에 참여해 사용자 저장과 원자적으로 커밋된다.
+     * 남긴다 (spec §9.3). 호출자 트랜잭션 참여를 강제해(MANDATORY) 사용자 저장과 원자적으로 커밋된다.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.MANDATORY)
     public void consume(PhoneVerification verifiedSession, Long userId, String clientIp, String userAgent) {
         phoneVerificationRepository.delete(verifiedSession);
         phoneVerificationEventRepository.save(

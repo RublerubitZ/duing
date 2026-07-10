@@ -116,7 +116,10 @@ class PhoneVerificationSessionConsumeTest {
         sessionManager.consume(verified, 77L, "127.0.0.1", "junit-agent");
 
         assertThat(phoneVerificationRepository.findByToken(token)).isEmpty();
-        List<PhoneVerificationEvent> events = phoneVerificationEventRepository.findAll();
+        // findAll 전역 카운트는 다른 테스트 클래스(HTTP 커밋)의 잔존 행에 오염된다 — 이 테스트의 번호로 스코프한다.
+        List<PhoneVerificationEvent> events = phoneVerificationEventRepository.findAll().stream()
+                .filter(event -> event.getPhone().equals("010-2000-0005"))
+                .toList();
         assertThat(events).hasSize(1);
         PhoneVerificationEvent consumedEvent = events.get(0);
         assertThat(consumedEvent.getEventType()).isEqualTo(PhoneVerificationEventType.CONSUMED);
@@ -133,7 +136,9 @@ class PhoneVerificationSessionConsumeTest {
 
         sessionManager.consume(verified, 78L, "127.0.0.1", "x".repeat(400));
 
-        PhoneVerificationEvent consumedEvent = phoneVerificationEventRepository.findAll().get(0);
+        PhoneVerificationEvent consumedEvent = phoneVerificationEventRepository.findAll().stream()
+                .filter(event -> event.getPhone().equals("010-2000-0006"))
+                .findFirst().orElseThrow();
         assertThat(consumedEvent.getUserAgent()).hasSize(300);
     }
 }
