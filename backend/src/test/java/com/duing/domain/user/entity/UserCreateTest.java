@@ -16,7 +16,6 @@ class UserCreateTest {
         User user = User.create(
                 "20240001",
                 "홍길동",
-                "hong@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.JUNIOR,
@@ -38,7 +37,7 @@ class UserCreateTest {
     void markPhoneVerifiedRecordsVerificationTime() {
         LocalDateTime verifiedAt = LocalDateTime.now();
         User user = User.create(
-                "20240001", "홍길동", "hong@daegu.ac.kr", "hashed", UserRole.STUDENT,
+                "20240001", "홍길동", "hashed", UserRole.STUDENT,
                 Grade.JUNIOR, College.IT_ENGINEERING, "컴퓨터정보공학부", "010-1234-5678",
                 verifiedAt.minusMinutes(1));
 

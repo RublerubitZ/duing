@@ -223,7 +223,6 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 name + unique,
-                "bulk" + unique + "@daegu.ac.kr",
                 "hashed",
                 role,
                 Grade.FRESHMAN,

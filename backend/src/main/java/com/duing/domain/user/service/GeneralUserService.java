@@ -76,7 +76,6 @@ public class GeneralUserService implements UserService {
         User user = User.create(
                 signupCommand.studentId(),
                 signupCommand.name(),
-                null,               // email — 컬럼은 V80 으로 nullable, 파라미터 제거는 Task 7
                 passwordHash,
                 UserRole.STUDENT,
                 signupCommand.grade(),

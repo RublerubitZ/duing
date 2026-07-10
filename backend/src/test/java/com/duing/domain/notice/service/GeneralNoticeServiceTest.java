@@ -133,7 +133,6 @@ class GeneralNoticeServiceTest {
         return userRepository.save(User.create(
                 "20" + seq,
                 "테스터" + seq,
-                "test" + seq + "@duing.ac.kr",
                 "hashed",
                 UserRole.ADMIN,
                 Grade.FRESHMAN,

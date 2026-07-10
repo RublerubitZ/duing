@@ -150,7 +150,7 @@ class FederationFaqCategoryDeleteConcurrencyTest extends IntegrationTestBase {
     private User saveUser() {
         long unique = sequence.incrementAndGet();
         return userRepository.save(User.create(
-                "20" + unique, "테스터" + unique, "conc" + unique + "@duing.ac.kr",
+                "20" + unique, "테스터" + unique,
                 "hashed", UserRole.ADMIN, Grade.FRESHMAN, College.IT_ENGINEERING,
                 "미설정", "010-0000-0000", LocalDateTime.now()));
     }

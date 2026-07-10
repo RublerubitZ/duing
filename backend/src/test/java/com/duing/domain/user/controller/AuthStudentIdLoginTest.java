@@ -54,7 +54,7 @@ class AuthStudentIdLoginTest extends IntegrationTestBase {
         String studentId = String.format("%08d", seq % 100_000_000L);
         String phone = String.format("010-%04d-%04d", (seq / 10_000) % 10_000, seq % 10_000);
         userRepository.save(User.create(
-                studentId, "로그인테스터", "login" + seq + "@daegu.ac.kr",
+                studentId, "로그인테스터",
                 passwordEncoder.encode(RAW_PASSWORD), UserRole.STUDENT,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", phone, LocalDateTime.now()));
         return studentId;

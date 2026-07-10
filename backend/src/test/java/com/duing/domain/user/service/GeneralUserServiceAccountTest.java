@@ -45,7 +45,6 @@ class GeneralUserServiceAccountTest {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 "기존이름",
-                "acct" + unique + "@daegu.ac.kr",
                 passwordEncoder.encode(rawPassword),
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

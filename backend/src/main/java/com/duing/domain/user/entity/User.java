@@ -29,9 +29,6 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String email;
-
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
@@ -73,7 +70,6 @@ public class User extends BaseEntity {
     private User(
             String studentId,
             String name,
-            String email,
             String passwordHash,
             UserRole role,
             Grade grade,
@@ -84,7 +80,6 @@ public class User extends BaseEntity {
     ) {
         this.studentId = studentId;
         this.name = name;
-        this.email = email;
         this.passwordHash = passwordHash;
         this.role = role;
         this.grade = grade;
@@ -97,7 +92,6 @@ public class User extends BaseEntity {
     public static User create(
             String studentId,
             String name,
-            String email,
             String passwordHash,
             UserRole role,
             Grade grade,
@@ -109,7 +103,6 @@ public class User extends BaseEntity {
         return User.builder()
                 .studentId(studentId)
                 .name(name)
-                .email(email)
                 .passwordHash(passwordHash)
                 .role(role)
                 .grade(grade)
@@ -148,7 +141,7 @@ public class User extends BaseEntity {
         this.tokenVersion += 1;
     }
 
-    /** 프로필(이름·전화번호·학년)을 수정한다. 학번·이메일은 변경 대상이 아니다. 학년은 선택값으로, null 전달 시 기존 값을 유지한다. */
+    /** 프로필(이름·전화번호·학년)을 수정한다. 학번은 변경 대상이 아니다. 학년은 선택값으로, null 전달 시 기존 값을 유지한다. */
     public void updateProfile(String name, String phone, Grade grade) {
         this.name = name;
         this.phone = phone;

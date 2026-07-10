@@ -60,7 +60,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Test
     @DisplayName("보관기간을 넘긴 soft-delete 사용자는 PII 가 비식별화되고 anonymized_at 이 기록된다")
     void anonymizesExpiredSoftDeletedUser() {
-        User user = saveUser("expired@daegu.ac.kr");
+        User user = saveUser();
         softDeleteDaysAgo("users", user.getId(), 400); // 1년(window) 초과
 
         job.run();
@@ -79,7 +79,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Test
     @DisplayName("보관기간 내(최근) soft-delete 사용자는 비식별화되지 않는다")
     void keepsRecentlyDeletedUser() {
-        User user = saveUser("recent@daegu.ac.kr");
+        User user = saveUser();
         softDeleteDaysAgo("users", user.getId(), 10);
 
         job.run();
@@ -91,7 +91,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Test
     @DisplayName("이미 익명화된 행은 재실행해도 다시 변형되지 않는다 (멱등)")
     void isIdempotentForAlreadyAnonymized() {
-        User user = saveUser("idem@daegu.ac.kr");
+        User user = saveUser();
         softDeleteDaysAgo("users", user.getId(), 400);
 
         job.run();
@@ -105,7 +105,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Test
     @DisplayName("활성(미삭제) 사용자는 보관기간과 무관하게 절대 비식별화되지 않는다")
     void neverTouchesActiveUser() {
-        User user = saveUser("active@daegu.ac.kr");
+        User user = saveUser();
         // soft-delete 하지 않음 (deleted_at IS NULL)
 
         job.run();
@@ -116,7 +116,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Test
     @DisplayName("비활성(enabled=false) 잡은 보관기간 초과 행도 건드리지 않는다")
     void noopWhenDisabled() {
-        User user = saveUser("disabled@daegu.ac.kr");
+        User user = saveUser();
         softDeleteDaysAgo("users", user.getId(), 400);
 
         PiiRetentionJob disabledJob = new PiiRetentionJob(
@@ -131,7 +131,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Test
     @DisplayName("보관기간이 0/음수로 잘못 설정되면 활성 상태여도 만료 행을 건드리지 않는다 (오설정 안전장치)")
     void noopWhenWindowNonPositive() {
-        User user = saveUser("badwindow@daegu.ac.kr");
+        User user = saveUser();
         softDeleteDaysAgo("users", user.getId(), 400);
 
         PiiRetentionJob zeroWindowJob = new PiiRetentionJob(
@@ -149,7 +149,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         Club club = saveActiveClub("보관동아리");
         Recruitment recruitment = recruitmentRepository.save(Recruitment.create(
                 club, "보관모집", null, LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
-        User applicant = saveUser("applicant@daegu.ac.kr");
+        User applicant = saveUser();
         Application application = applicationRepository.save(
                 Application.submit(recruitment, applicant,
                         List.of(new ApplicationAnswer("q1", List.of("주소·연락처 등 개인정보 답변")))));
@@ -239,11 +239,11 @@ class PiiRetentionJobTest extends IntegrationTestBase {
                 "SELECT anonymized_at FROM users WHERE id = ?", java.sql.Timestamp.class, id);
     }
 
-    private User saveUser(String email) {
+    private User saveUser() {
         long seq = sequence.incrementAndGet();
         return userRepository.save(User.create(
                 String.format("%010d", seq % 10_000_000_000L),
-                "보관테스터", email, "hashed", UserRole.STUDENT,
+                "보관테스터", "hashed", UserRole.STUDENT,
                 Grade.JUNIOR, College.IT_ENGINEERING, "컴퓨터정보공학부",
                 "010-" + String.format("%04d", seq % 10000) + "-0000", LocalDateTime.now()));
     }

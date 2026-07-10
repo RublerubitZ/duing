@@ -122,7 +122,7 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
     private void saveRegisteredUser(String phone) {
         long seq = sequence.incrementAndGet();
         userRepository.save(User.create(
-                String.valueOf(20250000 + seq), "가입자" + seq, "u" + seq + "@daegu.ac.kr", "h",
+                String.valueOf(20250000 + seq), "가입자" + seq, "h",
                 UserRole.STUDENT, Grade.JUNIOR, College.IT_ENGINEERING, "컴퓨터정보공학부",
                 phone, LocalDateTime.now()));
     }

@@ -318,7 +318,7 @@ class FederationInquiryPurgeJobTest extends IntegrationTestBase {
         long seq = sequence.incrementAndGet();
         return userRepository.save(User.create(
                 String.format("%010d", seq % 10_000_000_000L),
-                "파기테스터", "purge" + seq + "@daegu.ac.kr", "hashed", UserRole.STUDENT,
+                "파기테스터", "hashed", UserRole.STUDENT,
                 Grade.JUNIOR, College.IT_ENGINEERING, "컴퓨터정보공학부",
                 "010-" + String.format("%04d", seq % 10000) + "-0000", LocalDateTime.now()));
     }

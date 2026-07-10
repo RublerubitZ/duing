@@ -118,7 +118,6 @@ class MyApplicationsScopeTest {
         User user = User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 name,
-                "user" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

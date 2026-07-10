@@ -48,8 +48,7 @@ class ClubMemberHistoryRecorderTest {
     private User saveUser() {
         long seq = sequence.incrementAndGet();
         String studentNumber = String.format("%010d", seq % 10_000_000_000L);
-        return userRepository.save(User.create(studentNumber, "U" + seq,
-                "u" + seq + "@duing.ac.kr", "h", UserRole.STUDENT,
+        return userRepository.save(User.create(studentNumber, "U" + seq, "h", UserRole.STUDENT,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000",
                 LocalDateTime.now()));
     }

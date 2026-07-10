@@ -190,7 +190,7 @@ class LoginRateLimitAcceptanceTest extends IntegrationTestBase {
         long seq = sequence.incrementAndGet();
         String studentId = String.format("%08d", seq % 100_000_000L);
         userRepository.save(User.create(
-                studentId, "U" + seq, "u" + seq + "@daegu.ac.kr",
+                studentId, "U" + seq,
                 passwordEncoder.encode(RAW_PASSWORD), UserRole.STUDENT,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
         return studentId;
