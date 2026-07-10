@@ -1,6 +1,8 @@
 package com.duing.domain.user.controller;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.not;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -115,5 +117,18 @@ class UserProfileControllerTest extends IntegrationTestBase {
                 .then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.grade", equalTo("JUNIOR"));
+    }
+
+    @Test
+    @DisplayName("내 정보 응답에 email 필드가 더 이상 존재하지 않는다")
+    void getMeDoesNotExposeEmail() {
+        User user = saveUser(Grade.JUNIOR);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(user))
+                .when().get("/api/v1/users/me")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data", not(hasKey("email")));
     }
 }

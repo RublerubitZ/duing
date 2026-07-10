@@ -2,6 +2,7 @@ package com.duing.domain.user.controller;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 
 import com.duing.domain.user.entity.College;
@@ -82,21 +83,6 @@ class AdminUsersSearchControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("이메일 부분일치(대소문자 무시) 로 검색된다")
-    void searchByEmailContains() {
-        User target = saveUser("2024030020", "메일검색", "Findme@daegu.ac.kr", UserRole.STUDENT);
-
-        RestAssured
-                .given()
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
-                .when()
-                    .get("/api/v1/admin/users?q=findme")
-                .then()
-                    .statusCode(HttpStatus.OK.value())
-                    .body("data.content.id", hasItem(target.getId().intValue()));
-    }
-
-    @Test
     @DisplayName("응답에 passwordHash 등 민감 필드는 노출되지 않는다")
     void responseDoesNotLeakSensitiveFields() {
         saveUser("2024030030", "필드검사", "fieldcheck@daegu.ac.kr", UserRole.STUDENT);
@@ -110,7 +96,8 @@ class AdminUsersSearchControllerTest extends IntegrationTestBase {
                     .statusCode(HttpStatus.OK.value())
                     .body("data.content[0].studentId", equalTo("2024030030"))
                     .body("data.content[0]", not(hasItem("passwordHash")))
-                    .body("data.content[0]", not(hasItem("phone")));
+                    .body("data.content[0]", not(hasItem("phone")))
+                    .body("data.content[0]", not(hasKey("email")));
     }
 
     @Test

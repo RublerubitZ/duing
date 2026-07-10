@@ -69,6 +69,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
                 "SELECT name, email, student_id, phone, password_hash, major, anonymized_at FROM users WHERE id = ?",
                 user.getId());
         assertThat(row.get("name")).isEqualTo("탈퇴회원");
+        assertThat(row.get("email")).isNull();
         assertThat(row.get("student_id")).isEqualTo("anon_" + user.getId());
         assertThat(row.get("phone")).isEqualTo("010-0000-0000");
         assertThat(row.get("password_hash")).isEqualTo("");

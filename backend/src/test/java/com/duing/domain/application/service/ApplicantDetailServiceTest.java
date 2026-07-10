@@ -138,7 +138,6 @@ class ApplicantDetailServiceTest {
         assertThat(detail.applicant().userId()).isEqualTo(20L);
         assertThat(detail.applicant().name()).isEqualTo("홍길동");
         assertThat(detail.applicant().studentId()).isEqualTo("20251234");
-        assertThat(detail.applicant().email()).isEqualTo("hong@example.com");
         assertThat(detail.answers()).hasSize(2);
         assertThat(detail.answers().get(0).question()).isEqualTo("지원 동기는?");
         assertThat(detail.answers().get(0).answer()).isEqualTo("동아리에 관심이 많습니다.");

@@ -40,7 +40,7 @@ public record ApplicantDetailQuery(
         InterviewRoundBriefQuery interviewRound
 ) {
 
-    public record ApplicantInfoQuery(Long userId, String name, String studentId, String email,
+    public record ApplicantInfoQuery(Long userId, String name, String studentId,
                                      College college, String major, Grade grade, String phone) {}
 
     public record QuestionAnswerQuery(String question, String answer) {}
@@ -138,7 +138,6 @@ public record ApplicantDetailQuery(
                 applicationUser.getId(),
                 applicationUser.getName(),
                 applicationUser.getStudentId(),
-                applicationUser.getEmail(),
                 applicationUser.getCollege(),
                 applicationUser.getMajor(),
                 applicationUser.getGrade(),

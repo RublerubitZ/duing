@@ -41,28 +41,28 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * ADMIN 사용자 검색.
-     * studentId 가 q 로 시작하거나, name 또는 email 이 q 를 포함(대소문자 무시)할 때 매치.
+     * studentId 가 q 로 시작하거나, name 이 q 를 포함(대소문자 무시)할 때 매치.
      * 입력은 trim 된 비어있지 않은 문자열을 가정한다 (서비스 레벨에서 검증).
      */
     @Query("""
             SELECT u FROM User u
             WHERE u.studentId LIKE CONCAT(:q, '%')
                OR LOWER(u.name) LIKE LOWER(CONCAT('%', :q, '%'))
-               OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%'))
             """)
     Page<User> searchForAdmin(@Param("q") String q, Pageable pageable);
 
     /**
      * 보관기간(cutoff)을 넘겨 soft-delete 된 사용자의 PII 컬럼을 비식별화한다(이미 익명화된 행은 제외 — 멱등).
-     * email/student_id 는 partial unique 보존을 위해 id 파생값으로, phone 은 CHECK 제약을 만족하는
-     * placeholder('010-0000-0000')로 둔다. 대상이 soft-delete 행이라 @SQLRestriction 을 우회하려 nativeQuery.
+     * student_id 는 partial unique 보존을 위해 id 파생값으로, phone 은 CHECK 제약을 만족하는
+     * placeholder('010-0000-0000')로 둔다. email 은 전환기 레거시 값 파기를 위해 NULL 로 지운다(컬럼 drop 은 PR5).
+     * 대상이 soft-delete 행이라 @SQLRestriction 을 우회하려 nativeQuery.
      */
     @Modifying(clearAutomatically = true)
     @Query(value = """
             UPDATE users SET
                 student_id = LEFT(CONCAT('anon_', id), 20),
                 name = '탈퇴회원',
-                email = CONCAT('deleted+', id, '@anonymized.invalid'),
+                email = NULL,
                 password_hash = '',
                 major = '',
                 phone = '010-0000-0000',

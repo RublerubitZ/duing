@@ -226,7 +226,7 @@ public class GeneralUserService implements UserService {
     // 관리자 사용자 검색에서 정렬 가능한 필드. 클라이언트 sort 가 JPQL @Query 의 ORDER BY 로 그대로
     // 들어가므로, 허용 목록 밖 속성은 SortWhitelist 가 400 으로 거부한다(임의 필드 정렬·오류 쿼리 차단).
     private static final Set<String> ALLOWED_ADMIN_USER_SORT =
-            Set.of("studentId", "name", "email", "createdAt");
+            Set.of("studentId", "name", "createdAt");
 
     @Override
     public Page<UserSearchResultQuery> searchForAdmin(String query, Pageable pageable) {
