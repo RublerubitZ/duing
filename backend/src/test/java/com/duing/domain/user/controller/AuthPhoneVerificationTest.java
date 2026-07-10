@@ -337,6 +337,22 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("옥토모 장애 중의 폴링은 PENDING 을 유지하고 일일 쿼터를 소진하지 않는다 — 복구 후 정상 인증")
+    void providerOutageDoesNotDrainDailyQuota() {
+        IssuedSession session = issue(PHONE);
+        stubMoClient.failExists(true);
+
+        assertThat(getStatus(session.token())).isEqualTo("PENDING");
+        // 예약했던 쿼터가 실패 경로에서 반환됐다 — 장애가 하루 예산을 태우지 않는다.
+        assertThat(moPollThrottle.consumedDailyCalls()).isZero();
+
+        stubMoClient.failExists(false);
+        registerInbound(PHONE, session.code());
+        assertThat(getStatusAfterThrottleReset(session.token())).isEqualTo("VERIFIED");
+        assertThat(moPollThrottle.consumedDailyCalls()).isEqualTo(1); // 성공 콜만 소비된다.
+    }
+
+    @Test
     @DisplayName("같은 번호의 동시 발급 요청은 한 건만 성공하고 나머지는 쿨다운(429)으로 수렴한다 — 세션 행 1개 보장")
     void concurrentIssueCreatesSingleSession() throws InterruptedException {
         int threadCount = 5;

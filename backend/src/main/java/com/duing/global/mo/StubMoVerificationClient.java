@@ -26,6 +26,7 @@ public class StubMoVerificationClient implements MoVerificationClient {
     private final long autoVerifyAfterSeconds;
     private final Set<String> inboundMessages = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<String, LocalDateTime> firstQueriedAt = new ConcurrentHashMap<>();
+    private volatile boolean failExists;
 
     public StubMoVerificationClient(
             @Value("${mo.stub.auto-verify-after-seconds:0}") long autoVerifyAfterSeconds) {
@@ -38,6 +39,9 @@ public class StubMoVerificationClient implements MoVerificationClient {
 
     @Override
     public boolean messageExists(String mobileNum, String text, int withinMinutes) {
+        if (failExists) {
+            throw new MoProviderException("스텁 장애 시뮬레이션", null);
+        }
         String messageKey = key(mobileNum, text);
         if (inboundMessages.contains(messageKey)) {
             return true;
@@ -59,10 +63,16 @@ public class StubMoVerificationClient implements MoVerificationClient {
         inboundMessages.add(key(mobileNum, text));
     }
 
-    /** 테스트 전용 — 등록된 수신·최초 조회 기록 초기화. */
+    /** 테스트 전용 — exists 조회가 벤더 장애(MoProviderException)를 던지도록 전환한다. */
+    public void failExists(boolean fail) {
+        this.failExists = fail;
+    }
+
+    /** 테스트 전용 — 등록된 수신·최초 조회 기록·장애 모드 초기화. */
     public void clear() {
         inboundMessages.clear();
         firstQueriedAt.clear();
+        failExists = false;
     }
 
     private String key(String mobileNum, String text) {

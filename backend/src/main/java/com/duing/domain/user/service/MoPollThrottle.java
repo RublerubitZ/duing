@@ -15,8 +15,10 @@ import org.springframework.stereotype.Component;
  * 다중 탭·과폴링이 Octomo 콜로 증폭되는 것을 막는다. ② 전역 일일 상한 1,000콜: 폭주·루프 버그로부터
  * Free 쿼터(월 1만 콜)를 보호하는 안전판 — 초과 시 503 이며 로그(ERROR→Sentry)로 Pro 전환을 판단한다.
  *
- * <p>실패한 호출도 쿼터를 소비한 것으로 둔다(반환 없음) — "보호" 목적상 과대 계상이 안전한 방향이다.
- * 완료·만료 세션의 간격 엔트리 정리와 멀티 인스턴스 대응(Redis)은 백로그다 (spec §11.1).
+ * <p>벤더 호출이 실패하면 호출부가 {@link #releaseDailyQuota} 로 쿼터를 반환한다 — Octomo 장애가
+ * 하루 예산을 태워 복구 후에도 503 이 지속되는 자기 소진을 막는다. 간격 기록은 토큰 키공간이 무한해
+ * 임계 초과 시 오래된 엔트리를 지연 정리한다(무한 누적 방지). 멀티 인스턴스 대응(Redis)은 백로그다
+ * (spec §11.1).
  */
 @Slf4j
 @Component
@@ -24,6 +26,9 @@ public class MoPollThrottle {
 
     static final Duration MIN_POLL_INTERVAL = Duration.ofMillis(2500);
     static final int DAILY_CALL_LIMIT = 1_000;
+    /** 간격 엔트리 지연 정리 임계 — PENDING 세션은 최대 5분이라 10분 지난 엔트리는 확실히 무의미하다. */
+    static final int TOKEN_SWEEP_THRESHOLD = 10_000;
+    static final Duration TOKEN_ENTRY_RETENTION = Duration.ofMinutes(10);
 
     private final ConcurrentHashMap<String, LocalDateTime> lastPolledAtByToken = new ConcurrentHashMap<>();
     private LocalDate quotaDate;
@@ -36,6 +41,7 @@ public class MoPollThrottle {
      * 소비하면 안 된다.
      */
     public boolean tryAcquire(String token, LocalDateTime now) {
+        sweepStaleTokenEntries(now);
         boolean[] acquired = {false};
         lastPolledAtByToken.compute(token, (key, lastPolledAt) -> {
             if (lastPolledAt == null || !now.isBefore(lastPolledAt.plus(MIN_POLL_INTERVAL))) {
@@ -71,6 +77,38 @@ public class MoPollThrottle {
             throw new PhoneVerificationException.SmsPollQuotaExceededException();
         }
         dailyCallCount++;
+    }
+
+    /**
+     * 예약한 쿼터 1건을 반환한다 — 벤더 호출 실패 시 호출부가 보상한다. 장애가 반복돼도 하루 예산이
+     * 소진되지 않아, 벤더 복구 후 정상 인증이 그날 내내 503 으로 막히는 자기 소진을 방지한다
+     * (EmailVerificationRateLimiter.releaseGlobalQuota 와 동일 패턴). 예약과 같은 날짜에만 반환한다.
+     */
+    public synchronized void releaseDailyQuota(LocalDateTime now) {
+        if (quotaDate != null && quotaDate.equals(now.toLocalDate()) && dailyCallCount > 0) {
+            dailyCallCount--;
+        }
+    }
+
+    /**
+     * 간격 엔트리 지연 정리 — 토큰은 무한 생성 가능하므로(발급 permitAll) 임계 초과 시에만 O(n) 청소한다.
+     * removeIf 는 ConcurrentHashMap 에서 동시성 안전(weakly consistent)하다.
+     */
+    private void sweepStaleTokenEntries(LocalDateTime now) {
+        if (lastPolledAtByToken.size() > TOKEN_SWEEP_THRESHOLD) {
+            LocalDateTime cutoff = now.minus(TOKEN_ENTRY_RETENTION);
+            lastPolledAtByToken.entrySet().removeIf(entry -> entry.getValue().isBefore(cutoff));
+        }
+    }
+
+    /** 테스트 전용 — 오늘 소비된 일일 쿼터 수. 프로덕션 호출 금지. */
+    public synchronized int consumedDailyCalls() {
+        return dailyCallCount;
+    }
+
+    /** 테스트 전용 — 현재 추적 중인 토큰 간격 엔트리 수. */
+    int trackedTokenCount() {
+        return lastPolledAtByToken.size();
     }
 
     /** 테스트 전용 — 간격 기록·일일 카운터 초기화. 프로덕션 호출 금지. */

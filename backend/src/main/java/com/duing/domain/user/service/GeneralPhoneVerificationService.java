@@ -100,7 +100,7 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
                 && moPollThrottle.tryAcquire(verificationToken, now)) {
             moPollThrottle.reserveDailyQuota(now);
             // 외부 콜은 트랜잭션·커넥션 미점유 상태에서 수행한다.
-            if (inboundMessageArrived(phoneVerification)) {
+            if (inboundMessageArrived(phoneVerification, now)) {
                 // 확정은 신선한 영속성 컨텍스트의 행잠금 트랜잭션에서 — 멱등 가드가 stale 없이 동작한다.
                 return sessionManager.confirmIfPending(verificationToken, clientIp, userAgent);
             }
@@ -111,15 +111,17 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
                 PhoneMasker.mask(phoneVerification.getPhone()));
     }
 
-    private boolean inboundMessageArrived(PhoneVerification phoneVerification) {
+    private boolean inboundMessageArrived(PhoneVerification phoneVerification, LocalDateTime now) {
         // Octomo 는 하이픈 없는 숫자 형식(공식 샘플 예시 기준) — 저장 형식(010-XXXX-XXXX)에서 정규화한다.
         String mobileNum = phoneVerification.getPhone().replace("-", "");
         String code = codeDeriver.deriveCode(phoneVerification.getToken());
         try {
             return moVerificationClient.messageExists(mobileNum, code, EXISTS_WITHIN_MINUTES);
         } catch (MoProviderException providerFailure) {
-            // 조회는 부작용이 없어 다음 폴링이 자연 재시도한다 — PENDING 유지. ERROR 는 Sentry 이벤트가
+            // 조회는 부작용이 없어 다음 폴링이 자연 재시도한다 — PENDING 유지. 실패 콜의 쿼터는 반환해
+            // 벤더 장애가 하루 예산을 소진(복구 후에도 종일 503)하지 않게 한다. ERROR 는 Sentry 이벤트가
             // 되므로 벤더 응답 바디가 섞일 수 있는 예외 체인은 싣지 않는다(어댑터 로깅 정책과 동일).
+            moPollThrottle.releaseDailyQuota(now);
             log.error("Octomo 수신 조회 실패 — PENDING 을 유지한다. reason={}", providerFailure.getMessage());
             return false;
         }

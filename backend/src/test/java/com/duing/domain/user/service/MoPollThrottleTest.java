@@ -81,6 +81,49 @@ class MoPollThrottleTest {
     }
 
     @Test
+    @DisplayName("실패한 벤더 호출의 쿼터는 반환된다 — 같은 날짜에만 유효하다")
+    void releaseDailyQuotaRefundsSameDayOnly() {
+        for (int call = 0; call < MoPollThrottle.DAILY_CALL_LIMIT; call++) {
+            pollThrottle.reserveDailyQuota(NOW);
+        }
+        assertThatThrownBy(() -> pollThrottle.reserveDailyQuota(NOW))
+                .isInstanceOf(PhoneVerificationException.SmsPollQuotaExceededException.class);
+
+        pollThrottle.releaseDailyQuota(NOW);
+        assertThatCode(() -> pollThrottle.reserveDailyQuota(NOW)).doesNotThrowAnyException();
+
+        // 다른 날짜의 반환은 현재 카운터에 영향을 주지 않는다 — 다시 만석이라 초과는 거절.
+        pollThrottle.releaseDailyQuota(NOW.minusDays(1));
+        assertThatThrownBy(() -> pollThrottle.reserveDailyQuota(NOW))
+                .isInstanceOf(PhoneVerificationException.SmsPollQuotaExceededException.class);
+    }
+
+    @Test
+    @DisplayName("예약 없이 반환해도 카운터가 음수가 되어 상한이 늘어나지 않는다")
+    void releaseWithoutReserveDoesNotExtendLimit() {
+        pollThrottle.releaseDailyQuota(NOW); // 카운터 미가동 상태 — 무시돼야 한다.
+        for (int call = 0; call < MoPollThrottle.DAILY_CALL_LIMIT; call++) {
+            pollThrottle.reserveDailyQuota(NOW);
+        }
+        assertThatThrownBy(() -> pollThrottle.reserveDailyQuota(NOW))
+                .isInstanceOf(PhoneVerificationException.SmsPollQuotaExceededException.class);
+    }
+
+    @Test
+    @DisplayName("추적 토큰이 임계를 넘으면 오래된 간격 엔트리를 지연 정리한다 — 무한 누적 방지")
+    void sweepEvictsStaleTokenEntries() {
+        for (int index = 0; index <= MoPollThrottle.TOKEN_SWEEP_THRESHOLD; index++) {
+            pollThrottle.tryAcquire("stale-" + index, NOW);
+        }
+        assertThat(pollThrottle.trackedTokenCount()).isGreaterThan(MoPollThrottle.TOKEN_SWEEP_THRESHOLD);
+
+        // 보존 기간을 넘긴 시점의 새 폴링이 정리를 트리거한다 — 오래된 엔트리는 전부 제거되고 새 것만 남는다.
+        pollThrottle.tryAcquire("fresh", NOW.plus(MoPollThrottle.TOKEN_ENTRY_RETENTION).plusSeconds(1));
+
+        assertThat(pollThrottle.trackedTokenCount()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("reset 은 간격 기록과 일일 카운터를 모두 초기화한다 (통합 테스트 격리용)")
     void resetClearsState() {
         pollThrottle.tryAcquire(TOKEN, NOW);
