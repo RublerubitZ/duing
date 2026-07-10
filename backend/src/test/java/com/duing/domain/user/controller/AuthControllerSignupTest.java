@@ -246,6 +246,17 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("약관 동의 필드를 아예 보내지 않아도 400 을 반환한다(null 우회 차단)")
+    void signupRejectsWhenConsentFieldOmitted() {
+        Map<String, Object> body = new HashMap<>(validBody(prepareVerifiedPhone("010-1234-5678")));
+        body.remove("termsOfServiceAgreed");
+
+        given().contentType(ContentType.JSON).body(body)
+                .when().post("/api/v1/auth/signup")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("비밀번호가 영문만으로 구성되면 400 을 반환한다")
     void signupRejectsWeakPasswordAlphaOnly() {
         Map<String, Object> body = new HashMap<>(validBody(prepareVerifiedPhone("010-1234-5678")));

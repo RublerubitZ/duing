@@ -17,7 +17,7 @@ public class UserException extends ApplicationException {
         }
     }
 
-    // 이메일/학번/전화번호 중 무엇이 중복인지 응답으로 드러내지 않는 단일 예외 — 회원가입 응답으로
+    // 학번/전화번호 중 무엇이 중복인지 응답으로 드러내지 않는 단일 예외 — 회원가입 응답으로
     // 특정 값의 가입 여부를 알아내는 계정 열거(account enumeration)를 막는다.
     public static class DuplicateAccountException extends UserException {
         private static final String MESSAGE = "이미 가입된 정보가 있습니다. 입력 내용을 다시 확인해주세요.";

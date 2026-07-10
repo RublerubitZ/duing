@@ -3,6 +3,7 @@ package com.duing.domain.user.controller;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -81,7 +82,8 @@ class AuthStudentIdLoginTest extends IntegrationTestBase {
                 .body(Map.of("studentId", "99999999", "password", RAW_PASSWORD))
                 .when().post("/api/v1/auth/login")
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value())
-                .body("message", equalTo("학번 또는 비밀번호가 올바르지 않습니다."));
+                .body("message", equalTo("학번 또는 비밀번호가 올바르지 않습니다."))
+                .body("code", nullValue());
     }
 
     @Test

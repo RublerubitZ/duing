@@ -40,9 +40,11 @@ public record SignupRequest(
         @Size(max = 36, message = "휴대폰 인증 정보가 올바르지 않습니다.")
         String verificationToken,
 
+        @NotNull(message = "이용약관에 동의해야 합니다.")
         @AssertTrue(message = "이용약관에 동의해야 합니다.")
         Boolean termsOfServiceAgreed,
 
+        @NotNull(message = "개인정보 수집·이용에 동의해야 합니다.")
         @AssertTrue(message = "개인정보 수집·이용에 동의해야 합니다.")
         Boolean privacyPolicyAgreed
 ) {

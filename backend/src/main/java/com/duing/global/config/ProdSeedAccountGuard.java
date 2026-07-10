@@ -32,8 +32,8 @@ public class ProdSeedAccountGuard {
     private static final String DEV_SEED_LOCATION_MARKER = "migration-dev";
 
     // V12__seed_test_accounts_and_clubs.sql 이 심는 계정의 공개 테스트 비밀번호 해시(시크릿 아님 —
-    // 평문 student123!/leader123!/admin123! 가 같은 파일 주석에 공개돼 있다). 이메일이 아니라 이 해시로
-    // 식별하므로, 실제 학생이 우연히 같은 이메일(예: admin@daegu.ac.kr)로 가입해도 오탐(부팅 차단)하지 않는다.
+    // 평문 student123!/leader123!/admin123! 가 같은 파일 주석에 공개돼 있다). 학번이 아니라 이 해시로
+    // 식별하므로, 실제 학생이 입학연도 우연의 일치로 같은 학번(예: 20250003)을 배정받아도 오탐(부팅 차단)하지 않는다.
     private static final List<String> SEED_ACCOUNT_PASSWORD_HASHES = List.of(
             "$2b$10$S1UDKlLy5TTKzI3DUe2uRuL.W2DT//TUnGs3Fmzo6fs3OKXRuYZD.",
             "$2b$10$8tArhzMmdVhfhvpGSzs1VeK56.UCDy0ezm/KzuLAIcTRamE2XePnG",

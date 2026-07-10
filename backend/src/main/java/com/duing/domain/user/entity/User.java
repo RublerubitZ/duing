@@ -141,9 +141,13 @@ public class User extends BaseEntity {
         this.tokenVersion += 1;
     }
 
-    /** 프로필(이름·전화번호·학년)을 수정한다. 학번은 변경 대상이 아니다. 학년은 선택값으로, null 전달 시 기존 값을 유지한다. */
+    /** 프로필(이름·전화번호·학년)을 수정한다. 학번은 변경 대상이 아니다. 학년은 선택값으로, null 전달 시 기존 값을 유지한다.
+     *  전화번호가 실제로 바뀌면 MO 인증 시각을 무효화한다 — 미인증 번호가 인증된 것처럼 남지 않게 (재인증 도입은 PR4). */
     public void updateProfile(String name, String phone, Grade grade) {
         this.name = name;
+        if (!phone.equals(this.phone)) {
+            this.phoneVerifiedAt = null;   // 무인증 자유 수정(전환기) — 새 번호는 미인증 상태로 강등
+        }
         this.phone = phone;
         if (grade != null) {       // 학년은 선택 — 전달되지 않으면(null) 기존 값을 유지한다
             this.grade = grade;
@@ -160,5 +164,3 @@ public class User extends BaseEntity {
         this.phoneVerifiedAt = verifiedAt;
     }
 }
-
-
