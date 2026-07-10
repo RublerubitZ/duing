@@ -53,6 +53,10 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 13)
     private String phone;
 
+    /** MO 인증 완료 시각 — null 은 전환 이전 자기신고 번호(미인증). 운영 구분·소급 인증 유도 근거 (spec §9.1). */
+    @Column(name = "phone_verified_at")
+    private LocalDateTime phoneVerifiedAt;
+
     @Column(name = "terms_agreed_at", nullable = false)
     private LocalDateTime termsAgreedAt;
 
@@ -157,4 +161,10 @@ public class User extends BaseEntity {
     public void changePassword(String newPasswordHash) {
         this.passwordHash = newPasswordHash;
     }
+
+    /** 현재 phone 이 MO 인증을 통과한 번호임을 확정한다 — signup(및 PR4 번호 변경)에서만 호출한다. */
+    public void markPhoneVerified(LocalDateTime verifiedAt) {
+        this.phoneVerifiedAt = verifiedAt;
+    }
 }
+
