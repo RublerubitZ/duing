@@ -84,7 +84,7 @@ public class MoPollThrottle {
     /**
      * 예약한 쿼터 1건을 반환한다 — 벤더 호출 실패 시 호출부가 보상한다. 장애가 반복돼도 하루 예산이
      * 소진되지 않아, 벤더 복구 후 정상 인증이 그날 내내 503 으로 막히는 자기 소진을 방지한다
-     * (EmailVerificationRateLimiter.releaseGlobalQuota 와 동일 패턴). 예약과 같은 날짜에만 반환한다.
+     * (구 이메일 인증 리미터의 releaseGlobalQuota 에서 온 패턴). 예약과 같은 날짜에만 반환한다.
      */
     public synchronized void releaseDailyQuota(LocalDateTime now) {
         if (quotaDate != null && quotaDate.equals(now.toLocalDate()) && dailyCallCount > 0) {

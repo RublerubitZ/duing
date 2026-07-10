@@ -25,7 +25,6 @@ public class PhoneVerificationException extends ApplicationException {
         }
     }
 
-    /** 코드 문자열은 이메일 인증과 공유하지만 클래스는 분리한다 — PR2 에서 EmailVerificationException 이 삭제된다. */
     public static class VerificationRateLimitedException extends PhoneVerificationException {
         private static final String MESSAGE = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
 

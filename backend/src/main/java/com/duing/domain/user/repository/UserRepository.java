@@ -16,18 +16,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    Optional<User> findByEmail(String email);
-
     // 총동연 문의 접수 알림 수신자 조회 — ADMIN 은 극소수라 별도 페이징 없이 전체 조회.
     List<User> findAllByRole(UserRole role);
-
-    /**
-     * 로그인 실패 카운터 증가의 동시성 보호를 위해 사용자 행을 잠그고 조회한다.
-     * 같은 계정에 대한 동시 로그인 시도가 실패 카운터를 덮어써 잠금을 무력화하는 것을 막는다.
-     */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT u FROM User u WHERE u.email = :email")
-    Optional<User> findByEmailForUpdate(@Param("email") String email);
 
     /**
      * 로그인 실패 카운터 증가의 동시성 보호를 위해 사용자 행을 잠그고 조회한다.
@@ -44,8 +34,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.id = :id")
     Optional<User> findByIdForUpdate(@Param("id") Long id);
-
-    boolean existsByEmail(String email);
 
     boolean existsByStudentId(String studentId);
 

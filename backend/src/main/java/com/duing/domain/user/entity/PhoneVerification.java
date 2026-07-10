@@ -105,7 +105,7 @@ public class PhoneVerification {
 
     /**
      * 인증 완료를 기록만 한다 — 만료·PENDING 여부 판정은 호출자(서비스)가 {@link #status} 로 선확인한다.
-     * (EmailVerification.verify 와 달리 판정 없는 기록임을 이름으로 드러내려 markVerified 로 명명)
+     * (판정 없는 단순 기록임을 이름으로 드러내려 markVerified 로 명명)
      */
     public void markVerified(LocalDateTime now) {
         this.verifiedAt = now;
@@ -115,7 +115,7 @@ public class PhoneVerification {
         return verifiedAt != null;
     }
 
-    /** 만료 시각 "부터" 만료로 본다 (now >= expiresAt) — EmailVerification 경계 규칙 계승. */
+    /** 만료 시각 "부터" 만료로 본다 (now >= expiresAt). */
     public boolean isExpired(LocalDateTime now) {
         return !now.isBefore(expiresAt);
     }

@@ -14,14 +14,12 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.College;
-import com.duing.domain.user.entity.EmailVerification;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.PhoneVerificationEvent;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.entity.VerificationPurpose;
-import com.duing.domain.user.repository.EmailVerificationRepository;
 import com.duing.domain.user.repository.PhoneVerificationEventRepository;
 import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
@@ -50,7 +48,6 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Autowired PiiRetentionJob job;
     @Autowired UserRepository userRepository;
     @Autowired ApplicationRepository applicationRepository;
-    @Autowired EmailVerificationRepository emailVerificationRepository;
     @Autowired PhoneVerificationRepository phoneVerificationRepository;
     @Autowired PhoneVerificationEventRepository phoneVerificationEventRepository;
     @Autowired ClubRepository clubRepository;
@@ -72,7 +69,6 @@ class PiiRetentionJobTest extends IntegrationTestBase {
                 "SELECT name, email, student_id, phone, password_hash, major, anonymized_at FROM users WHERE id = ?",
                 user.getId());
         assertThat(row.get("name")).isEqualTo("탈퇴회원");
-        assertThat(row.get("email")).isEqualTo("deleted+" + user.getId() + "@anonymized.invalid");
         assertThat(row.get("student_id")).isEqualTo("anon_" + user.getId());
         assertThat(row.get("phone")).isEqualTo("010-0000-0000");
         assertThat(row.get("password_hash")).isEqualTo("");
@@ -87,10 +83,8 @@ class PiiRetentionJobTest extends IntegrationTestBase {
 
         job.run();
 
-        Map<String, Object> row = jdbcTemplate.queryForMap(
-                "SELECT email, anonymized_at FROM users WHERE id = ?", user.getId());
-        assertThat(row.get("email")).isEqualTo("recent@daegu.ac.kr");
-        assertThat(row.get("anonymized_at")).isNull();
+        assertThat(userAnonymizedAt(user.getId())).isNull();
+        assertThat(userName(user.getId())).isEqualTo("보관테스터");
     }
 
     @Test
@@ -100,11 +94,11 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         softDeleteDaysAgo("users", user.getId(), 400);
 
         job.run();
-        String firstEmail = userEmail(user.getId());
+        java.sql.Timestamp firstAnonymizedAt = userAnonymizedAt(user.getId());
         job.run();
-        String secondEmail = userEmail(user.getId());
+        java.sql.Timestamp secondAnonymizedAt = userAnonymizedAt(user.getId());
 
-        assertThat(secondEmail).isEqualTo(firstEmail); // anonymized_at 가드로 이중 변형 없음
+        assertThat(secondAnonymizedAt).isEqualTo(firstAnonymizedAt); // anonymized_at 가드로 이중 변형 없음
     }
 
     @Test
@@ -115,7 +109,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
 
         job.run();
 
-        assertThat(userEmail(user.getId())).isEqualTo("active@daegu.ac.kr");
+        assertThat(userAnonymizedAt(user.getId())).isNull();
     }
 
     @Test
@@ -126,11 +120,11 @@ class PiiRetentionJobTest extends IntegrationTestBase {
 
         PiiRetentionJob disabledJob = new PiiRetentionJob(
                 new RetentionProperties(false, Period.ofYears(1)),
-                clock, userRepository, applicationRepository, emailVerificationRepository,
+                clock, userRepository, applicationRepository,
                 phoneVerificationRepository, phoneVerificationEventRepository);
         disabledJob.run();
 
-        assertThat(userEmail(user.getId())).isEqualTo("disabled@daegu.ac.kr");
+        assertThat(userAnonymizedAt(user.getId())).isNull();
     }
 
     @Test
@@ -141,11 +135,11 @@ class PiiRetentionJobTest extends IntegrationTestBase {
 
         PiiRetentionJob zeroWindowJob = new PiiRetentionJob(
                 new RetentionProperties(true, Period.ZERO),
-                clock, userRepository, applicationRepository, emailVerificationRepository,
+                clock, userRepository, applicationRepository,
                 phoneVerificationRepository, phoneVerificationEventRepository);
         zeroWindowJob.run();
 
-        assertThat(userEmail(user.getId())).isEqualTo("badwindow@daegu.ac.kr");
+        assertThat(userAnonymizedAt(user.getId())).isNull();
     }
 
     @Test
@@ -165,22 +159,6 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         String answers = jdbcTemplate.queryForObject(
                 "SELECT answers::text FROM application WHERE id = ?", String.class, application.getId());
         assertThat(answers).isEqualTo("[]");
-    }
-
-    @Test
-    @DisplayName("보관기간을 넘긴 email_verifications 행은 물리 삭제된다")
-    void deletesExpiredEmailVerifications() {
-        EmailVerification verification = emailVerificationRepository.save(
-                EmailVerification.issue("oldcode@daegu.ac.kr", "x".repeat(64), LocalDateTime.now()));
-        jdbcTemplate.update(
-                "UPDATE email_verifications SET created_at = NOW() - (400 * INTERVAL '1 day') WHERE id = ?",
-                verification.getId());
-
-        job.run();
-
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM email_verifications WHERE id = ?", Integer.class, verification.getId());
-        assertThat(count).isZero();
     }
 
     @Test
@@ -251,8 +229,13 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         assertThat(phoneVerificationEventRepository.findById(event.getId())).isPresent();
     }
 
-    private String userEmail(Long id) {
-        return jdbcTemplate.queryForObject("SELECT email FROM users WHERE id = ?", String.class, id);
+    private String userName(Long id) {
+        return jdbcTemplate.queryForObject("SELECT name FROM users WHERE id = ?", String.class, id);
+    }
+
+    private java.sql.Timestamp userAnonymizedAt(Long id) {
+        return jdbcTemplate.queryForObject(
+                "SELECT anonymized_at FROM users WHERE id = ?", java.sql.Timestamp.class, id);
     }
 
     private User saveUser(String email) {

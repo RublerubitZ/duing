@@ -8,7 +8,6 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.domain.user.service.EmailVerificationService;
 import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
 import com.duing.domain.user.service.dto.command.ForceLogoutCommand;
 import com.duing.domain.user.service.dto.command.LoginCommand;
@@ -41,7 +40,6 @@ public class GeneralUserService implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final EmailVerificationService emailVerificationService;
     private final LoginAttemptRateLimiter loginAttemptRateLimiter;
     private final ClubMemberRepository clubMemberRepository;
     private final PhoneVerificationSessionManager phoneVerificationSessionManager;
