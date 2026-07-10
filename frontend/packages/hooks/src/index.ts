@@ -7,8 +7,6 @@ export {
   useUpdateProfileMutation,
   useChangePasswordMutation,
   useWithdrawAccountMutation,
-  useSendEmailVerificationMutation,
-  useConfirmEmailVerificationMutation,
   useStartPhoneVerificationMutation,
   usePhoneVerificationStatusQuery,
 } from './auth';

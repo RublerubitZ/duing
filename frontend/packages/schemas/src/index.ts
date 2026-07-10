@@ -26,20 +26,6 @@ const COLLEGE_VALUES = [
   'FREE_MAJOR',
 ] as const;
 
-export const schoolEmailSchema = z
-  .string()
-  .min(1, '이메일은 필수 입력값입니다.')
-  .email('올바른 이메일 형식이 아닙니다.')
-  .max(100, '이메일은 100자 이하여야 합니다.')
-  .regex(
-    /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*daegu\.ac\.kr$/,
-    '대구대학교 이메일(@daegu.ac.kr)만 사용할 수 있습니다.',
-  );
-
-export const verificationCodeSchema = z
-  .string()
-  .regex(/^\d{6}$/, '인증코드는 6자리 숫자입니다.');
-
 export const signupSchema = z.object({
   studentId: z
     .string()

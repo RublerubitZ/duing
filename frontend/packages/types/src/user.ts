@@ -119,20 +119,6 @@ export type LoginResult = {
   user: User;
 };
 
-export type SendEmailVerificationPayload = {
-  email: string;
-};
-
-export type ConfirmEmailVerificationPayload = {
-  email: string;
-  code: string;
-};
-
-export type EmailVerificationResult = {
-  expiresAt: string;
-  expiresInSeconds: number;
-};
-
 export type StartPhoneVerificationPayload = {
   phone: string;
 };

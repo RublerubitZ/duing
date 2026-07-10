@@ -2,9 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@duing/stores';
 import type {
   ChangePasswordPayload,
-  ConfirmEmailVerificationPayload,
   LoginPayload,
-  SendEmailVerificationPayload,
   SignupPayload,
   StartPhoneVerificationPayload,
   UpdateProfilePayload,
@@ -82,22 +80,6 @@ export function useWithdrawAccountMutation() {
   const client = useApiClient();
   return useMutation({
     mutationFn: () => client.users.withdraw(),
-  });
-}
-
-export function useSendEmailVerificationMutation() {
-  const client = useApiClient();
-  return useMutation({
-    mutationFn: (payload: SendEmailVerificationPayload) =>
-      client.auth.sendEmailVerification(payload),
-  });
-}
-
-export function useConfirmEmailVerificationMutation() {
-  const client = useApiClient();
-  return useMutation({
-    mutationFn: (payload: ConfirmEmailVerificationPayload) =>
-      client.auth.confirmEmailVerification(payload),
   });
 }
 
