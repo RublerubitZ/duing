@@ -16,9 +16,11 @@ type Props = {
   issuing: boolean;
   canIssue: boolean;
   errorMessage: string | null;
+  stalled: boolean;
   onIssue: (includeQr: boolean) => void;
   onSent: () => void;
   onReset: () => void;
+  onRecheck: () => void;
 };
 
 /** moNumber(8자리 숫자 문자열)를 "1666-3538" 형태로 표시한다. 형식이 다르면 원본을 그대로 보여준다. */
@@ -39,9 +41,11 @@ export function PhoneVerificationField({
   issuing,
   canIssue,
   errorMessage,
+  stalled,
   onIssue,
   onSent,
   onReset,
+  onRecheck,
 }: Props) {
   const isMobile = typeof navigator !== 'undefined' && isMobileUserAgent(navigator.userAgent);
   const isIos = typeof navigator !== 'undefined' && isIosUserAgent(navigator.userAgent);
@@ -145,11 +149,21 @@ export function PhoneVerificationField({
             메시지를 수정 없이 그대로 보내주세요 · 요금제에 따라 문자 요금이 발생할 수 있어요
           </p>
 
-          {status === 'waiting' && (
-            <p className="mt-1.5 text-xs text-charcoal-3" aria-live="polite">
-              확인 중…
-            </p>
-          )}
+          {status === 'waiting' &&
+            (stalled ? (
+              <>
+                <p className="mt-1.5 text-xs text-coral" aria-live="polite">
+                  아직 확인되지 않았어요. 문자에 코드만 담아 그대로 보냈는지 확인하고, 문자 도착 후 아래 [지금 확인]을 누르거나, 계속 안 되면 재발급하세요.
+                </p>
+                <button type="button" onClick={onRecheck} className="btn btn-sm mt-2">
+                  지금 확인
+                </button>
+              </>
+            ) : (
+              <p className="mt-1.5 text-xs text-charcoal-3" aria-live="polite">
+                확인 중…
+              </p>
+            ))}
         </div>
       )}
 

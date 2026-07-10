@@ -173,9 +173,11 @@ export function SignupFormPanel() {
               issuing={phoneVerification.issuing}
               canIssue={phoneVerification.canIssue}
               errorMessage={phoneVerification.errorMessage}
+              stalled={phoneVerification.stalled}
               onIssue={phoneVerification.issue}
               onSent={phoneVerification.markSent}
               onReset={phoneVerification.reset}
+              onRecheck={phoneVerification.recheck}
             />
 
             {/* Password + Password Confirm */}

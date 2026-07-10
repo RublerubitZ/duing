@@ -11,6 +11,7 @@ import { RESEND_COOLDOWN_SECONDS, mapIssueError, mapStatusError } from './phone-
 export type PhoneVerificationFieldStatus = 'idle' | 'issued' | 'waiting' | 'verified' | 'expired';
 
 const PHONE_PATTERN = /^010-\d{4}-\d{4}$/;
+const WAITING_STALL_SECONDS = 40;
 
 /**
  * 회원가입 휴대폰 MO 인증 상태 머신.
@@ -26,6 +27,7 @@ export function usePhoneVerification(phone: string) {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [waitingSeconds, setWaitingSeconds] = useState(0);
 
   const previousPhoneRef = useRef(phone);
   useEffect(() => {
@@ -36,6 +38,7 @@ export function usePhoneVerification(phone: string) {
     setRemainingSeconds(0);
     setResendCooldownSeconds(0);
     setErrorMessage(null);
+    setWaitingSeconds(0);
   }, [phone]);
 
   // 발급(issue) 응답이 도착하기 전에 번호가 바뀌면 그 결과를 무시한다.
@@ -44,8 +47,11 @@ export function usePhoneVerification(phone: string) {
   const latestPhoneRef = useRef(phone);
   latestPhoneRef.current = phone;
 
+  // 대기 40초가 지나면 자동 폴링을 멈추고 수동 [지금 확인]으로 전환한다(방치 세션 exists 콜 절감).
+  const stalled = status === 'waiting' && waitingSeconds >= WAITING_STALL_SECONDS;
+
   const poll = usePhoneVerificationStatusQuery(session?.verificationToken ?? null, {
-    enabled: status === 'waiting',
+    enabled: status === 'waiting' && !stalled,
   });
 
   // 폴링 결과 반영 — VERIFIED/EXPIRED 로 확정되면 상태를 전이한다(PENDING 은 폴링을 계속한다).
@@ -73,6 +79,9 @@ export function usePhoneVerification(phone: string) {
     const timerId = setInterval(() => {
       setRemainingSeconds((seconds) => Math.max(0, seconds - 1));
       setResendCooldownSeconds((seconds) => Math.max(0, seconds - 1));
+      if (status === 'waiting') {
+        setWaitingSeconds((seconds) => seconds + 1);
+      }
     }, 1000);
     return () => clearInterval(timerId);
   }, [status]);
@@ -106,6 +115,7 @@ export function usePhoneVerification(phone: string) {
 
   function markSent() {
     if (status !== 'issued') return;
+    setWaitingSeconds(0);
     setStatus('waiting');
   }
 
@@ -115,6 +125,13 @@ export function usePhoneVerification(phone: string) {
     setRemainingSeconds(0);
     setResendCooldownSeconds(0);
     setErrorMessage(null);
+    setWaitingSeconds(0);
+  }
+
+  // 스톨로 자동 폴링이 멈춘 상태에서 사용자가 문자 도착 후 직접 재확인한다(단발 조회).
+  // VERIFIED 면 poll.data effect 가 verified 로 전이하고, PENDING 이면 스톨을 유지한다(자동 재개 없음).
+  function recheck() {
+    void poll.refetch();
   }
 
   const canIssue =
@@ -133,11 +150,13 @@ export function usePhoneVerification(phone: string) {
     qrCode: session?.qrCode ?? null,
     remainingSeconds,
     resendCooldownSeconds,
+    stalled,
     issuing: startMutation.isPending,
     canIssue,
     errorMessage,
     issue,
     markSent,
     reset,
+    recheck,
   };
 }
