@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { buildSmsDeeplink, formatSeconds, isIosUserAgent, isMobileUserAgent } from '../_lib/phone-verification';
 import type { PhoneVerificationFieldStatus } from '../_lib/use-phone-verification';
 import { PhoneInput } from './PhoneInput';
@@ -53,9 +54,52 @@ export function PhoneVerificationField({
   const verified = status === 'verified';
   const showIssuedFields = status === 'issued' || status === 'waiting';
 
+  // 모바일 점진 노출: 딥링크(문자앱 열기)를 한 번 눌러야 [문자를 보냈어요]·[재발급]이 나타난다.
+  const [linkOpened, setLinkOpened] = useState(false);
+  // 새 코드가 발급되면(재발급 포함) 처음 상태로 되돌린다.
+  useEffect(() => {
+    setLinkOpened(false);
+  }, [code]);
+
   function handleCopyCode() {
     void navigator.clipboard.writeText(code);
   }
+
+  // 대기 안내(확인 중 / stall + 지금 확인) — 데스크톱·모바일 공용.
+  const waitingNotice =
+    status === 'waiting' ? (
+      stalled ? (
+        <>
+          <p className="mt-3 text-xs text-coral" aria-live="polite">
+            아직 확인되지 않았어요. 문자에 코드만 담아 그대로 보냈는지 확인하고, 문자 도착 후 아래 [지금 확인]을 누르거나, 계속 안 되면 재발급하세요.
+          </p>
+          <button type="button" onClick={onRecheck} className="btn btn-sm mt-2">
+            지금 확인
+          </button>
+        </>
+      ) : (
+        <p className="mt-3 text-xs text-charcoal-3" aria-live="polite">
+          확인 중…
+        </p>
+      )
+    ) : null;
+
+  // [문자를 보냈어요] + [재발급] 액션 행 (데스크톱 상시 / 모바일 탭 후).
+  const actionRow = (
+    <div className="mt-3 flex gap-2">
+      <button type="button" onClick={onSent} className="btn btn-primary flex-1">
+        문자를 보냈어요
+      </button>
+      <button
+        type="button"
+        disabled={!canIssue}
+        onClick={() => onIssue(!isMobile)}
+        className="btn shrink-0 whitespace-nowrap disabled:opacity-50"
+      >
+        재발급{resendCooldownSeconds > 0 ? ` (${resendCooldownSeconds}s)` : ''}
+      </button>
+    </div>
+  );
 
   return (
     <div>
@@ -87,83 +131,81 @@ export function PhoneVerificationField({
         </div>
       )}
 
-      {showIssuedFields && (
+      {showIssuedFields && !isMobile && (
+        // 데스크톱: QR 메인 2단
         <div>
-          <label htmlFor="signup-phone-locked" className="mb-1.5 block text-sm font-medium text-charcoal">
-            휴대폰 번호
-          </label>
-          <input
-            id="signup-phone-locked"
-            readOnly
-            value={phone}
-            className="w-full rounded-md border border-line bg-line/30 px-3.5 py-3 text-sm text-charcoal-3 outline-none"
-          />
-
-          <div className="mt-3 rounded-md border border-line bg-paper p-3.5">
-            <p className="text-xs text-charcoal-3">수신번호 {formatMoNumber(moNumber)}</p>
-            <div className="mt-1.5 flex items-center gap-3">
-              <span className="font-mono text-2xl font-bold tracking-wide text-ink">{code}</span>
-              <button
-                type="button"
-                onClick={handleCopyCode}
-                className="btn btn-sm shrink-0 whitespace-nowrap"
-              >
-                코드 복사
-              </button>
+          <div className="grid grid-cols-[168px_1fr] items-center gap-5 rounded-md border border-line bg-paper p-4">
+            <div className="text-center">
+              {qrCode ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={qrCode} alt="문자 전송 QR" className="mx-auto h-40 w-40 rounded-lg border border-line" />
+              ) : (
+                <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-lg border border-line bg-graysoft px-3 text-center text-xs text-charcoal-3">
+                  QR을 표시할 수 없어요. 아래 수신번호로 코드를 그대로 문자로 보내주세요.
+                </div>
+              )}
+              <p className="mt-2 text-xs font-semibold text-ink">① QR 촬영</p>
             </div>
+            <div>
+              <p className="text-xs text-charcoal-3">수신번호 {formatMoNumber(moNumber)}</p>
+              <div className="mt-1.5 flex items-center gap-3">
+                <span className="font-mono text-2xl font-bold tracking-wide text-ink">{code}</span>
+                <button type="button" onClick={handleCopyCode} className="btn btn-sm shrink-0 whitespace-nowrap">
+                  코드 복사
+                </button>
+              </div>
+              <p className="mt-1.5 text-xs text-charcoal-3">남은 시간 {formatSeconds(remainingSeconds)}</p>
+              <p className="mt-2 text-xs text-charcoal-3">
+                ② 문자앱에서 → ③ 그대로 전송 → <span className="font-semibold text-ink-soft">✓ 자동 인증</span>
+              </p>
+            </div>
+          </div>
+          {actionRow}
+          <p className="mt-2 text-xs text-charcoal-3">
+            메시지를 수정 없이 그대로 보내주세요 · 요금제에 따라 문자 요금이 발생할 수 있어요
+          </p>
+          {waitingNotice}
+        </div>
+      )}
+
+      {showIssuedFields && isMobile && (
+        // 모바일: CTA 우선 점진 노출
+        <div>
+          <div className="rounded-md border border-line bg-paper p-4 text-center">
+            <p className="text-xs text-charcoal-3">수신번호 {formatMoNumber(moNumber)} · 코드</p>
+            <p className="mt-1 font-mono text-2xl font-bold tracking-wide text-ink">{code}</p>
             <p className="mt-1.5 text-xs text-charcoal-3">남은 시간 {formatSeconds(remainingSeconds)}</p>
           </div>
 
-          {isMobile ? (
-            <a
-              href={buildSmsDeeplink(moNumber, code, isIos)}
-              onClick={onSent}
-              className="btn btn-secondary mt-3 w-full"
-            >
-              문자 앱으로 보내기
-            </a>
-          ) : qrCode ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={qrCode} alt="문자 전송 QR" className="mt-3 h-32 w-32" />
-          ) : (
-            <p className="mt-3 text-xs text-charcoal-3">
-              QR 코드를 표시할 수 없어요. 위 수신번호로 코드를 그대로 문자로 보내주세요.
-            </p>
-          )}
-
-          <div className="mt-3 flex gap-2">
-            <button type="button" onClick={onSent} className="btn btn-primary flex-1">
-              문자를 보냈어요
-            </button>
-            <button
-              type="button"
-              disabled={!canIssue}
-              onClick={() => onIssue(!isMobile)}
-              className="btn shrink-0 whitespace-nowrap disabled:opacity-50"
-            >
-              재발급{resendCooldownSeconds > 0 ? ` (${resendCooldownSeconds}s)` : ''}
-            </button>
-          </div>
-
-          <p className="mt-1.5 text-xs text-charcoal-3">
-            메시지를 수정 없이 그대로 보내주세요 · 요금제에 따라 문자 요금이 발생할 수 있어요
-          </p>
-
-          {status === 'waiting' &&
-            (stalled ? (
-              <>
-                <p className="mt-1.5 text-xs text-coral" aria-live="polite">
-                  아직 확인되지 않았어요. 문자에 코드만 담아 그대로 보냈는지 확인하고, 문자 도착 후 아래 [지금 확인]을 누르거나, 계속 안 되면 재발급하세요.
-                </p>
-                <button type="button" onClick={onRecheck} className="btn btn-sm mt-2">
-                  지금 확인
-                </button>
-              </>
-            ) : (
-              <p className="mt-1.5 text-xs text-charcoal-3" aria-live="polite">
-                확인 중…
+          {!linkOpened ? (
+            <>
+              <a
+                href={buildSmsDeeplink(moNumber, code, isIos)}
+                onClick={() => setLinkOpened(true)}
+                className="btn btn-primary btn-big mt-3 flex w-full items-center justify-center"
+              >
+                문자앱으로 코드 보내기
+              </a>
+              <p className="mt-2 text-xs text-charcoal-3">
+                버튼을 누르면 문자 앱이 열리고 수신번호·코드가 자동으로 채워져요. 그대로 보내면 끝!
               </p>
-            ))}
+            </>
+          ) : (
+            <>
+              <a
+                href={buildSmsDeeplink(moNumber, code, isIos)}
+                onClick={() => setLinkOpened(true)}
+                className="btn btn-secondary mt-3 flex w-full items-center justify-center"
+              >
+                문자앱 다시 열기
+              </a>
+              {actionRow}
+              <p className="mt-2 text-xs text-charcoal-3">
+                문자를 보낸 뒤 [문자를 보냈어요]를 눌러주세요 · 수정 없이 그대로 전송해야 인증돼요
+              </p>
+            </>
+          )}
+          {waitingNotice}
         </div>
       )}
 
