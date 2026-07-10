@@ -9,6 +9,7 @@ build/
 .idea/jarRepositories.xml
 .idea/compiler.xml
 .idea/libraries/
+.idea/misc.xml
 .idea/claudeCodeTabState.xml
 .idea/prettier.xml
 .idea/inspectionProfiles/
