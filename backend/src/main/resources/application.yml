@@ -126,6 +126,22 @@ resend:
 brevo:
   from: '${BREVO_FROM:두잉 <noreply@duings.com>}'
 
+# MO(문자 발신) 인증 — 사용자가 Octomo 대표번호로 인증코드를 문자 전송하면 exists 조회 API 로 확인한다.
+mo:
+  provider: ${MO_PROVIDER:stub}       # stub(로컬·CI — Octomo 미호출) | octomo(실조회)
+  inbound-number: "16663538"          # 수신 대표번호(1666-3538) — 안내 문구·딥링크·QR 본문용
+  stub:
+    # 양수(N)면 stub 이 최초 조회 후 N초 지난 세션을 수신된 것으로 간주 — 로컬 수동 플로우 확인용. 0 = 비활성.
+    auto-verify-after-seconds: ${MO_STUB_AUTO_VERIFY_AFTER_SECONDS:0}
+
+phone-verification:
+  secret: ${PHONE_VERIFICATION_SECRET}   # 코드 파생 HMAC 키 — 기본값 없음(필수), .env 로 주입
+
+# Octomo(octoverse.kr) MO 조회 — mo.provider=octomo 일 때만 활성. 키는 환경변수로만 주입.
+octomo:
+  api-key: ${OCTOMO_API_KEY:}
+  base-url: https://api.octoverse.kr
+
 # BANK API(bankapi.co.kr) 연동 — 회비 자동매칭(거래 조회/계좌 등록)용.
 # 인증은 Bearer {api-key}:{secret-key} 헤더. 키는 환경변수로만 주입하고 yml/코드에 실키 금지.
 # 키 미설정(빈 값) 시 자동매칭 기능만 비동작하며 그 외 기동에는 영향이 없다.

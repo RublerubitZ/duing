@@ -2,6 +2,8 @@ package com.duing.global.privacy;
 
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.user.repository.EmailVerificationRepository;
+import com.duing.domain.user.repository.PhoneVerificationEventRepository;
+import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -28,11 +30,16 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PiiRetentionJob {
 
+    /** MO 인증 세션은 단명 데이터 — 만료 후 1일이면 파기한다 (보관기간 window 와 별도, spec §9.4). */
+    private static final Period PHONE_VERIFICATION_RETENTION = Period.ofDays(1);
+
     private final RetentionProperties properties;
     private final Clock clock;
     private final UserRepository userRepository;
     private final ApplicationRepository applicationRepository;
     private final EmailVerificationRepository emailVerificationRepository;
+    private final PhoneVerificationRepository phoneVerificationRepository;
+    private final PhoneVerificationEventRepository phoneVerificationEventRepository;
 
     @Scheduled(cron = "0 30 4 * * *", zone = "Asia/Seoul")
     @Transactional
@@ -51,7 +58,12 @@ public class PiiRetentionJob {
         int anonymizedUsers = userRepository.anonymizeExpiredUsers(cutoff);
         int scrubbedApplications = applicationRepository.scrubExpiredApplicationAnswers(cutoff);
         int deletedVerifications = emailVerificationRepository.deleteExpiredVerifications(cutoff);
-        log.info("[PII 보관기간 파기] usersAnonymized={}, applicationsScrubbed={}, verificationsDeleted={}, cutoff={}",
-                anonymizedUsers, scrubbedApplications, deletedVerifications, cutoff);
+        int deletedPhoneVerifications = phoneVerificationRepository
+                .deleteExpiredVerifications(LocalDateTime.now(clock).minus(PHONE_VERIFICATION_RETENTION));
+        int deletedPhoneVerificationEvents = phoneVerificationEventRepository.deleteExpiredEvents(cutoff);
+        log.info("[PII 보관기간 파기] usersAnonymized={}, applicationsScrubbed={}, verificationsDeleted={}, "
+                        + "phoneVerificationsDeleted={}, phoneVerificationEventsDeleted={}, cutoff={}",
+                anonymizedUsers, scrubbedApplications, deletedVerifications,
+                deletedPhoneVerifications, deletedPhoneVerificationEvents, cutoff);
     }
 }
