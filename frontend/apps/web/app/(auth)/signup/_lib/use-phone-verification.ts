@@ -38,6 +38,12 @@ export function usePhoneVerification(phone: string) {
     setErrorMessage(null);
   }, [phone]);
 
+  // 발급(issue) 응답이 도착하기 전에 번호가 바뀌면 그 결과를 무시한다.
+  // (번호 A 로 발급 요청 후 B 로 바꾸면, 뒤늦게 도착한 A 응답이 previousPhoneRef 리셋을 덮어써
+  //  잠긴 표시는 B 인데 세션·코드는 A 가 되는 stale dead-end 를 막는다 — 구 이메일 훅의 latestEmailRef 계승)
+  const latestPhoneRef = useRef(phone);
+  latestPhoneRef.current = phone;
+
   const poll = usePhoneVerificationStatusQuery(session?.verificationToken ?? null, {
     enabled: status === 'waiting',
   });
@@ -83,14 +89,17 @@ export function usePhoneVerification(phone: string) {
       setErrorMessage('휴대폰 번호 형식이 올바르지 않아요.');
       return;
     }
+    const requestedPhone = phone;
     setErrorMessage(null);
     try {
-      const issuedSession = await startMutation.mutateAsync({ payload: { phone }, includeQr });
+      const issuedSession = await startMutation.mutateAsync({ payload: { phone: requestedPhone }, includeQr });
+      if (latestPhoneRef.current !== requestedPhone) return; // 번호가 바뀜 — stale 응답 무시
       setSession(issuedSession);
       setStatus('issued');
       setRemainingSeconds(issuedSession.expiresInSeconds);
       setResendCooldownSeconds(RESEND_COOLDOWN_SECONDS);
     } catch (issueError) {
+      if (latestPhoneRef.current !== requestedPhone) return; // 번호가 바뀜 — stale 에러 무시
       setErrorMessage(mapIssueError(issueError));
     }
   }

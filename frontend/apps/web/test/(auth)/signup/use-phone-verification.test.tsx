@@ -228,6 +228,49 @@ describe('usePhoneVerification', () => {
     expect(result.current.verificationToken).toBeNull();
   });
 
+  it('발급 응답 도착 전에 번호가 바뀌면 그 응답을 무시한다(stale 가드)', async () => {
+    // 발급(POST) 응답을 수동 release 전까지 지연시켜, 응답 in-flight 중 번호 변경 상황을 재현한다.
+    let releaseIssue: () => void = () => {};
+    const issueGate = new Promise<void>((resolve) => {
+      releaseIssue = resolve;
+    });
+    server.use(
+      http.post('*/auth/phone-verifications', async () => {
+        await issueGate;
+        return HttpResponse.json({ ok: true, data: SESSION_FIXTURE, message: null });
+      }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ phone }: { phone: string }) => usePhoneVerification(phone),
+      { wrapper: makeWrapper(newQueryClient()), initialProps: { phone: VALID_PHONE } },
+    );
+
+    // 번호 A 로 발급 시작 (응답은 아직 지연 상태)
+    let issuePromise: Promise<void> | undefined;
+    act(() => {
+      issuePromise = result.current.issue(false);
+    });
+
+    // 응답 도착 전에 번호를 B 로 변경 (previousPhoneRef 리셋 + latestPhoneRef=B)
+    rerender({ phone: '010-9999-8888' });
+
+    // 뒤늦게 A 응답을 release → stale 가드가 무시해야 한다
+    releaseIssue();
+    await act(async () => {
+      await issuePromise;
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // A 세션이 적용되지 않고 idle 유지 — 세션/코드/쿨다운 미세팅으로 즉시 재발급 가능(dead-end 아님)
+    expect(result.current.status).toBe('idle');
+    expect(result.current.session).toBeNull();
+    expect(result.current.verificationToken).toBeNull();
+    expect(result.current.code).toBe('');
+    expect(result.current.resendCooldownSeconds).toBe(0);
+    expect(result.current.canIssue).toBe(true);
+  });
+
   it('잘못된 번호 형식으로 issue 하면 에러 메시지를 세팅하고 발급하지 않는다', async () => {
     let issueCalled = false;
     server.use(
