@@ -15,6 +15,7 @@ const baseProps = {
   issuing: false,
   canIssue: true,
   errorMessage: null,
+  stalled: false,
   onIssue: () => {},
   onSent: () => {},
   onReset: () => {},
@@ -134,16 +135,31 @@ describe('PhoneVerificationField', () => {
     expect(writeText).toHaveBeenCalledWith('7K3M9PXQ');
   });
 
-  it('waiting 에서 확인 중 텍스트가 보인다', () => {
+  it('waiting 이고 stalled 가 false 면 "확인 중…"을 보여준다', () => {
     render(
       <PhoneVerificationField
         {...baseProps}
         status="waiting"
         code="7K3M9PXQ"
         moNumber="16663538"
+        stalled={false}
       />,
     );
     expect(screen.getByText(/확인 중/)).toBeInTheDocument();
+  });
+
+  it('waiting 이고 stalled 가 true 면 능동 안내(재발급 유도) 문구를 보여주고 "확인 중…"은 없다', () => {
+    render(
+      <PhoneVerificationField
+        {...baseProps}
+        status="waiting"
+        code="7K3M9PXQ"
+        moNumber="16663538"
+        stalled={true}
+      />,
+    );
+    expect(screen.getByText(/아직 확인되지 않았어요/)).toBeInTheDocument();
+    expect(screen.queryByText(/확인 중/)).not.toBeInTheDocument();
   });
 
   it('재발급 쿨다운 중에는 재발급 버튼이 비활성화된다', () => {

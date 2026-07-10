@@ -11,6 +11,7 @@ import { RESEND_COOLDOWN_SECONDS, mapIssueError, mapStatusError } from './phone-
 export type PhoneVerificationFieldStatus = 'idle' | 'issued' | 'waiting' | 'verified' | 'expired';
 
 const PHONE_PATTERN = /^010-\d{4}-\d{4}$/;
+const WAITING_STALL_SECONDS = 40;
 
 /**
  * 회원가입 휴대폰 MO 인증 상태 머신.
@@ -26,6 +27,7 @@ export function usePhoneVerification(phone: string) {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [waitingSeconds, setWaitingSeconds] = useState(0);
 
   const previousPhoneRef = useRef(phone);
   useEffect(() => {
@@ -36,6 +38,7 @@ export function usePhoneVerification(phone: string) {
     setRemainingSeconds(0);
     setResendCooldownSeconds(0);
     setErrorMessage(null);
+    setWaitingSeconds(0);
   }, [phone]);
 
   // 발급(issue) 응답이 도착하기 전에 번호가 바뀌면 그 결과를 무시한다.
@@ -73,6 +76,9 @@ export function usePhoneVerification(phone: string) {
     const timerId = setInterval(() => {
       setRemainingSeconds((seconds) => Math.max(0, seconds - 1));
       setResendCooldownSeconds((seconds) => Math.max(0, seconds - 1));
+      if (status === 'waiting') {
+        setWaitingSeconds((seconds) => seconds + 1);
+      }
     }, 1000);
     return () => clearInterval(timerId);
   }, [status]);
@@ -106,6 +112,7 @@ export function usePhoneVerification(phone: string) {
 
   function markSent() {
     if (status !== 'issued') return;
+    setWaitingSeconds(0);
     setStatus('waiting');
   }
 
@@ -115,6 +122,7 @@ export function usePhoneVerification(phone: string) {
     setRemainingSeconds(0);
     setResendCooldownSeconds(0);
     setErrorMessage(null);
+    setWaitingSeconds(0);
   }
 
   const canIssue =
@@ -133,6 +141,7 @@ export function usePhoneVerification(phone: string) {
     qrCode: session?.qrCode ?? null,
     remainingSeconds,
     resendCooldownSeconds,
+    stalled: status === 'waiting' && waitingSeconds >= WAITING_STALL_SECONDS,
     issuing: startMutation.isPending,
     canIssue,
     errorMessage,

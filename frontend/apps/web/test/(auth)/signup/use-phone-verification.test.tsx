@@ -131,6 +131,100 @@ describe('usePhoneVerification', () => {
     expect(pollCount).toBe(pollCountAtVerified);
   });
 
+  it('대기 40초가 지나면 stalled 가 true 가 된다', async () => {
+    mockIssue();
+    server.use(
+      http.get('*/auth/phone-verifications/:token', () =>
+        HttpResponse.json({
+          ok: true,
+          data: { status: 'PENDING', expiresInSeconds: 290, maskedPhone: '010-****-5678' },
+          message: null,
+        }),
+      ),
+    );
+
+    const { result } = renderHook(() => usePhoneVerification(VALID_PHONE), {
+      wrapper: makeWrapper(newQueryClient()),
+    });
+
+    await act(async () => {
+      await result.current.issue(false);
+    });
+    act(() => {
+      result.current.markSent();
+    });
+
+    // 최초 즉시 폴링 반영
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.stalled).toBe(false);
+
+    // 39초 시점 — 아직 stalled 아님
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(39000);
+    });
+    expect(result.current.status).toBe('waiting');
+    expect(result.current.stalled).toBe(false);
+
+    // 40초 시점 — stalled 로 전환
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.stalled).toBe(true);
+  });
+
+  it('verified 로 전이하면 stalled 는 false 다', async () => {
+    mockIssue();
+    server.use(
+      http.get('*/auth/phone-verifications/:token', () =>
+        HttpResponse.json({
+          ok: true,
+          data: { status: 'PENDING', expiresInSeconds: 290, maskedPhone: '010-****-5678' },
+          message: null,
+        }),
+      ),
+    );
+
+    const { result } = renderHook(() => usePhoneVerification(VALID_PHONE), {
+      wrapper: makeWrapper(newQueryClient()),
+    });
+
+    await act(async () => {
+      await result.current.issue(false);
+    });
+    act(() => {
+      result.current.markSent();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // 40초 동안 계속 PENDING — stalled 로 전환된 상태를 만든다
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(40000);
+    });
+    expect(result.current.status).toBe('waiting');
+    expect(result.current.stalled).toBe(true);
+
+    // 이후 폴링이 VERIFIED 를 받으면 waiting 을 벗어나고 stalled 도 false 로 돌아온다
+    server.use(
+      http.get('*/auth/phone-verifications/:token', () =>
+        HttpResponse.json({
+          ok: true,
+          data: { status: 'VERIFIED', expiresInSeconds: 290, maskedPhone: '010-****-5678' },
+          message: null,
+        }),
+      ),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(result.current.status).toBe('verified');
+    expect(result.current.stalled).toBe(false);
+  });
+
   it('일시적 폴링 실패 후 다음 성공 폴링에서 에러 메시지가 지워진다', async () => {
     mockIssue();
     let pollCount = 0;
