@@ -16,9 +16,14 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.EmailVerification;
 import com.duing.domain.user.entity.Grade;
+import com.duing.domain.user.entity.PhoneVerification;
+import com.duing.domain.user.entity.PhoneVerificationEvent;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
+import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.repository.EmailVerificationRepository;
+import com.duing.domain.user.repository.PhoneVerificationEventRepository;
+import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.Clock;
@@ -46,6 +51,8 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Autowired UserRepository userRepository;
     @Autowired ApplicationRepository applicationRepository;
     @Autowired EmailVerificationRepository emailVerificationRepository;
+    @Autowired PhoneVerificationRepository phoneVerificationRepository;
+    @Autowired PhoneVerificationEventRepository phoneVerificationEventRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired Clock clock;
@@ -119,7 +126,8 @@ class PiiRetentionJobTest extends IntegrationTestBase {
 
         PiiRetentionJob disabledJob = new PiiRetentionJob(
                 new RetentionProperties(false, Period.ofYears(1)),
-                clock, userRepository, applicationRepository, emailVerificationRepository);
+                clock, userRepository, applicationRepository, emailVerificationRepository,
+                phoneVerificationRepository, phoneVerificationEventRepository);
         disabledJob.run();
 
         assertThat(userEmail(user.getId())).isEqualTo("disabled@daegu.ac.kr");
@@ -133,7 +141,8 @@ class PiiRetentionJobTest extends IntegrationTestBase {
 
         PiiRetentionJob zeroWindowJob = new PiiRetentionJob(
                 new RetentionProperties(true, Period.ZERO),
-                clock, userRepository, applicationRepository, emailVerificationRepository);
+                clock, userRepository, applicationRepository, emailVerificationRepository,
+                phoneVerificationRepository, phoneVerificationEventRepository);
         zeroWindowJob.run();
 
         assertThat(userEmail(user.getId())).isEqualTo("badwindow@daegu.ac.kr");
@@ -172,6 +181,74 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM email_verifications WHERE id = ?", Integer.class, verification.getId());
         assertThat(count).isZero();
+    }
+
+    @Test
+    @DisplayName("만료 후 1일이 지난 MO 인증 세션은 window(보관기간) 설정과 무관하게 물리 삭제된다")
+    void deletesExpiredPhoneVerifications() {
+        PhoneVerification staleVerification = phoneVerificationRepository.save(
+                PhoneVerification.issue("010-9001-0000", "stale-mo-token",
+                        VerificationPurpose.SIGNUP, null, LocalDateTime.now()));
+        // window(1년)로는 아직 멀었지만, 전용 유예(1일)는 넘긴 값 — 별도 cutoff 계약을 검증한다.
+        jdbcTemplate.update(
+                "UPDATE phone_verifications SET expires_at = NOW() - INTERVAL '5 days' WHERE id = ?",
+                staleVerification.getId());
+
+        job.run();
+
+        assertThat(phoneVerificationRepository.findById(staleVerification.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("만료된 지 1일이 안 된 MO 인증 세션은 아직 삭제되지 않는다 (유예)")
+    void keepsRecentlyExpiredPhoneVerification() {
+        PhoneVerification recentlyExpired = phoneVerificationRepository.save(
+                PhoneVerification.issue("010-9002-0000", "recent-mo-token",
+                        VerificationPurpose.SIGNUP, null, LocalDateTime.now()));
+        jdbcTemplate.update(
+                "UPDATE phone_verifications SET expires_at = NOW() - INTERVAL '12 hours' WHERE id = ?",
+                recentlyExpired.getId());
+
+        job.run();
+
+        assertThat(phoneVerificationRepository.findById(recentlyExpired.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("보관기간을 넘긴 MO 인증 감사 이벤트는 물리 삭제된다")
+    void deletesExpiredPhoneVerificationEvents() {
+        PhoneVerification verification = phoneVerificationRepository.save(
+                PhoneVerification.issue("010-9003-0000", "event-mo-token",
+                        VerificationPurpose.SIGNUP, null, LocalDateTime.now()));
+        PhoneVerificationEvent event = phoneVerificationEventRepository.save(
+                PhoneVerificationEvent.verified(verification, "127.0.0.1", "junit-agent"));
+        jdbcTemplate.update(
+                "UPDATE phone_verification_events SET created_at = NOW() - (400 * INTERVAL '1 day') WHERE id = ?",
+                event.getId());
+
+        job.run();
+
+        assertThat(phoneVerificationEventRepository.findById(event.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("MO 세션 전용 유예(1일)는 지났어도 보관기간(window) 내인 감사 이벤트는 삭제되지 않는다 "
+            + "— 이벤트가 window cutoff 를 그대로 재사용함을 검증한다")
+    void keepsPhoneVerificationEventWithinWindow() {
+        PhoneVerification verification = phoneVerificationRepository.save(
+                PhoneVerification.issue("010-9004-0000", "within-window-mo-token",
+                        VerificationPurpose.SIGNUP, null, LocalDateTime.now()));
+        PhoneVerificationEvent event = phoneVerificationEventRepository.save(
+                PhoneVerificationEvent.verified(verification, "127.0.0.1", "junit-agent"));
+        // MO 세션 전용 유예(1일)는 지났지만 window(1년)는 한참 남은 값 — 이벤트 삭제가 1일 유예를
+        // 잘못 재사용하면(phone_verifications 와 cutoff 를 혼동하면) 이 값도 삭제돼 테스트가 실패한다.
+        jdbcTemplate.update(
+                "UPDATE phone_verification_events SET created_at = NOW() - INTERVAL '10 days' WHERE id = ?",
+                event.getId());
+
+        job.run();
+
+        assertThat(phoneVerificationEventRepository.findById(event.getId())).isPresent();
     }
 
     private String userEmail(Long id) {
