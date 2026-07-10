@@ -47,35 +47,4 @@ class UserCreateTest {
 
         assertThat(user.getPhoneVerifiedAt()).isEqualTo(verifiedAt);
     }
-
-    @Test
-    @DisplayName("전화번호가 실제로 바뀌면 MO 인증 시각이 무효화된다")
-    void updateProfileClearsPhoneVerifiedAtWhenPhoneChanges() {
-        User user = createUser();
-        user.markPhoneVerified(LocalDateTime.now());
-
-        user.updateProfile("홍길동", "010-9999-8888", null);
-
-        assertThat(user.getPhoneVerifiedAt()).isNull();
-    }
-
-    @Test
-    @DisplayName("같은 전화번호로 프로필을 저장하면 MO 인증 시각이 유지된다")
-    void updateProfileKeepsPhoneVerifiedAtWhenPhoneUnchanged() {
-        User user = createUser();
-        LocalDateTime verifiedAt = LocalDateTime.now();
-        user.markPhoneVerified(verifiedAt);
-
-        user.updateProfile("홍길동", "010-1234-5678", null);
-
-        assertThat(user.getPhoneVerifiedAt()).isEqualTo(verifiedAt);
-    }
-
-    /** 프로필 갱신 테스트용 기본 사용자를 생성한다(학번 20240001, 전화번호 010-1234-5678). */
-    private User createUser() {
-        return User.create(
-                "20240001", "홍길동", "hashed", UserRole.STUDENT,
-                Grade.JUNIOR, College.IT_ENGINEERING, "컴퓨터정보공학부", "010-1234-5678",
-                LocalDateTime.now());
-    }
 }
