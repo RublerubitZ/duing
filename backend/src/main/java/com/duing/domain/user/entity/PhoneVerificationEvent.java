@@ -82,6 +82,18 @@ public class PhoneVerificationEvent {
                 .build();
     }
 
+    public static PhoneVerificationEvent consumed(PhoneVerification phoneVerification, Long userId,
+                                                  String clientIp, String userAgent) {
+        return PhoneVerificationEvent.builder()
+                .userId(userId)
+                .phone(phoneVerification.getPhone())
+                .purpose(phoneVerification.getPurpose())
+                .eventType(PhoneVerificationEventType.CONSUMED)
+                .clientIp(clientIp)
+                .userAgent(truncateUserAgent(userAgent))
+                .build();
+    }
+
     /** User-Agent 는 임의 길이 헤더 — 컬럼(300자)에 맞춰 자른다 (초과분은 감사 가치가 없다). */
     private static String truncateUserAgent(String userAgent) {
         if (userAgent == null || userAgent.length() <= USER_AGENT_MAX_LENGTH) {
