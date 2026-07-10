@@ -28,7 +28,7 @@ public class UserException extends ApplicationException {
     }
 
     public static class InvalidCredentialsException extends UserException {
-        private static final String MESSAGE = "이메일 또는 비밀번호가 올바르지 않습니다.";
+        private static final String MESSAGE = "학번 또는 비밀번호가 올바르지 않습니다.";
 
         public InvalidCredentialsException() {
             super(MESSAGE, HttpStatus.UNAUTHORIZED);

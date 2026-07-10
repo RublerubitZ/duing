@@ -30,6 +30,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmailForUpdate(@Param("email") String email);
 
     /**
+     * 로그인 실패 카운터 증가의 동시성 보호를 위해 사용자 행을 잠그고 조회한다.
+     * 같은 계정에 대한 동시 로그인 시도가 실패 카운터를 덮어써 잠금을 무력화하는 것을 막는다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.studentId = :studentId")
+    Optional<User> findByStudentIdForUpdate(@Param("studentId") String studentId);
+
+    /**
      * token_version 증가(로그아웃·강제 폐기)의 동시성 보호를 위해 사용자 행을 잠그고 조회한다.
      * 동시 로그아웃이 같은 버전을 읽어 증가분을 덮어쓰는 lost update 를 막는다.
      */

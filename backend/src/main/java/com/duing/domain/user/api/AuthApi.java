@@ -41,7 +41,7 @@ public interface AuthApi {
             @Valid @RequestBody SignupRequest signupRequest,
             HttpServletRequest httpServletRequest);
 
-    @Operation(summary = "로그인", description = "이메일과 비밀번호로 인증 후 JWT를 발급한다.")
+    @Operation(summary = "로그인", description = "학번(8자리)과 비밀번호로 인증 후 JWT를 발급한다.")
     @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"))
     @PostMapping("/auth/login")
     ResponseEntity<ApiResponse<LoginResponse>> login(

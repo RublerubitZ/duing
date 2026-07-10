@@ -65,12 +65,12 @@ class LoginRateLimitAcceptanceTest extends IntegrationTestBase {
     @Test
     @DisplayName("같은 IP 에서 성공 로그인을 분당 한도보다 많이 반복해도 429로 막히지 않는다")
     void repeatedSuccessfulLoginsFromSameIpAreNotRateLimited() {
-        String email = saveUserWithPassword();
+        String studentId = saveUserWithPassword();
 
         for (int attempt = 0; attempt < ATTEMPTS_OVER_LIMIT; attempt++) {
             RestAssured.given()
                     .contentType(ContentType.JSON)
-                    .body(Map.of("email", email, "password", RAW_PASSWORD))
+                    .body(Map.of("studentId", studentId, "password", RAW_PASSWORD))
                     .when().post("/api/v1/auth/login")
                     .then().statusCode(HttpStatus.OK.value());
         }
@@ -86,7 +86,7 @@ class LoginRateLimitAcceptanceTest extends IntegrationTestBase {
         for (int attempt = 0; attempt < ATTEMPTS_OVER_LIMIT; attempt++) {
             Response response = RestAssured.given()
                     .contentType(ContentType.JSON)
-                    .body(Map.of("email", "nobody" + attempt + "@daegu.ac.kr", "password", "wrong-password"))
+                    .body(Map.of("studentId", String.format("%08d", 90_000_000L + attempt), "password", "wrong-password"))
                     .when().post("/api/v1/auth/login");
             if (attempt == 0) {
                 firstStatus = response.statusCode();
@@ -105,9 +105,9 @@ class LoginRateLimitAcceptanceTest extends IntegrationTestBase {
         // (구 코드나 예약-복원 방식)이었다면 일부가 429 가 됐을 시나리오다 — 검사·기록 분리(성공 미기록)로
         // 동시성에서도 성공이 막히지 않음을 실스레드로 검증한다.
         int userCount = 20; // 분당 실패 한도(10)를 확실히 넘기는 동시 사용자 수
-        List<String> emails = new ArrayList<>();
+        List<String> studentIds = new ArrayList<>();
         for (int index = 0; index < userCount; index++) {
-            emails.add(saveUserWithPassword());
+            studentIds.add(saveUserWithPassword());
         }
 
         ExecutorService pool = Executors.newFixedThreadPool(userCount);
@@ -115,13 +115,13 @@ class LoginRateLimitAcceptanceTest extends IntegrationTestBase {
         CountDownLatch start = new CountDownLatch(1);
         List<Future<Integer>> statuses = new ArrayList<>();
         try {
-            for (String email : emails) {
+            for (String studentId : studentIds) {
                 statuses.add(pool.submit(() -> {
                     ready.countDown();
                     start.await();
                     return RestAssured.given()
                             .contentType(ContentType.JSON)
-                            .body(Map.of("email", email, "password", RAW_PASSWORD))
+                            .body(Map.of("studentId", studentId, "password", RAW_PASSWORD))
                             .when().post("/api/v1/auth/login")
                             .statusCode();
                 }));
@@ -154,13 +154,13 @@ class LoginRateLimitAcceptanceTest extends IntegrationTestBase {
         List<Future<Integer>> statuses = new ArrayList<>();
         try {
             for (int index = 0; index < totalRequests; index++) {
-                String email = "nobody" + index + "@daegu.ac.kr"; // 존재하지 않는 계정 — 계정 잠금과 무관
+                String studentId = String.format("%08d", 90_000_000L + index); // 존재하지 않는 계정 — 계정 잠금과 무관
                 statuses.add(pool.submit(() -> {
                     ready.countDown();
                     start.await();
                     return RestAssured.given()
                             .contentType(ContentType.JSON)
-                            .body(Map.of("email", email, "password", "wrong-password"))
+                            .body(Map.of("studentId", studentId, "password", "wrong-password"))
                             .when().post("/api/v1/auth/login")
                             .statusCode();
                 }));
@@ -188,10 +188,11 @@ class LoginRateLimitAcceptanceTest extends IntegrationTestBase {
 
     private String saveUserWithPassword() {
         long seq = sequence.incrementAndGet();
-        String email = "u" + seq + "@daegu.ac.kr";
+        String studentId = String.format("%08d", seq % 100_000_000L);
         userRepository.save(User.create(
-                "20" + seq, "U" + seq, email, passwordEncoder.encode(RAW_PASSWORD), UserRole.STUDENT,
+                studentId, "U" + seq, "u" + seq + "@daegu.ac.kr",
+                passwordEncoder.encode(RAW_PASSWORD), UserRole.STUDENT,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
-        return email;
+        return studentId;
     }
 }
