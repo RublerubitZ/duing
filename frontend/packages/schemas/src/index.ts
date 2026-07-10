@@ -71,10 +71,10 @@ export const signupSchema = z.object({
 export type SignupInput = z.infer<typeof signupSchema>;
 
 export const loginSchema = z.object({
-  email: z
+  studentId: z
     .string()
-    .min(1, '이메일은 필수 입력값입니다.')
-    .email('올바른 이메일 형식이 아닙니다.'),
+    .min(1, '학번은 필수 입력값입니다.')
+    .regex(/^\d{8}$/, '학번은 8자리 숫자여야 합니다.'),
   password: z.string().min(1, '비밀번호는 필수 입력값입니다.'),
 });
 

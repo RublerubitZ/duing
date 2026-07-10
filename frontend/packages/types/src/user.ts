@@ -109,7 +109,7 @@ export type SignupPayload = {
 };
 
 export type LoginPayload = {
-  email: string;
+  studentId: string;
   password: string;
 };
 

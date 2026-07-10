@@ -70,7 +70,7 @@ function LoginForm() {
   // 상대경로(//host)·역슬래시(/\host)처럼 브라우저가 오프-오리진으로 해석하는 값을 걸러내 open redirect 를 막는다.
   const next = toLinkRoute(searchParams.get('next')) ?? toRoute('/me');
 
-  const [email, setEmail] = useState('');
+  const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -78,12 +78,12 @@ function LoginForm() {
 
   const login = useLoginMutation();
 
-  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isStudentIdValid = /^\d{8}$/.test(studentId);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
-    const parsed = loginSchema.safeParse({ email, password });
+    const parsed = loginSchema.safeParse({ studentId, password });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');
       return;
@@ -92,7 +92,7 @@ function LoginForm() {
       await login.mutateAsync(parsed.data);
       router.replace(next);
     } catch {
-      setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+      setError('학번 또는 비밀번호가 올바르지 않습니다.');
     }
   }
 
@@ -134,7 +134,7 @@ function LoginForm() {
             두잉에 로그인
           </h1>
           <p className="mb-8 text-sm text-charcoal-2">
-            대구대학교 학교 이메일로 로그인할 수 있어요.
+            학번과 비밀번호로 로그인할 수 있어요.
           </p>
 
           {/* Error message */}
@@ -149,31 +149,36 @@ function LoginForm() {
           )}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Email field */}
+            {/* Student ID field */}
             <div>
-              <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-charcoal">
-                학교 이메일
+              <label htmlFor="login-studentId" className="mb-1.5 block text-sm font-medium text-charcoal">
+                학번
               </label>
               <div className="relative">
                 <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-charcoal-3">
                   <IconMail />
                 </span>
                 <input
-                  id="login-email"
+                  id="login-studentId"
                   required
-                  type="email"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={8}
+                  pattern="\d{8}"
                   autoComplete="username"
                   autoFocus
-                  value={email}
-                  onChange={(changeEvent) => setEmail(changeEvent.target.value)}
-                  placeholder="2021123456@daegu.ac.kr"
+                  value={studentId}
+                  onChange={(changeEvent) =>
+                    setStudentId(changeEvent.target.value.replace(/\D/g, '').slice(0, 8))
+                  }
+                  placeholder="20241234"
                   className={cn(
                     'w-full rounded-md border bg-paper py-3 pl-10 pr-10 text-sm text-charcoal outline-none transition',
                     'placeholder:text-charcoal-3/50',
                     'border-line focus:border-ink focus:ring-1 focus:ring-ink/20',
                   )}
                 />
-                {isEmailValid && (
+                {isStudentIdValid && (
                   <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-ink">
                     <IconCheck />
                   </span>
