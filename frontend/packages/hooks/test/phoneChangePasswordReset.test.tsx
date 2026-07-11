@@ -78,7 +78,7 @@ describe('번호 변경·비밀번호 재설정 훅', () => {
     });
 
     await act(async () => {
-      await result.current.mutateAsync({ verificationToken: 'token-1' });
+      await result.current.mutateAsync({ verificationToken: 'token-1', currentPassword: 'Curr1234!' });
     });
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['users', 'me'] });

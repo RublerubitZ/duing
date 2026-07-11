@@ -140,6 +140,7 @@ export type PhoneVerificationStatus = {
 
 export type ChangePhonePayload = {
   verificationToken: string;
+  currentPassword: string;
 };
 
 export type RequestPasswordResetPayload = {

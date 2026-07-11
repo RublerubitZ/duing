@@ -1,22 +1,30 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { ApiError } from '@duing/api';
 import { useChangePhoneMutation } from '@duing/hooks';
+import { useAuthStore } from '@duing/stores';
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { PhoneVerificationField } from '@/app/_components/PhoneVerificationField';
 import { usePhoneChangeVerification } from '@/app/_lib/use-phone-verification';
+import { toRoute } from '@/app/_lib/route';
 
 type Props = { open: boolean; onClose: () => void };
 
 export function PhoneChangeDialog({ open, onClose }: Props) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const clearSession = useAuthStore((state) => state.clearSession);
   const { addToast } = useToast();
   const changePhoneMutation = useChangePhoneMutation();
 
   const [newPhone, setNewPhone] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const verification = usePhoneChangeVerification(newPhone);
 
@@ -24,6 +32,7 @@ export function PhoneChangeDialog({ open, onClose }: Props) {
   useEffect(() => {
     if (open) {
       setNewPhone('');
+      setCurrentPassword('');
       setError(null);
       verification.reset();
     }
@@ -34,11 +43,14 @@ export function PhoneChangeDialog({ open, onClose }: Props) {
     if (!verification.verificationToken) return;
     setError(null);
     changePhoneMutation.mutate(
-      { verificationToken: verification.verificationToken },
+      { verificationToken: verification.verificationToken, currentPassword },
       {
-        onSuccess: () => {
-          addToast('전화번호가 변경되었어요.');
-          onClose();
+        onSuccess: async () => {
+          // 번호(복구 수단) 변경 후 모든 토큰이 무효화되므로 세션을 정리하고 재로그인으로 보낸다.
+          await clearSession();
+          queryClient.clear();
+          addToast('전화번호가 변경되었어요. 다시 로그인해 주세요.');
+          router.replace(toRoute('/login'));
         },
         onError: (mutationError) => {
           if (mutationError instanceof ApiError && mutationError.code === 'PHONE_NOT_VERIFIED') {
@@ -94,6 +106,20 @@ export function PhoneChangeDialog({ open, onClose }: Props) {
             onRecheck={verification.recheck}
           />
 
+          {/* 인증이 끝난 뒤에만 step-up 으로 현재 비밀번호를 확인한다 — 복구 수단 교체는 비밀번호 변경과 동급. */}
+          {verification.verified && (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-semibold text-charcoal-2">현재 비밀번호</span>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                autoComplete="current-password"
+                className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
+              />
+            </label>
+          )}
+
           {error && <p className="text-[12.5px] text-coral">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-1">
@@ -108,7 +134,9 @@ export function PhoneChangeDialog({ open, onClose }: Props) {
             <button
               type="button"
               onClick={handleChangePhone}
-              disabled={!verification.verified || changePhoneMutation.isPending}
+              disabled={
+                !verification.verified || changePhoneMutation.isPending || currentPassword.length === 0
+              }
               className="btn btn-primary btn-sm"
             >
               {changePhoneMutation.isPending ? '변경 중…' : '번호 변경하기'}
