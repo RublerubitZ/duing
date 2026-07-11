@@ -214,7 +214,14 @@ public class GeneralUserService implements UserService {
 
         User user = userRepository.findByIdForUpdate(changePhoneCommand.userId())
                 .orElseThrow(UserException.UserNotFoundException::new);
+        // 복구 수단(전화번호) 교체는 비밀번호 변경과 동급 — 현재 비밀번호로 step-up 인증한다.
+        // 세션 소비 전에 실패시키므로 비밀번호 오입력 시 인증 세션은 살아있어 재시도만 하면 된다.
+        if (!passwordEncoder.matches(changePhoneCommand.currentPassword(), user.getPasswordHash())) {
+            throw new UserException.InvalidCurrentPasswordException();
+        }
         user.changePhone(verifiedPhone, now);
+        // 복구 수단 변경 후 재로그인 강제 — 발급된 모든 토큰을 무효화한다(changePassword 와 동일).
+        user.bumpTokenVersion();
         phoneVerificationSessionManager.consume(verifiedSession, user.getId(), clientIp, userAgent);
     }
 

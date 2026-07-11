@@ -149,7 +149,7 @@ class UserPhoneChangeTest extends IntegrationTestBase {
 
         given().contentType(ContentType.JSON)
                 .header("Authorization", "Bearer " + requester.accessToken())
-                .body(Map.of("verificationToken", token))
+                .body(Map.of("verificationToken", token, "currentPassword", PASSWORD))
                 .when().patch("/api/v1/users/me/phone")
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
@@ -174,7 +174,7 @@ class UserPhoneChangeTest extends IntegrationTestBase {
 
         given().contentType(ContentType.JSON)
                 .header("Authorization", "Bearer " + attacker.accessToken())
-                .body(Map.of("verificationToken", victimSessionToken))
+                .body(Map.of("verificationToken", victimSessionToken, "currentPassword", PASSWORD))
                 .when().patch("/api/v1/users/me/phone")
                 .then().statusCode(HttpStatus.FORBIDDEN.value())
                 .body("code", equalTo("PHONE_NOT_VERIFIED"));
@@ -189,7 +189,7 @@ class UserPhoneChangeTest extends IntegrationTestBase {
 
         given().contentType(ContentType.JSON)
                 .header("Authorization", "Bearer " + requester.accessToken())
-                .body(Map.of("verificationToken", signupSessionToken))
+                .body(Map.of("verificationToken", signupSessionToken, "currentPassword", PASSWORD))
                 .when().patch("/api/v1/users/me/phone")
                 .then().statusCode(HttpStatus.FORBIDDEN.value())
                 .body("code", equalTo("PHONE_NOT_VERIFIED"));
@@ -207,7 +207,7 @@ class UserPhoneChangeTest extends IntegrationTestBase {
 
         given().contentType(ContentType.JSON)
                 .header("Authorization", "Bearer " + requester.accessToken())
-                .body(Map.of("verificationToken", token))
+                .body(Map.of("verificationToken", token, "currentPassword", PASSWORD))
                 .when().patch("/api/v1/users/me/phone")
                 .then().statusCode(HttpStatus.FORBIDDEN.value())
                 .body("code", equalTo("PHONE_NOT_VERIFIED"));
@@ -228,9 +228,57 @@ class UserPhoneChangeTest extends IntegrationTestBase {
 
         given().contentType(ContentType.JSON)
                 .header("Authorization", "Bearer " + requester.accessToken())
-                .body(Map.of("verificationToken", token))
+                .body(Map.of("verificationToken", token, "currentPassword", PASSWORD))
                 .when().patch("/api/v1/users/me/phone")
                 .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 틀리면 400 이고 번호는 바뀌지 않으며, 올바른 비밀번호로 재시도하면 같은 인증 세션으로 성공한다")
+    void changePhoneWithWrongPasswordReturns400AndKeepsSessionForRetry() {
+        AuthenticatedUser requester = signupAndLogin(uniquePhone(), uniqueStudentId());
+        Long myUserId = requester.userId();
+        String newPhone = uniquePhone();
+        String token = issueAndVerifyPhoneChangeSession(requester.accessToken(), newPhone);
+
+        // 틀린 현재 비밀번호 → 400. 세션은 소비되지 않아야 한다(consume 전에 실패).
+        given().contentType(ContentType.JSON)
+                .header("Authorization", "Bearer " + requester.accessToken())
+                .body(Map.of("verificationToken", token, "currentPassword", "Wrong9999!"))
+                .when().patch("/api/v1/users/me/phone")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+
+        // 번호는 그대로다 — 실패한 요청이 변경을 남기지 않는다.
+        User afterWrong = userRepository.findById(myUserId).orElseThrow();
+        assertThat(afterWrong.getPhone()).isNotEqualTo(newPhone);
+
+        // 같은 인증 세션(토큰)으로 올바른 비밀번호로 재시도하면 성공한다 — 세션 미소비의 증거.
+        given().contentType(ContentType.JSON)
+                .header("Authorization", "Bearer " + requester.accessToken())
+                .body(Map.of("verificationToken", token, "currentPassword", PASSWORD))
+                .when().patch("/api/v1/users/me/phone")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        User afterRetry = userRepository.findById(myUserId).orElseThrow();
+        assertThat(afterRetry.getPhone()).isEqualTo(newPhone);
+    }
+
+    @Test
+    @DisplayName("번호 변경에 성공하면 기존 액세스 토큰이 무효화된다")
+    void changePhoneInvalidatesExistingAccessToken() {
+        AuthenticatedUser requester = signupAndLogin(uniquePhone(), uniqueStudentId());
+        String token = issueAndVerifyPhoneChangeSession(requester.accessToken(), uniquePhone());
+
+        given().contentType(ContentType.JSON)
+                .header("Authorization", "Bearer " + requester.accessToken())
+                .body(Map.of("verificationToken", token, "currentPassword", PASSWORD))
+                .when().patch("/api/v1/users/me/phone")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        // 변경 후 tokenVersion 이 올라가 기존 토큰은 무효화된다 — 같은 토큰으로 인증 API 를 호출하면 401.
+        given().header("Authorization", "Bearer " + requester.accessToken())
+                .when().get("/api/v1/users/me")
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
     }
 
     /**
