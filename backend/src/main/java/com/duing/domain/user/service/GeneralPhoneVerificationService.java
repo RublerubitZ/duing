@@ -2,10 +2,14 @@ package com.duing.domain.user.service;
 
 import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.PhoneVerificationStatus;
+import com.duing.domain.user.entity.User;
+import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.exception.PhoneVerificationException;
+import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.IssuePhoneVerificationCommand;
+import com.duing.domain.user.service.dto.query.PasswordResetStartResult;
 import com.duing.domain.user.service.dto.query.PhoneVerificationIssueResult;
 import com.duing.domain.user.service.dto.query.PhoneVerificationStatusResult;
 import com.duing.domain.user.support.PhoneMasker;
@@ -99,6 +103,22 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
         return new PhoneVerificationIssueResult(
                 phoneVerification.getToken(), code, moInboundNumber, qrCode,
                 phoneVerification.getExpiresAt(), phoneVerification.remainingSeconds(now));
+    }
+
+    @Override
+    public PasswordResetStartResult startPasswordReset(String studentId, boolean includeQr, String clientIp) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        rateLimiter.assertAndRecordPasswordResetStart(studentId, now);
+
+        // @SQLRestriction 으로 탈퇴 계정은 조회되지 않는다 — 미존재와 동일한 400 으로 수렴(사유 미특정).
+        User targetUser = userRepository.findByStudentId(studentId)
+                .orElseThrow(UserException.PasswordResetNotAllowedException::new);
+
+        PhoneVerificationIssueResult issueResult = issue(
+                new IssuePhoneVerificationCommand(
+                        targetUser.getPhone(), VerificationPurpose.PASSWORD_RESET, includeQr, targetUser.getId()),
+                clientIp);
+        return new PasswordResetStartResult(issueResult, PhoneMasker.mask(targetUser.getPhone()));
     }
 
     @Override

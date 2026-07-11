@@ -25,9 +25,12 @@ public class PhoneVerificationRateLimiter {
     static final int ISSUE_PER_HOUR_LIMIT = 60;
     static final int STATUS_PER_MINUTE_LIMIT = 30;
     static final int STATUS_PER_HOUR_LIMIT = 200;
+    static final int RESET_START_PER_HOUR_LIMIT = 3;
 
     private final ConcurrentHashMap<String, Deque<LocalDateTime>> issueTimesByIp = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Deque<LocalDateTime>> statusTimesByIp = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Deque<LocalDateTime>> resetStartTimesByStudentId =
+            new ConcurrentHashMap<>();
 
     /** 발급 IP 윈도우(분 10/시 60)를 검사하고 허용이면 기록한다. 초과 시 429. */
     public void assertAndRecordIssueIpRequest(String clientIp, LocalDateTime now) {
@@ -39,17 +42,23 @@ public class PhoneVerificationRateLimiter {
         assertAndRecordWithin(statusTimesByIp, clientIp, now, STATUS_PER_MINUTE_LIMIT, STATUS_PER_HOUR_LIMIT);
     }
 
+    /** 재설정 시작 학번 윈도우(시간당 3회) — 계정 열거·문자 폭탄 완화 (spec §10.2·§11). 초과 시 429. */
+    public void assertAndRecordPasswordResetStart(String studentId, LocalDateTime now) {
+        assertAndRecordWithin(resetStartTimesByStudentId, studentId, now,
+                RESET_START_PER_HOUR_LIMIT, RESET_START_PER_HOUR_LIMIT);
+    }
+
     /**
      * 슬라이딩 윈도우 공통 로직 — 경계 exclusive(정각은 창 밖), 거절된 요청은 미기록.
      * compute 콜백이라 검사+기록이 키 단위로 원자적이다. 예외 시 키→Deque 매핑 참조는 유지되지만
      * 콜백 안에서 이미 수행한 만료 엔트리 트리밍(pollFirst)은 Deque 내부 상태라 그대로 반영된다 —
      * 만료분 제거는 수락/거절과 무관하게 항상 옳은 동작이므로 카운트 정확성에 영향이 없다.
      */
-    private void assertAndRecordWithin(ConcurrentHashMap<String, Deque<LocalDateTime>> timesByIp,
-                                       String clientIp, LocalDateTime now, int perMinuteLimit, int perHourLimit) {
+    private void assertAndRecordWithin(ConcurrentHashMap<String, Deque<LocalDateTime>> timesByKey,
+                                       String windowKey, LocalDateTime now, int perMinuteLimit, int perHourLimit) {
         LocalDateTime hourAgo = now.minusHours(1);
         LocalDateTime minuteAgo = now.minusMinutes(1);
-        timesByIp.compute(clientIp, (ip, requestTimes) -> {
+        timesByKey.compute(windowKey, (key, requestTimes) -> {
             Deque<LocalDateTime> windowTimes = requestTimes == null ? new ArrayDeque<>() : requestTimes;
             while (!windowTimes.isEmpty() && !windowTimes.peekFirst().isAfter(hourAgo)) {
                 windowTimes.pollFirst();
@@ -69,5 +78,6 @@ public class PhoneVerificationRateLimiter {
     public void reset() {
         issueTimesByIp.clear();
         statusTimesByIp.clear();
+        resetStartTimesByStudentId.clear();
     }
 }

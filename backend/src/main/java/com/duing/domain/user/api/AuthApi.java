@@ -2,8 +2,10 @@ package com.duing.domain.user.api;
 
 import com.duing.domain.user.controller.dto.request.IssuePhoneVerificationRequest;
 import com.duing.domain.user.controller.dto.request.LoginRequest;
+import com.duing.domain.user.controller.dto.request.PasswordResetStartRequest;
 import com.duing.domain.user.controller.dto.request.SignupRequest;
 import com.duing.domain.user.controller.dto.response.LoginResponse;
+import com.duing.domain.user.controller.dto.response.PasswordResetStartResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationStatusResponse;
 import com.duing.global.auth.UserPrincipal;
@@ -81,5 +83,20 @@ public interface AuthApi {
     @GetMapping("/auth/phone-verifications/{verificationToken}")
     ResponseEntity<ApiResponse<PhoneVerificationStatusResponse>> getPhoneVerificationStatus(
             @PathVariable("verificationToken") String verificationToken,
+            HttpServletRequest httpServletRequest);
+
+    @Operation(summary = "비밀번호 재설정 시작",
+            description = "학번으로 계정을 찾아 등록된 번호로 PASSWORD_RESET MO 인증 세션을 발급한다 — 번호는 "
+                    + "입력받지 않으며 응답에 마스킹된 번호를 안내한다. 이후 폴링은 공용 상태조회 API 를 쓴다. "
+                    + "학번당 시간당 3회 제한. 계정을 확인할 수 없으면 400(PASSWORD_RESET_NOT_ALLOWED).")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "202", description = "발급됨"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "계정을 확인할 수 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "학번·IP 한도 또는 쿨다운")
+    })
+    @PostMapping("/auth/password-resets")
+    ResponseEntity<ApiResponse<PasswordResetStartResponse>> startPasswordReset(
+            @Valid @RequestBody PasswordResetStartRequest startRequest,
+            @RequestParam(name = "qr", defaultValue = "false") boolean includeQr,
             HttpServletRequest httpServletRequest);
 }
