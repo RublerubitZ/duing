@@ -80,7 +80,7 @@ async function issueVerifyAndAdvance() {
   mockIssue();
   let pollCount = 0;
   server.use(
-    http.get('*/auth/phone-verifications/:token', () => {
+    http.post('*/auth/phone-verifications/status', () => {
       pollCount += 1;
       return HttpResponse.json({
         ok: true,

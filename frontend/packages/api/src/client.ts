@@ -752,7 +752,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         ),
       getPhoneVerificationStatus: (verificationToken) =>
         jsonOk<PhoneVerificationStatus>(
-          http.get(`auth/phone-verifications/${verificationToken}`),
+          http.post('auth/phone-verifications/status', { json: { verificationToken } }),
         ),
       requestPasswordReset: (payload, includeQr) =>
         jsonOk<PasswordResetSession>(

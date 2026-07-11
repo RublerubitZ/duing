@@ -5,6 +5,7 @@ import com.duing.domain.user.controller.dto.request.CompletePasswordResetRequest
 import com.duing.domain.user.controller.dto.request.IssuePhoneVerificationRequest;
 import com.duing.domain.user.controller.dto.request.LoginRequest;
 import com.duing.domain.user.controller.dto.request.PasswordResetStartRequest;
+import com.duing.domain.user.controller.dto.request.PhoneVerificationStatusRequest;
 import com.duing.domain.user.controller.dto.request.SignupRequest;
 import com.duing.domain.user.controller.dto.response.LoginResponse;
 import com.duing.domain.user.controller.dto.response.PasswordResetStartResponse;
@@ -23,7 +24,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -77,12 +77,12 @@ public class AuthController implements AuthApi {
 
     @Override
     public ResponseEntity<ApiResponse<PhoneVerificationStatusResponse>> getPhoneVerificationStatus(
-            @PathVariable("verificationToken") String verificationToken,
+            @Valid @RequestBody PhoneVerificationStatusRequest statusRequest,
             HttpServletRequest httpServletRequest) {
         String clientIp = httpServletRequest.getRemoteAddr();
         String userAgent = httpServletRequest.getHeader("User-Agent");
         PhoneVerificationStatusResult statusResult =
-                phoneVerificationService.getStatus(verificationToken, clientIp, userAgent);
+                phoneVerificationService.getStatus(statusRequest.verificationToken(), clientIp, userAgent);
         return ResponseEntity.ok(ApiResponse.success(PhoneVerificationStatusResponse.from(statusResult)));
     }
 

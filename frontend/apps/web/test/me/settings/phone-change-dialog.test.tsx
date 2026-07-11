@@ -89,7 +89,7 @@ function mockPollVerified() {
   // SignupFormPanel.test 폴링 시나리오 재현 — 1회차 PENDING, 이후 VERIFIED.
   let pollCount = 0;
   server.use(
-    http.get(`${BASE}/auth/phone-verifications/:token`, () => {
+    http.post(`${BASE}/auth/phone-verifications/status`, () => {
       pollCount += 1;
       return HttpResponse.json({
         ok: true,

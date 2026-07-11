@@ -63,7 +63,7 @@ ClubMember 운영(승급/강등·추방·탈퇴·정상 인계)은 이미 제공
 | U-2 | 로그인 | `studentId`(8자리 숫자), `password` | `accessToken`, `tokenType="Bearer"`, `user` (200) | 자격 증명 실패 401 |
 | U-3 | 내 정보 조회 | (JWT) | `id`, `studentId`, `name`, `phone`, `role`, `grade` (200) | 미인증 401 |
 | U-4 | 휴대폰 MO 인증 시작 | `phone`, `?qr=true` | `verificationToken`, `code`, `moNumber`, `qrCode?`, 만료 정보 (201) | 가입된 번호 409, 쿨다운·IP 한도 429 |
-| U-5 | 휴대폰 MO 인증 상태 조회 | `verificationToken` (path) | `status`(PENDING/VERIFIED/EXPIRED), `expiresInSeconds`, `maskedPhone` (200) | 미존재 토큰 404, IP 한도 429, 일일 쿼터 초과 503 |
+| U-5 | 휴대폰 MO 인증 상태 조회 | `verificationToken` (body — `POST /auth/phone-verifications/status`, 토큰이 URL에 남지 않도록 조회용 POST) | `status`(PENDING/VERIFIED/EXPIRED), `expiresInSeconds`, `maskedPhone` (200) | 빈 토큰 400, 미존재 토큰 404, IP 한도 429, 일일 쿼터 초과 503 |
 
 **비기능 요구사항**
 - 비밀번호는 `BCryptPasswordEncoder` 로 해싱 후 저장 (평문 저장 금지).
@@ -322,3 +322,4 @@ ClubMember 운영(승급/강등·추방·탈퇴·정상 인계)은 이미 제공
 | 2026-05-14 | 최초 작성. User/Club/Recruitment 구현 완료, Application 명세 확정 |
 | 2026-05-15 | MVP 재정의 (Phase 0 토대): clubs(cover_url/tags/sns_links/faqs), club_photo 테이블, recruitment(application_mode/external_form_url/use_interview/target_role), application(interview_at/interview_location), ApplicationStatus 5단계, 학교 도메인 이메일 검증, Supabase Storage 어댑터, InterviewNotificationService 추상화, ClubAuthService 권한 헬퍼. 상세는 docs/superpowers/specs/2026-05-15-duing-full-flow-design.md |
 | 2026-07-10 | 학번 로그인 + 휴대폰 MO 인증 전환 (PR2): U-1~U-3 개정, U-4·U-5(MO 인증 API) 추가. 로그인 식별자 email→studentId(8자리), 가입은 verificationToken 소비 방식, 이메일 인증 API·email 노출 제거, users.email nullable(V80). 상세는 docs/superpowers/specs/2026-07-09-student-id-login-mo-auth-design.md |
+| 2026-07-12 | U-5 개정(#626): 상태 조회를 `GET .../{verificationToken}` → `POST /auth/phone-verifications/status`(body 토큰)로 전환 — 토큰 URL 노출(Access Log·프록시·Sentry breadcrumb) 제거. 구 GET 삭제, 빈 토큰 400 추가 |

@@ -88,7 +88,7 @@ describe('usePhoneVerification', () => {
     mockIssue();
     let pollCount = 0;
     server.use(
-      http.get('*/auth/phone-verifications/:token', () => {
+      http.post('*/auth/phone-verifications/status', () => {
         pollCount += 1;
         return HttpResponse.json({
           ok: true,
@@ -138,7 +138,7 @@ describe('usePhoneVerification', () => {
   it('대기 40초가 지나면 stalled 가 true 가 된다', async () => {
     mockIssue();
     server.use(
-      http.get('*/auth/phone-verifications/:token', () =>
+      http.post('*/auth/phone-verifications/status', () =>
         HttpResponse.json({
           ok: true,
           data: { status: 'PENDING', expiresInSeconds: 290, maskedPhone: '010-****-5678' },
@@ -181,7 +181,7 @@ describe('usePhoneVerification', () => {
   it('verified 로 전이하면 stalled 는 false 다', async () => {
     mockIssue();
     server.use(
-      http.get('*/auth/phone-verifications/:token', () =>
+      http.post('*/auth/phone-verifications/status', () =>
         HttpResponse.json({
           ok: true,
           data: { status: 'PENDING', expiresInSeconds: 290, maskedPhone: '010-****-5678' },
@@ -214,7 +214,7 @@ describe('usePhoneVerification', () => {
     // 스톨로 자동 폴링이 멈춘 상태이므로, 재확인(recheck)으로 VERIFIED 를 받으면
     // waiting 을 벗어나고 stalled 도 false 로 돌아온다.
     server.use(
-      http.get('*/auth/phone-verifications/:token', () =>
+      http.post('*/auth/phone-verifications/status', () =>
         HttpResponse.json({
           ok: true,
           data: { status: 'VERIFIED', expiresInSeconds: 290, maskedPhone: '010-****-5678' },
@@ -235,7 +235,7 @@ describe('usePhoneVerification', () => {
     mockIssue();
     let pollCount = 0;
     server.use(
-      http.get('*/auth/phone-verifications/:token', () => {
+      http.post('*/auth/phone-verifications/status', () => {
         pollCount += 1;
         return HttpResponse.json({
           ok: true,
@@ -275,7 +275,7 @@ describe('usePhoneVerification', () => {
     let pollCount = 0;
     let polledStatus = 'PENDING';
     server.use(
-      http.get('*/auth/phone-verifications/:token', () => {
+      http.post('*/auth/phone-verifications/status', () => {
         pollCount += 1;
         return HttpResponse.json({
           ok: true,
@@ -320,7 +320,7 @@ describe('usePhoneVerification', () => {
     mockIssue();
     let pollCount = 0;
     server.use(
-      http.get('*/auth/phone-verifications/:token', () => {
+      http.post('*/auth/phone-verifications/status', () => {
         pollCount += 1;
         return HttpResponse.json({
           ok: true,
@@ -367,7 +367,7 @@ describe('usePhoneVerification', () => {
     mockIssue();
     let pollCount = 0;
     server.use(
-      http.get('*/auth/phone-verifications/:token', () => {
+      http.post('*/auth/phone-verifications/status', () => {
         pollCount += 1;
         // 첫 폴링만 앱 레벨 실패(HTTP 200 + ok:false). 5xx 면 ky 가 백오프 타이머로 자동 재시도해
         // 한 폴링에 핸들러가 여러 번 불려 pollCount 가 어긋나므로, 재시도 없는 200 으로 결정적으로 1회 실패시킨다.
@@ -429,7 +429,7 @@ describe('usePhoneVerification', () => {
   it('phone 이 바뀌면 idle 로 리셋된다(verified 였어도)', async () => {
     mockIssue();
     server.use(
-      http.get('*/auth/phone-verifications/:token', () =>
+      http.post('*/auth/phone-verifications/status', () =>
         HttpResponse.json({
           ok: true,
           data: { status: 'VERIFIED', expiresInSeconds: 290, maskedPhone: '010-****-5678' },
