@@ -67,7 +67,8 @@ export function PhoneChangeDialog({ open, onClose }: Props) {
         }
       }}
     >
-      <DialogContent>
+      {/* 데스크톱 QR 2단 레이아웃(수신번호·코드·복사)이 기본 폭(max-w-md)보다 넓어 삐져나오므로 signup 폭에 맞춘다. */}
+      <DialogContent className="sm:max-w-[560px]">
         <DialogTitle>전화번호 변경</DialogTitle>
         <DialogDescription className="text-[12.5px]">
           새 번호로 문자 인증을 완료하면 변경돼요. 인증 문자 1건이 필요해요.
