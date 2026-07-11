@@ -76,7 +76,29 @@ describe('PhoneVerificationField', () => {
     expect(onSent).toHaveBeenCalled();
   });
 
-  it('모바일 UA 에서 issued 면 sms 딥링크 앵커를 노출하고 클릭 시 onSent 를 호출한다', async () => {
+  it('모바일 UA 에서 issued 면 처음엔 [문자앱으로 코드 보내기] 하나만 노출한다', () => {
+    stubUserAgent(IPHONE_UA);
+    try {
+      render(
+        <PhoneVerificationField
+          {...baseProps}
+          status="issued"
+          code="7K3M9PXQ"
+          moNumber="16663538"
+        />,
+      );
+      const smsLink = screen.getByRole('link', { name: '문자앱으로 코드 보내기' });
+      // iOS 는 비표준 `&body=` 구분자를 쓴다(buildSmsDeeplink 의 ios 분기).
+      expect(smsLink).toHaveAttribute('href', 'sms:16663538&body=7K3M9PXQ');
+      // 탭 전에는 보냈어요/재발급이 숨겨져 있다.
+      expect(screen.queryByRole('button', { name: '문자를 보냈어요' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /재발급/ })).not.toBeInTheDocument();
+    } finally {
+      restoreUserAgent();
+    }
+  });
+
+  it('모바일에서 딥링크를 누르면 보냈어요·재발급이 나타나고 보냈어요가 onSent 를 호출한다', async () => {
     stubUserAgent(IPHONE_UA);
     try {
       const onSent = vi.fn();
@@ -90,11 +112,25 @@ describe('PhoneVerificationField', () => {
           onSent={onSent}
         />,
       );
-      const smsLink = screen.getByRole('link', { name: '문자 앱으로 보내기' });
-      // iOS 는 비표준 `&body=` 구분자를 쓴다(buildSmsDeeplink 의 ios 분기).
-      expect(smsLink).toHaveAttribute('href', 'sms:16663538&body=7K3M9PXQ');
-      await user.click(smsLink);
+      // 딥링크 탭 = 문자앱 열기 + 버튼 노출(폴링 시작 아님, onSent 아직 호출 안 됨).
+      await user.click(screen.getByRole('link', { name: '문자앱으로 코드 보내기' }));
+      expect(onSent).not.toHaveBeenCalled();
+      const sentButton = screen.getByRole('button', { name: '문자를 보냈어요' });
+      expect(screen.getByRole('button', { name: /재발급/ })).toBeInTheDocument();
+      await user.click(sentButton);
       expect(onSent).toHaveBeenCalled();
+    } finally {
+      restoreUserAgent();
+    }
+  });
+
+  it('모바일 발급 후에는 상단에 안내 일러스트를 노출한다', () => {
+    stubUserAgent(IPHONE_UA);
+    try {
+      render(
+        <PhoneVerificationField {...baseProps} status="issued" code="7K3M9PXQ" moNumber="16663538" />,
+      );
+      expect(screen.getByRole('img', { name: /본인 인증하는 방법/ })).toBeInTheDocument();
     } finally {
       restoreUserAgent();
     }
@@ -115,7 +151,9 @@ describe('PhoneVerificationField', () => {
       const qrImage = screen.getByRole('img', { name: '문자 전송 QR' });
       expect(qrImage).toHaveAttribute('src', 'data:image/png;base64,iVBORw0KGgo=');
       // 데스크톱에서는 sms 딥링크 앵커가 없어야 한다.
-      expect(screen.queryByRole('link', { name: '문자 앱으로 보내기' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: '문자앱으로 코드 보내기' })).not.toBeInTheDocument();
+      // 데스크톱 발급 후엔 안내 일러스트를 노출하지 않는다(QR 집중).
+      expect(screen.queryByRole('img', { name: /본인 인증하는 방법/ })).not.toBeInTheDocument();
     } finally {
       restoreUserAgent();
     }
@@ -218,6 +256,26 @@ describe('PhoneVerificationField', () => {
     render(<PhoneVerificationField {...baseProps} status="expired" onReset={onReset} />);
     await user.click(screen.getByRole('button', { name: '다시 인증' }));
     expect(onReset).toHaveBeenCalled();
+  });
+
+  it('모바일에서 재발급으로 코드가 바뀌면 다시 CTA만 남고 보냈어요는 숨는다', async () => {
+    stubUserAgent(IPHONE_UA);
+    try {
+      const user = userEvent.setup();
+      const { rerender } = render(
+        <PhoneVerificationField {...baseProps} status="issued" code="7K3M9PXQ" moNumber="16663538" />,
+      );
+      await user.click(screen.getByRole('link', { name: '문자앱으로 코드 보내기' }));
+      expect(screen.getByRole('button', { name: '문자를 보냈어요' })).toBeInTheDocument();
+      // 재발급으로 새 코드가 오면 linkOpened 가 리셋되어 다시 CTA 만 남는다.
+      rerender(
+        <PhoneVerificationField {...baseProps} status="issued" code="NEWCODE9" moNumber="16663538" />,
+      );
+      expect(screen.queryByRole('button', { name: '문자를 보냈어요' })).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: '문자앱으로 코드 보내기' })).toBeInTheDocument();
+    } finally {
+      restoreUserAgent();
+    }
   });
 
   it('errorMessage 를 alert 로 노출한다', () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { PhoneVerificationField } from './PhoneVerificationField';
+import { SignupIllustration } from './SignupIllustration';
 import type { PhoneVerificationController } from '../_lib/use-phone-verification';
 
 type Props = {
@@ -11,17 +12,31 @@ type Props = {
 };
 
 export function SignupStepVerify({ phone, onPhoneChange, verification, onNext }: Props) {
+  const { status } = verification;
+  // verified 에서는 필드가 완료 배지를 보여주므로 히어로 제목을 숨긴다.
+  const showHero = status !== 'verified';
+  // idle/expired 에서만 서브 문구 + 일러스트까지 노출(개념 이해 순간). 발급 후엔 제목만 남긴다.
+  const showFullHero = status === 'idle' || status === 'expired';
+
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="mb-2 text-2xl font-bold tracking-tightx text-ink-deep">
-          문자로 코드를 보내주세요
-        </h2>
-        <p className="text-sm leading-relaxed text-charcoal-2">
-          아래 코드를 <strong className="text-ink-deep">수신번호로 그대로 전송</strong>하면 발신 번호로
-          본인 인증이 완료돼요. 별도 인증번호 입력은 없어요.
-        </p>
-      </div>
+      {showHero && (
+        <div>
+          <h2 className="text-[1.75rem] font-bold leading-tight tracking-tightx text-ink-deep">
+            문자로 코드를 보내주세요
+          </h2>
+          {showFullHero && (
+            <>
+              <p className="mt-1.5 text-sm font-semibold text-ink-soft">문자 한 통이면 본인 인증 끝</p>
+              <p className="mt-1 text-sm leading-relaxed text-charcoal-2">
+                수신번호로 <strong className="text-ink-deep">그대로 전송</strong>하면 발신번호로 자동 인증돼요.
+                인증번호 입력은 필요 없어요.
+              </p>
+              <SignupIllustration className="mx-auto mt-4 w-full max-w-[360px]" />
+            </>
+          )}
+        </div>
+      )}
 
       <PhoneVerificationField
         phone={phone}
