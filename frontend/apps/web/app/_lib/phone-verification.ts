@@ -37,6 +37,14 @@ export function mapIssueError(error: unknown): string {
   return '인증 시작에 실패했어요. 잠시 후 다시 시도해주세요.';
 }
 
+/** 번호 변경 문맥의 발급 에러 — 409 는 "다른 계정 사용 중" 으로 안내한다(가입 문맥과 카피 분리). */
+export function mapPhoneChangeIssueError(error: unknown): string {
+  if (error instanceof ApiError && (error.code === 'PHONE_ALREADY_REGISTERED' || error.status === 409)) {
+    return '이미 다른 계정에서 사용 중인 번호예요.';
+  }
+  return mapIssueError(error);
+}
+
 export function mapStatusError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'SMS_POLL_QUOTA_EXCEEDED') return '일시적으로 인증 확인이 제한됐어요. 잠시 후 다시 시도해주세요.';

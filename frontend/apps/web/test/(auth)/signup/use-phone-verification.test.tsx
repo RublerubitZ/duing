@@ -6,7 +6,11 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
-import { usePhoneVerification } from '@/app/_lib/use-phone-verification';
+import {
+  usePhoneChangeVerification,
+  usePasswordResetVerification,
+  usePhoneVerification,
+} from '@/app/_lib/use-phone-verification';
 
 // MSW 기반 훅 테스트 — TanStack Query 자체는 모킹하지 않고 네트워크 레벨에서 mocking 한다.
 // (packages/hooks/test/interviewRound.test.tsx, authLogout.test.tsx 와 동일 패턴)
@@ -535,5 +539,81 @@ describe('usePhoneVerification', () => {
 
     expect(result.current.resendCooldownSeconds).toBe(60);
     expect(result.current.canIssue).toBe(false);
+  });
+});
+
+describe('usePhoneChangeVerification', () => {
+  it('발급이 인증 전용 엔드포인트로 나가고 세션을 잡는다', async () => {
+    server.use(
+      http.post('*/users/me/phone-verifications', () =>
+        HttpResponse.json({ ok: true, data: SESSION_FIXTURE, message: null }, { status: 201 })),
+    );
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => usePhoneChangeVerification(VALID_PHONE), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await act(async () => { await result.current.issue(false); });
+    expect(result.current.status).toBe('issued');
+    expect(result.current.code).toBe(SESSION_FIXTURE.code);
+  });
+
+  it('타인 소유 번호(409)면 변경 문맥의 안내를 보여준다', async () => {
+    server.use(
+      http.post('*/users/me/phone-verifications', () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '이미 가입된 휴대폰 번호입니다.', code: 'PHONE_ALREADY_REGISTERED' },
+          { status: 409 })),
+    );
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => usePhoneChangeVerification(VALID_PHONE), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await act(async () => { await result.current.issue(false); });
+    expect(result.current.errorMessage).toBe('이미 다른 계정에서 사용 중인 번호예요.');
+  });
+});
+
+describe('usePasswordResetVerification', () => {
+  it('학번으로 발급하면 마스킹 번호를 노출하고 폴링 준비 상태가 된다', async () => {
+    server.use(
+      http.post('*/auth/password-resets', () =>
+        HttpResponse.json(
+          { ok: true, data: { ...SESSION_FIXTURE, maskedPhone: '010-****-5678' }, message: null },
+          { status: 202 })),
+    );
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => usePasswordResetVerification('20240001'), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await act(async () => { await result.current.issue(false); });
+    expect(result.current.status).toBe('issued');
+    expect(result.current.maskedPhone).toBe('010-****-5678');
+  });
+
+  it('학번이 8자리가 아니면 발급하지 않고 안내한다', async () => {
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => usePasswordResetVerification('2024'), {
+      wrapper: makeWrapper(queryClient),
+    });
+    expect(result.current.canIssue).toBe(false);
+    await act(async () => { await result.current.issue(false); });
+    expect(result.current.errorMessage).toBe('학번은 8자리 숫자여야 해요.');
+  });
+
+  it('학번이 바뀌면 진행 중이던 인증이 리셋된다', async () => {
+    server.use(
+      http.post('*/auth/password-resets', () =>
+        HttpResponse.json(
+          { ok: true, data: { ...SESSION_FIXTURE, maskedPhone: '010-****-5678' }, message: null },
+          { status: 202 })),
+    );
+    const queryClient = newQueryClient();
+    const { result, rerender } = renderHook(({ sid }) => usePasswordResetVerification(sid), {
+      wrapper: makeWrapper(queryClient), initialProps: { sid: '20240001' },
+    });
+    await act(async () => { await result.current.issue(false); });
+    expect(result.current.status).toBe('issued');
+    rerender({ sid: '20240002' });
+    expect(result.current.status).toBe('idle');
   });
 });
