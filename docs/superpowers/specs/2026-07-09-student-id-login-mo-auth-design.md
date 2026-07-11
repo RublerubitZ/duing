@@ -174,7 +174,9 @@ Frontend가 Octomo를 직접 호출하는 안은 **기각**한다. 모든 Octomo
   - `PASSWORD_RESET`: §10.2의 시작 API가 내부적으로 이 발급을 수행 (직접 호출 불가)
 - `qrCode`는 요청 쿼리 `?qr=true`일 때만 포함 (모바일은 불필요한 수 KB 절약 + Octomo QR 콜 절약). QR 발급 실패는 `qrCode: null`로 응답하고 FE가 텍스트 폴백 (발급 자체를 실패시키지 않음).
 
-### 7.2 상태 조회 — `GET /api/v1/auth/phone-verifications/{verificationToken}`
+### 7.2 상태 조회 — `POST /api/v1/auth/phone-verifications/status`
+
+> 2026-07-12(#626): 토큰이 URL 에 남지 않도록 `GET .../{verificationToken}` 에서 body `{ "verificationToken": "..." }` 를 받는 조회용 POST 로 개정. 응답·에러 계약은 동일.
 
 ```json
 { "ok": true, "data": { "status": "PENDING", "expiresInSeconds": 210, "maskedPhone": "010-****-5678" } }
@@ -211,7 +213,7 @@ Frontend가 Octomo를 직접 호출하는 안은 **기각**한다. 모든 Octomo
 ### 7.6 비밀번호 재설정 (신규 — §10.2 플로우 상세)
 
 - `POST /api/v1/auth/password-resets` `{ "studentId": "20241234" }` → 202 (균일 응답)
-- `GET /api/v1/auth/phone-verifications/{token}` (공용 폴링)
+- `POST /api/v1/auth/phone-verifications/status` `{ "verificationToken": "..." }` (공용 폴링 — #626 개정)
 - `POST /api/v1/auth/password-resets/complete` `{ "verificationToken": "...", "newPassword": "..." }` → 204
 
 ### 7.7 삭제되는 API
