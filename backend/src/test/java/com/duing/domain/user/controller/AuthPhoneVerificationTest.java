@@ -258,11 +258,13 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("빈 토큰으로 상태 조회를 요청하면 400 을 반환한다")
+    @DisplayName("빈 토큰으로 상태 조회를 요청하면 400 과 인증 토큰 필수 안내를 반환한다")
     void blankTokenReturnsBadRequest() {
         given().contentType(ContentType.JSON).body(Map.of("verificationToken", ""))
                 .when().post("/api/v1/auth/phone-verifications/status")
-                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                // 검증 실패 메시지는 "{필드}: {메시지}" 로 조립되므로 containsString 으로 대조한다.
+                .body("message", org.hamcrest.Matchers.containsString("인증 토큰은 필수 입력값입니다."));
     }
 
     @Test
@@ -311,6 +313,19 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
         }
         given().contentType(ContentType.JSON).body(Map.of("phone", uniquePhone()))
                 .when().post("/api/v1/auth/phone-verifications")
+                .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                .body("code", equalTo("VERIFICATION_RATE_LIMITED"));
+    }
+
+    @Test
+    @DisplayName("같은 IP 의 상태 조회가 분당 한도(30회)를 넘으면 429 와 VERIFICATION_RATE_LIMITED 를 반환한다 — 존재하지 않는 토큰이어도 IP 리밋이 404 조회보다 먼저 걸린다")
+    void statusIpRateLimitReturnsTooManyRequests() {
+        // 상태조회는 IP 리밋 기록이 토큰 조회(404)보다 먼저라, 미존재 토큰도 창을 소비한다.
+        for (int attempt = 0; attempt < 30; attempt++) {
+            requestStatus("no-such-token")
+                    .then().statusCode(HttpStatus.NOT_FOUND.value());
+        }
+        requestStatus("no-such-token")
                 .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
                 .body("code", equalTo("VERIFICATION_RATE_LIMITED"));
     }
