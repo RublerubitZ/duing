@@ -67,18 +67,20 @@ function renderPanel() {
   return render(<ForgotPasswordPanel />, { wrapper: Wrapper });
 }
 
-function mockIssue() {
+function mockIssue(session = SESSION_FIXTURE) {
   server.use(
     http.post('*/auth/password-resets', () =>
-      HttpResponse.json({ ok: true, data: SESSION_FIXTURE, message: null }, { status: 202 }),
+      HttpResponse.json({ ok: true, data: session, message: null }, { status: 202 }),
     ),
   );
 }
 
 // 학번 입력→인증 시작(발급)→문자수신→폴링 VERIFIED 까지 몰아 새 비밀번호 폼 단계로 진입시키는 헬퍼.
 // SignupFormPanel.test 의 폴링 시나리오(pollCount<2 이면 PENDING, 이후 VERIFIED)를 재현한다.
-async function startVerifyReset() {
-  mockIssue();
+// session 을 넘기면 발급 세션(특히 verificationToken)을 교체한다 — 재인증은 새 토큰으로 시작되므로,
+// 폴링 쿼리 캐시 키가 앞선 세션과 겹치지 않게 하여 issued→waiting→verified 전 과정을 다시 태운다.
+async function startVerifyReset(session = SESSION_FIXTURE) {
+  mockIssue(session);
   let pollCount = 0;
   server.use(
     http.get('*/auth/phone-verifications/:token', () => {
@@ -203,5 +205,12 @@ describe('ForgotPasswordPanel — 문자 인증 기반 비밀번호 재설정', 
     expect(screen.getByRole('button', { name: '인증 시작' })).toBeInTheDocument();
     expect(screen.queryByLabelText('새 비밀번호')).not.toBeInTheDocument();
     expect(mockRouterReplace).not.toHaveBeenCalled();
+
+    // 재인증(새 토큰)으로 새 비밀번호 폼에 다시 진입하면 이전에 입력한 비밀번호가 남아 있지 않아야 한다.
+    // (403 복귀 분기의 setNewPassword('')/setConfirmPassword('') 를 제거하면 이 단언이 깨진다.)
+    await startVerifyReset({ ...SESSION_FIXTURE, verificationToken: 'verification-token-def' });
+
+    expect(screen.getByLabelText('새 비밀번호')).toHaveValue('');
+    expect(screen.getByLabelText('새 비밀번호 확인')).toHaveValue('');
   });
 });

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { ForgotPasswordPanel } from './_components/ForgotPasswordPanel';
 
-export const metadata: Metadata = { title: '비밀번호 재설정' };
+export const metadata: Metadata = { title: '비밀번호 재설정 | 두잉' };
 
 export default function ForgotPasswordPage() {
   return (
