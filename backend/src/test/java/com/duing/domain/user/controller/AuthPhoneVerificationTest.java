@@ -22,6 +22,7 @@ import com.duing.global.mo.StubMoVerificationClient;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
+import io.restassured.response.Response;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -102,8 +103,14 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
         stubMoClient.registerInboundMessage(phone.replace("-", ""), code);
     }
 
+    /** 상태 조회는 토큰이 URL 에 남지 않도록 POST body 로 보낸다(#626). */
+    private Response requestStatus(String token) {
+        return given().contentType(ContentType.JSON).body(Map.of("verificationToken", token))
+                .when().post("/api/v1/auth/phone-verifications/status");
+    }
+
     private String getStatus(String token) {
-        return given().when().get("/api/v1/auth/phone-verifications/" + token)
+        return requestStatus(token)
                 .then().statusCode(HttpStatus.OK.value())
                 .extract().jsonPath().getString("data.status");
     }
@@ -180,7 +187,7 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
     void statusStaysPendingWithoutInbound() {
         IssuedSession session = issue(PHONE);
 
-        given().when().get("/api/v1/auth/phone-verifications/" + session.token())
+        requestStatus(session.token())
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.status", equalTo("PENDING"))
                 .body("data.maskedPhone", equalTo("010-****-5678"))
@@ -223,7 +230,7 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
         jdbcTemplate.update("UPDATE phone_verifications SET expires_at = ? WHERE token = ?",
                 LocalDateTime.now().minusMinutes(1), session.token());
 
-        given().when().get("/api/v1/auth/phone-verifications/" + session.token())
+        requestStatus(session.token())
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.status", equalTo("EXPIRED"))
                 .body("data.expiresInSeconds", equalTo(0));
@@ -245,9 +252,17 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
     @Test
     @DisplayName("존재하지 않는 토큰 조회는 404 와 PHONE_VERIFICATION_NOT_FOUND 를 반환한다")
     void unknownTokenReturnsNotFound() {
-        given().when().get("/api/v1/auth/phone-verifications/no-such-token")
+        requestStatus("no-such-token")
                 .then().statusCode(HttpStatus.NOT_FOUND.value())
                 .body("code", equalTo("PHONE_VERIFICATION_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("빈 토큰으로 상태 조회를 요청하면 400 을 반환한다")
+    void blankTokenReturnsBadRequest() {
+        given().contentType(ContentType.JSON).body(Map.of("verificationToken", ""))
+                .when().post("/api/v1/auth/phone-verifications/status")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
     @Test
@@ -266,7 +281,7 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
         assertThat(secondSession.code()).isNotEqualTo(firstSession.code());
 
         // 구 토큰은 즉시 무효(404), 구 코드가 수신돼도 새 세션은 PENDING 을 유지한다.
-        given().when().get("/api/v1/auth/phone-verifications/" + firstSession.token())
+        requestStatus(firstSession.token())
                 .then().statusCode(HttpStatus.NOT_FOUND.value());
         registerInbound(PHONE, firstSession.code());
         assertThat(getStatus(secondSession.token())).isEqualTo("PENDING");
@@ -306,7 +321,7 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
         IssuedSession session = issue(PHONE);
         exhaustDailyQuota();
 
-        given().when().get("/api/v1/auth/phone-verifications/" + session.token())
+        requestStatus(session.token())
                 .then().statusCode(HttpStatus.SERVICE_UNAVAILABLE.value())
                 .body("code", equalTo("SMS_POLL_QUOTA_EXCEEDED"));
     }

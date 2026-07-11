@@ -291,7 +291,8 @@ class AuthControllerSignupTest extends IntegrationTestBase {
         stubMoClient.registerInboundMessage("01012345678", code);
         moPollThrottle.reset(); // 발급 직후 폴링의 2.5초 스로틀 대기 생략
 
-        given().when().get("/api/v1/auth/phone-verifications/" + token)
+        given().contentType(ContentType.JSON).body(Map.of("verificationToken", token))
+                .when().post("/api/v1/auth/phone-verifications/status")
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.status", equalTo("VERIFIED"));
 

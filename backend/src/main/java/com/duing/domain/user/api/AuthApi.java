@@ -4,6 +4,7 @@ import com.duing.domain.user.controller.dto.request.CompletePasswordResetRequest
 import com.duing.domain.user.controller.dto.request.IssuePhoneVerificationRequest;
 import com.duing.domain.user.controller.dto.request.LoginRequest;
 import com.duing.domain.user.controller.dto.request.PasswordResetStartRequest;
+import com.duing.domain.user.controller.dto.request.PhoneVerificationStatusRequest;
 import com.duing.domain.user.controller.dto.request.SignupRequest;
 import com.duing.domain.user.controller.dto.response.LoginResponse;
 import com.duing.domain.user.controller.dto.response.PasswordResetStartResponse;
@@ -18,8 +19,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -73,7 +72,8 @@ public interface AuthApi {
 
     @Operation(summary = "휴대폰 MO 인증 상태 조회",
             description = "발급 토큰으로 인증 상태(PENDING/VERIFIED/EXPIRED)를 조회한다. 프론트 폴링용(3초 간격 권장) — "
-                    + "PENDING 이면 서버가 Octomo 수신 여부를 확인한다(세션당 2.5초 스로틀, 일일 상한 초과 시 503).")
+                    + "PENDING 이면 서버가 Octomo 수신 여부를 확인한다(세션당 2.5초 스로틀, 일일 상한 초과 시 503). "
+                    + "토큰이 URL 에 남지 않도록 body 로 받는 조회용 POST 다(#626).")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "존재하지 않는 토큰"),
@@ -81,9 +81,9 @@ public interface AuthApi {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
                     description = "Octomo 일일 호출 상한 소진 — 잠시 후 재시도")
     })
-    @GetMapping("/auth/phone-verifications/{verificationToken}")
+    @PostMapping("/auth/phone-verifications/status")
     ResponseEntity<ApiResponse<PhoneVerificationStatusResponse>> getPhoneVerificationStatus(
-            @PathVariable("verificationToken") String verificationToken,
+            @Valid @RequestBody PhoneVerificationStatusRequest statusRequest,
             HttpServletRequest httpServletRequest);
 
     @Operation(summary = "비밀번호 재설정 시작",

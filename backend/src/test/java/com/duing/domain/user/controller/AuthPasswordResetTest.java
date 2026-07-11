@@ -353,7 +353,8 @@ class AuthPasswordResetTest extends IntegrationTestBase {
         // 서비스가 하이픈을 제거해 조회하므로 스텁에도 숫자만으로 등록한다.
         stubMoClient.registerInboundMessage(phone.replace("-", ""), code);
         moPollThrottle.reset(); // 발급 직후 폴링의 2.5초 스로틀을 생략한다
-        given().when().get("/api/v1/auth/phone-verifications/" + token)
+        given().contentType(ContentType.JSON).body(Map.of("verificationToken", token))
+                .when().post("/api/v1/auth/phone-verifications/status")
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.status", equalTo("VERIFIED"));
         return token;
