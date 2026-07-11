@@ -14,6 +14,7 @@ import { SparkleFull } from '@/components/duing/Sparkle';
 import { MyPageHeader } from '../../_components/MyPageHeader';
 import { ProfileEditDialog } from '../_components/ProfileEditDialog';
 import { PasswordChangeDialog } from '../_components/PasswordChangeDialog';
+import { PhoneChangeDialog } from '../_components/PhoneChangeDialog';
 import { WithdrawAccountDialog } from '../_components/WithdrawAccountDialog';
 
 /* ── Settings Row ── */
@@ -109,6 +110,7 @@ export function SettingsPage() {
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [phoneOpen, setPhoneOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -151,7 +153,20 @@ export function SettingsPage() {
             />
             <SettingsRow label="학번" value={user?.studentId ?? '—'} />
             <SettingsRow label="학년" value={user?.grade ? GRADE_DISPLAY_NAME[user.grade] : '—'} />
-            <SettingsRow label="전화번호" value={user?.phone ?? '—'} />
+            <SettingsRow
+              label="전화번호"
+              value={user?.phone ?? '—'}
+              action={
+                <button
+                  type="button"
+                  onClick={() => setPhoneOpen(true)}
+                  disabled={!user}
+                  className="btn btn-ghost btn-sm"
+                >
+                  변경
+                </button>
+              }
+            />
           </SettingsCard>
 
           <SettingsCard title="계정 보안">
@@ -242,6 +257,7 @@ export function SettingsPage() {
         currentGrade={user?.grade ?? 'FRESHMAN'}
       />
       <PasswordChangeDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
+      <PhoneChangeDialog open={phoneOpen} onClose={() => setPhoneOpen(false)} />
       <WithdrawAccountDialog open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />
     </div>
   );
