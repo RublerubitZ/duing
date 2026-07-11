@@ -1,10 +1,8 @@
 import type { College, Grade } from '@duing/types';
 
 export type SignupFormState = {
-  // step 1
   password: string;
   passwordConfirm: string;
-  // step 2
   name: string;
   studentId: string;
   studentIdConfirm: string;

@@ -160,3 +160,5 @@ export function usePhoneVerification(phone: string) {
     recheck,
   };
 }
+
+export type PhoneVerificationController = ReturnType<typeof usePhoneVerification>;
