@@ -2,10 +2,14 @@ package com.duing.domain.user.service.dto.command;
 
 import com.duing.domain.user.entity.VerificationPurpose;
 
-/** PR1 은 SIGNUP 전용 — 컨트롤러가 purpose 를 고정한다. PHONE_CHANGE/PASSWORD_RESET 발급은 PR4. */
+/**
+ * MO 인증 발급 커맨드. targetUserId 는 PHONE_CHANGE(요청자 본인)·PASSWORD_RESET(재설정 대상)에서
+ * 세션에 귀속되고, SIGNUP 은 null 이다.
+ */
 public record IssuePhoneVerificationCommand(
         String phone,
         VerificationPurpose purpose,
-        boolean includeQr
+        boolean includeQr,
+        Long targetUserId
 ) {
 }

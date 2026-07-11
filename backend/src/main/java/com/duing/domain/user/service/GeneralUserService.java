@@ -6,11 +6,14 @@ import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.entity.VerificationPurpose;
+import com.duing.domain.user.exception.PhoneVerificationException;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
+import com.duing.domain.user.service.dto.command.ChangePhoneCommand;
 import com.duing.domain.user.service.dto.command.ForceLogoutCommand;
 import com.duing.domain.user.service.dto.command.LoginCommand;
+import com.duing.domain.user.service.dto.command.ResetPasswordCommand;
 import com.duing.domain.user.service.dto.command.SignupCommand;
 import com.duing.domain.user.service.dto.command.UpdateProfileCommand;
 import com.duing.domain.user.service.dto.query.LoginResult;
@@ -188,6 +191,71 @@ public class GeneralUserService implements UserService {
         user.changePassword(passwordEncoder.encode(changePasswordCommand.newPassword()));
         // 변경 후 재로그인 강제 — 발급된 모든 토큰을 무효화한다(탈취된 세션 차단).
         user.bumpTokenVersion();
+    }
+
+    @Override
+    @Transactional
+    public void changePhone(ChangePhoneCommand changePhoneCommand, String clientIp, String userAgent) {
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        // 세션 검증(403)이 최우선 — 미존재·미인증·완료 창(10분) 초과·용도 불일치 전부 사유 미특정 403.
+        PhoneVerification verifiedSession = phoneVerificationSessionManager.getVerifiedSessionForUpdate(
+                changePhoneCommand.verificationToken(), VerificationPurpose.PHONE_CHANGE, now);
+        // 세션 대상과 요청자가 다르면 동일하게 403 — 타인 세션 토큰 탈취로 내 계정 번호를 바꾸는 경로 차단.
+        if (!changePhoneCommand.userId().equals(verifiedSession.getTargetUserId())) {
+            throw new PhoneVerificationException.PhoneNotVerifiedException();
+        }
+
+        String verifiedPhone = verifiedSession.getPhone();
+        // 발급 시 검사했더라도 인증~완료 사이 창의 선점을 재검증한다(TOCTOU) — 최종 방어는 ux_users_phone.
+        if (userRepository.existsByPhoneAndIdNot(verifiedPhone, changePhoneCommand.userId())) {
+            throw new UserException.DuplicateAccountException();
+        }
+
+        User user = userRepository.findByIdForUpdate(changePhoneCommand.userId())
+                .orElseThrow(UserException.UserNotFoundException::new);
+        // 복구 수단(전화번호) 교체는 비밀번호 변경과 동급 — 현재 비밀번호로 step-up 인증한다.
+        // 세션 소비 전에 실패시키므로 비밀번호 오입력 시 인증 세션은 살아있어 재시도만 하면 된다.
+        if (!passwordEncoder.matches(changePhoneCommand.currentPassword(), user.getPasswordHash())) {
+            throw new UserException.InvalidCurrentPasswordException();
+        }
+        user.changePhone(verifiedPhone, now);
+        // 복구 수단 변경 후 재로그인 강제 — 발급된 모든 토큰을 무효화한다(changePassword 와 동일).
+        user.bumpTokenVersion();
+        phoneVerificationSessionManager.consume(verifiedSession, user.getId(), clientIp, userAgent);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordCommand resetPasswordCommand, String clientIp, String userAgent) {
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        // 잠금 순서는 세션 행 → 유저 행 — signup·changePhone 소비 경로와 같은 방향이라 순환 대기(데드락)가 없다.
+        // 세션 검증(403)이 최우선: 미존재·미인증·완료 창(10분) 초과·용도 불일치 전부 사유 미특정 403.
+        PhoneVerification verifiedSession = phoneVerificationSessionManager.getVerifiedSessionForUpdate(
+                resetPasswordCommand.verificationToken(), VerificationPurpose.PASSWORD_RESET, now);
+
+        Long targetUserId = verifiedSession.getTargetUserId();
+        if (targetUserId == null) {
+            throw new UserException.PasswordResetNotAllowedException();
+        }
+        // 인증~완료 사이에 탈퇴하면 @SQLRestriction 으로 조회되지 않는다 — 사유 미특정 400 으로 수렴.
+        User user = userRepository.findByIdForUpdate(targetUserId)
+                .orElseThrow(UserException.PasswordResetNotAllowedException::new);
+
+        // 인증~완료 사이에 계정 번호가 바뀌면 세션 번호는 더 이상 "그 계정의 등록 번호"가 아니다 (spec §10.2
+        // 성공 조건 = 등록 번호 실소유). 번호 변경으로 방어한 피해자의 계정을 구 세션으로 재설정하는 경로를 닫는다.
+        if (!user.getPhone().equals(verifiedSession.getPhone())) {
+            throw new UserException.PasswordResetNotAllowedException();
+        }
+        if (passwordEncoder.matches(resetPasswordCommand.newPassword(), user.getPasswordHash())) {
+            throw new UserException.SamePasswordException();
+        }
+
+        user.changePassword(passwordEncoder.encode(resetPasswordCommand.newPassword()));
+        // 재설정 = 계정 탈취 대응 경로일 수 있다 — 발급된 모든 토큰을 무효화한다(전 기기 로그아웃).
+        user.bumpTokenVersion();
+        phoneVerificationSessionManager.consume(verifiedSession, user.getId(), clientIp, userAgent);
     }
 
     @Override

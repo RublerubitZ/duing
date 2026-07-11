@@ -2,10 +2,14 @@ package com.duing.domain.user.service;
 
 import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.PhoneVerificationStatus;
+import com.duing.domain.user.entity.User;
+import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.exception.PhoneVerificationException;
+import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.IssuePhoneVerificationCommand;
+import com.duing.domain.user.service.dto.query.PasswordResetStartResult;
 import com.duing.domain.user.service.dto.query.PhoneVerificationIssueResult;
 import com.duing.domain.user.service.dto.query.PhoneVerificationStatusResult;
 import com.duing.domain.user.support.PhoneMasker;
@@ -71,21 +75,54 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
         LocalDateTime now = LocalDateTime.now(clock);
         rateLimiter.assertAndRecordIssueIpRequest(clientIp, now);
 
-        // 이미 가입된 번호면 발급하지 않고 즉시 409 — 이메일 인증의 발송 전 409 와 동일한 UX 우선
-        // 트레이드오프. 권위 있는 차단은 PR2 signup 의 existsByPhone 재검증이 담당한다 (spec §7.1).
-        if (userRepository.existsByPhone(issueCommand.phone())) {
-            throw new PhoneVerificationException.PhoneAlreadyRegisteredException();
+        // purpose 별 발급 전 중복검사 (spec §7.1·§7.5) — 어느 경우든 권위 있는 차단은 완료 API 의
+        // 재검증 + DB 유니크가 담당하고, 여기는 UX 선안내다.
+        switch (issueCommand.purpose()) {
+            // 이미 가입된 번호면 즉시 409 — 이메일 인증의 발송 전 409 와 동일한 UX 우선 트레이드오프.
+            case SIGNUP -> {
+                if (userRepository.existsByPhone(issueCommand.phone())) {
+                    throw new PhoneVerificationException.PhoneAlreadyRegisteredException();
+                }
+            }
+            // 타인 소유 번호만 409 — 자기 번호 재인증(소급 인증 경로)은 허용한다 (spec §7.5).
+            case PHONE_CHANGE -> {
+                if (userRepository.existsByPhoneAndIdNot(issueCommand.phone(), issueCommand.targetUserId())) {
+                    throw new PhoneVerificationException.PhoneAlreadyRegisteredException();
+                }
+            }
+            // 계정에 등록된 번호로만 발급되므로 중복검사가 성립하지 않는다 (spec §10.2).
+            case PASSWORD_RESET -> { }
         }
 
         String token = UUID.randomUUID().toString();
-        PhoneVerification phoneVerification =
-                sessionManager.upsert(issueCommand.phone(), token, issueCommand.purpose(), now);
+        PhoneVerification phoneVerification = sessionManager.upsert(
+                issueCommand.phone(), token, issueCommand.purpose(), issueCommand.targetUserId(), now);
         String code = codeDeriver.deriveCode(token);
         // QR 발급(외부 콜)은 upsert 트랜잭션 커밋 이후 — 행잠금을 쥔 채 외부 지연을 기다리지 않는다.
         String qrCode = issueCommand.includeQr() ? createQrCodeWithinQuota(code, now) : null;
         return new PhoneVerificationIssueResult(
                 phoneVerification.getToken(), code, moInboundNumber, qrCode,
                 phoneVerification.getExpiresAt(), phoneVerification.remainingSeconds(now));
+    }
+
+    @Override
+    public PasswordResetStartResult startPasswordReset(String studentId, boolean includeQr, String clientIp) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        // 계정 존재 여부와 무관하게 IP 발급 리밋을 먼저 건다 — 미존재 학번 400 경로도 카운트해야
+        // 한 IP 의 학번 열거와 resetStart 맵 무한 성장을 막는다 (spec §11 "IP — 인증 시작"). happy path 는
+        // 내부 issue() 가 한 번 더 기록하지만, 재설정 시작은 드문 동작이라 이 보수적 이중 계수는 무해하다.
+        rateLimiter.assertAndRecordIssueIpRequest(clientIp, now);
+        rateLimiter.assertAndRecordPasswordResetStart(studentId, now);
+
+        // @SQLRestriction 으로 탈퇴 계정은 조회되지 않는다 — 미존재와 동일한 400 으로 수렴(사유 미특정).
+        User targetUser = userRepository.findByStudentId(studentId)
+                .orElseThrow(UserException.PasswordResetNotAllowedException::new);
+
+        PhoneVerificationIssueResult issueResult = issue(
+                new IssuePhoneVerificationCommand(
+                        targetUser.getPhone(), VerificationPurpose.PASSWORD_RESET, includeQr, targetUser.getId()),
+                clientIp);
+        return new PasswordResetStartResult(issueResult, PhoneMasker.mask(targetUser.getPhone()));
     }
 
     @Override

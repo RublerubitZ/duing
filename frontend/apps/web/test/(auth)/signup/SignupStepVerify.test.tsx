@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { SignupStepVerify } from '@/app/(auth)/signup/_components/SignupStepVerify';
-import type { PhoneVerificationController } from '@/app/(auth)/signup/_lib/use-phone-verification';
+import type { PhoneVerificationController } from '@/app/_lib/use-phone-verification';
 
 function makeController(overrides: Partial<PhoneVerificationController>): PhoneVerificationController {
   return {

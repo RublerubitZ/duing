@@ -137,3 +137,21 @@ export type PhoneVerificationStatus = {
   expiresInSeconds: number;
   maskedPhone: string | null;
 };
+
+export type ChangePhonePayload = {
+  verificationToken: string;
+  currentPassword: string;
+};
+
+export type RequestPasswordResetPayload = {
+  studentId: string;
+};
+
+export type PasswordResetSession = PhoneVerificationSession & {
+  maskedPhone: string;
+};
+
+export type CompletePasswordResetPayload = {
+  verificationToken: string;
+  newPassword: string;
+};

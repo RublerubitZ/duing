@@ -6,7 +6,7 @@ import {
   formatSeconds,
   mapIssueError,
   mapStatusError,
-} from '@/app/(auth)/signup/_lib/phone-verification';
+} from '@/app/_lib/phone-verification';
 import { ApiError } from '@duing/api';
 
 describe('phone-verification 유틸', () => {

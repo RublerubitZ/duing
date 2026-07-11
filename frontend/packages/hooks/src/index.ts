@@ -9,6 +9,10 @@ export {
   useWithdrawAccountMutation,
   useStartPhoneVerificationMutation,
   usePhoneVerificationStatusQuery,
+  useStartPhoneChangeVerificationMutation,
+  useChangePhoneMutation,
+  useRequestPasswordResetMutation,
+  useCompletePasswordResetMutation,
 } from './auth';
 export { authQueryKeys } from './authQueryKeys';
 export {

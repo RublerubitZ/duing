@@ -1,8 +1,8 @@
 'use client';
 
-import { PhoneVerificationField } from './PhoneVerificationField';
-import { SignupIllustration } from './SignupIllustration';
-import type { PhoneVerificationController } from '../_lib/use-phone-verification';
+import { PhoneVerificationField } from '@/app/_components/PhoneVerificationField';
+import { SignupIllustration } from '@/app/_components/SignupIllustration';
+import type { PhoneVerificationController } from '@/app/_lib/use-phone-verification';
 
 type Props = {
   phone: string;

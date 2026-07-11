@@ -47,7 +47,11 @@ export function middleware(request: NextRequest) {
   const claims = token ? decodeJwt(token) : null;
   const isAuthenticated = !!claims && !isExpired(claims);
 
-  if (pathname.startsWith("/login") || pathname.startsWith("/signup")) {
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/forgot-password")
+  ) {
     if (isAuthenticated) {
       const next = request.nextUrl.clone();
       next.pathname = "/me";
@@ -100,6 +104,7 @@ export const config = {
   matcher: [
     "/login",
     "/signup",
+    "/forgot-password",
     "/apply/:path*",
     "/me/:path*",
     "/manage/:path*",

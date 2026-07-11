@@ -39,19 +39,20 @@ public class PhoneVerificationSessionManager {
 
     /** 번호당 1행 upsert — 행잠금으로 동시 발급의 쿨다운 우회·코드 덮어쓰기를 막는다 (spec §9.5). */
     @Transactional
-    public PhoneVerification upsert(String phone, String token, VerificationPurpose purpose, LocalDateTime now) {
+    public PhoneVerification upsert(String phone, String token, VerificationPurpose purpose,
+                                    Long targetUserId, LocalDateTime now) {
         PhoneVerification existingVerification =
                 phoneVerificationRepository.findByPhoneForUpdate(phone).orElse(null);
         if (existingVerification != null) {
             if (existingVerification.isInCooldown(now)) {
                 throw new PhoneVerificationException.PhoneVerificationCooldownException();
             }
-            existingVerification.reissue(token, purpose, null, now);
+            existingVerification.reissue(token, purpose, targetUserId, now);
             return existingVerification;
         }
         try {
             return phoneVerificationRepository.saveAndFlush(
-                    PhoneVerification.issue(phone, token, purpose, null, now));
+                    PhoneVerification.issue(phone, token, purpose, targetUserId, now));
         } catch (DataIntegrityViolationException concurrentInsertRace) {
             // 동시 요청이 방금 행을 생성했다 — 쿨다운과 동일하게 응답하고 롤백한다.
             // (PostgreSQL 은 제약 위반 후 같은 트랜잭션에서 추가 쿼리 불가 → 재조회 금지)

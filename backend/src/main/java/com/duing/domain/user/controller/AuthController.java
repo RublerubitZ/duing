@@ -1,14 +1,18 @@
 package com.duing.domain.user.controller;
 
 import com.duing.domain.user.api.AuthApi;
+import com.duing.domain.user.controller.dto.request.CompletePasswordResetRequest;
 import com.duing.domain.user.controller.dto.request.IssuePhoneVerificationRequest;
 import com.duing.domain.user.controller.dto.request.LoginRequest;
+import com.duing.domain.user.controller.dto.request.PasswordResetStartRequest;
 import com.duing.domain.user.controller.dto.request.SignupRequest;
 import com.duing.domain.user.controller.dto.response.LoginResponse;
+import com.duing.domain.user.controller.dto.response.PasswordResetStartResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationStatusResponse;
 import com.duing.domain.user.service.PhoneVerificationService;
 import com.duing.domain.user.service.UserService;
+import com.duing.domain.user.service.dto.query.PasswordResetStartResult;
 import com.duing.domain.user.service.dto.query.PhoneVerificationIssueResult;
 import com.duing.domain.user.service.dto.query.PhoneVerificationStatusResult;
 import com.duing.global.auth.UserPrincipal;
@@ -80,6 +84,28 @@ public class AuthController implements AuthApi {
         PhoneVerificationStatusResult statusResult =
                 phoneVerificationService.getStatus(verificationToken, clientIp, userAgent);
         return ResponseEntity.ok(ApiResponse.success(PhoneVerificationStatusResponse.from(statusResult)));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<PasswordResetStartResponse>> startPasswordReset(
+            @Valid @RequestBody PasswordResetStartRequest startRequest,
+            @RequestParam(name = "qr", defaultValue = "false") boolean includeQr,
+            HttpServletRequest httpServletRequest) {
+        String clientIp = httpServletRequest.getRemoteAddr();
+        PasswordResetStartResult startResult = phoneVerificationService
+                .startPasswordReset(startRequest.studentId(), includeQr, clientIp);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.success(PasswordResetStartResponse.from(startResult)));
+    }
+
+    @Override
+    public ResponseEntity<Void> completePasswordReset(
+            @Valid @RequestBody CompletePasswordResetRequest completeRequest,
+            HttpServletRequest httpServletRequest) {
+        String clientIp = httpServletRequest.getRemoteAddr();
+        String userAgent = httpServletRequest.getHeader("User-Agent");
+        userService.resetPassword(completeRequest.toCommand(), clientIp, userAgent);
+        return ResponseEntity.noContent().build();
     }
 
 }

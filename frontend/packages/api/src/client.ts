@@ -76,6 +76,10 @@ import type {
   StartPhoneVerificationPayload,
   PhoneVerificationSession,
   PhoneVerificationStatus,
+  ChangePhonePayload,
+  RequestPasswordResetPayload,
+  PasswordResetSession,
+  CompletePasswordResetPayload,
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
   UpdateClubPayload,
@@ -240,6 +244,11 @@ export type DuingApiClient = {
       includeQr: boolean,
     ): Promise<PhoneVerificationSession>;
     getPhoneVerificationStatus(verificationToken: string): Promise<PhoneVerificationStatus>;
+    requestPasswordReset(
+      payload: RequestPasswordResetPayload,
+      includeQr: boolean,
+    ): Promise<PasswordResetSession>;
+    completePasswordReset(payload: CompletePasswordResetPayload): Promise<void>;
     logout(): Promise<void>;
   };
   users: {
@@ -248,6 +257,11 @@ export type DuingApiClient = {
     myClubs(): Promise<MyClubSummary[]>;
     updateProfile(payload: UpdateProfilePayload): Promise<void>;
     changePassword(payload: ChangePasswordPayload): Promise<void>;
+    startPhoneChangeVerification(
+      payload: StartPhoneVerificationPayload,
+      includeQr: boolean,
+    ): Promise<PhoneVerificationSession>;
+    changePhone(payload: ChangePhonePayload): Promise<void>;
     withdraw(): Promise<void>;
   };
   clubs: {
@@ -740,6 +754,15 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<PhoneVerificationStatus>(
           http.get(`auth/phone-verifications/${verificationToken}`),
         ),
+      requestPasswordReset: (payload, includeQr) =>
+        jsonOk<PasswordResetSession>(
+          http.post('auth/password-resets', {
+            json: payload,
+            searchParams: includeQr ? { qr: 'true' } : undefined,
+          }),
+        ),
+      completePasswordReset: (payload) =>
+        jsonVoid(http.post('auth/password-resets/complete', { json: payload })),
       logout: () => jsonVoid(http.post('auth/logout', { timeout: LOGOUT_REVOKE_TIMEOUT_MS })),
     },
     users: {
@@ -753,6 +776,14 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       myClubs: () => jsonOk<MyClubSummary[]>(http.get('me/clubs')),
       updateProfile: (payload) => jsonVoid(http.patch('users/me', { json: payload })),
       changePassword: (payload) => jsonVoid(http.patch('users/me/password', { json: payload })),
+      startPhoneChangeVerification: (payload, includeQr) =>
+        jsonOk<PhoneVerificationSession>(
+          http.post('users/me/phone-verifications', {
+            json: payload,
+            searchParams: includeQr ? { qr: 'true' } : undefined,
+          }),
+        ),
+      changePhone: (payload) => jsonVoid(http.patch('users/me/phone', { json: payload })),
       withdraw: () => jsonVoid(http.delete('users/me')),
     },
     clubs: {

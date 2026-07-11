@@ -39,6 +39,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByPhone(String phone);
 
+    /** 번호 변경 발급·완료의 중복검사 — 본인 소유는 허용(소급 재인증), 타인 소유만 걸러낸다. */
+    boolean existsByPhoneAndIdNot(String phone, Long id);
+
+    Optional<User> findByStudentId(String studentId);
+
     /**
      * ADMIN 사용자 검색.
      * studentId 가 q 로 시작하거나, name 이 q 를 포함(대소문자 무시)할 때 매치.

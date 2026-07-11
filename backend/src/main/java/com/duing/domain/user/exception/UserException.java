@@ -9,6 +9,10 @@ public class UserException extends ApplicationException {
         super(message, status);
     }
 
+    protected UserException(String message, HttpStatus status, String code) {
+        super(message, status, code);
+    }
+
     public static class UserNotFoundException extends UserException {
         private static final String MESSAGE = "사용자를 찾을 수 없습니다.";
 
@@ -80,6 +84,15 @@ public class UserException extends ApplicationException {
 
         public SamePasswordException() {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /** 재설정 시작(계정 미존재)·완료(대상 계정 소실) 공통 — 사유 미특정 단일 400 (spec §7.8·§10.2). */
+    public static class PasswordResetNotAllowedException extends UserException {
+        private static final String MESSAGE = "등록된 정보를 확인할 수 없습니다.";
+
+        public PasswordResetNotAllowedException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST, "PASSWORD_RESET_NOT_ALLOWED");
         }
     }
 }

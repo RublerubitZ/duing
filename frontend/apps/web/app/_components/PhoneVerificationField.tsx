@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { buildSmsDeeplink, formatSeconds, isIosUserAgent, isMobileUserAgent } from '../_lib/phone-verification';
-import type { PhoneVerificationFieldStatus } from '../_lib/use-phone-verification';
+import { buildSmsDeeplink, formatSeconds, isIosUserAgent, isMobileUserAgent } from '@/app/_lib/phone-verification';
+import type { PhoneVerificationFieldStatus } from '@/app/_lib/use-phone-verification';
 import { PhoneInput } from './PhoneInput';
 import { SignupIllustration } from './SignupIllustration';
 
@@ -147,17 +147,21 @@ export function PhoneVerificationField({
               )}
               <p className="mt-2 text-xs font-semibold text-ink">① QR 촬영</p>
             </div>
-            <div>
+            {/* min-w-0: 그리드 자식의 min-content 확장으로 박스가 좁은 컨테이너(다이얼로그) 밖으로 밀려나는 것을 막는다. */}
+            <div className="min-w-0">
               <p className="text-xs text-charcoal-3">수신번호 {formatMoNumber(moNumber)}</p>
-              <div className="mt-1.5 flex items-center gap-3">
+              <div className="mt-1.5 flex flex-wrap items-center gap-3">
                 <span className="font-mono text-2xl font-bold tracking-wide text-ink">{code}</span>
                 <button type="button" onClick={handleCopyCode} className="btn btn-sm shrink-0 whitespace-nowrap">
                   코드 복사
                 </button>
               </div>
               <p className="mt-1.5 text-xs text-charcoal-3">남은 시간 {formatSeconds(remainingSeconds)}</p>
+              {/* 줄바꿈이 단계 중간이 아니라 단계 사이에서만 일어나도록 각 단계를 nowrap 으로 묶는다. */}
               <p className="mt-2 text-xs text-charcoal-3">
-                ② 문자앱에서 → ③ 그대로 전송 → <span className="font-semibold text-ink-soft">✓ 자동 인증</span>
+                <span className="whitespace-nowrap">② 문자앱에서 →</span>{' '}
+                <span className="whitespace-nowrap">③ 그대로 전송 →</span>{' '}
+                <span className="whitespace-nowrap font-semibold text-ink-soft">✓ 자동 인증</span>
               </p>
             </div>
           </div>
