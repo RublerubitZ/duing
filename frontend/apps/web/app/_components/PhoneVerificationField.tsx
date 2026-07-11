@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { buildSmsDeeplink, formatSeconds, isIosUserAgent, isMobileUserAgent } from '../_lib/phone-verification';
-import type { PhoneVerificationFieldStatus } from '../_lib/use-phone-verification';
+import { buildSmsDeeplink, formatSeconds, isIosUserAgent, isMobileUserAgent } from '@/app/_lib/phone-verification';
+import type { PhoneVerificationFieldStatus } from '@/app/_lib/use-phone-verification';
 import { PhoneInput } from './PhoneInput';
 import { SignupIllustration } from './SignupIllustration';
 

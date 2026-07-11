@@ -6,7 +6,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
-import { usePhoneVerification } from '@/app/(auth)/signup/_lib/use-phone-verification';
+import { usePhoneVerification } from '@/app/_lib/use-phone-verification';
 
 // MSW 기반 훅 테스트 — TanStack Query 자체는 모킹하지 않고 네트워크 레벨에서 mocking 한다.
 // (packages/hooks/test/interviewRound.test.tsx, authLogout.test.tsx 와 동일 패턴)

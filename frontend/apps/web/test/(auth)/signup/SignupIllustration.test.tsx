@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { SignupIllustration } from '@/app/(auth)/signup/_components/SignupIllustration';
+import { SignupIllustration } from '@/app/_components/SignupIllustration';
 
 describe('SignupIllustration', () => {
   it('안내 일러스트를 접근 가능한 이미지로 렌더한다', () => {

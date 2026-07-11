@@ -7,7 +7,7 @@ import { useSignupMutation } from '@duing/hooks';
 import { signupSchema } from '@duing/schemas';
 import { ApiError } from '@duing/api';
 import { initialSignupState, signupReducer, type SignupFormState } from '../_lib/signup-state';
-import { usePhoneVerification } from '../_lib/use-phone-verification';
+import { usePhoneVerification } from '@/app/_lib/use-phone-verification';
 import { SignupStepIndicator } from './SignupStepIndicator';
 import { SignupStepVerify } from './SignupStepVerify';
 import { SignupStepProfile } from './SignupStepProfile';
