@@ -13,6 +13,7 @@ import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
 import com.duing.domain.user.service.dto.command.ChangePhoneCommand;
 import com.duing.domain.user.service.dto.command.ForceLogoutCommand;
 import com.duing.domain.user.service.dto.command.LoginCommand;
+import com.duing.domain.user.service.dto.command.ResetPasswordCommand;
 import com.duing.domain.user.service.dto.command.SignupCommand;
 import com.duing.domain.user.service.dto.command.UpdateProfileCommand;
 import com.duing.domain.user.service.dto.query.LoginResult;
@@ -214,6 +215,30 @@ public class GeneralUserService implements UserService {
         User user = userRepository.findByIdForUpdate(changePhoneCommand.userId())
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.changePhone(verifiedPhone, now);
+        phoneVerificationSessionManager.consume(verifiedSession, user.getId(), clientIp, userAgent);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordCommand resetPasswordCommand, String clientIp, String userAgent) {
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        // 잠금 순서는 세션 행 → 유저 행 — signup·changePhone 소비 경로와 같은 방향이라 순환 대기(데드락)가 없다.
+        // 세션 검증(403)이 최우선: 미존재·미인증·완료 창(10분) 초과·용도 불일치 전부 사유 미특정 403.
+        PhoneVerification verifiedSession = phoneVerificationSessionManager.getVerifiedSessionForUpdate(
+                resetPasswordCommand.verificationToken(), VerificationPurpose.PASSWORD_RESET, now);
+
+        Long targetUserId = verifiedSession.getTargetUserId();
+        if (targetUserId == null) {
+            throw new UserException.PasswordResetNotAllowedException();
+        }
+        // 인증~완료 사이에 탈퇴하면 @SQLRestriction 으로 조회되지 않는다 — 사유 미특정 400 으로 수렴.
+        User user = userRepository.findByIdForUpdate(targetUserId)
+                .orElseThrow(UserException.PasswordResetNotAllowedException::new);
+
+        user.changePassword(passwordEncoder.encode(resetPasswordCommand.newPassword()));
+        // 재설정 = 계정 탈취 대응 경로일 수 있다 — 발급된 모든 토큰을 무효화한다(전 기기 로그아웃).
+        user.bumpTokenVersion();
         phoneVerificationSessionManager.consume(verifiedSession, user.getId(), clientIp, userAgent);
     }
 

@@ -1,5 +1,6 @@
 package com.duing.domain.user.api;
 
+import com.duing.domain.user.controller.dto.request.CompletePasswordResetRequest;
 import com.duing.domain.user.controller.dto.request.IssuePhoneVerificationRequest;
 import com.duing.domain.user.controller.dto.request.LoginRequest;
 import com.duing.domain.user.controller.dto.request.PasswordResetStartRequest;
@@ -98,5 +99,19 @@ public interface AuthApi {
     ResponseEntity<ApiResponse<PasswordResetStartResponse>> startPasswordReset(
             @Valid @RequestBody PasswordResetStartRequest startRequest,
             @RequestParam(name = "qr", defaultValue = "false") boolean includeQr,
+            HttpServletRequest httpServletRequest);
+
+    @Operation(summary = "비밀번호 재설정 완료",
+            description = "PASSWORD_RESET MO 인증 세션(인증 후 10분 내)으로 새 비밀번호를 설정한다. 완료 시 "
+                    + "token_version 을 올려 전 기기에서 로그아웃되며, 세션은 즉시 소비된다. "
+                    + "미인증·만료·용도 불일치 세션은 403(PHONE_NOT_VERIFIED), 대상 계정 소실은 400.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "재설정됨"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "계정을 확인할 수 없음 또는 형식 오류"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "유효하지 않은 인증 세션")
+    })
+    @PostMapping("/auth/password-resets/complete")
+    ResponseEntity<Void> completePasswordReset(
+            @Valid @RequestBody CompletePasswordResetRequest completeRequest,
             HttpServletRequest httpServletRequest);
 }

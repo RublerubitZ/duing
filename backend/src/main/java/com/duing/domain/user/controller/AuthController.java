@@ -1,6 +1,7 @@
 package com.duing.domain.user.controller;
 
 import com.duing.domain.user.api.AuthApi;
+import com.duing.domain.user.controller.dto.request.CompletePasswordResetRequest;
 import com.duing.domain.user.controller.dto.request.IssuePhoneVerificationRequest;
 import com.duing.domain.user.controller.dto.request.LoginRequest;
 import com.duing.domain.user.controller.dto.request.PasswordResetStartRequest;
@@ -95,6 +96,16 @@ public class AuthController implements AuthApi {
                 .startPasswordReset(startRequest.studentId(), includeQr, clientIp);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(ApiResponse.success(PasswordResetStartResponse.from(startResult)));
+    }
+
+    @Override
+    public ResponseEntity<Void> completePasswordReset(
+            @Valid @RequestBody CompletePasswordResetRequest completeRequest,
+            HttpServletRequest httpServletRequest) {
+        String clientIp = httpServletRequest.getRemoteAddr();
+        String userAgent = httpServletRequest.getHeader("User-Agent");
+        userService.resetPassword(completeRequest.toCommand(), clientIp, userAgent);
+        return ResponseEntity.noContent().build();
     }
 
 }
