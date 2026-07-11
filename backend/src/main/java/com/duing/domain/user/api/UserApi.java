@@ -1,6 +1,7 @@
 package com.duing.domain.user.api;
 
 import com.duing.domain.user.controller.dto.request.ChangePasswordRequest;
+import com.duing.domain.user.controller.dto.request.ChangePhoneRequest;
 import com.duing.domain.user.controller.dto.request.StartPhoneChangeVerificationRequest;
 import com.duing.domain.user.controller.dto.request.UpdateProfileRequest;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueResponse;
@@ -63,6 +64,17 @@ public interface UserApi {
     ResponseEntity<ApiResponse<PhoneVerificationIssueResponse>> startPhoneChangeVerification(
             @Valid @RequestBody StartPhoneChangeVerificationRequest startRequest,
             @RequestParam(name = "qr", defaultValue = "false") boolean includeQr,
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest);
+
+    @Operation(summary = "전화번호 변경",
+            description = "PHONE_CHANGE 용 MO 인증 세션(본인 대상·인증 후 10분 내)으로 전화번호를 교체한다. "
+                    + "새 번호는 요청에 없으며 세션에 귀속된 번호가 저장되고, 사용된 세션은 즉시 소비된다. "
+                    + "미인증·만료·대상 불일치 세션은 403(PHONE_NOT_VERIFIED), 타인 선점 번호는 409.")
+    @SecurityRequirement(name = "BearerAuth")
+    @PatchMapping("/users/me/phone")
+    ResponseEntity<Void> changePhone(
+            @Valid @RequestBody ChangePhoneRequest changePhoneRequest,
             @AuthenticationPrincipal UserPrincipal currentUser,
             HttpServletRequest httpServletRequest);
 

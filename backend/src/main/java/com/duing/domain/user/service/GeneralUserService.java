@@ -6,9 +6,11 @@ import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.entity.VerificationPurpose;
+import com.duing.domain.user.exception.PhoneVerificationException;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
+import com.duing.domain.user.service.dto.command.ChangePhoneCommand;
 import com.duing.domain.user.service.dto.command.ForceLogoutCommand;
 import com.duing.domain.user.service.dto.command.LoginCommand;
 import com.duing.domain.user.service.dto.command.SignupCommand;
@@ -188,6 +190,31 @@ public class GeneralUserService implements UserService {
         user.changePassword(passwordEncoder.encode(changePasswordCommand.newPassword()));
         // 변경 후 재로그인 강제 — 발급된 모든 토큰을 무효화한다(탈취된 세션 차단).
         user.bumpTokenVersion();
+    }
+
+    @Override
+    @Transactional
+    public void changePhone(ChangePhoneCommand changePhoneCommand, String clientIp, String userAgent) {
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        // 세션 검증(403)이 최우선 — 미존재·미인증·완료 창(10분) 초과·용도 불일치 전부 사유 미특정 403.
+        PhoneVerification verifiedSession = phoneVerificationSessionManager.getVerifiedSessionForUpdate(
+                changePhoneCommand.verificationToken(), VerificationPurpose.PHONE_CHANGE, now);
+        // 세션 대상과 요청자가 다르면 동일하게 403 — 타인 세션 토큰 탈취로 내 계정 번호를 바꾸는 경로 차단.
+        if (!changePhoneCommand.userId().equals(verifiedSession.getTargetUserId())) {
+            throw new PhoneVerificationException.PhoneNotVerifiedException();
+        }
+
+        String verifiedPhone = verifiedSession.getPhone();
+        // 발급 시 검사했더라도 인증~완료 사이 창의 선점을 재검증한다(TOCTOU) — 최종 방어는 ux_users_phone.
+        if (userRepository.existsByPhoneAndIdNot(verifiedPhone, changePhoneCommand.userId())) {
+            throw new UserException.DuplicateAccountException();
+        }
+
+        User user = userRepository.findByIdForUpdate(changePhoneCommand.userId())
+                .orElseThrow(UserException.UserNotFoundException::new);
+        user.changePhone(verifiedPhone, now);
+        phoneVerificationSessionManager.consume(verifiedSession, user.getId(), clientIp, userAgent);
     }
 
     @Override

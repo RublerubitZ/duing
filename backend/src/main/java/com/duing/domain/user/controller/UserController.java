@@ -2,12 +2,14 @@ package com.duing.domain.user.controller;
 
 import com.duing.domain.user.api.UserApi;
 import com.duing.domain.user.controller.dto.request.ChangePasswordRequest;
+import com.duing.domain.user.controller.dto.request.ChangePhoneRequest;
 import com.duing.domain.user.controller.dto.request.StartPhoneChangeVerificationRequest;
 import com.duing.domain.user.controller.dto.request.UpdateProfileRequest;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueResponse;
 import com.duing.domain.user.controller.dto.response.UserResponse;
 import com.duing.domain.user.service.PhoneVerificationService;
 import com.duing.domain.user.service.UserService;
+import com.duing.domain.user.service.dto.command.ChangePhoneCommand;
 import com.duing.domain.user.service.dto.query.PhoneVerificationIssueResult;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -65,6 +67,19 @@ public class UserController implements UserApi {
                 .issue(startRequest.toCommand(includeQr, currentUser.id()), clientIp);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(PhoneVerificationIssueResponse.from(issueResult)));
+    }
+
+    @Override
+    public ResponseEntity<Void> changePhone(
+            @Valid @RequestBody ChangePhoneRequest changePhoneRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest) {
+        String clientIp = httpServletRequest.getRemoteAddr();
+        String userAgent = httpServletRequest.getHeader("User-Agent");
+        userService.changePhone(
+                new ChangePhoneCommand(currentUser.id(), changePhoneRequest.verificationToken()),
+                clientIp, userAgent);
+        return ResponseEntity.noContent().build();
     }
 
     @Override

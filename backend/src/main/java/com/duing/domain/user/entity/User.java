@@ -158,4 +158,13 @@ public class User extends BaseEntity {
     public void markPhoneVerified(LocalDateTime verifiedAt) {
         this.phoneVerifiedAt = verifiedAt;
     }
+
+    /**
+     * MO 재인증을 통과한 새 번호로 교체하고 인증 시각을 갱신한다 (spec §7.5).
+     * 같은 번호 재인증(소급 인증)도 이 메서드를 그대로 쓴다 — phone 값은 같고 verifiedAt 만 갱신된다.
+     */
+    public void changePhone(String newPhone, LocalDateTime verifiedAt) {
+        this.phone = newPhone;
+        this.phoneVerifiedAt = verifiedAt;
+    }
 }
