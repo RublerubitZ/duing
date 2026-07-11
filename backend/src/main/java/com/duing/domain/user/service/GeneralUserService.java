@@ -236,6 +236,15 @@ public class GeneralUserService implements UserService {
         User user = userRepository.findByIdForUpdate(targetUserId)
                 .orElseThrow(UserException.PasswordResetNotAllowedException::new);
 
+        // 인증~완료 사이에 계정 번호가 바뀌면 세션 번호는 더 이상 "그 계정의 등록 번호"가 아니다 (spec §10.2
+        // 성공 조건 = 등록 번호 실소유). 번호 변경으로 방어한 피해자의 계정을 구 세션으로 재설정하는 경로를 닫는다.
+        if (!user.getPhone().equals(verifiedSession.getPhone())) {
+            throw new UserException.PasswordResetNotAllowedException();
+        }
+        if (passwordEncoder.matches(resetPasswordCommand.newPassword(), user.getPasswordHash())) {
+            throw new UserException.SamePasswordException();
+        }
+
         user.changePassword(passwordEncoder.encode(resetPasswordCommand.newPassword()));
         // 재설정 = 계정 탈취 대응 경로일 수 있다 — 발급된 모든 토큰을 무효화한다(전 기기 로그아웃).
         user.bumpTokenVersion();

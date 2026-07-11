@@ -248,6 +248,36 @@ class AuthPasswordResetTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("인증과 완료 사이에 계정의 등록 번호가 다른 번호로 바뀌면 400 을 반환한다")
+    void completePasswordResetAfterRegisteredPhoneChangedReturns400() {
+        String studentId = uniqueStudentId();
+        signupUser(uniquePhone(), studentId);
+        String token = issueAndVerifyResetSession(studentId);
+        // 인증 후 계정 등록 번호가 다른 번호로 바뀌면 세션 번호는 더 이상 "그 계정의 등록 번호"가 아니다.
+        jdbcTemplate.update("UPDATE users SET phone = ? WHERE student_id = ?", uniquePhone(), studentId);
+
+        given().contentType(ContentType.JSON)
+                .body(Map.of("verificationToken", token, "newPassword", "newPass123!"))
+                .when().post("/api/v1/auth/password-resets/complete")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("code", equalTo("PASSWORD_RESET_NOT_ALLOWED"));
+    }
+
+    @Test
+    @DisplayName("기존 비밀번호와 동일한 새 비밀번호로 재설정하면 400 을 반환한다")
+    void completePasswordResetWithSamePasswordReturns400() {
+        String studentId = uniqueStudentId();
+        signupUser(uniquePhone(), studentId);
+        String token = issueAndVerifyResetSession(studentId);
+
+        given().contentType(ContentType.JSON)
+                .body(Map.of("verificationToken", token, "newPassword", ORIGINAL_PASSWORD))
+                .when().post("/api/v1/auth/password-resets/complete")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("새 비밀번호는 기존 비밀번호와 달라야 합니다."));
+    }
+
+    @Test
     @DisplayName("형식에 맞지 않는 새 비밀번호는 400 검증 오류를 반환한다")
     void completePasswordResetWithWeakPasswordReturns400() {
         given().contentType(ContentType.JSON)
