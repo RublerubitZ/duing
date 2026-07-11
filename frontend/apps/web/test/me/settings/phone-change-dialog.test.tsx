@@ -124,8 +124,12 @@ describe('PhoneChangeDialog', () => {
   it('새 번호를 인증하면 [번호 변경하기]가 활성화되고 성공 시 토스트와 함께 닫힌다', async () => {
     vi.useFakeTimers();
     let capturedBody: unknown = null;
+    // 보안 게이트: PATCH 는 오직 [번호 변경하기] 클릭에서만 발화해야 한다. 호출 횟수를 세어
+    // verified 전이만으로 자동 발화되는 회귀를 RED 로 잡는다.
+    let patchCallCount = 0;
     server.use(
       http.patch(`${BASE}/users/me/phone`, async ({ request }) => {
+        patchCallCount += 1;
         capturedBody = await request.json();
         return HttpResponse.json({ ok: true, data: null, message: null });
       }),
@@ -137,12 +141,16 @@ describe('PhoneChangeDialog', () => {
 
     const changeButton = screen.getByRole('button', { name: '번호 변경하기' });
     expect(changeButton).toBeEnabled();
+    // VERIFIED 도달 직후·클릭 전 — 자동 발화가 없어야 한다.
+    expect(patchCallCount).toBe(0);
 
     fireEvent.click(changeButton);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
+    // 명시적 클릭 이후에만, 정확히 1회 발화한다.
+    expect(patchCallCount).toBe(1);
     // 완료 페이로드는 토큰만 — 현재 입력값(전화번호)은 절대 담지 않는다.
     expect(capturedBody).toEqual({ verificationToken: SESSION_FIXTURE.verificationToken });
     expect(onClose).toHaveBeenCalled();
@@ -180,7 +188,6 @@ describe('PhoneChangeDialog', () => {
 
   it('닫았다 다시 열면 이전 인증 상태가 남지 않는다', async () => {
     vi.useFakeTimers();
-    mockIssue();
 
     function Harness() {
       const [open, setOpen] = useState(true);
@@ -195,13 +202,10 @@ describe('PhoneChangeDialog', () => {
     }
     renderWithProviders(<Harness />);
 
-    // 인증 발급까지 진행 → issued(문자를 보냈어요 노출).
-    fireEvent.change(screen.getByLabelText('휴대폰 번호'), { target: { value: '01099998888' } });
-    fireEvent.click(screen.getByRole('button', { name: '인증 시작' }));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
-    expect(screen.getByRole('button', { name: '문자를 보냈어요' })).toBeInTheDocument();
+    // 인증을 끝까지(VERIFIED) 몰아 [번호 변경하기]가 활성인 상태로 만든다 —
+    // verified + stale 토큰이 남은 채 재오픈되는 회귀까지 초기화 대상에 포함시킨다.
+    await issueAndVerify();
+    expect(screen.getByRole('button', { name: '번호 변경하기' })).toBeEnabled();
 
     // 닫기.
     fireEvent.click(screen.getByRole('button', { name: '취소' }));
@@ -209,7 +213,7 @@ describe('PhoneChangeDialog', () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    // 다시 열기 → idle 초기화(휴대폰 번호 입력 노출, 진행 흔적 없음).
+    // 다시 열기 → idle 초기화(휴대폰 번호 입력 노출·빈 값, verified 흔적·확정 버튼 없음).
     fireEvent.click(screen.getByRole('button', { name: '다시 열기' }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
@@ -217,5 +221,48 @@ describe('PhoneChangeDialog', () => {
 
     expect(screen.getByLabelText('휴대폰 번호')).toHaveValue('');
     expect(screen.queryByRole('button', { name: '문자를 보냈어요' })).not.toBeInTheDocument();
+    // verified 잔상이 없으므로 [번호 변경하기]는 다시 비활성이다.
+    expect(screen.getByRole('button', { name: '번호 변경하기' })).toBeDisabled();
+  });
+
+  it('변경 요청이 진행 중이면 ESC 로 닫히지 않고, 응답이 오면 한 번만 닫힌다', async () => {
+    vi.useFakeTimers();
+    // PATCH 응답을 수동 게이트로 붙잡아, 요청이 pending 인 구간을 만든다.
+    let resolvePatch = () => {};
+    const patchGate = new Promise<void>((resolve) => {
+      resolvePatch = resolve;
+    });
+    server.use(
+      http.patch(`${BASE}/users/me/phone`, async () => {
+        await patchGate;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+    const onClose = vi.fn();
+    renderWithProviders(<PhoneChangeDialog open onClose={onClose} />);
+
+    await issueAndVerify();
+
+    fireEvent.click(screen.getByRole('button', { name: '번호 변경하기' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    // 요청이 pending — 버튼이 '변경 중…' 으로 바뀐다.
+    expect(screen.getByRole('button', { name: '변경 중…' })).toBeInTheDocument();
+
+    // pending 구간에 ESC 를 눌러도 닫히지 않는다(오버레이/ESC 닫힘 경로 가드).
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(onClose).not.toHaveBeenCalled();
+
+    // 응답 도착 → 성공 토스트 + onClose 는 정확히 1회.
+    resolvePatch();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByText('전화번호가 변경되었어요.')).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

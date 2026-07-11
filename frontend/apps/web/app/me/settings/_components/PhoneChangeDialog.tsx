@@ -61,7 +61,10 @@ export function PhoneChangeDialog({ open, onClose }: Props) {
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) onClose();
+        if (!next) {
+          if (changePhoneMutation.isPending) return; // 변경 진행 중에는 닫히지 않는다 — 유령 토스트/뒤늦은 onClose 방지
+          onClose();
+        }
       }}
     >
       <DialogContent>
