@@ -157,10 +157,12 @@ class UserPhoneChangeTest extends IntegrationTestBase {
         assertThat(updated.getPhone()).isEqualTo(newPhone);
         assertThat(updated.getPhoneVerifiedAt()).isNotNull();
         assertThat(phoneVerificationRepository.findByToken(token)).isEmpty(); // consume 로 행 삭제
-        // CONSUMED 감사 이벤트에 userId 가 기록된다
+        // PHONE_CHANGE 소비 이벤트가 본인 userId 로 기록된다 — 셋업(signupAndLogin)의 SIGNUP CONSUMED
+        // 이벤트도 같은 userId 를 갖는다. purpose 로 이 완료 경로의 이벤트만 매치해 셋업 이벤트와 구분한다.
         assertThat(phoneVerificationEventRepository.findAll())
                 .anyMatch(event -> event.getEventType() == PhoneVerificationEventType.CONSUMED
-                        && myUserId.equals(event.getUserId()));
+                        && myUserId.equals(event.getUserId())
+                        && event.getPurpose() == VerificationPurpose.PHONE_CHANGE);
     }
 
     @Test

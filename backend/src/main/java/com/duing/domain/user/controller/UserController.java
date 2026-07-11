@@ -9,7 +9,6 @@ import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueRespo
 import com.duing.domain.user.controller.dto.response.UserResponse;
 import com.duing.domain.user.service.PhoneVerificationService;
 import com.duing.domain.user.service.UserService;
-import com.duing.domain.user.service.dto.command.ChangePhoneCommand;
 import com.duing.domain.user.service.dto.query.PhoneVerificationIssueResult;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -77,7 +76,7 @@ public class UserController implements UserApi {
         String clientIp = httpServletRequest.getRemoteAddr();
         String userAgent = httpServletRequest.getHeader("User-Agent");
         userService.changePhone(
-                new ChangePhoneCommand(currentUser.id(), changePhoneRequest.verificationToken()),
+                changePhoneRequest.toCommand(currentUser.id()),
                 clientIp, userAgent);
         return ResponseEntity.noContent().build();
     }

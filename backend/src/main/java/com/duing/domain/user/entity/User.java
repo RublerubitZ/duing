@@ -165,6 +165,6 @@ public class User extends BaseEntity {
      */
     public void changePhone(String newPhone, LocalDateTime verifiedAt) {
         this.phone = newPhone;
-        this.phoneVerifiedAt = verifiedAt;
+        markPhoneVerified(verifiedAt);
     }
 }
