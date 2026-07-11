@@ -69,7 +69,6 @@ public abstract class IntegrationTestBase {
                 "recertification_round, " +
                 "promotion, " +
                 "promotion_request, " +
-                "email_verifications, " +
                 "phone_verification_events, " +
                 "phone_verifications, " +
                 "club, " +
