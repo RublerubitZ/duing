@@ -54,8 +54,9 @@ export function PhoneChangeDialog({ open, onClose }: Props) {
         },
         onError: (mutationError) => {
           if (mutationError instanceof ApiError && mutationError.code === 'PHONE_NOT_VERIFIED') {
-            // 완료 창(10분) 초과 등 — 인증 스텝으로 되돌려 재인증을 유도한다.
+            // 완료 창(10분) 초과 등 — 인증 스텝으로 되돌려 재인증을 유도한다. 비밀번호도 함께 비워 민감값 보존을 줄인다.
             verification.reset();
+            setCurrentPassword('');
             setError('인증이 만료됐어요. 새 번호 인증을 다시 진행해주세요.');
             return;
           }
