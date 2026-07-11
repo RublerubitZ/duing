@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 class PhoneVerificationRateLimiterTest {
 
     private static final String CLIENT_IP = "10.0.0.1";
+    private static final String STUDENT_ID = "20251234";
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 1, 10, 12, 0);
 
     private final PhoneVerificationRateLimiter rateLimiter = new PhoneVerificationRateLimiter();
@@ -81,6 +82,28 @@ class PhoneVerificationRateLimiterTest {
             rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(attempt));
         }
         assertThatCode(() -> rateLimiter.assertAndRecordIssueIpRequest("10.0.0.2", NOW.plusSeconds(1)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("같은 학번의 재설정 시작은 시간당 3회까지 허용하고 4번째는 429 를 던진다")
+    void resetStartWindowLimitsPerHour() {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.RESET_START_PER_HOUR_LIMIT; attempt++) {
+            // 분당·시간당 한도가 같은(3) 축이라 분당 창에 걸리지 않게 20분 간격으로 분산한다.
+            rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, NOW.plusMinutes(attempt * 20L));
+        }
+        assertThatThrownBy(() ->
+                rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, NOW.plusMinutes(50)))
+                .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+    }
+
+    @Test
+    @DisplayName("다른 학번은 재설정 시작 제한에 서로 영향을 주지 않는다")
+    void resetStartLimitsAreIsolatedPerStudentId() {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.RESET_START_PER_HOUR_LIMIT; attempt++) {
+            rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, NOW.plusSeconds(attempt));
+        }
+        assertThatCode(() -> rateLimiter.assertAndRecordPasswordResetStart("20259999", NOW.plusSeconds(1)))
                 .doesNotThrowAnyException();
     }
 

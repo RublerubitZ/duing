@@ -108,6 +108,10 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
     @Override
     public PasswordResetStartResult startPasswordReset(String studentId, boolean includeQr, String clientIp) {
         LocalDateTime now = LocalDateTime.now(clock);
+        // 계정 존재 여부와 무관하게 IP 발급 리밋을 먼저 건다 — 미존재 학번 400 경로도 카운트해야
+        // 한 IP 의 학번 열거와 resetStart 맵 무한 성장을 막는다 (spec §11 "IP — 인증 시작"). happy path 는
+        // 내부 issue() 가 한 번 더 기록하지만, 재설정 시작은 드문 동작이라 이 보수적 이중 계수는 무해하다.
+        rateLimiter.assertAndRecordIssueIpRequest(clientIp, now);
         rateLimiter.assertAndRecordPasswordResetStart(studentId, now);
 
         // @SQLRestriction 으로 탈퇴 계정은 조회되지 않는다 — 미존재와 동일한 400 으로 수렴(사유 미특정).

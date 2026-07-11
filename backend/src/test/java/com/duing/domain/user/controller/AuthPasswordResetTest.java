@@ -110,14 +110,16 @@ class AuthPasswordResetTest extends IntegrationTestBase {
     @DisplayName("같은 학번의 재설정 시작은 시간당 3회로 제한된다")
     void startPasswordResetIsRateLimitedPerStudentId() {
         String studentId = uniqueStudentId();
-        signupUser(uniquePhone(), studentId);
-        // 60초 쿨다운(번호당 1행) 회피를 위해 각 시도 전 last_issued_at 을 과거로 되돌린다.
+        String registeredPhone = uniquePhone();
+        signupUser(registeredPhone, studentId);
+        // 60초 쿨다운(번호당 1행) 회피 — 시드된 그 번호의 세션 행만 과거로 되돌린다(다른 테스트 행 오염 방지).
         for (int attempt = 0; attempt < 3; attempt++) {
             given().contentType(ContentType.JSON).body(Map.of("studentId", studentId))
                     .when().post("/api/v1/auth/password-resets")
                     .then().statusCode(HttpStatus.ACCEPTED.value());
             jdbcTemplate.update(
-                    "UPDATE phone_verifications SET last_issued_at = last_issued_at - INTERVAL '2 minutes'");
+                    "UPDATE phone_verifications SET last_issued_at = last_issued_at - INTERVAL '2 minutes' "
+                            + "WHERE phone = ?", registeredPhone);
         }
         given().contentType(ContentType.JSON).body(Map.of("studentId", studentId))
                 .when().post("/api/v1/auth/password-resets")
@@ -137,6 +139,30 @@ class AuthPasswordResetTest extends IntegrationTestBase {
                 .when().post("/api/v1/auth/password-resets")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("code", equalTo("PASSWORD_RESET_NOT_ALLOWED"));
+    }
+
+    @Test
+    @DisplayName("같은 IP 로 미가입 학번 재설정을 반복하면 계정 존재 여부와 무관하게 IP 분당 한도(10회)에서 429 로 막힌다")
+    void startPasswordResetIsIpRateLimitedEvenOnUnknownStudentId() {
+        // 매 요청 학번이 서로 달라 학번당 3회 제한엔 걸리지 않는다 — IP 발급 축만 격리 검증한다.
+        // 발급 IP 분당 한도(10)는 서비스 package-private 상수라 형제 테스트처럼 리터럴로 맞춘다.
+        for (int attempt = 0; attempt < 10; attempt++) {
+            given().contentType(ContentType.JSON).body(Map.of("studentId", uniqueStudentId()))
+                    .when().post("/api/v1/auth/password-resets")
+                    .then().statusCode(HttpStatus.BAD_REQUEST.value());
+        }
+        given().contentType(ContentType.JSON).body(Map.of("studentId", uniqueStudentId()))
+                .when().post("/api/v1/auth/password-resets")
+                .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                .body("code", equalTo("VERIFICATION_RATE_LIMITED"));
+    }
+
+    @Test
+    @DisplayName("학번 형식이 8자리 숫자가 아니면 400 을 반환한다")
+    void invalidStudentIdFormatReturnsBadRequest() {
+        given().contentType(ContentType.JSON).body(Map.of("studentId", "2024"))
+                .when().post("/api/v1/auth/password-resets")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
     /**
