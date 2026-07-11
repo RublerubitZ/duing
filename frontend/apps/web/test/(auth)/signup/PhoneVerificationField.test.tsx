@@ -124,6 +124,18 @@ describe('PhoneVerificationField', () => {
     }
   });
 
+  it('모바일 발급 후에는 상단에 안내 일러스트를 노출한다', () => {
+    stubUserAgent(IPHONE_UA);
+    try {
+      render(
+        <PhoneVerificationField {...baseProps} status="issued" code="7K3M9PXQ" moNumber="16663538" />,
+      );
+      expect(screen.getByRole('img', { name: /본인 인증하는 방법/ })).toBeInTheDocument();
+    } finally {
+      restoreUserAgent();
+    }
+  });
+
   it('데스크톱 UA 에서 qrCode 가 있으면 QR 이미지를 노출한다', () => {
     stubUserAgent(DESKTOP_UA);
     try {
@@ -140,6 +152,8 @@ describe('PhoneVerificationField', () => {
       expect(qrImage).toHaveAttribute('src', 'data:image/png;base64,iVBORw0KGgo=');
       // 데스크톱에서는 sms 딥링크 앵커가 없어야 한다.
       expect(screen.queryByRole('link', { name: '문자앱으로 코드 보내기' })).not.toBeInTheDocument();
+      // 데스크톱 발급 후엔 안내 일러스트를 노출하지 않는다(QR 집중).
+      expect(screen.queryByRole('img', { name: /본인 인증하는 방법/ })).not.toBeInTheDocument();
     } finally {
       restoreUserAgent();
     }

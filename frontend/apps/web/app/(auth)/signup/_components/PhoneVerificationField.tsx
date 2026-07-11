@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { buildSmsDeeplink, formatSeconds, isIosUserAgent, isMobileUserAgent } from '../_lib/phone-verification';
 import type { PhoneVerificationFieldStatus } from '../_lib/use-phone-verification';
 import { PhoneInput } from './PhoneInput';
+import { SignupIllustration } from './SignupIllustration';
 
 type Props = {
   phone: string;
@@ -169,13 +170,9 @@ export function PhoneVerificationField({
       )}
 
       {showIssuedFields && isMobile && (
-        // 모바일: CTA 우선 점진 노출
+        // 모바일: 일러스트 → CTA 우선 점진 노출 → 직접 보내기 fallback
         <div>
-          <div className="rounded-md border border-line bg-paper p-4 text-center">
-            <p className="text-xs text-charcoal-3">수신번호 {formatMoNumber(moNumber)} · 코드</p>
-            <p className="mt-1 font-mono text-2xl font-bold tracking-wide text-ink">{code}</p>
-            <p className="mt-1.5 text-xs text-charcoal-3">남은 시간 {formatSeconds(remainingSeconds)}</p>
-          </div>
+          <SignupIllustration className="mx-auto w-full max-w-[240px]" />
 
           {!linkOpened ? (
             <>
@@ -186,7 +183,7 @@ export function PhoneVerificationField({
               >
                 문자앱으로 코드 보내기
               </a>
-              <p className="mt-2 text-xs text-charcoal-3">
+              <p className="mt-2 text-center text-xs text-charcoal-3">
                 버튼을 누르면 문자 앱이 열리고 수신번호·코드가 자동으로 채워져요. 그대로 보내면 끝!
               </p>
             </>
@@ -200,11 +197,22 @@ export function PhoneVerificationField({
                 문자앱 다시 열기
               </a>
               {actionRow}
-              <p className="mt-2 text-xs text-charcoal-3">
+              <p className="mt-2 text-center text-xs text-charcoal-3">
                 문자를 보낸 뒤 [문자를 보냈어요]를 눌러주세요 · 수정 없이 그대로 전송해야 인증돼요
               </p>
             </>
           )}
+
+          {/* 직접 보내기 fallback (딥링크 미동작 대비) */}
+          <div className="mt-4 rounded-md border border-line bg-paper p-3.5 text-center">
+            <p className="text-xs text-charcoal-3">수신번호 {formatMoNumber(moNumber)} · 코드</p>
+            <p className="mt-1 font-mono text-xl font-bold tracking-wide text-ink">{code}</p>
+            <p className="mt-1.5 text-xs text-charcoal-3">남은 시간 {formatSeconds(remainingSeconds)}</p>
+            <p className="mt-1.5 text-[11px] text-charcoal-3">
+              버튼이 안 열리면 이 코드를 위 번호로 직접 문자 보내주세요
+            </p>
+          </div>
+
           {waitingNotice}
         </div>
       )}
