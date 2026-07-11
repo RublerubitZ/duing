@@ -2,7 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@duing/stores';
 import type {
   ChangePasswordPayload,
+  ChangePhonePayload,
+  CompletePasswordResetPayload,
   LoginPayload,
+  RequestPasswordResetPayload,
   SignupPayload,
   StartPhoneVerificationPayload,
   UpdateProfilePayload,
@@ -88,6 +91,40 @@ export function useStartPhoneVerificationMutation() {
   return useMutation({
     mutationFn: ({ payload, includeQr }: { payload: StartPhoneVerificationPayload; includeQr: boolean }) =>
       client.auth.startPhoneVerification(payload, includeQr),
+  });
+}
+
+export function useStartPhoneChangeVerificationMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: ({ payload, includeQr }: { payload: StartPhoneVerificationPayload; includeQr: boolean }) =>
+      client.users.startPhoneChangeVerification(payload, includeQr),
+  });
+}
+
+export function useChangePhoneMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ChangePhonePayload) => client.users.changePhone(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userQueryKeys.me() });
+    },
+  });
+}
+
+export function useRequestPasswordResetMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: ({ payload, includeQr }: { payload: RequestPasswordResetPayload; includeQr: boolean }) =>
+      client.auth.requestPasswordReset(payload, includeQr),
+  });
+}
+
+export function useCompletePasswordResetMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (payload: CompletePasswordResetPayload) => client.auth.completePasswordReset(payload),
   });
 }
 
