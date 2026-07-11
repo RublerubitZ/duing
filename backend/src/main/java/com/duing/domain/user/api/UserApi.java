@@ -68,8 +68,10 @@ public interface UserApi {
             HttpServletRequest httpServletRequest);
 
     @Operation(summary = "전화번호 변경",
-            description = "PHONE_CHANGE 용 MO 인증 세션(본인 대상·인증 후 10분 내)으로 전화번호를 교체한다. "
+            description = "PHONE_CHANGE 용 MO 인증 세션(본인 대상·인증 후 10분 내)과 현재 비밀번호 확인(step-up)으로 "
+                    + "전화번호를 교체하고, 성공 시 발급된 모든 토큰을 무효화한다(재로그인 필요). "
                     + "새 번호는 요청에 없으며 세션에 귀속된 번호가 저장되고, 사용된 세션은 즉시 소비된다. "
+                    + "현재 비밀번호 불일치 시 400(세션은 소비되지 않아 재시도 가능), "
                     + "미인증·만료·대상 불일치 세션은 403(PHONE_NOT_VERIFIED), 타인 선점 번호는 409.")
     @SecurityRequirement(name = "BearerAuth")
     @PatchMapping("/users/me/phone")
