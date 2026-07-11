@@ -192,12 +192,12 @@ function LoginForm() {
                 <label htmlFor="login-password" className="text-sm font-medium text-charcoal">
                   비밀번호
                 </label>
-                <a
+                <Link
                   href="/forgot-password"
                   className="text-xs text-charcoal-2 underline underline-offset-2 transition-colors hover:text-charcoal"
                 >
                   비밀번호를 잊으셨나요?
-                </a>
+                </Link>
               </div>
               <div className="relative">
                 <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-charcoal-3">
