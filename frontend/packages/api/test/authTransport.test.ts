@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 
@@ -6,6 +6,7 @@ import { setStorage } from '@duing/storage';
 
 import { createApiClient } from '../src/client';
 import { TOKEN_STORAGE_KEY } from '../src/token';
+import { registerUnauthorizedHandler } from '../src/unauthorized-context';
 
 import type { Storage } from '@duing/storage';
 import type { User } from '@duing/types';
@@ -42,7 +43,10 @@ const memoryStorage: Storage = {
 };
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  registerUnauthorizedHandler(null);
+});
 afterAll(() => server.close());
 
 beforeEach(() => {
@@ -103,6 +107,22 @@ describe('인증 전송 모드', () => {
     await client.users.me();
 
     expect(authorization).toBe('Bearer mobile-jwt');
+  });
+
+  it('bearer 로그인에 저장 토큰이 실린 401은 세션만료를 알린다', async () => {
+    store.set(TOKEN_STORAGE_KEY, 'stale-mobile-jwt');
+    const client = createApiClient({ baseUrl: BASE_URL });
+    const onUnauthorized = vi.fn();
+    registerUnauthorizedHandler(onUnauthorized);
+    server.use(
+      http.post(`${BASE_URL}/auth/login`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '로그인에 실패했습니다.' }, { status: 401 }),
+      ),
+    );
+
+    await expect(client.auth.login(LOGIN_PAYLOAD)).rejects.toMatchObject({ status: 401 });
+
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 
   it('cookie 모드 요청은 credentials include를 사용한다', async () => {

@@ -768,18 +768,14 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           // 단, 로그아웃 요청의 401 은 세션 만료 신호가 아니다 — 사용자가 의도적으로 로그아웃 중이며
           // 이미 만료/무효화된 토큰으로도 폐기를 시도하므로 401 이 정상이다. 전역 만료 핸들러
           // (세션만료 에러 토스트 + 홈 이동)를 깨우면 의도적 로그아웃에 오탐 에러가 뜬다.
-          const isLoginRequest =
-            request.url.endsWith('/auth/login') || request.url.endsWith('/auth/web/login');
-          const isLogoutRequest =
-            request.url.endsWith('/auth/logout') || request.url.endsWith('/auth/web/logout');
-          const isAuthenticatedRequest =
-            authTransport === 'cookie' || request.headers.has('Authorization');
-          if (
-            response.status === 401 &&
-            isAuthenticatedRequest &&
-            !isLoginRequest &&
-            !isLogoutRequest
-          ) {
+          const isCookieAuthRequest =
+            request.url.endsWith('/auth/web/login') || request.url.endsWith('/auth/web/logout');
+          const isBearerLogoutRequest = request.url.endsWith('/auth/logout');
+          const shouldNotifyUnauthorized =
+            authTransport === 'cookie'
+              ? !isCookieAuthRequest
+              : request.headers.has('Authorization') && !isBearerLogoutRequest;
+          if (response.status === 401 && shouldNotifyUnauthorized) {
             notifyUnauthorized();
           }
         },
