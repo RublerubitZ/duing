@@ -114,7 +114,12 @@ describe('installBackNavigationViewTransitionGuard', () => {
       createViewTransitionMock(secondDeferred.promise),
     ];
     let callCount = 0;
-    document.startViewTransition = () => transitions[callCount++];
+    document.startViewTransition = () => {
+      const transition = transitions[callCount];
+      if (!transition) throw new Error('startViewTransition 이 준비된 mock 보다 많이 호출됐다');
+      callCount += 1;
+      return transition;
+    };
     await loadAndInstallGuard();
 
     window.dispatchEvent(new PopStateEvent('popstate'));
