@@ -48,7 +48,11 @@ Vercel에는 백엔드와 동일한 `AUTH_HINT_SECRET`만 등록한다. `JWT_SEC
 
 - 운영 `duings.com` / `api.duings.com`: 완전 지원.
 - 로컬 `localhost:3000` / `localhost:8080`: 완전 지원. 두 프로세스 모두 호스트 문자열을
-  `localhost`로 통일하고 `127.0.0.1`과 혼용하지 않는다.
+  `localhost`로 통일하고 `127.0.0.1`과 혼용하지 않는다. 로컬 `backend/.env`에서는
+  `AUTH_HINT_COOKIE_DOMAIN`을 빈 값으로 두거나 설정하지 않아 Access Token과 `auth_hint`를 모두
+  localhost host-only Cookie로 발급한다.
+- 브라우저의 localhost Secure Cookie 예외로 HTTP localhost 개발을 지원한다. 일반 HTTP
+  non-localhost 호스트에는 웹 인증 Cookie를 발급하지 않는다.
 - 일반 `*.vercel.app` Preview: 인증 미지원. 인증 검증이 필요하면 `preview.duings.com`처럼 API와
   동일 사이트인 커스텀 도메인을 연결한다.
 

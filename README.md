@@ -157,7 +157,10 @@ pnpm dev                    # http://localhost:3000
   `JWT_SECRET`은 Vercel 환경변수로 등록하면 안 된다.
 
 운영 웹 `duings.com`/`api.duings.com`과 로컬 `localhost:3000`/`localhost:8080`을 지원한다. 로컬에서는
-프론트와 백엔드의 호스트 문자열을 모두 `localhost`로 통일하며 `127.0.0.1`과 섞지 않는다. 일반
+`AUTH_HINT_COOKIE_DOMAIN`을 비우거나 설정하지 않아 Access Token과 `auth_hint`를 모두 localhost
+host-only Cookie로 발급하고, 프론트와 백엔드의 호스트 문자열도 `localhost`로 통일한다.
+`127.0.0.1`과 섞지 않는다. 브라우저의 localhost Secure Cookie 예외 덕분에 HTTP localhost 개발을
+지원하지만, 일반 HTTP non-localhost 호스트에는 웹 인증 Cookie를 발급하지 않는다. 일반
 `*.vercel.app` Preview는 웹 인증 지원 대상이 아니다. Preview 인증이 필요하면 `preview.duings.com`처럼
 API와 동일 사이트가 되는 커스텀 도메인을 사용한다.
 
