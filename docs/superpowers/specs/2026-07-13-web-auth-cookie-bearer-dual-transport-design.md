@@ -238,6 +238,11 @@ Middleware와 API 결과가 충돌하면 Spring Security 응답을 최종 결과
 진입을 막을 수 있다. 이는 최대 1시간의 UX 불일치이며 권한 오부여는 발생하지 않는다. 역할 변경 즉시
 힌트 재발급은 디바이스별 세션 관리와 함께 후속 작업으로 둔다.
 
+비밀번호 변경, 전화번호 변경, 회원 탈퇴처럼 성공 응답에서 `token_version`을 증가시키는 API는 Cookie
+인증 요청일 때 같은 응답에서 Access Token과 `auth_hint`를 함께 만료한다. 그렇지 않으면 무효화된 Access
+Token과 아직 유효한 힌트가 남아 로그인 화면을 Middleware가 되돌리는 루프가 생긴다. Bearer 요청의
+성공 응답은 Cookie를 변경하지 않는다.
+
 ### 9.4 1시간 만료 UX
 
 Cookie 세션 401은 현재 pathname과 query를 검증된 내부 `next` 경로로 로그인 화면에 전달하고, 로그인
