@@ -1,1 +1,1 @@
-export { useAuthStore, hydrateAuthFromStorage } from './auth-store';
+export { useAuthStore } from './auth-store';

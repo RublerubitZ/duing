@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import type { UserRole } from '@duing/types';
+import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
 const mockUseAuthStore = vi.fn();
 const mockLogout = vi.fn().mockResolvedValue(undefined);
@@ -45,27 +46,35 @@ function setStatus(status: string) {
 
 describe('UserMenu', () => {
   beforeEach(() => {
-    mockLogout.mockClear();
+    mockLogout.mockReset().mockResolvedValue(undefined);
     mockRefresh.mockClear();
     mockMeData.mockReturnValue({ name: '홍길동' });
   });
 
+  function renderMenu() {
+    return render(
+      <ToastProvider>
+        <UserMenu />
+      </ToastProvider>,
+    );
+  }
+
   it('미인증 상태면 아무것도 렌더링하지 않는다', () => {
     setStatus('unauthenticated');
-    const { container } = render(<UserMenu />);
+    const { container } = renderMenu();
     expect(container.firstChild).toBeNull();
   });
 
   it('인증 상태면 트리거에 사용자 이름이 표시된다', () => {
     setStatus('authenticated');
-    render(<UserMenu />);
+    renderMenu();
     expect(screen.getByRole('button', { name: /홍길동님/ })).toBeInTheDocument();
   });
 
   it('메뉴를 열면 항목이 menuitem 으로 노출되고 로그아웃 시 logout + router.refresh 가 호출된다', async () => {
     setStatus('authenticated');
     const user = userEvent.setup();
-    render(<UserMenu />);
+    renderMenu();
 
     await user.click(screen.getByRole('button', { name: /홍길동님/ }));
 
@@ -80,11 +89,29 @@ describe('UserMenu', () => {
     });
   });
 
+  it('로그아웃 실패 시 오류를 알리고 세션 화면을 유지해 다시 시도할 수 있다', async () => {
+    setStatus('authenticated');
+    mockLogout.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    renderMenu();
+
+    await user.click(screen.getByRole('button', { name: /홍길동님/ }));
+    await user.click(screen.getByRole('menuitem', { name: '로그아웃' }));
+
+    expect(await screen.findByText(/로그아웃하지 못했습니다/)).toBeInTheDocument();
+    expect(mockRefresh).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: /홍길동님/ }));
+    await user.click(screen.getByRole('menuitem', { name: '로그아웃' }));
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalledTimes(1));
+    expect(mockLogout).toHaveBeenCalledTimes(2);
+  });
+
   it('ADMIN 이면 총동연 콘솔 항목이 노출되고 /admin/clubs 로 연결된다', async () => {
     setStatus('authenticated');
     mockMeData.mockReturnValue({ name: '홍길동', role: 'ADMIN' });
     const user = userEvent.setup();
-    render(<UserMenu />);
+    renderMenu();
 
     await user.click(screen.getByRole('button', { name: /홍길동님/ }));
 
@@ -97,7 +124,7 @@ describe('UserMenu', () => {
     setStatus('authenticated');
     mockMeData.mockReturnValue({ name: '홍길동', role: 'STUDENT' });
     const user = userEvent.setup();
-    render(<UserMenu />);
+    renderMenu();
 
     await user.click(screen.getByRole('button', { name: /홍길동님/ }));
 
@@ -108,7 +135,7 @@ describe('UserMenu', () => {
   it('Esc 키로 열린 메뉴가 닫힌다', async () => {
     setStatus('authenticated');
     const user = userEvent.setup();
-    render(<UserMenu />);
+    renderMenu();
 
     await user.click(screen.getByRole('button', { name: /홍길동님/ }));
     expect(screen.getByRole('menu')).toBeInTheDocument();

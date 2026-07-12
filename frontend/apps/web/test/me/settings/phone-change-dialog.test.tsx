@@ -53,13 +53,13 @@ const CURRENT_PASSWORD = 'Curr1234!';
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 beforeEach(() => {
   // 전화번호 변경은 로그인 사용자 흐름이다 — 세션을 세팅해 실제 사용 맥락과 맞춘다.
-  useAuthStore.setState({ status: 'authenticated', accessToken: 'x' });
+  useAuthStore.setState({ status: 'authenticated' });
 });
 afterEach(() => {
   server.resetHandlers();
   memoryStore.clear();
   mockRouterReplace.mockReset();
-  useAuthStore.setState({ status: 'idle', user: null, accessToken: null });
+  useAuthStore.setState({ status: 'idle', user: null });
   vi.useRealTimers();
 });
 afterAll(() => server.close());

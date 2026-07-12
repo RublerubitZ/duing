@@ -22,8 +22,6 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
 }));
 
-// 로그인 성공 시 setSession 이 토큰을 저장할 수 있도록 인메모리 storage 주입
-// (account-dialogs.test.tsx / session-expiry.test.tsx 와 동일 패턴).
 const memoryStore = new Map<string, string>();
 setStorage({
   getItem: (key) => Promise.resolve(memoryStore.get(key) ?? null),
@@ -41,7 +39,7 @@ const BASE = 'http://localhost:8080/api/v1';
 // 실제 ApiClient 를 주입하고 네트워크 레벨(MSW)에서 스텁한다 — TanStack Query 자체는 모킹하지 않는다
 // (use-phone-verification.test.tsx, account-dialogs.test.tsx 와 동일 패턴).
 const server = setupServer();
-const apiClient = createApiClient({ baseUrl: BASE });
+const apiClient = createApiClient({ baseUrl: BASE, authTransport: 'cookie' });
 
 const TEST_USER: User = {
   id: 1,
@@ -57,8 +55,9 @@ afterEach(() => {
   server.resetHandlers();
   replaceSpy.mockReset();
   memoryStore.clear();
+  window.localStorage.removeItem('duing.accessToken');
   mockSearchParams = new URLSearchParams();
-  useAuthStore.setState({ status: 'idle', user: null, accessToken: null });
+  useAuthStore.setState({ status: 'idle', user: null });
 });
 afterAll(() => server.close());
 
@@ -86,11 +85,11 @@ describe('LoginFormPanel', () => {
   it('학번이 8자리가 아니면 제출 시 검증 에러를 보여준다', async () => {
     let loginCalled = false;
     server.use(
-      http.post(`${BASE}/auth/login`, () => {
+      http.post(`${BASE}/auth/web/login`, () => {
         loginCalled = true;
         return HttpResponse.json({
           ok: true,
-          data: { accessToken: 'unused', tokenType: 'Bearer', user: TEST_USER },
+          data: { user: TEST_USER },
           message: null,
         });
       }),
@@ -109,11 +108,11 @@ describe('LoginFormPanel', () => {
   it('유효한 학번·비밀번호로 제출하면 login 을 호출한다', async () => {
     let capturedBody: unknown = null;
     server.use(
-      http.post(`${BASE}/auth/login`, async ({ request }) => {
+      http.post(`${BASE}/auth/web/login`, async ({ request }) => {
         capturedBody = await request.json();
         return HttpResponse.json({
           ok: true,
-          data: { accessToken: 'access-token-abc', tokenType: 'Bearer', user: TEST_USER },
+          data: { user: TEST_USER },
           message: null,
         });
       }),
@@ -127,11 +126,14 @@ describe('LoginFormPanel', () => {
 
     await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/me'));
     expect(capturedBody).toEqual({ studentId: '20240001', password: 'password1234' });
+    expect(useAuthStore.getState()).toMatchObject({ status: 'authenticated', user: TEST_USER });
+    expect('accessToken' in useAuthStore.getState()).toBe(false);
+    expect(window.localStorage.getItem('duing.accessToken')).toBeNull();
   });
 
   it('로그인 실패 시 학번 기준 에러 문구를 보여준다', async () => {
     server.use(
-      http.post(`${BASE}/auth/login`, () =>
+      http.post(`${BASE}/auth/web/login`, () =>
         HttpResponse.json({ ok: false, data: null, message: 'Invalid credentials' }, { status: 401 }),
       ),
     );

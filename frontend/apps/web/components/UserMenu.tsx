@@ -7,6 +7,7 @@ import { useAuthStore } from '@duing/stores';
 import { useLogout, useMeQuery } from '@duing/hooks';
 
 import { toRoute } from '@/app/_lib/route';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,7 @@ export function UserMenu() {
   const meQuery = useMeQuery();
   const logout = useLogout();
   const router = useGuardedRouter();
+  const { addToast } = useToast();
 
   if (status !== 'authenticated') return null;
 
@@ -32,8 +34,15 @@ export function UserMenu() {
   const isAdmin = meQuery.data?.role === 'ADMIN';
 
   const handleLogout = async () => {
-    await logout();
-    router.refresh();
+    try {
+      await logout();
+      router.refresh();
+    } catch {
+      addToast(
+        '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.',
+        { variant: 'error' },
+      );
+    }
   };
 
   return (

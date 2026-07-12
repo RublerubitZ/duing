@@ -27,8 +27,8 @@ export function useLoginMutation() {
   const setSession = useAuthStore((s) => s.setSession);
   return useMutation({
     mutationFn: async (payload: LoginPayload) => client.auth.login(payload),
-    onSuccess: async (result) => {
-      await setSession(result.user, result.accessToken);
+    onSuccess: (user) => {
+      setSession(user);
     },
   });
 }
@@ -38,14 +38,7 @@ export function useLogout() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const queryClient = useQueryClient();
   return async () => {
-    // 토큰을 지우기 전에 서버 세션(token_version)을 폐기한다 — clearSession 이후 호출하면
-    // Bearer 헤더가 빠져 서버에서 무효화가 일어나지 않는다. 네트워크 실패가 로컬 로그아웃을
-    // 막지 않도록 best-effort 로 처리한다.
-    try {
-      await client.auth.logout();
-    } catch {
-      // 서버 폐기 실패(오프라인·5xx 등)해도 로컬 정리는 계속 진행한다.
-    }
+    await client.auth.logout();
     await clearSession();
     queryClient.clear();
   };
