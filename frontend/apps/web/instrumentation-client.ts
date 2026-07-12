@@ -13,8 +13,9 @@ Sentry.init({
   sendDefaultPii: false,
   // next-view-transitions(View Transitions API)가 내는 무해한 unhandled rejection 2종 —
   // invalid state(백그라운드 탭·bfcache 복원·중단된 연속 이동, Sentry NEXT-DUING-4)와
-  // timeout(라우트 전환 중 DOM 업데이트가 브라우저 제한 약 4초를 넘김 — 느린 네트워크·dev 온디맨드
-  // 컴파일, Sentry NEXT-DUING-9).
+  // timeout(라우트 전환 중 DOM 업데이트가 브라우저 제한 약 4초를 넘김, Sentry NEXT-DUING-9).
+  // timeout 은 동적 라우트 loading.tsx 배치(2026-07 네트워크 내성 작업, PR-B)로 정상 회선의
+  // 발생 경로는 해소됐고, 완전 오프라인·극단 저속 회선의 잔존 케이스만 남아 가드를 유지한다.
   // 둘 다 페이지 이동은 정상이고 시각 전환만 스킵되며 사용자 영향 0 → 운영 노이즈만 끈다.
   // 이 두 메시지에만 최소 범위로 매칭하고, 다른 InvalidStateError/TimeoutError 는 그대로 수집한다.
   ignoreErrors: [
