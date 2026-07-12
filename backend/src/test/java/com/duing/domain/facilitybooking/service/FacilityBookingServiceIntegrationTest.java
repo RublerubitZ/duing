@@ -204,6 +204,36 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
 
         assertThatThrownBy(() -> bookingService.create(blocked))
                 .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
+
+        // CONFIRMED 도 동일하게 차단된다 — 상태 목록에서 CONFIRMED 가 빠지는 회귀를 고정
+        // (첫 save 로 version 이 올라갔으므로 stale 인스턴스가 아닌 재조회본에 상태를 강제한다)
+        FacilityBooking approvedFirst = bookingRepository.findById(first.getId()).orElseThrow();
+        forceStatus(approvedFirst, BookingStatus.CONFIRMED);
+        bookingRepository.save(approvedFirst);
+        assertThatThrownBy(() -> bookingService.create(blocked))
+                .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
+        // 같은 동아리 재신청도 내부 차단(§5.1 검증 순서상 동아리 중복 검사보다 먼저)에 걸린다
+        assertThatThrownBy(() -> bookingService.create(command(fixture, date, 19, 21)))
+                .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
+    }
+
+    @Test
+    @DisplayName("타 동아리 운영진이 자기 clubId 로 남의 신청을 취소하면 NotFound 다 (IDOR 차단)")
+    void cancelIsScopedToOwnClub() throws Exception {
+        Fixture fixture = fixture();
+        var result = bookingService.create(command(fixture, bookableDate(), 18, 20));
+
+        User intruderLeader = saveUser("타클럽리더");
+        Club intruderClub = saveActiveClub("타동아리");
+        clubMemberRepository.save(ClubMember.asLeader(intruderClub, intruderLeader));
+
+        // 자기 동아리 운영진 권한은 통과하지만 booking 이 자기 클럽 스코프 밖 → NotFound (존재 여부 비노출)
+        assertThatThrownBy(() -> bookingService.cancel(
+                intruderClub.getId(), intruderLeader.getId(), result.bookingId()))
+                .isInstanceOf(FacilityBookingException.BookingNotFoundException.class);
+
+        FacilityBooking untouched = bookingRepository.findById(result.bookingId()).orElseThrow();
+        assertThat(untouched.getStatus()).isEqualTo(BookingStatus.PENDING);
     }
 
     @Test
