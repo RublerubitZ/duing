@@ -154,7 +154,7 @@ public class User extends BaseEntity {
         this.passwordHash = newPasswordHash;
     }
 
-    /** 현재 phone 이 MO 인증을 통과한 번호임을 확정한다 — signup(및 PR4 번호 변경)에서만 호출한다. */
+    /** 현재 phone 이 MO 인증을 통과한 번호임을 확정한다 — signup(및 번호 변경)에서만 호출한다. */
     public void markPhoneVerified(LocalDateTime verifiedAt) {
         this.phoneVerifiedAt = verifiedAt;
     }

@@ -65,7 +65,7 @@ public class OctomoMoVerificationClient implements MoVerificationClient {
         } catch (RestClientException qrFailure) {
             // QR 은 부가 기능 — 발급 플로우를 죽이지 않고 코드 텍스트 안내로 폴백한다 (spec §7.1).
             // 벤더 4xx/5xx 응답 바디가 예외 메시지에 섞일 수 있어(RestClientResponseException 관례)
-            // 예외 객체를 로그에 싣지 않는다 — FallbackEmailSender 의 PII 배제 정책과 동일 (ERROR 는 Sentry 전송).
+            // 예외 객체를 로그에 싣지 않는다 — 응답 바디의 PII 를 로그에서 배제하는 정책 (ERROR 는 Sentry 전송).
             log.warn("Octomo QR 발급 실패({}) — 텍스트 안내로 폴백한다.", qrFailure.getClass().getSimpleName());
             return Optional.empty();
         }

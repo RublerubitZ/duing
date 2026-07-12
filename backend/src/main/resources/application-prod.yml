@@ -77,15 +77,6 @@ duing:
     crawler:
       enabled: ${DUING_FACILITY_CRAWLER_ENABLED:true}
 
-# 이메일 발송 — 운영은 항상 실발송 체인(Resend 주 + Brevo SMTP 폴백)을 쓴다. EMAIL_PROVIDER 누락 시
-# 공통 yml 의 기본값(logging)으로 조용히 떨어져 인증 메일이 발송되지 않는 사고를 막기 위해 프로파일에서
-# 하드코딩한다. 값 resend 는 체인 전체를 켜는 스위치다(운영 env 변경 없이 폴백이 도입되도록 기존 값 유지).
-# RESEND_API_KEY / EMAIL_VERIFICATION_SECRET 은 공통 yml 에서 default 없이 주입 = 누락 시 fail-fast.
-# Brevo 크레덴셜(BREVO_SMTP_LOGIN/KEY)은 default 빈 값 — 미주입이어도 부팅·Resend 발송은 정상이고
-# 폴백 시도만 인증 실패한다(도입 시 서버 .env 에 추가 필요, backend/.env.example 참조).
-email:
-  provider: resend
-
 # MO 인증 — 운영 기본은 실조회(octomo). stub 으로 남으면 인증이 영영 완료되지 않는 조용한 장애가 된다.
 mo:
   provider: ${MO_PROVIDER:octomo}
@@ -96,7 +87,7 @@ logging:
     org.hibernate.orm.jdbc.bind: warn
 
 # 운영 Sentry — DSN 을 폴백 없이 주입(누락 시 fail-fast). 모니터링이 조용히 꺼진 채 배포되는
-# 사일런트 결손을 막는다(CORS·email 등 다른 운영 필수값과 동일 정책). 의도적으로 끄려면 빈 값을 준다.
+# 사일런트 결손을 막는다(CORS 등 다른 운영 필수값과 동일 정책). 의도적으로 끄려면 빈 값을 준다.
 sentry:
   dsn: ${SENTRY_DSN}
   environment: production
