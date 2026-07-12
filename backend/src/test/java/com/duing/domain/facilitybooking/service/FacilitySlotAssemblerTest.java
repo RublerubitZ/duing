@@ -48,8 +48,11 @@ class FacilitySlotAssemblerTest {
     void occupiedBlocksButOperatingDoesNot() {
         LocalDate date = LocalDate.of(2026, 1, 20);
         List<CrawlSlice> crawl = List.of(
-                // 운영행: 고정관념(09:00~20:00) — 슬롯 마커 09~10 하나만 내려온 상황
+                // 운영행: 고정관념(09:00~20:00) — 슬롯 마커가 시작·끝 2행으로 내려오는 상황(선행 스펙 §16.1)
+                // → 같은 (단체, 운영시간)이므로 OperatingNote 는 dedupe 되어 1건이어야 한다
                 new CrawlSlice(date, LocalTime.of(9, 0), LocalTime.of(10, 0), "고정관념",
+                        CrawlRowType.OPERATING, LocalTime.of(9, 0), LocalTime.of(20, 0)),
+                new CrawlSlice(date, LocalTime.of(19, 0), LocalTime.of(20, 0), "고정관념",
                         CrawlRowType.OPERATING, LocalTime.of(9, 0), LocalTime.of(20, 0)),
                 // 점유행: 비호응원단 17~18, 18~19
                 new CrawlSlice(date, LocalTime.of(17, 0), LocalTime.of(18, 0), "비호응원단",
@@ -90,6 +93,9 @@ class FacilitySlotAssemblerTest {
         assertThat(target.slots().get(10 - 9).organization()).isEqualTo("밴드부");
         assertThat(slotStatus(target, 20)).isEqualTo(SlotStatus.PENDING_HOLD);
         assertThat(target.slots().get(20 - 9).organization()).isNull(); // 승인 대기 동아리명 비노출(설계 §3.1)
+        // PENDING_HOLD 는 신청 가능 상태라 count 에 포함된다(설계 §3.2 FULL 판정 기준) —
+        // BLOCKED 2칸(10~12)만 제외되어 11 이어야 한다. count 에서 홀드를 빼는 회귀를 고정.
+        assertThat(target.availableSlotCount()).isEqualTo(11);
     }
 
     @Test
