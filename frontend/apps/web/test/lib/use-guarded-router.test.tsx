@@ -1,14 +1,21 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 const pushSpy = vi.fn();
 const replaceSpy = vi.fn();
 const backSpy = vi.fn();
+const refreshSpy = vi.fn();
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: pushSpy, replace: replaceSpy, back: backSpy, forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => ({
+    push: pushSpy,
+    replace: replaceSpy,
+    back: backSpy,
+    forward: vi.fn(),
+    refresh: refreshSpy,
+    prefetch: vi.fn(),
+  }),
 }));
 
 function mockNavigatorOnLine(value: boolean) {
@@ -20,16 +27,18 @@ afterEach(() => {
   pushSpy.mockClear();
   replaceSpy.mockClear();
   backSpy.mockClear();
+  refreshSpy.mockClear();
 });
 
-function GuardedCaller({ action }: { action: 'push' | 'replace' | 'back' }) {
+function GuardedCaller({ action }: { action: 'push' | 'replace' | 'back' | 'refresh' }) {
   const router = useGuardedRouter();
   return (
     <button
       onClick={() => {
         if (action === 'push') router.push('/clubs/1');
         else if (action === 'replace') router.replace('/clubs/1');
-        else router.back();
+        else if (action === 'back') router.back();
+        else router.refresh();
       }}
     >
       이동
@@ -91,8 +100,41 @@ describe('useGuardedRouter', () => {
     expect(backSpy).toHaveBeenCalled();
   });
 
-  it('ToastProvider 밖에서도 throw하지 않는다 (기존 테스트 mock 호환)', () => {
+  it('오프라인이면 refresh를 무토스트로 차단한다', () => {
     mockNavigatorOnLine(false);
-    expect(() => renderHook(() => useGuardedRouter())).not.toThrow();
+    render(
+      <ToastProvider>
+        <GuardedCaller action="refresh" />
+      </ToastProvider>,
+    );
+    act(() => {
+      screen.getByText('이동').click();
+    });
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText('인터넷 연결을 확인해주세요.')).not.toBeInTheDocument();
+  });
+
+  it('온라인이면 refresh를 그대로 통과시킨다', () => {
+    mockNavigatorOnLine(true);
+    render(
+      <ToastProvider>
+        <GuardedCaller action="refresh" />
+      </ToastProvider>,
+    );
+    act(() => {
+      screen.getByText('이동').click();
+    });
+    expect(refreshSpy).toHaveBeenCalled();
+  });
+
+  it('ToastProvider 밖에서도 throw하지 않고 오프라인 push를 차단한다', () => {
+    mockNavigatorOnLine(false);
+    expect(() => {
+      render(<GuardedCaller action="push" />);
+      act(() => {
+        screen.getByText('이동').click();
+      });
+    }).not.toThrow();
+    expect(pushSpy).not.toHaveBeenCalled();
   });
 });

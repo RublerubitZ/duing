@@ -2,7 +2,6 @@
 
 import { use, useState } from 'react';
 import Link from 'next/link';
-import { useTransitionRouter } from 'next-view-transitions';
 import {
   useRecruitmentDetailQuery,
   useCloseRecruitmentMutation,
@@ -10,6 +9,7 @@ import {
   useRecruitmentStatsSummaryQuery,
 } from '@duing/hooks';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '../../../../../_lib/route';
 import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
 import { InterviewStageChip } from './_components/InterviewStageChip';
@@ -24,7 +24,7 @@ export default function RecruitmentDetailPage({
   const clubId = Number(clubIdParam);
   const recruitmentId = Number(recruitmentIdParam);
 
-  const router = useTransitionRouter();
+  const router = useGuardedRouter();
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);

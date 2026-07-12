@@ -9,6 +9,11 @@
             "name": "next/navigation",
             "importNames": ["useRouter"],
             "message": "오프라인 가드를 위해 @/app/_lib/useGuardedRouter 의 useGuardedRouter 를 사용하세요."
+          },
+          {
+            "name": "next-view-transitions",
+            "importNames": ["useTransitionRouter"],
+            "message": "오프라인 가드를 위해 @/app/_lib/useGuardedRouter 의 useGuardedRouter 를 사용하세요."
           }
         ]
       }
