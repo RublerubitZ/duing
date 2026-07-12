@@ -14,6 +14,8 @@ import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryR
 import com.duing.domain.facilitybooking.service.dto.command.CreateFacilityBookingCommand;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,6 +76,44 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
         booking.cancelByClub();
         historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), previousStatus, BookingStatus.CANCELLED, actorId, null, null));
+    }
+
+    @Override
+    public List<BookingSummaryResult> getBookings(Long clubId, Long actorId, BookingStatus status) {
+        clubAuthService.requireManager(actorId, clubId);
+        List<FacilityBooking> bookings = status != null
+                ? facilityBookingRepository.findByClubIdAndStatusOrderByCreatedAtDesc(clubId, status)
+                : facilityBookingRepository.findByClubIdOrderByCreatedAtDesc(clubId);
+        Map<Long, String> roomNames = roomNames(bookings);
+        return bookings.stream()
+                .map(booking -> new BookingSummaryResult(booking.getId(), booking.getFacilityId(),
+                        roomNames.getOrDefault(booking.getFacilityId(), ""), booking.getReservationDate(),
+                        booking.getStartTime(), booking.getEndTime(), booking.getStatus(),
+                        booking.getPurpose(), booking.getCreatedAt()))
+                .toList();
+    }
+
+    @Override
+    public BookingDetailResult getBooking(Long clubId, Long actorId, Long bookingId) {
+        clubAuthService.requireManager(actorId, clubId);
+        FacilityBooking booking = facilityBookingRepository.findByIdAndClubId(bookingId, clubId)
+                .orElseThrow(FacilityBookingException.BookingNotFoundException::new);
+        String roomName = facilityRepository.findById(booking.getFacilityId())
+                .map(Facility::getRoomName).orElse("");
+        List<HistoryEntry> history = historyRepository.findByBookingIdOrderByCreatedAtDesc(bookingId).stream()
+                .map(entry -> new HistoryEntry(entry.getPreviousStatus(), entry.getNewStatus(),
+                        entry.getReason(), entry.getCreatedAt()))
+                .toList();
+        return new BookingDetailResult(booking.getId(), booking.getFacilityId(), roomName,
+                booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
+                booking.getStatus(), booking.getPurpose(), booking.getAttendeeCount(),
+                booking.getRejectReason(), booking.getConflictDetail(), history);
+    }
+
+    private Map<Long, String> roomNames(List<FacilityBooking> bookings) {
+        return facilityRepository.findAllById(
+                        bookings.stream().map(FacilityBooking::getFacilityId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Facility::getId, Facility::getRoomName, (first, second) -> first));
     }
 
     /**
