@@ -67,5 +67,9 @@ class FacilityBookingTest {
         assertThat(BookingStatus.CONFIRMED.countsTowardActiveCap()).isFalse();
         assertThat(BookingStatus.CONFIRMED.isTerminal()).isTrue();
         assertThat(BookingStatus.CONFLICT.isTerminal()).isFalse();
+        // CONFLICT 는 "승인 이후 충돌" 상태라 슬롯을 여전히 차단한다고 오해하기 쉽다 —
+        // 설계 §3.1 은 APPROVED/CONFIRMED 만 차단 대상으로 명시하므로 회귀 가드로 고정한다.
+        assertThat(BookingStatus.CONFLICT.blocksSlot()).isFalse();
+        assertThat(BookingStatus.CONFLICT.countsTowardActiveCap()).isFalse();
     }
 }
