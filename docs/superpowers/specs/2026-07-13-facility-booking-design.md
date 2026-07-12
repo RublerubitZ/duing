@@ -2,7 +2,7 @@
 
 - 작성일: 2026-07-13
 - 대상: 백엔드(`backend/`, Spring Boot 3.4 / Java 21) + 프론트(`frontend/apps/web`, Next.js 15 App Router)
-- 상태: 설계 초안(사용자 리뷰 대기)
+- 상태: 설계 확정(2026-07-13 사용자 리뷰 완료 — 구현 계획 착수)
 - 선행 스펙: [`2026-07-01-facility-usage-design.md`](./2026-07-01-facility-usage-design.md) — 크롤링·조회 인프라는 이 스펙 위에 얹는다(크롤러·파서·스냅샷·온디맨드 single-flight 전부 재사용, 변경 없음)
 
 ---
@@ -199,7 +199,7 @@ enum은 확장 가능하게 둔다 — 향후 학교 데이터에 별도의 "예
 
 ## 6. 데이터 모델
 
-버전 번호는 구현 시점의 develop 최신 + 1(아래 `V8x/V8y`는 자리표시가 아니라 "연속 두 개"라는 뜻). 모든 신규 테이블 RLS 활성화(V59 정책·`RowLevelSecurityMigrationTest` 가드).
+버전 번호는 구현 시점의 develop 최신 + 1(아래 `V8x/V8y/V8z`는 자리표시가 아니라 "연속 세 개"라는 뜻 — **V81은 열린 PR #629가 선점 중이므로 충돌하지 않게 배정**). 모든 신규 테이블 RLS 활성화(V59 정책·`RowLevelSecurityMigrationTest` 가드).
 
 ### 6.1 `facility_booking` (V8x)
 
@@ -273,6 +273,29 @@ ALTER TABLE facility_booking_status_history ENABLE ROW LEVEL SECURITY;
 - 생성(NULL → PENDING) 포함 모든 전이를 기록. 엔티티에서 update/delete 차단(전례 동일).
 - 관리자 메모(자유 텍스트, 상태 전이와 무관)는 P2에서 별도 테이블로 추가한다.
 
+### 6.3 `facility_booking_purpose_preset` (V8z) — 사용 목적 Preset
+
+```sql
+CREATE TABLE facility_booking_purpose_preset (
+    id         BIGSERIAL   PRIMARY KEY,
+    label      VARCHAR(50) NOT NULL UNIQUE,
+    sort_order INT         NOT NULL DEFAULT 0,
+    active     BOOLEAN     NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP   NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP   NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMP
+);
+ALTER TABLE facility_booking_purpose_preset ENABLE ROW LEVEL SECURITY;
+
+INSERT INTO facility_booking_purpose_preset (label, sort_order) VALUES
+    ('동아리 정기 모임', 0), ('동아리 정기 연습', 1), ('정기 합주', 2),
+    ('공연 연습', 3), ('행사 준비', 4), ('회의', 5), ('세미나', 6),
+    ('신입부원 교육', 7), ('촬영', 8);
+```
+
+- 조회는 `active = TRUE` + `sort_order` 정렬. "기타(직접 입력)"는 DB 행이 아니라 FE 고정 칩(§9.4).
+- P1은 시드 + 공개 GET만. 관리자 CRUD(추가·수정·정렬·비활성)는 P2 — 테이블이 이미 있으므로 API·화면만 얹으면 된다.
+
 ---
 
 ## 7. 백엔드 설계
@@ -283,8 +306,8 @@ ALTER TABLE facility_booking_status_history ENABLE ROW LEVEL SECURITY;
 
 ```
 domain/facilitybooking/
-├── entity/       FacilityBooking, FacilityBookingStatusHistory, BookingStatus(enum)
-├── repository/   FacilityBookingRepository, FacilityBookingStatusHistoryRepository
+├── entity/       FacilityBooking, FacilityBookingStatusHistory, FacilityBookingPurposePreset, BookingStatus(enum)
+├── repository/   FacilityBookingRepository, FacilityBookingStatusHistoryRepository, FacilityBookingPurposePresetRepository
 ├── service/      FacilityBookingService          — 신청·취소 (동아리 측)
 │                 FacilityBookingAdminService     — 승인·거절·확정·취소 (관리자 측, 재검증 포함)
 │                 FacilityAvailabilityService     — 슬롯 상태 계산 (크롤 조회 서비스 재사용)
@@ -365,6 +388,7 @@ domain/facilitybooking/
 | 11 | `POST /admin/facility-bookings/{id}/conflict` | 👑 | 수동 충돌 전환 `{detail}` (P1 — 자동 전환은 P2) |
 | 12 | `POST /admin/facility-bookings/{id}/cancel` | 👑 | APPROVED/CONFLICT 취소 `{reason}` |
 | 13 | `GET /admin/facility-bookings/summary` | 👑 | 대시보드 카드 수치(승인 대기·학교 반영 대기·충돌·이달 확정 — §9.7) |
+| 14 | `GET /facilities/booking-purpose-presets` | 🌐 | 사용 목적 Preset 목록(§9.4). 기존 `/api/v1/facilities/**` GET permitAll 범위라 Security 변경 불필요 |
 
 관리자 API는 `/api/v1/admin/**` 관례(URL 백스톱 `hasRole('ADMIN')` + 컨트롤러 `@PreAuthorize`) 그대로.
 
@@ -470,7 +494,19 @@ domain/facilitybooking/
 시트/패널 내부 = **수직 시간축 슬롯 리스트**(09~22, 13행):
 - 각 행: 시간 라벨(mono) + 상태(AVAILABLE=탭 가능 / BLOCKED=단체명+회색 채움 / PENDING_HOLD=“승인 대기중” 배지, 탭 가능 / PAST=흐림). 상단에 운영행 정보 라벨("운영: 고정관념 09:00~20:00").
 - **연속 범위 선택**: 첫 탭=시작(1시간 선택), 두 번째 탭=끝(사이가 전부 선택 가능하면 범위 확장, 아니면 새 시작으로 재시작). 선택 구간 `bg-ink-soft` 하이라이트 + 하단 sticky CTA "18:00~20:00 예약 신청".
-- CTA 탭 → 시트 안에서 신청 폼 단계로 전환(시트 유지, 뒤로 가능): 동아리 선택(운영진 동아리 1개면 자동 고정 표시), 사용 목적(필수), 사용 인원(선택). PENDING_HOLD 포함 시 폼 상단에 "이미 예약 신청이 접수된 시간입니다. 계속 신청하시겠습니까?" 경고 블록.
+- CTA 탭 → 시트 안에서 신청 폼 단계로 전환(시트 유지, 뒤로 가능): 동아리 선택(운영진 동아리 1개면 자동 고정 표시), 사용 목적(필수 — 아래 Preset + 자유 입력 하이브리드), 사용 인원(선택). 폼 필드는 MVP 최소 구성이되, 학교 전달 양식 변경에 대비해 폼 스키마(필드 정의·검증)를 한 모듈에 모아 필드 추가가 국소적이게 한다. PENDING_HOLD 포함 시 폼 상단에 "이미 예약 신청이 접수된 시간입니다. 계속 신청하시겠습니까?" 경고 블록.
+
+**사용 목적 입력 — Preset + 자유 입력 하이브리드**
+
+| 방식 | 판정 | 이유 |
+|---|---|---|
+| **Preset Chip** | ✅ **채택** | 10개 내외 선택지가 폼 안에 즉시 노출, 1터치 채움, 모바일 시트·기존 칩 문법과 궁합. "선택 후 자유 수정" 흐름이 가장 자연스러움 |
+| Select | ❌ | 선택지 미리보기 불가 + 최소 2터치, 선택값을 이어서 수정하는 UX가 부자연 |
+| Combobox | ❌ | 검색이 필요한 규모가 아님. 구현 복잡도 대비 이득 없음 |
+
+- 동작: 칩 탭 → 사용 목적 입력란에 해당 문구 **자동 채움**(이후 자유 수정 가능). 입력값이 칩 문구와 일치하는 동안만 칩이 선택 상태로 보이고, 수정하면 해제된다. "기타(직접 입력)" 칩은 FE 고정 칩(항상 마지막)으로, 입력란을 비우고 포커스만 준다.
+- 서버에는 **최종 텍스트만** 저장한다(`purpose` 컬럼 그대로, preset FK 없음) — Preset은 입력 보조 UX일 뿐 데이터 모델에 침투하지 않는다.
+- Preset 목록은 하드코딩하지 않는다: `facility_booking_purpose_preset` 테이블(§6.3, 시드: 동아리 정기 모임 / 동아리 정기 연습 / 정기 합주 / 공연 연습 / 행사 준비 / 회의 / 세미나 / 신입부원 교육 / 촬영) + 공개 GET(§8 #14)으로 서빙. 관리자 추가·수정 CRUD는 P2.
 - 제출 → 성공 화면(시트 내): 상태 스텝퍼(신청 완료 → 총동연 승인 → 학교 확정) + "내 예약에서 확인" 링크.
 
 **모바일 터치 카운트**: 날짜(1) → 슬롯(2) → 신청 CTA(3) → [폼 입력] → 제출. 목표(3터치 이내 진입) 충족.
@@ -556,13 +592,13 @@ domain/facilitybooking/
 사용자 합의된 P1/P2/P3. 각 P는 여러 PR로 쪼갠다(1브랜치 1PR 원칙 — 백엔드 API 단위/프론트 페이지 단위).
 
 **P1 (MVP)**
-1. BE: 스키마(V8x·V8y) + 엔티티 + 신청·취소 API + 가용성 API
+1. BE: 스키마(V8x·V8y·V8z) + 엔티티 + 신청·취소 API + 가용성 API + 목적 Preset GET
 2. BE: 관리자 승인·거절·수동확정·충돌·취소 API(재검증 포함) + 매칭 잡(자동 CONFIRMED)
 3. FE: 예약 홈(칩 + 월간 캘린더 + Day View 시트/패널 + 주간 토글 + 신청 폼)
 4. FE: 동아리 예약 관리 페이지 + 관리자 승인 큐
 5. 기존 화면 교체·redirect·안내 문구 정리
 
-**P2** — 인앱 알림(§7.6), 자동 CONFLICT·겹침 PENDING 자동 거절, 예약 정책 설정화(시설별 운영시간·최대 시간·리드타임 + 동아리별 제한을 관리자 설정값으로 — §3.3 `BookingPolicyValidator` 내부 교체), 동아리별 학교 표기명 매핑, 관리자 메모, HOLD UI 고도화(대기 순번 등)
+**P2** — 인앱 알림(§7.6), 자동 CONFLICT·겹침 PENDING 자동 거절, 예약 정책 설정화(시설별 운영시간·최대 시간·리드타임 + 동아리별 제한을 관리자 설정값으로 — §3.3 `BookingPolicyValidator` 내부 교체), 동아리별 학교 표기명 매핑, 관리자 메모, 목적 Preset 관리자 CRUD(§6.3), HOLD UI 고도화(대기 순번 등)
 
 **P3** — 기존 조회 잔재 정리(과거 월 열람 재검토 포함), UX·애니메이션 폴리시, 반복 예약·블랙아웃 기간·관리자 직접 예약, 동아리발 취소 요청 플로우
 
@@ -627,9 +663,10 @@ domain/facilitybooking/
 11. 자동 CONFIRMED 정확 매칭은 P1의 보수적 초기 정책 — 매칭 판정은 교체 가능한 정책으로 캡슐화(§5.3).
 12. 신청 규칙 상수(활성 10건 등)는 `BookingPolicyValidator` 뒤에 격리 — P2 설정화 시 호출부 불변(§3.3).
 
-**열린 결정 포인트(스펙 리뷰에서 확인 요청)**
-1. **겹침 자동 처리 상태**: 본 스펙은 `REJECTED`(자동 사유) 채택, CONFLICT는 승인 후 학교 충돌 전용(§4.1). — 사용자가 언급한 REJECTED_CONFLICT 별도 상태 대비 상태 수가 적고 관리자 큐가 깨끗함.
-2. **시설 전환 = 단일 페이지 + 쿼리 파라미터**(§9.1), 기존 `/facilities/[id]`는 redirect.
-3. **신청 폼 필드**: 사용 목적(필수)·사용 인원(선택)으로 시작 — 총동연이 학교 전달용 엑셀에 요구하는 필드가 더 있으면(연락처·행사명 등) 알려주세요.
-4. **자동 CONFIRMED를 P1에 포함**(보수적 정확 매칭만) — 자동 CONFLICT만 P2로 미룸.
-5. **과거 월 열람 소멸**(P1): 기존 상세의 ±12개월 조회는 예약 홈에서 제거 — 필요하면 P3에서 별도 뷰로 부활.
+**추가 확정(2026-07-13 스펙 리뷰에서 사용자 확정)**
+13. 겹침 자동 처리 = `REJECTED`(자동 사유). CONFLICT는 승인 후 학교 충돌 전용(§4.1) — 관리자 큐 명확성.
+14. 시설 전환 = 단일 페이지 + 쿼리 파라미터(§9.1), 기존 `/facilities/[id]`는 redirect.
+15. 신청 폼 = 사용 목적(필수) + 사용 인원(선택). 학교 전달 양식 변경에 대비해 필드 추가가 국소적인 구조 유지.
+16. 자동 CONFIRMED P1 포함 — 보수적 정확 매칭으로 시작, §5.3 확장 경로 유지.
+17. 과거 월 열람은 P1에서 제거(현재 예약·신청 프로세스 우선), 필요 시 P3 재검토.
+18. 사용 목적 입력 = **Preset Chip + 자유 입력 하이브리드**(§9.4). Preset 목록은 DB 테이블 + 공개 GET 서빙(하드코딩 금지, §6.3), 관리자 CRUD는 P2.
