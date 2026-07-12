@@ -16,22 +16,35 @@ export function installBackNavigationViewTransitionGuard() {
   if (typeof document.startViewTransition !== 'function') return;
   installed = true;
 
+  // 마커 세대 — 연속 popstate 에서 이전(스킵된) 전환의 finished 가 최신 마커를 지우지 못하게 한다.
+  let markerGeneration = 0;
   let failsafeTimer: number | null = null;
-  const clearMarker = () => {
-    document.documentElement.removeAttribute(BACK_NAVIGATION_ATTRIBUTE);
+
+  const cancelFailsafe = () => {
     if (failsafeTimer !== null) {
       window.clearTimeout(failsafeTimer);
       failsafeTimer = null;
     }
   };
 
+  const clearMarker = (generation: number) => {
+    // 더 새로운 popstate 가 마커를 재점유했으면 해제하지 않는다(그 세대의 해제 주체가 담당).
+    if (generation !== markerGeneration) return;
+    document.documentElement.removeAttribute(BACK_NAVIGATION_ATTRIBUTE);
+    cancelFailsafe();
+  };
+
   // next-view-transitions 는 마운트 effect 에서 popstate 리스너를 등록한다. 이 함수는
   // providers.tsx 모듈 평가 시점에 호출되므로 항상 먼저 등록되고(리스너는 등록순 실행),
   // 라이브러리 핸들러가 전환을 시작하기 전에 마커가 세팅된다.
   window.addEventListener('popstate', () => {
+    markerGeneration += 1;
     document.documentElement.setAttribute(BACK_NAVIGATION_ATTRIBUTE, '');
-    if (failsafeTimer !== null) window.clearTimeout(failsafeTimer);
-    failsafeTimer = window.setTimeout(clearMarker, FAILSAFE_CLEAR_MS);
+    cancelFailsafe();
+    const generation = markerGeneration;
+    // 전환이 아예 시작되지 않는 예외 상황(라이브러리 미마운트 등)에서만 발화하는 안전장치 —
+    // 전환이 마커를 인수하면 아래 래퍼가 즉시 취소한다.
+    failsafeTimer = window.setTimeout(() => clearMarker(generation), FAILSAFE_CLEAR_MS);
   });
 
   // 마커 해제 시점 = 억제된 전환의 finished. 전환 객체는 라이브러리 내부에만 있으므로
@@ -40,7 +53,11 @@ export function installBackNavigationViewTransitionGuard() {
   document.startViewTransition = (callback) => {
     const transition = originalStartViewTransition(callback);
     if (document.documentElement.hasAttribute(BACK_NAVIGATION_ATTRIBUTE)) {
-      transition.finished.catch(() => undefined).finally(clearMarker);
+      // 전환이 마커를 인수 — failsafe 를 취소해 느린 라우트 커밋(>2s)에서도 조기 해제를 막고,
+      // 해제는 이 전환의 finished(현 세대 한정)가 담당한다.
+      cancelFailsafe();
+      const generation = markerGeneration;
+      transition.finished.catch(() => undefined).finally(() => clearMarker(generation));
     }
     return transition;
   };

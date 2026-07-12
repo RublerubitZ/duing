@@ -456,7 +456,7 @@ export function ClubExplorePage() {
             </div>
 
             {clubListQuery.isLoading && (
-              <div role="status" aria-label="동아리 목록 불러오는 중" className="animate-pulse">
+              <div role="status" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
                 <ClubListSkeletonItems variant="grid" />
               </div>
             )}
@@ -573,7 +573,7 @@ export function ClubExplorePage() {
 
         <div className="px-4 pb-8">
           {clubListQuery.isLoading && (
-            <div role="status" aria-label="동아리 목록 불러오는 중" className="animate-pulse">
+            <div role="status" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
               <ClubListSkeletonItems variant="list" />
             </div>
           )}

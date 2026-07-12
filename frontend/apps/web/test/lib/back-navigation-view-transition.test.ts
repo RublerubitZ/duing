@@ -12,6 +12,16 @@ function createViewTransitionMock(finished: Promise<void> = Promise.resolve()): 
   };
 }
 
+// finished 를 테스트 코드에서 원하는 시점에 수동으로 resolve 하기 위한 헬퍼 — 연속 popstate 시나리오는
+// 두 전환의 finished 순서를 직접 통제해야 한다.
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 let registeredPopstateListener: EventListenerOrEventListenerObject | null = null;
 
 // jsdom 의 window/document 는 테스트 파일 전체에서 공유된다 — 모듈을 새로 로드해 설치할 때마다
@@ -92,6 +102,55 @@ describe('installBackNavigationViewTransitionGuard', () => {
     expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(true);
 
     vi.advanceTimersByTime(2000);
+
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+  });
+
+  it('연속 popstate 시 첫 번째(스킵된) 전환의 finished 가 두 번째 마커를 지우지 않는다', async () => {
+    const firstDeferred = createDeferred<void>();
+    const secondDeferred = createDeferred<void>();
+    const transitions = [
+      createViewTransitionMock(firstDeferred.promise),
+      createViewTransitionMock(secondDeferred.promise),
+    ];
+    let callCount = 0;
+    document.startViewTransition = () => transitions[callCount++];
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    document.startViewTransition(() => undefined);
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    document.startViewTransition(() => undefined);
+
+    firstDeferred.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // 이전 세대의 finished 는 최신 마커를 지우지 못한다 — 두 번째 뒤로가기의 억제가 유지돼야 한다.
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(true);
+
+    secondDeferred.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+  });
+
+  it('전환이 마커를 인수하면 느린 라우트 커밋(>2000ms)에도 failsafe 가 조기 해제하지 않는다', async () => {
+    vi.useFakeTimers();
+    const deferred = createDeferred<void>();
+    document.startViewTransition = () => createViewTransitionMock(deferred.promise);
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    document.startViewTransition(() => undefined);
+
+    await vi.advanceTimersByTimeAsync(2500);
+
+    // failsafe 는 전환이 마커를 인수한 시점에 취소됐어야 한다 — 느린 커밋에서도 마커가 살아있어야 한다.
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(true);
+
+    deferred.resolve();
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
   });
