@@ -1,4 +1,4 @@
-import ky, { type KyInstance, type ResponsePromise, HTTPError } from 'ky';
+import ky, { type KyInstance, type ResponsePromise, HTTPError, TimeoutError } from 'ky';
 import { notifyUnauthorized } from './unauthorized-context';
 import type {
   InterviewRoundCandidate,
@@ -206,7 +206,20 @@ export class ApiError extends Error {
   }
 }
 
-async function toApiError(error: unknown): Promise<never> {
+// 사용자 대면 네트워크 오류 안내 문구 — 전 화면의 `error instanceof ApiError ? error.message : …`
+// 패턴이 그대로 노출하므로 여기 한 곳에서만 관리한다. (스펙 §3.2)
+export const TIMEOUT_ERROR_MESSAGE = '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.';
+export const NETWORK_ERROR_MESSAGE = '인터넷 연결을 확인해주세요.';
+
+export async function toApiError(error: unknown): Promise<never> {
+  // connectivity fail-fast 등 이미 정규화된 에러는 그대로 통과시킨다.
+  if (error instanceof ApiError) {
+    throw error;
+  }
+  // ky 타임아웃 — 분류별 REQUEST_TIMEOUT_MS 초과. 재시도 정책(shouldRetryQuery)이 code 로 식별한다.
+  if (error instanceof TimeoutError) {
+    throw new ApiError(0, TIMEOUT_ERROR_MESSAGE, undefined, 'TIMEOUT');
+  }
   if (error instanceof HTTPError) {
     let message = `요청 실패 (${error.response.status})`;
     let payload: unknown;
@@ -224,6 +237,10 @@ async function toApiError(error: unknown): Promise<never> {
       // ignore json parse failure
     }
     throw new ApiError(error.response.status, message, payload, code);
+  }
+  // fetch 네트워크 실패(오프라인·DNS·연결 거부)는 TypeError 로 도착한다.
+  if (error instanceof TypeError) {
+    throw new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK');
   }
   throw error;
 }
