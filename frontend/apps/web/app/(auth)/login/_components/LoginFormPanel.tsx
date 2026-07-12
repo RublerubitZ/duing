@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ApiError } from '@duing/api';
 import { useLoginMutation } from '@duing/hooks';
 import { loginSchema } from '@duing/schemas';
 import { cn } from '@/app/_lib/cn';
@@ -91,8 +92,17 @@ function LoginForm() {
     try {
       await login.mutateAsync(parsed.data);
       router.replace(next);
-    } catch {
-      setError('학번 또는 비밀번호가 올바르지 않습니다.');
+    } catch (loginError) {
+      // 타임아웃·오프라인은 자격증명 문제가 아니다 — 정규화된 안내(요청 시간 초과/연결 확인)를 그대로 보여줘
+      // 사용자가 비밀번호를 의심하지 않게 한다. (재현 실험에서 확인된 오안내 수정)
+      if (loginError instanceof ApiError && (loginError.code === 'TIMEOUT' || loginError.code === 'NETWORK')) {
+        setError(loginError.message);
+      } else if (loginError instanceof ApiError && (loginError.status === 429 || loginError.status >= 500)) {
+        // 서버 장애·과요청은 자격증명 문제가 아니다 — 전역 폴백(global-error.tsx)과 같은 결의 안내.
+        setError('일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+      } else {
+        setError('학번 또는 비밀번호가 올바르지 않습니다.');
+      }
     }
   }
 

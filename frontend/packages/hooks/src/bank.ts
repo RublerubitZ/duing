@@ -4,11 +4,15 @@ import type { BankTransactionSearchParams, SyncBankTransactionsPayload } from '@
 import { useApiClient } from './api-context';
 import { bankQueryKeys } from './bankQueryKeys';
 import { feeQueryKeys } from './feeQueryKeys';
+import { isNonRetryableError } from './retry';
 
 // BANK 자동매칭 미사용 동아리는 검토 큐 조회 시 403(BankMatchingNotEnabled) 으로 내려온다 —
 // 정상적인 "미사용" 상태이므로 재시도하지 않고 호출부가 ApiError(status 403) 로 안내 카드를 노출한다.
 // 그 외 오류는 기본 횟수만큼 재시도한다(Sprint 2 fee-account 404 패턴 미러).
 function retryUnlessForbidden(failureCount: number, error: unknown): boolean {
+  if (isNonRetryableError(error)) {
+    return false;
+  }
   if (error instanceof ApiError && error.status === 403) {
     return false;
   }
