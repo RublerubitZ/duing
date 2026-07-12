@@ -5,6 +5,8 @@ import { useMemo, useState } from 'react';
 
 import type { MyClubSummary } from '@duing/types';
 
+import { isKnownNonActiveClubStatus } from '../_lib/clubStatusGuard';
+
 const ACK_KEY_PREFIX = 'duing.acceptedAck.';
 const ACK_WINDOW_DAYS = 30;
 
@@ -17,7 +19,11 @@ function pickBannerCandidate(clubs: MyClubSummary[], now: Date): MyClubSummary |
   const cutoffMs = now.getTime() - ACK_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
   const candidate = [...clubs]
-    .filter((c) => new Date(c.joinedAt).getTime() >= cutoffMs)
+    .filter(
+      (club) =>
+        !isKnownNonActiveClubStatus(club.status) &&
+        new Date(club.joinedAt).getTime() >= cutoffMs,
+    )
     .sort((a, b) => new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime())[0];
 
   if (!candidate) return null;

@@ -59,42 +59,12 @@ function renderWithProviders(ui: React.ReactElement) {
 }
 
 describe('ProfileEditDialog', () => {
-  it('전화번호가 자리수가 모자라면 에러를 보여주고 저장하지 않는다', async () => {
-    const user = userEvent.setup();
-    const onClose = vi.fn();
-    renderWithProviders(
-      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentPhone="010-1111-2222" currentGrade="JUNIOR" />,
-    );
-
-    const phone = screen.getByDisplayValue('010-1111-2222');
-    await user.clear(phone);
-    await user.type(phone, '01012');
-    await user.click(screen.getByRole('button', { name: '저장' }));
-
-    expect(screen.getByText(/형식/)).toBeInTheDocument();
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it('숫자만 입력해도 하이픈이 자동으로 들어간다', async () => {
-    const user = userEvent.setup();
-    renderWithProviders(
-      <ProfileEditDialog open onClose={vi.fn()} currentName="홍길동" currentPhone="010-1111-2222" currentGrade="JUNIOR" />,
-    );
-
-    const phone = screen.getByDisplayValue('010-1111-2222');
-    await user.clear(phone);
-    // 숫자만 타이핑 — 문자는 무시되고 010-XXXX-XXXX 로 포맷된다.
-    await user.type(phone, '010a9999b8888');
-
-    expect(screen.getByDisplayValue('010-9999-8888')).toBeInTheDocument();
-  });
-
   it('유효한 값이면 PATCH 후 닫고 토스트를 띄운다', async () => {
     server.use(http.patch(`${BASE}/users/me`, ok204));
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderWithProviders(
-      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentPhone="010-1111-2222" currentGrade="JUNIOR" />,
+      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
     );
 
     const name = screen.getByDisplayValue('홍길동');
@@ -118,7 +88,7 @@ describe('ProfileEditDialog', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderWithProviders(
-      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentPhone="010-1111-2222" currentGrade="JUNIOR" />,
+      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
     );
 
     // 학년 셀렉트가 노출되고 현재 값(3학년)이 선택되어 있다.

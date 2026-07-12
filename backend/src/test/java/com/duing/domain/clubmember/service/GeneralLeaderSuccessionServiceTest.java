@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberEventType;
@@ -25,6 +26,7 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
 @Import(TestcontainersConfiguration.class)
@@ -52,14 +55,23 @@ class GeneralLeaderSuccessionServiceTest {
 
     private User saveUser(UserRole role) {
         long seq = sequence.incrementAndGet();
-        return userRepository.save(User.create("20" + seq, "U" + seq,
-                "u" + seq + "@duing.ac.kr", "h", role,
+        return userRepository.save(User.create("20" + seq, "U" + seq, "h", role,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
     }
 
     private Club saveClub() {
-        return clubRepository.save(Club.create("C" + sequence.incrementAndGet(),
-                ClubCategory.ACADEMIC, null, "설명", null));
+        Club club = Club.create("C" + sequence.incrementAndGet(),
+                ClubCategory.ACADEMIC, null, "설명", null);
+        // Club.create 기본 상태는 PENDING_APPROVAL — 승계 요청 제출은 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        try {
+            Field statusField = Club.class.getDeclaredField("status");
+            statusField.setAccessible(true);
+            statusField.set(club, ClubStatus.ACTIVE);
+        } catch (ReflectiveOperationException reflectionFailure) {
+            throw new IllegalStateException("Club status 픽스처 설정 실패", reflectionFailure);
+        }
+        return clubRepository.save(club);
     }
 
     @Test
@@ -79,19 +91,21 @@ class GeneralLeaderSuccessionServiceTest {
     }
 
     @Test
-    @DisplayName("LEADER 본인의 승계 요청은 400")
+    @DisplayName("LEADER 본인의 승계 요청은 403")
     void leaderCannotRequest() {
+        // 운영 행위 게이트(ClubAuthService.requireOfficer) 도입으로 비-OFFICER 는
+        // 도메인 400 이 아닌 인가 403(AccessDenied) 으로 차단된다.
         User leader = saveUser(UserRole.STUDENT);
         Club club = saveClub();
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
 
         assertThatThrownBy(() -> successionService.create(new CreateSuccessionCommand(
                 club.getId(), leader.getId(), "테스트")))
-                .isInstanceOf(ClubMemberException.SuccessionRequiresOfficer.class);
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
-    @DisplayName("MEMBER 의 승계 요청은 400")
+    @DisplayName("MEMBER 의 승계 요청은 403")
     void memberCannotRequest() {
         User leader = saveUser(UserRole.STUDENT);
         User member = saveUser(UserRole.STUDENT);
@@ -101,7 +115,7 @@ class GeneralLeaderSuccessionServiceTest {
 
         assertThatThrownBy(() -> successionService.create(new CreateSuccessionCommand(
                 club.getId(), member.getId(), "테스트")))
-                .isInstanceOf(ClubMemberException.SuccessionRequiresOfficer.class);
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

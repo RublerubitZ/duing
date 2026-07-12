@@ -1,5 +1,7 @@
 package com.duing.domain.notice;
 
+import static org.hamcrest.Matchers.equalTo;
+
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
@@ -28,6 +30,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -39,6 +42,7 @@ class ClubScopedNoticeAccessTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -53,6 +57,9 @@ class ClubScopedNoticeAccessTest extends IntegrationTestBase {
         Club a = clubRepository.save(Club.create("동아리A", ClubCategory.ACADEMIC, null, "A", null));
         Club b = clubRepository.save(Club.create("동아리B", ClubCategory.ACADEMIC, null, "B", null));
         clubAId = a.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 내부 공지 가시성은 ACTIVE 동아리만 인정되므로,
+        // 상태 차단 자체를 검증하는 테스트가 아닌 한 두 동아리 모두 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id IN (?, ?)", a.getId(), b.getId());
 
         User leaderA = saveUser();
         User memberA = saveUser();
@@ -81,8 +88,7 @@ class ClubScopedNoticeAccessTest extends IntegrationTestBase {
 
     private User saveUser() {
         long seq = sequence.incrementAndGet();
-        return userRepository.save(User.create("20" + seq, "U" + seq,
-                "u" + seq + "@duing.ac.kr", "h", UserRole.STUDENT,
+        return userRepository.save(User.create("20" + seq, "U" + seq, "h", UserRole.STUDENT,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
     }
 
@@ -102,5 +108,53 @@ class ClubScopedNoticeAccessTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + clubAMemberToken)
                 .when().get("/api/v1/notices/" + noticeOfClubA)
                 .then().statusCode(HttpStatus.OK.value());
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리의 내부 공지는 공용 공지 피드에서 보이지 않는다")
+    void inactiveClubScopedNoticeHiddenFromPublicFeed() {
+        seedPublicNoticeAsAdmin("전체 공개 공지");
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubAId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + clubAMemberToken)
+                .when().get("/api/v1/notices")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.findAll { it.title == 'A 회원만' }.size()", equalTo(0))
+                // PUBLIC 공지는 뷰어 스코프와 무관하므로 대조군으로 계속 보인다.
+                .body("data.content.findAll { it.title == '전체 공개 공지' }.size()", equalTo(1));
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리의 내부 공지 상세는 공용 경로로도 조회할 수 없다")
+    void inactiveClubScopedNoticeDetailForbiddenViaPublicPath() {
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubAId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + clubAMemberToken)
+                .when().get("/api/v1/notices/" + noticeOfClubA)
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    private void seedPublicNoticeAsAdmin(String title) {
+        User admin = saveAdmin();
+        String adminToken = jwtTokenProvider.createToken(admin.getId(), admin.getRole().name());
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title":"%s", "summary":"요약", "content":"본문",
+                      "coverImageUrl":"https://example.com/c.png",
+                      "category":"GENERAL", "visibility":"PUBLIC",
+                      "pinned":false, "notifyOnPublish":false }
+                    """.formatted(title))
+                .when().post("/api/v1/admin/notices")
+                .then().statusCode(HttpStatus.CREATED.value());
+    }
+
+    private User saveAdmin() {
+        long seq = sequence.incrementAndGet();
+        return userRepository.save(User.create("20" + seq, "관리자" + seq, "h", UserRole.ADMIN,
+                Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
     }
 }

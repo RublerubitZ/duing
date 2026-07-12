@@ -67,7 +67,6 @@ class NotificationRetentionJobTest extends IntegrationTestBase {
         User user = User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 "보존정책유저",
-                "retention" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

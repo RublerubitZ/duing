@@ -3,6 +3,7 @@ package com.duing.domain.recruitment.stats.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -50,7 +51,6 @@ class RecruitmentStatsRepositoryDailyTest {
                 User.create(
                         "20" + seq,
                         "테스터" + seq,
-                        "test" + seq + "@duing.ac.kr",
                         "hashed",
                         UserRole.STUDENT,
                         Grade.FRESHMAN,
@@ -80,7 +80,7 @@ class RecruitmentStatsRepositoryDailyTest {
     private Application saveApplicationWithCreatedAt(Recruitment recruitment, User user, LocalDateTime createdAt)
             throws Exception {
         Application application = applicationRepository.save(
-                Application.submit(recruitment, user, List.of("답변"))
+                Application.submit(recruitment, user, List.of(new ApplicationAnswer("q1", List.of("답변"))))
         );
         applicationRepository.flush();
         // @CreatedDate 가 INSERT 시 현재 시각으로 덮어쓰므로, 저장 후 native SQL 로 created_at 을 원하는 값으로 수정한다

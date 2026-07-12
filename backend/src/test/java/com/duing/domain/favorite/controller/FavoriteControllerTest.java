@@ -2,6 +2,7 @@ package com.duing.domain.favorite.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -178,6 +179,77 @@ class FavoriteControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("비 ACTIVE 동아리에 찜 추가를 호출하면 존재를 숨기고 404 를 반환한다")
+    void addFavoriteToNonActiveClubReturns404() throws Exception {
+        Club inactiveClub = saveClubWithStatus("휴면동아리", ClubStatus.INACTIVE);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                    .contentType(ContentType.JSON)
+                .when()
+                    .post("/api/v1/me/favorites/{clubId}", inactiveClub.getId())
+                .then()
+                    .statusCode(HttpStatus.NOT_FOUND.value())
+                    .body("ok", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("찜한 동아리가 비 ACTIVE 로 전환되면 찜 목록·ID 목록 응답에서 제외된다")
+    void nonActiveClubIsExcludedFromFavoriteListAndIds() throws Exception {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .post("/api/v1/me/favorites/{clubId}", activeClub.getId())
+                .then()
+                    .statusCode(HttpStatus.CREATED.value());
+
+        changeClubStatus(activeClub.getId(), ClubStatus.INACTIVE);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .get("/api/v1/me/favorites")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.totalElements", equalTo(0))
+                    .body("data.content", hasSize(0));
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .get("/api/v1/me/favorites/ids")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.clubIds", hasSize(0));
+    }
+
+    @Test
+    @DisplayName("동아리가 비 ACTIVE 로 전환돼도 기존 찜 해제는 204 로 동작한다")
+    void removeFavoriteOfNonActiveClubReturns204() throws Exception {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .post("/api/v1/me/favorites/{clubId}", activeClub.getId())
+                .then()
+                    .statusCode(HttpStatus.CREATED.value());
+
+        changeClubStatus(activeClub.getId(), ClubStatus.INACTIVE);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .delete("/api/v1/me/favorites/{clubId}", activeClub.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
     @DisplayName("인증 없이 찜 추가를 호출하면 인증 오류(4xx)를 반환한다")
     void addFavoriteWithoutAuthIsRejected() {
         int statusCode = RestAssured
@@ -235,7 +307,6 @@ class FavoriteControllerTest extends IntegrationTestBase {
         User user = User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 name,
-                "ctrl" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,
@@ -248,11 +319,26 @@ class FavoriteControllerTest extends IntegrationTestBase {
     }
 
     private Club saveActiveClub(String name) throws Exception {
+        return saveClubWithStatus(name, ClubStatus.ACTIVE);
+    }
+
+    private Club saveClubWithStatus(String name, ClubStatus status) throws Exception {
         String uniqueName = name + "-" + sequence.getAndIncrement();
         Club club = Club.create(uniqueName, ClubCategory.OTHER, "분과", "설명", null);
+        setClubStatus(club, status);
+        return clubRepository.save(club);
+    }
+
+    // 상태 전이 규칙(canTransitionTo)을 우회해 테스트 시나리오에 필요한 상태를 직접 만든다.
+    private void changeClubStatus(Long clubId, ClubStatus status) throws Exception {
+        Club club = clubRepository.findById(clubId).orElseThrow();
+        setClubStatus(club, status);
+        clubRepository.save(club);
+    }
+
+    private void setClubStatus(Club club, ClubStatus status) throws Exception {
         Field statusField = Club.class.getDeclaredField("status");
         statusField.setAccessible(true);
-        statusField.set(club, ClubStatus.ACTIVE);
-        return clubRepository.save(club);
+        statusField.set(club, status);
     }
 }

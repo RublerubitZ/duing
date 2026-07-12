@@ -79,7 +79,6 @@ export type User = {
   id: number;
   studentId: string;
   name: string;
-  email: string;
   phone: string;
   grade: Grade;
   role: UserRole;
@@ -87,7 +86,6 @@ export type User = {
 
 export type UpdateProfilePayload = {
   name: string;
-  phone: string;
   grade: Grade;
 };
 
@@ -99,18 +97,17 @@ export type ChangePasswordPayload = {
 export type SignupPayload = {
   studentId: string;
   name: string;
-  email: string;
   password: string;
   grade: Grade;
   college: College;
   major: string;
-  phone: string;
+  verificationToken: string;
   termsOfServiceAgreed: boolean;
   privacyPolicyAgreed: boolean;
 };
 
 export type LoginPayload = {
-  email: string;
+  studentId: string;
   password: string;
 };
 
@@ -120,16 +117,41 @@ export type LoginResult = {
   user: User;
 };
 
-export type SendEmailVerificationPayload = {
-  email: string;
+export type StartPhoneVerificationPayload = {
+  phone: string;
 };
 
-export type ConfirmEmailVerificationPayload = {
-  email: string;
+export type PhoneVerificationSession = {
+  verificationToken: string;
   code: string;
-};
-
-export type EmailVerificationResult = {
+  moNumber: string;
+  qrCode: string | null;
   expiresAt: string;
   expiresInSeconds: number;
+};
+
+export type PhoneVerificationStatusValue = 'PENDING' | 'VERIFIED' | 'EXPIRED';
+
+export type PhoneVerificationStatus = {
+  status: PhoneVerificationStatusValue;
+  expiresInSeconds: number;
+  maskedPhone: string | null;
+};
+
+export type ChangePhonePayload = {
+  verificationToken: string;
+  currentPassword: string;
+};
+
+export type RequestPasswordResetPayload = {
+  studentId: string;
+};
+
+export type PasswordResetSession = PhoneVerificationSession & {
+  maskedPhone: string;
+};
+
+export type CompletePasswordResetPayload = {
+  verificationToken: string;
+  newPassword: string;
 };

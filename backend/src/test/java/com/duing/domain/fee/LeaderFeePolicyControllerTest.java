@@ -35,6 +35,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -55,6 +56,8 @@ class LeaderFeePolicyControllerTest extends IntegrationTestBase {
     FeePolicyRepository feePolicyRepository;
     @Autowired
     FeeBillRepository feeBillRepository;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     private String leaderToken;
     private String officerToken;
@@ -67,6 +70,9 @@ class LeaderFeePolicyControllerTest extends IntegrationTestBase {
         RestAssured.port = port;
         Club club = clubRepository.save(ClubFixture.academic("동아리A"));
         clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 회비 정책 관리(총무 경로)는 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
 
         User leader = userRepository.save(UserFixture.unique());
         User officer = userRepository.save(UserFixture.unique());
@@ -132,6 +138,22 @@ class LeaderFeePolicyControllerTest extends IntegrationTestBase {
                 .body(monthlyBody())
                 .when().post("/api/v1/leader/clubs/" + clubId + "/fee-policies")
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리에서는 회비 정책을 생성할 수 없다")
+    void inactiveClubCannotCreateFeePolicy() {
+        // 셋업은 ACTIVE — 운영 중단(INACTIVE) 상태로 직접 전환해 운영 행위 게이트(Part C)를 검증한다.
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(monthlyBody())
+                .when().post("/api/v1/leader/clubs/" + clubId + "/fee-policies")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
     }
 
     @Test

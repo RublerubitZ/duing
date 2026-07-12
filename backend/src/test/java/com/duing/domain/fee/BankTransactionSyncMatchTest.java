@@ -141,6 +141,9 @@ class BankTransactionSyncMatchTest extends IntegrationTestBase {
     private Club saveEnabledClub(String clubName) {
         Club club = clubRepository.save(ClubFixture.academic(clubName));
         Long clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 거래 동기화(총무 경로)는 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
         String encrypted = feeAccountCipher.encrypt("352-1234-5678-90", clubId);
         feeAccountRepository.save(FeeAccount.create(clubId, Bank.NH, encrypted, "동아리회비"));
         BankMatchingSetting setting = BankMatchingSetting.of(clubId);

@@ -29,7 +29,7 @@ export default function NewRecruitmentPage({
       externalFormUrl: values.applicationMode === 'EXTERNAL' ? values.externalFormUrl : undefined,
       useInterview: values.useInterview,
       targetRole: values.targetRole,
-      questions: values.applicationMode === 'SELF' ? values.questions : undefined,
+      questionItems: values.applicationMode === 'SELF' ? values.questionItems : undefined,
       interviewStartDate: values.interviewStartDate ?? undefined,
       interviewEndDate: values.interviewEndDate ?? undefined,
       showApplicantCount: values.showApplicantCount,

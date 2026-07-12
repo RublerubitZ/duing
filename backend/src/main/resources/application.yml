@@ -26,6 +26,26 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
+  # Brevo SMTP — 인증 메일 폴백 발송용(JavaMailSender). Resend 가 429/5xx/타임아웃 등 일시 장애일 때만
+  # BrevoMailProvider 가 사용한다(email.provider=resend 일 때 활성). 크레덴셜은 default 빈 값 —
+  # 미주입이어도 부팅은 성공하고, 폴백 시도만 인증 실패로 무력화된다(주 발송 Resend 는 영향 없음).
+  # 타임아웃은 발송 API 스레드가 SMTP 장애에 길게 블로킹되지 않도록 짧게 강제한다(ResendClientConfig 와 동일 철학).
+  mail:
+    host: smtp-relay.brevo.com
+    port: 587
+    username: ${BREVO_SMTP_LOGIN:}
+    password: ${BREVO_SMTP_KEY:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            # STARTTLS 강제 — 평문 세션으로 크레덴셜이 전송되는 다운그레이드를 차단한다.
+            required: true
+          connectiontimeout: 3000
+          timeout: 5000
+          writetimeout: 5000
 
 # Actuator — 배포/프록시 헬스체크용으로 /actuator/health 하나만 외부에 노출한다.
 # info·metrics·env·beans 등 다른 endpoint 는 web exposure 에서 제외해 정보 노출/정찰 표면을 차단하고,
@@ -39,6 +59,13 @@ management:
   endpoint:
     health:
       show-details: never
+  health:
+    mail:
+      # spring.mail.host 설정으로 JavaMailSenderImpl 빈이 생기면 Boot 가 mail 헬스체크를 자동 등록해
+      # 헬스 조회마다 Brevo SMTP 접속을 시도한다. Docker healthcheck 주기마다 외부 접속이 발생하고,
+      # Brevo 크레덴셜 미주입·일시 장애 시 전체 health 가 DOWN 으로 바뀌어 배포가 롤백 루프에 빠진다.
+      # 메일 폴백은 배포 게이트와 무관한 부가 경로이므로 헬스체크에서 제외한다.
+      enabled: false
 
 jwt:
   secret: ${JWT_SECRET}
@@ -83,13 +110,37 @@ s3:
   public-base-url: ${S3_PUBLIC_BASE_URL:}
 
 email:
-  provider: ${EMAIL_PROVIDER:logging}   # logging | resend  (test 전용: stub)
+  provider: ${EMAIL_PROVIDER:logging}   # logging | resend(실발송 — Resend 주 + Brevo SMTP 폴백 체인)  (test 전용: stub)
   verification:
     secret: ${EMAIL_VERIFICATION_SECRET}   # HMAC 키 — 기본값 없음(필수), .env 로 주입
 
 resend:
   api-key: ${RESEND_API_KEY}
   from: '${RESEND_FROM:두잉 <noreply@duings.com>}'
+
+# Brevo 발신자 표기 — Resend 와 동일한 발신자를 기본값으로 유지한다(수신함에서 Provider 가 바뀌어도
+# 동일 발신자로 보이게). RESEND_FROM 을 커스텀했다면 BREVO_FROM 도 같이 맞춰 주입한다.
+# SMTP 크레덴셜(BREVO_SMTP_LOGIN/KEY)은 spring.mail 에서 주입한다.
+# ⚠️ 한글 발신자명 env 오버라이드는 운영(진짜 환경변수) 전용 — 로컬 backend/.env 경유는
+# properties(ISO-8859-1) 로 읽혀 mojibake 가 된다(backend/.env.example 경고 참조).
+brevo:
+  from: '${BREVO_FROM:두잉 <noreply@duings.com>}'
+
+# MO(문자 발신) 인증 — 사용자가 Octomo 대표번호로 인증코드를 문자 전송하면 exists 조회 API 로 확인한다.
+mo:
+  provider: ${MO_PROVIDER:stub}       # stub(로컬·CI — Octomo 미호출) | octomo(실조회)
+  inbound-number: "16663538"          # 수신 대표번호(1666-3538) — 안내 문구·딥링크·QR 본문용
+  stub:
+    # 양수(N)면 stub 이 최초 조회 후 N초 지난 세션을 수신된 것으로 간주 — 로컬 수동 플로우 확인용. 0 = 비활성.
+    auto-verify-after-seconds: ${MO_STUB_AUTO_VERIFY_AFTER_SECONDS:0}
+
+phone-verification:
+  secret: ${PHONE_VERIFICATION_SECRET}   # 코드 파생 HMAC 키 — 기본값 없음(필수), .env 로 주입
+
+# Octomo(octoverse.kr) MO 조회 — mo.provider=octomo 일 때만 활성. 키는 환경변수로만 주입.
+octomo:
+  api-key: ${OCTOMO_API_KEY:}
+  base-url: https://api.octoverse.kr
 
 # BANK API(bankapi.co.kr) 연동 — 회비 자동매칭(거래 조회/계좌 등록)용.
 # 인증은 Bearer {api-key}:{secret-key} 헤더. 키는 환경변수로만 주입하고 yml/코드에 실키 금지.
@@ -100,6 +151,11 @@ bank-api:
   secret-key: ${BANK_API_SECRET:}
 
 duing:
+  request:
+    # 비멀티파트(JSON 등) 요청 바디 상한(바이트, 기본 2MB). RequestBodySizeLimitFilter 가 Content-Length 로
+    # 확인해 초과 시 413 을 반환한다. 멀티파트 업로드는 제외(서블릿 multipart 한도·업로드 정책이 별도 강제).
+    # 운영 엣지(Caddy request_body max_size 11MB)가 1차 방어이며, 이 값은 앱 레이어 심층 방어다.
+    max-body-bytes: ${DUING_REQUEST_MAX_BODY_BYTES:2097152}
   notice:
     cover-image-url-prefix: ${NOTICE_COVER_IMAGE_URL_PREFIX:}
   notification:
@@ -122,6 +178,13 @@ duing:
       # 회비 마감 임박 리마인더 크론(매일 06:00 Asia/Seoul) — D-3/D-1/D-0 미납 청구의 회원에게 FEE_BILL_DUE_SOON 인앱 알림.
       # 기본 비활성 — 운영에서 DUING_FEE_REMINDER_ENABLED=true 주입 시 활성화한다.
       enabled: ${DUING_FEE_REMINDER_ENABLED:false}
+  federation-inquiry:
+    purge:
+      # 삭제된 총동연 1:1 문의 본문·첨부 파기 잡(매일 04:40 Asia/Seoul). 보관기간 = 45일(P45D) —
+      # 개인정보 처리방침의 45일 보관을 준용(privacy.retention 과 동일 window). 기본 비활성 —
+      # 운영에서 DUING_FEDERATION_INQUIRY_PURGE_ENABLED=true 주입 시 활성화한다.
+      enabled: ${DUING_FEDERATION_INQUIRY_PURGE_ENABLED:false}
+      window: ${DUING_FEDERATION_INQUIRY_PURGE_WINDOW:P45D}
   privacy:
     retention:
       # 탈퇴/폐쇄로 soft-delete 된 PII 의 보관기간 = 45일(P45D). 이후 파기 잡이 비식별화/삭제한다.
@@ -132,6 +195,24 @@ duing:
     window-days: ${DUING_PUBLIC_ACTIVITY_WINDOW_DAYS:30}
     default-limit: ${DUING_PUBLIC_ACTIVITY_DEFAULT_LIMIT:10}
     max-limit: ${DUING_PUBLIC_ACTIVITY_MAX_LIMIT:20}
+  facility:
+    crawler:
+      # 시설 예약 크롤 스케줄러(10분)/시설목록 동기화(1일). 로컬/테스트 기본 비활성 —
+      # 운영에서 DUING_FACILITY_CRAWLER_ENABLED=true(application-prod.yml)로 활성화한다.
+      # 온디맨드 조회(FacilitySchoolClientConfig)는 이 토글과 무관하게 항상 동작한다.
+      enabled: ${DUING_FACILITY_CRAWLER_ENABLED:false}
+      base-url: ${DUING_FACILITY_BASE_URL:https://www.daegu.ac.kr}
+      list-path: /room/detail
+      data-path: /room/data/list
+      user-agent: ${DUING_FACILITY_USER_AGENT:Mozilla/5.0 (compatible; DuingFacilityBot/1.0)}
+      connect-timeout-millis: 3000
+      read-timeout-millis: 5000
+      retry-max-attempts: 4
+      retry-backoff-millis: 500
+      # 온디맨드(공개 GET) 예산 — FE 15초 타임아웃 내 응답: 룸당 총 2회 재시도 + 전체 10초 데드라인.
+      on-demand-retry-max-attempts: 2
+      on-demand-deadline-seconds: 10
+      room-delay-millis: 100
 
 # 기본은 안전값(warn). bind 파라미터 로깅(org.hibernate.orm.jdbc.bind=trace)은 이메일·인증코드·학번 등
 # PII 를 평문으로 남기므로 base 를 warn 으로 둔다. local 프로파일만 개발 편의로 trace 를 다시 켜고

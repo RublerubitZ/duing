@@ -7,7 +7,6 @@ public record AdminUserSearchResponse(
         Long id,
         String studentId,
         String name,
-        String email,
         UserRole role
 ) {
     public static AdminUserSearchResponse from(UserSearchResultQuery searchResult) {
@@ -15,7 +14,6 @@ public record AdminUserSearchResponse(
                 searchResult.id(),
                 searchResult.studentId(),
                 searchResult.name(),
-                searchResult.email(),
                 searchResult.role()
         );
     }

@@ -4,10 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type { RoundStatus } from '@duing/types';
 import { useAdminRecertificationRoundListQuery } from '@duing/hooks';
+import { Pagination } from '@/components/Pagination';
 import { toRoute } from '../../../../_lib/route';
 import { AdminRecertificationRoundsFilterBar } from '../_components/AdminRecertificationRoundsFilterBar';
 import { AdminRecertificationRoundsTable } from '../_components/AdminRecertificationRoundsTable';
-import { Pagination } from '../../../../notices/_components/Pagination';
 import { ROUND_STATUS_LABEL } from '../_lib/recertificationRoundLabels';
 
 const PAGE_SIZE = 20;

@@ -99,6 +99,9 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         RestAssured.port = port;
         Club club = clubRepository.save(ClubFixture.academic("동아리A"));
         clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 청구 발행·취소(총무 경로)는 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
 
         User leader = userRepository.save(UserFixture.unique());
         User member = userRepository.save(UserFixture.unique());
@@ -423,6 +426,8 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     void onlyManagerMember() {
         // 활성 회원이 매니저 1명뿐이면 created=1·skipped=0 (DB INSERT...SELECT 가 활성 회원 전원 대상)
         Club soloClub = clubRepository.save(ClubFixture.academic("1인 동아리"));
+        // 운영 행위 게이트(Part C)로 ACTIVE 동아리만 발행이 가능하므로 승격한다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", soloClub.getId());
         User soloManager = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(soloClub, soloManager));
         String token = jwtTokenProvider.createToken(soloManager.getId(), soloManager.getRole().name());
@@ -575,6 +580,8 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         // 활성 회원 1명(member)만 두기 위해 setUp 의 leader 멤버십은 매니저로 유지하되,
         // 매니저(leader)도 활성 회원이므로 대상은 leader+member 2명. 단순화를 위해 1인 동아리로 재구성한다.
         Club soloClub = clubRepository.save(ClubFixture.academic("재발행 동아리"));
+        // 운영 행위 게이트(Part C)로 ACTIVE 동아리만 발행이 가능하므로 승격한다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", soloClub.getId());
         User soloManager = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(soloClub, soloManager));
         String token = jwtTokenProvider.createToken(soloManager.getId(), soloManager.getRole().name());
@@ -639,6 +646,8 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         // (= 청구는 영구 소실되지 않는다) 함을 여러 라운드 반복으로 검증한다.
         // 단일 사용자(1인 동아리)로 (policy,user,period) 를 한 키로 고정해 결정적으로 만든다.
         Club soloClub = clubRepository.save(ClubFixture.academic("동시 취소·재발행 동아리"));
+        // 운영 행위 게이트(Part C)로 ACTIVE 동아리만 발행이 가능하므로 승격한다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", soloClub.getId());
         User soloManager = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(soloClub, soloManager));
         String token = jwtTokenProvider.createToken(soloManager.getId(), soloManager.getRole().name());

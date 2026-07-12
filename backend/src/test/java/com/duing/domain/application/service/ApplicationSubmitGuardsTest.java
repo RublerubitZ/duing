@@ -18,6 +18,7 @@ import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -76,12 +77,15 @@ class ApplicationSubmitGuardsTest {
     @Test
     @DisplayName("외부 폼 모집에는 두잉 내에서 직접 지원할 수 없다")
     void submitToExternalFormRecruitmentIsRejected() {
+        Club activeClub = mock(Club.class);
+        when(activeClub.getStatus()).thenReturn(ClubStatus.ACTIVE);
         Recruitment externalRecruitment = mock(Recruitment.class);
+        when(externalRecruitment.getClub()).thenReturn(activeClub);
         when(externalRecruitment.isEffectivelyOpen(any())).thenReturn(true);
         when(externalRecruitment.getApplicationMode()).thenReturn(ApplicationMode.EXTERNAL);
         when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(externalRecruitment));
 
-        SubmitApplicationCommand submitCommand = new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of());
+        SubmitApplicationCommand submitCommand = new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of(), null);
 
         assertThatThrownBy(() -> applicationService.submit(submitCommand))
                 .isInstanceOf(ApplicationDomainException.ExternalFormSubmitException.class);
@@ -190,7 +194,7 @@ class ApplicationSubmitGuardsTest {
     }
 
     private SubmitApplicationCommand submitCommand() {
-        return new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of());
+        return new SubmitApplicationCommand(RECRUITMENT_ID, USER_ID, List.of(), null);
     }
 
     private void stubMemberRecruitment() {
@@ -204,6 +208,8 @@ class ApplicationSubmitGuardsTest {
     private void stubRecruitment(TargetRole targetRole) {
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(CLUB_ID);
+        // 비 ACTIVE 동아리 지원 차단 가드 통과용 — 이 테스트의 관심사는 멤버십/모드 가드다.
+        when(club.getStatus()).thenReturn(ClubStatus.ACTIVE);
 
         Recruitment recruitment = mock(Recruitment.class);
         when(recruitment.getId()).thenReturn(RECRUITMENT_ID);

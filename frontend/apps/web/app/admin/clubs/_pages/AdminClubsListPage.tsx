@@ -108,7 +108,7 @@ export function AdminClubsListPage() {
         onSuccess: () => setDeleteDialog(null),
         onError: (mutationError) => {
           const message =
-            mutationError instanceof ApiError ? mutationError.message : '폐쇄에 실패했습니다.';
+            mutationError instanceof ApiError ? mutationError.message : '삭제에 실패했습니다.';
           setDeleteError(message);
         },
       },

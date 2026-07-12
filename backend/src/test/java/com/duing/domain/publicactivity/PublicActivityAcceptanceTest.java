@@ -92,7 +92,7 @@ class PublicActivityAcceptanceTest extends IntegrationTestBase {
         // notice.author_id / event.created_by 등은 users(id) FK 참조 — 활동 시드 전 최소 1명 생성
         long seq = sequence.incrementAndGet();
         User author = userRepository.save(User.create(
-                "20" + seq, "작성자" + seq, "author" + seq + "@duing.ac.kr", "hash",
+                "20" + seq, "작성자" + seq, "hash",
                 UserRole.STUDENT, Grade.FRESHMAN, College.IT_ENGINEERING,
                 "미설정", "010-0000-0000", LocalDateTime.now()));
         authorId = author.getId();
@@ -232,9 +232,11 @@ class PublicActivityAcceptanceTest extends IntegrationTestBase {
         Club activeClub = saveAndActivate("시각검증동아리" + sequence.incrementAndGet());
         Notice notice = savePublicNoticeForClub(activeClub, "시각 검증 공지");
 
-        // Postgres TIMESTAMP 은 마이크로초까지만 보존(나노초 절삭)하고 응답은 DB 저장값을 직렬화하므로,
-        // 기대치도 마이크로초로 절삭해 정밀도를 맞춘다. (Postgres·truncatedTo(MICROS) 모두 floor 절삭이라 일치.)
+        // Postgres TIMESTAMP 은 마이크로초 정밀도로 저장하되 floor 절삭이 아니라 half-up 반올림한다.
+        // 나노초 정밀 시계(Linux CI)에서 잔여 나노가 500ns 이상이면 DB 값이 1µs 올라가므로
+        // 기대치도 동일하게 반올림(+500ns 후 절삭)한다. (macOS 는 µs 시계라 floor 로도 우연히 통과했었음)
         Instant expectedOccurredAt = notice.getCreatedAt()
+                .plusNanos(500)
                 .truncatedTo(ChronoUnit.MICROS)
                 .atZone(ZoneId.systemDefault())
                 .toInstant();

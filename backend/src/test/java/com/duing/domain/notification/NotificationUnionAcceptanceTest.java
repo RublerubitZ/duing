@@ -167,7 +167,7 @@ class NotificationUnionAcceptanceTest extends IntegrationTestBase {
     private User saveUser(UserRole role) {
         long seq = sequence.incrementAndGet();
         return userRepository.save(User.create(
-                "20" + seq, "테스터" + seq, "test" + seq + "@duing.ac.kr",
+                "20" + seq, "테스터" + seq,
                 "hashed", role, Grade.FRESHMAN, College.IT_ENGINEERING,
                 "미설정", "010-0000-0000", LocalDateTime.now()));
     }

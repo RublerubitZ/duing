@@ -18,7 +18,7 @@ class UserLoginLockoutTest {
 
     private static User newUser() {
         return User.create(
-                "20250001", "홍길동", "hong@daegu.ac.kr", "hash",
+                "20250001", "홍길동", "hash",
                 UserRole.STUDENT, Grade.FRESHMAN, College.IT_ENGINEERING,
                 "컴퓨터공학", "010-1234-5678", LocalDateTime.of(2026, 1, 1, 0, 0));
     }

@@ -20,12 +20,11 @@ class SignupRequestStudentIdValidationTest {
         return new SignupRequest(
                 studentId,
                 "홍길동",
-                "hong@daegu.ac.kr",
                 "Abcd1234!",
                 Grade.FRESHMAN,
                 College.IT_ENGINEERING,
                 "컴퓨터정보공학부",
-                "010-1234-5678",
+                "verification-token",
                 true,
                 true
         );

@@ -8,12 +8,14 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.draft.entity.ApplicationDraft;
-import com.duing.domain.draft.entity.ApplicationDraft.DraftAnswer;
 import com.duing.domain.draft.exception.DraftException;
 import com.duing.domain.draft.repository.ApplicationDraftRepository;
 import com.duing.domain.draft.service.dto.command.UpsertDraftCommand;
+import com.duing.domain.draft.service.dto.command.UpsertDraftCommand.DraftAnswerEntry;
 import com.duing.domain.draft.service.dto.query.ApplicationDraftQuery;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -61,11 +63,12 @@ class ApplicationDraftServiceTest {
     void upsertIsIdempotentAndLastAnswersWins() throws Exception {
         User student = saveStudent("학생A");
         Recruitment openRecruitment = saveOpenRecruitment("모집A");
+        String questionId = questionId(openRecruitment);
 
-        List<DraftAnswer> firstAnswers = List.of(new DraftAnswer(1L, "첫번째 답변"));
+        List<DraftAnswerEntry> firstAnswers = List.of(new DraftAnswerEntry(questionId, "첫번째 답변", null));
         draftService.upsert(new UpsertDraftCommand(student.getId(), openRecruitment.getId(), firstAnswers));
 
-        List<DraftAnswer> secondAnswers = List.of(new DraftAnswer(1L, "두번째 답변"));
+        List<DraftAnswerEntry> secondAnswers = List.of(new DraftAnswerEntry(questionId, "두번째 답변", null));
         draftService.upsert(new UpsertDraftCommand(student.getId(), openRecruitment.getId(), secondAnswers));
 
         List<ApplicationDraft> all = draftRepository.findAll().stream()
@@ -73,7 +76,7 @@ class ApplicationDraftServiceTest {
                         && draft.getRecruitmentId().equals(openRecruitment.getId()))
                 .toList();
         assertThat(all).hasSize(1);
-        assertThat(all.get(0).getAnswers().get(0).value()).isEqualTo("두번째 답변");
+        assertThat(all.get(0).getAnswers().get(0).values()).containsExactly("두번째 답변");
     }
 
     @Test
@@ -82,7 +85,7 @@ class ApplicationDraftServiceTest {
         User student = saveStudent("학생B");
         Recruitment closedRecruitment = saveClosedRecruitment("마감모집B");
 
-        List<DraftAnswer> answers = List.of(new DraftAnswer(1L, "답변"));
+        List<DraftAnswerEntry> answers = List.of(new DraftAnswerEntry(questionId(closedRecruitment), "답변", null));
         UpsertDraftCommand command = new UpsertDraftCommand(student.getId(), closedRecruitment.getId(), answers);
 
         assertThatThrownBy(() -> draftService.upsert(command))
@@ -109,13 +112,15 @@ class ApplicationDraftServiceTest {
         User studentOther = saveStudent("다른학생");
         Recruitment targetRecruitment = saveOpenRecruitment("대상모집");
         Recruitment otherRecruitment = saveOpenRecruitment("다른모집");
+        String targetQuestionId = questionId(targetRecruitment);
+        String otherQuestionId = questionId(otherRecruitment);
 
         draftService.upsert(new UpsertDraftCommand(studentTarget.getId(), targetRecruitment.getId(),
-                List.of(new DraftAnswer(1L, "대상"))));
+                List.of(new DraftAnswerEntry(targetQuestionId, "대상", null))));
         draftService.upsert(new UpsertDraftCommand(studentOther.getId(), targetRecruitment.getId(),
-                List.of(new DraftAnswer(1L, "다른 사용자, 같은 모집"))));
+                List.of(new DraftAnswerEntry(targetQuestionId, "다른 사용자, 같은 모집", null))));
         draftService.upsert(new UpsertDraftCommand(studentTarget.getId(), otherRecruitment.getId(),
-                List.of(new DraftAnswer(1L, "같은 사용자, 다른 모집"))));
+                List.of(new DraftAnswerEntry(otherQuestionId, "같은 사용자, 다른 모집", null))));
 
         draftService.discard(studentTarget.getId(), targetRecruitment.getId());
 
@@ -131,13 +136,15 @@ class ApplicationDraftServiceTest {
         User studentB = saveStudent("학생B");
         Recruitment targetRecruitment = saveOpenRecruitment("대상모집");
         Recruitment otherRecruitment = saveOpenRecruitment("보존모집");
+        String targetQuestionId = questionId(targetRecruitment);
+        String otherQuestionId = questionId(otherRecruitment);
 
         draftService.upsert(new UpsertDraftCommand(studentA.getId(), targetRecruitment.getId(),
-                List.of(new DraftAnswer(1L, "A-대상"))));
+                List.of(new DraftAnswerEntry(targetQuestionId, "A-대상", null))));
         draftService.upsert(new UpsertDraftCommand(studentB.getId(), targetRecruitment.getId(),
-                List.of(new DraftAnswer(1L, "B-대상"))));
+                List.of(new DraftAnswerEntry(targetQuestionId, "B-대상", null))));
         draftService.upsert(new UpsertDraftCommand(studentA.getId(), otherRecruitment.getId(),
-                List.of(new DraftAnswer(1L, "A-보존"))));
+                List.of(new DraftAnswerEntry(otherQuestionId, "A-보존", null))));
 
         draftRepository.deleteAllByRecruitmentId(targetRecruitment.getId());
 
@@ -146,12 +153,16 @@ class ApplicationDraftServiceTest {
         assertThat(draftService.find(studentA.getId(), otherRecruitment.getId())).isPresent();
     }
 
+    /** 임시저장 서비스가 questionId 를 폼 질문과 매칭 검증하므로, 테스트 모집에 실제 질문 id 를 부여받아 사용한다. */
+    private String questionId(Recruitment recruitment) {
+        return recruitment.getForm().getQuestions().get(0).id();
+    }
+
     private User saveStudent(String name) {
         long unique = sequence.getAndIncrement();
         User user = User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 name,
-                "draft" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,
@@ -176,6 +187,7 @@ class ApplicationDraftServiceTest {
         Club club = saveActiveClub("동아리-" + title);
         LocalDate today = LocalDate.now();
         Recruitment recruitment = Recruitment.create(club, title, null, today.minusDays(1), today.plusDays(7), 10);
+        recruitment.attachForm(RecruitmentForm.create(recruitment, List.of(RecruitmentQuestion.createText("질문"))));
         return recruitmentRepository.save(recruitment);
     }
 
@@ -183,6 +195,7 @@ class ApplicationDraftServiceTest {
         Club club = saveActiveClub("마감동아리-" + title);
         LocalDate today = LocalDate.now();
         Recruitment recruitment = Recruitment.create(club, title, null, today.minusDays(10), today.minusDays(1), 10);
+        recruitment.attachForm(RecruitmentForm.create(recruitment, List.of(RecruitmentQuestion.createText("질문"))));
         Field statusField = Recruitment.class.getDeclaredField("status");
         statusField.setAccessible(true);
         statusField.set(recruitment, RecruitmentStatus.CLOSED);

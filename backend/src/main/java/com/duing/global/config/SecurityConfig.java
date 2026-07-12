@@ -1,5 +1,6 @@
 package com.duing.global.config;
 
+import com.duing.global.auth.JwtAccessDeniedHandler;
 import com.duing.global.auth.JwtAuthenticationEntryPoint;
 import com.duing.global.auth.JwtAuthenticationFilter;
 import jakarta.annotation.PostConstruct;
@@ -31,6 +32,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     // 로컬/테스트 기본값은 localhost. 운영(application-prod.yml)은 default 없는 ${CORS_ALLOWED_ORIGINS}
     // 로 이 값을 덮어쓰므로, 운영에서 해당 env 가 비면 기동이 실패한다(잘못된 localhost 폴백 차단).
@@ -71,7 +73,11 @@ public class SecurityConfig {
                         .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                         .permissionsPolicyHeader(permissions ->
                                 permissions.policy("camera=(), microphone=(), geolocation=(), payment=()")))
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                        // URL 레이어 인가 거부(예: 비 ADMIN 의 /api/v1/admin/**)를 403 ApiResponse 로 통일한다.
+                        // 미지정 시 ExceptionTranslationFilter 가 인증 진입점(401)으로 넘겨 @PreAuthorize 거부(403)와 어긋난다.
+                        .accessDeniedHandler(jwtAccessDeniedHandler))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -79,17 +85,41 @@ public class SecurityConfig {
                         // 로그아웃은 현재 사용자 식별이 필요하므로 auth/** permitAll 보다 앞에서 인증을 요구한다.
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        // 관리자 API 전체(/api/v1/admin/**)는 URL 레이어에서도 ADMIN 역할을 요구한다. 각 Admin
+                        // 컨트롤러의 @PreAuthorize("hasRole('ADMIN')") 가 1차 방어이지만, 새 Admin 컨트롤러가
+                        // 어노테이션을 빠뜨리면 인증된 일반 사용자에게 그대로 노출된다(단일 실패점). URL 레이어
+                        // 백스톱으로 그 실패점을 이중화한다 — 모든 관리자 엔드포인트는 /api/v1/admin/ 하위에만 있다.
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // /clubs/*/members 는 운영진 전용. 아래 clubs/** permitAll 보다
                         // 반드시 앞에 위치해야 first-match 원칙상 인증 가드가 적용된다.
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/members").authenticated()
                         // 멤버 변경 엔드포인트는 모두 인증 필요. (PATCH role / DELETE member / DELETE me / POST transfer-leader)
                         .requestMatchers("/api/v1/clubs/*/members/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs", "/api/v1/clubs/**").permitAll()
+                        // 지원 가능 여부 사전 확인은 현재 사용자 기준 판정이므로 인증이 필요하다.
+                        // 아래 recruitments/** permitAll 보다 반드시 앞에 위치해야 first-match 원칙상
+                        // 인증 가드가 적용된다 (미인증은 401 → 클라이언트 세션 만료 처리 경로).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/recruitments/*/applications/eligibility").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recruitments", "/api/v1/recruitments/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/notices", "/api/v1/notices/**").permitAll()
+                        // 총동연 FAQ 공개 GET — 정확 경로만 허용. "/api/v1/federation/**" 와일드카드 금지:
+                        // 같은 프리픽스의 비밀문의(/federation/inquiries/**)가 URL 레이어 방어를 잃는다.
+                        // (스펙 2026-07-04-federation-qna-design §5, 회귀 잠금: FederationFaqPublicAcceptanceTest)
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/federation/faqs",
+                                "/api/v1/federation/faqs/*",
+                                "/api/v1/federation/faq-categories").permitAll()
+                        // FAQ 도움됨 피드백 제출 — 정확 경로의 POST 1개만 허용(광역 금지 원칙 유지, 위와 동일 이유로
+                        // "/api/v1/federation/**" 와일드카드는 쓰지 않는다). 비밀문의 경로는 여전히 인증을 요구한다.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/federation/faqs/*/feedback").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/global-events", "/api/v1/global-events/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/promotions").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/public-activities", "/api/v1/public-activities/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/facilities", "/api/v1/facilities/**").permitAll()
+                        // 비밀문의 첨부는 인증 프록시(GET /federation/inquiries/{id}/attachments/{id})로만
+                        // 서빙 — 공개 정적 경로 차단. prod(S3/R2)는 인프라(프라이빗 버킷/엣지 룰) 몫.
+                        // 아래 /files/** permitAll 보다 반드시 앞에 위치해야 first-match 원칙상 차단이 적용된다.
+                        .requestMatchers("/files/federation/inquiry/**").denyAll()
                         .requestMatchers(
                                 "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
                                 "/actuator/health", "/files/**"

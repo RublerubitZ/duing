@@ -42,7 +42,6 @@ export type AdminUserSearchResult = {
   id: number;
   studentId: string;
   name: string;
-  email: string;
   role: UserRole;
 };
 

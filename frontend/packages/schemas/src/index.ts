@@ -26,20 +26,6 @@ const COLLEGE_VALUES = [
   'FREE_MAJOR',
 ] as const;
 
-export const schoolEmailSchema = z
-  .string()
-  .min(1, '이메일은 필수 입력값입니다.')
-  .email('올바른 이메일 형식이 아닙니다.')
-  .max(100, '이메일은 100자 이하여야 합니다.')
-  .regex(
-    /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*daegu\.ac\.kr$/,
-    '대구대학교 이메일(@daegu.ac.kr)만 사용할 수 있습니다.',
-  );
-
-export const verificationCodeSchema = z
-  .string()
-  .regex(/^\d{6}$/, '인증코드는 6자리 숫자입니다.');
-
 export const signupSchema = z.object({
   studentId: z
     .string()
@@ -49,7 +35,6 @@ export const signupSchema = z.object({
     .string()
     .min(1, '이름은 필수 입력값입니다.')
     .max(50, '이름은 50자 이하여야 합니다.'),
-  email: schoolEmailSchema,
   password: passwordSchema,
   grade: z.enum(GRADE_VALUES, { errorMap: () => ({ message: '학년을 선택해주세요.' }) }),
   college: z.enum(COLLEGE_VALUES, { errorMap: () => ({ message: '단과대학을 선택해주세요.' }) }),
@@ -57,9 +42,10 @@ export const signupSchema = z.object({
     .string()
     .min(1, '전공 학과는 필수 입력값입니다.')
     .max(50, '전공 학과는 50자 이하여야 합니다.'),
-  phone: z
+  verificationToken: z
     .string()
-    .regex(/^010-\d{4}-\d{4}$/, '전화번호는 010-XXXX-XXXX 형식이어야 합니다.'),
+    .min(1, '휴대폰 인증을 완료해주세요.')
+    .max(36, '휴대폰 인증 정보가 올바르지 않습니다.'),
   termsOfServiceAgreed: z.literal(true, {
     errorMap: () => ({ message: '이용약관에 동의해야 합니다.' }),
   }),
@@ -71,14 +57,69 @@ export const signupSchema = z.object({
 export type SignupInput = z.infer<typeof signupSchema>;
 
 export const loginSchema = z.object({
-  email: z
+  studentId: z
     .string()
-    .min(1, '이메일은 필수 입력값입니다.')
-    .email('올바른 이메일 형식이 아닙니다.'),
+    .min(1, '학번은 필수 입력값입니다.')
+    .regex(/^\d{8}$/, '학번은 8자리 숫자여야 합니다.'),
   password: z.string().min(1, '비밀번호는 필수 입력값입니다.'),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+// 지원서 질문 — 백엔드 QuestionItemRequest/ChoiceRequest 미러.
+// id 는 수정 시 왕복(신규 항목은 null)하며 서버가 발급·보존한다.
+const questionChoiceItemSchema = z.object({
+  id: z.string().nullable().optional(),
+  label: z
+    .string()
+    .trim()
+    .min(1, '선택지를 입력해주세요.')
+    .max(200, '선택지는 200자 이하여야 합니다.'),
+});
+
+export const questionItemSchema = z
+  .object({
+    id: z.string().nullable().optional(),
+    text: z
+      .string()
+      .trim()
+      .min(1, '질문 내용을 입력해주세요.')
+      .max(500, '질문은 500자 이하여야 합니다.'),
+    type: z.enum(['TEXT', 'SINGLE_CHOICE', 'MULTIPLE_CHOICE']),
+    required: z.boolean(),
+    choices: z
+      .array(questionChoiceItemSchema)
+      .max(20, '선택지는 질문당 최대 20개까지 등록할 수 있습니다.'),
+  })
+  .superRefine((item, ctx) => {
+    if (item.type === 'TEXT') {
+      if (item.choices.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: '주관식 질문에는 선택지를 둘 수 없습니다.',
+          path: ['choices'],
+        });
+      }
+      return;
+    }
+    if (item.choices.length < 2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '선택형 질문은 선택지를 2개 이상 등록해야 합니다.',
+        path: ['choices'],
+      });
+    }
+    const labels = item.choices.map((choice) => choice.label.trim());
+    if (new Set(labels).size !== labels.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '같은 질문 안에서 선택지 내용이 중복될 수 없습니다.',
+        path: ['choices'],
+      });
+    }
+  });
+
+export type QuestionItemInput = z.infer<typeof questionItemSchema>;
 
 export const createRecruitmentSchema = z
   .object({
@@ -97,7 +138,10 @@ export const createRecruitmentSchema = z
     externalFormUrl: z.string().optional(),
     useInterview: z.boolean().default(false),
     targetRole: z.enum(['MEMBER', 'OFFICER']).default('MEMBER'),
-    questions: z.array(z.string().min(1, '질문 내용을 입력해주세요.')).optional(),
+    questionItems: z
+      .array(questionItemSchema)
+      .max(50, '질문은 최대 50개까지 등록할 수 있습니다.')
+      .optional(),
     interviewStartDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
@@ -126,10 +170,10 @@ export const createRecruitmentSchema = z
   .refine(
     (data) =>
       data.applicationMode !== 'SELF' ||
-      (Array.isArray(data.questions) && data.questions.length > 0),
+      (Array.isArray(data.questionItems) && data.questionItems.length > 0),
     {
       message: '자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.',
-      path: ['questions'],
+      path: ['questionItems'],
     },
   )
   .refine(
@@ -156,7 +200,13 @@ export const updateRecruitmentSchema = z
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
     capacity: z.number().int().min(1, '모집 정원은 1명 이상이어야 합니다.'),
     useInterview: z.boolean(),
-    questions: z.array(z.string().min(1, '질문 내용을 입력해주세요.')).optional(),
+    // 수정에서는 applicationMode 를 받지 않는다. 자체 폼일 때만 호출부가 questionItems 를 채우므로
+    // "제공되었다면 최소 1개" 로 백엔드의 400(자체 폼 모집은 최소 1개 이상의 질문이 필요합니다.)을 선제 차단한다.
+    questionItems: z
+      .array(questionItemSchema)
+      .min(1, '자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.')
+      .max(50, '질문은 최대 50개까지 등록할 수 있습니다.')
+      .optional(),
     interviewStartDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')

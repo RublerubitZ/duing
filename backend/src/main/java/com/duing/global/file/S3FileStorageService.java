@@ -7,10 +7,16 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 /**
@@ -83,24 +89,94 @@ public class S3FileStorageService implements FileStorageService {
     }
 
     @Override
-    public void delete(String fileUrl) {
+    public boolean delete(String fileUrl) {
         if (fileUrl == null || fileUrl.isBlank()) {
-            return;
+            return false;
         }
         String prefix = properties.publicBaseUrl() + "/";
         if (!fileUrl.startsWith(prefix)) {
+            // 이 구현이 관리하지 않는 URL 은 삭제를 확정할 수 없다 — true 를 주면 호출자(파기 배치)가
+            // 객체가 남아 있는데도 DB 행을 지워버린다.
             log.warn("외부 storage URL 스킵 — prefix 불일치");
-            return;
+            return false;
         }
         String key = fileUrl.substring(prefix.length());
 
         try {
+            // S3 DeleteObject 는 미존재 키에도 성공으로 응답한다 — "객체 부재 = 삭제 확정" 멱등
+            // 의미론이 API 차원에서 자연 충족된다.
             s3Client.deleteObject(DeleteObjectRequest.builder()
                     .bucket(properties.bucket())
                     .key(key)
                     .build());
+            return true;
         } catch (SdkException exception) {
             log.warn("S3 Storage 삭제 실패: key={}", key, exception);
+            return false;
+        }
+    }
+
+    @Override
+    public String toStorageKey(String fileUrl) {
+        if (fileUrl == null || fileUrl.isBlank()) {
+            return null;
+        }
+        String prefix = properties.publicBaseUrl() + "/";
+        if (!fileUrl.startsWith(prefix)) {
+            return null;
+        }
+        return fileUrl.substring(prefix.length());
+    }
+
+    @Override
+    public String toFileUrl(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        return properties.publicBaseUrl() + "/" + storageKey;
+    }
+
+    @Override
+    public Long sizeOf(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        try {
+            HeadObjectResponse response = s3Client.headObject(HeadObjectRequest.builder()
+                    .bucket(properties.bucket())
+                    .key(storageKey)
+                    .build());
+            return response.contentLength();
+        } catch (NoSuchKeyException notFound) {
+            return null;
+        } catch (SdkException exception) {
+            // 미존재(NoSuchKeyException)와 달리 그 외 SdkException 은 일시적 스토리지 장애일 수 있다 —
+            // null 로 삼키면 호출측이 "위조된 키"(400)로 오판한다. 500 이 정직한 응답이라 전파한다.
+            log.error("S3 Storage 크기 조회 실패: key={}", storageKey, exception);
+            throw new IllegalStateException("S3 Storage 크기 조회에 실패했습니다.", exception);
+        }
+    }
+
+    @Override
+    public StoredFile download(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        try {
+            // try-with-resources 금지 — 이 스트림은 컨트롤러가 HTTP 응답으로 그대로 흘려보낸 뒤
+            // 소비 완료 시점에 닫는다. 여기서 닫으면 응답 본문이 비게 된다.
+            ResponseInputStream<GetObjectResponse> objectStream = s3Client.getObject(GetObjectRequest.builder()
+                    .bucket(properties.bucket())
+                    .key(storageKey)
+                    .build());
+            GetObjectResponse metadata = objectStream.response();
+            return new StoredFile(objectStream, metadata.contentType(), metadata.contentLength());
+        } catch (NoSuchKeyException notFound) {
+            return null;
+        } catch (SdkException exception) {
+            // sizeOf 와 동일한 원칙 — 일시적 장애를 null(404 로 위장)로 삼키지 않고 500 으로 정직하게 전파한다.
+            log.error("S3 Storage 다운로드 실패: key={}", storageKey, exception);
+            throw new IllegalStateException("S3 Storage 다운로드에 실패했습니다.", exception);
         }
     }
 }

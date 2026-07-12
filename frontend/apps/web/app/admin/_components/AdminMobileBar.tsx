@@ -55,6 +55,7 @@ export function AdminMobileBar() {
         <SheetContent
           side="left"
           hideClose
+          aria-describedby={undefined}
           className="duing w-[82%] max-w-[300px] border-charcoal-1 bg-white py-6"
         >
           <SheetTitle className="sr-only">관리 메뉴</SheetTitle>

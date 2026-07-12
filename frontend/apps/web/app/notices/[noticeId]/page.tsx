@@ -41,7 +41,7 @@ export default function NoticeDetailPage() {
   if (detailQuery.isLoading) {
     return (
       <div className="duing min-h-dvh bg-cream">
-        <ExploreNav active="공지" slimOnMobile />
+        <ExploreNav slimOnMobile />
         <NoticeDetailTopBar />
         <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 py-16">
           <p className="text-charcoal-3 text-[13px]">불러오는 중…</p>
@@ -53,7 +53,7 @@ export default function NoticeDetailPage() {
   if (detailQuery.isError || !notice) {
     return (
       <div className="duing min-h-dvh bg-cream">
-        <ExploreNav active="공지" slimOnMobile />
+        <ExploreNav slimOnMobile />
         <NoticeDetailTopBar />
         <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 py-16">
           <p className="text-coral text-[13px]">공지를 불러오지 못했습니다.</p>
@@ -66,7 +66,7 @@ export default function NoticeDetailPage() {
 
   return (
     <div className="duing min-h-dvh bg-cream">
-      <ExploreNav active="공지" slimOnMobile />
+      <ExploreNav slimOnMobile />
       <NoticeDetailTopBar />
       <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 pb-24">
         <NoticeArticleHeader

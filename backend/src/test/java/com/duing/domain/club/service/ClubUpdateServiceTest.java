@@ -92,6 +92,45 @@ class ClubUpdateServiceTest {
     }
 
     @Test
+    @DisplayName("거절(REJECTED)된 동아리의 리더도 재심사 보완을 위해 정보를 수정할 수 있다")
+    void rejectedClubLeaderCanUpdate() throws Exception {
+        User leader = saveUser("거절리더");
+        Club club = saveClubWithStatus("두잉업데이트거절", ClubStatus.REJECTED);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        clubService.update(new UpdateClubCommand(
+                club.getId(), leader.getId(),
+                null, null, null, "보완된 설명", null, null,
+                null, null, null,
+                null, null, null, null, null, null, null,
+                null, null, null,
+                null, null, null, null
+        ));
+
+        assertThat(clubRepository.findById(club.getId()).orElseThrow().getDescription())
+                .isEqualTo("보완된 설명");
+    }
+
+    @Test
+    @DisplayName("운영 종료(INACTIVE)된 동아리의 리더는 정보를 수정할 수 없다")
+    void inactiveClubLeaderCannotUpdate() throws Exception {
+        User leader = saveUser("종료리더");
+        Club club = saveClubWithStatus("두잉업데이트종료", ClubStatus.INACTIVE);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        assertThatThrownBy(() -> clubService.update(new UpdateClubCommand(
+                club.getId(), leader.getId(),
+                null, null, null, "변경시도", null, null,
+                null, null, null,
+                null, null, null, null, null, null, null,
+                null, null, null,
+                null, null, null, null
+        )))
+                .isInstanceOf(ClubMemberException.NotActiveClub.class)
+                .hasMessage("운영 종료된 동아리입니다.");
+    }
+
+    @Test
     @DisplayName("이미 존재하는 이름으로 변경하면 DuplicateClubNameException 이 발생한다")
     void duplicateNameThrows() throws Exception {
         User leader = saveUser("리더둘");
@@ -132,7 +171,6 @@ class ClubUpdateServiceTest {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 name,
-                "u" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,
@@ -144,11 +182,15 @@ class ClubUpdateServiceTest {
     }
 
     private Club saveActiveClub(String name) throws Exception {
+        return saveClubWithStatus(name, ClubStatus.ACTIVE);
+    }
+
+    private Club saveClubWithStatus(String name, ClubStatus status) throws Exception {
         String uniqueName = name + "-" + System.nanoTime();
         Club club = Club.create(uniqueName, ClubCategory.ACADEMIC, "분과", "설명", "https://logo");
         Field statusField = Club.class.getDeclaredField("status");
         statusField.setAccessible(true);
-        statusField.set(club, ClubStatus.ACTIVE);
+        statusField.set(club, status);
         return clubRepository.save(club);
     }
 }

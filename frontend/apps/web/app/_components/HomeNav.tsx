@@ -3,6 +3,7 @@ import { BrandMark } from '@/components/duing/BrandMark';
 import { cn } from '@/app/_lib/cn';
 import { HomeNavAdminLink } from './HomeNavAdminLink';
 import { HomeNavAuthSlot } from './HomeNavAuthSlot';
+import { InfoNavLink } from './InfoNavLink';
 import { NotificationBell } from './NotificationBell';
 
 const inactiveLink = 'relative py-1 text-charcoal-3 hover:text-charcoal';
@@ -39,19 +40,17 @@ export function HomeNav({ slimOnMobile = false }: Props) {
             </Link>
           </li>
           <li>
+            <Link href="/facilities" className={inactiveLink}>
+              시설
+            </Link>
+          </li>
+          <li>
             <Link href="/calendar" className={inactiveLink}>
               캘린더
             </Link>
           </li>
           <li>
-            <Link href="/notices" className={inactiveLink}>
-              공지
-            </Link>
-          </li>
-          <li className="ml-6">
-            <Link href="/introduce" className={inactiveLink}>
-              서비스 소개
-            </Link>
+            <InfoNavLink className={inactiveLink} />
           </li>
           <li>
             <HomeNavAdminLink className={inactiveLink} />

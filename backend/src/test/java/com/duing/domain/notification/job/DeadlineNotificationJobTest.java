@@ -31,6 +31,7 @@ import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = "duing.notification.jobs.enabled=true")
@@ -56,6 +57,9 @@ class DeadlineNotificationJobTest extends IntegrationTestBase {
 
     @Autowired
     private Clock clock;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -183,12 +187,33 @@ class DeadlineNotificationJobTest extends IntegrationTestBase {
         assertThat(createdCount).isZero();
     }
 
+    @Test
+    @DisplayName("운영 중단 동아리의 마감 임박 모집은 알림 후보에서 제외된다")
+    void inactiveClubRecruitmentIsExcluded() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+
+        User favoringUser = saveStudent("찜유저F");
+        Club club = saveActiveClub("운영중단동아리");
+        saveFavorite(favoringUser, club);
+        saveOpenRecruitment(club, "중단동아리모집", today.minusDays(5), today.plusDays(3)); // D-3 후보
+
+        // 벌크 마감(운영 중단 전환 시 OPEN 일괄 CLOSED)을 우회해 club 만 INACTIVE 로 바꿔
+        // "OPEN 모집 + 비 ACTIVE 동아리" 정합 깨진 상태를 만든다.
+        // native query 의 c.status = 'ACTIVE' 조건이 독립적으로 걸러내는지 검증한다 (이중 방어).
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+
+        long beforeCount = notificationRepository.count();
+        job.run();
+        long createdCount = notificationRepository.count() - beforeCount;
+
+        assertThat(createdCount).isZero();
+    }
+
     private User saveStudent(String name) {
         long unique = sequence.getAndIncrement();
         User user = User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 name + unique,
-                "jobtest" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

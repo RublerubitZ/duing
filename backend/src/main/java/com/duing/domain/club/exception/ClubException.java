@@ -40,7 +40,7 @@ public class ClubException extends ApplicationException {
 
     public static class ClubNotClosableException extends ClubException {
         public ClubNotClosableException(String currentStatus) {
-            super("운영 중단(INACTIVE) 상태의 동아리만 폐쇄할 수 있습니다. 현재 상태: " + currentStatus,
+            super("운영 중단(INACTIVE) 또는 거절(REJECTED) 상태의 동아리만 폐쇄할 수 있습니다. 현재 상태: " + currentStatus,
                     HttpStatus.BAD_REQUEST);
         }
     }

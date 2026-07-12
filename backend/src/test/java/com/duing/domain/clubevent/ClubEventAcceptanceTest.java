@@ -33,6 +33,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -44,6 +45,7 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -58,6 +60,9 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
         Club club = clubRepository.save(Club.create("동아리E",
                 ClubCategory.ACADEMIC, null, "설명", null));
         clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 멤버용 일정 조회는 ACTIVE 동아리만 허용되므로,
+        // 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
 
         User leader = saveUser();
         User officer = saveUser();
@@ -73,8 +78,7 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
 
     private User saveUser() {
         long seq = sequence.incrementAndGet();
-        return userRepository.save(User.create("20" + seq, "U" + seq,
-                "u" + seq + "@duing.ac.kr", "h", UserRole.STUDENT,
+        return userRepository.save(User.create("20" + seq, "U" + seq, "h", UserRole.STUDENT,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
     }
 
@@ -102,6 +106,24 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data", hasSize(1))
                 .body("data[0].id", equalTo(eventId.intValue()));
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리에서는 일정을 생성할 수 없다")
+    void inactiveClubCannotCreateEvent() {
+        // 셋업은 ACTIVE — 운영 중단(INACTIVE) 상태로 직접 전환해 운영 행위 게이트(Part C)를 검증한다.
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("title", "정기 모임", "startAt", start.toString(),
+                        "endAt", start.plusHours(2).toString(), "location", "동아리방"))
+                .when().post("/api/v1/clubs/" + clubId + "/events")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
     }
 
     @Test
@@ -168,6 +190,36 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
                 .when().get("/api/v1/clubs/" + clubId + "/events")
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리의 멤버는 일정 목록을 조회할 수 없다")
+    void inactiveClubMemberCannotListEvents() {
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        createEventAs(leaderToken, start, start.plusHours(2));
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/events")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리의 멤버는 일정 상세를 조회할 수 없다")
+    void inactiveClubMemberCannotGetEventDetail() {
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        Long eventId = createEventAs(leaderToken, start, start.plusHours(2));
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/events/" + eventId)
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
     }
 
     @Test

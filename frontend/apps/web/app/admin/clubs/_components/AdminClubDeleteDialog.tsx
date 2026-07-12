@@ -53,9 +53,9 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
         }}
       >
         <DialogHeader>
-          <DialogTitle>동아리 폐쇄</DialogTitle>
+          <DialogTitle>동아리 삭제</DialogTitle>
           <DialogDescription>
-            <span className="font-medium text-charcoal-2">{club.name}</span> 을(를) 폐쇄합니다.
+            <span className="font-medium text-charcoal-2">{club.name}</span> 을(를) 삭제합니다.
           </DialogDescription>
         </DialogHeader>
 
@@ -74,17 +74,17 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
             placeholder={club.name}
             className={fieldCls}
           />
-          <span className="text-[11px] text-charcoal-3">폐쇄하려면 동아리명을 정확히 입력하세요.</span>
+          <span className="text-[11px] text-charcoal-3">삭제하려면 동아리명을 정확히 입력하세요.</span>
         </label>
 
         <label className="block space-y-1">
-          <span className="text-xs font-medium text-charcoal-2">폐쇄 사유 (선택)</span>
+          <span className="text-xs font-medium text-charcoal-2">삭제 사유 (선택)</span>
           <textarea
-            aria-label="폐쇄 사유 (선택)"
+            aria-label="삭제 사유 (선택)"
             value={reason}
             onChange={(event) => setReason(event.target.value.slice(0, REASON_MAX))}
             rows={3}
-            placeholder="폐쇄 사유를 입력하세요 (선택)"
+            placeholder="삭제 사유를 입력하세요 (선택)"
             className={fieldCls}
           />
           <span className="block text-right text-[11px] text-charcoal-3">{reason.length} / {REASON_MAX}</span>
@@ -104,7 +104,7 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
             disabled={submitDisabled}
             className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {isPending ? '처리 중…' : '폐쇄'}
+            {isPending ? '처리 중…' : '삭제'}
           </button>
         </DialogFooter>
       </DialogContent>

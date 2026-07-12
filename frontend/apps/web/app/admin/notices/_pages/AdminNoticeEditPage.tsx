@@ -12,7 +12,7 @@ import {
   toUpdatePayload,
   type NoticeFormState,
 } from '../_lib/parseNoticeFormState';
-import { extractErrorMessage } from '../_lib/extractErrorMessage';
+import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 
 export function AdminNoticeEditPage() {
   const params = useParams<{ noticeId: string }>();

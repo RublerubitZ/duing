@@ -92,6 +92,7 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
         <SheetContent
           side="left"
           hideClose
+          aria-describedby={undefined}
           className="flex w-[82%] max-w-[300px] flex-col gap-[18px] border-black/20 bg-ink-deep px-4 py-[22px] pb-6"
         >
           <SheetTitle className="sr-only">운영진 콘솔 메뉴</SheetTitle>

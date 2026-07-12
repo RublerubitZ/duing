@@ -146,7 +146,7 @@ class S3FileStorageIntegrationTest extends IntegrationTestBase {
         String url = service.upload(file, "club/cover", "image/png");
         String key = url.substring((MINIO.getS3URL() + "/duing-test/").length());
 
-        service.delete(url);
+        assertThat(service.delete(url)).isTrue(); // 실 스토리지 삭제 성공 = 삭제 확정
 
         assertThatThrownBy(() -> s3Client.headObject(HeadObjectRequest.builder()
                 .bucket("duing-test").key(key).build()))
@@ -161,7 +161,7 @@ class S3FileStorageIntegrationTest extends IntegrationTestBase {
         String url = service.upload(file, "club/cover", "image/png");
         String key = url.substring((MINIO.getS3URL() + "/duing-test/").length());
 
-        service.delete("https://other-host.example/abc.png");
+        assertThat(service.delete("https://other-host.example/abc.png")).isFalse(); // 관리 밖 URL = 삭제 미확정
 
         assertThat(s3Client.headObject(HeadObjectRequest.builder()
                 .bucket("duing-test").key(key).build())).isNotNull();

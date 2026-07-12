@@ -32,6 +32,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/leader/interview-rounds/{roundId}/members/{memberId}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 면접 수동 배정/재배정
+         * @description 멤버를 지정 슬롯에 배정한다. 배정 검토(ASSIGNING)·확정(SCHEDULED) 단계 모두 허용 (§6.4). ASSIGNING — draft 단계, 알림 없음. SCHEDULED — ASSIGNED 멤버의 개별 재배정, 성공 시 INTERVIEW_UPDATED 알림 발행. 가능없음·미응답 멤버도 운영진 재량으로 배정할 수 있고, 기존 배정은 교체된다. 정원이 찬 슬롯은 409 — 단 같은 슬롯 내 본인 재배정은 허용된다. ASSIGNING 에서 멤버 상태는 바뀌지 않는다 (확정 시점에만 ASSIGNED 전이). 배정 해제(DELETE)는 ASSIGNING 한정 — SCHEDULED 에서는 다른 슬롯으로 옮기는 것만 가능하다 (§16-1).
+         */
+        put: operations["assignSchedule"];
+        post?: never;
+        /**
+         * 면접 배정 해제
+         * @description 멤버의 활성 배정을 해제한다 (배정 검토 단계 한정). 활성 배정이 없으면 404.
+         */
+        delete: operations["unassignSchedule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/fee-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 회비 계좌 조회 (LEADER/OFFICER)
+         * @description 복호화된 평문 계좌번호를 반환한다. 운영진 편집·확인용.
+         */
+        get: operations["get_1"];
+        /**
+         * 회비 계좌 등록·수정 (LEADER/OFFICER)
+         * @description 동아리당 계좌 1건. 없으면 생성, 있으면 갱신한다. 계좌번호는 서버가 암호화해 저장한다.
+         */
+        put: operations["upsert_1"];
+        post?: never;
+        /** 회비 계좌 삭제 (LEADER/OFFICER) */
+        delete: operations["delete_1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/leader/applications/{applicationId}/evaluations/me": {
         parameters: {
             query?: never;
@@ -76,45 +125,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/applications/{applicationId}/interview-schedule": {
+    "/api/v1/applications/{applicationId}/interview-availability": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
+        get?: never;
         /**
-         * 본인 면접 일정 조회 (GET)
-         * @description 배정 여부와 무관하게 200을 반환한다. CANCELLED 상태도 포함해 노출한다.
+         * 면접 가능 시간 응답
+         * @description 슬롯 선택(slotIds) 또는 '가능한 시간 없음'(noAvailableSlot + alternativeText) 중 하나로 응답한다 — 둘은 동시에 보낼 수 없다. 전체 교체 방식이라 재응답하면 이전 선택이 사라지며, 응답 수집 중(마감 전) 라운드에서만 가능하다. 마감 후·배정 단계 진입 후에는 409, 응답할 라운드가 없으면 404.
          */
-        get: operations["getMySchedule"];
-        /**
-         * M9 수동 배정/이동
-         * @description 운영진이 INTERVIEW_PENDING 지원자를 특정 슬롯에 배정하거나 다른 슬롯으로 이동한다. 성공 시 204 No Content.
-         */
-        put: operations["assign"];
+        put: operations["respondAvailability"];
         post?: never;
-        /**
-         * M10 면접 일정 취소
-         * @description 운영진이 지원자의 면접 일정을 취소한다. 일정이 없으면 404. 성공 시 204 No Content.
-         */
-        delete: operations["cancel"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/applications/{applicationId}/interview-availabilities": {
+    "/api/v1/admin/federation/faqs/order": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** 본인 면접 가능시간 조회 */
-        get: operations["findMyAvailabilities"];
-        /** 면접 가능시간 전체 교체 (PUT) */
-        put: operations["replace"];
+        get?: never;
+        /**
+         * FAQ 정렬 전체 교체
+         * @description orderedIds 순서가 새 정렬. 현재 전체 id 집합과 일치해야 한다.
+         */
+        put: operations["reorderFaqs"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/clubs/{clubId}/bank-matching": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 동아리 BANK 자동매칭 허용/해제
+         * @description 외부 BANK API 등록/해제를 먼저 수행하고 성공 시에만 설정을 반영한다(원자성).
+         */
+        put: operations["updateBankMatching"];
         post?: never;
         delete?: never;
         options?: never;
@@ -140,63 +203,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/v1/recruitments/{recruitmentId}/interview-slots": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 면접 슬롯 목록 조회 */
-        get: operations["listSlots"];
-        put?: never;
-        /** 면접 슬롯 일괄 생성 */
-        post: operations["createBulk"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/recruitments/{recruitmentId}/interview-schedules/auto-assign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * M7 자동배정 실행
-         * @description availability_deadline 이 지난 후 1회만 실행 가능. pessimistic lock 으로 동시 실행 방지. 결과 통계 반환.
-         */
-        post: operations["autoAssign"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/recruitments/{recruitmentId}/interview-config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 면접 설정 조회 (운영진) */
-        get: operations["get_1"];
-        put?: never;
-        /** 면접 모집 활성화 + deadline 설정 */
-        post: operations["create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** 면접 설정 갱신 */
-        patch: operations["update"];
         trace?: never;
     };
     "/api/v1/recruitments/{recruitmentId}/applications": {
@@ -243,6 +249,170 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/leader/recruitments/{recruitmentId}/interview-rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 면접 라운드 목록 조회
+         * @description 모집의 라운드를 최신 생성 순으로 반환한다. 카드 요약용 카운트 포함 — totalMemberCount 는 제외(EXCLUDED) 멤버를 뺀 응답 가능 대상, respondedMemberCount 는 응답 행위를 완료한 수(슬롯 선택·가능 없음 응답·배정 확정).
+         */
+        get: operations["getRounds"];
+        put?: never;
+        /**
+         * 면접 라운드 생성 (wizard)
+         * @description 면접 대상 선정과 라운드 생성을 한 트랜잭션으로 처리한다 — wizard Step2 완료 시점의 첫 persist. 허용 지원 상태: UNDER_REVIEW(선정 — INTERVIEW_PENDING 으로 전이·이력 기록), INTERVIEW_PENDING(대기열 재수용 — 유지). 그 외 상태가 섞이면 400 이고 전체가 롤백된다. 이미 진행 중 라운드에 소속된 지원자가 있으면 409. 모집당 준비 중(DRAFT) 라운드는 1개 — 이미 있으면 409. availabilityDeadline 은 DRAFT 동안 생략 가능하며 발송 시점에 필수가 된다. 지정 시 현재 이후여야 한다.
+         */
+        post: operations["createRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/interview-rounds/{roundId}/slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 면접 슬롯 일괄 생성
+         * @description 라운드에 슬롯을 일괄 등록한다 — wizard Step3·dashboard [추가 슬롯 생성]·확정 후 운영진 재조정. 준비 중(DRAFT)·응답 수집 중(COLLECTING)·확정(SCHEDULED) 라운드에서 가능. COLLECTING && 마감 전이면 '가능 슬롯 없음' 멤버가 INVITED 로 복귀하고 재알림이 발송된다 (Rule 2). 마감이 지났거나 SCHEDULED 이면 복귀·알림은 발동하지 않는다 (수집 종료·§6.4).
+         */
+        post: operations["createSlots"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/interview-rounds/{roundId}/request-availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 면접 라운드 발송 (Availability 요청)
+         * @description 준비 중(DRAFT) 라운드를 응답 수집(COLLECTING) 상태로 전환하고 초대된 전원에게 가능 시간 선택 알림을 보낸다 — wizard Step4. 가드: 슬롯 1개 이상 + 초대 상태 대상자 1명 이상 + 마감 시각 설정(미래). 충족하지 못하면 409/400. 이미 발송됐거나 취소된 라운드는 409.
+         */
+        post: operations["requestAvailability"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/interview-rounds/{roundId}/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 면접 라운드 재알림
+         * @description 응답 수집 중(COLLECTING) 라운드의 미응답 대상자에게 새 회차로 알림을 재발송한다. 마감 경과 여부와 무관하게 가능하다. 미응답 대상자가 없으면 409.
+         */
+        post: operations["remind"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/interview-rounds/{roundId}/members/{memberId}/exclude": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 면접 라운드 멤버 제외
+         * @description 멤버를 라운드에서 제외한다 (발송 전·응답 수집·배정 검토 단계). 활성 배정이 함께 정리되고, 지원서는 면접 대상 상태를 유지해 후보 대기열로 즉시 복귀한다. 지원자에게는 제외 사실이 노출되지 않는다 (중립 단계로 표시).
+         */
+        post: operations["excludeMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/interview-rounds/{roundId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 면접 라운드 확정
+         * @description 배정을 보유한 멤버를 ASSIGNED 로 전이하고 라운드를 종결(SCHEDULED·터미널)하며 확정 알림을 발송한다. 미처리(배정 없는) 멤버가 있으면 force 없이는 409 로 거부하고 경고 2종 — 미응답·가능없음 / 응답했는데 만석 미배정(강조 대상) — 을 분리 반환한다. force=true 면 미처리 멤버를 자동 제외해 후보 대기열로 복귀시킨 뒤 종결한다. 배정이 하나도 없으면 강제로도 확정할 수 없다.
+         */
+        post: operations["confirmRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/interview-rounds/{roundId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 면접 라운드 취소
+         * @description 라운드를 취소한다 (발송 전·응답 수집·배정 검토 단계). draft 배정이 정리되고 멤버 지원서는 면접 대상 상태 그대로 후보 대기열로 복귀한다 — 새 라운드에서 재선정하면 된다. 확정된 라운드는 터미널이라 취소할 수 없다. 취소 알림은 발송되지 않는다.
+         */
+        post: operations["cancelRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/interview-rounds/{roundId}/auto-assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 면접 자동배정 실행
+         * @description 응답 완료(RESPONDED) 멤버를 그리디(선택지 적은 지원자 우선, 잔여 수용 인원 최대 슬롯)로 배정한다. 응답 수집 중이면 배정 검토(ASSIGNING) 단계로 전이하며, 배정 검토 중 재실행하면 기존 draft 를 현재 상태 기준으로 재계산한다. 가능없음·미응답·제외 멤버는 대상이 아니다. 멤버 확정(ASSIGNED 전이)·알림은 확정 API 에서만 일어난다.
+         */
+        post: operations["autoAssign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/leader/clubs/{clubId}/recruitments": {
         parameters: {
             query?: never;
@@ -283,6 +453,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/leader/clubs/{clubId}/fee-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 회비 정책 목록 조회 (LEADER/OFFICER) */
+        get: operations["getPolicies"];
+        put?: never;
+        /** 회비 정책 생성 (LEADER/OFFICER) */
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/fee-policies/{policyId}/bills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 회비 청구 일괄 발행 (LEADER/OFFICER, 멱등) */
+        post: operations["generate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/fee-bills/{billId}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 회비 납부 내역 조회 (LEADER/OFFICER)
+         * @description 청구의 납부 내역을 기록순으로 조회한다. 정정(VOID)된 기록도 이력 보존을 위해 함께 노출된다.
+         */
+        get: operations["getPayments"];
+        put?: never;
+        /**
+         * 회비 납부 기록 (LEADER/OFFICER)
+         * @description 청구 1건에 대한 납부를 기록한다. 분할 입금 시 여러 번 호출하며, 합계로 청구 상태가 재계산된다.
+         */
+        post: operations["record"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/fee-bills/{billId}/payments/{paymentId}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 회비 납부 정정/취소 (LEADER/OFFICER, 멱등)
+         * @description 납부 기록을 무효화(VOID)한다. 합계·청구 상태가 재계산되며, 기록 자체는 이력으로 보존된다.
+         */
+        post: operations["voidPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/cashbook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 장부 조회 (LEADER/OFFICER)
+         * @description 수입/지출 유형·카테고리·기간·검색어로 거래일 역순 조회한다. hideExcluded=true 면 집계 제외 항목을 숨긴다.
+         */
+        get: operations["getEntries"];
+        put?: never;
+        /** 장부 항목 등록 (LEADER/OFFICER) */
+        post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/bank-transactions/{txId}/unmatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 거래 매칭취소 (LEADER/OFFICER)
+         * @description 이미 매칭된 거래의 매칭을 해제한다. 연결된 납부를 VOID 하고 청구 상태를 복귀시키며 거래를 다시 PENDING 으로 되돌린다.
+         */
+        post: operations["unmatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/bank-transactions/{txId}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 거래 무시 (LEADER/OFFICER)
+         * @description PENDING 입금을 회비와 무관한 거래로 표시한다(IGNORED).
+         */
+        post: operations["ignore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/bank-transactions/{txId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 거래 승인 — 수동 매칭 (LEADER/OFFICER)
+         * @description PENDING 입금을 후보 청구 1건에 수동 매칭한다. 거래는 MANUAL_MATCHED 로 전이되고 TRANSFER 납부가 생성되며 청구 상태가 재산출된다.
+         */
+        post: operations["approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/bank-transactions/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * BANK 거래 동기화 (LEADER/OFFICER)
+         * @description 계좌 비밀번호와 주민등록번호 앞 6자리로 BANK API 를 호출해 기간 내 거래를 멱등 적재한다. 인증정보는 API 호출에만 쓰고 저장하지 않는다. 매칭은 후속 단계에서 처리한다.
+         */
+        post: operations["sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/files": {
         parameters: {
             query?: never;
@@ -297,6 +647,46 @@ export interface paths {
          * @description 이미지 1건을 업로드하고 저장소 키와 공개 URL 을 반환한다.
          */
         post: operations["upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/federation/inquiries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 문의 작성
+         * @description 열린 문의 5건·24시간 10건 초과 시 409. attachmentUrls 는 POST /api/v1/files(purpose=FEDERATION_INQUIRY) 로 업로드한 URL 만 허용(최대 5개) — 그 외 목적의 URL 이면 400.
+         */
+        post: operations["createInquiry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/federation/faqs/{faqId}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * FAQ 피드백 제출
+         * @description "이 답변이 도움이 되었나요?" 응답. 로그인은 userId, 비로그인은 sessionKey로 식별자당 1건 — 재제출은 값 갱신. 비로그인 접근 가능.
+         */
+        post: operations["submitFeedback"];
         delete?: never;
         options?: never;
         head?: never;
@@ -352,7 +742,7 @@ export interface paths {
         };
         /**
          * 활동사진 목록 (공개)
-         * @description displayOrder 오름차순.
+         * @description displayOrder 오름차순. 운영 중(ACTIVE) 동아리만 조회할 수 있으며, 그 외 상태는 404 를 반환한다.
          */
         get: operations["listPhotos"];
         put?: never;
@@ -378,7 +768,7 @@ export interface paths {
         get: operations["listForMember"];
         put?: never;
         /** 동아리 공지 생성 (LEADER/OFFICER) */
-        post: operations["create_1"];
+        post: operations["create_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -436,7 +826,7 @@ export interface paths {
         get: operations["listWindow"];
         put?: never;
         /** 동아리 일정 생성 (LEADER/OFFICER) */
-        post: operations["create_2"];
+        post: operations["create_3"];
         delete?: never;
         options?: never;
         head?: never;
@@ -463,6 +853,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 로그아웃
+         * @description 현재 사용자의 token_version 을 증가시켜 기존에 발급된 모든 액세스 토큰을 무효화한다.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -477,6 +887,66 @@ export interface paths {
          * @description 이메일과 비밀번호로 인증 후 JWT를 발급한다.
          */
         post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email-verifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 이메일 인증코드 발송
+         * @description 회원가입용 6자리 인증코드를 학교 이메일로 발송한다. 코드는 20분 유효, 재발송은 60초 쿨다운. 이미 가입된 이메일이면 메일을 보내지 않고 409(EMAIL_ALREADY_REGISTERED) 로 즉시 안내한다.
+         */
+        post: operations["sendEmailVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email-verifications/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 이메일 인증코드 확인
+         * @description 발송된 6자리 코드를 검증한다. 5회 실패 시 무효화. 이미 인증된 경우 200(멱등).
+         */
+        post: operations["confirmEmailVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}/force-logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 사용자 강제 로그아웃 (ADMIN)
+         * @description 대상 사용자의 token_version 을 올려 발급된 모든 액세스 토큰을 즉시 무효화한다. 토큰 탈취·기기 분실 대응용. 대상이 재로그인하기 전까지 모든 보호 API 에서 401 을 받는다.
+         */
+        post: operations["forceLogout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -551,7 +1021,75 @@ export interface paths {
         get: operations["list"];
         put?: never;
         /** 글로벌 이벤트 생성 (ADMIN) */
-        post: operations["create_3"];
+        post: operations["create_4"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/federation/inquiries/{inquiryId}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 답변 등록
+         * @description ANSWERED 자동 전이 + 작성자 알림. RECEIVED 직행은 version 필수.
+         */
+        post: operations["registerAnswer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 답변 수정
+         * @description ANSWERED 상태에서만. 재알림 없음.
+         */
+        patch: operations["updateAnswer"];
+        trace?: never;
+    };
+    "/api/v1/admin/federation/faqs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * FAQ 관리 목록
+         * @description 비공개 포함. published/categoryId/keyword 필터. 각 FAQ에 "도움됨" 피드백 집계(helpfulCount/notHelpfulCount)를 포함한다 — 학생 공개 표면에는 노출되지 않는 admin 전용 정보.
+         */
+        get: operations["getAdminFaqs"];
+        put?: never;
+        /**
+         * FAQ 생성
+         * @description 정렬순서는 맨 뒤 자동 배치.
+         */
+        post: operations["createFaq"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/federation/faq-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * FAQ 카테고리 생성
+         * @description 정렬순서는 맨 뒤 자동 배치. 이름 중복 시 409.
+         */
+        post: operations["createCategory"];
         delete?: never;
         options?: never;
         head?: never;
@@ -597,6 +1135,74 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/clubs/{clubId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 동아리 폐쇄
+         * @description 운영 중단(INACTIVE) 또는 거절(REJECTED) 동아리를 폐쇄(soft-delete)하고 진행 중인 모집·지원·면접·인증·홍보·멤버십·이벤트·즐겨찾기를 자동 종료한다. 요청 본문은 생략 가능하며, 생략하거나 폐쇄 사유가 비어 있으면 기본 사유로 처리된다.
+         */
+        post: operations["closeClub"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 내 정보 조회
+         * @description 현재 인증된 사용자의 정보를 반환한다.
+         */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        /**
+         * 회원 탈퇴
+         * @description 현재 인증된 사용자를 탈퇴 처리한다. 계정을 soft delete 하고 token_version 을 올려 발급된 모든 토큰을 즉시 무효화한다. 동아리 회장은 회장직 인계 후에만 탈퇴할 수 있다(409).
+         */
+        delete: operations["withdraw"];
+        options?: never;
+        head?: never;
+        /**
+         * 프로필 수정
+         * @description 이름·전화번호·학년을 수정한다. 학년은 생략 시 기존 값을 유지한다. 학번·이메일은 변경할 수 없다.
+         */
+        patch: operations["updateProfile"];
+        trace?: never;
+    };
+    "/api/v1/users/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 비밀번호 변경
+         * @description 현재 비밀번호 확인 후 새 비밀번호로 변경한다. 변경 후 token_version 을 올려 발급된 모든 토큰을 무효화하므로 재로그인이 필요하다. 현재 비밀번호 불일치·기존과 동일 시 400.
+         */
+        patch: operations["changePassword"];
         trace?: never;
     };
     "/api/v1/me/notifications/{id}/read": {
@@ -669,7 +1275,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * 모집 공고 삭제
+         * @description 지원자가 없는 모집 공고만 삭제할 수 있다. 지원자가 1명이라도 있으면 409 — 진행 중 공고는 마감을 사용한다. 운영진(LEADER/OFFICER) 권한 필요.
+         */
+        delete: operations["deleteRecruitment"];
         options?: never;
         head?: never;
         /**
@@ -697,6 +1307,116 @@ export interface paths {
          * @description OPEN 상태의 모집 공고를 즉시 마감한다. 이미 마감된 공고에 호출하면 409 반환.
          */
         patch: operations["closeRecruitment"];
+        trace?: never;
+    };
+    "/api/v1/leader/interview-slots/{slotId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 면접 슬롯 삭제
+         * @description 슬롯을 삭제한다(soft delete). 지원자가 선택한 슬롯은 삭제 불가. DRAFT·COLLECTING·SCHEDULED 라운드에서 가능 (§6.4 확정 후 재조정).
+         */
+        delete: operations["deleteSlot"];
+        options?: never;
+        head?: never;
+        /**
+         * 면접 슬롯 수정
+         * @description 시간(start/end 쌍)·정원을 부분 수정한다. 지원자가 선택한 슬롯은 정원만 변경 가능. DRAFT·COLLECTING·SCHEDULED 라운드에서 가능 (§6.4 확정 후 재조정). SCHEDULED 에서 정원을 줄일 때 기존 배정 수보다 적으면 409.
+         */
+        patch: operations["updateSlot"];
+        trace?: never;
+    };
+    "/api/v1/leader/interview-rounds/{roundId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 면접 라운드 상세 dashboard
+         * @description 상태별 카운트 카드, 멤버 테이블(파생 미응답 — 마감 경과 && 초대 상태, 가능 슬롯 없음 멤버의 대체 가능시간 텍스트, 선택 슬롯 수, 배정 슬롯), 슬롯 목록(시작 시각 오름차순, 슬롯별 선택/배정 수)을 반환한다.
+         */
+        get: operations["getRoundDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 면접 라운드 수정
+         * @description 제목·장소·마감을 부분 수정한다 (보내지 않은 필드는 유지). 제목·장소는 배정 검토 단계까지, 마감은 발송 전(미래 시각 자유)·응답 수집 중(연장만) 변경할 수 있다. 확정·취소된 라운드는 수정 불가.
+         */
+        patch: operations["updateRound"];
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/fee-policies/{policyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 회비 정책 삭제 (LEADER/OFFICER) */
+        delete: operations["delete_2"];
+        options?: never;
+        head?: never;
+        /** 회비 정책 수정 (LEADER/OFFICER) */
+        patch: operations["update"];
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/cashbook/{entryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 장부 항목 삭제 (LEADER/OFFICER)
+         * @description 수동 항목만 삭제 가능. BANK 자동 항목은 409.
+         */
+        delete: operations["delete_3"];
+        options?: never;
+        head?: never;
+        /**
+         * 장부 항목 수정 (LEADER/OFFICER)
+         * @description 수동 항목은 전체 수정(유형 제외). BANK 자동 항목은 카테고리·메모만 수정 가능.
+         */
+        patch: operations["update_1"];
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/cashbook/{entryId}/exclusion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 장부 항목 집계 제외 토글 (LEADER/OFFICER)
+         * @description 항목을 집계(총수입·총지출·장부 잔액)에서 제외하거나 복원한다. 수동·BANK 자동 항목 둘 다 가능.
+         */
+        patch: operations["setExclusion"];
         trace?: never;
     };
     "/api/v1/leader/applications/{applicationId}/status": {
@@ -739,22 +1459,32 @@ export interface paths {
         patch: operations["bulkUpdateStatus"];
         trace?: never;
     };
-    "/api/v1/interview-slots/{slotId}": {
+    "/api/v1/federation/inquiries/{inquiryId}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * 문의 상세
+         * @description 작성자 전용 — 타인 접근은 404(존재 은닉). attachments 는 id·파일명·타입·용량만 포함하고 원본 URL·저장 키는 노출하지 않는다(비밀성).
+         */
+        get: operations["getInquiry"];
         put?: never;
         post?: never;
-        /** 면접 슬롯 삭제 */
-        delete: operations["deleteSlot"];
+        /**
+         * 문의 삭제
+         * @description 전 상태 허용(soft delete).
+         */
+        delete: operations["deleteInquiry"];
         options?: never;
         head?: never;
-        /** 면접 슬롯 수정 */
-        patch: operations["updateSlot"];
+        /**
+         * 문의 수정
+         * @description 접수(RECEIVED) 상태에서만 — 답변 작성 시작 후 409. attachmentUrls 를 생략하면 기존 첨부 유지, 빈 배열이면 전체 삭제, 값을 담으면 전체 교체(PUT 의미론).
+         */
+        patch: operations["updateInquiry"];
         trace?: never;
     };
     "/api/v1/clubs/{clubId}": {
@@ -764,7 +1494,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 동아리 상세 조회 */
+        /**
+         * 동아리 상세 조회
+         * @description 운영 중(ACTIVE) 동아리만 조회할 수 있다. 승인 대기·거절·운영 중단·폐쇄 상태는 404 를 반환한다.
+         */
         get: operations["getClub"];
         put?: never;
         post?: never;
@@ -803,15 +1536,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** 동아리 공지 상세 (MEMBER+) */
+        get: operations["getDetail"];
         put?: never;
         post?: never;
-        /** 동아리 공지 삭제 (LEADER 만) */
-        delete: operations["delete_1"];
+        /** 동아리 공지 삭제 (LEADER/OFFICER) */
+        delete: operations["delete_4"];
         options?: never;
         head?: never;
         /** 동아리 공지 수정 (LEADER/OFFICER) */
-        patch: operations["update_1"];
+        patch: operations["update_2"];
         trace?: never;
     };
     "/api/v1/clubs/{clubId}/members/{memberId}/role": {
@@ -842,15 +1576,15 @@ export interface paths {
             cookie?: never;
         };
         /** 동아리 일정 상세 (MEMBER+) */
-        get: operations["getDetail"];
+        get: operations["getDetail_1"];
         put?: never;
         post?: never;
-        /** 동아리 일정 삭제 (LEADER 만) */
-        delete: operations["delete_2"];
+        /** 동아리 일정 삭제 (LEADER/OFFICER) */
+        delete: operations["delete_5"];
         options?: never;
         head?: never;
         /** 동아리 일정 수정 (LEADER/OFFICER) */
-        patch: operations["update_2"];
+        patch: operations["update_3"];
         trace?: never;
     };
     "/api/v1/admin/reports/{reportId}": {
@@ -991,15 +1725,74 @@ export interface paths {
             cookie?: never;
         };
         /** 어드민 상세 (ADMIN) */
-        get: operations["getDetail_1"];
+        get: operations["getDetail_2"];
         put?: never;
         post?: never;
         /** 글로벌 이벤트 삭제 (ADMIN) */
-        delete: operations["delete_3"];
+        delete: operations["delete_6"];
         options?: never;
         head?: never;
         /** 글로벌 이벤트 수정 (ADMIN) */
-        patch: operations["update_3"];
+        patch: operations["update_4"];
+        trace?: never;
+    };
+    "/api/v1/admin/federation/inquiries/{inquiryId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 상태 변경
+         * @description IN_PROGRESS(답변 작성 CTA — version 필수) 또는 CLOSED(사유 선택).
+         */
+        patch: operations["changeStatus"];
+        trace?: never;
+    };
+    "/api/v1/admin/federation/faqs/{faqId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** FAQ 삭제 (soft delete) */
+        delete: operations["deleteFaq"];
+        options?: never;
+        head?: never;
+        /** FAQ 수정 */
+        patch: operations["updateFaq"];
+        trace?: never;
+    };
+    "/api/v1/admin/federation/faq-categories/{categoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * FAQ 카테고리 삭제
+         * @description 카테고리가 비어 있으면 즉시 soft delete(204). moveToCategoryId를 지정하면 소속 FAQ를 전부 그 카테고리로 이관한 후 삭제한다. FAQ가 남아 있는데 moveToCategoryId를 지정하지 않으면 409. moveToCategoryId를 삭제하려는 카테고리와 같게 지정하면 400. 삭제하려는 카테고리 또는 moveToCategoryId 카테고리가 존재하지 않으면 404.
+         */
+        delete: operations["deleteCategory"];
+        options?: never;
+        head?: never;
+        /** FAQ 카테고리 수정 (이름·정렬순서) */
+        patch: operations["updateCategory"];
         trace?: never;
     };
     "/api/v1/admin/clubs/{clubId}/status": {
@@ -1042,26 +1835,6 @@ export interface paths {
         patch: operations["updateClubCentralClub"];
         trace?: never;
     };
-    "/api/v1/users/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 내 정보 조회
-         * @description 현재 인증된 사용자의 정보를 반환한다.
-         */
-        get: operations["getMe"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/users/me/applications": {
         parameters: {
             query?: never;
@@ -1096,7 +1869,11 @@ export interface paths {
         get: operations["getMyApplicationDetail"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * 지원 철회
+         * @description 본인의 SUBMITTED 상태 지원을 철회한다. 검토가 시작된 지원은 철회할 수 없다.
+         */
+        delete: operations["withdraw_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1139,55 +1916,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/recruitments/{recruitmentId}/interview-schedules": {
+    "/api/v1/public-activities": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * M8 운영진 대시보드 — 슬롯별 그룹핑 면접 일정 목록
-         * @description 모집의 모든 슬롯과 각 슬롯에 배정된 지원자 목록을 반환한다.
-         */
-        get: operations["listSchedules"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/recruitments/{recruitmentId}/interview-matching-candidates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * M11 자동배정 미리보기 — 후보 통계 (dry-run)
-         * @description 자동배정 실행 전 INTERVIEW_PENDING 후보 수와 슬롯별 가용 시간 신청 현황을 조회한다.
-         */
-        get: operations["listCandidates"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/recruitments/{recruitmentId}/applicant-interview-slots": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 지원자가 면접 슬롯 목록 조회 (location 미포함) */
-        get: operations["list_1"];
+        /** 최근 동아리 활동 목록 (비로그인) */
+        get: operations["listRecentActivities"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1222,7 +1959,7 @@ export interface paths {
         };
         /**
          * 공지 피드
-         * @description viewer 가시 범위 + (만료 제외) 필터링한 목록
+         * @description viewer 가시 범위 + (만료 제외) 필터링한 목록. source=SCHOOL 은 학교(관리자) 공지, source=CLUB 은 가입 동아리 공지만 반환한다(미지정 시 전체).
          */
         get: operations["getNotices"];
         put?: never;
@@ -1250,6 +1987,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/my/fees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 내 회비 청구 조회
+         * @description 로그인 회원 본인(currentUser.id())의 청구만 반환한다. clubId·status 는 옵션 필터.
+         */
+        get: operations["getMyFees"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/my/fees/{billId}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 내 회비 영수증 조회
+         * @description 본인 청구의 영수증 데이터를 반환한다. ACTIVE 납부가 없거나 취소된 청구는 404.
+         */
+        get: operations["getMyReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/notifications": {
         parameters: {
             query?: never;
@@ -1261,7 +2038,7 @@ export interface paths {
          * 알림 목록 조회
          * @description 내 알림을 최신순으로 페이지 반환. unreadOnly=true 시 읽지 않은 알림만 반환.
          */
-        get: operations["list_2"];
+        get: operations["list_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1279,6 +2056,23 @@ export interface paths {
         };
         /** 읽지 않은 알림 수 조회 */
         get: operations["unreadCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/federation-inquiries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 내 문의 목록 */
+        get: operations["listMine"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1336,7 +2130,7 @@ export interface paths {
         };
         /**
          * 내가 가입한 동아리 목록 조회
-         * @description 현재 사용자가 LEADER / OFFICER / MEMBER 중 어떤 역할로든 소속된 동아리를 가입일(최신) 순으로 반환한다. 운영자용 /leader/clubs/me/managed 와는 별개이며, 마이페이지 '가입한 동아리' 섹션에서 사용한다.
+         * @description 현재 사용자가 LEADER / OFFICER / MEMBER 중 어떤 역할로든 소속된 운영 중(ACTIVE) 동아리를 가입일(최신) 순으로 반환한다. 승인 대기·거절·운영 중단·폐쇄 상태의 동아리는 제외된다. 운영자용 /leader/clubs/me/managed 와는 별개이며, 마이페이지 '가입한 동아리' 섹션에서 사용한다.
          */
         get: operations["getMyClubs"];
         put?: never;
@@ -1407,6 +2201,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/leader/recruitments/{recruitmentId}/interview-round-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 면접 라운드 후보 조회
+         * @description 라운드 생성 wizard Step1 과 상시모집 대기열이 사용하는 후보 목록. 기본 후보군 = 면접 대기열 (INTERVIEW_PENDING 이면서 진행 중인 라운드에 소속되지 않은 지원자 — 취소된 라운드·제외된 멤버는 대기열로 복귀). includeUnderReview=true 시 서류 검토 중(UNDER_REVIEW) 지원자도 포함한다 — 정기모집 wizard 의 기본 진입값. 상시모집 대기열 카운트는 파라미터 없이 호출해 큐만 집계한다. 면접을 사용하지 않는 모집이면 400.
+         */
+        get: operations["getRoundCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/leader/recruitments/{recruitmentId}/applications": {
         parameters: {
             query?: never;
@@ -1439,6 +2253,126 @@ export interface paths {
          * @description 운영진 상세 페이지의 이전/다음 지원자 이동용. 동일 필터 컨텍스트에서 createdAt desc 정렬 기준 이웃을 반환한다. prev = 더 최근 (UI 상 위쪽), next = 더 오래된 (UI 상 아래쪽). 해당 방향 이웃이 없으면 null.
          */
         get: operations["getApplicantNeighbors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/fee-bills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 회비 청구 현황 조회 (LEADER/OFFICER)
+         * @description 동아리 청구 현황을 회차·상태·회원 동적 필터와 페이지네이션으로 조회한다.
+         */
+        get: operations["getBills"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/fee-bills/{billId}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 회비 영수증 조회 (LEADER/OFFICER)
+         * @description 동아리 청구의 영수증 데이터를 반환한다. ACTIVE 납부가 없거나 취소된 청구는 404, 타 동아리 청구도 404.
+         */
+        get: operations["getReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/fee-bills/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 회비 수납 현황 집계 조회 (LEADER/OFFICER)
+         * @description 동아리 청구의 총 청구액·총 납부액·미수금·수납률·청구 건수·상태별 건수를 회차·정책 필터로 집계한다. 취소(CANCELLED) 청구와 정정(VOID) 납부는 집계에서 제외된다.
+         */
+        get: operations["getSummary_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/cashbook/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 장부 요약 (LEADER/OFFICER)
+         * @description 현재 필터 기준 총수입·총지출·장부 잔액(수입−지출). 실제 계좌 잔액과 다를 수 있다.
+         */
+        get: operations["getSummary_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/bank-transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 거래 검토 큐 조회 (LEADER/OFFICER)
+         * @description 거래를 매칭 상태별로 페이지 조회한다. PENDING 입금에는 잔액이 입금액과 일치하는 후보 청구를 마감일 오름차순으로 동봉한다.
+         */
+        get: operations["list_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/bank-matching": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * BANK 자동매칭 사용 가능 여부 조회 (LEADER/OFFICER)
+         * @description 동아리가 BANK 자동매칭(거래 동기화)을 사용할 수 있는 상태인지 반환한다. 동기화 가드와 동일한 기준(설정 사용 가능 + 지원 은행 계좌)으로 판정하며, 프론트는 이 값으로 거래 동기화 노출 여부를 사전에 결정한다.
+         */
+        get: operations["matchingStatus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1512,7 +2446,138 @@ export interface paths {
             cookie?: never;
         };
         /** 글로벌 이벤트 상세 (공개) */
-        get: operations["getDetail_2"];
+        get: operations["getDetail_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/federation/inquiries/{inquiryId}/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 문의 첨부 다운로드
+         * @description 작성자 본인 또는 ADMIN 만 접근 가능 — 그 외(타 학생·미존재·삭제된 문의)는 존재 은닉을 위해 모두 404. 원본 바이트를 그대로 스트리밍하므로 이 응답만 ApiResponse 로 감싸지 않는다.
+         */
+        get: operations["downloadAttachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/federation/faqs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * FAQ 목록
+         * @description 공개(published) FAQ만 반환. 정렬: 고정 우선 → 정렬순서 → 최신순.
+         */
+        get: operations["getFaqs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/federation/faqs/{faqId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * FAQ 단건
+         * @description 딥링크(/faq?item={id})용. 비공개·삭제 항목은 404.
+         */
+        get: operations["getFaq"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/federation/faq-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * FAQ 카테고리 목록
+         * @description 정렬순서(sort_order) 오름차순.
+         */
+        get: operations["getCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 활성 시설 목록 (비로그인) */
+        get: operations["listFacilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facilities/{facilityId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 단일 시설 상세 (비로그인). yearMonth 생략 시 현재월 */
+        get: operations["getFacilityDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facilities/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 월별 이용현황 (비로그인). yearMonth 생략 시 현재월 */
+        get: operations["getUsage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1550,7 +2615,7 @@ export interface paths {
         };
         /**
          * 동아리별 모집 공고 목록
-         * @description OPEN 인 모집이 먼저, 그 다음 시작일 최신순.
+         * @description OPEN 인 모집이 먼저, 그 다음 시작일 최신순. 운영 중(ACTIVE) 동아리만 조회할 수 있으며, 그 외 상태는 404 를 반환한다.
          */
         get: operations["listByClub"];
         put?: never;
@@ -1613,6 +2678,66 @@ export interface paths {
          * @description LEADER→OFFICER→MEMBER 순, 그룹 내 가입일 오름차순. 페이지네이션 없음.
          */
         get: operations["listMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clubs/{clubId}/members/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 멤버 명단 CSV용 export (LEADER)
+         * @description 회장 전용. includePhone=true 면 전화번호 포함(기본 false). CSV 생성은 프론트.
+         */
+        get: operations["exportMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clubs/{clubId}/fee-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 회비 입금 계좌 조회 (동아리원)
+         * @description 동아리원이 입금에 필요한 계좌(은행·계좌번호·예금주)를 복호화된 평문으로 조회한다.
+         */
+        get: operations["get_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{applicationId}/interview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 내 면접 진행 단계 조회
+         * @description 서버가 파생한 진행 단계(applicantPhase)와 단계별 화면 데이터를 반환한다. 응답 수집 중이면 선택 가능한 슬롯 목록(내 선택 표시)·마감 시각, 일정 확정 후면 면접 일시·장소가 포함된다. 내부 상태(라운드/멤버 raw status)는 노출되지 않는다 — 진행 표시는 반드시 phase 만 사용할 것. 평가~면접 구간 밖(제출됨·합격·불합격)은 NOT_APPLICABLE.
+         */
+        get: operations["getMyInterview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1726,6 +2851,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/federation/inquiries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 문의 관리 목록
+         * @description status/keyword 필터. 탈퇴 작성자는 '(삭제됨)' 표기.
+         */
+        get: operations["getInquiries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/federation/inquiries/{inquiryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 문의 상세
+         * @description 작성자가 삭제한 문의는 410. attachments 는 id·파일명·타입·용량만 포함하고 원본 URL·저장 키는 노출하지 않는다(비밀성).
+         */
+        get: operations["getInquiry_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/federation/faq-search-misses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 무결과 검색어 목록
+         * @description 공개 FAQ 검색(GET /federation/faqs?keyword=)에서 결과 0건이었던 정규화 키워드의 집계다. 정렬은 miss_count 내림차순·last_searched_at 내림차순으로 서버가 고정하며 정렬 파라미터는 지원하지 않는다. "학생이 찾는데 없는 FAQ"를 발견하는 admin 전용 갭 신호.
+         */
+        get: operations["getSearchMisses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/clubs/{clubId}": {
         parameters: {
             query?: never;
@@ -1780,6 +2965,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/clubs/bank-matching": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * BANK 자동매칭 현황 조회
+         * @description 회비 계좌가 등록된 동아리들의 적격·등록 상태와 인증 키 전역 슬롯 현황을 반환한다.
+         */
+        get: operations["getBankMatchingOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leader/clubs/{clubId}/fee-bills/{billId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 회비 청구 취소 (LEADER/OFFICER) */
+        delete: operations["cancel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clubs/{clubId}/members/{memberId}": {
         parameters: {
             query?: never;
@@ -1826,15 +3048,33 @@ export interface components {
         UpsertDraftRequest: {
             answers: components["schemas"]["DraftAnswerPayload"][];
         };
-        UpsertApplicationEvaluationRequest: {
-            /** Format: int32 */
-            score: number;
-            memo?: string;
+        AssignScheduleRequest: {
+            /** Format: int64 */
+            slotId: number;
         };
         ApiResponseVoid: {
             ok?: boolean;
             data?: Record<string, never>;
             message?: string;
+            code?: string;
+        };
+        UpsertFeeAccountRequest: {
+            /** @enum {string} */
+            bank: "KB" | "SHINHAN" | "WOORI" | "HANA" | "NH" | "IBK" | "KAKAO" | "TOSS" | "SC" | "BUSAN" | "IM" | "KYONGNAM" | "GWANGJU" | "JEONBUK" | "MG" | "SHINHYUP" | "POST" | "KDB" | "SUHYUP";
+            accountNumber: string;
+            accountHolder: string;
+        };
+        ApiResponseLong: {
+            ok?: boolean;
+            /** Format: int64 */
+            data?: number;
+            message?: string;
+            code?: string;
+        };
+        UpsertApplicationEvaluationRequest: {
+            /** Format: int32 */
+            score: number;
+            memo?: string;
         };
         PhotoOrderItem: {
             /** Format: int64 */
@@ -1849,6 +3089,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["ClubPhotoResponse"][];
             message?: string;
+            code?: string;
         };
         ClubPhotoResponse: {
             /** Format: int64 */
@@ -1862,12 +3103,16 @@ export interface components {
             /** Format: int32 */
             displayOrder?: number;
         };
-        AssignInterviewScheduleRequest: {
-            /** Format: int64 */
-            slotId: number;
+        RespondInterviewAvailabilityRequest: {
+            slotIds?: number[];
+            noAvailableSlot?: boolean;
+            alternativeText?: string;
         };
-        UpdateAvailabilityRequest: {
-            slotIds: number[];
+        ReorderFederationFaqsRequest: {
+            orderedIds: number[];
+        };
+        UpdateBankMatchingRequest: {
+            active: boolean;
         };
         CreateReportRequest: {
             /** @enum {string} */
@@ -1878,16 +3123,30 @@ export interface components {
             reasonCode: "SPAM" | "FRAUD" | "INAPPROPRIATE" | "IMPERSONATION" | "OTHER";
             detail?: string;
         };
-        ApiResponseLong: {
+        SubmitApplicationRequest: {
+            answers: string[];
+        };
+        CreateInterviewRoundRequest: {
+            title: string;
+            /** Format: date-time */
+            availabilityDeadline?: string;
+            location?: string;
+            applicationIds: number[];
+        };
+        ApiResponseCreateInterviewRoundResponse: {
             ok?: boolean;
-            /** Format: int64 */
-            data?: number;
+            data?: components["schemas"]["CreateInterviewRoundResponse"];
             message?: string;
+            code?: string;
+        };
+        CreateInterviewRoundResponse: {
+            /** Format: int64 */
+            roundId?: number;
         };
         CreateInterviewSlotsRequest: {
-            slots: components["schemas"]["SlotEntry"][];
+            slots: components["schemas"]["SlotItem"][];
         };
-        SlotEntry: {
+        SlotItem: {
             /** Format: date-time */
             startTime: string;
             /** Format: date-time */
@@ -1899,44 +3158,46 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["CreateInterviewSlotsResponse"];
             message?: string;
+            code?: string;
         };
         CreateInterviewSlotsResponse: {
-            slotIds?: number[];
+            createdSlotIds?: number[];
+            /** Format: int32 */
+            reinvitedMemberCount?: number;
         };
-        ApiResponseAutoAssignResultResponse: {
+        ApiResponseAvailabilityRequestResponse: {
             ok?: boolean;
-            data?: components["schemas"]["AutoAssignResultResponse"];
+            data?: components["schemas"]["AvailabilityRequestResponse"];
             message?: string;
+            code?: string;
         };
-        AutoAssignResultResponse: {
+        AvailabilityRequestResponse: {
             /** Format: int32 */
-            totalCandidates?: number;
-            /** Format: int32 */
-            assignedCount?: number;
-            /** Format: int32 */
-            unassignedCount?: number;
-            /** Format: int32 */
-            noAvailabilityCount?: number;
-            /** Format: date-time */
-            assignmentCompletedAt?: string;
+            notifiedMemberCount?: number;
         };
-        CreateInterviewConfigRequest: {
-            /** Format: date-time */
-            availabilityDeadline: string;
-            location?: string;
-        };
-        ApiResponseCreateInterviewConfigResponse: {
+        ApiResponseConfirmRoundResponse: {
             ok?: boolean;
-            data?: components["schemas"]["CreateInterviewConfigResponse"];
+            data?: components["schemas"]["ConfirmRoundResponse"];
             message?: string;
+            code?: string;
         };
-        CreateInterviewConfigResponse: {
-            /** Format: int64 */
-            configId?: number;
+        ConfirmRoundResponse: {
+            /** Format: int32 */
+            assignedMemberCount?: number;
+            /** Format: int32 */
+            excludedMemberCount?: number;
         };
-        SubmitApplicationRequest: {
-            answers: string[];
-            interviewSlotIds?: number[];
+        ApiResponseAutoAssignResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["AutoAssignResponse"];
+            message?: string;
+            code?: string;
+        };
+        AutoAssignResponse: {
+            /** Format: int32 */
+            assignedMemberCount?: number;
+            /** Format: int32 */
+            unassignedMemberCount?: number;
         };
         CreateRecruitmentRequest: {
             title: string;
@@ -1960,14 +3221,110 @@ export interface components {
             interviewEndDate?: string;
             showApplicantCount?: boolean;
         };
+        CreateFeePolicyRequest: {
+            name: string;
+            /** Format: int64 */
+            amount: number;
+            /** @enum {string} */
+            billingType: "MONTHLY" | "SEMESTER" | "YEARLY" | "ONE_TIME";
+            /** @enum {string} */
+            targetType: "ALL_MEMBERS" | "SELECTED_MEMBERS";
+            autoIssue?: boolean;
+            /** Format: int32 */
+            issueDay?: number;
+            /** Format: int32 */
+            dueDay?: number;
+        };
+        GenerateBillsRequest: {
+            billingPeriod: string;
+            /** Format: date */
+            billingStartDate?: string;
+            /** Format: date */
+            billingEndDate?: string;
+            /** Format: date */
+            dueDate?: string;
+            memberIds?: number[];
+        };
+        ApiResponseGenerateBillsResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["GenerateBillsResponse"];
+            message?: string;
+            code?: string;
+        };
+        GenerateBillsResponse: {
+            /** Format: int32 */
+            created?: number;
+            /** Format: int32 */
+            skipped?: number;
+            skippedUserIds?: number[];
+        };
+        RecordPaymentRequest: {
+            /** Format: int64 */
+            amount: number;
+            /** @enum {string} */
+            method: "CASH" | "TRANSFER" | "OTHER" | "AUTO_MATCHED";
+            /** Format: date */
+            paidAt: string;
+            memo?: string;
+        };
+        VoidPaymentRequest: {
+            reason?: string;
+        };
+        CreateCashbookEntryRequest: {
+            /** @enum {string} */
+            entryType: "INCOME" | "EXPENSE";
+            /** @enum {string} */
+            categoryCode: "FEE" | "SPONSOR" | "SUBSIDY" | "MT" | "DINING" | "SNACK" | "SUPPLY" | "MARKETING" | "OTHER";
+            customCategory?: string;
+            /** Format: int64 */
+            amount: number;
+            description: string;
+            /** Format: date */
+            transactionDate: string;
+            memo?: string;
+        };
+        ApproveMatchRequest: {
+            /** Format: int64 */
+            feeBillId: number;
+        };
+        SyncBankTransactionsRequest: {
+            accountPassword: string;
+            residentNumber: string;
+        };
+        ApiResponseSyncResultResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["SyncResultResponse"];
+            message?: string;
+            code?: string;
+        };
+        SyncResultResponse: {
+            /** Format: int32 */
+            fetched?: number;
+            /** Format: int32 */
+            newlyStored?: number;
+            /** Format: int32 */
+            autoMatched?: number;
+            /** Format: int32 */
+            pendingReview?: number;
+        };
         ApiResponseFileUploadResponse: {
             ok?: boolean;
             data?: components["schemas"]["FileUploadResponse"];
             message?: string;
+            code?: string;
         };
         FileUploadResponse: {
             storageKey?: string;
             url?: string;
+        };
+        CreateFederationInquiryRequest: {
+            title: string;
+            content: string;
+            attachmentUrls?: string[];
+        };
+        SubmitFederationFaqFeedbackRequest: {
+            helpful: boolean;
+            sessionKey?: string;
         };
         CreateRecertificationRequestRequest: {
             contactEmail: string;
@@ -1994,6 +3351,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["ClubPhotoResponse"];
             message?: string;
+            code?: string;
         };
         CreateClubNoticeRequest: {
             title: string;
@@ -2008,6 +3366,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["TransferLeaderResponse"];
             message?: string;
+            code?: string;
         };
         ClubMemberResponse: {
             /** Format: int64 */
@@ -2020,6 +3379,10 @@ export interface components {
             role?: "MEMBER" | "OFFICER" | "LEADER";
             /** Format: date-time */
             joinedAt?: string;
+            major?: string;
+            /** @enum {string} */
+            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+            phoneMasked?: string;
         };
         TransferLeaderResponse: {
             formerLeader?: components["schemas"]["ClubMemberResponse"];
@@ -2043,7 +3406,7 @@ export interface components {
             email: string;
             password: string;
             /** @enum {string} */
-            grade: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "GRADUATE_DEFERRED";
+            grade: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
             /** @enum {string} */
             college: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
             major: string;
@@ -2059,6 +3422,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["LoginResponse"];
             message?: string;
+            code?: string;
         };
         LoginResponse: {
             accessToken?: string;
@@ -2071,8 +3435,30 @@ export interface components {
             studentId?: string;
             name?: string;
             email?: string;
+            phone?: string;
             /** @enum {string} */
             role?: "STUDENT" | "ADMIN";
+            /** @enum {string} */
+            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+        };
+        SendEmailVerificationRequest: {
+            email: string;
+        };
+        ApiResponseEmailVerificationResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["EmailVerificationResponse"];
+            message?: string;
+            code?: string;
+        };
+        EmailVerificationResponse: {
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: int64 */
+            expiresInSeconds?: number;
+        };
+        ConfirmEmailVerificationRequest: {
+            email: string;
+            code: string;
         };
         CreateRecertificationRoundRequest: {
             /** Format: int32 */
@@ -2103,10 +3489,10 @@ export interface components {
             imageAltText?: string;
             /** Format: int64 */
             noticeId?: number;
-            scheduleRangeValid?: boolean;
-            singleLinkTarget?: boolean;
             imageAltTextRequiredForFullBleed?: boolean;
             bannerImageRequiredForFullBleed?: boolean;
+            scheduleRangeValid?: boolean;
+            singleLinkTarget?: boolean;
         };
         CreateNoticeRequest: {
             title: string;
@@ -2126,6 +3512,15 @@ export interface components {
             /** Format: date-time */
             expiresAt?: string;
             notifyOnPublish?: boolean;
+            /** Format: date-time */
+            eventStartAt?: string;
+            /** Format: date-time */
+            eventEndAt?: string;
+            location?: string;
+            host?: string;
+            audience?: string;
+            /** @enum {string} */
+            contentFormat?: "MARKDOWN" | "HTML";
         };
         CreateGlobalEventRequest: {
             title: string;
@@ -2139,6 +3534,22 @@ export interface components {
             coverImageUrl?: string;
             /** @enum {string} */
             category: "FAIR" | "FESTIVAL" | "APPLICATION" | "CONTEST" | "UNION" | "OTHER";
+        };
+        AnswerFederationInquiryRequest: {
+            content: string;
+            /** Format: int64 */
+            version?: number;
+        };
+        CreateFederationFaqRequest: {
+            /** Format: int64 */
+            categoryId: number;
+            question: string;
+            answer: string;
+            pinned?: boolean;
+            published?: boolean;
+        };
+        CreateFederationFaqCategoryRequest: {
+            name: string;
         };
         CreateClubRequest: {
             name: string;
@@ -2158,10 +3569,18 @@ export interface components {
             newLeaderUserId: number;
             reason: string;
         };
-        UpdateInterviewConfigRequest: {
-            /** Format: date-time */
-            availabilityDeadline?: string;
-            location?: string;
+        CloseClubRequest: {
+            closureReason?: string;
+        };
+        UpdateProfileRequest: {
+            name: string;
+            phone: string;
+            /** @enum {string} */
+            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+        };
+        ChangePasswordRequest: {
+            currentPassword: string;
+            newPassword: string;
         };
         UpdateRecruitmentRequest: {
             title?: string;
@@ -2180,6 +3599,47 @@ export interface components {
             interviewEndDate?: string;
             showApplicantCount?: boolean;
         };
+        UpdateInterviewSlotRequest: {
+            /** Format: date-time */
+            startTime?: string;
+            /** Format: date-time */
+            endTime?: string;
+            /** Format: int32 */
+            capacity?: number;
+        };
+        UpdateInterviewRoundRequest: {
+            title?: string;
+            location?: string;
+            /** Format: date-time */
+            availabilityDeadline?: string;
+        };
+        UpdateFeePolicyRequest: {
+            name?: string;
+            /** Format: int64 */
+            amount?: number;
+            /** @enum {string} */
+            billingType?: "MONTHLY" | "SEMESTER" | "YEARLY" | "ONE_TIME";
+            active?: boolean;
+            autoIssue?: boolean;
+            /** Format: int32 */
+            issueDay?: number;
+            /** Format: int32 */
+            dueDay?: number;
+        };
+        UpdateCashbookEntryRequest: {
+            /** @enum {string} */
+            categoryCode: "FEE" | "SPONSOR" | "SUBSIDY" | "MT" | "DINING" | "SNACK" | "SUPPLY" | "MARKETING" | "OTHER";
+            customCategory?: string;
+            /** Format: int64 */
+            amount?: number;
+            description?: string;
+            /** Format: date */
+            transactionDate?: string;
+            memo?: string;
+        };
+        UpdateCashbookExclusionRequest: {
+            excluded: boolean;
+        };
         UpdateApplicationStatusRequest: {
             /** @enum {string} */
             status: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
@@ -2193,6 +3653,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["BulkUpdateApplicationStatusResponse"];
             message?: string;
+            code?: string;
         };
         BulkUpdateApplicationStatusResponse: {
             /** Format: int32 */
@@ -2204,13 +3665,10 @@ export interface components {
             applicationId?: number;
             reason?: string;
         };
-        UpdateInterviewSlotRequest: {
-            /** Format: date-time */
-            startTime?: string;
-            /** Format: date-time */
-            endTime?: string;
-            /** Format: int32 */
-            capacity?: number;
+        UpdateFederationInquiryRequest: {
+            title: string;
+            content: string;
+            attachmentUrls?: string[];
         };
         ClubFaq: {
             question: string;
@@ -2249,11 +3707,14 @@ export interface components {
             /** @enum {string} */
             college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
             clearCollege?: boolean;
+            clearLogoImage?: boolean;
+            clearCoverImage?: boolean;
         };
         ApiResponseClubDetailResponse: {
             ok?: boolean;
             data?: components["schemas"]["ClubDetailResponse"];
             message?: string;
+            code?: string;
         };
         ClubDetailResponse: {
             /** Format: int64 */
@@ -2337,6 +3798,7 @@ export interface components {
             summary?: string;
             content?: string;
             coverImageUrl?: string;
+            clearCoverImage?: boolean;
             pinned?: boolean;
             /** Format: date-time */
             expiresAt?: string;
@@ -2399,10 +3861,10 @@ export interface components {
             /** Format: int64 */
             noticeId?: number;
             clearNoticeId?: boolean;
-            scheduleRangeValid?: boolean;
-            singleLinkTarget?: boolean;
             imageAltTextRequiredForFullBleed?: boolean;
             bannerImageRequiredForFullBleed?: boolean;
+            scheduleRangeValid?: boolean;
+            singleLinkTarget?: boolean;
         };
         ProcessPromotionRequestRequest: {
             /** @enum {string} */
@@ -2415,6 +3877,7 @@ export interface components {
             content?: string;
             coverImageUrl?: string;
             linkUrl?: string;
+            clearExternalLink?: boolean;
             /** @enum {string} */
             category?: "FESTIVAL" | "FAIR" | "FUNDING" | "CONTEST" | "GENERAL";
             tags?: string[];
@@ -2428,6 +3891,16 @@ export interface components {
             expiresAt?: string;
             clearExpiresAt?: boolean;
             notifyOnPublish?: boolean;
+            /** Format: date-time */
+            eventStartAt?: string;
+            /** Format: date-time */
+            eventEndAt?: string;
+            location?: string;
+            host?: string;
+            audience?: string;
+            clearEvent?: boolean;
+            /** @enum {string} */
+            contentFormat?: "MARKDOWN" | "HTML";
         };
         ProcessLeaderSuccessionRequest: {
             /** @enum {string} */
@@ -2448,6 +3921,29 @@ export interface components {
             coverImageUrl?: string;
             clearCoverImage?: boolean;
         };
+        UpdateFederationInquiryStatusRequest: {
+            /** @enum {string} */
+            status: "RECEIVED" | "IN_PROGRESS" | "ANSWERED" | "CLOSED";
+            /** Format: int64 */
+            version?: number;
+            closedReason?: string;
+        };
+        UpdateFederationInquiryAnswerRequest: {
+            content: string;
+        };
+        UpdateFederationFaqRequest: {
+            /** Format: int64 */
+            categoryId: number;
+            question: string;
+            answer: string;
+            pinned?: boolean;
+            published?: boolean;
+        };
+        UpdateFederationFaqCategoryRequest: {
+            name: string;
+            /** Format: int32 */
+            sortOrder?: number;
+        };
         UpdateClubStatusRequest: {
             /** @enum {string} */
             status: "PENDING_APPROVAL" | "ACTIVE" | "INACTIVE" | "REJECTED";
@@ -2460,11 +3956,13 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["UserResponse"];
             message?: string;
+            code?: string;
         };
         ApiResponseListApplicationSummaryResponse: {
             ok?: boolean;
             data?: components["schemas"]["ApplicationSummaryResponse"][];
             message?: string;
+            code?: string;
         };
         ApplicationSummaryResponse: {
             /** Format: int64 */
@@ -2480,20 +3978,22 @@ export interface components {
             logoUrl?: string;
             /** @enum {string} */
             status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
-            interview?: {
-                /** Format: date-time */
-                startAt: string;
-                /** Format: date-time */
-                endAt: string;
-                location: string | null;
-            } | null;
+            interview?: components["schemas"]["AssignedInterview"];
             /** Format: date-time */
             submittedAt?: string;
+        };
+        AssignedInterview: {
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            location?: string;
         };
         ApiResponseMyApplicationDetailResponse: {
             ok?: boolean;
             data?: components["schemas"]["MyApplicationDetailResponse"];
             message?: string;
+            code?: string;
         };
         MyApplicationDetailResponse: {
             /** Format: int64 */
@@ -2508,13 +4008,7 @@ export interface components {
             answers?: string[];
             /** @enum {string} */
             status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
-            interview?: {
-                /** Format: date-time */
-                startAt: string;
-                /** Format: date-time */
-                endAt: string;
-                location: string | null;
-            } | null;
+            interview?: components["schemas"]["AssignedInterview"];
             /** Format: date-time */
             submittedAt?: string;
             /** Format: int32 */
@@ -2526,6 +4020,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["RecruitmentSummaryResponse"][];
             message?: string;
+            code?: string;
         };
         RecruitmentSummaryResponse: {
             /** Format: int64 */
@@ -2556,6 +4051,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["RecruitmentDetailResponse"];
             message?: string;
+            code?: string;
         };
         RecruitmentDetailResponse: {
             /** Format: int64 */
@@ -2593,98 +4089,11 @@ export interface components {
             /** Format: date-time */
             interviewAvailabilityDeadline?: string;
         };
-        ApiResponseListSlotListView: {
-            ok?: boolean;
-            data?: components["schemas"]["SlotListView"][];
-            message?: string;
-        };
-        SlotListView: {
-            /** Format: int64 */
-            slotId?: number;
-            /** Format: date-time */
-            startTime?: string;
-            /** Format: date-time */
-            endTime?: string;
-            /** Format: int32 */
-            capacity?: number;
-            /** Format: int64 */
-            availabilityCount?: number;
-            /** Format: int64 */
-            assignedCount?: number;
-        };
-        ApiResponseListScheduleListView: {
-            ok?: boolean;
-            data?: components["schemas"]["ScheduleListView"][];
-            message?: string;
-        };
-        AssignedItem: {
-            /** Format: int64 */
-            scheduleId?: number;
-            /** Format: int64 */
-            applicationId?: number;
-            /** @enum {string} */
-            status?: "ASSIGNED" | "CANCELLED";
-            /** Format: date-time */
-            assignedAt?: string;
-        };
-        ScheduleListView: {
-            /** Format: int64 */
-            slotId?: number;
-            /** Format: date-time */
-            startTime?: string;
-            /** Format: date-time */
-            endTime?: string;
-            /** Format: int32 */
-            capacity?: number;
-            location?: string;
-            assigned?: components["schemas"]["AssignedItem"][];
-        };
-        ApiResponseMatchingCandidatesResponse: {
-            ok?: boolean;
-            data?: components["schemas"]["MatchingCandidatesResponse"];
-            message?: string;
-        };
-        MatchingCandidatesResponse: {
-            /** Format: int32 */
-            totalCandidates?: number;
-            /** Format: int32 */
-            candidatesWithAvailability?: number;
-            /** Format: int32 */
-            candidatesWithoutAvailability?: number;
-            slots?: components["schemas"]["SlotCandidatesView"][];
-        };
-        SlotCandidatesView: {
-            /** Format: int64 */
-            slotId?: number;
-            /** Format: date-time */
-            startTime?: string;
-            /** Format: int32 */
-            capacity?: number;
-            /** Format: int64 */
-            availabilityCount?: number;
-            /** Format: int64 */
-            alreadyAssignedCount?: number;
-        };
-        ApiResponseInterviewConfigResponse: {
-            ok?: boolean;
-            data?: components["schemas"]["InterviewConfigResponse"];
-            message?: string;
-        };
-        InterviewConfigResponse: {
-            /** Format: int64 */
-            configId?: number;
-            /** Format: date-time */
-            availabilityDeadline?: string;
-            /** Format: date-time */
-            assignmentCompletedAt?: string;
-            location?: string;
-            /** @enum {string} */
-            slotLifecyclePhase?: "BEFORE_DEADLINE" | "AFTER_DEADLINE_BEFORE_ASSIGNMENT" | "AFTER_ASSIGNMENT";
-        };
         ApiResponseDraftResponse: {
             ok?: boolean;
             data?: components["schemas"]["DraftResponse"];
             message?: string;
+            code?: string;
         };
         DraftAnswer: {
             /** Format: int64 */
@@ -2697,25 +4106,29 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
-        ApiResponseListApplicantInterviewSlotResponse: {
+        ApiResponsePublicActivityResponse: {
             ok?: boolean;
-            data?: components["schemas"]["ApplicantInterviewSlotResponse"][];
+            data?: components["schemas"]["PublicActivityResponse"];
             message?: string;
+            code?: string;
         };
-        ApplicantInterviewSlotResponse: {
+        Item: {
+            /** @enum {string} */
+            type?: "RECRUIT_OPEN" | "NOTICE_CREATED" | "INTERVIEW_CREATED" | "INTERVIEW_RESULT" | "EVENT_CREATED" | "FEE_OPEN";
             /** Format: int64 */
-            slotId?: number;
+            clubId?: number;
+            clubName?: string;
             /** Format: date-time */
-            startTime?: string;
-            /** Format: date-time */
-            endTime?: string;
-            /** Format: int32 */
-            capacity?: number;
+            occurredAt?: string;
+        };
+        PublicActivityResponse: {
+            items?: components["schemas"]["Item"][];
         };
         ApiResponsePageResponsePromotionCardResponse: {
             ok?: boolean;
             data?: components["schemas"]["PageResponsePromotionCardResponse"];
             message?: string;
+            code?: string;
         };
         ClubRef: {
             /** Format: int64 */
@@ -2766,6 +4179,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseNoticeCardResponse"];
             message?: string;
+            code?: string;
         };
         NoticeCardResponse: {
             /** Format: int64 */
@@ -2782,6 +4196,9 @@ export interface components {
             expiresAt?: string;
             /** Format: date-time */
             createdAt?: string;
+            /** Format: int64 */
+            owningClubId?: number;
+            clubName?: string;
         };
         PageResponseNoticeCardResponse: {
             content?: components["schemas"]["NoticeCardResponse"][];
@@ -2799,6 +4216,16 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["NoticeDetailResponse"];
             message?: string;
+            code?: string;
+        };
+        EventInfo: {
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            location?: string;
+            host?: string;
+            audience?: string;
         };
         NoticeDetailResponse: {
             /** Format: int64 */
@@ -2824,6 +4251,82 @@ export interface components {
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
+            /** @enum {string} */
+            contentFormat?: "MARKDOWN" | "HTML";
+            /** Format: int64 */
+            owningClubId?: number;
+            clubName?: string;
+            eventInfo?: components["schemas"]["EventInfo"];
+        };
+        ApiResponseListMyFeeResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["MyFeeResponse"][];
+            message?: string;
+            code?: string;
+        };
+        MyFeeResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            clubId?: number;
+            /** Format: int64 */
+            feePolicyId?: number;
+            /** Format: int64 */
+            amount?: number;
+            billingPeriod?: string;
+            /** Format: date */
+            billingStartDate?: string;
+            /** Format: date */
+            billingEndDate?: string;
+            /** Format: date */
+            dueDate?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "PAID" | "PARTIAL_PAID" | "OVERDUE" | "CANCELLED";
+            /** Format: int64 */
+            paidAmount?: number;
+            /** Format: int64 */
+            remainingAmount?: number;
+        };
+        ApiResponseReceiptResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["ReceiptResponse"];
+            message?: string;
+            code?: string;
+        };
+        PaymentLine: {
+            /** Format: int64 */
+            amount?: number;
+            /** @enum {string} */
+            method?: "CASH" | "TRANSFER" | "OTHER" | "AUTO_MATCHED";
+            /** Format: date-time */
+            paidAt?: string;
+            memo?: string;
+        };
+        ReceiptResponse: {
+            receiptNumber?: string;
+            clubName?: string;
+            memberName?: string;
+            policyName?: string;
+            billingPeriod?: string;
+            /** Format: date */
+            billingStartDate?: string;
+            /** Format: date */
+            billingEndDate?: string;
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int64 */
+            amount?: number;
+            /** Format: int64 */
+            paidTotal?: number;
+            /** Format: int64 */
+            remaining?: number;
+            /** Format: int32 */
+            paymentCount?: number;
+            /** @enum {string} */
+            status?: "PENDING" | "PAID" | "PARTIAL_PAID" | "OVERDUE" | "CANCELLED";
+            /** Format: date-time */
+            issuedAt?: string;
+            payments?: components["schemas"]["PaymentLine"][];
         };
         Pageable: {
             /** Format: int32 */
@@ -2836,13 +4339,14 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseNotificationResponse"];
             message?: string;
+            code?: string;
         };
         NotificationResponse: {
             source?: string;
             /** Format: int64 */
             id?: number;
             /** @enum {string} */
-            type?: "RECRUITMENT_OPENED" | "RECRUITMENT_DEADLINE" | "INTERVIEW_SCHEDULED" | "INTERVIEW_UPDATED" | "INTERVIEW_CANCELLED" | "INTERVIEW_REMINDER" | "NOTICE_TARGETED";
+            type?: "RECRUITMENT_OPENED" | "RECRUITMENT_DEADLINE" | "INTERVIEW_SCHEDULED" | "INTERVIEW_UPDATED" | "INTERVIEW_CANCELLED" | "INTERVIEW_AVAILABILITY_REQUESTED" | "INTERVIEW_REMINDER" | "NOTICE_TARGETED" | "FEE_PAID_CONFIRMED" | "FEE_PARTIAL_PAYMENT_CONFIRMED" | "FEE_BILL_OVERDUE" | "FEE_BILL_ISSUED" | "FEE_BILL_DUE_SOON" | "FEDERATION_INQUIRY_RECEIVED" | "FEDERATION_INQUIRY_ANSWERED" | "FEDERATION_INQUIRY_CLOSED";
             title?: string;
             body?: string;
             linkUrl?: string;
@@ -2868,15 +4372,46 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["UnreadCountResponse"];
             message?: string;
+            code?: string;
         };
         UnreadCountResponse: {
             /** Format: int64 */
             count?: number;
         };
+        ApiResponsePageResponseFederationInquirySummaryResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PageResponseFederationInquirySummaryResponse"];
+            message?: string;
+            code?: string;
+        };
+        FederationInquirySummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            title?: string;
+            /** @enum {string} */
+            status?: "RECEIVED" | "IN_PROGRESS" | "ANSWERED" | "CLOSED";
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            answeredAt?: string;
+        };
+        PageResponseFederationInquirySummaryResponse: {
+            content?: components["schemas"]["FederationInquirySummaryResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            hasNext?: boolean;
+        };
         ApiResponsePageResponseFavoriteClubResponse: {
             ok?: boolean;
             data?: components["schemas"]["PageResponseFavoriteClubResponse"];
             message?: string;
+            code?: string;
         };
         FavoriteClubResponse: {
             /** Format: int64 */
@@ -2907,6 +4442,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["FavoriteIdsResponse"];
             message?: string;
+            code?: string;
         };
         FavoriteIdsResponse: {
             clubIds?: number[];
@@ -2915,12 +4451,15 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["MyClubResponse"][];
             message?: string;
+            code?: string;
         };
         MyClubResponse: {
             /** Format: int64 */
             clubId?: number;
             clubName?: string;
             logoUrl?: string;
+            /** @enum {string} */
+            status?: "PENDING_APPROVAL" | "ACTIVE" | "INACTIVE" | "REJECTED";
             /** @enum {string} */
             myRole?: "MEMBER" | "OFFICER" | "LEADER";
             /** Format: int64 */
@@ -2932,6 +4471,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["StatsSummaryResponse"];
             message?: string;
+            code?: string;
         };
         StatsSummaryResponse: {
             /** Format: int64 */
@@ -2955,6 +4495,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["StatsFunnelResponse"];
             message?: string;
+            code?: string;
         };
         StatsFunnelResponse: {
             /** Format: int64 */
@@ -2970,6 +4511,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["StatsDailyPointResponse"][];
             message?: string;
+            code?: string;
         };
         StatsDailyPointResponse: {
             /** Format: date */
@@ -2977,10 +4519,54 @@ export interface components {
             /** Format: int64 */
             submittedCount?: number;
         };
+        ApiResponseListRoundSummaryResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["RoundSummaryResponse"][];
+            message?: string;
+            code?: string;
+        };
+        RoundSummaryResponse: {
+            /** Format: int64 */
+            roundId?: number;
+            title?: string;
+            /** @enum {string} */
+            status?: "DRAFT" | "COLLECTING" | "ASSIGNING" | "SCHEDULED" | "CANCELLED";
+            /** Format: date-time */
+            availabilityDeadline?: string;
+            location?: string;
+            /** Format: int64 */
+            totalMemberCount?: number;
+            /** Format: int64 */
+            respondedMemberCount?: number;
+        };
+        ApiResponseListRoundCandidateResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["RoundCandidateResponse"][];
+            message?: string;
+            code?: string;
+        };
+        RoundCandidateResponse: {
+            /** Format: int64 */
+            applicationId?: number;
+            /** Format: int64 */
+            userId?: number;
+            userName?: string;
+            studentId?: string;
+            /** @enum {string} */
+            college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
+            major?: string;
+            /** @enum {string} */
+            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+            /** @enum {string} */
+            status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+            /** Format: date-time */
+            submittedAt?: string;
+        };
         ApiResponseListApplicantResponse: {
             ok?: boolean;
             data?: components["schemas"]["ApplicantResponse"][];
             message?: string;
+            code?: string;
         };
         ApplicantResponse: {
             /** Format: int64 */
@@ -2994,14 +4580,14 @@ export interface components {
             college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
             major?: string;
             /** @enum {string} */
-            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "GRADUATE_DEFERRED";
+            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
             answers?: string[];
             /** @enum {string} */
             status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
             /** Format: date-time */
             submittedAt?: string;
             /** Format: date-time */
-            interviewStartAt?: string | null;
+            interviewStartAt?: string;
             /** Format: int32 */
             myScore?: number;
         };
@@ -3009,6 +4595,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["ApplicantNeighborsResponse"];
             message?: string;
+            code?: string;
         };
         ApplicantNeighborsResponse: {
             /** Format: int64 */
@@ -3016,10 +4603,315 @@ export interface components {
             /** Format: int64 */
             nextApplicationId?: number;
         };
+        ApiResponseRoundDetailResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["RoundDetailResponse"];
+            message?: string;
+            code?: string;
+        };
+        Counts: {
+            /** Format: int64 */
+            totalMemberCount?: number;
+            /** Format: int64 */
+            invitedCount?: number;
+            /** Format: int64 */
+            respondedCount?: number;
+            /** Format: int64 */
+            noAvailableSlotCount?: number;
+            /** Format: int64 */
+            assignedCount?: number;
+            /** Format: int64 */
+            excludedCount?: number;
+            /** Format: int64 */
+            unrespondedCount?: number;
+        };
+        Member: {
+            /** Format: int64 */
+            memberId?: number;
+            /** Format: int64 */
+            applicationId?: number;
+            userName?: string;
+            studentId?: string;
+            /** @enum {string} */
+            status?: "INVITED" | "RESPONDED" | "NO_AVAILABLE_SLOT" | "ASSIGNED" | "EXCLUDED";
+            unresponded?: boolean;
+            alternativeAvailabilityText?: string;
+            /** Format: int64 */
+            selectedSlotCount?: number;
+            /** Format: int64 */
+            assignedSlotId?: number;
+        };
+        RoundDetailResponse: {
+            /** Format: int64 */
+            roundId?: number;
+            title?: string;
+            /** @enum {string} */
+            status?: "DRAFT" | "COLLECTING" | "ASSIGNING" | "SCHEDULED" | "CANCELLED";
+            /** Format: date-time */
+            availabilityDeadline?: string;
+            location?: string;
+            /** Format: int32 */
+            requestSequence?: number;
+            deadlinePassed?: boolean;
+            counts?: components["schemas"]["Counts"];
+            members?: components["schemas"]["Member"][];
+            slots?: components["schemas"]["Slot"][];
+        };
+        Slot: {
+            /** Format: int64 */
+            slotId?: number;
+            /** Format: date-time */
+            startTime?: string;
+            /** Format: date-time */
+            endTime?: string;
+            /** Format: int32 */
+            capacity?: number;
+            /** Format: int64 */
+            selectedCount?: number;
+            /** Format: int64 */
+            assignedCount?: number;
+        };
+        ApiResponseListFeePolicyResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FeePolicyResponse"][];
+            message?: string;
+            code?: string;
+        };
+        FeePolicyResponse: {
+            /** Format: int64 */
+            id?: number;
+            name?: string;
+            /** Format: int64 */
+            amount?: number;
+            /** @enum {string} */
+            billingType?: "MONTHLY" | "SEMESTER" | "YEARLY" | "ONE_TIME";
+            /** @enum {string} */
+            targetType?: "ALL_MEMBERS" | "SELECTED_MEMBERS";
+            active?: boolean;
+            autoIssue?: boolean;
+            /** Format: int32 */
+            issueDay?: number;
+            /** Format: int32 */
+            dueDay?: number;
+        };
+        ApiResponsePageResponseFeeBillResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PageResponseFeeBillResponse"];
+            message?: string;
+            code?: string;
+        };
+        FeeBillResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            clubId?: number;
+            /** Format: int64 */
+            userId?: number;
+            /** Format: int64 */
+            feePolicyId?: number;
+            /** Format: int64 */
+            amount?: number;
+            billingPeriod?: string;
+            /** Format: date */
+            billingStartDate?: string;
+            /** Format: date */
+            billingEndDate?: string;
+            /** Format: date */
+            dueDate?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "PAID" | "PARTIAL_PAID" | "OVERDUE" | "CANCELLED";
+            /** Format: int64 */
+            paidAmount?: number;
+            /** Format: int64 */
+            remainingAmount?: number;
+        };
+        PageResponseFeeBillResponse: {
+            content?: components["schemas"]["FeeBillResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            hasNext?: boolean;
+        };
+        ApiResponseListPaymentResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PaymentResponse"][];
+            message?: string;
+            code?: string;
+        };
+        PaymentResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            amount?: number;
+            /** @enum {string} */
+            method?: "CASH" | "TRANSFER" | "OTHER" | "AUTO_MATCHED";
+            /** Format: date-time */
+            paidAt?: string;
+            memo?: string;
+            /** @enum {string} */
+            status?: "ACTIVE" | "VOIDED";
+            voidReason?: string;
+        };
+        ApiResponseFeeSummaryResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FeeSummaryResponse"];
+            message?: string;
+            code?: string;
+        };
+        FeeSummaryResponse: {
+            /** Format: int64 */
+            totalBilled?: number;
+            /** Format: int64 */
+            totalPaid?: number;
+            /** Format: int64 */
+            outstanding?: number;
+            /** Format: double */
+            collectionRate?: number;
+            /** Format: int64 */
+            billCount?: number;
+            /** Format: int64 */
+            pendingCount?: number;
+            /** Format: int64 */
+            partialPaidCount?: number;
+            /** Format: int64 */
+            overdueCount?: number;
+            /** Format: int64 */
+            paidCount?: number;
+        };
+        ApiResponseFeeAccountResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FeeAccountResponse"];
+            message?: string;
+            code?: string;
+        };
+        FeeAccountResponse: {
+            /** @enum {string} */
+            bank?: "KB" | "SHINHAN" | "WOORI" | "HANA" | "NH" | "IBK" | "KAKAO" | "TOSS" | "SC" | "BUSAN" | "IM" | "KYONGNAM" | "GWANGJU" | "JEONBUK" | "MG" | "SHINHYUP" | "POST" | "KDB" | "SUHYUP";
+            accountNumber?: string;
+            accountHolder?: string;
+        };
+        ApiResponsePageResponseCashbookEntryResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PageResponseCashbookEntryResponse"];
+            message?: string;
+            code?: string;
+        };
+        CashbookEntryResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** @enum {string} */
+            entryType?: "INCOME" | "EXPENSE";
+            /** @enum {string} */
+            source?: "MANUAL" | "BANK_API";
+            /** @enum {string} */
+            categoryCode?: "FEE" | "SPONSOR" | "SUBSIDY" | "MT" | "DINING" | "SNACK" | "SUPPLY" | "MARKETING" | "OTHER";
+            customCategory?: string;
+            /** Format: int64 */
+            amount?: number;
+            description?: string;
+            /** Format: date */
+            transactionDate?: string;
+            memo?: string;
+            attachmentUrl?: string;
+            /** Format: int64 */
+            bankTransactionId?: number;
+            excluded?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        PageResponseCashbookEntryResponse: {
+            content?: components["schemas"]["CashbookEntryResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            hasNext?: boolean;
+        };
+        ApiResponseCashbookSummaryResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["CashbookSummaryResponse"];
+            message?: string;
+            code?: string;
+        };
+        CashbookSummaryResponse: {
+            /** Format: int64 */
+            totalIncome?: number;
+            /** Format: int64 */
+            totalExpense?: number;
+            /** Format: int64 */
+            bookBalance?: number;
+        };
+        ApiResponsePageResponseBankTransactionResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PageResponseBankTransactionResponse"];
+            message?: string;
+            code?: string;
+        };
+        BankTransactionResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: date-time */
+            transactionAt?: string;
+            /** Format: int64 */
+            amount?: number;
+            counterparty?: string;
+            /** @enum {string} */
+            transactionType?: "DEPOSIT" | "WITHDRAWAL";
+            /** @enum {string} */
+            matchStatus?: "PENDING" | "AUTO_MATCHED" | "MANUAL_MATCHED" | "IGNORED";
+            /** Format: int64 */
+            matchedFeeBillId?: number;
+            candidates?: components["schemas"]["MatchCandidateResponse"][];
+            matchedMemberName?: string;
+            matchedBillingPeriod?: string;
+        };
+        MatchCandidateResponse: {
+            /** Format: int64 */
+            feeBillId?: number;
+            /** Format: int64 */
+            userId?: number;
+            memberName?: string;
+            billingPeriod?: string;
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int64 */
+            remaining?: number;
+        };
+        PageResponseBankTransactionResponse: {
+            content?: components["schemas"]["BankTransactionResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            hasNext?: boolean;
+        };
+        ApiResponseBankMatchingStatusResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["BankMatchingStatusResponse"];
+            message?: string;
+            code?: string;
+        };
+        BankMatchingStatusResponse: {
+            enabled?: boolean;
+        };
         ApiResponseListManagedClubResponse: {
             ok?: boolean;
             data?: components["schemas"]["ManagedClubResponse"][];
             message?: string;
+            code?: string;
         };
         ManagedClubResponse: {
             /** Format: int64 */
@@ -3035,6 +4927,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["ApplicantDetailResponse"];
             message?: string;
+            code?: string;
         };
         ApplicantDetailResponse: {
             /** Format: int64 */
@@ -3049,13 +4942,7 @@ export interface components {
             answers?: components["schemas"]["QuestionAnswer"][];
             /** @enum {string} */
             status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
-            interview?: {
-                /** Format: date-time */
-                startAt: string;
-                /** Format: date-time */
-                endAt: string;
-                location: string | null;
-            } | null;
+            interview?: components["schemas"]["AssignedInterview"];
             /** Format: date-time */
             submittedAt?: string;
             statusHistory?: components["schemas"]["StatusHistoryItem"][];
@@ -3063,6 +4950,7 @@ export interface components {
             otherEvaluations?: components["schemas"]["ApplicationEvaluationItem"][];
             interviewAvailabilities?: components["schemas"]["AvailabilityItemResponse"][];
             assignedSlot?: components["schemas"]["AvailabilityItemResponse"];
+            interviewRound?: components["schemas"]["InterviewRoundBrief"];
         };
         ApplicantInfo: {
             /** Format: int64 */
@@ -3070,6 +4958,12 @@ export interface components {
             name?: string;
             studentId?: string;
             email?: string;
+            /** @enum {string} */
+            college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
+            major?: string;
+            /** @enum {string} */
+            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+            phone?: string;
         };
         ApplicationEvaluationItem: {
             /** Format: int64 */
@@ -3091,6 +4985,17 @@ export interface components {
             /** Format: date-time */
             endTime?: string;
         };
+        InterviewRoundBrief: {
+            /** Format: int64 */
+            roundId?: number;
+            title?: string;
+            /** @enum {string} */
+            roundStatus?: "DRAFT" | "COLLECTING" | "ASSIGNING" | "SCHEDULED" | "CANCELLED";
+            /** @enum {string} */
+            memberStatus?: "INVITED" | "RESPONDED" | "NO_AVAILABLE_SLOT" | "ASSIGNED" | "EXCLUDED";
+            unresponded?: boolean;
+            alternativeAvailabilityText?: string;
+        };
         QuestionAnswer: {
             question?: string;
             answer?: string;
@@ -3110,6 +5015,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["GlobalEventCardResponse"][];
             message?: string;
+            code?: string;
         };
         GlobalEventCardResponse: {
             /** Format: int64 */
@@ -3127,6 +5033,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["GlobalEventDetailResponse"];
             message?: string;
+            code?: string;
         };
         GlobalEventDetailResponse: {
             /** Format: int64 */
@@ -3143,6 +5050,148 @@ export interface components {
             /** @enum {string} */
             category?: "FAIR" | "FESTIVAL" | "APPLICATION" | "CONTEST" | "UNION" | "OTHER";
         };
+        ApiResponseFederationInquiryDetailResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FederationInquiryDetailResponse"];
+            message?: string;
+            code?: string;
+        };
+        FederationInquiryAnswerResponse: {
+            content?: string;
+            /** Format: date-time */
+            answeredAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        FederationInquiryAttachmentResponse: {
+            /** Format: int64 */
+            id?: number;
+            fileName?: string;
+            contentType?: string;
+            /** Format: int64 */
+            fileSize?: number;
+        };
+        FederationInquiryDetailResponse: {
+            /** Format: int64 */
+            id?: number;
+            title?: string;
+            content?: string;
+            /** @enum {string} */
+            status?: "RECEIVED" | "IN_PROGRESS" | "ANSWERED" | "CLOSED";
+            /** Format: date-time */
+            createdAt?: string;
+            closedReason?: string;
+            answer?: components["schemas"]["FederationInquiryAnswerResponse"];
+            attachments?: components["schemas"]["FederationInquiryAttachmentResponse"][];
+        };
+        ApiResponsePageResponseFederationFaqResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PageResponseFederationFaqResponse"];
+            message?: string;
+            code?: string;
+        };
+        FederationFaqResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            categoryId?: number;
+            categoryName?: string;
+            question?: string;
+            answer?: string;
+            pinned?: boolean;
+        };
+        PageResponseFederationFaqResponse: {
+            content?: components["schemas"]["FederationFaqResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            hasNext?: boolean;
+        };
+        ApiResponseFederationFaqResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FederationFaqResponse"];
+            message?: string;
+            code?: string;
+        };
+        ApiResponseListFederationFaqCategoryResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FederationFaqCategoryResponse"][];
+            message?: string;
+            code?: string;
+        };
+        FederationFaqCategoryResponse: {
+            /** Format: int64 */
+            id?: number;
+            name?: string;
+            /** Format: int32 */
+            sortOrder?: number;
+        };
+        ApiResponseListFacilitySummaryResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FacilitySummaryResponse"][];
+            message?: string;
+            code?: string;
+        };
+        FacilitySummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            roomName?: string;
+            location?: string;
+        };
+        ApiResponseFacilityDetailResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FacilityDetailResponse"];
+            message?: string;
+            code?: string;
+        };
+        FacilityDetailResponse: {
+            yearMonth?: string;
+            /** Format: date-time */
+            lastUpdatedAt?: string;
+            stale?: boolean;
+            /** @enum {string} */
+            source?: "CACHE" | "LIVE_FETCH" | "STALE_CACHE";
+            facility?: components["schemas"]["FacilityUsage"];
+        };
+        FacilityUsage: {
+            /** Format: int64 */
+            id?: number;
+            roomName?: string;
+            location?: string;
+            isUsingNow?: boolean;
+            currentReservation?: components["schemas"]["Reservation"];
+            nextReservation?: components["schemas"]["Reservation"];
+            reservations?: components["schemas"]["Reservation"][];
+        };
+        Reservation: {
+            /** Format: date */
+            date?: string;
+            start?: string;
+            end?: string;
+            organization?: string;
+            /** @enum {string} */
+            status?: "UPCOMING" | "USING" | "FINISHED";
+        };
+        ApiResponseFacilityUsageResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FacilityUsageResponse"];
+            message?: string;
+            code?: string;
+        };
+        FacilityUsageResponse: {
+            yearMonth?: string;
+            /** Format: date-time */
+            lastUpdatedAt?: string;
+            stale?: boolean;
+            /** @enum {string} */
+            source?: "CACHE" | "LIVE_FETCH" | "STALE_CACHE";
+            facilities?: components["schemas"]["FacilityUsage"][];
+        };
         ActiveRecruitmentSummaryResponse: {
             /** Format: int64 */
             recruitmentId?: number;
@@ -3157,6 +5206,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseClubSummaryResponse"];
             message?: string;
+            code?: string;
         };
         ClubSummaryResponse: {
             /** Format: int64 */
@@ -3190,6 +5240,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["RecertificationContextResponse"];
             message?: string;
+            code?: string;
         };
         OpenRoundView: {
             /** Format: int64 */
@@ -3215,10 +5266,34 @@ export interface components {
             openRound?: components["schemas"]["OpenRoundView"];
             pendingRequest?: components["schemas"]["PendingRequestView"];
         };
+        ApiResponseClubNoticeDetailResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["ClubNoticeDetailResponse"];
+            message?: string;
+            code?: string;
+        };
+        ClubNoticeDetailResponse: {
+            /** Format: int64 */
+            id?: number;
+            title?: string;
+            summary?: string;
+            content?: string;
+            /** @enum {string} */
+            contentFormat?: "MARKDOWN" | "HTML";
+            coverImageUrl?: string;
+            pinned?: boolean;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
         ApiResponseMyClubMembershipResponse: {
             ok?: boolean;
             data?: components["schemas"]["MyClubMembershipResponse"];
             message?: string;
+            code?: string;
         };
         ClubActionPermissions: {
             canPostNotice?: boolean;
@@ -3239,11 +5314,31 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["ClubMemberResponse"][];
             message?: string;
+            code?: string;
+        };
+        ApiResponseListClubMemberExportResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["ClubMemberExportResponse"][];
+            message?: string;
+            code?: string;
+        };
+        ClubMemberExportResponse: {
+            /** Format: int64 */
+            memberId?: number;
+            name?: string;
+            studentId?: string;
+            major?: string;
+            phone?: string;
+            /** @enum {string} */
+            role?: "MEMBER" | "OFFICER" | "LEADER";
+            /** Format: date-time */
+            joinedAt?: string;
         };
         ApiResponseListClubEventCardResponse: {
             ok?: boolean;
             data?: components["schemas"]["ClubEventCardResponse"][];
             message?: string;
+            code?: string;
         };
         ClubEventCardResponse: {
             /** Format: int64 */
@@ -3259,6 +5354,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["ClubEventDetailResponse"];
             message?: string;
+            code?: string;
         };
         ClubEventDetailResponse: {
             /** Format: int64 */
@@ -3283,37 +5379,36 @@ export interface components {
             id?: number;
             name?: string;
         };
-        ApiResponseMyInterviewScheduleResponse: {
+        ApiResponseApplicantInterviewResponse: {
             ok?: boolean;
-            data?: components["schemas"]["MyInterviewScheduleResponse"];
+            data?: components["schemas"]["ApplicantInterviewResponse"];
             message?: string;
+            code?: string;
         };
-        InterviewScheduleDetail: {
-            /** Format: int64 */
-            scheduleId?: number;
+        ApplicantInterviewResponse: {
+            /** @enum {string} */
+            phase?: "NOT_APPLICABLE" | "DOCUMENT_REVIEW" | "WAITING_ROUND" | "WAITING_NEXT_ROUND" | "AVAILABILITY_REQUESTED" | "AVAILABILITY_CLOSED" | "RESPONDED" | "NO_SLOT_REPORTED" | "SCHEDULING" | "SCHEDULED";
+            /** Format: date-time */
+            availabilityDeadline?: string;
+            slots?: components["schemas"]["SelectableSlot"][];
+            myAlternativeText?: string;
+            scheduledInterview?: components["schemas"]["ScheduledInterview"];
+        };
+        ScheduledInterview: {
+            /** Format: date-time */
+            startTime?: string;
+            /** Format: date-time */
+            endTime?: string;
+            location?: string;
+        };
+        SelectableSlot: {
             /** Format: int64 */
             slotId?: number;
             /** Format: date-time */
             startTime?: string;
             /** Format: date-time */
             endTime?: string;
-            /** @enum {string} */
-            status?: "ASSIGNED" | "CANCELLED";
-            /** Format: date-time */
-            assignedAt?: string;
-        };
-        MyInterviewScheduleResponse: {
-            assigned?: boolean;
-            schedule?: components["schemas"]["InterviewScheduleDetail"];
-            location?: string;
-        };
-        ApiResponseMyInterviewAvailabilitiesResponse: {
-            ok?: boolean;
-            data?: components["schemas"]["MyInterviewAvailabilitiesResponse"];
-            message?: string;
-        };
-        MyInterviewAvailabilitiesResponse: {
-            slotIds?: number[];
+            selected?: boolean;
         };
         AdminUserSearchResponse: {
             /** Format: int64 */
@@ -3328,6 +5423,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseAdminUserSearchResponse"];
             message?: string;
+            code?: string;
         };
         PageResponseAdminUserSearchResponse: {
             content?: components["schemas"]["AdminUserSearchResponse"][];
@@ -3345,6 +5441,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseReportSummaryResponse"];
             message?: string;
+            code?: string;
         };
         PageResponseReportSummaryResponse: {
             content?: components["schemas"]["ReportSummaryResponse"][];
@@ -3377,6 +5474,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["ReportDetailResponse"];
             message?: string;
+            code?: string;
         };
         ReportDetailResponse: {
             /** Format: int64 */
@@ -3408,6 +5506,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseRecertificationRoundResponse"];
             message?: string;
+            code?: string;
         };
         PageResponseRecertificationRoundResponse: {
             content?: components["schemas"]["RecertificationRoundResponse"][];
@@ -3440,6 +5539,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseRecertificationRequestSummaryResponse"];
             message?: string;
+            code?: string;
         };
         PageResponseRecertificationRequestSummaryResponse: {
             content?: components["schemas"]["RecertificationRequestSummaryResponse"][];
@@ -3479,6 +5579,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["RecertificationRequestDetailResponse"];
             message?: string;
+            code?: string;
         };
         ClubMemberHistoryResponse: {
             /** Format: int64 */
@@ -3554,6 +5655,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseAdminPromotionResponse"];
             message?: string;
+            code?: string;
         };
         PageResponseAdminPromotionResponse: {
             content?: components["schemas"]["AdminPromotionResponse"][];
@@ -3571,11 +5673,13 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["AdminPromotionResponse"];
             message?: string;
+            code?: string;
         };
         ApiResponsePageResponsePromotionRequestSummaryResponse: {
             ok?: boolean;
             data?: components["schemas"]["PageResponsePromotionRequestSummaryResponse"];
             message?: string;
+            code?: string;
         };
         PageResponsePromotionRequestSummaryResponse: {
             content?: components["schemas"]["PromotionRequestSummaryResponse"][];
@@ -3604,6 +5708,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PromotionRequestDetailResponse"];
             message?: string;
+            code?: string;
         };
         PromotionRequestDetailResponse: {
             /** Format: int64 */
@@ -3642,6 +5747,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseAdminNoticeSummaryResponse"];
             message?: string;
+            code?: string;
         };
         PageResponseAdminNoticeSummaryResponse: {
             content?: components["schemas"]["AdminNoticeSummaryResponse"][];
@@ -3659,6 +5765,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseSuccessionRequestSummaryResponse"];
             message?: string;
+            code?: string;
         };
         PageResponseSuccessionRequestSummaryResponse: {
             content?: components["schemas"]["SuccessionRequestSummaryResponse"][];
@@ -3688,6 +5795,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["SuccessionRequestDetailResponse"];
             message?: string;
+            code?: string;
         };
         SuccessionRequestDetailResponse: {
             /** Format: int64 */
@@ -3727,6 +5835,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseAdminGlobalEventSummaryResponse"];
             message?: string;
+            code?: string;
         };
         PageResponseAdminGlobalEventSummaryResponse: {
             content?: components["schemas"]["AdminGlobalEventSummaryResponse"][];
@@ -3764,16 +5873,138 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["AdminGlobalEventDetailResponse"];
             message?: string;
+            code?: string;
         };
         ApiResponseGlobalEventCategoryStatsResponse: {
             ok?: boolean;
             data?: components["schemas"]["GlobalEventCategoryStatsResponse"];
             message?: string;
+            code?: string;
         };
         GlobalEventCategoryStatsResponse: {
             distribution?: {
                 [key: string]: number;
             };
+        };
+        AdminFederationInquirySummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            title?: string;
+            /** @enum {string} */
+            status?: "RECEIVED" | "IN_PROGRESS" | "ANSWERED" | "CLOSED";
+            authorName?: string;
+            authorStudentId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            answeredAt?: string;
+        };
+        ApiResponsePageResponseAdminFederationInquirySummaryResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PageResponseAdminFederationInquirySummaryResponse"];
+            message?: string;
+            code?: string;
+        };
+        PageResponseAdminFederationInquirySummaryResponse: {
+            content?: components["schemas"]["AdminFederationInquirySummaryResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            hasNext?: boolean;
+        };
+        AdminFederationInquiryDetailResponse: {
+            /** Format: int64 */
+            id?: number;
+            title?: string;
+            content?: string;
+            /** @enum {string} */
+            status?: "RECEIVED" | "IN_PROGRESS" | "ANSWERED" | "CLOSED";
+            /** Format: int64 */
+            version?: number;
+            authorName?: string;
+            authorStudentId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            answeredAt?: string;
+            closedReason?: string;
+            answer?: components["schemas"]["FederationInquiryAnswerResponse"];
+            attachments?: components["schemas"]["FederationInquiryAttachmentResponse"][];
+        };
+        ApiResponseAdminFederationInquiryDetailResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["AdminFederationInquiryDetailResponse"];
+            message?: string;
+            code?: string;
+        };
+        AdminFederationFaqResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            categoryId?: number;
+            categoryName?: string;
+            question?: string;
+            answer?: string;
+            pinned?: boolean;
+            published?: boolean;
+            /** Format: int32 */
+            sortOrder?: number;
+            /** Format: int64 */
+            viewCount?: number;
+            /** Format: int64 */
+            helpfulCount?: number;
+            /** Format: int64 */
+            notHelpfulCount?: number;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        ApiResponsePageResponseAdminFederationFaqResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PageResponseAdminFederationFaqResponse"];
+            message?: string;
+            code?: string;
+        };
+        PageResponseAdminFederationFaqResponse: {
+            content?: components["schemas"]["AdminFederationFaqResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            hasNext?: boolean;
+        };
+        ApiResponsePageResponseFederationFaqSearchMissResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PageResponseFederationFaqSearchMissResponse"];
+            message?: string;
+            code?: string;
+        };
+        FederationFaqSearchMissResponse: {
+            keyword?: string;
+            /** Format: int64 */
+            missCount?: number;
+            /** Format: date-time */
+            lastSearchedAt?: string;
+        };
+        PageResponseFederationFaqSearchMissResponse: {
+            content?: components["schemas"]["FederationFaqSearchMissResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            hasNext?: boolean;
         };
         AdminClubSummaryResponse: {
             /** Format: int64 */
@@ -3802,6 +6033,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseAdminClubSummaryResponse"];
             message?: string;
+            code?: string;
         };
         PageResponseAdminClubSummaryResponse: {
             content?: components["schemas"]["AdminClubSummaryResponse"][];
@@ -3819,6 +6051,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseClubMemberHistoryResponse"];
             message?: string;
+            code?: string;
         };
         PageResponseClubMemberHistoryResponse: {
             content?: components["schemas"]["ClubMemberHistoryResponse"][];
@@ -3836,6 +6069,7 @@ export interface components {
             ok?: boolean;
             data?: components["schemas"]["PageResponseCentralClubRecertificationStatusResponse"];
             message?: string;
+            code?: string;
         };
         CentralClubRecertificationStatusResponse: {
             /** Format: int64 */
@@ -3857,6 +6091,36 @@ export interface components {
             /** Format: int32 */
             totalPages?: number;
             hasNext?: boolean;
+        };
+        ApiResponseBankMatchingOverviewResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["BankMatchingOverviewResponse"];
+            message?: string;
+            code?: string;
+        };
+        BankMatchingClubResponse: {
+            /** Format: int64 */
+            clubId?: number;
+            clubName?: string;
+            /** @enum {string} */
+            bank?: "KB" | "SHINHAN" | "WOORI" | "HANA" | "NH" | "IBK" | "KAKAO" | "TOSS" | "SC" | "BUSAN" | "IM" | "KYONGNAM" | "GWANGJU" | "JEONBUK" | "MG" | "SHINHYUP" | "POST" | "KDB" | "SUHYUP";
+            accountHolder?: string;
+            maskedAccountNumber?: string;
+            eligible?: boolean;
+            ineligibleReason?: string;
+            registered?: boolean;
+        };
+        BankMatchingOverviewResponse: {
+            clubs?: components["schemas"]["BankMatchingClubResponse"][];
+            slots?: components["schemas"]["SlotStatus"];
+        };
+        SlotStatus: {
+            /** Format: int32 */
+            registeredCount?: number;
+            /** Format: int32 */
+            maxAccounts?: number;
+            /** Format: int32 */
+            remaining?: number;
         };
     };
     responses: never;
@@ -3930,6 +6194,126 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    assignSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roundId: number;
+                memberId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignScheduleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    unassignSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roundId: number;
+                memberId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    get_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFeeAccountResponse"];
+                };
+            };
+        };
+    };
+    upsert_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertFeeAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    delete_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
             };
         };
     };
@@ -4007,29 +6391,7 @@ export interface operations {
             };
         };
     };
-    getMySchedule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                applicationId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseMyInterviewScheduleResponse"];
-                };
-            };
-        };
-    };
-    assign: {
+    respondAvailability: {
         parameters: {
             query?: never;
             header?: never;
@@ -4040,73 +6402,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AssignInterviewScheduleRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    cancel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                applicationId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    findMyAvailabilities: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                applicationId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseMyInterviewAvailabilitiesResponse"];
-                };
-            };
-        };
-    };
-    replace: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                applicationId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateAvailabilityRequest"];
+                "application/json": components["schemas"]["RespondInterviewAvailabilityRequest"];
             };
         };
         responses: {
@@ -4118,6 +6414,54 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
                 };
+            };
+        };
+    };
+    reorderFaqs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderFederationFaqsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    updateBankMatching: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBankMatchingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -4141,150 +6485,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseLong"];
-                };
-            };
-        };
-    };
-    listSlots: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recruitmentId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListSlotListView"];
-                };
-            };
-        };
-    };
-    createBulk: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recruitmentId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateInterviewSlotsRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseCreateInterviewSlotsResponse"];
-                };
-            };
-        };
-    };
-    autoAssign: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recruitmentId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseAutoAssignResultResponse"];
-                };
-            };
-        };
-    };
-    get_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recruitmentId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseInterviewConfigResponse"];
-                };
-            };
-        };
-    };
-    create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recruitmentId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateInterviewConfigRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseCreateInterviewConfigResponse"];
-                };
-            };
-        };
-    };
-    update: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recruitmentId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateInterviewConfigRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };
@@ -4357,6 +6557,215 @@ export interface operations {
             };
         };
     };
+    getRounds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recruitmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListRoundSummaryResponse"];
+                };
+            };
+        };
+    };
+    createRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recruitmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInterviewRoundRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCreateInterviewRoundResponse"];
+                };
+            };
+        };
+    };
+    createSlots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roundId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInterviewSlotsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCreateInterviewSlotsResponse"];
+                };
+            };
+        };
+    };
+    requestAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roundId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAvailabilityRequestResponse"];
+                };
+            };
+        };
+    };
+    remind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roundId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAvailabilityRequestResponse"];
+                };
+            };
+        };
+    };
+    excludeMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roundId: number;
+                memberId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    confirmRound: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                roundId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseConfirmRoundResponse"];
+                };
+            };
+        };
+    };
+    cancelRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roundId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    autoAssign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roundId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAutoAssignResponse"];
+                };
+            };
+        };
+    };
     createRecruitment: {
         parameters: {
             query?: never;
@@ -4409,10 +6818,318 @@ export interface operations {
             };
         };
     };
+    getPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListFeePolicyResponse"];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFeePolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    generate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                policyId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateBillsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGenerateBillsResponse"];
+                };
+            };
+        };
+    };
+    getPayments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                billId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListPaymentResponse"];
+                };
+            };
+        };
+    };
+    record: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                billId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordPaymentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    voidPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                billId: number;
+                paymentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoidPaymentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    getEntries: {
+        parameters: {
+            query: {
+                entryType?: "INCOME" | "EXPENSE";
+                categoryCode?: "FEE" | "SPONSOR" | "SUBSIDY" | "MT" | "DINING" | "SNACK" | "SUPPLY" | "MARKETING" | "OTHER";
+                from?: string;
+                to?: string;
+                keyword?: string;
+                hideExcluded?: boolean;
+                pageable: components["schemas"]["Pageable"];
+            };
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseCashbookEntryResponse"];
+                };
+            };
+        };
+    };
+    create_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCashbookEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    unmatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                txId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    ignore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                txId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                txId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveMatchRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    sync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncBankTransactionsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSyncResultResponse"];
+                };
+            };
+        };
+    };
     upload: {
         parameters: {
             query: {
-                purpose: "LOGO" | "COVER" | "PHOTO" | "NOTICE_COVER" | "PROMOTION_BANNER" | "GLOBAL_EVENT_COVER" | "PROMOTION_REQUEST_BANNER";
+                purpose: "LOGO" | "COVER" | "PHOTO" | "NOTICE_COVER" | "NOTICE_BODY" | "PROMOTION_BANNER" | "GLOBAL_EVENT_COVER" | "PROMOTION_REQUEST_BANNER" | "FEDERATION_INQUIRY";
             };
             header?: never;
             path?: never;
@@ -4434,6 +7151,56 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseFileUploadResponse"];
+                };
+            };
+        };
+    };
+    createInquiry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFederationInquiryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    submitFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                faqId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitFederationFaqFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };
@@ -4563,7 +7330,7 @@ export interface operations {
             };
         };
     };
-    create_1: {
+    create_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -4663,7 +7430,7 @@ export interface operations {
             };
         };
     };
-    create_2: {
+    create_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -4713,6 +7480,26 @@ export interface operations {
             };
         };
     };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 로그아웃 성공 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -4733,6 +7520,86 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseLoginResponse"];
+                };
+            };
+        };
+    };
+    sendEmailVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendEmailVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description 발송됨 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseEmailVerificationResponse"];
+                };
+            };
+            /** @description 이미 가입된 이메일 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseEmailVerificationResponse"];
+                };
+            };
+        };
+    };
+    confirmEmailVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmEmailVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description 인증 성공 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    forceLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 강제 로그아웃 대상 사용자 ID */
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };
@@ -4908,7 +7775,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -4918,6 +7785,130 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateGlobalEventRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    registerAnswer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerFederationInquiryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    updateAnswer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFederationInquiryAnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    getAdminFaqs: {
+        parameters: {
+            query?: {
+                published?: boolean;
+                categoryId?: number;
+                keyword?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseAdminFederationFaqResponse"];
+                };
+            };
+        };
+    };
+    createFaq: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFederationFaqRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    createCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFederationFaqCategoryRequest"];
             };
         };
         responses: {
@@ -5011,6 +8002,114 @@ export interface operations {
             };
         };
     };
+    closeClub: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CloseClubRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseUserResponse"];
+                };
+            };
+        };
+    };
+    withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     read: {
         parameters: {
             query?: never;
@@ -5069,6 +8168,26 @@ export interface operations {
             };
         };
     };
+    deleteRecruitment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recruitmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     updateRecruitment: {
         parameters: {
             query?: never;
@@ -5110,6 +8229,229 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    deleteSlot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slotId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    updateSlot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slotId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInterviewSlotRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    getRoundDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roundId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRoundDetailResponse"];
+                };
+            };
+        };
+    };
+    updateRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roundId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInterviewRoundRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    delete_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                policyId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                policyId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFeePolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    delete_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                entryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    update_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                entryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCashbookEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    setExclusion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                entryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCashbookExclusionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
             };
         };
     };
@@ -5163,12 +8505,34 @@ export interface operations {
             };
         };
     };
-    deleteSlot: {
+    getInquiry: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                slotId: number;
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFederationInquiryDetailResponse"];
+                };
+            };
+        };
+    };
+    deleteInquiry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inquiryId: number;
             };
             cookie?: never;
         };
@@ -5185,18 +8549,18 @@ export interface operations {
             };
         };
     };
-    updateSlot: {
+    updateInquiry: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                slotId: number;
+                inquiryId: number;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateInterviewSlotRequest"];
+                "application/json": components["schemas"]["UpdateFederationInquiryRequest"];
             };
         };
         responses: {
@@ -5305,7 +8669,30 @@ export interface operations {
             };
         };
     };
-    delete_1: {
+    getDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                noticeId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseClubNoticeDetailResponse"];
+                };
+            };
+        };
+    };
+    delete_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -5328,7 +8715,7 @@ export interface operations {
             };
         };
     };
-    update_1: {
+    update_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -5380,7 +8767,7 @@ export interface operations {
             };
         };
     };
-    getDetail: {
+    getDetail_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -5403,7 +8790,7 @@ export interface operations {
             };
         };
     };
-    delete_2: {
+    delete_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -5426,7 +8813,7 @@ export interface operations {
             };
         };
     };
-    update_2: {
+    update_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -5807,7 +9194,7 @@ export interface operations {
             };
         };
     };
-    getDetail_1: {
+    getDetail_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -5829,7 +9216,7 @@ export interface operations {
             };
         };
     };
-    delete_3: {
+    delete_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -5851,7 +9238,7 @@ export interface operations {
             };
         };
     };
-    update_3: {
+    update_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -5863,6 +9250,130 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateGlobalEventRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    changeStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFederationInquiryStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    deleteFaq: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                faqId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    updateFaq: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                faqId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFederationFaqRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    deleteCategory: {
+        parameters: {
+            query?: {
+                moveToCategoryId?: number;
+            };
+            header?: never;
+            path: {
+                categoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    updateCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                categoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFederationFaqCategoryRequest"];
             };
         };
         responses: {
@@ -5929,26 +9440,6 @@ export interface operations {
             };
         };
     };
-    getMe: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseUserResponse"];
-                };
-            };
-        };
-    };
     getMyApplications: {
         parameters: {
             query?: {
@@ -5990,6 +9481,26 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["ApiResponseMyApplicationDetailResponse"];
                 };
+            };
+        };
+    };
+    withdraw_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -6041,13 +9552,13 @@ export interface operations {
             };
         };
     };
-    listSchedules: {
+    listRecentActivities: {
         parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recruitmentId: number;
+            query?: {
+                limit?: number;
             };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -6058,51 +9569,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseListScheduleListView"];
-                };
-            };
-        };
-    };
-    listCandidates: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recruitmentId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseMatchingCandidatesResponse"];
-                };
-            };
-        };
-    };
-    list_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recruitmentId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListApplicantInterviewSlotResponse"];
+                    "*/*": components["schemas"]["ApiResponsePublicActivityResponse"];
                 };
             };
         };
@@ -6133,6 +9600,7 @@ export interface operations {
                 category?: "FESTIVAL" | "FAIR" | "FUNDING" | "CONTEST" | "GENERAL";
                 tags?: string[];
                 keyword?: string;
+                source?: "SCHOOL" | "CLUB";
             };
             header?: never;
             path?: never;
@@ -6173,7 +9641,52 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    getMyFees: {
+        parameters: {
+            query?: {
+                clubId?: number;
+                status?: "PENDING" | "PAID" | "PARTIAL_PAID" | "OVERDUE" | "CANCELLED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListMyFeeResponse"];
+                };
+            };
+        };
+    };
+    getMyReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                billId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseReceiptResponse"];
+                };
+            };
+        };
+    };
+    list_1: {
         parameters: {
             query: {
                 unreadOnly?: boolean;
@@ -6212,6 +9725,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseUnreadCountResponse"];
+                };
+            };
+        };
+    };
+    listMine: {
+        parameters: {
+            query?: {
+                status?: "RECEIVED" | "IN_PROGRESS" | "ANSWERED" | "CLOSED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseFederationInquirySummaryResponse"];
                 };
             };
         };
@@ -6344,6 +9879,34 @@ export interface operations {
             };
         };
     };
+    getRoundCandidates: {
+        parameters: {
+            query?: {
+                /**
+                 * @description 서류 검토 중(UNDER_REVIEW) 지원자 포함 여부
+                 * @example true
+                 */
+                includeUnderReview?: boolean;
+            };
+            header?: never;
+            path: {
+                recruitmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListRoundCandidateResponse"];
+                };
+            };
+        };
+    };
     getApplicants: {
         parameters: {
             query?: {
@@ -6441,6 +10004,156 @@ export interface operations {
             };
         };
     };
+    getBills: {
+        parameters: {
+            query: {
+                billingPeriod?: string;
+                status?: "PENDING" | "PAID" | "PARTIAL_PAID" | "OVERDUE" | "CANCELLED";
+                userId?: number;
+                pageable: components["schemas"]["Pageable"];
+            };
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseFeeBillResponse"];
+                };
+            };
+        };
+    };
+    getReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                billId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseReceiptResponse"];
+                };
+            };
+        };
+    };
+    getSummary_1: {
+        parameters: {
+            query?: {
+                billingPeriod?: string;
+                policyId?: number;
+            };
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFeeSummaryResponse"];
+                };
+            };
+        };
+    };
+    getSummary_2: {
+        parameters: {
+            query?: {
+                entryType?: "INCOME" | "EXPENSE";
+                categoryCode?: "FEE" | "SPONSOR" | "SUBSIDY" | "MT" | "DINING" | "SNACK" | "SUPPLY" | "MARKETING" | "OTHER";
+                from?: string;
+                to?: string;
+                keyword?: string;
+            };
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCashbookSummaryResponse"];
+                };
+            };
+        };
+    };
+    list_2: {
+        parameters: {
+            query: {
+                status?: "PENDING" | "AUTO_MATCHED" | "MANUAL_MATCHED" | "IGNORED";
+                pageable: components["schemas"]["Pageable"];
+            };
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseBankTransactionResponse"];
+                };
+            };
+        };
+    };
+    matchingStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseBankMatchingStatusResponse"];
+                };
+            };
+        };
+    };
     getManagedClubs: {
         parameters: {
             query?: never;
@@ -6507,7 +10220,7 @@ export interface operations {
             };
         };
     };
-    getDetail_2: {
+    getDetail_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -6525,6 +10238,160 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseGlobalEventDetailResponse"];
+                };
+            };
+        };
+    };
+    downloadAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inquiryId: number;
+                attachmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
+    getFaqs: {
+        parameters: {
+            query?: {
+                categoryId?: number;
+                keyword?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseFederationFaqResponse"];
+                };
+            };
+        };
+    };
+    getFaq: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                faqId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFederationFaqResponse"];
+                };
+            };
+        };
+    };
+    getCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListFederationFaqCategoryResponse"];
+                };
+            };
+        };
+    };
+    listFacilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListFacilitySummaryResponse"];
+                };
+            };
+        };
+    };
+    getFacilityDetail: {
+        parameters: {
+            query?: {
+                yearMonth?: string;
+            };
+            header?: never;
+            path: {
+                facilityId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFacilityDetailResponse"];
+                };
+            };
+        };
+    };
+    getUsage: {
+        parameters: {
+            query?: {
+                yearMonth?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFacilityUsageResponse"];
                 };
             };
         };
@@ -6654,6 +10521,74 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListClubMemberResponse"];
+                };
+            };
+        };
+    };
+    exportMembers: {
+        parameters: {
+            query?: {
+                includePhone?: boolean;
+            };
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListClubMemberExportResponse"];
+                };
+            };
+        };
+    };
+    get_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFeeAccountResponse"];
+                };
+            };
+        };
+    };
+    getMyInterview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseApplicantInterviewResponse"];
                 };
             };
         };
@@ -6793,6 +10728,71 @@ export interface operations {
             };
         };
     };
+    getInquiries: {
+        parameters: {
+            query?: {
+                status?: "RECEIVED" | "IN_PROGRESS" | "ANSWERED" | "CLOSED";
+                keyword?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseAdminFederationInquirySummaryResponse"];
+                };
+            };
+        };
+    };
+    getInquiry_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminFederationInquiryDetailResponse"];
+                };
+            };
+        };
+    };
+    getSearchMisses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseFederationFaqSearchMissResponse"];
+                };
+            };
+        };
+    };
     getAdminClub: {
         parameters: {
             query?: never;
@@ -6855,6 +10855,49 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponsePageResponseCentralClubRecertificationStatusResponse"];
+                };
+            };
+        };
+    };
+    getBankMatchingOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseBankMatchingOverviewResponse"];
+                };
+            };
+        };
+    };
+    cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                billId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };

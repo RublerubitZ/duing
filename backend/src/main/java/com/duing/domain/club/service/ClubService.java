@@ -22,6 +22,9 @@ public interface ClubService {
 
     ClubDetailQuery getById(Long clubId);
 
+    /** 학생/공개용 상세 — 운영 중(ACTIVE) 동아리만. 그 외 상태는 ClubNotFoundException(404). */
+    ClubDetailQuery getActiveById(Long clubId);
+
     void update(UpdateClubCommand updateClubCommand);
 
     void updateStatus(UpdateClubStatusCommand updateClubStatusCommand);

@@ -32,6 +32,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -43,6 +44,7 @@ class ClubMemberMutationControllerTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -120,6 +122,29 @@ class ClubMemberMutationControllerTest extends IntegrationTestBase {
                             club.getId(), memberMembership.getId())
                 .then()
                     .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리에서는 멤버 역할을 변경할 수 없다")
+    void inactiveClubCannotChangeMemberRole() {
+        // 셋업은 ACTIVE — 운영 중단(INACTIVE) 상태로 직접 전환해 운영 행위 게이트(Part C)를 검증한다.
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("role", "OFFICER"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/members/{memberId}/role",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.FORBIDDEN.value())
+                    .body("ok", equalTo(false))
+                    .body("message", equalTo("운영 종료된 동아리입니다."));
+
+        assertThat(clubMemberRepository.findById(memberMembership.getId()).orElseThrow().getRole())
+                .isEqualTo(ClubMemberRole.MEMBER);
     }
 
     // ── 3.5 DELETE member ────────────────────────────────────────────────
@@ -236,7 +261,6 @@ class ClubMemberMutationControllerTest extends IntegrationTestBase {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 name,
-                "u" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

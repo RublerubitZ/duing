@@ -27,6 +27,12 @@ import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -118,6 +124,119 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
                 .then()
                     .statusCode(HttpStatus.BAD_REQUEST.value())
                     .body("ok", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("ADMIN 이 거절(REJECTED) 동아리를 폐쇄하면 204 가 반환되고 soft-delete 되며 멤버십이 제거된다")
+    void adminClosesRejectedClub() throws Exception {
+        Club rejectedClub = saveClubWithLeader("거절폐쇄클럽", ClubStatus.REJECTED);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                .when()
+                    .post("/api/v1/admin/clubs/{clubId}/close", rejectedClub.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when()
+                    .get("/api/v1/admin/clubs?size=100&keyword=거절폐쇄클럽")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.content.size()", equalTo(0));
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when()
+                    .get("/api/v1/admin/clubs/{clubId}", rejectedClub.getId())
+                .then()
+                    .statusCode(HttpStatus.NOT_FOUND.value());
+
+        Assertions.assertTrue(
+                clubMemberRepository.findByClubIdAndUserId(rejectedClub.getId(), leaderUser.getId()).isEmpty());
+
+        LocalDateTime clubDeletedAt = jdbcTemplate.queryForObject(
+                "SELECT deleted_at FROM club WHERE id = ?", LocalDateTime.class, rejectedClub.getId());
+        Assertions.assertNotNull(clubDeletedAt);
+    }
+
+    @Test
+    @DisplayName("승인 대기(PENDING_APPROVAL) 동아리를 폐쇄하려 하면 400 이 반환된다")
+    void closingPendingClubIsRejected() throws Exception {
+        Club pendingClub = saveClubWithLeader("승인대기폐쇄거부클럽", ClubStatus.PENDING_APPROVAL);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                .when()
+                    .post("/api/v1/admin/clubs/{clubId}/close", pendingClub.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("ok", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("재심사 전환과 폐쇄가 동시에 요청되어도 재심사 상태 동아리가 삭제되지 않는다")
+    void concurrentReopenAndCloseNeverDeletesPendingClub() throws Exception {
+        Club rejectedClub = saveClubWithLeader("경합폐쇄클럽", ClubStatus.REJECTED);
+        long clubId = rejectedClub.getId();
+
+        // 트랜잭션 밖에서 실제 HTTP 요청 2개를 동시에 출발시켜, 폐쇄와 상태변경이 같은 행 잠금으로
+        // 직렬화되는지 검증한다 (팀 전례: ExecutorService + CountDownLatch 실스레드 경합).
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Integer> statusCodes;
+        try {
+            Future<Integer> closeStatusCode = executor.submit(() -> {
+                ready.countDown();
+                start.await(5, TimeUnit.SECONDS);
+                return RestAssured.given()
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(ContentType.JSON)
+                        .when().post("/api/v1/admin/clubs/{clubId}/close", clubId)
+                        .then().extract().statusCode();
+            });
+            Future<Integer> reopenStatusCode = executor.submit(() -> {
+                ready.countDown();
+                start.await(5, TimeUnit.SECONDS);
+                return RestAssured.given()
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(ContentType.JSON)
+                        .body(Map.of("status", ClubStatus.PENDING_APPROVAL.name()))
+                        .when().patch("/api/v1/admin/clubs/{clubId}/status", clubId)
+                        .then().extract().statusCode();
+            });
+            ready.await(5, TimeUnit.SECONDS);
+            start.countDown();
+            statusCodes = List.of(
+                    closeStatusCode.get(30, TimeUnit.SECONDS),
+                    reopenStatusCode.get(30, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+        }
+
+        // 한쪽은 반드시 성공(204)하고, 어느 쪽도 서버 오류(5xx)로 끝나지 않는다
+        Assertions.assertTrue(statusCodes.contains(HttpStatus.NO_CONTENT.value()),
+                "응답 코드: " + statusCodes);
+        Assertions.assertTrue(statusCodes.stream().allMatch(statusCode -> statusCode < 500),
+                "응답 코드: " + statusCodes);
+
+        // 불변식: 삭제됐다면 status 는 여전히 REJECTED 여야 한다 — 재심사 대기(PENDING_APPROVAL)
+        // 로 전환된 동아리가 soft-delete 되는 조합은 어떤 직렬화 순서에서도 나올 수 없다.
+        // (@SQLRestriction 우회를 위해 raw SQL 로 조회)
+        Map<String, Object> clubRow = jdbcTemplate.queryForMap(
+                "SELECT status, deleted_at FROM club WHERE id = ?", clubId);
+        boolean softDeleted = clubRow.get("deleted_at") != null;
+        String finalStatus = (String) clubRow.get("status");
+        Assertions.assertFalse(softDeleted && "PENDING_APPROVAL".equals(finalStatus),
+                "재심사 대기 상태 동아리가 soft-delete 되었습니다: " + clubRow);
     }
 
     @Test
@@ -228,7 +347,6 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 name,
-                "u" + unique + "@daegu.ac.kr",
                 "hashed",
                 role,
                 Grade.FRESHMAN,

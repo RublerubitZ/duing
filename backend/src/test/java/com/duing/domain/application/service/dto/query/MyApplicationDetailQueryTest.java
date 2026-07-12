@@ -5,10 +5,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -80,8 +82,10 @@ class MyApplicationDetailQueryTest {
         when(club.getId()).thenReturn(7L);
         when(club.getName()).thenReturn("동아리");
 
+        RecruitmentQuestion questionOne = RecruitmentQuestion.createText("Q1");
+        RecruitmentQuestion questionTwo = RecruitmentQuestion.createText("Q2");
         RecruitmentForm form = mock(RecruitmentForm.class);
-        when(form.getQuestions()).thenReturn(List.of("Q1", "Q2"));
+        when(form.getQuestions()).thenReturn(List.of(questionOne, questionTwo));
 
         Recruitment recruitment = mock(Recruitment.class);
         when(recruitment.getId()).thenReturn(3L);
@@ -92,7 +96,9 @@ class MyApplicationDetailQueryTest {
         Application application = mock(Application.class);
         when(application.getId()).thenReturn(1L);
         when(application.getRecruitment()).thenReturn(recruitment);
-        when(application.getAnswers()).thenReturn(List.of("A1", "A2"));
+        when(application.getAnswers()).thenReturn(List.of(
+                new ApplicationAnswer(questionOne.id(), List.of("A1")),
+                new ApplicationAnswer(questionTwo.id(), List.of("A2"))));
         when(application.getStatus()).thenReturn(ApplicationStatus.INTERVIEW_PENDING);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 15, 9, 30));
         return application;

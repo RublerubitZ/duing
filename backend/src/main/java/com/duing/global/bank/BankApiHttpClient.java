@@ -28,7 +28,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 /**
- * {@link BankApiClient} 의 RestClient 구현. {@link com.duing.global.email.ResendEmailSender} 의
+ * {@link BankApiClient} 의 RestClient 구현. {@link com.duing.global.email.ResendMailProvider} 의
  * PII-safe 로깅 패턴을 따른다 — 요청 바디(계좌비밀번호·주민번호·계좌번호)는 절대 로그에 남기지 않고,
  * 실패 로그는 HTTP 상태/에러코드 같은 비민감 정보만 남긴다.
  *

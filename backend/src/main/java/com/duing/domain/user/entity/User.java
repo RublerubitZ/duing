@@ -29,9 +29,6 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String email;
-
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
@@ -53,6 +50,10 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 13)
     private String phone;
 
+    /** MO 인증 완료 시각 — null 은 전환 이전 자기신고 번호(미인증). 운영 구분·소급 인증 유도 근거 (spec §9.1). */
+    @Column(name = "phone_verified_at")
+    private LocalDateTime phoneVerifiedAt;
+
     @Column(name = "terms_agreed_at", nullable = false)
     private LocalDateTime termsAgreedAt;
 
@@ -69,7 +70,6 @@ public class User extends BaseEntity {
     private User(
             String studentId,
             String name,
-            String email,
             String passwordHash,
             UserRole role,
             Grade grade,
@@ -80,7 +80,6 @@ public class User extends BaseEntity {
     ) {
         this.studentId = studentId;
         this.name = name;
-        this.email = email;
         this.passwordHash = passwordHash;
         this.role = role;
         this.grade = grade;
@@ -93,7 +92,6 @@ public class User extends BaseEntity {
     public static User create(
             String studentId,
             String name,
-            String email,
             String passwordHash,
             UserRole role,
             Grade grade,
@@ -105,7 +103,6 @@ public class User extends BaseEntity {
         return User.builder()
                 .studentId(studentId)
                 .name(name)
-                .email(email)
                 .passwordHash(passwordHash)
                 .role(role)
                 .grade(grade)
@@ -144,10 +141,9 @@ public class User extends BaseEntity {
         this.tokenVersion += 1;
     }
 
-    /** 프로필(이름·전화번호·학년)을 수정한다. 학번·이메일은 변경 대상이 아니다. 학년은 선택값으로, null 전달 시 기존 값을 유지한다. */
-    public void updateProfile(String name, String phone, Grade grade) {
+    /** 프로필(이름·학년)을 수정한다. 학번·전화번호는 변경 대상이 아니다(번호 변경은 MO 재인증 필요). 학년은 선택값으로, null 전달 시 기존 값을 유지한다. */
+    public void updateProfile(String name, Grade grade) {
         this.name = name;
-        this.phone = phone;
         if (grade != null) {       // 학년은 선택 — 전달되지 않으면(null) 기존 값을 유지한다
             this.grade = grade;
         }
@@ -156,5 +152,19 @@ public class User extends BaseEntity {
     /** 비밀번호 해시를 교체한다. 인코딩은 호출 측(서비스)에서 책임진다. */
     public void changePassword(String newPasswordHash) {
         this.passwordHash = newPasswordHash;
+    }
+
+    /** 현재 phone 이 MO 인증을 통과한 번호임을 확정한다 — signup(및 PR4 번호 변경)에서만 호출한다. */
+    public void markPhoneVerified(LocalDateTime verifiedAt) {
+        this.phoneVerifiedAt = verifiedAt;
+    }
+
+    /**
+     * MO 재인증을 통과한 새 번호로 교체하고 인증 시각을 갱신한다 (spec §7.5).
+     * 같은 번호 재인증(소급 인증)도 이 메서드를 그대로 쓴다 — phone 값은 같고 verifiedAt 만 갱신된다.
+     */
+    public void changePhone(String newPhone, LocalDateTime verifiedAt) {
+        this.phone = newPhone;
+        markPhoneVerified(verifiedAt);
     }
 }

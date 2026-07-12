@@ -7,6 +7,8 @@ export const applicationQueryKeys = {
     [...applicationQueryKeys.allMyLists, { scope }] as const,
   myDetail: (applicationId: number) =>
     [...applicationQueryKeys.allMyLists, applicationId] as const,
+  eligibility: (recruitmentId: number) =>
+    [...applicationQueryKeys.all, 'eligibility', recruitmentId] as const,
   applicantsAll: () => [...applicationQueryKeys.all, 'applicants'] as const,
   applicants: (recruitmentId: number, filters?: ApplicantsFilters) =>
     [...applicationQueryKeys.all, 'applicants', recruitmentId, filters ?? {}] as const,

@@ -1,6 +1,7 @@
 package com.duing.domain.favorite.service;
 
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.favorite.entity.ClubFavorite;
@@ -28,6 +29,11 @@ public class GeneralClubFavoriteService implements ClubFavoriteService {
     @Override
     @Transactional
     public Long add(Long userId, Long clubId) {
+        // 학생에게 노출되지 않는 비 ACTIVE 동아리는 존재 은닉을 위해 404 로 응답한다.
+        // (중복 찜 409 보다 먼저 검사해, 기존 찜 여부로 비공개 동아리의 존재가 드러나지 않게 한다)
+        if (!clubRepository.existsByIdAndStatus(clubId, ClubStatus.ACTIVE)) {
+            throw new ClubException.ClubNotFoundException();
+        }
         if (favoriteRepository.existsByUserIdAndClubId(userId, clubId)) {
             throw new FavoriteException.AlreadyFavoritedException();
         }
@@ -66,7 +72,8 @@ public class GeneralClubFavoriteService implements ClubFavoriteService {
 
     @Override
     public List<Long> getMyFavoriteClubIds(Long userId) {
-        return favoriteRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
+        return favoriteRepository
+                .findAllByUserIdAndClubStatusOrderByCreatedAtDesc(userId, ClubStatus.ACTIVE).stream()
                 .map(favorite -> favorite.getClub().getId())
                 .toList();
     }

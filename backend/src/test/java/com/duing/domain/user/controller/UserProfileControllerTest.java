@@ -1,6 +1,9 @@
 package com.duing.domain.user.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.not;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -46,7 +49,6 @@ class UserProfileControllerTest extends IntegrationTestBase {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 "프로필테스터",
-                "profile-" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 grade,
@@ -82,7 +84,7 @@ class UserProfileControllerTest extends IntegrationTestBase {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(ContentType.JSON)
-                .body("{\"name\":\"수정이름\",\"phone\":\"010-1234-5678\",\"grade\":\"SENIOR\"}")
+                .body("{\"name\":\"수정이름\",\"grade\":\"SENIOR\"}")
                 .when().patch("/api/v1/users/me")
                 .then()
                 .statusCode(HttpStatus.NO_CONTENT.value());
@@ -104,7 +106,7 @@ class UserProfileControllerTest extends IntegrationTestBase {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(ContentType.JSON)
-                .body("{\"name\":\"수정이름\",\"phone\":\"010-9876-5432\"}")
+                .body("{\"name\":\"수정이름\"}")
                 .when().patch("/api/v1/users/me")
                 .then()
                 .statusCode(HttpStatus.NO_CONTENT.value());
@@ -115,5 +117,36 @@ class UserProfileControllerTest extends IntegrationTestBase {
                 .then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.grade", equalTo("JUNIOR"));
+    }
+
+    @Test
+    @DisplayName("내 정보 응답에 email 필드가 더 이상 존재하지 않는다")
+    void getMeDoesNotExposeEmail() {
+        User user = saveUser(Grade.JUNIOR);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(user))
+                .when().get("/api/v1/users/me")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data", not(hasKey("email")));
+    }
+
+    @Test
+    @DisplayName("프로필 수정 요청에 phone 을 보내도 저장된 전화번호는 바뀌지 않는다(번호 변경 불가)")
+    void updateProfileIgnoresPhoneInBody() {
+        User user = saveUser(Grade.JUNIOR);
+        String originalPhone = user.getPhone();
+        String token = tokenFor(user);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"수정이름\",\"phone\":\"010-0101-0101\",\"grade\":\"SENIOR\"}")
+                .when().patch("/api/v1/users/me")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        User reloaded = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(reloaded.getPhone()).isEqualTo(originalPhone);
     }
 }

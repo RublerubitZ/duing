@@ -6,7 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   useRecertificationContextQuery,
   useSubmitRecertificationRequestMutation,
-  useMeQuery,
 } from '@duing/hooks';
 import { submitRecertificationRequestSchema } from '@duing/schemas';
 import type { SubmitRecertificationRequestInput } from '@duing/schemas';
@@ -181,7 +180,6 @@ function RecertificationForm({
   openRoundLabel: string;
   onClose: () => void;
 }) {
-  const { data: me } = useMeQuery();
   const submitRequest = useSubmitRecertificationRequestMutation(clubId);
 
   const {
@@ -192,7 +190,7 @@ function RecertificationForm({
   } = useForm<SubmitRecertificationRequestInput>({
     resolver: zodResolver(submitRecertificationRequestSchema),
     defaultValues: {
-      contactEmail: me?.email ?? '',
+      contactEmail: '',
       contactPhone: '',
       operatingYear: openRoundYear,
       notes: '',

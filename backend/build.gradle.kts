@@ -47,6 +47,14 @@ dependencies {
     // JWT
     implementation("com.auth0:java-jwt:4.4.0")
 
+    // spring-retry — SchoolFacilityClient 룸 단위 재시도(@Retryable, 총 4회 / 0.5·1·2초 / 5xx·네트워크·타임아웃만).
+    // @Retryable 은 AOP 프록시로 동작하므로 spring-boot-starter-aop 가 필요하다. 버전은 Spring Boot BOM 이 관리한다.
+    implementation("org.springframework.retry:spring-retry")
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
+    // Spring Mail — Brevo SMTP 폴백 발송(JavaMailSender). Resend 장애(429/5xx/타임아웃) 시에만 사용.
+    implementation("org.springframework.boot:spring-boot-starter-mail")
+
     // HTML sanitizer — 공지 본문(HTML 포맷) 서버측 XSS 정제
     implementation("org.jsoup:jsoup:1.18.3")
 
@@ -107,6 +115,9 @@ tasks.named<Delete>("clean") {
 
 tasks.test {
     useJUnitPlatform()
+    // @SpringBootTest 컨텍스트가 늘며 기본 힙(512m)으로는 스위트 후반에 OOM 으로 컨텍스트 로드가
+    // 실패한다(예: PrivacyRetentionSchedulingWiringTest). 캐시된 컨텍스트를 수용할 상한을 명시한다.
+    maxHeapSize = "2g"
 }
 
 // 컨테이너 이미지에는 실행가능한 bootJar 하나만 필요하므로 plain jar 생성을 끈다(build/libs 단일화 → Dockerfile COPY 단순화).

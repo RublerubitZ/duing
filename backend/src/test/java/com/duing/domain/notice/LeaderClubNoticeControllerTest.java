@@ -43,6 +43,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -56,6 +57,7 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired NoticeRepository noticeRepository;
     @Autowired NoticeTargetClubRepository targetClubRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -70,6 +72,9 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
         Club club = clubRepository.save(Club.create("동아리A",
                 ClubCategory.ACADEMIC, null, "설명", null));
         clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 멤버용 공지 조회는 ACTIVE 동아리만 허용되므로,
+        // 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
 
         User leader = saveUser();
         User officer = saveUser();
@@ -85,8 +90,7 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
 
     private User saveUser() {
         long seq = sequence.incrementAndGet();
-        return userRepository.save(User.create("20" + seq, "U" + seq,
-                "u" + seq + "@duing.ac.kr", "h", UserRole.STUDENT,
+        return userRepository.save(User.create("20" + seq, "U" + seq, "h", UserRole.STUDENT,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
     }
 
@@ -273,6 +277,51 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("운영 중단된 동아리에서는 공지를 작성할 수 없다")
+    void inactiveClubManagerCannotCreateNotice() {
+        // 셋업은 ACTIVE — 운영 중단(INACTIVE) 상태로 직접 전환해 운영 행위 게이트(Part C)를 검증한다.
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("title", "중단 후 공지", "summary", "요약", "content", "본문",
+                        "coverImageUrl", "https://example.com/cover.png"))
+                .when().post("/api/v1/clubs/" + clubId + "/notices")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리의 멤버는 공지 목록을 조회할 수 없다")
+    void inactiveClubMemberCannotListNotices() {
+        createNoticeAs(leaderToken, "운영 중 공지");
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/notices")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
+    }
+
+    @Test
+    @DisplayName("운영 중단된 동아리의 멤버는 공지 상세를 조회할 수 없다")
+    void inactiveClubMemberCannotReadNoticeDetail() {
+        Long noticeId = createNoticeAs(leaderToken, "운영 중 공지");
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/notices/" + noticeId)
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("운영 종료된 동아리입니다."));
+    }
+
+    @Test
     @DisplayName("비-회원이 동아리 공지 상세를 조회하면 403 을 반환한다")
     void nonMemberCannotReadDetail() {
         Long noticeId = createNoticeAs(leaderToken, "비밀 공지");
@@ -334,6 +383,9 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
     @DisplayName("다른 동아리가 작성한 공지를 현재 동아리 네임스페이스 상세로 조회하면 403 을 반환한다")
     void crossClubOwnedNoticeNotReadableViaClubDetail() {
         Club otherClub = clubRepository.save(Club.create("동아리B", ClubCategory.ACADEMIC, null, "설명", null));
+        // Club.create 기본 상태는 PENDING_APPROVAL — 공지 작성은 운영 행위 게이트(Part C)로 ACTIVE 동아리만
+        // 허용되므로, B 동아리 리더의 공지 작성이 통과하도록 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", otherClub.getId());
         User otherLeader = saveUser();
         clubMemberRepository.save(ClubMember.asLeader(otherClub, otherLeader));
         String otherLeaderToken = jwtTokenProvider.createToken(otherLeader.getId(), otherLeader.getRole().name());

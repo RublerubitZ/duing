@@ -2,6 +2,7 @@ package com.duing.domain.club.service;
 
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
@@ -22,6 +23,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.repository.ClubActiveRecruitmentRow;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
@@ -46,6 +48,7 @@ public class GeneralClubService implements ClubService {
     private final ClubPhotoRepository clubPhotoRepository;
     private final ClubAuthService clubAuthService;
     private final RecruitmentRepository recruitmentRepository;
+    private final RecruitmentService recruitmentService;
     private final ApplicationRepository applicationRepository;
 
     @Override
@@ -111,6 +114,22 @@ public class GeneralClubService implements ClubService {
     public ClubDetailQuery getById(Long clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
+        return toDetailQuery(club);
+    }
+
+    @Override
+    public ClubDetailQuery getActiveById(Long clubId) {
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(ClubException.ClubNotFoundException::new);
+        // 존재 여부를 숨기기 위해 403 이 아닌 404 로 동일하게 응답한다.
+        if (club.getStatus() != ClubStatus.ACTIVE) {
+            throw new ClubException.ClubNotFoundException();
+        }
+        return toDetailQuery(club);
+    }
+
+    private ClubDetailQuery toDetailQuery(Club club) {
+        Long clubId = club.getId();
         List<ClubPhotoQuery> photos = clubPhotoRepository.findByClubIdOrderByDisplayOrderAsc(clubId)
                 .stream()
                 .map(ClubPhotoQuery::from)
@@ -135,7 +154,8 @@ public class GeneralClubService implements ClubService {
     @Override
     @Transactional
     public void update(UpdateClubCommand updateClubCommand) {
-        clubAuthService.requireLeader(updateClubCommand.requesterId(), updateClubCommand.clubId());
+        // 프로필 보완 게이트(D6) — 재심사 보완(PENDING_APPROVAL·REJECTED)을 허용해야 하므로 운영 행위 게이트를 쓰지 않는다.
+        clubAuthService.requireEditableClubLeader(updateClubCommand.requesterId(), updateClubCommand.clubId());
 
         Club club = clubRepository.findById(updateClubCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
@@ -152,13 +172,18 @@ public class GeneralClubService implements ClubService {
     @Override
     @Transactional
     public void updateStatus(UpdateClubStatusCommand updateClubStatusCommand) {
-        Club club = clubRepository.findById(updateClubStatusCommand.clubId())
+        // 폐쇄·상태변경 동시 요청이 같은 행을 직렬화하도록 잠금 (stale 검증 방지)
+        Club club = clubRepository.findByIdForUpdate(updateClubStatusCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         club.changeStatus(
                 updateClubStatusCommand.status(),
                 updateClubStatusCommand.rejectionReason(),
                 updateClubStatusCommand.actorUserId()
         );
+        if (updateClubStatusCommand.status() == ClubStatus.INACTIVE) {
+            // 운영 중단 = 신규 모집 활동 정지. OPEN 모집을 일괄 마감해 공개 표면·알림에 남지 않게 한다 (스펙 Part A).
+            recruitmentService.closeAllOnClubDeactivation(club.getId());
+        }
     }
 
     @Override

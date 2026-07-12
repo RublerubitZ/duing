@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useCentralClubRecertificationStatusQuery } from '@duing/hooks';
+import { Pagination } from '@/components/Pagination';
 import { AdminCentralClubRecertificationStatusTable } from '../_components/AdminCentralClubRecertificationStatusTable';
-import { Pagination } from '../../../../notices/_components/Pagination';
 
 const PAGE_SIZE = 20;
 const CURRENT_YEAR = new Date().getFullYear();

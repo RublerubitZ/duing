@@ -9,14 +9,22 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
@@ -159,10 +167,11 @@ class S3FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("공개 URL 에서 key 가 leading slash 없이 추출되어 DeleteObject 가 호출된다")
+    @DisplayName("공개 URL 에서 key 가 leading slash 없이 추출되어 DeleteObject 가 호출되고 삭제 확정(true)을 반환한다")
     void deleteExtractsKeyWithoutLeadingSlash() {
-        service.delete("https://files.duing.app/club/cover/abc.webp");
+        boolean deleted = service.delete("https://files.duing.app/club/cover/abc.webp");
 
+        assertThat(deleted).isTrue();
         ArgumentCaptor<software.amazon.awssdk.services.s3.model.DeleteObjectRequest> captor =
                 ArgumentCaptor.forClass(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class);
         verify(s3Client).deleteObject(captor.capture());
@@ -188,31 +197,185 @@ class S3FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("publicBaseUrl 과 prefix 가 일치하지 않는 URL 은 삭제 호출 없이 무시된다")
+    @DisplayName("publicBaseUrl 과 prefix 가 일치하지 않는 URL 은 삭제 호출 없이 무시되고 삭제 미확정(false)을 반환한다")
     void deleteIgnoresUrlOutsideBaseUrl() {
-        service.delete("https://other-host.example/club/cover/abc.webp");
+        boolean deleted = service.delete("https://other-host.example/club/cover/abc.webp");
 
+        assertThat(deleted).isFalse(); // 관리 밖 URL 을 true 로 응답하면 파기 배치가 객체가 남은 행을 지운다
         verify(s3Client, never()).deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class));
     }
 
     @Test
-    @DisplayName("삭제 중 SdkException 이 발생해도 예외가 전파되지 않고 warn 로그만 남는다")
-    void deleteSwallowsSdkException() {
+    @DisplayName("삭제 중 SdkException 이 발생해도 예외가 전파되지 않고 삭제 미확정(false)을 반환한다")
+    void deleteSwallowsSdkExceptionAndReturnsFalse() {
         when(s3Client.deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class)))
                 .thenThrow(software.amazon.awssdk.awscore.exception.AwsServiceException.builder()
                         .message("conflict").build());
 
-        assertThatCode(() -> service.delete("https://files.duing.app/club/cover/abc.webp"))
+        // 예외를 삼키는 best-effort 의미론이므로 false 반환값이 호출자(파기 배치)의 유일한 실패 신호다.
+        assertThatCode(() ->
+                assertThat(service.delete("https://files.duing.app/club/cover/abc.webp")).isFalse())
                 .doesNotThrowAnyException();
     }
 
     @Test
-    @DisplayName("null 또는 빈 URL 은 delete 호출 없이 즉시 반환된다")
+    @DisplayName("null 또는 빈 URL 은 delete 호출 없이 삭제 미확정(false)을 반환한다")
     void deleteHandlesNullAndBlank() {
-        service.delete(null);
-        service.delete("");
-        service.delete("   ");
+        assertThat(service.delete(null)).isFalse();
+        assertThat(service.delete("")).isFalse();
+        assertThat(service.delete("   ")).isFalse();
 
         verify(s3Client, never()).deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class));
+    }
+
+    @Test
+    @DisplayName("publicBaseUrl 프리픽스로 시작하는 URL 은 프리픽스를 벗긴 키를 반환한다")
+    void toStorageKeyStripsPublicBaseUrlPrefix() {
+        String key = service.toStorageKey("https://files.duing.app/federation/inquiry/abc.webp");
+
+        assertThat(key).isEqualTo("federation/inquiry/abc.webp");
+    }
+
+    @Test
+    @DisplayName("publicBaseUrl 끝에 슬래시가 있어도 toStorageKey 의 prefix 매칭은 정확히 일치한다")
+    void toStorageKeyHandlesTrailingSlashInBaseUrl() {
+        S3StorageProperties propertiesWithSlash = new S3StorageProperties(
+                "https://example.com", "auto", "ak", "sk", "duing",
+                "https://files.duing.app/");
+        S3FileStorageService serviceWithSlash = new S3FileStorageService(s3Client, propertiesWithSlash);
+
+        String key = serviceWithSlash.toStorageKey("https://files.duing.app/federation/inquiry/abc.webp");
+
+        assertThat(key).isEqualTo("federation/inquiry/abc.webp");
+    }
+
+    @Test
+    @DisplayName("publicBaseUrl 과 prefix 가 일치하지 않는 URL 은 null 을 반환한다")
+    void toStorageKeyReturnsNullWhenPrefixMismatches() {
+        String key = service.toStorageKey("https://other-host.example/federation/inquiry/abc.webp");
+
+        assertThat(key).isNull();
+    }
+
+    @Test
+    @DisplayName("null 또는 빈 URL 은 toStorageKey 에서 null 을 반환한다")
+    void toStorageKeyHandlesNullAndBlank() {
+        assertThat(service.toStorageKey(null)).isNull();
+        assertThat(service.toStorageKey("")).isNull();
+        assertThat(service.toStorageKey("   ")).isNull();
+    }
+
+    @Test
+    @DisplayName("toFileUrl 은 키 앞에 publicBaseUrl 을 붙여 toStorageKey 의 역변환을 수행한다")
+    void toFileUrlReassemblesPublicUrl() {
+        String url = service.toFileUrl("federation/inquiry/abc.webp");
+
+        assertThat(url).isEqualTo("https://files.duing.app/federation/inquiry/abc.webp");
+        assertThat(service.toStorageKey(url)).isEqualTo("federation/inquiry/abc.webp");
+    }
+
+    @Test
+    @DisplayName("null 또는 빈 키는 toFileUrl 에서 null 을 반환한다")
+    void toFileUrlHandlesNullAndBlank() {
+        assertThat(service.toFileUrl(null)).isNull();
+        assertThat(service.toFileUrl("")).isNull();
+        assertThat(service.toFileUrl("   ")).isNull();
+    }
+
+    @Test
+    @DisplayName("sizeOf 는 headObject 의 Content-Length 를 그대로 반환한다")
+    void sizeOfReturnsContentLengthFromHeadObject() {
+        when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenReturn(HeadObjectResponse.builder().contentLength(2048L).build());
+
+        Long size = service.sizeOf("federation/inquiry/abc.webp");
+
+        assertThat(size).isEqualTo(2048L);
+        ArgumentCaptor<HeadObjectRequest> captor = ArgumentCaptor.forClass(HeadObjectRequest.class);
+        verify(s3Client).headObject(captor.capture());
+        assertThat(captor.getValue().bucket()).isEqualTo("duing");
+        assertThat(captor.getValue().key()).isEqualTo("federation/inquiry/abc.webp");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 키는 NoSuchKeyException 을 잡아 sizeOf 가 null 을 반환한다")
+    void sizeOfReturnsNullWhenKeyDoesNotExist() {
+        when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenThrow(NoSuchKeyException.builder().message("no such key").build());
+
+        assertThat(service.sizeOf("federation/inquiry/missing.webp")).isNull();
+    }
+
+    @Test
+    @DisplayName("일반 SdkException 이 발생하면 sizeOf 는 null 로 삼키지 않고 IllegalStateException 으로 전파한다")
+    void sizeOfPropagatesOnSdkException() {
+        when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenThrow(SdkClientException.create("network"));
+
+        assertThatThrownBy(() -> service.sizeOf("federation/inquiry/abc.webp"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("S3 Storage 크기 조회에 실패했습니다.");
+    }
+
+    @Test
+    @DisplayName("null 또는 빈 키는 sizeOf 에서 headObject 호출 없이 null 을 반환한다")
+    void sizeOfHandlesNullAndBlank() {
+        assertThat(service.sizeOf(null)).isNull();
+        assertThat(service.sizeOf("")).isNull();
+        assertThat(service.sizeOf("   ")).isNull();
+
+        verify(s3Client, never()).headObject(any(HeadObjectRequest.class));
+    }
+
+    @Test
+    @DisplayName("download 는 getObject 응답을 StoredFile 로 감싸 스트림·Content-Type·Content-Length 를 그대로 전달한다")
+    void downloadReturnsStoredFileFromGetObject() throws IOException {
+        byte[] body = "hello world".getBytes();
+        ResponseInputStream<GetObjectResponse> responseStream = new ResponseInputStream<>(
+                GetObjectResponse.builder().contentType("image/jpeg").contentLength((long) body.length).build(),
+                new ByteArrayInputStream(body));
+        when(s3Client.getObject(any(GetObjectRequest.class))).thenReturn(responseStream);
+
+        StoredFile storedFile = service.download("federation/inquiry/abc.jpg");
+
+        assertThat(storedFile).isNotNull();
+        assertThat(storedFile.contentType()).isEqualTo("image/jpeg");
+        assertThat(storedFile.contentLength()).isEqualTo(body.length);
+        assertThat(storedFile.stream().readAllBytes()).isEqualTo(body);
+
+        ArgumentCaptor<GetObjectRequest> captor = ArgumentCaptor.forClass(GetObjectRequest.class);
+        verify(s3Client).getObject(captor.capture());
+        assertThat(captor.getValue().bucket()).isEqualTo("duing");
+        assertThat(captor.getValue().key()).isEqualTo("federation/inquiry/abc.jpg");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 키는 NoSuchKeyException 을 잡아 download 가 null 을 반환한다")
+    void downloadReturnsNullWhenKeyDoesNotExist() {
+        when(s3Client.getObject(any(GetObjectRequest.class)))
+                .thenThrow(NoSuchKeyException.builder().message("no such key").build());
+
+        assertThat(service.download("federation/inquiry/missing.jpg")).isNull();
+    }
+
+    @Test
+    @DisplayName("일반 SdkException 이 발생하면 download 는 null 로 삼키지 않고 IllegalStateException 으로 전파한다")
+    void downloadPropagatesOnSdkException() {
+        when(s3Client.getObject(any(GetObjectRequest.class)))
+                .thenThrow(SdkClientException.create("network"));
+
+        assertThatThrownBy(() -> service.download("federation/inquiry/abc.jpg"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("S3 Storage 다운로드에 실패했습니다.");
+    }
+
+    @Test
+    @DisplayName("null 또는 빈 키는 download 에서 getObject 호출 없이 null 을 반환한다")
+    void downloadHandlesNullAndBlank() {
+        assertThat(service.download(null)).isNull();
+        assertThat(service.download("")).isNull();
+        assertThat(service.download("   ")).isNull();
+
+        verify(s3Client, never()).getObject(any(GetObjectRequest.class));
     }
 }

@@ -16,8 +16,7 @@ public interface ClubMemberRepositoryCustom {
     /**
      * 사용자가 현재 소속(LEADER/OFFICER/MEMBER) 된 동아리 목록 + 활성 모집 카운트 + 가입일.
      * - role 무관. soft-deleted 멤버십·동아리는 제외 (@SQLRestriction 자동 적용).
-     * - 동아리 status 무관 (INACTIVE/PENDING_APPROVAL/REJECTED 도 포함) — 화면에서 분기.
-     *   (MVP 의도된 단순화. 후속에서 UI 표기 분기 추가.)
+     * - 운영 중(ACTIVE) 동아리만 반환한다 — 승인 대기(PENDING_APPROVAL)·거절(REJECTED)·운영 중단(INACTIVE) 상태는 제외.
      * - joinedAt = ClubMember.createdAt
      * - 정렬: joinedAt DESC
      */

@@ -14,6 +14,7 @@ import { SparkleFull } from '@/components/duing/Sparkle';
 import { MyPageHeader } from '../../_components/MyPageHeader';
 import { ProfileEditDialog } from '../_components/ProfileEditDialog';
 import { PasswordChangeDialog } from '../_components/PasswordChangeDialog';
+import { PhoneChangeDialog } from '../_components/PhoneChangeDialog';
 import { WithdrawAccountDialog } from '../_components/WithdrawAccountDialog';
 
 /* ── Settings Row ── */
@@ -109,6 +110,7 @@ export function SettingsPage() {
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [phoneOpen, setPhoneOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -122,7 +124,6 @@ export function SettingsPage() {
       <MyPageHeader
         name={user?.name ?? '—'}
         studentId={user?.studentId ?? '—'}
-        email={user?.email ?? '—'}
         applyCount={applyCount}
         joinedCount={joinedCount}
         savedCount={savedCount}
@@ -152,16 +153,18 @@ export function SettingsPage() {
             />
             <SettingsRow label="학번" value={user?.studentId ?? '—'} />
             <SettingsRow label="학년" value={user?.grade ? GRADE_DISPLAY_NAME[user.grade] : '—'} />
-            <SettingsRow label="전화번호" value={user?.phone ?? '—'} />
             <SettingsRow
-              label="이메일"
-              value={
-                <span className="flex items-center gap-2">
-                  {user?.email ?? '—'}
-                  <span className="shrink-0 whitespace-nowrap text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-sage-mist text-ink-deep">
-                    인증완료
-                  </span>
-                </span>
+              label="전화번호"
+              value={user?.phone ?? '—'}
+              action={
+                <button
+                  type="button"
+                  onClick={() => setPhoneOpen(true)}
+                  disabled={!user}
+                  className="btn btn-ghost btn-sm"
+                >
+                  변경
+                </button>
               }
             />
           </SettingsCard>
@@ -251,10 +254,10 @@ export function SettingsPage() {
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
         currentName={user?.name ?? ''}
-        currentPhone={user?.phone ?? ''}
         currentGrade={user?.grade ?? 'FRESHMAN'}
       />
       <PasswordChangeDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
+      <PhoneChangeDialog open={phoneOpen} onClose={() => setPhoneOpen(false)} />
       <WithdrawAccountDialog open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />
     </div>
   );

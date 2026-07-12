@@ -13,10 +13,12 @@ import com.duing.domain.favorite.entity.ClubFavorite;
 import com.duing.domain.favorite.repository.ClubFavoriteRepository;
 import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.entity.NotificationType;
+import com.duing.domain.notification.listener.RecruitmentOpenedListener;
 import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
 import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
@@ -38,6 +40,7 @@ import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -63,6 +66,12 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
 
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private RecruitmentOpenedListener recruitmentOpenedListener;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -100,7 +109,7 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("지원 동기"),
+                List.of(RecruitmentQuestion.createText("지원 동기")),
                 null,
                 null,
                 false
@@ -146,7 +155,7 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("지원 동기"),
+                List.of(RecruitmentQuestion.createText("지원 동기")),
                 null,
                 null,
                 false
@@ -228,7 +237,7 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("자기소개"),
+                List.of(RecruitmentQuestion.createText("자기소개")),
                 null,
                 null,
                 false
@@ -241,12 +250,32 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
         assertThat(openedNotifications).isEmpty();
     }
 
+    @Test
+    @DisplayName("비 ACTIVE 동아리의 모집 오픈 이벤트는 알림을 만들지 않는다")
+    void inactiveClubOpenedEventDoesNotNotify() throws Exception {
+        User favorUser = saveUser("중단찜유저");
+        Club club = saveActiveClub("중단전환동아리");
+        saveFavorite(favorUser, club);
+
+        // AFTER_COMMIT 리스너는 생성 트랜잭션 커밋 뒤에 실행되므로, 커밋과 fanout 사이에
+        // 동아리가 운영 중단될 수 있다. 그 상태를 직접 SQL 로 만든 뒤 리스너를 직접 호출해
+        // fanout 직전의 club ACTIVE 재검증이 알림을 막는지 검증한다.
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+
+        recruitmentOpenedListener.handle(new RecruitmentOpenedEvent(
+                9999L, club.getId(), club.getName(), "중단후모집", LocalDate.now().plusDays(7)));
+
+        List<Notification> openedNotifications = notificationRepository.findAll().stream()
+                .filter(notification -> notification.getType() == NotificationType.RECRUITMENT_OPENED)
+                .toList();
+        assertThat(openedNotifications).isEmpty();
+    }
+
     private User saveUser(String name) {
         long unique = sequence.getAndIncrement();
         User user = User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 name,
-                "event" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberEventType;
@@ -20,6 +21,7 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
@@ -46,15 +48,24 @@ class ClubMemberHistoryRecorderTest {
     private User saveUser() {
         long seq = sequence.incrementAndGet();
         String studentNumber = String.format("%010d", seq % 10_000_000_000L);
-        return userRepository.save(User.create(studentNumber, "U" + seq,
-                "u" + seq + "@duing.ac.kr", "h", UserRole.STUDENT,
+        return userRepository.save(User.create(studentNumber, "U" + seq, "h", UserRole.STUDENT,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000",
                 LocalDateTime.now()));
     }
 
     private Club saveClub() {
-        return clubRepository.save(Club.create("C" + sequence.incrementAndGet(),
-                ClubCategory.ACADEMIC, null, "설명", null));
+        Club club = Club.create("C" + sequence.incrementAndGet(),
+                ClubCategory.ACADEMIC, null, "설명", null);
+        // Club.create 기본 상태는 PENDING_APPROVAL — 멤버 관리(역할 변경·인계·강퇴)는 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        try {
+            Field statusField = Club.class.getDeclaredField("status");
+            statusField.setAccessible(true);
+            statusField.set(club, ClubStatus.ACTIVE);
+        } catch (ReflectiveOperationException reflectionFailure) {
+            throw new IllegalStateException("Club status 픽스처 설정 실패", reflectionFailure);
+        }
+        return clubRepository.save(club);
     }
 
     @Test

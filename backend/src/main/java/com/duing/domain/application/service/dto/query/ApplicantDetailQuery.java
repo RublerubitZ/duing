@@ -1,6 +1,7 @@
 package com.duing.domain.application.service.dto.query;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.entity.ApplicationStatusHistory;
 import com.duing.domain.applicationEvaluation.entity.ApplicationEvaluation;
@@ -10,12 +11,15 @@ import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.IntStream;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public record ApplicantDetailQuery(
         Long applicationId,
@@ -36,7 +40,7 @@ public record ApplicantDetailQuery(
         InterviewRoundBriefQuery interviewRound
 ) {
 
-    public record ApplicantInfoQuery(Long userId, String name, String studentId, String email,
+    public record ApplicantInfoQuery(Long userId, String name, String studentId,
                                      College college, String major, Grade grade, String phone) {}
 
     public record QuestionAnswerQuery(String question, String answer) {}
@@ -134,7 +138,6 @@ public record ApplicantDetailQuery(
                 applicationUser.getId(),
                 applicationUser.getName(),
                 applicationUser.getStudentId(),
-                applicationUser.getEmail(),
                 applicationUser.getCollege(),
                 applicationUser.getMajor(),
                 applicationUser.getGrade(),
@@ -205,15 +208,20 @@ public record ApplicantDetailQuery(
         }
 
         RecruitmentForm form = recruitment.getForm();
-        List<String> questions = form == null ? List.of() : form.getQuestions();
-        List<String> applicationAnswers = application.getAnswers();
+        List<RecruitmentQuestion> questions = form == null ? List.of() : form.getQuestions();
 
-        // 질문 수와 답변 수가 다를 경우 짧은 쪽 길이까지만 매핑한다.
-        // (데이터 불일치 방어 — 정상 제출 시에는 동일 길이가 보장되지만,
-        // 폼 편집 이후 기존 지원서가 남아 있을 수 있는 엣지케이스를 위해)
-        int pairCount = Math.min(questions.size(), applicationAnswers.size());
-        return IntStream.range(0, pairCount)
-                .mapToObj(index -> new QuestionAnswerQuery(questions.get(index), applicationAnswers.get(index)))
+        // 위치가 아닌 questionId 로 답변을 페어링한다 (스펙 §2.4). 질문 순서대로 전 질문을 노출하며
+        // 답변이 없는 질문(폼 편집 이후 남은 기존 지원서 등)은 빈 문자열로 채운다.
+        Map<String, ApplicationAnswer> answerByQuestionId = application.getAnswers().stream()
+                .filter(answer -> answer.questionId() != null)
+                .collect(Collectors.toMap(ApplicationAnswer::questionId, Function.identity(),
+                        (first, duplicate) -> first));
+        return questions.stream()
+                .map(question -> {
+                    ApplicationAnswer answer = answerByQuestionId.get(question.id());
+                    return new QuestionAnswerQuery(question.text(),
+                            question.formatAnswerValues(answer == null ? List.of() : answer.values()));
+                })
                 .toList();
     }
 }

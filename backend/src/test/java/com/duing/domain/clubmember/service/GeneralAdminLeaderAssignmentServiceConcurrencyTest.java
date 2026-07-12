@@ -96,8 +96,7 @@ class GeneralAdminLeaderAssignmentServiceConcurrencyTest extends IntegrationTest
 
     private User newUser(UserRole role) {
         long seq = sequence.incrementAndGet();
-        return User.create("20" + seq, "U" + seq,
-                "u" + seq + "@duing.ac.kr", "h", role,
+        return User.create("20" + seq, "U" + seq, "h", role,
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now());
     }
 }

@@ -42,7 +42,6 @@ class FileApiTest extends IntegrationTestBase {
         User user = userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 "파일테스터",
-                "file-test-" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.JUNIOR,

@@ -17,14 +17,12 @@ const USER_1: AdminUserSearchResult = {
   id: 1,
   studentId: '20231234',
   name: '홍길동',
-  email: 'hong@daegu.ac.kr',
   role: 'STUDENT',
 };
 const USER_2: AdminUserSearchResult = {
   id: 2,
   studentId: '20235678',
   name: '김철수',
-  email: 'kim@daegu.ac.kr',
   role: 'STUDENT',
 };
 const USERS: AdminUserSearchResult[] = [USER_1, USER_2];

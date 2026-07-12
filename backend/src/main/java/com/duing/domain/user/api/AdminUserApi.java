@@ -21,10 +21,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface AdminUserApi {
 
     @Operation(summary = "사용자 검색 (ADMIN)",
-            description = "동아리 등록 시 leader 후보를 학번/이름/이메일로 검색한다. studentId 는 prefix 일치, name·email 은 contains(case-insensitive) 일치.")
+            description = "동아리 등록 시 leader 후보를 학번/이름으로 검색한다. studentId 는 prefix 일치, name 은 contains(case-insensitive) 일치.")
     @GetMapping("/admin/users")
     ResponseEntity<ApiResponse<PageResponse<AdminUserSearchResponse>>> searchUsers(
-            @Parameter(description = "검색어 (학번 prefix 또는 이름/이메일 부분 일치)", required = true)
+            @Parameter(description = "검색어 (학번 prefix 또는 이름 부분 일치)", required = true)
             @RequestParam String q,
             @Parameter(hidden = true) Pageable pageable
     );

@@ -27,5 +27,12 @@ public interface RecruitmentService {
 
     List<Long> closeAllOnClubClosure(Long clubId);
 
+    /**
+     * 동아리 운영 중단(INACTIVE) 전환 시 OPEN 모집을 일괄 마감한다.
+     * 폐쇄(closeAllOnClubClosure)와 달리 soft delete 는 하지 않는다 — 되돌릴 수 있는 상태이므로 기록 보존.
+     * @return 마감된 모집 수
+     */
+    int closeAllOnClubDeactivation(Long clubId);
+
     void softDeleteAllOnClubClosure(List<Long> recruitmentIds);
 }

@@ -43,6 +43,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import({TestcontainersConfiguration.class, LeaderFeeSummaryControllerTest.FixedClockConfig.class})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -81,6 +82,8 @@ class LeaderFeeSummaryControllerTest extends IntegrationTestBase {
     FeeBillRepository feeBillRepository;
     @Autowired
     PaymentRepository paymentRepository;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     private String leaderToken;
     private String memberToken;
@@ -93,6 +96,9 @@ class LeaderFeeSummaryControllerTest extends IntegrationTestBase {
         RestAssured.port = port;
         Club club = clubRepository.save(ClubFixture.academic("동아리A"));
         clubId = club.getId();
+        // Club.create 기본 상태는 PENDING_APPROVAL — 수납 현황 집계(총무 경로)는 운영 행위 게이트(Part C)로
+        // ACTIVE 동아리만 허용되므로, 상태 차단 자체를 검증하는 테스트가 아닌 한 ACTIVE 로 둔다.
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", clubId);
 
         User leader = userRepository.save(UserFixture.unique());
         User member = userRepository.save(UserFixture.unique());

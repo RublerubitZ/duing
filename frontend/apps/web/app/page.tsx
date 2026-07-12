@@ -9,6 +9,7 @@ import { Categories } from './_components/sections/Categories';
 import { FeaturedClubs } from './_components/sections/FeaturedClubs';
 import { HomeHero } from './_components/sections/HomeHero';
 import { HomeMobileSearchBar } from './_components/sections/HomeMobileSearchBar';
+import { HomeQnaSection } from './_components/sections/HomeQnaSection';
 import { LeaderCta } from './_components/sections/LeaderCta';
 import { RecruitmentTicker } from './_components/sections/RecruitmentTicker';
 
@@ -36,6 +37,9 @@ export default function HomePage() {
       </FadeIn>
       <FadeIn>
         <FeaturedClubs />
+      </FadeIn>
+      <FadeIn>
+        <HomeQnaSection />
       </FadeIn>
       {/* 운영자용 동아리 등록 CTA — 모바일에선 숨기고 md+ 에서만 노출 */}
       <FadeIn className="hidden md:block">

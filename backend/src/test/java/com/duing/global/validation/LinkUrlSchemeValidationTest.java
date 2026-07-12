@@ -171,6 +171,6 @@ class LinkUrlSchemeValidationTest {
         return new CreateRecruitmentRequest(
                 "제목", null, LocalDate.of(2026, 1, 1), null, 1,
                 ApplicationMode.EXTERNAL, externalFormUrl,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, null);
     }
 }

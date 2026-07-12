@@ -28,7 +28,7 @@ public record ApplicantDetailResponse(
         InterviewRoundBrief interviewRound
 ) {
 
-    public record ApplicantInfo(Long userId, String name, String studentId, String email,
+    public record ApplicantInfo(Long userId, String name, String studentId,
                                 College college, String major, Grade grade, String phone) {}
 
     public record QuestionAnswer(String question, String answer) {}
@@ -89,7 +89,6 @@ public record ApplicantDetailResponse(
                 detailQuery.applicant().userId(),
                 detailQuery.applicant().name(),
                 detailQuery.applicant().studentId(),
-                detailQuery.applicant().email(),
                 detailQuery.applicant().college(),
                 detailQuery.applicant().major(),
                 detailQuery.applicant().grade(),

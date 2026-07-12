@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatPhone } from '../../../app/(auth)/signup/_components/PhoneInput';
+import { formatPhone } from '@/app/_components/PhoneInput';
 
 describe('formatPhone', () => {
   it('11자리 숫자를 010-XXXX-XXXX 형식으로 포맷팅한다', () => {

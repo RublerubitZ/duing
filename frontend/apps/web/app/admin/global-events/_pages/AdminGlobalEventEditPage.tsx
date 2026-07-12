@@ -7,7 +7,7 @@ import {
   useAdminGlobalEventUpdateMutation,
 } from '@duing/hooks';
 import { AdminGlobalEventForm } from '../_components/AdminGlobalEventForm';
-import { extractErrorMessage } from '../_lib/extractErrorMessage';
+import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { fromDetail, toUpdatePayload } from '../_lib/parseGlobalEventFormState';
 import { toRoute } from '../../../_lib/route';
 

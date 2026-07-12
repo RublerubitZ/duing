@@ -1,10 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ApplicantInterviewSlot } from '@duing/types';
 import { SlotPickerByDateGroup } from '@/components/interview/SlotPickerByDateGroup';
 
-const SLOTS: ApplicantInterviewSlot[] = [
+// 픽커가 요구하는 최소 구조(slotId/startTime/endTime) + 여분 필드(capacity) 수용 검증.
+// 구 openapi 타입(ApplicantInterviewSlotResponse)은 백엔드 레거시 면접 제거로 사라져 로컬 타입으로 대체.
+type TestSlot = { slotId: number; startTime: string; endTime: string; capacity: number };
+
+const SLOTS: TestSlot[] = [
   { slotId: 1, startTime: '2026-06-18T18:00:00', endTime: '2026-06-18T18:30:00', capacity: 2 },
   { slotId: 2, startTime: '2026-06-18T18:30:00', endTime: '2026-06-18T19:00:00', capacity: 2 },
   { slotId: 3, startTime: '2026-06-19T10:00:00', endTime: '2026-06-19T10:30:00', capacity: 2 },

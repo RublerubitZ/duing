@@ -7,12 +7,12 @@ import {
   useAdminGlobalEventDeleteMutation,
   useAdminGlobalEventListQuery,
 } from '@duing/hooks';
+import { Pagination } from '@/components/Pagination';
 import { toRoute } from '../../../_lib/route';
 import { AdminGlobalEventCategoryStats } from '../_components/AdminGlobalEventCategoryStats';
 import { AdminGlobalEventDeleteDialog } from '../_components/AdminGlobalEventDeleteDialog';
 import { AdminGlobalEventFilterBar } from '../_components/AdminGlobalEventFilterBar';
 import { AdminGlobalEventTable } from '../_components/AdminGlobalEventTable';
-import { Pagination } from '../../../notices/_components/Pagination';
 
 const PAGE_SIZE = 20;
 

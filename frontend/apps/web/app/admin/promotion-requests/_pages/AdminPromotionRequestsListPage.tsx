@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import type { PromotionRequestStatus } from '@duing/types';
 import { useAdminPromotionRequestListQuery } from '@duing/hooks';
+import { Pagination } from '@/components/Pagination';
 import { AdminPromotionRequestsFilterBar } from '../_components/AdminPromotionRequestsFilterBar';
 import { AdminPromotionRequestsTable } from '../_components/AdminPromotionRequestsTable';
-import { Pagination } from '../../../notices/_components/Pagination';
 import { PROMOTION_REQUEST_STATUS_LABEL } from '../_lib/promotionRequestLabels';
 
 const PAGE_SIZE = 20;

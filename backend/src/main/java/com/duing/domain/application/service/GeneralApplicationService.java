@@ -1,6 +1,7 @@
 package com.duing.domain.application.service;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.entity.ApplicationStatusHistory;
 import com.duing.domain.application.exception.ApplicationDomainException;
@@ -20,6 +21,7 @@ import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
 import com.duing.domain.applicationEvaluation.entity.ApplicationEvaluation;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
@@ -38,8 +40,10 @@ import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
 import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.QuestionChoice;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -58,6 +62,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,6 +84,8 @@ public class GeneralApplicationService implements ApplicationService {
 
     // V7 partial unique 인덱스. (club_id, user_id) WHERE deleted_at IS NULL.
     private static final String CLUB_MEMBER_UNIQUE_CONSTRAINT = "uk_club_member_club_user_active";
+    // V6 partial unique 인덱스. (recruitment_id, user_id) WHERE deleted_at IS NULL.
+    private static final String APPLICATION_UNIQUE_CONSTRAINT = "uk_application_recruitment_user_active";
     // PostgreSQL unique_violation.
     private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
     // 일괄 상태 변경의 건별 실패 사유 — 미존재(NotFound)와 타 클럽 권한없음(NotAMember)을 동일 메시지로
@@ -112,8 +119,61 @@ public class GeneralApplicationService implements ApplicationService {
     @Override
     @Transactional
     public Long submit(SubmitApplicationCommand submitApplicationCommand) {
-        Recruitment recruitment = recruitmentRepository.findById(submitApplicationCommand.recruitmentId())
+        // 질문 정의를 읽기 전에 폼을 공유 잠금해, 읽는 도중 질문이 교체되어
+        // 답변이 사라진 질문 id 를 참조하게 되는 경합을 막는다 (질문 변경은 배타 잠금).
+        recruitmentRepository.lockFormForSubmission(submitApplicationCommand.recruitmentId());
+
+        EligibilityTarget eligibilityTarget = validateEligibility(
+                submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
+        Recruitment recruitment = eligibilityTarget.recruitment();
+
+        // 정확히 하나의 통로만 채워져 있음은 SubmitApplicationCommand 컴팩트 생성자가 이미 보장한다.
+        List<ApplicationAnswer> resolvedAnswers = submitApplicationCommand.answerItems() != null
+                ? submitApplicationCommand.answerItems().stream()
+                        .map(answerItem -> new ApplicationAnswer(answerItem.questionId(), answerItem.values()))
+                        .toList()
+                : resolveLegacyAnswers(recruitment, submitApplicationCommand.answers());
+        validateAnswersAgainstForm(recruitment, resolvedAnswers);
+
+        Application application =
+                Application.submit(recruitment, eligibilityTarget.user(), resolvedAnswers);
+        Long savedApplicationId;
+        try {
+            savedApplicationId = applicationRepository.save(application).getId();
+            // 사전 중복 체크(existsBy...)와 INSERT 사이의 동시 제출 경합은 partial unique 인덱스가 막는다.
+            // 명시적 flush 로 커밋이 아닌 현재 트랜잭션 안에서 충돌을 잡아, 순차 중복 제출과 동일한
+            // 사용자 메시지(DuplicateApplicationException)로 변환한다.
+            applicationRepository.flush();
+        } catch (DataIntegrityViolationException racedSubmission) {
+            if (!isApplicationDuplicate(racedSubmission)) {
+                throw racedSubmission;
+            }
+            throw new ApplicationDomainException.DuplicateApplicationException();
+        }
+
+        applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
+        return savedApplicationId;
+    }
+
+    @Override
+    public void checkEligibility(Long userId, Long recruitmentId) {
+        validateEligibility(userId, recruitmentId);
+    }
+
+    /**
+     * 지원 사전 가드의 단일 소스. checkEligibility(사전 확인)와 submit(최종 검증)이
+     * 이 메서드만 호출한다 — 검증 로직을 두 곳에 두는 것을 금지한다 (스펙 §1.2).
+     * 사전 확인 통과 후 제출 사이에 상태가 변해도(TOCTOU) submit 이 같은 메서드를
+     * 다시 통과하므로 최종 일관성이 보장된다.
+     */
+    private EligibilityTarget validateEligibility(Long userId, Long recruitmentId) {
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+
+        // 비공개 상태 동아리의 모집에는 지원할 수 없다 — 존재 은닉을 위해 404 (공개 상세와 동일 의미론).
+        if (recruitment.getClub().getStatus() != ClubStatus.ACTIVE) {
+            throw new RecruitmentException.RecruitmentNotFoundException();
+        }
 
         if (!recruitment.isEffectivelyOpen(LocalDate.now())) {
             throw new ApplicationDomainException.RecruitmentClosedException();
@@ -123,7 +183,7 @@ public class GeneralApplicationService implements ApplicationService {
             throw new ApplicationDomainException.ExternalFormSubmitException();
         }
 
-        User user = userRepository.findById(submitApplicationCommand.userId())
+        User user = userRepository.findById(userId)
                 .orElseThrow(UserException.UserNotFoundException::new);
 
         if (applicationRepository.existsByRecruitmentIdAndUserId(recruitment.getId(), user.getId())) {
@@ -132,14 +192,11 @@ public class GeneralApplicationService implements ApplicationService {
 
         validateClubMembershipPolicy(recruitment, user);
 
-        validateAnswersAgainstForm(recruitment, submitApplicationCommand.answers());
-
-        Application application = Application.submit(recruitment, user, submitApplicationCommand.answers());
-        Long savedApplicationId = applicationRepository.save(application).getId();
-
-        applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
-        return savedApplicationId;
+        return new EligibilityTarget(recruitment, user);
     }
+
+    /** validateEligibility 통과 결과 — submit 이 후속 저장에 재사용한다. */
+    private record EligibilityTarget(Recruitment recruitment, User user) {}
 
     @Override
     public List<ApplicationSummaryQuery> getMyApplications(Long userId, Set<ApplicationStatus> statuses) {
@@ -223,8 +280,12 @@ public class GeneralApplicationService implements ApplicationService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
 
+        // 객관식 답변은 jsonb 에 choiceId(UUID) 로 저장되므로, 목록 미리보기도 상세와 동일하게
+        // 폼 질문을 통해 라벨로 해석해야 한다. 폼이 없는 모집(EXTERNAL 등)은 빈 목록이라 답변도 비어 나간다.
+        List<RecruitmentQuestion> formQuestions = questionsOf(recruitment);
         return applicationRepository.searchApplicants(recruitmentId, currentUserId, condition).stream()
-                .map(row -> ApplicantQuery.of(row.application(), row.interviewStartAt(), row.myScore()))
+                .map(row -> ApplicantQuery.of(
+                        row.application(), formQuestions, row.interviewStartAt(), row.myScore()))
                 .toList();
     }
 
@@ -478,6 +539,22 @@ public class GeneralApplicationService implements ApplicationService {
     }
 
     /**
+     * 동시 제출로 인한 application 중복 삽입 only true.
+     * 향후 application 에 새 unique / CHECK / FK 가 추가되어도 그 위반은 그대로 위로 전파된다.
+     */
+    private static boolean isApplicationDuplicate(DataIntegrityViolationException exception) {
+        Throwable mostSpecific = exception.getMostSpecificCause();
+        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
+            return false;
+        }
+        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
+            return false;
+        }
+        String message = sqlException.getMessage();
+        return message != null && message.contains(APPLICATION_UNIQUE_CONSTRAINT);
+    }
+
+    /**
      * 모집 대상 역할별 지원 자격을 검증한다.
      * - MEMBER 모집: 해당 동아리에 소속된 사용자(역할 무관) 는 재지원 불가. 다른 동아리 소속은 영향 없음.
      * - OFFICER 모집: 해당 동아리의 MEMBER 만 지원 가능. 멤버십 없음은 차단,
@@ -504,15 +581,99 @@ public class GeneralApplicationService implements ApplicationService {
                     throw new ApplicationDomainException.IneligibleOfficerApplicantException();
                 }
             }
+            default -> throw new IllegalStateException(
+                    "지원 자격 정책이 정의되지 않은 모집 대상입니다: " + recruitment.getTargetRole());
         }
     }
 
-    private void validateAnswersAgainstForm(Recruitment recruitment, List<String> answers) {
-        RecruitmentForm form = recruitment.getForm();
-        int expected = form == null ? 0 : form.getQuestions().size();
-        int actual = answers == null ? 0 : answers.size();
-        if (expected != actual) {
+    /** legacy string[] 답변을 위치 순으로 질문 id 에 매핑한다. TODO(legacy-questions-v1): 신 FE 전환 후 제거. */
+    private List<ApplicationAnswer> resolveLegacyAnswers(Recruitment recruitment, List<String> legacyAnswers) {
+        List<RecruitmentQuestion> questions = questionsOf(recruitment);
+        List<String> answers = legacyAnswers == null ? List.of() : legacyAnswers;
+        if (questions.size() != answers.size()) {
             throw new ApplicationDomainException.InvalidAnswersException();
+        }
+        return IntStream.range(0, questions.size())
+                .mapToObj(index -> new ApplicationAnswer(
+                        questions.get(index).id(), Collections.singletonList(answers.get(index))))
+                .toList();
+    }
+
+    private List<RecruitmentQuestion> questionsOf(Recruitment recruitment) {
+        RecruitmentForm form = recruitment.getForm();
+        return form == null ? List.of() : form.getQuestions();
+    }
+
+    private void validateAnswersAgainstForm(Recruitment recruitment, List<ApplicationAnswer> answers) {
+        List<RecruitmentQuestion> questions = questionsOf(recruitment);
+        if (questions.size() != answers.size()) {
+            throw new ApplicationDomainException.InvalidAnswersException();
+        }
+        Map<String, ApplicationAnswer> answerByQuestionId = new HashMap<>();
+        for (ApplicationAnswer answer : answers) {
+            if (answer.questionId() == null
+                    || answerByQuestionId.put(answer.questionId(), answer) != null) {
+                throw new ApplicationDomainException.InvalidAnswersException();
+            }
+        }
+        for (RecruitmentQuestion question : questions) {
+            ApplicationAnswer answer = answerByQuestionId.get(question.id());
+            if (answer == null) {
+                throw new ApplicationDomainException.InvalidAnswersException();
+            }
+            validateAnswerForQuestion(question, answer);
+        }
+    }
+
+    /**
+     * 스펙 §2.6 유형별 규칙 — 필수/선택 × TEXT/SINGLE_CHOICE/MULTIPLE_CHOICE.
+     * values 원소의 null 정규화(→ 빈 문자열)와 values 자체의 null 정규화(→ 빈 목록)는
+     * {@link ApplicationAnswer} 컴팩트 생성자가 이미 끝낸 상태로 들어온다.
+     */
+    private void validateAnswerForQuestion(RecruitmentQuestion question, ApplicationAnswer answer) {
+        List<String> values = answer.values();
+        switch (question.type()) {
+            case TEXT -> {
+                if (values.size() > 1) {
+                    throw new ApplicationDomainException.InvalidAnswersException();
+                }
+                String content = values.isEmpty() ? "" : values.get(0);
+                if (question.required() && content.isBlank()) {
+                    throw new ApplicationDomainException.RequiredAnswerMissingException();
+                }
+            }
+            case SINGLE_CHOICE -> {
+                if (values.size() > 1) {
+                    throw new ApplicationDomainException.InvalidChoiceSelectionException();
+                }
+                if (question.required() && values.isEmpty()) {
+                    throw new ApplicationDomainException.RequiredAnswerMissingException();
+                }
+                requireChoiceIdsBelongToQuestion(question, values);
+            }
+            case MULTIPLE_CHOICE -> {
+                if (question.required() && values.isEmpty()) {
+                    throw new ApplicationDomainException.RequiredAnswerMissingException();
+                }
+                if (values.size() != Set.copyOf(values).size()) {
+                    throw new ApplicationDomainException.InvalidChoiceSelectionException();
+                }
+                requireChoiceIdsBelongToQuestion(question, values);
+            }
+            // enum 3 값을 모두 다루지만, 새 유형이 추가될 때 검증 없이 조용히 통과하지 않도록 명시적으로 막는다
+            // (validateClubMembershipPolicy 와 동일한 방어).
+            default -> throw new IllegalStateException(
+                    "답변 검증 규칙이 정의되지 않은 질문 유형입니다: " + question.type());
+        }
+    }
+
+    /** "바로 그 질문의" 선택지인지 검증 — 타 질문의 choiceId·미지 choiceId 를 모두 거부한다 (스펙 §2.6). */
+    private void requireChoiceIdsBelongToQuestion(RecruitmentQuestion question, List<String> selectedChoiceIds) {
+        Set<String> allowedChoiceIds = question.choices().stream()
+                .map(QuestionChoice::id)
+                .collect(Collectors.toSet());
+        if (!allowedChoiceIds.containsAll(selectedChoiceIds)) {
+            throw new ApplicationDomainException.InvalidChoiceSelectionException();
         }
     }
 

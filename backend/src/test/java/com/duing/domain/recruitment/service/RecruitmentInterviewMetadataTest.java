@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -17,6 +18,7 @@ import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -73,7 +75,7 @@ class RecruitmentInterviewMetadataTest {
                 null,
                 true,
                 TargetRole.MEMBER,
-                List.of("자기소개"),
+                List.of(RecruitmentQuestion.createText("자기소개")),
                 LocalDate.now().plusDays(10),
                 LocalDate.now().plusDays(8),
                 false
@@ -106,7 +108,8 @@ class RecruitmentInterviewMetadataTest {
 
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId).orElseThrow();
         User applicant = saveUser("지원자");
-        applicationRepository.save(Application.submit(recruitment, applicant, List.of("안녕")));
+        applicationRepository.save(Application.submit(recruitment, applicant,
+                List.of(new ApplicationAnswer("q1", List.of("안녕")))));
 
         RecruitmentDetailQuery detail = recruitmentService.getById(recruitmentId);
         assertThat(detail.showApplicantCount()).isTrue();
@@ -175,7 +178,7 @@ class RecruitmentInterviewMetadataTest {
                 null,
                 true,
                 TargetRole.MEMBER,
-                List.of("자기소개"),
+                List.of(RecruitmentQuestion.createText("자기소개")),
                 LocalDate.now().plusDays(8),
                 LocalDate.now().plusDays(10),
                 true
@@ -195,7 +198,7 @@ class RecruitmentInterviewMetadataTest {
                 null,
                 false,
                 TargetRole.MEMBER,
-                List.of("자기소개"),
+                List.of(RecruitmentQuestion.createText("자기소개")),
                 null,
                 null,
                 showApplicantCount
@@ -207,7 +210,6 @@ class RecruitmentInterviewMetadataTest {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 name,
-                "u" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,

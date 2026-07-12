@@ -41,6 +41,30 @@ public class ApplicationDomainException extends ApplicationException {
         }
     }
 
+    /** 신·구 답변 페이로드 규칙 위반 — 함께 보냄 / 둘 다 없음에 따라 메시지가 달라진다 (스펙 §2.5). */
+    public static class InvalidAnswerPayloadException extends ApplicationDomainException {
+
+        public InvalidAnswerPayloadException(String message) {
+            super(message, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class RequiredAnswerMissingException extends ApplicationDomainException {
+        private static final String MESSAGE = "필수 질문에 답변을 입력해주세요.";
+
+        public RequiredAnswerMissingException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class InvalidChoiceSelectionException extends ApplicationDomainException {
+        private static final String MESSAGE = "유효하지 않은 선택지입니다.";
+
+        public InvalidChoiceSelectionException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
     public static class InvalidStatusTransitionException extends ApplicationDomainException {
         private static final String MESSAGE = "허용되지 않는 상태 전이입니다.";
 

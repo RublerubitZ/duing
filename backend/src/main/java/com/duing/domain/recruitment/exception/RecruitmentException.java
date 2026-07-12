@@ -71,11 +71,26 @@ public class RecruitmentException extends ApplicationException {
         }
     }
 
+    public static class QuestionsNotEditableWithApplicationsException extends RecruitmentException {
+        private static final String MESSAGE =
+                "이미 지원자가 있는 모집 공고는 질문을 수정할 수 없습니다. 기존 지원서의 답변이 질문과 어긋나기 때문입니다.";
+
+        public QuestionsNotEditableWithApplicationsException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
     public static class OpenRecruitmentNotDeletableException extends RecruitmentException {
         private static final String MESSAGE = "진행 중인 모집 공고는 마감한 뒤에 삭제할 수 있습니다.";
 
         public OpenRecruitmentNotDeletableException() {
             super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    public static class InvalidQuestionDefinitionException extends RecruitmentException {
+        public InvalidQuestionDefinitionException(String message) {
+            super(message, HttpStatus.BAD_REQUEST);
         }
     }
 }

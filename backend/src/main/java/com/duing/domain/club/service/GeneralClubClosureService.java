@@ -44,7 +44,8 @@ public class GeneralClubClosureService implements ClubClosureService {
         Long actorAdminUserId = command.actorUserId();
         String reason = command.closureReason();
 
-        Club club = clubRepository.findById(clubId)
+        // 폐쇄·상태변경 동시 요청이 같은 행을 직렬화하도록 잠금 (stale 검증 방지)
+        Club club = clubRepository.findByIdForUpdate(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         club.validateClosable();
 

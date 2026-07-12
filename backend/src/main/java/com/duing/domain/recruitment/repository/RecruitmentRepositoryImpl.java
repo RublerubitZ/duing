@@ -1,7 +1,9 @@
 package com.duing.domain.recruitment.repository;
 
+import static com.duing.domain.club.entity.QClub.club;
 import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
 
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.querydsl.core.Tuple;
@@ -22,11 +24,15 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
 
     @Override
     public List<Recruitment> findOverlappingPeriod(LocalDate periodStart, LocalDate periodEnd) {
+        // 공개 달력 전용 — 운영 중(ACTIVE) 동아리의 모집만 노출한다.
+        // 벌크 마감(운영 중단 시 OPEN 일괄 CLOSED)과 별개의 2차 방어선으로, 정합이 깨진 과거 행도 걸러낸다.
         return queryFactory
                 .selectFrom(recruitment)
+                .join(recruitment.club, club)
                 .where(
                         recruitment.startDate.loe(periodEnd),
-                        recruitment.endDate.goe(periodStart)
+                        recruitment.endDate.goe(periodStart),
+                        club.status.eq(ClubStatus.ACTIVE)
                 )
                 .orderBy(recruitment.startDate.asc(), recruitment.id.asc())
                 .fetch();

@@ -25,6 +25,18 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     group: '커뮤니티 운영',
   },
   {
+    href: '/admin/faqs',
+    title: 'FAQ 관리',
+    description: '총동연 자주 묻는 질문 작성·정렬·공개 관리',
+    group: '커뮤니티 운영',
+  },
+  {
+    href: '/admin/inquiries',
+    title: '1:1 문의',
+    description: '학생 비밀문의 답변·상태 관리',
+    group: '커뮤니티 운영',
+  },
+  {
     href: '/admin/global-events',
     title: '글로벌 이벤트',
     description: '학교 단위 행사 일정 작성·수정·삭제 + 카테고리 분포',

@@ -1,5 +1,5 @@
 import { createApiClient } from '@duing/api';
-import type { ClubSummary } from '@duing/types';
+import type { ClubSummary, FederationFaqItem } from '@duing/types';
 import {
   FALLBACK_BANNERS,
   fallbackBannerToSlide,
@@ -48,6 +48,17 @@ export async function fetchUpcomingDeadlineClubs(size: number): Promise<ClubSumm
   } catch (error) {
     logBackendUnavailable('fetchUpcomingDeadlineClubs', error);
     return [];
+  }
+}
+
+/** HomeQnaSection 용: 총동연 FAQ 상위 size 건(고정·정렬 순은 백엔드 sortOrder 를 따른다). */
+export async function fetchFederationFaqHighlights(size: number): Promise<FederationFaqItem[]> {
+  try {
+    const page = await client().federationFaqs.list({ page: 0, size });
+    return page.content;
+  } catch (error) {
+    logBackendUnavailable('fetchFederationFaqHighlights', error);
+    return []; // BE 다운 시 홈 섹션 자체를 숨긴다(코드 버그로 오인 방지 — RecruitmentTicker 동일)
   }
 }
 

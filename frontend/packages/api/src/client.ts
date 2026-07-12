@@ -73,9 +73,13 @@ import type {
   SignupPayload,
   UpdateProfilePayload,
   ChangePasswordPayload,
-  SendEmailVerificationPayload,
-  ConfirmEmailVerificationPayload,
-  EmailVerificationResult,
+  StartPhoneVerificationPayload,
+  PhoneVerificationSession,
+  PhoneVerificationStatus,
+  ChangePhonePayload,
+  RequestPasswordResetPayload,
+  PasswordResetSession,
+  CompletePasswordResetPayload,
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
   UpdateClubPayload,
@@ -165,6 +169,28 @@ import type {
   UpdateCashbookEntryPayload,
   PublicActivityFeed,
   PublicActivityListParams,
+  FacilitySummary,
+  FacilityUsageResponse,
+  FacilityDetailResponse,
+  FederationFaqCategory,
+  FederationFaqItem,
+  AdminFederationFaqSummary,
+  CreateFederationFaqPayload,
+  UpdateFederationFaqPayload,
+  FederationFaqFeedbackPayload,
+  AdminFederationFaqSearchMiss,
+  CreateFederationFaqCategoryPayload,
+  UpdateFederationFaqCategoryPayload,
+  FederationInquiryStatus,
+  FederationInquirySummary,
+  FederationInquiryDetail,
+  AdminFederationInquirySummary,
+  AdminFederationInquiryDetail,
+  CreateFederationInquiryPayload,
+  UpdateFederationInquiryPayload,
+  ChangeFederationInquiryStatusPayload,
+  AnswerFederationInquiryPayload,
+  UpdateFederationInquiryAnswerPayload,
 } from '@duing/types';
 import { readToken } from './token';
 
@@ -213,8 +239,16 @@ export type DuingApiClient = {
   auth: {
     signup(payload: SignupPayload): Promise<number>;
     login(payload: LoginPayload): Promise<LoginResult>;
-    sendEmailVerification(payload: SendEmailVerificationPayload): Promise<EmailVerificationResult>;
-    confirmEmailVerification(payload: ConfirmEmailVerificationPayload): Promise<void>;
+    startPhoneVerification(
+      payload: StartPhoneVerificationPayload,
+      includeQr: boolean,
+    ): Promise<PhoneVerificationSession>;
+    getPhoneVerificationStatus(verificationToken: string): Promise<PhoneVerificationStatus>;
+    requestPasswordReset(
+      payload: RequestPasswordResetPayload,
+      includeQr: boolean,
+    ): Promise<PasswordResetSession>;
+    completePasswordReset(payload: CompletePasswordResetPayload): Promise<void>;
     logout(): Promise<void>;
   };
   users: {
@@ -223,6 +257,11 @@ export type DuingApiClient = {
     myClubs(): Promise<MyClubSummary[]>;
     updateProfile(payload: UpdateProfilePayload): Promise<void>;
     changePassword(payload: ChangePasswordPayload): Promise<void>;
+    startPhoneChangeVerification(
+      payload: StartPhoneVerificationPayload,
+      includeQr: boolean,
+    ): Promise<PhoneVerificationSession>;
+    changePhone(payload: ChangePhonePayload): Promise<void>;
     withdraw(): Promise<void>;
   };
   clubs: {
@@ -262,6 +301,7 @@ export type DuingApiClient = {
   };
   applications: {
     submit(recruitmentId: number, payload: SubmitApplicationPayload): Promise<number>;
+    checkEligibility(recruitmentId: number): Promise<void>;
     applicants(recruitmentId: number, filters?: ApplicantsFilters): Promise<Applicant[]>;
     applicantNeighbors(
       recruitmentId: number,
@@ -311,12 +351,46 @@ export type DuingApiClient = {
     }): Promise<PageResponse<NoticeCardItem>>;
     detail(noticeId: number): Promise<NoticeDetail>;
   };
+  federationFaqs: {
+    list(params: {
+      categoryId?: number;
+      keyword?: string;
+      page: number;
+      size: number;
+    }): Promise<PageResponse<FederationFaqItem>>;
+    detail(faqId: number): Promise<FederationFaqItem>;
+    submitFeedback(faqId: number, payload: FederationFaqFeedbackPayload): Promise<void>;
+  };
+  federationFaqCategories: {
+    list(): Promise<FederationFaqCategory[]>;
+  };
+  federationInquiries: {
+    create(payload: CreateFederationInquiryPayload): Promise<number>;
+    listMine(params: {
+      status?: FederationInquiryStatus;
+      page: number;
+      size: number;
+    }): Promise<PageResponse<FederationInquirySummary>>;
+    detail(inquiryId: number): Promise<FederationInquiryDetail>;
+    update(inquiryId: number, payload: UpdateFederationInquiryPayload): Promise<void>;
+    remove(inquiryId: number): Promise<void>;
+    // 원본 바이트 스트리밍 — ApiResponse 로 감싸지 않는다(작성자 본인 또는 ADMIN 만 접근, 그 외 404).
+    downloadAttachment(inquiryId: number, attachmentId: number): Promise<Blob>;
+  };
   promotions: {
     list(): Promise<PageResponse<PromotionCard>>;
   };
   publicActivities: {
     // GET /api/v1/public-activities — 공개·인증불요. 6도메인 최근 활동 집계(occurredAt DESC).
     list(params?: PublicActivityListParams): Promise<PublicActivityFeed>;
+  };
+  facilities: {
+    // GET /api/v1/facilities — 공개·인증불요. 활성 시설 목록(가벼움).
+    list(): Promise<FacilitySummary[]>;
+    // GET /api/v1/facilities/usage?yearMonth=YYYY-MM — yearMonth 생략 시 현재월.
+    usage(yearMonth?: string): Promise<FacilityUsageResponse>;
+    // GET /api/v1/facilities/{facilityId}?yearMonth=YYYY-MM — 단일 시설 상세(타임라인용).
+    get(facilityId: number, yearMonth?: string): Promise<FacilityDetailResponse>;
   };
   notifications: {
     list(unreadOnly: boolean, page: number, size: number): Promise<PageResponse<Notification>>;
@@ -383,6 +457,39 @@ export type DuingApiClient = {
       create(payload: CreateNoticePayload): Promise<number>;
       update(noticeId: number, payload: UpdateNoticePayload): Promise<void>;
       remove(noticeId: number): Promise<void>;
+    };
+    federationFaqs: {
+      list(params: {
+        published?: boolean;
+        categoryId?: number;
+        keyword?: string;
+        page: number;
+        size: number;
+      }): Promise<PageResponse<AdminFederationFaqSummary>>;
+      create(payload: CreateFederationFaqPayload): Promise<number>;
+      update(faqId: number, payload: UpdateFederationFaqPayload): Promise<void>;
+      remove(faqId: number): Promise<void>;
+      reorder(orderedIds: number[]): Promise<void>;
+      // 정렬 서버 고정(missCount desc·lastSearchedAt desc), sort 파라미터 미지원.
+      searchMisses(params: { page: number; size: number }): Promise<PageResponse<AdminFederationFaqSearchMiss>>;
+    };
+    federationFaqCategories: {
+      create(payload: CreateFederationFaqCategoryPayload): Promise<number>;
+      update(categoryId: number, payload: UpdateFederationFaqCategoryPayload): Promise<void>;
+      // moveToCategoryId 지정 시 소속 FAQ 전부 이관 후 삭제, 미지정 시 FAQ 가 있으면 409.
+      remove(categoryId: number, moveToCategoryId?: number): Promise<void>;
+    };
+    federationInquiries: {
+      list(params: {
+        status?: FederationInquiryStatus;
+        keyword?: string;
+        page: number;
+        size: number;
+      }): Promise<PageResponse<AdminFederationInquirySummary>>;
+      detail(inquiryId: number): Promise<AdminFederationInquiryDetail>;
+      changeStatus(inquiryId: number, payload: ChangeFederationInquiryStatusPayload): Promise<void>;
+      answer(inquiryId: number, payload: AnswerFederationInquiryPayload): Promise<number>;
+      updateAnswer(inquiryId: number, payload: UpdateFederationInquiryAnswerPayload): Promise<void>;
     };
     globalEvents: {
       list(params: AdminGlobalEventListParams): Promise<PageResponse<AdminGlobalEventSummary>>;
@@ -618,16 +725,44 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
     }
   }
 
+  // 원본 바이트 응답(ApiResponse 미래핑) 전용 — 성공 시 body 를 blob 으로 읽는다.
+  // 실패(HTTPError)는 GlobalExceptionHandler 가 이 엔드포인트에서도 ApiResponse JSON 을 그대로
+  // 내려주므로 jsonOk/jsonVoid 와 동일하게 toApiError 로 위임한다.
+  async function blobOk(promise: ResponsePromise): Promise<Blob> {
+    try {
+      const res = await promise;
+      return await res.blob();
+    } catch (error) {
+      return toApiError(error);
+    }
+  }
+
   return {
     auth: {
       signup: (payload) =>
         jsonOk<number>(http.post('auth/signup', { json: payload })),
       login: (payload) =>
         jsonOk<LoginResult>(http.post('auth/login', { json: payload })),
-      sendEmailVerification: (payload) =>
-        jsonOk<EmailVerificationResult>(http.post('auth/email-verifications', { json: payload })),
-      confirmEmailVerification: (payload) =>
-        jsonVoid(http.post('auth/email-verifications/confirm', { json: payload })),
+      startPhoneVerification: (payload, includeQr) =>
+        jsonOk<PhoneVerificationSession>(
+          http.post('auth/phone-verifications', {
+            json: payload,
+            searchParams: includeQr ? { qr: 'true' } : undefined,
+          }),
+        ),
+      getPhoneVerificationStatus: (verificationToken) =>
+        jsonOk<PhoneVerificationStatus>(
+          http.post('auth/phone-verifications/status', { json: { verificationToken } }),
+        ),
+      requestPasswordReset: (payload, includeQr) =>
+        jsonOk<PasswordResetSession>(
+          http.post('auth/password-resets', {
+            json: payload,
+            searchParams: includeQr ? { qr: 'true' } : undefined,
+          }),
+        ),
+      completePasswordReset: (payload) =>
+        jsonVoid(http.post('auth/password-resets/complete', { json: payload })),
       logout: () => jsonVoid(http.post('auth/logout', { timeout: LOGOUT_REVOKE_TIMEOUT_MS })),
     },
     users: {
@@ -641,6 +776,14 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       myClubs: () => jsonOk<MyClubSummary[]>(http.get('me/clubs')),
       updateProfile: (payload) => jsonVoid(http.patch('users/me', { json: payload })),
       changePassword: (payload) => jsonVoid(http.patch('users/me/password', { json: payload })),
+      startPhoneChangeVerification: (payload, includeQr) =>
+        jsonOk<PhoneVerificationSession>(
+          http.post('users/me/phone-verifications', {
+            json: payload,
+            searchParams: includeQr ? { qr: 'true' } : undefined,
+          }),
+        ),
+      changePhone: (payload) => jsonVoid(http.patch('users/me/phone', { json: payload })),
       withdraw: () => jsonVoid(http.delete('users/me')),
     },
     clubs: {
@@ -728,6 +871,8 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<number>(
           http.post(`recruitments/${recruitmentId}/applications`, { json: payload }),
         ),
+      checkEligibility: (recruitmentId) =>
+        jsonVoid(http.get(`recruitments/${recruitmentId}/applications/eligibility`)),
       applicants: (recruitmentId, filters) => {
         const search = new URLSearchParams();
         if (filters?.status) search.set('status', filters.status);
@@ -820,6 +965,36 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       detail: (noticeId) =>
         jsonOk<NoticeDetail>(http.get(`notices/${noticeId}`)),
     },
+    federationFaqs: {
+      list: (params) =>
+        jsonOk<PageResponse<FederationFaqItem>>(
+          http.get('federation/faqs', { searchParams: cleanParams(params) }),
+        ),
+      detail: (faqId) => jsonOk<FederationFaqItem>(http.get(`federation/faqs/${faqId}`)),
+      // 비로그인도 호출 가능한 공개 경로(permitAll) — http 인스턴스는 토큰이 없으면
+      // Authorization 헤더 자체를 붙이지 않으므로(beforeRequest 훅) 별도 분기 불필요.
+      submitFeedback: (faqId, payload) =>
+        jsonVoid(http.post(`federation/faqs/${faqId}/feedback`, { json: payload })),
+    },
+    federationFaqCategories: {
+      list: () => jsonOk<FederationFaqCategory[]>(http.get('federation/faq-categories')),
+    },
+    federationInquiries: {
+      create: (payload) =>
+        jsonOk<number>(http.post('federation/inquiries', { json: payload })),
+      listMine: (params) =>
+        jsonOk<PageResponse<FederationInquirySummary>>(
+          http.get('me/federation-inquiries', { searchParams: cleanParams(params) }),
+        ),
+      detail: (inquiryId) =>
+        jsonOk<FederationInquiryDetail>(http.get(`federation/inquiries/${inquiryId}`)),
+      update: (inquiryId, payload) =>
+        jsonVoid(http.patch(`federation/inquiries/${inquiryId}`, { json: payload })),
+      remove: (inquiryId) =>
+        jsonVoid(http.delete(`federation/inquiries/${inquiryId}`)),
+      downloadAttachment: (inquiryId, attachmentId) =>
+        blobOk(http.get(`federation/inquiries/${inquiryId}/attachments/${attachmentId}`)),
+    },
     promotions: {
       list: () => jsonOk<PageResponse<PromotionCard>>(http.get('promotions')),
     },
@@ -827,6 +1002,21 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       list: (params) =>
         jsonOk<PublicActivityFeed>(
           http.get('public-activities', { searchParams: cleanParams(params) }),
+        ),
+    },
+    facilities: {
+      list: () => jsonOk<FacilitySummary[]>(http.get('facilities')),
+      usage: (yearMonth) =>
+        jsonOk<FacilityUsageResponse>(
+          http.get('facilities/usage', {
+            searchParams: yearMonth ? { yearMonth } : undefined,
+          }),
+        ),
+      get: (facilityId, yearMonth) =>
+        jsonOk<FacilityDetailResponse>(
+          http.get(`facilities/${facilityId}`, {
+            searchParams: yearMonth ? { yearMonth } : undefined,
+          }),
         ),
     },
     notifications: {
@@ -943,6 +1133,50 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           jsonVoid(http.patch(`admin/notices/${noticeId}`, { json: payload })),
         remove: (noticeId) =>
           jsonVoid(http.delete(`admin/notices/${noticeId}`)),
+      },
+      federationFaqs: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminFederationFaqSummary>>(
+            http.get('admin/federation/faqs', { searchParams: cleanParams(params) }),
+          ),
+        create: (payload) => jsonOk<number>(http.post('admin/federation/faqs', { json: payload })),
+        update: (faqId, payload) =>
+          jsonVoid(http.patch(`admin/federation/faqs/${faqId}`, { json: payload })),
+        remove: (faqId) => jsonVoid(http.delete(`admin/federation/faqs/${faqId}`)),
+        reorder: (orderedIds) =>
+          jsonVoid(http.put('admin/federation/faqs/order', { json: { orderedIds } })),
+        searchMisses: (params) =>
+          jsonOk<PageResponse<AdminFederationFaqSearchMiss>>(
+            http.get('admin/federation/faq-search-misses', { searchParams: cleanParams(params) }),
+          ),
+      },
+      federationFaqCategories: {
+        create: (payload) =>
+          jsonOk<number>(http.post('admin/federation/faq-categories', { json: payload })),
+        update: (categoryId, payload) =>
+          jsonVoid(http.patch(`admin/federation/faq-categories/${categoryId}`, { json: payload })),
+        remove: (categoryId, moveToCategoryId) =>
+          jsonVoid(
+            http.delete(`admin/federation/faq-categories/${categoryId}`, {
+              searchParams: cleanParams({ moveToCategoryId }),
+            }),
+          ),
+      },
+      federationInquiries: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminFederationInquirySummary>>(
+            http.get('admin/federation/inquiries', { searchParams: cleanParams(params) }),
+          ),
+        detail: (inquiryId) =>
+          jsonOk<AdminFederationInquiryDetail>(http.get(`admin/federation/inquiries/${inquiryId}`)),
+        changeStatus: (inquiryId, payload) =>
+          jsonVoid(http.patch(`admin/federation/inquiries/${inquiryId}/status`, { json: payload })),
+        answer: (inquiryId, payload) =>
+          jsonOk<number>(
+            http.post(`admin/federation/inquiries/${inquiryId}/answer`, { json: payload }),
+          ),
+        updateAnswer: (inquiryId, payload) =>
+          jsonVoid(http.patch(`admin/federation/inquiries/${inquiryId}/answer`, { json: payload })),
       },
       globalEvents: {
         list: (params) =>

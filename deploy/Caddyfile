@@ -3,6 +3,13 @@
 api.duings.com {
 	encode zstd gzip
 
+	# 요청 바디 상한 — 비인증 대용량 바디로 인한 단일 인스턴스 메모리 고갈(OOM)을 엣지에서 차단한다.
+	# 멀티파트 업로드(최대 10MB, /api/v1/files)에 헤더/인코딩 여유를 더해 11MB 로 둔다. JSON 바디는
+	# 앱 레이어(RequestBodySizeLimitFilter)가 2MB 로 더 좁게 재검증한다. 초과 시 Caddy 가 413 을 반환한다.
+	request_body {
+		max_size 11MB
+	}
+
 	# 단일 업스트림이라 active health check 로 업스트림을 빼면 DB 일시장애 시 전체 차단이 되므로
 	# 두지 않는다. Caddy 가 Host 헤더를 보존하고 X-Forwarded-* 를 주입하면, 백엔드는
 	# forward-headers-strategy=native 로 원 클라이언트 IP/프로토콜을 인식한다.

@@ -45,6 +45,21 @@ email:
     # 테스트 전용 더미 키 — 실 시크릿 아님.
     secret: duing-test-email-verification-secret
 
+mo:
+  provider: stub
+  inbound-number: "16663538"
+  stub:
+    auto-verify-after-seconds: 0
+
+phone-verification:
+  # 테스트 전용 더미 키 — 실 시크릿 아님.
+  secret: duing-test-phone-verification-secret
+
+octomo:
+  # 테스트 전용 더미 — mo.provider=stub 이라 실제 호출·바인딩은 없다 (OctomoClientConfig 는 octomo 일 때만 활성).
+  api-key: ""
+  base-url: http://localhost:0/octomo-stub
+
 resend:
   api-key: ""
   from: Du-ing <noreply@duings.com>
@@ -78,7 +93,26 @@ duing:
     retention:
       enabled: false
       window: P1Y
+  federation-inquiry:
+    purge:
+      enabled: false
+      window: P45D
   public-activity:
     window-days: 30
     default-limit: 10
     max-limit: 20
+  facility:
+    crawler:
+      enabled: false
+      # 테스트 전용 더미 baseUrl — 온디맨드 fetch 는 신선한 스냅샷을 시드해 캐시히트로 우회하므로 실제 호출 없음.
+      base-url: http://localhost:0/facility-stub
+      list-path: /room/detail
+      data-path: /room/data/list
+      user-agent: DuingFacilityTest/1.0
+      connect-timeout-millis: 500
+      read-timeout-millis: 500
+      retry-max-attempts: 4
+      retry-backoff-millis: 1
+      on-demand-retry-max-attempts: 2
+      on-demand-deadline-seconds: 10
+      room-delay-millis: 1

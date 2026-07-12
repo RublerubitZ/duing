@@ -1,6 +1,7 @@
 package com.duing.domain.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -20,6 +21,7 @@ import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -36,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +55,7 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
     @Autowired private ClubRepository clubRepository;
     @Autowired private ClubMemberRepository clubMemberRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -62,7 +66,6 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
         return userRepository.save(User.create(
                 String.format("%010d", unique % 10_000_000_000L),
                 nameSuffix + unique,
-                "decouple" + unique + "@daegu.ac.kr",
                 "hashed",
                 UserRole.STUDENT,
                 Grade.FRESHMAN,
@@ -113,7 +116,7 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
     }
 
     private SubmitApplicationCommand submitCommand(Long recruitmentId, Long userId) {
-        return new SubmitApplicationCommand(recruitmentId, userId, List.of());
+        return new SubmitApplicationCommand(recruitmentId, userId, List.of(), null);
     }
 
     // ── 테스트 ────────────────────────────────────────────────────────────────
@@ -136,6 +139,26 @@ class ApplicationSubmitDecouplingTest extends IntegrationTestBase {
         assertThat(applicationRepository.existsByRecruitmentIdAndUserId(
                 recruitment.getId(), applicant.getId())).isTrue();
         assertThat(availabilityRepository.findByApplicationId(applicationId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("운영 중이 아닌 동아리의 모집에는 지원할 수 없고 모집의 존재가 숨겨진다")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void submitToInactiveClubRecruitmentIsHiddenAsNotFound() {
+        Club club = saveActiveClub("중단지원차단동아리");
+        Recruitment recruitment = saveOpenRecruitment(club, "중단지원차단모집");
+        User applicant = saveStudent("중단지원자");
+
+        // 벌크 마감을 우회해 club 만 INACTIVE 로 바꿔 "OPEN 모집 + 비 ACTIVE 동아리" 정합 깨진
+        // 레거시 상태를 재현한다. recruitmentId 추측만으로 숨겨진 동아리에 지원(쓰기)이 가능하면
+        // 존재 은닉(404)이 뚫리므로, 공개 상세와 동일하게 RecruitmentNotFound(404) 여야 한다.
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+
+        assertThatThrownBy(() -> applicationService.submit(
+                submitCommand(recruitment.getId(), applicant.getId())))
+                .isInstanceOf(RecruitmentException.RecruitmentNotFoundException.class);
+        assertThat(applicationRepository.existsByRecruitmentIdAndUserId(
+                recruitment.getId(), applicant.getId())).isFalse();
     }
 
     @Test

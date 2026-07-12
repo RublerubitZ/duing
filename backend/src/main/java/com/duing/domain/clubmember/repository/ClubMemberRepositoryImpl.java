@@ -62,6 +62,7 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                         club.id,
                         club.name,
                         club.logoUrl,
+                        club.status,
                         clubMember.role,
                         activeRecruitmentFlag.sum().longValue().coalesce(0L),
                         clubMember.createdAt
@@ -69,8 +70,11 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                 .from(clubMember)
                 .join(clubMember.club, club)
                 .leftJoin(recruitment).on(recruitment.club.id.eq(club.id))
-                .where(clubMember.user.id.eq(userId))
-                .groupBy(club.id, club.name, club.logoUrl, clubMember.role, clubMember.createdAt)
+                .where(
+                        clubMember.user.id.eq(userId),
+                        club.status.eq(ClubStatus.ACTIVE)
+                )
+                .groupBy(club.id, club.name, club.logoUrl, club.status, clubMember.role, clubMember.createdAt)
                 .orderBy(clubMember.createdAt.desc())
                 .fetch();
     }

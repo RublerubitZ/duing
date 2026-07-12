@@ -2,14 +2,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@duing/stores';
 import type {
   ChangePasswordPayload,
-  ConfirmEmailVerificationPayload,
+  ChangePhonePayload,
+  CompletePasswordResetPayload,
   LoginPayload,
-  SendEmailVerificationPayload,
+  RequestPasswordResetPayload,
   SignupPayload,
+  StartPhoneVerificationPayload,
   UpdateProfilePayload,
   User,
 } from '@duing/types';
 import { useApiClient } from './api-context';
+import { authQueryKeys } from './authQueryKeys';
 import { userQueryKeys } from './userQueryKeys';
 
 export function useSignupMutation() {
@@ -83,18 +86,68 @@ export function useWithdrawAccountMutation() {
   });
 }
 
-export function useSendEmailVerificationMutation() {
+export function useStartPhoneVerificationMutation() {
   const client = useApiClient();
   return useMutation({
-    mutationFn: (payload: SendEmailVerificationPayload) =>
-      client.auth.sendEmailVerification(payload),
+    mutationFn: ({ payload, includeQr }: { payload: StartPhoneVerificationPayload; includeQr: boolean }) =>
+      client.auth.startPhoneVerification(payload, includeQr),
   });
 }
 
-export function useConfirmEmailVerificationMutation() {
+export function useStartPhoneChangeVerificationMutation() {
   const client = useApiClient();
   return useMutation({
-    mutationFn: (payload: ConfirmEmailVerificationPayload) =>
-      client.auth.confirmEmailVerification(payload),
+    mutationFn: ({ payload, includeQr }: { payload: StartPhoneVerificationPayload; includeQr: boolean }) =>
+      client.users.startPhoneChangeVerification(payload, includeQr),
+  });
+}
+
+export function useChangePhoneMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ChangePhonePayload) => client.users.changePhone(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userQueryKeys.me() });
+    },
+  });
+}
+
+export function useRequestPasswordResetMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: ({ payload, includeQr }: { payload: RequestPasswordResetPayload; includeQr: boolean }) =>
+      client.auth.requestPasswordReset(payload, includeQr),
+  });
+}
+
+export function useCompletePasswordResetMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (payload: CompletePasswordResetPayload) => client.auth.completePasswordReset(payload),
+  });
+}
+
+// 서버 상태를 3초 간격으로 폴링한다. VERIFIED/EXPIRED 로 확정되면 refetchInterval=false 로 스스로 멈추고,
+// 백그라운드 탭에서는 폴링하지 않는다. enabled 는 "문자 보냈어요" 를 누른 뒤(waiting)에만 true 로 넘긴다.
+export function usePhoneVerificationStatusQuery(
+  verificationToken: string | null,
+  options: { enabled: boolean },
+) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: authQueryKeys.phoneVerification(verificationToken ?? ''),
+    queryFn: () => {
+      if (verificationToken === null) throw new Error('verificationToken is null');
+      return client.auth.getPhoneVerificationStatus(verificationToken);
+    },
+    enabled: options.enabled && verificationToken !== null,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'VERIFIED' || status === 'EXPIRED' ? false : 3000;
+    },
+    refetchIntervalInBackground: false,
+    staleTime: 0,
+    gcTime: 0,
   });
 }

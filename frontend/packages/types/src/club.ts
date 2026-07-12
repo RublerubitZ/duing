@@ -146,6 +146,7 @@ export type MyClubSummary = {
   clubId: number;
   clubName: string;
   logoUrl: string | null;
+  status: ClubStatus;
   myRole: MyClubRole;
   activeRecruitmentCount: number;
   joinedAt: string; // ISO datetime
@@ -177,7 +178,7 @@ export type UpdateClubPayload = {
   majorProjects?: string | null;
 };
 
-export type FilePurpose = 'LOGO' | 'COVER' | 'PHOTO' | 'NOTICE_COVER' | 'NOTICE_BODY' | 'PROMOTION_BANNER' | 'GLOBAL_EVENT_COVER' | 'PROMOTION_REQUEST_BANNER';
+export type FilePurpose = 'LOGO' | 'COVER' | 'PHOTO' | 'NOTICE_COVER' | 'NOTICE_BODY' | 'PROMOTION_BANNER' | 'GLOBAL_EVENT_COVER' | 'PROMOTION_REQUEST_BANNER' | 'FEDERATION_INQUIRY';
 
 export type FileUploadResult = {
   storageKey: string;

@@ -8,7 +8,7 @@ import { ApiError } from '@duing/api';
 import { useWithdrawAccountMutation } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
 
@@ -55,9 +55,9 @@ export function WithdrawAccountDialog({ open, onClose }: Props) {
     >
       <DialogContent>
         <DialogTitle>회원 탈퇴</DialogTitle>
-        <p className="text-[13.5px] leading-relaxed text-charcoal-2">
+        <DialogDescription className="text-[13.5px] leading-relaxed text-charcoal-2">
           정말 탈퇴하시겠어요? 계정과 활동 정보가 정리되며 되돌릴 수 없어요.
-        </p>
+        </DialogDescription>
         {error && <p className="text-[12.5px] text-coral">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button

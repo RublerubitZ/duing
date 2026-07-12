@@ -8,7 +8,8 @@ import org.springframework.stereotype.Component;
  * 로컬 개발용 EmailSender — 실제 발송 없이 본문을 로그로 출력한다.
  *
  * <p>{@code email.provider} 미설정 또는 {@code logging} 일 때 활성 (matchIfMissing).
- * 운영은 {@code EMAIL_PROVIDER=resend} 로 {@code ResendEmailSender} 가 대신 등록된다.
+ * 운영은 {@code EMAIL_PROVIDER=resend} 로 {@link FallbackEmailSender}(Resend 주 + Brevo 폴백)가
+ * 대신 등록된다.
  */
 @Slf4j
 @Component

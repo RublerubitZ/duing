@@ -10,7 +10,6 @@ public record UserSearchResultQuery(
         Long id,
         String studentId,
         String name,
-        String email,
         UserRole role
 ) {
     public static UserSearchResultQuery from(User user) {
@@ -18,7 +17,6 @@ public record UserSearchResultQuery(
                 user.getId(),
                 user.getStudentId(),
                 user.getName(),
-                user.getEmail(),
                 user.getRole()
         );
     }

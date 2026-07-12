@@ -30,7 +30,7 @@ public class ClubEventReadController implements ClubEventReadApi {
             Long clubId, LocalDate from, LocalDate to,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        clubAuthService.requireMember(currentUser.id(), clubId);
+        clubAuthService.requireActiveMember(currentUser.id(), clubId);
         return ResponseEntity.ok(ApiResponse.success(eventService.listWindow(clubId, from, to)));
     }
 
@@ -39,7 +39,7 @@ public class ClubEventReadController implements ClubEventReadApi {
             Long clubId, Long eventId,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        clubAuthService.requireMember(currentUser.id(), clubId);
+        clubAuthService.requireActiveMember(currentUser.id(), clubId);
         return ResponseEntity.ok(ApiResponse.success(eventService.getDetail(clubId, eventId)));
     }
 }
