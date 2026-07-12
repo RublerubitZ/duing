@@ -308,7 +308,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1 pnpm --filter @duing/web b
 
 Expected: non-zero exit와 `NEXT_PUBLIC_API_BASE_URL` HTTPS 또는 loopback 오류.
 
-- [ ] **Step 5: 최종 상태를 확인한다**
+- [x] **Step 5: 최종 상태를 확인한다**
 
 ```bash
 git diff --check
