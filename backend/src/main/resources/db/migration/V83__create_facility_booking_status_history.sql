@@ -7,10 +7,10 @@ CREATE TABLE facility_booking_status_history (
     new_status      VARCHAR(20) NOT NULL,
     changed_by      BIGINT      REFERENCES users (id),
     reason          VARCHAR(500),
-    crawl_basis_at  TIMESTAMP WITH TIME ZONE,
-    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    deleted_at      TIMESTAMP WITH TIME ZONE
+    crawl_basis_at  TIMESTAMP,
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at      TIMESTAMP
 );
 
 CREATE INDEX idx_fbsh_booking ON facility_booking_status_history (booking_id, created_at);

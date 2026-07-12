@@ -199,7 +199,7 @@ enum은 확장 가능하게 둔다 — 향후 학교 데이터에 별도의 "예
 
 ## 6. 데이터 모델
 
-버전 번호는 구현 시점의 develop 최신 + 1(아래 `V8x/V8y/V8z`는 자리표시가 아니라 "연속 세 개"라는 뜻). **주의: 열린 PR #629도 V81을 선점 중** — Flyway는 out-of-order 적용을 금지하므로 먼저 develop에 머지되는 쪽이 낮은 번호를 갖고, 나중 쪽이 리넘버한다(구현 계획 Task 1에 재확인 절차 포함). 모든 신규 테이블 RLS 활성화(V59 정책·`RowLevelSecurityMigrationTest` 가드).
+구현 브랜치는 **V82/V83/V84**(연속 세 개)를 선점하고 `V81`은 열린 PR #629(email 인프라 제거) 몫으로 남긴다(아래 `V8x/V8y/V8z`는 이 V82/V83/V84 세 개를 가리키는 자리표시). Flyway는 out-of-order 적용을 금지하므로 두 브랜치가 같은 번호를 쓰면 부팅에 실패한다 — 머지 순서가 역전돼 이 브랜치가 #629보다 먼저 배포되면 #629가 V85+로 리넘버한다(구현 계획 Task 1에 재확인 절차 포함). 모든 신규 테이블 RLS 활성화(V59 정책·`RowLevelSecurityMigrationTest` 가드).
 
 ### 6.1 `facility_booking` (V8x)
 

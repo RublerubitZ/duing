@@ -17,7 +17,7 @@
 - 도메인 예외는 `ApplicationException` 상속 부모 + 중첩 static 클래스(`FacilityBookingException.XxxException`), HttpStatus 를 생성자에서 지정.
 - Controller 는 반드시 `api/` Swagger 인터페이스(`@Tag`/`@Operation`/매핑 어노테이션은 인터페이스 쪽)를 implements. HTTP 상태: POST 생성=201, GET=200, PATCH/DELETE/액션형 POST(본문 없음)=204.
 - 현재 사용자: `@AuthenticationPrincipal UserPrincipal currentUser` → `currentUser.id()`. 운영진 권한: `clubAuthService.requireManager(userId, clubId)` (LEADER/OFFICER + ACTIVE 동아리 검증 내장).
-- 신규 테이블: `id BIGSERIAL PK` + `created_at/updated_at/deleted_at TIMESTAMP WITH TIME ZONE` + **`ENABLE ROW LEVEL SECURITY` 필수**(`RowLevelSecurityMigrationTest` 가드) + `IntegrationTestBase` TRUNCATE 목록 추가 필수.
+- 신규 테이블: `id BIGSERIAL PK` + `created_at/updated_at/deleted_at TIMESTAMP` + **`ENABLE ROW LEVEL SECURITY` 필수**(`RowLevelSecurityMigrationTest` 가드) + `IntegrationTestBase` TRUNCATE 목록 추가 필수.
 - 기존 마이그레이션 파일 수정 금지 — 새 파일만 추가.
 - 시간 로직은 `Clock` 주입(`seoulClock` 빈, 타입 유일이라 `@Qualifier` 불필요) + `now(clock)`. 테스트는 `Clock.fixed(...)` — **하드코딩 미래 절대날짜로 만료되는 테스트 금지**(CI timebomb).
 - 슬롯 그리드: 09:00~22:00, 1시간 단위, 같은 날짜 내 연속 슬롯. 신청 가능 기간: 오늘~다음 달 말일. 동아리당 활성(PENDING+APPROVED) 상한 10건.
@@ -25,7 +25,7 @@
 - 커밋 메시지: 한국어 Conventional Commits(`feat(backend): ...`). Co-Authored-By/🤖 라인 절대 금지.
 - 빌드·테스트는 반드시 `backend/` 디렉터리에서 실행. 출력 끝의 `BUILD SUCCESSFUL` 확인(파이프로 가리지 말 것). 통합 테스트는 Docker(Testcontainers) 필요.
 
-**마이그레이션 버전 규칙(중요):** 이 계획은 develop 최신 `V80` 기준으로 **V81/V82/V83** 을 사용한다. 단 열린 PR #629 도 `V81` 을 선점 중이다 — Flyway 는 out-of-order 적용을 금지하므로 **먼저 develop 에 머지되는 쪽이 낮은 번호를 갖는다.** Task 1 시작 시 `ls backend/src/main/resources/db/migration | sort -V | tail -3` 으로 재확인하고, V81 이 이미 존재하면 이 계획의 모든 버전을 +1 시프트(V82/V83/V84)한다.
+**마이그레이션 버전 규칙(중요):** 이 계획은 **V82/V83/V84** 를 사용하며 `V81` 은 열린 PR #629(email 인프라 제거)의 몫으로 남긴다. Flyway 는 out-of-order 적용을 금지하므로 두 브랜치가 같은 번호를 쓰면 부팅에 실패한다. 만약 이 브랜치가 #629 보다 **먼저** develop 에 머지·배포되면 #629 쪽이 V85+ 로 리넘버해야 한다. Task 1 시작 시 `ls backend/src/main/resources/db/migration | sort -V | tail -5` 으로 develop 최신을 재확인한다.
 
 ---
 
@@ -33,9 +33,9 @@
 
 ```
 backend/src/main/resources/db/migration/
-├── V81__create_facility_booking.sql                     (Task 1)
-├── V82__create_facility_booking_status_history.sql      (Task 1)
-└── V83__create_facility_booking_purpose_preset.sql      (Task 1)
+├── V82__create_facility_booking.sql                     (Task 1)
+├── V83__create_facility_booking_status_history.sql      (Task 1)
+└── V84__create_facility_booking_purpose_preset.sql      (Task 1)
 
 backend/src/main/java/com/duing/domain/facilitybooking/
 ├── entity/
@@ -79,9 +79,9 @@ backend/src/main/java/com/duing/domain/facilitybooking/
 ### Task 1: Flyway 마이그레이션 3종 + RLS·TRUNCATE 등록
 
 **Files:**
-- Create: `backend/src/main/resources/db/migration/V81__create_facility_booking.sql`
-- Create: `backend/src/main/resources/db/migration/V82__create_facility_booking_status_history.sql`
-- Create: `backend/src/main/resources/db/migration/V83__create_facility_booking_purpose_preset.sql`
+- Create: `backend/src/main/resources/db/migration/V82__create_facility_booking.sql`
+- Create: `backend/src/main/resources/db/migration/V83__create_facility_booking_status_history.sql`
+- Create: `backend/src/main/resources/db/migration/V84__create_facility_booking_purpose_preset.sql`
 - Modify: `backend/src/test/java/com/duing/common/IntegrationTestBase.java` (TRUNCATE 목록)
 - Test: `backend/src/test/java/com/duing/global/RowLevelSecurityMigrationTest.java` (기존 — 실행만)
 
@@ -90,10 +90,10 @@ backend/src/main/java/com/duing/domain/facilitybooking/
 
 - [ ] **Step 1: 버전 번호 확인**
 
-Run: `ls /Users/ksy/Desktop/BASIC/Coding/Duing/backend/src/main/resources/db/migration | sort -V | tail -3`
-Expected: `V80__...` 이 최신. **V81 이 이미 있으면(PR #629 머지됨) 이 Task 의 파일명·아래 모든 참조를 V82/V83/V84 로 시프트한다.**
+Run: `ls /Users/ksy/Desktop/BASIC/Coding/Duing/backend/src/main/resources/db/migration | sort -V | tail -5`
+Expected: `V80__...` 이 최신이고 `V81` 은 PR #629 몫으로 비워 둔다. **이 Task 는 V82/V83/V84 를 쓴다.** 만약 develop 에 이미 V82+ 가 존재하면(다른 브랜치 선점) 그 뒤 번호로 시프트한다.
 
-- [ ] **Step 2: V81 — facility_booking**
+- [ ] **Step 2: V82 — facility_booking**
 
 ```sql
 -- 시설 대관 신청. 크롤 미러(facility_reservation)는 월 단위 delete+insert 전면 교체이므로
@@ -114,14 +114,14 @@ CREATE TABLE facility_booking (
     reject_reason        VARCHAR(500),
     conflict_detail      VARCHAR(500),
     matched_schedule_seq BIGINT,
-    crawl_basis_at       TIMESTAMP WITH TIME ZONE,
+    crawl_basis_at       TIMESTAMP,
     decided_by           BIGINT       REFERENCES users (id),
-    decided_at           TIMESTAMP WITH TIME ZONE,
-    confirmed_at         TIMESTAMP WITH TIME ZONE,
+    decided_at           TIMESTAMP,
+    confirmed_at         TIMESTAMP,
     version              BIGINT       NOT NULL DEFAULT 0,
-    created_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    deleted_at           TIMESTAMP WITH TIME ZONE,
+    created_at           TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at           TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at           TIMESTAMP,
     CONSTRAINT chk_facility_booking_time
         CHECK (start_time >= TIME '09:00' AND end_time <= TIME '22:00' AND start_time < end_time)
 );
@@ -144,7 +144,7 @@ CREATE INDEX idx_facility_booking_queue ON facility_booking (status, reservation
 ALTER TABLE facility_booking ENABLE ROW LEVEL SECURITY;
 ```
 
-- [ ] **Step 3: V82 — facility_booking_status_history (append-only 감사 로그)**
+- [ ] **Step 3: V83 — facility_booking_status_history (append-only 감사 로그)**
 
 ```sql
 -- 예약 상태 전이 audit log. append-only — application_status_history(V43)와 동일 원칙.
@@ -156,10 +156,10 @@ CREATE TABLE facility_booking_status_history (
     new_status      VARCHAR(20) NOT NULL,
     changed_by      BIGINT      REFERENCES users (id),
     reason          VARCHAR(500),
-    crawl_basis_at  TIMESTAMP WITH TIME ZONE,
-    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    deleted_at      TIMESTAMP WITH TIME ZONE
+    crawl_basis_at  TIMESTAMP,
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at      TIMESTAMP
 );
 
 CREATE INDEX idx_fbsh_booking ON facility_booking_status_history (booking_id, created_at);
@@ -167,7 +167,7 @@ CREATE INDEX idx_fbsh_booking ON facility_booking_status_history (booking_id, cr
 ALTER TABLE facility_booking_status_history ENABLE ROW LEVEL SECURITY;
 ```
 
-- [ ] **Step 4: V83 — facility_booking_purpose_preset (+시드)**
+- [ ] **Step 4: V84 — facility_booking_purpose_preset (+시드)**
 
 ```sql
 -- 사용 목적 Preset — 신청 폼 입력 보조 UX(설계 §6.3). 서버는 최종 텍스트만 저장하므로 FK 없음.
@@ -176,9 +176,9 @@ CREATE TABLE facility_booking_purpose_preset (
     label      VARCHAR(50) NOT NULL UNIQUE,
     sort_order INT         NOT NULL DEFAULT 0,
     active     BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMP WITH TIME ZONE
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMP
 );
 
 ALTER TABLE facility_booking_purpose_preset ENABLE ROW LEVEL SECURITY;
@@ -215,7 +215,7 @@ Expected: PASS (3개 신규 테이블 모두 RLS on, EXCLUDE/CHECK 문법 오류
 
 ```bash
 git add backend/src/main/resources/db/migration backend/src/test/java/com/duing/common/IntegrationTestBase.java
-git commit -m "feat(backend): 시설 대관 신청 스키마 추가 — booking·상태 이력·목적 preset (V81~V83)"
+git commit -m "feat(backend): 시설 대관 신청 스키마 추가 — booking·상태 이력·목적 preset (V82~V84)"
 ```
 
 ---

@@ -16,14 +16,14 @@ CREATE TABLE facility_booking (
     reject_reason        VARCHAR(500),
     conflict_detail      VARCHAR(500),
     matched_schedule_seq BIGINT,
-    crawl_basis_at       TIMESTAMP WITH TIME ZONE,
+    crawl_basis_at       TIMESTAMP,
     decided_by           BIGINT       REFERENCES users (id),
-    decided_at           TIMESTAMP WITH TIME ZONE,
-    confirmed_at         TIMESTAMP WITH TIME ZONE,
+    decided_at           TIMESTAMP,
+    confirmed_at         TIMESTAMP,
     version              BIGINT       NOT NULL DEFAULT 0,
-    created_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    deleted_at           TIMESTAMP WITH TIME ZONE,
+    created_at           TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at           TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at           TIMESTAMP,
     CONSTRAINT chk_facility_booking_time
         CHECK (start_time >= TIME '09:00' AND end_time <= TIME '22:00' AND start_time < end_time)
 );

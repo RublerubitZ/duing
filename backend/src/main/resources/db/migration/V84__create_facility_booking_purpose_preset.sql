@@ -4,9 +4,9 @@ CREATE TABLE facility_booking_purpose_preset (
     label      VARCHAR(50) NOT NULL UNIQUE,
     sort_order INT         NOT NULL DEFAULT 0,
     active     BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMP WITH TIME ZONE
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMP
 );
 
 ALTER TABLE facility_booking_purpose_preset ENABLE ROW LEVEL SECURITY;
