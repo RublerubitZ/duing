@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { NETWORK_ERROR_MESSAGE } from '@duing/api';
+
 import { useToast } from './toast/ToastProvider';
 
 // 오프라인 상태의 내부 라우트 이동 시도를 원천 차단한다.
@@ -36,7 +38,7 @@ export function OfflineNavigationGuard() {
 
       clickEvent.preventDefault();
       clickEvent.stopPropagation();
-      addToast('인터넷 연결을 확인해주세요.', { variant: 'error' });
+      addToast(NETWORK_ERROR_MESSAGE, { variant: 'error' });
     }
 
     document.addEventListener('click', blockOfflineNavigation, true);

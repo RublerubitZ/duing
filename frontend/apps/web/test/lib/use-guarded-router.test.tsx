@@ -87,6 +87,19 @@ describe('useGuardedRouter', () => {
     expect(pushSpy).toHaveBeenCalledWith('/clubs/1');
   });
 
+  it('온라인이면 replace를 그대로 통과시킨다', () => {
+    mockNavigatorOnLine(true);
+    render(
+      <ToastProvider>
+        <GuardedCaller action="replace" />
+      </ToastProvider>,
+    );
+    act(() => {
+      screen.getByText('이동').click();
+    });
+    expect(replaceSpy).toHaveBeenCalledWith('/clubs/1');
+  });
+
   it('back 등 나머지 메서드는 오프라인에서도 통과한다 (히스토리/캐시 기반)', () => {
     mockNavigatorOnLine(false);
     render(
