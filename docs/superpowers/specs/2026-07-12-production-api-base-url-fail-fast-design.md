@@ -36,7 +36,8 @@ Next production build를 실패시키고, 개발·테스트에서는 기존 loca
    - 값 누락 또는 공백: 예외
    - 파싱할 수 없는 URL: 예외
    - `https:` 이외의 프로토콜: 예외
-   - `localhost`, `127.0.0.1`, `::1`: 예외
+   - `localhost` 및 하위 도메인, IPv4 `127.0.0.0/8`, IPv6 `::1`, IPv4-mapped IPv6의
+     `127.0.0.0/8`: 예외
    - 검증 성공: 마지막 `/`를 제거한 URL 반환
 2. production 이외
    - 값 누락 또는 공백: `http://localhost:8080/api/v1`
@@ -59,7 +60,7 @@ API 패키지는 React Native와 공유하므로 환경별 정책을 넣지 않�
 
 - production에서 누락 값을 거부한다.
 - production에서 `http://`를 거부한다.
-- production에서 localhost IPv4·IPv6를 거부한다.
+- production에서 localhost 계열과 IPv4·IPv6 loopback의 동등 표기까지 거부한다.
 - production에서 정상 HTTPS URL을 정규화해 반환한다.
 - development에서 누락 값은 기존 localhost 폴백을 반환한다.
 - development에서 명시된 URL을 정규화해 반환한다.

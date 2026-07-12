@@ -63,6 +63,8 @@ jobs:
 
       - name: Build
         if: steps.detect.outputs.scaffolded == 'true'
+        env:
+          NEXT_PUBLIC_API_BASE_URL: https://api.ci.invalid/api/v1
         run: pnpm build
 
       - name: Type check

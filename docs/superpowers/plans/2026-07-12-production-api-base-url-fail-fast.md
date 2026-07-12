@@ -32,7 +32,7 @@
 - Consumes: `process.env.NEXT_PUBLIC_API_BASE_URL`, `process.env.NODE_ENV`
 - Produces: `resolveApiBaseUrl(apiBaseUrl: string | undefined, nodeEnvironment: string | undefined): string`
 
-- [ ] **Step 1: 운영 누락값 회귀 테스트를 먼저 작성한다**
+- [x] **Step 1: 운영 누락값 회귀 테스트를 먼저 작성한다**
 
 `frontend/apps/web/test/lib/api-base-url.test.ts`에 production 환경에서 Providers import가
 `NEXT_PUBLIC_API_BASE_URL` 오류로 실패해야 한다는 테스트를 작성한다. 기존 코드는 localhost로 폴백하므로
@@ -56,7 +56,7 @@ describe('API base URL 운영 검증', () => {
 });
 ```
 
-- [ ] **Step 2: RED를 확인한다**
+- [x] **Step 2: RED를 확인한다**
 
 Run:
 
@@ -67,7 +67,7 @@ pnpm --filter @duing/web test -- --run test/lib/api-base-url.test.ts
 
 Expected: FAIL — 현재 `providers.tsx`가 빈 값을 localhost로 폴백해 import가 성공한다.
 
-- [ ] **Step 3: 첫 테스트만 통과하는 최소 resolver를 만들고 Providers에 연결한다**
+- [x] **Step 3: 첫 테스트만 통과하는 최소 resolver를 만들고 Providers에 연결한다**
 
 `frontend/apps/web/app/_lib/apiBaseUrl.ts`를 누락값만 거부하는 최소 구현으로 생성한다.
 
@@ -100,7 +100,7 @@ const apiClient = createApiClient({
 });
 ```
 
-- [ ] **Step 4: GREEN을 확인한다**
+- [x] **Step 4: GREEN을 확인한다**
 
 Run:
 
@@ -111,7 +111,7 @@ pnpm --filter @duing/web test -- --run test/lib/api-base-url.test.ts
 
 Expected: PASS 1 test.
 
-- [ ] **Step 5: resolver의 나머지 계약 테스트를 추가한다**
+- [x] **Step 5: resolver의 나머지 계약 테스트를 추가한다**
 
 같은 테스트 파일에 resolver를 직접 import하고 다음 테스트를 추가한다.
 
@@ -152,7 +152,7 @@ describe('resolveApiBaseUrl', () => {
 });
 ```
 
-- [ ] **Step 6: 보안 계약의 RED를 확인하고 resolver를 완성한다**
+- [x] **Step 6: 보안 계약의 RED를 확인하고 resolver를 완성한다**
 
 Run:
 
@@ -214,7 +214,11 @@ pnpm --filter @duing/web test -- --run test/lib/api-base-url.test.ts
 
 Expected: PASS 9 tests.
 
-- [ ] **Step 7: 나머지 세 서버 조회 호출부를 공통 resolver로 교체한다**
+독립 리뷰에서 확인된 동등 표기 우회를 막기 위해 `localhost.` 및 `.localhost` 하위 도메인,
+IPv4 `127.0.0.0/8`, IPv4-mapped IPv6의 `127.0.0.0/8` 회귀 테스트와 범위 경계 테스트를 추가한다.
+WHATWG URL 파싱으로 정규화된 hostname을 기준으로 판별한다.
+
+- [x] **Step 7: 나머지 세 서버 조회 호출부를 공통 resolver로 교체한다**
 
 `home-data.ts`, `club-stats.ts`, `public-activities.ts`에 아래 import를 추가하고 모든 inline 폴백을 교체한다.
 
@@ -229,7 +233,7 @@ const baseUrl = resolveApiBaseUrl(
 
 각 `createApiClient`에는 `baseUrl` 또는 동일 resolver 호출 결과만 전달한다.
 
-- [ ] **Step 8: 중복 폴백 제거와 대상 테스트를 검증한다**
+- [x] **Step 8: 중복 폴백 제거와 대상 테스트를 검증한다**
 
 Run:
 
@@ -239,9 +243,9 @@ cd frontend
 pnpm --filter @duing/web test -- --run test/lib/api-base-url.test.ts
 ```
 
-Expected: `rg` 결과 0건, 테스트 PASS 9.
+Expected: `rg` 결과 0건, 리뷰 보강을 포함한 테스트 PASS 17.
 
-- [ ] **Step 9: 구현 단위를 커밋한다**
+- [x] **Step 9: 구현 단위를 커밋한다**
 
 ```bash
 git add frontend/apps/web/app/_lib/apiBaseUrl.ts \
@@ -257,12 +261,13 @@ git commit -m "[#640] 운영 API URL fail-fast 검증 추가"
 
 **Files:**
 - Verify: `frontend/**`
+- Modify: `.github/workflows/frontend-ci.yml`
 
 **Interfaces:**
 - Consumes: Task 1의 `resolveApiBaseUrl`
 - Produces: CI와 동일한 lint/typecheck/test/build 통과 증거
 
-- [ ] **Step 1: lint와 typecheck를 실행한다**
+- [x] **Step 1: lint와 typecheck를 실행한다**
 
 ```bash
 cd frontend
@@ -272,7 +277,7 @@ pnpm typecheck
 
 Expected: exit 0. 기존 경고가 남으면 신규 경고가 아닌지 diff와 함께 확인한다.
 
-- [ ] **Step 2: 전체 테스트를 실행한다**
+- [x] **Step 2: 전체 테스트를 실행한다**
 
 ```bash
 cd frontend
@@ -281,7 +286,7 @@ pnpm test
 
 Expected: 모든 workspace 테스트 PASS.
 
-- [ ] **Step 3: 올바른 운영 환경변수로 production build를 실행한다**
+- [x] **Step 3: 올바른 운영 환경변수로 production build를 실행한다**
 
 ```bash
 cd frontend
@@ -290,7 +295,11 @@ NEXT_PUBLIC_API_BASE_URL=https://api.duings.com/api/v1 pnpm build
 
 Expected: Next.js production build exit 0.
 
-- [ ] **Step 4: 잘못된 운영 환경변수의 build 차단을 확인한다**
+CI의 production build에도 실제 운영 API를 호출하지 않는 예약 도메인 기반 검증값
+`https://api.ci.invalid/api/v1`을 주입한다. 이 값은 운영 URL 계약을 만족하면서 외부 운영 환경에
+의존하지 않는다.
+
+- [x] **Step 4: 잘못된 운영 환경변수의 build 차단을 확인한다**
 
 ```bash
 cd frontend

@@ -24,7 +24,16 @@ describe('resolveApiBaseUrl', () => {
     expect(() => resolveApiBaseUrl('http://api.duings.com/api/v1', 'production')).toThrow('HTTPS');
   });
 
-  it.each(['https://localhost/api/v1', 'https://127.0.0.1/api/v1', 'https://[::1]/api/v1'])(
+  it.each([
+    'https://localhost/api/v1',
+    'https://localhost./api/v1',
+    'https://api.localhost/api/v1',
+    'https://127.0.0.1/api/v1',
+    'https://127.255.255.255/api/v1',
+    'https://[::1]/api/v1',
+    'https://[::ffff:127.0.0.1]/api/v1',
+    'https://[::ffff:127.255.255.255]/api/v1',
+  ])(
     '운영에서 loopback URL %s를 거부한다',
     (apiBaseUrl) => {
       expect(() => resolveApiBaseUrl(apiBaseUrl, 'production')).toThrow('loopback');
@@ -35,6 +44,14 @@ describe('resolveApiBaseUrl', () => {
     expect(resolveApiBaseUrl(' https://api.duings.com/api/v1/ ', 'production')).toBe(
       'https://api.duings.com/api/v1',
     );
+  });
+
+  it.each([
+    'https://128.0.0.1/api/v1',
+    'https://[::ffff:126.255.255.255]/api/v1',
+    'https://[::ffff:128.0.0.1]/api/v1',
+  ])('운영에서 loopback 범위 밖의 HTTPS URL %s를 허용한다', (apiBaseUrl) => {
+    expect(resolveApiBaseUrl(apiBaseUrl, 'production')).toBe(apiBaseUrl);
   });
 
   it('개발에서 누락값을 로컬 API 주소로 폴백한다', () => {
