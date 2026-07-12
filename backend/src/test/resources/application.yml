@@ -75,6 +75,9 @@ jwt:
   secret: duing-test-jwt-secret-key-that-is-long-enough-for-hs256-algorithm
   expiry-ms: 3600000
 
+web-auth:
+  hint-secret: duing-test-auth-hint-secret-key-that-is-different-from-jwt
+
 security:
   fee-account:
     # 테스트 전용 더미 키 — 실 시크릿 아님. base64("duing-test-fee-account-aes256-ke") = 32바이트 AES-256 키.
