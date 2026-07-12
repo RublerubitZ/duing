@@ -193,6 +193,7 @@ import type {
   UpdateFederationInquiryAnswerPayload,
 } from '@duing/types';
 import { readToken } from './token';
+import { isKnownOffline } from './connectivity';
 
 export class ApiError extends Error {
   constructor(
@@ -714,6 +715,10 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
     hooks: {
       beforeRequest: [
         async (request) => {
+          // 확실한 오프라인이면 타임아웃까지 기다리지 않고 즉시 실패시킨다. (스펙 §3.3)
+          if (isKnownOffline()) {
+            throw new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK');
+          }
           const token = await readToken();
           if (token) {
             request.headers.set('Authorization', `Bearer ${token}`);

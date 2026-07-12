@@ -8,5 +8,6 @@ export {
 export type { DuingApiClient } from './client';
 export { TOKEN_STORAGE_KEY, readToken, writeToken, clearToken } from './token';
 export { registerUnauthorizedHandler, notifyUnauthorized } from './unauthorized-context';
+export { registerConnectivityAdapter } from './connectivity';
 export * from "./auth-context";
 export * from "./auth-types";

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { MotionConfig } from 'framer-motion';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ApiError, createApiClient, registerCookieAdapter } from '@duing/api';
+import { ApiError, createApiClient, registerCookieAdapter, registerConnectivityAdapter } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
@@ -15,6 +15,8 @@ import { SessionExpiryHandler } from './_components/SessionExpiryHandler';
 
 setStorage(webStorage);
 registerCookieAdapter(webCookieAdapter);
+// navigator.onLine 이 명시적으로 false 일 때만 오프라인 — SSR(navigator 부재)은 온라인 취급.
+registerConnectivityAdapter(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
 
 const apiClient = createApiClient({
   baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1',
