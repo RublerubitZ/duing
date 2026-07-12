@@ -9,6 +9,7 @@ import { ApiClientProvider, shouldRetryQuery } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
 import { hydrateAuthFromStorage } from '@duing/stores';
+import { resolveApiBaseUrl } from './_lib/apiBaseUrl';
 import { webCookieAdapter } from './_lib/cookie-adapter';
 import { ToastProvider } from './_components/toast/ToastProvider';
 import { OfflineBanner } from './_components/OfflineBanner';
@@ -21,7 +22,7 @@ registerCookieAdapter(webCookieAdapter);
 registerConnectivityAdapter(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
 
 const apiClient = createApiClient({
-  baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1',
+  baseUrl: resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL, process.env.NODE_ENV),
 });
 
 export function Providers({ children }: { children: ReactNode }) {
