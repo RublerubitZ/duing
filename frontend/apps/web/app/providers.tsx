@@ -4,8 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { MotionConfig } from 'framer-motion';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ApiError, createApiClient, registerCookieAdapter, registerConnectivityAdapter } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { createApiClient, registerCookieAdapter, registerConnectivityAdapter } from '@duing/api';
+import { ApiClientProvider, shouldRetryQuery } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
 import { hydrateAuthFromStorage } from '@duing/stores';
@@ -29,14 +29,9 @@ export function Providers({ children }: { children: ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 30_000,
-            // 인증 실패(401)·권한 실패(403)는 retry 무의미 — 콘솔 노이즈만 유발.
-            // 그 외 네트워크/일시 오류는 기존 1 회 retry 유지.
-            retry: (failureCount, error) => {
-              if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-                return false;
-              }
-              return failureCount < 1;
-            },
+            // 재시도 정책은 @duing/hooks 의 shouldRetryQuery 로 일원화 —
+            // 401/403(반복 무의미)·TIMEOUT(대기 배가)은 재시도하지 않고, 빠른 실패만 1회 재시도.
+            retry: shouldRetryQuery,
             refetchOnWindowFocus: false,
           },
         },
