@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { OfflineNavigationGuard } from '@/app/_components/OfflineNavigationGuard';
@@ -53,6 +53,23 @@ describe('OfflineNavigationGuard', () => {
     await user.click(screen.getByText('동아리로'));
 
     // 가드가 개입하지 않으므로 React onClick(부수효과)이 그대로 실행된다.
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('인터넷 연결을 확인해주세요.')).not.toBeInTheDocument();
+  });
+
+  it('오프라인이어도 metaKey(또는 ctrlKey) 클릭은 차단하지 않아 새 탭 등 브라우저 기본 동작을 보존한다', () => {
+    mockNavigatorOnLine(false);
+    const clickSpy = vi.fn();
+    renderWithGuard(
+      <a href="/clubs/1" onClick={clickSpy}>
+        동아리로
+      </a>,
+    );
+
+    // userEvent 는 modifier 키 전달이 번거로워, 기존 파일 관행대로 이런 케이스는 fireEvent 로 확실히 전달한다.
+    fireEvent.click(screen.getByText('동아리로'), { metaKey: true });
+
+    // 수정자 키 클릭은 가드가 개입하지 않아 React onClick(부수효과)이 그대로 실행된다.
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('인터넷 연결을 확인해주세요.')).not.toBeInTheDocument();
   });

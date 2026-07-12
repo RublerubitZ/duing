@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { NETWORK_ERROR_MESSAGE } from '@duing/api';
+
 import { useOptionalToast } from '@/app/_components/toast/ToastProvider';
 
 type AppRouter = ReturnType<typeof useRouter>;
@@ -27,14 +29,14 @@ export function useGuardedRouter(): AppRouter {
       ...router,
       push: (...pushArgs: Parameters<AppRouter['push']>) => {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          addToast?.('인터넷 연결을 확인해주세요.', { variant: 'error' });
+          addToast?.(NETWORK_ERROR_MESSAGE, { variant: 'error' });
           return;
         }
         router.push(...pushArgs);
       },
       replace: (...replaceArgs: Parameters<AppRouter['replace']>) => {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          addToast?.('인터넷 연결을 확인해주세요.', { variant: 'error' });
+          addToast?.(NETWORK_ERROR_MESSAGE, { variant: 'error' });
           return;
         }
         router.replace(...replaceArgs);
