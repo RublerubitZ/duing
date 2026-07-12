@@ -24,6 +24,7 @@ import com.duing.global.auth.WebAuthCookieService;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
@@ -69,6 +70,9 @@ class WebAuthControllerTest extends IntegrationTestBase {
 
     @Autowired
     private LoginAttemptRateLimiter loginAttemptRateLimiter;
+
+    @Autowired
+    private Clock clock;
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -295,7 +299,7 @@ class WebAuthControllerTest extends IntegrationTestBase {
     }
 
     private String saveVerifiedPhoneChange(User user) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         String verificationToken = UUID.randomUUID().toString();
         String newPhone = String.format("010-8%03d-%04d", sequence.incrementAndGet() % 1_000,
                 sequence.incrementAndGet() % 10_000);
