@@ -247,10 +247,33 @@ export async function toApiError(error: unknown): Promise<never> {
 }
 
 function unwrap<T>(response: ApiResponse<T>): T {
-  if (!response.ok || response.data === null) {
-    throw new ApiError(0, response.message ?? '응답이 비어 있습니다.');
+  // 200 + null 봉투(res.json() 이 null)면 response 자체가 null 로 도착한다 — 이때 response.ok 접근이
+  // TypeError 를 던져 toApiError 가 NETWORK 로 오분류하므로, 먼저 null 봉투를 빈 응답으로 가드한다.
+  if (!response || !response.ok || response.data === null) {
+    throw new ApiError(0, response?.message ?? '응답이 비어 있습니다.');
   }
   return response.data;
+}
+
+// 본문 소비 타임아웃(ms). ky 의 timeout 은 응답 헤더 도착까지만 계측하므로,
+// 헤더 후 본문이 중단(stall)되면 json()/blob() 이 무한 대기한다 — 별도 상한으로 막는다.
+const JSON_BODY_READ_TIMEOUT_MS = 10_000;
+const BLOB_BODY_READ_TIMEOUT_MS = 60_000;
+
+// 테스트를 위해 export. 타임아웃 시 정규화된 TIMEOUT ApiError 로 거부한다.
+export async function readBodyWithTimeout<T>(bodyPromise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timerId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timerId = setTimeout(
+      () => reject(new ApiError(0, TIMEOUT_ERROR_MESSAGE, undefined, 'TIMEOUT')),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([bodyPromise, timeoutPromise]);
+  } finally {
+    clearTimeout(timerId);
+  }
 }
 
 export type DuingApiClient = {
@@ -712,6 +735,10 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
   const http = ky.create({
     prefixUrl: baseUrl.replace(/\/$/, ''),
     timeout: REQUEST_TIMEOUT_MS.default,
+    // 재시도의 단일 진실원은 React Query 정책(shouldRetryQuery) — 스펙 §3.4 일원화.
+    // ky 레벨 재시도(GET 계열 기본 2회)를 켜두면 5xx·네트워크 실패를 RQ 와 이중으로 재시도하고,
+    // 오프라인 fail-fast(beforeRequest 즉시 실패)마저 3회 평가돼 "즉시"가 아니게 되므로 끈다.
+    retry: 0,
     hooks: {
       beforeRequest: [
         async (request) => {
@@ -744,7 +771,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
   async function jsonOk<T>(promise: ResponsePromise): Promise<T> {
     try {
       const res = await promise;
-      const body = (await res.json()) as ApiResponse<T>;
+      const body = (await readBodyWithTimeout(res.json(), JSON_BODY_READ_TIMEOUT_MS)) as ApiResponse<T>;
       return unwrap(body);
     } catch (error) {
       return toApiError(error);
@@ -765,7 +792,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
   async function blobOk(promise: ResponsePromise): Promise<Blob> {
     try {
       const res = await promise;
-      return await res.blob();
+      return await readBodyWithTimeout(res.blob(), BLOB_BODY_READ_TIMEOUT_MS);
     } catch (error) {
       return toApiError(error);
     }

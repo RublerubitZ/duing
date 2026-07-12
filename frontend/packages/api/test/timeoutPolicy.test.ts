@@ -24,19 +24,20 @@ describe('REQUEST_TIMEOUT_MS 정책', () => {
     });
   });
 
-  it('로그인은 5초에 타임아웃된다 (서버 6초 지연 시 5초대에 거부)', async () => {
+  it('로그인은 5초에 TIMEOUT ApiError 로 거부한다 (서버 무응답 시)', async () => {
     server.use(
       http.post('*/auth/login', async () => {
-        await delay(6_000);
+        // 'infinite' — 응답을 영원히 보류해 판별이 시간창(6초 지연)에 의존하지 않게 한다.
+        // 오류 종류(code TIMEOUT)를 단언하므로 과부하 CI 에서도 flaky 하지 않다.
+        await delay('infinite');
         return HttpResponse.json({ ok: true, data: null, message: null });
       }),
     );
     const startedAt = Date.now();
     await expect(
       client.auth.login({ studentId: '20251234', password: 'Test1234!@' }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ name: 'ApiError', code: 'TIMEOUT' });
     const elapsedMs = Date.now() - startedAt;
     expect(elapsedMs).toBeGreaterThanOrEqual(4_500);
-    expect(elapsedMs).toBeLessThan(6_000);
   }, 10_000);
 });

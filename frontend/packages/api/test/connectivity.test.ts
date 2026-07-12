@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterEach, afterAll } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient, NETWORK_ERROR_MESSAGE } from '../src/client';
@@ -24,6 +24,15 @@ describe('connectivity fail-fast', () => {
       code: 'NETWORK',
       message: NETWORK_ERROR_MESSAGE,
     });
+  });
+
+  it('오프라인 fail-fast 는 ky 재시도 없이 어댑터를 1회만 호출한다', async () => {
+    // ky 기본 재시도(GET 계열 2회)를 retry: 0 으로 끈 뒤라야 성립한다 — 켜져 있으면 beforeRequest 가
+    // 매 시도마다 재실행돼 어댑터가 3회 호출된다.
+    const adapterMock = vi.fn(() => false);
+    registerConnectivityAdapter(adapterMock);
+    await expect(client.users.me()).rejects.toMatchObject({ name: 'ApiError', code: 'NETWORK' });
+    expect(adapterMock).toHaveBeenCalledTimes(1);
   });
 
   it('어댑터가 true 면 요청이 정상 진행된다', async () => {

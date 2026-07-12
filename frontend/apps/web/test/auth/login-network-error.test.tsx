@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse, delay } from 'msw';
-import { createApiClient, TIMEOUT_ERROR_MESSAGE, NETWORK_ERROR_MESSAGE } from '@duing/api';
+import {
+  createApiClient,
+  registerConnectivityAdapter,
+  TIMEOUT_ERROR_MESSAGE,
+  NETWORK_ERROR_MESSAGE,
+} from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 
 import { LoginFormPanel } from '@/app/(auth)/login/_components/LoginFormPanel';
@@ -28,11 +33,21 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   replaceSpy.mockReset();
+  // 오프라인 테스트가 남긴 전역 상태를 원복한다(다른 테스트로 누수 방지).
+  onlineManager.setOnline(true);
+  registerConnectivityAdapter(null);
 });
 afterAll(() => server.close());
 
 function renderLoginForm() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // mutations.networkMode: 'always' — providers.tsx 실제 옵션과 일치. 이게 없으면 onlineManager 가
+  // offline 일 때 mutation 이 paused 되어 버튼이 "로그인 중…"으로 무한 유지된다(스펙 목표 1 위반).
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { networkMode: 'always' },
+    },
+  });
   return render(
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={apiClient}>
@@ -58,6 +73,39 @@ describe('LoginFormPanel 네트워크 오류 안내', () => {
     await submitValidCredentials();
 
     expect(await screen.findByText(NETWORK_ERROR_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByText('학번 또는 비밀번호가 올바르지 않습니다.')).not.toBeInTheDocument();
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  it('오프라인이면 mutation 이 paused 되지 않고 즉시 연결 확인 안내를 표시한다', async () => {
+    // onlineManager offline + connectivity 어댑터 false. mutations.networkMode 'always' 덕에
+    // mutation 이 paused 되지 않고 실행 → ky beforeRequest 가 fail-fast(NETWORK)로 즉시 거부한다.
+    // networkMode 가 없으면 이 테스트는 paused 로 findByText 가 타임아웃되어 실패한다(RED 근거).
+    onlineManager.setOnline(false);
+    registerConnectivityAdapter(() => false);
+
+    await submitValidCredentials();
+
+    expect(await screen.findByText(NETWORK_ERROR_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByText('학번 또는 비밀번호가 올바르지 않습니다.')).not.toBeInTheDocument();
+    // 버튼이 "로그인 중…"에 묶이지 않고 복구된다.
+    expect(screen.queryByRole('button', { name: /로그인 중/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /두잉 시작하기/ })).toBeEnabled();
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  it('서버 오류(500)면 자격증명 오류가 아니라 일시적 오류 안내를 표시한다', async () => {
+    server.use(
+      http.post(`${BASE}/auth/login`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 }),
+      ),
+    );
+
+    await submitValidCredentials();
+
+    expect(
+      await screen.findByText('일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요.'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('학번 또는 비밀번호가 올바르지 않습니다.')).not.toBeInTheDocument();
     expect(replaceSpy).not.toHaveBeenCalled();
   });

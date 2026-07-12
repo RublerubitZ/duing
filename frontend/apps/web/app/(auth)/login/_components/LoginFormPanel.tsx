@@ -97,6 +97,9 @@ function LoginForm() {
       // 사용자가 비밀번호를 의심하지 않게 한다. (재현 실험에서 확인된 오안내 수정)
       if (loginError instanceof ApiError && (loginError.code === 'TIMEOUT' || loginError.code === 'NETWORK')) {
         setError(loginError.message);
+      } else if (loginError instanceof ApiError && (loginError.status === 429 || loginError.status >= 500)) {
+        // 서버 장애·과요청은 자격증명 문제가 아니다 — 전역 폴백(global-error.tsx)과 같은 결의 안내.
+        setError('일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
       } else {
         setError('학번 또는 비밀번호가 올바르지 않습니다.');
       }

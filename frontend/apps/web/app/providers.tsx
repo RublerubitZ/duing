@@ -29,10 +29,18 @@ export function Providers({ children }: { children: ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 30_000,
+            // 오프라인 처리는 RQ 의 pause(networkMode 기본 'online')가 아니라 ky connectivity
+            // 어댑터의 즉시 실패(ApiError NETWORK)로 일원화한다 — pause 는 사용자에게 무한 로딩으로
+            // 보이고 fail-fast 에 도달조차 못 한다 (2026-07-12 리뷰 실험으로 확인).
+            networkMode: 'always',
             // 재시도 정책은 @duing/hooks 의 shouldRetryQuery 로 일원화 —
             // 401/403(반복 무의미)·TIMEOUT(대기 배가)은 재시도하지 않고, 빠른 실패만 1회 재시도.
             retry: shouldRetryQuery,
             refetchOnWindowFocus: false,
+          },
+          mutations: {
+            // 재시도는 기본값 0 유지(비멱등 이중 실행 차단) — networkMode 만 fail-fast 를 위해 변경.
+            networkMode: 'always',
           },
         },
       }),
