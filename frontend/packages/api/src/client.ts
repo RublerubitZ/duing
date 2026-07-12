@@ -670,18 +670,30 @@ export type CreateApiClientOptions = {
   baseUrl: string;
 };
 
-// 로그아웃의 서버 폐기는 best-effort 다. 백엔드가 행(hang)/오프라인이어도 로컬 로그아웃이
-// 전역 타임아웃(15s)까지 묶이지 않도록 짧은 타임아웃을 둔다(실패해도 로컬 정리는 계속 진행).
-const LOGOUT_REVOKE_TIMEOUT_MS = 5_000;
-
-// 거래 동기화는 백엔드가 외부 은행 API 를 조회한다(connect 5s + read 15s + 처리). 전역 타임아웃(15s)
-// 으로는 백엔드 응답 전에 프론트가 먼저 끊긴다 — 이 호출만 더 넉넉한 타임아웃을 둔다.
-const BANK_SYNC_TIMEOUT_MS = 30_000; // 외부 은행 조회(백엔드 connect5s+read15s) 보다 길게
+// 요청 분류별 클라이언트 타임아웃(ms). 모든 요청은 ky 전역 기본값(default)을 받고,
+// 분류가 다른 엔드포인트만 개별 오버라이드한다.
+// (스펙: docs/superpowers/specs/2026-07-12-network-resilience-design.md §3.1)
+export const REQUEST_TIMEOUT_MS = {
+  /** 전역 기본 — 일반 조회·변경 */
+  default: 10_000,
+  /** 로그인 — 대기 체감이 가장 민감한 경로 */
+  login: 5_000,
+  /** 가입·MO 인증·비밀번호 재설정·번호 변경 — 인증사 경유 가능성이 있어 로그인보다 여유 */
+  authFlow: 8_000,
+  /** 사용자가 타이핑 후 결과를 기다리는 검색성 목록 */
+  search: 8_000,
+  /** 파일 업로드 — 느린 회선에서도 전송이 완료되도록 넉넉히 */
+  upload: 60_000,
+  /** 로그아웃의 서버 폐기는 best-effort — 백엔드가 행이어도 로컬 로그아웃이 오래 묶이지 않게 짧게 */
+  logoutRevoke: 5_000,
+  /** 거래 동기화 — 백엔드가 외부 은행 API(connect 5s + read 15s)를 기다린다 */
+  bankSync: 30_000,
+} as const;
 
 export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiClient {
   const http = ky.create({
     prefixUrl: baseUrl.replace(/\/$/, ''),
-    timeout: 15_000,
+    timeout: REQUEST_TIMEOUT_MS.default,
     hooks: {
       beforeRequest: [
         async (request) => {
@@ -740,30 +752,40 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
   return {
     auth: {
       signup: (payload) =>
-        jsonOk<number>(http.post('auth/signup', { json: payload })),
+        jsonOk<number>(http.post('auth/signup', { json: payload, timeout: REQUEST_TIMEOUT_MS.authFlow })),
       login: (payload) =>
-        jsonOk<LoginResult>(http.post('auth/login', { json: payload })),
+        jsonOk<LoginResult>(http.post('auth/login', { json: payload, timeout: REQUEST_TIMEOUT_MS.login })),
       startPhoneVerification: (payload, includeQr) =>
         jsonOk<PhoneVerificationSession>(
           http.post('auth/phone-verifications', {
             json: payload,
             searchParams: includeQr ? { qr: 'true' } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.authFlow,
           }),
         ),
       getPhoneVerificationStatus: (verificationToken) =>
         jsonOk<PhoneVerificationStatus>(
-          http.post('auth/phone-verifications/status', { json: { verificationToken } }),
+          http.post('auth/phone-verifications/status', {
+            json: { verificationToken },
+            timeout: REQUEST_TIMEOUT_MS.authFlow,
+          }),
         ),
       requestPasswordReset: (payload, includeQr) =>
         jsonOk<PasswordResetSession>(
           http.post('auth/password-resets', {
             json: payload,
             searchParams: includeQr ? { qr: 'true' } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.authFlow,
           }),
         ),
       completePasswordReset: (payload) =>
-        jsonVoid(http.post('auth/password-resets/complete', { json: payload })),
-      logout: () => jsonVoid(http.post('auth/logout', { timeout: LOGOUT_REVOKE_TIMEOUT_MS })),
+        jsonVoid(
+          http.post('auth/password-resets/complete', {
+            json: payload,
+            timeout: REQUEST_TIMEOUT_MS.authFlow,
+          }),
+        ),
+      logout: () => jsonVoid(http.post('auth/logout', { timeout: REQUEST_TIMEOUT_MS.logoutRevoke })),
     },
     users: {
       me: () => jsonOk<User>(http.get('users/me')),
@@ -781,9 +803,13 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           http.post('users/me/phone-verifications', {
             json: payload,
             searchParams: includeQr ? { qr: 'true' } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.authFlow,
           }),
         ),
-      changePhone: (payload) => jsonVoid(http.patch('users/me/phone', { json: payload })),
+      changePhone: (payload) =>
+        jsonVoid(
+          http.patch('users/me/phone', { json: payload, timeout: REQUEST_TIMEOUT_MS.authFlow }),
+        ),
       withdraw: () => jsonVoid(http.delete('users/me')),
     },
     clubs: {
@@ -791,6 +817,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<PageResponse<ClubSummary>>(
           http.get('clubs', {
             searchParams: cleanParams(params),
+            timeout: REQUEST_TIMEOUT_MS.search,
           }),
         ),
       detail: (clubId) => jsonOk<ClubDetail>(http.get(`clubs/${clubId}`)),
@@ -842,7 +869,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         body.append('file', file);
         // ky 는 FormData 를 자동으로 multipart/form-data 로 처리한다.
         return jsonOk<FileUploadResult>(
-          http.post('files', { body, searchParams: { purpose } }),
+          http.post('files', { body, searchParams: { purpose }, timeout: REQUEST_TIMEOUT_MS.upload }),
         );
       },
     },
@@ -882,7 +909,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         if (filters?.submittedTo) search.set('submittedTo', filters.submittedTo);
         const qs = search.toString();
         const path = `leader/recruitments/${recruitmentId}/applications${qs ? `?${qs}` : ''}`;
-        return jsonOk<Applicant[]>(http.get(path));
+        return jsonOk<Applicant[]>(http.get(path, { timeout: REQUEST_TIMEOUT_MS.search }));
       },
       applicantNeighbors: (recruitmentId, applicationId, filters) => {
         const search = new URLSearchParams();
@@ -1102,14 +1129,20 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       clubs: {
         list: (params) =>
           jsonOk<PageResponse<AdminClubSummary>>(
-            http.get('admin/clubs', { searchParams: cleanParams(params) }),
+            http.get('admin/clubs', {
+              searchParams: cleanParams(params),
+              timeout: REQUEST_TIMEOUT_MS.search,
+            }),
           ),
         detail: (clubId) => jsonOk<ClubDetail>(http.get(`admin/clubs/${clubId}`)),
       },
       users: {
         search: (params) =>
           jsonOk<PageResponse<AdminUserSearchResult>>(
-            http.get('admin/users', { searchParams: cleanParams(params) }),
+            http.get('admin/users', {
+              searchParams: cleanParams(params),
+              timeout: REQUEST_TIMEOUT_MS.search,
+            }),
           ),
       },
       notices: {
@@ -1337,7 +1370,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
             jsonOk<SyncResult>(
               http.post(`leader/clubs/${clubId}/bank-transactions/sync`, {
                 json: payload,
-                timeout: BANK_SYNC_TIMEOUT_MS,
+                timeout: REQUEST_TIMEOUT_MS.bankSync,
               }),
             ),
           list: (clubId, params) =>

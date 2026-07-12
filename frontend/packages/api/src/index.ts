@@ -1,4 +1,4 @@
-export { createApiClient, ApiError } from './client';
+export { createApiClient, ApiError, REQUEST_TIMEOUT_MS } from './client';
 export type { DuingApiClient } from './client';
 export { TOKEN_STORAGE_KEY, readToken, writeToken, clearToken } from './token';
 export { registerUnauthorizedHandler, notifyUnauthorized } from './unauthorized-context';
