@@ -35,6 +35,10 @@ class BookingPolicyValidatorTest {
                 .isInstanceOf(FacilityBookingException.InvalidSlotRangeException.class);
         assertThatThrownBy(() -> validator.validateSlotRange(today.plusDays(1), LocalTime.of(20, 0), LocalTime.of(18, 0)))
                 .isInstanceOf(FacilityBookingException.InvalidSlotRangeException.class);
+        assertThatThrownBy(() -> validator.validateSlotRange(today.plusDays(1), LocalTime.of(13, 0, 30), LocalTime.of(15, 0)))
+                .isInstanceOf(FacilityBookingException.InvalidSlotRangeException.class);
+        assertThatThrownBy(() -> validator.validateSlotRange(today.plusDays(1), LocalTime.of(13, 0), LocalTime.of(15, 0, 0, 1)))
+                .isInstanceOf(FacilityBookingException.InvalidSlotRangeException.class);
     }
 
     @Test

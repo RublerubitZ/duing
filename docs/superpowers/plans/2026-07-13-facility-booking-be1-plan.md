@@ -1044,6 +1044,10 @@ class BookingPolicyValidatorTest {
                 .isInstanceOf(FacilityBookingException.InvalidSlotRangeException.class);
         assertThatThrownBy(() -> validator.validateSlotRange(today.plusDays(1), LocalTime.of(20, 0), LocalTime.of(18, 0)))
                 .isInstanceOf(FacilityBookingException.InvalidSlotRangeException.class);
+        assertThatThrownBy(() -> validator.validateSlotRange(today.plusDays(1), LocalTime.of(13, 0, 30), LocalTime.of(15, 0)))
+                .isInstanceOf(FacilityBookingException.InvalidSlotRangeException.class);
+        assertThatThrownBy(() -> validator.validateSlotRange(today.plusDays(1), LocalTime.of(13, 0), LocalTime.of(15, 0, 0, 1)))
+                .isInstanceOf(FacilityBookingException.InvalidSlotRangeException.class);
     }
 
     @Test
@@ -1141,8 +1145,10 @@ package com.duing.domain.facilitybooking.service;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import org.springframework.stereotype.Component;
 
 /**
@@ -1164,18 +1170,20 @@ public class BookingPolicyValidator {
 
     /** 슬롯 그리드(정시·09~22·정방향) + 신청 가능 기간(오늘~다음 달 말일, 지난 슬롯 제외) 검증. */
     public void validateSlotRange(LocalDate date, LocalTime startTime, LocalTime endTime) {
-        if (startTime.getMinute() != 0 || endTime.getMinute() != 0
+        if (!startTime.equals(startTime.truncatedTo(ChronoUnit.HOURS))
+                || !endTime.equals(endTime.truncatedTo(ChronoUnit.HOURS))
                 || startTime.isBefore(OPEN_TIME) || endTime.isAfter(CLOSE_TIME)
                 || !startTime.isBefore(endTime)) {
             throw new FacilityBookingException.InvalidSlotRangeException();
         }
-        LocalDate today = LocalDate.now(clock);
-        LocalDate lastBookableDate = YearMonth.now(clock).plusMonths(1).atEndOfMonth();
+        LocalDateTime currentDateTime = LocalDateTime.now(clock);
+        LocalDate today = currentDateTime.toLocalDate();
+        LocalDate lastBookableDate = YearMonth.from(today).plusMonths(1).atEndOfMonth();
         if (date.isBefore(today) || date.isAfter(lastBookableDate)) {
             throw new FacilityBookingException.OutOfBookingWindowException();
         }
         // 오늘이면 이미 끝난 슬롯(PAST: end ≤ now)이 포함되면 안 된다 — 첫 슬롯의 end 가 미래여야 한다(설계 §3.1).
-        if (date.isEqual(today) && !startTime.plusHours(1).isAfter(LocalTime.now(clock))) {
+        if (date.isEqual(today) && !startTime.plusHours(1).isAfter(currentDateTime.toLocalTime())) {
             throw new FacilityBookingException.OutOfBookingWindowException();
         }
     }
