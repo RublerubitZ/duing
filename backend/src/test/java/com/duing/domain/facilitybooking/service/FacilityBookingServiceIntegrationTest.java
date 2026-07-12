@@ -32,6 +32,11 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -289,5 +294,55 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
 
         assertThatThrownBy(() -> bookingRepository.saveAndFlush(second))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("같은 동아리·시설·겹치는 시간의 동시 신청은 한 건만 성공하고 나머지는 동아리 중복으로 실패하며 PENDING 은 1건만 남는다")
+    void concurrentSameClubCreateSerializesToSingleSuccess() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+        // 같은 동아리·같은 시설·겹치는 시간(18~20 vs 19~21) 두 신청을 2스레드로 동시 실행한다.
+        // 무잠금이면 두 PENDING 이 모두 커밋되어 동아리 중복·상한 검사를 우회하지만,
+        // 동아리 행 비관 잠금이 create 를 순차화하므로 뒤 신청은 앞의 PENDING 을 보고 중복으로 실패한다.
+        CreateFacilityBookingCommand firstCommand = command(fixture, date, 18, 20);
+        CreateFacilityBookingCommand secondCommand = command(fixture, date, 19, 21);
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        Callable<Throwable> firstTask = () -> tryCreate(firstCommand);
+        Callable<Throwable> secondTask = () -> tryCreate(secondCommand);
+
+        List<Future<Throwable>> outcomes = pool.invokeAll(List.of(firstTask, secondTask));
+        pool.shutdown();
+        boolean finished = pool.awaitTermination(15, TimeUnit.SECONDS);
+        assertThat(finished).as("동시성 테스트가 시간 내에 완료").isTrue();
+
+        List<Throwable> results = outcomes.stream().map(this::quietGet).toList();
+        long successes = results.stream().filter(throwable -> throwable == null).count();
+        assertThat(successes).as("정확히 한 건만 성공").isEqualTo(1);
+        assertThat(results.stream().filter(throwable -> throwable != null).toList())
+                .as("실패한 한 건은 동아리 중복 예외")
+                .singleElement()
+                .isInstanceOf(FacilityBookingException.DuplicateClubBookingException.class);
+
+        List<FacilityBooking> pendings = bookingRepository.findByClubIdAndStatusOrderByCreatedAtDesc(
+                fixture.club().getId(), BookingStatus.PENDING);
+        assertThat(pendings).as("PENDING 은 정확히 1건만 남는다").hasSize(1);
+    }
+
+    private Throwable tryCreate(CreateFacilityBookingCommand command) {
+        try {
+            bookingService.create(command);
+            return null;
+        } catch (Throwable failure) {
+            return failure;
+        }
+    }
+
+    private Throwable quietGet(Future<Throwable> future) {
+        try {
+            return future.get(10, TimeUnit.SECONDS);
+        } catch (Exception executionFailure) {
+            return executionFailure;
+        }
     }
 }

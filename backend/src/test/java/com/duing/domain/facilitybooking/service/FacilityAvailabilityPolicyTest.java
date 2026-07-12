@@ -33,4 +33,10 @@ class FacilityAvailabilityPolicyTest {
         assertThat(policy.classify(row(LocalTime.of(9, 0), LocalTime.of(20, 0))))
                 .isEqualTo(CrawlRowType.OPERATING);
     }
+
+    @Test
+    @DisplayName("운영시간 꼬리가 반쪽만 파싱된 행(start 만 존재)은 점유행(OCCUPIED)으로 보수 처리된다")
+    void rowWithHalfParsedOperatingHoursIsOccupied() {
+        assertThat(policy.classify(row(LocalTime.of(9, 0), null))).isEqualTo(CrawlRowType.OCCUPIED);
+    }
 }

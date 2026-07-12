@@ -1,5 +1,7 @@
 package com.duing.domain.facilitybooking.service;
 
+import com.duing.domain.club.exception.ClubException;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.exception.FacilityException;
@@ -32,11 +34,19 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
     private final FacilityAvailabilityPolicy availabilityPolicy;
     private final BookingPolicyValidator bookingPolicyValidator;
     private final ClubAuthService clubAuthService;
+    private final ClubRepository clubRepository;
 
     @Override
     @Transactional
     public CreateResult create(CreateFacilityBookingCommand command) {
         clubAuthService.requireManager(command.actorId(), command.clubId());
+        // 같은 동아리의 생성을 직렬화한다. 활성 상한(count)·동아리 중복 검사가 무잠금 read-then-insert 라
+        // 동시 요청이 상한 10건과 동아리 중복 검사를 함께 우회할 수 있다 — DB EXCLUDE 제약은
+        // APPROVED/CONFIRMED 만 커버하고 PENDING 겹침은 커버하지 않는다. 동아리 행을 비관 잠금해
+        // 같은 동아리의 create 만 순차화하고 다른 동아리 간 병렬성은 유지한다. requireManager 가 이미
+        // 동아리 존재를 보장하므로 orElseThrow 는 방어용이다.
+        clubRepository.findByIdForUpdate(command.clubId())
+                .orElseThrow(ClubException.ClubNotFoundException::new);
         Facility facility = facilityRepository.findById(command.facilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
         if (facility.isArchived()) {

@@ -25,7 +25,9 @@ CREATE TABLE facility_booking (
     updated_at           TIMESTAMP NOT NULL DEFAULT NOW(),
     deleted_at           TIMESTAMP,
     CONSTRAINT chk_facility_booking_time
-        CHECK (start_time >= TIME '09:00' AND end_time <= TIME '22:00' AND start_time < end_time)
+        CHECK (start_time >= TIME '09:00' AND end_time <= TIME '22:00' AND start_time < end_time),
+    CONSTRAINT chk_facility_booking_status
+        CHECK (status IN ('PENDING', 'APPROVED', 'CONFIRMED', 'REJECTED', 'CONFLICT', 'CANCELLED'))
 );
 
 -- 활성(APPROVED/CONFIRMED) 예약의 시설·시간 겹침을 DB 레벨에서 차단 — 승인 로직을 우회하는

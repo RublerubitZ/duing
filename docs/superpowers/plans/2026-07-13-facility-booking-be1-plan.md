@@ -124,7 +124,9 @@ CREATE TABLE facility_booking (
     updated_at           TIMESTAMP NOT NULL DEFAULT NOW(),
     deleted_at           TIMESTAMP,
     CONSTRAINT chk_facility_booking_time
-        CHECK (start_time >= TIME '09:00' AND end_time <= TIME '22:00' AND start_time < end_time)
+        CHECK (start_time >= TIME '09:00' AND end_time <= TIME '22:00' AND start_time < end_time),
+    CONSTRAINT chk_facility_booking_status
+        CHECK (status IN ('PENDING', 'APPROVED', 'CONFIRMED', 'REJECTED', 'CONFLICT', 'CANCELLED'))
 );
 
 -- 활성(APPROVED/CONFIRMED) 예약의 시설·시간 겹침을 DB 레벨에서 차단 — 승인 로직을 우회하는
@@ -1002,6 +1004,12 @@ class FacilityAvailabilityPolicyTest {
         assertThat(policy.classify(row(LocalTime.of(9, 0), LocalTime.of(20, 0))))
                 .isEqualTo(CrawlRowType.OPERATING);
     }
+
+    @Test
+    @DisplayName("운영시간 꼬리가 반쪽만 파싱된 행(start 만 존재)은 점유행(OCCUPIED)으로 보수 처리된다")
+    void rowWithHalfParsedOperatingHoursIsOccupied() {
+        assertThat(policy.classify(row(LocalTime.of(9, 0), null))).isEqualTo(CrawlRowType.OCCUPIED);
+    }
 }
 ```
 
@@ -1131,9 +1139,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class FacilityAvailabilityPolicy {
 
-    /** 현재 구현: 운영시간 꼬리(reservedStartTime)가 파싱된 행 = 운영행, 없는 행 = 점유행. */
+    /**
+     * 현재 구현: 운영시간 꼬리(reservedStartTime·reservedEndTime)가 온전히 파싱된 행 = 운영행, 아니면 점유행.
+     * 반쪽 파싱 행(start·end 중 한쪽만 존재)은 점유로 간주한다(보수적 기본값). 현재 파서는 두 값을 함께
+     * 채우거나 함께 비우는 both-null 불변식이라 반쪽 값은 실경로가 없지만, 파서가 바뀌어 불변식이 깨져도
+     * 운영행으로 오분류해 슬롯을 열어주는 것을 방지하는 심층 방어다.
+     */
     public CrawlRowType classify(FacilityReservation reservation) {
-        return reservation.getReservedStartTime() != null ? CrawlRowType.OPERATING : CrawlRowType.OCCUPIED;
+        boolean operatingHoursParsed = reservation.getReservedStartTime() != null
+                && reservation.getReservedEndTime() != null;
+        return operatingHoursParsed ? CrawlRowType.OPERATING : CrawlRowType.OCCUPIED;
     }
 }
 ```
@@ -2319,11 +2334,19 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
     private final FacilityAvailabilityPolicy availabilityPolicy;
     private final BookingPolicyValidator bookingPolicyValidator;
     private final ClubAuthService clubAuthService;
+    private final ClubRepository clubRepository;
 
     @Override
     @Transactional
     public CreateResult create(CreateFacilityBookingCommand command) {
         clubAuthService.requireManager(command.actorId(), command.clubId());
+        // 같은 동아리의 생성을 직렬화한다. 활성 상한(count)·동아리 중복 검사가 무잠금 read-then-insert 라
+        // 동시 요청이 상한 10건과 동아리 중복 검사를 함께 우회할 수 있다 — DB EXCLUDE 제약은
+        // APPROVED/CONFIRMED 만 커버하고 PENDING 겹침은 커버하지 않는다. 동아리 행을 비관 잠금해
+        // 같은 동아리의 create 만 순차화하고 다른 동아리 간 병렬성은 유지한다. requireManager 가 이미
+        // 동아리 존재를 보장하므로 orElseThrow 는 방어용이다.
+        clubRepository.findByIdForUpdate(command.clubId())
+                .orElseThrow(ClubException.ClubNotFoundException::new);
         Facility facility = facilityRepository.findById(command.facilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
         if (facility.isArchived()) {
