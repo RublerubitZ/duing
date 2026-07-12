@@ -13,6 +13,8 @@ import org.springframework.util.StringUtils;
 public class AuthHintTokenProvider {
     private static final int MIN_SECRET_BYTES = 32;
     private static final String HINT_TYPE = "AUTH_HINT";
+    private static final long WEB_SESSION_LIFETIME_MS = 3_600_000L;
+    private static final long WEB_SESSION_LIFETIME_SECONDS = 3_600L;
 
     private final Algorithm algorithm;
     private final long expiryMs;
@@ -22,6 +24,7 @@ public class AuthHintTokenProvider {
             @Value("${jwt.secret}") String jwtSecret,
             @Value("${jwt.expiry-ms}") long expiryMs) {
         validateSecret(hintSecret);
+        validateExpiry(expiryMs);
         if (hintSecret.equals(jwtSecret)) {
             throw new IllegalStateException("JWT_SECRET과 AUTH_HINT_SECRET은 서로 다른 값이어야 합니다.");
         }
@@ -39,7 +42,14 @@ public class AuthHintTokenProvider {
     }
 
     long maxAgeSeconds() {
-        return expiryMs / 1000L;
+        return WEB_SESSION_LIFETIME_SECONDS;
+    }
+
+    private void validateExpiry(long expiryMs) {
+        if (expiryMs != WEB_SESSION_LIFETIME_MS) {
+            throw new IllegalStateException(
+                    "웹 인증 세션을 위해 JWT_EXPIRY_MS는 정확히 3,600,000이어야 합니다.");
+        }
     }
 
     private void validateSecret(String hintSecret) {

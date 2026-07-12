@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 
@@ -79,7 +80,7 @@ describe('AuthSessionBootstrap', () => {
 
     renderBootstrap();
 
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(await screen.findByRole('alert')).toHaveTextContent('세션을 확인하지 못했습니다');
     expect(useAuthStore.getState()).toMatchObject({ status: 'idle', user: null });
   });
 
@@ -88,7 +89,45 @@ describe('AuthSessionBootstrap', () => {
 
     renderBootstrap();
 
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(await screen.findByRole('alert')).toHaveTextContent('세션을 확인하지 못했습니다');
     expect(useAuthStore.getState()).toMatchObject({ status: 'idle', user: null });
+  });
+
+  it('/users/me 403을 인증 만료로 오판하지 않고 재시도를 제공한다', async () => {
+    server.use(
+      http.get(`${BASE}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '권한이 없습니다.' }, { status: 403 }),
+      ),
+    );
+
+    renderBootstrap();
+
+    expect(await screen.findByRole('button', { name: '다시 시도' })).toBeVisible();
+    expect(useAuthStore.getState()).toMatchObject({ status: 'idle', user: null });
+  });
+
+  it('일시 오류 후 사용자가 다시 시도하면 세션을 복원한다', async () => {
+    const user = userEvent.setup();
+    let requestCount = 0;
+    server.use(
+      http.get(`${BASE}/users/me`, () => {
+        requestCount += 1;
+        if (requestCount === 1) {
+          return HttpResponse.json(
+            { ok: false, data: null, message: '서버 오류' },
+            { status: 503 },
+          );
+        }
+        return HttpResponse.json({ ok: true, data: TEST_USER, message: null });
+      }),
+    );
+
+    renderBootstrap();
+    await user.click(await screen.findByRole('button', { name: '다시 시도' }));
+
+    await waitFor(() => expect(useAuthStore.getState().status).toBe('authenticated'));
+    expect(useAuthStore.getState().user).toEqual(TEST_USER);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(requestCount).toBe(2);
   });
 });

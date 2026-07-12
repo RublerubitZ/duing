@@ -7,9 +7,9 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.test.util.ReflectionTestUtils;
 
 class WebAuthCookieServiceTest {
     private static final String JWT_SECRET = "jwt-secret-that-is-at-least-thirty-two-bytes";
@@ -21,8 +21,8 @@ class WebAuthCookieServiceTest {
     void setUp() {
         AuthHintTokenProvider authHintTokenProvider =
                 new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L);
-        cookieService = new WebAuthCookieService(authHintTokenProvider);
-        ReflectionTestUtils.setField(cookieService, "hintCookieDomain", ".duings.com");
+        cookieService = new WebAuthCookieService(
+                authHintTokenProvider, ".duings.com", new MockEnvironment());
     }
 
     @Test
@@ -63,9 +63,17 @@ class WebAuthCookieServiceTest {
                         .contains(
                                 "Path=/",
                                 "Max-Age=0",
+                                "Expires=Thu, 1 Jan 1970 00:00:00 GMT",
                                 "Secure",
                                 "HttpOnly",
                                 "SameSite=Lax"));
+        assertThat(response.getHeaders(HttpHeaders.SET_COOKIE))
+                .anySatisfy(cookie -> assertThat(cookie)
+                        .startsWith("__Host-duing_access_token=")
+                        .doesNotContain("Domain="))
+                .anySatisfy(cookie -> assertThat(cookie)
+                        .startsWith("auth_hint=")
+                        .contains("Domain=.duings.com"));
     }
 
     @Test
@@ -89,5 +97,47 @@ class WebAuthCookieServiceTest {
                         request, new MockHttpServletResponse(), "access.jwt", "STUDENT"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("HTTPS");
+    }
+
+    @Test
+    void rejectsBlankHintCookieDomainInProduction() {
+        MockEnvironment productionEnvironment = new MockEnvironment();
+        productionEnvironment.setActiveProfiles("prod");
+
+        assertThatThrownBy(() -> new WebAuthCookieService(
+                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L),
+                        "",
+                        productionEnvironment))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(".duings.com");
+    }
+
+    @Test
+    void rejectsArbitraryHintCookieDomainInProduction() {
+        MockEnvironment productionEnvironment = new MockEnvironment();
+        productionEnvironment.setActiveProfiles("prod");
+
+        assertThatThrownBy(() -> new WebAuthCookieService(
+                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L),
+                        ".example.com",
+                        productionEnvironment))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(".duings.com");
+    }
+
+    @Test
+    void allowsBlankHintCookieDomainOutsideProduction() {
+        WebAuthCookieService localCookieService = new WebAuthCookieService(
+                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L),
+                "",
+                new MockEnvironment());
+
+        MockHttpServletRequest localhost = new MockHttpServletRequest();
+        localhost.setServerName("localhost");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        localCookieService.issue(localhost, response, "access.jwt", "STUDENT");
+
+        assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).allSatisfy(cookie ->
+                assertThat(cookie).doesNotContain("Domain="));
     }
 }

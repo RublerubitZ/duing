@@ -33,8 +33,9 @@ cp .env.example .env   # backend 에서 가져온 .env.example 복사 → DB/JWT
 `.env` 핵심값:
 - `CORS_ALLOWED_ORIGINS=https://duings.com,https://www.duings.com`
 - `JWT_SECRET=...`(Access Token 서명용, 최소 32바이트)
+- `JWT_EXPIRY_MS=3600000`(Access JWT/Cookie/auth_hint의 고정 1시간 계약, 다른 값은 기동 실패)
 - `AUTH_HINT_SECRET=...`(웹 Middleware UX 힌트 서명용, 최소 32바이트이며 `JWT_SECRET`과 다른 값)
-- `AUTH_HINT_COOKIE_DOMAIN=.duings.com`
+- `AUTH_HINT_COOKIE_DOMAIN=.duings.com`(운영에서 누락하거나 다른 값을 쓰면 기동 실패)
 - `SENTRY_DSN=...`(운영 필수 — 빈 값이면 Sentry 비활성)
 - `BACKEND_IMAGE=ghcr.io/rublerubitz/duing-backend:<tag>`
 

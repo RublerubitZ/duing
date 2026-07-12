@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 class AuthHintTokenProviderTest {
@@ -14,6 +15,7 @@ class AuthHintTokenProviderTest {
 
     @Test
     void createsOnlyFixedTypeRoleAndExpirationClaims() {
+        Instant creationStartedAt = Instant.now();
         AuthHintTokenProvider provider =
                 new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L);
 
@@ -24,6 +26,10 @@ class AuthHintTokenProviderTest {
         assertThat(decoded.getClaim("role").asString()).isEqualTo("ADMIN");
         assertThat(decoded.getSubject()).isNull();
         assertThat(decoded.getClaims().keySet()).containsExactlyInAnyOrder("typ", "role", "exp");
+        assertThat(decoded.getExpiresAtAsInstant())
+                .isBetween(
+                        creationStartedAt.plusSeconds(3_599),
+                        Instant.now().plusSeconds(3_600));
     }
 
     @Test
@@ -40,5 +46,13 @@ class AuthHintTokenProviderTest {
                         new AuthHintTokenProvider("short", JWT_SECRET, 3_600_000L))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("32바이트");
+    }
+
+    @Test
+    void rejectsWebSessionLifetimeOtherThanExactlyOneHour() {
+        assertThatThrownBy(() ->
+                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_599_999L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("3,600,000");
     }
 }

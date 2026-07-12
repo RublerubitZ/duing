@@ -4,6 +4,8 @@ import { clearLegacyWebAuthArtifacts } from '@/app/_lib/legacy-auth-cleanup';
 
 describe('clearLegacyWebAuthArtifacts', () => {
   const cookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
+  const localStorageDescriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
+  const sessionStorageDescriptor = Object.getOwnPropertyDescriptor(window, 'sessionStorage');
   let writtenCookies: string[];
 
   beforeEach(() => {
@@ -14,6 +16,12 @@ describe('clearLegacyWebAuthArtifacts', () => {
 
   afterEach(() => {
     if (cookieDescriptor) Object.defineProperty(document, 'cookie', cookieDescriptor);
+    if (localStorageDescriptor) {
+      Object.defineProperty(window, 'localStorage', localStorageDescriptor);
+    }
+    if (sessionStorageDescriptor) {
+      Object.defineProperty(window, 'sessionStorage', sessionStorageDescriptor);
+    }
   });
 
   it('인증 흔적만 localStorage sessionStorage와 legacy cookie에서 제거한다', () => {
@@ -47,5 +55,62 @@ describe('clearLegacyWebAuthArtifacts', () => {
 
     expect(() => clearLegacyWebAuthArtifacts()).not.toThrow();
     expect(writtenCookies).toHaveLength(4);
+  });
+
+  it('localStorage 접근이 거부되어도 sessionStorage와 cookie 정리를 계속한다', () => {
+    sessionStorage.setItem('duing.accessToken', 'legacy-session-jwt');
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get: () => {
+        throw new DOMException('denied', 'SecurityError');
+      },
+    });
+    Object.defineProperty(document, 'cookie', {
+      configurable: true,
+      get: () => '',
+      set: (value: string) => writtenCookies.push(value),
+    });
+
+    expect(() => clearLegacyWebAuthArtifacts()).not.toThrow();
+    expect(sessionStorage.getItem('duing.accessToken')).toBeNull();
+    expect(writtenCookies).toHaveLength(2);
+  });
+
+  it('sessionStorage 접근이 거부되어도 localStorage와 cookie 정리를 계속한다', () => {
+    localStorage.setItem('duing.accessToken', 'legacy-local-jwt');
+    Object.defineProperty(window, 'sessionStorage', {
+      configurable: true,
+      get: () => {
+        throw new DOMException('denied', 'SecurityError');
+      },
+    });
+    Object.defineProperty(document, 'cookie', {
+      configurable: true,
+      get: () => '',
+      set: (value: string) => writtenCookies.push(value),
+    });
+
+    expect(() => clearLegacyWebAuthArtifacts()).not.toThrow();
+    expect(localStorage.getItem('duing.accessToken')).toBeNull();
+    expect(writtenCookies).toHaveLength(2);
+  });
+
+  it('한 cookie 삭제 쓰기가 거부되어도 나머지 정리를 계속한다', () => {
+    localStorage.setItem('duing.accessToken', 'legacy-local-jwt');
+    sessionStorage.setItem('duing.accessToken', 'legacy-session-jwt');
+    let cookieWriteCount = 0;
+    Object.defineProperty(document, 'cookie', {
+      configurable: true,
+      get: () => '',
+      set: () => {
+        cookieWriteCount += 1;
+        if (cookieWriteCount === 1) throw new DOMException('denied', 'SecurityError');
+      },
+    });
+
+    expect(() => clearLegacyWebAuthArtifacts()).not.toThrow();
+    expect(localStorage.getItem('duing.accessToken')).toBeNull();
+    expect(sessionStorage.getItem('duing.accessToken')).toBeNull();
+    expect(cookieWriteCount).toBe(2);
   });
 });

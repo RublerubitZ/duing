@@ -152,7 +152,8 @@ pnpm dev                    # http://localhost:3000
 
 - 백엔드는 Access Token 서명용 `JWT_SECRET`, Middleware 힌트 서명용 `AUTH_HINT_SECRET`, 운영 힌트
   Cookie 범위용 `AUTH_HINT_COOKIE_DOMAIN=.duings.com`을 사용한다. 두 Secret은 각각 최소 32바이트이며
-  반드시 서로 다른 값이어야 한다.
+  반드시 서로 다른 값이어야 한다. 운영 프로필에서 Cookie Domain이 누락되거나 정확히 `.duings.com`이
+  아니면 기동에 실패한다.
 - Vercel에는 백엔드와 같은 `AUTH_HINT_SECRET`만 주입한다. Access Token을 서명할 수 있는
   `JWT_SECRET`은 Vercel 환경변수로 등록하면 안 된다.
 
@@ -167,7 +168,8 @@ API와 동일 사이트가 되는 커스텀 도메인을 사용한다.
 웹 Access Token은 백엔드가 `__Host-duing_access_token` host-only Cookie로만 발급한다
 (`Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=3600`, Domain 미지정). `auth_hint`는 로그인·역할별
 리다이렉트 UX에만 쓰며 API 인증이나 권한 판정에는 사용하지 않는다. Refresh Token은 아직 사용하지
-않는다. 현재 로그아웃은 사용자 단위 `token_version`을 증가시키므로 웹이나 모바일 한 곳에서
+않는다. `JWT_EXPIRY_MS`는 Access JWT, Cookie, `auth_hint`가 모두 정확히 1시간을 유지하도록
+`3600000`만 허용하며 다른 값이면 기동에 실패한다. 현재 로그아웃은 사용자 단위 `token_version`을 증가시키므로 웹이나 모바일 한 곳에서
 로그아웃하면 해당 사용자의 모든 디바이스 세션이 무효화된다.
 
 배포 순서와 롤백 절차는 [`deploy/README.md`](./deploy/README.md)를 따른다.

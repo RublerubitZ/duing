@@ -3,23 +3,36 @@ package com.duing.global.auth;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 @Component
-@RequiredArgsConstructor
 public class WebAuthCookieService {
     public static final String ACCESS_COOKIE_NAME = "__Host-duing_access_token";
     public static final String AUTH_HINT_COOKIE_NAME = "auth_hint";
+    private static final String PRODUCTION_HINT_COOKIE_DOMAIN = ".duings.com";
+    private static final String PAST_EXPIRES = "Thu, 01 Jan 1970 00:00:00 GMT";
 
     private final AuthHintTokenProvider authHintTokenProvider;
+    private final String hintCookieDomain;
 
-    @Value("${web-auth.hint-cookie-domain:}")
-    private String hintCookieDomain;
+    public WebAuthCookieService(
+            AuthHintTokenProvider authHintTokenProvider,
+            @Value("${web-auth.hint-cookie-domain:}") String hintCookieDomain,
+            Environment environment) {
+        if (environment.acceptsProfiles(Profiles.of("prod"))
+                && !PRODUCTION_HINT_COOKIE_DOMAIN.equals(hintCookieDomain)) {
+            throw new IllegalStateException(
+                    "운영 AUTH_HINT_COOKIE_DOMAIN은 정확히 .duings.com이어야 합니다.");
+        }
+        this.authHintTokenProvider = authHintTokenProvider;
+        this.hintCookieDomain = hintCookieDomain;
+    }
 
     public void issue(
             HttpServletRequest request,
@@ -33,8 +46,8 @@ public class WebAuthCookieService {
     }
 
     public void clear(HttpServletResponse response) {
-        add(response, accessCookie("", 0));
-        add(response, hintCookie("", 0));
+        addExpired(response, accessCookie("", 0));
+        addExpired(response, hintCookie("", 0));
     }
 
     private ResponseCookie accessCookie(String value, long maxAgeSeconds) {
@@ -68,5 +81,11 @@ public class WebAuthCookieService {
 
     private void add(HttpServletResponse response, ResponseCookie cookie) {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private void addExpired(HttpServletResponse response, ResponseCookie cookie) {
+        response.addHeader(
+                HttpHeaders.SET_COOKIE,
+                cookie + "; Expires=" + PAST_EXPIRES);
     }
 }
