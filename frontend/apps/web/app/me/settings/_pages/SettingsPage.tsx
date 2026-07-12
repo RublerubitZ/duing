@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useFavoriteListQuery, useLogout, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
 import { GRADE_DISPLAY_NAME } from '@duing/types';
@@ -101,7 +101,7 @@ export function SettingsPage() {
   const managedClubsQuery = useManagedClubsQuery();
   const favoriteListQuery = useFavoriteListQuery(0, 20);
   const logout = useLogout();
-  const router = useRouter();
+  const router = useGuardedRouter();
 
   const user = meQuery.data;
   const applyCount = applicationsQuery.data?.length ?? 0;

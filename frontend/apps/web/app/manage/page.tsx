@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { Suspense, useEffect } from 'react';
 import { useManagedClubsQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 
 function ManageRedirect() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const searchParams = useSearchParams();
   const { data: managedClubs, isLoading } = useManagedClubsQuery();
 

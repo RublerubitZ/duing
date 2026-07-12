@@ -1,7 +1,7 @@
 'use client';
 
 import { use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useRecruitmentDetailQuery, useUpdateRecruitmentMutation } from '@duing/hooks';
 import { toRoute } from '../../../../../../_lib/route';
 import { RecruitmentForm } from '../../_components/RecruitmentForm';
@@ -15,7 +15,7 @@ export default function EditRecruitmentPage({
   const { clubId: clubIdParam, recruitmentId: recruitmentIdParam } = use(params);
   const clubId = Number(clubIdParam);
   const recruitmentId = Number(recruitmentIdParam);
-  const router = useRouter();
+  const router = useGuardedRouter();
 
   const { data: recruitment, isLoading } = useRecruitmentDetailQuery(
     isNaN(recruitmentId) ? undefined : recruitmentId,

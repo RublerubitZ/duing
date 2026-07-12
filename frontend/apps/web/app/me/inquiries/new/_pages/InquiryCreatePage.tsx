@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { ApiError } from '@duing/api';
 import { useCreateFederationInquiryMutation } from '@duing/hooks';
@@ -16,7 +16,7 @@ const TITLE_MAX_LENGTH = 120;
 const CONTENT_MAX_LENGTH = 2000;
 
 export function InquiryCreatePage() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { addToast } = useToast();
   const createMutation = useCreateFederationInquiryMutation();
 

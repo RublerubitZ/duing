@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import Link from 'next/link';
 import {
   useNotificationListQuery,
@@ -27,7 +27,7 @@ type Props = {
  * ESC·바깥 클릭 닫기·포커스 트랩은 Sheet(Radix Dialog)가 제공한다.
  */
 export function NotificationSheet({ open, onOpenChange, unreadCount }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const listQuery = useNotificationListQuery(false, open);
   const readMutation = useNotificationSourceAwareReadMutation();
   const readAllMutation = useNotificationReadAllMutation();

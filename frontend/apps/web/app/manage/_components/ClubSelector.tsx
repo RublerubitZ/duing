@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import type { ManagedClub } from '@duing/types';
 import { toRoute } from '../../_lib/route';
 
@@ -10,7 +10,7 @@ type ClubSelectorProps = {
 };
 
 export function ClubSelector({ managedClubs, currentClubId }: ClubSelectorProps) {
-  const router = useRouter();
+  const router = useGuardedRouter();
 
   function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const selectedClubId = event.target.value;

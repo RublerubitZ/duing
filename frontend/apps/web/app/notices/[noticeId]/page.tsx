@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useNoticeDetailQuery } from '@duing/hooks';
 import { ExploreNav } from '../../_components/ExploreNav';
 import { NoticeDetailTopBar } from '../_components/NoticeDetailTopBar';
@@ -27,7 +28,7 @@ function getStatus(error: unknown): number | undefined {
 export default function NoticeDetailPage() {
   const params = useParams<{ noticeId: string }>();
   const noticeId = params.noticeId ? Number(params.noticeId) : null;
-  const router = useRouter();
+  const router = useGuardedRouter();
 
   const detailQuery = useNoticeDetailQuery(noticeId);
   const notice = detailQuery.data;

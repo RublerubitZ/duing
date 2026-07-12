@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useCreatePromotionMutation } from '@duing/hooks';
 import { AdminPromotionForm } from '../_components/AdminPromotionForm';
 import { toRoute } from '../../../_lib/route';
@@ -15,7 +15,7 @@ function extractErrorMessage(error: unknown): string | null {
 }
 
 export function AdminPromotionNewPage() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const createMutation = useCreatePromotionMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 

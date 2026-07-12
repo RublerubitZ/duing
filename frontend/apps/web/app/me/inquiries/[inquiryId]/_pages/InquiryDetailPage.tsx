@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { ApiError } from '@duing/api';
 import {
@@ -33,7 +33,7 @@ type Props = {
 
 export function InquiryDetailPage({ inquiryId }: Props) {
   const isValidId = inquiryId !== null;
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { addToast } = useToast();
 
   const detailQuery = useFederationInquiryDetailQuery(inquiryId);

@@ -1,6 +1,7 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import type { Applicant, ApplicationStatus } from '@duing/types';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
@@ -52,7 +53,7 @@ export function ApplicantTable({
   clubId,
   recruitmentId,
 }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const searchParams = useSearchParams();
 
   const toggleRow = (applicationId: number, status: ApplicationStatus) => {

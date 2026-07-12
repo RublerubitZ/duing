@@ -1,7 +1,8 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import { useLoginMutation } from '@duing/hooks';
@@ -65,7 +66,7 @@ function IconChevronDown() {
 }
 
 function LoginForm() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const searchParams = useSearchParams();
   // next 는 공격자가 조작할 수 있는 값이므로 내부 절대경로만 허용한다 — toLinkRoute 가 프로토콜
   // 상대경로(//host)·역슬래시(/\host)처럼 브라우저가 오프-오리진으로 해석하는 값을 걸러내 open redirect 를 막는다.

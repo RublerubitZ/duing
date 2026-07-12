@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import type { StudentRecruitmentProjection } from '@duing/types';
 import { ApiError } from '@duing/api';
 import { useCheckEligibilityMutation } from '@duing/hooks';
@@ -18,7 +18,7 @@ import { safeExternalHref, toRoute } from '../../../_lib/route';
  */
 export function useClubApply(recruitment: StudentRecruitmentProjection | undefined) {
   const authStatus = useAuthStore((state) => state.status);
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { addToast } = useToast();
   const eligibilityCheck = useCheckEligibilityMutation();
 

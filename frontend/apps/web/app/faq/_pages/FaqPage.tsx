@@ -6,7 +6,8 @@
 
 import { useCallback, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { motion, useReducedMotion } from 'framer-motion';
 
 import { useFederationFaqCategoriesQuery, useFederationFaqListQuery } from '@duing/hooks';
@@ -100,7 +101,7 @@ function FaqAccordionRow({ faq, index }: { faq: FederationFaqItem; index: number
 }
 
 export function FaqPage() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const searchParams = useSearchParams();
   const params = useMemo<FaqParams>(
     () => parseFaqParams(new URLSearchParams(searchParams?.toString() ?? '')),

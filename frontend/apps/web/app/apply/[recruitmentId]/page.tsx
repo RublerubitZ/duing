@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import Link from 'next/link';
 import type { DraftAnswer, RecruitmentQuestionItem } from '@duing/types';
 import {
@@ -20,7 +20,7 @@ export default function ApplyPage({
 }) {
   const { recruitmentId: idParam } = use(params);
   const recruitmentId = Number(idParam);
-  const router = useRouter();
+  const router = useGuardedRouter();
 
   const detail = useRecruitmentDetailQuery(recruitmentId);
   const draftQuery = useApplicationDraftQuery(recruitmentId);
