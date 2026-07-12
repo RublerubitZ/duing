@@ -95,6 +95,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/members").authenticated()
                         // 멤버 변경 엔드포인트는 모두 인증 필요. (PATCH role / DELETE member / DELETE me / POST transfer-leader)
                         .requestMatchers("/api/v1/clubs/*/members/**").authenticated()
+                        // 시설 대관 신청 — 운영진 전용 데이터이므로 GET 도 인증 필수(아래 clubs GET permitAll 보다 먼저 매칭)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/facility-bookings").authenticated()
+                        .requestMatchers("/api/v1/clubs/*/facility-bookings/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs", "/api/v1/clubs/**").permitAll()
                         // 지원 가능 여부 사전 확인은 현재 사용자 기준 판정이므로 인증이 필요하다.
                         // 아래 recruitments/** permitAll 보다 반드시 앞에 위치해야 first-match 원칙상
