@@ -30,6 +30,8 @@
 | **슬롯** | — | 09:00~22:00을 1시간 단위로 나눈 13칸. 학교 데이터 granularity와 동일 |
 
 > 판별 규칙의 근거: 사용자 확인 결과 일부 시설은 운영 방식상 운영시간 꼬리를 단 단체가 점유 중이어도 그 시간에 대관 신청을 받는다. 따라서 "꼬리 있음 = 점유"로 막지 않고, 신청은 열어두되 총동연 승인 + 크롤 재확인이 정합성 게이트가 된다. 기존 파서가 이미 꼬리를 `reserved_start_time/end_time`으로 분리 저장하므로(V72, §16.1) **스키마 변경 없이 이 컬럼의 null 여부만으로 판별 가능**하다.
+>
+> 단, 이 컬럼 조건은 판별의 **현재 구현**일 뿐 계약이 아니다. 판별은 `FacilityAvailabilityPolicy`(§3.1 0단계)로 추상화해 서비스·API·UI가 컬럼 구조에 의존하지 않게 하고, 학교 데이터 형식이나 파서가 바뀌면 정책 내부만 교체한다.
 
 ---
 
@@ -37,7 +39,18 @@
 
 ### 3.1 슬롯 상태 계산 (조회 시, DB 미저장)
 
-한 시설·한 날짜의 13개 슬롯 각각에 대해 아래 우선순위로 판정한다:
+**0단계 — 크롤 행 분류 (정책 계층, `FacilityAvailabilityPolicy`)**
+
+가용성 계산에 들어가기 전에 모든 크롤 행을 `CrawlRowType`으로 분류한다. 분류 규칙은 이 정책 컴포넌트 한 곳에만 존재하며, 가용성 계산·API·UI는 **분류 결과만 소비**하고 `reserved_start_time` 같은 컬럼 구조를 알지 못한다 — 학교 데이터 형식·파서가 바뀌어도 교체 범위가 정책 내부로 격리된다.
+
+| CrawlRowType | 현재 판별 구현 | 가용성 효과 |
+|---|---|---|
+| `OCCUPIED`(점유행) | `reserved_start_time IS NULL` | 겹치는 슬롯 신청 불가 |
+| `OPERATING`(운영행) | `reserved_start_time IS NOT NULL` | 어떤 슬롯도 막지 않음 — 정보 라벨만 |
+
+enum은 확장 가능하게 둔다 — 향후 학교 데이터에 별도의 "예약 불가 행" 유형이 생기면 새 타입(예: `UNAVAILABLE`)을 추가하고 정책만 수정한다.
+
+**1단계 — 슬롯 판정**: 한 시설·한 날짜의 13개 슬롯 각각에 대해 아래 우선순위로 판정한다:
 
 1. `PAST` — 지난 날짜, 또는 오늘의 `end ≤ now(Asia/Seoul)` 슬롯 → 신청 불가
 2. `BLOCKED(INTERNAL)` — 내부 Booking 중 `APPROVED`/`CONFIRMED`가 슬롯과 겹침 → 신청 불가, 동아리명 노출
@@ -46,8 +59,30 @@
 5. `AVAILABLE` — 위 어디에도 해당 없음 → 신청 가능
 
 - **운영행은 어느 슬롯도 막지 않는다.** 해당 날짜에 "운영: {단체명} HH:MM~HH:MM" 정보 라벨로만 표시한다.
-- 점유행의 겹침 판정은 저장된 1시간 슬롯 원본 행 기준(운영행의 슬롯 행은 제외: `reserved_start_time IS NULL` 조건).
+- 점유행의 겹침 판정은 저장된 1시간 슬롯 원본 행 기준(운영행으로 분류된 행의 슬롯은 제외 — 분류는 0단계 정책 결과를 사용).
 - **크롤 예약행이 하나도 없는 날짜 = 종일 AVAILABLE** (선행 스펙의 월 스냅샷 메타가 "정상 수집된 빈 달"을 보장하므로 미수집과 혼동 없음).
+
+**운영행·점유행 공존 시 처리 순서** — 같은 날짜에 둘 다 있을 때 구현은 반드시 이 순서를 따른다:
+
+```
+크롤 행 분류 (0단계, FacilityAvailabilityPolicy)
+  ├─ 운영행 → 정보 레이어로 분리 (어떤 슬롯도 차단하지 않음)
+  └─ 점유행 → 겹치는 슬롯 차단
+        ↓
+내부 APPROVED / CONFIRMED → 겹치는 슬롯 차단
+        ↓
+내부 PENDING → PENDING_HOLD 표시 (신청은 가능)
+        ↓
+나머지 슬롯 = AVAILABLE
+```
+
+예시 — 같은 날에 운영행 `고정관념(09:00~20:00)` + 점유행 `비호응원단 17~18·18~19`가 공존하면:
+
+| 구간 | 판정 |
+|---|---|
+| 09~17 | `AVAILABLE` + 운영 라벨("운영: 고정관념 09:00~20:00") |
+| 17~19 | `BLOCKED(SCHOOL)` — 비호응원단 |
+| 19~22 | `AVAILABLE` + 운영 라벨 |
 
 ### 3.2 날짜(캘린더 셀) 상태
 
@@ -63,6 +98,8 @@
 | 신청 차단 조건 | BLOCKED 슬롯 포함, 과거 슬롯 포함, 같은 동아리의 겹치는 활성 신청 존재 | 명백히 불가능/중복인 신청만 서버가 차단 |
 | PENDING 겹침 | **허용** (Hard Block 없음) | 승인 전 신청이 슬롯을 선점하는 어뷰징 방지. UI 경고 + 승인 시 하나만 생존 |
 | 동아리당 활성 신청 상한 | PENDING+APPROVED 합산 10건 (P1 상수) | 스팸 방지 최소 가드. 시설별·기간별 정책은 P2 |
+
+위 신청 규칙 검증은 `BookingPolicyValidator`(정책 컴포넌트) 뒤에 격리한다 — P1은 표의 값을 상수로 구현하지만, P2에서 시설별 예약 정책(운영시간·최대 연속 시간·리드타임)·동아리별 제한·관리자 설정값(정책 테이블 + 설정 UI)으로 교체할 때 검증 호출부는 변하지 않는다.
 
 ---
 
@@ -102,6 +139,18 @@
 - APPROVED/CONFIRMED로 들어가는 전이는 반드시 겹침 재검증(§5.2)을 통과해야 하며, DB EXCLUDE 제약(§6.1)이 최종 백스톱이다.
 - 상태 전이는 전부 조건부 UPDATE(현재 상태 확인)로 수행 — 중복 클릭·경합 시 두 번째 요청은 409.
 
+### 4.3 상태별 권한 매트릭스
+
+수정(내용 변경) 기능은 P1에 없다 — 변경이 필요하면 **취소 후 재신청**이 유일한 경로이며, 이는 PENDING에서만 가능하다.
+
+| 상태 | 신청자(동아리 운영진) | 관리자(ADMIN) |
+|---|---|---|
+| `PENDING` | **취소 가능** · 수정 불가(취소 후 재신청) | 승인 / 거절 |
+| `APPROVED` | **수정·취소 불가** — "학교 반영 대기" 표시, 취소가 필요하면 총동연 문의 안내 | 취소(사유) / 수동 확정 / 수동 충돌 전환 |
+| `CONFIRMED` | 불가 | **불가** (완전 터미널) |
+| `CONFLICT` | 불가 | 재승인 / 취소(사유) |
+| `REJECTED` / `CANCELLED` | 조회만 | 조회만 |
+
 ---
 
 ## 5. 예약 프로세스
@@ -132,6 +181,7 @@
 - **매칭 잡**: `@Scheduled(cron = "0 3-59/10 * * * *", zone = "Asia/Seoul")` — 크롤 잡(매 10분 0초)과 3분 오프셋. 크롤 커버 월의 APPROVED Booking을 스캔한다. 토글 `duing.facility.booking.matching.enabled`(기존 `DUING_*_ENABLED` 관례, base=false·prod=true — **prod 기본 활성이므로 배포 체크리스트에 env 명시**).
 - **CONFIRMED 판정(P1, 보수적)**: 같은 시설·같은 날짜의 점유행들이 Booking의 모든 1시간 서브슬롯을 빠짐없이 덮고, 그 행들의 `organization_name` 정규화 결과가 동아리명 정규화 결과와 **정확히 일치**할 때만 자동 CONFIRMED. `matched_schedule_seq`(대표 행)와 `crawl_basis_at`을 기록.
   - 정규화: 공백 제거 + 끝 괄호 그룹 제거 + 소문자화. 학교 표기가 달라 자동 매칭이 안 되는 건 관리자 **수동 확정 버튼**으로 처리(P1). 동아리별 학교 표기명 매핑은 P2 확장.
+  - **이 정확 매칭은 P1의 보수적 초기 정책이지 최종 구조가 아니다.** 매칭 판정은 `FacilityBookingMatchingService` 안의 교체 가능한 정책으로 캡슐화하고, 소비자는 판정 결과(자동 확정 / 확인 필요 후보 / 미매칭)만 본다. 확장 경로: ① 동아리별 학교 표기명 매핑(P2) ② 이름 없이 시설+날짜+시간 일치만으로 후보를 뽑아 관리자 원클릭 확인 큐로 승격 ③ 유사도 기반 매칭 제안 — 어느 쪽이든 매칭 정책 내부 교체로 끝나야 한다.
 - **미매칭 APPROVED**: 그대로 유지. 관리자 목록에 "학교 반영 대기 D+N"으로 경과일 표시. **자동 취소 없음**(사용자 합의 — 실운영상 총동연 승인 건은 대부분 학교도 승인).
 - **충돌 감지**: 겹치는 점유행이 있는데 이름이 불일치하면 —
   - P1: 자동 전이하지 않고 관리자 상세/목록에 "충돌 의심" 플래그로 노출(이름 표기 차이 오탐 방지), 관리자가 확인 후 수동 CONFLICT 전환 또는 수동 확정.
@@ -238,7 +288,9 @@ domain/facilitybooking/
 ├── service/      FacilityBookingService          — 신청·취소 (동아리 측)
 │                 FacilityBookingAdminService     — 승인·거절·확정·취소 (관리자 측, 재검증 포함)
 │                 FacilityAvailabilityService     — 슬롯 상태 계산 (크롤 조회 서비스 재사용)
-│                 FacilityBookingMatchingService  — CONFIRMED 매칭 (순수 판정 로직 분리)
+│                 FacilityBookingMatchingService  — CONFIRMED 매칭 (교체 가능한 판정 정책, §5.3)
+│                 FacilityAvailabilityPolicy      — 크롤 행 분류(운영행/점유행) 정책 (§3.1 0단계)
+│                 BookingPolicyValidator          — 신청 규칙 검증 (P1 상수 → P2 설정값, §3.3)
 │                 OrganizationNameNormalizer      — 이름 정규화 (순수 함수)
 ├── scheduler/    FacilityBookingMatchingScheduler — @Scheduled + @ConditionalOnProperty
 ├── controller/   FacilityAvailabilityController, ClubFacilityBookingController,
@@ -312,6 +364,7 @@ domain/facilitybooking/
 | 10 | `POST /admin/facility-bookings/{id}/confirm` | 👑 | 수동 확정(자동 매칭 실패분) |
 | 11 | `POST /admin/facility-bookings/{id}/conflict` | 👑 | 수동 충돌 전환 `{detail}` (P1 — 자동 전환은 P2) |
 | 12 | `POST /admin/facility-bookings/{id}/cancel` | 👑 | APPROVED/CONFLICT 취소 `{reason}` |
+| 13 | `GET /admin/facility-bookings/summary` | 👑 | 대시보드 카드 수치(승인 대기·학교 반영 대기·충돌·이달 확정 — §9.7) |
 
 관리자 API는 `/api/v1/admin/**` 관례(URL 백스톱 `hasRole('ADMIN')` + 컨트롤러 `@PreAuthorize`) 그대로.
 
@@ -438,6 +491,15 @@ domain/facilitybooking/
 
 ### 9.7 관리자 화면 (`/admin/facility-bookings`)
 
+- **상단 Summary Cards(대시보드)** — 큐 위에 지표 카드 4장(API #13). 카드 클릭 = 해당 필터로 목록 전환:
+
+  | 카드 | 수치 | 강조 |
+  |---|---|---|
+  | 승인 대기 | PENDING 총 건수(+오늘 접수 N건) | 가장 오래된 대기 경과일 |
+  | 학교 반영 대기 | APPROVED 건수 | 최장 D+N — 오래된 건 coral 경고 |
+  | 충돌 | CONFLICT + 충돌 의심 플래그 건수 | 1건이라도 있으면 coral |
+  | 이달 확정 | 해당 월 CONFIRMED 건수 | — |
+
 - 기존 admin 콘솔 패턴(테이블 + 필터) 재사용. 기본 뷰 = PENDING 큐(오래된 순). 필터: 상태/시설/기간. APPROVED 행에 "학교 반영 대기 D+N", 충돌 의심·부분 반영 플래그 배지.
 - 상세(모달 또는 상세 행 확장): 신청 정보 + **검증 컨텍스트 시각화** — 해당 날짜의 13슬롯 미니 타임라인에 신청 구간·크롤 점유행·겹치는 PENDING을 겹쳐 그림. 상단에 크롤 신선도("마지막 수집 N분 전", 실패 시 §5.2의 경고 배너). 액션: 승인/거절(사유)/수동 확정/충돌 전환/취소.
 
@@ -500,7 +562,7 @@ domain/facilitybooking/
 4. FE: 동아리 예약 관리 페이지 + 관리자 승인 큐
 5. 기존 화면 교체·redirect·안내 문구 정리
 
-**P2** — 인앱 알림(§7.6), 자동 CONFLICT·겹침 PENDING 자동 거절, 시설별 예약 정책(운영시간·최대 시간·리드타임), 동아리별 학교 표기명 매핑, 관리자 메모, HOLD UI 고도화(대기 순번 등)
+**P2** — 인앱 알림(§7.6), 자동 CONFLICT·겹침 PENDING 자동 거절, 예약 정책 설정화(시설별 운영시간·최대 시간·리드타임 + 동아리별 제한을 관리자 설정값으로 — §3.3 `BookingPolicyValidator` 내부 교체), 동아리별 학교 표기명 매핑, 관리자 메모, HOLD UI 고도화(대기 순번 등)
 
 **P3** — 기존 조회 잔재 정리(과거 월 열람 재검토 포함), UX·애니메이션 폴리시, 반복 예약·블랙아웃 기간·관리자 직접 예약, 동아리발 취소 요청 플로우
 
@@ -560,6 +622,10 @@ domain/facilitybooking/
 6. 승인 재검증: 재크롤은 트랜잭션 밖, 실패 시 경고 후 관리자 판단.
 7. Hard Block 없음: PENDING 겹침 허용 + 경고 + 승인 시 정리.
 8. 릴리스 P1/P2/P3 분할, 알림은 인앱 전용.
+9. 크롤 행 판별(운영행/점유행)은 `FacilityAvailabilityPolicy`로 추상화 — 컬럼 구조 의존은 정책 내부에만 격리(§3.1 0단계).
+10. 상태별 권한 매트릭스(§4.3) — PENDING만 신청자 취소 가능, APPROVED는 관리자만 취소, CONFIRMED는 누구도 불가.
+11. 자동 CONFIRMED 정확 매칭은 P1의 보수적 초기 정책 — 매칭 판정은 교체 가능한 정책으로 캡슐화(§5.3).
+12. 신청 규칙 상수(활성 10건 등)는 `BookingPolicyValidator` 뒤에 격리 — P2 설정화 시 호출부 불변(§3.3).
 
 **열린 결정 포인트(스펙 리뷰에서 확인 요청)**
 1. **겹침 자동 처리 상태**: 본 스펙은 `REJECTED`(자동 사유) 채택, CONFLICT는 승인 후 학교 충돌 전용(§4.1). — 사용자가 언급한 REJECTED_CONFLICT 별도 상태 대비 상태 수가 적고 관리자 큐가 깨끗함.
