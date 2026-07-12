@@ -11,6 +11,7 @@ import { webStorage } from '@duing/storage/web';
 import { hydrateAuthFromStorage } from '@duing/stores';
 import { webCookieAdapter } from './_lib/cookie-adapter';
 import { ToastProvider } from './_components/toast/ToastProvider';
+import { OfflineBanner } from './_components/OfflineBanner';
 import { SessionExpiryHandler } from './_components/SessionExpiryHandler';
 
 setStorage(webStorage);
@@ -57,6 +58,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <ApiClientProvider client={apiClient}>
           <ToastProvider>
             <SessionExpiryHandler />
+            <OfflineBanner />
             {children}
           </ToastProvider>
         </ApiClientProvider>
