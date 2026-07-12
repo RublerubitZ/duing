@@ -22,11 +22,12 @@ const isLoopbackHostname = (hostname: string): boolean => {
   const ipv4MappedIpv6Match = normalizedHostname.match(
     /^::ffff:([0-9a-f]{1,4}):[0-9a-f]{1,4}$/,
   );
-  if (!ipv4MappedIpv6Match) {
+  const ipv4HighBitsHex = ipv4MappedIpv6Match?.[1];
+  if (!ipv4HighBitsHex) {
     return false;
   }
 
-  const ipv4HighBits = Number.parseInt(ipv4MappedIpv6Match[1], 16);
+  const ipv4HighBits = Number.parseInt(ipv4HighBitsHex, 16);
   return (ipv4HighBits & 0xff00) === 0x7f00;
 };
 
