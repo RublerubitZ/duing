@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useAdminPromotionDetailQuery, useUpdatePromotionMutation } from '@duing/hooks';
 import { AdminPromotionForm } from '../_components/AdminPromotionForm';
 import { toRoute } from '../../../_lib/route';
@@ -17,7 +18,7 @@ function extractErrorMessage(error: unknown): string | null {
 export function AdminPromotionEditPage() {
   const params = useParams<{ promotionId: string }>();
   const promotionId = params.promotionId ? Number(params.promotionId) : null;
-  const router = useRouter();
+  const router = useGuardedRouter();
   const updateMutation = useUpdatePromotionMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 

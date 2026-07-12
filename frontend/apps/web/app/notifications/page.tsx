@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import {
   useNotificationListQuery,
   useNotificationSourceAwareReadMutation,
@@ -14,7 +14,7 @@ import { NotificationItem } from '../_components/NotificationItem';
 
 export default function NotificationsPage() {
   const authStatus = useAuthStore((state) => state.status);
-  const router = useRouter();
+  const router = useGuardedRouter();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const listQuery = useNotificationListQuery(unreadOnly, authStatus === 'authenticated');
   const readMutation = useNotificationSourceAwareReadMutation();

@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useAdminFederationFaqCreateMutation } from '@duing/hooks';
 import { FaqForm, EMPTY_FAQ_FORM } from '../_components/FaqForm';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 
 export function AdminFaqNewPage() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const createMutation = useAdminFederationFaqCreateMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 

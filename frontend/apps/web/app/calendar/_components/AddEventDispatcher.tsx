@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 import type { ManagedClub } from '@duing/types';
 import { toRoute } from '../../_lib/route';
@@ -12,7 +12,7 @@ type Props = {
 };
 
 export function AddEventDispatcher({ open, onClose }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const meQuery = useMeQuery();
   // 비로그인 시 /leader/clubs/me/managed 호출 자체를 skip — 401 콘솔 노이즈 방지.
   // 비로그인 사용자는 운영 클럽이 있을 수 없으므로 빈 배열 처리와 의미상 동일.

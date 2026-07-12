@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useClubListQuery, useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
@@ -73,7 +74,7 @@ const Icon = {
 };
 
 export function ClubExplorePage() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const searchParams = useSearchParams();
   const params = useMemo<ExploreParams>(
     () => parseExploreParams(new URLSearchParams(searchParams?.toString() ?? '')),

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useAuthStore } from '@duing/stores';
 import { useLogout, useMeQuery } from '@duing/hooks';
@@ -23,7 +23,7 @@ export function UserMenu() {
   const status = useAuthStore((state) => state.status);
   const meQuery = useMeQuery();
   const logout = useLogout();
-  const router = useRouter();
+  const router = useGuardedRouter();
 
   if (status !== 'authenticated') return null;
 

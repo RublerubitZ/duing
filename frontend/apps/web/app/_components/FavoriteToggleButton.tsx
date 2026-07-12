@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useAuthStore } from '@duing/stores';
 import { useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
 
@@ -9,7 +9,7 @@ import { cn } from '@/app/_lib/cn';
 type Props = { clubId: number; size?: 'sm' | 'md'; className?: string };
 
 export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const status = useAuthStore((state) => state.status);
   const favoriteIdsQuery = useFavoriteIdsQuery();
   const toggleMutation = useFavoriteToggleMutation();

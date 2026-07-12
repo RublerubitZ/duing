@@ -50,6 +50,7 @@ vi.mock('@duing/hooks', () => ({
 // useToast 는 ToastProvider 컨텍스트 밖에서 호출되면 예외를 던진다 — FAQ 본문과 무관하므로 스텁한다.
 vi.mock('@/app/_components/toast/ToastProvider', () => ({
   useToast: () => ({ addToast: vi.fn() }),
+  useOptionalToast: () => vi.fn(),
 }));
 
 /* ── 테스트 데이터 ───────────────────────────────────────────── */

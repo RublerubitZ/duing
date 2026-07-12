@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import {
   useAdminNoticeDetailQuery,
   useAdminNoticeUpdateMutation,
@@ -17,7 +18,7 @@ import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 export function AdminNoticeEditPage() {
   const params = useParams<{ noticeId: string }>();
   const noticeId = params.noticeId ? Number(params.noticeId) : null;
-  const router = useRouter();
+  const router = useGuardedRouter();
   const detailQuery = useAdminNoticeDetailQuery(noticeId);
   const updateMutation = useAdminNoticeUpdateMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

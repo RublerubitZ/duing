@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useState } from 'react';
 import { ApiError } from '@duing/api';
 import { useCompletePasswordResetMutation } from '@duing/hooks';
@@ -14,7 +14,7 @@ const inputCls =
   'w-full rounded-md border border-line bg-paper px-3.5 py-3 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20 placeholder:text-charcoal-3/50';
 
 export function ForgotPasswordPanel() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { addToast } = useToast();
   const completeMutation = useCompletePasswordResetMutation();
 

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import {
   useAdminGlobalEventDetailQuery,
   useAdminGlobalEventUpdateMutation,
@@ -12,7 +13,7 @@ import { fromDetail, toUpdatePayload } from '../_lib/parseGlobalEventFormState';
 import { toRoute } from '../../../_lib/route';
 
 export function AdminGlobalEventEditPage() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const params = useParams<{ eventId: string }>();
   const eventId = params.eventId ? Number(params.eventId) : null;
 

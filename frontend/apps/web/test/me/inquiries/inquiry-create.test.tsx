@@ -17,6 +17,7 @@ vi.mock('@duing/hooks', () => ({
 const mockAddToast = vi.fn();
 vi.mock('@/app/_components/toast/ToastProvider', () => ({
   useToast: () => ({ addToast: mockAddToast }),
+  useOptionalToast: () => mockAddToast,
 }));
 
 const mockRouterPush = vi.fn();

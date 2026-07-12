@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '../../../../_lib/route';
 import { useCreateRecertificationRoundMutation } from '@duing/hooks';
 
@@ -11,7 +11,7 @@ const YEAR_MIN = 2000;
 const YEAR_MAX = 2100;
 
 export function AdminRecertificationRoundCreateForm() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const createMutation = useCreateRecertificationRoundMutation();
 
   const [yearInput, setYearInput] = useState<string>(String(CURRENT_YEAR));

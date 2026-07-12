@@ -39,6 +39,13 @@ export function useToast(): ToastContextValue {
   return context;
 }
 
+// Provider 밖(예: 테스트의 얕은 렌더)에서도 안전하게 쓰는 선택적 접근자.
+// 가드 라우터처럼 "토스트는 부가 피드백"인 소비자용 — 없으면 null 을 반환하고 throw 하지 않는다.
+export function useOptionalToast(): ToastContextValue['addToast'] | null {
+  const context = useContext(ToastContext);
+  return context ? context.addToast : null;
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(0);

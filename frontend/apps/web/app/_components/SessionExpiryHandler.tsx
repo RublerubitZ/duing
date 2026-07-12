@@ -4,7 +4,7 @@
 // API 클라이언트의 401 감지(afterResponse)가 registerUnauthorizedHandler 로 등록한 이 콜백을 호출한다.
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { registerUnauthorizedHandler } from '@duing/api';
@@ -14,7 +14,7 @@ import { toRoute } from '@/app/_lib/route';
 import { useToast } from './toast/ToastProvider';
 
 export function SessionExpiryHandler() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const queryClient = useQueryClient();
   const { addToast } = useToast();
 
