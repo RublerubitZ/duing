@@ -38,6 +38,9 @@ backend/src/main/resources/db/migration/
 └── V84__create_facility_booking_purpose_preset.sql      (Task 1)
 
 backend/src/main/java/com/duing/domain/facilitybooking/
+├── api/
+│   ├── FacilityAvailabilityApi.java                     (Task 6)
+│   └── ClubFacilityBookingApi.java                      (Task 7, Task 8 확장)
 ├── entity/
 │   ├── BookingStatus.java                               (Task 2)
 │   ├── FacilityBooking.java                             (Task 2)
@@ -59,8 +62,6 @@ backend/src/main/java/com/duing/domain/facilitybooking/
 │   ├── GeneralFacilityBookingService.java               (Task 7, Task 8 확장)
 │   └── dto/command/CreateFacilityBookingCommand.java    (Task 7)
 └── controller/
-    ├── api/FacilityAvailabilityApi.java                 (Task 6)
-    ├── api/ClubFacilityBookingApi.java                  (Task 7, Task 8 확장)
     ├── FacilityAvailabilityController.java              (Task 6)
     ├── ClubFacilityBookingController.java               (Task 7, Task 8 확장)
     └── dto/
@@ -1565,7 +1566,7 @@ git commit -m "feat(backend): 가용성 슬롯 어셈블러와 응답 DTO 추가
 **Files:**
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/service/FacilityAvailabilityService.java` (인터페이스)
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/service/GeneralFacilityAvailabilityService.java`
-- Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/api/FacilityAvailabilityApi.java`
+- Create: `backend/src/main/java/com/duing/domain/facilitybooking/api/FacilityAvailabilityApi.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/FacilityAvailabilityController.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/dto/response/PurposePresetResponse.java`
 - Test: `backend/src/test/java/com/duing/domain/facilitybooking/controller/FacilityAvailabilityAcceptanceTest.java`
@@ -1608,6 +1609,7 @@ import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
+import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.service.FacilitySlotAssembler.BookingSlice;
@@ -1617,10 +1619,11 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -1628,6 +1631,8 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class GeneralFacilityAvailabilityService implements FacilityAvailabilityService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     // 예약 홈은 당월·익월 전용이라 TTL 은 항상 10분(선행 스펙 §5.5의 현재·다음월 TTL 과 동일 값)
     private static final Duration FRESH_TTL = Duration.ofMinutes(10);
@@ -1664,8 +1669,9 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
 
         List<BookingSlice> bookingSlices = toBookingSlices(facility.getId(), targetMonth);
 
-        LocalDate today = LocalDate.now(clock);
-        LocalTime nowTime = LocalTime.now(clock);
+        LocalDateTime currentDateTime = LocalDateTime.now(clock);
+        LocalDate today = currentDateTime.toLocalDate();
+        LocalTime nowTime = currentDateTime.toLocalTime();
         FacilityMonthSnapshot snapshot = facilityMonthSnapshotRepository.findByYearMonth(targetMonth).orElse(null);
         LocalDateTime crawledAt = snapshot != null ? snapshot.getCrawledAt() : null;
         boolean stale = isStale(crawledAt, snapshot != null ? snapshot.getFetchStatus() : null, source);
@@ -1681,7 +1687,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     }
 
     private List<BookingSlice> toBookingSlices(Long facilityId, YearMonth targetMonth) {
-        List<com.duing.domain.facilitybooking.entity.FacilityBooking> bookings =
+        List<FacilityBooking> bookings =
                 facilityBookingRepository.findByFacilityIdAndReservationDateBetweenAndStatusIn(
                         facilityId, targetMonth.atDay(1), targetMonth.atEndOfMonth(),
                         List.of(BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.CONFIRMED));
@@ -1710,14 +1716,14 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
 }
 ```
 
-(클래스에 `private static final ZoneId KST = ZoneId.of("Asia/Seoul");` 상수와 `java.time.OffsetDateTime`/`java.time.ZoneId` import 를 추가한다. `FetchStatus`/`DataSource` 는 `com.duing.domain.facility.entity` 패키지에 있음을 확인했다.)
+(`KST` 상수와 `java.time.OffsetDateTime`/`java.time.ZoneId` import 는 위 코드에 이미 포함돼 있다 — `toKstOffset` 컴파일 필수. `FetchStatus`/`DataSource` 는 `com.duing.domain.facility.entity` 패키지에 있음을 확인했다.)
 
 - [ ] **Step 2: Api 인터페이스·컨트롤러 작성**
 
-`FacilityAvailabilityApi.java`:
+`FacilityAvailabilityApi.java` (Api 인터페이스는 전 도메인 컨벤션대로 `domain/facilitybooking/api/` 에 둔다):
 
 ```java
-package com.duing.domain.facilitybooking.controller.api;
+package com.duing.domain.facilitybooking.api;
 
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.PurposePresetResponse;
@@ -1767,7 +1773,7 @@ public record PurposePresetResponse(Long id, String label) {
 ```java
 package com.duing.domain.facilitybooking.controller;
 
-import com.duing.domain.facilitybooking.controller.api.FacilityAvailabilityApi;
+import com.duing.domain.facilitybooking.api.FacilityAvailabilityApi;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.PurposePresetResponse;
 import com.duing.domain.facilitybooking.repository.FacilityBookingPurposePresetRepository;
@@ -1825,40 +1831,51 @@ package com.duing.domain.facilitybooking.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.equalTo;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.repository.FacilityRepository;
-import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
-import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.service.FacilityCrawlService;
+import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.service.FacilityAvailabilityService;
+import io.restassured.RestAssured;
+import java.time.Clock;
 import java.time.YearMonth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
 
+    @LocalServerPort int port;
+
     @Autowired FacilityAvailabilityService availabilityService;
     @Autowired FacilityRepository facilityRepository;
+
+    // 서비스가 seoulClock(KST) 기준으로 당월을 계산하므로 테스트도 같은 Clock 을 써야
+    // UTC CI 러너의 월 경계(매월 1일 00:00~09:00 KST)에서 결정적 실패를 피할 수 있다.
+    @Autowired Clock clock;
 
     // 온디맨드 크롤 차단 — 실제 학교 서버 HTTP 시도를 막는다. 스냅샷이 없으므로 stale=true 로 내려간다.
     @MockitoBean FacilityCrawlService facilityCrawlService;
 
     @BeforeEach
     void stubCrawl() {
+        RestAssured.port = port;
         given(facilityCrawlService.ensureFresh(any())).willReturn(DataSource.STALE_CACHE);
     }
 
@@ -1868,12 +1885,21 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         Facility facility = facilityRepository.save(Facility.create(90001, "커뮤니티룸(T)", null, 0));
 
         FacilityAvailabilityResponse response =
-                availabilityService.getAvailability(facility.getId(), YearMonth.now());
+                availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
 
-        assertThat(response.days()).hasSize(YearMonth.now().lengthOfMonth());
-        assertThat(response.bookableUntil()).isEqualTo(YearMonth.now().plusMonths(1).atEndOfMonth());
+        assertThat(response.days()).hasSize(YearMonth.now(clock).lengthOfMonth());
+        assertThat(response.bookableUntil()).isEqualTo(YearMonth.now(clock).plusMonths(1).atEndOfMonth());
         assertThat(response.stale()).isTrue();
         assertThat(response.days().get(response.days().size() - 1).slots()).hasSize(13);
+
+        FacilityAvailabilityResponse nextMonth =
+                availabilityService.getAvailability(facility.getId(), YearMonth.now(clock).plusMonths(1));
+        // 익월은 전 날짜가 미래이므로 크롤·예약이 없으면 매일 13슬롯 전부 신청 가능해야 한다
+        assertThat(nextMonth.days()).allSatisfy(dayAvailability -> {
+            assertThat(dayAvailability.availableSlotCount()).isEqualTo(13);
+            assertThat(dayAvailability.slots().get(0).status())
+                    .isEqualTo(FacilityAvailabilityResponse.SlotStatus.AVAILABLE);
+        });
     }
 
     @Test
@@ -1881,9 +1907,9 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     void rejectsMonthOutOfBookingRange() {
         Facility facility = facilityRepository.save(Facility.create(90002, "커뮤니티룸(T2)", null, 0));
 
-        assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now().plusMonths(2)))
+        assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now(clock).plusMonths(2)))
                 .isInstanceOf(FacilityBookingException.MonthOutOfBookingRangeException.class);
-        assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now().minusMonths(1)))
+        assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now(clock).minusMonths(1)))
                 .isInstanceOf(FacilityBookingException.MonthOutOfBookingRangeException.class);
     }
 
@@ -1892,16 +1918,25 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     void publicEndpointsAreAccessible() {
         Facility facility = facilityRepository.save(Facility.create(90003, "커뮤니티룸(T3)", null, 0));
 
-        // AdminUrlLayerAuthorizationAcceptanceTest 와 동일한 RestAssured 요청 헬퍼 사용:
-        // given().port(port) ... 없이 비로그인 GET →
-        //   /api/v1/facilities/{id}/availability : 200 + 헤더 Cache-Control=no-store
-        //   /api/v1/facilities/booking-purpose-presets : 200 + data 배열 크기 9, 첫 라벨 "동아리 정기 모임"
-        // (구체 헬퍼 시그니처는 해당 테스트 파일을 열어 그대로 따른다)
+        // 비로그인(인증 헤더 없음) 가용성 GET → 200 + Cache-Control: no-store
+        RestAssured.given()
+                .when().get("/api/v1/facilities/" + facility.getId() + "/availability")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .header("Cache-Control", "no-store");
+
+        // 비로그인 Preset GET → 200 + 시드 9종, 첫 라벨 "동아리 정기 모임"
+        RestAssured.given()
+                .when().get("/api/v1/facilities/booking-purpose-presets")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.size()", equalTo(9))
+                .body("data[0].label", equalTo("동아리 정기 모임"));
     }
 }
 ```
 
-**구현 주의:** Step 3 의 세 번째 테스트는 주석이 아니라 **실제 RestAssured 검증 코드**로 완성해야 한다 — `AdminUrlLayerAuthorizationAcceptanceTest` 파일을 열어 포트 주입·요청 빌더 방식을 그대로 복사한 뒤 위 3개 단언(200, no-store 헤더, preset 9종)을 작성한다.
+**존 일관성 주의:** 서비스는 `YearMonth.now(clock)`(seoulClock=KST) 로 당월을 계산하므로, 인수 테스트도 반드시 주입된 `Clock` 을 써야 한다(`YearMonth.now()` 시스템존 사용 시 UTC CI 러너의 월 경계 자정~09:00 KST 에서 결정적 실패). 세 번째 테스트의 RestAssured 검증은 `AdminUrlLayerAuthorizationAcceptanceTest` 의 포트 주입 방식을 그대로 따른다.
 
 - [ ] **Step 4: 테스트 통과 확인**
 
@@ -1923,7 +1958,7 @@ git commit -m "feat(backend): 시설 가용성·목적 preset 공개 API 추가"
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/service/FacilityBookingService.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/service/GeneralFacilityBookingService.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/service/dto/command/CreateFacilityBookingCommand.java`
-- Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/api/ClubFacilityBookingApi.java`
+- Create: `backend/src/main/java/com/duing/domain/facilitybooking/api/ClubFacilityBookingApi.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/ClubFacilityBookingController.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/dto/request/CreateFacilityBookingRequest.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/dto/response/CreateFacilityBookingResponse.java`
@@ -2415,10 +2450,10 @@ public record CreateFacilityBookingResponse(Long bookingId, BookingStatus status
 }
 ```
 
-`ClubFacilityBookingApi.java`:
+`ClubFacilityBookingApi.java` (Api 인터페이스는 전 도메인 컨벤션대로 `domain/facilitybooking/api/` 에 둔다):
 
 ```java
-package com.duing.domain.facilitybooking.controller.api;
+package com.duing.domain.facilitybooking.api;
 
 import com.duing.domain.facilitybooking.controller.dto.request.CreateFacilityBookingRequest;
 import com.duing.domain.facilitybooking.controller.dto.response.CreateFacilityBookingResponse;
@@ -2461,7 +2496,7 @@ public interface ClubFacilityBookingApi {
 ```java
 package com.duing.domain.facilitybooking.controller;
 
-import com.duing.domain.facilitybooking.controller.api.ClubFacilityBookingApi;
+import com.duing.domain.facilitybooking.api.ClubFacilityBookingApi;
 import com.duing.domain.facilitybooking.controller.dto.request.CreateFacilityBookingRequest;
 import com.duing.domain.facilitybooking.controller.dto.response.CreateFacilityBookingResponse;
 import com.duing.domain.facilitybooking.service.FacilityBookingService;
@@ -2535,7 +2570,7 @@ git commit -m "feat(backend): 대관 신청 생성·취소 API 추가 — 운영
 
 **Files:**
 - Modify: `backend/src/main/java/com/duing/domain/facilitybooking/service/FacilityBookingService.java` (+`GeneralFacilityBookingService.java`)
-- Modify: `backend/src/main/java/com/duing/domain/facilitybooking/controller/api/ClubFacilityBookingApi.java` (+`ClubFacilityBookingController.java`)
+- Modify: `backend/src/main/java/com/duing/domain/facilitybooking/api/ClubFacilityBookingApi.java` (+`ClubFacilityBookingController.java`)
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/dto/response/FacilityBookingSummaryResponse.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/dto/response/FacilityBookingDetailResponse.java`
 - Test: `backend/src/test/java/com/duing/domain/facilitybooking/service/FacilityBookingQueryIntegrationTest.java`

@@ -16,6 +16,7 @@ import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabi
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.service.FacilityAvailabilityService;
 import io.restassured.RestAssured;
+import java.time.Clock;
 import java.time.YearMonth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +37,10 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     @Autowired FacilityAvailabilityService availabilityService;
     @Autowired FacilityRepository facilityRepository;
 
+    // 서비스가 seoulClock(KST) 기준으로 당월을 계산하므로 테스트도 같은 Clock 을 써야
+    // UTC CI 러너의 월 경계(매월 1일 00:00~09:00 KST)에서 결정적 실패를 피할 수 있다.
+    @Autowired Clock clock;
+
     // 온디맨드 크롤 차단 — 실제 학교 서버 HTTP 시도를 막는다. 스냅샷이 없으므로 stale=true 로 내려간다.
     @MockitoBean FacilityCrawlService facilityCrawlService;
 
@@ -51,12 +56,21 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         Facility facility = facilityRepository.save(Facility.create(90001, "커뮤니티룸(T)", null, 0));
 
         FacilityAvailabilityResponse response =
-                availabilityService.getAvailability(facility.getId(), YearMonth.now());
+                availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
 
-        assertThat(response.days()).hasSize(YearMonth.now().lengthOfMonth());
-        assertThat(response.bookableUntil()).isEqualTo(YearMonth.now().plusMonths(1).atEndOfMonth());
+        assertThat(response.days()).hasSize(YearMonth.now(clock).lengthOfMonth());
+        assertThat(response.bookableUntil()).isEqualTo(YearMonth.now(clock).plusMonths(1).atEndOfMonth());
         assertThat(response.stale()).isTrue();
         assertThat(response.days().get(response.days().size() - 1).slots()).hasSize(13);
+
+        FacilityAvailabilityResponse nextMonth =
+                availabilityService.getAvailability(facility.getId(), YearMonth.now(clock).plusMonths(1));
+        // 익월은 전 날짜가 미래이므로 크롤·예약이 없으면 매일 13슬롯 전부 신청 가능해야 한다
+        assertThat(nextMonth.days()).allSatisfy(dayAvailability -> {
+            assertThat(dayAvailability.availableSlotCount()).isEqualTo(13);
+            assertThat(dayAvailability.slots().get(0).status())
+                    .isEqualTo(FacilityAvailabilityResponse.SlotStatus.AVAILABLE);
+        });
     }
 
     @Test
@@ -64,9 +78,9 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     void rejectsMonthOutOfBookingRange() {
         Facility facility = facilityRepository.save(Facility.create(90002, "커뮤니티룸(T2)", null, 0));
 
-        assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now().plusMonths(2)))
+        assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now(clock).plusMonths(2)))
                 .isInstanceOf(FacilityBookingException.MonthOutOfBookingRangeException.class);
-        assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now().minusMonths(1)))
+        assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now(clock).minusMonths(1)))
                 .isInstanceOf(FacilityBookingException.MonthOutOfBookingRangeException.class);
     }
 

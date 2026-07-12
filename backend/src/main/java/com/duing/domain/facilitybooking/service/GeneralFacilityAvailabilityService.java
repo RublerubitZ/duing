@@ -12,6 +12,7 @@ import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
+import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.service.FacilitySlotAssembler.BookingSlice;
@@ -77,8 +78,9 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
 
         List<BookingSlice> bookingSlices = toBookingSlices(facility.getId(), targetMonth);
 
-        LocalDate today = LocalDate.now(clock);
-        LocalTime nowTime = LocalTime.now(clock);
+        LocalDateTime currentDateTime = LocalDateTime.now(clock);
+        LocalDate today = currentDateTime.toLocalDate();
+        LocalTime nowTime = currentDateTime.toLocalTime();
         FacilityMonthSnapshot snapshot = facilityMonthSnapshotRepository.findByYearMonth(targetMonth).orElse(null);
         LocalDateTime crawledAt = snapshot != null ? snapshot.getCrawledAt() : null;
         boolean stale = isStale(crawledAt, snapshot != null ? snapshot.getFetchStatus() : null, source);
@@ -94,7 +96,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     }
 
     private List<BookingSlice> toBookingSlices(Long facilityId, YearMonth targetMonth) {
-        List<com.duing.domain.facilitybooking.entity.FacilityBooking> bookings =
+        List<FacilityBooking> bookings =
                 facilityBookingRepository.findByFacilityIdAndReservationDateBetweenAndStatusIn(
                         facilityId, targetMonth.atDay(1), targetMonth.atEndOfMonth(),
                         List.of(BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.CONFIRMED));

@@ -1,6 +1,6 @@
 package com.duing.domain.facilitybooking.controller;
 
-import com.duing.domain.facilitybooking.controller.api.FacilityAvailabilityApi;
+import com.duing.domain.facilitybooking.api.FacilityAvailabilityApi;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.PurposePresetResponse;
 import com.duing.domain.facilitybooking.repository.FacilityBookingPurposePresetRepository;
