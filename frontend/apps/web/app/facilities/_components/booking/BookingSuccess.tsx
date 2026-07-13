@@ -40,7 +40,7 @@ export function BookingSuccess({
         )}
       </div>
 
-      <ol aria-label="예약 진행 단계">
+      <ol aria-label="승인 진행 타임라인">
         {TIMELINE.map((item, index) => {
           const isLast = index === TIMELINE.length - 1;
           return (
