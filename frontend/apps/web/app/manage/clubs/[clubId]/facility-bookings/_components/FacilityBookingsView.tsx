@@ -8,6 +8,7 @@ import {
   bookingTabOf,
   type BookingTabKey,
 } from '../_lib/bookingDisplay';
+import { BookingDetailModal } from './BookingDetailModal';
 import { BookingRow } from './BookingRow';
 
 const EMPTY_MESSAGES: Record<BookingTabKey, string> = {
@@ -19,7 +20,7 @@ const EMPTY_MESSAGES: Record<BookingTabKey, string> = {
 
 export function FacilityBookingsView({ clubId }: { clubId: number }) {
   const [activeTab, setActiveTab] = useState<BookingTabKey>('ALL');
-  const [, setSelectedBookingId] = useState<number | null>(null);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const bookingsQuery = useClubFacilityBookingsQuery(Number.isNaN(clubId) ? undefined : clubId);
 
   const bookings = bookingsQuery.data ?? [];
@@ -27,6 +28,8 @@ export function FacilityBookingsView({ clubId }: { clubId: number }) {
     () => (activeTab === 'ALL' ? bookings : bookings.filter((booking) => bookingTabOf(booking.status) === activeTab)),
     [bookings, activeTab],
   );
+
+  if (Number.isNaN(clubId)) return <p role="alert" className="text-sm text-charcoal-2">잘못된 접근이에요.</p>;
 
   return (
     <section>
@@ -77,6 +80,14 @@ export function FacilityBookingsView({ clubId }: { clubId: number }) {
           </ul>
         )}
       </div>
+
+      {selectedBookingId !== null && (
+        <BookingDetailModal
+          clubId={clubId}
+          bookingId={selectedBookingId}
+          onClose={() => setSelectedBookingId(null)}
+        />
+      )}
     </section>
   );
 }
