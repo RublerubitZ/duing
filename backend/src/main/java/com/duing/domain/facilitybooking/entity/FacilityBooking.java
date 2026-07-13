@@ -123,6 +123,68 @@ public class FacilityBooking extends BaseEntity {
         this.status = BookingStatus.CANCELLED;
     }
 
+    /** 총동연 승인 — PENDING 또는 CONFLICT(재승인, §4.2). 겹침 재검증은 서비스(§5.2)가 잠금 하에 선행한다. */
+    public void approve(Long adminId, LocalDateTime crawlBasisAt, LocalDateTime decidedAt) {
+        if (this.status != BookingStatus.PENDING && this.status != BookingStatus.CONFLICT) {
+            throw new FacilityBookingException.InvalidStatusTransitionException(this.status, BookingStatus.APPROVED);
+        }
+        this.status = BookingStatus.APPROVED;
+        this.decidedById = adminId;
+        this.decidedAt = decidedAt;
+        this.crawlBasisAt = crawlBasisAt;
+        this.conflictDetail = null;
+    }
+
+    /** 총동연 거절 — PENDING 에서만(§4.3). 사유 필수는 요청 DTO 검증이 보장한다. */
+    public void reject(Long adminId, String reason, LocalDateTime decidedAt) {
+        if (this.status != BookingStatus.PENDING) {
+            throw new FacilityBookingException.InvalidStatusTransitionException(this.status, BookingStatus.REJECTED);
+        }
+        this.status = BookingStatus.REJECTED;
+        this.decidedById = adminId;
+        this.decidedAt = decidedAt;
+        this.rejectReason = reason;
+    }
+
+    /** 매칭 잡의 자동 확정(§5.3) — APPROVED 에서만. 시스템 전이라 결정자를 기록하지 않는다. */
+    public void confirmByMatching(Long matchedScheduleSeq, LocalDateTime crawlBasisAt, LocalDateTime confirmedAt) {
+        if (this.status != BookingStatus.APPROVED) {
+            throw new FacilityBookingException.InvalidStatusTransitionException(this.status, BookingStatus.CONFIRMED);
+        }
+        this.status = BookingStatus.CONFIRMED;
+        this.matchedScheduleSeq = matchedScheduleSeq;
+        this.crawlBasisAt = crawlBasisAt;
+        this.confirmedAt = confirmedAt;
+    }
+
+    /** 관리자 수동 확정 — 자동 매칭 불발(학교 표기 차이) 시(§5.3). */
+    public void confirmManually(Long adminId, LocalDateTime confirmedAt) {
+        if (this.status != BookingStatus.APPROVED) {
+            throw new FacilityBookingException.InvalidStatusTransitionException(this.status, BookingStatus.CONFIRMED);
+        }
+        this.status = BookingStatus.CONFIRMED;
+        this.decidedById = adminId;
+        this.confirmedAt = confirmedAt;
+    }
+
+    /** 승인 후 학교 데이터 충돌 — APPROVED 에서만(§4.1: CONFLICT 는 승인 후 전용 상태). */
+    public void markConflict(String detail) {
+        if (this.status != BookingStatus.APPROVED) {
+            throw new FacilityBookingException.InvalidStatusTransitionException(this.status, BookingStatus.CONFLICT);
+        }
+        this.status = BookingStatus.CONFLICT;
+        this.conflictDetail = detail;
+    }
+
+    /** 관리자 취소 — APPROVED·CONFLICT 에서(§4.3). 취소 사유는 이력(history.reason)에만 남긴다 —
+     *  rejectReason 은 거절 전용 필드라 의미를 오염시키지 않는다. */
+    public void cancelByAdmin() {
+        if (this.status != BookingStatus.APPROVED && this.status != BookingStatus.CONFLICT) {
+            throw new FacilityBookingException.InvalidStatusTransitionException(this.status, BookingStatus.CANCELLED);
+        }
+        this.status = BookingStatus.CANCELLED;
+    }
+
     /** 반개구간 [start, end) 겹침 — 경계 접촉(끝==시작)은 겹침이 아니다. */
     public boolean overlaps(LocalTime otherStart, LocalTime otherEnd) {
         return this.startTime.isBefore(otherEnd) && this.endTime.isAfter(otherStart);
