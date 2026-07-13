@@ -13,6 +13,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -35,6 +36,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("Bearer와 Access Token Cookie가 함께 오면 Bearer 인증을 우선한다")
     void bearerWinsWhenBearerAndCookieAreBothPresent() throws Exception {
         MockHttpServletRequest request = requestWithKnownToken("bearer-token");
         request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer bearer-token");
@@ -48,6 +50,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("Authorization Bearer가 없을 때만 Access Token Cookie로 인증한다")
     void cookieIsUsedOnlyWithoutBearer() throws Exception {
         MockHttpServletRequest request = requestWithKnownToken("cookie-token");
         request.setCookies(new Cookie(WebAuthCookieService.ACCESS_COOKIE_NAME, "cookie-token"));
@@ -59,6 +62,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("Bearer와 Access Token Cookie가 모두 없으면 인증 전송 방식을 NONE으로 기록한다")
     void noTokenRecordsNoneTransport() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
 
@@ -69,6 +73,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("Cookie 인증 요청이 401이면 웹 인증 Cookie를 모두 삭제한다")
     void unauthorizedCookieRequestClearsWebAuthCookies() throws Exception {
         WebAuthCookieService cookieService = mock(WebAuthCookieService.class);
         JwtAuthenticationEntryPoint entryPoint =
@@ -89,6 +94,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("Bearer 인증 요청이 401이어도 웹 인증 Cookie를 변경하지 않는다")
     void unauthorizedBearerRequestDoesNotClearWebAuthCookies() throws Exception {
         WebAuthCookieService cookieService = mock(WebAuthCookieService.class);
         JwtAuthenticationEntryPoint entryPoint =

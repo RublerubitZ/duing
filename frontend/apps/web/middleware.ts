@@ -56,7 +56,7 @@ function decodeJson(encoded: string): unknown {
   return JSON.parse(new TextDecoder().decode(decodeBase64Url(encoded)));
 }
 
-function decodeBase64Url(encoded: string): Uint8Array<ArrayBuffer> {
+function decodeBase64Url(encoded: string) {
   const normalized = encoded.replace(/-/g, '+').replace(/_/g, '/');
   const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
   const binary = atob(padded);

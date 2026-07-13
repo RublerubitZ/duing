@@ -16,7 +16,6 @@ public class WebAuthCookieService {
     public static final String ACCESS_COOKIE_NAME = "__Host-duing_access_token";
     public static final String AUTH_HINT_COOKIE_NAME = "auth_hint";
     private static final String PRODUCTION_HINT_COOKIE_DOMAIN = ".duings.com";
-    private static final String PAST_EXPIRES = "Thu, 01 Jan 1970 00:00:00 GMT";
 
     private final AuthHintTokenProvider authHintTokenProvider;
     private final String hintCookieDomain;
@@ -46,8 +45,8 @@ public class WebAuthCookieService {
     }
 
     public void clear(HttpServletResponse response) {
-        addExpired(response, accessCookie("", 0));
-        addExpired(response, hintCookie("", 0));
+        add(response, accessCookie("", 0));
+        add(response, hintCookie("", 0));
     }
 
     private ResponseCookie accessCookie(String value, long maxAgeSeconds) {
@@ -81,11 +80,5 @@ public class WebAuthCookieService {
 
     private void add(HttpServletResponse response, ResponseCookie cookie) {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-    }
-
-    private void addExpired(HttpServletResponse response, ResponseCookie cookie) {
-        response.addHeader(
-                HttpHeaders.SET_COOKIE,
-                cookie + "; Expires=" + PAST_EXPIRES);
     }
 }
