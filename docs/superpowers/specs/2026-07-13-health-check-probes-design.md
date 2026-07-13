@@ -79,7 +79,9 @@ Flyway 검증 실패처럼 ApplicationContext 자체가 기동하지 못하는 �
 ### 3.3 기존 종합 Health
 
 `GET /actuator/health`는 기존 운영 도구와 문서의 하위 호환성을 위해 유지한다. 종합 상태이므로 DB 장애 시
-503이 될 수 있으며, Docker 생존 판정이나 새 배포 성공 판정에는 사용하지 않는다.
+503이 될 수 있으며, 정상적인 새 이미지의 Docker 생존 판정이나 배포 성공 판정에는 사용하지 않는다. 단,
+#642 이전 이미지를 롤백할 때 새 probe 경로의 curl이 성공하고 HTTP 상태가 정확히 404인 경우에만 Docker와
+롤백 검증의 호환성 fallback으로 사용한다.
 
 ## 4. 보안과 정보 노출
 
@@ -206,6 +208,7 @@ DB 마이그레이션과 API 비즈니스 계약 변경은 없다. 문제가 발
 - 정상 상태에서 liveness와 readiness가 모두 200이다.
 - 기동 후 DB 연결 장애에서 liveness는 200, readiness는 503이다.
 - Docker 상태 확인은 liveness를 사용한다.
-- 배포 성공·롤백 판정은 readiness를 사용한다.
+- 새 이미지 배포 성공 판정은 readiness를 사용한다. 롤백 판정은 readiness 우선이며, #642 이전 이미지의
+  readiness 경로가 curl 성공 후 정확히 404일 때만 기존 `/actuator/health`를 사용한다.
 - 공개 health 응답에 내부 component와 상세 오류가 노출되지 않는다.
 - 기존 `/actuator/health` 호출은 깨지지 않는다.
