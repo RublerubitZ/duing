@@ -104,11 +104,15 @@ public class FacilityBookingMatchingService {
         if (booking == null || booking.getStatus() != BookingStatus.APPROVED) {
             return false;
         }
-        // 시설 아카이브 재확인 — 사이클 시작 시점의 활성 시설 집합 검사와 확정 사이의 race 를 트랜잭션 안에서
-        // 보완한다. 아카이브 시설의 잔존 크롤 행(크롤이 삭제하지 않음)으로 불가역 CONFIRMED 되는 것을 막는다.
-        boolean archived = facilityRepository.findById(booking.getFacilityId())
-                .map(Facility::isArchived).orElse(true);
-        if (archived) {
+        // 시설 행 PESSIMISTIC_WRITE — 동기화 잡의 아카이브 UPDATE 와 직렬화해 재확인 후 아카이브되는 TOCTOU 차단
+        // (승인 경로와 동일 잠금이라 상호 직렬화 부수 효과도 안전). 아카이브 시설의 잔존 크롤 행(크롤이 삭제하지
+        // 않음)으로 불가역 CONFIRMED 되는 것을 막는다.
+        Facility facility = facilityRepository.findByIdForUpdate(booking.getFacilityId()).orElse(null);
+        if (facility == null) {
+            log.info("FacilityBooking Matching skip bookingId={} (시설 없음)", bookingId);
+            return false;
+        }
+        if (facility.isArchived()) {
             log.info("FacilityBooking Matching skip bookingId={} (아카이브 시설)", bookingId);
             return false;
         }
