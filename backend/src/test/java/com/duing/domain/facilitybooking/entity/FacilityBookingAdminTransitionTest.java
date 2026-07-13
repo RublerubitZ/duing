@@ -67,10 +67,14 @@ class FacilityBookingAdminTransitionTest {
         assertThat(approved.getConfirmedAt()).isEqualTo(NOW);
 
         FacilityBooking manual = booking(BookingStatus.APPROVED);
-        manual.confirmManually(9L, NOW);
+        manual.confirmManually(NOW);
         assertThat(manual.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        // 수동 확정은 승인 결정 쌍(decidedById/decidedAt)을 건드리지 않는다 — 확정 주체는 이력 전용
+        assertThat(manual.getDecidedById()).isNull();
 
-        assertThatThrownBy(() -> booking(BookingStatus.PENDING).confirmManually(9L, NOW))
+        assertThatThrownBy(() -> booking(BookingStatus.PENDING).confirmManually(NOW))
+                .isInstanceOf(FacilityBookingException.InvalidStatusTransitionException.class);
+        assertThatThrownBy(() -> booking(BookingStatus.PENDING).confirmByMatching(18134L, NOW, NOW))
                 .isInstanceOf(FacilityBookingException.InvalidStatusTransitionException.class);
     }
 

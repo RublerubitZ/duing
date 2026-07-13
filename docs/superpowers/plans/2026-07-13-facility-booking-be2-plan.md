@@ -140,10 +140,14 @@ class FacilityBookingAdminTransitionTest {
         assertThat(approved.getConfirmedAt()).isEqualTo(NOW);
 
         FacilityBooking manual = booking(BookingStatus.APPROVED);
-        manual.confirmManually(9L, NOW);
+        manual.confirmManually(NOW);
         assertThat(manual.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        // 수동 확정은 승인 결정 쌍(decidedById/decidedAt)을 건드리지 않는다 — 확정 주체는 이력 전용
+        assertThat(manual.getDecidedById()).isNull();
 
-        assertThatThrownBy(() -> booking(BookingStatus.PENDING).confirmManually(9L, NOW))
+        assertThatThrownBy(() -> booking(BookingStatus.PENDING).confirmManually(NOW))
+                .isInstanceOf(FacilityBookingException.InvalidStatusTransitionException.class);
+        assertThatThrownBy(() -> booking(BookingStatus.PENDING).confirmByMatching(18134L, NOW, NOW))
                 .isInstanceOf(FacilityBookingException.InvalidStatusTransitionException.class);
     }
 
@@ -210,13 +214,13 @@ Expected: 컴파일 실패(메서드 없음)
         this.confirmedAt = confirmedAt;
     }
 
-    /** 관리자 수동 확정 — 자동 매칭 불발(학교 표기 차이) 시(§5.3). */
-    public void confirmManually(Long adminId, LocalDateTime confirmedAt) {
+    /** 관리자 수동 확정 — 자동 매칭 불발(학교 표기 차이) 시(§5.3). 확정 주체는 이력(changed_by)과
+     *  confirmedAt 이 담으므로 decidedById/decidedAt 은 승인 결정 쌍 그대로 보존한다(오독 방지). */
+    public void confirmManually(LocalDateTime confirmedAt) {
         if (this.status != BookingStatus.APPROVED) {
             throw new FacilityBookingException.InvalidStatusTransitionException(this.status, BookingStatus.CONFIRMED);
         }
         this.status = BookingStatus.CONFIRMED;
-        this.decidedById = adminId;
         this.confirmedAt = confirmedAt;
     }
 
@@ -533,7 +537,7 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     public void confirmManually(Long adminId, Long bookingId) {
         FacilityBooking booking = getBooking(bookingId);
         BookingStatus previousStatus = booking.getStatus();
-        booking.confirmManually(adminId, LocalDateTime.now(clock));
+        booking.confirmManually(LocalDateTime.now(clock));
         historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), previousStatus, BookingStatus.CONFIRMED, adminId, "관리자 수동 확정", null));
     }

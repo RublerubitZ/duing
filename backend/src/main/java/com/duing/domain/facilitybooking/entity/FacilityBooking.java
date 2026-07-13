@@ -157,13 +157,13 @@ public class FacilityBooking extends BaseEntity {
         this.confirmedAt = confirmedAt;
     }
 
-    /** 관리자 수동 확정 — 자동 매칭 불발(학교 표기 차이) 시(§5.3). */
-    public void confirmManually(Long adminId, LocalDateTime confirmedAt) {
+    /** 관리자 수동 확정 — 자동 매칭 불발(학교 표기 차이) 시(§5.3). 확정 주체는 이력(changed_by)과
+     *  confirmedAt 이 담으므로 decidedById/decidedAt 은 승인 결정 쌍 그대로 보존한다(오독 방지). */
+    public void confirmManually(LocalDateTime confirmedAt) {
         if (this.status != BookingStatus.APPROVED) {
             throw new FacilityBookingException.InvalidStatusTransitionException(this.status, BookingStatus.CONFIRMED);
         }
         this.status = BookingStatus.CONFIRMED;
-        this.decidedById = adminId;
         this.confirmedAt = confirmedAt;
     }
 
