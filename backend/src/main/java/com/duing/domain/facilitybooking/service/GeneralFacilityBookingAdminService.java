@@ -1,6 +1,5 @@
 package com.duing.domain.facilitybooking.service;
 
-import com.duing.domain.facility.entity.FacilityReservation;
 import com.duing.domain.facility.exception.FacilityException;
 import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
@@ -39,11 +38,12 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
         // 시설 단위 승인 직렬화(§5.2) — 겹치는 두 신청의 동시 승인을 잠금으로 차단, EXCLUDE 는 최종 백스톱
         facilityRepository.findByIdForUpdate(booking.getFacilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
+        // 기준 스냅샷 시각을 재검증 전에 읽어, 기록된 crawlBasisAt 이 검증에 쓴 데이터보다 최신이 되는 skew 를 과거 방향으로 보수화한다.
+        LocalDateTime crawlBasisAt = latestCrawlBasis(YearMonth.from(booking.getReservationDate()));
         rejectIfSchoolOccupied(booking);
         rejectIfInternallyBlocked(booking);
 
         BookingStatus previousStatus = booking.getStatus();
-        LocalDateTime crawlBasisAt = latestCrawlBasis(YearMonth.from(booking.getReservationDate()));
         booking.approve(adminId, crawlBasisAt, LocalDateTime.now(clock));
         historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), previousStatus, BookingStatus.APPROVED, adminId, null, crawlBasisAt));

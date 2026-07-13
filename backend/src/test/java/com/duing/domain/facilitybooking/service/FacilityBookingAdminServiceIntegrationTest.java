@@ -33,6 +33,7 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -46,7 +47,7 @@ import org.springframework.context.annotation.Import;
 
 /**
  * 관리자 액션 서비스(승인 재검증·거절·수동확정·충돌·취소) 통합 테스트.
- * 픽스처 헬퍼(saveUser/saveActiveClub/saveFacility/fixture/forceStatus/bookableDate/sequence)는
+ * 픽스처 헬퍼(saveUser/saveActiveClub/saveFacility/fixture/bookableDate/sequence)는
  * 같은 패키지의 {@link FacilityBookingServiceIntegrationTest} 코드를 그대로 복제한다(사이드 파일 패턴 일치).
  */
 @Import(TestcontainersConfiguration.class)
@@ -101,12 +102,6 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     private LocalDate bookableDate() {
         // 오늘+3 은 항상 미래이면서 다음 달 말일 이내다(현재월의 어느 날이든 다음 달 말일까지 최소 4주 여유)
         return LocalDate.now().plusDays(3);
-    }
-
-    private void forceStatus(FacilityBooking booking, BookingStatus status) throws Exception {
-        Field statusField = FacilityBooking.class.getDeclaredField("status");
-        statusField.setAccessible(true);
-        statusField.set(booking, status);
     }
 
     // ---------- tests ----------
@@ -175,15 +170,31 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
                 otherClub.getId(), otherLeader.getId(), first.facility().getId(),
                 date, LocalTime.of(19, 0), LocalTime.of(21, 0), "회의", null)).bookingId();
 
+        // 두 스레드를 같은 출발선에서 풀어 실제 경합을 만든다 — invokeAll 은 블로킹이라
+        // startGate 를 열 틈이 없으므로 submit 으로 Future 를 먼저 확보한 뒤 gate 를 연다.
+        CountDownLatch startGate = new CountDownLatch(1);
         ExecutorService pool = Executors.newFixedThreadPool(2);
-        Callable<Throwable> approveFirst = () -> tryApprove(admin.getId(), firstBooking);
-        Callable<Throwable> approveSecond = () -> tryApprove(admin.getId(), secondBooking);
-        List<Future<Throwable>> outcomes = pool.invokeAll(List.of(approveFirst, approveSecond));
+        Callable<Throwable> approveFirst = () -> {
+            startGate.await(5, TimeUnit.SECONDS);
+            return tryApprove(admin.getId(), firstBooking);
+        };
+        Callable<Throwable> approveSecond = () -> {
+            startGate.await(5, TimeUnit.SECONDS);
+            return tryApprove(admin.getId(), secondBooking);
+        };
+        List<Future<Throwable>> outcomes = List.of(pool.submit(approveFirst), pool.submit(approveSecond));
+        startGate.countDown();
         pool.shutdown();
         assertThat(pool.awaitTermination(15, TimeUnit.SECONDS)).isTrue();
 
         long successes = outcomes.stream().map(this::quietGet).filter(failure -> failure == null).count();
         assertThat(successes).as("정확히 한 건만 승인").isEqualTo(1);
+        List<Throwable> failures = outcomes.stream().map(this::quietGet)
+                .filter(failure -> failure != null).toList();
+        assertThat(failures).hasSize(1);
+        assertThat(failures.get(0))
+                .as("후행은 잠금 대기 후 선행의 APPROVED 를 보고 우아한 409 로 실패해야 한다 — 제약 위반이면 잠금 회귀")
+                .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
         long approvedCount = bookingRepository.findOverlapping(first.facility().getId(), date,
                 List.of(BookingStatus.APPROVED), LocalTime.of(18, 0), LocalTime.of(21, 0)).size();
         assertThat(approvedCount).isEqualTo(1);

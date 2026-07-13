@@ -298,7 +298,7 @@ git commit -m "feat(backend): 대관 신청 관리자 상태 전이 도메인 �
 
 - [ ] **Step 3: 실패하는 통합 테스트 작성**
 
-픽스처 헬퍼(saveUser/saveActiveClub/saveFacility/forceStatus/bookableDate)는 기존 `FacilityBookingServiceIntegrationTest` 와 동일 코드를 사용한다(같은 파일 패턴 복제 — 파일 상단 주석에 출처 명시). 테스트 본문:
+픽스처 헬퍼(saveUser/saveActiveClub/saveFacility/bookableDate)는 기존 `FacilityBookingServiceIntegrationTest` 와 동일 코드를 사용한다(같은 파일 패턴 복제 — 파일 상단 주석에 출처 명시). 테스트 본문:
 
 ```java
     @Autowired FacilityBookingAdminService adminService;
@@ -369,15 +369,31 @@ git commit -m "feat(backend): 대관 신청 관리자 상태 전이 도메인 �
                 otherClub.getId(), otherLeader.getId(), first.facility().getId(),
                 date, LocalTime.of(19, 0), LocalTime.of(21, 0), "회의", null)).bookingId();
 
+        // 두 스레드를 같은 출발선에서 풀어 실제 경합을 만든다 — invokeAll 은 블로킹이라
+        // startGate 를 열 틈이 없으므로 submit 으로 Future 를 먼저 확보한 뒤 gate 를 연다.
+        CountDownLatch startGate = new CountDownLatch(1);
         ExecutorService pool = Executors.newFixedThreadPool(2);
-        Callable<Throwable> approveFirst = () -> tryApprove(admin.getId(), firstBooking);
-        Callable<Throwable> approveSecond = () -> tryApprove(admin.getId(), secondBooking);
-        List<Future<Throwable>> outcomes = pool.invokeAll(List.of(approveFirst, approveSecond));
+        Callable<Throwable> approveFirst = () -> {
+            startGate.await(5, TimeUnit.SECONDS);
+            return tryApprove(admin.getId(), firstBooking);
+        };
+        Callable<Throwable> approveSecond = () -> {
+            startGate.await(5, TimeUnit.SECONDS);
+            return tryApprove(admin.getId(), secondBooking);
+        };
+        List<Future<Throwable>> outcomes = List.of(pool.submit(approveFirst), pool.submit(approveSecond));
+        startGate.countDown();
         pool.shutdown();
         assertThat(pool.awaitTermination(15, TimeUnit.SECONDS)).isTrue();
 
         long successes = outcomes.stream().map(this::quietGet).filter(failure -> failure == null).count();
         assertThat(successes).as("정확히 한 건만 승인").isEqualTo(1);
+        List<Throwable> failures = outcomes.stream().map(this::quietGet)
+                .filter(failure -> failure != null).toList();
+        assertThat(failures).hasSize(1);
+        assertThat(failures.get(0))
+                .as("후행은 잠금 대기 후 선행의 APPROVED 를 보고 우아한 409 로 실패해야 한다 — 제약 위반이면 잠금 회귀")
+                .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
         long approvedCount = bookingRepository.findOverlapping(first.facility().getId(), date,
                 List.of(BookingStatus.APPROVED), LocalTime.of(18, 0), LocalTime.of(21, 0)).size();
         assertThat(approvedCount).isEqualTo(1);
@@ -473,7 +489,6 @@ public interface FacilityBookingAdminService {
 ```java
 package com.duing.domain.facilitybooking.service;
 
-import com.duing.domain.facility.entity.FacilityReservation;
 import com.duing.domain.facility.exception.FacilityException;
 import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
@@ -512,11 +527,12 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
         // 시설 단위 승인 직렬화(§5.2) — 겹치는 두 신청의 동시 승인을 잠금으로 차단, EXCLUDE 는 최종 백스톱
         facilityRepository.findByIdForUpdate(booking.getFacilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
+        // 기준 스냅샷 시각을 재검증 전에 읽어, 기록된 crawlBasisAt 이 검증에 쓴 데이터보다 최신이 되는 skew 를 과거 방향으로 보수화한다.
+        LocalDateTime crawlBasisAt = latestCrawlBasis(YearMonth.from(booking.getReservationDate()));
         rejectIfSchoolOccupied(booking);
         rejectIfInternallyBlocked(booking);
 
         BookingStatus previousStatus = booking.getStatus();
-        LocalDateTime crawlBasisAt = latestCrawlBasis(YearMonth.from(booking.getReservationDate()));
         booking.approve(adminId, crawlBasisAt, LocalDateTime.now(clock));
         historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), previousStatus, BookingStatus.APPROVED, adminId, null, crawlBasisAt));
