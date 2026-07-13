@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.BookingWindowFixture;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -128,7 +129,7 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
         Club club = saveActiveClub();
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Facility facility = saveFacility();
-        LocalDate date = LocalDate.now().plusDays(3);
+        LocalDate date = BookingWindowFixture.firstBookableDate();
         Long bookingId = bookingService.create(new CreateFacilityBookingCommand(
                 club.getId(), leader.getId(), facility.getId(), date,
                 LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null)).bookingId();
@@ -160,8 +161,8 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
         Club club = saveActiveClub();
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Facility facility = saveFacility();
-        // 오늘+3 은 항상 미래이면서 다음 달 말일 이내다(현재월의 어느 날이든 다음 달 말일까지 최소 4주 여유).
-        LocalDate date = LocalDate.now().plusDays(3);
+        // 반월 오픈 정책이 계산한 현재 창의 첫 날짜 — 실행 시점과 무관하게 항상 신청 가능한 날짜다.
+        LocalDate date = BookingWindowFixture.firstBookableDate();
         return bookingService.create(new CreateFacilityBookingCommand(
                 club.getId(), leader.getId(), facility.getId(), date,
                 LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null)).bookingId();

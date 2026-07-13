@@ -63,19 +63,24 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         FacilityAvailabilityResponse response =
                 availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
 
+        // bookableFrom·bookableUntil 은 반월 오픈 정책이 계산한 현재 창과 정확히 일치해야 한다(익월말 고정 아님).
+        BookingWindow window = bookingWindowPolicy.windowFor(LocalDate.now(clock));
         assertThat(response.days()).hasSize(YearMonth.now(clock).lengthOfMonth());
-        assertThat(response.bookableUntil()).isEqualTo(YearMonth.now(clock).plusMonths(1).atEndOfMonth());
+        assertThat(response.bookableFrom()).isEqualTo(window.from());
+        assertThat(response.bookableUntil()).isEqualTo(window.until());
         assertThat(response.stale()).isTrue();
         assertThat(response.days().get(response.days().size() - 1).slots()).hasSize(13);
 
-        FacilityAvailabilityResponse nextMonth =
-                availabilityService.getAvailability(facility.getId(), YearMonth.now(clock).plusMonths(1));
-        // 익월은 전 날짜가 미래이므로 크롤·예약이 없으면 매일 13슬롯 전부 신청 가능해야 한다
-        assertThat(nextMonth.days()).allSatisfy(dayAvailability -> {
-            assertThat(dayAvailability.availableSlotCount()).isEqualTo(13);
-            assertThat(dayAvailability.slots().get(0).status())
-                    .isEqualTo(FacilityAvailabilityResponse.SlotStatus.AVAILABLE);
-        });
+        // 창(예약 오픈 구간) 내 날짜는 미래이고 크롤·예약이 없으므로 그날 슬롯 13칸이 전부 AVAILABLE 이다.
+        FacilityAvailabilityResponse windowMonth =
+                availabilityService.getAvailability(facility.getId(), YearMonth.from(window.from()));
+        FacilityAvailabilityResponse.DayAvailability firstBookableDay = windowMonth.days().stream()
+                .filter(dayAvailability -> dayAvailability.date().equals(window.from()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(firstBookableDay.availableSlotCount()).isEqualTo(13);
+        assertThat(firstBookableDay.slots()).allSatisfy(slot ->
+                assertThat(slot.status()).isEqualTo(FacilityAvailabilityResponse.SlotStatus.AVAILABLE));
     }
 
     @Test
