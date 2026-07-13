@@ -1,11 +1,18 @@
 package com.duing.domain.facilitybooking.service;
 
 import com.duing.domain.facility.entity.FacilityReservation;
+import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
+import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
+import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
+import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * CONFIRMED 자동 매칭 판정(§5.3) — P1 의 보수적 정확 매칭 정책. 이 클래스가 교체 가능한 판정 정책이며
@@ -17,6 +24,9 @@ public class FacilityBookingMatchingService {
 
     private final FacilityAvailabilityPolicy availabilityPolicy;
     private final OrganizationNameNormalizer normalizer;
+    private final FacilityBookingRepository facilityBookingRepository;
+    private final FacilityBookingStatusHistoryRepository historyRepository;
+    private final Clock clock;
 
     public record MatchDecision(boolean confirmed, Long matchedScheduleSeq) {
         static MatchDecision none() {
@@ -54,5 +64,23 @@ public class FacilityBookingMatchingService {
             }
         }
         return new MatchDecision(true, representativeSeq);
+    }
+
+    /**
+     * 예약 1건 단위의 짧은 트랜잭션 — 상태 재확인 후 전이(멱등: APPROVED 가 아니면 조용히 스킵).
+     * 스케줄러가 별도 빈인 이 서비스의 프록시를 통해 호출하므로 @Transactional 이 실제로 적용된다
+     * (같은 클래스 self-invocation 회피). 판정(decide)과 적용(applyAutoConfirm)이 한 서비스로 모인다.
+     */
+    @Transactional
+    public void applyAutoConfirm(Long bookingId, MatchDecision decision) {
+        FacilityBooking booking = facilityBookingRepository.findById(bookingId).orElse(null);
+        if (booking == null || booking.getStatus() != BookingStatus.APPROVED) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        booking.confirmByMatching(decision.matchedScheduleSeq(), now, now);
+        historyRepository.save(FacilityBookingStatusHistory.record(
+                booking.getId(), BookingStatus.APPROVED, BookingStatus.CONFIRMED,
+                null, "크롤 데이터 자동 매칭 확정", now));
     }
 }
