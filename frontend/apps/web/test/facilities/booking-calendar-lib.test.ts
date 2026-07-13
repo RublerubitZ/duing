@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { BookingAvailabilitySlot } from '@duing/types';
 import {
   buildMonthCells,
+  DAY_LEVEL_META,
+  dayLevelOf,
+  firstAvailableStarts,
   isWithinBookable,
+  periodDistribution,
   rangeContainsPendingHold,
   rangeLabel,
   slotInRange,
@@ -98,5 +102,40 @@ describe('weekDatesOf / isWithinBookable', () => {
     expect(isWithinBookable('2026-07-13', '2026-07-13', '2026-08-31')).toBe(true);
     expect(isWithinBookable('2026-08-31', '2026-07-13', '2026-08-31')).toBe(true);
     expect(isWithinBookable('2026-07-12', '2026-07-13', '2026-08-31')).toBe(false);
+  });
+});
+
+describe('dayLevelOf', () => {
+  it('가용 칸 비율로 여유/보통/혼잡/마감을 나눈다', () => {
+    expect(dayLevelOf(13)).toBe('HIGH'); // 1.0
+    expect(dayLevelOf(8)).toBe('HIGH'); // ≥0.6
+    expect(dayLevelOf(7)).toBe('MID'); // ≥0.3
+    expect(dayLevelOf(4)).toBe('MID');
+    expect(dayLevelOf(3)).toBe('LOW'); // >0
+    expect(dayLevelOf(1)).toBe('LOW');
+    expect(dayLevelOf(0)).toBe('FULL');
+    expect(DAY_LEVEL_META.HIGH.label).toBe('여유');
+    expect(DAY_LEVEL_META.FULL.label).toBe('마감');
+  });
+});
+
+describe('periodDistribution / firstAvailableStarts', () => {
+  it('오전(09-12)/오후(12-18)/저녁(18-22) 가용 분포와 첫 가용 시각을 파생한다', () => {
+    const slots = Array.from({ length: 13 }, (_, index) => {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const start = `${pad(9 + index)}:00`;
+      const end = `${pad(10 + index)}:00`;
+      // 11·12시 차단, 18시 홀드(선택 가능하나 분포에선 가용 아님으로 볼지? — 가용=AVAILABLE만)
+      if (index === 2 || index === 3) return { start, end, status: 'BLOCKED' as const, blockedBy: 'INTERNAL' as const };
+      if (index === 9) return { start, end, status: 'PENDING_HOLD' as const };
+      return { start, end, status: 'AVAILABLE' as const };
+    });
+    const distribution = periodDistribution(slots);
+    expect(distribution).toEqual([
+      { key: 'MORNING', label: '오전', range: '09–12', free: 2, total: 3 },
+      { key: 'AFTERNOON', label: '오후', range: '12–18', free: 5, total: 6 },
+      { key: 'EVENING', label: '저녁', range: '18–22', free: 3, total: 4 },
+    ]);
+    expect(firstAvailableStarts(slots, 3)).toEqual(['09:00', '10:00', '13:00']);
   });
 });

@@ -118,3 +118,55 @@ export function weekDatesOf(iso: string): string[] {
     return toIso(date.getFullYear(), date.getMonth(), date.getDate());
   });
 }
+
+// ── 예약 홈 히트맵·패널 요약 파생(§2.2) — 하루 13칸(09~22시) 기준 ─────────────
+
+export type DayLevel = 'HIGH' | 'MID' | 'LOW' | 'FULL';
+
+const TOTAL_SLOTS = 13;
+
+export function dayLevelOf(availableSlotCount: number): DayLevel {
+  const ratio = availableSlotCount / TOTAL_SLOTS;
+  if (ratio >= 0.6) return 'HIGH';
+  if (ratio >= 0.3) return 'MID';
+  if (availableSlotCount > 0) return 'LOW';
+  return 'FULL';
+}
+
+export const DAY_LEVEL_META: Record<DayLevel, { label: string; barClass: string; textClass: string }> = {
+  HIGH: { label: '여유', barClass: 'bg-sage', textClass: 'text-ink' },
+  MID: { label: '보통', barClass: 'bg-warm', textClass: 'text-[#8E6620]' },
+  LOW: { label: '혼잡', barClass: 'bg-coral', textClass: 'text-coral' },
+  FULL: { label: '마감', barClass: 'bg-graysoft', textClass: 'text-charcoal-3' },
+};
+
+export type PeriodDistribution = {
+  key: 'MORNING' | 'AFTERNOON' | 'EVENING';
+  label: string;
+  range: string;
+  free: number;
+  total: number;
+};
+
+export function periodDistribution(slots: BookingAvailabilitySlot[]): PeriodDistribution[] {
+  const periods: { key: PeriodDistribution['key']; label: string; range: string; fromHour: number; toHour: number }[] = [
+    { key: 'MORNING', label: '오전', range: '09–12', fromHour: 9, toHour: 12 },
+    { key: 'AFTERNOON', label: '오후', range: '12–18', fromHour: 12, toHour: 18 },
+    { key: 'EVENING', label: '저녁', range: '18–22', fromHour: 18, toHour: 22 },
+  ];
+  return periods.map(({ key, label, range, fromHour, toHour }) => {
+    const inPeriod = slots.filter((slot) => {
+      const hour = Number(slot.start.slice(0, 2));
+      return fromHour <= hour && hour < toHour;
+    });
+    return {
+      key, label, range,
+      free: inPeriod.filter((slot) => slot.status === 'AVAILABLE').length,
+      total: inPeriod.length,
+    };
+  });
+}
+
+export function firstAvailableStarts(slots: BookingAvailabilitySlot[], max: number): string[] {
+  return slots.filter((slot) => slot.status === 'AVAILABLE').slice(0, max).map((slot) => slot.start);
+}
