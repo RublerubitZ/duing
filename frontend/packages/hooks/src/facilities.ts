@@ -105,8 +105,10 @@ export function useCancelFacilityBookingMutation() {
   return useMutation({
     mutationFn: (input: { clubId: number; bookingId: number }) =>
       client.facilityBookings.cancel(input.clubId, input.bookingId),
-    onSuccess: (_, input) => {
-      // 취소로 목록·상세가 바뀌고, PENDING_HOLD 해제로 가용성 슬롯도 변한다.
+    // 취소로 목록·상세가 바뀌고, PENDING_HOLD 해제로 가용성 슬롯도 변한다. 실패 원인이 서버 측
+    // 상태 변경(이미 승인 등)일 수 있어 실패 시에도 목록·상세·가용성을 재조회한다(생성 mutation
+    // 의 onSettled 전례와 동일).
+    onSettled: (_, __, input) => {
       queryClient.invalidateQueries({ queryKey: facilityQueryKeys.clubBookingsAll(input.clubId) });
       queryClient.invalidateQueries({ queryKey: facilityQueryKeys.availabilityAll() });
     },

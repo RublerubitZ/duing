@@ -64,7 +64,7 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
     <>
       <Dialog open onOpenChange={(next) => !next && onClose()}>
         <DialogContent className="w-[calc(100%-2rem)]" aria-describedby={undefined}>
-          <DialogTitle className="font-display text-base text-ink-deep">예약 신청 상세</DialogTitle>
+          <DialogTitle>예약 신청 상세</DialogTitle>
 
           {detailQuery.isLoading && <p className="text-sm text-charcoal-3">불러오는 중…</p>}
           {detailQuery.isError && (
@@ -91,7 +91,7 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
                 <div className={`rounded-md px-3 py-2 text-sm ${BOOKING_STATUS_META[detail.status].badgeClass}`}>
                   {BOOKING_STATUS_META[detail.status].label}
                   {detail.status === 'REJECTED' && detail.rejectReason && ` — ${detail.rejectReason}`}
-                  {detail.status === 'CONFLICT' && (detail.conflictDetail ?? ' — 총동연이 확인 중이에요.')}
+                  {detail.status === 'CONFLICT' && ` — ${detail.conflictDetail ?? '총동연이 확인 중이에요.'}`}
                 </div>
               )}
 
@@ -130,7 +130,7 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
                   <button
                     type="button"
                     className="btn rounded-[10px] bg-coral text-white disabled:opacity-50"
-                    onClick={() => setCancelConfirmOpen(true)}
+                    onClick={() => { setCancelErrorMessage(null); setCancelConfirmOpen(true); }}
                   >
                     신청 취소
                   </button>

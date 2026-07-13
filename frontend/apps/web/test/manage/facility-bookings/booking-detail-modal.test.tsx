@@ -88,4 +88,17 @@ describe('BookingDetailModal', () => {
     expect(screen.queryByLabelText('예약 진행 단계')).not.toBeInTheDocument();
     expect(screen.getByText(/거절됨 — 중복 신청/)).toBeInTheDocument();
   });
+
+  it('취소 진행 중: 파괴 버튼 취소 중… + disabled, 돌아가기도 disabled', () => {
+    // pending 은 열기 버튼을 막지 않으므로(모달 '신청 취소' 는 항상 활성) 열기 클릭 →
+    // 리렌더 시점에 확인 다이얼로그가 isPending 을 읽어 파괴 버튼이 '취소 중…' + disabled 로 렌더된다.
+    mockCancelPending.current = true;
+    mockDetailQuery.current.data = makeDetail({});
+    render(<BookingDetailModal clubId={7} bookingId={31} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '신청 취소' }));
+    // 파괴 버튼 라벨이 '취소 중…' 으로 바뀌어 모달 열기 버튼('신청 취소')과 이름이 겹치지 않는다.
+    const destructiveButton = screen.getByRole('button', { name: '취소 중…', hidden: true });
+    expect(destructiveButton).toBeDisabled();
+    expect(screen.getByRole('button', { name: '돌아가기', hidden: true })).toBeDisabled();
+  });
 });
