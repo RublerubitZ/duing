@@ -193,6 +193,39 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         assertThat(queryService.getQueue(new AdminBookingSearchCondition(
                         BookingStatus.APPROVED, fixture.facility().getId() + 987_654L, null, null),
                 PageRequest.of(0, 10)).getTotalElements()).isZero();
+
+        // 기간 필터 경계(goe/loe — 포함): 예약일 == dateFrom == dateTo 는 포함, 하루라도 벗어나면 제외
+        assertThat(queryService.getQueue(new AdminBookingSearchCondition(
+                        BookingStatus.APPROVED, null, date, date),
+                PageRequest.of(0, 10)).getTotalElements()).isEqualTo(1);
+        assertThat(queryService.getQueue(new AdminBookingSearchCondition(
+                        BookingStatus.APPROVED, null, date.plusDays(1), null),
+                PageRequest.of(0, 10)).getTotalElements()).isZero();
+        assertThat(queryService.getQueue(new AdminBookingSearchCondition(
+                        BookingStatus.APPROVED, null, null, date.minusDays(1)),
+                PageRequest.of(0, 10)).getTotalElements()).isZero();
+    }
+
+    @Test
+    @DisplayName("정규화 일치 이름의 점유행이 겹치면 충돌 의심이 아니다 — 학교가 우리 예약을 등록한 정상 경로")
+    void matchingNameOverlapIsNotConflictSuspected() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
+
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        // 학교가 동아리명(공백 변형)으로 겹치는 점유행 등록 — 정규화 일치라 충돌 의심 아님
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", null, null, LocalDateTime.now()));
+
+        Page<AdminBookingSummaryResult> queue = queryService.getQueue(
+                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                PageRequest.of(0, 10));
+
+        assertThat(queue.getContent().get(0).conflictSuspected()).isFalse();
     }
 
     @Test
