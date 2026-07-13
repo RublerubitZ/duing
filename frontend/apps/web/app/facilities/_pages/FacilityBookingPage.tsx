@@ -230,7 +230,8 @@ export function FacilityBookingPage() {
       {/* 모바일 Bottom Sheet — md 미만 전용. 포털이라 .duing 스코프 재부여(bg-cream 함정 → bg-transparent) */}
       <Sheet open={panelOpen && isMobileViewport} onOpenChange={(open) => !open && closePanel()}>
         <SheetContent side="bottom" hideClose className="md:hidden">
-          <div className="duing bg-transparent">
+          <div className="duing bg-transparent px-5 pb-6 pt-2.5">
+            <div aria-hidden className="mx-auto mb-3.5 h-[4.5px] w-10 rounded-full bg-line" />
             <SheetHeader className="mb-2">
               <SheetTitle className="text-left font-display text-base text-ink-deep">
                 {selectedFacility?.roomName}
