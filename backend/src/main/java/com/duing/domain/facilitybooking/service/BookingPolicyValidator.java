@@ -5,7 +5,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import org.springframework.stereotype.Component;
 
@@ -21,12 +20,14 @@ public class BookingPolicyValidator {
     public static final int MAX_ACTIVE_BOOKINGS_PER_CLUB = 10;
 
     private final Clock clock;
+    private final BookingWindowPolicy bookingWindowPolicy;
 
-    public BookingPolicyValidator(Clock clock) {
+    public BookingPolicyValidator(Clock clock, BookingWindowPolicy bookingWindowPolicy) {
         this.clock = clock;
+        this.bookingWindowPolicy = bookingWindowPolicy;
     }
 
-    /** 슬롯 그리드(정시·09~22·정방향) + 신청 가능 기간(오늘~다음 달 말일, 지난 슬롯 제외) 검증. */
+    /** 슬롯 그리드(정시·09~22·정방향) + 예약 오픈 구간(BookingWindowPolicy, 지난 슬롯 제외) 검증. */
     public void validateSlotRange(LocalDate date, LocalTime startTime, LocalTime endTime) {
         if (!startTime.equals(startTime.truncatedTo(ChronoUnit.HOURS))
                 || !endTime.equals(endTime.truncatedTo(ChronoUnit.HOURS))
@@ -36,13 +37,13 @@ public class BookingPolicyValidator {
         }
         LocalDateTime currentDateTime = LocalDateTime.now(clock);
         LocalDate today = currentDateTime.toLocalDate();
-        LocalDate lastBookableDate = YearMonth.from(today).plusMonths(1).atEndOfMonth();
-        if (date.isBefore(today) || date.isAfter(lastBookableDate)) {
-            throw new FacilityBookingException.OutOfBookingWindowException();
+        BookingWindow window = bookingWindowPolicy.windowFor(today);
+        if (!window.contains(date)) {
+            throw new FacilityBookingException.OutOfBookingWindowException(window);
         }
-        // 오늘이면 이미 끝난 슬롯(PAST: end ≤ now)이 포함되면 안 된다 — 첫 슬롯의 end 가 미래여야 한다(설계 §3.1).
+        // 오늘이 창에 포함되는 정책(향후 FREE 등)을 대비한 정책 불변 가드 — 반월 창은 항상 미래라 실행되지 않는다.
         if (date.isEqual(today) && !startTime.plusHours(1).isAfter(currentDateTime.toLocalTime())) {
-            throw new FacilityBookingException.OutOfBookingWindowException();
+            throw new FacilityBookingException.OutOfBookingWindowException(window);
         }
     }
 

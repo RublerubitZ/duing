@@ -49,6 +49,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     private final FacilityBookingRepository facilityBookingRepository;
     private final FacilityCrawlService facilityCrawlService;
     private final FacilityAvailabilityPolicy availabilityPolicy;
+    private final BookingWindowPolicy bookingWindowPolicy;
     private final Clock clock;
 
     @Override
@@ -81,13 +82,14 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
         LocalDateTime crawledAt = snapshot != null ? snapshot.getCrawledAt() : null;
         boolean stale = isStale(crawledAt, snapshot != null ? snapshot.getFetchStatus() : null, source);
 
+        BookingWindow window = bookingWindowPolicy.windowFor(today);
         return new FacilityAvailabilityResponse(
                 facility.getId(),
                 targetMonth.toString(),
                 toKstOffset(crawledAt),
                 stale,
-                today,
-                currentMonth.plusMonths(1).atEndOfMonth(),
+                window.from(),
+                window.until(),
                 FacilitySlotAssembler.assembleDays(targetMonth, today, nowTime, crawlSlices, bookingSlices));
     }
 

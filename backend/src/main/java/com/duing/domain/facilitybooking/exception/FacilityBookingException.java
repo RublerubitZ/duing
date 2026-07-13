@@ -1,6 +1,7 @@
 package com.duing.domain.facilitybooking.exception;
 
 import com.duing.domain.facilitybooking.entity.BookingStatus;
+import com.duing.domain.facilitybooking.service.BookingWindow;
 import com.duing.global.exception.ApplicationException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -36,8 +37,11 @@ public class FacilityBookingException extends ApplicationException {
     }
 
     public static class OutOfBookingWindowException extends FacilityBookingException {
-        public OutOfBookingWindowException() {
-            super("오늘부터 다음 달 말일까지의 미래 시간만 신청할 수 있습니다.", HttpStatus.BAD_REQUEST);
+        public OutOfBookingWindowException(BookingWindow window) {
+            super("지금은 %d월 %d일부터 %d월 %d일까지만 신청할 수 있어요.".formatted(
+                            window.from().getMonthValue(), window.from().getDayOfMonth(),
+                            window.until().getMonthValue(), window.until().getDayOfMonth()),
+                    HttpStatus.BAD_REQUEST);
         }
     }
 
