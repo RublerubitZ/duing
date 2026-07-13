@@ -14,9 +14,14 @@
 - `GET /actuator/health/readiness`는 `readinessState,db`만 포함하며 PostgreSQL 장애 시 HTTP 503을 반환한다.
 - `management.endpoint.health.probes.enabled=true`를 명시해 Docker Compose·로컬·테스트에서 probe를 활성화한다.
 - `/actuator/health`, `/actuator/health/liveness`, `/actuator/health/readiness`만 인증 없이 허용하고 `show-details=never`를 유지한다.
-- Docker healthcheck는 liveness를 사용하고 새 경로가 정확히 404인 구버전 이미지에서만 `/actuator/health`로 폴백한다.
+- Docker healthcheck는 liveness를 사용한다. 두 curl은 연결·전체 timeout 2초를 사용하며, 첫 curl의 종료 코드가
+  성공하고 새 경로가 정확히 404인 구버전 이미지에서만 `/actuator/health`로 폴백한다. curl 실패를
+  `|| true`로 숨기지 않는다.
 - 새 이미지 readiness는 최대 30회, 연결 timeout 2초, 요청 timeout 4초, 실패 간격 5초로 확인한다.
-- 롤백 이미지는 최대 20회, 동일한 timeout·간격으로 확인하며 readiness가 정확히 404인 경우에만 기존 health를 사용한다.
+- 배포 probe는 curl 종료 코드가 성공한 경우에만 HTTP 상태를 해석한다. 롤백 이미지는 최대 20회, 동일한
+  timeout·간격으로 확인하며 readiness가 정확히 404인 경우에만 기존 health를 사용한다.
+- 신규 이미지 확인은 최악 265초, 롤백 확인은 최악 255초, 두 구간 합계는 최악 520초다. SSH action은
+  `command_timeout: 15m`, 배포 job은 `timeout-minutes: 20`을 사용한다.
 - DB 마이그레이션, Caddy active health check, 외부 Uptime Monitor, Kubernetes, Refresh Token은 추가하지 않는다.
 - 모든 변경과 테스트·커밋은 `/private/tmp/duing-worktrees/feat-642-health-check-probes`에서만 수행한다.
 - 커밋 메시지는 한국어 `[#642] 작업 내용` 형식을 사용한다.
@@ -296,11 +301,13 @@ healthcheck:
     - CMD-SHELL
     - >-
       status=$$(curl --silent --output /dev/null --write-out '%{http_code}'
-      --connect-timeout 2 --max-time 4
-      http://localhost:8080/actuator/health/liveness || true);
-      if [ "$$status" = "404" ]; then
-        curl --fail --silent --show-error --connect-timeout 2 --max-time 4
-        http://localhost:8080/actuator/health > /dev/null;
+      --connect-timeout 2 --max-time 2
+      http://localhost:8080/actuator/health/liveness);
+      curl_exit=$$?;
+      if [ "$$curl_exit" -ne 0 ]; then
+        exit 1;
+      elif [ "$$status" = "404" ]; then
+        curl --fail --silent --show-error --connect-timeout 2 --max-time 2 http://localhost:8080/actuator/health > /dev/null;
       else
         [ "$$status" = "200" ];
       fi
@@ -316,11 +323,15 @@ Run:
 
 ```bash
 docker compose -f deploy/docker-compose.yml config --no-interpolate > /tmp/duing-compose-rendered.yml
-rg -n "CMD-SHELL|health/liveness|status.*404|health > /dev/null|start_period: 90s" \
+rg -n "CMD-SHELL|health/liveness|curl_exit|status.*404|health > /dev/null|interval: 30s|timeout: 5s|retries: 3|start_period: 90s" \
   /tmp/duing-compose-rendered.yml
+test "$(rg -o -- '--connect-timeout 2 --max-time 2' /tmp/duing-compose-rendered.yml | wc -l)" -eq 2
+if rg -n -- "--max-time 4|\\|\\| true" /tmp/duing-compose-rendered.yml; then exit 1; fi
 ```
 
-Expected: `docker compose config` exit 0; 렌더링 결과에 liveness, 404 비교, legacy health, 기존 interval/timeout/retry/start period가 모두 존재.
+Expected: `docker compose config` exit 0; 렌더링 결과에 liveness, curl 종료 코드 gate, 정확한 404 비교,
+legacy health, 두 curl의 2초 제한, 기존 interval/timeout/retry/start period가 모두 존재하며 Docker probe에
+4초 curl 제한이나 `|| true`가 없음.
 
 - [ ] **Step 4: Task 2 커밋**
 
@@ -361,26 +372,38 @@ probe_backend() {
   local path="$1"
   docker compose exec -T backend \
     curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
-      --connect-timeout 2 --max-time 4 "http://localhost:8080${path}" \
-    || true
+      --connect-timeout 2 --max-time 4 "http://localhost:8080${path}"
 }
 
 wait_for_backend() {
   local max_attempts="$1"
   local allow_legacy="$2"
-  local attempt path status
+  local attempt path status probe_succeeded display_status
 
   for attempt in $(seq 1 "$max_attempts"); do
     path="/actuator/health/readiness"
-    status="$(probe_backend "$path")"
-
-    if [ "$status" = "404" ] && [ "$allow_legacy" = "true" ]; then
-      path="/actuator/health"
-      status="$(probe_backend "$path")"
+    if status="$(probe_backend "$path")"; then
+      probe_succeeded=true
+    else
+      probe_succeeded=false
     fi
 
-    echo "backend readiness: ${status:-unreachable} via ${path} (${attempt}/${max_attempts})"
-    if [ "$status" = "200" ]; then
+    if [ "$probe_succeeded" = "true" ] && [ "$status" = "404" ] && [ "$allow_legacy" = "true" ]; then
+      path="/actuator/health"
+      if status="$(probe_backend "$path")"; then
+        probe_succeeded=true
+      else
+        probe_succeeded=false
+      fi
+    fi
+
+    if [ "$probe_succeeded" = "true" ]; then
+      display_status="${status:-unreachable}"
+    else
+      display_status="unreachable"
+    fi
+    echo "backend readiness: ${display_status} via ${path} (${attempt}/${max_attempts})"
+    if [ "$probe_succeeded" = "true" ] && [ "$status" = "200" ]; then
       return 0
     fi
     if [ "$attempt" -lt "$max_attempts" ]; then
@@ -418,7 +441,10 @@ exit 1
 새 이미지 확인에서는 `allow_legacy=false`이므로 readiness가 누락된 이미지를 성공 처리하지 않는다. 30회 모두
 요청 timeout에 도달할 때 최악 시간은 `30×4 + 29×5 = 265초`다. 롤백 확인에서는
 `allow_legacy=true`이므로 readiness가 정확히 404인 구버전 이미지에만 종합 health를 사용한다. 20회 최악
-시간은 `20×4 + 19×5 = 175초`다.
+시간은 한 시도에서 readiness와 legacy health가 각각 timeout에 도달할 수 있으므로
+`20×(4+4) + 19×5 = 255초`다. 신규 이미지와 롤백 probe·대기 합계는 최악 `265+255 = 520초`다.
+`Deploy over SSH` action에는 `command_timeout: 15m`을 지정하고 기존 배포 job의 `timeout-minutes: 20`을
+최종 상한으로 유지한다.
 
 - [ ] **Step 3: 워크플로 YAML과 핵심 불변식 정적 검증**
 
@@ -429,9 +455,12 @@ ruby -e 'require "yaml"; YAML.load_file(ARGV.fetch(0)); puts "yaml-ok"' \
   .github/workflows/deploy-backend.yml
 rg -n "connect-timeout 2|max-time 4|wait_for_backend 30 false|wait_for_backend 20 true|status.*404|수동 복구" \
   .github/workflows/deploy-backend.yml
+rg -n "timeout-minutes: 20|command_timeout: 15m|probe_succeeded|display_status" \
+  .github/workflows/deploy-backend.yml
 ```
 
-Expected: `yaml-ok`; 신규 배포는 30회/no legacy, 롤백은 20회/legacy 허용, 2초·4초 timeout과 404 분기가 모두 검색됨.
+Expected: `yaml-ok`; 신규 배포는 30회/no legacy, 롤백은 20회/legacy 허용, 2초·4초 timeout, curl 종료
+성공 gate, 정확한 404 분기, SSH 15분과 job 20분 제한이 모두 검색됨.
 
 - [ ] **Step 4: Task 3 커밋**
 
@@ -448,6 +477,8 @@ git commit -m "[#642] 배포 Readiness 확인과 롤백 검증 강화"
 **Files:**
 - Modify: `backend/README.md:82`
 - Modify: `deploy/README.md:80-91`
+- Modify: `docs/superpowers/specs/2026-07-13-health-check-probes-design.md`
+- Modify: `docs/superpowers/plans/2026-07-13-health-check-probes-plan.md`
 
 **Interfaces:**
 - Consumes: Tasks 1-3에서 확정한 endpoint와 운영 timeout 계약
@@ -473,10 +504,14 @@ git commit -m "[#642] 배포 Readiness 확인과 롤백 검증 강화"
 - Docker `healthcheck`는 liveness를 사용한다. `docker compose ps`의 `healthy`는 JVM과 HTTP 서버가
   응답한다는 의미이며 DB 정상 여부를 보장하지 않는다.
 - 자동 배포는 readiness를 최대 30회 확인하고 DB 연결까지 정상일 때만 성공 처리한다. 각 요청은 연결 2초,
-  전체 4초 timeout을 사용하고 실패 사이에 5초 대기한다.
+  전체 4초 timeout을 사용하고 실패 사이에 5초 대기한다. 최악의 신규 이미지 확인 시간은
+  `30×4+29×5 = 265초`다.
 - DB 장애에서는 liveness가 `UP`이어도 readiness가 `DOWN`과 HTTP 503을 반환할 수 있다.
-- 롤백 후에도 최대 20회 health를 확인한다. 새 readiness 경로가 정확히 404인 구버전 이미지에서만 기존
-  `/actuator/health`로 확인한다.
+- 롤백 후에도 최대 20회 health를 확인한다. curl이 성공하고 새 readiness 경로가 정확히 404인 구버전
+  이미지에서만 기존 `/actuator/health`로 확인한다. readiness와 기존 health를 모두 호출하는 최악의 롤백
+  확인 시간은 `20×(4+4)+19×5 = 255초`이며 신규 이미지와 합친 probe·대기 시간은 최악 520초다.
+- Docker probe의 두 curl은 `--connect-timeout 2 --max-time 2`를 사용하며, SSH 명령 제한은
+  `command_timeout: 15m`이고 배포 job 제한은 `timeout-minutes: 20`이다.
 
 ```bash
 curl -fsS https://api.duings.com/actuator/health/liveness
@@ -521,17 +556,23 @@ Run:
 docker compose -f deploy/docker-compose.yml config --no-interpolate > /tmp/duing-compose-rendered.yml
 ruby -e 'require "yaml"; YAML.load_file(ARGV.fetch(0)); puts "yaml-ok"' \
   .github/workflows/deploy-backend.yml
+ruby -e 'require "yaml"; workflow = YAML.load_file(ARGV.fetch(0)); step = workflow.fetch("jobs").fetch("deploy").fetch("steps").find { |candidate| candidate["name"] == "Deploy over SSH" }; File.write(ARGV.fetch(1), step.fetch("with").fetch("script"))' \
+  .github/workflows/deploy-backend.yml /tmp/duing-deploy-ssh-script.sh
+bash -n /tmp/duing-deploy-ssh-script.sh
 git diff --check
 git diff --check origin/develop...HEAD
 git status --short --branch
 ```
 
-Expected: Compose exit 0, `yaml-ok`, diff 오류 없음, Health Check Worktree에 의도한 변경만 존재.
+Expected: Compose exit 0, `yaml-ok`, 추출한 SSH script의 `bash -n` exit 0, diff 오류 없음, Health Check
+Worktree에 의도한 변경만 존재.
 
 - [ ] **Step 6: Task 4 커밋**
 
 ```bash
-git add backend/README.md deploy/README.md
+git add backend/README.md deploy/README.md \
+  docs/superpowers/specs/2026-07-13-health-check-probes-design.md \
+  docs/superpowers/plans/2026-07-13-health-check-probes-plan.md
 git diff --cached --check
 git commit -m "[#642] Health Check 운영 문서 보완"
 ```

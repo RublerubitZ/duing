@@ -93,14 +93,17 @@ Flyway 검증 실패처럼 ApplicationContext 자체가 기동하지 못하는 �
 ### 5.1 Docker Compose
 
 컨테이너 `healthcheck`는 `/actuator/health/liveness`를 호출한다. 이 변경이 처음 배포될 때 이전 이미지로
-롤백할 수 있도록, liveness 응답이 정확히 404인 경우에만 기존 `/actuator/health`로 폴백한다. 연결 실패나
-503 등 실제 liveness 실패에서는 종합 health로 폴백하지 않는다.
+롤백할 수 있도록, 첫 curl이 성공하고 liveness 응답이 정확히 404인 경우에만 기존 `/actuator/health`로
+폴백한다. 첫 curl의 종료 코드가 실패이면 HTTP 상태를 해석하지 않으며, 연결 실패나 503 등 실제 liveness
+실패에서는 종합 health로 폴백하지 않는다. 두 curl 모두 `--connect-timeout 2 --max-time 2`를 사용하고
+`|| true`로 실패를 숨기지 않는다.
 
 `restart: unless-stopped`는 Docker의 `unhealthy` 상태만으로 컨테이너를 자동 재시작하지 않는다. 이 신호는
 운영자가 `docker compose ps`로 프로세스 생존 상태를 확인하고 향후 모니터가 소비할 수 있는 가시성 정보다.
 
-기존 30초 간격, 5초 타임아웃, 3회 재시도, 90초 start period는 유지한다. 이번 작업에서 재시작 감시
-프로세스나 Kubernetes를 추가하지 않는다.
+기존 30초 간격, Docker healthcheck 5초 타임아웃, 3회 재시도, 90초 start period는 유지한다. 개별 curl의
+2초 제한은 Docker의 5초 상한 안에 들어온다. 이번 작업에서 재시작 감시 프로세스나 Kubernetes를 추가하지
+않는다.
 
 ### 5.2 배포 성공과 롤백
 
@@ -108,15 +111,17 @@ Flyway 검증 실패처럼 ApplicationContext 자체가 기동하지 못하는 �
 `/actuator/health/readiness`를 재시도한다.
 
 - 최대 30회 호출
-- 연결 수립 제한 `curl --connect-timeout 2`
-- 요청 전체 제한 `curl --max-time 4`
+- 호출 제한 `curl --connect-timeout 2 --max-time 4`
 - 실패한 호출 사이 5초 대기
 - 최악 실행 시간: `30회 × 4초 + 29회 × 5초 = 265초`
+
+curl 종료 코드가 성공한 경우에만 HTTP 상태를 해석한다. 연결 실패나 timeout은 `unreachable`로 기록하고
+200으로 오인하지 않으며, 새 이미지 확인에서는 404도 성공이나 기존 endpoint 폴백으로 처리하지 않는다.
 
 HTTP 503처럼 즉시 실패하면 실제 대기 시간은 약 145초이고, DB 연결이 hang 상태여도 배포 클라이언트의 한
 호출은 4초를 넘지 않는다. 서버 내부 `DataSourceHealthIndicator`가 Hikari connection timeout까지 처리 중일
 수는 있지만, 배포 스크립트의 단일 호출과 전체 롤백 예산은 이에 종속되지 않는다. 265초 상한은 Docker의
-90초 start period보다 175초 길어 Flyway 실행과 초기 connection pool 준비 시간을 확보하며, 워크플로의
+90초 start period 이후에도 Flyway 실행과 초기 connection pool 준비를 기다릴 여유를 두며, 워크플로의
 20분 timeout 안에 롤백 검증까지 수행할 수 있다.
 
 - readiness 200: 새 이미지 배포 성공
@@ -126,8 +131,11 @@ HTTP 503처럼 즉시 실패하면 실제 대기 시간은 약 145초이고, DB 
 따라서 프로세스만 떴지만 DB 연결이나 Flyway 검증이 실패한 이미지는 배포 성공으로 처리되지 않는다.
 
 롤백 후에는 최대 20회, 동일한 연결 2초·요청 4초 timeout과 5초 간격으로 복구 상태를 확인한다. 이전 이미지가
-readiness endpoint를 제공하면 해당 endpoint를 사용하고, 정확히 404인 경우에만 기존 `/actuator/health`를
-사용한다. 최악 검증 시간은 `20회 × 4초 + 19회 × 5초 = 175초`다. 롤백 이미지도 정상 endpoint를 반환하지
+readiness endpoint를 제공하면 해당 endpoint를 사용하고, curl이 성공해 정확히 404를 반환한 경우에만 기존
+`/actuator/health`를 사용한다. 한 번의 시도에서 readiness와 기존 health를 각각 4초까지 호출할 수 있으므로
+최악 검증 시간은 `20회 × (4초 + 4초) + 19회 × 5초 = 255초`다. 신규 이미지 확인과 롤백 확인을 합친
+probe·대기 최악 시간은 `265초 + 255초 = 520초`다. SSH action의 `command_timeout: 15m`과 배포 job의
+`timeout-minutes: 20`을 각각 명령 제한과 최종 상한으로 둔다. 롤백 이미지도 정상 endpoint를 반환하지
 못하면 배포 잡은 실패 상태를 유지하고 수동 복구가 필요하다는 오류를 출력한다.
 
 ### 5.3 Caddy와 외부 모니터링
