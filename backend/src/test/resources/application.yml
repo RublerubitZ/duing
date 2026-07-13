@@ -39,12 +39,6 @@ file:
   storage:
     provider: stub
 
-email:
-  provider: stub
-  verification:
-    # 테스트 전용 더미 키 — 실 시크릿 아님.
-    secret: duing-test-email-verification-secret
-
 mo:
   provider: stub
   inbound-number: "16663538"
@@ -59,10 +53,6 @@ octomo:
   # 테스트 전용 더미 — mo.provider=stub 이라 실제 호출·바인딩은 없다 (OctomoClientConfig 는 octomo 일 때만 활성).
   api-key: ""
   base-url: http://localhost:0/octomo-stub
-
-resend:
-  api-key: ""
-  from: Du-ing <noreply@duings.com>
 
 bank-api:
   # 테스트 전용 더미 baseUrl — @NotBlank fail-fast 충족용. 실제 호출은 발생하지 않는다.

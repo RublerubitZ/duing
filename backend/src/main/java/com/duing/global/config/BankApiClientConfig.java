@@ -12,9 +12,9 @@ import org.springframework.web.client.RestClient;
 /**
  * BANK API(bankapi.co.kr) 연동 RestClient 설정.
  *
- * <p>{@link com.duing.global.config.ResendClientConfig} 패턴을 따라 baseUrl·인증 헤더·타임아웃을
- * 고정한다. 인증은 {@code Bearer {apiKey}:{secretKey}} 형식이며 키는 {@link BankApiProperties}
- * 를 통해 환경변수로만 주입된다.
+ * <p>baseUrl·인증 헤더·타임아웃을 빈 정의에서 고정하는 RestClient 설정 관례를 따른다. 인증은
+ * {@code Bearer {apiKey}:{secretKey}} 형식이며 키는 {@link BankApiProperties} 를 통해 환경변수로만
+ * 주입된다.
  *
  * <p>외부 은행 API 장애 시 거래 조회가 길게 블로킹되지 않도록 짧은 타임아웃을 강제한다.
  * 거래 내역 조회는 응답이 다소 클 수 있어 read 타임아웃을 connect 보다 넉넉히 둔다.
