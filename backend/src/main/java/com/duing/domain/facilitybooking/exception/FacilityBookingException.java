@@ -2,6 +2,9 @@ package com.duing.domain.facilitybooking.exception;
 
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.global.exception.ApplicationException;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 
 public class FacilityBookingException extends ApplicationException {
@@ -66,6 +69,32 @@ public class FacilityBookingException extends ApplicationException {
     public static class ArchivedFacilityException extends FacilityBookingException {
         public ArchivedFacilityException() {
             super("현재 예약 신청을 받을 수 없는 시설입니다.", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    public static class SchoolConflictException extends FacilityBookingException {
+
+        /** 겹치는 학교 점유행 1건 — FE 충돌 안내(§8.3 data.conflicts[])용. */
+        public record ConflictItem(String organization, LocalTime startTime, LocalTime endTime) {}
+
+        // transient — 예외 직렬화(Serializable) 대상에서 제외한다. 응답 payload 는 도메인 어드바이스가 읽는다.
+        private final transient List<ConflictItem> conflicts;
+        private final LocalDateTime crawlBasisAt;
+
+        public SchoolConflictException(List<ConflictItem> conflicts, LocalDateTime crawlBasisAt) {
+            super("학교 예약과 시간이 충돌하여 승인할 수 없습니다.",
+                    HttpStatus.CONFLICT, "FACILITY_BOOKING_SCHOOL_CONFLICT");
+            this.conflicts = conflicts;
+            this.crawlBasisAt = crawlBasisAt;
+        }
+
+        public List<ConflictItem> getConflicts() {
+            return conflicts;
+        }
+
+        /** 충돌 판단에 사용한 크롤 스냅샷 수집 시각(§8.3 data.crawlBasisAt). 스냅샷 없으면 null. */
+        public LocalDateTime getCrawlBasisAt() {
+            return crawlBasisAt;
         }
     }
 }

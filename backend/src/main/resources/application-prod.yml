@@ -79,6 +79,11 @@ duing:
   facility:
     crawler:
       enabled: ${DUING_FACILITY_CRAWLER_ENABLED:true}
+    booking:
+      matching:
+        # APPROVED → CONFIRMED 자동 매칭 잡 — 운영은 항상 켠다(크롤 스케줄러와 동일 관례).
+        # 끄고 싶으면 DUING_FACILITY_BOOKING_MATCHING_ENABLED=false 로 오버라이드한다.
+        enabled: ${DUING_FACILITY_BOOKING_MATCHING_ENABLED:true}
 
 # MO 인증 — 운영 기본은 실조회(octomo). stub 으로 남으면 인증이 영영 완료되지 않는 조용한 장애가 된다.
 mo:

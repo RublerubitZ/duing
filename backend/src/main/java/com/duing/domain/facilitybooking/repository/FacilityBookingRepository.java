@@ -3,6 +3,7 @@ package com.duing.domain.facilitybooking.repository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
@@ -11,7 +12,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface FacilityBookingRepository extends JpaRepository<FacilityBooking, Long> {
+public interface FacilityBookingRepository
+        extends JpaRepository<FacilityBooking, Long>, FacilityBookingRepositoryCustom {
 
     /** 시설·날짜·시간 겹침(반개구간) 조회 — 가용성/신청 검증용. 경계 접촉(끝==시작)은 겹침 아님. */
     @Query("SELECT b FROM FacilityBooking b "
@@ -38,6 +40,10 @@ public interface FacilityBookingRepository extends JpaRepository<FacilityBooking
     List<FacilityBooking> findByFacilityIdAndReservationDateBetweenAndStatusIn(
             Long facilityId, LocalDate startDate, LocalDate endDate, Collection<BookingStatus> statuses);
 
+    /** 자동 매칭 대상 조회 — 특정 상태(APPROVED)·예약일 구간의 신청 전체. */
+    List<FacilityBooking> findByStatusAndReservationDateBetween(
+            BookingStatus status, LocalDate startDate, LocalDate endDate);
+
     long countByClubIdAndStatusIn(Long clubId, Collection<BookingStatus> statuses);
 
     List<FacilityBooking> findByClubIdOrderByCreatedAtDesc(Long clubId);
@@ -45,4 +51,22 @@ public interface FacilityBookingRepository extends JpaRepository<FacilityBooking
     List<FacilityBooking> findByClubIdAndStatusOrderByCreatedAtDesc(Long clubId, BookingStatus status);
 
     Optional<FacilityBooking> findByIdAndClubId(Long id, Long clubId);
+
+    /** 관리자 대시보드 카운트(§5.5) — 상태별 전체 건수. */
+    long countByStatus(BookingStatus status);
+
+    /**
+     * 오늘 접수(생성) 건수 — 상태 무관(처리 완료돼도 오늘 접수는 접수). createdAt 은 JPA 감사가 저장 존(JVM 기본)
+     * 으로 기록하므로, 호출부가 KST 하루 경계를 같은 저장 존 LocalDateTime 으로 변환해 넘긴다(§9.7·§5.3).
+     */
+    long countByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
+
+    /** 이달 확정 건수 — 예약일(reservationDate) 기준 월 구간. */
+    long countByStatusAndReservationDateBetween(BookingStatus status, LocalDate from, LocalDate to);
+
+    /** 가장 오래 대기 중인 APPROVED — decidedAt 최소(최고령). 대기 경과일 계산용. */
+    Optional<FacilityBooking> findFirstByStatusOrderByDecidedAtAsc(BookingStatus status);
+
+    /** 가장 오래된 PENDING — createdAt 최소(최고령). 승인 대기 경과일 계산용(§9.7). */
+    Optional<FacilityBooking> findFirstByStatusOrderByCreatedAtAsc(BookingStatus status);
 }
