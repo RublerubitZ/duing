@@ -92,6 +92,12 @@ export type FacilityAvailabilityResponse = {
   days: BookingDayAvailability[];
 };
 
+// GET /api/v1/facilities/booking-window — 현재 예약 오픈 구간(전 시설 공통, §1.5)
+export type FacilityBookingWindow = {
+  bookableFrom: string; // yyyy-MM-dd
+  bookableUntil: string;
+};
+
 export type PurposePreset = {
   id: number;
   label: string;

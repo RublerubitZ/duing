@@ -10,6 +10,7 @@ export const facilityQueryKeys = {
   availability: (facilityId: number, yearMonth?: string) =>
     [...facilityQueryKeys.availabilityAll(), facilityId, yearMonth ?? 'current'] as const,
   purposePresets: () => [...facilityQueryKeys.all, 'purpose-presets'] as const,
+  bookingWindow: () => [...facilityQueryKeys.all, 'booking-window'] as const,
   clubBookingsAll: (clubId: number) =>
     [...facilityQueryKeys.all, 'club-bookings', clubId] as const,
   clubBookings: (clubId: number, status?: BookingStatus) =>

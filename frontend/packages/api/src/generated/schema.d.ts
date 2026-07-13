@@ -2862,7 +2862,7 @@ export interface paths {
         };
         /**
          * 월 단위 슬롯 가용성 (비로그인)
-         * @description yearMonth 생략 시 현재월. 이번 달·다음 달만 조회 가능(예약 가능 기간).
+         * @description yearMonth 생략 시 현재월. 이번 달·다음 달만 조회 가능(월 조회 범위 — 실제 신청 가능 구간은 bookableFrom/bookableUntil).
          */
         get: operations["getAvailability"];
         put?: never;
@@ -2882,6 +2882,26 @@ export interface paths {
         };
         /** 월별 이용현황 (비로그인). yearMonth 생략 시 현재월 */
         get: operations["getUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facilities/booking-window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 현재 예약 오픈 구간 (비로그인)
+         * @description 반월 오픈 정책 등 현재 신청 가능한 날짜 구간. 전 시설 공통.
+         */
+        get: operations["getBookingWindow"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5761,6 +5781,18 @@ export interface components {
             /** @enum {string} */
             source?: "CACHE" | "LIVE_FETCH" | "STALE_CACHE";
             facilities?: components["schemas"]["FacilityUsage"][];
+        };
+        ApiResponseBookingWindowResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["BookingWindowResponse"];
+            message?: string;
+            code?: string;
+        };
+        BookingWindowResponse: {
+            /** Format: date */
+            bookableFrom?: string;
+            /** Format: date */
+            bookableUntil?: string;
         };
         ApiResponseListPurposePresetResponse: {
             ok?: boolean;
@@ -11617,6 +11649,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseFacilityUsageResponse"];
+                };
+            };
+        };
+    };
+    getBookingWindow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseBookingWindowResponse"];
                 };
             };
         };
