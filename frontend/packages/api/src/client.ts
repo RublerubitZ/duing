@@ -177,6 +177,9 @@ import type {
   PurposePreset,
   CreateFacilityBookingPayload,
   CreateFacilityBookingResult,
+  BookingStatus,
+  FacilityBookingSummary,
+  FacilityBookingDetail,
   FederationFaqCategory,
   FederationFaqItem,
   AdminFederationFaqSummary,
@@ -445,6 +448,12 @@ export type DuingApiClient = {
   facilityBookings: {
     // POST /api/v1/clubs/{clubId}/facility-bookings — 운영진 전용(쿠키 세션). 409=슬롯 불가/중복/상한.
     create(clubId: number, payload: CreateFacilityBookingPayload): Promise<CreateFacilityBookingResult>;
+    // GET /api/v1/clubs/{clubId}/facility-bookings?status= — 운영진 전용, P1 미페이징(최신순)
+    list(clubId: number, status?: BookingStatus): Promise<FacilityBookingSummary[]>;
+    // GET /api/v1/clubs/{clubId}/facility-bookings/{bookingId} — 상태 이력(최신순) 포함
+    get(clubId: number, bookingId: number): Promise<FacilityBookingDetail>;
+    // POST /api/v1/clubs/{clubId}/facility-bookings/{bookingId}/cancel — PENDING 전용, 바디 없음(204)
+    cancel(clubId: number, bookingId: number): Promise<void>;
   };
   notifications: {
     list(unreadOnly: boolean, page: number, size: number): Promise<PageResponse<Notification>>;
@@ -1158,6 +1167,16 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonOk<CreateFacilityBookingResult>(
           http.post(`clubs/${clubId}/facility-bookings`, { json: payload }),
         ),
+      list: (clubId, status) =>
+        jsonOk<FacilityBookingSummary[]>(
+          http.get(`clubs/${clubId}/facility-bookings`, {
+            searchParams: status ? { status } : undefined,
+          }),
+        ),
+      get: (clubId, bookingId) =>
+        jsonOk<FacilityBookingDetail>(http.get(`clubs/${clubId}/facility-bookings/${bookingId}`)),
+      cancel: (clubId, bookingId) =>
+        jsonVoid(http.post(`clubs/${clubId}/facility-bookings/${bookingId}/cancel`)),
     },
     notifications: {
       list: (unreadOnly, page, size) =>

@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { toRoute } from '@/app/_lib/route';
 import type { SlotRange } from '../../_lib/bookingCalendar';
 import { rangeLabel } from '../../_lib/bookingCalendar';
 
@@ -10,10 +12,12 @@ type Props = {
   date: string;
   range: SlotRange;
   overlappingPendingCount: number;
+  // toRoute(`/${string}`) 계약에 맞춰 슬래시 프리픽스 경로만 받는다(로그인 링크 loginHref 전례와 동일).
+  manageHref?: `/${string}`;
   onClose: () => void;
 };
 
-export function BookingSuccess({ facilityName, date, range, overlappingPendingCount, onClose }: Props) {
+export function BookingSuccess({ facilityName, date, range, overlappingPendingCount, manageHref, onClose }: Props) {
   return (
     <div className="space-y-4">
       <ol className="grid grid-cols-3 gap-1" aria-label="예약 진행 단계">
@@ -40,6 +44,11 @@ export function BookingSuccess({ facilityName, date, range, overlappingPendingCo
           </p>
         )}
       </div>
+      {manageHref && (
+        <Link href={toRoute(manageHref)} className="btn btn-secondary w-full">
+          내 예약에서 확인
+        </Link>
+      )}
       <button type="button" className="btn btn-primary w-full" onClick={onClose}>확인</button>
     </div>
   );

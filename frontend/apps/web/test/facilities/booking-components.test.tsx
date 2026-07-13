@@ -4,6 +4,7 @@ import type { BookingDayAvailability } from '@duing/types';
 import { FacilityChips } from '@/app/facilities/_components/booking/FacilityChips';
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
 import { DaySlotList } from '@/app/facilities/_components/booking/DaySlotList';
+import { BookingSuccess } from '@/app/facilities/_components/booking/BookingSuccess';
 
 function makeDay(overrides?: Partial<BookingDayAvailability>): BookingDayAvailability {
   return {
@@ -74,4 +75,32 @@ it('슬롯 리스트는 SCHOOL 단체명·INTERNAL "예약됨"·승인 대기중
 it('차단 슬롯 버튼은 비활성이다', () => {
   render(<DaySlotList day={makeDay()} selection={null} onToggleSlot={vi.fn()} />);
   expect(screen.getByRole('button', { name: /17:00~18:00/ })).toBeDisabled();
+});
+
+it('예약 성공 화면은 manageHref 전달 시 "내 예약에서 확인" 링크를 관리 목록으로 노출한다', () => {
+  render(
+    <BookingSuccess
+      facilityName="커뮤니티룸(1)"
+      date="2026-07-20"
+      range={{ start: '18:00', end: '19:00' }}
+      overlappingPendingCount={0}
+      manageHref="/manage/clubs/7/facility-bookings"
+      onClose={vi.fn()}
+    />,
+  );
+  const manageLink = screen.getByRole('link', { name: '내 예약에서 확인' });
+  expect(manageLink).toHaveAttribute('href', '/manage/clubs/7/facility-bookings');
+});
+
+it('예약 성공 화면은 manageHref 미전달 시 확인 링크를 렌더하지 않는다', () => {
+  render(
+    <BookingSuccess
+      facilityName="커뮤니티룸(1)"
+      date="2026-07-20"
+      range={{ start: '18:00', end: '19:00' }}
+      overlappingPendingCount={0}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(screen.queryByRole('link', { name: '내 예약에서 확인' })).not.toBeInTheDocument();
 });

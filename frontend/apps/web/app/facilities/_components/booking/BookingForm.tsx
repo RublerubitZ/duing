@@ -23,7 +23,7 @@ type Props = {
   date: string;
   range: SlotRange;
   hasPendingHold: boolean;
-  onSubmitted: (result: CreateFacilityBookingResult) => void;
+  onSubmitted: (result: CreateFacilityBookingResult, clubId: number) => void;
   onBack: () => void;
 };
 
@@ -111,7 +111,7 @@ export function BookingForm({
       {
         onSuccess: (result) => {
           addToast('예약 신청이 접수되었어요.');
-          onSubmitted(result);
+          onSubmitted(result, effectiveClubId);
         },
         onError: (error) => {
           addToast(

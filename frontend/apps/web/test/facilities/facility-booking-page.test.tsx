@@ -10,6 +10,7 @@ import { useAuthStore } from '@duing/stores';
 import type {
   BookingAvailabilitySlot,
   FacilityAvailabilityResponse,
+  FacilityBookingSummary,
   FacilityItem,
   User,
 } from '@duing/types';
@@ -122,6 +123,19 @@ const AUTH_USER: User = {
   role: 'STUDENT',
 };
 
+// MyBookingsChip 이 운영 동아리 1개일 때 조회하는 진행 중 신청 1건.
+const PENDING_BOOKING: FacilityBookingSummary = {
+  bookingId: 41,
+  facilityId: 1,
+  roomName: '커뮤니티룸(1)',
+  date: TODAY_ISO,
+  startTime: '18:00',
+  endTime: '19:00',
+  status: 'PENDING',
+  purpose: '정기 합주',
+  createdAt: `${TODAY_ISO}T18:00:00`,
+};
+
 const server = setupServer(
   http.get('*/facilities/usage', () =>
     ok({ yearMonth: CURRENT_MONTH, lastUpdatedAt: null, stale: false, source: 'CACHE', facilities: [FACILITY_A, FACILITY_B] }),
@@ -133,6 +147,8 @@ const server = setupServer(
   http.get('*/leader/clubs/me/managed', () =>
     ok([{ clubId: 7, clubName: '밴드부', logoUrl: null, myRole: 'LEADER', activeRecruitmentCount: 0 }]),
   ),
+  // 로그인+운영 동아리 1개면 MyBookingsChip 이 이 목록을 조회한다(기본은 진행 중 0건 → 칩 미노출).
+  http.get('*/clubs/7/facility-bookings', () => ok([])),
   http.post('*/clubs/7/facility-bookings', () =>
     ok({ bookingId: 31, status: 'PENDING' as const, overlappingPendingCount: 1 }),
   ),
@@ -290,6 +306,8 @@ describe('FacilityBookingPage — 예약 홈 통합', () => {
     const loginLink = await screen.findByRole('link', { name: '로그인하기' });
     // 로그인 후 현재 딥링크로 복귀하도록 next 파라미터가 실린다(검증은 로그인 쪽 toLinkRoute).
     expect(loginLink.getAttribute('href')).toMatch(/^\/login\?next=/);
+    // 비로그인에서는 진행 중 신청 칩이 뜨지 않는다(enabled 게이트로 조회 자체가 안 나감).
+    expect(screen.queryByRole('link', { name: /내 신청/ })).not.toBeInTheDocument();
   });
 
   it('시나리오 7: 로그인 상태에서 운영진 동아리 조회가 실패하면 폼에 에러·재시도가 노출된다', async () => {
@@ -354,5 +372,15 @@ describe('FacilityBookingPage — 예약 홈 통합', () => {
     expect(await screen.findByText('이미 예약된 시간이에요.')).toBeInTheDocument();
     const disabledCta = await screen.findByRole('button', { name: '시간을 선택해주세요' });
     expect(disabledCta).toBeDisabled();
+  });
+
+  it('시나리오 9: 로그인 운영진(동아리 1개)에 진행 중 신청이 있으면 관리 목록으로 가는 칩이 뜬다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+    server.use(http.get('*/clubs/7/facility-bookings', () => ok([PENDING_BOOKING])));
+
+    renderPage();
+
+    const chipLink = await screen.findByRole('link', { name: /내 신청 1건 진행 중/ });
+    expect(chipLink).toHaveAttribute('href', '/manage/clubs/7/facility-bookings');
   });
 });

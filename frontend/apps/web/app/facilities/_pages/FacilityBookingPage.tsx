@@ -15,6 +15,7 @@ import { BookingCalendar } from '../_components/booking/BookingCalendar';
 import { BookingHomeSkeleton, CalendarGridSkeleton } from '../_components/booking/BookingHomeSkeleton';
 import { BookingPanel, type PanelStep, type PanelView } from '../_components/booking/BookingPanel';
 import { FacilityChips } from '../_components/booking/FacilityChips';
+import { MyBookingsChip } from '../_components/booking/MyBookingsChip';
 
 /** URL 은 딥링크 전용 — 상태 변경은 리렌더 없는 replaceState 로만 반영한다(App Router replace 는 RSC 왕복). */
 function syncUrl(facilityId: number | null, date: string | null) {
@@ -67,6 +68,7 @@ export function FacilityBookingPage() {
   const [step, setStep] = useState<PanelStep>('slots');
   const [view, setView] = useState<PanelView>('day');
   const [submittedResult, setSubmittedResult] = useState<CreateFacilityBookingResult | null>(null);
+  const [submittedClubId, setSubmittedClubId] = useState<number | null>(null);
 
   const isMobileViewport = useIsMobileViewport();
   const usageQuery = useFacilityUsageQuery();
@@ -110,6 +112,7 @@ export function FacilityBookingPage() {
     setSelection(null);
     setStep('slots');
     setSubmittedResult(null);
+    setSubmittedClubId(null);
     syncUrl(effectiveFacilityId ?? null, null);
   };
 
@@ -125,6 +128,7 @@ export function FacilityBookingPage() {
     setSelection(null);
     setStep('slots');
     setSubmittedResult(null);
+    setSubmittedClubId(null);
     syncUrl(effectiveFacilityId ?? null, iso);
   };
 
@@ -158,8 +162,10 @@ export function FacilityBookingPage() {
       onProceedToForm={() => setStep('form')}
       onBackToSlots={() => setStep('slots')}
       submittedResult={submittedResult}
-      onSubmitted={(result) => {
+      submittedClubId={submittedClubId}
+      onSubmitted={(result, clubId) => {
         setSubmittedResult(result);
+        setSubmittedClubId(clubId);
         setStep('success');
       }}
       onClose={closePanel}
@@ -169,7 +175,10 @@ export function FacilityBookingPage() {
   return (
     <main className="mx-auto max-w-layout px-4 pb-16 pt-8 sm:px-6 md:px-10">
       <p className="text-xs font-medium tracking-widest text-charcoal-3">FACILITY · 시설 예약</p>
-      <h1 className="mb-4 mt-1 font-display text-2xl text-ink-deep">시설 예약</h1>
+      <div className="mb-4 mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h1 className="font-display text-2xl text-ink-deep">시설 예약</h1>
+        <MyBookingsChip />
+      </div>
 
       {usageQuery.isLoading && <BookingHomeSkeleton />}
       {usageQuery.isError && (

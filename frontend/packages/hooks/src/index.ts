@@ -291,6 +291,9 @@ export {
   useFacilityAvailabilityQuery,
   usePurposePresetsQuery,
   useCreateFacilityBookingMutation,
+  useClubFacilityBookingsQuery,
+  useFacilityBookingDetailQuery,
+  useCancelFacilityBookingMutation,
 } from './facilities';
 export { facilityQueryKeys } from './facilityQueryKeys';
 export { shouldRetryQuery, isNonRetryableError } from './retry';
