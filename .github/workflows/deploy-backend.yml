@@ -93,6 +93,9 @@ jobs:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:
+          # 신규 265초 + 롤백 255초 = health/rollback 최악 520초 예산이다.
+          # action의 10분 기본 제한 병목을 15분으로 늘리되 20분 job timeout을 최종 상한으로 둔다.
+          command_timeout: 15m
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
