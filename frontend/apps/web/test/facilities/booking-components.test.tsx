@@ -1,10 +1,28 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { expect, it, vi } from 'vitest';
-import type { BookingDayAvailability } from '@duing/types';
+import { afterEach, expect, it, vi } from 'vitest';
+import type { BookingDayAvailability, FacilityItem } from '@duing/types';
 import { FacilityChips } from '@/app/facilities/_components/booking/FacilityChips';
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
 import { DaySlotList } from '@/app/facilities/_components/booking/DaySlotList';
 import { BookingSuccess } from '@/app/facilities/_components/booking/BookingSuccess';
+import { FacilityHomeCard } from '@/app/facilities/_components/booking/FacilityHomeCard';
+import { seoulDateIso } from '@/app/facilities/_lib/facilityTimeline';
+
+// FacilityHomeCard 는 내부에서 new Date() 로 오늘을 계산하므로 시스템 시각을 고정한다.
+afterEach(() => vi.useRealTimers());
+
+function makeFacility(overrides?: Partial<FacilityItem>): FacilityItem {
+  return {
+    id: 1,
+    roomName: '커뮤니티룸(1)',
+    location: '학생회관 2층',
+    isUsingNow: false,
+    currentReservation: null,
+    nextReservation: null,
+    reservations: [],
+    ...overrides,
+  };
+}
 
 function makeDay(overrides?: Partial<BookingDayAvailability>): BookingDayAvailability {
   return {
@@ -103,4 +121,47 @@ it('예약 성공 화면은 manageHref 미전달 시 확인 링크를 렌더하�
     />,
   );
   expect(screen.queryByRole('link', { name: '내 예약에서 확인' })).not.toBeInTheDocument();
+});
+
+it('홈 카드는 아이콘·위치·예약 가능 라벨을 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 6, 20, 23, 30)); // 로컬 23:30 → 영업(09~22) 종료 후
+  const onSelect = vi.fn();
+  render(<FacilityHomeCard facility={makeFacility()} windowLabel="7.14 ~ 8.31" onSelect={onSelect} />);
+
+  expect(screen.getByText('🛋')).toBeInTheDocument(); // 커뮤니티룸 아이콘
+  expect(screen.getByText('학생회관 2층')).toBeInTheDocument();
+  expect(screen.getByText('7.14 ~ 8.31')).toBeInTheDocument();
+  expect(screen.getByText('오늘 마감')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button'));
+  expect(onSelect).toHaveBeenCalledWith(1);
+});
+
+it('홈 카드는 오늘 예약만 반영해 남은 칸 수를 계산한다(다른 날 예약은 무시)', () => {
+  const now = new Date(2026, 6, 20, 9, 0); // 로컬 09:00 → 09~22 전 구간이 후보
+  vi.useFakeTimers();
+  vi.setSystemTime(now);
+  const todayIso = seoulDateIso(now);
+  const otherDayIso = seoulDateIso(new Date(2026, 6, 21, 9, 0));
+  render(
+    <FacilityHomeCard
+      facility={makeFacility({
+        id: 2,
+        roomName: '공동연습실(1)',
+        location: null,
+        isUsingNow: true,
+        reservations: [
+          { date: todayIso, start: '09:00', end: '12:00', organization: '고정관념', status: 'FINISHED' },
+          { date: otherDayIso, start: '09:00', end: '22:00', organization: '비호응원단', status: 'UPCOMING' },
+        ],
+      })}
+      windowLabel={null}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  // 오늘 09~12(3칸)만 차감 → 13 - 3 = 10칸. 다른 날 종일 예약은 필터로 무시된다.
+  expect(screen.getByText('10칸')).toBeInTheDocument();
+  expect(screen.getByText('지금 사용중')).toBeInTheDocument();
 });

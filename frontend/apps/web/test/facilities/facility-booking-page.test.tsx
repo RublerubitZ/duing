@@ -37,6 +37,10 @@ const TODAY_DAY_LABEL = `${Number(TODAY_ISO.slice(8, 10))}일`; // 캘린더 셀
 
 const pad2 = (value: number) => String(value).padStart(2, '0');
 
+// booking-window 핸들러·availability 픽스처가 공유하는 당월 말일(bookableUntil).
+const [currentYear, currentMonthNumber] = CURRENT_MONTH.split('-').map(Number);
+const BOOKABLE_UNTIL = `${CURRENT_MONTH}-${pad2(new Date(currentYear ?? 1970, currentMonthNumber ?? 1, 0).getDate())}`;
+
 // 오늘 셀에 배치할 13칸: 11시=SCHOOL(비호응원단), 12시=INTERNAL(예약됨), 14시=HOLD, 나머지 AVAILABLE
 function makeMixedSlots(): BookingAvailabilitySlot[] {
   return Array.from({ length: 13 }, (_, index) => {
@@ -141,6 +145,8 @@ const server = setupServer(
     ok({ yearMonth: CURRENT_MONTH, lastUpdatedAt: null, stale: false, source: 'CACHE', facilities: [FACILITY_A, FACILITY_B] }),
   ),
   http.get('*/facilities/1/availability', () => ok(makeAvailability(1))),
+  // 페이지가 useBookingWindowQuery 를 무조건 마운트하므로 기본 핸들러 필요(onUnhandledRequest:'error' 대비).
+  http.get('*/facilities/booking-window', () => ok({ bookableFrom: TODAY_ISO, bookableUntil: BOOKABLE_UNTIL })),
   http.get('*/facilities/booking-purpose-presets', () =>
     ok([{ id: 1, label: '동아리 정기 모임' }, { id: 3, label: '정기 합주' }]),
   ),
@@ -183,6 +189,10 @@ afterAll(() => server.close());
 
 beforeEach(() => {
   useAuthStore.setState({ status: 'idle', user: null });
+  // 자동 첫 시설 선택이 제거돼 미선택 시 홈 뷰(카드 그리드)가 뜬다 — 대부분의 시나리오는 캘린더
+  // 뷰(슬롯/폼 플로우)를 검증하므로 딥링크로 시설을 선택한 상태로 진입시킨다. 홈 뷰가 필요한
+  // 시나리오(예: MyBookingsChip)는 각자 mockSearchParams.value 를 비운다. 전면 개편은 Task 6.
+  mockSearchParams.value = 'facilityId=1';
 });
 
 function renderPage() {
@@ -377,6 +387,7 @@ describe('FacilityBookingPage — 예약 홈 통합', () => {
   it('시나리오 9: 로그인 운영진(동아리 1개)에 진행 중 신청이 있으면 관리 목록으로 가는 칩이 뜬다', async () => {
     useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
     server.use(http.get('*/clubs/7/facility-bookings', () => ok([PENDING_BOOKING])));
+    mockSearchParams.value = ''; // MyBookingsChip 은 홈 뷰(미선택) 상단에 있으므로 딥링크 해제
 
     renderPage();
 

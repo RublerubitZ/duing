@@ -2,19 +2,25 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useFacilityAvailabilityQuery, useFacilityUsageQuery } from '@duing/hooks';
+import {
+  useBookingWindowQuery,
+  useFacilityAvailabilityQuery,
+  useFacilityUsageQuery,
+} from '@duing/hooks';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { FacilityUpdateBanner } from '../_components/FacilityUpdateBanner';
 import { FacilityOverviewTimeline } from '../_components/FacilityOverviewTimeline';
 import { FacilityUsageGuide } from '../_components/FacilityUsageGuide';
 import { seoulDateIso, shiftYearMonth } from '../_lib/facilityTimeline';
+import { windowRangeLabel } from '../_lib/bookingHome';
 import type { SlotRange } from '../_lib/bookingCalendar';
 import { isSelectableSlot, slotInRange, toggleSlotSelection } from '../_lib/bookingCalendar';
 import { BookingCalendar } from '../_components/booking/BookingCalendar';
 import { BookingHomeSkeleton, CalendarGridSkeleton } from '../_components/booking/BookingHomeSkeleton';
 import { BookingPanel, type PanelStep, type PanelView } from '../_components/booking/BookingPanel';
 import { FacilityChips } from '../_components/booking/FacilityChips';
+import { FacilityHomeCard } from '../_components/booking/FacilityHomeCard';
 import { MyBookingsChip } from '../_components/booking/MyBookingsChip';
 
 /** URL 은 딥링크 전용 — 상태 변경은 리렌더 없는 replaceState 로만 반영한다(App Router replace 는 RSC 왕복). */
@@ -72,6 +78,8 @@ export function FacilityBookingPage() {
 
   const isMobileViewport = useIsMobileViewport();
   const usageQuery = useFacilityUsageQuery();
+  const windowQuery = useBookingWindowQuery();
+  const windowLabel = windowQuery.data ? windowRangeLabel(windowQuery.data) : null;
   const chipFacilities = useMemo(
     () =>
       (usageQuery.data?.facilities ?? []).map((facility) => ({
@@ -81,7 +89,8 @@ export function FacilityBookingPage() {
       })),
     [usageQuery.data],
   );
-  const effectiveFacilityId = facilityId ?? chipFacilities[0]?.id ?? undefined;
+  // 자동 첫 시설 선택 없음 — 미선택(undefined)이면 홈 뷰(카드 그리드), 선택되면 캘린더 뷰.
+  const effectiveFacilityId = facilityId ?? undefined;
   const availabilityQuery = useFacilityAvailabilityQuery(effectiveFacilityId, yearMonth);
   const availability = availabilityQuery.data;
 
@@ -120,6 +129,18 @@ export function FacilityBookingPage() {
     setFacilityId(nextId);
     closePanel();
     syncUrl(nextId, null);
+  };
+
+  // 홈(시설 선택) 복귀 — closePanel 은 effectiveFacilityId 로 syncUrl 을 다시 세팅하므로 여기서는
+  // closePanel 을 거치지 않고 상태를 직접 리셋한 뒤 URL 을 비운다.
+  const goHome = () => {
+    setFacilityId(null);
+    setSelectedDate(null);
+    setSelection(null);
+    setStep('slots');
+    setSubmittedResult(null);
+    setSubmittedClubId(null);
+    syncUrl(null, null);
   };
 
   const selectDate = (iso: string) => {
@@ -174,12 +195,6 @@ export function FacilityBookingPage() {
 
   return (
     <main className="mx-auto max-w-layout px-4 pb-16 pt-8 sm:px-6 md:px-10">
-      <p className="text-xs font-medium tracking-widest text-charcoal-3">FACILITY · 시설 예약</p>
-      <div className="mb-4 mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="font-display text-2xl text-ink-deep">시설 예약</h1>
-        <MyBookingsChip />
-      </div>
-
       {usageQuery.isLoading && <BookingHomeSkeleton />}
       {usageQuery.isError && (
         <p role="alert" className="text-sm text-charcoal-2">시설 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
@@ -187,11 +202,45 @@ export function FacilityBookingPage() {
 
       {usageQuery.isSuccess && (
         <div className="space-y-4">
-          {chipFacilities.length === 0 ? (
-            <p className="text-sm text-charcoal-2">표시할 시설이 없어요.</p>
-          ) : (
+          {effectiveFacilityId === undefined ? (
+            // ── 홈 뷰: 시설 선택 카드 그리드 ──
             <>
-              <FacilityChips facilities={chipFacilities} selectedId={effectiveFacilityId ?? null} onSelect={selectFacility} />
+              <header>
+                <p className="text-xs font-medium tracking-widest text-charcoal-3">RESERVE · 시설 예약</p>
+                <h1 className="mt-1 font-display text-2xl text-ink-deep">예약할 시설을 골라보세요</h1>
+                <p className="mt-1.5 text-sm text-charcoal-2">
+                  학교 예약 현황을 반영해요. 비어 있는 시간만 신청할 수 있어요.
+                </p>
+                {windowLabel && (
+                  <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 text-xs text-charcoal-2">
+                    예약 가능 기간 <span className="font-bold text-ink">{windowLabel}</span>
+                  </p>
+                )}
+              </header>
+              <MyBookingsChip />
+              {usageQuery.data.facilities.length === 0 ? (
+                <p className="text-sm text-charcoal-2">표시할 시설이 없어요.</p>
+              ) : (
+                <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {usageQuery.data.facilities.map((facility) => (
+                    <li key={facility.id}>
+                      <FacilityHomeCard facility={facility} windowLabel={windowLabel} onSelect={selectFacility} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            // ── 캘린더 뷰: 선택 시설 예약 ──
+            <>
+              <button
+                type="button"
+                onClick={goHome}
+                className="inline-flex items-center gap-1 text-sm text-charcoal-2 motion-safe:transition-colors hover:text-ink"
+              >
+                ← 시설 목록
+              </button>
+              <FacilityChips facilities={chipFacilities} selectedId={effectiveFacilityId} onSelect={selectFacility} />
               {availability && (
                 <FacilityUpdateBanner lastUpdatedAt={availability.lastUpdatedAt ?? null} stale={availability.stale} />
               )}
