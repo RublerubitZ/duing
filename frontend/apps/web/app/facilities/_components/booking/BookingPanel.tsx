@@ -24,13 +24,14 @@ type Props = {
   onProceedToForm: () => void;
   onBackToSlots: () => void;
   submittedResult: CreateFacilityBookingResult | null;
-  onSubmitted: (result: CreateFacilityBookingResult) => void;
+  submittedClubId: number | null;
+  onSubmitted: (result: CreateFacilityBookingResult, clubId: number) => void;
   onClose: () => void;
 };
 
 export function BookingPanel({
   facility, day, daysByIso, view, onChangeView, selection, onToggleSlot, onSelectDate,
-  step, onProceedToForm, onBackToSlots, submittedResult, onSubmitted, onClose,
+  step, onProceedToForm, onBackToSlots, submittedResult, submittedClubId, onSubmitted, onClose,
 }: Props) {
   const dateLabel = `${Number(day.date.slice(5, 7))}월 ${Number(day.date.slice(8, 10))}일`;
 
@@ -41,6 +42,11 @@ export function BookingPanel({
         date={day.date}
         range={selection}
         overlappingPendingCount={submittedResult?.overlappingPendingCount ?? 0}
+        manageHref={
+          submittedClubId !== null
+            ? `/manage/clubs/${submittedClubId}/facility-bookings`
+            : undefined
+        }
         onClose={onClose}
       />
     );
