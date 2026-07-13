@@ -17,7 +17,7 @@ function cellTone(overlapSource: string | null): string {
 export function AdminSlotStrip({ startTime, endTime, overlaps }: Props) {
   const cells = buildSlotStrip({ startTime, endTime, overlaps });
   return (
-    <div aria-label="검증 컨텍스트 타임라인">
+    <div role="group" aria-label="검증 컨텍스트 타임라인">
       <div className="grid grid-cols-[repeat(13,minmax(0,1fr))] gap-[2px]">
         {cells.map((cell) => (
           <div
