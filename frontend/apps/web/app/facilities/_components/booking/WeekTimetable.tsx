@@ -24,14 +24,17 @@ export function WeekTimetable({ selectedDate, daysByIso, selection, onSelectDate
           <tr>
             <th className="w-11" aria-hidden />
             {weekDates.map((iso) => (
-              <th
-                key={iso}
-                className={`cursor-pointer rounded-t-md px-1 py-1.5 font-medium ${
-                  iso === selectedDate ? 'bg-ink text-cream' : 'text-charcoal-2'
-                }`}
-                onClick={() => daysByIso.has(iso) && onSelectDate(iso)}
-              >
-                {Number(iso.slice(8, 10))}일
+              <th key={iso} className="px-0 py-0">
+                <button
+                  type="button"
+                  disabled={!daysByIso.has(iso)}
+                  onClick={() => onSelectDate(iso)}
+                  className={`w-full rounded-t-md px-1 py-1.5 text-[11px] font-medium disabled:cursor-default disabled:opacity-40 ${
+                    iso === selectedDate ? 'bg-ink text-cream' : 'text-charcoal-2'
+                  }`}
+                >
+                  {Number(iso.slice(8, 10))}일
+                </button>
               </th>
             ))}
           </tr>
@@ -47,19 +50,19 @@ export function WeekTimetable({ selectedDate, daysByIso, selection, onSelectDate
                   isSelectedColumn && selection !== null && slot !== undefined && slotInRange(slot, selection);
                 const tone =
                   slot === undefined
-                    ? 'bg-transparent'
+                    ? 'border-transparent bg-transparent'
                     : slot.status === 'BLOCKED'
-                      ? 'bg-graysoft'
+                      ? 'border-line/60 bg-graysoft'
                       : slot.status === 'PENDING_HOLD'
-                        ? 'border border-dashed border-coral/60 bg-paper'
+                        ? 'border-dashed border-coral/60 bg-paper'
                         : slot.status === 'PAST'
-                          ? 'bg-graysoft/40'
-                          : 'bg-paper';
+                          ? 'border-line/60 bg-graysoft/40'
+                          : 'border-line/60 bg-paper';
                 return (
                   <td key={iso} className="p-[1.5px]">
                     <div
-                      className={`h-5 rounded-[4px] border border-line/60 ${tone} ${
-                        selected ? 'border-ink bg-ink' : ''
+                      className={`h-5 rounded-[4px] ${
+                        selected ? 'border border-ink bg-ink' : `border ${tone}`
                       } ${isSelectedColumn && !selected ? 'ring-1 ring-ink/20' : ''}`}
                     />
                   </td>

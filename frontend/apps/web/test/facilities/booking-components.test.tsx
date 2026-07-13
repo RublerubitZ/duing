@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import type { BookingDayAvailability } from '@duing/types';
 import { FacilityChips } from '@/app/facilities/_components/booking/FacilityChips';
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
