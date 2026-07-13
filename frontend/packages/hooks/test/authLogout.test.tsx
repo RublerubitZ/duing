@@ -16,7 +16,10 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
+const apiClient = createApiClient({
+  baseUrl: 'http://localhost:8080/api/v1',
+  authTransport: 'cookie',
+});
 
 const store = new Map<string, string>();
 const memoryStorage: Storage = {
@@ -49,14 +52,14 @@ beforeEach(() => {
   setStorage(memoryStorage);
   store.clear();
   store.set(TOKEN_STORAGE_KEY, 'tok-123');
-  useAuthStore.setState({ status: 'authenticated', accessToken: 'tok-123', user: null });
+  useAuthStore.setState({ status: 'authenticated', user: null });
 });
 
 describe('useLogout', () => {
-  it('토큰을 지우기 전에 Bearer 를 실어 POST /auth/logout 으로 서버 세션을 폐기하고 로컬 세션을 정리한다', async () => {
+  it('POST /auth/web/logout 성공 후에만 로컬 세션과 캐시를 정리한다', async () => {
     let capturedAuth: string | null = null;
     server.use(
-      http.post('*/auth/logout', ({ request }) => {
+      http.post('*/auth/web/logout', ({ request }) => {
         capturedAuth = request.headers.get('authorization');
         return HttpResponse.json({ ok: true, data: null, message: null });
       }),
@@ -69,15 +72,14 @@ describe('useLogout', () => {
       await result.current();
     });
 
-    // 토큰이 아직 storage 에 있을 때 호출돼야 Bearer 가 실린다 (clearSession 이전 호출 보장)
-    expect(capturedAuth).toBe('Bearer tok-123');
+    expect(capturedAuth).toBeNull();
     expect(useAuthStore.getState().status).toBe('unauthenticated');
     expect(await memoryStorage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
   });
 
-  it('서버 폐기가 실패(500)해도 로컬 세션 정리는 계속 진행한다 (best-effort)', async () => {
+  it('서버 로그아웃이 실패하면 오류를 전파하고 로컬 세션과 캐시를 유지한다', async () => {
     server.use(
-      http.post('*/auth/logout', () =>
+      http.post('*/auth/web/logout', () =>
         HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 }),
       ),
     );
@@ -85,11 +87,14 @@ describe('useLogout', () => {
     const queryClient = newQueryClient();
     const { result } = renderHook(() => useLogout(), { wrapper: makeWrapper(queryClient) });
 
+    queryClient.setQueryData(['users', 'me'], { id: 1 });
+
     await act(async () => {
-      await result.current();
+      await expect(result.current()).rejects.toMatchObject({ status: 500 });
     });
 
-    expect(useAuthStore.getState().status).toBe('unauthenticated');
-    expect(await memoryStorage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+    expect(useAuthStore.getState().status).toBe('authenticated');
+    expect(await memoryStorage.getItem(TOKEN_STORAGE_KEY)).toBe('tok-123');
+    expect(queryClient.getQueryData(['users', 'me'])).toEqual({ id: 1 });
   });
 });

@@ -185,6 +185,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me/phone-verifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 번호 변경 MO 인증 시작
+         * @description 새 번호에 대한 PHONE_CHANGE 인증 세션을 발급한다(본인 JWT 필수). 세션 5분 유효, 재발급 60초 쿨다운. 타인이 사용 중인 번호는 409(PHONE_ALREADY_REGISTERED) — 자기 번호 재인증은 허용된다. qr=true 면 SMSTO 딥링크 QR 을 함께 반환한다(실패 시 null).
+         */
+        post: operations["startPhoneChangeVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports": {
         parameters: {
             query?: never;
@@ -216,7 +236,7 @@ export interface paths {
         put?: never;
         /**
          * 지원 제출
-         * @description 모집 공고에 지원한다. 답변 개수는 RecruitmentForm 의 질문 개수와 일치해야 한다.
+         * @description 모집 공고에 지원한다. answers(위치 기반 legacy) 와 answerItems(questionId 기반) 중 정확히 하나만 보내야 하며, 답변 개수는 RecruitmentForm 의 질문 개수와 일치해야 한다. 선택형 질문이 있는 폼은 answerItems 로만 제출할 수 있고, 값에는 선택지 id 를 담는다.
          */
         post: operations["submit"];
         delete?: never;
@@ -844,9 +864,89 @@ export interface paths {
         put?: never;
         /**
          * 회원가입
-         * @description 학번/이름/이메일/비밀번호로 STUDENT 계정을 생성한다.
+         * @description 학번(8자리)/이름/비밀번호와 MO 인증 토큰(verificationToken)으로 STUDENT 계정을 생성한다. 전화번호는 인증 세션에서 확정된 값이 저장되며, 사용된 세션은 즉시 소비(삭제)된다.
          */
         post: operations["signup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/phone-verifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 휴대폰 MO 인증 시작
+         * @description 회원가입용 MO 인증 세션을 발급한다. 사용자가 수신 대표번호로 코드를 문자 전송하면 상태 조회가 VERIFIED 로 바뀐다. 세션 5분 유효, 재발급 60초 쿨다운. 이미 가입된 번호는 409(PHONE_ALREADY_REGISTERED). qr=true 면 SMSTO 딥링크 QR(data URL)을 함께 반환한다(발급 실패 시 null — 텍스트 폴백).
+         */
+        post: operations["issuePhoneVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/phone-verifications/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 휴대폰 MO 인증 상태 조회
+         * @description 발급 토큰으로 인증 상태(PENDING/VERIFIED/EXPIRED)를 조회한다. 프론트 폴링용(3초 간격 권장) — PENDING 이면 서버가 Octomo 수신 여부를 확인한다(세션당 2.5초 스로틀, 일일 상한 초과 시 503). 토큰이 URL 에 남지 않도록 body 로 받는 조회용 POST 다(#626).
+         */
+        post: operations["getPhoneVerificationStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-resets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 비밀번호 재설정 시작
+         * @description 학번으로 계정을 찾아 등록된 번호로 PASSWORD_RESET MO 인증 세션을 발급한다 — 번호는 입력받지 않으며 응답에 마스킹된 번호를 안내한다. 이후 폴링은 공용 상태조회 API 를 쓴다. 학번당 시간당 3회 제한. 계정을 확인할 수 없으면 400(PASSWORD_RESET_NOT_ALLOWED).
+         */
+        post: operations["startPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-resets/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 비밀번호 재설정 완료
+         * @description PASSWORD_RESET MO 인증 세션(인증 후 10분 내)으로 새 비밀번호를 설정한다. 완료 시 token_version 을 올려 전 기기에서 로그아웃되며, 세션은 즉시 소비된다. 미인증·만료·용도 불일치 세션은 403(PHONE_NOT_VERIFIED), 대상 계정 소실은 400.
+         */
+        post: operations["completePasswordReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -884,49 +984,9 @@ export interface paths {
         put?: never;
         /**
          * 로그인
-         * @description 이메일과 비밀번호로 인증 후 JWT를 발급한다.
+         * @description 학번(8자리)과 비밀번호로 인증 후 JWT를 발급한다.
          */
         post: operations["login"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/email-verifications": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 이메일 인증코드 발송
-         * @description 회원가입용 6자리 인증코드를 학교 이메일로 발송한다. 코드는 20분 유효, 재발송은 60초 쿨다운. 이미 가입된 이메일이면 메일을 보내지 않고 409(EMAIL_ALREADY_REGISTERED) 로 즉시 안내한다.
-         */
-        post: operations["sendEmailVerification"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/email-verifications/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 이메일 인증코드 확인
-         * @description 발송된 6자리 코드를 검증한다. 5회 실패 시 무효화. 이미 인증된 경우 200(멱등).
-         */
-        post: operations["confirmEmailVerification"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1180,9 +1240,29 @@ export interface paths {
         head?: never;
         /**
          * 프로필 수정
-         * @description 이름·전화번호·학년을 수정한다. 학년은 생략 시 기존 값을 유지한다. 학번·이메일은 변경할 수 없다.
+         * @description 이름·학년을 수정한다. 학년은 생략 시 기존 값을 유지한다. 학번·전화번호는 이 API로 변경할 수 없다(번호 변경은 재인증 필요).
          */
         patch: operations["updateProfile"];
+        trace?: never;
+    };
+    "/api/v1/users/me/phone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 전화번호 변경
+         * @description PHONE_CHANGE 용 MO 인증 세션(본인 대상·인증 후 10분 내)과 현재 비밀번호 확인(step-up)으로 전화번호를 교체하고, 성공 시 발급된 모든 토큰을 무효화한다(재로그인 필요). 새 번호는 요청에 없으며 세션에 귀속된 번호가 저장되고, 사용된 세션은 즉시 소비된다. 현재 비밀번호 불일치 시 400(세션은 소비되지 않아 재시도 가능), 미인증·만료·대상 불일치 세션은 403(PHONE_NOT_VERIFIED), 타인 선점 번호는 409.
+         */
+        patch: operations["changePhone"];
         trace?: never;
     };
     "/api/v1/users/me/password": {
@@ -1906,8 +1986,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 모집 공고 상세 조회 */
+        /**
+         * 모집 공고 상세 조회
+         * @description 지원서 질문을 두 형태로 함께 반환한다. questions 는 질문 텍스트 배열(legacy)이고, questionItems 는 유형·필수 여부·선택지를 담은 구조화 질문이다. 지원 제출(answerItems)에 실을 questionId 와 choiceId 는 questionItems 에서만 얻을 수 있다.
+         */
         get: operations["getRecruitment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitments/{recruitmentId}/applications/eligibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 지원 가능 여부 사전 확인
+         * @description 지원서 작성 화면 진입 전에 제출과 동일한 정책(마감·중복 지원·회원 자격 등)으로 지원 가능 여부를 확인한다. 가능하면 200, 불가하면 제출 시와 동일한 상태코드·메시지로 실패한다.
+         */
+        get: operations["checkEligibility"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2755,7 +2858,7 @@ export interface paths {
         };
         /**
          * 사용자 검색 (ADMIN)
-         * @description 동아리 등록 시 leader 후보를 학번/이름/이메일로 검색한다. studentId 는 prefix 일치, name·email 은 contains(case-insensitive) 일치.
+         * @description 동아리 등록 시 leader 후보를 학번/이름으로 검색한다. studentId 는 prefix 일치, name 은 contains(case-insensitive) 일치.
          */
         get: operations["searchUsers"];
         put?: never;
@@ -3041,9 +3144,9 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         DraftAnswerPayload: {
-            /** Format: int64 */
-            questionId?: number;
+            questionId?: string;
             value?: string;
+            values?: string[];
         };
         UpsertDraftRequest: {
             answers: components["schemas"]["DraftAnswerPayload"][];
@@ -3114,6 +3217,25 @@ export interface components {
         UpdateBankMatchingRequest: {
             active: boolean;
         };
+        StartPhoneChangeVerificationRequest: {
+            phone: string;
+        };
+        ApiResponsePhoneVerificationIssueResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PhoneVerificationIssueResponse"];
+            message?: string;
+            code?: string;
+        };
+        PhoneVerificationIssueResponse: {
+            verificationToken?: string;
+            code?: string;
+            moNumber?: string;
+            qrCode?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: int64 */
+            expiresInSeconds?: number;
+        };
         CreateReportRequest: {
             /** @enum {string} */
             targetType: "CLUB" | "RECRUITMENT";
@@ -3123,8 +3245,13 @@ export interface components {
             reasonCode: "SPAM" | "FRAUD" | "INAPPROPRIATE" | "IMPERSONATION" | "OTHER";
             detail?: string;
         };
+        AnswerItemPayload: {
+            questionId: string;
+            values?: string[];
+        };
         SubmitApplicationRequest: {
-            answers: string[];
+            answers?: string[];
+            answerItems?: components["schemas"]["AnswerItemPayload"][];
         };
         CreateInterviewRoundRequest: {
             title: string;
@@ -3199,6 +3326,10 @@ export interface components {
             /** Format: int32 */
             unassignedMemberCount?: number;
         };
+        ChoiceItemPayload: {
+            id?: string;
+            label: string;
+        };
         CreateRecruitmentRequest: {
             title: string;
             content?: string;
@@ -3215,11 +3346,20 @@ export interface components {
             /** @enum {string} */
             targetRole?: "MEMBER" | "OFFICER";
             questions?: string[];
+            questionItems?: components["schemas"]["QuestionItemPayload"][];
             /** Format: date */
             interviewStartDate?: string;
             /** Format: date */
             interviewEndDate?: string;
             showApplicantCount?: boolean;
+        };
+        QuestionItemPayload: {
+            id?: string;
+            text: string;
+            /** @enum {string} */
+            type: "TEXT" | "SINGLE_CHOICE" | "MULTIPLE_CHOICE";
+            required?: boolean;
+            choices?: components["schemas"]["ChoiceItemPayload"][];
         };
         CreateFeePolicyRequest: {
             name: string;
@@ -3403,19 +3543,61 @@ export interface components {
         SignupRequest: {
             studentId: string;
             name: string;
-            email: string;
             password: string;
             /** @enum {string} */
             grade: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
             /** @enum {string} */
             college: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
             major: string;
+            verificationToken: string;
+            termsOfServiceAgreed: boolean;
+            privacyPolicyAgreed: boolean;
+        };
+        IssuePhoneVerificationRequest: {
             phone: string;
-            termsOfServiceAgreed?: boolean;
-            privacyPolicyAgreed?: boolean;
+        };
+        PhoneVerificationStatusRequest: {
+            verificationToken: string;
+        };
+        ApiResponsePhoneVerificationStatusResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PhoneVerificationStatusResponse"];
+            message?: string;
+            code?: string;
+        };
+        PhoneVerificationStatusResponse: {
+            /** @enum {string} */
+            status?: "PENDING" | "VERIFIED" | "EXPIRED";
+            /** Format: int64 */
+            expiresInSeconds?: number;
+            maskedPhone?: string;
+        };
+        PasswordResetStartRequest: {
+            studentId: string;
+        };
+        ApiResponsePasswordResetStartResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PasswordResetStartResponse"];
+            message?: string;
+            code?: string;
+        };
+        PasswordResetStartResponse: {
+            verificationToken?: string;
+            code?: string;
+            moNumber?: string;
+            qrCode?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: int64 */
+            expiresInSeconds?: number;
+            maskedPhone?: string;
+        };
+        CompletePasswordResetRequest: {
+            verificationToken: string;
+            newPassword: string;
         };
         LoginRequest: {
-            email: string;
+            studentId: string;
             password: string;
         };
         ApiResponseLoginResponse: {
@@ -3434,31 +3616,11 @@ export interface components {
             id?: number;
             studentId?: string;
             name?: string;
-            email?: string;
             phone?: string;
             /** @enum {string} */
             role?: "STUDENT" | "ADMIN";
             /** @enum {string} */
             grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
-        };
-        SendEmailVerificationRequest: {
-            email: string;
-        };
-        ApiResponseEmailVerificationResponse: {
-            ok?: boolean;
-            data?: components["schemas"]["EmailVerificationResponse"];
-            message?: string;
-            code?: string;
-        };
-        EmailVerificationResponse: {
-            /** Format: date-time */
-            expiresAt?: string;
-            /** Format: int64 */
-            expiresInSeconds?: number;
-        };
-        ConfirmEmailVerificationRequest: {
-            email: string;
-            code: string;
         };
         CreateRecertificationRoundRequest: {
             /** Format: int32 */
@@ -3574,9 +3736,12 @@ export interface components {
         };
         UpdateProfileRequest: {
             name: string;
-            phone: string;
             /** @enum {string} */
             grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+        };
+        ChangePhoneRequest: {
+            currentPassword: string;
+            verificationToken: string;
         };
         ChangePasswordRequest: {
             currentPassword: string;
@@ -3593,6 +3758,7 @@ export interface components {
             capacity?: number;
             useInterview?: boolean;
             questions?: string[];
+            questionItems?: components["schemas"]["QuestionItemPayload"][];
             /** Format: date */
             interviewStartDate?: string;
             /** Format: date */
@@ -4053,6 +4219,18 @@ export interface components {
             message?: string;
             code?: string;
         };
+        ChoiceResponse: {
+            id?: string;
+            label?: string;
+        };
+        QuestionItemResponse: {
+            id?: string;
+            text?: string;
+            /** @enum {string} */
+            type?: "TEXT" | "SINGLE_CHOICE" | "MULTIPLE_CHOICE";
+            required?: boolean;
+            choices?: components["schemas"]["ChoiceResponse"][];
+        };
         RecruitmentDetailResponse: {
             /** Format: int64 */
             id?: number;
@@ -4073,6 +4251,7 @@ export interface components {
             displayStatus?: "UPCOMING" | "OPEN" | "ALWAYS_OPEN" | "CLOSED";
             effectivelyOpen?: boolean;
             questions?: string[];
+            questionItems?: components["schemas"]["QuestionItemResponse"][];
             /** @enum {string} */
             applicationMode?: "SELF" | "EXTERNAL";
             externalFormUrl?: string;
@@ -4096,9 +4275,8 @@ export interface components {
             code?: string;
         };
         DraftAnswer: {
-            /** Format: int64 */
-            questionId?: number;
-            value?: string;
+            questionId?: string;
+            values?: string[];
         };
         DraftResponse: {
             exists?: boolean;
@@ -4575,7 +4753,6 @@ export interface components {
             userId?: number;
             userName?: string;
             studentId?: string;
-            email?: string;
             /** @enum {string} */
             college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
             major?: string;
@@ -4957,7 +5134,6 @@ export interface components {
             userId?: number;
             name?: string;
             studentId?: string;
-            email?: string;
             /** @enum {string} */
             college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
             major?: string;
@@ -5415,7 +5591,6 @@ export interface components {
             id?: number;
             studentId?: string;
             name?: string;
-            email?: string;
             /** @enum {string} */
             role?: "STUDENT" | "ADMIN";
         };
@@ -6465,6 +6640,50 @@ export interface operations {
             };
         };
     };
+    startPhoneChangeVerification: {
+        parameters: {
+            query?: {
+                qr?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartPhoneChangeVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description 발급됨 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePhoneVerificationIssueResponse"];
+                };
+            };
+            /** @description 타인이 사용 중인 번호 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePhoneVerificationIssueResponse"];
+                };
+            };
+            /** @description 재발급 쿨다운(60초) 또는 IP 요청 한도 초과 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePhoneVerificationIssueResponse"];
+                };
+            };
+        };
+    };
     createReport: {
         parameters: {
             query?: never;
@@ -7307,10 +7526,7 @@ export interface operations {
     };
     listForMember: {
         parameters: {
-            query?: {
-                page?: number;
-                size?: number;
-            };
+            query?: never;
             header?: never;
             path: {
                 clubId: number;
@@ -7478,6 +7694,199 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseLong"];
                 };
             };
+            /** @description 미인증·만료·용도 불일치 세션(PHONE_NOT_VERIFIED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+            /** @description 이미 가입된 학번 또는 전화번호 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    issuePhoneVerification: {
+        parameters: {
+            query?: {
+                qr?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssuePhoneVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description 발급됨 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePhoneVerificationIssueResponse"];
+                };
+            };
+            /** @description 이미 가입된 번호 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePhoneVerificationIssueResponse"];
+                };
+            };
+            /** @description 재발급 쿨다운(60초) 또는 IP 요청 한도 초과 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePhoneVerificationIssueResponse"];
+                };
+            };
+        };
+    };
+    getPhoneVerificationStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhoneVerificationStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description 조회 성공 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePhoneVerificationStatusResponse"];
+                };
+            };
+            /** @description 존재하지 않는 토큰 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePhoneVerificationStatusResponse"];
+                };
+            };
+            /** @description IP 요청 한도 초과 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePhoneVerificationStatusResponse"];
+                };
+            };
+            /** @description Octomo 일일 호출 상한 소진 — 잠시 후 재시도 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePhoneVerificationStatusResponse"];
+                };
+            };
+        };
+    };
+    startPasswordReset: {
+        parameters: {
+            query?: {
+                qr?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetStartRequest"];
+            };
+        };
+        responses: {
+            /** @description 발급됨 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePasswordResetStartResponse"];
+                };
+            };
+            /** @description 계정을 확인할 수 없음 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePasswordResetStartResponse"];
+                };
+            };
+            /** @description 학번·IP 한도 또는 쿨다운 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePasswordResetStartResponse"];
+                };
+            };
+        };
+    };
+    completePasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompletePasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description 재설정됨 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 계정을 확인할 수 없음 또는 형식 오류 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 유효하지 않은 인증 세션 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     logout: {
@@ -7520,63 +7929,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseLoginResponse"];
-                };
-            };
-        };
-    };
-    sendEmailVerification: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SendEmailVerificationRequest"];
-            };
-        };
-        responses: {
-            /** @description 발송됨 */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseEmailVerificationResponse"];
-                };
-            };
-            /** @description 이미 가입된 이메일 */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseEmailVerificationResponse"];
-                };
-            };
-        };
-    };
-    confirmEmailVerification: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConfirmEmailVerificationRequest"];
-            };
-        };
-        responses: {
-            /** @description 인증 성공 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };
@@ -8076,6 +8428,28 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    changePhone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePhoneRequest"];
             };
         };
         responses: {
@@ -9552,6 +9926,28 @@ export interface operations {
             };
         };
     };
+    checkEligibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recruitmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     listRecentActivities: {
         parameters: {
             query?: {
@@ -10596,7 +10992,7 @@ export interface operations {
     searchUsers: {
         parameters: {
             query: {
-                /** @description 검색어 (학번 prefix 또는 이름/이메일 부분 일치) */
+                /** @description 검색어 (학번 prefix 또는 이름 부분 일치) */
                 q: string;
             };
             header?: never;

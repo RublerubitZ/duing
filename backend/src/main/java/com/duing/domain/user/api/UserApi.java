@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -46,7 +47,9 @@ public interface UserApi {
     @PatchMapping("/users/me/password")
     ResponseEntity<Void> changePassword(
             @Valid @RequestBody ChangePasswordRequest changePasswordRequest,
-            @AuthenticationPrincipal UserPrincipal currentUser
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse
     );
 
     @Operation(summary = "번호 변경 MO 인증 시작",
@@ -78,12 +81,16 @@ public interface UserApi {
     ResponseEntity<Void> changePhone(
             @Valid @RequestBody ChangePhoneRequest changePhoneRequest,
             @AuthenticationPrincipal UserPrincipal currentUser,
-            HttpServletRequest httpServletRequest);
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse);
 
     @Operation(summary = "회원 탈퇴",
             description = "현재 인증된 사용자를 탈퇴 처리한다. 계정을 soft delete 하고 token_version 을 올려 발급된 "
                     + "모든 토큰을 즉시 무효화한다. 동아리 회장은 회장직 인계 후에만 탈퇴할 수 있다(409).")
     @SecurityRequirement(name = "BearerAuth")
     @DeleteMapping("/users/me")
-    ResponseEntity<Void> withdraw(@AuthenticationPrincipal UserPrincipal currentUser);
+    ResponseEntity<Void> withdraw(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse);
 }
