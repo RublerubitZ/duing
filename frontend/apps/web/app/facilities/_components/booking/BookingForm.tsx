@@ -179,13 +179,19 @@ export function BookingForm({
           inputMode="numeric"
           value={attendeeCount}
           onChange={(event) => setAttendeeCount(event.target.value.replace(/[^0-9]/g, ''))}
+          maxLength={4}
           placeholder="예: 15"
           className="w-full rounded-md border border-line bg-paper px-3 py-2 text-base"
         />
       </div>
 
       <div className="flex gap-2 pt-1">
-        <button type="button" className="btn btn-secondary flex-none" onClick={onBack}>
+        <button
+          type="button"
+          className="btn btn-secondary flex-none"
+          disabled={createMutation.isPending}
+          onClick={onBack}
+        >
           시간 다시 선택
         </button>
         <button type="button" className="btn btn-primary flex-1" disabled={!canSubmit} onClick={submit}>
