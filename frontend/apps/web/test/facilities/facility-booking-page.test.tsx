@@ -247,6 +247,8 @@ describe('FacilityBookingPage — 예약 홈 통합', () => {
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
     expect(screen.getByRole('textbox', { name: '사용 목적' })).toHaveValue('정기 합주');
 
+    // 운영진 동아리 목록 로드 대기 — canSubmit 이 clubId 확보 후에만 true 라 클릭 no-op 플레이크 방지.
+    await screen.findByText('밴드부');
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
 
     // 성공 화면: 진행 스텝 + 겹침 경고.
