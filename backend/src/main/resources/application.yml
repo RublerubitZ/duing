@@ -27,10 +27,9 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
-# Actuator — 배포/프록시 헬스체크용으로 /actuator/health 하나만 외부에 노출한다.
-# info·metrics·env·beans 등 다른 endpoint 는 web exposure 에서 제외해 정보 노출/정찰 표면을 차단하고,
-# 공개되는 health 응답은 show-details=never 로 DB·디스크 등 내부 컴포넌트 상태를 숨긴다.
-# (SecurityConfig 가 정확히 "/actuator/health" 만 permitAll — 하위 경로는 인증 필요)
+# Actuator — 종합 health와 liveness/readiness probe만 외부에 노출한다.
+# info·metrics·env·beans 등 다른 endpoint는 web exposure에서 제외하고, 공개 health 응답은
+# show-details=never로 DB·디스크·오류 메시지 등 내부 상태를 숨긴다.
 management:
   endpoints:
     web:
@@ -39,6 +38,13 @@ management:
   endpoint:
     health:
       show-details: never
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: "livenessState"
+        readiness:
+          include: "readinessState,db"
   health:
     mail:
       # spring-boot-starter-mail 제거(PR5) 후 이 키는 무해한 잔존 설정이다. 굳이 지우지 않는 이유:

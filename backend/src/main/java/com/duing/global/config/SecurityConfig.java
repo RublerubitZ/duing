@@ -130,7 +130,10 @@ public class SecurityConfig {
                         .requestMatchers("/files/federation/inquiry/**").denyAll()
                         .requestMatchers(
                                 "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
-                                "/actuator/health", "/files/**"
+                                "/actuator/health",
+                                "/actuator/health/liveness",
+                                "/actuator/health/readiness",
+                                "/files/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
