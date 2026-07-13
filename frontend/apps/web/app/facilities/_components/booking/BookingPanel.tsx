@@ -42,34 +42,44 @@ export function BookingPanel({
 
   if (step === 'success' && selection && submittedAt !== null) {
     return (
-      <BookingSuccess
-        facilityName={facility.roomName}
-        date={day.date}
-        range={selection}
-        overlappingPendingCount={submittedResult?.overlappingPendingCount ?? 0}
-        submittedAt={submittedAt}
-        manageHref={
-          submittedClubId !== null
-            ? `/manage/clubs/${submittedClubId}/facility-bookings`
-            : undefined
-        }
-        onExploreOther={onExploreOther}
-        onClose={onClose}
-      />
+      <div>
+        <div className="mb-3">
+          <PanelStepIndicator step={step} />
+        </div>
+        <BookingSuccess
+          facilityName={facility.roomName}
+          date={day.date}
+          range={selection}
+          overlappingPendingCount={submittedResult?.overlappingPendingCount ?? 0}
+          submittedAt={submittedAt}
+          manageHref={
+            submittedClubId !== null
+              ? `/manage/clubs/${submittedClubId}/facility-bookings`
+              : undefined
+          }
+          onExploreOther={onExploreOther}
+          onClose={onClose}
+        />
+      </div>
     );
   }
 
   if (step === 'form' && selection) {
     return (
-      <BookingForm
-        facilityId={facility.id}
-        facilityName={facility.roomName}
-        date={day.date}
-        range={selection}
-        hasPendingHold={rangeContainsPendingHold(day.slots, selection)}
-        onSubmitted={onSubmitted}
-        onBack={onBackToSlots}
-      />
+      <div>
+        <div className="mb-3">
+          <PanelStepIndicator step={step} />
+        </div>
+        <BookingForm
+          facilityId={facility.id}
+          facilityName={facility.roomName}
+          date={day.date}
+          range={selection}
+          hasPendingHold={rangeContainsPendingHold(day.slots, selection)}
+          onSubmitted={onSubmitted}
+          onBack={onBackToSlots}
+        />
+      </div>
     );
   }
 

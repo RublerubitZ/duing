@@ -272,8 +272,12 @@ describe('FacilityBookingPage — 예약 홈 통합', () => {
     fireEvent.click(screen.getByRole('button', { name: /19:00~20:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~20:00 예약 신청' }));
 
-    // 폼: Preset 칩 탭 → 목적 input 이 채워진다.
+    // 폼 단계에서도 스텝 인디케이터가 노출되고 '신청 확인'(2단계)이 활성으로 표시된다(§2.5).
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
+    expect(screen.getAllByLabelText('예약 진행 단계').length).toBeGreaterThan(0);
+    expect(screen.getByText('신청 확인')).toBeInTheDocument();
+
+    // 폼: Preset 칩 탭 → 목적 input 이 채워진다.
     expect(screen.getByRole('textbox', { name: '사용 목적' })).toHaveValue('정기 합주');
 
     // 운영진 동아리 목록 로드 대기 — canSubmit 이 clubId 확보 후에만 true 라 클릭 no-op 플레이크 방지.
