@@ -206,8 +206,9 @@ export function FacilityBookingPage() {
                     />
                   )}
                 </div>
-                {/* 데스크탑 인라인 우측 패널 — 모바일에선 아래 Sheet 가 담당(단일 제어 상태 공유) */}
-                {panelOpen && (
+                {/* 데스크탑 인라인 우측 패널 — 모바일에선 아래 Sheet 가 담당(단일 제어 상태 공유).
+                    뷰포트로 마운트를 게이트해 시트와의 이중 마운트(폼 id 중복)를 방지한다. */}
+                {panelOpen && !isMobileViewport && (
                   <aside className="hidden rounded-lg border border-line bg-paper p-4 md:block">
                     {panel}
                   </aside>
