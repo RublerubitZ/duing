@@ -16,8 +16,11 @@ export function MyBookingsChip() {
   if (authStatus !== 'authenticated' || managedClubs.length === 0) return null;
 
   if (singleClubId !== undefined) {
+    // "진행 중" = 관리 화면 진행 중 탭과 동일 정의(PENDING·APPROVED·CONFLICT) — CONFLICT 는
+    // 주의가 필요한 상태라 오히려 진입 유도가 필요하다.
     const activeCount = (bookingsQuery.data ?? []).filter(
-      (booking) => booking.status === 'PENDING' || booking.status === 'APPROVED',
+      (booking) =>
+        booking.status === 'PENDING' || booking.status === 'APPROVED' || booking.status === 'CONFLICT',
     ).length;
     if (activeCount === 0) return null;
     return (
