@@ -296,4 +296,14 @@ export {
   useCancelFacilityBookingMutation,
 } from './facilities';
 export { facilityQueryKeys } from './facilityQueryKeys';
+export {
+  useAdminFacilityBookingQueueQuery,
+  useAdminFacilityBookingDetailQuery,
+  useAdminFacilityBookingSummaryQuery,
+  useApproveFacilityBookingMutation,
+  useRejectFacilityBookingMutation,
+  useConfirmFacilityBookingMutation,
+  useMarkConflictFacilityBookingMutation,
+  useCancelFacilityBookingAdminMutation,
+} from './facilityBookingsAdmin';
 export { shouldRetryQuery, isNonRetryableError } from './retry';

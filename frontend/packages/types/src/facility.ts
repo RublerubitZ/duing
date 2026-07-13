@@ -156,3 +156,77 @@ export type FacilityBookingDetail = {
   conflictDetail?: string;
   history: FacilityBookingHistoryItem[];
 };
+
+// ── 관리자 콘솔(§8 #6~#13) ─────────────────────────────────────────────
+
+export type AdminFacilityBookingSummary = {
+  bookingId: number;
+  clubId: number;
+  clubName: string;
+  facilityId: number;
+  roomName: string;
+  date: string; // yyyy-MM-dd
+  startTime: string; // HH:mm
+  endTime: string;
+  status: BookingStatus;
+  purpose: string;
+  createdAt: string; // ISO LocalDateTime
+  approvedWaitingDays?: number; // NON_NULL — APPROVED 행에만("학교 반영 대기 D+N")
+  conflictSuspected: boolean;
+  partiallyMatched: boolean;
+};
+
+export type AdminBookingOverlapItem = {
+  source: string; // 'SCHOOL' | 'INTERNAL' | 'PENDING' 계열 — 검증 컨텍스트 시각화용
+  organization: string;
+  startTime: string; // HH:mm
+  endTime: string;
+};
+
+export type AdminFacilityBookingDetail = {
+  bookingId: number;
+  clubId: number;
+  clubName: string;
+  facilityId: number;
+  roomName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: BookingStatus;
+  purpose: string;
+  attendeeCount?: number;
+  rejectReason?: string;
+  conflictDetail?: string;
+  matchedScheduleSeq?: number;
+  crawlBasisAt?: string; // ISO LocalDateTime — 재크롤 실패·미수집 시 생략
+  stale: boolean;
+  overlaps: AdminBookingOverlapItem[];
+  overlappingPendingCount: number;
+  history: FacilityBookingHistoryItem[];
+};
+
+export type AdminFacilityBookingCounts = {
+  pendingCount: number;
+  todaySubmittedCount: number;
+  oldestPendingWaitingDays: number;
+  approvedWaitingCount: number;
+  oldestApprovedWaitingDays: number;
+  conflictCount: number;
+  conflictSuspectedCount: number;
+  confirmedThisMonthCount: number;
+};
+
+// 승인 409(FACILITY_BOOKING_SCHOOL_CONFLICT)의 ApiError.payload 형태(§8.3)
+export type FacilityBookingConflictPayload = {
+  conflicts: { source: string; organization: string; start: string; end: string }[];
+  crawlBasisAt: string | null; // OffsetDateTime(+09:00) 또는 null
+};
+
+export type AdminBookingQueueParams = {
+  status?: BookingStatus;
+  facilityId?: number;
+  dateFrom?: string; // yyyy-MM-dd
+  dateTo?: string;
+  page?: number;
+  size?: number;
+};

@@ -61,6 +61,12 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     group: '동아리',
   },
   {
+    href: '/admin/facility-bookings',
+    title: '시설 예약 관리',
+    description: '대관 신청 승인·학교 반영 확인·충돌 처리',
+    group: '동아리',
+  },
+  {
     href: '/admin/recertification/rounds',
     title: '재인증 라운드',
     description: '중앙동아리 연간 재인증 라운드 개설·종료',

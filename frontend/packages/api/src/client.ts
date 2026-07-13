@@ -180,6 +180,10 @@ import type {
   BookingStatus,
   FacilityBookingSummary,
   FacilityBookingDetail,
+  AdminFacilityBookingSummary,
+  AdminFacilityBookingDetail,
+  AdminFacilityBookingCounts,
+  AdminBookingQueueParams,
   FederationFaqCategory,
   FederationFaqItem,
   AdminFederationFaqSummary,
@@ -596,6 +600,21 @@ export type DuingApiClient = {
       create(payload: CreatePromotionPayload): Promise<number>;
       update(promotionId: number, payload: UpdatePromotionPayload): Promise<void>;
       delete(promotionId: number): Promise<void>;
+    };
+    facilityBookings: {
+      // GET /api/v1/admin/facility-bookings — 큐(정렬은 서버가 status 종속 결정, sort 전송 금지)
+      queue(params: AdminBookingQueueParams): Promise<PageResponse<AdminFacilityBookingSummary>>;
+      // GET /api/v1/admin/facility-bookings/{bookingId} — 상세+검증 컨텍스트(온디맨드 재크롤)
+      detail(bookingId: number): Promise<AdminFacilityBookingDetail>;
+      // POST .../approve — 바디 없음. 409+code=FACILITY_BOOKING_SCHOOL_CONFLICT 시 payload에 충돌 상세
+      approve(bookingId: number): Promise<void>;
+      reject(bookingId: number, reason: string): Promise<void>;
+      // POST .../confirm — 수동 확정(자동 매칭 실패분), 바디 없음
+      confirm(bookingId: number): Promise<void>;
+      markConflict(bookingId: number, detail: string): Promise<void>;
+      cancel(bookingId: number, reason: string): Promise<void>;
+      // GET .../summary — 대시보드 카드 수치(§9.7)
+      summary(): Promise<AdminFacilityBookingCounts>;
     };
     // === BANK 자동매칭 관리 (Sprint 3) ===
     bankMatching: {
@@ -1440,6 +1459,23 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           jsonVoid(http.patch(`admin/promotions/${promotionId}`, { json: payload })),
         delete: (promotionId) =>
           jsonVoid(http.delete(`admin/promotions/${promotionId}`)),
+      },
+      facilityBookings: {
+        queue: (params) =>
+          jsonOk<PageResponse<AdminFacilityBookingSummary>>(
+            http.get('admin/facility-bookings', { searchParams: cleanParams(params) }),
+          ),
+        detail: (bookingId) =>
+          jsonOk<AdminFacilityBookingDetail>(http.get(`admin/facility-bookings/${bookingId}`)),
+        approve: (bookingId) => jsonVoid(http.post(`admin/facility-bookings/${bookingId}/approve`)),
+        reject: (bookingId, reason) =>
+          jsonVoid(http.post(`admin/facility-bookings/${bookingId}/reject`, { json: { reason } })),
+        confirm: (bookingId) => jsonVoid(http.post(`admin/facility-bookings/${bookingId}/confirm`)),
+        markConflict: (bookingId, detail) =>
+          jsonVoid(http.post(`admin/facility-bookings/${bookingId}/conflict`, { json: { detail } })),
+        cancel: (bookingId, reason) =>
+          jsonVoid(http.post(`admin/facility-bookings/${bookingId}/cancel`, { json: { reason } })),
+        summary: () => jsonOk<AdminFacilityBookingCounts>(http.get('admin/facility-bookings/summary')),
       },
       bankMatching: {
         overview: () =>
