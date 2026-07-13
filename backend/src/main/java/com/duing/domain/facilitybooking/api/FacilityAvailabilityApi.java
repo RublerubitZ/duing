@@ -1,5 +1,6 @@
 package com.duing.domain.facilitybooking.api;
 
+import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.PurposePresetResponse;
 import com.duing.global.response.ApiResponse;
@@ -22,6 +23,11 @@ public interface FacilityAvailabilityApi {
     ResponseEntity<ApiResponse<FacilityAvailabilityResponse>> getAvailability(
             @PathVariable Long facilityId,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth);
+
+    @Operation(summary = "현재 예약 오픈 구간 (비로그인)",
+            description = "반월 오픈 정책 등 현재 신청 가능한 날짜 구간. 전 시설 공통.")
+    @GetMapping("/facilities/booking-window")
+    ResponseEntity<ApiResponse<BookingWindowResponse>> getBookingWindow();
 
     @Operation(summary = "사용 목적 Preset 목록 (비로그인)")
     @GetMapping("/facilities/booking-purpose-presets")

@@ -12,11 +12,15 @@ import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
+import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
+import com.duing.domain.facilitybooking.service.BookingWindow;
+import com.duing.domain.facilitybooking.service.BookingWindowPolicy;
 import com.duing.domain.facilitybooking.service.FacilityAvailabilityService;
 import io.restassured.RestAssured;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +40,7 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
 
     @Autowired FacilityAvailabilityService availabilityService;
     @Autowired FacilityRepository facilityRepository;
+    @Autowired BookingWindowPolicy bookingWindowPolicy;
 
     // 서비스가 seoulClock(KST) 기준으로 당월을 계산하므로 테스트도 같은 Clock 을 써야
     // UTC CI 러너의 월 경계(매월 1일 00:00~09:00 KST)에서 결정적 실패를 피할 수 있다.
@@ -82,6 +87,20 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
                 .isInstanceOf(FacilityBookingException.MonthOutOfBookingRangeException.class);
         assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now(clock).minusMonths(1)))
                 .isInstanceOf(FacilityBookingException.MonthOutOfBookingRangeException.class);
+    }
+
+    @Test
+    @DisplayName("예약 오픈 구간 API 는 비로그인으로 현재 구간을 반환하고 가용성 응답의 창과 일치한다")
+    void bookingWindowMatchesAvailabilityWindow() {
+        BookingWindow expected = bookingWindowPolicy.windowFor(LocalDate.now(clock));
+
+        BookingWindowResponse response = RestAssured.given()
+                .when().get("/api/v1/facilities/booking-window")
+                .then().statusCode(HttpStatus.OK.value())
+                .extract().jsonPath().getObject("data", BookingWindowResponse.class);
+
+        assertThat(response.bookableFrom()).isEqualTo(expected.from());
+        assertThat(response.bookableUntil()).isEqualTo(expected.until());
     }
 
     @Test
