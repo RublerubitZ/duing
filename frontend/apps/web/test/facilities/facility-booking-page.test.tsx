@@ -288,7 +288,8 @@ describe('FacilityBookingPage — 예약 홈 통합', () => {
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
 
     const loginLink = await screen.findByRole('link', { name: '로그인하기' });
-    expect(loginLink).toHaveAttribute('href', '/login');
+    // 로그인 후 현재 딥링크로 복귀하도록 next 파라미터가 실린다(검증은 로그인 쪽 toLinkRoute).
+    expect(loginLink.getAttribute('href')).toMatch(/^\/login\?next=/);
   });
 
   it('시나리오 7: 로그인 상태에서 운영진 동아리 조회가 실패하면 폼에 에러·재시도가 노출된다', async () => {
@@ -307,5 +308,51 @@ describe('FacilityBookingPage — 예약 홈 통합', () => {
 
     expect(await screen.findByText('동아리 정보를 불러오지 못했어요.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+  });
+
+  it('시나리오 8: 신청이 409 로 실패하면 재조회 후 무효해진 선택을 비우고 슬롯 화면으로 돌아간다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+
+    // POST 가 409 를 낸 뒤 onSettled 재조회 시점부터 선택 범위(18:00~19:00)가 BLOCKED 로 바뀌도록
+    // 가변 플래그로 availability 응답을 전환한다(핸들러 오염 방지 위해 이 테스트 내부에서만 server.use).
+    let conflictBlocked = false;
+    server.use(
+      http.get('*/facilities/1/availability', () => {
+        const availability = makeAvailability(1);
+        if (conflictBlocked) {
+          const today = availability.days.find((day) => day.date === TODAY_ISO);
+          if (today) {
+            today.slots = today.slots.map((slot) =>
+              slot.start === '18:00'
+                ? { start: slot.start, end: slot.end, status: 'BLOCKED' as const, blockedBy: 'INTERNAL' as const }
+                : slot,
+            );
+          }
+        }
+        return ok(availability);
+      }),
+      http.post('*/clubs/7/facility-bookings', () => {
+        conflictBlocked = true;
+        return HttpResponse.json(
+          { ok: false, data: null, message: '이미 예약된 시간이에요.' },
+          { status: 409 },
+        );
+      }),
+    );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: TODAY_DAY_LABEL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
+    await screen.findByText('밴드부');
+    fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
+
+    // 경합 에러 토스트 + 재조회 후 슬롯 화면 복귀(선택 초기화 → CTA 비활성).
+    expect(await screen.findByText('이미 예약된 시간이에요.')).toBeInTheDocument();
+    const disabledCta = await screen.findByRole('button', { name: '시간을 선택해주세요' });
+    expect(disabledCta).toBeDisabled();
   });
 });

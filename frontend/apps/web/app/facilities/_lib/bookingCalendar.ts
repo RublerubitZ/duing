@@ -105,14 +105,16 @@ export function rangeLabel(range: SlotRange): string {
   return `${range.start}~${range.end}`;
 }
 
-/** 선택일이 속한 주(일~토) 7일 — 월 경계를 넘을 수 있다(범위 밖 날짜는 호출부가 데이터 없음 처리). */
+/** 선택일이 속한 주(월~일) 7일 — 월 경계를 넘을 수 있다(범위 밖 날짜는 호출부가 데이터 없음 처리). */
 export function weekDatesOf(iso: string): string[] {
   const base = parseIsoDate(iso);
-  const sunday = new Date(base);
-  sunday.setDate(base.getDate() - base.getDay());
+  const dayOfWeek = base.getDay();
+  const mondayOffset = (dayOfWeek + 6) % 7; // 일=0→6, 월=1→0, … 토=6→5
+  const monday = new Date(base);
+  monday.setDate(base.getDate() - mondayOffset);
   return Array.from({ length: 7 }, (_, offset) => {
-    const date = new Date(sunday);
-    date.setDate(sunday.getDate() + offset);
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + offset);
     return toIso(date.getFullYear(), date.getMonth(), date.getDate());
   });
 }

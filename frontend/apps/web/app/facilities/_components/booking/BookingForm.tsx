@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from '@duing/stores';
 import type { CreateFacilityBookingResult } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { toRoute } from '@/app/_lib/route';
 import type { SlotRange } from '../../_lib/bookingCalendar';
 import { rangeLabel } from '../../_lib/bookingCalendar';
 
@@ -41,10 +42,15 @@ export function BookingForm({
   const [attendeeCount, setAttendeeCount] = useState('');
 
   if (authStatus !== 'authenticated') {
+    // 로그인 후 현재 딥링크(?facilityId=&date=)로 복귀시킨다(next 검증은 로그인 쪽 toLinkRoute).
+    const loginHref: `/${string}` =
+      typeof window === 'undefined'
+        ? '/login'
+        : `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
     return (
       <div className="space-y-3 text-sm text-charcoal-2">
         <p>예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.</p>
-        <Link href="/login" className="btn btn-primary inline-flex">로그인하기</Link>
+        <Link href={toRoute(loginHref)} className="btn btn-primary inline-flex">로그인하기</Link>
       </div>
     );
   }

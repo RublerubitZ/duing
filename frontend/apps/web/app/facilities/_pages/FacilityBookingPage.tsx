@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useFacilityAvailabilityQuery, useFacilityUsageQuery } from '@duing/hooks';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
@@ -10,7 +10,7 @@ import { FacilityOverviewTimeline } from '../_components/FacilityOverviewTimelin
 import { FacilityUsageGuide } from '../_components/FacilityUsageGuide';
 import { seoulDateIso, shiftYearMonth } from '../_lib/facilityTimeline';
 import type { SlotRange } from '../_lib/bookingCalendar';
-import { toggleSlotSelection } from '../_lib/bookingCalendar';
+import { isSelectableSlot, slotInRange, toggleSlotSelection } from '../_lib/bookingCalendar';
 import { BookingCalendar } from '../_components/booking/BookingCalendar';
 import { BookingHomeSkeleton, CalendarGridSkeleton } from '../_components/booking/BookingHomeSkeleton';
 import { BookingPanel, type PanelStep, type PanelView } from '../_components/booking/BookingPanel';
@@ -90,6 +90,20 @@ export function FacilityBookingPage() {
   }, [availability]);
   const selectedDay = selectedDate !== null ? daysByIso.get(selectedDate) : undefined;
   const selectedFacility = chipFacilities.find((candidate) => candidate.id === effectiveFacilityId);
+
+  // §9.8 경합 실패 재조회 후 선택 무효화 — 갱신 데이터에서 선택 범위에 선택 불가 슬롯이 생기면
+  // 선택을 비우고 폼이면 슬롯 화면으로 되돌린다. 성공 화면은 이미 접수된 신청의 확인이므로 보존.
+  const selectionInvalid =
+    step !== 'success' &&
+    selection !== null &&
+    selectedDay !== undefined &&
+    selectedDay.slots.some((slot) => slotInRange(slot, selection) && !isSelectableSlot(slot));
+
+  useEffect(() => {
+    if (!selectionInvalid) return;
+    setSelection(null);
+    setStep((current) => (current === 'form' ? 'slots' : current));
+  }, [selectionInvalid]);
 
   const closePanel = () => {
     setSelectedDate(null);
