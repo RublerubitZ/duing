@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **⚠️ 드리프트 노트(실행 후 기록):** 리뷰 픽스 웨이브로 본문 코드 블록 일부가 실제 코드와 다르다 — **항상 실코드 우선**. 주요 이탈: 주간 뷰 셀 클래스 상호 배타 분기·헤더 button 전환, 시트 open에 뷰포트 게이트(`useIsMobileViewport`)·aside 조건 게이트, 시트 내부 패딩+핸들 바, 가용성 에러 UI·빈 상태·그리드 전용 스켈레톤, 뮤테이션 invalidate는 `onSettled`(§9.8 실패 시 재조회), 폼 동아리 목록 로딩/에러 분기, `changeMonth` URL 정리, 통합 테스트 7건(플레이크 가드·폼 에러 시나리오 추가). 스펙 §9.5 괴리(주간 셀 탭 선택·데스크탑 기본 주간·모바일 중앙정렬)는 미구현 — PR4에서 스펙 개정 또는 구현 결정.
+
 **Goal:** `/facilities` 를 조회 전용 뷰어에서 **예약 홈**(시설 칩 → 월간 캘린더 → Day View 시트/패널 → 연속 슬롯 선택 → 신청 폼 → 성공 화면)으로 전면 교체하고, 기존 상세 라우트를 redirect 처리한다.
 
 **Architecture:** 데이터는 `packages/types → packages/api(client) → packages/hooks(RQ)` 3층 관례 그대로. 페이지는 CSR(`'use client'`) 단일 페이지 + 쿼리 파라미터 딥링크(`?facilityId=&date=`), Day View 는 단일 제어 상태(page 소유)로 데스크탑 인라인 우측 패널과 모바일 Bottom Sheet 를 동시 구동(캘린더 페이지 하이브리드 전례). 순수 계산(월 그리드·연속 슬롯 선택·주간 파생)은 `_lib/bookingCalendar.ts` 로 격리해 단위 테스트한다.
