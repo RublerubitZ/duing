@@ -40,7 +40,7 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
         // 기준 스냅샷 시각을 재검증 전에 읽어, 기록된 crawlBasisAt 이 검증에 쓴 데이터보다 최신이 되는 skew 를 과거 방향으로 보수화한다.
         LocalDateTime crawlBasisAt = latestCrawlBasis(YearMonth.from(booking.getReservationDate()));
-        rejectIfSchoolOccupied(booking);
+        rejectIfSchoolOccupied(booking, crawlBasisAt);
         rejectIfInternallyBlocked(booking);
 
         BookingStatus previousStatus = booking.getStatus();
@@ -63,10 +63,18 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     @Transactional
     public void confirmManually(Long adminId, Long bookingId) {
         FacilityBooking booking = getBooking(bookingId);
+        // 승인과 동일한 재검증(§4.2 불변식) — 확정도 시설 행 잠금으로 직렬화하고, 승인 후 유입된 학교 점유행·
+        // 내부 겹침을 재확인해 잠금·재검증 없는 무방비 CONFIRMED 진입을 막는다.
+        facilityRepository.findByIdForUpdate(booking.getFacilityId())
+                .orElseThrow(FacilityException.FacilityNotFoundException::new);
+        LocalDateTime crawlBasisAt = latestCrawlBasis(YearMonth.from(booking.getReservationDate()));
+        rejectIfSchoolOccupied(booking, crawlBasisAt);
+        rejectIfInternallyBlocked(booking);
+
         BookingStatus previousStatus = booking.getStatus();
         booking.confirmManually(LocalDateTime.now(clock));
         historyRepository.save(FacilityBookingStatusHistory.record(
-                booking.getId(), previousStatus, BookingStatus.CONFIRMED, adminId, "관리자 수동 확정", null));
+                booking.getId(), previousStatus, BookingStatus.CONFIRMED, adminId, "관리자 수동 확정", crawlBasisAt));
     }
 
     @Override
@@ -94,17 +102,25 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
                 .orElseThrow(FacilityBookingException.BookingNotFoundException::new);
     }
 
-    /** 크롤 점유행 겹침 — 승인 불가(§5.2-2c-①). 판별은 정책 경유(컬럼 접근 금지 계약). */
-    private void rejectIfSchoolOccupied(FacilityBooking booking) {
-        boolean blocked = facilityReservationRepository
-                .findByFacilityIdAndYearMonth(booking.getFacilityId(),
-                        YearMonth.from(booking.getReservationDate())).stream()
-                .filter(reservation -> reservation.getReservationDate().equals(booking.getReservationDate()))
-                .filter(reservation -> availabilityPolicy.classify(reservation) == CrawlRowType.OCCUPIED)
-                .anyMatch(reservation -> reservation.getStartTime().isBefore(booking.getEndTime())
-                        && reservation.getEndTime().isAfter(booking.getStartTime()));
-        if (blocked) {
-            throw new FacilityBookingException.SchoolConflictException();
+    /**
+     * 크롤 점유행 겹침 — 승인·확정 불가(§5.2-2c-①). 판별은 정책 경유(컬럼 접근 금지 계약).
+     * 겹치는 점유행 전부를 payload(§8.3 data.conflicts[])로 실어 던져 FE 가 충돌 상세를 렌더할 수 있게 한다.
+     */
+    private void rejectIfSchoolOccupied(FacilityBooking booking, LocalDateTime crawlBasisAt) {
+        List<FacilityBookingException.SchoolConflictException.ConflictItem> conflicts =
+                facilityReservationRepository
+                        .findByFacilityIdAndYearMonth(booking.getFacilityId(),
+                                YearMonth.from(booking.getReservationDate())).stream()
+                        .filter(reservation -> reservation.getReservationDate().equals(booking.getReservationDate()))
+                        .filter(reservation -> availabilityPolicy.classify(reservation) == CrawlRowType.OCCUPIED)
+                        .filter(reservation -> reservation.getStartTime().isBefore(booking.getEndTime())
+                                && reservation.getEndTime().isAfter(booking.getStartTime()))
+                        .map(reservation -> new FacilityBookingException.SchoolConflictException.ConflictItem(
+                                reservation.getOrganizationName(),
+                                reservation.getStartTime(), reservation.getEndTime()))
+                        .toList();
+        if (!conflicts.isEmpty()) {
+            throw new FacilityBookingException.SchoolConflictException(conflicts, crawlBasisAt);
         }
     }
 

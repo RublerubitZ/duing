@@ -156,6 +156,25 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("수동 확정도 승인 후 유입된 점유행을 재검증해 겹치면 SchoolConflict 409, APPROVED 유지다")
+    void confirmManuallyRevalidatesAgainstSchoolRows() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        // 승인 후 학교 점유행(꼬리 없음)이 크롤로 유입 — 수동 확정 시 재검증(§4.2)에 걸려야 한다
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", null, null, LocalDateTime.now()));
+
+        assertThatThrownBy(() -> adminService.confirmManually(admin.getId(), approved))
+                .isInstanceOf(FacilityBookingException.SchoolConflictException.class);
+        assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED); // 확정되지 않고 APPROVED 유지
+    }
+
+    @Test
     @DisplayName("겹치는 두 PENDING 을 동시에 승인하면 정확히 1건만 APPROVED 다 (시설 잠금 직렬화)")
     void concurrentApproveSerializesPerFacility() throws Exception {
         Fixture first = fixture();

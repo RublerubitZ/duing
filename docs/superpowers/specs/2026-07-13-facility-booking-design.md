@@ -536,7 +536,8 @@ domain/facilitybooking/
   | 충돌 | CONFLICT + 충돌 의심 플래그 건수 | 1건이라도 있으면 coral |
   | 이달 확정 | 해당 월 CONFIRMED 건수 | — |
 
-- 기존 admin 콘솔 패턴(테이블 + 필터) 재사용. 기본 뷰 = PENDING 큐(오래된 순). 필터: 상태/시설/기간. APPROVED 행에 "학교 반영 대기 D+N", 충돌 의심·부분 반영 플래그 배지.
+- **충돌 카드 계약**: 카드 수치 = `conflictCount`(CONFLICT 상태 건수) + `conflictSuspectedCount`(당월·익월 APPROVED 중 이름 불일치 점유행 겹침 파생 건수) **합산** 표시. 카드 클릭 = CONFLICT 상태 필터 + APPROVED 큐의 `conflictSuspected`(및 `partiallyMatched`) 플래그 배지 조합 — 실제 CONFLICT와 '의심' 대기 건을 한 화면에서 함께 처리한다.
+- 기존 admin 콘솔 패턴(테이블 + 필터) 재사용. 기본 뷰 = PENDING 큐(오래된 순 — `status==PENDING`이면 `createdAt asc`, 그 외 최신순). 필터: 상태/시설/기간. APPROVED 행에 "학교 반영 대기 D+N", 충돌 의심·부분 반영 플래그 배지.
 - 상세(모달 또는 상세 행 확장): 신청 정보 + **검증 컨텍스트 시각화** — 해당 날짜의 13슬롯 미니 타임라인에 신청 구간·크롤 점유행·겹치는 PENDING을 겹쳐 그림. 상단에 크롤 신선도("마지막 수집 N분 전", 실패 시 §5.2의 경고 배너). 액션: 승인/거절(사유)/수동 확정/충돌 전환/취소.
 
 ### 9.8 상태별 UX (Empty · Loading · Error)

@@ -84,6 +84,15 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         return clubRepository.save(club);
     }
 
+    /** 정규화 키 충돌 시나리오용 — 접미사 없이 정확한 이름으로 ACTIVE 동아리를 저장한다. */
+    private Club saveActiveClubExact(String exactName) throws Exception {
+        Club club = Club.create(exactName, ClubCategory.OTHER, "분과", "설명", null);
+        Field statusField = Club.class.getDeclaredField("status");
+        statusField.setAccessible(true);
+        statusField.set(club, ClubStatus.ACTIVE);
+        return clubRepository.save(club);
+    }
+
     private Facility saveFacility() {
         return facilityRepository.save(Facility.create(
                 (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0));
@@ -193,5 +202,92 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
 
         assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
                 .isEqualTo(BookingStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("아카이브 시설의 예약은 정확 매칭돼도 자동 확정하지 않는다 — 잔존 크롤 행 세대 결박 방어")
+    void skipsArchivedFacility() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
+
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        // 동아리명 그대로 18~20 을 완전 커버하는 점유행(승인 후 유입) — 활성 시설이면 자동 확정될 상태
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, LocalDateTime.now()));
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, LocalDateTime.now()));
+
+        // 시설을 아카이브 — 크롤이 잔존 행을 지우지 않아도 매칭 대상에서 제외돼야 한다
+        fixture.facility().archive(LocalDateTime.now());
+        facilityRepository.save(fixture.facility());
+
+        recordSuccessSnapshot(YearMonth.from(date));
+        scheduler.runMatchingCycle();
+
+        assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("스냅샷 기준보다 오래된 크롤 행(-1시간)은 커버로 인정하지 않는다 — 행 신선도 가드")
+    void skipsStaleCrawlRows() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
+
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        // 완전 커버하지만 crawledAt 이 스냅샷 기준보다 1시간 이른 행 — 신선도 가드로 제외돼 미커버가 된다
+        LocalDateTime staleCrawledAt = LocalDateTime.now().minusHours(1);
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, staleCrawledAt));
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, staleCrawledAt));
+
+        recordSuccessSnapshot(YearMonth.from(date)); // 스냅샷 crawledAt = now (행보다 1시간 최신)
+        scheduler.runMatchingCycle();
+
+        assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("정규화 키가 다른 동아리와 충돌하면 정확 매칭돼도 자동 확정하지 않는다 — 오확정 방지 폴백")
+    void skipsWhenNormalizedClubKeyCollides() throws Exception {
+        User admin = saveUser("총동연");
+        User leader = saveUser("리더");
+        long base = sequence.getAndIncrement();
+        String bandName = "밴드부" + base;
+        Club bandClub = saveActiveClubExact(bandName);
+        saveActiveClubExact(bandName + "(중앙)"); // 정규화 후 같은 키 — 충돌 유발
+        clubMemberRepository.save(ClubMember.asLeader(bandClub, leader));
+        Facility facility = saveFacility();
+        LocalDate date = bookableDate();
+
+        Long approved = bookingService.create(new CreateFacilityBookingCommand(
+                bandClub.getId(), leader.getId(), facility.getId(), date,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null)).bookingId();
+        adminService.approve(admin.getId(), approved);
+        // 동아리명 그대로 18~20 을 완전 커버하는 점유행 — 키 충돌만 없으면 자동 확정될 상태
+        facilityReservationRepository.save(FacilityReservation.create(facility.getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(19, 0), bandName, null, null, LocalDateTime.now()));
+        facilityReservationRepository.save(FacilityReservation.create(facility.getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(19, 0), LocalTime.of(20, 0), bandName, null, null, LocalDateTime.now()));
+
+        recordSuccessSnapshot(YearMonth.from(date));
+        scheduler.runMatchingCycle();
+
+        assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED); // 키 충돌 → 자동 확정 스킵(수동 확정 폴백)
     }
 }

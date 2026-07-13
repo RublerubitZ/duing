@@ -5,6 +5,7 @@ import static com.duing.domain.facilitybooking.entity.QFacilityBooking.facilityB
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.service.dto.query.AdminBookingSearchCondition;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDate;
@@ -26,8 +27,7 @@ public class FacilityBookingRepositoryImpl implements FacilityBookingRepositoryC
                         facilityEquals(condition.facilityId()),
                         dateFrom(condition.dateFrom()),
                         dateTo(condition.dateTo()))
-                // createdAt 은 비유일 — id 를 2차 정렬로 붙여 페이지 경계에서 순서를 결정적으로 고정한다.
-                .orderBy(facilityBooking.createdAt.desc(), facilityBooking.id.desc())
+                .orderBy(orderBy(condition.status()))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
@@ -39,6 +39,18 @@ public class FacilityBookingRepositoryImpl implements FacilityBookingRepositoryC
                         dateTo(condition.dateTo()))
                 .fetchOne();
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    /**
+     * 기본 뷰(PENDING 큐)는 오래된 순으로 정렬한다(§9.7) — 오래 대기한 신청을 먼저 처리하도록 createdAt 오름차순.
+     * 그 외 상태(및 status 무필터)는 최근 활동을 먼저 보는 기존 최신순을 유지한다.
+     * createdAt 은 비유일이라 id 를 2차 정렬로 붙여 페이지 경계에서 순서를 결정적으로 고정한다.
+     */
+    private OrderSpecifier<?>[] orderBy(BookingStatus status) {
+        if (status == BookingStatus.PENDING) {
+            return new OrderSpecifier<?>[] {facilityBooking.createdAt.asc(), facilityBooking.id.asc()};
+        }
+        return new OrderSpecifier<?>[] {facilityBooking.createdAt.desc(), facilityBooking.id.desc()};
     }
 
     private BooleanExpression statusEquals(BookingStatus status) {

@@ -55,12 +55,18 @@ public interface FacilityBookingRepository
     /** 관리자 대시보드 카운트(§5.5) — 상태별 전체 건수. */
     long countByStatus(BookingStatus status);
 
-    /** 오늘 접수(생성) 건수 — createdAt 은 JPA 감사가 JVM 기본 존으로 기록하므로 경계도 같은 존으로 넘겨받는다. */
-    long countByStatusAndCreatedAtBetween(BookingStatus status, LocalDateTime from, LocalDateTime to);
+    /**
+     * 오늘 접수(생성) 건수 — 상태 무관(처리 완료돼도 오늘 접수는 접수). createdAt 은 JPA 감사가 저장 존(JVM 기본)
+     * 으로 기록하므로, 호출부가 KST 하루 경계를 같은 저장 존 LocalDateTime 으로 변환해 넘긴다(§9.7·§5.3).
+     */
+    long countByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
 
     /** 이달 확정 건수 — 예약일(reservationDate) 기준 월 구간. */
     long countByStatusAndReservationDateBetween(BookingStatus status, LocalDate from, LocalDate to);
 
     /** 가장 오래 대기 중인 APPROVED — decidedAt 최소(최고령). 대기 경과일 계산용. */
     Optional<FacilityBooking> findFirstByStatusOrderByDecidedAtAsc(BookingStatus status);
+
+    /** 가장 오래된 PENDING — createdAt 최소(최고령). 승인 대기 경과일 계산용(§9.7). */
+    Optional<FacilityBooking> findFirstByStatusOrderByCreatedAtAsc(BookingStatus status);
 }

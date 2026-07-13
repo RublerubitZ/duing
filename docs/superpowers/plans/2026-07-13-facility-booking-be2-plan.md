@@ -1016,15 +1016,18 @@ public class FacilityBookingMatchingJobConfig {}
 package com.duing.domain.facilitybooking.scheduler;
 
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityReservation;
 import com.duing.domain.facility.entity.FetchStatus;
 import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
+import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService;
 import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService.MatchDecision;
+import com.duing.domain.facilitybooking.service.OrganizationNameNormalizer;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -1032,6 +1035,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -1055,7 +1059,9 @@ public class FacilityBookingMatchingScheduler {
     private final FacilityBookingRepository facilityBookingRepository;
     private final FacilityReservationRepository facilityReservationRepository;
     private final FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
+    private final FacilityRepository facilityRepository;
     private final FacilityBookingMatchingService matchingService;
+    private final OrganizationNameNormalizer normalizer;
     private final ClubRepository clubRepository;
     private final Clock clock;
 
@@ -1077,6 +1083,8 @@ public class FacilityBookingMatchingScheduler {
     /** 테스트에서 직접 호출 가능한 코어 — 당월·익월의 APPROVED 를 스캔한다. */
     public void runMatchingCycle() {
         YearMonth currentMonth = YearMonth.now(clock);
+        // 사이클당 1회 — 정규화 후 2개 이상 동아리가 공유하는 키(오확정 위험)를 미리 모아 판정 전 게이트로 쓴다.
+        Set<String> collidingClubKeys = collidingClubKeys();
         int confirmedCount = 0;
         for (YearMonth month : List.of(currentMonth, currentMonth.plusMonths(1))) {
             Optional<LocalDateTime> crawlBasisAt = successCrawledAt(month);
@@ -1084,7 +1092,7 @@ public class FacilityBookingMatchingScheduler {
                 log.info("FacilityBooking Matching skip month={} (스냅샷 미신뢰)", month);
                 continue;
             }
-            confirmedCount += matchMonth(month, crawlBasisAt.get());
+            confirmedCount += matchMonth(month, crawlBasisAt.get(), collidingClubKeys);
         }
         log.info("FacilityBooking Matching done confirmed={}", confirmedCount);
     }
@@ -1096,13 +1104,28 @@ public class FacilityBookingMatchingScheduler {
                 .map(snapshot -> snapshot.getCrawledAt());
     }
 
-    private int matchMonth(YearMonth month, LocalDateTime crawlBasisAt) {
+    /** 정규화 후 2개 이상 동아리가 공유하는 키 집합("밴드부"·"밴드부(중앙)"). 이런 키는 자동 확정을 포기한다. */
+    private Set<String> collidingClubKeys() {
+        Map<String, Long> keyCounts = clubRepository.findAll().stream()
+                .map(club -> normalizer.normalize(club.getName()))
+                .filter(key -> !key.isEmpty())
+                .collect(Collectors.groupingBy(key -> key, Collectors.counting()));
+        return keyCounts.entrySet().stream()
+                .filter(entry -> entry.getValue() >= 2)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+    }
+
+    private int matchMonth(YearMonth month, LocalDateTime crawlBasisAt, Set<String> collidingClubKeys) {
         List<FacilityBooking> approvedBookings = facilityBookingRepository
                 .findByStatusAndReservationDateBetween(BookingStatus.APPROVED,
                         month.atDay(1), month.atEndOfMonth());
         if (approvedBookings.isEmpty()) {
             return 0;
         }
+        // 활성(미아카이브) 시설만 대상 — 아카이브 시설의 잔존 크롤 행(크롤이 삭제 안 함)으로 불가역 CONFIRMED 방지.
+        Set<Long> activeFacilityIds = facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc().stream()
+                .map(Facility::getId).collect(Collectors.toSet());
         Map<Long, String> clubNames = clubRepository.findAllById(
                         approvedBookings.stream().map(FacilityBooking::getClubId).distinct().toList()).stream()
                 .collect(Collectors.toMap(club -> club.getId(), club -> club.getName(), (first, second) -> first));
@@ -1114,16 +1137,27 @@ public class FacilityBookingMatchingScheduler {
         for (FacilityBooking booking : approvedBookings) {
             // 한 건 처리 실패가 잔여 예약·익월 스캔을 죽이지 않도록 예약 단위로 격리한다(낙관 잠금 충돌 포함).
             try {
+                if (!activeFacilityIds.contains(booking.getFacilityId())) {
+                    log.info("FacilityBooking Matching skip bookingId={} (아카이브 시설)", booking.getId());
+                    continue;
+                }
+                String clubName = clubNames.getOrDefault(booking.getClubId(), "");
+                if (collidingClubKeys.contains(normalizer.normalize(clubName))) {
+                    log.info("FacilityBooking Matching skip bookingId={} (정규화 키 충돌 — 수동 확정 폴백)",
+                            booking.getId());
+                    continue;
+                }
                 List<FacilityReservation> dayRows = rowsByFacility
                         .computeIfAbsent(booking.getFacilityId(), facilityId ->
                                 facilityReservationRepository.findByFacilityIdAndYearMonth(facilityId, month))
                         .stream()
                         .filter(row -> row.getReservationDate().equals(booking.getReservationDate()))
+                        // 행 신선도 가드(세대 결박) — 스냅샷 기준보다 15분 넘게 오래된 행은 제외(15분=크롤 최악 소요 상한).
+                        .filter(row -> !row.getCrawledAt().isBefore(crawlBasisAt.minusMinutes(15)))
                         .toList();
-                MatchDecision decision = matchingService.decide(
-                        booking, clubNames.getOrDefault(booking.getClubId(), ""), dayRows);
+                MatchDecision decision = matchingService.decide(booking, clubName, dayRows);
                 if (decision.confirmed()) {
-                    matchingService.applyAutoConfirm(booking.getId(), decision, crawlBasisAt);
+                    matchingService.applyAutoConfirm(booking.getId(), month, decision, crawlBasisAt);
                     confirmedCount++;
                 }
             } catch (Exception exception) {
@@ -1138,13 +1172,22 @@ public class FacilityBookingMatchingScheduler {
 적용 메서드는 Task 3 의 `FacilityBookingMatchingService` 에 둔다(별도 빈 프록시라 `@Transactional` 이 실제로 적용됨):
 
 ```java
-    /** 예약 1건 단위의 짧은 트랜잭션 — 상태 재확인 후 전이(멱등: APPROVED 가 아니면 조용히 스킵).
-     *  crawlBasisAt = 판정 근거가 된 SUCCESS 스냅샷의 수집 시각(확정 시점 now 가 아님). */
+    /** 예약 1건 단위의 짧은 트랜잭션 — 상태 재확인 + 스냅샷 세대 재확인 후 전이(멱등: APPROVED·동일 세대가
+     *  아니면 조용히 스킵). crawlBasisAt = 판정 근거가 된 SUCCESS 스냅샷의 수집 시각(확정 시점 now 가 아님). */
     @Transactional
-    public void applyAutoConfirm(Long bookingId, MatchDecision decision, LocalDateTime crawlBasisAt) {
+    public void applyAutoConfirm(Long bookingId, YearMonth month, MatchDecision decision,
+            LocalDateTime crawlBasisAt) {
         FacilityBooking booking = facilityBookingRepository.findById(bookingId).orElse(null);
         // 관리자 전이와의 경합은 @Version 낙관 잠금이 차단(늦은 커밋이 실패·롤백) — 재확인은 멱등 게이트.
         if (booking == null || booking.getStatus() != BookingStatus.APPROVED) {
+            return;
+        }
+        // 스냅샷 세대 재확인(세대 결박) — 판정과 적용 사이 재크롤·실패로 세대가 바뀌었으면 다음 사이클에 재판정.
+        boolean sameGeneration = facilityMonthSnapshotRepository.findByYearMonth(month)
+                .map(snapshot -> snapshot.getFetchStatus() == FetchStatus.SUCCESS
+                        && snapshot.getCrawledAt().equals(crawlBasisAt))
+                .orElse(false);
+        if (!sameGeneration) {
             return;
         }
         LocalDateTime now = LocalDateTime.now(clock);
@@ -1159,12 +1202,14 @@ public class FacilityBookingMatchingScheduler {
 - **self-invocation:** `@Transactional` 자기 호출은 프록시를 우회한다. `applyAutoConfirm` 을 스케줄러 대신 별도 빈 `FacilityBookingMatchingService`(판정과 적용이 한 서비스로 모임)에 두어 프록시 트랜잭션이 실제로 걸리게 한다.
 - **@EnableScheduling:** 매칭 잡은 전용 `FacilityBookingMatchingJobConfig`(`@EnableScheduling` + 동일 `@ConditionalOnProperty`)로 독립 활성화한다 — 전역 `@EnableScheduling` 이 없으므로 이 설정이 없으면 다른 잡이 켜져야만 cron 이 발화한다.
 - **crawlBasisAt:** 스냅샷의 `getCrawledAt()`(판단 근거 크롤 시각)을 `applyAutoConfirm` 까지 전달해 엔티티 `crawl_basis_at`·이력에 확정 시점(now)이 아닌 크롤 수집 시각을 남긴다(승인 경로 관례와 일치).
+- **세대 결박(3중 방어):** ① 활성 시설만 대상(아카이브 시설 잔존 행 배제) ② 행 신선도 가드(스냅샷 기준 -15분보다 오래된 행 제외) ③ `applyAutoConfirm` 트랜잭션 내 스냅샷 재조회로 `fetchStatus==SUCCESS && crawledAt==crawlBasisAt` 재확인 — 세 관문 모두 불가역 CONFIRMED 오확정을 막고 실패 시 다음 사이클에 재판정한다.
+- **정규화 키 충돌 폴백:** 사이클당 1회 전체 동아리명 정규화 키 카운트를 만들어, 2개 이상 동아리와 충돌하는 키의 예약은 자동 확정을 포기하고 수동 확정으로 넘긴다("밴드부"·"밴드부(중앙)" 오확정 방지).
 - **per-booking 격리·행 메모이즈:** `matchMonth` 는 예약 1건 처리를 try/catch 로 감싸 한 건 실패가 잔여·익월 스캔을 죽이지 않게 하고, `(시설,월)` 크롤 행을 `HashMap` 으로 메모이즈해 같은 시설 반복 조회를 없앤다.
 
 - [ ] **Step 4: 테스트 통과 확인 + Commit**
 
 Run: `cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend && ./gradlew test --tests "com.duing.domain.facilitybooking.scheduler.*"`
-Expected: 2개 전부 PASS
+Expected: 5개 전부 PASS(정확 매칭·SUCCESS 게이트·아카이브 시설·행 신선도·정규화 키 충돌)
 
 ```bash
 git add backend/src/main/java/com/duing backend/src/main/resources backend/src/test/java/com/duing
@@ -1184,7 +1229,7 @@ git commit -m "feat(backend): CONFIRMED 자동 매칭 스케줄러 추가 — SU
 - Test: `backend/src/test/java/com/duing/domain/facilitybooking/service/FacilityBookingAdminQueryIntegrationTest.java`
 
 **Interfaces:**
-- Produces: `searchForAdmin(AdminBookingSearchCondition(status, facilityId, dateFrom, dateTo), Pageable) → Page<FacilityBooking>`(최신순 기본); `FacilityBookingAdminQueryService` — `getQueue(condition, pageable) → Page<AdminBookingSummaryResult>`(clubName·roomName·pendingDays(APPROVED 경과일)·conflictSuspected 파생), `getDetail(bookingId) → AdminBookingDetailResult`(**ensureFresh 시도 + crawlBasisAt/stale + 겹침 컨텍스트(점유행·내부 예약·겹치는 PENDING) + 이력**), `getSummary() → AdminBookingSummaryCounts(pendingCount, todaySubmittedCount, approvedWaitingCount, oldestApprovedWaitingDays, conflictCount, confirmedThisMonthCount)`
+- Produces: `searchForAdmin(AdminBookingSearchCondition(status, facilityId, dateFrom, dateTo), Pageable) → Page<FacilityBooking>`(status==PENDING이면 `createdAt asc`(오래된 순, §9.7 기본 뷰), 그 외 최신순 — id 2차 정렬로 결정성 고정); `FacilityBookingAdminQueryService` — `getQueue(condition, pageable) → Page<AdminBookingSummaryResult>`(clubName·roomName·pendingDays(APPROVED 경과일)·conflictSuspected·partiallyMatched 파생), `getDetail(bookingId) → AdminBookingDetailResult`(**ensureFresh 시도 + crawlBasisAt/stale + 겹침 컨텍스트(점유행·내부 예약·겹치는 PENDING) + 이력**), `getSummary() → AdminBookingSummaryCounts(pendingCount, todaySubmittedCount, oldestPendingWaitingDays, approvedWaitingCount, oldestApprovedWaitingDays, conflictCount, conflictSuspectedCount, confirmedThisMonthCount)`
 - **주의: `FacilityBookingAdminQueryService` 는 클래스 레벨 `@Transactional` 금지** — `getDetail` 이 `ensureFresh`(온디맨드 크롤 쓰기)를 호출한다(가용성 서비스와 동일 원칙).
 
 - [ ] **Step 1: QueryDSL 검색 구현**
@@ -1231,6 +1276,7 @@ import static com.duing.domain.facilitybooking.entity.QFacilityBooking.facilityB
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.service.dto.query.AdminBookingSearchCondition;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDate;
@@ -1252,7 +1298,7 @@ public class FacilityBookingRepositoryImpl implements FacilityBookingRepositoryC
                         facilityEquals(condition.facilityId()),
                         dateFrom(condition.dateFrom()),
                         dateTo(condition.dateTo()))
-                .orderBy(facilityBooking.createdAt.desc())
+                .orderBy(orderBy(condition.status()))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
@@ -1264,6 +1310,14 @@ public class FacilityBookingRepositoryImpl implements FacilityBookingRepositoryC
                         dateTo(condition.dateTo()))
                 .fetchOne();
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    // 기본 뷰(PENDING 큐)는 오래된 순(§9.7) — createdAt 오름차순, 그 외 상태·무필터는 기존 최신순. id 2차 정렬로 결정성 고정.
+    private OrderSpecifier<?>[] orderBy(BookingStatus status) {
+        if (status == BookingStatus.PENDING) {
+            return new OrderSpecifier<?>[] {facilityBooking.createdAt.asc(), facilityBooking.id.asc()};
+        }
+        return new OrderSpecifier<?>[] {facilityBooking.createdAt.desc(), facilityBooking.id.desc()};
     }
 
     private BooleanExpression statusEquals(BookingStatus status) {
@@ -1311,13 +1365,14 @@ public class FacilityBookingAdminQueryService {
     private final FacilityCrawlService facilityCrawlService;
     private final FacilityAvailabilityPolicy availabilityPolicy;
     private final OrganizationNameNormalizer normalizer;
+    private final FacilityBookingMatchingService matchingService; // partiallyMatched·conflictSuspectedCount 파생에 decide 재사용
     private final ClubRepository clubRepository;
     private final Clock clock;
 
     public record AdminBookingSummaryResult(Long bookingId, Long clubId, String clubName,
             Long facilityId, String roomName, LocalDate date, LocalTime startTime, LocalTime endTime,
             BookingStatus status, String purpose, LocalDateTime createdAt,
-            Integer approvedWaitingDays, boolean conflictSuspected) {}
+            Integer approvedWaitingDays, boolean conflictSuspected, boolean partiallyMatched) {}
 
     public record OverlapContext(String source, String organization, LocalTime startTime, LocalTime endTime) {}
 
@@ -1330,8 +1385,8 @@ public class FacilityBookingAdminQueryService {
             List<FacilityBookingService.HistoryEntry> history) {}
 
     public record AdminBookingSummaryCounts(long pendingCount, long todaySubmittedCount,
-            long approvedWaitingCount, long oldestApprovedWaitingDays,
-            long conflictCount, long confirmedThisMonthCount) {}
+            long oldestPendingWaitingDays, long approvedWaitingCount, long oldestApprovedWaitingDays,
+            long conflictCount, long conflictSuspectedCount, long confirmedThisMonthCount) {}
 
     public Page<AdminBookingSummaryResult> getQueue(AdminBookingSearchCondition condition, Pageable pageable) { ... }
 
@@ -1342,19 +1397,22 @@ public class FacilityBookingAdminQueryService {
 ```
 
 구현 규칙(코드로 옮길 때 그대로):
-- `getQueue`: `searchForAdmin` → 페이지 항목의 clubName/roomName 은 `findAllById` 일괄 매핑(N+1 금지). `approvedWaitingDays` = status==APPROVED 일 때 `ChronoUnit.DAYS.between(decidedAt.toLocalDate(), LocalDate.now(clock))`, 그 외 null. `conflictSuspected` = APPROVED 이고, 해당 (시설,월) 크롤 행 중 **점유행**이 예약 시간과 겹치는데 정규화 이름이 동아리명과 불일치하는 행이 존재할 때 true — 크롤 행은 페이지 내 (시설,월) 조합당 1회만 조회해 캐시(Map)한다.
+- `getQueue`: `searchForAdmin` → 페이지 항목의 clubName/roomName 은 `findAllById` 일괄 매핑(N+1 금지). `approvedWaitingDays` = status==APPROVED 일 때 `ChronoUnit.DAYS.between(decidedAt.toLocalDate(), LocalDate.now(clock))`, 그 외 null. `conflictSuspected` = APPROVED 이고, 해당 (시설,월) 크롤 행 중 **점유행**이 예약 시간과 겹치는데 정규화 이름이 동아리명과 **불일치**하는 행이 존재할 때 true. `partiallyMatched` = APPROVED 이고, 정규화 이름이 **일치**하는 점유행이 겹치지만 `matchingService.decide(...)` 가 confirmed=false(완전 커버 아님)일 때 true — 학교가 우리 예약을 일부만 반영한 상태의 관리자 주의 표시(§5.3 P1). 크롤 행은 페이지 내 (시설,월) 조합당 1회만 조회해 캐시(Map)한다.
 - `getDetail`: ① `ensureFresh(YearMonth.from(date))` 시도(반환 DataSource 무시하지 말고 stale 계산에 사용 — 가용성 서비스의 `isStale` 로직과 동일 규칙: STALE_CACHE·스냅샷 null·비SUCCESS·10분 초과) ② 겹침 컨텍스트: 점유행(OverlapContext source="SCHOOL", 단체명)·내부 APPROVED/CONFIRMED(source="INTERNAL", 동아리명 — **관리자 화면은 내부용이므로 노출**)·겹치는 PENDING 개수 ③ 이력은 기존 `HistoryEntry` 재사용.
-- `getSummary`: `pendingCount`=PENDING 전체, `todaySubmittedCount`=오늘 생성 PENDING, `approvedWaitingCount`=APPROVED 전체, `oldestApprovedWaitingDays`=가장 오래된 APPROVED 의 경과일(없으면 0), `conflictCount`=CONFLICT 전체, `confirmedThisMonthCount`=이달(reservationDate 기준) CONFIRMED. 카운트는 `countByStatus`/`countByStatusAndCreatedAtBetween` 등 파생 쿼리를 리포지토리에 추가해 사용(각 1쿼리).
+- `getSummary`: `pendingCount`=PENDING 전체, `todaySubmittedCount`=**상태 무관** 오늘(KST) 생성 신청 수(처리 완료돼도 오늘 접수는 접수 — KST 하루 경계를 저장 존 LocalDateTime 으로 변환해 `countByCreatedAtBetween` 에 넘긴다), `oldestPendingWaitingDays`=가장 오래된 PENDING 의 createdAt 경과일(없으면 0, `findFirstByStatusOrderByCreatedAtAsc` 파생), `approvedWaitingCount`=APPROVED 전체, `oldestApprovedWaitingDays`=가장 오래된 APPROVED 의 경과일(없으면 0), `conflictCount`=CONFLICT 전체, `conflictSuspectedCount`=당월·익월 APPROVED 중 conflictSuspected 파생 건수(규모 수십이라 전수 계산·(시설,월) 캐시 재사용), `confirmedThisMonthCount`=이달(reservationDate 기준) CONFIRMED. 카운트는 `countByStatus`/`countByCreatedAtBetween` 등 파생 쿼리를 리포지토리에 추가해 사용.
 
 - [ ] **Step 3: 실패하는 통합 테스트 → 구현 → 통과**
 
-`FacilityBookingAdminQueryIntegrationTest.java` — 픽스처는 기존 패턴, `@MockitoBean FacilityCrawlService`(STALE_CACHE 스텁, 실 크롤 차단). 테스트 3건:
+`FacilityBookingAdminQueryIntegrationTest.java` — 픽스처는 기존 패턴, `@MockitoBean FacilityCrawlService`(STALE_CACHE 스텁, 실 크롤 차단). 테스트 6건:
 1. "큐는 상태·시설 필터와 페이지를 적용하고 APPROVED 에 경과일·충돌 의심 플래그를 파생한다" — PENDING 2 + APPROVED 1(불일치 점유행 겹침 → conflictSuspected true) 생성 후 `getQueue(new AdminBookingSearchCondition(APPROVED, null, null, null), PageRequest.of(0, 10))` 단언.
-2. "상세는 겹침 컨텍스트(SCHOOL·INTERNAL·PENDING 수)와 이력·stale 을 담는다" — 점유행 1 + 타 동아리 APPROVED 1 + 겹치는 PENDING 1 구성 후 `getDetail` 단언(overlaps 2건·pendingCount 1·stale true).
-3. "summary 는 상태별 카운트를 정확히 센다" — 상태 분포 만들고 `getSummary()` 단언.
+2. "정규화 일치 이름의 점유행이 겹치면 충돌 의심이 아니다" — 정규화 일치(공백 변형) 점유행 겹침 → conflictSuspected false.
+3. "PENDING 큐는 오래된 순(createdAt asc)으로 정렬한다" — PENDING 2건 생성 순서대로 asc 반환 단언(§9.7).
+4. "정규화 일치 이름 점유행이 부분만 덮으면 partiallyMatched true·conflictSuspected false 다" — 같은 이름 18~19 만 커버(19~20 미커버) → partiallyMatched true.
+5. "상세는 겹침 컨텍스트(SCHOOL·INTERNAL·PENDING 수)와 이력·stale 을 담는다" — 점유행 1 + 타 동아리 APPROVED 1 + 겹치는 PENDING 1 구성 후 `getDetail` 단언(overlaps 2건·pendingCount 1·stale true).
+6. "summary 는 상태별 카운트를 정확히 센다" — 상태 분포 + 이름 불일치 점유행 1 만들고 `getSummary()` 단언(oldestPendingWaitingDays·conflictSuspectedCount 포함).
 
 Run: `cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend && ./gradlew test --tests "com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryIntegrationTest"`
-Expected: 3개 전부 PASS
+Expected: 6개 전부 PASS
 
 - [ ] **Step 4: Commit**
 
@@ -1371,11 +1429,12 @@ git commit -m "feat(backend): 관리자 대관 큐·상세·대시보드 조회 
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/api/AdminFacilityBookingApi.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/AdminFacilityBookingController.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/dto/request/RejectFacilityBookingRequest.java` (+`CancelFacilityBookingRequest`, `MarkConflictRequest`)
-- Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/dto/response/AdminFacilityBookingSummaryResponse.java` (+`AdminFacilityBookingDetailResponse`, `AdminFacilityBookingCountsResponse`)
+- Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/dto/response/AdminFacilityBookingSummaryResponse.java` (+`AdminFacilityBookingDetailResponse`, `AdminFacilityBookingCountsResponse`, `FacilityBookingConflictResponse`)
+- Create: `backend/src/main/java/com/duing/domain/facilitybooking/controller/FacilityBookingExceptionAdvice.java` (도메인 로컬 @RestControllerAdvice — 학교 충돌 409 payload)
 - Test: `backend/src/test/java/com/duing/domain/facilitybooking/controller/AdminFacilityBookingAcceptanceTest.java`
 
 **Interfaces:**
-- Produces (스펙 §8 #6~13): `GET /api/v1/admin/facility-bookings`(PageResponse) / `GET /api/v1/admin/facility-bookings/{id}` / `POST .../{id}/approve`(204) / `POST .../{id}/reject {reason 필수, ≤500}`(204) / `POST .../{id}/confirm`(204) / `POST .../{id}/conflict {detail 필수, ≤500}`(204) / `POST .../{id}/cancel {reason 필수, ≤500}`(204) / `GET .../summary`
+- Produces (스펙 §8 #6~13): `GET /api/v1/admin/facility-bookings`(PageResponse) / `GET /api/v1/admin/facility-bookings/{id}` / `POST .../{id}/approve`(204, 충돌 시 409 + `data{conflicts[], crawlBasisAt}`) / `POST .../{id}/reject {reason 필수, ≤500}`(204) / `POST .../{id}/confirm`(204, 승인과 동일 재검증 — 충돌 시 409 payload) / `POST .../{id}/conflict {detail 필수, ≤500}`(204) / `POST .../{id}/cancel {reason 필수, ≤500}`(204) / `GET .../summary`
 
 - [ ] **Step 1: Request/Response DTO 작성**
 
@@ -1395,7 +1454,9 @@ public record RejectFacilityBookingRequest(
 
 (`CancelFacilityBookingRequest(reason)`, `MarkConflictRequest(detail)` 도 동일 구조 — 메시지만 "취소 사유는…"/"충돌 상세는…".)
 
-Response 3종은 Task 5 result record 를 `from(...)` 으로 그대로 옮기는 record(시간 필드 타입 유지, `@JsonInclude(NON_NULL)` 은 rejectReason/conflictDetail/matchedScheduleSeq/crawlBasisAt/approvedWaitingDays 에).
+Response 3종은 Task 5 result record 를 `from(...)` 으로 그대로 옮기는 record(시간 필드 타입 유지, `@JsonInclude(NON_NULL)` 은 rejectReason/conflictDetail/matchedScheduleSeq/crawlBasisAt/approvedWaitingDays 에). Summary 응답에는 `partiallyMatched`(큐 행), Counts 응답에는 `oldestPendingWaitingDays`·`conflictSuspectedCount` 필드를 포함한다.
+
+**409 충돌 payload(§8.3):** 승인·수동 확정이 학교 점유행과 겹치면 `SchoolConflictException(List<ConflictItem> conflicts, LocalDateTime crawlBasisAt)`(payload 담긴 예외)를 던지고, 도메인 로컬 `FacilityBookingExceptionAdvice`(`@RestControllerAdvice @Order(HIGHEST_PRECEDENCE)`)가 이 예외만 가로채 `new ApiResponse<>(false, FacilityBookingConflictResponse{conflicts[], crawlBasisAt}, message, code)` 로 409 를 반환한다(GlobalExceptionHandler 의 ApplicationException catch-all 은 미변경 — 우선순위로 이 어드바이스가 선점). crawlBasisAt 이 null 일 수 있어 `Map.of` 대신 전용 record 로 싣는다.
 
 - [ ] **Step 2: Api 인터페이스 + 컨트롤러 작성**
 
@@ -1406,7 +1467,7 @@ Response 3종은 Task 5 result record 를 `from(...)` 으로 그대로 옮기는
 @SecurityRequirement(name = "BearerAuth")
 public interface AdminFacilityBookingApi {
 
-    @Operation(summary = "대관 신청 큐 조회", description = "기본 최신순. APPROVED 에 학교 반영 대기 경과일·충돌 의심 플래그 포함.")
+    @Operation(summary = "대관 신청 큐 조회", description = "PENDING 은 오래된 순, 그 외 최신순. APPROVED 에 학교 반영 대기 경과일·충돌 의심·부분 반영 플래그 포함.")
     @GetMapping("/admin/facility-bookings")
     ResponseEntity<ApiResponse<PageResponse<AdminFacilityBookingSummaryResponse>>> getQueue(
             @Parameter(description = "상태 필터") @RequestParam(required = false) BookingStatus status,
@@ -1430,7 +1491,7 @@ public interface AdminFacilityBookingApi {
             @Valid @RequestBody RejectFacilityBookingRequest rejectFacilityBookingRequest,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser);
 
-    @Operation(summary = "수동 확정", description = "자동 매칭 불발(학교 표기 차이) 건의 관리자 확정.")
+    @Operation(summary = "수동 확정", description = "자동 매칭 불발(학교 표기 차이) 건의 관리자 확정. 승인과 동일 재검증(시설 잠금)으로 충돌 시 409.")
     @PostMapping("/admin/facility-bookings/{bookingId}/confirm")
     ResponseEntity<ApiResponse<Void>> confirm(@PathVariable Long bookingId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser);
@@ -1447,7 +1508,7 @@ public interface AdminFacilityBookingApi {
             @Valid @RequestBody CancelFacilityBookingRequest cancelFacilityBookingRequest,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser);
 
-    @Operation(summary = "대시보드 카드 수치", description = "승인 대기·학교 반영 대기·충돌·이달 확정(§9.7).")
+    @Operation(summary = "대시보드 카드 수치", description = "승인 대기(+오늘 접수·최고령 대기일)·학교 반영 대기·충돌(+충돌 의심)·이달 확정(§9.7).")
     @GetMapping("/admin/facility-bookings/summary")
     ResponseEntity<ApiResponse<AdminFacilityBookingCountsResponse>> getSummary();
 }
@@ -1463,9 +1524,10 @@ public interface AdminFacilityBookingApi {
 1. "익명·일반 사용자 요청은 각각 401·403 이다" — 무토큰 GET 큐 → 401, STUDENT 토큰(기존 테스트의 토큰 헬퍼 사용) GET 큐 → 403
 2. "summary 경로가 상세 템플릿에 삼켜지지 않는다" — ADMIN 토큰으로 `GET /api/v1/admin/facility-bookings/summary` → 200 + counts 필드 존재
 3. "승인 액션은 204 를 반환하고 상태를 바꾼다" — 서비스로 PENDING 생성 후 ADMIN 토큰 POST approve → 204, 상태 APPROVED (ADMIN 사용자 생성·토큰 발급은 `AdminUrlLayerAuthorizationAcceptanceTest` 의 헬퍼 방식을 그대로 따른다 — 파일을 열어 복제)
+4. "승인 시 학교 점유행과 겹치면 409 + code·conflicts payload(§8.3) 를 반환한다" — 신청 후 겹치는 점유행 유입 상태에서 POST approve → 409, body 에 `code`·`data.conflicts[]` 존재(§8.3 계약 고정)
 
 Run: `cd /Users/ksy/Desktop/BASIC/Coding/Duing/backend && ./gradlew test --tests "com.duing.domain.facilitybooking.controller.AdminFacilityBookingAcceptanceTest"`
-Expected: 3개 전부 PASS
+Expected: 4개 전부 PASS
 
 - [ ] **Step 4: Commit**
 

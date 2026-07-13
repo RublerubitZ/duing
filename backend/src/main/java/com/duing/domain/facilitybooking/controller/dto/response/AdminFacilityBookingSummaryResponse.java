@@ -13,12 +13,12 @@ public record AdminFacilityBookingSummaryResponse(
         LocalDate date, LocalTime startTime, LocalTime endTime,
         BookingStatus status, String purpose, LocalDateTime createdAt,
         @JsonInclude(JsonInclude.Include.NON_NULL) Integer approvedWaitingDays,
-        boolean conflictSuspected
+        boolean conflictSuspected, boolean partiallyMatched
 ) {
     public static AdminFacilityBookingSummaryResponse from(AdminBookingSummaryResult result) {
         return new AdminFacilityBookingSummaryResponse(result.bookingId(), result.clubId(), result.clubName(),
                 result.facilityId(), result.roomName(), result.date(), result.startTime(), result.endTime(),
                 result.status(), result.purpose(), result.createdAt(),
-                result.approvedWaitingDays(), result.conflictSuspected());
+                result.approvedWaitingDays(), result.conflictSuspected(), result.partiallyMatched());
     }
 }

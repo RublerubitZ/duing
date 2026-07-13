@@ -229,6 +229,45 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("PENDING 큐는 오래된 순(createdAt asc)으로 정렬한다 — §9.7 기본 뷰")
+    void pendingQueueOrdersOldestFirst() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+        Long first = pendingBooking(fixture, date, 9, 10);   // 먼저 생성
+        Long second = pendingBooking(fixture, date, 10, 11);  // 나중 생성
+
+        Page<AdminBookingSummaryResult> queue = queryService.getQueue(
+                new AdminBookingSearchCondition(BookingStatus.PENDING, null, null, null),
+                PageRequest.of(0, 10));
+
+        assertThat(queue.getContent()).extracting(AdminBookingSummaryResult::bookingId)
+                .containsExactly(first, second); // 오래된 순
+    }
+
+    @Test
+    @DisplayName("정규화 일치 이름 점유행이 부분만 덮으면 partiallyMatched true·conflictSuspected false 다")
+    void partiallyMatchedWhenSameNameRowPartiallyCovers() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
+
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        // 동아리명(공백 변형)으로 18~19 만 덮는 점유행 — 19~20 미커버라 자동 확정 불발, 부분 반영 표시 대상
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", null, null, LocalDateTime.now()));
+
+        AdminBookingSummaryResult row = queryService.getQueue(
+                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                PageRequest.of(0, 10)).getContent().get(0);
+
+        assertThat(row.partiallyMatched()).isTrue();
+        assertThat(row.conflictSuspected()).isFalse();
+    }
+
+    @Test
     @DisplayName("상세는 겹침 컨텍스트(SCHOOL·INTERNAL·PENDING 수)와 이력·stale 을 담는다")
     void detailCarriesOverlapContextHistoryAndStale() throws Exception {
         Fixture fixture = fixture();
@@ -308,13 +347,22 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         // REJECTED 1건 — PENDING/APPROVED 카운트에 섞이지 않아야 함
         saveInStatus(fixture, admin.getId(), today, 17, 18, BookingStatus.REJECTED, decidedTwoDaysAgo);
 
+        // 9~10 APPROVED 와 겹치는 이름 불일치 점유행 — 충돌 의심 1건을 만든다(10~11 APPROVED 는 미겹침)
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(today), today,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "전혀다른단체", null, null, LocalDateTime.now()));
+
         AdminBookingSummaryCounts summary = queryService.getSummary();
 
         assertThat(summary.pendingCount()).isEqualTo(2);
-        assertThat(summary.todaySubmittedCount()).isEqualTo(2);
+        // 오늘 접수는 상태 무관 — 이 테스트가 만든 8건(2 PENDING+2 APPROVED+1 CONFLICT+2 CONFIRMED+1 REJECTED)이
+        // 모두 오늘(KST) 생성됐다. reservationDate 가 두 달 전인 CONFIRMED 도 "오늘 접수"엔 포함된다.
+        assertThat(summary.todaySubmittedCount()).isEqualTo(8);
+        assertThat(summary.oldestPendingWaitingDays()).isZero(); // PENDING 은 오늘 생성 → 경과일 0
         assertThat(summary.approvedWaitingCount()).isEqualTo(2);
         assertThat(summary.oldestApprovedWaitingDays()).isEqualTo(5);
         assertThat(summary.conflictCount()).isEqualTo(1);
+        assertThat(summary.conflictSuspectedCount()).isEqualTo(1); // 이름 불일치 점유행 겹친 APPROVED 1건
         assertThat(summary.confirmedThisMonthCount()).isEqualTo(1);
     }
 }

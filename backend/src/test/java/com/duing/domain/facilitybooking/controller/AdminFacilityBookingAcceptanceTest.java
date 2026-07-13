@@ -1,5 +1,7 @@
 package com.duing.domain.facilitybooking.controller;
 
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
 import com.duing.common.IntegrationTestBase;
@@ -12,7 +14,9 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.facility.entity.Facility;
+import com.duing.domain.facility.entity.FacilityReservation;
 import com.duing.domain.facility.repository.FacilityRepository;
+import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
@@ -24,7 +28,9 @@ import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.util.concurrent.atomic.AtomicLong;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +65,7 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired FacilityRepository facilityRepository;
+    @Autowired FacilityReservationRepository facilityReservationRepository;
     @Autowired FacilityBookingRepository bookingRepository;
     @Autowired FacilityBookingService bookingService;
 
@@ -112,6 +119,35 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
 
         FacilityBooking approved = bookingRepository.findById(bookingId).orElseThrow();
         Assertions.assertThat(approved.getStatus()).isEqualTo(BookingStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("승인 시 학교 점유행과 겹치면 409 + code·conflicts payload(§8.3) 를 반환한다")
+    void approveConflictReturns409WithPayload() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClub();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Facility facility = saveFacility();
+        LocalDate date = LocalDate.now().plusDays(3);
+        Long bookingId = bookingService.create(new CreateFacilityBookingCommand(
+                club.getId(), leader.getId(), facility.getId(), date,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null)).bookingId();
+        // 신청 이후 겹치는 학교 점유행(꼬리 없음)이 크롤로 유입 — 승인 재검증에 걸려 409 가 되어야 한다
+        facilityReservationRepository.save(FacilityReservation.create(
+                facility.getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", null, null, LocalDateTime.now()));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().post(QUEUE_PATH + "/" + bookingId + "/approve")
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("ok", is(false))
+                .body("code", equalTo("FACILITY_BOOKING_SCHOOL_CONFLICT"))
+                .body("data.conflicts", notNullValue())
+                .body("data.conflicts[0].organization", equalTo("문화팀"));
+
+        Assertions.assertThat(bookingRepository.findById(bookingId).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.PENDING);
     }
 
     // ---------- fixtures (FacilityBookingAdminServiceIntegrationTest 와 동일) ----------

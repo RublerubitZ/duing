@@ -1,6 +1,8 @@
 package com.duing.domain.facilitybooking.service;
 
 import com.duing.domain.facility.entity.FacilityReservation;
+import com.duing.domain.facility.entity.FetchStatus;
+import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
@@ -9,6 +11,7 @@ import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryR
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -26,6 +29,7 @@ public class FacilityBookingMatchingService {
     private final OrganizationNameNormalizer normalizer;
     private final FacilityBookingRepository facilityBookingRepository;
     private final FacilityBookingStatusHistoryRepository historyRepository;
+    private final FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
     private final Clock clock;
 
     public record MatchDecision(boolean confirmed, Long matchedScheduleSeq) {
@@ -73,14 +77,27 @@ public class FacilityBookingMatchingService {
      *
      * <p>crawlBasisAt 은 판정 근거가 된 SUCCESS 스냅샷의 수집 시각(스케줄러가 전달) — 확정 시점(now)이 아니라
      * "어느 크롤 데이터로 확정했는가"를 이력·엔티티(crawl_basis_at)에 남긴다(승인 경로 관례와 필드 의미 일치).
+     *
+     * <p>month 는 판정 근거 스냅샷의 월 — 트랜잭션 안에서 스냅샷을 재조회해 세대(fetchStatus·crawledAt)가
+     * 판정 시점과 동일한지 재확인한다(세대 결박). 판정과 적용 사이 재크롤·실패로 세대가 바뀌었으면 불가역
+     * 오확정을 피하려 조용히 스킵하고 다음 사이클에 재판정한다.
      */
     @Transactional
-    public void applyAutoConfirm(Long bookingId, MatchDecision decision, LocalDateTime crawlBasisAt) {
+    public void applyAutoConfirm(Long bookingId, YearMonth month, MatchDecision decision,
+            LocalDateTime crawlBasisAt) {
         FacilityBooking booking = facilityBookingRepository.findById(bookingId).orElse(null);
         // 관리자 전이(취소·충돌 전환)와의 경합은 @Version 낙관 잠금이 차단한다 — 늦은 커밋이 실패·롤백되어
         // 덮어쓰기가 불가능하고, 그 실패는 스케줄러의 per-booking 격리로 다음 사이클에 재판정된다.
         // 여기 상태 재확인은 이미 CONFIRMED/취소된 건을 조용히 스킵하는 멱등 게이트다.
         if (booking == null || booking.getStatus() != BookingStatus.APPROVED) {
+            return;
+        }
+        // 스냅샷 세대 재확인 — SUCCESS 이고 수집 시각이 판정 근거와 동일해야 확정한다.
+        boolean sameGeneration = facilityMonthSnapshotRepository.findByYearMonth(month)
+                .map(snapshot -> snapshot.getFetchStatus() == FetchStatus.SUCCESS
+                        && snapshot.getCrawledAt().equals(crawlBasisAt))
+                .orElse(false);
+        if (!sameGeneration) {
             return;
         }
         LocalDateTime now = LocalDateTime.now(clock);
