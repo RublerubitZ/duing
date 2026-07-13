@@ -68,4 +68,11 @@ public class FacilityBookingException extends ApplicationException {
             super("현재 예약 신청을 받을 수 없는 시설입니다.", HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class SchoolConflictException extends FacilityBookingException {
+        public SchoolConflictException() {
+            super("학교 예약과 시간이 충돌하여 승인할 수 없습니다.",
+                    HttpStatus.CONFLICT, "FACILITY_BOOKING_SCHOOL_CONFLICT");
+        }
+    }
 }
