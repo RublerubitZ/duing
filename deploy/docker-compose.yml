@@ -15,13 +15,24 @@ services:
     expose:
       - "8080"           # 내부 네트워크에만 노출 — 호스트로 직접 게시하지 않는다(Caddy 경유).
     healthcheck:
-      # 상태 가시화용. Docker 는 unhealthy 라고 자동 재시작하지 않으므로 DB 일시 장애(503)가
-      # 컨테이너 재시작을 유발하지 않는다(단일 인스턴스 안정성).
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      # docker compose ps에서 프로세스 생존 상태를 확인한다. 최초 전환 배포에서 구버전 이미지로
+      # 롤백하면 새 경로가 없으므로, 정확히 404일 때만 기존 종합 health로 폴백한다.
+      test:
+        - CMD-SHELL
+        - >-
+          status=$$(curl --silent --output /dev/null --write-out '%{http_code}'
+          --connect-timeout 2 --max-time 4
+          http://localhost:8080/actuator/health/liveness || true);
+          if [ "$$status" = "404" ]; then
+            curl --fail --silent --show-error --connect-timeout 2 --max-time 4
+            http://localhost:8080/actuator/health > /dev/null;
+          else
+            [ "$$status" = "200" ];
+          fi
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 90s   # 최초 배포 시 Flyway 마이그레이션 + 부팅 시간 확보
+      start_period: 90s
     networks:
       - duing
 
