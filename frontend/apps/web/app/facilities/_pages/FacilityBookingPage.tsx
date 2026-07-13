@@ -126,6 +126,7 @@ export function FacilityBookingPage() {
     setSelectedDate(null);
     setSelection(null);
     setStep('slots');
+    syncUrl(effectiveFacilityId ?? null, null);
   };
 
   const panelOpen = selectedDay !== undefined && selectedFacility !== undefined;

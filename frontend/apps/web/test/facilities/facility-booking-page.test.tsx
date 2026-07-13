@@ -290,4 +290,22 @@ describe('FacilityBookingPage — 예약 홈 통합', () => {
     const loginLink = await screen.findByRole('link', { name: '로그인하기' });
     expect(loginLink).toHaveAttribute('href', '/login');
   });
+
+  it('시나리오 7: 로그인 상태에서 운영진 동아리 조회가 실패하면 폼에 에러·재시도가 노출된다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+    // renderPage 의 QueryClient 는 queries.retry:false 라 500 이 즉시 isError 로 떨어진다.
+    server.use(
+      http.get('*/leader/clubs/me/managed', () =>
+        HttpResponse.json({ ok: false, data: null, message: '오류' }, { status: 500 }),
+      ),
+    );
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: TODAY_DAY_LABEL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+
+    expect(await screen.findByText('동아리 정보를 불러오지 못했어요.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+  });
 });

@@ -49,6 +49,24 @@ export function BookingForm({
     );
   }
 
+  if (managedClubsQuery.isPending) {
+    return <p className="text-sm text-charcoal-3">동아리 정보를 불러오는 중…</p>;
+  }
+  if (managedClubsQuery.isError) {
+    return (
+      <div className="space-y-3 text-sm text-charcoal-2">
+        <p role="alert">동아리 정보를 불러오지 못했어요.</p>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => void managedClubsQuery.refetch()}
+        >
+          다시 시도
+        </button>
+      </div>
+    );
+  }
+
   const managedClubs = managedClubsQuery.data ?? [];
   if (managedClubsQuery.isSuccess && managedClubs.length === 0) {
     return (

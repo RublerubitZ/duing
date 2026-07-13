@@ -61,8 +61,9 @@ export function useCreateFacilityBookingMutation() {
   return useMutation({
     mutationFn: (input: { clubId: number; payload: CreateFacilityBookingPayload }) =>
       client.facilityBookings.create(input.clubId, input.payload),
-    onSuccess: () => {
-      // 신청 직후 해당 슬롯이 "승인 대기중" 으로 즉시 보이도록 가용성 캐시 전체 무효화(no-store 계약과 합)
+    // 성공 시 해당 슬롯이 "승인 대기중" 으로 즉시 보이도록, §9.8: 실패(경합 409) 시에도 최신 슬롯
+    // 상태로 재조회하도록 성공·실패 모두 가용성 캐시 전체를 무효화한다(no-store 계약과 합).
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: facilityQueryKeys.availabilityAll() });
     },
   });
