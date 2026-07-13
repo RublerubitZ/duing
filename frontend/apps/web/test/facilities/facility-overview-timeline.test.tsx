@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FacilityItem } from '@duing/types';
 import { FacilityOverviewTimeline } from '../../app/facilities/_components/FacilityOverviewTimeline';
@@ -24,20 +24,23 @@ afterEach(() => {
 });
 
 describe('FacilityOverviewTimeline', () => {
-  it('시설마다 행을 렌더하고 행 전체가 /facilities/{id} 링크다', () => {
+  it('시설마다 행을 렌더하고 행 클릭 시 onSelectFacility 로 해당 시설 id 를 전달한다', () => {
+    const onSelectFacility = vi.fn();
     render(
       <FacilityOverviewTimeline
         facilities={[base, { ...base, id: 34, roomName: '합주실', location: null }]}
+        onSelectFacility={onSelectFacility}
       />,
     );
-    expect(screen.getByRole('link', { name: '공동연습실(1) 상세' })).toHaveAttribute(
-      'href',
-      '/facilities/12',
-    );
-    expect(screen.getByRole('link', { name: '합주실 상세' })).toHaveAttribute(
-      'href',
-      '/facilities/34',
-    );
+    const firstRow = screen.getByRole('button', { name: '공동연습실(1) 선택' });
+    const secondRow = screen.getByRole('button', { name: '합주실 선택' });
+    expect(firstRow).toBeInTheDocument();
+    expect(secondRow).toBeInTheDocument();
+
+    fireEvent.click(firstRow);
+    expect(onSelectFacility).toHaveBeenCalledWith(12);
+    fireEvent.click(secondRow);
+    expect(onSelectFacility).toHaveBeenCalledWith(34);
   });
 
   it('오늘 예약만 세그먼트로 그리고 다른 날짜 예약은 제외한다', () => {
@@ -52,6 +55,7 @@ describe('FacilityOverviewTimeline', () => {
             ],
           },
         ]}
+        onSelectFacility={() => {}}
       />,
     );
     expect(screen.getByTitle('고정관념 09:00~11:00')).toBeInTheDocument();
@@ -75,6 +79,7 @@ describe('FacilityOverviewTimeline', () => {
           },
           { ...base, id: 34, roomName: '합주실' },
         ]}
+        onSelectFacility={() => {}}
       />,
     );
     expect(screen.getByText('사용중')).toBeInTheDocument();
@@ -111,6 +116,7 @@ describe('FacilityOverviewTimeline', () => {
             },
           },
         ]}
+        onSelectFacility={() => {}}
       />,
     );
     expect(screen.getByText('2105 · 밴드 11:00~12:00 사용 중')).toBeInTheDocument();
@@ -145,6 +151,7 @@ describe('FacilityOverviewTimeline', () => {
             },
           },
         ]}
+        onSelectFacility={() => {}}
       />,
     );
     expect(screen.getByText('2105 · 다음 예약 16:00~17:00 · 고정관념')).toBeInTheDocument();
@@ -152,7 +159,7 @@ describe('FacilityOverviewTimeline', () => {
   });
 
   it('다음 예약이 없으면 안내 문구를 표시한다', () => {
-    render(<FacilityOverviewTimeline facilities={[base]} />);
+    render(<FacilityOverviewTimeline facilities={[base]} onSelectFacility={() => {}} />);
     expect(screen.getByText(/예정된 예약이 없어요/)).toBeInTheDocument();
   });
 });

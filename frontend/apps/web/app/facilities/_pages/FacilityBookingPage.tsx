@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useFacilityAvailabilityQuery, useFacilityUsageQuery } from '@duing/hooks';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
@@ -12,7 +12,7 @@ import { seoulDateIso, shiftYearMonth } from '../_lib/facilityTimeline';
 import type { SlotRange } from '../_lib/bookingCalendar';
 import { toggleSlotSelection } from '../_lib/bookingCalendar';
 import { BookingCalendar } from '../_components/booking/BookingCalendar';
-import { BookingHomeSkeleton } from '../_components/booking/BookingHomeSkeleton';
+import { BookingHomeSkeleton, CalendarGridSkeleton } from '../_components/booking/BookingHomeSkeleton';
 import { BookingPanel, type PanelStep, type PanelView } from '../_components/booking/BookingPanel';
 import { FacilityChips } from '../_components/booking/FacilityChips';
 
@@ -26,6 +26,22 @@ function syncUrl(facilityId: number | null, date: string | null) {
   else params.delete('date');
   const query = params.toString();
   window.history.replaceState(null, '', query ? `?${query}` : window.location.pathname);
+}
+
+const MOBILE_QUERY = '(max-width: 767px)'; // Tailwind md 미만
+
+function subscribeToViewport(onChange: () => void) {
+  const mediaQueryList = window.matchMedia(MOBILE_QUERY);
+  mediaQueryList.addEventListener('change', onChange);
+  return () => mediaQueryList.removeEventListener('change', onChange);
+}
+
+function useIsMobileViewport(): boolean {
+  return useSyncExternalStore(
+    subscribeToViewport,
+    () => window.matchMedia(MOBILE_QUERY).matches,
+    () => false, // SSR: 데스크탑 기본 — 하이드레이션 후 구독으로 보정
+  );
 }
 
 export function FacilityBookingPage() {
@@ -52,6 +68,7 @@ export function FacilityBookingPage() {
   const [view, setView] = useState<PanelView>('day');
   const [submittedResult, setSubmittedResult] = useState<CreateFacilityBookingResult | null>(null);
 
+  const isMobileViewport = useIsMobileViewport();
   const usageQuery = useFacilityUsageQuery();
   const chipFacilities = useMemo(
     () =>
@@ -146,42 +163,63 @@ export function FacilityBookingPage() {
 
       {usageQuery.isSuccess && (
         <div className="space-y-4">
-          <FacilityChips facilities={chipFacilities} selectedId={effectiveFacilityId ?? null} onSelect={selectFacility} />
-          {availability && (
-            <FacilityUpdateBanner lastUpdatedAt={availability.lastUpdatedAt ?? null} stale={availability.stale} />
-          )}
-
-          <div className={panelOpen ? 'md:grid md:grid-cols-[minmax(0,1fr)_380px] md:gap-5' : undefined}>
-            <div>
-              {availabilityQuery.isLoading && <BookingHomeSkeleton />}
+          {chipFacilities.length === 0 ? (
+            <p className="text-sm text-charcoal-2">표시할 시설이 없어요.</p>
+          ) : (
+            <>
+              <FacilityChips facilities={chipFacilities} selectedId={effectiveFacilityId ?? null} onSelect={selectFacility} />
               {availability && (
-                <BookingCalendar
-                  yearMonth={yearMonth}
-                  daysByIso={daysByIso}
-                  bookableFrom={availability.bookableFrom}
-                  bookableUntil={availability.bookableUntil}
-                  todayIso={todayIso}
-                  selectedDate={selectedDate}
-                  onSelectDate={selectDate}
-                  onPrevMonth={() => changeMonth(-1)}
-                  onNextMonth={() => changeMonth(1)}
-                  canPrev={yearMonth !== currentMonth}
-                  canNext={yearMonth === currentMonth}
-                />
+                <FacilityUpdateBanner lastUpdatedAt={availability.lastUpdatedAt ?? null} stale={availability.stale} />
               )}
-            </div>
-            {/* 데스크탑 인라인 우측 패널 — 모바일에선 아래 Sheet 가 담당(단일 제어 상태 공유) */}
-            {panelOpen && (
-              <aside className="hidden rounded-lg border border-line bg-paper p-4 md:block">
-                {panel}
-              </aside>
-            )}
-          </div>
+
+              <div className={panelOpen ? 'md:grid md:grid-cols-[minmax(0,1fr)_380px] md:gap-5' : undefined}>
+                <div>
+                  {availabilityQuery.isLoading && <CalendarGridSkeleton />}
+                  {availabilityQuery.isError && (
+                    <div role="alert" className="rounded-lg border border-line bg-paper p-6 text-center text-sm text-charcoal-2">
+                      <p>가용성 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
+                      <div className="mt-3 flex justify-center gap-2">
+                        {yearMonth !== currentMonth && (
+                          <button type="button" className="btn btn-secondary" onClick={() => changeMonth(-1)}>
+                            이번 달로 돌아가기
+                          </button>
+                        )}
+                        <button type="button" className="btn btn-primary" onClick={() => void availabilityQuery.refetch()}>
+                          다시 시도
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {availability && (
+                    <BookingCalendar
+                      yearMonth={yearMonth}
+                      daysByIso={daysByIso}
+                      bookableFrom={availability.bookableFrom}
+                      bookableUntil={availability.bookableUntil}
+                      todayIso={todayIso}
+                      selectedDate={selectedDate}
+                      onSelectDate={selectDate}
+                      onPrevMonth={() => changeMonth(-1)}
+                      onNextMonth={() => changeMonth(1)}
+                      canPrev={yearMonth !== currentMonth}
+                      canNext={yearMonth === currentMonth}
+                    />
+                  )}
+                </div>
+                {/* 데스크탑 인라인 우측 패널 — 모바일에선 아래 Sheet 가 담당(단일 제어 상태 공유) */}
+                {panelOpen && (
+                  <aside className="hidden rounded-lg border border-line bg-paper p-4 md:block">
+                    {panel}
+                  </aside>
+                )}
+              </div>
+            </>
+          )}
 
           <details className="rounded-lg border border-line bg-paper px-4 py-3">
             <summary className="cursor-pointer text-sm font-medium text-ink-deep">오늘 이용 현황</summary>
             <div className="pt-3">
-              <FacilityOverviewTimeline facilities={usageQuery.data.facilities} />
+              <FacilityOverviewTimeline facilities={usageQuery.data.facilities} onSelectFacility={selectFacility} />
             </div>
           </details>
           <FacilityUsageGuide />
@@ -189,7 +227,7 @@ export function FacilityBookingPage() {
       )}
 
       {/* 모바일 Bottom Sheet — md 미만 전용. 포털이라 .duing 스코프 재부여(bg-cream 함정 → bg-transparent) */}
-      <Sheet open={panelOpen} onOpenChange={(open) => !open && closePanel()}>
+      <Sheet open={panelOpen && isMobileViewport} onOpenChange={(open) => !open && closePanel()}>
         <SheetContent side="bottom" hideClose className="md:hidden">
           <div className="duing bg-transparent">
             <SheetHeader className="mb-2">
