@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { BookingDayAvailability, FacilityItem } from '@duing/types';
-import { FacilityChips } from '@/app/facilities/_components/booking/FacilityChips';
+import { FacilityContextBar } from '@/app/facilities/_components/booking/FacilityContextBar';
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
 import { DaySlotList } from '@/app/facilities/_components/booking/DaySlotList';
 import { BookingSuccess } from '@/app/facilities/_components/booking/BookingSuccess';
@@ -43,24 +43,34 @@ function makeDay(overrides?: Partial<BookingDayAvailability>): BookingDayAvailab
   };
 }
 
-it('칩은 선택 상태와 사용중 도트를 표시하고 탭 시 onSelect 를 부른다', () => {
+it('콘텍스트 바는 선택 시설 카드·다른 시설 퀵 칩·전체 보기를 렌더하고 콜백을 부른다', () => {
   const onSelect = vi.fn();
+  const onGoHome = vi.fn();
   render(
-    <FacilityChips
+    <FacilityContextBar
       facilities={[
-        { id: 1, roomName: '커뮤니티룸(1)', isUsingNow: true },
-        { id: 2, roomName: '공동연습실(1)', isUsingNow: false },
+        { id: 1, roomName: '커뮤니티룸(1)', location: '학생회관 2층' },
+        { id: 2, roomName: '공동연습실(1)', location: null },
       ]}
       selectedId={1}
       onSelect={onSelect}
+      onGoHome={onGoHome}
     />,
   );
-  fireEvent.click(screen.getByRole('tab', { name: '공동연습실(1)' }));
+  // 선택 시설 카드(위치 노출) — 클릭 시 홈 복귀
+  expect(screen.getByText('학생회관 2층')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '커뮤니티룸(1) — 다른 시설 보기' }));
+  expect(onGoHome).toHaveBeenCalledTimes(1);
+  // 다른 시설 퀵 칩 — 클릭 시 onSelect
+  fireEvent.click(screen.getByRole('button', { name: '공동연습실(1)' }));
   expect(onSelect).toHaveBeenCalledWith(2);
+  // 전체 보기 — 클릭 시 홈 복귀
+  fireEvent.click(screen.getByRole('button', { name: '전체 보기' }));
+  expect(onGoHome).toHaveBeenCalledTimes(2);
 });
 
-it('캘린더 셀은 가능 칸 수와 마감을 표시하고 범위 밖은 비활성이다', () => {
-  const day = makeDay();
+it('캘린더 셀은 레벨 라벨(여유/마감)·창 배지를 표시하고 창 이전 과거는 비활성이다', () => {
+  const day = makeDay(); // availableSlotCount 11 → 여유
   const fullDay = makeDay({ date: '2026-07-21', dayStatus: 'FULL', availableSlotCount: 0 });
   render(
     <BookingCalendar
@@ -71,15 +81,46 @@ it('캘린더 셀은 가능 칸 수와 마감을 표시하고 범위 밖은 비�
       todayIso="2026-07-13"
       selectedDate={null}
       onSelectDate={vi.fn()}
+      onOutOfWindowSelect={vi.fn()}
+      windowLabel="7.13 ~ 8.31"
       onPrevMonth={vi.fn()}
       onNextMonth={vi.fn()}
       canPrev={false}
       canNext
     />,
   );
-  expect(screen.getByRole('button', { name: '20일' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '20일 여유' })).toBeEnabled();
   expect(screen.getByRole('button', { name: '21일 마감' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '12일' })).toBeDisabled(); // bookableFrom 이전
+  expect(screen.getByText('예약 가능 기간 7.13 ~ 8.31')).toBeInTheDocument();
+});
+
+it('창 밖 미래 셀은 aria-disabled 이고 클릭 시 onSelectDate 대신 onOutOfWindowSelect 를 부른다', () => {
+  const onSelectDate = vi.fn();
+  const onOutOfWindowSelect = vi.fn();
+  const outsideDay = makeDay({ date: '2026-07-25', availableSlotCount: 11 });
+  render(
+    <BookingCalendar
+      yearMonth="2026-07"
+      daysByIso={new Map([[outsideDay.date, outsideDay]])}
+      bookableFrom="2026-07-13"
+      bookableUntil="2026-07-20" // 25일은 창 밖(미래)
+      todayIso="2026-07-13"
+      selectedDate={null}
+      onSelectDate={onSelectDate}
+      onOutOfWindowSelect={onOutOfWindowSelect}
+      windowLabel="7.13 ~ 7.20"
+      onPrevMonth={vi.fn()}
+      onNextMonth={vi.fn()}
+      canPrev={false}
+      canNext
+    />,
+  );
+  const outsideCell = screen.getByRole('button', { name: '25일 예약 기간 아님' });
+  expect(outsideCell).toHaveAttribute('aria-disabled', 'true');
+  fireEvent.click(outsideCell);
+  expect(onOutOfWindowSelect).toHaveBeenCalledWith('2026-07-25');
+  expect(onSelectDate).not.toHaveBeenCalled();
 });
 
 it('슬롯 리스트는 SCHOOL 단체명·INTERNAL "예약됨"·승인 대기중을 구분 표시한다', () => {

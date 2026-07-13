@@ -33,7 +33,8 @@ vi.mock('next/navigation', async () => {
 // 날짜는 전부 오늘 기준으로 동적 생성한다(하드코딩 절대날짜 = CI 타임밤 금지).
 const TODAY_ISO = seoulDateIso(new Date());
 const CURRENT_MONTH = TODAY_ISO.slice(0, 7);
-const TODAY_DAY_LABEL = `${Number(TODAY_ISO.slice(8, 10))}일`; // 캘린더 셀 접근성 이름
+// 캘린더 셀 접근성 이름은 이제 레벨 라벨을 포함한다(예: "14일 여유") — 날짜 접두로 매칭한다.
+const TODAY_DAY_LABEL = new RegExp(`^${Number(TODAY_ISO.slice(8, 10))}일`);
 
 const pad2 = (value: number) => String(value).padStart(2, '0');
 
@@ -221,14 +222,16 @@ function renderPage() {
 }
 
 describe('FacilityBookingPage — 예약 홈 통합', () => {
-  it('시나리오 1: 시설 칩 2개와 오늘 셀의 가용 칸 수를 렌더한다', async () => {
+  it('시나리오 1: 콘텍스트 바(선택 시설·다른 시설)와 오늘 셀의 레벨 라벨을 렌더한다', async () => {
     renderPage();
 
-    expect(await screen.findByRole('tab', { name: '커뮤니티룸(1)' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '공동연습실(1)' })).toBeInTheDocument();
+    // 선택 시설(커뮤니티룸)은 카드 버튼, 다른 시설(공동연습실)은 퀵 칩으로 노출된다.
+    expect(await screen.findByRole('button', { name: '커뮤니티룸(1) — 다른 시설 보기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '공동연습실(1)' })).toBeInTheDocument();
 
+    // 오늘 셀은 availableSlotCount 10 → 레벨 '여유'.
     const todayCell = await screen.findByRole('button', { name: TODAY_DAY_LABEL });
-    expect(todayCell).toHaveTextContent('10칸');
+    expect(todayCell).toHaveTextContent('여유');
   });
 
   it('시나리오 2: 날짜 선택 시 슬롯 상태·운영 안내가 있는 패널이 열린다', async () => {
