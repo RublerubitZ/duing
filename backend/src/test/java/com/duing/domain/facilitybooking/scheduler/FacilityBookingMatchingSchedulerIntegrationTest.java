@@ -177,7 +177,17 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
                 LocalTime.of(11, 0), LocalTime.of(12, 0), clubName, null, null, LocalDateTime.now()));
-        // 스냅샷 미기록(또는 FAILED) 상태
+        // 1) 스냅샷 미기록 상태 — 게이트가 막아 APPROVED 유지
+        scheduler.runMatchingCycle();
+
+        assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+
+        // 2) FAILED 스냅샷이 기록돼도(부분/실패 크롤) SUCCESS 게이트가 막아 APPROVED 유지
+        FacilityMonthSnapshot failedSnapshot = FacilityMonthSnapshot.create(YearMonth.from(date),
+                LocalDateTime.now(), CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null);
+        failedSnapshot.recordFailure(CrawlSource.SCHEDULER, "크롤 실패");
+        snapshotRepository.save(failedSnapshot);
 
         scheduler.runMatchingCycle();
 

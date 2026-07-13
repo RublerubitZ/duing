@@ -45,6 +45,7 @@ backend/src/main/java/com/duing/domain/facilitybooking/
 │   ├── FacilityBookingMatchingService.java           (Task 3 신규 — 판정 + 적용)
 │   ├── FacilityBookingAdminQueryService.java         (Task 5 신규 — 큐·상세·summary, 무트랜잭션)
 │   └── dto/query/AdminBookingSearchCondition.java    (Task 5 신규)
+├── config/FacilityBookingMatchingJobConfig.java      (Task 4 신규 — @EnableScheduling 조건부 활성화)
 ├── scheduler/FacilityBookingMatchingScheduler.java   (Task 4 신규)
 ├── api/AdminFacilityBookingApi.java                  (Task 6 신규)
 └── controller/
@@ -870,13 +871,15 @@ git commit -m "feat(backend): CONFIRMED 자동 매칭 판정 서비스와 이름
 ### Task 4: 매칭 스케줄러 + 설정 토글
 
 **Files:**
+- Create: `backend/src/main/java/com/duing/domain/facilitybooking/config/FacilityBookingMatchingJobConfig.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitybooking/scheduler/FacilityBookingMatchingScheduler.java`
+- Modify: `backend/src/main/java/com/duing/domain/facilitybooking/service/FacilityBookingMatchingService.java` (Task 3 서비스에 `applyAutoConfirm` 적용 메서드 추가)
 - Modify: `backend/src/main/resources/application.yml`, `backend/src/main/resources/application-prod.yml`
 - Test: `backend/src/test/java/com/duing/domain/facilitybooking/scheduler/FacilityBookingMatchingSchedulerIntegrationTest.java`
 
 **Interfaces:**
-- Consumes: Task 3 `MatchDecision`, Task 1 `confirmByMatching`, `FacilityMonthSnapshotRepository.findByYearMonth`(SUCCESS 게이트), `ClubRepository.findAllById`(동아리명)
-- Produces: `runMatchingCycle()` — 당월·익월의 APPROVED 를 스캔해 자동 CONFIRMED + 이력(changedById=null). 토글 `duing.facility.booking.matching.enabled`
+- Consumes: Task 3 `MatchDecision`, Task 1 `confirmByMatching`, `FacilityMonthSnapshotRepository.findByYearMonth`(SUCCESS 게이트 + `crawlBasisAt` = 스냅샷 수집 시각), `ClubRepository.findAllById`(동아리명)
+- Produces: `runMatchingCycle()` — 당월·익월의 APPROVED 를 스캔해 자동 CONFIRMED + 이력(changedById=null). 토글 `duing.facility.booking.matching.enabled`. 적용은 `FacilityBookingMatchingService.applyAutoConfirm(Long bookingId, MatchDecision decision, LocalDateTime crawlBasisAt)`(짧은 트랜잭션, 별도 빈 프록시).
 
 - [ ] **Step 1: 설정 키 추가**
 
@@ -990,7 +993,24 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
 }
 ```
 
-- [ ] **Step 3: 스케줄러 구현**
+- [ ] **Step 3: JobConfig + 스케줄러 구현**
+
+먼저 조건부 `@EnableScheduling` 설정을 둔다(전례: `FacilityCrawlerJobConfig`·`FeeAutoIssueJobConfig`) — 이게 없으면 매칭 잡의 `@Scheduled` 는 다른 잡의 `@EnableScheduling` 이 켜져 있을 때만 우연히 발화한다. `FacilityBookingMatchingJobConfig.java`:
+
+```java
+package com.duing.domain.facilitybooking.config;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+@Configuration
+@EnableScheduling
+@ConditionalOnProperty(prefix = "duing.facility.booking.matching", name = "enabled", havingValue = "true")
+public class FacilityBookingMatchingJobConfig {}
+```
+
+스케줄러는 판정(`decide`)만 위임하고 적용(`applyAutoConfirm`)은 별도 빈인 `FacilityBookingMatchingService` 의 `@Transactional public` 메서드로 호출한다(self-invocation 회피 — 아래 구현 주의 참조). `FacilityBookingMatchingScheduler.java`:
 
 ```java
 package com.duing.domain.facilitybooking.scheduler;
@@ -1002,16 +1022,16 @@ import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
-import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
-import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
 import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService;
 import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService.MatchDecision;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -1019,11 +1039,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * APPROVED → CONFIRMED 자동 매칭 잡(§5.3). 크롤 잡(매 10분 0초)과 3분 오프셋으로 최신 스냅샷을 뒤따른다.
  * fetch_status=SUCCESS 월만 신뢰하고, 판정은 FacilityBookingMatchingService(교체 가능 정책)에 위임한다.
+ * 예약 1건 단위 확정도 같은 서비스의 applyAutoConfirm(짧은 트랜잭션)에 위임한다 — self-invocation 회피.
+ * AtomicBoolean.compareAndSet 으로 in-JVM 중복 실행을 막는다(이전 사이클 진행 중이면 skip).
  */
 @Slf4j
 @Component
@@ -1032,7 +1053,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class FacilityBookingMatchingScheduler {
 
     private final FacilityBookingRepository facilityBookingRepository;
-    private final FacilityBookingStatusHistoryRepository historyRepository;
     private final FacilityReservationRepository facilityReservationRepository;
     private final FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
     private final FacilityBookingMatchingService matchingService;
@@ -1059,22 +1079,24 @@ public class FacilityBookingMatchingScheduler {
         YearMonth currentMonth = YearMonth.now(clock);
         int confirmedCount = 0;
         for (YearMonth month : List.of(currentMonth, currentMonth.plusMonths(1))) {
-            if (!isSuccessSnapshot(month)) {
+            Optional<LocalDateTime> crawlBasisAt = successCrawledAt(month);
+            if (crawlBasisAt.isEmpty()) {
                 log.info("FacilityBooking Matching skip month={} (스냅샷 미신뢰)", month);
                 continue;
             }
-            confirmedCount += matchMonth(month);
+            confirmedCount += matchMonth(month, crawlBasisAt.get());
         }
         log.info("FacilityBooking Matching done confirmed={}", confirmedCount);
     }
 
-    private boolean isSuccessSnapshot(YearMonth month) {
+    /** SUCCESS 월이면 그 스냅샷의 크롤 수집 시각(판단 근거 = crawlBasisAt), 미신뢰 월이면 empty. */
+    private Optional<LocalDateTime> successCrawledAt(YearMonth month) {
         return facilityMonthSnapshotRepository.findByYearMonth(month)
-                .map(snapshot -> snapshot.getFetchStatus() == FetchStatus.SUCCESS)
-                .orElse(false);
+                .filter(snapshot -> snapshot.getFetchStatus() == FetchStatus.SUCCESS)
+                .map(snapshot -> snapshot.getCrawledAt());
     }
 
-    private int matchMonth(YearMonth month) {
+    private int matchMonth(YearMonth month, LocalDateTime crawlBasisAt) {
         List<FacilityBooking> approvedBookings = facilityBookingRepository
                 .findByStatusAndReservationDateBetween(BookingStatus.APPROVED,
                         month.atDay(1), month.atEndOfMonth());
@@ -1085,39 +1107,59 @@ public class FacilityBookingMatchingScheduler {
                         approvedBookings.stream().map(FacilityBooking::getClubId).distinct().toList()).stream()
                 .collect(Collectors.toMap(club -> club.getId(), club -> club.getName(), (first, second) -> first));
 
+        // (시설,월) 크롤 행을 시설당 한 번만 조회해 재사용 — 같은 시설의 반복 조회 제거(날짜 필터는 예약별로 적용).
+        Map<Long, List<FacilityReservation>> rowsByFacility = new HashMap<>();
+
         int confirmedCount = 0;
         for (FacilityBooking booking : approvedBookings) {
-            List<FacilityReservation> dayRows = facilityReservationRepository
-                    .findByFacilityIdAndYearMonth(booking.getFacilityId(), month).stream()
-                    .filter(row -> row.getReservationDate().equals(booking.getReservationDate()))
-                    .toList();
-            MatchDecision decision = matchingService.decide(
-                    booking, clubNames.getOrDefault(booking.getClubId(), ""), dayRows);
-            if (decision.confirmed()) {
-                applyAutoConfirm(booking.getId(), decision);
-                confirmedCount++;
+            // 한 건 처리 실패가 잔여 예약·익월 스캔을 죽이지 않도록 예약 단위로 격리한다(낙관 잠금 충돌 포함).
+            try {
+                List<FacilityReservation> dayRows = rowsByFacility
+                        .computeIfAbsent(booking.getFacilityId(), facilityId ->
+                                facilityReservationRepository.findByFacilityIdAndYearMonth(facilityId, month))
+                        .stream()
+                        .filter(row -> row.getReservationDate().equals(booking.getReservationDate()))
+                        .toList();
+                MatchDecision decision = matchingService.decide(
+                        booking, clubNames.getOrDefault(booking.getClubId(), ""), dayRows);
+                if (decision.confirmed()) {
+                    matchingService.applyAutoConfirm(booking.getId(), decision, crawlBasisAt);
+                    confirmedCount++;
+                }
+            } catch (Exception exception) {
+                log.error("FacilityBooking Matching 실패 bookingId={}", booking.getId(), exception);
             }
         }
         return confirmedCount;
     }
+}
+```
 
-    /** 예약 1건 단위의 짧은 트랜잭션 — 상태 재확인 후 전이(멱등: APPROVED 가 아니면 조용히 스킵). */
+적용 메서드는 Task 3 의 `FacilityBookingMatchingService` 에 둔다(별도 빈 프록시라 `@Transactional` 이 실제로 적용됨):
+
+```java
+    /** 예약 1건 단위의 짧은 트랜잭션 — 상태 재확인 후 전이(멱등: APPROVED 가 아니면 조용히 스킵).
+     *  crawlBasisAt = 판정 근거가 된 SUCCESS 스냅샷의 수집 시각(확정 시점 now 가 아님). */
     @Transactional
-    protected void applyAutoConfirm(Long bookingId, MatchDecision decision) {
+    public void applyAutoConfirm(Long bookingId, MatchDecision decision, LocalDateTime crawlBasisAt) {
         FacilityBooking booking = facilityBookingRepository.findById(bookingId).orElse(null);
+        // 관리자 전이와의 경합은 @Version 낙관 잠금이 차단(늦은 커밋이 실패·롤백) — 재확인은 멱등 게이트.
         if (booking == null || booking.getStatus() != BookingStatus.APPROVED) {
             return;
         }
         LocalDateTime now = LocalDateTime.now(clock);
-        booking.confirmByMatching(decision.matchedScheduleSeq(), now, now);
+        booking.confirmByMatching(decision.matchedScheduleSeq(), crawlBasisAt, now);
         historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), BookingStatus.APPROVED, BookingStatus.CONFIRMED,
-                null, "크롤 데이터 자동 매칭 확정", now));
+                null, "크롤 데이터 자동 매칭 확정", crawlBasisAt));
     }
-}
 ```
 
-**구현 주의:** `@Transactional` 자기 호출(self-invocation)은 프록시를 우회한다 — `applyAutoConfirm` 이 같은 클래스에서 호출되므로 **트랜잭션이 걸리지 않는다**. 구현 시 둘 중 하나로 해결하라: (a) `applyAutoConfirm` 을 `FacilityBookingMatchingService` 쪽의 `@Transactional public` 메서드로 옮기고 스케줄러는 호출만(권장 — 판정과 적용이 한 서비스로 모임), (b) `TransactionTemplate` 주입 사용. 계획서 코드는 의도를 보이기 위한 형태이며 (a) 로 옮길 때 시그니처는 `applyAutoConfirm(Long bookingId, MatchDecision decision)` 그대로 유지한다.
+**구현 주의:**
+- **self-invocation:** `@Transactional` 자기 호출은 프록시를 우회한다. `applyAutoConfirm` 을 스케줄러 대신 별도 빈 `FacilityBookingMatchingService`(판정과 적용이 한 서비스로 모임)에 두어 프록시 트랜잭션이 실제로 걸리게 한다.
+- **@EnableScheduling:** 매칭 잡은 전용 `FacilityBookingMatchingJobConfig`(`@EnableScheduling` + 동일 `@ConditionalOnProperty`)로 독립 활성화한다 — 전역 `@EnableScheduling` 이 없으므로 이 설정이 없으면 다른 잡이 켜져야만 cron 이 발화한다.
+- **crawlBasisAt:** 스냅샷의 `getCrawledAt()`(판단 근거 크롤 시각)을 `applyAutoConfirm` 까지 전달해 엔티티 `crawl_basis_at`·이력에 확정 시점(now)이 아닌 크롤 수집 시각을 남긴다(승인 경로 관례와 일치).
+- **per-booking 격리·행 메모이즈:** `matchMonth` 는 예약 1건 처리를 try/catch 로 감싸 한 건 실패가 잔여·익월 스캔을 죽이지 않게 하고, `(시설,월)` 크롤 행을 `HashMap` 으로 메모이즈해 같은 시설 반복 조회를 없앤다.
 
 - [ ] **Step 4: 테스트 통과 확인 + Commit**
 

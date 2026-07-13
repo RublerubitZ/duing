@@ -11,9 +11,12 @@ import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService;
 import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService.MatchDecision;
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -62,22 +65,24 @@ public class FacilityBookingMatchingScheduler {
         YearMonth currentMonth = YearMonth.now(clock);
         int confirmedCount = 0;
         for (YearMonth month : List.of(currentMonth, currentMonth.plusMonths(1))) {
-            if (!isSuccessSnapshot(month)) {
+            Optional<LocalDateTime> crawlBasisAt = successCrawledAt(month);
+            if (crawlBasisAt.isEmpty()) {
                 log.info("FacilityBooking Matching skip month={} (스냅샷 미신뢰)", month);
                 continue;
             }
-            confirmedCount += matchMonth(month);
+            confirmedCount += matchMonth(month, crawlBasisAt.get());
         }
         log.info("FacilityBooking Matching done confirmed={}", confirmedCount);
     }
 
-    private boolean isSuccessSnapshot(YearMonth month) {
+    /** SUCCESS 월이면 그 스냅샷의 크롤 수집 시각(판단 근거 = crawlBasisAt), 미신뢰 월이면 empty. */
+    private Optional<LocalDateTime> successCrawledAt(YearMonth month) {
         return facilityMonthSnapshotRepository.findByYearMonth(month)
-                .map(snapshot -> snapshot.getFetchStatus() == FetchStatus.SUCCESS)
-                .orElse(false);
+                .filter(snapshot -> snapshot.getFetchStatus() == FetchStatus.SUCCESS)
+                .map(snapshot -> snapshot.getCrawledAt());
     }
 
-    private int matchMonth(YearMonth month) {
+    private int matchMonth(YearMonth month, LocalDateTime crawlBasisAt) {
         List<FacilityBooking> approvedBookings = facilityBookingRepository
                 .findByStatusAndReservationDateBetween(BookingStatus.APPROVED,
                         month.atDay(1), month.atEndOfMonth());
@@ -88,17 +93,27 @@ public class FacilityBookingMatchingScheduler {
                         approvedBookings.stream().map(FacilityBooking::getClubId).distinct().toList()).stream()
                 .collect(Collectors.toMap(club -> club.getId(), club -> club.getName(), (first, second) -> first));
 
+        // (시설,월) 크롤 행을 시설당 한 번만 조회해 재사용 — 같은 시설의 반복 조회 제거(날짜 필터는 예약별로 적용).
+        Map<Long, List<FacilityReservation>> rowsByFacility = new HashMap<>();
+
         int confirmedCount = 0;
         for (FacilityBooking booking : approvedBookings) {
-            List<FacilityReservation> dayRows = facilityReservationRepository
-                    .findByFacilityIdAndYearMonth(booking.getFacilityId(), month).stream()
-                    .filter(row -> row.getReservationDate().equals(booking.getReservationDate()))
-                    .toList();
-            MatchDecision decision = matchingService.decide(
-                    booking, clubNames.getOrDefault(booking.getClubId(), ""), dayRows);
-            if (decision.confirmed()) {
-                matchingService.applyAutoConfirm(booking.getId(), decision);
-                confirmedCount++;
+            // 한 건 처리 실패가 잔여 예약·익월 스캔을 죽이지 않도록 예약 단위로 격리한다(낙관 잠금 충돌 포함).
+            try {
+                List<FacilityReservation> dayRows = rowsByFacility
+                        .computeIfAbsent(booking.getFacilityId(), facilityId ->
+                                facilityReservationRepository.findByFacilityIdAndYearMonth(facilityId, month))
+                        .stream()
+                        .filter(row -> row.getReservationDate().equals(booking.getReservationDate()))
+                        .toList();
+                MatchDecision decision = matchingService.decide(
+                        booking, clubNames.getOrDefault(booking.getClubId(), ""), dayRows);
+                if (decision.confirmed()) {
+                    matchingService.applyAutoConfirm(booking.getId(), decision, crawlBasisAt);
+                    confirmedCount++;
+                }
+            } catch (Exception exception) {
+                log.error("FacilityBooking Matching 실패 bookingId={}", booking.getId(), exception);
             }
         }
         return confirmedCount;
