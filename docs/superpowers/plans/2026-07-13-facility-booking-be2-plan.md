@@ -10,6 +10,8 @@
 
 **Spec:** [`2026-07-13-facility-booking-design.md`](../specs/2026-07-13-facility-booking-design.md) §4(상태 머신·권한 매트릭스)·§5.2(승인 재검증)·§5.3(매칭)·§7(잠금·멱등·감사)·§8 #6~13(API)·§9.7(대시보드)
 
+> **문서 드리프트 주의:** 최종 리뷰 픽스 커밋(9cd20c26)이 Task 2·3 산출물을 확장했다 — `SchoolConflictException` 은 conflicts+crawlBasisAt payload 를 갖고(§8.3, 도메인 로컬 Advice 로 409 data 채움), `confirmManually` 는 approve 와 동일한 시설 잠금+재검증을 거치며, 매칭 잡은 세대 결박(아카이브 스킵·행 신선도·스냅샷 재확인)과 정규화 키 충돌 가드를 갖는다. 아래 Task 2·3 코드블록은 픽스 이전 형태이므로 **실코드가 우선**이다(Task 4·5·6 블록은 동기화됨).
+
 ## Global Constraints
 
 - 브랜치 `feat/facility-booking-admin` — **`feat/facility-booking-core`(PR1, #637)에서 분기**(스택 PR). 신규 마이그레이션 없음.
