@@ -280,8 +280,8 @@ describe('FacilityBookingPage — 예약 홈 통합', () => {
     await screen.findByText('밴드부');
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
 
-    // 성공 화면: 진행 스텝 + 겹침 경고.
-    expect(await screen.findByText('총동연 승인')).toBeInTheDocument();
+    // 성공 화면: 세로 타임라인(관리자 승인 대기 단계) + 겹침 경고.
+    expect(await screen.findByText('관리자 승인 대기')).toBeInTheDocument();
     expect(screen.getByText(/1건이 함께 대기/)).toBeInTheDocument();
 
     await waitFor(() => expect(capturedBody).not.toBeNull());

@@ -43,7 +43,7 @@ export function DaySlotList({ day, selection, onToggleSlot }: Props) {
                 disabled={!selectable}
                 aria-pressed={selected}
                 onClick={() => onToggleSlot(slot.start)}
-                className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm motion-safe:transition-colors ${
+                className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-sm motion-safe:transition-colors ${
                   selected
                     ? 'border-ink bg-ink text-cream'
                     : selectable
@@ -51,9 +51,9 @@ export function DaySlotList({ day, selection, onToggleSlot }: Props) {
                       : 'border-transparent bg-graysoft/60 text-charcoal-3'
                 }`}
               >
-                <span className="font-mono text-[13px]">{slot.start}~{slot.end}</span>
+                <span className="font-mono text-[13px] font-bold">{slot.start}~{slot.end}</span>
                 <span className={`text-xs ${selected ? 'text-cream/85' : slot.status === 'PENDING_HOLD' ? 'text-coral' : 'text-charcoal-3'}`}>
-                  {slotStatusLabel(day, index)}
+                  {selected ? '✓ ' : ''}{slotStatusLabel(day, index)}
                 </span>
               </button>
             </li>

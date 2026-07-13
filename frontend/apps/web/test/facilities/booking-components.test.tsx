@@ -5,6 +5,7 @@ import { FacilityContextBar } from '@/app/facilities/_components/booking/Facilit
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
 import { DaySlotList } from '@/app/facilities/_components/booking/DaySlotList';
 import { BookingSuccess } from '@/app/facilities/_components/booking/BookingSuccess';
+import { PanelSummaryCard } from '@/app/facilities/_components/booking/PanelSummaryCard';
 import { FacilityHomeCard } from '@/app/facilities/_components/booking/FacilityHomeCard';
 import { seoulDateIso } from '@/app/facilities/_lib/facilityTimeline';
 
@@ -143,7 +144,9 @@ it('예약 성공 화면은 manageHref 전달 시 "내 예약에서 확인" 링�
       date="2026-07-20"
       range={{ start: '18:00', end: '19:00' }}
       overlappingPendingCount={0}
+      submittedAt="14:05"
       manageHref="/manage/clubs/7/facility-bookings"
+      onExploreOther={vi.fn()}
       onClose={vi.fn()}
     />,
   );
@@ -158,10 +161,58 @@ it('예약 성공 화면은 manageHref 미전달 시 확인 링크를 렌더하�
       date="2026-07-20"
       range={{ start: '18:00', end: '19:00' }}
       overlappingPendingCount={0}
+      submittedAt="14:05"
+      onExploreOther={vi.fn()}
       onClose={vi.fn()}
     />,
   );
   expect(screen.queryByRole('link', { name: '내 예약에서 확인' })).not.toBeInTheDocument();
+});
+
+it('예약 성공 화면은 세로 타임라인·통일 승인 문구·CTA 3종을 렌더하고 예상 시간을 암시하지 않는다', () => {
+  const onExploreOther = vi.fn();
+  const onClose = vi.fn();
+  render(
+    <BookingSuccess
+      facilityName="커뮤니티룸(1)"
+      date="2026-07-20"
+      range={{ start: '18:00', end: '20:00' }}
+      overlappingPendingCount={2}
+      submittedAt="14:05"
+      manageHref="/manage/clubs/7/facility-bookings"
+      onExploreOther={onExploreOther}
+      onClose={onClose}
+    />,
+  );
+  // 타임라인 단계 + 통일 승인 문구(시간/기관명 없음)
+  expect(screen.getByText('신청 접수')).toBeInTheDocument();
+  expect(screen.getByText('관리자 승인 대기')).toBeInTheDocument();
+  expect(screen.getByText('관리자 승인 후 학교 반영 절차가 진행됩니다.')).toBeInTheDocument();
+  expect(screen.getByText('2026-07-20 14:05 접수')).toBeInTheDocument();
+  expect(screen.getByText(/2건이 함께 대기/)).toBeInTheDocument();
+  // 예상 시간·기관명 혼용 문구 부재
+  expect(screen.queryByText(/1~2일/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/총동연/)).not.toBeInTheDocument();
+  // CTA 3종 — 관리 링크 + 다른 시설 예약 + 닫기
+  expect(screen.getByRole('link', { name: '내 예약에서 확인' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '다른 시설 예약하기' }));
+  expect(onExploreOther).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+it('패널 요약 카드는 레벨 뱃지·기간 분포·바로 신청 퀵 칩을 렌더하고 칩 탭 시 onQuickSelect 를 부른다', () => {
+  const onQuickSelect = vi.fn();
+  render(<PanelSummaryCard day={makeDay()} onQuickSelect={onQuickSelect} />);
+  // availableSlotCount 11/13 → HIGH(여유)
+  expect(screen.getByText('여유')).toBeInTheDocument();
+  // 기간 분포 라벨(오전·오후·저녁)
+  expect(screen.getByText('오전')).toBeInTheDocument();
+  expect(screen.getByText('오후')).toBeInTheDocument();
+  expect(screen.getByText('저녁')).toBeInTheDocument();
+  // 바로 신청 가능한 첫 슬롯 칩 → onQuickSelect
+  fireEvent.click(screen.getByRole('button', { name: '09:00' }));
+  expect(onQuickSelect).toHaveBeenCalledWith('09:00');
 });
 
 it('홈 카드는 아이콘·위치·예약 가능 라벨을 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {

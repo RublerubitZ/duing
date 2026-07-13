@@ -71,6 +71,7 @@ export function FacilityBookingPage() {
   const [view, setView] = useState<PanelView>('day');
   const [submittedResult, setSubmittedResult] = useState<CreateFacilityBookingResult | null>(null);
   const [submittedClubId, setSubmittedClubId] = useState<number | null>(null);
+  const [submittedAt, setSubmittedAt] = useState<string | null>(null);
 
   const { addToast } = useToast();
   const isMobileViewport = useIsMobileViewport();
@@ -150,6 +151,7 @@ export function FacilityBookingPage() {
     setStep('slots');
     setSubmittedResult(null);
     setSubmittedClubId(null);
+    setSubmittedAt(null);
     syncUrl(effectiveFacilityId ?? null, null);
   };
 
@@ -168,6 +170,7 @@ export function FacilityBookingPage() {
     setStep('slots');
     setSubmittedResult(null);
     setSubmittedClubId(null);
+    setSubmittedAt(null);
     syncUrl(null, null);
   };
 
@@ -178,6 +181,7 @@ export function FacilityBookingPage() {
     setStep('slots');
     setSubmittedResult(null);
     setSubmittedClubId(null);
+    setSubmittedAt(null);
     syncUrl(effectiveFacilityId ?? null, iso);
   };
 
@@ -217,11 +221,15 @@ export function FacilityBookingPage() {
       onBackToSlots={() => setStep('slots')}
       submittedResult={submittedResult}
       submittedClubId={submittedClubId}
+      submittedAt={submittedAt}
       onSubmitted={(result, clubId) => {
+        const now = new Date();
+        setSubmittedAt(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
         setSubmittedResult(result);
         setSubmittedClubId(clubId);
         setStep('success');
       }}
+      onExploreOther={goHome}
       onClose={closePanel}
     />
   ) : null;
