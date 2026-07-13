@@ -1,8 +1,5 @@
 'use client';
 
-import { Link } from 'next-view-transitions';
-
-import { toRoute } from '../../_lib/route';
 import {
   AXIS_START_HOUR,
   AXIS_END_HOUR,
@@ -51,10 +48,12 @@ function OverviewRow({
   facility,
   todayIso,
   indicatorPct,
+  onSelectFacility,
 }: {
   facility: FacilityItem;
   todayIso: string;
   indicatorPct: number | null;
+  onSelectFacility: (facilityId: number) => void;
 }) {
   const segments = buildTimelineSegments(facility.reservations, todayIso);
   const usingNow = facility.isUsingNow && facility.currentReservation !== null;
@@ -62,10 +61,11 @@ function OverviewRow({
 
   return (
     <li>
-      <Link
-        href={toRoute(`/facilities/${facility.id}`)}
-        aria-label={`${facility.roomName} 상세`}
-        className={`${ROW_GRID} rounded-[12px] px-2 py-3 sm:items-center motion-safe:transition-colors hover:bg-cream`}
+      <button
+        type="button"
+        onClick={() => onSelectFacility(facility.id)}
+        aria-label={`${facility.roomName} 선택`}
+        className={`${ROW_GRID} w-full rounded-[12px] px-2 py-3 text-left sm:items-center motion-safe:transition-colors hover:bg-cream`}
       >
         {/* 라벨 열: 상태점 + 시설명 / 위치 · 다음 예약 */}
         <div className="min-w-0">
@@ -87,7 +87,7 @@ function OverviewRow({
           </p>
         </div>
 
-        {/* 바 열: 오늘 09~22 예약 트랙 (행 전체가 링크이므로 세그먼트는 비인터랙티브 span) */}
+        {/* 바 열: 오늘 09~22 예약 트랙 (행 전체가 버튼이므로 세그먼트는 비인터랙티브 span) */}
         <div className="relative h-8 overflow-hidden rounded-[8px]" style={{ background: EMPTY_FILL }}>
           {segments.map((segment, index) => (
             <span
@@ -109,14 +109,20 @@ function OverviewRow({
             />
           )}
         </div>
-      </Link>
+      </button>
     </li>
   );
 }
 
 // /facilities 통합 타임라인 — 시설 = 행, 오늘 09:00~22:00 = 가로축. 공유 시간축 헤더 1개와
 // 모든 행을 관통하는 현재시각 인디케이터(동일 %)로 어느 시설이 언제 비는지 한눈에 비교한다(§16.3).
-export function FacilityOverviewTimeline({ facilities }: { facilities: FacilityItem[] }) {
+export function FacilityOverviewTimeline({
+  facilities,
+  onSelectFacility,
+}: {
+  facilities: FacilityItem[];
+  onSelectFacility: (facilityId: number) => void;
+}) {
   const now = new Date();
   const todayIso = seoulDateIso(now);
   const indicatorPct = timelineIndicatorPct(seoulMinutesOfDay(now));
@@ -149,6 +155,7 @@ export function FacilityOverviewTimeline({ facilities }: { facilities: FacilityI
             facility={facility}
             todayIso={todayIso}
             indicatorPct={indicatorPct}
+            onSelectFacility={onSelectFacility}
           />
         ))}
       </ul>

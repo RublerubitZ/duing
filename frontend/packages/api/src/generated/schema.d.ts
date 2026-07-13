@@ -835,6 +835,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/clubs/{clubId}/facility-bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 동아리 대관 신청 목록
+         * @description 운영진 전용. 최신순, status 로 필터 가능.
+         */
+        get: operations["getBookings"];
+        put?: never;
+        /**
+         * 대관 신청 생성
+         * @description 운영진 전용. PENDING 겹침은 허용되며 overlappingPendingCount 로 경고 표시용 개수를 내린다.
+         */
+        post: operations["create_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clubs/{clubId}/facility-bookings/{bookingId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 대관 신청 취소
+         * @description PENDING 상태에서만 신청 동아리가 취소할 수 있다.
+         */
+        post: operations["cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clubs/{clubId}/events": {
         parameters: {
             query?: never;
@@ -846,7 +890,47 @@ export interface paths {
         get: operations["listWindow"];
         put?: never;
         /** 동아리 일정 생성 (LEADER/OFFICER) */
-        post: operations["create_3"];
+        post: operations["create_4"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/web/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 웹 로그아웃
+         * @description 식별 가능한 사용자 토큰을 무효화하고 웹 인증 Cookie를 삭제한다.
+         */
+        post: operations["webLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/web/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 웹 로그인
+         * @description 학번과 비밀번호로 인증 후 HttpOnly Cookie를 발급한다.
+         */
+        post: operations["webLogin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1081,7 +1165,7 @@ export interface paths {
         get: operations["list"];
         put?: never;
         /** 글로벌 이벤트 생성 (ADMIN) */
-        post: operations["create_4"];
+        post: operations["create_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1150,6 +1234,103 @@ export interface paths {
          * @description 정렬순서는 맨 뒤 자동 배치. 이름 중복 시 409.
          */
         post: operations["createCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/facility-bookings/{bookingId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 거절 */
+        post: operations["reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/facility-bookings/{bookingId}/conflict": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 충돌 전환
+         * @description 승인 후 학교 데이터 충돌 확인 시 수동 전환(P1).
+         */
+        post: operations["markConflict"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/facility-bookings/{bookingId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 수동 확정
+         * @description 자동 매칭 불발(학교 표기 차이) 건의 관리자 확정.
+         */
+        post: operations["confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/facility-bookings/{bookingId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 관리자 취소
+         * @description APPROVED·CONFLICT 취소. 사유는 이력에 기록.
+         */
+        post: operations["cancel_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/facility-bookings/{bookingId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 승인
+         * @description 저장 스냅샷 기준 재검증(시설 잠금). 학교 점유 충돌 시 409 FACILITY_BOOKING_SCHOOL_CONFLICT.
+         */
+        post: operations["approve_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2672,6 +2853,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/facilities/{facilityId}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 월 단위 슬롯 가용성 (비로그인)
+         * @description yearMonth 생략 시 현재월. 이번 달·다음 달만 조회 가능(예약 가능 기간).
+         */
+        get: operations["getAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/facilities/usage": {
         parameters: {
             query?: never;
@@ -2681,6 +2882,23 @@ export interface paths {
         };
         /** 월별 이용현황 (비로그인). yearMonth 생략 시 현재월 */
         get: operations["getUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facilities/booking-purpose-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 사용 목적 Preset 목록 (비로그인) */
+        get: operations["listPurposePresets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2821,6 +3039,26 @@ export interface paths {
          * @description 동아리원이 입금에 필요한 계좌(은행·계좌번호·예금주)를 복호화된 평문으로 조회한다.
          */
         get: operations["get_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clubs/{clubId}/facility-bookings/{bookingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 대관 신청 상세
+         * @description 운영진 전용. 상태 이력(최신순) 포함.
+         */
+        get: operations["getBooking"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3014,6 +3252,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/facility-bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 대관 신청 큐 조회
+         * @description 기본 최신순. APPROVED 에 학교 반영 대기 경과일·충돌 의심 플래그 포함.
+         */
+        get: operations["getQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/facility-bookings/{bookingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 대관 신청 상세
+         * @description 해당 월 온디맨드 재크롤을 시도하고 크롤 신선도·겹침 컨텍스트·이력을 포함한다(§5.2).
+         */
+        get: operations["getDetail_4"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/facility-bookings/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 대시보드 카드 수치
+         * @description 승인 대기·학교 반영 대기·충돌·이달 확정(§9.7).
+         */
+        get: operations["getSummary_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/clubs/{clubId}": {
         parameters: {
             query?: never;
@@ -3099,7 +3397,7 @@ export interface paths {
         put?: never;
         post?: never;
         /** 회비 청구 취소 (LEADER/OFFICER) */
-        delete: operations["cancel"];
+        delete: operations["cancel_2"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3531,6 +3829,41 @@ export interface components {
         CreateLeaderSuccessionRequestRequest: {
             reason: string;
         };
+        CreateFacilityBookingRequest: {
+            /** Format: int64 */
+            facilityId: number;
+            /** Format: date */
+            date: string;
+            startTime: components["schemas"]["LocalTime"];
+            endTime: components["schemas"]["LocalTime"];
+            purpose: string;
+            /** Format: int32 */
+            attendeeCount?: number;
+        };
+        LocalTime: {
+            /** Format: int32 */
+            hour?: number;
+            /** Format: int32 */
+            minute?: number;
+            /** Format: int32 */
+            second?: number;
+            /** Format: int32 */
+            nano?: number;
+        };
+        ApiResponseCreateFacilityBookingResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["CreateFacilityBookingResponse"];
+            message?: string;
+            code?: string;
+        };
+        CreateFacilityBookingResponse: {
+            /** Format: int64 */
+            bookingId?: number;
+            /** @enum {string} */
+            status?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
+            /** Format: int64 */
+            overlappingPendingCount?: number;
+        };
         CreateClubEventRequest: {
             title: string;
             description?: string;
@@ -3539,6 +3872,30 @@ export interface components {
             /** Format: date-time */
             endAt: string;
             location?: string;
+        };
+        LoginRequest: {
+            studentId: string;
+            password: string;
+        };
+        ApiResponseWebLoginResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["WebLoginResponse"];
+            message?: string;
+            code?: string;
+        };
+        UserResponse: {
+            /** Format: int64 */
+            id?: number;
+            studentId?: string;
+            name?: string;
+            phone?: string;
+            /** @enum {string} */
+            role?: "STUDENT" | "ADMIN";
+            /** @enum {string} */
+            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+        };
+        WebLoginResponse: {
+            user?: components["schemas"]["UserResponse"];
         };
         SignupRequest: {
             studentId: string;
@@ -3596,10 +3953,6 @@ export interface components {
             verificationToken: string;
             newPassword: string;
         };
-        LoginRequest: {
-            studentId: string;
-            password: string;
-        };
         ApiResponseLoginResponse: {
             ok?: boolean;
             data?: components["schemas"]["LoginResponse"];
@@ -3610,17 +3963,6 @@ export interface components {
             accessToken?: string;
             tokenType?: string;
             user?: components["schemas"]["UserResponse"];
-        };
-        UserResponse: {
-            /** Format: int64 */
-            id?: number;
-            studentId?: string;
-            name?: string;
-            phone?: string;
-            /** @enum {string} */
-            role?: "STUDENT" | "ADMIN";
-            /** @enum {string} */
-            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
         };
         CreateRecertificationRoundRequest: {
             /** Format: int32 */
@@ -3712,6 +4054,15 @@ export interface components {
         };
         CreateFederationFaqCategoryRequest: {
             name: string;
+        };
+        RejectFacilityBookingRequest: {
+            reason: string;
+        };
+        MarkConflictRequest: {
+            detail: string;
+        };
+        CancelFacilityBookingRequest: {
+            reason: string;
         };
         CreateClubRequest: {
             name: string;
@@ -5353,6 +5704,49 @@ export interface components {
             /** @enum {string} */
             status?: "UPCOMING" | "USING" | "FINISHED";
         };
+        ApiResponseFacilityAvailabilityResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FacilityAvailabilityResponse"];
+            message?: string;
+            code?: string;
+        };
+        DayAvailability: {
+            /** Format: date */
+            date?: string;
+            /** @enum {string} */
+            dayStatus?: "AVAILABLE" | "FULL" | "PAST";
+            /** Format: int32 */
+            availableSlotCount?: number;
+            operatingNotes?: components["schemas"]["OperatingNote"][];
+            slots?: components["schemas"]["SlotAvailability"][];
+        };
+        FacilityAvailabilityResponse: {
+            /** Format: int64 */
+            facilityId?: number;
+            yearMonth?: string;
+            /** Format: date-time */
+            lastUpdatedAt?: string;
+            stale?: boolean;
+            /** Format: date */
+            bookableFrom?: string;
+            /** Format: date */
+            bookableUntil?: string;
+            days?: components["schemas"]["DayAvailability"][];
+        };
+        OperatingNote: {
+            organization?: string;
+            start?: string;
+            end?: string;
+        };
+        SlotAvailability: {
+            start?: string;
+            end?: string;
+            /** @enum {string} */
+            status?: "AVAILABLE" | "PENDING_HOLD" | "BLOCKED" | "PAST";
+            /** @enum {string} */
+            blockedBy?: "SCHOOL" | "INTERNAL";
+            organization?: string;
+        };
         ApiResponseFacilityUsageResponse: {
             ok?: boolean;
             data?: components["schemas"]["FacilityUsageResponse"];
@@ -5367,6 +5761,17 @@ export interface components {
             /** @enum {string} */
             source?: "CACHE" | "LIVE_FETCH" | "STALE_CACHE";
             facilities?: components["schemas"]["FacilityUsage"][];
+        };
+        ApiResponseListPurposePresetResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PurposePresetResponse"][];
+            message?: string;
+            code?: string;
+        };
+        PurposePresetResponse: {
+            /** Format: int64 */
+            id?: number;
+            label?: string;
         };
         ActiveRecruitmentSummaryResponse: {
             /** Format: int64 */
@@ -5509,6 +5914,62 @@ export interface components {
             role?: "MEMBER" | "OFFICER" | "LEADER";
             /** Format: date-time */
             joinedAt?: string;
+        };
+        ApiResponseListFacilityBookingSummaryResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FacilityBookingSummaryResponse"][];
+            message?: string;
+            code?: string;
+        };
+        FacilityBookingSummaryResponse: {
+            /** Format: int64 */
+            bookingId?: number;
+            /** Format: int64 */
+            facilityId?: number;
+            roomName?: string;
+            /** Format: date */
+            date?: string;
+            startTime?: components["schemas"]["LocalTime"];
+            endTime?: components["schemas"]["LocalTime"];
+            /** @enum {string} */
+            status?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
+            purpose?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ApiResponseFacilityBookingDetailResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["FacilityBookingDetailResponse"];
+            message?: string;
+            code?: string;
+        };
+        FacilityBookingDetailResponse: {
+            /** Format: int64 */
+            bookingId?: number;
+            /** Format: int64 */
+            facilityId?: number;
+            roomName?: string;
+            /** Format: date */
+            date?: string;
+            startTime?: components["schemas"]["LocalTime"];
+            endTime?: components["schemas"]["LocalTime"];
+            /** @enum {string} */
+            status?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
+            purpose?: string;
+            /** Format: int32 */
+            attendeeCount?: number;
+            rejectReason?: string;
+            conflictDetail?: string;
+            history?: components["schemas"]["HistoryItem"][];
+        };
+        HistoryItem: {
+            /** @enum {string} */
+            previousStatus?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
+            /** @enum {string} */
+            newStatus?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
+            reason?: string;
+            /** Format: date-time */
+            changedAt?: string;
         };
         ApiResponseListClubEventCardResponse: {
             ok?: boolean;
@@ -6180,6 +6641,113 @@ export interface components {
             /** Format: int32 */
             totalPages?: number;
             hasNext?: boolean;
+        };
+        AdminFacilityBookingSummaryResponse: {
+            /** Format: int64 */
+            bookingId?: number;
+            /** Format: int64 */
+            clubId?: number;
+            clubName?: string;
+            /** Format: int64 */
+            facilityId?: number;
+            roomName?: string;
+            /** Format: date */
+            date?: string;
+            startTime?: components["schemas"]["LocalTime"];
+            endTime?: components["schemas"]["LocalTime"];
+            /** @enum {string} */
+            status?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
+            purpose?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: int32 */
+            approvedWaitingDays?: number;
+            conflictSuspected?: boolean;
+            partiallyMatched?: boolean;
+        };
+        ApiResponsePageResponseAdminFacilityBookingSummaryResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PageResponseAdminFacilityBookingSummaryResponse"];
+            message?: string;
+            code?: string;
+        };
+        PageResponseAdminFacilityBookingSummaryResponse: {
+            content?: components["schemas"]["AdminFacilityBookingSummaryResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            hasNext?: boolean;
+        };
+        AdminFacilityBookingDetailResponse: {
+            /** Format: int64 */
+            bookingId?: number;
+            /** Format: int64 */
+            clubId?: number;
+            clubName?: string;
+            /** Format: int64 */
+            facilityId?: number;
+            roomName?: string;
+            /** Format: date */
+            date?: string;
+            startTime?: components["schemas"]["LocalTime"];
+            endTime?: components["schemas"]["LocalTime"];
+            /** @enum {string} */
+            status?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
+            purpose?: string;
+            /** Format: int32 */
+            attendeeCount?: number;
+            rejectReason?: string;
+            conflictDetail?: string;
+            /** Format: int64 */
+            matchedScheduleSeq?: number;
+            /** Format: date-time */
+            crawlBasisAt?: string;
+            stale?: boolean;
+            overlaps?: components["schemas"]["OverlapItem"][];
+            /** Format: int64 */
+            overlappingPendingCount?: number;
+            history?: components["schemas"]["HistoryItem"][];
+        };
+        ApiResponseAdminFacilityBookingDetailResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["AdminFacilityBookingDetailResponse"];
+            message?: string;
+            code?: string;
+        };
+        OverlapItem: {
+            source?: string;
+            organization?: string;
+            startTime?: components["schemas"]["LocalTime"];
+            endTime?: components["schemas"]["LocalTime"];
+        };
+        AdminFacilityBookingCountsResponse: {
+            /** Format: int64 */
+            pendingCount?: number;
+            /** Format: int64 */
+            todaySubmittedCount?: number;
+            /** Format: int64 */
+            oldestPendingWaitingDays?: number;
+            /** Format: int64 */
+            approvedWaitingCount?: number;
+            /** Format: int64 */
+            oldestApprovedWaitingDays?: number;
+            /** Format: int64 */
+            conflictCount?: number;
+            /** Format: int64 */
+            conflictSuspectedCount?: number;
+            /** Format: int64 */
+            confirmedThisMonthCount?: number;
+        };
+        ApiResponseAdminFacilityBookingCountsResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["AdminFacilityBookingCountsResponse"];
+            message?: string;
+            code?: string;
         };
         AdminClubSummaryResponse: {
             /** Format: int64 */
@@ -7621,6 +8189,79 @@ export interface operations {
             };
         };
     };
+    getBookings: {
+        parameters: {
+            query?: {
+                status?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
+            };
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListFacilityBookingSummaryResponse"];
+                };
+            };
+        };
+    };
+    create_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFacilityBookingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCreateFacilityBookingResponse"];
+                };
+            };
+        };
+    };
+    cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                bookingId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     listWindow: {
         parameters: {
             query?: {
@@ -7646,7 +8287,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -7668,6 +8309,48 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    webLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 로그아웃 완료 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    webLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description 로그인 성공 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWebLoginResponse"];
                 };
             };
         };
@@ -8127,7 +8810,7 @@ export interface operations {
             };
         };
     };
-    create_4: {
+    create_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -8271,6 +8954,128 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookingId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectFacilityBookingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    markConflict: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookingId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkConflictRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookingId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    cancel_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookingId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelFacilityBookingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    approve_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookingId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };
@@ -10770,6 +11575,30 @@ export interface operations {
             };
         };
     };
+    getAvailability: {
+        parameters: {
+            query?: {
+                yearMonth?: string;
+            };
+            header?: never;
+            path: {
+                facilityId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFacilityAvailabilityResponse"];
+                };
+            };
+        };
+    };
     getUsage: {
         parameters: {
             query?: {
@@ -10788,6 +11617,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseFacilityUsageResponse"];
+                };
+            };
+        };
+    };
+    listPurposePresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListPurposePresetResponse"];
                 };
             };
         };
@@ -10963,6 +11812,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseFeeAccountResponse"];
+                };
+            };
+        };
+    };
+    getBooking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                bookingId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFacilityBookingDetailResponse"];
                 };
             };
         };
@@ -11189,6 +12061,75 @@ export interface operations {
             };
         };
     };
+    getQueue: {
+        parameters: {
+            query?: {
+                /** @description 상태 필터 */
+                status?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
+                /** @description 시설 필터 */
+                facilityId?: number;
+                dateFrom?: string;
+                dateTo?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseAdminFacilityBookingSummaryResponse"];
+                };
+            };
+        };
+    };
+    getDetail_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookingId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminFacilityBookingDetailResponse"];
+                };
+            };
+        };
+    };
+    getSummary_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminFacilityBookingCountsResponse"];
+                };
+            };
+        };
+    };
     getAdminClub: {
         parameters: {
             query?: never;
@@ -11275,7 +12216,7 @@ export interface operations {
             };
         };
     };
-    cancel: {
+    cancel_2: {
         parameters: {
             query?: never;
             header?: never;
