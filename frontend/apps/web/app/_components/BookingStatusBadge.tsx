@@ -1,5 +1,5 @@
 import type { BookingStatus } from '@duing/types';
-import { BOOKING_STATUS_META } from '../_lib/bookingDisplay';
+import { BOOKING_STATUS_META } from '@/app/_lib/bookingDisplay';
 
 export function BookingStatusBadge({ status }: { status: BookingStatus }) {
   const meta = BOOKING_STATUS_META[status];

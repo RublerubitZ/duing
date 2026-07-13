@@ -1,8 +1,8 @@
 'use client';
 
 import type { FacilityBookingSummary } from '@duing/types';
-import { bookingDateLabel, bookingTimeLabel } from '../_lib/bookingDisplay';
-import { BookingStatusBadge } from './BookingStatusBadge';
+import { bookingDateLabel, bookingTimeLabel } from '@/app/_lib/bookingDisplay';
+import { BookingStatusBadge } from '@/app/_components/BookingStatusBadge';
 
 type Props = {
   booking: FacilityBookingSummary;

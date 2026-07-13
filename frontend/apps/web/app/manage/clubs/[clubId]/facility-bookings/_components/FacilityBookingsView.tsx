@@ -9,7 +9,7 @@ import {
   BOOKING_TAB_LABELS,
   bookingTabOf,
   type BookingTabKey,
-} from '../_lib/bookingDisplay';
+} from '@/app/_lib/bookingDisplay';
 import { BookingDetailModal } from './BookingDetailModal';
 import { BookingRow } from './BookingRow';
 

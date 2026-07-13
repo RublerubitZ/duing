@@ -11,8 +11,8 @@ import {
   bookingDateLabel,
   bookingDateTimeLabel,
   bookingTimeLabel,
-} from '../_lib/bookingDisplay';
-import { BookingStatusBadge } from './BookingStatusBadge';
+} from '@/app/_lib/bookingDisplay';
+import { BookingStatusBadge } from '@/app/_components/BookingStatusBadge';
 import { CancelBookingDialog } from './CancelBookingDialog';
 
 const STEPS = ['신청 완료', '총동연 승인', '학교 확정'] as const;

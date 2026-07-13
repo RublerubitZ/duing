@@ -7,7 +7,7 @@ import {
   bookingDateTimeLabel,
   bookingTabOf,
   bookingTimeLabel,
-} from '@/app/manage/clubs/[clubId]/facility-bookings/_lib/bookingDisplay';
+} from '@/app/_lib/bookingDisplay';
 
 describe('bookingDateLabel', () => {
   it('로컬 파싱으로 M월 D일 (요일) 을 만든다', () => {
