@@ -23,6 +23,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -74,6 +75,9 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private Clock clock;
 
     // 가입 사용자·발급 번호 유일성 보장용 시퀀스.
     private final AtomicLong sequence = new AtomicLong(0);
@@ -342,7 +346,7 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
     }
 
     private void exhaustDailyQuota() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         try {
             while (true) {
                 moPollThrottle.reserveDailyQuota(now);

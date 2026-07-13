@@ -39,12 +39,6 @@ file:
   storage:
     provider: stub
 
-email:
-  provider: stub
-  verification:
-    # 테스트 전용 더미 키 — 실 시크릿 아님.
-    secret: duing-test-email-verification-secret
-
 mo:
   provider: stub
   inbound-number: "16663538"
@@ -60,10 +54,6 @@ octomo:
   api-key: ""
   base-url: http://localhost:0/octomo-stub
 
-resend:
-  api-key: ""
-  from: Du-ing <noreply@duings.com>
-
 bank-api:
   # 테스트 전용 더미 baseUrl — @NotBlank fail-fast 충족용. 실제 호출은 발생하지 않는다.
   # 통합테스트는 BankApiClient 를 @Primary stub 으로 대체하므로 이 URL 로 나가는 외부 호출이 없다.
@@ -74,6 +64,9 @@ bank-api:
 jwt:
   secret: duing-test-jwt-secret-key-that-is-long-enough-for-hs256-algorithm
   expiry-ms: 3600000
+
+web-auth:
+  hint-secret: duing-test-auth-hint-secret-key-that-is-different-from-jwt
 
 security:
   fee-account:

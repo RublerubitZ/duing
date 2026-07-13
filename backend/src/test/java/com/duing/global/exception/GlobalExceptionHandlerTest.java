@@ -18,7 +18,7 @@ class GlobalExceptionHandlerTest {
     void uniqueViolation_returnsConflict() {
         DataIntegrityViolationException exception = new DataIntegrityViolationException(
                 "could not execute statement",
-                new RuntimeException("duplicate key value violates unique constraint \"uk_users_email_active\"")
+                new RuntimeException("duplicate key value violates unique constraint \"uk_users_student_id_active\"")
         );
 
         ResponseEntity<ApiResponse<Void>> response = handler.handleDataIntegrityViolation(exception);
@@ -50,14 +50,14 @@ class GlobalExceptionHandlerTest {
     @DisplayName("응답 메시지는 인덱스명·컬럼명 등 DB 내부 정보를 노출하지 않는다")
     void responseMessage_doesNotLeakDbInternals() {
         DataIntegrityViolationException exception = new DataIntegrityViolationException(
-                "duplicate key value violates unique constraint \"uk_users_email_active\""
+                "duplicate key value violates unique constraint \"uk_users_student_id_active\""
         );
 
         ResponseEntity<ApiResponse<Void>> response = handler.handleDataIntegrityViolation(exception);
 
         assertThat(response.getBody()).isNotNull();
         String message = response.getBody().message();
-        assertThat(message).doesNotContain("uk_users_email_active");
+        assertThat(message).doesNotContain("uk_users_student_id_active");
         assertThat(message).doesNotContain("constraint");
         assertThat(message).doesNotContain("duplicate key");
     }

@@ -1,5 +1,7 @@
 package com.duing.domain.user.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.user.entity.College;
@@ -8,7 +10,9 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.auth.WebAuthCookieService;
 import io.restassured.RestAssured;
+import io.restassured.response.Response;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -101,5 +105,22 @@ class AuthSessionTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .when().post("/api/v1/auth/logout")
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
+
+    @Test
+    @DisplayName("허용되지 않은 Origin의 Cookie 인증 변경 요청은 JSON 오류 응답으로 거부된다")
+    void cookieMutationFromDisallowedOriginReturnsJsonError() {
+        User user = saveUser();
+
+        Response response = RestAssured.given()
+                .cookie(WebAuthCookieService.ACCESS_COOKIE_NAME, tokenFor(user))
+                .header(HttpHeaders.ORIGIN, "https://evil.example.com")
+                .when().post("/api/v1/auth/logout");
+
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.FORBIDDEN.value());
+        assertThat(response.contentType()).startsWith("application/json");
+        assertThat(response.jsonPath().getBoolean("ok")).isFalse();
+        assertThat(response.jsonPath().getString("message"))
+                .isEqualTo("허용되지 않은 요청 출처입니다.");
     }
 }

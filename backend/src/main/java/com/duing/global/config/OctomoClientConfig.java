@@ -14,7 +14,7 @@ import org.springframework.web.client.RestClient;
  * Octomo RestClient 설정 — {@link com.duing.global.mo.OctomoMoVerificationClient} 가 사용.
  *
  * <p>{@code mo.provider=octomo} 일 때만 활성 (로컬·CI 는 stub 이라 빈·프로퍼티 검증이 아예 등록되지
- * 않는다 — ResendClientConfig 의 "자살골 방지"와 동일 구조). 인증은 공식 샘플 계약대로
+ * 않는다 — 미사용 프로파일에서 크레덴셜 검증이 발동하는 "자살골"을 막는 구조). 인증은 공식 샘플 계약대로
  * {@code Authorization: Octomo {API_KEY}} 헤더. Octomo 장애 시 상태조회 API 가 길게 블로킹되지
  * 않도록 짧은 타임아웃을 강제한다.
  */
