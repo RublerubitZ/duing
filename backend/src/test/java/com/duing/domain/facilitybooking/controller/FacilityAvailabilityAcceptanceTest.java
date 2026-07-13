@@ -56,7 +56,7 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("크롤 데이터가 없는 시설의 당월 가용성은 미래 날짜가 종일 AVAILABLE 이다")
+    @DisplayName("크롤 데이터가 없는 시설은 예약 오픈 창의 첫 날짜가 종일 AVAILABLE 이다")
     void availabilityForEmptyMonth() {
         Facility facility = facilityRepository.save(Facility.create(90001, "커뮤니티룸(T)", null, 0));
 

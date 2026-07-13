@@ -32,7 +32,7 @@
 - 오늘이 (pivotDay+1)일~말일 → **익월 1일 ~ pivotDay일** (예: 7/20 → 8/1~8/15)
 
 ### 설계 — 정책 계층 (하드코딩 금지, 확장 가능)
-- `BookingWindowPolicy` 인터페이스: `BookingWindow calculate(LocalDate today)` — `BookingWindow(from, until)` 값 객체.
+- `BookingWindowPolicy` 인터페이스: `BookingWindow windowFor(LocalDate today)` — `BookingWindow(from, until)` 값 객체.
 - P1 구현: `HalfMonthBookingWindowPolicy(pivotDay)`. 확장 슬롯: `MONTHLY`(월 단위)·`FREE`(자유 기간)는 enum·설정 키만 예약(구현은 후속).
 - 설정(환경변수 주입 가능, 시크릿 아님):
   - `duing.facility.booking.window.mode: HALF_MONTH` (enum: `HALF_MONTH | MONTHLY | FREE`)

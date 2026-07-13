@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface FacilityAvailabilityApi {
 
     @Operation(summary = "월 단위 슬롯 가용성 (비로그인)",
-            description = "yearMonth 생략 시 현재월. 이번 달·다음 달만 조회 가능(예약 가능 기간).")
+            description = "yearMonth 생략 시 현재월. 이번 달·다음 달만 조회 가능(월 조회 범위 — 실제 신청 가능 구간은 bookableFrom/bookableUntil).")
     @GetMapping("/facilities/{facilityId}/availability")
     ResponseEntity<ApiResponse<FacilityAvailabilityResponse>> getAvailability(
             @PathVariable Long facilityId,
