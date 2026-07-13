@@ -38,6 +38,10 @@ public interface FacilityBookingRepository extends JpaRepository<FacilityBooking
     List<FacilityBooking> findByFacilityIdAndReservationDateBetweenAndStatusIn(
             Long facilityId, LocalDate startDate, LocalDate endDate, Collection<BookingStatus> statuses);
 
+    /** 자동 매칭 대상 조회 — 특정 상태(APPROVED)·예약일 구간의 신청 전체. */
+    List<FacilityBooking> findByStatusAndReservationDateBetween(
+            BookingStatus status, LocalDate startDate, LocalDate endDate);
+
     long countByClubIdAndStatusIn(Long clubId, Collection<BookingStatus> statuses);
 
     List<FacilityBooking> findByClubIdOrderByCreatedAtDesc(Long clubId);
