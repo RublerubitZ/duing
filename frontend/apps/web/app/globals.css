@@ -526,3 +526,13 @@ body {
     animation: none !important;
   }
 }
+
+/* 뒤로/앞으로(popstate) 내비게이션의 전환은 애니메이션 없이 즉시 완료시킨다.
+ * iOS 스와이프 백의 네이티브 슬라이드와 웹 크로스페이드가 겹치는 이중 전환 방지
+ * (마커는 backNavigationViewTransition.ts 가 popstate 에 세팅, 전환 종료 시 해제).
+ * 전진 Link 내비게이션(크로스페이드·club-logo 모핑)은 영향 없음. */
+:root[data-back-navigation]::view-transition-group(*),
+:root[data-back-navigation]::view-transition-old(*),
+:root[data-back-navigation]::view-transition-new(*) {
+  animation: none !important;
+}

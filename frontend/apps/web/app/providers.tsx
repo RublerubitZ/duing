@@ -8,6 +8,7 @@ import { createApiClient, registerConnectivityAdapter } from '@duing/api';
 import { ApiClientProvider, shouldRetryQuery } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
+import { installBackNavigationViewTransitionGuard } from './_lib/backNavigationViewTransition';
 import { clearLegacyWebAuthArtifacts } from './_lib/legacy-auth-cleanup';
 import { ToastProvider } from './_components/toast/ToastProvider';
 import { OfflineBanner } from './_components/OfflineBanner';
@@ -19,6 +20,8 @@ setStorage(webStorage);
 clearLegacyWebAuthArtifacts();
 // navigator.onLine 이 명시적으로 false 일 때만 오프라인 — SSR(navigator 부재)은 온라인 취급.
 registerConnectivityAdapter(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+// 뒤로가기(popstate) View Transition 이중 재생 방지 — 함수 내부에서 window 가드하므로 SSR 안전.
+installBackNavigationViewTransitionGuard();
 
 const apiClient = createApiClient({
   baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1',

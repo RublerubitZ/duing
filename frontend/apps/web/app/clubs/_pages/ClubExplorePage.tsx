@@ -14,6 +14,7 @@ import { Sparkle, SparkleFull } from '../../_components/Sparkle';
 import { COLLEGE_OPTIONS, collegeDisplayName } from '../../_lib/college';
 import { toRoute } from '../../_lib/route';
 import { ClubCard } from '../_components/ClubCard';
+import { ClubListSkeletonItems } from '../_components/ClubExploreSkeleton';
 import { ClubListItem } from '../_components/ClubListItem';
 import { summaryToClub } from '../_lib/clubAdapter';
 import { DIVISIONS, type Division } from '../_lib/clubs';
@@ -455,7 +456,9 @@ export function ClubExplorePage() {
             </div>
 
             {clubListQuery.isLoading && (
-              <p className="text-sm text-charcoal-2">불러오는 중…</p>
+              <div role="status" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
+                <ClubListSkeletonItems variant="grid" />
+              </div>
             )}
             {clubListQuery.error && (
               <p className="text-sm text-coral">
@@ -569,7 +572,11 @@ export function ClubExplorePage() {
         </div>
 
         <div className="px-4 pb-8">
-          {clubListQuery.isLoading && <p className="text-sm text-charcoal-2">불러오는 중…</p>}
+          {clubListQuery.isLoading && (
+            <div role="status" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
+              <ClubListSkeletonItems variant="list" />
+            </div>
+          )}
           {clubListQuery.error && <p className="text-sm text-coral">오류가 발생했습니다.</p>}
           {clubListQuery.data && visibleClubs.length === 0 && (
             <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
