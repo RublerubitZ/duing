@@ -183,6 +183,11 @@ duing:
         # APPROVED → CONFIRMED 자동 매칭 잡(10분, 크롤 잡과 3분 오프셋). 로컬/테스트 기본 비활성 —
         # 운영에서 DUING_FACILITY_BOOKING_MATCHING_ENABLED=true(application-prod.yml)로 활성화한다.
         enabled: ${DUING_FACILITY_BOOKING_MATCHING_ENABLED:false}
+      window:
+        # 예약 오픈 구간 정책(설계 §1.5) — HALF_MONTH: 오늘 1~pivot일이면 당월 (pivot+1)~말일,
+        # (pivot+1)~말일이면 익월 1~pivot일. MONTHLY/FREE 는 키만 예약(미구현 — 선택 시 부팅 실패).
+        mode: ${DUING_FACILITY_BOOKING_WINDOW_MODE:HALF_MONTH}
+        pivot-day: ${DUING_FACILITY_BOOKING_WINDOW_PIVOT_DAY:15}
 
 # 기본은 안전값(warn). bind 파라미터 로깅(org.hibernate.orm.jdbc.bind=trace)은 이메일·인증코드·학번 등
 # PII 를 평문으로 남기므로 base 를 warn 으로 둔다. local 프로파일만 개발 편의로 trace 를 다시 켜고

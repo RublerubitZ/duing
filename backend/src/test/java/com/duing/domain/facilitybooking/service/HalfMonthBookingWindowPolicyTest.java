@@ -55,6 +55,15 @@ class HalfMonthBookingWindowPolicyTest {
     }
 
     @Test
+    @DisplayName("기준일 27일에 평년 2월 상반기는 28일 하루짜리 구간이 된다 — 상한 27의 존재 이유")
+    void pivot27FebruaryProducesSingleDayWindow() {
+        HalfMonthBookingWindowPolicy latePivotPolicy = new HalfMonthBookingWindowPolicy(27);
+        BookingWindow window = latePivotPolicy.windowFor(LocalDate.of(2026, 2, 10));
+        assertThat(window.from()).isEqualTo(LocalDate.of(2026, 2, 28));
+        assertThat(window.until()).isEqualTo(LocalDate.of(2026, 2, 28));
+    }
+
+    @Test
     @DisplayName("기준일을 바꾸면(예: 10일) 구간 경계가 함께 이동한다")
     void customPivotDayShiftsWindow() {
         HalfMonthBookingWindowPolicy tenDayPolicy = new HalfMonthBookingWindowPolicy(10);
