@@ -15,7 +15,7 @@ import type {
   User,
 } from '@duing/types';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
-import { seoulDateIso } from '@/app/facilities/_lib/facilityTimeline';
+import { seoulDateIso, shiftYearMonth } from '@/app/facilities/_lib/facilityTimeline';
 import { FacilityBookingPage } from '@/app/facilities/_pages/FacilityBookingPage';
 
 // URL 딥링크는 이 스위트에서 쓰지 않으므로 항상 빈 검색 문자열을 반환한다.
@@ -396,5 +396,32 @@ describe('FacilityBookingPage — 예약 홈 통합', () => {
 
     const chipLink = await screen.findByRole('link', { name: /내 신청 1건 진행 중/ });
     expect(chipLink).toHaveAttribute('href', '/manage/clubs/7/facility-bookings');
+  });
+
+  it('시나리오 10: 지난달 딥링크는 창 월(당월)로 클램프해 무효 월 availability 요청 없이 캘린더를 렌더한다', async () => {
+    // 지난달은 절대날짜 하드코딩 금지 — 당월에서 -1개월 파생(TODAY 기준 동적 계산).
+    const lastMonth = shiftYearMonth(CURRENT_MONTH, -1);
+    mockSearchParams.value = `facilityId=1&date=${lastMonth}-15`;
+
+    // availability 요청의 yearMonth 를 포착한다. 지난달(무효 월)이면 절대 나가지 않아야 하고,
+    // 400 핸들러를 두지 않은 채 onUnhandledRequest:'error' 로 무효 요청 발생 자체를 간접 차단한다.
+    const requestedYearMonths: string[] = [];
+    server.use(
+      http.get('*/facilities/1/availability', ({ request }) => {
+        const yearMonth = new URL(request.url).searchParams.get('yearMonth');
+        if (yearMonth !== null) requestedYearMonths.push(yearMonth);
+        return ok(makeAvailability(1));
+      }),
+    );
+
+    renderPage();
+
+    // 캘린더가 당월 기준으로 정상 렌더된다(오늘 셀 노출 = availability 당월 응답 반영).
+    expect(await screen.findByRole('button', { name: TODAY_DAY_LABEL })).toBeInTheDocument();
+
+    // availability 는 오직 당월로만 요청된다 — 지난달(딥링크 스테일 월)은 클램프돼 요청되지 않는다.
+    expect(requestedYearMonths.length).toBeGreaterThan(0);
+    expect(requestedYearMonths.every((month) => month === CURRENT_MONTH)).toBe(true);
+    expect(requestedYearMonths).not.toContain(lastMonth);
   });
 });

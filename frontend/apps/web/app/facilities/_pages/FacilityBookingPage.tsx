@@ -81,9 +81,15 @@ export function FacilityBookingPage() {
   // 기본 월 = 창 월(반월 정책상 bookableFrom 월). 딥링크 날짜가 있으면 그 월로 진입하고,
   // 이후 사용자의 월 이동/날짜 선택은 override 로만 갱신한다(창 로딩 전에도 currentMonth 로 폴백).
   const windowMonth = windowQuery.data?.bookableFrom.slice(0, 7) ?? null;
-  const [yearMonthOverride, setYearMonthOverride] = useState<string | null>(() =>
-    selectedDate !== null ? selectedDate.slice(0, 7) : null,
-  );
+  const [yearMonthOverride, setYearMonthOverride] = useState<string | null>(() => {
+    // 딥링크 date 의 월은 당월/익월(반월 창 범위)일 때만 채용한다. 과거·원거리 월을 그대로
+    // 채용하면 availability 가 무효 월로 400 을 내고 회복이 안 되므로, 범위 밖이면 null(창 월 폴백).
+    if (selectedDate === null) return null;
+    const deepLinkMonth = selectedDate.slice(0, 7);
+    return deepLinkMonth === currentMonth || deepLinkMonth === shiftYearMonth(currentMonth, 1)
+      ? deepLinkMonth
+      : null;
+  });
   const yearMonth = yearMonthOverride ?? windowMonth ?? currentMonth;
 
   const contextFacilities = useMemo(
@@ -133,6 +139,7 @@ export function FacilityBookingPage() {
     setSelectedDate(null);
     setSelection(null);
     setStep('slots');
+    syncUrl(effectiveFacilityId ?? null, null); // 스테일 date 파라미터 제거 — 새로고침 시 재발 방지.
     addToast(`현재 예약 가능한 기간이 아니에요${windowLabel ? ` (${windowLabel})` : ''}`, { variant: 'error' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDateOutOfWindow]);

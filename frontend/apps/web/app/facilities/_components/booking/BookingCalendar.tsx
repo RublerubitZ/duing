@@ -2,7 +2,7 @@
 
 import type { BookingDayAvailability } from '@duing/types';
 import { yearMonthLabel } from '../../_lib/facilityTimeline';
-import { DAY_LEVEL_META, buildMonthCells, dayLevelOf, isWithinBookable } from '../../_lib/bookingCalendar';
+import { DAY_LEVEL_META, TOTAL_SLOTS, buildMonthCells, dayLevelOf, isWithinBookable } from '../../_lib/bookingCalendar';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -72,8 +72,9 @@ export function BookingCalendar({
           const selected = cell.iso === selectedDate;
           const isToday = cell.iso === todayIso;
           const level = selectable && day ? dayLevelOf(day.availableSlotCount) : null;
-          const ariaLabel = level !== null
-            ? `${cell.day}일 ${DAY_LEVEL_META[level].label}`
+          const levelMeta = level !== null ? DAY_LEVEL_META[level] : null;
+          const ariaLabel = levelMeta !== null
+            ? `${cell.day}일 ${levelMeta.label}`
             : outOfWindow
               ? `${cell.day}일 예약 기간 아님`
               : `${cell.day}일`;
@@ -95,23 +96,23 @@ export function BookingCalendar({
               } ${isToday && !selected ? 'ring-1 ring-coral' : ''}`}
             >
               <span className="font-medium">{cell.day}</span>
-              {selectable && day && (
+              {selectable && day && levelMeta && (
                 <>
                   <span aria-hidden className="mt-auto flex w-full gap-[1.5px] px-1">
                     {Array.from({ length: 8 }).map((_, barIndex) => {
-                      const filled = barIndex < Math.round((day.availableSlotCount / 13) * 8);
+                      const filled = barIndex < Math.round((day.availableSlotCount / TOTAL_SLOTS) * 8);
                       return (
                         <span
                           key={barIndex}
                           className={`h-1 flex-1 rounded-[1px] ${
-                            filled ? (selected ? 'bg-sage' : DAY_LEVEL_META[dayLevelOf(day.availableSlotCount)].barClass) : selected ? 'bg-cream/30' : 'bg-graysoft'
+                            filled ? (selected ? 'bg-sage' : levelMeta.barClass) : selected ? 'bg-cream/30' : 'bg-graysoft'
                           }`}
                         />
                       );
                     })}
                   </span>
-                  <span className={`text-[10px] font-bold ${selected ? 'text-cream/85' : DAY_LEVEL_META[dayLevelOf(day.availableSlotCount)].textClass}`}>
-                    {DAY_LEVEL_META[dayLevelOf(day.availableSlotCount)].label}
+                  <span className={`text-[10px] font-bold ${selected ? 'text-cream/85' : levelMeta.textClass}`}>
+                    {levelMeta.label}
                   </span>
                 </>
               )}

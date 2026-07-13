@@ -123,7 +123,7 @@ export function weekDatesOf(iso: string): string[] {
 
 export type DayLevel = 'HIGH' | 'MID' | 'LOW' | 'FULL';
 
-const TOTAL_SLOTS = 13;
+export const TOTAL_SLOTS = 13;
 
 export function dayLevelOf(availableSlotCount: number): DayLevel {
   const ratio = availableSlotCount / TOTAL_SLOTS;
