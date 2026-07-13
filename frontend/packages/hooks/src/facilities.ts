@@ -63,7 +63,11 @@ export function useCreateFacilityBookingMutation() {
       client.facilityBookings.create(input.clubId, input.payload),
     // 성공 시 해당 슬롯이 "승인 대기중" 으로 즉시 보이도록, §9.8: 실패(경합 409) 시에도 최신 슬롯
     // 상태로 재조회하도록 성공·실패 모두 가용성 캐시 전체를 무효화한다(no-store 계약과 합).
-    onSettled: () => {
+    // 예약 홈 칩(MyBookingsChip)이 clubBookings 목록을 선로딩해 두므로, 그 캐시를 건드리지 않으면
+    // 성공 화면의 "내 예약에서 확인" 링크로 진입한 관리 목록이 staleTime 동안 새 신청 없는 목록을
+    // 보여준다. 이를 막기 위해 해당 동아리의 예약 목록 캐시도 함께 무효화한다.
+    onSettled: (_, __, input) => {
+      queryClient.invalidateQueries({ queryKey: facilityQueryKeys.clubBookingsAll(input.clubId) });
       queryClient.invalidateQueries({ queryKey: facilityQueryKeys.availabilityAll() });
     },
   });

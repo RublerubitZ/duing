@@ -128,6 +128,7 @@ export function FacilityBookingPage() {
     setSelection(null);
     setStep('slots');
     setSubmittedResult(null);
+    setSubmittedClubId(null);
     syncUrl(effectiveFacilityId ?? null, iso);
   };
 

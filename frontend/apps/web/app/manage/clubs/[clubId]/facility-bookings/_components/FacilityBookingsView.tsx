@@ -1,7 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useClubFacilityBookingsQuery } from '@duing/hooks';
+import { toRoute } from '@/app/_lib/route';
 import {
   BOOKING_TAB_KEYS,
   BOOKING_TAB_LABELS,
@@ -21,15 +23,15 @@ const EMPTY_MESSAGES: Record<BookingTabKey, string> = {
 export function FacilityBookingsView({ clubId }: { clubId: number }) {
   const [activeTab, setActiveTab] = useState<BookingTabKey>('ALL');
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
-  const bookingsQuery = useClubFacilityBookingsQuery(Number.isNaN(clubId) ? undefined : clubId);
+  // clubId 유효성(운영 권한·NaN)은 page.tsx 가 managedClubs 로 게이트해 notFound 처리하므로,
+  // 여기서는 항상 유효한 clubId 만 받는다(sibling photos·members 관례와 동일).
+  const bookingsQuery = useClubFacilityBookingsQuery(clubId);
 
   const bookings = bookingsQuery.data ?? [];
   const displayedBookings = useMemo(
     () => (activeTab === 'ALL' ? bookings : bookings.filter((booking) => bookingTabOf(booking.status) === activeTab)),
     [bookings, activeTab],
   );
-
-  if (Number.isNaN(clubId)) return <p role="alert" className="text-sm text-charcoal-2">잘못된 접근이에요.</p>;
 
   return (
     <section>
@@ -70,7 +72,13 @@ export function FacilityBookingsView({ clubId }: { clubId: number }) {
           </div>
         )}
         {bookingsQuery.isSuccess && displayedBookings.length === 0 && (
-          <p className="text-sm text-charcoal-3">{EMPTY_MESSAGES[activeTab]}</p>
+          <div>
+            <p className="text-sm text-charcoal-3">{EMPTY_MESSAGES[activeTab]}</p>
+            {/* §9.8 빈 상태 → 예약 홈으로 유도(신청 진입점 제공) */}
+            <Link href={toRoute('/facilities')} className="btn btn-secondary mt-3 inline-flex">
+              예약하러 가기
+            </Link>
+          </div>
         )}
         {displayedBookings.length > 0 && (
           <ul className="space-y-2">

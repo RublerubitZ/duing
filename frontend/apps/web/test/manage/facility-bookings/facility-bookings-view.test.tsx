@@ -73,6 +73,7 @@ describe('FacilityBookingsView', () => {
     mockBookingsQuery.current.data = [];
     const { unmount } = render(<FacilityBookingsView clubId={7} />);
     expect(screen.getByText('아직 신청한 예약이 없어요.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '예약하러 가기' })).toHaveAttribute('href', '/facilities');
     unmount();
 
     mockBookingsQuery.current = {
