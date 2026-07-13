@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   useAdminFacilityBookingQueueQuery,
   useAdminFacilityBookingSummaryQuery,
@@ -73,6 +73,16 @@ export function AdminFacilityBookingsPage() {
   const isQueueError =
     queueQuery.isError || (activeTab === 'CONFLICT_ATTENTION' && suspectedQuery.isError);
 
+  // 마지막 페이지의 유일 항목이 액션으로 상태 전이되면 refetch 결과 totalPages 가 줄어
+  // 현재 page 가 범위 밖(빈 목록·Pagination 소실)이 된다. 데이터 변화에 맞춰 page 를 클램프.
+  // (레포의 useEffect 금지는 데이터 패칭 한정 — PR3 selectionInvalid 전례를 따른 상태 조정)
+  const queueTotalPages = queueQuery.data?.totalPages;
+  useEffect(() => {
+    if (queueTotalPages === undefined) return;
+    if (queueTotalPages === 0 && page !== 0) setPage(0);
+    else if (queueTotalPages > 0 && page >= queueTotalPages) setPage(queueTotalPages - 1);
+  }, [queueTotalPages, page]);
+
   return (
     <section className="space-y-4">
       <div>
@@ -82,6 +92,14 @@ export function AdminFacilityBookingsPage() {
 
       {summaryQuery.data && (
         <BookingSummaryCards counts={summaryQuery.data} activeTab={activeTab} onSelectTab={selectTab} />
+      )}
+      {summaryQuery.isError && (
+        <div role="alert" className="rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal-2">
+          <span>대시보드 수치를 불러오지 못했어요.</span>
+          <button type="button" className="btn btn-ghost btn-sm ml-2" onClick={() => void summaryQuery.refetch()}>
+            다시 시도
+          </button>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="큐 필터">

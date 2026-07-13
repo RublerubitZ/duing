@@ -102,6 +102,11 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
     markConflictMutation.isPending ||
     cancelMutation.isPending;
 
+  // 트리거 버튼 라벨과 확인 다이얼로그 제목·확정 버튼이 동일하도록 라벨 파생을 단일화
+  // (CONFLICT 상태의 승인은 '재승인'으로 노출)
+  const actionLabel = (kind: ActionKind) =>
+    kind === 'approve' && detail?.status === 'CONFLICT' ? '재승인' : ACTION_META[kind].title;
+
   const runAction = (kind: ActionKind, reason: string) => {
     setActionError(null);
     setConflictPayload(null);
@@ -148,7 +153,10 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
           if (!next && !isActionPending) onClose();
         }}
       >
-        <DialogContent className="w-[calc(100%-2rem)] max-w-lg" aria-describedby={undefined}>
+        <DialogContent
+          className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto"
+          aria-describedby={undefined}
+        >
           <DialogTitle>예약 신청 검토</DialogTitle>
 
           {detailQuery.isLoading && <p className="text-sm text-charcoal-3">불러오는 중…</p>}
@@ -190,7 +198,7 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
               <AdminSlotStrip startTime={detail.startTime} endTime={detail.endTime} overlaps={detail.overlaps} />
               {detail.overlappingPendingCount > 0 && (
                 <p className="text-xs text-charcoal-3">
-                  같은 시간대 대기 신청 {detail.overlappingPendingCount}건 — 승인 시 자동 거절됩니다.
+                  같은 시간대 대기 신청 {detail.overlappingPendingCount}건 — 승인 후 겹치는 대기 신청은 수동으로 거절해주세요.
                 </p>
               )}
 
@@ -208,7 +216,7 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
                   {conflictPayload.crawlBasisAt && (
                     <p className="mt-1">기준 수집 시각 {conflictPayload.crawlBasisAt.slice(0, 16).replace('T', ' ')}</p>
                   )}
-                  <p className="mt-1">충돌 전환 또는 거절로 처리하세요.</p>
+                  <p className="mt-1">겹침이 해소되기 전에는 승인할 수 없어요 — 아래 다른 액션으로 처리해주세요.</p>
                 </div>
               )}
 
@@ -247,7 +255,7 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
                       setActiveAction(kind);
                     }}
                   >
-                    {kind === 'approve' && detail.status === 'CONFLICT' ? '재승인' : ACTION_META[kind].title}
+                    {actionLabel(kind)}
                   </button>
                 ))}
                 <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
@@ -262,7 +270,7 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
       {activeAction !== null && (
         <BookingActionDialog
           open
-          title={ACTION_META[activeAction].title}
+          title={actionLabel(activeAction)}
           description={ACTION_META[activeAction].description}
           reasonLabel={ACTION_META[activeAction].reasonLabel}
           isPending={mutationOf(activeAction).isPending}

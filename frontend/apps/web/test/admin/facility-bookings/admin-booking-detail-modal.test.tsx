@@ -115,6 +115,18 @@ describe('AdminBookingDetailModal', () => {
     expect(screen.queryByRole('button', { name: '수동 확정' })).not.toBeInTheDocument();
   });
 
+  it('CONFLICT 재승인: 확인 다이얼로그 확정 버튼도 트리거와 동일하게 "재승인" 라벨을 공유한다', () => {
+    mockDetailQuery.current.data = makeDetail({ status: 'CONFLICT' });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '재승인' }));
+
+    // 트리거(hidden) + 확인 다이얼로그 확정 버튼 = 두 곳 모두 '재승인'
+    expect(screen.getAllByRole('button', { name: '재승인', hidden: true })).toHaveLength(2);
+    // ACTION_META 고정 '승인' 라벨이 확정 버튼으로 새어나오지 않아야 한다
+    expect(screen.queryByRole('button', { name: '승인', hidden: true })).not.toBeInTheDocument();
+  });
+
   it('거절 → 사유 다이얼로그: 빈 사유는 확정 버튼 disabled, 사유 입력 후 mutate 인자를 전달한다', () => {
     mockDetailQuery.current.data = makeDetail({ status: 'PENDING' });
     render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);

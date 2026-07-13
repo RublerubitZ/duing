@@ -8,6 +8,7 @@ import type {
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 const mockRefetch = vi.fn();
+const mockSummaryRefetch = vi.fn();
 const mockQueueQuery = vi.fn();
 const mockSummaryQuery = vi.fn();
 const mockUsageQuery = vi.fn();
@@ -86,10 +87,11 @@ const queueError = {
 describe('AdminFacilityBookingsPage', () => {
   beforeEach(() => {
     mockRefetch.mockReset();
+    mockSummaryRefetch.mockReset();
     mockQueueQuery.mockReset();
     mockSummaryQuery.mockReset();
     mockUsageQuery.mockReset();
-    mockSummaryQuery.mockReturnValue({ data: makeCounts() });
+    mockSummaryQuery.mockReturnValue({ data: makeCounts(), isError: false, refetch: mockSummaryRefetch });
     mockUsageQuery.mockReturnValue({ data: undefined });
     mockQueueQuery.mockReturnValue(makeQueueSuccess([]));
   });
@@ -185,5 +187,47 @@ describe('AdminFacilityBookingsPage', () => {
     expect(screen.getByText('큐를 불러오지 못했어요. 잠시 후 다시 시도해주세요.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(mockRefetch).toHaveBeenCalled();
+  });
+
+  it('summary 실패 시 안내와 다시 시도 버튼이 보이고, 클릭하면 summary refetch 를 호출한다', () => {
+    mockSummaryQuery.mockReturnValue({ data: undefined, isError: true, refetch: mockSummaryRefetch });
+    render(<AdminFacilityBookingsPage />);
+
+    expect(screen.getByText('대시보드 수치를 불러오지 못했어요.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(mockSummaryRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('마지막 페이지의 항목이 사라져 totalPages 가 줄면 현재 page 를 마지막 페이지로 클램프한다', () => {
+    const queueWithPages = (totalPages: number) => ({
+      data: {
+        content: [makeRow()],
+        page: 0,
+        size: 20,
+        totalElements: totalPages * 20,
+        totalPages,
+        hasNext: false,
+      },
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    mockQueueQuery.mockReturnValue(queueWithPages(3));
+    const { rerender } = render(<AdminFacilityBookingsPage />);
+
+    // 3페이지 중 마지막 페이지(index 2)로 이동
+    fireEvent.click(screen.getByRole('button', { name: '3' }));
+    expect(mockQueueQuery).toHaveBeenCalledWith(expect.objectContaining({ status: 'PENDING', page: 2 }));
+
+    // 액션 후 refetch 결과 totalPages 가 1 로 줄어든 상태를 시뮬레이션
+    mockQueueQuery.mockClear();
+    mockQueueQuery.mockReturnValue(queueWithPages(1));
+    rerender(<AdminFacilityBookingsPage />);
+
+    // page 가 마지막 페이지(0)로 클램프되어 큐 훅이 page:0 으로 재호출된다
+    expect(mockQueueQuery).toHaveBeenCalledWith(expect.objectContaining({ status: 'PENDING', page: 0 }));
   });
 });
