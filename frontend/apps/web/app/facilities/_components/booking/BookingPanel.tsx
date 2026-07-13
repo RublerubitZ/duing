@@ -125,7 +125,8 @@ export function BookingPanel({
         )}
       </div>
 
-      <div className="sticky bottom-0 bg-inherit pt-2">
+      {/* bg-inherit 은 transparent 로 풀려 스크롤 중 뒤 슬롯이 비친다 — 패널·시트 공통 흰 계열로 고정 */}
+      <div className="sticky bottom-0 bg-paper pt-2">
         {selection && (
           <div className="mb-2 flex items-center gap-2 rounded-lg bg-sage-mist px-3 py-2">
             <span className="font-mono text-base font-bold text-ink-deep">{rangeLabel(selection)}</span>
