@@ -53,8 +53,8 @@ enum은 확장 가능하게 둔다 — 향후 학교 데이터에 별도의 "예
 **1단계 — 슬롯 판정**: 한 시설·한 날짜의 13개 슬롯 각각에 대해 아래 우선순위로 판정한다:
 
 1. `PAST` — 지난 날짜, 또는 오늘의 `end ≤ now(Asia/Seoul)` 슬롯 → 신청 불가
-2. `BLOCKED(INTERNAL)` — 내부 Booking 중 `APPROVED`/`CONFIRMED`가 슬롯과 겹침 → 신청 불가, 동아리명 노출
-3. `BLOCKED(SCHOOL)` — 크롤 **점유행**이 슬롯과 겹침 → 신청 불가, 단체명 노출(이미 공개 데이터)
+2. `BLOCKED(INTERNAL)` — 내부 Booking 중 `APPROVED`/`CONFIRMED`가 슬롯과 겹침 → 신청 불가, 동아리명 비노출 — FE 는 '예약됨' 계열 일반 문구 표시(2026-07-13 사용자 결정). 내부 예약은 아직 학교에 최종 반영되지 않은 신청 정보라 공개 API 에 동아리명을 싣지 않고 `blockedBy=INTERNAL` 로만 구분한다.
+3. `BLOCKED(SCHOOL)` — 크롤 **점유행**이 슬롯과 겹침 → 신청 불가, 단체명 노출(학교 크롤 점유행의 단체명은 이미 공개된 정보라 현행 유지)
 4. `PENDING_HOLD` — 내부 `PENDING` Booking이 겹침 → **신청 가능하되** "승인 대기중" 표시. 동아리명은 비노출(신청 경쟁 정보 최소화)
 5. `AVAILABLE` — 위 어디에도 해당 없음 → 신청 가능
 
@@ -377,7 +377,7 @@ domain/facilitybooking/
 |---|---|---|---|
 | 1 | `GET /facilities/{facilityId}/availability?yearMonth=` | 🌐 | 월 단위 가용성(날짜별 13슬롯 상태). 기존 온디맨드 신선도 로직 경유 |
 | 2 | `POST /clubs/{clubId}/facility-bookings` | 🔐 canManageClub | 신청 생성 |
-| 3 | `GET /clubs/{clubId}/facility-bookings?status=&page=` | 🔐 canManageClub | 동아리 신청 목록 |
+| 3 | `GET /clubs/{clubId}/facility-bookings?status=` | 🔐 canManageClub | 동아리 신청 목록 (P1 미페이징 — 캘린더 기반 탐색·동아리당 규모 작음, 페이징은 P2 관리자 큐와 함께 도입) |
 | 4 | `GET /clubs/{clubId}/facility-bookings/{bookingId}` | 🔐 canManageClub | 신청 상세(+이력) |
 | 5 | `POST /clubs/{clubId}/facility-bookings/{bookingId}/cancel` | 🔐 canManageClub | PENDING 취소 |
 | 6 | `GET /admin/facility-bookings?status=&facilityId=&dateFrom=&dateTo=&page=` | 👑 | 관리자 큐(기본 PENDING 우선 정렬, "학교 반영 대기 D+N"·충돌 의심 플래그 포함) |
@@ -411,7 +411,7 @@ domain/facilitybooking/
       "slots": [
         { "start": "09:00", "end": "10:00", "status": "AVAILABLE" },
         { "start": "17:00", "end": "18:00", "status": "BLOCKED", "blockedBy": "SCHOOL", "organization": "비호응원단" },
-        { "start": "19:00", "end": "20:00", "status": "BLOCKED", "blockedBy": "INTERNAL", "organization": "밴드부" },
+        { "start": "19:00", "end": "20:00", "status": "BLOCKED", "blockedBy": "INTERNAL" },
         { "start": "20:00", "end": "21:00", "status": "PENDING_HOLD" }
       ]
     }
@@ -670,3 +670,5 @@ domain/facilitybooking/
 16. 자동 CONFIRMED P1 포함 — 보수적 정확 매칭으로 시작, §5.3 확장 경로 유지.
 17. 과거 월 열람은 P1에서 제거(현재 예약·신청 프로세스 우선), 필요 시 P3 재검토.
 18. 사용 목적 입력 = **Preset Chip + 자유 입력 하이브리드**(§9.4). Preset 목록은 DB 테이블 + 공개 GET 서빙(하드코딩 금지, §6.3), 관리자 CRUD는 P2.
+19. 동아리 목록 API 는 P1 미페이징 — P2 에서 관리자 큐 페이징과 함께 도입(2026-07-13 사용자 확정).
+20. 공개 가용성의 `BLOCKED(INTERNAL)` 동아리명 비노출 — `blockedBy` 로만 구분, FE 일반 문구 표시(2026-07-13 사용자 확정, §3.1 개정).

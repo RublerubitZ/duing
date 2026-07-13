@@ -78,19 +78,19 @@ class FacilitySlotAssemblerTest {
     }
 
     @Test
-    @DisplayName("내부 APPROVED 는 BLOCKED(INTERNAL·동아리명), PENDING 은 PENDING_HOLD(동아리명 비노출)다")
+    @DisplayName("내부 APPROVED 는 BLOCKED(INTERNAL·동아리명 비노출), PENDING 은 PENDING_HOLD(동아리명 비노출)다")
     void internalBookingsBlockOrHold() {
         LocalDate date = LocalDate.of(2026, 1, 20);
         List<BookingSlice> bookings = List.of(
-                new BookingSlice(date, LocalTime.of(10, 0), LocalTime.of(12, 0), BookingStatus.APPROVED, "밴드부"),
-                new BookingSlice(date, LocalTime.of(20, 0), LocalTime.of(21, 0), BookingStatus.PENDING, "연극부"));
+                new BookingSlice(date, LocalTime.of(10, 0), LocalTime.of(12, 0), BookingStatus.APPROVED),
+                new BookingSlice(date, LocalTime.of(20, 0), LocalTime.of(21, 0), BookingStatus.PENDING));
 
         List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, List.of(), bookings);
         DayAvailability target = day(days, 20);
 
         assertThat(slotStatus(target, 10)).isEqualTo(SlotStatus.BLOCKED);
         assertThat(target.slots().get(10 - 9).blockedBy()).isEqualTo(SlotBlockSource.INTERNAL);
-        assertThat(target.slots().get(10 - 9).organization()).isEqualTo("밴드부");
+        assertThat(target.slots().get(10 - 9).organization()).isNull(); // 내부 예약 동아리명 비노출(2026-07-13 사용자 결정)
         assertThat(slotStatus(target, 20)).isEqualTo(SlotStatus.PENDING_HOLD);
         assertThat(target.slots().get(20 - 9).organization()).isNull(); // 승인 대기 동아리명 비노출(설계 §3.1)
         // PENDING_HOLD 는 신청 가능 상태라 count 에 포함된다(설계 §3.2 FULL 판정 기준) —
@@ -117,7 +117,7 @@ class FacilitySlotAssemblerTest {
         List<CrawlSlice> crawl = List.of(new CrawlSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0),
                 "총학생회", CrawlRowType.OCCUPIED, null, null));
         List<BookingSlice> bookings = List.of(
-                new BookingSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0), BookingStatus.PENDING, "연극부"));
+                new BookingSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0), BookingStatus.PENDING));
 
         List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, bookings);
 

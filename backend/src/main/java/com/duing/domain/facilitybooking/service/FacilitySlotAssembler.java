@@ -37,9 +37,9 @@ public final class FacilitySlotAssembler {
     public record CrawlSlice(LocalDate date, LocalTime start, LocalTime end, String organization,
                              CrawlRowType type, LocalTime operatingStart, LocalTime operatingEnd) {}
 
-    /** 내부 예약 slice. clubName 은 BLOCKED(INTERNAL) 노출용 — PENDING 표시에는 쓰지 않는다. */
+    /** 내부 예약 slice. 내부 예약은 상태만 필요, 동아리명은 공개 API 비노출 정책(BLOCKED(INTERNAL)·PENDING 모두). */
     public record BookingSlice(LocalDate date, LocalTime start, LocalTime end,
-                               BookingStatus status, String clubName) {}
+                               BookingStatus status) {}
 
     public static List<DayAvailability> assembleDays(YearMonth month, LocalDate today, LocalTime nowTime,
                                                      List<CrawlSlice> crawlSlices, List<BookingSlice> bookingSlices) {
@@ -98,8 +98,10 @@ public final class FacilitySlotAssembler {
                 .filter(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd))
                 .findFirst();
         if (internalBlock.isPresent()) {
+            // 내부 예약(APPROVED/CONFIRMED)은 아직 학교 미반영 신청 정보 — 동아리명 비노출(2026-07-13 사용자 결정).
+            // FE 는 blockedBy=INTERNAL 로만 '예약됨' 계열 일반 문구 표시. SCHOOL 분기 단체명은 공개 정보라 유지.
             return new SlotAvailability(start, end, SlotStatus.BLOCKED,
-                    SlotBlockSource.INTERNAL, internalBlock.get().clubName());
+                    SlotBlockSource.INTERNAL, null);
         }
         Optional<CrawlSlice> schoolBlock = occupied.stream()
                 .filter(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd))

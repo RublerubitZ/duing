@@ -1237,7 +1237,7 @@ git commit -m "feat(backend): 크롤 행 분류 정책과 신청 규칙 검증�
 - Consumes: `CrawlRowType`(Task 4), `BookingStatus`(Task 2)
 - Produces:
   - `FacilitySlotAssembler.CrawlSlice(date, start, end, organization, type, operatingStart, operatingEnd)` — 서비스가 `FacilityReservation`+policy 로 매핑해 넣는 입력 record
-  - `FacilitySlotAssembler.BookingSlice(date, start, end, status, clubName)` — 내부 예약 입력 record
+  - `FacilitySlotAssembler.BookingSlice(date, start, end, status)` — 내부 예약 입력 record(상태만 필요 — 동아리명은 공개 API 비노출 정책)
   - `static List<FacilityAvailabilityResponse.DayAvailability> assembleDays(YearMonth month, LocalDate today, LocalTime nowTime, List<CrawlSlice> crawlSlices, List<BookingSlice> bookingSlices)`
   - 응답 record: `FacilityAvailabilityResponse(facilityId, yearMonth, lastUpdatedAt, stale, bookableFrom, bookableUntil, days)` / 중첩 `DayAvailability(date, dayStatus, availableSlotCount, operatingNotes, slots)` / `SlotAvailability(start, end, status, blockedBy, organization)` / `OperatingNote(organization, start, end)` / enum `DayStatus{AVAILABLE, FULL, PAST}`, `SlotStatus{AVAILABLE, PENDING_HOLD, BLOCKED, PAST}`, `SlotBlockSource{SCHOOL, INTERNAL}`
 
@@ -1370,19 +1370,19 @@ class FacilitySlotAssemblerTest {
     }
 
     @Test
-    @DisplayName("내부 APPROVED 는 BLOCKED(INTERNAL·동아리명), PENDING 은 PENDING_HOLD(동아리명 비노출)다")
+    @DisplayName("내부 APPROVED 는 BLOCKED(INTERNAL·동아리명 비노출), PENDING 은 PENDING_HOLD(동아리명 비노출)다")
     void internalBookingsBlockOrHold() {
         LocalDate date = LocalDate.of(2026, 1, 20);
         List<BookingSlice> bookings = List.of(
-                new BookingSlice(date, LocalTime.of(10, 0), LocalTime.of(12, 0), BookingStatus.APPROVED, "밴드부"),
-                new BookingSlice(date, LocalTime.of(20, 0), LocalTime.of(21, 0), BookingStatus.PENDING, "연극부"));
+                new BookingSlice(date, LocalTime.of(10, 0), LocalTime.of(12, 0), BookingStatus.APPROVED),
+                new BookingSlice(date, LocalTime.of(20, 0), LocalTime.of(21, 0), BookingStatus.PENDING));
 
         List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, List.of(), bookings);
         DayAvailability target = day(days, 20);
 
         assertThat(slotStatus(target, 10)).isEqualTo(SlotStatus.BLOCKED);
         assertThat(target.slots().get(10 - 9).blockedBy()).isEqualTo(SlotBlockSource.INTERNAL);
-        assertThat(target.slots().get(10 - 9).organization()).isEqualTo("밴드부");
+        assertThat(target.slots().get(10 - 9).organization()).isNull(); // 내부 예약 동아리명 비노출(2026-07-13 사용자 결정)
         assertThat(slotStatus(target, 20)).isEqualTo(SlotStatus.PENDING_HOLD);
         assertThat(target.slots().get(20 - 9).organization()).isNull(); // 승인 대기 동아리명 비노출(설계 §3.1)
     }
@@ -1406,7 +1406,7 @@ class FacilitySlotAssemblerTest {
         List<CrawlSlice> crawl = List.of(new CrawlSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0),
                 "총학생회", CrawlRowType.OCCUPIED, null, null));
         List<BookingSlice> bookings = List.of(
-                new BookingSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0), BookingStatus.PENDING, "연극부"));
+                new BookingSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0), BookingStatus.PENDING));
 
         List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, bookings);
 
@@ -1464,9 +1464,9 @@ public final class FacilitySlotAssembler {
     public record CrawlSlice(LocalDate date, LocalTime start, LocalTime end, String organization,
                              CrawlRowType type, LocalTime operatingStart, LocalTime operatingEnd) {}
 
-    /** 내부 예약 slice. clubName 은 BLOCKED(INTERNAL) 노출용 — PENDING 표시에는 쓰지 않는다. */
+    /** 내부 예약 slice. 내부 예약은 상태만 필요, 동아리명은 공개 API 비노출 정책(BLOCKED(INTERNAL)·PENDING 모두). */
     public record BookingSlice(LocalDate date, LocalTime start, LocalTime end,
-                               BookingStatus status, String clubName) {}
+                               BookingStatus status) {}
 
     public static List<DayAvailability> assembleDays(YearMonth month, LocalDate today, LocalTime nowTime,
                                                      List<CrawlSlice> crawlSlices, List<BookingSlice> bookingSlices) {
@@ -1525,8 +1525,10 @@ public final class FacilitySlotAssembler {
                 .filter(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd))
                 .findFirst();
         if (internalBlock.isPresent()) {
+            // 내부 예약(APPROVED/CONFIRMED)은 아직 학교 미반영 신청 정보 — 동아리명 비노출(2026-07-13 사용자 결정).
+            // FE 는 blockedBy=INTERNAL 로만 '예약됨' 계열 일반 문구 표시. SCHOOL 분기 단체명은 공개 정보라 유지.
             return new SlotAvailability(start, end, SlotStatus.BLOCKED,
-                    SlotBlockSource.INTERNAL, internalBlock.get().clubName());
+                    SlotBlockSource.INTERNAL, null);
         }
         Optional<CrawlSlice> schoolBlock = occupied.stream()
                 .filter(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd))
@@ -1587,7 +1589,7 @@ git commit -m "feat(backend): 가용성 슬롯 어셈블러와 응답 DTO 추가
 - Test: `backend/src/test/java/com/duing/domain/facilitybooking/controller/FacilityAvailabilityAcceptanceTest.java`
 
 **Interfaces:**
-- Consumes: `FacilityCrawlService.ensureFresh(YearMonth) → DataSource`, `FacilityReservationRepository.findByFacilityIdAndYearMonth`, `FacilityMonthSnapshotRepository.findByYearMonth`, `FacilityRepository`, `ClubRepository.findAllById`, Task 3~5 산출물
+- Consumes: `FacilityCrawlService.ensureFresh(YearMonth) → DataSource`, `FacilityReservationRepository.findByFacilityIdAndYearMonth`, `FacilityMonthSnapshotRepository.findByYearMonth`, `FacilityRepository`, Task 3~5 산출물 (동아리명 조회 없음 — 내부 예약 동아리명 비노출 정책, `ClubRepository` 의존 없음)
 - Produces: `FacilityAvailabilityService.getAvailability(Long facilityId, YearMonth requestedMonth) → FacilityAvailabilityResponse`; `GET /api/v1/facilities/{facilityId}/availability?yearMonth=`(no-store) / `GET /api/v1/facilities/booking-purpose-presets`(public 60s) — 둘 다 기존 `/api/v1/facilities/**` GET permitAll 에 포함되어 Security 변경 없음
 
 - [ ] **Step 1: 서비스 인터페이스·구현 작성**
@@ -1612,7 +1614,6 @@ public interface FacilityAvailabilityService {
 ```java
 package com.duing.domain.facilitybooking.service;
 
-import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
@@ -1638,8 +1639,6 @@ import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -1658,7 +1657,6 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     private final FacilityBookingRepository facilityBookingRepository;
     private final FacilityCrawlService facilityCrawlService;
     private final FacilityAvailabilityPolicy availabilityPolicy;
-    private final ClubRepository clubRepository;
     private final Clock clock;
 
     @Override
@@ -1706,13 +1704,10 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
                 facilityBookingRepository.findByFacilityIdAndReservationDateBetweenAndStatusIn(
                         facilityId, targetMonth.atDay(1), targetMonth.atEndOfMonth(),
                         List.of(BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.CONFIRMED));
-        Map<Long, String> clubNames = clubRepository.findAllById(
-                        bookings.stream().map(booking -> booking.getClubId()).distinct().toList()).stream()
-                .collect(Collectors.toMap(club -> club.getId(), club -> club.getName(), (first, second) -> first));
+        // 동아리명은 조회하지 않는다 — 공개 가용성 API 는 내부 예약 동아리명 비노출 정책(2026-07-13 사용자 결정).
         return bookings.stream()
                 .map(booking -> new BookingSlice(booking.getReservationDate(), booking.getStartTime(),
-                        booking.getEndTime(), booking.getStatus(),
-                        clubNames.getOrDefault(booking.getClubId(), "동아리")))
+                        booking.getEndTime(), booking.getStatus()))
                 .toList();
     }
 

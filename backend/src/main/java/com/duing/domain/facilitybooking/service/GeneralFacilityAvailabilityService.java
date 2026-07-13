@@ -1,6 +1,5 @@
 package com.duing.domain.facilitybooking.service;
 
-import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
@@ -26,8 +25,6 @@ import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -52,7 +49,6 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     private final FacilityBookingRepository facilityBookingRepository;
     private final FacilityCrawlService facilityCrawlService;
     private final FacilityAvailabilityPolicy availabilityPolicy;
-    private final ClubRepository clubRepository;
     private final Clock clock;
 
     @Override
@@ -100,13 +96,10 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
                 facilityBookingRepository.findByFacilityIdAndReservationDateBetweenAndStatusIn(
                         facilityId, targetMonth.atDay(1), targetMonth.atEndOfMonth(),
                         List.of(BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.CONFIRMED));
-        Map<Long, String> clubNames = clubRepository.findAllById(
-                        bookings.stream().map(booking -> booking.getClubId()).distinct().toList()).stream()
-                .collect(Collectors.toMap(club -> club.getId(), club -> club.getName(), (first, second) -> first));
+        // 동아리명은 조회하지 않는다 — 공개 가용성 API 는 내부 예약 동아리명 비노출 정책(2026-07-13 사용자 결정).
         return bookings.stream()
                 .map(booking -> new BookingSlice(booking.getReservationDate(), booking.getStartTime(),
-                        booking.getEndTime(), booking.getStatus(),
-                        clubNames.getOrDefault(booking.getClubId(), "동아리")))
+                        booking.getEndTime(), booking.getStatus()))
                 .toList();
     }
 
