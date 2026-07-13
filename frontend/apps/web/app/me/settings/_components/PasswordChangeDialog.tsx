@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { ApiError } from '@duing/api';
@@ -16,7 +16,7 @@ import { toRoute } from '@/app/_lib/route';
 type Props = { open: boolean; onClose: () => void };
 
 export function PasswordChangeDialog({ open, onClose }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const queryClient = useQueryClient();
   const clearSession = useAuthStore((state) => state.clearSession);
   const { addToast } = useToast();

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { Suspense } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -12,6 +12,12 @@ import RecruitmentDetailPage from '@/app/manage/clubs/[clubId]/recruitments/[rec
 
 // 운영진 모집 상세 페이지 — useInterview 토글에 따른 "면접 관리" 링크 노출 +
 // 지원 현황 요약/지원자 수 노출 검증. 다른 페이지 테스트와 동일하게 MSW + ApiClient 조합.
+
+// 삭제 성공 후 목록으로 이동하는 useGuardedRouter 가 내부적으로 next/navigation 의 useRouter 를
+// 쓰므로, AppRouterContext 없이 렌더하는 이 테스트에서도 통과하도록 모킹한다.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
+}));
 
 const CLUB_ID = 1;
 const RECRUITMENT_ID = 10;

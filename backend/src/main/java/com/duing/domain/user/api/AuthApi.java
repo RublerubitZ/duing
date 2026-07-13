@@ -10,12 +10,14 @@ import com.duing.domain.user.controller.dto.response.LoginResponse;
 import com.duing.domain.user.controller.dto.response.PasswordResetStartResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationStatusResponse;
+import com.duing.domain.user.controller.dto.response.WebLoginResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -47,11 +49,26 @@ public interface AuthApi {
             @Valid @RequestBody LoginRequest loginRequest,
             HttpServletRequest httpServletRequest);
 
+    @Operation(summary = "웹 로그인", description = "학번과 비밀번호로 인증 후 HttpOnly Cookie를 발급한다.")
+    @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"))
+    @PostMapping("/auth/web/login")
+    ResponseEntity<ApiResponse<WebLoginResponse>> webLogin(
+            @Valid @RequestBody LoginRequest loginRequest,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse);
+
     @Operation(summary = "로그아웃",
             description = "현재 사용자의 token_version 을 증가시켜 기존에 발급된 모든 액세스 토큰을 무효화한다.")
     @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그아웃 성공"))
     @PostMapping("/auth/logout")
     ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal UserPrincipal currentUser);
+
+    @Operation(summary = "웹 로그아웃", description = "식별 가능한 사용자 토큰을 무효화하고 웹 인증 Cookie를 삭제한다.")
+    @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "로그아웃 완료"))
+    @PostMapping("/auth/web/logout")
+    ResponseEntity<Void> webLogout(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletResponse httpServletResponse);
 
     @Operation(summary = "휴대폰 MO 인증 시작",
             description = "회원가입용 MO 인증 세션을 발급한다. 사용자가 수신 대표번호로 코드를 문자 전송하면 "

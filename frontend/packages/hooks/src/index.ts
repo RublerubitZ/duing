@@ -287,3 +287,4 @@ export {
 export { cashbookQueryKeys } from './cashbookQueryKeys';
 export { useFacilityUsageQuery, useFacilityDetailQuery } from './facilities';
 export { facilityQueryKeys } from './facilityQueryKeys';
+export { shouldRetryQuery, isNonRetryableError } from './retry';

@@ -39,10 +39,22 @@ export function useToast(): ToastContextValue {
   return context;
 }
 
+// Provider 밖(예: 테스트의 얕은 렌더)에서도 안전하게 쓰는 선택적 접근자.
+// 가드 라우터처럼 "토스트는 부가 피드백"인 소비자용 — 없으면 null 을 반환하고 throw 하지 않는다.
+export function useOptionalToast(): ToastContextValue['addToast'] | null {
+  const context = useContext(ToastContext);
+  return context ? context.addToast : null;
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(0);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+  // toasts state 의 미러 — dedupe 판별을 위해 "지금 떠 있는 토스트" 를 동기적으로 읽어야 하는데,
+  // setState 함수형 업데이터는 React(StrictMode)가 개발 모드에서 두 번 호출할 수 있어 그 안에
+  // 타이머 등록 같은 부수효과를 두면 타이머가 중복 등록된다. 그래서 판별은 이 ref 로,
+  // 부수효과(타이머)는 판별 이후 별도로 수행한다.
+  const toastsRef = useRef<Toast[]>([]);
 
   const dismissToast = useCallback((id: number) => {
     const timer = timers.current.get(id);
@@ -50,13 +62,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       clearTimeout(timer);
       timers.current.delete(id);
     }
-    setToasts((current) => current.filter((toast) => toast.id !== id));
+    toastsRef.current = toastsRef.current.filter((toast) => toast.id !== id);
+    setToasts(toastsRef.current);
   }, []);
 
   const addToast = useCallback(
     (message: string, options?: AddToastOptions) => {
+      const variant = options?.variant ?? 'info';
+      // 동일 문구+variant 토스트가 이미 표시 중이면 추가하지 않는다(연타 시 중복 스택 방지).
+      // 스킵할 때는 id 발급·타이머 등록 모두 건너뛴다 — 그러지 않으면 이미 떠 있는 토스트를
+      // 조기/중복 닫는 타이머가 새로 걸릴 수 있다.
+      const isAlreadyShown = toastsRef.current.some(
+        (toast) => toast.message === message && toast.variant === variant,
+      );
+      if (isAlreadyShown) return;
+
       const id = (nextId.current += 1);
-      setToasts((current) => [...current, { id, message, variant: options?.variant ?? 'info' }]);
+      toastsRef.current = [...toastsRef.current, { id, message, variant }];
+      setToasts(toastsRef.current);
+
       const duration = options?.durationMs ?? DEFAULT_DURATION_MS;
       if (duration > 0) {
         timers.current.set(id, setTimeout(() => dismissToast(id), duration));

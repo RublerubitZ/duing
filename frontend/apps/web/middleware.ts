@@ -1,70 +1,100 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from 'next/server';
 
 // 미들웨어(Edge 런타임)는 next/server 외 어떤 모듈도 import 하지 않는다.
 // Vercel 의 Edge 번들러가 이 모노레포에서 미들웨어의 import(워크스페이스 패키지·경로 별칭 모두)를
-// 인라인하지 못하고 unsupported module 로 거부하므로, JWT/쿠키 로직을 파일 안에 직접 둔다.
-// (동일 로직: packages/api/src/auth-context.ts)
+// 인라인하지 못하고 unsupported module 로 거부하므로, auth_hint 검증 로직을 파일 안에 직접 둔다.
 
-const AUTH_TOKEN_COOKIE_NAME = "duing_token";
+const AUTH_HINT_COOKIE_NAME = 'auth_hint';
 
-type JwtRole = "STUDENT" | "ADMIN";
-type JwtClaims = { sub: string; role: JwtRole; exp: number; iat?: number };
+type AuthHintClaims = {
+  typ: 'AUTH_HINT';
+  role: 'STUDENT' | 'ADMIN';
+  exp: number;
+};
 
-function isJwtClaims(value: unknown): value is JwtClaims {
-  if (typeof value !== "object" || value === null) return false;
-  if (!("sub" in value) || typeof value.sub !== "string") return false;
-  if (!("role" in value) || (value.role !== "STUDENT" && value.role !== "ADMIN")) return false;
-  if (!("exp" in value) || typeof value.exp !== "number") return false;
-  if ("iat" in value && value.iat !== undefined && typeof value.iat !== "number") return false;
-  return true;
-}
-
-function decodeJwt(token: string): JwtClaims | null {
+export async function verifyAuthHint(
+  token: string,
+  secret: string,
+  nowSeconds = Math.floor(Date.now() / 1000),
+): Promise<AuthHintClaims | null> {
   try {
-    const [, payload] = token.split(".");
-    if (!payload) return null;
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-    const json = atob(padded);
-    const parsed: unknown = JSON.parse(json);
-    return isJwtClaims(parsed) ? parsed : null;
+    const [encodedHeader, encodedPayload, encodedSignature, extraSegment] = token.split('.');
+    if (!encodedHeader || !encodedPayload || !encodedSignature || extraSegment) return null;
+
+    const header = decodeJson(encodedHeader);
+    if (!isRecord(header) || header.alg !== 'HS256') return null;
+
+    const signingInput = new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`);
+    const signature = decodeBase64Url(encodedSignature);
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    );
+    const validSignature = await crypto.subtle.verify('HMAC', key, signature, signingInput);
+    if (!validSignature) return null;
+
+    const payload = decodeJson(encodedPayload);
+    if (!isRecord(payload)) return null;
+    if (Object.keys(payload).sort().join(',') !== 'exp,role,typ') return null;
+    if (payload.typ !== 'AUTH_HINT') return null;
+    if (payload.role !== 'STUDENT' && payload.role !== 'ADMIN') return null;
+    if (typeof payload.exp !== 'number' || payload.exp <= nowSeconds) return null;
+    return { typ: 'AUTH_HINT', role: payload.role, exp: payload.exp };
   } catch {
     return null;
   }
 }
 
-function isExpired(claims: JwtClaims, nowSeconds = Math.floor(Date.now() / 1000)): boolean {
-  return claims.exp <= nowSeconds;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
-const STUDENT_PREFIXES = ["/apply", "/me"];
-const MANAGE_PREFIX = "/manage";
-const ADMIN_PREFIX = "/admin";
+function decodeJson(encoded: string): unknown {
+  return JSON.parse(new TextDecoder().decode(decodeBase64Url(encoded)));
+}
 
-export function middleware(request: NextRequest) {
+function decodeBase64Url(encoded: string) {
+  const normalized = encoded.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+const STUDENT_PREFIXES = ['/apply', '/me'];
+const MANAGE_PREFIX = '/manage';
+const ADMIN_PREFIX = '/admin';
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const token = request.cookies.get(AUTH_TOKEN_COOKIE_NAME)?.value ?? null;
-  const claims = token ? decodeJwt(token) : null;
-  const isAuthenticated = !!claims && !isExpired(claims);
+  const authHint = request.cookies.get(AUTH_HINT_COOKIE_NAME)?.value ?? null;
+  const authHintSecret = process.env.AUTH_HINT_SECRET;
+  if (!authHintSecret && process.env.NODE_ENV === 'production') {
+    throw new Error('AUTH_HINT_SECRET is required in production');
+  }
+  const claims = authHint && authHintSecret ? await verifyAuthHint(authHint, authHintSecret) : null;
+  const hasValidAuthHint = claims !== null;
 
   if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/signup") ||
-    pathname.startsWith("/forgot-password")
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/signup') ||
+    pathname.startsWith('/forgot-password')
   ) {
-    if (isAuthenticated) {
+    if (hasValidAuthHint) {
       const next = request.nextUrl.clone();
-      next.pathname = "/me";
-      next.search = "";
+      next.pathname = '/me';
+      next.search = '';
       return NextResponse.redirect(next);
     }
     return NextResponse.next();
   }
 
   if (STUDENT_PREFIXES.some((p) => pathname.startsWith(p))) {
-    if (!isAuthenticated) {
+    if (!hasValidAuthHint) {
       const next = request.nextUrl.clone();
-      next.pathname = "/login";
+      next.pathname = '/login';
       next.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
       return NextResponse.redirect(next);
     }
@@ -72,9 +102,9 @@ export function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith(MANAGE_PREFIX)) {
-    if (!isAuthenticated) {
+    if (!hasValidAuthHint) {
       const next = request.nextUrl.clone();
-      next.pathname = "/login";
+      next.pathname = '/login';
       next.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
       return NextResponse.redirect(next);
     }
@@ -82,16 +112,16 @@ export function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith(ADMIN_PREFIX)) {
-    if (!isAuthenticated) {
+    if (!hasValidAuthHint) {
       const next = request.nextUrl.clone();
-      next.pathname = "/login";
+      next.pathname = '/login';
       next.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
       return NextResponse.redirect(next);
     }
-    if (claims?.role !== "ADMIN") {
+    if (claims.role !== 'ADMIN') {
       const next = request.nextUrl.clone();
-      next.pathname = "/403";
-      next.search = "";
+      next.pathname = '/403';
+      next.search = '';
       return NextResponse.rewrite(next);
     }
     return NextResponse.next();
@@ -102,12 +132,12 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/login",
-    "/signup",
-    "/forgot-password",
-    "/apply/:path*",
-    "/me/:path*",
-    "/manage/:path*",
-    "/admin/:path*",
+    '/login',
+    '/signup',
+    '/forgot-password',
+    '/apply/:path*',
+    '/me/:path*',
+    '/manage/:path*',
+    '/admin/:path*',
   ],
 };

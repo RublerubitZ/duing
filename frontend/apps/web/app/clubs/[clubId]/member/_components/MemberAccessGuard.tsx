@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useClubMembershipQuery } from '@duing/hooks';
 import { MembershipProvider } from './MembershipContext';
 
 type Props = { clubId: number; children: React.ReactNode };
 
 export function MemberAccessGuard({ clubId, children }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { data, isLoading, isError, error } = useClubMembershipQuery(clubId);
 
   useEffect(() => {

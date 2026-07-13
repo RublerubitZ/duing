@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@duing/api';
 import type {
@@ -48,7 +48,7 @@ function collectRequiredViolations(
 }
 
 export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAnswers }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const queryClient = useQueryClient();
   const submit = useSubmitApplicationMutation(recruitmentId);
 

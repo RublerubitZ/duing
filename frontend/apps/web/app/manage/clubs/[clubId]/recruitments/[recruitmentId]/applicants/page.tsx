@@ -1,7 +1,8 @@
 'use client';
 
 import { use, useCallback, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import type {
@@ -30,7 +31,7 @@ export default function ApplicantsPage({ params }: PageParams) {
   const clubId = Number(clubIdParam);
   const recruitmentId = Number(recruitmentIdParam);
 
-  const router = useRouter();
+  const router = useGuardedRouter();
   const searchParams = useSearchParams();
 
   const filters = useMemo<ApplicantsFilters>(

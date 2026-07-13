@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useReducer, useState } from 'react';
 import { useSignupMutation } from '@duing/hooks';
 import { signupSchema } from '@duing/schemas';
@@ -29,7 +29,7 @@ function IconChevronDown() {
 }
 
 export function SignupFormPanel() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const signup = useSignupMutation();
   const [state, dispatch] = useReducer(signupReducer, initialSignupState);
   const [step, setStep] = useState<1 | 2>(1);

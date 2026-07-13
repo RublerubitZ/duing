@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useAdminFederationFaqListQuery, useAdminFederationFaqUpdateMutation } from '@duing/hooks';
 import { FaqForm, type FaqFormState } from '../_components/FaqForm';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
@@ -14,7 +15,7 @@ import { FAQ_FULL_LIST_SIZE } from '../_lib/faqListConstants';
 export function AdminFaqEditPage() {
   const params = useParams<{ faqId: string }>();
   const faqId = params.faqId ? Number(params.faqId) : null;
-  const router = useRouter();
+  const router = useGuardedRouter();
   const listQuery = useAdminFederationFaqListQuery({ page: 0, size: FAQ_FULL_LIST_SIZE });
   const updateMutation = useAdminFederationFaqUpdateMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

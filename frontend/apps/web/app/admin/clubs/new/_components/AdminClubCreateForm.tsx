@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import { useCreateClubMutation } from '@duing/hooks';
@@ -36,7 +36,7 @@ const CATEGORY_LABEL: Record<ClubCategory, string> = {
 };
 
 export function AdminClubCreateForm() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const mutation = useCreateClubMutation();
 
   const [name, setName] = useState('');
