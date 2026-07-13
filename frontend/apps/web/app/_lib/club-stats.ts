@@ -1,4 +1,10 @@
 import { createApiClient } from '@duing/api';
+import { resolveApiBaseUrl } from './apiBaseUrl';
+
+const apiBaseUrl = resolveApiBaseUrl(
+  process.env.NEXT_PUBLIC_API_BASE_URL,
+  process.env.NODE_ENV,
+);
 
 export type ClubStats = {
   totalCount: number;
@@ -9,7 +15,7 @@ export type ClubStats = {
 // 우아하게 생략한다(가짜 숫자 폴백을 박지 않는다).
 export async function fetchClubStats(): Promise<ClubStats | null> {
   const client = createApiClient({
-    baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1',
+    baseUrl: apiBaseUrl,
   });
   try {
     const [totalData, recruitingData] = await Promise.all([

@@ -8,6 +8,7 @@ import { createApiClient, registerConnectivityAdapter } from '@duing/api';
 import { ApiClientProvider, shouldRetryQuery } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
+import { resolveApiBaseUrl } from './_lib/apiBaseUrl';
 import { installBackNavigationViewTransitionGuard } from './_lib/backNavigationViewTransition';
 import { clearLegacyWebAuthArtifacts } from './_lib/legacy-auth-cleanup';
 import { ToastProvider } from './_components/toast/ToastProvider';
@@ -24,7 +25,7 @@ registerConnectivityAdapter(() => (typeof navigator === 'undefined' ? true : nav
 installBackNavigationViewTransitionGuard();
 
 const apiClient = createApiClient({
-  baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1',
+  baseUrl: resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL, process.env.NODE_ENV),
   authTransport: 'cookie',
 });
 
