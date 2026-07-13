@@ -1,3 +1,5 @@
+import type { BookingStatus } from '@duing/types';
+
 export const facilityQueryKeys = {
   all: ['facilities'] as const,
   usage: (yearMonth?: string) =>
@@ -8,4 +10,10 @@ export const facilityQueryKeys = {
   availability: (facilityId: number, yearMonth?: string) =>
     [...facilityQueryKeys.availabilityAll(), facilityId, yearMonth ?? 'current'] as const,
   purposePresets: () => [...facilityQueryKeys.all, 'purpose-presets'] as const,
+  clubBookingsAll: (clubId: number) =>
+    [...facilityQueryKeys.all, 'club-bookings', clubId] as const,
+  clubBookings: (clubId: number, status?: BookingStatus) =>
+    [...facilityQueryKeys.clubBookingsAll(clubId), status ?? 'all'] as const,
+  clubBookingDetail: (clubId: number, bookingId: number) =>
+    [...facilityQueryKeys.clubBookingsAll(clubId), 'detail', bookingId] as const,
 };

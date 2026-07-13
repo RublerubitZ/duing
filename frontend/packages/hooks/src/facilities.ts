@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { CreateFacilityBookingPayload } from '@duing/types';
+import type { BookingStatus, CreateFacilityBookingPayload } from '@duing/types';
 
 import { useApiClient } from './api-context';
 import { facilityQueryKeys } from './facilityQueryKeys';
@@ -64,6 +64,50 @@ export function useCreateFacilityBookingMutation() {
     // 성공 시 해당 슬롯이 "승인 대기중" 으로 즉시 보이도록, §9.8: 실패(경합 409) 시에도 최신 슬롯
     // 상태로 재조회하도록 성공·실패 모두 가용성 캐시 전체를 무효화한다(no-store 계약과 합).
     onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: facilityQueryKeys.availabilityAll() });
+    },
+  });
+}
+
+export function useClubFacilityBookingsQuery(clubId: number | undefined, status?: BookingStatus) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey:
+      clubId !== undefined
+        ? facilityQueryKeys.clubBookings(clubId, status)
+        : ([...facilityQueryKeys.all, 'club-bookings', 'none'] as const),
+    queryFn: () => {
+      if (clubId === undefined) throw new Error('clubId is required');
+      return client.facilityBookings.list(clubId, status);
+    },
+    enabled: clubId !== undefined,
+  });
+}
+
+export function useFacilityBookingDetailQuery(clubId: number | undefined, bookingId: number | null) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey:
+      clubId !== undefined && bookingId !== null
+        ? facilityQueryKeys.clubBookingDetail(clubId, bookingId)
+        : ([...facilityQueryKeys.all, 'club-bookings', 'detail-none'] as const),
+    queryFn: () => {
+      if (clubId === undefined || bookingId === null) throw new Error('clubId and bookingId are required');
+      return client.facilityBookings.get(clubId, bookingId);
+    },
+    enabled: clubId !== undefined && bookingId !== null,
+  });
+}
+
+export function useCancelFacilityBookingMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { clubId: number; bookingId: number }) =>
+      client.facilityBookings.cancel(input.clubId, input.bookingId),
+    onSuccess: (_, input) => {
+      // 취소로 목록·상세가 바뀌고, PENDING_HOLD 해제로 가용성 슬롯도 변한다.
+      queryClient.invalidateQueries({ queryKey: facilityQueryKeys.clubBookingsAll(input.clubId) });
       queryClient.invalidateQueries({ queryKey: facilityQueryKeys.availabilityAll() });
     },
   });

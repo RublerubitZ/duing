@@ -111,3 +111,48 @@ export type CreateFacilityBookingResult = {
   status: 'PENDING';
   overlappingPendingCount: number;
 };
+
+// 대관 신청 상태(백엔드 BookingStatus 1:1). CONFIRMED/REJECTED/CANCELLED 는 터미널.
+export type BookingStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'CONFLICT'
+  | 'CANCELLED';
+
+// GET /clubs/{clubId}/facility-bookings — 미페이징 최신순 배열(§8 #3)
+export type FacilityBookingSummary = {
+  bookingId: number;
+  facilityId: number;
+  roomName: string;
+  date: string; // yyyy-MM-dd
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  status: BookingStatus;
+  purpose: string;
+  createdAt: string; // ISO LocalDateTime
+};
+
+export type FacilityBookingHistoryItem = {
+  previousStatus: BookingStatus | null; // 생성 전이는 null
+  newStatus: BookingStatus;
+  reason: string | null;
+  changedAt: string; // ISO LocalDateTime
+};
+
+// GET /clubs/{clubId}/facility-bookings/{bookingId} — 이력(최신순) 포함(§8 #4)
+export type FacilityBookingDetail = {
+  bookingId: number;
+  facilityId: number;
+  roomName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: BookingStatus;
+  purpose: string;
+  attendeeCount?: number; // NON_NULL 직렬화 — null 이면 필드 생략
+  rejectReason?: string;
+  conflictDetail?: string;
+  history: FacilityBookingHistoryItem[];
+};
