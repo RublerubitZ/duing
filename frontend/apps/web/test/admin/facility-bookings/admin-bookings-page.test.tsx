@@ -1,6 +1,10 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AdminFacilityBookingCounts, AdminFacilityBookingSummary } from '@duing/types';
+import type {
+  AdminBookingQueueParams,
+  AdminFacilityBookingCounts,
+  AdminFacilityBookingSummary,
+} from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 const mockRefetch = vi.fn();
@@ -132,6 +136,42 @@ describe('AdminFacilityBookingsPage', () => {
     expect(screen.getByText('충돌 의심')).toBeInTheDocument();
     expect(screen.getByText('부분 반영')).toBeInTheDocument();
     expect(screen.getByText('승인됨')).toBeInTheDocument();
+  });
+
+  it('충돌·의심 탭: CONFLICT 큐와 conflictSuspected APPROVED 행을 병합하고, 의심 아닌 APPROVED 는 제외한다', () => {
+    mockQueueQuery.mockImplementation((params: AdminBookingQueueParams) => {
+      if (params.status === 'CONFLICT') {
+        return makeQueueSuccess([
+          makeRow({ bookingId: 71, clubName: '충돌동아리', status: 'CONFLICT', purpose: '충돌 모임' }),
+        ]);
+      }
+      if (params.status === 'APPROVED') {
+        return makeQueueSuccess([
+          makeRow({
+            bookingId: 72,
+            clubName: '의심동아리',
+            status: 'APPROVED',
+            conflictSuspected: true,
+            purpose: '의심 모임',
+          }),
+          makeRow({
+            bookingId: 73,
+            clubName: '정상동아리',
+            status: 'APPROVED',
+            conflictSuspected: false,
+            purpose: '정상 모임',
+          }),
+        ]);
+      }
+      return makeQueueSuccess([]);
+    });
+
+    render(<AdminFacilityBookingsPage />);
+    fireEvent.click(screen.getByRole('tab', { name: '충돌·의심' }));
+
+    expect(screen.getByText('충돌 모임')).toBeInTheDocument();
+    expect(screen.getByText('의심 모임')).toBeInTheDocument();
+    expect(screen.queryByText('정상 모임')).not.toBeInTheDocument();
   });
 
   it('결과가 없으면 빈 상태 문구, 에러면 안내와 다시 시도 버튼(→refetch)이 보인다', () => {

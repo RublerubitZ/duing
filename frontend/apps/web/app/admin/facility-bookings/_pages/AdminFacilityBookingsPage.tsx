@@ -8,6 +8,7 @@ import {
 } from '@duing/hooks';
 import type { AdminBookingQueueParams } from '@duing/types';
 import { Pagination } from '@/components/Pagination';
+import { AdminBookingDetailModal } from '../_components/AdminBookingDetailModal';
 import { AdminBookingQueueTable } from '../_components/AdminBookingQueueTable';
 import { BookingSummaryCards, type AdminQueueTab } from '../_components/BookingSummaryCards';
 
@@ -33,7 +34,7 @@ export function AdminFacilityBookingsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(0);
-  const [, setSelectedBookingId] = useState<number | null>(null);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
 
   const facilityId = facilityIdInput === '' ? undefined : Number(facilityIdInput);
   const baseParams: AdminBookingQueueParams = {
@@ -65,6 +66,12 @@ export function AdminFacilityBookingsPage() {
       : [];
   const rows = activeTab === 'CONFLICT_ATTENTION' ? [...conflictRows, ...suspectedRows] : conflictRows;
   const totalPages = queueQuery.data?.totalPages ?? 0;
+
+  // 충돌·의심 탭은 보조 쿼리(APPROVED)를 병합하므로 로딩·에러 게이트에도 합류시킨다(Task 3 리뷰 반영).
+  const isQueueLoading =
+    queueQuery.isLoading || (activeTab === 'CONFLICT_ATTENTION' && suspectedQuery.isLoading);
+  const isQueueError =
+    queueQuery.isError || (activeTab === 'CONFLICT_ATTENTION' && suspectedQuery.isError);
 
   return (
     <section className="space-y-4">
@@ -115,21 +122,37 @@ export function AdminFacilityBookingsPage() {
         />
       </div>
 
-      {queueQuery.isLoading && <p className="text-sm text-charcoal-3">불러오는 중…</p>}
-      {queueQuery.isError && (
+      {isQueueLoading && <p className="text-sm text-charcoal-3">불러오는 중…</p>}
+      {!isQueueLoading && isQueueError && (
         <div role="alert" className="text-sm text-charcoal-2">
           <p>큐를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
-          <button type="button" className="btn btn-ghost mt-2" onClick={() => void queueQuery.refetch()}>
+          <button
+            type="button"
+            className="btn btn-ghost mt-2"
+            onClick={() => {
+              void queueQuery.refetch();
+              if (activeTab === 'CONFLICT_ATTENTION') void suspectedQuery.refetch();
+            }}
+          >
             다시 시도
           </button>
         </div>
       )}
-      {queueQuery.isSuccess && rows.length === 0 && (
+      {!isQueueLoading && !isQueueError && queueQuery.isSuccess && rows.length === 0 && (
         <p className="text-sm text-charcoal-3">해당 조건의 신청이 없어요.</p>
       )}
-      {rows.length > 0 && <AdminBookingQueueTable rows={rows} onSelect={setSelectedBookingId} />}
+      {!isQueueLoading && !isQueueError && rows.length > 0 && (
+        <AdminBookingQueueTable rows={rows} onSelect={setSelectedBookingId} />
+      )}
 
       {totalPages > 1 && <Pagination page={page} totalPages={totalPages} onChange={setPage} />}
+
+      {selectedBookingId !== null && (
+        <AdminBookingDetailModal
+          bookingId={selectedBookingId}
+          onClose={() => setSelectedBookingId(null)}
+        />
+      )}
     </section>
   );
 }
