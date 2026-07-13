@@ -32,9 +32,8 @@ export default function HomePage() {
       <HomeHero />
       <BannerCarousel />
       <RecruitmentTicker />
-      <FadeIn>
-        <Categories />
-      </FadeIn>
+      {/* 모바일 뷰포트 첫 화면에 걸치는 above-the-fold 콘텐츠 — FadeIn(초기 opacity:0) 언랩 */}
+      <Categories />
       <FadeIn>
         <FeaturedClubs />
       </FadeIn>

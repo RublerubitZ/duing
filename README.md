@@ -52,7 +52,7 @@ pnpm dev                    # http://localhost:3000
 | 프레임워크 | Spring Boot 3.4 | Next.js 15 (App Router) + React 19 |
 | 빌드/패키지 | Gradle (Kotlin DSL) | pnpm 9 workspaces |
 | 데이터 | PostgreSQL (Supabase), JPA, QueryDSL, Flyway | TanStack Query (서버 상태) + Zustand (클라이언트 상태) |
-| 인증 | Spring Security + JWT (HS256) | JWT 헤더, `@duing/storage` 추상화 (web localStorage / native AsyncStorage) |
+| 인증 | Spring Security + JWT (HS256), 웹 HttpOnly Cookie·모바일 Bearer | 웹 Cookie 세션, 모바일 Bearer용 `@duing/storage` 추상화 |
 | 검증 | Bean Validation (`@Valid`) | Zod + React Hook Form |
 | HTTP | — | ky |
 | 스타일 | — | Tailwind CSS |
@@ -147,6 +147,32 @@ pnpm dev                    # http://localhost:3000
 - 백엔드: `backend/.env` (커밋 금지) — 템플릿: `backend/.env.example`
 - 프론트엔드: `frontend/apps/web/.env.local` (커밋 금지) — 템플릿: `apps/web/.env.local.example`
 - 공통 원칙: 코드/yml 에 시크릿 직접 기재 절대 금지. `.env` 또는 CI Secret 으로만 주입.
+
+웹 인증 운영에서는 시크릿 소유권을 다음과 같이 분리한다.
+
+- 백엔드는 Access Token 서명용 `JWT_SECRET`, Middleware 힌트 서명용 `AUTH_HINT_SECRET`, 운영 힌트
+  Cookie 범위용 `AUTH_HINT_COOKIE_DOMAIN=.duings.com`을 사용한다. 두 Secret은 각각 최소 32바이트이며
+  반드시 서로 다른 값이어야 한다. 운영 프로필에서 Cookie Domain이 누락되거나 정확히 `.duings.com`이
+  아니면 기동에 실패한다.
+- Vercel에는 백엔드와 같은 `AUTH_HINT_SECRET`만 주입한다. Access Token을 서명할 수 있는
+  `JWT_SECRET`은 Vercel 환경변수로 등록하면 안 된다.
+
+운영 웹 `duings.com`/`api.duings.com`과 로컬 `localhost:3000`/`localhost:8080`을 지원한다. 로컬에서는
+`AUTH_HINT_COOKIE_DOMAIN`을 비우거나 설정하지 않아 Access Token과 `auth_hint`를 모두 localhost
+host-only Cookie로 발급하고, 프론트와 백엔드의 호스트 문자열도 `localhost`로 통일한다.
+`127.0.0.1`과 섞지 않는다. 브라우저의 localhost Secure Cookie 예외 덕분에 HTTP localhost 개발을
+지원하지만, 일반 HTTP non-localhost 호스트에는 웹 인증 Cookie를 발급하지 않는다. 일반
+`*.vercel.app` Preview는 웹 인증 지원 대상이 아니다. Preview 인증이 필요하면 `preview.duings.com`처럼
+API와 동일 사이트가 되는 커스텀 도메인을 사용한다.
+
+웹 Access Token은 백엔드가 `__Host-duing_access_token` host-only Cookie로만 발급한다
+(`Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=3600`, Domain 미지정). `auth_hint`는 로그인·역할별
+리다이렉트 UX에만 쓰며 API 인증이나 권한 판정에는 사용하지 않는다. Refresh Token은 아직 사용하지
+않는다. `JWT_EXPIRY_MS`는 Access JWT, Cookie, `auth_hint`가 모두 정확히 1시간을 유지하도록
+`3600000`만 허용하며 다른 값이면 기동에 실패한다. 현재 로그아웃은 사용자 단위 `token_version`을 증가시키므로 웹이나 모바일 한 곳에서
+로그아웃하면 해당 사용자의 모든 디바이스 세션이 무효화된다.
+
+배포 순서와 롤백 절차는 [`deploy/README.md`](./deploy/README.md)를 따른다.
 
 ---
 

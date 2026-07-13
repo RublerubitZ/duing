@@ -100,4 +100,15 @@ class JwtTokenProviderTest {
 
         assertThat(providerWithMultibyteSecret.parse(token).userId()).isEqualTo(2L);
     }
+
+    @Test
+    @DisplayName("Access JWT 만료가 1시간이 아니면 기동 시점에 즉시 실패한다")
+    void rejectsAccessTokenLifetimeOtherThanExactlyOneHour() {
+        JwtTokenProvider provider = providerWithSecret(SECRET);
+        ReflectionTestUtils.setField(provider, "expiryMs", 3_600_001L);
+
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(provider, "init"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("3,600,000");
+    }
 }

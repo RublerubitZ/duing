@@ -66,6 +66,8 @@ jobs:
         env:
           NEXT_PUBLIC_API_BASE_URL: https://api.ci.invalid/api/v1
         run: pnpm build
+        env:
+          AUTH_HINT_SECRET: ci-only-auth-hint-secret-at-least-32-bytes
 
       - name: Type check
         if: steps.detect.outputs.scaffolded == 'true'

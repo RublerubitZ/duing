@@ -40,4 +40,21 @@ describe('REQUEST_TIMEOUT_MS 정책', () => {
     const elapsedMs = Date.now() - startedAt;
     expect(elapsedMs).toBeGreaterThanOrEqual(4_500);
   }, 10_000);
+
+  it('cookie 모드 웹 로그인도 5초에 TIMEOUT ApiError 로 거부한다', async () => {
+    const cookieClient = createApiClient({
+      baseUrl: 'http://localhost:8080/api/v1',
+      authTransport: 'cookie',
+    });
+    server.use(
+      http.post('*/auth/web/login', async () => {
+        await delay('infinite');
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+
+    await expect(
+      cookieClient.auth.login({ studentId: '20251234', password: 'Test1234!@' }),
+    ).rejects.toMatchObject({ name: 'ApiError', code: 'TIMEOUT' });
+  }, 10_000);
 });

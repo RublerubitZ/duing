@@ -117,6 +117,10 @@ export type LoginResult = {
   user: User;
 };
 
+export type WebLoginResult = {
+  user: User;
+};
+
 export type StartPhoneVerificationPayload = {
   phone: string;
 };

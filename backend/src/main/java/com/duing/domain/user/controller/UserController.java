@@ -10,9 +10,12 @@ import com.duing.domain.user.controller.dto.response.UserResponse;
 import com.duing.domain.user.service.PhoneVerificationService;
 import com.duing.domain.user.service.UserService;
 import com.duing.domain.user.service.dto.query.PhoneVerificationIssueResult;
+import com.duing.global.auth.AuthTransport;
 import com.duing.global.auth.UserPrincipal;
+import com.duing.global.auth.WebAuthCookieService;
 import com.duing.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -30,6 +33,7 @@ public class UserController implements UserApi {
 
     private final UserService userService;
     private final PhoneVerificationService phoneVerificationService;
+    private final WebAuthCookieService webAuthCookieService;
 
     @Override
     public ResponseEntity<ApiResponse<UserResponse>> getMe(@AuthenticationPrincipal UserPrincipal currentUser) {
@@ -49,9 +53,12 @@ public class UserController implements UserApi {
     @Override
     public ResponseEntity<Void> changePassword(
             @Valid @RequestBody ChangePasswordRequest changePasswordRequest,
-            @AuthenticationPrincipal UserPrincipal currentUser
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse
     ) {
         userService.changePassword(changePasswordRequest.toCommand(currentUser.id()));
+        clearWebCookiesWhenCookieAuthenticated(httpServletRequest, httpServletResponse);
         return ResponseEntity.noContent().build();
     }
 
@@ -72,18 +79,32 @@ public class UserController implements UserApi {
     public ResponseEntity<Void> changePhone(
             @Valid @RequestBody ChangePhoneRequest changePhoneRequest,
             @AuthenticationPrincipal UserPrincipal currentUser,
-            HttpServletRequest httpServletRequest) {
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse) {
         String clientIp = httpServletRequest.getRemoteAddr();
         String userAgent = httpServletRequest.getHeader("User-Agent");
         userService.changePhone(
                 changePhoneRequest.toCommand(currentUser.id()),
                 clientIp, userAgent);
+        clearWebCookiesWhenCookieAuthenticated(httpServletRequest, httpServletResponse);
         return ResponseEntity.noContent().build();
     }
 
     @Override
-    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal UserPrincipal currentUser) {
+    public ResponseEntity<Void> withdraw(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse) {
         userService.withdraw(currentUser.id());
+        clearWebCookiesWhenCookieAuthenticated(httpServletRequest, httpServletResponse);
         return ResponseEntity.noContent().build();
+    }
+
+    private void clearWebCookiesWhenCookieAuthenticated(
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse) {
+        if (httpServletRequest.getAttribute(AuthTransport.REQUEST_ATTRIBUTE) == AuthTransport.COOKIE) {
+            webAuthCookieService.clear(httpServletResponse);
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.duing.global.config;
 
+import com.duing.global.auth.CookieCsrfOriginFilter;
 import com.duing.global.auth.JwtAccessDeniedHandler;
 import com.duing.global.auth.JwtAuthenticationEntryPoint;
 import com.duing.global.auth.JwtAuthenticationFilter;
@@ -22,6 +23,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 
 import java.util.List;
 
@@ -55,7 +57,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            CookieCsrfOriginFilter cookieCsrfOriginFilter) throws Exception {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
@@ -84,6 +88,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 로그아웃은 현재 사용자 식별이 필요하므로 auth/** permitAll 보다 앞에서 인증을 요구한다.
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/web/logout").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         // 관리자 API 전체(/api/v1/admin/**)는 URL 레이어에서도 ADMIN 역할을 요구한다. 각 Admin
                         // 컨트롤러의 @PreAuthorize("hasRole('ADMIN')") 가 1차 방어이지만, 새 Admin 컨트롤러가
@@ -95,6 +100,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/members").authenticated()
                         // 멤버 변경 엔드포인트는 모두 인증 필요. (PATCH role / DELETE member / DELETE me / POST transfer-leader)
                         .requestMatchers("/api/v1/clubs/*/members/**").authenticated()
+                        // 시설 대관 신청 — 운영진 전용 데이터이므로 GET 도 인증 필수(아래 clubs GET permitAll 보다 먼저 매칭)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/facility-bookings").authenticated()
+                        .requestMatchers("/api/v1/clubs/*/facility-bookings/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs", "/api/v1/clubs/**").permitAll()
                         // 지원 가능 여부 사전 확인은 현재 사용자 기준 판정이므로 인증이 필요하다.
                         // 아래 recruitments/** permitAll 보다 반드시 앞에 위치해야 first-match 원칙상
@@ -126,7 +134,8 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(cookieCsrfOriginFilter, CorsFilter.class);
 
         return http.build();
     }

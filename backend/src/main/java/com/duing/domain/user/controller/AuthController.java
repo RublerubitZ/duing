@@ -11,14 +11,18 @@ import com.duing.domain.user.controller.dto.response.LoginResponse;
 import com.duing.domain.user.controller.dto.response.PasswordResetStartResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationStatusResponse;
+import com.duing.domain.user.controller.dto.response.WebLoginResponse;
 import com.duing.domain.user.service.PhoneVerificationService;
 import com.duing.domain.user.service.UserService;
+import com.duing.domain.user.service.dto.query.LoginResult;
 import com.duing.domain.user.service.dto.query.PasswordResetStartResult;
 import com.duing.domain.user.service.dto.query.PhoneVerificationIssueResult;
 import com.duing.domain.user.service.dto.query.PhoneVerificationStatusResult;
 import com.duing.global.auth.UserPrincipal;
+import com.duing.global.auth.WebAuthCookieService;
 import com.duing.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -36,6 +40,7 @@ public class AuthController implements AuthApi {
 
     private final UserService userService;
     private final PhoneVerificationService phoneVerificationService;
+    private final WebAuthCookieService webAuthCookieService;
 
     @Override
     public ResponseEntity<ApiResponse<Long>> signup(
@@ -58,9 +63,38 @@ public class AuthController implements AuthApi {
     }
 
     @Override
+    public ResponseEntity<ApiResponse<WebLoginResponse>> webLogin(
+            @Valid @RequestBody LoginRequest loginRequest,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse) {
+        String clientIp = httpServletRequest.getRemoteAddr();
+        LoginResult loginResult = userService.login(loginRequest.toCommand(), clientIp);
+        webAuthCookieService.issue(
+                httpServletRequest,
+                httpServletResponse,
+                loginResult.accessToken(),
+                loginResult.user().role().name());
+        return ResponseEntity.ok(ApiResponse.success(WebLoginResponse.from(loginResult)));
+    }
+
+    @Override
     public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal UserPrincipal currentUser) {
         userService.logout(currentUser.id());
         return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Override
+    public ResponseEntity<Void> webLogout(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletResponse httpServletResponse) {
+        try {
+            if (currentUser != null) {
+                userService.logout(currentUser.id());
+            }
+            return ResponseEntity.noContent().build();
+        } finally {
+            webAuthCookieService.clear(httpServletResponse);
+        }
     }
 
     @Override
