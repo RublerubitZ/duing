@@ -678,7 +678,7 @@ class OrganizationNameNormalizerTest {
 }
 ```
 
-`FacilityBookingMatchingServiceTest.java` — 순수 판정 로직 단위 테스트(엔티티는 `FacilityReservation.create` / `FacilityBooking.request` + 리플렉션 APPROVED 강제):
+`FacilityBookingMatchingServiceTest.java` — 순수 판정 로직 단위 테스트(엔티티는 `FacilityReservation.create` / `FacilityBooking.request` + 도메인 `approve` 로 APPROVED 전이):
 
 ```java
 package com.duing.domain.facilitybooking.service;
@@ -686,9 +686,7 @@ package com.duing.domain.facilitybooking.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.domain.facility.entity.FacilityReservation;
-import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -704,12 +702,10 @@ class FacilityBookingMatchingServiceTest {
 
     private static final LocalDate DATE = LocalDate.of(2026, 1, 20);
 
-    private FacilityBooking approvedBooking(int startHour, int endHour) throws Exception {
+    private FacilityBooking approvedBooking(int startHour, int endHour) {
         FacilityBooking booking = FacilityBooking.request(1L, 2L, 3L, DATE,
                 LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null);
-        Field statusField = FacilityBooking.class.getDeclaredField("status");
-        statusField.setAccessible(true);
-        statusField.set(booking, BookingStatus.APPROVED);
+        booking.approve(9L, null, LocalDateTime.of(2026, 1, 20, 9, 0));
         return booking;
     }
 
@@ -721,7 +717,7 @@ class FacilityBookingMatchingServiceTest {
 
     @Test
     @DisplayName("모든 서브슬롯이 같은 정규화 이름의 점유행으로 덮이면 CONFIRMED 판정이다")
-    void confirmsWhenFullyCoveredByMatchingRows() throws Exception {
+    void confirmsWhenFullyCoveredByMatchingRows() {
         FacilityBooking booking = approvedBooking(18, 20);
         List<FacilityReservation> rows = List.of(
                 occupiedRow(101L, 18, "밴드 부"), occupiedRow(102L, 19, "밴드부"));
@@ -734,7 +730,7 @@ class FacilityBookingMatchingServiceTest {
 
     @Test
     @DisplayName("이름 불일치·부분 커버·운영행 커버는 CONFIRMED 판정이 아니다")
-    void staysWhenNameMismatchOrPartialCoverage() throws Exception {
+    void staysWhenNameMismatchOrPartialCoverage() {
         FacilityBooking booking = approvedBooking(18, 20);
 
         assertThat(matchingService.decide(booking, "밴드부",
@@ -747,6 +743,17 @@ class FacilityBookingMatchingServiceTest {
                 LocalTime.of(9, 0), LocalTime.of(20, 0), LocalDateTime.of(2026, 1, 20, 8, 0));
         assertThat(matchingService.decide(booking, "밴드부",
                 List.of(operating, occupiedRow(102L, 19, "밴드부"))).confirmed()).isFalse();
+    }
+
+    @Test
+    @DisplayName("비정렬 점유행(18:30~19:30)은 겹쳐도 커버가 아니다 — 부분 반영은 자동 확정하지 않는다")
+    void nonAlignedRowDoesNotCover() {
+        FacilityBooking booking = approvedBooking(18, 20);
+        FacilityReservation nonAligned = FacilityReservation.create(1L, 104L, YearMonth.from(DATE), DATE,
+                LocalTime.of(18, 30), LocalTime.of(19, 30), "밴드부",
+                null, null, LocalDateTime.of(2026, 1, 20, 8, 0));
+
+        assertThat(matchingService.decide(booking, "밴드부", List.of(nonAligned)).confirmed()).isFalse();
     }
 }
 ```
@@ -818,15 +825,15 @@ public class FacilityBookingMatchingService {
                 .filter(row -> normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName))
                 .toList();
 
-        // 예약의 모든 1시간 서브슬롯이 빠짐없이 덮여야 자동 확정(보수적 정확 매칭)
+        // 각 서브슬롯이 단일 점유행에 완전 포함되어야 커버로 인정 — 비정렬 크롤 행·분할 행은 미매칭(수동 확정 폴백, 보수 방향)
         Long representativeSeq = null;
         for (LocalTime slotStart = booking.getStartTime(); slotStart.isBefore(booking.getEndTime());
                 slotStart = slotStart.plusHours(1)) {
             LocalTime slotEnd = slotStart.plusHours(1);
             LocalTime currentStart = slotStart;
             FacilityReservation covering = matchingOccupiedRows.stream()
-                    .filter(row -> row.getStartTime().isBefore(slotEnd)
-                            && row.getEndTime().isAfter(currentStart))
+                    .filter(row -> !row.getStartTime().isAfter(currentStart)
+                            && !row.getEndTime().isBefore(slotEnd))
                     .findFirst()
                     .orElse(null);
             if (covering == null) {

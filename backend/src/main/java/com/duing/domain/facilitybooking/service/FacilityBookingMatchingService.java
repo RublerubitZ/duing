@@ -35,15 +35,15 @@ public class FacilityBookingMatchingService {
                 .filter(row -> normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName))
                 .toList();
 
-        // 예약의 모든 1시간 서브슬롯이 빠짐없이 덮여야 자동 확정(보수적 정확 매칭)
+        // 각 서브슬롯이 단일 점유행에 완전 포함되어야 커버로 인정 — 비정렬 크롤 행·분할 행은 미매칭(수동 확정 폴백, 보수 방향)
         Long representativeSeq = null;
         for (LocalTime slotStart = booking.getStartTime(); slotStart.isBefore(booking.getEndTime());
                 slotStart = slotStart.plusHours(1)) {
             LocalTime slotEnd = slotStart.plusHours(1);
             LocalTime currentStart = slotStart;
             FacilityReservation covering = matchingOccupiedRows.stream()
-                    .filter(row -> row.getStartTime().isBefore(slotEnd)
-                            && row.getEndTime().isAfter(currentStart))
+                    .filter(row -> !row.getStartTime().isAfter(currentStart)
+                            && !row.getEndTime().isBefore(slotEnd))
                     .findFirst()
                     .orElse(null);
             if (covering == null) {
