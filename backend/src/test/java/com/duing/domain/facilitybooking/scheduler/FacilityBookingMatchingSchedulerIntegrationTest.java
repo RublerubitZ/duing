@@ -124,10 +124,18 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
      * 성공 기록은 recordSuccessful(crawledAt, source, fetchStatus, lastError)(4-인자) 를 사용한다.
      */
     private void recordSuccessSnapshot(YearMonth yearMonth) {
+        recordSuccessSnapshot(yearMonth, LocalDateTime.now());
+    }
+
+    /**
+     * 지정한 세대 시각(crawledAt)으로 SUCCESS 스냅샷을 기록한다. 정확 세대 결박은 크롤 행의 crawledAt 이
+     * 스냅샷 crawledAt 과 일치해야 확정하므로, 행과 스냅샷이 같은 세대임을 표현하려면 이 시각을 공유해야 한다.
+     */
+    private void recordSuccessSnapshot(YearMonth yearMonth, LocalDateTime crawledAt) {
         FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(yearMonth)
-                .orElseGet(() -> FacilityMonthSnapshot.create(yearMonth, LocalDateTime.now(),
+                .orElseGet(() -> FacilityMonthSnapshot.create(yearMonth, crawledAt,
                         CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
-        snapshot.recordSuccessful(LocalDateTime.now(), CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null);
+        snapshot.recordSuccessful(crawledAt, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null);
         snapshotRepository.save(snapshot);
     }
 
@@ -141,23 +149,26 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         LocalDate date = bookableDate();
         String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
 
+        // 정확 세대 결박 — 행과 스냅샷이 같은 세대(crawledAt)여야 확정한다. 행·메타에 동일 generation 을 부여한다.
+        LocalDateTime generation = LocalDateTime.now();
+
         Long matched = pendingBooking(fixture, date, 18, 20);
         adminService.approve(admin.getId(), matched);
         // 학교가 동아리명 그대로 18~19·19~20 점유행 등록
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, LocalDateTime.now()));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, generation));
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, LocalDateTime.now()));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, generation));
 
         Long mismatched = pendingBooking(fixture, date, 9, 10);
         adminService.approve(admin.getId(), mismatched);
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(9, 0), LocalTime.of(10, 0), "전혀다른단체", null, null, LocalDateTime.now()));
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "전혀다른단체", null, null, generation));
 
-        recordSuccessSnapshot(YearMonth.from(date));
+        recordSuccessSnapshot(YearMonth.from(date), generation);
         scheduler.runMatchingCycle();
 
         assertThat(bookingRepository.findById(matched).orElseThrow().getStatus())
@@ -234,8 +245,8 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
     }
 
     @Test
-    @DisplayName("스냅샷 기준보다 오래된 크롤 행(-1시간)은 커버로 인정하지 않는다 — 행 신선도 가드")
-    void skipsStaleCrawlRows() throws Exception {
+    @DisplayName("스냅샷 세대(crawledAt)와 다른 세대의 크롤 행은 커버로 인정하지 않는다 — 정확 세대 결박")
+    void skipsRowsOfDifferentGeneration() throws Exception {
         Fixture fixture = fixture();
         User admin = saveUser("총동연");
         LocalDate date = bookableDate();
@@ -243,16 +254,18 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
 
         Long approved = pendingBooking(fixture, date, 18, 20);
         adminService.approve(admin.getId(), approved);
-        // 완전 커버하지만 crawledAt 이 스냅샷 기준보다 1시간 이른 행 — 신선도 가드로 제외돼 미커버가 된다
-        LocalDateTime staleCrawledAt = LocalDateTime.now().minusHours(1);
+        // 완전 커버하지만 crawledAt 이 스냅샷 세대(generation)와 다른 이전 세대(-10분)의 행 — 옛 15분 창이면
+        // 통과했겠지만 정확 세대 결박(행 crawledAt == 스냅샷 crawledAt)이 제외해 미커버가 된다.
+        LocalDateTime generation = LocalDateTime.now();
+        LocalDateTime previousGeneration = generation.minusMinutes(10);
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, staleCrawledAt));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, previousGeneration));
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, staleCrawledAt));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, previousGeneration));
 
-        recordSuccessSnapshot(YearMonth.from(date)); // 스냅샷 crawledAt = now (행보다 1시간 최신)
+        recordSuccessSnapshot(YearMonth.from(date), generation); // 스냅샷 세대 = generation (행보다 10분 최신)
         scheduler.runMatchingCycle();
 
         assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
@@ -276,15 +289,16 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
                 bandClub.getId(), leader.getId(), facility.getId(), date,
                 LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null)).bookingId();
         adminService.approve(admin.getId(), approved);
-        // 동아리명 그대로 18~20 을 완전 커버하는 점유행 — 키 충돌만 없으면 자동 확정될 상태
+        // 동아리명 그대로 18~20 을 완전 커버하는 점유행 — 세대는 스냅샷과 일치시켜, 스킵의 실제 원인이 키 충돌임을 보장한다.
+        LocalDateTime generation = LocalDateTime.now();
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), bandName, null, null, LocalDateTime.now()));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), bandName, null, null, generation));
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), bandName, null, null, LocalDateTime.now()));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), bandName, null, null, generation));
 
-        recordSuccessSnapshot(YearMonth.from(date));
+        recordSuccessSnapshot(YearMonth.from(date), generation);
         scheduler.runMatchingCycle();
 
         assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())

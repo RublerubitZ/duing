@@ -14,10 +14,10 @@ import org.junit.jupiter.api.Test;
 
 class FacilityBookingMatchingServiceTest {
 
-    // decide(...) 는 순수 판정(DB·Clock 미접근)이라 자동 확정용 의존(리포지토리·스냅샷·Clock)은 null 로 조립한다.
+    // decide(...) 는 순수 판정(DB·Clock 미접근)이라 확정용 의존(리포지토리·스냅샷·시설·Clock)은 null 로 조립한다.
     private final FacilityBookingMatchingService matchingService =
             new FacilityBookingMatchingService(new FacilityAvailabilityPolicy(), new OrganizationNameNormalizer(),
-                    null, null, null, null);
+                    null, null, null, null, null, null);
 
     private static final LocalDate DATE = LocalDate.of(2026, 1, 20);
 

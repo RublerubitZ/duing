@@ -268,6 +268,29 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("정규화 일치 이름 점유행이 전 슬롯을 단일 행으로 완전 커버하면 partiallyMatched false 다 — 자동 확정 판정 대상")
+    void notPartiallyMatchedWhenFullyCoveredBySingleRow() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
+
+        Long approved = pendingBooking(fixture, date, 18, 19); // 단일 1시간 슬롯
+        adminService.approve(admin.getId(), approved);
+        // 동아리명(공백 변형)으로 18~19 전 슬롯을 단일 행으로 완전 커버 — 자동 확정 판정 대상이라 부분 반영이 아니다
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", null, null, LocalDateTime.now()));
+
+        AdminBookingSummaryResult row = queryService.getQueue(
+                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                PageRequest.of(0, 10)).getContent().get(0);
+
+        assertThat(row.partiallyMatched()).isFalse();
+        assertThat(row.conflictSuspected()).isFalse();
+    }
+
+    @Test
     @DisplayName("상세는 겹침 컨텍스트(SCHOOL·INTERNAL·PENDING 수)와 이력·stale 을 담는다")
     void detailCarriesOverlapContextHistoryAndStale() throws Exception {
         Fixture fixture = fixture();

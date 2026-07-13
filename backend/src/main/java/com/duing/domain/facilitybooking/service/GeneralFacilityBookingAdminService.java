@@ -1,7 +1,7 @@
 package com.duing.domain.facilitybooking.service;
 
+import com.duing.domain.facility.entity.FacilityReservation;
 import com.duing.domain.facility.exception.FacilityException;
-import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
@@ -13,6 +13,7 @@ import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryR
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,7 +28,6 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     private final FacilityBookingStatusHistoryRepository historyRepository;
     private final FacilityRepository facilityRepository;
     private final FacilityReservationRepository facilityReservationRepository;
-    private final FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
     private final FacilityAvailabilityPolicy availabilityPolicy;
     private final Clock clock;
 
@@ -38,8 +38,9 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
         // 시설 단위 승인 직렬화(§5.2) — 겹치는 두 신청의 동시 승인을 잠금으로 차단, EXCLUDE 는 최종 백스톱
         facilityRepository.findByIdForUpdate(booking.getFacilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
-        // 기준 스냅샷 시각을 재검증 전에 읽어, 기록된 crawlBasisAt 이 검증에 쓴 데이터보다 최신이 되는 skew 를 과거 방향으로 보수화한다.
-        LocalDateTime crawlBasisAt = latestCrawlBasis(YearMonth.from(booking.getReservationDate()));
+        // 검증에 실제 사용한 시설 행 세대를 재검증 전에 읽어, 기록된 crawlBasisAt 이 검증에 쓴 데이터보다 최신이 되는 skew 를 과거 방향으로 보수화한다.
+        LocalDateTime crawlBasisAt = facilityCrawlBasis(booking.getFacilityId(),
+                YearMonth.from(booking.getReservationDate()));
         rejectIfSchoolOccupied(booking, crawlBasisAt);
         rejectIfInternallyBlocked(booking);
 
@@ -67,7 +68,8 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
         // 내부 겹침을 재확인해 잠금·재검증 없는 무방비 CONFIRMED 진입을 막는다.
         facilityRepository.findByIdForUpdate(booking.getFacilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
-        LocalDateTime crawlBasisAt = latestCrawlBasis(YearMonth.from(booking.getReservationDate()));
+        LocalDateTime crawlBasisAt = facilityCrawlBasis(booking.getFacilityId(),
+                YearMonth.from(booking.getReservationDate()));
         rejectIfSchoolOccupied(booking, crawlBasisAt);
         rejectIfInternallyBlocked(booking);
 
@@ -136,10 +138,15 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
         }
     }
 
-    /** 검증에 사용한 크롤 스냅샷 기준 시각(§5.2) — 감사 기록용. 스냅샷이 없으면 null. */
-    private LocalDateTime latestCrawlBasis(YearMonth yearMonth) {
-        return facilityMonthSnapshotRepository.findByYearMonth(yearMonth)
-                .map(snapshot -> snapshot.getCrawledAt())
+    /**
+     * 검증에 실제 사용한 크롤 행 세대(§5.2) — 시설·월 행들의 crawledAt 최대값(시설별 원자 교체라 사실상 단일
+     * 세대), 행이 없으면 null. 월 메타(스냅샷)가 아니라 시설 행 세대를 기록한다: PARTIAL 크롤에서 월 메타가
+     * 시설 행보다 새로울 수 있어, 승인·확정 검증(rejectIfSchoolOccupied)에 실제 사용한 행의 세대를 감사·payload 에 남긴다.
+     */
+    private LocalDateTime facilityCrawlBasis(Long facilityId, YearMonth yearMonth) {
+        return facilityReservationRepository.findByFacilityIdAndYearMonth(facilityId, yearMonth).stream()
+                .map(FacilityReservation::getCrawledAt)
+                .max(Comparator.naturalOrder())
                 .orElse(null);
     }
 }

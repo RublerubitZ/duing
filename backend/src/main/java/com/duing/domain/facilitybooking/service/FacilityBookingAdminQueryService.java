@@ -168,12 +168,17 @@ public class FacilityBookingAdminQueryService {
         long todaySubmittedCount = facilityBookingRepository.countByCreatedAtBetween(dayStart, dayEnd);
         long oldestPendingWaitingDays = facilityBookingRepository
                 .findFirstByStatusOrderByCreatedAtAsc(BookingStatus.PENDING)
-                .map(oldest -> ChronoUnit.DAYS.between(oldest.getCreatedAt().toLocalDate(), today))
+                // createdAt 은 감사가 저장 존(JVM 기본)으로 기록하므로 KST 로 변환해 날짜 경계를 맞춘다 —
+                // today 는 KST(clock) 기준이라 그냥 systemDefault 날짜로 빼면 UTC 러너·운영에서 하루가 어긋난다.
+                .map(oldest -> ChronoUnit.DAYS.between(
+                        oldest.getCreatedAt().atZone(ZoneId.systemDefault())
+                                .withZoneSameInstant(SEOUL_ZONE).toLocalDate(), today))
                 .orElse(0L);
         long approvedWaitingCount = facilityBookingRepository.countByStatus(BookingStatus.APPROVED);
         long oldestApprovedWaitingDays = facilityBookingRepository
                 .findFirstByStatusOrderByDecidedAtAsc(BookingStatus.APPROVED)
                 .filter(oldest -> oldest.getDecidedAt() != null)
+                // decidedAt 은 clock(KST wall-clock)으로 기록되므로 존 변환 없이 그대로 KST 날짜로 뺀다(createdAt 과 구분).
                 .map(oldest -> ChronoUnit.DAYS.between(oldest.getDecidedAt().toLocalDate(), today))
                 .orElse(0L);
         long conflictCount = facilityBookingRepository.countByStatus(BookingStatus.CONFLICT);

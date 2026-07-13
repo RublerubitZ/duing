@@ -10,7 +10,9 @@
 
 **Spec:** [`2026-07-13-facility-booking-design.md`](../specs/2026-07-13-facility-booking-design.md) §4(상태 머신·권한 매트릭스)·§5.2(승인 재검증)·§5.3(매칭)·§7(잠금·멱등·감사)·§8 #6~13(API)·§9.7(대시보드)
 
-> **문서 드리프트 주의:** 최종 리뷰 픽스 커밋(9cd20c26)이 Task 2·3 산출물을 확장했다 — `SchoolConflictException` 은 conflicts+crawlBasisAt payload 를 갖고(§8.3, 도메인 로컬 Advice 로 409 data 채움), `confirmManually` 는 approve 와 동일한 시설 잠금+재검증을 거치며, 매칭 잡은 세대 결박(아카이브 스킵·행 신선도·스냅샷 재확인)과 정규화 키 충돌 가드를 갖는다. 아래 Task 2·3 코드블록은 픽스 이전 형태이므로 **실코드가 우선**이다(Task 4·5·6 블록은 동기화됨).
+> **문서 드리프트 주의:** 최종 리뷰 픽스 커밋(9cd20c26)이 Task 2·3 산출물을 확장했다 — `SchoolConflictException` 은 conflicts+crawlBasisAt payload 를 갖고(§8.3, 도메인 로컬 Advice 로 409 data 채움), `confirmManually` 는 approve 와 동일한 시설 잠금+재검증을 거치며, 매칭 잡은 세대 결박(아카이브 스킵·행 신선도·스냅샷 재확인)과 정규화 키 충돌 가드를 갖는다. 아래 Task 2·3 코드블록은 픽스 이전 형태이므로 **실코드가 우선**이다.
+>
+> **픽스 웨이브 2(codex 재검토 재구조화):** 매칭 검증·적용을 예약 1건 단위 **단일 트랜잭션**(`FacilityBookingMatchingService.verifyAndConfirm`)으로 재구조화하고, 15분 신선도 창을 **정확 세대 결박**(행 `crawledAt` == 스냅샷 `crawledAt` — 크롤은 사이클당 단일 crawledAt 을 행·메타 양쪽에 기록)으로 대체했다(트랜잭션 안 아카이브·SUCCESS·세대 재확인). 스케줄러(`matchMonth`)는 SUCCESS 사전 게이트·동아리명 매핑·키 충돌 집합·건별 격리만 남기고 `applyAutoConfirm`·15분 창·dayRows 메모이즈·`decide` 직접 호출을 제거했다. 함께: 409 응답(§8.3)을 `conflicts[].source="SCHOOL"`·`start`/`end`(HH:mm)·`crawlBasisAt`(KST OffsetDateTime)로 정합, `crawlBasisAt` 을 월 메타가 아닌 **검증에 실제 사용한 시설 행 세대**(`facilityCrawlBasis`)로 교체, `oldestPendingWaitingDays` 를 KST 경계로 정합했다. 따라서 아래 **Task 4·5 코드블록도 픽스 이전 형태이므로 실코드가 우선**이다(이 웨이브가 대체 — 블록 재작성 대신 이 노트로 갈음). Task 6 블록은 동기화됨.
 
 ## Global Constraints
 
