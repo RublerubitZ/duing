@@ -52,3 +52,62 @@ export type FacilityDetailResponse = {
   source: DataSource;
   facility: FacilityItem;
 };
+
+// ── 시설 대관 신청(P1) — 백엔드 설계 §8 계약과 1:1 ───────────────────────
+
+export type BookingSlotStatus = 'AVAILABLE' | 'PENDING_HOLD' | 'BLOCKED' | 'PAST';
+export type BookingSlotBlockSource = 'SCHOOL' | 'INTERNAL';
+export type BookingDayStatus = 'AVAILABLE' | 'FULL' | 'PAST';
+
+export type BookingAvailabilitySlot = {
+  start: string; // HH:mm
+  end: string; // HH:mm
+  status: BookingSlotStatus;
+  blockedBy?: BookingSlotBlockSource; // BLOCKED 일 때만 존재
+  // SCHOOL 차단의 단체명(공개 데이터). INTERNAL·PENDING_HOLD 는 비노출 정책이라 생략된다(§16 결정 20).
+  organization?: string;
+};
+
+export type BookingOperatingNote = {
+  organization: string;
+  start: string; // HH:mm
+  end: string; // HH:mm
+};
+
+export type BookingDayAvailability = {
+  date: string; // yyyy-MM-dd
+  dayStatus: BookingDayStatus;
+  availableSlotCount: number;
+  operatingNotes: BookingOperatingNote[];
+  slots: BookingAvailabilitySlot[]; // 항상 13칸(09~22시)
+};
+
+export type FacilityAvailabilityResponse = {
+  facilityId: number;
+  yearMonth: string; // yyyy-MM
+  lastUpdatedAt?: string | null; // 서버가 NON_NULL 직렬화 — 콜드 월은 필드 자체가 생략됨
+  stale: boolean;
+  bookableFrom: string; // yyyy-MM-dd (오늘)
+  bookableUntil: string; // yyyy-MM-dd (익월 말일)
+  days: BookingDayAvailability[];
+};
+
+export type PurposePreset = {
+  id: number;
+  label: string;
+};
+
+export type CreateFacilityBookingPayload = {
+  facilityId: number;
+  date: string; // yyyy-MM-dd
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  purpose: string;
+  attendeeCount?: number;
+};
+
+export type CreateFacilityBookingResult = {
+  bookingId: number;
+  status: 'PENDING';
+  overlappingPendingCount: number;
+};

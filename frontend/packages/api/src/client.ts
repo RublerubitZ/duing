@@ -173,6 +173,10 @@ import type {
   FacilitySummary,
   FacilityUsageResponse,
   FacilityDetailResponse,
+  FacilityAvailabilityResponse,
+  PurposePreset,
+  CreateFacilityBookingPayload,
+  CreateFacilityBookingResult,
   FederationFaqCategory,
   FederationFaqItem,
   AdminFederationFaqSummary,
@@ -433,6 +437,14 @@ export type DuingApiClient = {
     usage(yearMonth?: string): Promise<FacilityUsageResponse>;
     // GET /api/v1/facilities/{facilityId}?yearMonth=YYYY-MM — 단일 시설 상세(타임라인용).
     get(facilityId: number, yearMonth?: string): Promise<FacilityDetailResponse>;
+    // GET /api/v1/facilities/{facilityId}/availability?yearMonth= — 공개. 당월·익월만 허용(400).
+    availability(facilityId: number, yearMonth?: string): Promise<FacilityAvailabilityResponse>;
+    // GET /api/v1/facilities/booking-purpose-presets — 공개. 사용 목적 Preset(시드).
+    purposePresets(): Promise<PurposePreset[]>;
+  };
+  facilityBookings: {
+    // POST /api/v1/clubs/{clubId}/facility-bookings — 운영진 전용(쿠키 세션). 409=슬롯 불가/중복/상한.
+    create(clubId: number, payload: CreateFacilityBookingPayload): Promise<CreateFacilityBookingResult>;
   };
   notifications: {
     list(unreadOnly: boolean, page: number, size: number): Promise<PageResponse<Notification>>;
@@ -1132,6 +1144,19 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           http.get(`facilities/${facilityId}`, {
             searchParams: yearMonth ? { yearMonth } : undefined,
           }),
+        ),
+      availability: (facilityId, yearMonth) =>
+        jsonOk<FacilityAvailabilityResponse>(
+          http.get(`facilities/${facilityId}/availability`, {
+            searchParams: yearMonth ? { yearMonth } : undefined,
+          }),
+        ),
+      purposePresets: () => jsonOk<PurposePreset[]>(http.get('facilities/booking-purpose-presets')),
+    },
+    facilityBookings: {
+      create: (clubId, payload) =>
+        jsonOk<CreateFacilityBookingResult>(
+          http.post(`clubs/${clubId}/facility-bookings`, { json: payload }),
         ),
     },
     notifications: {

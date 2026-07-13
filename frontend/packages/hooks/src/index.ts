@@ -285,6 +285,12 @@ export {
   useToggleCashbookExclusionMutation,
 } from './cashbook';
 export { cashbookQueryKeys } from './cashbookQueryKeys';
-export { useFacilityUsageQuery, useFacilityDetailQuery } from './facilities';
+export {
+  useFacilityUsageQuery,
+  useFacilityDetailQuery,
+  useFacilityAvailabilityQuery,
+  usePurposePresetsQuery,
+  useCreateFacilityBookingMutation,
+} from './facilities';
 export { facilityQueryKeys } from './facilityQueryKeys';
 export { shouldRetryQuery, isNonRetryableError } from './retry';
