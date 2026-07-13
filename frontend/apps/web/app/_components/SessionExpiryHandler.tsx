@@ -10,7 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { registerUnauthorizedHandler } from '@duing/api';
 import { useAuthStore } from '@duing/stores';
 
-import { toRoute } from '@/app/_lib/route';
+import { toLinkRoute, toRoute } from '@/app/_lib/route';
 import { useToast } from './toast/ToastProvider';
 
 export function SessionExpiryHandler() {
@@ -29,7 +29,8 @@ export function SessionExpiryHandler() {
       // 이전 사용자 데이터가 화면/캐시에 남지 않도록 비운다(공용 단말 정보 노출 방지).
       queryClient.clear();
       addToast('세션이 만료되었어요. 다시 로그인해 주세요.', { variant: 'error' });
-      router.push(toRoute('/'));
+      const currentPath = toLinkRoute(window.location.pathname + window.location.search) ?? '/';
+      router.push(toRoute(`/login?next=${encodeURIComponent(currentPath)}`));
     });
     return () => registerUnauthorizedHandler(null);
   }, [router, addToast, queryClient]);

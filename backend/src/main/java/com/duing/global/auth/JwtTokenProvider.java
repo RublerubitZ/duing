@@ -20,6 +20,7 @@ public class JwtTokenProvider {
     // HS256 은 RFC 7518 §3.2 상 해시 출력 크기(256비트=32바이트) 이상의 키를 요구한다.
     // 더 짧은 키는 그만큼 보안 강도가 떨어지므로 기동 단계에서 막는다.
     private static final int MIN_SECRET_BYTES = 32;
+    private static final long REQUIRED_EXPIRY_MS = 3_600_000L;
 
     @Value("${jwt.secret}")
     private String secret;
@@ -32,6 +33,10 @@ public class JwtTokenProvider {
 
     @PostConstruct
     private void init() {
+        if (expiryMs != REQUIRED_EXPIRY_MS) {
+            throw new IllegalStateException(
+                    "웹 인증 계약을 위해 jwt.expiry-ms는 정확히 3,600,000이어야 합니다.");
+        }
         // 설정에 키가 없으면 ${jwt.secret} placeholder 미해석으로 부팅 단계에서 먼저 막히지만,
         // 빈 문자열이 주입되는 경우까지 여기서 명시적으로 잡아 원인을 분명히 한다.
         if (!StringUtils.hasText(secret)) {

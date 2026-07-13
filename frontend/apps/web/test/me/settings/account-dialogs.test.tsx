@@ -43,7 +43,7 @@ afterEach(() => {
   server.resetHandlers();
   replaceSpy.mockReset();
   memoryStore.clear();
-  useAuthStore.setState({ status: 'idle', user: null, accessToken: null });
+  useAuthStore.setState({ status: 'idle', user: null });
 });
 afterAll(() => server.close());
 
@@ -119,7 +119,7 @@ describe('PasswordChangeDialog', () => {
 
   it('성공하면 세션을 정리하고 로그인으로 보낸다', async () => {
     server.use(http.patch(`${BASE}/users/me/password`, ok204));
-    useAuthStore.setState({ status: 'authenticated', accessToken: 'x' });
+    useAuthStore.setState({ status: 'authenticated' });
     const user = userEvent.setup();
     renderWithProviders(<PasswordChangeDialog open onClose={vi.fn()} />);
 
@@ -136,7 +136,7 @@ describe('PasswordChangeDialog', () => {
 describe('WithdrawAccountDialog', () => {
   it('탈퇴에 성공하면 세션을 정리하고 홈으로 보낸다', async () => {
     server.use(http.delete(`${BASE}/users/me`, ok204));
-    useAuthStore.setState({ status: 'authenticated', accessToken: 'x' });
+    useAuthStore.setState({ status: 'authenticated' });
     const user = userEvent.setup();
     renderWithProviders(<WithdrawAccountDialog open onClose={vi.fn()} />);
 

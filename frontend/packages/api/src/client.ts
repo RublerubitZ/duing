@@ -64,6 +64,7 @@ import type {
   CreateRecruitmentPayload,
   LoginPayload,
   LoginResult,
+  WebLoginResult,
   ManagedClub,
   MyApplicationDetail,
   ApplicantDetail,
@@ -192,7 +193,7 @@ import type {
   AnswerFederationInquiryPayload,
   UpdateFederationInquiryAnswerPayload,
 } from '@duing/types';
-import { readToken } from './token';
+import { clearToken, readToken, writeToken } from './token';
 import { isKnownOffline } from './connectivity';
 
 export class ApiError extends Error {
@@ -279,7 +280,7 @@ export async function readBodyWithTimeout<T>(bodyPromise: Promise<T>, timeoutMs:
 export type DuingApiClient = {
   auth: {
     signup(payload: SignupPayload): Promise<number>;
-    login(payload: LoginPayload): Promise<LoginResult>;
+    login(payload: LoginPayload): Promise<User>;
     startPhoneVerification(
       payload: StartPhoneVerificationPayload,
       includeQr: boolean,
@@ -707,8 +708,11 @@ export type DuingApiClient = {
   raw: KyInstance;
 };
 
+export type AuthTransport = 'bearer' | 'cookie';
+
 export type CreateApiClientOptions = {
   baseUrl: string;
+  authTransport?: AuthTransport;
 };
 
 // 요청 분류별 클라이언트 타임아웃(ms). 모든 요청은 ky 전역 기본값(default)을 받고,
@@ -731,9 +735,12 @@ export const REQUEST_TIMEOUT_MS = {
   bankSync: 30_000,
 } as const;
 
-export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiClient {
+export function createApiClient(options: CreateApiClientOptions): DuingApiClient {
+  const { baseUrl } = options;
+  const authTransport = options.authTransport ?? 'bearer';
   const http = ky.create({
     prefixUrl: baseUrl.replace(/\/$/, ''),
+    credentials: authTransport === 'cookie' ? 'include' : 'same-origin',
     timeout: REQUEST_TIMEOUT_MS.default,
     // 재시도의 단일 진실원은 React Query 정책(shouldRetryQuery) — 스펙 §3.4 일원화.
     // ky 레벨 재시도(GET 계열 기본 2회)를 켜두면 5xx·네트워크 실패를 RQ 와 이중으로 재시도하고,
@@ -746,21 +753,29 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           if (isKnownOffline()) {
             throw new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK');
           }
-          const token = await readToken();
-          if (token) {
-            request.headers.set('Authorization', `Bearer ${token}`);
+          if (authTransport === 'bearer') {
+            const token = await readToken();
+            if (token) {
+              request.headers.set('Authorization', `Bearer ${token}`);
+            }
           }
         },
       ],
       afterResponse: [
         (request, _options, response) => {
-          // 인증 토큰을 실어 보낸 요청이 401 이면 세션 만료로 간주하고 앱에 알린다.
-          // (토큰 없는 로그인 실패 401 은 Authorization 헤더가 없어 제외된다)
+          // Bearer는 인증 토큰을 실어 보낸 요청, Cookie는 로그인·로그아웃 외의
+          // 401을 세션 만료로 간주하고 앱에 알린다.
           // 단, 로그아웃 요청의 401 은 세션 만료 신호가 아니다 — 사용자가 의도적으로 로그아웃 중이며
           // 이미 만료/무효화된 토큰으로도 폐기를 시도하므로 401 이 정상이다. 전역 만료 핸들러
           // (세션만료 에러 토스트 + 홈 이동)를 깨우면 의도적 로그아웃에 오탐 에러가 뜬다.
-          const isLogoutRequest = request.url.endsWith('/auth/logout');
-          if (response.status === 401 && request.headers.has('Authorization') && !isLogoutRequest) {
+          const isCookieAuthRequest =
+            request.url.endsWith('/auth/web/login') || request.url.endsWith('/auth/web/logout');
+          const isBearerLogoutRequest = request.url.endsWith('/auth/logout');
+          const shouldNotifyUnauthorized =
+            authTransport === 'cookie'
+              ? !isCookieAuthRequest
+              : request.headers.has('Authorization') && !isBearerLogoutRequest;
+          if (response.status === 401 && shouldNotifyUnauthorized) {
             notifyUnauthorized();
           }
         },
@@ -802,8 +817,19 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
     auth: {
       signup: (payload) =>
         jsonOk<number>(http.post('auth/signup', { json: payload, timeout: REQUEST_TIMEOUT_MS.authFlow })),
-      login: (payload) =>
-        jsonOk<LoginResult>(http.post('auth/login', { json: payload, timeout: REQUEST_TIMEOUT_MS.login })),
+      login: async (payload) => {
+        if (authTransport === 'cookie') {
+          const result = await jsonOk<WebLoginResult>(
+            http.post('auth/web/login', { json: payload, timeout: REQUEST_TIMEOUT_MS.login }),
+          );
+          return result.user;
+        }
+        const result = await jsonOk<LoginResult>(
+          http.post('auth/login', { json: payload, timeout: REQUEST_TIMEOUT_MS.login }),
+        );
+        await writeToken(result.accessToken);
+        return result.user;
+      },
       startPhoneVerification: (payload, includeQr) =>
         jsonOk<PhoneVerificationSession>(
           http.post('auth/phone-verifications', {
@@ -834,7 +860,20 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
             timeout: REQUEST_TIMEOUT_MS.authFlow,
           }),
         ),
-      logout: () => jsonVoid(http.post('auth/logout', { timeout: REQUEST_TIMEOUT_MS.logoutRevoke })),
+      logout: async () => {
+        if (authTransport === 'cookie') {
+          return jsonVoid(
+            http.post('auth/web/logout', { timeout: REQUEST_TIMEOUT_MS.logoutRevoke }),
+          );
+        }
+        try {
+          await jsonVoid(http.post('auth/logout', { timeout: REQUEST_TIMEOUT_MS.logoutRevoke }));
+        } catch {
+          // Bearer 로그아웃의 서버 토큰 폐기는 best-effort이다.
+        } finally {
+          await clearToken();
+        }
+      },
     },
     users: {
       me: () => jsonOk<User>(http.get('users/me')),

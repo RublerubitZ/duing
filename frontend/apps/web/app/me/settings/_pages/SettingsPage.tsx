@@ -9,6 +9,7 @@ import { useFavoriteListQuery, useLogout, useManagedClubsQuery, useMeQuery, useM
 import { GRADE_DISPLAY_NAME } from '@duing/types';
 
 import { HomeNav } from '@/app/_components/HomeNav';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 import { SparkleFull } from '@/components/duing/Sparkle';
 
 import { MyPageHeader } from '../../_components/MyPageHeader';
@@ -102,6 +103,7 @@ export function SettingsPage() {
   const favoriteListQuery = useFavoriteListQuery(0, 20);
   const logout = useLogout();
   const router = useGuardedRouter();
+  const { addToast } = useToast();
 
   const user = meQuery.data;
   const applyCount = applicationsQuery.data?.length ?? 0;
@@ -114,8 +116,15 @@ export function SettingsPage() {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
-    router.replace('/');
+    try {
+      await logout();
+      router.replace('/');
+    } catch {
+      addToast(
+        '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.',
+        { variant: 'error' },
+      );
+    }
   };
 
   return (
