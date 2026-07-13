@@ -264,7 +264,7 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
     // 홈 헤더·창 배지·카드 2개(둘 다 "날짜 보기 →"). 배지 라벨과 범위(M.d ~ M.d)는 중첩 span 으로
     // 나뉘어 있어 라벨 텍스트와 창 범위를 각각 단언한다(홈 배지 + 카드 배지에 범위가 함께 노출).
     expect(await screen.findByText('예약할 시설을 골라보세요')).toBeInTheDocument();
-    expect(screen.getByText('예약 가능 기간')).toBeInTheDocument();
+    expect(await screen.findByText('예약 가능 기간')).toBeInTheDocument();
     expect(screen.getAllByText(WINDOW_LABEL).length).toBeGreaterThan(0);
     expect(await screen.findAllByText('날짜 보기 →')).toHaveLength(2);
 
@@ -413,22 +413,23 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
     mockSearchParams.value = ''; // 홈 뷰(딥링크 없음) — MyBookingsChip 은 홈 상단에만 있다.
 
     // managed 요청 발사 여부를 직접 포착한다(로그인 게이트 enabled:false 로 조회 자체가 안 나가야 함).
-    // 어떤 스트레이 요청도 suite 의 onUnhandledRequest:'error' 가 백스톱한다.
+    // managed 는 기본 핸들러가 있어 onUnhandledRequest 로는 못 잡는다 — 이 스파이가 유일한 보장이다.
     const managedRequests: string[] = [];
     const trackManaged = ({ request }: { request: Request }) => {
       if (request.url.includes('/leader/clubs/me/managed')) managedRequests.push(request.url);
     };
     server.events.on('request:start', trackManaged);
+    try {
+      renderPage();
 
-    renderPage();
-
-    // 홈 카드가 뜬 뒤(홈 뷰 렌더 확정) 칩 부재·조회 미발사를 단언한다.
-    expect(await screen.findAllByText('날짜 보기 →')).toHaveLength(2);
-    expect(screen.queryByRole('link', { name: /내 신청/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /내 예약 관리/ })).not.toBeInTheDocument();
-    expect(managedRequests).toHaveLength(0);
-
-    server.events.removeListener('request:start', trackManaged);
+      // 홈 카드가 뜬 뒤(홈 뷰 렌더 확정) 칩 부재·조회 미발사를 단언한다.
+      expect(await screen.findAllByText('날짜 보기 →')).toHaveLength(2);
+      expect(screen.queryByRole('link', { name: /내 신청/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /내 예약 관리/ })).not.toBeInTheDocument();
+      expect(managedRequests).toHaveLength(0);
+    } finally {
+      server.events.removeListener('request:start', trackManaged);
+    }
   });
 
   it('시나리오 10: 비로그인으로 예약을 진행하면 폼 대신 로그인 링크(복귀 next 포함)가 노출된다', async () => {
