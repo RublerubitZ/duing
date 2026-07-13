@@ -93,9 +93,6 @@ jobs:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:
-          # 신규 265초 + 롤백 255초 = health/rollback 최악 520초 예산이다.
-          # action의 10분 기본 제한 병목을 15분으로 늘리되 20분 job timeout을 최종 상한으로 둔다.
-          command_timeout: 15m
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
@@ -127,52 +124,17 @@ jobs:
             docker compose pull backend
             docker compose up -d   # 단일 인스턴스 recreate — 수십 초 다운타임 발생
 
-            probe_backend() {
-              local path="$1"
-              docker compose exec -T backend \
-                curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
-                  --connect-timeout 2 --max-time 4 "http://localhost:8080${path}"
-            }
+            # 새 백엔드가 healthy 가 될 때까지 최대 ~100s 대기.
+            healthy=false
+            for attempt in $(seq 1 20); do
+              cid="$(docker compose ps -q backend)"
+              status="$(docker inspect --format '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo starting)"
+              echo "backend health: ${status} (${attempt}/20)"
+              if [ "$status" = "healthy" ]; then healthy=true; break; fi
+              sleep 5
+            done
 
-            wait_for_backend() {
-              local max_attempts="$1"
-              local allow_legacy="$2"
-              local attempt path status probe_succeeded display_status
-
-              for attempt in $(seq 1 "$max_attempts"); do
-                path="/actuator/health/readiness"
-                if status="$(probe_backend "$path")"; then
-                  probe_succeeded=true
-                else
-                  probe_succeeded=false
-                fi
-
-                if [ "$probe_succeeded" = "true" ] && [ "$status" = "404" ] && [ "$allow_legacy" = "true" ]; then
-                  path="/actuator/health"
-                  if status="$(probe_backend "$path")"; then
-                    probe_succeeded=true
-                  else
-                    probe_succeeded=false
-                  fi
-                fi
-
-                if [ "$probe_succeeded" = "true" ]; then
-                  display_status="${status:-unreachable}"
-                else
-                  display_status="unreachable"
-                fi
-                echo "backend readiness: ${display_status} via ${path} (${attempt}/${max_attempts})"
-                if [ "$probe_succeeded" = "true" ] && [ "$status" = "200" ]; then
-                  return 0
-                fi
-                if [ "$attempt" -lt "$max_attempts" ]; then
-                  sleep 5
-                fi
-              done
-              return 1
-            }
-
-            if wait_for_backend 30 false; then
+            if [ "$healthy" = "true" ]; then
               # 정상: Caddyfile 변경분 무중단 반영(없으면 무해), 실패 시 사유 출력 후 재시작 폴백.
               docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
                 || { echo "caddy reload 실패 — caddy 재시작"; docker compose restart caddy; }
@@ -181,19 +143,12 @@ jobs:
               exit 0
             fi
 
-            echo "::error::backend readiness 확인 실패 — 직전 이미지로 롤백: ${PREV_IMAGE:-(이전 값 없음)}"
+            # 실패: 직전 이미지로 자동 롤백(베스트 에포트).
+            echo "::error::backend 가 healthy 에 도달하지 못했습니다 — 직전 이미지로 롤백: ${PREV_IMAGE:-(이전 값 없음)}"
             if [ -n "$PREV_IMAGE" ] && [ "$PREV_IMAGE" != "$DEPLOY_IMAGE" ]; then
               sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${PREV_IMAGE}|" .env
               docker compose pull backend || true
               docker compose up -d || true
-
-              if wait_for_backend 20 true; then
-                echo "::warning::직전 이미지로 복구 완료: ${PREV_IMAGE}"
-              else
-                echo "::error::직전 이미지도 health 확인에 실패했습니다 — 수동 복구가 필요합니다: ${PREV_IMAGE}"
-              fi
-            else
-              echo "::error::복구 가능한 직전 이미지가 없습니다 — 수동 복구가 필요합니다."
             fi
             exit 1
         env:

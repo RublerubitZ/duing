@@ -91,26 +91,3 @@ docker compose logs -f backend
 
 DB 마이그레이션(Flyway)은 백엔드 부팅 시 자동 적용된다. 롤백은 이전 이미지 태그로 `BACKEND_IMAGE` 를
 되돌린 뒤 `docker compose up -d` 한다.
-
-## Health Check 운영 기준
-
-- Docker `healthcheck`는 liveness를 사용한다. `docker compose ps`의 `healthy`는 JVM과 HTTP 서버가
-  응답한다는 의미이며 DB 정상 여부를 보장하지 않는다. liveness와 구버전 폴백 curl은 모두
-  `--connect-timeout 2 --max-time 2`를 사용하며, 첫 curl이 성공하고 HTTP 상태가 정확히 404일 때만 기존
-  종합 health를 확인한다. Docker healthcheck 자체의 timeout은 5초다.
-- 자동 배포는 readiness를 최대 30회 확인하고 DB 연결까지 정상일 때만 성공 처리한다. 각 요청은 연결 2초,
-  전체 4초(`--connect-timeout 2 --max-time 4`)로 제한하고 실패 사이에 5초 대기한다. 최악의 신규 이미지
-  확인 시간은 `30×4+29×5 = 265초`다.
-- DB 장애에서는 liveness가 `UP`이어도 readiness가 `DOWN`과 HTTP 503을 반환할 수 있다.
-- 롤백 후에는 최대 20회 readiness를 확인한다. curl이 성공하고 새 경로가 정확히 404인 구버전 이미지에서만
-  기존 `/actuator/health`를 확인한다. readiness와 기존 health를 모두 호출하는 최악의 롤백 확인 시간은
-  `20×(4+4)+19×5 = 255초`이며, 신규 이미지와 롤백 확인을 합친 최악의 probe·대기 시간은 520초다.
-- SSH 명령 제한은 `command_timeout: 15m`이고 배포 job의 최종 제한은 `timeout-minutes: 20`이다.
-
-```bash
-curl -fsS https://api.duings.com/actuator/health/liveness
-curl -fsS https://api.duings.com/actuator/health/readiness
-docker compose ps
-```
-
-공개 응답은 `show-details=never`이므로 DB 주소·오류 메시지·component 상세를 노출하지 않는다.

@@ -33,7 +33,8 @@ Spring Boot의 기본 종합 health에는 DB 상태가 포함되므로, 애플�
 
 Actuator probe를 활성화하고 liveness와 readiness group의 구성 요소를 명시한다. Spring Boot가 제공하는
 `livenessState`, `readinessState`, `db` indicator를 사용하므로 변경이 작고 의미가 표준적이다. 기존 종합
-endpoint는 호환성을 위해 유지하되 Docker와 배포 자동화는 새 endpoint를 사용한다.
+endpoint는 호환성을 위해 유지한다. 운영 전환은 probe를 먼저 배포한 뒤 Docker와 배포 자동화가 새 endpoint를
+사용하도록 바꾸는 2단계로 수행한다.
 
 ## 3. Endpoint 계약
 
@@ -74,14 +75,13 @@ DB가 일시 중단되어도 JVM과 HTTP 서버가 요청에 응답할 수 있�
 
 애플리케이션 기동 이후 PostgreSQL 연결이 끊기면 liveness는 200을 유지하고 readiness만 503을 반환해야 한다.
 Flyway 검증 실패처럼 ApplicationContext 자체가 기동하지 못하는 경우에는 두 endpoint 모두 열리지 않으며,
-배포 readiness 확인이 시간 초과되어 실패한다.
+2단계의 배포 readiness 확인이 시간 초과되어 실패한다.
 
 ### 3.3 기존 종합 Health
 
 `GET /actuator/health`는 기존 운영 도구와 문서의 하위 호환성을 위해 유지한다. 종합 상태이므로 DB 장애 시
-503이 될 수 있으며, 정상적인 새 이미지의 Docker 생존 판정이나 배포 성공 판정에는 사용하지 않는다. 단,
-#642 이전 이미지를 롤백할 때 새 probe 경로의 curl이 성공하고 HTTP 상태가 정확히 404인 경우에만 Docker와
-롤백 검증의 호환성 fallback으로 사용한다.
+503이 될 수 있다. 1단계에서는 운영 중인 #642 이전 이미지와의 롤백 호환성을 위해 Docker와 배포 자동화가
+계속 이 endpoint를 사용한다. 2단계부터 liveness와 readiness로 역할을 분리한다.
 
 ## 4. 보안과 정보 노출
 
@@ -90,55 +90,33 @@ Flyway 검증 실패처럼 ApplicationContext 자체가 기동하지 못하는 �
 - `show-details=never`를 유지해 component 이름, DB 종류·주소, 오류 메시지, 디스크 상태를 응답에 노출하지 않는다.
 - health endpoint는 상태 확인만 수행하며 데이터 변경이나 시크릿 로그 출력을 하지 않는다.
 
-## 5. 운영 판정 흐름
+## 5. 운영 전환 흐름
 
-### 5.1 Docker Compose
+### 5.1 1단계 — Probe 제공
 
-컨테이너 `healthcheck`는 `/actuator/health/liveness`를 호출한다. 이 변경이 처음 배포될 때 이전 이미지로
-롤백할 수 있도록, 첫 curl이 성공하고 liveness 응답이 정확히 404인 경우에만 기존 `/actuator/health`로
-폴백한다. 첫 curl의 종료 코드가 실패이면 HTTP 상태를 해석하지 않으며, 연결 실패나 503 등 실제 liveness
-실패에서는 종합 health로 폴백하지 않는다. 두 curl 모두 `--connect-timeout 2 --max-time 2`를 사용하고
-`|| true`로 실패를 숨기지 않는다.
+이 PR은 백엔드에 liveness와 readiness endpoint를 추가하고 공개 범위와 응답 계약을 테스트로 고정한다.
+운영에 이미 실행 중인 #642 이전 이미지는 새 probe 경로를 익명 요청에 대해 401로 응답한다. 따라서 이 단계에서는
+`deploy/docker-compose.yml`과 `.github/workflows/deploy-backend.yml`을 변경하지 않고 기존 종합 health 기반
+판정을 유지한다. 새 이미지 기동 실패 시 이전 이미지와 기존 Compose 조합으로 즉시 롤백할 수 있다.
 
-`restart: unless-stopped`는 Docker의 `unhealthy` 상태만으로 컨테이너를 자동 재시작하지 않는다. 이 신호는
-운영자가 `docker compose ps`로 프로세스 생존 상태를 확인하고 향후 모니터가 소비할 수 있는 가시성 정보다.
+1단계를 운영에 배포한 뒤 다음 스모크 테스트를 모두 통과해야 2단계에 착수한다.
 
-기존 30초 간격, Docker healthcheck 5초 타임아웃, 3회 재시도, 90초 start period는 유지한다. 개별 curl의
-2초 제한은 Docker의 5초 상한 안에 들어온다. 이번 작업에서 재시작 감시 프로세스나 Kubernetes를 추가하지
-않는다.
+- `/actuator/health`, `/actuator/health/liveness`, `/actuator/health/readiness`가 인증 없이 예상 상태를 반환한다.
+- 정상 DB 상태에서 세 endpoint가 모두 200을 반환한다.
+- 공개 응답에 `components`와 `details`가 노출되지 않는다.
+- 기존 Docker healthcheck와 배포 롤백이 종합 health로 정상 동작한다.
 
-### 5.2 배포 성공과 롤백
+### 5.2 2단계 — 운영 판정 전환
 
-배포 워크플로는 Docker의 liveness 기반 `healthy` 값만 기다리지 않는다. 새 컨테이너 내부에서 다음 조건으로
-`/actuator/health/readiness`를 재시도한다.
+1단계 이미지가 운영에 안정적으로 반영된 뒤, 최신 `develop`에서 별도 브랜치와 PR로 다음 변경을 수행한다.
 
-- 최대 30회 호출
-- 호출 제한 `curl --connect-timeout 2 --max-time 4`
-- 실패한 호출 사이 5초 대기
-- 최악 실행 시간: `30회 × 4초 + 29회 × 5초 = 265초`
+- Docker healthcheck를 liveness로 전환한다.
+- 새 이미지의 배포 성공 판정과 롤백 후 복구 확인을 readiness로 전환한다.
+- curl 연결·요청 timeout, 재시도 횟수, 전체 SSH/job 시간 예산을 구현과 함께 다시 검증한다.
 
-curl 종료 코드가 성공한 경우에만 HTTP 상태를 해석한다. 연결 실패나 timeout은 `unreachable`로 기록하고
-200으로 오인하지 않으며, 새 이미지 확인에서는 404도 성공이나 기존 endpoint 폴백으로 처리하지 않는다.
-
-HTTP 503처럼 즉시 실패하면 실제 대기 시간은 약 145초이고, DB 연결이 hang 상태여도 배포 클라이언트의 한
-호출은 4초를 넘지 않는다. 서버 내부 `DataSourceHealthIndicator`가 Hikari connection timeout까지 처리 중일
-수는 있지만, 배포 스크립트의 단일 호출과 전체 롤백 예산은 이에 종속되지 않는다. 265초 상한은 Docker의
-90초 start period 이후에도 Flyway 실행과 초기 connection pool 준비를 기다릴 여유를 두며, 워크플로의
-20분 timeout 안에 롤백 검증까지 수행할 수 있다.
-
-- readiness 200: 새 이미지 배포 성공
-- readiness가 제한 시간 동안 503 또는 연결 실패: 기존 이미지로 롤백
-- 롤백 시 기존 `BACKEND_IMAGE` 복원 동작은 유지
-
-따라서 프로세스만 떴지만 DB 연결이나 Flyway 검증이 실패한 이미지는 배포 성공으로 처리되지 않는다.
-
-롤백 후에는 최대 20회, 동일한 연결 2초·요청 4초 timeout과 5초 간격으로 복구 상태를 확인한다. 이전 이미지가
-readiness endpoint를 제공하면 해당 endpoint를 사용하고, curl이 성공해 정확히 404를 반환한 경우에만 기존
-`/actuator/health`를 사용한다. 한 번의 시도에서 readiness와 기존 health를 각각 4초까지 호출할 수 있으므로
-최악 검증 시간은 `20회 × (4초 + 4초) + 19회 × 5초 = 255초`다. 신규 이미지 확인과 롤백 확인을 합친
-probe·대기 최악 시간은 `265초 + 255초 = 520초`다. SSH action의 `command_timeout: 15m`과 배포 job의
-`timeout-minutes: 20`을 각각 명령 제한과 최종 상한으로 둔다. 롤백 이미지도 정상 endpoint를 반환하지
-못하면 배포 잡은 실패 상태를 유지하고 수동 복구가 필요하다는 오류를 출력한다.
+2단계에서 선택 가능한 롤백 이미지는 모두 1단계 probe 계약을 지원해야 한다. #642 이전 이미지를 자동 호환 대상으로
+간주하지 않으며, 잘못 선택되면 401/404를 성공으로 해석하거나 인증을 완화하지 않고 명시적으로 실패해 수동 복구를
+요구한다. 이 조건 덕분에 상태 코드 폴백이 보안 설정 회귀나 잘못된 이미지를 숨기지 않는다.
 
 ### 5.3 Caddy와 외부 모니터링
 
@@ -177,21 +155,23 @@ liveness, readiness와 실제 핵심 API를 서로 다른 신호로 사용할 �
 - 같은 시점의 liveness는 200과 `UP`을 유지한다.
 - 장애 상태의 readiness 응답도 `components`와 `details`를 노출하지 않는다.
 
-### 7.3 설정과 배포 검증
+### 7.3 설정과 단계별 배포 검증
 
 - Spring Security가 정확한 세 health 경로만 공개하는지 검증한다.
-- `docker compose config`로 Compose 문법과 liveness 경로를 검증한다.
-- 배포 스크립트가 readiness를 성공 조건으로 사용하는지 정적 검증한다.
-- 백엔드 전체 테스트와 배포 설정 검증을 실행한다.
+- 1단계에서는 Compose와 배포 워크플로가 기준 커밋의 종합 health 계약을 그대로 유지하는지 확인한다.
+- 1단계 운영 반영 후 세 endpoint를 직접 호출해 응답 상태와 정보 비노출을 확인한다.
+- 2단계 PR에서 Compose 문법, liveness 경로, readiness 배포 판정과 timeout 예산을 별도로 검증한다.
+- 백엔드 전체 테스트와 변경 품질 검증을 실행한다.
 
 ## 8. 롤백 전략
 
 DB 마이그레이션과 API 비즈니스 계약 변경은 없다. 문제가 발생하면 `BACKEND_IMAGE`를 이전 이미지로
-롤백한다. 서버에 동기화된 새 Compose와 배포 스크립트는 자동으로 이전 버전으로 복구되지 않으므로, 이번
-변경은 새 probe endpoint가 404인 경우에만 기존 `/actuator/health`를 사용하는 전환 호환성을 제공한다.
+롤백한다. 1단계는 Compose와 배포 워크플로를 변경하지 않으므로 #642 이전 이미지로 롤백해도 기존 종합 health
+계약이 유지된다.
 
-설정만 일부 롤백해 Docker와 배포 워크플로가 서로 다른 endpoint 의미를 사용하지 않도록, 백엔드 설정·Compose·
-배포 워크플로 변경은 하나의 PR과 배포 단위로 관리한다.
+2단계는 1단계가 운영에 반영된 뒤 별도 PR로 배포하며, 롤백 대상도 1단계 이후 이미지로 제한한다. #642 이전
+이미지로의 자동 폴백은 제공하지 않는다. 운영자가 그보다 오래된 이미지를 선택하면 배포를 실패시키고 Compose와
+배포 설정을 함께 수동 복구한다.
 
 ## 9. 제외 범위
 
@@ -207,8 +187,8 @@ DB 마이그레이션과 API 비즈니스 계약 변경은 없다. 문제가 발
 
 - 정상 상태에서 liveness와 readiness가 모두 200이다.
 - 기동 후 DB 연결 장애에서 liveness는 200, readiness는 503이다.
-- Docker 상태 확인은 liveness를 사용한다.
-- 새 이미지 배포 성공 판정은 readiness를 사용한다. 롤백 판정은 readiness 우선이며, #642 이전 이미지의
-  readiness 경로가 curl 성공 후 정확히 404일 때만 기존 `/actuator/health`를 사용한다.
 - 공개 health 응답에 내부 component와 상세 오류가 노출되지 않는다.
 - 기존 `/actuator/health` 호출은 깨지지 않는다.
+- 1단계 PR은 Docker와 배포 자동화의 기존 종합 health 판정을 변경하지 않는다.
+- 1단계 운영 스모크 테스트를 통과한 뒤에만 별도 2단계 PR에서 Docker liveness와 배포 readiness로 전환한다.
+- 2단계 롤백 대상은 probe 계약을 지원하는 1단계 이후 이미지로 제한한다.
