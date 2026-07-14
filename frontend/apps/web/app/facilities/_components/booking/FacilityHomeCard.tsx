@@ -1,7 +1,8 @@
 'use client';
 
 import type { FacilityItem } from '@duing/types';
-import { facilityIcon, todayFreeSlotCount } from '../../_lib/bookingHome';
+import { facilityIcon } from '@/app/_lib/facilityIcon';
+import { todayFreeSlotCount } from '../../_lib/bookingHome';
 import { seoulDateIso } from '../../_lib/facilityTimeline';
 
 type Props = {
