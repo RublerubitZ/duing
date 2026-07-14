@@ -66,6 +66,8 @@ export function FacilityBookingPage() {
     const raw = searchParams.get('date');
     return raw !== null && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
   });
+  // 랜딩 = 캘린더(첫 시설 자동 선택). 홈 카드 그리드는 명시적 요청("전체 보기"·홈 복귀)일 때만 노출한다.
+  const [homeView, setHomeView] = useState(false);
   const [selection, setSelection] = useState<SlotRange | null>(null);
   const [step, setStep] = useState<PanelStep>('slots');
   const [view, setView] = useState<PanelView>('day');
@@ -102,8 +104,9 @@ export function FacilityBookingPage() {
       })),
     [usageQuery.data],
   );
-  // 자동 첫 시설 선택 없음 — 미선택(undefined)이면 홈 뷰(카드 그리드), 선택되면 캘린더 뷰.
-  const effectiveFacilityId = facilityId ?? undefined;
+  // 랜딩 = 캘린더: 딥링크 facilityId 우선, 없으면 첫 시설 자동 선택. 단 homeView(명시적 홈 요청)면
+  // 자동 선택을 끄고 홈 카드 그리드를 보여준다. 자동 선택은 URL 을 건드리지 않는다(사용자 상호작용만 syncUrl).
+  const effectiveFacilityId = facilityId ?? (homeView ? undefined : usageQuery.data?.facilities[0]?.id);
   const availabilityQuery = useFacilityAvailabilityQuery(effectiveFacilityId, yearMonth);
   const availability = availabilityQuery.data;
 
@@ -159,6 +162,7 @@ export function FacilityBookingPage() {
 
   const selectFacility = (nextId: number) => {
     setFacilityId(nextId);
+    setHomeView(false); // 시설 선택 시 캘린더 뷰로
     setYearMonthOverride(null); // 다음 진입 기본 월 = 창 월 계약 복원
     closePanel();
     syncUrl(nextId, null);
@@ -168,6 +172,7 @@ export function FacilityBookingPage() {
   // closePanel 을 거치지 않고 상태를 직접 리셋한 뒤 URL 을 비운다.
   const goHome = () => {
     setFacilityId(null);
+    setHomeView(true); // 명시적 홈 요청 — 자동 첫 시설 선택을 끄고 카드 그리드 노출
     setYearMonthOverride(null); // 다음 진입 기본 월 = 창 월 계약 복원
     setSelectedDate(null);
     setSelection(null);
@@ -253,8 +258,10 @@ export function FacilityBookingPage() {
 
       {usageQuery.isSuccess && (
         <div className="space-y-4">
-          {effectiveFacilityId === undefined || usageQuery.data.facilities.length === 0 ? (
-            // ── 홈 뷰: 시설 선택 카드 그리드 ── (딥링크가 있어도 시설 0개면 홈 빈 문구)
+          {homeView || effectiveFacilityId === undefined || usageQuery.data.facilities.length === 0 ? (
+            // ── 홈 뷰: 시설 선택 카드 그리드 ── (명시적 홈 요청 또는 시설 0개)
+            // effectiveFacilityId === undefined 는 시설 0개일 때만 참(시설 있으면 첫 시설 자동 선택) —
+            // 여기 넣어 캘린더 분기에서 effectiveFacilityId 를 number 로 좁힌다.
             <>
               <header>
                 <p className="text-xs font-medium tracking-widest text-charcoal-3">RESERVE · 시설 예약</p>

@@ -90,10 +90,17 @@ it('캘린더 셀은 레벨 라벨(여유/마감)·창 배지를 표시하고 �
       canNext
     />,
   );
-  expect(screen.getByRole('button', { name: '20일 여유' })).toBeEnabled();
-  expect(screen.getByRole('button', { name: '21일 마감' })).toBeInTheDocument();
+  // 셀 접근성 이름은 '레벨 + 남은 칸수'를 포함한다(카드형 셀). FULL 셀도 창내라 클릭 가능(현황 확인).
+  expect(screen.getByRole('button', { name: '20일 여유, 남은 11칸' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '21일 마감, 남은 0칸' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '12일' })).toBeDisabled(); // bookableFrom 이전
   expect(screen.getByText('예약 가능 기간 7.13 ~ 8.31')).toBeInTheDocument();
+
+  // 월요일 시작 — 요일 헤더 첫 칸이 '월', 마지막이 '일'.
+  const weekdayHeaders = screen.getAllByText(/^[월화수목금토일]$/);
+  expect(weekdayHeaders).toHaveLength(7);
+  const [firstWeekday] = weekdayHeaders;
+  expect(firstWeekday).toHaveTextContent('월');
 });
 
 it('창 밖 미래 셀은 aria-disabled 이고 클릭 시 onSelectDate 대신 onOutOfWindowSelect 를 부른다', () => {

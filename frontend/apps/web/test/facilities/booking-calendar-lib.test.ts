@@ -36,12 +36,13 @@ const daySlots: [
 ];
 
 describe('buildMonthCells', () => {
-  it('6×7 그리드를 일요일 시작으로 만들고 해당 월 날짜 수만 inMonth 다', () => {
-    const cells = buildMonthCells('2026-07'); // 2026-07-01 은 수요일(dow=3)
+  it('6×7 그리드를 월요일 시작으로 만들고 해당 월 날짜 수만 inMonth 다', () => {
+    const cells = buildMonthCells('2026-07'); // 2026-07-01 은 수요일(dow=3) → 월 시작 startCol=2
     expect(cells).toHaveLength(42);
     expect(cells.filter((cell) => cell.inMonth)).toHaveLength(31);
-    expect(cells[3]).toMatchObject({ iso: '2026-07-01', day: 1, inMonth: true });
-    expect(cells[0]?.inMonth).toBe(false); // ?.: noUncheckedIndexedAccess 하 배열 인덱스는 `| undefined`
+    expect(cells[2]).toMatchObject({ iso: '2026-07-01', day: 1, inMonth: true });
+    expect(cells[0]).toMatchObject({ iso: '2026-06-29', day: 29, inMonth: false }); // 월요일 = 그 주 첫 칸
+    expect(cells[1]?.inMonth).toBe(false); // ?.: noUncheckedIndexedAccess 하 배열 인덱스는 `| undefined`
   });
 });
 
