@@ -52,6 +52,9 @@ describe('BookingDetailModal', () => {
     mockDetailQuery.current.data = makeDetail({});
     render(<BookingDetailModal clubId={7} bookingId={31} onClose={vi.fn()} />);
     expect(screen.getByLabelText('예약 진행 단계')).toBeInTheDocument();
+    expect(screen.getByText('신청 접수')).toBeInTheDocument();
+    expect(screen.getByText('관리자 승인')).toBeInTheDocument();
+    expect(screen.getByText('학교 반영 확정')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '신청 취소' })).toBeInTheDocument();
     expect(screen.getByText(/7월 13일 \(월\) 19:30/)).toBeInTheDocument();
   });
@@ -75,11 +78,11 @@ describe('BookingDetailModal', () => {
     );
   });
 
-  it('APPROVED: 취소 버튼 없이 총동연 문의 안내 + 서브라벨', () => {
+  it('APPROVED: 취소 버튼 없이 관리자 문의 안내 + 서브라벨', () => {
     mockDetailQuery.current.data = makeDetail({ status: 'APPROVED' });
     render(<BookingDetailModal clubId={7} bookingId={31} onClose={vi.fn()} />);
     expect(screen.queryByRole('button', { name: '신청 취소' })).not.toBeInTheDocument();
-    expect(screen.getByText('승인된 신청의 취소는 총동연에 문의해주세요.')).toBeInTheDocument();
+    expect(screen.getByText('승인된 신청의 취소는 관리자에게 문의해주세요.')).toBeInTheDocument();
   });
 
   it('REJECTED: 스텝퍼 대신 거절 사유 안내', () => {

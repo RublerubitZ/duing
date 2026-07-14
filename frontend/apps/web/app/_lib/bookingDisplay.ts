@@ -36,19 +36,3 @@ export const BOOKING_STATUS_META: Record<BookingStatus, BookingStatusMeta> = {
   CONFLICT: { label: '학교 일정 충돌', badgeClass: 'bg-coral/15 text-coral' },
   CANCELLED: { label: '취소됨', badgeClass: 'bg-graysoft text-charcoal-3' },
 };
-
-export const BOOKING_TAB_KEYS = ['ALL', 'ACTIVE', 'CONFIRMED', 'CLOSED'] as const;
-export type BookingTabKey = (typeof BOOKING_TAB_KEYS)[number];
-
-export const BOOKING_TAB_LABELS: Record<BookingTabKey, string> = {
-  ALL: '전체',
-  ACTIVE: '진행 중',
-  CONFIRMED: '확정',
-  CLOSED: '종료',
-};
-
-export function bookingTabOf(status: BookingStatus): Exclude<BookingTabKey, 'ALL'> {
-  if (status === 'PENDING' || status === 'APPROVED' || status === 'CONFLICT') return 'ACTIVE';
-  if (status === 'CONFIRMED') return 'CONFIRMED';
-  return 'CLOSED';
-}

@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { BookingStatus } from '@duing/types';
 import {
   BOOKING_STATUS_META,
-  BOOKING_TAB_KEYS,
   bookingDateLabel,
   bookingDateTimeLabel,
-  bookingTabOf,
   bookingTimeLabel,
 } from '@/app/_lib/bookingDisplay';
 
@@ -23,7 +21,7 @@ describe('bookingTimeLabel / bookingDateTimeLabel', () => {
   });
 });
 
-describe('상태 메타·탭 분류', () => {
+describe('상태 메타', () => {
   it('6개 상태 전부에 라벨·클래스가 있고 APPROVED 만 서브라벨을 가진다', () => {
     const statuses: BookingStatus[] = ['PENDING', 'APPROVED', 'CONFIRMED', 'REJECTED', 'CONFLICT', 'CANCELLED'];
     for (const status of statuses) {
@@ -32,15 +30,5 @@ describe('상태 메타·탭 분류', () => {
     }
     expect(BOOKING_STATUS_META.APPROVED.subLabel).toBe('학교 반영 대기');
     expect(BOOKING_STATUS_META.PENDING.subLabel).toBeUndefined();
-  });
-
-  it('탭 분류: 진행 중=PENDING·APPROVED·CONFLICT, 확정=CONFIRMED, 종료=REJECTED·CANCELLED', () => {
-    expect(BOOKING_TAB_KEYS).toEqual(['ALL', 'ACTIVE', 'CONFIRMED', 'CLOSED']);
-    expect(bookingTabOf('PENDING')).toBe('ACTIVE');
-    expect(bookingTabOf('APPROVED')).toBe('ACTIVE');
-    expect(bookingTabOf('CONFLICT')).toBe('ACTIVE');
-    expect(bookingTabOf('CONFIRMED')).toBe('CONFIRMED');
-    expect(bookingTabOf('REJECTED')).toBe('CLOSED');
-    expect(bookingTabOf('CANCELLED')).toBe('CLOSED');
   });
 });

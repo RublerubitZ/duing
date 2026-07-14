@@ -1,6 +1,6 @@
 'use client';
 
-import { facilityIcon } from '../../_lib/bookingHome';
+import { facilityIcon } from '@/app/_lib/facilityIcon';
 
 type ContextFacility = { id: number; roomName: string; location: string | null };
 

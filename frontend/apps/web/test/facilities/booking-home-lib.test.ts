@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { facilityIcon, todayFreeSlotCount, windowRangeLabel } from '@/app/facilities/_lib/bookingHome';
+import { facilityIcon } from '@/app/_lib/facilityIcon';
+import { todayFreeSlotCount, windowRangeLabel } from '@/app/facilities/_lib/bookingHome';
 
 describe('facilityIcon', () => {
   it('시설명 패턴으로 아이콘을 매핑하고 미매핑은 기본 아이콘이다', () => {
