@@ -137,7 +137,7 @@ export const DAY_LEVEL_META: Record<DayLevel, { label: string; barClass: string;
   HIGH: { label: '여유', barClass: 'bg-sage', textClass: 'text-ink' },
   MID: { label: '보통', barClass: 'bg-warm', textClass: 'text-[#8E6620]' },
   LOW: { label: '혼잡', barClass: 'bg-coral', textClass: 'text-coral' },
-  FULL: { label: '마감', barClass: 'bg-graysoft', textClass: 'text-charcoal-3' },
+  FULL: { label: '마감', barClass: 'bg-line', textClass: 'text-charcoal-3' },
 };
 
 export type PeriodDistribution = {

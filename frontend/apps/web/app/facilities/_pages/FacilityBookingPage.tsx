@@ -145,7 +145,9 @@ export function FacilityBookingPage() {
     setSelectedDate(null);
     setSelection(null);
     setStep('slots');
-    syncUrl(effectiveFacilityId ?? null, null); // 스테일 date 파라미터 제거 — 새로고침 시 재발 방지.
+    // 스테일 date 파라미터 제거(새로고침 재발 방지). 자동 선택 시설은 URL에 기록하지 않는다 —
+    // 명시적으로 고른 facilityId(state)만 보존.
+    syncUrl(facilityId, null);
     addToast(`현재 예약 가능한 기간이 아니에요${windowLabel ? ` (${windowLabel})` : ''}`, { variant: 'error' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDateOutOfWindow]);

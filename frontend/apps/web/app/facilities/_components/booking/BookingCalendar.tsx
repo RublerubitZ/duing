@@ -84,7 +84,7 @@ export function BookingCalendar({
       <div className="grid grid-cols-7 gap-2">
         {cells.map((cell) => {
           if (!cell.inMonth) {
-            return <div key={cell.iso} aria-hidden className="min-h-[56px] sm:min-h-[72px]" />;
+            return <div key={cell.iso} aria-hidden className="min-h-[56px] sm:min-h-[78px]" />;
           }
           const day = daysByIso.get(cell.iso);
           const withinRange = isWithinBookable(cell.iso, bookableFrom, bookableUntil);
@@ -116,7 +116,7 @@ export function BookingCalendar({
               aria-pressed={selected}
               aria-label={ariaLabel}
               title={selectable && day ? `남은 ${day.availableSlotCount}칸` : undefined}
-              className={`relative flex min-h-[56px] flex-col rounded-xl p-2 text-left motion-safe:transition-colors sm:min-h-[72px] ${
+              className={`relative flex min-h-[56px] flex-col rounded-md p-2 text-left motion-safe:transition-colors sm:min-h-[78px] ${
                 selected
                   ? 'border-2 border-ink bg-ink shadow-md'
                   : outOfWindow
