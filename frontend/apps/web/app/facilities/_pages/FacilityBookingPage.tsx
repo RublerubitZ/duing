@@ -2,19 +2,26 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useFacilityAvailabilityQuery, useFacilityUsageQuery } from '@duing/hooks';
+import {
+  useBookingWindowQuery,
+  useFacilityAvailabilityQuery,
+  useFacilityUsageQuery,
+} from '@duing/hooks';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 import { FacilityUpdateBanner } from '../_components/FacilityUpdateBanner';
 import { FacilityOverviewTimeline } from '../_components/FacilityOverviewTimeline';
 import { FacilityUsageGuide } from '../_components/FacilityUsageGuide';
 import { seoulDateIso, shiftYearMonth } from '../_lib/facilityTimeline';
+import { windowRangeLabel } from '../_lib/bookingHome';
 import type { SlotRange } from '../_lib/bookingCalendar';
-import { isSelectableSlot, slotInRange, toggleSlotSelection } from '../_lib/bookingCalendar';
+import { isSelectableSlot, isWithinBookable, slotInRange, toggleSlotSelection } from '../_lib/bookingCalendar';
 import { BookingCalendar } from '../_components/booking/BookingCalendar';
 import { BookingHomeSkeleton, CalendarGridSkeleton } from '../_components/booking/BookingHomeSkeleton';
 import { BookingPanel, type PanelStep, type PanelView } from '../_components/booking/BookingPanel';
-import { FacilityChips } from '../_components/booking/FacilityChips';
+import { FacilityContextBar } from '../_components/booking/FacilityContextBar';
+import { FacilityHomeCard } from '../_components/booking/FacilityHomeCard';
 import { MyBookingsChip } from '../_components/booking/MyBookingsChip';
 
 /** URL 은 딥링크 전용 — 상태 변경은 리렌더 없는 replaceState 로만 반영한다(App Router replace 는 RSC 왕복). */
@@ -59,29 +66,44 @@ export function FacilityBookingPage() {
     const raw = searchParams.get('date');
     return raw !== null && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
   });
-  const [yearMonth, setYearMonth] = useState(() =>
-    selectedDate !== null && selectedDate.slice(0, 7) !== currentMonth
-      ? shiftYearMonth(currentMonth, 1)
-      : currentMonth,
-  );
   const [selection, setSelection] = useState<SlotRange | null>(null);
   const [step, setStep] = useState<PanelStep>('slots');
   const [view, setView] = useState<PanelView>('day');
   const [submittedResult, setSubmittedResult] = useState<CreateFacilityBookingResult | null>(null);
   const [submittedClubId, setSubmittedClubId] = useState<number | null>(null);
+  const [submittedAt, setSubmittedAt] = useState<string | null>(null);
 
+  const { addToast } = useToast();
   const isMobileViewport = useIsMobileViewport();
   const usageQuery = useFacilityUsageQuery();
-  const chipFacilities = useMemo(
+  const windowQuery = useBookingWindowQuery();
+  const windowLabel = windowQuery.data ? windowRangeLabel(windowQuery.data) : null;
+
+  // 기본 월 = 창 월(반월 정책상 bookableFrom 월). 딥링크 날짜가 있으면 그 월로 진입하고,
+  // 이후 사용자의 월 이동/날짜 선택은 override 로만 갱신한다(창 로딩 전에도 currentMonth 로 폴백).
+  const windowMonth = windowQuery.data?.bookableFrom.slice(0, 7) ?? null;
+  const [yearMonthOverride, setYearMonthOverride] = useState<string | null>(() => {
+    // 딥링크 date 의 월은 당월/익월(반월 창 범위)일 때만 채용한다. 과거·원거리 월을 그대로
+    // 채용하면 availability 가 무효 월로 400 을 내고 회복이 안 되므로, 범위 밖이면 null(창 월 폴백).
+    if (selectedDate === null) return null;
+    const deepLinkMonth = selectedDate.slice(0, 7);
+    return deepLinkMonth === currentMonth || deepLinkMonth === shiftYearMonth(currentMonth, 1)
+      ? deepLinkMonth
+      : null;
+  });
+  const yearMonth = yearMonthOverride ?? windowMonth ?? currentMonth;
+
+  const contextFacilities = useMemo(
     () =>
       (usageQuery.data?.facilities ?? []).map((facility) => ({
         id: facility.id,
         roomName: facility.roomName,
-        isUsingNow: facility.isUsingNow,
+        location: facility.location,
       })),
     [usageQuery.data],
   );
-  const effectiveFacilityId = facilityId ?? chipFacilities[0]?.id ?? undefined;
+  // 자동 첫 시설 선택 없음 — 미선택(undefined)이면 홈 뷰(카드 그리드), 선택되면 캘린더 뷰.
+  const effectiveFacilityId = facilityId ?? undefined;
   const availabilityQuery = useFacilityAvailabilityQuery(effectiveFacilityId, yearMonth);
   const availability = availabilityQuery.data;
 
@@ -91,7 +113,7 @@ export function FacilityBookingPage() {
     return map;
   }, [availability]);
   const selectedDay = selectedDate !== null ? daysByIso.get(selectedDate) : undefined;
-  const selectedFacility = chipFacilities.find((candidate) => candidate.id === effectiveFacilityId);
+  const selectedFacility = contextFacilities.find((candidate) => candidate.id === effectiveFacilityId);
 
   // §9.8 경합 실패 재조회 후 선택 무효화 — 갱신 데이터에서 선택 범위에 선택 불가 슬롯이 생기면
   // 선택을 비우고 폼이면 슬롯 화면으로 되돌린다. 성공 화면은 이미 접수된 신청의 확인이므로 보존.
@@ -107,30 +129,69 @@ export function FacilityBookingPage() {
     setStep((current) => (current === 'form' ? 'slots' : current));
   }, [selectionInvalid]);
 
+  // 딥링크로 들어온 date 가 예약 창(반월) 밖이면 선택을 정리하고 안내한다(selectionInvalid 전례와 동일 패턴).
+  // 셀 게이팅은 availability 메타로 두되, 창 판정만 windowQuery 로 단일화한다.
+  // 성공 화면은 이미 접수된 신청의 확인이므로 보존한다(selectionInvalid 전례 동일).
+  const selectedDateOutOfWindow =
+    step !== 'success' &&
+    selectedDate !== null &&
+    windowQuery.data !== undefined &&
+    !isWithinBookable(selectedDate, windowQuery.data.bookableFrom, windowQuery.data.bookableUntil);
+  useEffect(() => {
+    if (!selectedDateOutOfWindow) return;
+    setSelectedDate(null);
+    setSelection(null);
+    setStep('slots');
+    syncUrl(effectiveFacilityId ?? null, null); // 스테일 date 파라미터 제거 — 새로고침 시 재발 방지.
+    addToast(`현재 예약 가능한 기간이 아니에요${windowLabel ? ` (${windowLabel})` : ''}`, { variant: 'error' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDateOutOfWindow]);
+
   const closePanel = () => {
     setSelectedDate(null);
     setSelection(null);
     setStep('slots');
     setSubmittedResult(null);
     setSubmittedClubId(null);
+    setSubmittedAt(null);
     syncUrl(effectiveFacilityId ?? null, null);
   };
 
   const selectFacility = (nextId: number) => {
     setFacilityId(nextId);
+    setYearMonthOverride(null); // 다음 진입 기본 월 = 창 월 계약 복원
     closePanel();
     syncUrl(nextId, null);
   };
 
+  // 홈(시설 선택) 복귀 — closePanel 은 effectiveFacilityId 로 syncUrl 을 다시 세팅하므로 여기서는
+  // closePanel 을 거치지 않고 상태를 직접 리셋한 뒤 URL 을 비운다.
+  const goHome = () => {
+    setFacilityId(null);
+    setYearMonthOverride(null); // 다음 진입 기본 월 = 창 월 계약 복원
+    setSelectedDate(null);
+    setSelection(null);
+    setStep('slots');
+    setSubmittedResult(null);
+    setSubmittedClubId(null);
+    setSubmittedAt(null);
+    syncUrl(null, null);
+  };
+
   const selectDate = (iso: string) => {
-    if (iso.slice(0, 7) !== yearMonth) setYearMonth(iso.slice(0, 7));
+    if (iso.slice(0, 7) !== yearMonth) setYearMonthOverride(iso.slice(0, 7));
     setSelectedDate(iso);
     setSelection(null);
     setStep('slots');
     setSubmittedResult(null);
     setSubmittedClubId(null);
+    setSubmittedAt(null);
     syncUrl(effectiveFacilityId ?? null, iso);
   };
+
+  // 창 밖 미래 셀 탭 — 선택은 열지 않고 안내만 한다(동일 문구는 토스트 dedup 으로 1회).
+  const handleOutOfWindowSelect = () =>
+    addToast(`현재 예약 가능한 기간이 아니에요${windowLabel ? ` (${windowLabel})` : ''}`, { variant: 'error' });
 
   const toggleSlot = (slotStart: string) => {
     if (!selectedDay) return;
@@ -140,7 +201,8 @@ export function FacilityBookingPage() {
   };
 
   const changeMonth = (delta: 1 | -1) => {
-    setYearMonth((current) => shiftYearMonth(current, delta));
+    // override 가 null 이어도 파생 yearMonth(창 월 폴백) 를 기준으로 이동한다.
+    setYearMonthOverride(shiftYearMonth(yearMonth, delta));
     setSelectedDate(null);
     setSelection(null);
     setStep('slots');
@@ -148,11 +210,15 @@ export function FacilityBookingPage() {
   };
 
   const panelOpen = selectedDay !== undefined && selectedFacility !== undefined;
-  const panel = panelOpen ? (
+  // availability 는 selectedDay(=daysByIso.get) 가 존재하면 항상 non-null 이지만, 주간 헤더 창 게이팅에
+  // bookableFrom/Until 을 넘기려면 TS 상 명시 narrowing 이 필요하다(panelOpen && availability).
+  const panel = panelOpen && availability ? (
     <BookingPanel
       facility={selectedFacility}
       day={selectedDay}
       daysByIso={daysByIso}
+      bookableFrom={availability.bookableFrom}
+      bookableUntil={availability.bookableUntil}
       view={view}
       onChangeView={setView}
       selection={selection}
@@ -163,23 +229,23 @@ export function FacilityBookingPage() {
       onBackToSlots={() => setStep('slots')}
       submittedResult={submittedResult}
       submittedClubId={submittedClubId}
+      submittedAt={submittedAt}
       onSubmitted={(result, clubId) => {
+        const now = new Date();
+        setSubmittedAt(
+          `${now.getMonth() + 1}월 ${now.getDate()}일 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+        );
         setSubmittedResult(result);
         setSubmittedClubId(clubId);
         setStep('success');
       }}
+      onExploreOther={goHome}
       onClose={closePanel}
     />
   ) : null;
 
   return (
     <main className="mx-auto max-w-layout px-4 pb-16 pt-8 sm:px-6 md:px-10">
-      <p className="text-xs font-medium tracking-widest text-charcoal-3">FACILITY · 시설 예약</p>
-      <div className="mb-4 mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="font-display text-2xl text-ink-deep">시설 예약</h1>
-        <MyBookingsChip />
-      </div>
-
       {usageQuery.isLoading && <BookingHomeSkeleton />}
       {usageQuery.isError && (
         <p role="alert" className="text-sm text-charcoal-2">시설 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
@@ -187,11 +253,47 @@ export function FacilityBookingPage() {
 
       {usageQuery.isSuccess && (
         <div className="space-y-4">
-          {chipFacilities.length === 0 ? (
-            <p className="text-sm text-charcoal-2">표시할 시설이 없어요.</p>
-          ) : (
+          {effectiveFacilityId === undefined || usageQuery.data.facilities.length === 0 ? (
+            // ── 홈 뷰: 시설 선택 카드 그리드 ── (딥링크가 있어도 시설 0개면 홈 빈 문구)
             <>
-              <FacilityChips facilities={chipFacilities} selectedId={effectiveFacilityId ?? null} onSelect={selectFacility} />
+              <header>
+                <p className="text-xs font-medium tracking-widest text-charcoal-3">RESERVE · 시설 예약</p>
+                <h1 className="mt-1 font-display text-2xl text-ink-deep">예약할 시설을 골라보세요</h1>
+                <p className="mt-1.5 text-sm text-charcoal-2">
+                  학교 예약 현황을 반영해요. 비어 있는 시간만 신청할 수 있어요.
+                </p>
+                {windowLabel && (
+                  <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 text-xs text-charcoal-2">
+                    예약 가능 기간 <span className="font-bold text-ink">{windowLabel}</span>
+                  </p>
+                )}
+              </header>
+              <MyBookingsChip />
+              {usageQuery.data.facilities.length === 0 ? (
+                <p className="text-sm text-charcoal-2">표시할 시설이 없어요.</p>
+              ) : (
+                <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {usageQuery.data.facilities.map((facility) => (
+                    <li key={facility.id}>
+                      <FacilityHomeCard facility={facility} windowLabel={windowLabel} onSelect={selectFacility} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            // ── 캘린더 뷰: 선택 시설 예약 ──
+            <>
+              <div>
+                <p className="text-xs font-medium tracking-widest text-charcoal-3">FACILITY · 시설 예약</p>
+                <h1 className="mb-3 mt-1 font-display text-2xl text-ink-deep">{selectedFacility?.roomName ?? '시설'} 예약</h1>
+                <FacilityContextBar
+                  facilities={contextFacilities}
+                  selectedId={effectiveFacilityId}
+                  onSelect={selectFacility}
+                  onGoHome={goHome}
+                />
+              </div>
               {availability && (
                 <FacilityUpdateBanner lastUpdatedAt={availability.lastUpdatedAt ?? null} stale={availability.stale} />
               )}
@@ -223,6 +325,8 @@ export function FacilityBookingPage() {
                       todayIso={todayIso}
                       selectedDate={selectedDate}
                       onSelectDate={selectDate}
+                      onOutOfWindowSelect={handleOutOfWindowSelect}
+                      windowLabel={windowLabel}
                       onPrevMonth={() => changeMonth(-1)}
                       onNextMonth={() => changeMonth(1)}
                       canPrev={yearMonth !== currentMonth}

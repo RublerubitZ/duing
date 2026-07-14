@@ -290,6 +290,7 @@ export {
   useFacilityDetailQuery,
   useFacilityAvailabilityQuery,
   usePurposePresetsQuery,
+  useBookingWindowQuery,
   useCreateFacilityBookingMutation,
   useClubFacilityBookingsQuery,
   useFacilityBookingDetailQuery,

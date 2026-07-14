@@ -2,7 +2,7 @@
 
 import type { BookingDayAvailability } from '@duing/types';
 import type { SlotRange } from '../../_lib/bookingCalendar';
-import { slotInRange, weekDatesOf } from '../../_lib/bookingCalendar';
+import { isWithinBookable, slotInRange, weekDatesOf } from '../../_lib/bookingCalendar';
 
 const HOURS = Array.from({ length: 13 }, (_, index) => 9 + index);
 const pad2 = (value: number) => String(value).padStart(2, '0');
@@ -10,12 +10,14 @@ const pad2 = (value: number) => String(value).padStart(2, '0');
 type Props = {
   selectedDate: string;
   daysByIso: Map<string, BookingDayAvailability>;
+  bookableFrom: string;
+  bookableUntil: string;
   selection: SlotRange | null;
   onSelectDate: (iso: string) => void;
 };
 
-/** 주간 타임테이블(§9.5) — 선택일 컬럼 강조, 월 데이터 범위 밖 요일은 빈 컬럼. */
-export function WeekTimetable({ selectedDate, daysByIso, selection, onSelectDate }: Props) {
+/** 주간 타임테이블(§9.5) — 선택일 컬럼 강조, 월 데이터 범위 밖·예약 창 밖 요일은 비활성. */
+export function WeekTimetable({ selectedDate, daysByIso, bookableFrom, bookableUntil, selection, onSelectDate }: Props) {
   const weekDates = weekDatesOf(selectedDate);
   return (
     <div className="overflow-x-auto">
@@ -27,7 +29,7 @@ export function WeekTimetable({ selectedDate, daysByIso, selection, onSelectDate
               <th key={iso} className="px-0 py-0">
                 <button
                   type="button"
-                  disabled={!daysByIso.has(iso)}
+                  disabled={!daysByIso.has(iso) || !isWithinBookable(iso, bookableFrom, bookableUntil)}
                   onClick={() => onSelectDate(iso)}
                   className={`w-full rounded-t-md px-1 py-1.5 text-[11px] font-medium disabled:cursor-default disabled:opacity-40 ${
                     iso === selectedDate ? 'bg-ink text-cream' : 'text-charcoal-2'

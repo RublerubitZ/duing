@@ -87,9 +87,15 @@ export type FacilityAvailabilityResponse = {
   yearMonth: string; // yyyy-MM
   lastUpdatedAt?: string | null; // 서버가 NON_NULL 직렬화 — 콜드 월은 필드 자체가 생략됨
   stale: boolean;
-  bookableFrom: string; // yyyy-MM-dd (오늘)
-  bookableUntil: string; // yyyy-MM-dd (익월 말일)
+  bookableFrom: string; // yyyy-MM-dd — 예약 오픈 구간(정책 산출)
+  bookableUntil: string; // yyyy-MM-dd — 예약 오픈 구간(정책 산출)
   days: BookingDayAvailability[];
+};
+
+// GET /api/v1/facilities/booking-window — 현재 예약 오픈 구간(전 시설 공통, §1.5)
+export type FacilityBookingWindow = {
+  bookableFrom: string; // yyyy-MM-dd
+  bookableUntil: string;
 };
 
 export type PurposePreset = {

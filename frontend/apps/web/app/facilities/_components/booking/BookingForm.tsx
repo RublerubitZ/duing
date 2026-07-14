@@ -125,9 +125,12 @@ export function BookingForm({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border border-line bg-cream/60 px-3 py-2 text-sm">
-        <p className="font-medium text-ink-deep">{facilityName}</p>
-        <p className="font-mono text-[13px] text-charcoal-2">{date} · {rangeLabel(range)}</p>
+      <div className="space-y-1.5">
+        <p className="text-xs font-bold text-charcoal-3">사용 정보</p>
+        <div className="rounded-md border border-line bg-cream/60 px-3 py-2 text-sm">
+          <p className="font-medium text-ink-deep">{facilityName}</p>
+          <p className="font-mono text-[13px] text-charcoal-2">{date} · {rangeLabel(range)}</p>
+        </div>
       </div>
 
       {hasPendingHold && (
@@ -222,6 +225,8 @@ export function BookingForm({
           {createMutation.isPending ? '신청 중…' : '예약 신청'}
         </button>
       </div>
+
+      <p className="text-center text-[11px] text-charcoal-3">신청 후 관리자 승인을 거쳐 확정돼요.</p>
     </div>
   );
 }
