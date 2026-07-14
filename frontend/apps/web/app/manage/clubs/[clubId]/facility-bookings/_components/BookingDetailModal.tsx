@@ -15,7 +15,7 @@ import {
 import { BookingStatusBadge } from '@/app/_components/BookingStatusBadge';
 import { CancelBookingDialog } from './CancelBookingDialog';
 
-const STEPS = ['신청 완료', '총동연 승인', '학교 확정'] as const;
+const STEPS = ['신청 접수', '관리자 승인', '학교 반영 확정'] as const;
 
 // 정상 경로 진행 단계 — 터미널 이탈 상태(REJECTED/CANCELLED/CONFLICT)는 스텝퍼 대신 안내 박스.
 function stepIndexOf(status: BookingStatus): number | null {
@@ -91,7 +91,7 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
                 <div className={`rounded-md px-3 py-2 text-sm ${BOOKING_STATUS_META[detail.status].badgeClass}`}>
                   {BOOKING_STATUS_META[detail.status].label}
                   {detail.status === 'REJECTED' && detail.rejectReason && ` — ${detail.rejectReason}`}
-                  {detail.status === 'CONFLICT' && ` — ${detail.conflictDetail ?? '총동연이 확인 중이에요.'}`}
+                  {detail.status === 'CONFLICT' && ` — ${detail.conflictDetail ?? '관리자가 확인 중이에요.'}`}
                 </div>
               )}
 
@@ -136,7 +136,7 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
                   </button>
                 )}
                 {detail.status === 'APPROVED' && (
-                  <p className="self-center text-xs text-charcoal-3">승인된 신청의 취소는 총동연에 문의해주세요.</p>
+                  <p className="self-center text-xs text-charcoal-3">승인된 신청의 취소는 관리자에게 문의해주세요.</p>
                 )}
                 <button type="button" className="btn btn-ghost ml-auto" onClick={onClose}>닫기</button>
               </div>

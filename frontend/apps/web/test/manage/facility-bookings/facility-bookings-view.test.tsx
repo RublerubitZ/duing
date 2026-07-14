@@ -68,6 +68,16 @@ describe('FacilityBookingsView', () => {
     expect(screen.getByText(/관리자 검토 중/)).toBeInTheDocument(); // PENDING 상태 노트
   });
 
+  it('APPROVED·CONFIRMED 카드에 상태 노트를 표시한다', () => {
+    mockBookingsQuery.current.data = [
+      makeBooking({ bookingId: 1, status: 'APPROVED', purpose: '승인건' }),
+      makeBooking({ bookingId: 2, status: 'CONFIRMED', date: FUTURE, purpose: '확정건' }),
+    ];
+    render(<FacilityBookingsView clubId={7} />);
+    expect(screen.getByText(/승인됨 · 학교 반영 대기/)).toBeInTheDocument(); // APPROVED 상태 노트
+    expect(screen.getByText(/예약 확정/)).toBeInTheDocument(); // CONFIRMED 상태 노트
+  });
+
   it('2탭이 진행중/지난 예약으로 분류한다 — 진행중=PENDING·CONFLICT·미래 CONFIRMED, 지난=과거 CONFIRMED·CANCELLED', () => {
     mockBookingsQuery.current.data = [
       makeBooking({ bookingId: 1, status: 'CONFLICT', purpose: '충돌건' }),
