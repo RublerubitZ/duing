@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.BookingWindowFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -22,7 +23,6 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.concurrent.atomic.AtomicLong;
@@ -65,8 +65,9 @@ class FacilityBookingQueryIntegrationTest extends IntegrationTestBase {
     }
 
     private Long createBooking(int startHour, int endHour) {
+        // 반월 오픈 정책이 계산한 현재 창의 첫 날짜 — 실행 시점과 무관하게 항상 신청 가능하다.
         return bookingService.create(new CreateFacilityBookingCommand(club.getId(), leader.getId(),
-                facility.getId(), LocalDate.now().plusDays(2), LocalTime.of(startHour, 0),
+                facility.getId(), BookingWindowFixture.firstBookableDate(), LocalTime.of(startHour, 0),
                 LocalTime.of(endHour, 0), "정기 연습", null)).bookingId();
     }
 

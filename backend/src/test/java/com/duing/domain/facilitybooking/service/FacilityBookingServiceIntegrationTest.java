@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.BookingWindowFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -101,8 +102,8 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     private LocalDate bookableDate() {
-        // 오늘+3 은 항상 미래이면서 다음 달 말일 이내다(현재월의 어느 날이든 다음 달 말일까지 최소 4주 여유)
-        return LocalDate.now().plusDays(3);
+        // 반월 오픈 정책이 계산한 현재 창의 첫 날짜 — 실행 시점과 무관하게 항상 신청 가능하다(창 길이 최소 13일).
+        return BookingWindowFixture.firstBookableDate();
     }
 
     private void forceStatus(FacilityBooking booking, BookingStatus status) throws Exception {

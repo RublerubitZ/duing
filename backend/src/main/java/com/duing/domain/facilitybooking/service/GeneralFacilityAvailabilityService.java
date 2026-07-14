@@ -9,6 +9,7 @@ import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
+import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
@@ -49,6 +50,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     private final FacilityBookingRepository facilityBookingRepository;
     private final FacilityCrawlService facilityCrawlService;
     private final FacilityAvailabilityPolicy availabilityPolicy;
+    private final BookingWindowPolicy bookingWindowPolicy;
     private final Clock clock;
 
     @Override
@@ -81,14 +83,21 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
         LocalDateTime crawledAt = snapshot != null ? snapshot.getCrawledAt() : null;
         boolean stale = isStale(crawledAt, snapshot != null ? snapshot.getFetchStatus() : null, source);
 
+        BookingWindow window = bookingWindowPolicy.windowFor(today);
         return new FacilityAvailabilityResponse(
                 facility.getId(),
                 targetMonth.toString(),
                 toKstOffset(crawledAt),
                 stale,
-                today,
-                currentMonth.plusMonths(1).atEndOfMonth(),
+                window.from(),
+                window.until(),
                 FacilitySlotAssembler.assembleDays(targetMonth, today, nowTime, crawlSlices, bookingSlices));
+    }
+
+    @Override
+    public BookingWindowResponse getBookingWindow() {
+        LocalDate today = LocalDate.now(clock);
+        return BookingWindowResponse.from(bookingWindowPolicy.windowFor(today));
     }
 
     private List<BookingSlice> toBookingSlices(Long facilityId, YearMonth targetMonth) {
