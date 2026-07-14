@@ -4,6 +4,7 @@ import type { BookingDayAvailability } from '@duing/types';
 import { bookingDateLabel } from '@/app/_lib/bookingDisplay';
 import {
   DAY_LEVEL_META,
+  type DayLevel,
   dayLevelOf,
   firstAvailableStarts,
   periodDistribution,
@@ -14,6 +15,14 @@ type Props = {
   onQuickSelect: (slotStart: string) => void;
 };
 
+// 레벨 뱃지 색-라벨 정합(여유/보통/혼잡/마감 각각 sage/warm/coral/graysoft 계열).
+const LEVEL_BADGE_CLASS: Record<DayLevel, string> = {
+  HIGH: 'bg-sage text-ink',
+  MID: 'bg-warm text-ink-deep',
+  LOW: 'bg-coral text-cream',
+  FULL: 'bg-graysoft text-charcoal-3',
+};
+
 export function PanelSummaryCard({ day, onQuickSelect }: Props) {
   const level = dayLevelOf(day.availableSlotCount);
   const quickStarts = firstAvailableStarts(day.slots, 3);
@@ -22,7 +31,7 @@ export function PanelSummaryCard({ day, onQuickSelect }: Props) {
     <div className="rounded-xl bg-ink p-4 text-cream">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold tracking-wide text-sage">선택한 날짜</p>
-        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${level === 'FULL' ? 'bg-graysoft text-charcoal-3' : 'bg-sage text-ink'}`}>
+        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${LEVEL_BADGE_CLASS[level]}`}>
           {DAY_LEVEL_META[level].label}
         </span>
       </div>

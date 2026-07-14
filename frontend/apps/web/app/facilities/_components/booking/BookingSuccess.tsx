@@ -12,7 +12,7 @@ type Props = {
   date: string;
   range: SlotRange;
   overlappingPendingCount: number;
-  submittedAt: string; // 'HH:mm' — 페이지가 제출 시각 캡처
+  submittedAt: string; // 제출 일시 라벨('M월 d일 HH:mm') — 페이지가 제출 시각 캡처
   manageHref?: `/${string}`;
   onExploreOther: () => void;
   onClose: () => void;
@@ -62,7 +62,7 @@ export function BookingSuccess({
                   {item.title}
                 </p>
                 <p className="mt-0.5 text-xs text-charcoal-3">
-                  {index === 0 ? `${date} ${submittedAt} 접수` : item.detail}
+                  {index === 0 ? `${submittedAt} 접수` : item.detail}
                 </p>
               </div>
             </li>

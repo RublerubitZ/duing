@@ -17,6 +17,8 @@ type Props = {
   facility: { id: number; roomName: string };
   day: BookingDayAvailability;
   daysByIso: Map<string, BookingDayAvailability>;
+  bookableFrom: string;
+  bookableUntil: string;
   view: PanelView;
   onChangeView: (view: PanelView) => void;
   selection: SlotRange | null;
@@ -34,7 +36,7 @@ type Props = {
 };
 
 export function BookingPanel({
-  facility, day, daysByIso, view, onChangeView, selection, onToggleSlot, onSelectDate,
+  facility, day, daysByIso, bookableFrom, bookableUntil, view, onChangeView, selection, onToggleSlot, onSelectDate,
   step, onProceedToForm, onBackToSlots, submittedResult, submittedClubId, submittedAt,
   onSubmitted, onExploreOther, onClose,
 }: Props) {
@@ -119,6 +121,8 @@ export function BookingPanel({
           <WeekTimetable
             selectedDate={day.date}
             daysByIso={daysByIso}
+            bookableFrom={bookableFrom}
+            bookableUntil={bookableUntil}
             selection={selection}
             onSelectDate={onSelectDate}
           />

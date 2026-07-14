@@ -144,7 +144,7 @@ it('예약 성공 화면은 manageHref 전달 시 "내 예약에서 확인" 링�
       date="2026-07-20"
       range={{ start: '18:00', end: '19:00' }}
       overlappingPendingCount={0}
-      submittedAt="14:05"
+      submittedAt="7월 20일 14:05"
       manageHref="/manage/clubs/7/facility-bookings"
       onExploreOther={vi.fn()}
       onClose={vi.fn()}
@@ -161,7 +161,7 @@ it('예약 성공 화면은 manageHref 미전달 시 확인 링크를 렌더하�
       date="2026-07-20"
       range={{ start: '18:00', end: '19:00' }}
       overlappingPendingCount={0}
-      submittedAt="14:05"
+      submittedAt="7월 20일 14:05"
       onExploreOther={vi.fn()}
       onClose={vi.fn()}
     />,
@@ -178,7 +178,7 @@ it('예약 성공 화면은 세로 타임라인·통일 승인 문구·CTA 3종�
       date="2026-07-20"
       range={{ start: '18:00', end: '20:00' }}
       overlappingPendingCount={2}
-      submittedAt="14:05"
+      submittedAt="7월 20일 14:05"
       manageHref="/manage/clubs/7/facility-bookings"
       onExploreOther={onExploreOther}
       onClose={onClose}
@@ -188,7 +188,7 @@ it('예약 성공 화면은 세로 타임라인·통일 승인 문구·CTA 3종�
   expect(screen.getByText('신청 접수')).toBeInTheDocument();
   expect(screen.getByText('관리자 승인 대기')).toBeInTheDocument();
   expect(screen.getByText('관리자 승인 후 학교 반영 절차가 진행됩니다.')).toBeInTheDocument();
-  expect(screen.getByText('2026-07-20 14:05 접수')).toBeInTheDocument();
+  expect(screen.getByText('7월 20일 14:05 접수')).toBeInTheDocument();
   expect(screen.getByText(/2건이 함께 대기/)).toBeInTheDocument();
   // 예상 시간·기관명 혼용 문구 부재
   expect(screen.queryByText(/1~2일/)).not.toBeInTheDocument();

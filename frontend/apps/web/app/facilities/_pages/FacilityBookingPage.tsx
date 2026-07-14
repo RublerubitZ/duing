@@ -131,7 +131,9 @@ export function FacilityBookingPage() {
 
   // 딥링크로 들어온 date 가 예약 창(반월) 밖이면 선택을 정리하고 안내한다(selectionInvalid 전례와 동일 패턴).
   // 셀 게이팅은 availability 메타로 두되, 창 판정만 windowQuery 로 단일화한다.
+  // 성공 화면은 이미 접수된 신청의 확인이므로 보존한다(selectionInvalid 전례 동일).
   const selectedDateOutOfWindow =
+    step !== 'success' &&
     selectedDate !== null &&
     windowQuery.data !== undefined &&
     !isWithinBookable(selectedDate, windowQuery.data.bookableFrom, windowQuery.data.bookableUntil);
@@ -157,6 +159,7 @@ export function FacilityBookingPage() {
 
   const selectFacility = (nextId: number) => {
     setFacilityId(nextId);
+    setYearMonthOverride(null); // 다음 진입 기본 월 = 창 월 계약 복원
     closePanel();
     syncUrl(nextId, null);
   };
@@ -165,6 +168,7 @@ export function FacilityBookingPage() {
   // closePanel 을 거치지 않고 상태를 직접 리셋한 뒤 URL 을 비운다.
   const goHome = () => {
     setFacilityId(null);
+    setYearMonthOverride(null); // 다음 진입 기본 월 = 창 월 계약 복원
     setSelectedDate(null);
     setSelection(null);
     setStep('slots');
@@ -206,11 +210,15 @@ export function FacilityBookingPage() {
   };
 
   const panelOpen = selectedDay !== undefined && selectedFacility !== undefined;
-  const panel = panelOpen ? (
+  // availability 는 selectedDay(=daysByIso.get) 가 존재하면 항상 non-null 이지만, 주간 헤더 창 게이팅에
+  // bookableFrom/Until 을 넘기려면 TS 상 명시 narrowing 이 필요하다(panelOpen && availability).
+  const panel = panelOpen && availability ? (
     <BookingPanel
       facility={selectedFacility}
       day={selectedDay}
       daysByIso={daysByIso}
+      bookableFrom={availability.bookableFrom}
+      bookableUntil={availability.bookableUntil}
       view={view}
       onChangeView={setView}
       selection={selection}
@@ -224,7 +232,9 @@ export function FacilityBookingPage() {
       submittedAt={submittedAt}
       onSubmitted={(result, clubId) => {
         const now = new Date();
-        setSubmittedAt(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+        setSubmittedAt(
+          `${now.getMonth() + 1}월 ${now.getDate()}일 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+        );
         setSubmittedResult(result);
         setSubmittedClubId(clubId);
         setStep('success');
