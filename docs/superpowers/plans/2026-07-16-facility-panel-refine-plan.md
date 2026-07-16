@@ -185,3 +185,26 @@ bookingCalendar.ts — `firstAvailableStarts` 삭제(다른 사용처 없음 gre
 
 - [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
 - [ ] **Step 5: 커밋** — `feat(frontend): 예약 현황 리스트를 목업 상태색 행으로 정합·퀵칩 제거`
+
+---
+
+### Task 4: 슬롯 행 By 중심 세로 스택 전환 (3차 요구)
+
+**Files:**
+- Modify: `frontend/apps/web/app/facilities/_components/booking/DaySlotList.tsx`
+- Test: `frontend/apps/web/test/facilities/booking-components.test.tsx`, `frontend/apps/web/test/facilities/facility-booking-page.test.tsx`(단언 파급 시)
+
+**Interfaces:** DaySlotList props 무변경(day·selection·onToggleSlot). 스펙 §4″.1 이 유일한 요구 원천.
+
+- [ ] **Step 1: 실패 테스트 갱신 (RED)** — §4″.1 을 고정:
+(a) SCHOOL 행 — 단체명이 주 정보(text-sm font-bold 요소)로, "예약됨" pill 배지 존재.
+(b) INTERNAL 행 — 주 정보 "예약됨", pill 배지 없음(중복 금지).
+(c) PENDING_HOLD 행 — 주 정보 "승인 대기", 배지 없음, 여전히 클릭 가능.
+(d) AVAILABLE 행 — 주 정보 "예약 가능", 시간이 별도 행(font-mono).
+(e) 선택 행 — ✓ + ink, aria-label "HH:MM~HH:MM 주정보" 순.
+기존 단언 중 우측 인라인 구조를 전제한 것은 갱신.
+
+- [ ] **Step 2: 실패 확인** — `pnpm --filter web test booking-components` → 신규/갱신 단언 FAIL
+- [ ] **Step 3: 구현** — 행 내부를 세로 스택으로: 시간(`font-mono text-[11px]` muted) → 주 정보(`text-sm font-bold`, `organization ?? 상태 문구`) → SCHOOL 만 pill 배지(스펙 §4″.1 클래스 계열, 선택 시 cream 반전). 행 배경색 Record·disabled·aria-pressed·운영 안내 박스 무변경.
+- [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
+- [ ] **Step 5: 커밋** — `feat(frontend): 슬롯 행을 예약 주체 중심 세로 스택으로 전환`

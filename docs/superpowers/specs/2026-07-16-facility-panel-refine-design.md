@@ -77,6 +77,29 @@ PAST는 기존 muted 유지. ② pending fg #8E6620 은 팔레트에 없음 — 
 - `firstAvailableStarts` 는 퀵칩 전용 → lib·테스트에서 삭제(dead code 금지 관례).
 - 결과 구성: 날짜 요약(집계·운영 시간·분포) → 예약 현황 리스트(=시간 선택) → 선택 요약 → 신청.
 
+## 4″. 슬롯 행 정보 구조 — By(누가) 중심 전환 (3차 요구, 2026-07-16)
+
+상태(Status)가 아니라 **예약 주체(By)가 메인 정보**가 되도록 행 구조를 바꾼다(Concept A `DAY_SLOTS`의
+`by` 활용 요구). 시각 언어(§4′ 상태색 행·선택 ink·정책)는 전부 유지하고 행 내부 배치만 바뀐다.
+
+### 4″.1 행 내부: 세로 스택 (시간 → 주 정보 → 배지)
+
+사용자 명시 순서: `시간 ↓ 동아리명(있다면 가장 크게) ↓ 상태 Badge`.
+
+- 1행: 시간 — `font-mono text-[11px]` 보조 톤(상태색 행의 muted 텍스트).
+- 2행(주 정보, `text-sm font-bold`): **`organization ?? 상태 문구`**
+  - BLOCKED+SCHOOL = 단체명(예: 비호응원단·트레몰로)
+  - BLOCKED+INTERNAL = "예약됨" (동아리명 비공개 정책 유지)
+  - PENDING_HOLD = "승인 대기" / AVAILABLE = "예약 가능" / PAST = "지난 시간"
+- 3행(배지): **SCHOOL 행에만** 소형 pill "예약됨"(`rounded-full bg-paper/70 border border-line
+  px-2 py-0.5 text-[10.5px] text-charcoal-3` 계열) — INTERNAL·PENDING 은 주 정보가 곧 상태라
+  배지를 중복 표기하지 않는다("예약됨 (예약됨)" 방지). 선택된 행의 배지는 cream 계열로 반전.
+- 모든 행이 동일한 스택 구조(사용자 예시의 인라인/스택 혼재 중 스택으로 통일 — 높이 리듬 일관).
+  이름 없는 행은 2행까지만 렌더되므로 자연히 낮다.
+- 선택 행: ink 배경 + 주 정보 앞 ✓ 유지. aria-label 은 "HH:MM~HH:MM 주정보" 순으로 갱신
+  (SR 도 같은 정보 순서).
+- 클릭·disabled·aria-pressed·운영 안내 박스·§4′ 행 배경색 전부 무변경.
+
 ## 4. Out of Scope
 
 - 백엔드 변경(집계·운영 시간 전부 기존 응답에서 파생)
