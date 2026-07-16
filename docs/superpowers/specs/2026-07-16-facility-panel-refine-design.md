@@ -112,6 +112,33 @@ PAST는 기존 muted 유지. ② pending fg #8E6620 은 팔레트에 없음 — 
   `{ start, end, label, kind: 'SCHOOL'|'INTERNAL'|'PENDING' }[]`), 카드는 신규 컴포넌트
   `DayBookingOverview.tsx`.
 
+## 4⁗. 내부 예약 동아리명 노출 + 슬롯 행 흰 바탕 복원 (5차 요구, 2026-07-17)
+
+### 4⁗.1 내부 예약 동아리명 노출 (백엔드 정책 반전 — 별도 PR)
+
+현황 카드·슬롯 리스트의 "예약됨"(INTERNAL)에도 목업처럼 동아리명을 표기한다.
+
+- **정책 반전(2026-07-17 사용자 결정)**: 공개 가용성 API가 INTERNAL(APPROVED·CONFIRMED) 차단
+  슬롯에 동아리명을 내려준다. 근거 — 승인 완료 예약은 학교 반영 후 크롤(SCHOOL 행)로 어차피
+  실명 공개되므로 새 정보가 아니다. 2026-07-13 비노출 결정은 이 범위에서 폐기.
+- **PENDING(승인 대기)은 비노출 유지** — 아직 승인되지 않은 신청 경쟁 정보(§3.1 근거 유효).
+- 백엔드: `GeneralFacilityAvailabilityService.toBookingSlices`가 차단 예약의 club 이름을 조회해
+  `BookingSlice`에 싣고, 어셈블러 INTERNAL 분기가 `organization`으로 노출(blockedBy=INTERNAL 유지).
+  PENDING 슬라이스는 계속 이름 없음. 관련 주석·테스트(비노출 단언)를 반전 결정으로 현행화.
+- FE: `organization`이 있으면 소스(SCHOOL/INTERNAL) 무관 표기 — 없으면 "예약됨" 폴백
+  (**fail-open**: 구 백엔드 응답에서도 동작, 배포 순서 자유. 단 이름 노출은 BE 배포 후).
+  types 주석("SCHOOL만") 현행화.
+
+### 4⁗.2 슬롯 행 흰 바탕 복원
+
+§4′의 상태색 행 배경(sage-mist/warm/graysoft)을 **1차(원래) 시각으로 복원**한다 — 사용자 피드백
+"흰 바탕이 낫다". 라벨 체계("예약 가능"/"승인 대기" 등 2차 확정 문구)와 병합·현황 카드는 유지.
+
+- AVAILABLE·PENDING_HOLD(선택 가능): `border-line bg-paper hover:border-sage`
+- 승인 대기 라벨 강조는 원래처럼 텍스트 색으로: PENDING_HOLD 라벨 `text-coral`
+- BLOCKED·PAST(선택 불가): `border-transparent bg-graysoft/60 text-charcoal-3` (원래 muted)
+- 선택 행 `border-ink bg-ink text-cream` + ✓ 유지. 현황 카드(§4‴)·운영 안내 박스(§3) 무변경.
+
 ## 4″. (폐기) 슬롯 행 정보 구조 — By(누가) 중심 전환 (3차 요구, 2026-07-16)
 
 상태(Status)가 아니라 **예약 주체(By)가 메인 정보**가 되도록 행 구조를 바꾼다(Concept A `DAY_SLOTS`의

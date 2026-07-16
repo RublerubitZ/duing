@@ -231,3 +231,36 @@ lib 테스트: (a) 같은 단체 연속 3칸 → 1건(09:00~12:00), (b) 다른 �
 - [ ] **Step 3: 구현** — 스펙 §4‴.2 의 카드·행·마지막 행(점선 구분)·미렌더 규칙 그대로. `bookingDateLabel` 재사용해 제목 구성.
 - [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
 - [ ] **Step 5: 커밋** — `feat(frontend): 예약 건별 현황 카드 추가(요약과 시간 선택 사이)`
+
+---
+
+### Task 6: 백엔드 — INTERNAL 차단 슬롯 동아리명 노출 (5차 요구 §4⁗.1, 별도 브랜치)
+
+**Files:**
+- Modify: `backend/src/main/java/com/duing/domain/facilitybooking/service/FacilitySlotAssembler.java` (`BookingSlice`에 organization 추가, INTERNAL 분기 노출, 관련 주석 반전 현행화)
+- Modify: `backend/src/main/java/com/duing/domain/facilitybooking/service/GeneralFacilityAvailabilityService.java` (`toBookingSlices` — 차단(blocksSlot) 예약의 club 이름 배치 조회·주입, 비노출 주석 교체)
+- Test: `FacilitySlotAssemblerTest`, 가용성 acceptance/통합 테스트의 INTERNAL organization 단언 반전
+
+**Interfaces (Produces — Task 7이 의존):** 가용성 응답 슬롯 — BLOCKED+blockedBy=INTERNAL 에 `organization`=동아리명(Club.name). PENDING_HOLD 는 계속 organization 없음.
+
+- [ ] **Step 1: 실패 테스트 (RED)** — 어셈블러 단위: INTERNAL 차단 슬라이스에 organization 지정 시 슬롯에 그대로 노출(blockedBy=INTERNAL 유지), PENDING 은 여전히 null. 통합/acceptance: 내부 APPROVED 예약이 있는 날 해당 슬롯 organization == 동아리명. 기존 "INTERNAL 비노출" 단언은 반전 결정(§4⁗.1, 2026-07-17 사용자 결정)으로 교체 — 주석에 근거(승인 완료는 크롤로 어차피 실명 공개) 명기.
+- [ ] **Step 2: 실패 확인** — `cd backend && ./gradlew test --tests FacilitySlotAssemblerTest` FAIL
+- [ ] **Step 3: 구현** — `BookingSlice(date, start, end, status, organization)`. `toBookingSlices`: `blocksSlot()` 예약의 clubId 수집 → ClubRepository 배치 조회(findAllById) → id→name 맵 → 차단 슬라이스에만 이름 주입(PENDING 은 null). 어셈블러 INTERNAL 분기 `new SlotAvailability(..., SlotBlockSource.INTERNAL, internalBlock.get().organization())`. 삭제(soft-delete)된 club 방어: 이름 못 찾으면 null(FE "예약됨" 폴백).
+- [ ] **Step 4: 전체 스위트** — `./gradlew test` BUILD SUCCESSFUL (전 건수 보고)
+- [ ] **Step 5: 커밋** — `feat(backend): 공개 가용성 INTERNAL 차단 슬롯에 동아리명 노출(승인 대기는 비노출 유지)`
+
+### Task 7: 프론트 — 이름 우선 표기 + 슬롯 행 흰 바탕 복원 (5차 요구, 브랜치 feat/facility-panel-refine)
+
+**Files:**
+- Modify: `frontend/packages/types/src/facility.ts` (organization 주석 현행화)
+- Modify: `frontend/apps/web/app/facilities/_lib/bookingCalendar.ts` (`bookingEntryOf` — BLOCKED label = `organization ?? '예약됨'`, kind 유지)
+- Modify: `frontend/apps/web/app/facilities/_components/booking/DaySlotList.tsx` (라벨 organization 우선 + §4⁗.2 흰 바탕 행 클래스 복원)
+- Test: `booking-calendar-lib.test.ts`, `booking-components.test.tsx`(+페이지 테스트 파급 시)
+
+**Interfaces (Consumes):** Task 6 응답 계약. 단, organization 부재(구 백엔드)여도 "예약됨" 폴백으로 동작해야 한다(fail-open).
+
+- [ ] **Step 1: 실패 테스트 (RED)** — (a) lib: INTERNAL 슬라이스에 organization 있으면 entries label=이름, 없으면 "예약됨"(폴백), 인접 병합은 label 기준이라 이름 다르면 비병합. (b) DaySlotList: BLOCKED+organization(INTERNAL) 행 이름 표기, AVAILABLE 행 `bg-paper`(상태색 배경 부재), PENDING_HOLD 라벨 `text-coral`, BLOCKED 행 muted(bg-graysoft/60). (c) 기존 상태색 단언(bg-sage-mist 등) 갱신.
+- [ ] **Step 2: 실패 확인** — `pnpm --filter web test booking-calendar-lib booking-components` FAIL
+- [ ] **Step 3: 구현** — 스펙 §4⁗.1(FE)·§4⁗.2 그대로: SLOT_ROW_CLASS 를 흰 바탕 세트로 교체(AVAILABLE·PENDING_HOLD=`border-line bg-paper hover:border-sage`, BLOCKED·PAST=`border-transparent bg-graysoft/60 text-charcoal-3`), 라벨 색만 PENDING_HOLD=coral. slotStatusLabel·bookingEntryOf 는 `slot.organization` 우선(소스 무관).
+- [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
+- [ ] **Step 5: 커밋** — `feat(frontend): 예약 표기 동아리명 우선·슬롯 행 흰 바탕 복원`
