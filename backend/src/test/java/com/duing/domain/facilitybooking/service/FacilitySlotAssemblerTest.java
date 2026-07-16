@@ -78,24 +78,44 @@ class FacilitySlotAssemblerTest {
     }
 
     @Test
-    @DisplayName("내부 APPROVED 는 BLOCKED(INTERNAL·동아리명 비노출), PENDING 은 PENDING_HOLD(동아리명 비노출)다")
+    @DisplayName("내부 APPROVED 는 BLOCKED(INTERNAL·동아리명 노출), PENDING 은 PENDING_HOLD(동아리명 비노출)다")
     void internalBookingsBlockOrHold() {
         LocalDate date = LocalDate.of(2026, 1, 20);
         List<BookingSlice> bookings = List.of(
-                new BookingSlice(date, LocalTime.of(10, 0), LocalTime.of(12, 0), BookingStatus.APPROVED),
-                new BookingSlice(date, LocalTime.of(20, 0), LocalTime.of(21, 0), BookingStatus.PENDING));
+                new BookingSlice(date, LocalTime.of(10, 0), LocalTime.of(12, 0), BookingStatus.APPROVED, "재즈동아리"),
+                // PENDING 슬라이스는 이름을 넣어도 어셈블러가 항상 숨겨야 한다(신청 경쟁 정보 비노출 회귀 고정).
+                new BookingSlice(date, LocalTime.of(20, 0), LocalTime.of(21, 0), BookingStatus.PENDING, "숨겨야할동아리"));
 
         List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, List.of(), bookings);
         DayAvailability target = day(days, 20);
 
         assertThat(slotStatus(target, 10)).isEqualTo(SlotStatus.BLOCKED);
         assertThat(target.slots().get(10 - 9).blockedBy()).isEqualTo(SlotBlockSource.INTERNAL);
-        assertThat(target.slots().get(10 - 9).organization()).isNull(); // 내부 예약 동아리명 비노출(2026-07-13 사용자 결정)
+        // 승인 완료 예약은 학교 반영 후 크롤 SCHOOL 행으로 어차피 실명 공개되므로 동아리명을 노출한다
+        // (2026-07-17 사용자 결정 §4⁗.1 — 구 비노출 정책 부분 반전).
+        assertThat(target.slots().get(10 - 9).organization()).isEqualTo("재즈동아리");
+        assertThat(target.slots().get(11 - 9).organization()).isEqualTo("재즈동아리"); // 겹치는 두 번째 칸도 노출
         assertThat(slotStatus(target, 20)).isEqualTo(SlotStatus.PENDING_HOLD);
-        assertThat(target.slots().get(20 - 9).organization()).isNull(); // 승인 대기 동아리명 비노출(설계 §3.1)
+        assertThat(target.slots().get(20 - 9).organization()).isNull(); // 승인 대기 동아리명 비노출(설계 §3.1, 신청 경쟁 정보)
         // PENDING_HOLD 는 신청 가능 상태라 count 에 포함된다(설계 §3.2 FULL 판정 기준) —
         // BLOCKED 2칸(10~12)만 제외되어 11 이어야 한다. count 에서 홀드를 빼는 회귀를 고정.
         assertThat(target.availableSlotCount()).isEqualTo(11);
+    }
+
+    @Test
+    @DisplayName("BLOCKED(INTERNAL) 이라도 동아리명(organization)이 null 이면 그대로 null 로 내려간다(soft-delete 방어)")
+    void internalBlockKeepsNullOrganizationWhenClubNameMissing() {
+        LocalDate date = LocalDate.of(2026, 1, 20);
+        // 서비스가 soft-delete 된 동아리 이름을 못 찾아 null 을 주입한 경우 — 어셈블러는 방어적으로 null 유지.
+        List<BookingSlice> bookings = List.of(
+                new BookingSlice(date, LocalTime.of(13, 0), LocalTime.of(14, 0), BookingStatus.CONFIRMED, null));
+
+        List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, List.of(), bookings);
+        DayAvailability target = day(days, 20);
+
+        assertThat(slotStatus(target, 13)).isEqualTo(SlotStatus.BLOCKED);
+        assertThat(target.slots().get(13 - 9).blockedBy()).isEqualTo(SlotBlockSource.INTERNAL);
+        assertThat(target.slots().get(13 - 9).organization()).isNull();
     }
 
     @Test
@@ -117,7 +137,7 @@ class FacilitySlotAssemblerTest {
         List<CrawlSlice> crawl = List.of(new CrawlSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0),
                 "총학생회", CrawlRowType.OCCUPIED, null, null));
         List<BookingSlice> bookings = List.of(
-                new BookingSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0), BookingStatus.PENDING));
+                new BookingSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0), BookingStatus.PENDING, null));
 
         List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, bookings);
 

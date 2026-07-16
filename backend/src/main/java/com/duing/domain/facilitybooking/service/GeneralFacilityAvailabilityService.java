@@ -1,5 +1,7 @@
 package com.duing.domain.facilitybooking.service;
 
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
@@ -26,6 +28,8 @@ import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -48,6 +52,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     private final FacilityReservationRepository facilityReservationRepository;
     private final FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
     private final FacilityBookingRepository facilityBookingRepository;
+    private final ClubRepository clubRepository;
     private final FacilityCrawlService facilityCrawlService;
     private final FacilityAvailabilityPolicy availabilityPolicy;
     private final BookingWindowPolicy bookingWindowPolicy;
@@ -105,11 +110,30 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
                 facilityBookingRepository.findByFacilityIdAndReservationDateBetweenAndStatusIn(
                         facilityId, targetMonth.atDay(1), targetMonth.atEndOfMonth(),
                         List.of(BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.CONFIRMED));
-        // 동아리명은 조회하지 않는다 — 공개 가용성 API 는 내부 예약 동아리명 비노출 정책(2026-07-13 사용자 결정).
+        // BLOCKED(INTERNAL) 대상(APPROVED/CONFIRMED)만 동아리명을 노출한다 — 승인 완료 예약은 학교 반영 후
+        // 크롤 SCHOOL 행으로 어차피 실명 공개되므로 새 정보가 아니다(2026-07-17 사용자 결정 §4⁗.1로 구
+        // 비노출 정책 부분 반전). PENDING 은 신청 경쟁 정보라 비노출 유지 → 이름을 조회·주입하지 않는다.
+        Map<Long, String> blockingClubNames = resolveBlockingClubNames(bookings);
         return bookings.stream()
                 .map(booking -> new BookingSlice(booking.getReservationDate(), booking.getStartTime(),
-                        booking.getEndTime(), booking.getStatus()))
+                        booking.getEndTime(), booking.getStatus(),
+                        booking.getStatus().blocksSlot() ? blockingClubNames.get(booking.getClubId()) : null))
                 .toList();
+    }
+
+    private Map<Long, String> resolveBlockingClubNames(List<FacilityBooking> bookings) {
+        List<Long> blockingClubIds = bookings.stream()
+                .filter(booking -> booking.getStatus().blocksSlot())
+                .map(FacilityBooking::getClubId)
+                .distinct()
+                .toList();
+        if (blockingClubIds.isEmpty()) {
+            return Map.of();
+        }
+        // findAllById 는 @SQLRestriction(deleted_at IS NULL) 로 soft-delete 된 동아리를 제외하므로,
+        // 삭제된 동아리 예약은 맵에 없어 null 로 내려가고 FE 는 '예약됨' 폴백을 쓴다(방어적 기본값).
+        return clubRepository.findAllById(blockingClubIds).stream()
+                .collect(Collectors.toMap(Club::getId, Club::getName, (first, second) -> first));
     }
 
     private boolean isStale(LocalDateTime crawledAt, FetchStatus fetchStatus, DataSource source) {
