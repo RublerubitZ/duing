@@ -64,7 +64,8 @@ export type BookingAvailabilitySlot = {
   end: string; // HH:mm
   status: BookingSlotStatus;
   blockedBy?: BookingSlotBlockSource; // BLOCKED 일 때만 존재
-  // SCHOOL 차단의 단체명(공개 데이터). INTERNAL·PENDING_HOLD 는 비노출 정책이라 생략된다(§16 결정 20).
+  // BLOCKED 차단의 단체명. SCHOOL(크롤)·INTERNAL(승인 완료 예약) 모두 노출한다(§4⁗.1 정책 반전 2026-07-17).
+  // PENDING_HOLD(승인 대기)는 아직 비노출이라 생략된다. 구 백엔드는 INTERNAL 에도 부재 → FE 는 "예약됨" 폴백.
   organization?: string;
 };
 

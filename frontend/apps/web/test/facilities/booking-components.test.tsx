@@ -195,19 +195,35 @@ it('창 밖 미래 셀은 aria-disabled 이고 클릭 시 onSelectDate 대신 on
   expect(onSelectDate).not.toHaveBeenCalled();
 });
 
-it('슬롯 리스트는 SCHOOL 단체명·INTERNAL "예약됨"·승인 대기를 목업 상태색 행으로 구분 표시한다', () => {
+it('슬롯 리스트는 흰 바탕 행으로 SCHOOL 단체명·INTERNAL "예약됨" 폴백·승인 대기(coral)를 구분 표시한다', () => {
   render(<DaySlotList day={makeDay()} selection={null} onToggleSlot={vi.fn()} />);
-  // AVAILABLE 행: "예약 가능" 라벨 + sage-mist 배경(SLOT_STYLE free)
+  // AVAILABLE 행: "예약 가능" 라벨 + 흰 바탕(§4⁗.2 복원 — 상태색 배경 부재)
   const availableRow = screen.getByRole('button', { name: /09:00~10:00.*예약 가능/ });
-  expect(availableRow).toHaveClass('bg-sage-mist');
-  // BLOCKED: SCHOOL 단체명 / INTERNAL "예약됨"
+  expect(availableRow).toHaveClass('bg-paper');
+  expect(availableRow).not.toHaveClass('bg-sage-mist');
+  // BLOCKED: SCHOOL 단체명 / organization 없는 INTERNAL 은 "예약됨" 폴백. 선택 불가 행은 muted(bg-graysoft/60)
   expect(screen.getByText('비호응원단')).toBeInTheDocument();
   expect(screen.getByText('예약됨')).toBeInTheDocument();
-  // PENDING_HOLD 라벨은 "승인 대기"(구 "승인 대기중"), 구 "신청 가능" 라벨은 사라진다
-  expect(screen.getByText('승인 대기')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /17:00~18:00.*비호응원단/ })).toHaveClass('bg-graysoft/60');
+  // PENDING_HOLD 라벨은 "승인 대기"(coral 텍스트 강조), 구 "승인 대기중"·"신청 가능" 라벨은 사라진다
+  const pendingLabel = screen.getByText('승인 대기');
+  expect(pendingLabel).toBeInTheDocument();
+  expect(pendingLabel).toHaveClass('text-coral');
   expect(screen.queryByText('승인 대기중')).not.toBeInTheDocument();
   expect(screen.queryByText('신청 가능')).not.toBeInTheDocument();
   expect(screen.getByText(/고정관념 09:00~20:00/)).toBeInTheDocument();
+});
+
+it('슬롯 리스트는 organization 이 실린 INTERNAL 차단 슬롯을 소스 무관 동아리명으로 표기한다', () => {
+  const namedInternalDay = makeDay({
+    slots: makeDay().slots.map((slot) =>
+      slot.start === '18:00' ? { ...slot, organization: '두잉밴드' } : slot,
+    ),
+  });
+  render(<DaySlotList day={namedInternalDay} selection={null} onToggleSlot={vi.fn()} />);
+  // 18:00 은 blockedBy=INTERNAL 이지만 organization 이 오면 동아리명 노출(정책 반전), "예약됨" 폴백 아님
+  expect(screen.getByText('두잉밴드')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /18:00~19:00.*두잉밴드/ })).toHaveClass('bg-graysoft/60');
 });
 
 it('승인 대기 슬롯은 여전히 클릭 가능하고, 선택 행은 ink 배경·✓ 로 표기된다', () => {

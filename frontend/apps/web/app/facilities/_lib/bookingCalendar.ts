@@ -196,10 +196,10 @@ export type DayBookingEntry = { start: string; end: string; label: string; kind:
 // 슬롯 → 예약 건(라벨·종류). AVAILABLE·PAST 는 현황 카드에 포함하지 않으므로 null.
 function bookingEntryOf(slot: BookingAvailabilitySlot): Pick<DayBookingEntry, 'label' | 'kind'> | null {
   if (slot.status === 'BLOCKED') {
-    // SCHOOL 은 공개 단체명, INTERNAL(및 단체명 없는 SCHOOL)은 "예약됨" 비노출 정책(§16 결정 20)
-    return slot.blockedBy === 'SCHOOL' && slot.organization
-      ? { label: slot.organization, kind: 'SCHOOL' }
-      : { label: '예약됨', kind: 'INTERNAL' };
+    // organization 이 오면 소스(SCHOOL/INTERNAL) 무관 동아리명 노출(§4⁗.1 정책 반전), 없으면 "예약됨"
+    // 폴백 — 구 백엔드 응답에서도 동작(fail-open). kind 는 소스 구분을 그대로 유지한다.
+    const kind: DayBookingEntryKind = slot.blockedBy === 'SCHOOL' && slot.organization ? 'SCHOOL' : 'INTERNAL';
+    return { label: slot.organization ?? '예약됨', kind };
   }
   if (slot.status === 'PENDING_HOLD') {
     return { label: '승인 대기', kind: 'PENDING' };

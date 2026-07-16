@@ -177,6 +177,13 @@ describe('dayBookingEntries', () => {
     status: 'BLOCKED',
     blockedBy: 'INTERNAL',
   });
+  const namedInternalSlot = (startHour: number, organization: string): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'BLOCKED',
+    blockedBy: 'INTERNAL',
+    organization,
+  });
   const pendingSlot = (startHour: number): BookingAvailabilitySlot => ({
     start: `${pad(startHour)}:00`,
     end: `${pad(startHour + 1)}:00`,
@@ -196,9 +203,22 @@ describe('dayBookingEntries', () => {
     ]);
   });
 
-  it('(c) 연속 INTERNAL 은 "예약됨" 한 건으로 병합한다(동아리명 비노출)', () => {
+  it('(c) organization 없는 INTERNAL(구 백엔드)은 "예약됨" 폴백으로 한 건 병합한다(fail-open)', () => {
     expect(dayBookingEntries([internalSlot(9), internalSlot(10)])).toEqual([
       { start: '09:00', end: '11:00', label: '예약됨', kind: 'INTERNAL' },
+    ]);
+  });
+
+  it('(f) organization 이 실린 INTERNAL 은 소스 무관 동아리명으로 표기·병합한다(정책 반전)', () => {
+    expect(dayBookingEntries([namedInternalSlot(9, '두잉밴드'), namedInternalSlot(10, '두잉밴드')])).toEqual([
+      { start: '09:00', end: '11:00', label: '두잉밴드', kind: 'INTERNAL' },
+    ]);
+  });
+
+  it('(g) INTERNAL 이라도 이름이 다르면 병합하지 않는다(병합은 label 기준)', () => {
+    expect(dayBookingEntries([namedInternalSlot(9, '두잉밴드'), namedInternalSlot(10, '고정관념')])).toEqual([
+      { start: '09:00', end: '10:00', label: '두잉밴드', kind: 'INTERNAL' },
+      { start: '10:00', end: '11:00', label: '고정관념', kind: 'INTERNAL' },
     ]);
   });
 
