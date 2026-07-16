@@ -177,10 +177,17 @@ export type SlotStatusCounts = { available: number; pendingHold: number; blocked
 export function slotStatusCounts(slots: BookingAvailabilitySlot[]): SlotStatusCounts {
   const counts: SlotStatusCounts = { available: 0, pendingHold: 0, blocked: 0, past: 0 };
   for (const slot of slots) {
-    if (slot.status === 'AVAILABLE') counts.available += 1;
-    else if (slot.status === 'PENDING_HOLD') counts.pendingHold += 1;
-    else if (slot.status === 'BLOCKED') counts.blocked += 1;
-    else counts.past += 1;
+    switch (slot.status) {
+      case 'AVAILABLE': counts.available += 1; break;
+      case 'PENDING_HOLD': counts.pendingHold += 1; break;
+      case 'BLOCKED': counts.blocked += 1; break;
+      case 'PAST': counts.past += 1; break;
+      default: {
+        // 새 상태가 유니온에 추가되면 여기서 컴파일 에러 — "지난 시간" 오분류(암묵 폴백) 방지
+        const unhandledStatus: never = slot.status;
+        void unhandledStatus;
+      }
+    }
   }
   return counts;
 }

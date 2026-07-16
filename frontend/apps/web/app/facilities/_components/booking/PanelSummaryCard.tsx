@@ -48,14 +48,16 @@ export function PanelSummaryCard({ day, onQuickSelect }: Props) {
       </div>
       <p className="mt-1 font-display text-xl">{bookingDateLabel(day.date)}</p>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-cream/80">
-        {statusEntries.map((entry) => (
-          <span key={entry.key} className="inline-flex items-center gap-1">
-            <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${entry.dotClass}`} />
-            {entry.label} <span className="font-mono font-bold text-cream">{entry.count}칸</span>
-          </span>
-        ))}
-      </div>
+      {statusEntries.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-cream/80">
+          {statusEntries.map((entry) => (
+            <span key={entry.key} className="inline-flex items-center gap-1">
+              <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${entry.dotClass}`} />
+              {entry.label} <span className="font-mono font-bold text-cream">{entry.count}칸</span>
+            </span>
+          ))}
+        </div>
+      )}
       {operatingRange && (
         <p className="mt-1.5 text-[11px] text-cream/50">운영 시간 {operatingRange} · {day.slots.length}칸</p>
       )}
