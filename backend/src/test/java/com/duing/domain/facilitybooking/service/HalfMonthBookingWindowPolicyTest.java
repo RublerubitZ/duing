@@ -80,6 +80,29 @@ class HalfMonthBookingWindowPolicyTest {
     }
 
     @Test
+    @DisplayName("2월 하반기(윤년 20일)에는 현재 구간이 29일까지 열린다")
+    void februaryLeapYearHandlesShortMonth() {
+        BookingWindow window = policy.windowFor(LocalDate.of(2028, 2, 20));
+
+        assertThat(window.from()).isEqualTo(LocalDate.of(2028, 2, 20));
+        assertThat(window.until()).isEqualTo(LocalDate.of(2028, 3, 15));
+        assertCurrentRange(window, LocalDate.of(2028, 2, 20), LocalDate.of(2028, 2, 29));
+        assertNextRange(window, LocalDate.of(2028, 3, 1), LocalDate.of(2028, 3, 15));
+    }
+
+    @Test
+    @DisplayName("기준일 상한(27일)에서도 평년 2월의 다음 구간이 하루(28일)로 성립한다")
+    void maxPivotDayKeepsFebruaryNextRangeValid() {
+        HalfMonthBookingWindowPolicy maxPivotPolicy = new HalfMonthBookingWindowPolicy(27);
+
+        BookingWindow window = maxPivotPolicy.windowFor(LocalDate.of(2026, 2, 10));
+
+        assertThat(window.until()).isEqualTo(LocalDate.of(2026, 2, 28));
+        assertCurrentRange(window, LocalDate.of(2026, 2, 10), LocalDate.of(2026, 2, 27));
+        assertNextRange(window, LocalDate.of(2026, 2, 28), LocalDate.of(2026, 2, 28));
+    }
+
+    @Test
     @DisplayName("12월 하반기에는 다음 구간이 다음 해 1월 상반기로 연 경계를 넘는다")
     void crossesYearBoundary() {
         BookingWindow window = policy.windowFor(LocalDate.of(2026, 12, 20));
