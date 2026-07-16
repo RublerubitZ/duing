@@ -67,7 +67,7 @@ export function slotInRange(slot: BookingAvailabilitySlot, range: SlotRange): bo
 
 /**
  * 연속 슬롯 선택(§9.4): 첫 탭=단일, 둘째 탭=사이 전부 선택 가능이면 범위 확장, 아니면 재시작,
- * 동일 단일 슬롯 재탭=해제. 선택 불가 슬롯 탭은 무시.
+ * 선택 범위 내부 슬롯 재탭=그 슬롯부터 끝까지 해제(첫 슬롯이면 전체 해제). 선택 불가 슬롯 탭은 무시.
  */
 export function toggleSlotSelection(
   current: SlotRange | null,
@@ -81,8 +81,9 @@ export function toggleSlotSelection(
   if (!current) {
     return single;
   }
-  if (current.start === single.start && current.end === single.end) {
-    return null;
+  if (slotInRange(tapped, current)) {
+    // 선택된 슬롯 재탭 = 그 슬롯부터 끝까지 해제(첫 슬롯이면 전체 해제) — 연속 범위 계약 유지
+    return tapped.start === current.start ? null : { start: current.start, end: tapped.start };
   }
   const start = current.start < single.start ? current.start : single.start;
   const end = current.end > single.end ? current.end : single.end;
@@ -167,6 +168,61 @@ export function periodDistribution(slots: BookingAvailabilitySlot[]): PeriodDist
   });
 }
 
-export function firstAvailableStarts(slots: BookingAvailabilitySlot[], max: number): string[] {
-  return slots.filter((slot) => slot.status === 'AVAILABLE').slice(0, max).map((slot) => slot.start);
+export type SlotStatusCounts = { available: number; pendingHold: number; blocked: number; past: number };
+
+export function slotStatusCounts(slots: BookingAvailabilitySlot[]): SlotStatusCounts {
+  const counts: SlotStatusCounts = { available: 0, pendingHold: 0, blocked: 0, past: 0 };
+  for (const slot of slots) {
+    switch (slot.status) {
+      case 'AVAILABLE': counts.available += 1; break;
+      case 'PENDING_HOLD': counts.pendingHold += 1; break;
+      case 'BLOCKED': counts.blocked += 1; break;
+      case 'PAST': counts.past += 1; break;
+      default: {
+        // 새 상태가 유니온에 추가되면 여기서 컴파일 에러 — "지난 시간" 오분류(암묵 폴백) 방지
+        const unhandledStatus: never = slot.status;
+        void unhandledStatus;
+      }
+    }
+  }
+  return counts;
+}
+
+// ── 예약 건별 현황 파생(§4‴.2) — BLOCKED·PENDING_HOLD 만 건 단위로 추출·병합 ─────
+
+export type DayBookingEntryKind = 'SCHOOL' | 'INTERNAL' | 'PENDING';
+export type DayBookingEntry = { start: string; end: string; label: string; kind: DayBookingEntryKind };
+
+// 슬롯 → 예약 건(라벨·종류). AVAILABLE·PAST 는 현황 카드에 포함하지 않으므로 null.
+function bookingEntryOf(slot: BookingAvailabilitySlot): Pick<DayBookingEntry, 'label' | 'kind'> | null {
+  if (slot.status === 'BLOCKED') {
+    // organization 이 오면 소스(SCHOOL/INTERNAL) 무관 동아리명 노출(§4⁗.1 정책 반전), 없으면 "예약됨"
+    // 폴백 — 구 백엔드 응답에서도 동작(fail-open). kind 는 소스 구분을 그대로 유지한다.
+    const kind: DayBookingEntryKind = slot.blockedBy === 'SCHOOL' && slot.organization ? 'SCHOOL' : 'INTERNAL';
+    // ||: 빈 문자열 organization(계약상 퇴화 입력)도 폴백 — kind 판정(truthy)과 기준 일치
+    return { label: slot.organization || '예약됨', kind };
+  }
+  if (slot.status === 'PENDING_HOLD') {
+    return { label: '승인 대기', kind: 'PENDING' };
+  }
+  return null;
+}
+
+/**
+ * 예약 건별 현황(§4‴.2): BLOCKED·PENDING_HOLD 슬롯만 건으로 추출하고, 인접(prev.end == next.start)하며
+ * 같은 종류·같은 표기면 한 건으로 병합한다(시간순). AVAILABLE·PAST 는 제외한다.
+ */
+export function dayBookingEntries(slots: BookingAvailabilitySlot[]): DayBookingEntry[] {
+  const entries: DayBookingEntry[] = [];
+  for (const slot of slots) {
+    const derived = bookingEntryOf(slot);
+    if (!derived) continue;
+    const last = entries[entries.length - 1];
+    if (last && last.end === slot.start && last.kind === derived.kind && last.label === derived.label) {
+      last.end = slot.end; // 인접·동종·동표기 → 앞 건에 흡수
+      continue;
+    }
+    entries.push({ start: slot.start, end: slot.end, label: derived.label, kind: derived.kind });
+  }
+  return entries;
 }

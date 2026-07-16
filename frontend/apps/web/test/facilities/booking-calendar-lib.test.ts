@@ -3,13 +3,14 @@ import type { BookingAvailabilitySlot } from '@duing/types';
 import {
   buildMonthCells,
   DAY_LEVEL_META,
+  dayBookingEntries,
   dayLevelOf,
-  firstAvailableStarts,
   isWithinBookable,
   periodDistribution,
   rangeContainsPendingHold,
   rangeLabel,
   slotInRange,
+  slotStatusCounts,
   toggleSlotSelection,
   weekDatesOf,
 } from '@/app/facilities/_lib/bookingCalendar';
@@ -34,6 +35,13 @@ const daySlots: [
   slot(12, 'PENDING_HOLD'),
   slot(13, 'AVAILABLE'),
 ];
+
+// 저녁 연속 3칸(18~21시) — 선택 범위 내부 슬롯 재탭 해제 규칙 검증용.
+// 인덱스 접근(noUncheckedIndexedAccess) 회피를 위해 슬롯을 개별 상수로 둔다.
+const eveningSlot18: BookingAvailabilitySlot = slot(18, 'AVAILABLE'); // 18:00~19:00
+const eveningSlot19: BookingAvailabilitySlot = slot(19, 'AVAILABLE'); // 19:00~20:00
+const eveningSlot20: BookingAvailabilitySlot = slot(20, 'AVAILABLE'); // 20:00~21:00
+const eveningSlots: BookingAvailabilitySlot[] = [eveningSlot18, eveningSlot19, eveningSlot20];
 
 describe('buildMonthCells', () => {
   it('6×7 그리드를 월요일 시작으로 만들고 해당 월 날짜 수만 inMonth 다', () => {
@@ -68,6 +76,27 @@ describe('toggleSlotSelection', () => {
   it('차단·과거 슬롯 탭은 무시된다', () => {
     const current = { start: '09:00', end: '10:00' };
     expect(toggleSlotSelection(current, daySlots[2], daySlots)).toEqual(current);
+  });
+
+  it('다중 범위에서 마지막 슬롯을 재탭하면 그 슬롯만 해제된다', () => {
+    const current = { start: '18:00', end: '20:00' }; // 18~20 선택 중
+    expect(toggleSlotSelection(current, eveningSlot19, eveningSlots)).toEqual({ start: '18:00', end: '19:00' });
+  });
+
+  it('다중 범위에서 중간 슬롯을 재탭하면 그 지점부터 끝까지 해제된다', () => {
+    const current = { start: '18:00', end: '21:00' }; // 18~21 선택 중
+    expect(toggleSlotSelection(current, eveningSlot19, eveningSlots)).toEqual({ start: '18:00', end: '19:00' });
+  });
+
+  it('다중 범위에서 첫 슬롯을 재탭하면 전체가 해제된다', () => {
+    const current = { start: '18:00', end: '20:00' }; // 18~20 선택 중
+    expect(toggleSlotSelection(current, eveningSlot18, eveningSlots)).toBeNull();
+  });
+
+  it('범위 안의 승인 대기 슬롯 재탭도 동일하게 그 지점부터 해제된다', () => {
+    const current = { start: '12:00', end: '14:00' }; // 12~13 HOLD 포함 범위
+    expect(toggleSlotSelection(current, daySlots[4], daySlots)).toEqual({ start: '12:00', end: '13:00' }); // 13~14 재탭
+    expect(toggleSlotSelection(current, daySlots[3], daySlots)).toBeNull(); // 첫 슬롯(HOLD) 재탭 = 전체 해제
   });
 });
 
@@ -120,8 +149,101 @@ describe('dayLevelOf', () => {
   });
 });
 
-describe('periodDistribution / firstAvailableStarts', () => {
-  it('오전(09-12)/오후(12-18)/저녁(18-22) 가용 분포와 첫 가용 시각을 파생한다', () => {
+describe('slotStatusCounts', () => {
+  it('혼합 슬롯을 상태별로 집계한다', () => {
+    const mixed: BookingAvailabilitySlot[] = [
+      slot(9, 'AVAILABLE'),
+      slot(10, 'AVAILABLE'),
+      slot(11, 'BLOCKED'),
+      slot(12, 'PENDING_HOLD'),
+      slot(13, 'PAST'),
+    ];
+    expect(slotStatusCounts(mixed)).toEqual({ available: 2, pendingHold: 1, blocked: 1, past: 1 });
+  });
+});
+
+describe('dayBookingEntries', () => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const schoolSlot = (startHour: number, organization: string): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'BLOCKED',
+    blockedBy: 'SCHOOL',
+    organization,
+  });
+  const internalSlot = (startHour: number): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'BLOCKED',
+    blockedBy: 'INTERNAL',
+  });
+  const namedInternalSlot = (startHour: number, organization: string): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'BLOCKED',
+    blockedBy: 'INTERNAL',
+    organization,
+  });
+  const pendingSlot = (startHour: number): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'PENDING_HOLD',
+  });
+
+  it('(a) 같은 단체 연속 3칸은 한 건(09:00~12:00)으로 병합한다', () => {
+    expect(
+      dayBookingEntries([schoolSlot(9, '비호응원단'), schoolSlot(10, '비호응원단'), schoolSlot(11, '비호응원단')]),
+    ).toEqual([{ start: '09:00', end: '12:00', label: '비호응원단', kind: 'SCHOOL' }]);
+  });
+
+  it('(b) 다른 단체가 인접하면 병합하지 않는다', () => {
+    expect(dayBookingEntries([schoolSlot(9, '비호응원단'), schoolSlot(10, '트레몰로')])).toEqual([
+      { start: '09:00', end: '10:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '10:00', end: '11:00', label: '트레몰로', kind: 'SCHOOL' },
+    ]);
+  });
+
+  it('(c) organization 없는 INTERNAL(구 백엔드)은 "예약됨" 폴백으로 한 건 병합한다(fail-open)', () => {
+    expect(dayBookingEntries([internalSlot(9), internalSlot(10)])).toEqual([
+      { start: '09:00', end: '11:00', label: '예약됨', kind: 'INTERNAL' },
+    ]);
+  });
+
+  it('(f) organization 이 실린 INTERNAL 은 소스 무관 동아리명으로 표기·병합한다(정책 반전)', () => {
+    expect(dayBookingEntries([namedInternalSlot(9, '두잉밴드'), namedInternalSlot(10, '두잉밴드')])).toEqual([
+      { start: '09:00', end: '11:00', label: '두잉밴드', kind: 'INTERNAL' },
+    ]);
+  });
+
+  it('(g) INTERNAL 이라도 이름이 다르면 병합하지 않는다(병합은 label 기준)', () => {
+    expect(dayBookingEntries([namedInternalSlot(9, '두잉밴드'), namedInternalSlot(10, '고정관념')])).toEqual([
+      { start: '09:00', end: '10:00', label: '두잉밴드', kind: 'INTERNAL' },
+      { start: '10:00', end: '11:00', label: '고정관념', kind: 'INTERNAL' },
+    ]);
+  });
+
+  it('(d) 사이가 예약 가능으로 끊기면 같은 단체라도 두 건이다', () => {
+    expect(
+      dayBookingEntries([schoolSlot(9, '비호응원단'), slot(10, 'AVAILABLE'), schoolSlot(11, '비호응원단')]),
+    ).toEqual([
+      { start: '09:00', end: '10:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '11:00', end: '12:00', label: '비호응원단', kind: 'SCHOOL' },
+    ]);
+  });
+
+  it('(e) 예약 가능·지난 시간만 있으면 빈 배열이다', () => {
+    expect(dayBookingEntries([slot(9, 'AVAILABLE'), slot(10, 'PAST'), slot(11, 'AVAILABLE')])).toEqual([]);
+  });
+
+  it('승인 대기(PENDING_HOLD)는 "승인 대기" 건으로 병합·추출하고 지난 시간·예약 가능은 제외한다', () => {
+    expect(
+      dayBookingEntries([slot(9, 'PAST'), pendingSlot(10), pendingSlot(11), slot(12, 'AVAILABLE')]),
+    ).toEqual([{ start: '10:00', end: '12:00', label: '승인 대기', kind: 'PENDING' }]);
+  });
+});
+
+describe('periodDistribution', () => {
+  it('오전(09-12)/오후(12-18)/저녁(18-22) 가용 분포를 파생한다', () => {
     const slots = Array.from({ length: 13 }, (_, index) => {
       const pad = (n: number) => String(n).padStart(2, '0');
       const start = `${pad(9 + index)}:00`;
@@ -137,6 +259,5 @@ describe('periodDistribution / firstAvailableStarts', () => {
       { key: 'AFTERNOON', label: '오후', range: '12–18', free: 5, total: 6 },
       { key: 'EVENING', label: '저녁', range: '18–22', free: 3, total: 4 },
     ]);
-    expect(firstAvailableStarts(slots, 3)).toEqual(['09:00', '10:00', '13:00']);
   });
 });

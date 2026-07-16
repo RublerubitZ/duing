@@ -8,7 +8,7 @@ import {
   useFacilityUsageQuery,
 } from '@duing/hooks';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { FacilityUpdateBanner } from '../_components/FacilityUpdateBanner';
 import { FacilityOverviewTimeline } from '../_components/FacilityOverviewTimeline';
@@ -374,6 +374,10 @@ export function FacilityBookingPage() {
               <SheetTitle className="text-left font-display text-base text-ink-deep">
                 {selectedFacility?.roomName}
               </SheetTitle>
+              {/* Radix Dialog 접근성 요구(aria-describedby) — 없으면 dev 경고, SR 사용자 맥락 제공 */}
+              <SheetDescription className="sr-only">
+                날짜별 예약 현황을 확인하고 시간을 선택해 신청할 수 있어요.
+              </SheetDescription>
             </SheetHeader>
             {panel}
           </div>
