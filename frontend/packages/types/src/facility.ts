@@ -93,9 +93,17 @@ export type FacilityAvailabilityResponse = {
 };
 
 // GET /api/v1/facilities/booking-window — 현재 예약 오픈 구간(전 시설 공통, §1.5)
+export type FacilityBookingRange = {
+  startDate: string; // yyyy-MM-dd
+  endDate: string; // yyyy-MM-dd
+  label: string; // 서버 산출 표시 문자열("현재 예약 가능" 등) — FE 재정의 금지
+};
+
 export type FacilityBookingWindow = {
   bookableFrom: string; // yyyy-MM-dd
   bookableUntil: string;
+  // BE(Lightsail) 배포 전 FE(Vercel) 선배포 전환기에 구 응답으로도 동작해야 한다 — 부재 시 단일 배지 폴백
+  availableBookingRanges?: FacilityBookingRange[];
 };
 
 export type PurposePreset = {

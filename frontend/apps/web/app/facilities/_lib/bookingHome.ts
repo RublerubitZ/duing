@@ -1,9 +1,14 @@
 // 시설 선택 홈 파생 유틸(§2.2).
 import type { FacilityBookingWindow } from '@duing/types';
 
-export function windowRangeLabel(window: FacilityBookingWindow): string {
+/** 두 ISO 날짜(yyyy-MM-dd)를 'M.d ~ M.d' 로 표기. 창 배지·구간 칩이 공유하는 단일 산식. */
+export function rangeDatesLabel(startIso: string, endIso: string): string {
   const label = (iso: string) => `${Number(iso.slice(5, 7))}.${Number(iso.slice(8, 10))}`;
-  return `${label(window.bookableFrom)} ~ ${label(window.bookableUntil)}`;
+  return `${label(startIso)} ~ ${label(endIso)}`;
+}
+
+export function windowRangeLabel(window: FacilityBookingWindow): string {
+  return rangeDatesLabel(window.bookableFrom, window.bookableUntil);
 }
 
 const OPEN_HOUR = 9;

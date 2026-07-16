@@ -18,7 +18,8 @@ import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { seoulDateIso, shiftYearMonth, yearMonthLabel } from '@/app/facilities/_lib/facilityTimeline';
 import { FacilityBookingPage } from '@/app/facilities/_pages/FacilityBookingPage';
 
-// 딥링크는 각 시나리오가 mockSearchParams.value 로 제어한다(홈 뷰는 빈 문자열, 캘린더 뷰는 facilityId=1).
+// 랜딩 = 캘린더(첫 시설 자동 선택). 딥링크는 각 시나리오가 mockSearchParams.value 로 제어한다
+// (빈 문자열=첫 시설 캘린더, facilityId=1=커뮤니티룸 캘린더). 홈 카드 그리드는 캘린더에서 '전체 보기'로 연다.
 // (vitest 규칙상 vi.mock 팩토리가 참조하는 외부 변수는 `mock` 접두사여야 한다.)
 const mockSearchParams = { value: '' };
 vi.mock('next/navigation', async () => {
@@ -54,9 +55,9 @@ const WINDOW = halfMonthWindow(TODAY_ISO);
 const WINDOW_MONTH = WINDOW.from.slice(0, 7);
 const WINDOW_FROM_DAY = Number(WINDOW.from.slice(8, 10));
 
-// 창 첫날 셀(혼합 슬롯 → availableSlotCount 10 → 레벨 '여유'). 접근성 이름 정확 매칭으로
-// 월 폴백 전환기의 PAST/창밖 셀("N일"·"N일 예약 기간 아님")과 혼선을 차단한다.
-const WINDOW_FROM_CELL = `${WINDOW_FROM_DAY}일 여유`;
+// 창 첫날 셀(혼합 슬롯 → availableSlotCount 10 → 레벨 '여유'). 카드형 셀 접근성 이름은
+// '레벨 + 남은 칸수'까지 포함해 월 폴백 전환기의 PAST/창밖 셀("N일"·"N일 예약 기간 아님")과 혼선을 차단한다.
+const WINDOW_FROM_CELL = `${WINDOW_FROM_DAY}일 여유, 남은 10칸`;
 
 // 창 월 안에 있으면서 창 밖(미래) 셀 — 토스트 가드 검증용.
 // day<=15(창=16~말일)면 창 열기 직전 날(15일), day>15(창=익월1~15)면 창 닫힌 뒤 날(익월16일).
@@ -66,6 +67,21 @@ const OUT_OF_WINDOW_CELL = `${Number(OUT_OF_WINDOW_DATE.slice(8, 10))}일 예약
 // windowRangeLabel 미러(M.d ~ M.d) — 배지("예약 가능 기간 …")·토스트("… (…)") 문구 단언용.
 const labelPart = (iso: string) => `${Number(iso.slice(5, 7))}.${Number(iso.slice(8, 10))}`;
 const WINDOW_LABEL = `${labelPart(WINDOW.from)} ~ ${labelPart(WINDOW.until)}`;
+
+// Rolling Window 구간 2건 — 단일 창(WINDOW)을 연속 분할한다(현재/다음). 절대 날짜 금지(WINDOW 파생).
+// 계약(설계 §2): [0].startDate==bookableFrom, [last].endDate==bookableUntil, 현재.endDate 다음날==다음.startDate.
+const WINDOW_UNTIL_DAY = Number(WINDOW.until.slice(8, 10));
+const RANGE_SPLIT_DAY = WINDOW_FROM_DAY + Math.floor((WINDOW_UNTIL_DAY - WINDOW_FROM_DAY) / 2);
+const NEXT_RANGE_FROM_DAY = RANGE_SPLIT_DAY + 1;
+const CURRENT_RANGE = { startDate: WINDOW.from, endDate: `${WINDOW_MONTH}-${pad2(RANGE_SPLIT_DAY)}`, label: '현재 예약 가능' };
+const NEXT_RANGE = { startDate: `${WINDOW_MONTH}-${pad2(NEXT_RANGE_FROM_DAY)}`, endDate: WINDOW.until, label: '다음 예약 가능' };
+const BOOKING_RANGES = [CURRENT_RANGE, NEXT_RANGE];
+
+// 구간 칩 텍스트("현재 예약 가능 M.d ~ M.d") — rangeDatesLabel(M.d ~ M.d) 미러.
+const CURRENT_RANGE_CHIP = `${CURRENT_RANGE.label} ${labelPart(CURRENT_RANGE.startDate)} ~ ${labelPart(CURRENT_RANGE.endDate)}`;
+const NEXT_RANGE_CHIP = `${NEXT_RANGE.label} ${labelPart(NEXT_RANGE.startDate)} ~ ${labelPart(NEXT_RANGE.endDate)}`;
+// 다음 구간 시작일 셀 = 예약 오픈 마커 대상(availableSlotCount 13 → 레벨 '여유'). aria-label 에 '예약 오픈일' 포함.
+const OPEN_MARKER_CELL = `${NEXT_RANGE_FROM_DAY}일 여유, 남은 13칸 예약 오픈일`;
 
 // 창 첫날 셀에 배치할 13칸: 11시=SCHOOL(비호응원단), 12시=INTERNAL(예약됨), 14시=HOLD, 나머지 AVAILABLE
 function makeMixedSlots(): BookingAvailabilitySlot[] {
@@ -182,7 +198,10 @@ const server = setupServer(
   ),
   availabilityHandlerFor(1),
   // 페이지가 useBookingWindowQuery 를 무조건 마운트하므로 기본 핸들러 필요(onUnhandledRequest:'error' 대비).
-  http.get('*/facilities/booking-window', () => ok({ bookableFrom: WINDOW.from, bookableUntil: WINDOW.until })),
+  // Rolling Window 전환 후 기본 응답은 구간 2건을 싣는다(구 응답 폴백은 시나리오 16에서 server.use 로 검증).
+  http.get('*/facilities/booking-window', () =>
+    ok({ bookableFrom: WINDOW.from, bookableUntil: WINDOW.until, availableBookingRanges: BOOKING_RANGES }),
+  ),
   http.get('*/facilities/booking-purpose-presets', () =>
     ok([{ id: 1, label: '동아리 정기 모임' }, { id: 3, label: '정기 합주' }]),
   ),
@@ -225,9 +244,9 @@ afterAll(() => server.close());
 
 beforeEach(() => {
   useAuthStore.setState({ status: 'idle', user: null });
-  // 자동 첫 시설 선택이 없어 미선택 시 홈 뷰(카드 그리드)가 뜬다 — 대부분의 시나리오는 캘린더 뷰
-  // (슬롯/폼 플로우)를 검증하므로 딥링크로 시설을 선택한 상태로 진입시킨다. 홈 뷰가 필요한 시나리오는
-  // 각자 mockSearchParams.value 를 비운다.
+  // 랜딩 = 첫 시설 캘린더(자동 선택). 대부분의 시나리오는 캘린더(슬롯/폼) 플로우를 검증하므로
+  // 딥링크 facilityId=1 로 선택 시설을 커뮤니티룸으로 고정한다. 홈 카드 그리드가 필요한 시나리오는
+  // 캘린더에서 '전체 보기'를 눌러 진입한다(자동 첫 시설 선택을 명시적으로 끔).
   mockSearchParams.value = 'facilityId=1';
 });
 
@@ -257,21 +276,23 @@ function renderPage() {
 }
 
 describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
-  it('시나리오 1: 홈 뷰는 시설 카드·예약 가능 기간 배지를 렌더하고, 카드 클릭 시 창 월 캘린더로 전환한다', async () => {
-    mockSearchParams.value = ''; // 딥링크 없음 → 홈 뷰
+  it('시나리오 1: 랜딩은 첫 시설 캘린더로 직행하고, 전체 보기 → 홈 카드 그리드 → 카드 클릭으로 다시 캘린더로 돌아온다', async () => {
+    mockSearchParams.value = ''; // 딥링크 없음 → 첫 시설(커뮤니티룸) 캘린더 직행
     renderPage();
 
-    // 홈 헤더·창 배지·카드 2개(둘 다 "날짜 보기 →"). 배지 라벨과 범위(M.d ~ M.d)는 중첩 span 으로
-    // 나뉘어 있어 라벨 텍스트와 창 범위를 각각 단언한다(홈 배지 + 카드 배지에 범위가 함께 노출).
+    // 랜딩 = 첫 시설 캘린더: h1 + 기본 월=창 월 캘린더 제목.
+    expect(await screen.findByRole('heading', { level: 1, name: '커뮤니티룸(1) 예약' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH) })).toBeInTheDocument();
+
+    // 전체 보기 → 홈 카드 그리드. 배지 라벨과 범위(M.d ~ M.d)는 중첩 span 으로 나뉘어 각각 단언한다.
+    fireEvent.click(await screen.findByRole('button', { name: '전체 보기' }));
     expect(await screen.findByText('예약할 시설을 골라보세요')).toBeInTheDocument();
     expect(await screen.findByText('예약 가능 기간')).toBeInTheDocument();
     expect(screen.getAllByText(WINDOW_LABEL).length).toBeGreaterThan(0);
     expect(await screen.findAllByText('날짜 보기 →')).toHaveLength(2);
 
-    // 커뮤니티룸 카드 클릭(카드 버튼 접근성 이름 = 시설명 … 날짜 보기 — 타임라인의 "N 선택" 버튼과 구분).
+    // 커뮤니티룸 카드 클릭(카드 버튼 접근성 이름 = 시설명 … 날짜 보기) → 다시 창 월 캘린더.
     fireEvent.click(screen.getByRole('button', { name: /커뮤니티룸\(1\).*날짜 보기/ }));
-
-    // 캘린더 뷰: h1 + 기본 월=창 월 캘린더 제목.
     expect(await screen.findByRole('heading', { level: 1, name: '커뮤니티룸(1) 예약' })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH) })).toBeInTheDocument();
   });
@@ -370,9 +391,9 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
   it('시나리오 6: 창 밖 미래 셀을 탭하면 선택은 열리지 않고 기간이 담긴 토스트로 안내한다', async () => {
     renderPage();
 
-    // 월 폴백→창 월 전환(제목 정착)과 창 로딩(배지)을 모두 기다린 뒤 클릭 — 전환기 셀 혼선·라벨 누락 방지.
+    // 월 폴백→창 월 전환(제목 정착)과 창 로딩(구간 칩)을 모두 기다린 뒤 클릭 — 전환기 셀 혼선·라벨 누락 방지.
     await screen.findByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH) });
-    await screen.findByText(`예약 가능 기간 ${WINDOW_LABEL}`);
+    await screen.findByText(CURRENT_RANGE_CHIP);
 
     fireEvent.click(screen.getByRole('button', { name: OUT_OF_WINDOW_CELL }));
 
@@ -408,9 +429,9 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
     ).toBeInTheDocument();
   });
 
-  it('시나리오 9: 비로그인 홈 뷰에서는 내 신청 칩이 뜨지 않고 운영 동아리 조회도 발사되지 않는다', async () => {
+  it('시나리오 9: 비로그인은 전체 보기로 연 홈 뷰에서도 내 신청 칩이 없고 운영 동아리 조회도 발사되지 않는다', async () => {
     useAuthStore.setState({ status: 'unauthenticated', user: null });
-    mockSearchParams.value = ''; // 홈 뷰(딥링크 없음) — MyBookingsChip 은 홈 상단에만 있다.
+    mockSearchParams.value = ''; // 첫 시설 캘린더 직행 — MyBookingsChip 은 홈 상단에만 있다.
 
     // managed 요청 발사 여부를 직접 포착한다(로그인 게이트 enabled:false 로 조회 자체가 안 나가야 함).
     // managed 는 기본 핸들러가 있어 onUnhandledRequest 로는 못 잡는다 — 이 스파이가 유일한 보장이다.
@@ -422,7 +443,8 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
     try {
       renderPage();
 
-      // 홈 카드가 뜬 뒤(홈 뷰 렌더 확정) 칩 부재·조회 미발사를 단언한다.
+      // 캘린더 직행 → 전체 보기로 홈 뷰 진입. 홈 카드가 뜬 뒤 칩 부재·조회 미발사를 단언한다.
+      fireEvent.click(await screen.findByRole('button', { name: '전체 보기' }));
       expect(await screen.findAllByText('날짜 보기 →')).toHaveLength(2);
       expect(screen.queryByRole('link', { name: /내 신청/ })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: /내 예약 관리/ })).not.toBeInTheDocument();
@@ -445,12 +467,13 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
     expect(loginLink.getAttribute('href')).toMatch(/^\/login\?next=/);
   });
 
-  it('시나리오 11: 로그인 운영진(동아리 1개)에 진행 중 신청이 있으면 관리 목록으로 가는 칩이 뜬다', async () => {
+  it('시나리오 11: 로그인 운영진(동아리 1개)에 진행 중 신청이 있으면 전체 보기로 연 홈에서 관리 목록 칩이 뜬다', async () => {
     useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
     server.use(http.get('*/clubs/7/facility-bookings', () => ok([PENDING_BOOKING])));
-    mockSearchParams.value = ''; // MyBookingsChip 은 홈 뷰(미선택) 상단에 있으므로 딥링크 해제
+    mockSearchParams.value = ''; // 첫 시설 캘린더 직행 — MyBookingsChip 은 홈 뷰 상단에 있어 전체 보기로 연다
 
     renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: '전체 보기' }));
 
     const chipLink = await screen.findByRole('link', { name: /내 신청 1건 진행 중/ });
     expect(chipLink).toHaveAttribute('href', '/manage/clubs/7/facility-bookings');
@@ -545,5 +568,30 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
     // 요청 yearMonth 포착 단언이 직접 보장한다 — 최종 창 월로 정착하고, 지난달(스테일 월)은 요청되지 않는다.
     await waitFor(() => expect(requestedYearMonths).toContain(WINDOW_MONTH));
     expect(requestedYearMonths).not.toContain(lastMonth);
+  });
+
+  it('시나리오 15: booking-window 구간이 있으면 캘린더 배지가 구간 칩 2개로 나뉘고 다음 구간 시작일 셀에 예약 오픈 마커가 붙는다', async () => {
+    renderPage();
+
+    // (a) 구간 칩 2개 — 서버 산출 라벨 + 범위(M.d ~ M.d).
+    expect(await screen.findByText(CURRENT_RANGE_CHIP)).toBeInTheDocument();
+    expect(screen.getByText(NEXT_RANGE_CHIP)).toBeInTheDocument();
+
+    // (b) 다음 구간 시작일 셀에 '오픈' 마커 — aria-label '예약 오픈일' + 시각 텍스트 '오픈'.
+    const openCell = screen.getByRole('button', { name: OPEN_MARKER_CELL });
+    expect(openCell).toHaveTextContent('오픈');
+  });
+
+  it('시나리오 16: booking-window 응답에 구간이 없으면 기존 단일 배지로 폴백하고 구간 칩·오픈 마커는 없다', async () => {
+    // 전환기(BE 선배포 전) 구 응답 — availableBookingRanges 부재.
+    server.use(
+      http.get('*/facilities/booking-window', () => ok({ bookableFrom: WINDOW.from, bookableUntil: WINDOW.until })),
+    );
+    renderPage();
+
+    // (c) 단일 배지 폴백 — 구간 칩·오픈 마커는 렌더되지 않는다.
+    expect(await screen.findByText(`예약 가능 기간 ${WINDOW_LABEL}`)).toBeInTheDocument();
+    expect(screen.queryByText(CURRENT_RANGE_CHIP)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: OPEN_MARKER_CELL })).not.toBeInTheDocument();
   });
 });

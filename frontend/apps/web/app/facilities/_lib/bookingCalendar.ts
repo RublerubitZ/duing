@@ -15,11 +15,11 @@ function parseIsoDate(iso: string): Date {
   return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1);
 }
 
-/** 6×7(일요일 시작) 월 그리드 — calendar 페이지 buildMonth 전례 이식. */
+/** 6×7(월요일 시작 — 주간 타임라인과 일관) 월 그리드 — calendar 페이지 buildMonth 전례 이식. */
 export function buildMonthCells(yearMonth: string): CalendarCell[] {
   const [year, month] = yearMonth.split('-').map(Number);
   const monthIndex = (month ?? 1) - 1;
-  const startCol = new Date(year ?? 1970, monthIndex, 1).getDay();
+  const startCol = (new Date(year ?? 1970, monthIndex, 1).getDay() + 6) % 7; // 월=0 … 일=6
   const daysInMonth = new Date(year ?? 1970, monthIndex + 1, 0).getDate();
   const prevDays = new Date(year ?? 1970, monthIndex, 0).getDate();
   const cells: CalendarCell[] = [];
@@ -137,7 +137,7 @@ export const DAY_LEVEL_META: Record<DayLevel, { label: string; barClass: string;
   HIGH: { label: '여유', barClass: 'bg-sage', textClass: 'text-ink' },
   MID: { label: '보통', barClass: 'bg-warm', textClass: 'text-[#8E6620]' },
   LOW: { label: '혼잡', barClass: 'bg-coral', textClass: 'text-coral' },
-  FULL: { label: '마감', barClass: 'bg-graysoft', textClass: 'text-charcoal-3' },
+  FULL: { label: '마감', barClass: 'bg-line', textClass: 'text-charcoal-3' },
 };
 
 export type PeriodDistribution = {
