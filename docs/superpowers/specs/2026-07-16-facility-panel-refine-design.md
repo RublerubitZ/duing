@@ -43,6 +43,40 @@
   치환 대상. 예상 시간 암시 금지도 유지).
 - 모든 운영행에 동일 정책이 적용됨이 문구상 드러나야 한다("시간 범위가 함께 표시된 일정은" — 일반 서술).
 
+## 4′. 예약 현황 리스트 목업 정합 + 퀵칩 제거 (2차 요구, 2026-07-16)
+
+사용자 규칙: 새 디자인 금지 — Concept A JSX(`DAY_SLOTS`/`SLOT_STYLE`)의 표현 방식을 최대한 유지하고
+필요한 부분만 조정한다. 기존 정책(운영행·HOLD 선택 가능·Rolling Window·비노출)은 전부 유지.
+
+### 4′.1 슬롯 행을 SLOT_STYLE 시각 언어로
+
+행 전체가 상태색을 입는다(현재: 흰 행 + 우측 회색 텍스트). 목업 ↔ 두잉 토큰 매핑:
+
+| 상태 | 목업 | 두잉 토큰 (행 클래스) | 우측 표기 |
+|---|---|---|---|
+| AVAILABLE | free: sage-mist bg·sage-soft br | `border-sage-soft bg-sage-mist text-ink` + hover `border-sage` | "예약 가능" |
+| PENDING_HOLD | pending: 앰버 계열 | `border-warm/60 bg-warm/15 text-charcoal-2` + hover `border-warm` | "승인 대기" |
+| BLOCKED | booked: #F0EDE5(=graysoft) | `border-line bg-graysoft text-charcoal-3` | SCHOOL=단체명 / INTERNAL="예약됨" |
+| PAST | closed(줄무늬) | `border-transparent bg-graysoft/60 text-charcoal-3` (기존 유지) | "지난 시간" |
+| 선택됨 | mine: ink bg | `border-ink-deep bg-ink text-cream` (기존 유지) | ✓ + 기존 표기 |
+
+**조정 사유 3건(목업 → 변경)**: ① closed 줄무늬 패턴은 raw hex gradient라 토큰 규칙과 충돌 —
+PAST는 기존 muted 유지. ② pending fg #8E6620 은 팔레트에 없음 — warm 배경 + charcoal-2 텍스트로 대체.
+③ 목업 pending 은 선택 불가처럼 보이나 두잉 HOLD 정책은 선택 가능 — hover 어포던스 유지, 폼의
+기존 경고 문구가 후속 안내.
+
+- 라벨 변경: "신청 가능" → **"예약 가능"**(목업·사용자 예시·캘린더 칩 "현재 예약 가능"과 통일),
+  "승인 대기중" → **"승인 대기"**(사용자 명시). 요약 카드 집계 라벨도 "예약 가능"으로 동기화.
+  다른 화면(manage 배지 등)은 booking status 도메인이라 무변경.
+- 행 존재감 소폭 확대 허용(현황이 주 콘텐츠가 되도록) — 레이아웃 구조(단일 리스트·탭 선택)는 무변경.
+  현황 확인과 시간 선택은 지금처럼 같은 리스트에서 이어진다(요구 4 충족 — 구조 변경 없음).
+
+### 4′.2 "바로 신청 가능한 시간" 퀵칩 제거
+
+- PanelSummaryCard 의 퀵칩 섹션(구분선 포함)과 `onQuickSelect` prop 제거. BookingPanel 호출부 정리.
+- `firstAvailableStarts` 는 퀵칩 전용 → lib·테스트에서 삭제(dead code 금지 관례).
+- 결과 구성: 날짜 요약(집계·운영 시간·분포) → 예약 현황 리스트(=시간 선택) → 선택 요약 → 신청.
+
 ## 4. Out of Scope
 
 - 백엔드 변경(집계·운영 시간 전부 기존 응답에서 파생)

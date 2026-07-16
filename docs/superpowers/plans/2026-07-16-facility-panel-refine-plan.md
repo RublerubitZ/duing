@@ -151,3 +151,37 @@ const statusEntries = [
 
 - [ ] **Step 5: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
 - [ ] **Step 6: 커밋** — `feat(frontend): 예약 패널에 날짜 현황 요약·운영행 정책 안내 추가`
+
+---
+
+### Task 3: 예약 현황 리스트 SLOT_STYLE 정합 + 퀵칩 제거 (2차 요구)
+
+**Files:**
+- Modify: `frontend/apps/web/app/facilities/_components/booking/DaySlotList.tsx`
+- Modify: `frontend/apps/web/app/facilities/_components/booking/PanelSummaryCard.tsx`
+- Modify: `frontend/apps/web/app/facilities/_components/booking/BookingPanel.tsx` (onQuickSelect 전달 제거)
+- Modify: `frontend/apps/web/app/facilities/_lib/bookingCalendar.ts` (`firstAvailableStarts` 삭제)
+- Test: `frontend/apps/web/test/facilities/booking-components.test.tsx`, `booking-calendar-lib.test.ts`, `facility-booking-page.test.tsx`
+
+**Interfaces:** DaySlotList props 무변경(day·selection·onToggleSlot). PanelSummaryCard props는 `{ day }`만 남는다.
+
+- [ ] **Step 1: 실패 테스트 갱신 (RED)**
+
+스펙 §4′.1 매핑 표를 테스트로 고정:
+(a) DaySlotList — AVAILABLE 행 "예약 가능" 라벨 + `bg-sage-mist` 클래스, PENDING_HOLD 행 "승인 대기" + 여전히 클릭 가능(onToggleSlot 호출), BLOCKED(SCHOOL) 행 단체명, BLOCKED(INTERNAL) 행 "예약됨", 선택 행 `bg-ink`.
+(b) PanelSummaryCard — "바로 신청 가능한 시간" 미렌더, 집계 라벨 "예약 가능 N칸".
+(c) 기존 "신청 가능"/"승인 대기중" 단언은 새 라벨로 갱신(페이지 테스트 포함 — grep으로 전수).
+(d) lib — firstAvailableStarts 테스트 삭제.
+
+- [ ] **Step 2: 실패 확인** — `pnpm --filter web test booking-components booking-calendar-lib facility-booking-page` → 신규/갱신 단언 FAIL
+
+- [ ] **Step 3: 구현**
+
+DaySlotList — 상태→행 클래스 Record(스펙 §4′.1 표의 클래스 문자열 그대로)와 라벨 함수 갱신. 행 내용 구조(좌측 mono 시간, 우측 라벨/단체명, aria-pressed, disabled)는 유지하되 py 를 3 으로 소폭 확대. 선택 행은 기존 `border-ink bg-ink text-cream` 계열 유지(테두리만 ink-deep 로).
+
+PanelSummaryCard — quickStarts·remaining·퀵칩 섹션(border-t 블록)·`onQuickSelect` prop 제거, 집계 라벨 '신청 가능'→'예약 가능'. BookingPanel — `<PanelSummaryCard day={day} />`로.
+
+bookingCalendar.ts — `firstAvailableStarts` 삭제(다른 사용처 없음 grep 확인).
+
+- [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
+- [ ] **Step 5: 커밋** — `feat(frontend): 예약 현황 리스트를 목업 상태색 행으로 정합·퀵칩 제거`
