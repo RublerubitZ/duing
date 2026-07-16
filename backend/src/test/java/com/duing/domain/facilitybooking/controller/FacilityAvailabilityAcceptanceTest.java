@@ -56,14 +56,14 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("크롤 데이터가 없는 시설은 예약 오픈 창의 첫 날짜가 종일 AVAILABLE 이다")
+    @DisplayName("크롤 데이터가 없는 시설은 예약 오픈 창의 미래 날짜가 종일 AVAILABLE 이다")
     void availabilityForEmptyMonth() {
         Facility facility = facilityRepository.save(Facility.create(90001, "커뮤니티룸(T)", null, 0));
 
         FacilityAvailabilityResponse response =
                 availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
 
-        // bookableFrom·bookableUntil 은 반월 오픈 정책이 계산한 현재 창과 정확히 일치해야 한다(익월말 고정 아님).
+        // bookableFrom·bookableUntil 은 롤링 오픈 정책이 계산한 현재 창과 정확히 일치해야 한다(익월말 고정 아님).
         BookingWindow window = bookingWindowPolicy.windowFor(LocalDate.now(clock));
         assertThat(response.days()).hasSize(YearMonth.now(clock).lengthOfMonth());
         assertThat(response.bookableFrom()).isEqualTo(window.from());
@@ -71,15 +71,16 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         assertThat(response.stale()).isTrue();
         assertThat(response.days().get(response.days().size() - 1).slots()).hasSize(13);
 
-        // 창(예약 오픈 구간) 내 날짜는 미래이고 크롤·예약이 없으므로 그날 슬롯 13칸이 전부 AVAILABLE 이다.
-        FacilityAvailabilityResponse windowMonth =
-                availabilityService.getAvailability(facility.getId(), YearMonth.from(window.from()));
-        FacilityAvailabilityResponse.DayAvailability firstBookableDay = windowMonth.days().stream()
-                .filter(dayAvailability -> dayAvailability.date().equals(window.from()))
+        // 창의 마지막 날(다음 반월 말일)은 항상 미래이고 크롤·예약이 없으므로 그날 슬롯 13칸이 전부 AVAILABLE 이다.
+        // (창의 첫날은 롤링 전환으로 오늘이라 지난 슬롯이 PAST 가 될 수 있어, 시각 무관 검증에는 미래 날짜를 쓴다.)
+        FacilityAvailabilityResponse windowEndMonth =
+                availabilityService.getAvailability(facility.getId(), YearMonth.from(window.until()));
+        FacilityAvailabilityResponse.DayAvailability lastBookableDay = windowEndMonth.days().stream()
+                .filter(dayAvailability -> dayAvailability.date().equals(window.until()))
                 .findFirst()
                 .orElseThrow();
-        assertThat(firstBookableDay.availableSlotCount()).isEqualTo(13);
-        assertThat(firstBookableDay.slots()).allSatisfy(slot ->
+        assertThat(lastBookableDay.availableSlotCount()).isEqualTo(13);
+        assertThat(lastBookableDay.slots()).allSatisfy(slot ->
                 assertThat(slot.status()).isEqualTo(FacilityAvailabilityResponse.SlotStatus.AVAILABLE));
     }
 
@@ -95,7 +96,7 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("예약 오픈 구간 API 는 비로그인으로 현재 구간을 반환하고 가용성 응답의 창과 일치한다")
+    @DisplayName("예약 오픈 구간 API 는 비로그인으로 단일 창과 현재·다음 세부 구간 2개를 반환한다")
     void bookingWindowMatchesAvailabilityWindow() {
         BookingWindow expected = bookingWindowPolicy.windowFor(LocalDate.now(clock));
 
@@ -106,6 +107,13 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
 
         assertThat(response.bookableFrom()).isEqualTo(expected.from());
         assertThat(response.bookableUntil()).isEqualTo(expected.until());
+        assertThat(response.availableBookingRanges()).hasSize(2);
+        assertThat(response.availableBookingRanges().get(0).startDate()).isEqualTo(expected.openRanges().get(0).from());
+        assertThat(response.availableBookingRanges().get(0).endDate()).isEqualTo(expected.openRanges().get(0).until());
+        assertThat(response.availableBookingRanges().get(0).label()).isEqualTo("현재 예약 가능");
+        assertThat(response.availableBookingRanges().get(1).startDate()).isEqualTo(expected.openRanges().get(1).from());
+        assertThat(response.availableBookingRanges().get(1).endDate()).isEqualTo(expected.openRanges().get(1).until());
+        assertThat(response.availableBookingRanges().get(1).label()).isEqualTo("다음 예약 가능");
     }
 
     @Test

@@ -65,9 +65,9 @@ class FacilityBookingQueryIntegrationTest extends IntegrationTestBase {
     }
 
     private Long createBooking(int startHour, int endHour) {
-        // 반월 오픈 정책이 계산한 현재 창의 첫 날짜 — 실행 시점과 무관하게 항상 신청 가능하다.
+        // 시각 무관 항상 신청 가능한 날짜(내일) — 롤링 창은 오늘을 포함하나 고정 슬롯 시각 타임밤을 피해 내일을 쓴다.
         return bookingService.create(new CreateFacilityBookingCommand(club.getId(), leader.getId(),
-                facility.getId(), BookingWindowFixture.firstBookableDate(), LocalTime.of(startHour, 0),
+                facility.getId(), BookingWindowFixture.bookableDate(), LocalTime.of(startHour, 0),
                 LocalTime.of(endHour, 0), "정기 연습", null)).bookingId();
     }
 

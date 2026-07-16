@@ -184,8 +184,9 @@ duing:
         # 운영에서 DUING_FACILITY_BOOKING_MATCHING_ENABLED=true(application-prod.yml)로 활성화한다.
         enabled: ${DUING_FACILITY_BOOKING_MATCHING_ENABLED:false}
       window:
-        # 예약 오픈 구간 정책(설계 §1.5) — HALF_MONTH: 오늘 1~pivot일이면 당월 (pivot+1)~말일,
-        # (pivot+1)~말일이면 익월 1~pivot일. MONTHLY/FREE 는 키만 예약(미구현 — 선택 시 부팅 실패).
+        # 예약 오픈 구간 정책(설계 §1.5 → 2026-07-16 롤링 전환) — HALF_MONTH: 롤링 창
+        # [오늘, 다음 반월 말일]. 오늘 1~pivot일이면 당월 말일까지, (pivot+1)~말일이면 익월 pivot일까지.
+        # MONTHLY/FREE 는 키만 예약(미구현 — 선택 시 부팅 실패).
         mode: ${DUING_FACILITY_BOOKING_WINDOW_MODE:HALF_MONTH}
         pivot-day: ${DUING_FACILITY_BOOKING_WINDOW_PIVOT_DAY:15}
 
