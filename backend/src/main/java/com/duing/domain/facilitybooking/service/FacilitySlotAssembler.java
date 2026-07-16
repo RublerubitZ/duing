@@ -37,9 +37,14 @@ public final class FacilitySlotAssembler {
     public record CrawlSlice(LocalDate date, LocalTime start, LocalTime end, String organization,
                              CrawlRowType type, LocalTime operatingStart, LocalTime operatingEnd) {}
 
-    /** 내부 예약 slice. 내부 예약은 상태만 필요, 동아리명은 공개 API 비노출 정책(BLOCKED(INTERNAL)·PENDING 모두). */
+    /**
+     * 내부 예약 slice. organization 은 BLOCKED(INTERNAL·APPROVED/CONFIRMED) 슬롯에만 채워지는 동아리명이며
+     * PENDING 은 신청 경쟁 정보라 항상 null 이다(2026-07-17 사용자 결정 §4⁗.1 — 승인 완료 예약은 학교 반영 후
+     * 크롤 SCHOOL 행으로 어차피 실명 공개되므로 새 정보가 아님, PENDING 만 비노출 유지). soft-delete 된 동아리는
+     * 이름을 못 찾아 null 로 내려가고 FE 는 '예약됨' 폴백을 쓴다.
+     */
     public record BookingSlice(LocalDate date, LocalTime start, LocalTime end,
-                               BookingStatus status) {}
+                               BookingStatus status, String organization) {}
 
     public static List<DayAvailability> assembleDays(YearMonth month, LocalDate today, LocalTime nowTime,
                                                      List<CrawlSlice> crawlSlices, List<BookingSlice> bookingSlices) {
@@ -98,10 +103,12 @@ public final class FacilitySlotAssembler {
                 .filter(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd))
                 .findFirst();
         if (internalBlock.isPresent()) {
-            // 내부 예약(APPROVED/CONFIRMED)은 아직 학교 미반영 신청 정보 — 동아리명 비노출(2026-07-13 사용자 결정).
-            // FE 는 blockedBy=INTERNAL 로만 '예약됨' 계열 일반 문구 표시. SCHOOL 분기 단체명은 공개 정보라 유지.
+            // 내부 예약(APPROVED/CONFIRMED)은 승인 완료 상태라 학교 반영 후 크롤 SCHOOL 행으로 어차피 실명
+            // 공개되므로 동아리명을 노출한다(2026-07-17 사용자 결정 §4⁗.1 — 구 비노출 정책 부분 반전).
+            // organization 은 서비스가 blocksSlot 예약에만 주입하며, soft-delete 로 이름을 못 찾으면 null
+            // (FE '예약됨' 폴백). PENDING 은 신청 경쟁 정보라 아래 PENDING_HOLD 분기에서 계속 비노출.
             return new SlotAvailability(start, end, SlotStatus.BLOCKED,
-                    SlotBlockSource.INTERNAL, null);
+                    SlotBlockSource.INTERNAL, internalBlock.get().organization());
         }
         Optional<CrawlSlice> schoolBlock = occupied.stream()
                 .filter(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd))

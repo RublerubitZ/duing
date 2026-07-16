@@ -8,19 +8,34 @@ import static org.mockito.BDDMockito.given;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
 import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
+import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotAvailability;
+import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotBlockSource;
+import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotStatus;
+import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
+import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.service.BookingWindow;
 import com.duing.domain.facilitybooking.service.BookingWindowPolicy;
 import com.duing.domain.facilitybooking.service.FacilityAvailabilityService;
+import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.Grade;
+import com.duing.domain.user.entity.User;
+import com.duing.domain.user.entity.UserRole;
+import com.duing.domain.user.repository.UserRepository;
 import io.restassured.RestAssured;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +56,9 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     @Autowired FacilityAvailabilityService availabilityService;
     @Autowired FacilityRepository facilityRepository;
     @Autowired BookingWindowPolicy bookingWindowPolicy;
+    @Autowired ClubRepository clubRepository;
+    @Autowired FacilityBookingRepository bookingRepository;
+    @Autowired UserRepository userRepository;
 
     // 서비스가 seoulClock(KST) 기준으로 당월을 계산하므로 테스트도 같은 Clock 을 써야
     // UTC CI 러너의 월 경계(매월 1일 00:00~09:00 KST)에서 결정적 실패를 피할 수 있다.
@@ -135,5 +153,50 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.OK.value())
                 .body("data.size()", equalTo(9))
                 .body("data[0].label", equalTo("동아리 정기 모임"));
+    }
+
+    @Test
+    @DisplayName("내부 APPROVED 예약 슬롯은 BLOCKED(INTERNAL)로 동아리명을 노출하고, 동아리가 삭제되면 organization 이 null 로 폴백한다")
+    void internalApprovedBookingExposesClubName() {
+        Facility facility = facilityRepository.save(Facility.create(90004, "커뮤니티룸(T4)", null, 0));
+        Club club = clubRepository.save(Club.create("가야금연구회", ClubCategory.OTHER, "분과", "설명", null));
+        // applicant_id·decided_by 는 users FK 라 실제 유저가 있어야 저장된다(신청자 겸 승인자로 재사용).
+        User applicant = userRepository.save(User.create("2020123456", "신청자", "hashed",
+                UserRole.STUDENT, Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000",
+                LocalDateTime.now(clock)));
+        // 내일 슬롯을 쓴다 — 오늘이면 지난 슬롯이 PAST 가 되어 시각 의존 실패가 나므로 항상 미래인 날짜를 고른다.
+        LocalDate bookingDate = LocalDate.now(clock).plusDays(1);
+
+        FacilityBooking booking = FacilityBooking.request(facility.getId(), club.getId(), applicant.getId(),
+                bookingDate, LocalTime.of(10, 0), LocalTime.of(11, 0), "정기 합주", null);
+        booking.approve(applicant.getId(), null, LocalDateTime.now(clock));
+        bookingRepository.save(booking);
+
+        FacilityAvailabilityResponse response =
+                availabilityService.getAvailability(facility.getId(), YearMonth.from(bookingDate));
+        SlotAvailability slot = slotAt(response, bookingDate, "10:00");
+        assertThat(slot.status()).isEqualTo(SlotStatus.BLOCKED);
+        assertThat(slot.blockedBy()).isEqualTo(SlotBlockSource.INTERNAL);
+        // 승인 완료 예약은 크롤 SCHOOL 행으로 어차피 실명 공개되므로 동아리명을 노출한다(2026-07-17 사용자 결정 §4⁗.1).
+        assertThat(slot.organization()).isEqualTo(club.getName());
+
+        // soft-delete 된 동아리는 findAllById 에서 제외되어 이름을 못 찾으므로 organization=null 로 폴백하되
+        // BLOCKED(INTERNAL) 은 유지한다(FE '예약됨' 폴백).
+        clubRepository.delete(club);
+        FacilityAvailabilityResponse afterDelete =
+                availabilityService.getAvailability(facility.getId(), YearMonth.from(bookingDate));
+        SlotAvailability fallbackSlot = slotAt(afterDelete, bookingDate, "10:00");
+        assertThat(fallbackSlot.status()).isEqualTo(SlotStatus.BLOCKED);
+        assertThat(fallbackSlot.blockedBy()).isEqualTo(SlotBlockSource.INTERNAL);
+        assertThat(fallbackSlot.organization()).isNull();
+    }
+
+    private SlotAvailability slotAt(FacilityAvailabilityResponse response, LocalDate date, String start) {
+        return response.days().stream()
+                .filter(dayAvailability -> dayAvailability.date().equals(date))
+                .flatMap(dayAvailability -> dayAvailability.slots().stream())
+                .filter(slot -> slot.start().equals(start))
+                .findFirst()
+                .orElseThrow();
     }
 }
