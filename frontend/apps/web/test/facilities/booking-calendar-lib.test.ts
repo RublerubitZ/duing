@@ -91,6 +91,12 @@ describe('toggleSlotSelection', () => {
     const current = { start: '18:00', end: '20:00' }; // 18~20 선택 중
     expect(toggleSlotSelection(current, eveningSlot18, eveningSlots)).toBeNull();
   });
+
+  it('범위 안의 승인 대기 슬롯 재탭도 동일하게 그 지점부터 해제된다', () => {
+    const current = { start: '12:00', end: '14:00' }; // 12~13 HOLD 포함 범위
+    expect(toggleSlotSelection(current, daySlots[4], daySlots)).toEqual({ start: '12:00', end: '13:00' }); // 13~14 재탭
+    expect(toggleSlotSelection(current, daySlots[3], daySlots)).toBeNull(); // 첫 슬롯(HOLD) 재탭 = 전체 해제
+  });
 });
 
 describe('range 유틸', () => {
