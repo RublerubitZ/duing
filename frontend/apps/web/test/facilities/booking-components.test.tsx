@@ -103,6 +103,39 @@ it('캘린더 셀은 레벨 라벨(여유/마감)·창 배지를 표시하고 �
   expect(firstWeekday).toHaveTextContent('월');
 });
 
+it('캘린더는 ranges 전달 시 구간 칩 2개와 다음 구간 시작일 셀 오픈 마커를 렌더한다', () => {
+  const currentDay = makeDay({ date: '2026-07-13', availableSlotCount: 11 });
+  const openDay = makeDay({ date: '2026-07-21', availableSlotCount: 13 });
+  render(
+    <BookingCalendar
+      yearMonth="2026-07"
+      daysByIso={new Map([[currentDay.date, currentDay], [openDay.date, openDay]])}
+      bookableFrom="2026-07-13"
+      bookableUntil="2026-07-31"
+      todayIso="2026-07-13"
+      selectedDate={null}
+      onSelectDate={vi.fn()}
+      onOutOfWindowSelect={vi.fn()}
+      windowLabel="7.13 ~ 7.31"
+      ranges={[
+        { startDate: '2026-07-13', endDate: '2026-07-20', label: '현재 예약 가능' },
+        { startDate: '2026-07-21', endDate: '2026-07-31', label: '다음 예약 가능' },
+      ]}
+      onPrevMonth={vi.fn()}
+      onNextMonth={vi.fn()}
+      canPrev={false}
+      canNext
+    />,
+  );
+  // 구간 칩 2개(라벨 + M.d ~ M.d). 단일 배지는 폴백이므로 렌더되지 않는다.
+  expect(screen.getByText('현재 예약 가능 7.13 ~ 7.20')).toBeInTheDocument();
+  expect(screen.getByText('다음 예약 가능 7.21 ~ 7.31')).toBeInTheDocument();
+  expect(screen.queryByText('예약 가능 기간 7.13 ~ 7.31')).not.toBeInTheDocument();
+  // 다음 구간 시작일(21일) 셀 = 오픈 마커(aria '예약 오픈일' + 시각 텍스트 '오픈').
+  const openCell = screen.getByRole('button', { name: '21일 여유, 남은 13칸 예약 오픈일' });
+  expect(openCell).toHaveTextContent('오픈');
+});
+
 it('창 밖 미래 셀은 aria-disabled 이고 클릭 시 onSelectDate 대신 onOutOfWindowSelect 를 부른다', () => {
   const onSelectDate = vi.fn();
   const onOutOfWindowSelect = vi.fn();

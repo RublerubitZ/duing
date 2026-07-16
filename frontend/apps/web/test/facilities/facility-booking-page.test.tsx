@@ -68,6 +68,21 @@ const OUT_OF_WINDOW_CELL = `${Number(OUT_OF_WINDOW_DATE.slice(8, 10))}일 예약
 const labelPart = (iso: string) => `${Number(iso.slice(5, 7))}.${Number(iso.slice(8, 10))}`;
 const WINDOW_LABEL = `${labelPart(WINDOW.from)} ~ ${labelPart(WINDOW.until)}`;
 
+// Rolling Window 구간 2건 — 단일 창(WINDOW)을 연속 분할한다(현재/다음). 절대 날짜 금지(WINDOW 파생).
+// 계약(설계 §2): [0].startDate==bookableFrom, [last].endDate==bookableUntil, 현재.endDate 다음날==다음.startDate.
+const WINDOW_UNTIL_DAY = Number(WINDOW.until.slice(8, 10));
+const RANGE_SPLIT_DAY = WINDOW_FROM_DAY + Math.floor((WINDOW_UNTIL_DAY - WINDOW_FROM_DAY) / 2);
+const NEXT_RANGE_FROM_DAY = RANGE_SPLIT_DAY + 1;
+const CURRENT_RANGE = { startDate: WINDOW.from, endDate: `${WINDOW_MONTH}-${pad2(RANGE_SPLIT_DAY)}`, label: '현재 예약 가능' };
+const NEXT_RANGE = { startDate: `${WINDOW_MONTH}-${pad2(NEXT_RANGE_FROM_DAY)}`, endDate: WINDOW.until, label: '다음 예약 가능' };
+const BOOKING_RANGES = [CURRENT_RANGE, NEXT_RANGE];
+
+// 구간 칩 텍스트("현재 예약 가능 M.d ~ M.d") — rangeDatesLabel(M.d ~ M.d) 미러.
+const CURRENT_RANGE_CHIP = `${CURRENT_RANGE.label} ${labelPart(CURRENT_RANGE.startDate)} ~ ${labelPart(CURRENT_RANGE.endDate)}`;
+const NEXT_RANGE_CHIP = `${NEXT_RANGE.label} ${labelPart(NEXT_RANGE.startDate)} ~ ${labelPart(NEXT_RANGE.endDate)}`;
+// 다음 구간 시작일 셀 = 예약 오픈 마커 대상(availableSlotCount 13 → 레벨 '여유'). aria-label 에 '예약 오픈일' 포함.
+const OPEN_MARKER_CELL = `${NEXT_RANGE_FROM_DAY}일 여유, 남은 13칸 예약 오픈일`;
+
 // 창 첫날 셀에 배치할 13칸: 11시=SCHOOL(비호응원단), 12시=INTERNAL(예약됨), 14시=HOLD, 나머지 AVAILABLE
 function makeMixedSlots(): BookingAvailabilitySlot[] {
   return Array.from({ length: 13 }, (_, index) => {
@@ -183,7 +198,10 @@ const server = setupServer(
   ),
   availabilityHandlerFor(1),
   // 페이지가 useBookingWindowQuery 를 무조건 마운트하므로 기본 핸들러 필요(onUnhandledRequest:'error' 대비).
-  http.get('*/facilities/booking-window', () => ok({ bookableFrom: WINDOW.from, bookableUntil: WINDOW.until })),
+  // Rolling Window 전환 후 기본 응답은 구간 2건을 싣는다(구 응답 폴백은 시나리오 16에서 server.use 로 검증).
+  http.get('*/facilities/booking-window', () =>
+    ok({ bookableFrom: WINDOW.from, bookableUntil: WINDOW.until, availableBookingRanges: BOOKING_RANGES }),
+  ),
   http.get('*/facilities/booking-purpose-presets', () =>
     ok([{ id: 1, label: '동아리 정기 모임' }, { id: 3, label: '정기 합주' }]),
   ),
@@ -373,9 +391,9 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
   it('시나리오 6: 창 밖 미래 셀을 탭하면 선택은 열리지 않고 기간이 담긴 토스트로 안내한다', async () => {
     renderPage();
 
-    // 월 폴백→창 월 전환(제목 정착)과 창 로딩(배지)을 모두 기다린 뒤 클릭 — 전환기 셀 혼선·라벨 누락 방지.
+    // 월 폴백→창 월 전환(제목 정착)과 창 로딩(구간 칩)을 모두 기다린 뒤 클릭 — 전환기 셀 혼선·라벨 누락 방지.
     await screen.findByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH) });
-    await screen.findByText(`예약 가능 기간 ${WINDOW_LABEL}`);
+    await screen.findByText(CURRENT_RANGE_CHIP);
 
     fireEvent.click(screen.getByRole('button', { name: OUT_OF_WINDOW_CELL }));
 
@@ -550,5 +568,30 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
     // 요청 yearMonth 포착 단언이 직접 보장한다 — 최종 창 월로 정착하고, 지난달(스테일 월)은 요청되지 않는다.
     await waitFor(() => expect(requestedYearMonths).toContain(WINDOW_MONTH));
     expect(requestedYearMonths).not.toContain(lastMonth);
+  });
+
+  it('시나리오 15: booking-window 구간이 있으면 캘린더 배지가 구간 칩 2개로 나뉘고 다음 구간 시작일 셀에 예약 오픈 마커가 붙는다', async () => {
+    renderPage();
+
+    // (a) 구간 칩 2개 — 서버 산출 라벨 + 범위(M.d ~ M.d).
+    expect(await screen.findByText(CURRENT_RANGE_CHIP)).toBeInTheDocument();
+    expect(screen.getByText(NEXT_RANGE_CHIP)).toBeInTheDocument();
+
+    // (b) 다음 구간 시작일 셀에 '오픈' 마커 — aria-label '예약 오픈일' + 시각 텍스트 '오픈'.
+    const openCell = screen.getByRole('button', { name: OPEN_MARKER_CELL });
+    expect(openCell).toHaveTextContent('오픈');
+  });
+
+  it('시나리오 16: booking-window 응답에 구간이 없으면 기존 단일 배지로 폴백하고 구간 칩·오픈 마커는 없다', async () => {
+    // 전환기(BE 선배포 전) 구 응답 — availableBookingRanges 부재.
+    server.use(
+      http.get('*/facilities/booking-window', () => ok({ bookableFrom: WINDOW.from, bookableUntil: WINDOW.until })),
+    );
+    renderPage();
+
+    // (c) 단일 배지 폴백 — 구간 칩·오픈 마커는 렌더되지 않는다.
+    expect(await screen.findByText(`예약 가능 기간 ${WINDOW_LABEL}`)).toBeInTheDocument();
+    expect(screen.queryByText(CURRENT_RANGE_CHIP)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: OPEN_MARKER_CELL })).not.toBeInTheDocument();
   });
 });

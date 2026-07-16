@@ -336,6 +336,7 @@ export function FacilityBookingPage() {
                       onSelectDate={selectDate}
                       onOutOfWindowSelect={handleOutOfWindowSelect}
                       windowLabel={windowLabel}
+                      ranges={windowQuery.data?.availableBookingRanges ?? null}
                       onPrevMonth={() => changeMonth(-1)}
                       onNextMonth={() => changeMonth(1)}
                       canPrev={yearMonth !== currentMonth}
