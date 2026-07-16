@@ -18,14 +18,11 @@ const SLOT_ROW_CLASS: Record<BookingAvailabilitySlot['status'], string> = {
   PAST: 'border-transparent bg-graysoft/60 text-charcoal-3',
 };
 
-// SCHOOL 차단만 단체명을 공개 → 그 행에만 "예약됨" pill 배지를 붙인다(§4″.1). 단체명이 곧 주 정보라 배지와 중복되지 않는다.
-function isSchoolNamedSlot(slot: BookingAvailabilitySlot): boolean {
-  return slot.status === 'BLOCKED' && slot.blockedBy === 'SCHOOL' && Boolean(slot.organization);
-}
-
-// 주 정보(By 중심, organization ?? 상태 문구): SCHOOL 은 단체명, INTERNAL·PENDING 은 비노출 정책이라 상태 문구가 곧 주 정보(§4″.1).
-function slotPrimaryInfo(slot: BookingAvailabilitySlot): string {
+function slotStatusLabel(day: BookingDayAvailability, index: number): string {
+  const slot = day.slots[index];
+  if (!slot) return '';
   if (slot.status === 'BLOCKED') {
+    // SCHOOL 은 공개 단체명, INTERNAL 은 비노출 정책 → "예약됨" 일반 문구(§16 결정 20)
     return slot.blockedBy === 'SCHOOL' && slot.organization ? slot.organization : '예약됨';
   }
   if (slot.status === 'PENDING_HOLD') return '승인 대기';
@@ -49,36 +46,24 @@ export function DaySlotList({ day, selection, onToggleSlot }: Props) {
         </div>
       )}
       <ul className="flex flex-col gap-1" aria-label="시간대 선택">
-        {day.slots.map((slot) => {
+        {day.slots.map((slot, index) => {
           const selectable = isSelectableSlot(slot);
           const selected = selection !== null && slotInRange(slot, selection);
-          const primaryInfo = slotPrimaryInfo(slot);
           return (
             <li key={slot.start}>
               <button
                 type="button"
                 disabled={!selectable}
                 aria-pressed={selected}
-                aria-label={`${slot.start}~${slot.end} ${primaryInfo}`}
                 onClick={() => onToggleSlot(slot.start)}
-                className={`flex w-full flex-col gap-1 rounded-xl border px-3.5 py-3 text-left motion-safe:transition-colors ${
+                className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-3 text-sm motion-safe:transition-colors ${
                   selected ? 'border-ink-deep bg-ink text-cream' : SLOT_ROW_CLASS[slot.status]
                 }`}
               >
-                <span className="font-mono text-[11px] opacity-70">{slot.start}~{slot.end}</span>
-                <span className="text-sm font-bold">
-                  {selected && <span aria-hidden="true">✓ </span>}
-                  {primaryInfo}
+                <span className="font-mono text-[13px] font-bold">{slot.start}~{slot.end}</span>
+                <span className={selected ? 'text-xs text-cream/85' : 'text-xs'}>
+                  {selected ? '✓ ' : ''}{slotStatusLabel(day, index)}
                 </span>
-                {isSchoolNamedSlot(slot) && (
-                  <span
-                    className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-[10.5px] ${
-                      selected ? 'border-cream/40 bg-cream/15 text-cream' : 'border-line bg-paper/70 text-charcoal-3'
-                    }`}
-                  >
-                    예약됨
-                  </span>
-                )}
               </button>
             </li>
           );
