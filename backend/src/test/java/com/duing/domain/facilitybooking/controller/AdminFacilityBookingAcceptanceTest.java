@@ -129,7 +129,7 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
         Club club = saveActiveClub();
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Facility facility = saveFacility();
-        LocalDate date = BookingWindowFixture.firstBookableDate();
+        LocalDate date = BookingWindowFixture.bookableDate();
         Long bookingId = bookingService.create(new CreateFacilityBookingCommand(
                 club.getId(), leader.getId(), facility.getId(), date,
                 LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null)).bookingId();
@@ -161,8 +161,8 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
         Club club = saveActiveClub();
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Facility facility = saveFacility();
-        // 반월 오픈 정책이 계산한 현재 창의 첫 날짜 — 실행 시점과 무관하게 항상 신청 가능한 날짜다.
-        LocalDate date = BookingWindowFixture.firstBookableDate();
+        // 시각 무관 항상 신청 가능한 날짜(내일) — 롤링 창은 오늘을 포함하나 고정 슬롯 시각 타임밤을 피해 내일을 쓴다.
+        LocalDate date = BookingWindowFixture.bookableDate();
         return bookingService.create(new CreateFacilityBookingCommand(
                 club.getId(), leader.getId(), facility.getId(), date,
                 LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null)).bookingId();

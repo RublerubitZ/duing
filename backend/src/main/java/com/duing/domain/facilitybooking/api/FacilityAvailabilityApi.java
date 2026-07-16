@@ -25,7 +25,8 @@ public interface FacilityAvailabilityApi {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth);
 
     @Operation(summary = "현재 예약 오픈 구간 (비로그인)",
-            description = "반월 오픈 정책 등 현재 신청 가능한 날짜 구간. 전 시설 공통.")
+            description = "롤링 오픈 정책(현재 진행 중인 반월 + 다음 반월) 기준 신청 가능한 날짜 구간. "
+                    + "단일 창(bookableFrom/bookableUntil)과 라벨링된 세부 구간(availableBookingRanges)을 함께 반환. 전 시설 공통.")
     @GetMapping("/facilities/booking-window")
     ResponseEntity<ApiResponse<BookingWindowResponse>> getBookingWindow();
 

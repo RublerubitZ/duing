@@ -24,7 +24,12 @@ public final class BookingWindowFixture {
         return POLICY.windowFor(LocalDate.now(KST));
     }
 
-    public static LocalDate firstBookableDate() {
-        return window().from();
+    /**
+     * 시각 무관 항상 신청 가능한 날짜 = 내일. 롤링 창은 오늘을 포함하지만, 오늘을 쓰면 고정 슬롯
+     * 시각(10:00 등)이 KST 실행 시각에 따라 당일 가드에 걸리는 타임밤이 된다.
+     * 내일은 항상 창 내부다: until(다음 반월 말일) &gt; 다음 반월 시작일 &gt; 오늘 ⇒ until ≥ 오늘+1.
+     */
+    public static LocalDate bookableDate() {
+        return LocalDate.now(KST).plusDays(1);
     }
 }
