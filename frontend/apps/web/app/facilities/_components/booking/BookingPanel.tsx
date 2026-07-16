@@ -5,6 +5,7 @@ import type { SlotRange } from '../../_lib/bookingCalendar';
 import { rangeContainsPendingHold, rangeLabel } from '../../_lib/bookingCalendar';
 import { BookingForm } from './BookingForm';
 import { BookingSuccess } from './BookingSuccess';
+import { DayBookingOverview } from './DayBookingOverview';
 import { DaySlotList } from './DaySlotList';
 import { PanelStepIndicator } from './PanelStepIndicator';
 import { PanelSummaryCard } from './PanelSummaryCard';
@@ -115,6 +116,7 @@ export function BookingPanel({
         {view === 'day' ? (
           <div className="space-y-3">
             <PanelSummaryCard day={day} />
+            <DayBookingOverview day={day} />
             <DaySlotList day={day} selection={selection} onToggleSlot={onToggleSlot} />
           </div>
         ) : (

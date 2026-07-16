@@ -187,3 +187,41 @@ export function slotStatusCounts(slots: BookingAvailabilitySlot[]): SlotStatusCo
   }
   return counts;
 }
+
+// ── 예약 건별 현황 파생(§4‴.2) — BLOCKED·PENDING_HOLD 만 건 단위로 추출·병합 ─────
+
+export type DayBookingEntryKind = 'SCHOOL' | 'INTERNAL' | 'PENDING';
+export type DayBookingEntry = { start: string; end: string; label: string; kind: DayBookingEntryKind };
+
+// 슬롯 → 예약 건(라벨·종류). AVAILABLE·PAST 는 현황 카드에 포함하지 않으므로 null.
+function bookingEntryOf(slot: BookingAvailabilitySlot): Pick<DayBookingEntry, 'label' | 'kind'> | null {
+  if (slot.status === 'BLOCKED') {
+    // SCHOOL 은 공개 단체명, INTERNAL(및 단체명 없는 SCHOOL)은 "예약됨" 비노출 정책(§16 결정 20)
+    return slot.blockedBy === 'SCHOOL' && slot.organization
+      ? { label: slot.organization, kind: 'SCHOOL' }
+      : { label: '예약됨', kind: 'INTERNAL' };
+  }
+  if (slot.status === 'PENDING_HOLD') {
+    return { label: '승인 대기', kind: 'PENDING' };
+  }
+  return null;
+}
+
+/**
+ * 예약 건별 현황(§4‴.2): BLOCKED·PENDING_HOLD 슬롯만 건으로 추출하고, 인접(prev.end == next.start)하며
+ * 같은 종류·같은 표기면 한 건으로 병합한다(시간순). AVAILABLE·PAST 는 제외한다.
+ */
+export function dayBookingEntries(slots: BookingAvailabilitySlot[]): DayBookingEntry[] {
+  const entries: DayBookingEntry[] = [];
+  for (const slot of slots) {
+    const derived = bookingEntryOf(slot);
+    if (!derived) continue;
+    const last = entries[entries.length - 1];
+    if (last && last.end === slot.start && last.kind === derived.kind && last.label === derived.label) {
+      last.end = slot.end; // 인접·동종·동표기 → 앞 건에 흡수
+      continue;
+    }
+    entries.push({ start: slot.start, end: slot.end, label: derived.label, kind: derived.kind });
+  }
+  return entries;
+}

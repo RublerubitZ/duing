@@ -4,6 +4,8 @@ import type { BookingDayAvailability, FacilityItem } from '@duing/types';
 import { FacilityContextBar } from '@/app/facilities/_components/booking/FacilityContextBar';
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
 import { DaySlotList } from '@/app/facilities/_components/booking/DaySlotList';
+import { DayBookingOverview } from '@/app/facilities/_components/booking/DayBookingOverview';
+import { BookingPanel } from '@/app/facilities/_components/booking/BookingPanel';
 import { BookingSuccess } from '@/app/facilities/_components/booking/BookingSuccess';
 import { PanelSummaryCard } from '@/app/facilities/_components/booking/PanelSummaryCard';
 import { FacilityHomeCard } from '@/app/facilities/_components/booking/FacilityHomeCard';
@@ -343,6 +345,73 @@ it('패널 요약 카드는 상태별 집계 행과 슬롯 파생 운영 시간�
   expect(screen.queryByText('지난 시간')).not.toBeInTheDocument();
   // 운영 시간은 슬롯[0].start~슬롯[마지막].end 파생(FE 상수 하드코딩 금지)
   expect(screen.getByText('운영 시간 09:00~22:00 · 13칸')).toBeInTheDocument();
+});
+
+it('예약 현황 카드는 제목·병합 건 행·승인 대기 warm 도트·그 외 시간 행을 렌더한다', () => {
+  // makeDay(): SCHOOL 비호응원단 17~18 · INTERNAL 18~19 · PENDING 20~21 → 병합 후 3건
+  render(<DayBookingOverview day={makeDay()} />);
+  // 제목은 bookingDateLabel 재사용(2026-07-20 = 월요일)
+  expect(screen.getByText('7월 20일 (월) 예약 현황')).toBeInTheDocument();
+  // 건별 행: 시간 범위 + 이름(SCHOOL 단체명 / INTERNAL "예약됨")
+  expect(screen.getByText('17:00~18:00')).toBeInTheDocument();
+  expect(screen.getByText('비호응원단')).toBeInTheDocument();
+  expect(screen.getByText('18:00~19:00')).toBeInTheDocument();
+  expect(screen.getByText('예약됨')).toBeInTheDocument();
+  // PENDING 행: warm 도트 + "승인 대기"(대기 pill 은 이름과 중복이라 생략)
+  const pendingRow = screen.getByText('승인 대기').closest('li');
+  expect(pendingRow).not.toBeNull();
+  expect(pendingRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-warm');
+  // 마지막 행(점선 구분): sage 도트 + "그 외 시간" + "예약 가능 · {availableSlotCount}개 시간"
+  expect(screen.getByText('그 외 시간')).toBeInTheDocument();
+  expect(screen.getByText('예약 가능 · 11개 시간')).toBeInTheDocument();
+  const availableRow = screen.getByText('예약 가능 · 11개 시간').closest('li');
+  expect(availableRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-sage');
+});
+
+it('예약 건이 없으면 예약 현황 카드를 렌더하지 않는다', () => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const allAvailableDay = makeDay({
+    slots: Array.from({ length: 13 }, (_, index) => ({
+      start: `${pad(9 + index)}:00`,
+      end: `${pad(10 + index)}:00`,
+      status: 'AVAILABLE' as const,
+    })),
+  });
+  const { container } = render(<DayBookingOverview day={allAvailableDay} />);
+  expect(container.firstChild).toBeNull();
+  expect(screen.queryByText(/예약 현황/)).not.toBeInTheDocument();
+});
+
+it('예약 패널은 예약 현황 카드를 요약 카드와 시간 선택 리스트 사이에 배치한다', () => {
+  render(
+    <BookingPanel
+      facility={{ id: 1, roomName: '커뮤니티룸(1)' }}
+      day={makeDay()}
+      daysByIso={new Map()}
+      bookableFrom="2026-07-13"
+      bookableUntil="2026-08-31"
+      view="day"
+      onChangeView={vi.fn()}
+      selection={null}
+      onToggleSlot={vi.fn()}
+      onSelectDate={vi.fn()}
+      step="slots"
+      onProceedToForm={vi.fn()}
+      onBackToSlots={vi.fn()}
+      submittedResult={null}
+      submittedClubId={null}
+      submittedAt={null}
+      onSubmitted={vi.fn()}
+      onExploreOther={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+  const summary = screen.getByText('선택한 날짜'); // PanelSummaryCard
+  const overview = screen.getByText('7월 20일 (월) 예약 현황'); // DayBookingOverview
+  const slotList = screen.getByRole('list', { name: '시간대 선택' }); // DaySlotList
+  // 요약 → 예약 현황 → 시간 선택 순서(DOCUMENT_POSITION_FOLLOWING = 4)
+  expect(summary.compareDocumentPosition(overview) & 4).toBeTruthy();
+  expect(overview.compareDocumentPosition(slotList) & 4).toBeTruthy();
 });
 
 it('홈 카드는 아이콘·위치·예약 가능 라벨을 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {

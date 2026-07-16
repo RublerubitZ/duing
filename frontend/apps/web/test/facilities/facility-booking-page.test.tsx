@@ -314,8 +314,9 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
 
-    expect(await screen.findByText('비호응원단')).toBeInTheDocument(); // SCHOOL 단체명
-    // INTERNAL 비노출("예약됨")은 슬롯 라벨·요약 집계 양쪽에 나타난다.
+    // SCHOOL 단체명은 예약 현황 카드·슬롯 라벨 양쪽에 나타난다.
+    expect((await screen.findAllByText('비호응원단')).length).toBeGreaterThan(0);
+    // INTERNAL 비노출("예약됨")은 예약 현황 카드·슬롯 라벨·요약 집계에 나타난다.
     expect(screen.getAllByText('예약됨').length).toBeGreaterThan(0);
     expect(screen.getAllByText('승인 대기').length).toBeGreaterThan(0); // PENDING_HOLD (슬롯 라벨·요약 집계 양쪽)
     // 운영행은 정책 안내 박스로 승격(단체·시간 나열 + 고정 문구).

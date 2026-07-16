@@ -3,6 +3,7 @@ import type { BookingAvailabilitySlot } from '@duing/types';
 import {
   buildMonthCells,
   DAY_LEVEL_META,
+  dayBookingEntries,
   dayLevelOf,
   isWithinBookable,
   periodDistribution,
@@ -158,6 +159,66 @@ describe('slotStatusCounts', () => {
       slot(13, 'PAST'),
     ];
     expect(slotStatusCounts(mixed)).toEqual({ available: 2, pendingHold: 1, blocked: 1, past: 1 });
+  });
+});
+
+describe('dayBookingEntries', () => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const schoolSlot = (startHour: number, organization: string): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'BLOCKED',
+    blockedBy: 'SCHOOL',
+    organization,
+  });
+  const internalSlot = (startHour: number): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'BLOCKED',
+    blockedBy: 'INTERNAL',
+  });
+  const pendingSlot = (startHour: number): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'PENDING_HOLD',
+  });
+
+  it('(a) 같은 단체 연속 3칸은 한 건(09:00~12:00)으로 병합한다', () => {
+    expect(
+      dayBookingEntries([schoolSlot(9, '비호응원단'), schoolSlot(10, '비호응원단'), schoolSlot(11, '비호응원단')]),
+    ).toEqual([{ start: '09:00', end: '12:00', label: '비호응원단', kind: 'SCHOOL' }]);
+  });
+
+  it('(b) 다른 단체가 인접하면 병합하지 않는다', () => {
+    expect(dayBookingEntries([schoolSlot(9, '비호응원단'), schoolSlot(10, '트레몰로')])).toEqual([
+      { start: '09:00', end: '10:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '10:00', end: '11:00', label: '트레몰로', kind: 'SCHOOL' },
+    ]);
+  });
+
+  it('(c) 연속 INTERNAL 은 "예약됨" 한 건으로 병합한다(동아리명 비노출)', () => {
+    expect(dayBookingEntries([internalSlot(9), internalSlot(10)])).toEqual([
+      { start: '09:00', end: '11:00', label: '예약됨', kind: 'INTERNAL' },
+    ]);
+  });
+
+  it('(d) 사이가 예약 가능으로 끊기면 같은 단체라도 두 건이다', () => {
+    expect(
+      dayBookingEntries([schoolSlot(9, '비호응원단'), slot(10, 'AVAILABLE'), schoolSlot(11, '비호응원단')]),
+    ).toEqual([
+      { start: '09:00', end: '10:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '11:00', end: '12:00', label: '비호응원단', kind: 'SCHOOL' },
+    ]);
+  });
+
+  it('(e) 예약 가능·지난 시간만 있으면 빈 배열이다', () => {
+    expect(dayBookingEntries([slot(9, 'AVAILABLE'), slot(10, 'PAST'), slot(11, 'AVAILABLE')])).toEqual([]);
+  });
+
+  it('승인 대기(PENDING_HOLD)는 "승인 대기" 건으로 병합·추출하고 지난 시간·예약 가능은 제외한다', () => {
+    expect(
+      dayBookingEntries([slot(9, 'PAST'), pendingSlot(10), pendingSlot(11), slot(12, 'AVAILABLE')]),
+    ).toEqual([{ start: '10:00', end: '12:00', label: '승인 대기', kind: 'PENDING' }]);
   });
 });
 
