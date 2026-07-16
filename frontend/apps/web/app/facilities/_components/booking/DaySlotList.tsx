@@ -65,7 +65,8 @@ export function DaySlotList({ day, selection, onToggleSlot }: Props) {
                   selected ? 'border-ink-deep bg-ink text-cream' : SLOT_ROW_CLASS[slot.status]
                 }`}
               >
-                <span className="font-mono text-[11px] opacity-70">{slot.start}~{slot.end}</span>
+                {/* 80: 70은 warm/15 위 11px 일반 굵기가 WCAG AA(4.5:1) 미달 추정 — 리뷰 지적 흡수 */}
+                <span className="font-mono text-[11px] opacity-80">{slot.start}~{slot.end}</span>
                 <span className="text-sm font-bold">
                   {selected && <span aria-hidden="true">✓ </span>}
                   {primaryInfo}
