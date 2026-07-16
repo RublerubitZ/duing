@@ -25,7 +25,7 @@ function slotStatusLabel(day: BookingDayAvailability, index: number): string {
   if (slot.status === 'BLOCKED') {
     // organization 이 오면 소스(SCHOOL/INTERNAL) 무관 동아리명 노출(§4⁗.1 정책 반전),
     // 없으면 "예약됨" 폴백 — 구 백엔드 응답에서도 동작(fail-open).
-    return slot.organization ?? '예약됨';
+    return slot.organization || '예약됨'; // ||: 빈 문자열도 폴백(bookingEntryOf 와 동일 기준)
   }
   if (slot.status === 'PENDING_HOLD') return '승인 대기';
   if (slot.status === 'PAST') return '지난 시간';

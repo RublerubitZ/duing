@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { BookingDayAvailability, FacilityItem } from '@duing/types';
 import { FacilityContextBar } from '@/app/facilities/_components/booking/FacilityContextBar';
@@ -240,6 +240,17 @@ it('승인 대기 슬롯은 여전히 클릭 가능하고, 선택 행은 ink 배
   expect(selectedRow).toHaveClass('bg-ink');
   expect(selectedRow).toHaveAttribute('aria-pressed', 'true');
   expect(selectedRow).toHaveTextContent('✓');
+});
+
+it('승인 대기 행은 흰 바탕 + coral 라벨이고, 선택되면 라벨이 cream 으로 반전된다', () => {
+  const { rerender } = render(<DaySlotList day={makeDay()} selection={null} onToggleSlot={vi.fn()} />);
+  const pendingRow = () => screen.getByRole('button', { name: /20:00~21:00.*승인 대기/ });
+  expect(pendingRow()).toHaveClass('bg-paper');
+  expect(within(pendingRow()).getByText('승인 대기')).toHaveClass('text-coral');
+
+  rerender(<DaySlotList day={makeDay()} selection={{ start: '20:00', end: '21:00' }} onToggleSlot={vi.fn()} />);
+  expect(pendingRow()).toHaveClass('bg-ink');
+  expect(within(pendingRow()).getByText(/승인 대기/)).toHaveClass('text-cream/85');
 });
 
 it('운영행이 있는 날은 운영 시간 안내 박스에 단체·시간 나열과 고정 정책 문구를 렌더한다', () => {

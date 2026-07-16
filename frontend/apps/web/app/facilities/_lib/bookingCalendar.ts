@@ -199,7 +199,8 @@ function bookingEntryOf(slot: BookingAvailabilitySlot): Pick<DayBookingEntry, 'l
     // organization 이 오면 소스(SCHOOL/INTERNAL) 무관 동아리명 노출(§4⁗.1 정책 반전), 없으면 "예약됨"
     // 폴백 — 구 백엔드 응답에서도 동작(fail-open). kind 는 소스 구분을 그대로 유지한다.
     const kind: DayBookingEntryKind = slot.blockedBy === 'SCHOOL' && slot.organization ? 'SCHOOL' : 'INTERNAL';
-    return { label: slot.organization ?? '예약됨', kind };
+    // ||: 빈 문자열 organization(계약상 퇴화 입력)도 폴백 — kind 판정(truthy)과 기준 일치
+    return { label: slot.organization || '예약됨', kind };
   }
   if (slot.status === 'PENDING_HOLD') {
     return { label: '승인 대기', kind: 'PENDING' };
