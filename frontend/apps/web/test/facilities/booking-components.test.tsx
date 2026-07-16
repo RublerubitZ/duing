@@ -136,6 +136,35 @@ it('캘린더는 ranges 전달 시 구간 칩 2개와 다음 구간 시작일 �
   expect(openCell).toHaveTextContent('오픈');
 });
 
+it('다음 구간이 익월이면(두 달 스팬 창) 표시 중인 달에는 오픈 마커가 렌더되지 않는다', () => {
+  const currentDay = makeDay({ date: '2026-07-20', availableSlotCount: 11 });
+  render(
+    <BookingCalendar
+      yearMonth="2026-07"
+      daysByIso={new Map([[currentDay.date, currentDay]])}
+      bookableFrom="2026-07-16"
+      bookableUntil="2026-08-15"
+      todayIso="2026-07-16"
+      selectedDate={null}
+      onSelectDate={vi.fn()}
+      onOutOfWindowSelect={vi.fn()}
+      windowLabel="7.16 ~ 8.15"
+      ranges={[
+        { startDate: '2026-07-16', endDate: '2026-07-31', label: '현재 예약 가능' },
+        { startDate: '2026-08-01', endDate: '2026-08-15', label: '다음 예약 가능' },
+      ]}
+      onPrevMonth={vi.fn()}
+      onNextMonth={vi.fn()}
+      canPrev={false}
+      canNext
+    />,
+  );
+  // 칩은 익월 구간까지 표기하지만, 오픈 마커(8/1)는 7월 그리드에 없다.
+  expect(screen.getByText('다음 예약 가능 8.1 ~ 8.15')).toBeInTheDocument();
+  expect(screen.queryByText('오픈')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /예약 오픈일/ })).not.toBeInTheDocument();
+});
+
 it('창 밖 미래 셀은 aria-disabled 이고 클릭 시 onSelectDate 대신 onOutOfWindowSelect 를 부른다', () => {
   const onSelectDate = vi.fn();
   const onOutOfWindowSelect = vi.fn();
