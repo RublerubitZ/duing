@@ -41,7 +41,7 @@ public class BookingPolicyValidator {
         if (!window.contains(date)) {
             throw new FacilityBookingException.OutOfBookingWindowException(window);
         }
-        // 오늘이 창에 포함되는 정책(향후 FREE 등)을 대비한 정책 불변 가드 — 반월 창은 항상 미래라 실행되지 않는다.
+        // 롤링 창은 오늘을 포함한다 — 당일 신청 중 첫 1시간이 완전히 지난 슬롯은 거부(어셈블러 PAST 판정과 동일 기준).
         if (date.isEqual(today) && !startTime.plusHours(1).isAfter(currentDateTime.toLocalTime())) {
             throw new FacilityBookingException.OutOfBookingWindowException(window);
         }
