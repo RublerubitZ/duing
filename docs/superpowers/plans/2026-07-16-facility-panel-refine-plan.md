@@ -208,3 +208,26 @@ bookingCalendar.ts — `firstAvailableStarts` 삭제(다른 사용처 없음 gre
 - [ ] **Step 3: 구현** — 행 내부를 세로 스택으로: 시간(`font-mono text-[11px]` muted) → 주 정보(`text-sm font-bold`, `organization ?? 상태 문구`) → SCHOOL 만 pill 배지(스펙 §4″.1 클래스 계열, 선택 시 cream 반전). 행 배경색 Record·disabled·aria-pressed·운영 안내 박스 무변경.
 - [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
 - [ ] **Step 5: 커밋** — `feat(frontend): 슬롯 행을 예약 주체 중심 세로 스택으로 전환`
+
+---
+
+### Task 5: 예약 건별 현황 카드 (4차 요구 — §4″ 롤백 후 대체)
+
+**Files:**
+- Modify: `frontend/apps/web/app/facilities/_lib/bookingCalendar.ts` (`dayBookingEntries` 신설)
+- Create: `frontend/apps/web/app/facilities/_components/booking/DayBookingOverview.tsx`
+- Modify: `frontend/apps/web/app/facilities/_components/booking/BookingPanel.tsx` (요약 카드와 DaySlotList 사이 삽입)
+- Test: `frontend/apps/web/test/facilities/booking-calendar-lib.test.ts`, `frontend/apps/web/test/facilities/booking-components.test.tsx`
+
+**Interfaces:** 스펙 §4‴ 가 유일한 요구 원천. DaySlotList·PanelSummaryCard 는 절대 무변경(§4″ 롤백 상태 유지).
+
+- [ ] **Step 1: 파생 헬퍼 + 실패 테스트 (RED)**
+
+`dayBookingEntries(slots)`: BLOCKED(SCHOOL=단체명/INTERNAL="예약됨")·PENDING_HOLD("승인 대기")만 추출, **인접(prev.end==next.start)·같은 kind·같은 label 병합**. AVAILABLE·PAST 제외. 반환 `{ start, end, label, kind }[]`(시간순).
+
+lib 테스트: (a) 같은 단체 연속 3칸 → 1건(09:00~12:00), (b) 다른 단체 인접 → 병합 안 됨, (c) INTERNAL 연속 → "예약됨" 1건, (d) 사이가 AVAILABLE 로 끊기면 2건, (e) 예약 없음 → []. 컴포넌트 테스트: 카드 제목 "{M월 d일} 예약 현황", 행(시간·이름) 렌더, PENDING 행 warm 도트·"승인 대기", "그 외 시간 · 예약 가능 · N개 시간" 행, 예약 0건이면 카드 미렌더, BookingPanel 에서 요약 카드와 슬롯 리스트 사이 순서.
+
+- [ ] **Step 2: 실패 확인** — `pnpm --filter web test booking-calendar-lib booking-components` → 신규 FAIL
+- [ ] **Step 3: 구현** — 스펙 §4‴.2 의 카드·행·마지막 행(점선 구분)·미렌더 규칙 그대로. `bookingDateLabel` 재사용해 제목 구성.
+- [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
+- [ ] **Step 5: 커밋** — `feat(frontend): 예약 건별 현황 카드 추가(요약과 시간 선택 사이)`
