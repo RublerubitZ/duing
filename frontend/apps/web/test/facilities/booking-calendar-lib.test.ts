@@ -4,7 +4,6 @@ import {
   buildMonthCells,
   DAY_LEVEL_META,
   dayLevelOf,
-  firstAvailableStarts,
   isWithinBookable,
   periodDistribution,
   rangeContainsPendingHold,
@@ -162,8 +161,8 @@ describe('slotStatusCounts', () => {
   });
 });
 
-describe('periodDistribution / firstAvailableStarts', () => {
-  it('오전(09-12)/오후(12-18)/저녁(18-22) 가용 분포와 첫 가용 시각을 파생한다', () => {
+describe('periodDistribution', () => {
+  it('오전(09-12)/오후(12-18)/저녁(18-22) 가용 분포를 파생한다', () => {
     const slots = Array.from({ length: 13 }, (_, index) => {
       const pad = (n: number) => String(n).padStart(2, '0');
       const start = `${pad(9 + index)}:00`;
@@ -179,6 +178,5 @@ describe('periodDistribution / firstAvailableStarts', () => {
       { key: 'AFTERNOON', label: '오후', range: '12–18', free: 5, total: 6 },
       { key: 'EVENING', label: '저녁', range: '18–22', free: 3, total: 4 },
     ]);
-    expect(firstAvailableStarts(slots, 3)).toEqual(['09:00', '10:00', '13:00']);
   });
 });

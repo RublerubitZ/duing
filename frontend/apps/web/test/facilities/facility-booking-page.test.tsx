@@ -317,7 +317,7 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
     expect(await screen.findByText('비호응원단')).toBeInTheDocument(); // SCHOOL 단체명
     // INTERNAL 비노출("예약됨")은 슬롯 라벨·요약 집계 양쪽에 나타난다.
     expect(screen.getAllByText('예약됨').length).toBeGreaterThan(0);
-    expect(screen.getByText('승인 대기중')).toBeInTheDocument(); // PENDING_HOLD
+    expect(screen.getAllByText('승인 대기').length).toBeGreaterThan(0); // PENDING_HOLD (슬롯 라벨·요약 집계 양쪽)
     // 운영행은 정책 안내 박스로 승격(단체·시간 나열 + 고정 문구).
     expect(screen.getByText('운영 시간 안내')).toBeInTheDocument();
     expect(screen.getByText(/고정관념 09:00~20:00/)).toBeInTheDocument();

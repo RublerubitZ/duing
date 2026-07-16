@@ -6,14 +6,12 @@ import {
   DAY_LEVEL_META,
   type DayLevel,
   dayLevelOf,
-  firstAvailableStarts,
   periodDistribution,
   slotStatusCounts,
 } from '../../_lib/bookingCalendar';
 
 type Props = {
   day: BookingDayAvailability;
-  onQuickSelect: (slotStart: string) => void;
 };
 
 // 레벨 뱃지 색-라벨 정합(여유/보통/혼잡/마감 각각 sage/warm/coral/graysoft 계열).
@@ -24,16 +22,14 @@ const LEVEL_BADGE_CLASS: Record<DayLevel, string> = {
   FULL: 'bg-graysoft text-charcoal-3',
 };
 
-export function PanelSummaryCard({ day, onQuickSelect }: Props) {
+export function PanelSummaryCard({ day }: Props) {
   const level = dayLevelOf(day.availableSlotCount);
-  const quickStarts = firstAvailableStarts(day.slots, 3);
-  const remaining = day.availableSlotCount - quickStarts.length;
   const counts = slotStatusCounts(day.slots);
   const operatingRange = day.slots.length > 0
     ? `${day.slots[0]?.start}~${day.slots[day.slots.length - 1]?.end}`
     : null;
   const statusEntries = [
-    { key: 'available', label: '신청 가능', count: counts.available, dotClass: 'bg-sage' },
+    { key: 'available', label: '예약 가능', count: counts.available, dotClass: 'bg-sage' },
     { key: 'pendingHold', label: '승인 대기', count: counts.pendingHold, dotClass: 'bg-coral' },
     { key: 'blocked', label: '예약됨', count: counts.blocked, dotClass: 'bg-cream/40' },
     { key: 'past', label: '지난 시간', count: counts.past, dotClass: 'bg-cream/15' },
@@ -76,25 +72,6 @@ export function PanelSummaryCard({ day, onQuickSelect }: Props) {
           </div>
         ))}
       </div>
-
-      {quickStarts.length > 0 && (
-        <div className="mt-3 border-t border-cream/15 pt-3">
-          <p className="mb-1.5 text-[11px] text-cream/60">바로 신청 가능한 시간</p>
-          <div className="flex gap-1.5">
-            {quickStarts.map((start) => (
-              <button
-                key={start}
-                type="button"
-                onClick={() => onQuickSelect(start)}
-                className="flex-1 rounded-lg bg-cream/15 py-1.5 font-mono text-xs font-bold text-cream hover:bg-cream/25"
-              >
-                {start}
-              </button>
-            ))}
-            {remaining > 0 && <span className="grid w-9 place-items-center rounded-lg bg-cream/10 text-xs text-cream/70">+{remaining}</span>}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

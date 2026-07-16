@@ -193,12 +193,35 @@ it('창 밖 미래 셀은 aria-disabled 이고 클릭 시 onSelectDate 대신 on
   expect(onSelectDate).not.toHaveBeenCalled();
 });
 
-it('슬롯 리스트는 SCHOOL 단체명·INTERNAL "예약됨"·승인 대기중을 구분 표시한다', () => {
+it('슬롯 리스트는 SCHOOL 단체명·INTERNAL "예약됨"·승인 대기를 목업 상태색 행으로 구분 표시한다', () => {
   render(<DaySlotList day={makeDay()} selection={null} onToggleSlot={vi.fn()} />);
+  // AVAILABLE 행: "예약 가능" 라벨 + sage-mist 배경(SLOT_STYLE free)
+  const availableRow = screen.getByRole('button', { name: /09:00~10:00.*예약 가능/ });
+  expect(availableRow).toHaveClass('bg-sage-mist');
+  // BLOCKED: SCHOOL 단체명 / INTERNAL "예약됨"
   expect(screen.getByText('비호응원단')).toBeInTheDocument();
   expect(screen.getByText('예약됨')).toBeInTheDocument();
-  expect(screen.getByText('승인 대기중')).toBeInTheDocument();
+  // PENDING_HOLD 라벨은 "승인 대기"(구 "승인 대기중"), 구 "신청 가능" 라벨은 사라진다
+  expect(screen.getByText('승인 대기')).toBeInTheDocument();
+  expect(screen.queryByText('승인 대기중')).not.toBeInTheDocument();
+  expect(screen.queryByText('신청 가능')).not.toBeInTheDocument();
   expect(screen.getByText(/고정관념 09:00~20:00/)).toBeInTheDocument();
+});
+
+it('승인 대기 슬롯은 여전히 클릭 가능하고, 선택 행은 ink 배경·✓ 로 표기된다', () => {
+  const onToggleSlot = vi.fn();
+  const { rerender } = render(<DaySlotList day={makeDay()} selection={null} onToggleSlot={onToggleSlot} />);
+  // HOLD(20:00~21:00) 행은 disabled 아님 → 탭 시 onToggleSlot 호출
+  const pendingRow = screen.getByRole('button', { name: /20:00~21:00.*승인 대기/ });
+  expect(pendingRow).toBeEnabled();
+  fireEvent.click(pendingRow);
+  expect(onToggleSlot).toHaveBeenCalledWith('20:00');
+  // 선택 행(09:00~10:00)은 ink 배경 + aria-pressed + ✓ 표기(기존 유지)
+  rerender(<DaySlotList day={makeDay()} selection={{ start: '09:00', end: '10:00' }} onToggleSlot={onToggleSlot} />);
+  const selectedRow = screen.getByRole('button', { name: /09:00~10:00.*예약 가능/ });
+  expect(selectedRow).toHaveClass('bg-ink');
+  expect(selectedRow).toHaveAttribute('aria-pressed', 'true');
+  expect(selectedRow).toHaveTextContent('✓');
 });
 
 it('운영행이 있는 날은 운영 시간 안내 박스에 단체·시간 나열과 고정 정책 문구를 렌더한다', () => {
@@ -294,24 +317,23 @@ it('예약 성공 화면은 세로 타임라인·통일 승인 문구·CTA 3종�
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
-it('패널 요약 카드는 레벨 뱃지·기간 분포·바로 신청 퀵 칩을 렌더하고 칩 탭 시 onQuickSelect 를 부른다', () => {
-  const onQuickSelect = vi.fn();
-  render(<PanelSummaryCard day={makeDay()} onQuickSelect={onQuickSelect} />);
+it('패널 요약 카드는 레벨 뱃지·기간 분포를 렌더하고 바로 신청 퀵 칩은 렌더하지 않는다', () => {
+  render(<PanelSummaryCard day={makeDay()} />);
   // availableSlotCount 11/13 → HIGH(여유)
   expect(screen.getByText('여유')).toBeInTheDocument();
   // 기간 분포 라벨(오전·오후·저녁)
   expect(screen.getByText('오전')).toBeInTheDocument();
   expect(screen.getByText('오후')).toBeInTheDocument();
   expect(screen.getByText('저녁')).toBeInTheDocument();
-  // 바로 신청 가능한 첫 슬롯 칩 → onQuickSelect
-  fireEvent.click(screen.getByRole('button', { name: '09:00' }));
-  expect(onQuickSelect).toHaveBeenCalledWith('09:00');
+  // 퀵칩 섹션 제거 — "바로 신청 가능한 시간" 미렌더, 시각 칩 버튼 없음
+  expect(screen.queryByText('바로 신청 가능한 시간')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '09:00' })).not.toBeInTheDocument();
 });
 
 it('패널 요약 카드는 상태별 집계 행과 슬롯 파생 운영 시간을 노출하고 0건 상태는 숨긴다', () => {
   // makeDay(): AVAILABLE 10 · PENDING_HOLD 1 · BLOCKED 2 · PAST 0
-  render(<PanelSummaryCard day={makeDay()} onQuickSelect={vi.fn()} />);
-  expect(screen.getByText('신청 가능')).toBeInTheDocument();
+  render(<PanelSummaryCard day={makeDay()} />);
+  expect(screen.getByText('예약 가능')).toBeInTheDocument();
   expect(screen.getByText('10칸')).toBeInTheDocument();
   expect(screen.getByText('승인 대기')).toBeInTheDocument();
   expect(screen.getByText('1칸')).toBeInTheDocument();

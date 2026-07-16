@@ -1,6 +1,6 @@
 'use client';
 
-import type { BookingDayAvailability } from '@duing/types';
+import type { BookingAvailabilitySlot, BookingDayAvailability } from '@duing/types';
 import type { SlotRange } from '../../_lib/bookingCalendar';
 import { isSelectableSlot, slotInRange } from '../../_lib/bookingCalendar';
 
@@ -10,6 +10,14 @@ type Props = {
   onToggleSlot: (slotStart: string) => void;
 };
 
+// 상태 → 행 클래스(스펙 §4′.1 SLOT_STYLE 매핑) — 행 전체가 상태색을 입는다. 선택 행은 이 표를 덮어쓴다.
+const SLOT_ROW_CLASS: Record<BookingAvailabilitySlot['status'], string> = {
+  AVAILABLE: 'border-sage-soft bg-sage-mist text-ink hover:border-sage',
+  PENDING_HOLD: 'border-warm/60 bg-warm/15 text-charcoal-2 hover:border-warm',
+  BLOCKED: 'border-line bg-graysoft text-charcoal-3',
+  PAST: 'border-transparent bg-graysoft/60 text-charcoal-3',
+};
+
 function slotStatusLabel(day: BookingDayAvailability, index: number): string {
   const slot = day.slots[index];
   if (!slot) return '';
@@ -17,9 +25,9 @@ function slotStatusLabel(day: BookingDayAvailability, index: number): string {
     // SCHOOL 은 공개 단체명, INTERNAL 은 비노출 정책 → "예약됨" 일반 문구(§16 결정 20)
     return slot.blockedBy === 'SCHOOL' && slot.organization ? slot.organization : '예약됨';
   }
-  if (slot.status === 'PENDING_HOLD') return '승인 대기중';
+  if (slot.status === 'PENDING_HOLD') return '승인 대기';
   if (slot.status === 'PAST') return '지난 시간';
-  return '신청 가능';
+  return '예약 가능';
 }
 
 export function DaySlotList({ day, selection, onToggleSlot }: Props) {
@@ -48,16 +56,12 @@ export function DaySlotList({ day, selection, onToggleSlot }: Props) {
                 disabled={!selectable}
                 aria-pressed={selected}
                 onClick={() => onToggleSlot(slot.start)}
-                className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-sm motion-safe:transition-colors ${
-                  selected
-                    ? 'border-ink bg-ink text-cream'
-                    : selectable
-                      ? 'border-line bg-paper hover:border-sage'
-                      : 'border-transparent bg-graysoft/60 text-charcoal-3'
+                className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-3 text-sm motion-safe:transition-colors ${
+                  selected ? 'border-ink-deep bg-ink text-cream' : SLOT_ROW_CLASS[slot.status]
                 }`}
               >
                 <span className="font-mono text-[13px] font-bold">{slot.start}~{slot.end}</span>
-                <span className={`text-xs ${selected ? 'text-cream/85' : slot.status === 'PENDING_HOLD' ? 'text-coral' : 'text-charcoal-3'}`}>
+                <span className={selected ? 'text-xs text-cream/85' : 'text-xs'}>
                   {selected ? '✓ ' : ''}{slotStatusLabel(day, index)}
                 </span>
               </button>

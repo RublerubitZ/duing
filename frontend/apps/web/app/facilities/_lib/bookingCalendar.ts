@@ -168,10 +168,6 @@ export function periodDistribution(slots: BookingAvailabilitySlot[]): PeriodDist
   });
 }
 
-export function firstAvailableStarts(slots: BookingAvailabilitySlot[], max: number): string[] {
-  return slots.filter((slot) => slot.status === 'AVAILABLE').slice(0, max).map((slot) => slot.start);
-}
-
 export type SlotStatusCounts = { available: number; pendingHold: number; blocked: number; past: number };
 
 export function slotStatusCounts(slots: BookingAvailabilitySlot[]): SlotStatusCounts {

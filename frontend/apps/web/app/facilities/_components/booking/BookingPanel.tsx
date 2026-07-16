@@ -114,7 +114,7 @@ export function BookingPanel({
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {view === 'day' ? (
           <div className="space-y-3">
-            <PanelSummaryCard day={day} onQuickSelect={onToggleSlot} />
+            <PanelSummaryCard day={day} />
             <DaySlotList day={day} selection={selection} onToggleSlot={onToggleSlot} />
           </div>
         ) : (
