@@ -2,7 +2,7 @@
 
 import type { BookingDayAvailability } from '@duing/types';
 import { bookingDateLabel } from '@/app/_lib/bookingDisplay';
-import { type DayBookingEntry, dayBookingEntries, rangeLabel } from '../../_lib/bookingCalendar';
+import { type DayBookingEntry, dayBookingEntries, rangeLabel, slotStatusCounts } from '../../_lib/bookingCalendar';
 
 type Props = {
   day: BookingDayAvailability;
@@ -34,7 +34,8 @@ export function DayBookingOverview({ day }: Props) {
         <li className="mt-1 flex items-center gap-2 border-t border-dashed border-line pt-2">
           <span className="w-[82px] font-mono text-xs text-ink">그 외 시간</span>
           <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-sage" />
-          <span className="text-[13px] font-bold text-ink">예약 가능 · {day.availableSlotCount}개 시간</span>
+          {/* availableSlotCount(백엔드)는 HOLD 포함 — 위 "승인 대기" 행과 이중 계산되므로 AVAILABLE만 센다 */}
+          <span className="text-[13px] font-bold text-ink">예약 가능 · {slotStatusCounts(day.slots).available}개 시간</span>
         </li>
       </ul>
     </div>

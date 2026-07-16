@@ -361,10 +361,10 @@ it('예약 현황 카드는 제목·병합 건 행·승인 대기 warm 도트·�
   const pendingRow = screen.getByText('승인 대기').closest('li');
   expect(pendingRow).not.toBeNull();
   expect(pendingRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-warm');
-  // 마지막 행(점선 구분): sage 도트 + "그 외 시간" + "예약 가능 · {availableSlotCount}개 시간"
+  // 마지막 행(점선 구분): sage 도트 + "그 외 시간" + AVAILABLE만 센 개수(HOLD는 위 행과 이중 계산 금지)
   expect(screen.getByText('그 외 시간')).toBeInTheDocument();
-  expect(screen.getByText('예약 가능 · 11개 시간')).toBeInTheDocument();
-  const availableRow = screen.getByText('예약 가능 · 11개 시간').closest('li');
+  expect(screen.getByText('예약 가능 · 10개 시간')).toBeInTheDocument();
+  const availableRow = screen.getByText('예약 가능 · 10개 시간').closest('li');
   expect(availableRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-sage');
 });
 
