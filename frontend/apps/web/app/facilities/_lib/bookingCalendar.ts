@@ -67,7 +67,7 @@ export function slotInRange(slot: BookingAvailabilitySlot, range: SlotRange): bo
 
 /**
  * 연속 슬롯 선택(§9.4): 첫 탭=단일, 둘째 탭=사이 전부 선택 가능이면 범위 확장, 아니면 재시작,
- * 동일 단일 슬롯 재탭=해제. 선택 불가 슬롯 탭은 무시.
+ * 선택 범위 내부 슬롯 재탭=그 슬롯부터 끝까지 해제(첫 슬롯이면 전체 해제). 선택 불가 슬롯 탭은 무시.
  */
 export function toggleSlotSelection(
   current: SlotRange | null,
@@ -81,8 +81,9 @@ export function toggleSlotSelection(
   if (!current) {
     return single;
   }
-  if (current.start === single.start && current.end === single.end) {
-    return null;
+  if (slotInRange(tapped, current)) {
+    // 선택된 슬롯 재탭 = 그 슬롯부터 끝까지 해제(첫 슬롯이면 전체 해제) — 연속 범위 계약 유지
+    return tapped.start === current.start ? null : { start: current.start, end: tapped.start };
   }
   const start = current.start < single.start ? current.start : single.start;
   const end = current.end > single.end ? current.end : single.end;

@@ -35,6 +35,13 @@ const daySlots: [
   slot(13, 'AVAILABLE'),
 ];
 
+// 저녁 연속 3칸(18~21시) — 선택 범위 내부 슬롯 재탭 해제 규칙 검증용.
+// 인덱스 접근(noUncheckedIndexedAccess) 회피를 위해 슬롯을 개별 상수로 둔다.
+const eveningSlot18: BookingAvailabilitySlot = slot(18, 'AVAILABLE'); // 18:00~19:00
+const eveningSlot19: BookingAvailabilitySlot = slot(19, 'AVAILABLE'); // 19:00~20:00
+const eveningSlot20: BookingAvailabilitySlot = slot(20, 'AVAILABLE'); // 20:00~21:00
+const eveningSlots: BookingAvailabilitySlot[] = [eveningSlot18, eveningSlot19, eveningSlot20];
+
 describe('buildMonthCells', () => {
   it('6×7 그리드를 월요일 시작으로 만들고 해당 월 날짜 수만 inMonth 다', () => {
     const cells = buildMonthCells('2026-07'); // 2026-07-01 은 수요일(dow=3) → 월 시작 startCol=2
@@ -68,6 +75,21 @@ describe('toggleSlotSelection', () => {
   it('차단·과거 슬롯 탭은 무시된다', () => {
     const current = { start: '09:00', end: '10:00' };
     expect(toggleSlotSelection(current, daySlots[2], daySlots)).toEqual(current);
+  });
+
+  it('다중 범위에서 마지막 슬롯을 재탭하면 그 슬롯만 해제된다', () => {
+    const current = { start: '18:00', end: '20:00' }; // 18~20 선택 중
+    expect(toggleSlotSelection(current, eveningSlot19, eveningSlots)).toEqual({ start: '18:00', end: '19:00' });
+  });
+
+  it('다중 범위에서 중간 슬롯을 재탭하면 그 지점부터 끝까지 해제된다', () => {
+    const current = { start: '18:00', end: '21:00' }; // 18~21 선택 중
+    expect(toggleSlotSelection(current, eveningSlot19, eveningSlots)).toEqual({ start: '18:00', end: '19:00' });
+  });
+
+  it('다중 범위에서 첫 슬롯을 재탭하면 전체가 해제된다', () => {
+    const current = { start: '18:00', end: '20:00' }; // 18~20 선택 중
+    expect(toggleSlotSelection(current, eveningSlot18, eveningSlots)).toBeNull();
   });
 });
 
