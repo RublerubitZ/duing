@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { BookingDayAvailability, FacilityItem } from '@duing/types';
 import { FacilityContextBar } from '@/app/facilities/_components/booking/FacilityContextBar';
@@ -193,22 +193,37 @@ it('창 밖 미래 셀은 aria-disabled 이고 클릭 시 onSelectDate 대신 on
   expect(onSelectDate).not.toHaveBeenCalled();
 });
 
-it('슬롯 리스트는 SCHOOL 단체명·INTERNAL "예약됨"·승인 대기를 목업 상태색 행으로 구분 표시한다', () => {
+it('슬롯 행은 By 중심 세로 스택으로 시간→주 정보→SCHOOL 배지를 렌더한다', () => {
   render(<DaySlotList day={makeDay()} selection={null} onToggleSlot={vi.fn()} />);
-  // AVAILABLE 행: "예약 가능" 라벨 + sage-mist 배경(SLOT_STYLE free)
+
+  // (d) AVAILABLE 행: 시간이 별도 행(font-mono), 주 정보 "예약 가능"(text-sm font-bold), 행 배경 sage-mist 유지
   const availableRow = screen.getByRole('button', { name: /09:00~10:00.*예약 가능/ });
   expect(availableRow).toHaveClass('bg-sage-mist');
-  // BLOCKED: SCHOOL 단체명 / INTERNAL "예약됨"
-  expect(screen.getByText('비호응원단')).toBeInTheDocument();
-  expect(screen.getByText('예약됨')).toBeInTheDocument();
-  // PENDING_HOLD 라벨은 "승인 대기"(구 "승인 대기중"), 구 "신청 가능" 라벨은 사라진다
-  expect(screen.getByText('승인 대기')).toBeInTheDocument();
+  expect(within(availableRow).getByText('09:00~10:00')).toHaveClass('font-mono');
+  expect(within(availableRow).getByText('예약 가능')).toHaveClass('text-sm', 'font-bold');
+
+  // (a) SCHOOL 행(17:00~18:00): 단체명이 주 정보(text-sm font-bold) + "예약됨" pill 배지 존재
+  const schoolRow = screen.getByRole('button', { name: /17:00~18:00/ });
+  expect(within(schoolRow).getByText('비호응원단')).toHaveClass('text-sm', 'font-bold');
+  expect(within(schoolRow).getByText('예약됨')).toHaveClass('rounded-full');
+
+  // (b) INTERNAL 행(18:00~19:00): 주 정보 "예약됨", 배지 없음(중복 금지) → "예약됨" 은 딱 하나
+  const internalRow = screen.getByRole('button', { name: /18:00~19:00/ });
+  expect(within(internalRow).getByText('예약됨')).toHaveClass('text-sm', 'font-bold');
+  expect(within(internalRow).getAllByText('예약됨')).toHaveLength(1);
+
+  // (c) PENDING_HOLD 행(20:00~21:00): 주 정보 "승인 대기", 배지 없음
+  const pendingRow = screen.getByRole('button', { name: /20:00~21:00/ });
+  expect(within(pendingRow).getByText('승인 대기')).toHaveClass('text-sm', 'font-bold');
+  expect(within(pendingRow).queryByText('예약됨')).not.toBeInTheDocument();
+
+  // 구 라벨은 사라진다 + 운영 안내 박스는 유지
   expect(screen.queryByText('승인 대기중')).not.toBeInTheDocument();
   expect(screen.queryByText('신청 가능')).not.toBeInTheDocument();
   expect(screen.getByText(/고정관념 09:00~20:00/)).toBeInTheDocument();
 });
 
-it('승인 대기 슬롯은 여전히 클릭 가능하고, 선택 행은 ink 배경·✓ 로 표기된다', () => {
+it('승인 대기 슬롯은 여전히 클릭 가능하고, 선택 행은 ink 배경·✓·aria-label 순서로 표기된다', () => {
   const onToggleSlot = vi.fn();
   const { rerender } = render(<DaySlotList day={makeDay()} selection={null} onToggleSlot={onToggleSlot} />);
   // HOLD(20:00~21:00) 행은 disabled 아님 → 탭 시 onToggleSlot 호출
@@ -222,6 +237,8 @@ it('승인 대기 슬롯은 여전히 클릭 가능하고, 선택 행은 ink 배
   expect(selectedRow).toHaveClass('bg-ink');
   expect(selectedRow).toHaveAttribute('aria-pressed', 'true');
   expect(selectedRow).toHaveTextContent('✓');
+  // (e) aria-label 은 "HH:MM~HH:MM 주정보" 순(SR 정보 순서) — ✓·배지는 라벨에 미포함
+  expect(selectedRow).toHaveAttribute('aria-label', '09:00~10:00 예약 가능');
 });
 
 it('운영행이 있는 날은 운영 시간 안내 박스에 단체·시간 나열과 고정 정책 문구를 렌더한다', () => {
