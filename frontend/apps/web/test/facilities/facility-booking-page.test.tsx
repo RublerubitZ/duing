@@ -315,9 +315,12 @@ describe('FacilityBookingPage — 예약 홈 통합(반월 창)', () => {
     fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
 
     expect(await screen.findByText('비호응원단')).toBeInTheDocument(); // SCHOOL 단체명
-    expect(screen.getByText('예약됨')).toBeInTheDocument(); // INTERNAL 비노출
+    // INTERNAL 비노출("예약됨")은 슬롯 라벨·요약 집계 양쪽에 나타난다.
+    expect(screen.getAllByText('예약됨').length).toBeGreaterThan(0);
     expect(screen.getByText('승인 대기중')).toBeInTheDocument(); // PENDING_HOLD
-    expect(screen.getByText(/운영: 고정관념 09:00~20:00/)).toBeInTheDocument();
+    // 운영행은 정책 안내 박스로 승격(단체·시간 나열 + 고정 문구).
+    expect(screen.getByText('운영 시간 안내')).toBeInTheDocument();
+    expect(screen.getByText(/고정관념 09:00~20:00/)).toBeInTheDocument();
 
     // 요약 카드 시간대 분포(오전 09–12 = AVAILABLE 2/3, 오후 12–18 = 4/6, 저녁 18–22 = 4/4).
     expect(screen.getByText('오전')).toBeInTheDocument();

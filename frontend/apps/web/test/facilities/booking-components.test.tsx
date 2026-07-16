@@ -198,7 +198,31 @@ it('슬롯 리스트는 SCHOOL 단체명·INTERNAL "예약됨"·승인 대기중
   expect(screen.getByText('비호응원단')).toBeInTheDocument();
   expect(screen.getByText('예약됨')).toBeInTheDocument();
   expect(screen.getByText('승인 대기중')).toBeInTheDocument();
-  expect(screen.getByText(/운영: 고정관념 09:00~20:00/)).toBeInTheDocument();
+  expect(screen.getByText(/고정관념 09:00~20:00/)).toBeInTheDocument();
+});
+
+it('운영행이 있는 날은 운영 시간 안내 박스에 단체·시간 나열과 고정 정책 문구를 렌더한다', () => {
+  const day = makeDay({
+    operatingNotes: [
+      { organization: '고정관념', start: '09:00', end: '20:00' },
+      { organization: '두잉밴드', start: '10:00', end: '12:00' },
+    ],
+  });
+  render(<DaySlotList day={day} selection={null} onToggleSlot={vi.fn()} />);
+  expect(screen.getByText('운영 시간 안내')).toBeInTheDocument();
+  expect(screen.getByText('고정관념 09:00~20:00 · 두잉밴드 10:00~12:00')).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      '시간 범위가 함께 표시된 일정은 운영상 확보된 시간 안내예요. 이 시간에도 예약을 신청할 수 있고, 관리자 승인 후 학교 반영 절차를 거쳐 확정돼요.',
+    ),
+  ).toBeInTheDocument();
+  // 승인 주체는 "관리자"로 통일 — "총동연" 비노출 정책
+  expect(screen.queryByText(/총동연/)).not.toBeInTheDocument();
+});
+
+it('운영행이 없는 날은 운영 시간 안내 박스를 렌더하지 않는다', () => {
+  render(<DaySlotList day={makeDay({ operatingNotes: [] })} selection={null} onToggleSlot={vi.fn()} />);
+  expect(screen.queryByText('운영 시간 안내')).not.toBeInTheDocument();
 });
 
 it('차단 슬롯 버튼은 비활성이다', () => {
@@ -282,6 +306,21 @@ it('패널 요약 카드는 레벨 뱃지·기간 분포·바로 신청 퀵 칩�
   // 바로 신청 가능한 첫 슬롯 칩 → onQuickSelect
   fireEvent.click(screen.getByRole('button', { name: '09:00' }));
   expect(onQuickSelect).toHaveBeenCalledWith('09:00');
+});
+
+it('패널 요약 카드는 상태별 집계 행과 슬롯 파생 운영 시간을 노출하고 0건 상태는 숨긴다', () => {
+  // makeDay(): AVAILABLE 10 · PENDING_HOLD 1 · BLOCKED 2 · PAST 0
+  render(<PanelSummaryCard day={makeDay()} onQuickSelect={vi.fn()} />);
+  expect(screen.getByText('신청 가능')).toBeInTheDocument();
+  expect(screen.getByText('10칸')).toBeInTheDocument();
+  expect(screen.getByText('승인 대기')).toBeInTheDocument();
+  expect(screen.getByText('1칸')).toBeInTheDocument();
+  expect(screen.getByText('예약됨')).toBeInTheDocument();
+  expect(screen.getByText('2칸')).toBeInTheDocument();
+  // 0건인 지난 시간은 렌더하지 않는다
+  expect(screen.queryByText('지난 시간')).not.toBeInTheDocument();
+  // 운영 시간은 슬롯[0].start~슬롯[마지막].end 파생(FE 상수 하드코딩 금지)
+  expect(screen.getByText('운영 시간 09:00~22:00 · 13칸')).toBeInTheDocument();
 });
 
 it('홈 카드는 아이콘·위치·예약 가능 라벨을 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {

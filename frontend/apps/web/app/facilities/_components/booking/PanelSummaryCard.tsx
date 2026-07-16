@@ -8,6 +8,7 @@ import {
   dayLevelOf,
   firstAvailableStarts,
   periodDistribution,
+  slotStatusCounts,
 } from '../../_lib/bookingCalendar';
 
 type Props = {
@@ -27,6 +28,16 @@ export function PanelSummaryCard({ day, onQuickSelect }: Props) {
   const level = dayLevelOf(day.availableSlotCount);
   const quickStarts = firstAvailableStarts(day.slots, 3);
   const remaining = day.availableSlotCount - quickStarts.length;
+  const counts = slotStatusCounts(day.slots);
+  const operatingRange = day.slots.length > 0
+    ? `${day.slots[0]?.start}~${day.slots[day.slots.length - 1]?.end}`
+    : null;
+  const statusEntries = [
+    { key: 'available', label: '신청 가능', count: counts.available, dotClass: 'bg-sage' },
+    { key: 'pendingHold', label: '승인 대기', count: counts.pendingHold, dotClass: 'bg-coral' },
+    { key: 'blocked', label: '예약됨', count: counts.blocked, dotClass: 'bg-cream/40' },
+    { key: 'past', label: '지난 시간', count: counts.past, dotClass: 'bg-cream/15' },
+  ].filter((entry) => entry.count > 0);
   return (
     <div className="rounded-xl bg-ink p-4 text-cream">
       <div className="flex items-center justify-between">
@@ -36,6 +47,18 @@ export function PanelSummaryCard({ day, onQuickSelect }: Props) {
         </span>
       </div>
       <p className="mt-1 font-display text-xl">{bookingDateLabel(day.date)}</p>
+
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-cream/80">
+        {statusEntries.map((entry) => (
+          <span key={entry.key} className="inline-flex items-center gap-1">
+            <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${entry.dotClass}`} />
+            {entry.label} <span className="font-mono font-bold text-cream">{entry.count}칸</span>
+          </span>
+        ))}
+      </div>
+      {operatingRange && (
+        <p className="mt-1.5 text-[11px] text-cream/50">운영 시간 {operatingRange} · {day.slots.length}칸</p>
+      )}
 
       <div className="mt-3 space-y-1.5">
         {periodDistribution(day.slots).map((period) => (

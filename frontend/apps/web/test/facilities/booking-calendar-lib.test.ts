@@ -10,6 +10,7 @@ import {
   rangeContainsPendingHold,
   rangeLabel,
   slotInRange,
+  slotStatusCounts,
   toggleSlotSelection,
   weekDatesOf,
 } from '@/app/facilities/_lib/bookingCalendar';
@@ -145,6 +146,19 @@ describe('dayLevelOf', () => {
     expect(dayLevelOf(0)).toBe('FULL');
     expect(DAY_LEVEL_META.HIGH.label).toBe('여유');
     expect(DAY_LEVEL_META.FULL.label).toBe('마감');
+  });
+});
+
+describe('slotStatusCounts', () => {
+  it('혼합 슬롯을 상태별로 집계한다', () => {
+    const mixed: BookingAvailabilitySlot[] = [
+      slot(9, 'AVAILABLE'),
+      slot(10, 'AVAILABLE'),
+      slot(11, 'BLOCKED'),
+      slot(12, 'PENDING_HOLD'),
+      slot(13, 'PAST'),
+    ];
+    expect(slotStatusCounts(mixed)).toEqual({ available: 2, pendingHold: 1, blocked: 1, past: 1 });
   });
 });
 
