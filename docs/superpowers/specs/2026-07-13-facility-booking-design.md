@@ -343,23 +343,25 @@ domain/facilitybooking/
 
 - 상태 전이 API: 조건부 전이로 자연 멱등(중복 클릭 → 409, 부작용 없음).
 - 매칭 잡: CONFIRMED 스킵 + 같은 스냅샷이면 같은 결과. 실행 겹침은 `AtomicBoolean` 가드(크롤 스케줄러 전례, 단일 인스턴스).
-- 알림(P2): `dedup_key = "FACILITY_BOOKING_{event}_{bookingId}"`로 기존 UNIQUE 제약 멱등.
+- 알림(2026-07-17 이행): `dedup_key = "FACILITY_BOOKING_{event}:b={bookingId}:h={historyId}"` — 전이 인스턴스 단위 멱등이라 CONFLICT→재승인 같은 재전이도 억제 없이 알린다(§7.6).
 
 ### 7.5 감사 로그
 
 §6.2 테이블에 모든 전이 기록. 서비스 레이어에서 전이 커밋과 같은 트랜잭션으로 append. 승인·매칭은 `crawl_basis_at`을 함께 남겨 "그때 무엇을 근거로 판단했나"를 재구성 가능하게 한다.
 
-### 7.6 알림 (P2)
+### 7.6 알림 (2026-07-17 이행 — 감사 후속으로 P2 앞당김)
 
-기존 인프라(이벤트 발행 → `@EventListener` → `NotificationService.create`, dedup_key 멱등) 재사용. `NotificationType` 추가:
+기존 인프라(이벤트 발행 → `@TransactionalEventListener(AFTER_COMMIT)` → `NotificationService.createIfAbsent`, dedup_key 멱등) 재사용. 리스너는 단일 `FacilityBookingNotificationListener`(문안 조립·수신자 루프 헬퍼 공유). `NotificationType`:
 
 | 타입 | 수신자 | 시점 |
 |---|---|---|
 | `FACILITY_BOOKING_SUBMITTED` | ADMIN 전원 | 신청 접수 |
-| `FACILITY_BOOKING_APPROVED` / `REJECTED` | 신청 동아리 운영진 | 승인/거절(자동 거절 포함) |
-| `FACILITY_BOOKING_CONFIRMED` | 신청 동아리 운영진 | 크롤 확인 확정 |
-| `FACILITY_BOOKING_CONFLICT` | ADMIN 전원 + 신청 동아리 운영진 | 충돌 전환 |
+| `FACILITY_BOOKING_APPROVED` / `REJECTED` | 신청 동아리 운영진 | 승인/거절(사유 본문 포함) |
+| `FACILITY_BOOKING_CONFIRMED` | 신청 동아리 운영진 | 수동 확정 + 매칭 잡 자동 확정 |
+| `FACILITY_BOOKING_CONFLICT` | ADMIN 전원 + 신청 동아리 운영진 | 충돌 전환(상세 본문 포함) |
+| `FACILITY_BOOKING_CANCELLED` | 신청 동아리 운영진 | 관리자 취소(CONFIRMED 복구 취소 포함, 사유 본문 포함) |
 
+동아리 자체 취소는 자기 행위라 알림 없음. 겹치는 PENDING 자동 거절 알림은 자동 거절 기능(P2)과 함께.
 메일 인프라는 제거됐으므로(#629) 인앱 전용.
 
 ### 7.7 스케줄러 영향

@@ -12,6 +12,7 @@ import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
+import com.duing.domain.notification.event.FacilityBookingConfirmedEvent;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,7 @@ public class FacilityBookingMatchingService {
     private final FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
     private final FacilityRepository facilityRepository;
     private final FacilityReservationRepository facilityReservationRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     public record MatchDecision(boolean confirmed, Long matchedScheduleSeq) {
@@ -145,9 +148,12 @@ public class FacilityBookingMatchingService {
         }
         LocalDateTime now = LocalDateTime.now(clock);
         booking.confirmByMatching(decision.matchedScheduleSeq(), generation, now);
-        historyRepository.save(FacilityBookingStatusHistory.record(
+        FacilityBookingStatusHistory confirmationHistory = historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), BookingStatus.APPROVED, BookingStatus.CONFIRMED,
                 null, "크롤 데이터 자동 매칭 확정", generation));
+        // 확정 알림(스펙 §7.6) — 커밋 성공 시에만 AFTER_COMMIT 리스너가 운영진에게 발행 (낙관 잠금 롤백이면 미발행)
+        eventPublisher.publishEvent(new FacilityBookingConfirmedEvent(
+                booking.getId(), booking.getClubId(), confirmationHistory.getId()));
         return true;
     }
 }
