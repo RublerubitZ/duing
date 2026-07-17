@@ -67,7 +67,7 @@ public record UpdateClubRequest(
         @Size(max = 100, message = "회비 표기는 100자 이하여야 합니다.")
         String membershipFee,
 
-        @Size(max = 60, message = "한 줄 태그라인은 60자 이하여야 합니다.")
+        @Size(max = 60, message = "한줄 소개는 60자 이하여야 합니다.")
         String tagline,
 
         @Size(max = 10, message = "강조 항목은 최대 10개까지 가능합니다.")
