@@ -59,6 +59,7 @@ function makeDetail(overrides: Partial<AdminFacilityBookingDetail> = {}): AdminF
     endTime: '20:00',
     status: 'PENDING',
     purpose: '정기 합주',
+    contactPhone: null,
     crawlBasisAt: '2026-07-13T18:00:00',
     stale: false,
     overlaps: [],
@@ -92,6 +93,18 @@ describe('AdminBookingDetailModal', () => {
     expect(screen.getByLabelText('검증 컨텍스트 타임라인')).toBeInTheDocument();
     expect(screen.getByText('이력')).toBeInTheDocument();
     expect(screen.getByText(/7월 13일 \(월\) 19:30/)).toBeInTheDocument();
+  });
+
+  it('대표 연락처: 값이 있으면 노출하고, 없으면(null) "—" 로 표기한다(§2.3)', () => {
+    mockDetailQuery.current.data = makeDetail({ contactPhone: '010-1234-5678' });
+    const { rerender } = render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+    expect(screen.getByText('대표 연락처')).toBeInTheDocument();
+    expect(screen.getByText('010-1234-5678')).toBeInTheDocument();
+
+    mockDetailQuery.current = { data: makeDetail({ contactPhone: null }), isLoading: false, isError: false };
+    rerender(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+    expect(screen.getByText('대표 연락처')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 
   it('APPROVED: 수동 확정·충돌 전환·취소 버튼을 노출한다', () => {

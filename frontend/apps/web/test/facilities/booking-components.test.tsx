@@ -10,6 +10,7 @@ import { MobileDaySheet } from '@/app/facilities/_components/booking/MobileDaySh
 import { DaySlotList } from '@/app/facilities/_components/booking/DaySlotList';
 import { DayBookingOverview } from '@/app/facilities/_components/booking/DayBookingOverview';
 import { BookingPanel } from '@/app/facilities/_components/booking/BookingPanel';
+import { BookingConfirmDialog } from '@/app/facilities/_components/booking/BookingConfirmDialog';
 import { BookingSuccess } from '@/app/facilities/_components/booking/BookingSuccess';
 import { PanelSummaryCard } from '@/app/facilities/_components/booking/PanelSummaryCard';
 import { FacilityHomeCard } from '@/app/facilities/_components/booking/FacilityHomeCard';
@@ -953,5 +954,87 @@ it('빠른 예약 시트(§11.1): success 스텝은 승인 타임라인을 렌�
 
 it('빠른 예약 시트(§11.1): open=false 면 시트를 열지 않는다', () => {
   renderMobileSheet({ open: false, day: null, facility: null });
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+// ── 신청 확인 Dialog(BookingConfirmDialog) — §2.2 ─────────────────────────────
+it('신청 확인 Dialog(§2.2): 시설·일시·동아리·목적·인원·연락처·고정 안내를 렌더하고 취소/신청 콜백을 부른다', () => {
+  const onConfirm = vi.fn();
+  const onCancel = vi.fn();
+  render(
+    <BookingConfirmDialog
+      open
+      facilityName="커뮤니티룸(1)"
+      date="2026-07-28" // 화요일
+      range={{ start: '14:00', end: '16:00' }}
+      clubName="밴드부"
+      purpose="정기 합주"
+      attendeeCount={undefined}
+      contactPhone="010-1234-5678"
+      isSubmitting={false}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />,
+  );
+  const dialog = screen.getByRole('dialog', { name: '예약을 신청하시겠어요?' });
+  expect(within(dialog).getByText('아래 내용을 다시 한번 확인해주세요.')).toBeInTheDocument();
+  // 항목: 시설 · 예약 일시(YYYY.MM.DD (요일) + HH:mm ~ HH:mm (N시간)) · 동아리 · 목적 · 연락처
+  expect(within(dialog).getByText('커뮤니티룸(1)')).toBeInTheDocument();
+  expect(within(dialog).getByText('2026.07.28 (화)')).toBeInTheDocument();
+  expect(within(dialog).getByText('14:00 ~ 16:00 (2시간)')).toBeInTheDocument();
+  expect(within(dialog).getByText('밴드부')).toBeInTheDocument();
+  expect(within(dialog).getByText('정기 합주')).toBeInTheDocument();
+  expect(within(dialog).getByText('010-1234-5678')).toBeInTheDocument();
+  // 사용 인원 미입력 → "—"
+  expect(within(dialog).getByText('—')).toBeInTheDocument();
+  // 고정 안내(승인 주체 "관리자"·예상 시간 암시 금지)
+  expect(
+    within(dialog).getByText('예약 신청 후 관리자 승인과 학교 반영 절차를 거쳐 최종 예약이 확정됩니다.'),
+  ).toBeInTheDocument();
+
+  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+  expect(onCancel).toHaveBeenCalledTimes(1);
+  fireEvent.click(within(dialog).getByRole('button', { name: '예약 신청' }));
+  expect(onConfirm).toHaveBeenCalledTimes(1);
+});
+
+it('신청 확인 Dialog(§2.2): 사용 인원이 있으면 "N명" 을 노출하고 제출 중이면 신청 버튼이 비활성·라벨이 바뀐다', () => {
+  render(
+    <BookingConfirmDialog
+      open
+      facilityName="커뮤니티룸(1)"
+      date="2026-07-28"
+      range={{ start: '18:00', end: '20:00' }}
+      clubName="밴드부"
+      purpose="정기 합주"
+      attendeeCount={15}
+      contactPhone="01012345678"
+      isSubmitting
+      onConfirm={vi.fn()}
+      onCancel={vi.fn()}
+    />,
+  );
+  const dialog = screen.getByRole('dialog', { name: '예약을 신청하시겠어요?' });
+  expect(within(dialog).getByText('15명')).toBeInTheDocument();
+  // 제출 중: 신청 버튼 비활성 + '신청 중…' 라벨(중복 제출 방지)
+  const submitButton = within(dialog).getByRole('button', { name: '신청 중…' });
+  expect(submitButton).toBeDisabled();
+});
+
+it('신청 확인 Dialog(§2.2): open=false 면 다이얼로그를 열지 않는다', () => {
+  render(
+    <BookingConfirmDialog
+      open={false}
+      facilityName="커뮤니티룸(1)"
+      date="2026-07-28"
+      range={{ start: '18:00', end: '20:00' }}
+      clubName="밴드부"
+      purpose="정기 합주"
+      contactPhone="010-1234-5678"
+      isSubmitting={false}
+      onConfirm={vi.fn()}
+      onCancel={vi.fn()}
+    />,
+  );
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });

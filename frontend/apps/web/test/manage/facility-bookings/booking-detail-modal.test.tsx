@@ -34,6 +34,7 @@ function makeDetail(overrides: Partial<FacilityBookingDetail>): FacilityBookingD
     endTime: '20:00',
     status: 'PENDING',
     purpose: '정기 합주',
+    contactPhone: null,
     history: [
       { previousStatus: null, newStatus: 'PENDING', reason: null, changedAt: '2026-07-13T19:30:00' },
     ],
@@ -76,6 +77,18 @@ describe('BookingDetailModal', () => {
       { clubId: 7, bookingId: 31 },
       expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
     );
+  });
+
+  it('대표 연락처: 값이 있으면 노출하고, 없으면(null) "—" 로 표기한다(§2.3)', () => {
+    mockDetailQuery.current.data = makeDetail({ contactPhone: '010-1234-5678' });
+    const { rerender } = render(<BookingDetailModal clubId={7} bookingId={31} onClose={vi.fn()} />);
+    expect(screen.getByText('대표 연락처')).toBeInTheDocument();
+    expect(screen.getByText('010-1234-5678')).toBeInTheDocument();
+
+    mockDetailQuery.current = { data: makeDetail({ contactPhone: null }), isLoading: false, isError: false };
+    rerender(<BookingDetailModal clubId={7} bookingId={31} onClose={vi.fn()} />);
+    expect(screen.getByText('대표 연락처')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 
   it('APPROVED: 취소 버튼 없이 관리자 문의 안내 + 서브라벨', () => {

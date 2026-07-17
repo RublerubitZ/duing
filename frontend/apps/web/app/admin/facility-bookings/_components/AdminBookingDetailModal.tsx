@@ -182,6 +182,9 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
                 {detail.attendeeCount !== undefined && (
                   <p className="mt-1 text-xs text-charcoal-3">사용 인원 {detail.attendeeCount}명</p>
                 )}
+                <p className="mt-1 text-xs text-charcoal-3">
+                  <span>대표 연락처</span> <span className="text-charcoal-2">{detail.contactPhone ?? '—'}</span>
+                </p>
                 {detail.rejectReason && <p className="mt-1 text-xs text-charcoal-3">거절 사유 — {detail.rejectReason}</p>}
                 {detail.conflictDetail && <p className="mt-1 text-xs text-coral">충돌 상세 — {detail.conflictDetail}</p>}
               </div>
