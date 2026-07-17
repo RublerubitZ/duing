@@ -52,9 +52,12 @@ public class FacilityBookingException extends ApplicationException {
     }
 
     public static class SlotUnavailableException extends FacilityBookingException {
+        /** EXCLUDE 백스톱 발화 시 GlobalExceptionHandler 가 동일 응답을 재현하는 데 쓰는 단일 출처 상수. */
+        public static final String MESSAGE = "이미 예약된 시간이 포함되어 있어 신청할 수 없습니다.";
+        public static final String CODE = "FACILITY_BOOKING_SLOT_UNAVAILABLE";
+
         public SlotUnavailableException() {
-            super("이미 예약된 시간이 포함되어 있어 신청할 수 없습니다.",
-                    HttpStatus.CONFLICT, "FACILITY_BOOKING_SLOT_UNAVAILABLE");
+            super(MESSAGE, HttpStatus.CONFLICT, CODE);
         }
     }
 

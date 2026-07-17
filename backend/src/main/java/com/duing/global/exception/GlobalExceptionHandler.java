@@ -1,5 +1,6 @@
 package com.duing.global.exception;
 
+import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.interview.controller.dto.response.UnresolvedMembersResponse;
 import com.duing.domain.interview.exception.InterviewException;
 import com.duing.global.response.ApiResponse;
@@ -33,6 +34,9 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final String POSTGRES_EXCLUSION_VIOLATION_SQL_STATE = "23P01";
+    private static final String FACILITY_BOOKING_OVERLAP_CONSTRAINT = "excl_facility_booking_active_overlap";
 
     @ExceptionHandler(InterviewException.RoundHasUnresolvedMembers.class)
     public ResponseEntity<ApiResponse<UnresolvedMembersResponse>> handleUnresolvedMembers(
@@ -197,9 +201,39 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(
             DataIntegrityViolationException exception) {
-        log.warn("DB 제약 위반 발생 (409 변환): {}", rootCauseMessage(exception));
+        if (isFacilityBookingOverlapViolation(exception)) {
+            // 시설 예약 EXCLUDE 백스톱(excl_facility_booking_active_overlap) 발화 — 겹침은 재시도로
+            // 해소되지 않는 영구 조건이라 일반 재시도 안내 대신 주 경로(SlotUnavailableException)와 동일한
+            // 메시지·코드로 응답해 FE 분기를 살린다(2026-07-17 감사). 백스톱 발화 자체는 잠금 직렬화를
+            // 우회한 신호이므로 warn 으로 남긴다.
+            log.warn("시설 예약 EXCLUDE 백스톱 발화 (409 변환): {}", rootCauseMessage(exception));
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.error(FacilityBookingException.SlotUnavailableException.MESSAGE,
+                            FacilityBookingException.SlotUnavailableException.CODE));
+        }
+        // 도메인이 식별·변환하지 못한 무결성 위반은 사용자 잘못이 아니라 서버 회귀일 가능성이 높다 —
+        // warn 은 Sentry(minimum-event-level: error)에서 숨으므로 error 로 승격해 관측한다(2026-07-17 감사).
+        // 응답은 내부 정보를 숨긴 중립 문구를 유지한다.
+        log.error("DB 제약 위반 발생 (409 변환): {}", rootCauseMessage(exception));
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error("요청을 처리할 수 없습니다. 잠시 후 다시 시도해주세요."));
+    }
+
+    /**
+     * 시설 예약 활성 겹침 EXCLUDE 위반인지만 true — 다른 EXCLUDE/UNIQUE/FK/CHECK 위반은 false 로
+     * 일반 처리에 맡긴다. Hibernate 의 getConstraintName 이 23P01 에서 null 일 수 있어 모집 도메인
+     * 전례(SQLState + 제약명 메시지 매칭)를 따른다.
+     */
+    private static boolean isFacilityBookingOverlapViolation(DataIntegrityViolationException exception) {
+        Throwable mostSpecific = exception.getMostSpecificCause();
+        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
+            return false;
+        }
+        if (!POSTGRES_EXCLUSION_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
+            return false;
+        }
+        String message = sqlException.getMessage();
+        return message != null && message.contains(FACILITY_BOOKING_OVERLAP_CONSTRAINT);
     }
 
     @ExceptionHandler(PessimisticLockingFailureException.class)
