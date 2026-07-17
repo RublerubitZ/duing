@@ -1,7 +1,10 @@
 package com.duing.domain.facilitybooking.service;
 
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.exception.FacilityException;
@@ -39,14 +42,18 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
     @Override
     @Transactional
     public CreateResult create(CreateFacilityBookingCommand command) {
-        clubAuthService.requireManager(command.actorId(), command.clubId());
         // 같은 동아리의 생성을 직렬화한다. 활성 상한(count)·동아리 중복 검사가 무잠금 read-then-insert 라
         // 동시 요청이 상한 10건과 동아리 중복 검사를 함께 우회할 수 있다 — DB EXCLUDE 제약은
         // APPROVED/CONFIRMED 만 커버하고 PENDING 겹침은 커버하지 않는다. 동아리 행을 비관 잠금해
-        // 같은 동아리의 create 만 순차화하고 다른 동아리 간 병렬성은 유지한다. requireManager 가 이미
-        // 동아리 존재를 보장하므로 orElseThrow 는 방어용이다.
-        clubRepository.findByIdForUpdate(command.clubId())
+        // 같은 동아리의 create 만 순차화하고 다른 동아리 간 병렬성은 유지한다.
+        // 잠금을 권한 게이트보다 먼저 잡는 순서가 중요하다(2026-07-17 감사) — requireManager 의 ACTIVE
+        // 판정은 무잠금 조회라 운영 중단 전환(updateStatus, findByIdForUpdate)과 경합하면 INACTIVE 동아리에
+        // PENDING 이 남는다. 잠금 선행 시 requireManager 의 findById 는 1차 캐시의 잠긴 엔티티를 재사용하고,
+        // 잠근 엔티티로 ACTIVE 를 원자 재검사한다(모집 생성 requireActiveClubUnderLock 전례).
+        Club club = clubRepository.findByIdForUpdate(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
+        clubAuthService.requireManager(command.actorId(), command.clubId());
+        requireActiveClubUnderLock(club);
         Facility facility = facilityRepository.findById(command.facilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
         if (facility.isArchived()) {
@@ -124,6 +131,17 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
     /** 기존 행(빈 문자열)은 응답에서 null 로 내린다(FE "—" 표기 폴백, 설계 §1). */
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    /**
+     * 운영 중(ACTIVE) 동아리만 신청 가능 — findByIdForUpdate 로 잠근 club 을 전달해야 운영 중단 전환과
+     * 직렬화된다. requireManager 에 내장된 기본 게이트는 잠금 없이 판정하므로 이 원자 재검사를 대체하지
+     * 못한다(모집 생성 GeneralRecruitmentService 전례와 동일 근거, 2026-07-17 감사).
+     */
+    private void requireActiveClubUnderLock(Club club) {
+        if (club.getStatus() != ClubStatus.ACTIVE) {
+            throw new ClubMemberException.NotActiveClub(club.getStatus());
+        }
     }
 
     private Map<Long, String> roomNames(List<FacilityBooking> bookings) {
