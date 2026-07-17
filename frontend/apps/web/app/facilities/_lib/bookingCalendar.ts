@@ -295,3 +295,23 @@ export function dayOverviewTimeline(
     return leftOperating - rightOperating;
   });
 }
+
+// ── 확정 예약 블록 파스텔 배정(§8.3) — 주간 화면 라벨 첫 등장 순 팔레트 인덱스 순환 ─────
+
+/** 파스텔 팔레트 색상 수(§8.3): mint·lemon·coral·lavender·beige·rose 6색. */
+export const PASTEL_PALETTE_SIZE = 6;
+
+/**
+ * 확정(BLOCKED) 블록 라벨(동아리명)을 현재 주간 화면의 첫 등장 순서로 파스텔 팔레트 인덱스에 순환 배정한다(§8.3).
+ * 같은 라벨은 화면 내내 같은 인덱스(한 동아리가 한 화면에서 두 색이 되는 혼란 방지), 7번째 라벨부터 0 으로 재순환.
+ * 순수 함수 — 입력은 등장 순서대로 나열된 라벨 목록(중복 포함), 출력은 라벨→인덱스 맵.
+ */
+export function pastelIndexByLabel(labels: string[]): Map<string, number> {
+  const indexByLabel = new Map<string, number>();
+  for (const label of labels) {
+    if (!indexByLabel.has(label)) {
+      indexByLabel.set(label, indexByLabel.size % PASTEL_PALETTE_SIZE);
+    }
+  }
+  return indexByLabel;
+}
