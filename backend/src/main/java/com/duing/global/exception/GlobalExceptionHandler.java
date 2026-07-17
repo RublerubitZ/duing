@@ -211,10 +211,11 @@ public class GlobalExceptionHandler {
                     .body(ApiResponse.error(FacilityBookingException.SlotUnavailableException.MESSAGE,
                             FacilityBookingException.SlotUnavailableException.CODE));
         }
-        // 도메인이 식별·변환하지 못한 무결성 위반은 사용자 잘못이 아니라 서버 회귀일 가능성이 높다 —
-        // warn 은 Sentry(minimum-event-level: error)에서 숨으므로 error 로 승격해 관측한다(2026-07-17 감사).
-        // 응답은 내부 정보를 숨긴 중립 문구를 유지한다.
-        log.error("DB 제약 위반 발생 (409 변환): {}", rootCauseMessage(exception));
+        // warn 유지 — error 승격(Sentry 관측, 2026-07-17 감사 제안)은 보류한다: 찜 더블클릭
+        // (GeneralClubFavoriteService)·회원가입/번호변경 TOCTOU(GeneralUserService)의 정상 사용자 경합이
+        // 아직 자체 catch 없이 이 분기로 흘러들어, 승격하면 정상 행동이 서버 장애처럼 알람이 된다.
+        // 세 경로에 도메인 로컬 catch(8개 도메인 전례 패턴)를 정비한 뒤 승격할 것.
+        log.warn("DB 제약 위반 발생 (409 변환): {}", rootCauseMessage(exception));
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error("요청을 처리할 수 없습니다. 잠시 후 다시 시도해주세요."));
     }
