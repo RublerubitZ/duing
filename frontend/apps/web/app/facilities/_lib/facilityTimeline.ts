@@ -11,6 +11,16 @@ export function seoulDateIso(now: Date): string {
   return `${read('year')}-${read('month')}-${read('day')}`;
 }
 
+// KST 현재 시각 'HH:mm' — hourCycle h23 로 '24:00' 표기 함정을 피한다. 마감 힌트 판정 전용.
+export function seoulTimeHHmm(now: Date): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Seoul',
+    hourCycle: 'h23',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(now);
+}
+
 // YYYY-MM 의 일수.
 export function daysInMonth(yearMonth: string): number {
   const [year, month] = yearMonth.split('-').map(Number);

@@ -225,7 +225,7 @@ const server = setupServer(
     ok([{ id: 1, label: '동아리 정기 모임' }, { id: 3, label: '정기 합주' }]),
   ),
   http.get('*/leader/clubs/me/managed', () =>
-    ok([{ clubId: 7, clubName: '밴드부', logoUrl: null, myRole: 'LEADER', activeRecruitmentCount: 0 }]),
+    ok([{ clubId: 7, clubName: '밴드부', logoUrl: null, myRole: 'LEADER', centralClub: true, activeRecruitmentCount: 0 }]),
   ),
   // 로그인+운영 동아리 1개면 MyBookingsChip 이 이 목록을 조회한다(기본은 진행 중 0건 → 칩 미노출).
   http.get('*/clubs/7/facility-bookings', () => ok([])),

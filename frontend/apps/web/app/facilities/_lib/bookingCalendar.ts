@@ -1,6 +1,7 @@
 // 예약 홈의 순수 계산 — 시각/날짜 문자열('HH:mm'·'yyyy-MM-dd')은 사전순 비교가 시간순과 일치한다.
 // Date 파싱은 로컬 필드 생성만 사용한다(new Date('yyyy-MM-dd') 는 UTC 자정 함정).
 import type { BookingAvailabilitySlot, BookingOperatingNote } from '@duing/types';
+import { seoulDateIso, seoulTimeHHmm } from './facilityTimeline';
 
 export type CalendarCell = { iso: string; day: number; inMonth: boolean };
 export type SlotRange = { start: string; end: string };
@@ -111,6 +112,17 @@ export function shiftDateByDays(iso: string, deltaDays: number): string {
   const date = parseIsoDate(iso);
   date.setDate(date.getDate() + deltaDays);
   return toIso(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/**
+ * 신청 마감 사전 판정 — 사용일 전날 12:01(KST)부터 마감(서버 BookingDeadlinePolicy 와 동일 경계, 분 단위).
+ * 표시용 힌트 전용: 최종 판단은 서버(FACILITY_BOOKING_DEADLINE_PASSED)가 한다 — 클라 시계를 신뢰하지 않는다.
+ */
+export function isApplicationDeadlinePassed(dateIso: string, now: Date): boolean {
+  const deadlineDateIso = shiftDateByDays(dateIso, -1);
+  const seoulTodayIso = seoulDateIso(now);
+  if (seoulTodayIso !== deadlineDateIso) return seoulTodayIso > deadlineDateIso;
+  return seoulTimeHHmm(now) > '12:00';
 }
 
 /**
