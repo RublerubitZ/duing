@@ -132,27 +132,27 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-1.5">
           {/* 계층 1·2 — 이름 + 한줄 소개(1줄 말줄임). 미작성이면 문구 없이 빈 줄로 높이만 유지해
               모든 카드에서 카테고리 행 위치가 일정하게 정렬되도록 한다(NBSP가 줄 높이 확보). */}
-          <h3 className="text-[19px] leading-[1.25]">{club.name}</h3>
-          <p className="truncate text-[13.5px] text-charcoal-2 leading-[1.45]">
+          <h3 className="text-[20px] leading-[1.25]">{club.name}</h3>
+          <p className="truncate text-[14px] text-charcoal-2 leading-[1.5]">
             {club.tagline ?? ' '}
           </p>
         </div>
         {/* 계층 3·4 — 카테고리는 pill 없이 카테고리별 색상 텍스트로, 분과는 회색 보조 텍스트(중앙만). */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`text-[12.5px] font-semibold ${cat.text}`}>{club.cat}</span>
+          <span className={`text-[13px] font-semibold ${cat.text}`}>{club.cat}</span>
           {club.scope === '중앙' && club.division && (
-            <span className="text-[12.5px] text-charcoal-3">{formatDivisionLabel(club.division)}</span>
+            <span className="text-[13px] text-charcoal-3">{formatDivisionLabel(club.division)}</span>
           )}
         </div>
       </div>
 
       <div className="mt-auto pt-3 border-t border-dashed border-line flex items-center justify-between gap-2">
         <span
-          className={`inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[11.5px] font-bold tracking-[0.02em] ${statusStyle.chipClass}`}
+          className={`inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[12px] font-bold tracking-[0.02em] ${statusStyle.chipClass}`}
         >
           <span
             className="w-1.5 h-1.5 rounded-full"
@@ -166,7 +166,7 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
           {statusStyle.label}
         </span>
 
-        <span className="text-[12.5px] text-charcoal-2 inline-flex items-center gap-1.5">
+        <span className="text-[13px] text-charcoal-2 inline-flex items-center gap-1.5">
           {renderPeriod(club)}
         </span>
       </div>

@@ -10,11 +10,11 @@ export function ScopeChip({ scope }: { scope: ClubScope }) {
   const ScopeIcon = isCentral ? BadgeCheck : GraduationCap;
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[10.5px] font-bold ${
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[11px] font-bold ${
         isCentral ? 'bg-sage-mist text-ink-deep' : 'bg-[#DDE8F1] text-[#2F557A]'
       }`}
     >
-      <ScopeIcon size={11} aria-hidden />
+      <ScopeIcon size={12} aria-hidden />
       {scope}
     </span>
   );

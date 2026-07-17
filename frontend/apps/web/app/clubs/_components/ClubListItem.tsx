@@ -118,12 +118,12 @@ export function ClubListItem({
           <ScopeChip scope={club.scope} />
         </div>
         {/* 계층 3 — 한줄 소개. 미작성이면 NBSP 빈 줄로 높이만 유지(행 간 정렬 일관). */}
-        <div className="mt-1 truncate text-[11.5px] text-charcoal-2">{club.tagline ?? ' '}</div>
+        <div className="mt-1.5 truncate text-[12.5px] text-charcoal-2">{club.tagline ?? ' '}</div>
         {/* 계층 4 — 카테고리 색상 텍스트 + 분과(회색, 중앙만). 우측 상단은 D-day(모집) 자리. */}
-        <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
-          <span className={cn('shrink-0 text-[11px] font-semibold', cat.text)}>{club.cat}</span>
+        <div className="mt-2 flex min-w-0 items-center gap-1.5">
+          <span className={cn('shrink-0 text-[12px] font-semibold', cat.text)}>{club.cat}</span>
           {club.scope === '중앙' && club.division && (
-            <span className="min-w-0 truncate text-[11px] text-charcoal-3">
+            <span className="min-w-0 truncate text-[12px] text-charcoal-3">
               {formatDivisionLabel(club.division)}
             </span>
           )}
