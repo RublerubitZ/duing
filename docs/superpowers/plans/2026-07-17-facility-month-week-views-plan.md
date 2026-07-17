@@ -92,3 +92,23 @@
 - [ ] **Step 3: 구현** — 스펙 §9 그대로. 시트는 기존 ui/sheet 재사용(duing 스코프 bg-transparent 함정·sr-only Description 전례 준수). 시나리오 20 의 matchMedia 오버라이드/원복 패턴 재사용.
 - [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
 - [ ] **Step 5: 커밋** — `feat(frontend): 모바일 주간 압축 — 7일 한 화면·블록 약칭·상세 바텀시트`
+
+---
+
+### Task 5: 운영행 Guide Layer + 문구 교체 (9차 요구 §10)
+
+**Files:**
+- Modify: `frontend/apps/web/app/facilities/_components/booking/WeekTimetable.tsx` (운영 셀 가이드 시각·aria)
+- Modify: `frontend/apps/web/app/facilities/_components/booking/BookingViewHeader.tsx` (주간 범례 "기본 확보 시간"+점선 스와치)
+- Modify: `frontend/apps/web/app/facilities/_components/booking/DaySlotList.tsx` (안내 박스 제목·§10.2 고정 문구)
+- Modify: `frontend/apps/web/app/facilities/_components/booking/DayBookingOverview.tsx` ("(기본 확보)" 접미)
+- Modify: `frontend/apps/web/app/facilities/_components/booking/PanelSummaryCard.tsx` ("이용 가능 시간"으로)
+- Test: `booking-components.test.tsx`, `facility-booking-page.test.tsx` 관련 단언 전수 갱신
+
+**Interfaces:** 동작·props·구조 전부 무변경 — 시각 클래스와 문자열만. 스펙 §10.2 고정 문구는 한 글자도 다르면 안 된다.
+
+- [ ] **Step 1: 실패 테스트 (RED)** — (a) 운영 셀 aria "기본 확보 시간 · 예약 신청 가능"+`border-dashed` 클래스+탭 선택 유지, (b) 범례 "기본 확보 시간", (c) 안내 박스 제목 "기본 확보 시간"+§10.2 고정 문구 정확 일치, (d) 현황 카드 "(기본 확보)", (e) 요약 카드 "이용 가능 시간 …", (f) 금지어 부정 단언: facilities 컴포넌트 렌더 출력에 "운영 시간"/"운영 중" 부재.
+- [ ] **Step 2: 실패 확인** — `pnpm --filter web test booking-components facility-booking-page` FAIL
+- [ ] **Step 3: 구현** — 스펙 §10 그대로. 동작 코드(탭·선택·블록 plan) 무변경 확인.
+- [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
+- [ ] **Step 5: 커밋** — `feat(frontend): 운영행을 가이드 레이어로 — 점선 시각·기본 확보 시간 문구 전환`
