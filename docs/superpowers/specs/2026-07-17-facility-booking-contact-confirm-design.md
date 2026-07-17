@@ -7,7 +7,7 @@
 
 ## 1. 백엔드 — contact_phone (별도 PR, 먼저 머지)
 
-- **V85 마이그레이션**: `facility_bookings`에 `contact_phone VARCHAR(20) NOT NULL DEFAULT ''`
+- **V85 마이그레이션**: `facility_booking`에 `contact_phone VARCHAR(20) NOT NULL DEFAULT ''`
   추가 후 DEFAULT 제거(기존 행 하위호환 — 기존 신청은 빈 문자열, 신규는 필수).
   기존 파일 수정 금지(새 파일만).
 - **요청**: `CreateFacilityBookingRequest`에
