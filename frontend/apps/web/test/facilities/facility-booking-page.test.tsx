@@ -762,4 +762,28 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(await screen.findByRole('button', { name: new RegExp(`${CROSS_TARGET_DAY}일 · 선택`) })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '15:00~16:00 예약 신청' })).toBeEnabled();
   });
+
+  it('시나리오 25 (셀 탭 통합 c): 성공 화면에서 같은 날 셀을 탭하면 확정 범위를 변조하지 않고 새 신청(슬롯 단계)으로 리셋된다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+    server.use(
+      http.post('*/clubs/7/facility-bookings', () =>
+        ok({ bookingId: 32, status: 'PENDING' as const, overlappingPendingCount: 0 }),
+      ),
+    );
+    renderPage();
+
+    // 성공 화면까지 진행(창 첫날 18~19시).
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+    fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
+    await screen.findByText('밴드부');
+    fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
+    await screen.findByLabelText('승인 진행 타임라인');
+
+    // 같은 날 주간 셀(19:00) 탭 → 성공 화면 범위 변조 대신 슬롯 단계 + 19:00 단일 선택으로 리셋.
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 19:00 가능`) }));
+    expect(screen.queryByLabelText('승인 진행 타임라인')).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '19:00~20:00 예약 신청' })).toBeEnabled();
+  });
 });

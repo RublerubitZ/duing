@@ -256,11 +256,14 @@ export function FacilityBookingPage() {
   // 주간 셀 탭(§9.5·§4) — 같은 선택일이면 토글, 다른 날이면 그 날로 전환 후 단일 선택.
   // WeekTimetable 의 onTapSlot 으로 연결된다(선택일 컬럼=toggleSlot, 타 요일=selectDate 후 단일 선택).
   const tapWeekSlot = (iso: string, slotStart: string) => {
-    if (iso === selectedDate) {
+    if (iso === selectedDate && step === 'slots') {
       toggleSlot(slotStart);
       return;
     }
-    selectDate(iso);
+    // 타 요일 탭 또는 폼/성공 스텝 중 탭 = 새 신청 시작. 성공 화면의 확정 범위(selection)를
+    // 라이브로 변조하지 않도록 스텝·제출 상태를 리셋한 뒤 탭한 슬롯 단일 선택으로 연다.
+    if (iso === selectedDate) resetSelectionFlow();
+    else selectDate(iso);
     const endLabel = `${String(Number(slotStart.slice(0, 2)) + 1).padStart(2, '0')}:${slotStart.slice(3, 5)}`;
     setSelection({ start: slotStart, end: endLabel });
   };
