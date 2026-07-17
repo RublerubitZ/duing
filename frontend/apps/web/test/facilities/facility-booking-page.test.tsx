@@ -77,10 +77,14 @@ const WINDOW_FROM_WEEK_LABEL = weekRangeLabel(mondayOf(WINDOW.from));
 
 // 주간 셀 탭 통합(§4)용 — 창 안에서 다른 요일 셀이 항상 존재하도록 '창 첫날+3일'이 속한 주를 기준으로
 // 앵커(딥링크 진입일)와 다른 요일 타깃을 고른다(주 경계·일요일 엣지에서도 형제 요일이 보장됨).
+// WINDOW.from 은 제외 — 운영노트 특수일이라 셀 aria 가 "기본 확보 시간 · 예약 신청 가능"으로 달라져
+// "N일 15:00 가능" 매칭이 깨진다(창 첫날 요일이 월~목인 달에만 터지는 날짜 의존 실패 방지).
 const CROSS_ANCHOR = shiftDateByDays(WINDOW.from, 3);
 const CROSS_TARGET =
   weekDatesOf(CROSS_ANCHOR).find(
-    (iso) => iso >= WINDOW.from && iso <= WINDOW.until && iso.slice(0, 7) === WINDOW_MONTH && iso !== CROSS_ANCHOR,
+    (iso) =>
+      iso >= WINDOW.from && iso <= WINDOW.until && iso.slice(0, 7) === WINDOW_MONTH
+      && iso !== CROSS_ANCHOR && iso !== WINDOW.from,
   ) ?? WINDOW.from;
 const CROSS_TARGET_DAY = Number(CROSS_TARGET.slice(8, 10));
 
@@ -96,8 +100,8 @@ const BOOKING_RANGES = [CURRENT_RANGE, NEXT_RANGE];
 // 구간 칩 텍스트("현재 예약 가능 M.d ~ M.d") — rangeDatesLabel(M.d ~ M.d) 미러.
 const CURRENT_RANGE_CHIP = `${CURRENT_RANGE.label} ${labelPart(CURRENT_RANGE.startDate)} ~ ${labelPart(CURRENT_RANGE.endDate)}`;
 const NEXT_RANGE_CHIP = `${NEXT_RANGE.label} ${labelPart(NEXT_RANGE.startDate)} ~ ${labelPart(NEXT_RANGE.endDate)}`;
-// 다음 구간 시작일 셀 = 예약 오픈 마커 대상(availableSlotCount 13 → 레벨 '여유'). aria-label 에 '예약 오픈일' 포함.
-const OPEN_MARKER_CELL = `${NEXT_RANGE_FROM_DAY}일 여유, 남은 13칸 예약 오픈일`;
+// 다음 구간 시작일 셀(availableSlotCount 13 → 레벨 '여유') — 오픈 마커 제거 후 일반 셀과 동일.
+const NEXT_RANGE_START_CELL = `${NEXT_RANGE_FROM_DAY}일 여유, 남은 13칸`;
 
 // 창 첫날 셀에 배치할 13칸: 11시=SCHOOL(비호응원단), 12시=INTERNAL(예약됨), 14시=HOLD, 나머지 AVAILABLE
 function makeMixedSlots(): BookingAvailabilitySlot[] {
@@ -283,11 +287,26 @@ function renderPage() {
     );
   }
 
-  return render(
+  render(
     <Wrapper>
       <FacilityBookingPage />
     </Wrapper>,
   );
+  return { queryClient };
+}
+
+// booking-window 응답이 React Query 캐시에 커밋될 때까지 결정적으로 대기한다.
+// 월간 뷰에서 창 정보 UI(구간 칩)가 제거되어 DOM 대기 신호가 없고, 창 월=당월인 날짜
+// (매월 1~15일)에는 셀 렌더가 windowQuery 완료를 함의하지 않으므로 캐시를 직접 관찰한다
+// (실행 날짜에 따라 결과가 갈리는 시한폭탄 flaky 방지).
+async function waitForBookingWindowLoaded(queryClient: QueryClient) {
+  await waitFor(() => {
+    const loaded = queryClient
+      .getQueryCache()
+      .getAll()
+      .some((query) => query.queryKey.includes('booking-window') && query.state.data !== undefined);
+    expect(loaded).toBe(true);
+  });
 }
 
 describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
@@ -301,11 +320,11 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // (a) 초기 진입 = 월간 — 주간 사이드바(선택한 날짜 요약)는 없다.
     expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
 
-    // 전체 보기 → 홈 카드 그리드. 배지 라벨과 범위(M.d ~ M.d)는 중첩 span 으로 나뉘어 각각 단언한다.
+    // 전체 보기 → 홈 카드 그리드. 헤더 기간 문단은 제거됐고, 기간은 시설 카드 안에서만 노출된다.
     fireEvent.click(await screen.findByRole('button', { name: '전체 보기' }));
     expect(await screen.findByText('예약할 시설을 골라보세요')).toBeInTheDocument();
-    expect(await screen.findByText('예약 가능 기간')).toBeInTheDocument();
-    expect(screen.getAllByText(WINDOW_LABEL).length).toBeGreaterThan(0);
+    expect(screen.queryByText('예약 가능 기간')).not.toBeInTheDocument();
+    expect((await screen.findAllByText(WINDOW_LABEL)).length).toBeGreaterThan(0);
     expect(await screen.findAllByText('날짜 보기 →')).toHaveLength(2);
 
     // 커뮤니티룸 카드 클릭(카드 버튼 접근성 이름 = 시설명 … 날짜 보기) → 다시 창 월 월간 캘린더.
@@ -434,11 +453,12 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
   });
 
   it('시나리오 6: 창 밖 미래 셀을 탭하면 주간으로 전환하지 않고 기간이 담긴 토스트로 안내한다', async () => {
-    renderPage();
+    const { queryClient } = renderPage();
 
-    // 월 폴백→창 월 전환(제목 정착)과 창 로딩(구간 칩)을 모두 기다린 뒤 클릭 — 전환기 셀 혼선·라벨 누락 방지.
+    // 월 폴백→창 월 전환(제목 정착)·셀 확정·창 로딩(토스트 라벨 의존)을 모두 기다린 뒤 클릭.
     await screen.findByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH) });
-    await screen.findByText(CURRENT_RANGE_CHIP);
+    await screen.findByRole('button', { name: OUT_OF_WINDOW_CELL });
+    await waitForBookingWindowLoaded(queryClient);
 
     fireEvent.click(screen.getByRole('button', { name: OUT_OF_WINDOW_CELL }));
 
@@ -679,28 +699,28 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(requestedYearMonths).not.toContain(lastMonth);
   });
 
-  it('시나리오 15: booking-window 구간이 있으면 월간 캘린더 배지가 구간 칩 2개로 나뉘고 다음 구간 시작일 셀에 예약 오픈 마커가 붙는다', async () => {
-    renderPage();
+  it('시나리오 15: booking-window 구간이 있어도 상단 기간 표기·오픈 마커 없이 셀 상태로만 창을 표현한다', async () => {
+    const { queryClient } = renderPage();
 
-    // (a) 구간 칩 2개 — 서버 산출 라벨 + 범위(M.d ~ M.d).
-    expect(await screen.findByText(CURRENT_RANGE_CHIP)).toBeInTheDocument();
-    expect(screen.getByText(NEXT_RANGE_CHIP)).toBeInTheDocument();
-
-    // (b) 다음 구간 시작일 셀에 '오픈' 마커 — aria-label '예약 오픈일' + 시각 텍스트 '오픈'.
-    const openCell = screen.getByRole('button', { name: OPEN_MARKER_CELL });
-    expect(openCell).toHaveTextContent('오픈');
+    // 창 로딩 이후에도 기간 텍스트·배지·마커는 없고, 다음 구간 시작일 셀은 일반 셀과 동일하다.
+    expect(await screen.findByRole('button', { name: NEXT_RANGE_START_CELL })).toBeInTheDocument();
+    await waitForBookingWindowLoaded(queryClient);
+    expect(screen.queryByText(CURRENT_RANGE_CHIP)).not.toBeInTheDocument();
+    expect(screen.queryByText(NEXT_RANGE_CHIP)).not.toBeInTheDocument();
+    expect(screen.queryByText('오픈')).not.toBeInTheDocument();
   });
 
-  it('시나리오 16: booking-window 응답에 구간이 없으면 기존 단일 배지로 폴백하고 구간 칩·오픈 마커는 없다', async () => {
+  it('시나리오 16: booking-window 응답에 구간이 없어도 상단 기간 표기는 렌더되지 않는다', async () => {
     server.use(
       http.get('*/facilities/booking-window', () => ok({ bookableFrom: WINDOW.from, bookableUntil: WINDOW.until })),
     );
-    renderPage();
+    const { queryClient } = renderPage();
 
-    // (c) 단일 배지 폴백 — 구간 칩·오픈 마커는 렌더되지 않는다.
-    expect(await screen.findByText(`예약 가능 기간 ${WINDOW_LABEL}`)).toBeInTheDocument();
+    // 구간이 없어도(창 로딩 완료 후) 상단 기간 표기는 없다.
+    await screen.findByRole('button', { name: OUT_OF_WINDOW_CELL });
+    await waitForBookingWindowLoaded(queryClient);
+    expect(screen.queryByText(`예약 가능 기간 ${WINDOW_LABEL}`)).not.toBeInTheDocument();
     expect(screen.queryByText(CURRENT_RANGE_CHIP)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: OPEN_MARKER_CELL })).not.toBeInTheDocument();
   });
 
   it('시나리오 17 (뷰 전환 c): 주간에서 [월] 탭 시 월간 복귀·선택 유지(셀 강조)하고 [주] 재탭 시 그 주로 돌아온다', async () => {
@@ -725,11 +745,11 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
 
   it('시나리오 18 (뷰 전환 d): 선택 없이 [주] 탭 시 창 기준일(오늘이 창 밖이면 bookableFrom)이 속한 주로 진입한다', async () => {
     mockSearchParams.value = 'facilityId=1'; // 날짜 딥링크 없음 → 월간
-    renderPage();
+    const { queryClient } = renderPage();
 
-    // 월간 진입 + 창 로드 대기(구간 칩) — showWeekView 가 windowQuery 로 기준일을 정한다.
+    // 월간 진입 + 창 로드 대기 — showWeekView 가 windowQuery 로 기준일을 정하므로 캐시 커밋을 기다린다.
     await screen.findByRole('button', { name: WINDOW_FROM_CELL });
-    await screen.findByText(CURRENT_RANGE_CHIP);
+    await waitForBookingWindowLoaded(queryClient);
     expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
 
     // [주] 탭 — 오늘은 반월 창 밖이라 기준일 = bookableFrom. 그 주 라벨·사이드바가 뜬다.
@@ -768,11 +788,11 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
       }),
     });
     mockSearchParams.value = 'facilityId=1';
-    renderPage();
+    const { queryClient } = renderPage();
 
-    // 창 로드 대기(showWeekView 가 windowQuery 로 기준일=bookableFrom 을 정한다) 후 [주] 탭으로 주간 진입.
+    // 창 로드 대기 — showWeekView 가 windowQuery 로 기준일을 정하므로 캐시 커밋을 기다린 뒤 [주] 탭 진입.
     await screen.findByRole('button', { name: WINDOW_FROM_CELL });
-    await screen.findByText(CURRENT_RANGE_CHIP);
+    await waitForBookingWindowLoaded(queryClient);
     fireEvent.click(screen.getByRole('tab', { name: '주' }));
 
     // 사이드바 콘텐츠가 본문에 스택 — 바텀시트(dialog)는 없다.
