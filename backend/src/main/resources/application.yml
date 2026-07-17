@@ -7,6 +7,12 @@ spring:
     active: local
   application:
     name: duing
+  task:
+    scheduling:
+      pool:
+        # 기본 1스레드는 크롤(최대 수 분)이 스케줄러를 점유하면 매칭의 3분 오프셋과 타 도메인 잡이
+        # 함께 밀린다(2026-07-17 감사). 잡별 중복 실행은 각 스케줄러의 AtomicBoolean 가드가 막는다.
+        size: 4
   servlet:
     multipart:
       # 이미지 업로드 정책 한도는 FileUploadPolicy.MAX_BYTES (5MB). 서블릿 한도는
