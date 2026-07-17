@@ -129,3 +129,20 @@
 - [ ] **Step 3: 구현** — 스펙 §11 그대로. 시트 전례(duing 스코프·bg-cream·sr-only Description·hideClose·핸들 바) 준수. WeekBlockSheet 와 상태 분리(동시 열림 불가 — 월간에선 블록 시트 트리거 자체가 없음).
 - [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
 - [ ] **Step 5: 커밋** — `feat(frontend): 모바일 빠른 예약 시트 — 월간 날짜 탭 즉시 시간 선택·시간표는 보조`
+
+---
+
+### Task 7: 주간 이월 게이팅 버그 수정 — 인접월 가용성 병합 (11차 요구 §12)
+
+**Files:**
+- Modify: `frontend/apps/web/app/facilities/_pages/FacilityBookingPage.tsx` (주간 이월 시 두 번째 월 조회·daysByIso 병합)
+- Modify(필요 시): `frontend/apps/web/app/facilities/_lib/bookingCalendar.ts` (주의 걸친 월 파생 헬퍼)
+- Test: `facility-booking-page.test.tsx`(§12.2 케이스 — msw 두 월 핸들러), `booking-calendar-lib.test.ts`(헬퍼)
+
+**Interfaces:** `useFacilityAvailabilityQuery` 를 두 번째 월에 대해 조건부 활성(enabled)으로 추가 호출 — 훅 시그니처 무변경. 병합은 useMemo 에서 두 응답의 days 를 합친다(중복 날짜 없음 — 월이 다르므로). 나머지 소비처는 무변경.
+
+- [ ] **Step 1: 실패 테스트 (RED)** — §12.2의 4케이스를 msw 로: 창·오늘을 상대 날짜로 구성해 주가 두 달/두 해에 걸치게 만들고, (a) 인접월 창 내 날짜 셀·헤더 활성+탭 선택 동작, (b) 인접월 창 밖 날짜는 여전히 비활성, (c) 인접월이 {당월,익월} 밖이면 추가 조회 없음(msw 핸들러 미호출 단언), (d) 연 경계 주 정상. 절대 날짜 타임밤 금지 — 기존 WINDOW 파생 상수 패턴 재사용.
+- [ ] **Step 2: 실패 확인** — `pnpm --filter web test facility-booking-page` FAIL
+- [ ] **Step 3: 구현** — 스펙 §12.1 그대로. "표시 월/주 시작 월 기준 판정" 잔존 여부 grep 전수(§12.1 말미).
+- [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
+- [ ] **Step 5: 커밋** — `fix(frontend): 주간 이월 시 인접월 가용성 병합 — 날짜 기준 예약 가능 판정 완성`
