@@ -21,9 +21,11 @@ import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
+import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminService;
+import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService;
 import com.duing.domain.facilitybooking.service.FacilityBookingService;
 import com.duing.domain.facilitybooking.service.dto.command.CreateFacilityBookingCommand;
 import com.duing.domain.user.entity.College;
@@ -36,12 +38,20 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 /**
  * 매칭 스케줄러 코어({@link FacilityBookingMatchingScheduler#runMatchingCycle}) 통합 테스트.
@@ -54,6 +64,7 @@ import org.springframework.context.annotation.Import;
 class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBase {
 
     @Autowired FacilityBookingMatchingScheduler scheduler;
+    @Autowired FacilityBookingMatchingService matchingService;
     @Autowired FacilityBookingAdminService adminService;
     @Autowired FacilityBookingService bookingService;
     @Autowired FacilityBookingRepository bookingRepository;
@@ -347,5 +358,71 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
 
         assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
                 .isEqualTo(BookingStatus.APPROVED); // 키 충돌 → 자동 확정 스킵(수동 확정 폴백)
+    }
+
+    @Test
+    @DisplayName("자동 확정과 관리자 취소가 동시에 들어와도 취소된 예약이 CONFIRMED 로 덮이지 않는다 — @Version 백스톱")
+    void concurrentConfirmAndCancelNeverResurrectsCancelled() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
+        LocalDateTime generation = LocalDateTime.now();
+
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, generation));
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, generation));
+        recordSuccessSnapshot(YearMonth.from(date), generation);
+
+        CountDownLatch startGate = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        Callable<Throwable> confirmTask = () -> {
+            startGate.await(5, TimeUnit.SECONDS);
+            try {
+                matchingService.verifyAndConfirm(approved, clubName, Set.of());
+                return null;
+            } catch (Throwable failure) {
+                return failure;
+            }
+        };
+        Callable<Throwable> cancelTask = () -> {
+            startGate.await(5, TimeUnit.SECONDS);
+            try {
+                adminService.cancel(admin.getId(), approved, "학교 측 사정으로 취소");
+                return null;
+            } catch (Throwable failure) {
+                return failure;
+            }
+        };
+        Future<Throwable> confirmOutcome = pool.submit(confirmTask);
+        Future<Throwable> cancelOutcome = pool.submit(cancelTask);
+        startGate.countDown();
+        pool.shutdown();
+        assertThat(pool.awaitTermination(15, TimeUnit.SECONDS)).isTrue();
+
+        Throwable cancelFailure = cancelOutcome.get(1, TimeUnit.SECONDS);
+        Throwable confirmFailure = confirmOutcome.get(1, TimeUnit.SECONDS);
+        var finalState = bookingRepository.findById(approved).orElseThrow();
+        if (cancelFailure == null) {
+            // 취소가 커밋됐다면 매칭의 늦은 커밋은 @Version 이 차단(또는 멱등 게이트가 스킵)해야 한다 —
+            // 이 단언이 깨지면 CANCELLED 가 불가역 CONFIRMED 로 덮이는 lost update 회귀다.
+            assertThat(finalState.getStatus()).isEqualTo(BookingStatus.CANCELLED);
+            if (confirmFailure != null) {
+                assertThat(confirmFailure).isInstanceOf(ObjectOptimisticLockingFailureException.class);
+            }
+        } else {
+            // 확정이 선행 커밋된 경합 — 취소는 낙관 잠금 충돌 또는 상태 가드로 거부된다
+            // (CONFIRMED 취소가 열리면 순차 취소는 성공 경로가 되므로 이 분기는 동시 커밋 충돌만 남는다).
+            assertThat(finalState.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+            assertThat(cancelFailure).isInstanceOfAny(ObjectOptimisticLockingFailureException.class,
+                    FacilityBookingException.InvalidStatusTransitionException.class);
+        }
+        assertThat(historyRepository.findByBookingIdOrderByCreatedAtDesc(approved).get(0).getNewStatus())
+                .as("마지막 이력은 최종 상태와 일치한다").isEqualTo(finalState.getStatus());
     }
 }
