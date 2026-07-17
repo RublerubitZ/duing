@@ -16,6 +16,7 @@ import { seoulDateIso, shiftYearMonth, yearMonthLabel } from '../_lib/facilityTi
 import { windowRangeLabel } from '../_lib/bookingHome';
 import type { SlotRange } from '../_lib/bookingCalendar';
 import {
+  adjacentMonthToFetch,
   isSelectableSlot,
   isWithinBookable,
   shiftDateByDays,
@@ -122,11 +123,26 @@ export function FacilityBookingPage() {
   const availabilityQuery = useFacilityAvailabilityQuery(effectiveFacilityId, yearMonth);
   const availability = availabilityQuery.data;
 
+  // 주간 이월(§12.1) — 표시 주가 두 달에 걸치면 조회 월(yearMonth) 밖의 인접월 가용성도 함께 조회해 병합한다.
+  // 인접월은 availability 가 허용하는 {당월, 익월} 안일 때만(밖이면 창 밖이라 불필요 — 400 방지). 주간이 아니거나
+  // 이월이 아니면 undefined → 훅에 facilityId undefined 를 넘겨 비활성화(기존 관례). 같은 queryKey 라 캐시 공유.
+  const secondMonth =
+    calendarView === 'week' && selectedDate !== null
+      ? adjacentMonthToFetch(selectedDate, yearMonth, [currentMonth, shiftYearMonth(currentMonth, 1)])
+      : undefined;
+  const secondAvailabilityQuery = useFacilityAvailabilityQuery(
+    secondMonth !== undefined ? effectiveFacilityId : undefined,
+    secondMonth,
+  );
+  const secondAvailability = secondAvailabilityQuery.data;
+
   const daysByIso = useMemo(() => {
     const map = new Map<string, BookingDayAvailability>();
     for (const day of availability?.days ?? []) map.set(day.date, day);
+    // 인접월 응답 병합 — 월이 달라 날짜 키 충돌은 없다(§12.1). 사이드바·현황·시트·주간 블록은 이 맵을 그대로 소비.
+    for (const day of secondAvailability?.days ?? []) map.set(day.date, day);
     return map;
-  }, [availability]);
+  }, [availability, secondAvailability]);
   const selectedDay = selectedDate !== null ? daysByIso.get(selectedDate) : undefined;
   const selectedFacility = contextFacilities.find((candidate) => candidate.id === effectiveFacilityId);
 

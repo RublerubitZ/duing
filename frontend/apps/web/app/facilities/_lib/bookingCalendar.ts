@@ -145,6 +145,35 @@ export function weekDatesOf(iso: string): string[] {
   });
 }
 
+/**
+ * 표시 주(월~일)에 포함된 서로 다른 월(yyyy-MM) 목록(§12.1) — 월 경계를 넘으면 2개, 아니면 1개를 오름차순으로.
+ * weekDatesOf 가 오름차순이라 등장 순서 그대로가 오름차순이다(연 경계도 안전 — 월 문자열 사전순).
+ */
+export function weekMonthsOf(iso: string): string[] {
+  const months: string[] = [];
+  for (const date of weekDatesOf(iso)) {
+    const month = date.slice(0, 7);
+    if (!months.includes(month)) months.push(month);
+  }
+  return months;
+}
+
+/**
+ * 주간 이월(§12.1) 시 함께 조회할 두 번째 월을 파생한다. 표시 주가 두 달에 걸치면 조회 월(queryMonth)이 아닌
+ * 다른 월을 반환하되, 그 월이 허용 범위(당월·익월)일 때만 반환한다 — availability API 는 당월·익월만 허용하므로,
+ * 밖이면 조회하지 않는다(그 날짜들은 창⊆당월∪익월 불변식상 어차피 창 밖 → 비활성이 정답, 400 방지).
+ * 이월이 아니거나(한 달 주) 다른 월이 범위 밖이면 undefined.
+ */
+export function adjacentMonthToFetch(
+  selectedDate: string,
+  queryMonth: string,
+  allowedMonths: readonly string[],
+): string | undefined {
+  const otherMonth = weekMonthsOf(selectedDate).find((month) => month !== queryMonth);
+  if (otherMonth === undefined) return undefined;
+  return allowedMonths.includes(otherMonth) ? otherMonth : undefined;
+}
+
 // ── 예약 홈 히트맵·패널 요약 파생(§2.2) — 하루 13칸(09~22시) 기준 ─────────────
 
 export type DayLevel = 'HIGH' | 'MID' | 'LOW' | 'FULL';

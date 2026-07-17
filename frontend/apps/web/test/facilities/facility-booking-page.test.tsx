@@ -982,3 +982,133 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     setMatchMedia(false);
   });
 });
+
+// ── 주간 이월(두 달 걸침) 게이팅 버그 수정(§12) ─────────────────────────────────
+// 이월 주(월 경계를 넘는 주)는 실제 달력상 특정 today 에서만 생긴다(익월 1일이 월요일이면 아예 없음).
+// 결정적 재현을 위해 클록을 특정일에 고정한다 — 이는 만료되는 미래 절대날짜(타임밤)가 아니라 '고정된 현재'이고,
+// 창·셀·헤더는 모두 그 고정 today 에서 파생한다(레포 setSystemTime 전례 9곳). 실제 반월 정책은 today.day>15 이면
+// 창이 [당월-16 .. 익월-15] 로 월 경계를 넘어, 이월 주 양쪽이 모두 창 안이 되는 게 이 버그의 무대다.
+describe('FacilityBookingPage — 주간 이월(두 달 걸침) 게이팅(§12)', () => {
+  // 하루 09~21시 13칸 전부 AVAILABLE·운영 노트 없음(셀 aria = "가능"). 창은 인자로 주입해 시나리오별 in/out 을 가른다.
+  function flatAvailability(
+    facilityId: number,
+    yearMonth: string,
+    bookableFrom: string,
+    bookableUntil: string,
+  ): FacilityAvailabilityResponse {
+    const [year, month] = yearMonth.split('-').map(Number);
+    const daysInMonth = new Date(year ?? 1970, month ?? 1, 0).getDate();
+    return {
+      facilityId,
+      yearMonth,
+      lastUpdatedAt: null,
+      stale: false,
+      bookableFrom,
+      bookableUntil,
+      days: Array.from({ length: daysInMonth }, (_, index) => ({
+        date: `${yearMonth}-${pad2(index + 1)}`,
+        dayStatus: 'AVAILABLE' as const,
+        availableSlotCount: 13,
+        operatingNotes: [],
+        slots: Array.from({ length: 13 }, (_, slotIndex) => ({
+          start: `${pad2(9 + slotIndex)}:00`,
+          end: `${pad2(10 + slotIndex)}:00`,
+          status: 'AVAILABLE' as const,
+        })),
+      })),
+    };
+  }
+
+  // Asia/Seoul 정오(UTC 03:00)로 고정 — 머신 TZ 무관하게 seoulDateIso 가 목표일을 낸다.
+  const pinSeoulNoon = (dateIso: string) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${dateIso}T03:00:00Z`));
+  };
+
+  // 창(booking-window)·availability(요청 yearMonth 전부) 핸들러를 주입하고, 조회된 yearMonth 를 기록한다.
+  function useCarryoverHandlers(bookableFrom: string, bookableUntil: string): string[] {
+    const requestedYearMonths: string[] = [];
+    server.use(
+      http.get('*/facilities/booking-window', () =>
+        ok({ bookableFrom, bookableUntil, availableBookingRanges: null }),
+      ),
+      http.get('*/facilities/1/availability', ({ request }) => {
+        const yearMonth = new URL(request.url).searchParams.get('yearMonth') ?? bookableFrom.slice(0, 7);
+        requestedYearMonths.push(yearMonth);
+        return ok(flatAvailability(1, yearMonth, bookableFrom, bookableUntil));
+      }),
+    );
+    return requestedYearMonths;
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('(a) 7/27~8/2 주: 창이 8월로 이어지면 8/1·8/2 셀·헤더가 활성이다(인접월 병합)', async () => {
+    pinSeoulNoon('2026-07-20'); // day>15 → 창 [7/16 .. 8/15] 가 월 경계를 넘는다
+    const requestedYearMonths = useCarryoverHandlers('2026-07-16', '2026-08-15');
+    mockSearchParams.value = 'facilityId=1&date=2026-07-27'; // 조회 월=7월, 주는 8월로 이월
+
+    renderPage();
+
+    await screen.findByRole('heading', { level: 2, name: weekRangeLabel(mondayOf('2026-07-27')) });
+
+    // 인접월(8월) 데이터가 병합되면 8/1(토)·8/2(일) 헤더가 활성이 된다(수정 전엔 데이터 없음→비활성=버그).
+    await waitFor(() => expect(screen.getByRole('button', { name: '토요일 1일' })).toBeEnabled());
+    expect(screen.getByRole('button', { name: '일요일 2일' })).toBeEnabled();
+    // 8/1 09:00 셀도 탭 가능(가용).
+    expect(screen.getByRole('button', { name: '토요일 1일 09:00 가능' })).toBeEnabled();
+    // 8월 availability 를 실제로 조회했다.
+    await waitFor(() => expect(requestedYearMonths).toContain('2026-08'));
+  });
+
+  it('(b) 회귀: 창이 8월로 이어지지 않으면 병합돼도 8/1·8/2 는 창 밖이라 비활성이다(날짜 기준 판정)', async () => {
+    pinSeoulNoon('2026-07-10'); // day<=15 → 창 [7/16 .. 7/31] 이 월 경계에서 끝난다
+    const requestedYearMonths = useCarryoverHandlers('2026-07-16', '2026-07-31');
+    mockSearchParams.value = 'facilityId=1&date=2026-07-27';
+
+    renderPage();
+
+    await screen.findByRole('heading', { level: 2, name: weekRangeLabel(mondayOf('2026-07-27')) });
+
+    // 7/31(금)은 창 안 → 헤더 활성.
+    await waitFor(() => expect(screen.getByRole('button', { name: '금요일 31일' })).toBeEnabled());
+    // 8월도 익월이라 조회는 되지만(병합), 8/1·8/2 는 창(7/31) 밖이라 날짜 기준으로 비활성이다(회귀 방지).
+    await waitFor(() => expect(requestedYearMonths).toContain('2026-08'));
+    expect(screen.getByRole('button', { name: '토요일 1일' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '일요일 2일' })).toBeDisabled();
+  });
+
+  it('(c) 인접월이 {당월,익월} 밖이면 추가 조회 없이 비활성이다(창을 넓혀 조회범위 게이트만 분리)', async () => {
+    pinSeoulNoon('2026-07-20'); // 당월=7월, 익월=8월 → 9월은 조회 범위 밖
+    // 창을 9월까지 인위적으로 넓혀(불변식 밖) 창 게이트가 아니라 {당월,익월} 조회 범위 게이트만 검증한다.
+    const requestedYearMonths = useCarryoverHandlers('2026-07-16', '2026-09-30');
+    mockSearchParams.value = 'facilityId=1&date=2026-08-31'; // 조회 월=8월, 주는 9월로 이월
+
+    renderPage();
+
+    await screen.findByRole('heading', { level: 2, name: weekRangeLabel(mondayOf('2026-08-31')) });
+
+    // 8월(조회 월)은 조회되고, 9월은 익월 밖이라 창 안이어도 조회하지 않는다(availability API 400 방지).
+    await waitFor(() => expect(requestedYearMonths).toContain('2026-08'));
+    expect(requestedYearMonths).not.toContain('2026-09');
+    // 9/1(화)은 데이터가 없어 비활성이다(조회 범위 밖은 비활성이 정답 — 창⊆당월∪익월 불변식).
+    expect(screen.getByRole('button', { name: '화요일 1일' })).toBeDisabled();
+  });
+
+  it('(d) 연도 경계 12/29~1/4 주: 익년 1/1·1/2 가 정상 활성이다(월 산술 연도 넘김)', async () => {
+    pinSeoulNoon('2026-12-20'); // day>15 → 창 [12/16 .. 익년 1/15]
+    const requestedYearMonths = useCarryoverHandlers('2026-12-16', '2027-01-15');
+    mockSearchParams.value = 'facilityId=1&date=2026-12-31'; // 조회 월=12월, 주는 익년 1월로 이월
+
+    renderPage();
+
+    await screen.findByRole('heading', { level: 2, name: weekRangeLabel(mondayOf('2026-12-31')) });
+
+    // 익년 1월 데이터 병합 → 1/1(금)·1/2(토) 활성.
+    await waitFor(() => expect(screen.getByRole('button', { name: '금요일 1일' })).toBeEnabled());
+    expect(screen.getByRole('button', { name: '토요일 2일' })).toBeEnabled();
+    await waitFor(() => expect(requestedYearMonths).toContain('2027-01'));
+  });
+});
