@@ -6,6 +6,7 @@ import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCal
 import { BookingViewHeader } from '@/app/facilities/_components/booking/BookingViewHeader';
 import { WeekTimetable } from '@/app/facilities/_components/booking/WeekTimetable';
 import { WeekBlockSheet } from '@/app/facilities/_components/booking/WeekBlockSheet';
+import { MobileDaySheet } from '@/app/facilities/_components/booking/MobileDaySheet';
 import { DaySlotList } from '@/app/facilities/_components/booking/DaySlotList';
 import { DayBookingOverview } from '@/app/facilities/_components/booking/DayBookingOverview';
 import { BookingPanel } from '@/app/facilities/_components/booking/BookingPanel';
@@ -868,5 +869,89 @@ it('블록 상세 시트(§9.3): 대기 블록은 이름 없이 "승인 대기" 
 
 it('블록 상세 시트(§9.3): block 이 null 이면 시트를 열지 않는다', () => {
   render(<WeekBlockSheet block={null} onClose={vi.fn()} />);
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+// ── 모바일 빠른 예약 바텀시트(MobileDaySheet) — §11.1 월간 날짜 탭 = 빠른 시간 선택 ─────
+function renderMobileSheet(overrides?: Partial<Parameters<typeof MobileDaySheet>[0]>) {
+  const props = {
+    open: true,
+    facility: { id: 1, roomName: '커뮤니티룸(1)' },
+    dateIso: '2026-07-20',
+    day: makeDay(),
+    selection: null,
+    onToggleSlot: vi.fn(),
+    step: 'slots' as const,
+    onProceedToForm: vi.fn(),
+    onBackToSlots: vi.fn(),
+    submittedResult: null,
+    submittedClubId: null,
+    submittedAt: null,
+    onSubmitted: vi.fn(),
+    onExploreOther: vi.fn(),
+    onClose: vi.fn(),
+    onViewTimetable: vi.fn(),
+    ...overrides,
+  };
+  render(<MobileDaySheet {...props} />);
+  return props;
+}
+
+it('빠른 예약 시트(§11.1): slots 스텝은 날짜 제목·스텝 인디케이터·슬롯 리스트·기본 확보 안내·CTA·시간표로 보기를 렌더하고 요약/현황 카드는 없다', () => {
+  renderMobileSheet();
+  const dialog = screen.getByRole('dialog');
+  // 헤더 날짜 제목 = bookingDateLabel(2026-07-20) = "7월 20일 (월)".
+  expect(within(dialog).getByText('7월 20일 (월)')).toBeInTheDocument();
+  expect(within(dialog).getByLabelText('예약 진행 단계')).toBeInTheDocument();
+  expect(within(dialog).getByRole('list', { name: '시간대 선택' })).toBeInTheDocument();
+  // 슬롯 리스트에 기본 확보 시간 안내 박스가 함께 온다(DaySlotList 재사용).
+  expect(within(dialog).getByText('기본 확보 시간')).toBeInTheDocument();
+  // 선택 전 CTA 비활성 + 보조 버튼 "시간표로 보기" 노출(slots 스텝).
+  expect(within(dialog).getByRole('button', { name: '시간을 선택해주세요' })).toBeDisabled();
+  expect(within(dialog).getByRole('button', { name: '시간표로 보기' })).toBeInTheDocument();
+  // 다크 요약 카드·예약 현황 카드는 시트에 없다(§11.1 — 그 역할은 주간 뷰).
+  expect(within(dialog).queryByText('선택한 날짜')).not.toBeInTheDocument();
+  expect(within(dialog).queryByText(/예약 현황/)).not.toBeInTheDocument();
+});
+
+it('빠른 예약 시트(§11.1): 선택이 있으면 범위 요약 칩·활성 CTA 를 렌더하고 CTA·시간표로 보기 콜백을 부른다', () => {
+  const props = renderMobileSheet({ selection: { start: '18:00', end: '20:00' } });
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByText('18:00~20:00')).toBeInTheDocument();
+  const cta = within(dialog).getByRole('button', { name: '18:00~20:00 예약 신청' });
+  expect(cta).toBeEnabled();
+  fireEvent.click(cta);
+  expect(props.onProceedToForm).toHaveBeenCalledTimes(1);
+  fireEvent.click(within(dialog).getByRole('button', { name: '시간표로 보기' }));
+  expect(props.onViewTimetable).toHaveBeenCalledTimes(1);
+});
+
+it('빠른 예약 시트(§11.1): 슬롯 탭은 onToggleSlot(start) 을 부른다', () => {
+  const props = renderMobileSheet();
+  const slotList = within(screen.getByRole('dialog')).getByRole('list', { name: '시간대 선택' });
+  fireEvent.click(within(slotList).getByRole('button', { name: /09:00~10:00/ }));
+  expect(props.onToggleSlot).toHaveBeenCalledWith('09:00');
+});
+
+it('빠른 예약 시트(§11.1): success 스텝은 승인 타임라인을 렌더하고 시간표로 보기는 숨는다', () => {
+  renderMobileSheet({
+    step: 'success',
+    selection: { start: '18:00', end: '19:00' },
+    submittedAt: '7월 20일 14:05',
+    submittedClubId: 7,
+    submittedResult: { bookingId: 1, status: 'PENDING', overlappingPendingCount: 0 },
+  });
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByLabelText('승인 진행 타임라인')).toBeInTheDocument();
+  expect(within(dialog).getByRole('link', { name: '내 예약에서 확인' })).toHaveAttribute(
+    'href',
+    '/manage/clubs/7/facility-bookings',
+  );
+  // 시간표로 보기는 slots 스텝 전용 — 성공 화면엔 없다.
+  expect(within(dialog).queryByRole('button', { name: '시간표로 보기' })).not.toBeInTheDocument();
+});
+
+it('빠른 예약 시트(§11.1): open=false 면 시트를 열지 않는다', () => {
+  renderMobileSheet({ open: false, day: null, facility: null });
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });

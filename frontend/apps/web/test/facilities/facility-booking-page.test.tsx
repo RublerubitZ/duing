@@ -15,6 +15,7 @@ import type {
   User,
 } from '@duing/types';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
+import { bookingDateLabel } from '@/app/_lib/bookingDisplay';
 import { seoulDateIso, shiftYearMonth, yearMonthLabel } from '@/app/facilities/_lib/facilityTimeline';
 import { shiftDateByDays, weekDatesOf, weekRangeLabel } from '@/app/facilities/_lib/bookingCalendar';
 import { FacilityBookingPage } from '@/app/facilities/_pages/FacilityBookingPage';
@@ -669,8 +670,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
   });
 
   // 시나리오 20 은 matchMedia 를 모바일(matches:true)로 덮으므로 종료 후 원복이 필요하다(후속 시나리오 누수 방지).
-  it('시나리오 20 (뷰 전환 f): 모바일 뷰포트에서도 시트(dialog) 없이 본문이 주간으로 전환되고 사이드바가 스택된다', async () => {
-    // 모바일 매치미디어 — 페이지는 더 이상 뷰포트로 시트를 게이트하지 않는다(스택 렌더).
+  it('시나리오 20 (§11.2 주간=보조): 모바일에서 [주] 탭으로 연 주간 뷰는 바텀시트(dialog) 없이 사이드바가 세로 스택된다', async () => {
+    // 모바일 매치미디어 — 월간 날짜 탭은 시트를 열지만(§11.1), [주] 탭으로 연 주간 뷰는 시트 없이 스택된다(§11.2).
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       configurable: true,
@@ -685,9 +686,13 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
         dispatchEvent: () => false,
       }),
     });
+    mockSearchParams.value = 'facilityId=1';
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    // 창 로드 대기(showWeekView 가 windowQuery 로 기준일=bookableFrom 을 정한다) 후 [주] 탭으로 주간 진입.
+    await screen.findByRole('button', { name: WINDOW_FROM_CELL });
+    await screen.findByText(CURRENT_RANGE_CHIP);
+    fireEvent.click(screen.getByRole('tab', { name: '주' }));
 
     // 사이드바 콘텐츠가 본문에 스택 — 바텀시트(dialog)는 없다.
     expect(await screen.findByText('선택한 날짜')).toBeInTheDocument();
@@ -813,11 +818,15 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
       }),
     });
 
-  it('시나리오 26 (모바일 블록 시트 §9.3): 모바일 뷰포트에서 가용 셀 탭은 선택, 확정 블록 탭은 라벨·시간·예약됨 배지 바텀시트를 연다', async () => {
+  it('시나리오 26 (모바일 블록 시트 §9.3): 모바일 주간에서 가용 셀 탭은 선택, 확정 블록 탭은 라벨·시간·예약됨 배지 바텀시트를 연다', async () => {
     setMatchMedia(true); // 모바일 — 블록 disabled(PC) ↔ 시트 트리거(모바일) 게이트가 열린다.
     mockSearchParams.value = `facilityId=1&date=${WINDOW.from}`;
     renderPage();
 
+    // 모바일 딥링크 = 월간+빠른 예약 시트(§11.1). 주간 블록 시트(§9.3)를 보려면 시트에서 시간표로 전환한다.
+    // 딥링크는 시트가 가용성 로드 전에 열릴 수 있어 시트 본문(시간표로 보기)을 findBy 로 기다린다.
+    const daySheet = await screen.findByRole('dialog');
+    fireEvent.click(await within(daySheet).findByRole('button', { name: '시간표로 보기' }));
     await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL });
 
     // 가용(기본 확보 시간 sky) 셀 탭은 모바일에서도 선택 동작 — 시트가 아니다(§9.3).
@@ -845,5 +854,261 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(block).toBeDisabled();
     fireEvent.click(block); // disabled → no-op
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  // ── 모바일 빠른 예약 바텀시트(§11.1) — 월간 날짜 탭 = 빠른 시간 선택, 주간은 보조 ─────
+  // 시트 열림 중 월간 본문은 다이얼로그 뒤 aria-hidden 이라, 월간 유지 단언은 hidden:true 로 조회한다.
+  const SHEET_TITLE = bookingDateLabel(WINDOW.from);
+
+  it('시나리오 28 (모바일 §11.1 a·b): 월간 날짜 탭은 주간 전환 대신 빠른 예약 시트를 열고, 시트 슬롯 탭이 CTA 를 활성화한다', async () => {
+    setMatchMedia(true);
+    mockSearchParams.value = 'facilityId=1';
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+
+    // (a) 시트(dialog) 열림 + 날짜 제목·슬롯 리스트.
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(SHEET_TITLE)).toBeInTheDocument();
+    expect(within(dialog).getByRole('list', { name: '시간대 선택' })).toBeInTheDocument();
+    // 월간 유지 — 주간 그리드(주 라벨 헤딩)로 전환하지 않고, 월간 헤딩이 뒤에 남아 있다.
+    expect(screen.queryByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH), hidden: true }),
+    ).toBeInTheDocument();
+    // 다크 요약 카드(선택한 날짜)는 시트에 없다(§11.1 — 요약·현황은 주간 뷰 담당).
+    expect(within(dialog).queryByText('선택한 날짜')).not.toBeInTheDocument();
+
+    // (b) 시트 슬롯 탭 → CTA 활성.
+    const slotList = within(dialog).getByRole('list', { name: '시간대 선택' });
+    fireEvent.click(within(slotList).getByRole('button', { name: /18:00~19:00/ }));
+    expect(within(dialog).getByRole('button', { name: '18:00~19:00 예약 신청' })).toBeEnabled();
+
+    setMatchMedia(false);
+  });
+
+  it('시나리오 29 (모바일 §11.1 c): 시트의 "시간표로 보기"는 시트를 닫고 주간으로 전환하며 선택을 유지한다', async () => {
+    setMatchMedia(true);
+    mockSearchParams.value = 'facilityId=1';
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    const dialog = await screen.findByRole('dialog');
+    const slotList = within(dialog).getByRole('list', { name: '시간대 선택' });
+    fireEvent.click(within(slotList).getByRole('button', { name: /18:00~19:00/ }));
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '시간표로 보기' }));
+
+    // 주간 전환 + 시트 닫힘 + 선택 유지(주간 사이드바 CTA 활성).
+    expect(await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByText('선택한 날짜')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '18:00~19:00 예약 신청' })).toBeEnabled();
+
+    setMatchMedia(false);
+  });
+
+  it('시나리오 30 (모바일 §11.1 d): 시트를 닫으면(Escape) 월간을 유지하고 선택을 정리한다', async () => {
+    setMatchMedia(true);
+    mockSearchParams.value = 'facilityId=1';
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    const dialog = await screen.findByRole('dialog');
+    const slotList = within(dialog).getByRole('list', { name: '시간대 선택' });
+    fireEvent.click(within(slotList).getByRole('button', { name: /18:00~19:00/ }));
+
+    fireEvent.keyDown(dialog, { key: 'Escape', code: 'Escape' });
+
+    // 시트 닫힘 + 월간 유지 + 선택 정리(선택일 셀 강조 해제).
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH) })).toBeInTheDocument();
+    expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: WINDOW_FROM_CELL })).toHaveAttribute('aria-pressed', 'false');
+
+    setMatchMedia(false);
+  });
+
+  it('시나리오 31 (모바일 §11.1 e): 날짜 딥링크는 모바일에서 주간이 아니라 월간+빠른 예약 시트로 진입한다', async () => {
+    setMatchMedia(true);
+    mockSearchParams.value = `facilityId=1&date=${WINDOW.from}`;
+    renderPage();
+
+    const dialog = await screen.findByRole('dialog');
+    // 딥링크는 시트가 가용성 로드 전에 열릴 수 있어 날짜 제목을 findBy 로 기다린다.
+    expect(await within(dialog).findByText(SHEET_TITLE)).toBeInTheDocument();
+    // 월간 유지 — 주간 그리드로 진입하지 않는다.
+    expect(screen.queryByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH), hidden: true }),
+    ).toBeInTheDocument();
+
+    setMatchMedia(false);
+  });
+
+  it('시나리오 32 (PC §11.1 f 무회귀): 데스크탑에서는 월간 날짜 탭이 기존대로 주간으로 전환하고 시트는 열리지 않는다', async () => {
+    setMatchMedia(false);
+    mockSearchParams.value = 'facilityId=1';
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+
+    expect(await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).toBeInTheDocument();
+    expect(screen.getByText('선택한 날짜')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('시나리오 33 (모바일 §11.1 item5): 시트 안에서 폼→성공까지 신청이 진행되고, 시간표로 보기는 폼 단계에서 숨는다', async () => {
+    setMatchMedia(true);
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+    mockSearchParams.value = 'facilityId=1';
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    const dialog = await screen.findByRole('dialog');
+    const slotList = within(dialog).getByRole('list', { name: '시간대 선택' });
+    fireEvent.click(within(slotList).getByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: '18:00~19:00 예약 신청' }));
+
+    // 폼 단계도 시트 안에서 진행 — 시간표로 보기는 slots 스텝 전용이라 숨는다.
+    fireEvent.click(await within(dialog).findByRole('button', { name: '정기 합주' }));
+    expect(within(dialog).queryByRole('button', { name: '시간표로 보기' })).not.toBeInTheDocument();
+    await within(dialog).findByText('밴드부');
+    fireEvent.click(within(dialog).getByRole('button', { name: '예약 신청' }));
+
+    // 성공 화면도 시트 안에서 — 승인 타임라인 노출.
+    expect(await within(dialog).findByLabelText('승인 진행 타임라인')).toBeInTheDocument();
+
+    setMatchMedia(false);
+  });
+});
+
+// ── 주간 이월(두 달 걸침) 게이팅 버그 수정(§12) ─────────────────────────────────
+// 이월 주(월 경계를 넘는 주)는 실제 달력상 특정 today 에서만 생긴다(익월 1일이 월요일이면 아예 없음).
+// 결정적 재현을 위해 클록을 특정일에 고정한다 — 이는 만료되는 미래 절대날짜(타임밤)가 아니라 '고정된 현재'이고,
+// 창·셀·헤더는 모두 그 고정 today 에서 파생한다(레포 setSystemTime 전례 9곳). 실제 반월 정책은 today.day>15 이면
+// 창이 [당월-16 .. 익월-15] 로 월 경계를 넘어, 이월 주 양쪽이 모두 창 안이 되는 게 이 버그의 무대다.
+describe('FacilityBookingPage — 주간 이월(두 달 걸침) 게이팅(§12)', () => {
+  // 하루 09~21시 13칸 전부 AVAILABLE·운영 노트 없음(셀 aria = "가능"). 창은 인자로 주입해 시나리오별 in/out 을 가른다.
+  function flatAvailability(
+    facilityId: number,
+    yearMonth: string,
+    bookableFrom: string,
+    bookableUntil: string,
+  ): FacilityAvailabilityResponse {
+    const [year, month] = yearMonth.split('-').map(Number);
+    const daysInMonth = new Date(year ?? 1970, month ?? 1, 0).getDate();
+    return {
+      facilityId,
+      yearMonth,
+      lastUpdatedAt: null,
+      stale: false,
+      bookableFrom,
+      bookableUntil,
+      days: Array.from({ length: daysInMonth }, (_, index) => ({
+        date: `${yearMonth}-${pad2(index + 1)}`,
+        dayStatus: 'AVAILABLE' as const,
+        availableSlotCount: 13,
+        operatingNotes: [],
+        slots: Array.from({ length: 13 }, (_, slotIndex) => ({
+          start: `${pad2(9 + slotIndex)}:00`,
+          end: `${pad2(10 + slotIndex)}:00`,
+          status: 'AVAILABLE' as const,
+        })),
+      })),
+    };
+  }
+
+  // Asia/Seoul 정오(UTC 03:00)로 고정 — 머신 TZ 무관하게 seoulDateIso 가 목표일을 낸다.
+  const pinSeoulNoon = (dateIso: string) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${dateIso}T03:00:00Z`));
+  };
+
+  // 창(booking-window)·availability(요청 yearMonth 전부) 핸들러를 주입하고, 조회된 yearMonth 를 기록한다.
+  function installCarryoverHandlers(bookableFrom: string, bookableUntil: string): string[] {
+    const requestedYearMonths: string[] = [];
+    server.use(
+      http.get('*/facilities/booking-window', () =>
+        ok({ bookableFrom, bookableUntil, availableBookingRanges: null }),
+      ),
+      http.get('*/facilities/1/availability', ({ request }) => {
+        const yearMonth = new URL(request.url).searchParams.get('yearMonth') ?? bookableFrom.slice(0, 7);
+        requestedYearMonths.push(yearMonth);
+        return ok(flatAvailability(1, yearMonth, bookableFrom, bookableUntil));
+      }),
+    );
+    return requestedYearMonths;
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('(a) 7/27~8/2 주: 창이 8월로 이어지면 8/1·8/2 셀·헤더가 활성이다(인접월 병합)', async () => {
+    pinSeoulNoon('2026-07-20'); // day>15 → 창 [7/16 .. 8/15] 가 월 경계를 넘는다
+    const requestedYearMonths = installCarryoverHandlers('2026-07-16', '2026-08-15');
+    mockSearchParams.value = 'facilityId=1&date=2026-07-27'; // 조회 월=7월, 주는 8월로 이월
+
+    renderPage();
+
+    await screen.findByRole('heading', { level: 2, name: weekRangeLabel(mondayOf('2026-07-27')) });
+
+    // 인접월(8월) 데이터가 병합되면 8/1(토)·8/2(일) 헤더가 활성이 된다(수정 전엔 데이터 없음→비활성=버그).
+    await waitFor(() => expect(screen.getByRole('button', { name: '토요일 1일' })).toBeEnabled());
+    expect(screen.getByRole('button', { name: '일요일 2일' })).toBeEnabled();
+    // 8/1 09:00 셀도 탭 가능(가용).
+    expect(screen.getByRole('button', { name: '토요일 1일 09:00 가능' })).toBeEnabled();
+    // 8월 availability 를 실제로 조회했다.
+    await waitFor(() => expect(requestedYearMonths).toContain('2026-08'));
+  });
+
+  it('(b) 회귀: 창이 8월로 이어지지 않으면 병합돼도 8/1·8/2 는 창 밖이라 비활성이다(날짜 기준 판정)', async () => {
+    pinSeoulNoon('2026-07-10'); // day<=15 → 창 [7/16 .. 7/31] 이 월 경계에서 끝난다
+    const requestedYearMonths = installCarryoverHandlers('2026-07-16', '2026-07-31');
+    mockSearchParams.value = 'facilityId=1&date=2026-07-27';
+
+    renderPage();
+
+    await screen.findByRole('heading', { level: 2, name: weekRangeLabel(mondayOf('2026-07-27')) });
+
+    // 7/31(금)은 창 안 → 헤더 활성.
+    await waitFor(() => expect(screen.getByRole('button', { name: '금요일 31일' })).toBeEnabled());
+    // 8월도 익월이라 조회는 되지만(병합), 8/1·8/2 는 창(7/31) 밖이라 날짜 기준으로 비활성이다(회귀 방지).
+    await waitFor(() => expect(requestedYearMonths).toContain('2026-08'));
+    expect(screen.getByRole('button', { name: '토요일 1일' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '일요일 2일' })).toBeDisabled();
+  });
+
+  it('(c) 인접월이 {당월,익월} 밖이면 추가 조회 없이 비활성이다(창을 넓혀 조회범위 게이트만 분리)', async () => {
+    pinSeoulNoon('2026-07-20'); // 당월=7월, 익월=8월 → 9월은 조회 범위 밖
+    // 창을 9월까지 인위적으로 넓혀(불변식 밖) 창 게이트가 아니라 {당월,익월} 조회 범위 게이트만 검증한다.
+    const requestedYearMonths = installCarryoverHandlers('2026-07-16', '2026-09-30');
+    mockSearchParams.value = 'facilityId=1&date=2026-08-31'; // 조회 월=8월, 주는 9월로 이월
+
+    renderPage();
+
+    await screen.findByRole('heading', { level: 2, name: weekRangeLabel(mondayOf('2026-08-31')) });
+
+    // 8월(조회 월)은 조회되고, 9월은 익월 밖이라 창 안이어도 조회하지 않는다(availability API 400 방지).
+    await waitFor(() => expect(requestedYearMonths).toContain('2026-08'));
+    expect(requestedYearMonths).not.toContain('2026-09');
+    // 9/1(화)은 데이터가 없어 비활성이다(조회 범위 밖은 비활성이 정답 — 창⊆당월∪익월 불변식).
+    expect(screen.getByRole('button', { name: '화요일 1일' })).toBeDisabled();
+  });
+
+  it('(d) 연도 경계 12/29~1/4 주: 익년 1/1·1/2 가 정상 활성이다(월 산술 연도 넘김)', async () => {
+    pinSeoulNoon('2026-12-20'); // day>15 → 창 [12/16 .. 익년 1/15]
+    const requestedYearMonths = installCarryoverHandlers('2026-12-16', '2027-01-15');
+    mockSearchParams.value = 'facilityId=1&date=2026-12-31'; // 조회 월=12월, 주는 익년 1월로 이월
+
+    renderPage();
+
+    await screen.findByRole('heading', { level: 2, name: weekRangeLabel(mondayOf('2026-12-31')) });
+
+    // 익년 1월 데이터 병합 → 1/1(금)·1/2(토) 활성.
+    await waitFor(() => expect(screen.getByRole('button', { name: '금요일 1일' })).toBeEnabled());
+    expect(screen.getByRole('button', { name: '토요일 2일' })).toBeEnabled();
+    await waitFor(() => expect(requestedYearMonths).toContain('2027-01'));
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BookingAvailabilitySlot, BookingOperatingNote } from '@duing/types';
 import {
+  adjacentMonthToFetch,
   buildMonthCells,
   DAY_LEVEL_META,
   dayBookingEntries,
@@ -17,6 +18,7 @@ import {
   slotStatusCounts,
   toggleSlotSelection,
   weekDatesOf,
+  weekMonthsOf,
   weekRangeLabel,
 } from '@/app/facilities/_lib/bookingCalendar';
 
@@ -137,6 +139,49 @@ describe('weekDatesOf / isWithinBookable', () => {
     expect(isWithinBookable('2026-07-13', '2026-07-13', '2026-08-31')).toBe(true);
     expect(isWithinBookable('2026-08-31', '2026-07-13', '2026-08-31')).toBe(true);
     expect(isWithinBookable('2026-07-12', '2026-07-13', '2026-08-31')).toBe(false);
+  });
+});
+
+describe('weekMonthsOf (§12.1 주의 걸친 월 파생)', () => {
+  it('한 달 안에 있는 주는 월 1개만 반환한다', () => {
+    // 2026-07-13(월)~07-19(일) — 전부 7월.
+    expect(weekMonthsOf('2026-07-13')).toEqual(['2026-07']);
+  });
+
+  it('월 경계를 넘는 주는 두 월을 오름차순으로 반환한다', () => {
+    // 2026-07-27(월)~08-02(일) — 7월·8월에 걸침(사용자 지정 케이스).
+    expect(weekMonthsOf('2026-07-27')).toEqual(['2026-07', '2026-08']);
+    // 2026-08-31(월)~09-06(일) — 8월·9월.
+    expect(weekMonthsOf('2026-08-31')).toEqual(['2026-08', '2026-09']);
+  });
+
+  it('연도 경계를 넘는 주도 두 월(연도 넘김)을 반환한다', () => {
+    // 2026-12-31(목)이 속한 주 = 12/28(월)~01/03(일) — 연도 경계(§12.2).
+    expect(weekMonthsOf('2026-12-31')).toEqual(['2026-12', '2027-01']);
+    // 새해 첫날 입력도 같은 주라 동일하게 두 월을 만든다.
+    expect(weekMonthsOf('2027-01-01')).toEqual(['2026-12', '2027-01']);
+  });
+});
+
+describe('adjacentMonthToFetch (§12.1 인접월 조회 게이트)', () => {
+  it('이월 주면 조회 월이 아닌 다른 월을 반환한다(양방향)', () => {
+    // 조회 월=7월이면 이월 대상=8월.
+    expect(adjacentMonthToFetch('2026-07-27', '2026-07', ['2026-07', '2026-08'])).toBe('2026-08');
+    // 조회 월=8월(선택일이 8월로 넘어간 경우)이면 이월 대상=7월.
+    expect(adjacentMonthToFetch('2026-07-27', '2026-08', ['2026-07', '2026-08'])).toBe('2026-07');
+  });
+
+  it('이월이 아닌(한 달) 주는 undefined 다', () => {
+    expect(adjacentMonthToFetch('2026-07-13', '2026-07', ['2026-07', '2026-08'])).toBeUndefined();
+  });
+
+  it('인접월이 허용 범위(당월·익월) 밖이면 undefined 다(400 방지)', () => {
+    // 8/31~9/6 주에서 조회 월=8월, 다른 월=9월(익월 밖) → 조회하지 않는다.
+    expect(adjacentMonthToFetch('2026-08-31', '2026-08', ['2026-07', '2026-08'])).toBeUndefined();
+  });
+
+  it('연도 경계에서도 허용 범위 안이면 인접월을 반환한다(월 산술 연도 넘김)', () => {
+    expect(adjacentMonthToFetch('2026-12-31', '2026-12', ['2026-12', '2027-01'])).toBe('2027-01');
   });
 });
 
