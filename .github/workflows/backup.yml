@@ -3,7 +3,7 @@ name: Database Backup
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 18 * * *' # 03:00 KST
+    - cron: '15 19 * * *' # 04:15 KST
 
 jobs:
   backup:
