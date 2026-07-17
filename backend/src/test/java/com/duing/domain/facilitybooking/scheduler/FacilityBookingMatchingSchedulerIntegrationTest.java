@@ -189,7 +189,47 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
     }
 
     @Test
-    @DisplayName("스냅샷이 SUCCESS 가 아닌 월은 건너뛴다 — 반쪽 데이터로 오판하지 않는다")
+    @DisplayName("PARTIAL 월에서도 세대가 일치하는 시설은 자동 확정된다 — 한 룸의 실패가 월 전체 자동 확정을 멈추지 않는다")
+    void confirmsGenerationMatchedFacilitiesInPartialMonth() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
+        LocalDateTime generation = LocalDateTime.now();
+
+        Long matched = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), matched);
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), clubName, null, null, generation));
+
+        // 크롤이 실패한 룸의 예약 — 잔존 행이 구세대(crawledAt 불일치)라 세대 결박이 확정을 막아야 한다
+        Fixture staleFixture = fixture();
+        String staleClubName = clubRepository.findById(staleFixture.club().getId()).orElseThrow().getName();
+        Long staleBooking = pendingBooking(staleFixture, date, 9, 11);
+        adminService.approve(admin.getId(), staleBooking);
+        facilityReservationRepository.save(FacilityReservation.create(staleFixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(9, 0), LocalTime.of(11, 0), staleClubName, null, null,
+                generation.minusMinutes(10)));
+
+        // 룸 1개 실패 상황 — 월 메타는 새 세대의 PARTIAL 로 기록된다(FacilityCrawlService 와 동일 경로)
+        FacilityMonthSnapshot partialSnapshot = snapshotRepository.findByYearMonth(YearMonth.from(date))
+                .orElseGet(() -> FacilityMonthSnapshot.create(YearMonth.from(date), generation,
+                        CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
+        partialSnapshot.recordSuccessful(generation, CrawlSource.SCHEDULER, FetchStatus.PARTIAL, "룸 1개 실패");
+        snapshotRepository.save(partialSnapshot);
+
+        scheduler.runMatchingCycle();
+
+        assertThat(bookingRepository.findById(matched).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.CONFIRMED);
+        assertThat(bookingRepository.findById(staleBooking).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED); // 구세대 행은 fail-closed 로 제외
+    }
+
+    @Test
+    @DisplayName("스냅샷이 없거나 FAILED 인 월은 건너뛴다 — 신뢰 불가 데이터로 오판하지 않는다")
     void skipsNonSuccessMonths() throws Exception {
         Fixture fixture = fixture();
         User admin = saveUser("총동연");

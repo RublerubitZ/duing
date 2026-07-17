@@ -116,10 +116,13 @@ public class FacilityBookingMatchingService {
             log.info("FacilityBooking Matching skip bookingId={} (아카이브 시설)", bookingId);
             return false;
         }
-        // 스냅샷 세대 재확인 — SUCCESS 가 아니면 스킵. generation = 이 세대의 크롤 수집 시각(판단 근거).
+        // 스냅샷 세대 재확인 — SUCCESS·PARTIAL 만 신뢰(FAILED·미기록은 스킵). PARTIAL 에서도 안전한 이유:
+        // 실패한 룸의 잔존 행은 구세대 crawledAt 이라 아래 정확 세대 결박이 fail-closed 로 제외하므로,
+        // 성공한 룸만 신세대 행으로 판정된다. SUCCESS 전용 게이트는 한 룸의 지속 실패가 월 전체 자동
+        // 확정을 조용히 정지시키는 이중 보수였다(2026-07-17 감사). generation = 이 세대의 크롤 수집 시각.
         YearMonth month = YearMonth.from(booking.getReservationDate());
         FacilityMonthSnapshot snapshot = facilityMonthSnapshotRepository.findByYearMonth(month).orElse(null);
-        if (snapshot == null || snapshot.getFetchStatus() != FetchStatus.SUCCESS) {
+        if (snapshot == null || snapshot.getFetchStatus() == FetchStatus.FAILED) {
             return false;
         }
         LocalDateTime generation = snapshot.getCrawledAt();

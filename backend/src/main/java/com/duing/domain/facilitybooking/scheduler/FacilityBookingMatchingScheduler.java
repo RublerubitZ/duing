@@ -18,12 +18,14 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
  * APPROVED → CONFIRMED 자동 매칭 잡(§5.3). 크롤 잡(매 10분 0초)과 3분 오프셋으로 최신 스냅샷을 뒤따른다.
- * fetch_status=SUCCESS 월만 신뢰하고, 예약 1건 단위의 검증·확정은 전 과정을 단일 트랜잭션으로 수행하는
+ * fetch_status=SUCCESS·PARTIAL 월을 신뢰하고(PARTIAL 안전성은 세대 결박이 보장, 2026-07-17 감사),
+ * 예약 1건 단위의 검증·확정은 전 과정을 단일 트랜잭션으로 수행하는
  * {@link FacilityBookingMatchingService#verifyAndConfirm}(교체 가능 정책 + 정확 세대 결박)에 위임한다 —
  * @Transactional self-invocation 을 피하려고 별도 빈 프록시로 호출한다.
  * AtomicBoolean.compareAndSet 으로 in-JVM 중복 실행을 막는다(이전 사이클 진행 중이면 skip).
@@ -63,9 +65,9 @@ public class FacilityBookingMatchingScheduler {
         Set<String> collidingClubKeys = collidingClubKeys();
         int confirmedCount = 0;
         for (YearMonth month : List.of(currentMonth, currentMonth.plusMonths(1))) {
-            // SUCCESS 사전 게이트(빠른 스킵) — 세대 결박·확정은 verifyAndConfirm 이 트랜잭션 안에서 재확인한다.
-            if (!hasSuccessSnapshot(month)) {
-                log.info("FacilityBooking Matching skip month={} (스냅샷 미신뢰)", month);
+            // 신뢰 스냅샷 사전 게이트(빠른 스킵) — 세대 결박·확정은 verifyAndConfirm 이 트랜잭션 안에서 재확인한다.
+            if (!hasTrustedSnapshot(month)) {
+                log.info("FacilityBooking Matching skip month={} (스냅샷 신뢰 불가 — FAILED 또는 미기록)", month);
                 continue;
             }
             confirmedCount += matchMonth(month, collidingClubKeys);
@@ -88,10 +90,12 @@ public class FacilityBookingMatchingScheduler {
                 .collect(Collectors.toSet());
     }
 
-    /** SUCCESS 월 스냅샷 존재 여부(빠른 스킵 게이트). 세대 결박은 verifyAndConfirm 이 트랜잭션 안에서 재확인한다. */
-    private boolean hasSuccessSnapshot(YearMonth month) {
+    /** 신뢰 가능(SUCCESS·PARTIAL) 월 스냅샷 존재 여부(빠른 스킵 게이트) — PARTIAL 의 안전성은 세대 결박이
+     *  보장한다(실패 룸의 구세대 행은 fail-closed 제외, 2026-07-17 감사). 세대 결박·확정은 verifyAndConfirm
+     *  이 트랜잭션 안에서 재확인한다. */
+    private boolean hasTrustedSnapshot(YearMonth month) {
         return facilityMonthSnapshotRepository.findByYearMonth(month)
-                .map(snapshot -> snapshot.getFetchStatus() == FetchStatus.SUCCESS)
+                .map(snapshot -> snapshot.getFetchStatus() != FetchStatus.FAILED)
                 .orElse(false);
     }
 
@@ -115,6 +119,11 @@ public class FacilityBookingMatchingScheduler {
                 if (matchingService.verifyAndConfirm(booking.getId(), clubName, collidingClubKeys)) {
                     confirmedCount++;
                 }
+            } catch (ObjectOptimisticLockingFailureException concurrentTransition) {
+                // 관리자 전이(취소·충돌 전환)와의 경합은 설계상 정상 스킵(verifyAndConfirm 주석의 계약) —
+                // ERROR 로 남기면 Sentry 알람이 되므로 INFO 로 강등한다(지원서 도메인 전례).
+                log.info("FacilityBooking Matching 경합 스킵 bookingId={} (관리자 전이 선행 — 다음 사이클 재판정)",
+                        booking.getId());
             } catch (Exception exception) {
                 log.error("FacilityBooking Matching 실패 bookingId={}", booking.getId(), exception);
             }
