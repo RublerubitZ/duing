@@ -225,8 +225,7 @@ const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 beforeAll(() => {
   server.listen({ onUnhandledRequest: 'error' });
-  // jsdom 은 window.matchMedia 가 없다 — useIsMobileViewport(useSyncExternalStore)용 stub.
-  // matches:false = 데스크탑 경로(인라인 aside 패널). 구독은 no-op 리스너로 충분하다.
+  // jsdom 은 window.matchMedia 가 없다 — motion/미디어쿼리 소비 컴포넌트용 stub(no-op 구독).
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     configurable: true,
@@ -654,6 +653,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(screen.queryByRole('button', { name: WINDOW_FROM_CELL })).not.toBeInTheDocument();
   });
 
+  // 시나리오 20 은 matchMedia 를 모바일(matches:true)로 덮으므로 종료 후 원복이 필요하다(후속 시나리오 누수 방지).
   it('시나리오 20 (뷰 전환 f): 모바일 뷰포트에서도 시트(dialog) 없이 본문이 주간으로 전환되고 사이드바가 스택된다', async () => {
     // 모바일 매치미디어 — 페이지는 더 이상 뷰포트로 시트를 게이트하지 않는다(스택 렌더).
     Object.defineProperty(window, 'matchMedia', {
@@ -678,6 +678,22 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(await screen.findByText('선택한 날짜')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /18:00~19:00/ })).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    // matchMedia 원복(matches:false) — 후속 시나리오로 모바일 스텁이 누수되지 않게 한다.
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    });
   });
 
   it('시나리오 21 (뷰 전환 g): 주간 이동 화살표는 창 주 범위로 캡되고 이동 시 주 라벨이 갱신된다', async () => {

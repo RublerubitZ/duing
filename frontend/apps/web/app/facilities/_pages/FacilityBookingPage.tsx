@@ -213,6 +213,9 @@ export function FacilityBookingPage() {
     // override 가 null 이어도 파생 yearMonth(창 월 폴백) 를 기준으로 이동한다.
     setYearMonthOverride(shiftYearMonth(yearMonth, delta));
     setSelectedDate(null);
+    // 주간 뷰에서도 도달 가능(availability 에러 박스의 "이번 달로 돌아가기") —
+    // selectedDate 가 null 이 되므로 월간으로 복귀하지 않으면 빈 주간 화면이 남는다.
+    setCalendarView('month');
     resetSelectionFlow();
     syncUrl(effectiveFacilityId ?? null, null);
   };
