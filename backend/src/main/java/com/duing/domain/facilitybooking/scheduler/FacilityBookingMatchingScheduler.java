@@ -121,8 +121,9 @@ public class FacilityBookingMatchingScheduler {
                 }
             } catch (ObjectOptimisticLockingFailureException concurrentTransition) {
                 // 관리자 전이(취소·충돌 전환)와의 경합은 설계상 정상 스킵(verifyAndConfirm 주석의 계약) —
-                // ERROR 로 남기면 Sentry 알람이 되므로 INFO 로 강등한다(지원서 도메인 전례).
-                log.info("FacilityBooking Matching 경합 스킵 bookingId={} (관리자 전이 선행 — 다음 사이클 재판정)",
+                // ERROR 로 두면 Sentry 알람(minimum-event-level: error)이 되므로, 낙관 잠금 충돌의 기존
+                // 컨벤션(GlobalExceptionHandler 의 WARN 409 변환)과 같은 WARN 으로 강등한다.
+                log.warn("FacilityBooking Matching 경합 스킵 bookingId={} (관리자 전이 선행 — 다음 사이클 재판정)",
                         booking.getId());
             } catch (Exception exception) {
                 log.error("FacilityBooking Matching 실패 bookingId={}", booking.getId(), exception);
