@@ -9,22 +9,16 @@ import { DayBookingOverview } from './DayBookingOverview';
 import { DaySlotList } from './DaySlotList';
 import { PanelStepIndicator } from './PanelStepIndicator';
 import { PanelSummaryCard } from './PanelSummaryCard';
-import { WeekTimetable } from './WeekTimetable';
 
 export type PanelStep = 'slots' | 'form' | 'success';
-export type PanelView = 'day' | 'week';
 
+// 주간 전용 사이드바의 일간 콘텐츠(§5) — 뷰 전환은 공용 헤더(BookingViewHeader)·주간 그리드는
+// 본문(WeekTimetable)이 담당하므로 패널은 선택일의 요약·현황·시간 선택·신청 스텝만 렌더한다.
 type Props = {
   facility: { id: number; roomName: string };
   day: BookingDayAvailability;
-  daysByIso: Map<string, BookingDayAvailability>;
-  bookableFrom: string;
-  bookableUntil: string;
-  view: PanelView;
-  onChangeView: (view: PanelView) => void;
   selection: SlotRange | null;
   onToggleSlot: (slotStart: string) => void;
-  onSelectDate: (iso: string) => void;
   step: PanelStep;
   onProceedToForm: () => void;
   onBackToSlots: () => void;
@@ -37,7 +31,7 @@ type Props = {
 };
 
 export function BookingPanel({
-  facility, day, daysByIso, bookableFrom, bookableUntil, view, onChangeView, selection, onToggleSlot, onSelectDate,
+  facility, day, selection, onToggleSlot,
   step, onProceedToForm, onBackToSlots, submittedResult, submittedClubId, submittedAt,
   onSubmitted, onExploreOther, onClose,
 }: Props) {
@@ -88,24 +82,8 @@ export function BookingPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2">
         <h3 className="font-display text-base text-ink-deep">{facility.roomName} · {dateLabel}</h3>
-        <div className="flex rounded-full border border-line bg-paper p-0.5 text-xs" role="tablist" aria-label="보기 전환">
-          {(['day', 'week'] as const).map((candidate) => (
-            <button
-              key={candidate}
-              type="button"
-              role="tab"
-              aria-selected={view === candidate}
-              onClick={() => onChangeView(candidate)}
-              className={`rounded-full px-2.5 py-1 motion-safe:transition-colors ${
-                view === candidate ? 'bg-ink text-cream' : 'text-charcoal-3'
-              }`}
-            >
-              {candidate === 'day' ? '일간' : '주간'}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="mb-3">
@@ -113,22 +91,11 @@ export function BookingPanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-        {view === 'day' ? (
-          <div className="space-y-3">
-            <PanelSummaryCard day={day} />
-            <DayBookingOverview day={day} />
-            <DaySlotList day={day} selection={selection} onToggleSlot={onToggleSlot} />
-          </div>
-        ) : (
-          <WeekTimetable
-            selectedDate={day.date}
-            daysByIso={daysByIso}
-            bookableFrom={bookableFrom}
-            bookableUntil={bookableUntil}
-            selection={selection}
-            onSelectDate={onSelectDate}
-          />
-        )}
+        <div className="space-y-3">
+          <PanelSummaryCard day={day} />
+          <DayBookingOverview day={day} />
+          <DaySlotList day={day} selection={selection} onToggleSlot={onToggleSlot} />
+        </div>
       </div>
 
       {/* bg-inherit 은 transparent 로 풀려 스크롤 중 뒤 슬롯이 비친다 — 패널·시트 공통 흰 계열로 고정 */}

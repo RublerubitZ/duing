@@ -106,6 +106,31 @@ export function rangeLabel(range: SlotRange): string {
   return `${range.start}~${range.end}`;
 }
 
+/** ISO 날짜(yyyy-MM-dd)에 일수를 더한 ISO. 월·연 경계 안전(로컬 파싱 — UTC 자정 함정 회피). */
+export function shiftDateByDays(iso: string, deltaDays: number): string {
+  const date = parseIsoDate(iso);
+  date.setDate(date.getDate() + deltaDays);
+  return toIso(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/**
+ * 주 시작(월요일 ISO)을 "M월 D일 – D일" 로 표기한다(§2). 주 끝(=월+6)이 다음 달이면
+ * 끝 날짜 앞에 월을 함께 표기한다: "7월 28일 – 8월 3일". 입력은 그 주의 월요일 ISO.
+ */
+export function weekRangeLabel(mondayIso: string): string {
+  const monday = parseIsoDate(mondayIso);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const startMonth = monday.getMonth() + 1;
+  const startDay = monday.getDate();
+  const endMonth = sunday.getMonth() + 1;
+  const endDay = sunday.getDate();
+  if (startMonth === endMonth) {
+    return `${startMonth}월 ${startDay}일 – ${endDay}일`;
+  }
+  return `${startMonth}월 ${startDay}일 – ${endMonth}월 ${endDay}일`;
+}
+
 /** 선택일이 속한 주(월~일) 7일 — 월 경계를 넘을 수 있다(범위 밖 날짜는 호출부가 데이터 없음 처리). */
 export function weekDatesOf(iso: string): string[] {
   const base = parseIsoDate(iso);

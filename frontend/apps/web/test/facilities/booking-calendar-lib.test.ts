@@ -10,10 +10,12 @@ import {
   periodDistribution,
   rangeContainsPendingHold,
   rangeLabel,
+  shiftDateByDays,
   slotInRange,
   slotStatusCounts,
   toggleSlotSelection,
   weekDatesOf,
+  weekRangeLabel,
 } from '@/app/facilities/_lib/bookingCalendar';
 
 function slot(startHour: number, status: BookingAvailabilitySlot['status']): BookingAvailabilitySlot {
@@ -133,6 +135,28 @@ describe('weekDatesOf / isWithinBookable', () => {
     expect(isWithinBookable('2026-07-13', '2026-07-13', '2026-08-31')).toBe(true);
     expect(isWithinBookable('2026-08-31', '2026-07-13', '2026-08-31')).toBe(true);
     expect(isWithinBookable('2026-07-12', '2026-07-13', '2026-08-31')).toBe(false);
+  });
+});
+
+describe('shiftDateByDays', () => {
+  it('일 단위로 더하고 빼며 월·연 경계를 넘긴다(로컬 파싱, UTC 자정 함정 회피)', () => {
+    expect(shiftDateByDays('2026-07-20', 7)).toBe('2026-07-27');
+    expect(shiftDateByDays('2026-07-27', 7)).toBe('2026-08-03'); // 월 경계
+    expect(shiftDateByDays('2026-08-03', -7)).toBe('2026-07-27');
+    expect(shiftDateByDays('2026-12-29', 7)).toBe('2027-01-05'); // 연 경계
+    expect(shiftDateByDays('2026-07-20', 0)).toBe('2026-07-20');
+  });
+});
+
+describe('weekRangeLabel', () => {
+  it('같은 달 주는 "M월 D일 – D일" 로 표기한다', () => {
+    // 월요일 입력 → 그 주(월~일) 라벨. 2026-07-20 은 월요일, 주 끝=07-26.
+    expect(weekRangeLabel('2026-07-20')).toBe('7월 20일 – 26일');
+  });
+
+  it('월 경계를 넘는 주는 끝 날짜에 월을 함께 표기한다', () => {
+    // 2026-07-27(월)~08-02(일) — 끝이 다음 달.
+    expect(weekRangeLabel('2026-07-27')).toBe('7월 27일 – 8월 2일');
   });
 });
 

@@ -1,7 +1,6 @@
 'use client';
 
 import type { BookingDayAvailability, FacilityBookingRange } from '@duing/types';
-import { yearMonthLabel } from '../../_lib/facilityTimeline';
 import { rangeDatesLabel } from '../../_lib/bookingHome';
 import { DAY_LEVEL_META, TOTAL_SLOTS, buildMonthCells, dayLevelOf, isWithinBookable } from '../../_lib/bookingCalendar';
 
@@ -20,55 +19,19 @@ type Props = {
   windowLabel: string | null;
   // Rolling Window 구간(현재/다음). 있으면 구간 칩·오픈 마커로, 부재 시 windowLabel 단일 배지로 폴백한다.
   ranges?: FacilityBookingRange[] | null;
-  onPrevMonth: () => void;
-  onNextMonth: () => void;
-  canPrev: boolean;
-  canNext: boolean;
 };
 
+// 월간 탐색 그리드(§3) — 카드형 셀·히트맵·기간 외·오픈 마커·오늘 도트. 헤더(제목·화살표·범례)는
+// 공용 BookingViewHeader 로 이관됐고, 카드 래퍼도 페이지가 소유한다. 창 칩 행·그리드·셀 로직은 무변경.
 export function BookingCalendar({
   yearMonth, daysByIso, bookableFrom, bookableUntil, todayIso,
   selectedDate, onSelectDate, onOutOfWindowSelect, windowLabel, ranges,
-  onPrevMonth, onNextMonth, canPrev, canNext,
 }: Props) {
   const cells = buildMonthCells(yearMonth);
   // 마지막 구간(=다음 예약 가능) 시작일 = 예약 오픈일 마커 대상. ranges 부재 전환기엔 null(마커 없음).
   const openStartIso = ranges?.[ranges.length - 1]?.startDate ?? null;
   return (
-    <section className="rounded-lg border border-line bg-paper p-4 sm:p-5" aria-label="예약 캘린더">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
-          <h2 className="font-display text-lg text-ink-deep">{yearMonthLabel(yearMonth)}</h2>
-          <div className="flex items-center gap-0.5">
-            <button
-              type="button"
-              aria-label="이전 달"
-              className="btn btn-ghost px-2.5 py-1.5 text-base leading-none disabled:pointer-events-none disabled:opacity-40"
-              onClick={onPrevMonth}
-              disabled={!canPrev}
-            >
-              ←
-            </button>
-            <button
-              type="button"
-              aria-label="다음 달"
-              className="btn btn-ghost px-2.5 py-1.5 text-base leading-none disabled:pointer-events-none disabled:opacity-40"
-              onClick={onNextMonth}
-              disabled={!canNext}
-            >
-              →
-            </button>
-          </div>
-        </div>
-        <span className="flex flex-wrap items-center gap-3 text-[11px] text-charcoal-3">
-          {(['HIGH', 'MID', 'LOW', 'FULL'] as const).map((level) => (
-            <span key={level} className="inline-flex items-center gap-1">
-              <span aria-hidden className={`h-2.5 w-2.5 rounded-[2px] ${DAY_LEVEL_META[level].barClass}`} />
-              {DAY_LEVEL_META[level].label}
-            </span>
-          ))}
-        </span>
-      </div>
+    <div>
       {ranges && ranges.length > 0 ? (
         <div className="mb-2 flex flex-wrap gap-2">
           {ranges.map((range, index) => (
@@ -192,6 +155,6 @@ export function BookingCalendar({
           );
         })}
       </div>
-    </section>
+    </div>
   );
 }

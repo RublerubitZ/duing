@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import type { BookingDayAvailability, FacilityItem } from '@duing/types';
 import { FacilityContextBar } from '@/app/facilities/_components/booking/FacilityContextBar';
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
+import { BookingViewHeader } from '@/app/facilities/_components/booking/BookingViewHeader';
 import { DaySlotList } from '@/app/facilities/_components/booking/DaySlotList';
 import { DayBookingOverview } from '@/app/facilities/_components/booking/DayBookingOverview';
 import { BookingPanel } from '@/app/facilities/_components/booking/BookingPanel';
@@ -86,10 +87,6 @@ it('캘린더 셀은 레벨 라벨(여유/마감)·창 배지를 표시하고 �
       onSelectDate={vi.fn()}
       onOutOfWindowSelect={vi.fn()}
       windowLabel="7.13 ~ 8.31"
-      onPrevMonth={vi.fn()}
-      onNextMonth={vi.fn()}
-      canPrev={false}
-      canNext
     />,
   );
   // 셀 접근성 이름은 '레벨 + 남은 칸수'를 포함한다(카드형 셀). FULL 셀도 창내라 클릭 가능(현황 확인).
@@ -123,10 +120,6 @@ it('캘린더는 ranges 전달 시 구간 칩 2개와 다음 구간 시작일 �
         { startDate: '2026-07-13', endDate: '2026-07-20', label: '현재 예약 가능' },
         { startDate: '2026-07-21', endDate: '2026-07-31', label: '다음 예약 가능' },
       ]}
-      onPrevMonth={vi.fn()}
-      onNextMonth={vi.fn()}
-      canPrev={false}
-      canNext
     />,
   );
   // 구간 칩 2개(라벨 + M.d ~ M.d). 단일 배지는 폴백이므로 렌더되지 않는다.
@@ -155,10 +148,6 @@ it('다음 구간이 익월이면(두 달 스팬 창) 표시 중인 달에는 �
         { startDate: '2026-07-16', endDate: '2026-07-31', label: '현재 예약 가능' },
         { startDate: '2026-08-01', endDate: '2026-08-15', label: '다음 예약 가능' },
       ]}
-      onPrevMonth={vi.fn()}
-      onNextMonth={vi.fn()}
-      canPrev={false}
-      canNext
     />,
   );
   // 칩은 익월 구간까지 표기하지만, 오픈 마커(8/1)는 7월 그리드에 없다.
@@ -182,10 +171,6 @@ it('창 밖 미래 셀은 aria-disabled 이고 클릭 시 onSelectDate 대신 on
       onSelectDate={onSelectDate}
       onOutOfWindowSelect={onOutOfWindowSelect}
       windowLabel="7.13 ~ 7.20"
-      onPrevMonth={vi.fn()}
-      onNextMonth={vi.fn()}
-      canPrev={false}
-      canNext
     />,
   );
   const outsideCell = screen.getByRole('button', { name: '25일 예약 기간 아님' });
@@ -438,19 +423,13 @@ it('예약 건도 운영행도 없으면(타임라인 0건) 예약 현황 카드
   expect(screen.queryByText(/예약 현황/)).not.toBeInTheDocument();
 });
 
-it('예약 패널은 예약 현황 카드를 요약 카드와 시간 선택 리스트 사이에 배치한다', () => {
+it('예약 패널(일간 콘텐츠 전용)은 요약 카드·예약 현황·시간 선택 순서로 렌더하고 뷰 토글은 없다', () => {
   render(
     <BookingPanel
       facility={{ id: 1, roomName: '커뮤니티룸(1)' }}
       day={makeDay()}
-      daysByIso={new Map()}
-      bookableFrom="2026-07-13"
-      bookableUntil="2026-08-31"
-      view="day"
-      onChangeView={vi.fn()}
       selection={null}
       onToggleSlot={vi.fn()}
-      onSelectDate={vi.fn()}
       step="slots"
       onProceedToForm={vi.fn()}
       onBackToSlots={vi.fn()}
@@ -468,6 +447,67 @@ it('예약 패널은 예약 현황 카드를 요약 카드와 시간 선택 리�
   // 요약 → 예약 현황 → 시간 선택 순서(DOCUMENT_POSITION_FOLLOWING = 4)
   expect(summary.compareDocumentPosition(overview) & 4).toBeTruthy();
   expect(overview.compareDocumentPosition(slotList) & 4).toBeTruthy();
+  // 일간/주간 뷰 토글은 공용 헤더(BookingViewHeader)로 이관 — 패널 내부 tablist·주간 그리드는 없다.
+  expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '주간' })).not.toBeInTheDocument();
+});
+
+it('BookingViewHeader 는 [월|주] 토글·기간 라벨·이동 화살표·범례를 렌더하고 콜백을 부른다', () => {
+  const onChangeView = vi.fn();
+  const onPrev = vi.fn();
+  const onNext = vi.fn();
+  const { rerender } = render(
+    <BookingViewHeader
+      view="month"
+      onChangeView={onChangeView}
+      periodLabel="2026년 7월"
+      onPrev={onPrev}
+      onNext={onNext}
+      canPrev={false}
+      canNext
+    />,
+  );
+  // 세그먼트 토글은 tablist — 월 활성, 주 비활성.
+  const tablist = screen.getByRole('tablist', { name: '월/주 보기 전환' });
+  const monthTab = within(tablist).getByRole('tab', { name: '월' });
+  const weekTab = within(tablist).getByRole('tab', { name: '주' });
+  expect(monthTab).toHaveAttribute('aria-selected', 'true');
+  expect(weekTab).toHaveAttribute('aria-selected', 'false');
+  fireEvent.click(weekTab);
+  expect(onChangeView).toHaveBeenCalledWith('week');
+
+  // 기간 라벨 + 월간 화살표(이전 달 비활성, 다음 달 활성).
+  expect(screen.getByRole('heading', { level: 2, name: '2026년 7월' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '이전 달' })).toBeDisabled();
+  const nextMonth = screen.getByRole('button', { name: '다음 달' });
+  expect(nextMonth).toBeEnabled();
+  fireEvent.click(nextMonth);
+  expect(onNext).toHaveBeenCalledTimes(1);
+  // 월간 범례
+  expect(screen.getByText('여유')).toBeInTheDocument();
+  expect(screen.getByText('마감')).toBeInTheDocument();
+
+  // 주간으로 전환 — 라벨/화살표 aria/범례가 주간용으로 바뀐다.
+  rerender(
+    <BookingViewHeader
+      view="week"
+      onChangeView={onChangeView}
+      periodLabel="7월 20일 – 26일"
+      onPrev={onPrev}
+      onNext={onNext}
+      canPrev
+      canNext={false}
+    />,
+  );
+  expect(screen.getByRole('heading', { level: 2, name: '7월 20일 – 26일' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '이전 주' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '다음 주' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '이전 주' }));
+  expect(onPrev).toHaveBeenCalledTimes(1);
+  // 주간 범례(가능/예약됨/대기)
+  expect(screen.getByText('가능')).toBeInTheDocument();
+  expect(screen.getByText('예약됨')).toBeInTheDocument();
+  expect(screen.getByText('대기')).toBeInTheDocument();
 });
 
 it('홈 카드는 아이콘·위치·예약 가능 라벨을 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {
