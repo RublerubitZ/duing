@@ -73,7 +73,7 @@ public class SchoolFacilityClient {
 
     /**
      * {@link #fetchReservations(int, YearMonth)} 와 동일하되 온디맨드(공개 GET 유발) 예산을 적용한다 —
-     * FE 15초 타임아웃 안에 응답해야 하므로 룸당 재시도를 총 2회로 줄인다. 두 공개 메서드 모두 프록시를
+     * FE 18초 타임아웃(facilityOnDemand) 안에 응답해야 하므로 룸당 재시도를 총 2회로 줄인다. 두 공개 메서드 모두 프록시를
      * 통과하도록 private 본문에 위임한다(어노테이션 메서드 간 self-invocation 시 재시도 미적용).
      */
     @Retryable(

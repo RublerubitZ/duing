@@ -776,6 +776,10 @@ export const REQUEST_TIMEOUT_MS = {
   logoutRevoke: 5_000,
   /** 거래 동기화 — 백엔드가 외부 은행 API(connect 5s + read 15s)를 기다린다 */
   bankSync: 30_000,
+  /** 시설 이용현황·가용성 — 백엔드가 요청 스레드에서 학교 서버 온디맨드 재크롤 후 응답할 수 있다.
+   *  BE 최악 응답시간 ≈ 16.5s(첫 룸은 데드라인 예외 — 2회 시도 × (connect 3s + read 5s) + 백오프 0.5s)라
+   *  default 10s 로는 stale-serving 응답이 도착하기 전에 끊긴다(2026-07-17 감사). */
+  facilityOnDemand: 18_000,
 } as const;
 
 export function createApiClient(options: CreateApiClientOptions): DuingApiClient {
@@ -1164,22 +1168,26 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
     },
     facilities: {
       list: () => jsonOk<FacilitySummary[]>(http.get('facilities')),
+      // usage/get/availability 는 온디맨드 재크롤을 경유할 수 있는 경로 — facilityOnDemand 타임아웃 적용
       usage: (yearMonth) =>
         jsonOk<FacilityUsageResponse>(
           http.get('facilities/usage', {
             searchParams: yearMonth ? { yearMonth } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.facilityOnDemand,
           }),
         ),
       get: (facilityId, yearMonth) =>
         jsonOk<FacilityDetailResponse>(
           http.get(`facilities/${facilityId}`, {
             searchParams: yearMonth ? { yearMonth } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.facilityOnDemand,
           }),
         ),
       availability: (facilityId, yearMonth) =>
         jsonOk<FacilityAvailabilityResponse>(
           http.get(`facilities/${facilityId}/availability`, {
             searchParams: yearMonth ? { yearMonth } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.facilityOnDemand,
           }),
         ),
       purposePresets: () => jsonOk<PurposePreset[]>(http.get('facilities/booking-purpose-presets')),
@@ -1470,7 +1478,12 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             http.get('admin/facility-bookings', { searchParams: cleanParams(params) }),
           ),
         detail: (bookingId) =>
-          jsonOk<AdminFacilityBookingDetail>(http.get(`admin/facility-bookings/${bookingId}`)),
+          // 관리자 상세도 온디맨드 재크롤(ensureFresh)을 경유한다 — 공개 가용성과 동일한 타임아웃 필요
+          jsonOk<AdminFacilityBookingDetail>(
+            http.get(`admin/facility-bookings/${bookingId}`, {
+              timeout: REQUEST_TIMEOUT_MS.facilityOnDemand,
+            }),
+          ),
         approve: (bookingId) => jsonVoid(http.post(`admin/facility-bookings/${bookingId}/approve`)),
         reject: (bookingId, reason) =>
           jsonVoid(http.post(`admin/facility-bookings/${bookingId}/reject`, { json: { reason } })),
