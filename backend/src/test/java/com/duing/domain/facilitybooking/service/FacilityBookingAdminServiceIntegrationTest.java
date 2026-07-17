@@ -212,6 +212,40 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("아카이브된 시설의 신청은 승인되지 않는다 — 시설 잠금 하 아카이브 재검증")
+    void approveRejectsArchivedFacility() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        Long bookingId = pendingBooking(fixture, bookableDate(), 18, 20);
+        // 신청 접수 후 일일 시설 동기화가 학교 목록에서 사라진 시설을 아카이브한 상황
+        Facility archived = facilityRepository.findById(fixture.facility().getId()).orElseThrow();
+        archived.archive(LocalDateTime.now());
+        facilityRepository.save(archived);
+
+        assertThatThrownBy(() -> adminService.approve(admin.getId(), bookingId))
+                .isInstanceOf(FacilityBookingException.ArchivedFacilityException.class);
+        assertThat(bookingRepository.findById(bookingId).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("아카이브된 시설의 승인 건은 수동 확정되지 않는다 — 잔존 크롤 행 오확정 방지")
+    void confirmManuallyRejectsArchivedFacility() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        Long bookingId = pendingBooking(fixture, bookableDate(), 18, 20);
+        adminService.approve(admin.getId(), bookingId);
+        Facility archived = facilityRepository.findById(fixture.facility().getId()).orElseThrow();
+        archived.archive(LocalDateTime.now());
+        facilityRepository.save(archived);
+
+        assertThatThrownBy(() -> adminService.confirmManually(admin.getId(), bookingId))
+                .isInstanceOf(FacilityBookingException.ArchivedFacilityException.class);
+        assertThat(bookingRepository.findById(bookingId).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+    }
+
+    @Test
     @DisplayName("겹치는 두 PENDING 을 동시에 승인하면 정확히 1건만 APPROVED 다 (시설 잠금 직렬화)")
     void concurrentApproveSerializesPerFacility() throws Exception {
         Fixture first = fixture();
