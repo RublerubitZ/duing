@@ -12,6 +12,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.facility.entity.Facility;
@@ -34,6 +35,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -401,6 +403,56 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
         List<FacilityBooking> pendings = bookingRepository.findByClubIdAndStatusOrderByCreatedAtDesc(
                 fixture.club().getId(), BookingStatus.PENDING);
         assertThat(pendings).as("PENDING 은 정확히 1건만 남는다").hasSize(1);
+    }
+
+    @Test
+    @DisplayName("운영진(OFFICER)도 예약을 신청할 수 있다")
+    void officerCanCreateBooking() throws Exception {
+        Fixture fixture = fixture();
+        User officer = saveUser("운영진");
+        clubMemberRepository.save(ClubMember.of(fixture.club(), officer, ClubMemberRole.OFFICER));
+
+        var result = bookingService.create(new CreateFacilityBookingCommand(
+                fixture.club().getId(), officer.getId(), fixture.facility().getId(),
+                bookableDate(), LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 회의", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE));
+
+        assertThat(result.bookingId()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("일반동아리는 회장이어도 CENTRAL_CLUB_ONLY 로 신청이 거부된다")
+    void generalClubIsRejectedByEligibility() throws Exception {
+        User leader = saveUser("일반동아리장");
+        Club generalClub = saveActiveClub("일반동아리");
+        generalClub.changeCentralClub(false);
+        clubRepository.save(generalClub);
+        clubMemberRepository.save(ClubMember.asLeader(generalClub, leader));
+        Facility facility = saveFacility();
+
+        assertThatThrownBy(() -> bookingService.create(new CreateFacilityBookingCommand(
+                generalClub.getId(), leader.getId(), facility.getId(), bookableDate(),
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)))
+                .isInstanceOfSatisfying(FacilityBookingException.CentralClubOnlyException.class,
+                        exception -> assertThat(exception.getCode())
+                                .isEqualTo("FACILITY_BOOKING_CENTRAL_CLUB_ONLY"));
+        assertThat(bookingRepository.findByClubIdOrderByCreatedAtDesc(generalClub.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("당일 사용 신청은 DEADLINE_PASSED 로 거부된다 — 마감은 사용일 전날 12:00")
+    void sameDayBookingIsRejectedByDeadline() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+        assertThatThrownBy(() -> bookingService.create(new CreateFacilityBookingCommand(
+                fixture.club().getId(), fixture.leader().getId(), fixture.facility().getId(),
+                today, LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)))
+                .isInstanceOfSatisfying(FacilityBookingException.DeadlinePassedException.class,
+                        exception -> assertThat(exception.getCode())
+                                .isEqualTo("FACILITY_BOOKING_DEADLINE_PASSED"));
     }
 
     private Throwable tryCreate(CreateFacilityBookingCommand command) {
