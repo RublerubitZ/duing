@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { addDaysIso, useCalendarMonthQuery, useMeQuery } from '@duing/hooks';
+import { addDaysIso, useCalendarMonthQuery, useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 
 import { SparkleFull } from '../../_components/Sparkle';
 import { AddEventDispatcher } from '../_components/AddEventDispatcher';
@@ -190,6 +190,11 @@ export function CalendarPage() {
 
   const meQuery = useMeQuery();
   const isAuthenticated = !!meQuery.data;
+  // '내 일정 추가' 노출 조건 — AddEventDispatcher 의 권한 기준(운영진 보유 or ADMIN)과 동일.
+  // 비로그인 시 managed 호출 skip(401 노이즈 방지)도 디스패처와 같은 패턴.
+  const managedClubsQuery = useManagedClubsQuery({ enabled: isAuthenticated });
+  const canAddEvent =
+    meQuery.data?.role === 'ADMIN' || (managedClubsQuery.data ?? []).length > 0;
 
   // mapper 안정화 — 모듈 스코프 함수이므로 deps 비어있어도 stable.
   const calendarMappers = useMemo(
@@ -307,35 +312,36 @@ export function CalendarPage() {
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', letterSpacing: '0.08em', marginBottom: 10 }}>
                 CAMPUS CALENDAR · 캠퍼스 캘린더
               </div>
-              <h1 className="cal-h1" style={{ fontSize: 56, marginBottom: 12, lineHeight: 1.05 }}>
-                이번 달, 캠퍼스에는
-                <SparkleFull size={28} color="var(--sage)" style={{ display: 'inline-block', margin: '0 6px 0 12px', verticalAlign: 'middle' }} />
-                <br />
-                무슨 일이 있을까?
+              {/* keep-all — 모바일에서 접힐 때 어절 단위로만 줄바꿈. 스파클은 마지막 어절과
+                  nowrap 으로 묶어 단독 줄바꿈(장식만 다음 줄로 떨어지는 현상)을 막는다. */}
+              <h1 className="cal-h1" style={{ fontSize: 56, lineHeight: 1.05, wordBreak: 'keep-all' }}>
+                이번 달 캠퍼스 일정{' '}
+                <span style={{ whiteSpace: 'nowrap' }}>
+                  한눈에
+                  <SparkleFull size={28} color="var(--sage)" style={{ display: 'inline-block', margin: '0 0 0 12px', verticalAlign: 'middle' }} />
+                </span>
               </h1>
-              <p style={{ fontSize: 15.5, color: 'var(--charcoal-2)', maxWidth: 640 }}>
-                동아리 모집 마감, 면접일, 정기 모임까지 — 나의 동아리 일정을 한 화면에서.
-                <br />
-                동아리 일정은 자동으로 표시되고 캘린더에 추가할 수 있습니다.
-              </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setAddModalOpen(true)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '14px 22px', borderRadius: 999,
-                background: 'var(--ink)', border: 'none',
-                color: '#fff', fontFamily: 'inherit',
-                fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                boxShadow: '0 8px 20px rgba(31,74,54,0.18)',
-                flexShrink: 0,
-              }}
-            >
-              <Icon.plus style={{ width: 16, height: 16 }} />
-              내 일정 추가
-            </button>
+            {/* 권한(운영진/ADMIN) 없는 사용자에게는 버튼 자체를 렌더하지 않는다 — 디스패처 권한 기준과 동일. */}
+            {canAddEvent && (
+              <button
+                type="button"
+                onClick={() => setAddModalOpen(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '14px 22px', borderRadius: 999,
+                  background: 'var(--ink)', border: 'none',
+                  color: '#fff', fontFamily: 'inherit',
+                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  boxShadow: '0 8px 20px rgba(31,74,54,0.18)',
+                  flexShrink: 0,
+                }}
+              >
+                <Icon.plus style={{ width: 16, height: 16 }} />
+                내 일정 추가
+              </button>
+            )}
           </div>
 
           {/* Stats row */}
