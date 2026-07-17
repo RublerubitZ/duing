@@ -24,9 +24,11 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 // GNB(HomeNav)·크림 캔버스 래퍼는 (home)/layout.tsx 가 렌더한다 — 로딩 경계 밖에서 유지되도록.
+// 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky(검색바)면 라우터 자동 스크롤 기준에서
+// 제외되어 dev 콘솔에 Skipping auto-scroll 경고가 뜬다(layout-router shouldSkipElement).
 export default function HomePage() {
   return (
-    <>
+    <div>
       <HomeMobileSearchBar />
       <HomeHero />
       <BannerCarousel />
@@ -44,6 +46,6 @@ export default function HomePage() {
         <LeaderCta />
       </FadeIn>
       <HomeFooter />
-    </>
+    </div>
   );
 }
