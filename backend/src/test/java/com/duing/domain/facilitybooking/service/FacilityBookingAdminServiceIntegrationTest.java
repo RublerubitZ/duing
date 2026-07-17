@@ -223,7 +223,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         facilityRepository.save(archived);
 
         assertThatThrownBy(() -> adminService.approve(admin.getId(), bookingId))
-                .isInstanceOf(FacilityBookingException.ArchivedFacilityException.class);
+                .isInstanceOf(FacilityBookingException.ArchivedFacilityConflictException.class);
         assertThat(bookingRepository.findById(bookingId).orElseThrow().getStatus())
                 .isEqualTo(BookingStatus.PENDING);
     }
@@ -240,7 +240,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         facilityRepository.save(archived);
 
         assertThatThrownBy(() -> adminService.confirmManually(admin.getId(), bookingId))
-                .isInstanceOf(FacilityBookingException.ArchivedFacilityException.class);
+                .isInstanceOf(FacilityBookingException.ArchivedFacilityConflictException.class);
         assertThat(bookingRepository.findById(bookingId).orElseThrow().getStatus())
                 .isEqualTo(BookingStatus.APPROVED);
     }

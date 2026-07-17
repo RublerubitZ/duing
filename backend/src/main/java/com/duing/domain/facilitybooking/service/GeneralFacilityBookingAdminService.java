@@ -112,11 +112,11 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     }
 
     /** 아카이브 시설 가드 — 시설 잠금 하 재검증이라 일일 동기화의 archive 전이와 직렬화된다(2026-07-17 감사).
-     *  자동 매칭(FacilityBookingMatchingService)의 동일 가드와 대칭 — 아카이브 시설에 APPROVED/CONFIRMED
-     *  진입 경로를 전부 닫는다. */
+     *  자동 매칭(FacilityBookingMatchingService)의 동일 가드와 대칭으로 아카이브 시설에 APPROVED/CONFIRMED
+     *  진입 경로를 전부 닫는다 — 단 실패 표출은 다르다(잡은 로그 후 스킵, 동기 관리자 요청은 409 즉시 응답). */
     private void rejectIfArchived(Facility facility) {
         if (facility.isArchived()) {
-            throw new FacilityBookingException.ArchivedFacilityException();
+            throw new FacilityBookingException.ArchivedFacilityConflictException();
         }
     }
 

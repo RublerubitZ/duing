@@ -76,6 +76,14 @@ public class FacilityBookingException extends ApplicationException {
         }
     }
 
+    /** 승인·수동 확정 시점의 아카이브 — 신청 접수 후 서버 측 시설 전이라 400(요청 오류)이 아닌 409
+     *  (현재 상태상 처리 불가)로 구분한다. 신청 시점 검증은 ArchivedFacilityException(400) 그대로. */
+    public static class ArchivedFacilityConflictException extends FacilityBookingException {
+        public ArchivedFacilityConflictException() {
+            super("이용이 중단된 시설이라 승인·확정할 수 없습니다.", HttpStatus.CONFLICT);
+        }
+    }
+
     public static class SchoolConflictException extends FacilityBookingException {
 
         /** 겹치는 학교 점유행 1건 — FE 충돌 안내(§8.3 data.conflicts[])용. */
