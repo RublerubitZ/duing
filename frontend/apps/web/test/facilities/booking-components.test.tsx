@@ -805,10 +805,10 @@ it('주간 그리드의 기본 확보 시간 가용 셀은 sky 점선 가이드 
   // 운영(고정관념 09~11) 구간의 AVAILABLE 셀 = sky 점선 가이드 셀. 동작은 일반 가용 셀과 동일(탭 = onTapSlot).
   const operatingCell = screen.getByRole('button', { name: '월요일 20일 09:00 기본 확보 시간 · 예약 신청 가능' });
   expect(operatingCell).toBeEnabled();
-  // §10.1 가이드 레이어: 연한 배경(bg-sky-50) + 점선 보더(border-dashed border-sky-200).
-  expect(operatingCell).toHaveClass('bg-sky-50');
+  // §10.1 가이드 레이어: 색은 일반 가용 셀과 동일(sage), 점선 보더만 차이(사용자 조정 2026-07-17).
+  expect(operatingCell).toHaveClass('bg-sage-mist');
   expect(operatingCell).toHaveClass('border-dashed');
-  expect(operatingCell).toHaveClass('border-sky-200');
+  expect(operatingCell).toHaveClass('border-sage-soft');
   fireEvent.click(operatingCell);
   expect(onTapSlot).toHaveBeenCalledWith('2026-07-20', '09:00');
   // 운영 단체명·"(운영)" 은 그리드에 없다(사이드바 현황 카드·기본 확보 시간 안내 박스가 담당).

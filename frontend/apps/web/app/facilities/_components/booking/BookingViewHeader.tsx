@@ -26,7 +26,7 @@ const MONTH_LEGEND = (['HIGH', 'MID', 'LOW', 'FULL'] as const).map((level) => ({
 const WEEK_LEGEND = [
   { label: '가능', barClass: 'bg-sage-mist' },
   { label: '예약됨', barClass: 'bg-pastel-mint' },
-  { label: '기본 확보 시간', barClass: 'border border-dashed border-sky-300 bg-sky-50' },
+  { label: '기본 확보 시간', barClass: 'border border-dashed border-sage-soft bg-sage-mist' },
   { label: '대기', barClass: 'bg-warm/60' },
 ];
 
