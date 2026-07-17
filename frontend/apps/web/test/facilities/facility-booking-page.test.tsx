@@ -1026,7 +1026,7 @@ describe('FacilityBookingPage — 주간 이월(두 달 걸침) 게이팅(§12)'
   };
 
   // 창(booking-window)·availability(요청 yearMonth 전부) 핸들러를 주입하고, 조회된 yearMonth 를 기록한다.
-  function useCarryoverHandlers(bookableFrom: string, bookableUntil: string): string[] {
+  function installCarryoverHandlers(bookableFrom: string, bookableUntil: string): string[] {
     const requestedYearMonths: string[] = [];
     server.use(
       http.get('*/facilities/booking-window', () =>
@@ -1047,7 +1047,7 @@ describe('FacilityBookingPage — 주간 이월(두 달 걸침) 게이팅(§12)'
 
   it('(a) 7/27~8/2 주: 창이 8월로 이어지면 8/1·8/2 셀·헤더가 활성이다(인접월 병합)', async () => {
     pinSeoulNoon('2026-07-20'); // day>15 → 창 [7/16 .. 8/15] 가 월 경계를 넘는다
-    const requestedYearMonths = useCarryoverHandlers('2026-07-16', '2026-08-15');
+    const requestedYearMonths = installCarryoverHandlers('2026-07-16', '2026-08-15');
     mockSearchParams.value = 'facilityId=1&date=2026-07-27'; // 조회 월=7월, 주는 8월로 이월
 
     renderPage();
@@ -1065,7 +1065,7 @@ describe('FacilityBookingPage — 주간 이월(두 달 걸침) 게이팅(§12)'
 
   it('(b) 회귀: 창이 8월로 이어지지 않으면 병합돼도 8/1·8/2 는 창 밖이라 비활성이다(날짜 기준 판정)', async () => {
     pinSeoulNoon('2026-07-10'); // day<=15 → 창 [7/16 .. 7/31] 이 월 경계에서 끝난다
-    const requestedYearMonths = useCarryoverHandlers('2026-07-16', '2026-07-31');
+    const requestedYearMonths = installCarryoverHandlers('2026-07-16', '2026-07-31');
     mockSearchParams.value = 'facilityId=1&date=2026-07-27';
 
     renderPage();
@@ -1083,7 +1083,7 @@ describe('FacilityBookingPage — 주간 이월(두 달 걸침) 게이팅(§12)'
   it('(c) 인접월이 {당월,익월} 밖이면 추가 조회 없이 비활성이다(창을 넓혀 조회범위 게이트만 분리)', async () => {
     pinSeoulNoon('2026-07-20'); // 당월=7월, 익월=8월 → 9월은 조회 범위 밖
     // 창을 9월까지 인위적으로 넓혀(불변식 밖) 창 게이트가 아니라 {당월,익월} 조회 범위 게이트만 검증한다.
-    const requestedYearMonths = useCarryoverHandlers('2026-07-16', '2026-09-30');
+    const requestedYearMonths = installCarryoverHandlers('2026-07-16', '2026-09-30');
     mockSearchParams.value = 'facilityId=1&date=2026-08-31'; // 조회 월=8월, 주는 9월로 이월
 
     renderPage();
@@ -1099,7 +1099,7 @@ describe('FacilityBookingPage — 주간 이월(두 달 걸침) 게이팅(§12)'
 
   it('(d) 연도 경계 12/29~1/4 주: 익년 1/1·1/2 가 정상 활성이다(월 산술 연도 넘김)', async () => {
     pinSeoulNoon('2026-12-20'); // day>15 → 창 [12/16 .. 익년 1/15]
-    const requestedYearMonths = useCarryoverHandlers('2026-12-16', '2027-01-15');
+    const requestedYearMonths = installCarryoverHandlers('2026-12-16', '2027-01-15');
     mockSearchParams.value = 'facilityId=1&date=2026-12-31'; // 조회 월=12월, 주는 익년 1월로 이월
 
     renderPage();
