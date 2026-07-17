@@ -264,3 +264,23 @@ lib 테스트: (a) 같은 단체 연속 3칸 → 1건(09:00~12:00), (b) 다른 �
 - [ ] **Step 3: 구현** — 스펙 §4⁗.1(FE)·§4⁗.2 그대로: SLOT_ROW_CLASS 를 흰 바탕 세트로 교체(AVAILABLE·PENDING_HOLD=`border-line bg-paper hover:border-sage`, BLOCKED·PAST=`border-transparent bg-graysoft/60 text-charcoal-3`), 라벨 색만 PENDING_HOLD=coral. slotStatusLabel·bookingEntryOf 는 `slot.organization` 우선(소스 무관).
 - [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
 - [ ] **Step 5: 커밋** — `feat(frontend): 예약 표기 동아리명 우선·슬롯 행 흰 바탕 복원`
+
+---
+
+### Task 8: 운영행 분할 타임라인 (6차 요구, 브랜치 feat/facility-operating-split)
+
+**Files:**
+- Modify: `frontend/apps/web/app/facilities/_lib/bookingCalendar.ts` (`dayOverviewTimeline(slots, operatingNotes)` 신설 — kind 'OPERATING' 추가)
+- Modify: `frontend/apps/web/app/facilities/_components/booking/DayBookingOverview.tsx` (타임라인 렌더·운영 조각 행·그 외 개수 재정의·미렌더 조건 갱신)
+- Test: `frontend/apps/web/test/facilities/booking-calendar-lib.test.ts`, `booking-components.test.tsx`(+페이지 테스트 파급 시)
+
+**Interfaces:** 스펙 §5 가 유일한 요구 원천. DaySlotList·PanelSummaryCard·운영 안내 박스·백엔드 무변경.
+
+- [ ] **Step 1: 실패 테스트 (RED)** — §5.1/§5.2 고정:
+(a) lib: 운영 09~20 + 확정 10~12 → [09~10 운영, 10~12 예약, 12~20 운영] / 예약 2건(10~12·15~17) → 5행 / 예약이 노트 경계 일치(09~12) → 앞 조각 없음 / 운영행만 → 통짜 1조각 / 운영 밖 예약 → 분할 없음·타임라인에 둘 다 / PENDING 도 분할 기준 / 정렬(동률 시 예약 먼저).
+(b) 컴포넌트: 운영 조각 행 "(운영 시간)" 접미 + sage 도트, 그 외 N=운영 구간 밖 AVAILABLE 만(운영 구간 내 AVAILABLE 은 제외), N=0 이면 그 외 행 미렌더, 운영행만 있는 날 카드 렌더(기존 "예약 0건 미렌더" 단언 갱신).
+
+- [ ] **Step 2: 실패 확인** — `pnpm --filter web test booking-calendar-lib booking-components` FAIL
+- [ ] **Step 3: 구현** — 스펙 §5.1 커서 절단 알고리즘·§5.2 표기 그대로. 시간 비교는 'HH:MM' 사전순(파일 상단 관례).
+- [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
+- [ ] **Step 5: 커밋** — `feat(frontend): 현황 카드에 운영행 분할 타임라인 표시`

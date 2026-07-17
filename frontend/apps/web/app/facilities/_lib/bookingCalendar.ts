@@ -1,6 +1,6 @@
 // 예약 홈의 순수 계산 — 시각/날짜 문자열('HH:mm'·'yyyy-MM-dd')은 사전순 비교가 시간순과 일치한다.
 // Date 파싱은 로컬 필드 생성만 사용한다(new Date('yyyy-MM-dd') 는 UTC 자정 함정).
-import type { BookingAvailabilitySlot } from '@duing/types';
+import type { BookingAvailabilitySlot, BookingOperatingNote } from '@duing/types';
 
 export type CalendarCell = { iso: string; day: number; inMonth: boolean };
 export type SlotRange = { start: string; end: string };
@@ -225,4 +225,48 @@ export function dayBookingEntries(slots: BookingAvailabilitySlot[]): DayBookingE
     entries.push({ start: slot.start, end: slot.end, label: derived.label, kind: derived.kind });
   }
   return entries;
+}
+
+// ── 운영행 분할 타임라인 파생(§5.1) — 예약 건이 차지한 구간을 운영행에서 잘라 조각으로 ─────
+
+export type DayOverviewTimelineKind = DayBookingEntryKind | 'OPERATING';
+export type DayOverviewTimelineItem = { start: string; end: string; label: string; kind: DayOverviewTimelineKind };
+
+/**
+ * 현황 카드 타임라인(§5.1): 운영 노트(BookingOperatingNote)를 예약 건(BLOCKED·PENDING 병합)으로 시간순
+ * 절단해 앞/뒤 운영 조각을 만들고, 예약 건과 함께 시작 시각순으로 합친다. 운영 조각은 예약 가능 구간이다.
+ *
+ * - 노트별 커서 절단: 커서=노트 시작 → 겹치는 예약 건마다 `[커서, 예약.start)` 조각 후 커서=max(커서, 예약.end)
+ *   → 마지막에 `[커서, 노트 끝)` 조각. 겹침 판정 `예약.start < 노트.end && 예약.end > 노트.start`.
+ * - 예약이 노트 경계와 정확히 일치하면 해당 방향 조각은 만들지 않는다(`커서 < 조각 끝` 가드로 빈 구간 금지).
+ * - 노트가 여러 개면 각각 독립 분할하고, 정렬은 시작 시각순(동률이면 예약 건을 운영 조각보다 앞에 둔다).
+ */
+export function dayOverviewTimeline(
+  slots: BookingAvailabilitySlot[],
+  operatingNotes: BookingOperatingNote[],
+): DayOverviewTimelineItem[] {
+  const bookings = dayBookingEntries(slots);
+  const timeline: DayOverviewTimelineItem[] = [...bookings];
+  for (const note of operatingNotes) {
+    const overlapping = bookings.filter((booking) => booking.start < note.end && booking.end > note.start);
+    let cursor = note.start;
+    for (const booking of overlapping) {
+      if (cursor < booking.start) {
+        timeline.push({ start: cursor, end: booking.start, label: note.organization, kind: 'OPERATING' });
+      }
+      if (booking.end > cursor) cursor = booking.end;
+    }
+    if (cursor < note.end) {
+      timeline.push({ start: cursor, end: note.end, label: note.organization, kind: 'OPERATING' });
+    }
+  }
+  return timeline.sort((left, right) => {
+    if (left.start !== right.start) return left.start < right.start ? -1 : 1;
+    // 시작 동률은 예약 건을 먼저(§5.1) — 운영 조각(OPERATING)을 뒤로 민다.
+    // 예약 vs 조각 동률은 구조적으로 불가(조각 시작점의 예약은 노트와 겹쳐 커서에 흡수됨);
+    // 실제 동률은 서로 겹치는 노트 2개의 조각끼리뿐이며 stable sort 로 노트 입력순이 유지된다.
+    const leftOperating = left.kind === 'OPERATING' ? 1 : 0;
+    const rightOperating = right.kind === 'OPERATING' ? 1 : 0;
+    return leftOperating - rightOperating;
+  });
 }

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { BookingAvailabilitySlot } from '@duing/types';
+import type { BookingAvailabilitySlot, BookingOperatingNote } from '@duing/types';
 import {
   buildMonthCells,
   DAY_LEVEL_META,
   dayBookingEntries,
   dayLevelOf,
+  dayOverviewTimeline,
   isWithinBookable,
   periodDistribution,
   rangeContainsPendingHold,
@@ -239,6 +240,124 @@ describe('dayBookingEntries', () => {
     expect(
       dayBookingEntries([slot(9, 'PAST'), pendingSlot(10), pendingSlot(11), slot(12, 'AVAILABLE')]),
     ).toEqual([{ start: '10:00', end: '12:00', label: '승인 대기', kind: 'PENDING' }]);
+  });
+});
+
+describe('dayOverviewTimeline', () => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const note = (organization: string, start: string, end: string): BookingOperatingNote => ({ organization, start, end });
+  const schoolBlock = (startHour: number, organization: string): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'BLOCKED',
+    blockedBy: 'SCHOOL',
+    organization,
+  });
+  const pendingSlot = (startHour: number): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'PENDING_HOLD',
+  });
+
+  it('노트 시작 전부터 걸친 예약은 커서를 max 로 밀어 선행 조각을 만들지 않는다', () => {
+    // 예약 09~11 vs 노트 10~20: 겹침이나 노트 앞을 벗어남 — 조각은 [11, 20] 하나
+    expect(
+      dayOverviewTimeline([schoolBlock(9, '비호응원단'), schoolBlock(10, '비호응원단')], [note('고정관념', '10:00', '20:00')]),
+    ).toEqual([
+      { start: '09:00', end: '11:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '11:00', end: '20:00', label: '고정관념', kind: 'OPERATING' },
+    ]);
+  });
+
+  it('예약이 노트를 완전히 덮으면 운영 조각이 생기지 않는다', () => {
+    // 예약 09~13 vs 노트 10~12: 양방향 빈 조각 가드
+    expect(
+      dayOverviewTimeline(
+        [schoolBlock(9, '비호응원단'), schoolBlock(10, '비호응원단'), schoolBlock(11, '비호응원단'), schoolBlock(12, '비호응원단')],
+        [note('고정관념', '10:00', '12:00')],
+      ),
+    ).toEqual([{ start: '09:00', end: '13:00', label: '비호응원단', kind: 'SCHOOL' }]);
+  });
+
+  it('(a) 운영 09~20 을 확정 예약 10~12 로 잘라 앞/뒤 운영 조각을 만든다', () => {
+    expect(
+      dayOverviewTimeline([schoolBlock(10, '비호응원단'), schoolBlock(11, '비호응원단')], [note('고정관념', '09:00', '20:00')]),
+    ).toEqual([
+      { start: '09:00', end: '10:00', label: '고정관념', kind: 'OPERATING' },
+      { start: '10:00', end: '12:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '12:00', end: '20:00', label: '고정관념', kind: 'OPERATING' },
+    ]);
+  });
+
+  it('(b) 예약 2건(10~12·15~17)이 운영행을 세 조각으로 갈라 총 5행이 된다', () => {
+    expect(
+      dayOverviewTimeline(
+        [schoolBlock(10, '비호응원단'), schoolBlock(11, '비호응원단'), schoolBlock(15, '트레몰로'), schoolBlock(16, '트레몰로')],
+        [note('고정관념', '09:00', '20:00')],
+      ),
+    ).toEqual([
+      { start: '09:00', end: '10:00', label: '고정관념', kind: 'OPERATING' },
+      { start: '10:00', end: '12:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '12:00', end: '15:00', label: '고정관념', kind: 'OPERATING' },
+      { start: '15:00', end: '17:00', label: '트레몰로', kind: 'SCHOOL' },
+      { start: '17:00', end: '20:00', label: '고정관념', kind: 'OPERATING' },
+    ]);
+  });
+
+  it('(c) 예약이 운영 노트 시작 경계(09~12)와 일치하면 앞 조각을 만들지 않는다', () => {
+    expect(
+      dayOverviewTimeline(
+        [schoolBlock(9, '비호응원단'), schoolBlock(10, '비호응원단'), schoolBlock(11, '비호응원단')],
+        [note('고정관념', '09:00', '20:00')],
+      ),
+    ).toEqual([
+      { start: '09:00', end: '12:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '12:00', end: '20:00', label: '고정관념', kind: 'OPERATING' },
+    ]);
+  });
+
+  it('(d) 예약이 없는 운영행은 통짜 조각 1행이다', () => {
+    expect(dayOverviewTimeline([], [note('고정관념', '09:00', '20:00')])).toEqual([
+      { start: '09:00', end: '20:00', label: '고정관념', kind: 'OPERATING' },
+    ]);
+  });
+
+  it('(e) 운영 구간 밖 예약은 운영행을 자르지 않고 둘 다 타임라인에 남는다', () => {
+    expect(dayOverviewTimeline([pendingSlot(20)], [note('고정관념', '09:00', '20:00')])).toEqual([
+      { start: '09:00', end: '20:00', label: '고정관념', kind: 'OPERATING' },
+      { start: '20:00', end: '21:00', label: '승인 대기', kind: 'PENDING' },
+    ]);
+  });
+
+  it('(f) 승인 대기(PENDING)도 분할 기준이라 운영행을 자른다', () => {
+    expect(dayOverviewTimeline([pendingSlot(10), pendingSlot(11)], [note('고정관념', '09:00', '20:00')])).toEqual([
+      { start: '09:00', end: '10:00', label: '고정관념', kind: 'OPERATING' },
+      { start: '10:00', end: '12:00', label: '승인 대기', kind: 'PENDING' },
+      { start: '12:00', end: '20:00', label: '고정관념', kind: 'OPERATING' },
+    ]);
+  });
+
+  it('(g) 시작 시각순으로 정렬하며 예약 건을 운영 조각보다 앞에 둔다', () => {
+    // 운영 10~20 앞의 예약 09~10 은 겹치지 않아 통짜 운영 조각(10~20)과 함께 남고, 시작 시각순으로 예약이 먼저다.
+    // 시작 동률은 알고리즘상 발생하지 않으나(운영 조각 시작 시각엔 예약이 없음) 정렬 규칙을 함께 고정한다.
+    expect(dayOverviewTimeline([schoolBlock(9, '비호응원단')], [note('고정관념', '10:00', '20:00')])).toEqual([
+      { start: '09:00', end: '10:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '10:00', end: '20:00', label: '고정관념', kind: 'OPERATING' },
+    ]);
+  });
+
+  it('(h) 운영 노트가 여러 개면 각각 독립으로 분할한다', () => {
+    expect(
+      dayOverviewTimeline(
+        [schoolBlock(10, '비호응원단'), schoolBlock(11, '비호응원단')],
+        [note('고정관념', '09:00', '13:00'), note('두잉밴드', '14:00', '18:00')],
+      ),
+    ).toEqual([
+      { start: '09:00', end: '10:00', label: '고정관념', kind: 'OPERATING' },
+      { start: '10:00', end: '12:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '12:00', end: '13:00', label: '고정관념', kind: 'OPERATING' },
+      { start: '14:00', end: '18:00', label: '두잉밴드', kind: 'OPERATING' },
+    ]);
   });
 });
 
