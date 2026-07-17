@@ -79,6 +79,24 @@ class ClubSearchControllerTest extends IntegrationTestBase {
                 .body("data.content.name", hasItem(department.getName()));
     }
 
+    @Test
+    @DisplayName("목록 응답에 동아리 한줄 소개(tagline)가 포함된다")
+    void listContainsTagline() throws Exception {
+        Club club = saveActiveClub("태그라인클럽", true, null);
+        Field taglineField = Club.class.getDeclaredField("tagline");
+        taglineField.setAccessible(true);
+        taglineField.set(club, "매주 함께 성장하는 동아리");
+        clubRepository.save(club);
+
+        RestAssured.given()
+                .when().get("/api/v1/clubs?keyword=태그라인클럽")
+                .then().statusCode(HttpStatus.OK.value())
+                .body(
+                        "data.content.find { it.name == '" + club.getName() + "' }.tagline",
+                        equalTo("매주 함께 성장하는 동아리")
+                );
+    }
+
     private Club saveActiveClub(String name, boolean centralClub, College college) throws Exception {
         String uniqueName = name + "-" + sequence.getAndIncrement();
         Club created = Club.create(uniqueName, ClubCategory.ACADEMIC, "분과", "설명", null, false, null);

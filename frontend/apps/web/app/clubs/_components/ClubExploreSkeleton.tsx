@@ -22,7 +22,8 @@ type ClubListSkeletonItemsProps = {
 export function ClubListSkeletonItems({ variant }: ClubListSkeletonItemsProps) {
   if (variant === 'grid') {
     return (
-      <div className="grid grid-cols-4 gap-[18px]">
+      // 실제 카드 그리드(ClubExplorePage)와 동일한 auto-fill 트랙 — 열 수 불일치로 스켈레톤→실카드 점프 방지.
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(210px,100%),1fr))] gap-[18px]">
         {Array.from({ length: DESKTOP_CARD_COUNT }).map((_, index) => (
           <div
             key={index}
@@ -73,7 +74,7 @@ export function ClubExploreSkeleton() {
             <div className="h-12 w-[360px] rounded-[14px] bg-graysoft" />
           </div>
         </section>
-        <section className="px-4 sm:px-6 md:px-10 pt-8 pb-20">
+        <section className="px-4 sm:px-6 md:px-10 pt-6 pb-20">
           <div className="max-w-layout mx-auto grid grid-cols-[256px_1fr] gap-8">
             <div className="h-[420px] rounded-[18px] border border-line bg-paper" />
             <ClubListSkeletonItems variant="grid" />

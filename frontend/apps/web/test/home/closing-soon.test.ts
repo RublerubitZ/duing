@@ -15,6 +15,7 @@ function club(id: number, name: string, endDate: string | null): ClubSummary {
     logoUrl: null,
     status: 'ACTIVE',
     tags: [],
+    tagline: null,
     centralClub: false,
     activeRecruitment:
       endDate === null

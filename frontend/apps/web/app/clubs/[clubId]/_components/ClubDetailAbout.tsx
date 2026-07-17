@@ -1,20 +1,18 @@
 type Props = {
   description: string | null;
-  tagline: string | null;
   highlights: string[];
   majorProjects: string | null;
 };
 
-export function ClubDetailAbout({ description, tagline, highlights, majorProjects }: Props) {
+// 한줄 소개는 탐색 카드 전용, 해시태그는 상세 히어로(이름 아래) 담당 — 여기는 소개 본문만 다룬다.
+export function ClubDetailAbout({ description, highlights, majorProjects }: Props) {
   const hasAny = description !== null
-    || tagline !== null
     || highlights.length > 0
     || majorProjects !== null;
   if (!hasAny) return null;
 
   return (
     <article className="max-w-[700px] text-[15.5px] leading-relaxed text-charcoal">
-      {tagline && <h2 className="mb-4 text-[28px] font-bold text-ink-deep">{tagline}</h2>}
       {description && <p className="mb-6 whitespace-pre-wrap">{description}</p>}
 
       {highlights.length > 0 && (

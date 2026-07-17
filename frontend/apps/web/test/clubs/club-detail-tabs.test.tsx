@@ -54,6 +54,16 @@ describe('ClubDetailTabs', () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it('tags·tagline 만 있으면 소개 탭이 노출되지 않는다 (태그는 히어로 담당, 한줄 소개는 탐색 전용)', () => {
+    const { container } = render(
+      <ClubDetailTabs
+        club={{ ...baseClub, tags: ['AI'], tagline: '한줄 소개' }}
+        photos={[]}
+      />,
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
   it('description 만 있으면 소개 탭 1개만 노출', () => {
     render(
       <ClubDetailTabs

@@ -7,7 +7,7 @@ import { ClubCard } from '../../app/clubs/_components/ClubCard';
 const club: Club = {
   id: 7,
   name: '두잉',
-  tag: '소개',
+  tagline: '매주 함께 성장하는 동아리',
   cat: '학술',
   scope: '중앙',
   division: null,
