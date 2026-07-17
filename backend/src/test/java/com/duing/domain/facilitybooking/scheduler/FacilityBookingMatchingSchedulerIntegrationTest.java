@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.BookingWindowFixture;
+import com.duing.common.fixture.FacilityBookingFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -116,7 +117,8 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
     private Long pendingBooking(Fixture fixture, LocalDate date, int startHour, int endHour) {
         return bookingService.create(new CreateFacilityBookingCommand(
                 fixture.club().getId(), fixture.leader().getId(), fixture.facility().getId(),
-                date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null)).bookingId();
+                date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
     }
 
     /**
@@ -288,7 +290,8 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
 
         Long approved = bookingService.create(new CreateFacilityBookingCommand(
                 bandClub.getId(), leader.getId(), facility.getId(), date,
-                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null)).bookingId();
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
         adminService.approve(admin.getId(), approved);
         // 동아리명 그대로 18~20 을 완전 커버하는 점유행 — 세대는 스냅샷과 일치시켜, 스킵의 실제 원인이 키 충돌임을 보장한다.
         LocalDateTime generation = LocalDateTime.now();

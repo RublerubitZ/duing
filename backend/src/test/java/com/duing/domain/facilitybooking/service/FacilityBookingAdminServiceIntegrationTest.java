@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.BookingWindowFixture;
+import com.duing.common.fixture.FacilityBookingFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -110,7 +111,8 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     private Long pendingBooking(Fixture fixture, LocalDate date, int startHour, int endHour) {
         return bookingService.create(new CreateFacilityBookingCommand(
                 fixture.club().getId(), fixture.leader().getId(), fixture.facility().getId(),
-                date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null)).bookingId();
+                date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
     }
 
     @Test
@@ -188,7 +190,8 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         clubMemberRepository.save(ClubMember.asLeader(otherClub, otherLeader));
         Long secondBooking = bookingService.create(new CreateFacilityBookingCommand(
                 otherClub.getId(), otherLeader.getId(), first.facility().getId(),
-                date, LocalTime.of(19, 0), LocalTime.of(21, 0), "회의", null)).bookingId();
+                date, LocalTime.of(19, 0), LocalTime.of(21, 0), "회의", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
 
         // 두 스레드를 같은 출발선에서 풀어 실제 경합을 만든다 — invokeAll 은 블로킹이라
         // startGate 를 열 틈이 없으므로 submit 으로 Future 를 먼저 확보한 뒤 gate 를 연다.

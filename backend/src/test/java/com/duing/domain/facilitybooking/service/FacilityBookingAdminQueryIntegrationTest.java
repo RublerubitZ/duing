@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.BookingWindowFixture;
+import com.duing.common.fixture.FacilityBookingFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -123,7 +124,8 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
     private Long pendingBooking(Fixture fixture, LocalDate date, int startHour, int endHour) {
         return bookingService.create(new CreateFacilityBookingCommand(
                 fixture.club().getId(), fixture.leader().getId(), fixture.facility().getId(),
-                date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null)).bookingId();
+                date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
     }
 
     /**
@@ -135,7 +137,8 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
                               BookingStatus target, LocalDateTime decidedAt) {
         FacilityBooking booking = FacilityBooking.request(
                 fixture.facility().getId(), fixture.club().getId(), fixture.leader().getId(),
-                date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null);
+                date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
         switch (target) {
             case PENDING -> { }
             case APPROVED -> booking.approve(adminId, null, decidedAt);
@@ -186,6 +189,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         assertThat(row.roomName()).isEqualTo("커뮤니티룸(1)");
         assertThat(row.approvedWaitingDays()).isZero(); // 방금 승인 → 경과일 0
         assertThat(row.conflictSuspected()).isTrue();
+        assertThat(row.contactPhone()).isEqualTo(FacilityBookingFixture.VALID_CONTACT_PHONE); // 관리자 큐 노출
 
         // 시설 필터: 일치 시설은 1건, 미일치 시설은 0건
         assertThat(queryService.getQueue(new AdminBookingSearchCondition(
@@ -305,7 +309,8 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         clubMemberRepository.save(ClubMember.asLeader(otherClub, otherLeader));
         Long otherApproved = bookingService.create(new CreateFacilityBookingCommand(
                 otherClub.getId(), otherLeader.getId(), fixture.facility().getId(),
-                date, LocalTime.of(18, 0), LocalTime.of(20, 0), "회의", null)).bookingId();
+                date, LocalTime.of(18, 0), LocalTime.of(20, 0), "회의", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
         String otherClubName = clubRepository.findById(otherClub.getId()).orElseThrow().getName();
 
         // 대상 PENDING (18-19) — otherApproved(18-20)·제3 PENDING(18-19)과 겹친다
@@ -317,7 +322,8 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         clubMemberRepository.save(ClubMember.asLeader(thirdClub, thirdLeader));
         bookingService.create(new CreateFacilityBookingCommand(
                 thirdClub.getId(), thirdLeader.getId(), fixture.facility().getId(),
-                date, LocalTime.of(18, 0), LocalTime.of(19, 0), "연습", null));
+                date, LocalTime.of(18, 0), LocalTime.of(19, 0), "연습", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE));
 
         // 이제 타 동아리 승인 → 대상 PENDING 이 APPROVED 와 겹치는 상태(INTERNAL 컨텍스트 대상)
         adminService.approve(admin.getId(), otherApproved);
@@ -342,6 +348,26 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
             assertThat(context.organization()).isEqualTo(otherClubName);
         });
         assertThat(detail.history()).isNotEmpty(); // 생성 이력(null→PENDING)
+        assertThat(detail.contactPhone()).isEqualTo(FacilityBookingFixture.VALID_CONTACT_PHONE); // 관리자 상세 노출
+    }
+
+    @Test
+    @DisplayName("관리자 상세는 대표 연락처를 노출하고, V85 이전 기존 행(빈 값)은 null 로 폴백한다")
+    void detailExposesContactPhoneAndFallsBackToNullForLegacyRow() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+
+        // 신규 신청(요청 검증 통과 값) → 관리자 상세에 그대로 노출
+        Long fresh = pendingBooking(fixture, date, 9, 10);
+        assertThat(queryService.getDetail(fresh).contactPhone())
+                .isEqualTo(FacilityBookingFixture.VALID_CONTACT_PHONE);
+
+        // V85 로 채워진 기존 행(빈 문자열)을 리포지토리로 직접 재현 → 상세에서 null 폴백
+        FacilityBooking legacy = bookingRepository.save(FacilityBooking.request(
+                fixture.facility().getId(), fixture.club().getId(), fixture.leader().getId(),
+                date, LocalTime.of(11, 0), LocalTime.of(12, 0), "정기 합주", null, ""));
+
+        assertThat(queryService.getDetail(legacy.getId()).contactPhone()).isNull();
     }
 
     @Test

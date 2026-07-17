@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.BookingWindowFixture;
+import com.duing.common.fixture.FacilityBookingFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -98,7 +99,7 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     private CreateFacilityBookingCommand command(Fixture fixture, LocalDate date, int startHour, int endHour) {
         return new CreateFacilityBookingCommand(fixture.club().getId(), fixture.leader().getId(),
                 fixture.facility().getId(), date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0),
-                "정기 합주", 15);
+                "정기 합주", 15, FacilityBookingFixture.VALID_CONTACT_PHONE);
     }
 
     private LocalDate bookableDate() {
@@ -123,6 +124,7 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
 
         FacilityBooking saved = bookingRepository.findById(result.bookingId()).orElseThrow();
         assertThat(saved.getStatus()).isEqualTo(BookingStatus.PENDING);
+        assertThat(saved.getContactPhone()).isEqualTo(FacilityBookingFixture.VALID_CONTACT_PHONE);
         assertThat(result.overlappingPendingCount()).isZero();
         var histories = historyRepository.findByBookingIdOrderByCreatedAtDesc(saved.getId());
         assertThat(histories).hasSize(1);
@@ -139,7 +141,8 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
 
         CreateFacilityBookingCommand byMember = new CreateFacilityBookingCommand(
                 fixture.club().getId(), member.getId(), fixture.facility().getId(),
-                bookableDate(), LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null);
+                bookableDate(), LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
 
         assertThatThrownBy(() -> bookingService.create(byMember))
                 .isInstanceOf(AccessDeniedException.class);
@@ -179,7 +182,8 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
         clubMemberRepository.save(ClubMember.asLeader(otherClub, otherLeader));
         CreateFacilityBookingCommand overlapping = new CreateFacilityBookingCommand(
                 otherClub.getId(), otherLeader.getId(), first.facility().getId(),
-                date, LocalTime.of(19, 0), LocalTime.of(21, 0), "회의", null);
+                date, LocalTime.of(19, 0), LocalTime.of(21, 0), "회의", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
 
         var result = bookingService.create(overlapping);
 
@@ -206,7 +210,8 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
         clubMemberRepository.save(ClubMember.asLeader(otherClub, otherLeader));
         CreateFacilityBookingCommand blocked = new CreateFacilityBookingCommand(
                 otherClub.getId(), otherLeader.getId(), fixture.facility().getId(),
-                date, LocalTime.of(19, 0), LocalTime.of(21, 0), "회의", null);
+                date, LocalTime.of(19, 0), LocalTime.of(21, 0), "회의", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
 
         assertThatThrownBy(() -> bookingService.create(blocked))
                 .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
@@ -253,12 +258,14 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
             LocalTime slotStart = LocalTime.of(9 + (index % 5) * 2, 0);
             bookingService.create(new CreateFacilityBookingCommand(
                     fixture.club().getId(), fixture.leader().getId(), fixture.facility().getId(),
-                    slotDate, slotStart, slotStart.plusHours(1), "연습 " + index, null));
+                    slotDate, slotStart, slotStart.plusHours(1), "연습 " + index, null,
+                    FacilityBookingFixture.VALID_CONTACT_PHONE));
         }
 
         assertThatThrownBy(() -> bookingService.create(new CreateFacilityBookingCommand(
                 fixture.club().getId(), fixture.leader().getId(), fixture.facility().getId(),
-                date.plusDays(2), LocalTime.of(9, 0), LocalTime.of(10, 0), "초과 신청", null)))
+                date.plusDays(2), LocalTime.of(9, 0), LocalTime.of(10, 0), "초과 신청", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)))
                 .isInstanceOf(FacilityBookingException.ActiveBookingLimitExceededException.class);
     }
 
@@ -285,12 +292,14 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
         Fixture fixture = fixture();
         LocalDate date = bookableDate();
         FacilityBooking first = FacilityBooking.request(fixture.facility().getId(), fixture.club().getId(),
-                fixture.leader().getId(), date, LocalTime.of(18, 0), LocalTime.of(20, 0), "연습", null);
+                fixture.leader().getId(), date, LocalTime.of(18, 0), LocalTime.of(20, 0), "연습", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
         forceStatus(first, BookingStatus.APPROVED);
         bookingRepository.saveAndFlush(first);
 
         FacilityBooking second = FacilityBooking.request(fixture.facility().getId(), fixture.club().getId(),
-                fixture.leader().getId(), date, LocalTime.of(19, 0), LocalTime.of(21, 0), "연습2", null);
+                fixture.leader().getId(), date, LocalTime.of(19, 0), LocalTime.of(21, 0), "연습2", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
         forceStatus(second, BookingStatus.APPROVED);
 
         assertThatThrownBy(() -> bookingRepository.saveAndFlush(second))

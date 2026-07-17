@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.BookingWindowFixture;
+import com.duing.common.fixture.FacilityBookingFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -15,7 +16,9 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
+import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
+import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.service.dto.command.CreateFacilityBookingCommand;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -38,6 +41,7 @@ import org.springframework.context.annotation.Import;
 class FacilityBookingQueryIntegrationTest extends IntegrationTestBase {
 
     @Autowired FacilityBookingService bookingService;
+    @Autowired FacilityBookingRepository bookingRepository;
     @Autowired FacilityRepository facilityRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
@@ -68,7 +72,8 @@ class FacilityBookingQueryIntegrationTest extends IntegrationTestBase {
         // 시각 무관 항상 신청 가능한 날짜(내일) — 롤링 창은 오늘을 포함하나 고정 슬롯 시각 타임밤을 피해 내일을 쓴다.
         return bookingService.create(new CreateFacilityBookingCommand(club.getId(), leader.getId(),
                 facility.getId(), BookingWindowFixture.bookableDate(), LocalTime.of(startHour, 0),
-                LocalTime.of(endHour, 0), "정기 연습", null)).bookingId();
+                LocalTime.of(endHour, 0), "정기 연습", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
     }
 
     @Test
@@ -96,6 +101,7 @@ class FacilityBookingQueryIntegrationTest extends IntegrationTestBase {
 
         var detail = bookingService.getBooking(club.getId(), leader.getId(), bookingId);
         assertThat(detail.status()).isEqualTo(BookingStatus.CANCELLED);
+        assertThat(detail.contactPhone()).isEqualTo(FacilityBookingFixture.VALID_CONTACT_PHONE);
         assertThat(detail.history()).hasSize(2);
         assertThat(detail.history().get(0).newStatus()).isEqualTo(BookingStatus.CANCELLED);
 
@@ -113,5 +119,19 @@ class FacilityBookingQueryIntegrationTest extends IntegrationTestBase {
 
         assertThatThrownBy(() -> bookingService.getBooking(otherClub.getId(), otherLeader.getId(), bookingId))
                 .isInstanceOf(FacilityBookingException.BookingNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("V85 이전 기존 행(빈 대표 연락처)은 상세 응답에서 null 로 내려간다")
+    void legacyBlankContactPhoneIsNullInDetail() {
+        // 신규 신청은 요청 검증이 형식을 강제하지만, V85 로 채워진 기존 행은 빈 문자열이다 —
+        // 이를 리포지토리로 직접 재현하고 상세 조회가 null 로 폴백하는지 고정한다.
+        FacilityBooking legacy = bookingRepository.save(FacilityBooking.request(
+                facility.getId(), club.getId(), leader.getId(), BookingWindowFixture.bookableDate(),
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "정기 연습", null, ""));
+
+        var detail = bookingService.getBooking(club.getId(), leader.getId(), legacy.getId());
+
+        assertThat(detail.contactPhone()).isNull();
     }
 }

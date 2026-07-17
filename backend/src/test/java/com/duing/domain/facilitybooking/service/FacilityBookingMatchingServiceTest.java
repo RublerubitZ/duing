@@ -3,6 +3,7 @@ package com.duing.domain.facilitybooking.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.domain.facility.entity.FacilityReservation;
+import com.duing.common.fixture.FacilityBookingFixture;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,7 +24,8 @@ class FacilityBookingMatchingServiceTest {
 
     private FacilityBooking approvedBooking(int startHour, int endHour) {
         FacilityBooking booking = FacilityBooking.request(1L, 2L, 3L, DATE,
-                LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null);
+                LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
         booking.approve(9L, null, LocalDateTime.of(2026, 1, 20, 9, 0));
         return booking;
     }
