@@ -159,22 +159,56 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("수동 확정도 승인 후 유입된 점유행을 재검증해 겹치면 SchoolConflict 409, APPROVED 유지다")
-    void confirmManuallyRevalidatesAgainstSchoolRows() throws Exception {
+    @DisplayName("수동 확정은 학교 점유행과 겹쳐도 성공한다 — 표기 차이로 자동 매칭이 못 잡은 자기 등록 행의 관리자 오버라이드 경로다")
+    void confirmManuallyOverridesSchoolRows() throws Exception {
         Fixture fixture = fixture();
         User admin = saveUser("총동연");
         LocalDate date = bookableDate();
         Long approved = pendingBooking(fixture, date, 18, 20);
         adminService.approve(admin.getId(), approved);
-        // 승인 후 학교 점유행(꼬리 없음)이 크롤로 유입 — 수동 확정 시 재검증(§4.2)에 걸려야 한다
+        // 승인 후 자기 동아리의 학교 등록 행이 표기 차이로 유입 — 정규화 불일치라 자동 매칭 불발(§5.3).
+        // 이 시나리오에서 학교 점유 재검증을 걸면 수동 확정이 필요한 모든 경우가 409 가 된다(2026-07-17 감사).
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", null, null, LocalDateTime.now()));
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "두잉 대관동아리(중앙)", null, null, LocalDateTime.now()));
 
-        assertThatThrownBy(() -> adminService.confirmManually(admin.getId(), approved))
-                .isInstanceOf(FacilityBookingException.SchoolConflictException.class);
-        assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
-                .isEqualTo(BookingStatus.APPROVED); // 확정되지 않고 APPROVED 유지
+        adminService.confirmManually(admin.getId(), approved);
+
+        FacilityBooking confirmed = bookingRepository.findById(approved).orElseThrow();
+        assertThat(confirmed.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        assertThat(confirmed.getConfirmedAt()).isNotNull();
+        var histories = historyRepository.findByBookingIdOrderByCreatedAtDesc(approved);
+        assertThat(histories.get(0).getNewStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        assertThat(histories.get(0).getCrawlBasisAt()).isNotNull(); // 판정 근거 크롤 세대는 계속 기록
+    }
+
+    @Test
+    @DisplayName("확정 취소는 슬롯을 해제한다 — 취소 후 같은 시간대의 다른 신청이 승인된다")
+    void cancellingConfirmedReleasesSlot() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        Long confirmed = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), confirmed);
+        adminService.confirmManually(admin.getId(), confirmed);
+
+        adminService.cancel(admin.getId(), confirmed, "학교 측 사정으로 예약 취소");
+        assertThat(bookingRepository.findById(confirmed).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.CANCELLED);
+        assertThat(historyRepository.findByBookingIdOrderByCreatedAtDesc(confirmed).get(0).getReason())
+                .isEqualTo("학교 측 사정으로 예약 취소");
+
+        // CANCELLED 는 EXCLUDE 대상에서 이탈 — 겹치는 타 동아리 신청이 승인까지 통과한다
+        User otherLeader = saveUser("리더B");
+        Club otherClub = saveActiveClub("후속동아리");
+        clubMemberRepository.save(ClubMember.asLeader(otherClub, otherLeader));
+        Long successor = bookingService.create(new CreateFacilityBookingCommand(
+                otherClub.getId(), otherLeader.getId(), fixture.facility().getId(),
+                date, LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
+        adminService.approve(admin.getId(), successor);
+        assertThat(bookingRepository.findById(successor).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
     }
 
     @Test
@@ -240,9 +274,10 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         adminService.confirmManually(admin.getId(), confirmed);
         assertThat(bookingRepository.findById(confirmed).orElseThrow().getStatus())
                 .isEqualTo(BookingStatus.CONFIRMED);
-        // CONFIRMED 는 완전 터미널 — 관리자 취소도 409
-        assertThatThrownBy(() -> adminService.cancel(admin.getId(), confirmed, "불가"))
-                .isInstanceOf(FacilityBookingException.InvalidStatusTransitionException.class);
+        // CONFIRMED 취소는 관리자 전용 복구 경로 — 학교 측 취소·오확정 정정(§4.3)
+        adminService.cancel(admin.getId(), confirmed, "학교 측 취소 확인");
+        assertThat(bookingRepository.findById(confirmed).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.CANCELLED);
 
         Long conflicted = pendingBooking(fixture, date, 13, 14);
         adminService.approve(admin.getId(), conflicted);

@@ -65,15 +65,16 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     @Transactional
     public void confirmManually(Long adminId, Long bookingId) {
         FacilityBooking booking = getBooking(bookingId);
-        // 승인과 동일한 재검증(§4.2 불변식) — 확정도 시설 행 잠금으로 직렬화하고, 승인 후 유입된 학교 점유행·
-        // 내부 겹침을 재확인해 잠금·재검증 없는 무방비 CONFIRMED 진입을 막는다.
+        // 수동 확정은 '이 학교 점유행이 우리 예약의 등록 행'이라는 관리자 판단을 반영하는 오버라이드 경로다(§5.3).
+        // 본래 시나리오(표기 차이로 자동 매칭 불발)에서는 자기 등록 행이 점유행으로 존재할 수밖에 없어,
+        // 승인과 같은 학교 점유 재검증을 걸면 수동 확정이 필요한 모든 경우가 409 로 막힌다(2026-07-17 감사).
+        // 시설 행 잠금(무방비 CONFIRMED 진입 차단)과 내부 APPROVED/CONFIRMED 겹침 재검증은 유지하고,
+        // 판정 근거 크롤 세대(crawlBasisAt)는 이력에 계속 남긴다.
         facilityRepository.findByIdForUpdate(booking.getFacilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
-        // 단일 조회 목록에서 basis·검증·payload 를 함께 계산 — 쿼리 간 크롤 세대 교체로 감사값이 분리되는 것을 차단.
         List<FacilityReservation> monthRows = facilityReservationRepository.findByFacilityIdAndYearMonth(
                 booking.getFacilityId(), YearMonth.from(booking.getReservationDate()));
         LocalDateTime crawlBasisAt = facilityCrawlBasis(monthRows);
-        rejectIfSchoolOccupied(booking, monthRows, crawlBasisAt);
         rejectIfInternallyBlocked(booking);
 
         BookingStatus previousStatus = booking.getStatus();
@@ -108,8 +109,9 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     }
 
     /**
-     * 크롤 점유행 겹침 — 승인·확정 불가(§5.2-2c-①). 판별은 정책 경유(컬럼 접근 금지 계약).
+     * 크롤 점유행 겹침 — 승인 불가(§5.2-2c-①). 판별은 정책 경유(컬럼 접근 금지 계약).
      * 겹치는 점유행 전부를 payload(§8.3 data.conflicts[])로 실어 던져 FE 가 충돌 상세를 렌더할 수 있게 한다.
+     * 수동 확정은 자기 등록 행을 구분할 수 없어 이 검증을 걸지 않는다(관리자 오버라이드, 2026-07-17 감사).
      */
     private void rejectIfSchoolOccupied(FacilityBooking booking, List<FacilityReservation> monthRows,
             LocalDateTime crawlBasisAt) {
