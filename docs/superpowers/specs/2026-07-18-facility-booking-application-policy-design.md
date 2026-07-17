@@ -47,6 +47,17 @@
 
 `FacilityBookingException` 하위 예외로 추가, `ApplicationException`의 `code` 필드 사용 (기존 `FACILITY_BOOKING_SLOT_UNAVAILABLE` 패턴).
 
+### 4. 오류 우선순위
+
+여러 정책을 동시에 만족하지 못하는 경우 아래 우선순위에서 **첫 번째로 실패한 정책의 오류만** 반환한다. 동시에 여러 오류를 반환하지 않는다.
+
+1. 반월 예약 가능 정책 (`OutOfBookingWindowException`)
+2. 신청 마감 정책 (`FACILITY_BOOKING_DEADLINE_PASSED`)
+3. 중앙동아리 여부 (`FACILITY_BOOKING_CENTRAL_CLUB_ONLY`)
+4. 회장/운영진 권한 (`FACILITY_BOOKING_PERMISSION_DENIED`)
+
+날짜 자체가 신청 불가능한 경우 권한보다 날짜 정책을 우선 안내한다 — 사용자에게 가장 먼저 알려야 하는 것은 예약 가능한 날짜인지 여부다. 이로써 API 동작을 예측 가능하게 유지하고 FE의 오류 처리·UX를 일관되게 만든다.
+
 ## 백엔드 설계
 
 ### 구조
@@ -63,20 +74,22 @@ BookingPolicyValidator (기존 유지) ← 기술적 검증 전담
     (반월 윈도우 체크만 BookingApplicationPolicy로 이관)
 ```
 
+- **BookingApplicationPolicy의 역할**: 각 정책을 직접 구현하는 클래스가 아니라, 예약 신청 관련 비즈니스 정책을 **조합하고 검증 순서를 관리하는 단일 진입점(Facade / Orchestrator)** 이다. 실제 계산은 내부 Policy 클래스가 담당하고 facade는 조합만 수행한다. 향후 시험기간·시설별·관리자 예외 정책이 추가되어도 외부 호출부는 변경 없이 내부 정책만 확장한다.
 - **책임 분리**: Validator = 기술적 검증(슬롯 유효성·그리드·충돌), ApplicationPolicy = 비즈니스 정책 조합. Validator는 제거하지 않는다.
 - 내부 정책 클래스는 순수 판정만 수행 (DB 접근 없음). 엔티티 로드는 서비스가 담당하고 도메인 객체(`Club`, `ClubMember`)를 넘긴다.
 - 새 정책(시험기간·시설별·관리자 예외 등) 추가 시 내부 정책 클래스 추가 + `BookingApplicationPolicy` 조합만 수정.
 
 ### create 흐름 (GeneralFacilityBookingService)
 
-1. 멤버십 조회 (기존 `ClubAuthService` 조회 메서드 — `requireManager`는 create에서 더 이상 사용하지 않음. 역할 거부를 정책 예외로 매핑하기 위함)
+1. 멤버십 조회 (기존 `ClubAuthService` 조회 메서드 — `requireManager`는 create에서 더 이상 사용하지 않음. 역할 거부를 정책 예외로 매핑하기 위함. 비회원은 기존 예외 그대로)
 2. club 로드 (기존 행잠금 + ACTIVE 체크 경로 유지)
-3. `BookingApplicationPolicy.validate(...)` — 순서: 역할 → 중앙동아리 → 반월 윈도우 → 마감
+3. `BookingApplicationPolicy.validate(...)` — 순서: **반월 윈도우 → 마감 → 중앙동아리 → 역할** (오류 우선순위 절과 동일, 첫 실패만 반환)
 4. `BookingPolicyValidator` — 그리드·당일·상한 등 기존 기술 검증 (윈도우 체크 제외 무수정)
 5. 기존 충돌/중복 검사 → 저장
 
 주의점:
 - 정책이 validator보다 먼저 실행되므로 당일 신청은 `DEADLINE_PASSED`로 응답. validator의 "당일 경과 슬롯" 체크는 도달 불가가 되지만 기존 코드 보존 원칙에 따라 유지.
+- 날짜 정책(반월·마감)이 권한보다 먼저이므로, 권한 없는 사용자가 마감된 날짜로 신청해도 400(날짜 오류)이 먼저 반환된다 — 의도된 동작.
 - `requireManager` 미사용으로 비ACTIVE 클럽 처리가 create 내 잠금 후 ACTIVE 체크로 일원화됨 — 예외 타입 동일 여부를 구현 시 확인 (회귀 포인트).
 - cancel/list/detail은 계속 `requireManager` 사용, 무변경.
 
@@ -84,6 +97,7 @@ BookingPolicyValidator (기존 유지) ← 기술적 검증 전담
 
 - `GeneralFacilityAvailabilityService`의 `BookingWindowPolicy` 직접 주입 제거 → `BookingApplicationPolicy.windowFor(today)` 경유 (내부 위임, 계산 무변경).
 - availability·booking-window 응답 스키마·값 **무변경** (마감·권한 미반영 — 읽기 API는 기존 계약 유지).
+- **Availability의 성격**: 시설의 운영 가능 기간을 표현하는 **조회용 API**이며, 실제 예약 신청 가능 여부를 보장하지 않는다. 실제 신청 가능 여부는 Create API에서 `BookingApplicationPolicy`가 최종 검증한다 — 예약 생성 시 서버 정책이 항상 최종 판단 기준(Single Source of Truth).
 
 ### ManagedClub 응답 확장
 
