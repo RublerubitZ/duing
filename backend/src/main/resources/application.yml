@@ -174,7 +174,8 @@ duing:
       read-timeout-millis: 5000
       retry-max-attempts: 4
       retry-backoff-millis: 500
-      # 온디맨드(공개 GET) 예산 — FE 15초 타임아웃 내 응답: 룸당 총 2회 재시도 + 전체 10초 데드라인.
+      # 온디맨드(공개 GET) 예산 — FE 18초 타임아웃(facilityOnDemand) 내 응답: 룸당 총 2회 재시도 +
+      # 전체 10초 데드라인. 최악 응답시간 ≈ 16.5s(첫 룸은 데드라인 예외 — 2회 × (3s+5s) + 백오프 0.5s).
       on-demand-retry-max-attempts: 2
       on-demand-deadline-seconds: 10
       room-delay-millis: 100

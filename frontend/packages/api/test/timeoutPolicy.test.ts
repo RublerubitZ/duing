@@ -21,6 +21,7 @@ describe('REQUEST_TIMEOUT_MS 정책', () => {
       upload: 60_000,
       logoutRevoke: 5_000,
       bankSync: 30_000,
+      facilityOnDemand: 18_000,
     });
   });
 
