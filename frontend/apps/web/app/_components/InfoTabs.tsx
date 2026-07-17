@@ -6,7 +6,8 @@
 // sticky 는 모바일 전용이 의도된 UX(md+ 는 static) — 전역 헤더가 sticky 가 아닌 구조와 일관.
 
 import { useEffect } from 'react';
-import { Link } from 'next-view-transitions';
+// 허브 간 탭 이동도 View Transition 제외(next/link) — GNB 탭과 동일 정책(전역 크로스페이드 깜빡임).
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { cn } from '@/app/_lib/cn';

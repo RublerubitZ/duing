@@ -35,6 +35,12 @@ const nextConfig = {
     '@duing/types',
   ],
   typedRoutes: true,
+  experimental: {
+    // 클라이언트 라우터 캐시 — 동적 세그먼트(홈 force-dynamic 등)도 3분간 재사용한다.
+    // 기본값 0 이면 하단 탭 재방문마다 풀 RSC 재페치가 돌아 로딩 폴백이 번쩍인다(모바일 깜빡임).
+    // 홈 콘텐츠(배너·모집 티커)는 3분 staleness 를 허용할 수 있는 노출성 데이터다.
+    staleTimes: { dynamic: 180 },
+  },
   async headers() {
     const headers = [
       // HTTPS 강제 (http://localhost 에는 브라우저가 무시하므로 로컬 개발에 영향 없음).
