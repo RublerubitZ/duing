@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   useBookingWindowQuery,
@@ -30,6 +30,7 @@ import { BookingPanel, type PanelStep } from '../_components/booking/BookingPane
 import { BookingViewHeader, type CalendarView } from '../_components/booking/BookingViewHeader';
 import { WeekTimetable } from '../_components/booking/WeekTimetable';
 import { WeekBlockSheet, type WeekBlockDetail } from '../_components/booking/WeekBlockSheet';
+import { MobileDaySheet } from '../_components/booking/MobileDaySheet';
 import { useIsMobileViewport } from '../_lib/useIsMobileViewport';
 import { FacilityContextBar } from '../_components/booking/FacilityContextBar';
 import { FacilityHomeCard } from '../_components/booking/FacilityHomeCard';
@@ -78,6 +79,11 @@ export function FacilityBookingPage() {
   // 모바일 주간 블록 상세 시트(§9.3) — 확정/대기 블록 탭 시 열린다. 뷰포트 훅으로 블록 인터랙션을 게이트한다.
   const isMobileViewport = useIsMobileViewport();
   const [sheetBlock, setSheetBlock] = useState<WeekBlockDetail | null>(null);
+  // 모바일 빠른 예약 시트(§11.1) — 월간 날짜 탭 시 주간 전환 대신 열린다(월간 유지). 열림은 항상 월간 상태이며
+  // 주간 사이드바(showSidebar)는 주간에서만 렌더되므로 BookingForm id 이중 마운트가 없다.
+  const [daySheetOpen, setDaySheetOpen] = useState(false);
+  // 딥링크(주간 진입)를 모바일에서 월간+시트로 승계하는 1회성 가드(§11.1) — 최초 모바일 감지 시에만 동작.
+  const deepLinkSheetHandledRef = useRef(false);
   const [submittedResult, setSubmittedResult] = useState<CreateFacilityBookingResult | null>(null);
   const [submittedClubId, setSubmittedClubId] = useState<number | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
@@ -152,6 +158,7 @@ export function FacilityBookingPage() {
     setSelection(null);
     setStep('slots');
     setCalendarView('month'); // 무효 딥링크는 주간을 열지 않고 월간 탐색으로 되돌린다(§1).
+    setDaySheetOpen(false); // 무효 딥링크 정리 시 빠른 예약 시트도 닫는다(§11.1).
     // 스테일 date 파라미터 제거(새로고침 재발 방지). 자동 선택 시설은 URL에 기록하지 않는다 —
     // 명시적으로 고른 facilityId(state)만 보존.
     syncUrl(facilityId, null);
@@ -159,10 +166,27 @@ export function FacilityBookingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDateOutOfWindow]);
 
-  // 시트가 열린 채 뷰포트가 sm 경계(640px)를 넘으면(PC 전환) 시트를 닫는다 — PC 는 시트 미사용(§9.3).
+  // 뷰포트가 sm 경계(640px)를 넘으면(PC 전환) 시트를 닫는다 — PC 는 시트 미사용. 블록 상세 시트(§9.3)는 그냥
+  // 닫고, 빠른 예약 시트(§11.1)는 열려 있었다면 PC 동선(주간)으로 승계한다(선택 유지 — WeekBlockSheet 전례 확장).
   useEffect(() => {
-    if (!isMobileViewport) setSheetBlock(null);
-  }, [isMobileViewport]);
+    if (isMobileViewport) return;
+    setSheetBlock(null);
+    if (daySheetOpen) {
+      setDaySheetOpen(false);
+      setCalendarView('week');
+    }
+  }, [isMobileViewport, daySheetOpen]);
+
+  // 딥링크 date 는 초기 뷰가 주간이지만(§1), 모바일이면 월간+빠른 예약 시트로 승계한다(§11.1). 최초 모바일 감지 시
+  // 1회만 동작하고, 사용자가 이미 만진 선택(비-pristine)은 건드리지 않는다.
+  useEffect(() => {
+    if (deepLinkSheetHandledRef.current || !isMobileViewport) return;
+    deepLinkSheetHandledRef.current = true;
+    if (calendarView === 'week' && selectedDate !== null && selection === null && step === 'slots') {
+      setCalendarView('month');
+      setDaySheetOpen(true);
+    }
+  }, [isMobileViewport, calendarView, selectedDate, selection, step]);
 
   const resetSelectionFlow = () => {
     setSelection(null);
@@ -171,6 +195,7 @@ export function FacilityBookingPage() {
     setSubmittedClubId(null);
     setSubmittedAt(null);
     setSheetBlock(null); // 화면 전환 시 열려 있던 블록 상세 시트를 닫는다(스테일 방지).
+    setDaySheetOpen(false); // 빠른 예약 시트도 함께 닫는다(§11.1) — 시트를 여는 경로는 이 호출 뒤 다시 연다.
   };
 
   const closePanel = () => {
@@ -207,6 +232,26 @@ export function FacilityBookingPage() {
     setCalendarView('week');
     resetSelectionFlow();
     syncUrl(effectiveFacilityId ?? null, iso);
+  };
+
+  // 월간 그리드의 날짜 탭 진입점(§11.1) — 모바일은 주간 전환 대신 월간 유지 + 빠른 예약 시트, PC 는 기존 주간 전환.
+  const selectDateFromMonth = (iso: string) => {
+    if (!isMobileViewport) {
+      selectDate(iso);
+      return;
+    }
+    // 모바일: selectedDate·syncUrl 은 기존과 동일하되 월간 뷰를 유지하고 시트를 연다.
+    if (iso.slice(0, 7) !== yearMonth) setYearMonthOverride(iso.slice(0, 7));
+    setSelectedDate(iso);
+    resetSelectionFlow(); // 이전 선택/제출/시트 정리 후
+    setDaySheetOpen(true); // 빠른 예약 시트 오픈(뒤 호출이 이긴다).
+    syncUrl(effectiveFacilityId ?? null, iso);
+  };
+
+  // 시트의 "시간표로 보기"(§11.1) — 시트를 닫고 주간으로 전환한다. 선택·selectedDate 는 유지해 주간에서 이어간다.
+  const openTimetableFromSheet = () => {
+    setDaySheetOpen(false);
+    setCalendarView('week');
   };
 
   // 창 밖 미래 셀 탭 — 선택은 열지 않고 안내만 한다(동일 문구는 토스트 dedup 으로 1회).
@@ -294,6 +339,17 @@ export function FacilityBookingPage() {
   const periodLabel =
     calendarView === 'week' && weekMonday !== null ? weekRangeLabel(weekMonday) : yearMonthLabel(yearMonth);
 
+  // 신청 성공 처리 — 제출 시각 캡처 + 성공 스텝 전환. 주간 사이드바 패널·모바일 빠른 예약 시트가 공유한다.
+  const handleSubmitted = (result: CreateFacilityBookingResult, clubId: number) => {
+    const now = new Date();
+    setSubmittedAt(
+      `${now.getMonth() + 1}월 ${now.getDate()}일 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+    );
+    setSubmittedResult(result);
+    setSubmittedClubId(clubId);
+    setStep('success');
+  };
+
   const panel =
     selectedDay !== undefined && selectedFacility !== undefined ? (
       <BookingPanel
@@ -307,15 +363,7 @@ export function FacilityBookingPage() {
         submittedResult={submittedResult}
         submittedClubId={submittedClubId}
         submittedAt={submittedAt}
-        onSubmitted={(result, clubId) => {
-          const now = new Date();
-          setSubmittedAt(
-            `${now.getMonth() + 1}월 ${now.getDate()}일 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-          );
-          setSubmittedResult(result);
-          setSubmittedClubId(clubId);
-          setStep('success');
-        }}
+        onSubmitted={handleSubmitted}
         onExploreOther={goHome}
         onClose={closePanel}
       />
@@ -415,7 +463,7 @@ export function FacilityBookingPage() {
                       bookableUntil={availability.bookableUntil}
                       todayIso={todayIso}
                       selectedDate={selectedDate}
-                      onSelectDate={selectDate}
+                      onSelectDate={selectDateFromMonth}
                       onOutOfWindowSelect={handleOutOfWindowSelect}
                       windowLabel={windowLabel}
                       ranges={windowQuery.data?.availableBookingRanges ?? null}
@@ -458,6 +506,26 @@ export function FacilityBookingPage() {
 
       {/* 모바일 주간 블록 상세 바텀시트(§9.3) — 포털 렌더라 위치 무관, 열림은 block!==null 로 제어. */}
       <WeekBlockSheet block={sheetBlock} onClose={() => setSheetBlock(null)} />
+
+      {/* 모바일 빠른 예약 바텀시트(§11.1) — 월간 날짜 탭 시 열린다(월간 유지). 열림은 daySheetOpen 으로 제어하고,
+          열려 있는 동안 calendarView 는 항상 'month' 라 주간 사이드바 폼과 이중 마운트가 없다. */}
+      <MobileDaySheet
+        open={daySheetOpen}
+        facility={selectedFacility ?? null}
+        day={selectedDay ?? null}
+        selection={selection}
+        onToggleSlot={toggleSlot}
+        step={step}
+        onProceedToForm={() => setStep('form')}
+        onBackToSlots={() => setStep('slots')}
+        submittedResult={submittedResult}
+        submittedClubId={submittedClubId}
+        submittedAt={submittedAt}
+        onSubmitted={handleSubmitted}
+        onExploreOther={goHome}
+        onClose={closePanel}
+        onViewTimetable={openTimetableFromSheet}
+      />
     </main>
   );
 }

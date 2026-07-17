@@ -15,6 +15,7 @@ import type {
   User,
 } from '@duing/types';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
+import { bookingDateLabel } from '@/app/_lib/bookingDisplay';
 import { seoulDateIso, shiftYearMonth, yearMonthLabel } from '@/app/facilities/_lib/facilityTimeline';
 import { shiftDateByDays, weekDatesOf, weekRangeLabel } from '@/app/facilities/_lib/bookingCalendar';
 import { FacilityBookingPage } from '@/app/facilities/_pages/FacilityBookingPage';
@@ -669,8 +670,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
   });
 
   // 시나리오 20 은 matchMedia 를 모바일(matches:true)로 덮으므로 종료 후 원복이 필요하다(후속 시나리오 누수 방지).
-  it('시나리오 20 (뷰 전환 f): 모바일 뷰포트에서도 시트(dialog) 없이 본문이 주간으로 전환되고 사이드바가 스택된다', async () => {
-    // 모바일 매치미디어 — 페이지는 더 이상 뷰포트로 시트를 게이트하지 않는다(스택 렌더).
+  it('시나리오 20 (§11.2 주간=보조): 모바일에서 [주] 탭으로 연 주간 뷰는 바텀시트(dialog) 없이 사이드바가 세로 스택된다', async () => {
+    // 모바일 매치미디어 — 월간 날짜 탭은 시트를 열지만(§11.1), [주] 탭으로 연 주간 뷰는 시트 없이 스택된다(§11.2).
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       configurable: true,
@@ -685,9 +686,13 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
         dispatchEvent: () => false,
       }),
     });
+    mockSearchParams.value = 'facilityId=1';
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    // 창 로드 대기(showWeekView 가 windowQuery 로 기준일=bookableFrom 을 정한다) 후 [주] 탭으로 주간 진입.
+    await screen.findByRole('button', { name: WINDOW_FROM_CELL });
+    await screen.findByText(CURRENT_RANGE_CHIP);
+    fireEvent.click(screen.getByRole('tab', { name: '주' }));
 
     // 사이드바 콘텐츠가 본문에 스택 — 바텀시트(dialog)는 없다.
     expect(await screen.findByText('선택한 날짜')).toBeInTheDocument();
@@ -813,11 +818,15 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
       }),
     });
 
-  it('시나리오 26 (모바일 블록 시트 §9.3): 모바일 뷰포트에서 가용 셀 탭은 선택, 확정 블록 탭은 라벨·시간·예약됨 배지 바텀시트를 연다', async () => {
+  it('시나리오 26 (모바일 블록 시트 §9.3): 모바일 주간에서 가용 셀 탭은 선택, 확정 블록 탭은 라벨·시간·예약됨 배지 바텀시트를 연다', async () => {
     setMatchMedia(true); // 모바일 — 블록 disabled(PC) ↔ 시트 트리거(모바일) 게이트가 열린다.
     mockSearchParams.value = `facilityId=1&date=${WINDOW.from}`;
     renderPage();
 
+    // 모바일 딥링크 = 월간+빠른 예약 시트(§11.1). 주간 블록 시트(§9.3)를 보려면 시트에서 시간표로 전환한다.
+    // 딥링크는 시트가 가용성 로드 전에 열릴 수 있어 시트 본문(시간표로 보기)을 findBy 로 기다린다.
+    const daySheet = await screen.findByRole('dialog');
+    fireEvent.click(await within(daySheet).findByRole('button', { name: '시간표로 보기' }));
     await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL });
 
     // 가용(기본 확보 시간 sky) 셀 탭은 모바일에서도 선택 동작 — 시트가 아니다(§9.3).
@@ -845,5 +854,131 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(block).toBeDisabled();
     fireEvent.click(block); // disabled → no-op
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  // ── 모바일 빠른 예약 바텀시트(§11.1) — 월간 날짜 탭 = 빠른 시간 선택, 주간은 보조 ─────
+  // 시트 열림 중 월간 본문은 다이얼로그 뒤 aria-hidden 이라, 월간 유지 단언은 hidden:true 로 조회한다.
+  const SHEET_TITLE = bookingDateLabel(WINDOW.from);
+
+  it('시나리오 28 (모바일 §11.1 a·b): 월간 날짜 탭은 주간 전환 대신 빠른 예약 시트를 열고, 시트 슬롯 탭이 CTA 를 활성화한다', async () => {
+    setMatchMedia(true);
+    mockSearchParams.value = 'facilityId=1';
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+
+    // (a) 시트(dialog) 열림 + 날짜 제목·슬롯 리스트.
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(SHEET_TITLE)).toBeInTheDocument();
+    expect(within(dialog).getByRole('list', { name: '시간대 선택' })).toBeInTheDocument();
+    // 월간 유지 — 주간 그리드(주 라벨 헤딩)로 전환하지 않고, 월간 헤딩이 뒤에 남아 있다.
+    expect(screen.queryByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH), hidden: true }),
+    ).toBeInTheDocument();
+    // 다크 요약 카드(선택한 날짜)는 시트에 없다(§11.1 — 요약·현황은 주간 뷰 담당).
+    expect(within(dialog).queryByText('선택한 날짜')).not.toBeInTheDocument();
+
+    // (b) 시트 슬롯 탭 → CTA 활성.
+    const slotList = within(dialog).getByRole('list', { name: '시간대 선택' });
+    fireEvent.click(within(slotList).getByRole('button', { name: /18:00~19:00/ }));
+    expect(within(dialog).getByRole('button', { name: '18:00~19:00 예약 신청' })).toBeEnabled();
+
+    setMatchMedia(false);
+  });
+
+  it('시나리오 29 (모바일 §11.1 c): 시트의 "시간표로 보기"는 시트를 닫고 주간으로 전환하며 선택을 유지한다', async () => {
+    setMatchMedia(true);
+    mockSearchParams.value = 'facilityId=1';
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    const dialog = await screen.findByRole('dialog');
+    const slotList = within(dialog).getByRole('list', { name: '시간대 선택' });
+    fireEvent.click(within(slotList).getByRole('button', { name: /18:00~19:00/ }));
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '시간표로 보기' }));
+
+    // 주간 전환 + 시트 닫힘 + 선택 유지(주간 사이드바 CTA 활성).
+    expect(await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByText('선택한 날짜')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '18:00~19:00 예약 신청' })).toBeEnabled();
+
+    setMatchMedia(false);
+  });
+
+  it('시나리오 30 (모바일 §11.1 d): 시트를 닫으면(Escape) 월간을 유지하고 선택을 정리한다', async () => {
+    setMatchMedia(true);
+    mockSearchParams.value = 'facilityId=1';
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    const dialog = await screen.findByRole('dialog');
+    const slotList = within(dialog).getByRole('list', { name: '시간대 선택' });
+    fireEvent.click(within(slotList).getByRole('button', { name: /18:00~19:00/ }));
+
+    fireEvent.keyDown(dialog, { key: 'Escape', code: 'Escape' });
+
+    // 시트 닫힘 + 월간 유지 + 선택 정리(선택일 셀 강조 해제).
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH) })).toBeInTheDocument();
+    expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: WINDOW_FROM_CELL })).toHaveAttribute('aria-pressed', 'false');
+
+    setMatchMedia(false);
+  });
+
+  it('시나리오 31 (모바일 §11.1 e): 날짜 딥링크는 모바일에서 주간이 아니라 월간+빠른 예약 시트로 진입한다', async () => {
+    setMatchMedia(true);
+    mockSearchParams.value = `facilityId=1&date=${WINDOW.from}`;
+    renderPage();
+
+    const dialog = await screen.findByRole('dialog');
+    // 딥링크는 시트가 가용성 로드 전에 열릴 수 있어 날짜 제목을 findBy 로 기다린다.
+    expect(await within(dialog).findByText(SHEET_TITLE)).toBeInTheDocument();
+    // 월간 유지 — 주간 그리드로 진입하지 않는다.
+    expect(screen.queryByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH), hidden: true }),
+    ).toBeInTheDocument();
+
+    setMatchMedia(false);
+  });
+
+  it('시나리오 32 (PC §11.1 f 무회귀): 데스크탑에서는 월간 날짜 탭이 기존대로 주간으로 전환하고 시트는 열리지 않는다', async () => {
+    setMatchMedia(false);
+    mockSearchParams.value = 'facilityId=1';
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+
+    expect(await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).toBeInTheDocument();
+    expect(screen.getByText('선택한 날짜')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('시나리오 33 (모바일 §11.1 item5): 시트 안에서 폼→성공까지 신청이 진행되고, 시간표로 보기는 폼 단계에서 숨는다', async () => {
+    setMatchMedia(true);
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+    mockSearchParams.value = 'facilityId=1';
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    const dialog = await screen.findByRole('dialog');
+    const slotList = within(dialog).getByRole('list', { name: '시간대 선택' });
+    fireEvent.click(within(slotList).getByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: '18:00~19:00 예약 신청' }));
+
+    // 폼 단계도 시트 안에서 진행 — 시간표로 보기는 slots 스텝 전용이라 숨는다.
+    fireEvent.click(await within(dialog).findByRole('button', { name: '정기 합주' }));
+    expect(within(dialog).queryByRole('button', { name: '시간표로 보기' })).not.toBeInTheDocument();
+    await within(dialog).findByText('밴드부');
+    fireEvent.click(within(dialog).getByRole('button', { name: '예약 신청' }));
+
+    // 성공 화면도 시트 안에서 — 승인 타임라인 노출.
+    expect(await within(dialog).findByLabelText('승인 진행 타임라인')).toBeInTheDocument();
+
+    setMatchMedia(false);
   });
 });
