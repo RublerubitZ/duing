@@ -52,7 +52,7 @@ type PlanBlock = {
   reachesBottom: boolean;
 };
 // operating: 운영 노트 구간에 속한 셀(§8.1 정정) — AVAILABLE 이면 sky 상태색 선택 가능 셀로 렌더.
-type PlanCell = { type: 'cell'; hour: number; slot: BookingAvailabilitySlot; operating: boolean };
+type PlanCell = { type: 'cell'; slot: BookingAvailabilitySlot; operating: boolean };
 type PlanEmpty = { type: 'empty' };
 type PlanCovered = { type: 'covered' };
 type PlanEntry = PlanBlock | PlanCell | PlanEmpty | PlanCovered;
@@ -83,7 +83,7 @@ function buildColumnPlan(
   const cellAt = (hour: number, index: number): PlanEntry => {
     const slot = day.slots[index];
     if (slot === undefined) return { type: 'empty' };
-    return { type: 'cell', hour, slot, operating: isWithinOperating(slot, day.operatingNotes) };
+    return { type: 'cell', slot, operating: isWithinOperating(slot, day.operatingNotes) };
   };
   // 창 밖 날은 블록화하지 않고 1시간 셀(예약 기간 아님)로 둔다 — 기존 게이팅과 일관.
   if (!withinWindow) {
@@ -197,8 +197,10 @@ export function WeekTimetable({
                     const tdFrame = selectedTdFrame(isSelectedColumn, entry.reachesBottom);
                     const visual = blockVisual(entry, pastelMap);
                     const displayName = entry.kind === 'PENDING' ? '승인 대기' : entry.label;
+                    // h-px: rowSpan 병합 td 는 명시 높이가 없으면 자식 h-full 이 auto 로 풀려
+                    // 블록이 36px 칩으로 렌더된다(실브라우저 재현·검증) — 높이 트릭으로 병합 구간을 채운다.
                     return (
-                      <td key={iso} rowSpan={entry.rowSpan} className={`p-[2px] ${tdFrame}`}>
+                      <td key={iso} rowSpan={entry.rowSpan} className={`h-px p-[2px] ${tdFrame}`}>
                         <button
                           type="button"
                           disabled
