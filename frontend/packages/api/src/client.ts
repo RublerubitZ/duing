@@ -1478,7 +1478,12 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             http.get('admin/facility-bookings', { searchParams: cleanParams(params) }),
           ),
         detail: (bookingId) =>
-          jsonOk<AdminFacilityBookingDetail>(http.get(`admin/facility-bookings/${bookingId}`)),
+          // 관리자 상세도 온디맨드 재크롤(ensureFresh)을 경유한다 — 공개 가용성과 동일한 타임아웃 필요
+          jsonOk<AdminFacilityBookingDetail>(
+            http.get(`admin/facility-bookings/${bookingId}`, {
+              timeout: REQUEST_TIMEOUT_MS.facilityOnDemand,
+            }),
+          ),
         approve: (bookingId) => jsonVoid(http.post(`admin/facility-bookings/${bookingId}/approve`)),
         reject: (bookingId, reason) =>
           jsonVoid(http.post(`admin/facility-bookings/${bookingId}/reject`, { json: { reason } })),
