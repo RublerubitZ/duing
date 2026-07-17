@@ -47,7 +47,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.access.AccessDeniedException;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -80,6 +79,7 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
         Field statusField = Club.class.getDeclaredField("status");
         statusField.setAccessible(true);
         statusField.set(club, ClubStatus.ACTIVE);
+        club.changeCentralClub(true); // 시설 예약 신청은 중앙동아리만 가능(설계 spec 2026-07-18)
         return clubRepository.save(club);
     }
 
@@ -154,7 +154,7 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("일반 멤버(비운영진)의 신청은 AccessDenied 다")
+    @DisplayName("일반 멤버(비운영진)의 신청은 PERMISSION_DENIED 로 거부된다")
     void rejectNonManagerApplicant() throws Exception {
         Fixture fixture = fixture();
         User member = saveUser("일반부원");
@@ -166,7 +166,7 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
                 FacilityBookingFixture.VALID_CONTACT_PHONE);
 
         assertThatThrownBy(() -> bookingService.create(byMember))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(FacilityBookingException.PermissionDeniedException.class);
     }
 
     @Test

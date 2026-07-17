@@ -4,6 +4,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.facility.entity.Facility;
@@ -38,6 +39,7 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
     private final FacilityReservationRepository facilityReservationRepository;
     private final FacilityAvailabilityPolicy availabilityPolicy;
     private final BookingPolicyValidator bookingPolicyValidator;
+    private final BookingApplicationPolicy bookingApplicationPolicy;
     private final ClubAuthService clubAuthService;
     private final ClubRepository clubRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -49,14 +51,15 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
         // 동시 요청이 상한 10건과 동아리 중복 검사를 함께 우회할 수 있다 — DB EXCLUDE 제약은
         // APPROVED/CONFIRMED 만 커버하고 PENDING 겹침은 커버하지 않는다. 동아리 행을 비관 잠금해
         // 같은 동아리의 create 만 순차화하고 다른 동아리 간 병렬성은 유지한다.
-        // 잠금을 권한 게이트보다 먼저 잡는 순서가 중요하다(2026-07-17 감사) — requireManager 의 ACTIVE
-        // 판정은 무잠금 조회라 운영 중단 전환(updateStatus, findByIdForUpdate)과 경합하면 INACTIVE 동아리에
-        // PENDING 이 남는다. 잠금 선행 시 requireManager 의 findById 는 1차 캐시의 잠긴 엔티티를 재사용하고,
-        // 잠근 엔티티로 ACTIVE 를 원자 재검사한다(모집 생성 requireActiveClubUnderLock 전례).
+        // 잠금 선행 시 resolveMembership/ACTIVE 재검사는 1차 캐시의 잠긴 엔티티를 재사용한다.
         Club club = clubRepository.findByIdForUpdate(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
-        clubAuthService.requireManager(command.actorId(), command.clubId());
+        // 역할 거부를 정책 예외(PERMISSION_DENIED)로 매핑하기 위해 requireManager 대신 멤버십만 조회한다.
+        // 비회원은 기존과 동일하게 NotAMember. 조회·취소 경로는 requireManager 유지(설계 spec Out of Scope).
+        ClubMember applicant = clubAuthService.resolveMembership(command.actorId(), command.clubId());
         requireActiveClubUnderLock(club);
+        // 신청 비즈니스 정책 4종(반월→마감→중앙→역할) — 단일 진입점. 첫 실패만 반환한다.
+        bookingApplicationPolicy.validateApplication(club, applicant, command.date());
         Facility facility = facilityRepository.findById(command.facilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
         if (facility.isArchived()) {

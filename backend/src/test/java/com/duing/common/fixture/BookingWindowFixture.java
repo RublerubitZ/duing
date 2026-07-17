@@ -25,11 +25,12 @@ public final class BookingWindowFixture {
     }
 
     /**
-     * 시각 무관 항상 신청 가능한 날짜 = 내일. 롤링 창은 오늘을 포함하지만, 오늘을 쓰면 고정 슬롯
-     * 시각(10:00 등)이 KST 실행 시각에 따라 당일 가드에 걸리는 타임밤이 된다.
-     * 내일은 항상 창 내부다: until(다음 반월 말일) &gt; 다음 반월 시작일 &gt; 오늘 ⇒ until ≥ 오늘+1.
+     * 시각 무관 항상 신청 가능한 날짜 = 모레(오늘+2).
+     * 내일은 신청 마감 정책(사용일 전날 12:01 KST 마감)에 의해 실행 시각이 12:01 이후면 거부되는
+     * 타임밤이다. 모레의 마감은 내일 12:00 — 언제 실행해도 미래라 항상 신청 가능하다.
+     * 반월 창 내부 보장: until(다음 반월 말일)은 최솟값이 매월 13~15일 이상 남는 구조라 오늘+2 를 항상 포함한다.
      */
     public static LocalDate bookableDate() {
-        return LocalDate.now(KST).plusDays(1);
+        return LocalDate.now(KST).plusDays(2);
     }
 }
