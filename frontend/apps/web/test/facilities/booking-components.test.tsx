@@ -77,7 +77,7 @@ it('콘텍스트 바는 선택 시설 카드·다른 시설 퀵 칩·전체 보�
   expect(onGoHome).toHaveBeenCalledTimes(2);
 });
 
-it('캘린더 셀은 레벨 라벨(여유/마감)·창 배지를 표시하고 창 이전 과거는 비활성이다', () => {
+it('캘린더 셀은 레벨 라벨(여유/마감)을 표시하고 창 이전 과거는 비활성이다', () => {
   const day = makeDay(); // availableSlotCount 11 → 여유
   const fullDay = makeDay({ date: '2026-07-21', dayStatus: 'FULL', availableSlotCount: 0 });
   render(
@@ -90,14 +90,12 @@ it('캘린더 셀은 레벨 라벨(여유/마감)·창 배지를 표시하고 �
       selectedDate={null}
       onSelectDate={vi.fn()}
       onOutOfWindowSelect={vi.fn()}
-      windowLabel="7.13 ~ 8.31"
     />,
   );
   // 셀 접근성 이름은 '레벨 + 남은 칸수'를 포함한다(카드형 셀). FULL 셀도 창내라 클릭 가능(현황 확인).
   expect(screen.getByRole('button', { name: '20일 여유, 남은 11칸' })).toBeEnabled();
   expect(screen.getByRole('button', { name: '21일 마감, 남은 0칸' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '12일' })).toBeDisabled(); // bookableFrom 이전
-  expect(screen.getByText('예약 가능 기간 7.13 ~ 8.31')).toBeInTheDocument();
 
   // 월요일 시작 — 요일 헤더 첫 칸이 '월', 마지막이 '일'.
   const weekdayHeaders = screen.getAllByText(/^[월화수목금토일]$/);
@@ -106,58 +104,25 @@ it('캘린더 셀은 레벨 라벨(여유/마감)·창 배지를 표시하고 �
   expect(firstWeekday).toHaveTextContent('월');
 });
 
-it('캘린더는 ranges 전달 시 구간 칩 2개와 다음 구간 시작일 셀 오픈 마커를 렌더한다', () => {
+it('캘린더 상단 기간 표기·오픈 마커는 렌더되지 않는다 (미니멀 정리 회귀 가드)', () => {
   const currentDay = makeDay({ date: '2026-07-13', availableSlotCount: 11 });
-  const openDay = makeDay({ date: '2026-07-21', availableSlotCount: 13 });
+  const nextStartDay = makeDay({ date: '2026-07-21', availableSlotCount: 13 });
   render(
     <BookingCalendar
       yearMonth="2026-07"
-      daysByIso={new Map([[currentDay.date, currentDay], [openDay.date, openDay]])}
+      daysByIso={new Map([[currentDay.date, currentDay], [nextStartDay.date, nextStartDay]])}
       bookableFrom="2026-07-13"
       bookableUntil="2026-07-31"
       todayIso="2026-07-13"
       selectedDate={null}
       onSelectDate={vi.fn()}
       onOutOfWindowSelect={vi.fn()}
-      windowLabel="7.13 ~ 7.31"
-      ranges={[
-        { startDate: '2026-07-13', endDate: '2026-07-20', label: '현재 예약 가능' },
-        { startDate: '2026-07-21', endDate: '2026-07-31', label: '다음 예약 가능' },
-      ]}
     />,
   );
-  // 구간 칩 2개(라벨 + M.d ~ M.d). 단일 배지는 폴백이므로 렌더되지 않는다.
-  expect(screen.getByText('현재 예약 가능 7.13 ~ 7.20')).toBeInTheDocument();
-  expect(screen.getByText('다음 예약 가능 7.21 ~ 7.31')).toBeInTheDocument();
-  expect(screen.queryByText('예약 가능 기간 7.13 ~ 7.31')).not.toBeInTheDocument();
-  // 다음 구간 시작일(21일) 셀 = 오픈 마커(aria '예약 오픈일' + 시각 텍스트 '오픈').
-  const openCell = screen.getByRole('button', { name: '21일 여유, 남은 13칸 예약 오픈일' });
-  expect(openCell).toHaveTextContent('오픈');
-});
-
-it('다음 구간이 익월이면(두 달 스팬 창) 표시 중인 달에는 오픈 마커가 렌더되지 않는다', () => {
-  const currentDay = makeDay({ date: '2026-07-20', availableSlotCount: 11 });
-  render(
-    <BookingCalendar
-      yearMonth="2026-07"
-      daysByIso={new Map([[currentDay.date, currentDay]])}
-      bookableFrom="2026-07-16"
-      bookableUntil="2026-08-15"
-      todayIso="2026-07-16"
-      selectedDate={null}
-      onSelectDate={vi.fn()}
-      onOutOfWindowSelect={vi.fn()}
-      windowLabel="7.16 ~ 8.15"
-      ranges={[
-        { startDate: '2026-07-16', endDate: '2026-07-31', label: '현재 예약 가능' },
-        { startDate: '2026-08-01', endDate: '2026-08-15', label: '다음 예약 가능' },
-      ]}
-    />,
-  );
-  // 칩은 익월 구간까지 표기하지만, 오픈 마커(8/1)는 7월 그리드에 없다.
-  expect(screen.getByText('다음 예약 가능 8.1 ~ 8.15')).toBeInTheDocument();
+  expect(screen.queryByText(/예약 가능/)).not.toBeInTheDocument();
+  // 구간 시작일 셀도 일반 셀과 동일하게 렌더된다(오픈 마커 없음).
+  expect(screen.getByRole('button', { name: '21일 여유, 남은 13칸' })).toBeInTheDocument();
   expect(screen.queryByText('오픈')).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: /예약 오픈일/ })).not.toBeInTheDocument();
 });
 
 it('창 밖 미래 셀은 aria-disabled 이고 클릭 시 onSelectDate 대신 onOutOfWindowSelect 를 부른다', () => {
@@ -174,11 +139,12 @@ it('창 밖 미래 셀은 aria-disabled 이고 클릭 시 onSelectDate 대신 on
       selectedDate={null}
       onSelectDate={onSelectDate}
       onOutOfWindowSelect={onOutOfWindowSelect}
-      windowLabel="7.13 ~ 7.20"
     />,
   );
   const outsideCell = screen.getByRole('button', { name: '25일 예약 기간 아님' });
   expect(outsideCell).toHaveAttribute('aria-disabled', 'true');
+  // 시각 문구는 제거됨 — 날짜만 남고 비활성 배경으로 구분한다.
+  expect(outsideCell).not.toHaveTextContent('기간 외');
   fireEvent.click(outsideCell);
   expect(onOutOfWindowSelect).toHaveBeenCalledWith('2026-07-25');
   expect(onSelectDate).not.toHaveBeenCalled();

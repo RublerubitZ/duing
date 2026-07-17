@@ -407,11 +407,6 @@ export function FacilityBookingPage() {
                 <p className="mt-1.5 text-sm text-charcoal-2">
                   학교 예약 현황을 반영해요. 비어 있는 시간만 신청할 수 있어요.
                 </p>
-                {windowLabel && (
-                  <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 text-xs text-charcoal-2">
-                    예약 가능 기간 <span className="font-bold text-ink">{windowLabel}</span>
-                  </p>
-                )}
               </header>
               <MyBookingsChip />
               {usageQuery.data.facilities.length === 0 ? (
@@ -481,8 +476,6 @@ export function FacilityBookingPage() {
                       selectedDate={selectedDate}
                       onSelectDate={selectDateFromMonth}
                       onOutOfWindowSelect={handleOutOfWindowSelect}
-                      windowLabel={windowLabel}
-                      ranges={windowQuery.data?.availableBookingRanges ?? null}
                     />
                   )}
                   {availability && calendarView === 'week' && selectedDate !== null && (
