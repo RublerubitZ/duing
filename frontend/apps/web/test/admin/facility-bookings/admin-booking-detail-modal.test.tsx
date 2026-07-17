@@ -118,6 +118,17 @@ describe('AdminBookingDetailModal', () => {
     expect(screen.queryByRole('button', { name: '거절' })).not.toBeInTheDocument();
   });
 
+  it('CONFIRMED: 취소 버튼만 노출한다 — 학교 측 취소·오확정 정정용 복구 경로', () => {
+    mockDetailQuery.current.data = makeDetail({ status: 'CONFIRMED' });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: '취소' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '승인' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '수동 확정' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '충돌 전환' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '거절' })).not.toBeInTheDocument();
+  });
+
   it('CONFLICT: 재승인·취소 버튼을 노출한다', () => {
     mockDetailQuery.current.data = makeDetail({ status: 'CONFLICT' });
     render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
