@@ -1,9 +1,10 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import type { BookingDayAvailability, FacilityItem } from '@duing/types';
+import type { BookingAvailabilitySlot, BookingDayAvailability, FacilityItem } from '@duing/types';
 import { FacilityContextBar } from '@/app/facilities/_components/booking/FacilityContextBar';
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
 import { BookingViewHeader } from '@/app/facilities/_components/booking/BookingViewHeader';
+import { WeekTimetable } from '@/app/facilities/_components/booking/WeekTimetable';
 import { DaySlotList } from '@/app/facilities/_components/booking/DaySlotList';
 import { DayBookingOverview } from '@/app/facilities/_components/booking/DayBookingOverview';
 import { BookingPanel } from '@/app/facilities/_components/booking/BookingPanel';
@@ -551,4 +552,117 @@ it('홈 카드는 오늘 예약만 반영해 남은 칸 수를 계산한다(다�
   // 오늘 09~12(3칸)만 차감 → 13 - 3 = 10칸. 다른 날 종일 예약은 필터로 무시된다.
   expect(screen.getByText('10칸')).toBeInTheDocument();
   expect(screen.getByText('지금 사용중')).toBeInTheDocument();
+});
+
+// ── 주간 타임테이블(WeekTimetable) — 목업 F3(§4): 셀 시간 선택·선택일 컬럼 강조 ─────
+// 2026-07-20 = 월요일 → weekDatesOf 는 [월20 … 일26]. 창=07-20~07-24(토25는 창 밖, 일26은 데이터 없음).
+const WEEK_SELECTED_DATE = '2026-07-20';
+
+// 13칸(09~21시) 슬롯. overrides 로 특정 시각의 상태를 바꾼다(기본 AVAILABLE).
+function makeWeekSlots(overrides: Record<number, Partial<BookingAvailabilitySlot>> = {}): BookingAvailabilitySlot[] {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return Array.from({ length: 13 }, (_, index) => {
+    const base: BookingAvailabilitySlot = { start: `${pad(9 + index)}:00`, end: `${pad(10 + index)}:00`, status: 'AVAILABLE' };
+    return { ...base, ...overrides[index] };
+  });
+}
+
+function makeWeekDaysByIso(): Map<string, BookingDayAvailability> {
+  const day = (date: string, slots: BookingAvailabilitySlot[]): BookingDayAvailability => ({
+    date,
+    dayStatus: 'AVAILABLE',
+    availableSlotCount: 13,
+    operatingNotes: [],
+    slots,
+  });
+  return new Map<string, BookingDayAvailability>([
+    // 선택일(월20): 09시=지난·10시=예약됨·11시=대기, 나머지 가능
+    [
+      WEEK_SELECTED_DATE,
+      day(WEEK_SELECTED_DATE, makeWeekSlots({ 0: { status: 'PAST' }, 1: { status: 'BLOCKED', blockedBy: 'INTERNAL' }, 2: { status: 'PENDING_HOLD' } })),
+    ],
+    ['2026-07-21', day('2026-07-21', makeWeekSlots())], // 화(창 안) — 다른 요일 탭 검증
+    ['2026-07-25', day('2026-07-25', makeWeekSlots())], // 토(창 밖 — bookableUntil 07-24 초과)
+    // 2026-07-26(일)은 의도적으로 누락 → 데이터 없음
+  ]);
+}
+
+function renderWeek(props?: Partial<Parameters<typeof WeekTimetable>[0]>) {
+  const onSelectDate = vi.fn();
+  const onTapSlot = vi.fn();
+  render(
+    <WeekTimetable
+      selectedDate={WEEK_SELECTED_DATE}
+      daysByIso={makeWeekDaysByIso()}
+      bookableFrom="2026-07-20"
+      bookableUntil="2026-07-24"
+      todayIso="2026-07-20"
+      selection={null}
+      onSelectDate={onSelectDate}
+      onTapSlot={onTapSlot}
+      {...props}
+    />,
+  );
+  return { onSelectDate, onTapSlot };
+}
+
+it('주간 그리드는 선택일 컬럼을 "· 선택" 접미·ink 원형 숫자·sage tint 로 강조한다', () => {
+  renderWeek();
+  // 선택일(월20) 헤더: "· 선택" 접미 + 숫자 ink 원형 반전.
+  const selectedHeader = screen.getByRole('button', { name: '월요일 20일 · 선택' });
+  expect(within(selectedHeader).getByText('20')).toHaveClass('bg-ink');
+  // 선택일 컬럼 셀(td)에 sage tint.
+  const selectedCell = screen.getByRole('button', { name: '월요일 20일 18:00 가능' });
+  expect(selectedCell.closest('td')).toHaveClass('bg-sage/20');
+  // 다른 요일 헤더엔 "· 선택" 접미가 없다.
+  expect(screen.getByRole('button', { name: '화요일 21일' })).toBeInTheDocument();
+});
+
+it('주간 그리드는 가능 셀 탭 시 onTapSlot(iso, start) 를 부른다(선택일·다른 요일 모두)', () => {
+  const { onTapSlot } = renderWeek();
+  // 선택일의 가능 셀
+  fireEvent.click(screen.getByRole('button', { name: '월요일 20일 18:00 가능' }));
+  expect(onTapSlot).toHaveBeenNthCalledWith(1, '2026-07-20', '18:00');
+  // 다른 요일(화21)의 가능 셀
+  fireEvent.click(screen.getByRole('button', { name: '화요일 21일 12:00 가능' }));
+  expect(onTapSlot).toHaveBeenNthCalledWith(2, '2026-07-21', '12:00');
+});
+
+it('주간 그리드는 차단·지난·창 밖 셀을 비활성화하고 데이터 없는 요일 셀은 버튼을 렌더하지 않는다', () => {
+  renderWeek();
+  expect(screen.getByRole('button', { name: '월요일 20일 09:00 지난' })).toBeDisabled(); // PAST
+  expect(screen.getByRole('button', { name: '월요일 20일 10:00 예약됨' })).toBeDisabled(); // BLOCKED
+  expect(screen.getByRole('button', { name: '토요일 25일 09:00 예약 기간 아님' })).toBeDisabled(); // 창 밖
+  // 07-26(일)은 daysByIso 에 없음 → 시각 셀 버튼 자체가 없다.
+  expect(screen.queryByRole('button', { name: /26일 09:00/ })).toBeNull();
+});
+
+it('주간 그리드의 대기(PENDING_HOLD) 셀은 "대기" 라벨을 달고 탭 가능하다', () => {
+  const { onTapSlot } = renderWeek();
+  const pendingCell = screen.getByRole('button', { name: '월요일 20일 11:00 대기' });
+  expect(pendingCell).toBeEnabled();
+  expect(within(pendingCell).getByText('대기')).toBeInTheDocument();
+  fireEvent.click(pendingCell);
+  expect(onTapSlot).toHaveBeenCalledWith('2026-07-20', '11:00');
+});
+
+it('주간 그리드의 선택 범위 셀은 ink 배경·✓·aria-pressed=true 로 표기된다', () => {
+  renderWeek({ selection: { start: '18:00', end: '20:00' } });
+  const rangeStart = screen.getByRole('button', { name: '월요일 20일 18:00 가능' });
+  expect(rangeStart).toHaveClass('bg-ink');
+  expect(rangeStart).toHaveAttribute('aria-pressed', 'true');
+  expect(rangeStart).toHaveTextContent('✓');
+  // 범위 내 두 번째 슬롯도 선택.
+  expect(screen.getByRole('button', { name: '월요일 20일 19:00 가능' })).toHaveAttribute('aria-pressed', 'true');
+  // 범위 밖 가능 셀은 aria-pressed=false.
+  expect(screen.getByRole('button', { name: '월요일 20일 12:00 가능' })).toHaveAttribute('aria-pressed', 'false');
+});
+
+it('주간 그리드는 좌측 시간 라벨을 mono HH:00 으로, 셀 행 높이를 유지한다', () => {
+  renderWeek();
+  const nineLabel = screen.getByText('09:00');
+  expect(nineLabel).toHaveClass('font-mono');
+  expect(screen.getByText('21:00')).toBeInTheDocument(); // 13행(09~21시)
+  // 셀 행 높이 — 모바일 h-9(36px)·sm h-10(40px).
+  expect(screen.getByRole('button', { name: '월요일 20일 18:00 가능' })).toHaveClass('h-9');
 });

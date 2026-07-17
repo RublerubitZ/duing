@@ -253,9 +253,8 @@ export function FacilityBookingPage() {
     else setCalendarView('month'); // [월] 복귀 — 선택일·선택은 유지(Google Calendar 동작, §1).
   };
 
-  // 주간 셀 탭(§9.5 이연분·브리프 Interfaces) — 같은 선택일이면 토글, 다른 날이면 그 날로 전환 후 단일 선택.
-  // Task 1 에서는 정의만 두고, WeekTimetable 셀 연결은 Task 2(주간 그리드 전면 개편)에서 수행한다.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // 주간 셀 탭(§9.5·§4) — 같은 선택일이면 토글, 다른 날이면 그 날로 전환 후 단일 선택.
+  // WeekTimetable 의 onTapSlot 으로 연결된다(선택일 컬럼=toggleSlot, 타 요일=selectDate 후 단일 선택).
   const tapWeekSlot = (iso: string, slotStart: string) => {
     if (iso === selectedDate) {
       toggleSlot(slotStart);
@@ -411,8 +410,10 @@ export function FacilityBookingPage() {
                       daysByIso={daysByIso}
                       bookableFrom={availability.bookableFrom}
                       bookableUntil={availability.bookableUntil}
+                      todayIso={todayIso}
                       selection={selection}
                       onSelectDate={selectDate}
+                      onTapSlot={tapWeekSlot}
                     />
                   )}
                 </section>

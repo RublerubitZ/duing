@@ -74,6 +74,15 @@ const mondayOf = (iso: string) => weekDatesOf(iso)[0] ?? iso;
 // 주간 뷰 진입 시 헤더 h2 에 뜨는 주 기간 라벨(창 첫날이 속한 주).
 const WINDOW_FROM_WEEK_LABEL = weekRangeLabel(mondayOf(WINDOW.from));
 
+// 주간 셀 탭 통합(§4)용 — 창 안에서 다른 요일 셀이 항상 존재하도록 '창 첫날+3일'이 속한 주를 기준으로
+// 앵커(딥링크 진입일)와 다른 요일 타깃을 고른다(주 경계·일요일 엣지에서도 형제 요일이 보장됨).
+const CROSS_ANCHOR = shiftDateByDays(WINDOW.from, 3);
+const CROSS_TARGET =
+  weekDatesOf(CROSS_ANCHOR).find(
+    (iso) => iso >= WINDOW.from && iso <= WINDOW.until && iso.slice(0, 7) === WINDOW_MONTH && iso !== CROSS_ANCHOR,
+  ) ?? WINDOW.from;
+const CROSS_TARGET_DAY = Number(CROSS_TARGET.slice(8, 10));
+
 // Rolling Window 구간 2건 — 단일 창(WINDOW)을 연속 분할한다(현재/다음). 절대 날짜 금지(WINDOW 파생).
 // 계약(설계 §2): [0].startDate==bookableFrom, [last].endDate==bookableUntil, 현재.endDate 다음날==다음.startDate.
 const WINDOW_UNTIL_DAY = Number(WINDOW.until.slice(8, 10));
@@ -721,5 +730,36 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // 창 로드 확인(이전 주 활성) 후 다음 주 비활성을 단언한다.
     await waitFor(() => expect(screen.getByRole('button', { name: '이전 주' })).toBeEnabled());
     expect(screen.getByRole('button', { name: '다음 주' })).toBeDisabled();
+  });
+
+  it('시나리오 23 (셀 탭 통합 a): 주간 그리드에서 선택일의 가능 셀을 탭하면 선택이 토글되고 연속 탭으로 범위가 병합된다', async () => {
+    mockSearchParams.value = `facilityId=1&date=${WINDOW.from}`;
+    renderPage();
+
+    // 주간 진입 확인 — 창 첫날이 선택일.
+    await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL });
+
+    // 선택일 컬럼(창 첫날)의 18:00 가능 셀 탭 → 18:00~19:00 단일 선택(CTA 활성).
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 18:00 가능`) }));
+    expect(screen.getByRole('button', { name: '18:00~19:00 예약 신청' })).toBeEnabled();
+
+    // 인접 19:00 가능 셀 연속 탭 → 18:00~20:00 병합 범위.
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 19:00 가능`) }));
+    expect(screen.getByRole('button', { name: '18:00~20:00 예약 신청' })).toBeEnabled();
+  });
+
+  it('시나리오 24 (셀 탭 통합 b): 주간 그리드에서 다른 요일의 가능 셀을 탭하면 그 날짜로 전환하고 해당 슬롯을 단일 선택한다', async () => {
+    mockSearchParams.value = `facilityId=1&date=${CROSS_ANCHOR}`;
+    renderPage();
+
+    // 앵커일(창 첫날+3일)로 주간 진입 — 앵커 헤더가 "· 선택"으로 강조된다.
+    await screen.findByRole('button', { name: new RegExp(`${Number(CROSS_ANCHOR.slice(8, 10))}일 · 선택`) });
+
+    // 다른 요일(타깃) 15:00 가능 셀 탭 → 그 날짜로 selectedDate 전환 + 15:00~16:00 단일 선택.
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`${CROSS_TARGET_DAY}일 15:00 가능`) }));
+
+    // 선택 컬럼이 타깃으로 이동(타깃 헤더 "· 선택")하고 CTA 가 그 슬롯으로 활성화된다.
+    expect(await screen.findByRole('button', { name: new RegExp(`${CROSS_TARGET_DAY}일 · 선택`) })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '15:00~16:00 예약 신청' })).toBeEnabled();
   });
 });
