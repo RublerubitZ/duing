@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 /**
  * 관리자 액션 서비스(승인 재검증·거절·수동확정·충돌·취소) 통합 테스트.
@@ -258,6 +259,49 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         assertThat(cancelled.getRejectReason()).isNull(); // 취소 사유는 이력에만
         assertThat(historyRepository.findByBookingIdOrderByCreatedAtDesc(conflicted).get(0).getReason())
                 .isEqualTo("동아리 요청으로 취소");
+    }
+
+    @Test
+    @DisplayName("같은 신청에 승인과 거절이 동시에 들어오면 정확히 한 쪽만 성공한다 — @Version 백스톱")
+    void concurrentApproveAndRejectOnSameBookingSerializes() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        Long bookingId = pendingBooking(fixture, bookableDate(), 18, 20);
+
+        CountDownLatch startGate = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        Callable<Throwable> approveTask = () -> {
+            startGate.await(5, TimeUnit.SECONDS);
+            return tryApprove(admin.getId(), bookingId);
+        };
+        Callable<Throwable> rejectTask = () -> {
+            startGate.await(5, TimeUnit.SECONDS);
+            try {
+                adminService.reject(admin.getId(), bookingId, "동시 거절");
+                return null;
+            } catch (Throwable failure) {
+                return failure;
+            }
+        };
+        List<Future<Throwable>> outcomes = List.of(pool.submit(approveTask), pool.submit(rejectTask));
+        startGate.countDown();
+        pool.shutdown();
+        assertThat(pool.awaitTermination(15, TimeUnit.SECONDS)).isTrue();
+
+        long successes = outcomes.stream().map(this::quietGet).filter(failure -> failure == null).count();
+        assertThat(successes).as("정확히 한 전이만 커밋").isEqualTo(1);
+        Throwable loserFailure = outcomes.stream().map(this::quietGet)
+                .filter(failure -> failure != null).findFirst().orElseThrow();
+        // 패자는 늦은 flush 의 낙관 잠금 충돌(동시 커밋) 또는 선행 커밋을 본 상태 가드(순차화) 로 실패한다 —
+        // 둘 다 409 로 변환되는 정상 거부 경로이며, 벌크 UPDATE 등으로 @Version 이 우회되면 이 단언이 깨진다.
+        assertThat(loserFailure).isInstanceOfAny(ObjectOptimisticLockingFailureException.class,
+                FacilityBookingException.InvalidStatusTransitionException.class);
+
+        FacilityBooking finalState = bookingRepository.findById(bookingId).orElseThrow();
+        assertThat(finalState.getStatus()).isIn(BookingStatus.APPROVED, BookingStatus.REJECTED);
+        var histories = historyRepository.findByBookingIdOrderByCreatedAtDesc(bookingId);
+        assertThat(histories).as("생성 이력 + 승자 전이 이력만 남는다").hasSize(2);
+        assertThat(histories.get(0).getNewStatus()).isEqualTo(finalState.getStatus());
     }
 
     private Throwable tryApprove(Long adminId, Long bookingId) {

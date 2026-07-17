@@ -307,6 +307,49 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("EXCLUDE 제약 — CONFIRMED 와 겹치는 APPROVED 도 DB 가 직접 거부한다 (제약의 CONFIRMED 커버 고정)")
+    void excludeConstraintCoversConfirmed() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+        FacilityBooking confirmed = FacilityBooking.request(fixture.facility().getId(), fixture.club().getId(),
+                fixture.leader().getId(), date, LocalTime.of(18, 0), LocalTime.of(20, 0), "연습", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
+        forceStatus(confirmed, BookingStatus.CONFIRMED);
+        bookingRepository.saveAndFlush(confirmed);
+
+        FacilityBooking overlappingApproved = FacilityBooking.request(fixture.facility().getId(),
+                fixture.club().getId(), fixture.leader().getId(), date, LocalTime.of(19, 0), LocalTime.of(21, 0),
+                "연습2", null, FacilityBookingFixture.VALID_CONTACT_PHONE);
+        forceStatus(overlappingApproved, BookingStatus.APPROVED);
+
+        // 제약 WHERE 절에서 CONFIRMED 가 빠지는 마이그레이션 회귀가 들어오면 이 단언이 깨진다
+        assertThatThrownBy(() -> bookingRepository.saveAndFlush(overlappingApproved))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("EXCLUDE 제약 — 경계가 맞닿은(끝==시작) 두 APPROVED 는 겹침이 아니라 저장된다 (반개구간 의미 고정)")
+    void excludeConstraintAllowsBoundaryTouch() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+        FacilityBooking first = FacilityBooking.request(fixture.facility().getId(), fixture.club().getId(),
+                fixture.leader().getId(), date, LocalTime.of(18, 0), LocalTime.of(20, 0), "연습", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
+        forceStatus(first, BookingStatus.APPROVED);
+        bookingRepository.saveAndFlush(first);
+
+        FacilityBooking adjacent = FacilityBooking.request(fixture.facility().getId(), fixture.club().getId(),
+                fixture.leader().getId(), date, LocalTime.of(20, 0), LocalTime.of(21, 0), "연습2", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
+        forceStatus(adjacent, BookingStatus.APPROVED);
+
+        // tsrange 기본 경계 '[)' 가 '[]' 로 바뀌는 회귀가 들어오면 연속 시간대 승인이 전부 409 가 되고 이 단언이 깨진다
+        bookingRepository.saveAndFlush(adjacent);
+        assertThat(bookingRepository.findById(adjacent.getId()).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+    }
+
+    @Test
     @DisplayName("같은 동아리·시설·겹치는 시간의 동시 신청은 한 건만 성공하고 나머지는 동아리 중복으로 실패하며 PENDING 은 1건만 남는다")
     void concurrentSameClubCreateSerializesToSingleSuccess() throws Exception {
         Fixture fixture = fixture();
