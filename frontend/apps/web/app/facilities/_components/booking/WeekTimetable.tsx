@@ -9,6 +9,7 @@ import {
   slotInRange,
   weekDatesOf,
 } from '../../_lib/bookingCalendar';
+import type { WeekBlockDetail } from './WeekBlockSheet';
 
 const HOURS = Array.from({ length: 13 }, (_, index) => 9 + index);
 // 월요일 시작 — weekDatesOf 와 정렬(colIndex 0=월 … 6=일). BookingCalendar 요일 헤더와 동일 순서.
@@ -38,6 +39,9 @@ type Props = {
   selection: SlotRange | null;
   onSelectDate: (iso: string) => void;
   onTapSlot: (iso: string, slotStart: string) => void;
+  // 확정/대기 블록 인터랙션 게이트(§9.3) — 모바일(뷰포트 훅)에서만 true. PC 는 블록 비인터랙티브(disabled).
+  blocksInteractive?: boolean;
+  onTapBlock?: (block: WeekBlockDetail) => void;
 };
 
 type BlockKind = 'BLOCKED' | 'PENDING';
@@ -124,6 +128,8 @@ export function WeekTimetable({
   selection,
   onSelectDate,
   onTapSlot,
+  blocksInteractive = false,
+  onTapBlock,
 }: Props) {
   const weekDates = weekDatesOf(selectedDate);
   const columns = weekDates.map((iso) => {
@@ -138,11 +144,12 @@ export function WeekTimetable({
   );
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[480px] border-separate border-spacing-0 text-center">
+    // 모바일(<sm): min-w 제거 + table-fixed(7컬럼 균등)로 가로 스크롤 제거(§9.1). PC(≥sm): 기존 min-w·overflow 유지.
+    <div className="sm:overflow-x-auto">
+      <table className="w-full table-fixed border-separate border-spacing-0 text-center sm:table-auto sm:min-w-[480px]">
         <thead>
           <tr>
-            <th className="w-12" aria-hidden />
+            <th className="w-8 sm:w-12" aria-hidden />
             {weekDates.map((iso, colIndex) => {
               const isSelectedColumn = iso === selectedDate;
               const dayNumber = Number(iso.slice(8, 10));
@@ -151,7 +158,10 @@ export function WeekTimetable({
                 <th
                   key={iso}
                   className={`p-0 ${
-                    isSelectedColumn ? 'rounded-t-md border-l border-r border-t border-ink bg-sage/20' : ''
+                    // 컬럼 프레임은 PC 전용(§9.2) — 모바일은 헤더 ink 원형 강조만 남기고 프레임 제거.
+                    isSelectedColumn
+                      ? 'sm:rounded-t-md sm:border-l sm:border-r sm:border-t sm:border-ink sm:bg-sage/20'
+                      : ''
                   }`}
                 >
                   <button
@@ -183,8 +193,10 @@ export function WeekTimetable({
             const isLastRow = rowIndex === HOURS.length - 1;
             return (
               <tr key={hour}>
-                <td className="pr-1.5 align-top text-right">
-                  <span className="font-mono text-[10px] text-charcoal-3">{pad2(hour)}:00</span>
+                <td className="pr-1 align-top text-right sm:pr-1.5">
+                  {/* 모바일: HH 만(시간열 w-8), PC: HH:00 — §9.1. */}
+                  <span className="font-mono text-[10px] text-charcoal-3 sm:hidden">{pad2(hour)}</span>
+                  <span className="hidden font-mono text-[10px] text-charcoal-3 sm:inline">{pad2(hour)}:00</span>
                 </td>
                 {columns.map(({ iso, withinWindow, plan }, colIndex) => {
                   const entry = plan[rowIndex];
@@ -197,18 +209,29 @@ export function WeekTimetable({
                     const tdFrame = selectedTdFrame(isSelectedColumn, entry.reachesBottom);
                     const visual = blockVisual(entry, pastelMap);
                     const displayName = entry.kind === 'PENDING' ? '승인 대기' : entry.label;
+                    // 모바일 약칭(§9.2): 대기="대기", 확정=라벨 앞 2자(예: "비호"). 시간·풀네임은 PC(sm) 전용.
+                    const abbrev = entry.kind === 'PENDING' ? '대기' : entry.label.slice(0, 2);
                     // h-px: rowSpan 병합 td 는 명시 높이가 없으면 자식 h-full 이 auto 로 풀려
-                    // 블록이 36px 칩으로 렌더된다(실브라우저 재현·검증) — 높이 트릭으로 병합 구간을 채운다.
+                    // 블록이 28px 칩으로 렌더된다(실브라우저 재현·검증) — 높이 트릭으로 병합 구간을 채운다.
                     return (
                       <td key={iso} rowSpan={entry.rowSpan} className={`h-px p-[2px] ${tdFrame}`}>
                         <button
                           type="button"
-                          disabled
+                          // PC 는 블록 비인터랙티브(disabled), 모바일은 시트 트리거(§9.3). blocksInteractive=뷰포트 훅 게이트.
+                          disabled={!blocksInteractive}
+                          onClick={
+                            blocksInteractive
+                              ? () => onTapBlock?.({ kind: entry.kind, label: displayName, start: entry.start, end: entry.end })
+                              : undefined
+                          }
                           aria-label={blockAriaLabel(entry, weekdayLabel, dayNumber)}
-                          className={`flex h-full min-h-9 w-full flex-col justify-center gap-0.5 overflow-hidden rounded-[5px] border border-l-[3px] px-1 py-0.5 text-left leading-tight disabled:cursor-default sm:min-h-10 ${visual.bg} ${visual.border} ${visual.accent}`}
+                          className={`flex h-full min-h-7 w-full flex-col justify-center gap-0.5 overflow-hidden rounded-[5px] border border-l-[3px] px-1 py-0.5 text-left leading-tight disabled:cursor-default sm:min-h-10 ${visual.bg} ${visual.border} ${visual.accent}`}
                         >
-                          <span className={`truncate text-[10px] font-bold ${visual.name}`}>{displayName}</span>
-                          <span className="truncate font-mono text-[9px] text-charcoal-3">
+                          {/* 모바일: 약칭만(§9.2) */}
+                          <span className={`truncate text-[10px] font-bold sm:hidden ${visual.name}`}>{abbrev}</span>
+                          {/* PC: 풀네임 Bold + 시간 범위 secondary */}
+                          <span className={`hidden truncate text-[10px] font-bold sm:block ${visual.name}`}>{displayName}</span>
+                          <span className="hidden truncate font-mono text-[9px] text-charcoal-3 sm:block">
                             {entry.start}~{entry.end}
                           </span>
                         </button>
@@ -220,7 +243,7 @@ export function WeekTimetable({
                   if (entry.type === 'empty') {
                     return (
                       <td key={iso} className={`p-[2px] ${tdFrame}`}>
-                        <div aria-hidden className="h-9 rounded-[5px] border border-transparent sm:h-10" />
+                        <div aria-hidden className="h-7 rounded-[5px] border border-transparent sm:h-10" />
                       </td>
                     );
                   }
@@ -237,7 +260,7 @@ export function WeekTimetable({
                         aria-pressed={state.selectable ? selected : undefined}
                         aria-label={`${weekdayLabel}요일 ${dayNumber}일 ${pad2(hour)}:00 ${state.statusText}`}
                         onClick={state.selectable ? () => onTapSlot(iso, slot.start) : undefined}
-                        className={`flex h-9 w-full items-center justify-center rounded-[5px] border text-[9px] font-bold leading-none disabled:cursor-default sm:h-10 ${
+                        className={`flex h-7 w-full items-center justify-center rounded-[5px] border text-[9px] font-bold leading-none disabled:cursor-default sm:h-10 ${
                           selected ? 'border-sage bg-ink text-cream shadow-sm' : state.toneClass
                         }`}
                       >
@@ -255,10 +278,11 @@ export function WeekTimetable({
   );
 }
 
-// 선택일 컬럼 프레임(§4) — ink 좌우 보더 + sage tint. reachesBottom(마지막 행 도달 td)만 하단 라운드·보더.
+// 선택일 컬럼 프레임(§4·§9.2) — ink 좌우 보더 + sage tint. PC(sm) 전용(모바일은 헤더 강조만).
+// reachesBottom(마지막 행 도달 td)만 하단 라운드·보더.
 function selectedTdFrame(isSelectedColumn: boolean, reachesBottom: boolean): string {
   if (!isSelectedColumn) return '';
-  return `border-l border-r border-ink bg-sage/20${reachesBottom ? ' rounded-b-md border-b' : ''}`;
+  return `sm:border-l sm:border-r sm:border-ink sm:bg-sage/20${reachesBottom ? ' sm:rounded-b-md sm:border-b' : ''}`;
 }
 
 // 블록 색(§8.2) — 확정=라벨 첫 등장 순 파스텔, 대기=warm 고정.

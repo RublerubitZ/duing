@@ -792,4 +792,55 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(screen.queryByLabelText('승인 진행 타임라인')).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '19:00~20:00 예약 신청' })).toBeEnabled();
   });
+
+  // 시나리오 26/27 은 matchMedia 를 오버라이드하므로 종료 후 원복이 필요하다(후속 시나리오 누수 방지 — 시나리오 20 전례).
+  const setMatchMedia = (matches: boolean) =>
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches,
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    });
+
+  it('시나리오 26 (모바일 블록 시트 §9.3): 모바일 뷰포트에서 가용 셀 탭은 선택, 확정 블록 탭은 라벨·시간·예약됨 배지 바텀시트를 연다', async () => {
+    setMatchMedia(true); // 모바일 — 블록 disabled(PC) ↔ 시트 트리거(모바일) 게이트가 열린다.
+    mockSearchParams.value = `facilityId=1&date=${WINDOW.from}`;
+    renderPage();
+
+    await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL });
+
+    // 가용(운영 sky) 셀 탭은 모바일에서도 선택 동작 — 시트가 아니다(§9.3).
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 18:00 운영 중 예약 가능`) }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '18:00~19:00 예약 신청' })).toBeEnabled();
+
+    // 확정 블록(11:00~12:00 비호응원단) 탭 → 상세 바텀시트.
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 11:00~12:00 비호응원단 예약됨`) }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('비호응원단')).toBeInTheDocument();
+    expect(within(dialog).getByText('11:00~12:00')).toBeInTheDocument();
+    expect(within(dialog).getByText('예약됨')).toBeInTheDocument();
+
+    setMatchMedia(false); // 원복 — 후속 시나리오로 모바일 스텁 누수 방지.
+  });
+
+  it('시나리오 27 (PC 블록 비인터랙티브 §9.3): 데스크탑 뷰포트에서 주간 확정 블록은 disabled 이고 탭해도 시트가 없다', async () => {
+    setMatchMedia(false); // 데스크탑(기본) — 명시적으로 고정.
+    mockSearchParams.value = `facilityId=1&date=${WINDOW.from}`;
+    renderPage();
+
+    await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL });
+    const block = await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 11:00~12:00 비호응원단 예약됨`) });
+    expect(block).toBeDisabled();
+    fireEvent.click(block); // disabled → no-op
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
 });

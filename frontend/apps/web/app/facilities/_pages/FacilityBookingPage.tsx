@@ -29,6 +29,8 @@ import { BookingHomeSkeleton, CalendarGridSkeleton } from '../_components/bookin
 import { BookingPanel, type PanelStep } from '../_components/booking/BookingPanel';
 import { BookingViewHeader, type CalendarView } from '../_components/booking/BookingViewHeader';
 import { WeekTimetable } from '../_components/booking/WeekTimetable';
+import { WeekBlockSheet, type WeekBlockDetail } from '../_components/booking/WeekBlockSheet';
+import { useIsMobileViewport } from '../_lib/useIsMobileViewport';
 import { FacilityContextBar } from '../_components/booking/FacilityContextBar';
 import { FacilityHomeCard } from '../_components/booking/FacilityHomeCard';
 import { MyBookingsChip } from '../_components/booking/MyBookingsChip';
@@ -73,6 +75,9 @@ export function FacilityBookingPage() {
   const [homeView, setHomeView] = useState(false);
   const [selection, setSelection] = useState<SlotRange | null>(null);
   const [step, setStep] = useState<PanelStep>('slots');
+  // 모바일 주간 블록 상세 시트(§9.3) — 확정/대기 블록 탭 시 열린다. 뷰포트 훅으로 블록 인터랙션을 게이트한다.
+  const isMobileViewport = useIsMobileViewport();
+  const [sheetBlock, setSheetBlock] = useState<WeekBlockDetail | null>(null);
   const [submittedResult, setSubmittedResult] = useState<CreateFacilityBookingResult | null>(null);
   const [submittedClubId, setSubmittedClubId] = useState<number | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
@@ -160,6 +165,7 @@ export function FacilityBookingPage() {
     setSubmittedResult(null);
     setSubmittedClubId(null);
     setSubmittedAt(null);
+    setSheetBlock(null); // 화면 전환 시 열려 있던 블록 상세 시트를 닫는다(스테일 방지).
   };
 
   const closePanel = () => {
@@ -250,7 +256,10 @@ export function FacilityBookingPage() {
 
   const changeCalendarView = (nextView: CalendarView) => {
     if (nextView === 'week') showWeekView();
-    else setCalendarView('month'); // [월] 복귀 — 선택일·선택은 유지(Google Calendar 동작, §1).
+    else {
+      setCalendarView('month'); // [월] 복귀 — 선택일·선택은 유지(Google Calendar 동작, §1).
+      setSheetBlock(null); // 주간을 떠나면 블록 상세 시트를 닫는다.
+    }
   };
 
   // 주간 셀 탭(§9.5·§4) — 같은 선택일이면 토글, 다른 날이면 그 날로 전환 후 단일 선택.
@@ -417,6 +426,8 @@ export function FacilityBookingPage() {
                       selection={selection}
                       onSelectDate={selectDate}
                       onTapSlot={tapWeekSlot}
+                      blocksInteractive={isMobileViewport}
+                      onTapBlock={setSheetBlock}
                     />
                   )}
                 </section>
@@ -439,6 +450,9 @@ export function FacilityBookingPage() {
           <FacilityUsageGuide />
         </div>
       )}
+
+      {/* 모바일 주간 블록 상세 바텀시트(§9.3) — 포털 렌더라 위치 무관, 열림은 block!==null 로 제어. */}
+      <WeekBlockSheet block={sheetBlock} onClose={() => setSheetBlock(null)} />
     </main>
   );
 }

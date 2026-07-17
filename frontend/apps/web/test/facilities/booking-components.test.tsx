@@ -5,6 +5,7 @@ import { FacilityContextBar } from '@/app/facilities/_components/booking/Facilit
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
 import { BookingViewHeader } from '@/app/facilities/_components/booking/BookingViewHeader';
 import { WeekTimetable } from '@/app/facilities/_components/booking/WeekTimetable';
+import { WeekBlockSheet } from '@/app/facilities/_components/booking/WeekBlockSheet';
 import { DaySlotList } from '@/app/facilities/_components/booking/DaySlotList';
 import { DayBookingOverview } from '@/app/facilities/_components/booking/DayBookingOverview';
 import { BookingPanel } from '@/app/facilities/_components/booking/BookingPanel';
@@ -607,14 +608,15 @@ function renderWeek(props?: Partial<Parameters<typeof WeekTimetable>[0]>) {
   return { onSelectDate, onTapSlot };
 }
 
-it('주간 그리드는 선택일 컬럼을 "· 선택" 접미·ink 원형 숫자·sage tint 로 강조한다', () => {
+it('주간 그리드는 선택일 컬럼을 "· 선택" 접미·ink 원형 숫자·(PC) sage tint 프레임으로 강조한다', () => {
   renderWeek();
-  // 선택일(월20) 헤더: "· 선택" 접미 + 숫자 ink 원형 반전.
+  // 선택일(월20) 헤더: "· 선택" 접미 + 숫자 ink 원형 반전(모바일·PC 공통 유지).
   const selectedHeader = screen.getByRole('button', { name: '월요일 20일 · 선택' });
   expect(within(selectedHeader).getByText('20')).toHaveClass('bg-ink');
-  // 선택일 컬럼 셀(td)에 sage tint.
+  // 컬럼 프레임(sage tint·ink 보더)은 PC 전용(§9.2) — sm: 프리픽스라 모바일엔 미적용.
   const selectedCell = screen.getByRole('button', { name: '월요일 20일 18:00 가능' });
-  expect(selectedCell.closest('td')).toHaveClass('bg-sage/20');
+  expect(selectedCell.closest('td')).toHaveClass('sm:bg-sage/20');
+  expect(selectedCell.closest('td')).not.toHaveClass('bg-sage/20');
   // 다른 요일 헤더엔 "· 선택" 접미가 없다.
   expect(screen.getByRole('button', { name: '화요일 21일' })).toBeInTheDocument();
 });
@@ -660,13 +662,71 @@ it('주간 그리드의 선택 범위 셀은 ink 배경·✓·aria-pressed=true 
   expect(screen.getByRole('button', { name: '월요일 20일 12:00 가능' })).toHaveAttribute('aria-pressed', 'false');
 });
 
-it('주간 그리드는 좌측 시간 라벨을 mono HH:00 으로, 셀 행 높이를 유지한다', () => {
+it('주간 그리드는 좌측 시간 라벨의 PC 표기를 mono HH:00 으로 유지하고, 셀 행 높이를 모바일 압축(h-7)·PC(sm:h-10)로 둔다', () => {
   renderWeek();
+  // PC 시간 라벨(HH:00)은 mono 유지 — 모바일은 HH 만 노출하는 별도 span(§9.1).
   const nineLabel = screen.getByText('09:00');
   expect(nineLabel).toHaveClass('font-mono');
   expect(screen.getByText('21:00')).toBeInTheDocument(); // 13행(09~21시)
-  // 셀 행 높이 — 모바일 h-9(36px)·sm h-10(40px).
-  expect(screen.getByRole('button', { name: '월요일 20일 18:00 가능' })).toHaveClass('h-9');
+  // 셀 행 높이 — 모바일 h-7(28px)로 압축, PC sm:h-10(40px).
+  const cell = screen.getByRole('button', { name: '월요일 20일 18:00 가능' });
+  expect(cell).toHaveClass('h-7');
+  expect(cell).toHaveClass('sm:h-10');
+});
+
+it('모바일 압축(§9.1): 그리드는 table-fixed·시간열 w-8 이고 min-w 가로 스크롤 래퍼가 없다', () => {
+  renderWeek();
+  const table = screen.getByRole('table');
+  // 7컬럼 균등(table-fixed) + 모바일 min-w 미적용(sm:min-w-[480px] 으로만) → 가로 스크롤 제거.
+  expect(table).toHaveClass('table-fixed');
+  expect(table).not.toHaveClass('min-w-[480px]');
+  // 시간열은 모바일 w-8, PC sm:w-12. 09시는 모바일 'HH' 표기(09)도 노출된다.
+  expect(screen.getByText('09')).toBeInTheDocument();
+});
+
+it('모바일 압축(§9.2): 확정 블록은 2자 약칭만 노출하고 풀네임·시간은 PC(sm) 전용이다', () => {
+  renderBlockWeek();
+  const block = screen.getByRole('button', { name: '월요일 20일 13:00~15:00 비호응원단 예약됨' });
+  // 모바일 약칭 '비호'(sm:hidden) — 라벨 앞 2자.
+  const abbrev = within(block).getByText('비호');
+  expect(abbrev).toHaveClass('sm:hidden');
+  // PC 풀네임(hidden sm:block)·시간(hidden sm:block)은 모바일에서 숨김.
+  const fullName = within(block).getByText('비호응원단');
+  expect(fullName).toHaveClass('hidden');
+  expect(fullName).toHaveClass('sm:block');
+  expect(within(block).getByText('13:00~15:00')).toHaveClass('hidden');
+});
+
+it('모바일 압축(§9.2): 대기 블록은 "대기" 약칭만 노출하고 PC 는 "승인 대기"를 유지한다', () => {
+  renderBlockWeek();
+  const pending = screen.getByRole('button', { name: '월요일 20일 15:00~16:00 승인 대기' });
+  expect(within(pending).getByText('대기')).toHaveClass('sm:hidden');
+  const pendingFull = within(pending).getByText('승인 대기');
+  expect(pendingFull).toHaveClass('hidden');
+  expect(pendingFull).toHaveClass('sm:block');
+});
+
+it('블록 인터랙션 게이트(§9.3): blocksInteractive 면 확정·대기 블록이 탭 가능하고 onTapBlock(라벨·시간·kind) 을 부른다', () => {
+  const onTapBlock = vi.fn();
+  renderBlockWeek({ blocksInteractive: true, onTapBlock });
+  const block = screen.getByRole('button', { name: '월요일 20일 13:00~15:00 비호응원단 예약됨' });
+  expect(block).toBeEnabled();
+  fireEvent.click(block);
+  expect(onTapBlock).toHaveBeenCalledWith({ kind: 'BLOCKED', label: '비호응원단', start: '13:00', end: '15:00' });
+
+  const pending = screen.getByRole('button', { name: '월요일 20일 15:00~16:00 승인 대기' });
+  fireEvent.click(pending);
+  // PENDING 은 이름 비노출 — 라벨은 "승인 대기".
+  expect(onTapBlock).toHaveBeenCalledWith({ kind: 'PENDING', label: '승인 대기', start: '15:00', end: '16:00' });
+});
+
+it('블록 인터랙션 게이트(§9.3): blocksInteractive 없이(PC)는 블록이 disabled 이고 탭해도 onTapBlock 을 부르지 않는다', () => {
+  const onTapBlock = vi.fn();
+  renderBlockWeek({ onTapBlock });
+  const block = screen.getByRole('button', { name: '월요일 20일 13:00~15:00 비호응원단 예약됨' });
+  expect(block).toBeDisabled();
+  fireEvent.click(block);
+  expect(onTapBlock).not.toHaveBeenCalled();
 });
 
 // ── 주간 그리드 예약 블록화 + 색상 정책(§8) — 확정·대기 블록 + 운영 구간 sky 셀·파스텔 순환 ─────
@@ -768,4 +828,28 @@ it('주간 그리드는 확정 블록에 라벨 첫 등장 순 파스텔을 배�
   // 다른 동아리(트레몰로)는 다른 파스텔(lemon = 두 번째 라벨).
   expect(wednesday).toHaveClass('bg-pastel-lemon');
   expect(wednesday).not.toHaveClass('bg-pastel-mint');
+});
+
+// ── 블록 상세 바텀시트(WeekBlockSheet) — §9.3 모바일 블록 탭 상세 ─────
+it('블록 상세 시트(§9.3): 확정 블록은 동아리명·시간 범위·"예약됨" 배지를 노출한다', () => {
+  render(<WeekBlockSheet block={{ kind: 'BLOCKED', label: '비호응원단', start: '13:00', end: '15:00' }} onClose={vi.fn()} />);
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByText('비호응원단')).toBeInTheDocument();
+  expect(within(dialog).getByText('13:00~15:00')).toBeInTheDocument();
+  expect(within(dialog).getByText('예약됨')).toBeInTheDocument();
+});
+
+it('블록 상세 시트(§9.3): 대기 블록은 이름 없이 "승인 대기" 라벨·배지와 시간만 노출한다', () => {
+  render(<WeekBlockSheet block={{ kind: 'PENDING', label: '승인 대기', start: '15:00', end: '16:00' }} onClose={vi.fn()} />);
+  const dialog = screen.getByRole('dialog');
+  // 라벨·배지 모두 "승인 대기"(이름 비노출 정책 유지) → 2회 등장.
+  expect(within(dialog).getAllByText('승인 대기').length).toBeGreaterThanOrEqual(2);
+  expect(within(dialog).getByText('15:00~16:00')).toBeInTheDocument();
+  // 확정 배지는 없다.
+  expect(within(dialog).queryByText('예약됨')).not.toBeInTheDocument();
+});
+
+it('블록 상세 시트(§9.3): block 이 null 이면 시트를 열지 않는다', () => {
+  render(<WeekBlockSheet block={null} onClose={vi.fn()} />);
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
