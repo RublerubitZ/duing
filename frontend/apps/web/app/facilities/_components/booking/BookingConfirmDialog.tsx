@@ -67,7 +67,9 @@ export function BookingConfirmDialog({
       }}
     >
       <DialogContent
-        className="duing w-[calc(100%-2rem)]"
+        // [&_h2]:font-body — .duing h2(specificity 0,1,1)가 DialogTitle의 font-body(0,1,0)를 덮어
+        // 제목이 디스플레이 폰트로 렌더되는 것을 되돌린다(dialog.tsx의 타이틀 정책 준수).
+        className="duing w-[calc(100%-2rem)] [&_h2]:font-body"
         onPointerDownOutside={(event) => {
           if (isSubmitting) event.preventDefault();
         }}
