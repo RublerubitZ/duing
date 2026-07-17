@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -28,7 +29,11 @@ type Props = {
  * 시트 표면은 명시 bg-cream 으로 둔다(NotificationSheet 전례).
  */
 export function WeekBlockSheet({ block, onClose }: Props) {
-  const isPending = block?.kind === 'PENDING';
+  // 닫힘 애니메이션(약 300ms) 동안 내용이 사라지지 않게 마지막 블록 스냅샷을 유지한다 — 열림 여부는 block prop 이 결정.
+  const lastBlockRef = useRef<WeekBlockDetail | null>(null);
+  if (block !== null) lastBlockRef.current = block;
+  const shown = block ?? lastBlockRef.current;
+  const isPending = shown?.kind === 'PENDING';
   const statusBadge = isPending ? '승인 대기' : '예약됨';
   // 확정=이미 예약이 잡힌 시간, 대기=승인 대기 중인 신청. 어느 쪽도 신청할 수 없다는 안내.
   const policyNote = isPending
@@ -44,19 +49,20 @@ export function WeekBlockSheet({ block, onClose }: Props) {
     >
       <SheetContent
         side="bottom"
+        hideClose
         className="duing rounded-t-[26px] border-line bg-cream px-5 pb-[calc(1.5rem_+_env(safe-area-inset-bottom))] pt-3"
       >
         <div className="mx-auto mb-3 h-[4.5px] w-10 rounded-full bg-line" />
         <SheetHeader className="mb-3">
-          <SheetTitle>{isPending ? '승인 대기' : (block?.label ?? '')}</SheetTitle>
+          <SheetTitle>{isPending ? '승인 대기' : (shown?.label ?? '')}</SheetTitle>
           <SheetDescription className="sr-only">예약 블록 상세 정보</SheetDescription>
         </SheetHeader>
-        {block !== null && (
+        {shown !== null && (
           <dl className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <dt className="text-xs text-charcoal-3">시간</dt>
               <dd className="font-mono text-sm font-semibold text-ink-deep">
-                {block.start}~{block.end}
+                {shown.start}~{shown.end}
               </dd>
             </div>
             <div className="flex items-center justify-between gap-3">

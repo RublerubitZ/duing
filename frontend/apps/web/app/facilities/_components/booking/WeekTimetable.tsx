@@ -210,7 +210,8 @@ export function WeekTimetable({
                     const visual = blockVisual(entry, pastelMap);
                     const displayName = entry.kind === 'PENDING' ? '승인 대기' : entry.label;
                     // 모바일 약칭(§9.2): 대기="대기", 확정=라벨 앞 2자(예: "비호"). 시간·풀네임은 PC(sm) 전용.
-                    const abbrev = entry.kind === 'PENDING' ? '대기' : entry.label.slice(0, 2);
+                    // [...str]: 코드포인트 단위 절단 — 서로게이트 페어(이모지 선두 이름) 깨짐 방지.
+                    const abbrev = entry.kind === 'PENDING' ? '대기' : [...entry.label].slice(0, 2).join('');
                     // h-px: rowSpan 병합 td 는 명시 높이가 없으면 자식 h-full 이 auto 로 풀려
                     // 블록이 28px 칩으로 렌더된다(실브라우저 재현·검증) — 높이 트릭으로 병합 구간을 채운다.
                     return (

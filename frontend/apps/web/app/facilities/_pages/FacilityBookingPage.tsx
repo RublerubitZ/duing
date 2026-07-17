@@ -159,6 +159,11 @@ export function FacilityBookingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDateOutOfWindow]);
 
+  // 시트가 열린 채 뷰포트가 sm 경계(640px)를 넘으면(PC 전환) 시트를 닫는다 — PC 는 시트 미사용(§9.3).
+  useEffect(() => {
+    if (!isMobileViewport) setSheetBlock(null);
+  }, [isMobileViewport]);
+
   const resetSelectionFlow = () => {
     setSelection(null);
     setStep('slots');
