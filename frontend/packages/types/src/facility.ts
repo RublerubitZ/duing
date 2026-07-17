@@ -119,6 +119,8 @@ export type CreateFacilityBookingPayload = {
   endTime: string; // HH:mm
   purpose: string;
   attendeeCount?: number;
+  // 대표 연락처(필수) — 서버 검증 패턴 ^01[016789]-?\d{3,4}-?\d{4}$ (하이픈 유무 허용).
+  contactPhone: string;
 };
 
 export type CreateFacilityBookingResult = {
@@ -167,6 +169,8 @@ export type FacilityBookingDetail = {
   status: BookingStatus;
   purpose: string;
   attendeeCount?: number; // NON_NULL 직렬화 — null 이면 필드 생략
+  // 대표 연락처(운영진 본인 확인용). 기존 행(빈 문자열)은 서버가 null 로 내린다 → FE "—" 폴백(§2.3).
+  contactPhone: string | null;
   rejectReason?: string;
   conflictDetail?: string;
   history: FacilityBookingHistoryItem[];
@@ -210,6 +214,8 @@ export type AdminFacilityBookingDetail = {
   status: BookingStatus;
   purpose: string;
   attendeeCount?: number;
+  // 대표 연락처(연락 용도, PII). 기존 행(빈 문자열)은 서버가 null 로 내린다 → FE "—" 폴백(§2.3).
+  contactPhone: string | null;
   rejectReason?: string;
   conflictDetail?: string;
   matchedScheduleSeq?: number;

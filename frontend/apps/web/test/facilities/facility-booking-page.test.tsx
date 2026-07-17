@@ -368,11 +368,13 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(screen.getByRole('button', { name: '18:00~20:00 예약 신청' })).toBeEnabled();
   });
 
-  it('시나리오 5: 로그인 신청이 성공하면 정확한 payload 전송·승인 타임라인 노출 후 "다른 시설 예약하기"로 홈에 복귀한다', async () => {
+  it('시나리오 5: 로그인 신청이 확인 Dialog 를 거쳐 성공하면 정확한 payload(대표 연락처 포함) 전송·승인 타임라인 노출 후 "다른 시설 예약하기"로 홈에 복귀한다', async () => {
     useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
     let capturedBody: unknown = null;
+    let postCount = 0;
     server.use(
       http.post('*/clubs/7/facility-bookings', async ({ request }) => {
+        postCount += 1;
         capturedBody = await request.json();
         return ok({ bookingId: 31, status: 'PENDING' as const, overlappingPendingCount: 1 });
       }),
@@ -395,7 +397,17 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
 
     // 운영진 동아리 목록 로드 대기 — canSubmit 이 clubId 확보 후에만 true 라 클릭 no-op 플레이크 방지.
     await screen.findByText('밴드부');
+    // 대표 연락처는 프로필(/users/me)에 번호가 있으면 프리필된다(§2.1).
+    expect(screen.getByRole('textbox', { name: '대표 연락처' })).toHaveValue('010-1234-5678');
+
+    // 폼 "예약 신청" → 즉시 전송 대신 확인 Dialog 만 열린다(§2.2). 이 시점엔 POST 미발사.
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
+    const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });
+    expect(postCount).toBe(0);
+    expect(capturedBody).toBeNull();
+
+    // 실제 POST 는 Dialog 의 [예약 신청] 에서만 발사된다.
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: '예약 신청' }));
 
     // 성공 화면: 세로 승인 타임라인(관리자 승인 대기 단계) + 겹침 경고.
     const timeline = await screen.findByLabelText('승인 진행 타임라인');
@@ -405,13 +417,16 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
 
     await waitFor(() => expect(capturedBody).not.toBeNull());
     // attendeeCount 는 미입력이므로 body 에 키 자체가 없어야 한다(toEqual 전체 비교로 보장). date 는 창 첫날.
+    // contactPhone 은 프리필 값이 그대로 실린다.
     expect(capturedBody).toEqual({
       facilityId: 1,
       date: WINDOW.from,
       startTime: '18:00',
       endTime: '20:00',
       purpose: '정기 합주',
+      contactPhone: '010-1234-5678',
     });
+    expect(postCount).toBe(1); // 확인 클릭 1회 = POST 1회(중복 제출 없음)
 
     // "다른 시설 예약하기" → 홈 뷰 복귀(홈 카드 재노출로 확인).
     fireEvent.click(screen.getByRole('button', { name: '다른 시설 예약하기' }));
@@ -550,10 +565,16 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
     await screen.findByText('밴드부');
+    // 폼 "예약 신청" → 확인 Dialog. 실제 POST 는 Dialog 확인에서만(§2.2).
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
+    const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: '예약 신청' }));
 
-    // 경합 에러 토스트 + 재조회 후 슬롯 화면 복귀(선택 초기화 → CTA 비활성).
+    // 409/에러는 기존 경로 그대로 — Dialog 닫힘 + 경합 에러 토스트 + 재조회 후 슬롯 화면 복귀(선택 초기화 → CTA 비활성).
     expect(await screen.findByText('이미 예약된 시간이에요.')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '예약을 신청하시겠어요?' })).not.toBeInTheDocument(),
+    );
     const disabledCta = await screen.findByRole('button', { name: '시간을 선택해주세요' });
     expect(disabledCta).toBeDisabled();
   });
@@ -573,6 +594,66 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
 
     expect(await screen.findByText('동아리 정보를 불러오지 못했어요.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+  });
+
+  it('시나리오 13-1 (§2.1·§2.2): 대표 연락처 미입력·형식 오류면 확인 Dialog 가 열리지 않고 한국어 오류를 노출한다', async () => {
+    // 프로필에 번호가 없으면 프리필되지 않아 빈 값으로 시작한다(§2.1).
+    useAuthStore.setState({ status: 'authenticated', user: { ...AUTH_USER, phone: '' } });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+    fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
+    await screen.findByText('밴드부');
+
+    const contactInput = screen.getByRole('textbox', { name: '대표 연락처' });
+    expect(contactInput).toHaveValue(''); // 번호 없음 → 프리필 생략
+
+    // (미입력) 폼 "예약 신청" → Dialog 안 열림 + 한국어 오류.
+    fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
+    expect(screen.queryByRole('dialog', { name: '예약을 신청하시겠어요?' })).not.toBeInTheDocument();
+    expect(screen.getByText('대표 연락처를 입력해주세요.')).toBeInTheDocument();
+
+    // (형식 오류) → Dialog 안 열림 + 형식 오류.
+    fireEvent.change(contactInput, { target: { value: '0101234' } });
+    fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
+    expect(screen.queryByRole('dialog', { name: '예약을 신청하시겠어요?' })).not.toBeInTheDocument();
+    expect(screen.getByText('휴대폰 번호 형식으로 입력해주세요.')).toBeInTheDocument();
+
+    // (유효 — 하이픈 없이도 통과) → Dialog 열림.
+    fireEvent.change(contactInput, { target: { value: '01012345678' } });
+    fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
+    expect(await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' })).toBeInTheDocument();
+  });
+
+  it('시나리오 13-2 (§2.2): 확인 Dialog 의 [취소] 는 POST 없이 다이얼로그만 닫고 폼을 유지한다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+    let postCount = 0;
+    server.use(
+      http.post('*/clubs/7/facility-bookings', () => {
+        postCount += 1;
+        return ok({ bookingId: 31, status: 'PENDING' as const, overlappingPendingCount: 0 });
+      }),
+    );
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+    fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
+    await screen.findByText('밴드부');
+
+    fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
+    const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: '취소' }));
+
+    // Dialog 닫힘 + 폼 유지(목적 input 잔존) + POST 미발사.
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '예약을 신청하시겠어요?' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('textbox', { name: '사용 목적' })).toHaveValue('정기 합주');
+    expect(postCount).toBe(0);
   });
 
   it('시나리오 14: 지난달 딥링크는 창 월로 클램프해 무효(스테일) 월 availability 요청 없이 월간 캘린더를 렌더한다', async () => {
@@ -786,13 +867,15 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     );
     renderPage();
 
-    // 성공 화면까지 진행(창 첫날 18~19시).
+    // 성공 화면까지 진행(창 첫날 18~19시) — 확인 Dialog 경유(§2.2).
     fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
     await screen.findByText('밴드부');
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
+    const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: '예약 신청' }));
     await screen.findByLabelText('승인 진행 타임라인');
 
     // 같은 날 주간 셀(19:00 — 운영 구간 내 sky 점선 가이드 셀) 탭 → 성공 화면 범위 변조 대신 슬롯 단계 + 19:00 단일 선택으로 리셋.
@@ -974,7 +1057,10 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(await within(dialog).findByRole('button', { name: '정기 합주' }));
     expect(within(dialog).queryByRole('button', { name: '시간표로 보기' })).not.toBeInTheDocument();
     await within(dialog).findByText('밴드부');
+    // 폼 "예약 신청" → 확인 Dialog(포털은 시트 밖). 실제 POST 는 Dialog 확인에서만(§2.2).
     fireEvent.click(within(dialog).getByRole('button', { name: '예약 신청' }));
+    const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: '예약 신청' }));
 
     // 성공 화면도 시트 안에서 — 승인 타임라인 노출.
     expect(await within(dialog).findByLabelText('승인 진행 타임라인')).toBeInTheDocument();

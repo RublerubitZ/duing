@@ -104,6 +104,9 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
                   <p className="mt-1 text-xs text-charcoal-3">사용 인원 {detail.attendeeCount}명</p>
                 )}
                 <p className="mt-1 text-xs text-charcoal-3">
+                  <span>대표 연락처</span> <span className="text-charcoal-2">{detail.contactPhone ?? '—'}</span>
+                </p>
+                <p className="mt-1 text-xs text-charcoal-3">
                   상태 <BookingStatusBadge status={detail.status} />
                 </p>
               </div>

@@ -14,8 +14,12 @@ import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
 import type { SlotRange } from '../../_lib/bookingCalendar';
 import { rangeLabel } from '../../_lib/bookingCalendar';
+import { BookingConfirmDialog } from './BookingConfirmDialog';
 
 const PURPOSE_MAX_LENGTH = 200;
+
+// 대표 연락처 검증 — 서버(@Pattern)와 동일. 하이픈 유무 모두 허용한다(§2.1).
+const CONTACT_PHONE_PATTERN = /^01[016789]-?\d{3,4}-?\d{4}$/;
 
 type Props = {
   facilityId: number;
@@ -31,6 +35,7 @@ export function BookingForm({
   facilityId, facilityName, date, range, hasPendingHold, onSubmitted, onBack,
 }: Props) {
   const authStatus = useAuthStore((state) => state.status);
+  const authUser = useAuthStore((state) => state.user);
   const managedClubsQuery = useManagedClubsQuery({ enabled: authStatus === 'authenticated' });
   const presetsQuery = usePurposePresetsQuery();
   const createMutation = useCreateFacilityBookingMutation();
@@ -40,6 +45,10 @@ export function BookingForm({
   const [clubId, setClubId] = useState<number | null>(null);
   const [purpose, setPurpose] = useState('');
   const [attendeeCount, setAttendeeCount] = useState('');
+  // 로그인 프로필(/users/me)에 휴대폰 번호가 있으면 프리필(편집 가능). 없으면 빈 값 시작(§2.1).
+  const [contactPhone, setContactPhone] = useState(() => authUser?.phone ?? '');
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (authStatus !== 'authenticated') {
     // 로그인 후 현재 딥링크(?facilityId=&date=)로 복귀시킨다(next 검증은 로그인 쪽 toLinkRoute).
@@ -83,19 +92,38 @@ export function BookingForm({
   }
 
   const effectiveClubId = clubId ?? managedClubs[0]?.clubId ?? null;
+  const selectedClub = managedClubs.find((club) => club.clubId === effectiveClubId) ?? null;
   const trimmedPurpose = purpose.trim();
+  const trimmedContact = contactPhone.trim();
   const attendeeNumber = attendeeCount === '' ? undefined : Number(attendeeCount);
   const attendeeInvalid =
     attendeeNumber !== undefined && (!Number.isInteger(attendeeNumber) || attendeeNumber <= 0);
-  const canSubmit =
+  // 대표 연락처는 확인 클릭 시점에 검증해 오류를 노출하므로(§2.2·§2.1) 트리거 활성 조건에선 제외한다.
+  const canOpenConfirm =
     effectiveClubId !== null &&
     trimmedPurpose.length > 0 &&
     trimmedPurpose.length <= PURPOSE_MAX_LENGTH &&
     !attendeeInvalid &&
     !createMutation.isPending;
 
+  // 폼 "예약 신청" — 즉시 전송하지 않고 대표 연락처 검증 통과 시 확인 Dialog 만 연다(§2.2).
+  const openConfirm = () => {
+    if (!canOpenConfirm) return;
+    if (trimmedContact.length === 0) {
+      setContactError('대표 연락처를 입력해주세요.');
+      return;
+    }
+    if (!CONTACT_PHONE_PATTERN.test(trimmedContact)) {
+      setContactError('휴대폰 번호 형식으로 입력해주세요.');
+      return;
+    }
+    setContactError(null);
+    setConfirmOpen(true);
+  };
+
+  // 실제 POST 는 확인 Dialog 의 [예약 신청]에서만 발사된다(§2.2).
   const submit = () => {
-    if (!canSubmit || effectiveClubId === null) return;
+    if (effectiveClubId === null || createMutation.isPending) return;
     createMutation.mutate(
       {
         clubId: effectiveClubId,
@@ -106,14 +134,18 @@ export function BookingForm({
           endTime: range.end,
           purpose: trimmedPurpose,
           ...(attendeeNumber !== undefined ? { attendeeCount: attendeeNumber } : {}),
+          contactPhone: trimmedContact,
         },
       },
       {
         onSuccess: (result) => {
           addToast('예약 신청이 접수되었어요.');
+          setConfirmOpen(false);
           onSubmitted(result, effectiveClubId);
         },
         onError: (error) => {
+          // 409/에러는 기존 경로 그대로 — Dialog 닫고 토스트(무효화는 mutation onSettled 가 처리).
+          setConfirmOpen(false);
           addToast(
             error instanceof ApiError ? error.message : '신청에 실패했어요. 잠시 후 다시 시도해주세요.',
             { variant: 'error' },
@@ -212,6 +244,27 @@ export function BookingForm({
         />
       </div>
 
+      <div>
+        <label htmlFor="booking-contact" className="mb-1 block text-xs text-charcoal-3">대표 연락처</label>
+        <input
+          id="booking-contact"
+          inputMode="tel"
+          value={contactPhone}
+          onChange={(event) => {
+            setContactPhone(event.target.value);
+            if (contactError) setContactError(null);
+          }}
+          aria-label="대표 연락처"
+          aria-invalid={contactError !== null}
+          placeholder="연락 가능한 휴대폰 번호를 입력해주세요."
+          className="w-full rounded-md border border-line bg-paper px-3 py-2 text-base"
+        />
+        <p className="mt-1 text-[11px] text-charcoal-3">
+          관리자나 시설 담당자가 예약 관련 연락이 필요할 때 사용해요.
+        </p>
+        {contactError && <p role="alert" className="mt-1 text-[11px] text-coral">{contactError}</p>}
+      </div>
+
       <div className="flex gap-2 pt-1">
         <button
           type="button"
@@ -221,12 +274,28 @@ export function BookingForm({
         >
           시간 다시 선택
         </button>
-        <button type="button" className="btn btn-primary flex-1" disabled={!canSubmit} onClick={submit}>
-          {createMutation.isPending ? '신청 중…' : '예약 신청'}
+        <button type="button" className="btn btn-primary flex-1" disabled={!canOpenConfirm} onClick={openConfirm}>
+          예약 신청
         </button>
       </div>
 
       <p className="text-center text-[11px] text-charcoal-3">신청 후 관리자 승인을 거쳐 확정돼요.</p>
+
+      <BookingConfirmDialog
+        open={confirmOpen}
+        facilityName={facilityName}
+        date={date}
+        range={range}
+        clubName={selectedClub?.clubName ?? ''}
+        purpose={trimmedPurpose}
+        attendeeCount={attendeeNumber}
+        contactPhone={trimmedContact}
+        isSubmitting={createMutation.isPending}
+        onConfirm={submit}
+        onCancel={() => {
+          if (!createMutation.isPending) setConfirmOpen(false);
+        }}
+      />
     </div>
   );
 }
