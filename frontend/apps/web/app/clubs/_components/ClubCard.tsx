@@ -134,13 +134,15 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-col gap-1">
-          {/* 계층 1·2 — 이름 + 한줄 소개(항상 1줄 말줄임, 제목보다 약하되 읽기 쉬운 톤). */}
+          {/* 계층 1·2 — 이름 + 한줄 소개(1줄 말줄임). 미작성이면 플레이스홀더 없이 비워 둔다. */}
           <h3 className="text-[19px] leading-[1.25]">{club.name}</h3>
-          <p className="truncate text-[13.5px] text-charcoal-2 leading-[1.45]">{club.tagline}</p>
+          {club.tagline && (
+            <p className="truncate text-[13.5px] text-charcoal-2 leading-[1.45]">{club.tagline}</p>
+          )}
         </div>
-        {/* 계층 3·4 — 카테고리는 탐색 핵심 정보라 색상 pill로 강조, 분과는 회색 보조 텍스트(중앙만). */}
+        {/* 계층 3·4 — 카테고리는 pill 없이 카테고리별 색상 텍스트로, 분과는 회색 보조 텍스트(중앙만). */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className={cat.pill}>{club.cat}</span>
+          <span className={`text-[12.5px] font-semibold ${cat.text}`}>{club.cat}</span>
           {club.scope === '중앙' && club.division && (
             <span className="text-[12.5px] text-charcoal-3">{formatDivisionLabel(club.division)}</span>
           )}

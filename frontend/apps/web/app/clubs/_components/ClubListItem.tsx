@@ -109,13 +109,15 @@ export function ClubListItem({
       </div>
 
       <div className="min-w-0 flex-1">
-        {/* 계층 1·2 — 이름 + 한줄 소개(각 1줄 truncate). */}
+        {/* 계층 1·2 — 이름 + 한줄 소개(각 1줄 truncate). 미작성이면 플레이스홀더 없이 비워 둔다. */}
         <div className="truncate text-[15.5px] font-bold leading-tight text-ink-deep">{club.name}</div>
-        <div className="mt-0.5 truncate text-[11.5px] text-charcoal-2">{club.tagline}</div>
-        {/* 계층 3·4 — 카테고리 색상 pill 우선, 소속 칩·분과(회색, 중앙만)가 뒤따른다.
+        {club.tagline && (
+          <div className="mt-0.5 truncate text-[11.5px] text-charcoal-2">{club.tagline}</div>
+        )}
+        {/* 계층 3·4 — 카테고리는 pill 없이 색상 텍스트, 소속 칩·분과(회색, 중앙만)가 뒤따른다.
             우측 상단은 D-day(모집) 자리라 소속 칩은 이 행에서 계층 순서를 표현. */}
         <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
-          <span className={cn(cat.pill, 'shrink-0 text-[10px]')}>{club.cat}</span>
+          <span className={cn('shrink-0 text-[11px] font-semibold', cat.text)}>{club.cat}</span>
           <ScopeChip scope={club.scope} />
           {club.scope === '중앙' && club.division && (
             <span className="min-w-0 truncate text-[11px] text-charcoal-3">

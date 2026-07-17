@@ -53,4 +53,10 @@ describe('ClubCard — 소속 칩·분과·해시태그 렌더링', () => {
     render(<ClubCard club={baseClub} />);
     expect(screen.getByText('매주 함께 성장하는 동아리')).toBeInTheDocument();
   });
+
+  it('tagline 미작성(null)이면 플레이스홀더 없이 아무것도 표시하지 않는다', () => {
+    render(<ClubCard club={{ ...baseClub, tagline: null }} />);
+    expect(screen.queryByText('소개 준비중')).toBeNull();
+    expect(screen.queryByText('매주 함께 성장하는 동아리')).toBeNull();
+  });
 });

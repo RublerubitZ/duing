@@ -431,25 +431,25 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
                 <label htmlFor="f-tagline" className={labelCls}>한줄 소개</label>
                 <span
                   className={`text-[11.5px] font-medium ${
-                    tagline.length > 40 ? 'text-[#b04a2a]' : 'text-[#8a8f83]'
+                    tagline.length > 20 ? 'text-[#b04a2a]' : 'text-[#8a8f83]'
                   }`}
                 >
-                  {tagline.length}/40
+                  {tagline.length}/20
                 </span>
               </div>
-              {/* 새 입력은 40자 제한 — 기존 60자 제한으로 저장된 값은 유효성(60자 백스톱)을 유지한다. */}
+              {/* 새 입력은 20자 제한 — 기존 60자 제한으로 저장된 값은 유효성(60자 백스톱)을 유지한다. */}
               <input
                 id="f-tagline"
                 type="text"
                 value={tagline}
-                maxLength={40}
+                maxLength={20}
                 onChange={(event) => setTagline(event.target.value)}
-                placeholder="예: 매주 AI 프로젝트를 함께 개발하는 동아리"
+                placeholder="예: 코드로 함께 성장하는 동아리"
                 className={inputCls}
               />
-              {tagline.length > 40 && (
+              {tagline.length > 20 && (
                 <p className="mt-1 text-[12px] text-[#b04a2a]">
-                  기존에 저장된 소개가 40자를 초과합니다. 40자 이내로 줄이는 것을 권장해요.
+                  기존에 저장된 소개가 20자를 초과합니다. 20자 이내로 줄이는 것을 권장해요.
                 </p>
               )}
             </div>
