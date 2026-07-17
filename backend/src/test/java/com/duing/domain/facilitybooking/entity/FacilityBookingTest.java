@@ -66,7 +66,8 @@ class FacilityBookingTest {
         assertThat(BookingStatus.PENDING.countsTowardActiveCap()).isTrue();
         assertThat(BookingStatus.APPROVED.countsTowardActiveCap()).isTrue();
         assertThat(BookingStatus.CONFIRMED.countsTowardActiveCap()).isFalse();
-        assertThat(BookingStatus.CONFIRMED.isTerminal()).isTrue();
+        // CONFIRMED 는 관리자 취소(복구 경로)가 열려 있어 터미널이 아니다(2026-07-17 감사 후속)
+        assertThat(BookingStatus.CONFIRMED.isTerminal()).isFalse();
         assertThat(BookingStatus.CONFLICT.isTerminal()).isFalse();
         // CONFLICT 는 "승인 이후 충돌" 상태라 슬롯을 여전히 차단한다고 오해하기 쉽다 —
         // 설계 §3.1 은 APPROVED/CONFIRMED 만 차단 대상으로 명시하므로 회귀 가드로 고정한다.

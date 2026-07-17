@@ -81,7 +81,7 @@ class FacilityBookingAdminTransitionTest {
     }
 
     @Test
-    @DisplayName("충돌 전환은 APPROVED 에서만, 관리자 취소는 APPROVED·CONFLICT 에서만 가능하다")
+    @DisplayName("충돌 전환은 APPROVED 에서만, 관리자 취소는 APPROVED·CONFLICT·CONFIRMED 에서 가능하다")
     void conflictAndAdminCancelGuards() throws Exception {
         FacilityBooking approved = booking(BookingStatus.APPROVED);
         approved.markConflict("문화팀 예약과 겹침");
@@ -91,9 +91,16 @@ class FacilityBookingAdminTransitionTest {
         approved.cancelByAdmin();
         assertThat(approved.getStatus()).isEqualTo(BookingStatus.CANCELLED);
 
+        // CONFIRMED 취소는 학교 측 취소·오확정 정정용 복구 경로(2026-07-17 감사 후속)
+        FacilityBooking confirmed = booking(BookingStatus.CONFIRMED);
+        confirmed.cancelByAdmin();
+        assertThat(confirmed.getStatus()).isEqualTo(BookingStatus.CANCELLED);
+
         assertThatThrownBy(() -> booking(BookingStatus.PENDING).markConflict("x"))
                 .isInstanceOf(FacilityBookingException.InvalidStatusTransitionException.class);
-        assertThatThrownBy(() -> booking(BookingStatus.CONFIRMED).cancelByAdmin())
+        assertThatThrownBy(() -> booking(BookingStatus.PENDING).cancelByAdmin())
+                .isInstanceOf(FacilityBookingException.InvalidStatusTransitionException.class);
+        assertThatThrownBy(() -> booking(BookingStatus.CANCELLED).cancelByAdmin())
                 .isInstanceOf(FacilityBookingException.InvalidStatusTransitionException.class);
     }
 }

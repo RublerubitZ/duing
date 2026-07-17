@@ -2,7 +2,8 @@ package com.duing.domain.facilitybooking.entity;
 
 /**
  * 대관 신청 상태 머신(설계 §4). PENDING → APPROVED → CONFIRMED 이 정상 경로,
- * 승인 후 학교 데이터 충돌만 CONFLICT 를 쓴다. CONFIRMED 는 완전 터미널(관리자 포함 변경 불가).
+ * 승인 후 학교 데이터 충돌만 CONFLICT 를 쓴다. CONFIRMED 탈출은 관리자 취소
+ * (학교 측 취소·오확정 정정 복구 경로) 하나만 허용된다.
  */
 public enum BookingStatus {
     PENDING,
@@ -23,6 +24,6 @@ public enum BookingStatus {
     }
 
     public boolean isTerminal() {
-        return this == CONFIRMED || this == REJECTED || this == CANCELLED;
+        return this == REJECTED || this == CANCELLED;
     }
 }
