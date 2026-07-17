@@ -9,6 +9,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.repository.FacilityRepository;
+import com.duing.common.fixture.FacilityBookingFixture;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
@@ -44,7 +45,8 @@ class FacilityBookingPersistenceTest extends IntegrationTestBase {
     private FacilityBooking saveBooking(Long facilityId, Long clubId, Long applicantId,
                                         LocalDate date, int startHour, int endHour) {
         return bookingRepository.save(FacilityBooking.request(facilityId, clubId, applicantId,
-                date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 연습", null));
+                date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 연습", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE));
     }
 
     private Long saveFixtures() {

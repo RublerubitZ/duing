@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.BookingWindowFixture;
+import com.duing.common.fixture.FacilityBookingFixture;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -132,7 +133,8 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
         LocalDate date = BookingWindowFixture.bookableDate();
         Long bookingId = bookingService.create(new CreateFacilityBookingCommand(
                 club.getId(), leader.getId(), facility.getId(), date,
-                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null)).bookingId();
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
         // 신청 이후 겹치는 학교 점유행(꼬리 없음)이 크롤로 유입 — 승인 재검증에 걸려 409 가 되어야 한다
         facilityReservationRepository.save(FacilityReservation.create(
                 facility.getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
@@ -154,6 +156,25 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
                 .isEqualTo(BookingStatus.PENDING);
     }
 
+    @Test
+    @DisplayName("관리자 큐 응답(JSON)은 신청의 대표 연락처를 노출한다")
+    void queueExposesContactPhone() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClub();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Facility facility = saveFacility();
+        bookingService.create(new CreateFacilityBookingCommand(
+                club.getId(), leader.getId(), facility.getId(), BookingWindowFixture.bookableDate(),
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(QUEUE_PATH + "?facilityId=" + facility.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content[0].contactPhone", equalTo(FacilityBookingFixture.VALID_CONTACT_PHONE));
+    }
+
     // ---------- fixtures (FacilityBookingAdminServiceIntegrationTest 와 동일) ----------
 
     private Long pendingBooking() throws Exception {
@@ -165,7 +186,8 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
         LocalDate date = BookingWindowFixture.bookableDate();
         return bookingService.create(new CreateFacilityBookingCommand(
                 club.getId(), leader.getId(), facility.getId(), date,
-                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null)).bookingId();
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
     }
 
     private Club saveActiveClub() throws Exception {

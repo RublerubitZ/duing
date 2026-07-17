@@ -55,6 +55,10 @@ public class FacilityBooking extends BaseEntity {
     @Column(name = "attendee_count")
     private Integer attendeeCount;
 
+    // 관리자·시설 담당자 연락용(§1). 기존 행은 빈 문자열(V85 하위호환), 신규는 요청 검증이 형식을 보장한다.
+    @Column(name = "contact_phone", nullable = false, length = 20)
+    private String contactPhone;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private BookingStatus status;
@@ -88,7 +92,8 @@ public class FacilityBooking extends BaseEntity {
 
     @Builder(access = AccessLevel.PRIVATE)
     private FacilityBooking(Long facilityId, Long clubId, Long applicantId, LocalDate reservationDate,
-                            LocalTime startTime, LocalTime endTime, String purpose, Integer attendeeCount) {
+                            LocalTime startTime, LocalTime endTime, String purpose, Integer attendeeCount,
+                            String contactPhone) {
         this.facilityId = facilityId;
         this.clubId = clubId;
         this.applicantId = applicantId;
@@ -97,12 +102,13 @@ public class FacilityBooking extends BaseEntity {
         this.endTime = endTime;
         this.purpose = purpose;
         this.attendeeCount = attendeeCount;
+        this.contactPhone = contactPhone;
         this.status = BookingStatus.PENDING;
     }
 
     public static FacilityBooking request(Long facilityId, Long clubId, Long applicantId,
                                           LocalDate reservationDate, LocalTime startTime, LocalTime endTime,
-                                          String purpose, Integer attendeeCount) {
+                                          String purpose, Integer attendeeCount, String contactPhone) {
         return FacilityBooking.builder()
                 .facilityId(facilityId)
                 .clubId(clubId)
@@ -112,6 +118,7 @@ public class FacilityBooking extends BaseEntity {
                 .endTime(endTime)
                 .purpose(purpose)
                 .attendeeCount(attendeeCount)
+                .contactPhone(contactPhone)
                 .build();
     }
 

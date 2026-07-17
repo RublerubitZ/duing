@@ -11,5 +11,6 @@ public record CreateFacilityBookingCommand(
         LocalTime startTime,
         LocalTime endTime,
         String purpose,
-        Integer attendeeCount
+        Integer attendeeCount,
+        String contactPhone
 ) {}

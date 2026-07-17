@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.FacilityBookingFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
@@ -168,7 +169,8 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         LocalDate bookingDate = LocalDate.now(clock).plusDays(1);
 
         FacilityBooking booking = FacilityBooking.request(facility.getId(), club.getId(), applicant.getId(),
-                bookingDate, LocalTime.of(10, 0), LocalTime.of(11, 0), "정기 합주", null);
+                bookingDate, LocalTime.of(10, 0), LocalTime.of(11, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
         booking.approve(applicant.getId(), null, LocalDateTime.now(clock));
         bookingRepository.save(booking);
 
@@ -189,6 +191,36 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         assertThat(fallbackSlot.status()).isEqualTo(SlotStatus.BLOCKED);
         assertThat(fallbackSlot.blockedBy()).isEqualTo(SlotBlockSource.INTERNAL);
         assertThat(fallbackSlot.organization()).isNull();
+    }
+
+    @Test
+    @DisplayName("공개 가용성·예약 오픈 구간 응답은 신청의 대표 연락처(PII)를 노출하지 않는다")
+    void publicEndpointsDoNotExposeContactPhone() {
+        Facility facility = facilityRepository.save(Facility.create(90005, "커뮤니티룸(T5)", null, 0));
+        Club club = clubRepository.save(Club.create("비공개연락처동아리", ClubCategory.OTHER, "분과", "설명", null));
+        User applicant = userRepository.save(User.create("2020987654", "신청자", "hashed",
+                UserRole.STUDENT, Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000",
+                LocalDateTime.now(clock)));
+        LocalDate bookingDate = LocalDate.now(clock).plusDays(1);
+        // 식별 가능한 유일 연락처 — 공개 응답 어디에도 이 값이 새면 안 된다.
+        String secretContactPhone = "010-7654-3210";
+        FacilityBooking booking = FacilityBooking.request(facility.getId(), club.getId(), applicant.getId(),
+                bookingDate, LocalTime.of(10, 0), LocalTime.of(11, 0), "정기 합주", null, secretContactPhone);
+        booking.approve(applicant.getId(), null, LocalDateTime.now(clock));
+        bookingRepository.save(booking);
+
+        String availabilityBody = RestAssured.given()
+                .when().get("/api/v1/facilities/" + facility.getId() + "/availability?yearMonth="
+                        + YearMonth.from(bookingDate))
+                .then().statusCode(HttpStatus.OK.value())
+                .extract().asString();
+        assertThat(availabilityBody).doesNotContain(secretContactPhone).doesNotContain("contactPhone");
+
+        String windowBody = RestAssured.given()
+                .when().get("/api/v1/facilities/booking-window")
+                .then().statusCode(HttpStatus.OK.value())
+                .extract().asString();
+        assertThat(windowBody).doesNotContain(secretContactPhone).doesNotContain("contactPhone");
     }
 
     private SlotAvailability slotAt(FacilityAvailabilityResponse response, LocalDate date, String start) {

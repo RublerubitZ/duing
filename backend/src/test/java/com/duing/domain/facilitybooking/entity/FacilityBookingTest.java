@@ -3,6 +3,7 @@ package com.duing.domain.facilitybooking.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.duing.common.fixture.FacilityBookingFixture;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
@@ -15,7 +16,7 @@ class FacilityBookingTest {
     private FacilityBooking pendingBooking() {
         return FacilityBooking.request(1L, 2L, 3L,
                 LocalDate.of(2026, 1, 15), LocalTime.of(18, 0), LocalTime.of(20, 0),
-                "정기 합주", 15);
+                "정기 합주", 15, FacilityBookingFixture.VALID_CONTACT_PHONE);
     }
 
     private void forceStatus(FacilityBooking booking, BookingStatus status) throws Exception {

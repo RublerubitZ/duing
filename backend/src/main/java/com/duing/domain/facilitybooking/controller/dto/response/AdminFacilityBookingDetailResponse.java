@@ -16,6 +16,7 @@ public record AdminFacilityBookingDetailResponse(
         LocalDate date, LocalTime startTime, LocalTime endTime,
         BookingStatus status, String purpose,
         @JsonInclude(JsonInclude.Include.NON_NULL) Integer attendeeCount,
+        String contactPhone,
         @JsonInclude(JsonInclude.Include.NON_NULL) String rejectReason,
         @JsonInclude(JsonInclude.Include.NON_NULL) String conflictDetail,
         @JsonInclude(JsonInclude.Include.NON_NULL) Long matchedScheduleSeq,
@@ -41,7 +42,8 @@ public record AdminFacilityBookingDetailResponse(
     public static AdminFacilityBookingDetailResponse from(AdminBookingDetailResult result) {
         return new AdminFacilityBookingDetailResponse(result.bookingId(), result.clubId(), result.clubName(),
                 result.facilityId(), result.roomName(), result.date(), result.startTime(), result.endTime(),
-                result.status(), result.purpose(), result.attendeeCount(), result.rejectReason(),
+                result.status(), result.purpose(), result.attendeeCount(), result.contactPhone(),
+                result.rejectReason(),
                 result.conflictDetail(), result.matchedScheduleSeq(), result.crawlBasisAt(), result.stale(),
                 result.overlaps().stream().map(OverlapItem::from).toList(), result.overlappingPendingCount(),
                 result.history().stream().map(HistoryItem::from).toList());

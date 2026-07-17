@@ -21,7 +21,7 @@ public interface FacilityBookingService {
     record BookingDetailResult(Long bookingId, Long facilityId, String roomName,
                                LocalDate date, LocalTime startTime, LocalTime endTime,
                                BookingStatus status, String purpose, Integer attendeeCount,
-                               String rejectReason, String conflictDetail,
+                               String contactPhone, String rejectReason, String conflictDetail,
                                List<HistoryEntry> history) {}
 
     /** 대관 신청 생성(설계 §5.1) — PENDING 겹침은 허용하고 개수만 알린다. */

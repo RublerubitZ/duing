@@ -64,7 +64,7 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
         FacilityBooking booking = facilityBookingRepository.save(FacilityBooking.request(
                 command.facilityId(), command.clubId(), command.actorId(),
                 command.date(), command.startTime(), command.endTime(),
-                command.purpose(), command.attendeeCount()));
+                command.purpose(), command.attendeeCount(), command.contactPhone()));
         historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), null, BookingStatus.PENDING, command.actorId(), null, null));
 
@@ -117,7 +117,13 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
         return new BookingDetailResult(booking.getId(), booking.getFacilityId(), roomName,
                 booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
                 booking.getStatus(), booking.getPurpose(), booking.getAttendeeCount(),
+                blankToNull(booking.getContactPhone()),
                 booking.getRejectReason(), booking.getConflictDetail(), history);
+    }
+
+    /** 기존 행(빈 문자열)은 응답에서 null 로 내린다(FE "—" 표기 폴백, 설계 §1). */
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private Map<Long, String> roomNames(List<FacilityBooking> bookings) {

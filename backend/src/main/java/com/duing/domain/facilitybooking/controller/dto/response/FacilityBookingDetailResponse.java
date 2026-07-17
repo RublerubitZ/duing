@@ -14,6 +14,7 @@ public record FacilityBookingDetailResponse(
         LocalDate date, LocalTime startTime, LocalTime endTime,
         BookingStatus status, String purpose,
         @JsonInclude(JsonInclude.Include.NON_NULL) Integer attendeeCount,
+        String contactPhone,
         @JsonInclude(JsonInclude.Include.NON_NULL) String rejectReason,
         @JsonInclude(JsonInclude.Include.NON_NULL) String conflictDetail,
         List<HistoryItem> history
@@ -28,7 +29,7 @@ public record FacilityBookingDetailResponse(
     public static FacilityBookingDetailResponse from(BookingDetailResult result) {
         return new FacilityBookingDetailResponse(result.bookingId(), result.facilityId(), result.roomName(),
                 result.date(), result.startTime(), result.endTime(), result.status(), result.purpose(),
-                result.attendeeCount(), result.rejectReason(), result.conflictDetail(),
+                result.attendeeCount(), result.contactPhone(), result.rejectReason(), result.conflictDetail(),
                 result.history().stream().map(HistoryItem::from).toList());
     }
 }

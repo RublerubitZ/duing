@@ -64,15 +64,15 @@ public class FacilityBookingAdminQueryService {
 
     public record AdminBookingSummaryResult(Long bookingId, Long clubId, String clubName,
             Long facilityId, String roomName, LocalDate date, LocalTime startTime, LocalTime endTime,
-            BookingStatus status, String purpose, LocalDateTime createdAt,
+            BookingStatus status, String purpose, String contactPhone, LocalDateTime createdAt,
             Integer approvedWaitingDays, boolean conflictSuspected, boolean partiallyMatched) {}
 
     public record OverlapContext(String source, String organization, LocalTime startTime, LocalTime endTime) {}
 
     public record AdminBookingDetailResult(Long bookingId, Long clubId, String clubName,
             Long facilityId, String roomName, LocalDate date, LocalTime startTime, LocalTime endTime,
-            BookingStatus status, String purpose, Integer attendeeCount, String rejectReason,
-            String conflictDetail, Long matchedScheduleSeq,
+            BookingStatus status, String purpose, Integer attendeeCount, String contactPhone,
+            String rejectReason, String conflictDetail, Long matchedScheduleSeq,
             LocalDateTime crawlBasisAt, boolean stale,
             List<OverlapContext> overlaps, long overlappingPendingCount,
             List<FacilityBookingService.HistoryEntry> history) {}
@@ -151,8 +151,14 @@ public class FacilityBookingAdminQueryService {
         return new AdminBookingDetailResult(booking.getId(), booking.getClubId(), clubName,
                 booking.getFacilityId(), roomName, date, booking.getStartTime(), booking.getEndTime(),
                 booking.getStatus(), booking.getPurpose(), booking.getAttendeeCount(),
+                blankToNull(booking.getContactPhone()),
                 booking.getRejectReason(), booking.getConflictDetail(), booking.getMatchedScheduleSeq(),
                 crawlBasisAt, stale, overlaps, overlappingPendingCount, history);
+    }
+
+    /** 기존 행(빈 문자열)의 대표 연락처는 응답에서 null 로 내린다(FE "—" 표기 폴백, 설계 §1). */
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     public AdminBookingSummaryCounts getSummary() {
@@ -222,7 +228,8 @@ public class FacilityBookingAdminQueryService {
                 clubNames.getOrDefault(booking.getClubId(), ""), booking.getFacilityId(),
                 roomNames.getOrDefault(booking.getFacilityId(), ""), booking.getReservationDate(),
                 booking.getStartTime(), booking.getEndTime(), booking.getStatus(), booking.getPurpose(),
-                booking.getCreatedAt(), approvedWaitingDays, conflictSuspected, partiallyMatched);
+                blankToNull(booking.getContactPhone()), booking.getCreatedAt(),
+                approvedWaitingDays, conflictSuspected, partiallyMatched);
     }
 
     /**
