@@ -54,9 +54,11 @@ describe('ClubCard — 소속 칩·분과·해시태그 렌더링', () => {
     expect(screen.getByText('매주 함께 성장하는 동아리')).toBeInTheDocument();
   });
 
-  it('tagline 미작성(null)이면 플레이스홀더 없이 아무것도 표시하지 않는다', () => {
+  it('tagline 미작성(null)이면 플레이스홀더 없이 NBSP 빈 줄로 높이만 유지한다', () => {
     render(<ClubCard club={{ ...baseClub, tagline: null }} />);
     expect(screen.queryByText('소개 준비중')).toBeNull();
     expect(screen.queryByText('매주 함께 성장하는 동아리')).toBeNull();
+    // 빈 줄(NBSP)이 렌더되어 카테고리 행 위치가 다른 카드와 동일하게 유지된다
+    expect(screen.getByText(' ', { normalizer: (text) => text })).toBeInTheDocument();
   });
 });

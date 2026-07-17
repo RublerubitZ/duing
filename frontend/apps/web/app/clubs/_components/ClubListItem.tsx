@@ -109,11 +109,10 @@ export function ClubListItem({
       </div>
 
       <div className="min-w-0 flex-1">
-        {/* 계층 1·2 — 이름 + 한줄 소개(각 1줄 truncate). 미작성이면 플레이스홀더 없이 비워 둔다. */}
+        {/* 계층 1·2 — 이름 + 한줄 소개(각 1줄 truncate). 미작성이면 문구 없이 빈 줄로 높이만
+            유지해 행 간 정보 위치를 일정하게 정렬한다(NBSP가 줄 높이 확보). */}
         <div className="truncate text-[15.5px] font-bold leading-tight text-ink-deep">{club.name}</div>
-        {club.tagline && (
-          <div className="mt-0.5 truncate text-[11.5px] text-charcoal-2">{club.tagline}</div>
-        )}
+        <div className="mt-0.5 truncate text-[11.5px] text-charcoal-2">{club.tagline ?? ' '}</div>
         {/* 계층 3·4 — 카테고리는 pill 없이 색상 텍스트, 소속 칩·분과(회색, 중앙만)가 뒤따른다.
             우측 상단은 D-day(모집) 자리라 소속 칩은 이 행에서 계층 순서를 표현. */}
         <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
