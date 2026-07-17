@@ -33,8 +33,13 @@ vi.mock('next/navigation', async () => {
   };
 });
 
-// 날짜는 전부 오늘 기준으로 동적 생성한다(하드코딩 절대날짜 = CI 타임밤 금지).
-const TODAY_ISO = seoulDateIso(new Date());
+// 실행 시각 무관 결정성 — Date 만 고정한다(타이머는 실제 유지: MSW·waitFor 호환, toFake:['Date']).
+// 설치/복원은 beforeEach/afterEach 로 매 테스트 스코프(하단 이월 블록 setSystemTime 전례와 동일) — 모듈 스코프
+// 상주 설치는 케이스 누적 시 타이머 상태가 쌓여 flaky 타임아웃을 유발한다.
+// 7/31 12:30 KST 고정: day>15 → 반월 창 [8/1..8/15]. 창 첫날(8/1 = 오늘+1)은 전날 12:00 경과라 신청 마감이므로
+// WINDOW_FROM_CELL 로 마감 게이트를 검증하고, 폼 도달 플로우는 마감-안전한 APPLY_CELL(오늘+2 = 8/2)로 진입한다.
+const FIXED_NOW = new Date('2026-07-31T12:30:00+09:00');
+const TODAY_ISO = seoulDateIso(FIXED_NOW);
 const CURRENT_MONTH = TODAY_ISO.slice(0, 7);
 
 const pad2 = (value: number) => String(value).padStart(2, '0');
@@ -60,6 +65,13 @@ const WINDOW_FROM_DAY = Number(WINDOW.from.slice(8, 10));
 // 창 첫날 셀(혼합 슬롯 → availableSlotCount 10 → 레벨 '여유'). 카드형 셀 접근성 이름은
 // '레벨 + 남은 칸수'까지 포함해 월 폴백 전환기의 PAST/창밖 셀("N일"·"N일 예약 기간 아님")과 혼선을 차단한다.
 const WINDOW_FROM_CELL = `${WINDOW_FROM_DAY}일 여유, 남은 10칸`;
+
+// 폼 도달(신청) 플로우용 마감-안전 날짜: 오늘+2. 마감 = (오늘+2)-1 = 내일 → 고정 now(오늘) 기준 항상 미래라
+// 마감 게이트를 통과한다(창 첫날 = 오늘+1 만 마감). 창 첫날과 동일한 혼합 슬롯을 실어(makeAvailability) 셀 라벨·
+// 슬롯 셀렉터를 그대로 공유한다 → availableSlotCount 10 → 레벨 '여유'.
+const APPLY_DATE_ISO = shiftDateByDays(TODAY_ISO, 2);
+const APPLY_DAY = Number(APPLY_DATE_ISO.slice(8, 10));
+const APPLY_CELL = `${APPLY_DAY}일 여유, 남은 10칸`;
 
 // 창 월 안에 있으면서 창 밖(미래) 셀 — 토스트 가드 검증용.
 // day<=15(창=16~말일)면 창 열기 직전 날(15일), day>15(창=익월1~15)면 창 닫힌 뒤 날(익월16일).
@@ -117,7 +129,8 @@ function makeMixedSlots(): BookingAvailabilitySlot[] {
 }
 
 // availability 는 요청 yearMonth 의 한 달 전체를 채운다. 창 밖 날짜도 데이터상 AVAILABLE 이며(게이팅은
-// 페이지가 bookableFrom/Until 로 수행), 창 첫날에만 혼합 슬롯을 둔다. bookableFrom/Until 은 항상 반월 창.
+// 페이지가 bookableFrom/Until 로 수행), 창 첫날과 신청 플로우용 APPLY_DATE 에만 혼합 슬롯을 둔다
+// (마감된 창 첫날과 마감-안전한 APPLY_DATE 가 동일 레이아웃 → 셀 라벨·슬롯 셀렉터 공유). bookableFrom/Until 은 항상 반월 창.
 function makeAvailability(facilityId: number, yearMonth: string): FacilityAvailabilityResponse {
   const [year, month] = yearMonth.split('-').map(Number);
   const daysInMonth = new Date(year ?? 1970, month ?? 1, 0).getDate();
@@ -133,7 +146,7 @@ function makeAvailability(facilityId: number, yearMonth: string): FacilityAvaila
       if (iso < TODAY_ISO) {
         return { date: iso, dayStatus: 'PAST' as const, availableSlotCount: 0, operatingNotes: [], slots: [] };
       }
-      if (iso === WINDOW.from) {
+      if (iso === WINDOW.from || iso === APPLY_DATE_ISO) {
         return {
           date: iso,
           dayStatus: 'AVAILABLE' as const,
@@ -257,10 +270,13 @@ beforeAll(() => {
 afterEach(() => {
   server.resetHandlers();
   mockSearchParams.value = '';
+  vi.useRealTimers(); // 매 테스트 후 고정 Date 원복(누적 방지 + 다른 파일 누수 차단).
 });
 afterAll(() => server.close());
 
 beforeEach(() => {
+  // Date 만 고정(타이머 실제 유지) — 매 테스트 스코프 설치로 하단 이월 블록 pinSeoulNoon 과 정합.
+  vi.useFakeTimers({ toFake: ['Date'], now: FIXED_NOW });
   useAuthStore.setState({ status: 'idle', user: null });
   // 랜딩 = 첫 시설 캘린더(자동 선택). 대부분의 시나리오는 캘린더(슬롯/폼) 플로우를 검증하므로
   // 딥링크 facilityId=1 로 선택 시설을 커뮤니티룸으로 고정한다. 홈 카드 그리드가 필요한 시나리오는
@@ -400,7 +416,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
 
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: /19:00~20:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~20:00 예약 신청' }));
@@ -434,11 +450,11 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(screen.getByText(/1건이 함께 대기/)).toBeInTheDocument();
 
     await waitFor(() => expect(capturedBody).not.toBeNull());
-    // attendeeCount 는 미입력이므로 body 에 키 자체가 없어야 한다(toEqual 전체 비교로 보장). date 는 창 첫날.
+    // attendeeCount 는 미입력이므로 body 에 키 자체가 없어야 한다(toEqual 전체 비교로 보장). date 는 마감-안전한 신청일.
     // contactPhone 은 프리필 값이 그대로 실린다.
     expect(capturedBody).toEqual({
       facilityId: 1,
-      date: WINDOW.from,
+      date: APPLY_DATE_ISO,
       startTime: '18:00',
       endTime: '20:00',
       purpose: '정기 합주',
@@ -488,7 +504,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
     // 대기(14~15) 슬롯은 §8 정정 후에도 그리드에선 비인터랙티브 블록(aria "…14:00~15:00 승인 대기"가
     // 이 정규식과 겹치기도 함) — 선택은 사이드바 시간 리스트로 스코프한다.
     const slotList = await screen.findByRole('list', { name: '시간대 선택' });
@@ -556,9 +572,9 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
         const yearMonth = new URL(request.url).searchParams.get('yearMonth') ?? WINDOW_MONTH;
         const availability = makeAvailability(1, yearMonth);
         if (conflictBlocked) {
-          const windowFrom = availability.days.find((day) => day.date === WINDOW.from);
-          if (windowFrom) {
-            windowFrom.slots = windowFrom.slots.map((slot) =>
+          const applyDay = availability.days.find((day) => day.date === APPLY_DATE_ISO);
+          if (applyDay) {
+            applyDay.slots = applyDay.slots.map((slot) =>
               slot.start === '18:00'
                 ? { start: slot.start, end: slot.end, status: 'BLOCKED' as const, blockedBy: 'INTERNAL' as const }
                 : slot,
@@ -578,7 +594,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
 
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
 
@@ -607,7 +623,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     );
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
 
@@ -620,7 +636,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     useAuthStore.setState({ status: 'authenticated', user: { ...AUTH_USER, phone: '' } });
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
@@ -657,7 +673,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     );
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
@@ -673,6 +689,68 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     );
     expect(screen.getByRole('textbox', { name: '사용 목적' })).toHaveValue('정기 합주');
     expect(postCount).toBe(0);
+  });
+
+  it('신청 마감 게이트: 전날 12:00 이 지난 날짜(창 첫날)는 폼 대신 마감 안내가 보인다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+    renderPage();
+
+    // WINDOW.from(= 오늘+1)은 전날 12:00 이 지나 마감 — 폼 대신 마감 안내(role=alert). 표시용 힌트(최종 판단은 서버).
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('시설 사용일 전날 12:00까지만 신청할 수 있어요.');
+    expect(screen.queryByLabelText('사용 목적')).not.toBeInTheDocument();
+  });
+
+  it('중앙동아리 게이트: 중앙동아리가 아닌 운영 동아리만 있으면 안내가 보이고 폼이 숨는다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+    server.use(
+      http.get('*/leader/clubs/me/managed', () =>
+        ok([{ clubId: 7, clubName: '밴드부', logoUrl: null, myRole: 'LEADER', centralClub: false, activeRecruitmentCount: 0 }]),
+      ),
+    );
+    renderPage();
+
+    // APPLY_CELL(마감-안전 날짜)로 폼 스텝 진입 — 중앙동아리 필터(fail-open)로 폼 대신 안내.
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+
+    expect(await screen.findByText(/시설 예약은 중앙동아리만 신청할 수 있어요/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('사용 목적')).not.toBeInTheDocument();
+  });
+
+  it('서버 마감 거부: 서버가 마감 코드로 400 하면 서버 메시지가 토스트로 보인다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+    server.use(
+      http.post('*/clubs/7/facility-bookings', () =>
+        HttpResponse.json(
+          {
+            ok: false,
+            data: null,
+            message: '시설 사용일 전날 12:00까지만 신청할 수 있어요.',
+            code: 'FACILITY_BOOKING_DEADLINE_PASSED',
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    renderPage();
+
+    // APPLY_CELL 경유로 폼 작성·확인 다이얼로그까지 기존 성공 플로우와 동일 절차로 진행한 뒤 제출 → 서버 400.
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+    fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
+    await screen.findByText('밴드부');
+    fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
+    const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: '예약 신청' }));
+
+    // onError 토스트 = 서버 message 그대로(= 사용자 문구, 별도 매핑 없음).
+    expect(await screen.findByText('시설 사용일 전날 12:00까지만 신청할 수 있어요.')).toBeInTheDocument();
   });
 
   it('시나리오 14: 지난달 딥링크는 창 월로 클램프해 무효(스테일) 월 availability 요청 없이 월간 캘린더를 렌더한다', async () => {
@@ -886,8 +964,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     );
     renderPage();
 
-    // 성공 화면까지 진행(창 첫날 18~19시) — 확인 Dialog 경유(§2.2).
-    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    // 성공 화면까지 진행(신청일 18~19시) — 확인 Dialog 경유(§2.2). 마감-안전한 APPLY_DATE 로 폼 진입.
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
@@ -898,7 +976,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     await screen.findByLabelText('승인 진행 타임라인');
 
     // 같은 날 주간 셀(19:00 — 운영 구간 내 sky 점선 가이드 셀) 탭 → 성공 화면 범위 변조 대신 슬롯 단계 + 19:00 단일 선택으로 리셋.
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 19:00 기본 확보 시간 · 예약 신청 가능`) }));
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${APPLY_DAY}일 19:00 기본 확보 시간 · 예약 신청 가능`) }));
     expect(screen.queryByLabelText('승인 진행 타임라인')).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '19:00~20:00 예약 신청' })).toBeEnabled();
   });
@@ -1066,7 +1144,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     mockSearchParams.value = 'facilityId=1';
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
     const dialog = await screen.findByRole('dialog');
     const slotList = within(dialog).getByRole('list', { name: '시간대 선택' });
     fireEvent.click(within(slotList).getByRole('button', { name: /18:00~19:00/ }));
