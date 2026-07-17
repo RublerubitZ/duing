@@ -263,6 +263,8 @@ export function dayOverviewTimeline(
   return timeline.sort((left, right) => {
     if (left.start !== right.start) return left.start < right.start ? -1 : 1;
     // 시작 동률은 예약 건을 먼저(§5.1) — 운영 조각(OPERATING)을 뒤로 민다.
+    // 예약 vs 조각 동률은 구조적으로 불가(조각 시작점의 예약은 노트와 겹쳐 커서에 흡수됨);
+    // 실제 동률은 서로 겹치는 노트 2개의 조각끼리뿐이며 stable sort 로 노트 입력순이 유지된다.
     const leftOperating = left.kind === 'OPERATING' ? 1 : 0;
     const rightOperating = right.kind === 'OPERATING' ? 1 : 0;
     return leftOperating - rightOperating;

@@ -259,6 +259,26 @@ describe('dayOverviewTimeline', () => {
     status: 'PENDING_HOLD',
   });
 
+  it('노트 시작 전부터 걸친 예약은 커서를 max 로 밀어 선행 조각을 만들지 않는다', () => {
+    // 예약 09~11 vs 노트 10~20: 겹침이나 노트 앞을 벗어남 — 조각은 [11, 20] 하나
+    expect(
+      dayOverviewTimeline([schoolBlock(9, '비호응원단'), schoolBlock(10, '비호응원단')], [note('고정관념', '10:00', '20:00')]),
+    ).toEqual([
+      { start: '09:00', end: '11:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '11:00', end: '20:00', label: '고정관념', kind: 'OPERATING' },
+    ]);
+  });
+
+  it('예약이 노트를 완전히 덮으면 운영 조각이 생기지 않는다', () => {
+    // 예약 09~13 vs 노트 10~12: 양방향 빈 조각 가드
+    expect(
+      dayOverviewTimeline(
+        [schoolBlock(9, '비호응원단'), schoolBlock(10, '비호응원단'), schoolBlock(11, '비호응원단'), schoolBlock(12, '비호응원단')],
+        [note('고정관념', '10:00', '12:00')],
+      ),
+    ).toEqual([{ start: '09:00', end: '13:00', label: '비호응원단', kind: 'SCHOOL' }]);
+  });
+
   it('(a) 운영 09~20 을 확정 예약 10~12 로 잘라 앞/뒤 운영 조각을 만든다', () => {
     expect(
       dayOverviewTimeline([schoolBlock(10, '비호응원단'), schoolBlock(11, '비호응원단')], [note('고정관념', '09:00', '20:00')]),
