@@ -46,7 +46,7 @@ const ACTION_META: Record<
   },
   confirm: {
     title: '수동 확정',
-    description: '학교 반영을 직접 확인한 경우에만 확정하세요. 확정 후에는 되돌릴 수 없어요.',
+    description: '학교 반영을 직접 확인한 경우에만 확정하세요. 잘못 확정한 경우에는 취소로 되돌릴 수 있어요.',
     reasonLabel: null,
     destructive: false,
     successMessage: '확정했어요.',
@@ -60,7 +60,7 @@ const ACTION_META: Record<
   },
   cancel: {
     title: '취소',
-    description: '승인된 예약을 취소합니다. 사유는 동아리에 표시됩니다.',
+    description: '승인·확정된 예약을 취소합니다. 사유는 동아리에 표시됩니다.',
     reasonLabel: '취소 사유',
     destructive: true,
     successMessage: '취소했어요.',
@@ -135,7 +135,7 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
     else cancelMutation.mutate({ bookingId, reason }, callbacks);
   };
 
-  // §4.3 상태별 액션 매트릭스
+  // §4.3 상태별 액션 매트릭스 — CONFIRMED 취소는 학교 측 취소·오확정 정정용 복구 경로(2026-07-17 감사 후속)
   const availableActions: ActionKind[] =
     detail?.status === 'PENDING'
       ? ['approve', 'reject']
@@ -143,7 +143,9 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
         ? ['confirm', 'markConflict', 'cancel']
         : detail?.status === 'CONFLICT'
           ? ['approve', 'cancel']
-          : [];
+          : detail?.status === 'CONFIRMED'
+            ? ['cancel']
+            : [];
 
   return (
     <>
