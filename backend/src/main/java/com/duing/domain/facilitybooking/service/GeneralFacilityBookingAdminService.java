@@ -1,5 +1,6 @@
 package com.duing.domain.facilitybooking.service;
 
+import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityReservation;
 import com.duing.domain.facility.exception.FacilityException;
 import com.duing.domain.facility.repository.FacilityRepository;
@@ -36,8 +37,9 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     public void approve(Long adminId, Long bookingId) {
         FacilityBooking booking = getBooking(bookingId);
         // 시설 단위 승인 직렬화(§5.2) — 겹치는 두 신청의 동시 승인을 잠금으로 차단, EXCLUDE 는 최종 백스톱
-        facilityRepository.findByIdForUpdate(booking.getFacilityId())
+        Facility facility = facilityRepository.findByIdForUpdate(booking.getFacilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
+        rejectIfArchived(facility);
         // 단일 조회 목록에서 basis·검증·payload 를 함께 계산 — 쿼리 간 크롤 세대 교체로 감사값이 분리되는 것을 차단.
         List<FacilityReservation> monthRows = facilityReservationRepository.findByFacilityIdAndYearMonth(
                 booking.getFacilityId(), YearMonth.from(booking.getReservationDate()));
@@ -70,8 +72,9 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
         // 승인과 같은 학교 점유 재검증을 걸면 수동 확정이 필요한 모든 경우가 409 로 막힌다(2026-07-17 감사).
         // 시설 행 잠금(무방비 CONFIRMED 진입 차단)과 내부 APPROVED/CONFIRMED 겹침 재검증은 유지하고,
         // 판정 근거 크롤 세대(crawlBasisAt)는 이력에 계속 남긴다.
-        facilityRepository.findByIdForUpdate(booking.getFacilityId())
+        Facility facility = facilityRepository.findByIdForUpdate(booking.getFacilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
+        rejectIfArchived(facility);
         List<FacilityReservation> monthRows = facilityReservationRepository.findByFacilityIdAndYearMonth(
                 booking.getFacilityId(), YearMonth.from(booking.getReservationDate()));
         LocalDateTime crawlBasisAt = facilityCrawlBasis(monthRows);
@@ -106,6 +109,15 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     private FacilityBooking getBooking(Long bookingId) {
         return facilityBookingRepository.findById(bookingId)
                 .orElseThrow(FacilityBookingException.BookingNotFoundException::new);
+    }
+
+    /** 아카이브 시설 가드 — 시설 잠금 하 재검증이라 일일 동기화의 archive 전이와 직렬화된다(2026-07-17 감사).
+     *  자동 매칭(FacilityBookingMatchingService)의 동일 가드와 대칭으로 아카이브 시설에 APPROVED/CONFIRMED
+     *  진입 경로를 전부 닫는다 — 단 실패 표출은 다르다(잡은 로그 후 스킵, 동기 관리자 요청은 409 즉시 응답). */
+    private void rejectIfArchived(Facility facility) {
+        if (facility.isArchived()) {
+            throw new FacilityBookingException.ArchivedFacilityConflictException();
+        }
     }
 
     /**

@@ -12,6 +12,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityReservation;
@@ -114,6 +115,26 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     // ---------- tests ----------
+
+    @Test
+    @DisplayName("운영 중이 아닌 동아리는 예약을 신청할 수 없다 — 동아리 행 잠금 하 ACTIVE 재검증")
+    void createRejectsInactiveClub() throws Exception {
+        User leader = saveUser("리더");
+        Club inactiveClub = saveActiveClub("중단동아리");
+        clubMemberRepository.save(ClubMember.asLeader(inactiveClub, leader));
+        Field statusField = Club.class.getDeclaredField("status");
+        statusField.setAccessible(true);
+        statusField.set(inactiveClub, ClubStatus.INACTIVE);
+        clubRepository.save(inactiveClub);
+        Facility facility = saveFacility();
+
+        assertThatThrownBy(() -> bookingService.create(new CreateFacilityBookingCommand(
+                inactiveClub.getId(), leader.getId(), facility.getId(), bookableDate(),
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)))
+                .isInstanceOf(ClubMemberException.NotActiveClub.class);
+        assertThat(bookingRepository.findByClubIdOrderByCreatedAtDesc(inactiveClub.getId())).isEmpty();
+    }
 
     @Test
     @DisplayName("운영진 신청은 PENDING 으로 생성되고 생성 이력이 남는다")
