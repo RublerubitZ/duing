@@ -41,6 +41,15 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
     expect(screen.queryByText('컴퓨터정보공학분과')).toBeNull();
   });
 
+  it('이름이 아주 길어도 소속 칩은 잘리지 않고 렌더된다 (이름만 truncate)', () => {
+    render(
+      <ClubListItem
+        club={{ ...baseClub, name: '아주아주아주아주아주아주아주아주아주 긴 이름의 테스트 동아리' }}
+      />,
+    );
+    expect(screen.getByText('중앙')).toBeInTheDocument();
+  });
+
   it('한줄 소개(tagline)를 이름 아래에 렌더한다', () => {
     render(<ClubListItem club={baseClub} />);
     expect(screen.getByText('매주 함께 성장하는 동아리')).toBeInTheDocument();
