@@ -112,3 +112,20 @@
 - [ ] **Step 3: 구현** — 스펙 §10 그대로. 동작 코드(탭·선택·블록 plan) 무변경 확인.
 - [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
 - [ ] **Step 5: 커밋** — `feat(frontend): 운영행을 가이드 레이어로 — 점선 시각·기본 확보 시간 문구 전환`
+
+---
+
+### Task 6: 모바일 빠른 예약 Bottom Sheet (10차 요구 §11)
+
+**Files:**
+- Create: `frontend/apps/web/app/facilities/_components/booking/MobileDaySheet.tsx` (§11.1 구성 — 기존 PanelStepIndicator·DaySlotList·BookingForm·BookingSuccess 조립 + "시간표로 보기")
+- Modify: `frontend/apps/web/app/facilities/_pages/FacilityBookingPage.tsx` (모바일 날짜 탭 분기·시트 상태·뷰포트 승계 이펙트)
+- Test: `facility-booking-page.test.tsx`(모바일 플로우 시나리오), `booking-components.test.tsx`(시트 단위)
+
+**Interfaces:** PC 경로(`selectDate`→week 전환)는 무변경. 모바일 분기는 페이지에서 `isMobileViewport && calendarView==='month'`일 때 날짜 탭 → 시트 오픈(주간 전환 생략). 시트는 기존 panel 스텝 상태(step·selection·submitted*)를 그대로 공유 — 새 상태 머신을 만들지 않는다.
+
+- [ ] **Step 1: 실패 테스트 (RED)** — 모바일(matchMedia true): (a) 월간 날짜 탭 → dialog(시트) 열림 + 월간 유지(주간 그리드 부재) + 시트에 날짜 제목·슬롯 리스트, (b) 시트에서 슬롯 탭 → 선택 요약·CTA 활성, (c) "시간표로 보기" 탭 → 시트 닫힘 + 주간 전환 + 선택 유지, (d) 시트 닫기 → 월간 유지 + 선택 정리, (e) 딥링크 date → 월간 + 시트. PC(false): (f) 날짜 탭 → 기존 주간 전환·시트 부재(무회귀).
+- [ ] **Step 2: 실패 확인** — `pnpm --filter web test facility-booking-page booking-components` FAIL
+- [ ] **Step 3: 구현** — 스펙 §11 그대로. 시트 전례(duing 스코프·bg-cream·sr-only Description·hideClose·핸들 바) 준수. WeekBlockSheet 와 상태 분리(동시 열림 불가 — 월간에선 블록 시트 트리거 자체가 없음).
+- [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
+- [ ] **Step 5: 커밋** — `feat(frontend): 모바일 빠른 예약 시트 — 월간 날짜 탭 즉시 시간 선택·시간표는 보조`
