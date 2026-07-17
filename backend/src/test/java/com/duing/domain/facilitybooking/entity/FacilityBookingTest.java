@@ -58,7 +58,7 @@ class FacilityBookingTest {
     }
 
     @Test
-    @DisplayName("BookingStatus 파생 속성 — 차단/상한/터미널")
+    @DisplayName("APPROVED·CONFIRMED 만 슬롯을 차단하고, CONFIRMED 는 관리자 취소 복구 경로가 열려 있어 터미널이 아니다")
     void statusDerivedFlags() {
         assertThat(BookingStatus.APPROVED.blocksSlot()).isTrue();
         assertThat(BookingStatus.CONFIRMED.blocksSlot()).isTrue();

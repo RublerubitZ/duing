@@ -625,7 +625,7 @@ domain/facilitybooking/
 
 ## 14. 테스트 전략
 
-- **상태 머신 단위**: 모든 허용/차단 전이(도메인 메서드), CONFIRMED 터미널 불변식.
+- **상태 머신 단위**: 모든 허용/차단 전이(도메인 메서드), CONFIRMED 탈출은 관리자 취소뿐이라는 불변식(2026-07-17 감사 후속).
 - **가용성 계산**: 점유행/운영행/빈 날/PENDING_HOLD/과거 슬롯 조합 픽스처(운영행이 막지 않는 것 필수 검증).
 - **승인 동시성(실스레드)**: `ExecutorService` + latch — 겹치는 두 신청 동시 승인 → 정확히 1건 APPROVED(기존 동시성 테스트 전례, 잠금 도입 시 기본 포함).
 - **EXCLUDE 제약(실 PG)**: 잠금 우회 상황에서 제약 위반 롤백 검증(Testcontainers/통합).
@@ -661,7 +661,7 @@ domain/facilitybooking/
 7. Hard Block 없음: PENDING 겹침 허용 + 경고 + 승인 시 정리.
 8. 릴리스 P1/P2/P3 분할, 알림은 인앱 전용.
 9. 크롤 행 판별(운영행/점유행)은 `FacilityAvailabilityPolicy`로 추상화 — 컬럼 구조 의존은 정책 내부에만 격리(§3.1 0단계).
-10. 상태별 권한 매트릭스(§4.3) — PENDING만 신청자 취소 가능, APPROVED는 관리자만 취소, CONFIRMED는 누구도 불가.
+10. 상태별 권한 매트릭스(§4.3) — PENDING만 신청자 취소 가능, APPROVED·CONFIRMED는 관리자만 취소(CONFIRMED 취소는 복구 경로, 2026-07-17 감사 후속).
 11. 자동 CONFIRMED 정확 매칭은 P1의 보수적 초기 정책 — 매칭 판정은 교체 가능한 정책으로 캡슐화(§5.3).
 12. 신청 규칙 상수(활성 10건 등)는 `BookingPolicyValidator` 뒤에 격리 — P2 설정화 시 호출부 불변(§3.3).
 

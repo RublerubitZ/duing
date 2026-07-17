@@ -130,7 +130,7 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
         }
     }
 
-    /** 내부 APPROVED/CONFIRMED 겹침 — 승인 불가(§5.2-2c-②). 자기 자신은 제외(CONFLICT 재승인 경로). */
+    /** 내부 APPROVED/CONFIRMED 겹침 — 승인·수동 확정 불가(§5.2-2c-②). 자기 자신은 제외(CONFLICT 재승인 경로). */
     private void rejectIfInternallyBlocked(FacilityBooking booking) {
         boolean blocked = facilityBookingRepository.findOverlapping(
                         booking.getFacilityId(), booking.getReservationDate(),
