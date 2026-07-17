@@ -20,12 +20,13 @@ const MONTH_LEGEND = (['HIGH', 'MID', 'LOW', 'FULL'] as const).map((level) => ({
   barClass: DAY_LEVEL_META[level].barClass,
 }));
 
-// 주간 범례(§2·§8.2) — 가능=sage, 예약됨=파스텔 대표 1색(확정 예약 블록), 운영 중 예약 가능=sky(선택 가능 셀), 대기=warm.
+// 주간 범례(§2·§10.1) — 가능=sage, 예약됨=파스텔 대표 1색(확정 예약 블록), 기본 확보 시간=sky 점선 가이드 셀, 대기=warm.
 // 예약됨은 파스텔 팔레트를 순환하지만 범례는 대표 1색(mint)으로 "확정 예약" 을 안내한다.
+// 기본 확보 시간 스와치는 그리드 가이드 셀과 정합하도록 점선(border-dashed) + 연한 sky 로 표기한다(§10.1).
 const WEEK_LEGEND = [
   { label: '가능', barClass: 'bg-sage-mist' },
   { label: '예약됨', barClass: 'bg-pastel-mint' },
-  { label: '운영 중 예약 가능', barClass: 'bg-sky-200' },
+  { label: '기본 확보 시간', barClass: 'border border-dashed border-sky-300 bg-sky-50' },
   { label: '대기', barClass: 'bg-warm/60' },
 ];
 

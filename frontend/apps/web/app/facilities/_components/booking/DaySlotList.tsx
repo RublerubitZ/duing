@@ -37,13 +37,13 @@ export function DaySlotList({ day, selection, onToggleSlot }: Props) {
     <div>
       {day.operatingNotes.length > 0 && (
         <div className="mb-2 rounded-lg border border-line bg-graysoft/40 px-3 py-2 text-xs">
-          <p className="font-bold text-ink">운영 시간 안내</p>
+          <p className="font-bold text-ink">기본 확보 시간</p>
           <p className="mt-0.5 text-charcoal-2">
             {day.operatingNotes.map((note) => `${note.organization} ${note.start}~${note.end}`).join(' · ')}
           </p>
           <p className="mt-1 text-charcoal-3">
-            시간 범위가 함께 표시된 일정은 운영상 확보된 시간 안내예요. 이 시간에도 예약을 신청할 수 있고,
-            관리자 승인 후 학교 반영 절차를 거쳐 확정돼요.
+            학교와 협의되어 기본적으로 이 동아리가 사용하는 시간이에요. 다른 동아리도 같은 시간에 예약을
+            신청할 수 있고, 관리자 승인 후 일정 조정을 거쳐 이용할 수 있어요.
           </p>
         </div>
       )}

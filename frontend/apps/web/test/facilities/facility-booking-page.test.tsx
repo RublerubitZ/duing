@@ -342,8 +342,11 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // INTERNAL 비노출("예약됨")·PENDING_HOLD("승인 대기")도 현황·슬롯·요약 집계에 나타난다.
     expect(screen.getAllByText('예약됨').length).toBeGreaterThan(0);
     expect(screen.getAllByText('승인 대기').length).toBeGreaterThan(0);
-    // 운영행은 정책 안내 박스로 승격(단체·시간 나열 + 고정 문구).
-    expect(screen.getByText('운영 시간 안내')).toBeInTheDocument();
+    // 운영행은 정책 안내 박스로 승격(단체·시간 나열 + §10.2 고정 문구).
+    // "기본 확보 시간"은 주간 범례에도 있어 박스 고유의 고정 문구로 단언한다.
+    expect(
+      screen.getByText(/학교와 협의되어 기본적으로 이 동아리가 사용하는 시간이에요/),
+    ).toBeInTheDocument();
     expect(screen.getByText(/고정관념 09:00~20:00/)).toBeInTheDocument();
 
     // 요약 카드 시간대 분포(오전 09–12 = AVAILABLE 2/3, 오후 12–18 = 4/6, 저녁 18–22 = 4/4).
@@ -742,15 +745,15 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // 주간 진입 확인 — 창 첫날이 선택일.
     await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL });
 
-    // 창 첫날 18·19시는 운영(09~20) 구간 내 가용 = sky 셀(§8.1 정정) — 일반 가용 셀과 동일하게 탭 선택.
+    // 창 첫날 18·19시는 운영(09~20) 구간 내 가용 = sky 점선 가이드 셀(§10.1) — 일반 가용 셀과 동일하게 탭 선택.
     // 선택일 컬럼(창 첫날)의 18:00 셀 탭 → 18:00~19:00 단일 선택(CTA 활성).
     fireEvent.click(
-      await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 18:00 운영 중 예약 가능`) }),
+      await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 18:00 기본 확보 시간 · 예약 신청 가능`) }),
     );
     expect(screen.getByRole('button', { name: '18:00~19:00 예약 신청' })).toBeEnabled();
 
     // 인접 19:00 셀 연속 탭 → 18:00~20:00 병합 범위.
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 19:00 운영 중 예약 가능`) }));
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 19:00 기본 확보 시간 · 예약 신청 가능`) }));
     expect(screen.getByRole('button', { name: '18:00~20:00 예약 신청' })).toBeEnabled();
   });
 
@@ -787,8 +790,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
     await screen.findByLabelText('승인 진행 타임라인');
 
-    // 같은 날 주간 셀(19:00 — 운영 구간 내 sky 셀) 탭 → 성공 화면 범위 변조 대신 슬롯 단계 + 19:00 단일 선택으로 리셋.
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 19:00 운영 중 예약 가능`) }));
+    // 같은 날 주간 셀(19:00 — 운영 구간 내 sky 점선 가이드 셀) 탭 → 성공 화면 범위 변조 대신 슬롯 단계 + 19:00 단일 선택으로 리셋.
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 19:00 기본 확보 시간 · 예약 신청 가능`) }));
     expect(screen.queryByLabelText('승인 진행 타임라인')).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '19:00~20:00 예약 신청' })).toBeEnabled();
   });
@@ -817,8 +820,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
 
     await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL });
 
-    // 가용(운영 sky) 셀 탭은 모바일에서도 선택 동작 — 시트가 아니다(§9.3).
-    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 18:00 운영 중 예약 가능`) }));
+    // 가용(기본 확보 시간 sky) 셀 탭은 모바일에서도 선택 동작 — 시트가 아니다(§9.3).
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 18:00 기본 확보 시간 · 예약 신청 가능`) }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '18:00~19:00 예약 신청' })).toBeEnabled();
 

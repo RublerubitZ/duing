@@ -61,7 +61,7 @@ type PlanEmpty = { type: 'empty' };
 type PlanCovered = { type: 'covered' };
 type PlanEntry = PlanBlock | PlanCell | PlanEmpty | PlanCovered;
 
-// 셀 상태(§4·§8.2 고정색) — 가능=sage 셀·운영 중 가능=sky 셀(둘 다 탭)·PAST=gray·창 밖=gray.
+// 셀 상태(§4·§10.1) — 가능=sage 셀·기본 확보 시간=sky 점선 가이드 셀(둘 다 탭)·PAST=gray·창 밖=gray.
 // BLOCKED/PENDING 은 블록으로 승격.
 type CellState = { statusText: string; toneClass: string; selectable: boolean };
 
@@ -311,8 +311,9 @@ function cellStateOf(
   if (!withinWindow) return { statusText: '예약 기간 아님', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
   if (isPast) return { statusText: '지난', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
   if (status === 'AVAILABLE') {
-    // 운영 노트 구간의 가용 셀 = sky 상태색(§8.2) — 시각만 다르고 동작은 일반 가용 셀과 동일.
-    if (operating) return { statusText: '운영 중 예약 가능', toneClass: 'border-sky-200 bg-sky-100', selectable: true };
+    // 운영 노트 구간의 가용 셀 = 기본 확보 시간 가이드 레이어(§10.1) — 아주 연한 sky 배경 + 점선 보더로
+    // "안내" 신호. 시각만 다르고 동작(탭 선택·토글·선택 ink+✓)은 일반 가용 셀과 완전 동일.
+    if (operating) return { statusText: '기본 확보 시간 · 예약 신청 가능', toneClass: 'border-dashed border-sky-200 bg-sky-50', selectable: true };
     return { statusText: '가능', toneClass: 'border-sage-soft bg-sage-mist', selectable: true };
   }
   // 방어적 폴백(BLOCKED·PENDING_HOLD 는 블록으로 렌더되어 셀 경로에 도달하지 않음).

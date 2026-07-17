@@ -41,7 +41,7 @@ export function DayBookingOverview({ day }: Props) {
             <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${TIMELINE_DOT_CLASS[item.kind]}`} />
             <span className="text-[13px] font-semibold text-ink">
               {item.label}
-              {item.kind === 'OPERATING' ? <span className="ml-1 font-normal text-charcoal-3">(운영 시간)</span> : null}
+              {item.kind === 'OPERATING' ? <span className="ml-1 font-normal text-charcoal-3">(기본 확보)</span> : null}
             </span>
           </li>
         ))}

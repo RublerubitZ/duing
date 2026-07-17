@@ -240,28 +240,31 @@ it('승인 대기 행은 흰 바탕 + coral 라벨이고, 선택되면 라벨이
   expect(within(pendingRow()).getByText(/승인 대기/)).toHaveClass('text-cream/85');
 });
 
-it('운영행이 있는 날은 운영 시간 안내 박스에 단체·시간 나열과 고정 정책 문구를 렌더한다', () => {
+it('운영행이 있는 날은 기본 확보 시간 안내 박스에 단체·시간 나열과 고정 정책 문구를 렌더한다', () => {
   const day = makeDay({
     operatingNotes: [
       { organization: '고정관념', start: '09:00', end: '20:00' },
       { organization: '두잉밴드', start: '10:00', end: '12:00' },
     ],
   });
-  render(<DaySlotList day={day} selection={null} onToggleSlot={vi.fn()} />);
-  expect(screen.getByText('운영 시간 안내')).toBeInTheDocument();
+  const { container } = render(<DaySlotList day={day} selection={null} onToggleSlot={vi.fn()} />);
+  expect(screen.getByText('기본 확보 시간')).toBeInTheDocument();
   expect(screen.getByText('고정관념 09:00~20:00 · 두잉밴드 10:00~12:00')).toBeInTheDocument();
   expect(
     screen.getByText(
-      '시간 범위가 함께 표시된 일정은 운영상 확보된 시간 안내예요. 이 시간에도 예약을 신청할 수 있고, 관리자 승인 후 학교 반영 절차를 거쳐 확정돼요.',
+      '학교와 협의되어 기본적으로 이 동아리가 사용하는 시간이에요. 다른 동아리도 같은 시간에 예약을 신청할 수 있고, 관리자 승인 후 일정 조정을 거쳐 이용할 수 있어요.',
     ),
   ).toBeInTheDocument();
   // 승인 주체는 "관리자"로 통일 — "총동연" 비노출 정책
   expect(screen.queryByText(/총동연/)).not.toBeInTheDocument();
+  // 금지어(§10.2): 렌더 출력에 "운영 시간"·"운영 중" 부재.
+  expect(container).not.toHaveTextContent(/운영 시간/);
+  expect(container).not.toHaveTextContent(/운영 중/);
 });
 
-it('운영행이 없는 날은 운영 시간 안내 박스를 렌더하지 않는다', () => {
+it('운영행이 없는 날은 기본 확보 시간 안내 박스를 렌더하지 않는다', () => {
   render(<DaySlotList day={makeDay({ operatingNotes: [] })} selection={null} onToggleSlot={vi.fn()} />);
-  expect(screen.queryByText('운영 시간 안내')).not.toBeInTheDocument();
+  expect(screen.queryByText('기본 확보 시간')).not.toBeInTheDocument();
 });
 
 it('차단 슬롯 버튼은 비활성이다', () => {
@@ -346,9 +349,9 @@ it('패널 요약 카드는 레벨 뱃지·기간 분포를 렌더하고 바로 
   expect(screen.queryByRole('button', { name: '09:00' })).not.toBeInTheDocument();
 });
 
-it('패널 요약 카드는 상태별 집계 행과 슬롯 파생 운영 시간을 노출하고 0건 상태는 숨긴다', () => {
+it('패널 요약 카드는 상태별 집계 행과 슬롯 파생 이용 가능 시간을 노출하고 0건 상태는 숨긴다', () => {
   // makeDay(): AVAILABLE 10 · PENDING_HOLD 1 · BLOCKED 2 · PAST 0
-  render(<PanelSummaryCard day={makeDay()} />);
+  const { container } = render(<PanelSummaryCard day={makeDay()} />);
   expect(screen.getByText('예약 가능')).toBeInTheDocument();
   expect(screen.getByText('10칸')).toBeInTheDocument();
   expect(screen.getByText('승인 대기')).toBeInTheDocument();
@@ -357,21 +360,24 @@ it('패널 요약 카드는 상태별 집계 행과 슬롯 파생 운영 시간�
   expect(screen.getByText('2칸')).toBeInTheDocument();
   // 0건인 지난 시간은 렌더하지 않는다
   expect(screen.queryByText('지난 시간')).not.toBeInTheDocument();
-  // 운영 시간은 슬롯[0].start~슬롯[마지막].end 파생(FE 상수 하드코딩 금지)
-  expect(screen.getByText('운영 시간 09:00~22:00 · 13칸')).toBeInTheDocument();
+  // 이용 가능 시간은 슬롯[0].start~슬롯[마지막].end 파생(FE 상수 하드코딩 금지)
+  expect(screen.getByText('이용 가능 시간 09:00~22:00 · 13칸')).toBeInTheDocument();
+  // 금지어(§10.2): "운영 시간"·"운영 중" 부재.
+  expect(container).not.toHaveTextContent(/운영 시간/);
+  expect(container).not.toHaveTextContent(/운영 중/);
 });
 
 it('예약 현황 카드는 운영행을 예약 건으로 잘라 운영 조각·예약 건·그 외 시간 행을 렌더한다', () => {
   // makeDay(): 운영 고정관념 09~20 · SCHOOL 비호응원단 17~18 · INTERNAL 18~19 · PENDING 20~21
   // → 타임라인: 운영 09~17 / 비호응원단 17~18 / 예약됨 18~19 / 운영 19~20 / 승인 대기 20~21
-  render(<DayBookingOverview day={makeDay()} />);
+  const { container } = render(<DayBookingOverview day={makeDay()} />);
   // 제목은 bookingDateLabel 재사용(2026-07-20 = 월요일)
   expect(screen.getByText('7월 20일 (월) 예약 현황')).toBeInTheDocument();
-  // 운영 조각 2개(09~17·19~20): sage 도트 + 단체명 + muted "(운영 시간)" 접미
+  // 운영 조각 2개(09~17·19~20): sage 도트 + 단체명 + muted "(기본 확보)" 접미
   expect(screen.getByText('09:00~17:00')).toBeInTheDocument();
   expect(screen.getByText('19:00~20:00')).toBeInTheDocument();
   expect(screen.getAllByText('고정관념')).toHaveLength(2);
-  expect(screen.getAllByText('(운영 시간)')).toHaveLength(2);
+  expect(screen.getAllByText('(기본 확보)')).toHaveLength(2);
   const operatingRow = screen.getByText('09:00~17:00').closest('li');
   expect(operatingRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-sage');
   // 예약 건 행: 시간 범위 + 이름(SCHOOL 단체명 / INTERNAL "예약됨")
@@ -388,6 +394,9 @@ it('예약 현황 카드는 운영행을 예약 건으로 잘라 운영 조각·
   expect(screen.getByText('예약 가능 · 1개 시간')).toBeInTheDocument();
   const availableRow = screen.getByText('예약 가능 · 1개 시간').closest('li');
   expect(availableRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-sage');
+  // 금지어(§10.2): "운영 시간"·"운영 중" 부재.
+  expect(container).not.toHaveTextContent(/운영 시간/);
+  expect(container).not.toHaveTextContent(/운영 중/);
 });
 
 it('예약 건이 없어도 운영행이 있으면 통짜 운영 조각 1행으로 카드를 렌더한다', () => {
@@ -405,7 +414,7 @@ it('예약 건이 없어도 운영행이 있으면 통짜 운영 조각 1행으�
   // 예약이 없으니 운영행 전체가 통짜 운영 조각 1행
   expect(screen.getByText('09:00~20:00')).toBeInTheDocument();
   expect(screen.getByText('고정관념')).toBeInTheDocument();
-  expect(screen.getByText('(운영 시간)')).toBeInTheDocument();
+  expect(screen.getByText('(기본 확보)')).toBeInTheDocument();
   // 운영 구간(09~20) 밖 AVAILABLE(20·21시) 2개 → 그 외 행
   expect(screen.getByText('예약 가능 · 2개 시간')).toBeInTheDocument();
 });
@@ -458,7 +467,7 @@ it('BookingViewHeader 는 [월|주] 토글·기간 라벨·이동 화살표·범
   const onChangeView = vi.fn();
   const onPrev = vi.fn();
   const onNext = vi.fn();
-  const { rerender } = render(
+  const { rerender, container } = render(
     <BookingViewHeader
       view="month"
       onChangeView={onChangeView}
@@ -506,11 +515,14 @@ it('BookingViewHeader 는 [월|주] 토글·기간 라벨·이동 화살표·범
   expect(screen.getByRole('button', { name: '다음 주' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: '이전 주' }));
   expect(onPrev).toHaveBeenCalledTimes(1);
-  // 주간 범례(가능/예약됨/운영/대기) — 8차 요구(§8): 운영=sky(선택 가능 셀) 추가, 예약됨=파스텔 대표 1색.
+  // 주간 범례(가능/예약됨/기본 확보 시간/대기) — 9차 요구(§10.1): 운영행 가이드 레이어 = sky 점선 스와치.
   expect(screen.getByText('가능')).toBeInTheDocument();
   expect(screen.getByText('예약됨')).toBeInTheDocument();
-  expect(screen.getByText('운영 중 예약 가능')).toBeInTheDocument();
+  expect(screen.getByText('기본 확보 시간')).toBeInTheDocument();
   expect(screen.getByText('대기')).toBeInTheDocument();
+  // 금지어(§10.2): 범례에 "운영 중"·"운영 시간" 부재.
+  expect(container).not.toHaveTextContent(/운영 중/);
+  expect(container).not.toHaveTextContent(/운영 시간/);
 });
 
 it('홈 카드는 아이콘·위치·예약 가능 라벨을 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {
@@ -788,29 +800,34 @@ it('주간 그리드는 연속 BLOCKED 를 rowSpan 병합 블록(이름 Bold·�
   expect(block).toBeDisabled();
 });
 
-it('주간 그리드의 운영 구간 가용 셀은 sky 상태색 선택 가능 셀이다 — 블록 아님·단체명 미표기(§8.1 정정)', () => {
+it('주간 그리드의 기본 확보 시간 가용 셀은 sky 점선 가이드 셀이다 — 블록 아님·단체명 미표기(§8.1·§10.1)', () => {
   const { onTapSlot } = renderBlockWeek();
-  // 운영(고정관념 09~11) 구간의 AVAILABLE 셀 = sky 셀. 동작은 일반 가용 셀과 동일(탭 = onTapSlot).
-  const operatingCell = screen.getByRole('button', { name: '월요일 20일 09:00 운영 중 예약 가능' });
+  // 운영(고정관념 09~11) 구간의 AVAILABLE 셀 = sky 점선 가이드 셀. 동작은 일반 가용 셀과 동일(탭 = onTapSlot).
+  const operatingCell = screen.getByRole('button', { name: '월요일 20일 09:00 기본 확보 시간 · 예약 신청 가능' });
   expect(operatingCell).toBeEnabled();
-  expect(operatingCell).toHaveClass('bg-sky-100');
+  // §10.1 가이드 레이어: 연한 배경(bg-sky-50) + 점선 보더(border-dashed border-sky-200).
+  expect(operatingCell).toHaveClass('bg-sky-50');
+  expect(operatingCell).toHaveClass('border-dashed');
+  expect(operatingCell).toHaveClass('border-sky-200');
   fireEvent.click(operatingCell);
   expect(onTapSlot).toHaveBeenCalledWith('2026-07-20', '09:00');
-  // 운영 단체명·"(운영)" 은 그리드에 없다(사이드바 현황 카드·운영 안내 박스가 담당).
+  // 운영 단체명·"(운영)" 은 그리드에 없다(사이드바 현황 카드·기본 확보 시간 안내 박스가 담당).
   expect(screen.queryByText('고정관념')).toBeNull();
   expect(screen.queryByText('(운영)')).toBeNull();
+  // 금지어(§10.2): aria-label 에 "운영 중" 부재.
+  expect(screen.queryByRole('button', { name: /운영 중/ })).toBeNull();
   // 운영 구간 밖 가능 셀(12:00)은 sage 유지.
   expect(screen.getByRole('button', { name: '월요일 20일 12:00 가능' })).toHaveClass('bg-sage-mist');
 });
 
-it('운영 구간 sky 셀도 선택되면 ink 배경·✓·aria-pressed=true 로 표기된다', () => {
+it('기본 확보 시간 sky 셀도 선택되면 ink 배경·✓·aria-pressed=true 로 표기된다', () => {
   renderBlockWeek({ selection: { start: '09:00', end: '11:00' } });
-  const selectedCell = screen.getByRole('button', { name: '월요일 20일 09:00 운영 중 예약 가능' });
+  const selectedCell = screen.getByRole('button', { name: '월요일 20일 09:00 기본 확보 시간 · 예약 신청 가능' });
   expect(selectedCell).toHaveClass('bg-ink');
   expect(selectedCell).toHaveAttribute('aria-pressed', 'true');
   expect(selectedCell).toHaveTextContent('✓');
-  // 범위 내 두 번째 운영 셀도 선택 표기.
-  expect(screen.getByRole('button', { name: '월요일 20일 10:00 운영 중 예약 가능' })).toHaveAttribute(
+  // 범위 내 두 번째 기본 확보 시간 셀도 선택 표기.
+  expect(screen.getByRole('button', { name: '월요일 20일 10:00 기본 확보 시간 · 예약 신청 가능' })).toHaveAttribute(
     'aria-pressed',
     'true',
   );

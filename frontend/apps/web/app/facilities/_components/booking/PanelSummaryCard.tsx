@@ -55,7 +55,7 @@ export function PanelSummaryCard({ day }: Props) {
         </div>
       )}
       {operatingRange && (
-        <p className="mt-1.5 text-[11px] text-cream/50">운영 시간 {operatingRange} · {day.slots.length}칸</p>
+        <p className="mt-1.5 text-[11px] text-cream/50">이용 가능 시간 {operatingRange} · {day.slots.length}칸</p>
       )}
 
       <div className="mt-3 space-y-1.5">
