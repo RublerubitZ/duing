@@ -511,6 +511,7 @@ export function FacilityBookingPage() {
           열려 있는 동안 calendarView 는 항상 'month' 라 주간 사이드바 폼과 이중 마운트가 없다. */}
       <MobileDaySheet
         open={daySheetOpen}
+        dateIso={selectedDate}
         facility={selectedFacility ?? null}
         day={selectedDay ?? null}
         selection={selection}

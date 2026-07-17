@@ -23,6 +23,8 @@ type Facility = { id: number; roomName: string };
 type Props = {
   open: boolean;
   facility: Facility | null;
+  // 선택일 ISO — day(가용성) 로딩 전에도 시트 제목(접근 가능한 이름)을 제공한다.
+  dateIso: string | null;
   day: BookingDayAvailability | null;
   selection: SlotRange | null;
   onToggleSlot: (slotStart: string) => void;
@@ -46,7 +48,7 @@ type Props = {
  * 시트는 모바일 전용 마운트이고 열림은 월간 상태에서만이므로 주간 사이드바 폼과 id 이중 마운트가 없다.
  */
 export function MobileDaySheet({
-  open, facility, day, selection, onToggleSlot,
+  open, facility, dateIso, day, selection, onToggleSlot,
   step, onProceedToForm, onBackToSlots, submittedResult, submittedClubId, submittedAt,
   onSubmitted, onExploreOther, onClose, onViewTimetable,
 }: Props) {
@@ -72,12 +74,17 @@ export function MobileDaySheet({
       >
         <div className="mx-auto mb-3 h-[4.5px] w-10 rounded-full bg-line" />
         <SheetHeader className="mb-3">
-          <SheetTitle>{shownDay !== null ? bookingDateLabel(shownDay.date) : ''}</SheetTitle>
+          <SheetTitle>{shownDay !== null ? bookingDateLabel(shownDay.date) : dateIso !== null ? bookingDateLabel(dateIso) : '날짜 선택'}</SheetTitle>
           <SheetDescription className="sr-only">빠른 예약 — 날짜의 시간대를 골라 신청해요.</SheetDescription>
         </SheetHeader>
 
         {shownDay === null || shownFacility === null ? (
           <p className="py-6 text-center text-sm text-charcoal-3">불러오는 중…</p>
+        ) : !open ? (
+          // 닫힘(exit 애니메이션 ~300ms) 중에는 폼/성공을 렌더하지 않는다 — 뷰포트 승계로 주간 사이드바가
+          // 같은 커밋에 BookingForm 을 마운트하면 정적 id(booking-club 등)가 이중 마운트되는 것을 차단.
+          // 슬롯 리스트(스냅샷 day)만 남겨 빈 시트로 내려가지 않게 한다(id 없는 콘텐츠).
+          <DaySlotList day={shownDay} selection={selection} onToggleSlot={onToggleSlot} />
         ) : step === 'success' && selection !== null && submittedAt !== null ? (
           <div>
             <div className="mb-3">

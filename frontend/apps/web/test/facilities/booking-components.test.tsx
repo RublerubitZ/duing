@@ -877,6 +877,7 @@ function renderMobileSheet(overrides?: Partial<Parameters<typeof MobileDaySheet>
   const props = {
     open: true,
     facility: { id: 1, roomName: '커뮤니티룸(1)' },
+    dateIso: '2026-07-20',
     day: makeDay(),
     selection: null,
     onToggleSlot: vi.fn(),
