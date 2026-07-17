@@ -472,7 +472,11 @@ export function ClubExplorePage() {
             )}
 
             {visibleClubs.length > 0 && (
-              <div className="grid grid-cols-4 gap-[18px]">
+              /* auto-fill+minmax — 카드 최소 210px 를 보장하고(1280 레이아웃 4열 유지) 컨테이너 폭에 따라 4→3→2→1열로
+                 열 수만 줄인다(카드 축소 금지). 사이드바가 있어 뷰포트 브레이크포인트 대신
+                 컨테이너 폭 기준이 정확하다. auto-fit 이 아닌 auto-fill: 결과가 적을 때도
+                 카드가 트랙 폭 이상으로 늘어나지 않아 비율이 유지된다. */
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(210px,100%),1fr))] gap-[18px]">
                 {visibleClubs.map((club) => (
                   <ClubCard
                     key={club.id}
