@@ -17,11 +17,13 @@ import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
 import com.duing.domain.facilitybooking.service.dto.command.CreateFacilityBookingCommand;
+import com.duing.domain.notification.event.FacilityBookingSubmittedEvent;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +40,7 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
     private final BookingPolicyValidator bookingPolicyValidator;
     private final ClubAuthService clubAuthService;
     private final ClubRepository clubRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -74,6 +77,8 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
                 command.purpose(), command.attendeeCount(), command.contactPhone()));
         historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), null, BookingStatus.PENDING, command.actorId(), null, null));
+        // 접수 알림(스펙 §7.6) — AFTER_COMMIT 리스너가 ADMIN 전원에게 dedup 멱등 발행
+        eventPublisher.publishEvent(new FacilityBookingSubmittedEvent(booking.getId(), command.clubId()));
 
         long overlappingPending = facilityBookingRepository.findOverlapping(
                         command.facilityId(), command.date(), List.of(BookingStatus.PENDING),

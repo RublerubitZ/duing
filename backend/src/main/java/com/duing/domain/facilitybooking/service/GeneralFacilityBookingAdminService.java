@@ -11,12 +11,18 @@ import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
+import com.duing.domain.notification.event.FacilityBookingApprovedEvent;
+import com.duing.domain.notification.event.FacilityBookingCancelledEvent;
+import com.duing.domain.notification.event.FacilityBookingConfirmedEvent;
+import com.duing.domain.notification.event.FacilityBookingConflictEvent;
+import com.duing.domain.notification.event.FacilityBookingRejectedEvent;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +36,7 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     private final FacilityRepository facilityRepository;
     private final FacilityReservationRepository facilityReservationRepository;
     private final FacilityAvailabilityPolicy availabilityPolicy;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     @Override
@@ -49,8 +56,10 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
 
         BookingStatus previousStatus = booking.getStatus();
         booking.approve(adminId, crawlBasisAt, LocalDateTime.now(clock));
-        historyRepository.save(FacilityBookingStatusHistory.record(
+        FacilityBookingStatusHistory approvalHistory = historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), previousStatus, BookingStatus.APPROVED, adminId, null, crawlBasisAt));
+        eventPublisher.publishEvent(new FacilityBookingApprovedEvent(
+                booking.getId(), booking.getClubId(), approvalHistory.getId()));
     }
 
     @Override
@@ -59,8 +68,10 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
         FacilityBooking booking = getBooking(bookingId);
         BookingStatus previousStatus = booking.getStatus();
         booking.reject(adminId, reason, LocalDateTime.now(clock));
-        historyRepository.save(FacilityBookingStatusHistory.record(
+        FacilityBookingStatusHistory rejectionHistory = historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), previousStatus, BookingStatus.REJECTED, adminId, reason, null));
+        eventPublisher.publishEvent(new FacilityBookingRejectedEvent(
+                booking.getId(), booking.getClubId(), rejectionHistory.getId(), reason));
     }
 
     @Override
@@ -82,8 +93,10 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
 
         BookingStatus previousStatus = booking.getStatus();
         booking.confirmManually(LocalDateTime.now(clock));
-        historyRepository.save(FacilityBookingStatusHistory.record(
+        FacilityBookingStatusHistory confirmationHistory = historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), previousStatus, BookingStatus.CONFIRMED, adminId, "관리자 수동 확정", crawlBasisAt));
+        eventPublisher.publishEvent(new FacilityBookingConfirmedEvent(
+                booking.getId(), booking.getClubId(), confirmationHistory.getId()));
     }
 
     @Override
@@ -92,8 +105,10 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
         FacilityBooking booking = getBooking(bookingId);
         BookingStatus previousStatus = booking.getStatus();
         booking.markConflict(detail);
-        historyRepository.save(FacilityBookingStatusHistory.record(
+        FacilityBookingStatusHistory conflictHistory = historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), previousStatus, BookingStatus.CONFLICT, adminId, detail, null));
+        eventPublisher.publishEvent(new FacilityBookingConflictEvent(
+                booking.getId(), booking.getClubId(), conflictHistory.getId(), detail));
     }
 
     @Override
@@ -102,8 +117,10 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
         FacilityBooking booking = getBooking(bookingId);
         BookingStatus previousStatus = booking.getStatus();
         booking.cancelByAdmin();
-        historyRepository.save(FacilityBookingStatusHistory.record(
+        FacilityBookingStatusHistory cancellationHistory = historyRepository.save(FacilityBookingStatusHistory.record(
                 booking.getId(), previousStatus, BookingStatus.CANCELLED, adminId, reason, null));
+        eventPublisher.publishEvent(new FacilityBookingCancelledEvent(
+                booking.getId(), booking.getClubId(), cancellationHistory.getId(), reason));
     }
 
     private FacilityBooking getBooking(Long bookingId) {
