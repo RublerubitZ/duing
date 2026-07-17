@@ -7,13 +7,17 @@ import {
   dayLevelOf,
   dayOverviewTimeline,
   isWithinBookable,
+  pastelIndexByLabel,
+  PASTEL_PALETTE_SIZE,
   periodDistribution,
   rangeContainsPendingHold,
   rangeLabel,
+  shiftDateByDays,
   slotInRange,
   slotStatusCounts,
   toggleSlotSelection,
   weekDatesOf,
+  weekRangeLabel,
 } from '@/app/facilities/_lib/bookingCalendar';
 
 function slot(startHour: number, status: BookingAvailabilitySlot['status']): BookingAvailabilitySlot {
@@ -133,6 +137,28 @@ describe('weekDatesOf / isWithinBookable', () => {
     expect(isWithinBookable('2026-07-13', '2026-07-13', '2026-08-31')).toBe(true);
     expect(isWithinBookable('2026-08-31', '2026-07-13', '2026-08-31')).toBe(true);
     expect(isWithinBookable('2026-07-12', '2026-07-13', '2026-08-31')).toBe(false);
+  });
+});
+
+describe('shiftDateByDays', () => {
+  it('일 단위로 더하고 빼며 월·연 경계를 넘긴다(로컬 파싱, UTC 자정 함정 회피)', () => {
+    expect(shiftDateByDays('2026-07-20', 7)).toBe('2026-07-27');
+    expect(shiftDateByDays('2026-07-27', 7)).toBe('2026-08-03'); // 월 경계
+    expect(shiftDateByDays('2026-08-03', -7)).toBe('2026-07-27');
+    expect(shiftDateByDays('2026-12-29', 7)).toBe('2027-01-05'); // 연 경계
+    expect(shiftDateByDays('2026-07-20', 0)).toBe('2026-07-20');
+  });
+});
+
+describe('weekRangeLabel', () => {
+  it('같은 달 주는 "M월 D일 – D일" 로 표기한다', () => {
+    // 월요일 입력 → 그 주(월~일) 라벨. 2026-07-20 은 월요일, 주 끝=07-26.
+    expect(weekRangeLabel('2026-07-20')).toBe('7월 20일 – 26일');
+  });
+
+  it('월 경계를 넘는 주는 끝 날짜에 월을 함께 표기한다', () => {
+    // 2026-07-27(월)~08-02(일) — 끝이 다음 달.
+    expect(weekRangeLabel('2026-07-27')).toBe('7월 27일 – 8월 2일');
   });
 });
 
@@ -358,6 +384,29 @@ describe('dayOverviewTimeline', () => {
       { start: '12:00', end: '13:00', label: '고정관념', kind: 'OPERATING' },
       { start: '14:00', end: '18:00', label: '두잉밴드', kind: 'OPERATING' },
     ]);
+  });
+});
+
+describe('pastelIndexByLabel', () => {
+  it('같은 라벨은 같은 인덱스이고, 라벨은 첫 등장 순서로 팔레트를 순환 배정한다(§8.3)', () => {
+    // 첫 등장 순서: A(0) → B(1) → A(이미) → C(2). 같은 라벨 재등장은 인덱스 고정.
+    const indexByLabel = pastelIndexByLabel(['비호응원단', '트레몰로', '비호응원단', '고정관념']);
+    expect(indexByLabel.get('비호응원단')).toBe(0);
+    expect(indexByLabel.get('트레몰로')).toBe(1);
+    expect(indexByLabel.get('고정관념')).toBe(2);
+  });
+
+  it('6색을 넘어서면 7번째 라벨부터 인덱스 0 으로 재순환한다', () => {
+    const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const indexByLabel = pastelIndexByLabel(labels);
+    expect(PASTEL_PALETTE_SIZE).toBe(6);
+    expect([...'ABCDEF'].map((label) => indexByLabel.get(label))).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(indexByLabel.get('G')).toBe(0); // 7번째 = 0 재순환
+    expect(indexByLabel.get('H')).toBe(1); // 8번째 = 1
+  });
+
+  it('빈 라벨 목록은 빈 맵을 반환한다', () => {
+    expect(pastelIndexByLabel([]).size).toBe(0);
   });
 });
 

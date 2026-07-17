@@ -106,6 +106,31 @@ export function rangeLabel(range: SlotRange): string {
   return `${range.start}~${range.end}`;
 }
 
+/** ISO 날짜(yyyy-MM-dd)에 일수를 더한 ISO. 월·연 경계 안전(로컬 파싱 — UTC 자정 함정 회피). */
+export function shiftDateByDays(iso: string, deltaDays: number): string {
+  const date = parseIsoDate(iso);
+  date.setDate(date.getDate() + deltaDays);
+  return toIso(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/**
+ * 주 시작(월요일 ISO)을 "M월 D일 – D일" 로 표기한다(§2). 주 끝(=월+6)이 다음 달이면
+ * 끝 날짜 앞에 월을 함께 표기한다: "7월 28일 – 8월 3일". 입력은 그 주의 월요일 ISO.
+ */
+export function weekRangeLabel(mondayIso: string): string {
+  const monday = parseIsoDate(mondayIso);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const startMonth = monday.getMonth() + 1;
+  const startDay = monday.getDate();
+  const endMonth = sunday.getMonth() + 1;
+  const endDay = sunday.getDate();
+  if (startMonth === endMonth) {
+    return `${startMonth}월 ${startDay}일 – ${endDay}일`;
+  }
+  return `${startMonth}월 ${startDay}일 – ${endMonth}월 ${endDay}일`;
+}
+
 /** 선택일이 속한 주(월~일) 7일 — 월 경계를 넘을 수 있다(범위 밖 날짜는 호출부가 데이터 없음 처리). */
 export function weekDatesOf(iso: string): string[] {
   const base = parseIsoDate(iso);
@@ -269,4 +294,24 @@ export function dayOverviewTimeline(
     const rightOperating = right.kind === 'OPERATING' ? 1 : 0;
     return leftOperating - rightOperating;
   });
+}
+
+// ── 확정 예약 블록 파스텔 배정(§8.3) — 주간 화면 라벨 첫 등장 순 팔레트 인덱스 순환 ─────
+
+/** 파스텔 팔레트 색상 수(§8.3): mint·lemon·coral·lavender·beige·rose 6색. */
+export const PASTEL_PALETTE_SIZE = 6;
+
+/**
+ * 확정(BLOCKED) 블록 라벨(동아리명)을 현재 주간 화면의 첫 등장 순서로 파스텔 팔레트 인덱스에 순환 배정한다(§8.3).
+ * 같은 라벨은 화면 내내 같은 인덱스(한 동아리가 한 화면에서 두 색이 되는 혼란 방지), 7번째 라벨부터 0 으로 재순환.
+ * 순수 함수 — 입력은 등장 순서대로 나열된 라벨 목록(중복 포함), 출력은 라벨→인덱스 맵.
+ */
+export function pastelIndexByLabel(labels: string[]): Map<string, number> {
+  const indexByLabel = new Map<string, number>();
+  for (const label of labels) {
+    if (!indexByLabel.has(label)) {
+      indexByLabel.set(label, indexByLabel.size % PASTEL_PALETTE_SIZE);
+    }
+  }
+  return indexByLabel;
 }

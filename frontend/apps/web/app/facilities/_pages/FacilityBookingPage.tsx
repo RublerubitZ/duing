@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   useBookingWindowQuery,
@@ -8,18 +8,29 @@ import {
   useFacilityUsageQuery,
 } from '@duing/hooks';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { FacilityUpdateBanner } from '../_components/FacilityUpdateBanner';
 import { FacilityOverviewTimeline } from '../_components/FacilityOverviewTimeline';
 import { FacilityUsageGuide } from '../_components/FacilityUsageGuide';
-import { seoulDateIso, shiftYearMonth } from '../_lib/facilityTimeline';
+import { seoulDateIso, shiftYearMonth, yearMonthLabel } from '../_lib/facilityTimeline';
 import { windowRangeLabel } from '../_lib/bookingHome';
 import type { SlotRange } from '../_lib/bookingCalendar';
-import { isSelectableSlot, isWithinBookable, slotInRange, toggleSlotSelection } from '../_lib/bookingCalendar';
+import {
+  isSelectableSlot,
+  isWithinBookable,
+  shiftDateByDays,
+  slotInRange,
+  toggleSlotSelection,
+  weekDatesOf,
+  weekRangeLabel,
+} from '../_lib/bookingCalendar';
 import { BookingCalendar } from '../_components/booking/BookingCalendar';
 import { BookingHomeSkeleton, CalendarGridSkeleton } from '../_components/booking/BookingHomeSkeleton';
-import { BookingPanel, type PanelStep, type PanelView } from '../_components/booking/BookingPanel';
+import { BookingPanel, type PanelStep } from '../_components/booking/BookingPanel';
+import { BookingViewHeader, type CalendarView } from '../_components/booking/BookingViewHeader';
+import { WeekTimetable } from '../_components/booking/WeekTimetable';
+import { WeekBlockSheet, type WeekBlockDetail } from '../_components/booking/WeekBlockSheet';
+import { useIsMobileViewport } from '../_lib/useIsMobileViewport';
 import { FacilityContextBar } from '../_components/booking/FacilityContextBar';
 import { FacilityHomeCard } from '../_components/booking/FacilityHomeCard';
 import { MyBookingsChip } from '../_components/booking/MyBookingsChip';
@@ -36,20 +47,9 @@ function syncUrl(facilityId: number | null, date: string | null) {
   window.history.replaceState(null, '', query ? `?${query}` : window.location.pathname);
 }
 
-const MOBILE_QUERY = '(max-width: 767px)'; // Tailwind md 미만
-
-function subscribeToViewport(onChange: () => void) {
-  const mediaQueryList = window.matchMedia(MOBILE_QUERY);
-  mediaQueryList.addEventListener('change', onChange);
-  return () => mediaQueryList.removeEventListener('change', onChange);
-}
-
-function useIsMobileViewport(): boolean {
-  return useSyncExternalStore(
-    subscribeToViewport,
-    () => window.matchMedia(MOBILE_QUERY).matches,
-    () => false, // SSR: 데스크탑 기본 — 하이드레이션 후 구독으로 보정
-  );
+// 주 시작(월요일 ISO) — weekDatesOf 는 항상 7개 반환, [0]=월요일(noUncheckedIndexedAccess 폴백).
+function mondayOf(iso: string): string {
+  return weekDatesOf(iso)[0] ?? iso;
 }
 
 export function FacilityBookingPage() {
@@ -66,17 +66,23 @@ export function FacilityBookingPage() {
     const raw = searchParams.get('date');
     return raw !== null && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
   });
+  // 뷰 상태 머신(§1): 기본 월간. 딥링크 date 가 있으면 주간으로 진입한다(URL 엔 view 를 쓰지 않는다).
+  const [calendarView, setCalendarView] = useState<CalendarView>(() => {
+    const raw = searchParams.get('date');
+    return raw !== null && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? 'week' : 'month';
+  });
   // 랜딩 = 캘린더(첫 시설 자동 선택). 홈 카드 그리드는 명시적 요청("전체 보기"·홈 복귀)일 때만 노출한다.
   const [homeView, setHomeView] = useState(false);
   const [selection, setSelection] = useState<SlotRange | null>(null);
   const [step, setStep] = useState<PanelStep>('slots');
-  const [view, setView] = useState<PanelView>('day');
+  // 모바일 주간 블록 상세 시트(§9.3) — 확정/대기 블록 탭 시 열린다. 뷰포트 훅으로 블록 인터랙션을 게이트한다.
+  const isMobileViewport = useIsMobileViewport();
+  const [sheetBlock, setSheetBlock] = useState<WeekBlockDetail | null>(null);
   const [submittedResult, setSubmittedResult] = useState<CreateFacilityBookingResult | null>(null);
   const [submittedClubId, setSubmittedClubId] = useState<number | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
 
   const { addToast } = useToast();
-  const isMobileViewport = useIsMobileViewport();
   const usageQuery = useFacilityUsageQuery();
   const windowQuery = useBookingWindowQuery();
   const windowLabel = windowQuery.data ? windowRangeLabel(windowQuery.data) : null;
@@ -132,7 +138,7 @@ export function FacilityBookingPage() {
     setStep((current) => (current === 'form' ? 'slots' : current));
   }, [selectionInvalid]);
 
-  // 딥링크로 들어온 date 가 예약 창(반월) 밖이면 선택을 정리하고 안내한다(selectionInvalid 전례와 동일 패턴).
+  // 딥링크로 들어온 date 가 예약 창(반월) 밖이면 선택을 정리하고 월간으로 복귀하며 안내한다.
   // 셀 게이팅은 availability 메타로 두되, 창 판정만 windowQuery 로 단일화한다.
   // 성공 화면은 이미 접수된 신청의 확인이므로 보존한다(selectionInvalid 전례 동일).
   const selectedDateOutOfWindow =
@@ -145,6 +151,7 @@ export function FacilityBookingPage() {
     setSelectedDate(null);
     setSelection(null);
     setStep('slots');
+    setCalendarView('month'); // 무효 딥링크는 주간을 열지 않고 월간 탐색으로 되돌린다(§1).
     // 스테일 date 파라미터 제거(새로고침 재발 방지). 자동 선택 시설은 URL에 기록하지 않는다 —
     // 명시적으로 고른 facilityId(state)만 보존.
     syncUrl(facilityId, null);
@@ -152,13 +159,24 @@ export function FacilityBookingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDateOutOfWindow]);
 
-  const closePanel = () => {
-    setSelectedDate(null);
+  // 시트가 열린 채 뷰포트가 sm 경계(640px)를 넘으면(PC 전환) 시트를 닫는다 — PC 는 시트 미사용(§9.3).
+  useEffect(() => {
+    if (!isMobileViewport) setSheetBlock(null);
+  }, [isMobileViewport]);
+
+  const resetSelectionFlow = () => {
     setSelection(null);
     setStep('slots');
     setSubmittedResult(null);
     setSubmittedClubId(null);
     setSubmittedAt(null);
+    setSheetBlock(null); // 화면 전환 시 열려 있던 블록 상세 시트를 닫는다(스테일 방지).
+  };
+
+  const closePanel = () => {
+    setSelectedDate(null);
+    setCalendarView('month'); // 신청/선택을 닫으면 월간 탐색으로 되돌린다.
+    resetSelectionFlow();
     syncUrl(effectiveFacilityId ?? null, null);
   };
 
@@ -177,22 +195,17 @@ export function FacilityBookingPage() {
     setHomeView(true); // 명시적 홈 요청 — 자동 첫 시설 선택을 끄고 카드 그리드 노출
     setYearMonthOverride(null); // 다음 진입 기본 월 = 창 월 계약 복원
     setSelectedDate(null);
-    setSelection(null);
-    setStep('slots');
-    setSubmittedResult(null);
-    setSubmittedClubId(null);
-    setSubmittedAt(null);
+    setCalendarView('month');
+    resetSelectionFlow();
     syncUrl(null, null);
   };
 
+  // 월간 날짜 탭 → 선택일 설정 + 주간 자동 전환(§1 핵심 플로우). 주간에서 다른 날 선택도 동일 경로.
   const selectDate = (iso: string) => {
     if (iso.slice(0, 7) !== yearMonth) setYearMonthOverride(iso.slice(0, 7));
     setSelectedDate(iso);
-    setSelection(null);
-    setStep('slots');
-    setSubmittedResult(null);
-    setSubmittedClubId(null);
-    setSubmittedAt(null);
+    setCalendarView('week');
+    resetSelectionFlow();
     syncUrl(effectiveFacilityId ?? null, iso);
   };
 
@@ -211,45 +224,104 @@ export function FacilityBookingPage() {
     // override 가 null 이어도 파생 yearMonth(창 월 폴백) 를 기준으로 이동한다.
     setYearMonthOverride(shiftYearMonth(yearMonth, delta));
     setSelectedDate(null);
-    setSelection(null);
-    setStep('slots');
+    // 주간 뷰에서도 도달 가능(availability 에러 박스의 "이번 달로 돌아가기") —
+    // selectedDate 가 null 이 되므로 월간으로 복귀하지 않으면 빈 주간 화면이 남는다.
+    setCalendarView('month');
+    resetSelectionFlow();
     syncUrl(effectiveFacilityId ?? null, null);
   };
 
-  const panelOpen = selectedDay !== undefined && selectedFacility !== undefined;
-  // availability 는 selectedDay(=daysByIso.get) 가 존재하면 항상 non-null 이지만, 주간 헤더 창 게이팅에
-  // bookableFrom/Until 을 넘기려면 TS 상 명시 narrowing 이 필요하다(panelOpen && availability).
-  const panel = panelOpen && availability ? (
-    <BookingPanel
-      facility={selectedFacility}
-      day={selectedDay}
-      daysByIso={daysByIso}
-      bookableFrom={availability.bookableFrom}
-      bookableUntil={availability.bookableUntil}
-      view={view}
-      onChangeView={setView}
-      selection={selection}
-      onToggleSlot={toggleSlot}
-      onSelectDate={selectDate}
-      step={step}
-      onProceedToForm={() => setStep('form')}
-      onBackToSlots={() => setStep('slots')}
-      submittedResult={submittedResult}
-      submittedClubId={submittedClubId}
-      submittedAt={submittedAt}
-      onSubmitted={(result, clubId) => {
-        const now = new Date();
-        setSubmittedAt(
-          `${now.getMonth() + 1}월 ${now.getDate()}일 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-        );
-        setSubmittedResult(result);
-        setSubmittedClubId(clubId);
-        setStep('success');
-      }}
-      onExploreOther={goHome}
-      onClose={closePanel}
-    />
-  ) : null;
+  // 주 이동(§1·§4) — selectedDate ±7일. 창 경계로 클램프해 선택일(사이드바 기준)이 항상 창 안에 있게 하고
+  // (§5), 새 선택일의 월로 조회 월을 스위칭한다(selectDate 경로 재사용 — availability 당월·익월 캡 안).
+  const changeWeek = (delta: 1 | -1) => {
+    if (selectedDate === null || windowQuery.data === undefined) return;
+    const shifted = shiftDateByDays(selectedDate, delta * 7);
+    const clamped =
+      shifted < windowQuery.data.bookableFrom
+        ? windowQuery.data.bookableFrom
+        : shifted > windowQuery.data.bookableUntil
+          ? windowQuery.data.bookableUntil
+          : shifted;
+    selectDate(clamped);
+  };
+
+  // [주] 탭(§1): 선택일 있으면 그 주로, 없으면 기준일(오늘이 창 내면 오늘, 아니면 bookableFrom)을 고른다.
+  const showWeekView = () => {
+    if (selectedDate !== null) {
+      setCalendarView('week');
+      return;
+    }
+    const base = windowQuery.data
+      ? isWithinBookable(todayIso, windowQuery.data.bookableFrom, windowQuery.data.bookableUntil)
+        ? todayIso
+        : windowQuery.data.bookableFrom
+      : todayIso;
+    selectDate(base);
+  };
+
+  const changeCalendarView = (nextView: CalendarView) => {
+    if (nextView === 'week') showWeekView();
+    else {
+      setCalendarView('month'); // [월] 복귀 — 선택일·선택은 유지(Google Calendar 동작, §1).
+      setSheetBlock(null); // 주간을 떠나면 블록 상세 시트를 닫는다.
+    }
+  };
+
+  // 주간 셀 탭(§9.5·§4) — 같은 선택일이면 토글, 다른 날이면 그 날로 전환 후 단일 선택.
+  // WeekTimetable 의 onTapSlot 으로 연결된다(선택일 컬럼=toggleSlot, 타 요일=selectDate 후 단일 선택).
+  const tapWeekSlot = (iso: string, slotStart: string) => {
+    if (iso === selectedDate && step === 'slots') {
+      toggleSlot(slotStart);
+      return;
+    }
+    // 타 요일 탭 또는 폼/성공 스텝 중 탭 = 새 신청 시작. 성공 화면의 확정 범위(selection)를
+    // 라이브로 변조하지 않도록 스텝·제출 상태를 리셋한 뒤 탭한 슬롯 단일 선택으로 연다.
+    if (iso === selectedDate) resetSelectionFlow();
+    else selectDate(iso);
+    const endLabel = `${String(Number(slotStart.slice(0, 2)) + 1).padStart(2, '0')}:${slotStart.slice(3, 5)}`;
+    setSelection({ start: slotStart, end: endLabel });
+  };
+
+  // 주간 이동 캡(§2) — 주 월요일이 [창 시작 주 ~ 창 끝 주] 밖이면 비활성. 창 판정은 windowQuery 로 단일화.
+  const weekMonday = selectedDate !== null ? mondayOf(selectedDate) : null;
+  const windowFromMonday = windowQuery.data ? mondayOf(windowQuery.data.bookableFrom) : null;
+  const windowUntilMonday = windowQuery.data ? mondayOf(windowQuery.data.bookableUntil) : null;
+  const canPrevWeek =
+    weekMonday !== null && windowFromMonday !== null && shiftDateByDays(weekMonday, -7) >= windowFromMonday;
+  const canNextWeek =
+    weekMonday !== null && windowUntilMonday !== null && shiftDateByDays(weekMonday, 7) <= windowUntilMonday;
+
+  const periodLabel =
+    calendarView === 'week' && weekMonday !== null ? weekRangeLabel(weekMonday) : yearMonthLabel(yearMonth);
+
+  const panel =
+    selectedDay !== undefined && selectedFacility !== undefined ? (
+      <BookingPanel
+        facility={selectedFacility}
+        day={selectedDay}
+        selection={selection}
+        onToggleSlot={toggleSlot}
+        step={step}
+        onProceedToForm={() => setStep('form')}
+        onBackToSlots={() => setStep('slots')}
+        submittedResult={submittedResult}
+        submittedClubId={submittedClubId}
+        submittedAt={submittedAt}
+        onSubmitted={(result, clubId) => {
+          const now = new Date();
+          setSubmittedAt(
+            `${now.getMonth() + 1}월 ${now.getDate()}일 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+          );
+          setSubmittedResult(result);
+          setSubmittedClubId(clubId);
+          setStep('success');
+        }}
+        onExploreOther={goHome}
+        onClose={closePanel}
+      />
+    ) : null;
+
+  const showSidebar = calendarView === 'week' && panel !== null;
 
   return (
     <main className="mx-auto max-w-layout px-4 pb-16 pt-8 sm:px-6 md:px-10">
@@ -291,7 +363,7 @@ export function FacilityBookingPage() {
               )}
             </>
           ) : (
-            // ── 캘린더 뷰: 선택 시설 예약 ──
+            // ── 캘린더 뷰: 선택 시설 예약(월↔주 전환) ──
             <>
               <div>
                 <p className="text-xs font-medium tracking-widest text-charcoal-3">FACILITY · 시설 예약</p>
@@ -307,8 +379,18 @@ export function FacilityBookingPage() {
                 <FacilityUpdateBanner lastUpdatedAt={availability.lastUpdatedAt ?? null} stale={availability.stale} />
               )}
 
-              <div className={panelOpen ? 'md:grid md:grid-cols-[minmax(0,1fr)_380px] md:gap-5' : undefined}>
-                <div>
+              <div className={showSidebar ? 'md:grid md:grid-cols-[minmax(0,1fr)_380px] md:gap-5' : undefined}>
+                {/* 공용 캘린더 카드 — 상단 헤더(월↔주 토글·기간·화살표·범례) + 월간/주간 본문(§2·§3·§4). */}
+                <section className="rounded-lg border border-line bg-paper p-4 sm:p-5" aria-label="예약 캘린더">
+                  <BookingViewHeader
+                    view={calendarView}
+                    onChangeView={changeCalendarView}
+                    periodLabel={periodLabel}
+                    onPrev={calendarView === 'month' ? () => changeMonth(-1) : () => changeWeek(-1)}
+                    onNext={calendarView === 'month' ? () => changeMonth(1) : () => changeWeek(1)}
+                    canPrev={calendarView === 'month' ? yearMonth !== currentMonth : canPrevWeek}
+                    canNext={calendarView === 'month' ? yearMonth === currentMonth : canNextWeek}
+                  />
                   {availabilityQuery.isLoading && <CalendarGridSkeleton />}
                   {availabilityQuery.isError && (
                     <div role="alert" className="rounded-lg border border-line bg-paper p-6 text-center text-sm text-charcoal-2">
@@ -325,7 +407,7 @@ export function FacilityBookingPage() {
                       </div>
                     </div>
                   )}
-                  {availability && (
+                  {availability && calendarView === 'month' && (
                     <BookingCalendar
                       yearMonth={yearMonth}
                       daysByIso={daysByIso}
@@ -337,17 +419,26 @@ export function FacilityBookingPage() {
                       onOutOfWindowSelect={handleOutOfWindowSelect}
                       windowLabel={windowLabel}
                       ranges={windowQuery.data?.availableBookingRanges ?? null}
-                      onPrevMonth={() => changeMonth(-1)}
-                      onNextMonth={() => changeMonth(1)}
-                      canPrev={yearMonth !== currentMonth}
-                      canNext={yearMonth === currentMonth}
                     />
                   )}
-                </div>
-                {/* 데스크탑 인라인 우측 패널 — 모바일에선 아래 Sheet 가 담당(단일 제어 상태 공유).
-                    뷰포트로 마운트를 게이트해 시트와의 이중 마운트(폼 id 중복)를 방지한다. */}
-                {panelOpen && !isMobileViewport && (
-                  <aside className="hidden rounded-lg border border-line bg-paper p-4 md:block">
+                  {availability && calendarView === 'week' && selectedDate !== null && (
+                    <WeekTimetable
+                      selectedDate={selectedDate}
+                      daysByIso={daysByIso}
+                      bookableFrom={availability.bookableFrom}
+                      bookableUntil={availability.bookableUntil}
+                      todayIso={todayIso}
+                      selection={selection}
+                      onSelectDate={selectDate}
+                      onTapSlot={tapWeekSlot}
+                      blocksInteractive={isMobileViewport}
+                      onTapBlock={setSheetBlock}
+                    />
+                  )}
+                </section>
+                {/* 주간 전용 사이드바(§5) — 데스크탑 우측 sticky, 모바일 그리드 아래 세로 스택(시트 제거). */}
+                {showSidebar && (
+                  <aside className="mt-4 rounded-lg border border-line bg-paper p-4 md:mt-0 md:sticky md:top-4 md:self-start">
                     {panel}
                   </aside>
                 )}
@@ -365,24 +456,8 @@ export function FacilityBookingPage() {
         </div>
       )}
 
-      {/* 모바일 Bottom Sheet — md 미만 전용. 포털이라 .duing 스코프 재부여(bg-cream 함정 → bg-transparent) */}
-      <Sheet open={panelOpen && isMobileViewport} onOpenChange={(open) => !open && closePanel()}>
-        <SheetContent side="bottom" hideClose className="md:hidden">
-          <div className="duing bg-transparent px-5 pb-6 pt-2.5">
-            <div aria-hidden className="mx-auto mb-3.5 h-[4.5px] w-10 rounded-full bg-line" />
-            <SheetHeader className="mb-2">
-              <SheetTitle className="text-left font-display text-base text-ink-deep">
-                {selectedFacility?.roomName}
-              </SheetTitle>
-              {/* Radix Dialog 접근성 요구(aria-describedby) — 없으면 dev 경고, SR 사용자 맥락 제공 */}
-              <SheetDescription className="sr-only">
-                날짜별 예약 현황을 확인하고 시간을 선택해 신청할 수 있어요.
-              </SheetDescription>
-            </SheetHeader>
-            {panel}
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* 모바일 주간 블록 상세 바텀시트(§9.3) — 포털 렌더라 위치 무관, 열림은 block!==null 로 제어. */}
+      <WeekBlockSheet block={sheetBlock} onClose={() => setSheetBlock(null)} />
     </main>
   );
 }

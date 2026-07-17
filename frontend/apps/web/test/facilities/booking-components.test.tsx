@@ -1,8 +1,11 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import type { BookingDayAvailability, FacilityItem } from '@duing/types';
+import type { BookingAvailabilitySlot, BookingDayAvailability, FacilityItem } from '@duing/types';
 import { FacilityContextBar } from '@/app/facilities/_components/booking/FacilityContextBar';
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
+import { BookingViewHeader } from '@/app/facilities/_components/booking/BookingViewHeader';
+import { WeekTimetable } from '@/app/facilities/_components/booking/WeekTimetable';
+import { WeekBlockSheet } from '@/app/facilities/_components/booking/WeekBlockSheet';
 import { DaySlotList } from '@/app/facilities/_components/booking/DaySlotList';
 import { DayBookingOverview } from '@/app/facilities/_components/booking/DayBookingOverview';
 import { BookingPanel } from '@/app/facilities/_components/booking/BookingPanel';
@@ -86,10 +89,6 @@ it('캘린더 셀은 레벨 라벨(여유/마감)·창 배지를 표시하고 �
       onSelectDate={vi.fn()}
       onOutOfWindowSelect={vi.fn()}
       windowLabel="7.13 ~ 8.31"
-      onPrevMonth={vi.fn()}
-      onNextMonth={vi.fn()}
-      canPrev={false}
-      canNext
     />,
   );
   // 셀 접근성 이름은 '레벨 + 남은 칸수'를 포함한다(카드형 셀). FULL 셀도 창내라 클릭 가능(현황 확인).
@@ -123,10 +122,6 @@ it('캘린더는 ranges 전달 시 구간 칩 2개와 다음 구간 시작일 �
         { startDate: '2026-07-13', endDate: '2026-07-20', label: '현재 예약 가능' },
         { startDate: '2026-07-21', endDate: '2026-07-31', label: '다음 예약 가능' },
       ]}
-      onPrevMonth={vi.fn()}
-      onNextMonth={vi.fn()}
-      canPrev={false}
-      canNext
     />,
   );
   // 구간 칩 2개(라벨 + M.d ~ M.d). 단일 배지는 폴백이므로 렌더되지 않는다.
@@ -155,10 +150,6 @@ it('다음 구간이 익월이면(두 달 스팬 창) 표시 중인 달에는 �
         { startDate: '2026-07-16', endDate: '2026-07-31', label: '현재 예약 가능' },
         { startDate: '2026-08-01', endDate: '2026-08-15', label: '다음 예약 가능' },
       ]}
-      onPrevMonth={vi.fn()}
-      onNextMonth={vi.fn()}
-      canPrev={false}
-      canNext
     />,
   );
   // 칩은 익월 구간까지 표기하지만, 오픈 마커(8/1)는 7월 그리드에 없다.
@@ -182,10 +173,6 @@ it('창 밖 미래 셀은 aria-disabled 이고 클릭 시 onSelectDate 대신 on
       onSelectDate={onSelectDate}
       onOutOfWindowSelect={onOutOfWindowSelect}
       windowLabel="7.13 ~ 7.20"
-      onPrevMonth={vi.fn()}
-      onNextMonth={vi.fn()}
-      canPrev={false}
-      canNext
     />,
   );
   const outsideCell = screen.getByRole('button', { name: '25일 예약 기간 아님' });
@@ -253,28 +240,31 @@ it('승인 대기 행은 흰 바탕 + coral 라벨이고, 선택되면 라벨이
   expect(within(pendingRow()).getByText(/승인 대기/)).toHaveClass('text-cream/85');
 });
 
-it('운영행이 있는 날은 운영 시간 안내 박스에 단체·시간 나열과 고정 정책 문구를 렌더한다', () => {
+it('운영행이 있는 날은 기본 확보 시간 안내 박스에 단체·시간 나열과 고정 정책 문구를 렌더한다', () => {
   const day = makeDay({
     operatingNotes: [
       { organization: '고정관념', start: '09:00', end: '20:00' },
       { organization: '두잉밴드', start: '10:00', end: '12:00' },
     ],
   });
-  render(<DaySlotList day={day} selection={null} onToggleSlot={vi.fn()} />);
-  expect(screen.getByText('운영 시간 안내')).toBeInTheDocument();
+  const { container } = render(<DaySlotList day={day} selection={null} onToggleSlot={vi.fn()} />);
+  expect(screen.getByText('기본 확보 시간')).toBeInTheDocument();
   expect(screen.getByText('고정관념 09:00~20:00 · 두잉밴드 10:00~12:00')).toBeInTheDocument();
   expect(
     screen.getByText(
-      '시간 범위가 함께 표시된 일정은 운영상 확보된 시간 안내예요. 이 시간에도 예약을 신청할 수 있고, 관리자 승인 후 학교 반영 절차를 거쳐 확정돼요.',
+      '학교와 협의되어 기본적으로 이 동아리가 사용하는 시간이에요. 다른 동아리도 같은 시간에 예약을 신청할 수 있고, 관리자 승인 후 일정 조정을 거쳐 이용할 수 있어요.',
     ),
   ).toBeInTheDocument();
   // 승인 주체는 "관리자"로 통일 — "총동연" 비노출 정책
   expect(screen.queryByText(/총동연/)).not.toBeInTheDocument();
+  // 금지어(§10.2): 렌더 출력에 "운영 시간"·"운영 중" 부재.
+  expect(container).not.toHaveTextContent(/운영 시간/);
+  expect(container).not.toHaveTextContent(/운영 중/);
 });
 
-it('운영행이 없는 날은 운영 시간 안내 박스를 렌더하지 않는다', () => {
+it('운영행이 없는 날은 기본 확보 시간 안내 박스를 렌더하지 않는다', () => {
   render(<DaySlotList day={makeDay({ operatingNotes: [] })} selection={null} onToggleSlot={vi.fn()} />);
-  expect(screen.queryByText('운영 시간 안내')).not.toBeInTheDocument();
+  expect(screen.queryByText('기본 확보 시간')).not.toBeInTheDocument();
 });
 
 it('차단 슬롯 버튼은 비활성이다', () => {
@@ -359,9 +349,9 @@ it('패널 요약 카드는 레벨 뱃지·기간 분포를 렌더하고 바로 
   expect(screen.queryByRole('button', { name: '09:00' })).not.toBeInTheDocument();
 });
 
-it('패널 요약 카드는 상태별 집계 행과 슬롯 파생 운영 시간을 노출하고 0건 상태는 숨긴다', () => {
+it('패널 요약 카드는 상태별 집계 행과 슬롯 파생 이용 가능 시간을 노출하고 0건 상태는 숨긴다', () => {
   // makeDay(): AVAILABLE 10 · PENDING_HOLD 1 · BLOCKED 2 · PAST 0
-  render(<PanelSummaryCard day={makeDay()} />);
+  const { container } = render(<PanelSummaryCard day={makeDay()} />);
   expect(screen.getByText('예약 가능')).toBeInTheDocument();
   expect(screen.getByText('10칸')).toBeInTheDocument();
   expect(screen.getByText('승인 대기')).toBeInTheDocument();
@@ -370,21 +360,24 @@ it('패널 요약 카드는 상태별 집계 행과 슬롯 파생 운영 시간�
   expect(screen.getByText('2칸')).toBeInTheDocument();
   // 0건인 지난 시간은 렌더하지 않는다
   expect(screen.queryByText('지난 시간')).not.toBeInTheDocument();
-  // 운영 시간은 슬롯[0].start~슬롯[마지막].end 파생(FE 상수 하드코딩 금지)
-  expect(screen.getByText('운영 시간 09:00~22:00 · 13칸')).toBeInTheDocument();
+  // 이용 가능 시간은 슬롯[0].start~슬롯[마지막].end 파생(FE 상수 하드코딩 금지)
+  expect(screen.getByText('이용 가능 시간 09:00~22:00 · 13칸')).toBeInTheDocument();
+  // 금지어(§10.2): "운영 시간"·"운영 중" 부재.
+  expect(container).not.toHaveTextContent(/운영 시간/);
+  expect(container).not.toHaveTextContent(/운영 중/);
 });
 
 it('예약 현황 카드는 운영행을 예약 건으로 잘라 운영 조각·예약 건·그 외 시간 행을 렌더한다', () => {
   // makeDay(): 운영 고정관념 09~20 · SCHOOL 비호응원단 17~18 · INTERNAL 18~19 · PENDING 20~21
   // → 타임라인: 운영 09~17 / 비호응원단 17~18 / 예약됨 18~19 / 운영 19~20 / 승인 대기 20~21
-  render(<DayBookingOverview day={makeDay()} />);
+  const { container } = render(<DayBookingOverview day={makeDay()} />);
   // 제목은 bookingDateLabel 재사용(2026-07-20 = 월요일)
   expect(screen.getByText('7월 20일 (월) 예약 현황')).toBeInTheDocument();
-  // 운영 조각 2개(09~17·19~20): sage 도트 + 단체명 + muted "(운영 시간)" 접미
+  // 운영 조각 2개(09~17·19~20): sage 도트 + 단체명 + muted "(기본 확보)" 접미
   expect(screen.getByText('09:00~17:00')).toBeInTheDocument();
   expect(screen.getByText('19:00~20:00')).toBeInTheDocument();
   expect(screen.getAllByText('고정관념')).toHaveLength(2);
-  expect(screen.getAllByText('(운영 시간)')).toHaveLength(2);
+  expect(screen.getAllByText('(기본 확보)')).toHaveLength(2);
   const operatingRow = screen.getByText('09:00~17:00').closest('li');
   expect(operatingRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-sage');
   // 예약 건 행: 시간 범위 + 이름(SCHOOL 단체명 / INTERNAL "예약됨")
@@ -401,6 +394,9 @@ it('예약 현황 카드는 운영행을 예약 건으로 잘라 운영 조각·
   expect(screen.getByText('예약 가능 · 1개 시간')).toBeInTheDocument();
   const availableRow = screen.getByText('예약 가능 · 1개 시간').closest('li');
   expect(availableRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-sage');
+  // 금지어(§10.2): "운영 시간"·"운영 중" 부재.
+  expect(container).not.toHaveTextContent(/운영 시간/);
+  expect(container).not.toHaveTextContent(/운영 중/);
 });
 
 it('예약 건이 없어도 운영행이 있으면 통짜 운영 조각 1행으로 카드를 렌더한다', () => {
@@ -418,7 +414,7 @@ it('예약 건이 없어도 운영행이 있으면 통짜 운영 조각 1행으�
   // 예약이 없으니 운영행 전체가 통짜 운영 조각 1행
   expect(screen.getByText('09:00~20:00')).toBeInTheDocument();
   expect(screen.getByText('고정관념')).toBeInTheDocument();
-  expect(screen.getByText('(운영 시간)')).toBeInTheDocument();
+  expect(screen.getByText('(기본 확보)')).toBeInTheDocument();
   // 운영 구간(09~20) 밖 AVAILABLE(20·21시) 2개 → 그 외 행
   expect(screen.getByText('예약 가능 · 2개 시간')).toBeInTheDocument();
 });
@@ -438,19 +434,13 @@ it('예약 건도 운영행도 없으면(타임라인 0건) 예약 현황 카드
   expect(screen.queryByText(/예약 현황/)).not.toBeInTheDocument();
 });
 
-it('예약 패널은 예약 현황 카드를 요약 카드와 시간 선택 리스트 사이에 배치한다', () => {
+it('예약 패널(일간 콘텐츠 전용)은 요약 카드·예약 현황·시간 선택 순서로 렌더하고 뷰 토글은 없다', () => {
   render(
     <BookingPanel
       facility={{ id: 1, roomName: '커뮤니티룸(1)' }}
       day={makeDay()}
-      daysByIso={new Map()}
-      bookableFrom="2026-07-13"
-      bookableUntil="2026-08-31"
-      view="day"
-      onChangeView={vi.fn()}
       selection={null}
       onToggleSlot={vi.fn()}
-      onSelectDate={vi.fn()}
       step="slots"
       onProceedToForm={vi.fn()}
       onBackToSlots={vi.fn()}
@@ -468,6 +458,71 @@ it('예약 패널은 예약 현황 카드를 요약 카드와 시간 선택 리�
   // 요약 → 예약 현황 → 시간 선택 순서(DOCUMENT_POSITION_FOLLOWING = 4)
   expect(summary.compareDocumentPosition(overview) & 4).toBeTruthy();
   expect(overview.compareDocumentPosition(slotList) & 4).toBeTruthy();
+  // 일간/주간 뷰 토글은 공용 헤더(BookingViewHeader)로 이관 — 패널 내부 tablist·주간 그리드는 없다.
+  expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '주간' })).not.toBeInTheDocument();
+});
+
+it('BookingViewHeader 는 [월|주] 토글·기간 라벨·이동 화살표·범례를 렌더하고 콜백을 부른다', () => {
+  const onChangeView = vi.fn();
+  const onPrev = vi.fn();
+  const onNext = vi.fn();
+  const { rerender, container } = render(
+    <BookingViewHeader
+      view="month"
+      onChangeView={onChangeView}
+      periodLabel="2026년 7월"
+      onPrev={onPrev}
+      onNext={onNext}
+      canPrev={false}
+      canNext
+    />,
+  );
+  // 세그먼트 토글은 tablist — 월 활성, 주 비활성.
+  const tablist = screen.getByRole('tablist', { name: '월/주 보기 전환' });
+  const monthTab = within(tablist).getByRole('tab', { name: '월' });
+  const weekTab = within(tablist).getByRole('tab', { name: '주' });
+  expect(monthTab).toHaveAttribute('aria-selected', 'true');
+  expect(weekTab).toHaveAttribute('aria-selected', 'false');
+  fireEvent.click(weekTab);
+  expect(onChangeView).toHaveBeenCalledWith('week');
+
+  // 기간 라벨 + 월간 화살표(이전 달 비활성, 다음 달 활성).
+  expect(screen.getByRole('heading', { level: 2, name: '2026년 7월' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '이전 달' })).toBeDisabled();
+  const nextMonth = screen.getByRole('button', { name: '다음 달' });
+  expect(nextMonth).toBeEnabled();
+  fireEvent.click(nextMonth);
+  expect(onNext).toHaveBeenCalledTimes(1);
+  // 월간 범례
+  expect(screen.getByText('여유')).toBeInTheDocument();
+  expect(screen.getByText('마감')).toBeInTheDocument();
+
+  // 주간으로 전환 — 라벨/화살표 aria/범례가 주간용으로 바뀐다.
+  rerender(
+    <BookingViewHeader
+      view="week"
+      onChangeView={onChangeView}
+      periodLabel="7월 20일 – 26일"
+      onPrev={onPrev}
+      onNext={onNext}
+      canPrev
+      canNext={false}
+    />,
+  );
+  expect(screen.getByRole('heading', { level: 2, name: '7월 20일 – 26일' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '이전 주' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '다음 주' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '이전 주' }));
+  expect(onPrev).toHaveBeenCalledTimes(1);
+  // 주간 범례(가능/예약됨/기본 확보 시간/대기) — 9차 요구(§10.1): 운영행 가이드 레이어 = sky 점선 스와치.
+  expect(screen.getByText('가능')).toBeInTheDocument();
+  expect(screen.getByText('예약됨')).toBeInTheDocument();
+  expect(screen.getByText('기본 확보 시간')).toBeInTheDocument();
+  expect(screen.getByText('대기')).toBeInTheDocument();
+  // 금지어(§10.2): 범례에 "운영 중"·"운영 시간" 부재.
+  expect(container).not.toHaveTextContent(/운영 중/);
+  expect(container).not.toHaveTextContent(/운영 시간/);
 });
 
 it('홈 카드는 아이콘·위치·예약 가능 라벨을 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {
@@ -511,4 +566,307 @@ it('홈 카드는 오늘 예약만 반영해 남은 칸 수를 계산한다(다�
   // 오늘 09~12(3칸)만 차감 → 13 - 3 = 10칸. 다른 날 종일 예약은 필터로 무시된다.
   expect(screen.getByText('10칸')).toBeInTheDocument();
   expect(screen.getByText('지금 사용중')).toBeInTheDocument();
+});
+
+// ── 주간 타임테이블(WeekTimetable) — 목업 F3(§4): 셀 시간 선택·선택일 컬럼 강조 ─────
+// 2026-07-20 = 월요일 → weekDatesOf 는 [월20 … 일26]. 창=07-20~07-24(토25는 창 밖, 일26은 데이터 없음).
+const WEEK_SELECTED_DATE = '2026-07-20';
+
+// 13칸(09~21시) 슬롯. overrides 로 특정 시각의 상태를 바꾼다(기본 AVAILABLE).
+function makeWeekSlots(overrides: Record<number, Partial<BookingAvailabilitySlot>> = {}): BookingAvailabilitySlot[] {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return Array.from({ length: 13 }, (_, index) => {
+    const base: BookingAvailabilitySlot = { start: `${pad(9 + index)}:00`, end: `${pad(10 + index)}:00`, status: 'AVAILABLE' };
+    return { ...base, ...overrides[index] };
+  });
+}
+
+function makeWeekDaysByIso(): Map<string, BookingDayAvailability> {
+  const day = (date: string, slots: BookingAvailabilitySlot[]): BookingDayAvailability => ({
+    date,
+    dayStatus: 'AVAILABLE',
+    availableSlotCount: 13,
+    operatingNotes: [],
+    slots,
+  });
+  return new Map<string, BookingDayAvailability>([
+    // 선택일(월20): 09시=지난·10시=예약됨·11시=대기, 나머지 가능
+    [
+      WEEK_SELECTED_DATE,
+      day(WEEK_SELECTED_DATE, makeWeekSlots({ 0: { status: 'PAST' }, 1: { status: 'BLOCKED', blockedBy: 'INTERNAL' }, 2: { status: 'PENDING_HOLD' } })),
+    ],
+    ['2026-07-21', day('2026-07-21', makeWeekSlots())], // 화(창 안) — 다른 요일 탭 검증
+    ['2026-07-25', day('2026-07-25', makeWeekSlots())], // 토(창 밖 — bookableUntil 07-24 초과)
+    // 2026-07-26(일)은 의도적으로 누락 → 데이터 없음
+  ]);
+}
+
+function renderWeek(props?: Partial<Parameters<typeof WeekTimetable>[0]>) {
+  const onSelectDate = vi.fn();
+  const onTapSlot = vi.fn();
+  render(
+    <WeekTimetable
+      selectedDate={WEEK_SELECTED_DATE}
+      daysByIso={makeWeekDaysByIso()}
+      bookableFrom="2026-07-20"
+      bookableUntil="2026-07-24"
+      todayIso="2026-07-20"
+      selection={null}
+      onSelectDate={onSelectDate}
+      onTapSlot={onTapSlot}
+      {...props}
+    />,
+  );
+  return { onSelectDate, onTapSlot };
+}
+
+it('주간 그리드는 선택일 컬럼을 "· 선택" 접미·ink 원형 숫자·(PC) sage tint 프레임으로 강조한다', () => {
+  renderWeek();
+  // 선택일(월20) 헤더: "· 선택" 접미 + 숫자 ink 원형 반전(모바일·PC 공통 유지).
+  const selectedHeader = screen.getByRole('button', { name: '월요일 20일 · 선택' });
+  expect(within(selectedHeader).getByText('20')).toHaveClass('bg-ink');
+  // 컬럼 프레임(sage tint·ink 보더)은 PC 전용(§9.2) — sm: 프리픽스라 모바일엔 미적용.
+  const selectedCell = screen.getByRole('button', { name: '월요일 20일 18:00 가능' });
+  expect(selectedCell.closest('td')).toHaveClass('sm:bg-sage/20');
+  expect(selectedCell.closest('td')).not.toHaveClass('bg-sage/20');
+  // 다른 요일 헤더엔 "· 선택" 접미가 없다.
+  expect(screen.getByRole('button', { name: '화요일 21일' })).toBeInTheDocument();
+});
+
+it('주간 그리드는 가능 셀 탭 시 onTapSlot(iso, start) 를 부른다(선택일·다른 요일 모두)', () => {
+  const { onTapSlot } = renderWeek();
+  // 선택일의 가능 셀
+  fireEvent.click(screen.getByRole('button', { name: '월요일 20일 18:00 가능' }));
+  expect(onTapSlot).toHaveBeenNthCalledWith(1, '2026-07-20', '18:00');
+  // 다른 요일(화21)의 가능 셀
+  fireEvent.click(screen.getByRole('button', { name: '화요일 21일 12:00 가능' }));
+  expect(onTapSlot).toHaveBeenNthCalledWith(2, '2026-07-21', '12:00');
+});
+
+it('주간 그리드는 지난 셀·차단 블록·창 밖 셀을 비활성화하고 데이터 없는 요일 셀은 버튼을 렌더하지 않는다', () => {
+  renderWeek();
+  expect(screen.getByRole('button', { name: '월요일 20일 09:00 지난' })).toBeDisabled(); // PAST 셀
+  // BLOCKED(10시)는 단일칸이라도 예약 건 블록(HH:MM~HH:MM)으로 렌더되고 PC 에서 비인터랙티브다.
+  expect(screen.getByRole('button', { name: '월요일 20일 10:00~11:00 예약됨' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '토요일 25일 09:00 예약 기간 아님' })).toBeDisabled(); // 창 밖
+  // 07-26(일)은 daysByIso 에 없음 → 시각 셀 버튼 자체가 없다.
+  expect(screen.queryByRole('button', { name: /26일 09:00/ })).toBeNull();
+});
+
+it('주간 그리드의 대기(PENDING_HOLD) 구간은 이름 없는 "승인 대기" 블록으로 렌더되고 PC 에서 비인터랙티브다', () => {
+  renderWeek();
+  // 비노출 정책: 이름 없이 "승인 대기"만. PC 에서 확정/대기 블록은 disabled(§8.1).
+  const pendingBlock = screen.getByRole('button', { name: '월요일 20일 11:00~12:00 승인 대기' });
+  expect(pendingBlock).toBeDisabled();
+  expect(pendingBlock).toHaveClass('bg-warm/15'); // Amber(warm) 고정색
+  expect(within(pendingBlock).getByText('승인 대기')).toBeInTheDocument();
+});
+
+it('주간 그리드의 선택 범위 셀은 ink 배경·✓·aria-pressed=true 로 표기된다', () => {
+  renderWeek({ selection: { start: '18:00', end: '20:00' } });
+  const rangeStart = screen.getByRole('button', { name: '월요일 20일 18:00 가능' });
+  expect(rangeStart).toHaveClass('bg-ink');
+  expect(rangeStart).toHaveAttribute('aria-pressed', 'true');
+  expect(rangeStart).toHaveTextContent('✓');
+  // 범위 내 두 번째 슬롯도 선택.
+  expect(screen.getByRole('button', { name: '월요일 20일 19:00 가능' })).toHaveAttribute('aria-pressed', 'true');
+  // 범위 밖 가능 셀은 aria-pressed=false.
+  expect(screen.getByRole('button', { name: '월요일 20일 12:00 가능' })).toHaveAttribute('aria-pressed', 'false');
+});
+
+it('주간 그리드는 좌측 시간 라벨의 PC 표기를 mono HH:00 으로 유지하고, 셀 행 높이를 모바일 압축(h-7)·PC(sm:h-10)로 둔다', () => {
+  renderWeek();
+  // PC 시간 라벨(HH:00)은 mono 유지 — 모바일은 HH 만 노출하는 별도 span(§9.1).
+  const nineLabel = screen.getByText('09:00');
+  expect(nineLabel).toHaveClass('font-mono');
+  expect(screen.getByText('21:00')).toBeInTheDocument(); // 13행(09~21시)
+  // 셀 행 높이 — 모바일 h-7(28px)로 압축, PC sm:h-10(40px).
+  const cell = screen.getByRole('button', { name: '월요일 20일 18:00 가능' });
+  expect(cell).toHaveClass('h-7');
+  expect(cell).toHaveClass('sm:h-10');
+});
+
+it('모바일 압축(§9.1): 그리드는 table-fixed·시간열 w-8 이고 min-w 가로 스크롤 래퍼가 없다', () => {
+  renderWeek();
+  const table = screen.getByRole('table');
+  // 7컬럼 균등(table-fixed) + 모바일 min-w 미적용(sm:min-w-[480px] 으로만) → 가로 스크롤 제거.
+  expect(table).toHaveClass('table-fixed');
+  expect(table).not.toHaveClass('min-w-[480px]');
+  // 시간열은 모바일 w-8, PC sm:w-12. 09시는 모바일 'HH' 표기(09)도 노출된다.
+  expect(screen.getByText('09')).toBeInTheDocument();
+});
+
+it('모바일 압축(§9.2): 확정 블록은 2자 약칭만 노출하고 풀네임·시간은 PC(sm) 전용이다', () => {
+  renderBlockWeek();
+  const block = screen.getByRole('button', { name: '월요일 20일 13:00~15:00 비호응원단 예약됨' });
+  // 모바일 약칭 '비호'(sm:hidden) — 라벨 앞 2자.
+  const abbrev = within(block).getByText('비호');
+  expect(abbrev).toHaveClass('sm:hidden');
+  // PC 풀네임(hidden sm:block)·시간(hidden sm:block)은 모바일에서 숨김.
+  const fullName = within(block).getByText('비호응원단');
+  expect(fullName).toHaveClass('hidden');
+  expect(fullName).toHaveClass('sm:block');
+  expect(within(block).getByText('13:00~15:00')).toHaveClass('hidden');
+});
+
+it('모바일 압축(§9.2): 대기 블록은 "대기" 약칭만 노출하고 PC 는 "승인 대기"를 유지한다', () => {
+  renderBlockWeek();
+  const pending = screen.getByRole('button', { name: '월요일 20일 15:00~16:00 승인 대기' });
+  expect(within(pending).getByText('대기')).toHaveClass('sm:hidden');
+  const pendingFull = within(pending).getByText('승인 대기');
+  expect(pendingFull).toHaveClass('hidden');
+  expect(pendingFull).toHaveClass('sm:block');
+});
+
+it('블록 인터랙션 게이트(§9.3): blocksInteractive 면 확정·대기 블록이 탭 가능하고 onTapBlock(라벨·시간·kind) 을 부른다', () => {
+  const onTapBlock = vi.fn();
+  renderBlockWeek({ blocksInteractive: true, onTapBlock });
+  const block = screen.getByRole('button', { name: '월요일 20일 13:00~15:00 비호응원단 예약됨' });
+  expect(block).toBeEnabled();
+  fireEvent.click(block);
+  expect(onTapBlock).toHaveBeenCalledWith({ kind: 'BLOCKED', label: '비호응원단', start: '13:00', end: '15:00' });
+
+  const pending = screen.getByRole('button', { name: '월요일 20일 15:00~16:00 승인 대기' });
+  fireEvent.click(pending);
+  // PENDING 은 이름 비노출 — 라벨은 "승인 대기".
+  expect(onTapBlock).toHaveBeenCalledWith({ kind: 'PENDING', label: '승인 대기', start: '15:00', end: '16:00' });
+});
+
+it('블록 인터랙션 게이트(§9.3): blocksInteractive 없이(PC)는 블록이 disabled 이고 탭해도 onTapBlock 을 부르지 않는다', () => {
+  const onTapBlock = vi.fn();
+  renderBlockWeek({ onTapBlock });
+  const block = screen.getByRole('button', { name: '월요일 20일 13:00~15:00 비호응원단 예약됨' });
+  expect(block).toBeDisabled();
+  fireEvent.click(block);
+  expect(onTapBlock).not.toHaveBeenCalled();
+});
+
+// ── 주간 그리드 예약 블록화 + 색상 정책(§8) — 확정·대기 블록 + 운영 구간 sky 셀·파스텔 순환 ─────
+// 창=07-20~07-26(모두 창 안·비과거, 오늘=07-20). 월20(선택일): 운영 고정관념 09~11(sky 셀 구간) +
+// 비호응원단 13~15(연속 2칸) + 승인 대기 15~16 + 나머지 가능. 화21: 비호응원단 09~11(같은 동아리 다른 날).
+// 수22: 트레몰로 09~10.
+function makeBlockWeekDaysByIso(): Map<string, BookingDayAvailability> {
+  const day = (
+    date: string,
+    slots: BookingAvailabilitySlot[],
+    operatingNotes: BookingDayAvailability['operatingNotes'] = [],
+  ): BookingDayAvailability => ({ date, dayStatus: 'AVAILABLE', availableSlotCount: 13, operatingNotes, slots });
+  const school = (organization: string) => ({ status: 'BLOCKED' as const, blockedBy: 'SCHOOL' as const, organization });
+  return new Map<string, BookingDayAvailability>([
+    [
+      '2026-07-20',
+      day(
+        '2026-07-20',
+        makeWeekSlots({ 4: school('비호응원단'), 5: school('비호응원단'), 6: { status: 'PENDING_HOLD' } }),
+        [{ organization: '고정관념', start: '09:00', end: '11:00' }],
+      ),
+    ],
+    ['2026-07-21', day('2026-07-21', makeWeekSlots({ 0: school('비호응원단'), 1: school('비호응원단') }))],
+    ['2026-07-22', day('2026-07-22', makeWeekSlots({ 0: school('트레몰로') }))],
+  ]);
+}
+
+function renderBlockWeek(props?: Partial<Parameters<typeof WeekTimetable>[0]>) {
+  const onSelectDate = vi.fn();
+  const onTapSlot = vi.fn();
+  render(
+    <WeekTimetable
+      selectedDate="2026-07-20"
+      daysByIso={makeBlockWeekDaysByIso()}
+      bookableFrom="2026-07-20"
+      bookableUntil="2026-07-26"
+      todayIso="2026-07-20"
+      selection={null}
+      onSelectDate={onSelectDate}
+      onTapSlot={onTapSlot}
+      {...props}
+    />,
+  );
+  return { onSelectDate, onTapSlot };
+}
+
+it('주간 그리드는 연속 BLOCKED 를 rowSpan 병합 블록(이름 Bold·시간 secondary·accent 보더)으로 렌더한다', () => {
+  renderBlockWeek();
+  // 비호응원단 13~15 = 병합 블록 1개(중간 14시 별도 블록 없음).
+  const block = screen.getByRole('button', { name: '월요일 20일 13:00~15:00 비호응원단 예약됨' });
+  expect(screen.queryByRole('button', { name: /14:00~15:00 비호응원단/ })).toBeNull();
+  // rowSpan=2(2칸 병합), 이름 Bold + 시간 범위.
+  expect(block.closest('td')).toHaveAttribute('rowspan', '2');
+  expect(within(block).getByText('비호응원단')).toHaveClass('font-bold');
+  expect(within(block).getByText('13:00~15:00')).toBeInTheDocument();
+  // 좌측 accent 보더(같은 계열 진한 톤).
+  expect(block).toHaveClass('border-l-pastel-mint-accent');
+  // PC 에서 확정 블록은 비인터랙티브.
+  expect(block).toBeDisabled();
+});
+
+it('주간 그리드의 기본 확보 시간 가용 셀은 sky 점선 가이드 셀이다 — 블록 아님·단체명 미표기(§8.1·§10.1)', () => {
+  const { onTapSlot } = renderBlockWeek();
+  // 운영(고정관념 09~11) 구간의 AVAILABLE 셀 = sky 점선 가이드 셀. 동작은 일반 가용 셀과 동일(탭 = onTapSlot).
+  const operatingCell = screen.getByRole('button', { name: '월요일 20일 09:00 기본 확보 시간 · 예약 신청 가능' });
+  expect(operatingCell).toBeEnabled();
+  // §10.1 가이드 레이어: 색은 일반 가용 셀과 동일(sage), 점선 보더만 차이(사용자 조정 2026-07-17).
+  expect(operatingCell).toHaveClass('bg-sage-mist');
+  expect(operatingCell).toHaveClass('border-dashed');
+  expect(operatingCell).toHaveClass('border-sage-soft');
+  fireEvent.click(operatingCell);
+  expect(onTapSlot).toHaveBeenCalledWith('2026-07-20', '09:00');
+  // 운영 단체명·"(운영)" 은 그리드에 없다(사이드바 현황 카드·기본 확보 시간 안내 박스가 담당).
+  expect(screen.queryByText('고정관념')).toBeNull();
+  expect(screen.queryByText('(운영)')).toBeNull();
+  // 금지어(§10.2): aria-label 에 "운영 중" 부재.
+  expect(screen.queryByRole('button', { name: /운영 중/ })).toBeNull();
+  // 운영 구간 밖 가능 셀(12:00)은 sage 유지.
+  expect(screen.getByRole('button', { name: '월요일 20일 12:00 가능' })).toHaveClass('bg-sage-mist');
+});
+
+it('기본 확보 시간 sky 셀도 선택되면 ink 배경·✓·aria-pressed=true 로 표기된다', () => {
+  renderBlockWeek({ selection: { start: '09:00', end: '11:00' } });
+  const selectedCell = screen.getByRole('button', { name: '월요일 20일 09:00 기본 확보 시간 · 예약 신청 가능' });
+  expect(selectedCell).toHaveClass('bg-ink');
+  expect(selectedCell).toHaveAttribute('aria-pressed', 'true');
+  expect(selectedCell).toHaveTextContent('✓');
+  // 범위 내 두 번째 기본 확보 시간 셀도 선택 표기.
+  expect(screen.getByRole('button', { name: '월요일 20일 10:00 기본 확보 시간 · 예약 신청 가능' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+});
+
+it('주간 그리드는 확정 블록에 라벨 첫 등장 순 파스텔을 배정한다(동일 동아리=동일 색·다른 동아리=다른 색)', () => {
+  renderBlockWeek();
+  // 첫 등장 순서(월→일, 시간순): 비호응원단(월20 13시) → 비호응원단(화21) → 트레몰로(수22).
+  const monday = screen.getByRole('button', { name: '월요일 20일 13:00~15:00 비호응원단 예약됨' });
+  const tuesday = screen.getByRole('button', { name: '화요일 21일 09:00~11:00 비호응원단 예약됨' });
+  const wednesday = screen.getByRole('button', { name: '수요일 22일 09:00~10:00 트레몰로 예약됨' });
+  // 같은 동아리(비호응원단)는 화면 내내 같은 파스텔(mint = 첫 라벨).
+  expect(monday).toHaveClass('bg-pastel-mint');
+  expect(tuesday).toHaveClass('bg-pastel-mint');
+  // 다른 동아리(트레몰로)는 다른 파스텔(lemon = 두 번째 라벨).
+  expect(wednesday).toHaveClass('bg-pastel-lemon');
+  expect(wednesday).not.toHaveClass('bg-pastel-mint');
+});
+
+// ── 블록 상세 바텀시트(WeekBlockSheet) — §9.3 모바일 블록 탭 상세 ─────
+it('블록 상세 시트(§9.3): 확정 블록은 동아리명·시간 범위·"예약됨" 배지를 노출한다', () => {
+  render(<WeekBlockSheet block={{ kind: 'BLOCKED', label: '비호응원단', start: '13:00', end: '15:00' }} onClose={vi.fn()} />);
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByText('비호응원단')).toBeInTheDocument();
+  expect(within(dialog).getByText('13:00~15:00')).toBeInTheDocument();
+  expect(within(dialog).getByText('예약됨')).toBeInTheDocument();
+});
+
+it('블록 상세 시트(§9.3): 대기 블록은 이름 없이 "승인 대기" 라벨·배지와 시간만 노출한다', () => {
+  render(<WeekBlockSheet block={{ kind: 'PENDING', label: '승인 대기', start: '15:00', end: '16:00' }} onClose={vi.fn()} />);
+  const dialog = screen.getByRole('dialog');
+  // 라벨·배지 모두 "승인 대기"(이름 비노출 정책 유지) → 2회 등장.
+  expect(within(dialog).getAllByText('승인 대기').length).toBeGreaterThanOrEqual(2);
+  expect(within(dialog).getByText('15:00~16:00')).toBeInTheDocument();
+  // 확정 배지는 없다.
+  expect(within(dialog).queryByText('예약됨')).not.toBeInTheDocument();
+});
+
+it('블록 상세 시트(§9.3): block 이 null 이면 시트를 열지 않는다', () => {
+  render(<WeekBlockSheet block={null} onClose={vi.fn()} />);
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
