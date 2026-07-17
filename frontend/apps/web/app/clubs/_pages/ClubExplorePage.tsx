@@ -120,6 +120,18 @@ export function ClubExplorePage() {
     (params.division !== '전체' ? 1 : 0) +
     (params.college !== null ? 1 : 0) +
     params.activeDays.length;
+  /** 데스크탑 활성 필터 칩 행 노출 여부 — 비면 행 자체를 안 그려 카드가 위에서 시작한다.
+      activeFilterCount(모바일 배지)와 다른 이유: ① keyword·category 를 배지는 안 세지만
+      칩으로는 그린다 ② 분과 칩은 중앙 스코프에서만 그려지므로 scope 조건이 겸한다(별도
+      division 조건을 두면 수동 URL ?division=… 에서 칩 없는 "필터:" 고아 행이 생긴다)
+      ③ 요일은 전체 선택 시 칩을 안 그린다. */
+  const hasActiveFilterChips =
+    params.scope !== '전체' ||
+    params.keyword !== '' ||
+    params.recruitment !== 'all' ||
+    params.college !== null ||
+    params.category !== null ||
+    (params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length);
 
   const handleToggleLike = (clubId: number) => {
     if (authStatus !== 'authenticated') {
@@ -279,7 +291,7 @@ export function ClubExplorePage() {
         </div>
       </section>
 
-      <section className="px-4 sm:px-6 md:px-10 pt-8 pb-20">
+      <section className="px-4 sm:px-6 md:px-10 pt-6 pb-20">
         <div className="max-w-layout mx-auto grid grid-cols-[256px_1fr] gap-8">
           <aside>
             <div className="sticky top-6 bg-paper rounded-[18px] border border-line px-[22px] py-5">
@@ -369,7 +381,7 @@ export function ClubExplorePage() {
           </aside>
 
           <div>
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <div className="text-sm text-charcoal-2">
                 <span className="font-bold text-ink">{visibleClubs.length}개</span>{' '}
                 <span className="text-charcoal-3">
@@ -391,69 +403,65 @@ export function ClubExplorePage() {
               </div>
             </div>
 
-            <div className="flex gap-2 mb-6 flex-wrap min-h-[28px]">
-              {(params.scope !== '전체' ||
-                params.division !== '전체' ||
-                params.keyword !== '' ||
-                params.recruitment !== 'all' ||
-                params.college !== null ||
-                params.category !== null ||
-                (params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length)) && (
+            {/* 활성 필터가 없으면 행 자체를 렌더하지 않는다 — 빈 공간 예약(min-h) 대신
+                카운트 행과 카드 그리드가 한 섹션처럼 붙어 카드가 첫 화면 위쪽에서 시작한다. */}
+            {hasActiveFilterChips && (
+              <div className="flex gap-2 mb-4 flex-wrap">
                 <span className="text-[13px] text-charcoal-3 pt-1.5">필터:</span>
-              )}
-              {params.scope !== '전체' && (
-                <ActiveFilterChip
-                  label={params.scope === '중앙' ? '중앙동아리' : '학과동아리'}
-                  variant="primary"
-                  onRemove={() => handleScopeChange('전체')}
-                />
-              )}
-              {params.scope === '중앙' && params.division !== '전체' && (
-                <ActiveFilterChip
-                  label={`${params.division}분과`}
-                  variant="primary"
-                  onRemove={() => handleDivisionChange('전체')}
-                />
-              )}
-              {params.college && (
-                <ActiveFilterChip
-                  label={collegeDisplayName(params.college)}
-                  variant="primary"
-                  onRemove={() => updateParams({ college: null, page: 1 })}
-                />
-              )}
-              {params.category && (
-                <ActiveFilterChip
-                  label={categoryLabel(params.category)}
-                  variant="primary"
-                  onRemove={() => updateParams({ category: null, page: 1 })}
-                />
-              )}
-              {params.keyword && (
-                <ActiveFilterChip
-                  label={`"${params.keyword}"`}
-                  variant="primary"
-                  onRemove={() => {
-                    setKeywordDraft('');
-                    updateParams({ keyword: '', page: 1 });
-                  }}
-                />
-              )}
-              {params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length && (
-                <ActiveFilterChip
-                  label={`요일: ${[...params.activeDays].sort((left, right) => DAY_ORDER.indexOf(left) - DAY_ORDER.indexOf(right)).map(dayLabel).join('·')}`}
-                  variant="soft"
-                  onRemove={() => updateParams({ activeDays: [], page: 1 })}
-                />
-              )}
-              {params.recruitment !== 'all' && (
-                <ActiveFilterChip
-                  label={RECRUITMENT_LABEL[params.recruitment]}
-                  variant="soft"
-                  onRemove={() => updateParams({ recruitment: 'all', page: 1 })}
-                />
-              )}
-            </div>
+                {params.scope !== '전체' && (
+                  <ActiveFilterChip
+                    label={params.scope === '중앙' ? '중앙동아리' : '학과동아리'}
+                    variant="primary"
+                    onRemove={() => handleScopeChange('전체')}
+                  />
+                )}
+                {params.scope === '중앙' && params.division !== '전체' && (
+                  <ActiveFilterChip
+                    label={`${params.division}분과`}
+                    variant="primary"
+                    onRemove={() => handleDivisionChange('전체')}
+                  />
+                )}
+                {params.college && (
+                  <ActiveFilterChip
+                    label={collegeDisplayName(params.college)}
+                    variant="primary"
+                    onRemove={() => updateParams({ college: null, page: 1 })}
+                  />
+                )}
+                {params.category && (
+                  <ActiveFilterChip
+                    label={categoryLabel(params.category)}
+                    variant="primary"
+                    onRemove={() => updateParams({ category: null, page: 1 })}
+                  />
+                )}
+                {params.keyword && (
+                  <ActiveFilterChip
+                    label={`"${params.keyword}"`}
+                    variant="primary"
+                    onRemove={() => {
+                      setKeywordDraft('');
+                      updateParams({ keyword: '', page: 1 });
+                    }}
+                  />
+                )}
+                {params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length && (
+                  <ActiveFilterChip
+                    label={`요일: ${[...params.activeDays].sort((left, right) => DAY_ORDER.indexOf(left) - DAY_ORDER.indexOf(right)).map(dayLabel).join('·')}`}
+                    variant="soft"
+                    onRemove={() => updateParams({ activeDays: [], page: 1 })}
+                  />
+                )}
+                {params.recruitment !== 'all' && (
+                  <ActiveFilterChip
+                    label={RECRUITMENT_LABEL[params.recruitment]}
+                    variant="soft"
+                    onRemove={() => updateParams({ recruitment: 'all', page: 1 })}
+                  />
+                )}
+              </div>
+            )}
 
             {clubListQuery.isLoading && (
               <div role="status" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
