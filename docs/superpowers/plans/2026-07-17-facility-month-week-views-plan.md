@@ -55,3 +55,40 @@
 - [ ] **Step 3: 구현** — 스펙 §4 그대로: 40px 행(모바일 36px)·상태색 셀·선택일 컬럼 ink 프레임+tint·"대기" 소형 라벨·셀 버튼화(aria-label "요일 N일 HH:MM 상태")·요일 헤더 탭 유지·창/데이터 게이팅 유지. 주 이동·라벨은 Task 1 헤더가 담당(이 컴포넌트는 그리드만).
 - [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
 - [ ] **Step 5: 커밋** — `feat(frontend): 주간 그리드 개편 — 셀 시간 선택·선택일 컬럼 강조 (목업 F3)`
+
+---
+
+### Task 3: 주간 그리드 예약 블록화 + 색상 정책 (8차 요구 §8, PC 기준)
+
+**Files:**
+- Modify: `frontend/apps/web/tailwind.config.ts` (`pastel` 6색 × {bg,border,accent} 신설)
+- Modify: `frontend/apps/web/app/facilities/_lib/bookingCalendar.ts` (`pastelIndexByLabel` — 주간 화면 확정 블록 라벨 첫 등장 순 팔레트 인덱스, 순수 함수)
+- Modify: `frontend/apps/web/app/facilities/_components/booking/WeekTimetable.tsx` (컬럼 렌더를 dayOverviewTimeline 기반 블록(rowSpan)+AVAILABLE/PAST 셀로 재구성, §8.1 블록 내용·§8.2 색 매핑)
+- Modify: `frontend/apps/web/app/facilities/_components/booking/BookingViewHeader.tsx` (주간 범례에 운영=sky 추가, 예약됨 스와치는 파스텔 대표 1색+설명 유지)
+- Test: `booking-calendar-lib.test.ts`, `booking-components.test.tsx`, `facility-booking-page.test.tsx`(셀 탭 시나리오 정합)
+
+**Interfaces:** WeekTimetable props 무변경 + `operatingNotes` 소스 필요 — `daysByIso` 의 day 가 이미 operatingNotes 를 가지므로 추가 prop 불필요. 블록은 PC 에서 disabled(§8.1), Task 4 가 모바일 탭을 연다.
+
+- [ ] **Step 1: 실패 테스트 (RED)** — (a) lib: pastelIndexByLabel(같은 라벨=같은 인덱스·첫 등장 순 순환·7번째 라벨=0 재순환), (b) 그리드: 연속 BLOCKED 2칸=블록 1개(rowSpan·이름 Bold·시간 secondary·accent 클래스), 운영 블록=sky 계열+단체명 "(운영)", PENDING 블록="승인 대기"(이름 없음)·warm, AVAILABLE 셀 탭 선택 유지, 같은 주 두 동아리=서로 다른 pastel 클래스·같은 동아리 두 블록=같은 클래스, (c) 페이지: 기존 셀 탭 시나리오(23~25) 무회귀.
+- [ ] **Step 2: 실패 확인** — `pnpm --filter web test booking-components booking-calendar-lib` FAIL
+- [ ] **Step 3: 구현** — 스펙 §8 그대로. 파스텔 hex 는 cream(#F6F3EC) 위에서 조화로운 저채도(§8.3 가이드: lemon 은 warm 과 구분, sky 제외). rowSpan 테이블 유지(선택일 컬럼 프레임 로직과 병존). 블록 aria-label "요일 N일 HH:MM~HH:MM 라벨 상태".
+- [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
+- [ ] **Step 5: 커밋** — `feat(frontend): 주간 그리드 예약 블록화 — 상태 고정색·확정 예약 파스텔 순환`
+
+---
+
+### Task 4: 모바일 주간 압축 + 블록 상세 Bottom Sheet (8차 요구 §9)
+
+**Files:**
+- Modify: `frontend/apps/web/app/facilities/_components/booking/WeekTimetable.tsx` (<sm 압축: table-fixed·시간열 w-8·행 h-6~7·블록 약칭·선택일 헤더만 강조)
+- Create: `frontend/apps/web/app/facilities/_components/booking/WeekBlockSheet.tsx` (블록 상세 바텀시트 — 라벨·시간·상태 배지·운영 정책 문구)
+- Modify: `frontend/apps/web/app/facilities/_pages/FacilityBookingPage.tsx` (시트 상태·뷰포트 훅 복원 배선)
+- Test: `booking-components.test.tsx`, `facility-booking-page.test.tsx`(모바일 시나리오)
+
+**Interfaces (Consumes):** Task 3 의 블록 렌더. 뷰포트 판정은 Task 1 에서 제거된 `useIsMobileViewport` 패턴(useSyncExternalStore+matchMedia) 을 공용 훅으로 복원(`_lib/useIsMobileViewport.ts`) — 블록 disabled(PC) ↔ 시트 트리거(모바일) 게이트.
+
+- [ ] **Step 1: 실패 테스트 (RED)** — (a) 모바일(matchMedia true): 그리드 가로 스크롤 래퍼 없음(또는 min-w 미적용)·블록 약칭(예: "비호")·풀네임 부재·확정 블록 탭→시트(라벨·HH:MM~HH:MM·상태 배지)·운영 블록 탭→정책 문구·AVAILABLE 셀 탭=선택(시트 아님)·선택일 컬럼 프레임 부재(헤더 강조만), (b) PC(matchMedia false): 블록 disabled·시트 부재·기존 단언 무회귀.
+- [ ] **Step 2: 실패 확인** — `pnpm --filter web test booking-components facility-booking-page` FAIL
+- [ ] **Step 3: 구현** — 스펙 §9 그대로. 시트는 기존 ui/sheet 재사용(duing 스코프 bg-transparent 함정·sr-only Description 전례 준수). 시나리오 20 의 matchMedia 오버라이드/원복 패턴 재사용.
+- [ ] **Step 4: GREEN + 전체 검증** — `pnpm lint && pnpm typecheck && pnpm --filter web test` 전건 PASS(수치 보고)
+- [ ] **Step 5: 커밋** — `feat(frontend): 모바일 주간 압축 — 7일 한 화면·블록 약칭·상세 바텀시트`
