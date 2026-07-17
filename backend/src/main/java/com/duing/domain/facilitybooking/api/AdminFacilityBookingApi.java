@@ -54,7 +54,8 @@ public interface AdminFacilityBookingApi {
             @Valid @RequestBody RejectFacilityBookingRequest rejectFacilityBookingRequest,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser);
 
-    @Operation(summary = "수동 확정", description = "자동 매칭 불발(학교 표기 차이) 건의 관리자 확정.")
+    @Operation(summary = "수동 확정", description = "자동 매칭 불발(학교 표기 차이) 건의 관리자 확정 — "
+            + "학교 점유행 재검증 없이 확정하는 오버라이드 경로(내부 겹침 재검증은 유지).")
     @PostMapping("/admin/facility-bookings/{bookingId}/confirm")
     ResponseEntity<ApiResponse<Void>> confirm(@PathVariable Long bookingId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser);
@@ -65,7 +66,8 @@ public interface AdminFacilityBookingApi {
             @Valid @RequestBody MarkConflictRequest markConflictRequest,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser);
 
-    @Operation(summary = "관리자 취소", description = "APPROVED·CONFLICT 취소. 사유는 이력에 기록.")
+    @Operation(summary = "관리자 취소", description = "APPROVED·CONFLICT·CONFIRMED 취소. "
+            + "CONFIRMED 취소는 학교 측 취소·오확정 정정용 복구 경로. 사유는 이력에 기록.")
     @PostMapping("/admin/facility-bookings/{bookingId}/cancel")
     ResponseEntity<ApiResponse<Void>> cancel(@PathVariable Long bookingId,
             @Valid @RequestBody CancelFacilityBookingRequest cancelFacilityBookingRequest,

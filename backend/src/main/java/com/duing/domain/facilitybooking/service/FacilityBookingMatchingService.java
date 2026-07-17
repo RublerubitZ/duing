@@ -106,7 +106,8 @@ public class FacilityBookingMatchingService {
         }
         // 시설 행 PESSIMISTIC_WRITE — 동기화 잡의 아카이브 UPDATE 와 직렬화해 재확인 후 아카이브되는 TOCTOU 차단
         // (승인 경로와 동일 잠금이라 상호 직렬화 부수 효과도 안전). 아카이브 시설의 잔존 크롤 행(크롤이 삭제하지
-        // 않음)으로 불가역 CONFIRMED 되는 것을 막는다.
+        // 않음)으로 오확정 CONFIRMED 되는 것을 막는다 — 관리자 취소 복구 경로가 생겼어도(§4.2) 오확정 자체를
+        // 만들지 않는 것이 이 가드의 몫이다.
         Facility facility = facilityRepository.findByIdForUpdate(booking.getFacilityId()).orElse(null);
         if (facility == null) {
             log.info("FacilityBooking Matching skip bookingId={} (시설 없음)", bookingId);

@@ -183,10 +183,12 @@ public class FacilityBooking extends BaseEntity {
         this.conflictDetail = detail;
     }
 
-    /** 관리자 취소 — APPROVED·CONFLICT 에서(§4.3). 취소 사유는 이력(history.reason)에만 남긴다 —
-     *  rejectReason 은 거절 전용 필드라 의미를 오염시키지 않는다. */
+    /** 관리자 취소 — APPROVED·CONFLICT·CONFIRMED 에서(§4.3). CONFIRMED 취소는 학교 측 취소·오확정
+     *  정정용 복구 경로다(CANCELLED 전이 시 EXCLUDE 대상에서 자동 이탈). 취소 사유는 이력(history.reason)에만
+     *  남긴다 — rejectReason 은 거절 전용 필드라 의미를 오염시키지 않는다. */
     public void cancelByAdmin() {
-        if (this.status != BookingStatus.APPROVED && this.status != BookingStatus.CONFLICT) {
+        if (this.status != BookingStatus.APPROVED && this.status != BookingStatus.CONFLICT
+                && this.status != BookingStatus.CONFIRMED) {
             throw new FacilityBookingException.InvalidStatusTransitionException(this.status, BookingStatus.CANCELLED);
         }
         this.status = BookingStatus.CANCELLED;
