@@ -25,6 +25,7 @@ type Props = {
 export function ClubDetailTabs({ club, photos, membership }: Props) {
   const hasIntro = club.description !== null
     || club.tagline !== null
+    || club.tags.length > 0
     || club.highlights.length > 0
     || club.majorProjects !== null;
   const hasActivity = activityScheduleLabel(club.activityFrequency, club.activeDays) !== null
@@ -71,6 +72,7 @@ export function ClubDetailTabs({ club, photos, membership }: Props) {
           <ClubDetailAbout
             description={club.description}
             tagline={club.tagline}
+            tags={club.tags}
             highlights={club.highlights}
             majorProjects={club.majorProjects}
           />

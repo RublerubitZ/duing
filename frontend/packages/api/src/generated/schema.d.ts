@@ -1288,7 +1288,7 @@ export interface paths {
         put?: never;
         /**
          * 수동 확정
-         * @description 자동 매칭 불발(학교 표기 차이) 건의 관리자 확정.
+         * @description 자동 매칭 불발(학교 표기 차이) 건의 관리자 확정 — 학교 점유행 재검증 없이 확정하는 오버라이드 경로(내부 겹침 재검증은 유지).
          */
         post: operations["confirm"];
         delete?: never;
@@ -1308,7 +1308,7 @@ export interface paths {
         put?: never;
         /**
          * 관리자 취소
-         * @description APPROVED·CONFLICT 취소. 사유는 이력에 기록.
+         * @description APPROVED·CONFLICT·CONFIRMED 취소. CONFIRMED 취소는 학교 측 취소·오확정 정정용 복구 경로. 사유는 이력에 기록.
          */
         post: operations["cancel_1"];
         delete?: never;
@@ -2899,7 +2899,7 @@ export interface paths {
         };
         /**
          * 현재 예약 오픈 구간 (비로그인)
-         * @description 반월 오픈 정책 등 현재 신청 가능한 날짜 구간. 전 시설 공통.
+         * @description 롤링 오픈 정책(현재 진행 중인 반월 + 다음 반월) 기준 신청 가능한 날짜 구간. 단일 창(bookableFrom/bookableUntil)과 라벨링된 세부 구간(availableBookingRanges)을 함께 반환. 전 시설 공통.
          */
         get: operations["getBookingWindow"];
         put?: never;
@@ -3859,6 +3859,7 @@ export interface components {
             purpose: string;
             /** Format: int32 */
             attendeeCount?: number;
+            contactPhone: string;
         };
         LocalTime: {
             /** Format: int32 */
@@ -4013,10 +4014,10 @@ export interface components {
             imageAltText?: string;
             /** Format: int64 */
             noticeId?: number;
+            singleLinkTarget?: boolean;
+            scheduleRangeValid?: boolean;
             imageAltTextRequiredForFullBleed?: boolean;
             bannerImageRequiredForFullBleed?: boolean;
-            scheduleRangeValid?: boolean;
-            singleLinkTarget?: boolean;
         };
         CreateNoticeRequest: {
             title: string;
@@ -4398,10 +4399,10 @@ export interface components {
             /** Format: int64 */
             noticeId?: number;
             clearNoticeId?: boolean;
+            singleLinkTarget?: boolean;
+            scheduleRangeValid?: boolean;
             imageAltTextRequiredForFullBleed?: boolean;
             bannerImageRequiredForFullBleed?: boolean;
-            scheduleRangeValid?: boolean;
-            singleLinkTarget?: boolean;
         };
         ProcessPromotionRequestRequest: {
             /** @enum {string} */
@@ -4895,7 +4896,7 @@ export interface components {
             /** Format: int64 */
             id?: number;
             /** @enum {string} */
-            type?: "RECRUITMENT_OPENED" | "RECRUITMENT_DEADLINE" | "INTERVIEW_SCHEDULED" | "INTERVIEW_UPDATED" | "INTERVIEW_CANCELLED" | "INTERVIEW_AVAILABILITY_REQUESTED" | "INTERVIEW_REMINDER" | "NOTICE_TARGETED" | "FEE_PAID_CONFIRMED" | "FEE_PARTIAL_PAYMENT_CONFIRMED" | "FEE_BILL_OVERDUE" | "FEE_BILL_ISSUED" | "FEE_BILL_DUE_SOON" | "FEDERATION_INQUIRY_RECEIVED" | "FEDERATION_INQUIRY_ANSWERED" | "FEDERATION_INQUIRY_CLOSED";
+            type?: "RECRUITMENT_OPENED" | "RECRUITMENT_DEADLINE" | "INTERVIEW_SCHEDULED" | "INTERVIEW_UPDATED" | "INTERVIEW_CANCELLED" | "INTERVIEW_AVAILABILITY_REQUESTED" | "INTERVIEW_REMINDER" | "NOTICE_TARGETED" | "FEE_PAID_CONFIRMED" | "FEE_PARTIAL_PAYMENT_CONFIRMED" | "FEE_BILL_OVERDUE" | "FEE_BILL_ISSUED" | "FEE_BILL_DUE_SOON" | "FEDERATION_INQUIRY_RECEIVED" | "FEDERATION_INQUIRY_ANSWERED" | "FEDERATION_INQUIRY_CLOSED" | "FACILITY_BOOKING_SUBMITTED" | "FACILITY_BOOKING_APPROVED" | "FACILITY_BOOKING_REJECTED" | "FACILITY_BOOKING_CONFIRMED" | "FACILITY_BOOKING_CONFLICT" | "FACILITY_BOOKING_CANCELLED";
             title?: string;
             body?: string;
             linkUrl?: string;
@@ -5788,11 +5789,19 @@ export interface components {
             message?: string;
             code?: string;
         };
+        BookingRangeResponse: {
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            endDate?: string;
+            label?: string;
+        };
         BookingWindowResponse: {
             /** Format: date */
             bookableFrom?: string;
             /** Format: date */
             bookableUntil?: string;
+            availableBookingRanges?: components["schemas"]["BookingRangeResponse"][];
         };
         ApiResponseListPurposePresetResponse: {
             ok?: boolean;
@@ -5834,6 +5843,7 @@ export interface components {
             /** @enum {string} */
             status?: "PENDING_APPROVAL" | "ACTIVE" | "INACTIVE" | "REJECTED";
             tags?: string[];
+            tagline?: string;
             centralClub?: boolean;
             activeRecruitment?: components["schemas"]["ActiveRecruitmentSummaryResponse"];
         };
@@ -5990,6 +6000,7 @@ export interface components {
             purpose?: string;
             /** Format: int32 */
             attendeeCount?: number;
+            contactPhone?: string;
             rejectReason?: string;
             conflictDetail?: string;
             history?: components["schemas"]["HistoryItem"][];
@@ -6690,6 +6701,7 @@ export interface components {
             /** @enum {string} */
             status?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
             purpose?: string;
+            contactPhone?: string;
             /** Format: date-time */
             createdAt?: string;
             /** Format: int32 */
@@ -6733,6 +6745,7 @@ export interface components {
             purpose?: string;
             /** Format: int32 */
             attendeeCount?: number;
+            contactPhone?: string;
             rejectReason?: string;
             conflictDetail?: string;
             /** Format: int64 */

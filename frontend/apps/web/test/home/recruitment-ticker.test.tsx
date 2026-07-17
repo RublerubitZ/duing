@@ -36,6 +36,7 @@ function makeSummary(id: number, name: string, endDate: string | null): ClubSumm
     logoUrl: null,
     status: 'ACTIVE',
     tags: [],
+    tagline: null,
     centralClub: true,
     activeRecruitment:
       endDate === null

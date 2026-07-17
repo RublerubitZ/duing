@@ -12,7 +12,7 @@ vi.mock('next/link', () => ({
 const baseClub: Club = {
   id: 1,
   name: '테스트 동아리',
-  tag: '소개',
+  tagline: '매주 함께 성장하는 동아리',
   cat: '학술',
   scope: '중앙',
   division: null,

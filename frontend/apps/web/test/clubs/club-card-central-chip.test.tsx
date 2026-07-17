@@ -14,7 +14,7 @@ vi.mock('next/link', () => ({
 const baseClub: Club = {
   id: 1,
   name: '테스트 동아리',
-  tag: '소개',
+  tagline: '매주 함께 성장하는 동아리',
   cat: '학술',
   scope: '중앙',
   division: null,
@@ -24,28 +24,33 @@ const baseClub: Club = {
 };
 
 /* ── 테스트 ─────────────────────────────────────────────────── */
-describe('ClubCard — scope/division chip 렌더링', () => {
-  it('scope="중앙", division=null → "🏛️ 중앙" 보임, "·" 없음', () => {
+describe('ClubCard — 소속 칩·분과·해시태그 렌더링', () => {
+  it('scope="중앙", division=null → "중앙" 칩만, 분과 텍스트 없음', () => {
     render(<ClubCard club={{ ...baseClub, scope: '중앙', division: null }} />);
-    const chip = screen.getByText('🏛️ 중앙');
-    expect(chip).toBeInTheDocument();
-    expect(chip.textContent).not.toContain('·');
+    expect(screen.getByText('중앙')).toBeInTheDocument();
+    expect(screen.queryByText(/분과/)).toBeNull();
   });
 
-  it('scope="중앙", division="컴퓨터정보공학부" → "🏛️ 중앙 · 컴퓨터정보공학부"', () => {
+  it('scope="중앙", division="컴퓨터정보공학부" → "중앙" 칩 + "컴퓨터정보공학부분과" 회색 텍스트 분리', () => {
     render(<ClubCard club={{ ...baseClub, scope: '중앙', division: '컴퓨터정보공학부' }} />);
-    expect(screen.getByText('🏛️ 중앙 · 컴퓨터정보공학부')).toBeInTheDocument();
+    expect(screen.getByText('중앙')).toBeInTheDocument();
+    expect(screen.getByText('컴퓨터정보공학부분과')).toBeInTheDocument();
   });
 
-  it('scope="학과", division="컴퓨터정보공학부" → "🎓 학과 · 컴퓨터정보공학부"', () => {
+  it('division 이 이미 "…분과"로 끝나면 접미를 중복 부착하지 않는다', () => {
+    render(<ClubCard club={{ ...baseClub, scope: '중앙', division: '전시창작분과' }} />);
+    expect(screen.getByText('전시창작분과')).toBeInTheDocument();
+    expect(screen.queryByText('전시창작분과분과')).toBeNull();
+  });
+
+  it('scope="학과" → "학과" 칩, division 이 있어도 분과 텍스트 미노출', () => {
     render(<ClubCard club={{ ...baseClub, scope: '학과', division: '컴퓨터정보공학부' }} />);
-    expect(screen.getByText('🎓 학과 · 컴퓨터정보공학부')).toBeInTheDocument();
+    expect(screen.getByText('학과')).toBeInTheDocument();
+    expect(screen.queryByText(/분과/)).toBeNull();
   });
 
-  it('scope="학과", division=null → "🎓 학과" 만', () => {
-    render(<ClubCard club={{ ...baseClub, scope: '학과', division: null }} />);
-    const chip = screen.getByText('🎓 학과');
-    expect(chip).toBeInTheDocument();
-    expect(chip.textContent).not.toContain('·');
+  it('한줄 소개(tagline)를 이름 아래에 렌더한다', () => {
+    render(<ClubCard club={baseClub} />);
+    expect(screen.getByText('매주 함께 성장하는 동아리')).toBeInTheDocument();
   });
 });

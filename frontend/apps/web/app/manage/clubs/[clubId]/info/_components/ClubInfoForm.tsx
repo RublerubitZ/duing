@@ -283,17 +283,6 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
           )}
 
           <div className={fieldCls}>
-            <label htmlFor="f-intro" className={labelCls}>소개</label>
-            <textarea
-              id="f-intro"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              rows={4}
-              className={`${inputCls} resize-y leading-relaxed`}
-            />
-          </div>
-
-          <div className={fieldCls}>
             <p className={labelCls}>로고 이미지</p>
             {readOnly ? (
               <ImageWithFallback
@@ -337,34 +326,6 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
             )}
           </div>
         </fieldset>
-
-        <div className={fieldCls}>
-          <div className="flex items-baseline justify-between">
-            <span className={labelCls}>
-              태그 <span className="text-[11.5px] font-normal text-[#8a8f83]">(최대 5개)</span>
-            </span>
-            <span
-              className={`text-[11.5px] font-medium ${
-                tags.length > 5
-                  ? 'text-[#b04a2a]'
-                  : tags.length === 5
-                    ? 'text-[#3e5b34]'
-                    : 'text-[#8a8f83]'
-              }`}
-            >
-              {tags.length}/5
-            </span>
-          </div>
-          <TagsInput value={tags} onChange={setTags} readOnly={readOnly} />
-          {tags.length > 5 && (
-            <p className="mt-1.5 text-[12px] text-[#b04a2a]">
-              이전에 등록된 태그가 5개를 초과합니다. 새 태그를 추가하려면 먼저 일부를 삭제해 주세요.
-            </p>
-          )}
-          {tags.length === 5 && (
-            <p className="mt-1.5 text-[12px] text-[#8a8f83]">최대 5개까지 추가할 수 있어요.</p>
-          )}
-        </div>
 
         {/* 상세 정보 그룹 카드 */}
         <div
@@ -466,17 +427,70 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
 
           <fieldset disabled={readOnly} className="border-0 p-0 m-0 space-y-[18px]">
             <div className={fieldCls.replace('mb-[18px]', '')}>
-              <label htmlFor="f-tag" className={labelCls}>한 줄 태그라인</label>
+              <div className="flex items-baseline justify-between">
+                <label htmlFor="f-tagline" className={labelCls}>한줄 소개</label>
+                <span
+                  className={`text-[11.5px] font-medium ${
+                    tagline.length > 40 ? 'text-[#b04a2a]' : 'text-[#8a8f83]'
+                  }`}
+                >
+                  {tagline.length}/40
+                </span>
+              </div>
+              {/* 새 입력은 40자 제한 — 기존 60자 제한으로 저장된 값은 유효성(60자 백스톱)을 유지한다. */}
               <input
-                id="f-tag"
+                id="f-tagline"
                 type="text"
                 value={tagline}
-                maxLength={60}
+                maxLength={40}
                 onChange={(event) => setTagline(event.target.value)}
-                placeholder="예: 코드를 두잉"
+                placeholder="예: 매주 AI 프로젝트를 함께 개발하는 동아리"
                 className={inputCls}
               />
-              <span className="text-[11.5px] text-[#b5b8ac]">{tagline.length}/60</span>
+              {tagline.length > 40 && (
+                <p className="mt-1 text-[12px] text-[#b04a2a]">
+                  기존에 저장된 소개가 40자를 초과합니다. 40자 이내로 줄이는 것을 권장해요.
+                </p>
+              )}
+            </div>
+
+            <div className={fieldCls.replace('mb-[18px]', '')}>
+              <div className="flex items-baseline justify-between">
+                <span className={labelCls}>
+                  해시태그 <span className="text-[11.5px] font-normal text-[#8a8f83]">(최대 5개)</span>
+                </span>
+                <span
+                  className={`text-[11.5px] font-medium ${
+                    tags.length > 5
+                      ? 'text-[#b04a2a]'
+                      : tags.length === 5
+                        ? 'text-[#3e5b34]'
+                        : 'text-[#8a8f83]'
+                  }`}
+                >
+                  {tags.length}/5
+                </span>
+              </div>
+              <TagsInput value={tags} onChange={setTags} readOnly={readOnly} />
+              {tags.length > 5 && (
+                <p className="mt-1.5 text-[12px] text-[#b04a2a]">
+                  이전에 등록된 태그가 5개를 초과합니다. 새 태그를 추가하려면 먼저 일부를 삭제해 주세요.
+                </p>
+              )}
+              {tags.length === 5 && (
+                <p className="mt-1.5 text-[12px] text-[#8a8f83]">최대 5개까지 추가할 수 있어요.</p>
+              )}
+            </div>
+
+            <div className={fieldCls.replace('mb-[18px]', '')}>
+              <label htmlFor="f-intro" className={labelCls}>동아리 소개</label>
+              <textarea
+                id="f-intro"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                rows={4}
+                className={`${inputCls} resize-y leading-relaxed`}
+              />
             </div>
 
             <div className={fieldCls.replace('mb-[18px]', '')}>

@@ -42,6 +42,7 @@ export type ClubSummary = {
   logoUrl: string | null;
   status: ClubStatus;
   tags: string[];
+  tagline: string | null;
   centralClub: boolean;
   activeRecruitment: ClubSummaryRecruitment | null;
 };

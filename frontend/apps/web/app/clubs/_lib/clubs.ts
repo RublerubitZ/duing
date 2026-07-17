@@ -12,7 +12,8 @@ export type ClubCat =
 export type Club = {
   id: number;
   name: string;
-  tag: string;
+  /** 한줄 소개 — 비어 있으면 어댑터가 "소개 준비중" 폴백을 채운다. */
+  tagline: string;
   cat: ClubCat;
   scope: ClubScope;
   division: string | null;
@@ -24,6 +25,10 @@ export type Club = {
 
 export const isDivision = (value: string | null | undefined): value is Division =>
   value !== null && value !== undefined && (DIVISIONS as readonly string[]).includes(value);
+
+/** 분과 표시 라벨 — 값이 이미 "…분과" 로 끝나면 그대로, 아니면 "분과" 를 붙인다. */
+export const formatDivisionLabel = (division: string): string =>
+  division.endsWith('분과') ? division : `${division}분과`;
 
 export const CAT_COLORS: Record<
   ClubCat,

@@ -5,7 +5,8 @@ import { Link } from 'next-view-transitions';
 import { SparkleFull } from '../../_components/Sparkle';
 import { ClubLogo } from '../../_components/ClubLogo';
 import { toRoute } from '../../_lib/route';
-import { CAT_COLORS, type Club } from '../_lib/clubs';
+import { ScopeChip } from './ScopeChip';
+import { CAT_COLORS, formatDivisionLabel, type Club } from '../_lib/clubs';
 import type { RecruitmentDisplayStatus } from '@duing/types';
 
 function HeartIcon({ filled = false }: { filled?: boolean }) {
@@ -111,40 +112,42 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
           <SparkleFull size={12} color="#9DB6A0" className="absolute -top-1 -right-1" />
         </div>
 
-        <button
-          type="button"
-          aria-label={liked ? '찜 해제' : '찜 추가'}
-          aria-pressed={liked}
-          disabled={isLikeBusy}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onLikeToggle?.(club.id);
-          }}
-          className={`grid place-items-center w-8 h-8 rounded-full shrink-0 disabled:opacity-50 ${liked ? 'bg-[#FFE8E5] text-coral' : 'bg-transparent text-charcoal-3'}`}
-        >
-          <HeartIcon filled={liked} />
-        </button>
-      </div>
-
-      <div>
-        <h3 className="text-[19px] mb-1.5 leading-[1.25]">{club.name}</h3>
-        <p className="text-[13.5px] text-charcoal-3 leading-[1.45]">{club.tag}</p>
-      </div>
-
-      <div className="flex items-center gap-1.5 flex-wrap text-[12px] text-charcoal-3">
-        <span className={cat.pill}>{club.cat}</span>
-        {club.scope && (
-          <span
-            className={`px-2 py-0.5 rounded-full text-[11px] font-bold tracking-wide04 ${club.scope === '중앙' ? 'bg-sage-mist text-ink-deep' : 'bg-graysoft text-charcoal-2'}`}
+        {/* 계층 2 — 소속은 우측 상단 속성 자리(이름과 경쟁 금지), 하트는 그 옆 코너 액션. */}
+        <div className="flex items-center gap-1 shrink-0">
+          <ScopeChip scope={club.scope} />
+          <button
+            type="button"
+            aria-label={liked ? '찜 해제' : '찜 추가'}
+            aria-pressed={liked}
+            disabled={isLikeBusy}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onLikeToggle?.(club.id);
+            }}
+            className={`grid place-items-center w-8 h-8 rounded-full shrink-0 disabled:opacity-50 ${liked ? 'bg-[#FFE8E5] text-coral' : 'bg-transparent text-charcoal-3'}`}
           >
-            {club.scope === '중앙' ? '🏛️ 중앙' : '🎓 학과'}
-            {club.division ? ` · ${club.division}` : ''}
-          </span>
-        )}
+            <HeartIcon filled={liked} />
+          </button>
+        </div>
       </div>
 
-      <div className="mt-1 pt-3 border-t border-dashed border-line flex items-center justify-between gap-2">
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
+          {/* 계층 1·2 — 이름 + 한줄 소개(항상 1줄 말줄임, 제목보다 약하되 읽기 쉬운 톤). */}
+          <h3 className="text-[19px] leading-[1.25]">{club.name}</h3>
+          <p className="truncate text-[13.5px] text-charcoal-2 leading-[1.45]">{club.tagline}</p>
+        </div>
+        {/* 계층 3·4 — 카테고리는 탐색 핵심 정보라 색상 pill로 강조, 분과는 회색 보조 텍스트(중앙만). */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={cat.pill}>{club.cat}</span>
+          {club.scope === '중앙' && club.division && (
+            <span className="text-[12.5px] text-charcoal-3">{formatDivisionLabel(club.division)}</span>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-auto pt-3 border-t border-dashed border-line flex items-center justify-between gap-2">
         <span
           className={`inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[11.5px] font-bold tracking-[0.02em] ${statusStyle.chipClass}`}
         >

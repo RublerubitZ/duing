@@ -301,7 +301,8 @@ export const updateClubSchema = z.object({
     .max(100, '회비 표기는 100자 이하여야 합니다.')
     .nullable()
     .optional(),
-  tagline: z.string().max(60, '한 줄 태그라인은 60자 이하여야 합니다.').nullable().optional(),
+  // 새 입력 UI 는 40자로 제한 — 기존 60자 제한 시절 저장된 값이 깨지지 않게 검증 백스톱은 60 유지.
+  tagline: z.string().max(60, '한줄 소개는 60자 이하여야 합니다.').nullable().optional(),
   highlights: z
     .array(z.string().min(1, '강조 항목은 비어 있을 수 없습니다.').max(100, '각 강조 항목은 100자 이하여야 합니다.'))
     .max(10, '강조 항목은 최대 10개까지 가능합니다.')
