@@ -10,7 +10,6 @@ import {
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { FacilityUpdateBanner } from '../_components/FacilityUpdateBanner';
-import { FacilityOverviewTimeline } from '../_components/FacilityOverviewTimeline';
 import { FacilityUsageGuide } from '../_components/FacilityUsageGuide';
 import { seoulDateIso, shiftYearMonth, yearMonthLabel } from '../_lib/facilityTimeline';
 import { windowRangeLabel } from '../_lib/bookingHome';
@@ -503,12 +502,6 @@ export function FacilityBookingPage() {
             </>
           )}
 
-          <details className="rounded-lg border border-line bg-paper px-4 py-3">
-            <summary className="cursor-pointer text-sm font-medium text-ink-deep">오늘 이용 현황</summary>
-            <div className="pt-3">
-              <FacilityOverviewTimeline facilities={usageQuery.data.facilities} onSelectFacility={selectFacility} />
-            </div>
-          </details>
           <FacilityUsageGuide />
         </div>
       )}

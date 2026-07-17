@@ -169,8 +169,7 @@ function availabilityHandlerFor(facilityId: number) {
   });
 }
 
-// FacilityOverviewTimeline(오늘 이용 현황 details)이 usage 응답으로 마운트되므로
-// FacilityItem 전체 필드를 채워야 런타임 크래시가 없다(reservations 등).
+// FacilityItem 전체 필드 픽스처 — 홈 카드(오늘 남은 칸 계산 등)가 usage 응답을 소비한다.
 const FACILITY_A: FacilityItem = {
   id: 1,
   roomName: '커뮤니티룸(1)',
