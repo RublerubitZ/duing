@@ -68,10 +68,12 @@ export function MobileDaySheet({
         if (!next) onClose();
       }}
     >
+      {/* 컨테이너 하단 패딩 0 — sticky 푸터가 스크롤 끝에서 정적 위치로 돌아갈 때 컨테이너 pb 가 푸터 아래
+          여백으로 노출되던 문제. safe-area 포함 하단 여백은 각 스텝(푸터 없는 분기) 또는 푸터 자신이 갖는다. */}
       <SheetContent
         side="bottom"
         hideClose
-        className="duing rounded-t-[26px] border-line bg-cream px-5 pb-[calc(1.5rem_+_env(safe-area-inset-bottom))] pt-3"
+        className="duing rounded-t-[26px] border-line bg-cream px-5 pb-0 pt-3"
       >
         <div className="mx-auto mb-3 h-[4.5px] w-10 rounded-full bg-line" />
         <SheetHeader className="mb-3">
@@ -80,19 +82,23 @@ export function MobileDaySheet({
         </SheetHeader>
 
         {shownDay === null || shownFacility === null ? (
-          <ListRowsSkeleton
-            rows={4}
-            rowClassName="h-[44px] rounded-lg"
-            className="space-y-2 py-4"
-            label="시간대 불러오는 중"
-          />
+          <div className="pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
+            <ListRowsSkeleton
+              rows={4}
+              rowClassName="h-[44px] rounded-lg"
+              className="space-y-2 py-4"
+              label="시간대 불러오는 중"
+            />
+          </div>
         ) : !open ? (
           // 닫힘(exit 애니메이션 ~300ms) 중에는 폼/성공을 렌더하지 않는다 — 뷰포트 승계로 주간 사이드바가
           // 같은 커밋에 BookingForm 을 마운트하면 정적 id(booking-club 등)가 이중 마운트되는 것을 차단.
           // 슬롯 리스트(스냅샷 day)만 남겨 빈 시트로 내려가지 않게 한다(id 없는 콘텐츠).
-          <DaySlotList day={shownDay} selection={selection} onToggleSlot={onToggleSlot} />
+          <div className="pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
+            <DaySlotList day={shownDay} selection={selection} onToggleSlot={onToggleSlot} />
+          </div>
         ) : step === 'success' && selection !== null && submittedAt !== null ? (
-          <div>
+          <div className="pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
             <div className="mb-3">
               <PanelStepIndicator step={step} />
             </div>
@@ -110,7 +116,7 @@ export function MobileDaySheet({
             />
           </div>
         ) : step === 'form' && selection !== null ? (
-          <div>
+          <div className="pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
             <div className="mb-3">
               <PanelStepIndicator step={step} />
             </div>
@@ -130,8 +136,9 @@ export function MobileDaySheet({
               <PanelStepIndicator step={step} />
             </div>
             <DaySlotList day={shownDay} selection={selection} onToggleSlot={onToggleSlot} />
-            {/* bg-inherit 은 transparent 로 풀려 스크롤 중 뒤 슬롯이 비친다 — 시트 표면 bg-cream 으로 고정(패널 전례). */}
-            <div className="sticky bottom-0 -mx-5 mt-2 bg-cream px-5 pt-2">
+            {/* bg-inherit 은 transparent 로 풀려 스크롤 중 뒤 슬롯이 비친다 — 시트 표면 bg-cream 으로 고정(패널 전례).
+                하단 여백은 푸터 자신의 pb(safe-area 포함)로 — 컨테이너 pb-0 과 짝이라 화면 끝까지 배경이 이어진다. */}
+            <div className="sticky bottom-0 -mx-5 mt-2 bg-cream px-5 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] pt-2">
               {selection !== null && (
                 <div className="mb-2 flex items-center gap-2 rounded-lg bg-sage-mist px-3 py-2">
                   <span className="font-mono text-base font-bold text-ink-deep">{rangeLabel(selection)}</span>

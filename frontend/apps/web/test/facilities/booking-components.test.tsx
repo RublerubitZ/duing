@@ -899,8 +899,11 @@ it('빠른 예약 시트(§11.1): slots 스텝은 날짜 제목·스텝 인디�
   // 슬롯 리스트에 기본 확보 시간 안내 박스가 함께 온다(DaySlotList 재사용).
   expect(within(dialog).getByText('기본 확보 시간')).toBeInTheDocument();
   // 선택 전 CTA 비활성 + 보조 버튼 "시간표로 보기" 노출(slots 스텝).
-  expect(within(dialog).getByRole('button', { name: '시간을 선택해주세요' })).toBeDisabled();
+  const sheetCta = within(dialog).getByRole('button', { name: '시간을 선택해주세요' });
+  expect(sheetCta).toBeDisabled();
   expect(within(dialog).getByRole('button', { name: '시간표로 보기' })).toBeInTheDocument();
+  // sticky 푸터가 safe-area 하단 패딩을 자체 보유 — 컨테이너 pb 가 푸터 아래 여백으로 노출되던 회귀 방지.
+  expect(sheetCta.closest('div')).toHaveClass('pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]');
   // 통합 예약 현황 카드는 시트에 없다(§11.1 — 그 역할은 주간 뷰).
   expect(within(dialog).queryByText(/예약 현황/)).not.toBeInTheDocument();
 });
