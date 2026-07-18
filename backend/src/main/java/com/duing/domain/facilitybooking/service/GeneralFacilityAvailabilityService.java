@@ -55,7 +55,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     private final ClubRepository clubRepository;
     private final FacilityCrawlService facilityCrawlService;
     private final FacilityAvailabilityPolicy availabilityPolicy;
-    private final BookingWindowPolicy bookingWindowPolicy;
+    private final BookingApplicationPolicy bookingApplicationPolicy;
     private final Clock clock;
 
     @Override
@@ -88,7 +88,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
         LocalDateTime crawledAt = snapshot != null ? snapshot.getCrawledAt() : null;
         boolean stale = isStale(crawledAt, snapshot != null ? snapshot.getFetchStatus() : null, source);
 
-        BookingWindow window = bookingWindowPolicy.windowFor(today);
+        BookingWindow window = bookingApplicationPolicy.windowFor(today);
         return new FacilityAvailabilityResponse(
                 facility.getId(),
                 targetMonth.toString(),
@@ -102,7 +102,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     @Override
     public BookingWindowResponse getBookingWindow() {
         LocalDate today = LocalDate.now(clock);
-        return BookingWindowResponse.from(bookingWindowPolicy.windowFor(today));
+        return BookingWindowResponse.from(bookingApplicationPolicy.windowFor(today));
     }
 
     private List<BookingSlice> toBookingSlices(Long facilityId, YearMonth targetMonth) {

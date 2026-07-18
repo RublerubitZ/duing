@@ -7,6 +7,7 @@ import {
   dayBookingEntries,
   dayLevelOf,
   dayOverviewTimeline,
+  isApplicationDeadlinePassed,
   isWithinBookable,
   pastelIndexByLabel,
   PASTEL_PALETTE_SIZE,
@@ -472,5 +473,34 @@ describe('periodDistribution', () => {
       { key: 'AFTERNOON', label: '오후', range: '12–18', free: 5, total: 6 },
       { key: 'EVENING', label: '저녁', range: '18–22', free: 3, total: 4 },
     ]);
+  });
+});
+
+describe('isApplicationDeadlinePassed', () => {
+  // 사용일 7/20 의 마감 = 7/19 12:01(KST)부터 — 서버 BookingDeadlinePolicy 와 동일 경계(분 단위)
+  const useDate = '2026-07-20';
+
+  it('전날 12:00분대(12:00:59)까지는 마감이 아니다', () => {
+    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T11:59:00+09:00'))).toBe(false);
+    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T12:00:59+09:00'))).toBe(false);
+  });
+
+  it('전날 12:01부터는 마감이다', () => {
+    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T12:01:00+09:00'))).toBe(true);
+  });
+
+  it('당일과 과거 날짜는 항상 마감이다', () => {
+    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-20T00:00:01+09:00'))).toBe(true);
+    expect(isApplicationDeadlinePassed('2026-07-18', new Date('2026-07-19T09:00:00+09:00'))).toBe(true);
+  });
+
+  it('이틀 이상 남은 날짜는 마감이 아니다', () => {
+    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-18T23:59:59+09:00'))).toBe(false);
+  });
+
+  it('KST 자정 경계 — UTC 기준 전날 밤이라도 KST 날짜로 판정한다', () => {
+    // UTC 7/19 02:59 = KST 7/19 11:59 → 미마감, UTC 7/19 03:01 = KST 7/19 12:01 → 마감
+    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T02:59:00Z'))).toBe(false);
+    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T03:01:00Z'))).toBe(true);
   });
 });

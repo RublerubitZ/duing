@@ -63,13 +63,14 @@ class FacilityBookingQueryIntegrationTest extends IntegrationTestBase {
         Field statusField = Club.class.getDeclaredField("status");
         statusField.setAccessible(true);
         statusField.set(created, ClubStatus.ACTIVE);
+        created.changeCentralClub(true); // 시설 예약 신청은 중앙동아리만 가능(설계 spec 2026-07-18)
         club = clubRepository.save(created);
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         facility = facilityRepository.save(Facility.create((int) (unique % 100_000), "커뮤니티룸(Q)", null, 0));
     }
 
     private Long createBooking(int startHour, int endHour) {
-        // 시각 무관 항상 신청 가능한 날짜(내일) — 롤링 창은 오늘을 포함하나 고정 슬롯 시각 타임밤을 피해 내일을 쓴다.
+        // 시각 무관 항상 신청 가능한 날짜(모레) — 내일은 신청 마감 정책(전날 12:01 KST)에 걸릴 수 있어 모레를 쓴다.
         return bookingService.create(new CreateFacilityBookingCommand(club.getId(), leader.getId(),
                 facility.getId(), BookingWindowFixture.bookableDate(), LocalTime.of(startHour, 0),
                 LocalTime.of(endHour, 0), "정기 연습", null,

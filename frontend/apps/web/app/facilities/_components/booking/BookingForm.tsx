@@ -13,7 +13,7 @@ import type { CreateFacilityBookingResult } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
 import type { SlotRange } from '../../_lib/bookingCalendar';
-import { rangeLabel } from '../../_lib/bookingCalendar';
+import { isApplicationDeadlinePassed, rangeLabel } from '../../_lib/bookingCalendar';
 import { BookingConfirmDialog } from './BookingConfirmDialog';
 
 const PURPOSE_MAX_LENGTH = 200;
@@ -64,6 +64,18 @@ export function BookingForm({
     );
   }
 
+  // 신청 마감 사전 안내 — 표시용 힌트(클라 시계). 최종 판단은 서버가 한다(정책 spec 2026-07-18).
+  if (isApplicationDeadlinePassed(date, new Date())) {
+    return (
+      <div className="space-y-3 text-sm text-charcoal-2">
+        <p role="alert">이 날짜는 신청이 마감됐어요. 시설 사용일 전날 12:00까지만 신청할 수 있어요.</p>
+        <button type="button" className="btn btn-secondary" onClick={onBack}>
+          시간 다시 선택
+        </button>
+      </div>
+    );
+  }
+
   if (managedClubsQuery.isPending) {
     return <p className="text-sm text-charcoal-3">동아리 정보를 불러오는 중…</p>;
   }
@@ -83,6 +95,9 @@ export function BookingForm({
   }
 
   const managedClubs = managedClubsQuery.data ?? [];
+  // 시설 예약은 중앙동아리만(정책 spec 2026-07-18). centralClub 미탑재 구버전 응답은 숨기지 않는다
+  // (배포 전환기 fail-open — 알려진 false 만 제외). 최종 차단은 서버 403 이 한다.
+  const centralClubs = managedClubs.filter((club) => club.centralClub !== false);
   if (managedClubsQuery.isSuccess && managedClubs.length === 0) {
     return (
       <p className="text-sm text-charcoal-2">
@@ -90,9 +105,16 @@ export function BookingForm({
       </p>
     );
   }
+  if (managedClubsQuery.isSuccess && centralClubs.length === 0) {
+    return (
+      <p className="text-sm text-charcoal-2">
+        시설 예약은 중앙동아리만 신청할 수 있어요. 운영 중인 중앙동아리가 없어 신청할 수 없어요.
+      </p>
+    );
+  }
 
-  const effectiveClubId = clubId ?? managedClubs[0]?.clubId ?? null;
-  const selectedClub = managedClubs.find((club) => club.clubId === effectiveClubId) ?? null;
+  const effectiveClubId = clubId ?? centralClubs[0]?.clubId ?? null;
+  const selectedClub = centralClubs.find((club) => club.clubId === effectiveClubId) ?? null;
   const trimmedPurpose = purpose.trim();
   const trimmedContact = contactPhone.trim();
   const attendeeNumber = attendeeCount === '' ? undefined : Number(attendeeCount);
@@ -171,7 +193,7 @@ export function BookingForm({
         </p>
       )}
 
-      {managedClubs.length > 1 && (
+      {centralClubs.length > 1 && (
         <div>
           <label htmlFor="booking-club" className="mb-1 block text-xs text-charcoal-3">신청 동아리</label>
           <select
@@ -180,14 +202,14 @@ export function BookingForm({
             value={String(effectiveClubId ?? '')}
             onChange={(event) => setClubId(Number(event.target.value))}
           >
-            {managedClubs.map((club) => (
+            {centralClubs.map((club) => (
               <option key={club.clubId} value={club.clubId}>{club.clubName}</option>
             ))}
           </select>
         </div>
       )}
-      {managedClubs.length === 1 && (
-        <p className="text-xs text-charcoal-3">신청 동아리: <span className="text-charcoal">{managedClubs[0]?.clubName}</span></p>
+      {centralClubs.length === 1 && (
+        <p className="text-xs text-charcoal-3">신청 동아리: <span className="text-charcoal">{centralClubs[0]?.clubName}</span></p>
       )}
 
       <div>

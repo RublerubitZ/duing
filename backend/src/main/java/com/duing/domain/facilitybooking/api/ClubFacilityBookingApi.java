@@ -26,7 +26,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface ClubFacilityBookingApi {
 
     @Operation(summary = "대관 신청 생성",
-            description = "운영진 전용. PENDING 겹침은 허용되며 overlappingPendingCount 로 경고 표시용 개수를 내린다.")
+            description = "운영진 전용. PENDING 겹침은 허용되며 overlappingPendingCount 로 경고 표시용 개수를 내린다. "
+                    + "중앙동아리의 회장/운영진만 신청 가능. 신청 마감은 사용일 전날 12:00(KST) — "
+                    + "마감 후 400(FACILITY_BOOKING_DEADLINE_PASSED), 일반동아리 403(FACILITY_BOOKING_CENTRAL_CLUB_ONLY), "
+                    + "일반회원 403(FACILITY_BOOKING_PERMISSION_DENIED).")
     @PostMapping("/clubs/{clubId}/facility-bookings")
     ResponseEntity<ApiResponse<CreateFacilityBookingResponse>> create(
             @PathVariable Long clubId,

@@ -138,6 +138,7 @@ export type ManagedClub = {
   clubName: string;
   logoUrl: string | null;
   myRole: ClubRole;
+  centralClub: boolean;
   activeRecruitmentCount: number;
 };
 

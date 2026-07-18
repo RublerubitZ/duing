@@ -8,6 +8,7 @@ public record ManagedClubResponse(
         String clubName,
         String logoUrl,
         ClubMemberRole myRole,
+        boolean centralClub,
         long activeRecruitmentCount
 ) {
     public static ManagedClubResponse from(ManagedClubQuery query) {
@@ -16,6 +17,7 @@ public record ManagedClubResponse(
                 query.clubName(),
                 query.logoUrl(),
                 query.myRole(),
+                query.centralClub(),
                 query.activeRecruitmentCount()
         );
     }

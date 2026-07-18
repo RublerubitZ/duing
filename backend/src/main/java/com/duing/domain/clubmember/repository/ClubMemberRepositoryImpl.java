@@ -35,6 +35,7 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                         club.name,
                         club.logoUrl,
                         clubMember.role,
+                        club.centralClub,
                         activeRecruitmentFlag.sum().longValue().coalesce(0L)
                 ))
                 .from(clubMember)
@@ -45,7 +46,7 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                         clubMember.role.in(ClubMemberRole.LEADER, ClubMemberRole.OFFICER),
                         club.status.eq(ClubStatus.ACTIVE)
                 )
-                .groupBy(club.id, club.name, club.logoUrl, clubMember.role)
+                .groupBy(club.id, club.name, club.logoUrl, clubMember.role, club.centralClub)
                 .orderBy(club.name.asc())
                 .fetch();
     }

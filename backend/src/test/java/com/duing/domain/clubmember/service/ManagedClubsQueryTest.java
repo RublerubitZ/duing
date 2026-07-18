@@ -119,6 +119,25 @@ class ManagedClubsQueryTest {
     }
 
     @Test
+    @DisplayName("중앙동아리·일반동아리 모두 반환되며 centralClub 값은 각 동아리 플래그와 일치한다")
+    void centralClubFlagMatchesEachClub() throws Exception {
+        User currentUser = saveStudent("플래그리더");
+        Club centralClub = saveActiveClub("중앙동아리");
+        centralClub.changeCentralClub(true);
+        Club generalClub = saveActiveClub("일반동아리");
+        saveMembership(centralClub, currentUser, ClubMemberRole.LEADER);
+        saveMembership(generalClub, currentUser, ClubMemberRole.LEADER);
+
+        List<ManagedClubQuery> result = clubMemberRepository.findActiveManagedClubsByUser(currentUser.getId());
+
+        assertThat(result).hasSize(2);
+        Map<Long, Boolean> centralFlagByClubId = result.stream()
+                .collect(Collectors.toMap(ManagedClubQuery::clubId, ManagedClubQuery::centralClub));
+        assertThat(centralFlagByClubId.get(centralClub.getId())).isTrue();
+        assertThat(centralFlagByClubId.get(generalClub.getId())).isFalse();
+    }
+
+    @Test
     @DisplayName("모집이 하나도 없는 동아리도 activeRecruitmentCount=0 으로 반환된다")
     void clubWithoutRecruitmentReturnsZeroCount() throws Exception {
         User currentUser = saveStudent("모집없는리더");
