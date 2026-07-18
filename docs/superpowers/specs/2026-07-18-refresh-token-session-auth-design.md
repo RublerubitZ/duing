@@ -176,7 +176,7 @@ ALTER TABLE auth_event         ENABLE ROW LEVEL SECURITY;
 | `POST /api/v1/auth/web/login` | 없음 | studentId, password, **(신규 선택) rememberMe** | 200 `{user}` + Set-Cookie 3종(지속성은 rememberMe 따라, §10.1) | 1 |
 | `POST /api/v1/auth/refresh` (신규) | Refresh(바디) | `{refreshToken}` | 200 `{accessToken, tokenType, refreshToken}` | 1 |
 | `POST /api/v1/auth/web/refresh` (신규) | Refresh(쿠키) | 없음 | 204 + Set-Cookie 3종 | 1 |
-| `POST /api/v1/auth/logout` | Bearer | (선택) `{refreshToken}` | 204 — `sid`(우선) 또는 바디 토큰으로 현재 세션 폐기 | 1 |
+| `POST /api/v1/auth/logout` | Bearer | 무본문 | 204 — access 의 `sid` 로 현재 세션 특정(선택 바디는 기존 무본문 계약과 415 충돌로 미도입) | 1 |
 | `POST /api/v1/auth/web/logout` | 쿠키(있으면) | 없음 | 204 + 쿠키 3종 삭제, refresh 쿠키/sid로 세션 폐기 | 1 |
 | `GET /api/v1/users/me/sessions` | 필요 | — | 200 세션 목록(현재 세션은 access `sid`로 `current: true`) | 3 |
 | `DELETE /api/v1/users/me/sessions/{sessionId}` | 필요 | — | 204 본인 세션만, 현재 세션 지정 시 로그아웃과 동일 | 3 |
@@ -246,7 +246,7 @@ sequenceDiagram
 
 ### 9.3 로그아웃·세션 관리 흐름
 
-- 현재 기기: refresh 토큰(쿠키/바디)으로 세션 특정, 없으면 access의 `sid`. 세션 폐기(LOGOUT) + 웹은 쿠키 3종 삭제. **tokenVersion은 건드리지 않는다.**
+- 현재 기기: 웹은 refresh 쿠키 1순위(없으면 access의 `sid`), 모바일은 access의 `sid`로 세션 특정. 세션 폐기(LOGOUT) + 웹은 쿠키 3종 삭제. **tokenVersion은 건드리지 않는다.**
 - 전체 로그아웃(`DELETE /users/me/sessions`): 전 세션 폐기(LOGOUT_ALL) + tokenVersion 범프 → 전 기기 Access 즉시 무효.
 - 비밀번호 변경/재설정, 전화번호 변경, 탈퇴, 관리자 강제 로그아웃: 기존 범프 지점에서 `revokeAll(reason)` 동시 호출.
 
