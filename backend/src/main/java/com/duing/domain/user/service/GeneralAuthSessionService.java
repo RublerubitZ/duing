@@ -85,8 +85,11 @@ public class GeneralAuthSessionService implements AuthSessionService {
         return new IssuedSession(session.getId(), rawRefreshToken);
     }
 
+    // 재사용 탐지(detectReuse)의 세션 폐기·전 토큰 REVOKED·감사 기록은 401 응답과 함께 반드시
+    // 커밋되어야 한다 — 기본 롤백이면 탈취 대응(패밀리 폐기·감사)이 증발해 세션이 살아남는다.
+    // 나머지 SessionExpiredException 경로는 throw 전 쓰기가 없어 커밋되어도 부작용이 없다.
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = AuthSessionException.SessionExpiredException.class)
     public RotationResult rotate(String rawRefreshToken) {
         LocalDateTime now = LocalDateTime.now(clock);
         String tokenHash = refreshTokenGenerator.hash(rawRefreshToken);

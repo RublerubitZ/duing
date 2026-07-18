@@ -6,9 +6,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.UserFixture;
+import com.duing.domain.user.entity.AuthEventType;
 import com.duing.domain.user.entity.RefreshTokenStatus;
 import com.duing.domain.user.entity.SessionPlatform;
+import com.duing.domain.user.entity.SessionRevokeReason;
 import com.duing.domain.user.exception.AuthSessionException;
+import com.duing.domain.user.repository.AuthEventRepository;
 import com.duing.domain.user.repository.AuthRefreshTokenRepository;
 import com.duing.domain.user.repository.AuthSessionRepository;
 import com.duing.domain.user.repository.UserRepository;
@@ -30,6 +33,7 @@ class AuthSessionRotationTest extends IntegrationTestBase {
     @Autowired AuthSessionService authSessionService;
     @Autowired AuthSessionRepository authSessionRepository;
     @Autowired AuthRefreshTokenRepository authRefreshTokenRepository;
+    @Autowired AuthEventRepository authEventRepository;
     @Autowired UserRepository userRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired JdbcTemplate jdbcTemplate;
@@ -93,5 +97,24 @@ class AuthSessionRotationTest extends IntegrationTestBase {
 
         assertThatThrownBy(() -> authSessionService.rotate(issuedSession.refreshToken()))
                 .isInstanceOf(AuthSessionException.SessionExpiredException.class);
+    }
+
+    @Test
+    @DisplayName("폐기된 토큰 재사용 탐지의 세션 폐기와 감사 기록은 401 이후에도 영속된다")
+    void reuseDetectionPersistsRevocationDespiteThrow() {
+        Long userId = userRepository.save(UserFixture.unique()).getId();
+        IssuedSession issuedSession = issueFor(userId, false);
+        // 토큰만 REVOKED 로 (세션은 활성 유지) — status 기반 재사용 경로로 유도
+        jdbcTemplate.update("UPDATE auth_refresh_token SET status = 'REVOKED' WHERE session_id = ?",
+                issuedSession.sessionId());
+
+        assertThatThrownBy(() -> authSessionService.rotate(issuedSession.refreshToken()))
+                .isInstanceOf(AuthSessionException.SessionExpiredException.class);
+
+        var session = authSessionRepository.findById(issuedSession.sessionId()).orElseThrow();
+        assertThat(session.getRevokedAt()).isNotNull();
+        assertThat(session.getRevokeReason()).isEqualTo(SessionRevokeReason.REUSE_DETECTED);
+        assertThat(authEventRepository.findByUserIdOrderByIdAsc(userId))
+                .anyMatch(authEvent -> authEvent.getEventType() == AuthEventType.REUSE_DETECTED);
     }
 }
