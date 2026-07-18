@@ -5,7 +5,7 @@ import type { FormEvent } from 'react';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { NOTICE_CATEGORY_OPTIONS } from '../../../notices/_lib/categoryLabels';
 import { ImageUploader } from '../../../_components/ImageUploader';
-import { NoticeRichEditor } from '../../../_components/NoticeRichEditor';
+import { NoticeRichEditorLazy } from '../../../_components/NoticeRichEditorLazy';
 import { NoticeTagInput } from './NoticeTagInput';
 import { VisibilityPicker } from './VisibilityPicker';
 import type { NoticeFormState } from '../_lib/parseNoticeFormState';
@@ -66,7 +66,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
 
       <div>
         <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">본문</span>
-        <NoticeRichEditor
+        <NoticeRichEditorLazy
           value={state.content}
           format={state.contentFormat}
           onChange={(html) => update('content', html)}

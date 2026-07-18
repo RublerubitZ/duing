@@ -43,6 +43,7 @@ describe('ManagePage', () => {
       clubName: '가장 낮은 동아리',
       logoUrl: null,
       myRole: 'OFFICER',
+      centralClub: true,
       activeRecruitmentCount: 0,
     },
     {
@@ -50,6 +51,7 @@ describe('ManagePage', () => {
       clubName: '내가 누른 동아리',
       logoUrl: null,
       myRole: 'OFFICER',
+      centralClub: true,
       activeRecruitmentCount: 2,
     },
   ];
@@ -76,6 +78,7 @@ describe('ManagePage', () => {
           clubName: '두잉',
           logoUrl: null,
           myRole: 'LEADER',
+          centralClub: true,
           activeRecruitmentCount: 1,
         },
       ],

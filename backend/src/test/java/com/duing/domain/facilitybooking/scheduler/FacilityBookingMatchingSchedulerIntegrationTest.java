@@ -94,6 +94,7 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         Field statusField = Club.class.getDeclaredField("status");
         statusField.setAccessible(true);
         statusField.set(club, ClubStatus.ACTIVE);
+        club.changeCentralClub(true); // 시설 예약 신청은 중앙동아리만 가능(설계 spec 2026-07-18)
         return clubRepository.save(club);
     }
 
@@ -103,6 +104,7 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         Field statusField = Club.class.getDeclaredField("status");
         statusField.setAccessible(true);
         statusField.set(club, ClubStatus.ACTIVE);
+        club.changeCentralClub(true); // 시설 예약 신청은 중앙동아리만 가능(설계 spec 2026-07-18)
         return clubRepository.save(club);
     }
 

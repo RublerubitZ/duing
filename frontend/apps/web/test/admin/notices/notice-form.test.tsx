@@ -13,9 +13,9 @@ vi.mock('../../../app/_components/ImageUploader', () => ({
   ),
 }));
 
-// NoticeRichEditor 는 Tiptap 에 의존하므로 단순 div 로 대체
-vi.mock('../../../app/_components/NoticeRichEditor', () => ({
-  NoticeRichEditor: ({ value }: { value: string }) => <div data-testid="rich-editor">{value}</div>,
+// NoticeRichEditor(지연 로드 래퍼)는 Tiptap 에 의존하므로 단순 div 로 대체
+vi.mock('../../../app/_components/NoticeRichEditorLazy', () => ({
+  NoticeRichEditorLazy: ({ value }: { value: string }) => <div data-testid="rich-editor">{value}</div>,
 }));
 
 const mockUseAdminClubsQuery = vi.fn();

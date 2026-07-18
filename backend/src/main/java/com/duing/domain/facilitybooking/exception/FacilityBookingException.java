@@ -87,6 +87,33 @@ public class FacilityBookingException extends ApplicationException {
         }
     }
 
+    /** 신청 마감(설계 spec 2026-07-18 §1) — 사용일 전날 12:01(KST)부터 거부. */
+    public static class DeadlinePassedException extends FacilityBookingException {
+        public static final String CODE = "FACILITY_BOOKING_DEADLINE_PASSED";
+
+        public DeadlinePassedException() {
+            super("시설 사용일 전날 12:00까지만 신청할 수 있어요.", HttpStatus.BAD_REQUEST, CODE);
+        }
+    }
+
+    /** 신청 자격(설계 spec 2026-07-18 §2) — 중앙동아리만 신청 가능. */
+    public static class CentralClubOnlyException extends FacilityBookingException {
+        public static final String CODE = "FACILITY_BOOKING_CENTRAL_CLUB_ONLY";
+
+        public CentralClubOnlyException() {
+            super("시설 예약은 중앙동아리만 신청할 수 있어요.", HttpStatus.FORBIDDEN, CODE);
+        }
+    }
+
+    /** 신청 권한(설계 spec 2026-07-18 §2) — create 한정 역할 거부. 조회·취소는 기존 AccessDenied 유지. */
+    public static class PermissionDeniedException extends FacilityBookingException {
+        public static final String CODE = "FACILITY_BOOKING_PERMISSION_DENIED";
+
+        public PermissionDeniedException() {
+            super("회장 또는 운영진만 시설 예약을 신청할 수 있어요.", HttpStatus.FORBIDDEN, CODE);
+        }
+    }
+
     public static class SchoolConflictException extends FacilityBookingException {
 
         /** 겹치는 학교 점유행 1건 — FE 충돌 안내(§8.3 data.conflicts[])용. */
