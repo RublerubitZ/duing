@@ -33,6 +33,7 @@ vi.mock('@/app/me/settings/_components/ProfileEditDialog', () => ({ ProfileEditD
 vi.mock('@/app/me/settings/_components/PasswordChangeDialog', () => ({ PasswordChangeDialog: () => null }));
 vi.mock('@/app/me/settings/_components/PhoneChangeDialog', () => ({ PhoneChangeDialog: () => null }));
 vi.mock('@/app/me/settings/_components/WithdrawAccountDialog', () => ({ WithdrawAccountDialog: () => null }));
+vi.mock('@/app/me/settings/_components/SessionListCard', () => ({ SessionListCard: () => null }));
 
 import { SettingsPage } from '@/app/me/settings/_pages/SettingsPage';
 
