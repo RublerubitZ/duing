@@ -10,6 +10,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type TargetStatus = BulkUpdateApplicationStatusPayload['status'];
 
@@ -81,7 +82,8 @@ export function BulkConfirmDialog({
             취소
           </button>
           <button type="button" onClick={onConfirm} disabled={isPending} className={CONFIRM_BUTTON_CLASS[targetStatus]}>
-            {isPending ? '처리 중…' : LABEL[targetStatus]}
+            {isPending && <ButtonSpinner />}
+            {LABEL[targetStatus]}
           </button>
         </DialogFooter>
       </DialogContent>

@@ -15,6 +15,7 @@ import { useToast } from '@/app/_components/toast/ToastProvider';
 import { cashbookCategoryLabel, formatWon } from '@/app/_lib/feeLabels';
 
 import { CashbookEntryDialog } from './CashbookEntryDialog';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type CashbookPanelProps = {
   clubId: number;
@@ -152,7 +153,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
       </div>
 
       {isLoading ? (
-        <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+        <LoadingGate label="장부 불러오는 중" className="min-h-0 py-8" />
       ) : !page || page.content.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
           <p className="text-sm text-charcoal-2">장부 항목이 없습니다.</p>

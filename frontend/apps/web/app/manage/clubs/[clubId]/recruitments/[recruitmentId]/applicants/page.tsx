@@ -23,6 +23,7 @@ import { ApplicantsFilterBar } from './_components/ApplicantsFilterBar';
 import { BulkActionBar } from './_components/BulkActionBar';
 import { BulkConfirmDialog } from './_components/BulkConfirmDialog';
 import { BulkPromoteDialog } from './_components/BulkPromoteDialog';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type PageParams = { params: Promise<{ clubId: string; recruitmentId: string }> };
 
@@ -150,7 +151,7 @@ export default function ApplicantsPage({ params }: PageParams) {
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
   if (isRecruitmentLoading || !recruitment) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="모집 정보 불러오는 중" />;
   }
 
   return (
@@ -256,7 +257,7 @@ export default function ApplicantsPage({ params }: PageParams) {
 
           {/* 로딩 / 빈 상태 / 테이블 */}
           {isApplicantsLoading ? (
-            <p className="mt-6 text-sm text-slate-500">지원자 목록 불러오는 중…</p>
+            <LoadingGate label="지원자 목록 불러오는 중" className="min-h-0 py-8" />
           ) : applicants.length === 0 ? (
             <p className="mt-8 py-8 text-center text-neutral-500">
               {hasActiveFilters ? '검색 결과 없음' : '지원자가 아직 없습니다'}

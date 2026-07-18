@@ -324,8 +324,8 @@ describe('PhoneChangeDialog', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    // 요청이 pending — 버튼이 '변경 중…' 으로 바뀐다.
-    expect(screen.getByRole('button', { name: '변경 중…' })).toBeInTheDocument();
+    // 요청이 pending — 라벨은 유지되고 버튼이 비활성화된다(스피너 표시).
+    expect(screen.getByRole('button', { name: '번호 변경하기' })).toBeDisabled();
 
     // pending 구간에 ESC 를 눌러도 닫히지 않는다(오버레이/ESC 닫힘 경로 가드).
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });

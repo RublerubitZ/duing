@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import type { AdminClubSummary } from '@duing/types';
 
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import {
   Dialog,
   DialogContent,
@@ -104,7 +105,7 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
             disabled={submitDisabled}
             className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {isPending ? '처리 중…' : '삭제'}
+            {isPending && <ButtonSpinner />}삭제
           </button>
         </DialogFooter>
       </DialogContent>

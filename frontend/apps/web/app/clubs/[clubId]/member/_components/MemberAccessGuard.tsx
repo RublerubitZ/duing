@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useClubMembershipQuery } from '@duing/hooks';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { MembershipProvider } from './MembershipContext';
 
 type Props = { clubId: number; children: React.ReactNode };
@@ -22,7 +23,7 @@ export function MemberAccessGuard({ clubId, children }: Props) {
   }, [isError, error, router, clubId]);
 
   if (isLoading) {
-    return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
+    return <LoadingGate label="권한 확인 중" />;
   }
   if (!data) return null;
 

@@ -13,6 +13,8 @@ import {
 
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { AttachmentImage } from '@/app/_components/AttachmentImage';
@@ -240,7 +242,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
   if (detailQuery.isLoading) {
     return (
       <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
-        <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
+        <LoadingGate label="문의 불러오는 중" />
       </main>
     );
   }
@@ -387,7 +389,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
               disabled={updateAnswerMutation.isPending || editAnswerContent.trim().length === 0}
               className="btn btn-primary btn-sm"
             >
-              {updateAnswerMutation.isPending ? '저장 중…' : '저장'}
+              {updateAnswerMutation.isPending && <ButtonSpinner />}저장
             </button>
           </div>
         </div>
@@ -406,7 +408,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
             disabled={changeStatusMutation.isPending}
             className="btn btn-primary btn-sm"
           >
-            {changeStatusMutation.isPending ? '처리 중…' : '답변 작성'}
+            {changeStatusMutation.isPending && <ButtonSpinner />}답변 작성
           </button>
         </div>
       )}
@@ -444,7 +446,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
                   disabled={changeStatusMutation.isPending}
                   className="btn btn-secondary btn-sm"
                 >
-                  {changeStatusMutation.isPending ? '처리 중…' : '접수로 되돌리기'}
+                  {changeStatusMutation.isPending && <ButtonSpinner />}접수로 되돌리기
                 </button>
               )}
             </div>
@@ -454,7 +456,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
               disabled={answerMutation.isPending || answerContent.trim().length === 0}
               className="btn btn-primary btn-sm"
             >
-              {answerMutation.isPending ? '등록 중…' : '답변 등록'}
+              {answerMutation.isPending && <ButtonSpinner />}답변 등록
             </button>
           </div>
         </div>

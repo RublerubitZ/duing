@@ -10,6 +10,7 @@ import {
   useApplicationEligibilityQuery,
 } from '@duing/hooks';
 import { ApiError } from '@duing/api';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ApplyForm } from './_components/ApplyForm';
 import { toRoute } from '../../_lib/route';
 
@@ -47,10 +48,10 @@ export default function ApplyPage({
   ) {
     return (
       <div
-        className="flex min-h-dvh items-center justify-center"
+        className="min-h-dvh"
         style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
       >
-        <p className="font-mono text-sm text-charcoal-3">불러오는 중…</p>
+        <LoadingGate label="불러오는 중" className="min-h-dvh" />
       </div>
     );
   }
@@ -58,10 +59,10 @@ export default function ApplyPage({
   if (isExternal) {
     return (
       <div
-        className="flex min-h-dvh items-center justify-center"
+        className="min-h-dvh"
         style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
       >
-        <p className="font-mono text-sm text-charcoal-3">이동 중…</p>
+        <LoadingGate label="이동 중" className="min-h-dvh" />
       </div>
     );
   }

@@ -7,6 +7,7 @@ import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { IMAGE_UPLOAD_POLICY, validateImageFile } from '@/app/_components/imageUploadPolicy';
 import { X } from '@/components/duing/Icon';
+import { Spinner } from '@/components/loading/Spinner';
 
 const MAX_ATTACHMENTS = 5;
 
@@ -162,7 +163,15 @@ export function InquiryImageUploader({
             disabled={isDisabled}
             className="grid h-20 w-20 place-items-center rounded-lg border border-dashed border-line text-[12px] text-charcoal-2 hover:border-ink disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isUploading ? '업로드 중…' : '+ 사진 추가'}
+            {isUploading ? (
+              // 파일 업로드는 장시간 작업 — 스피너 + 안내 문구를 함께 유지한다.
+              <span role="status" aria-label="사진 업로드 중" className="flex flex-col items-center gap-1">
+                <Spinner size={14} />
+                업로드 중…
+              </span>
+            ) : (
+              '+ 사진 추가'
+            )}
           </button>
         )}
       </div>

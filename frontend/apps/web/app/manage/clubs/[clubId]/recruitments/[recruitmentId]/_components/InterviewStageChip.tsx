@@ -5,6 +5,7 @@ import type { InterviewRoundSummary, InterviewRoundStatus } from '@duing/types';
 import { useInterviewRoundsQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { cn } from '@/app/_lib/cn';
+import { Spinner } from '@/components/loading/Spinner';
 
 // 면접 진행 단계 칩 — §10.5 가드레일 1:1.
 // 최신 비CANCELLED 라운드(생성 최신순 첫 항목)의 상태를 라벨로 변환.
@@ -59,7 +60,11 @@ export function InterviewStageChip({ clubId, recruitmentId }: InterviewStageChip
   const roundsQuery = useInterviewRoundsQuery(recruitmentId);
 
   if (roundsQuery.isLoading) {
-    return <p className="text-xs text-slate-400">불러오는 중…</p>;
+    return (
+      <div role="status" aria-label="면접 단계 불러오는 중" className="delayed-show">
+        <Spinner size={16} className="text-charcoal-3" />
+      </div>
+    );
   }
 
   if (roundsQuery.isError) {

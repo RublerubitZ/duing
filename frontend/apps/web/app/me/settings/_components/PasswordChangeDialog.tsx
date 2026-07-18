@@ -10,6 +10,7 @@ import { passwordSchema } from '@duing/schemas';
 import { useAuthStore } from '@duing/stores';
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
 
@@ -126,7 +127,7 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
               취소
             </button>
             <button type="submit" disabled={changeMutation.isPending} className="btn btn-primary btn-sm">
-              {changeMutation.isPending ? '변경 중…' : '변경하기'}
+              {changeMutation.isPending && <ButtonSpinner />}변경하기
             </button>
           </div>
         </form>

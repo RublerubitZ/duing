@@ -4,6 +4,7 @@ import { use } from 'react';
 import Link from 'next/link';
 import { useClubEventDetailQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
+import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
 export default function ClubMemberEventDetailPage({
   params,
@@ -13,7 +14,13 @@ export default function ClubMemberEventDetailPage({
   const eventId = Number(eventIdParam);
   const { data, isLoading, isError } = useClubEventDetailQuery(clubId, eventId);
 
-  if (isLoading) return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        <TextLinesSkeleton lines={5} label="일정 불러오는 중" />
+      </div>
+    );
+  }
   if (isError || !data) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-10">

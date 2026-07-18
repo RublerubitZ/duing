@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 
 import { billingTypeLabel } from '@/app/_lib/feeLabels';
+import { ButtonSpinner, Spinner } from '@/components/loading/Spinner';
 
 type GenerateBillsDialogProps = {
   clubId: number;
@@ -57,7 +58,9 @@ export function GenerateBillsDialog({ clubId, onClose }: GenerateBillsDialogProp
               회비 정책 <span className="text-coral">*</span>
             </label>
             {isLoading ? (
-              <p className="text-sm text-charcoal-3">정책을 불러오는 중…</p>
+              <div role="status" aria-label="정책 불러오는 중" className="delayed-show">
+                <Spinner size={16} className="text-charcoal-3" />
+              </div>
             ) : activePolicies.length === 0 ? (
               <p className="rounded-md border border-dashed border-line px-4 py-3 text-sm text-charcoal-2">
                 발행할 수 있는 활성 정책이 없습니다. 먼저 정책 탭에서 정책을 만들거나 활성화하세요.
@@ -186,7 +189,9 @@ function GenerateBillsForm({ clubId, policy, onClose }: GenerateBillsFormProps) 
             청구 대상 회원 <span className="text-coral">*</span>
           </span>
           {membersLoading ? (
-            <p className="text-sm text-charcoal-3">회원을 불러오는 중…</p>
+            <div role="status" aria-label="회원 목록 불러오는 중" className="delayed-show">
+              <Spinner size={16} className="text-charcoal-3" />
+            </div>
           ) : !members || members.length === 0 ? (
             <p className="rounded-md border border-dashed border-line px-4 py-3 text-sm text-charcoal-2">
               활성 회원이 없습니다.
@@ -380,12 +385,12 @@ function GenerateBillsForm({ clubId, policy, onClose }: GenerateBillsFormProps) 
           type="submit"
           disabled={isSubmitting || generateBills.isPending}
           className={cn(
-            'flex-1 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
+            'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
             'bg-ink hover:bg-ink-deep',
             (isSubmitting || generateBills.isPending) && 'cursor-not-allowed opacity-60',
           )}
         >
-          {generateBills.isPending ? '발행 중…' : '발행'}
+          {generateBills.isPending && <ButtonSpinner />}발행
         </button>
       </div>
     </form>

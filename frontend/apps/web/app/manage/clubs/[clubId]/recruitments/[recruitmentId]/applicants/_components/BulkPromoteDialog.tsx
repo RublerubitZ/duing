@@ -10,6 +10,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // Spec P0-4 — 운영진 list 의 "면접 대상으로 선정" 확정 모달.
 // 본문은 spec 의 wording 을 글자 단위로 따른다:
@@ -87,7 +88,7 @@ export function BulkPromoteDialog({
             disabled={isPending}
             className="btn btn-primary btn-sm disabled:opacity-50"
           >
-            {isPending ? '처리 중…' : '선정'}
+            {isPending && <ButtonSpinner />}선정
           </button>
         </DialogFooter>
       </DialogContent>

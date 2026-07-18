@@ -8,6 +8,7 @@ import type { StudentRecruitmentProjection } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
+import { Spinner } from '@/components/loading/Spinner';
 import { recruitmentDaysLeft } from '../../../_lib/recruitmentDisplay';
 import { useClubApply } from '../_lib/useClubApply';
 
@@ -62,7 +63,13 @@ export function ClubDetailApplyBar({ recruitment }: Props) {
             'disabled:cursor-not-allowed disabled:opacity-40',
           )}
         >
-          {isCheckingEligibility ? '확인 중…' : applyButtonLabel}
+          {isCheckingEligibility ? (
+            <span role="status" aria-label="지원 자격 확인 중" className="inline-flex items-center">
+              <Spinner size={14} />
+            </span>
+          ) : (
+            applyButtonLabel
+          )}
           {canApply && !isCheckingEligibility && <ArrowRight size={16} />}
         </button>
       </div>

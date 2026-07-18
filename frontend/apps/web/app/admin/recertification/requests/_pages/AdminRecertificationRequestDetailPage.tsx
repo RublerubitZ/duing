@@ -7,6 +7,7 @@ import {
   useProcessRecertificationMutation,
 } from '@duing/hooks';
 import type { ProcessRecertificationPayload } from '@duing/types';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { cn } from '../../../../_lib/cn';
 import { AdminRecertificationRequestProcessDialog } from '../_components/AdminRecertificationRequestProcessDialog';
 import { AdminRecertificationMemberHistorySection } from '../_components/AdminRecertificationMemberHistorySection';
@@ -48,7 +49,7 @@ export function AdminRecertificationRequestDetailPage({ requestId }: Props) {
   if (detailQuery.isLoading) {
     return (
       <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
-        <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
+        <LoadingGate label="재인증 요청 불러오는 중" />
       </main>
     );
   }

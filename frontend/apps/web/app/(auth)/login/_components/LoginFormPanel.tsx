@@ -9,6 +9,7 @@ import { useLoginMutation } from '@duing/hooks';
 import { loginSchema } from '@duing/schemas';
 import { cn } from '@/app/_lib/cn';
 import { toLinkRoute, toRoute } from '@/app/_lib/route';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 function IconMail() {
   return (
@@ -254,7 +255,7 @@ function LoginForm() {
               disabled={login.isPending}
               className="btn btn-primary btn-big mt-2 w-full disabled:opacity-50"
             >
-              {login.isPending ? '로그인 중…' : '두잉 시작하기 →'}
+              {login.isPending && <ButtonSpinner />}두잉 시작하기 →
             </button>
           </form>
 

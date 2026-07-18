@@ -9,6 +9,8 @@ import {
   useNotificationReadAllMutation,
 } from '@duing/hooks';
 import type { Notification } from '@duing/types';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
+import { Spinner } from '@/components/loading/Spinner';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { X } from '@/components/duing/Icon';
 import { toLinkRoute } from '../_lib/route';
@@ -99,7 +101,14 @@ export function NotificationSheet({ open, onOpenChange, unreadCount }: Props) {
 
         {/* 본문 — 무한 스크롤 리스트 */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
-          {notifications.length === 0 ? (
+          {listQuery.isLoading ? (
+            <ListRowsSkeleton
+              rows={5}
+              rowClassName="h-[72px] rounded-xl"
+              label="알림 목록 불러오는 중"
+              className="px-3 py-2"
+            />
+          ) : notifications.length === 0 ? (
             <p className="px-5 py-12 text-center text-sm text-charcoal-3">새 알림이 없어요</p>
           ) : (
             <ul className="space-y-1 px-2 py-1.5">
@@ -112,7 +121,9 @@ export function NotificationSheet({ open, onOpenChange, unreadCount }: Props) {
           )}
           <div ref={sentinelRef} className="h-8" />
           {isFetchingNextPage && (
-            <p className="py-4 text-center text-xs text-charcoal-3">불러오는 중…</p>
+            <div role="status" aria-label="다음 알림 불러오는 중" className="flex justify-center py-4">
+              <Spinner size={18} className="text-charcoal-3" />
+            </div>
           )}
         </div>
 

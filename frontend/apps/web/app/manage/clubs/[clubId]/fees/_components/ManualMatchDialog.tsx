@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 
 import { feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
+import { Spinner } from '@/components/loading/Spinner';
 
 type ManualMatchDialogProps = {
   clubId: number;
@@ -216,7 +217,11 @@ function ApplicableBills({
   );
 
   if (isLoading) {
-    return <p className="text-sm text-charcoal-3">불러오는 중…</p>;
+    return (
+      <div role="status" aria-label="청구 목록 불러오는 중" className="delayed-show">
+        <Spinner size={16} className="text-charcoal-3" />
+      </div>
+    );
   }
 
   if (applicableBills.length === 0) {

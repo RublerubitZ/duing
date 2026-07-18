@@ -65,7 +65,7 @@ export function ClubListSkeletonItems({ variant }: ClubListSkeletonItemsProps) {
  */
 export function ClubExploreSkeleton() {
   return (
-    <div role="status" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
+    <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
       {/* 데스크탑 (md+) */}
       <div className="hidden md:block">
         <section className="border-b border-line bg-cream px-4 sm:px-6 md:px-10 pt-11 pb-7">

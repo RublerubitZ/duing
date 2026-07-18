@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAdminFederationFaqSearchMissesQuery } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 const PANEL_PAGE_SIZE = 10;
 
@@ -51,7 +52,7 @@ export function FaqSearchMissPanel() {
       {expanded && (
         <div className="border-t border-line px-4 py-4">
           {searchMissesQuery.isLoading && (
-            <p className="text-[13px] text-charcoal-2">불러오는 중…</p>
+            <LoadingGate className="min-h-0 py-4" label="무결과 검색어 불러오는 중" />
           )}
           {searchMissesQuery.isError && (
             <p className="text-[13px] text-coral">무결과 검색어를 불러오지 못했습니다.</p>

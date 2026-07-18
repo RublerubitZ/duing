@@ -7,6 +7,7 @@ import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { useNoticeListQuery } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import { ArrowRight } from '@/components/duing/Icon';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { ExploreNav } from '../../_components/ExploreNav';
 import { InfoTabs } from '../../_components/InfoTabs';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
@@ -434,9 +435,12 @@ export function NoticePage() {
 
           {/* Loading / Error */}
           {listQuery.isLoading && (
-            <p style={{ padding: '48px 0', textAlign: 'center', color: 'var(--charcoal-3)', fontSize: 13 }}>
-              불러오는 중…
-            </p>
+            <ListRowsSkeleton
+              rows={5}
+              rowClassName="h-[72px] rounded-2xl"
+              className="py-6"
+              label="공지 목록 불러오는 중"
+            />
           )}
           {listQuery.isError && (
             <p style={{ padding: '48px 0', textAlign: 'center', color: '#E14A3A', fontSize: 13 }}>
@@ -445,7 +449,12 @@ export function NoticePage() {
           )}
 
           {listQuery.isSuccess && (
-            <>
+            // keepPreviousData 전환 중(탭·필터 변경)에는 이전 목록을 딤 처리해
+            // "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. opacity 만 전이라 비용 없음.
+            <div
+              aria-busy={listQuery.isPlaceholderData}
+              className={listQuery.isPlaceholderData ? 'opacity-60 transition-opacity' : undefined}
+            >
               {/* Pinned cards */}
               {pinnedItems.length > 0 && (
                 <>
@@ -704,7 +713,7 @@ export function NoticePage() {
                   </button>
                 </div>
               )}
-            </>
+            </div>
           )}
         </main>
       </div>

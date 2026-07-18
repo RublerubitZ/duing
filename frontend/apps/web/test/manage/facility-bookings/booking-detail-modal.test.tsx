@@ -105,16 +105,18 @@ describe('BookingDetailModal', () => {
     expect(screen.getByText(/거절됨 — 중복 신청/)).toBeInTheDocument();
   });
 
-  it('취소 진행 중: 파괴 버튼 취소 중… + disabled, 돌아가기도 disabled', () => {
+  it('취소 진행 중: 파괴 버튼 라벨 유지 + disabled, 돌아가기도 disabled', () => {
     // pending 은 열기 버튼을 막지 않으므로(모달 '신청 취소' 는 항상 활성) 열기 클릭 →
-    // 리렌더 시점에 확인 다이얼로그가 isPending 을 읽어 파괴 버튼이 '취소 중…' + disabled 로 렌더된다.
+    // 리렌더 시점에 확인 다이얼로그가 isPending 을 읽어 파괴 버튼이 스피너 + disabled 로 렌더된다.
     mockCancelPending.current = true;
     mockDetailQuery.current.data = makeDetail({});
     render(<BookingDetailModal clubId={7} bookingId={31} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '신청 취소' }));
-    // 파괴 버튼 라벨이 '취소 중…' 으로 바뀌어 모달 열기 버튼('신청 취소')과 이름이 겹치지 않는다.
-    const destructiveButton = screen.getByRole('button', { name: '취소 중…', hidden: true });
-    expect(destructiveButton).toBeDisabled();
+    // 파괴 버튼은 '신청 취소' 라벨을 유지한 채 disabled — 항상 활성인 열기 버튼과 disabled 여부로 구분한다.
+    const disabledCancelButtons = screen
+      .getAllByRole('button', { name: '신청 취소', hidden: true })
+      .filter((cancelButton) => cancelButton.hasAttribute('disabled'));
+    expect(disabledCancelButtons).toHaveLength(1);
     expect(screen.getByRole('button', { name: '돌아가기', hidden: true })).toBeDisabled();
   });
 });

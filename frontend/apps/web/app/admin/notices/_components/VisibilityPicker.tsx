@@ -2,6 +2,7 @@
 
 import { useAdminClubsQuery } from '@duing/hooks';
 import type { NoticeClubScopeRole, NoticeVisibility } from '@duing/types';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { VISIBILITY_LABEL, CLUB_SCOPE_ROLE_LABEL } from '../_lib/visibilityLabels';
 
 type Props = {
@@ -68,7 +69,7 @@ export function VisibilityPicker({
 
           <div className="max-h-60 overflow-y-auto rounded-md border border-line">
             {clubsQuery.isLoading && (
-              <p className="px-3 py-4 text-charcoal-3 text-[13px]">동아리 목록 불러오는 중…</p>
+              <LoadingGate className="min-h-0 py-4" label="동아리 목록 불러오는 중" />
             )}
             {clubsQuery.data?.content.map((club) => {
               const checked = targetClubIds.includes(club.id);

@@ -9,6 +9,7 @@ import { useWithdrawAccountMutation } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
 
@@ -74,7 +75,7 @@ export function WithdrawAccountDialog({ open, onClose }: Props) {
             disabled={withdrawMutation.isPending}
             className="btn btn-sm rounded-[10px] bg-coral text-white disabled:opacity-50"
           >
-            {withdrawMutation.isPending ? '처리 중…' : '탈퇴하기'}
+            {withdrawMutation.isPending && <ButtonSpinner />}탈퇴하기
           </button>
         </div>
       </DialogContent>

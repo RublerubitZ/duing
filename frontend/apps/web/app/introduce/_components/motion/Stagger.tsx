@@ -5,7 +5,8 @@
 // 접근성: prefers-reduced-motion 이면 whileInView 트리거 대신 animate 로 즉시 'show' 로 올린다.
 //   (initial 은 상수 'hidden' 으로 둬 SSR/클라이언트 첫 렌더 마크업을 동일하게 유지 — 하이드레이션 불일치 방지.)
 
-import { motion, useReducedMotion } from 'framer-motion';
+// 번들: motion 전체 배럴 대신 LazyMotion(domAnimation)+m — introduce 라우트 청크가 가벼워진다.
+import { LazyMotion, domAnimation, m, useReducedMotion } from 'framer-motion';
 import type { ReactNode } from 'react';
 import { EASE_DUING } from '@/components/motion/constants';
 
@@ -20,19 +21,21 @@ export function Stagger({ children, className, gap = 0.06 }: StaggerProps) {
   const shouldReduce = useReducedMotion();
 
   return (
-    <motion.div
-      className={className}
-      initial="hidden"
-      animate={shouldReduce ? 'show' : undefined}
-      whileInView={shouldReduce ? undefined : 'show'}
-      viewport={{ once: true, margin: '0px 0px -10% 0px' }}
-      variants={{
-        hidden: {},
-        show: { transition: { staggerChildren: shouldReduce ? 0 : gap } },
-      }}
-    >
-      {children}
-    </motion.div>
+    <LazyMotion features={domAnimation} strict>
+      <m.div
+        className={className}
+        initial="hidden"
+        animate={shouldReduce ? 'show' : undefined}
+        whileInView={shouldReduce ? undefined : 'show'}
+        viewport={{ once: true, margin: '0px 0px -10% 0px' }}
+        variants={{
+          hidden: {},
+          show: { transition: { staggerChildren: shouldReduce ? 0 : gap } },
+        }}
+      >
+        {children}
+      </m.div>
+    </LazyMotion>
   );
 }
 
@@ -44,8 +47,9 @@ type StaggerItemProps = {
 };
 
 export function StaggerItem({ children, className, y = 18 }: StaggerItemProps) {
+  // Stagger(LazyMotion 제공자) 안에서만 쓰인다 — 단독 사용 시 features 부재로 애니메이션이 비활성된다.
   return (
-    <motion.div
+    <m.div
       className={className}
       variants={{
         hidden: { opacity: 0, y },
@@ -53,6 +57,6 @@ export function StaggerItem({ children, className, y = 18 }: StaggerItemProps) {
       }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }

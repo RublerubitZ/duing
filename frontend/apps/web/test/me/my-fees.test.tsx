@@ -66,10 +66,10 @@ describe('MyFeeList', () => {
     mockUseMemberFeeAccountQuery.mockReturnValue(notFoundAccount);
   });
 
-  it('불러오는 중에는 로딩 안내를 표시한다', () => {
+  it('불러오는 중에는 로딩 스켈레톤을 표시한다', () => {
     mockUseMyFeesQuery.mockReturnValue({ data: undefined, isLoading: true });
     render(<MyFeeList />);
-    expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '회비 내역 불러오는 중' })).toBeInTheDocument();
   });
 
   it('청구가 없으면 빈 상태 안내를 표시한다', () => {
@@ -183,7 +183,7 @@ describe('MyFeeList', () => {
     mockUseMyClubsQuery.mockReturnValue({ data: undefined, isLoading: true });
     render(<MyFeeList />);
 
-    expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '회비 내역 불러오는 중' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '동아리 #10' })).not.toBeInTheDocument();
   });
 

@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type { ManagedClub } from '@duing/types';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type ManageGuardProps = {
   managedClubs: ManagedClub[] | undefined;
@@ -12,11 +13,7 @@ type ManageGuardProps = {
 
 export function ManageGuard({ managedClubs, isLoading, children }: ManageGuardProps) {
   if (isLoading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-sm text-slate-500">불러오는 중…</p>
-      </div>
-    );
+    return <LoadingGate label="운영 권한 확인 중" className="min-h-dvh" />;
   }
 
   if (!managedClubs || managedClubs.length === 0) {

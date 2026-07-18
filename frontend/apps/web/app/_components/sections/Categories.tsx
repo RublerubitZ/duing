@@ -45,7 +45,7 @@ export function Categories() {
             >
               관심사로 시작해요
               <span aria-hidden="true" className="inline-block" style={{ width: 26, height: 26, color: '#5b7e4d' }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" style={{ animation: 'spin 6s linear infinite' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="animate-spin-slow">
                   <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
                 </svg>
               </span>
@@ -167,7 +167,7 @@ function CategoryTile({ category }: { category: HomeCategoryMeta }) {
           </span>
         </div>
         <span
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all duration-250 group-hover:-rotate-45 group-hover:border-[color:var(--accent)] group-hover:bg-[color:var(--accent)] group-hover:text-white"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-[transform,color,background-color,border-color] duration-250 group-hover:-rotate-45 group-hover:border-[color:var(--accent)] group-hover:bg-[color:var(--accent)] group-hover:text-white"
           style={{ borderColor: '#d9d4c3', color: '#4a5247' }}
         >
           <svg viewBox="0 0 12 12" className="h-[13px] w-[13px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

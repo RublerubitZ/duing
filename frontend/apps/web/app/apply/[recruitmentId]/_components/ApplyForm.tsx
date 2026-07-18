@@ -12,6 +12,7 @@ import type {
   SubmitApplicationPayload,
 } from '@duing/types';
 import { useSubmitApplicationMutation, draftQueryKeys } from '@duing/hooks';
+import { Spinner, ButtonSpinner } from '@/components/loading/Spinner';
 import { useAutosaveDraft } from '../_hooks/useAutosaveDraft';
 import { ApplyAnswersStep } from './ApplyAnswersStep';
 import { toRoute } from '../../../_lib/route';
@@ -161,10 +162,9 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
                 </>
               )}
               {autosaveStatus.kind === 'saving' && (
-                <>
-                  <span className="h-1.5 w-1.5 rounded-full bg-warm opacity-80" />
-                  저장 중…
-                </>
+                <span role="status" aria-label="저장 중" className="inline-flex items-center">
+                  <Spinner size={12} />
+                </span>
               )}
               {autosaveStatus.kind === 'error' && (
                 <span className="text-coral">{autosaveStatus.message}</span>
@@ -212,7 +212,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
               disabled={submitDisabled}
               className="btn btn-primary px-7 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submit.isPending ? '제출 중…' : '제출'}
+              {submit.isPending && <ButtonSpinner />}제출
             </button>
           </div>
         </form>

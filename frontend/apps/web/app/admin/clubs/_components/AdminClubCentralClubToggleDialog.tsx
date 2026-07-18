@@ -1,5 +1,6 @@
 'use client';
 
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import {
   Dialog,
   DialogContent,
@@ -64,7 +65,7 @@ export function AdminClubCentralClubToggleDialog({
             disabled={isPending}
             className="btn btn-primary btn-sm disabled:opacity-50"
           >
-            {isPending ? '처리 중…' : '확인'}
+            {isPending && <ButtonSpinner />}확인
           </button>
         </DialogFooter>
       </DialogContent>

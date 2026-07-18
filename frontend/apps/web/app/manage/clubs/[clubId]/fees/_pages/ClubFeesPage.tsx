@@ -16,6 +16,7 @@ import { FeeAccountSection } from '../_components/FeeAccountSection';
 import { FeeSummaryCards } from '../_components/FeeSummaryCards';
 import { GenerateBillsDialog } from '../_components/GenerateBillsDialog';
 import { PolicyList } from '../_components/PolicyList';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type ClubFeesPageProps = {
   clubId: number;
@@ -183,7 +184,7 @@ function BankTabPanel({ clubId }: BankTabPanelProps) {
   if (isStatusLoading) {
     return (
       <BankTabNotice>
-        <p className="text-sm text-charcoal-3">불러오는 중…</p>
+        <LoadingGate label="자동매칭 상태 확인 중" className="min-h-0" />
       </BankTabNotice>
     );
   }

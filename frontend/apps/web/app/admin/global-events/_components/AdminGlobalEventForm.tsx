@@ -9,6 +9,7 @@ import {
   isGlobalEventCategory,
 } from '../_lib/categoryLabels';
 import type { GlobalEventFormState } from '../_lib/parseGlobalEventFormState';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { ImageUploader } from '../../../_components/ImageUploader';
 
 const FORM_STATE_KEYS = [
@@ -188,9 +189,9 @@ export function AdminGlobalEventForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-5 py-2.5 rounded-full bg-ink text-paper text-[13.5px] font-semibold disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-ink text-paper text-[13.5px] font-semibold disabled:opacity-60"
         >
-          {isSubmitting ? '저장 중…' : submitLabel}
+          {isSubmitting && <ButtonSpinner />}{submitLabel}
         </button>
       </div>
     </form>

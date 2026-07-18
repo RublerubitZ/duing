@@ -179,7 +179,6 @@ export function MemberRow({
         title="동아리를 탈퇴할까요?"
         description="탈퇴하면 이 동아리에서 빠지며, 되돌리려면 다시 가입해야 합니다."
         confirmLabel="탈퇴"
-        pendingLabel="탈퇴 중…"
         isPending={leaveClub.isPending}
         onConfirm={confirmLeave}
         onCancel={() => setShowLeaveConfirm(false)}

@@ -5,7 +5,8 @@
 // 애플식의 "과하지 않은" 깊이감만 의도하므로 기본 폭을 작게 잡는다.
 // 접근성: prefers-reduced-motion 이면 정적으로 둔다(transform 미적용).
 
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
+// 번들: motion 전체 배럴 대신 LazyMotion(domAnimation)+m — introduce 라우트 청크가 가벼워진다.
+import { LazyMotion, domAnimation, m, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { useRef } from 'react';
 import type { ReactNode } from 'react';
 
@@ -36,9 +37,11 @@ export function HeroParallax({
 
   return (
     <div ref={ref} className={className}>
-      <motion.div style={shouldReduce ? undefined : { y: translateY, scale: scaleValue }}>
-        {children}
-      </motion.div>
+      <LazyMotion features={domAnimation} strict>
+        <m.div style={shouldReduce ? undefined : { y: translateY, scale: scaleValue }}>
+          {children}
+        </m.div>
+      </LazyMotion>
     </div>
   );
 }

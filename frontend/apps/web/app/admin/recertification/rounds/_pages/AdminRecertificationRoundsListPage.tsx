@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { RoundStatus } from '@duing/types';
 import { useAdminRecertificationRoundListQuery } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { toRoute } from '../../../../_lib/route';
 import { AdminRecertificationRoundsFilterBar } from '../_components/AdminRecertificationRoundsFilterBar';
 import { AdminRecertificationRoundsTable } from '../_components/AdminRecertificationRoundsTable';
@@ -73,9 +74,7 @@ export function AdminRecertificationRoundsListPage() {
         />
       </div>
 
-      {listQuery.isLoading && (
-        <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
-      )}
+      {listQuery.isLoading && <LoadingGate label="라운드 목록 불러오는 중" />}
       {listQuery.isError && (
         <p className="py-12 text-center text-coral text-[13px]">목록을 불러오지 못했습니다.</p>
       )}

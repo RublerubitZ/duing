@@ -6,6 +6,7 @@ import { useClubRecruitmentsQuery } from '@duing/hooks';
 import type { RecruitmentSummary } from '@duing/types';
 import { toRoute } from '../../../../_lib/route';
 import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../_lib/recruitmentDisplay';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type TabKey = 'OPEN' | 'CLOSED';
 
@@ -105,7 +106,7 @@ export default function RecruitmentsPage({
         </button>
       </div>
 
-      {isLoading && <p className="text-sm text-slate-500">불러오는 중…</p>}
+      {isLoading && <LoadingGate label="모집 목록 불러오는 중" className="min-h-0 py-8" />}
 
       {!isLoading && displayedRecruitments.length === 0 && (
         <p className="text-sm text-slate-500">

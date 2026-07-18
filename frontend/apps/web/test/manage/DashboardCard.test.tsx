@@ -5,7 +5,7 @@ import { DashboardCard } from '@/app/manage/_components/dashboard/DashboardCard'
 describe('DashboardCard', () => {
   it('로딩 상태를 표시한다', () => {
     render(<DashboardCard title="처리 필요 업무" isLoading emptyText="없음"><div>내용</div></DashboardCard>);
-    expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '불러오는 중' })).toBeInTheDocument();
     expect(screen.queryByText('내용')).not.toBeInTheDocument();
   });
 

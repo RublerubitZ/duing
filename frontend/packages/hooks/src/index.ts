@@ -82,7 +82,6 @@ export { draftQueryKeys } from './draftQueryKeys';
 export {
   useUnreadCountQuery,
   useNotificationListQuery,
-  useNotificationReadMutation,
   useNotificationSourceAwareReadMutation,
   useNotificationReadAllMutation,
 } from './notifications';

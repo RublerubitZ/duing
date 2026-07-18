@@ -13,6 +13,7 @@ import { DIVISIONS } from '../../../../../clubs/_lib/clubs';
 import { COLLEGE_OPTIONS } from '../../../../../_lib/college';
 import { ImageUploader } from '@/app/_components/ImageUploader';
 import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type ClubInfoFormProps = {
   clubId: number;
@@ -543,7 +544,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
               disabled={mutation.isPending}
               className="btn btn-primary disabled:opacity-50"
             >
-              {mutation.isPending ? '저장 중…' : '저장'}
+              {mutation.isPending && <ButtonSpinner />}저장
             </button>
           </div>
         )}

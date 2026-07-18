@@ -6,6 +6,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { cn } from '@/app/_lib/cn';
+import { Spinner } from '@/components/loading/Spinner';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 
 type SearchComboboxProps<T> = {
@@ -94,7 +95,11 @@ export function SearchCombobox<T>({
             placeholder={placeholder}
             className="w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
-          {isFetching && hasQuery && <p className="mt-1 text-xs text-charcoal-3">검색 중…</p>}
+          {isFetching && hasQuery && (
+            <div role="status" aria-label="검색 중" className="delayed-show mt-1">
+              <Spinner size={14} className="text-charcoal-3" />
+            </div>
+          )}
         </div>
       </PopoverAnchor>
       <PopoverContent

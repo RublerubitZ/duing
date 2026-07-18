@@ -387,47 +387,22 @@ body {
   0%, 100% { transform: translateY(0) rotate(2.5deg); }
   50%       { transform: translateY(-7px) rotate(2.5deg); }
 }
-@keyframes pulse-ring {
-  0%   { box-shadow: 0 0 0 0 rgba(91,126,77,.5); }
-  70%  { box-shadow: 0 0 0 10px rgba(91,126,77,0); }
-  100% { box-shadow: 0 0 0 0 rgba(91,126,77,0); }
-}
-@keyframes pop-in {
-  from { transform: scale(0); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
-}
 .animate-float-a   { animation: float-a  6s   ease-in-out infinite; }
 .animate-float-b   { animation: float-b  6.5s ease-in-out infinite; animation-delay: 1.2s; }
-.animate-pulse-ring { animation: pulse-ring 1.8s ease-out infinite; }
-.animate-pop-in    { animation: pop-in .6s .8s cubic-bezier(.2,.9,.3,1.4) both; }
+
+/* 스피너 Flicker 방지 — 150ms 안에 끝나는 로딩은 스피너가 아예 보이지 않게 지연 표시한다.
+   opacity 만 전이(합성 친화)하고, JS 타이머 없이 CSS 로만 처리해 리렌더 비용이 없다. */
+@keyframes delayed-show {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.delayed-show { animation: delayed-show 0.2s ease 0.15s both; }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-
-@keyframes notify-bell-sway {
-  0%, 100% { transform: rotate(-6deg); }
-  50%       { transform: rotate(6deg); }
-}
-@keyframes notify-badge-pulse {
-  0%, 100% { transform: scale(1); }
-  50%       { transform: scale(1.06); }
-}
-
-.animate-bell-sway {
-  transform-origin: 50% 18%;
-  animation: notify-bell-sway 4.2s ease-in-out infinite;
-}
-.animate-badge-pulse {
-  animation: notify-badge-pulse 2.4s ease-in-out infinite;
-}
-
-@keyframes blink-cursor {
-  50% { opacity: 0; }
-}
-.animate-blink-cursor {
-  animation: blink-cursor 1s steps(2) infinite;
-}
+/* 홈 카테고리 장식 아이콘의 느린 회전 — transform-only 라 합성 비용만 든다. */
+.animate-spin-slow { animation: spin 6s linear infinite; }
 
 /* 접근성: OS '동작 줄이기' 설정 시 무한 반복되는 장식 애니메이션을 멈춘다.
    framer-motion 은 MotionConfig reducedMotion="user" 로 이미 처리되지만,
@@ -435,39 +410,9 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-float-a,
   .animate-float-b,
-  .animate-pulse-ring,
-  .animate-blink-cursor,
-  .animate-bell-sway,
-  .animate-badge-pulse {
+  .animate-spin-slow {
     animation: none;
   }
-}
-
-/* ===== Introduce — Feature scroll-reveal ===== */
-.feature-text-left {
-  opacity: 0;
-  transform: translateX(-40px);
-  transition: opacity 1s cubic-bezier(.2,.7,.2,1), transform 1s cubic-bezier(.2,.7,.2,1);
-}
-.feature-text-right {
-  opacity: 0;
-  transform: translateX(40px);
-  transition: opacity 1s cubic-bezier(.2,.7,.2,1), transform 1s cubic-bezier(.2,.7,.2,1);
-}
-.feature-visual {
-  opacity: 0;
-  transform: scale(.92);
-  transition: opacity .7s cubic-bezier(.2,.9,.3,1.2), transform .7s cubic-bezier(.2,.9,.3,1.2);
-  transition-delay: 180ms;
-}
-.feature-visible .feature-text-left,
-.feature-visible .feature-text-right {
-  opacity: 1;
-  transform: translateX(0);
-}
-.feature-visible .feature-visual {
-  opacity: 1;
-  transform: scale(1);
 }
 
 /* iOS Safari 포커스 자동 줌 방지 — 모바일(<768px)에서 폼 입력 폰트를 16px 하한으로 강제한다.

@@ -1,5 +1,6 @@
 'use client';
 
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import {
   Dialog,
   DialogContent,
@@ -47,7 +48,7 @@ export function AdminNoticeDeleteDialog({ title, isPending, onConfirm, onCancel 
             disabled={isPending}
             className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {isPending ? '삭제 중…' : '삭제'}
+            {isPending && <ButtonSpinner />}삭제
           </button>
         </DialogFooter>
       </DialogContent>

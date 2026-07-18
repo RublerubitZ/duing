@@ -96,6 +96,6 @@ describe('AdminClubDeleteDialog', () => {
       />,
     );
     fireEvent.change(screen.getByLabelText('동아리명 입력 확인'), { target: { value: '삭제 동아리' } });
-    expect(screen.getByRole('button', { name: '처리 중…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '삭제' })).toBeDisabled();
   });
 });

@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/dialog';
 
 import { formatWon, paymentMethodLabel } from '@/app/_lib/feeLabels';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type PaymentHistoryProps = {
   clubId: number;
@@ -44,7 +46,7 @@ export function PaymentHistory({ clubId, bill, memberName, onClose }: PaymentHis
         </DialogHeader>
 
         {isLoading ? (
-          <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+          <LoadingGate label="납부 내역 불러오는 중" className="min-h-0 py-8" />
         ) : !payments || payments.length === 0 ? (
           <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
             <p className="text-sm text-charcoal-2">기록된 납부가 없습니다.</p>
@@ -203,9 +205,9 @@ function VoidPaymentConfirm({ clubId, billId, payment, onClose }: VoidPaymentCon
             type="button"
             onClick={confirmVoid}
             disabled={voidPayment.isPending}
-            className="flex-1 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {voidPayment.isPending ? '취소 중…' : '기록 취소'}
+            {voidPayment.isPending && <ButtonSpinner />}기록 취소
           </button>
         </div>
       </div>

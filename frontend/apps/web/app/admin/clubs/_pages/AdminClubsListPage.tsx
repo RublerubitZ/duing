@@ -10,6 +10,7 @@ import {
   useUpdateClubStatusMutation,
 } from '@duing/hooks';
 import type { AdminClubSummary, ClubStatus } from '@duing/types';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminClubCentralClubToggleDialog } from '../_components/AdminClubCentralClubToggleDialog';
 import { AdminClubDeleteDialog } from '../_components/AdminClubDeleteDialog';
 import { AdminClubStatusChangeDialog } from '../_components/AdminClubStatusChangeDialog';
@@ -197,9 +198,7 @@ export function AdminClubsListPage() {
         )}
       </form>
 
-      {clubsQuery.isLoading && (
-        <p className="text-charcoal-3 py-10 text-center text-sm">불러오는 중…</p>
-      )}
+      {clubsQuery.isLoading && <LoadingGate className="min-h-0 py-10" label="동아리 목록 불러오는 중" />}
       {clubsQuery.isError && (
         <p className="text-coral py-10 text-center text-sm">목록을 불러오지 못했습니다.</p>
       )}

@@ -9,6 +9,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type CategoryOption = { id: number; name: string };
 
@@ -111,7 +112,7 @@ export function FaqCategoryDeleteDialog({
             disabled={isPending}
             className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {isPending ? '삭제 중…' : '삭제'}
+            {isPending && <ButtonSpinner />}삭제
           </button>
         </DialogFooter>
       </DialogContent>

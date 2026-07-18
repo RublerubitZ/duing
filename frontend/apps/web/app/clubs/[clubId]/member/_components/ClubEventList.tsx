@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useClubEventDetailQuery, useClubEventListQuery, useRemoveClubEventMutation } from '@duing/hooks';
 import type { ClubEventCard as Event } from '@duing/types';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { useMembership } from './MembershipContext';
 import { ClubEventCard } from './ClubEventCard';
 import { ClubEventFormModal } from './ClubEventFormModal';
@@ -21,7 +22,13 @@ export function ClubEventList({ clubId }: Props) {
   // 목록 카드에는 description 이 없으므로, 수정 시 상세를 시드해야 사용자가 기존 설명을 보고 편집/비우기할 수 있다.
   const { data: editingDetail } = useClubEventDetailQuery(clubId, editing?.id ?? null);
 
-  if (isLoading) return <p className="px-6 py-4 text-sm text-charcoal-3">불러오는 중…</p>;
+  if (isLoading) {
+    return (
+      <section className="mx-auto max-w-3xl px-6 py-6">
+        <ListRowsSkeleton rows={4} rowClassName="h-[88px] rounded-xl" label="일정 불러오는 중" />
+      </section>
+    );
+  }
 
   const confirmDelete = () => {
     if (!deleting) return;

@@ -12,6 +12,7 @@ import {
 } from '@duing/hooks';
 import type { FacilityBookingConflictPayload } from '@duing/types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { BookingStatusBadge } from '@/app/_components/BookingStatusBadge';
 import {
@@ -161,7 +162,7 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
         >
           <DialogTitle>예약 신청 검토</DialogTitle>
 
-          {detailQuery.isLoading && <p className="text-sm text-charcoal-3">불러오는 중…</p>}
+          {detailQuery.isLoading && <LoadingGate className="min-h-0 py-8" label="예약 상세 불러오는 중" />}
           {detailQuery.isError && (
             <p role="alert" className="text-sm text-charcoal-2">
               상세를 불러오지 못했어요. 잠시 후 다시 시도해주세요.

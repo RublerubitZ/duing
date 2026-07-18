@@ -11,6 +11,7 @@ import type { InterviewRoundDetail, InterviewRoundDetailSlot } from '@duing/type
 import { SlotPatternForm } from '@/components/interview/SlotPatternForm';
 import type { RoundSlotEntry } from '@/components/interview/_utils/generateSlotsFromPattern';
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // 면접 슬롯 섹션 — 슬롯 행(시간·정원·선택/배정) + DRAFT·COLLECTING 한정
 // [정원 수정](인라인 number input → PATCH)·[삭제] + SlotPatternForm 으로 추가 생성.
@@ -113,9 +114,9 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
                         onClick={handleCapacitySave}
                         disabled={updateSlotMutation.isPending || capacityInput < 1}
                         aria-label="정원 저장"
-                        className="rounded-md px-2 py-0.5 text-xs font-medium text-purple-600 hover:bg-purple-50 disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium text-purple-600 hover:bg-purple-50 disabled:opacity-50"
                       >
-                        {updateSlotMutation.isPending ? '저장 중…' : '저장'}
+                        {updateSlotMutation.isPending && <ButtonSpinner />}저장
                       </button>
                       <button
                         type="button"

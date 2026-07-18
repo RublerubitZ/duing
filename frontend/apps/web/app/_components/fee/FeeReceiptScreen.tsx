@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { Receipt } from '@duing/types';
 
 import { toRoute } from '@/app/_lib/route';
+import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
 import { FeeReceiptDocument } from './FeeReceiptDocument';
 
@@ -17,7 +18,11 @@ type FeeReceiptScreenProps = {
 
 export function FeeReceiptScreen({ receipt, isLoading, isError, backHref }: FeeReceiptScreenProps) {
   if (isLoading) {
-    return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
+    return (
+      <div className="mx-auto max-w-2xl p-6">
+        <TextLinesSkeleton lines={6} label="영수증 불러오는 중" />
+      </div>
+    );
   }
 
   // 발급 불가(납부 0건/취소/타인)는 404 → ApiError 로 surface 되어 receipt 가 비어 있다.

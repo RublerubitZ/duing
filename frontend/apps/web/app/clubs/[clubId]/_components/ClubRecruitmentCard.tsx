@@ -7,6 +7,7 @@ import {
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
+import { Spinner } from '@/components/loading/Spinner';
 import { useClubApply } from '../_lib/useClubApply';
 
 type Props = {
@@ -90,7 +91,13 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
           disabled={!canApply || isCheckingEligibility}
           className="btn btn-primary btn-big mb-2.5 w-full disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {isCheckingEligibility ? '확인 중…' : applyButtonLabel}
+          {isCheckingEligibility ? (
+            <span role="status" aria-label="지원 자격 확인 중" className="inline-flex items-center">
+              <Spinner size={14} />
+            </span>
+          ) : (
+            applyButtonLabel
+          )}
         </button>
 
         <div className="flex gap-2">

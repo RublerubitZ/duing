@@ -8,6 +8,7 @@ import {
   ROUND_STATUS_LABEL,
   ROUND_STATUS_BADGE_CLASS,
 } from '@/components/interview/interviewRoundStatusLabels';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // 상태 배너 — 상태 뱃지 + 단일 next action (DRAFT→이어서 작성 / COLLECTING·ASSIGNING→자동배정 /
 // ASSIGNING→확정) + 조기 배정 UX ① 전원 응답 배너 + ASSIGNING draft 안내.
@@ -59,9 +60,9 @@ export function RoundStatusBanner({
               type="button"
               onClick={onAutoAssign}
               disabled={autoAssignPending}
-              className="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
             >
-              {autoAssignPending ? '처리 중…' : '자동배정 실행'}
+              {autoAssignPending && <ButtonSpinner />}자동배정 실행
             </button>
           )}
 
@@ -71,9 +72,9 @@ export function RoundStatusBanner({
               type="button"
               onClick={onConfirm}
               disabled={confirmPending}
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
-              {confirmPending ? '처리 중…' : '확정'}
+              {confirmPending && <ButtonSpinner />}확정
             </button>
           )}
 

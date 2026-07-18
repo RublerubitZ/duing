@@ -12,6 +12,7 @@ import { useAuthStore } from '@duing/stores';
 import type { CreateFacilityBookingResult } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
+import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import type { SlotRange } from '../../_lib/bookingCalendar';
 import { rangeLabel } from '../../_lib/bookingCalendar';
 import { BookingConfirmDialog } from './BookingConfirmDialog';
@@ -65,7 +66,7 @@ export function BookingForm({
   }
 
   if (managedClubsQuery.isPending) {
-    return <p className="text-sm text-charcoal-3">동아리 정보를 불러오는 중…</p>;
+    return <TextLinesSkeleton lines={3} label="동아리 정보 불러오는 중" />;
   }
   if (managedClubsQuery.isError) {
     return (

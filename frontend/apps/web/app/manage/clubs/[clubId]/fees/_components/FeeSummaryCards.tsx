@@ -4,6 +4,7 @@ import { useClubFeeSummaryQuery } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
 import { feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type FeeSummaryCardsProps = {
   clubId: number;
@@ -18,7 +19,7 @@ export function FeeSummaryCards({ clubId, billingPeriod }: FeeSummaryCardsProps)
   );
 
   if (isLoading) {
-    return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
+    return <LoadingGate label="수납 현황 불러오는 중" className="min-h-0 py-8" />;
   }
 
   if (!summary) {

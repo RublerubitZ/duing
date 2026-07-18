@@ -6,6 +6,8 @@ import type { InterviewRoundSummary, InterviewRoundStatus } from '@duing/types';
 import { useInterviewRoundsQuery, useInterviewRoundCandidatesQuery } from '@duing/hooks';
 import { toRoute } from '../../../../../../../_lib/route';
 import { cn } from '@/app/_lib/cn';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { Spinner } from '@/components/loading/Spinner';
 
 type Props = {
   clubId: number;
@@ -109,7 +111,9 @@ function CandidateQueueSection({ clubId, recruitmentId }: CandidateQueueSectionP
   if (candidatesQuery.isLoading) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
-        <p className="text-sm text-slate-400">불러오는 중…</p>
+        <div role="status" aria-label="대기열 불러오는 중" className="delayed-show">
+          <Spinner size={16} className="text-charcoal-3" />
+        </div>
       </div>
     );
   }
@@ -173,7 +177,7 @@ export function InterviewRoundsLanding({ clubId, recruitmentId }: Props) {
   const roundsQuery = useInterviewRoundsQuery(recruitmentId);
 
   if (roundsQuery.isLoading) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="면접 라운드 불러오는 중" />;
   }
 
   if (roundsQuery.isError) {
