@@ -95,7 +95,7 @@ describe('auth.logout', () => {
     expect(onUnauthorized).not.toHaveBeenCalled();
   });
 
-  it('cookie 모드의 인증 요청 401은 Authorization 없이도 세션만료를 알린다', async () => {
+  it('cookie 모드의 인증 요청 401은 Authorization 없이도 (갱신 실패 후) 세션만료를 알린다', async () => {
     const cookieClient = createApiClient({
       baseUrl: 'http://localhost:8080/api/v1',
       authTransport: 'cookie',
@@ -105,6 +105,10 @@ describe('auth.logout', () => {
     server.use(
       http.get('*/users/me', () =>
         HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 }),
+      ),
+      // 쿠키 모드 401 은 이제 먼저 갱신을 시도한다 — 갱신도 401 이면 세션 만료로 확정한다.
+      http.post('*/auth/web/refresh', () =>
+        HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 }),
       ),
     );
 
