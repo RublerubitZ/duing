@@ -93,8 +93,9 @@ public class GeneralAuthSessionService implements AuthSessionService {
     public RotationResult rotate(String rawRefreshToken) {
         LocalDateTime now = LocalDateTime.now(clock);
         String tokenHash = refreshTokenGenerator.hash(rawRefreshToken);
-        // 잠금 순서 불변식(user → session → token)에 맞추기 위해 스칼라로 세션 id 만 먼저 얻는다.
-        // 엔티티를 영속성 컨텍스트에 올리지 않아, 잠금 획득 후 재조회가 최신 상태를 읽는다.
+        // 세션 행만 FOR UPDATE 로 잠그므로, 잠금 전 스칼라로 세션 id 만 먼저 얻는다.
+        // 토큰은 잠금 획득 후 재조회로 최신 상태를 보장한다 — 엔티티를 영속성 컨텍스트에 올리지 않아,
+        // 잠금 대기 중 변경된 토큰 상태를 재조회가 그대로 읽는다.
         Long sessionId = authRefreshTokenRepository.findSessionIdByTokenHash(tokenHash)
                 .orElseThrow(AuthSessionException.SessionExpiredException::new);
         AuthSession session = authSessionRepository.findByIdForUpdate(sessionId)
@@ -110,7 +111,18 @@ public class GeneralAuthSessionService implements AuthSessionService {
 
         switch (presentedToken.getStatus()) {
             case ACTIVE -> presentedToken.markRotated(now);
-            case ROTATED, REVOKED -> detectReuse(session, presentedToken, now);
+            case ROTATED -> {
+                if (presentedToken.isReusableWithinGrace(now, reuseGrace)) {
+                    // 동시 탭 latest-wins (spec §5.3): 직전 후계(현재 ACTIVE)를 REVOKED 로 밀어내고
+                    // 새 체인을 잇는다. 구토큰은 ROTATED 그대로 — grace 기준점(rotated_at)을 보존한다.
+                    authRefreshTokenRepository
+                            .findBySessionIdAndStatus(session.getId(), RefreshTokenStatus.ACTIVE)
+                            .ifPresent(AuthRefreshToken::markRevoked);
+                } else {
+                    detectReuse(session, presentedToken, now);
+                }
+            }
+            case REVOKED -> detectReuse(session, presentedToken, now);
         }
 
         // Hibernate flush 는 INSERT 를 UPDATE 보다 먼저 실행한다 — 상태 전이를 먼저 flush 하지 않으면

@@ -97,6 +97,10 @@ class AuthSessionRotationTest extends IntegrationTestBase {
 
         assertThatThrownBy(() -> authSessionService.rotate(issuedSession.refreshToken()))
                 .isInstanceOf(AuthSessionException.SessionExpiredException.class);
+
+        // 조기 401(세션 폐기 확인)이 detectReuse 를 앞질러, 시드한 LOGOUT reason 이 덮이지 않는다
+        var session = authSessionRepository.findById(issuedSession.sessionId()).orElseThrow();
+        assertThat(session.getRevokeReason()).isEqualTo(SessionRevokeReason.LOGOUT);
     }
 
     @Test
@@ -114,6 +118,53 @@ class AuthSessionRotationTest extends IntegrationTestBase {
         var session = authSessionRepository.findById(issuedSession.sessionId()).orElseThrow();
         assertThat(session.getRevokedAt()).isNotNull();
         assertThat(session.getRevokeReason()).isEqualTo(SessionRevokeReason.REUSE_DETECTED);
+        assertThat(authRefreshTokenRepository.findBySessionIdOrderByIdAsc(issuedSession.sessionId()))
+                .allMatch(token -> token.getStatus() == RefreshTokenStatus.REVOKED);
+        assertThat(authEventRepository.findByUserIdOrderByIdAsc(userId))
+                .anyMatch(authEvent -> authEvent.getEventType() == AuthEventType.REUSE_DETECTED);
+    }
+
+    @Test
+    @DisplayName("rotation 직후 grace 창 안의 구토큰 재제시는 동시 탭으로 간주되어 세션을 유지하고 latest-wins 로 체인을 잇는다")
+    void reuseWithinGraceKeepsSessionWithLatestWins() {
+        Long userId = userRepository.save(UserFixture.unique()).getId();
+        IssuedSession issuedSession = issueFor(userId, false);
+        RotationResult firstRotation = authSessionService.rotate(issuedSession.refreshToken());
+
+        // grace(기본 30초) 안 — 방금 ROTATED 된 구토큰을 다시 제시(다른 탭 시나리오)
+        RotationResult graceRotation = authSessionService.rotate(issuedSession.refreshToken());
+
+        assertThat(graceRotation.refreshToken())
+                .isNotEqualTo(firstRotation.refreshToken())
+                .isNotEqualTo(issuedSession.refreshToken());
+        var session = authSessionRepository.findById(issuedSession.sessionId()).orElseThrow();
+        assertThat(session.getRevokedAt()).isNull();
+        var tokens = authRefreshTokenRepository.findBySessionIdOrderByIdAsc(issuedSession.sessionId());
+        assertThat(tokens).hasSize(3);
+        assertThat(tokens.get(0).getStatus()).isEqualTo(RefreshTokenStatus.ROTATED);   // 최초 토큰
+        assertThat(tokens.get(1).getStatus()).isEqualTo(RefreshTokenStatus.REVOKED);   // 직전 후계 — 밀려남
+        assertThat(tokens.get(2).getStatus()).isEqualTo(RefreshTokenStatus.ACTIVE);    // latest-wins
+    }
+
+    @Test
+    @DisplayName("grace 창을 지난 구토큰 재사용은 Replay 로 간주되어 세션 전체가 폐기되고 감사 이벤트가 남는다")
+    void reuseAfterGraceRevokesWholeSession() {
+        Long userId = userRepository.save(UserFixture.unique()).getId();
+        IssuedSession issuedSession = issueFor(userId, false);
+        authSessionService.rotate(issuedSession.refreshToken());
+        // grace(30초) 바깥으로 — rotated_at 을 상대시간으로 과거 이동
+        jdbcTemplate.update(
+                "UPDATE auth_refresh_token SET rotated_at = rotated_at - INTERVAL '31 seconds' "
+                        + "WHERE session_id = ? AND status = 'ROTATED'",
+                issuedSession.sessionId());
+
+        assertThatThrownBy(() -> authSessionService.rotate(issuedSession.refreshToken()))
+                .isInstanceOf(AuthSessionException.SessionExpiredException.class);
+
+        var session = authSessionRepository.findById(issuedSession.sessionId()).orElseThrow();
+        assertThat(session.getRevokeReason()).isEqualTo(SessionRevokeReason.REUSE_DETECTED);
+        assertThat(authRefreshTokenRepository.findBySessionIdOrderByIdAsc(issuedSession.sessionId()))
+                .allMatch(token -> token.getStatus() == RefreshTokenStatus.REVOKED);
         assertThat(authEventRepository.findByUserIdOrderByIdAsc(userId))
                 .anyMatch(authEvent -> authEvent.getEventType() == AuthEventType.REUSE_DETECTED);
     }
