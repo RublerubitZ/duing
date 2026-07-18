@@ -70,7 +70,8 @@ export function useRevokeSessionMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (sessionId: number) => client.users.revokeSession(sessionId),
-    onSuccess: () => {
+    // onSettled — 실패(404: 이미 폐기된 세션 등)에도 목록을 재조회해 유령 행이 남지 않게 한다.
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: userQueryKeys.sessions() });
     },
   });
