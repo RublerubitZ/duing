@@ -40,13 +40,17 @@ afterEach(() => {
 afterAll(() => server.close());
 
 describe('API 401 감지 (afterResponse)', () => {
-  it('Cookie 요청이 401 이면 등록된 핸들러를 호출한다', async () => {
+  it('Cookie 요청이 401 이고 자동 갱신까지 실패하면 등록된 핸들러를 호출한다', async () => {
     const handler = vi.fn();
     registerUnauthorizedHandler(handler);
 
     server.use(
       http.get(`${BASE}/me/favorites/ids`, () =>
         HttpResponse.json({ message: '인증이 필요합니다.' }, { status: 401 }),
+      ),
+      // 401 은 이제 자동 갱신을 먼저 시도한다 — 갱신도 401 이어야 세션 만료가 확정된다.
+      http.post(`${BASE}/auth/web/refresh`, () =>
+        HttpResponse.json({ message: '만료', code: 'AUTH_SESSION_EXPIRED' }, { status: 401 }),
       ),
     );
 
