@@ -6,10 +6,14 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-public record UserPrincipal(Long id, String role) implements UserDetails {
+public record UserPrincipal(Long id, String role, Long sessionId) implements UserDetails {
 
     public static UserPrincipal of(Long id, String role) {
-        return new UserPrincipal(id, role);
+        return new UserPrincipal(id, role, null);
+    }
+
+    public static UserPrincipal of(Long id, String role, Long sessionId) {
+        return new UserPrincipal(id, role, sessionId);
     }
 
     @Override

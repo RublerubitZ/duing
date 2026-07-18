@@ -3,6 +3,7 @@ package com.duing.domain.user.service;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.PhoneVerification;
+import com.duing.domain.user.entity.SessionRevokeReason;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.entity.VerificationPurpose;
@@ -12,10 +13,13 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
 import com.duing.domain.user.service.dto.command.ChangePhoneCommand;
 import com.duing.domain.user.service.dto.command.ForceLogoutCommand;
+import com.duing.domain.user.service.dto.command.IssueSessionCommand;
 import com.duing.domain.user.service.dto.command.LoginCommand;
+import com.duing.domain.user.service.dto.command.LoginContext;
 import com.duing.domain.user.service.dto.command.ResetPasswordCommand;
 import com.duing.domain.user.service.dto.command.SignupCommand;
 import com.duing.domain.user.service.dto.command.UpdateProfileCommand;
+import com.duing.domain.user.service.dto.query.IssuedSession;
 import com.duing.domain.user.service.dto.query.LoginResult;
 import com.duing.domain.user.service.dto.query.UserQuery;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
@@ -44,6 +48,7 @@ public class GeneralUserService implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final LoginAttemptRateLimiter loginAttemptRateLimiter;
+    private final AuthSessionService authSessionService;
     private final ClubMemberRepository clubMemberRepository;
     private final PhoneVerificationSessionManager phoneVerificationSessionManager;
     private final Clock clock;
@@ -102,18 +107,18 @@ public class GeneralUserService implements UserService {
             UserException.AccountLockedException.class,
             UserException.TooManyLoginAttemptsException.class
     })
-    public LoginResult login(LoginCommand loginCommand, String clientIp) {
+    public LoginResult login(LoginCommand loginCommand, LoginContext loginContext) {
         LocalDateTime now = LocalDateTime.now();
         // IP 단위 실패 제한(credential stuffing/spraying) — 계정 조회 이전에, 이미 실패 한도를 넘긴 IP 를
         // 차단한다. 성공 로그인은 세지 않으므로 공유 IP(교내 NAT) 의 정상 사용자는 막히지 않는다.
-        loginAttemptRateLimiter.assertWithinLimit(clientIp, now);
+        loginAttemptRateLimiter.assertWithinLimit(loginContext.clientIp(), now);
 
         // 같은 계정에 대한 동시 실패가 실패 카운터 증가를 덮어쓰지 않도록 행을 잠그고 조회한다.
         User user = userRepository.findByStudentIdForUpdate(loginCommand.studentId()).orElse(null);
         if (user == null) {
             // 존재하지 않는 학번도 BCrypt 비교 비용을 동일하게 소비해 타이밍 기반 학번 열거를 막는다.
             burnPasswordComparison(loginCommand.rawPassword());
-            loginAttemptRateLimiter.recordFailureOrThrow(clientIp, now);
+            loginAttemptRateLimiter.recordFailureOrThrow(loginContext.clientIp(), now);
             throw new UserException.InvalidCredentialsException();
         }
 
@@ -121,20 +126,24 @@ public class GeneralUserService implements UserService {
         // 무한히 두드려 IP 볼륨 제한을 완전히 우회할 수 있다(무료 프로브). 계정 카운터(recordFailedLogin)는
         // 이미 잠긴 계정을 다시 잠글 필요가 없어 건드리지 않고, IP 윈도우에만 실패로 기록한다.
         if (user.isLocked(now)) {
-            loginAttemptRateLimiter.recordFailureOrThrow(clientIp, now);
+            loginAttemptRateLimiter.recordFailureOrThrow(loginContext.clientIp(), now);
             throw new UserException.AccountLockedException();
         }
 
         if (!passwordEncoder.matches(loginCommand.rawPassword(), user.getPasswordHash())) {
             user.recordFailedLogin(MAX_FAILED_LOGIN_ATTEMPTS, LOGIN_LOCK_DURATION, now);
-            loginAttemptRateLimiter.recordFailureOrThrow(clientIp, now);
+            loginAttemptRateLimiter.recordFailureOrThrow(loginContext.clientIp(), now);
             throw new UserException.InvalidCredentialsException();
         }
 
         user.recordSuccessfulLogin();
-        String accessToken =
-                jwtTokenProvider.createToken(user.getId(), user.getRole().name(), user.getTokenVersion());
-        return new LoginResult(accessToken, UserQuery.from(user));
+        // 세션 발급은 이 트랜잭션의 user 행잠금 안 — LRU 상한 계산의 동시성 보호 전제 (spec §13)
+        IssuedSession issuedSession = authSessionService.issue(new IssueSessionCommand(
+                user.getId(), loginContext.platform(), loginContext.deviceLabel(),
+                loginContext.userAgent(), loginContext.clientIp(), loginContext.rememberMe()));
+        String accessToken = jwtTokenProvider.createToken(
+                user.getId(), user.getRole().name(), user.getTokenVersion(), issuedSession.sessionId());
+        return new LoginResult(accessToken, issuedSession.refreshToken(), UserQuery.from(user));
     }
 
     /** 존재하지 않는 학번 분기에서도 BCrypt 비교 비용을 소비해 타이밍 오라클을 제거한다. */
@@ -149,9 +158,18 @@ public class GeneralUserService implements UserService {
 
     @Override
     @Transactional
-    public void logout(Long userId) {
-        // 동시 로그아웃의 token_version lost update 를 막기 위해 행을 잠그고 조회한다.
-        User user = userRepository.findByIdForUpdate(userId)
+    public void logout(Long userIdOrNull, String rawRefreshTokenOrNull, Long sessionIdOrNull) {
+        boolean sessionRevoked =
+                authSessionService.revokeCurrent(userIdOrNull, rawRefreshTokenOrNull, sessionIdOrNull);
+        if (sessionRevoked) {
+            return; // 현재 기기만 로그아웃 — tokenVersion 불변 (spec §13.2)
+        }
+        if (userIdOrNull == null) {
+            return; // 식별 수단 없음(만료 쿠키 등) — 멱등 무시
+        }
+        // 전환기 폴백: 세션 없는 구 토큰 사용자는 기존 의미(전 기기 무효화)로 처리한다.
+        // 동시 로그아웃의 token_version lost update 를 막기 위해 행을 잠그고 조회한다(changePassword/withdraw 와 동일).
+        User user = userRepository.findByIdForUpdate(userIdOrNull)
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();
     }
@@ -164,6 +182,7 @@ public class GeneralUserService implements UserService {
         User user = userRepository.findByIdForUpdate(forceLogoutCommand.targetUserId())
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();
+        authSessionService.revokeAll(user.getId(), SessionRevokeReason.ADMIN_FORCE);
         log.info("Admin force logout. actorId={}, targetUserId={}",
                 forceLogoutCommand.actorUserId(), forceLogoutCommand.targetUserId());
     }
@@ -191,6 +210,7 @@ public class GeneralUserService implements UserService {
         user.changePassword(passwordEncoder.encode(changePasswordCommand.newPassword()));
         // 변경 후 재로그인 강제 — 발급된 모든 토큰을 무효화한다(탈취된 세션 차단).
         user.bumpTokenVersion();
+        authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
     }
 
     @Override
@@ -222,6 +242,7 @@ public class GeneralUserService implements UserService {
         user.changePhone(verifiedPhone, now);
         // 복구 수단 변경 후 재로그인 강제 — 발급된 모든 토큰을 무효화한다(changePassword 와 동일).
         user.bumpTokenVersion();
+        authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
         phoneVerificationSessionManager.consume(verifiedSession, user.getId(), clientIp, userAgent);
     }
 
@@ -255,6 +276,7 @@ public class GeneralUserService implements UserService {
         user.changePassword(passwordEncoder.encode(resetPasswordCommand.newPassword()));
         // 재설정 = 계정 탈취 대응 경로일 수 있다 — 발급된 모든 토큰을 무효화한다(전 기기 로그아웃).
         user.bumpTokenVersion();
+        authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
         phoneVerificationSessionManager.consume(verifiedSession, user.getId(), clientIp, userAgent);
     }
 
@@ -273,6 +295,8 @@ public class GeneralUserService implements UserService {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();
+        // 탈퇴도 계정 자격 소멸 계열로 CREDENTIAL_CHANGE 로 묶는다(전용 사유 분리는 감사 수요 생기면 후속).
+        authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
         userRepository.delete(user);
     }
 

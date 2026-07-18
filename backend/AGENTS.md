@@ -354,7 +354,8 @@ DB_URL=jdbc:postgresql://{supabase-host}:5432/postgres
 DB_USERNAME=postgres
 DB_PASSWORD=****
 JWT_SECRET=****
-JWT_EXPIRY_MS=3600000
+JWT_EXPIRY_MS=1800000                  # access 토큰 수명(30분). refresh 토큰 도입으로 3600000→1800000
+# DUING_AUTH_* — refresh TTL(30일)·재사용 grace(30초)·동시 세션 상한(5)·cleanup 잡 토글. 전부 기본값으로 충분해 운영 env 미주입 가능(prod cleanup 만 application-prod.yml 에서 자동 활성).
 
 # 로컬 전용
 FILE_UPLOAD_DIR=/tmp/duing/uploads    # 로컬 파일 저장 경로

@@ -116,7 +116,7 @@ class WebAuthControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("유효한 웹 Cookie 로그아웃은 멱등 204와 삭제 Cookie를 반환하고 모든 기존 토큰을 무효화한다")
+    @DisplayName("세션 없는 구 토큰의 웹 로그아웃은 폴백으로 모든 기존 토큰을 무효화한다")
     void webLogoutWithValidCookieClearsCookiesAndRevokesAllTokens() {
         User user = saveUser(UserRole.STUDENT);
         String accessToken = tokenFor(user);
@@ -316,19 +316,23 @@ class WebAuthControllerTest extends IntegrationTestBase {
 
     private void assertIssuedCookies(Response response) {
         List<String> cookies = setCookieHeaders(response);
-        assertThat(cookies).hasSize(2);
+        assertThat(cookies).hasSize(3);
         assertThat(cookieHeader(cookies, WebAuthCookieService.ACCESS_COOKIE_NAME))
                 .contains("HttpOnly", "Secure", "SameSite=Lax", "Path=/")
-                .doesNotContain("Max-Age=0");
+                .doesNotContain("Max-Age");
+        assertThat(cookieHeader(cookies, WebAuthCookieService.REFRESH_COOKIE_NAME))
+                .contains("HttpOnly", "Secure", "SameSite=Lax", "Path=/api/v1/auth")
+                .doesNotContain("Max-Age");
         assertThat(cookieHeader(cookies, WebAuthCookieService.AUTH_HINT_COOKIE_NAME))
                 .contains("HttpOnly", "Secure", "SameSite=Lax", "Path=/")
-                .doesNotContain("Max-Age=0");
+                .doesNotContain("Max-Age");
     }
 
     private void assertClearedCookies(Response response) {
         List<String> cookies = setCookieHeaders(response);
-        assertThat(cookies).hasSize(2);
+        assertThat(cookies).hasSize(3);
         assertThat(cookieHeader(cookies, WebAuthCookieService.ACCESS_COOKIE_NAME)).contains("Max-Age=0");
+        assertThat(cookieHeader(cookies, WebAuthCookieService.REFRESH_COOKIE_NAME)).contains("Max-Age=0");
         assertThat(cookieHeader(cookies, WebAuthCookieService.AUTH_HINT_COOKIE_NAME)).contains("Max-Age=0");
     }
 

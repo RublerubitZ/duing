@@ -50,10 +50,17 @@ springdoc:
   swagger-ui:
     enabled: false
 
-# 알림 스케줄러 — 운영에서는 항상 켜져있어야 한다.
-# 별도 환경변수 셋업을 잊는 사일런트 결손을 막기 위해 프로파일에서 하드코딩한다.
-# 끄고 싶으면 DUING_NOTIFICATION_JOBS_ENABLED=false 로 env var 오버라이드 가능.
 duing:
+  # 만료/폐기 세션·감사 로그 정리 잡 — 운영 기본 활성(삭제 대상이 만료 데이터뿐이라 안전).
+  # 별도 env 셋업 누락으로 조용히 꺼지는 사고를 막기 위해 프로파일에서 하드코딩한다.
+  # DUING_AUTH_SESSION_CLEANUP_ENABLED=false 로 끌 수 있다.
+  auth:
+    session:
+      cleanup:
+        enabled: ${DUING_AUTH_SESSION_CLEANUP_ENABLED:true}
+  # 알림 스케줄러 — 운영에서는 항상 켜져있어야 한다.
+  # 별도 환경변수 셋업을 잊는 사일런트 결손을 막기 위해 프로파일에서 하드코딩한다.
+  # 끄고 싶으면 DUING_NOTIFICATION_JOBS_ENABLED=false 로 env var 오버라이드 가능.
   notification:
     jobs:
       enabled: ${DUING_NOTIFICATION_JOBS_ENABLED:true}
