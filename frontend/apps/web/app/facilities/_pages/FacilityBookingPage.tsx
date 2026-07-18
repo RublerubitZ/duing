@@ -9,7 +9,7 @@ import {
 } from '@duing/hooks';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
-import { FacilityUpdateBanner } from '../_components/FacilityUpdateBanner';
+import { FacilityLastUpdated, FacilityStaleNotice } from '../_components/FacilityUpdateBanner';
 import { FacilityUsageGuide } from '../_components/FacilityUsageGuide';
 import { seoulDateIso, shiftYearMonth, yearMonthLabel } from '../_lib/facilityTimeline';
 import { windowRangeLabel } from '../_lib/bookingHome';
@@ -433,9 +433,7 @@ export function FacilityBookingPage() {
                   onGoHome={goHome}
                 />
               </div>
-              {availability && (
-                <FacilityUpdateBanner lastUpdatedAt={availability.lastUpdatedAt ?? null} stale={availability.stale} />
-              )}
+              {availability && <FacilityStaleNotice stale={availability.stale} />}
 
               <div className={showSidebar ? 'md:grid md:grid-cols-[minmax(0,1fr)_380px] md:gap-5' : undefined}>
                 {/* 공용 캘린더 카드 — 상단 헤더(월↔주 토글·기간·화살표·범례) + 월간/주간 본문(§2·§3·§4). */}
@@ -503,6 +501,8 @@ export function FacilityBookingPage() {
           )}
 
           <FacilityUsageGuide />
+          {/* 마지막 업데이트 — 예약 기능보다 시선이 먼저 가지 않게 페이지 최하단 보조 텍스트로(§우선순위). */}
+          {availability && <FacilityLastUpdated lastUpdatedAt={availability.lastUpdatedAt ?? null} />}
         </div>
       )}
 

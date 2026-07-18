@@ -234,26 +234,6 @@ export function periodDistribution(slots: BookingAvailabilitySlot[]): PeriodDist
   });
 }
 
-export type SlotStatusCounts = { available: number; pendingHold: number; blocked: number; past: number };
-
-export function slotStatusCounts(slots: BookingAvailabilitySlot[]): SlotStatusCounts {
-  const counts: SlotStatusCounts = { available: 0, pendingHold: 0, blocked: 0, past: 0 };
-  for (const slot of slots) {
-    switch (slot.status) {
-      case 'AVAILABLE': counts.available += 1; break;
-      case 'PENDING_HOLD': counts.pendingHold += 1; break;
-      case 'BLOCKED': counts.blocked += 1; break;
-      case 'PAST': counts.past += 1; break;
-      default: {
-        // 새 상태가 유니온에 추가되면 여기서 컴파일 에러 — "지난 시간" 오분류(암묵 폴백) 방지
-        const unhandledStatus: never = slot.status;
-        void unhandledStatus;
-      }
-    }
-  }
-  return counts;
-}
-
 // ── 예약 건별 현황 파생(§4‴.2) — BLOCKED·PENDING_HOLD 만 건 단위로 추출·병합 ─────
 
 export type DayBookingEntryKind = 'SCHOOL' | 'INTERNAL' | 'PENDING';
@@ -293,48 +273,50 @@ export function dayBookingEntries(slots: BookingAvailabilitySlot[]): DayBookingE
   return entries;
 }
 
-// ── 운영행 분할 타임라인 파생(§5.1) — 예약 건이 차지한 구간을 운영행에서 잘라 조각으로 ─────
+// ── 통합 예약 현황 파생 — 사용 중 행(기본 확보·예약 건)과 예약 가능 구간을 계층으로 표시 ─────
 
-export type DayOverviewTimelineKind = DayBookingEntryKind | 'OPERATING';
-export type DayOverviewTimelineItem = { start: string; end: string; label: string; kind: DayOverviewTimelineKind };
+export type DayUsageEntry = { start: string; end: string; label: string; kind: DayBookingEntryKind | 'OPERATING' };
 
 /**
- * 현황 카드 타임라인(§5.1): 운영 노트(BookingOperatingNote)를 예약 건(BLOCKED·PENDING 병합)으로 시간순
- * 절단해 앞/뒤 운영 조각을 만들고, 예약 건과 함께 시작 시각순으로 합친다. 운영 조각은 예약 가능 구간이다.
- *
- * - 노트별 커서 절단: 커서=노트 시작 → 겹치는 예약 건마다 `[커서, 예약.start)` 조각 후 커서=max(커서, 예약.end)
- *   → 마지막에 `[커서, 노트 끝)` 조각. 겹침 판정 `예약.start < 노트.end && 예약.end > 노트.start`.
- * - 예약이 노트 경계와 정확히 일치하면 해당 방향 조각은 만들지 않는다(`커서 < 조각 끝` 가드로 빈 구간 금지).
- * - 노트가 여러 개면 각각 독립 분할하고, 정렬은 시작 시각순(동률이면 예약 건을 운영 조각보다 앞에 둔다).
+ * 사용 중 행: 운영 노트(기본 확보)는 자르지 않고 통짜 그대로, 예약 건(BLOCKED·PENDING 병합)과 함께
+ * 시작 시각순으로 합친다(동률이면 기본 확보를 앞에 — 담는 창을 먼저 읽는다). 구간 겹침은 허용 —
+ * 카드가 "기본 확보 창 안의 예약"이라는 계층으로 읽히는 구조라 절단하지 않는다.
  */
-export function dayOverviewTimeline(
+export function dayUsageEntries(
   slots: BookingAvailabilitySlot[],
   operatingNotes: BookingOperatingNote[],
-): DayOverviewTimelineItem[] {
-  const bookings = dayBookingEntries(slots);
-  const timeline: DayOverviewTimelineItem[] = [...bookings];
-  for (const note of operatingNotes) {
-    const overlapping = bookings.filter((booking) => booking.start < note.end && booking.end > note.start);
-    let cursor = note.start;
-    for (const booking of overlapping) {
-      if (cursor < booking.start) {
-        timeline.push({ start: cursor, end: booking.start, label: note.organization, kind: 'OPERATING' });
-      }
-      if (booking.end > cursor) cursor = booking.end;
-    }
-    if (cursor < note.end) {
-      timeline.push({ start: cursor, end: note.end, label: note.organization, kind: 'OPERATING' });
+): DayUsageEntry[] {
+  const noteEntries: DayUsageEntry[] = operatingNotes.map((note) => ({
+    start: note.start,
+    end: note.end,
+    label: note.organization,
+    kind: 'OPERATING',
+  }));
+  return [...noteEntries, ...dayBookingEntries(slots)].sort((left, right) => {
+    if (left.start !== right.start) return left.start < right.start ? -1 : 1;
+    return (left.kind === 'OPERATING' ? 0 : 1) - (right.kind === 'OPERATING' ? 0 : 1);
+  });
+}
+
+export type AvailableRun = { start: string; end: string; slotCount: number };
+
+/**
+ * 예약 가능 구간: 하루 전체 시간축 기준으로 AVAILABLE 슬롯을 인접 병합한다 — 기본 확보(운영 노트)
+ * 여부와 무관하다(기본 확보 시간도 예약 가능 시간이다). BLOCKED·PENDING_HOLD·PAST 는 구간을 끊는다.
+ */
+export function availableRuns(slots: BookingAvailabilitySlot[]): AvailableRun[] {
+  const runs: AvailableRun[] = [];
+  for (const slot of slots) {
+    if (slot.status !== 'AVAILABLE') continue;
+    const previousRun = runs[runs.length - 1];
+    if (previousRun && previousRun.end === slot.start) {
+      previousRun.end = slot.end; // 인접 AVAILABLE → 앞 구간에 흡수
+      previousRun.slotCount += 1;
+    } else {
+      runs.push({ start: slot.start, end: slot.end, slotCount: 1 });
     }
   }
-  return timeline.sort((left, right) => {
-    if (left.start !== right.start) return left.start < right.start ? -1 : 1;
-    // 시작 동률은 예약 건을 먼저(§5.1) — 운영 조각(OPERATING)을 뒤로 민다.
-    // 예약 vs 조각 동률은 구조적으로 불가(조각 시작점의 예약은 노트와 겹쳐 커서에 흡수됨);
-    // 실제 동률은 서로 겹치는 노트 2개의 조각끼리뿐이며 stable sort 로 노트 입력순이 유지된다.
-    const leftOperating = left.kind === 'OPERATING' ? 1 : 0;
-    const rightOperating = right.kind === 'OPERATING' ? 1 : 0;
-    return leftOperating - rightOperating;
-  });
+  return runs;
 }
 
 // ── 확정 예약 블록 파스텔 배정(§8.3) — 주간 화면 라벨 첫 등장 순 팔레트 인덱스 순환 ─────
