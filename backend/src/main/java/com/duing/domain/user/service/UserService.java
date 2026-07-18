@@ -20,6 +20,11 @@ public interface UserService {
 
     LoginResult login(LoginCommand loginCommand, LoginContext loginContext);
 
+    /**
+     * 현재 기기 로그아웃 — refresh 토큰(1순위) 또는 access 의 sid 로 세션을 특정해 그 세션만 폐기한다
+     * (tokenVersion 불변). 세션을 식별하지 못하면(전환기 구 토큰) token_version 을 올려 전 기기 로그아웃으로
+     * 폴백한다.
+     */
     void logout(Long userIdOrNull, String rawRefreshTokenOrNull, Long sessionIdOrNull);
 
     void forceLogout(ForceLogoutCommand forceLogoutCommand);

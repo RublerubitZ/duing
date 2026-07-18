@@ -167,7 +167,8 @@ public class GeneralUserService implements UserService {
         if (userIdOrNull == null) {
             return; // 식별 수단 없음(만료 쿠키 등) — 멱등 무시
         }
-        // 전환기 폴백: 세션 없는 구 토큰 사용자는 기존 의미(전 기기 무효화)로 처리한다
+        // 전환기 폴백: 세션 없는 구 토큰 사용자는 기존 의미(전 기기 무효화)로 처리한다.
+        // 동시 로그아웃의 token_version lost update 를 막기 위해 행을 잠그고 조회한다(changePassword/withdraw 와 동일).
         User user = userRepository.findByIdForUpdate(userIdOrNull)
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();
@@ -294,6 +295,7 @@ public class GeneralUserService implements UserService {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();
+        // 탈퇴도 계정 자격 소멸 계열로 CREDENTIAL_CHANGE 로 묶는다(전용 사유 분리는 감사 수요 생기면 후속).
         authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
         userRepository.delete(user);
     }
