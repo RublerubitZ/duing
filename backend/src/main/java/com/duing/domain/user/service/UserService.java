@@ -4,6 +4,7 @@ import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
 import com.duing.domain.user.service.dto.command.ChangePhoneCommand;
 import com.duing.domain.user.service.dto.command.ForceLogoutCommand;
 import com.duing.domain.user.service.dto.command.LoginCommand;
+import com.duing.domain.user.service.dto.command.LoginContext;
 import com.duing.domain.user.service.dto.command.ResetPasswordCommand;
 import com.duing.domain.user.service.dto.command.SignupCommand;
 import com.duing.domain.user.service.dto.command.UpdateProfileCommand;
@@ -17,7 +18,7 @@ public interface UserService {
 
     Long signup(SignupCommand signupCommand, String clientIp, String userAgent);
 
-    LoginResult login(LoginCommand loginCommand, String clientIp);
+    LoginResult login(LoginCommand loginCommand, LoginContext loginContext);
 
     void logout(Long userId);
 

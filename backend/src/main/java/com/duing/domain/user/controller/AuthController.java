@@ -12,12 +12,15 @@ import com.duing.domain.user.controller.dto.response.PasswordResetStartResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationStatusResponse;
 import com.duing.domain.user.controller.dto.response.WebLoginResponse;
+import com.duing.domain.user.entity.SessionPlatform;
 import com.duing.domain.user.service.PhoneVerificationService;
 import com.duing.domain.user.service.UserService;
+import com.duing.domain.user.service.dto.command.LoginContext;
 import com.duing.domain.user.service.dto.query.LoginResult;
 import com.duing.domain.user.service.dto.query.PasswordResetStartResult;
 import com.duing.domain.user.service.dto.query.PhoneVerificationIssueResult;
 import com.duing.domain.user.service.dto.query.PhoneVerificationStatusResult;
+import com.duing.global.auth.DeviceLabelParser;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.auth.WebAuthCookieService;
 import com.duing.global.response.ApiResponse;
@@ -57,8 +60,14 @@ public class AuthController implements AuthApi {
             @Valid @RequestBody LoginRequest loginRequest,
             HttpServletRequest httpServletRequest) {
         String clientIp = httpServletRequest.getRemoteAddr();
+        String userAgent = httpServletRequest.getHeader("User-Agent");
+        LoginContext loginContext = new LoginContext(clientIp, userAgent,
+                SessionPlatform.from(loginRequest.platform()),
+                loginRequest.deviceLabel() != null ? loginRequest.deviceLabel()
+                        : DeviceLabelParser.summarize(userAgent),
+                false);
         LoginResponse loginResponse =
-                LoginResponse.from(userService.login(loginRequest.toCommand(), clientIp));
+                LoginResponse.from(userService.login(loginRequest.toCommand(), loginContext));
         return ResponseEntity.ok(ApiResponse.success(loginResponse));
     }
 
@@ -68,12 +77,18 @@ public class AuthController implements AuthApi {
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) {
         String clientIp = httpServletRequest.getRemoteAddr();
-        LoginResult loginResult = userService.login(loginRequest.toCommand(), clientIp);
+        String userAgent = httpServletRequest.getHeader("User-Agent");
+        boolean rememberMe = loginRequest.rememberMeOrDefault();
+        LoginContext loginContext = new LoginContext(clientIp, userAgent, SessionPlatform.WEB,
+                DeviceLabelParser.summarize(userAgent), rememberMe);
+        LoginResult loginResult = userService.login(loginRequest.toCommand(), loginContext);
         webAuthCookieService.issue(
                 httpServletRequest,
                 httpServletResponse,
                 loginResult.accessToken(),
-                loginResult.user().role().name());
+                loginResult.refreshToken(),
+                loginResult.user().role().name(),
+                rememberMe);
         return ResponseEntity.ok(ApiResponse.success(WebLoginResponse.from(loginResult)));
     }
 

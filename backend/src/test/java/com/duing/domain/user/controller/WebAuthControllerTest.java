@@ -316,19 +316,23 @@ class WebAuthControllerTest extends IntegrationTestBase {
 
     private void assertIssuedCookies(Response response) {
         List<String> cookies = setCookieHeaders(response);
-        assertThat(cookies).hasSize(2);
+        assertThat(cookies).hasSize(3);
         assertThat(cookieHeader(cookies, WebAuthCookieService.ACCESS_COOKIE_NAME))
                 .contains("HttpOnly", "Secure", "SameSite=Lax", "Path=/")
-                .doesNotContain("Max-Age=0");
+                .doesNotContain("Max-Age");
+        assertThat(cookieHeader(cookies, WebAuthCookieService.REFRESH_COOKIE_NAME))
+                .contains("HttpOnly", "Secure", "SameSite=Lax", "Path=/api/v1/auth")
+                .doesNotContain("Max-Age");
         assertThat(cookieHeader(cookies, WebAuthCookieService.AUTH_HINT_COOKIE_NAME))
                 .contains("HttpOnly", "Secure", "SameSite=Lax", "Path=/")
-                .doesNotContain("Max-Age=0");
+                .doesNotContain("Max-Age");
     }
 
     private void assertClearedCookies(Response response) {
         List<String> cookies = setCookieHeaders(response);
-        assertThat(cookies).hasSize(2);
+        assertThat(cookies).hasSize(3);
         assertThat(cookieHeader(cookies, WebAuthCookieService.ACCESS_COOKIE_NAME)).contains("Max-Age=0");
+        assertThat(cookieHeader(cookies, WebAuthCookieService.REFRESH_COOKIE_NAME)).contains("Max-Age=0");
         assertThat(cookieHeader(cookies, WebAuthCookieService.AUTH_HINT_COOKIE_NAME)).contains("Max-Age=0");
     }
 
