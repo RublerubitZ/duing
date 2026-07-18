@@ -39,7 +39,8 @@ public class WebAuthCookieService {
             String accessToken,
             String role) {
         requireSecureOrLocalhost(request);
-        long maxAgeSeconds = authHintTokenProvider.maxAgeSeconds();
+        // Task 5 에서 rememberMe 지속성 계약으로 교체된다
+        long maxAgeSeconds = 1800L;
         add(response, accessCookie(accessToken, maxAgeSeconds));
         add(response, hintCookie(authHintTokenProvider.create(role), maxAgeSeconds));
     }

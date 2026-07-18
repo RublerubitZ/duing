@@ -113,7 +113,7 @@ class JwtAuthenticationFilterTest {
     }
 
     private MockHttpServletRequest requestWithKnownToken(String token) {
-        when(jwtTokenProvider.parse(token)).thenReturn(new JwtTokenProvider.TokenClaims(1L, 0));
+        when(jwtTokenProvider.parse(token)).thenReturn(new JwtTokenProvider.TokenClaims(1L, 0, null));
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
         return new MockHttpServletRequest();
     }

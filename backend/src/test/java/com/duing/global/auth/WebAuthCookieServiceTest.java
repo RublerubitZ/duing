@@ -27,7 +27,7 @@ class WebAuthCookieServiceTest {
     @BeforeEach
     void setUp() {
         AuthHintTokenProvider authHintTokenProvider =
-                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L);
+                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000);
         cookieService = new WebAuthCookieService(
                 authHintTokenProvider, ".duings.com", new MockEnvironment());
     }
@@ -122,7 +122,7 @@ class WebAuthCookieServiceTest {
         productionEnvironment.setActiveProfiles("prod");
 
         assertThatThrownBy(() -> new WebAuthCookieService(
-                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L),
+                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000),
                         "",
                         productionEnvironment))
                 .isInstanceOf(IllegalStateException.class)
@@ -136,7 +136,7 @@ class WebAuthCookieServiceTest {
         productionEnvironment.setActiveProfiles("prod");
 
         assertThatThrownBy(() -> new WebAuthCookieService(
-                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L),
+                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000),
                         ".example.com",
                         productionEnvironment))
                 .isInstanceOf(IllegalStateException.class)
@@ -147,7 +147,7 @@ class WebAuthCookieServiceTest {
     @DisplayName("운영 외 환경에서는 빈 Domain으로 host-only 인증 힌트 Cookie를 발급한다")
     void allowsBlankHintCookieDomainOutsideProduction() {
         WebAuthCookieService localCookieService = new WebAuthCookieService(
-                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L),
+                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000),
                 "",
                 new MockEnvironment());
 

@@ -19,7 +19,7 @@ class AuthHintTokenProviderTest {
     void createsOnlyFixedTypeRoleAndExpirationClaims() {
         Instant creationStartedAt = Instant.now();
         AuthHintTokenProvider provider =
-                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L);
+                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000);
 
         String hint = provider.create("ADMIN");
         DecodedJWT decoded = JWT.require(Algorithm.HMAC256(HINT_SECRET)).build().verify(hint);
@@ -38,7 +38,7 @@ class AuthHintTokenProviderTest {
     @DisplayName("Access Token과 인증 힌트가 같은 서명 키를 사용하면 기동을 거부한다")
     void rejectsSameAccessAndHintSecret() {
         assertThatThrownBy(() ->
-                        new AuthHintTokenProvider(JWT_SECRET, JWT_SECRET, 3_600_000L))
+                        new AuthHintTokenProvider(JWT_SECRET, JWT_SECRET, 3_600_000))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("서로 다른 값");
     }
@@ -47,7 +47,7 @@ class AuthHintTokenProviderTest {
     @DisplayName("인증 힌트 서명 키가 32바이트 미만이면 기동을 거부한다")
     void rejectsShortHintSecret() {
         assertThatThrownBy(() ->
-                        new AuthHintTokenProvider("short", JWT_SECRET, 3_600_000L))
+                        new AuthHintTokenProvider("short", JWT_SECRET, 3_600_000))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("32바이트");
     }
@@ -56,7 +56,7 @@ class AuthHintTokenProviderTest {
     @DisplayName("웹 인증 세션 만료 시간이 정확히 1시간이 아니면 기동을 거부한다")
     void rejectsWebSessionLifetimeOtherThanExactlyOneHour() {
         assertThatThrownBy(() ->
-                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_599_999L))
+                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_599_999))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("3,600,000");
     }
