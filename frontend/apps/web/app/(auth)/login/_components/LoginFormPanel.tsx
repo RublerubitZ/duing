@@ -92,7 +92,7 @@ function LoginForm() {
       return;
     }
     try {
-      await login.mutateAsync(parsed.data);
+      await login.mutateAsync({ ...parsed.data, rememberMe });
       router.replace(next);
     } catch (loginError) {
       // 타임아웃·오프라인은 자격증명 문제가 아니다 — 정규화된 안내(요청 시간 초과/연결 확인)를 그대로 보여줘

@@ -125,7 +125,7 @@ describe('LoginFormPanel', () => {
     await user.click(screen.getByRole('button', { name: /두잉 시작하기/ }));
 
     await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/me'));
-    expect(capturedBody).toEqual({ studentId: '20240001', password: 'password1234' });
+    expect(capturedBody).toEqual({ studentId: '20240001', password: 'password1234', rememberMe: false });
     expect(useAuthStore.getState()).toMatchObject({ status: 'authenticated', user: TEST_USER });
     expect('accessToken' in useAuthStore.getState()).toBe(false);
     expect(window.localStorage.getItem('duing.accessToken')).toBeNull();

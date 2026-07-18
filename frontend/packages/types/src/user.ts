@@ -109,11 +109,15 @@ export type SignupPayload = {
 export type LoginPayload = {
   studentId: string;
   password: string;
+  /** 웹 전용 — 쿠키 지속성(Persistent/Session). 생략 시 false. 모바일(Bearer) 서버는 무시한다. */
+  rememberMe?: boolean;
 };
 
 export type LoginResult = {
   accessToken: string;
   tokenType: 'Bearer';
+  /** PR-1 부터 서버가 반환 — 웹(쿠키 모드)은 사용하지 않고 RN(PR-4)이 Secure Storage 에 보관한다. */
+  refreshToken?: string;
   user: User;
 };
 
