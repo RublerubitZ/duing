@@ -68,6 +68,9 @@ public class CookieCsrfOriginFilter extends OncePerRequestFilter {
         return corsConfiguration != null && corsConfiguration.checkOrigin(origin) != null;
     }
 
+    // 웹 인증 경로(쿠키 기반)만 Origin 을 강제한다. 바디 기반 /api/v1/auth/refresh 는 여기서 제외 —
+    // 리프레시 토큰이 httpOnly 쿠키라 JS 가 읽을 수 없고, 브라우저발 CSRF 로는 토큰을 바디에 실을 수
+    // 없으므로 Origin 강제 없이도 안전하다 (spec §14).
     private boolean isWebAuthPath(String uri) {
         return uri.equals("/api/v1/auth/web/login")
                 || uri.equals("/api/v1/auth/web/logout")

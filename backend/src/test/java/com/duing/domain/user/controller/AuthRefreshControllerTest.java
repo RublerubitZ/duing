@@ -103,13 +103,15 @@ class AuthRefreshControllerTest extends IntegrationTestBase {
                 .when().post("/api/v1/auth/web/refresh");
 
         assertThat(refreshResponse.statusCode()).isEqualTo(HttpStatus.NO_CONTENT.value());
-        for (String cookieHeader : refreshResponse.getHeaders().getValues(HttpHeaders.SET_COOKIE)) {
+        List<String> cookies = refreshResponse.getHeaders().getValues(HttpHeaders.SET_COOKIE);
+        assertThat(cookies).hasSize(3);
+        for (String cookieHeader : cookies) {
             assertThat(cookieHeader).doesNotContain("Max-Age").doesNotContain("Expires");
         }
     }
 
     @Test
-    @DisplayName("웹 refresh 는 허용 Origin 없이는 403으로 거부된다")
+    @DisplayName("웹 refresh 는 허용 Origin 없이는 403으로 거부되고, 같은 쿠키로 Origin 포함 재요청하면 성공한다")
     void webRefreshRequiresAllowedOrigin() {
         User user = saveUser();
         String refreshCookie = webLogin(user, true).getCookie(WebAuthCookieService.REFRESH_COOKIE_NAME);
@@ -117,6 +119,12 @@ class AuthRefreshControllerTest extends IntegrationTestBase {
         given().cookie(WebAuthCookieService.REFRESH_COOKIE_NAME, refreshCookie)
                 .when().post("/api/v1/auth/web/refresh")
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
+
+        // 403 은 필터가 컨트롤러 진입 전에 끊은 것 — 회전이 일어나지 않아 같은 쿠키가 여전히 유효하다.
+        given().cookie(WebAuthCookieService.REFRESH_COOKIE_NAME, refreshCookie)
+                .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                .when().post("/api/v1/auth/web/refresh")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
     }
 
     @Test

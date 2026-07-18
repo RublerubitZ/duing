@@ -91,8 +91,9 @@ public interface AuthApi {
                     description = "만료·폐기·재사용 리프레시 토큰(AUTH_SESSION_EXPIRED)")
     })
     @PostMapping("/auth/web/refresh")
-    ResponseEntity<Void> webRefresh(HttpServletRequest httpServletRequest,
-                                    HttpServletResponse httpServletResponse);
+    ResponseEntity<Void> webRefresh(
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse);
 
     @Operation(summary = "휴대폰 MO 인증 시작",
             description = "회원가입용 MO 인증 세션을 발급한다. 사용자가 수신 대표번호로 코드를 문자 전송하면 "

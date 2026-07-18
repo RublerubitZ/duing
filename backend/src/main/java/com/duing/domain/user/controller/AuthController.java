@@ -128,8 +128,9 @@ public class AuthController implements AuthApi {
     }
 
     @Override
-    public ResponseEntity<Void> webRefresh(HttpServletRequest httpServletRequest,
-                                           HttpServletResponse httpServletResponse) {
+    public ResponseEntity<Void> webRefresh(
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse) {
         String rawRefreshToken = readRefreshCookie(httpServletRequest);
         if (rawRefreshToken == null) {
             throw new AuthSessionException.SessionExpiredException();
