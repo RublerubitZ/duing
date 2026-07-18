@@ -69,7 +69,9 @@ public class CookieCsrfOriginFilter extends OncePerRequestFilter {
     }
 
     private boolean isWebAuthPath(String uri) {
-        return uri.equals("/api/v1/auth/web/login") || uri.equals("/api/v1/auth/web/logout");
+        return uri.equals("/api/v1/auth/web/login")
+                || uri.equals("/api/v1/auth/web/logout")
+                || uri.equals("/api/v1/auth/web/refresh");
     }
 
     private boolean hasBearer(HttpServletRequest request) {

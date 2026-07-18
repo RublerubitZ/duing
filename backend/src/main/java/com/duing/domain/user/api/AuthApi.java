@@ -5,11 +5,13 @@ import com.duing.domain.user.controller.dto.request.IssuePhoneVerificationReques
 import com.duing.domain.user.controller.dto.request.LoginRequest;
 import com.duing.domain.user.controller.dto.request.PasswordResetStartRequest;
 import com.duing.domain.user.controller.dto.request.PhoneVerificationStatusRequest;
+import com.duing.domain.user.controller.dto.request.RefreshRequest;
 import com.duing.domain.user.controller.dto.request.SignupRequest;
 import com.duing.domain.user.controller.dto.response.LoginResponse;
 import com.duing.domain.user.controller.dto.response.PasswordResetStartResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationStatusResponse;
+import com.duing.domain.user.controller.dto.response.RefreshResponse;
 import com.duing.domain.user.controller.dto.response.WebLoginResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -69,6 +71,28 @@ public interface AuthApi {
     ResponseEntity<Void> webLogout(
             @AuthenticationPrincipal UserPrincipal currentUser,
             HttpServletResponse httpServletResponse);
+
+    @Operation(summary = "토큰 갱신(모바일)",
+            description = "리프레시 토큰을 회전시켜 새 access·refresh 쌍을 발급한다. 기존 리프레시 토큰은 "
+                    + "즉시 폐기되며, 폐기된 토큰의 재사용은 세션 폐기로 이어진다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "갱신 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
+                    description = "만료·폐기·재사용 리프레시 토큰(AUTH_SESSION_EXPIRED)")
+    })
+    @PostMapping("/auth/refresh")
+    ResponseEntity<ApiResponse<RefreshResponse>> refresh(@Valid @RequestBody RefreshRequest refreshRequest);
+
+    @Operation(summary = "토큰 갱신(웹)",
+            description = "refresh Cookie 를 회전시켜 인증 Cookie 3종을 재발급한다. rememberMe 지속성 모드를 유지한다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "갱신 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
+                    description = "만료·폐기·재사용 리프레시 토큰(AUTH_SESSION_EXPIRED)")
+    })
+    @PostMapping("/auth/web/refresh")
+    ResponseEntity<Void> webRefresh(HttpServletRequest httpServletRequest,
+                                    HttpServletResponse httpServletResponse);
 
     @Operation(summary = "휴대폰 MO 인증 시작",
             description = "회원가입용 MO 인증 세션을 발급한다. 사용자가 수신 대표번호로 코드를 문자 전송하면 "
