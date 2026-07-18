@@ -12,6 +12,8 @@ import {
 } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
+import { ButtonSpinner } from '@/components/loading/Spinner';
+import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import { formatDateDot } from '@/app/_lib/formatDateDot';
 import { toRoute } from '@/app/_lib/route';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
@@ -73,7 +75,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
   if (detailQuery.isLoading || !inquiry) {
     return (
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <p className="py-12 text-center text-sm text-charcoal-3">불러오는 중…</p>
+        <TextLinesSkeleton lines={6} label="문의 불러오는 중" className="py-6" />
       </main>
     );
   }
@@ -262,7 +264,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
                   }
                   className="btn btn-primary btn-sm"
                 >
-                  {updateMutation.isPending ? '저장 중…' : '저장'}
+                  {updateMutation.isPending && <ButtonSpinner />}저장
                 </button>
               </div>
             </div>

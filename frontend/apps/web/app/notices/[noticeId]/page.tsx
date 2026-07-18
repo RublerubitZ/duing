@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useNoticeDetailQuery } from '@duing/hooks';
+import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import { ExploreNav } from '../../_components/ExploreNav';
 import { NoticeDetailTopBar } from '../_components/NoticeDetailTopBar';
 import { NoticeArticleHeader } from '../_components/NoticeArticleHeader';
@@ -45,7 +46,7 @@ export default function NoticeDetailPage() {
         <ExploreNav slimOnMobile />
         <NoticeDetailTopBar />
         <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 py-16">
-          <p className="text-charcoal-3 text-[13px]">불러오는 중…</p>
+          <TextLinesSkeleton lines={6} label="공지 불러오는 중" />
         </div>
       </div>
     );

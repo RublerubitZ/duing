@@ -13,6 +13,7 @@ import { MemberSection } from './_components/MemberSection';
 import { SuccessionRequestModal } from './_components/SuccessionRequestModal';
 import { TransferLeaderDialog } from './_components/TransferLeaderDialog';
 import { MemberCsvDownloadPopover } from './_components/MemberCsvDownloadPopover';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 export default function ClubMembersPage({
   params,
@@ -35,7 +36,7 @@ export default function ClubMembersPage({
   const [successionOpen, setSuccessionOpen] = useState(false);
 
   if (isMeLoading || isManagedLoading || isMembersLoading) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="멤버 목록 불러오는 중" />;
   }
 
   const managedClub = managedClubs?.find((club) => club.clubId === currentClubId);

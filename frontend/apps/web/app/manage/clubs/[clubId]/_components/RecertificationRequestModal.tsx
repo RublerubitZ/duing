@@ -18,6 +18,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type Props = {
   clubId: number;
@@ -51,7 +53,7 @@ export function RecertificationRequestModal({ clubId, clubName, onClose }: Props
           </button>
         </div>
 
-        {isLoading && <p className="text-sm text-charcoal-3">불러오는 중…</p>}
+        {isLoading && <LoadingGate label="재인증 정보 불러오는 중" className="min-h-0 py-8" />}
 
         {isError && (
           <div className="space-y-3">
@@ -276,12 +278,12 @@ function RecertificationForm({
           type="submit"
           disabled={isSubmitting || submitRequest.isPending}
           className={cn(
-            'flex-1 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
+            'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
             'bg-ink hover:bg-ink-deep',
             (isSubmitting || submitRequest.isPending) && 'cursor-not-allowed opacity-60',
           )}
         >
-          {submitRequest.isPending ? '신청 중…' : '재인증 신청 제출'}
+          {submitRequest.isPending && <ButtonSpinner />}재인증 신청 제출
         </button>
       </div>
     </form>

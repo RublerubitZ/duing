@@ -8,6 +8,7 @@ import {
 } from '@duing/hooks';
 import type { AdminBookingQueueParams } from '@duing/types';
 import { Pagination } from '@/components/Pagination';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminBookingDetailModal } from '../_components/AdminBookingDetailModal';
 import { AdminBookingQueueTable } from '../_components/AdminBookingQueueTable';
 import { BookingSummaryCards, type AdminQueueTab } from '../_components/BookingSummaryCards';
@@ -140,7 +141,7 @@ export function AdminFacilityBookingsPage() {
         />
       </div>
 
-      {isQueueLoading && <p className="text-sm text-charcoal-3">불러오는 중…</p>}
+      {isQueueLoading && <LoadingGate className="min-h-0 py-8" label="예약 신청 목록 불러오는 중" />}
       {!isQueueLoading && isQueueError && (
         <div role="alert" className="text-sm text-charcoal-2">
           <p>큐를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>

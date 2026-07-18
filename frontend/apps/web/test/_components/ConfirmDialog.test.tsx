@@ -38,7 +38,7 @@ describe('ConfirmDialog', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('isPending 이면 버튼이 비활성화되고 진행 라벨을 보여주며 클릭이 무시된다', () => {
+  it('isPending 이면 버튼이 비활성화되고 라벨은 유지되며 클릭이 무시된다', () => {
     const onConfirm = vi.fn();
     const onCancel = vi.fn();
     render(
@@ -50,7 +50,7 @@ describe('ConfirmDialog', () => {
         onCancel={onCancel}
       />,
     );
-    const confirmButton = screen.getByRole('button', { name: '삭제 중…' });
+    const confirmButton = screen.getByRole('button', { name: '삭제' });
     expect(confirmButton).toBeDisabled();
     expect(screen.getByRole('button', { name: '취소' })).toBeDisabled();
     fireEvent.click(confirmButton);

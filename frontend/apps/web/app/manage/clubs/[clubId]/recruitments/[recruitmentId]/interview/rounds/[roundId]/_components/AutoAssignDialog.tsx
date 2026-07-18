@@ -10,6 +10,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // 자동배정 확인 모달 — COLLECTING 첫 실행(미응답 제외 경고)·ASSIGNING 재실행(재계산 경고) 분기.
 
@@ -69,7 +70,8 @@ export function AutoAssignDialog({
             disabled={isPending}
             className="btn btn-primary btn-sm disabled:opacity-50"
           >
-            {isPending ? '처리 중…' : isRerun ? '재실행' : '배정 실행'}
+            {isPending && <ButtonSpinner />}
+            {isRerun ? '재실행' : '배정 실행'}
           </button>
         </DialogFooter>
       </DialogContent>

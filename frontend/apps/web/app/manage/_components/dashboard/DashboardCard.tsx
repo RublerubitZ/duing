@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type DashboardCardProps = {
   title: string;
@@ -18,7 +19,7 @@ export function DashboardCard({ title, badge, isLoading, isEmpty, emptyText, chi
         {badge}
       </header>
       {isLoading ? (
-        <p className="py-6 text-center text-sm text-charcoal-3">불러오는 중…</p>
+        <LoadingGate className="min-h-0 py-6" />
       ) : isEmpty ? (
         <p className="rounded-md bg-graysoft py-6 text-center text-sm text-charcoal-3">{emptyText ?? ''}</p>
       ) : (

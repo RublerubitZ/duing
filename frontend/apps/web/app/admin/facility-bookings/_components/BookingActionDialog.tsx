@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 type Props = {
@@ -76,7 +77,8 @@ export function BookingActionDialog({
             disabled={isPending || reasonInvalid}
             onClick={() => onConfirm(reason.trim())}
           >
-            {isPending ? '처리 중…' : title}
+            {isPending && <ButtonSpinner />}
+            {title}
           </button>
         </div>
       </DialogContent>

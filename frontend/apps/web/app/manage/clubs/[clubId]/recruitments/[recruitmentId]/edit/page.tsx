@@ -6,6 +6,7 @@ import { useRecruitmentDetailQuery, useUpdateRecruitmentMutation } from '@duing/
 import { toRoute } from '../../../../../../_lib/route';
 import { RecruitmentForm } from '../../_components/RecruitmentForm';
 import type { EditFormValues } from '../../_components/RecruitmentForm';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 export default function EditRecruitmentPage({
   params,
@@ -23,7 +24,7 @@ export default function EditRecruitmentPage({
   const updateRecruitment = useUpdateRecruitmentMutation(recruitmentId);
 
   if (isLoading || !recruitment) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="모집 정보 불러오는 중" />;
   }
 
   if (recruitment.displayStatus === 'CLOSED') {

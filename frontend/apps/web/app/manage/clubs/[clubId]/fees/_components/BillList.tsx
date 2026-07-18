@@ -18,6 +18,8 @@ import { toRoute } from '@/app/_lib/route';
 
 import { RecordPaymentDialog } from './RecordPaymentDialog';
 import { PaymentHistory } from './PaymentHistory';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type BillListProps = {
   clubId: number;
@@ -205,7 +207,7 @@ export function BillList({ clubId }: BillListProps) {
       </div>
 
       {isLoading ? (
-        <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+        <LoadingGate label="청구 목록 불러오는 중" className="min-h-0 py-8" />
       ) : !bills || bills.content.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
           <p className="text-sm text-charcoal-2">발행된 청구가 없습니다.</p>
@@ -337,7 +339,7 @@ function BillRow({ clubId, bill, member, onCancel, onRecord, onHistory }: BillRo
           </p>
           <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-graysoft">
             <div
-              className="h-full rounded-full bg-sage transition-all"
+              className="h-full rounded-full bg-sage transition-[width]"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -447,9 +449,9 @@ function CancelBillConfirm({ clubId, bill, memberName, onClose }: CancelBillConf
             type="button"
             onClick={confirmCancel}
             disabled={cancelBill.isPending}
-            className="flex-1 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {cancelBill.isPending ? '취소 중…' : '청구 취소'}
+            {cancelBill.isPending && <ButtonSpinner />}청구 취소
           </button>
         </div>
       </div>

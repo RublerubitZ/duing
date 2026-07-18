@@ -5,6 +5,7 @@ import { GradeSelect } from '@/app/_components/GradeSelect';
 import { TermsAgreement } from './TermsAgreement';
 import type { SignupFormState } from '../_lib/signup-state';
 import type { College, Grade } from '@duing/types';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 const inputCls =
   'w-full rounded-md border border-line bg-paper px-3.5 py-3 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20 placeholder:text-charcoal-3/50';
@@ -208,7 +209,7 @@ export function SignupStepProfile({
           ← 이전
         </button>
         <button type="submit" disabled={!canSubmit} className="btn btn-primary btn-big flex-1 disabled:opacity-50">
-          {isSubmitting ? '가입 중…' : '가입하고 두잉 시작하기 →'}
+          {isSubmitting && <ButtonSpinner />}가입하고 두잉 시작하기 →
         </button>
       </div>
     </div>

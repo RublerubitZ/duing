@@ -7,6 +7,7 @@ import { ApiError } from '@duing/api';
 import { useCompletePasswordResetMutation } from '@duing/hooks';
 import { passwordSchema } from '@duing/schemas';
 import { PhoneVerificationField } from '@/app/_components/PhoneVerificationField';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { usePasswordResetVerification } from '@/app/_lib/use-phone-verification';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
@@ -116,7 +117,7 @@ export function ForgotPasswordPanel() {
                   onClick={() => verification.issue(true)}
                   className="btn btn-primary shrink-0 whitespace-nowrap disabled:opacity-50"
                 >
-                  {verification.issuing ? '확인 중…' : '인증 시작'}
+                  {verification.issuing && <ButtonSpinner />}인증 시작
                 </button>
               </div>
               <p className="mt-1.5 text-xs text-charcoal-3">
@@ -199,7 +200,7 @@ export function ForgotPasswordPanel() {
                     disabled={completeMutation.isPending}
                     className="btn btn-primary btn-big w-full disabled:opacity-50"
                   >
-                    {completeMutation.isPending ? '재설정 중…' : '비밀번호 재설정'}
+                    {completeMutation.isPending && <ButtonSpinner />}비밀번호 재설정
                   </button>
                 </form>
               )}

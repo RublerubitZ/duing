@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import type { CreateFederationFaqPayload } from '@duing/types';
 import { useFederationFaqCategoriesQuery } from '@duing/hooks';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // CreateFederationFaqPayload 와 UpdateFederationFaqPayload 가 동일 필드 구성이라
 // 폼 상태를 그대로 payload 로 사용한다 (NoticeForm 과 달리 별도 parse/lib 불필요).
@@ -108,8 +109,8 @@ export function FaqForm({ initialState, submitLabel, isSubmitting, onSubmit, err
         <button
           type="submit"
           disabled={isSubmitting || !canSubmit}
-          className="px-5 py-2.5 rounded-full bg-ink text-paper text-[13.5px] font-semibold disabled:opacity-50"
-        >{isSubmitting ? '저장 중…' : submitLabel}</button>
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-ink text-paper text-[13.5px] font-semibold disabled:opacity-50"
+        >{isSubmitting && <ButtonSpinner />}{submitLabel}</button>
       </div>
     </form>
   );

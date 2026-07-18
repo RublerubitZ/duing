@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   ClubMemberExportRow,
   ClubSearchParams,
@@ -36,6 +36,8 @@ export function useClubListQuery(params: ClubSearchParams = {}) {
   return useQuery({
     queryKey: clubQueryKeys.list(params),
     queryFn: () => client.clubs.list(params),
+    // 필터·페이지 변경 시 스켈레톤으로 리셋하지 않고 이전 목록을 유지한 채 갱신한다.
+    placeholderData: keepPreviousData,
   });
 }
 

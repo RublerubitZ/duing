@@ -174,7 +174,7 @@ describe('PhoneVerificationField', () => {
     expect(writeText).toHaveBeenCalledWith('7K3M9PXQ');
   });
 
-  it('waiting 이고 stalled 가 false 면 "확인 중…"을 보여준다', () => {
+  it('waiting 이고 stalled 가 false 면 인증 확인 중 스피너를 보여준다', () => {
     render(
       <PhoneVerificationField
         {...baseProps}
@@ -184,10 +184,10 @@ describe('PhoneVerificationField', () => {
         stalled={false}
       />,
     );
-    expect(screen.getByText(/확인 중/)).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '인증 확인 중' })).toBeInTheDocument();
   });
 
-  it('waiting 이고 stalled 가 true 면 능동 안내(재발급 유도) 문구를 보여주고 "확인 중…"은 없다', () => {
+  it('waiting 이고 stalled 가 true 면 능동 안내(재발급 유도) 문구를 보여주고 확인 중 스피너는 없다', () => {
     render(
       <PhoneVerificationField
         {...baseProps}
@@ -198,7 +198,7 @@ describe('PhoneVerificationField', () => {
       />,
     );
     expect(screen.getByText(/아직 확인되지 않았어요/)).toBeInTheDocument();
-    expect(screen.queryByText(/확인 중/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: '인증 확인 중' })).not.toBeInTheDocument();
   });
 
   it('waiting+stalled 이면 지금 확인 버튼을 보여주고 클릭 시 onRecheck 를 호출한다', async () => {

@@ -6,6 +6,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { Suspense, useEffect } from 'react';
 import { useManagedClubsQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 function ManageRedirect() {
   const router = useGuardedRouter();
@@ -26,11 +27,7 @@ function ManageRedirect() {
   }, [isLoading, targetClub, router]);
 
   if (isLoading) {
-    return (
-      <div className="duing flex min-h-dvh items-center justify-center bg-cream">
-        <p className="text-sm text-charcoal-3">불러오는 중…</p>
-      </div>
-    );
+    return <LoadingGate label="관리 동아리 불러오는 중" className="duing min-h-dvh bg-cream" />;
   }
 
   if (!managedClubs || managedClubs.length === 0) {
@@ -48,22 +45,12 @@ function ManageRedirect() {
   }
 
   // 동아리가 있고 로딩도 끝났으면 위 useEffect가 대상 동아리로 리다이렉트 중인 상태다.
-  return (
-    <div className="flex min-h-dvh items-center justify-center">
-      <p className="text-sm text-charcoal-3">이동 중…</p>
-    </div>
-  );
+  return <LoadingGate label="이동 중" className="min-h-dvh" />;
 }
 
 export default function ManagePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="duing flex min-h-dvh items-center justify-center bg-cream">
-          <p className="text-sm text-charcoal-3">불러오는 중…</p>
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingGate className="duing min-h-dvh bg-cream" />}>
       <ManageRedirect />
     </Suspense>
   );

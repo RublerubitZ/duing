@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { buildSmsDeeplink, formatSeconds, isIosUserAgent, isMobileUserAgent } from '@/app/_lib/phone-verification';
 import type { PhoneVerificationFieldStatus } from '@/app/_lib/use-phone-verification';
+import { ButtonSpinner, Spinner } from '@/components/loading/Spinner';
 import { PhoneInput } from './PhoneInput';
 import { SignupIllustration } from './SignupIllustration';
 
@@ -79,8 +80,8 @@ export function PhoneVerificationField({
           </button>
         </>
       ) : (
-        <p className="mt-3 text-xs text-charcoal-3" aria-live="polite">
-          확인 중…
+        <p role="status" aria-label="인증 확인 중" className="mt-3 flex items-center gap-1.5 text-xs text-charcoal-3">
+          <Spinner size={14} />
         </p>
       )
     ) : null;
@@ -125,7 +126,7 @@ export function PhoneVerificationField({
               onClick={() => onIssue(!isMobile)}
               className="btn shrink-0 whitespace-nowrap disabled:opacity-50"
             >
-              {issuing ? '발급 중…' : '인증 시작'}
+              {issuing && <ButtonSpinner />}인증 시작
             </button>
           </div>
           <p className="mt-1.5 text-xs text-charcoal-3">번호로 인증코드를 문자 전송해 주세요</p>

@@ -6,17 +6,14 @@
 
 import Link from 'next/link';
 import { useId, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
 
 import type { FederationFaqItem } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
-import { EASE_DUING } from '@/components/motion/constants';
 import { toRoute } from '@/app/_lib/route';
 
 function HomeFaqAccordionRow({ faq }: { faq: FederationFaqItem }) {
   const [open, setOpen] = useState(false);
-  const shouldReduce = useReducedMotion();
   const baseId = useId();
   const panelId = `${baseId}-panel`;
   const buttonId = `${baseId}-button`;
@@ -53,25 +50,27 @@ function HomeFaqAccordionRow({ faq }: { faq: FederationFaqItem }) {
           />
         </span>
       </button>
-      <motion.div
+      <div
         id={panelId}
         aria-hidden={!open}
         inert={!open}
-        initial={false}
-        animate={{ height: open ? 'auto' : 0, opacity: open ? 1 : 0 }}
-        transition={shouldReduce ? { duration: 0 } : { duration: 0.28, ease: EASE_DUING }}
-        className="overflow-hidden"
+        className={cn(
+          'grid transition-[grid-template-rows] duration-200 ease-duing motion-reduce:transition-none',
+          open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+        )}
       >
-        <div className="border-t border-dashed border-line pb-4 pt-3">
-          <p className="line-clamp-3 text-[13.5px] leading-[1.6] text-charcoal-2">{faq.answer}</p>
-          <Link
-            href={toRoute(`/faq?item=${faq.id}`)}
-            className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-ink"
-          >
-            자세히 보기 →
-          </Link>
+        <div className="min-h-0 overflow-hidden">
+          <div className="border-t border-dashed border-line pb-4 pt-3">
+            <p className="line-clamp-3 text-[13.5px] leading-[1.6] text-charcoal-2">{faq.answer}</p>
+            <Link
+              href={toRoute(`/faq?item=${faq.id}`)}
+              className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-ink"
+            >
+              자세히 보기 →
+            </Link>
+          </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

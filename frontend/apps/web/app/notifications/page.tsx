@@ -9,6 +9,9 @@ import {
 } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type { Notification } from '@duing/types';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
+import { Spinner } from '@/components/loading/Spinner';
 import { toLinkRoute } from '../_lib/route';
 import { NotificationItem } from '../_components/NotificationItem';
 
@@ -40,7 +43,7 @@ export default function NotificationsPage() {
   }, [listQuery.hasNextPage, listQuery.isFetchingNextPage, listQuery.fetchNextPage]);
 
   if (authStatus !== 'authenticated') {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="로그인 확인 중" />;
   }
 
   const allNotifications = listQuery.data?.pages.flatMap((page) => page.content) ?? [];
@@ -59,7 +62,8 @@ export default function NotificationsPage() {
         <button
           type="button"
           onClick={() => readAllMutation.mutate()}
-          className="text-sm text-slate-500 hover:text-slate-900"
+          disabled={readAllMutation.isPending}
+          className="text-sm text-slate-500 hover:text-slate-900 disabled:opacity-50"
         >
           모두 읽음
         </button>
@@ -80,7 +84,9 @@ export default function NotificationsPage() {
           안 읽음
         </button>
       </div>
-      {allNotifications.length === 0 ? (
+      {listQuery.isLoading ? (
+        <ListRowsSkeleton rows={6} rowClassName="h-[76px] rounded-xl" label="알림 목록 불러오는 중" />
+      ) : allNotifications.length === 0 ? (
         <p className="py-12 text-center text-sm text-slate-500">알림이 없어요</p>
       ) : (
         <div className="space-y-6">
@@ -97,7 +103,9 @@ export default function NotificationsPage() {
       )}
       <div ref={sentinelRef} className="h-8" />
       {listQuery.isFetchingNextPage && (
-        <p className="py-4 text-center text-xs text-slate-400">불러오는 중…</p>
+        <div role="status" aria-label="다음 알림 불러오는 중" className="flex justify-center py-4">
+          <Spinner size={18} className="text-charcoal-3" />
+        </div>
       )}
     </main>
   );

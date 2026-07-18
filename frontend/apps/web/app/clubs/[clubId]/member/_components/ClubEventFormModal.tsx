@@ -7,6 +7,7 @@ import { createClubEventSchema } from '@duing/schemas';
 import type { CreateClubEventInput } from '@duing/schemas';
 import { useCreateClubEventMutation, useUpdateClubEventMutation } from '@duing/hooks';
 import { cn } from '@/app/_lib/cn';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type CommonProps = { clubId: number; onClose: () => void };
 
@@ -173,12 +174,13 @@ export function ClubEventFormModal(props: Props) {
               type="submit"
               disabled={isSubmitting || isPending}
               className={cn(
-                'flex-1 rounded-xl py-3 text-sm font-semibold text-white',
+                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold text-white',
                 'bg-ink hover:bg-ink/90',
                 (isSubmitting || isPending) && 'cursor-not-allowed opacity-60',
               )}
             >
-              {isPending ? '저장 중…' : props.mode === 'create' ? '추가' : '수정'}
+              {isPending && <ButtonSpinner />}
+              {props.mode === 'create' ? '추가' : '수정'}
             </button>
           </div>
         </form>

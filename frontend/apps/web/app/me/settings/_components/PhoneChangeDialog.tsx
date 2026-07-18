@@ -9,6 +9,7 @@ import { useChangePhoneMutation } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { PhoneVerificationField } from '@/app/_components/PhoneVerificationField';
 import { usePhoneChangeVerification } from '@/app/_lib/use-phone-verification';
@@ -140,7 +141,7 @@ export function PhoneChangeDialog({ open, onClose }: Props) {
               }
               className="btn btn-primary btn-sm"
             >
-              {changePhoneMutation.isPending ? '변경 중…' : '번호 변경하기'}
+              {changePhoneMutation.isPending && <ButtonSpinner />}번호 변경하기
             </button>
           </div>
         </div>

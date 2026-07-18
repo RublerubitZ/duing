@@ -4,6 +4,7 @@ import { use } from 'react';
 import Link from 'next/link';
 import { useClubNoticeDetailQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
+import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
 import { NoticeContent } from '@/app/notices/_components/NoticeContent';
 
@@ -14,7 +15,13 @@ export default function MemberNoticeDetailPage({
   const noticeId = Number(noticeIdParam);
   const { data: notice, isLoading, isError } = useClubNoticeDetailQuery(Number(clubId), noticeId);
 
-  if (isLoading) return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        <TextLinesSkeleton lines={6} label="공지 불러오는 중" />
+      </div>
+    );
+  }
   if (isError || !notice) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-10">

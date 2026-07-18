@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { ReportStatus, ReportTargetType } from '@duing/types';
 import { useAdminReportListQuery } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminReportsFilterBar } from '../_components/AdminReportsFilterBar';
 import { AdminReportsTable } from '../_components/AdminReportsTable';
 import { REPORT_STATUS_LABEL } from '../_lib/reportLabels';
@@ -70,9 +71,7 @@ export function AdminReportsListPage() {
         />
       </div>
 
-      {listQuery.isLoading && (
-        <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
-      )}
+      {listQuery.isLoading && <LoadingGate className="min-h-0 py-12" label="신고 목록 불러오는 중" />}
       {listQuery.isError && (
         <p className="py-12 text-center text-coral text-[13px]">목록을 불러오지 못했습니다.</p>
       )}

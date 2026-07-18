@@ -2,6 +2,7 @@
 
 import { useGlobalEventCategoryStatsQuery } from '@duing/hooks';
 import type { GlobalEventCategory } from '@duing/types';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import {
   GLOBAL_EVENT_CATEGORY_LABEL,
   GLOBAL_EVENT_CATEGORY_ORDER,
@@ -16,8 +17,8 @@ export function AdminGlobalEventCategoryStats() {
 
   if (statsQuery.isLoading) {
     return (
-      <div className="border border-line rounded-lg bg-paper p-5 text-[13px] text-charcoal-3">
-        분포를 불러오는 중…
+      <div className="border border-line rounded-lg bg-paper p-5">
+        <LoadingGate className="min-h-0 py-6" label="카테고리 분포 불러오는 중" />
       </div>
     );
   }

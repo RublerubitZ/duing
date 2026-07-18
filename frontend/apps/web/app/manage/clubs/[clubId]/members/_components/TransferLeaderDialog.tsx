@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type TransferLeaderDialogProps = {
   target: ClubMember;
@@ -103,7 +104,7 @@ export function TransferLeaderDialog({
                 disabled={!canConfirm || isPending}
                 className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
               >
-                {isPending ? '인계 중…' : '인계'}
+                {isPending && <ButtonSpinner />}인계
               </button>
             </DialogFooter>
           </>

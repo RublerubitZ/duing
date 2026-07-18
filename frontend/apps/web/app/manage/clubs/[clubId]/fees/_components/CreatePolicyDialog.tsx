@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dialog';
 
 import { billingTypeLabel } from '@/app/_lib/feeLabels';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type CreatePolicyDialogProps = {
   clubId: number;
@@ -327,12 +328,13 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
               type="submit"
               disabled={isSubmitting || activeMutation.isPending}
               className={cn(
-                'flex-1 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
+                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
                 'bg-ink hover:bg-ink-deep',
                 (isSubmitting || activeMutation.isPending) && 'cursor-not-allowed opacity-60',
               )}
             >
-              {activeMutation.isPending ? '저장 중…' : isEditMode ? '수정' : '추가'}
+              {activeMutation.isPending && <ButtonSpinner />}
+              {isEditMode ? '수정' : '추가'}
             </button>
           </div>
         </form>

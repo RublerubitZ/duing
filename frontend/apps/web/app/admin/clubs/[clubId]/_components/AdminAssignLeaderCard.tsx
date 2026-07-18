@@ -5,6 +5,7 @@ import type { FormEvent } from 'react';
 import { ApiError } from '@duing/api';
 import { useAssignAdminLeaderMutation } from '@duing/hooks';
 import type { AdminUserSearchResult } from '@duing/types';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { LeaderSearchCombobox } from '../../_components/LeaderSearchCombobox';
 
 type Props = {
@@ -91,9 +92,9 @@ export function AdminAssignLeaderCard({ clubId }: Props) {
           <button
             type="submit"
             disabled={submitDisabled}
-            className="rounded-md bg-rose-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
           >
-            {mutation.isPending ? '처리 중…' : '강제 지정'}
+            {mutation.isPending && <ButtonSpinner />}강제 지정
           </button>
         </div>
       </form>

@@ -10,12 +10,14 @@ import { ApiError } from '@duing/api';
 import { useMyInterviewQuery, useWithdrawApplicationMutation } from '@duing/hooks';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
 import { ApplicationStepper } from '../[applicationId]/_components/ApplicationStepper';
 import { ApplicantInterviewCard } from '../[applicationId]/_components/ApplicantInterviewCard';
 import type { App } from '../_constants/data';
 
 import { ClubLogo } from './ClubLogo';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 /* ============================================================
    DetailRow
@@ -235,9 +237,7 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
                   <DetailRow label="지원 내용" value="별도 지원서 없음" />
                 )
               ) : (
-                <div style={{ padding: '20px 0', fontSize: 13, color: 'var(--charcoal-3)', textAlign: 'center' }}>
-                  불러오는 중...
-                </div>
+                <TextLinesSkeleton lines={3} label="지원 내용 불러오는 중" className="py-5" />
               )}
 
               {/* 면접 카드 — applicantPhase 소비 (InterviewScheduleCard 대체).
@@ -288,7 +288,7 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
                     opacity: withdrawMutation.isPending ? 0.6 : 1,
                   }}
                 >
-                  {withdrawMutation.isPending ? '철회 중…' : '철회하기'}
+                  {withdrawMutation.isPending && <ButtonSpinner className="mr-1.5 inline-block align-[-2px]" />}철회하기
                 </button>
               </>
             ) : (

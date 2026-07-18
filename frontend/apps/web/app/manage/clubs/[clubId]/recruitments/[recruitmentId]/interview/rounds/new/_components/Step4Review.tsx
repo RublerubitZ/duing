@@ -8,6 +8,8 @@ import {
   useRequestAvailabilityMutation,
 } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // Step4: 검토·발송
 // 발송 조건 3종 (§10.3):  슬롯≥1 && 멤버≥1 && deadline≠null
@@ -50,7 +52,7 @@ export function Step4Review({ recruitmentId, roundId, clubId }: Props) {
   };
 
   if (detailQuery.isLoading) {
-    return <p className="p-4 text-sm text-slate-500">라운드 정보를 불러오는 중…</p>;
+    return <LoadingGate label="라운드 정보 불러오는 중" className="min-h-0 py-8" />;
   }
 
   // 완료 화면
@@ -141,9 +143,9 @@ export function Step4Review({ recruitmentId, roundId, clubId }: Props) {
           type="button"
           onClick={handleSend}
           disabled={!canSend || requestAvailabilityMutation.isPending}
-          className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {requestAvailabilityMutation.isPending ? '발송 중…' : '발송'}
+          {requestAvailabilityMutation.isPending && <ButtonSpinner />}발송
         </button>
       </div>
     </div>

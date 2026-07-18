@@ -7,6 +7,7 @@ import type { FederationInquiryStatus } from '@duing/types';
 import { useAdminFederationInquiryListQuery } from '@duing/hooks';
 
 import { Pagination } from '@/components/Pagination';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
 import {
@@ -110,9 +111,7 @@ export function AdminInquiriesListPage() {
         </button>
       </form>
 
-      {listQuery.isLoading && (
-        <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
-      )}
+      {listQuery.isLoading && <LoadingGate label="문의 목록 불러오는 중" />}
       {listQuery.isError && (
         <p className="py-12 text-center text-coral text-[13px]">목록을 불러오지 못했습니다.</p>
       )}

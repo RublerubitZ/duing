@@ -8,6 +8,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // 범용 확인 모달 — 라운드 취소·멤버 제외 등 단순 확인 흐름에 공용.
 
@@ -65,7 +66,8 @@ export function ConfirmDialog({
                 : 'btn btn-primary btn-sm disabled:opacity-50'
             }
           >
-            {isPending ? '처리 중…' : confirmLabel}
+            {isPending && <ButtonSpinner />}
+            {confirmLabel}
           </button>
         </DialogFooter>
       </DialogContent>

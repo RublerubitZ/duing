@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
 import { bookingDateLabel } from '@/app/_lib/bookingDisplay';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import {
   Sheet,
   SheetContent,
@@ -79,7 +80,12 @@ export function MobileDaySheet({
         </SheetHeader>
 
         {shownDay === null || shownFacility === null ? (
-          <p className="py-6 text-center text-sm text-charcoal-3">불러오는 중…</p>
+          <ListRowsSkeleton
+            rows={4}
+            rowClassName="h-[44px] rounded-lg"
+            className="space-y-2 py-4"
+            label="시간대 불러오는 중"
+          />
         ) : !open ? (
           // 닫힘(exit 애니메이션 ~300ms) 중에는 폼/성공을 렌더하지 않는다 — 뷰포트 승계로 주간 사이드바가
           // 같은 커밋에 BookingForm 을 마운트하면 정적 id(booking-club 등)가 이중 마운트되는 것을 차단.

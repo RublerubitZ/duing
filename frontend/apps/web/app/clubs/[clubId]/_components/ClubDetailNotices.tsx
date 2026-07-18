@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useClubNoticeListQuery } from '@duing/hooks';
 
 import { toRoute } from '@/app/_lib/route';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 const PREVIEW_COUNT = 4;
 
@@ -35,7 +36,12 @@ export function ClubDetailNotices({ clubId }: Props) {
       </div>
 
       {isLoading ? (
-        <p className="py-6 text-center text-sm text-charcoal-3">불러오는 중…</p>
+        <ListRowsSkeleton
+          rows={3}
+          rowClassName="h-[64px] rounded-xl"
+          className="space-y-2"
+          label="공지 불러오는 중"
+        />
       ) : notices.length === 0 ? (
         <p className="rounded-xl border border-dashed border-line py-8 text-center text-sm text-charcoal-3">
           등록된 공지가 없어요.

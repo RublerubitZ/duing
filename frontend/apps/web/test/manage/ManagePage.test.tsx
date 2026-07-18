@@ -56,10 +56,10 @@ describe('ManagePage', () => {
     },
   ];
 
-  it('로딩 중이면 "불러오는 중…" 을 렌더하고 push 를 호출하지 않는다', () => {
+  it('로딩 중이면 로딩 스피너를 렌더하고 push 를 호출하지 않는다', () => {
     mockQueryResult = { data: undefined, isLoading: true };
     render(<ManagePage />);
-    expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '관리 동아리 불러오는 중' })).toBeInTheDocument();
     expect(pushSpy).not.toHaveBeenCalled();
   });
 

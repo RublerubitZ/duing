@@ -8,6 +8,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type RemoveMemberDialogProps = {
   targetName: string;
@@ -48,7 +49,7 @@ export function RemoveMemberDialog({ targetName, isPending, onConfirm, onCancel 
             disabled={isPending}
             className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {isPending ? '처리 중…' : '강퇴'}
+            {isPending && <ButtonSpinner />}강퇴
           </button>
         </DialogFooter>
       </DialogContent>

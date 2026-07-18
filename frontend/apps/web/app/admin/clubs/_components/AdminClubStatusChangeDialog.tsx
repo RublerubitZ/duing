@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import type { AdminClubSummary } from '@duing/types';
 
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import {
   Dialog,
   DialogContent,
@@ -108,7 +109,7 @@ export function AdminClubStatusChangeDialog({
             취소
           </button>
           <button type="button" onClick={handleSubmit} disabled={submitDisabled} className={confirmClass}>
-            {isPending ? '처리 중…' : action.label}
+            {isPending && <ButtonSpinner />}{action.label}
           </button>
         </DialogFooter>
       </DialogContent>

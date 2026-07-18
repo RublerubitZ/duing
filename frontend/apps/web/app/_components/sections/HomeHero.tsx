@@ -115,7 +115,7 @@ export async function HomeHero() {
           </p>
 
           {/* 데스크탑 전용 검색 — 모바일은 상단 고정 검색 바(HomeMobileSearchBar)가 담당 (#3) */}
-          <form action="/clubs" method="get" className="hidden max-w-[540px] items-center gap-1.5 rounded-lg bg-paper p-1.5 shadow-2 md:flex">
+          <form action="/clubs" method="get" className="hidden max-w-[540px] items-center gap-1.5 rounded-lg bg-paper p-1.5 shadow-2 ring-ink/40 focus-within:ring-2 md:flex">
             <label className="flex flex-1 items-center gap-3 px-[18px] py-3.5">
               <Search className="text-charcoal-3" />
               <input

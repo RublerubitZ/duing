@@ -6,6 +6,7 @@ import { useMyApplicationsQuery, useMyApplicationDetailQuery } from '@duing/hook
 import type { ApplicationSummary, ApplicationStatus, AssignedInterview, ClubCategory } from '@duing/types';
 
 import { ExploreNav } from '@/app/_components/ExploreNav';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { FILTERS, STATUS_TO_FILTER, PAGE_PAD, PAGE_MAX } from '../_constants/data';
 import type { App, FilterKey, Counts, Logo, AppStatus, Step } from '../_constants/data';
@@ -169,16 +170,12 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {isLoading ? (
-              <div style={{
-                background: 'var(--paper)',
-                border: '1px dashed var(--gray-line)',
-                borderRadius: 14,
-                padding: '48px 24px',
-                textAlign: 'center',
-                fontSize: 13, color: 'var(--charcoal-3)',
-              }}>
-                지원 내역을 불러오는 중...
-              </div>
+              <ListRowsSkeleton
+                rows={4}
+                rowClassName="h-[84px] rounded-[14px]"
+                className="space-y-2"
+                label="지원 내역 불러오는 중"
+              />
             ) : isError ? (
               <div style={{
                 background: 'var(--paper)',

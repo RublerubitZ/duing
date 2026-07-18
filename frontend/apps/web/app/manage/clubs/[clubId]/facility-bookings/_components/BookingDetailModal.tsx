@@ -14,6 +14,7 @@ import {
 } from '@/app/_lib/bookingDisplay';
 import { BookingStatusBadge } from '@/app/_components/BookingStatusBadge';
 import { CancelBookingDialog } from './CancelBookingDialog';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 const STEPS = ['신청 접수', '관리자 승인', '학교 반영 확정'] as const;
 
@@ -66,7 +67,9 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
         <DialogContent className="w-[calc(100%-2rem)]" aria-describedby={undefined}>
           <DialogTitle>예약 신청 상세</DialogTitle>
 
-          {detailQuery.isLoading && <p className="text-sm text-charcoal-3">불러오는 중…</p>}
+          {detailQuery.isLoading && (
+            <LoadingGate label="예약 상세 불러오는 중" className="min-h-0 py-8" />
+          )}
           {detailQuery.isError && (
             <p role="alert" className="text-sm text-charcoal-2">상세 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
           )}

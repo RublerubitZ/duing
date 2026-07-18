@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { generateRoundSlotsFromPattern, type RoundSlotEntry } from './_utils/generateSlotsFromPattern';
 
 // 라운드 슬롯 패턴 폼 — wizard Step3 와 라운드 dashboard 슬롯 섹션이 공용 (구 SlotPatternForm 복제·개조).
@@ -134,9 +135,9 @@ export function SlotPatternForm({ onGenerate, isPending = false }: Props) {
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {isPending ? '생성 중…' : '슬롯 생성'}
+        {isPending && <ButtonSpinner />}슬롯 생성
       </button>
     </form>
   );

@@ -14,6 +14,7 @@ import {
   type NoticeFormState,
 } from '../_lib/parseNoticeFormState';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 export function AdminNoticeEditPage() {
   const params = useParams<{ noticeId: string }>();
@@ -26,7 +27,7 @@ export function AdminNoticeEditPage() {
   if (detailQuery.isLoading) {
     return (
       <main className="max-w-[760px] mx-auto px-6 py-10">
-        <p className="text-charcoal-3 text-[13px]">불러오는 중…</p>
+        <LoadingGate label="공지 불러오는 중" />
       </main>
     );
   }

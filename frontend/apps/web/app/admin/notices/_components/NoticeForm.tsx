@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { NOTICE_CATEGORY_OPTIONS } from '../../../notices/_lib/categoryLabels';
 import { ImageUploader } from '../../../_components/ImageUploader';
 import { NoticeRichEditorLazy } from '../../../_components/NoticeRichEditorLazy';
@@ -208,8 +209,8 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
         <button
           type="submit"
           disabled={isSubmitting || !state.coverImageUrl}
-          className="px-5 py-2.5 rounded-full bg-ink text-paper text-[13.5px] font-semibold disabled:opacity-50"
-        >{isSubmitting ? '저장 중…' : submitLabel}</button>
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-ink text-paper text-[13.5px] font-semibold disabled:opacity-50"
+        >{isSubmitting && <ButtonSpinner />}{submitLabel}</button>
       </div>
     </form>
   );

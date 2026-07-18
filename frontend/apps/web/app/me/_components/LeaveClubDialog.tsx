@@ -6,6 +6,7 @@ import { ApiError } from '@duing/api';
 import { useLeaveClubMutation } from '@duing/hooks';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
 type Props = {
@@ -83,7 +84,7 @@ export function LeaveClubDialog({ club, onClose }: Props) {
             disabled={!nameMatches || isPending}
             className="btn btn-sm rounded-[10px] bg-coral text-white disabled:opacity-50"
           >
-            {isPending ? '처리 중…' : '동아리 탈퇴'}
+            {isPending && <ButtonSpinner />}동아리 탈퇴
           </button>
         </div>
       </DialogContent>

@@ -48,7 +48,7 @@ describe('ActiveRecruitmentsCard', () => {
   it('로딩 상태를 표시한다', () => {
     mockUseActiveRecruitments.mockReturnValue({ data: undefined, isLoading: true, isError: false });
     render(<ActiveRecruitmentsCard clubId={1} />);
-    expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '불러오는 중' })).toBeInTheDocument();
   });
 
   it('데이터가 없으면 빈 상태를 표시한다', () => {

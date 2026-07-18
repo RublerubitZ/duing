@@ -964,7 +964,7 @@ it('신청 확인 Dialog(§2.2): 시설·일시·동아리·목적·인원·연�
   expect(onConfirm).toHaveBeenCalledTimes(1);
 });
 
-it('신청 확인 Dialog(§2.2): 사용 인원이 있으면 "N명" 을 노출하고 제출 중이면 신청 버튼이 비활성·라벨이 바뀐다', () => {
+it('신청 확인 Dialog(§2.2): 사용 인원이 있으면 "N명" 을 노출하고 제출 중이면 신청 버튼이 비활성된다', () => {
   render(
     <BookingConfirmDialog
       open
@@ -982,8 +982,8 @@ it('신청 확인 Dialog(§2.2): 사용 인원이 있으면 "N명" 을 노출하
   );
   const dialog = screen.getByRole('dialog', { name: '예약을 신청하시겠어요?' });
   expect(within(dialog).getByText('15명')).toBeInTheDocument();
-  // 제출 중: 신청 버튼 비활성 + '신청 중…' 라벨(중복 제출 방지)
-  const submitButton = within(dialog).getByRole('button', { name: '신청 중…' });
+  // 제출 중: 신청 버튼 비활성 — 라벨은 유지하고 ButtonSpinner 만 붙는다(중복 제출 방지 + 폭 고정)
+  const submitButton = within(dialog).getByRole('button', { name: '예약 신청' });
   expect(submitButton).toBeDisabled();
 });
 

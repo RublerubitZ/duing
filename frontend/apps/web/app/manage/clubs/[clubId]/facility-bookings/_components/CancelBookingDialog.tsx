@@ -1,6 +1,7 @@
 'use client';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type Props = {
   open: boolean;
@@ -31,7 +32,7 @@ export function CancelBookingDialog({ open, isPending, errorMessage, summaryLabe
             disabled={isPending}
             onClick={onConfirm}
           >
-            {isPending ? '취소 중…' : '신청 취소'}
+            {isPending && <ButtonSpinner />}신청 취소
           </button>
         </div>
       </DialogContent>

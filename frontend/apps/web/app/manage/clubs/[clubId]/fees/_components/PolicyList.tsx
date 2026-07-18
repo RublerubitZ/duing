@@ -16,6 +16,8 @@ import { useToast } from '@/app/_components/toast/ToastProvider';
 import { billingTypeLabel, formatWon } from '@/app/_lib/feeLabels';
 
 import { CreatePolicyDialog } from './CreatePolicyDialog';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type PolicyListProps = {
   clubId: number;
@@ -27,7 +29,7 @@ export function PolicyList({ clubId }: PolicyListProps) {
   const [deleteTarget, setDeleteTarget] = useState<FeePolicy | null>(null);
 
   if (isLoading) {
-    return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
+    return <LoadingGate label="회비 정책 불러오는 중" className="min-h-0 py-8" />;
   }
 
   if (!policies || policies.length === 0) {
@@ -230,9 +232,9 @@ function DeletePolicyConfirm({ clubId, policy, onClose }: DeletePolicyConfirmPro
             type="button"
             onClick={confirmDelete}
             disabled={deletePolicy.isPending}
-            className="flex-1 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {deletePolicy.isPending ? '삭제 중…' : '삭제'}
+            {deletePolicy.isPending && <ButtonSpinner />}삭제
           </button>
         </div>
       </div>

@@ -178,7 +178,7 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
     expect(mockRouterPush).not.toHaveBeenCalled();
   });
 
-  it('사전 확인 중에는 지원하기 버튼이 비활성화되고 라벨이 "확인 중…" 으로 바뀐다', async () => {
+  it('사전 확인 중에는 지원하기 버튼이 비활성화되고 확인 중 스피너가 표시된다', async () => {
     mockAuthStatus.value = 'authenticated';
     server.use(
       http.get(`*/recruitments/${base.id}/applications/eligibility`, async () => {
@@ -192,7 +192,7 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
     await user.click(screen.getByRole('button', { name: '지원하기' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '확인 중…' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: '지원 자격 확인 중' })).toBeDisabled();
     });
   });
 });

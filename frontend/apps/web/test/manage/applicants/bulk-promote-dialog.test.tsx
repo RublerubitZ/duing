@@ -102,7 +102,7 @@ describe('BulkPromoteDialog', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('isPending=true 면 두 버튼이 모두 disabled 이고 "선정" 라벨이 "처리 중…" 으로 바뀐다', () => {
+  it('isPending=true 면 두 버튼이 모두 disabled 이고 "선정" 라벨은 유지된다', () => {
     render(
       <BulkPromoteDialog
         representativeName="홍길동"
@@ -114,7 +114,7 @@ describe('BulkPromoteDialog', () => {
     );
 
     expect(screen.getByRole('button', { name: '취소' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '처리 중…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '선정' })).toBeDisabled();
   });
 
   it('ESC 키 입력 시 onCancel 이 호출된다', async () => {

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { useSubmitReportMutation } from '@duing/hooks';
 import type { ReportTargetType } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type Props = {
   targetType: ReportTargetType;
@@ -190,12 +191,12 @@ export function ReportModal({ targetType, targetId, targetLabel, onClose }: Prop
               type="submit"
               disabled={isSubmitting || submitReport.isPending}
               className={cn(
-                'flex-1 rounded-xl py-3 text-sm font-semibold text-white transition-colors',
+                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold text-white transition-colors',
                 'bg-coral hover:bg-coral/90',
                 (isSubmitting || submitReport.isPending) && 'cursor-not-allowed opacity-60',
               )}
             >
-              {submitReport.isPending ? '접수 중…' : '신고 접수'}
+              {submitReport.isPending && <ButtonSpinner />}신고 접수
             </button>
           </div>
         </form>

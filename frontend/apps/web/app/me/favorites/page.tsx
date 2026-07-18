@@ -2,13 +2,18 @@
 
 import Link from 'next/link';
 import { useFavoriteListQuery } from '@duing/hooks';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { FavoriteClubCard } from './_components/FavoriteClubCard';
 
 export default function MyFavoritesPage() {
   const favoriteListQuery = useFavoriteListQuery();
 
   if (favoriteListQuery.isLoading) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return (
+      <main className="mx-auto max-w-4xl px-6 py-10">
+        <ListRowsSkeleton rows={4} rowClassName="h-[96px] rounded-xl" label="찜한 동아리 불러오는 중" />
+      </main>
+    );
   }
 
   const favorites = favoriteListQuery.data?.content ?? [];

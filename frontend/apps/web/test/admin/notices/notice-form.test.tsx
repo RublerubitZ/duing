@@ -80,8 +80,8 @@ describe('NoticeForm', () => {
     // "특정 동아리" 버튼 클릭
     fireEvent.click(screen.getByRole('button', { name: '특정 동아리' }));
 
-    // 동아리 목록 로딩 중 텍스트가 보여야 한다
-    expect(screen.getByText('동아리 목록 불러오는 중…')).toBeInTheDocument();
+    // 동아리 목록 로딩 스피너(role="status")가 보여야 한다
+    expect(screen.getByRole('status', { name: '동아리 목록 불러오는 중' })).toBeInTheDocument();
   });
 
   it('visibility 가 OFFICERS_ALL 이면 알림 발송 체크박스가 disabled 다', () => {

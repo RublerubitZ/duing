@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 
 import { formatWon, paymentMethodLabel } from '@/app/_lib/feeLabels';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type RecordPaymentDialogProps = {
   clubId: number;
@@ -159,12 +160,12 @@ export function RecordPaymentDialog({
               type="submit"
               disabled={isPending}
               className={cn(
-                'flex-1 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
+                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
                 'bg-ink hover:bg-ink-deep',
                 isPending && 'cursor-not-allowed opacity-60',
               )}
             >
-              {recordPayment.isPending ? '기록 중…' : '기록'}
+              {recordPayment.isPending && <ButtonSpinner />}기록
             </button>
           </div>
         </form>

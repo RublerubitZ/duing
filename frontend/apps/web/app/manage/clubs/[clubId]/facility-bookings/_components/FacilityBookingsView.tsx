@@ -8,6 +8,7 @@ import { toRoute } from '@/app/_lib/route';
 import { MANAGE_TAB_KEYS, MANAGE_TAB_LABELS, manageTabOf, type ManageTabKey } from '../_lib/bookingTabs';
 import { BookingDetailModal } from './BookingDetailModal';
 import { BookingRow } from './BookingRow';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 const EMPTY_MESSAGES: Record<ManageTabKey, string> = {
   ACTIVE: '진행중인 예약 신청이 없어요.',
@@ -78,7 +79,9 @@ export function FacilityBookingsView({ clubId }: { clubId: number }) {
       </div>
 
       <div className="mt-4">
-        {bookingsQuery.isLoading && <p className="text-sm text-charcoal-3">불러오는 중…</p>}
+        {bookingsQuery.isLoading && (
+          <LoadingGate label="예약 내역 불러오는 중" className="min-h-0 py-8" />
+        )}
         {bookingsQuery.isError && (
           <div role="alert" className="text-sm text-charcoal-2">
             <p>예약 내역을 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>

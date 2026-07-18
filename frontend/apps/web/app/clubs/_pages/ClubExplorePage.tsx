@@ -207,7 +207,7 @@ export function ClubExplorePage() {
 
             <form
               onSubmit={handleSearchSubmit}
-              className="flex items-center gap-2 p-1 w-[360px] bg-paper rounded-[14px] border border-line"
+              className="flex items-center gap-2 p-1 w-[360px] bg-paper rounded-[14px] border border-line focus-within:border-ink"
             >
               <div className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5">
                 <Icon.search className="text-charcoal-3 w-[18px] h-[18px]" />
@@ -464,7 +464,7 @@ export function ClubExplorePage() {
             )}
 
             {clubListQuery.isLoading && (
-              <div role="status" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
+              <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
                 <ClubListSkeletonItems variant="grid" />
               </div>
             )}
@@ -484,7 +484,14 @@ export function ClubExplorePage() {
                  열 수만 줄인다(카드 축소 금지). 사이드바가 있어 뷰포트 브레이크포인트 대신
                  컨테이너 폭 기준이 정확하다. auto-fit 이 아닌 auto-fill: 결과가 적을 때도
                  카드가 트랙 폭 이상으로 늘어나지 않아 비율이 유지된다. */
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(210px,100%),1fr))] gap-[18px]">
+              <div
+                // keepPreviousData 전환 중(스코프·필터 변경)에는 이전 카드가 남으므로 딤으로 갱신 중 신호를 준다.
+                aria-busy={clubListQuery.isPlaceholderData}
+                className={cn(
+                  'grid grid-cols-[repeat(auto-fill,minmax(min(210px,100%),1fr))] gap-[18px]',
+                  clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+                )}
+              >
                 {visibleClubs.map((club) => (
                   <ClubCard
                     key={club.id}
@@ -518,7 +525,7 @@ export function ClubExplorePage() {
           <h1 className="mt-1 text-[27px] tracking-tightx">동아리 탐색</h1>
           <form
             onSubmit={handleSearchSubmit}
-            className="mt-4 flex items-center gap-2.5 rounded-[14px] border border-line bg-paper px-4 py-3 shadow-1"
+            className="mt-4 flex items-center gap-2.5 rounded-[14px] border border-line bg-paper px-4 py-3 shadow-1 focus-within:border-ink"
           >
             <Icon.search className="h-[18px] w-[18px] text-charcoal-3" />
             <input
@@ -585,7 +592,7 @@ export function ClubExplorePage() {
 
         <div className="px-4 pb-8">
           {clubListQuery.isLoading && (
-            <div role="status" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
+            <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
               <ClubListSkeletonItems variant="list" />
             </div>
           )}
@@ -594,7 +601,13 @@ export function ClubExplorePage() {
             <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
           )}
           {visibleClubs.length > 0 && (
-            <div className="flex flex-col gap-3">
+            <div
+              aria-busy={clubListQuery.isPlaceholderData}
+              className={cn(
+                'flex flex-col gap-3',
+                clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+              )}
+            >
               {visibleClubs.map((club, index) => (
                 <ClubListItem
                   key={club.id}

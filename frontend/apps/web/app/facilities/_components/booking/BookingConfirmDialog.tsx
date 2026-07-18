@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import type { SlotRange } from '../../_lib/bookingCalendar';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -106,7 +107,7 @@ export function BookingConfirmDialog({
             취소
           </button>
           <button type="button" className="btn btn-primary flex-1" disabled={isSubmitting} onClick={onConfirm}>
-            {isSubmitting ? '신청 중…' : '예약 신청'}
+            {isSubmitting && <ButtonSpinner />}예약 신청
           </button>
         </DialogFooter>
       </DialogContent>
