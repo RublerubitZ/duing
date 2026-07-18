@@ -34,4 +34,8 @@ public interface AuthRefreshTokenRepository extends JpaRepository<AuthRefreshTok
     @Query("UPDATE AuthRefreshToken t SET t.status = :revoked WHERE t.status <> :revoked "
             + "AND t.sessionId IN (SELECT s.id FROM AuthSession s WHERE s.userId = :userId)")
     int revokeAllByUserId(@Param("userId") Long userId, @Param("revoked") RefreshTokenStatus revoked);
+
+    @Modifying
+    @Query("DELETE FROM AuthRefreshToken t WHERE t.sessionId IN :sessionIds")
+    int deleteBySessionIds(@Param("sessionIds") List<Long> sessionIds);
 }

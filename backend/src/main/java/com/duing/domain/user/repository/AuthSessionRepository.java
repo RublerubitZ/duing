@@ -32,4 +32,13 @@ public interface AuthSessionRepository extends JpaRepository<AuthSession, Long> 
             + "WHERE s.userId = :userId AND s.revokedAt IS NULL")
     int revokeAllActive(@Param("userId") Long userId, @Param("now") LocalDateTime now,
                         @Param("reason") SessionRevokeReason reason);
+
+    /** 폐기/만료 후 보존기간(30일)을 넘긴 세션 — 재사용 포렌식 보존 뒤 물리 삭제 대상 (spec §18.1). */
+    @Query("SELECT s.id FROM AuthSession s "
+            + "WHERE (s.revokedAt IS NOT NULL AND s.revokedAt < :cutoff) OR s.expiresAt < :cutoff")
+    List<Long> findPurgeableIds(@Param("cutoff") LocalDateTime cutoff);
+
+    @Modifying
+    @Query("DELETE FROM AuthSession s WHERE s.id IN :sessionIds")
+    int deleteByIds(@Param("sessionIds") List<Long> sessionIds);
 }
