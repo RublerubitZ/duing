@@ -39,7 +39,7 @@ Access Token 단일(1시간, 만료 시 강제 재로그인) 구조를 **Access 
 | Refresh Token | **JWT 아님** — `SecureRandom` 256bit → base64url. DB엔 **SHA-256 해시만** 저장(UNIQUE) |
 | Refresh 수명 | **30일 Sliding** — Rotation 때마다 `expires_at = now + 30일` 갱신. 절대 상한 없음(재사용 탐지가 보정) |
 | Rotation | Refresh 사용 시마다 새 토큰 발급, 기존 토큰 즉시 `ROTATED` 처리. 세션 행잠금으로 원자화 |
-| 재사용 탐지 | 폐기된 토큰 재사용 = 세션(패밀리) 전체 폐기 + audit + Sentry. 단 rotation 후 **30초 grace** 안의 재사용은 멀티탭 경합으로 간주(§11) |
+| 재사용 탐지 | 폐기된 토큰 재사용 = 세션(패밀리) 전체 폐기 + audit + Sentry. 단 rotation 후 **grace(운영 설정값, 기본 30초)** 안의 재사용은 멀티탭 경합으로 간주(§11) |
 | 동시 세션 | 사용자당 **최대 5개**, 초과 로그인 시 `last_used_at` 기준 LRU 자동 폐기 |
 | 로그아웃 | 현재 기기=해당 세션만 폐기(tokenVersion 범프 **중단** — 의미 변화 §13.2), 전체=전 세션 폐기+범프 |
 | 비밀번호 변경·재설정·번호 변경·탈퇴·관리자 강제 로그아웃 | 전 세션 폐기 + tokenVersion 범프(기존 범프 지점 6곳에 세션 폐기 연결) |
@@ -235,14 +235,15 @@ sequenceDiagram
 | `auth_hint` | HttpOnly·Secure·Lax·Domain=.duings.com (기존) | **30일**(rotation마다 재발급) | 미들웨어 게이트. 클레임 `{typ, role, exp}` **불변** → FE 미들웨어 코드 무변경 |
 
 - `duings.com`→`api.duings.com`은 same-site라 SameSite=Lax에서 fetch(credentials include)에 쿠키가 실린다(기존 access 쿠키와 동일 전제).
-- `AuthHintTokenProvider`의 "hint 수명=jwt.expiry-ms(1시간) 고정" 검증은 제거하고 hint 수명을 refresh TTL 설정에 정렬한다. hint의 role 신선도는 rotation 주기(활성 사용자 기준 ≤30분)로 유지되고, 실제 인가는 매 요청 DB role이므로(기존) 보안 영향 없음.
+- `AuthHintTokenProvider`의 "hint 수명=jwt.expiry-ms(1시간) 고정" 검증은 제거하고 hint 수명을 refresh TTL 설정에 정렬한다.
+- **hint 30일이 안전한 이유**: hint는 인증 자격이 아니라 **미들웨어의 라우팅 힌트**일 뿐이다. ① API 인가는 전부 access 토큰(30분) + 매 요청 DB tokenVersion·role 검증으로 결정되므로, hint만 살아있는 사용자가 얻는 것은 보호 페이지의 **셸 접근**뿐이고 데이터는 첫 API 401에서 차단되어 `SessionExpiryHandler`가 즉시 로그아웃시킨다. ② hint에는 사용자 식별자(sub)가 없어 위조·탈취로 특정 계정을 흉내낼 수 없고, 별도 시크릿(`AUTH_HINT_SECRET ≠ JWT_SECRET`) HS256 서명 + HttpOnly라 JS 탈취·변조가 불가능하다. ③ role 신선도는 rotation마다 hint를 재발급해 활성 사용자 기준 ≤30분으로 유지된다. 즉 hint 수명 연장은 공격 표면을 늘리지 않고 UX(30분마다 미들웨어 로그아웃)만 고친다.
 - `JwtTokenProvider`의 1시간 고정 핀은 **30분(1,800,000ms) 핀으로 교체**. `jwt.expiry-ms` 기본값도 1800000으로 변경(§19.1의 env 처리 참고).
 
 ## 11. Rotation · 재사용 탐지 상세
 
 토큰 상태기계: `ACTIVE → ROTATED`(정상 rotation) / `ACTIVE·ROTATED → REVOKED`(latest-wins 교체·세션 폐기). 원자성은 **세션 행잠금(FOR UPDATE) 안에서 상태 판정→전이→삽입**을 한 트랜잭션으로 묶어 보장하고, `uq_auth_refresh_token_active` 부분 UNIQUE가 DB 레벨 백스톱이다. 같은 토큰의 동시 요청 2건은 잠금으로 직렬화되어 두 번째가 grace 분기로 흡수된다.
 
-grace(기본 30초, 설정 `duing.auth.refresh.reuse-grace-seconds`)는 "폐기 직후 재사용 = 동시 탭"이라는 판정 창이다. 창 안에서는 세션을 죽이지 않고 latest-wins로 체인을 이어가며, 창 밖 ROTATED·모든 REVOKED 제시는 Replay/탈취로 간주해 세션을 폐기한다. 탈취자가 grace 안에 재사용하는 극단 케이스도 latest-wins가 피해자·탈취자 중 한쪽 토큰만 살리므로, 밀려난 쪽의 다음 refresh가 REVOKED에 걸려 결국 탐지된다.
+**grace는 코드 상수가 아니라 운영 설정값이다** — `duing.auth.refresh.reuse-grace-seconds`(기본 30, env `DUING_AUTH_REFRESH_REUSE_GRACE_SECONDS`로 오버라이드, 코드 변경 없이 재기동만으로 조정). 배포 후 `REUSE_DETECTED` 감사 로그·Sentry 추이를 보며 오탐이 있으면 넓히고, 안정되면 좁히는 운영 튜닝 대상이다. grace는 "폐기 직후 재사용 = 동시 탭"이라는 판정 창이다. 창 안에서는 세션을 죽이지 않고 latest-wins로 체인을 이어가며, 창 밖 ROTATED·모든 REVOKED 제시는 Replay/탈취로 간주해 세션을 폐기한다. 탈취자가 grace 안에 재사용하는 극단 케이스도 latest-wins가 피해자·탈취자 중 한쪽 토큰만 살리므로, 밀려난 쪽의 다음 refresh가 REVOKED에 걸려 결국 탐지된다.
 
 ## 12. 동시 Refresh (멀티탭) 대응
 
