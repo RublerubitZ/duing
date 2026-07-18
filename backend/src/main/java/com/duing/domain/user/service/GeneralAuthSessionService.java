@@ -22,7 +22,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -191,8 +190,7 @@ public class GeneralAuthSessionService implements AuthSessionService {
 
     @Override
     public List<SessionSummary> listSessions(Long userId, Long currentSessionIdOrNull) {
-        return authSessionRepository.findByUserIdAndRevokedAtIsNullOrderByLastUsedAtAsc(userId).stream()
-                .sorted(Comparator.comparing(AuthSession::getLastUsedAt).reversed())
+        return authSessionRepository.findByUserIdAndRevokedAtIsNullOrderByLastUsedAtDesc(userId).stream()
                 .map(session -> new SessionSummary(
                         session.getId(), session.getPlatform(), session.getDeviceLabel(),
                         session.getLastUsedAt(), session.getCreatedAt(),

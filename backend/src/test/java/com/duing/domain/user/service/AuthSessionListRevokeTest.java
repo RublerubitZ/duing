@@ -5,9 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.UserFixture;
+import com.duing.domain.user.entity.AuthEventType;
 import com.duing.domain.user.entity.RefreshTokenStatus;
 import com.duing.domain.user.entity.SessionPlatform;
 import com.duing.domain.user.entity.SessionRevokeReason;
+import com.duing.domain.user.repository.AuthEventRepository;
 import com.duing.domain.user.repository.AuthRefreshTokenRepository;
 import com.duing.domain.user.repository.AuthSessionRepository;
 import com.duing.domain.user.repository.UserRepository;
@@ -29,6 +31,7 @@ class AuthSessionListRevokeTest extends IntegrationTestBase {
     @Autowired AuthSessionService authSessionService;
     @Autowired AuthSessionRepository authSessionRepository;
     @Autowired AuthRefreshTokenRepository authRefreshTokenRepository;
+    @Autowired AuthEventRepository authEventRepository;
     @Autowired UserRepository userRepository;
     @Autowired JdbcTemplate jdbcTemplate;
 
@@ -78,6 +81,8 @@ class AuthSessionListRevokeTest extends IntegrationTestBase {
                 targetSession.sessionId(), RefreshTokenStatus.ACTIVE)).isEmpty();
         assertThat(authSessionRepository.findById(survivingSession.sessionId()).orElseThrow().getRevokedAt())
                 .isNull();
+        assertThat(authEventRepository.findByUserIdOrderByIdAsc(userId))
+                .anyMatch(authEvent -> authEvent.getEventType() == AuthEventType.LOGOUT);
     }
 
     @Test

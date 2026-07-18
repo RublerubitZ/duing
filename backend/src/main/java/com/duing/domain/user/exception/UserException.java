@@ -95,4 +95,12 @@ public class UserException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST, "PASSWORD_RESET_NOT_ALLOWED");
         }
     }
+
+    public static class SessionNotFoundException extends UserException {
+        private static final String MESSAGE = "해당 세션을 찾을 수 없습니다.";
+
+        public SessionNotFoundException() {
+            super(MESSAGE, HttpStatus.NOT_FOUND);
+        }
+    }
 }

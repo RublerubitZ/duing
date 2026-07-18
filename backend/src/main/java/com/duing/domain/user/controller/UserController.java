@@ -5,8 +5,11 @@ import com.duing.domain.user.controller.dto.request.ChangePasswordRequest;
 import com.duing.domain.user.controller.dto.request.ChangePhoneRequest;
 import com.duing.domain.user.controller.dto.request.StartPhoneChangeVerificationRequest;
 import com.duing.domain.user.controller.dto.request.UpdateProfileRequest;
+import com.duing.domain.user.controller.dto.response.MySessionResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueResponse;
 import com.duing.domain.user.controller.dto.response.UserResponse;
+import com.duing.domain.user.exception.UserException;
+import com.duing.domain.user.service.AuthSessionService;
 import com.duing.domain.user.service.PhoneVerificationService;
 import com.duing.domain.user.service.UserService;
 import com.duing.domain.user.service.dto.query.PhoneVerificationIssueResult;
@@ -17,10 +20,12 @@ import com.duing.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController implements UserApi {
 
     private final UserService userService;
+    private final AuthSessionService authSessionService;
     private final PhoneVerificationService phoneVerificationService;
     private final WebAuthCookieService webAuthCookieService;
 
@@ -96,6 +102,43 @@ public class UserController implements UserApi {
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) {
         userService.withdraw(currentUser.id());
+        clearWebCookiesWhenCookieAuthenticated(httpServletRequest, httpServletResponse);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<List<MySessionResponse>>> listMySessions(
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        List<MySessionResponse> sessions =
+                authSessionService.listSessions(currentUser.id(), currentUser.sessionId()).stream()
+                        .map(MySessionResponse::from)
+                        .toList();
+        return ResponseEntity.ok(ApiResponse.success(sessions));
+    }
+
+    @Override
+    public ResponseEntity<Void> revokeMySession(
+            @PathVariable Long sessionId,
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse) {
+        boolean revoked = authSessionService.revokeOne(currentUser.id(), sessionId);
+        if (!revoked) {
+            throw new UserException.SessionNotFoundException();
+        }
+        // 현재 세션을 스스로 끊었다면 로그아웃과 동일 — 웹(쿠키) 인증이면 쿠키도 삭제 (spec §8)
+        if (sessionId.equals(currentUser.sessionId())) {
+            clearWebCookiesWhenCookieAuthenticated(httpServletRequest, httpServletResponse);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<Void> logoutAllSessions(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse) {
+        userService.logoutAll(currentUser.id());
         clearWebCookiesWhenCookieAuthenticated(httpServletRequest, httpServletResponse);
         return ResponseEntity.noContent().build();
     }
