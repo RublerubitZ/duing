@@ -94,6 +94,7 @@ import type {
   ApplicationScope,
   ApplicationSummary,
   MyClubSummary,
+  MySession,
   BulkUpdateApplicationStatusPayload,
   BulkUpdateApplicationStatusResult,
   User,
@@ -319,6 +320,9 @@ export type DuingApiClient = {
     ): Promise<PhoneVerificationSession>;
     changePhone(payload: ChangePhonePayload): Promise<void>;
     withdraw(): Promise<void>;
+    sessions(): Promise<MySession[]>;
+    revokeSession(sessionId: number): Promise<void>;
+    logoutAllSessions(): Promise<void>;
   };
   clubs: {
     list(params?: ClubSearchParams): Promise<PageResponse<ClubSummary>>;
@@ -997,6 +1001,10 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           http.patch('users/me/phone', { json: payload, timeout: REQUEST_TIMEOUT_MS.authFlow }),
         ),
       withdraw: () => jsonVoid(http.delete('users/me')),
+      sessions: () => jsonOk<MySession[]>(http.get('users/me/sessions')),
+      revokeSession: (sessionId) => jsonVoid(http.delete(`users/me/sessions/${sessionId}`)),
+      logoutAllSessions: () =>
+        jsonVoid(http.delete('users/me/sessions', { timeout: REQUEST_TIMEOUT_MS.logoutRevoke })),
     },
     clubs: {
       list: (params) =>
