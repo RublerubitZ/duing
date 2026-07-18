@@ -479,13 +479,85 @@ describe('쿠키 모드 401 자동 갱신', () => {
     expect(refreshCallCount).toBe(0);
     expect(unauthorizedHandler).not.toHaveBeenCalled();
   });
+
+  it('갱신 성공 후 재시도가 다시 401 이어도 refresh 를 다시 시도하지 않는다(루프 방지)', async () => {
+    let refreshCallCount = 0;
+    let meCallCount = 0;
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () => {
+        meCallCount += 1;
+        return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+      }),
+      http.post(`${BASE_URL}/auth/web/refresh`, () => {
+        refreshCallCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
+    expect(refreshCallCount).toBe(1); // 재시도(2번째 me)의 401 은 새 갱신을 열지 않는다
+    expect(meCallCount).toBe(2);      // 원요청 + 재시도 1회, 3번째 호출 없음
+  });
+
+  it('POST 재시도에서도 요청 바디가 보존된다', async () => {
+    const receivedBodies: unknown[] = [];
+    let postCallCount = 0;
+    server.use(
+      // 인증 필요한 임의의 쓰기 API — 실제 클라이언트 메서드로 호출한다(바디 왕복 검증이 목적)
+      http.patch(`${BASE_URL}/users/me`, async ({ request }) => {
+        postCallCount += 1;
+        receivedBodies.push(await request.json());
+        if (postCallCount === 1) {
+          return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+        }
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+      http.post(`${BASE_URL}/auth/web/refresh`, () => new HttpResponse(null, { status: 204 })),
+    );
+
+    await cookieClient().users.updateProfile({ name: '새이름', grade: 'SENIOR' });
+
+    expect(postCallCount).toBe(2);
+    expect(receivedBodies[1]).toEqual(receivedBodies[0]); // 재시도 바디 = 원본 바디
+  });
+
+  it('refresh 가 네트워크 오류(fetch 실패)면 세션을 끝내지 않는다', async () => {
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 })),
+      http.post(`${BASE_URL}/auth/web/refresh`, () => HttpResponse.error()),
+    );
+
+    await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
+    expect(unauthorizedHandler).not.toHaveBeenCalled();
+  });
+
+  it('동시 요청이 함께 실패해도 세션 종료 알림은 한 번만 발화한다', async () => {
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 })),
+      http.post(`${BASE_URL}/auth/web/refresh`, async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        return HttpResponse.json(
+          { ok: false, data: null, message: '만료', code: 'AUTH_SESSION_EXPIRED' }, { status: 401 });
+      }),
+    );
+
+    const client = cookieClient();
+    const results = await Promise.allSettled([client.users.me(), client.users.me()]);
+
+    expect(results.every((result) => result.status === 'rejected')).toBe(true);
+    expect(unauthorizedHandler).toHaveBeenCalledTimes(1); // notify 는 single-flight 실행기에서 1회
+  });
 });
 ```
 
 - [ ] **Step 2: 실패 확인**
 
 Run: `cd /Users/ksy/Desktop/BASIC/Coding/Duing/frontend && pnpm --filter @duing/api test -- run test/authRefresh.test.ts`
-Expected: FAIL — 첫 테스트가 401 reject(갱신 미구현), 동시 테스트도 실패
+Expected: FAIL — 갱신 미구현으로 9건 중 성공 시나리오 전부 실패
+
+테스트 목록(9건): ①401→갱신→재시도 성공 ②갱신 401→알림 1회 ③갱신 5xx→알림 없음·원 401 ④동시 401→갱신 1회 ⑤auth 경로 401 갱신 제외 ⑥재시도 재401→갱신 재시도 없음(루프 방지) ⑦POST 재시도 바디 보존 ⑧갱신 네트워크 오류→알림 없음 ⑨동시 실패→알림 정확히 1회
 
 - [ ] **Step 3: client.ts 통합 구현**
 
@@ -503,6 +575,8 @@ import type { RefreshOutcome } from './refresh-coordinator';
   // refresh 호출은 bare ky — http 인스턴스의 훅(401→갱신)을 태우면 자기재귀가 되므로 분리한다.
   // throwHttpErrors:false 로 상태코드를 직접 분기: 401/404=세션 종료(404 는 BE 롤백 호환 §19.2),
   // 그 외 실패(5xx·네트워크·타임아웃)=일시 장애로 보고 세션을 유지한다(§17).
+  // notifyUnauthorized 는 이 실행기(single-flight 로 사이클당 1회만 실행)에서 발화한다 —
+  // 대기자마다 부르면 동시 401 N건이 알림을 N번 쏜다(하류 핸들러가 멱등이어도 계약은 1회가 명확).
   const refreshCoordinator =
     authTransport === 'cookie'
       ? createRefreshCoordinator(async (): Promise<RefreshOutcome> => {
@@ -514,7 +588,10 @@ import type { RefreshOutcome } from './refresh-coordinator';
               throwHttpErrors: false,
             });
             if (refreshResponse.status === 204) return 'refreshed';
-            if (refreshResponse.status === 401 || refreshResponse.status === 404) return 'session-expired';
+            if (refreshResponse.status === 401 || refreshResponse.status === 404) {
+              notifyUnauthorized();
+              return 'session-expired';
+            }
             return 'unavailable';
           } catch {
             return 'unavailable';
@@ -548,10 +625,8 @@ import type { RefreshOutcome } from './refresh-coordinator';
               // 재시도가 다시 401 이어도 그대로 표면화된다(다음 요청이 새 갱신 사이클을 연다).
               return ky(request);
             }
-            if (outcome === 'session-expired') {
-              notifyUnauthorized();
-            }
-            return; // 'unavailable' — 세션 유지, 원 401 표면화 (§17)
+            // 'session-expired'(알림은 실행기가 1회 발화) · 'unavailable' — 원 401 표면화 (§17)
+            return;
           }
           // Bearer(모바일) 모드는 기존 동작 유지 — refresh 연동은 RN(PR-4)에서.
           const isBearerLogoutRequest = request.url.endsWith('/auth/logout');
@@ -567,7 +642,7 @@ import type { RefreshOutcome } from './refresh-coordinator';
 - [ ] **Step 4: 통과 확인 + 기존 회귀**
 
 Run: `cd /Users/ksy/Desktop/BASIC/Coding/Duing/frontend && pnpm --filter @duing/api test -- run`
-Expected: authRefresh 5건 PASS + 기존 api 테스트(authTransport·authLogout·errorNormalization 등) 전부 PASS. 기존 테스트 중 "쿠키 모드 401 → notify" 를 직접 단언하던 케이스가 있으면 새 의미(갱신 시도 후)에 맞게 msw refresh 핸들러(401 반환)를 추가해 보정하고 report 에 명시.
+Expected: authRefresh 9건 PASS + 기존 api 테스트(authTransport·authLogout·errorNormalization 등) 전부 PASS. 기존 테스트 중 "쿠키 모드 401 → notify" 를 직접 단언하던 케이스가 있으면 새 의미(갱신 시도 후)에 맞게 msw refresh 핸들러(401 반환)를 추가해 보정하고 report 에 명시.
 
 - [ ] **Step 5: Commit**
 
