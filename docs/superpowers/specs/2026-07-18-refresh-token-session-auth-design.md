@@ -339,7 +339,7 @@ Set-Cookie: auth_hint=...; Domain=.duings.com; Path=/; Secure; HttpOnly; SameSit
 ## 18. 운영
 
 ### 18.1 Cleanup 잡 — `AuthSessionCleanupJob`
-`@ConditionalOnProperty(prefix="duing.auth.session-cleanup", name="enabled")` 패턴(OverdueBillJob 전례), cron `0 50 4 * * *` Asia/Seoul(백업 04:15·PII 04:30과 분산). base `${DUING_AUTH_SESSION_CLEANUP_ENABLED:false}`, prod `:true`(이 잡은 만료 데이터 삭제만이라 기본 활성이 안전). 삭제 규칙: ① 폐기/만료 후 **30일** 지난 세션과 그 토큰 행 물리 삭제(재사용 포렌식 보존기간) ② `auth_event` **90일** 후 삭제(IP·UA 포함 — PII 보존 최소화, PiiRetentionJob 전례). 만료 세션(`expires_at < now`, 미폐기)은 삭제 전이라도 rotate/조회에서 폐기와 동일 취급.
+`@ConditionalOnProperty(prefix="duing.auth.session.cleanup", name="enabled")` 패턴(OverdueBillJob 전례), cron `0 50 4 * * *` Asia/Seoul(백업 04:15·PII 04:30과 분산). base `${DUING_AUTH_SESSION_CLEANUP_ENABLED:false}`, prod `:true`(이 잡은 만료 데이터 삭제만이라 기본 활성이 안전). 삭제 규칙: ① 폐기/만료 후 **30일** 지난 세션과 그 토큰 행 물리 삭제(재사용 포렌식 보존기간) ② `auth_event` **90일** 후 삭제(IP·UA 포함 — PII 보존 최소화, PiiRetentionJob 전례). 만료 세션(`expires_at < now`, 미폐기)은 삭제 전이라도 rotate/조회에서 폐기와 동일 취급.
 
 ### 18.2 모니터링·Health
 - `REUSE_DETECTED`는 Sentry capture + `auth_event`. 로그인 실패·잠금은 기존 체계 유지.
