@@ -15,12 +15,20 @@ afterAll(() => server.close());
 
 const SESSION_FIXTURE: MySession[] = [
   {
-    sessionId: 2, platform: 'WEB', deviceLabel: 'Chrome · macOS',
-    lastUsedAt: '2026-07-19T10:00:00', createdAt: '2026-07-01T09:00:00', current: true,
+    sessionId: 2,
+    platform: 'WEB',
+    deviceLabel: 'Chrome · macOS',
+    lastUsedAt: '2026-07-19T10:00:00',
+    createdAt: '2026-07-01T09:00:00',
+    current: true,
   },
   {
-    sessionId: 1, platform: 'IOS', deviceLabel: 'iPhone 15',
-    lastUsedAt: '2026-07-18T22:00:00', createdAt: '2026-06-20T08:00:00', current: false,
+    sessionId: 1,
+    platform: 'IOS',
+    deviceLabel: 'iPhone 15',
+    lastUsedAt: '2026-07-18T22:00:00',
+    createdAt: '2026-06-20T08:00:00',
+    current: false,
   },
 ];
 
@@ -32,7 +40,8 @@ describe('세션 관리 API 클라이언트', () => {
   it('세션 목록을 조회한다', async () => {
     server.use(
       http.get(`${BASE_URL}/users/me/sessions`, () =>
-        HttpResponse.json({ ok: true, data: SESSION_FIXTURE, message: null })),
+        HttpResponse.json({ ok: true, data: SESSION_FIXTURE, message: null }),
+      ),
     );
 
     const sessions = await cookieClient().users.sessions();
