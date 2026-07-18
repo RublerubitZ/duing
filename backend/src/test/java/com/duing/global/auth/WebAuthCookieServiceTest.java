@@ -46,7 +46,7 @@ class WebAuthCookieServiceTest {
         assertThat(cookies).anySatisfy(cookie -> {
             assertThat(cookie).startsWith("__Host-duing_access_token=access.jwt");
             assertThat(cookie)
-                    .contains("Path=/", "Max-Age=3600", "Secure", "HttpOnly", "SameSite=Lax");
+                    .contains("Path=/", "Max-Age=1800", "Secure", "HttpOnly", "SameSite=Lax");
             assertThat(cookie).doesNotContain("Domain=");
         });
         assertThat(cookies).anySatisfy(cookie -> {
