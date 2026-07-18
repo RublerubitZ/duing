@@ -157,6 +157,24 @@ describe('쿠키 모드 401 자동 갱신', () => {
     expect(meCallCount).toBe(2);      // 원요청 + 재시도 1회, 3번째 호출 없음
   });
 
+  it('갱신 성공 후 재시도된 GET 이 5xx 면 ky 기본 재시도 없이 그대로 표면화한다(호출 2회)', async () => {
+    let meCallCount = 0;
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () => {
+        meCallCount += 1;
+        if (meCallCount === 1) {
+          return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+        }
+        return new HttpResponse(null, { status: 503 });
+      }),
+      http.post(`${BASE_URL}/auth/web/refresh`, () => new HttpResponse(null, { status: 204 })),
+    );
+
+    // retry:0 이 없으면 bare ky 가 GET 5xx 를 2회 더 재시도해 meCallCount 가 4 가 된다.
+    await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 503 });
+    expect(meCallCount).toBe(2); // 원요청 401 + 재시도 503, 추가 재시도 없음
+  });
+
   it('POST 재시도에서도 요청 바디가 보존된다', async () => {
     const receivedBodies: unknown[] = [];
     let postCallCount = 0;

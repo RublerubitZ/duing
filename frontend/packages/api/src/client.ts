@@ -843,6 +843,11 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             return;
           }
           if (authTransport === 'cookie') {
+            // authTransport==='cookie' 면 refreshCoordinator 는 구조상 항상 존재하지만,
+            // 타입 내로잉으로 non-null 단언(!)을 피한다(레포 규약). 도달 불가 가드.
+            if (refreshCoordinator === null) {
+              return;
+            }
             // 로그인(자격 오류)·로그아웃(의도적)·refresh 자신(조율기가 전담)의 401 은 갱신 대상이 아니다.
             const isAuthPath =
               request.url.endsWith('/auth/web/login') ||
@@ -851,11 +856,15 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             if (isAuthPath) {
               return;
             }
-            const outcome = await refreshCoordinator!.ensureFreshSession();
+            const outcome = await refreshCoordinator.ensureFreshSession();
             if (outcome === 'refreshed' || outcome === 'skipped') {
               // ky 공식 재시도 패턴 — bare ky 는 이 훅을 다시 타지 않아 루프가 없고,
               // 재시도가 다시 401 이어도 그대로 표면화된다(다음 요청이 새 갱신 사이클을 연다).
-              return ky(request);
+              // retry:0 명시 — bare ky 기본값은 GET 계열 5xx 에 2회 자동 재시도라, 비워두면
+              // "재시도 단일 진실원=RQ(retry:0)" 정책(전역 http 훅 주석 참조)이 이 경로에서만 깨진다.
+              // 한계: 원 요청의 per-request timeout(업로드 60s 등)은 Request 객체에 보존되지 않아
+              // 기본 10s 로 재시도된다 — 갱신 직후 재시도가 장기 API 와 겹치는 좁은 케이스라 수용(후속 여지).
+              return ky(request, { retry: 0 });
             }
             // 'session-expired'(알림은 실행기가 1회 발화) · 'unavailable' — 원 401 표면화 (§17)
             return;
