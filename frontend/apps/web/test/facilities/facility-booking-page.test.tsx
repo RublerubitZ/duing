@@ -351,9 +351,9 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
   it('시나리오 2: 딥링크 facilityId=1 은 월간 캘린더로 직행하고 콘텍스트 바·창 첫날 셀 레벨을 노출한다', async () => {
     renderPage();
 
-    // 선택 시설(커뮤니티룸)은 콘텍스트 바 버튼, 다른 시설(공동연습실)은 퀵 칩으로 노출된다.
-    expect(await screen.findByRole('button', { name: '커뮤니티룸(1) — 다른 시설 보기' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '공동연습실(1)' })).toBeInTheDocument();
+    // 선택 시설(커뮤니티룸)은 드롭다운 트리거의 선택값으로 노출된다(다른 시설은 열기 전 비노출).
+    expect(await screen.findByRole('button', { name: '시설 선택 — 현재 커뮤니티룸(1)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '전체 보기' })).toBeInTheDocument();
 
     // 창 첫날 셀(월간 그리드) = availableSlotCount 10 → 레벨 '여유'. 주간 사이드바는 아직 없다.
     const windowFromCell = await screen.findByRole('button', { name: WINDOW_FROM_CELL });

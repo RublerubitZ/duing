@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { BookingAvailabilitySlot, BookingDayAvailability, FacilityItem } from '@duing/types';
 import { FacilityContextBar } from '@/app/facilities/_components/booking/FacilityContextBar';
@@ -50,7 +51,8 @@ function makeDay(overrides?: Partial<BookingDayAvailability>): BookingDayAvailab
   };
 }
 
-it('콘텍스트 바는 선택 시설 카드·다른 시설 퀵 칩·전체 보기를 렌더하고 콜백을 부른다', () => {
+it('콘텍스트 바는 시설 선택 드롭다운·전체 보기를 렌더하고 항목 선택 시 onSelect 를 부른다', async () => {
+  const user = userEvent.setup();
   const onSelect = vi.fn();
   const onGoHome = vi.fn();
   render(
@@ -64,19 +66,39 @@ it('콘텍스트 바는 선택 시설 카드·다른 시설 퀵 칩·전체 보�
       onGoHome={onGoHome}
     />,
   );
-  // 선택 시설 카드(위치 노출) — 클릭 시 홈 복귀
+  // 트리거 = 현재 선택 시설이 선택값으로 표시(위치 포함)
+  const trigger = screen.getByRole('button', { name: '시설 선택 — 현재 커뮤니티룸(1)' });
   expect(screen.getByText('학생회관 2층')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '커뮤니티룸(1) — 다른 시설 보기' }));
-  expect(onGoHome).toHaveBeenCalledTimes(1);
-  // 다른 시설 퀵 칩 — 클릭 시 onSelect
-  fireEvent.click(screen.getByRole('button', { name: '공동연습실(1)' }));
+  // 드롭다운 열기 → 다른 시설 항목 선택 시 즉시 onSelect
+  await user.click(trigger);
+  await user.click(await screen.findByRole('menuitem', { name: /공동연습실\(1\)/ }));
   expect(onSelect).toHaveBeenCalledWith(2);
   // 전체 보기 — 클릭 시 홈 복귀
   fireEvent.click(screen.getByRole('button', { name: '전체 보기' }));
-  expect(onGoHome).toHaveBeenCalledTimes(2);
+  expect(onGoHome).toHaveBeenCalledTimes(1);
 });
 
-it('콘텍스트 바 퀵 칩은 개수 캡 없이 전부 렌더한다(스크롤 탭 — 6번째 이후 시설도 1클릭 전환)', () => {
+it('드롭다운에서 현재 시설 재선택은 onSelect 를 부르지 않는다(불필요 캘린더 리셋 방지)', async () => {
+  const user = userEvent.setup();
+  const onSelect = vi.fn();
+  render(
+    <FacilityContextBar
+      facilities={[
+        { id: 1, roomName: '커뮤니티룸(1)', location: '학생회관 2층' },
+        { id: 2, roomName: '공동연습실(1)', location: null },
+      ]}
+      selectedId={1}
+      onSelect={onSelect}
+      onGoHome={vi.fn()}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '시설 선택 — 현재 커뮤니티룸(1)' }));
+  await user.click(await screen.findByRole('menuitem', { name: /커뮤니티룸\(1\)/ }));
+  expect(onSelect).not.toHaveBeenCalled();
+});
+
+it('시설 드롭다운은 개수 캡 없이 전 시설을 나열한다(6번째 이후 시설도 즉시 선택 가능)', async () => {
+  const user = userEvent.setup();
   const manyFacilities = Array.from({ length: 8 }, (_, index) => ({
     id: index + 1,
     roomName: `연습실(${index + 1})`,
@@ -85,9 +107,10 @@ it('콘텍스트 바 퀵 칩은 개수 캡 없이 전부 렌더한다(스크롤 
   render(
     <FacilityContextBar facilities={manyFacilities} selectedId={1} onSelect={vi.fn()} onGoHome={vi.fn()} />,
   );
-  // 선택(1) 제외 7개 전부 칩으로 — 구 slice(0,5) 캡이면 연습실(7)·(8)이 사라진다.
-  expect(screen.getByRole('button', { name: '연습실(7)' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '연습실(8)' })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '시설 선택 — 현재 연습실(1)' }));
+  // 구 스크롤 탭의 slice(0,5) 캡이면 연습실(7)·(8)이 사라진다 — 드롭다운은 전부 나열.
+  expect(await screen.findByRole('menuitem', { name: /연습실\(7\)/ })).toBeInTheDocument();
+  expect(screen.getByRole('menuitem', { name: /연습실\(8\)/ })).toBeInTheDocument();
 });
 
 it('캘린더 셀은 레벨 라벨(여유/마감)을 표시하고 창 이전 과거는 비활성이다', () => {
@@ -420,6 +443,10 @@ it('예약 패널(일간 콘텐츠 전용)은 통합 예약 현황 카드·시�
   const slotList = screen.getByRole('list', { name: '시간대 선택' }); // DaySlotList
   // 예약 현황 → 시간 선택 순서(DOCUMENT_POSITION_FOLLOWING = 4)
   expect(overview.compareDocumentPosition(slotList) & 4).toBeTruthy();
+  // 모바일(<md) 주간: CTA 바는 BottomNav(3.5rem+safe-area) 위 fixed — 탭바에 가려지던 회귀 방지. 스페이서 동반.
+  const ctaBar = screen.getByRole('button', { name: '시간을 선택해주세요' }).closest('div');
+  expect(ctaBar).toHaveClass('max-md:fixed');
+  expect(ctaBar).toHaveClass('max-md:bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))]');
   // 다크 요약 카드는 통합으로 제거 — "선택한 날짜" 미렌더.
   expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
   // 일간/주간 뷰 토글은 공용 헤더(BookingViewHeader)로 이관 — 패널 내부 tablist·주간 그리드는 없다.
@@ -584,11 +611,12 @@ function renderWeek(props?: Partial<Parameters<typeof WeekTimetable>[0]>) {
   return { onSelectDate, onTapSlot };
 }
 
-it('주간 그리드는 선택일 컬럼을 "· 선택" 접미·ink 원형 숫자·(PC) sage tint 프레임으로 강조한다', () => {
+it('주간 그리드는 선택일 컬럼을 ink 원형 숫자·(PC) sage tint 프레임으로만 강조하고 "선택" 텍스트는 없다', () => {
   renderWeek();
-  // 선택일(월20) 헤더: "· 선택" 접미 + 숫자 ink 원형 반전(모바일·PC 공통 유지).
+  // 선택일(월20) 헤더: 숫자 ink 원형 반전(모바일·PC 공통). "· 선택"은 aria-label 전용 — 시각 텍스트 제거.
   const selectedHeader = screen.getByRole('button', { name: '월요일 20일 · 선택' });
   expect(within(selectedHeader).getByText('20')).toHaveClass('bg-ink');
+  expect(within(selectedHeader).queryByText(/선택/)).toBeNull();
   // 컬럼 프레임(sage tint·ink 보더)은 PC 전용(§9.2) — sm: 프리픽스라 모바일엔 미적용.
   const selectedCell = screen.getByRole('button', { name: '월요일 20일 18:00 가능' });
   expect(selectedCell.closest('td')).toHaveClass('sm:bg-sage/20');
@@ -622,7 +650,7 @@ it('주간 그리드의 대기(PENDING_HOLD) 구간은 이름 없는 "승인 대
   // 비노출 정책: 이름 없이 "승인 대기"만. PC 에서 확정/대기 블록은 disabled(§8.1).
   const pendingBlock = screen.getByRole('button', { name: '월요일 20일 11:00~12:00 승인 대기' });
   expect(pendingBlock).toBeDisabled();
-  expect(pendingBlock).toHaveClass('bg-warm/15'); // Amber(warm) 고정색
+  expect(pendingBlock).toHaveClass('bg-warm/20'); // Amber(warm) 고정색 — /20 대비 보강
   expect(within(pendingBlock).getByText('승인 대기')).toBeInTheDocument();
 });
 
@@ -654,8 +682,11 @@ it('모바일 압축(§9.1): 그리드는 table-fixed·시간열 w-8 이고 min-
   renderWeek();
   const table = screen.getByRole('table');
   // 7컬럼 균등(table-fixed) + 모바일 min-w 미적용(sm:min-w-[480px] 으로만) → 가로 스크롤 제거.
+  // PC 도 table-fixed 유지(§격자 균일) — sm:table-auto 로 되돌리면 블록 텍스트 길이에 열 너비가 흔들린다.
   expect(table).toHaveClass('table-fixed');
+  expect(table).not.toHaveClass('sm:table-auto');
   expect(table).not.toHaveClass('min-w-[480px]');
+  expect(table).toHaveClass('sm:min-w-[480px]'); // PC 최소 폭은 유지(격자 압착 방지)
   // 시간열은 모바일 w-8, PC sm:w-12. 09시는 모바일 'HH' 표기(09)도 노출된다.
   expect(screen.getByText('09')).toBeInTheDocument();
 });
@@ -666,6 +697,8 @@ it('모바일 압축(§9.2): 확정 블록은 2자 약칭만 노출하고 풀네
   // 모바일 약칭 '비호'(sm:hidden) — 라벨 앞 2자.
   const abbrev = within(block).getByText('비호');
   expect(abbrev).toHaveClass('sm:hidden');
+  // PC 상세는 네이티브 hover 툴팁(title) — 블록 내부는 이름·시간 2단계만 유지.
+  expect(block).toHaveAttribute('title', '비호응원단 13:00~15:00');
   // PC 풀네임(hidden sm:block)·시간(hidden sm:block)은 모바일에서 숨김.
   const fullName = within(block).getByText('비호응원단');
   expect(fullName).toHaveClass('hidden');
@@ -870,8 +903,12 @@ it('빠른 예약 시트(§11.1): slots 스텝은 날짜 제목·스텝 인디�
   // 슬롯 리스트에 기본 확보 시간 안내 박스가 함께 온다(DaySlotList 재사용).
   expect(within(dialog).getByText('기본 확보 시간')).toBeInTheDocument();
   // 선택 전 CTA 비활성 + 보조 버튼 "시간표로 보기" 노출(slots 스텝).
-  expect(within(dialog).getByRole('button', { name: '시간을 선택해주세요' })).toBeDisabled();
+  const sheetCta = within(dialog).getByRole('button', { name: '시간을 선택해주세요' });
+  expect(sheetCta).toBeDisabled();
   expect(within(dialog).getByRole('button', { name: '시간표로 보기' })).toBeInTheDocument();
+  // sticky 푸터가 safe-area 하단 패딩을 자체 보유 — 컨테이너 pb 가 푸터 아래 여백으로 노출되던 회귀 방지.
+  expect(sheetCta.closest('div')).toHaveClass('pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]');
+  expect(dialog).toHaveClass('pb-0'); // 컨테이너는 pb 0 — 복원되면 푸터 아래 여백 재발.
   // 통합 예약 현황 카드는 시트에 없다(§11.1 — 그 역할은 주간 뷰).
   expect(within(dialog).queryByText(/예약 현황/)).not.toBeInTheDocument();
 });

@@ -87,6 +87,8 @@ export function FacilityBookingPage() {
   const [submittedResult, setSubmittedResult] = useState<CreateFacilityBookingResult | null>(null);
   const [submittedClubId, setSubmittedClubId] = useState<number | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  // 주간 사이드바 참조 — 모바일 고정 액션 바에서 신청 시 폼(그리드 아래 패널)으로 스크롤 이동용.
+  const weekPanelRef = useRef<HTMLElement | null>(null);
 
   const { addToast } = useToast();
   const usageQuery = useFacilityUsageQuery();
@@ -269,6 +271,15 @@ export function FacilityBookingPage() {
     setCalendarView('week');
   };
 
+  // 주간 CTA → 신청 폼 스텝. 모바일(<md)은 고정 액션 바에서 눌러도 폼(그리드 아래 패널)이 뷰포트 밖일 수
+  // 있어 패널로 스크롤한다(별도 화면 없이 페이지 안에서 이어지는 플로우). 데스크탑은 사이드바가 보여 스크롤 불필요.
+  const proceedToForm = () => {
+    setStep('form');
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      requestAnimationFrame(() => weekPanelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }));
+    }
+  };
+
   // 창 밖 미래 셀 탭 — 선택은 열지 않고 안내만 한다(동일 문구는 토스트 dedup 으로 1회).
   const handleOutOfWindowSelect = () =>
     addToast(`현재 예약 가능한 기간이 아니에요${windowLabel ? ` (${windowLabel})` : ''}`, { variant: 'error' });
@@ -373,7 +384,7 @@ export function FacilityBookingPage() {
         selection={selection}
         onToggleSlot={toggleSlot}
         step={step}
-        onProceedToForm={() => setStep('form')}
+        onProceedToForm={proceedToForm}
         onBackToSlots={() => setStep('slots')}
         submittedResult={submittedResult}
         submittedClubId={submittedClubId}
@@ -492,7 +503,10 @@ export function FacilityBookingPage() {
                 </section>
                 {/* 주간 전용 사이드바(§5) — 데스크탑 우측 sticky, 모바일 그리드 아래 세로 스택(시트 제거). */}
                 {showSidebar && (
-                  <aside className="mt-4 rounded-lg border border-line bg-paper p-4 md:mt-0 md:sticky md:top-4 md:self-start">
+                  <aside
+                    ref={weekPanelRef}
+                    className="mt-4 rounded-lg border border-line bg-paper p-4 md:mt-0 md:sticky md:top-4 md:self-start"
+                  >
                     {panel}
                   </aside>
                 )}

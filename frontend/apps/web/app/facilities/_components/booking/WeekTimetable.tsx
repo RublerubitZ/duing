@@ -28,7 +28,8 @@ const PASTEL_BLOCK_CLASSES = [
 ] as const;
 
 // 대기(warm) 고정색 블록 클래스(§8.2) — 파스텔과 달리 상태 고정색이라 라벨 무관 단일.
-const PENDING_BLOCK_CLASS = { bg: 'bg-warm/15', border: 'border-warm/60', accent: 'border-l-warm', name: 'text-[#8E6620]' } as const;
+// bg /20: 흰 격자 위 구분감(명도 대비) 보강 — /15 는 가용 셀(sage-mist)과 톤이 붙어 흐릿했다.
+const PENDING_BLOCK_CLASS = { bg: 'bg-warm/20', border: 'border-warm/60', accent: 'border-l-warm', name: 'text-[#8E6620]' } as const;
 
 type Props = {
   selectedDate: string;
@@ -146,7 +147,9 @@ export function WeekTimetable({
   return (
     // 모바일(<sm): min-w 제거 + table-fixed(7컬럼 균등)로 가로 스크롤 제거(§9.1). PC(≥sm): 기존 min-w·overflow 유지.
     <div className="sm:overflow-x-auto">
-      <table className="w-full table-fixed border-separate border-spacing-0 text-center sm:table-auto sm:min-w-[480px]">
+      {/* table-fixed 전 뷰포트 고정(§격자 균일) — auto 레이아웃은 블록 텍스트 길이에 따라 열 너비가 변해
+          "같은 요일 = 같은 너비" 격자가 깨진다. 셀 높이(h-7/sm:h-10)와 함께 격자 불변 계약. */}
+      <table className="w-full table-fixed border-separate border-spacing-0 text-center sm:min-w-[480px]">
         <thead>
           <tr>
             <th className="w-8 sm:w-12" aria-hidden />
@@ -171,9 +174,9 @@ export function WeekTimetable({
                     aria-label={`${WEEKDAY_LABELS[colIndex]}요일 ${dayNumber}일${isSelectedColumn ? ' · 선택' : ''}`}
                     className="flex w-full flex-col items-center gap-0.5 px-1 py-1.5 disabled:cursor-default disabled:opacity-40"
                   >
+                    {/* "· 선택" 텍스트 제거 — ink 원형 배지·컬럼 tint 로 충분(시각), 선택 상태는 aria-label 이 전달. */}
                     <span className={`text-[10px] font-medium ${isSelectedColumn ? 'text-ink' : 'text-charcoal-3'}`}>
                       {WEEKDAY_LABELS[colIndex]}
-                      {isSelectedColumn ? ' · 선택' : ''}
                     </span>
                     <span
                       className={`flex h-6 w-6 items-center justify-center rounded-full font-mono text-[12px] font-bold ${
@@ -225,14 +228,16 @@ export function WeekTimetable({
                               ? () => onTapBlock?.({ kind: entry.kind, label: displayName, start: entry.start, end: entry.end })
                               : undefined
                           }
+                          // PC 상세 = 네이티브 hover 툴팁(블록 내부는 이름·시간 2단계만), 모바일 상세 = 탭 시트(§9.3).
+                          title={`${displayName} ${entry.start}~${entry.end}`}
                           aria-label={blockAriaLabel(entry, weekdayLabel, dayNumber)}
-                          className={`flex h-full min-h-7 w-full flex-col justify-center gap-0.5 overflow-hidden rounded-[5px] border border-l-[3px] px-1 py-0.5 text-left leading-tight disabled:cursor-default sm:min-h-10 ${visual.bg} ${visual.border} ${visual.accent}`}
+                          className={`flex h-full min-h-7 w-full flex-col justify-center gap-0.5 overflow-hidden rounded-[5px] border border-l-[3px] px-1 py-0.5 text-left leading-tight disabled:cursor-default sm:min-h-10 sm:px-1.5 sm:py-1 ${visual.bg} ${visual.border} ${visual.accent}`}
                         >
                           {/* 모바일: 약칭만(§9.2) */}
                           <span className={`truncate text-[10px] font-bold sm:hidden ${visual.name}`}>{abbrev}</span>
-                          {/* PC: 풀네임 Bold + 시간 범위 secondary */}
-                          <span className={`hidden truncate text-[10px] font-bold sm:block ${visual.name}`}>{displayName}</span>
-                          <span className="hidden truncate font-mono text-[9px] text-charcoal-3 sm:block">
+                          {/* PC: 풀네임 Bold(1줄 말줄임) + 시간 범위 secondary — 2단계 정보 고정(격자 불변). */}
+                          <span className={`hidden truncate text-[11px] font-bold sm:block ${visual.name}`}>{displayName}</span>
+                          <span className="hidden truncate font-mono text-[10px] text-charcoal-3 sm:block">
                             {entry.start}~{entry.end}
                           </span>
                         </button>
@@ -244,7 +249,8 @@ export function WeekTimetable({
                   if (entry.type === 'empty') {
                     return (
                       <td key={iso} className={`p-[2px] ${tdFrame}`}>
-                        <div aria-hidden className="h-7 rounded-[5px] border border-transparent sm:h-10" />
+                        {/* 데이터 없는 날도 옅은 격자 유지 — 빈 영역의 리듬감(§가독성). */}
+                        <div aria-hidden className="h-7 rounded-[5px] border border-line/40 sm:h-10" />
                       </td>
                     );
                   }
