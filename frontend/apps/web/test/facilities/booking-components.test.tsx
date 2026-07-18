@@ -443,6 +443,10 @@ it('예약 패널(일간 콘텐츠 전용)은 통합 예약 현황 카드·시�
   const slotList = screen.getByRole('list', { name: '시간대 선택' }); // DaySlotList
   // 예약 현황 → 시간 선택 순서(DOCUMENT_POSITION_FOLLOWING = 4)
   expect(overview.compareDocumentPosition(slotList) & 4).toBeTruthy();
+  // 모바일(<md) 주간: CTA 바는 BottomNav(3.5rem+safe-area) 위 fixed — 탭바에 가려지던 회귀 방지. 스페이서 동반.
+  const ctaBar = screen.getByRole('button', { name: '시간을 선택해주세요' }).closest('div');
+  expect(ctaBar).toHaveClass('max-md:fixed');
+  expect(ctaBar).toHaveClass('max-md:bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))]');
   // 다크 요약 카드는 통합으로 제거 — "선택한 날짜" 미렌더.
   expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
   // 일간/주간 뷰 토글은 공용 헤더(BookingViewHeader)로 이관 — 패널 내부 tablist·주간 그리드는 없다.
@@ -904,6 +908,7 @@ it('빠른 예약 시트(§11.1): slots 스텝은 날짜 제목·스텝 인디�
   expect(within(dialog).getByRole('button', { name: '시간표로 보기' })).toBeInTheDocument();
   // sticky 푸터가 safe-area 하단 패딩을 자체 보유 — 컨테이너 pb 가 푸터 아래 여백으로 노출되던 회귀 방지.
   expect(sheetCta.closest('div')).toHaveClass('pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]');
+  expect(dialog).toHaveClass('pb-0'); // 컨테이너는 pb 0 — 복원되면 푸터 아래 여백 재발.
   // 통합 예약 현황 카드는 시트에 없다(§11.1 — 그 역할은 주간 뷰).
   expect(within(dialog).queryByText(/예약 현황/)).not.toBeInTheDocument();
 });
