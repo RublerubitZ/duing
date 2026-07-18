@@ -15,12 +15,14 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.IssueSessionCommand;
 import com.duing.domain.user.service.dto.query.IssuedSession;
 import com.duing.domain.user.service.dto.query.RotationResult;
+import com.duing.domain.user.service.dto.query.SessionSummary;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.auth.RefreshTokenGenerator;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -185,6 +187,32 @@ public class GeneralAuthSessionService implements AuthSessionService {
         authRefreshTokenRepository.revokeAllByUserId(userId, RefreshTokenStatus.REVOKED);
         authEventRepository.save(AuthEvent.of(userId, null, eventTypeFor(reason),
                 "revokedSessions=" + revokedCount, null, null));
+    }
+
+    @Override
+    public List<SessionSummary> listSessions(Long userId, Long currentSessionIdOrNull) {
+        return authSessionRepository.findByUserIdAndRevokedAtIsNullOrderByLastUsedAtAsc(userId).stream()
+                .sorted(Comparator.comparing(AuthSession::getLastUsedAt).reversed())
+                .map(session -> new SessionSummary(
+                        session.getId(), session.getPlatform(), session.getDeviceLabel(),
+                        session.getLastUsedAt(), session.getCreatedAt(),
+                        session.getId().equals(currentSessionIdOrNull)))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public boolean revokeOne(Long userId, Long sessionId) {
+        AuthSession session = authSessionRepository.findByIdForUpdate(sessionId).orElse(null);
+        // 타인 세션 지목 차단 — revokeCurrent 와 동일한 소유 검증 (spec §8: 본인 것만)
+        if (session == null || !session.getUserId().equals(userId) || session.getRevokedAt() != null) {
+            return false;
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        session.revoke(now, SessionRevokeReason.LOGOUT);
+        authRefreshTokenRepository.revokeBySessionIds(List.of(session.getId()), RefreshTokenStatus.REVOKED);
+        authEventRepository.save(AuthEvent.of(userId, session.getId(), AuthEventType.LOGOUT, null, null, null));
+        return true;
     }
 
     private AuthEventType eventTypeFor(SessionRevokeReason reason) {
