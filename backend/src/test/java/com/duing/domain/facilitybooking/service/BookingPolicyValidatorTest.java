@@ -17,8 +17,6 @@ class BookingPolicyValidatorTest {
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     // KST 2026-01-10 12:30 — 상반기(1~15일): 롤링 창 = 1/10(오늘) ~ 1/31
     private static final Clock FIRST_HALF = Clock.fixed(Instant.parse("2026-01-10T03:30:00Z"), SEOUL);
-    // KST 2026-01-20 12:30 — 하반기(16~말일): 롤링 창 = 1/20(오늘) ~ 2/15
-    private static final Clock SECOND_HALF = Clock.fixed(Instant.parse("2026-01-20T03:30:00Z"), SEOUL);
 
     private final BookingWindowPolicy policy = new HalfMonthBookingWindowPolicy(15);
 

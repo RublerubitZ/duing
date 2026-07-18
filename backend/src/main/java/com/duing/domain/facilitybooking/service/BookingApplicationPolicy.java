@@ -43,7 +43,10 @@ public class BookingApplicationPolicy {
         rolePolicy.validate(applicant);
     }
 
-    /** 반월 창 계산 접근자 — 가용성·윈도우 API 도 이 진입점만 사용한다(BookingWindowPolicy 직접 주입 금지). */
+    /**
+     * 반월 창 계산 접근자 — 가용성·윈도우 API 도 이 진입점만 사용한다(BookingWindowPolicy 직접 주입 금지).
+     * 단, BookingPolicyValidator 의 직접 주입은 당일 가드 예외 메시지 구성용으로 남긴 의도된 예외다.
+     */
     public BookingWindow windowFor(LocalDate today) {
         return bookingWindowPolicy.windowFor(today);
     }

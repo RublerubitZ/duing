@@ -139,6 +139,26 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("운영 중이 아닌 동아리는 일반 멤버가 신청해도 NotActiveClub 이 먼저 반환된다")
+    void createRejectsInactiveClubForMemberBeforeRoleCheck() throws Exception {
+        User member = saveUser("일반부원");
+        Club inactiveClub = saveActiveClub("중단동아리B");
+        clubMemberRepository.save(ClubMember.asMember(inactiveClub, member));
+        Field statusField = Club.class.getDeclaredField("status");
+        statusField.setAccessible(true);
+        statusField.set(inactiveClub, ClubStatus.INACTIVE);
+        clubRepository.save(inactiveClub);
+        Facility facility = saveFacility();
+
+        assertThatThrownBy(() -> bookingService.create(new CreateFacilityBookingCommand(
+                inactiveClub.getId(), member.getId(), facility.getId(), bookableDate(),
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)))
+                .isInstanceOf(ClubMemberException.NotActiveClub.class);
+        assertThat(bookingRepository.findByClubIdOrderByCreatedAtDesc(inactiveClub.getId())).isEmpty();
+    }
+
+    @Test
     @DisplayName("운영진 신청은 PENDING 으로 생성되고 생성 이력이 남는다")
     void createPendingBookingWithHistory() throws Exception {
         Fixture fixture = fixture();

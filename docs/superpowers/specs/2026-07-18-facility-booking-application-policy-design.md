@@ -91,6 +91,7 @@ BookingPolicyValidator (기존 유지) ← 기술적 검증 전담
 - 정책이 validator보다 먼저 실행되므로 당일 신청은 `DEADLINE_PASSED`로 응답. validator의 "당일 경과 슬롯" 체크는 도달 불가가 되지만 기존 코드 보존 원칙에 따라 유지.
 - 날짜 정책(반월·마감)이 권한보다 먼저이므로, 권한 없는 사용자가 마감된 날짜로 신청해도 400(날짜 오류)이 먼저 반환된다 — 의도된 동작.
 - `requireManager` 미사용으로 비ACTIVE 클럽 처리가 create 내 잠금 후 ACTIVE 체크로 일원화됨 — 예외 타입 동일 여부를 구현 시 확인 (회귀 포인트).
+- 동아리 ACTIVE 게이트(잠금 하 재검사)는 정책 4종보다 선행한다 — 비ACTIVE 동아리는 역할과 무관하게 `NotActiveClub` 이 먼저 반환된다(기존엔 역할 거부가 선행 — 의도된 순서 변화).
 - cancel/list/detail은 계속 `requireManager` 사용, 무변경.
 
 ### Availability / BookingWindow
@@ -113,7 +114,7 @@ BookingPolicyValidator (기존 유지) ← 기술적 검증 전담
    - 클럽 선택지는 중앙동아리만 노출
 2. **마감 안내** (패널·폼 레벨): 선택 날짜가 마감이면(당일 항상, 익일은 클라 KST가 12:01 이상일 때 — 서버와 동일 경계식 미러) 신청 버튼 비활성 + "시설 사용일 전날 12:00까지만 신청할 수 있어요."
    - 클라 시각은 **표시용 힌트만** — 최종 판단은 서버. 힌트가 틀려도 서버 400 메시지로 정정됨.
-3. **서버 오류 코드 매핑**: 3종 code → 지정 메시지 표시 (기존 에러 정규화 경로에 추가), code 없으면 서버 message 폴백.
+3. **서버 오류 메시지 노출**: 서버 `message` 가 곧 사용자 문구이므로 별도 FE 코드 매핑 계층을 두지 않는다 — 기존 `error.message` 토스트 경로(`ApiError` 폴백)로 그대로 노출한다.
 4. 타입: `packages/types` `ManagedClub`에 `centralClub` 추가.
 
 ## 테스트 계획

@@ -52,6 +52,8 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
         // APPROVED/CONFIRMED 만 커버하고 PENDING 겹침은 커버하지 않는다. 동아리 행을 비관 잠금해
         // 같은 동아리의 create 만 순차화하고 다른 동아리 간 병렬성은 유지한다.
         // 잠금 선행 시 resolveMembership/ACTIVE 재검사는 1차 캐시의 잠긴 엔티티를 재사용한다.
+        // 잠금을 권한 게이트보다 먼저 잡는 순서가 중요하다(2026-07-17 감사) — 무잠금 ACTIVE 판정은
+        // 운영 중단 전환(updateStatus, findByIdForUpdate)과 경합하면 INACTIVE 동아리에 PENDING 이 남는다.
         Club club = clubRepository.findByIdForUpdate(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         // 역할 거부를 정책 예외(PERMISSION_DENIED)로 매핑하기 위해 requireManager 대신 멤버십만 조회한다.
