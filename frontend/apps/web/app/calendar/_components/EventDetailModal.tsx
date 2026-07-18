@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useGlobalEventDetailQuery } from '@duing/hooks';
 import type { CalEvent, EventSource } from '@duing/types';
+import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { safeExternalHref, toRoute } from '../../_lib/route';
 
@@ -97,7 +98,7 @@ function GlobalDetailSection({ eventId }: { eventId: number }) {
   const detailQuery = useGlobalEventDetailQuery(eventId);
 
   if (detailQuery.isLoading) {
-    return <p className="text-[13px] text-charcoal-3">상세 정보를 불러오는 중…</p>;
+    return <TextLinesSkeleton lines={3} label="상세 정보 불러오는 중" className="border-t border-line pt-4" />;
   }
   if (detailQuery.isError || !detailQuery.data) {
     return <p className="text-[13px] text-coral">상세 정보를 불러오지 못했습니다.</p>;

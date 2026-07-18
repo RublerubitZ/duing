@@ -8,6 +8,7 @@ import type { BankMatchingClub, BankMatchingSlots } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { bankLabel } from '@/app/_lib/feeLabels';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 function mutationErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError || error instanceof Error) {
@@ -44,7 +45,7 @@ export function BankMatchingClubs() {
       />
 
       {isLoading ? (
-        <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+        <LoadingGate className="min-h-0 py-8" label="동아리 목록 불러오는 중" />
       ) : isError ? (
         <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
           <p className="text-sm text-charcoal-2">

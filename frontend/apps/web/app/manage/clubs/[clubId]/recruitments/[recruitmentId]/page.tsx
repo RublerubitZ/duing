@@ -2,7 +2,6 @@
 
 import { use, useState } from 'react';
 import Link from 'next/link';
-import { useTransitionRouter } from 'next-view-transitions';
 import {
   useRecruitmentDetailQuery,
   useCloseRecruitmentMutation,
@@ -10,10 +9,13 @@ import {
   useRecruitmentStatsSummaryQuery,
 } from '@duing/hooks';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '../../../../../_lib/route';
 import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
 import { InterviewStageChip } from './_components/InterviewStageChip';
 import { RecruitmentQuestionItemList } from './_components/RecruitmentQuestionItemList';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 export default function RecruitmentDetailPage({
   params,
@@ -24,7 +26,7 @@ export default function RecruitmentDetailPage({
   const clubId = Number(clubIdParam);
   const recruitmentId = Number(recruitmentIdParam);
 
-  const router = useTransitionRouter();
+  const router = useGuardedRouter();
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -42,7 +44,7 @@ export default function RecruitmentDetailPage({
   );
 
   if (isLoading || !recruitment) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="모집 정보 불러오는 중" />;
   }
 
   const isClosed = recruitment.displayStatus === 'CLOSED';
@@ -290,9 +292,9 @@ export default function RecruitmentDetailPage({
                 type="button"
                 onClick={handleClose}
                 disabled={closeRecruitment.isPending}
-                className="rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
               >
-                {closeRecruitment.isPending ? '마감 중…' : '마감 확인'}
+                {closeRecruitment.isPending && <ButtonSpinner />}마감 확인
               </button>
             </div>
           </div>

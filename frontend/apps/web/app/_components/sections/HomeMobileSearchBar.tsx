@@ -12,7 +12,7 @@ export function HomeMobileSearchBar() {
       <form
         action="/clubs"
         method="get"
-        className="mx-auto flex max-w-layout items-center gap-2.5 rounded-xl bg-paper px-3.5 py-2.5 shadow-1"
+        className="mx-auto flex max-w-layout items-center gap-2.5 rounded-xl bg-paper px-3.5 py-2.5 shadow-1 ring-ink/40 focus-within:ring-2"
       >
         <Search className="shrink-0 text-charcoal-3" />
         <input

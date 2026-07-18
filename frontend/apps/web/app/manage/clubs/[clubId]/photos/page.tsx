@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { useClubPhotosQuery, useManagedClubsQuery } from '@duing/hooks';
 import { PhotoUploader } from './_components/PhotoUploader';
 import { PhotoGrid } from './_components/PhotoGrid';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 export default function ClubPhotosPage({
   params,
@@ -20,7 +21,7 @@ export default function ClubPhotosPage({
   );
 
   if (isManagedClubsLoading || isPhotosLoading) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="활동사진 불러오는 중" />;
   }
 
   const managedClub = managedClubs?.find((club) => club.clubId === currentClubId);

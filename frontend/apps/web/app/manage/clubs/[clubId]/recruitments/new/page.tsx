@@ -1,7 +1,7 @@
 'use client';
 
 import { use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useCreateRecruitmentMutation } from '@duing/hooks';
 import { toRoute } from '../../../../../_lib/route';
 import { RecruitmentForm } from '../_components/RecruitmentForm';
@@ -14,7 +14,7 @@ export default function NewRecruitmentPage({
 }) {
   const { clubId: clubIdParam } = use(params);
   const clubId = Number(clubIdParam);
-  const router = useRouter();
+  const router = useGuardedRouter();
 
   const createRecruitment = useCreateRecruitmentMutation(clubId);
 

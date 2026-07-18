@@ -17,6 +17,7 @@ public record ClubSummaryResponse(
         String logoUrl,
         ClubStatus status,
         List<String> tags,
+        String tagline,
         boolean centralClub,
         ActiveRecruitmentSummaryResponse activeRecruitment
 ) {
@@ -46,6 +47,7 @@ public record ClubSummaryResponse(
                 summaryQuery.logoUrl(),
                 summaryQuery.status(),
                 summaryQuery.tags(),
+                summaryQuery.tagline(),
                 summaryQuery.centralClub(),
                 summaryQuery.activeRecruitment() == null
                         ? null

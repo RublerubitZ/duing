@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type BankSyncDialogProps = {
   clubId: number;
@@ -157,12 +158,12 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
               type="submit"
               disabled={isPending}
               className={cn(
-                'flex-1 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
+                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
                 'bg-ink hover:bg-ink-deep',
                 isPending && 'cursor-not-allowed opacity-60',
               )}
             >
-              {syncTransactions.isPending ? '동기화 중…' : '동기화'}
+              {syncTransactions.isPending && <ButtonSpinner />}동기화
             </button>
           </div>
         </form>

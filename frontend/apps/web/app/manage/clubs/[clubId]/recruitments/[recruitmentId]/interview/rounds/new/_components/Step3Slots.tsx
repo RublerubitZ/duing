@@ -9,6 +9,7 @@ import {
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
 import { SlotPatternForm } from '@/components/interview/SlotPatternForm';
 import type { RoundSlotEntry } from '@/components/interview/_utils/generateSlotsFromPattern';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 // Step3: 슬롯 등록
 // SlotPatternForm(패턴 입력) → useCreateRoundSlotsMutation → detailQuery.data.slots 표시.
@@ -45,7 +46,7 @@ export function Step3Slots({ roundId, onNext }: Props) {
   };
 
   if (detailQuery.isLoading) {
-    return <p className="p-4 text-sm text-slate-500">슬롯 정보를 불러오는 중…</p>;
+    return <LoadingGate label="슬롯 정보 불러오는 중" className="min-h-0 py-8" />;
   }
 
   return (

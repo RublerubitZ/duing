@@ -12,6 +12,7 @@ import { toRoute } from '../../../../../../../_lib/route';
 import { SummaryCards } from './SummaryCards';
 import { DailyLineChart } from './DailyLineChart';
 import { FunnelChart } from './FunnelChart';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type StatsClientProps = {
   params: Promise<{ clubId: string; recruitmentId: string }>;
@@ -61,7 +62,7 @@ export function StatsClient({ params }: StatsClientProps) {
           ← 모집 상세로 돌아가기
         </Link>
         <h1 className="text-xl font-bold text-slate-900">
-          {isHeaderLoading ? '불러오는 중…' : `통계 — ${recruitmentTitle}`}
+          {isHeaderLoading ? '통계' : `통계 — ${recruitmentTitle}`}
         </h1>
       </div>
 
@@ -69,7 +70,7 @@ export function StatsClient({ params }: StatsClientProps) {
       <section className="mb-8">
         <h2 className="mb-3 text-sm font-semibold text-slate-700">지원 현황</h2>
         {isSummaryLoading && (
-          <p className="text-sm text-slate-400">불러오는 중…</p>
+          <LoadingGate label="지원 현황 불러오는 중" className="min-h-0 py-8" />
         )}
         {isSummaryError && (
           <p className="text-sm text-rose-500">지원 현황 데이터를 불러올 수 없습니다.</p>
@@ -84,7 +85,7 @@ export function StatsClient({ params }: StatsClientProps) {
         <h2 className="mb-3 text-sm font-semibold text-slate-700">일자별 지원 추이</h2>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           {isDailyLoading && (
-            <p className="py-10 text-center text-sm text-slate-400">불러오는 중…</p>
+            <LoadingGate label="일자별 지원 추이 불러오는 중" className="min-h-0 py-8" />
           )}
           {isDailyError && (
             <p className="py-6 text-center text-sm text-rose-500">
@@ -102,7 +103,7 @@ export function StatsClient({ params }: StatsClientProps) {
         <h2 className="mb-3 text-sm font-semibold text-slate-700">전형 단계별 현황</h2>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           {isFunnelLoading && (
-            <p className="py-10 text-center text-sm text-slate-400">불러오는 중…</p>
+            <LoadingGate label="전형 단계별 현황 불러오는 중" className="min-h-0 py-8" />
           )}
           {isFunnelError && (
             <p className="py-6 text-center text-sm text-rose-500">

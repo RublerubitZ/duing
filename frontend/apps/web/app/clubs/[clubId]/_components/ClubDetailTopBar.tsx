@@ -4,7 +4,7 @@
 // 상세는 포커스 뷰라 전역 브랜드 바(ExploreNav)를 모바일에서 숨기고(ExploreNav 가 /clubs/{id} 를 md 미만 숨김) 이 바가 대신한다.
 // 커버 배너 위에 오버레이되므로 버튼은 크림 반투명 원형 + 그림자로 대비를 준다. 부모는 relative 여야 한다.
 
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { ArrowLeft, Check, Share } from '@/components/duing/Icon';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
@@ -14,7 +14,7 @@ const ROUND =
   'grid h-9 w-9 place-items-center rounded-full bg-cream/85 text-ink shadow-1 backdrop-blur transition active:scale-95';
 
 export function ClubDetailTopBar({ clubId }: { clubId: number }) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { copied, share } = useShareLink();
 
   function handleBack() {

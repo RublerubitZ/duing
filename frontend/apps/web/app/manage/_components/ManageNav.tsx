@@ -18,6 +18,7 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
   const membersPath = toRoute(`/manage/clubs/${currentClubId}/members`);
   const feesPath = toRoute(`/manage/clubs/${currentClubId}/fees`);
   const infoPath = toRoute(`/manage/clubs/${currentClubId}/info`);
+  const facilityBookingsPath = toRoute(`/manage/clubs/${currentClubId}/facility-bookings`);
 
   // 모집 하위 페이지(상세/지원자/통계/면접 등)를 보는 중이면 해당 모집 컨텍스트로
   // 지원자·통계 진입을 활성화한다. 모집을 선택하지 않은 목록·신규 작성 화면에서는 비활성 안내를 유지한다.
@@ -45,6 +46,7 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
   const isMembersActive = pathname.startsWith(membersPath);
   const isFeesActive = pathname.startsWith(feesPath);
   const isInfoActive = pathname.startsWith(infoPath);
+  const isFacilityBookingsActive = pathname.startsWith(facilityBookingsPath);
 
   return (
     <nav className="flex flex-col gap-0.5 px-2">
@@ -241,6 +243,25 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
           <path d="M6 6l2 3 2-3M8 9v2M6.3 8.4h3.4" />
         </svg>
         회비 관리
+      </Link>
+
+      <Link
+        href={facilityBookingsPath}
+        className={cn(
+          'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
+          isFacilityBookingsActive
+            ? 'bg-ink text-cream font-semibold'
+            : 'text-cream/80 hover:bg-ink/60',
+        )}
+      >
+        <svg
+          className={cn('w-4 h-4 flex-shrink-0', isFacilityBookingsActive ? 'text-cream' : 'text-sage')}
+          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
+        >
+          <rect x="2.5" y="3" width="11" height="10.5" rx="1.5" />
+          <path d="M2.5 6h11M5.5 2v2M10.5 2v2" />
+        </svg>
+        시설 예약
       </Link>
     </nav>
   );

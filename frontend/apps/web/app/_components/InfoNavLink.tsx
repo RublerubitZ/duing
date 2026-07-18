@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Link } from 'next-view-transitions';
+// GNB "정보" 탭 이동은 View Transition 제외(next/link) — ExploreNav·BottomNav 와 동일 정책.
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { INFO_MENU_ITEMS } from '@/app/_lib/infoMenu';

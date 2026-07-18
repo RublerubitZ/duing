@@ -18,6 +18,8 @@ import { BANKS } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { bankLabel } from '@/app/_lib/feeLabels';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type FeeAccountSectionProps = {
   clubId: number;
@@ -78,7 +80,7 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
   };
 
   if (isLoading) {
-    return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
+    return <LoadingGate label="회비 계좌 불러오는 중" className="min-h-0 py-8" />;
   }
 
   if (loadErrorMessage) {
@@ -194,12 +196,13 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
             type="submit"
             disabled={isSubmitting || upsertAccount.isPending}
             className={cn(
-              'flex-1 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
+              'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
               'bg-ink hover:bg-ink-deep',
               (isSubmitting || upsertAccount.isPending) && 'cursor-not-allowed opacity-60',
             )}
           >
-            {upsertAccount.isPending ? '저장 중…' : account ? '수정' : '등록하기'}
+            {upsertAccount.isPending && <ButtonSpinner />}
+            {account ? '수정' : '등록하기'}
           </button>
         </div>
       </form>
@@ -284,9 +287,9 @@ function DeleteFeeAccountConfirm({
             type="button"
             onClick={confirmDelete}
             disabled={deleteAccount.isPending}
-            className="flex-1 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {deleteAccount.isPending ? '삭제 중…' : '삭제'}
+            {deleteAccount.isPending && <ButtonSpinner />}삭제
           </button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CreateNoticePayload, NoticeCategory, NoticeSource, NoticeVisibility, UpdateNoticePayload } from '@duing/types';
 import { useApiClient } from './api-context';
 import { noticeQueryKeys } from './noticeQueryKeys';
@@ -19,6 +19,8 @@ export function useNoticeListQuery(params: ListParams, enabled = true) {
     queryFn: () => client.notices.list(params),
     enabled,
     staleTime: 30_000,
+    // 카테고리·검색·페이지 변경 시 로딩 리셋 대신 이전 목록을 유지한 채 갱신한다.
+    placeholderData: keepPreviousData,
   });
 }
 

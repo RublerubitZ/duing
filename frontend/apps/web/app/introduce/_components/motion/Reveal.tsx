@@ -5,7 +5,8 @@
 // 접근성: prefers-reduced-motion 이면 whileInView 대신 animate 로 마운트 즉시 노출한다.
 //   initial 은 reduced 여부와 무관하게 상수로 둬 SSR/클라이언트 첫 렌더 마크업을 동일하게 유지(하이드레이션 불일치 방지).
 
-import { motion, useReducedMotion } from 'framer-motion';
+// 번들: motion 전체 배럴 대신 LazyMotion(domAnimation)+m — introduce 라우트 청크가 가벼워진다.
+import { LazyMotion, domAnimation, m, useReducedMotion } from 'framer-motion';
 import type { ReactNode } from 'react';
 import { EASE_DUING } from '@/components/motion/constants';
 
@@ -37,15 +38,17 @@ export function Reveal({
   const shown = { opacity: 1, x: 0, y: 0, scale: 1 };
 
   return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, x, y, scale }}
-      animate={shouldReduce ? shown : undefined}
-      whileInView={shouldReduce ? undefined : shown}
-      viewport={{ once: true, margin: '0px 0px -12% 0px' }}
-      transition={shouldReduce ? { duration: 0 } : { duration, delay, ease: EASE_DUING }}
-    >
-      {children}
-    </motion.div>
+    <LazyMotion features={domAnimation} strict>
+      <m.div
+        className={className}
+        initial={{ opacity: 0, x, y, scale }}
+        animate={shouldReduce ? shown : undefined}
+        whileInView={shouldReduce ? undefined : shown}
+        viewport={{ once: true, margin: '0px 0px -12% 0px' }}
+        transition={shouldReduce ? { duration: 0 } : { duration, delay, ease: EASE_DUING }}
+      >
+        {children}
+      </m.div>
+    </LazyMotion>
   );
 }

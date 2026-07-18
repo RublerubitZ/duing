@@ -13,6 +13,7 @@ import { ApplicantProfilePanel } from './ApplicantProfilePanel';
 import { EvaluationPanel } from './EvaluationPanel';
 import { StatusActionBar } from './StatusActionBar';
 import { StatusTimeline } from './StatusTimeline';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type Props = {
   clubId: number;
@@ -37,7 +38,7 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
   const { data: detail, isLoading } = useApplicantDetailQuery(applicationId);
 
   if (isLoading || !detail) {
-    return <p className="p-4 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="지원자 정보 불러오는 중" />;
   }
 
   const useInterview = recruitment?.useInterview ?? false;

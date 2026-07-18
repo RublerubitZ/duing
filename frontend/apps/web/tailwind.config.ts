@@ -51,6 +51,17 @@ const config: Config = {
           900: '#0c4a6e',
           950: '#082f49',
         },
+        // 주간 그리드 확정 예약 블록용 파스텔 팔레트(§8.3) — cream(#F6F3EC) 위 저채도 6색.
+        // 각 색: DEFAULT(bg 파스텔)·border(한 단계 진함)·accent(좌측 보더용 진한 톤). 라벨 첫 등장 순 순환.
+        // sky(운영 고정색)·warm(대기)·sage(가능)와 충돌 없게 고름. lemon 은 warm 과 구분되도록 올리브톤.
+        pastel: {
+          mint: { DEFAULT: '#D9EAE0', border: '#B0D2C0', accent: '#3E8F6E' },
+          lemon: { DEFAULT: '#ECE6C0', border: '#D6C98C', accent: '#8A7524' },
+          coral: { DEFAULT: '#F4DBD1', border: '#E6B4A2', accent: '#C15B39' },
+          lavender: { DEFAULT: '#E3DCF0', border: '#C4B6E0', accent: '#7059A6' },
+          beige: { DEFAULT: '#E9DEC9', border: '#D2BF9E', accent: '#927A50' },
+          rose: { DEFAULT: '#F3D8E2', border: '#E1AEC1', accent: '#B15277' },
+        },
         // shadcn/ui 시맨틱 토큰 — 두잉 토큰(globals.css :root)에 매핑. 기존 팔레트/borderRadius 는 유지.
         // `<alpha-value>` 슬롯으로 opacity 모디파이어(bg-primary/50 등) 지원.
         border: 'hsl(var(--border) / <alpha-value>)',

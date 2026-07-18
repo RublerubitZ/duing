@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useApplicantNeighborsQuery } from '@duing/hooks';
 import type { ApplicantsFilters, ApplicationStatus } from '@duing/types';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../../_constants/application-status';
@@ -22,7 +22,7 @@ export function ApplicantNavBar({
   filters,
   currentStatus,
 }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { data: neighbors } = useApplicantNeighborsQuery(recruitmentId, applicationId, filters);
 
   const qs = filtersToQuery(filters);

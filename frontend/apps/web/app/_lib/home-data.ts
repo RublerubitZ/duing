@@ -6,10 +6,16 @@ import {
   promotionToSlide,
   type CarouselSlide,
 } from './promotion';
+import { resolveApiBaseUrl } from './apiBaseUrl';
+
+const apiBaseUrl = resolveApiBaseUrl(
+  process.env.NEXT_PUBLIC_API_BASE_URL,
+  process.env.NODE_ENV,
+);
 
 function client() {
   return createApiClient({
-    baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1',
+    baseUrl: apiBaseUrl,
   });
 }
 

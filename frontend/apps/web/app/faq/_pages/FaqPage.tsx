@@ -6,15 +6,15 @@
 
 import { useCallback, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { motion, useReducedMotion } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useFederationFaqCategoriesQuery, useFederationFaqListQuery } from '@duing/hooks';
 import type { FederationFaqItem } from '@duing/types';
 
 import { Pagination } from '@/components/Pagination';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { cn } from '@/app/_lib/cn';
-import { EASE_DUING } from '@/components/motion/constants';
 import { ExploreNav } from '../../_components/ExploreNav';
 import { InfoTabs } from '../../_components/InfoTabs';
 import { HomeFooter } from '../../_components/HomeFooter';
@@ -27,7 +27,6 @@ const PAGE_SIZE = 20;
 
 function FaqAccordionRow({ faq, index }: { faq: FederationFaqItem; index: number }) {
   const [open, setOpen] = useState(false);
-  const shouldReduce = useReducedMotion();
   const baseId = useId();
   const panelId = `${baseId}-panel`;
   const buttonId = `${baseId}-button`;
@@ -79,28 +78,30 @@ function FaqAccordionRow({ faq, index }: { faq: FederationFaqItem; index: number
           />
         </span>
       </button>
-      <motion.div
+      <div
         id={panelId}
         aria-hidden={!open}
         inert={!open}
-        initial={false}
-        animate={{ height: open ? 'auto' : 0, opacity: open ? 1 : 0 }}
-        transition={shouldReduce ? { duration: 0 } : { duration: 0.32, ease: EASE_DUING }}
-        className="overflow-hidden"
+        className={cn(
+          'grid transition-[grid-template-rows] duration-200 ease-duing motion-reduce:transition-none',
+          open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+        )}
       >
-        <div className="border-t border-dashed border-line pb-5 pt-3.5">
-          <p className="whitespace-pre-line text-[14px] leading-[1.65] text-charcoal-2">
-            {faq.answer}
-          </p>
-          <FaqFeedback faqId={faq.id} />
+        <div className="min-h-0 overflow-hidden">
+          <div className="border-t border-dashed border-line pb-5 pt-3.5">
+            <p className="whitespace-pre-line text-[14px] leading-[1.65] text-charcoal-2">
+              {faq.answer}
+            </p>
+            <FaqFeedback faqId={faq.id} />
+          </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
 
 export function FaqPage() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const searchParams = useSearchParams();
   const params = useMemo<FaqParams>(
     () => parseFaqParams(new URLSearchParams(searchParams?.toString() ?? '')),
@@ -161,7 +162,7 @@ export function FaqPage() {
         </div>
 
         {/* Search */}
-        <div className="mb-5 flex items-center gap-2 rounded-[14px] border border-line bg-paper px-4 py-2.5 md:max-w-[420px]">
+        <div className="mb-5 flex items-center gap-2 rounded-[14px] border border-line bg-paper px-4 py-2.5 focus-within:border-ink md:max-w-[420px]">
           <input
             value={keywordDraft}
             onChange={(event) => setKeywordDraft(event.target.value)}
@@ -214,7 +215,7 @@ export function FaqPage() {
         )}
 
         {listQuery.isLoading && (
-          <p className="py-12 text-center text-[13px] text-charcoal-3">불러오는 중…</p>
+          <ListRowsSkeleton rows={6} rowClassName="h-[64px] rounded-[20px]" label="FAQ 목록 불러오는 중" />
         )}
         {listQuery.isError && (
           <p className="py-12 text-center text-[13px] text-coral">FAQ를 불러오지 못했습니다</p>
@@ -225,7 +226,14 @@ export function FaqPage() {
             {items.length === 0 ? (
               <p className="py-12 text-center text-[13px] text-charcoal-3">검색 결과가 없어요</p>
             ) : (
-              <div className="flex flex-col gap-3">
+              <div
+                // keepPreviousData 전환 중(카테고리·검색·페이지 변경)에는 이전 목록을 딤 처리해 갱신 중임을 알린다.
+                aria-busy={listQuery.isPlaceholderData}
+                className={cn(
+                  'flex flex-col gap-3',
+                  listQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+                )}
+              >
                 {items.map((faq, index) => (
                   <FaqAccordionRow key={faq.id} faq={faq} index={index} />
                 ))}

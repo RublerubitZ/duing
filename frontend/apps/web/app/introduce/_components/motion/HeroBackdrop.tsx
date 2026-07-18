@@ -4,7 +4,8 @@
 // 순수 장식이라 pointer-events-none·aria-hidden. Hero 섹션의 overflow-hidden 안에서만 움직인다.
 // 접근성: prefers-reduced-motion 이면 정적으로 둔다.
 
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
+// 번들: motion 전체 배럴 대신 LazyMotion(domAnimation)+m — introduce 라우트 청크가 가벼워진다.
+import { LazyMotion, domAnimation, m, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 
 export function HeroBackdrop() {
   const shouldReduce = useReducedMotion();
@@ -12,10 +13,12 @@ export function HeroBackdrop() {
   const y = useTransform(scrollY, [0, 700], [0, 140]);
 
   return (
-    <motion.div
-      aria-hidden
-      style={shouldReduce ? undefined : { y }}
-      className="pointer-events-none absolute -right-32 -top-32 -z-0 h-[460px] w-[460px] rounded-full bg-sage-soft/40 blur-3xl"
-    />
+    <LazyMotion features={domAnimation} strict>
+      <m.div
+        aria-hidden
+        style={shouldReduce ? undefined : { y }}
+        className="pointer-events-none absolute -right-32 -top-32 -z-0 h-[460px] w-[460px] rounded-full bg-sage-soft/40 blur-3xl"
+      />
+    </LazyMotion>
   );
 }

@@ -8,8 +8,9 @@ import type { CreateClubNoticeInput } from '@duing/schemas';
 import type { NoticeContentFormat, UpdateClubNoticePayload } from '@duing/types';
 import { useCreateClubNoticeMutation, useUpdateClubNoticeMutation } from '@duing/hooks';
 import { ImageUploader } from '@/app/_components/ImageUploader';
-import { NoticeRichEditor } from '@/app/_components/NoticeRichEditor';
+import { NoticeRichEditorLazy } from '@/app/_components/NoticeRichEditorLazy';
 import { cn } from '@/app/_lib/cn';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type CommonProps = { clubId: number; onClose: () => void };
 
@@ -155,7 +156,7 @@ export function ClubNoticeFormModal(props: Props) {
               <label className="mb-1.5 block text-sm font-semibold text-ink">
                 본문 <span className="text-coral">*</span>
               </label>
-              <NoticeRichEditor
+              <NoticeRichEditorLazy
                 value={contentValue}
                 format={seedFormat}
                 onChange={(html) => setValue('content', html, { shouldDirty: true, shouldValidate: true })}
@@ -195,12 +196,13 @@ export function ClubNoticeFormModal(props: Props) {
               type="submit"
               disabled={isSubmitting || isPending}
               className={cn(
-                'flex-1 rounded-xl py-3 text-sm font-semibold text-white',
+                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold text-white',
                 'bg-ink hover:bg-ink/90',
                 (isSubmitting || isPending) && 'cursor-not-allowed opacity-60',
               )}
             >
-              {isPending ? '저장 중…' : (props.mode === 'create' ? '작성' : '수정')}
+              {isPending && <ButtonSpinner />}
+              {props.mode === 'create' ? '작성' : '수정'}
             </button>
           </div>
         </form>

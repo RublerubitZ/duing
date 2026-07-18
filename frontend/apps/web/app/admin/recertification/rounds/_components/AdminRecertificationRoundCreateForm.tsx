@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { toRoute } from '../../../../_lib/route';
 import { useCreateRecertificationRoundMutation } from '@duing/hooks';
 
@@ -11,7 +12,7 @@ const YEAR_MIN = 2000;
 const YEAR_MAX = 2100;
 
 export function AdminRecertificationRoundCreateForm() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const createMutation = useCreateRecertificationRoundMutation();
 
   const [yearInput, setYearInput] = useState<string>(String(CURRENT_YEAR));
@@ -101,9 +102,9 @@ export function AdminRecertificationRoundCreateForm() {
         <button
           type="submit"
           disabled={createMutation.isPending}
-          className="px-4 py-2 rounded-md bg-ink text-paper text-[13px] font-semibold disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-ink text-paper text-[13px] font-semibold disabled:opacity-50"
         >
-          {createMutation.isPending ? '개설 중…' : '라운드 개설'}
+          {createMutation.isPending && <ButtonSpinner />}라운드 개설
         </button>
       </div>
     </form>

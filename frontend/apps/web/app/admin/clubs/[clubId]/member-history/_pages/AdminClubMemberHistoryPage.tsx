@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useAdminClubMemberHistoryQuery } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminClubMemberHistoryTable } from '../_components/AdminClubMemberHistoryTable';
 
 const PAGE_SIZE = 20;
@@ -30,9 +31,7 @@ export function AdminClubMemberHistoryPage({ clubId }: Props) {
         <span className="text-[13px] text-charcoal-3">(동아리 ID: {clubId})</span>
       </header>
 
-      {historyQuery.isLoading && (
-        <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
-      )}
+      {historyQuery.isLoading && <LoadingGate label="이력 불러오는 중" />}
       {historyQuery.isError && (
         <p className="py-12 text-center text-coral text-[13px]">이력을 불러오지 못했습니다.</p>
       )}

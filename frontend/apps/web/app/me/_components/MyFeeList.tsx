@@ -8,6 +8,7 @@ import { useMemberFeeAccountQuery, useMyClubsQuery, useMyFeesQuery } from '@duin
 import type { FeeStatus, MyFee } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { bankLabel, feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
 import { toRoute } from '@/app/_lib/route';
@@ -67,7 +68,9 @@ export function MyFeeList() {
   // 동아리명 로딩까지 함께 기다린다 — 청구가 먼저 도착하면 "동아리 #id" 폴백이 잠깐 깜빡이고
   // 진짜 미매핑(탈퇴 등) 케이스와 구분이 안 되기 때문이다.
   if (isFeesLoading || isClubsLoading) {
-    return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
+    return (
+      <ListRowsSkeleton rows={4} rowClassName="h-[72px] rounded-xl" label="회비 내역 불러오는 중" />
+    );
   }
 
   if (!myFees || myFees.length === 0) {
@@ -201,7 +204,7 @@ function MyFeeRow({ bill }: MyFeeRowProps) {
           </p>
           <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-graysoft">
             <div
-              className="h-full rounded-full bg-sage transition-all"
+              className="h-full rounded-full bg-sage transition-[width]"
               style={{ width: `${progressPercent}%` }}
             />
           </div>

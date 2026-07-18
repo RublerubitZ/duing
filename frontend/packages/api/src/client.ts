@@ -1,4 +1,4 @@
-import ky, { type KyInstance, type ResponsePromise, HTTPError } from 'ky';
+import ky, { type KyInstance, type ResponsePromise, HTTPError, TimeoutError } from 'ky';
 import { notifyUnauthorized } from './unauthorized-context';
 import type {
   InterviewRoundCandidate,
@@ -64,6 +64,7 @@ import type {
   CreateRecruitmentPayload,
   LoginPayload,
   LoginResult,
+  WebLoginResult,
   ManagedClub,
   MyApplicationDetail,
   ApplicantDetail,
@@ -172,6 +173,18 @@ import type {
   FacilitySummary,
   FacilityUsageResponse,
   FacilityDetailResponse,
+  FacilityAvailabilityResponse,
+  FacilityBookingWindow,
+  PurposePreset,
+  CreateFacilityBookingPayload,
+  CreateFacilityBookingResult,
+  BookingStatus,
+  FacilityBookingSummary,
+  FacilityBookingDetail,
+  AdminFacilityBookingSummary,
+  AdminFacilityBookingDetail,
+  AdminFacilityBookingCounts,
+  AdminBookingQueueParams,
   FederationFaqCategory,
   FederationFaqItem,
   AdminFederationFaqSummary,
@@ -192,7 +205,8 @@ import type {
   AnswerFederationInquiryPayload,
   UpdateFederationInquiryAnswerPayload,
 } from '@duing/types';
-import { readToken } from './token';
+import { clearToken, readToken, writeToken } from './token';
+import { isKnownOffline } from './connectivity';
 
 export class ApiError extends Error {
   constructor(
@@ -206,7 +220,20 @@ export class ApiError extends Error {
   }
 }
 
-async function toApiError(error: unknown): Promise<never> {
+// 사용자 대면 네트워크 오류 안내 문구 — 전 화면의 `error instanceof ApiError ? error.message : …`
+// 패턴이 그대로 노출하므로 여기 한 곳에서만 관리한다. (스펙 §3.2)
+export const TIMEOUT_ERROR_MESSAGE = '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.';
+export const NETWORK_ERROR_MESSAGE = '인터넷 연결을 확인해주세요.';
+
+export async function toApiError(error: unknown): Promise<never> {
+  // connectivity fail-fast 등 이미 정규화된 에러는 그대로 통과시킨다.
+  if (error instanceof ApiError) {
+    throw error;
+  }
+  // ky 타임아웃 — 분류별 REQUEST_TIMEOUT_MS 초과. 재시도 정책(shouldRetryQuery)이 code 로 식별한다.
+  if (error instanceof TimeoutError) {
+    throw new ApiError(0, TIMEOUT_ERROR_MESSAGE, undefined, 'TIMEOUT');
+  }
   if (error instanceof HTTPError) {
     let message = `요청 실패 (${error.response.status})`;
     let payload: unknown;
@@ -225,20 +252,47 @@ async function toApiError(error: unknown): Promise<never> {
     }
     throw new ApiError(error.response.status, message, payload, code);
   }
+  // fetch 네트워크 실패(오프라인·DNS·연결 거부)는 TypeError 로 도착한다.
+  if (error instanceof TypeError) {
+    throw new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK');
+  }
   throw error;
 }
 
 function unwrap<T>(response: ApiResponse<T>): T {
-  if (!response.ok || response.data === null) {
-    throw new ApiError(0, response.message ?? '응답이 비어 있습니다.');
+  // 200 + null 봉투(res.json() 이 null)면 response 자체가 null 로 도착한다 — 이때 response.ok 접근이
+  // TypeError 를 던져 toApiError 가 NETWORK 로 오분류하므로, 먼저 null 봉투를 빈 응답으로 가드한다.
+  if (!response || !response.ok || response.data === null) {
+    throw new ApiError(0, response?.message ?? '응답이 비어 있습니다.');
   }
   return response.data;
+}
+
+// 본문 소비 타임아웃(ms). ky 의 timeout 은 응답 헤더 도착까지만 계측하므로,
+// 헤더 후 본문이 중단(stall)되면 json()/blob() 이 무한 대기한다 — 별도 상한으로 막는다.
+const JSON_BODY_READ_TIMEOUT_MS = 10_000;
+const BLOB_BODY_READ_TIMEOUT_MS = 60_000;
+
+// 테스트를 위해 export. 타임아웃 시 정규화된 TIMEOUT ApiError 로 거부한다.
+export async function readBodyWithTimeout<T>(bodyPromise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timerId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timerId = setTimeout(
+      () => reject(new ApiError(0, TIMEOUT_ERROR_MESSAGE, undefined, 'TIMEOUT')),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([bodyPromise, timeoutPromise]);
+  } finally {
+    clearTimeout(timerId);
+  }
 }
 
 export type DuingApiClient = {
   auth: {
     signup(payload: SignupPayload): Promise<number>;
-    login(payload: LoginPayload): Promise<LoginResult>;
+    login(payload: LoginPayload): Promise<User>;
     startPhoneVerification(
       payload: StartPhoneVerificationPayload,
       includeQr: boolean,
@@ -391,6 +445,22 @@ export type DuingApiClient = {
     usage(yearMonth?: string): Promise<FacilityUsageResponse>;
     // GET /api/v1/facilities/{facilityId}?yearMonth=YYYY-MM — 단일 시설 상세(타임라인용).
     get(facilityId: number, yearMonth?: string): Promise<FacilityDetailResponse>;
+    // GET /api/v1/facilities/{facilityId}/availability?yearMonth= — 공개. 당월·익월만 허용(400).
+    availability(facilityId: number, yearMonth?: string): Promise<FacilityAvailabilityResponse>;
+    // GET /api/v1/facilities/booking-purpose-presets — 공개. 사용 목적 Preset(시드).
+    purposePresets(): Promise<PurposePreset[]>;
+    // GET /api/v1/facilities/booking-window — 공개. 현재 예약 오픈 구간(전 시설 공통).
+    bookingWindow(): Promise<FacilityBookingWindow>;
+  };
+  facilityBookings: {
+    // POST /api/v1/clubs/{clubId}/facility-bookings — 운영진 전용(쿠키 세션). 409=슬롯 불가/중복/상한.
+    create(clubId: number, payload: CreateFacilityBookingPayload): Promise<CreateFacilityBookingResult>;
+    // GET /api/v1/clubs/{clubId}/facility-bookings?status= — 운영진 전용, P1 미페이징(최신순)
+    list(clubId: number, status?: BookingStatus): Promise<FacilityBookingSummary[]>;
+    // GET /api/v1/clubs/{clubId}/facility-bookings/{bookingId} — 상태 이력(최신순) 포함
+    get(clubId: number, bookingId: number): Promise<FacilityBookingDetail>;
+    // POST /api/v1/clubs/{clubId}/facility-bookings/{bookingId}/cancel — PENDING 전용, 바디 없음(204)
+    cancel(clubId: number, bookingId: number): Promise<void>;
   };
   notifications: {
     list(unreadOnly: boolean, page: number, size: number): Promise<PageResponse<Notification>>;
@@ -534,6 +604,21 @@ export type DuingApiClient = {
       update(promotionId: number, payload: UpdatePromotionPayload): Promise<void>;
       delete(promotionId: number): Promise<void>;
     };
+    facilityBookings: {
+      // GET /api/v1/admin/facility-bookings — 큐(정렬은 서버가 status 종속 결정, sort 전송 금지)
+      queue(params: AdminBookingQueueParams): Promise<PageResponse<AdminFacilityBookingSummary>>;
+      // GET /api/v1/admin/facility-bookings/{bookingId} — 상세+검증 컨텍스트(온디맨드 재크롤)
+      detail(bookingId: number): Promise<AdminFacilityBookingDetail>;
+      // POST .../approve — 바디 없음. 409+code=FACILITY_BOOKING_SCHOOL_CONFLICT 시 payload에 충돌 상세
+      approve(bookingId: number): Promise<void>;
+      reject(bookingId: number, reason: string): Promise<void>;
+      // POST .../confirm — 수동 확정(자동 매칭 실패분), 바디 없음
+      confirm(bookingId: number): Promise<void>;
+      markConflict(bookingId: number, detail: string): Promise<void>;
+      cancel(bookingId: number, reason: string): Promise<void>;
+      // GET .../summary — 대시보드 카드 수치(§9.7)
+      summary(): Promise<AdminFacilityBookingCounts>;
+    };
     // === BANK 자동매칭 관리 (Sprint 3) ===
     bankMatching: {
       // GET /admin/clubs/bank-matching — 동아리별 상태 목록 + 전역 슬롯 현황(slots 는 BANK API 장애 시 null).
@@ -666,40 +751,78 @@ export type DuingApiClient = {
   raw: KyInstance;
 };
 
+export type AuthTransport = 'bearer' | 'cookie';
+
 export type CreateApiClientOptions = {
   baseUrl: string;
+  authTransport?: AuthTransport;
 };
 
-// 로그아웃의 서버 폐기는 best-effort 다. 백엔드가 행(hang)/오프라인이어도 로컬 로그아웃이
-// 전역 타임아웃(15s)까지 묶이지 않도록 짧은 타임아웃을 둔다(실패해도 로컬 정리는 계속 진행).
-const LOGOUT_REVOKE_TIMEOUT_MS = 5_000;
+// 요청 분류별 클라이언트 타임아웃(ms). 모든 요청은 ky 전역 기본값(default)을 받고,
+// 분류가 다른 엔드포인트만 개별 오버라이드한다.
+// (스펙: docs/superpowers/specs/2026-07-12-network-resilience-design.md §3.1)
+export const REQUEST_TIMEOUT_MS = {
+  /** 전역 기본 — 일반 조회·변경 */
+  default: 10_000,
+  /** 로그인 — 대기 체감이 가장 민감한 경로 */
+  login: 5_000,
+  /** 가입·MO 인증·비밀번호 재설정·번호 변경 — 인증사 경유 가능성이 있어 로그인보다 여유 */
+  authFlow: 8_000,
+  /** 사용자가 타이핑 후 결과를 기다리는 검색성 목록 */
+  search: 8_000,
+  /** 파일 업로드 — 느린 회선에서도 전송이 완료되도록 넉넉히 */
+  upload: 60_000,
+  /** 로그아웃의 서버 폐기는 best-effort — 백엔드가 행이어도 로컬 로그아웃이 오래 묶이지 않게 짧게 */
+  logoutRevoke: 5_000,
+  /** 거래 동기화 — 백엔드가 외부 은행 API(connect 5s + read 15s)를 기다린다 */
+  bankSync: 30_000,
+  /** 시설 이용현황·가용성 — 백엔드가 요청 스레드에서 학교 서버 온디맨드 재크롤 후 응답할 수 있다.
+   *  BE 최악 응답시간 ≈ 16.5s(첫 룸은 데드라인 예외 — 2회 시도 × (connect 3s + read 5s) + 백오프 0.5s)라
+   *  default 10s 로는 stale-serving 응답이 도착하기 전에 끊긴다(2026-07-17 감사). */
+  facilityOnDemand: 18_000,
+} as const;
 
-// 거래 동기화는 백엔드가 외부 은행 API 를 조회한다(connect 5s + read 15s + 처리). 전역 타임아웃(15s)
-// 으로는 백엔드 응답 전에 프론트가 먼저 끊긴다 — 이 호출만 더 넉넉한 타임아웃을 둔다.
-const BANK_SYNC_TIMEOUT_MS = 30_000; // 외부 은행 조회(백엔드 connect5s+read15s) 보다 길게
-
-export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiClient {
+export function createApiClient(options: CreateApiClientOptions): DuingApiClient {
+  const { baseUrl } = options;
+  const authTransport = options.authTransport ?? 'bearer';
   const http = ky.create({
     prefixUrl: baseUrl.replace(/\/$/, ''),
-    timeout: 15_000,
+    credentials: authTransport === 'cookie' ? 'include' : 'same-origin',
+    timeout: REQUEST_TIMEOUT_MS.default,
+    // 재시도의 단일 진실원은 React Query 정책(shouldRetryQuery) — 스펙 §3.4 일원화.
+    // ky 레벨 재시도(GET 계열 기본 2회)를 켜두면 5xx·네트워크 실패를 RQ 와 이중으로 재시도하고,
+    // 오프라인 fail-fast(beforeRequest 즉시 실패)마저 3회 평가돼 "즉시"가 아니게 되므로 끈다.
+    retry: 0,
     hooks: {
       beforeRequest: [
         async (request) => {
-          const token = await readToken();
-          if (token) {
-            request.headers.set('Authorization', `Bearer ${token}`);
+          // 확실한 오프라인이면 타임아웃까지 기다리지 않고 즉시 실패시킨다. (스펙 §3.3)
+          if (isKnownOffline()) {
+            throw new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK');
+          }
+          if (authTransport === 'bearer') {
+            const token = await readToken();
+            if (token) {
+              request.headers.set('Authorization', `Bearer ${token}`);
+            }
           }
         },
       ],
       afterResponse: [
         (request, _options, response) => {
-          // 인증 토큰을 실어 보낸 요청이 401 이면 세션 만료로 간주하고 앱에 알린다.
-          // (토큰 없는 로그인 실패 401 은 Authorization 헤더가 없어 제외된다)
+          // Bearer는 인증 토큰을 실어 보낸 요청, Cookie는 로그인·로그아웃 외의
+          // 401을 세션 만료로 간주하고 앱에 알린다.
           // 단, 로그아웃 요청의 401 은 세션 만료 신호가 아니다 — 사용자가 의도적으로 로그아웃 중이며
           // 이미 만료/무효화된 토큰으로도 폐기를 시도하므로 401 이 정상이다. 전역 만료 핸들러
           // (세션만료 에러 토스트 + 홈 이동)를 깨우면 의도적 로그아웃에 오탐 에러가 뜬다.
-          const isLogoutRequest = request.url.endsWith('/auth/logout');
-          if (response.status === 401 && request.headers.has('Authorization') && !isLogoutRequest) {
+          const isCookieAuthRequest =
+            request.url.endsWith('/auth/web/login') || request.url.endsWith('/auth/web/logout');
+          const isBearerLogoutRequest = request.url.endsWith('/auth/logout');
+          const shouldNotifyUnauthorized =
+            authTransport === 'cookie'
+              ? !isCookieAuthRequest
+              : request.headers.has('Authorization') && !isBearerLogoutRequest;
+          if (response.status === 401 && shouldNotifyUnauthorized) {
             notifyUnauthorized();
           }
         },
@@ -710,7 +833,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
   async function jsonOk<T>(promise: ResponsePromise): Promise<T> {
     try {
       const res = await promise;
-      const body = (await res.json()) as ApiResponse<T>;
+      const body = (await readBodyWithTimeout(res.json(), JSON_BODY_READ_TIMEOUT_MS)) as ApiResponse<T>;
       return unwrap(body);
     } catch (error) {
       return toApiError(error);
@@ -731,7 +854,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
   async function blobOk(promise: ResponsePromise): Promise<Blob> {
     try {
       const res = await promise;
-      return await res.blob();
+      return await readBodyWithTimeout(res.blob(), BLOB_BODY_READ_TIMEOUT_MS);
     } catch (error) {
       return toApiError(error);
     }
@@ -740,30 +863,64 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
   return {
     auth: {
       signup: (payload) =>
-        jsonOk<number>(http.post('auth/signup', { json: payload })),
-      login: (payload) =>
-        jsonOk<LoginResult>(http.post('auth/login', { json: payload })),
+        jsonOk<number>(http.post('auth/signup', { json: payload, timeout: REQUEST_TIMEOUT_MS.authFlow })),
+      login: async (payload) => {
+        if (authTransport === 'cookie') {
+          const result = await jsonOk<WebLoginResult>(
+            http.post('auth/web/login', { json: payload, timeout: REQUEST_TIMEOUT_MS.login }),
+          );
+          return result.user;
+        }
+        const result = await jsonOk<LoginResult>(
+          http.post('auth/login', { json: payload, timeout: REQUEST_TIMEOUT_MS.login }),
+        );
+        await writeToken(result.accessToken);
+        return result.user;
+      },
       startPhoneVerification: (payload, includeQr) =>
         jsonOk<PhoneVerificationSession>(
           http.post('auth/phone-verifications', {
             json: payload,
             searchParams: includeQr ? { qr: 'true' } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.authFlow,
           }),
         ),
       getPhoneVerificationStatus: (verificationToken) =>
         jsonOk<PhoneVerificationStatus>(
-          http.post('auth/phone-verifications/status', { json: { verificationToken } }),
+          http.post('auth/phone-verifications/status', {
+            json: { verificationToken },
+            timeout: REQUEST_TIMEOUT_MS.authFlow,
+          }),
         ),
       requestPasswordReset: (payload, includeQr) =>
         jsonOk<PasswordResetSession>(
           http.post('auth/password-resets', {
             json: payload,
             searchParams: includeQr ? { qr: 'true' } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.authFlow,
           }),
         ),
       completePasswordReset: (payload) =>
-        jsonVoid(http.post('auth/password-resets/complete', { json: payload })),
-      logout: () => jsonVoid(http.post('auth/logout', { timeout: LOGOUT_REVOKE_TIMEOUT_MS })),
+        jsonVoid(
+          http.post('auth/password-resets/complete', {
+            json: payload,
+            timeout: REQUEST_TIMEOUT_MS.authFlow,
+          }),
+        ),
+      logout: async () => {
+        if (authTransport === 'cookie') {
+          return jsonVoid(
+            http.post('auth/web/logout', { timeout: REQUEST_TIMEOUT_MS.logoutRevoke }),
+          );
+        }
+        try {
+          await jsonVoid(http.post('auth/logout', { timeout: REQUEST_TIMEOUT_MS.logoutRevoke }));
+        } catch {
+          // Bearer 로그아웃의 서버 토큰 폐기는 best-effort이다.
+        } finally {
+          await clearToken();
+        }
+      },
     },
     users: {
       me: () => jsonOk<User>(http.get('users/me')),
@@ -781,9 +938,13 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
           http.post('users/me/phone-verifications', {
             json: payload,
             searchParams: includeQr ? { qr: 'true' } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.authFlow,
           }),
         ),
-      changePhone: (payload) => jsonVoid(http.patch('users/me/phone', { json: payload })),
+      changePhone: (payload) =>
+        jsonVoid(
+          http.patch('users/me/phone', { json: payload, timeout: REQUEST_TIMEOUT_MS.authFlow }),
+        ),
       withdraw: () => jsonVoid(http.delete('users/me')),
     },
     clubs: {
@@ -791,6 +952,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         jsonOk<PageResponse<ClubSummary>>(
           http.get('clubs', {
             searchParams: cleanParams(params),
+            timeout: REQUEST_TIMEOUT_MS.search,
           }),
         ),
       detail: (clubId) => jsonOk<ClubDetail>(http.get(`clubs/${clubId}`)),
@@ -842,7 +1004,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         body.append('file', file);
         // ky 는 FormData 를 자동으로 multipart/form-data 로 처리한다.
         return jsonOk<FileUploadResult>(
-          http.post('files', { body, searchParams: { purpose } }),
+          http.post('files', { body, searchParams: { purpose }, timeout: REQUEST_TIMEOUT_MS.upload }),
         );
       },
     },
@@ -882,7 +1044,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         if (filters?.submittedTo) search.set('submittedTo', filters.submittedTo);
         const qs = search.toString();
         const path = `leader/recruitments/${recruitmentId}/applications${qs ? `?${qs}` : ''}`;
-        return jsonOk<Applicant[]>(http.get(path));
+        return jsonOk<Applicant[]>(http.get(path, { timeout: REQUEST_TIMEOUT_MS.search }));
       },
       applicantNeighbors: (recruitmentId, applicationId, filters) => {
         const search = new URLSearchParams();
@@ -1006,18 +1168,46 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
     },
     facilities: {
       list: () => jsonOk<FacilitySummary[]>(http.get('facilities')),
+      // usage/get/availability 는 온디맨드 재크롤을 경유할 수 있는 경로 — facilityOnDemand 타임아웃 적용
       usage: (yearMonth) =>
         jsonOk<FacilityUsageResponse>(
           http.get('facilities/usage', {
             searchParams: yearMonth ? { yearMonth } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.facilityOnDemand,
           }),
         ),
       get: (facilityId, yearMonth) =>
         jsonOk<FacilityDetailResponse>(
           http.get(`facilities/${facilityId}`, {
             searchParams: yearMonth ? { yearMonth } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.facilityOnDemand,
           }),
         ),
+      availability: (facilityId, yearMonth) =>
+        jsonOk<FacilityAvailabilityResponse>(
+          http.get(`facilities/${facilityId}/availability`, {
+            searchParams: yearMonth ? { yearMonth } : undefined,
+            timeout: REQUEST_TIMEOUT_MS.facilityOnDemand,
+          }),
+        ),
+      purposePresets: () => jsonOk<PurposePreset[]>(http.get('facilities/booking-purpose-presets')),
+      bookingWindow: () => jsonOk<FacilityBookingWindow>(http.get('facilities/booking-window')),
+    },
+    facilityBookings: {
+      create: (clubId, payload) =>
+        jsonOk<CreateFacilityBookingResult>(
+          http.post(`clubs/${clubId}/facility-bookings`, { json: payload }),
+        ),
+      list: (clubId, status) =>
+        jsonOk<FacilityBookingSummary[]>(
+          http.get(`clubs/${clubId}/facility-bookings`, {
+            searchParams: status ? { status } : undefined,
+          }),
+        ),
+      get: (clubId, bookingId) =>
+        jsonOk<FacilityBookingDetail>(http.get(`clubs/${clubId}/facility-bookings/${bookingId}`)),
+      cancel: (clubId, bookingId) =>
+        jsonVoid(http.post(`clubs/${clubId}/facility-bookings/${bookingId}/cancel`)),
     },
     notifications: {
       list: (unreadOnly, page, size) =>
@@ -1102,14 +1292,20 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
       clubs: {
         list: (params) =>
           jsonOk<PageResponse<AdminClubSummary>>(
-            http.get('admin/clubs', { searchParams: cleanParams(params) }),
+            http.get('admin/clubs', {
+              searchParams: cleanParams(params),
+              timeout: REQUEST_TIMEOUT_MS.search,
+            }),
           ),
         detail: (clubId) => jsonOk<ClubDetail>(http.get(`admin/clubs/${clubId}`)),
       },
       users: {
         search: (params) =>
           jsonOk<PageResponse<AdminUserSearchResult>>(
-            http.get('admin/users', { searchParams: cleanParams(params) }),
+            http.get('admin/users', {
+              searchParams: cleanParams(params),
+              timeout: REQUEST_TIMEOUT_MS.search,
+            }),
           ),
       },
       notices: {
@@ -1276,6 +1472,28 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
         delete: (promotionId) =>
           jsonVoid(http.delete(`admin/promotions/${promotionId}`)),
       },
+      facilityBookings: {
+        queue: (params) =>
+          jsonOk<PageResponse<AdminFacilityBookingSummary>>(
+            http.get('admin/facility-bookings', { searchParams: cleanParams(params) }),
+          ),
+        detail: (bookingId) =>
+          // 관리자 상세도 온디맨드 재크롤(ensureFresh)을 경유한다 — 공개 가용성과 동일한 타임아웃 필요
+          jsonOk<AdminFacilityBookingDetail>(
+            http.get(`admin/facility-bookings/${bookingId}`, {
+              timeout: REQUEST_TIMEOUT_MS.facilityOnDemand,
+            }),
+          ),
+        approve: (bookingId) => jsonVoid(http.post(`admin/facility-bookings/${bookingId}/approve`)),
+        reject: (bookingId, reason) =>
+          jsonVoid(http.post(`admin/facility-bookings/${bookingId}/reject`, { json: { reason } })),
+        confirm: (bookingId) => jsonVoid(http.post(`admin/facility-bookings/${bookingId}/confirm`)),
+        markConflict: (bookingId, detail) =>
+          jsonVoid(http.post(`admin/facility-bookings/${bookingId}/conflict`, { json: { detail } })),
+        cancel: (bookingId, reason) =>
+          jsonVoid(http.post(`admin/facility-bookings/${bookingId}/cancel`, { json: { reason } })),
+        summary: () => jsonOk<AdminFacilityBookingCounts>(http.get('admin/facility-bookings/summary')),
+      },
       bankMatching: {
         overview: () =>
           jsonOk<BankMatchingOverview>(http.get('admin/clubs/bank-matching')),
@@ -1337,7 +1555,7 @@ export function createApiClient({ baseUrl }: CreateApiClientOptions): DuingApiCl
             jsonOk<SyncResult>(
               http.post(`leader/clubs/${clubId}/bank-transactions/sync`, {
                 json: payload,
-                timeout: BANK_SYNC_TIMEOUT_MS,
+                timeout: REQUEST_TIMEOUT_MS.bankSync,
               }),
             ),
           list: (clubId, params) =>

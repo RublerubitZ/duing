@@ -85,11 +85,11 @@ describe('FeeSummaryCards', () => {
     expect(screen.queryByText('0%')).not.toBeInTheDocument();
   });
 
-  it('로딩 중에는 불러오는 중 안내를 표시한다', () => {
+  it('로딩 중에는 로딩 스피너를 표시한다', () => {
     mockUseClubFeeSummaryQuery.mockReturnValue({ data: undefined, isLoading: true });
     render(<FeeSummaryCards clubId={1} />);
 
-    expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '수납 현황 불러오는 중' })).toBeInTheDocument();
   });
 
   it('billingPeriod 미지정 시 빈 파라미터로 동아리 전체를 조회한다', () => {

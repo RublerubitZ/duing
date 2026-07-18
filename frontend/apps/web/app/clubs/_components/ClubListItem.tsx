@@ -1,7 +1,7 @@
 'use client';
 
 // 모바일 전용 가로형 리스트 카드(media-object) — 데스크탑은 세로형 ClubCard 를 쓴다(ClubExplorePage 에서 분기).
-// 리딩 모노그램 + 이름/태그 + 카테고리·소속 칩 + 우측(상단 D-day · 하단 찜). 첫 항목은 추천 강조(잉크 보더).
+// 리딩 모노그램 + [이름+소속 칩 / 한줄 소개 / 카테고리·분과] + 우측(상단 D-day · 하단 찜). 첫 항목은 추천 강조(잉크 보더).
 
 import { Link } from 'next-view-transitions';
 
@@ -9,7 +9,8 @@ import { cn } from '@/app/_lib/cn';
 import { Sparkle, SparkleFull } from '../../_components/Sparkle';
 import { ClubLogo } from '../../_components/ClubLogo';
 import { toRoute } from '../../_lib/route';
-import { CAT_COLORS, type Club } from '../_lib/clubs';
+import { ScopeChip } from './ScopeChip';
+import { CAT_COLORS, formatDivisionLabel, type Club } from '../_lib/clubs';
 
 function HeartIcon({ filled = false }: { filled?: boolean }) {
   return filled ? (
@@ -108,22 +109,24 @@ export function ClubListItem({
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[15.5px] font-bold leading-tight text-ink-deep">{club.name}</div>
-        <div className="mt-0.5 truncate text-[11.5px] text-charcoal-3">{club.tag}</div>
+        {/* 계층 1·2 — 이름(데스크탑 카드와 같은 디스플레이 서체, 한 단계 큼)과 소속 칩을
+            한 줄에(A안) — 이름을 읽는 순간 소속까지 인지. 긴 이름은 truncate, 칩은 고정 폭. */}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <div className="min-w-0 truncate font-display text-[17px] font-bold leading-tight tracking-tightx text-ink-deep">
+            {club.name}
+          </div>
+          <ScopeChip scope={club.scope} />
+        </div>
+        {/* 계층 3 — 한줄 소개. 미작성이면 NBSP 빈 줄로 높이만 유지(행 간 정렬 일관). */}
+        <div className="mt-1.5 truncate text-[12.5px] text-charcoal-2">{club.tagline ?? ' '}</div>
+        {/* 계층 4 — 카테고리 색상 텍스트 + 분과(회색, 중앙만). 우측 상단은 D-day(모집) 자리. */}
         <div className="mt-2 flex min-w-0 items-center gap-1.5">
-          <span className={cn(cat.pill, 'shrink-0 text-[10px]')}>{club.cat}</span>
-          <span
-            className={cn(
-              'min-w-0 truncate rounded-full px-2 py-[3px] text-[10.5px] font-bold',
-              club.scope === '중앙' ? 'bg-sage-mist text-ink-deep' : 'bg-graysoft text-charcoal-2',
-            )}
-          >
-            {club.scope === '중앙'
-              ? club.division
-                ? `중앙 · ${club.division}`
-                : '중앙'
-              : '학과'}
-          </span>
+          <span className={cn('shrink-0 text-[12px] font-semibold', cat.text)}>{club.cat}</span>
+          {club.scope === '중앙' && club.division && (
+            <span className="min-w-0 truncate text-[12px] text-charcoal-3">
+              {formatDivisionLabel(club.division)}
+            </span>
+          )}
         </div>
       </div>
 

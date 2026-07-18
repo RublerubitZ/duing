@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useManagedClubsQuery } from '@duing/hooks';
 import { notFound } from 'next/navigation';
 import { toRoute } from '../../../_lib/route';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { PromotionRequestModal } from './_components/PromotionRequestModal';
 import { RecertificationRequestModal } from './_components/RecertificationRequestModal';
 import { DashboardCardGrid } from '../../_components/dashboard/DashboardCardGrid';
@@ -24,7 +25,7 @@ export default function ClubManagePage({
   const { data: managedClubs, isLoading: isManagedClubsLoading } = useManagedClubsQuery();
 
   if (isManagedClubsLoading) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="운영 권한 확인 중" />;
   }
 
   const isManaged =

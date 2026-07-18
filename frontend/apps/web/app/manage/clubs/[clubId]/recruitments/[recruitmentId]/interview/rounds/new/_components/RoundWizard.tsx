@@ -12,6 +12,7 @@ import { Step1Candidates } from './Step1Candidates';
 import { Step2RoundForm } from './Step2RoundForm';
 import { Step3Slots } from './Step3Slots';
 import { Step4Review } from './Step4Review';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 // wizard 컨테이너 (클라이언트 상태: step, selectedMap, roundId).
 //
@@ -100,7 +101,7 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
 
   // DRAFT 체크 중 로딩 — 목록 조회 전에 다이얼로그가 깜박이지 않도록
   if (roundsQuery.isLoading) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="면접 라운드 불러오는 중" />;
   }
 
   return (

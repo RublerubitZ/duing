@@ -72,7 +72,11 @@ export function Hero() {
         {/* ── 텍스트 (은은한 패럴랙스) ── */}
         <HeroParallax y={[0, -16]} scale={[1, 1]}>
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-paper px-3 py-1.5 text-[12.5px] font-medium text-ink">
-            <span className="animate-pulse-ring h-[7px] w-[7px] shrink-0 rounded-full bg-sage" />
+            {/* box-shadow 키프레임(pulse-ring) 대신 transform/opacity 만 쓰는 ping — 매 프레임 paint 를 피한다 */}
+            <span className="relative grid h-[7px] w-[7px] shrink-0 place-items-center">
+              <span className="absolute inset-0 animate-ping rounded-full bg-sage/60 [animation-duration:1.8s] motion-reduce:animate-none" />
+              <span className="h-[7px] w-[7px] rounded-full bg-sage" />
+            </span>
             대구대학교 동아리 플랫폼
           </div>
 

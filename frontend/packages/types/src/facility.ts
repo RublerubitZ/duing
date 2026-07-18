@@ -52,3 +52,202 @@ export type FacilityDetailResponse = {
   source: DataSource;
   facility: FacilityItem;
 };
+
+// ── 시설 대관 신청(P1) — 백엔드 설계 §8 계약과 1:1 ───────────────────────
+
+export type BookingSlotStatus = 'AVAILABLE' | 'PENDING_HOLD' | 'BLOCKED' | 'PAST';
+export type BookingSlotBlockSource = 'SCHOOL' | 'INTERNAL';
+export type BookingDayStatus = 'AVAILABLE' | 'FULL' | 'PAST';
+
+export type BookingAvailabilitySlot = {
+  start: string; // HH:mm
+  end: string; // HH:mm
+  status: BookingSlotStatus;
+  blockedBy?: BookingSlotBlockSource; // BLOCKED 일 때만 존재
+  // BLOCKED 차단의 단체명. SCHOOL(크롤)·INTERNAL(승인 완료 예약) 모두 노출한다(§4⁗.1 정책 반전 2026-07-17).
+  // PENDING_HOLD(승인 대기)는 아직 비노출이라 생략된다. 구 백엔드는 INTERNAL 에도 부재 → FE 는 "예약됨" 폴백.
+  organization?: string;
+};
+
+export type BookingOperatingNote = {
+  organization: string;
+  start: string; // HH:mm
+  end: string; // HH:mm
+};
+
+export type BookingDayAvailability = {
+  date: string; // yyyy-MM-dd
+  dayStatus: BookingDayStatus;
+  availableSlotCount: number;
+  operatingNotes: BookingOperatingNote[];
+  slots: BookingAvailabilitySlot[]; // 항상 13칸(09~22시)
+};
+
+export type FacilityAvailabilityResponse = {
+  facilityId: number;
+  yearMonth: string; // yyyy-MM
+  lastUpdatedAt?: string | null; // 서버가 NON_NULL 직렬화 — 콜드 월은 필드 자체가 생략됨
+  stale: boolean;
+  bookableFrom: string; // yyyy-MM-dd — 예약 오픈 구간(정책 산출)
+  bookableUntil: string; // yyyy-MM-dd — 예약 오픈 구간(정책 산출)
+  days: BookingDayAvailability[];
+};
+
+// GET /api/v1/facilities/booking-window — 현재 예약 오픈 구간(전 시설 공통, §1.5)
+export type FacilityBookingRange = {
+  startDate: string; // yyyy-MM-dd
+  endDate: string; // yyyy-MM-dd
+  label: string; // 서버 산출 표시 문자열("현재 예약 가능" 등) — FE 재정의 금지
+};
+
+export type FacilityBookingWindow = {
+  bookableFrom: string; // yyyy-MM-dd
+  bookableUntil: string;
+  // BE(Lightsail) 배포 전 FE(Vercel) 선배포 전환기에 구 응답으로도 동작해야 한다 — 부재 시 단일 배지 폴백
+  availableBookingRanges?: FacilityBookingRange[];
+};
+
+export type PurposePreset = {
+  id: number;
+  label: string;
+};
+
+export type CreateFacilityBookingPayload = {
+  facilityId: number;
+  date: string; // yyyy-MM-dd
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  purpose: string;
+  attendeeCount?: number;
+  // 대표 연락처(필수) — 서버 검증 패턴 ^01[016789]-?\d{3,4}-?\d{4}$ (하이픈 유무 허용).
+  contactPhone: string;
+};
+
+export type CreateFacilityBookingResult = {
+  bookingId: number;
+  status: 'PENDING';
+  overlappingPendingCount: number;
+};
+
+// 대관 신청 상태(백엔드 BookingStatus 1:1). CONFIRMED/REJECTED/CANCELLED 는 터미널.
+export type BookingStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'CONFLICT'
+  | 'CANCELLED';
+
+// GET /clubs/{clubId}/facility-bookings — 미페이징 최신순 배열(§8 #3)
+export type FacilityBookingSummary = {
+  bookingId: number;
+  facilityId: number;
+  roomName: string;
+  date: string; // yyyy-MM-dd
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  status: BookingStatus;
+  purpose: string;
+  createdAt: string; // ISO LocalDateTime
+};
+
+export type FacilityBookingHistoryItem = {
+  previousStatus: BookingStatus | null; // 생성 전이는 null
+  newStatus: BookingStatus;
+  reason: string | null;
+  changedAt: string; // ISO LocalDateTime
+};
+
+// GET /clubs/{clubId}/facility-bookings/{bookingId} — 이력(최신순) 포함(§8 #4)
+export type FacilityBookingDetail = {
+  bookingId: number;
+  facilityId: number;
+  roomName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: BookingStatus;
+  purpose: string;
+  attendeeCount?: number; // NON_NULL 직렬화 — null 이면 필드 생략
+  // 대표 연락처(운영진 본인 확인용). 기존 행(빈 문자열)은 서버가 null 로 내린다 → FE "—" 폴백(§2.3).
+  contactPhone: string | null;
+  rejectReason?: string;
+  conflictDetail?: string;
+  history: FacilityBookingHistoryItem[];
+};
+
+// ── 관리자 콘솔(§8 #6~#13) ─────────────────────────────────────────────
+
+export type AdminFacilityBookingSummary = {
+  bookingId: number;
+  clubId: number;
+  clubName: string;
+  facilityId: number;
+  roomName: string;
+  date: string; // yyyy-MM-dd
+  startTime: string; // HH:mm
+  endTime: string;
+  status: BookingStatus;
+  purpose: string;
+  createdAt: string; // ISO LocalDateTime
+  approvedWaitingDays?: number; // NON_NULL — APPROVED 행에만("학교 반영 대기 D+N")
+  conflictSuspected: boolean;
+  partiallyMatched: boolean;
+};
+
+export type AdminBookingOverlapItem = {
+  source: string; // 'SCHOOL' | 'INTERNAL' | 'PENDING' 계열 — 검증 컨텍스트 시각화용
+  organization: string;
+  startTime: string; // HH:mm
+  endTime: string;
+};
+
+export type AdminFacilityBookingDetail = {
+  bookingId: number;
+  clubId: number;
+  clubName: string;
+  facilityId: number;
+  roomName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: BookingStatus;
+  purpose: string;
+  attendeeCount?: number;
+  // 대표 연락처(연락 용도, PII). 기존 행(빈 문자열)은 서버가 null 로 내린다 → FE "—" 폴백(§2.3).
+  contactPhone: string | null;
+  rejectReason?: string;
+  conflictDetail?: string;
+  matchedScheduleSeq?: number;
+  crawlBasisAt?: string; // ISO LocalDateTime — 재크롤 실패·미수집 시 생략
+  stale: boolean;
+  overlaps: AdminBookingOverlapItem[];
+  overlappingPendingCount: number;
+  history: FacilityBookingHistoryItem[];
+};
+
+export type AdminFacilityBookingCounts = {
+  pendingCount: number;
+  todaySubmittedCount: number;
+  oldestPendingWaitingDays: number;
+  approvedWaitingCount: number;
+  oldestApprovedWaitingDays: number;
+  conflictCount: number;
+  conflictSuspectedCount: number;
+  confirmedThisMonthCount: number;
+};
+
+// 승인 409(FACILITY_BOOKING_SCHOOL_CONFLICT)의 ApiError.payload 형태(§8.3)
+export type FacilityBookingConflictPayload = {
+  conflicts: { source: string; organization: string; start: string; end: string }[];
+  crawlBasisAt: string | null; // OffsetDateTime(+09:00) 또는 null
+};
+
+export type AdminBookingQueueParams = {
+  status?: BookingStatus;
+  facilityId?: number;
+  dateFrom?: string; // yyyy-MM-dd
+  dateTo?: string;
+  page?: number;
+  size?: number;
+};

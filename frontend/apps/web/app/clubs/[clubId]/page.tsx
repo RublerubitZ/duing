@@ -5,6 +5,8 @@ import { use } from 'react';
 import { useClubDetailQuery, useClubPhotosQuery, useClubMembershipQuery } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
+import { TextLinesSkeleton } from '@/components/loading/Skeleton';
+
 import { ClubContactCard } from './_components/ClubContactCard';
 import { ClubDetailApplyBar } from './_components/ClubDetailApplyBar';
 import { ClubDetailHero } from './_components/ClubDetailHero';
@@ -28,7 +30,11 @@ export default function ClubDetailPage({
   const membership = useClubMembershipQuery(isAuthenticated ? clubId : null);
 
   if (detail.isLoading) {
-    return <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>;
+    return (
+      <div className="mx-auto max-w-layout px-6 py-10">
+        <TextLinesSkeleton lines={8} label="동아리 정보 불러오는 중" />
+      </div>
+    );
   }
   if (!detail.data) {
     return <p className="p-6 text-sm text-coral">동아리를 찾을 수 없습니다.</p>;

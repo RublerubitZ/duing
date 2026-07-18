@@ -27,7 +27,7 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 5 }: Ta
   }
 
   return (
-    <div className="flex flex-wrap gap-1.5 min-h-[42px] border border-[#cfcab8] bg-white rounded-[8px] px-2.5 py-2">
+    <div className="flex flex-wrap gap-1.5 min-h-[42px] border border-[#cfcab8] bg-white rounded-[8px] px-2.5 py-2 focus-within:border-[#5b7e4d]">
       {value.map((tag, idx) => (
         <span
           key={`${tag}-${idx}`}

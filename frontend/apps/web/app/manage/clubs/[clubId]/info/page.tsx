@@ -4,6 +4,7 @@ import { use } from 'react';
 import { notFound } from 'next/navigation';
 import { useClubDetailQuery, useManagedClubsQuery } from '@duing/hooks';
 import { ClubInfoForm } from './_components/ClubInfoForm';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 export default function ClubInfoPage({
   params,
@@ -19,7 +20,7 @@ export default function ClubInfoPage({
   );
 
   if (isManagedClubsLoading || isDetailLoading) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="동아리 정보 불러오는 중" />;
   }
 
   const managedClub = managedClubs?.find((club) => club.clubId === currentClubId);

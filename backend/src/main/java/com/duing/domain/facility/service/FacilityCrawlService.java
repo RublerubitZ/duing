@@ -151,7 +151,7 @@ public class FacilityCrawlService {
         List<Integer> failedRooms = new ArrayList<>();
         String lastError = null;
 
-        // 온디맨드(공개 GET)는 FE 15초 타임아웃 안에 응답해야 하므로 전체 데드라인을 건다.
+        // 온디맨드(공개 GET)는 FE 18초 타임아웃(facilityOnDemand) 안에 응답해야 하므로 전체 데드라인을 건다.
         // 초과 시 남은 룸은 시도 자체를 생략(스킵)하고 기존 스냅샷을 그대로 서빙한다(fail-safe 불변).
         boolean onDemand = source == CrawlSource.ON_DEMAND;
         long deadlineNanos = startNanos + Duration.ofSeconds(properties.onDemandDeadlineSeconds()).toNanos();

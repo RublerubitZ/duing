@@ -1,0 +1,46 @@
+name: Database Backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 19 * * *' # 04:15 KST
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p backup
+          supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f backup/roles.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy \
+            -x storage.buckets_vectors -x storage.vector_indexes -f backup/data.sql
+          gzip backup/*.sql
+
+      - name: Verify backup
+        run: |
+          gzip -t backup/*.sql.gz
+          ls -lh backup/
+          [ "$(stat -c%s backup/data.sql.gz)" -gt 10240 ] || { echo "data.sql.gz too small — dump likely failed"; exit 1; }
+
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # AWS CLI v2.23+ 기본 체크섬이 R2 미지원 — 필수
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          aws s3 cp backup/ "s3://${{ secrets.R2_BUCKET }}/$(TZ=Asia/Seoul date +%Y/%m/%d)/" \
+            --recursive --endpoint-url "${{ secrets.R2_ENDPOINT }}"

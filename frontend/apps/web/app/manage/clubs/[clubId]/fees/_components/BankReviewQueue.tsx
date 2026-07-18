@@ -17,6 +17,8 @@ import { cn } from '@/app/_lib/cn';
 import { formatWon } from '@/app/_lib/feeLabels';
 
 import { ManualMatchDialog } from './ManualMatchDialog';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type BankReviewQueueProps = {
   clubId: number;
@@ -85,7 +87,7 @@ export function BankReviewQueue({ clubId }: BankReviewQueueProps) {
       <section className="space-y-3">
         <h2 className="text-sm font-bold text-ink">검토 대기</h2>
         {isPendingLoading ? (
-          <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+          <LoadingGate label="검토 대기 거래 불러오는 중" className="min-h-0 py-8" />
         ) : isPendingError ? (
           <QueryErrorCard />
         ) : pendingTransactions.length === 0 ? (
@@ -108,7 +110,7 @@ export function BankReviewQueue({ clubId }: BankReviewQueueProps) {
       <section className="space-y-3">
         <h2 className="text-sm font-bold text-ink">매칭 내역</h2>
         {isMatchedLoading ? (
-          <p className="p-6 text-sm text-charcoal-3">불러오는 중…</p>
+          <LoadingGate label="매칭 내역 불러오는 중" className="min-h-0 py-8" />
         ) : isMatchedError ? (
           <QueryErrorCard />
         ) : matchedTransactions.length === 0 ? (
@@ -303,9 +305,9 @@ function IgnoreTransactionConfirm({
             type="button"
             onClick={confirmIgnore}
             disabled={mutation.isPending}
-            className="flex-1 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {mutation.isPending ? '처리 중…' : '무시'}
+            {mutation.isPending && <ButtonSpinner />}무시
           </button>
         </div>
       </div>
@@ -409,9 +411,9 @@ function MatchedTransactionRow({ clubId, transaction }: MatchedTransactionRowPro
                   })
                 }
                 disabled={unmatchTransaction.isPending}
-                className="flex-1 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
               >
-                {unmatchTransaction.isPending ? '취소 중…' : '매칭 취소'}
+                {unmatchTransaction.isPending && <ButtonSpinner />}매칭 취소
               </button>
             </div>
           </div>

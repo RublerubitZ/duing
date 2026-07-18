@@ -1,12 +1,15 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import Link from 'next/link';
+import { ApiError } from '@duing/api';
 import { useLoginMutation } from '@duing/hooks';
 import { loginSchema } from '@duing/schemas';
 import { cn } from '@/app/_lib/cn';
 import { toLinkRoute, toRoute } from '@/app/_lib/route';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 function IconMail() {
   return (
@@ -64,7 +67,7 @@ function IconChevronDown() {
 }
 
 function LoginForm() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const searchParams = useSearchParams();
   // next 는 공격자가 조작할 수 있는 값이므로 내부 절대경로만 허용한다 — toLinkRoute 가 프로토콜
   // 상대경로(//host)·역슬래시(/\host)처럼 브라우저가 오프-오리진으로 해석하는 값을 걸러내 open redirect 를 막는다.
@@ -91,8 +94,17 @@ function LoginForm() {
     try {
       await login.mutateAsync(parsed.data);
       router.replace(next);
-    } catch {
-      setError('학번 또는 비밀번호가 올바르지 않습니다.');
+    } catch (loginError) {
+      // 타임아웃·오프라인은 자격증명 문제가 아니다 — 정규화된 안내(요청 시간 초과/연결 확인)를 그대로 보여줘
+      // 사용자가 비밀번호를 의심하지 않게 한다. (재현 실험에서 확인된 오안내 수정)
+      if (loginError instanceof ApiError && (loginError.code === 'TIMEOUT' || loginError.code === 'NETWORK')) {
+        setError(loginError.message);
+      } else if (loginError instanceof ApiError && (loginError.status === 429 || loginError.status >= 500)) {
+        // 서버 장애·과요청은 자격증명 문제가 아니다 — 전역 폴백(global-error.tsx)과 같은 결의 안내.
+        setError('일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+      } else {
+        setError('학번 또는 비밀번호가 올바르지 않습니다.');
+      }
     }
   }
 
@@ -243,7 +255,7 @@ function LoginForm() {
               disabled={login.isPending}
               className="btn btn-primary btn-big mt-2 w-full disabled:opacity-50"
             >
-              {login.isPending ? '로그인 중…' : '두잉 시작하기 →'}
+              {login.isPending && <ButtonSpinner />}두잉 시작하기 →
             </button>
           </form>
 

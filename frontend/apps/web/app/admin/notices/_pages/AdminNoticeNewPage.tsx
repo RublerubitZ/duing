@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useAdminNoticeCreateMutation } from '@duing/hooks';
 import { NoticeForm } from '../_components/NoticeForm';
 import { EMPTY_NOTICE_FORM, toCreatePayload } from '../_lib/parseNoticeFormState';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 
 export function AdminNoticeNewPage() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const createMutation = useAdminNoticeCreateMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 

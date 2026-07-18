@@ -8,6 +8,7 @@ import {
   useAdminNoticeDeleteMutation,
 } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminNoticesFilterBar } from '../_components/AdminNoticesFilterBar';
 import { AdminNoticesTable } from '../_components/AdminNoticesTable';
 import { AdminNoticeDeleteDialog } from '../_components/AdminNoticeDeleteDialog';
@@ -59,7 +60,7 @@ export function AdminNoticesListPage() {
         />
       </div>
 
-      {listQuery.isLoading && <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>}
+      {listQuery.isLoading && <LoadingGate label="공지 목록 불러오는 중" />}
       {listQuery.isError && <p className="py-12 text-center text-coral text-[13px]">목록을 불러오지 못했습니다.</p>}
       {listQuery.isSuccess && (
         <AdminNoticesTable

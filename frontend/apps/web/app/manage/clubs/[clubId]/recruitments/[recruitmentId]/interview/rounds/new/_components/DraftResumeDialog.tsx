@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // DRAFT 감지 시 이어하기/폐기 선택 다이얼로그.
 // 이어하기 → roundId 세팅 후 Step2 진입. 폐기 → cancel mutation → Step1.
@@ -61,9 +62,9 @@ export function DraftResumeDialog({ draftRound, isPending, onResume, onDiscard, 
             type="button"
             onClick={onDiscard}
             disabled={isPending}
-            className="inline-flex items-center justify-center rounded-sm px-3.5 py-2 text-[13px] font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-sm px-3.5 py-2 text-[13px] font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50"
           >
-            {isPending ? '처리 중…' : '폐기하고 새로 만들기'}
+            {isPending && <ButtonSpinner />}폐기하고 새로 만들기
           </button>
           <button
             ref={resumeRef}

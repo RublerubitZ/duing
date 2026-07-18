@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type PromotionRequestModalProps = {
   clubId: number;
@@ -195,12 +196,12 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
               type="submit"
               disabled={isSubmitting || submitPromotion.isPending}
               className={cn(
-                'flex-1 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
+                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
                 'bg-ink hover:bg-ink-deep',
                 (isSubmitting || submitPromotion.isPending) && 'cursor-not-allowed opacity-60',
               )}
             >
-              {submitPromotion.isPending ? '요청 중…' : '홍보 요청 제출'}
+              {submitPromotion.isPending && <ButtonSpinner />}홍보 요청 제출
             </button>
           </div>
         </form>

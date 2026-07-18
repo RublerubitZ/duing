@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import {
   useAdminNoticeDetailQuery,
   useAdminNoticeUpdateMutation,
@@ -13,11 +14,12 @@ import {
   type NoticeFormState,
 } from '../_lib/parseNoticeFormState';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 export function AdminNoticeEditPage() {
   const params = useParams<{ noticeId: string }>();
   const noticeId = params.noticeId ? Number(params.noticeId) : null;
-  const router = useRouter();
+  const router = useGuardedRouter();
   const detailQuery = useAdminNoticeDetailQuery(noticeId);
   const updateMutation = useAdminNoticeUpdateMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export function AdminNoticeEditPage() {
   if (detailQuery.isLoading) {
     return (
       <main className="max-w-[760px] mx-auto px-6 py-10">
-        <p className="text-charcoal-3 text-[13px]">불러오는 중…</p>
+        <LoadingGate label="공지 불러오는 중" />
       </main>
     );
   }

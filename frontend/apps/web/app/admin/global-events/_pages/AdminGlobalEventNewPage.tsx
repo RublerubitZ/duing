@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useAdminGlobalEventCreateMutation } from '@duing/hooks';
 import { AdminGlobalEventForm } from '../_components/AdminGlobalEventForm';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
@@ -9,7 +9,7 @@ import { EMPTY_GLOBAL_EVENT_FORM, toCreatePayload } from '../_lib/parseGlobalEve
 import { toRoute } from '../../../_lib/route';
 
 export function AdminGlobalEventNewPage() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const createMutation = useAdminGlobalEventCreateMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 

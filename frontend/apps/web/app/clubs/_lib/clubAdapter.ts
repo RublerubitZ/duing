@@ -30,12 +30,12 @@ export function summaryToClub(summary: ClubSummary): Club {
   const cat = CATEGORY_TO_CAT[summary.category];
   const scope = deriveScope(summary.centralClub);
   const division = summary.division ?? null;
-  const tag = summary.tags.length > 0 ? summary.tags.slice(0, 3).join(' · ') : '소개 준비중';
+  const tagline = summary.tagline?.trim() ? summary.tagline : null;
 
   return {
     id: summary.id,
     name: summary.name,
-    tag,
+    tagline,
     cat,
     scope,
     division,

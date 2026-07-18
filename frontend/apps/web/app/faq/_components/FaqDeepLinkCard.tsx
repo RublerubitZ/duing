@@ -5,6 +5,8 @@
 
 import { useFederationFaqDetailQuery } from '@duing/hooks';
 
+import { TextLinesSkeleton } from '@/components/loading/Skeleton';
+
 import { FaqFeedback } from './FaqFeedback';
 
 type Props = {
@@ -32,9 +34,7 @@ export function FaqDeepLinkCard({ faqId, onClose }: Props) {
         </button>
       </div>
 
-      {isLoading && (
-        <p className="py-6 text-center text-[13px] text-charcoal-3">불러오는 중…</p>
-      )}
+      {isLoading && <TextLinesSkeleton lines={2} label="공유된 질문 불러오는 중" className="py-2" />}
       {isError && (
         <p className="py-6 text-center text-[13px] text-coral">해당 FAQ를 찾을 수 없어요</p>
       )}

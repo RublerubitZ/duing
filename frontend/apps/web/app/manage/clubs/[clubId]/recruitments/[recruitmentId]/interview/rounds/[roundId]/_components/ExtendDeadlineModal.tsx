@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // 마감 연장 모달 — COLLECTING 한정. 연장만 가능(단축 거부)하며 서버 거부 메시지는 모달 내부에 노출.
 
@@ -82,7 +83,7 @@ export function ExtendDeadlineModal({
             disabled={isPending || !newDeadline}
             className="btn btn-primary btn-sm disabled:opacity-50"
           >
-            {isPending ? '처리 중…' : '저장'}
+            {isPending && <ButtonSpinner />}저장
           </button>
         </DialogFooter>
       </DialogContent>

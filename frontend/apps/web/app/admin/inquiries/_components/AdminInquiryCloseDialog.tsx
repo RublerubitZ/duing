@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import {
   Dialog,
   DialogContent,
@@ -74,7 +75,7 @@ export function AdminInquiryCloseDialog({ isPending, errorMessage, onConfirm, on
             disabled={isPending}
             className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {isPending ? '종료 중…' : '종료'}
+            {isPending && <ButtonSpinner />}종료
           </button>
         </DialogFooter>
       </DialogContent>

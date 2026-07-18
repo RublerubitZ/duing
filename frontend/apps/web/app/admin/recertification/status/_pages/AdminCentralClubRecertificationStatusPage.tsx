@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useCentralClubRecertificationStatusQuery } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminCentralClubRecertificationStatusTable } from '../_components/AdminCentralClubRecertificationStatusTable';
 
 const PAGE_SIZE = 20;
@@ -53,9 +54,7 @@ export function AdminCentralClubRecertificationStatusPage() {
         />
       </div>
 
-      {statusQuery.isLoading && (
-        <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
-      )}
+      {statusQuery.isLoading && <LoadingGate label="재인증 현황 불러오는 중" />}
       {statusQuery.isError && (
         <p className="py-12 text-center text-coral text-[13px]">
           재인증 현황을 불러오지 못했습니다.

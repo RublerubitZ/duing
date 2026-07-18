@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // 수동 배정 모달 — ASSIGNING 한정 + SCHEDULED 일정 변경(재배정) 겸용.
 // showRescheduleNotice=true 시 "변경 시 지원자에게 일정 변경 알림이 발송됩니다" 안내 노출.
@@ -97,7 +98,7 @@ export function MemberAssignModal({
             disabled={isPending || selectedSlotId === null}
             className="btn btn-primary btn-sm disabled:opacity-50"
           >
-            {isPending ? '처리 중…' : '배정'}
+            {isPending && <ButtonSpinner />}배정
           </button>
         </DialogFooter>
       </DialogContent>

@@ -11,6 +11,7 @@ public record ManagedClubQuery(
         String clubName,
         String logoUrl,
         ClubMemberRole myRole,
+        boolean centralClub,
         long activeRecruitmentCount
 ) {
 }

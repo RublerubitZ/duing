@@ -7,6 +7,7 @@ import type { FederationInquiryStatus } from '@duing/types';
 import { useMyFederationInquiriesQuery } from '@duing/hooks';
 
 import { Pagination } from '@/components/Pagination';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { cn } from '@/app/_lib/cn';
 import { formatDateDot } from '@/app/_lib/formatDateDot';
 import { toRoute } from '@/app/_lib/route';
@@ -74,7 +75,12 @@ export function MyInquiriesPage() {
       </div>
 
       {listQuery.isLoading && (
-        <p className="py-12 text-center text-[13px] text-charcoal-3">불러오는 중…</p>
+        <ListRowsSkeleton
+          rows={5}
+          rowClassName="h-[64px] rounded-xl"
+          className="space-y-2"
+          label="문의 목록 불러오는 중"
+        />
       )}
       {listQuery.isError && (
         <p className="py-12 text-center text-[13px] text-coral">문의 목록을 불러오지 못했습니다.</p>

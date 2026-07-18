@@ -1,18 +1,17 @@
 'use client';
 
-// FAQ 아코디언 — 펼침/접힘에 height 애니메이션을 입힌 접근성 아코디언.
+// FAQ 아코디언 — 펼침/접힘에 grid-rows 전환을 입힌 접근성 아코디언.
 // 네이티브 <details> 대신 button + aria-expanded/aria-controls 로 상태를 명시한다.
-// 접근성: prefers-reduced-motion 이면 전이 시간 0 으로 즉시 펼친다.
+// 펼침은 JS 프레임 루프(framer height 애니메이션) 대신 CSS grid-template-rows 0fr↔1fr 전환 —
+// 컴포지터 친화적이진 않지만 메인 스레드 JS 비용이 없고 framer 번들 의존이 빠진다.
+// 접근성: motion-reduce 면 전이 없이 즉시 펼친다.
 
-import { motion, useReducedMotion } from 'framer-motion';
 import { useId, useState } from 'react';
-import { EASE_DUING } from '@/components/motion/constants';
 
 export type AccordionItemData = { question: string; answer: string };
 
 function AccordionRow({ item, index, defaultOpen }: { item: AccordionItemData; index: number; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
-  const shouldReduce = useReducedMotion();
   const baseId = useId();
   const panelId = `${baseId}-panel`;
   const buttonId = `${baseId}-button`;
@@ -47,21 +46,22 @@ function AccordionRow({ item, index, defaultOpen }: { item: AccordionItemData; i
           />
         </span>
       </button>
-      <motion.div
+      <div
         id={panelId}
         // 닫힌 패널은 시각적으로만 접히는 게 아니라 포커스·스크린리더에서도 빠지도록 inert + aria-hidden.
         // FAQ 스케일에서 role="region" 랜드마크는 과도하므로 두지 않는다.
         aria-hidden={!open}
         inert={!open}
-        initial={false}
-        animate={{ height: open ? 'auto' : 0, opacity: open ? 1 : 0 }}
-        transition={shouldReduce ? { duration: 0 } : { duration: 0.32, ease: EASE_DUING }}
-        className="overflow-hidden"
+        className={`grid transition-[grid-template-rows] duration-200 ease-duing motion-reduce:transition-none ${
+          open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+        }`}
       >
-        <div className="border-t border-dashed border-line pb-5 pt-3.5 text-[14px] leading-[1.65] text-charcoal-2">
-          {item.answer}
+        <div className="min-h-0 overflow-hidden">
+          <div className="border-t border-dashed border-line pb-5 pt-3.5 text-[14px] leading-[1.65] text-charcoal-2">
+            {item.answer}
+          </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

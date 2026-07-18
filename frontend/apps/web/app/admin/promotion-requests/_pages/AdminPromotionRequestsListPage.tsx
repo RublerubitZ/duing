@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { PromotionRequestStatus } from '@duing/types';
 import { useAdminPromotionRequestListQuery } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminPromotionRequestsFilterBar } from '../_components/AdminPromotionRequestsFilterBar';
 import { AdminPromotionRequestsTable } from '../_components/AdminPromotionRequestsTable';
 import { PROMOTION_REQUEST_STATUS_LABEL } from '../_lib/promotionRequestLabels';
@@ -80,9 +81,7 @@ export function AdminPromotionRequestsListPage() {
         />
       </div>
 
-      {listQuery.isLoading && (
-        <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
-      )}
+      {listQuery.isLoading && <LoadingGate label="홍보 요청 목록 불러오는 중" />}
       {listQuery.isError && (
         <p className="py-12 text-center text-coral text-[13px]">목록을 불러오지 못했습니다.</p>
       )}

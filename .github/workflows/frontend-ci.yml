@@ -63,6 +63,11 @@ jobs:
 
       - name: Build
         if: steps.detect.outputs.scaffolded == 'true'
+        env:
+          # 운영 API URL fail-fast(#634) 통과용 CI 전용 https URL — 실서버 아님
+          NEXT_PUBLIC_API_BASE_URL: https://api.ci.invalid/api/v1
+          # 쿠키 인증 힌트(#636) 빌드용 CI 전용 값 — 시크릿 아님
+          AUTH_HINT_SECRET: ci-only-auth-hint-secret-at-least-32-bytes
         run: pnpm build
 
       - name: Type check

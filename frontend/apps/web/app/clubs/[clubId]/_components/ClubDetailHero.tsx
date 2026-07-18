@@ -97,10 +97,15 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   )}
                 </div>
                 <h1 className="mb-4 text-[56px] leading-none tracking-tightx">{club.name}</h1>
-                {club.description && (
-                  <p className="max-w-[580px] text-lg leading-relaxed text-charcoal-2 line-clamp-2">
-                    {club.description}
-                  </p>
+                {/* 이름 아래는 해시태그 — 소개 본문은 소개 탭에서만 보여준다(중복 제거). */}
+                {club.tags.length > 0 && (
+                  <div className="flex max-w-[580px] flex-wrap gap-1.5">
+                    {club.tags.map((tagName) => (
+                      <span key={tagName} className="pill pill-outline bg-paper/60 text-[12px]">
+                        #{tagName.replace(/^#+/, '')}
+                      </span>
+                    ))}
+                  </div>
                 )}
 
                 {isAuthenticated && (
@@ -184,10 +189,15 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             </div>
           )}
 
-          {club.description && (
-            <p className="mt-2.5 text-[13.5px] leading-relaxed text-charcoal-2 line-clamp-3">
-              {club.description}
-            </p>
+          {/* 이름 아래는 해시태그 — 소개 본문은 소개 탭에서만 보여준다(데스크탑 히어로와 동일 규칙). */}
+          {club.tags.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {club.tags.map((tagName) => (
+                <span key={tagName} className="pill pill-outline bg-paper/60 text-[11px]">
+                  #{tagName.replace(/^#+/, '')}
+                </span>
+              ))}
+            </div>
           )}
 
           {isAuthenticated && (

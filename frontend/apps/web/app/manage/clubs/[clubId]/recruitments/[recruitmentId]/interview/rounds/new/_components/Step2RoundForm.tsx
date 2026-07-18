@@ -7,6 +7,8 @@ import {
   useUpdateInterviewRoundMutation,
   useInterviewRoundDetailQuery,
 } from '@duing/hooks';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // Step2: 라운드 정보 입력 및 첫 저장(생성 모드) 또는 수정(이어하기 모드).
 //
@@ -108,7 +110,7 @@ export function Step2RoundForm({
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   if (isResumeMode && detailQuery.isLoading) {
-    return <p className="p-4 text-sm text-slate-500">라운드 정보를 불러오는 중…</p>;
+    return <LoadingGate label="라운드 정보 불러오는 중" className="min-h-0 py-8" />;
   }
 
   return (
@@ -187,9 +189,10 @@ export function Step2RoundForm({
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {isPending ? '저장 중…' : isResumeMode ? '저장하고 다음' : '라운드 생성'}
+            {isPending && <ButtonSpinner />}
+            {isResumeMode ? '저장하고 다음' : '라운드 생성'}
           </button>
         </div>
       </form>

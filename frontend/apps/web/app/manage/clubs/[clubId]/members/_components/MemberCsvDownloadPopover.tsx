@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useClubMembersExportMutation } from '@duing/hooks';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { downloadTextFile } from '@/app/_lib/downloadFile';
 import { buildMembersCsv, buildMembersCsvFilename } from '../_lib/membersCsv';
 
@@ -61,8 +62,10 @@ export function MemberCsvDownloadPopover({ clubId, clubName }: MemberCsvDownload
           type="button"
           onClick={handleDownload}
           disabled={exportMembers.isPending}
-          className="w-full rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
+          {/* 장시간 작업(CSV 내보내기) — 스피너 + 안내 문구 유지 */}
+          {exportMembers.isPending && <ButtonSpinner />}
           {exportMembers.isPending ? '내보내는 중…' : '다운로드'}
         </button>
       </PopoverContent>

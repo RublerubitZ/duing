@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { ApiError } from '@duing/api';
@@ -9,13 +9,14 @@ import { useWithdrawAccountMutation } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
 
 type Props = { open: boolean; onClose: () => void };
 
 export function WithdrawAccountDialog({ open, onClose }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const queryClient = useQueryClient();
   const clearSession = useAuthStore((state) => state.clearSession);
   const { addToast } = useToast();
@@ -74,7 +75,7 @@ export function WithdrawAccountDialog({ open, onClose }: Props) {
             disabled={withdrawMutation.isPending}
             className="btn btn-sm rounded-[10px] bg-coral text-white disabled:opacity-50"
           >
-            {withdrawMutation.isPending ? '처리 중…' : '탈퇴하기'}
+            {withdrawMutation.isPending && <ButtonSpinner />}탈퇴하기
           </button>
         </div>
       </DialogContent>

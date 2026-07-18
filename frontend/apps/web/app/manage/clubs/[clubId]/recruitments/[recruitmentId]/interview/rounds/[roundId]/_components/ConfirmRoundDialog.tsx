@@ -12,6 +12,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { MEMBER_STATUS_LABEL, MEMBER_STATUS_CLASS } from './memberStatusLabels';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // 확정 409 모달 — UnresolvedMembersPayload 의 미응답·응답했으나 미배정 두 그룹을 분리 렌더하고
 // 강제 확정(force=true)을 제안한다. 강제 확정 실패 메시지는 모달 내부에 노출.
@@ -112,7 +113,7 @@ export function ConfirmRoundDialog({
             disabled={isPending}
             className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {isPending ? '처리 중…' : `강제 확정 (미처리 ${totalCount}명 제외)`}
+            {isPending && <ButtonSpinner />}강제 확정 (미처리 {totalCount}명 제외)
           </button>
         </DialogFooter>
       </DialogContent>

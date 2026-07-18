@@ -8,6 +8,7 @@ import {
   useAdminFederationFaqCategoryDeleteMutation,
 } from '@duing/hooks';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { FaqCategoryDeleteDialog } from './FaqCategoryDeleteDialog';
 
 // 카테고리 관리 카드 — 목록 상단 접이식. 이름 인라인 수정 + 순서 위/아래(인접 sortOrder 교환,
@@ -121,7 +122,7 @@ export function FaqCategoryManager() {
       {expanded && (
         <div className="space-y-3 border-t border-line px-4 py-4">
           {categoriesQuery.isLoading && (
-            <p className="text-[12.5px] text-charcoal-3">불러오는 중…</p>
+            <LoadingGate className="min-h-0 py-4" label="카테고리 목록 불러오는 중" />
           )}
           {categoriesQuery.isSuccess && categories.length === 0 && (
             <p className="text-[12.5px] text-charcoal-3">등록된 카테고리가 없습니다.</p>

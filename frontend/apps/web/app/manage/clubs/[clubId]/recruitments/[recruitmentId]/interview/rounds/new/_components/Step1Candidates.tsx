@@ -6,6 +6,7 @@ import type { InterviewRoundCandidate } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { APPLICATION_STATUS_OPERATOR_LABEL } from '@/app/_constants/application-status';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 // Step1: 면접 라운드 대상 후보 선정 (ephemeral — 서버에 저장하지 않음).
 // 서류 검토 중(UNDER_REVIEW) / 면접 대기(INTERVIEW_PENDING) 그룹 헤더로 분리.
@@ -140,7 +141,7 @@ export function Step1Candidates({
   }
 
   if (candidatesQuery.isLoading) {
-    return <p className="p-4 text-sm text-slate-500">후보 목록을 불러오는 중…</p>;
+    return <LoadingGate label="후보 목록 불러오는 중" className="min-h-0 py-8" />;
   }
 
   if (candidatesQuery.isError) {

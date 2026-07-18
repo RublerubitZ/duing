@@ -11,6 +11,7 @@ import type {
   UpdatePromotionPayload,
 } from '@duing/types';
 import { ImageUploader } from '../../../_components/ImageUploader';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { PALETTE_OPTIONS, PROMOTION_PALETTE } from '../../../_lib/promotionPalette';
 import { ClubSelector } from './ClubSelector';
 import { NoticeSelector } from './NoticeSelector';
@@ -693,9 +694,10 @@ export function AdminPromotionForm(props: Props) {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-5 py-2.5 rounded-full bg-ink text-paper text-[13.5px] font-semibold disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-ink text-paper text-[13.5px] font-semibold disabled:opacity-50"
         >
-          {isSubmitting ? '저장 중…' : mode === 'create' ? '배너 등록' : '수정 저장'}
+          {isSubmitting && <ButtonSpinner />}
+          {mode === 'create' ? '배너 등록' : '수정 저장'}
         </button>
       </div>
     </form>

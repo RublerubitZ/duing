@@ -1,4 +1,5 @@
-import { Link } from 'next-view-transitions';
+// GNB 탭 이동은 View Transition 제외(next/link) — ExploreNav·BottomNav 와 동일 정책.
+import Link from 'next/link';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { cn } from '@/app/_lib/cn';
 import { HomeNavAdminLink } from './HomeNavAdminLink';

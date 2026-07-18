@@ -5,6 +5,7 @@ import { ApiError } from '@duing/api';
 import { useRespondAvailabilityMutation } from '@duing/hooks';
 import type { ApplicantInterviewSelectableSlot } from '@duing/types';
 import { SlotPickerByDateGroup } from '@/components/interview/SlotPickerByDateGroup';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // 지원자 면접 가능 시간 응답 모달 (BE#8 — XOR payload).
 // - 슬롯 경로: selected=true 인 슬롯을 초기 selectedSlotIds 로 프리필, 저장 시 { slotIds }
@@ -284,6 +285,7 @@ export function RespondAvailabilityModal({
             type="button"
             onClick={handleSave}
             disabled={isSaveDisabled}
+            className="inline-flex items-center gap-1.5"
             style={{
               padding: '8px 16px',
               borderRadius: 8,
@@ -295,7 +297,7 @@ export function RespondAvailabilityModal({
               opacity: isSaveDisabled ? 0.55 : 1,
             }}
           >
-            {respondMutation.isPending ? '저장 중…' : '저장'}
+            {respondMutation.isPending && <ButtonSpinner />}저장
           </button>
         </div>
       </div>

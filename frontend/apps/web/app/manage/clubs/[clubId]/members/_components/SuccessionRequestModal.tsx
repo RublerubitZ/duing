@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type Props = {
   clubId: number;
@@ -126,12 +127,12 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
               type="submit"
               disabled={isSubmitting || submitSuccession.isPending}
               className={cn(
-                'flex-1 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
+                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md py-3 text-sm font-semibold text-paper transition-colors',
                 'bg-ink hover:bg-ink-deep',
                 (isSubmitting || submitSuccession.isPending) && 'cursor-not-allowed opacity-60',
               )}
             >
-              {submitSuccession.isPending ? '요청 중…' : '승계 요청'}
+              {submitSuccession.isPending && <ButtonSpinner />}승계 요청
             </button>
           </div>
         </form>

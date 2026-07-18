@@ -26,6 +26,7 @@ function makeSummary(overrides: Partial<ClubSummary> = {}): ClubSummary {
     logoUrl: null,
     status: 'ACTIVE',
     tags: ['스터디'],
+    tagline: null,
     centralClub: true,
     activeRecruitment: {
       recruitmentId: 10,

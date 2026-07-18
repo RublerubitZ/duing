@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useClubNoticeDetailQuery, useClubNoticeListQuery, useRemoveClubNoticeMutation } from '@duing/hooks';
 import type { NoticeCardItem } from '@duing/types';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { useMembership } from './MembershipContext';
 import { ClubNoticeCard } from './ClubNoticeCard';
 import { ClubNoticeFormModal } from './ClubNoticeFormModal';
@@ -22,7 +23,13 @@ export function ClubNoticeList({ clubId }: Props) {
   // 목록 카드에는 content 가 없으므로, 수정 시 상세를 시드해야 본문 재입력 없이 편집할 수 있다.
   const { data: editingDetail } = useClubNoticeDetailQuery(clubId, editing?.id ?? null);
 
-  if (isLoading) return <p className="px-6 py-4 text-sm text-charcoal-3">불러오는 중…</p>;
+  if (isLoading) {
+    return (
+      <section className="mx-auto max-w-3xl px-6 py-6">
+        <ListRowsSkeleton rows={4} rowClassName="h-[88px] rounded-xl" label="공지 불러오는 중" />
+      </section>
+    );
+  }
 
   const notices = data?.content ?? [];
 

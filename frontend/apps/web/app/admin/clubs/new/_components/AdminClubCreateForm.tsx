@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import { useCreateClubMutation } from '@duing/hooks';
 import type { AdminUserSearchResult, ClubCategory, College, CreateClubPayload } from '@duing/types';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { LeaderSearchCombobox } from '../../_components/LeaderSearchCombobox';
 import { ImageUploader } from '../../../../_components/ImageUploader';
 import { toRoute } from '../../../../_lib/route';
@@ -36,7 +37,7 @@ const CATEGORY_LABEL: Record<ClubCategory, string> = {
 };
 
 export function AdminClubCreateForm() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const mutation = useCreateClubMutation();
 
   const [name, setName] = useState('');
@@ -211,7 +212,7 @@ export function AdminClubCreateForm() {
           disabled={mutation.isPending}
           className="btn btn-primary rounded-md px-4 text-[13px] disabled:opacity-50"
         >
-          {mutation.isPending ? '등록 중…' : '등록'}
+          {mutation.isPending && <ButtonSpinner />}등록
         </button>
       </div>
     </form>

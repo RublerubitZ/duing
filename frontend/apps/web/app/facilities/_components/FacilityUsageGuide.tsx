@@ -1,10 +1,8 @@
 'use client';
 
-// 시설물 사용신청 안내 — 학교 안내문 원문을 접이식으로 제공한다.
+// 시설물 이용 안내 — 학교 이용 수칙·주의 문구를 접이식으로 제공한다.
 // 네이티브 <details>/<summary> 로 키보드 조작·펼침 상태 알림을 브라우저에 위임하고,
 // 접힌 상태에서도 눈에 띄도록 위에 한 줄 힌트를 상시 노출한다.
-
-const GUIDE_DETAIL_URL = 'https://www.daegu.ac.kr/room/detail';
 
 const FACILITY_LIST = [
   '세미나실(커뮤니티룸(1)(1503호), 커뮤니티룸(2)(1527호), 커뮤니티룸(3)(1425호))',
@@ -24,14 +22,14 @@ export function FacilityUsageGuide() {
   return (
     <div>
       <p className="mb-2 text-[13px] text-charcoal-2">
-        시설물 이용은 사전 신청이 필요해요. 신청 방법과 준수 사항을 아래에서 확인하세요.
+        시설물 이용 전 아래 이용 수칙과 신청 규정을 확인하세요.
       </p>
 
       <details className="group rounded-[18px] border border-line bg-paper">
         {/* summary 콘텐츠 모델(heading 1개) 준수 — 화살표 svg 는 h2 안에 둔다. */}
         <summary className="cursor-pointer list-none rounded-[18px] px-4 py-4 sm:px-5 [&::-webkit-details-marker]:hidden">
           <h2 className="flex items-center justify-between gap-3 text-[15px] font-bold text-ink">
-            학생회관 시설물 사용신청 안내
+            학생회관 시설물 이용 안내
             <svg
               aria-hidden
               viewBox="0 0 16 16"
@@ -77,13 +75,6 @@ export function FacilityUsageGuide() {
             </li>
             <li>사용 신청은 동아리명(자치기구명)으로 신청하면 되며 참석자 명단을 반드시 첨부하여야 함</li>
             <li>
-              아래 신청서를 작성하여 이용현황 확인 후{' '}
-              <a href="mailto:sd@daegu.ac.kr" className="font-semibold text-ink underline">
-                sd@daegu.ac.kr
-              </a>{' '}
-              로 발송
-            </li>
-            <li>
               이용 문의: 학생문화팀(
               <a href="tel:053-850-5214" className="font-semibold text-ink underline">
                 053-850-5214
@@ -91,17 +82,6 @@ export function FacilityUsageGuide() {
               )
             </li>
           </ul>
-
-          <a
-            href={GUIDE_DETAIL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-line bg-cream px-4 py-2 text-[13px] font-semibold text-ink motion-safe:transition-colors hover:bg-graysoft"
-          >
-            신청서 다운로드·자세한 안내
-            <span aria-hidden>↗</span>
-            <span className="sr-only">(새 창 열림)</span>
-          </a>
         </div>
       </details>
     </div>

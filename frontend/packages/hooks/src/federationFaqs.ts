@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CreateFederationFaqCategoryPayload,
   CreateFederationFaqPayload,
@@ -23,6 +23,8 @@ export function useFederationFaqListQuery(params: ListParams, enabled = true) {
     queryFn: () => client.federationFaqs.list(params),
     enabled,
     staleTime: 30_000,
+    // 카테고리·검색·페이지 변경 시 "불러오는 중" 리셋 대신 이전 목록을 유지한 채 갱신한다.
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -593,7 +593,7 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
 
     // 캐시된 '적격' 판정으로 지원 폼이 한 프레임이라도 그려지면 사용자가 입력을 시작해 버린다.
     expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
-    expect(screen.getByText('불러오는 중…')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '불러오는 중' })).toBeInTheDocument();
 
     // 재확인 결과가 도착하면 차단 패널로 확정된다 — 그 사이에도 폼은 등장하지 않는다.
     expect(

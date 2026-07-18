@@ -340,7 +340,7 @@ export function BannerCarouselClient({ slides }: Props) {
                   {slides.map((slide, idx) => (
                     <span
                       key={slide.key}
-                      className={`h-1.5 rounded-full transition-all ${
+                      className={`h-1.5 rounded-full transition-[width,background-color] ${
                         idx === activeIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/55'
                       }`}
                     />
@@ -403,7 +403,7 @@ export function BannerCarouselClient({ slides }: Props) {
                   if (currentSlide) startSlideTransition(idx > activeIndex ? 'left' : 'right', currentSlide);
                   setActiveIndex(idx);
                 }}
-                className={`h-[5px] rounded-full transition-all ${
+                className={`h-[5px] rounded-full transition-[width,background-color] ${
                   idx === activeIndex ? 'w-6 bg-ink' : 'w-[5px] bg-line'
                 }`}
               />

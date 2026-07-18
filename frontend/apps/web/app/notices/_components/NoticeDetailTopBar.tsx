@@ -4,7 +4,7 @@
 // 동아리 상세처럼 포커스 뷰라 모바일에서 전역 브랜드 바(ExploreNav)·하단 탭바를 숨기고 이 바가 대신한다.
 // 커버 위가 아닌 크림 배경 위에 놓이므로 버튼은 paper 원형 + 보더/그림자로 대비를 준다.
 
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { ArrowLeft, Check, Share } from '@/components/duing/Icon';
 import { useShareLink } from '@/app/_lib/useShareLink';
@@ -13,7 +13,7 @@ const ROUND =
   'grid h-9 w-9 place-items-center rounded-full border border-line bg-paper text-ink shadow-1 transition active:scale-95';
 
 export function NoticeDetailTopBar() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { copied, share } = useShareLink();
 
   function handleBack() {

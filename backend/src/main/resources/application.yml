@@ -7,6 +7,12 @@ spring:
     active: local
   application:
     name: duing
+  task:
+    scheduling:
+      pool:
+        # 기본 1스레드는 크롤(최대 수 분)이 스케줄러를 점유하면 매칭의 3분 오프셋과 타 도메인 잡이
+        # 함께 밀린다(2026-07-17 감사). 잡별 중복 실행은 각 스케줄러의 AtomicBoolean 가드가 막는다.
+        size: 4
   servlet:
     multipart:
       # 이미지 업로드 정책 한도는 FileUploadPolicy.MAX_BYTES (5MB). 서블릿 한도는
@@ -26,26 +32,6 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
-  # Brevo SMTP — 인증 메일 폴백 발송용(JavaMailSender). Resend 가 429/5xx/타임아웃 등 일시 장애일 때만
-  # BrevoMailProvider 가 사용한다(email.provider=resend 일 때 활성). 크레덴셜은 default 빈 값 —
-  # 미주입이어도 부팅은 성공하고, 폴백 시도만 인증 실패로 무력화된다(주 발송 Resend 는 영향 없음).
-  # 타임아웃은 발송 API 스레드가 SMTP 장애에 길게 블로킹되지 않도록 짧게 강제한다(ResendClientConfig 와 동일 철학).
-  mail:
-    host: smtp-relay.brevo.com
-    port: 587
-    username: ${BREVO_SMTP_LOGIN:}
-    password: ${BREVO_SMTP_KEY:}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-            # STARTTLS 강제 — 평문 세션으로 크레덴셜이 전송되는 다운그레이드를 차단한다.
-            required: true
-          connectiontimeout: 3000
-          timeout: 5000
-          writetimeout: 5000
 
 # Actuator — 배포/프록시 헬스체크용으로 /actuator/health 하나만 외부에 노출한다.
 # info·metrics·env·beans 등 다른 endpoint 는 web exposure 에서 제외해 정보 노출/정찰 표면을 차단하고,
@@ -61,15 +47,17 @@ management:
       show-details: never
   health:
     mail:
-      # spring.mail.host 설정으로 JavaMailSenderImpl 빈이 생기면 Boot 가 mail 헬스체크를 자동 등록해
-      # 헬스 조회마다 Brevo SMTP 접속을 시도한다. Docker healthcheck 주기마다 외부 접속이 발생하고,
-      # Brevo 크레덴셜 미주입·일시 장애 시 전체 health 가 DOWN 으로 바뀌어 배포가 롤백 루프에 빠진다.
-      # 메일 폴백은 배포 게이트와 무관한 부가 경로이므로 헬스체크에서 제외한다.
+      # spring-boot-starter-mail 제거(PR5) 후 이 키는 무해한 잔존 설정이다. 굳이 지우지 않는 이유:
+      # 구 이미지로 롤백하면 JavaMailSender 헬스체크가 되살아나 배포가 롤백 루프에 빠진 전례가 있다.
       enabled: false
 
 jwt:
   secret: ${JWT_SECRET}
   expiry-ms: ${JWT_EXPIRY_MS:3600000}
+
+web-auth:
+  hint-secret: ${AUTH_HINT_SECRET}
+  hint-cookie-domain: ${AUTH_HINT_COOKIE_DOMAIN:}
 
 # 회비 계좌번호 AES-256-GCM 암호화 키. base64 인코딩된 32바이트(256bit) 값을 FEE_ACCOUNT_ENC_KEY 환경변수로 주입한다.
 # 기본값 없음(빈 문자열) — 키 미주입 시 FeeAccountCipher 가 기동 시점에 실패한다(fail fast). 운영은 env var 필수, yml/코드에 실키 금지.
@@ -108,23 +96,6 @@ s3:
   secret-key: ${S3_SECRET_KEY:}
   bucket: ${S3_BUCKET:duing}
   public-base-url: ${S3_PUBLIC_BASE_URL:}
-
-email:
-  provider: ${EMAIL_PROVIDER:logging}   # logging | resend(실발송 — Resend 주 + Brevo SMTP 폴백 체인)  (test 전용: stub)
-  verification:
-    secret: ${EMAIL_VERIFICATION_SECRET}   # HMAC 키 — 기본값 없음(필수), .env 로 주입
-
-resend:
-  api-key: ${RESEND_API_KEY}
-  from: '${RESEND_FROM:두잉 <noreply@duings.com>}'
-
-# Brevo 발신자 표기 — Resend 와 동일한 발신자를 기본값으로 유지한다(수신함에서 Provider 가 바뀌어도
-# 동일 발신자로 보이게). RESEND_FROM 을 커스텀했다면 BREVO_FROM 도 같이 맞춰 주입한다.
-# SMTP 크레덴셜(BREVO_SMTP_LOGIN/KEY)은 spring.mail 에서 주입한다.
-# ⚠️ 한글 발신자명 env 오버라이드는 운영(진짜 환경변수) 전용 — 로컬 backend/.env 경유는
-# properties(ISO-8859-1) 로 읽혀 mojibake 가 된다(backend/.env.example 경고 참조).
-brevo:
-  from: '${BREVO_FROM:두잉 <noreply@duings.com>}'
 
 # MO(문자 발신) 인증 — 사용자가 Octomo 대표번호로 인증코드를 문자 전송하면 exists 조회 API 로 확인한다.
 mo:
@@ -209,10 +180,22 @@ duing:
       read-timeout-millis: 5000
       retry-max-attempts: 4
       retry-backoff-millis: 500
-      # 온디맨드(공개 GET) 예산 — FE 15초 타임아웃 내 응답: 룸당 총 2회 재시도 + 전체 10초 데드라인.
+      # 온디맨드(공개 GET) 예산 — FE 18초 타임아웃(facilityOnDemand) 내 응답: 룸당 총 2회 재시도 +
+      # 전체 10초 데드라인. 최악 응답시간 ≈ 16.5s(첫 룸은 데드라인 예외 — 2회 × (3s+5s) + 백오프 0.5s).
       on-demand-retry-max-attempts: 2
       on-demand-deadline-seconds: 10
       room-delay-millis: 100
+    booking:
+      matching:
+        # APPROVED → CONFIRMED 자동 매칭 잡(10분, 크롤 잡과 3분 오프셋). 로컬/테스트 기본 비활성 —
+        # 운영에서 DUING_FACILITY_BOOKING_MATCHING_ENABLED=true(application-prod.yml)로 활성화한다.
+        enabled: ${DUING_FACILITY_BOOKING_MATCHING_ENABLED:false}
+      window:
+        # 예약 오픈 구간 정책(설계 §1.5 → 2026-07-16 롤링 전환) — HALF_MONTH: 롤링 창
+        # [오늘, 다음 반월 말일]. 오늘 1~pivot일이면 당월 말일까지, (pivot+1)~말일이면 익월 pivot일까지.
+        # MONTHLY/FREE 는 키만 예약(미구현 — 선택 시 부팅 실패).
+        mode: ${DUING_FACILITY_BOOKING_WINDOW_MODE:HALF_MONTH}
+        pivot-day: ${DUING_FACILITY_BOOKING_WINDOW_PIVOT_DAY:15}
 
 # 기본은 안전값(warn). bind 파라미터 로깅(org.hibernate.orm.jdbc.bind=trace)은 이메일·인증코드·학번 등
 # PII 를 평문으로 남기므로 base 를 warn 으로 둔다. local 프로파일만 개발 편의로 trace 를 다시 켜고

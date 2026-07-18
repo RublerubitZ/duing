@@ -17,6 +17,8 @@ import { isUnresolvedMembersPayload } from '@duing/types';
 import type { InterviewRoundDetailMember, UnresolvedMembersPayload } from '@duing/types';
 import { toRoute } from '@/app/_lib/route';
 import { cn } from '@/app/_lib/cn';
+import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { ConfirmDialog } from './ConfirmDialog';
 import { AutoAssignDialog } from './AutoAssignDialog';
 import { ConfirmRoundDialog } from './ConfirmRoundDialog';
@@ -104,7 +106,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
   const assignMutation = useAssignMemberScheduleMutation(roundId);
 
   if (detailQuery.isLoading) {
-    return <p className="p-6 text-sm text-slate-500">불러오는 중…</p>;
+    return <LoadingGate label="라운드 정보 불러오는 중" />;
   }
 
   if (detailQuery.isError || !detailQuery.data) {
@@ -370,9 +372,9 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
                 type="button"
                 onClick={handleRemind}
                 disabled={remindMutation.isPending}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               >
-                {remindMutation.isPending ? '처리 중…' : '재알림'}
+                {remindMutation.isPending && <ButtonSpinner />}재알림
               </button>
             )}
 

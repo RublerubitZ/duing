@@ -82,7 +82,6 @@ export { draftQueryKeys } from './draftQueryKeys';
 export {
   useUnreadCountQuery,
   useNotificationListQuery,
-  useNotificationReadMutation,
   useNotificationSourceAwareReadMutation,
   useNotificationReadAllMutation,
 } from './notifications';
@@ -285,5 +284,26 @@ export {
   useToggleCashbookExclusionMutation,
 } from './cashbook';
 export { cashbookQueryKeys } from './cashbookQueryKeys';
-export { useFacilityUsageQuery, useFacilityDetailQuery } from './facilities';
+export {
+  useFacilityUsageQuery,
+  useFacilityDetailQuery,
+  useFacilityAvailabilityQuery,
+  usePurposePresetsQuery,
+  useBookingWindowQuery,
+  useCreateFacilityBookingMutation,
+  useClubFacilityBookingsQuery,
+  useFacilityBookingDetailQuery,
+  useCancelFacilityBookingMutation,
+} from './facilities';
 export { facilityQueryKeys } from './facilityQueryKeys';
+export {
+  useAdminFacilityBookingQueueQuery,
+  useAdminFacilityBookingDetailQuery,
+  useAdminFacilityBookingSummaryQuery,
+  useApproveFacilityBookingMutation,
+  useRejectFacilityBookingMutation,
+  useConfirmFacilityBookingMutation,
+  useMarkConflictFacilityBookingMutation,
+  useCancelFacilityBookingAdminMutation,
+} from './facilityBookingsAdmin';
+export { shouldRetryQuery, isNonRetryableError } from './retry';

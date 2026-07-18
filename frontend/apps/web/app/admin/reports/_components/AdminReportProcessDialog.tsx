@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import type { AdminReportDetail, ProcessReportPayload, ReportStatus } from '@duing/types';
 
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import {
   Dialog,
   DialogContent,
@@ -109,9 +110,8 @@ export function AdminReportProcessDialog({ report, isPending, errorMessage, onCo
                 : 'btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50'
             }
           >
-            {isPending
-              ? '처리 중…'
-              : `${STATUS_LABEL_MAP[selectedStatus]}${selectedStatus === 'RESOLVED' ? '로' : '으로'} 처리`}
+            {isPending && <ButtonSpinner />}
+            {`${STATUS_LABEL_MAP[selectedStatus]}${selectedStatus === 'RESOLVED' ? '로' : '으로'} 처리`}
           </button>
         </DialogFooter>
       </DialogContent>

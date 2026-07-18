@@ -9,7 +9,8 @@
 //   마크업이 어긋나 mismatch 가 난다. reduced 의 즉시 노출은 initial 이 아니라 animate 가 담당한다.
 // 서버 컴포넌트 섹션을 children 으로 감싸 쓰는 클라이언트 래퍼 — above-the-fold 핵심 콘텐츠엔 쓰지 않는다.
 
-import { motion, useReducedMotion } from 'framer-motion';
+// 번들: motion 전체 배럴 대신 LazyMotion(domAnimation)+m — 이 컴포넌트를 쓰는 라우트 청크가 가벼워진다.
+import { LazyMotion, domAnimation, m, useReducedMotion } from 'framer-motion';
 import type { ReactNode } from 'react';
 
 type FadeInProps = {
@@ -25,15 +26,17 @@ export function FadeIn({ children, delay = 0, y = 16, className }: FadeInProps) 
   const shouldReduce = useReducedMotion();
 
   return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y }}
-      animate={shouldReduce ? { opacity: 1, y: 0 } : undefined}
-      whileInView={shouldReduce ? undefined : { opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '0px 0px -10% 0px' }}
-      transition={shouldReduce ? { duration: 0 } : { duration: 0.5, delay, ease: [0.2, 0.7, 0.2, 1] }}
-    >
-      {children}
-    </motion.div>
+    <LazyMotion features={domAnimation} strict>
+      <m.div
+        className={className}
+        initial={{ opacity: 0, y }}
+        animate={shouldReduce ? { opacity: 1, y: 0 } : undefined}
+        whileInView={shouldReduce ? undefined : { opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '0px 0px -10% 0px' }}
+        transition={shouldReduce ? { duration: 0 } : { duration: 0.5, delay, ease: [0.2, 0.7, 0.2, 1] }}
+      >
+        {children}
+      </m.div>
+    </LazyMotion>
   );
 }

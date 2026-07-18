@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useCreatePhotoMutation, useFileUploadMutation } from '@duing/hooks';
 import { IMAGE_UPLOAD_POLICY, validateImageFile } from '@/app/_components/imageUploadPolicy';
+import { Spinner } from '@/components/loading/Spinner';
 
 type PhotoUploaderProps = {
   clubId: number;
@@ -56,7 +57,13 @@ export function PhotoUploader({ clubId }: PhotoUploaderProps) {
         className="block text-sm"
       />
       <p className="text-xs text-slate-500">JPG · PNG · WEBP, 파일당 최대 5MB</p>
-      {busy && <p className="text-sm text-slate-500">업로드 중…</p>}
+      {/* 파일 업로드는 장시간 작업 — 스피너 + 안내 문구 유지 */}
+      {busy && (
+        <p role="status" className="flex items-center gap-1.5 text-sm text-slate-500">
+          <Spinner size={14} className="shrink-0" />
+          업로드 중…
+        </p>
+      )}
       {errors.length > 0 && (
         <ul className="text-sm text-rose-600">
           {errors.map((message, idx) => <li key={idx}>{message}</li>)}

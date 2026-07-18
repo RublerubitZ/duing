@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useAdminFederationFaqListQuery, useAdminFederationFaqUpdateMutation } from '@duing/hooks';
 import { FaqForm, type FaqFormState } from '../_components/FaqForm';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { FAQ_FULL_LIST_SIZE } from '../_lib/faqListConstants';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 
 // 상세 조회 API 가 없으므로(스펙 §6) admin 목록을 전체 창(FAQ_FULL_LIST_SIZE)으로 불러와 해당 id 행을
 // 찾아 초기값을 시드한다. AdminFederationFaqSummary 는 answer 를 포함한 전체 필드라 부분 시드 문제
@@ -14,7 +16,7 @@ import { FAQ_FULL_LIST_SIZE } from '../_lib/faqListConstants';
 export function AdminFaqEditPage() {
   const params = useParams<{ faqId: string }>();
   const faqId = params.faqId ? Number(params.faqId) : null;
-  const router = useRouter();
+  const router = useGuardedRouter();
   const listQuery = useAdminFederationFaqListQuery({ page: 0, size: FAQ_FULL_LIST_SIZE });
   const updateMutation = useAdminFederationFaqUpdateMutation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export function AdminFaqEditPage() {
   if (listQuery.isLoading) {
     return (
       <main className="max-w-[760px] mx-auto px-6 py-10">
-        <p className="text-charcoal-3 text-[13px]">불러오는 중…</p>
+        <LoadingGate label="FAQ 불러오는 중" />
       </main>
     );
   }

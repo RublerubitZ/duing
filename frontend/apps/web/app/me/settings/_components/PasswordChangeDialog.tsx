@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { ApiError } from '@duing/api';
@@ -10,13 +10,14 @@ import { passwordSchema } from '@duing/schemas';
 import { useAuthStore } from '@duing/stores';
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
 
 type Props = { open: boolean; onClose: () => void };
 
 export function PasswordChangeDialog({ open, onClose }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const queryClient = useQueryClient();
   const clearSession = useAuthStore((state) => state.clearSession);
   const { addToast } = useToast();
@@ -126,7 +127,7 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
               취소
             </button>
             <button type="submit" disabled={changeMutation.isPending} className="btn btn-primary btn-sm">
-              {changeMutation.isPending ? '변경 중…' : '변경하기'}
+              {changeMutation.isPending && <ButtonSpinner />}변경하기
             </button>
           </div>
         </form>

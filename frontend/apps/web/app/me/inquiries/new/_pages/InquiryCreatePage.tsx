@@ -3,20 +3,21 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { ApiError } from '@duing/api';
 import { useCreateFederationInquiryMutation } from '@duing/hooks';
 
 import { toRoute } from '@/app/_lib/route';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { InquiryImageUploader } from '../../_components/InquiryImageUploader';
 
 const TITLE_MAX_LENGTH = 120;
 const CONTENT_MAX_LENGTH = 2000;
 
 export function InquiryCreatePage() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { addToast } = useToast();
   const createMutation = useCreateFederationInquiryMutation();
 
@@ -106,7 +107,7 @@ export function InquiryCreatePage() {
             disabled={createMutation.isPending || isAttachmentUploading}
             className="btn btn-primary px-7 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {createMutation.isPending ? '등록 중…' : '등록'}
+            {createMutation.isPending && <ButtonSpinner />}등록
           </button>
         </div>
       </form>

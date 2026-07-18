@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useClubListQuery, useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
@@ -13,6 +14,7 @@ import { Sparkle, SparkleFull } from '../../_components/Sparkle';
 import { COLLEGE_OPTIONS, collegeDisplayName } from '../../_lib/college';
 import { toRoute } from '../../_lib/route';
 import { ClubCard } from '../_components/ClubCard';
+import { ClubListSkeletonItems } from '../_components/ClubExploreSkeleton';
 import { ClubListItem } from '../_components/ClubListItem';
 import { summaryToClub } from '../_lib/clubAdapter';
 import { DIVISIONS, type Division } from '../_lib/clubs';
@@ -73,7 +75,7 @@ const Icon = {
 };
 
 export function ClubExplorePage() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const searchParams = useSearchParams();
   const params = useMemo<ExploreParams>(
     () => parseExploreParams(new URLSearchParams(searchParams?.toString() ?? '')),
@@ -118,6 +120,18 @@ export function ClubExplorePage() {
     (params.division !== '전체' ? 1 : 0) +
     (params.college !== null ? 1 : 0) +
     params.activeDays.length;
+  /** 데스크탑 활성 필터 칩 행 노출 여부 — 비면 행 자체를 안 그려 카드가 위에서 시작한다.
+      activeFilterCount(모바일 배지)와 다른 이유: ① keyword·category 를 배지는 안 세지만
+      칩으로는 그린다 ② 분과 칩은 중앙 스코프에서만 그려지므로 scope 조건이 겸한다(별도
+      division 조건을 두면 수동 URL ?division=… 에서 칩 없는 "필터:" 고아 행이 생긴다)
+      ③ 요일은 전체 선택 시 칩을 안 그린다. */
+  const hasActiveFilterChips =
+    params.scope !== '전체' ||
+    params.keyword !== '' ||
+    params.recruitment !== 'all' ||
+    params.college !== null ||
+    params.category !== null ||
+    (params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length);
 
   const handleToggleLike = (clubId: number) => {
     if (authStatus !== 'authenticated') {
@@ -193,7 +207,7 @@ export function ClubExplorePage() {
 
             <form
               onSubmit={handleSearchSubmit}
-              className="flex items-center gap-2 p-1 w-[360px] bg-paper rounded-[14px] border border-line"
+              className="flex items-center gap-2 p-1 w-[360px] bg-paper rounded-[14px] border border-line focus-within:border-ink"
             >
               <div className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5">
                 <Icon.search className="text-charcoal-3 w-[18px] h-[18px]" />
@@ -277,7 +291,7 @@ export function ClubExplorePage() {
         </div>
       </section>
 
-      <section className="px-4 sm:px-6 md:px-10 pt-8 pb-20">
+      <section className="px-4 sm:px-6 md:px-10 pt-6 pb-20">
         <div className="max-w-layout mx-auto grid grid-cols-[256px_1fr] gap-8">
           <aside>
             <div className="sticky top-6 bg-paper rounded-[18px] border border-line px-[22px] py-5">
@@ -367,7 +381,7 @@ export function ClubExplorePage() {
           </aside>
 
           <div>
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <div className="text-sm text-charcoal-2">
                 <span className="font-bold text-ink">{visibleClubs.length}개</span>{' '}
                 <span className="text-charcoal-3">
@@ -389,72 +403,70 @@ export function ClubExplorePage() {
               </div>
             </div>
 
-            <div className="flex gap-2 mb-6 flex-wrap min-h-[28px]">
-              {(params.scope !== '전체' ||
-                params.division !== '전체' ||
-                params.keyword !== '' ||
-                params.recruitment !== 'all' ||
-                params.college !== null ||
-                params.category !== null ||
-                (params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length)) && (
+            {/* 활성 필터가 없으면 행 자체를 렌더하지 않는다 — 빈 공간 예약(min-h) 대신
+                카운트 행과 카드 그리드가 한 섹션처럼 붙어 카드가 첫 화면 위쪽에서 시작한다. */}
+            {hasActiveFilterChips && (
+              <div className="flex gap-2 mb-4 flex-wrap">
                 <span className="text-[13px] text-charcoal-3 pt-1.5">필터:</span>
-              )}
-              {params.scope !== '전체' && (
-                <ActiveFilterChip
-                  label={params.scope === '중앙' ? '중앙동아리' : '학과동아리'}
-                  variant="primary"
-                  onRemove={() => handleScopeChange('전체')}
-                />
-              )}
-              {params.scope === '중앙' && params.division !== '전체' && (
-                <ActiveFilterChip
-                  label={`${params.division}분과`}
-                  variant="primary"
-                  onRemove={() => handleDivisionChange('전체')}
-                />
-              )}
-              {params.college && (
-                <ActiveFilterChip
-                  label={collegeDisplayName(params.college)}
-                  variant="primary"
-                  onRemove={() => updateParams({ college: null, page: 1 })}
-                />
-              )}
-              {params.category && (
-                <ActiveFilterChip
-                  label={categoryLabel(params.category)}
-                  variant="primary"
-                  onRemove={() => updateParams({ category: null, page: 1 })}
-                />
-              )}
-              {params.keyword && (
-                <ActiveFilterChip
-                  label={`"${params.keyword}"`}
-                  variant="primary"
-                  onRemove={() => {
-                    setKeywordDraft('');
-                    updateParams({ keyword: '', page: 1 });
-                  }}
-                />
-              )}
-              {params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length && (
-                <ActiveFilterChip
-                  label={`요일: ${[...params.activeDays].sort((left, right) => DAY_ORDER.indexOf(left) - DAY_ORDER.indexOf(right)).map(dayLabel).join('·')}`}
-                  variant="soft"
-                  onRemove={() => updateParams({ activeDays: [], page: 1 })}
-                />
-              )}
-              {params.recruitment !== 'all' && (
-                <ActiveFilterChip
-                  label={RECRUITMENT_LABEL[params.recruitment]}
-                  variant="soft"
-                  onRemove={() => updateParams({ recruitment: 'all', page: 1 })}
-                />
-              )}
-            </div>
+                {params.scope !== '전체' && (
+                  <ActiveFilterChip
+                    label={params.scope === '중앙' ? '중앙동아리' : '학과동아리'}
+                    variant="primary"
+                    onRemove={() => handleScopeChange('전체')}
+                  />
+                )}
+                {params.scope === '중앙' && params.division !== '전체' && (
+                  <ActiveFilterChip
+                    label={`${params.division}분과`}
+                    variant="primary"
+                    onRemove={() => handleDivisionChange('전체')}
+                  />
+                )}
+                {params.college && (
+                  <ActiveFilterChip
+                    label={collegeDisplayName(params.college)}
+                    variant="primary"
+                    onRemove={() => updateParams({ college: null, page: 1 })}
+                  />
+                )}
+                {params.category && (
+                  <ActiveFilterChip
+                    label={categoryLabel(params.category)}
+                    variant="primary"
+                    onRemove={() => updateParams({ category: null, page: 1 })}
+                  />
+                )}
+                {params.keyword && (
+                  <ActiveFilterChip
+                    label={`"${params.keyword}"`}
+                    variant="primary"
+                    onRemove={() => {
+                      setKeywordDraft('');
+                      updateParams({ keyword: '', page: 1 });
+                    }}
+                  />
+                )}
+                {params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length && (
+                  <ActiveFilterChip
+                    label={`요일: ${[...params.activeDays].sort((left, right) => DAY_ORDER.indexOf(left) - DAY_ORDER.indexOf(right)).map(dayLabel).join('·')}`}
+                    variant="soft"
+                    onRemove={() => updateParams({ activeDays: [], page: 1 })}
+                  />
+                )}
+                {params.recruitment !== 'all' && (
+                  <ActiveFilterChip
+                    label={RECRUITMENT_LABEL[params.recruitment]}
+                    variant="soft"
+                    onRemove={() => updateParams({ recruitment: 'all', page: 1 })}
+                  />
+                )}
+              </div>
+            )}
 
             {clubListQuery.isLoading && (
-              <p className="text-sm text-charcoal-2">불러오는 중…</p>
+              <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
+                <ClubListSkeletonItems variant="grid" />
+              </div>
             )}
             {clubListQuery.error && (
               <p className="text-sm text-coral">
@@ -468,7 +480,18 @@ export function ClubExplorePage() {
             )}
 
             {visibleClubs.length > 0 && (
-              <div className="grid grid-cols-4 gap-[18px]">
+              /* auto-fill+minmax — 카드 최소 210px 를 보장하고(1280 레이아웃 4열 유지) 컨테이너 폭에 따라 4→3→2→1열로
+                 열 수만 줄인다(카드 축소 금지). 사이드바가 있어 뷰포트 브레이크포인트 대신
+                 컨테이너 폭 기준이 정확하다. auto-fit 이 아닌 auto-fill: 결과가 적을 때도
+                 카드가 트랙 폭 이상으로 늘어나지 않아 비율이 유지된다. */
+              <div
+                // keepPreviousData 전환 중(스코프·필터 변경)에는 이전 카드가 남으므로 딤으로 갱신 중 신호를 준다.
+                aria-busy={clubListQuery.isPlaceholderData}
+                className={cn(
+                  'grid grid-cols-[repeat(auto-fill,minmax(min(210px,100%),1fr))] gap-[18px]',
+                  clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+                )}
+              >
                 {visibleClubs.map((club) => (
                   <ClubCard
                     key={club.id}
@@ -502,7 +525,7 @@ export function ClubExplorePage() {
           <h1 className="mt-1 text-[27px] tracking-tightx">동아리 탐색</h1>
           <form
             onSubmit={handleSearchSubmit}
-            className="mt-4 flex items-center gap-2.5 rounded-[14px] border border-line bg-paper px-4 py-3 shadow-1"
+            className="mt-4 flex items-center gap-2.5 rounded-[14px] border border-line bg-paper px-4 py-3 shadow-1 focus-within:border-ink"
           >
             <Icon.search className="h-[18px] w-[18px] text-charcoal-3" />
             <input
@@ -568,13 +591,23 @@ export function ClubExplorePage() {
         </div>
 
         <div className="px-4 pb-8">
-          {clubListQuery.isLoading && <p className="text-sm text-charcoal-2">불러오는 중…</p>}
+          {clubListQuery.isLoading && (
+            <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
+              <ClubListSkeletonItems variant="list" />
+            </div>
+          )}
           {clubListQuery.error && <p className="text-sm text-coral">오류가 발생했습니다.</p>}
           {clubListQuery.data && visibleClubs.length === 0 && (
             <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
           )}
           {visibleClubs.length > 0 && (
-            <div className="flex flex-col gap-3">
+            <div
+              aria-busy={clubListQuery.isPlaceholderData}
+              className={cn(
+                'flex flex-col gap-3',
+                clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+              )}
+            >
               {visibleClubs.map((club, index) => (
                 <ClubListItem
                   key={club.id}

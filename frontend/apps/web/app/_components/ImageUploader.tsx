@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useFileUploadMutation } from '@duing/hooks';
 import type { FilePurpose } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
+import { Spinner } from '@/components/loading/Spinner';
 import { IMAGE_UPLOAD_POLICY, validateImageFile } from './imageUploadPolicy';
 import { ImageWithFallback } from './ImageWithFallback';
 
@@ -87,7 +88,17 @@ export function ImageUploader({
           disabled={uploadMutation.isPending}
           className="px-3 py-1.5 rounded-md bg-paper border border-line text-[13px] font-semibold hover:border-ink disabled:opacity-50"
         >
-          {uploadMutation.isPending ? '업로드 중…' : value ? '교체' : '업로드'}
+          {uploadMutation.isPending ? (
+            // 파일 업로드는 장시간 작업 — 스피너 + 안내 문구를 함께 유지한다.
+            <span role="status" className="inline-flex items-center gap-1.5">
+              <Spinner size={14} className="shrink-0" />
+              업로드 중…
+            </span>
+          ) : value ? (
+            '교체'
+          ) : (
+            '업로드'
+          )}
         </button>
         {value && (
           <button

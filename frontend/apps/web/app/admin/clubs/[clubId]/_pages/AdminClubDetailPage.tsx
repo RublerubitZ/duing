@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useAdminClubDetailQuery, useClubMembersQuery } from '@duing/hooks';
 import type { ClubMember } from '@duing/types';
+import { LoadingGate } from '@/components/loading/LoadingGate';
 import { cn } from '../../../../_lib/cn';
 import { ClubLogo } from '../../../../_components/ClubLogo';
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from '../../_lib/clubStatus';
@@ -117,9 +118,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
         )}
       </header>
 
-      {detailQuery.isLoading && (
-        <p className="py-12 text-center text-charcoal-3 text-[13px]">불러오는 중…</p>
-      )}
+      {detailQuery.isLoading && <LoadingGate label="동아리 정보 불러오는 중" />}
       {detailQuery.isError && (
         <p className="py-12 text-center text-coral text-[13px]">동아리 정보를 불러오지 못했습니다.</p>
       )}
@@ -180,7 +179,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
               회원 ({members.length}명)
             </h2>
             {membersQuery.isLoading ? (
-              <p className="text-[13px] text-charcoal-3">불러오는 중…</p>
+              <LoadingGate className="min-h-0 py-10" label="회원 목록 불러오는 중" />
             ) : membersQuery.isError ? (
               <p className="text-[13px] text-coral">회원 목록을 불러오지 못했습니다.</p>
             ) : members.length === 0 ? (
