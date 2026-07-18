@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -33,6 +34,7 @@ public class AuthRefreshToken extends BaseEntity {
     @Column(name = "rotated_at")
     private LocalDateTime rotatedAt;
 
+    @Builder(access = AccessLevel.PRIVATE)
     private AuthRefreshToken(Long sessionId, String tokenHash) {
         this.sessionId = sessionId;
         this.tokenHash = tokenHash;
@@ -40,7 +42,10 @@ public class AuthRefreshToken extends BaseEntity {
     }
 
     public static AuthRefreshToken issue(Long sessionId, String tokenHash) {
-        return new AuthRefreshToken(sessionId, tokenHash);
+        return AuthRefreshToken.builder()
+                .sessionId(sessionId)
+                .tokenHash(tokenHash)
+                .build();
     }
 
     public void markRotated(LocalDateTime now) {

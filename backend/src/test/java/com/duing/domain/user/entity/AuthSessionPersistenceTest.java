@@ -11,6 +11,7 @@ import com.duing.domain.user.repository.AuthSessionRepository;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +31,7 @@ class AuthSessionPersistenceTest extends IntegrationTestBase {
     @DisplayName("세션과 리프레시 토큰이 저장·재조회되고 rememberMe·만료 시각이 유지된다")
     void sessionAndTokenRoundTrip() {
         Long userId = userRepository.save(UserFixture.unique()).getId();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         AuthSession savedSession = authSessionRepository.save(AuthSession.create(
                 userId, SessionPlatform.WEB, "Chrome · macOS", "Mozilla/5.0", "127.0.0.1",
                 true, now, Duration.ofDays(30)));
@@ -68,5 +69,14 @@ class AuthSessionPersistenceTest extends IntegrationTestBase {
 
         assertThat(session.isUsable(now)).isFalse();
         assertThat(session.getRevokeReason()).isEqualTo(SessionRevokeReason.LOGOUT);
+    }
+
+    @Test
+    @DisplayName("감사 이벤트는 컬럼 한도를 넘는 User-Agent 를 절단해 인증 트랜잭션의 value-too-long 을 막는다")
+    void authEventTruncatesOversizedUserAgent() {
+        AuthEvent event = AuthEvent.of(1L, null, AuthEventType.LOGIN,
+                null, "127.0.0.1", "u".repeat(600));
+
+        assertThat(event.getUserAgent()).hasSize(500);
     }
 }

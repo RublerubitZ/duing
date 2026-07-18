@@ -71,9 +71,9 @@ public class AuthSession extends BaseEntity {
         return AuthSession.builder()
                 .userId(userId)
                 .platform(platform)
-                .deviceLabel(truncate(deviceLabel, 100))
-                .userAgent(truncate(userAgent, 500))
-                .ipAddress(truncate(ipAddress, 45))
+                .deviceLabel(AuthTextTruncator.truncate(deviceLabel, 100))
+                .userAgent(AuthTextTruncator.truncate(userAgent, 500))
+                .ipAddress(AuthTextTruncator.truncate(ipAddress, 45))
                 .rememberMe(rememberMe)
                 .lastUsedAt(now)
                 .expiresAt(now.plus(ttl))
@@ -95,10 +95,5 @@ public class AuthSession extends BaseEntity {
 
     public boolean isUsable(LocalDateTime now) {
         return revokedAt == null && expiresAt.isAfter(now);
-    }
-
-    private static String truncate(String value, int maxLength) {
-        if (value == null) return null;
-        return value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
 }
