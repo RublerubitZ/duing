@@ -12,6 +12,7 @@ import {
 import { useFileUploadMutation } from '@duing/hooks';
 import type { NoticeContentFormat } from '@duing/types';
 import { IMAGE_UPLOAD_POLICY, validateImageFile } from '@/app/_components/imageUploadPolicy';
+import { NoticeEditorPlaceholder } from '@/app/_components/NoticeEditorPlaceholder';
 import { sanitizeNoticeHtml } from '@/app/notices/_lib/sanitizeHtml';
 
 const MAX_INLINE_IMAGES = 20;
@@ -104,7 +105,7 @@ export function NoticeRichEditor({ value, format, onChange }: Props) {
   editorRef.current = editor;
 
   if (!editor) {
-    return <div className="rounded-xl border border-line bg-paper px-3.5 py-2.5 text-[13px] text-charcoal-3">에디터 로딩 중…</div>;
+    return <NoticeEditorPlaceholder />;
   }
 
   const imageCount = (instance: Editor): number => {

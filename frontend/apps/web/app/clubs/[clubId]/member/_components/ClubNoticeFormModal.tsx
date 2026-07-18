@@ -8,7 +8,7 @@ import type { CreateClubNoticeInput } from '@duing/schemas';
 import type { NoticeContentFormat, UpdateClubNoticePayload } from '@duing/types';
 import { useCreateClubNoticeMutation, useUpdateClubNoticeMutation } from '@duing/hooks';
 import { ImageUploader } from '@/app/_components/ImageUploader';
-import { NoticeRichEditor } from '@/app/_components/NoticeRichEditor';
+import { NoticeRichEditorLazy } from '@/app/_components/NoticeRichEditorLazy';
 import { cn } from '@/app/_lib/cn';
 
 type CommonProps = { clubId: number; onClose: () => void };
@@ -155,7 +155,7 @@ export function ClubNoticeFormModal(props: Props) {
               <label className="mb-1.5 block text-sm font-semibold text-ink">
                 본문 <span className="text-coral">*</span>
               </label>
-              <NoticeRichEditor
+              <NoticeRichEditorLazy
                 value={contentValue}
                 format={seedFormat}
                 onChange={(html) => setValue('content', html, { shouldDirty: true, shouldValidate: true })}
