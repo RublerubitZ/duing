@@ -60,16 +60,19 @@ public interface AuthApi {
             HttpServletResponse httpServletResponse);
 
     @Operation(summary = "로그아웃",
-            description = "현재 사용자의 token_version 을 증가시켜 기존에 발급된 모든 액세스 토큰을 무효화한다.")
+            description = "access 토큰의 sid 로 현재 기기의 세션과 리프레시 토큰을 폐기한다. 세션을 특정할 수 없는 "
+                    + "구 토큰은 token_version 을 올려 전 기기에서 로그아웃된다(전환기 폴백).")
     @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그아웃 성공"))
     @PostMapping("/auth/logout")
     ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal UserPrincipal currentUser);
 
-    @Operation(summary = "웹 로그아웃", description = "식별 가능한 사용자 토큰을 무효화하고 웹 인증 Cookie를 삭제한다.")
+    @Operation(summary = "웹 로그아웃",
+            description = "현재 기기의 세션·리프레시 토큰을 폐기하고 웹 인증 Cookie 3종을 삭제한다.")
     @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "로그아웃 완료"))
     @PostMapping("/auth/web/logout")
     ResponseEntity<Void> webLogout(
             @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse);
 
     @Operation(summary = "토큰 갱신(모바일)",

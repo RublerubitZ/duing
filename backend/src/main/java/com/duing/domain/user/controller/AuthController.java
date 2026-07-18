@@ -102,17 +102,24 @@ public class AuthController implements AuthApi {
 
     @Override
     public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal UserPrincipal currentUser) {
-        userService.logout(currentUser.id());
+        // access 토큰의 sid 로 현재 세션을 특정해 폐기한다 — 이 엔드포인트는 유효한 인증 토큰이 있어야
+        // 도달하므로 sid 가 항상 존재한다(구 토큰만 sid 부재 → 폴백 범프). refresh 토큰 본문은 불필요.
+        userService.logout(currentUser.id(), null, currentUser.sessionId());
         return ResponseEntity.ok(ApiResponse.success());
     }
 
     @Override
     public ResponseEntity<Void> webLogout(
             @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) {
         try {
-            if (currentUser != null) {
-                userService.logout(currentUser.id());
+            String rawRefreshToken = readRefreshCookie(httpServletRequest);
+            if (currentUser != null || rawRefreshToken != null) {
+                userService.logout(
+                        currentUser != null ? currentUser.id() : null,
+                        rawRefreshToken,
+                        currentUser != null ? currentUser.sessionId() : null);
             }
             return ResponseEntity.noContent().build();
         } finally {

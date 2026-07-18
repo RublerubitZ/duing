@@ -3,6 +3,7 @@ package com.duing.domain.user.service;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.PhoneVerification;
+import com.duing.domain.user.entity.SessionRevokeReason;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.entity.VerificationPurpose;
@@ -157,9 +158,17 @@ public class GeneralUserService implements UserService {
 
     @Override
     @Transactional
-    public void logout(Long userId) {
-        // 동시 로그아웃의 token_version lost update 를 막기 위해 행을 잠그고 조회한다.
-        User user = userRepository.findByIdForUpdate(userId)
+    public void logout(Long userIdOrNull, String rawRefreshTokenOrNull, Long sessionIdOrNull) {
+        boolean sessionRevoked =
+                authSessionService.revokeCurrent(userIdOrNull, rawRefreshTokenOrNull, sessionIdOrNull);
+        if (sessionRevoked) {
+            return; // 현재 기기만 로그아웃 — tokenVersion 불변 (spec §13.2)
+        }
+        if (userIdOrNull == null) {
+            return; // 식별 수단 없음(만료 쿠키 등) — 멱등 무시
+        }
+        // 전환기 폴백: 세션 없는 구 토큰 사용자는 기존 의미(전 기기 무효화)로 처리한다
+        User user = userRepository.findByIdForUpdate(userIdOrNull)
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();
     }
@@ -172,6 +181,7 @@ public class GeneralUserService implements UserService {
         User user = userRepository.findByIdForUpdate(forceLogoutCommand.targetUserId())
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();
+        authSessionService.revokeAll(user.getId(), SessionRevokeReason.ADMIN_FORCE);
         log.info("Admin force logout. actorId={}, targetUserId={}",
                 forceLogoutCommand.actorUserId(), forceLogoutCommand.targetUserId());
     }
@@ -199,6 +209,7 @@ public class GeneralUserService implements UserService {
         user.changePassword(passwordEncoder.encode(changePasswordCommand.newPassword()));
         // 변경 후 재로그인 강제 — 발급된 모든 토큰을 무효화한다(탈취된 세션 차단).
         user.bumpTokenVersion();
+        authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
     }
 
     @Override
@@ -230,6 +241,7 @@ public class GeneralUserService implements UserService {
         user.changePhone(verifiedPhone, now);
         // 복구 수단 변경 후 재로그인 강제 — 발급된 모든 토큰을 무효화한다(changePassword 와 동일).
         user.bumpTokenVersion();
+        authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
         phoneVerificationSessionManager.consume(verifiedSession, user.getId(), clientIp, userAgent);
     }
 
@@ -263,6 +275,7 @@ public class GeneralUserService implements UserService {
         user.changePassword(passwordEncoder.encode(resetPasswordCommand.newPassword()));
         // 재설정 = 계정 탈취 대응 경로일 수 있다 — 발급된 모든 토큰을 무효화한다(전 기기 로그아웃).
         user.bumpTokenVersion();
+        authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
         phoneVerificationSessionManager.consume(verifiedSession, user.getId(), clientIp, userAgent);
     }
 
@@ -281,6 +294,7 @@ public class GeneralUserService implements UserService {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();
+        authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
         userRepository.delete(user);
     }
 

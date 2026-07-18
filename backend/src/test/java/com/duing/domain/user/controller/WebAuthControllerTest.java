@@ -116,7 +116,7 @@ class WebAuthControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("유효한 웹 Cookie 로그아웃은 멱등 204와 삭제 Cookie를 반환하고 모든 기존 토큰을 무효화한다")
+    @DisplayName("세션 없는 구 토큰의 웹 로그아웃은 폴백으로 모든 기존 토큰을 무효화한다")
     void webLogoutWithValidCookieClearsCookiesAndRevokesAllTokens() {
         User user = saveUser(UserRole.STUDENT);
         String accessToken = tokenFor(user);

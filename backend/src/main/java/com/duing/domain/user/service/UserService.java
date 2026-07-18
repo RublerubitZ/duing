@@ -20,7 +20,7 @@ public interface UserService {
 
     LoginResult login(LoginCommand loginCommand, LoginContext loginContext);
 
-    void logout(Long userId);
+    void logout(Long userIdOrNull, String rawRefreshTokenOrNull, Long sessionIdOrNull);
 
     void forceLogout(ForceLogoutCommand forceLogoutCommand);
 

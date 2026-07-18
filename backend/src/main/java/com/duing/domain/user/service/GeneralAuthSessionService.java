@@ -138,6 +138,63 @@ public class GeneralAuthSessionService implements AuthSessionService {
                 user.getRole().name(), session.isRememberMe());
     }
 
+    @Override
+    @Transactional
+    public boolean revokeCurrent(Long userIdOrNull, String rawRefreshTokenOrNull, Long sessionIdOrNull) {
+        Long targetSessionId = resolveSessionId(rawRefreshTokenOrNull, sessionIdOrNull);
+        if (targetSessionId == null) {
+            return false;
+        }
+        AuthSession session = authSessionRepository.findByIdForUpdate(targetSessionId).orElse(null);
+        if (session == null) {
+            return false;
+        }
+        // refresh 소지 없이 sid 만으로 타인 세션을 지목하는 경로 차단 — 사용자 불일치는 미식별로 처리.
+        // (이 분기에서 잡은 세션 잠금은 타인 것이라 이후 user 잠금과 교차하지 않는다 — 순환 없음)
+        if (userIdOrNull != null && !session.getUserId().equals(userIdOrNull)) {
+            return false;
+        }
+        if (session.getRevokedAt() != null) {
+            return true;
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        session.revoke(now, SessionRevokeReason.LOGOUT);
+        authRefreshTokenRepository.revokeBySessionIds(List.of(session.getId()), RefreshTokenStatus.REVOKED);
+        authEventRepository.save(AuthEvent.of(session.getUserId(), session.getId(),
+                AuthEventType.LOGOUT, null, null, null));
+        return true;
+    }
+
+    private Long resolveSessionId(String rawRefreshTokenOrNull, Long sessionIdOrNull) {
+        if (rawRefreshTokenOrNull != null) {
+            Long sessionIdFromToken = authRefreshTokenRepository
+                    .findSessionIdByTokenHash(refreshTokenGenerator.hash(rawRefreshTokenOrNull))
+                    .orElse(null);
+            if (sessionIdFromToken != null) {
+                return sessionIdFromToken;
+            }
+        }
+        return sessionIdOrNull;
+    }
+
+    @Override
+    @Transactional
+    public void revokeAll(Long userId, SessionRevokeReason reason) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        int revokedCount = authSessionRepository.revokeAllActive(userId, now, reason);
+        authRefreshTokenRepository.revokeAllByUserId(userId, RefreshTokenStatus.REVOKED);
+        authEventRepository.save(AuthEvent.of(userId, null, eventTypeFor(reason),
+                "revokedSessions=" + revokedCount, null, null));
+    }
+
+    private AuthEventType eventTypeFor(SessionRevokeReason reason) {
+        return switch (reason) {
+            case LOGOUT_ALL -> AuthEventType.LOGOUT_ALL;
+            case ADMIN_FORCE -> AuthEventType.ADMIN_FORCE_LOGOUT;
+            default -> AuthEventType.SESSIONS_REVOKED;
+        };
+    }
+
     /** 폐기 토큰 재사용 = Replay/탈취 — 해당 세션(패밀리)만 폐기하고 감사·모니터링에 남긴다 (spec §5.4). */
     private void detectReuse(AuthSession session, AuthRefreshToken presentedToken, LocalDateTime now) {
         session.revoke(now, SessionRevokeReason.REUSE_DETECTED);
