@@ -13,7 +13,8 @@ type Props = {
 
 export function FacilityContextBar({ facilities, selectedId, onSelect, onGoHome }: Props) {
   const selected = facilities.find((facility) => facility.id === selectedId);
-  const others = facilities.filter((facility) => facility.id !== selectedId).slice(0, 5);
+  // 스크롤 탭 방식 — 개수 캡 없이 전부 나열하고 가로 스크롤로 확장(1클릭 전환·현행 디자인 유지).
+  const others = facilities.filter((facility) => facility.id !== selectedId);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button

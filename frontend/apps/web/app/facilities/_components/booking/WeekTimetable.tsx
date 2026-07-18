@@ -261,7 +261,7 @@ export function WeekTimetable({
                         aria-pressed={state.selectable ? selected : undefined}
                         aria-label={`${weekdayLabel}요일 ${dayNumber}일 ${pad2(hour)}:00 ${state.statusText}`}
                         onClick={state.selectable ? () => onTapSlot(iso, slot.start) : undefined}
-                        className={`flex h-7 w-full items-center justify-center rounded-[5px] border text-[9px] font-bold leading-none disabled:cursor-default sm:h-10 ${
+                        className={`flex h-7 w-full items-center justify-center rounded-[5px] border text-[9px] font-bold leading-none disabled:cursor-default motion-safe:transition-colors sm:h-10 ${
                           selected ? 'border-sage bg-ink text-cream shadow-sm' : state.toneClass
                         }`}
                       >
@@ -313,8 +313,9 @@ function cellStateOf(
   if (status === 'AVAILABLE') {
     // 운영 노트 구간의 가용 셀 = 기본 확보 시간 가이드 레이어(§10.1) — 색은 일반 가용 셀과 동일(sage),
     // 점선 보더만 "안내" 신호. 동작(탭 선택·토글·선택 ink+✓)도 일반 가용 셀과 완전 동일.
-    if (operating) return { statusText: '기본 확보 시간 · 예약 신청 가능', toneClass: 'border-dashed border-sage-soft bg-sage-mist', selectable: true };
-    return { statusText: '가능', toneClass: 'border-sage-soft bg-sage-mist', selectable: true };
+    // hover 는 가용 셀만: 배경 한 톤 진하게 + 보더 sage(선택 가능 어포던스, transition 은 버튼 공통 클래스).
+    if (operating) return { statusText: '기본 확보 시간 · 예약 신청 가능', toneClass: 'border-dashed border-sage-soft bg-sage-mist hover:border-sage hover:bg-sage-soft/60', selectable: true };
+    return { statusText: '가능', toneClass: 'border-sage-soft bg-sage-mist hover:border-sage hover:bg-sage-soft/60', selectable: true };
   }
   // 방어적 폴백(BLOCKED·PENDING_HOLD 는 블록으로 렌더되어 셀 경로에 도달하지 않음).
   return { statusText: '예약됨', toneClass: 'border-line bg-graysoft', selectable: false };

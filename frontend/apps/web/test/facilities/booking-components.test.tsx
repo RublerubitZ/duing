@@ -76,6 +76,20 @@ it('콘텍스트 바는 선택 시설 카드·다른 시설 퀵 칩·전체 보�
   expect(onGoHome).toHaveBeenCalledTimes(2);
 });
 
+it('콘텍스트 바 퀵 칩은 개수 캡 없이 전부 렌더한다(스크롤 탭 — 6번째 이후 시설도 1클릭 전환)', () => {
+  const manyFacilities = Array.from({ length: 8 }, (_, index) => ({
+    id: index + 1,
+    roomName: `연습실(${index + 1})`,
+    location: null,
+  }));
+  render(
+    <FacilityContextBar facilities={manyFacilities} selectedId={1} onSelect={vi.fn()} onGoHome={vi.fn()} />,
+  );
+  // 선택(1) 제외 7개 전부 칩으로 — 구 slice(0,5) 캡이면 연습실(7)·(8)이 사라진다.
+  expect(screen.getByRole('button', { name: '연습실(7)' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '연습실(8)' })).toBeInTheDocument();
+});
+
 it('캘린더 셀은 레벨 라벨(여유/마감)을 표시하고 창 이전 과거는 비활성이다', () => {
   const day = makeDay(); // availableSlotCount 11 → 여유
   const fullDay = makeDay({ date: '2026-07-21', dayStatus: 'FULL', availableSlotCount: 0 });
@@ -207,7 +221,7 @@ it('승인 대기 행은 흰 바탕 + coral 라벨이고, 선택되면 라벨이
   expect(within(pendingRow()).getByText(/승인 대기/)).toHaveClass('text-cream/85');
 });
 
-it('운영행이 있는 날은 기본 확보 시간 안내 박스에 단체·시간 나열과 고정 정책 문구를 렌더한다', () => {
+it('운영행이 있는 날은 기본 확보 시간 안내를 아코디언으로 렌더한다 — 단체·시간은 항상, 긴 설명은 기본 접힘', () => {
   const day = makeDay({
     operatingNotes: [
       { organization: '고정관념', start: '09:00', end: '20:00' },
@@ -215,8 +229,14 @@ it('운영행이 있는 날은 기본 확보 시간 안내 박스에 단체·시
     ],
   });
   const { container } = render(<DaySlotList day={day} selection={null} onToggleSlot={vi.fn()} />);
+  // 제목·단체·시간 나열은 summary 로 항상 노출
   expect(screen.getByText('기본 확보 시간')).toBeInTheDocument();
   expect(screen.getByText('고정관념 09:00~20:00 · 두잉밴드 10:00~12:00')).toBeInTheDocument();
+  // 긴 정책 설명은 <details> 본문 — 기본 접힘(open 속성 없음), 토글로 펼침. "설명 보기" 라벨이 어포던스.
+  const accordion = container.querySelector('details');
+  expect(accordion).not.toBeNull();
+  expect(accordion).not.toHaveAttribute('open');
+  expect(screen.getByText('설명 보기')).toBeInTheDocument();
   expect(
     screen.getByText(
       '학교와 협의되어 기본적으로 이 동아리가 사용하는 시간이에요. 다른 동아리도 같은 시간에 예약을 신청할 수 있고, 관리자 승인 후 일정 조정을 거쳐 이용할 수 있어요.',
