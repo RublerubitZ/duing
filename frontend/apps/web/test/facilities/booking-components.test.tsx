@@ -12,7 +12,6 @@ import { DayBookingOverview } from '@/app/facilities/_components/booking/DayBook
 import { BookingPanel } from '@/app/facilities/_components/booking/BookingPanel';
 import { BookingConfirmDialog } from '@/app/facilities/_components/booking/BookingConfirmDialog';
 import { BookingSuccess } from '@/app/facilities/_components/booking/BookingSuccess';
-import { PanelSummaryCard } from '@/app/facilities/_components/booking/PanelSummaryCard';
 import { FacilityHomeCard } from '@/app/facilities/_components/booking/FacilityHomeCard';
 import { seoulDateIso } from '@/app/facilities/_lib/facilityTimeline';
 
@@ -304,70 +303,45 @@ it('예약 성공 화면은 세로 타임라인·통일 승인 문구·CTA 3종�
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
-it('패널 요약 카드는 레벨 뱃지·기간 분포를 렌더하고 바로 신청 퀵 칩은 렌더하지 않는다', () => {
-  render(<PanelSummaryCard day={makeDay()} />);
-  // availableSlotCount 11/13 → HIGH(여유)
-  expect(screen.getByText('여유')).toBeInTheDocument();
-  // 기간 분포 라벨(오전·오후·저녁)
-  expect(screen.getByText('오전')).toBeInTheDocument();
-  expect(screen.getByText('오후')).toBeInTheDocument();
-  expect(screen.getByText('저녁')).toBeInTheDocument();
-  // 퀵칩 섹션 제거 — "바로 신청 가능한 시간" 미렌더, 시각 칩 버튼 없음
-  expect(screen.queryByText('바로 신청 가능한 시간')).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: '09:00' })).not.toBeInTheDocument();
-});
-
-it('패널 요약 카드는 상태별 집계 행과 슬롯 파생 이용 가능 시간을 노출하고 0건 상태는 숨긴다', () => {
-  // makeDay(): AVAILABLE 10 · PENDING_HOLD 1 · BLOCKED 2 · PAST 0
-  const { container } = render(<PanelSummaryCard day={makeDay()} />);
-  expect(screen.getByText('예약 가능')).toBeInTheDocument();
-  expect(screen.getByText('10칸')).toBeInTheDocument();
-  expect(screen.getByText('승인 대기')).toBeInTheDocument();
-  expect(screen.getByText('1칸')).toBeInTheDocument();
-  expect(screen.getByText('예약됨')).toBeInTheDocument();
-  expect(screen.getByText('2칸')).toBeInTheDocument();
-  // 0건인 지난 시간은 렌더하지 않는다
-  expect(screen.queryByText('지난 시간')).not.toBeInTheDocument();
-  // 이용 가능 시간은 슬롯[0].start~슬롯[마지막].end 파생(FE 상수 하드코딩 금지)
-  expect(screen.getByText('이용 가능 시간 09:00~22:00 · 13칸')).toBeInTheDocument();
-  // 금지어(§10.2): "운영 시간"·"운영 중" 부재.
-  expect(container).not.toHaveTextContent(/운영 시간/);
-  expect(container).not.toHaveTextContent(/운영 중/);
-});
-
-it('예약 현황 카드는 운영행을 예약 건으로 잘라 운영 조각·예약 건·그 외 시간 행을 렌더한다', () => {
+it('통합 예약 현황 카드는 날짜 없는 제목 아래 사용 중 행·예약 가능 구간·기간 분포를 순서대로 렌더한다', () => {
   // makeDay(): 운영 고정관념 09~20 · SCHOOL 비호응원단 17~18 · INTERNAL 18~19 · PENDING 20~21
-  // → 타임라인: 운영 09~17 / 비호응원단 17~18 / 예약됨 18~19 / 운영 19~20 / 승인 대기 20~21
   const { container } = render(<DayBookingOverview day={makeDay()} />);
-  // 제목은 bookingDateLabel 재사용(2026-07-20 = 월요일)
-  expect(screen.getByText('7월 20일 (월) 예약 현황')).toBeInTheDocument();
-  // 운영 조각 2개(09~17·19~20): sage 도트 + 단체명 + muted "(기본 확보)" 접미
-  expect(screen.getByText('09:00~17:00')).toBeInTheDocument();
-  expect(screen.getByText('19:00~20:00')).toBeInTheDocument();
-  expect(screen.getAllByText('고정관념')).toHaveLength(2);
-  expect(screen.getAllByText('(기본 확보)')).toHaveLength(2);
-  const operatingRow = screen.getByText('09:00~17:00').closest('li');
+  // 제목에 날짜 없음 — 날짜는 상단 캘린더/헤더 담당(중복 금지)
+  expect(screen.getByText('예약 현황')).toBeInTheDocument();
+  expect(screen.queryByText(/7월 20일/)).not.toBeInTheDocument();
+  // 사용 중 행: 기본 확보는 자르지 않은 통짜(09~20) — sage 도트 + 단체명 + muted "(기본 확보)"
+  expect(screen.getByText('고정관념')).toBeInTheDocument();
+  expect(screen.getByText('(기본 확보)')).toBeInTheDocument();
+  const operatingRow = screen.getByText('09:00~20:00').closest('li');
   expect(operatingRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-sage');
-  // 예약 건 행: 시간 범위 + 이름(SCHOOL 단체명 / INTERNAL "예약됨")
+  // 예약 건 행: SCHOOL 단체명 / INTERNAL "예약됨" / PENDING warm 도트
   expect(screen.getByText('17:00~18:00')).toBeInTheDocument();
   expect(screen.getByText('비호응원단')).toBeInTheDocument();
   expect(screen.getByText('18:00~19:00')).toBeInTheDocument();
   expect(screen.getByText('예약됨')).toBeInTheDocument();
-  // PENDING 행: warm 도트 + "승인 대기"(대기 pill 은 이름과 중복이라 생략)
   const pendingRow = screen.getByText('승인 대기').closest('li');
-  expect(pendingRow).not.toBeNull();
   expect(pendingRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-warm');
-  // 그 외 행: 운영 구간(09~20) 밖 AVAILABLE(21시) 1개만 — 운영 구간 내 AVAILABLE 은 운영 조각이 담당
-  expect(screen.getByText('그 외 시간')).toBeInTheDocument();
-  expect(screen.getByText('예약 가능 · 1개 시간')).toBeInTheDocument();
-  const availableRow = screen.getByText('예약 가능 · 1개 시간').closest('li');
-  expect(availableRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-sage');
+  // 예약 가능 구간: 하루 전체 축 기준(기본 확보 시간 포함) — 09~17(8타임)·19~20(1타임)·21~22(1타임)
+  const availableRow = screen.getByText('09:00~17:00').closest('li');
+  expect(availableRow).toHaveTextContent('예약 가능');
+  expect(availableRow).toHaveTextContent('(8타임)');
+  expect(screen.getByText('19:00~20:00')).toBeInTheDocument();
+  expect(screen.getByText('21:00~22:00')).toBeInTheDocument();
+  // 기간 분포 통합(오전 3/3 · 오후 5/6 · 저녁 2/4)
+  expect(screen.getByText('오전')).toBeInTheDocument();
+  expect(screen.getByText('3/3')).toBeInTheDocument();
+  expect(screen.getByText('5/6')).toBeInTheDocument();
+  expect(screen.getByText('2/4')).toBeInTheDocument();
+  // 제거된 요약 정보: 선택한 날짜·레벨 뱃지·이용 가능 시간(캘린더 상단·현황 행과 중복)
+  expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
+  expect(screen.queryByText('여유')).not.toBeInTheDocument();
+  expect(screen.queryByText(/이용 가능 시간/)).not.toBeInTheDocument();
   // 금지어(§10.2): "운영 시간"·"운영 중" 부재.
   expect(container).not.toHaveTextContent(/운영 시간/);
   expect(container).not.toHaveTextContent(/운영 중/);
 });
 
-it('예약 건이 없어도 운영행이 있으면 통짜 운영 조각 1행으로 카드를 렌더한다', () => {
+it('예약 건이 없으면 기본 확보 통짜 행과 하루 전체 예약 가능 구간(기본 확보 미제외)을 렌더한다', () => {
   const pad = (n: number) => String(n).padStart(2, '0');
   const operatingOnlyDay = makeDay({
     slots: Array.from({ length: 13 }, (_, index) => ({
@@ -378,16 +352,15 @@ it('예약 건이 없어도 운영행이 있으면 통짜 운영 조각 1행으�
     operatingNotes: [{ organization: '고정관념', start: '09:00', end: '20:00' }],
   });
   render(<DayBookingOverview day={operatingOnlyDay} />);
-  expect(screen.getByText('7월 20일 (월) 예약 현황')).toBeInTheDocument();
-  // 예약이 없으니 운영행 전체가 통짜 운영 조각 1행
   expect(screen.getByText('09:00~20:00')).toBeInTheDocument();
-  expect(screen.getByText('고정관념')).toBeInTheDocument();
   expect(screen.getByText('(기본 확보)')).toBeInTheDocument();
-  // 운영 구간(09~20) 밖 AVAILABLE(20·21시) 2개 → 그 외 행
-  expect(screen.getByText('예약 가능 · 2개 시간')).toBeInTheDocument();
+  // 예약 가능은 기본 확보를 빼고 계산하지 않는다 — 전체 축 09~22 를 한 구간(13타임)으로
+  const availableRow = screen.getByText('09:00~22:00').closest('li');
+  expect(availableRow).toHaveTextContent('예약 가능');
+  expect(availableRow).toHaveTextContent('(13타임)');
 });
 
-it('예약 건도 운영행도 없으면(타임라인 0건) 예약 현황 카드를 렌더하지 않는다', () => {
+it('예약 건도 운영행도 없어도 카드를 렌더한다 — 예약 가능 구간·기간 분포는 항상 표시', () => {
   const pad = (n: number) => String(n).padStart(2, '0');
   const emptyDay = makeDay({
     slots: Array.from({ length: 13 }, (_, index) => ({
@@ -397,12 +370,15 @@ it('예약 건도 운영행도 없으면(타임라인 0건) 예약 현황 카드
     })),
     operatingNotes: [],
   });
-  const { container } = render(<DayBookingOverview day={emptyDay} />);
-  expect(container.firstChild).toBeNull();
-  expect(screen.queryByText(/예약 현황/)).not.toBeInTheDocument();
+  render(<DayBookingOverview day={emptyDay} />);
+  expect(screen.getByText('예약 현황')).toBeInTheDocument();
+  const availableRow = screen.getByText('09:00~22:00').closest('li');
+  expect(availableRow).toHaveTextContent('(13타임)');
+  expect(screen.getByText('오전')).toBeInTheDocument();
 });
 
-it('예약 패널(일간 콘텐츠 전용)은 요약 카드·예약 현황·시간 선택 순서로 렌더하고 뷰 토글은 없다', () => {
+
+it('예약 패널(일간 콘텐츠 전용)은 통합 예약 현황 카드·시간 선택 순서로 렌더하고 뷰 토글은 없다', () => {
   render(
     <BookingPanel
       facility={{ id: 1, roomName: '커뮤니티룸(1)' }}
@@ -420,12 +396,12 @@ it('예약 패널(일간 콘텐츠 전용)은 요약 카드·예약 현황·시�
       onClose={vi.fn()}
     />,
   );
-  const summary = screen.getByText('선택한 날짜'); // PanelSummaryCard
-  const overview = screen.getByText('7월 20일 (월) 예약 현황'); // DayBookingOverview
+  const overview = screen.getByText('예약 현황'); // DayBookingOverview(통합 카드)
   const slotList = screen.getByRole('list', { name: '시간대 선택' }); // DaySlotList
-  // 요약 → 예약 현황 → 시간 선택 순서(DOCUMENT_POSITION_FOLLOWING = 4)
-  expect(summary.compareDocumentPosition(overview) & 4).toBeTruthy();
+  // 예약 현황 → 시간 선택 순서(DOCUMENT_POSITION_FOLLOWING = 4)
   expect(overview.compareDocumentPosition(slotList) & 4).toBeTruthy();
+  // 다크 요약 카드는 통합으로 제거 — "선택한 날짜" 미렌더.
+  expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
   // 일간/주간 뷰 토글은 공용 헤더(BookingViewHeader)로 이관 — 패널 내부 tablist·주간 그리드는 없다.
   expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '주간' })).not.toBeInTheDocument();
@@ -876,8 +852,7 @@ it('빠른 예약 시트(§11.1): slots 스텝은 날짜 제목·스텝 인디�
   // 선택 전 CTA 비활성 + 보조 버튼 "시간표로 보기" 노출(slots 스텝).
   expect(within(dialog).getByRole('button', { name: '시간을 선택해주세요' })).toBeDisabled();
   expect(within(dialog).getByRole('button', { name: '시간표로 보기' })).toBeInTheDocument();
-  // 다크 요약 카드·예약 현황 카드는 시트에 없다(§11.1 — 그 역할은 주간 뷰).
-  expect(within(dialog).queryByText('선택한 날짜')).not.toBeInTheDocument();
+  // 통합 예약 현황 카드는 시트에 없다(§11.1 — 그 역할은 주간 뷰).
   expect(within(dialog).queryByText(/예약 현황/)).not.toBeInTheDocument();
 });
 

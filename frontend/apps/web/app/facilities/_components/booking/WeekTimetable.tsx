@@ -67,7 +67,7 @@ type CellState = { statusText: string; toneClass: string; selectable: boolean };
 
 const hourIndexOf = (time: string) => Number(time.slice(0, 2)) - 9;
 
-// 운영 노트 구간 판정 — DayBookingOverview.isWithinOperating 과 동일 기준(슬롯이 노트에 완전 포함).
+// 운영 노트 구간 판정(슬롯이 노트에 완전 포함) — 기본 확보 시간 sky 가이드 셀 판정용.
 function isWithinOperating(slot: BookingAvailabilitySlot, operatingNotes: BookingOperatingNote[]): boolean {
   return operatingNotes.some((note) => slot.start >= note.start && slot.end <= note.end);
 }

@@ -332,8 +332,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // 랜딩 = 첫 시설 월간 캘린더: h1 + 기간 라벨(창 월).
     expect(await screen.findByRole('heading', { level: 1, name: '커뮤니티룸(1) 예약' })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH) })).toBeInTheDocument();
-    // (a) 초기 진입 = 월간 — 주간 사이드바(선택한 날짜 요약)는 없다.
-    expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
+    // (a) 초기 진입 = 월간 — 주간 사이드바(통합 예약 현황 카드)는 없다.
+    expect(screen.queryByText('예약 현황')).not.toBeInTheDocument();
 
     // 전체 보기 → 홈 카드 그리드. 헤더 기간 문단은 제거됐고, 기간은 시설 카드 안에서만 노출된다.
     fireEvent.click(await screen.findByRole('button', { name: '전체 보기' }));
@@ -358,7 +358,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // 창 첫날 셀(월간 그리드) = availableSlotCount 10 → 레벨 '여유'. 주간 사이드바는 아직 없다.
     const windowFromCell = await screen.findByRole('button', { name: WINDOW_FROM_CELL });
     expect(windowFromCell).toHaveTextContent('여유');
-    expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
+    expect(screen.queryByText('예약 현황')).not.toBeInTheDocument();
   });
 
   it('시나리오 3 (뷰 전환 b): 월간 날짜 탭 → 주간 뷰로 전환하며 주 라벨·사이드바(요약·현황·시간 리스트)를 노출한다', async () => {
@@ -370,8 +370,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: WINDOW_FROM_CELL })).not.toBeInTheDocument();
 
-    // 사이드바: 요약 카드(선택한 날짜) + 예약 현황 + 시간 선택 리스트.
-    expect(screen.getByText('선택한 날짜')).toBeInTheDocument();
+    // 사이드바: 통합 예약 현황 카드 + 시간 선택 리스트.
+    expect(screen.getByText('예약 현황')).toBeInTheDocument();
     // SCHOOL 단체명은 예약 현황 카드·슬롯 라벨 양쪽에 나타난다.
     expect((await screen.findAllByText('비호응원단')).length).toBeGreaterThan(0);
     // INTERNAL 비노출("예약됨")·PENDING_HOLD("승인 대기")도 현황·슬롯·요약 집계에 나타난다.
@@ -482,7 +482,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     ).toBeInTheDocument();
     // 안내만 하고 주간 전환(사이드바·CTA)은 일어나지 않는다.
     expect(screen.queryByRole('button', { name: /예약 신청/ })).not.toBeInTheDocument();
-    expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
+    expect(screen.queryByText('예약 현황')).not.toBeInTheDocument();
   });
 
   it('시나리오 7: 창 밖 날짜 딥링크는 주간을 열지 않고 스테일 date 를 정리해 월간으로 복귀하며 토스트로 안내한다', async () => {
@@ -497,7 +497,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(screen.queryByText('비호응원단')).not.toBeInTheDocument(); // 창 첫날 사이드바가 아님
     // 월간 그리드로 복귀 — 월간 셀이 다시 보이고 주간 사이드바는 없다.
     expect(await screen.findByRole('button', { name: WINDOW_FROM_CELL })).toBeInTheDocument();
-    expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
+    expect(screen.queryByText('예약 현황')).not.toBeInTheDocument();
   });
 
   it('시나리오 8: PENDING_HOLD 슬롯을 포함하면 폼 상단에 홀드 경고가 뜬다', async () => {
@@ -770,7 +770,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
 
     // 딥링크 월(지난달)은 창 밖 → 정리 후 월간 캘린더가 창 월 기준으로 정상 렌더된다.
     expect(await screen.findByRole('button', { name: WINDOW_FROM_CELL })).toBeInTheDocument();
-    expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
+    expect(screen.queryByText('예약 현황')).not.toBeInTheDocument();
 
     await waitFor(() => expect(requestedYearMonths).toContain(WINDOW_MONTH));
     expect(requestedYearMonths).not.toContain(lastMonth);
@@ -812,7 +812,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(screen.getByRole('tab', { name: '월' }));
     const selectedCell = await screen.findByRole('button', { name: WINDOW_FROM_CELL });
     expect(selectedCell).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
+    expect(screen.queryByText('예약 현황')).not.toBeInTheDocument();
 
     // [주] 재탭 → 그 주로 복귀하며 선택(18:00~19:00)이 유지된다.
     fireEvent.click(screen.getByRole('tab', { name: '주' }));
@@ -827,12 +827,12 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // 월간 진입 + 창 로드 대기 — showWeekView 가 windowQuery 로 기준일을 정하므로 캐시 커밋을 기다린다.
     await screen.findByRole('button', { name: WINDOW_FROM_CELL });
     await waitForBookingWindowLoaded(queryClient);
-    expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
+    expect(screen.queryByText('예약 현황')).not.toBeInTheDocument();
 
     // [주] 탭 — 오늘은 반월 창 밖이라 기준일 = bookableFrom. 그 주 라벨·사이드바가 뜬다.
     fireEvent.click(screen.getByRole('tab', { name: '주' }));
     expect(await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).toBeInTheDocument();
-    expect(screen.getByText('선택한 날짜')).toBeInTheDocument();
+    expect(screen.getByText('예약 현황')).toBeInTheDocument();
   });
 
   it('시나리오 19 (뷰 전환 e): 날짜 딥링크는 주간 뷰로 진입한다', async () => {
@@ -840,7 +840,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     renderPage();
 
     expect(await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).toBeInTheDocument();
-    expect(screen.getByText('선택한 날짜')).toBeInTheDocument();
+    expect(screen.getByText('예약 현황')).toBeInTheDocument();
     // 주간 슬롯 선택 리스트가 사이드바에 있다.
     expect(screen.getByRole('button', { name: /18:00~19:00/ })).toBeInTheDocument();
     // 월간 셀은 없다(그리드가 주간으로 교체됨).
@@ -873,7 +873,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(screen.getByRole('tab', { name: '주' }));
 
     // 사이드바 콘텐츠가 본문에 스택 — 바텀시트(dialog)는 없다.
-    expect(await screen.findByText('선택한 날짜')).toBeInTheDocument();
+    expect(await screen.findByText('예약 현황')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /18:00~19:00/ })).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
@@ -1056,8 +1056,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH), hidden: true }),
     ).toBeInTheDocument();
-    // 다크 요약 카드(선택한 날짜)는 시트에 없다(§11.1 — 요약·현황은 주간 뷰 담당).
-    expect(within(dialog).queryByText('선택한 날짜')).not.toBeInTheDocument();
+    // 통합 예약 현황 카드는 시트에 없다(§11.1 — 현황은 주간 뷰 담당).
+    expect(within(dialog).queryByText('예약 현황')).not.toBeInTheDocument();
 
     // (b) 시트 슬롯 탭 → CTA 활성.
     const slotList = within(dialog).getByRole('list', { name: '시간대 선택' });
@@ -1082,7 +1082,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // 주간 전환 + 시트 닫힘 + 선택 유지(주간 사이드바 CTA 활성).
     expect(await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByText('선택한 날짜')).toBeInTheDocument();
+    expect(screen.getByText('예약 현황')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '18:00~19:00 예약 신청' })).toBeEnabled();
 
     setMatchMedia(false);
@@ -1103,7 +1103,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // 시트 닫힘 + 월간 유지 + 선택 정리(선택일 셀 강조 해제).
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('heading', { level: 2, name: yearMonthLabel(WINDOW_MONTH) })).toBeInTheDocument();
-    expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
+    expect(screen.queryByText('예약 현황')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: WINDOW_FROM_CELL })).toHaveAttribute('aria-pressed', 'false');
 
     setMatchMedia(false);
@@ -1134,7 +1134,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
 
     expect(await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).toBeInTheDocument();
-    expect(screen.getByText('선택한 날짜')).toBeInTheDocument();
+    expect(screen.getByText('예약 현황')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 

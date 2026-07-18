@@ -8,7 +8,6 @@ import { BookingSuccess } from './BookingSuccess';
 import { DayBookingOverview } from './DayBookingOverview';
 import { DaySlotList } from './DaySlotList';
 import { PanelStepIndicator } from './PanelStepIndicator';
-import { PanelSummaryCard } from './PanelSummaryCard';
 
 export type PanelStep = 'slots' | 'form' | 'success';
 
@@ -92,7 +91,6 @@ export function BookingPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         <div className="space-y-3">
-          <PanelSummaryCard day={day} />
           <DayBookingOverview day={day} />
           <DaySlotList day={day} selection={selection} onToggleSlot={onToggleSlot} />
         </div>
