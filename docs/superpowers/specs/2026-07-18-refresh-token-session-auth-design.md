@@ -22,12 +22,12 @@ Access Token 단일(1시간, 만료 시 강제 재로그인) 구조를 **Access 
 - FE 401 → 자동 갱신(크로스탭 single-flight) → 원요청 재시도
 - 세션 목록·개별/전체 로그아웃 API + 마이페이지 UI, 관리자 강제 로그아웃의 세션 연동
 - 만료 세션 정리 잡, 인증 감사 로그(auth_event)
+- **"로그인 상태 유지"(rememberMe) 옵션** — 웹 쿠키 지속성 이원화(Persistent/Session Cookie) + 로그인 화면 체크박스 연동(§5.6, §10.1)
 
 ### 3.2 Out of Scope
 
 - **CSRF 토큰(Double Submit) 도입 — 하지 않는다.** §15에서 결론과 재검토 트리거를 남긴다.
 - React Native 앱 구현(레포 미존재). 서버 계약과 계약 테스트만 이번에 고정한다(§16).
-- 로그인 화면 "로그인 상태 유지" 체크박스 연동(현재 미연결 상태 유지). 후속 후보로만 기록(§5.6).
 - 이메일/소셜 로그인, 2FA, 디바이스 신뢰 등 인증 수단 확장.
 - Access Token의 요청 단위 세션 검증(짧은 TTL + tokenVersion으로 충분, §5.5).
 
@@ -38,6 +38,7 @@ Access Token 단일(1시간, 만료 시 강제 재로그인) 구조를 **Access 
 | Access Token | JWT HS256, **30분**, 클레임 `sub`·`role`·`tokenVersion`·**`sid`(세션 id, 신규)**. 웹=HttpOnly 쿠키, 모바일=Bearer |
 | Refresh Token | **JWT 아님** — `SecureRandom` 256bit → base64url. DB엔 **SHA-256 해시만** 저장(UNIQUE) |
 | Refresh 수명 | **30일 Sliding** — Rotation 때마다 `expires_at = now + 30일` 갱신. 절대 상한 없음(재사용 탐지가 보정) |
+| 로그인 상태 유지(웹) | `rememberMe=true` = Persistent Cookie(30일), `false` = **Session Cookie(브라우저 종료 시 삭제)**. 서버측 세션·토큰 정책(30분/30일)은 양쪽 동일, 쿠키 지속성만 다름(§10.1). FE 기본값 **OFF**(§5.6) |
 | Rotation | Refresh 사용 시마다 새 토큰 발급, 기존 토큰 즉시 `ROTATED` 처리. 세션 행잠금으로 원자화 |
 | 재사용 탐지 | 폐기된 토큰 재사용 = 세션(패밀리) 전체 폐기 + audit + Sentry. 단 rotation 후 **grace(운영 설정값, 기본 30초)** 안의 재사용은 멀티탭 경합으로 간주(§11) |
 | 동시 세션 | 사용자당 **최대 5개**, 초과 로그인 시 `last_used_at` 기준 LRU 자동 폐기 |
@@ -62,8 +63,13 @@ Stateless JWT refresh는 폐기·세션 목록·재사용 탐지가 안 된다. 
 ### 5.5 Access 요청 단위 세션 검증 — 하지 않음
 `JwtAuthenticationFilter`는 이미 매 요청 사용자 행을 읽어 tokenVersion을 검증한다. 세션 검증까지 얹으면 JWT가 사실상 stateful해진다. 개별 세션 폐기 후 그 세션의 Access가 최대 30분 살아있는 것은 수용한다(그래서 30분이 1시간보다 낫다). 즉시성이 필요한 이벤트(비번 변경·강제 로그아웃)는 기존대로 tokenVersion 범프가 전 기기 Access를 즉시 무효화한다.
 
-### 5.6 "로그인 상태 유지" 체크박스 — 이번엔 미연동
-로그인 화면에 체크박스가 있으나 현재 상태에 연결돼 있지 않다(rememberMe 미사용). 이번 시리즈는 30일 고정으로 가고, 미체크 시 브라우저 세션 쿠키(+짧은 expires_at)로 낮추는 연동은 후속 후보로 남긴다. 그 전까지 체크박스를 숨길지는 FE PR에서 판단한다.
+### 5.6 "로그인 상태 유지"(rememberMe) — 이번 범위에 포함, FE 기본값 OFF
+로그인 화면의 기존 체크박스(현재 미연결)를 실제 동작으로 연결한다. `rememberMe=true`면 지금 설계 그대로(Persistent Cookie 30일), `false`면 웹 인증 쿠키를 **세션 쿠키**로 내려 브라우저 종료 시 자동 로그아웃한다(네이버·구글류 일반 웹 서비스 패턴).
+
+**기본값 비교와 선택 — OFF 채택:**
+- **기본 ON**(구글류): 재방문 마찰 없음(브라우저 재시작 후 로그인 유지). 대신 공용 PC에서 체크 해제를 잊으면 다음 사용자에게 계정이 30일 노출된다.
+- **기본 OFF**(네이버류, 채택): 공용 PC에서 안전이 기본값. 비용은 "브라우저를 완전히 종료한 뒤 재방문 시 재로그인"뿐이고, 브라우저를 켜 둔 동안은 refresh가 계속 도니 사용 중 끊김이 없다.
+- 대구대 동아리 플랫폼은 **학교 PC실·동아리방 공용 PC 사용 비중이 높은 서비스**다. 유출 비용(계정 도용)이 재로그인 마찰보다 훨씬 크고, 국내 사용자에게 익숙한 패턴(네이버 기본 OFF)이라 학습 비용도 없다. 개인 기기 사용자는 체크 한 번으로 30일 유지를 얻는다.
 
 ### 5.7 감사 로그에 REFRESH 성공 이벤트 — 남기지 않음
 활성 사용자당 30분마다 1행은 소음이다. 보안 의미가 있는 이벤트만 남긴다(§7.3). Rotation 자체는 `auth_refresh_token` 행이 이력이다.
@@ -107,6 +113,9 @@ CREATE TABLE auth_session (
     device_label  VARCHAR(100),                     -- 모바일=클라이언트 제공, 웹=UA 요약
     user_agent    VARCHAR(500),
     ip_address    VARCHAR(45),                      -- IPv6 텍스트 최대 45자
+    -- 웹 "로그인 상태 유지" 여부. rotation(30분마다) 시 쿠키를 재발급하므로 서버가 지속성 모드를
+    -- 기억해야 한다 — 없으면 첫 갱신 때 세션 쿠키가 Persistent 로 승격돼 옵션이 무력화된다(§10.1).
+    remember_me   BOOLEAN     NOT NULL DEFAULT FALSE,
     last_used_at  TIMESTAMP   NOT NULL DEFAULT NOW(),
     expires_at    TIMESTAMP   NOT NULL,             -- sliding: rotation 마다 now+30일
     revoked_at    TIMESTAMP,
@@ -164,7 +173,7 @@ ALTER TABLE auth_event         ENABLE ROW LEVEL SECURITY;
 | 메서드·경로 | 인증 | 요청 | 응답 | PR |
 |---|---|---|---|---|
 | `POST /api/v1/auth/login` | 없음 | studentId, password, (신규 선택) deviceLabel, platform | 200 `{accessToken, tokenType, refreshToken(신규), user}` | 1 |
-| `POST /api/v1/auth/web/login` | 없음 | studentId, password | 200 `{user}` + Set-Cookie 3종 | 1 |
+| `POST /api/v1/auth/web/login` | 없음 | studentId, password, **(신규 선택) rememberMe** | 200 `{user}` + Set-Cookie 3종(지속성은 rememberMe 따라, §10.1) | 1 |
 | `POST /api/v1/auth/refresh` (신규) | Refresh(바디) | `{refreshToken}` | 200 `{accessToken, tokenType, refreshToken}` | 1 |
 | `POST /api/v1/auth/web/refresh` (신규) | Refresh(쿠키) | 없음 | 204 + Set-Cookie 3종 | 1 |
 | `POST /api/v1/auth/logout` | Bearer | (선택) `{refreshToken}` | 204 — `sid`(우선) 또는 바디 토큰으로 현재 세션 폐기 | 1 |
@@ -176,6 +185,17 @@ ALTER TABLE auth_event         ENABLE ROW LEVEL SECURITY;
 
 - Refresh 실패는 이유 불문 **401 + code `AUTH_SESSION_EXPIRED`** 하나로 통일한다(재사용 탐지 여부를 외부에 구분해 주지 않는다 — 상세는 auth_event·Sentry로). 5xx는 세션 종료가 아니다(§17, §19.3).
 - 모바일 로그인 응답의 `refreshToken` 추가는 가산적이라 기존 클라이언트와 호환된다.
+- 웹 로그인 요청 예시 (`rememberMe` 생략 시 `false`):
+
+```json
+{
+  "studentId": "20261234",
+  "password": "********",
+  "rememberMe": true
+}
+```
+
+- `rememberMe`는 **웹 로그인 전용 의미**다. 모바일(`/auth/login`)은 Secure Storage 가 항상 지속 보관이므로 이 필드를 받지 않는다(무시).
 
 ## 9. 인증 흐름
 
@@ -190,8 +210,12 @@ sequenceDiagram
     BE->>DB: findByStudentIdForUpdate (행잠금, 기존)
     BE->>BE: 비밀번호·잠금 검증 (기존)
     BE->>DB: 활성 세션 수 ≥5 → LRU 폐기 (+auth_event SESSION_EVICTED)
-    BE->>DB: auth_session + auth_refresh_token(ACTIVE) 생성, auth_event LOGIN
-    BE-->>B: 200 {user} + Set-Cookie access(30분)·refresh(30일)·auth_hint(30일)
+    BE->>DB: auth_session(remember_me 저장) + auth_refresh_token(ACTIVE) 생성, auth_event LOGIN
+    alt rememberMe=true
+        BE-->>B: 200 {user} + Set-Cookie 3종 Persistent(access Max-Age 30분·refresh/hint 30일)
+    else rememberMe=false(기본)
+        BE-->>B: 200 {user} + Set-Cookie 3종 **Session Cookie(Max-Age 없음)** — 브라우저 종료 시 삭제
+    end
 ```
 
 모바일(`/auth/login`)은 같은 서비스 경로에 응답만 바디(access+refresh)로 나간다. LRU 폐기는 로그인이 이미 잡는 사용자 행잠금 안에서 수행되어 동시 로그인에도 상한 5가 유지된다.
@@ -228,11 +252,33 @@ sequenceDiagram
 
 ## 10. 쿠키 계약 (웹)
 
-| 쿠키 | 속성 | 수명 | 역할 |
+| 쿠키 | 속성 | 수명(rememberMe=true 기준, §10.1) | 역할 |
 |---|---|---|---|
 | `__Host-duing_access_token` | HttpOnly·Secure·Lax·Path=/ (기존) | **30분** | API 인증 |
 | `__Secure-duing_refresh_token` (신규) | HttpOnly·Secure·Lax·**Path=/api/v1/auth** | 30일(rotation마다 재설정) | 갱신 전용 — auth 경로에만 전송되어 노출 최소화. `__Host-`는 Path=/ 강제라 `__Secure-` 프리픽스 사용 |
 | `auth_hint` | HttpOnly·Secure·Lax·Domain=.duings.com (기존) | **30일**(rotation마다 재발급) | 미들웨어 게이트. 클레임 `{typ, role, exp}` **불변** → FE 미들웨어 코드 무변경 |
+
+### 10.1 rememberMe에 따른 쿠키 지속성
+
+`rememberMe=true`(로그인 상태 유지) — 위 표 그대로 **Persistent Cookie**(Max-Age/Expires 설정):
+
+```
+Set-Cookie: __Host-duing_access_token=...; Max-Age=1800; Path=/; Secure; HttpOnly; SameSite=Lax
+Set-Cookie: __Secure-duing_refresh_token=...; Max-Age=2592000; Path=/api/v1/auth; Secure; HttpOnly; SameSite=Lax
+Set-Cookie: auth_hint=...; Max-Age=2592000; Domain=.duings.com; Path=/; Secure; HttpOnly; SameSite=Lax
+```
+
+`rememberMe=false`(기본) — **3종 모두 Session Cookie**(Max-Age/Expires 미설정, 브라우저 종료 시 삭제):
+
+```
+Set-Cookie: __Host-duing_access_token=...; Path=/; Secure; HttpOnly; SameSite=Lax
+Set-Cookie: __Secure-duing_refresh_token=...; Path=/api/v1/auth; Secure; HttpOnly; SameSite=Lax
+Set-Cookie: auth_hint=...; Domain=.duings.com; Path=/; Secure; HttpOnly; SameSite=Lax
+```
+
+- **refresh만이 아니라 3종 전부** 세션 쿠키로 내리는 이유: refresh만 내리면 브라우저 재시작 후에도 ① access 쿠키 잔여 수명(≤30분) 동안 API 인증이 살아있고 ② hint(30일)가 미들웨어를 통과시켜 "종료 시 로그아웃" 약속이 깨진다(공용 PC 시나리오). 토큰의 **서버측 만료 정책은 양쪽 동일**하다 — access JWT `exp` 30분, 세션 `expires_at` 30일은 쿠키 지속성과 무관하게 서버가 강제한다.
+- **rotation 재발급도 같은 모드를 유지한다** — 세션 행의 `remember_me`를 읽어 Persistent/Session 을 결정한다. 이 컬럼이 없으면 첫 갱신(≤30분) 때 세션 쿠키가 Persistent 로 승격돼 옵션이 무력화된다.
+- **DB는 rememberMe 와 무관하게 동일 정책**이다 — `expires_at`=30일 sliding, cleanup 잡 그대로. `rememberMe=false` 사용자가 브라우저를 닫으면 쿠키가 사라져 refresh 토큰을 다시 제시할 수 없을 뿐이고, DB에 남은 세션 행은 만료 후 cleanup 잡(§18.1)이 정리한다. 남아 있는 동안 세션 목록(PR-3)에 보이는 것은 정상이며 개별 폐기도 가능하다.
 
 - `duings.com`→`api.duings.com`은 same-site라 SameSite=Lax에서 fetch(credentials include)에 쿠키가 실린다(기존 access 쿠키와 동일 전제).
 - `AuthHintTokenProvider`의 "hint 수명=jwt.expiry-ms(1시간) 고정" 검증은 제거하고 hint 수명을 refresh TTL 설정에 정렬한다.
@@ -255,9 +301,11 @@ sequenceDiagram
 
 웹은 쿠키 저장소가 공유라 FE 뮤텍스만으로 대부분 정리되고, RN은 단일 인스턴스라 앱 내 뮤텍스로 충분하다.
 
+웹 refresh 응답의 Set-Cookie 지속성은 세션 행 `remember_me` 값을 따른다(§10.1) — Rotation·재사용 탐지·grace 로직 자체는 rememberMe 와 무관하게 동일하다.
+
 ## 13. 세션 정책
 
-- **상한 5·LRU**: 로그인 트랜잭션(사용자 행잠금 내)에서 활성 세션 수를 세고 초과분을 `last_used_at` 오름차순으로 폐기(SESSION_LIMIT). 세션 고갈 공격은 사용자당 5 상한 + 기존 로그인 IP rate limit + 가입 전화인증으로 방어된다.
+- **상한 5·LRU**: 로그인 트랜잭션(사용자 행잠금 내)에서 활성 세션 수를 세고 초과분을 `last_used_at` 오름차순으로 폐기(SESSION_LIMIT). 세션 고갈 공격은 사용자당 5 상한 + 기존 로그인 IP rate limit + 가입 전화인증으로 방어된다. `rememberMe=false` 사용자가 브라우저 종료로 남긴 고아 세션도 이 LRU 가 새 로그인 때 자연 정리한다(잔여분은 cleanup 잡).
 - **`last_used_at` 갱신은 rotation 시점만**(매 API 요청 아님 — Access는 stateless 유지). LRU 정밀도는 30분 단위로 충분.
 - **§13.2 로그아웃 의미 변화(주의)**: 현재 `POST /auth/logout`·`/auth/web/logout`은 tokenVersion 범프로 **전 기기**를 로그아웃시킨다. 전환 후에는 **현재 기기만** 로그아웃되고, 전 기기 로그아웃은 `DELETE /users/me/sessions`(PR-2의 UI 제공)로 분리된다. 사용자 기대("로그아웃=이 기기")에 부합하는 방향의 의도된 변화.
 - 세션 목록 표시: 플랫폼·기기 라벨(웹은 UA에서 브라우저/OS 간단 추출 — 외부 파서 의존성 추가 없이 경량 매칭)·마지막 사용·생성 시각·현재 여부.
@@ -278,13 +326,15 @@ sequenceDiagram
 - 저장: Access·Refresh 모두 Keychain(iOS)/Keystore(Android) — `react-native-keychain` 계열. AsyncStorage 금지.
 - transport: `Authorization: Bearer` + refresh는 요청 바디. 로그인 시 `deviceLabel`("iPhone 15 Pro")·`platform`(IOS|ANDROID) 전송 → 세션 목록 표시용.
 - 갱신: 앱 내 single-flight 뮤텍스, 401 → refresh → 원요청 1회 재시도, refresh 401 → 저장 토큰 파기 후 로그인 화면. 웹과 동일 정책·TTL.
+- `rememberMe`는 웹 쿠키 지속성 전용 개념이라 모바일 로그인에는 없다 — Secure Storage 보관 = 항상 유지, 로그아웃은 명시적 조작.
 - 서버는 PR-1에서 이미 완성되므로 이 단계의 백엔드 몫은 **계약 테스트**(바디 transport 왕복, 웹 쿠키와 정책 동일성 검증)와 문서뿐이다.
 
 ## 17. FE 변경 (웹)
 
 - `packages/api/client.ts` `afterResponse`: 쿠키 모드에서 auth 경로 외 401 수신 시 — ① single-flight로 `auth/web/refresh` 호출 ② 성공 시 원요청 1회 재시도 ③ refresh가 **401/404**면 기존 `notifyUnauthorized()`(세션 종료 — 404는 BE 롤백 호환 §19.3) ④ refresh가 5xx/네트워크/타임아웃이면 세션을 끝내지 않고 원 401 에러를 그대로 표면화(일시 장애 — RQ 재시도·기존 에러 UX에 위임).
 - 재시도는 요청당 1회 플래그로 루프 차단. `SessionExpiryHandler`·`AuthSessionBootstrap`·Zustand 스토어·미들웨어는 무변경(부트스트랩의 `users.me()` 401도 위 훅이 선처리).
-- 테스트: vitest로 401→갱신→재시도 성공, 갱신 401→로그아웃 콜백, 갱신 5xx→로그아웃 안 함, single-flight 동시 요청 1회 갱신.
+- **로그인 화면 체크박스 연동**: 기존 "로그인 상태 유지" 체크박스(현재 미연결 `rememberMe`)를 로그인 페이로드 `rememberMe` 로 전달한다. 기본 미체크(OFF, §5.6). `client.auth.login` 페이로드 타입에 `rememberMe?: boolean` 추가 — 쿠키 지속성은 전적으로 서버 Set-Cookie 가 결정하므로 FE 는 값 전달 외 분기 없음.
+- 테스트: vitest로 401→갱신→재시도 성공, 갱신 401→로그아웃 콜백, 갱신 5xx→로그아웃 안 함, single-flight 동시 요청 1회 갱신, 체크박스 체크/미체크 시 페이로드 `rememberMe` 전달.
 
 ## 18. 운영
 
@@ -323,7 +373,7 @@ sequenceDiagram
 6. 로그아웃 3종: 현재 기기(다른 세션 생존·tokenVersion 불변), 전체(전 세션 폐기+범프), 관리자 강제
 7. 비밀번호 변경/재설정/번호 변경/탈퇴 → 전 세션 폐기 확인
 8. 만료: expires_at 경과 refresh → 401 / cleanup 잡 보존기간 검증
-9. 쿠키 계약: Set-Cookie 속성(HttpOnly·Secure·Lax·Path·Max-Age) 3종 단언, web refresh의 Origin 필수(403)
+9. 쿠키 계약: Set-Cookie 속성(HttpOnly·Secure·Lax·Path·Max-Age) 3종 단언, web refresh의 Origin 필수(403), **rememberMe 분기** — true=3종 Max-Age 설정, false(기본·생략)=3종 Max-Age/Expires 부재, rotation 재발급이 세션 행 `remember_me` 모드를 유지
 10. 모바일 계약: 바디 transport 왕복, 로그인 응답 refreshToken, sid 클레임
 11. 콜드 경로 주의: rotate는 쓰기 오케스트레이션이므로 클래스 레벨 readOnly 금지(실PG 함정 전례)
 
@@ -335,8 +385,8 @@ sequenceDiagram
 
 | PR | 내용 | 비고 |
 |---|---|---|
-| **PR-1 (BE)** | V86, 엔티티/리포지토리/서비스, 로그인 세션 발급+LRU, refresh 2종 API, rotation·grace·재사용 탐지, 로그아웃 의미 전환, 범프 6지점 세션 폐기 연동, 쿠키 계약 개편(30분·refresh·hint), sid 클레임, cleanup 잡, auth_event, 테스트 §20 1~11 | 크지만 계약이 응집돼 분리 시 중간 상태가 더 위험 |
-| **PR-2 (FE)** | ky 401→갱신→재시도 single-flight, 폴백, 테스트 | BE 머지 후. 배포는 BE 먼저 |
+| **PR-1 (BE)** | V86(remember_me 포함), 엔티티/리포지토리/서비스, 로그인 세션 발급+LRU, **rememberMe 쿠키 지속성 이원화**, refresh 2종 API, rotation·grace·재사용 탐지, 로그아웃 의미 전환, 범프 6지점 세션 폐기 연동, 쿠키 계약 개편(30분·refresh·hint), sid 클레임, cleanup 잡, auth_event, 테스트 §20 1~11 | 크지만 계약이 응집돼 분리 시 중간 상태가 더 위험 |
+| **PR-2 (FE)** | ky 401→갱신→재시도 single-flight, 폴백, **"로그인 상태 유지" 체크박스 연동(기본 OFF)**, 테스트 | BE 머지 후. 배포는 BE 먼저 |
 | **PR-3 (BE+FE)** | 세션 목록/개별·전체 로그아웃 API + 마이페이지 세션 UI + 관리자 강제 로그아웃 세션 연동 | 요청서의 PR-2 |
 | **PR-4 (RN 착수 시)** | Secure Storage·Bearer 클라이언트 + 계약 테스트 | 요청서의 PR-3. 서버는 PR-1에서 완성 |
 | CSRF | **PR 없음** — §15 결론으로 종결 | |
@@ -348,3 +398,4 @@ sequenceDiagram
 - 멀티탭 동시 만료 상황에서 로그아웃 오탐이 발생하지 않는다(동시성 테스트로 증명).
 - 기기별 로그아웃·전체 로그아웃·비밀번호 변경 폐기가 명세대로 동작하고, tokenVersion 긴급 차단 경로가 살아있다.
 - 웹·모바일이 같은 서비스 계층과 정책을 공유하며 transport만 다르다.
+- `rememberMe` 미체크(기본) 로그인은 브라우저 완전 종료 후 재방문 시 로그아웃 상태이고, 체크 로그인은 30일 유지된다 — 쿠키 지속성 외 서버 정책은 양쪽 동일하다.
