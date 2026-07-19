@@ -78,8 +78,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 서버의 compose/Caddyfile 을 저장소 최신본으로 동기화(.env 는 서버 관리값이라 건드리지 않는다).
-      - name: Sync deploy config to server
+      # 서버의 compose/Caddyfile 을 저장소 최신본으로 동기화하되, 곧바로 덮어쓰지 않고 incoming/ 스테이징
+      # 디렉터리로만 보낸다. 실제 반영은 다음 SSH 스텝에서 문법 검증을 통과한 뒤에만 원자적으로 이뤄진다
+      # (.env 는 서버 관리값이라 건드리지 않는다).
+      - name: Stage deploy config to server (incoming/)
         uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
@@ -87,7 +89,7 @@ jobs:
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           port: ${{ secrets.LIGHTSAIL_SSH_PORT || '22' }}
           source: "deploy/docker-compose.yml,deploy/Caddyfile"
-          target: ${{ secrets.DEPLOY_DIR || '/home/ubuntu/duing' }}
+          target: ${{ secrets.DEPLOY_DIR || '/home/ubuntu/duing' }}/incoming
           strip_components: 1
 
       - name: Deploy over SSH
@@ -114,6 +116,36 @@ jobs:
             # 롤백 대비: 현재 .env 에 적힌 이미지 태그를 보관한다.
             PREV_IMAGE="$(grep '^BACKEND_IMAGE=' .env | cut -d= -f2- || true)"
 
+            # ── 배포 설정 사전 검증 + 원자적 반영 (이미지 교체보다 먼저) ─────────────────
+            # incoming/ 에 스테이징된 새 compose·Caddyfile 을 현 운영 .env 와 함께 검증한다.
+            # 둘 다 통과할 때만 기존 파일을 .bak 로 백업하고 mv(원자적 교체)로 반영한다.
+            # 검증 실패 시 기존 파일을 그대로 두고 즉시 배포를 중단한다 — 오설정이 서버에 닿지 않는다.
+            if [ ! -f incoming/docker-compose.yml ] || [ ! -f incoming/Caddyfile ]; then
+              echo "::error::incoming/ 에 docker-compose.yml·Caddyfile 이 없습니다 — 스테이징 실패"
+              exit 1
+            fi
+            # compose 검증: env_file(.env)·보간(${BACKEND_IMAGE} 등)이 모두 현 운영 .env 기준으로 풀리도록
+            # incoming/ 에 현 .env 사본을 두고 검증한다(검증 후 즉시 삭제 — 시크릿 사본을 남기지 않는다).
+            cp .env incoming/.env
+            if ! docker compose -f incoming/docker-compose.yml config --quiet; then
+              rm -f incoming/.env
+              echo "::error::새 docker-compose.yml 검증 실패 — 기존 설정 유지·배포 중단"
+              exit 1
+            fi
+            rm -f incoming/.env
+            # Caddyfile 검증: 서버에 이미 존재하는 caddy 이미지로 stdin 검증(컨테이너 상태와 무관하게 동작).
+            if ! docker run --rm -i caddy:2-alpine caddy validate --config - --adapter caddyfile < incoming/Caddyfile; then
+              echo "::error::새 Caddyfile 검증 실패 — 기존 설정 유지·배포 중단"
+              exit 1
+            fi
+            # 둘 다 통과: 기존 정상본 백업 후 원자적 교체(같은 파일시스템이라 mv 는 원자적).
+            cp docker-compose.yml docker-compose.yml.bak 2>/dev/null || true
+            cp Caddyfile Caddyfile.bak 2>/dev/null || true
+            mv incoming/docker-compose.yml docker-compose.yml
+            mv incoming/Caddyfile Caddyfile
+            echo "배포 설정 검증 통과 — compose·Caddyfile 반영 완료"
+            # ────────────────────────────────────────────────────────────────────────────
+
             # 이번 배포 이미지 태그(커밋 SHA)를 .env 의 BACKEND_IMAGE 에 반영(멱등) — 수동 재기동도 같은 버전.
             if grep -q '^BACKEND_IMAGE=' .env; then
               sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${DEPLOY_IMAGE}|" .env
@@ -135,9 +167,19 @@ jobs:
             done
 
             if [ "$healthy" = "true" ]; then
-              # 정상: Caddyfile 변경분 무중단 반영(없으면 무해), 실패 시 사유 출력 후 재시작 폴백.
-              docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
-                || { echo "caddy reload 실패 — caddy 재시작"; docker compose restart caddy; }
+              # 정상: Caddyfile 변경분 무중단 반영(없으면 무해). reload 실패 시 "재시작"이 아니라 직전 정상본(.bak)
+              # 으로 복원한 뒤 reload — 잘못된 설정으로 재시작해 기존 정상 상태까지 무너뜨리는 사고를 막는다.
+              # (사전 검증을 통과했어도 런타임 reload 는 별개 실패 가능성이 있어 안전망을 둔다.)
+              if ! docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile; then
+                echo "::warning::caddy reload 실패 — 직전 Caddyfile(.bak)로 복원 후 재적용"
+                if [ -f Caddyfile.bak ]; then
+                  cp Caddyfile.bak Caddyfile
+                  docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
+                    || echo "::error::백업 Caddyfile 재적용도 실패 — 라우팅 수동 점검 필요"
+                else
+                  echo "::error::복원할 Caddyfile.bak 이 없습니다 — 라우팅 수동 점검 필요"
+                fi
+              fi
               docker image prune -f || true
               echo "배포 완료: ${DEPLOY_IMAGE}"
               exit 0
