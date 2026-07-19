@@ -42,7 +42,7 @@ public class GeneralFacilitySubmissionService implements FacilitySubmissionServi
         }
         // ID 오름차순 행잠금(스펙 §4) — 겹치는 집합의 동시 생성이 반대 순서로 잠그는 데드락을 차단하고,
         // 잠금 하에서 아래 활성 EXISTS 검증을 직렬화한다(부분 유니크 인덱스 부재의 애플리케이션 보상).
-        List<FacilityBooking> bookings = bookingRepository.findAllByIdForUpdate(bookingIds);
+        List<FacilityBooking> bookings = bookingRepository.findAllByIdInForUpdate(bookingIds);
         if (bookings.size() != bookingIds.size()) {
             throw new FacilitySubmissionException.SubmissionBookingNotFoundException();
         }

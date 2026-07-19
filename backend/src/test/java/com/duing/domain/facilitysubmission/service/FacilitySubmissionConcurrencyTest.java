@@ -19,6 +19,7 @@ import com.duing.domain.facilitysubmission.repository.FacilitySubmissionItemRepo
 import com.duing.domain.facilitysubmission.service.dto.command.CreateSubmissionBatchCommand;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
 import com.duing.domain.user.entity.User;
+import com.duing.domain.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -33,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import com.duing.domain.user.repository.UserRepository;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest

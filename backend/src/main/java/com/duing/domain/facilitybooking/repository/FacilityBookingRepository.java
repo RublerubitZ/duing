@@ -75,5 +75,5 @@ public interface FacilityBookingRepository
     /** 학교 제출 생성의 중복 방지 직렬화(제출 스펙 §4) — ID 오름차순 잠금으로 상호 데드락을 차단한다. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT b FROM FacilityBooking b WHERE b.id IN :bookingIds ORDER BY b.id ASC")
-    List<FacilityBooking> findAllByIdForUpdate(@Param("bookingIds") Collection<Long> bookingIds);
+    List<FacilityBooking> findAllByIdInForUpdate(@Param("bookingIds") Collection<Long> bookingIds);
 }
