@@ -48,10 +48,10 @@ booking·facility·user 는 전부 스칼라 ID 참조 (facilitybooking 관례 �
 | submission_no | VARCHAR(20) NOT NULL UNIQUE | `SUB-YYYYMMDD-NNN` |
 | facility_id | BIGINT NOT NULL | 스칼라 참조. Batch = 단일 시설 |
 | submitted_by | BIGINT NOT NULL | 관리자 user id |
-| submitted_at | TIMESTAMPTZ NOT NULL | |
+| submitted_at | TIMESTAMP NOT NULL | |
 | memo | VARCHAR(500) NULL | |
 | csv_file_name | VARCHAR(100) NOT NULL | 생성 시점에 `facility-submission-{submissionNo}.csv` 확정 저장 |
-| cancelled_at | TIMESTAMPTZ NULL | **soft delete 아님 — 비즈니스 상태.** `@SQLRestriction` 미적용(취소돼도 이력에 계속 표시) |
+| cancelled_at | TIMESTAMP NULL | **soft delete 아님 — 비즈니스 상태.** `@SQLRestriction` 미적용(취소돼도 이력에 계속 표시) |
 | cancelled_by | BIGINT NULL | |
 | created_at / updated_at | | BaseEntity. deletedAt 은 사용하지 않음 |
 
@@ -81,7 +81,7 @@ booking·facility·user 는 전부 스칼라 ID 참조 (facilitybooking 관례 �
 | admin_id | BIGINT NOT NULL | |
 | ip_address | VARCHAR(45) NULL | `getRemoteAddr()` 인라인 관례 |
 | user_agent | VARCHAR(500) NULL | `AuthTextTruncator` 로 절단 (auth_event 관례) |
-| created_at | TIMESTAMPTZ NOT NULL | |
+| created_at | TIMESTAMP NOT NULL | |
 
 Audit 기록 이벤트는 위 4개뿐이다. **목록 조회는 기록하지 않는다.**
 
