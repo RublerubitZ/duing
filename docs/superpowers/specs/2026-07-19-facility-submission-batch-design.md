@@ -158,7 +158,7 @@ Body `{ "bookingIds": [1,2], "memo": "..." }` → §4 → 201 `{ "batchId": 1, "
 
 ### 5.4 GET `/{batchId}` — 상세
 
-취소된 Batch 도 조회 가능. 응답: batch 헤더(이력 행과 동일 + memo·csvFileName) + `bookings[]`(5.1 과 동일 형태 — 멤버십은 Batch 기준 고정, status 는 현재값 노출 → 제출 후 취소된 예약도 운영자가 식별).
+취소된 Batch 도 조회 가능. 응답: batch 헤더(이력 행과 동일 형태 — memo 포함. csvFileName 은 미포함: 파일명은 §5.5 다운로드의 Content-Disposition 이 전달하므로 상세 헤더에 불필요) + `bookings[]`(5.1 과 동일 형태 — 멤버십은 Batch 기준 고정, status 는 현재값 노출 → 제출 후 취소된 예약도 운영자가 식별).
 audit `VIEWED` 기록. **⚠️ 감사 기록이 있는 조회이므로 서비스 메서드에 readOnly 트랜잭션 금지** (readOnly×쓰기 오케스트레이션 실PG 500 함정).
 
 ### 5.5 GET `/{batchId}/csv` — CSV 다운로드
