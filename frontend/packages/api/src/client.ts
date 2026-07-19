@@ -842,7 +842,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         },
       ],
       afterResponse: [
-        async (request, _options, response) => {
+        async (request, options, response) => {
           if (response.status !== 401) {
             return;
           }
@@ -866,8 +866,13 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
               // 재시도가 다시 401 이어도 그대로 표면화된다(다음 요청이 새 갱신 사이클을 연다).
               // retry:0 명시 — bare ky 기본값은 GET 계열 5xx 에 2회 자동 재시도라, 비워두면
               // "재시도 단일 진실원=RQ(retry:0)" 정책(전역 http 훅 주석 참조)이 이 경로에서만 깨진다.
-              // 한계: 원 요청의 per-request timeout(업로드 60s 등)은 Request 객체에 보존되지 않아
-              // 기본 10s 로 재시도된다 — 갱신 직후 재시도가 장기 API 와 겹치는 좁은 케이스라 수용(후속 여지).
+              // 원 요청의 per-request timeout(업로드 60s·facilityOnDemand 18s 등)을 물려준다 —
+              // 훅 2번째 인자 options 는 런타임엔 정규화된 timeout(number | false, 기본 10s)을 담지만
+              // ky 타입엔 빠져 있어 Reflect.get + 런타임 가드로 as 없이 추출한다.
+              const preservedTimeout = Reflect.get(options, 'timeout');
+              if (typeof preservedTimeout === 'number' || preservedTimeout === false) {
+                return ky(request, { retry: 0, timeout: preservedTimeout });
+              }
               return ky(request, { retry: 0 });
             }
             // 'session-expired'(알림은 실행기가 1회 발화) · 'unavailable' — 원 401 표면화 (§17)
