@@ -64,7 +64,9 @@ export function AdminSubmissionPage() {
   const facilityName =
     (usageQuery.data?.facilities ?? []).find((facility) => facility.id === facilityId)?.roomName ?? '';
 
-  const periodInvalid = endDate < startDate || periodDayCount(startDate, endDate) > MAX_PERIOD_DAYS;
+  // startDate/endDate 가 빈 값이면 periodDayCount 가 NaN 을 반환 — 범위 비교(NaN >= 1)는 항상 false 라 아래 한 식으로 NaN·역순·초과·0일을 함께 차단한다.
+  const periodDays = periodDayCount(startDate, endDate);
+  const periodInvalid = !(periodDays >= 1 && periodDays <= MAX_PERIOD_DAYS);
   const candidatesParams: SubmissionCandidatesParams | null =
     facilityId !== undefined && !periodInvalid ? { facilityId, startDate, endDate } : null;
   const candidatesQuery = useSubmissionCandidatesQuery(candidatesParams);

@@ -130,6 +130,15 @@ describe('AdminSubmissionPage', () => {
     expect(mockCandidatesQuery).toHaveBeenLastCalledWith(null);
   });
 
+  it('시작일이 빈 값이면(NaN 일수) 조회하지 않고 안내를 보여준다', () => {
+    render(<AdminSubmissionPage />);
+    selectFacility();
+    fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '' } });
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(null);
+  });
+
   it('제출 이력 탭은 준비 중 안내를 보여준다', () => {
     render(<AdminSubmissionPage />);
 
