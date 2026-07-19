@@ -167,6 +167,14 @@ describe('AdminSubmissionPage', () => {
     });
     // v2: 생성 직후 자동 다운로드 없음 — 다운로드는 상세(PR-4)에서 선택 수행
     expect(mockAddToast).toHaveBeenCalledTimes(1);
+    // 성공 후 Dialog 는 닫히고(확인 문구 사라짐) 선택도 초기화되어 생성 버튼이 '선택 0건' 으로 돌아온다.
+    expect(screen.queryByText(/총 1건의 예약을/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /선택 0건/ })).toBeInTheDocument();
+
+    // 재오픈 시 이전 memo 가 남지 않는다 — 다시 선택→생성 버튼→Dialog 를 열어 메모 입력값이 초기화됐는지 확인.
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
+    fireEvent.click(screen.getByRole('button', { name: /제출 Batch 생성/ }));
+    expect(screen.getByLabelText('메모')).toHaveValue('');
   });
 
   it('생성 실패(409) 시 서버 메시지 에러 토스트를 띄운다', async () => {

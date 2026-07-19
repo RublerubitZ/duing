@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import {
   Dialog,
@@ -14,17 +14,22 @@ import {
 type Props = {
   open: boolean;
   selectedCount: number;
-  pending: boolean;
+  isPending: boolean;
   onClose: () => void;
   onConfirm: (memo: string) => void;
 };
 
 /** Batch 생성 확인(스펙 v2 §7.1) — 확인 문구 + 메모. 생성 중 버튼 라벨 유지 + 스피너. */
-export function BatchCreateDialog({ open, selectedCount, pending, onClose, onConfirm }: Props) {
+export function BatchCreateDialog({ open, selectedCount, isPending, onClose, onConfirm }: Props) {
   const [memo, setMemo] = useState('');
 
+  // Dialog 는 상시 마운트라 재오픈 시 이전 memo 가 남는다 — PasswordChangeDialog 전례와 동일하게 open 시 리셋.
+  useEffect(() => {
+    if (open) setMemo('');
+  }, [open]);
+
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen && !pending) onClose(); }}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen && !isPending) onClose(); }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>학교 제출 Batch 생성</DialogTitle>
@@ -45,16 +50,16 @@ export function BatchCreateDialog({ open, selectedCount, pending, onClose, onCon
           />
         </label>
         <DialogFooter>
-          <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={onClose}>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={isPending} onClick={onClose}>
             취소
           </button>
           <button
             type="button"
             className="btn btn-primary btn-sm"
-            disabled={pending || selectedCount === 0}
+            disabled={isPending || selectedCount === 0}
             onClick={() => onConfirm(memo)}
           >
-            {pending && <ButtonSpinner />}
+            {isPending && <ButtonSpinner />}
             생성
           </button>
         </DialogFooter>

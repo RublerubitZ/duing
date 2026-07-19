@@ -295,7 +295,7 @@ export function AdminSubmissionPage() {
           <BatchCreateDialog
             open={dialogOpen}
             selectedCount={selectedIds.length}
-            pending={createMutation.isPending}
+            isPending={createMutation.isPending}
             onClose={() => setDialogOpen(false)}
             onConfirm={(memo) => void handleCreateConfirm(memo)}
           />
