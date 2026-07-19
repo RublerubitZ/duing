@@ -138,11 +138,17 @@ jobs:
               echo "::error::새 Caddyfile 검증 실패 — 기존 설정 유지·배포 중단"
               exit 1
             fi
-            # 둘 다 통과: 기존 정상본 백업 후 원자적 교체(같은 파일시스템이라 mv 는 원자적).
+            # 둘 다 통과: 기존 정상본 백업 후 반영.
+            # ⚠ Caddyfile 은 compose 가 단일 파일 bind mount(./Caddyfile:...:ro)로 물고 있어 실행 중인 caddy
+            #   컨테이너가 그 inode 를 계속 본다 → mv(새 inode)는 컨테이너에 보이지 않고, 이어지는 reload 가
+            #   구 설정을 읽어 "성공"한다(변경 조용히 미적용 · 리부트 때 예고 없이 적용되는 시한폭탄).
+            #   cp(대상 파일 in-place truncate+write)는 inode 를 유지해 컨테이너에 즉시 보이므로 reload 가 새 설정을 읽는다.
+            #   compose 는 호스트 docker CLI 가 매번 경로로 새로 읽어 mv 도 무방하나, 반쪽 상태를 없애려 cp+rm 로 통일한다.
+            #   (여기서 reload·compose pull/up 은 이 블록 이후 순차 실행이라 cp 의 비원자성으로 인한 torn read 는 없다.)
             cp docker-compose.yml docker-compose.yml.bak 2>/dev/null || true
             cp Caddyfile Caddyfile.bak 2>/dev/null || true
-            mv incoming/docker-compose.yml docker-compose.yml
-            mv incoming/Caddyfile Caddyfile
+            cp incoming/docker-compose.yml docker-compose.yml && rm incoming/docker-compose.yml
+            cp incoming/Caddyfile Caddyfile && rm incoming/Caddyfile
             echo "배포 설정 검증 통과 — compose·Caddyfile 반영 완료"
             # ────────────────────────────────────────────────────────────────────────────
 
@@ -170,17 +176,27 @@ jobs:
               # 정상: Caddyfile 변경분 무중단 반영(없으면 무해). reload 실패 시 "재시작"이 아니라 직전 정상본(.bak)
               # 으로 복원한 뒤 reload — 잘못된 설정으로 재시작해 기존 정상 상태까지 무너뜨리는 사고를 막는다.
               # (사전 검증을 통과했어도 런타임 reload 는 별개 실패 가능성이 있어 안전망을 둔다.)
+              caddy_reflected=true
               if ! docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile; then
                 echo "::warning::caddy reload 실패 — 직전 Caddyfile(.bak)로 복원 후 재적용"
                 if [ -f Caddyfile.bak ]; then
                   cp Caddyfile.bak Caddyfile
-                  docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
-                    || echo "::error::백업 Caddyfile 재적용도 실패 — 라우팅 수동 점검 필요"
+                  if ! docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile; then
+                    echo "::error::백업 Caddyfile 재적용도 실패 — 라우팅 수동 점검 필요"
+                    caddy_reflected=false
+                  fi
                 else
                   echo "::error::복원할 Caddyfile.bak 이 없습니다 — 라우팅 수동 점검 필요"
+                  caddy_reflected=false
                 fi
               fi
               docker image prune -f || true
+              if [ "$caddy_reflected" != "true" ]; then
+                # 이미지 배포·헬스는 성공했으나 Caddy 설정 반영 실패 — 프록시가 수동 개입 필요 상태.
+                # 잡을 녹색(exit 0)으로 두면 이 신호를 놓치므로 exit 1 로 알린다(잡 재실행은 멱등이라 무해).
+                echo "::error::이미지 배포는 성공, Caddy 설정 반영 실패 — 수동 확인 필요: ${DEPLOY_IMAGE}"
+                exit 1
+              fi
               echo "배포 완료: ${DEPLOY_IMAGE}"
               exit 0
             fi
