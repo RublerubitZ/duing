@@ -170,17 +170,17 @@ audit `VIEWED` 기록. **⚠️ 감사 기록이 있는 조회이므로 서비�
 
 §4 취소 절차. 204. 미존재 404 / 기취소 409.
 
-## 6. Export 계층 — SubmissionExportService
+## 6. Export 계층 — FacilitySubmissionExportService
 
 CSV 생성을 Controller/도메인 Service 에 넣지 않고 별도 계층으로 분리한다 (향후 PDF/Excel/공문 확장 대비 — 지금은 CSV 만 구현).
 
-- `service/export/SubmissionExportService` — 진입점. `export(batchId, ExportFormat.CSV) → ExportFile(fileName, contentType, byte[])`
+- `service/export/FacilitySubmissionExportService` — 진입점. `export(batchId, ExportFormat.CSV) → ExportFile(fileName, contentType, byte[])`
 - `service/export/SubmissionExportDataAssembler` — Batch+booking+시설/동아리/유저 이름을 모아 포맷 중립 `SubmissionExportData` 조립
 - `service/export/CsvSubmissionWriter` — `SubmissionExportData → byte[]`
 - `ExportFormat` enum: 현재 `CSV` 하나
 
 ```
-SubmissionExportService
+FacilitySubmissionExportService
 ├ CsvSubmissionWriter  (현재 구현)
 ├ HwpSubmissionWriter  (Future — 학교 제공 신청서 템플릿)
 └ PdfSubmissionWriter  (Future)

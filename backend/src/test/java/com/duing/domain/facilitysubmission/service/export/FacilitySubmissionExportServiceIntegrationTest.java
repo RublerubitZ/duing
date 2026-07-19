@@ -39,9 +39,9 @@ import org.springframework.context.annotation.Import;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
-class SubmissionExportServiceIntegrationTest extends IntegrationTestBase {
+class FacilitySubmissionExportServiceIntegrationTest extends IntegrationTestBase {
 
-    @Autowired SubmissionExportService exportService;
+    @Autowired FacilitySubmissionExportService exportService;
     @Autowired FacilitySubmissionService submissionService;
     @Autowired FacilitySubmissionAuditRepository auditRepository;
     @Autowired FacilityBookingRepository bookingRepository;

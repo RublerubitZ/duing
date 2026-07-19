@@ -12,7 +12,7 @@ import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorCo
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesQuery;
 import com.duing.domain.facilitysubmission.service.export.ExportFile;
 import com.duing.domain.facilitysubmission.service.export.ExportFormat;
-import com.duing.domain.facilitysubmission.service.export.SubmissionExportService;
+import com.duing.domain.facilitysubmission.service.export.FacilitySubmissionExportService;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
@@ -41,7 +41,7 @@ public class AdminFacilitySubmissionController implements AdminFacilitySubmissio
 
     private final FacilitySubmissionService submissionService;
     private final FacilitySubmissionQueryService queryService;
-    private final SubmissionExportService exportService;
+    private final FacilitySubmissionExportService exportService;
 
     @Override
     public ResponseEntity<ApiResponse<SubmissionCandidatesResponse>> getCandidates(

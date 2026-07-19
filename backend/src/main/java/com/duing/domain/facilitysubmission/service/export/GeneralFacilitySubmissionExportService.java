@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class GeneralSubmissionExportService implements SubmissionExportService {
+public class GeneralFacilitySubmissionExportService implements FacilitySubmissionExportService {
 
     private final SubmissionExportDataAssembler exportDataAssembler;
     private final CsvSubmissionWriter csvWriter;
