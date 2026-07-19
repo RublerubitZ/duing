@@ -79,7 +79,9 @@ IntelliJ 의 Run Configuration → Environment variables 에 등록하거나, En
 ```
 
 기동 후:
-- 헬스: <http://localhost:8080/actuator/health>
+- 종합 헬스: <http://localhost:8080/actuator/health> — 기존 호환용이며 DB 상태를 포함한다.
+- Liveness: <http://localhost:8080/actuator/health/liveness> — JVM·HTTP 서버 생존 상태만 확인한다.
+- Readiness: <http://localhost:8080/actuator/health/readiness> — 요청 처리 준비 상태와 DB 연결을 확인한다.
 - Swagger UI: <http://localhost:8080/swagger-ui.html>
 - OpenAPI JSON: <http://localhost:8080/v3/api-docs>
 

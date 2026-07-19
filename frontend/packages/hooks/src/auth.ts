@@ -5,6 +5,7 @@ import type {
   ChangePhonePayload,
   CompletePasswordResetPayload,
   LoginPayload,
+  MySession,
   RequestPasswordResetPayload,
   SignupPayload,
   StartPhoneVerificationPayload,
@@ -51,6 +52,41 @@ export function useMeQuery() {
     queryKey: userQueryKeys.me(),
     queryFn: () => client.users.me(),
     enabled: status === 'authenticated',
+  });
+}
+
+export function useMySessionsQuery() {
+  const client = useApiClient();
+  const status = useAuthStore((s) => s.status);
+  return useQuery<MySession[]>({
+    queryKey: userQueryKeys.sessions(),
+    queryFn: () => client.users.sessions(),
+    enabled: status === 'authenticated',
+  });
+}
+
+export function useRevokeSessionMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: number) => client.users.revokeSession(sessionId),
+    // onSettled — 실패(404: 이미 폐기된 세션 등)에도 목록을 재조회해 유령 행이 남지 않게 한다.
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: userQueryKeys.sessions() });
+    },
+  });
+}
+
+export function useLogoutAllMutation() {
+  const client = useApiClient();
+  const clearSession = useAuthStore((s) => s.clearSession);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => client.users.logoutAllSessions(),
+    onSuccess: async () => {
+      await clearSession();
+      queryClient.clear();
+    },
   });
 }
 

@@ -42,7 +42,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // 클레임이 아니라 DB 의 현재 role 로 구성해 역할 변경(예: 관리자 강등)도 즉시 반영한다.
                 userRepository.findById(claims.userId())
                         .filter(user -> user.getTokenVersion() == claims.tokenVersion())
-                        .ifPresentOrElse(this::authenticate, SecurityContextHolder::clearContext);
+                        .ifPresentOrElse(
+                                user -> authenticate(user, claims.sessionId()),
+                                SecurityContextHolder::clearContext);
             } catch (JWTVerificationException exception) {
                 log.debug("JWT 검증 실패: {}", exception.getMessage());
                 SecurityContextHolder.clearContext();
@@ -51,8 +53,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private void authenticate(User user) {
-        UserPrincipal principal = UserPrincipal.of(user.getId(), user.getRole().name());
+    private void authenticate(User user, Long sessionId) {
+        UserPrincipal principal = UserPrincipal.of(user.getId(), user.getRole().name(), sessionId);
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(authentication);

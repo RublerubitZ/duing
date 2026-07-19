@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { MotionConfig } from 'framer-motion';
 import { useState, type ReactNode } from 'react';
-import { createApiClient, registerConnectivityAdapter } from '@duing/api';
+import { createApiClient, registerConnectivityAdapter, registerRefreshLockAdapter } from '@duing/api';
 import { ApiClientProvider, shouldRetryQuery } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
@@ -21,6 +21,13 @@ setStorage(webStorage);
 clearLegacyWebAuthArtifacts();
 // navigator.onLine 이 명시적으로 false 일 때만 오프라인 — SSR(navigator 부재)은 온라인 취급.
 registerConnectivityAdapter(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+// 크로스탭 refresh 직렬화 — navigator.locks 지원 브라우저만 주입, 미지원은 미등록(탭 내 in-flight 폴백).
+if (typeof navigator !== 'undefined' && 'locks' in navigator) {
+  registerRefreshLockAdapter(
+    async <T,>(task: () => Promise<T>): Promise<T> =>
+      await navigator.locks.request('duing-auth:refresh', task),
+  );
+}
 // 뒤로가기(popstate) View Transition 이중 재생 방지 — 함수 내부에서 window 가드하므로 SSR 안전.
 installBackNavigationViewTransitionGuard();
 

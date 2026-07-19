@@ -4,6 +4,7 @@ import com.duing.domain.user.controller.dto.request.ChangePasswordRequest;
 import com.duing.domain.user.controller.dto.request.ChangePhoneRequest;
 import com.duing.domain.user.controller.dto.request.StartPhoneChangeVerificationRequest;
 import com.duing.domain.user.controller.dto.request.UpdateProfileRequest;
+import com.duing.domain.user.controller.dto.response.MySessionResponse;
 import com.duing.domain.user.controller.dto.response.PhoneVerificationIssueResponse;
 import com.duing.domain.user.controller.dto.response.UserResponse;
 import com.duing.global.auth.UserPrincipal;
@@ -15,11 +16,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -90,6 +93,38 @@ public interface UserApi {
     @SecurityRequirement(name = "BearerAuth")
     @DeleteMapping("/users/me")
     ResponseEntity<Void> withdraw(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse);
+
+    @Operation(summary = "내 세션 목록",
+            description = "로그인된 기기(활성 세션) 목록을 최근 사용 순으로 반환한다. 요청에 사용된 세션은 current 로 표시된다.")
+    @SecurityRequirement(name = "BearerAuth")
+    @GetMapping("/users/me/sessions")
+    ResponseEntity<ApiResponse<List<MySessionResponse>>> listMySessions(
+            @AuthenticationPrincipal UserPrincipal currentUser);
+
+    @Operation(summary = "세션 개별 로그아웃",
+            description = "지정한 세션과 그 리프레시 토큰을 폐기한다. 본인 세션이 아니거나 없으면 404. "
+                    + "현재 세션을 지정하면 로그아웃과 동일하며, 웹(쿠키) 인증이면 인증 Cookie 를 삭제한다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "폐기됨"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "본인 활성 세션이 아님")
+    })
+    @SecurityRequirement(name = "BearerAuth")
+    @DeleteMapping("/users/me/sessions/{sessionId}")
+    ResponseEntity<Void> revokeMySession(
+            @PathVariable Long sessionId,
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse);
+
+    @Operation(summary = "전체 로그아웃",
+            description = "모든 세션·리프레시 토큰을 폐기하고 token_version 을 올려 전 기기의 access 토큰을 즉시 무효화한다. "
+                    + "웹(쿠키) 인증이면 인증 Cookie 를 삭제한다.")
+    @SecurityRequirement(name = "BearerAuth")
+    @DeleteMapping("/users/me/sessions")
+    ResponseEntity<Void> logoutAllSessions(
             @AuthenticationPrincipal UserPrincipal currentUser,
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse);

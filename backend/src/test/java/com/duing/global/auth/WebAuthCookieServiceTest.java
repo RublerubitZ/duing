@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
@@ -21,33 +22,44 @@ import org.springframework.mock.web.MockHttpServletResponse;
 class WebAuthCookieServiceTest {
     private static final String JWT_SECRET = "jwt-secret-that-is-at-least-thirty-two-bytes";
     private static final String HINT_SECRET = "hint-secret-that-is-at-least-thirty-two-bytes";
+    private static final int REFRESH_TTL_DAYS = 30;
+    private static final long ACCESS_TTL_SECONDS = 1800L;
 
+    private JwtTokenProvider jwtTokenProvider;
     private WebAuthCookieService cookieService;
 
     @BeforeEach
     void setUp() {
         AuthHintTokenProvider authHintTokenProvider =
-                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L);
+                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, REFRESH_TTL_DAYS);
+        jwtTokenProvider = mock(JwtTokenProvider.class);
+        when(jwtTokenProvider.expirySeconds()).thenReturn(ACCESS_TTL_SECONDS);
         cookieService = new WebAuthCookieService(
-                authHintTokenProvider, ".duings.com", new MockEnvironment());
+                authHintTokenProvider, jwtTokenProvider, ".duings.com", REFRESH_TTL_DAYS, new MockEnvironment());
     }
 
     @Test
-    @DisplayName("Access Token은 host-only Cookie로, 인증 힌트는 서명된 Cookie로 안전하게 발급한다")
-    void issuesHostOnlySecureAccessCookieAndSignedHint() {
+    @DisplayName("rememberMe 발급은 access(host-only)·refresh(경로 스코프)·서명된 힌트 Persistent Cookie 3종을 안전하게 내린다")
+    void issuesPersistentAccessRefreshAndSignedHintCookies() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setSecure(true);
         request.setServerName("api.duings.com");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        cookieService.issue(request, response, "access.jwt", "STUDENT");
+        cookieService.issue(request, response, "access.jwt", "refresh.token", "STUDENT", true);
 
         List<String> cookies = response.getHeaders(HttpHeaders.SET_COOKIE);
+        assertThat(cookies).hasSize(3);
         assertThat(cookies).anySatisfy(cookie -> {
             assertThat(cookie).startsWith("__Host-duing_access_token=access.jwt");
             assertThat(cookie)
-                    .contains("Path=/", "Max-Age=3600", "Secure", "HttpOnly", "SameSite=Lax");
+                    .contains("Path=/", "Max-Age=1800", "Secure", "HttpOnly", "SameSite=Lax");
             assertThat(cookie).doesNotContain("Domain=");
+        });
+        assertThat(cookies).anySatisfy(cookie -> {
+            assertThat(cookie).startsWith("__Secure-duing_refresh_token=refresh.token");
+            assertThat(cookie)
+                    .contains("Path=/api/v1/auth", "Max-Age=2592000", "Secure", "HttpOnly", "SameSite=Lax");
         });
         assertThat(cookies).anySatisfy(cookie -> {
             assertThat(cookie).startsWith("auth_hint=");
@@ -55,9 +67,28 @@ class WebAuthCookieServiceTest {
                     .contains(
                             "Domain=.duings.com",
                             "Path=/",
+                            "Max-Age=2592000",
                             "Secure",
                             "HttpOnly",
                             "SameSite=Lax");
+        });
+    }
+
+    @Test
+    @DisplayName("rememberMe=false 발급은 Max-Age 없는 세션 Cookie 3종을 내린다")
+    void issuesSessionCookiesWhenRememberMeDisabled() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setSecure(true);
+        request.setServerName("api.duings.com");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        cookieService.issue(request, response, "access.jwt", "refresh.token", "STUDENT", false);
+
+        List<String> cookies = response.getHeaders(HttpHeaders.SET_COOKIE);
+        assertThat(cookies).hasSize(3);
+        assertThat(cookies).allSatisfy(cookie -> {
+            assertThat(cookie).contains("Secure", "HttpOnly", "SameSite=Lax");
+            assertThat(cookie).doesNotContain("Max-Age").doesNotContain("Expires");
         });
     }
 
@@ -68,7 +99,7 @@ class WebAuthCookieServiceTest {
         ArgumentCaptor<String> cookieHeaderCaptor = ArgumentCaptor.forClass(String.class);
         cookieService.clear(response);
 
-        verify(response, times(2)).addHeader(eq(HttpHeaders.SET_COOKIE), cookieHeaderCaptor.capture());
+        verify(response, times(3)).addHeader(eq(HttpHeaders.SET_COOKIE), cookieHeaderCaptor.capture());
         List<String> cookies = cookieHeaderCaptor.getAllValues();
         assertThat(cookies).allSatisfy(cookie -> {
             assertThat(cookie)
@@ -86,6 +117,9 @@ class WebAuthCookieServiceTest {
                         .startsWith("__Host-duing_access_token=")
                         .doesNotContain("Domain="))
                 .anySatisfy(cookie -> assertThat(cookie)
+                        .startsWith("__Secure-duing_refresh_token=")
+                        .contains("Path=/api/v1/auth"))
+                .anySatisfy(cookie -> assertThat(cookie)
                         .startsWith("auth_hint=")
                         .contains("Domain=.duings.com"));
     }
@@ -97,7 +131,7 @@ class WebAuthCookieServiceTest {
         localhost.setServerName("localhost");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        cookieService.issue(localhost, response, "access.jwt", "STUDENT");
+        cookieService.issue(localhost, response, "access.jwt", "refresh.token", "STUDENT", true);
 
         assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).allSatisfy(cookie ->
                 assertThat(cookie).contains("Secure"));
@@ -110,7 +144,7 @@ class WebAuthCookieServiceTest {
         request.setServerName("api.example.com");
 
         assertThatThrownBy(() -> cookieService.issue(
-                        request, new MockHttpServletResponse(), "access.jwt", "STUDENT"))
+                        request, new MockHttpServletResponse(), "access.jwt", "refresh.token", "STUDENT", true))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("HTTPS");
     }
@@ -122,8 +156,10 @@ class WebAuthCookieServiceTest {
         productionEnvironment.setActiveProfiles("prod");
 
         assertThatThrownBy(() -> new WebAuthCookieService(
-                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L),
+                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, REFRESH_TTL_DAYS),
+                        jwtTokenProvider,
                         "",
+                        REFRESH_TTL_DAYS,
                         productionEnvironment))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(".duings.com");
@@ -136,8 +172,10 @@ class WebAuthCookieServiceTest {
         productionEnvironment.setActiveProfiles("prod");
 
         assertThatThrownBy(() -> new WebAuthCookieService(
-                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L),
+                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, REFRESH_TTL_DAYS),
+                        jwtTokenProvider,
                         ".example.com",
+                        REFRESH_TTL_DAYS,
                         productionEnvironment))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(".duings.com");
@@ -147,14 +185,16 @@ class WebAuthCookieServiceTest {
     @DisplayName("운영 외 환경에서는 빈 Domain으로 host-only 인증 힌트 Cookie를 발급한다")
     void allowsBlankHintCookieDomainOutsideProduction() {
         WebAuthCookieService localCookieService = new WebAuthCookieService(
-                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, 3_600_000L),
+                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, REFRESH_TTL_DAYS),
+                jwtTokenProvider,
                 "",
+                REFRESH_TTL_DAYS,
                 new MockEnvironment());
 
         MockHttpServletRequest localhost = new MockHttpServletRequest();
         localhost.setServerName("localhost");
         MockHttpServletResponse response = new MockHttpServletResponse();
-        localCookieService.issue(localhost, response, "access.jwt", "STUDENT");
+        localCookieService.issue(localhost, response, "access.jwt", "refresh.token", "STUDENT", true);
 
         assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).allSatisfy(cookie ->
                 assertThat(cookie).doesNotContain("Domain="));

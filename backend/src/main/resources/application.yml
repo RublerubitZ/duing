@@ -33,10 +33,9 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
-# Actuator — 배포/프록시 헬스체크용으로 /actuator/health 하나만 외부에 노출한다.
-# info·metrics·env·beans 등 다른 endpoint 는 web exposure 에서 제외해 정보 노출/정찰 표면을 차단하고,
-# 공개되는 health 응답은 show-details=never 로 DB·디스크 등 내부 컴포넌트 상태를 숨긴다.
-# (SecurityConfig 가 정확히 "/actuator/health" 만 permitAll — 하위 경로는 인증 필요)
+# Actuator — 종합 health와 liveness/readiness probe만 외부에 노출한다.
+# info·metrics·env·beans 등 다른 endpoint는 web exposure에서 제외하고, 공개 health 응답은
+# show-details=never로 DB·디스크·오류 메시지 등 내부 상태를 숨긴다.
 management:
   endpoints:
     web:
@@ -45,6 +44,13 @@ management:
   endpoint:
     health:
       show-details: never
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: "livenessState"
+        readiness:
+          include: "readinessState,db"
   health:
     mail:
       # spring-boot-starter-mail 제거(PR5) 후 이 키는 무해한 잔존 설정이다. 굳이 지우지 않는 이유:
@@ -53,7 +59,7 @@ management:
 
 jwt:
   secret: ${JWT_SECRET}
-  expiry-ms: ${JWT_EXPIRY_MS:3600000}
+  expiry-ms: ${JWT_EXPIRY_MS:1800000}
 
 web-auth:
   hint-secret: ${AUTH_HINT_SECRET}
@@ -122,6 +128,20 @@ bank-api:
   secret-key: ${BANK_API_SECRET:}
 
 duing:
+  auth:
+    refresh:
+      # opaque 리프레시 토큰 수명(일) — sliding, rotation 마다 연장. auth_hint 쿠키 수명도 이 값에 정렬.
+      ttl-days: ${DUING_AUTH_REFRESH_TTL_DAYS:30}
+      # rotation 직후 구토큰 재제시를 '동시 탭'으로 간주하는 창(초) — 운영 튜닝 노브 (spec §11).
+      # 오탐(멀티탭 세션 폐기)이 보이면 넓히고, 안정되면 좁힌다. 코드 상수 아님.
+      reuse-grace-seconds: ${DUING_AUTH_REFRESH_REUSE_GRACE_SECONDS:30}
+    session:
+      # 사용자당 동시 세션 상한 — 초과 로그인 시 LRU 자동 폐기 (spec §13).
+      max-concurrent: ${DUING_AUTH_SESSION_MAX_CONCURRENT:5}
+      cleanup:
+        # 만료/폐기 세션·감사 로그 물리 삭제 잡(매일 04:50 Asia/Seoul). 기본 비활성 —
+        # 운영은 application-prod.yml 에서 기본 활성(만료 데이터 삭제만이라 안전).
+        enabled: ${DUING_AUTH_SESSION_CLEANUP_ENABLED:false}
   request:
     # 비멀티파트(JSON 등) 요청 바디 상한(바이트, 기본 2MB). RequestBodySizeLimitFilter 가 Content-Length 로
     # 확인해 초과 시 413 을 반환한다. 멀티파트 업로드는 제외(서블릿 multipart 한도·업로드 정책이 별도 강제).

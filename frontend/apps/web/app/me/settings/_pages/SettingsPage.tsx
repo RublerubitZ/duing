@@ -14,6 +14,7 @@ import { SparkleFull } from '@/components/duing/Sparkle';
 
 import { MyPageHeader } from '../../_components/MyPageHeader';
 import { ProfileEditDialog } from '../_components/ProfileEditDialog';
+import { SessionListCard } from '../_components/SessionListCard';
 import { PasswordChangeDialog } from '../_components/PasswordChangeDialog';
 import { PhoneChangeDialog } from '../_components/PhoneChangeDialog';
 import { WithdrawAccountDialog } from '../_components/WithdrawAccountDialog';
@@ -195,6 +196,8 @@ export function SettingsPage() {
               }
             />
           </SettingsCard>
+
+          <SessionListCard />
 
           <SettingsCard title="알림 설정">
             <div className="py-6 text-center">

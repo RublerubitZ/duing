@@ -35,6 +35,22 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: "livenessState"
+        readiness:
+          include: "readinessState,db"
+
 file:
   storage:
     provider: stub
@@ -63,7 +79,7 @@ bank-api:
 
 jwt:
   secret: duing-test-jwt-secret-key-that-is-long-enough-for-hs256-algorithm
-  expiry-ms: 3600000
+  expiry-ms: 1800000
 
 web-auth:
   hint-secret: duing-test-auth-hint-secret-key-that-is-different-from-jwt

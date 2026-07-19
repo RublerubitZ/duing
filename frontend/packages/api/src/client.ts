@@ -94,6 +94,7 @@ import type {
   ApplicationScope,
   ApplicationSummary,
   MyClubSummary,
+  MySession,
   BulkUpdateApplicationStatusPayload,
   BulkUpdateApplicationStatusResult,
   User,
@@ -207,6 +208,8 @@ import type {
 } from '@duing/types';
 import { clearToken, readToken, writeToken } from './token';
 import { isKnownOffline } from './connectivity';
+import { createRefreshCoordinator } from './refresh-coordinator';
+import type { RefreshOutcome } from './refresh-coordinator';
 
 export class ApiError extends Error {
   constructor(
@@ -317,6 +320,9 @@ export type DuingApiClient = {
     ): Promise<PhoneVerificationSession>;
     changePhone(payload: ChangePhonePayload): Promise<void>;
     withdraw(): Promise<void>;
+    sessions(): Promise<MySession[]>;
+    revokeSession(sessionId: number): Promise<void>;
+    logoutAllSessions(): Promise<void>;
   };
   clubs: {
     list(params?: ClubSearchParams): Promise<PageResponse<ClubSummary>>;
@@ -513,6 +519,7 @@ export type DuingApiClient = {
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
+      forceLogout(userId: number): Promise<void>;
     };
     notices: {
       list(params: {
@@ -785,8 +792,35 @@ export const REQUEST_TIMEOUT_MS = {
 export function createApiClient(options: CreateApiClientOptions): DuingApiClient {
   const { baseUrl } = options;
   const authTransport = options.authTransport ?? 'bearer';
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
+  // refresh 호출은 bare ky — http 인스턴스의 훅(401→갱신)을 태우면 자기재귀가 되므로 분리한다.
+  // throwHttpErrors:false 로 상태코드를 직접 분기: 401/404=세션 종료(404 는 BE 롤백 호환 §19.2),
+  // 그 외 실패(5xx·네트워크·타임아웃)=일시 장애로 보고 세션을 유지한다(§17).
+  // notifyUnauthorized 는 이 실행기(single-flight 로 사이클당 1회만 실행)에서 발화한다 —
+  // 대기자마다 부르면 동시 401 N건이 알림을 N번 쏜다(하류 핸들러가 멱등이어도 계약은 1회가 명확).
+  const refreshCoordinator =
+    authTransport === 'cookie'
+      ? createRefreshCoordinator(async (): Promise<RefreshOutcome> => {
+          try {
+            const refreshResponse = await ky.post(`${normalizedBaseUrl}/auth/web/refresh`, {
+              credentials: 'include',
+              retry: 0,
+              timeout: REQUEST_TIMEOUT_MS.authFlow,
+              throwHttpErrors: false,
+            });
+            if (refreshResponse.status === 204) return 'refreshed';
+            if (refreshResponse.status === 401 || refreshResponse.status === 404) {
+              notifyUnauthorized();
+              return 'session-expired';
+            }
+            return 'unavailable';
+          } catch {
+            return 'unavailable';
+          }
+        })
+      : null;
   const http = ky.create({
-    prefixUrl: baseUrl.replace(/\/$/, ''),
+    prefixUrl: normalizedBaseUrl,
     credentials: authTransport === 'cookie' ? 'include' : 'same-origin',
     timeout: REQUEST_TIMEOUT_MS.default,
     // 재시도의 단일 진실원은 React Query 정책(shouldRetryQuery) — 스펙 §3.4 일원화.
@@ -809,20 +843,47 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         },
       ],
       afterResponse: [
-        (request, _options, response) => {
-          // Bearer는 인증 토큰을 실어 보낸 요청, Cookie는 로그인·로그아웃 외의
-          // 401을 세션 만료로 간주하고 앱에 알린다.
-          // 단, 로그아웃 요청의 401 은 세션 만료 신호가 아니다 — 사용자가 의도적으로 로그아웃 중이며
-          // 이미 만료/무효화된 토큰으로도 폐기를 시도하므로 401 이 정상이다. 전역 만료 핸들러
-          // (세션만료 에러 토스트 + 홈 이동)를 깨우면 의도적 로그아웃에 오탐 에러가 뜬다.
-          const isCookieAuthRequest =
-            request.url.endsWith('/auth/web/login') || request.url.endsWith('/auth/web/logout');
+        async (request, options, response) => {
+          if (response.status !== 401) {
+            return;
+          }
+          if (authTransport === 'cookie') {
+            // authTransport==='cookie' 면 refreshCoordinator 는 구조상 항상 존재하지만,
+            // 타입 내로잉으로 non-null 단언(!)을 피한다(레포 규약). 도달 불가 가드.
+            if (refreshCoordinator === null) {
+              return;
+            }
+            // 로그인(자격 오류)·로그아웃(의도적)·refresh 자신(조율기가 전담)의 401 은 갱신 대상이 아니다.
+            const isAuthPath =
+              request.url.endsWith('/auth/web/login') ||
+              request.url.endsWith('/auth/web/logout') ||
+              request.url.endsWith('/auth/web/refresh');
+            if (isAuthPath) {
+              return;
+            }
+            const outcome = await refreshCoordinator.ensureFreshSession();
+            if (outcome === 'refreshed' || outcome === 'skipped') {
+              // ky 공식 재시도 패턴 — bare ky 는 이 훅을 다시 타지 않아 루프가 없고,
+              // 재시도가 다시 401 이어도 그대로 표면화된다(다음 요청이 새 갱신 사이클을 연다).
+              // retry:0 명시 — bare ky 기본값은 GET 계열 5xx 에 2회 자동 재시도라, 비워두면
+              // "재시도 단일 진실원=RQ(retry:0)" 정책(전역 http 훅 주석 참조)이 이 경로에서만 깨진다.
+              // 원 요청의 per-request timeout(업로드 60s·facilityOnDemand 18s 등)을 물려준다 —
+              // 훅 2번째 인자 options 는 런타임엔 정규화된 timeout(number | false, 기본 10s)을 담지만
+              // ky 타입엔 빠져 있어 Reflect.get + 런타임 가드로 as 없이 추출한다.
+              const preservedTimeout = Reflect.get(options, 'timeout');
+              if (typeof preservedTimeout === 'number' || preservedTimeout === false) {
+                return ky(request, { retry: 0, timeout: preservedTimeout });
+              }
+              return ky(request, { retry: 0 });
+            }
+            // 'session-expired'(알림은 실행기가 1회 발화) · 'unavailable' — 원 401 표면화 (§17)
+            return;
+          }
+          // Bearer(모바일) 모드는 기존 동작 유지 — refresh 연동은 RN(PR-4)에서.
+          // 단, 로그아웃 요청의 401 은 세션 만료 신호가 아니다 — 이미 만료/무효화된 토큰으로도
+          // 폐기를 시도하므로 401 이 정상이다. 전역 만료 핸들러를 깨우면 의도적 로그아웃에 오탐이 뜬다.
           const isBearerLogoutRequest = request.url.endsWith('/auth/logout');
-          const shouldNotifyUnauthorized =
-            authTransport === 'cookie'
-              ? !isCookieAuthRequest
-              : request.headers.has('Authorization') && !isBearerLogoutRequest;
-          if (response.status === 401 && shouldNotifyUnauthorized) {
+          if (request.headers.has('Authorization') && !isBearerLogoutRequest) {
             notifyUnauthorized();
           }
         },
@@ -946,6 +1007,10 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           http.patch('users/me/phone', { json: payload, timeout: REQUEST_TIMEOUT_MS.authFlow }),
         ),
       withdraw: () => jsonVoid(http.delete('users/me')),
+      sessions: () => jsonOk<MySession[]>(http.get('users/me/sessions')),
+      revokeSession: (sessionId) => jsonVoid(http.delete(`users/me/sessions/${sessionId}`)),
+      logoutAllSessions: () =>
+        jsonVoid(http.delete('users/me/sessions', { timeout: REQUEST_TIMEOUT_MS.logoutRevoke })),
     },
     clubs: {
       list: (params) =>
@@ -1307,6 +1372,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
               timeout: REQUEST_TIMEOUT_MS.search,
             }),
           ),
+        forceLogout: (userId) => jsonVoid(http.post(`admin/users/${userId}/force-logout`)),
       },
       notices: {
         list: (params) => {

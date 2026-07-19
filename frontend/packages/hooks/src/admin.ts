@@ -46,6 +46,17 @@ export function useAdminUserSearchQuery(params: AdminUserSearchParams) {
   });
 }
 
+/**
+ * 회원 강제 로그아웃. 대상의 tokenVersion 을 범프해 전 세션·리프레시를 폐기한다.
+ * 검색 결과 캐시(usersSearch)는 세션 상태를 담지 않으므로 무효화하지 않는다.
+ */
+export function useAdminForceLogoutMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (userId: number) => client.admin.users.forceLogout(userId),
+  });
+}
+
 export function useCreateClubMutation() {
   const client = useApiClient();
   const queryClient = useQueryClient();

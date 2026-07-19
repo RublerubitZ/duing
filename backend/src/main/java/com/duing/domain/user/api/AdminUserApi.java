@@ -30,7 +30,8 @@ public interface AdminUserApi {
     );
 
     @Operation(summary = "사용자 강제 로그아웃 (ADMIN)",
-            description = "대상 사용자의 token_version 을 올려 발급된 모든 액세스 토큰을 즉시 무효화한다. "
+            description = "대상 사용자의 token_version 을 올려 발급된 모든 액세스 토큰을 즉시 무효화하고, "
+                    + "대상 사용자의 모든 세션·리프레시 토큰도 함께 폐기한다. "
                     + "토큰 탈취·기기 분실 대응용. 대상이 재로그인하기 전까지 모든 보호 API 에서 401 을 받는다.")
     @PostMapping("/admin/users/{userId}/force-logout")
     ResponseEntity<ApiResponse<Void>> forceLogout(
