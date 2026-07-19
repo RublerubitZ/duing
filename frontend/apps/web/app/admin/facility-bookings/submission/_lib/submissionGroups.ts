@@ -29,6 +29,7 @@ export function buildClubGroups(bookings: SubmissionCandidateBooking[]): Submiss
       ),
     }))
     .sort((left, right) => {
+      if (left.clubName === null && right.clubName === null) return left.clubId - right.clubId;
       if (left.clubName === null) return 1;
       if (right.clubName === null) return -1;
       return left.clubName.localeCompare(right.clubName, 'ko');

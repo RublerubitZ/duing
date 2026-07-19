@@ -85,6 +85,56 @@ describe('SubmissionClubGroupList', () => {
     expect(onToggleMany).toHaveBeenCalledWith([1, 2], true);
   });
 
+  it('그룹 헤더 체크박스는 부분 선택 시 indeterminate, 전체 선택 시 checked 이다', () => {
+    const { rerender } = render(
+      <SubmissionClubGroupList
+        bookings={twoClubs}
+        selection={new Set([1])}
+        onToggleSelect={vi.fn()}
+        onToggleMany={vi.fn()}
+        onShowDetail={vi.fn()}
+      />,
+    );
+
+    const headerCheckbox = screen.getByRole('checkbox', { name: '밴드부 전체 선택' });
+    if (!(headerCheckbox instanceof HTMLInputElement)) throw new Error('checkbox 는 input 요소여야 한다');
+    expect(headerCheckbox.indeterminate).toBe(true);
+    expect(headerCheckbox.checked).toBe(false);
+
+    rerender(
+      <SubmissionClubGroupList
+        bookings={twoClubs}
+        selection={new Set([1, 2])}
+        onToggleSelect={vi.fn()}
+        onToggleMany={vi.fn()}
+        onShowDetail={vi.fn()}
+      />,
+    );
+
+    const headerCheckboxAfterFullSelect = screen.getByRole('checkbox', { name: '밴드부 전체 선택' });
+    if (!(headerCheckboxAfterFullSelect instanceof HTMLInputElement)) throw new Error('checkbox 는 input 요소여야 한다');
+    expect(headerCheckboxAfterFullSelect.checked).toBe(true);
+    expect(headerCheckboxAfterFullSelect.indeterminate).toBe(false);
+  });
+
+  it('그룹 헤더 체크박스 클릭은 접기/펼치기와 별개 컨트롤이라 접힘을 유발하지 않는다', () => {
+    render(
+      <SubmissionClubGroupList
+        bookings={twoClubs}
+        selection={new Set()}
+        onToggleSelect={vi.fn()}
+        onToggleMany={vi.fn()}
+        onShowDetail={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '밴드부 전체 선택' }));
+
+    const bandToggle = screen.getByRole('button', { name: /밴드부/ });
+    expect(bandToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).toBeInTheDocument();
+  });
+
   it('선택 가능 예약이 없는 그룹의 헤더 체크박스는 비활성이다', () => {
     render(
       <SubmissionClubGroupList
@@ -111,9 +161,9 @@ describe('SubmissionClubGroupList', () => {
       />,
     );
 
-    const submittedRow = screen.getByRole('checkbox', { name: /방송국 2026-08-01 선택/ });
+    const submittedRow = screen.getByRole('checkbox', { name: /방송국 2026-08-01 18:00 선택/ });
     expect(submittedRow).toBeDisabled();
-    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 선택/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
     expect(onToggleSelect).toHaveBeenCalledWith(1);
   });
 
@@ -132,7 +182,7 @@ describe('SubmissionClubGroupList', () => {
     expect(bandToggle).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(bandToggle);
     expect(bandToggle).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('checkbox', { name: /밴드부 2026-08-01 선택/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).not.toBeInTheDocument();
   });
 
   it('행에 제출 업무 정보(요일 포함 예약일·시간·목적·인원·제출번호)가 표시되고 상세 버튼이 동작한다', () => {

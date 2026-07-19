@@ -81,7 +81,7 @@ export function SubmissionClubGroupList({ bookings, selection, onToggleSelect, o
                     <li key={booking.bookingId} className="flex flex-wrap items-center gap-2 border-b border-line/40 px-3 py-2 text-sm last:border-b-0">
                       <input
                         type="checkbox"
-                        aria-label={`${clubLabel} ${booking.reservationDate} 선택`}
+                        aria-label={`${clubLabel} ${booking.reservationDate} ${booking.startTime} 선택`}
                         disabled={!booking.selectable}
                         checked={selection.has(booking.bookingId)}
                         onChange={() => onToggleSelect(booking.bookingId)}
