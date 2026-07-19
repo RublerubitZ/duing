@@ -22,6 +22,9 @@ public interface AuthSessionRepository extends JpaRepository<AuthSession, Long> 
     /** 활성 세션을 LRU 순(가장 오래 미사용 먼저)으로 — 상한 초과 폐기 대상 선정용. */
     List<AuthSession> findByUserIdAndRevokedAtIsNullOrderByLastUsedAtAsc(Long userId);
 
+    /** 활성 세션을 최근 사용 순(내림차순)으로 — 세션 목록 화면용 (정렬은 쿼리 레벨). */
+    List<AuthSession> findByUserIdAndRevokedAtIsNullOrderByLastUsedAtDesc(Long userId);
+
     /**
      * 전 세션 일괄 폐기(전체 로그아웃·자격 변경·관리자 강제). flushAutomatically 로 같은 트랜잭션의
      * 선행 엔티티 변경(tokenVersion bump 등)을 벌크 실행 전에 flush 한다 — clear 는 하지 않아

@@ -176,6 +176,16 @@ public class GeneralUserService implements UserService {
 
     @Override
     @Transactional
+    public void logoutAll(Long userId) {
+        // 범프의 lost update 방지 — 행잠금 후 세션 일괄 폐기(기존 자격 변경 경로와 동일 순서)
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(UserException.UserNotFoundException::new);
+        user.bumpTokenVersion();
+        authSessionService.revokeAll(userId, SessionRevokeReason.LOGOUT_ALL);
+    }
+
+    @Override
+    @Transactional
     public void forceLogout(ForceLogoutCommand forceLogoutCommand) {
         // 관리자가 대상 사용자의 모든 토큰을 즉시 무효화한다 — logout 과 동일하게 행을 잠가
         // token_version lost update 를 막는다. bump 즉시 인증 필터의 버전 비교에서 기존 토큰이 401 이 된다.

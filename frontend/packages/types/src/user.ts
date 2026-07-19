@@ -163,3 +163,14 @@ export type CompletePasswordResetPayload = {
   verificationToken: string;
   newPassword: string;
 };
+
+export type SessionPlatform = 'WEB' | 'IOS' | 'ANDROID' | 'UNKNOWN';
+
+export type MySession = {
+  sessionId: number;
+  platform: SessionPlatform;
+  deviceLabel: string | null;
+  lastUsedAt: string;
+  createdAt: string;
+  current: boolean;
+};

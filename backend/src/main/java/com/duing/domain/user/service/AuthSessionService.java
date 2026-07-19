@@ -4,6 +4,8 @@ import com.duing.domain.user.entity.SessionRevokeReason;
 import com.duing.domain.user.service.dto.command.IssueSessionCommand;
 import com.duing.domain.user.service.dto.query.IssuedSession;
 import com.duing.domain.user.service.dto.query.RotationResult;
+import com.duing.domain.user.service.dto.query.SessionSummary;
+import java.util.List;
 
 public interface AuthSessionService {
 
@@ -27,4 +29,13 @@ public interface AuthSessionService {
 
     /** 전 세션 폐기 — 전체 로그아웃·자격 변경·관리자 강제. 감사 이벤트를 사유별로 남긴다. */
     void revokeAll(Long userId, SessionRevokeReason reason);
+
+    /** 활성 세션 목록 — 최근 사용 내림차순, currentSessionIdOrNull(access sid)과 일치하는 항목을 current 로 표시. */
+    List<SessionSummary> listSessions(Long userId, Long currentSessionIdOrNull);
+
+    /**
+     * 본인 세션 1개 폐기(세션 관리 화면의 개별 로그아웃). 본인 활성 세션이면 폐기 후 true,
+     * 타인·미존재·이미 폐기는 false — 응답 코드는 호출 측이 결정한다.
+     */
+    boolean revokeOne(Long userId, Long sessionId);
 }

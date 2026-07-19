@@ -27,6 +27,9 @@ public interface UserService {
      */
     void logout(Long userIdOrNull, String rawRefreshTokenOrNull, Long sessionIdOrNull);
 
+    /** 전체 로그아웃 — 전 세션 폐기(LOGOUT_ALL) + token_version 범프로 전 기기 access 즉시 무효화 (spec §9.3). */
+    void logoutAll(Long userId);
+
     void forceLogout(ForceLogoutCommand forceLogoutCommand);
 
     void updateProfile(UpdateProfileCommand updateProfileCommand);
