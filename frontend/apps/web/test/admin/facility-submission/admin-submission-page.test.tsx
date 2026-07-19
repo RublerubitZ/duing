@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SubmissionCandidatesResponse } from '@duing/types';
 
@@ -144,5 +144,43 @@ describe('AdminSubmissionPage', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: '제출 이력' }));
     expect(screen.getByText(/준비 중/)).toBeInTheDocument();
+  });
+
+  it('선택 후 생성 확인까지 진행하면 Batch 생성·성공 토스트로 끝난다(자동 다운로드 없음)', async () => {
+    const createMutateAsync = vi.fn().mockResolvedValue({
+      batchId: 7, submissionNo: 'SUB-20260801-002', csvFileName: 'facility-submission-SUB-20260801-002.csv',
+    });
+    mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<AdminSubmissionPage />);
+    selectFacility();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
+    fireEvent.click(screen.getByRole('button', { name: /제출 Batch 생성/ }));
+    expect(screen.getByText(/총 1건의 예약을 하나의 학교 제출 Batch로 생성합니다/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('메모'), { target: { value: '8월 1차' } });
+    fireEvent.click(screen.getByRole('button', { name: '생성' }));
+
+    await waitFor(() => {
+      expect(createMutateAsync).toHaveBeenCalledWith({ bookingIds: [1], memo: '8월 1차' });
+      expect(mockAddToast).toHaveBeenCalledWith('학교 제출 Batch가 생성되었습니다.');
+    });
+    // v2: 생성 직후 자동 다운로드 없음 — 다운로드는 상세(PR-4)에서 선택 수행
+    expect(mockAddToast).toHaveBeenCalledTimes(1);
+  });
+
+  it('생성 실패(409) 시 서버 메시지 에러 토스트를 띄운다', async () => {
+    const createMutateAsync = vi.fn().mockRejectedValue(new Error('이미 제출된 예약이 포함되어 있습니다.'));
+    mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<AdminSubmissionPage />);
+    selectFacility();
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
+    fireEvent.click(screen.getByRole('button', { name: /제출 Batch 생성/ }));
+    fireEvent.click(screen.getByRole('button', { name: '생성' }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('이미 제출된 예약이 포함되어 있습니다.', { variant: 'error' });
+    });
   });
 });

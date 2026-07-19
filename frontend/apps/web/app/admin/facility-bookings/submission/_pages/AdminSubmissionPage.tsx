@@ -9,6 +9,7 @@ import {
 import type { SubmissionCandidateBooking, SubmissionCandidatesParams } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { BatchCreateDialog } from '../_components/BatchCreateDialog';
 import { SubmissionClubGroupList } from '../_components/SubmissionClubGroupList';
 import { SubmissionDetailSheet } from '../_components/SubmissionDetailSheet';
 import { SubmissionSummaryCards, type SummaryFilter } from '../_components/SubmissionSummaryCards';
@@ -291,7 +292,13 @@ export function AdminSubmissionPage() {
           )}
 
           <SubmissionDetailSheet booking={detailBooking} facilityName={facilityName} onClose={() => setDetailBooking(null)} />
-          {/* Task 6: BatchCreateDialog 를 여기(dialogOpen)와 handleCreateConfirm 에 연결한다. */}
+          <BatchCreateDialog
+            open={dialogOpen}
+            selectedCount={selectedIds.length}
+            pending={createMutation.isPending}
+            onClose={() => setDialogOpen(false)}
+            onConfirm={(memo) => void handleCreateConfirm(memo)}
+          />
         </>
       )}
     </section>
