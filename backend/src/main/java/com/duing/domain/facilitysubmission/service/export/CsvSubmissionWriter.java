@@ -52,7 +52,7 @@ public class CsvSubmissionWriter {
         csv.append("\r\n");
     }
 
-    /** Excel 수식 인젝션 방지 — 위험 선행 문자에 작은따옴표를 전치한다(멤버 CSV 와 동일 규칙). */
+    /** Excel 수식 인젝션 방지 — 위험 선행 문자에 작은따옴표를 전치한다(프론트 동아리 멤버 명단 CSV membersCsv.ts 의 규칙을 백엔드로 이식). */
     private String guardFormula(String cell) {
         if (cell == null || cell.isEmpty()) {
             return cell;

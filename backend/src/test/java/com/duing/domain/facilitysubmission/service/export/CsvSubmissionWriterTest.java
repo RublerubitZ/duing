@@ -78,6 +78,15 @@ class CsvSubmissionWriterTest {
     }
 
     @Test
+    @DisplayName("쉼표가 든 수식 값은 작은따옴표 전치 후 인용된다 — 가드와 이스케이프 순서 회귀 방지")
+    void formulaGuardAppliesBeforeCommaQuoting() {
+        byte[] csvBytes = csvWriter.write(exportData(row("=SUM(A1,B1)", "정기 합주")));
+        String bodyLine = new String(csvBytes, StandardCharsets.UTF_8).split("\r\n")[1];
+
+        assertThat(bodyLine).contains("\"'=SUM(A1,B1)\"");
+    }
+
+    @Test
     @DisplayName("null 값(인원·메모 등)은 빈 문자열로 출력된다")
     void nullValuesBecomeEmptyCells() {
         SubmissionExportData dataWithNulls = new SubmissionExportData("SUB-20260801-002", "체육관", null,
