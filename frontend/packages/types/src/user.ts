@@ -171,6 +171,5 @@ export type MySession = {
   platform: SessionPlatform;
   deviceLabel: string | null;
   lastUsedAt: string;
-  createdAt: string;
   current: boolean;
 };

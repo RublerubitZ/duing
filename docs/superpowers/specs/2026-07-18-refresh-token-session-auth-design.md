@@ -308,7 +308,7 @@ Set-Cookie: auth_hint=...; Domain=.duings.com; Path=/; Secure; HttpOnly; SameSit
 - **상한 5·LRU**: 로그인 트랜잭션(사용자 행잠금 내)에서 활성 세션 수를 세고 초과분을 `last_used_at` 오름차순으로 폐기(SESSION_LIMIT). 세션 고갈 공격은 사용자당 5 상한 + 기존 로그인 IP rate limit + 가입 전화인증으로 방어된다. `rememberMe=false` 사용자가 브라우저 종료로 남긴 고아 세션도 이 LRU 가 새 로그인 때 자연 정리한다(잔여분은 cleanup 잡).
 - **`last_used_at` 갱신은 rotation 시점만**(매 API 요청 아님 — Access는 stateless 유지). LRU 정밀도는 30분 단위로 충분.
 - **§13.2 로그아웃 의미 변화(주의)**: 현재 `POST /auth/logout`·`/auth/web/logout`은 tokenVersion 범프로 **전 기기**를 로그아웃시킨다. 전환 후에는 **현재 기기만** 로그아웃되고, 전 기기 로그아웃은 `DELETE /users/me/sessions`(PR-2의 UI 제공)로 분리된다. 사용자 기대("로그아웃=이 기기")에 부합하는 방향의 의도된 변화.
-- 세션 목록 표시: 플랫폼·기기 라벨(웹은 UA에서 브라우저/OS 간단 추출 — 외부 파서 의존성 추가 없이 경량 매칭)·마지막 사용·생성 시각·현재 여부.
+- 세션 목록 표시: 플랫폼·기기 라벨(웹은 UA에서 브라우저/OS 간단 추출 — 외부 파서 의존성 추가 없이 경량 매칭)·마지막 사용·현재 여부. 생성 시각은 JPA 감사(UTC)와 seoulClock(KST) 존 불일치 함정으로 응답에서 제외 — 마지막 사용이 실질 기준.
 
 ## 14. Spring Security 구성 변경
 

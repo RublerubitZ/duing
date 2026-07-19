@@ -193,7 +193,7 @@ public class GeneralAuthSessionService implements AuthSessionService {
         return authSessionRepository.findByUserIdAndRevokedAtIsNullOrderByLastUsedAtDesc(userId).stream()
                 .map(session -> new SessionSummary(
                         session.getId(), session.getPlatform(), session.getDeviceLabel(),
-                        session.getLastUsedAt(), session.getCreatedAt(),
+                        session.getLastUsedAt(),
                         session.getId().equals(currentSessionIdOrNull)))
                 .toList();
     }

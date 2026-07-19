@@ -79,6 +79,18 @@ describe('쿠키 모드 401 자동 갱신', () => {
     expect(unauthorizedHandler).toHaveBeenCalledTimes(1);
   });
 
+  it('refresh 가 404(BE 롤백 호환 — 구 이미지엔 refresh 엔드포인트 없음)여도 세션 종료를 1회 알리고 원 401 을 표면화한다', async () => {
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 })),
+      http.post(`${BASE_URL}/auth/web/refresh`, () =>
+        HttpResponse.json({ ok: false, data: null, message: 'Not Found' }, { status: 404 })),
+    );
+
+    await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
+    expect(unauthorizedHandler).toHaveBeenCalledTimes(1);
+  });
+
   it('refresh 가 5xx 면 세션을 끝내지 않고 원 401 을 그대로 표면화한다', async () => {
     server.use(
       http.get(`${BASE_URL}/users/me`, () =>
@@ -206,6 +218,35 @@ describe('쿠키 모드 401 자동 갱신', () => {
 
     await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
     expect(unauthorizedHandler).not.toHaveBeenCalled();
+  });
+
+  it('갱신 후 재시도가 원 요청의 per-request timeout 을 물려받는다', async () => {
+    let meCallCount = 0;
+    server.use(
+      http.get(`${BASE_URL}/users/me`, async () => {
+        meCallCount += 1;
+        if (meCallCount === 1) {
+          return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+        }
+        // 재시도 응답을 지연 — timeout 이 보존(50ms)되면 초과해 TimeoutError,
+        // 미보존(ky 기본 10s)이면 200ms 지연을 통과해 성공해버린다(회귀 시 이 단언 실패).
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return HttpResponse.json({
+          ok: true,
+          data: { id: 1, studentId: '20261234', name: '테스터', phone: '010-0000-0000', grade: 'FRESHMAN', role: 'STUDENT' },
+          message: null,
+        });
+      }),
+      http.post(`${BASE_URL}/auth/web/refresh`, () => new HttpResponse(null, { status: 204 })),
+    );
+
+    // raw(훅이 걸린 http 인스턴스)로 per-request timeout 50ms 를 실어 보낸다.
+    // ky 의 TimeoutError 는 name 으로 단언한다(import 경로 이슈 회피).
+    const client = cookieClient();
+    await expect(client.raw.get('users/me', { timeout: 50 })).rejects.toMatchObject({
+      name: 'TimeoutError',
+    });
+    expect(meCallCount).toBe(2); // 원요청 401 + 재시도(보존된 50ms 로 타임아웃)
   });
 
   it('동시 요청이 함께 실패해도 세션 종료 알림은 한 번만 발화한다', async () => {
