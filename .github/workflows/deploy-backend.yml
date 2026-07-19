@@ -118,7 +118,7 @@ jobs:
 
             # ── 배포 설정 사전 검증 + 원자적 반영 (이미지 교체보다 먼저) ─────────────────
             # incoming/ 에 스테이징된 새 compose·Caddyfile 을 현 운영 .env 와 함께 검증한다.
-            # 둘 다 통과할 때만 기존 파일을 .bak 로 백업하고 mv(원자적 교체)로 반영한다.
+            # 둘 다 통과할 때만 기존 파일을 .bak 로 백업하고 cp(in-place)로 반영한다.
             # 검증 실패 시 기존 파일을 그대로 두고 즉시 배포를 중단한다 — 오설정이 서버에 닿지 않는다.
             if [ ! -f incoming/docker-compose.yml ] || [ ! -f incoming/Caddyfile ]; then
               echo "::error::incoming/ 에 docker-compose.yml·Caddyfile 이 없습니다 — 스테이징 실패"
