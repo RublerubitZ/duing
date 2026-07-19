@@ -33,7 +33,8 @@ export function AdminUsersTable({ items, onForceLogout }: Props) {
             <tr key={user.id} className="border-t border-line hover:bg-graysoft/50">
               <Td>{user.studentId}</Td>
               <Td>{user.name}</Td>
-              <Td>{USER_ROLE_LABEL[user.role]}</Td>
+              {/* 배포 전환기의 미지 role 값도 빈 셀 대신 원문으로 노출한다(fail-open) */}
+              <Td>{USER_ROLE_LABEL[user.role] ?? user.role}</Td>
               <Td>
                 <button
                   type="button"
