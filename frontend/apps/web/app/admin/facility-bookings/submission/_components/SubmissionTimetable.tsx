@@ -3,6 +3,7 @@
 import type { SubmissionCandidateBooking } from '@duing/types';
 import {
   SUBMISSION_HOURS,
+  SUBMISSION_STATUS_LABELS,
   buildSubmissionRows,
   submissionBlockVisual,
 } from '../_lib/submissionTimetable';
@@ -71,7 +72,7 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
                       <button
                         type="button"
                         aria-pressed={booking.selectable ? selected : undefined}
-                        aria-label={`${row.dateIso} ${booking.startTime}~${booking.endTime} ${booking.clubName ?? '동아리'}${selected ? ' · 선택됨' : ''}`}
+                        aria-label={`${row.dateIso} ${booking.startTime}~${booking.endTime} ${booking.clubName ?? '동아리'}${selected ? ' · 선택됨' : ''} · ${SUBMISSION_STATUS_LABELS[booking.status]}`}
                         onClick={
                           booking.selectable
                             ? () => onToggleSelect(booking.bookingId)
@@ -101,6 +102,7 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
                         {/* 블록에 이미 보이는 동아리명·시간·목적은 생략하고, 툴팁은 추가 정보(신청자·연락처·승인)만 — 스펙 §7.1. */}
                         <p className="font-bold text-ink-deep">{facilityName} · {booking.reservationDate}</p>
                         <p>신청자 {booking.applicantName ?? '-'} · {booking.contactPhone ?? '-'}</p>
+                        {booking.attendeeCount !== null && <p>목적 {booking.purpose}</p>}
                         <p>승인 {booking.decidedByName ?? '-'}{booking.decidedAt !== null ? ` · ${booking.decidedAt.slice(0, 10)}` : ''}</p>
                       </div>
                     </div>

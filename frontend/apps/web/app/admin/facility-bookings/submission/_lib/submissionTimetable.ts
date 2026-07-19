@@ -54,6 +54,15 @@ function buildRowEntries(dayBookings: SubmissionCandidateBooking[]): SubmissionP
   return SUBMISSION_HOURS.map((_, index) => entries[index] ?? { type: 'empty' });
 }
 
+// 상태 라벨의 단일 출처 — SubmissionDetailSheet(dl 상태 행)·SubmissionTimetable(블록 aria-label) 공유.
+export const SUBMISSION_STATUS_LABELS: Record<SubmissionCandidateBooking['status'], string> = {
+  PENDING: '승인 대기',
+  APPROVED: '승인 완료',
+  CONFIRMED: '학교 등록 완료',
+  CONFLICT: '충돌',
+  CANCELLED: '취소됨',
+};
+
 type BlockVisual = {
   container: string;
   nameClass: string;
