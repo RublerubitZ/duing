@@ -310,4 +310,9 @@ export {
   useMarkConflictFacilityBookingMutation,
   useCancelFacilityBookingAdminMutation,
 } from './facilityBookingsAdmin';
+export {
+  useSubmissionCandidatesQuery,
+  useCreateSubmissionBatchMutation,
+  useDownloadSubmissionCsvMutation,
+} from './facilitySubmissionAdmin';
 export { shouldRetryQuery, isNonRetryableError } from './retry';

@@ -10,6 +10,7 @@ import type {
   AdminPromotionSearchParams,
   CentralClubRecertificationStatusParams,
   AdminBookingQueueParams,
+  SubmissionCandidatesParams,
 } from '@duing/types';
 
 export const adminQueryKeys = {
@@ -60,4 +61,7 @@ export const adminQueryKeys = {
   facilityBookingDetail: (bookingId: number) =>
     [...adminQueryKeys.facilityBookingsAll, 'detail', bookingId] as const,
   facilityBookingSummary: () => [...adminQueryKeys.facilityBookingsAll, 'summary'] as const,
+  facilitySubmissionAll: ['admin', 'facility-submission'] as const,
+  facilitySubmissionCandidates: (params: SubmissionCandidatesParams) =>
+    [...adminQueryKeys.facilitySubmissionAll, 'candidates', params] as const,
 };
