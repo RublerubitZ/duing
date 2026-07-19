@@ -67,6 +67,14 @@ describe('buildSubmissionRows', () => {
     expect(entries[1]).toMatchObject({ type: 'block', colSpan: 2 }); // 10~12
     // 11~13 중 11~12 는 선점됨 → 12~13 한 칸으로 축소
     expect(entries[3]).toMatchObject({ type: 'block', colSpan: 1 });
+
+    const frontBlock = entries[1];
+    if (!frontBlock || frontBlock.type !== 'block') throw new Error('entries[1] 은 block 이어야 한다');
+    expect(frontBlock.booking.bookingId).toBe(1);
+
+    const shrunkBlock = entries[3];
+    if (!shrunkBlock || shrunkBlock.type !== 'block') throw new Error('entries[3] 은 block 이어야 한다');
+    expect(shrunkBlock.booking.bookingId).toBe(2);
   });
 
   it('09시 이전·22시 이후 구간은 시간축으로 클램프된다', () => {
@@ -75,6 +83,22 @@ describe('buildSubmissionRows', () => {
     ]);
 
     expect(rows[0]!.entries[0]).toMatchObject({ type: 'block', colSpan: 1 }); // 09~10 만
+  });
+
+  it('21시 시작 예약은 마지막 칸(entries[12])에 colSpan 1 블록으로 들어간다', () => {
+    const rows = buildSubmissionRows([makeBooking({ startTime: '21:00', endTime: '22:00' })]);
+
+    expect(rows[0]!.entries[12]).toMatchObject({ type: 'block', colSpan: 1 });
+  });
+
+  it('22시를 넘는 종료 시각은 22시로 클램프되어 entries[11] 이 colSpan 2 블록이 된다', () => {
+    const rows = buildSubmissionRows([makeBooking({ startTime: '20:00', endTime: '23:00' })]);
+
+    expect(rows[0]!.entries[11]).toMatchObject({ type: 'block', colSpan: 2 });
+  });
+
+  it('빈 배열을 넣으면 빈 행 배열을 반환한다', () => {
+    expect(buildSubmissionRows([])).toEqual([]);
   });
 });
 
@@ -96,5 +120,17 @@ describe('submissionBlockVisual', () => {
     const conflict = submissionBlockVisual(makeBooking({ status: 'CONFLICT', selectable: false }));
     expect(conflict.container).toContain('warm');
     expect(conflict.badge).toBe('충돌');
+  });
+
+  it('제출 후 취소된 예약(CANCELLED+submitted)은 취소 톤이 우선한다', () => {
+    const visual = submissionBlockVisual(makeBooking({ status: 'CANCELLED', submitted: true, selectable: false }));
+    expect(visual.container).toContain('coral');
+    expect(visual.badge).toBeNull();
+  });
+
+  it('충돌 상태는 제출 여부와 무관하게 충돌 톤·뱃지가 우선한다', () => {
+    const visual = submissionBlockVisual(makeBooking({ status: 'CONFLICT', submitted: true, selectable: false }));
+    expect(visual.container).toContain('warm');
+    expect(visual.badge).toBe('충돌');
   });
 });
