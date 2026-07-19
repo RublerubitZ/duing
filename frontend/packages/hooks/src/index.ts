@@ -134,6 +134,7 @@ export {
   useAdminClubsQuery,
   useAdminClubDetailQuery,
   useAdminUserSearchQuery,
+  useAdminForceLogoutMutation,
   useCreateClubMutation,
   useUpdateClubStatusMutation,
   useCloseClubMutation,
