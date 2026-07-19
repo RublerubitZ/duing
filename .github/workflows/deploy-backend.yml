@@ -145,8 +145,9 @@ jobs:
             #   cp(대상 파일 in-place truncate+write)는 inode 를 유지해 컨테이너에 즉시 보이므로 reload 가 새 설정을 읽는다.
             #   compose 는 호스트 docker CLI 가 매번 경로로 새로 읽어 mv 도 무방하나, 반쪽 상태를 없애려 cp+rm 로 통일한다.
             #   (여기서 reload·compose pull/up 은 이 블록 이후 순차 실행이라 cp 의 비원자성으로 인한 torn read 는 없다.)
-            cp docker-compose.yml docker-compose.yml.bak 2>/dev/null || true
-            cp Caddyfile Caddyfile.bak 2>/dev/null || true
+            # 백업: 파일이 있으면 반드시 성공해야 한다(cp 실패 시 교체 중단) — 최초 배포(파일 없음)만 스킵.
+            if [ -f docker-compose.yml ]; then cp docker-compose.yml docker-compose.yml.bak; fi
+            if [ -f Caddyfile ]; then cp Caddyfile Caddyfile.bak; fi
             cp incoming/docker-compose.yml docker-compose.yml && rm incoming/docker-compose.yml
             cp incoming/Caddyfile Caddyfile && rm incoming/Caddyfile
             echo "배포 설정 검증 통과 — compose·Caddyfile 반영 완료"
@@ -204,6 +205,10 @@ jobs:
             # 실패: 직전 이미지로 자동 롤백(베스트 에포트).
             echo "::error::backend 가 healthy 에 도달하지 못했습니다 — 직전 이미지로 롤백: ${PREV_IMAGE:-(이전 값 없음)}"
             if [ -n "$PREV_IMAGE" ] && [ "$PREV_IMAGE" != "$DEPLOY_IMAGE" ]; then
+              # 이미지와 함께 배포된 설정도 직전 상태로 복원 — 신규 compose 가 구 이미지와 비호환일 수 있다.
+              # (cp 는 in-place 라 Caddyfile bind-mount inode 도 보존된다)
+              if [ -f docker-compose.yml.bak ]; then cp docker-compose.yml.bak docker-compose.yml; fi
+              if [ -f Caddyfile.bak ]; then cp Caddyfile.bak Caddyfile; fi
               sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${PREV_IMAGE}|" .env
               docker compose pull backend || true
               docker compose up -d || true
