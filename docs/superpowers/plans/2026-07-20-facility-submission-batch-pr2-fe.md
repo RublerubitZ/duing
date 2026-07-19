@@ -1,475 +1,51 @@
-# 학교 제출(Submission Batch) PR-2 프론트 구현 계획 — 제출 화면
+# 학교 제출(Submission Batch) PR-2 프론트 구현 계획 — 제출 화면 (v2 개정)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **v2 개정(2026-07-20):** 운영 중심 개편(스펙 v2) 반영 — 기본 뷰=동아리별 그룹 목록(Accordion), 동아리명 부분 검색, 제출 여부 필터, 카드 라벨 재정의, **생성 후 CSV 자동 다운로드 제거**. Task 1·2 는 개정 전 완료분을 그대로 재사용(아래 완료 기록), Task 3~7 이 개정판이다.
 
-**Goal:** 관리자 "학교 제출" 페이지의 제출 대기 탭 — 시설 선택 → Summary 4카드 → 시간표/목록 이원 뷰 → 예약 선택 → Batch 생성 → CSV 자동 다운로드.
+**Goal:** 관리자 "학교 제출" 페이지의 제출 대기 탭 — 시설 선택 → 검색·필터·Summary 4카드 → **동아리 그룹 목록(기본)/시간표(보조)** 이원 뷰 → 예약 선택 → Batch 생성(토스트만, 자동 다운로드 없음).
 
-**Architecture:** `/admin/facility-bookings/submission` 단일 페이지(탭 셸: 제출 대기 | 제출 이력(준비 중)). candidates API 1개가 summary+bookings 를 공급, Summary 카드는 클라이언트 필터, 시간표는 세로=날짜·가로=시간(09~22 13칸) colSpan 병합(WeekTimetable 의 계획 로직 전치). 선택 상태는 시간표/목록이 공유하는 `Set<bookingId>`.
+**Architecture:** `/admin/facility-bookings/submission` 단일 페이지(탭 셸: 제출 대기 | 제출 이력(준비 중)). candidates API 1개가 summary+bookings 공급, 검색·제출 여부 필터·동아리 그룹핑은 전부 클라이언트 가공(단일 시설·31일 상한 소량). 선택 상태는 그룹 목록/시간표가 공유하는 `Set<bookingId>`.
 
 **Tech Stack:** Next.js 15 App Router + React 19 / TanStack Query / ky(@duing/api) / Tailwind / vitest + testing-library(훅 모듈 모킹).
 
-**스펙:** `docs/superpowers/specs/2026-07-19-facility-submission-batch-design.md` §7 (BE 계약은 §5 — develop 머지됨 #682)
+**스펙:** `docs/superpowers/specs/2026-07-19-facility-submission-batch-design.md` **v2** — §7.1 이 이 PR 의 범위 (완료 처리·이력·상세는 PR-3/PR-4)
 
 ## Global Constraints
 
 - 커밋: Conventional Commits 한국어(`feat(frontend): ...`), Co-Authored-By/🤖 라인 금지. **push·PR 생성 금지**
 - `any`·`as` 금지(불가피하면 `unknown`+타입 가드), 타입 선언은 `type`, `interface` 금지
-- 서버 상태는 TanStack Query 만, `@duing/api` 경유(`ky`/`fetch` 직접 금지), `useEffect` 데이터 패칭 금지(상태 조정용 클램프는 AdminFacilityBookingsPage 전례 허용), TanStack Query 내부(useQuery 자체) 모킹 금지 — **훅 모듈(vi.mock('@duing/hooks')) 모킹**이 관례
-- `packages/*` 에 DOM API 직접 사용 금지(blob 다운로드 헬퍼는 apps/web/app/_lib 에)
-- 훅 네이밍 `use{Domain}{Action}Query/Mutation`, 뮤테이션 `onSettled` 무효화 관례
-- 로딩: 전체 영역 `LoadingGate`·버튼 `ButtonSpinner`(텍스트 로딩 금지), 에러 `role="alert"`+다시 시도, Empty 는 "필터 결과 없음 vs 기간 내 없음" 구분
-- 시간표: **FullCalendar 등 신규 의존성 금지**, `table-fixed` 격자 불변, 시간축 09~22(13칸), 모바일 `overflow-x-auto`+날짜 열 sticky
-- Tailwind 는 실존 팔레트 토큰만(ink/cream/paper/line/graysoft/sage/sage-mist/sage-soft/coral/warm/charcoal-*/ink-deep — WeekTimetable·AdminFacilityBookingsPage 에서 실사용 확인된 것). 동적 클래스 조립 금지(purge 안전)
-- 상태 색 맵(§7): PENDING=회색 / selectable(미제출 APPROVED)=ink 강조·선택 시 `bg-ink text-cream` / 제출완료=sage / CONFIRMED=sage 진한 톤+「등록완료」 / CANCELLED=coral 소거 / CONFLICT=warm+「충돌」
-- 선택 모델: **클릭(탭)=토글**(Ctrl/⌘ 클릭도 동일 토글 — 별도 분기 없음), 전체 선택/해제 버튼, Shift 범위선택 없음. selectable=false 블록·행은 선택 불가
-- 블록 클릭 의미 분리(스펙 §7 모호점의 계획 확정): **selectable 블록 클릭=선택 토글**(상세는 hover Tooltip), **비-selectable 블록 클릭=우측 Sheet 상세**
-- 테스트 파일 위치 `apps/web/test/admin/facility-submission/`, 상대 날짜만 사용
-- 버튼·오버레이 클래스(`btn btn-primary` 등)는 코드 작성 전 기존 소비처(BookingActionDialog·MemberCsvDownloadPopover 등)를 열어 실존 클래스 체계와 대조 — 다르면 기존 관례가 정본
-- 검증 명령은 `frontend/` cwd 에서: `pnpm --filter @duing/web test`, `pnpm typecheck` (`| tail` 로 exit code 가리지 말 것)
+- 서버 상태는 TanStack Query 만, `@duing/api` 경유, `useEffect` 데이터 패칭 금지, TanStack Query 내부 모킹 금지 — **훅 모듈(vi.mock('@duing/hooks')) 모킹** 관례
+- 용어(v2): 카드 라벨 `승인 완료 / 제출 필요 / 제출함 / 학교 등록 완료`, 제출 여부 필터 `전체 / 제출 필요 / 제출함`
+- **Batch 생성 후 CSV 자동 다운로드 금지(v2)** — 성공 토스트 + 선택 초기화 + 무효화만. `useDownloadSubmissionCsvMutation`/`downloadBlobFile` 은 PR-4(상세 화면)용으로 유지하되 이 PR 의 페이지에서 사용하지 않는다
+- 기본 뷰=목록(동아리 그룹), 토글 순서 `[목록] [시간표]`
+- 로딩 LoadingGate·버튼 ButtonSpinner(텍스트 로딩 금지), 에러 `role="alert"`+다시 시도, Empty 는 "필터 결과 없음 vs 기간 내 없음" 구분
+- 시간표: FullCalendar 등 신규 의존성 금지, `table-fixed`, 09~22 13칸, 모바일 `overflow-x-auto`+날짜 열 sticky
+- Tailwind 실존 팔레트 토큰만(동적 조립 금지). 상태 색 맵은 `submissionBlockVisual`(Task 2 완료분) 단일 출처
+- 선택 모델: 클릭(탭)=토글, 동아리 단위 일괄 선택(그룹 헤더 체크박스), 전체 선택/해제, Shift 범위 없음. selectable=false 는 선택 불가
+- 시간표 블록 클릭 의미: selectable=선택 토글(상세는 hover 툴팁) / 비-selectable=우측 Sheet 상세
+- 버튼·오버레이 클래스(`btn btn-primary` 등)는 기존 소비처(BookingActionDialog·MemberCsvDownloadPopover 등)와 대조 — 다르면 기존 관례가 정본
+- 테스트 파일 위치 `apps/web/test/admin/facility-submission/`, 상대 날짜만(만료 개념 없는 순수 데이터 픽스처의 절대 문자열은 허용)
+- 검증은 `frontend/` cwd: `pnpm --filter @duing/web test`, `pnpm typecheck` (`| tail` 금지)
 
-**브랜치:** `feat/facility-submission-fe` (develop 에서 분기)
-
----
-
-### Task 1: 타입 + API 클라이언트 + 훅 + Blob 다운로드 헬퍼
-
-**Files:**
-- Create: `frontend/packages/types/src/facilitySubmission.ts`
-- Modify: `frontend/packages/types/src/index.ts` (export 1줄)
-- Modify: `frontend/packages/api/src/client.ts` (admin 인터페이스·구현에 `facilitySubmission` 섹션 추가)
-- Modify: `frontend/packages/hooks/src/adminQueryKeys.ts` (키 2개)
-- Create: `frontend/packages/hooks/src/facilitySubmissionAdmin.ts`
-- Modify: `frontend/packages/hooks/src/index.ts` (export 1줄 — 기존 export 나열 방식 확인 후 동일하게)
-- Modify: `frontend/apps/web/app/_lib/downloadFile.ts` (`downloadBlobFile` 추가, `downloadTextFile` 은 위임으로 정리)
-
-**Interfaces:**
-- Produces(이후 태스크 소비):
-  - 타입 `SubmissionCandidateBooking`(16필드)·`SubmissionSummaryCounts`·`SubmissionCandidatesResponse`·`SubmissionCandidatesParams`·`CreateSubmissionBatchPayload`·`CreateSubmissionBatchResult`·`SubmissionBookingStatus`
-  - `client.admin.facilitySubmission.{candidates, create, downloadCsv}` (이력·상세·취소는 PR-3 에서 추가 — YAGNI)
-  - `useSubmissionCandidatesQuery(params: SubmissionCandidatesParams | null)` — null=시설 미선택 게이트(enabled)
-  - `useCreateSubmissionBatchMutation()` / `useDownloadSubmissionCsvMutation()`
-  - `downloadBlobFile(filename: string, blob: Blob): void`
-
-- [ ] **Step 1: 타입 작성**
-
-`facilitySubmission.ts`:
-
-```ts
-// 학교 제출(Submission Batch) — BE 스펙 §5.1~5.2 계약과 1:1 (REJECTED 는 응답에서 제외)
-export type SubmissionBookingStatus = 'PENDING' | 'APPROVED' | 'CONFIRMED' | 'CONFLICT' | 'CANCELLED';
-
-export type SubmissionSummaryCounts = {
-  approvedCount: number;
-  awaitingCount: number;
-  submittedCount: number;
-  confirmedCount: number;
-};
-
-export type SubmissionCandidateBooking = {
-  bookingId: number;
-  clubId: number;
-  clubName: string | null;
-  applicantName: string | null;
-  contactPhone: string | null;
-  reservationDate: string;
-  startTime: string;
-  endTime: string;
-  purpose: string;
-  attendeeCount: number | null;
-  status: SubmissionBookingStatus;
-  submitted: boolean;
-  selectable: boolean;
-  submissionNo: string | null;
-  decidedByName: string | null;
-  decidedAt: string | null;
-};
-
-export type SubmissionCandidatesResponse = {
-  summary: SubmissionSummaryCounts;
-  bookings: SubmissionCandidateBooking[];
-};
-
-export type SubmissionCandidatesParams = {
-  facilityId: number;
-  startDate: string;
-  endDate: string;
-};
-
-export type CreateSubmissionBatchPayload = {
-  bookingIds: number[];
-  memo?: string;
-};
-
-export type CreateSubmissionBatchResult = {
-  batchId: number;
-  submissionNo: string;
-  csvFileName: string;
-};
-```
-
-`index.ts` 에 `export * from './facilitySubmission';` 추가(알파벳 위치).
-
-참고: 동아리 필터는 클라이언트 필터로 확정(단일 시설·31일 상한이라 소량, API `clubId` 파라미터를 쓰면 필터 적용 시 셀렉트 옵션이 함께 줄어드는 UX 문제) — params 에 clubId 를 두지 않는다.
-
-- [ ] **Step 2: 클라이언트 추가**
-
-`client.ts` admin 인터페이스(`facilityBookings` 섹션 아래):
-
-```ts
-    // === 학교 제출(Submission Batch) — BE §5 (이력·상세·취소는 PR-3) ===
-    facilitySubmission: {
-      // GET .../submission/candidates — 기간 내 전체 예약 + summary(REJECTED 제외)
-      candidates(params: SubmissionCandidatesParams): Promise<SubmissionCandidatesResponse>;
-      // POST .../submission — all-or-nothing, 409(기제출/미승인)
-      create(payload: CreateSubmissionBatchPayload): Promise<CreateSubmissionBatchResult>;
-      // GET .../submission/{batchId}/csv — BOM 포함 CSV(비 ApiResponse, Blob 그대로)
-      downloadCsv(batchId: number): Promise<Blob>;
-    };
-```
-
-구현(`facilityBookings` 구현 아래, import 에 신규 타입 추가):
-
-```ts
-      facilitySubmission: {
-        candidates: (params) =>
-          jsonOk<SubmissionCandidatesResponse>(
-            http.get('admin/facility-bookings/submission/candidates', { searchParams: cleanParams(params) }),
-          ),
-        create: (payload) =>
-          jsonOk<CreateSubmissionBatchResult>(
-            http.post('admin/facility-bookings/submission', { json: payload }),
-          ),
-        downloadCsv: async (batchId) =>
-          (await http.get(`admin/facility-bookings/submission/${batchId}/csv`)).blob(),
-      },
-```
-
-- [ ] **Step 3: 쿼리키 + 훅 작성**
-
-`adminQueryKeys.ts` (import 에 `SubmissionCandidatesParams` 추가):
-
-```ts
-  facilitySubmissionAll: ['admin', 'facility-submission'] as const,
-  facilitySubmissionCandidates: (params: SubmissionCandidatesParams) =>
-    [...adminQueryKeys.facilitySubmissionAll, 'candidates', params] as const,
-```
-
-`facilitySubmissionAdmin.ts`:
-
-```ts
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CreateSubmissionBatchPayload, SubmissionCandidatesParams } from '@duing/types';
-import { useApiClient } from './api-context';
-import { adminQueryKeys } from './adminQueryKeys';
-
-export function useSubmissionCandidatesQuery(params: SubmissionCandidatesParams | null) {
-  const client = useApiClient();
-  return useQuery({
-    queryKey:
-      params !== null
-        ? adminQueryKeys.facilitySubmissionCandidates(params)
-        : ([...adminQueryKeys.facilitySubmissionAll, 'candidates-none'] as const),
-    queryFn: () => {
-      if (params === null) throw new Error('facilityId is required');
-      return client.admin.facilitySubmission.candidates(params);
-    },
-    enabled: params !== null,
-  });
-}
-
-function useSubmissionInvalidation() {
-  const queryClient = useQueryClient();
-  return () => {
-    void queryClient.invalidateQueries({ queryKey: adminQueryKeys.facilitySubmissionAll });
-  };
-}
-
-export function useCreateSubmissionBatchMutation() {
-  const client = useApiClient();
-  const invalidate = useSubmissionInvalidation();
-  return useMutation({
-    mutationFn: (payload: CreateSubmissionBatchPayload) => client.admin.facilitySubmission.create(payload),
-    onSettled: invalidate,
-  });
-}
-
-export function useDownloadSubmissionCsvMutation() {
-  const client = useApiClient();
-  return useMutation({
-    mutationFn: (input: { batchId: number }) => client.admin.facilitySubmission.downloadCsv(input.batchId),
-  });
-}
-```
-
-`hooks/src/index.ts` 에 export 추가(기존 나열 방식 그대로).
-
-- [ ] **Step 4: Blob 다운로드 헬퍼**
-
-`downloadFile.ts` 전체를 다음으로 교체(기존 `downloadTextFile` 동작 불변 — 위임):
-
-```ts
-export function downloadBlobFile(filename: string, blob: Blob): void {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  // Firefox 는 click 직후 동기 revoke 시 다운로드가 깨질 수 있어 다음 틱으로 미룬다.
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-export function downloadTextFile(
-  filename: string,
-  content: string,
-  mimeType = 'text/csv;charset=utf-8',
-): void {
-  downloadBlobFile(filename, new Blob([content], { type: mimeType }));
-}
-```
-
-- [ ] **Step 5: 타입체크 + 기존 스위트 회귀 확인**
-
-Run: `cd frontend && pnpm typecheck && pnpm --filter @duing/web test`
-Expected: 둘 다 성공(다운로드 헬퍼 소비처 기존 테스트 포함 무회귀)
-
-- [ ] **Step 6: 커밋**
-
-```bash
-git add frontend/packages/types frontend/packages/api frontend/packages/hooks frontend/apps/web/app/_lib/downloadFile.ts
-git commit -m "feat(frontend): 학교 제출 타입·API 클라이언트·훅 추가"
-```
+**브랜치:** `feat/facility-submission-fe` (진행 중 — Task 1·2 커밋 존재)
 
 ---
 
-### Task 2: 시간표 렌더 계획 빌더 (순수 로직 + 유닛 테스트)
+### Task 1: 타입 + API 클라이언트 + 훅 + Blob 다운로드 헬퍼 — ✅ 완료
 
-**Files:**
-- Create: `frontend/apps/web/app/admin/facility-bookings/submission/_lib/submissionTimetable.ts`
-- Test: `frontend/apps/web/test/admin/facility-submission/submission-timetable-plan.test.ts`
-
-**Interfaces:**
-- Consumes: Task 1 `SubmissionCandidateBooking`
-- Produces(Task 3 소비):
-  - `SUBMISSION_HOURS: number[]` (9..21, 13칸 — 칸 i = [i+9시, i+10시) 슬롯)
-  - `buildSubmissionRows(bookings) → SubmissionTimetableRow[]` — `{ dateIso: string; entries: SubmissionPlanEntry[] }`, entries 길이 13, `{ type: 'block'; booking; colSpan } | { type: 'empty' } | { type: 'covered' }`
-  - `submissionBlockVisual(booking) → { container: string; nameClass: string; badge: string | null }` — 상태 색 맵 단일 출처
-
-- [ ] **Step 1: 실패하는 유닛 테스트 작성**
-
-```ts
-import { describe, expect, it } from 'vitest';
-import type { SubmissionCandidateBooking } from '@duing/types';
-import {
-  SUBMISSION_HOURS,
-  buildSubmissionRows,
-  submissionBlockVisual,
-} from '../../../app/admin/facility-bookings/submission/_lib/submissionTimetable';
-
-function makeBooking(overrides: Partial<SubmissionCandidateBooking> = {}): SubmissionCandidateBooking {
-  return {
-    bookingId: 1,
-    clubId: 10,
-    clubName: '합주부',
-    applicantName: '홍길동',
-    contactPhone: '010-1234-5678',
-    reservationDate: '2026-08-01',
-    startTime: '18:00',
-    endTime: '21:00',
-    purpose: '정기 합주',
-    attendeeCount: 30,
-    status: 'APPROVED',
-    submitted: false,
-    selectable: true,
-    submissionNo: null,
-    decidedByName: '관리자',
-    decidedAt: '2026-07-20T10:00:00',
-    ...overrides,
-  };
-}
-
-describe('buildSubmissionRows', () => {
-  it('시간축은 09~21 시작시각 13칸이다', () => {
-    expect(SUBMISSION_HOURS).toHaveLength(13);
-    expect(SUBMISSION_HOURS[0]).toBe(9);
-    expect(SUBMISSION_HOURS[12]).toBe(21);
-  });
-
-  it('18~21시 예약은 colSpan 3 블록이 되고 덮인 칸은 covered 로 표시된다', () => {
-    const rows = buildSubmissionRows([makeBooking()]);
-
-    expect(rows).toHaveLength(1);
-    const entries = rows[0]!.entries;
-    expect(entries).toHaveLength(13);
-    const blockIndex = 18 - 9;
-    expect(entries[blockIndex]).toMatchObject({ type: 'block', colSpan: 3 });
-    expect(entries[blockIndex + 1]).toEqual({ type: 'covered' });
-    expect(entries[blockIndex + 2]).toEqual({ type: 'covered' });
-    expect(entries[blockIndex + 3]).toEqual({ type: 'empty' });
-  });
-
-  it('예약이 있는 날짜만 행이 되고 날짜 오름차순으로 정렬된다', () => {
-    const rows = buildSubmissionRows([
-      makeBooking({ bookingId: 2, reservationDate: '2026-08-03', startTime: '09:00', endTime: '10:00' }),
-      makeBooking({ bookingId: 1, reservationDate: '2026-08-01' }),
-    ]);
-
-    expect(rows.map((row) => row.dateIso)).toEqual(['2026-08-01', '2026-08-03']);
-  });
-
-  it('같은 날 시간이 겹치는 뒤 블록은 빈 구간에 맞춰 축소 배치된다(대기 vs 승인 공존)', () => {
-    const rows = buildSubmissionRows([
-      makeBooking({ bookingId: 1, startTime: '10:00', endTime: '12:00' }),
-      makeBooking({ bookingId: 2, status: 'PENDING', selectable: false, startTime: '11:00', endTime: '13:00' }),
-    ]);
-
-    const entries = rows[0]!.entries;
-    expect(entries[1]).toMatchObject({ type: 'block', colSpan: 2 }); // 10~12
-    // 11~13 중 11~12 는 선점됨 → 12~13 한 칸으로 축소
-    expect(entries[3]).toMatchObject({ type: 'block', colSpan: 1 });
-  });
-
-  it('09시 이전·22시 이후 구간은 시간축으로 클램프된다', () => {
-    const rows = buildSubmissionRows([
-      makeBooking({ startTime: '08:00', endTime: '10:00' }),
-    ]);
-
-    expect(rows[0]!.entries[0]).toMatchObject({ type: 'block', colSpan: 1 }); // 09~10 만
-  });
-});
-
-describe('submissionBlockVisual', () => {
-  it('선택 가능(미제출 APPROVED)은 ink 강조·뱃지 없음', () => {
-    const visual = submissionBlockVisual(makeBooking());
-    expect(visual.container).toContain('border-ink');
-    expect(visual.badge).toBeNull();
-  });
-
-  it('제출 완료는 sage 계열이고 CONFIRMED 는 「등록완료」 뱃지가 붙는다', () => {
-    expect(submissionBlockVisual(makeBooking({ submitted: true, selectable: false })).container).toContain('sage');
-    expect(submissionBlockVisual(makeBooking({ status: 'CONFIRMED', selectable: false })).badge).toBe('등록완료');
-  });
-
-  it('PENDING 은 회색, CANCELLED 는 coral 소거, CONFLICT 는 warm+「충돌」이다', () => {
-    expect(submissionBlockVisual(makeBooking({ status: 'PENDING', selectable: false })).container).toContain('graysoft');
-    expect(submissionBlockVisual(makeBooking({ status: 'CANCELLED', selectable: false })).container).toContain('coral');
-    const conflict = submissionBlockVisual(makeBooking({ status: 'CONFLICT', selectable: false }));
-    expect(conflict.container).toContain('warm');
-    expect(conflict.badge).toBe('충돌');
-  });
-});
-```
-
-- [ ] **Step 2: 실패 확인**
-
-Run: `cd frontend && pnpm --filter @duing/web test -- submission-timetable-plan`
-Expected: FAIL (모듈 미존재)
-
-- [ ] **Step 3: 구현**
-
-`submissionTimetable.ts`:
-
-```ts
-import type { SubmissionCandidateBooking } from '@duing/types';
-
-// 09:00~22:00 — 칸 i = [9+i시, 10+i시). facilitybooking 도메인 슬롯 규칙과 동일 축.
-export const SUBMISSION_HOURS = Array.from({ length: 13 }, (_, index) => 9 + index);
-
-export type SubmissionPlanBlock = {
-  type: 'block';
-  booking: SubmissionCandidateBooking;
-  colSpan: number;
-};
-export type SubmissionPlanEntry = SubmissionPlanBlock | { type: 'empty' } | { type: 'covered' };
-
-export type SubmissionTimetableRow = {
-  dateIso: string;
-  entries: SubmissionPlanEntry[];
-};
-
-const hourIndexOf = (time: string) => Number(time.slice(0, 2)) - 9;
-
-/**
- * 세로=날짜 · 가로=시간 시간표의 행 렌더 계획(스펙 §7) — WeekTimetable 의 rowSpan 병합 계획을 colSpan 으로 전치.
- * 예약이 있는 날짜만 행이 되고, 겹치는 뒤 블록(PENDING vs APPROVED 공존 가능)은 남은 빈 구간에 축소 배치한다
- * — 완전히 덮이면 시간표에선 생략되지만 목록 뷰가 전 건을 보여주므로 정보 손실은 없다.
- */
-export function buildSubmissionRows(bookings: SubmissionCandidateBooking[]): SubmissionTimetableRow[] {
-  const byDate = new Map<string, SubmissionCandidateBooking[]>();
-  for (const booking of bookings) {
-    const dayBookings = byDate.get(booking.reservationDate) ?? [];
-    dayBookings.push(booking);
-    byDate.set(booking.reservationDate, dayBookings);
-  }
-  return [...byDate.entries()]
-    .sort(([leftIso], [rightIso]) => leftIso.localeCompare(rightIso))
-    .map(([dateIso, dayBookings]) => ({ dateIso, entries: buildRowEntries(dayBookings) }));
-}
-
-function buildRowEntries(dayBookings: SubmissionCandidateBooking[]): SubmissionPlanEntry[] {
-  const entries = new Array<SubmissionPlanEntry | undefined>(SUBMISSION_HOURS.length).fill(undefined);
-  const ordered = [...dayBookings].sort(
-    (left, right) => left.startTime.localeCompare(right.startTime) || left.bookingId - right.bookingId,
-  );
-  for (const booking of ordered) {
-    const start = Math.max(0, hourIndexOf(booking.startTime));
-    const end = Math.min(SUBMISSION_HOURS.length, hourIndexOf(booking.endTime));
-    // 선점된 칸을 피해 첫 빈 칸부터 다음 점유 칸 직전까지 축소 배치.
-    let placeStart = start;
-    while (placeStart < end && entries[placeStart] !== undefined) placeStart += 1;
-    if (placeStart >= end) continue;
-    let placeEnd = placeStart;
-    while (placeEnd < end && entries[placeEnd] === undefined) placeEnd += 1;
-    entries[placeStart] = { type: 'block', booking, colSpan: placeEnd - placeStart };
-    for (let index = placeStart + 1; index < placeEnd; index += 1) entries[index] = { type: 'covered' };
-  }
-  return SUBMISSION_HOURS.map((_, index) => entries[index] ?? { type: 'empty' });
-}
-
-type BlockVisual = {
-  container: string;
-  nameClass: string;
-  badge: string | null;
-};
-
-/** 상태 색 맵의 단일 출처(스펙 §7) — 시간표 블록·목록 상태 배지가 공유한다. */
-export function submissionBlockVisual(booking: SubmissionCandidateBooking): BlockVisual {
-  if (booking.status === 'CANCELLED') {
-    return { container: 'border-coral/40 bg-coral/10 opacity-70', nameClass: 'text-coral line-through', badge: null };
-  }
-  if (booking.status === 'CONFLICT') {
-    return { container: 'border-warm/60 bg-warm/20', nameClass: 'text-[#8E6620]', badge: '충돌' };
-  }
-  if (booking.status === 'CONFIRMED') {
-    return { container: 'border-sage bg-sage/30', nameClass: 'text-ink-deep', badge: '등록완료' };
-  }
-  if (booking.submitted) {
-    return { container: 'border-sage-soft bg-sage-mist', nameClass: 'text-ink-deep', badge: null };
-  }
-  if (booking.selectable) {
-    return { container: 'border-ink bg-paper hover:bg-sage-mist', nameClass: 'text-ink-deep', badge: null };
-  }
-  // PENDING(승인 대기) — 회색.
-  return { container: 'border-line bg-graysoft/60', nameClass: 'text-charcoal-3', badge: null };
-}
-```
-
-- [ ] **Step 4: 통과 확인**
-
-Run: `cd frontend && pnpm --filter @duing/web test -- submission-timetable-plan`
-Expected: PASS (8/8)
-
-- [ ] **Step 5: 커밋**
-
-```bash
-git add frontend/apps/web/app/admin/facility-bookings/submission frontend/apps/web/test/admin/facility-submission
-git commit -m "feat(frontend): 학교 제출 시간표 렌더 계획 빌더 구현"
-```
+커밋 `c7affe3b`. 리뷰 통과(fable Approved·duing 위반 0). 산출물: `@duing/types` 의 `SubmissionCandidateBooking`(16필드)·`SubmissionSummaryCounts`·`SubmissionCandidatesResponse`·`SubmissionCandidatesParams`·`CreateSubmissionBatchPayload`·`CreateSubmissionBatchResult`, `client.admin.facilitySubmission.{candidates, create, downloadCsv(blobOk)}`, `useSubmissionCandidatesQuery(params|null)`·`useCreateSubmissionBatchMutation`·`useDownloadSubmissionCsvMutation`, `downloadBlobFile`. **v2 무영향 — 그대로 소비한다.**
 
 ---
 
-### Task 3: SubmissionTimetable 컴포넌트 (+Tooltip·상세 Sheet)
+### Task 2: 시간표 렌더 계획 빌더 — ✅ 완료
+
+커밋 `f1a0f6c3`+`8d195202`(판별력 보강, 13/13 GREEN). 산출물: `_lib/submissionTimetable.ts` 의 `SUBMISSION_HOURS`·`buildSubmissionRows`·`submissionBlockVisual`(상태 색 맵 단일 출처 — 그룹 목록 배지도 이걸 쓴다). **v2 무영향(시간표는 보조 뷰로 유지).**
+
+---
+
+### Task 3: SubmissionTimetable 컴포넌트 (+Tooltip·상세 Sheet) — 보조 뷰
 
 **Files:**
 - Create: `frontend/apps/web/app/admin/facility-bookings/submission/_components/SubmissionTimetable.tsx`
@@ -481,6 +57,7 @@ git commit -m "feat(frontend): 학교 제출 시간표 렌더 계획 빌더 구�
 - Produces(Task 5 소비):
   - `SubmissionTimetable({ bookings, facilityName, selection, onToggleSelect, onShowDetail })` — `selection: ReadonlySet<number>`, `onToggleSelect(bookingId: number)`, `onShowDetail(booking: SubmissionCandidateBooking)`
   - `SubmissionDetailSheet({ booking, facilityName, onClose })` — `booking: SubmissionCandidateBooking | null`(null=닫힘)
+- 용도(스펙 v2 §7.1): 시설 충돌 확인·특정 날짜 집중 예약 확인·운영 검토 — 기본 뷰가 아니라 보조 토글이다.
 
 - [ ] **Step 1: 실패하는 컴포넌트 테스트 작성**
 
@@ -525,8 +102,8 @@ describe('SubmissionTimetable', () => {
     );
 
     expect(screen.getByText('합주부')).toBeInTheDocument();
-    expect(screen.getByText('18:00~21:00')).toBeInTheDocument();
-    expect(screen.getByText('30명')).toBeInTheDocument();
+    expect(screen.getByText(/18:00~21:00/)).toBeInTheDocument();
+    expect(screen.getByText(/30명/)).toBeInTheDocument();
   });
 
   it('인원이 없으면 사용목적을 대신 표시한다', () => {
@@ -540,7 +117,7 @@ describe('SubmissionTimetable', () => {
       />,
     );
 
-    expect(screen.getByText('정기 합주')).toBeInTheDocument();
+    expect(screen.getByText(/정기 합주/)).toBeInTheDocument();
   });
 
   it('선택 가능한 블록 클릭은 선택 토글을 호출하고 aria-pressed 로 상태를 알린다', () => {
@@ -561,7 +138,7 @@ describe('SubmissionTimetable', () => {
     expect(onToggleSelect).toHaveBeenCalledWith(1);
   });
 
-  it('선택 불가 블록(제출 완료) 클릭은 상세 열람을 호출한다', () => {
+  it('선택 불가 블록(제출함) 클릭은 상세 열람을 호출한다', () => {
     const onShowDetail = vi.fn();
     const submitted = makeBooking({ submitted: true, selectable: false, submissionNo: 'SUB-20260801-001' });
     render(
@@ -613,7 +190,7 @@ describe('SubmissionTimetable', () => {
 - [ ] **Step 2: 실패 확인**
 
 Run: `cd frontend && pnpm --filter @duing/web test -- submission-timetable.test`
-Expected: FAIL
+Expected: FAIL (컴포넌트 미존재)
 
 - [ ] **Step 3: 구현**
 
@@ -640,9 +217,9 @@ type Props = {
 };
 
 /**
- * 학교 제출 시간표(스펙 §7) — 세로=날짜·가로=시간(09~22 13칸), 예약=colSpan 병합 블록.
- * selectable 블록 클릭=선택 토글(상세는 hover 툴팁), 그 외 블록 클릭=우측 Sheet 상세.
- * 모바일은 가로 스크롤 + 날짜 열 sticky.
+ * 학교 제출 시간표(스펙 v2 §7.1 — 보조 뷰) — 세로=날짜·가로=시간(09~22 13칸), 예약=colSpan 병합 블록.
+ * 용도: 시설 충돌·특정 날짜 집중 예약 확인. selectable 블록 클릭=선택 토글(상세는 hover 툴팁),
+ * 그 외 블록 클릭=우측 Sheet 상세. 모바일은 가로 스크롤 + 날짜 열 sticky.
  */
 export function SubmissionTimetable({ bookings, facilityName, selection, onToggleSelect, onShowDetail }: Props) {
   const rows = buildSubmissionRows(bookings);
@@ -688,7 +265,7 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
                   booking.attendeeCount !== null ? `${booking.attendeeCount}명` : booking.purpose;
                 return (
                   <td key={columnIndex} colSpan={colSpan} className="relative p-[2px]">
-                    {/* group: hover 툴팁 트리거 — 라이브러리 없이 CSS 로만(경량 커스텀 툴팁, 스펙 §7). */}
+                    {/* group: hover 툴팁 트리거 — 라이브러리 없이 CSS 로만(경량 커스텀 툴팁, 스펙 §7.1). */}
                     <div className="group relative">
                       <button
                         type="button"
@@ -762,7 +339,7 @@ type Props = {
   onClose: () => void;
 };
 
-/** 비-selectable 블록·목록 행의 상세 열람용 우측 Drawer(스펙 §7). */
+/** 비-selectable 블록·목록 행의 상세 열람용 우측 Drawer(스펙 v2 §7.1). */
 export function SubmissionDetailSheet({ booking, facilityName, onClose }: Props) {
   return (
     <Sheet open={booking !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -815,29 +392,33 @@ git commit -m "feat(frontend): 학교 제출 시간표 뷰·예약 상세 Drawer
 
 ---
 
-### Task 4: SubmissionListTable (체크박스 다중 선택)
+### Task 4: 동아리별 그룹 목록(Accordion) — 기본 뷰 (v2 신규)
 
 **Files:**
-- Create: `frontend/apps/web/app/admin/facility-bookings/submission/_components/SubmissionListTable.tsx`
-- Test: `frontend/apps/web/test/admin/facility-submission/submission-list-table.test.tsx`
+- Create: `frontend/apps/web/app/admin/facility-bookings/submission/_lib/submissionGroups.ts`
+- Create: `frontend/apps/web/app/admin/facility-bookings/submission/_components/SubmissionClubGroupList.tsx`
+- Test: `frontend/apps/web/test/admin/facility-submission/submission-club-group-list.test.tsx`
 
 **Interfaces:**
-- Consumes: Task 1 타입, Task 2 `submissionBlockVisual`(상태 배지 톤), Task 3 과 동일 선택 콜백
-- Produces(Task 5 소비): `SubmissionListTable({ bookings, selection, onToggleSelect, onToggleAll, onShowDetail })` — `onToggleAll(nextSelected: boolean)`
+- Consumes: Task 1 타입, Task 2 `submissionBlockVisual`
+- Produces(Task 5 소비):
+  - `buildClubGroups(bookings) → SubmissionClubGroup[]` — `{ clubId, clubName, bookings }`, 동아리명 오름차순(null 은 마지막), 그룹 내 날짜→시간→id 정렬
+  - `SubmissionClubGroupList({ bookings, selection, onToggleSelect, onToggleMany, onShowDetail })` — `onToggleMany(bookingIds: number[], nextSelected: boolean)` (동아리 단위 일괄 선택·Task 5 의 전체 선택도 재사용)
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
 ```tsx
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { SubmissionCandidateBooking } from '@duing/types';
-import { SubmissionListTable } from '../../../app/admin/facility-bookings/submission/_components/SubmissionListTable';
+import { buildClubGroups } from '../../../app/admin/facility-bookings/submission/_lib/submissionGroups';
+import { SubmissionClubGroupList } from '../../../app/admin/facility-bookings/submission/_components/SubmissionClubGroupList';
 
 function makeBooking(overrides: Partial<SubmissionCandidateBooking> = {}): SubmissionCandidateBooking {
   return {
     bookingId: 1,
     clubId: 10,
-    clubName: '합주부',
+    clubName: '밴드부',
     applicantName: '홍길동',
     contactPhone: '010-1234-5678',
     reservationDate: '2026-08-01',
@@ -855,104 +436,193 @@ function makeBooking(overrides: Partial<SubmissionCandidateBooking> = {}): Submi
   };
 }
 
-describe('SubmissionListTable', () => {
-  it('행 체크박스는 selectable 행만 활성이고 토글 콜백을 호출한다', () => {
-    const onToggleSelect = vi.fn();
+describe('buildClubGroups', () => {
+  it('동아리명 오름차순으로 그룹핑하고 그룹 안은 날짜→시간 순으로 정렬한다', () => {
+    const groups = buildClubGroups([
+      makeBooking({ bookingId: 3, clubId: 11, clubName: '방송국', startTime: '09:00', endTime: '10:00' }),
+      makeBooking({ bookingId: 2, reservationDate: '2026-08-08' }),
+      makeBooking({ bookingId: 1 }),
+    ]);
+
+    expect(groups.map((group) => group.clubName)).toEqual(['밴드부', '방송국']);
+    expect(groups[0]!.bookings.map((booking) => booking.bookingId)).toEqual([1, 2]);
+  });
+
+  it('빈 입력은 빈 그룹 배열을 낸다', () => {
+    expect(buildClubGroups([])).toEqual([]);
+  });
+});
+
+describe('SubmissionClubGroupList', () => {
+  const twoClubs = [
+    makeBooking({ bookingId: 1 }),
+    makeBooking({ bookingId: 2, reservationDate: '2026-08-08' }),
+    makeBooking({ bookingId: 3, clubId: 11, clubName: '방송국', submitted: true, selectable: false, submissionNo: 'SUB-20260801-001' }),
+  ];
+
+  it('동아리별 그룹 헤더에 이름·건수·선택 수가 표시된다', () => {
     render(
-      <SubmissionListTable
-        bookings={[makeBooking(), makeBooking({ bookingId: 2, status: 'PENDING', selectable: false })]}
-        selection={new Set()}
-        onToggleSelect={onToggleSelect}
-        onToggleAll={vi.fn()}
+      <SubmissionClubGroupList
+        bookings={twoClubs}
+        selection={new Set([1])}
+        onToggleSelect={vi.fn()}
+        onToggleMany={vi.fn()}
         onShowDetail={vi.fn()}
       />,
     );
 
-    const checkboxes = screen.getAllByRole('checkbox');
-    // [0]=전체 선택, [1]=selectable 행, [2]=비활성 행
-    expect(checkboxes[2]).toBeDisabled();
-    fireEvent.click(checkboxes[1]!);
+    expect(screen.getByText(/밴드부/)).toBeInTheDocument();
+    expect(screen.getByText(/2건 · 선택 1/)).toBeInTheDocument();
+    expect(screen.getByText(/방송국/)).toBeInTheDocument();
+    expect(screen.getByText(/1건/)).toBeInTheDocument();
+  });
+
+  it('그룹 헤더 체크박스는 그 동아리의 선택 가능 예약 전체를 일괄 토글한다', () => {
+    const onToggleMany = vi.fn();
+    render(
+      <SubmissionClubGroupList
+        bookings={twoClubs}
+        selection={new Set()}
+        onToggleSelect={vi.fn()}
+        onToggleMany={onToggleMany}
+        onShowDetail={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '밴드부 전체 선택' }));
+    expect(onToggleMany).toHaveBeenCalledWith([1, 2], true);
+  });
+
+  it('선택 가능 예약이 없는 그룹의 헤더 체크박스는 비활성이다', () => {
+    render(
+      <SubmissionClubGroupList
+        bookings={twoClubs}
+        selection={new Set()}
+        onToggleSelect={vi.fn()}
+        onToggleMany={vi.fn()}
+        onShowDetail={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('checkbox', { name: '방송국 전체 선택' })).toBeDisabled();
+  });
+
+  it('행 체크박스는 selectable 만 활성이고 개별 토글을 호출한다', () => {
+    const onToggleSelect = vi.fn();
+    render(
+      <SubmissionClubGroupList
+        bookings={twoClubs}
+        selection={new Set()}
+        onToggleSelect={onToggleSelect}
+        onToggleMany={vi.fn()}
+        onShowDetail={vi.fn()}
+      />,
+    );
+
+    const submittedRow = screen.getByRole('checkbox', { name: /방송국 2026-08-01 선택/ });
+    expect(submittedRow).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 선택/ }));
     expect(onToggleSelect).toHaveBeenCalledWith(1);
   });
 
-  it('전체 선택 체크박스는 선택 가능 전 건 기준으로 checked·indeterminate 를 표시한다', () => {
-    const { rerender } = render(
-      <SubmissionListTable
-        bookings={[makeBooking(), makeBooking({ bookingId: 2 })]}
-        selection={new Set([1])}
-        onToggleSelect={vi.fn()}
-        onToggleAll={vi.fn()}
-        onShowDetail={vi.fn()}
-      />,
-    );
-    const headerCheckbox = () => screen.getAllByRole('checkbox')[0] as HTMLInputElement;
-    expect(headerCheckbox().indeterminate).toBe(true);
-
-    rerender(
-      <SubmissionListTable
-        bookings={[makeBooking(), makeBooking({ bookingId: 2 })]}
-        selection={new Set([1, 2])}
-        onToggleSelect={vi.fn()}
-        onToggleAll={vi.fn()}
-        onShowDetail={vi.fn()}
-      />,
-    );
-    expect(headerCheckbox().checked).toBe(true);
-    expect(headerCheckbox().indeterminate).toBe(false);
-  });
-
-  it('전체 선택 클릭은 onToggleAll 을 다음 상태(boolean)와 함께 호출한다', () => {
-    const onToggleAll = vi.fn();
+  it('그룹 접기 버튼은 행을 숨기고 aria-expanded 를 갱신한다', () => {
     render(
-      <SubmissionListTable
-        bookings={[makeBooking()]}
+      <SubmissionClubGroupList
+        bookings={twoClubs}
         selection={new Set()}
         onToggleSelect={vi.fn()}
-        onToggleAll={onToggleAll}
+        onToggleMany={vi.fn()}
         onShowDetail={vi.fn()}
       />,
     );
 
-    fireEvent.click(screen.getAllByRole('checkbox')[0]!);
-    expect(onToggleAll).toHaveBeenCalledWith(true);
+    const bandToggle = screen.getByRole('button', { name: /밴드부/ });
+    expect(bandToggle).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(bandToggle);
+    expect(bandToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('checkbox', { name: /밴드부 2026-08-01 선택/ })).not.toBeInTheDocument();
   });
 
-  it('행에 시설 제출 업무에 필요한 컬럼이 표시되고 상세 버튼이 동작한다', () => {
+  it('행에 제출 업무 정보(요일 포함 예약일·시간·목적·인원·제출번호)가 표시되고 상세 버튼이 동작한다', () => {
     const onShowDetail = vi.fn();
-    const booking = makeBooking({ submitted: true, selectable: false, submissionNo: 'SUB-20260801-001' });
     render(
-      <SubmissionListTable
-        bookings={[booking]}
+      <SubmissionClubGroupList
+        bookings={twoClubs}
         selection={new Set()}
         onToggleSelect={vi.fn()}
-        onToggleAll={vi.fn()}
+        onToggleMany={vi.fn()}
         onShowDetail={onShowDetail}
       />,
     );
 
-    expect(screen.getByText('합주부')).toBeInTheDocument();
-    expect(screen.getByText('2026-08-01')).toBeInTheDocument();
-    expect(screen.getByText('18:00~21:00')).toBeInTheDocument();
-    expect(screen.getByText('홍길동')).toBeInTheDocument();
+    expect(screen.getAllByText(/08-01\(토\)/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/18:00~21:00/).length).toBeGreaterThan(0);
     expect(screen.getByText('SUB-20260801-001')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '상세' }));
-    expect(onShowDetail).toHaveBeenCalledWith(booking);
+
+    const bandGroup = screen.getByRole('group', { name: /밴드부/ });
+    fireEvent.click(within(bandGroup).getAllByRole('button', { name: '상세' })[0]!);
+    expect(onShowDetail).toHaveBeenCalledWith(twoClubs[0]);
   });
 });
 ```
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd frontend && pnpm --filter @duing/web test -- submission-list-table`
+Run: `cd frontend && pnpm --filter @duing/web test -- submission-club-group-list`
 Expected: FAIL
 
 - [ ] **Step 3: 구현**
 
+`submissionGroups.ts`:
+
+```ts
+import type { SubmissionCandidateBooking } from '@duing/types';
+
+export type SubmissionClubGroup = {
+  clubId: number;
+  clubName: string | null;
+  bookings: SubmissionCandidateBooking[];
+};
+
+/**
+ * 동아리별 그룹핑(스펙 v2 §7.1) — 월간 제출 업무의 기본 화면 단위.
+ * 동아리명 오름차순(null 은 마지막), 그룹 내 날짜→시간→id 정렬.
+ */
+export function buildClubGroups(bookings: SubmissionCandidateBooking[]): SubmissionClubGroup[] {
+  const byClub = new Map<number, SubmissionCandidateBooking[]>();
+  for (const booking of bookings) {
+    const clubBookings = byClub.get(booking.clubId) ?? [];
+    clubBookings.push(booking);
+    byClub.set(booking.clubId, clubBookings);
+  }
+  return [...byClub.entries()]
+    .map(([clubId, clubBookings]) => ({
+      clubId,
+      clubName: clubBookings[0]?.clubName ?? null,
+      bookings: [...clubBookings].sort(
+        (left, right) =>
+          left.reservationDate.localeCompare(right.reservationDate) ||
+          left.startTime.localeCompare(right.startTime) ||
+          left.bookingId - right.bookingId,
+      ),
+    }))
+    .sort((left, right) => {
+      if (left.clubName === null) return 1;
+      if (right.clubName === null) return -1;
+      return left.clubName.localeCompare(right.clubName, 'ko');
+    });
+}
+```
+
+`SubmissionClubGroupList.tsx`:
+
 ```tsx
 'use client';
 
+import { useState } from 'react';
 import type { SubmissionCandidateBooking } from '@duing/types';
 import { submissionBlockVisual } from '../_lib/submissionTimetable';
+import { buildClubGroups } from '../_lib/submissionGroups';
 
 const STATUS_LABELS: Record<SubmissionCandidateBooking['status'], string> = {
   PENDING: '승인 대기',
@@ -962,109 +632,133 @@ const STATUS_LABELS: Record<SubmissionCandidateBooking['status'], string> = {
   CANCELLED: '취소됨',
 };
 
+const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+/** '2026-08-01' → '08-01(토)' — 로컬 자정 파싱(타임존 어긋남 방지). */
+function formatDateWithWeekday(dateIso: string): string {
+  const weekday = WEEKDAY_LABELS[new Date(`${dateIso}T00:00:00`).getDay()];
+  return `${dateIso.slice(5)}(${weekday})`;
+}
+
 type Props = {
   bookings: SubmissionCandidateBooking[];
   selection: ReadonlySet<number>;
   onToggleSelect: (bookingId: number) => void;
-  onToggleAll: (nextSelected: boolean) => void;
+  onToggleMany: (bookingIds: number[], nextSelected: boolean) => void;
   onShowDetail: (booking: SubmissionCandidateBooking) => void;
 };
 
-/** 목록 보기(스펙 §7) — 시간표와 동일 데이터·동일 선택 상태. admin 첫 select-all/indeterminate 테이블. */
-export function SubmissionListTable({ bookings, selection, onToggleSelect, onToggleAll, onShowDetail }: Props) {
-  const selectableIds = bookings.filter((booking) => booking.selectable).map((booking) => booking.bookingId);
-  const selectedCount = selectableIds.filter((bookingId) => selection.has(bookingId)).length;
-  const allSelected = selectableIds.length > 0 && selectedCount === selectableIds.length;
+/**
+ * 동아리별 그룹 목록(Accordion, 스펙 v2 §7.1) — 월간 제출 업무의 기본 뷰.
+ * 그룹 헤더: 접기/펼치기(기본 펼침) + 동아리 단위 일괄 선택. 행: selectable 만 체크 가능.
+ */
+export function SubmissionClubGroupList({ bookings, selection, onToggleSelect, onToggleMany, onShowDetail }: Props) {
+  const [collapsedClubIds, setCollapsedClubIds] = useState<ReadonlySet<number>>(new Set());
+  const groups = buildClubGroups(bookings);
+
+  const toggleCollapsed = (clubId: number) =>
+    setCollapsedClubIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(clubId)) next.delete(clubId);
+      else next.add(clubId);
+      return next;
+    });
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[860px] text-left text-sm">
-        <thead>
-          <tr className="border-b border-line text-xs text-charcoal-3">
-            <th className="w-10 px-2 py-2">
+    <ul className="space-y-2">
+      {groups.map((group) => {
+        const clubLabel = group.clubName ?? `동아리 ${group.clubId}`;
+        const selectableIds = group.bookings
+          .filter((booking) => booking.selectable)
+          .map((booking) => booking.bookingId);
+        const selectedCount = selectableIds.filter((bookingId) => selection.has(bookingId)).length;
+        const allSelected = selectableIds.length > 0 && selectedCount === selectableIds.length;
+        const expanded = !collapsedClubIds.has(group.clubId);
+        return (
+          <li key={group.clubId} role="group" aria-label={clubLabel} className="rounded-xl border border-line bg-paper">
+            <div className="flex items-center gap-2 px-3 py-2">
               <input
                 type="checkbox"
-                aria-label="선택 가능한 예약 전체 선택"
+                aria-label={`${clubLabel} 전체 선택`}
                 disabled={selectableIds.length === 0}
                 checked={allSelected}
                 ref={(element) => {
                   if (element !== null) element.indeterminate = selectedCount > 0 && !allSelected;
                 }}
-                onChange={() => onToggleAll(!allSelected)}
+                onChange={() => onToggleMany(selectableIds, !allSelected)}
               />
-            </th>
-            <th className="px-2 py-2">예약일</th>
-            <th className="px-2 py-2">시간</th>
-            <th className="px-2 py-2">동아리</th>
-            <th className="px-2 py-2">신청자</th>
-            <th className="px-2 py-2">사용목적</th>
-            <th className="px-2 py-2">인원</th>
-            <th className="px-2 py-2">승인일</th>
-            <th className="px-2 py-2">상태</th>
-            <th className="w-14 px-2 py-2" aria-hidden />
-          </tr>
-        </thead>
-        <tbody>
-          {bookings.map((booking) => {
-            const visual = submissionBlockVisual(booking);
-            return (
-              <tr key={booking.bookingId} className="border-b border-line/60">
-                <td className="px-2 py-2">
-                  <input
-                    type="checkbox"
-                    aria-label={`${booking.clubName ?? '동아리'} ${booking.reservationDate} 선택`}
-                    disabled={!booking.selectable}
-                    checked={selection.has(booking.bookingId)}
-                    onChange={() => onToggleSelect(booking.bookingId)}
-                  />
-                </td>
-                <td className="px-2 py-2 font-mono text-xs">{booking.reservationDate}</td>
-                <td className="px-2 py-2 font-mono text-xs">{booking.startTime}~{booking.endTime}</td>
-                <td className="px-2 py-2 font-medium text-ink-deep">{booking.clubName ?? '-'}</td>
-                <td className="px-2 py-2">{booking.applicantName ?? '-'}</td>
-                <td className="max-w-40 truncate px-2 py-2">{booking.purpose}</td>
-                <td className="px-2 py-2 tabular-nums">{booking.attendeeCount ?? '-'}</td>
-                <td className="px-2 py-2 font-mono text-xs">
-                  {booking.decidedAt !== null ? booking.decidedAt.slice(0, 10) : '-'}
-                </td>
-                <td className="px-2 py-2">
-                  <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${visual.container}`}>
-                    <span className={visual.nameClass}>{STATUS_LABELS[booking.status]}</span>
-                  </span>
-                  {booking.submitted && booking.submissionNo !== null && (
-                    <span className="ml-1 font-mono text-[10px] text-charcoal-3">{booking.submissionNo}</span>
-                  )}
-                </td>
-                <td className="px-2 py-2">
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => onShowDetail(booking)}>
-                    상세
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+              <button
+                type="button"
+                aria-expanded={expanded}
+                onClick={() => toggleCollapsed(group.clubId)}
+                className="flex flex-1 items-center gap-2 text-left"
+              >
+                <span aria-hidden className="text-xs text-charcoal-3">{expanded ? '▼' : '▶'}</span>
+                <span className="font-medium text-ink-deep">{clubLabel}</span>
+                <span className="text-xs text-charcoal-3">
+                  {group.bookings.length}건{selectedCount > 0 ? ` · 선택 ${selectedCount}` : ''}
+                </span>
+              </button>
+            </div>
+            {expanded && (
+              <ul className="border-t border-line/60">
+                {group.bookings.map((booking) => {
+                  const visual = submissionBlockVisual(booking);
+                  return (
+                    <li key={booking.bookingId} className="flex flex-wrap items-center gap-2 border-b border-line/40 px-3 py-2 text-sm last:border-b-0">
+                      <input
+                        type="checkbox"
+                        aria-label={`${clubLabel} ${booking.reservationDate} 선택`}
+                        disabled={!booking.selectable}
+                        checked={selection.has(booking.bookingId)}
+                        onChange={() => onToggleSelect(booking.bookingId)}
+                      />
+                      <span className="font-mono text-xs text-charcoal">{formatDateWithWeekday(booking.reservationDate)}</span>
+                      <span className="font-mono text-xs text-charcoal">{booking.startTime}~{booking.endTime}</span>
+                      <span className="max-w-40 truncate text-charcoal-2">{booking.purpose}</span>
+                      <span className="tabular-nums text-xs text-charcoal-3">
+                        {booking.attendeeCount !== null ? `${booking.attendeeCount}명` : '-'}
+                      </span>
+                      <span className="font-mono text-[10px] text-charcoal-3">
+                        승인 {booking.decidedAt !== null ? booking.decidedAt.slice(0, 10) : '-'}
+                      </span>
+                      <span className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${visual.container}`}>
+                        <span className={visual.nameClass}>{STATUS_LABELS[booking.status]}</span>
+                      </span>
+                      {booking.submitted && booking.submissionNo !== null && (
+                        <span className="font-mono text-[10px] text-charcoal-3">{booking.submissionNo}</span>
+                      )}
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => onShowDetail(booking)}>
+                        상세
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 ```
 
 - [ ] **Step 4: 통과 확인**
 
-Run: `cd frontend && pnpm --filter @duing/web test -- submission-list-table`
-Expected: PASS (4/4)
+Run: `cd frontend && pnpm --filter @duing/web test -- submission-club-group-list`
+Expected: PASS (8/8)
 
 - [ ] **Step 5: 커밋**
 
 ```bash
 git add frontend/apps/web/app/admin/facility-bookings/submission frontend/apps/web/test/admin/facility-submission
-git commit -m "feat(frontend): 학교 제출 목록 뷰·체크박스 다중 선택 구현"
+git commit -m "feat(frontend): 학교 제출 동아리별 그룹 목록 구현"
 ```
 
 ---
 
-### Task 5: Summary 카드 + 페이지 조립(탭 셸·필터·뷰 토글) + 메뉴 추가
+### Task 5: Summary 카드(v2 라벨) + 페이지 조립(검색·제출 여부 필터·탭 셸) + 메뉴 추가
 
 **Files:**
 - Create: `frontend/apps/web/app/admin/facility-bookings/submission/_components/SubmissionSummaryCards.tsx`
@@ -1074,12 +768,11 @@ git commit -m "feat(frontend): 학교 제출 목록 뷰·체크박스 다중 선
 - Test: `frontend/apps/web/test/admin/facility-submission/admin-submission-page.test.tsx`
 
 **Interfaces:**
-- Consumes: Task 1 훅·타입, Task 3 `SubmissionTimetable`/`SubmissionDetailSheet`, Task 4 `SubmissionListTable`
-- Produces(Task 6 소비): `AdminSubmissionPage` 내부의 선택 상태(`selection`)·`selectableIdSet`·액션 바(생성 버튼 자리) — Task 6 이 이 파일에 Dialog·생성 플로우를 잇는다
+- Consumes: Task 1 훅·타입, Task 3 `SubmissionTimetable`/`SubmissionDetailSheet`, Task 4 `SubmissionClubGroupList`/`onToggleMany`
+- Produces(Task 6 소비): 페이지의 `selection`/`selectedIds`/`dialogOpen`/`handleCreateConfirm` — Task 6 이 Dialog 를 잇는다
+- 필터 모델(v2): 단일 `SummaryFilter = 'ALL' | 'APPROVED' | 'NEED' | 'SUBMITTED' | 'CONFIRMED'`. 제출 여부 셀렉트는 그중 3값(전체=ALL/제출 필요=NEED/제출함=SUBMITTED)만 조작하고, 카드 4장은 전부 조작(제출 필요·제출함 카드=셀렉트와 동일 상태). 필터가 APPROVED/CONFIRMED 일 때 셀렉트 표시값은 '전체'(셀렉트는 제출 여부 축만 표현)
 
 - [ ] **Step 1: 실패하는 페이지 테스트 작성**
-
-훅 모듈 모킹 관례(`admin-bookings-page.test.tsx` 사이드 파일)를 따른다. Task 6 이 같은 파일에 플로우 테스트를 추가하므로 뮤테이션 훅도 미리 모킹해 둔다.
 
 ```tsx
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -1089,20 +782,15 @@ import type { SubmissionCandidatesResponse } from '@duing/types';
 const mockCandidatesQuery = vi.fn();
 const mockUsageQuery = vi.fn();
 const mockCreateMutation = vi.fn();
-const mockCsvMutation = vi.fn();
 const mockAddToast = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useSubmissionCandidatesQuery: (...args: unknown[]) => mockCandidatesQuery(...args),
   useFacilityUsageQuery: () => mockUsageQuery(),
   useCreateSubmissionBatchMutation: () => mockCreateMutation(),
-  useDownloadSubmissionCsvMutation: () => mockCsvMutation(),
 }));
 vi.mock('../../../app/_components/toast/ToastProvider', () => ({
   useToast: () => ({ addToast: mockAddToast }),
-}));
-vi.mock('../../../app/_lib/downloadFile', () => ({
-  downloadBlobFile: vi.fn(),
 }));
 
 import { AdminSubmissionPage } from '../../../app/admin/facility-bookings/submission/_pages/AdminSubmissionPage';
@@ -1112,13 +800,13 @@ function makeResponse(): SubmissionCandidatesResponse {
     summary: { approvedCount: 2, awaitingCount: 1, submittedCount: 1, confirmedCount: 1 },
     bookings: [
       {
-        bookingId: 1, clubId: 10, clubName: '합주부', applicantName: '홍길동', contactPhone: '010-1234-5678',
+        bookingId: 1, clubId: 10, clubName: '밴드부', applicantName: '홍길동', contactPhone: '010-1234-5678',
         reservationDate: '2026-08-01', startTime: '18:00', endTime: '21:00', purpose: '정기 합주',
         attendeeCount: 30, status: 'APPROVED', submitted: false, selectable: true,
         submissionNo: null, decidedByName: '관리자', decidedAt: '2026-07-20T10:00:00',
       },
       {
-        bookingId: 2, clubId: 11, clubName: '농구부', applicantName: '김철수', contactPhone: null,
+        bookingId: 2, clubId: 11, clubName: '방송국', applicantName: '김철수', contactPhone: null,
         reservationDate: '2026-08-02', startTime: '09:00', endTime: '10:00', purpose: '연습',
         attendeeCount: null, status: 'CONFIRMED', submitted: true, selectable: false,
         submissionNo: 'SUB-20260801-001', decidedByName: '관리자', decidedAt: '2026-07-20T10:00:00',
@@ -1137,13 +825,15 @@ describe('AdminSubmissionPage', () => {
     mockCandidatesQuery.mockReset();
     mockUsageQuery.mockReset();
     mockCreateMutation.mockReset();
-    mockCsvMutation.mockReset();
     mockAddToast.mockReset();
     mockUsageQuery.mockReturnValue({ data: { facilities: [{ id: 100, roomName: '커뮤니티룸(1)' }] } });
     mockCandidatesQuery.mockReturnValue(queryIdle);
     mockCreateMutation.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
-    mockCsvMutation.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
   });
+
+  function selectFacility() {
+    fireEvent.change(screen.getByLabelText('시설 선택'), { target: { value: '100' } });
+  }
 
   it('시설을 선택하기 전에는 안내가 보이고 후보 쿼리는 null 파라미터로 비활성이다', () => {
     render(<AdminSubmissionPage />);
@@ -1152,38 +842,61 @@ describe('AdminSubmissionPage', () => {
     expect(mockCandidatesQuery).toHaveBeenLastCalledWith(null);
   });
 
-  it('시설을 선택하면 기간(기본 이번 달)과 함께 후보를 조회하고 Summary 4카드를 보여준다', () => {
+  it('시설 선택 시 기간(기본 이번 달)과 함께 조회하고 v2 라벨의 Summary 4카드를 보여준다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<AdminSubmissionPage />);
 
-    fireEvent.change(screen.getByLabelText('시설 선택'), { target: { value: '100' } });
+    selectFacility();
 
-    const lastParams = mockCandidatesQuery.mock.calls.at(-1)?.[0] as { facilityId: number; startDate: string; endDate: string };
+    const lastParams = mockCandidatesQuery.mock.calls.at(-1)?.[0] as { facilityId: number; startDate: string };
     expect(lastParams.facilityId).toBe(100);
     expect(lastParams.startDate.endsWith('-01')).toBe(true);
     expect(screen.getByText('승인 완료')).toBeInTheDocument();
-    expect(screen.getByText('제출 대기')).toBeInTheDocument();
-    expect(screen.getByText('학교 제출 완료')).toBeInTheDocument();
+    expect(screen.getByText('제출 필요')).toBeInTheDocument();
+    expect(screen.getByText('제출함')).toBeInTheDocument();
     expect(screen.getByText('학교 등록 완료')).toBeInTheDocument();
   });
 
-  it('Summary 카드 클릭은 해당 분류로 목록을 필터링하고 재클릭 시 전체로 돌아온다', () => {
+  it('기본 뷰는 동아리 그룹 목록이고 시간표는 토글로 전환된다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<AdminSubmissionPage />);
-    fireEvent.change(screen.getByLabelText('시설 선택'), { target: { value: '100' } });
-    fireEvent.click(screen.getByRole('tab', { name: '목록 보기' }));
+    selectFacility();
 
-    fireEvent.click(screen.getByRole('button', { name: /학교 등록 완료/ }));
-    expect(screen.queryByText('합주부')).not.toBeInTheDocument();
-    expect(screen.getByText('농구부')).toBeInTheDocument();
+    // 기본 = 그룹 목록(그룹 헤더 존재)
+    expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /학교 등록 완료/ }));
-    expect(screen.getByText('합주부')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: '시간표' }));
+    expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
+  });
+
+  it('동아리명 부분 검색이 그룹 목록을 좁힌다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<AdminSubmissionPage />);
+    selectFacility();
+
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '방송' } });
+
+    expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
+  });
+
+  it('제출 여부 셀렉트(제출 필요/제출함)와 카드 클릭이 같은 필터를 조작한다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<AdminSubmissionPage />);
+    selectFacility();
+
+    fireEvent.change(screen.getByLabelText('제출 여부'), { target: { value: 'SUBMITTED' } });
+    expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
+
+    // 제출함 카드 재클릭 = 전체 복귀
+    fireEvent.click(screen.getByRole('button', { name: /제출함/ }));
+    expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
   });
 
   it('기간이 31일을 넘으면 조회하지 않고 안내를 보여준다', () => {
     render(<AdminSubmissionPage />);
-    fireEvent.change(screen.getByLabelText('시설 선택'), { target: { value: '100' } });
+    selectFacility();
     fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-08-01' } });
     fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-09-05' } });
 
@@ -1205,14 +918,14 @@ describe('AdminSubmissionPage', () => {
 Run: `cd frontend && pnpm --filter @duing/web test -- admin-submission-page`
 Expected: FAIL
 
-- [ ] **Step 3: SubmissionSummaryCards 구현**
+- [ ] **Step 3: SubmissionSummaryCards 구현 (v2 라벨)**
 
 ```tsx
 'use client';
 
 import type { SubmissionSummaryCounts } from '@duing/types';
 
-export type SummaryFilter = 'ALL' | 'APPROVED' | 'AWAITING' | 'SUBMITTED' | 'CONFIRMED';
+export type SummaryFilter = 'ALL' | 'APPROVED' | 'NEED' | 'SUBMITTED' | 'CONFIRMED';
 
 type Props = {
   counts: SubmissionSummaryCounts;
@@ -1220,12 +933,12 @@ type Props = {
   onSelectFilter: (filter: SummaryFilter) => void;
 };
 
-/** Summary 4카드(스펙 §7) — 클릭=필터 토글(재클릭 시 전체). BookingSummaryCards 의 aria-pressed 패턴. */
+/** Summary 4카드(스펙 v2 §7.1) — 운영자가 월간 현황을 숫자로 먼저 파악. 클릭=필터 토글(재클릭 시 전체). */
 export function SubmissionSummaryCards({ counts, activeFilter, onSelectFilter }: Props) {
   const cards: { filter: Exclude<SummaryFilter, 'ALL'>; label: string; value: number; sub: string }[] = [
     { filter: 'APPROVED', label: '승인 완료', value: counts.approvedCount, sub: '제출 여부 무관 APPROVED' },
-    { filter: 'AWAITING', label: '제출 대기', value: counts.awaitingCount, sub: '승인 완료 · 미제출' },
-    { filter: 'SUBMITTED', label: '학교 제출 완료', value: counts.submittedCount, sub: '활성 Batch 포함' },
+    { filter: 'NEED', label: '제출 필요', value: counts.awaitingCount, sub: '승인 완료 · Batch 미포함' },
+    { filter: 'SUBMITTED', label: '제출함', value: counts.submittedCount, sub: '활성 Batch 포함' },
     { filter: 'CONFIRMED', label: '학교 등록 완료', value: counts.confirmedCount, sub: '학교 시스템 등록됨' },
   ];
   return (
@@ -1259,28 +972,27 @@ export function SubmissionSummaryCards({ counts, activeFilter, onSelectFilter }:
 import { useState } from 'react';
 import {
   useCreateSubmissionBatchMutation,
-  useDownloadSubmissionCsvMutation,
   useFacilityUsageQuery,
   useSubmissionCandidatesQuery,
 } from '@duing/hooks';
 import type { SubmissionCandidateBooking, SubmissionCandidatesParams } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { useToast } from '@/app/_components/toast/ToastProvider';
-import { downloadBlobFile } from '@/app/_lib/downloadFile';
+import { SubmissionClubGroupList } from '../_components/SubmissionClubGroupList';
 import { SubmissionDetailSheet } from '../_components/SubmissionDetailSheet';
-import { SubmissionListTable } from '../_components/SubmissionListTable';
 import { SubmissionSummaryCards, type SummaryFilter } from '../_components/SubmissionSummaryCards';
 import { SubmissionTimetable } from '../_components/SubmissionTimetable';
 
 const MAX_PERIOD_DAYS = 31;
 
 type SubmissionTab = 'submit' | 'history';
-type ViewMode = 'timetable' | 'list';
+type ViewMode = 'list' | 'timetable';
+type SubmissionStatusFilter = 'ALL' | 'NEED' | 'SUBMITTED';
 
 const toIso = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-/** 기본 조회 기간 = 이번 달 1일~말일(≤31일이라 항상 유효). */
+/** 기본 조회 기간 = 이번 달 1일~말일(≤31일이라 항상 유효) — 월간 제출 업무 단위(스펙 v2). */
 function currentMonthRange(): { startDate: string; endDate: string } {
   const today = new Date();
   return {
@@ -1296,7 +1008,7 @@ function periodDayCount(startDate: string, endDate: string): number {
 
 function matchesFilter(booking: SubmissionCandidateBooking, filter: SummaryFilter): boolean {
   if (filter === 'APPROVED') return booking.status === 'APPROVED';
-  if (filter === 'AWAITING') return booking.selectable;
+  if (filter === 'NEED') return booking.selectable;
   if (filter === 'SUBMITTED') return booking.submitted;
   if (filter === 'CONFIRMED') return booking.status === 'CONFIRMED';
   return true;
@@ -1308,8 +1020,8 @@ export function AdminSubmissionPage() {
   const [facilityIdInput, setFacilityIdInput] = useState('');
   const [startDate, setStartDate] = useState(defaultRange.startDate);
   const [endDate, setEndDate] = useState(defaultRange.endDate);
-  const [clubIdInput, setClubIdInput] = useState('');
-  const [view, setView] = useState<ViewMode>('timetable');
+  const [clubKeyword, setClubKeyword] = useState('');
+  const [view, setView] = useState<ViewMode>('list');
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>('ALL');
   const [selection, setSelection] = useState<ReadonlySet<number>>(new Set());
   const [detailBooking, setDetailBooking] = useState<SubmissionCandidateBooking | null>(null);
@@ -1321,24 +1033,26 @@ export function AdminSubmissionPage() {
   const facilityName =
     (usageQuery.data?.facilities ?? []).find((facility) => facility.id === facilityId)?.roomName ?? '';
 
-  const periodInvalid =
-    endDate < startDate || periodDayCount(startDate, endDate) > MAX_PERIOD_DAYS;
+  const periodInvalid = endDate < startDate || periodDayCount(startDate, endDate) > MAX_PERIOD_DAYS;
   const candidatesParams: SubmissionCandidatesParams | null =
     facilityId !== undefined && !periodInvalid ? { facilityId, startDate, endDate } : null;
   const candidatesQuery = useSubmissionCandidatesQuery(candidatesParams);
   const createMutation = useCreateSubmissionBatchMutation();
-  const csvMutation = useDownloadSubmissionCsvMutation();
 
   const allBookings = candidatesQuery.data?.bookings ?? [];
-  const clubOptions = [...new Map(allBookings.map((booking) => [booking.clubId, booking.clubName])).entries()];
-  const clubId = clubIdInput === '' ? undefined : Number(clubIdInput);
-  // 동아리 필터는 클라이언트(단일 시설·31일 상한 소량) — 셀렉트 옵션이 필터에 따라 줄지 않도록 전체 응답에서 유도.
-  const clubBookings = clubId === undefined ? allBookings : allBookings.filter((booking) => booking.clubId === clubId);
-  const visibleBookings = clubBookings.filter((booking) => matchesFilter(booking, summaryFilter));
+  const keyword = clubKeyword.trim();
+  // 동아리명 부분 검색·제출 여부 필터는 클라이언트 가공(스펙 v2 — 단일 시설·31일 상한 소량).
+  const searchedBookings =
+    keyword === '' ? allBookings : allBookings.filter((booking) => (booking.clubName ?? '').includes(keyword));
+  const visibleBookings = searchedBookings.filter((booking) => matchesFilter(booking, summaryFilter));
   const selectableIdSet = new Set(
     visibleBookings.filter((booking) => booking.selectable).map((booking) => booking.bookingId),
   );
   const selectedIds = [...selection].filter((bookingId) => selectableIdSet.has(bookingId));
+
+  // 제출 여부 셀렉트는 필터의 3값(전체/제출 필요/제출함)만 표현 — 카드 확장값(APPROVED/CONFIRMED)일 땐 '전체' 표시.
+  const statusFilterValue: SubmissionStatusFilter =
+    summaryFilter === 'NEED' || summaryFilter === 'SUBMITTED' ? summaryFilter : 'ALL';
 
   const resetSelection = () => setSelection(new Set());
   const toggleSelect = (bookingId: number) =>
@@ -1348,25 +1062,27 @@ export function AdminSubmissionPage() {
       else next.add(bookingId);
       return next;
     });
-  const toggleAll = (nextSelected: boolean) =>
-    setSelection(nextSelected ? new Set(selectableIdSet) : new Set());
+  const toggleMany = (bookingIds: number[], nextSelected: boolean) =>
+    setSelection((previous) => {
+      const next = new Set(previous);
+      for (const bookingId of bookingIds) {
+        if (nextSelected) next.add(bookingId);
+        else next.delete(bookingId);
+      }
+      return next;
+    });
 
   const handleCreateConfirm = async (memo: string) => {
     if (selectedIds.length === 0) return;
     try {
-      const created = await createMutation.mutateAsync({
+      await createMutation.mutateAsync({
         bookingIds: selectedIds,
         memo: memo.trim() === '' ? undefined : memo.trim(),
       });
       setDialogOpen(false);
       resetSelection();
+      // v2: CSV 자동 다운로드 없음 — 토스트만. 다운로드는 Batch 상세(PR-4)에서 선택 수행.
       addToast('학교 제출 Batch가 생성되었습니다.');
-      try {
-        const csvBlob = await csvMutation.mutateAsync({ batchId: created.batchId });
-        downloadBlobFile(created.csvFileName, csvBlob);
-      } catch {
-        addToast('CSV 자동 다운로드에 실패했어요. 제출 이력에서 다시 받을 수 있어요.', { variant: 'error' });
-      }
     } catch (error) {
       addToast(submissionErrorMessage(error), { variant: 'error' });
     }
@@ -1376,7 +1092,7 @@ export function AdminSubmissionPage() {
     <section className="space-y-4">
       <div>
         <h1 className="font-display text-xl text-ink-deep">학교 제출</h1>
-        <p className="mt-1 text-sm text-charcoal-3">승인 완료된 예약을 모아 학교 행정실 제출 Batch 를 만들고 CSV 로 내려받습니다.</p>
+        <p className="mt-1 text-sm text-charcoal-3">승인 완료된 예약을 월간 단위로 취합해 학교 제출 대상을 관리합니다. 학교 제출 자체는 담당자가 직접 수행해요.</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="학교 제출 탭">
@@ -1424,19 +1140,26 @@ export function AdminSubmissionPage() {
               onChange={(event) => { setEndDate(event.target.value); resetSelection(); }}
               className="rounded-md border border-line bg-paper px-2 py-1 text-xs"
             />
-            <select
-              aria-label="동아리 필터"
+            <input
+              type="search" aria-label="동아리 검색" value={clubKeyword} placeholder="동아리 검색"
+              onChange={(event) => setClubKeyword(event.target.value)}
               className="rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
-              value={clubIdInput}
-              onChange={(event) => setClubIdInput(event.target.value)}
+            />
+            <select
+              aria-label="제출 여부"
+              className="rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
+              value={statusFilterValue}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setSummaryFilter(nextValue === 'NEED' || nextValue === 'SUBMITTED' ? nextValue : 'ALL');
+              }}
             >
-              <option value="">전체 동아리</option>
-              {clubOptions.map(([optionClubId, optionClubName]) => (
-                <option key={optionClubId} value={String(optionClubId)}>{optionClubName ?? `동아리 ${optionClubId}`}</option>
-              ))}
+              <option value="ALL">전체</option>
+              <option value="NEED">제출 필요</option>
+              <option value="SUBMITTED">제출함</option>
             </select>
             <div className="ml-auto flex items-center gap-2" role="tablist" aria-label="보기 전환">
-              {([['timetable', '시간표 보기'], ['list', '목록 보기']] as const).map(([mode, label]) => (
+              {([['list', '목록'], ['timetable', '시간표']] as const).map(([mode, label]) => (
                 <button
                   key={mode}
                   type="button"
@@ -1476,7 +1199,9 @@ export function AdminSubmissionPage() {
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
-                  onClick={() => toggleAll(!(selectableIdSet.size > 0 && selectedIds.length === selectableIdSet.size))}
+                  onClick={() =>
+                    toggleMany([...selectableIdSet], !(selectableIdSet.size > 0 && selectedIds.length === selectableIdSet.size))
+                  }
                 >
                   {selectableIdSet.size > 0 && selectedIds.length === selectableIdSet.size ? '전체 해제' : '전체 선택'}
                 </button>
@@ -1501,26 +1226,26 @@ export function AdminSubmissionPage() {
               )}
               {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length === 0 && (
                 <p className="text-sm text-charcoal-3">
-                  {summaryFilter !== 'ALL' || clubId !== undefined
+                  {summaryFilter !== 'ALL' || keyword !== ''
                     ? '필터 조건에 맞는 예약이 없어요.'
                     : '이 기간에 표시할 예약이 없어요.'}
                 </p>
               )}
               {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length > 0 && (
-                view === 'timetable' ? (
+                view === 'list' ? (
+                  <SubmissionClubGroupList
+                    bookings={visibleBookings}
+                    selection={selection}
+                    onToggleSelect={toggleSelect}
+                    onToggleMany={toggleMany}
+                    onShowDetail={setDetailBooking}
+                  />
+                ) : (
                   <SubmissionTimetable
                     bookings={visibleBookings}
                     facilityName={facilityName}
                     selection={selection}
                     onToggleSelect={toggleSelect}
-                    onShowDetail={setDetailBooking}
-                  />
-                ) : (
-                  <SubmissionListTable
-                    bookings={visibleBookings}
-                    selection={selection}
-                    onToggleSelect={toggleSelect}
-                    onToggleAll={toggleAll}
                     onShowDetail={setDetailBooking}
                   />
                 )
@@ -1543,9 +1268,9 @@ function submissionErrorMessage(error: unknown): string {
 }
 ```
 
-주의: Task 5 시점에는 `dialogOpen`·`handleCreateConfirm` 이 선언만 있고 Dialog 미연결(주석 표시) — Task 6 이 완성한다. 미사용 경고가 lint 를 깨면 Task 5 에서는 생성 버튼 `onClick` 을 그대로 두고 Dialog 자리 주석만 유지한다(빌드 게이트는 Task 6 이후 최종 확인).
+주의: Task 5 시점에는 `dialogOpen`·`handleCreateConfirm` 이 미연결(주석 자리) — lint 미사용 경고가 나면 생성 버튼 `onClick` 은 유지하고 Dialog 연결만 Task 6 으로 미룬다.
 
-`page.tsx` (사이드 파일 `admin/facility-bookings/page.tsx` 를 열어 export 형태·metadata 유무를 그대로 복제):
+`page.tsx` (사이드 파일 패턴 복제):
 
 ```tsx
 import { AdminSubmissionPage } from './_pages/AdminSubmissionPage';
@@ -1561,7 +1286,7 @@ export default function Page() {
   {
     href: '/admin/facility-bookings/submission',
     title: '학교 제출',
-    description: '승인 예약 학교 제출 Batch 생성·CSV 다운로드·이력 관리',
+    description: '승인 예약 월간 취합·제출 대상 관리·Batch 생성',
     group: '동아리',
   },
 ```
@@ -1569,18 +1294,18 @@ export default function Page() {
 - [ ] **Step 5: 통과 확인**
 
 Run: `cd frontend && pnpm --filter @duing/web test -- admin-submission-page`
-Expected: PASS (5/5)
+Expected: PASS (7/7)
 
 - [ ] **Step 6: 커밋**
 
 ```bash
 git add frontend/apps/web/app/admin frontend/apps/web/test/admin/facility-submission
-git commit -m "feat(frontend): 학교 제출 페이지 조립 — 탭·필터·Summary·뷰 전환"
+git commit -m "feat(frontend): 학교 제출 페이지 조립 — 검색·제출 여부 필터·그룹 목록 기본"
 ```
 
 ---
 
-### Task 6: Batch 생성 Dialog + CSV 자동 다운로드 플로우
+### Task 6: Batch 생성 Dialog (v2 — 자동 다운로드 없음)
 
 **Files:**
 - Create: `frontend/apps/web/app/admin/facility-bookings/submission/_components/BatchCreateDialog.tsx`
@@ -1588,30 +1313,22 @@ git commit -m "feat(frontend): 학교 제출 페이지 조립 — 탭·필터·S
 - Test: `frontend/apps/web/test/admin/facility-submission/admin-submission-page.test.tsx` (플로우 테스트 추가)
 
 **Interfaces:**
-- Consumes: Task 5 의 `dialogOpen`/`handleCreateConfirm`/`selectedIds`, Task 1 뮤테이션 훅·`downloadBlobFile`
+- Consumes: Task 5 의 `dialogOpen`/`handleCreateConfirm`/`selectedIds`, Task 1 `useCreateSubmissionBatchMutation`
 - Produces: `BatchCreateDialog({ open, selectedCount, pending, onClose, onConfirm })`
 
-- [ ] **Step 1: 실패하는 플로우 테스트 추가** (기존 페이지 테스트 파일에)
+- [ ] **Step 1: 실패하는 플로우 테스트 추가** (기존 페이지 테스트 파일에 — `waitFor` import 추가)
 
 ```tsx
-import { waitFor } from '@testing-library/react';
-import { downloadBlobFile } from '../../../app/_lib/downloadFile';
-
-  it('선택 후 생성 확인까지 진행하면 Batch 생성·토스트·CSV 자동 다운로드가 이어진다', async () => {
+  it('선택 후 생성 확인까지 진행하면 Batch 생성·성공 토스트로 끝난다(자동 다운로드 없음)', async () => {
     const createMutateAsync = vi.fn().mockResolvedValue({
       batchId: 7, submissionNo: 'SUB-20260801-002', csvFileName: 'facility-submission-SUB-20260801-002.csv',
     });
-    const csvBlob = new Blob(['csv'], { type: 'text/csv' });
-    const csvMutateAsync = vi.fn().mockResolvedValue(csvBlob);
     mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
-    mockCsvMutation.mockReturnValue({ mutateAsync: csvMutateAsync, isPending: false });
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<AdminSubmissionPage />);
-    fireEvent.change(screen.getByLabelText('시설 선택'), { target: { value: '100' } });
-    fireEvent.click(screen.getByRole('tab', { name: '목록 보기' }));
+    selectFacility();
 
-    // selectable 행(합주부) 선택 → 생성 버튼 → Dialog 확인
-    fireEvent.click(screen.getByRole('checkbox', { name: /합주부/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 선택/ }));
     fireEvent.click(screen.getByRole('button', { name: /제출 Batch 생성/ }));
     expect(screen.getByText(/총 1건의 예약을 하나의 학교 제출 Batch로 생성합니다/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('메모'), { target: { value: '8월 1차' } });
@@ -1620,26 +1337,24 @@ import { downloadBlobFile } from '../../../app/_lib/downloadFile';
     await waitFor(() => {
       expect(createMutateAsync).toHaveBeenCalledWith({ bookingIds: [1], memo: '8월 1차' });
       expect(mockAddToast).toHaveBeenCalledWith('학교 제출 Batch가 생성되었습니다.');
-      expect(csvMutateAsync).toHaveBeenCalledWith({ batchId: 7 });
-      expect(downloadBlobFile).toHaveBeenCalledWith('facility-submission-SUB-20260801-002.csv', csvBlob);
     });
+    // v2: 생성 직후 자동 다운로드 없음 — 다운로드는 상세(PR-4)에서 선택 수행
+    expect(mockAddToast).toHaveBeenCalledTimes(1);
   });
 
-  it('생성 실패(409) 시 에러 토스트를 띄우고 다이얼로그·선택을 유지한다', async () => {
+  it('생성 실패(409) 시 서버 메시지 에러 토스트를 띄운다', async () => {
     const createMutateAsync = vi.fn().mockRejectedValue(new Error('이미 제출된 예약이 포함되어 있습니다.'));
     mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<AdminSubmissionPage />);
-    fireEvent.change(screen.getByLabelText('시설 선택'), { target: { value: '100' } });
-    fireEvent.click(screen.getByRole('tab', { name: '목록 보기' }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /합주부/ }));
+    selectFacility();
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 선택/ }));
     fireEvent.click(screen.getByRole('button', { name: /제출 Batch 생성/ }));
     fireEvent.click(screen.getByRole('button', { name: '생성' }));
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('이미 제출된 예약이 포함되어 있습니다.', { variant: 'error' });
     });
-    expect(downloadBlobFile).not.toHaveBeenCalled();
   });
 ```
 
@@ -1674,7 +1389,7 @@ type Props = {
   onConfirm: (memo: string) => void;
 };
 
-/** Batch 생성 확인(스펙 §7) — 확인 문구 + 메모 입력. 생성 중에는 버튼 라벨 유지 + 스피너. */
+/** Batch 생성 확인(스펙 v2 §7.1) — 확인 문구 + 메모. 생성 중 버튼 라벨 유지 + 스피너. */
 export function BatchCreateDialog({ open, selectedCount, pending, onClose, onConfirm }: Props) {
   const [memo, setMemo] = useState('');
 
@@ -1714,30 +1429,30 @@ export function BatchCreateDialog({ open, selectedCount, pending, onClose, onCon
 }
 ```
 
-페이지 연결(`AdminSubmissionPage.tsx` 의 Task 6 주석 자리를 교체):
+페이지 연결(Task 6 주석 자리를 교체 + import 추가):
 
 ```tsx
           <BatchCreateDialog
             open={dialogOpen}
             selectedCount={selectedIds.length}
-            pending={createMutation.isPending || csvMutation.isPending}
+            pending={createMutation.isPending}
             onClose={() => setDialogOpen(false)}
             onConfirm={(memo) => void handleCreateConfirm(memo)}
           />
 ```
 
-(import 추가: `import { BatchCreateDialog } from '../_components/BatchCreateDialog';`. Dialog/Spinner 의 실제 export 명·className 버튼 체계는 기존 소비처(예: BookingActionDialog, MemberCsvDownloadPopover)를 열어 대조 후 맞춘다 — 다르면 그 파일 관례가 정본.)
+(Dialog/Spinner 의 실제 export 명·버튼 클래스는 기존 소비처(BookingActionDialog 등)와 대조 — 다르면 그 관례가 정본.)
 
 - [ ] **Step 4: 통과 확인**
 
 Run: `cd frontend && pnpm --filter @duing/web test -- admin-submission-page`
-Expected: PASS (7/7)
+Expected: PASS (9/9)
 
 - [ ] **Step 5: 커밋**
 
 ```bash
 git add frontend/apps/web/app/admin/facility-bookings/submission frontend/apps/web/test/admin/facility-submission
-git commit -m "feat(frontend): 제출 Batch 생성 다이얼로그·CSV 자동 다운로드 연결"
+git commit -m "feat(frontend): 제출 Batch 생성 다이얼로그 연결 — 토스트 완결"
 ```
 
 ---
@@ -1749,24 +1464,24 @@ git commit -m "feat(frontend): 제출 Batch 생성 다이얼로그·CSV 자동 �
 - [ ] **Step 1: 전체 게이트 실행**
 
 Run: `cd frontend && pnpm lint && pnpm typecheck && pnpm --filter @duing/web test && pnpm --filter @duing/web build`
-Expected: 4개 전부 성공 — 출력에서 성공 문구를 직접 확인(`| tail` 금지). build 는 로컬 prod 빌드 env 오버라이드 관례가 있으면 그에 따름(frontend/AGENTS.md 확인).
+Expected: 4개 전부 성공 — 성공 문구 직접 확인(`| tail` 금지). build 는 로컬 prod 빌드 env 오버라이드 관례 확인(frontend/AGENTS.md).
 
 - [ ] **Step 2: 실브라우저 QA (컨트롤러 체크포인트)**
 
-dev 서버(:3000)를 띄워 `/admin/facility-bookings/submission` 에서 확인 — jsdom 이 못 잡는 항목:
-1. 시간표 hover 툴팁 위치·잘림(overflow 컨테이너 경계), 날짜 열 sticky 동작
-2. colSpan 병합 블록 시각(선택 토글 시 ink 반전), 모바일 뷰포트 가로 스크롤
-3. 생성→CSV 파일 실다운로드(BOM 포함 Excel 열기)
-4. Sheet 상세·Dialog 오버레이(`.duing` bg-cream 함정 — 고정 오버레이에 크림 띠 생기면 bg-transparent 처리)
+dev 서버(:3000)에서 `/admin/facility-bookings/submission` 확인 — jsdom 사각지대:
+1. 그룹 아코디언 접기/펼치기·동아리 일괄 선택·indeterminate 표시
+2. 동아리 검색·제출 여부 필터·카드 클릭 연동(같은 상태 공유)
+3. 시간표 토글 — hover 툴팁 위치·잘림, 날짜 열 sticky, 선택 토글 ink 반전, 모바일 가로 스크롤
+4. 생성 Dialog·Sheet 오버레이(`.duing` bg-cream 함정 — 크림 띠 발생 시 bg-transparent)
+5. 생성 후 토스트만 뜨고 다운로드가 일어나지 않는 것(v2 계약)
 
-QA 종료 후 dev 서버 프로세스 정리(부모→워커→포트 순 kill).
+QA 종료 후 dev 서버 정리(부모→워커→포트 순 kill).
 
 - [ ] **Step 3: 마무리 self-check**
 
-1. 스펙 §7 항목 커버(시설 선택·Summary 4카드 클릭 필터·이원 뷰·블록 3정보·툴팁·Drawer·선택 모델·생성 플로우·Skeleton/로딩·Empty·반응형) — 이력·상세 화면은 PR-3 범위
+1. 스펙 v2 §7.1 전 항목 커버(시설 게이트·기간·검색·제출 여부 필터·카드 4장 v2 라벨·그룹 목록 기본·시간표 보조·선택 모델·생성 플로우 토스트 완결·로딩/에러/Empty·반응형) — 이력·상세·완료 처리는 PR-3/4
 2. `any`/`as`/인터페이스/직접 fetch/useEffect 패칭 없음
-3. 커밋 메시지 규칙·attribution 없음
-4. 절대 미래 날짜 없음
+3. 커밋 메시지 규칙·attribution 없음, 절대 미래 날짜 없음(순수 픽스처 제외)
 
 - [ ] **Step 4: 커밋 (수정 발생 시에만)**
 
