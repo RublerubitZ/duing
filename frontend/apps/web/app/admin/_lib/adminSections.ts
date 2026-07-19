@@ -49,6 +49,12 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     group: '커뮤니티 운영',
   },
   {
+    href: '/admin/users',
+    title: '회원 관리',
+    description: '회원 검색과 강제 로그아웃 등 계정 조치를 처리합니다.',
+    group: '커뮤니티 운영',
+  },
+  {
     href: '/admin/leader-succession',
     title: '회장 승계',
     description: 'OFFICER 의 회장 승계 요청 검토 및 처리',

@@ -519,6 +519,7 @@ export type DuingApiClient = {
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
+      forceLogout(userId: number): Promise<void>;
     };
     notices: {
       list(params: {
@@ -1366,6 +1367,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
               timeout: REQUEST_TIMEOUT_MS.search,
             }),
           ),
+        forceLogout: (userId) => jsonVoid(http.post(`admin/users/${userId}/force-logout`)),
       },
       notices: {
         list: (params) => {
