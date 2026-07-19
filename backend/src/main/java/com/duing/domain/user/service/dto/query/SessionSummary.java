@@ -9,6 +9,5 @@ public record SessionSummary(
         SessionPlatform platform,
         String deviceLabel,
         LocalDateTime lastUsedAt,
-        LocalDateTime createdAt,
         boolean current
 ) {}

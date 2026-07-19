@@ -8,7 +8,6 @@ public record MySessionResponse(
         String platform,
         String deviceLabel,
         LocalDateTime lastUsedAt,
-        LocalDateTime createdAt,
         boolean current
 ) {
     public static MySessionResponse from(SessionSummary sessionSummary) {
@@ -17,7 +16,6 @@ public record MySessionResponse(
                 sessionSummary.platform().name(),
                 sessionSummary.deviceLabel(),
                 sessionSummary.lastUsedAt(),
-                sessionSummary.createdAt(),
                 sessionSummary.current());
     }
 }

@@ -45,7 +45,6 @@ const SESSIONS: MySession[] = [
     platform: 'WEB',
     deviceLabel: 'Chrome · macOS',
     lastUsedAt: '2026-07-18T14:30:00',
-    createdAt: '2026-07-10T09:00:00',
     current: true,
   },
   {
@@ -53,7 +52,6 @@ const SESSIONS: MySession[] = [
     platform: 'IOS',
     deviceLabel: 'iPhone 15',
     lastUsedAt: '2026-07-17T20:00:00',
-    createdAt: '2026-07-01T09:00:00',
     current: false,
   },
 ];
@@ -155,7 +153,6 @@ describe('SessionListCard', () => {
         platform: 'UNKNOWN',
         deviceLabel: null,
         lastUsedAt: '2026-07-18T14:30:00',
-        createdAt: '2026-07-10T09:00:00',
         current: true,
       },
     ]);

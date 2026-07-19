@@ -19,7 +19,6 @@ const SESSION_FIXTURE: MySession[] = [
     platform: 'WEB',
     deviceLabel: 'Chrome · macOS',
     lastUsedAt: '2026-07-19T10:00:00',
-    createdAt: '2026-07-01T09:00:00',
     current: true,
   },
   {
@@ -27,7 +26,6 @@ const SESSION_FIXTURE: MySession[] = [
     platform: 'IOS',
     deviceLabel: 'iPhone 15',
     lastUsedAt: '2026-07-18T22:00:00',
-    createdAt: '2026-06-20T08:00:00',
     current: false,
   },
 ];
