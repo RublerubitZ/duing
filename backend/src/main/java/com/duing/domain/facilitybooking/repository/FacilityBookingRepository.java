@@ -2,6 +2,7 @@ package com.duing.domain.facilitybooking.repository;
 
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -9,6 +10,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -69,4 +71,9 @@ public interface FacilityBookingRepository
 
     /** 가장 오래된 PENDING — createdAt 최소(최고령). 승인 대기 경과일 계산용(§9.7). */
     Optional<FacilityBooking> findFirstByStatusOrderByCreatedAtAsc(BookingStatus status);
+
+    /** 학교 제출 생성의 중복 방지 직렬화(제출 스펙 §4) — ID 오름차순 잠금으로 상호 데드락을 차단한다. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM FacilityBooking b WHERE b.id IN :bookingIds ORDER BY b.id ASC")
+    List<FacilityBooking> findAllByIdForUpdate(@Param("bookingIds") Collection<Long> bookingIds);
 }
