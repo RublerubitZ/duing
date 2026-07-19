@@ -13,10 +13,22 @@
 Batch 취소 시 booking 은 건드리지 않는다 — item 이 비활성화되며 자연히 제출 대기로 복귀한다
 (이미 CONFIRMED 된 booking 은 후보 조건에 안 걸리므로 복귀하지 않음 — 의도된 동작).
 
+### Scope — 현재 구현 / 향후 확장
+
+**현재 구현**
+- CSV Export
+
+**향후 확장 (별도 스펙으로 진행, 이번 구현 없음)**
+- HWP 신청서 생성
+- PDF Export
+- 학교 담당자 메일 발송
+- 학교 시스템 연동
+
+이번 구현 범위는 CSV 뿐이지만, Export 계층(§6)은 HWP/PDF 까지 Writer 추가만으로 확장 가능한 구조로 설계한다.
+
 ### Out of Scope
 
-- PDF/Excel/공문 출력 (Export 계층만 확장 가능하게 설계, 구현은 CSV 만)
-- 학교 시스템 자동 등록 연동, 제출 후 CONFIRMED 자동 전환
+- 제출 후 CONFIRMED 자동 전환
 - 알림(제출/취소 알림) 연동
 - REJECTED 예약의 시간표 표시 (운영 노이즈 — 후보 응답에서 제외)
 - RN 앱 화면
@@ -164,8 +176,18 @@ CSV 생성을 Controller/도메인 Service 에 넣지 않고 별도 계층으로
 
 - `service/export/SubmissionExportService` — 진입점. `export(batchId, ExportFormat.CSV) → ExportFile(fileName, contentType, byte[])`
 - `service/export/SubmissionExportDataAssembler` — Batch+booking+시설/동아리/유저 이름을 모아 포맷 중립 `SubmissionExportData` 조립
-- `service/export/CsvSubmissionWriter` — `SubmissionExportData → byte[]`. 새 포맷 = Writer 1개 추가 + ExportFormat enum 값 추가
+- `service/export/CsvSubmissionWriter` — `SubmissionExportData → byte[]`
 - `ExportFormat` enum: 현재 `CSV` 하나
+
+```
+SubmissionExportService
+├ CsvSubmissionWriter  (현재 구현)
+├ HwpSubmissionWriter  (Future — 학교 제공 신청서 템플릿)
+└ PdfSubmissionWriter  (Future)
+```
+
+CSV 는 첫 번째 Writer 구현체다. 새 포맷은 **Writer 1개 + ExportFormat enum 값 추가**만으로 수용한다
+(Service·Assembler 는 무변경 — 데이터 조립이 포맷 중립이므로). 실제 HWP/PDF 구현은 이번 스펙에서 하지 않는다.
 
 ### CSV 명세
 
@@ -205,7 +227,8 @@ CSV 생성을 Controller/도메인 Service 에 넣지 않고 별도 계층으로
 
 ### Batch 상세 페이지
 
-상단 헤더(제출번호·시설명·건수·제출자·제출일·메모·취소됨 배지) + 시간표 View 와 목록 View **동시 표시**(제출 내용 직관 확인). 읽기 전용(선택 없음) — `SubmissionTimetable` 을 selection 비활성 모드로 재사용. CSV 재다운로드·제출 취소 버튼.
+상단 헤더(제출번호·시설명·건수·제출자·제출일·메모·취소됨 배지) + 시간표 View 와 목록 View **동시 표시**(제출 내용 직관 확인). 읽기 전용(선택 없음) — `SubmissionTimetable` 을 selection 비활성 모드로 재사용. Action: CSV 재다운로드·제출 취소.
+Future Action(이번 구현 없음): HWP 생성·학교 메일 발송 — 상세 화면 Action 영역에 버튼이 추가되는 형태로 확장 예정.
 
 ### API 클라이언트·훅
 
@@ -250,3 +273,17 @@ CSV 생성을 Controller/도메인 Service 에 넣지 않고 별도 계층으로
 1. **PR-1 (BE)**: V87 + facilitysubmission 도메인 전체(API 6종·Export 계층·audit) + 테스트
 2. **PR-2 (FE)**: 학교 제출 페이지 — 탭 셸 + 제출 대기 탭(시설선택·Summary·시간표/목록·선택·Batch 생성·CSV 자동 다운로드) + 메뉴 추가. 이력 탭 자리는 "준비 중" 플레이스홀더
 3. **PR-3 (FE)**: 제출 이력 탭 실장 + Batch 상세 페이지(재다운로드·취소)
+
+## 11. Future Roadmap
+
+Submission Batch 는 단순 CSV 출력 기능이 아니라 **학교 제출 업무 자동화를 위한 기반 도메인**이다.
+향후 다음 기능을 각각 별도 스펙으로 구현한다.
+
+- 학교 제공 HWP 신청서 템플릿 자동 생성
+- PDF Export
+- 학교 담당자 이메일 자동 발송
+- 발송 이력 관리
+- 학교 행정 시스템 연동(선택)
+
+본 스펙에서는 이를 구현하지 않으며, Submission Batch 도메인과 Export 계층이
+해당 기능을 수용할 수 있는 구조만 제공한다(포맷 중립 ExportData·Writer 확장·append-only audit).
