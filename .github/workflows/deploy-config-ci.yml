@@ -1,0 +1,45 @@
+# 배포 설정 사전 검증 — deploy/ 의 docker-compose.yml·Caddyfile 이 바뀔 때, 서버로 반영되기 전에
+# CI 에서 문법을 검증한다. deploy-backend.yml 이 이 파일들을 main 푸시 시 서버로 복사하므로,
+# 오설정이 서버까지 도달하지 못하도록 여기서 먼저 막는다(서버측 2차 검증은 deploy-backend.yml 에도 있음).
+
+name: Deploy Config CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'deploy/**'
+      - '.github/workflows/deploy-config-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'deploy/**'
+      - '.github/workflows/deploy-config-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate compose & Caddyfile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - name: Validate docker-compose.yml
+        # 서버의 운영 .env 는 CI 에 없으므로, 파일 문법 검증에 필요한 최소 더미값만 주입한다.
+        #  - BACKEND_IMAGE: compose 가 참조하는 유일한 보간 변수(빈 값이면 image 미지정 오류)
+        #  - deploy/.env: env_file 로 지정돼 존재해야 하므로 빈 파일로 대체(값 검증이 아니라 문법 검증이 목적)
+        env:
+          BACKEND_IMAGE: ghcr.io/rublerubitz/duing-backend:ci-validate
+        run: |
+          touch deploy/.env
+          docker compose -f deploy/docker-compose.yml config --quiet
+
+      - name: Validate Caddyfile
+        # caddy 이미지 태그는 deploy/docker-compose.yml 의 caddy 서비스와 동일 버전을 유지해야 한다(현재 caddy:2-alpine).
+        run: |
+          docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
