@@ -31,7 +31,9 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
   }
 
   return (
-    <div className="overflow-x-auto">
+    // pb-24: 스크롤 클립 박스 안에 툴팁(아래 표시, 약 6rem) 자리를 예약 — overflow-x-auto 는 y 클리핑도
+    // 강제하므로 위/아래로 벗어나는 툴팁은 잘린다(실브라우저 QA 실측). 아래 고정 + 하단 패딩이 전 행 커버.
+    <div className="overflow-x-auto pb-24">
       <table className="w-full min-w-[720px] table-fixed border-separate border-spacing-0 text-center">
         <thead>
           <tr>
@@ -97,7 +99,7 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
                       {/* hover 툴팁 — jsdom 은 hover 를 못 내므로 내용 존재만 테스트(실브라우저 QA 로 위치 검증). */}
                       <div
                         role="presentation"
-                        className="pointer-events-none absolute bottom-full left-0 z-20 mb-1 hidden w-56 rounded-md border border-line bg-paper p-2 text-left text-[11px] leading-relaxed text-charcoal shadow-md group-hover:block"
+                        className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-56 rounded-md border border-line bg-paper p-2 text-left text-[11px] leading-relaxed text-charcoal shadow-md group-hover:block"
                       >
                         {/* 블록에 이미 보이는 동아리명·시간·목적은 생략하고, 툴팁은 추가 정보(신청자·연락처·승인)만 — 스펙 §7.1. */}
                         <p className="font-bold text-ink-deep">{facilityName} · {booking.reservationDate}</p>
