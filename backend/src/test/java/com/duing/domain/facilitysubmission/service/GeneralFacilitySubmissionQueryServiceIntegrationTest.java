@@ -1,6 +1,7 @@
 package com.duing.domain.facilitysubmission.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.IntegrationTestBase;
@@ -15,9 +16,9 @@ import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
+import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException;
 import com.duing.domain.facilitysubmission.service.dto.command.CreateSubmissionBatchCommand;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
-import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidateBooking;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesQuery;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesResult;
@@ -184,5 +185,53 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
         assertThatThrownBy(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
                 facility.getId(), baseDate, baseDate.minusDays(1), null)))
                 .isInstanceOf(FacilitySubmissionException.InvalidCandidatePeriodException.class);
+        assertThatCode(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
+                facility.getId(), baseDate, baseDate.plusDays(30), null)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("제출 후 관리자 취소된 예약은 목록에 CANCELLED 로 남고 제출됨으로 집계된다")
+    void cancelledAfterSubmissionStaysListedAsSubmitted() {
+        FacilityBooking booking = savedBooking(9, BookingStatus.APPROVED);
+        String submissionNo = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(booking.getId()), null),
+                new SubmissionActorContext(admin.getId(), "127.0.0.1", "JUnit")).submissionNo();
+        FacilityBooking reloaded = bookingRepository.findById(booking.getId()).orElseThrow();
+        reloaded.cancelByAdmin();
+        bookingRepository.save(reloaded);
+
+        SubmissionCandidatesResult result = queryService.getCandidates(periodQuery());
+
+        assertThat(result.bookings()).extracting(SubmissionCandidateBooking::bookingId)
+                .contains(booking.getId());
+        SubmissionCandidateBooking row = result.bookings().stream()
+                .filter(candidate -> candidate.bookingId().equals(booking.getId()))
+                .findFirst().orElseThrow();
+        assertThat(row.status()).isEqualTo(BookingStatus.CANCELLED);
+        assertThat(row.submitted()).isTrue();
+        assertThat(row.selectable()).isFalse();
+        assertThat(row.submissionNo()).isEqualTo(submissionNo);
+        assertThat(result.summary().submittedCount()).isEqualTo(1);
+        assertThat(result.summary().approvedCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("CONFLICT 상태 예약도 목록에 포함되고 선택은 불가하다")
+    void conflictBookingIsListedButNotSelectable() {
+        FacilityBooking booking = savedBooking(9, BookingStatus.APPROVED);
+        booking.markConflict("학교 중복");
+        bookingRepository.save(booking);
+
+        SubmissionCandidatesResult result = queryService.getCandidates(periodQuery());
+
+        assertThat(result.bookings()).extracting(SubmissionCandidateBooking::bookingId)
+                .contains(booking.getId());
+        SubmissionCandidateBooking row = result.bookings().stream()
+                .filter(candidate -> candidate.bookingId().equals(booking.getId()))
+                .findFirst().orElseThrow();
+        assertThat(row.status()).isEqualTo(BookingStatus.CONFLICT);
+        assertThat(row.submitted()).isFalse();
+        assertThat(row.selectable()).isFalse();
     }
 }

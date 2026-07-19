@@ -79,13 +79,14 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
                         bookings.stream().map(FacilityBooking::getId).toList()).stream()
                 .collect(Collectors.toMap(
                         FacilitySubmissionItemRepository.ActiveSubmissionProjection::getBookingId,
-                        FacilitySubmissionItemRepository.ActiveSubmissionProjection::getSubmissionNo));
+                        FacilitySubmissionItemRepository.ActiveSubmissionProjection::getSubmissionNo,
+                        (first, second) -> first));
     }
 
     private Map<Long, String> clubNames(List<FacilityBooking> bookings) {
         List<Long> clubIds = bookings.stream().map(FacilityBooking::getClubId).distinct().toList();
         return clubRepository.findAllById(clubIds).stream()
-                .collect(Collectors.toMap(Club::getId, Club::getName));
+                .collect(Collectors.toMap(Club::getId, Club::getName, (first, second) -> first));
     }
 
     private Map<Long, String> userNames(List<FacilityBooking> bookings) {
@@ -95,7 +96,7 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
                 .distinct()
                 .toList();
         return userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getName));
+                .collect(Collectors.toMap(User::getId, User::getName, (first, second) -> first));
     }
 
     private SubmissionCandidateBooking toCandidate(FacilityBooking booking,
