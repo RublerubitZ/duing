@@ -13,7 +13,7 @@ import org.springframework.data.repository.query.Param;
 public interface FacilitySubmissionSequenceRepository extends JpaRepository<FacilitySubmissionSequence, LocalDate> {
 
     /** 채번 행 선삽입(§3) — 이미 있으면 무시. 이후 행잠금 SELECT 가 반드시 행을 찾게 보장한다. */
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = "INSERT INTO facility_submission_seq (seq_date, next_value) VALUES (:seqDate, 1) "
             + "ON CONFLICT (seq_date) DO NOTHING", nativeQuery = true)
     void insertIfAbsent(@Param("seqDate") LocalDate seqDate);
