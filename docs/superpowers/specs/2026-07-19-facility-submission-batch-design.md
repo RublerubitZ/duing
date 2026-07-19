@@ -68,10 +68,14 @@ cancelled_at 은 soft delete 가 아니라 **비즈니스 상태**(`@SQLRestrict
 ALTER TABLE facility_submission_batch
     ADD COLUMN completed_at TIMESTAMP,
     ADD COLUMN completed_by BIGINT REFERENCES users (id);
+
+-- 사람이 읽는 감사 요약(§4.3) — auth_event.detail 전례(500 + 절단 내장)
+ALTER TABLE facility_submission_audit
+    ADD COLUMN detail VARCHAR(500);
 ```
 
 Batch 상태는 3종 파생: `completedAt != null` → 제출 완료 / `cancelledAt != null` → 취소 / 둘 다 null → 검토 중. **상호 배타**(§4.3 가드).
-`SubmissionAuditAction` 에 `COMPLETED` 추가(VARCHAR 20 내 — 스키마 무변경).
+`SubmissionAuditAction` 에 `COMPLETED` 추가. `FacilitySubmissionAudit` 엔티티에 `detail`(500, 절단 내장) 필드 추가 — 기존 4이벤트는 detail null 유지(하위호환).
 
 ## 3. submissionNo 채번 (불변 — 구현 완료)
 
@@ -97,9 +101,25 @@ PR-3 에서 batch 조회를 행잠금(`findByIdForUpdate`)으로 교체 — 완�
 2. item 의 bookingIds → `findAllByIdInForUpdate` 행잠금(정렬 — 생성과 동일 규칙)
 3. **best-effort 전이**: `status == APPROVED` 인 예약만 `confirmManually(now)` 방식으로 CONFIRMED 전이 + `FacilityBookingStatusHistory` 기록(reason `"학교 제출 완료 — {submissionNo}"`, changed_by=관리자) + `FacilityBookingConfirmedEvent` 발행(기존 이벤트 재사용). 그 외 상태(CANCELLED·CONFLICT·기CONFIRMED)는 **스킵하고 결과에 나열**
 3-근거. all-or-nothing 이면 검토 기간 중 한 건의 개별 취소·충돌 전이가 완료 처리를 영구 블록한다. 스킵 목록을 응답·감사로 투명하게 남기는 best-effort 가 운영 도구의 목적에 맞다. 기존 상태 머신과의 충돌 없음 — `confirmManually` 는 APPROVED 에서만 호출되고, 다른 상태는 전이 시도 자체를 하지 않는다.
-4. `batch.complete(adminId, now)` → audit `COMPLETED`(detail 에 스킵 요약 기록)
+4. `batch.complete(adminId, now)` → audit `COMPLETED` + **사람이 읽는 요약을 detail 에 기록**:
 
-**응답**: 200 `{ "confirmedCount": n, "skippedBookings": [ { "bookingId": 1, "status": "CANCELLED" } ] }`
+```
+학교 제출 완료 — 총 10건 / 등록 완료 8건 / 제외 2건: 예약 #123(취소됨), 예약 #531(충돌)
+```
+
+제외 사유는 상태의 한글 라벨(취소됨/충돌/이미 등록 완료)로 기록한다 — ID 나열이 아니라 "왜 제외됐는지"가 남는 게 목적.
+500자 초과 시 절단(절단 내장) — 요약 수치가 앞에 오므로 핵심 정보는 항상 보존된다. 제외 0건이면 `학교 제출 완료 — 총 8건 / 등록 완료 8건`.
+
+**응답**: 200 — 운영자가 한눈에 이해하도록 전체·스킵 건수 포함:
+
+```json
+{
+  "totalCount": 10,
+  "confirmedCount": 8,
+  "skippedCount": 2,
+  "skippedBookings": [ { "bookingId": 123, "status": "CANCELLED" } ]
+}
+```
 
 완료된 Batch: CSV 재다운로드 허용(운영 기록), 취소 불가, 이력·상세에 "제출 완료" 배지.
 candidates 파생 무영향 — submitted 판정은 `cancelledAt IS NULL` 만 보므로 완료 Batch 소속도 계속 "제출함"(포함 예약은 CONFIRMED 라 카드상 "학교 등록 완료"로 집계됨).
@@ -116,7 +136,7 @@ candidates 파생 무영향 — submitted 판정은 `cancelledAt IS NULL` 만 �
 | 5.4 GET `/{batchId}` | ✅ | 취소·완료 Batch 도 조회 가능. `{batch, bookings[]}`(멤버십 고정·status 현재값·활성 기준 재계산). audit `VIEWED`(쓰기 트랜잭션). **PR-3: batch 에 `completed`/`completedAt`, 응답에 `audits[]`(action·admin 이름·시각·IP) 추가** — 동아리별 그룹핑은 FE 가공 |
 | 5.5 GET `/{batchId}/csv` | ✅ | Excel 호환(BOM·CRLF·수식 가드). 취소·완료 Batch 도 허용. audit `CSV_DOWNLOADED` |
 | 5.6 DELETE `/{batchId}` | ✅ | 취소. 204 / 404 / 기취소 409. **PR-3: 기완료 409 가드 + 행잠금 추가** |
-| 5.7 POST `/{batchId}/complete` | 🆕 PR-3 | §4.3. 200 + 전이 결과. 404 / 기취소·기완료 409. audit `COMPLETED` |
+| 5.7 POST `/{batchId}/complete` | 🆕 PR-3 | §4.3. 200 `{totalCount, confirmedCount, skippedCount, skippedBookings[]}`. 404 / 기취소·기완료 409. audit `COMPLETED`+요약 detail |
 
 ## 6. Export — 선택 기능(업무 흐름의 일부가 아님)
 
@@ -169,8 +189,13 @@ FacilitySubmissionExportService
 ### 7.3 Batch 상세 (PR-4)
 
 운영 기록 화면. 헤더: Batch 번호·생성일·생성자·시설·포함 예약 수·메모·**현재 상태 배지**.
-본문: **동아리별 그룹 목록**(7.1 과 동일 컴포넌트, 선택 비활성 읽기 전용) + 시간표 토글 + **Audit History**(action·관리자·시각).
-Action: **학교 제출 완료 처리**(검토 중일 때만 — 확인 Dialog, 결과에 스킵 목록 안내) · CSV 다운로드 · 취소(검토 중일 때만).
+본문: **동아리별 그룹 목록**(7.1 과 동일 컴포넌트, 선택 비활성 읽기 전용) + 시간표 토글 + **Audit History**(action·관리자·시각·요약 detail — COMPLETED 행은 요약 문구가 그대로 보인다).
+Action: **학교 제출 완료 처리**(검토 중일 때만) · CSV 다운로드 · 취소(검토 중일 때만).
+
+**완료 처리 UX(운영자 친화 문구 — 기술 용어 금지):**
+
+- 확인 Dialog: "학교 제출을 완료하시겠습니까?" + 안내 3줄 — "• 제출 가능한 예약은 학교 등록 완료 상태로 변경됩니다. • 이미 취소되었거나 상태가 변경된 예약은 자동으로 제외됩니다. • 완료된 Batch는 다시 취소할 수 없습니다."
+- 완료 후 안내: 스킵 0건이면 성공 토스트("학교 제출이 완료되었습니다."). **스킵이 있으면 결과 Dialog** — "학교 제출이 완료되었습니다. 총 10건 중 8건이 학교 등록 완료되었습니다. 2건은 상태가 변경되어 이번 제출에서 제외되었습니다." + 제외 목록(예약일·동아리·사유 라벨).
 
 ## 8. 보안 (불변 + complete 추가)
 
@@ -182,9 +207,9 @@ Action: **학교 제출 완료 처리**(검토 중일 때만 — 확인 Dialog, 
 
 **PR-2 (FE)**: 그룹 목록(그룹핑·동아리 일괄 선택·부분 검색·제출 여부 필터), Summary 카드 라벨·필터 연동, 시간표(토글·선택), 생성 플로우(자동 다운로드 없음 — 토스트·무효화만), 기간 가드.
 
-**PR-3 (BE 완료 처리)**: 완료 시 APPROVED 전이+history+이벤트 / 비APPROVED 스킵 목록 / 기완료·기취소 409 / 완료 후 취소 409 / 완료·취소 동시 실행 행잠금 직렬화(실스레드) / candidates 파생 불변(완료 batch 도 제출함) / audit COMPLETED / 상세 audits[] 응답.
+**PR-3 (BE 완료 처리)**: 완료 시 APPROVED 전이+history+이벤트 / 비APPROVED 스킵 목록 / **응답 4필드(totalCount·confirmedCount·skippedCount·skippedBookings) 정합** / 기완료·기취소 409 / 완료 후 취소 409 / 완료·취소 동시 실행 행잠금 직렬화(실스레드) / candidates 파생 불변(완료 batch 도 제출함) / **audit COMPLETED 의 요약 detail 문구(사유 라벨 포함)·500자 절단** / 상세 audits[] 응답.
 
-**PR-4 (FE 이력·상세)**: 상태 배지 3종, 완료 처리 플로우(스킵 안내), Export 버튼, Audit 표시.
+**PR-4 (FE 이력·상세)**: 상태 배지 3종, 완료 확인 Dialog 안내 3줄 문구, **완료 결과 분기(스킵 0=토스트 / 스킵 있음=결과 Dialog+제외 목록)**, Export 버튼, Audit 표시(COMPLETED 요약 노출).
 
 테스트 날짜는 상대 날짜(타임밤 금지), FE 는 훅 모듈 모킹.
 
