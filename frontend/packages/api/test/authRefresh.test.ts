@@ -79,6 +79,18 @@ describe('쿠키 모드 401 자동 갱신', () => {
     expect(unauthorizedHandler).toHaveBeenCalledTimes(1);
   });
 
+  it('refresh 가 404(BE 롤백 호환 — 구 이미지엔 refresh 엔드포인트 없음)여도 세션 종료를 1회 알리고 원 401 을 표면화한다', async () => {
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 })),
+      http.post(`${BASE_URL}/auth/web/refresh`, () =>
+        HttpResponse.json({ ok: false, data: null, message: 'Not Found' }, { status: 404 })),
+    );
+
+    await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
+    expect(unauthorizedHandler).toHaveBeenCalledTimes(1);
+  });
+
   it('refresh 가 5xx 면 세션을 끝내지 않고 원 401 을 그대로 표면화한다', async () => {
     server.use(
       http.get(`${BASE_URL}/users/me`, () =>
