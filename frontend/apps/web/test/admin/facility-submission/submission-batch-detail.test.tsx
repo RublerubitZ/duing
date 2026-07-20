@@ -74,7 +74,8 @@ function makeBatch(overrides: Partial<SubmissionBatchSummary> = {}): SubmissionB
     facilityId: 100,
     facilityName: '강당',
     bookingCount: 2,
-    submittedAt: '2026-08-01T10:00:00',
+    // BE 는 Instant(UTC) 로 내려준다 — UTC 로는 08-01 이지만 KST 로는 08-02 다.
+    submittedAt: '2026-08-01T15:30:00Z',
     submittedByName: '관리자',
     memo: '8월 1차 제출',
     cancelled: false,
@@ -138,12 +139,14 @@ describe('SubmissionBatchDetailPage', () => {
 
   // ② Audit
   it('운영 기록을 한글 라벨·탈퇴 관리자 폴백·완료 요약으로 보여주고 IP 는 표시하지 않는다', () => {
+    // createdAt 은 BE 가 Instant(UTC)로 내려준다 — 화면은 KST(+9h)로 환산해 보여야 한다.
     const audits: SubmissionAuditEntry[] = [
-      { action: 'CREATED', adminName: '관리자', createdAt: '2026-08-01T10:00:00', ipAddress: '10.0.0.1', detail: null },
+      { action: 'CREATED', adminName: '관리자', createdAt: '2026-08-01T10:00:00Z', ipAddress: '10.0.0.1', detail: null },
       {
         action: 'COMPLETED',
         adminName: null,
-        createdAt: '2026-08-02T09:30:00',
+        // 날짜 경계: UTC 로는 08-02 이지만 KST 로는 08-03 이다.
+        createdAt: '2026-08-02T17:30:00Z',
         ipAddress: '10.0.0.2',
         detail: '총 5건 중 3건 등록 완료, 2건 제외',
       },
@@ -155,7 +158,9 @@ describe('SubmissionBatchDetailPage', () => {
     expect(screen.getByText('학교 제출 완료')).toBeInTheDocument();
     expect(screen.getByText('(탈퇴한 관리자)')).toBeInTheDocument();
     expect(screen.getByText('총 5건 중 3건 등록 완료, 2건 제외')).toBeInTheDocument();
-    expect(screen.getByText('2026-08-01 10:00')).toBeInTheDocument();
+    expect(screen.getByText('2026.08.01 19:00')).toBeInTheDocument();
+    // UTC 문자열을 그대로 자르면 08.02 02:30 이 되어 날짜까지 어긋난다.
+    expect(screen.getByText('2026.08.03 02:30')).toBeInTheDocument();
     // IP 는 응답에 있어도 화면에 노출하지 않는다(결정 6).
     expect(screen.queryByText('10.0.0.1')).not.toBeInTheDocument();
     expect(screen.queryByText('10.0.0.2')).not.toBeInTheDocument();

@@ -13,7 +13,8 @@ const mockCompleteMutateAsync = vi.fn();
 const mockAddToast = vi.fn();
 const mockDownloadBlobFile = vi.fn();
 
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useSubmissionBatchesQuery: (...args: unknown[]) => mockBatchesQuery(...args),
   useCancelSubmissionBatchMutation: () => mockCancelMutation(),
   useDownloadSubmissionCsvMutation: () => mockCsvMutation(),
@@ -39,7 +40,8 @@ function makeBatch(overrides: Partial<SubmissionBatchSummary> = {}): SubmissionB
     facilityId: 100,
     facilityName: '강당',
     bookingCount: 3,
-    submittedAt: '2026-08-01T10:00:00',
+    // BE 는 Instant(UTC) 로 내려준다 — UTC 로는 08-01 이지만 KST 로는 08-02 다.
+    submittedAt: '2026-08-01T15:30:00Z',
     submittedByName: '관리자',
     memo: '8월 1차 제출',
     cancelled: false,
@@ -93,7 +95,7 @@ describe('SubmissionBatchesTab', () => {
     const row = rowOf('SUB-20260801-001');
     expect(within(row).getByText('강당')).toBeInTheDocument();
     expect(within(row).getByText('3')).toBeInTheDocument();
-    expect(within(row).getByText('2026-08-01')).toBeInTheDocument();
+    expect(within(row).getByText('2026.08.02')).toBeInTheDocument();
     expect(within(row).getByText('관리자')).toBeInTheDocument();
     expect(within(row).getByText('검토 중')).toBeInTheDocument();
     // 첫 페이지 진입은 page:0·size:10 으로 조회한다.

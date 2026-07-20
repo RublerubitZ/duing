@@ -1,14 +1,10 @@
+import { formatDateTimeKst } from '@duing/hooks';
 import type { SubmissionAuditEntry } from '@duing/types';
 import { AUDIT_ACTION_LABELS } from '../_lib/submissionBatches';
 
 type Props = {
   audits: SubmissionAuditEntry[];
 };
-
-/** 'YYYY-MM-DDTHH:mm:ss'(BE 가 이미 KST 환산) → 'YYYY-MM-DD HH:mm'. */
-function formatAuditTime(createdAt: string): string {
-  return createdAt.slice(0, 16).replace('T', ' ');
-}
 
 /**
  * 제출 목록 운영 기록(스펙 v3 §7.3) — 감사 로그를 시각순으로 나열한다.
@@ -30,7 +26,7 @@ export function SubmissionAuditHistory({ audits }: Props) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium text-ink-deep">{AUDIT_ACTION_LABELS[audit.action]}</span>
             <span className="text-charcoal-2">{audit.adminName ?? '(탈퇴한 관리자)'}</span>
-            <span className="ml-auto font-mono text-xs text-charcoal-3">{formatAuditTime(audit.createdAt)}</span>
+            <span className="ml-auto font-mono text-xs text-charcoal-3">{formatDateTimeKst(audit.createdAt)}</span>
           </div>
           {audit.detail !== null && audit.detail.trim() !== '' && (
             <p className="mt-1 text-xs text-charcoal-3">{audit.detail}</p>

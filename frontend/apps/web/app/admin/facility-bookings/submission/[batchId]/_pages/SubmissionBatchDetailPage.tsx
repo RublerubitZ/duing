@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
+  formatDateKst,
   useCancelSubmissionBatchMutation,
   useCompleteSubmissionBatchMutation,
   useDownloadSubmissionCsvMutation,
@@ -173,7 +174,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                 </div>
                 <div className="flex gap-2">
                   <dt className="text-charcoal-3">생성일</dt>
-                  <dd className="text-charcoal">{detail.batch.submittedAt.slice(0, 10)}</dd>
+                  <dd className="text-charcoal">{formatDateKst(detail.batch.submittedAt)}</dd>
                 </div>
                 <div className="flex gap-2">
                   <dt className="text-charcoal-3">생성자</dt>
