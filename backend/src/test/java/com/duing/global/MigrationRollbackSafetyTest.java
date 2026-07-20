@@ -16,21 +16,13 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -45,29 +37,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * <p>아래 재현 테스트는 그 구 이미지의 INSERT 를 네이티브 쿼리로 그대로 흉내낸다(문제의 컬럼을
  * 컬럼 목록에서 아예 제외). V90 이 DEFAULT 를 되살렸으므로 INSERT 는 성공하고 기본값이 채워진다.
  * V90 을 지우고 실행하면 세 테스트 모두 not-null 위반으로 실패한다.
+ *
+ * <p>같은 릴리스에서 Expand 와 Contract 를 섞는 새 마이그레이션을 막는 정적 가드는
+ * {@link MigrationExpandContractGuardTest} 에 순수 JUnit 으로 분리되어 있다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 class MigrationRollbackSafetyTest extends IntegrationTestBase {
-
-    /**
-     * 제약 강화(Contract)를 포함해 이미 배포된 마이그레이션. 이 목록 밖의 파일에서
-     * DROP DEFAULT / SET NOT NULL 이 발견되면 가드 테스트가 실패한다.
-     */
-    private static final Set<String> CONSTRAINT_TIGHTENING_ALLOWLIST = Set.of(
-            // 사용자 프로필 필수화. grade·college·major·phone·terms_agreed_at 은 빈 문자열 기본값이
-            // 의미상 틀리고(phone 은 CHECK 제약·부분 UNIQUE 인덱스까지 걸려 있다) 롤백 대상 릴리스가
-            // 아주 오래됐으므로 DEFAULT 를 두지 않는다.
-            "V19__add_user_profile_columns.sql",
-            // application.version DROP DEFAULT — V90 이 DEFAULT 0 을 되살려 중화했다.
-            "V37__alter_application_add_version.sql",
-            // leader_succession_request.version DROP DEFAULT — V90 이 DEFAULT 0 을 되살려 중화했다.
-            "V39__alter_leader_succession_request_add_version.sql",
-            // facility_booking.contact_phone DROP DEFAULT — V90 이 DEFAULT '' 를 되살려 중화했다.
-            "V85__facility_booking_contact_phone.sql"
-    );
-
-    private static final String MIGRATION_DIRECTORY = "db/migration";
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -141,44 +117,4 @@ class MigrationRollbackSafetyTest extends IntegrationTestBase {
         assertThat(version).isZero();
     }
 
-    @Test
-    @DisplayName("새 마이그레이션이 DROP DEFAULT·SET NOT NULL 로 제약을 강화하면 실패한다 — 자동 롤백 시 구 이미지의 INSERT 가 깨진다")
-    void newMigrationsMustNotTightenColumnConstraints() throws IOException {
-        List<String> unexpectedFiles = listMigrationFiles().stream()
-                .filter(this::tightensColumnConstraint)
-                .map(File::getName)
-                .filter(fileName -> !CONSTRAINT_TIGHTENING_ALLOWLIST.contains(fileName))
-                .sorted()
-                .toList();
-
-        assertThat(unexpectedFiles)
-                .as("이 마이그레이션들이 컬럼 제약을 강화한다(DROP DEFAULT / SET NOT NULL). "
-                        + "배포 실패 시 자동 롤백으로 구 이미지가 다시 뜨는데 Flyway 는 되돌아가지 않으므로, "
-                        + "구 이미지가 모르는 NOT NULL 컬럼에 DEFAULT 가 없으면 해당 기능의 INSERT 만 조용히 500 이 된다. "
-                        + "같은 릴리스에서는 컬럼 추가(Expand)까지만 하고, 제약 강화(Contract)는 구 이미지 재배포 "
-                        + "가능성이 사라진 다음 릴리스에서 별도로 수행하라. "
-                        + "의도적인 예외라면 CONSTRAINT_TIGHTENING_ALLOWLIST 에 근거와 함께 추가하라.")
-                .isEmpty();
-    }
-
-    private List<File> listMigrationFiles() throws IOException {
-        File[] migrationFiles = new ClassPathResource(MIGRATION_DIRECTORY).getFile()
-                .listFiles((directory, fileName) -> fileName.endsWith(".sql"));
-        // 디렉터리를 못 읽으면 스캔 결과가 빈 목록이 되어 가드가 조용히 무력화되므로 여기서 끊는다.
-        assertThat(migrationFiles).as("마이그레이션 디렉터리를 읽지 못했다").isNotNull().isNotEmpty();
-        return Arrays.asList(migrationFiles);
-    }
-
-    private boolean tightensColumnConstraint(File migrationFile) {
-        try {
-            // 주석(-- ...)은 제거하고 실행문만 본다. 롤백 안전 규칙을 설명하는 주석이
-            // "DROP DEFAULT" 를 언급하는 것만으로 가드에 걸리면 안 된다(V90 이 그런 경우다).
-            String executableSql = Files.readString(migrationFile.toPath(), StandardCharsets.UTF_8)
-                    .replaceAll("--[^\n]*", "")
-                    .toUpperCase();
-            return executableSql.contains("DROP DEFAULT") || executableSql.contains("SET NOT NULL");
-        } catch (IOException readFailure) {
-            throw new IllegalStateException("마이그레이션 파일을 읽지 못했다: " + migrationFile.getName(), readFailure);
-        }
-    }
 }
