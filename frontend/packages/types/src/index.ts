@@ -10,7 +10,6 @@ export * from './draft';
 export * from './notice';
 export * from './notification';
 export * from './admin';
-export * from './recertification';
 export * from './clubMembership';
 export * from './clubNotice';
 export * from './clubEvent';

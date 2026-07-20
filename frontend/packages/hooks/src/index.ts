@@ -156,27 +156,11 @@ export {
   useAdminClubMemberHistoryQuery,
 } from './leaderSuccession';
 export {
-  useAdminRecertificationRoundListQuery,
-  useCreateRecertificationRoundMutation,
-  useCloseRecertificationRoundMutation,
-} from './recertificationRounds';
-export {
-  useAdminRecertificationRequestListQuery,
-  useAdminRecertificationRequestDetailQuery,
-  useProcessRecertificationMutation,
-  useCentralClubRecertificationStatusQuery,
-} from './recertificationRequests';
-export {
   useSubmitPromotionRequestMutation,
   useAdminPromotionRequestListQuery,
   useAdminPromotionRequestDetailQuery,
   useProcessPromotionRequestMutation,
 } from './promotionRequests';
-export {
-  useRecertificationContextQuery,
-  useSubmitRecertificationRequestMutation,
-} from './leaderRecertification';
-export { leaderRecertificationKeys } from './leaderRecertificationQueryKeys';
 export {
   useAdminPromotionListQuery,
   useAdminPromotionDetailQuery,

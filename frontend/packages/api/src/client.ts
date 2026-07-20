@@ -27,15 +27,6 @@ import type {
   AssignAdminLeaderPayload,
   ProcessSuccessionPayload,
   SubmitSuccessionRequestPayload,
-  AdminRecertificationRound,
-  AdminRecertificationRoundSearchParams,
-  CreateRecertificationRoundPayload,
-  AdminRecertificationRequestSummary,
-  AdminRecertificationRequestDetail,
-  AdminRecertificationRequestSearchParams,
-  ProcessRecertificationPayload,
-  CentralClubRecertificationStatus,
-  CentralClubRecertificationStatusParams,
   AdminUserSearchParams,
   AdminUserSearchResult,
   AdminReportSearchParams,
@@ -122,8 +113,6 @@ import type {
   FileUploadResult,
   FilePurpose,
   PromotionCard,
-  LeaderRecertificationContext,
-  SubmitRecertificationRequestPayload,
   MyClubMembership,
   CreateClubNoticePayload,
   UpdateClubNoticePayload,
@@ -489,10 +478,6 @@ export type DuingApiClient = {
   promotionRequests: {
     submit(clubId: number, payload: SubmitPromotionRequestPayload): Promise<number>;
   };
-  recertificationRequests: {
-    context(clubId: number): Promise<LeaderRecertificationContext>;
-    submit(clubId: number, payload: SubmitRecertificationRequestPayload): Promise<number>;
-  };
   clubMembership: {
     get(clubId: number): Promise<MyClubMembership>;
   };
@@ -595,17 +580,6 @@ export type DuingApiClient = {
       process(requestId: number, payload: ProcessSuccessionPayload): Promise<void>;
       assignLeader(clubId: number, payload: AssignAdminLeaderPayload): Promise<void>;
       memberHistory(clubId: number, params: AdminClubMemberHistoryParams): Promise<PageResponse<AdminClubMemberHistoryRow>>;
-    };
-    recertificationRounds: {
-      list(params: AdminRecertificationRoundSearchParams): Promise<PageResponse<AdminRecertificationRound>>;
-      create(payload: CreateRecertificationRoundPayload): Promise<number>;
-      close(roundId: number): Promise<void>;
-    };
-    recertificationRequests: {
-      list(params: AdminRecertificationRequestSearchParams): Promise<PageResponse<AdminRecertificationRequestSummary>>;
-      get(requestId: number): Promise<AdminRecertificationRequestDetail>;
-      process(requestId: number, payload: ProcessRecertificationPayload): Promise<void>;
-      centralClubStatus(params: CentralClubRecertificationStatusParams): Promise<PageResponse<CentralClubRecertificationStatus>>;
     };
     promotionRequests: {
       list(params: AdminPromotionRequestSearchParams): Promise<PageResponse<AdminPromotionRequestSummary>>;
@@ -1324,16 +1298,6 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           http.post(`clubs/${clubId}/promotion-requests`, { json: payload }),
         ),
     },
-    recertificationRequests: {
-      context: (clubId) =>
-        jsonOk<LeaderRecertificationContext>(
-          http.get(`clubs/${clubId}/recertification-context`),
-        ),
-      submit: (clubId, payload) =>
-        jsonOk<number>(
-          http.post(`clubs/${clubId}/recertification-requests`, { json: payload }),
-        ),
-    },
     clubMembership: {
       get: (clubId) =>
         jsonOk<MyClubMembership>(http.get(`clubs/${clubId}/membership`)),
@@ -1509,32 +1473,6 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         memberHistory: (clubId, params) =>
           jsonOk<PageResponse<AdminClubMemberHistoryRow>>(
             http.get(`admin/clubs/${clubId}/member-history`, { searchParams: cleanParams(params) }),
-          ),
-      },
-      recertificationRounds: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminRecertificationRound>>(
-            http.get('admin/recertification-rounds', { searchParams: cleanParams(params) }),
-          ),
-        create: (payload) =>
-          jsonOk<number>(http.post('admin/recertification-rounds', { json: payload })),
-        close: (roundId) =>
-          jsonVoid(http.patch(`admin/recertification-rounds/${roundId}/close`, { json: {} })),
-      },
-      recertificationRequests: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminRecertificationRequestSummary>>(
-            http.get('admin/recertification-requests', { searchParams: cleanParams(params) }),
-          ),
-        get: (requestId) =>
-          jsonOk<AdminRecertificationRequestDetail>(
-            http.get(`admin/recertification-requests/${requestId}`),
-          ),
-        process: (requestId, payload) =>
-          jsonVoid(http.patch(`admin/recertification-requests/${requestId}`, { json: payload })),
-        centralClubStatus: (params) =>
-          jsonOk<PageResponse<CentralClubRecertificationStatus>>(
-            http.get('admin/clubs/recertification-status', { searchParams: cleanParams(params) }),
           ),
       },
       promotionRequests: {

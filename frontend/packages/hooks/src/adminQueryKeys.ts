@@ -1,14 +1,11 @@
 import type {
   AdminClubMemberHistoryParams,
   AdminClubSearchParams,
-  AdminRecertificationRoundSearchParams,
-  AdminRecertificationRequestSearchParams,
   AdminReportSearchParams,
   AdminSuccessionSearchParams,
   AdminUserSearchParams,
   AdminPromotionRequestSearchParams,
   AdminPromotionSearchParams,
-  CentralClubRecertificationStatusParams,
   AdminBookingQueueParams,
   SubmissionCandidatesParams,
   SubmissionBatchListParams,
@@ -36,16 +33,6 @@ export const adminQueryKeys = {
     [...adminQueryKeys.leaderSuccessionAll, 'detail', requestId] as const,
   clubMemberHistory: (clubId: number, params: AdminClubMemberHistoryParams) =>
     ['admin', 'club-member-history', clubId, params] as const,
-  recertificationRoundsAll: ['admin', 'recertification-rounds'] as const,
-  recertificationRoundsList: (params: AdminRecertificationRoundSearchParams) =>
-    [...adminQueryKeys.recertificationRoundsAll, 'list', params] as const,
-  recertificationRequestsAll: ['admin', 'recertification-requests'] as const,
-  recertificationRequestsList: (params: AdminRecertificationRequestSearchParams) =>
-    [...adminQueryKeys.recertificationRequestsAll, 'list', params] as const,
-  recertificationRequestsDetail: (requestId: number) =>
-    [...adminQueryKeys.recertificationRequestsAll, 'detail', requestId] as const,
-  centralClubRecertificationStatus: (params: CentralClubRecertificationStatusParams) =>
-    ['admin', 'central-club-recertification-status', params] as const,
   promotionRequestsAll: ['admin', 'promotion-requests'] as const,
   promotionRequestsList: (params: AdminPromotionRequestSearchParams) =>
     [...adminQueryKeys.promotionRequestsAll, 'list', params] as const,

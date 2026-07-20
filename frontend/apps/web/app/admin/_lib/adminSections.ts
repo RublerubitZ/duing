@@ -9,7 +9,7 @@ export type AdminSection = {
   group: AdminSectionGroup;
 };
 
-export type AdminSectionGroup = '동아리' | '커뮤니티 운영' | '재인증' | '홍보';
+export type AdminSectionGroup = '동아리' | '커뮤니티 운영' | '홍보';
 
 export const ADMIN_SECTIONS: AdminSection[] = [
   {
@@ -73,24 +73,6 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     group: '동아리',
   },
   {
-    href: '/admin/recertification/rounds',
-    title: '재인증 라운드',
-    description: '중앙동아리 연간 재인증 라운드 개설·종료',
-    group: '재인증',
-  },
-  {
-    href: '/admin/recertification/requests',
-    title: '재인증 요청',
-    description: '중앙동아리 재인증 제출 검토 및 처리',
-    group: '재인증',
-  },
-  {
-    href: '/admin/recertification/status',
-    title: '재인증 현황',
-    description: '운영 연도 기준 중앙동아리 재인증 만료 현황',
-    group: '재인증',
-  },
-  {
     href: '/admin/promotion-requests',
     title: '홍보 요청',
     description: '동아리 홍보 배너 요청 검토 및 승인',
@@ -107,6 +89,5 @@ export const ADMIN_SECTIONS: AdminSection[] = [
 export const ADMIN_SECTION_GROUP_ORDER: AdminSectionGroup[] = [
   '동아리',
   '커뮤니티 운영',
-  '재인증',
   '홍보',
 ];
