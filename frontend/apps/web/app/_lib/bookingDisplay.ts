@@ -18,10 +18,6 @@ export function bookingTimeLabel(startTime: string, endTime: string): string {
   return `${startTime}~${endTime}`;
 }
 
-export function bookingDateTimeLabel(dateTimeIso: string): string {
-  return `${bookingDateLabel(dateTimeIso.slice(0, 10))} ${dateTimeIso.slice(11, 16)}`;
-}
-
 export type BookingStatusMeta = {
   label: string;
   subLabel?: string; // APPROVED 전용 — "학교 반영 대기"(§9.6)

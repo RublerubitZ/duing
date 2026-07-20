@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { formatDateTimeKst, kstDateTimeFormatter, parseKstInstant } from '@duing/hooks/datetime';
 import type { ApplicationSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
@@ -26,24 +27,18 @@ const ACTION_LABEL: Record<ActiveApplicationStatus, string> = {
 const isActiveStatus = (status: string): status is ActiveApplicationStatus =>
   status in STATUS_STEP;
 
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+// KST "M. D. (요일) 오전/오후 HH:MM" — 면접 일정 요약용 기존 표기 구조 유지.
+const INTERVIEW_AT_FORMATTER = kstDateTimeFormatter({
+  month: 'numeric',
+  day: 'numeric',
+  weekday: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 const statusNote = (app: ApplicationSummary): string => {
   if (app.status === 'INTERVIEW_PENDING' && app.interview) {
-    const at = new Date(app.interview.startAt).toLocaleString('ko-KR', {
-      month: 'numeric',
-      day: 'numeric',
-      weekday: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const at = INTERVIEW_AT_FORMATTER.format(parseKstInstant(app.interview.startAt));
     return app.interview.location
       ? `면접: ${at} — ${app.interview.location}`
       : `면접: ${at}`;
@@ -167,7 +162,7 @@ export function SectionApply({ applications }: Props) {
                     })}
                   </div>
                   <div className="text-[12px] text-charcoal-3 font-mono">
-                    {app.interview ? `면접: ${formatDate(app.interview.startAt)}` : formatDate(app.submittedAt)}
+                    {app.interview ? `면접: ${formatDateTimeKst(app.interview.startAt)}` : formatDateTimeKst(app.submittedAt)}
                   </div>
                 </div>
 

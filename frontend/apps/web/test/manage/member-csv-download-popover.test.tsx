@@ -4,7 +4,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { ClubMemberExportRow } from '@duing/types';
 
 const mutateAsync = vi.fn();
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useClubMembersExportMutation: () => ({ mutateAsync, isPending: false }),
 }));
 

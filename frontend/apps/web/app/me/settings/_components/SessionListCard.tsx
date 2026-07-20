@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  parseKstInstant,
+  formatDateTimeKst,
   useLogoutAllMutation,
   useMySessionsQuery,
   useRevokeSessionMutation,
@@ -19,13 +19,6 @@ const PLATFORM_LABEL: Record<SessionPlatform, string> = {
   UNKNOWN: '기타',
 };
 
-// LocalDateTime(오프셋 없음, KST 벽시계)을 KST 기준 날짜+시각으로 표기한다.
-const LAST_USED_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-  timeZone: 'Asia/Seoul',
-});
-
 function SessionRow({
   session,
   onRevoke,
@@ -36,7 +29,7 @@ function SessionRow({
   revoking: boolean;
 }) {
   const platformLabel = PLATFORM_LABEL[session.platform];
-  const lastUsed = LAST_USED_FORMATTER.format(parseKstInstant(session.lastUsedAt));
+  const lastUsed = formatDateTimeKst(session.lastUsedAt);
 
   return (
     <div className="flex items-center gap-4 py-4 border-b border-line">

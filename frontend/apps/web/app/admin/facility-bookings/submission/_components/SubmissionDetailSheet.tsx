@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { formatDateKst } from '@duing/hooks';
 import type { SubmissionCandidateBooking } from '@duing/types';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../_lib/submissionTimetable';
@@ -69,7 +70,7 @@ export function SubmissionDetailSheet({ booking, facilityName, onClose }: Props)
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-charcoal-3">승인일</dt>
-                <dd>{shown.decidedAt !== null ? shown.decidedAt.slice(0, 10) : '-'}</dd>
+                <dd>{shown.decidedAt !== null ? formatDateKst(shown.decidedAt) : '-'}</dd>
               </div>
             </dl>
           </>

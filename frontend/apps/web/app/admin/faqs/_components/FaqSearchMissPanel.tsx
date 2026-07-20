@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAdminFederationFaqSearchMissesQuery } from '@duing/hooks';
+import { formatDateKst, useAdminFederationFaqSearchMissesQuery } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
@@ -74,7 +74,7 @@ export function FaqSearchMissPanel() {
                         <tr key={item.keyword} className="border-t border-line">
                           <Td>{item.keyword}</Td>
                           <Td><span className="tabular-nums">{item.missCount}</span></Td>
-                          <Td>{new Date(item.lastSearchedAt).toLocaleDateString('ko-KR')}</Td>
+                          <Td>{formatDateKst(item.lastSearchedAt)}</Td>
                         </tr>
                       ))}
                     </tbody>

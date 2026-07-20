@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import {
+  formatDateTimeKst,
   useRecertificationContextQuery,
   useSubmitRecertificationRequestMutation,
 } from '@duing/hooks';
@@ -148,7 +149,7 @@ function PendingNotice({
           <Row label="운영 연도">{pending.operatingYear}</Row>
           <Row label="대표 이메일">{pending.contactEmail}</Row>
           <Row label="대표 연락처">{pending.contactPhone}</Row>
-          <Row label="제출 일시">{new Date(pending.createdAt).toLocaleString('ko-KR')}</Row>
+          <Row label="제출 일시">{formatDateTimeKst(pending.createdAt)}</Row>
         </dl>
       </div>
       <button

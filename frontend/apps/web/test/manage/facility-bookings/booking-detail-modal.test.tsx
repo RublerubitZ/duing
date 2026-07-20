@@ -14,7 +14,8 @@ const mockCancelMutate = vi.hoisted(() => vi.fn());
 const mockCancelPending = vi.hoisted(() => ({ current: false }));
 
 vi.mock('@duing/api', () => ({ ApiError: MockApiError }));
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useFacilityBookingDetailQuery: () => mockDetailQuery.current,
   useCancelFacilityBookingMutation: () => ({ mutate: mockCancelMutate, isPending: mockCancelPending.current }),
 }));
@@ -57,7 +58,7 @@ describe('BookingDetailModal', () => {
     expect(screen.getByText('관리자 승인')).toBeInTheDocument();
     expect(screen.getByText('학교 반영 확정')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '신청 취소' })).toBeInTheDocument();
-    expect(screen.getByText(/7월 13일 \(월\) 19:30/)).toBeInTheDocument();
+    expect(screen.getByText(/2026\.07\.13 19:30/)).toBeInTheDocument();
   });
 
   it('취소 버튼 → 확인 다이얼로그 → 확정 시 mutate 호출', () => {

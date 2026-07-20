@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateKst } from '@duing/hooks';
 import type { SubmissionCandidateBooking } from '@duing/types';
 import {
   SUBMISSION_HOURS,
@@ -105,7 +106,7 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
                         <p className="font-bold text-ink-deep">{facilityName} · {booking.reservationDate}</p>
                         <p>신청자 {booking.applicantName ?? '-'} · {booking.contactPhone ?? '-'}</p>
                         {booking.attendeeCount !== null && <p>목적 {booking.purpose}</p>}
-                        <p>승인 {booking.decidedByName ?? '-'}{booking.decidedAt !== null ? ` · ${booking.decidedAt.slice(0, 10)}` : ''}</p>
+                        <p>승인 {booking.decidedByName ?? '-'}{booking.decidedAt !== null ? ` · ${formatDateKst(booking.decidedAt)}` : ''}</p>
                       </div>
                     </div>
                   </td>

@@ -8,9 +8,12 @@ import {
 
 describe('crawlFreshnessLabel', () => {
   it('기준 시각 대비 경과 분/시간을 라벨링하고, 없으면 안내 문구를 준다', () => {
-    const now = new Date(2026, 6, 13, 12, 0, 0);
+    // 무오프셋 입력은 KST 벽시계로 해석되므로 now 도 절대시각으로 고정한다(브라우저 존 무관 결정성).
+    const now = new Date('2026-07-13T12:00:00+09:00');
     expect(crawlFreshnessLabel('2026-07-13T11:45:00', now)).toBe('마지막 수집 15분 전');
     expect(crawlFreshnessLabel('2026-07-13T09:00:00', now)).toBe('마지막 수집 3시간 전');
+    // 정규화된 Event Time(`…Z`) 입력도 같은 절대시각으로 흡수된다.
+    expect(crawlFreshnessLabel('2026-07-13T02:45:00Z', now)).toBe('마지막 수집 15분 전');
     expect(crawlFreshnessLabel(undefined, now)).toBe('수집 정보 없음');
   });
 });

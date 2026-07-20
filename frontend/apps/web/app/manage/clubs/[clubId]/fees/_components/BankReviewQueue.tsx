@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { ApiError } from '@duing/api';
 import {
+  formatDateTimeKst,
   useApproveMatchMutation,
   useBankTransactionsQuery,
   useIgnoreTransactionMutation,
@@ -23,13 +24,6 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 type BankReviewQueueProps = {
   clubId: number;
 };
-
-// ISO 일시 문자열(YYYY-MM-DDTHH:mm:ss)을 'YYYY-MM-DD HH:mm' 로 보기 좋게 자른다.
-function formatTransactionAt(transactionAt: string): string {
-  const date = transactionAt.slice(0, 10);
-  const time = transactionAt.slice(11, 16);
-  return time ? `${date} ${time}` : date;
-}
 
 // 이름 비교용 정규화: 앞뒤·내부 공백을 모두 제거한다('홍 길동' vs '홍길동' 같은 표기 차이를 무시).
 function normalizeName(name: string): string {
@@ -176,7 +170,7 @@ function PendingTransactionCard({ clubId, transaction }: PendingTransactionCardP
         <div className="min-w-0">
           <p className="text-sm font-bold text-ink">{formatWon(transaction.amount)}</p>
           <p className="mt-0.5 text-xs text-charcoal-3">
-            입금시각 {formatTransactionAt(transaction.transactionAt)}
+            입금시각 {formatDateTimeKst(transaction.transactionAt)}
             {transaction.counterparty && ` · ${transaction.counterparty}`}
           </p>
         </div>
@@ -352,7 +346,7 @@ function MatchedTransactionRow({ clubId, transaction }: MatchedTransactionRowPro
           {transaction.matchedBillingPeriod && ` · ${transaction.matchedBillingPeriod}`}
         </p>
         <p className="mt-0.5 text-xs text-charcoal-3">
-          입금시각 {formatTransactionAt(transaction.transactionAt)}
+          입금시각 {formatDateTimeKst(transaction.transactionAt)}
         </p>
         {isMismatch && (
           <span className="mt-1.5 inline-flex items-center rounded-full bg-coral/10 px-2 py-0.5 text-[11px] font-semibold text-coral">

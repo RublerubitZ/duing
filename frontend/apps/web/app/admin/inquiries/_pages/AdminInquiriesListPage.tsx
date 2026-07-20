@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 
 import type { FederationInquiryStatus } from '@duing/types';
-import { useAdminFederationInquiryListQuery } from '@duing/hooks';
+import { formatDateTimeKst, useAdminFederationInquiryListQuery } from '@duing/hooks';
 
 import { Pagination } from '@/components/Pagination';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -147,7 +147,7 @@ export function AdminInquiriesListPage() {
                       {INQUIRY_STATUS_LABEL[inquiry.status]}
                     </span>
                   </Td>
-                  <Td>{new Date(inquiry.createdAt).toLocaleString('ko-KR')}</Td>
+                  <Td>{formatDateTimeKst(inquiry.createdAt)}</Td>
                   <Td>
                     <Link
                       href={toRoute(`/admin/inquiries/${inquiry.id}`)}

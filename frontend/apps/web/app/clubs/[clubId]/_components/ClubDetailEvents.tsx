@@ -5,7 +5,7 @@
 
 import Link from 'next/link';
 
-import { useClubEventListQuery } from '@duing/hooks';
+import { kstDateTimeFormatter, parseKstInstant, useClubEventListQuery } from '@duing/hooks';
 
 import { toRoute } from '@/app/_lib/route';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -14,13 +14,20 @@ const PREVIEW_COUNT = 4;
 
 type Props = { clubId: number };
 
+// KST "MM.DD HH:mm" — 미리보기용 짧은 표기 구조 유지.
+const WHEN_FORMATTER = kstDateTimeFormatter({
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
 function formatWhen(startIso: string): string {
-  const start = new Date(startIso);
-  const month = String(start.getMonth() + 1).padStart(2, '0');
-  const day = String(start.getDate()).padStart(2, '0');
-  const hour = String(start.getHours()).padStart(2, '0');
-  const minute = String(start.getMinutes()).padStart(2, '0');
-  return `${month}.${day} ${hour}:${minute}`;
+  const formattedParts = WHEN_FORMATTER.formatToParts(parseKstInstant(startIso));
+  const partValue = (partType: Intl.DateTimeFormatPartTypes): string =>
+    formattedParts.find((part) => part.type === partType)?.value ?? '';
+  return `${partValue('month')}.${partValue('day')} ${partValue('hour')}:${partValue('minute')}`;
 }
 
 export function ClubDetailEvents({ clubId }: Props) {

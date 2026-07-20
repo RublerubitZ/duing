@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { cn } from '../../../_lib/cn';
+import { formatDateKst } from '@duing/hooks';
 import type { AdminClubSummary } from '@duing/types';
 import { clubCategoryLabel } from '../../../clubs/[clubId]/_lib/clubCategoryLabel';
 import {
@@ -46,7 +47,7 @@ export function AdminClubsTable({ clubs, onActionClick, onCentralClubToggleClick
             const actions = STATUS_ACTIONS[club.status];
             const auditText =
               club.statusChangedByName && club.statusChangedAt
-                ? `${club.statusChangedByName} · ${new Date(club.statusChangedAt).toLocaleDateString('ko-KR')}`
+                ? `${club.statusChangedByName} · ${formatDateKst(club.statusChangedAt)}`
                 : '—';
             const isRejected = club.status === 'REJECTED' && club.rejectionReason;
             return (

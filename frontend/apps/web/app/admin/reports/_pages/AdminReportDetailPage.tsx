@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useAdminReportDetailQuery, useProcessReportMutation } from '@duing/hooks';
+import { formatDateTimeKst, useAdminReportDetailQuery, useProcessReportMutation } from '@duing/hooks';
 import type { ProcessReportPayload } from '@duing/types';
 import { cn } from '../../../_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -88,7 +88,7 @@ export function AdminReportDetailPage({ reportId }: Props) {
             {report.reporter ? `${report.reporter.name} (ID: ${report.reporter.id})` : '(알 수 없음)'}
           </Row>
           <Row label="신고 일시">
-            {new Date(report.createdAt).toLocaleString('ko-KR')}
+            {formatDateTimeKst(report.createdAt)}
           </Row>
           <Row label="대상 타입">
             {REPORT_TARGET_TYPE_LABEL[report.targetType]}
@@ -118,7 +118,7 @@ export function AdminReportDetailPage({ reportId }: Props) {
             )}
             {report.handledAt && (
               <Row label="처리 일시">
-                {new Date(report.handledAt).toLocaleString('ko-KR')}
+                {formatDateTimeKst(report.handledAt)}
               </Row>
             )}
             {report.actionNote && (

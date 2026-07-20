@@ -8,6 +8,7 @@ import {
   Megaphone,
   Sparkles,
 } from 'lucide-react';
+import { formatRelativeTime } from '@duing/hooks/datetime';
 import type { Notification, NotificationType } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 
@@ -70,21 +71,4 @@ export function NotificationItem({ notification, onClick }: Props) {
       )}
     </button>
   );
-}
-
-// "방금 · N분 전 · N시간 전 · N일 전 · M월 D일" — 최근일수록 상대 표기, 일주일 이상은 날짜.
-function formatRelativeTime(createdAt: string): string {
-  const created = new Date(createdAt);
-  const diffMs = Date.now() - created.getTime();
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return '방금';
-  if (minutes < 60) return `${minutes}분 전`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}시간 전`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}일 전`;
-
-  return `${created.getMonth() + 1}월 ${created.getDate()}일`;
 }

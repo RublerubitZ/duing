@@ -11,7 +11,9 @@ vi.mock('next/link', () => ({
 
 const mockUseMyFederationInquiriesQuery = vi.fn();
 
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  // 날짜 유틸(formatDateKst 등) 순수 함수는 실제 구현을 그대로 쓴다.
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useMyFederationInquiriesQuery: (...args: unknown[]) => mockUseMyFederationInquiriesQuery(...args),
 }));
 

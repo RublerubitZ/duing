@@ -51,7 +51,8 @@ function matchedContentFor(status?: string): BankTransaction[] {
   return mockPendingContent();
 }
 
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useBankTransactionsQuery: (clubId: number, params: { status?: string }) => {
     void clubId;
     const isMatchedQuery =
@@ -181,7 +182,7 @@ describe('BankReviewQueue', () => {
     render(<BankReviewQueue clubId={1} />);
 
     expect(screen.getByText('30,000원')).toBeInTheDocument();
-    expect(screen.getByText(/입금시각 2026-06-15 09:30 · 김민지/)).toBeInTheDocument();
+    expect(screen.getByText(/입금시각 2026\.06\.15 09:30 · 김민지/)).toBeInTheDocument();
     expect(screen.getByText('김민지 · 2026-06')).toBeInTheDocument();
     expect(screen.getByText('잔액 30,000원')).toBeInTheDocument();
   });
@@ -283,7 +284,7 @@ describe('BankReviewQueue', () => {
 
     expect(screen.getByText('25,000원')).toBeInTheDocument();
     expect(screen.getByText(/입금자 이수동 → 매칭 이수동 · 2026-06/)).toBeInTheDocument();
-    expect(screen.getByText(/입금시각 2026-06-12 07:00/)).toBeInTheDocument();
+    expect(screen.getByText(/입금시각 2026\.06\.12 07:00/)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '매칭취소' }));
     const dialog = await screen.findByRole('alertdialog', { name: '매칭 취소 확인' });

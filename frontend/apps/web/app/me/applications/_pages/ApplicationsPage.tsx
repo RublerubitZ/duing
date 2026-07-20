@@ -2,7 +2,14 @@
 
 import { useState, useMemo } from 'react';
 
-import { useMyApplicationsQuery, useMyApplicationDetailQuery } from '@duing/hooks';
+import {
+  formatDateKst,
+  formatTimeKst,
+  kstDateTimeFormatter,
+  parseKstInstant,
+  useMyApplicationsQuery,
+  useMyApplicationDetailQuery,
+} from '@duing/hooks';
 import type { ApplicationSummary, ApplicationStatus, AssignedInterview, ClubCategory } from '@duing/types';
 
 import { ExploreNav } from '@/app/_components/ExploreNav';
@@ -59,9 +66,8 @@ function deriveSteps(status: ApplicationStatus): Step[] {
 
 function deriveRight(status: ApplicationStatus, interview: AssignedInterview | null) {
   if (status === 'INTERVIEW_PENDING' && interview) {
-    const interviewDate = new Date(interview.startAt);
-    const dateStr = `${interviewDate.getFullYear()}.${String(interviewDate.getMonth() + 1).padStart(2, '0')}.${String(interviewDate.getDate()).padStart(2, '0')}`;
-    const timeStr = `${String(interviewDate.getHours()).padStart(2, '0')}:${String(interviewDate.getMinutes()).padStart(2, '0')}`;
+    const dateStr = formatDateKst(interview.startAt);
+    const timeStr = formatTimeKst(interview.startAt);
     const sub = interview.location ? `${timeStr} · ${interview.location}` : timeStr;
     return { eyebrow: '면접일', value: dateStr, sub };
   }
@@ -79,17 +85,11 @@ function toLogo(logoUrl: string | null, clubName: string): Logo {
   return { kind: 'wordmark', text: initial, bg: '#2A3828', fg: '#E8EEE8' };
 }
 
-function formatDate(iso: string): string {
-  const submittedDate = new Date(iso);
-  return `${submittedDate.getFullYear()}.${String(submittedDate.getMonth() + 1).padStart(2, '0')}.${String(submittedDate.getDate()).padStart(2, '0')}`;
-}
+// KST 요일 — "YYYY.MM.DD (요일) HH:mm" 구조 유지용.
+const WEEKDAY_FORMATTER = kstDateTimeFormatter({ weekday: 'short' });
 
 function formatDateTime(iso: string): string {
-  const submittedDate = new Date(iso);
-  const dayLabels = ['일', '월', '화', '수', '목', '금', '토'];
-  const yearMonthDay = `${submittedDate.getFullYear()}.${String(submittedDate.getMonth() + 1).padStart(2, '0')}.${String(submittedDate.getDate()).padStart(2, '0')}`;
-  const hourMinute = `${String(submittedDate.getHours()).padStart(2, '0')}:${String(submittedDate.getMinutes()).padStart(2, '0')}`;
-  return `${yearMonthDay} (${dayLabels[submittedDate.getDay()] ?? ''}) ${hourMinute}`;
+  return `${formatDateKst(iso)} (${WEEKDAY_FORMATTER.format(parseKstInstant(iso))}) ${formatTimeKst(iso)}`;
 }
 
 function toApp(summary: ApplicationSummary): App {
@@ -98,7 +98,7 @@ function toApp(summary: ApplicationSummary): App {
     name: summary.clubName,
     cat: CATEGORY_LABELS[summary.category] ?? summary.category,
     tag: summary.recruitmentTitle,
-    appliedDate: formatDate(summary.submittedAt),
+    appliedDate: formatDateKst(summary.submittedAt),
     appliedAt: formatDateTime(summary.submittedAt),
     division: '-',
     department: '-',

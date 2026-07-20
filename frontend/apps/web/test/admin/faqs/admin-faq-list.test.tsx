@@ -17,7 +17,8 @@ const mockDeleteMutate = vi.fn();
 const mockReorderMutate = vi.fn();
 const mockCategoryDeleteMutate = vi.fn();
 
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useFederationFaqCategoriesQuery: (...args: unknown[]) => mockUseFederationFaqCategoriesQuery(...args),
   useAdminFederationFaqListQuery: (...args: unknown[]) => mockUseAdminFederationFaqListQuery(...args),
   useAdminFederationFaqUpdateMutation: () => ({ mutate: mockUpdateMutate, isPending: false }),
@@ -228,7 +229,7 @@ describe('AdminFaqListPage', () => {
     expect(screen.getByText('동아리방 예약')).toBeInTheDocument();
     expect(screen.getByText('주차 등록')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
-    expect(screen.getByText('2026. 7. 1.')).toBeInTheDocument();
+    expect(screen.getByText('2026.07.01')).toBeInTheDocument();
     // 펼치면 enabled=true 로 fetch 가 켜진다 — 훅 배선 회귀 방어.
     expect(mockUseAdminFaqSearchMissesQuery).toHaveBeenLastCalledWith({ page: 0, size: 10 }, true);
   });

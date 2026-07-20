@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatDateKst } from '@duing/hooks/datetime';
 import type { NoticeCardItem } from '@duing/types';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { NOTICE_CATEGORY_LABEL } from '../_lib/categoryLabels';
@@ -8,9 +9,7 @@ type Props = {
 };
 
 export function NoticeCard({ notice }: Props) {
-  const dateText = new Date(notice.createdAt).toLocaleDateString('ko-KR', {
-    year: 'numeric', month: 'long', day: 'numeric',
-  });
+  const dateText = formatDateKst(notice.createdAt);
   return (
     <Link
       href={`/notices/${notice.id}`}

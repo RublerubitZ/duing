@@ -1,9 +1,11 @@
+import { formatDateKst } from '@duing/hooks/datetime';
+
 type Props = {
   expiresAt: string;
 };
 
 export function ExpiredBanner({ expiresAt }: Props) {
-  const dateText = new Date(expiresAt).toLocaleDateString('ko-KR');
+  const dateText = formatDateKst(expiresAt);
   return (
     <div
       role="status"

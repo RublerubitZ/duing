@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatDateTimeKst } from '@duing/hooks';
 import type { AdminReportSummary } from '@duing/types';
 import { cn } from '../../../_lib/cn';
 import { toRoute } from '../../../_lib/route';
@@ -49,7 +50,7 @@ export function AdminReportsTable({ items }: Props) {
               <Td>{REPORT_TARGET_TYPE_LABEL[report.targetType]}</Td>
               <Td>{report.targetLabel}</Td>
               <Td>{REPORT_REASON_LABEL[report.reasonCode]}</Td>
-              <Td>{new Date(report.createdAt).toLocaleString('ko-KR')}</Td>
+              <Td>{formatDateTimeKst(report.createdAt)}</Td>
               <Td>
                 <Link
                   href={toRoute(`/admin/reports/${report.id}`)}

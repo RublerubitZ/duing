@@ -19,7 +19,8 @@ const mockAddToast = vi.fn();
 const mockDownloadBlobFile = vi.fn();
 const mockReplace = vi.fn();
 
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useSubmissionBatchDetailQuery: (...args: unknown[]) => mockDetailQuery(...args),
   useCancelSubmissionBatchMutation: () => mockCancelMutation(),
   useCompleteSubmissionBatchMutation: () => mockCompleteMutation(),
