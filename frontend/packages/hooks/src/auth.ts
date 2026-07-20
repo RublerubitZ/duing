@@ -26,9 +26,13 @@ export function useSignupMutation() {
 export function useLoginMutation() {
   const client = useApiClient();
   const setSession = useAuthStore((s) => s.setSession);
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: LoginPayload) => client.auth.login(payload),
     onSuccess: (user) => {
+      // 로그인 페이지가 세션 보유 상태에서도 열리므로(사용자 전환), 이전 계정의 캐시가
+      // 새 계정 화면에 노출되지 않도록 로그아웃 경로들과 동일하게 비운 뒤 세션을 연다.
+      queryClient.clear();
       setSession(user);
     },
   });
