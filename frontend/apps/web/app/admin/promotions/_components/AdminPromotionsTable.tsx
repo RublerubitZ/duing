@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatDateKst, kstDateTimeFormatter, parseKstInstant } from '@duing/hooks';
 import type { AdminPromotionSummary } from '@duing/types';
 import { ImageWithFallback } from '../../../_components/ImageWithFallback';
 import { toRoute } from '../../../_lib/route';
@@ -102,7 +103,7 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
               </Td>
               <Td>{promotion.displayOrder}</Td>
               <Td>{promotion.createdBy.name}</Td>
-              <Td>{new Date(promotion.createdAt).toLocaleDateString('ko-KR')}</Td>
+              <Td>{formatDateKst(promotion.createdAt)}</Td>
               <Td>
                 <div className="flex gap-2">
                   <Link
@@ -135,8 +136,19 @@ const Td = ({ children }: { children: React.ReactNode }) => (
   <td className="px-3 py-2 align-middle">{children}</td>
 );
 
+// 노출 기간 컬럼 전용 축약 표기(M/D HH:mm) — 브라우저 존이 아닌 KST 로 고정해 뽑는다.
+const SCHEDULE_EDGE_FORMATTER = kstDateTimeFormatter({
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
 function formatScheduleEdge(iso: string | null): string | null {
   if (iso === null) return null;
-  const date = new Date(iso);
-  return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const formattedParts = SCHEDULE_EDGE_FORMATTER.formatToParts(parseKstInstant(iso));
+  const partValue = (partType: Intl.DateTimeFormatPartTypes) =>
+    formattedParts.find((part) => part.type === partType)?.value ?? '';
+  return `${partValue('month')}/${partValue('day')} ${partValue('hour')}:${partValue('minute')}`;
 }

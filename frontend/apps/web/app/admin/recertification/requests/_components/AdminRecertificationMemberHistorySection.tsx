@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTimeKst } from '@duing/hooks';
 import type { AdminClubMemberHistoryRow } from '@duing/types';
 import { cn } from '../../../../_lib/cn';
 import {
@@ -58,7 +59,7 @@ export function AdminRecertificationMemberHistorySection({ rows }: Props) {
               <Td>{row.fromRole ? CLUB_MEMBER_ROLE_LABEL[row.fromRole] : '—'}</Td>
               <Td>{row.toRole ? CLUB_MEMBER_ROLE_LABEL[row.toRole] : '—'}</Td>
               <Td>{row.reason ?? '—'}</Td>
-              <Td>{new Date(row.createdAt).toLocaleString('ko-KR')}</Td>
+              <Td>{formatDateTimeKst(row.createdAt)}</Td>
             </tr>
           ))}
         </tbody>

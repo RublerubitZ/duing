@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { ClubMember, ClubMemberRole } from '@duing/types';
 import { GRADE_DISPLAY_NAME } from '@duing/types';
 import {
+  formatDateKst,
   useLeaveClubMutation,
   useRemoveMemberMutation,
   useUpdateMemberRoleMutation,
@@ -74,7 +75,7 @@ export function MemberRow({
           {isSelf && <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">본인</span>}
         </p>
         <p className="text-xs text-slate-500">
-          학번 {member.studentId} · 가입 {member.joinedAt.slice(0, 10)}
+          학번 {member.studentId} · 가입 {formatDateKst(member.joinedAt)}
         </p>
         <p className="text-xs text-slate-500">
           {member.major} · {GRADE_DISPLAY_NAME[member.grade]}

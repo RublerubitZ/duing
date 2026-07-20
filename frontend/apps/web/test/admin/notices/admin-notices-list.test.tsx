@@ -12,7 +12,8 @@ vi.mock('next/link', () => ({
 const mockUseAdminNoticeListQuery = vi.fn();
 const mockDeleteMutate = vi.fn();
 
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useAdminNoticeListQuery: (...args: unknown[]) => mockUseAdminNoticeListQuery(...args),
   useAdminNoticeDeleteMutation: () => ({
     mutate: mockDeleteMutate,

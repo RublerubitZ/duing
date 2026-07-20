@@ -31,7 +31,8 @@ const mockCancelMutate = vi.hoisted(() => vi.fn());
 const mockAddToast = vi.hoisted(() => vi.fn());
 
 vi.mock('@duing/api', () => ({ ApiError: MockApiError }));
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useAdminFacilityBookingDetailQuery: () => mockDetailQuery.current,
   useApproveFacilityBookingMutation: () => ({ mutate: mockApproveMutate, isPending: false }),
   useRejectFacilityBookingMutation: () => ({ mutate: mockRejectMutate, isPending: false }),
@@ -92,7 +93,7 @@ describe('AdminBookingDetailModal', () => {
     expect(screen.getByText(/마지막 수집/)).toBeInTheDocument();
     expect(screen.getByLabelText('검증 컨텍스트 타임라인')).toBeInTheDocument();
     expect(screen.getByText('이력')).toBeInTheDocument();
-    expect(screen.getByText(/7월 13일 \(월\) 19:30/)).toBeInTheDocument();
+    expect(screen.getByText(/2026\.07\.13 19:30/)).toBeInTheDocument();
   });
 
   it('대표 연락처: 값이 있으면 노출하고, 없으면(null) "—" 로 표기한다(§2.3)', () => {

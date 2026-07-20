@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ApiError } from '@duing/api';
 import {
+  formatDateTimeKst,
   useAdminFacilityBookingDetailQuery,
   useApproveFacilityBookingMutation,
   useCancelFacilityBookingAdminMutation,
@@ -17,7 +18,6 @@ import { useToast } from '@/app/_components/toast/ToastProvider';
 import { BookingStatusBadge } from '@/app/_components/BookingStatusBadge';
 import {
   bookingDateLabel,
-  bookingDateTimeLabel,
   bookingTimeLabel,
   BOOKING_STATUS_META,
 } from '@/app/_lib/bookingDisplay';
@@ -220,7 +220,7 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
                     ))}
                   </ul>
                   {conflictPayload.crawlBasisAt && (
-                    <p className="mt-1">기준 수집 시각 {conflictPayload.crawlBasisAt.slice(0, 16).replace('T', ' ')}</p>
+                    <p className="mt-1">기준 수집 시각 {formatDateTimeKst(conflictPayload.crawlBasisAt)}</p>
                   )}
                   <p className="mt-1">겹침이 해소되기 전에는 승인할 수 없어요 — 아래 다른 액션으로 처리해주세요.</p>
                 </div>
@@ -242,7 +242,7 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
                           {BOOKING_STATUS_META[item.newStatus].label}
                           {item.reason && <span className="text-charcoal-3"> — {item.reason}</span>}
                         </span>
-                        <span className="shrink-0 text-charcoal-3">{bookingDateTimeLabel(item.changedAt)}</span>
+                        <span className="shrink-0 text-charcoal-3">{formatDateTimeKst(item.changedAt)}</span>
                       </li>
                     ))}
                   </ul>

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatDateTimeKst } from '@duing/hooks';
 import type { ClubEventCard as Event } from '@duing/types';
 import { toRoute } from '@/app/_lib/route';
 
@@ -14,8 +15,6 @@ type Props = {
 };
 
 export function ClubEventCard({ clubId, event, canEdit, canDelete, onEdit, onDelete }: Props) {
-  const start = new Date(event.startAt);
-  const end = new Date(event.endAt);
   return (
     <li className="rounded-xl border border-line bg-white p-4">
       <div className="flex items-start justify-between gap-2">
@@ -25,7 +24,7 @@ export function ClubEventCard({ clubId, event, canEdit, canDelete, onEdit, onDel
         >
           <h3 className="text-base font-semibold text-ink">{event.title}</h3>
           <p className="mt-1 text-sm text-charcoal-2">
-            {start.toLocaleString('ko-KR')} ~ {end.toLocaleString('ko-KR')}
+            {formatDateTimeKst(event.startAt)} ~ {formatDateTimeKst(event.endAt)}
           </p>
           {event.location && (
             <p className="mt-0.5 text-xs text-charcoal-3">📍 {event.location}</p>

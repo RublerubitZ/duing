@@ -5,6 +5,8 @@
 
 import { Link } from 'next-view-transitions';
 
+import { daysUntilKst } from '@duing/hooks';
+
 import { cn } from '@/app/_lib/cn';
 import { Sparkle, SparkleFull } from '../../_components/Sparkle';
 import { ClubLogo } from '../../_components/ClubLogo';
@@ -39,8 +41,7 @@ function recruitBadge(club: Club): Badge | null {
       return { text: '마감', tone: 'muted' };
     case 'OPEN': {
       if (recruitment.endDate === null) return { text: '모집중', tone: 'recruiting' };
-      const end = new Date(`${recruitment.endDate}T23:59:59`);
-      const remainingDays = Math.ceil((end.getTime() - Date.now()) / 86_400_000);
+      const remainingDays = daysUntilKst(recruitment.endDate, new Date());
       if (remainingDays < 0) return { text: '마감', tone: 'muted' };
       if (remainingDays === 0) return { text: 'D-day', tone: 'urgent' };
       return { text: `D-${remainingDays}`, tone: remainingDays <= 3 ? 'urgent' : 'recruiting' };

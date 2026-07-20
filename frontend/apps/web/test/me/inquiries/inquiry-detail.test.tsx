@@ -22,7 +22,9 @@ const mockUseFederationInquiryAttachmentQuery = vi.fn();
 // 편집 모드에서 첨부 변경 토글을 켜면 실제 InquiryImageUploader 가 렌더되며 사용한다.
 const mockUploadMutateAsync = vi.fn();
 
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  // 날짜 유틸(formatDateKst 등) 순수 함수는 실제 구현을 그대로 쓴다.
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useFederationInquiryDetailQuery: (...args: unknown[]) => mockUseFederationInquiryDetailQuery(...args),
   useUpdateFederationInquiryMutation: () => ({ mutateAsync: mockUpdateMutateAsync, isPending: false }),
   useDeleteFederationInquiryMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),

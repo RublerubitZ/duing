@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
+  formatDateTimeKst,
   useAdminRecertificationRequestDetailQuery,
   useProcessRecertificationMutation,
 } from '@duing/hooks';
@@ -106,7 +107,7 @@ export function AdminRecertificationRequestDetailPage({ requestId }: Props) {
             )}
           </Row>
           <Row label="요청 일시">
-            {new Date(request.createdAt).toLocaleString('ko-KR')}
+            {formatDateTimeKst(request.createdAt)}
           </Row>
           <Row label="제출 회장">
             {request.submittedLeader.name}
@@ -160,7 +161,7 @@ export function AdminRecertificationRequestDetailPage({ requestId }: Props) {
             )}
             {request.handledAt && (
               <Row label="처리 일시">
-                {new Date(request.handledAt).toLocaleString('ko-KR')}
+                {formatDateTimeKst(request.handledAt)}
               </Row>
             )}
             {request.actionNote && (

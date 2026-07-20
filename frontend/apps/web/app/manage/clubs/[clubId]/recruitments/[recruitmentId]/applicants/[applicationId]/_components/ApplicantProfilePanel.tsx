@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTimeKst } from '@duing/hooks';
 import type { ApplicantDetail } from '@duing/types';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
 
@@ -27,14 +28,14 @@ export function ApplicantProfilePanel({ detail }: { detail: ApplicantDetail }) {
 
         <dt className="text-neutral-500">지원일시</dt>
         <dd className="text-slate-900">
-          {new Date(detail.submittedAt).toLocaleString('ko-KR')}
+          {formatDateTimeKst(detail.submittedAt)}
         </dd>
 
         {detail.interview && (
           <>
             <dt className="text-neutral-500">면접일정</dt>
             <dd className="text-slate-900">
-              {new Date(detail.interview.startAt).toLocaleString('ko-KR')}
+              {formatDateTimeKst(detail.interview.startAt)}
               {detail.interview.location && ` · ${detail.interview.location}`}
             </dd>
           </>

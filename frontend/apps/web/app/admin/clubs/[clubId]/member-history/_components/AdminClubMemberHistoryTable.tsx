@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTimeKst } from '@duing/hooks';
 import type { AdminClubMemberHistoryRow } from '@duing/types';
 import {
   CLUB_MEMBER_EVENT_TYPE_LABEL,
@@ -58,7 +59,7 @@ export function AdminClubMemberHistoryTable({ items }: Props) {
               <Td>
                 <span className="text-charcoal-2">{row.reason ?? '—'}</span>
               </Td>
-              <Td>{new Date(row.createdAt).toLocaleString('ko-KR')}</Td>
+              <Td>{formatDateTimeKst(row.createdAt)}</Td>
             </tr>
           ))}
         </tbody>

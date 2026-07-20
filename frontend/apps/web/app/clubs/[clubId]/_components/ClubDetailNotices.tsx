@@ -5,7 +5,7 @@
 
 import Link from 'next/link';
 
-import { useClubNoticeListQuery } from '@duing/hooks';
+import { formatDateKst, useClubNoticeListQuery } from '@duing/hooks';
 
 import { toRoute } from '@/app/_lib/route';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -13,11 +13,6 @@ import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 const PREVIEW_COUNT = 4;
 
 type Props = { clubId: number };
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
-}
 
 export function ClubDetailNotices({ clubId }: Props) {
   const { data, isLoading } = useClubNoticeListQuery(clubId, 0);
@@ -62,7 +57,7 @@ export function ClubDetailNotices({ clubId }: Props) {
                   )}
                   <span className="line-clamp-1 font-semibold text-ink-deep">{notice.title}</span>
                 </div>
-                <div className="mt-1 text-[12px] text-charcoal-3">{formatDate(notice.createdAt)}</div>
+                <div className="mt-1 text-[12px] text-charcoal-3">{formatDateKst(notice.createdAt)}</div>
               </Link>
             </li>
           ))}

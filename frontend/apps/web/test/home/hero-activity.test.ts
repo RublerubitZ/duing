@@ -1,41 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  formatRelativeTime,
   resolveHeroToasts,
   type HeroActivity,
 } from '../../app/_components/sections/hero-activity';
 
-// 고정 기준 시각 — 결정적 테스트.
+// 고정 기준 시각 — 결정적 테스트. 상대시간 표기 자체는 @duing/hooks formatRelativeTime 테스트가 담당.
 const NOW = new Date('2026-06-28T12:00:00.000Z');
 
 function isoAgo(ms: number): string {
   return new Date(NOW.getTime() - ms).toISOString();
 }
-
-describe('formatRelativeTime', () => {
-  it('1분 미만은 "방금 전"', () => {
-    expect(formatRelativeTime(isoAgo(30_000), NOW)).toBe('방금 전');
-  });
-  it('분 단위', () => {
-    expect(formatRelativeTime(isoAgo(3 * 60_000), NOW)).toBe('3분 전');
-  });
-  it('시간 단위', () => {
-    expect(formatRelativeTime(isoAgo(2 * 60 * 60_000), NOW)).toBe('2시간 전');
-  });
-  it('일 단위', () => {
-    expect(formatRelativeTime(isoAgo(3 * 24 * 60 * 60_000), NOW)).toBe('3일 전');
-  });
-  it('정확히 60_000ms 경계는 "1분 전"', () => {
-    expect(formatRelativeTime(isoAgo(60_000), NOW)).toBe('1분 전');
-  });
-  it('60_000ms 직전(59_999)은 "방금 전"', () => {
-    expect(formatRelativeTime(isoAgo(59_999), NOW)).toBe('방금 전');
-  });
-  it('파싱 실패 시 "방금 전"', () => {
-    expect(formatRelativeTime('not-a-date', NOW)).toBe('방금 전');
-  });
-});
 
 describe('resolveHeroToasts', () => {
   it('실활동 2개 → 실제 토스트 2개(매핑된 문구·variant·시간)', () => {

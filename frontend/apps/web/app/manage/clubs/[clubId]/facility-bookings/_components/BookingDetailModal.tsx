@@ -2,14 +2,17 @@
 
 import { useState } from 'react';
 import { ApiError } from '@duing/api';
-import { useCancelFacilityBookingMutation, useFacilityBookingDetailQuery } from '@duing/hooks';
+import {
+  formatDateTimeKst,
+  useCancelFacilityBookingMutation,
+  useFacilityBookingDetailQuery,
+} from '@duing/hooks';
 import type { BookingStatus } from '@duing/types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import {
   BOOKING_STATUS_META,
   bookingDateLabel,
-  bookingDateTimeLabel,
   bookingTimeLabel,
 } from '@/app/_lib/bookingDisplay';
 import { BookingStatusBadge } from '@/app/_components/BookingStatusBadge';
@@ -124,7 +127,7 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
                           {BOOKING_STATUS_META[item.newStatus].label}
                           {item.reason && <span className="text-charcoal-3"> — {item.reason}</span>}
                         </span>
-                        <span className="shrink-0 text-charcoal-3">{bookingDateTimeLabel(item.changedAt)}</span>
+                        <span className="shrink-0 text-charcoal-3">{formatDateTimeKst(item.changedAt)}</span>
                       </li>
                     ))}
                   </ul>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type { AdminFederationFaqSummary } from '@duing/types';
 import {
+  formatDateKst,
   useFederationFaqCategoriesQuery,
   useAdminFederationFaqListQuery,
   useAdminFederationFaqUpdateMutation,
@@ -242,7 +243,7 @@ export function AdminFaqListPage() {
                           {faq.helpfulCount} / {faq.notHelpfulCount}
                         </span>
                       </Td>
-                      <Td>{new Date(faq.updatedAt).toLocaleDateString('ko-KR')}</Td>
+                      <Td>{formatDateKst(faq.updatedAt)}</Td>
                       <Td>
                         <div className="flex gap-1">
                           <button

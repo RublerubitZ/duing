@@ -3,7 +3,11 @@
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import type { InterviewRoundSummary, InterviewRoundStatus } from '@duing/types';
-import { useInterviewRoundsQuery, useInterviewRoundCandidatesQuery } from '@duing/hooks';
+import {
+  formatDateTimeKst,
+  useInterviewRoundsQuery,
+  useInterviewRoundCandidatesQuery,
+} from '@duing/hooks';
 import { toRoute } from '../../../../../../../_lib/route';
 import { cn } from '@/app/_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -60,14 +64,7 @@ function RoundCard({ round, clubId, recruitmentId }: RoundCardProps) {
           </p>
           {round.availabilityDeadline && (
             <p className="text-xs text-slate-400">
-              마감:{' '}
-              {new Date(round.availabilityDeadline).toLocaleString('ko-KR', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              마감: {formatDateTimeKst(round.availabilityDeadline)}
             </p>
           )}
         </div>

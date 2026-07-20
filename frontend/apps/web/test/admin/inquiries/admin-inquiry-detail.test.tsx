@@ -18,7 +18,8 @@ const mockAnswerMutateAsync = vi.fn();
 const mockUpdateAnswerMutateAsync = vi.fn();
 const mockUseFederationInquiryAttachmentQuery = vi.fn();
 
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useAdminFederationInquiryDetailQuery: (...args: unknown[]) =>
     mockUseAdminFederationInquiryDetailQuery(...args),
   useChangeFederationInquiryStatusMutation: () => ({

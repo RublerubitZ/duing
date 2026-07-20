@@ -3,7 +3,6 @@ import type { BookingStatus } from '@duing/types';
 import {
   BOOKING_STATUS_META,
   bookingDateLabel,
-  bookingDateTimeLabel,
   bookingTimeLabel,
 } from '@/app/_lib/bookingDisplay';
 
@@ -14,10 +13,9 @@ describe('bookingDateLabel', () => {
   });
 });
 
-describe('bookingTimeLabel / bookingDateTimeLabel', () => {
-  it('시간 범위와 일시 라벨을 만든다', () => {
+describe('bookingTimeLabel', () => {
+  it('시간 범위 라벨을 만든다', () => {
     expect(bookingTimeLabel('18:00', '20:00')).toBe('18:00~20:00');
-    expect(bookingDateTimeLabel('2026-07-20T19:30:00')).toBe('7월 20일 (월) 19:30');
   });
 });
 

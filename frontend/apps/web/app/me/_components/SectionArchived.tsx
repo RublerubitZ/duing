@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { formatDateKst } from '@duing/hooks/datetime';
 import type { ApplicationStatus, ApplicationSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
@@ -23,11 +24,6 @@ const PILL: Record<ArchivedStatus, { label: string; className: string }> = {
 
 const isArchivedStatus = (status: ApplicationStatus): status is ArchivedStatus =>
   status === 'ACCEPTED' || status === 'REJECTED';
-
-const formatSubmittedAt = (iso: string): string => {
-  const date = new Date(iso);
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
-};
 
 type Props = {
   applications: ApplicationSummary[];
@@ -85,7 +81,7 @@ export function SectionArchived({ applications }: Props) {
                     </div>
                     <h3 className="text-[16px] font-bold text-ink-deep">{app.clubName}</h3>
                     <div className="text-[12px] text-charcoal-3 font-mono mt-1">
-                      {formatSubmittedAt(app.submittedAt)}
+                      {formatDateKst(app.submittedAt)}
                     </div>
                   </div>
 

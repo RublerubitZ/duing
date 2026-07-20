@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatDateTimeKst } from '@duing/hooks';
 import type { AdminRecertificationRequestSummary } from '@duing/types';
 import { cn } from '../../../../_lib/cn';
 import { toRoute } from '../../../../_lib/route';
@@ -55,7 +56,7 @@ export function AdminRecertificationRequestsTable({ items }: Props) {
               <Td>{item.club.name}</Td>
               <Td>{item.leader.name}</Td>
               <Td>{item.operatingYear}년</Td>
-              <Td>{new Date(item.createdAt).toLocaleString('ko-KR')}</Td>
+              <Td>{formatDateTimeKst(item.createdAt)}</Td>
               <Td>
                 <Link
                   href={toRoute(`/admin/recertification/requests/${item.id}`)}

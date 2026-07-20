@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useAdminClubDetailQuery, useClubMembersQuery } from '@duing/hooks';
+import { formatDateKst, useAdminClubDetailQuery, useClubMembersQuery } from '@duing/hooks';
 import type { ClubMember } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { cn } from '../../../../_lib/cn';
@@ -35,7 +35,7 @@ function MemberRow({ member }: { member: ClubMember }) {
         </span>
       </div>
       <span className="text-xs text-slate-500">
-        {new Date(member.joinedAt).toLocaleDateString('ko-KR')} 가입
+        {formatDateKst(member.joinedAt)} 가입
       </span>
     </div>
   );

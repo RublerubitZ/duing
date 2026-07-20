@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { SVGProps } from 'react';
 import Link from 'next/link';
 import type { NoticeCategory, NoticeSource } from '@duing/types';
-import { useNoticeListQuery } from '@duing/hooks';
+import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -187,13 +187,9 @@ function SideLinkItem({ icon, label, href }: { icon: React.ReactNode; label: str
 
 /* ---------- 헬퍼 ---------- */
 const isNewItem = (createdAt: string): boolean =>
-  new Date(createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
+  parseKstInstant(createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
 
-const formatDate = (isoString: string): string =>
-  new Date(isoString)
-    .toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
-    .replace(/\. /g, '.')
-    .replace(/\.$/, '');
+const formatDate = (isoString: string): string => formatDateKst(isoString);
 
 /* ---------- 페이지 ---------- */
 const PAGE_SIZE = 20;

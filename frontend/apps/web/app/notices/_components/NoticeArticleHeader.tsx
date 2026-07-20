@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { parseKstInstant } from '@duing/hooks';
 import type { NoticeCategory } from '@duing/types';
 import { NOTICE_CATEGORY_LABEL } from '../_lib/categoryLabels';
 import { CATEGORY_TAG_STYLES } from '../_lib/categoryTagStyles';
@@ -25,7 +26,7 @@ export function NoticeArticleHeader({
   const isClubNotice = owningClubId != null;
   const tag = CATEGORY_TAG_STYLES[category];
   const dday = expiresAt ? formatDdayLabel(expiresAt) : null;
-  const expired = expiresAt !== null && new Date(expiresAt).getTime() < Date.now();
+  const expired = expiresAt !== null && parseKstInstant(expiresAt).getTime() < Date.now();
 
   return (
     <header className="pt-4 pb-6 border-b border-line md:pt-7">

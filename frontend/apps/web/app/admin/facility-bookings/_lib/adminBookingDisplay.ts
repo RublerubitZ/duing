@@ -1,12 +1,12 @@
 // 관리자 콘솔 전용 파생 — 크롤 신선도·409 payload 가드·검증 컨텍스트 슬롯 스트립(§9.7·§8.3)
+import { parseKstInstant } from '@duing/hooks/datetime';
 import type { AdminBookingOverlapItem, AdminFacilityBookingCounts, FacilityBookingConflictPayload } from '@duing/types';
 
 export function crawlFreshnessLabel(crawlBasisAt: string | undefined, now: Date): string {
   if (!crawlBasisAt) return '수집 정보 없음';
-  const [datePart, timePart] = crawlBasisAt.split('T');
-  const [year, month, day] = (datePart ?? '').split('-').map(Number);
-  const [hour, minute] = (timePart ?? '').split(':').map(Number);
-  const basis = new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1, hour ?? 0, minute ?? 0);
+  // crawlBasisAt 은 Event Time(`…Z` 절대시각, 구버전은 무오프셋) — 브라우저 존 의존 파싱 대신 공통 규칙으로 흡수한다.
+  const basis = parseKstInstant(crawlBasisAt);
+  if (Number.isNaN(basis.getTime())) return '수집 정보 없음';
   const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - basis.getTime()) / 60_000));
   if (elapsedMinutes < 60) return `마지막 수집 ${elapsedMinutes}분 전`;
   return `마지막 수집 ${Math.floor(elapsedMinutes / 60)}시간 전`;

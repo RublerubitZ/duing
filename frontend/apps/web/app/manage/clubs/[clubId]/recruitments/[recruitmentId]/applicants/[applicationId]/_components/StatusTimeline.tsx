@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTimeKst } from '@duing/hooks';
 import type { ApplicationStatusHistoryItem } from '@duing/types';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../../_constants/application-status';
 
@@ -29,7 +30,7 @@ export function StatusTimeline({ history, submittedAt }: Props) {
               </p>
               <p className="text-xs text-neutral-500">
                 {item.changedByName} ·{' '}
-                {new Date(item.changedAt).toLocaleString('ko-KR')}
+                {formatDateTimeKst(item.changedAt)}
               </p>
             </div>
           </li>
@@ -46,7 +47,7 @@ export function StatusTimeline({ history, submittedAt }: Props) {
               {APPLICATION_STATUS_LABEL.SUBMITTED}
             </p>
             <p className="text-xs text-neutral-500">
-              {new Date(submittedAt).toLocaleString('ko-KR')}
+              {formatDateTimeKst(submittedAt)}
             </p>
           </div>
         </li>

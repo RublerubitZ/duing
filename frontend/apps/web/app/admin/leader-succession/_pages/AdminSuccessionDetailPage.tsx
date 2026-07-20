@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useAdminSuccessionDetailQuery, useProcessSuccessionMutation } from '@duing/hooks';
+import { formatDateTimeKst, useAdminSuccessionDetailQuery, useProcessSuccessionMutation } from '@duing/hooks';
 import type { ProcessSuccessionPayload } from '@duing/types';
 import { cn } from '../../../_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -86,7 +86,7 @@ export function AdminSuccessionDetailPage({ requestId }: Props) {
             <span className="ml-1 text-charcoal-3 text-[12px]">(ID: {succession.club.id})</span>
           </Row>
           <Row label="요청 일시">
-            {new Date(succession.createdAt).toLocaleString('ko-KR')}
+            {formatDateTimeKst(succession.createdAt)}
           </Row>
           <Row label="요청자">
             {succession.requester
@@ -116,7 +116,7 @@ export function AdminSuccessionDetailPage({ requestId }: Props) {
             )}
             {succession.handledAt && (
               <Row label="처리 일시">
-                {new Date(succession.handledAt).toLocaleString('ko-KR')}
+                {formatDateTimeKst(succession.handledAt)}
               </Row>
             )}
             {succession.actionNote && (

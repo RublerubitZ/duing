@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { ApiError } from '@duing/api';
 import {
+  formatDateTimeKst,
   useInterviewRoundDetailQuery,
   useRequestAvailabilityMutation,
 } from '@duing/hooks';
@@ -89,7 +90,7 @@ export function Step4Review({ recruitmentId, roundId, clubId }: Props) {
             <span className="text-slate-500">마감</span>
             <span className="text-slate-900">
               {detail.availabilityDeadline
-                ? new Date(detail.availabilityDeadline).toLocaleString('ko-KR')
+                ? formatDateTimeKst(detail.availabilityDeadline)
                 : '—'}
             </span>
           </div>

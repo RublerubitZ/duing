@@ -4,7 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Receipt } from '@duing/types';
 
 const mockUseMyFeeReceiptQuery = vi.fn();
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  // 날짜 유틸(formatDateKst 등) 순수 함수는 실제 구현을 그대로 쓴다.
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useMyFeeReceiptQuery: (billId: number) => mockUseMyFeeReceiptQuery(billId),
 }));
 vi.mock('next/navigation', () => ({

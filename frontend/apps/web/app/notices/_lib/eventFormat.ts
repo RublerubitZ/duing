@@ -1,15 +1,27 @@
-// 백엔드 LocalDateTime(타임존 없는 'YYYY-MM-DDTHH:mm:ss')을 클라이언트 로컬 시각으로 해석해 표시한다.
-// 'Z'/오프셋이 붙은 문자열이 들어오면 로컬로 변환되므로, 백엔드 직렬화 계약(타임존 없음)이 바뀌면 재검토.
+// 공지 행사/게시 시각 표기 — KST(Asia/Seoul) 고정. Schedule Time(무오프셋 KST 벽시계)과
+// Event Time(`…Z` 절대시각) 모두 parseKstInstant 규칙으로 올바르게 파싱된다.
+import { daysUntilKst, formatDateKst, kstDateTimeFormatter, parseKstInstant } from '@duing/hooks/datetime';
 import type { NoticeEventInfo } from '@duing/types';
 
-const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+// "9.25(금) 10:00" 조립용 — 월·일·요일·시·분을 KST 기준으로 한 번에 뽑는다.
+const EVENT_PARTS_FORMATTER = kstDateTimeFormatter({
+  month: 'numeric',
+  day: 'numeric',
+  weekday: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function partValue(formattedParts: Intl.DateTimeFormatPart[], partType: Intl.DateTimeFormatPartTypes): string {
+  return formattedParts.find((part) => part.type === partType)?.value ?? '';
+}
 
 function parts(iso: string): { date: string; time: string } {
-  const value = new Date(iso);
-  const date = `${value.getMonth() + 1}.${value.getDate()}(${WEEKDAYS[value.getDay()] ?? ''})`;
-  const hours = String(value.getHours()).padStart(2, '0');
-  const minutes = String(value.getMinutes()).padStart(2, '0');
-  return { date, time: `${hours}:${minutes}` };
+  const formattedParts = EVENT_PARTS_FORMATTER.formatToParts(parseKstInstant(iso));
+  const date = `${partValue(formattedParts, 'month')}.${partValue(formattedParts, 'day')}(${partValue(formattedParts, 'weekday')})`;
+  const time = `${partValue(formattedParts, 'hour')}:${partValue(formattedParts, 'minute')}`;
+  return { date, time };
 }
 
 export function formatEventRange(startAt: string, endAt: string | null): string {
@@ -21,18 +33,14 @@ export function formatEventRange(startAt: string, endAt: string | null): string 
 }
 
 export function formatDdayLabel(expiresAt: string): string {
-  const diffMs = new Date(expiresAt).getTime() - Date.now();
-  if (diffMs < 0) return '마감';
-  const days = Math.ceil(diffMs / 86_400_000);
-  if (days === 0) return 'D-DAY';
+  if (parseKstInstant(expiresAt).getTime() < Date.now()) return '마감';
+  const days = daysUntilKst(expiresAt, new Date());
+  if (days <= 0) return 'D-DAY';
   return `D-${days}`;
 }
 
 export function formatPublishedDate(iso: string): string {
-  const value = new Date(iso);
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${value.getFullYear()}.${month}.${day}`;
+  return formatDateKst(iso);
 }
 
 // 이벤트 정보 → 라벨/값 행(일시 항상, 장소·주최·대상은 값이 있을 때만). 카드/요약이 공유한다.

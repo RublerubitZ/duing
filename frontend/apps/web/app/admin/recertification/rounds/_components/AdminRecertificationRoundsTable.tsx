@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { AdminRecertificationRound } from '@duing/types';
-import { useCloseRecertificationRoundMutation } from '@duing/hooks';
+import { formatDateTimeKst, useCloseRecertificationRoundMutation } from '@duing/hooks';
 import { cn } from '../../../../_lib/cn';
 import { ROUND_STATUS_LABEL, ROUND_STATUS_BADGE_CLASS } from '../_lib/recertificationRoundLabels';
 import { AdminRecertificationRoundCloseDialog } from './AdminRecertificationRoundCloseDialog';
@@ -62,10 +62,10 @@ export function AdminRecertificationRoundsTable({ items }: Props) {
                 <Td>{round.year}</Td>
                 <Td>{round.label}</Td>
                 <Td>{round.openedBy.name}</Td>
-                <Td>{new Date(round.openedAt).toLocaleString('ko-KR')}</Td>
+                <Td>{formatDateTimeKst(round.openedAt)}</Td>
                 <Td>{round.closedBy?.name ?? '—'}</Td>
                 <Td>
-                  {round.closedAt ? new Date(round.closedAt).toLocaleString('ko-KR') : '—'}
+                  {round.closedAt ? formatDateTimeKst(round.closedAt) : '—'}
                 </Td>
                 <Td>
                   {round.status === 'OPEN' && (

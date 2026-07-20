@@ -2,23 +2,14 @@
 
 import Link from 'next/link';
 import type { TodayScheduleItem } from '@duing/types';
-import { useTodaySchedule, parseKstInstant } from '@duing/hooks';
+import { useTodaySchedule, formatTimeKst } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { DashboardCard } from './DashboardCard';
-
-function formatTime(iso: string): string {
-  return new Intl.DateTimeFormat('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(parseKstInstant(iso));
-}
 
 function ScheduleRow({ clubId, item }: { clubId: number; item: TodayScheduleItem }) {
   const label = (
     <div className="flex items-center gap-2">
-      <span className="w-12 shrink-0 text-xs font-semibold text-charcoal-2">{formatTime(item.startAt)}</span>
+      <span className="w-12 shrink-0 text-xs font-semibold text-charcoal-2">{formatTimeKst(item.startAt)}</span>
       <span
         className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
           item.kind === 'INTERVIEW' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700'

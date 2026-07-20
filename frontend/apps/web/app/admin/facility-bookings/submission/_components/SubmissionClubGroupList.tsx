@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { formatDateKst } from '@duing/hooks';
 import type { SubmissionCandidateBooking } from '@duing/types';
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../_lib/submissionTimetable';
 import { buildClubGroups } from '../_lib/submissionGroups';
@@ -93,7 +94,7 @@ export function SubmissionClubGroupList({ bookings, selection, onToggleSelect, o
                         {booking.attendeeCount !== null ? `${booking.attendeeCount}명` : '-'}
                       </span>
                       <span className="font-mono text-[10px] text-charcoal-3">
-                        승인 {booking.decidedAt !== null ? booking.decidedAt.slice(0, 10) : '-'}
+                        승인 {booking.decidedAt !== null ? formatDateKst(booking.decidedAt) : '-'}
                       </span>
                       <span className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${visual.container}`}>
                         <span className={visual.nameClass}>{SUBMISSION_STATUS_LABELS[booking.status]}</span>

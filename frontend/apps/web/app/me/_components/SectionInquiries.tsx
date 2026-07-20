@@ -1,9 +1,9 @@
 import Link from 'next/link';
 
+import { formatDateKst } from '@duing/hooks/datetime';
 import type { FederationInquirySummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
-import { formatDateDot } from '@/app/_lib/formatDateDot';
 import { toRoute } from '@/app/_lib/route';
 import { ArrowRight } from '@/components/duing/Icon';
 import {
@@ -78,7 +78,7 @@ export function SectionInquiries({ inquiries, totalCount }: Props) {
                     </span>
                   </div>
                   <div className="mt-1 font-mono text-[12px] text-charcoal-3">
-                    {formatDateDot(inquiry.createdAt)}
+                    {formatDateKst(inquiry.createdAt)}
                   </div>
                 </div>
 
