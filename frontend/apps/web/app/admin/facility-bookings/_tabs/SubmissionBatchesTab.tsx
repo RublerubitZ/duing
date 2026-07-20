@@ -4,10 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   useCancelSubmissionBatchMutation,
+  useCompleteSubmissionBatchMutation,
   useDownloadSubmissionCsvMutation,
   useSubmissionBatchesQuery,
 } from '@duing/hooks';
-import type { SubmissionBatchSummary } from '@duing/types';
+import type { CompleteSubmissionBatchResult, SubmissionBatchSummary } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ButtonSpinner } from '@/components/loading/Spinner';
@@ -15,6 +16,8 @@ import { Pagination } from '@/components/Pagination';
 import { downloadBlobFile } from '@/app/_lib/downloadFile';
 import { toRoute } from '../../../_lib/route';
 import { BatchCancelDialog } from '../submission/_components/BatchCancelDialog';
+import { BatchCompleteDialog } from '../submission/_components/BatchCompleteDialog';
+import { BatchCompleteResultDialog } from '../submission/_components/BatchCompleteResultDialog';
 import {
   BATCH_STATUS_META,
   deriveBatchStatus,
@@ -29,6 +32,12 @@ function batchCancelErrorMessage(error: unknown): string {
   return '제출 목록 취소에 실패했어요. 잠시 후 다시 시도해 주세요.';
 }
 
+/** 완료 실패도 서버 메시지 우선(409 기취소·기완료 안내), 없으면 폴백 — batchCancelErrorMessage 동일 패턴. */
+function batchCompleteErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message !== '') return error.message;
+  return '학교 제출 완료에 실패했어요. 잠시 후 다시 시도해 주세요.';
+}
+
 /**
  * 제출 목록 탭(스펙 v3 §7.3) — 만든 제출 목록을 상태 배지와 함께 표로 보여준다.
  * CSV 는 전 상태 허용(완료·취소 배치도 감사용 재다운로드 §5.5), '제출 완료'·'취소' 는 REVIEWING 전용.
@@ -36,8 +45,11 @@ function batchCancelErrorMessage(error: unknown): string {
 export function SubmissionBatchesTab() {
   const [page, setPage] = useState(0);
   const [cancelTarget, setCancelTarget] = useState<SubmissionBatchSummary | null>(null);
+  const [completeTarget, setCompleteTarget] = useState<SubmissionBatchSummary | null>(null);
+  const [completeResult, setCompleteResult] = useState<CompleteSubmissionBatchResult | null>(null);
   const batchesQuery = useSubmissionBatchesQuery({ page, size: PAGE_SIZE });
   const cancelMutation = useCancelSubmissionBatchMutation();
+  const completeMutation = useCompleteSubmissionBatchMutation();
   const csvMutation = useDownloadSubmissionCsvMutation();
   const { addToast } = useToast();
 
@@ -61,6 +73,23 @@ export function SubmissionBatchesTab() {
       addToast('제출 목록이 취소되었어요.');
     } catch (error) {
       addToast(batchCancelErrorMessage(error), { variant: 'error' });
+    }
+  };
+
+  const handleCompleteConfirm = async () => {
+    if (completeTarget === null) return;
+    try {
+      const result = await completeMutation.mutateAsync({ batchId: completeTarget.batchId });
+      setCompleteTarget(null);
+      // 스킵 0 은 토스트로 마무리, 스킵 있으면 확인 Dialog 를 닫고 결과 Dialog(제외 목록)를 연다.
+      if (result.skippedCount === 0) {
+        addToast('학교 제출이 완료되었습니다.');
+      } else {
+        setCompleteResult(result);
+      }
+    } catch (error) {
+      // 실패 시 확인 Dialog 를 유지(completeTarget 그대로) — 서버 메시지 우선 안내만.
+      addToast(batchCompleteErrorMessage(error), { variant: 'error' });
     }
   };
 
@@ -123,9 +152,13 @@ export function SubmissionBatchesTab() {
                     </td>
                     <td className="py-2">
                       <div className="flex items-center gap-2 whitespace-nowrap">
-                        {/* '제출 완료' 액션은 Task 4 에서 확인 Dialog 를 연결한다 — REVIEWING 행에만 자리를 둔다. */}
+                        {/* '제출 완료'·'취소' 는 REVIEWING 행 전용 — 확인 Dialog 를 거쳐 완료/취소 처리한다. */}
                         {status === 'REVIEWING' && (
-                          <button type="button" className="btn btn-ghost btn-sm">
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => setCompleteTarget(batch)}
+                          >
                             제출 완료
                           </button>
                         )}
@@ -171,6 +204,20 @@ export function SubmissionBatchesTab() {
         isPending={cancelMutation.isPending}
         onConfirm={() => void handleCancelConfirm()}
         onClose={() => setCancelTarget(null)}
+      />
+
+      <BatchCompleteDialog
+        batch={completeTarget}
+        isPending={completeMutation.isPending}
+        onConfirm={() => void handleCompleteConfirm()}
+        onClose={() => setCompleteTarget(null)}
+      />
+
+      {/* 목록 탭은 bookingsById 미공급 → 제외 행을 예약번호로 표기(상세 화면 Task 5 만 예약일·동아리 공급). */}
+      <BatchCompleteResultDialog
+        result={completeResult}
+        bookingsById={null}
+        onClose={() => setCompleteResult(null)}
       />
     </div>
   );

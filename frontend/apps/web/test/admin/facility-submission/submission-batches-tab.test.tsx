@@ -6,8 +6,10 @@ import type { SubmissionBatchSummary } from '@duing/types';
 const mockBatchesQuery = vi.fn();
 const mockCancelMutation = vi.fn();
 const mockCsvMutation = vi.fn();
+const mockCompleteMutation = vi.fn();
 const mockCancelMutateAsync = vi.fn();
 const mockCsvMutateAsync = vi.fn();
+const mockCompleteMutateAsync = vi.fn();
 const mockAddToast = vi.fn();
 const mockDownloadBlobFile = vi.fn();
 
@@ -15,6 +17,7 @@ vi.mock('@duing/hooks', () => ({
   useSubmissionBatchesQuery: (...args: unknown[]) => mockBatchesQuery(...args),
   useCancelSubmissionBatchMutation: () => mockCancelMutation(),
   useDownloadSubmissionCsvMutation: () => mockCsvMutation(),
+  useCompleteSubmissionBatchMutation: () => mockCompleteMutation(),
 }));
 
 vi.mock('@/app/_components/toast/ToastProvider', () => ({
@@ -69,13 +72,16 @@ describe('SubmissionBatchesTab', () => {
     mockBatchesQuery.mockReset();
     mockCancelMutation.mockReset();
     mockCsvMutation.mockReset();
+    mockCompleteMutation.mockReset();
     mockCancelMutateAsync.mockReset();
     mockCsvMutateAsync.mockReset();
+    mockCompleteMutateAsync.mockReset();
     mockAddToast.mockReset();
     mockDownloadBlobFile.mockReset();
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
     mockCancelMutation.mockReturnValue({ mutateAsync: mockCancelMutateAsync, isPending: false });
     mockCsvMutation.mockReturnValue({ mutateAsync: mockCsvMutateAsync, isPending: false });
+    mockCompleteMutation.mockReturnValue({ mutateAsync: mockCompleteMutateAsync, isPending: false });
     mockCancelMutateAsync.mockResolvedValue(undefined);
     mockCsvMutateAsync.mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
   });
@@ -193,6 +199,92 @@ describe('SubmissionBatchesTab', () => {
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('이미 완료된 제출 목록입니다.', { variant: 'error' });
     });
+  });
+
+  it('제출 완료 버튼 → 확인 Dialog 제목과 안내 3줄 문구를 보여준다', () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
+    render(<SubmissionBatchesTab />);
+
+    fireEvent.click(screen.getByRole('button', { name: '제출 완료' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('학교 제출을 완료하시겠습니까?')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('• 제출 가능한 예약은 학교 등록 완료 상태로 변경됩니다.'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('• 이미 취소되었거나 상태가 변경된 예약은 자동으로 제외됩니다.'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText('• 완료된 제출 목록은 다시 취소할 수 없습니다.')).toBeInTheDocument();
+  });
+
+  it('확인 시 batchId 로 완료하고, 스킵 0 이면 완료 토스트만 띄우고 결과 Dialog 는 열지 않는다', async () => {
+    mockCompleteMutateAsync.mockResolvedValue({
+      totalCount: 3,
+      confirmedCount: 3,
+      skippedCount: 0,
+      completedAt: '2026-08-01T11:00:00',
+      skippedBookings: [],
+    });
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 9 })]));
+    render(<SubmissionBatchesTab />);
+
+    fireEvent.click(screen.getByRole('button', { name: '제출 완료' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '제출 완료' }));
+
+    await waitFor(() => {
+      expect(mockCompleteMutateAsync).toHaveBeenCalledWith({ batchId: 9 });
+      expect(mockAddToast).toHaveBeenCalledWith('학교 제출이 완료되었습니다.');
+    });
+    expect(mockAddToast).toHaveBeenCalledTimes(1);
+    // 스킵 0 은 결과 Dialog 를 열지 않는다(제외 안내 문구 없음).
+    expect(screen.queryByText(/이번 제출에서 제외되었습니다/)).not.toBeInTheDocument();
+  });
+
+  it('스킵이 있으면 확인 Dialog 를 닫고 결과 Dialog 에 수치 문구와 제외 행(원문 사유)을 보여준다', async () => {
+    mockCompleteMutateAsync.mockResolvedValue({
+      totalCount: 5,
+      confirmedCount: 3,
+      skippedCount: 2,
+      completedAt: '2026-08-01T11:00:00',
+      skippedBookings: [
+        { bookingId: 123, status: 'CANCELLED', reason: '취소됨' },
+        { bookingId: 124, status: 'CONFLICT', reason: '시간이 겹치는 다른 예약이 확정됨' },
+      ],
+    });
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
+    render(<SubmissionBatchesTab />);
+
+    fireEvent.click(screen.getByRole('button', { name: '제출 완료' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '제출 완료' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          '학교 제출이 완료되었습니다. 총 5건 중 3건이 학교 등록 완료되었습니다. 2건은 상태가 변경되어 이번 제출에서 제외되었습니다.',
+        ),
+      ).toBeInTheDocument();
+    });
+    // 목록 탭은 bookingsById 미공급 → 예약번호·원문 사유로 표기(FE 매핑 금지, reason 응답 그대로).
+    expect(screen.getByText('예약 #123 · 취소됨')).toBeInTheDocument();
+    expect(screen.getByText('예약 #124 · 시간이 겹치는 다른 예약이 확정됨')).toBeInTheDocument();
+    // 확인 Dialog 문구는 사라진다.
+    expect(screen.queryByText('학교 제출을 완료하시겠습니까?')).not.toBeInTheDocument();
+  });
+
+  it('완료 실패 시 서버 메시지를 우선한 토스트를 띄우고 확인 Dialog 를 유지한다', async () => {
+    mockCompleteMutateAsync.mockRejectedValue(new Error('이미 취소된 제출 목록입니다'));
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
+    render(<SubmissionBatchesTab />);
+
+    fireEvent.click(screen.getByRole('button', { name: '제출 완료' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '제출 완료' }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('이미 취소된 제출 목록입니다', { variant: 'error' });
+    });
+    // 실패해도 확인 Dialog 는 닫히지 않는다.
+    expect(screen.getByText('학교 제출을 완료하시겠습니까?')).toBeInTheDocument();
   });
 
   it('빈 목록이면 안내 문구를 보여준다', () => {
