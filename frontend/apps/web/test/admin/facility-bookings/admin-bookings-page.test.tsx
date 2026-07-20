@@ -234,6 +234,32 @@ describe('AdminFacilityBookingsPage', () => {
     expect(screen.queryByText('정상 모임')).not.toBeInTheDocument();
   });
 
+  it('충돌·의심 탭: CONFLICT 가 0건이어도 의심(APPROVED) 쪽 페이지네이션으로 다음 장에 갈 수 있다', () => {
+    // 두 쿼리를 같은 page 로 병합하므로 페이지 수는 둘 중 큰 값이어야 한다.
+    // CONFLICT 쪽만 보면 여기서 totalPages 가 0 이 되어 의심 예약 2페이지째가 통째로 도달 불가가 된다.
+    mockQueueQuery.mockImplementation((params: AdminBookingQueueParams) => {
+      if (params.status === 'CONFLICT') return makeQueueSuccess([]);
+      if (params.status === 'APPROVED') {
+        const approvedPage = makeQueueSuccess([
+          makeRow({ bookingId: 81, status: 'APPROVED', conflictSuspected: true, purpose: '의심 모임' }),
+        ]);
+        return { ...approvedPage, data: { ...approvedPage.data, totalElements: 25, totalPages: 2, hasNext: true } };
+      }
+      return makeQueueSuccess([]);
+    });
+
+    render(<AdminFacilityBookingsPage />);
+    fireEvent.click(screen.getByRole('tab', { name: '충돌·의심' }));
+
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+
+    // 클램프가 page 를 0 으로 되돌리지 않고 두 쿼리 모두 2페이지째를 조회해야 한다.
+    expect(mockQueueQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1 }),
+      expect.anything(),
+    );
+  });
+
   it('결과가 없으면 빈 상태 문구, 에러면 안내와 다시 시도 버튼(→refetch)이 보인다', () => {
     const { unmount } = render(<AdminFacilityBookingsPage />);
     expect(screen.getByText('해당 조건의 신청이 없어요.')).toBeInTheDocument();
