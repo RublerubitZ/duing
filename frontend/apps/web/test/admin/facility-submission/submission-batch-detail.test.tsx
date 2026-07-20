@@ -217,6 +217,44 @@ describe('SubmissionBatchDetailPage', () => {
     expect(screen.getByText('2026-08-02 동아리 77 · 시간이 겹치는 다른 예약이 확정됨')).toBeInTheDocument();
   });
 
+  // ④-b 완료 결과 Dialog 가 열린 뒤 상세 refetch 가 실패해도 Dialog 유지(쿼리 게이트 밖 마운트)
+  it('완료 결과 Dialog 가 열린 뒤 상세 refetch 가 실패해도 결과 Dialog 를 유지한다', async () => {
+    const detail = makeDetail({
+      bookings: [
+        makeBooking({ bookingId: 123, clubName: '밴드부', reservationDate: '2026-08-01' }),
+        makeBooking({ bookingId: 124, clubId: 77, clubName: null, reservationDate: '2026-08-02' }),
+      ],
+    });
+    mockCompleteMutateAsync.mockResolvedValue({
+      totalCount: 5,
+      confirmedCount: 3,
+      skippedCount: 2,
+      completedAt: '2026-08-01T11:00:00',
+      skippedBookings: [
+        { bookingId: 123, status: 'CANCELLED', reason: '취소됨' },
+        { bookingId: 124, status: 'CONFLICT', reason: '시간이 겹치는 다른 예약이 확정됨' },
+      ],
+    });
+    mockDetailQuery.mockReturnValue(detailSuccess(detail));
+    const { rerender } = render(<SubmissionBatchDetailPage batchId={9} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '제출 완료' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '제출 완료' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('2026-08-01 밴드부 · 취소됨')).toBeInTheDocument();
+    });
+
+    // onSettled invalidation 이 유발한 상세 refetch 가 실패 — React Query 는 마지막 data 를 유지한 채 status='error'.
+    mockDetailQuery.mockReturnValue({ data: detail, isLoading: false, isSuccess: false, isError: true });
+    rerender(<SubmissionBatchDetailPage batchId={9} />);
+
+    // 결과 Dialog(제외 목록)가 사라지지 않고, 404 문구로도 대체되지 않는다.
+    expect(screen.getByText('2026-08-01 밴드부 · 취소됨')).toBeInTheDocument();
+    expect(screen.getByText('2026-08-02 동아리 77 · 시간이 겹치는 다른 예약이 확정됨')).toBeInTheDocument();
+    expect(screen.queryByText('제출 목록을 찾을 수 없어요.')).not.toBeInTheDocument();
+  });
+
   // ⑤ REVIEWING 아닐 때 완료/취소 버튼 비노출
   it('완료된 제출 목록은 완료·취소 버튼을 감추고 CSV 만 남긴다', () => {
     mockDetailQuery.mockReturnValue(

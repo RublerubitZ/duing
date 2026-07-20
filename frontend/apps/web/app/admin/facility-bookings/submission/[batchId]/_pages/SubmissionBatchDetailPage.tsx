@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   useCancelSubmissionBatchMutation,
@@ -71,6 +71,15 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
 
   const detail = detailQuery.data;
 
+  // 완료 결과 Dialog(제외 목록)의 예약일·동아리 라벨 소스 — 페이지 레벨에서 유지한다(데이터 없으면 null → 예약번호 폴백).
+  const bookingsById = useMemo<ReadonlyMap<number, SubmissionCandidateBooking> | null>(
+    () =>
+      detail === undefined
+        ? null
+        : new Map(detail.bookings.map((booking) => [booking.bookingId, booking])),
+    [detail],
+  );
+
   const handleDownloadCsv = async () => {
     if (detail === undefined) return;
     try {
@@ -115,7 +124,8 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
 
       {detailQuery.isLoading && <LoadingGate label="제출 목록 불러오는 중" />}
 
-      {!detailQuery.isLoading && detailQuery.isError && (
+      {/* 404 는 보유 데이터가 아예 없을 때만 — 성공 후 백그라운드 refetch 실패는 보유 데이터로 계속 렌더(이월 #8). */}
+      {detail === undefined && detailQuery.isError && (
         <div role="alert" className="py-12 text-center text-sm text-charcoal-2">
           <p>제출 목록을 찾을 수 없어요.</p>
           <Link
@@ -127,16 +137,13 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
         </div>
       )}
 
-      {detail !== undefined && detailQuery.isSuccess && (() => {
+      {detail !== undefined && (() => {
         const status = deriveBatchStatus(detail.batch);
         const statusMeta = BATCH_STATUS_META[status];
         const facilityLabel = detail.batch.facilityName ?? `시설 ${detail.batch.facilityId}`;
         const memoText =
           detail.batch.memo !== null && detail.batch.memo.trim() !== '' ? detail.batch.memo : '-';
         const groups = buildClubGroups(detail.bookings);
-        const bookingsById: ReadonlyMap<number, SubmissionCandidateBooking> = new Map(
-          detail.bookings.map((booking) => [booking.bookingId, booking]),
-        );
         // 시간표의 selectable 블록 클릭(onToggleSelect)도 상세 Sheet 로 흘려 전 블록을 읽기 전용화한다.
         const openBookingDetail = (targetBookingId: number) => {
           const booking = detail.bookings.find((item) => item.bookingId === targetBookingId);
@@ -295,26 +302,31 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
               }
               onClose={() => setDetailBooking(null)}
             />
-            <BatchCancelDialog
-              batch={cancelOpen ? detail.batch : null}
-              isPending={cancelMutation.isPending}
-              onConfirm={() => void handleCancelConfirm()}
-              onClose={() => setCancelOpen(false)}
-            />
-            <BatchCompleteDialog
-              batch={completeOpen ? detail.batch : null}
-              isPending={completeMutation.isPending}
-              onConfirm={() => void handleCompleteConfirm()}
-              onClose={() => setCompleteOpen(false)}
-            />
-            <BatchCompleteResultDialog
-              result={completeResult}
-              bookingsById={bookingsById}
-              onClose={() => setCompleteResult(null)}
-            />
           </>
         );
       })()}
+
+      {/*
+        Dialog 3종은 쿼리 게이트 밖(페이지 레벨)에 무조건 마운트한다 — 완료 결과 Dialog 가 열린 채
+        onSettled 상세 refetch 가 실패(보유 데이터는 유지)해도 사라지지 않게(목록 탭과 동일 안정성).
+      */}
+      <BatchCancelDialog
+        batch={cancelOpen && detail !== undefined ? detail.batch : null}
+        isPending={cancelMutation.isPending}
+        onConfirm={() => void handleCancelConfirm()}
+        onClose={() => setCancelOpen(false)}
+      />
+      <BatchCompleteDialog
+        batch={completeOpen && detail !== undefined ? detail.batch : null}
+        isPending={completeMutation.isPending}
+        onConfirm={() => void handleCompleteConfirm()}
+        onClose={() => setCompleteOpen(false)}
+      />
+      <BatchCompleteResultDialog
+        result={completeResult}
+        bookingsById={bookingsById}
+        onClose={() => setCompleteResult(null)}
+      />
     </main>
   );
 }
