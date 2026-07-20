@@ -330,6 +330,7 @@ export function buildFacilitySections(bookings: SubmissionCandidateBooking[]): F
       bookings: facilityBookings,
     }))
     .sort((left, right) => {
+      // TODO: 시설 표시 순서(displayOrder)가 도입되면 displayOrder → facilityName 순으로 확장한다.
       const leftMissing = left.facilityName.startsWith('시설 ');
       const rightMissing = right.facilityName.startsWith('시설 ');
       if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
@@ -419,6 +420,18 @@ git commit -m "feat(frontend): 시설 섹션·제외 선택 모델 파생 로직
     expect(rowCheckbox).not.toBeChecked();
     expect(screen.getByRole('button', { name: /학교 제출하기 \(0건\)/ })).toBeDisabled();
   });
+
+  it('검색으로 화면에서 사라진 예약의 제외 상태는 정리된다 — 검색 해제 시 기본 선택으로 복귀', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<SubmissionPrepareTab />);
+
+    // 제외 → 검색으로 해당 예약을 숨김 → 검색 해제 → 제외가 정리되어 다시 기본 선택
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '방송' } });
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '' } });
+
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).toBeChecked();
+  });
 ```
 
 4. 유지 개조: 카드 4장 v2.2 라벨(전 시설 합산 값), 카드↔셀렉트 필터 연동, 동아리 검색(밴드부/방송국 구분 — 그룹 롤 셀렉터), 기간 31일·빈 값 가드(`role="alert"` + `mockCandidatesQuery` 마지막 호출 null), 시간표 토글(섹션 안에 시간표 렌더 — `getByRole('columnheader', { name: '09' })` 존재 정도로 단언).
@@ -435,8 +448,8 @@ Expected: FAIL
 ```tsx
 'use client';
 
-import { useState } from 'react';
-import { useCreateSubmissionBatchMutation, useSubmissionCandidatesQuery } from '@duing/hooks';
+import { useEffect, useState } from 'react';
+import { useSubmissionCandidatesQuery } from '@duing/hooks';
 import type { SubmissionCandidateBooking, SubmissionCandidatesParams } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -497,7 +510,6 @@ export function SubmissionPrepareTab() {
   const candidatesParams: SubmissionCandidatesParams | null =
     periodInvalid ? null : { startDate, endDate };
   const candidatesQuery = useSubmissionCandidatesQuery(candidatesParams);
-  const createMutation = useCreateSubmissionBatchMutation();
 
   const allBookings = candidatesQuery.data?.bookings ?? [];
   const keyword = clubKeyword.trim();
@@ -511,6 +523,23 @@ export function SubmissionPrepareTab() {
 
   const statusFilterValue: SubmissionStatusFilter =
     summaryFilter === 'NEED' || summaryFilter === 'SUBMITTED' ? summaryFilter : 'ALL';
+
+  // 화면에서 사라진 예약(기간·검색·필터 변경, 재조회)은 excluded 에서도 정리한다 — 세션 상태 누적 방지.
+  // (레포의 useEffect 금지는 데이터 패칭 한정 — 페이지 클램프 전례와 같은 상태 정리 용도)
+  const visibleSelectableKey = visibleBookings
+    .filter((booking) => booking.selectable)
+    .map((booking) => booking.bookingId)
+    .sort((left, right) => left - right)
+    .join(',');
+  useEffect(() => {
+    setExcludedIds((previous) => {
+      const visibleIds = new Set(
+        visibleSelectableKey === '' ? [] : visibleSelectableKey.split(',').map(Number),
+      );
+      const next = new Set([...previous].filter((bookingId) => visibleIds.has(bookingId)));
+      return next.size === previous.size ? previous : next;
+    });
+  }, [visibleSelectableKey]);
 
   // 재사용 컴포넌트의 선택 콜백을 제외 모델로 반전 연결한다.
   const toggleSelect = (bookingId: number) =>
@@ -664,7 +693,7 @@ export function SubmissionPrepareTab() {
 }
 ```
 
-(주의: `createMutation` 은 Task 4 전까지 미사용 — lint 경고가 나면 Task 4 예고 주석과 함께 유지. `SubmissionDetailSheet` 의 facilityName 은 booking 자체의 facilityName 사용으로 변경 — 전 시설 컨텍스트.)
+(주의: **Task 3 은 조회·렌더·선택 UI 까지만** — `useCreateSubmissionBatchMutation` 은 여기서 생성하지 않는다(제출 플로우는 Task 4 책임). `useToast` 도 Task 4 에서 필요해지면 그때 추가. `SubmissionDetailSheet` 의 facilityName 은 booking 자체의 facilityName 사용 — 전 시설 컨텍스트.)
 
 셸(`AdminFacilityBookingsPage.tsx`)의 prepare 분기를 `<SubmissionPrepareTab />` 로 교체하고 `AdminSubmissionPage` import 제거 → `git rm frontend/apps/web/app/admin/facility-bookings/submission/_pages/AdminSubmissionPage.tsx`. Task 1 셸 테스트의 `@duing/hooks` 모킹은 그대로 유효해야 한다(같은 훅 사용).
 
@@ -747,6 +776,7 @@ Expected: 신규 2건 FAIL
 - 확인 버튼 라벨 `제출 목록 만들기` → `학교 제출하기`
 
 `SubmissionPrepareTab.tsx` 연결:
+- **뮤테이션 훅은 이 태스크에서 생성**(Task 3/4 책임 분리): import 에 `useCreateSubmissionBatchMutation` 추가 + `const createMutation = useCreateSubmissionBatchMutation();`
 - 상태 추가: `const [dialogSection, setDialogSection] = useState<{ facilityId: number; facilityName: string } | null>(null);`
 - 섹션 버튼 onClick → `setDialogSection({ facilityId: section.facilityId, facilityName: section.facilityName })`
 - 핸들러(시설 단위 — dialogSection 의 시설에 속한 선택 예약만 전송):
@@ -763,12 +793,8 @@ Expected: 신규 2건 FAIL
         memo: memo.trim() === '' ? undefined : memo.trim(),
       });
       setDialogSection(null);
-      // 제출된 예약은 selectable 에서 빠지므로 excluded 잔재만 정리한다(위생).
-      setExcludedIds((previous) => {
-        const next = new Set(previous);
-        for (const bookingId of bookingIds) next.delete(bookingId);
-        return next;
-      });
+      // excluded 정리는 별도 불필요 — 제출된 예약은 재조회 후 selectable 에서 빠지고, Task 3 의
+      // 화면 기준 프루닝 이펙트가 잔재를 정리한다(세션 상태 누적 방지 규약).
       addToast("제출 목록이 만들어졌어요. 학교 제출 후 '제출 목록' 탭에서 완료 처리해 주세요.");
     } catch (error) {
       addToast(submissionErrorMessage(error), { variant: 'error' });
