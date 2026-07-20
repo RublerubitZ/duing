@@ -27,7 +27,7 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
   const rows = buildSubmissionRows(bookings);
 
   if (rows.length === 0) {
-    return <p className="text-sm text-charcoal-3">이 기간에 표시할 예약이 없어요.</p>;
+    return <p className="text-sm text-charcoal-3">이 기간에는 표시할 예약이 없어요.</p>;
   }
 
   return (

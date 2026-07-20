@@ -32,9 +32,9 @@ export function BatchCreateDialog({ open, selectedCount, isPending, onClose, onC
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen && !isPending) onClose(); }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>학교 제출 Batch 생성</DialogTitle>
+          <DialogTitle>선택한 예약을 제출 목록에 담을까요?</DialogTitle>
           <DialogDescription>
-            총 {selectedCount}건의 예약을 하나의 학교 제출 Batch로 생성합니다. 계속하시겠습니까?
+            선택한 {selectedCount}건의 예약을 하나의 제출 목록으로 묶어요. 학교에 제출할 때 이 목록 기준으로 관리할 수 있어요.
           </DialogDescription>
         </DialogHeader>
         <label className="block text-sm text-charcoal-2">
@@ -60,7 +60,7 @@ export function BatchCreateDialog({ open, selectedCount, isPending, onClose, onC
             onClick={() => onConfirm(memo)}
           >
             {isPending && <ButtonSpinner />}
-            생성
+            제출 목록 만들기
           </button>
         </DialogFooter>
       </DialogContent>

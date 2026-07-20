@@ -75,7 +75,7 @@ export function AdminSubmissionPage() {
 
   const allBookings = candidatesQuery.data?.bookings ?? [];
   const keyword = clubKeyword.trim();
-  // 동아리명 부분 검색·제출 여부 필터는 클라이언트 가공(스펙 v2 — 단일 시설·31일 상한 소량).
+  // 동아리명 부분 검색·제출 상태 필터는 클라이언트 가공(스펙 v2 — 단일 시설·31일 상한 소량).
   // clubName 이 null 인 예약은 그룹 라벨이 `동아리 {clubId}` 로 합성되므로(SubmissionClubGroupList),
   // 검색도 같은 폴백 문자열로 매칭해야 라벨 그대로 검색된다.
   const searchedBookings =
@@ -88,7 +88,7 @@ export function AdminSubmissionPage() {
   );
   const selectedIds = [...selection].filter((bookingId) => selectableIdSet.has(bookingId));
 
-  // 제출 여부 셀렉트는 필터의 3값(전체/제출 필요/제출함)만 표현 — 카드 확장값(APPROVED/CONFIRMED)일 땐 '전체' 표시.
+  // 제출 상태 셀렉트는 필터의 3값(전체/학교에 제출할 예약/제출 목록에 담긴 예약)만 표현 — 카드 확장값(APPROVED/CONFIRMED)일 땐 '전체' 표시.
   const statusFilterValue: SubmissionStatusFilter =
     summaryFilter === 'NEED' || summaryFilter === 'SUBMITTED' ? summaryFilter : 'ALL';
 
@@ -120,7 +120,7 @@ export function AdminSubmissionPage() {
       setDialogOpen(false);
       resetSelection();
       // v2: CSV 자동 다운로드 없음 — 토스트만. 다운로드는 Batch 상세(PR-4)에서 선택 수행.
-      addToast('학교 제출 Batch가 생성되었습니다.');
+      addToast('선택한 예약이 제출 목록에 담겼어요.');
     } catch (error) {
       addToast(submissionErrorMessage(error), { variant: 'error' });
     }
@@ -130,11 +130,11 @@ export function AdminSubmissionPage() {
     <section className="space-y-4">
       <div>
         <h1 className="font-display text-xl text-ink-deep">학교 제출</h1>
-        <p className="mt-1 text-sm text-charcoal-3">승인 완료된 예약을 월간 단위로 취합해 학교 제출 대상을 관리합니다. 학교 제출 자체는 담당자가 직접 수행해요.</p>
+        <p className="mt-1 text-sm text-charcoal-3">승인 완료된 예약을 모아 학교에 제출할 목록을 만들고 관리해요. 실제 제출은 담당자가 직접 진행해요.</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="학교 제출 탭">
-        {([['submit', '제출 대기'], ['history', '제출 이력']] as const).map(([tab, label]) => (
+        {([['submit', '제출 준비'], ['history', '제출 이력']] as const).map(([tab, label]) => (
           <button
             key={tab}
             type="button"
@@ -151,7 +151,7 @@ export function AdminSubmissionPage() {
       </div>
 
       {activeTab === 'history' && (
-        <p className="text-sm text-charcoal-3">제출 이력은 준비 중이에요. 곧 이 탭에서 확인할 수 있어요.</p>
+        <p className="text-sm text-charcoal-3">제출 이력은 준비 중이에요. 만든 제출 목록을 곧 이 탭에서 확인할 수 있어요.</p>
       )}
 
       {activeTab === 'submit' && (
@@ -184,7 +184,7 @@ export function AdminSubmissionPage() {
               className="rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
             />
             <select
-              aria-label="제출 여부"
+              aria-label="제출 상태"
               className="rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
               value={statusFilterValue}
               onChange={(event) => {
@@ -193,8 +193,8 @@ export function AdminSubmissionPage() {
               }}
             >
               <option value="ALL">전체</option>
-              <option value="NEED">제출 필요</option>
-              <option value="SUBMITTED">제출함</option>
+              <option value="NEED">학교에 제출할 예약</option>
+              <option value="SUBMITTED">제출 목록에 담긴 예약</option>
             </select>
             <div className="ml-auto flex items-center gap-2" role="tablist" aria-label="보기 전환">
               {([['list', '목록'], ['timetable', '시간표']] as const).map(([mode, label]) => (
@@ -215,11 +215,11 @@ export function AdminSubmissionPage() {
           </div>
 
           {facilityId === undefined && (
-            <p className="py-10 text-center text-sm text-charcoal-3">학교 제출은 시설 단위로 진행돼요. 먼저 시설을 선택해주세요.</p>
+            <p className="py-10 text-center text-sm text-charcoal-3">시설을 선택하면 학교에 제출할 예약을 확인할 수 있어요.</p>
           )}
           {facilityId !== undefined && periodInvalid && (
             <div role="alert" className="rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal-2">
-              조회 기간은 시작일부터 최대 31일까지, 역순 없이 선택할 수 있어요.
+              조회 기간을 확인해주세요 — 종료일이 시작일보다 앞설 수 없고, 시작일부터 최대 31일까지 조회할 수 있어요.
             </div>
           )}
 
@@ -249,14 +249,14 @@ export function AdminSubmissionPage() {
                   disabled={selectedIds.length === 0}
                   onClick={() => setDialogOpen(true)}
                 >
-                  선택 {selectedIds.length}건 · 제출 Batch 생성
+                  선택 {selectedIds.length}건 · 제출 목록 만들기
                 </button>
               </div>
 
-              {candidatesQuery.isLoading && <LoadingGate className="min-h-0 py-8" label="제출 대상 불러오는 중" />}
+              {candidatesQuery.isLoading && <LoadingGate className="min-h-0 py-8" label="예약 목록 불러오는 중" />}
               {!candidatesQuery.isLoading && candidatesQuery.isError && (
                 <div role="alert" className="text-sm text-charcoal-2">
-                  <p>제출 대상을 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
+                  <p>예약 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
                   <button type="button" className="btn btn-ghost mt-2" onClick={() => void candidatesQuery.refetch()}>
                     다시 시도
                   </button>
@@ -265,8 +265,8 @@ export function AdminSubmissionPage() {
               {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length === 0 && (
                 <p className="text-sm text-charcoal-3">
                   {summaryFilter !== 'ALL' || keyword !== ''
-                    ? '필터 조건에 맞는 예약이 없어요.'
-                    : '이 기간에 표시할 예약이 없어요.'}
+                    ? '조건에 맞는 예약이 없어요. 검색어나 필터를 바꿔보세요.'
+                    : '이 기간에는 학교에 제출할 예약이 없어요.'}
                 </p>
               )}
               {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length > 0 && (
@@ -308,5 +308,5 @@ export function AdminSubmissionPage() {
 /** 서버 메시지 우선 표출 — AdminUsersPage.forceLogoutErrorMessage 의 추출 방식을 열어 동일하게 맞춘다. */
 function submissionErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message !== '') return error.message;
-  return '학교 제출 Batch 생성에 실패했어요. 잠시 후 다시 시도해주세요.';
+  return '제출 목록을 만들지 못했어요. 잠시 후 다시 시도해주세요.';
 }
