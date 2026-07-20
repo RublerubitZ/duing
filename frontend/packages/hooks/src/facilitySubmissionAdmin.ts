@@ -11,7 +11,7 @@ export function useSubmissionCandidatesQuery(params: SubmissionCandidatesParams 
         ? adminQueryKeys.facilitySubmissionCandidates(params)
         : ([...adminQueryKeys.facilitySubmissionAll, 'candidates-none'] as const),
     queryFn: () => {
-      if (params === null) throw new Error('facilityId is required');
+      if (params === null) throw new Error('유효한 조회 기간이 필요합니다');
       return client.admin.facilitySubmission.candidates(params);
     },
     enabled: params !== null,

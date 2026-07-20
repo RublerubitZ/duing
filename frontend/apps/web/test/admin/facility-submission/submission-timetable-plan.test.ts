@@ -9,6 +9,8 @@ import {
 function makeBooking(overrides: Partial<SubmissionCandidateBooking> = {}): SubmissionCandidateBooking {
   return {
     bookingId: 1,
+    facilityId: 1,
+    facilityName: '학생회관 세미나실',
     clubId: 10,
     clubName: '합주부',
     applicantName: '홍길동',
