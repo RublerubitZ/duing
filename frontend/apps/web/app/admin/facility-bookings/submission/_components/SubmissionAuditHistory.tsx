@@ -13,7 +13,7 @@ type Props = {
  */
 export function SubmissionAuditHistory({ audits }: Props) {
   if (audits.length === 0) {
-    return <p className="text-sm text-charcoal-3">아직 남은 운영 기록이 없어요.</p>;
+    return <p className="text-sm text-charcoal-3">아직 운영 기록이 없어요.</p>;
   }
   return (
     <ol className="space-y-2">

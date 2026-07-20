@@ -100,7 +100,7 @@ export function SubmissionBatchesTab() {
 
       {!batchesQuery.isLoading && batchesQuery.isError && (
         <div role="alert" className="text-sm text-charcoal-2">
-          <p>제출 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
+          <p>제출 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>
           <button type="button" className="btn btn-ghost mt-2" onClick={() => void batchesQuery.refetch()}>
             다시 시도
           </button>
@@ -169,8 +169,11 @@ export function SubmissionBatchesTab() {
                           disabled={csvMutation.isPending}
                           onClick={() => void handleDownloadCsv(batch)}
                         >
-                          {/* 동일 batchId 중복 발사·CSV_DOWNLOADED 중복 기록 방지 — 뮤테이션 하나를 표 전체 CSV 버튼이 공유하므로 전역 gate 로 충분(행별 pending 추적은 과설계). */}
-                          {csvMutation.isPending && <ButtonSpinner />}
+                          {/* 동일 batchId 중복 발사·CSV_DOWNLOADED 중복 기록 방지 — 뮤테이션 하나를 표 전체 CSV 버튼이 공유하므로 비활성은 전역이되,
+                              스피너는 실제 내려받는 행에만 둔다(모든 행이 함께 도는 것처럼 보이지 않게). */}
+                          {csvMutation.isPending && csvMutation.variables?.batchId === batch.batchId && (
+                            <ButtonSpinner />
+                          )}
                           CSV
                         </button>
                         <Link
