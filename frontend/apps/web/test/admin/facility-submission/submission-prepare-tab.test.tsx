@@ -1,11 +1,18 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SubmissionCandidatesResponse } from '@duing/types';
 
 const mockCandidatesQuery = vi.fn();
+const mockCreateMutation = vi.fn();
+const mockAddToast = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useSubmissionCandidatesQuery: (...args: unknown[]) => mockCandidatesQuery(...args),
+  useCreateSubmissionBatchMutation: () => mockCreateMutation(),
+}));
+
+vi.mock('@/app/_components/toast/ToastProvider', () => ({
+  useToast: () => ({ addToast: mockAddToast }),
 }));
 
 import { SubmissionPrepareTab } from '../../../app/admin/facility-bookings/_tabs/SubmissionPrepareTab';
@@ -46,6 +53,9 @@ describe('SubmissionPrepareTab', () => {
   beforeEach(() => {
     mockCandidatesQuery.mockReset();
     mockCandidatesQuery.mockReturnValue(queryIdle);
+    mockCreateMutation.mockReset();
+    mockCreateMutation.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+    mockAddToast.mockReset();
   });
 
   it('진입 즉시 시설 없이 전 시설 후보를 조회한다', () => {
@@ -179,5 +189,40 @@ describe('SubmissionPrepareTab', () => {
 
     expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole('columnheader', { name: '09' }).length).toBeGreaterThan(0);
+  });
+
+  it('학교 제출하기 확인까지 진행하면 그 시설의 선택 예약으로 제출 목록이 만들어진다', async () => {
+    const createMutateAsync = vi.fn().mockResolvedValue({
+      batchId: 7, submissionNo: 'SUB-20260801-002', csvFileName: 'facility-submission-SUB-20260801-002.csv',
+    });
+    mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<SubmissionPrepareTab />);
+
+    fireEvent.click(screen.getByRole('button', { name: /학교 제출하기 \(1건\)/ }));
+    expect(screen.getByText(/강당 예약 1건을 학교에 제출할까요/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('메모'), { target: { value: '8월 1차' } });
+    fireEvent.click(screen.getByRole('button', { name: '학교 제출하기' }));
+
+    await waitFor(() => {
+      expect(createMutateAsync).toHaveBeenCalledWith({ bookingIds: [1], memo: '8월 1차' });
+      expect(mockAddToast).toHaveBeenCalledWith(
+        "제출 목록이 만들어졌어요. 학교 제출 후 '제출 목록' 탭에서 완료 처리해 주세요.",
+      );
+    });
+    expect(mockAddToast).toHaveBeenCalledTimes(1);
+  });
+
+  it('생성 실패 시 서버 메시지 에러 토스트를 띄운다', async () => {
+    const createMutateAsync = vi.fn().mockRejectedValue(new Error('이미 제출된 예약이 포함되어 있습니다.'));
+    mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<SubmissionPrepareTab />);
+    fireEvent.click(screen.getByRole('button', { name: /학교 제출하기 \(1건\)/ }));
+    fireEvent.click(screen.getByRole('button', { name: '학교 제출하기' }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('이미 제출된 예약이 포함되어 있습니다.', { variant: 'error' });
+    });
   });
 });

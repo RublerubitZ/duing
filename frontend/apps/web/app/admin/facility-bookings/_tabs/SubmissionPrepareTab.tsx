@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSubmissionCandidatesQuery } from '@duing/hooks';
+import { useCreateSubmissionBatchMutation, useSubmissionCandidatesQuery } from '@duing/hooks';
 import type { SubmissionCandidateBooking, SubmissionCandidatesParams } from '@duing/types';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { BatchCreateDialog } from '../submission/_components/BatchCreateDialog';
 import { SubmissionClubGroupList } from '../submission/_components/SubmissionClubGroupList';
 import { SubmissionDetailSheet } from '../submission/_components/SubmissionDetailSheet';
 import { SubmissionSummaryCards, type SummaryFilter } from '../submission/_components/SubmissionSummaryCards';
@@ -32,6 +34,12 @@ function periodDayCount(startDate: string, endDate: string): number {
   return Math.round(diffMs / 86_400_000) + 1;
 }
 
+/** 서버 메시지 우선(제출 중복·상태 위반 등 사용자 안내형), 없으면 폴백. */
+function submissionErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message !== '') return error.message;
+  return '제출 목록을 만들지 못했어요. 잠시 후 다시 시도해주세요.';
+}
+
 function matchesFilter(booking: SubmissionCandidateBooking, filter: SummaryFilter): boolean {
   if (filter === 'APPROVED') return booking.status === 'APPROVED';
   if (filter === 'NEED') return booking.selectable;
@@ -55,6 +63,10 @@ export function SubmissionPrepareTab() {
   // v3 선택 모델 — 제외 집합만 상태로 두고 선택은 파생한다(기본 전체 선택·신규 유입 자동 선택).
   const [excludedIds, setExcludedIds] = useState<ReadonlySet<number>>(new Set());
   const [detailBooking, setDetailBooking] = useState<SubmissionCandidateBooking | null>(null);
+  // 학교 제출 Dialog 는 시설 단위 — 열린 섹션의 시설 정보만 상태로 둔다.
+  const [dialogSection, setDialogSection] = useState<{ facilityId: number; facilityName: string } | null>(null);
+  const createMutation = useCreateSubmissionBatchMutation();
+  const { addToast } = useToast();
 
   // startDate/endDate 가 빈 값이면 periodDayCount 가 NaN 을 반환 — 범위 비교(NaN >= 1)는 항상 false 라 아래 한 식으로 NaN·역순·초과·0일을 함께 차단한다.
   const periodDays = periodDayCount(startDate, endDate);
@@ -115,6 +127,25 @@ export function SubmissionPrepareTab() {
       }
       return next;
     });
+
+  const handleSubmitConfirm = async (memo: string) => {
+    if (dialogSection === null) return;
+    const sectionBookings = visibleBookings.filter((booking) => booking.facilityId === dialogSection.facilityId);
+    const bookingIds = deriveSelectedIds(sectionBookings, excludedIds);
+    if (bookingIds.length === 0) return;
+    try {
+      await createMutation.mutateAsync({
+        bookingIds,
+        memo: memo.trim() === '' ? undefined : memo.trim(),
+      });
+      setDialogSection(null);
+      // excluded 정리는 별도 불필요 — 제출된 예약은 재조회 후 selectable 에서 빠지고, 화면 기준
+      // 프루닝 이펙트가 잔재를 정리한다(세션 상태 누적 방지 규약).
+      addToast("제출 목록이 만들어졌어요. 학교 제출 후 '제출 목록' 탭에서 완료 처리해 주세요.");
+    } catch (error) {
+      addToast(submissionErrorMessage(error), { variant: 'error' });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -213,7 +244,9 @@ export function SubmissionPrepareTab() {
                         type="button"
                         className="btn btn-primary btn-sm"
                         disabled={sectionSelectedCount === 0}
-                        onClick={() => {/* Task 4: 학교 제출 Dialog 연결 */}}
+                        onClick={() =>
+                          setDialogSection({ facilityId: section.facilityId, facilityName: section.facilityName })
+                        }
                       >
                         학교 제출하기 ({sectionSelectedCount}건)
                       </button>
@@ -248,7 +281,21 @@ export function SubmissionPrepareTab() {
         facilityName={detailBooking?.facilityName ?? (detailBooking !== null ? `시설 ${detailBooking.facilityId}` : '')}
         onClose={() => setDetailBooking(null)}
       />
-      {/* Task 4: SubmitToSchoolDialog(BatchCreateDialog v3 개조)를 dialogSection 상태와 함께 연결한다. */}
+      <BatchCreateDialog
+        open={dialogSection !== null}
+        facilityName={dialogSection?.facilityName ?? ''}
+        selectedCount={
+          dialogSection === null
+            ? 0
+            : deriveSelectedIds(
+                visibleBookings.filter((booking) => booking.facilityId === dialogSection.facilityId),
+                excludedIds,
+              ).length
+        }
+        isPending={createMutation.isPending}
+        onClose={() => setDialogSection(null)}
+        onConfirm={(memo) => void handleSubmitConfirm(memo)}
+      />
     </div>
   );
 }
