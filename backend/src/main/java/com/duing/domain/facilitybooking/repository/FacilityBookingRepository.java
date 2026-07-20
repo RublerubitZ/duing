@@ -42,6 +42,10 @@ public interface FacilityBookingRepository
     List<FacilityBooking> findByFacilityIdAndReservationDateBetweenAndStatusIn(
             Long facilityId, LocalDate startDate, LocalDate endDate, Collection<BookingStatus> statuses);
 
+    /** 학교 제출 준비 전 시설 조회(제출 스펙 §5.1 v3) — 기간·상태 조건, 시설 무제한. */
+    List<FacilityBooking> findByReservationDateBetweenAndStatusIn(
+            LocalDate startDate, LocalDate endDate, Collection<BookingStatus> statuses);
+
     /** 자동 매칭 대상 조회 — 특정 상태(APPROVED)·예약일 구간의 신청 전체. */
     List<FacilityBooking> findByStatusAndReservationDateBetween(
             BookingStatus status, LocalDate startDate, LocalDate endDate);

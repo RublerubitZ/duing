@@ -61,10 +61,12 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     @Override
     public SubmissionCandidatesResult getCandidates(SubmissionCandidatesQuery query) {
         validatePeriod(query.startDate(), query.endDate());
-        List<FacilityBooking> bookings = bookingRepository
-                .findByFacilityIdAndReservationDateBetweenAndStatusIn(
+        List<FacilityBooking> fetchedBookings = query.facilityId() != null
+                ? bookingRepository.findByFacilityIdAndReservationDateBetweenAndStatusIn(
                         query.facilityId(), query.startDate(), query.endDate(), CANDIDATE_STATUSES)
-                .stream()
+                : bookingRepository.findByReservationDateBetweenAndStatusIn(
+                        query.startDate(), query.endDate(), CANDIDATE_STATUSES);
+        List<FacilityBooking> bookings = fetchedBookings.stream()
                 .filter(booking -> query.clubId() == null || booking.getClubId().equals(query.clubId()))
                 .sorted(Comparator.comparing(FacilityBooking::getReservationDate)
                         .thenComparing(FacilityBooking::getStartTime)
@@ -74,9 +76,10 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
         Map<Long, String> submissionNoByBookingId = activeSubmissionNos(bookings);
         Map<Long, String> clubNames = clubNames(bookings);
         Map<Long, String> userNames = userNames(bookings);
+        Map<Long, String> facilityNames = bookingFacilityNames(bookings);
 
         List<SubmissionCandidateBooking> candidateBookings = bookings.stream()
-                .map(booking -> toCandidate(booking, submissionNoByBookingId, clubNames, userNames))
+                .map(booking -> toCandidate(booking, submissionNoByBookingId, clubNames, userNames, facilityNames))
                 .toList();
         return new SubmissionCandidatesResult(summarize(candidateBookings), candidateBookings);
     }
@@ -113,8 +116,9 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
         Map<Long, String> submissionNoByBookingId = activeSubmissionNos(bookings);
         Map<Long, String> clubNames = clubNames(bookings);
         Map<Long, String> userNames = userNames(bookings);
+        Map<Long, String> facilityNames = bookingFacilityNames(bookings);
         List<SubmissionCandidateBooking> bookingRows = bookings.stream()
-                .map(booking -> toCandidate(booking, submissionNoByBookingId, clubNames, userNames))
+                .map(booking -> toCandidate(booking, submissionNoByBookingId, clubNames, userNames, facilityNames))
                 .toList();
         SubmissionBatchListItem header = toListItem(batch, bookingIds.size(),
                 facilityNames(List.of(batch)).get(batch.getFacilityId()),
@@ -197,6 +201,12 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
                 .collect(Collectors.toMap(Club::getId, Club::getName, (first, second) -> first));
     }
 
+    private Map<Long, String> bookingFacilityNames(List<FacilityBooking> bookings) {
+        List<Long> facilityIds = bookings.stream().map(FacilityBooking::getFacilityId).distinct().toList();
+        return facilityRepository.findAllById(facilityIds).stream()
+                .collect(Collectors.toMap(Facility::getId, Facility::getRoomName, (first, second) -> first));
+    }
+
     private Map<Long, String> userNames(List<FacilityBooking> bookings) {
         List<Long> userIds = bookings.stream()
                 .flatMap(booking -> Stream.of(booking.getApplicantId(), booking.getDecidedById()))
@@ -208,11 +218,13 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     }
 
     private SubmissionCandidateBooking toCandidate(FacilityBooking booking,
-            Map<Long, String> submissionNoByBookingId, Map<Long, String> clubNames, Map<Long, String> userNames) {
+            Map<Long, String> submissionNoByBookingId, Map<Long, String> clubNames, Map<Long, String> userNames,
+            Map<Long, String> facilityNames) {
         boolean submitted = submissionNoByBookingId.containsKey(booking.getId());
         boolean selectable = booking.getStatus() == BookingStatus.APPROVED && !submitted;
         return new SubmissionCandidateBooking(
-                booking.getId(), booking.getClubId(), clubNames.get(booking.getClubId()),
+                booking.getId(), booking.getFacilityId(), facilityNames.get(booking.getFacilityId()),
+                booking.getClubId(), clubNames.get(booking.getClubId()),
                 userNames.get(booking.getApplicantId()), blankToNull(booking.getContactPhone()),
                 booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
                 booking.getPurpose(), booking.getAttendeeCount(), booking.getStatus(),

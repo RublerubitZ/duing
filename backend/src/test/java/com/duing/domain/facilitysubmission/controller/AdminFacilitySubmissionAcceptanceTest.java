@@ -132,6 +132,21 @@ class AdminFacilitySubmissionAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("facilityId 없이 후보를 조회하면 전 시설이 시설명과 함께 반환된다")
+    void candidatesWithoutFacilityReturnAllFacilities() {
+        approvedBooking(9);
+        LocalDate baseDate = LocalDate.now().plusDays(7);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(SUBMISSION_PATH + "/candidates?startDate=" + baseDate.minusDays(1)
+                        + "&endDate=" + baseDate.plusDays(1))
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.bookings[0].facilityId", notNullValue())
+                .body("data.bookings[0].facilityName", equalTo(facility.getRoomName()));
+    }
+
+    @Test
     @DisplayName("생성→CSV 다운로드→상세→취소→재취소가 전 구간 계약대로 동작한다")
     void createDownloadDetailCancelFlow() {
         FacilityBooking booking = approvedBooking(9);

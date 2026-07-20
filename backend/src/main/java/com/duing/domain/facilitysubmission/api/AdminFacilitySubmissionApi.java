@@ -34,7 +34,7 @@ public interface AdminFacilitySubmissionApi {
     @Operation(summary = "제출 대상 조회", description = "기간 내 전체 예약(REJECTED 제외) + submitted/selectable 파생 + Summary 4종. 기간 최대 31일.")
     @GetMapping("/admin/facility-bookings/submission/candidates")
     ResponseEntity<ApiResponse<SubmissionCandidatesResponse>> getCandidates(
-            @Parameter(description = "시설(필수)") @RequestParam Long facilityId,
+            @Parameter(description = "시설(생략 시 전 시설)") @RequestParam(required = false) Long facilityId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @Parameter(description = "동아리 필터") @RequestParam(required = false) Long clubId);
