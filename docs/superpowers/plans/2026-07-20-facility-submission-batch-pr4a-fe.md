@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> ⚠️ **문구 정정(91f861a2, 실행 후 사용자 지시):** 이 계획서의 CTA·Dialog 문구는 구버전이다. 현행 정본은 스펙 §7.2 — 섹션 버튼·확인 버튼 `제출 목록 만들기`, Dialog 제목 `{시설명} 예약 N건으로 제출 목록을 만들까요?`. 본문·확인 버튼 문구를 이 계획서 기준으로 되돌리지 말 것.
+
 **Goal:** `/admin/facility-bookings` 단일 페이지(탭 3종: 예약 관리 | 학교 제출 준비 | 제출 목록)로 통합하고, 준비 탭을 자동 큐 UX(전 시설 시설별 섹션·기본 전체 선택·제외 모델·"학교 제출하기")로 개편한다.
 
 **Architecture:** 도메인·API 무변경 — UI 재배치. 탭 상태는 `useSearchParams`+`router.replace`(URL 동기화, Suspense 경계). 예약 관리 탭 = 기존 화면 무손실 이식. 준비 탭 = candidates 를 facilityId 생략으로 호출(전 시설, PR-3 #685)해 시설별 섹션으로 렌더, 선택은 **제외(excluded) 집합의 여집합**으로 파생(기본 전체 선택·신규 유입 자동 선택). 기존 submission 컴포넌트(그룹 목록·시간표·Sheet) 재사용.
