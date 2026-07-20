@@ -186,6 +186,10 @@ import type {
   AdminFacilityBookingDetail,
   AdminFacilityBookingCounts,
   AdminBookingQueueParams,
+  SubmissionCandidatesParams,
+  SubmissionCandidatesResponse,
+  CreateSubmissionBatchPayload,
+  CreateSubmissionBatchResult,
   FederationFaqCategory,
   FederationFaqItem,
   AdminFederationFaqSummary,
@@ -625,6 +629,15 @@ export type DuingApiClient = {
       cancel(bookingId: number, reason: string): Promise<void>;
       // GET .../summary — 대시보드 카드 수치(§9.7)
       summary(): Promise<AdminFacilityBookingCounts>;
+    };
+    // === 학교 제출(Submission Batch) — BE §5 (이력·상세·취소는 PR-3) ===
+    facilitySubmission: {
+      // GET .../submission/candidates — 기간 내 전체 예약 + summary(REJECTED 제외)
+      candidates(params: SubmissionCandidatesParams): Promise<SubmissionCandidatesResponse>;
+      // POST .../submission — all-or-nothing, 409(기제출/미승인)
+      create(payload: CreateSubmissionBatchPayload): Promise<CreateSubmissionBatchResult>;
+      // GET .../submission/{batchId}/csv — BOM 포함 CSV(비 ApiResponse, Blob 그대로)
+      downloadCsv(batchId: number): Promise<Blob>;
     };
     // === BANK 자동매칭 관리 (Sprint 3) ===
     bankMatching: {
@@ -1559,6 +1572,19 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         cancel: (bookingId, reason) =>
           jsonVoid(http.post(`admin/facility-bookings/${bookingId}/cancel`, { json: { reason } })),
         summary: () => jsonOk<AdminFacilityBookingCounts>(http.get('admin/facility-bookings/summary')),
+      },
+      facilitySubmission: {
+        candidates: (params) =>
+          jsonOk<SubmissionCandidatesResponse>(
+            http.get('admin/facility-bookings/submission/candidates', { searchParams: cleanParams(params) }),
+          ),
+        create: (payload) =>
+          jsonOk<CreateSubmissionBatchResult>(
+            http.post('admin/facility-bookings/submission', { json: payload }),
+          ),
+        // 원본 바이트(BOM CSV·비 ApiResponse) — 첨부 다운로드와 동일하게 blobOk 로 에러 정규화+본문 타임아웃.
+        downloadCsv: (batchId) =>
+          blobOk(http.get(`admin/facility-bookings/submission/${batchId}/csv`)),
       },
       bankMatching: {
         overview: () =>

@@ -25,5 +25,6 @@ export * from './bank';
 export * from './cashbook';
 export * from './publicActivity';
 export * from './facility';
+export * from './facilitySubmission';
 export * from './federationFaq';
 export * from './federationInquiry';
