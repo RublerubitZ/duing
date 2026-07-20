@@ -61,6 +61,9 @@ public interface FacilityBookingRepository
     /** 관리자 대시보드 카운트(§5.5) — 상태별 전체 건수. */
     long countByStatus(BookingStatus status);
 
+    // 관리자 콘솔 미처리 건수 — 조치가 필요한 상태가 둘(승인 대기·충돌)이라 In 으로 받는다.
+    long countByStatusIn(Collection<BookingStatus> statuses);
+
     /**
      * 오늘 접수(생성) 건수 — 상태 무관(처리 완료돼도 오늘 접수는 접수). createdAt 은 JPA 감사가 저장 존(JVM 기본)
      * 으로 기록하므로, 호출부가 KST 하루 경계를 같은 저장 존 LocalDateTime 으로 변환해 넘긴다(§9.7·§5.3).

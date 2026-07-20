@@ -1,6 +1,6 @@
 package com.duing.domain.adminconsole.service;
 
-import com.duing.domain.adminconsole.controller.dto.response.AdminPendingCountsResponse;
+import com.duing.domain.adminconsole.service.dto.query.AdminPendingCountsQuery;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.SuccessionStatus;
@@ -40,6 +40,14 @@ public class AdminPendingCountsQueryService {
     private static final List<FederationInquiryStatus> UNANSWERED_INQUIRY_STATUSES =
             List.of(FederationInquiryStatus.RECEIVED, FederationInquiryStatus.IN_PROGRESS);
 
+    /**
+     * 조치가 필요한 예약 = 승인 대기(PENDING) + 충돌(CONFLICT).
+     * CONFLICT 는 승인 이후 겹침이 드러나 되돌아온 상태로, 엔티티도 이 둘에서만 재승인을 허용한다.
+     * 뱃지가 PENDING 만 세면 방치된 충돌 건이 사이드바에서 보이지 않는다.
+     */
+    private static final List<BookingStatus> ACTION_REQUIRED_BOOKING_STATUSES =
+            List.of(BookingStatus.PENDING, BookingStatus.CONFLICT);
+
     private final ClubRepository clubRepository;
     private final FacilityBookingRepository facilityBookingRepository;
     private final FederationInquiryRepository federationInquiryRepository;
@@ -47,10 +55,10 @@ public class AdminPendingCountsQueryService {
     private final ReportRepository reportRepository;
     private final LeaderSuccessionRequestRepository leaderSuccessionRequestRepository;
 
-    public AdminPendingCountsResponse getPendingCounts() {
-        return AdminPendingCountsResponse.of(
+    public AdminPendingCountsQuery getPendingCounts() {
+        return AdminPendingCountsQuery.of(
                 clubRepository.countByStatus(ClubStatus.PENDING_APPROVAL),
-                facilityBookingRepository.countByStatus(BookingStatus.PENDING),
+                facilityBookingRepository.countByStatusIn(ACTION_REQUIRED_BOOKING_STATUSES),
                 federationInquiryRepository.countByStatusIn(UNANSWERED_INQUIRY_STATUSES),
                 promotionRequestRepository.countByStatus(PromotionRequestStatus.PENDING),
                 reportRepository.countByStatus(ReportStatus.PENDING),

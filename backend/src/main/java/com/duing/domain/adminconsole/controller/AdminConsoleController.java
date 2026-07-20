@@ -20,6 +20,7 @@ public class AdminConsoleController implements AdminConsoleApi {
 
     @Override
     public ResponseEntity<ApiResponse<AdminPendingCountsResponse>> getPendingCounts() {
-        return ResponseEntity.ok(ApiResponse.success(adminPendingCountsQueryService.getPendingCounts()));
+        return ResponseEntity.ok(ApiResponse.success(
+                AdminPendingCountsResponse.from(adminPendingCountsQueryService.getPendingCounts())));
     }
 }
