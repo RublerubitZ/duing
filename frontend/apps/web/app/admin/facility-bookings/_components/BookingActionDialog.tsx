@@ -9,6 +9,7 @@ type Props = {
   title: string;
   description: string;
   reasonLabel: string | null; // null = 사유 입력 없는 확인만(승인·수동 확정)
+  initialReason?: string; // 충돌 패널 → 거절 바로가기의 사유 프리필(개편 스펙 §3) — 수정 가능
   isPending: boolean;
   errorMessage: string | null;
   destructive: boolean;
@@ -21,13 +22,14 @@ export function BookingActionDialog({
   title,
   description,
   reasonLabel,
+  initialReason,
   isPending,
   errorMessage,
   destructive,
   onConfirm,
   onClose,
 }: Props) {
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState(initialReason ?? '');
   const reasonInvalid = reasonLabel !== null && (reason.trim().length === 0 || reason.trim().length > 500);
   return (
     <Dialog

@@ -49,10 +49,21 @@ vi.mock('@/app/_components/toast/ToastProvider', () => ({
   useOptionalToast: () => vi.fn(),
 }));
 
-// 큐 → 모달 통합 경로(클릭 시 올바른 bookingId 로 오픈) 검증용 스텁 —
+// 큐 → 모달 통합 경로(클릭 시 올바른 bookingId·이웃 스냅샷 전달) 검증용 스텁 —
 // 모달 내부는 admin-booking-detail-modal.test 가 격리 검증한다(NoticeRichEditorLazy mock 전례).
 vi.mock('@/app/admin/facility-bookings/_components/AdminBookingDetailModal', () => ({
-  AdminBookingDetailModal: ({ bookingId }: { bookingId: number }) => <div>검토 모달 {bookingId}</div>,
+  AdminBookingDetailModal: ({
+    bookingId,
+    neighborIds,
+  }: {
+    bookingId: number;
+    neighborIds?: { previous: number | null; next: number | null };
+  }) => (
+    <div>
+      <span>검토 모달 {bookingId}</span>
+      <span>{`이웃 prev:${neighborIds?.previous ?? '-'} next:${neighborIds?.next ?? '-'}`}</span>
+    </div>
+  ),
 }));
 
 /* ── 대상 ───────────────────────────────────────────────────── */
@@ -228,6 +239,30 @@ describe('AdminFacilityBookingsPage', () => {
     render(<AdminFacilityBookingsPage />);
     fireEvent.click(screen.getByRole('button', { name: '#56 검토' }));
     expect(screen.getByText('검토 모달 56')).toBeInTheDocument();
+  });
+
+  it('모달 이웃은 열람 시점 큐 기준 스냅샷이라, 액션 후 행이 빠져도 이전/다음 탐색이 유지된다', () => {
+    mockQueueQuery.mockReturnValue(
+      makeQueueSuccess([
+        makeRow({ bookingId: 55, clubName: '가동아리' }),
+        makeRow({ bookingId: 56, clubName: '나동아리' }),
+        makeRow({ bookingId: 57, clubName: '다동아리' }),
+      ]),
+    );
+    const { rerender } = render(<AdminFacilityBookingsPage />);
+
+    fireEvent.click(screen.getByText('나동아리'));
+    expect(screen.getByText('이웃 prev:55 next:57')).toBeInTheDocument();
+
+    // 승인 성공 → refetch 로 56 이 큐에서 빠진 상황 — 파생 계산이면 이 시점에 탐색이 죽는다.
+    mockQueueQuery.mockReturnValue(
+      makeQueueSuccess([
+        makeRow({ bookingId: 55, clubName: '가동아리' }),
+        makeRow({ bookingId: 57, clubName: '다동아리' }),
+      ]),
+    );
+    rerender(<AdminFacilityBookingsPage />);
+    expect(screen.getByText('이웃 prev:55 next:57')).toBeInTheDocument();
   });
 
   it('PENDING 행 서브라인에 신청 시각·경과가 렌더된다', () => {
