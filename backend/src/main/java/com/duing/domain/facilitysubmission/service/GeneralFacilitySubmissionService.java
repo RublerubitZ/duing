@@ -2,7 +2,9 @@ package com.duing.domain.facilitysubmission.service;
 
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
+import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
+import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
 import com.duing.domain.facilitysubmission.entity.FacilitySubmissionAudit;
 import com.duing.domain.facilitysubmission.entity.FacilitySubmissionBatch;
 import com.duing.domain.facilitysubmission.entity.FacilitySubmissionItem;
@@ -13,11 +15,15 @@ import com.duing.domain.facilitysubmission.repository.FacilitySubmissionBatchRep
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionItemRepository;
 import com.duing.domain.facilitysubmission.service.dto.command.CreateSubmissionBatchCommand;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
+import com.duing.domain.facilitysubmission.service.dto.query.CompleteSubmissionBatchResult;
 import com.duing.domain.facilitysubmission.service.dto.query.CreateSubmissionBatchResult;
+import com.duing.domain.notification.event.FacilityBookingConfirmedEvent;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,10 +33,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneralFacilitySubmissionService implements FacilitySubmissionService {
 
     private final FacilityBookingRepository bookingRepository;
+    private final FacilityBookingStatusHistoryRepository historyRepository;
     private final FacilitySubmissionBatchRepository batchRepository;
     private final FacilitySubmissionItemRepository itemRepository;
     private final FacilitySubmissionAuditRepository auditRepository;
     private final SubmissionNumberGenerator numberGenerator;
+    private final SubmissionCompletionSummaryFormatter summaryFormatter;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     @Override
@@ -72,11 +81,52 @@ public class GeneralFacilitySubmissionService implements FacilitySubmissionServi
     @Override
     @Transactional
     public void cancel(Long batchId, SubmissionActorContext actor) {
-        FacilitySubmissionBatch batch = batchRepository.findById(batchId)
+        // 행잠금(§4.2) — 완료 처리와의 동시 실행을 직렬화한다.
+        FacilitySubmissionBatch batch = batchRepository.findByIdForUpdate(batchId)
                 .orElseThrow(FacilitySubmissionException.BatchNotFoundException::new);
         batch.cancel(actor.adminId(), LocalDateTime.now(clock));
         auditRepository.save(FacilitySubmissionAudit.of(batchId, SubmissionAuditAction.CANCELLED,
                 actor.adminId(), actor.ipAddress(), actor.userAgent()));
+    }
+
+    @Override
+    @Transactional
+    public CompleteSubmissionBatchResult complete(Long batchId, SubmissionActorContext actor) {
+        // 행잠금(§4.3-1) — 완료/취소 동시 실행을 직렬화해 상태 가드가 잠금 하에서 평가되게 한다.
+        FacilitySubmissionBatch batch = batchRepository.findByIdForUpdate(batchId)
+                .orElseThrow(FacilitySubmissionException.BatchNotFoundException::new);
+        List<Long> bookingIds = itemRepository.findByBatchIdOrderByIdAsc(batchId).stream()
+                .map(FacilitySubmissionItem::getBookingId)
+                .toList();
+        // 생성과 동일한 ID 정렬 행잠금(§4.3-2) — 생성·완료의 교차 실행도 booking 잠금에서 직렬화된다.
+        List<FacilityBooking> bookings = bookingRepository.findAllByIdInForUpdate(bookingIds);
+
+        LocalDateTime completedAt = LocalDateTime.now(clock);
+        List<CompleteSubmissionBatchResult.SkippedBooking> skippedBookings = new ArrayList<>();
+        int confirmedCount = 0;
+        for (FacilityBooking booking : bookings) {
+            if (booking.getStatus() != BookingStatus.APPROVED) {
+                skippedBookings.add(new CompleteSubmissionBatchResult.SkippedBooking(
+                        booking.getId(), booking.getStatus(),
+                        summaryFormatter.reasonLabel(booking.getStatus())));
+                continue;
+            }
+            // best-effort(§4.3-3) — 기존 수동 확정 경로 재사용(상태 머신 무변경), 이력·알림도 기존 계약 그대로.
+            booking.confirmManually(completedAt);
+            FacilityBookingStatusHistory confirmationHistory = historyRepository.save(
+                    FacilityBookingStatusHistory.record(booking.getId(), BookingStatus.APPROVED,
+                            BookingStatus.CONFIRMED, actor.adminId(),
+                            "학교 제출 완료 — " + batch.getSubmissionNo(), null));
+            eventPublisher.publishEvent(new FacilityBookingConfirmedEvent(
+                    booking.getId(), booking.getClubId(), confirmationHistory.getId()));
+            confirmedCount++;
+        }
+
+        batch.complete(actor.adminId(), completedAt);
+        auditRepository.save(FacilitySubmissionAudit.of(batchId, SubmissionAuditAction.COMPLETED,
+                actor.adminId(), actor.ipAddress(), actor.userAgent(),
+                summaryFormatter.summarize(bookings.size(), confirmedCount, skippedBookings)));
+        return new CompleteSubmissionBatchResult(bookings.size(), confirmedCount, completedAt, skippedBookings);
     }
 
     private String blankToNull(String text) {
