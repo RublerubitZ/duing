@@ -13,11 +13,14 @@ public record SubmissionBatchSummaryResponse(
         String submittedByName,
         String memo,
         boolean cancelled,
-        LocalDateTime cancelledAt
+        LocalDateTime cancelledAt,
+        boolean completed,
+        LocalDateTime completedAt
 ) {
     public static SubmissionBatchSummaryResponse from(SubmissionBatchListItem listItem) {
         return new SubmissionBatchSummaryResponse(listItem.batchId(), listItem.submissionNo(),
                 listItem.facilityId(), listItem.facilityName(), listItem.bookingCount(), listItem.submittedAt(),
-                listItem.submittedByName(), listItem.memo(), listItem.cancelled(), listItem.cancelledAt());
+                listItem.submittedByName(), listItem.memo(), listItem.cancelled(), listItem.cancelledAt(),
+                listItem.completed(), listItem.completedAt());
     }
 }

@@ -10,6 +10,9 @@ export type SubmissionSummaryCounts = {
 
 export type SubmissionCandidateBooking = {
   bookingId: number;
+  // 전 시설 조회의 시설별 섹션 그룹핑용(BE §5.1 v3) — facilityName 은 조회 시점 결측 시 null.
+  facilityId: number;
+  facilityName: string | null;
   clubId: number;
   clubName: string | null;
   applicantName: string | null;
@@ -33,7 +36,8 @@ export type SubmissionCandidatesResponse = {
 };
 
 export type SubmissionCandidatesParams = {
-  facilityId: number;
+  // 생략 시 전 시설의 제출 후보를 반환한다(BE §5.1 v3).
+  facilityId?: number;
   startDate: string;
   endDate: string;
 };

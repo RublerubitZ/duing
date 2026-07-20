@@ -15,6 +15,8 @@ public record SubmissionCandidatesResponse(Summary summary, List<Booking> bookin
 
     public record Booking(
             Long bookingId,
+            Long facilityId,
+            String facilityName,
             Long clubId,
             String clubName,
             String applicantName,
@@ -32,7 +34,8 @@ public record SubmissionCandidatesResponse(Summary summary, List<Booking> bookin
             LocalDateTime decidedAt
     ) {
         public static Booking from(SubmissionCandidateBooking candidate) {
-            return new Booking(candidate.bookingId(), candidate.clubId(), candidate.clubName(),
+            return new Booking(candidate.bookingId(), candidate.facilityId(), candidate.facilityName(),
+                    candidate.clubId(), candidate.clubName(),
                     candidate.applicantName(), candidate.contactPhone(), candidate.reservationDate(),
                     candidate.startTime(), candidate.endTime(), candidate.purpose(), candidate.attendeeCount(),
                     candidate.status(), candidate.submitted(), candidate.selectable(), candidate.submissionNo(),

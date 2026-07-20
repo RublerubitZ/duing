@@ -20,6 +20,7 @@ import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionAuditRepository;
 import com.duing.domain.facilitysubmission.service.dto.command.CreateSubmissionBatchCommand;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
+import com.duing.domain.facilitysubmission.service.dto.query.SubmissionAuditEntry;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchDetailResult;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchListItem;
 import com.duing.domain.user.entity.User;
@@ -156,5 +157,40 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
     void unknownBatchDetailThrowsNotFound() {
         assertThatThrownBy(() -> queryService.getDetail(999_999L, actor()))
                 .isInstanceOf(FacilitySubmissionException.BatchNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("이력 행과 상세 헤더에 완료 상태가 노출된다")
+    void batchListExposesCompletionState() {
+        FacilityBooking booking = approvedBooking(9);
+        Long batchId = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(booking.getId()), null), actor()).batchId();
+        submissionService.complete(batchId, actor());
+
+        Page<SubmissionBatchListItem> page = queryService.getBatches(null, PageRequest.of(0, 20));
+
+        assertThat(page.getContent().get(0).completed()).isTrue();
+        assertThat(page.getContent().get(0).completedAt()).isNotNull();
+        assertThat(page.getContent().get(0).cancelled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("상세는 감사 이력을 시간순으로 — 관리자 이름·요약 detail 과 함께 반환한다")
+    void detailReturnsAuditTrailWithAdminNamesAndSummary() {
+        FacilityBooking booking = approvedBooking(9);
+        Long batchId = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(booking.getId()), null), actor()).batchId();
+        submissionService.complete(batchId, actor());
+
+        SubmissionBatchDetailResult detail = queryService.getDetail(batchId, actor());
+
+        // CREATED → COMPLETED → VIEWED(방금 상세 조회 자신)
+        assertThat(detail.audits()).extracting(SubmissionAuditEntry::action)
+                .containsExactly(SubmissionAuditAction.CREATED, SubmissionAuditAction.COMPLETED,
+                        SubmissionAuditAction.VIEWED);
+        assertThat(detail.audits().get(0).adminName()).isEqualTo(admin.getName());
+        assertThat(detail.audits().get(1).detail()).contains("학교 제출 완료 — 총 1건 / 등록 완료 1건");
+        assertThat(detail.audits().get(0).ipAddress()).isEqualTo("127.0.0.1");
+        assertThat(detail.batch().completed()).isTrue();
     }
 }

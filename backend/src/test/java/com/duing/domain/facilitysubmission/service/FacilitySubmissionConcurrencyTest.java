@@ -13,6 +13,7 @@ import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
+import com.duing.domain.facilitysubmission.entity.FacilitySubmissionBatch;
 import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException;
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionBatchRepository;
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionItemRepository;
@@ -29,6 +30,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,6 +72,38 @@ class FacilitySubmissionConcurrencyTest extends IntegrationTestBase {
                 .isInstanceOf(FacilitySubmissionException.AlreadySubmittedBookingException.class);
         assertThat(batchRepository.count()).isEqualTo(1);
         assertThat(itemRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("같은 Batch 의 완료와 취소가 동시에 실행되면 행잠금으로 정확히 한쪽만 성공한다")
+    void concurrentCompleteAndCancelAllowExactlyOne() throws InterruptedException {
+        User admin = userRepository.save(UserFixture.admin());
+        User applicant = userRepository.save(UserFixture.unique());
+        Club club = clubRepository.save(Club.create("완료동시성", ClubCategory.OTHER, "분과", "설명", null));
+        Facility facility = facilityRepository.save(Facility.create(91001, "커뮤니티룸(2)", "1504호", 0));
+        FacilityBooking booking = FacilityBooking.request(
+                facility.getId(), club.getId(), applicant.getId(), LocalDate.now().plusDays(7),
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "정기 합주", 20,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
+        booking.approve(admin.getId(), null, LocalDateTime.now());
+        Long bookingId = bookingRepository.save(booking).getId();
+        SubmissionActorContext actor = new SubmissionActorContext(admin.getId(), "127.0.0.1", "JUnit");
+        Long batchId = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(bookingId), null), actor).batchId();
+
+        AtomicInteger turn = new AtomicInteger();
+        List<Throwable> failures = runConcurrently(2, () -> {
+            if (turn.getAndIncrement() == 0) submissionService.complete(batchId, actor);
+            else submissionService.cancel(batchId, actor);
+        });
+
+        assertThat(failures).as("행잠금 직렬화로 정확히 한쪽만 거부돼야 한다").hasSize(1);
+        assertThat(failures.get(0)).isInstanceOfAny(
+                FacilitySubmissionException.BatchAlreadyCancelledException.class,
+                FacilitySubmissionException.CompletedBatchUncancellableException.class);
+        FacilitySubmissionBatch batch = batchRepository.findById(batchId).orElseThrow();
+        assertThat(batch.isCompleted() ^ batch.isCancelled())
+                .as("완료·취소는 상호 배타 — 정확히 하나만 참").isTrue();
     }
 
     /** AuthRefreshConcurrencyTest 의 동시 실행 헬퍼를 복제한다(사이드 파일 패턴 일치). */

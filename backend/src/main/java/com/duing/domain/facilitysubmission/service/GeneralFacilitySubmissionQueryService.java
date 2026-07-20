@@ -16,6 +16,7 @@ import com.duing.domain.facilitysubmission.repository.FacilitySubmissionAuditRep
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionBatchRepository;
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionItemRepository;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
+import com.duing.domain.facilitysubmission.service.dto.query.SubmissionAuditEntry;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchDetailResult;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchListItem;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidateBooking;
@@ -25,6 +26,7 @@ import com.duing.domain.facilitysubmission.service.dto.query.SubmissionSummaryCo
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
@@ -60,10 +62,12 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     @Override
     public SubmissionCandidatesResult getCandidates(SubmissionCandidatesQuery query) {
         validatePeriod(query.startDate(), query.endDate());
-        List<FacilityBooking> bookings = bookingRepository
-                .findByFacilityIdAndReservationDateBetweenAndStatusIn(
+        List<FacilityBooking> fetchedBookings = query.facilityId() != null
+                ? bookingRepository.findByFacilityIdAndReservationDateBetweenAndStatusIn(
                         query.facilityId(), query.startDate(), query.endDate(), CANDIDATE_STATUSES)
-                .stream()
+                : bookingRepository.findByReservationDateBetweenAndStatusIn(
+                        query.startDate(), query.endDate(), CANDIDATE_STATUSES);
+        List<FacilityBooking> bookings = fetchedBookings.stream()
                 .filter(booking -> query.clubId() == null || booking.getClubId().equals(query.clubId()))
                 .sorted(Comparator.comparing(FacilityBooking::getReservationDate)
                         .thenComparing(FacilityBooking::getStartTime)
@@ -73,9 +77,10 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
         Map<Long, String> submissionNoByBookingId = activeSubmissionNos(bookings);
         Map<Long, String> clubNames = clubNames(bookings);
         Map<Long, String> userNames = userNames(bookings);
+        Map<Long, String> facilityNames = bookingFacilityNames(bookings);
 
         List<SubmissionCandidateBooking> candidateBookings = bookings.stream()
-                .map(booking -> toCandidate(booking, submissionNoByBookingId, clubNames, userNames))
+                .map(booking -> toCandidate(booking, submissionNoByBookingId, clubNames, userNames, facilityNames))
                 .toList();
         return new SubmissionCandidatesResult(summarize(candidateBookings), candidateBookings);
     }
@@ -112,22 +117,29 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
         Map<Long, String> submissionNoByBookingId = activeSubmissionNos(bookings);
         Map<Long, String> clubNames = clubNames(bookings);
         Map<Long, String> userNames = userNames(bookings);
+        Map<Long, String> facilityNames = bookingFacilityNames(bookings);
         List<SubmissionCandidateBooking> bookingRows = bookings.stream()
-                .map(booking -> toCandidate(booking, submissionNoByBookingId, clubNames, userNames))
+                .map(booking -> toCandidate(booking, submissionNoByBookingId, clubNames, userNames, facilityNames))
                 .toList();
         SubmissionBatchListItem header = toListItem(batch, bookingIds.size(),
                 facilityNames(List.of(batch)).get(batch.getFacilityId()),
                 submitterNames(List.of(batch)).get(batch.getSubmittedById()));
         auditRepository.save(FacilitySubmissionAudit.of(batchId, SubmissionAuditAction.VIEWED,
                 actor.adminId(), actor.ipAddress(), actor.userAgent()));
-        return new SubmissionBatchDetailResult(header, bookingRows);
+        List<FacilitySubmissionAudit> auditRows = auditRepository.findByBatchIdOrderByIdAsc(batchId);
+        Map<Long, String> auditAdminNames = auditAdminNames(auditRows);
+        List<SubmissionAuditEntry> audits = auditRows.stream()
+                .map(auditRow -> toAuditEntry(auditRow, auditAdminNames))
+                .toList();
+        return new SubmissionBatchDetailResult(header, bookingRows, audits);
     }
 
     private SubmissionBatchListItem toListItem(FacilitySubmissionBatch batch, long bookingCount,
             String facilityName, String submittedByName) {
         return new SubmissionBatchListItem(batch.getId(), batch.getSubmissionNo(), batch.getFacilityId(),
                 facilityName, bookingCount, batch.getSubmittedAt(), submittedByName, batch.getMemo(),
-                batch.isCancelled(), batch.getCancelledAt());
+                batch.isCancelled(), batch.getCancelledAt(),
+                batch.isCompleted(), batch.getCompletedAt());
     }
 
     private Map<Long, Long> bookingCounts(List<FacilitySubmissionBatch> batches) {
@@ -152,6 +164,21 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
         List<Long> submitterIds = batches.stream().map(FacilitySubmissionBatch::getSubmittedById).distinct().toList();
         return userRepository.findAllById(submitterIds).stream()
                 .collect(Collectors.toMap(User::getId, User::getName, (first, second) -> first));
+    }
+
+    private Map<Long, String> auditAdminNames(List<FacilitySubmissionAudit> auditRows) {
+        return userRepository.findAllById(
+                        auditRows.stream().map(FacilitySubmissionAudit::getAdminId).distinct().toList()).stream()
+                .collect(Collectors.toMap(User::getId, User::getName, (first, second) -> first));
+    }
+
+    private SubmissionAuditEntry toAuditEntry(FacilitySubmissionAudit auditRow, Map<Long, String> auditAdminNames) {
+        // createdAt 은 JPA 감사가 저장 존(JVM 기본) 벽시계로 기록하므로 KST 로 환산한다 —
+        // 같은 응답의 completedAt/submittedAt 은 seoulClock(KST) 이라 그대로 노출하면 prod(UTC)에서 9시간 어긋난다.
+        return new SubmissionAuditEntry(auditRow.getAction(), auditAdminNames.get(auditRow.getAdminId()),
+                auditRow.getCreatedAt().atZone(ZoneId.systemDefault())
+                        .withZoneSameInstant(ZoneId.of("Asia/Seoul")).toLocalDateTime(),
+                auditRow.getIpAddress(), auditRow.getDetail());
     }
 
     private void validatePeriod(LocalDate startDate, LocalDate endDate) {
@@ -179,6 +206,12 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
                 .collect(Collectors.toMap(Club::getId, Club::getName, (first, second) -> first));
     }
 
+    private Map<Long, String> bookingFacilityNames(List<FacilityBooking> bookings) {
+        List<Long> facilityIds = bookings.stream().map(FacilityBooking::getFacilityId).distinct().toList();
+        return facilityRepository.findAllById(facilityIds).stream()
+                .collect(Collectors.toMap(Facility::getId, Facility::getRoomName, (first, second) -> first));
+    }
+
     private Map<Long, String> userNames(List<FacilityBooking> bookings) {
         List<Long> userIds = bookings.stream()
                 .flatMap(booking -> Stream.of(booking.getApplicantId(), booking.getDecidedById()))
@@ -190,11 +223,13 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     }
 
     private SubmissionCandidateBooking toCandidate(FacilityBooking booking,
-            Map<Long, String> submissionNoByBookingId, Map<Long, String> clubNames, Map<Long, String> userNames) {
+            Map<Long, String> submissionNoByBookingId, Map<Long, String> clubNames, Map<Long, String> userNames,
+            Map<Long, String> facilityNames) {
         boolean submitted = submissionNoByBookingId.containsKey(booking.getId());
         boolean selectable = booking.getStatus() == BookingStatus.APPROVED && !submitted;
         return new SubmissionCandidateBooking(
-                booking.getId(), booking.getClubId(), clubNames.get(booking.getClubId()),
+                booking.getId(), booking.getFacilityId(), facilityNames.get(booking.getFacilityId()),
+                booking.getClubId(), clubNames.get(booking.getClubId()),
                 userNames.get(booking.getApplicantId()), blankToNull(booking.getContactPhone()),
                 booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
                 booking.getPurpose(), booking.getAttendeeCount(), booking.getStatus(),

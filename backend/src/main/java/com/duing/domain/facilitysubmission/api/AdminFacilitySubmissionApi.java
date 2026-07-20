@@ -1,6 +1,7 @@
 package com.duing.domain.facilitysubmission.api;
 
 import com.duing.domain.facilitysubmission.controller.dto.request.CreateSubmissionBatchRequest;
+import com.duing.domain.facilitysubmission.controller.dto.response.CompleteSubmissionBatchResponse;
 import com.duing.domain.facilitysubmission.controller.dto.response.CreateSubmissionBatchResponse;
 import com.duing.domain.facilitysubmission.controller.dto.response.SubmissionBatchDetailResponse;
 import com.duing.domain.facilitysubmission.controller.dto.response.SubmissionBatchSummaryResponse;
@@ -33,7 +34,7 @@ public interface AdminFacilitySubmissionApi {
     @Operation(summary = "제출 대상 조회", description = "기간 내 전체 예약(REJECTED 제외) + submitted/selectable 파생 + Summary 4종. 기간 최대 31일.")
     @GetMapping("/admin/facility-bookings/submission/candidates")
     ResponseEntity<ApiResponse<SubmissionCandidatesResponse>> getCandidates(
-            @Parameter(description = "시설(필수)") @RequestParam Long facilityId,
+            @Parameter(description = "시설(생략 시 전 시설)") @RequestParam(required = false) Long facilityId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @Parameter(description = "동아리 필터") @RequestParam(required = false) Long clubId);
@@ -66,6 +67,13 @@ public interface AdminFacilitySubmissionApi {
     @Operation(summary = "제출 취소", description = "cancelled 상태 전환(완전 삭제 없음). 기취소 409.")
     @DeleteMapping("/admin/facility-bookings/submission/{batchId}")
     ResponseEntity<ApiResponse<Void>> cancel(@PathVariable Long batchId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser,
+            @Parameter(hidden = true) HttpServletRequest httpServletRequest);
+
+    @Operation(summary = "학교 제출 완료 처리", description = "담당자가 실제 학교 제출을 마친 뒤 호출(§4.3). "
+            + "APPROVED 예약만 CONFIRMED 로 전이하고 상태가 변한 예약은 제외 목록으로 반환한다. 기취소·기완료 409.")
+    @PostMapping("/admin/facility-bookings/submission/{batchId}/complete")
+    ResponseEntity<ApiResponse<CompleteSubmissionBatchResponse>> complete(@PathVariable Long batchId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser,
             @Parameter(hidden = true) HttpServletRequest httpServletRequest);
 }

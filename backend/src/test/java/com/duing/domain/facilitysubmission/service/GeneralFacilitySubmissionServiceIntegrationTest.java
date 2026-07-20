@@ -14,7 +14,9 @@ import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
+import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
+import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
 import com.duing.domain.facilitysubmission.entity.FacilitySubmissionAudit;
 import com.duing.domain.facilitysubmission.entity.SubmissionAuditAction;
 import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException;
@@ -23,7 +25,10 @@ import com.duing.domain.facilitysubmission.repository.FacilitySubmissionBatchRep
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionItemRepository;
 import com.duing.domain.facilitysubmission.service.dto.command.CreateSubmissionBatchCommand;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
+import com.duing.domain.facilitysubmission.service.dto.query.CompleteSubmissionBatchResult;
 import com.duing.domain.facilitysubmission.service.dto.query.CreateSubmissionBatchResult;
+import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesQuery;
+import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesResult;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.LocalDate;
@@ -43,10 +48,12 @@ import org.springframework.context.annotation.Import;
 class GeneralFacilitySubmissionServiceIntegrationTest extends IntegrationTestBase {
 
     @Autowired FacilitySubmissionService submissionService;
+    @Autowired FacilitySubmissionQueryService queryService;
     @Autowired FacilitySubmissionBatchRepository batchRepository;
     @Autowired FacilitySubmissionItemRepository itemRepository;
     @Autowired FacilitySubmissionAuditRepository auditRepository;
     @Autowired FacilityBookingRepository bookingRepository;
+    @Autowired FacilityBookingStatusHistoryRepository historyRepository;
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired FacilityRepository facilityRepository;
@@ -207,5 +214,98 @@ class GeneralFacilitySubmissionServiceIntegrationTest extends IntegrationTestBas
     void cancellingUnknownBatchThrowsNotFound() {
         assertThatThrownBy(() -> submissionService.cancel(999_999L, actor()))
                 .isInstanceOf(FacilitySubmissionException.BatchNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("완료 처리는 APPROVED 예약을 CONFIRMED 로 전이하고 이력·감사 요약을 남긴다")
+    void completeConfirmsApprovedBookingsWithHistoryAndAudit() {
+        FacilityBooking first = approvedBooking(9);
+        FacilityBooking second = approvedBooking(11);
+        CreateSubmissionBatchResult created = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(first.getId(), second.getId()), null), actor());
+
+        CompleteSubmissionBatchResult result = submissionService.complete(created.batchId(), actor());
+
+        assertThat(result.totalCount()).isEqualTo(2);
+        assertThat(result.confirmedCount()).isEqualTo(2);
+        assertThat(result.completedAt()).isNotNull();
+        assertThat(result.skippedBookings()).isEmpty();
+        assertThat(bookingRepository.findById(first.getId()).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.CONFIRMED);
+        assertThat(batchRepository.findById(created.batchId()).orElseThrow().isCompleted()).isTrue();
+        List<FacilitySubmissionAudit> audits = auditRepository.findByBatchIdOrderByIdAsc(created.batchId());
+        assertThat(audits).extracting(FacilitySubmissionAudit::getAction)
+                .containsExactly(SubmissionAuditAction.CREATED, SubmissionAuditAction.COMPLETED);
+        assertThat(audits.get(1).getDetail()).isEqualTo("학교 제출 완료 — 총 2건 / 등록 완료 2건");
+        FacilityBookingStatusHistory confirmationHistory = historyRepository
+                .findByBookingIdOrderByCreatedAtDesc(first.getId()).stream()
+                .filter(history -> history.getNewStatus() == BookingStatus.CONFIRMED)
+                .findFirst().orElseThrow();
+        assertThat(confirmationHistory.getReason()).isEqualTo("학교 제출 완료 — " + created.submissionNo());
+        assertThat(confirmationHistory.getChangedById()).isEqualTo(admin.getId());
+    }
+
+    @Test
+    @DisplayName("검토 중 상태가 변한 예약은 스킵되고 응답·감사에 사유가 나열된다")
+    void completeSkipsChangedBookingsWithReasons() {
+        FacilityBooking kept = approvedBooking(9);
+        FacilityBooking cancelledOne = approvedBooking(11);
+        CreateSubmissionBatchResult created = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(kept.getId(), cancelledOne.getId()), null), actor());
+        FacilityBooking toCancel = bookingRepository.findById(cancelledOne.getId()).orElseThrow();
+        toCancel.cancelByAdmin();
+        bookingRepository.save(toCancel);
+
+        CompleteSubmissionBatchResult result = submissionService.complete(created.batchId(), actor());
+
+        assertThat(result.totalCount()).isEqualTo(2);
+        assertThat(result.confirmedCount()).isEqualTo(1);
+        assertThat(result.skippedBookings()).hasSize(1);
+        assertThat(result.skippedBookings().get(0).bookingId()).isEqualTo(cancelledOne.getId());
+        assertThat(result.skippedBookings().get(0).status()).isEqualTo(BookingStatus.CANCELLED);
+        assertThat(result.skippedBookings().get(0).reason()).isEqualTo("취소됨");
+        List<FacilitySubmissionAudit> audits = auditRepository.findByBatchIdOrderByIdAsc(created.batchId());
+        assertThat(audits.get(1).getDetail())
+                .isEqualTo("학교 제출 완료 — 총 2건 / 등록 완료 1건 / 제외 1건: 예약 #"
+                        + cancelledOne.getId() + "(취소됨)");
+    }
+
+    @Test
+    @DisplayName("완료 처리 후에도 후보 조회의 제출함 파생은 유지되고 예약은 등록 완료로 집계된다")
+    void candidatesDerivationSurvivesCompletion() {
+        FacilityBooking booking = approvedBooking(9);
+        CreateSubmissionBatchResult created = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(booking.getId()), null), actor());
+
+        submissionService.complete(created.batchId(), actor());
+
+        SubmissionCandidatesResult candidates = queryService.getCandidates(new SubmissionCandidatesQuery(
+                facility.getId(), LocalDate.now().plusDays(6), LocalDate.now().plusDays(8), null));
+        assertThat(candidates.bookings().get(0).submitted()).isTrue();
+        assertThat(candidates.bookings().get(0).selectable()).isFalse();
+        assertThat(candidates.summary().submittedCount()).isEqualTo(1);
+        assertThat(candidates.summary().confirmedCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("취소된 Batch 완료·미존재 Batch 완료·완료된 Batch 취소는 각각 거부된다")
+    void completeGuardsAreEnforced() {
+        FacilityBooking booking = approvedBooking(9);
+        CreateSubmissionBatchResult cancelledBatch = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(booking.getId()), null), actor());
+        submissionService.cancel(cancelledBatch.batchId(), actor());
+        assertThatThrownBy(() -> submissionService.complete(cancelledBatch.batchId(), actor()))
+                .isInstanceOf(FacilitySubmissionException.BatchAlreadyCancelledException.class);
+
+        assertThatThrownBy(() -> submissionService.complete(999_999L, actor()))
+                .isInstanceOf(FacilitySubmissionException.BatchNotFoundException.class);
+
+        CreateSubmissionBatchResult completedBatch = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(booking.getId()), null), actor());
+        submissionService.complete(completedBatch.batchId(), actor());
+        assertThatThrownBy(() -> submissionService.cancel(completedBatch.batchId(), actor()))
+                .isInstanceOf(FacilitySubmissionException.CompletedBatchUncancellableException.class);
+        assertThatThrownBy(() -> submissionService.complete(completedBatch.batchId(), actor()))
+                .isInstanceOf(FacilitySubmissionException.BatchAlreadyCompletedException.class);
     }
 }

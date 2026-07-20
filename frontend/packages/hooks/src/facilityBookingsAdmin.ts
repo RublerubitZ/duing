@@ -45,6 +45,8 @@ function useAdminBookingInvalidation() {
     // 액션은 큐·상세·summary 를 모두 바꾸고, 승인/취소는 예약 홈 가용성(HOLD/차단)에도 반영된다.
     void queryClient.invalidateQueries({ queryKey: adminQueryKeys.facilityBookingsAll });
     void queryClient.invalidateQueries({ queryKey: facilityQueryKeys.availabilityAll() });
+    // 승인/반려/취소는 학교 제출 후보(제출 필요 목록)의 파생에도 반영된다 — 교차 무효화(PR-2 최종 리뷰 이월).
+    void queryClient.invalidateQueries({ queryKey: adminQueryKeys.facilitySubmissionAll });
   };
 }
 

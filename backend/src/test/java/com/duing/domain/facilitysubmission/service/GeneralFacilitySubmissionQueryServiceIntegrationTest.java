@@ -191,6 +191,14 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
     }
 
     @Test
+    @DisplayName("전 시설 조회에서도 기간 상한 검증이 동일하게 적용된다")
+    void invalidPeriodRejectsWhenFacilityOmitted() {
+        assertThatThrownBy(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
+                null, baseDate, baseDate.plusDays(31), null)))
+                .isInstanceOf(FacilitySubmissionException.InvalidCandidatePeriodException.class);
+    }
+
+    @Test
     @DisplayName("제출 후 관리자 취소된 예약은 목록에 CANCELLED 로 남고 제출됨으로 집계된다")
     void cancelledAfterSubmissionStaysListedAsSubmitted() {
         FacilityBooking booking = savedBooking(9, BookingStatus.APPROVED);
@@ -233,5 +241,45 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
         assertThat(row.status()).isEqualTo(BookingStatus.CONFLICT);
         assertThat(row.submitted()).isFalse();
         assertThat(row.selectable()).isFalse();
+    }
+
+    @Test
+    @DisplayName("facilityId 를 생략하면 전 시설의 후보가 시설 정보와 함께 반환된다")
+    void omittingFacilityReturnsAllFacilitiesWithNames() {
+        savedBooking(9, BookingStatus.APPROVED);
+        Facility secondFacility = facilityRepository.save(Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "세미나실(2)", "1602호", 0));
+        FacilityBooking otherFacilityBooking = FacilityBooking.request(
+                secondFacility.getId(), club.getId(), applicant.getId(), baseDate,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "정기 회의", 10,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
+        otherFacilityBooking.approve(admin.getId(), null, LocalDateTime.now());
+        bookingRepository.save(otherFacilityBooking);
+
+        SubmissionCandidatesResult result = queryService.getCandidates(new SubmissionCandidatesQuery(
+                null, baseDate.minusDays(1), baseDate.plusDays(1), null));
+
+        assertThat(result.bookings()).hasSize(2);
+        assertThat(result.bookings()).extracting(SubmissionCandidateBooking::facilityName)
+                .containsExactlyInAnyOrder(facility.getRoomName(), "세미나실(2)");
+        assertThat(result.summary().approvedCount()).as("summary 는 전 시설 합산").isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("facilityId 를 지정하면 기존처럼 해당 시설만 반환된다(하위호환)")
+    void specifyingFacilityKeepsExistingBehaviour() {
+        savedBooking(9, BookingStatus.APPROVED);
+        Facility secondFacility = facilityRepository.save(Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "세미나실(3)", "1603호", 0));
+        FacilityBooking otherFacilityBooking = FacilityBooking.request(
+                secondFacility.getId(), club.getId(), applicant.getId(), baseDate,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "정기 회의", 10,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
+        bookingRepository.save(otherFacilityBooking);
+
+        SubmissionCandidatesResult result = queryService.getCandidates(periodQuery());
+
+        assertThat(result.bookings()).hasSize(1);
+        assertThat(result.bookings().get(0).facilityId()).isEqualTo(facility.getId());
     }
 }
