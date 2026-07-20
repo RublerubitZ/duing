@@ -274,6 +274,42 @@ class AdminFacilitySubmissionAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("상태가 변한 예약이 있으면 완료 응답에 제외 사유가 사람이 읽는 형태로 실린다")
+    void completeExcludesStatusChangedBookingWithHumanReadableReason() {
+        FacilityBooking staleBooking = approvedBooking(9);
+        FacilityBooking confirmableBooking = approvedBooking(11);
+        Integer batchId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("bookingIds", List.of(staleBooking.getId(), confirmableBooking.getId())))
+                .when().post(SUBMISSION_PATH)
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().path("data.batchId");
+
+        FacilityBooking cancelledBooking = bookingRepository.findById(staleBooking.getId()).orElseThrow();
+        cancelledBooking.cancelByAdmin();
+        bookingRepository.save(cancelledBooking);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().post(SUBMISSION_PATH + "/" + batchId + "/complete")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.totalCount", equalTo(2))
+                .body("data.confirmedCount", equalTo(1))
+                .body("data.skippedCount", equalTo(1))
+                .body("data.skippedBookings[0].bookingId", equalTo(staleBooking.getId().intValue()))
+                .body("data.skippedBookings[0].status", equalTo("CANCELLED"))
+                .body("data.skippedBookings[0].reason", equalTo("취소됨"));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(SUBMISSION_PATH + "/" + batchId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.audits.find { it.action == 'COMPLETED' }.adminName", equalTo(admin.getName()))
+                .body("data.audits.find { it.action == 'COMPLETED' }.ipAddress", notNullValue());
+    }
+
+    @Test
     @DisplayName("완료 처리도 익명 401·일반 사용자 403·미존재 404 규약을 따른다")
     void completeAuthAndNotFoundContracts() {
         RestAssured.given()
