@@ -11,46 +11,73 @@ import org.springframework.stereotype.Component;
 /**
  * Octomo 실호출 보호 장치 — in-memory, 단일 인스턴스 전제 (spec §6·11).
  *
- * <p>① 세션(token)당 최소 간격 2.5초: 프론트 3초 폴링보다 약간 짧아 정상 폴링은 통과시키되,
- * 다중 탭·과폴링이 Octomo 콜로 증폭되는 것을 막는다. ② 전역 일일 상한 1,000콜: 폭주·루프 버그로부터
- * Free 쿼터(월 1만 콜)를 보호하는 안전판 — 초과 시 503 이며 로그(ERROR→Sentry)로 Pro 전환을 판단한다.
+ * <p>① 세션(token)당 최소 간격 — 실호출 누적 횟수에 따라 넓어지는 백오프 사다리: 처음 5콜은 2.5초
+ * (프론트 3초 폴링보다 약간 짧아 정상 폴링은 통과), 8콜까지 4.5초, 이후 7.5초. 문자 수신은 대부분
+ * 초반에 확인되므로 후반 간격을 넓혀 방치 세션·[지금 확인] 연타·다중 탭이 Octomo 콜로 증폭되는 것을
+ * 막는다(토큰당 정상상태 분당 최대 8콜 — 워밍업 첫 1분은 빠른 티어가 겹쳐 일시적으로 ~13콜).
+ * 재발급은 새 토큰이라 사다리가 처음부터 다시 시작된다 — 새 코드 직후는
+ * 빠른 확인이 맞다. ② 전역 일일 상한 1,000콜: 폭주·루프 버그로부터 Free 쿼터(월 1만 콜)를 보호하는
+ * 안전판 — 초과 시 503 이며 로그(ERROR→Sentry)로 Pro 전환을 판단한다.
  *
  * <p>벤더 호출이 실패하면 호출부가 {@link #releaseDailyQuota} 로 쿼터를 반환한다 — Octomo 장애가
- * 하루 예산을 태워 복구 후에도 503 이 지속되는 자기 소진을 막는다. 간격 기록은 토큰 키공간이 무한해
- * 임계 초과 시 오래된 엔트리를 지연 정리한다(무한 누적 방지). 멀티 인스턴스 대응(Redis)은 백로그다
- * (spec §11.1).
+ * 하루 예산을 태워 복구 후에도 503 이 지속되는 자기 소진을 막는다. 실패 콜도 사다리 단계는 전진한다
+ * (장애 중 조회 빈도를 낮추는 방향이라 안전). 간격 기록은 토큰 키공간이 무한해 임계 초과 시 오래된
+ * 엔트리를 지연 정리한다(무한 누적 방지). 멀티 인스턴스 대응(Redis)은 백로그다 (spec §11.1).
  */
 @Slf4j
 @Component
 public class MoPollThrottle {
 
     static final Duration MIN_POLL_INTERVAL = Duration.ofMillis(2500);
+    static final Duration MID_POLL_INTERVAL = Duration.ofMillis(4500);
+    static final Duration SLOW_POLL_INTERVAL = Duration.ofMillis(7500);
+    /** 백오프 사다리 경계 — 실호출 5콜까지 2.5초, 8콜까지 4.5초, 이후 7.5초. 프론트 폴링(3s→5s→8s)과 정렬. */
+    static final int FAST_TIER_CALL_LIMIT = 5;
+    static final int MID_TIER_CALL_LIMIT = 8;
     static final int DAILY_CALL_LIMIT = 1_000;
     /** 간격 엔트리 지연 정리 임계 — PENDING 세션은 최대 5분이라 10분 지난 엔트리는 확실히 무의미하다. */
     static final int TOKEN_SWEEP_THRESHOLD = 10_000;
     static final Duration TOKEN_ENTRY_RETENTION = Duration.ofMinutes(10);
 
-    private final ConcurrentHashMap<String, LocalDateTime> lastPolledAtByToken = new ConcurrentHashMap<>();
+    /** 토큰당 폴링 창 — 마지막 실호출 시각과 누적 실호출 수(백오프 단계 판정용). */
+    private record PollWindow(LocalDateTime lastPolledAt, int grantedCallCount) {}
+
+    private final ConcurrentHashMap<String, PollWindow> pollWindowByToken = new ConcurrentHashMap<>();
     private LocalDate quotaDate;
     private int dailyCallCount;
     private boolean quotaExhaustionLogged;
 
     /**
-     * 세션당 최소 간격을 검사하고, 허용이면 이번 시각을 기록한다. compute 콜백이라 검사+기록이 원자적이다.
-     * 성공 시에만 {@link #reserveDailyQuota} 를 호출하는 것이 계약이다 — 스로틀에 걸린 폴링이 일일 쿼터를
-     * 소비하면 안 된다.
+     * 세션당 최소 간격(백오프 사다리)을 검사하고, 허용이면 이번 시각·누적 횟수를 기록한다. compute
+     * 콜백이라 검사+기록이 원자적이다. 성공 시에만 {@link #reserveDailyQuota} 를 호출하는 것이 계약이다 —
+     * 스로틀에 걸린 폴링이 일일 쿼터를 소비하면 안 된다.
      */
     public boolean tryAcquire(String token, LocalDateTime now) {
         sweepStaleTokenEntries(now);
         boolean[] acquired = {false};
-        lastPolledAtByToken.compute(token, (key, lastPolledAt) -> {
-            if (lastPolledAt == null || !now.isBefore(lastPolledAt.plus(MIN_POLL_INTERVAL))) {
+        pollWindowByToken.compute(token, (key, pollWindow) -> {
+            if (pollWindow == null) {
                 acquired[0] = true;
-                return now;
+                return new PollWindow(now, 1);
             }
-            return lastPolledAt;
+            Duration requiredInterval = minIntervalFor(pollWindow.grantedCallCount());
+            if (!now.isBefore(pollWindow.lastPolledAt().plus(requiredInterval))) {
+                acquired[0] = true;
+                return new PollWindow(now, pollWindow.grantedCallCount() + 1);
+            }
+            return pollWindow;
         });
         return acquired[0];
+    }
+
+    private static Duration minIntervalFor(int grantedCallCount) {
+        if (grantedCallCount < FAST_TIER_CALL_LIMIT) {
+            return MIN_POLL_INTERVAL;
+        }
+        if (grantedCallCount < MID_TIER_CALL_LIMIT) {
+            return MID_POLL_INTERVAL;
+        }
+        return SLOW_POLL_INTERVAL;
     }
 
     /**
@@ -97,9 +124,9 @@ public class MoPollThrottle {
      * removeIf 는 ConcurrentHashMap 에서 동시성 안전(weakly consistent)하다.
      */
     private void sweepStaleTokenEntries(LocalDateTime now) {
-        if (lastPolledAtByToken.size() > TOKEN_SWEEP_THRESHOLD) {
+        if (pollWindowByToken.size() > TOKEN_SWEEP_THRESHOLD) {
             LocalDateTime cutoff = now.minus(TOKEN_ENTRY_RETENTION);
-            lastPolledAtByToken.entrySet().removeIf(entry -> entry.getValue().isBefore(cutoff));
+            pollWindowByToken.entrySet().removeIf(entry -> entry.getValue().lastPolledAt().isBefore(cutoff));
         }
     }
 
@@ -110,12 +137,12 @@ public class MoPollThrottle {
 
     /** 테스트 전용 — 현재 추적 중인 토큰 간격 엔트리 수. */
     int trackedTokenCount() {
-        return lastPolledAtByToken.size();
+        return pollWindowByToken.size();
     }
 
     /** 테스트 전용 — 간격 기록·일일 카운터 초기화. 프로덕션 호출 금지. */
     public synchronized void reset() {
-        lastPolledAtByToken.clear();
+        pollWindowByToken.clear();
         quotaDate = null;
         dailyCallCount = 0;
         quotaExhaustionLogged = false;

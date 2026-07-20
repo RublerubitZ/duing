@@ -108,13 +108,69 @@ class PhoneVerificationRateLimiterTest {
     }
 
     @Test
+    @DisplayName("같은 번호+IP 의 성공 발급이 시간당 5회에 이르면 6번째 검사에서 429 를 던진다")
+    void issuePhoneWindowLimitsPerHour() {
+        for (int issued = 0; issued < PhoneVerificationRateLimiter.ISSUE_PER_PHONE_HOUR_LIMIT; issued++) {
+            rateLimiter.recordIssuePhoneRequest("010-1234-5678", CLIENT_IP, NOW.plusMinutes(issued));
+        }
+        assertThatThrownBy(() ->
+                rateLimiter.assertIssuePhoneWithinLimit("010-1234-5678", CLIENT_IP, NOW.plusMinutes(10)))
+                .isInstanceOf(PhoneVerificationException.PhoneIssueLimitExceededException.class);
+    }
+
+    @Test
+    @DisplayName("번호 발급 검사는 기록하지 않는다 — 쿨다운으로 끝난 재시도가 한도를 소진하지 않는다")
+    void issuePhoneAssertDoesNotRecord() {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            rateLimiter.assertIssuePhoneWithinLimit("010-1234-5678", CLIENT_IP, NOW.plusSeconds(attempt));
+        }
+        // 검사만 100번 해도 창은 비어 있어 여전히 허용된다.
+        assertThatCode(() ->
+                rateLimiter.assertIssuePhoneWithinLimit("010-1234-5678", CLIENT_IP, NOW.plusMinutes(5)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("타 IP 의 발급 기록은 같은 번호라도 창을 공유하지 않는다 — 공격자가 소유자를 잠글 수 없다")
+    void issuePhoneWindowIsIsolatedPerIp() {
+        for (int issued = 0; issued < PhoneVerificationRateLimiter.ISSUE_PER_PHONE_HOUR_LIMIT; issued++) {
+            rateLimiter.recordIssuePhoneRequest("010-1234-5678", "10.0.0.99", NOW.plusMinutes(issued));
+        }
+        // 공격자 IP(10.0.0.99)가 5회를 채워도 소유자 IP 의 발급은 허용된다.
+        assertThatCode(() ->
+                rateLimiter.assertIssuePhoneWithinLimit("010-1234-5678", CLIENT_IP, NOW.plusMinutes(10)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("1시간 창을 벗어난 번호 발급 기록은 한도에서 제외되고, 다른 번호는 서로 영향이 없다")
+    void issuePhoneWindowSlidesAndIsolates() {
+        for (int issued = 0; issued < PhoneVerificationRateLimiter.ISSUE_PER_PHONE_HOUR_LIMIT; issued++) {
+            rateLimiter.recordIssuePhoneRequest("010-1234-5678", CLIENT_IP, NOW.plusMinutes(issued));
+        }
+        assertThatCode(() ->
+                rateLimiter.assertIssuePhoneWithinLimit("010-9999-0000", CLIENT_IP, NOW.plusMinutes(10)))
+                .doesNotThrowAnyException();
+        // 가장 오래된 기록(NOW)이 창 밖으로 빠지는 1시간 뒤에는 다시 허용된다.
+        assertThatCode(() ->
+                rateLimiter.assertIssuePhoneWithinLimit("010-1234-5678", CLIENT_IP, NOW.plusMinutes(61)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     @DisplayName("reset 은 모든 창을 초기화한다 (통합 테스트 격리용)")
     void resetClearsWindows() {
         for (int attempt = 0; attempt < PhoneVerificationRateLimiter.ISSUE_PER_MINUTE_LIMIT; attempt++) {
             rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(attempt));
         }
+        for (int issued = 0; issued < PhoneVerificationRateLimiter.ISSUE_PER_PHONE_HOUR_LIMIT; issued++) {
+            rateLimiter.recordIssuePhoneRequest("010-1234-5678", CLIENT_IP, NOW.plusMinutes(issued));
+        }
         rateLimiter.reset();
         assertThatCode(() -> rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(30)))
+                .doesNotThrowAnyException();
+        assertThatCode(() ->
+                rateLimiter.assertIssuePhoneWithinLimit("010-1234-5678", CLIENT_IP, NOW.plusSeconds(30)))
                 .doesNotThrowAnyException();
     }
 }

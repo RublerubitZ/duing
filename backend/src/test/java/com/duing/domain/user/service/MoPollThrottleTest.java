@@ -37,6 +37,53 @@ class MoPollThrottleTest {
     }
 
     @Test
+    @DisplayName("실호출이 누적되면 세션당 최소 간격이 넓어진다 — 5콜까지 2.5초, 8콜까지 4.5초, 이후 7.5초")
+    void backoffLadderWidensIntervalWithGrantedCalls() {
+        LocalDateTime pollCursor = NOW;
+        assertThat(pollThrottle.tryAcquire(TOKEN, pollCursor)).isTrue(); // 1번째
+        for (int grantedCall = 2; grantedCall <= MoPollThrottle.FAST_TIER_CALL_LIMIT; grantedCall++) {
+            pollCursor = pollCursor.plus(MoPollThrottle.MIN_POLL_INTERVAL);
+            assertThat(pollThrottle.tryAcquire(TOKEN, pollCursor)).isTrue(); // 2~5번째
+        }
+        // 6번째부터는 2.5초 간격으로는 거절되고 4.5초가 필요하다.
+        assertThat(pollThrottle.tryAcquire(TOKEN, pollCursor.plus(MoPollThrottle.MIN_POLL_INTERVAL))).isFalse();
+        for (int grantedCall = MoPollThrottle.FAST_TIER_CALL_LIMIT + 1;
+                grantedCall <= MoPollThrottle.MID_TIER_CALL_LIMIT; grantedCall++) {
+            pollCursor = pollCursor.plus(MoPollThrottle.MID_POLL_INTERVAL);
+            assertThat(pollThrottle.tryAcquire(TOKEN, pollCursor)).isTrue(); // 6~8번째
+        }
+        // 9번째부터는 4.5초 간격으로도 거절되고 7.5초가 필요하다.
+        assertThat(pollThrottle.tryAcquire(TOKEN, pollCursor.plus(MoPollThrottle.MID_POLL_INTERVAL))).isFalse();
+        assertThat(pollThrottle.tryAcquire(TOKEN, pollCursor.plus(MoPollThrottle.SLOW_POLL_INTERVAL))).isTrue();
+    }
+
+    @Test
+    @DisplayName("백오프 단계는 토큰별로 독립이다 — 한 세션이 느려져도 새 세션(재발급)은 빠른 간격으로 시작한다")
+    void backoffLadderIsIndependentPerToken() {
+        LocalDateTime pollCursor = NOW;
+        for (int grantedCall = 1; grantedCall <= MoPollThrottle.MID_TIER_CALL_LIMIT; grantedCall++) {
+            assertThat(pollThrottle.tryAcquire("slow-token", pollCursor)).isTrue();
+            pollCursor = pollCursor.plus(MoPollThrottle.MID_POLL_INTERVAL);
+        }
+        // slow-token 은 이제 7.5초가 필요하지만, 새 토큰은 2.5초 간격으로 시작한다.
+        assertThat(pollThrottle.tryAcquire("fresh-token", pollCursor)).isTrue();
+        assertThat(pollThrottle.tryAcquire("fresh-token",
+                pollCursor.plus(MoPollThrottle.MIN_POLL_INTERVAL))).isTrue();
+    }
+
+    @Test
+    @DisplayName("사다리 각 티어는 프론트 폴링 백오프(3s/5s/8s)보다 0.5초 이상 좁고 경계(5·8콜)가 일치한다 — 헛폴링 방지 커플링 가드")
+    void ladderStaysAlignedWithFrontendPollingBackoff() {
+        // frontend/packages/hooks/src/auth.ts 의 phoneVerificationPollIntervalMs(3s/5s/8s, 경계 5·8)와
+        // 커플링돼 있다 — 한쪽만 바꾸면 프론트 폴링이 스로틀에 걸려 벤더 미호출로 헛도는 구간이 생긴다.
+        assertThat(MoPollThrottle.MIN_POLL_INTERVAL.toMillis()).isLessThanOrEqualTo(3000 - 500);
+        assertThat(MoPollThrottle.MID_POLL_INTERVAL.toMillis()).isLessThanOrEqualTo(5000 - 500);
+        assertThat(MoPollThrottle.SLOW_POLL_INTERVAL.toMillis()).isLessThanOrEqualTo(8000 - 500);
+        assertThat(MoPollThrottle.FAST_TIER_CALL_LIMIT).isEqualTo(5);
+        assertThat(MoPollThrottle.MID_TIER_CALL_LIMIT).isEqualTo(8);
+    }
+
+    @Test
     @DisplayName("전역 일일 상한(1,000콜)을 넘기면 503 을 던지고, 날짜가 바뀌면 카운터가 리셋된다")
     void dailyQuotaLimitsAndRollsOver() {
         for (int call = 0; call < MoPollThrottle.DAILY_CALL_LIMIT; call++) {
