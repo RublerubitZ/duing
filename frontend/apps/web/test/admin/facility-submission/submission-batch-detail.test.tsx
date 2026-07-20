@@ -123,13 +123,15 @@ describe('SubmissionBatchDetailPage', () => {
   });
 
   // ① 헤더
-  it('헤더에 제출번호·상태 배지가 나오고, 탈퇴한 생성자는 - 로 표기된다', () => {
+  it('헤더 제목은 메모, 제출번호는 서브 표기·탈퇴한 생성자는 - 로 표기된다', () => {
     mockDetailQuery.mockReturnValue(
       detailSuccess(makeDetail({ batch: makeBatch({ submittedByName: null }) })),
     );
     render(<SubmissionBatchDetailPage batchId={1} />);
 
-    expect(screen.getByRole('heading', { name: 'SUB-20260801-001' })).toBeInTheDocument();
+    // 메모=제목 승격(개편 스펙 §7) — 메모가 있으면 제목, 제출번호는 서브로 내려간다.
+    expect(screen.getByRole('heading', { name: '8월 1차 제출' })).toBeInTheDocument();
+    expect(screen.getByText('SUB-20260801-001')).toBeInTheDocument();
     expect(screen.getByText('제출 대기')).toBeInTheDocument();
     // 생성자 항목의 값만 좁혀 폴백(-)을 단언 — 다른 셀의 - 와 헷갈리지 않는다.
     expect(screen.getByText('생성자').nextElementSibling).toHaveTextContent('-');

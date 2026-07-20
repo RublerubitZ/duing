@@ -27,11 +27,13 @@ import { SubmissionTimetable } from '../../_components/SubmissionTimetable';
 import { buildClubGroups } from '../../_lib/submissionGroups';
 import {
   BATCH_STATUS_META,
+  batchTitle,
   deriveBatchStatus,
   submissionCsvFileName,
   type SubmissionBatchStatus,
 } from '../../_lib/submissionBatches';
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../../_lib/submissionTimetable';
+import { bookingTimeLabel } from '@/app/_lib/bookingDisplay';
 
 // 완료·취소 배치 상세에서도 돌아갈 수 있게 전체 이력 탭으로 복귀한다(제출 대기 탭엔 진행 중만 있음).
 const BATCH_LIST_ROUTE = toRoute('/admin/facility-bookings?tab=archive');
@@ -167,7 +169,11 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
           <>
             <div className="mb-6 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-[22px] font-bold text-ink">{detail.batch.submissionNo}</h1>
+                {/* 메모=제목 승격(개편 스펙 §7) — 메모가 있으면 제목, 제출번호는 서브 표기로 내린다. */}
+                <h1 className="text-[22px] font-bold text-ink">{batchTitle(detail.batch)}</h1>
+                {batchTitle(detail.batch) !== detail.batch.submissionNo && (
+                  <span className="font-mono text-xs text-charcoal-3">{detail.batch.submissionNo}</span>
+                )}
                 <StatusPill label={statusMeta.label} className={statusMeta.badgeClass} />
               </div>
 
@@ -196,15 +202,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
 
               <div className="flex flex-wrap items-center gap-2">
                 {/* 완료·취소는 REVIEWING 배치 전용, CSV 는 전 상태 허용(감사용 재다운로드 §5.5). */}
-                {status === 'REVIEWING' && (
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => setCompleteOpen(true)}
-                  >
-                    제출 완료
-                  </button>
-                )}
+                {/* 액션 순서 = 실제 작업 순서(개편 스펙 §7): CSV 서류 준비 → 제출 완료 → 취소. */}
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
@@ -214,6 +212,15 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                   {csvMutation.isPending && <ButtonSpinner />}
                   CSV
                 </button>
+                {status === 'REVIEWING' && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setCompleteOpen(true)}
+                  >
+                    제출 완료
+                  </button>
+                )}
                 {status === 'REVIEWING' && (
                   <button
                     type="button"
@@ -254,7 +261,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                             >
                               <span className="font-mono text-xs text-charcoal">{booking.reservationDate}</span>
                               <span className="font-mono text-xs text-charcoal">
-                                {booking.startTime}~{booking.endTime}
+                                {bookingTimeLabel(booking.startTime, booking.endTime)}
                               </span>
                               <span className="max-w-40 truncate text-charcoal-2">{booking.purpose}</span>
                               <span className="tabular-nums text-xs text-charcoal-3">

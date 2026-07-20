@@ -27,6 +27,8 @@ import { BatchCompleteDialog } from '../submission/_components/BatchCompleteDial
 import { BatchCompleteResultDialog } from '../submission/_components/BatchCompleteResultDialog';
 import {
   BATCH_STATUS_META,
+  batchAgeDays,
+  batchTitle,
   deriveBatchStatus,
   submissionCsvFileName,
 } from '../submission/_lib/submissionBatches';
@@ -63,6 +65,8 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
 
   const batches = batchesQuery.data?.content ?? [];
   const totalPages = batchesQuery.data?.totalPages ?? 0;
+  // 에이징 표기 기준 시각 — 렌더당 1회 계산해 전 행이 같은 기준을 공유한다(큐 테이블 전례).
+  const now = new Date();
 
   const handleDownloadCsv = async (batch: SubmissionBatchSummary) => {
     try {
@@ -132,12 +136,10 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
           <table className="w-full min-w-[52rem] text-left text-sm">
             <thead>
               <tr className="border-b border-line text-xs text-charcoal-3">
-                <th className="py-2 pr-3 font-medium">제출번호</th>
+                <th className="py-2 pr-3 font-medium">제출 목록</th>
                 <th className="py-2 pr-3 font-medium">시설</th>
                 <th className="py-2 pr-3 font-medium">예약 건수</th>
                 <th className="py-2 pr-3 font-medium">생성일</th>
-                <th className="py-2 pr-3 font-medium">생성자</th>
-                <th className="py-2 pr-3 font-medium">메모</th>
                 <th className="py-2 pr-3 font-medium">상태</th>
                 <th className="py-2 font-medium">액션</th>
               </tr>
@@ -147,32 +149,44 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                 const status = deriveBatchStatus(batch);
                 const statusMeta = BATCH_STATUS_META[status];
                 const facilityLabel = batch.facilityName ?? `시설 ${batch.facilityId}`;
-                const memoText = batch.memo !== null && batch.memo.trim() !== '' ? batch.memo : '-';
+                // 메모=제목 승격(개편 스펙 §5) — 메모 없으면 제출번호가 제목이라 서브에서 번호를 뺀다.
+                const title = batchTitle(batch);
+                const subText =
+                  title === batch.submissionNo
+                    ? (batch.submittedByName ?? '-')
+                    : `${batch.submissionNo} · ${batch.submittedByName ?? '-'}`;
+                const ageDays = status === 'REVIEWING' ? batchAgeDays(batch.submittedAt, now) : null;
                 return (
                   <tr key={batch.batchId} className="border-b border-line/60 align-middle text-charcoal-2">
-                    <td className="py-2 pr-3 font-medium text-ink-deep">{batch.submissionNo}</td>
+                    <td className="py-2 pr-3">
+                      <p className="max-w-[16rem] truncate font-semibold text-ink-deep" title={title}>
+                        {title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-charcoal-3">{subText}</p>
+                    </td>
                     <td className="py-2 pr-3">{facilityLabel}</td>
                     <td className="py-2 pr-3">{batch.bookingCount}</td>
-                    <td className="whitespace-nowrap py-2 pr-3">{formatDateKst(batch.submittedAt)}</td>
-                    <td className="py-2 pr-3">{batch.submittedByName ?? '-'}</td>
-                    <td className="max-w-[12rem] truncate py-2 pr-3" title={memoText}>
-                      {memoText}
+                    <td className="whitespace-nowrap py-2 pr-3">
+                      <p>{formatDateKst(batch.submittedAt)}</p>
+                      {/* 진행 중 배치의 방치 감지(3일↑ 경고색) / 완료·취소는 처리일을 함께 보여준다. */}
+                      {status === 'REVIEWING' && ageDays !== null && ageDays >= 1 && (
+                        <p className={`mt-0.5 text-xs ${ageDays >= 3 ? 'font-bold text-[#8E6620]' : 'text-charcoal-3'}`}>
+                          생성 {ageDays}일 경과
+                        </p>
+                      )}
+                      {status === 'COMPLETED' && batch.completedAt !== null && (
+                        <p className="mt-0.5 text-xs text-charcoal-3">완료 {formatDateKst(batch.completedAt)}</p>
+                      )}
+                      {status === 'CANCELLED' && batch.cancelledAt !== null && (
+                        <p className="mt-0.5 text-xs text-charcoal-3">취소 {formatDateKst(batch.cancelledAt)}</p>
+                      )}
                     </td>
                     <td className="py-2 pr-3">
                       <StatusPill label={statusMeta.label} className={statusMeta.badgeClass} />
                     </td>
                     <td className="py-2">
+                      {/* 액션 순서 = 실제 작업 순서(개편 스펙 §5): CSV 서류 준비 → 오프라인 제출 → 완료 처리. */}
                       <div className="flex items-center gap-2 whitespace-nowrap">
-                        {/* '제출 완료'·'취소' 는 REVIEWING 행 전용 — 확인 Dialog 를 거쳐 완료/취소 처리한다. */}
-                        {status === 'REVIEWING' && (
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => setCompleteTarget(batch)}
-                          >
-                            제출 완료
-                          </button>
-                        )}
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
@@ -186,6 +200,16 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                           )}
                           CSV
                         </button>
+                        {/* '제출 완료'·'취소' 는 REVIEWING 행 전용 — 확인 Dialog 를 거쳐 완료/취소 처리한다. */}
+                        {status === 'REVIEWING' && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => setCompleteTarget(batch)}
+                          >
+                            제출 완료
+                          </button>
+                        )}
                         <Link
                           href={toRoute(`/admin/facility-bookings/submission/${batch.batchId}`)}
                           className="text-xs text-charcoal-2 hover:text-ink hover:underline"

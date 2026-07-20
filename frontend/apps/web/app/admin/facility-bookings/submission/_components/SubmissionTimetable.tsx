@@ -8,6 +8,7 @@ import {
   buildSubmissionRows,
   submissionBlockVisual,
 } from '../_lib/submissionTimetable';
+import { bookingTimeLabel } from '@/app/_lib/bookingDisplay';
 
 const pad2 = (value: number) => String(value).padStart(2, '0');
 
@@ -75,7 +76,7 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
                       <button
                         type="button"
                         aria-pressed={booking.selectable ? selected : undefined}
-                        aria-label={`${row.dateIso} ${booking.startTime}~${booking.endTime} ${booking.clubName ?? '동아리'}${selected ? ' · 선택됨' : ''} · ${SUBMISSION_STATUS_LABELS[booking.status]}`}
+                        aria-label={`${row.dateIso} ${bookingTimeLabel(booking.startTime, booking.endTime)} ${booking.clubName ?? '동아리'}${selected ? ' · 선택됨' : ''} · ${SUBMISSION_STATUS_LABELS[booking.status]}`}
                         onClick={
                           booking.selectable
                             ? () => onToggleSelect(booking.bookingId)
@@ -94,7 +95,7 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
                           )}
                         </span>
                         <span className={`truncate font-mono text-[10px] ${selected ? 'text-cream/80' : 'text-charcoal-3'}`}>
-                          {booking.startTime}~{booking.endTime} · {subText}
+                          {bookingTimeLabel(booking.startTime, booking.endTime)} · {subText}
                         </span>
                       </button>
                       {/* hover 툴팁 — jsdom 은 hover 를 못 내므로 내용 존재만 테스트(실브라우저 QA 로 위치 검증). */}

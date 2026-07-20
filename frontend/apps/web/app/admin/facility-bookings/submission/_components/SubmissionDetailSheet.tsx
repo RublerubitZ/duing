@@ -5,6 +5,7 @@ import { formatDateKst } from '@duing/hooks';
 import type { SubmissionCandidateBooking } from '@duing/types';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../_lib/submissionTimetable';
+import { bookingTimeLabel } from '@/app/_lib/bookingDisplay';
 
 type Props = {
   booking: SubmissionCandidateBooking | null;
@@ -48,7 +49,7 @@ export function SubmissionDetailSheet({
                 )}
               </SheetTitle>
               <SheetDescription>
-                {facilityName} · {shown.reservationDate} {shown.startTime}~{shown.endTime}
+                {facilityName} · {shown.reservationDate} {bookingTimeLabel(shown.startTime, shown.endTime)}
               </SheetDescription>
             </SheetHeader>
             <dl className="mt-4 space-y-2 text-sm text-charcoal">

@@ -5,6 +5,7 @@ import { formatDateKst } from '@duing/hooks';
 import type { SubmissionCandidateBooking } from '@duing/types';
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../_lib/submissionTimetable';
 import { buildClubGroups } from '../_lib/submissionGroups';
+import { bookingTimeLabel, slotTimeLabel } from '@/app/_lib/bookingDisplay';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -82,13 +83,13 @@ export function SubmissionClubGroupList({ bookings, selection, onToggleSelect, o
                     <li key={booking.bookingId} className="flex flex-wrap items-center gap-2 border-b border-line/40 px-3 py-2 text-sm last:border-b-0">
                       <input
                         type="checkbox"
-                        aria-label={`${clubLabel} ${booking.reservationDate} ${booking.startTime} 선택`}
+                        aria-label={`${clubLabel} ${booking.reservationDate} ${slotTimeLabel(booking.startTime)} 선택`}
                         disabled={!booking.selectable}
                         checked={selection.has(booking.bookingId)}
                         onChange={() => onToggleSelect(booking.bookingId)}
                       />
                       <span className="font-mono text-xs text-charcoal">{formatDateWithWeekday(booking.reservationDate)}</span>
-                      <span className="font-mono text-xs text-charcoal">{booking.startTime}~{booking.endTime}</span>
+                      <span className="font-mono text-xs text-charcoal">{bookingTimeLabel(booking.startTime, booking.endTime)}</span>
                       <span className="max-w-40 truncate text-charcoal-2">{booking.purpose}</span>
                       <span className="tabular-nums text-xs text-charcoal-3">
                         {booking.attendeeCount !== null ? `${booking.attendeeCount}명` : '-'}

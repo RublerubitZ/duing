@@ -61,9 +61,9 @@ const listSuccess = (batches: SubmissionBatchSummary[], totalPages = 1) => ({
   refetch: vi.fn(),
 });
 
-/** 배치의 행(<tr>) — 여러 행에 같은 라벨의 액션이 있어 행 단위로 좁혀 조회한다. */
+/** 배치의 행(<tr>) — 제출번호는 제목 또는 "번호 · 생성자" 서브에 섞여 있어 부분 일치로 찾는다. */
 function rowOf(submissionNo: string): HTMLElement {
-  const cell = screen.getByText(submissionNo);
+  const cell = screen.getByText(submissionNo, { exact: false });
   const row = cell.closest('tr');
   if (row === null) throw new Error(`행(${submissionNo})을 찾지 못했습니다`);
   return row;
@@ -88,15 +88,17 @@ describe('SubmissionBatchesTab', () => {
     mockCsvMutateAsync.mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
   });
 
-  it('REVIEWING 배치 행이 제출번호·시설·건수·생성일·생성자·제출 대기 배지로 렌더된다', () => {
+  it('REVIEWING 배치 행이 메모 제목·제출번호·시설·건수·생성일·제출 대기 배지로 렌더된다', () => {
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
     render(<SubmissionBatchesTab />);
 
     const row = rowOf('SUB-20260801-001');
+    // 메모=제목 승격(개편 스펙 §5) — 제출번호·생성자는 서브 표기로 내려간다.
+    expect(within(row).getByText('8월 1차 제출')).toBeInTheDocument();
+    expect(within(row).getByText('SUB-20260801-001 · 관리자')).toBeInTheDocument();
     expect(within(row).getByText('강당')).toBeInTheDocument();
     expect(within(row).getByText('3')).toBeInTheDocument();
     expect(within(row).getByText('2026.08.02')).toBeInTheDocument();
-    expect(within(row).getByText('관리자')).toBeInTheDocument();
     expect(within(row).getByText('제출 대기')).toBeInTheDocument();
     // 첫 페이지 진입은 page:0·size:10 으로 조회한다.
     expect(mockBatchesQuery).toHaveBeenCalledWith({ page: 0, size: 10 });
@@ -110,8 +112,19 @@ describe('SubmissionBatchesTab', () => {
 
     const row = rowOf('SUB-20260801-001');
     expect(within(row).getByText('시설 100')).toBeInTheDocument();
-    // 생성자 '-'·메모 '-' 둘 다 폴백이라 행 안에 '-' 가 2개 나온다.
-    expect(within(row).getAllByText('-')).toHaveLength(2);
+    // 메모 없음 → 제출번호가 제목으로 승격되고, 서브는 생성자 폴백 '-' 하나만 남는다.
+    expect(within(row).getByText('SUB-20260801-001')).toBeInTheDocument();
+    expect(within(row).getAllByText('-')).toHaveLength(1);
+  });
+
+  it('진행 중 배치는 생성 후 경과 일수를 표기하고 3일 이상이면 경고색으로 강조한다', () => {
+    // 절대 날짜 하드코딩 금지(타임밤) — 4일 전 생성 시각을 만들어 단언한다.
+    const fourDaysAgoIso = new Date(Date.now() - 4 * 86_400_000).toISOString();
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ submittedAt: fourDaysAgoIso })]));
+    render(<SubmissionBatchesTab />);
+
+    const agingLabel = screen.getByText('생성 4일 경과');
+    expect(agingLabel).toHaveClass('text-[#8E6620]');
   });
 
   it('완료·취소 배치는 배지만 노출하고 REVIEWING 전용 액션(제출 완료·취소)은 없다', () => {
@@ -200,7 +213,9 @@ describe('SubmissionBatchesTab', () => {
     expect(screen.getByText('제출 목록을 취소할까요?')).toBeInTheDocument();
     expect(screen.getByText('취소하면 이 제출 목록은 사용할 수 없게 됩니다.')).toBeInTheDocument();
     expect(screen.getByText("담긴 예약은 다시 '학교에 제출할 예약' 목록으로 돌아갑니다.")).toBeInTheDocument();
-    expect(screen.getByText('이 작업은 되돌릴 수 없습니다.')).toBeInTheDocument();
+    expect(
+      screen.getByText('이 작업은 되돌릴 수 없습니다. CSV 는 취소 후에도 다시 받을 수 있어요.'),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '제출 목록 취소' }));
 
@@ -231,6 +246,9 @@ describe('SubmissionBatchesTab', () => {
 
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('학교 제출을 완료하시겠습니까?')).toBeInTheDocument();
+    // 두 행위 구분 경고(개편 스펙 §5) — 오프라인 제출과 시스템 완료 처리의 혼동 방지 카피.
+    expect(within(dialog).getByText(/학교 제출\(오프라인\)/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/별개입니다/)).toBeInTheDocument();
     expect(
       within(dialog).getByText('• 제출 가능한 예약은 학교 등록 완료 상태로 변경됩니다.'),
     ).toBeInTheDocument();
