@@ -33,6 +33,7 @@ import {
   type SubmissionBatchStatus,
 } from '../../_lib/submissionBatches';
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../../_lib/submissionTimetable';
+import { bookingTimeLabel } from '@/app/_lib/bookingDisplay';
 
 // 완료·취소 배치 상세에서도 돌아갈 수 있게 전체 이력 탭으로 복귀한다(제출 대기 탭엔 진행 중만 있음).
 const BATCH_LIST_ROUTE = toRoute('/admin/facility-bookings?tab=archive');
@@ -260,7 +261,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                             >
                               <span className="font-mono text-xs text-charcoal">{booking.reservationDate}</span>
                               <span className="font-mono text-xs text-charcoal">
-                                {booking.startTime}~{booking.endTime}
+                                {bookingTimeLabel(booking.startTime, booking.endTime)}
                               </span>
                               <span className="max-w-40 truncate text-charcoal-2">{booking.purpose}</span>
                               <span className="tabular-nums text-xs text-charcoal-3">

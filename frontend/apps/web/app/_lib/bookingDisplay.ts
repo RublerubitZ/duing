@@ -14,8 +14,13 @@ export function bookingDateLabel(dateIso: string): string {
   return `${month}월 ${day}일 (${weekday})`;
 }
 
+/** BE LocalTime 직렬화(HH:mm:ss)를 표시용 HH:mm 로 정규화한다. 이미 HH:mm 이면 그대로. */
+export function slotTimeLabel(time: string): string {
+  return time.slice(0, 5);
+}
+
 export function bookingTimeLabel(startTime: string, endTime: string): string {
-  return `${startTime}~${endTime}`;
+  return `${slotTimeLabel(startTime)}~${slotTimeLabel(endTime)}`;
 }
 
 export type BookingStatusMeta = {
