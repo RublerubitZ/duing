@@ -11,6 +11,7 @@ import type {
   CentralClubRecertificationStatusParams,
   AdminBookingQueueParams,
   SubmissionCandidatesParams,
+  SubmissionBatchListParams,
 } from '@duing/types';
 
 export const adminQueryKeys = {
@@ -64,4 +65,8 @@ export const adminQueryKeys = {
   facilitySubmissionAll: ['admin', 'facility-submission'] as const,
   facilitySubmissionCandidates: (params: SubmissionCandidatesParams) =>
     [...adminQueryKeys.facilitySubmissionAll, 'candidates', params] as const,
+  facilitySubmissionBatches: (params: SubmissionBatchListParams) =>
+    [...adminQueryKeys.facilitySubmissionAll, 'batches', params] as const,
+  facilitySubmissionBatchDetail: (batchId: number) =>
+    [...adminQueryKeys.facilitySubmissionAll, 'batch-detail', batchId] as const,
 };
