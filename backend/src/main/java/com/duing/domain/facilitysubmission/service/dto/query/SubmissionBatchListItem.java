@@ -13,6 +13,8 @@ public record SubmissionBatchListItem(
         String submittedByName,
         String memo,
         boolean cancelled,
-        LocalDateTime cancelledAt
+        LocalDateTime cancelledAt,
+        boolean completed,
+        LocalDateTime completedAt
 ) {
 }

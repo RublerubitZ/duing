@@ -16,6 +16,7 @@ import com.duing.domain.facilitysubmission.repository.FacilitySubmissionAuditRep
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionBatchRepository;
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionItemRepository;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
+import com.duing.domain.facilitysubmission.service.dto.query.SubmissionAuditEntry;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchDetailResult;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchListItem;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidateBooking;
@@ -120,14 +121,24 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
                 submitterNames(List.of(batch)).get(batch.getSubmittedById()));
         auditRepository.save(FacilitySubmissionAudit.of(batchId, SubmissionAuditAction.VIEWED,
                 actor.adminId(), actor.ipAddress(), actor.userAgent()));
-        return new SubmissionBatchDetailResult(header, bookingRows);
+        List<FacilitySubmissionAudit> auditRows = auditRepository.findByBatchIdOrderByIdAsc(batchId);
+        Map<Long, String> auditAdminNames = userRepository.findAllById(
+                        auditRows.stream().map(FacilitySubmissionAudit::getAdminId).distinct().toList()).stream()
+                .collect(Collectors.toMap(User::getId, User::getName, (first, second) -> first));
+        List<SubmissionAuditEntry> audits = auditRows.stream()
+                .map(auditRow -> new SubmissionAuditEntry(auditRow.getAction(),
+                        auditAdminNames.get(auditRow.getAdminId()), auditRow.getCreatedAt(),
+                        auditRow.getIpAddress(), auditRow.getDetail()))
+                .toList();
+        return new SubmissionBatchDetailResult(header, bookingRows, audits);
     }
 
     private SubmissionBatchListItem toListItem(FacilitySubmissionBatch batch, long bookingCount,
             String facilityName, String submittedByName) {
         return new SubmissionBatchListItem(batch.getId(), batch.getSubmissionNo(), batch.getFacilityId(),
                 facilityName, bookingCount, batch.getSubmittedAt(), submittedByName, batch.getMemo(),
-                batch.isCancelled(), batch.getCancelledAt());
+                batch.isCancelled(), batch.getCancelledAt(),
+                batch.isCompleted(), batch.getCompletedAt());
     }
 
     private Map<Long, Long> bookingCounts(List<FacilitySubmissionBatch> batches) {
