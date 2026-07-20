@@ -122,13 +122,9 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
         auditRepository.save(FacilitySubmissionAudit.of(batchId, SubmissionAuditAction.VIEWED,
                 actor.adminId(), actor.ipAddress(), actor.userAgent()));
         List<FacilitySubmissionAudit> auditRows = auditRepository.findByBatchIdOrderByIdAsc(batchId);
-        Map<Long, String> auditAdminNames = userRepository.findAllById(
-                        auditRows.stream().map(FacilitySubmissionAudit::getAdminId).distinct().toList()).stream()
-                .collect(Collectors.toMap(User::getId, User::getName, (first, second) -> first));
+        Map<Long, String> auditAdminNames = auditAdminNames(auditRows);
         List<SubmissionAuditEntry> audits = auditRows.stream()
-                .map(auditRow -> new SubmissionAuditEntry(auditRow.getAction(),
-                        auditAdminNames.get(auditRow.getAdminId()), auditRow.getCreatedAt(),
-                        auditRow.getIpAddress(), auditRow.getDetail()))
+                .map(auditRow -> toAuditEntry(auditRow, auditAdminNames))
                 .toList();
         return new SubmissionBatchDetailResult(header, bookingRows, audits);
     }
@@ -163,6 +159,17 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
         List<Long> submitterIds = batches.stream().map(FacilitySubmissionBatch::getSubmittedById).distinct().toList();
         return userRepository.findAllById(submitterIds).stream()
                 .collect(Collectors.toMap(User::getId, User::getName, (first, second) -> first));
+    }
+
+    private Map<Long, String> auditAdminNames(List<FacilitySubmissionAudit> auditRows) {
+        return userRepository.findAllById(
+                        auditRows.stream().map(FacilitySubmissionAudit::getAdminId).distinct().toList()).stream()
+                .collect(Collectors.toMap(User::getId, User::getName, (first, second) -> first));
+    }
+
+    private SubmissionAuditEntry toAuditEntry(FacilitySubmissionAudit auditRow, Map<Long, String> auditAdminNames) {
+        return new SubmissionAuditEntry(auditRow.getAction(), auditAdminNames.get(auditRow.getAdminId()),
+                auditRow.getCreatedAt(), auditRow.getIpAddress(), auditRow.getDetail());
     }
 
     private void validatePeriod(LocalDate startDate, LocalDate endDate) {
