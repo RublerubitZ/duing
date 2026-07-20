@@ -1,6 +1,7 @@
 package com.duing.domain.facilitysubmission.api;
 
 import com.duing.domain.facilitysubmission.controller.dto.request.CreateSubmissionBatchRequest;
+import com.duing.domain.facilitysubmission.controller.dto.response.CompleteSubmissionBatchResponse;
 import com.duing.domain.facilitysubmission.controller.dto.response.CreateSubmissionBatchResponse;
 import com.duing.domain.facilitysubmission.controller.dto.response.SubmissionBatchDetailResponse;
 import com.duing.domain.facilitysubmission.controller.dto.response.SubmissionBatchSummaryResponse;
@@ -66,6 +67,13 @@ public interface AdminFacilitySubmissionApi {
     @Operation(summary = "제출 취소", description = "cancelled 상태 전환(완전 삭제 없음). 기취소 409.")
     @DeleteMapping("/admin/facility-bookings/submission/{batchId}")
     ResponseEntity<ApiResponse<Void>> cancel(@PathVariable Long batchId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser,
+            @Parameter(hidden = true) HttpServletRequest httpServletRequest);
+
+    @Operation(summary = "학교 제출 완료 처리", description = "담당자가 실제 학교 제출을 마친 뒤 호출(§4.3). "
+            + "APPROVED 예약만 CONFIRMED 로 전이하고 상태가 변한 예약은 제외 목록으로 반환한다. 기취소·기완료 409.")
+    @PostMapping("/admin/facility-bookings/submission/{batchId}/complete")
+    ResponseEntity<ApiResponse<CompleteSubmissionBatchResponse>> complete(@PathVariable Long batchId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser,
             @Parameter(hidden = true) HttpServletRequest httpServletRequest);
 }

@@ -2,6 +2,7 @@ package com.duing.domain.facilitysubmission.controller;
 
 import com.duing.domain.facilitysubmission.api.AdminFacilitySubmissionApi;
 import com.duing.domain.facilitysubmission.controller.dto.request.CreateSubmissionBatchRequest;
+import com.duing.domain.facilitysubmission.controller.dto.response.CompleteSubmissionBatchResponse;
 import com.duing.domain.facilitysubmission.controller.dto.response.CreateSubmissionBatchResponse;
 import com.duing.domain.facilitysubmission.controller.dto.response.SubmissionBatchDetailResponse;
 import com.duing.domain.facilitysubmission.controller.dto.response.SubmissionBatchSummaryResponse;
@@ -94,6 +95,13 @@ public class AdminFacilitySubmissionController implements AdminFacilitySubmissio
             @AuthenticationPrincipal UserPrincipal currentUser, HttpServletRequest httpServletRequest) {
         submissionService.cancel(batchId, actorFrom(currentUser, httpServletRequest));
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<CompleteSubmissionBatchResponse>> complete(Long batchId,
+            @AuthenticationPrincipal UserPrincipal currentUser, HttpServletRequest httpServletRequest) {
+        return ResponseEntity.ok(ApiResponse.success(CompleteSubmissionBatchResponse.from(
+                submissionService.complete(batchId, actorFrom(currentUser, httpServletRequest)))));
     }
 
     private SubmissionActorContext actorFrom(UserPrincipal currentUser, HttpServletRequest httpServletRequest) {
