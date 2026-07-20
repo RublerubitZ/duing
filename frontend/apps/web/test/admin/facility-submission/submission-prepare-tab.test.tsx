@@ -37,6 +37,26 @@ function makeResponse(): SubmissionCandidatesResponse {
   };
 }
 
+/**
+ * I-1 회귀 방지 전용 픽스처 — makeResponse() 에 세미나실(시설 200) selectable 예약 1건을 추가한다.
+ * 두 시설 모두 기본 전체 선택이라, handleSubmitConfirm 의 시설 필터가 제거되면 강당 제출에 이 예약이 섞여 들어가야 한다.
+ */
+function makeMultiFacilityResponse(): SubmissionCandidatesResponse {
+  const base = makeResponse();
+  return {
+    summary: { ...base.summary, approvedCount: base.summary.approvedCount + 1, awaitingCount: base.summary.awaitingCount + 1 },
+    bookings: [
+      ...base.bookings,
+      {
+        bookingId: 3, facilityId: 200, facilityName: '세미나실', clubId: 12, clubName: '테니스부', applicantName: '이영희', contactPhone: '010-9999-8888',
+        reservationDate: '2026-08-03', startTime: '14:00', endTime: '16:00', purpose: '정기 연습',
+        attendeeCount: 15, status: 'APPROVED', submitted: false, selectable: true,
+        submissionNo: null, decidedByName: '관리자', decidedAt: '2026-07-20T10:00:00',
+      },
+    ],
+  };
+}
+
 const querySuccess = (response: SubmissionCandidatesResponse) => ({
   data: response, isLoading: false, isSuccess: true, isError: false, refetch: vi.fn(),
 });
@@ -211,6 +231,24 @@ describe('SubmissionPrepareTab', () => {
       );
     });
     expect(mockAddToast).toHaveBeenCalledTimes(1);
+  });
+
+  it('다른 시설도 선택 예약이 있을 때, 학교 제출하기는 해당 섹션 시설의 예약만 전송한다', async () => {
+    const createMutateAsync = vi.fn().mockResolvedValue({
+      batchId: 8, submissionNo: 'SUB-20260801-003', csvFileName: 'facility-submission-SUB-20260801-003.csv',
+    });
+    mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeMultiFacilityResponse()));
+    render(<SubmissionPrepareTab />);
+
+    // 강당·세미나실 모두 selectable 예약이 기본 전체 선택 상태 — 라벨 문구가 같아 섹션 단위로 좁혀 클릭한다.
+    fireEvent.click(within(sectionOf('강당')).getByRole('button', { name: /학교 제출하기 \(1건\)/ }));
+    expect(screen.getByText(/강당 예약 1건을 학교에 제출할까요/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '학교 제출하기' }));
+
+    await waitFor(() => {
+      expect(createMutateAsync).toHaveBeenCalledWith({ bookingIds: [1], memo: undefined });
+    });
   });
 
   it('생성 실패 시 서버 메시지 에러 토스트를 띄운다', async () => {
