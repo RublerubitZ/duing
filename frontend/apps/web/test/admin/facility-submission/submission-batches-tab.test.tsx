@@ -155,6 +155,26 @@ describe('SubmissionBatchesTab', () => {
     expect(screen.getByRole('button', { name: /CSV/ })).toBeDisabled();
   });
 
+  it('CSV 진행 중 스피너는 실제 내려받는 행에만 붙는다', () => {
+    // 중복 발사 방지로 비활성은 전 행이지만, 스피너까지 전 행에 돌면 무엇을 받는지 알 수 없다.
+    mockCsvMutation.mockReturnValue({
+      mutateAsync: mockCsvMutateAsync,
+      isPending: true,
+      variables: { batchId: 2 },
+    });
+    mockBatchesQuery.mockReturnValue(
+      listSuccess([
+        makeBatch({ batchId: 1, submissionNo: 'SUB-OTHER' }),
+        makeBatch({ batchId: 2, submissionNo: 'SUB-DOWNLOADING' }),
+      ]),
+    );
+    render(<SubmissionBatchesTab />);
+
+    // 스피너 svg 는 aria-hidden 이라 역할로 못 잡는다 — 회전 클래스로 존재만 확인한다.
+    expect(rowOf('SUB-DOWNLOADING').querySelector('.animate-spin')).not.toBeNull();
+    expect(rowOf('SUB-OTHER').querySelector('.animate-spin')).toBeNull();
+  });
+
   it('CSV 실패 시 안내 토스트를 띄운다', async () => {
     mockCsvMutateAsync.mockRejectedValue(new Error('boom'));
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));

@@ -15,6 +15,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '@/app/_lib/route';
 import { downloadBlobFile } from '@/app/_lib/downloadFile';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ViewModeToggle, type SubmissionViewMode } from '../../../_components/ViewModeToggle';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { BatchCancelDialog } from '../../_components/BatchCancelDialog';
 import { BatchCompleteDialog } from '../../_components/BatchCompleteDialog';
@@ -34,7 +35,6 @@ const BATCH_LIST_ROUTE = toRoute('/admin/facility-bookings?tab=batches');
 // 읽기 전용 시간표는 선택이 없다 — 안정적인 빈 Set 하나를 공유한다.
 const EMPTY_SELECTION: ReadonlySet<number> = new Set();
 
-type ViewMode = 'list' | 'timetable';
 
 type Props = {
   batchId: number;
@@ -64,7 +64,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
   const { addToast } = useToast();
   const router = useGuardedRouter();
 
-  const [view, setView] = useState<ViewMode>('list');
+  const [view, setView] = useState<SubmissionViewMode>('list');
   const [cancelOpen, setCancelOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [completeResult, setCompleteResult] = useState<CompleteSubmissionBatchResult | null>(null);
@@ -218,24 +218,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
               </div>
             </div>
 
-            <div className="mb-2 flex items-center justify-end gap-2" role="tablist" aria-label="보기 전환">
-              {([['list', '목록'], ['timetable', '시간표']] as const).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  role="tab"
-                  aria-selected={view === mode}
-                  onClick={() => setView(mode)}
-                  className={`rounded-md border px-2.5 py-1.5 text-xs motion-safe:transition-colors ${
-                    view === mode
-                      ? 'border-ink bg-ink text-cream'
-                      : 'border-line bg-paper text-charcoal-2 hover:border-sage'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <ViewModeToggle view={view} onChange={setView} className="mb-2 justify-end" />
 
             {view === 'list' ? (
               <ul className="space-y-2">

@@ -5,6 +5,7 @@ import { useCreateSubmissionBatchMutation, useSubmissionCandidatesQuery } from '
 import type { SubmissionCandidateBooking, SubmissionCandidatesParams } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ViewModeToggle, type SubmissionViewMode } from '../_components/ViewModeToggle';
 import { BatchCreateDialog } from '../submission/_components/BatchCreateDialog';
 import { SubmissionClubGroupList } from '../submission/_components/SubmissionClubGroupList';
 import { SubmissionDetailSheet } from '../submission/_components/SubmissionDetailSheet';
@@ -14,7 +15,6 @@ import { buildFacilitySections, deriveSelectedIds } from '../submission/_lib/sub
 
 const MAX_PERIOD_DAYS = 31;
 
-type ViewMode = 'list' | 'timetable';
 type SubmissionStatusFilter = 'ALL' | 'NEED' | 'SUBMITTED';
 
 const toIso = (date: Date) =>
@@ -58,7 +58,7 @@ export function SubmissionPrepareTab() {
   const [startDate, setStartDate] = useState(defaultRange.startDate);
   const [endDate, setEndDate] = useState(defaultRange.endDate);
   const [clubKeyword, setClubKeyword] = useState('');
-  const [view, setView] = useState<ViewMode>('list');
+  const [view, setView] = useState<SubmissionViewMode>('list');
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>('ALL');
   // v3 선택 모델 — 제외 집합만 상태로 두고 선택은 파생한다(기본 전체 선택·신규 유입 자동 선택).
   const [excludedIds, setExcludedIds] = useState<ReadonlySet<number>>(new Set());
@@ -178,22 +178,7 @@ export function SubmissionPrepareTab() {
           <option value="NEED">학교에 제출할 예약</option>
           <option value="SUBMITTED">제출 목록에 담긴 예약</option>
         </select>
-        <div className="ml-auto flex items-center gap-2" role="tablist" aria-label="보기 전환">
-          {([['list', '목록'], ['timetable', '시간표']] as const).map(([mode, label]) => (
-            <button
-              key={mode}
-              type="button"
-              role="tab"
-              aria-selected={view === mode}
-              onClick={() => setView(mode)}
-              className={`rounded-md border px-2.5 py-1.5 text-xs motion-safe:transition-colors ${
-                view === mode ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-charcoal-2 hover:border-sage'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <ViewModeToggle view={view} onChange={setView} className="ml-auto" />
       </div>
 
       {periodInvalid && (
