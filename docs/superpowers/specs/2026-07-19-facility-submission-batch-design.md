@@ -135,7 +135,7 @@ candidates 파생 무영향 — submitted 판정은 `cancelledAt IS NULL` 만 �
 
 | API | 상태 | 핵심 |
 |---|---|---|
-| 5.1 GET `/candidates` | ✅ | facilityId·기간(≤31일) 필수. `{summary, bookings[]}` — 기간 내 전체(REJECTED 제외) + submitted/selectable 파생 + summary 4종(동일 필터 범위) |
+| 5.1 GET `/candidates` | ✅ · **PR-3 확장** | 기간(≤31일) 필수. **v3: facilityId 는 옵션 — 생략 시 전 시설의 제출 후보 반환, 각 booking 에 `facilityId`/`facilityName` 포함(additive·하위호환)**. `{summary, bookings[]}` — 기간 내 전체(REJECTED 제외) + submitted/selectable 파생 + summary 4종(동일 필터 범위) |
 | 5.2 POST | ✅ | `{bookingIds, memo?}` → 201 `{batchId, submissionNo, csvFileName}` |
 | 5.3 GET (목록) | ✅ | 취소 포함 최신순 페이지네이션. **PR-3: `completed`/`completedAt` 필드 추가(additive)** |
 | 5.4 GET `/{batchId}` | ✅ | 취소·완료 Batch 도 조회 가능. `{batch, bookings[]}`(멤버십 고정·status 현재값·활성 기준 재계산). audit `VIEWED`(쓰기 트랜잭션). **PR-3: batch 에 `completed`/`completedAt`, 응답에 `audits[]`(action·admin 이름·시각·IP) 추가** — 동아리별 그룹핑은 FE 가공 |
@@ -160,7 +160,15 @@ FacilitySubmissionExportService
 
 ## 7. 프론트엔드
 
-메뉴: `adminSections.ts` "학교 제출"(구현 예정 — PR-2). 라우트: `/admin/facility-bookings/submission`(탭: 제출 대기 | 제출 이력) + `/admin/facility-bookings/submission/[batchId]`(상세).
+> **⚠️ v3 개편 확정(2026-07-20, PR-4 에서 적용 — 이 섹션 전면 개정 예정. 아래 v2 내용은 PR-2 구현 기록으로만 유효):**
+> 1. **단일 페이지**: `/admin/facility-bookings?tab=...` 하나로 통합 — 탭 3종 **[예약 관리 | 학교 제출 준비 | 제출 목록]**. "하나의 업무는 하나의 화면에서 끝난다." 기존 `/admin/facility-bookings/submission` 은 `?tab=prepare` 로 리다이렉트, Batch 상세 경로는 유지. adminSections 는 "시설 예약 관리" 1항목으로.
+> 2. **예약 관리 탭** = 기존 관리 화면 통째 이식(승인·반려·충돌·수동 확정·검색·필터 — 명칭이 기능 범위를 좁히지 않도록 "예약 관리").
+> 3. **학교 제출 준비 탭** = 자동 큐 UX: "제출 필요"(파생 상태)가 곧 준비 큐 — 승인되면 자동 유입(교차 무효화). **전 시설을 시설별 섹션으로 동시 표시**(candidates facilityId 생략 — §5.1 확장), 섹션마다 제출 필요 예약 **기본 전체 선택**, 운영자는 제외만 하고 시설 단위 **"학교 제출하기"** 수행. 제외는 세션 내 클라 상태(비영속 — 영속 제외 플래그는 YAGNI). Batch 자동 생성은 아니다.
+> 4. **Dialog 재정의**: "Batch 생성"이 아니라 **학교 제출을 시작하는 마지막 확인** — 예: 제목 "강당 예약 5건을 학교에 제출할까요?", 본문 "선택한 예약으로 제출 목록을 만들어요. 학교 행정실 제출은 담당자가 진행하고, 제출을 마치면 '제출 목록' 탭에서 완료 처리해 주세요." Batch 는 내부 개념으로만 유지.
+> 5. **제출 목록 탭** = 전체 Batch 이력(검토 중/제출 완료/취소 배지) + **완료 처리(목록 행 액션 + 상세 양쪽)** + CSV + 상세 진입.
+> PR 재편은 §10.
+
+메뉴: `adminSections.ts` "학교 제출"(구현 완료 — PR-2 #683, v3 에서 통합·제거 예정). 라우트: `/admin/facility-bookings/submission`(탭: 제출 대기 | 제출 이력) + `/admin/facility-bookings/submission/[batchId]`(상세).
 
 ### 7.1 제출 대기 탭 (PR-2)
 
@@ -218,12 +226,13 @@ Action: **학교 제출 완료 처리**(검토 중일 때만) · CSV 다운로�
 
 테스트 날짜는 상대 날짜(타임밤 금지), FE 는 훅 모듈 모킹.
 
-## 10. PR 분할 (v2 재편)
+## 10. PR 분할 (v3 재편)
 
 1. ✅ **PR-1 (BE)**: V87+API 6종+Export+감사 — #682 머지 완료
-2. **PR-2 (FE 제출 화면)**: Task 1(타입·클라·훅)·Task 2(시간표 빌더) 완료 → Task 3~7 개정판(시간표 뷰 → **동아리 그룹 목록(기본)** → 페이지(검색·제출 여부 필터·카드 라벨) → 생성(자동 다운로드 제거) → 검증·QA)
-3. **PR-3 (BE 완료 처리)**: V88 + `POST /{batchId}/complete`(§4.3) + 취소 가드·행잠금 + 목록/상세 응답 확장(completed·audits[])
-4. **PR-4 (FE 이력·상세)**: 이력 탭 + 상세(그룹·상태·Audit·완료 처리·Export·취소)
+2. ✅ **PR-2 (FE 제출 화면)**: #683 머지 완료 (+UI Copy 소PR — fix/facility-submission-ui-copy)
+3. **PR-3 (BE 완료 처리 + candidates 확장)**: V88 + `POST /{batchId}/complete`(§4.3 — reason·completedAt·Formatter) + 취소 가드·행잠금 + 목록/상세 응답 확장(completed·audits[]) + **candidates facilityId 옵션화·facilityId/facilityName 응답 추가(§5.1 v3)** + FE 교차 무효화·타입 확장
+4. **PR-4a (FE 통합 셸)**: `/admin/facility-bookings?tab=` 단일 페이지(탭 3종) + 예약 관리 탭 이식 + **학교 제출 준비 탭 개편**(시설별 섹션·기본 전체 선택·제외·"학교 제출하기" Dialog 재정의) + 구경로 리다이렉트
+5. **PR-4b (FE 제출 목록 탭)**: Batch 이력(상태 배지 3종)·완료 처리(행+상세, 결과 분기 Dialog)·CSV·상세 화면(그룹·Audit 표시)
 
 ## 11. Future Roadmap
 

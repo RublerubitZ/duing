@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 담당자가 실제 학교 제출을 마친 시점의 "Batch 완료 처리" — 포함 예약을 best-effort 로 CONFIRMED 전이하고, 사람이 읽는 감사 요약을 남기며, 목록/상세 응답을 완료 상태·감사 이력으로 확장한다.
+**Goal:** 담당자가 실제 학교 제출을 마친 시점의 "Batch 완료 처리" — 포함 예약을 best-effort 로 CONFIRMED 전이하고, 사람이 읽는 감사 요약을 남기며, 목록/상세 응답을 완료 상태·감사 이력으로 확장한다. **+v3: candidates 를 전 시설 조회로 확장(facilityId 옵션화, PR-4a 준비 탭의 시설별 섹션 기반).**
 
 **Architecture:** V88(완료 컬럼 2개 + 감사 detail). Batch 상태 3종(검토 중/제출 완료/취소) 상호 배타 — batch 행잠금으로 완료/취소 동시 실행 직렬화. 전이는 기존 `confirmManually` 경로 재사용(상태 머신 무변경), 비APPROVED 는 스킵하고 응답·감사에 사유 나열. FE 는 교차 무효화 1줄만(이월분).
 
@@ -868,10 +868,142 @@ git commit -m "feat(backend): 학교 제출 완료 API·이력 응답 확장"
 
 ---
 
-### Task 5: FE 교차 무효화(이월 1줄) + 전체 스위트 검증
+### Task 5: candidates 전 시설 조회 확장 (§5.1 v3)
+
+**Files:**
+- Modify: `backend/src/main/java/com/duing/domain/facilitybooking/repository/FacilityBookingRepository.java` (파생 메서드 1개 추가만)
+- Modify: `backend/src/main/java/com/duing/domain/facilitysubmission/service/dto/query/SubmissionCandidateBooking.java` (필드 2개)
+- Modify: `backend/src/main/java/com/duing/domain/facilitysubmission/service/GeneralFacilitySubmissionQueryService.java`
+- Modify: `backend/src/main/java/com/duing/domain/facilitysubmission/api/AdminFacilitySubmissionApi.java` (facilityId required=false)
+- Modify: `backend/src/main/java/com/duing/domain/facilitysubmission/controller/dto/response/SubmissionCandidatesResponse.java` (Booking +2필드)
+- Test: `backend/src/test/java/com/duing/domain/facilitysubmission/service/GeneralFacilitySubmissionQueryServiceIntegrationTest.java` (테스트 추가)
+- Test: `backend/src/test/java/com/duing/domain/facilitysubmission/controller/AdminFacilitySubmissionAcceptanceTest.java` (테스트 추가)
+
+**Interfaces:**
+- Produces(PR-4a FE 계약): `GET /candidates` 의 `facilityId` **옵션** — 생략 시 전 시설 후보. booking 항목에 `facilityId: Long`, `facilityName: String|null` 추가(bookingId 바로 뒤 위치). 기존 시설 지정 호출은 완전 하위호환.
+- 주의: `toCandidate` 는 상세(getDetail)와 공유 — 상세 bookings 에도 시설 필드가 함께 실린다(단일 시설이라 동일값, 무해).
+
+- [ ] **Step 1: 실패하는 테스트 추가**
+
+쿼리 서비스 통합 테스트(기존 파일)에:
+
+```java
+    @Test
+    @DisplayName("facilityId 를 생략하면 전 시설의 후보가 시설 정보와 함께 반환된다")
+    void omittingFacilityReturnsAllFacilitiesWithNames() {
+        savedBooking(9, BookingStatus.APPROVED);
+        Facility secondFacility = facilityRepository.save(Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "세미나실(2)", "1602호", 0));
+        FacilityBooking otherFacilityBooking = FacilityBooking.request(
+                secondFacility.getId(), club.getId(), applicant.getId(), baseDate,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "정기 회의", 10,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
+        otherFacilityBooking.approve(admin.getId(), null, LocalDateTime.now());
+        bookingRepository.save(otherFacilityBooking);
+
+        SubmissionCandidatesResult result = queryService.getCandidates(new SubmissionCandidatesQuery(
+                null, baseDate.minusDays(1), baseDate.plusDays(1), null));
+
+        assertThat(result.bookings()).hasSize(2);
+        assertThat(result.bookings()).extracting(SubmissionCandidateBooking::facilityName)
+                .containsExactlyInAnyOrder(facility.getRoomName(), "세미나실(2)");
+        assertThat(result.summary().approvedCount()).as("summary 는 전 시설 합산").isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("facilityId 를 지정하면 기존처럼 해당 시설만 반환된다(하위호환)")
+    void specifyingFacilityKeepsExistingBehaviour() {
+        savedBooking(9, BookingStatus.APPROVED);
+        Facility secondFacility = facilityRepository.save(Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "세미나실(3)", "1603호", 0));
+        FacilityBooking otherFacilityBooking = FacilityBooking.request(
+                secondFacility.getId(), club.getId(), applicant.getId(), baseDate,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "정기 회의", 10,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
+        bookingRepository.save(otherFacilityBooking);
+
+        SubmissionCandidatesResult result = queryService.getCandidates(periodQuery());
+
+        assertThat(result.bookings()).hasSize(1);
+        assertThat(result.bookings().get(0).facilityId()).isEqualTo(facility.getId());
+    }
+```
+
+인수 테스트(기존 파일)에:
+
+```java
+    @Test
+    @DisplayName("facilityId 없이 후보를 조회하면 전 시설이 시설명과 함께 반환된다")
+    void candidatesWithoutFacilityReturnAllFacilities() {
+        approvedBooking(9);
+        LocalDate baseDate = LocalDate.now().plusDays(7);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(SUBMISSION_PATH + "/candidates?startDate=" + baseDate.minusDays(1)
+                        + "&endDate=" + baseDate.plusDays(1))
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.bookings[0].facilityId", notNullValue())
+                .body("data.bookings[0].facilityName", equalTo(facility.getRoomName()));
+    }
+```
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `cd backend && ./gradlew test --tests GeneralFacilitySubmissionQueryServiceIntegrationTest --tests AdminFacilitySubmissionAcceptanceTest`
+Expected: 컴파일/단언 실패
+
+- [ ] **Step 3: 구현**
+
+`FacilityBookingRepository.java` 에 파생 메서드 추가:
+
+```java
+    /** 학교 제출 준비 전 시설 조회(제출 스펙 §5.1 v3) — 기간·상태 조건, 시설 무제한. */
+    List<FacilityBooking> findByReservationDateBetweenAndStatusIn(
+            LocalDate startDate, LocalDate endDate, Collection<BookingStatus> statuses);
+```
+
+`SubmissionCandidateBooking.java` — `bookingId` 바로 뒤에 `Long facilityId, String facilityName` 필드 추가(주석: 전 시설 조회의 시설별 섹션 그룹핑용 — §5.1 v3).
+
+`GeneralFacilitySubmissionQueryService.java`:
+- `getCandidates` 조회 분기 + 시설 이름 맵:
+
+```java
+        List<FacilityBooking> fetchedBookings = query.facilityId() != null
+                ? bookingRepository.findByFacilityIdAndReservationDateBetweenAndStatusIn(
+                        query.facilityId(), query.startDate(), query.endDate(), CANDIDATE_STATUSES)
+                : bookingRepository.findByReservationDateBetweenAndStatusIn(
+                        query.startDate(), query.endDate(), CANDIDATE_STATUSES);
+```
+
+- 신규 헬퍼 `bookingFacilityNames(List<FacilityBooking>)` — `facilityRepository.findAllById(distinct facilityIds)` → `Map<Long, String>`(병합 함수 `(first, second) -> first` 스타일 유지).
+- `toCandidate(booking, submissionNoByBookingId, clubNames, userNames, facilityNames)` 로 시그니처 확장(getCandidates·getDetail 두 호출부 모두 갱신), 새 필드는 `booking.getFacilityId(), facilityNames.get(booking.getFacilityId())`.
+
+`AdminFacilitySubmissionApi.java` — candidates 의 facilityId 를 `@RequestParam(required = false)` 로, `@Parameter(description = "시설(생략 시 전 시설)")`.
+
+`SubmissionCandidatesResponse.java` — `Booking` record 의 `bookingId` 뒤에 `Long facilityId, String facilityName` + `from` 매핑 갱신.
+
+- [ ] **Step 4: 통과 확인**
+
+Run: `cd backend && ./gradlew test --tests GeneralFacilitySubmissionQueryServiceIntegrationTest --tests AdminFacilitySubmissionAcceptanceTest --tests GeneralFacilitySubmissionHistoryQueryIntegrationTest`
+Expected: PASS (신규 3 + 기존 회귀 전부 — toCandidate 시그니처 변경이 상세 경로 회귀를 깨지 않는지 포함)
+
+- [ ] **Step 5: 커밋**
+
+```bash
+git add backend/src/main/java/com/duing/domain/facilitybooking/repository/FacilityBookingRepository.java \
+  backend/src/main/java/com/duing/domain/facilitysubmission/ \
+  backend/src/test/java/com/duing/domain/facilitysubmission/
+git commit -m "feat(backend): 제출 후보 전 시설 조회 지원 — 시설 정보 응답 포함"
+```
+
+---
+
+### Task 6: FE 교차 무효화·타입 확장 + 전체 스위트 검증
 
 **Files:**
 - Modify: `frontend/packages/hooks/src/facilityBookingsAdmin.ts` (무효화 1줄)
+- Modify: `frontend/packages/types/src/facilitySubmission.ts` (타입 확장 — PR-4a 선행 계약)
 
 - [ ] **Step 1: FE 교차 무효화 추가**
 
@@ -881,6 +1013,12 @@ git commit -m "feat(backend): 학교 제출 완료 API·이력 응답 확장"
     // 승인/반려/취소는 학교 제출 후보(제출 필요 목록)의 파생에도 반영된다 — 교차 무효화(PR-2 최종 리뷰 이월).
     void queryClient.invalidateQueries({ queryKey: adminQueryKeys.facilitySubmissionAll });
 ```
+
+- [ ] **Step 1.5: FE 타입 확장 (PR-4a 선행 계약)**
+
+`facilitySubmission.ts`:
+- `SubmissionCandidateBooking` 에 `bookingId` 뒤 `facilityId: number;` `facilityName: string | null;` 추가
+- `SubmissionCandidatesParams` 의 `facilityId: number` → `facilityId?: number;` (생략=전 시설 — 기존 호출부는 항상 전달하므로 하위호환. 주석으로 §5.1 v3 근거 명시)
 
 - [ ] **Step 2: FE 검증**
 
@@ -895,15 +1033,15 @@ Expected: BUILD SUCCESSFUL, 실패 0 — 출력에서 `BUILD SUCCESSFUL` 직접 
 - [ ] **Step 4: self-check**
 
 1. 기존 Flyway 파일 무수정(V88 신규만), 기존 상태 머신 무변경(`confirmManually` 재사용만)
-2. 스펙 §4.3·§5.7 계약(응답 4필드·감사 요약 형식·가드 매트릭스)과 구현 일치
+2. 스펙 §4.3·§5.7 계약(응답 5필드·reason 라벨·감사 요약 형식·가드 매트릭스)·§5.1 v3(전 시설·시설 필드)와 구현 일치
 3. 커밋 규칙·attribution 없음·상대 날짜
-4. FE 변경이 무효화 1줄뿐인지
+4. FE 변경이 무효화 1줄+타입 확장뿐인지
 
 - [ ] **Step 5: 커밋**
 
 ```bash
-git add frontend/packages/hooks/src/facilityBookingsAdmin.ts
-git commit -m "fix(frontend): 예약 처리 시 학교 제출 후보 교차 무효화"
+git add frontend/packages/hooks/src/facilityBookingsAdmin.ts frontend/packages/types/src/facilitySubmission.ts
+git commit -m "fix(frontend): 제출 후보 교차 무효화·전 시설 조회 타입 확장"
 ```
 
 **완료 후:** push·PR 생성은 하지 않는다 — 컨트롤러가 최종 리뷰 뒤 사용자 지시로 진행한다.
