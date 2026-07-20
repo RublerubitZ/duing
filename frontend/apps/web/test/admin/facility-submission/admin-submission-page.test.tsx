@@ -23,13 +23,13 @@ function makeResponse(): SubmissionCandidatesResponse {
     summary: { approvedCount: 2, awaitingCount: 1, submittedCount: 1, confirmedCount: 1 },
     bookings: [
       {
-        bookingId: 1, clubId: 10, clubName: '밴드부', applicantName: '홍길동', contactPhone: '010-1234-5678',
+        bookingId: 1, facilityId: 1, facilityName: '학생회관 세미나실', clubId: 10, clubName: '밴드부', applicantName: '홍길동', contactPhone: '010-1234-5678',
         reservationDate: '2026-08-01', startTime: '18:00', endTime: '21:00', purpose: '정기 합주',
         attendeeCount: 30, status: 'APPROVED', submitted: false, selectable: true,
         submissionNo: null, decidedByName: '관리자', decidedAt: '2026-07-20T10:00:00',
       },
       {
-        bookingId: 2, clubId: 11, clubName: '방송국', applicantName: '김철수', contactPhone: null,
+        bookingId: 2, facilityId: 2, facilityName: '동아리방', clubId: 11, clubName: '방송국', applicantName: '김철수', contactPhone: null,
         reservationDate: '2026-08-02', startTime: '09:00', endTime: '10:00', purpose: '연습',
         attendeeCount: null, status: 'CONFIRMED', submitted: true, selectable: false,
         submissionNo: 'SUB-20260801-001', decidedByName: '관리자', decidedAt: '2026-07-20T10:00:00',
