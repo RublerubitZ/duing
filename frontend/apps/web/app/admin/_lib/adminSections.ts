@@ -69,7 +69,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     href: '/admin/facility-bookings',
     title: '시설 예약 관리',
-    description: '대관 신청 승인·학교 제출 준비·제출 목록 관리',
+    description: '대관 예약 검토·학교 제출 준비·제출 이력 관리',
     group: '동아리',
   },
   {

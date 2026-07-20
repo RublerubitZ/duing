@@ -337,7 +337,7 @@ describe('SubmissionBatchDetailPage', () => {
 
     await waitFor(() => {
       expect(mockCancelMutateAsync).toHaveBeenCalledWith({ batchId: 7 });
-      expect(mockReplace).toHaveBeenCalledWith('/admin/facility-bookings?tab=batches');
+      expect(mockReplace).toHaveBeenCalledWith('/admin/facility-bookings?tab=archive');
       expect(mockAddToast).toHaveBeenCalledWith('제출 목록이 취소되었어요.');
     });
   });
@@ -348,6 +348,6 @@ describe('SubmissionBatchDetailPage', () => {
     render(<SubmissionBatchDetailPage batchId={1} />);
 
     expect(screen.getByText('제출 목록을 찾을 수 없어요.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '제출 목록으로 돌아가기' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '제출 이력으로 돌아가기' })).toBeInTheDocument();
   });
 });

@@ -228,7 +228,7 @@ describe('SubmissionPrepareTab', () => {
     await waitFor(() => {
       expect(createMutateAsync).toHaveBeenCalledWith({ bookingIds: [1], memo: '8월 1차' });
       expect(mockAddToast).toHaveBeenCalledWith(
-        "제출 목록이 만들어졌어요. 학교 제출 후 '제출 목록' 탭에서 완료 처리해 주세요.",
+        "제출 목록이 만들어졌어요. 학교 제출 후 '제출 대기' 탭에서 완료 처리해 주세요.",
       );
     });
     expect(mockAddToast).toHaveBeenCalledTimes(1);

@@ -314,10 +314,18 @@ describe('SubmissionBatchesTab', () => {
     render(<SubmissionBatchesTab />);
 
     expect(screen.getByText('아직 만든 제출 목록이 없어요')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '학교 제출 준비로 이동' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '제출 준비로 이동' })).toHaveAttribute(
       'href',
       expect.stringContaining('/admin/facility-bookings?tab=prepare'),
     );
+  });
+
+  it('statusFilter=REVIEWING 이면 진행 중만 조회하고 빈 상태 문구도 진행 중 기준으로 바뀐다', () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([]));
+    render(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+
+    expect(mockBatchesQuery).toHaveBeenCalledWith({ page: 0, size: 10, status: 'REVIEWING' });
+    expect(screen.getByText('진행 중인 제출 목록이 없어요')).toBeInTheDocument();
   });
 
   it('페이지를 넘기면 다음 page 로 목록을 다시 조회한다', () => {

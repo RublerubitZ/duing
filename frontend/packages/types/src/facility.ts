@@ -189,6 +189,7 @@ export type AdminFacilityBookingSummary = {
   endTime: string;
   status: BookingStatus;
   purpose: string;
+  attendeeCount?: number; // NON_NULL — 선택 입력(개편 스펙 A2), 큐 테이블 인원 표기용
   createdAt: string; // ISO LocalDateTime
   approvedWaitingDays?: number; // NON_NULL — APPROVED 행에만("학교 반영 대기 D+N")
   conflictSuspected: boolean;
@@ -235,6 +236,7 @@ export type AdminFacilityBookingCounts = {
   conflictCount: number;
   conflictSuspectedCount: number;
   confirmedThisMonthCount: number;
+  crawledAt?: string; // NON_NULL — 당월 크롤 마지막 수집 시각(개편 스펙 A1), 스냅샷 부재 시 생략
 };
 
 // 승인 409(FACILITY_BOOKING_SCHOOL_CONFLICT)의 ApiError.payload 형태(§8.3)

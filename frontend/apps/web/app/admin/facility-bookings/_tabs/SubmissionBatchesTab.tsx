@@ -9,7 +9,11 @@ import {
   useDownloadSubmissionCsvMutation,
   useSubmissionBatchesQuery,
 } from '@duing/hooks';
-import type { CompleteSubmissionBatchResult, SubmissionBatchSummary } from '@duing/types';
+import type {
+  CompleteSubmissionBatchResult,
+  SubmissionBatchStatusFilter,
+  SubmissionBatchSummary,
+} from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { StatusPill } from '@/app/_components/StatusPill';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -44,13 +48,14 @@ function batchCompleteErrorMessage(error: unknown): string {
 /**
  * 제출 목록 탭(스펙 v3 §7.3) — 만든 제출 목록을 상태 배지와 함께 표로 보여준다.
  * CSV 는 전 상태 허용(완료·취소 배치도 감사용 재다운로드 §5.5), '제출 완료'·'취소' 는 REVIEWING 전용.
+ * statusFilter='REVIEWING' 이면 '제출 대기' 워크플로 탭(진행 중만), 생략하면 '제출 이력' 탭(전체)이 된다(개편 스펙 §5·§6).
  */
-export function SubmissionBatchesTab() {
+export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: SubmissionBatchStatusFilter }) {
   const [page, setPage] = useState(0);
   const [cancelTarget, setCancelTarget] = useState<SubmissionBatchSummary | null>(null);
   const [completeTarget, setCompleteTarget] = useState<SubmissionBatchSummary | null>(null);
   const [completeResult, setCompleteResult] = useState<CompleteSubmissionBatchResult | null>(null);
-  const batchesQuery = useSubmissionBatchesQuery({ page, size: PAGE_SIZE });
+  const batchesQuery = useSubmissionBatchesQuery({ page, size: PAGE_SIZE, status: statusFilter });
   const cancelMutation = useCancelSubmissionBatchMutation();
   const completeMutation = useCompleteSubmissionBatchMutation();
   const csvMutation = useDownloadSubmissionCsvMutation();
@@ -112,11 +117,11 @@ export function SubmissionBatchesTab() {
       {!batchesQuery.isLoading && batchesQuery.isSuccess && batches.length === 0 && (
         <EmptyState
           icon="📄"
-          title="아직 만든 제출 목록이 없어요"
-          body="'학교 제출 준비' 탭에서 승인된 예약을 골라 만들 수 있어요."
+          title={statusFilter === 'REVIEWING' ? '진행 중인 제출 목록이 없어요' : '아직 만든 제출 목록이 없어요'}
+          body="'제출 준비' 탭에서 승인된 예약을 골라 만들 수 있어요."
           action={
             <Link href={toRoute('/admin/facility-bookings?tab=prepare')} className="btn btn-secondary btn-sm">
-              학교 제출 준비로 이동
+              제출 준비로 이동
             </Link>
           }
         />
