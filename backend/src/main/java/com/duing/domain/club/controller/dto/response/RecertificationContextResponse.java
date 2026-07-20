@@ -3,7 +3,8 @@ package com.duing.domain.club.controller.dto.response;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.RecertificationRequest;
 import com.duing.domain.club.entity.RecertificationRound;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record RecertificationContextResponse(
         boolean centralClub,
@@ -22,7 +23,7 @@ public record RecertificationContextResponse(
             int operatingYear,
             String contactEmail,
             String contactPhone,
-            LocalDateTime createdAt
+            Instant createdAt
     ) {
         public static PendingRequestView from(RecertificationRequest request) {
             return new PendingRequestView(
@@ -30,7 +31,7 @@ public record RecertificationContextResponse(
                     request.getOperatingYear(),
                     request.getContactEmail(),
                     request.getContactPhone(),
-                    request.getCreatedAt()
+                    TimeMapper.systemWallClockToInstant(request.getCreatedAt())
             );
         }
     }

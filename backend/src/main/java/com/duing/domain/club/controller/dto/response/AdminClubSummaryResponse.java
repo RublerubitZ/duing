@@ -4,7 +4,8 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.user.entity.College;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.util.List;
 
 public record AdminClubSummaryResponse(
@@ -21,7 +22,7 @@ public record AdminClubSummaryResponse(
         String leaderStudentId,
         boolean centralClub,
         String rejectionReason,
-        LocalDateTime statusChangedAt,
+        Instant statusChangedAt,
         String statusChangedByName
 ) {
     public static AdminClubSummaryResponse from(AdminClubSummaryQuery summaryQuery) {
@@ -39,7 +40,7 @@ public record AdminClubSummaryResponse(
                 summaryQuery.leaderStudentId(),
                 summaryQuery.centralClub(),
                 summaryQuery.rejectionReason(),
-                summaryQuery.statusChangedAt(),
+                TimeMapper.systemWallClockToInstant(summaryQuery.statusChangedAt()),
                 summaryQuery.statusChangedByName()
         );
     }

@@ -3,6 +3,8 @@ package com.duing.domain.application.controller.dto.response;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 public record ApplicationSummaryResponse(
@@ -15,7 +17,7 @@ public record ApplicationSummaryResponse(
         String logoUrl,
         ApplicationStatus status,
         AssignedInterview interview,
-        LocalDateTime submittedAt
+        Instant submittedAt
 ) {
 
     /**
@@ -47,7 +49,7 @@ public record ApplicationSummaryResponse(
                 summaryQuery.logoUrl(),
                 summaryQuery.status(),
                 interview,
-                summaryQuery.submittedAt()
+                TimeMapper.systemWallClockToInstant(summaryQuery.submittedAt())
         );
     }
 }

@@ -10,6 +10,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
@@ -27,6 +28,7 @@ public class GeneralApplicationDraftService implements ApplicationDraftService {
 
     private final ApplicationDraftRepository draftRepository;
     private final RecruitmentRepository recruitmentRepository;
+    private final Clock clock;
 
     @Override
     public Optional<ApplicationDraftQuery> find(Long userId, Long recruitmentId) {
@@ -45,7 +47,8 @@ public class GeneralApplicationDraftService implements ApplicationDraftService {
             throw new RecruitmentException.RecruitmentNotFoundException();
         }
 
-        if (!recruitment.isEffectivelyOpen(LocalDate.now())) {
+        // 마감 판정은 KST(seoulClock) 기준 — 제출 경로(GeneralApplicationService)와 동일한 시계를 쓴다.
+        if (!recruitment.isEffectivelyOpen(LocalDate.now(clock))) {
             throw new DraftException.RecruitmentClosedException();
         }
 

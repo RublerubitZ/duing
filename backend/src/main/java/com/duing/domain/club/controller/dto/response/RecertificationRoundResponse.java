@@ -3,7 +3,8 @@ package com.duing.domain.club.controller.dto.response;
 import com.duing.domain.club.entity.RecertificationRound;
 import com.duing.domain.club.entity.RoundStatus;
 import com.duing.domain.club.service.dto.query.RecertificationRoundAdminListQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record RecertificationRoundResponse(
         Long id,
@@ -11,9 +12,9 @@ public record RecertificationRoundResponse(
         String label,
         RoundStatus status,
         UserRef openedBy,
-        LocalDateTime openedAt,
+        Instant openedAt,
         UserRef closedBy,
-        LocalDateTime closedAt
+        Instant closedAt
 ) {
     public record UserRef(Long id, String name) {}
 
@@ -22,7 +23,8 @@ public record RecertificationRoundResponse(
     ) {
         return new RecertificationRoundResponse(
                 round.getId(), round.getYear(), round.getLabel(), round.getStatus(),
-                openedBy, round.getOpenedAt(), closedBy, round.getClosedAt()
+                openedBy, TimeMapper.systemWallClockToInstant(round.getOpenedAt()),
+                closedBy, TimeMapper.systemWallClockToInstant(round.getClosedAt())
         );
     }
 

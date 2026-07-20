@@ -3,7 +3,8 @@ package com.duing.domain.notification.controller.dto.response;
 import com.duing.domain.notice.broadcast.entity.NoticeBroadcast;
 import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.service.dto.query.NotificationQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record NotificationResponse(
         String source,              // "PERSONAL" | "BROADCAST"
@@ -13,8 +14,8 @@ public record NotificationResponse(
         String body,
         String linkUrl,
         boolean isRead,             // canonical read flag (PERSONAL: readAt != null, BROADCAST: from slice)
-        LocalDateTime readAt,       // null for BROADCAST or unread PERSONAL
-        LocalDateTime createdAt
+        Instant readAt,             // null for BROADCAST or unread PERSONAL
+        Instant createdAt
 ) {
     public static NotificationResponse from(NotificationQuery query) {
         return new NotificationResponse(
@@ -25,8 +26,8 @@ public record NotificationResponse(
                 query.body(),
                 query.linkUrl(),
                 query.readAt() != null,
-                query.readAt(),
-                query.createdAt()
+                TimeMapper.systemWallClockToInstant(query.readAt()),
+                TimeMapper.systemWallClockToInstant(query.createdAt())
         );
     }
 
@@ -40,7 +41,7 @@ public record NotificationResponse(
                 broadcast.getLinkUrl(),
                 isRead,
                 null,
-                broadcast.getCreatedAt()
+                TimeMapper.systemWallClockToInstant(broadcast.getCreatedAt())
         );
     }
 }

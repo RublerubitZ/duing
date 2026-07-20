@@ -5,7 +5,8 @@ import com.duing.domain.club.entity.RecertificationStatus;
 import com.duing.domain.club.service.dto.query.RecertificationRequestAdminDetailQuery;
 import com.duing.domain.clubmember.controller.dto.response.ClubMemberHistoryResponse;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberHistoryAdminQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.util.List;
 
 public record RecertificationRequestDetailResponse(
@@ -22,8 +23,8 @@ public record RecertificationRequestDetailResponse(
         RecertificationStatus status,
         String actionNote,
         UserRef handledBy,
-        LocalDateTime handledAt,
-        LocalDateTime createdAt,
+        Instant handledAt,
+        Instant createdAt,
         List<ClubMemberHistoryResponse> recentMemberHistory
 ) {
     public record RoundRef(Long id, Integer year, String label) {}
@@ -39,7 +40,9 @@ public record RecertificationRequestDetailResponse(
                 request.getId(), round, club, currentLeader, officers, submittedLeader,
                 request.getContactEmail(), request.getContactPhone(), request.getOperatingYear(),
                 request.getNotes(), request.getStatus(), request.getActionNote(),
-                handler, request.getHandledAt(), request.getCreatedAt(),
+                handler,
+                TimeMapper.systemWallClockToInstant(request.getHandledAt()),
+                TimeMapper.systemWallClockToInstant(request.getCreatedAt()),
                 recentMemberHistory
         );
     }

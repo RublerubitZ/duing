@@ -2,11 +2,12 @@ package com.duing.domain.clubmember.controller.dto.response;
 
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record MyClubMembershipResponse(
         ClubMemberRole role,
-        LocalDateTime joinedAt,
+        Instant joinedAt,
         ClubActionPermissions permissions
 ) {
     public record ClubActionPermissions(
@@ -30,7 +31,7 @@ public record MyClubMembershipResponse(
     public static MyClubMembershipResponse from(ClubMember member) {
         return new MyClubMembershipResponse(
                 member.getRole(),
-                member.getCreatedAt(),
+                TimeMapper.systemWallClockToInstant(member.getCreatedAt()),
                 ClubActionPermissions.from(member.getRole())
         );
     }

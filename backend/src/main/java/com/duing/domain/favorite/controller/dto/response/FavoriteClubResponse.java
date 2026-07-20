@@ -2,7 +2,8 @@ package com.duing.domain.favorite.controller.dto.response;
 
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.favorite.service.dto.query.FavoriteClubQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record FavoriteClubResponse(
         Long clubId,
@@ -10,7 +11,7 @@ public record FavoriteClubResponse(
         String logoUrl,
         ClubCategory category,
         String division,
-        LocalDateTime favoritedAt,
+        Instant favoritedAt,
         int openRecruitmentCount
 ) {
     public static FavoriteClubResponse from(FavoriteClubQuery query) {
@@ -20,7 +21,7 @@ public record FavoriteClubResponse(
                 query.logoUrl(),
                 query.category(),
                 query.division(),
-                query.favoritedAt(),
+                TimeMapper.systemWallClockToInstant(query.favoritedAt()),
                 query.openRecruitmentCount()
         );
     }

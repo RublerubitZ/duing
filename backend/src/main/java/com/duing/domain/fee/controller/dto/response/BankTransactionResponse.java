@@ -3,7 +3,8 @@ package com.duing.domain.fee.controller.dto.response;
 import com.duing.domain.fee.entity.MatchStatus;
 import com.duing.domain.fee.entity.TransactionType;
 import com.duing.domain.fee.service.dto.query.BankTransactionView;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -13,7 +14,7 @@ import java.util.List;
  */
 public record BankTransactionResponse(
         Long id,
-        LocalDateTime transactionAt,
+        Instant transactionAt,
         Long amount,
         String counterparty,
         TransactionType transactionType,
@@ -26,7 +27,8 @@ public record BankTransactionResponse(
     public static BankTransactionResponse from(BankTransactionView view) {
         return new BankTransactionResponse(
                 view.id(),
-                view.transactionAt(),
+                // transaction_at 은 BANK API 파싱 KST 벽시계(BankApiHttpClient) — seoul 변환.
+                TimeMapper.seoulWallClockToInstant(view.transactionAt()),
                 view.amount(),
                 view.counterparty(),
                 view.transactionType(),

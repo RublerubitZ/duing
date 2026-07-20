@@ -5,7 +5,8 @@ import com.duing.domain.report.entity.ReportReasonCode;
 import com.duing.domain.report.entity.ReportStatus;
 import com.duing.domain.report.entity.ReportTargetType;
 import com.duing.domain.report.service.dto.query.ReportAdminDetailQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record ReportDetailResponse(
         Long id,
@@ -18,8 +19,8 @@ public record ReportDetailResponse(
         ReportStatus status,
         String actionNote,
         UserRef handledBy,
-        LocalDateTime handledAt,
-        LocalDateTime createdAt
+        Instant handledAt,
+        Instant createdAt
 ) {
     public record UserRef(Long id, String name) {}
 
@@ -30,7 +31,9 @@ public record ReportDetailResponse(
                 report.getTargetType(), report.getTargetId(), targetLabel,
                 report.getReasonCode(), report.getDetail(),
                 report.getStatus(), report.getActionNote(),
-                handler, report.getHandledAt(), report.getCreatedAt()
+                handler,
+                TimeMapper.systemWallClockToInstant(report.getHandledAt()),
+                TimeMapper.systemWallClockToInstant(report.getCreatedAt())
         );
     }
 

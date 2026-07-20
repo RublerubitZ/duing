@@ -13,6 +13,7 @@ import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +22,12 @@ import lombok.RequiredArgsConstructor;
 public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
+    // 모집중 뱃지 판정(startDate·endDate vs 오늘)은 KST(seoulClock) 기준.
+    private final Clock clock;
 
     @Override
     public List<ManagedClubQuery> findActiveManagedClubsByUser(Long userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
 
         NumberExpression<Integer> activeRecruitmentFlag = activeRecruitmentFlag(today);
 
@@ -53,7 +56,7 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
 
     @Override
     public List<MyClubQuery> findMyClubsByUser(Long userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
 
         NumberExpression<Integer> activeRecruitmentFlag = activeRecruitmentFlag(today);
 

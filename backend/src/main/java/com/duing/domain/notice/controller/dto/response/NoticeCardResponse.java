@@ -2,6 +2,8 @@ package com.duing.domain.notice.controller.dto.response;
 
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -15,7 +17,7 @@ public record NoticeCardResponse(
         List<String> tags,
         boolean pinned,
         LocalDateTime expiresAt,
-        LocalDateTime createdAt,
+        Instant createdAt,
         // 출처 — 동아리 작성 공지면 owningClubId·clubName 이 채워지고, 학교(관리자) 공지면 둘 다 null.
         Long owningClubId,
         String clubName
@@ -25,7 +27,8 @@ public record NoticeCardResponse(
                 notice.getId(), notice.getTitle(), notice.getSummary(),
                 notice.getCoverImageUrl(), notice.getLinkUrl(),
                 notice.getCategory(), notice.getTags(),
-                notice.isPinned(), notice.getExpiresAt(), notice.getCreatedAt(),
+                notice.isPinned(), notice.getExpiresAt(),
+                TimeMapper.systemWallClockToInstant(notice.getCreatedAt()),
                 notice.getOwningClubId(), clubName
         );
     }

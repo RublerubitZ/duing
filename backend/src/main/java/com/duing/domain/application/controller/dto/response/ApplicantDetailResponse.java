@@ -6,6 +6,8 @@ import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,7 +21,7 @@ public record ApplicantDetailResponse(
         List<QuestionAnswer> answers,
         ApplicationStatus status,
         AssignedInterview interview,
-        LocalDateTime submittedAt,
+        Instant submittedAt,
         List<StatusHistoryItem> statusHistory,
         ApplicationEvaluationItem myEvaluation,
         List<ApplicationEvaluationItem> otherEvaluations,
@@ -38,7 +40,7 @@ public record ApplicantDetailResponse(
             ApplicationStatus newStatus,
             Long changedById,
             String changedByName,
-            LocalDateTime changedAt
+            Instant changedAt
     ) {}
 
     public record ApplicationEvaluationItem(
@@ -46,8 +48,8 @@ public record ApplicantDetailResponse(
             String evaluatorName,
             Integer score,
             String memo,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt
+            Instant createdAt,
+            Instant updatedAt
     ) {}
 
     public record AvailabilityItemResponse(
@@ -105,7 +107,7 @@ public record ApplicantDetailResponse(
                         item.newStatus(),
                         item.changedById(),
                         item.changedByName(),
-                        item.changedAt()))
+                        TimeMapper.systemWallClockToInstant(item.changedAt())))
                 .toList();
 
         ApplicationEvaluationItem myEvaluation = detailQuery.myEvaluation() == null ? null
@@ -146,7 +148,7 @@ public record ApplicantDetailResponse(
                 questionAnswers,
                 detailQuery.status(),
                 interview,
-                detailQuery.submittedAt(),
+                TimeMapper.systemWallClockToInstant(detailQuery.submittedAt()),
                 history,
                 myEvaluation,
                 otherEvaluations,
@@ -172,8 +174,8 @@ public record ApplicantDetailResponse(
                 evaluationItemQuery.evaluatorName(),
                 evaluationItemQuery.score(),
                 evaluationItemQuery.memo(),
-                evaluationItemQuery.createdAt(),
-                evaluationItemQuery.updatedAt()
+                TimeMapper.systemWallClockToInstant(evaluationItemQuery.createdAt()),
+                TimeMapper.systemWallClockToInstant(evaluationItemQuery.updatedAt())
         );
     }
 }

@@ -4,7 +4,8 @@ import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.support.PhoneMasker;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record ClubMemberResponse(
         Long memberId,
@@ -12,7 +13,7 @@ public record ClubMemberResponse(
         String name,
         String studentId,
         ClubMemberRole role,
-        LocalDateTime joinedAt,
+        Instant joinedAt,
         String major,
         Grade grade,
         String phoneMasked
@@ -20,7 +21,8 @@ public record ClubMemberResponse(
     public static ClubMemberResponse from(ClubMemberQuery query) {
         return new ClubMemberResponse(
                 query.memberId(), query.userId(), query.name(),
-                query.studentId(), query.role(), query.joinedAt(),
+                query.studentId(), query.role(),
+                TimeMapper.systemWallClockToInstant(query.joinedAt()),
                 query.major(), query.grade(), PhoneMasker.mask(query.phone())
         );
     }

@@ -3,7 +3,8 @@ package com.duing.domain.clubmember.controller.dto.response;
 import com.duing.domain.clubmember.entity.LeaderSuccessionRequest;
 import com.duing.domain.clubmember.entity.SuccessionStatus;
 import com.duing.domain.clubmember.service.dto.query.SuccessionRequestAdminDetailQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record SuccessionRequestDetailResponse(
         Long id,
@@ -14,8 +15,8 @@ public record SuccessionRequestDetailResponse(
         SuccessionStatus status,
         String actionNote,
         UserRef handledBy,
-        LocalDateTime handledAt,
-        LocalDateTime createdAt
+        Instant handledAt,
+        Instant createdAt
 ) {
     public record ClubRef(Long id, String name) {}
     public record UserRef(Long id, String name) {}
@@ -27,7 +28,9 @@ public record SuccessionRequestDetailResponse(
         return new SuccessionRequestDetailResponse(
                 request.getId(), club, requester, currentLeader,
                 request.getReason(), request.getStatus(), request.getActionNote(),
-                handler, request.getHandledAt(), request.getCreatedAt()
+                handler,
+                TimeMapper.systemWallClockToInstant(request.getHandledAt()),
+                TimeMapper.systemWallClockToInstant(request.getCreatedAt())
         );
     }
 
@@ -42,7 +45,9 @@ public record SuccessionRequestDetailResponse(
         return new SuccessionRequestDetailResponse(
                 query.id(), clubRef, requesterRef, currentLeaderRef,
                 query.reason(), query.status(), query.actionNote(),
-                handledByRef, query.handledAt(), query.createdAt()
+                handledByRef,
+                TimeMapper.systemWallClockToInstant(query.handledAt()),
+                TimeMapper.systemWallClockToInstant(query.createdAt())
         );
     }
 }

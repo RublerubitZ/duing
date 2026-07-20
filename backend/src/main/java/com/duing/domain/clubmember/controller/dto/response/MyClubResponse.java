@@ -3,7 +3,8 @@ package com.duing.domain.clubmember.controller.dto.response;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.service.dto.query.MyClubQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record MyClubResponse(
         Long clubId,
@@ -12,7 +13,7 @@ public record MyClubResponse(
         ClubStatus status,
         ClubMemberRole myRole,
         long activeRecruitmentCount,
-        LocalDateTime joinedAt
+        Instant joinedAt
 ) {
     public static MyClubResponse from(MyClubQuery query) {
         return new MyClubResponse(
@@ -22,7 +23,7 @@ public record MyClubResponse(
                 query.status(),
                 query.myRole(),
                 query.activeRecruitmentCount(),
-                query.joinedAt()
+                TimeMapper.systemWallClockToInstant(query.joinedAt())
         );
     }
 }

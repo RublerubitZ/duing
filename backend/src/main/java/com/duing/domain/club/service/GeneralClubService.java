@@ -28,6 +28,7 @@ import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjecti
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +51,8 @@ public class GeneralClubService implements ClubService {
     private final RecruitmentRepository recruitmentRepository;
     private final RecruitmentService recruitmentService;
     private final ApplicationRepository applicationRepository;
+    // 모집 표시 상태(today) 판정용 — KST(seoulClock) 기준.
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -88,7 +91,7 @@ public class GeneralClubService implements ClubService {
         }
 
         List<Long> clubIds = clubs.stream().map(Club::getId).toList();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         Map<Long, ClubActiveRecruitmentRow> representativeByClubId =
                 recruitmentRepository.findRepresentativeByClubIds(clubIds, today);
 
@@ -135,7 +138,7 @@ public class GeneralClubService implements ClubService {
                 .map(ClubPhotoQuery::from)
                 .toList();
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         StudentRecruitmentProjection activeRecruitment = recruitmentRepository.findActiveByClubId(clubId)
                 .map(active -> {
                     Integer applicantCount = active.isShowApplicantCount()

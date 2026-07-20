@@ -20,6 +20,7 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -42,6 +43,8 @@ class NoticeRepositoryImplTest {
     @Autowired NoticeTargetClubRepository targetClubRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired UserRepository userRepository;
+    // 만료 판정과 같은 기준(seoulClock)으로 시드해야 한다 — raw now() 는 CI(UTC JVM)에서 +9h 어긋난다.
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -168,6 +171,34 @@ class NoticeRepositoryImplTest {
 
         ViewerScope adminScope = new ViewerScope(UserRole.ADMIN, 99L, Set.of(), Set.of());
         assertThat(noticeRepository.findVisibleById(expiredNotice.getId(), adminScope)).isPresent();
+    }
+
+    @Test
+    @DisplayName("만료 판정은 KST 기준이다 — expiresAt 직전 공지는 노출되고 직후 공지는 제외된다")
+    void expiryBoundaryIsJudgedInKst() {
+        Long authorId = saveAuthor();
+        // seoulClock 기준 상대 시각으로 시드 — UTC JVM 에서 무클럭 now() 로 판정하면
+        // KST 로 이미 만료된 공지가 8시간 이상 더 노출되는 회귀를 잡는다.
+        LocalDateTime seoulNow = LocalDateTime.now(clock);
+        Notice notYetExpired = noticeRepository.save(Notice.create(
+                "만료 직전 공지", "요약", "본문", "https://example.com/cover.png", null,
+                NoticeCategory.GENERAL, List.of(),
+                NoticeVisibility.PUBLIC, null, false,
+                seoulNow.plusMinutes(5), false,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
+        Notice justExpired = noticeRepository.save(Notice.create(
+                "만료 직후 공지", "요약", "본문", "https://example.com/cover.png", null,
+                NoticeCategory.GENERAL, List.of(),
+                NoticeVisibility.PUBLIC, null, false,
+                seoulNow.minusMinutes(5), false,
+                null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
+
+        Page<Notice> anonFeed = noticeRepository.findFeed(
+                new NoticeSearchCondition(null, null, null, null), ViewerScope.anonymous(), PageRequest.of(0, 10));
+
+        assertThat(anonFeed.getContent()).extracting(Notice::getId)
+                .contains(notYetExpired.getId())
+                .doesNotContain(justExpired.getId());
     }
 
     // ---- fixture helpers ----

@@ -10,6 +10,7 @@ import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
@@ -21,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
+    // "오늘" 판정은 KST(seoulClock) 기준 — prod JVM 은 UTC 라 무클럭 now() 는 하루 어긋난다.
+    private final Clock clock;
 
     @Override
     public List<Recruitment> findOverlappingPeriod(LocalDate periodStart, LocalDate periodEnd) {
@@ -55,7 +58,7 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
 
     @Override
     public boolean existsActiveByClubId(Long clubId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         Integer one = queryFactory
                 .selectOne()
                 .from(recruitment)
@@ -70,7 +73,7 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
 
     @Override
     public Optional<Recruitment> findActiveByClubId(Long clubId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         Recruitment found = queryFactory
                 .selectFrom(recruitment)
                 .where(

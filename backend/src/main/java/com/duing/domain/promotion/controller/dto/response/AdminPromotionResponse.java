@@ -6,6 +6,8 @@ import com.duing.domain.promotion.entity.PromotionLinkType;
 import com.duing.domain.promotion.entity.PromotionPalette;
 import com.duing.domain.promotion.entity.PromotionRenderMode;
 import com.duing.domain.promotion.service.dto.query.PromotionAdminListQuery;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 public record AdminPromotionResponse(
@@ -17,8 +19,8 @@ public record AdminPromotionResponse(
         boolean active,
         int displayOrder,
         UserRef createdBy,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt,
+        Instant createdAt,
+        Instant updatedAt,
         String tag,
         String subtitle,
         String ctaLabel,
@@ -43,7 +45,9 @@ public record AdminPromotionResponse(
         return new AdminPromotionResponse(
                 promotion.getId(), club, promotion.getTitle(), promotion.getBannerImageUrl(),
                 promotion.getLinkUrl(), promotion.isActive(), promotion.getDisplayOrder(),
-                createdBy, promotion.getCreatedAt(), promotion.getUpdatedAt(),
+                createdBy,
+                TimeMapper.systemWallClockToInstant(promotion.getCreatedAt()),
+                TimeMapper.systemWallClockToInstant(promotion.getUpdatedAt()),
                 promotion.getTag(), promotion.getSubtitle(), promotion.getCtaLabel(),
                 promotion.getEmoji(), promotion.getPalette(),
                 promotion.getStartAt(), promotion.getEndAt(),
@@ -61,7 +65,9 @@ public record AdminPromotionResponse(
         return new AdminPromotionResponse(
                 query.id(), clubRef, query.title(), query.bannerImageUrl(),
                 query.linkUrl(), query.active(), query.displayOrder(),
-                userRef, query.createdAt(), query.updatedAt(),
+                userRef,
+                TimeMapper.systemWallClockToInstant(query.createdAt()),
+                TimeMapper.systemWallClockToInstant(query.updatedAt()),
                 query.tag(), query.subtitle(), query.ctaLabel(), query.emoji(), query.palette(),
                 query.startAt(), query.endAt(),
                 query.renderMode(), query.imageAltText(),

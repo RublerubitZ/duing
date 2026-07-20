@@ -3,6 +3,8 @@ package com.duing.domain.globalevent.controller.dto.response;
 import com.duing.domain.globalevent.entity.GlobalEvent;
 import com.duing.domain.globalevent.entity.GlobalEventCategory;
 import com.duing.domain.user.entity.User;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 public record AdminGlobalEventDetailResponse(
@@ -16,8 +18,8 @@ public record AdminGlobalEventDetailResponse(
         String coverImageUrl,
         GlobalEventCategory category,
         CreatorRef createdBy,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        Instant createdAt,
+        Instant updatedAt
 ) {
     public record CreatorRef(Long id, String name) {}
 
@@ -29,7 +31,8 @@ public record AdminGlobalEventDetailResponse(
                 event.getCoverImageUrl(),
                 event.getCategory(),
                 new CreatorRef(creator.getId(), creator.getName()),
-                event.getCreatedAt(), event.getUpdatedAt()
+                TimeMapper.systemWallClockToInstant(event.getCreatedAt()),
+                TimeMapper.systemWallClockToInstant(event.getUpdatedAt())
         );
     }
 }
