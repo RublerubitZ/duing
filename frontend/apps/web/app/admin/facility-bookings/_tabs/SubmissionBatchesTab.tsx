@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
+  formatDateKst,
   useCancelSubmissionBatchMutation,
   useCompleteSubmissionBatchMutation,
   useDownloadSubmissionCsvMutation,
@@ -138,7 +139,7 @@ export function SubmissionBatchesTab() {
                     <td className="py-2 pr-3 font-medium text-ink-deep">{batch.submissionNo}</td>
                     <td className="py-2 pr-3">{facilityLabel}</td>
                     <td className="py-2 pr-3">{batch.bookingCount}</td>
-                    <td className="whitespace-nowrap py-2 pr-3">{batch.submittedAt.slice(0, 10)}</td>
+                    <td className="whitespace-nowrap py-2 pr-3">{formatDateKst(batch.submittedAt)}</td>
                     <td className="py-2 pr-3">{batch.submittedByName ?? '-'}</td>
                     <td className="max-w-[12rem] truncate py-2 pr-3" title={memoText}>
                       {memoText}
