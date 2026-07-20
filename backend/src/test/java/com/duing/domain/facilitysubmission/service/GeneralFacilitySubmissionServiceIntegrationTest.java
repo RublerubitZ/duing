@@ -14,7 +14,9 @@ import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
+import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
+import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
 import com.duing.domain.facilitysubmission.entity.FacilitySubmissionAudit;
 import com.duing.domain.facilitysubmission.entity.SubmissionAuditAction;
 import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException;
@@ -51,6 +53,7 @@ class GeneralFacilitySubmissionServiceIntegrationTest extends IntegrationTestBas
     @Autowired FacilitySubmissionItemRepository itemRepository;
     @Autowired FacilitySubmissionAuditRepository auditRepository;
     @Autowired FacilityBookingRepository bookingRepository;
+    @Autowired FacilityBookingStatusHistoryRepository historyRepository;
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired FacilityRepository facilityRepository;
@@ -234,6 +237,12 @@ class GeneralFacilitySubmissionServiceIntegrationTest extends IntegrationTestBas
         assertThat(audits).extracting(FacilitySubmissionAudit::getAction)
                 .containsExactly(SubmissionAuditAction.CREATED, SubmissionAuditAction.COMPLETED);
         assertThat(audits.get(1).getDetail()).isEqualTo("학교 제출 완료 — 총 2건 / 등록 완료 2건");
+        FacilityBookingStatusHistory confirmationHistory = historyRepository
+                .findByBookingIdOrderByCreatedAtDesc(first.getId()).stream()
+                .filter(history -> history.getNewStatus() == BookingStatus.CONFIRMED)
+                .findFirst().orElseThrow();
+        assertThat(confirmationHistory.getReason()).isEqualTo("학교 제출 완료 — " + created.submissionNo());
+        assertThat(confirmationHistory.getChangedById()).isEqualTo(admin.getId());
     }
 
     @Test
