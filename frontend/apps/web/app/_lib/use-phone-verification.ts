@@ -9,6 +9,7 @@ import {
 } from '@duing/hooks';
 import type { PasswordResetSession, PhoneVerificationSession } from '@duing/types';
 import {
+  RECHECK_COOLDOWN_SECONDS,
   RESEND_COOLDOWN_SECONDS,
   mapIssueError,
   mapPhoneChangeIssueError,
@@ -46,6 +47,7 @@ function usePhoneVerificationCore<S extends PhoneVerificationSession>(
   const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [waitingSeconds, setWaitingSeconds] = useState(0);
+  const [recheckCooldownSeconds, setRecheckCooldownSeconds] = useState(0);
 
   const previousKeyRef = useRef(resetKey);
   useEffect(() => {
@@ -57,6 +59,7 @@ function usePhoneVerificationCore<S extends PhoneVerificationSession>(
     setResendCooldownSeconds(0);
     setErrorMessage(null);
     setWaitingSeconds(0);
+    setRecheckCooldownSeconds(0);
   }, [resetKey]);
 
   // 발급(issue) 응답이 도착하기 전에 키가 바뀌면 그 결과를 무시한다 — stale dead-end 방지 (spec §14).
@@ -89,12 +92,13 @@ function usePhoneVerificationCore<S extends PhoneVerificationSession>(
     setErrorMessage(poll.error ? mapStatusError(poll.error) : null);
   }, [status, poll.error]);
 
-  // 1초 틱 — 만료·재발급 쿨다운 카운트다운
+  // 1초 틱 — 만료·재발급/재확인 쿨다운 카운트다운
   useEffect(() => {
     if (status !== 'issued' && status !== 'waiting') return;
     const timerId = setInterval(() => {
       setRemainingSeconds((seconds) => Math.max(0, seconds - 1));
       setResendCooldownSeconds((seconds) => Math.max(0, seconds - 1));
+      setRecheckCooldownSeconds((seconds) => Math.max(0, seconds - 1));
       if (status === 'waiting') {
         setWaitingSeconds((seconds) => seconds + 1);
       }
@@ -125,6 +129,7 @@ function usePhoneVerificationCore<S extends PhoneVerificationSession>(
       setStatus('issued');
       setRemainingSeconds(issuedSession.expiresInSeconds);
       setResendCooldownSeconds(RESEND_COOLDOWN_SECONDS);
+      setRecheckCooldownSeconds(0); // 재발급 시 이전 세션의 잔여 재확인 쿨다운을 넘기지 않는다
     } catch (issueError) {
       if (latestKeyRef.current !== requestedKey) return; // 키가 바뀜 — stale 에러 무시
       setErrorMessage(issueErrorMapper(issueError));
@@ -146,11 +151,16 @@ function usePhoneVerificationCore<S extends PhoneVerificationSession>(
     setResendCooldownSeconds(0);
     setErrorMessage(null);
     setWaitingSeconds(0);
+    setRecheckCooldownSeconds(0);
   }
 
   // 스톨로 자동 폴링이 멈춘 상태에서 사용자가 문자 도착 후 직접 재확인한다(단발 조회).
   // VERIFIED 면 poll.data effect 가 verified 로 전이하고, PENDING 이면 스톨을 유지한다(자동 재개 없음).
+  // 연타 방지 — 조회 in-flight 이거나 쿨다운(5초) 중이면 무시한다. 서버에도 세션당 간격·IP 리밋이
+  // 있어 연타가 벤더 콜로 증폭되지는 않지만, 불필요한 왕복 자체를 클라이언트에서 끊는다.
   function recheck() {
+    if (poll.isFetching || recheckCooldownSeconds > 0) return;
+    setRecheckCooldownSeconds(RECHECK_COOLDOWN_SECONDS);
     void poll.refetch();
   }
 
@@ -174,6 +184,9 @@ function usePhoneVerificationCore<S extends PhoneVerificationSession>(
     issuing,
     canIssue,
     errorMessage,
+    // 스톨 화면의 [지금 확인] 상태 — rechecking 은 수동 재확인 in-flight 여부(자동 폴링과 구분).
+    rechecking: stalled && poll.isFetching,
+    recheckCooldownSeconds,
     issue,
     markSent,
     reset,

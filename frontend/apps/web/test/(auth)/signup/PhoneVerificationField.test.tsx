@@ -16,6 +16,8 @@ const baseProps = {
   canIssue: true,
   errorMessage: null,
   stalled: false,
+  rechecking: false,
+  recheckCooldownSeconds: 0,
   onIssue: () => {},
   onSent: () => {},
   onReset: () => {},
@@ -174,7 +176,7 @@ describe('PhoneVerificationField', () => {
     expect(writeText).toHaveBeenCalledWith('7K3M9PXQ');
   });
 
-  it('waiting 이고 stalled 가 false 면 인증 확인 중 스피너를 보여준다', () => {
+  it('waiting 이고 stalled 가 false 면 주 버튼이 확인 중 상태(스피너·비활성)로 바뀌고 보냈어요 버튼은 사라진다', () => {
     render(
       <PhoneVerificationField
         {...baseProps}
@@ -184,10 +186,12 @@ describe('PhoneVerificationField', () => {
         stalled={false}
       />,
     );
-    expect(screen.getByRole('status', { name: '인증 확인 중' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '인증 확인 중' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: '문자를 보냈어요' })).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/자동으로 확인하고 있어요/);
   });
 
-  it('waiting 이고 stalled 가 true 면 능동 안내(재발급 유도) 문구를 보여주고 확인 중 스피너는 없다', () => {
+  it('waiting 이고 stalled 가 true 면 능동 안내(코드 확인·재발급 유도) 문구를 보여주고 확인 중 버튼은 없다', () => {
     render(
       <PhoneVerificationField
         {...baseProps}
@@ -198,7 +202,7 @@ describe('PhoneVerificationField', () => {
       />,
     );
     expect(screen.getByText(/아직 확인되지 않았어요/)).toBeInTheDocument();
-    expect(screen.queryByRole('status', { name: '인증 확인 중' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '인증 확인 중' })).not.toBeInTheDocument();
   });
 
   it('waiting+stalled 이면 지금 확인 버튼을 보여주고 클릭 시 onRecheck 를 호출한다', async () => {
@@ -216,6 +220,34 @@ describe('PhoneVerificationField', () => {
     );
     await user.click(screen.getByRole('button', { name: '지금 확인' }));
     expect(onRecheck).toHaveBeenCalled();
+  });
+
+  it('재확인 in-flight(rechecking) 중에는 지금 확인 버튼이 확인 중 스피너와 함께 비활성화된다', () => {
+    render(
+      <PhoneVerificationField
+        {...baseProps}
+        status="waiting"
+        code="7K3M9PXQ"
+        moNumber="16663538"
+        stalled={true}
+        rechecking={true}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /지금 확인/ })).toBeDisabled();
+  });
+
+  it('재확인 쿨다운 중에는 지금 확인 버튼이 남은 초와 함께 비활성화된다', () => {
+    render(
+      <PhoneVerificationField
+        {...baseProps}
+        status="waiting"
+        code="7K3M9PXQ"
+        moNumber="16663538"
+        stalled={true}
+        recheckCooldownSeconds={4}
+      />,
+    );
+    expect(screen.getByRole('button', { name: '지금 확인 (4s)' })).toBeDisabled();
   });
 
   it('waiting 이지만 stalled 가 false 면 지금 확인 버튼이 없다', () => {
