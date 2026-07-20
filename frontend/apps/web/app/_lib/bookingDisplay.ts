@@ -26,14 +26,15 @@ export function bookingTimeLabel(startTime: string, endTime: string): string {
 export type BookingStatusMeta = {
   label: string;
   subLabel?: string; // APPROVED 전용 — "학교 반영 대기"(§9.6)
-  badgeClass: string; // 두잉 토큰 배지 클래스(§9.6 색 지정)
+  badgeClass: string; // globals.css .pill 변형 클래스(목업 SubBadge 매핑과 동일)
 };
 
+// 목업 SubBadge 매핑: 승인대기=warm · 승인=기본(sage-mist) · 확정/완료=solid · 반려/충돌=coral · 취소=outline
 export const BOOKING_STATUS_META: Record<BookingStatus, BookingStatusMeta> = {
-  PENDING: { label: '승인 대기', badgeClass: 'bg-[#FBEFD7] text-[#8E6620]' }, // warm 페어(지원 배지 전례)
-  APPROVED: { label: '승인됨', subLabel: '학교 반영 대기', badgeClass: 'bg-ink/10 text-ink' },
-  CONFIRMED: { label: '확정', badgeClass: 'bg-ink text-cream' },
-  REJECTED: { label: '거절됨', badgeClass: 'bg-graysoft text-charcoal-3' },
-  CONFLICT: { label: '학교 일정 충돌', badgeClass: 'bg-coral/15 text-coral' },
-  CANCELLED: { label: '취소됨', badgeClass: 'bg-graysoft text-charcoal-3' },
+  PENDING: { label: '승인 대기', badgeClass: 'pill-warm' },
+  APPROVED: { label: '승인됨', subLabel: '학교 반영 대기', badgeClass: '' },
+  CONFIRMED: { label: '확정', badgeClass: 'pill-solid' },
+  REJECTED: { label: '거절됨', badgeClass: 'pill-coral' },
+  CONFLICT: { label: '학교 일정 충돌', badgeClass: 'pill-coral' },
+  CANCELLED: { label: '취소됨', badgeClass: 'pill-outline' },
 };

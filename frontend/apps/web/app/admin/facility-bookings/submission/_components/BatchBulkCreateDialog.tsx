@@ -39,9 +39,9 @@ export function BatchBulkCreateDialog({ groups, isPending, onClose, onConfirm }:
         if (!nextOpen && !isPending) onClose();
       }}
     >
-      <DialogContent className="w-[calc(100%-2rem)] max-w-md">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-[22px]">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-[21px] font-extrabold leading-snug text-ink-deep">
             {groupsSnapshot.length > 1 ? `제출 목록 ${groupsSnapshot.length}개를 만들까요?` : '제출 목록을 만들까요?'}
           </DialogTitle>
           <DialogDescription>

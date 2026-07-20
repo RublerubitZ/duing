@@ -57,9 +57,9 @@ export function BatchBulkCreateResultDialog({ outcomes, onClose }: Props) {
         if (!nextOpen) onClose();
       }}
     >
-      <DialogContent className="w-[calc(100%-2rem)] max-w-md">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-[22px]">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-[21px] font-extrabold leading-snug text-ink-deep">
             {failureCount === 0
               ? `제출 목록 ${successCount}개가 만들어졌어요`
               : successCount === 0

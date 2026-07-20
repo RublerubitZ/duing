@@ -12,6 +12,7 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminBookingDetailModal } from '../_components/AdminBookingDetailModal';
 import { AdminBookingQueueTable } from '../_components/AdminBookingQueueTable';
 import { BookingSummaryCards, type AdminQueueTab } from '../_components/BookingSummaryCards';
+import { ConsoleCard } from '../_components/ConsoleCard';
 import { EmptyState } from '../_components/EmptyState';
 import { conflictCardCount } from '../_lib/adminBookingDisplay';
 
@@ -138,102 +139,113 @@ export function BookingManagementTab() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="큐 필터">
-        {(Object.keys(TAB_LABELS) as AdminQueueTab[]).map((tab) => {
-          const chipCount = chipCountOf(tab);
-          return (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab}
-              onClick={() => selectTab(tab)}
-              className={`rounded-full border px-3 py-1.5 text-xs motion-safe:transition-colors ${
-                activeTab === tab ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-charcoal-2 hover:border-sage'
-              }`}
+      {/* 목업 CCard — 툴바·테이블·페이지네이션을 한 카드가 감싼다. */}
+      <ConsoleCard>
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-[18px] py-3">
+          <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="큐 필터">
+            {(Object.keys(TAB_LABELS) as AdminQueueTab[]).map((tab) => {
+              const chipCount = chipCountOf(tab);
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab}
+                  onClick={() => selectTab(tab)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold motion-safe:transition-colors ${
+                    activeTab === tab
+                      ? 'border-ink bg-ink text-cream'
+                      : 'border-line bg-paper text-charcoal-2 hover:border-sage'
+                  }`}
+                >
+                  {TAB_LABELS[tab]}
+                  {/* 공백 텍스트 노드는 접근성 이름을 '승인 대기 7'로 띄어 읽히게 한다. */}
+                  {chipCount !== undefined && <> <span className="tabular-nums">{chipCount}</span></>}
+                </button>
+              );
+            })}
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <select
+              aria-label="시설 필터"
+              className="rounded-[10px] border border-line bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
+              value={facilityIdInput}
+              onChange={(event) => { setFacilityIdInput(event.target.value); setPage(0); }}
             >
-              {TAB_LABELS[tab]}
-              {/* 공백 텍스트 노드는 접근성 이름을 '승인 대기 7'로 띄어 읽히게 한다. */}
-              {chipCount !== undefined && <> <span className="tabular-nums">{chipCount}</span></>}
-            </button>
-          );
-        })}
-        <select
-          aria-label="시설 필터"
-          className="ml-auto rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
-          value={facilityIdInput}
-          onChange={(event) => { setFacilityIdInput(event.target.value); setPage(0); }}
-        >
-          <option value="">전체 시설</option>
-          {(usageQuery.data?.facilities ?? []).map((facility) => (
-            <option key={facility.id} value={String(facility.id)}>{facility.roomName}</option>
-          ))}
-        </select>
-        <input
-          type="date" aria-label="시작일" value={dateFrom}
-          onChange={(event) => { setDateFrom(event.target.value); setPage(0); }}
-          className="rounded-md border border-line bg-paper px-2 py-1 text-xs"
-        />
-        <input
-          type="date" aria-label="종료일" value={dateTo}
-          onChange={(event) => { setDateTo(event.target.value); setPage(0); }}
-          className="rounded-md border border-line bg-paper px-2 py-1 text-xs"
-        />
-      </div>
-
-      {isQueueLoading && <LoadingGate className="min-h-0 py-8" label="예약 신청 목록 불러오는 중" />}
-      {!isQueueLoading && isQueueError && (
-        <div role="alert" className="text-sm text-charcoal-2">
-          <p>큐를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
-          <button
-            type="button"
-            className="btn btn-ghost mt-2"
-            onClick={() => {
-              void queueQuery.refetch();
-              if (activeTab === 'CONFLICT_ATTENTION') void suspectedQuery.refetch();
-            }}
-          >
-            다시 시도
-          </button>
+              <option value="">전체 시설</option>
+              {(usageQuery.data?.facilities ?? []).map((facility) => (
+                <option key={facility.id} value={String(facility.id)}>{facility.roomName}</option>
+              ))}
+            </select>
+            <input
+              type="date" aria-label="시작일" value={dateFrom}
+              onChange={(event) => { setDateFrom(event.target.value); setPage(0); }}
+              className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+            />
+            <input
+              type="date" aria-label="종료일" value={dateTo}
+              onChange={(event) => { setDateTo(event.target.value); setPage(0); }}
+              className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+            />
+          </div>
         </div>
-      )}
-      {!isQueueLoading && !isQueueError && queueQuery.isSuccess && rows.length === 0 && (
-        // 시설·기간 필터가 있을 때만 본문·초기화 버튼 노출 — 탭별 상태와 무관한 안내 문구를 만들지 않는다.
-        <EmptyState
-          title="해당 조건의 신청이 없어요"
-          body={hasQueueFilter ? '시설·기간 필터를 넓혀보세요.' : undefined}
-          action={
-            hasQueueFilter ? (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  setFacilityIdInput('');
-                  setDateFrom('');
-                  setDateTo('');
-                  setPage(0);
-                }}
-              >
-                필터 초기화
-              </button>
-            ) : undefined
-          }
-        />
-      )}
-      {!isQueueLoading && !isQueueError && rows.length > 0 && (
-        <AdminBookingQueueTable rows={rows} onSelect={openBooking} />
-      )}
 
-      {totalPages > 1 && (
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          onChange={setPage}
-          // 충돌·의심 탭은 두 쿼리 병합이라 총계가 부정확 — 범위 표기를 생략한다(개편 스펙 §2).
-          totalElements={activeTab === 'CONFLICT_ATTENTION' ? undefined : queueQuery.data?.totalElements}
-          pageSize={PAGE_SIZE}
-        />
-      )}
+        {isQueueLoading && <LoadingGate className="min-h-0 py-8" label="예약 신청 목록 불러오는 중" />}
+        {!isQueueLoading && isQueueError && (
+          <div role="alert" className="px-[18px] py-8 text-sm text-charcoal-2">
+            <p>큐를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
+            <button
+              type="button"
+              className="btn btn-ghost mt-2"
+              onClick={() => {
+                void queueQuery.refetch();
+                if (activeTab === 'CONFLICT_ATTENTION') void suspectedQuery.refetch();
+              }}
+            >
+              다시 시도
+            </button>
+          </div>
+        )}
+        {!isQueueLoading && !isQueueError && queueQuery.isSuccess && rows.length === 0 && (
+          // 시설·기간 필터가 있을 때만 본문·초기화 버튼 노출 — 탭별 상태와 무관한 안내 문구를 만들지 않는다.
+          <EmptyState
+            title="해당 조건의 신청이 없어요"
+            body={hasQueueFilter ? '시설·기간 필터를 넓혀보세요.' : undefined}
+            action={
+              hasQueueFilter ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setFacilityIdInput('');
+                    setDateFrom('');
+                    setDateTo('');
+                    setPage(0);
+                  }}
+                >
+                  필터 초기화
+                </button>
+              ) : undefined
+            }
+          />
+        )}
+        {!isQueueLoading && !isQueueError && rows.length > 0 && (
+          <AdminBookingQueueTable rows={rows} onSelect={openBooking} />
+        )}
+
+        {totalPages > 1 && (
+          <div className="border-t border-line px-[18px] pb-4">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onChange={setPage}
+              // 충돌·의심 탭은 두 쿼리 병합이라 총계가 부정확 — 범위 표기를 생략한다(개편 스펙 §2).
+              totalElements={activeTab === 'CONFLICT_ATTENTION' ? undefined : queueQuery.data?.totalElements}
+              pageSize={PAGE_SIZE}
+            />
+          </div>
+        )}
+      </ConsoleCard>
 
       {selectedBooking !== null && (
         // key=bookingId — 이전/다음 이동 시 리마운트로 액션·충돌 패널 등 모달 내부 상태를 초기화한다.

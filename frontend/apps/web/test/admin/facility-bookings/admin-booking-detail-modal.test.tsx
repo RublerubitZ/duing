@@ -105,7 +105,7 @@ describe('AdminBookingDetailModal', () => {
     mockDetailQuery.current.data = makeDetail({
       overlaps: [
         { source: 'SCHOOL', organization: '문화팀', startTime: '18:00', endTime: '19:00' },
-        { source: 'INTERNAL', organization: '재즈동아리', startTime: '19:00', endTime: '20:00' },
+        { source: 'INTERNAL', organization: '비호응원단', startTime: '20:00', endTime: '21:00' },
       ],
       overlappingPendingCount: 2,
     });
@@ -117,8 +117,9 @@ describe('AdminBookingDetailModal', () => {
     expect(screen.getAllByText('⚠ 1건')).toHaveLength(2);
     expect(screen.getByText('⚠ 2건')).toBeInTheDocument();
     expect(screen.getByText('승인 후 겹치는 대기 신청은 수동으로 거절해주세요.')).toBeInTheDocument();
-    // 슬롯 스트립 칸에도 점유 조직명이 표기된다.
-    expect(screen.getByText('문화팀')).toBeInTheDocument();
+    // 슬롯 스트립: 신청 구간과 겹친 칸은 '충돌', 신청 밖 점유 칸은 조직명이 표기된다(목업 셀 시맨틱).
+    expect(screen.getByText('충돌')).toBeInTheDocument();
+    expect(screen.getByText('비호응원단')).toBeInTheDocument();
   });
 
   it('이전/다음 탐색: 이웃이 없으면 비활성, 있으면 onNavigate 로 이웃 예약을 연다', () => {
@@ -141,13 +142,12 @@ describe('AdminBookingDetailModal', () => {
   it('대표 연락처: 값이 있으면 노출하고, 없으면(null) "—" 로 표기한다(§2.3)', () => {
     mockDetailQuery.current.data = makeDetail({ contactPhone: '010-1234-5678' });
     const { rerender } = render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
-    expect(screen.getByText('대표 연락처')).toBeInTheDocument();
-    expect(screen.getByText('010-1234-5678')).toBeInTheDocument();
+    // 헤더 메타 한 줄에 연락처가 포함된다(목업 FC2 헤더).
+    expect(screen.getByText(/연락처 010-1234-5678/)).toBeInTheDocument();
 
     mockDetailQuery.current = { data: makeDetail({ contactPhone: null }), isLoading: false, isError: false };
     rerender(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
-    expect(screen.getByText('대표 연락처')).toBeInTheDocument();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText(/연락처 —/)).toBeInTheDocument();
   });
 
   it('APPROVED: 수동 확정·충돌 전환·취소 버튼을 노출한다', () => {

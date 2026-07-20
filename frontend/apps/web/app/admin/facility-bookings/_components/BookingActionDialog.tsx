@@ -42,7 +42,7 @@ export function BookingActionDialog({
       }}
     >
       <DialogContent
-        className="w-[calc(100%-2rem)]"
+        className="w-[calc(100%-2rem)] rounded-[22px]"
         onPointerDownOutside={(event) => {
           if (isPending) event.preventDefault();
         }}
@@ -51,7 +51,7 @@ export function BookingActionDialog({
         }}
         aria-describedby={undefined}
       >
-        <DialogTitle>{title}</DialogTitle>
+        <DialogTitle className="text-[21px] font-extrabold leading-snug text-ink-deep">{title}</DialogTitle>
         <p className="text-sm text-charcoal-2">{description}</p>
         {reasonLabel !== null && (
           <textarea
@@ -61,7 +61,7 @@ export function BookingActionDialog({
             maxLength={500}
             rows={3}
             placeholder={`${reasonLabel}을(를) 입력해주세요 (500자 이내)`}
-            className="w-full rounded-md border border-line bg-paper px-3 py-2 text-sm"
+            className="w-full rounded-[10px] border border-line bg-paper px-3 py-2.5 text-sm"
           />
         )}
         {errorMessage && (

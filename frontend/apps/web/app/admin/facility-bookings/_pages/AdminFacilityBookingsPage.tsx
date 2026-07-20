@@ -1,5 +1,6 @@
 'use client';
 
+import { Fragment, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   useAdminFacilityBookingSummaryQuery,
@@ -26,12 +27,31 @@ const TAB_LABELS: Record<FacilityOpsTab, string> = {
   archive: '제출 이력',
 };
 
-// 탭별 화면 목적 1줄 안내(개편 스펙 §1) — 다음 단계로 이어지는 흐름을 문장으로 알려준다.
-const TAB_PURPOSE: Record<FacilityOpsTab, string> = {
-  review: "예약을 검토해 승인 또는 거절해요. 승인한 예약은 '제출 준비'에 자동으로 나타나요.",
-  prepare: '승인된 예약이 자동으로 표시돼요. 제외할 예약만 해제하고 제출 목록을 만들어 주세요.',
-  ready: "학교 행정실 제출을 마친 목록은 '제출 완료' 처리를 해주세요. CSV로 제출 서류를 준비할 수 있어요.",
-  archive: '지금까지 만든 제출 목록의 전체 기록이에요. 완료·취소된 목록도 CSV를 다시 받을 수 있어요.',
+// 탭별 화면 목적 안내(목업 PurposeNote) — 핵심 행위·다음 단계를 굵게 강조한다.
+const TAB_PURPOSE: Record<FacilityOpsTab, ReactNode> = {
+  review: (
+    <>
+      <strong>예약을 검토해 승인 또는 거절해요.</strong> 승인한 예약은 <strong>제출 준비</strong> 단계에 자동으로
+      나타나요.
+    </>
+  ),
+  prepare: (
+    <>
+      <strong>승인된 예약이 자동으로 표시돼요.</strong> 제외할 예약만 해제하고 <strong>제출 목록</strong>을 만들어
+      주세요.
+    </>
+  ),
+  ready: (
+    <>
+      <strong>학교 행정실 제출을 마친 목록은 &apos;제출 완료&apos; 처리를 해주세요.</strong> CSV로 제출 서류를 준비할 수
+      있어요.
+    </>
+  ),
+  archive: (
+    <>
+      지금까지 만든 제출 목록의 <strong>전체 기록</strong>이에요. 완료·취소된 목록도 CSV를 다시 받을 수 있어요.
+    </>
+  ),
 };
 
 // 구 URL 호환(개편 스펙 §1) — 북마크·외부 링크의 기존 탭 키를 새 워크플로 탭으로 흡수한다.
@@ -76,59 +96,115 @@ export function AdminFacilityBookingsPage() {
     router.replace(toRoute(`/admin/facility-bookings?tab=${tab}`), { scroll: false });
   };
 
+  const activeStepIndex = TAB_KEYS.indexOf(activeTab);
+
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    // 다른 admin 페이지와 동일한 컨테이너 관례(max-w-layout+px+py) — 없으면 사이드바에 붙고 와이드에서 과확장된다.
+    <main className="max-w-layout mx-auto space-y-5 px-4 py-10 sm:px-6 md:px-10">
+      <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="font-display text-xl text-ink-deep">시설 예약 관리</h1>
-          <p className="mt-1 text-sm text-charcoal-3">예약 승인부터 학교 제출까지 한 화면에서 처리해요.</p>
+          {/* 목업 CAdmin 헤더 — eyebrow 서브타이틀 + 큰 타이틀 */}
+          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-charcoal-3">
+            FACILITY BOOKINGS · 학교 제출 워크플로
+          </p>
+          <h1 className="mt-1 font-display text-2xl text-ink-deep">시설 예약 관리</h1>
         </div>
         <CrawlFreshnessChip crawledAt={summaryQuery.data?.crawledAt} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="시설 예약 업무 단계">
+      {/* 워크플로 레일(목업 FacSubmitStepper) — 카드형 레일, 지난 단계 ✓ · 현재 단계 ink-deep 블록.
+          시각은 스테퍼지만 동작은 자유 이동 탭이다(운영 루프는 순환). */}
+      <div
+        className="flex items-stretch gap-1 rounded-2xl border border-line bg-paper p-2"
+        role="tablist"
+        aria-label="시설 예약 업무 단계"
+      >
         {TAB_KEYS.map((tab, stepIndex) => {
           const isActive = activeTab === tab;
+          const isDone = stepIndex < activeStepIndex;
           const tabCount = tabCountOf(tab);
           return (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => selectTab(tab)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs motion-safe:transition-colors ${
-                isActive ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-charcoal-2 hover:border-sage'
-              }`}
-            >
-              <span
-                aria-hidden
-                className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                  isActive ? 'bg-cream/20 text-cream' : 'bg-graysoft text-charcoal-3'
+            <Fragment key={tab}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => selectTab(tab)}
+                className={`flex flex-1 items-center gap-2 rounded-[11px] px-2 py-3 text-left motion-safe:transition-colors sm:gap-2.5 sm:px-4 ${
+                  isActive ? 'bg-ink-deep' : 'hover:bg-graysoft/60'
                 }`}
               >
-                {stepIndex + 1}
-              </span>
-              {/* 모바일은 활성 단계명만 노출(개편 스펙 §10) — 비활성 탭은 번호로 식별하되,
-                  sr-only 로 접근성 이름은 유지한다(display:none 은 접근성 트리에서도 빠짐). */}
-              <span className={isActive ? '' : 'sr-only sm:not-sr-only'}>{TAB_LABELS[tab]}</span>
-              {/* 공백 텍스트 노드는 접근성 이름을 '예약 검토 7'로 띄어 읽히게 한다(필터 칩과 동일 처리). */}
-              {tabCount !== undefined && (
-                <>
-                  {' '}
+                <span
+                  aria-hidden
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-extrabold ${
+                    isActive
+                      ? 'bg-sage text-ink-deep'
+                      : isDone
+                        ? 'bg-sage-mist text-ink'
+                        : 'bg-graysoft text-charcoal-3'
+                  }`}
+                >
+                  {isDone ? (
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-[15px] w-[15px]"
+                    >
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  ) : (
+                    stepIndex + 1
+                  )}
+                </span>
+                {/* 충돌·의심 잔건 경고 점(장식) — sr-only 라벨 밖에 두어 모바일에서도 보인다. */}
+                {tab === 'review' && conflictAttentionCount > 0 && (
+                  <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-coral" />
+                )}
+                <span className="min-w-0">
+                  {/* 모바일은 활성 단계명만 노출 — 비활성 탭은 sr-only 로 접근성 이름을 유지한다. */}
                   <span
-                    className={`tabular-nums ${isActive ? '' : 'sr-only sm:not-sr-only'}`}
-                    title={tab === 'prepare' ? '이번 달 기준' : undefined}
+                    className={`block truncate text-[13.5px] font-bold leading-tight ${
+                      isActive ? 'text-paper' : isDone ? 'text-ink-deep' : 'text-charcoal-2'
+                    } ${isActive ? '' : 'sr-only sm:not-sr-only sm:block'}`}
                   >
-                    {tabCount}
+                    {TAB_LABELS[tab]}
                   </span>
-                </>
+                  {/* 공백 텍스트 노드는 접근성 이름을 '예약 검토 7건'으로 띄어 읽히게 한다. */}
+                  {tabCount !== undefined && (
+                    <>
+                      {' '}
+                      <span
+                        className={`mt-0.5 block font-mono text-[11px] ${
+                          isActive ? 'text-sage' : 'text-charcoal-3'
+                        } ${isActive ? '' : 'sr-only sm:not-sr-only sm:block'}`}
+                        title={tab === 'prepare' ? '이번 달 기준' : undefined}
+                      >
+                        {tabCount}건
+                      </span>
+                    </>
+                  )}
+                </span>
+              </button>
+              {stepIndex < TAB_KEYS.length - 1 && (
+                <span aria-hidden className="hidden items-center sm:flex">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`h-4 w-4 ${stepIndex < activeStepIndex ? 'text-sage' : 'text-line'}`}
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </span>
               )}
-              {/* 충돌·의심 잔건 경고 점(장식) — 건수 자체는 검토 탭의 KPI 카드·필터 칩이 전달한다. */}
-              {tab === 'review' && conflictAttentionCount > 0 && (
-                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-coral" />
-              )}
-            </button>
+            </Fragment>
           );
         })}
       </div>
@@ -139,6 +215,6 @@ export function AdminFacilityBookingsPage() {
       {activeTab === 'prepare' && <SubmissionPrepareTab />}
       {activeTab === 'ready' && <SubmissionBatchesTab statusFilter="REVIEWING" />}
       {activeTab === 'archive' && <SubmissionBatchesTab />}
-    </section>
+    </main>
   );
 }

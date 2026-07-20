@@ -21,6 +21,7 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 import { Pagination } from '@/components/Pagination';
 import { downloadBlobFile } from '@/app/_lib/downloadFile';
 import { toRoute } from '../../../_lib/route';
+import { ConsoleCard } from '../_components/ConsoleCard';
 import { EmptyState } from '../_components/EmptyState';
 import { BatchCancelDialog } from '../submission/_components/BatchCancelDialog';
 import { BatchCompleteDialog } from '../submission/_components/BatchCompleteDialog';
@@ -107,10 +108,12 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
 
   return (
     <div className="space-y-4">
+      {/* 목업 CCard — 테이블·빈 상태·페이지네이션을 한 카드가 감싼다. */}
+      <ConsoleCard>
       {batchesQuery.isLoading && <LoadingGate className="min-h-0 py-8" label="제출 목록 불러오는 중" />}
 
       {!batchesQuery.isLoading && batchesQuery.isError && (
-        <div role="alert" className="text-sm text-charcoal-2">
+        <div role="alert" className="px-[18px] py-8 text-sm text-charcoal-2">
           <p>제출 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>
           <button type="button" className="btn btn-ghost mt-2" onClick={() => void batchesQuery.refetch()}>
             다시 시도
@@ -135,13 +138,13 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
         <div className="overflow-x-auto">
           <table className="w-full min-w-[52rem] text-left text-sm">
             <thead>
-              <tr className="border-b border-line text-xs text-charcoal-3">
-                <th className="py-2 pr-3 font-medium">제출 목록</th>
-                <th className="py-2 pr-3 font-medium">시설</th>
-                <th className="py-2 pr-3 font-medium">예약 건수</th>
-                <th className="py-2 pr-3 font-medium">생성일</th>
-                <th className="py-2 pr-3 font-medium">상태</th>
-                <th className="py-2 font-medium">액션</th>
+              <tr className="bg-graysoft text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3">
+                <th className="px-[18px] py-2.5 font-bold">제출 목록</th>
+                <th className="py-2.5 pr-3.5 font-bold">시설</th>
+                <th className="py-2.5 pr-3.5 font-bold">건수</th>
+                <th className="py-2.5 pr-3.5 font-bold">생성일</th>
+                <th className="py-2.5 pr-3.5 font-bold">상태</th>
+                <th className="py-2.5 pr-[18px] text-right font-bold">처리</th>
               </tr>
             </thead>
             <tbody>
@@ -157,16 +160,21 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                     : `${batch.submissionNo} · ${batch.submittedByName ?? '-'}`;
                 const ageDays = status === 'REVIEWING' ? batchAgeDays(batch.submittedAt, now) : null;
                 return (
-                  <tr key={batch.batchId} className="border-b border-line/60 align-middle text-charcoal-2">
-                    <td className="py-2 pr-3">
-                      <p className="max-w-[16rem] truncate font-semibold text-ink-deep" title={title}>
+                  <tr
+                    key={batch.batchId}
+                    className={`border-b border-line align-middle text-charcoal-2 last:border-b-0 ${
+                      status === 'REVIEWING' ? 'bg-sage-tint' : ''
+                    }`}
+                  >
+                    <td className="px-[18px] py-3.5">
+                      <p className="max-w-[16rem] truncate text-sm font-bold text-ink-deep" title={title}>
                         {title}
                       </p>
-                      <p className="mt-0.5 text-xs text-charcoal-3">{subText}</p>
+                      <p className="mt-0.5 text-[11.5px] text-charcoal-3">{subText}</p>
                     </td>
-                    <td className="py-2 pr-3">{facilityLabel}</td>
-                    <td className="py-2 pr-3">{batch.bookingCount}</td>
-                    <td className="whitespace-nowrap py-2 pr-3">
+                    <td className="py-3.5 pr-3.5 text-[13px] font-semibold text-charcoal-2">{facilityLabel}</td>
+                    <td className="py-3.5 pr-3.5 font-mono text-sm font-bold text-ink-deep">{batch.bookingCount}건</td>
+                    <td className="whitespace-nowrap py-3.5 pr-3.5 font-mono text-[12.5px]">
                       <p>{formatDateKst(batch.submittedAt)}</p>
                       {/* 진행 중 배치의 방치 감지(3일↑ 경고색) / 완료·취소는 처리일을 함께 보여준다. */}
                       {status === 'REVIEWING' && ageDays !== null && ageDays >= 1 && (
@@ -204,7 +212,7 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                         {status === 'REVIEWING' && (
                           <button
                             type="button"
-                            className="btn btn-ghost btn-sm"
+                            className="btn btn-primary btn-sm bg-ink-deep hover:bg-ink"
                             onClick={() => setCompleteTarget(batch)}
                           >
                             제출 완료
@@ -235,14 +243,19 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
         </div>
       )}
 
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        onChange={setPage}
-        ariaLabel="제출 목록 페이지"
-        totalElements={batchesQuery.data?.totalElements}
-        pageSize={PAGE_SIZE}
-      />
+      {totalPages > 1 && (
+        <div className="border-t border-line px-[18px] pb-4">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onChange={setPage}
+            ariaLabel="제출 목록 페이지"
+            totalElements={batchesQuery.data?.totalElements}
+            pageSize={PAGE_SIZE}
+          />
+        </div>
+      )}
+      </ConsoleCard>
 
       <BatchCancelDialog
         batch={cancelTarget}

@@ -18,8 +18,22 @@ type Props = {
 export function BatchCompleteDialog({ batch, isPending, onConfirm, onClose }: Props) {
   return (
     <Dialog open={batch !== null} onOpenChange={(nextOpen) => { if (!nextOpen && !isPending) onClose(); }}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-sm" aria-describedby={undefined}>
-        <DialogTitle>학교 제출을 완료하시겠습니까?</DialogTitle>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-[22px]" aria-describedby={undefined}>
+        {/* 목업 SubmitCompleteDialog — sage-mist 체크 타일 + 큰 타이틀. */}
+        <span aria-hidden className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-sage-mist">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-6 w-6 text-ink-deep"
+          >
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        </span>
+        <DialogTitle className="text-[21px] font-extrabold leading-snug text-ink-deep">학교 제출을 완료하시겠습니까?</DialogTitle>
         {/* 두 행위 구분 경고(개편 스펙 §5) — 오프라인 제출과 시스템 완료 처리를 혼동한 조기 완료를 막는다. */}
         <div className="flex gap-2 rounded-md bg-[#FBEFD7] px-3 py-2 text-xs leading-relaxed text-[#8E6620]">
           <span aria-hidden>⚠️</span>
