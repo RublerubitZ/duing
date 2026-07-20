@@ -18,6 +18,7 @@ import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
 import com.duing.domain.facilitysubmission.entity.FacilitySubmissionAudit;
+import com.duing.domain.facilitysubmission.entity.FacilitySubmissionItem;
 import com.duing.domain.facilitysubmission.entity.SubmissionAuditAction;
 import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException;
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionAuditRepository;
@@ -285,6 +286,44 @@ class GeneralFacilitySubmissionServiceIntegrationTest extends IntegrationTestBas
         assertThat(candidates.bookings().get(0).selectable()).isFalse();
         assertThat(candidates.summary().submittedCount()).isEqualTo(1);
         assertThat(candidates.summary().confirmedCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("완료 시 제외된 예약은 재승인 후 다시 제출할 수 있고, 확정된 예약은 계속 재제출이 막힌다")
+    void skippedBookingIsReleasedWhileConfirmedStaysBlocked() {
+        FacilityBooking confirmedTarget = approvedBooking(9);
+        FacilityBooking conflictTarget = approvedBooking(11);
+        CreateSubmissionBatchResult firstBatch = submissionService.create(new CreateSubmissionBatchCommand(
+                List.of(confirmedTarget.getId(), conflictTarget.getId()), null), actor());
+        FacilityBooking toConflict = bookingRepository.findById(conflictTarget.getId()).orElseThrow();
+        toConflict.markConflict("학교 시간표와 충돌");
+        bookingRepository.save(toConflict);
+
+        CompleteSubmissionBatchResult completion = submissionService.complete(firstBatch.batchId(), actor());
+
+        assertThat(completion.skippedBookings())
+                .extracting(CompleteSubmissionBatchResult.SkippedBooking::bookingId)
+                .containsExactly(conflictTarget.getId());
+        List<FacilitySubmissionItem> items = itemRepository.findByBatchIdOrderByIdAsc(firstBatch.batchId());
+        assertThat(items).as("제외된 예약도 배치 이력에는 그대로 남는다").hasSize(2);
+        assertThat(items).filteredOn(item -> item.getBookingId().equals(conflictTarget.getId()))
+                .allMatch(item -> item.getSkippedAt() != null);
+        assertThat(items).filteredOn(item -> item.getBookingId().equals(confirmedTarget.getId()))
+                .allMatch(item -> item.getSkippedAt() == null);
+        assertThat(itemRepository.findActiveByBookingIdIn(List.of(confirmedTarget.getId())))
+                .as("대조군 — 확정된 예약은 여전히 활성 제출로 잡혀 재제출이 막힌다").hasSize(1);
+
+        FacilityBooking reapproved = bookingRepository.findById(conflictTarget.getId()).orElseThrow();
+        reapproved.approve(admin.getId(), null, LocalDateTime.now());
+        bookingRepository.save(reapproved);
+
+        assertThat(itemRepository.findActiveByBookingIdIn(List.of(conflictTarget.getId())))
+                .as("제외된 예약은 더 이상 활성 제출로 잡히지 않는다").isEmpty();
+        CreateSubmissionBatchResult secondBatch = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(conflictTarget.getId()), null), actor());
+        submissionService.complete(secondBatch.batchId(), actor());
+        assertThat(bookingRepository.findById(conflictTarget.getId()).orElseThrow().getStatus())
+                .as("재제출된 예약은 최종적으로 등록 완료에 도달한다").isEqualTo(BookingStatus.CONFIRMED);
     }
 
     @Test

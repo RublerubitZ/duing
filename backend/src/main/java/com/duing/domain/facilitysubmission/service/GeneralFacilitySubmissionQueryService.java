@@ -105,7 +105,8 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     public SubmissionBatchDetailResult getDetail(Long batchId, SubmissionActorContext actor) {
         FacilitySubmissionBatch batch = batchRepository.findById(batchId)
                 .orElseThrow(FacilitySubmissionException.BatchNotFoundException::new);
-        List<Long> bookingIds = itemRepository.findByBatchIdOrderByIdAsc(batchId).stream()
+        List<FacilitySubmissionItem> items = itemRepository.findByBatchIdOrderByIdAsc(batchId);
+        List<Long> bookingIds = items.stream()
                 .map(FacilitySubmissionItem::getBookingId)
                 .toList();
         List<FacilityBooking> bookings = bookingRepository.findAllById(bookingIds).stream()
@@ -113,7 +114,13 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
                         .thenComparing(FacilityBooking::getStartTime)
                         .thenComparing(FacilityBooking::getId))
                 .toList();
-        Map<Long, String> submissionNoByBookingId = activeSubmissionNos(bookings);
+        // 상세의 submitted/submissionNo 는 "지금 어느 활성 제출에 묶여 있나"(후보 조회의 질문)가 아니라
+        // 조회 중인 이 배치 기준이어야 한다 — 교차 배치를 물으면 스킵 후 다른 배치에 재제출된 예약이
+        // 이 배치 상세에서 남의 제출번호를 달고 나와 감사 화면을 오독하게 만든다.
+        Map<Long, String> submissionNoByBookingId = items.stream()
+                .filter(item -> item.getSkippedAt() == null)
+                .collect(Collectors.toMap(FacilitySubmissionItem::getBookingId,
+                        item -> batch.getSubmissionNo()));
         Map<Long, String> clubNames = clubNames(bookings);
         Map<Long, String> userNames = userNames(bookings);
         Map<Long, String> facilityNames = bookingFacilityNames(bookings);

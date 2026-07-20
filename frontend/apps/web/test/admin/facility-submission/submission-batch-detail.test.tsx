@@ -188,6 +188,40 @@ describe('SubmissionBatchDetailPage', () => {
     expect(within(heading).getByText('취소됨')).toBeInTheDocument();
   });
 
+  // ③-b 제출번호는 예약의 업무 상태가 아니라 '이 목록과의 관계'로 소개한다
+  it('취소된 제출 목록의 상세 Sheet 는 제출번호를 제출 완료가 아닌 목록 소속으로 설명한다', () => {
+    // 취소된 목록은 학교에 실제 제출된 것이 아니다 — '제출됨' 상태로 읽히면 안 된다.
+    mockDetailQuery.mockReturnValue(
+      detailSuccess(
+        makeDetail({
+          batch: makeBatch({ cancelled: true, cancelledAt: '2026-08-03T09:00:00Z' }),
+          bookings: [makeBooking({ bookingId: 5, purpose: '취소 목록 예약', submitted: true })],
+        }),
+      ),
+    );
+    render(<SubmissionBatchDetailPage batchId={1} />);
+
+    fireEvent.click(screen.getByText('취소 목록 예약'));
+
+    expect(screen.getByText('취소된 제출 목록에 포함')).toBeInTheDocument();
+    // 제출번호는 그대로 보이되 '상태' 행에 섞이지 않는다.
+    const statusValue = screen.getByText('상태').nextElementSibling;
+    expect(statusValue?.textContent).not.toContain('SUB-');
+  });
+
+  it('검토 중인 제출 목록의 상세 Sheet 는 이 목록에 포함됐다고 설명한다', () => {
+    mockDetailQuery.mockReturnValue(
+      detailSuccess(
+        makeDetail({ bookings: [makeBooking({ bookingId: 6, purpose: '검토 중 예약', submitted: true })] }),
+      ),
+    );
+    render(<SubmissionBatchDetailPage batchId={1} />);
+
+    fireEvent.click(screen.getByText('검토 중 예약'));
+
+    expect(screen.getByText('이 제출 목록에 포함')).toBeInTheDocument();
+  });
+
   // ④ 완료 스킵 → 결과 Dialog 제외 목록 예약일·동아리 표기
   it('완료 시 스킵 응답이 오면 제외 목록을 예약일·동아리로 표기한다', async () => {
     mockCompleteMutateAsync.mockResolvedValue({

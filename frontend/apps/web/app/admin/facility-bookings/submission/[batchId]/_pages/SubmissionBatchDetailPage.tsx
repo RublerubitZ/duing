@@ -28,10 +28,20 @@ import {
   BATCH_STATUS_META,
   deriveBatchStatus,
   submissionCsvFileName,
+  type SubmissionBatchStatus,
 } from '../../_lib/submissionBatches';
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../../_lib/submissionTimetable';
 
 const BATCH_LIST_ROUTE = toRoute('/admin/facility-bookings?tab=batches');
+/**
+ * 상세 Sheet 가 제출번호를 소개하는 문구 — 예약의 업무 상태가 아니라 "이 목록과의 관계"를 말한다.
+ * 취소된 목록은 학교에 실제 제출된 것이 아니므로 '제출됨'으로 읽히지 않게 관계로만 서술한다.
+ */
+const SUBMISSION_RELATION_LABELS: Record<SubmissionBatchStatus, string> = {
+  REVIEWING: '이 제출 목록에 포함',
+  COMPLETED: '이 제출 목록에 포함',
+  CANCELLED: '취소된 제출 목록에 포함',
+};
 // 읽기 전용 시간표는 선택이 없다 — 안정적인 빈 Set 하나를 공유한다.
 const EMPTY_SELECTION: ReadonlySet<number> = new Set();
 
@@ -285,6 +295,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                 (detailBooking !== null ? `시설 ${detailBooking.facilityId}` : '')
               }
               onClose={() => setDetailBooking(null)}
+              submissionRelationLabel={SUBMISSION_RELATION_LABELS[status]}
             />
           </>
         );
