@@ -61,8 +61,8 @@ describe('AdminSubmissionPage', () => {
   it('시설을 선택하기 전에는 안내가 보이고 후보 쿼리는 null 파라미터로 비활성이다', () => {
     render(<AdminSubmissionPage />);
 
-    // 안내 문구('먼저 시설을 선택')는 셀렉트 placeholder('시설을 선택하세요')와 겹치지 않게 고유 어절로 조회.
-    expect(screen.getByText(/먼저 시설을 선택/)).toBeInTheDocument();
+    // 안내 문구('시설을 선택하면…')는 셀렉트 placeholder('시설을 선택하세요')와 겹치지 않게 고유 어절로 조회.
+    expect(screen.getByText(/시설을 선택하면/)).toBeInTheDocument();
     expect(mockCandidatesQuery).toHaveBeenLastCalledWith(null);
   });
 
@@ -76,10 +76,10 @@ describe('AdminSubmissionPage', () => {
     expect(lastParams.facilityId).toBe(100);
     expect(lastParams.startDate.endsWith('-01')).toBe(true);
     // 카드 라벨은 상태 배지(SUBMISSION_STATUS_LABELS)·셀렉트 옵션과 문자열이 겹쳐 role=button 으로 카드만 조회.
-    // '승인 완료' 는 '제출 필요' 카드의 sub 문구에도 등장하므로 ^ 앵커로 라벨 위치를 고정.
+    // '승인 완료' 는 다른 카드 sub 문구와 겹치지 않게 ^ 앵커로 라벨 위치를 고정.
     expect(screen.getByRole('button', { name: /^승인 완료/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /제출 필요/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /제출함/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /학교에 제출할 예약/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /제출 목록에 담김/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /학교 등록 완료/ })).toBeInTheDocument();
   });
 
@@ -106,17 +106,17 @@ describe('AdminSubmissionPage', () => {
     expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
   });
 
-  it('제출 여부 셀렉트(제출 필요/제출함)와 카드 클릭이 같은 필터를 조작한다', () => {
+  it('제출 상태 셀렉트와 카드 클릭이 같은 필터를 조작한다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<AdminSubmissionPage />);
     selectFacility();
 
-    fireEvent.change(screen.getByLabelText('제출 여부'), { target: { value: 'SUBMITTED' } });
+    fireEvent.change(screen.getByLabelText('제출 상태'), { target: { value: 'SUBMITTED' } });
     expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
 
-    // 제출함 카드 재클릭 = 전체 복귀
-    fireEvent.click(screen.getByRole('button', { name: /제출함/ }));
+    // 제출 목록에 담김 카드 재클릭 = 전체 복귀
+    fireEvent.click(screen.getByRole('button', { name: /제출 목록에 담김/ }));
     expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
   });
 
@@ -146,7 +146,7 @@ describe('AdminSubmissionPage', () => {
     expect(screen.getByText(/준비 중/)).toBeInTheDocument();
   });
 
-  it('선택 후 생성 확인까지 진행하면 Batch 생성·성공 토스트로 끝난다(자동 다운로드 없음)', async () => {
+  it('선택 후 확인까지 진행하면 제출 목록 생성·성공 토스트로 끝난다(자동 다운로드 없음)', async () => {
     const createMutateAsync = vi.fn().mockResolvedValue({
       batchId: 7, submissionNo: 'SUB-20260801-002', csvFileName: 'facility-submission-SUB-20260801-002.csv',
     });
@@ -156,24 +156,24 @@ describe('AdminSubmissionPage', () => {
     selectFacility();
 
     fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
-    fireEvent.click(screen.getByRole('button', { name: /제출 Batch 생성/ }));
-    expect(screen.getByText(/총 1건의 예약을 하나의 학교 제출 Batch로 생성합니다/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /제출 목록 만들기/ }));
+    expect(screen.getByText(/선택한 1건의 예약을 하나의 제출 목록으로 묶어요/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('메모'), { target: { value: '8월 1차' } });
-    fireEvent.click(screen.getByRole('button', { name: '생성' }));
+    fireEvent.click(screen.getByRole('button', { name: '제출 목록 만들기' }));
 
     await waitFor(() => {
       expect(createMutateAsync).toHaveBeenCalledWith({ bookingIds: [1], memo: '8월 1차' });
-      expect(mockAddToast).toHaveBeenCalledWith('학교 제출 Batch가 생성되었습니다.');
+      expect(mockAddToast).toHaveBeenCalledWith('선택한 예약이 제출 목록에 담겼어요.');
     });
     // v2: 생성 직후 자동 다운로드 없음 — 다운로드는 상세(PR-4)에서 선택 수행
     expect(mockAddToast).toHaveBeenCalledTimes(1);
     // 성공 후 Dialog 는 닫히고(확인 문구 사라짐) 선택도 초기화되어 생성 버튼이 '선택 0건' 으로 돌아온다.
-    expect(screen.queryByText(/총 1건의 예약을/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/선택한 1건의 예약을/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /선택 0건/ })).toBeInTheDocument();
 
     // 재오픈 시 이전 memo 가 남지 않는다 — 다시 선택→생성 버튼→Dialog 를 열어 메모 입력값이 초기화됐는지 확인.
     fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
-    fireEvent.click(screen.getByRole('button', { name: /제출 Batch 생성/ }));
+    fireEvent.click(screen.getByRole('button', { name: /제출 목록 만들기/ }));
     expect(screen.getByLabelText('메모')).toHaveValue('');
   });
 
@@ -184,8 +184,8 @@ describe('AdminSubmissionPage', () => {
     render(<AdminSubmissionPage />);
     selectFacility();
     fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
-    fireEvent.click(screen.getByRole('button', { name: /제출 Batch 생성/ }));
-    fireEvent.click(screen.getByRole('button', { name: '생성' }));
+    fireEvent.click(screen.getByRole('button', { name: /제출 목록 만들기/ }));
+    fireEvent.click(screen.getByRole('button', { name: '제출 목록 만들기' }));
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('이미 제출된 예약이 포함되어 있습니다.', { variant: 'error' });
