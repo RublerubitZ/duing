@@ -45,9 +45,12 @@ describe('buildFacilitySections', () => {
     const sections = buildFacilitySections([
       makeBooking({ bookingId: 1, facilityId: 300, facilityName: null }),
       makeBooking({ bookingId: 2, facilityId: 100, facilityName: '강당' }),
+      // ko collation 상 '체육관'(ㅊ)은 '시설 300'(ㅅ)보다 뒤에 온다 — 가드 없이 순수 localeCompare만 쓰면
+      // 폴백이 실명 시설보다 앞에 와버려 "폴백은 맨 뒤" 계약이 깨진다.
+      makeBooking({ bookingId: 3, facilityId: 400, facilityName: '체육관' }),
     ]);
 
-    expect(sections.map((section) => section.facilityName)).toEqual(['강당', '시설 300']);
+    expect(sections.map((section) => section.facilityName)).toEqual(['강당', '체육관', '시설 300']);
   });
 
   it('빈 입력은 빈 섹션 배열을 낸다', () => {
