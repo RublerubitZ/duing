@@ -81,7 +81,7 @@ public class FacilitySubmissionException extends ApplicationException {
     }
 
     public static class BatchAlreadyCompletedException extends FacilitySubmissionException {
-        private static final String MESSAGE = "이미 학교 제출 완료 처리된 Batch입니다.";
+        private static final String MESSAGE = "이미 완료 처리된 제출 목록입니다.";
 
         public BatchAlreadyCompletedException() {
             super(MESSAGE, HttpStatus.CONFLICT);
@@ -89,7 +89,7 @@ public class FacilitySubmissionException extends ApplicationException {
     }
 
     public static class CompletedBatchUncancellableException extends FacilitySubmissionException {
-        private static final String MESSAGE = "학교 제출이 완료된 Batch는 취소할 수 없습니다.";
+        private static final String MESSAGE = "완료된 제출 목록은 취소할 수 없습니다.";
 
         public CompletedBatchUncancellableException() {
             super(MESSAGE, HttpStatus.CONFLICT);
