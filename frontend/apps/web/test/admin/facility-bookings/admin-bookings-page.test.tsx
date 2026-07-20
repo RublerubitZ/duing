@@ -22,6 +22,16 @@ vi.mock('@duing/hooks', () => ({
   // prepare 탭(SubmissionPrepareTab)이 마운트되면 호출되는 훅 — 기본 탭 테스트에선 미사용이나 모킹을 채워둔다.
   useSubmissionCandidatesQuery: () => ({ data: undefined, isLoading: false, isSuccess: false, isError: false, refetch: vi.fn() }),
   useCreateSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  // batches 탭(SubmissionBatchesTab)이 마운트되면 호출되는 훅 — 기본은 빈 목록 성공으로 채운다.
+  useSubmissionBatchesQuery: () => ({
+    data: { content: [], page: 0, size: 10, totalElements: 0, totalPages: 0, hasNext: false },
+    isLoading: false,
+    isSuccess: true,
+    isError: false,
+    refetch: vi.fn(),
+  }),
+  useCancelSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDownloadSubmissionCsvMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 // 탭 셸은 URL(?tab=)로 상태를 관리한다 — searchParams 로 상태 주입, 탭 전환은 replace 호출 인자로 단언(ClubExplorePage 계약).
@@ -135,11 +145,11 @@ describe('AdminFacilityBookingsPage', () => {
     );
   });
 
-  it('tab=batches 로 진입하면 제출 목록 준비 중 안내가 보인다', () => {
+  it('tab=batches 로 진입하면 제출 목록 탭이 마운트되어 빈 목록 안내가 보인다', () => {
     mockTabParam = 'batches';
     render(<AdminFacilityBookingsPage />);
 
-    expect(screen.getByText(/준비 중/)).toBeInTheDocument();
+    expect(screen.getByText(/아직 만든 제출 목록이 없어요/)).toBeInTheDocument();
     expect(screen.queryByText('승인 대기')).not.toBeInTheDocument();
   });
 
