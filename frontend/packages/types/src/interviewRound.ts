@@ -15,8 +15,6 @@ import type { ApplicationStatus } from './application';
 export type { College, Grade, ApplicationStatus as CandidateApplicationStatus };
 
 // = RoundStatus enum (backend/src/main/java/com/duing/domain/interview/entity/RoundStatus.java)
-// NOTE: admin.ts 에 별개 도메인의 RoundStatus('OPEN'|'CLOSED')가 있어 충돌 방지를 위해
-// InterviewRoundStatus 로 명명한다.
 export type InterviewRoundStatus = 'DRAFT' | 'COLLECTING' | 'ASSIGNING' | 'SCHEDULED' | 'CANCELLED';
 
 // = RoundMemberStatus enum (backend/src/main/java/com/duing/domain/interview/entity/RoundMemberStatus.java)

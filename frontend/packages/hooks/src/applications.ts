@@ -48,8 +48,7 @@ export function useApplicationEligibilityQuery(recruitmentId: number, enabled: b
     // 루트 QueryClient 는 SPA 네비게이션 내내 살아 있어, 캐시가 남으면 재진입 시 status 가
     // 'success'|'error' 라 isLoading=false 가 되고 로딩 게이트가 재확인을 기다리지 않고 통과한다.
     // 그러면 그 사이 마감된 모집에도 지원 폼이 먼저 그려져 사용자가 입력을 시작해 버린다.
-    // 폼 진입 전 1회성 확인이라 캐시 자체가 의미 없으므로 즉시 버린다
-    // (동일 용도의 useRecertificationContextQuery 선례와 같은 staleTime:0 + gcTime:0 조합).
+    // 폼 진입 전 1회성 확인이라 캐시 자체가 의미 없으므로 즉시 버린다 (staleTime:0 + gcTime:0 조합).
     gcTime: 0,
   });
 }

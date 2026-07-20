@@ -63,8 +63,8 @@ function SidebarLink({ section, active }: { section: AdminSection; active: boole
 }
 
 /**
- * 가장 긴 prefix 가 일치하는 섹션을 활성으로 선택해 `/admin/recertification/rounds` 가
- * `/admin/recertification/requests` 와 혼동되지 않도록 한다.
+ * 가장 긴 prefix 가 일치하는 섹션을 활성으로 선택해, 한 섹션 href 가
+ * 다른 섹션 href 의 하위 경로여도 더 구체적인 쪽이 활성이 되도록 한다.
  */
 export function resolveActiveSectionHref(pathname: string | null): string | null {
   if (!pathname) return null;
