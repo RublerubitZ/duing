@@ -15,7 +15,9 @@ const mockUsageQuery = vi.fn();
 const mockReplace = vi.fn();
 let mockTabParam: string | null = null;
 
-vi.mock('@duing/hooks', () => ({
+// 큐 테이블이 쓰는 formatDateTimeKst 등 순수 유틸은 실제 구현을 유지한다(batches-tab 테스트 동일 패턴).
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useAdminFacilityBookingQueueQuery: (...args: unknown[]) => mockQueueQuery(...args),
   useAdminFacilityBookingSummaryQuery: () => mockSummaryQuery(),
   useFacilityUsageQuery: () => mockUsageQuery(),
@@ -45,6 +47,12 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/app/_components/toast/ToastProvider', () => ({
   useToast: () => ({ addToast: vi.fn() }),
   useOptionalToast: () => vi.fn(),
+}));
+
+// 큐 → 모달 통합 경로(클릭 시 올바른 bookingId 로 오픈) 검증용 스텁 —
+// 모달 내부는 admin-booking-detail-modal.test 가 격리 검증한다(NoticeRichEditorLazy mock 전례).
+vi.mock('@/app/admin/facility-bookings/_components/AdminBookingDetailModal', () => ({
+  AdminBookingDetailModal: ({ bookingId }: { bookingId: number }) => <div>검토 모달 {bookingId}</div>,
 }));
 
 /* ── 대상 ───────────────────────────────────────────────────── */
@@ -166,6 +174,12 @@ describe('AdminFacilityBookingsPage', () => {
 
     const pendingCard = screen.getByRole('button', { name: /오늘 접수/ });
     expect(within(pendingCard).getByText('7')).toBeInTheDocument();
+
+    // 큐 필터 칩에도 건수가 병기된다(승인 대기·반영 대기·충돌·의심만 — 확정은 이달 기준이라 미표기).
+    expect(screen.getByRole('tab', { name: '승인 대기 7' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '반영 대기 4' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '충돌·의심 5' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '확정' })).toBeInTheDocument();
   });
 
   it('충돌 카드 클릭 시 해당 탭으로 전환되고 큐 훅이 status:CONFLICT 로 호출된다', () => {
@@ -177,7 +191,7 @@ describe('AdminFacilityBookingsPage', () => {
     expect(mockQueueQuery).toHaveBeenCalledWith(expect.objectContaining({ status: 'CONFLICT' }));
   });
 
-  it('APPROVED 행에 D+N·충돌 의심·부분 반영 배지가 렌더된다', () => {
+  it('APPROVED 행에 번호·D+N·충돌 의심·부분 반영 배지·검토 버튼이 렌더된다', () => {
     mockQueueQuery.mockReturnValue(
       makeQueueSuccess([
         makeRow({
@@ -192,10 +206,40 @@ describe('AdminFacilityBookingsPage', () => {
 
     render(<AdminFacilityBookingsPage />);
 
+    expect(screen.getByText('#55')).toBeInTheDocument();
     expect(screen.getByText('학교 반영 대기 D+8')).toBeInTheDocument();
     expect(screen.getByText('충돌 의심')).toBeInTheDocument();
     expect(screen.getByText('부분 반영')).toBeInTheDocument();
     expect(screen.getByText('승인됨')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '#55 검토' })).toBeInTheDocument();
+  });
+
+  it('행 클릭·검토 버튼 클릭 모두 해당 예약의 검토 모달을 연다', () => {
+    mockQueueQuery.mockReturnValue(makeQueueSuccess([makeRow({ bookingId: 55 })]));
+    const { unmount } = render(<AdminFacilityBookingsPage />);
+
+    // 행 내부 셀 클릭 → tr onClick 버블링으로 모달 오픈
+    fireEvent.click(screen.getByText('두잉동아리'));
+    expect(screen.getByText('검토 모달 55')).toBeInTheDocument();
+    unmount();
+
+    // 검토 버튼 클릭도 동일 bookingId 로 오픈(stopPropagation 회귀 방지)
+    mockQueueQuery.mockReturnValue(makeQueueSuccess([makeRow({ bookingId: 56 })]));
+    render(<AdminFacilityBookingsPage />);
+    fireEvent.click(screen.getByRole('button', { name: '#56 검토' }));
+    expect(screen.getByText('검토 모달 56')).toBeInTheDocument();
+  });
+
+  it('PENDING 행 서브라인에 신청 시각·경과가 렌더된다', () => {
+    // 절대 날짜 하드코딩은 시간이 지나면 단언이 어긋난다(타임밤) — 항상 2일 전 시각을 만들어 사용.
+    const twoDaysAgoIso = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    mockQueueQuery.mockReturnValue(
+      makeQueueSuccess([makeRow({ bookingId: 77, createdAt: twoDaysAgoIso })]),
+    );
+
+    render(<AdminFacilityBookingsPage />);
+
+    expect(screen.getByText(/신청 .* · 2일 경과/)).toBeInTheDocument();
   });
 
   it('충돌·의심 탭: CONFLICT 큐와 conflictSuspected APPROVED 행을 병합하고, 의심 아닌 APPROVED 는 제외한다', () => {
@@ -227,7 +271,7 @@ describe('AdminFacilityBookingsPage', () => {
     });
 
     render(<AdminFacilityBookingsPage />);
-    fireEvent.click(screen.getByRole('tab', { name: '충돌·의심' }));
+    fireEvent.click(screen.getByRole('tab', { name: /충돌·의심/ }));
 
     expect(screen.getByText('충돌 모임')).toBeInTheDocument();
     expect(screen.getByText('의심 모임')).toBeInTheDocument();
@@ -249,7 +293,7 @@ describe('AdminFacilityBookingsPage', () => {
     });
 
     render(<AdminFacilityBookingsPage />);
-    fireEvent.click(screen.getByRole('tab', { name: '충돌·의심' }));
+    fireEvent.click(screen.getByRole('tab', { name: /충돌·의심/ }));
 
     fireEvent.click(screen.getByRole('button', { name: '2' }));
 
@@ -262,7 +306,7 @@ describe('AdminFacilityBookingsPage', () => {
 
   it('결과가 없으면 빈 상태 문구, 에러면 안내와 다시 시도 버튼(→refetch)이 보인다', () => {
     const { unmount } = render(<AdminFacilityBookingsPage />);
-    expect(screen.getByText('해당 조건의 신청이 없어요.')).toBeInTheDocument();
+    expect(screen.getByText('해당 조건의 신청이 없어요')).toBeInTheDocument();
     unmount();
 
     mockQueueQuery.mockReturnValue(queueError);
@@ -301,6 +345,9 @@ describe('AdminFacilityBookingsPage', () => {
 
     mockQueueQuery.mockReturnValue(queueWithPages(3));
     const { rerender } = render(<AdminFacilityBookingsPage />);
+
+    // 페이지네이션 좌측에 현재 범위(1–20 / 60건)가 표기된다(개편 스펙 §2).
+    expect(screen.getByText('1–20 / 60건')).toBeInTheDocument();
 
     // 3페이지 중 마지막 페이지(index 2)로 이동
     fireEvent.click(screen.getByRole('button', { name: '3' }));

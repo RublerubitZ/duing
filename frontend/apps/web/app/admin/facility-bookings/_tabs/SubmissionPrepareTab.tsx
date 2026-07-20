@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useCreateSubmissionBatchMutation, useSubmissionCandidatesQuery } from '@duing/hooks';
 import type { SubmissionCandidateBooking, SubmissionCandidatesParams } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { toRoute } from '../../../_lib/route';
+import { EmptyState } from '../_components/EmptyState';
 import { ViewModeToggle, type SubmissionViewMode } from '../_components/ViewModeToggle';
 import { BatchCreateDialog } from '../submission/_components/BatchCreateDialog';
 import { SubmissionClubGroupList } from '../submission/_components/SubmissionClubGroupList';
@@ -207,11 +210,20 @@ export function SubmissionPrepareTab() {
             </div>
           )}
           {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length === 0 && (
-            <p className="text-sm text-charcoal-3">
-              {summaryFilter !== 'ALL' || keyword !== ''
-                ? '조건에 맞는 예약이 없어요. 검색어나 필터를 바꿔보세요.'
-                : '현재 학교에 제출할 예약이 없어요.'}
-            </p>
+            summaryFilter !== 'ALL' || keyword !== '' ? (
+              <EmptyState icon="🔍" title="조건에 맞는 예약이 없어요" body="검색어나 필터를 바꿔보세요." />
+            ) : (
+              <EmptyState
+                icon="✅"
+                title="학교에 제출할 예약이 없어요"
+                body={'예약을 승인하면 여기에 자동으로 표시돼요.\n대기 중인 신청은 예약 관리 탭에서 처리할 수 있어요.'}
+                action={
+                  <Link href={toRoute('/admin/facility-bookings?tab=pending')} className="btn btn-secondary btn-sm">
+                    예약 관리로 이동
+                  </Link>
+                }
+              />
+            )
           )}
           {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && (
             <ul className="space-y-6">

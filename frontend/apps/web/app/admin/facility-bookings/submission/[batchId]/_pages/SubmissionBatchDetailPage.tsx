@@ -11,6 +11,7 @@ import {
 } from '@duing/hooks';
 import type { CompleteSubmissionBatchResult, SubmissionCandidateBooking } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { StatusPill } from '@/app/_components/StatusPill';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '@/app/_lib/route';
 import { downloadBlobFile } from '@/app/_lib/downloadFile';
@@ -166,11 +167,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
             <div className="mb-6 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-[22px] font-bold text-ink">{detail.batch.submissionNo}</h1>
-                <span
-                  className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusMeta.badgeClass}`}
-                >
-                  {statusMeta.label}
-                </span>
+                <StatusPill label={statusMeta.label} className={statusMeta.badgeClass} />
               </div>
 
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">

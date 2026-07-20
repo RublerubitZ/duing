@@ -88,7 +88,7 @@ describe('SubmissionBatchesTab', () => {
     mockCsvMutateAsync.mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
   });
 
-  it('REVIEWING 배치 행이 제출번호·시설·건수·생성일·생성자·검토 중 배지로 렌더된다', () => {
+  it('REVIEWING 배치 행이 제출번호·시설·건수·생성일·생성자·제출 대기 배지로 렌더된다', () => {
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
     render(<SubmissionBatchesTab />);
 
@@ -97,7 +97,7 @@ describe('SubmissionBatchesTab', () => {
     expect(within(row).getByText('3')).toBeInTheDocument();
     expect(within(row).getByText('2026.08.02')).toBeInTheDocument();
     expect(within(row).getByText('관리자')).toBeInTheDocument();
-    expect(within(row).getByText('검토 중')).toBeInTheDocument();
+    expect(within(row).getByText('제출 대기')).toBeInTheDocument();
     // 첫 페이지 진입은 page:0·size:10 으로 조회한다.
     expect(mockBatchesQuery).toHaveBeenCalledWith({ page: 0, size: 10 });
   });
@@ -309,13 +309,15 @@ describe('SubmissionBatchesTab', () => {
     expect(screen.getByText('학교 제출을 완료하시겠습니까?')).toBeInTheDocument();
   });
 
-  it('빈 목록이면 안내 문구를 보여준다', () => {
+  it('빈 목록이면 빈 상태 안내와 준비 탭 이동 링크를 보여준다', () => {
     mockBatchesQuery.mockReturnValue(listSuccess([]));
     render(<SubmissionBatchesTab />);
 
-    expect(
-      screen.getByText("아직 만든 제출 목록이 없어요. '학교 제출 준비' 탭에서 만들 수 있어요."),
-    ).toBeInTheDocument();
+    expect(screen.getByText('아직 만든 제출 목록이 없어요')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '학교 제출 준비로 이동' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/admin/facility-bookings?tab=prepare'),
+    );
   });
 
   it('페이지를 넘기면 다음 page 로 목록을 다시 조회한다', () => {

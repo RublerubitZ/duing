@@ -11,11 +11,13 @@ import {
 } from '@duing/hooks';
 import type { CompleteSubmissionBatchResult, SubmissionBatchSummary } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { StatusPill } from '@/app/_components/StatusPill';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { Pagination } from '@/components/Pagination';
 import { downloadBlobFile } from '@/app/_lib/downloadFile';
 import { toRoute } from '../../../_lib/route';
+import { EmptyState } from '../_components/EmptyState';
 import { BatchCancelDialog } from '../submission/_components/BatchCancelDialog';
 import { BatchCompleteDialog } from '../submission/_components/BatchCompleteDialog';
 import { BatchCompleteResultDialog } from '../submission/_components/BatchCompleteResultDialog';
@@ -108,9 +110,16 @@ export function SubmissionBatchesTab() {
       )}
 
       {!batchesQuery.isLoading && batchesQuery.isSuccess && batches.length === 0 && (
-        <p className="text-sm text-charcoal-3">
-          {"아직 만든 제출 목록이 없어요. '학교 제출 준비' 탭에서 만들 수 있어요."}
-        </p>
+        <EmptyState
+          icon="📄"
+          title="아직 만든 제출 목록이 없어요"
+          body="'학교 제출 준비' 탭에서 승인된 예약을 골라 만들 수 있어요."
+          action={
+            <Link href={toRoute('/admin/facility-bookings?tab=prepare')} className="btn btn-secondary btn-sm">
+              학교 제출 준비로 이동
+            </Link>
+          }
+        />
       )}
 
       {!batchesQuery.isLoading && batchesQuery.isSuccess && batches.length > 0 && (
@@ -145,11 +154,7 @@ export function SubmissionBatchesTab() {
                       {memoText}
                     </td>
                     <td className="py-2 pr-3">
-                      <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusMeta.badgeClass}`}
-                      >
-                        {statusMeta.label}
-                      </span>
+                      <StatusPill label={statusMeta.label} className={statusMeta.badgeClass} />
                     </td>
                     <td className="py-2">
                       <div className="flex items-center gap-2 whitespace-nowrap">
@@ -201,7 +206,14 @@ export function SubmissionBatchesTab() {
         </div>
       )}
 
-      <Pagination page={page} totalPages={totalPages} onChange={setPage} ariaLabel="제출 목록 페이지" />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onChange={setPage}
+        ariaLabel="제출 목록 페이지"
+        totalElements={batchesQuery.data?.totalElements}
+        pageSize={PAGE_SIZE}
+      />
 
       <BatchCancelDialog
         batch={cancelTarget}

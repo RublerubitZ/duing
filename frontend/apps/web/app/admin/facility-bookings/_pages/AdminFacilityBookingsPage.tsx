@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '../../../_lib/route';
+import { PurposeNote } from '../_components/PurposeNote';
 import { BookingManagementTab } from '../_tabs/BookingManagementTab';
 import { SubmissionBatchesTab } from '../_tabs/SubmissionBatchesTab';
 import { SubmissionPrepareTab } from '../_tabs/SubmissionPrepareTab';
@@ -14,6 +15,13 @@ const TAB_LABELS: Record<FacilityOpsTab, string> = {
   pending: '예약 관리',
   prepare: '학교 제출 준비',
   batches: '제출 목록',
+};
+
+// 탭별 화면 목적 1줄 안내(개편 스펙 §1) — 다음 단계로 이어지는 흐름을 문장으로 알려준다.
+const TAB_PURPOSE: Record<FacilityOpsTab, string> = {
+  pending: "예약을 검토해 승인 또는 거절해요. 승인한 예약은 '학교 제출 준비'에 자동으로 나타나요.",
+  prepare: '승인된 예약이 자동으로 표시돼요. 제외할 예약만 해제하고 제출 목록을 만들어 주세요.',
+  batches: "만든 제출 목록이에요. 학교 행정실 제출을 마친 뒤 '제출 완료' 처리를 해주세요.",
 };
 
 function isFacilityOpsTab(value: string | null): value is FacilityOpsTab {
@@ -57,6 +65,8 @@ export function AdminFacilityBookingsPage() {
           </button>
         ))}
       </div>
+
+      <PurposeNote>{TAB_PURPOSE[activeTab]}</PurposeNote>
 
       {activeTab === 'pending' && <BookingManagementTab />}
       {activeTab === 'prepare' && <SubmissionPrepareTab />}

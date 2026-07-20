@@ -54,7 +54,7 @@ describe('deriveBatchStatus', () => {
 
 describe('BATCH_STATUS_META', () => {
   it('상태 3종 라벨 문구가 고정 문구와 일치한다', () => {
-    expect(BATCH_STATUS_META.REVIEWING.label).toBe('검토 중');
+    expect(BATCH_STATUS_META.REVIEWING.label).toBe('제출 대기');
     expect(BATCH_STATUS_META.COMPLETED.label).toBe('제출 완료');
     expect(BATCH_STATUS_META.CANCELLED.label).toBe('취소됨');
   });
