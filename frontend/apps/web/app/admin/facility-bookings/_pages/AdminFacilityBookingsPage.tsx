@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '../../../_lib/route';
 import { BookingManagementTab } from '../_tabs/BookingManagementTab';
+import { SubmissionBatchesTab } from '../_tabs/SubmissionBatchesTab';
 import { SubmissionPrepareTab } from '../_tabs/SubmissionPrepareTab';
 
 const TAB_KEYS = ['pending', 'prepare', 'batches'] as const;
@@ -59,9 +60,7 @@ export function AdminFacilityBookingsPage() {
 
       {activeTab === 'pending' && <BookingManagementTab />}
       {activeTab === 'prepare' && <SubmissionPrepareTab />}
-      {activeTab === 'batches' && (
-        <p className="text-sm text-charcoal-3">제출 목록은 준비 중이에요. 만든 제출 목록을 곧 이 탭에서 관리할 수 있어요.</p>
-      )}
+      {activeTab === 'batches' && <SubmissionBatchesTab />}
     </section>
   );
 }

@@ -314,5 +314,9 @@ export {
   useSubmissionCandidatesQuery,
   useCreateSubmissionBatchMutation,
   useDownloadSubmissionCsvMutation,
+  useSubmissionBatchesQuery,
+  useSubmissionBatchDetailQuery,
+  useCompleteSubmissionBatchMutation,
+  useCancelSubmissionBatchMutation,
 } from './facilitySubmissionAdmin';
 export { shouldRetryQuery, isNonRetryableError } from './retry';

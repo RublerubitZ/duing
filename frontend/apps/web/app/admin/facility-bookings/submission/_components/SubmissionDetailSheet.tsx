@@ -24,7 +24,17 @@ export function SubmissionDetailSheet({ booking, facilityName, onClose }: Props)
         {shown !== null && (
           <>
             <SheetHeader>
-              <SheetTitle>{shown.clubName ?? '동아리'} 예약 상세</SheetTitle>
+              <SheetTitle>
+                {/* 취소된 예약은 제목에 취소선 + '취소됨' 배지로 표시(PR-2 이월). */}
+                <span className={shown.status === 'CANCELLED' ? 'line-through' : undefined}>
+                  {shown.clubName ?? '동아리'} 예약 상세
+                </span>
+                {shown.status === 'CANCELLED' && (
+                  <span className="ml-2 rounded-full bg-coral/10 px-2 py-0.5 align-middle text-[11px] font-medium text-coral">
+                    취소됨
+                  </span>
+                )}
+              </SheetTitle>
               <SheetDescription>
                 {facilityName} · {shown.reservationDate} {shown.startTime}~{shown.endTime}
               </SheetDescription>

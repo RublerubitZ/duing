@@ -190,6 +190,10 @@ import type {
   SubmissionCandidatesResponse,
   CreateSubmissionBatchPayload,
   CreateSubmissionBatchResult,
+  SubmissionBatchListParams,
+  SubmissionBatchSummary,
+  SubmissionBatchDetail,
+  CompleteSubmissionBatchResult,
   FederationFaqCategory,
   FederationFaqItem,
   AdminFederationFaqSummary,
@@ -630,7 +634,7 @@ export type DuingApiClient = {
       // GET .../summary — 대시보드 카드 수치(§9.7)
       summary(): Promise<AdminFacilityBookingCounts>;
     };
-    // === 학교 제출(Submission Batch) — BE §5 (이력·상세·취소는 PR-3) ===
+    // === 학교 제출(Submission Batch) — BE §5 ===
     facilitySubmission: {
       // GET .../submission/candidates — 기간 내 전체 예약 + summary(REJECTED 제외)
       candidates(params: SubmissionCandidatesParams): Promise<SubmissionCandidatesResponse>;
@@ -638,6 +642,14 @@ export type DuingApiClient = {
       create(payload: CreateSubmissionBatchPayload): Promise<CreateSubmissionBatchResult>;
       // GET .../submission/{batchId}/csv — BOM 포함 CSV(비 ApiResponse, Blob 그대로)
       downloadCsv(batchId: number): Promise<Blob>;
+      // GET .../submission?page=&size= — 제출 이력 목록(PageResponse)
+      list(params: SubmissionBatchListParams): Promise<PageResponse<SubmissionBatchSummary>>;
+      // GET .../submission/{batchId} — 상세(batch/bookings/audits, VIEWED 는 BE 부수효과)
+      detail(batchId: number): Promise<SubmissionBatchDetail>;
+      // POST .../submission/{batchId}/complete — 제출 완료 확정(404/기취소·기완료 409)
+      complete(batchId: number): Promise<CompleteSubmissionBatchResult>;
+      // DELETE .../submission/{batchId} — 제출 취소(204, 404/기취소·기완료 409)
+      cancel(batchId: number): Promise<void>;
     };
     // === BANK 자동매칭 관리 (Sprint 3) ===
     bankMatching: {
@@ -1585,6 +1597,18 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         // 원본 바이트(BOM CSV·비 ApiResponse) — 첨부 다운로드와 동일하게 blobOk 로 에러 정규화+본문 타임아웃.
         downloadCsv: (batchId) =>
           blobOk(http.get(`admin/facility-bookings/submission/${batchId}/csv`)),
+        list: (params) =>
+          jsonOk<PageResponse<SubmissionBatchSummary>>(
+            http.get('admin/facility-bookings/submission', { searchParams: cleanParams(params) }),
+          ),
+        detail: (batchId) =>
+          jsonOk<SubmissionBatchDetail>(http.get(`admin/facility-bookings/submission/${batchId}`)),
+        complete: (batchId) =>
+          jsonOk<CompleteSubmissionBatchResult>(
+            http.post(`admin/facility-bookings/submission/${batchId}/complete`),
+          ),
+        cancel: (batchId) =>
+          jsonVoid(http.delete(`admin/facility-bookings/submission/${batchId}`)),
       },
       bankMatching: {
         overview: () =>
