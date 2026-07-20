@@ -191,6 +191,14 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
     }
 
     @Test
+    @DisplayName("전 시설 조회에서도 기간 상한 검증이 동일하게 적용된다")
+    void invalidPeriodRejectsWhenFacilityOmitted() {
+        assertThatThrownBy(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
+                null, baseDate, baseDate.plusDays(31), null)))
+                .isInstanceOf(FacilitySubmissionException.InvalidCandidatePeriodException.class);
+    }
+
+    @Test
     @DisplayName("제출 후 관리자 취소된 예약은 목록에 CANCELLED 로 남고 제출됨으로 집계된다")
     void cancelledAfterSubmissionStaysListedAsSubmitted() {
         FacilityBooking booking = savedBooking(9, BookingStatus.APPROVED);
