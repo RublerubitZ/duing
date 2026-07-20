@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -16,8 +17,10 @@ import org.springframework.stereotype.Component;
  * 초반에 확인되므로 후반 간격을 넓혀 방치 세션·[지금 확인] 연타·다중 탭이 Octomo 콜로 증폭되는 것을
  * 막는다(토큰당 정상상태 분당 최대 8콜 — 워밍업 첫 1분은 빠른 티어가 겹쳐 일시적으로 ~13콜).
  * 재발급은 새 토큰이라 사다리가 처음부터 다시 시작된다 — 새 코드 직후는
- * 빠른 확인이 맞다. ② 전역 일일 상한 1,000콜: 폭주·루프 버그로부터 Free 쿼터(월 1만 콜)를 보호하는
- * 안전판 — 초과 시 503 이며 로그(ERROR→Sentry)로 Pro 전환을 판단한다.
+ * 빠른 확인이 맞다. ② 전역 일일 상한(기본 1,000콜, {@code MO_DAILY_CALL_LIMIT} 로 조절): 폭주·루프
+ * 버그로부터 벤더 쿼터(Free 월 1만 콜)를 보호하는 안전판 — 초과 시 503 이며 80% 도달 시 하루 1회
+ * 조기 경보(ERROR→Sentry)를 남겨 당일 소진을 예측할 시간을 준다. <b>피크(모집 시즌) 상향은 반드시
+ * 벤더 플랜(월 쿼터) 상향과 세트</b> — 상한만 올리면 월 쿼터를 며칠에 태워 월말까지 전면 장애가 된다.
  *
  * <p>벤더 호출이 실패하면 호출부가 {@link #releaseDailyQuota} 로 쿼터를 반환한다 — Octomo 장애가
  * 하루 예산을 태워 복구 후에도 503 이 지속되는 자기 소진을 막는다. 실패 콜도 사다리 단계는 전진한다
@@ -34,7 +37,6 @@ public class MoPollThrottle {
     /** 백오프 사다리 경계 — 실호출 5콜까지 2.5초, 8콜까지 4.5초, 이후 7.5초. 프론트 폴링(3s→5s→8s)과 정렬. */
     static final int FAST_TIER_CALL_LIMIT = 5;
     static final int MID_TIER_CALL_LIMIT = 8;
-    static final int DAILY_CALL_LIMIT = 1_000;
     /** 간격 엔트리 지연 정리 임계 — PENDING 세션은 최대 5분이라 10분 지난 엔트리는 확실히 무의미하다. */
     static final int TOKEN_SWEEP_THRESHOLD = 10_000;
     static final Duration TOKEN_ENTRY_RETENTION = Duration.ofMinutes(10);
@@ -43,9 +45,17 @@ public class MoPollThrottle {
     private record PollWindow(LocalDateTime lastPolledAt, int grantedCallCount) {}
 
     private final ConcurrentHashMap<String, PollWindow> pollWindowByToken = new ConcurrentHashMap<>();
+    private final int dailyCallLimit;
+    private final int dailyCallWarningThreshold;
     private LocalDate quotaDate;
     private int dailyCallCount;
+    private boolean quotaWarningLogged;
     private boolean quotaExhaustionLogged;
+
+    public MoPollThrottle(@Value("${mo.daily-call-limit:1000}") int dailyCallLimit) {
+        this.dailyCallLimit = dailyCallLimit;
+        this.dailyCallWarningThreshold = dailyCallLimit * 8 / 10;
+    }
 
     /**
      * 세션당 최소 간격(백오프 사다리)을 검사하고, 허용이면 이번 시각·누적 횟수를 기록한다. compute
@@ -94,18 +104,26 @@ public class MoPollThrottle {
         if (quotaDate == null || quotaDate.isBefore(requestDate)) {
             quotaDate = requestDate;
             dailyCallCount = 0;
+            quotaWarningLogged = false;
             quotaExhaustionLogged = false;
         }
-        if (dailyCallCount >= DAILY_CALL_LIMIT) {
+        if (dailyCallCount >= dailyCallLimit) {
             if (!quotaExhaustionLogged) {
                 quotaExhaustionLogged = true;
                 // ERROR 는 Sentry 이벤트가 된다 — 소진 시 하루 1회만 경보한다 (스팸 방지).
                 log.error("Octomo 일일 호출 상한({}건) 소진 — 인증 상태조회가 503 으로 제한된다. Pro 플랜 전환을 검토하라.",
-                        DAILY_CALL_LIMIT);
+                        dailyCallLimit);
             }
             throw new PhoneVerificationException.SmsPollQuotaExceededException();
         }
         dailyCallCount++;
+        if (!quotaWarningLogged && dailyCallCount >= dailyCallWarningThreshold) {
+            quotaWarningLogged = true;
+            // 소진 전 조기 경보(하루 1회) — 당일 소진이 예상되면 대응(MO_DAILY_CALL_LIMIT 상향)을 판단할
+            // 시간을 준다. 상향은 벤더 플랜(월 쿼터) 여유 확인이 선행돼야 한다.
+            log.error("Octomo 일일 호출이 상한({}건)의 80% 에 도달했다 — 당일 소진이 예상되면 벤더 플랜 여유를 확인하고 MO_DAILY_CALL_LIMIT 상향을 검토하라.",
+                    dailyCallLimit);
+        }
     }
 
     /**
@@ -145,6 +163,7 @@ public class MoPollThrottle {
         pollWindowByToken.clear();
         quotaDate = null;
         dailyCallCount = 0;
+        quotaWarningLogged = false;
         quotaExhaustionLogged = false;
     }
 }
