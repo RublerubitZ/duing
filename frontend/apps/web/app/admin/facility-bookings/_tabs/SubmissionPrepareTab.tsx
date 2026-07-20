@@ -6,6 +6,7 @@ import { useCreateSubmissionBatchMutation, useSubmissionCandidatesQuery } from '
 import type { SubmissionCandidateBooking, SubmissionCandidatesParams } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { toRoute } from '../../../_lib/route';
+import { ConsoleCard } from '../_components/ConsoleCard';
 import { EmptyState } from '../_components/EmptyState';
 import { ViewModeToggle, type SubmissionViewMode } from '../_components/ViewModeToggle';
 import { currentMonthRange } from '../_lib/submissionPeriod';
@@ -179,148 +180,179 @@ export function SubmissionPrepareTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="date" aria-label="시작일" value={startDate}
-          onChange={(event) => setStartDate(event.target.value)}
-          className="rounded-md border border-line bg-paper px-2 py-1 text-xs"
+      {candidatesQuery.data && candidatesParams !== null && (
+        <SubmissionSummaryCards
+          counts={candidatesQuery.data.summary}
+          activeFilter={summaryFilter}
+          onSelectFilter={setSummaryFilter}
         />
-        <input
-          type="date" aria-label="종료일" value={endDate}
-          onChange={(event) => setEndDate(event.target.value)}
-          className="rounded-md border border-line bg-paper px-2 py-1 text-xs"
-        />
-        <input
-          type="search" aria-label="동아리 검색" value={clubKeyword} placeholder="동아리 검색"
-          onChange={(event) => setClubKeyword(event.target.value)}
-          className="rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
-        />
-        <select
-          aria-label="제출 상태"
-          className="rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
-          value={statusFilterValue}
-          onChange={(event) => {
-            const nextValue = event.target.value;
-            setSummaryFilter(nextValue === 'NEED' || nextValue === 'SUBMITTED' ? nextValue : 'ALL');
-          }}
-        >
-          <option value="ALL">전체</option>
-          <option value="NEED">학교에 제출할 예약</option>
-          <option value="SUBMITTED">제출 목록에 담긴 예약</option>
-        </select>
-        <ViewModeToggle view={view} onChange={setView} className="ml-auto" />
-      </div>
+      )}
 
       {periodInvalid && (
-        <div role="alert" className="rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal-2">
+        <div role="alert" className="rounded-[12px] border border-line bg-paper px-4 py-3 text-sm text-charcoal-2">
           조회 기간을 확인해주세요 — 종료일이 시작일보다 앞설 수 없고, 시작일부터 최대 31일까지 조회할 수 있어요.
         </div>
       )}
 
-      {candidatesParams !== null && (
-        <>
-          {candidatesQuery.data && (
-            <SubmissionSummaryCards
-              counts={candidatesQuery.data.summary}
-              activeFilter={summaryFilter}
-              onSelectFilter={setSummaryFilter}
-            />
-          )}
-
-          {candidatesQuery.isLoading && <LoadingGate className="min-h-0 py-8" label="예약 목록 불러오는 중" />}
-          {!candidatesQuery.isLoading && candidatesQuery.isError && (
-            <div role="alert" className="text-sm text-charcoal-2">
-              <p>예약 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
-              <button type="button" className="btn btn-ghost mt-2" onClick={() => void candidatesQuery.refetch()}>
-                다시 시도
-              </button>
-            </div>
-          )}
-          {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length === 0 && (
-            summaryFilter !== 'ALL' || keyword !== '' ? (
-              <EmptyState icon="🔍" title="조건에 맞는 예약이 없어요" body="검색어나 필터를 바꿔보세요." />
-            ) : (
-              <EmptyState
-                icon="✅"
-                title="학교에 제출할 예약이 없어요"
-                body={'예약을 승인하면 여기에 자동으로 표시돼요.\n대기 중인 신청은 예약 검토 탭에서 처리할 수 있어요.'}
-                action={
-                  <Link href={toRoute('/admin/facility-bookings?tab=review')} className="btn btn-secondary btn-sm">
-                    예약 검토로 이동
-                  </Link>
-                }
-              />
-            )
-          )}
-          {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && (
-            <ul className="space-y-6">
-              {sections.map((section) => {
-                const sectionSelectedCount = deriveSelectedIds(section.bookings, excludedIds).length;
-                const sectionNeedCount = section.bookings.filter((booking) => booking.selectable).length;
-                return (
-                  <li key={section.facilityId} className="space-y-2">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <h2 className="font-medium text-ink-deep">{section.facilityName}</h2>
-                      <p className="text-xs text-charcoal-3">
-                        학교에 제출할 예약 {sectionNeedCount}건 · 선택 {sectionSelectedCount}건
-                      </p>
-                    </div>
-                    {view === 'list' ? (
-                      <SubmissionClubGroupList
-                        bookings={section.bookings}
-                        selection={selectedIdSet}
-                        onToggleSelect={toggleSelect}
-                        onToggleMany={toggleMany}
-                        onShowDetail={setDetailBooking}
-                      />
-                    ) : (
-                      <SubmissionTimetable
-                        bookings={section.bookings}
-                        facilityName={section.facilityName}
-                        selection={selectedIdSet}
-                        onToggleSelect={toggleSelect}
-                        onShowDetail={setDetailBooking}
-                      />
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          {/* 선택 요약 고정 바(개편 스펙 §4) — 생성 진입점을 하나로 모은다. 바가 자체 하단 패딩을 소유한다. */}
-          {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && (
-            <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 rounded-t-lg border border-b-0 border-line bg-paper/95 px-3 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] backdrop-blur">
-              <p className="text-sm font-medium tabular-nums text-ink-deep">
-                {`선택 ${selectedTotalCount}건${
-                  selectedFacilityGroups.length > 0 ? ` · 시설 ${selectedFacilityGroups.length}곳` : ''
-                }`}
-              </p>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setExcludedIds(new Set())}>
-                전체 선택
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => setExcludedIds(new Set(visibleSelectableIds))}
-              >
-                전체 해제
-              </button>
-              <div className="ml-auto">
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  disabled={selectedTotalCount === 0}
-                  onClick={() => setBulkDialogOpen(true)}
+      {/* 목업 CCard — 선택 툴바(A) + 필터 행(B) + 시설별 그룹(B)을 한 카드가 감싼다. */}
+      <ConsoleCard>
+        {/* selection toolbar(목업 A) — Primary 는 '제출 목록 만들기' 하나, 나머지는 ghost. */}
+        <div className="flex flex-wrap items-center gap-2.5 border-b border-line px-[18px] py-3">
+          <p className="flex items-center gap-2 text-[13px] font-bold tabular-nums text-ink-deep">
+            <span
+              aria-hidden
+              className={`flex h-5 w-5 items-center justify-center rounded-[6px] border-[1.5px] ${
+                selectedTotalCount > 0 ? 'border-ink-deep bg-ink-deep' : 'border-line bg-paper'
+              }`}
+            >
+              {selectedTotalCount > 0 && (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-3 w-3 text-paper"
                 >
-                  제출 목록 만들기
-                  {selectedFacilityGroups.length > 1 ? ` (${selectedFacilityGroups.length}개 시설)` : ''}
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              )}
+            </span>
+            {`${selectedTotalCount}건 선택됨${
+              selectedFacilityGroups.length > 0 ? ` · 시설 ${selectedFacilityGroups.length}곳` : ''
+            }`}
+          </p>
+          <div className="flex gap-1">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setExcludedIds(new Set())}>
+              전체 선택
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setExcludedIds(new Set(visibleSelectableIds))}
+            >
+              전체 해제
+            </button>
+          </div>
+          <div className="ml-auto flex items-center gap-2.5">
+            <ViewModeToggle view={view} onChange={setView} />
+            <button
+              type="button"
+              className="btn btn-primary btn-sm bg-ink-deep hover:bg-ink"
+              disabled={selectedTotalCount === 0}
+              onClick={() => setBulkDialogOpen(true)}
+            >
+              제출 목록 만들기
+              {selectedFacilityGroups.length > 1 ? ` (${selectedFacilityGroups.length}개 시설)` : ''}
+            </button>
+          </div>
+        </div>
+
+        {/* 필터 행(목업 B) — 조회 기간·동아리 검색·제출 상태. */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-[18px] py-3">
+          <input
+            type="date" aria-label="시작일" value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+            className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+          />
+          <span aria-hidden className="text-xs text-charcoal-3">–</span>
+          <input
+            type="date" aria-label="종료일" value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+            className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+          />
+          <input
+            type="search" aria-label="동아리 검색" value={clubKeyword} placeholder="동아리 검색"
+            onChange={(event) => setClubKeyword(event.target.value)}
+            className="rounded-[10px] bg-graysoft px-3.5 py-2 text-[13px] text-charcoal placeholder:text-charcoal-3"
+          />
+          <select
+            aria-label="제출 상태"
+            className="rounded-[10px] border border-line bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
+            value={statusFilterValue}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setSummaryFilter(nextValue === 'NEED' || nextValue === 'SUBMITTED' ? nextValue : 'ALL');
+            }}
+          >
+            <option value="ALL">전체</option>
+            <option value="NEED">학교에 제출할 예약</option>
+            <option value="SUBMITTED">제출 목록에 담긴 예약</option>
+          </select>
+        </div>
+
+        {candidatesParams !== null && (
+          <>
+            {candidatesQuery.isLoading && <LoadingGate className="min-h-0 py-8" label="예약 목록 불러오는 중" />}
+            {!candidatesQuery.isLoading && candidatesQuery.isError && (
+              <div role="alert" className="px-[18px] py-8 text-sm text-charcoal-2">
+                <p>예약 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
+                <button type="button" className="btn btn-ghost mt-2" onClick={() => void candidatesQuery.refetch()}>
+                  다시 시도
                 </button>
               </div>
-            </div>
-          )}
-        </>
-      )}
+            )}
+            {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length === 0 && (
+              summaryFilter !== 'ALL' || keyword !== '' ? (
+                <EmptyState icon="🔍" title="조건에 맞는 예약이 없어요" body="검색어나 필터를 바꿔보세요." />
+              ) : (
+                <EmptyState
+                  icon="✅"
+                  title="학교에 제출할 예약이 없어요"
+                  body={'예약을 승인하면 여기에 자동으로 표시돼요.\n대기 중인 신청은 예약 검토 탭에서 처리할 수 있어요.'}
+                  action={
+                    <Link href={toRoute('/admin/facility-bookings?tab=review')} className="btn btn-secondary btn-sm">
+                      예약 검토로 이동
+                    </Link>
+                  }
+                />
+              )
+            )}
+            {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && (
+              <ul>
+                {sections.map((section, sectionIndex) => {
+                  const sectionSelectedCount = deriveSelectedIds(section.bookings, excludedIds).length;
+                  const sectionNeedCount = section.bookings.filter((booking) => booking.selectable).length;
+                  return (
+                    <li
+                      key={section.facilityId}
+                      className={sectionIndex < sections.length - 1 ? 'border-b-8 border-graysoft' : ''}
+                    >
+                      {/* 시설 그룹 헤더(목업 B) — sage-tint 밴드, 배치=시설 단위 제약의 시각화. */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 bg-sage-tint px-[18px] py-[13px]">
+                        <h2 className="text-[14.5px] font-extrabold text-ink-deep">{section.facilityName}</h2>
+                        <p className="text-xs text-charcoal-3">
+                          학교에 제출할 예약 {sectionNeedCount}건 · 선택 {sectionSelectedCount}건
+                        </p>
+                      </div>
+                      <div className={view === 'list' ? 'px-2 py-2' : 'px-[18px] py-3'}>
+                        {view === 'list' ? (
+                          <SubmissionClubGroupList
+                            bookings={section.bookings}
+                            selection={selectedIdSet}
+                            onToggleSelect={toggleSelect}
+                            onToggleMany={toggleMany}
+                            onShowDetail={setDetailBooking}
+                          />
+                        ) : (
+                          <SubmissionTimetable
+                            bookings={section.bookings}
+                            facilityName={section.facilityName}
+                            selection={selectedIdSet}
+                            onToggleSelect={toggleSelect}
+                            onShowDetail={setDetailBooking}
+                          />
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </>
+        )}
+      </ConsoleCard>
 
       <SubmissionDetailSheet
         booking={detailBooking}

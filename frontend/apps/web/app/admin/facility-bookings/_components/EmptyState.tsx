@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-/** 빈 상태 공용 패턴(개편 스펙 §9) — 아이콘+제목+본문+다음 행동 버튼으로 막다른 화면을 없앤다. */
+/** 빈 상태(목업 EmptyState) — 카드(ConsoleCard) 안에서 아이콘 40px·제목·본문·다음 행동 버튼으로 구성한다. */
 export function EmptyState({
   icon = '📭',
   title,
@@ -13,15 +13,17 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-line bg-paper px-6 py-12 text-center">
-      <p aria-hidden className="text-3xl">
+    <div className="px-6 py-14 text-center">
+      <p aria-hidden className="mb-3.5 text-[40px] leading-none opacity-90">
         {icon}
       </p>
-      <p className="mt-3 text-sm font-medium text-ink-deep">{title}</p>
+      <p className="text-[15.5px] font-bold text-ink-deep">{title}</p>
       {body !== undefined && (
-        <p className="mx-auto mt-1.5 max-w-xs whitespace-pre-line text-xs leading-relaxed text-charcoal-3">{body}</p>
+        <p className="mx-auto mt-2 max-w-[360px] whitespace-pre-line text-[13px] leading-relaxed text-charcoal-3">
+          {body}
+        </p>
       )}
-      {action !== undefined && <div className="mt-4 flex justify-center">{action}</div>}
+      {action !== undefined && <div className="mt-5 flex justify-center">{action}</div>}
     </div>
   );
 }

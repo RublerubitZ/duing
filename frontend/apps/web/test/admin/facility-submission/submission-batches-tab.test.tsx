@@ -97,7 +97,7 @@ describe('SubmissionBatchesTab', () => {
     expect(within(row).getByText('8월 1차 제출')).toBeInTheDocument();
     expect(within(row).getByText('SUB-20260801-001 · 관리자')).toBeInTheDocument();
     expect(within(row).getByText('강당')).toBeInTheDocument();
-    expect(within(row).getByText('3')).toBeInTheDocument();
+    expect(within(row).getByText('3건')).toBeInTheDocument();
     expect(within(row).getByText('2026.08.02')).toBeInTheDocument();
     expect(within(row).getByText('제출 대기')).toBeInTheDocument();
     // 첫 페이지 진입은 page:0·size:10 으로 조회한다.

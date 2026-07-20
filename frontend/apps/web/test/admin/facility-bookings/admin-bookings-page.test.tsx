@@ -256,7 +256,7 @@ describe('AdminFacilityBookingsPage', () => {
     render(<AdminFacilityBookingsPage />);
 
     expect(screen.getByText('#55')).toBeInTheDocument();
-    expect(screen.getByText('120명')).toBeInTheDocument();
+    expect(screen.getByText('· 120명')).toBeInTheDocument();
     expect(screen.getByText('학교 반영 대기 D+8')).toBeInTheDocument();
     expect(screen.getByText('충돌 의심')).toBeInTheDocument();
     expect(screen.getByText('부분 반영')).toBeInTheDocument();

@@ -107,12 +107,12 @@ describe('SubmissionPrepareTab', () => {
     const rowCheckbox = screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ });
     const createBarButton = () => screen.getByRole('button', { name: /^제출 목록 만들기/ });
     expect(rowCheckbox).toBeChecked();
-    expect(screen.getByText('선택 1건 · 시설 1곳')).toBeInTheDocument();
+    expect(screen.getByText('1건 선택됨 · 시설 1곳')).toBeInTheDocument();
     expect(createBarButton()).toBeEnabled();
 
     fireEvent.click(rowCheckbox);
     expect(rowCheckbox).not.toBeChecked();
-    expect(screen.getByText('선택 0건')).toBeInTheDocument();
+    expect(screen.getByText('0건 선택됨')).toBeInTheDocument();
     expect(createBarButton()).toBeDisabled();
   });
 
@@ -126,25 +126,25 @@ describe('SubmissionPrepareTab', () => {
     fireEvent.click(rowCheckbox);
     expect(rowCheckbox).not.toBeChecked();
     expect(groupCheckbox).not.toBeChecked();
-    expect(screen.getByText('선택 0건')).toBeInTheDocument();
+    expect(screen.getByText('0건 선택됨')).toBeInTheDocument();
 
     fireEvent.click(groupCheckbox);
     expect(rowCheckbox).toBeChecked();
     expect(groupCheckbox).toBeChecked();
-    expect(screen.getByText('선택 1건 · 시설 1곳')).toBeInTheDocument();
+    expect(screen.getByText('1건 선택됨 · 시설 1곳')).toBeInTheDocument();
   });
 
   it('요약 바의 전체 해제·전체 선택이 보이는 selectable 예약 전체에 작용한다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeMultiFacilityResponse()));
     render(<SubmissionPrepareTab />);
 
-    expect(screen.getByText('선택 2건 · 시설 2곳')).toBeInTheDocument();
+    expect(screen.getByText('2건 선택됨 · 시설 2곳')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '전체 해제' }));
-    expect(screen.getByText('선택 0건')).toBeInTheDocument();
+    expect(screen.getByText('0건 선택됨')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '전체 선택' }));
-    expect(screen.getByText('선택 2건 · 시설 2곳')).toBeInTheDocument();
+    expect(screen.getByText('2건 선택됨 · 시설 2곳')).toBeInTheDocument();
   });
 
   it('검색으로 화면에서 사라진 예약의 제외 상태는 정리된다 — 검색 해제 시 기본 선택으로 복귀', () => {
@@ -310,6 +310,6 @@ describe('SubmissionPrepareTab', () => {
     // (성공 시설의 이탈은 실제 재조회가 담당 — 이 테스트의 candidates 목은 정적이라 그 경로는 다루지 않는다.)
     fireEvent.click(screen.getByRole('button', { name: '닫기' }));
     expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).toBeChecked();
-    expect(screen.getByText('선택 2건 · 시설 2곳')).toBeInTheDocument();
+    expect(screen.getByText('2건 선택됨 · 시설 2곳')).toBeInTheDocument();
   });
 });
