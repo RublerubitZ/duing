@@ -13,6 +13,8 @@ import type {
 
 export const adminQueryKeys = {
   all: ['admin'] as const,
+  // 사이드바 뱃지 — 각 도메인 처리 뮤테이션이 성공하면 이 키만 무효화해 뱃지를 즉시 줄인다.
+  pendingCounts: () => ['admin', 'pending-counts'] as const,
   clubsAll: ['admin', 'clubs'] as const,
   clubsList: (params: AdminClubSearchParams) =>
     [...adminQueryKeys.clubsAll, 'list', params] as const,

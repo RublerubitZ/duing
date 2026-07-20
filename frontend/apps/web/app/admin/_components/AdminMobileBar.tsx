@@ -23,7 +23,7 @@ export function AdminMobileBar() {
 
   return (
     <>
-      <div className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b border-charcoal-1 bg-white px-4 py-2.5">
+      <div className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-paper px-4 py-2.5">
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
@@ -56,7 +56,7 @@ export function AdminMobileBar() {
           side="left"
           hideClose
           aria-describedby={undefined}
-          className="duing w-[82%] max-w-[300px] border-charcoal-1 bg-white py-6"
+          className="duing w-[82%] max-w-[300px] border-line bg-paper-warm px-3 py-6"
         >
           <SheetTitle className="sr-only">관리 메뉴</SheetTitle>
           {/* 내비 링크(앵커) 클릭 시 드로어를 닫는다. */}
@@ -67,6 +67,7 @@ export function AdminMobileBar() {
               }
             }}
           >
+            {/* 드로어는 폭이 충분하므로 접힘을 적용하지 않는다(데스크탑 사이드바 전용 상태). */}
             <AdminNavContent />
           </div>
         </SheetContent>

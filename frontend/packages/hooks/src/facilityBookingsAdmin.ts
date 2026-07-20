@@ -47,6 +47,8 @@ function useAdminBookingInvalidation() {
     void queryClient.invalidateQueries({ queryKey: facilityQueryKeys.availabilityAll() });
     // 승인/반려/취소는 학교 제출 후보(제출 필요 목록)의 파생에도 반영된다 — 교차 무효화(PR-2 최종 리뷰 이월).
     void queryClient.invalidateQueries({ queryKey: adminQueryKeys.facilitySubmissionAll });
+    // 사이드바 뱃지 — 승인/반려/취소·충돌 처리 즉시 숫자가 줄어야 한다.
+    void queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
   };
 }
 

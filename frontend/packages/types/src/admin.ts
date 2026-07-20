@@ -360,3 +360,19 @@ export type PromotionCard = {
   imageAltText: string | null;
   notice: PublicPromotionNoticeRef | null;
 };
+
+/**
+ * GET /admin/pending-counts 응답. 관리자 콘솔 사이드바 뱃지용 도메인별 미처리 건수.
+ *
+ * "무엇이 미처리인가" 는 서버가 정한다 — 예를 들어 inquiryUnanswered 는 접수(RECEIVED)뿐 아니라
+ * 관리자가 답변을 쓰기 시작한 상태(IN_PROGRESS)까지 포함한 합산값이다. 화면은 숫자만 그린다.
+ */
+export type AdminPendingCounts = {
+  clubApproval: number;
+  facilityBooking: number;
+  inquiryUnanswered: number;
+  promotionRequest: number;
+  reportUnresolved: number;
+  leaderSuccession: number;
+  totalPendingCount: number;
+};
