@@ -37,7 +37,13 @@ export function BookingManagementTab() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(0);
-  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
+  // 모달 대상 + 이웃 스냅샷(개편 스펙 §3) — 열람·탐색 시점의 큐 기준으로 고정한다.
+  // 파생 계산이면 액션 성공 → refetch 로 행이 큐에서 빠지는 즉시 이전/다음이 죽어 연속 검토 동선이 끊긴다.
+  const [selectedBooking, setSelectedBooking] = useState<{
+    bookingId: number;
+    previous: number | null;
+    next: number | null;
+  } | null>(null);
 
   const facilityId = facilityIdInput === '' ? undefined : Number(facilityIdInput);
   const hasQueueFilter = facilityIdInput !== '' || dateFrom !== '' || dateTo !== '';
@@ -93,6 +99,15 @@ export function BookingManagementTab() {
     queueQuery.isLoading || (activeTab === 'CONFLICT_ATTENTION' && suspectedQuery.isLoading);
   const isQueueError =
     queueQuery.isError || (activeTab === 'CONFLICT_ATTENTION' && suspectedQuery.isError);
+
+  const openBooking = (bookingId: number) => {
+    const rowIndex = rows.findIndex((row) => row.bookingId === bookingId);
+    setSelectedBooking({
+      bookingId,
+      previous: rowIndex > 0 ? (rows[rowIndex - 1]?.bookingId ?? null) : null,
+      next: rowIndex !== -1 ? (rows[rowIndex + 1]?.bookingId ?? null) : null,
+    });
+  };
 
   // 마지막 페이지의 유일 항목이 액션으로 상태 전이되면 refetch 결과 totalPages 가 줄어
   // 현재 page 가 범위 밖(빈 목록·Pagination 소실)이 된다. 데이터 변화에 맞춰 page 를 클램프.
@@ -206,7 +221,7 @@ export function BookingManagementTab() {
         />
       )}
       {!isQueueLoading && !isQueueError && rows.length > 0 && (
-        <AdminBookingQueueTable rows={rows} onSelect={setSelectedBookingId} />
+        <AdminBookingQueueTable rows={rows} onSelect={openBooking} />
       )}
 
       {totalPages > 1 && (
@@ -220,10 +235,14 @@ export function BookingManagementTab() {
         />
       )}
 
-      {selectedBookingId !== null && (
+      {selectedBooking !== null && (
+        // key=bookingId — 이전/다음 이동 시 리마운트로 액션·충돌 패널 등 모달 내부 상태를 초기화한다.
         <AdminBookingDetailModal
-          bookingId={selectedBookingId}
-          onClose={() => setSelectedBookingId(null)}
+          key={selectedBooking.bookingId}
+          bookingId={selectedBooking.bookingId}
+          neighborIds={{ previous: selectedBooking.previous, next: selectedBooking.next }}
+          onNavigate={openBooking}
+          onClose={() => setSelectedBooking(null)}
         />
       )}
     </section>

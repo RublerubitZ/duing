@@ -35,7 +35,12 @@ export function isFacilityBookingConflictPayload(payload: unknown): payload is F
   return payload.crawlBasisAt === null || typeof payload.crawlBasisAt === 'string';
 }
 
-export type SlotStripCell = { hour: number; inRequest: boolean; overlapSource: string | null };
+export type SlotStripCell = {
+  hour: number;
+  inRequest: boolean;
+  overlapSource: string | null;
+  overlapOrganization: string | null; // 겹치는 칸의 점유 조직명 — 스트립 셀에 표기(개편 스펙 §3)
+};
 
 export function buildSlotStrip(input: {
   startTime: string;
@@ -53,6 +58,7 @@ export function buildSlotStrip(input: {
       hour,
       inRequest: requestStart <= hour && hour < requestEnd,
       overlapSource: overlap ? overlap.source : null,
+      overlapOrganization: overlap && overlap.organization !== '' ? overlap.organization : null,
     };
   });
 }

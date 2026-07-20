@@ -11,7 +11,7 @@ import {
   useMarkConflictFacilityBookingMutation,
   useRejectFacilityBookingMutation,
 } from '@duing/hooks';
-import type { FacilityBookingConflictPayload } from '@duing/types';
+import type { AdminBookingOverlapItem, FacilityBookingConflictPayload } from '@duing/types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -68,9 +68,65 @@ const ACTION_META: Record<
   },
 };
 
-type Props = { bookingId: number; onClose: () => void };
+/** 검증 3카드(개편 스펙 §3) — 슬롯 스트립을 해석하기 전에 겹침 검사 결론부터 보여준다. */
+function ValidationCards({
+  overlaps,
+  overlappingPendingCount,
+}: {
+  overlaps: AdminBookingOverlapItem[];
+  overlappingPendingCount: number;
+}) {
+  const checks = [
+    { label: '학교 일정 겹침', count: overlaps.filter((item) => item.source === 'SCHOOL').length },
+    { label: '내부 승인 예약 겹침', count: overlaps.filter((item) => item.source === 'INTERNAL').length },
+    { label: '같은 시간대 대기', count: overlappingPendingCount },
+  ];
+  return (
+    <div>
+      <div className="grid grid-cols-3 gap-2">
+        {checks.map((check) => (
+          <div
+            key={check.label}
+            className={`rounded-md border px-2.5 py-2 ${
+              check.count > 0 ? 'border-coral/40 bg-coral/5' : 'border-line bg-paper'
+            }`}
+          >
+            <p className="text-[11px] text-charcoal-3">{check.label}</p>
+            <p className={`mt-0.5 text-sm font-bold ${check.count > 0 ? 'text-coral' : 'text-ink'}`}>
+              {check.count > 0 ? `⚠ ${check.count}건` : '없음'}
+            </p>
+          </div>
+        ))}
+      </div>
+      {overlappingPendingCount > 0 && (
+        <p className="mt-1.5 text-xs text-charcoal-3">승인 후 겹치는 대기 신청은 수동으로 거절해주세요.</p>
+      )}
+    </div>
+  );
+}
 
-export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
+/** 충돌 패널 → 거절 바로가기의 사유 프리필(수정 가능) — 500자 상한은 요약부만 잘라 문장 끝을 보존한다. */
+function conflictRejectReason(payload: FacilityBookingConflictPayload): string {
+  const prefix = '학교 예약(';
+  const suffix = ')과 시간이 겹쳐 승인이 어렵습니다.';
+  const conflictSummary = payload.conflicts
+    .map((conflict) => `${conflict.organization} ${conflict.start}~${conflict.end}`)
+    .join(', ');
+  const summaryBudget = 500 - prefix.length - suffix.length;
+  return `${prefix}${conflictSummary.slice(0, summaryBudget)}${suffix}`;
+}
+
+type NeighborIds = { previous: number | null; next: number | null };
+
+type Props = {
+  bookingId: number;
+  onClose: () => void;
+  /** 현재 큐(필터·정렬 기준)의 이웃 예약 — onNavigate 와 함께 지정하면 헤더에 이전/다음 탐색을 노출(개편 스펙 §3). */
+  neighborIds?: NeighborIds;
+  onNavigate?: (bookingId: number) => void;
+};
+
+export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNavigate }: Props) {
   const detailQuery = useAdminFacilityBookingDetailQuery(bookingId);
   const approveMutation = useApproveFacilityBookingMutation();
   const rejectMutation = useRejectFacilityBookingMutation();
@@ -82,6 +138,8 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
   const [activeAction, setActiveAction] = useState<ActionKind | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [conflictPayload, setConflictPayload] = useState<FacilityBookingConflictPayload | null>(null);
+  // 충돌 패널의 '충돌 사유로 거절' 바로가기가 채우는 사유 프리필 — 일반 거절 진입은 빈 값 유지.
+  const [rejectPrefill, setRejectPrefill] = useState<string | null>(null);
 
   const detail = detailQuery.data;
 
@@ -115,6 +173,7 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
       onSuccess: () => {
         addToast(ACTION_META[kind].successMessage);
         setActiveAction(null);
+        setRejectPrefill(null);
       },
       onError: (error: unknown) => {
         if (
@@ -147,6 +206,11 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
           : detail?.status === 'CONFIRMED'
             ? ['cancel']
             : [];
+  const footerLeftActions: ActionKind[] =
+    availableActions.length > 1
+      ? availableActions.filter((kind) => kind === 'cancel' || kind === 'markConflict')
+      : [];
+  const footerRightActions = availableActions.filter((kind) => !footerLeftActions.includes(kind));
 
   return (
     <>
@@ -157,10 +221,37 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
         }}
       >
         <DialogContent
-          className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto"
+          className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto"
           aria-describedby={undefined}
         >
-          <DialogTitle>예약 신청 검토</DialogTitle>
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle>예약 신청 검토</DialogTitle>
+            {/* 대기 건 연속 검토(개편 스펙 §3) — 모달을 닫지 않고 현재 큐의 이웃 예약으로 이동한다. */}
+            {neighborIds !== undefined && onNavigate !== undefined && (
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={neighborIds.previous === null || isActionPending}
+                  onClick={() => {
+                    if (neighborIds.previous !== null) onNavigate(neighborIds.previous);
+                  }}
+                >
+                  ← 이전
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={neighborIds.next === null || isActionPending}
+                  onClick={() => {
+                    if (neighborIds.next !== null) onNavigate(neighborIds.next);
+                  }}
+                >
+                  다음 →
+                </button>
+              </div>
+            )}
+          </div>
 
           {detailQuery.isLoading && <LoadingGate className="min-h-0 py-8" label="예약 상세 불러오는 중" />}
           {detailQuery.isError && (
@@ -192,21 +283,19 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
                 {detail.conflictDetail && <p className="mt-1 text-xs text-coral">충돌 상세 — {detail.conflictDetail}</p>}
               </div>
 
-              {/* 크롤 신선도(§5.2) */}
+              {/* 크롤 신선도(§5.2) — 승인은 저장된 스냅샷 기준 검증이므로 '재검증' 대신 사실대로 서술한다(개편 스펙 §3). */}
               <div
                 role={detail.stale ? 'alert' : undefined}
                 className={`rounded-md px-3 py-2 text-xs ${detail.stale ? 'bg-coral/10 text-coral' : 'bg-graysoft/60 text-charcoal-3'}`}
               >
-                {crawlFreshnessLabel(detail.crawlBasisAt, new Date())}
-                {detail.stale && ' — 최신 크롤링을 확인하지 못했습니다. 마지막 수집 데이터를 기준으로 판단하세요.'}
+                {detail.stale
+                  ? `${crawlFreshnessLabel(detail.crawlBasisAt, new Date())} — 최신 크롤링을 확인하지 못했습니다. 마지막 수집 데이터를 기준으로 판단하세요.`
+                  : `학교 데이터 기준 · ${crawlFreshnessLabel(detail.crawlBasisAt, new Date())} — 승인 시점에 이 데이터로 겹침을 검사합니다.`}
               </div>
 
+              <ValidationCards overlaps={detail.overlaps} overlappingPendingCount={detail.overlappingPendingCount} />
+
               <AdminSlotStrip startTime={detail.startTime} endTime={detail.endTime} overlaps={detail.overlaps} />
-              {detail.overlappingPendingCount > 0 && (
-                <p className="text-xs text-charcoal-3">
-                  같은 시간대 대기 신청 {detail.overlappingPendingCount}건 — 승인 후 겹치는 대기 신청은 수동으로 거절해주세요.
-                </p>
-              )}
 
               {/* 승인 409 충돌 패널(§8.3) */}
               {conflictPayload && (
@@ -223,6 +312,21 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
                     <p className="mt-1">기준 수집 시각 {formatDateTimeKst(conflictPayload.crawlBasisAt)}</p>
                   )}
                   <p className="mt-1">겹침이 해소되기 전에는 승인할 수 없어요 — 아래 다른 액션으로 처리해주세요.</p>
+                  {/* 거절 바로가기(개편 스펙 §3) — 충돌 내용을 사유로 프리필해 재입력을 줄인다. reject 가 가능한 상태(PENDING)에만 노출. */}
+                  {availableActions.includes('reject') && (
+                    <button
+                      type="button"
+                      className="btn btn-sm mt-2 rounded-[10px] bg-coral text-white"
+                      disabled={isActionPending}
+                      onClick={() => {
+                        setRejectPrefill(conflictRejectReason(conflictPayload));
+                        setActionError(null);
+                        setActiveAction('reject');
+                      }}
+                    >
+                      충돌 사유로 거절
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -234,27 +338,36 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
 
               {detail.history.length > 0 && (
                 <div>
-                  <p className="mb-1 text-xs font-medium text-charcoal-3">이력</p>
-                  <ul className="space-y-1 text-xs text-charcoal-2">
+                  <p className="mb-1.5 text-xs font-medium text-charcoal-3">처리 이력</p>
+                  {/* 점+연결선 타임라인(개편 스펙 §3) — 데이터는 현행 유지(행위자 미노출 정책). */}
+                  <ol className="text-xs text-charcoal-2">
                     {detail.history.map((item, index) => (
-                      <li key={`${item.changedAt}-${index}`} className="flex items-baseline justify-between gap-2">
-                        <span>
-                          {BOOKING_STATUS_META[item.newStatus].label}
-                          {item.reason && <span className="text-charcoal-3"> — {item.reason}</span>}
+                      <li key={`${item.changedAt}-${index}`} className="flex gap-2.5 pb-2.5 last:pb-0">
+                        <span aria-hidden className="flex flex-col items-center">
+                          <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-ink" />
+                          {index < detail.history.length - 1 && <span className="w-px flex-1 bg-line" />}
                         </span>
-                        <span className="shrink-0 text-charcoal-3">{formatDateTimeKst(item.changedAt)}</span>
+                        <span className="flex flex-1 items-baseline justify-between gap-2">
+                          <span>
+                            {BOOKING_STATUS_META[item.newStatus].label}
+                            {item.reason && <span className="text-charcoal-3"> — {item.reason}</span>}
+                          </span>
+                          <span className="shrink-0 text-charcoal-3">{formatDateTimeKst(item.changedAt)}</span>
+                        </span>
                       </li>
                     ))}
-                  </ul>
+                  </ol>
                 </div>
               )}
 
-              <div className="flex flex-wrap justify-end gap-2 pt-1">
-                {availableActions.map((kind) => (
+              {/* 푸터 액션 — 파괴적 보조 액션(취소·충돌 전환)은 좌측, 주 액션은 우측 분리(개편 스펙 §3).
+                  단독 액션(CONFIRMED 취소)은 그 상태의 주 액션이므로 우측에 남긴다. */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {footerLeftActions.map((kind) => (
                   <button
                     key={kind}
                     type="button"
-                    className={`btn btn-sm ${ACTION_META[kind].destructive ? 'rounded-[10px] bg-coral text-white' : 'btn-primary'}`}
+                    className="btn btn-ghost btn-sm text-coral"
                     disabled={isActionPending}
                     onClick={() => {
                       setActionError(null);
@@ -264,9 +377,25 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
                     {actionLabel(kind)}
                   </button>
                 ))}
-                <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
-                  닫기
-                </button>
+                <div className="ml-auto flex flex-wrap justify-end gap-2">
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
+                    닫기
+                  </button>
+                  {footerRightActions.map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      className={`btn btn-sm ${ACTION_META[kind].destructive ? 'rounded-[10px] bg-coral text-white' : 'btn-primary'}`}
+                      disabled={isActionPending}
+                      onClick={() => {
+                        setActionError(null);
+                        setActiveAction(kind);
+                      }}
+                    >
+                      {actionLabel(kind)}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -279,12 +408,16 @@ export function AdminBookingDetailModal({ bookingId, onClose }: Props) {
           title={actionLabel(activeAction)}
           description={ACTION_META[activeAction].description}
           reasonLabel={ACTION_META[activeAction].reasonLabel}
+          initialReason={activeAction === 'reject' ? (rejectPrefill ?? undefined) : undefined}
           isPending={mutationOf(activeAction).isPending}
           errorMessage={actionError}
           destructive={ACTION_META[activeAction].destructive}
           onConfirm={(reason) => runAction(activeAction, reason)}
           onClose={() => {
-            if (!mutationOf(activeAction).isPending) setActiveAction(null);
+            if (!mutationOf(activeAction).isPending) {
+              setActiveAction(null);
+              setRejectPrefill(null);
+            }
           }}
         />
       )}
