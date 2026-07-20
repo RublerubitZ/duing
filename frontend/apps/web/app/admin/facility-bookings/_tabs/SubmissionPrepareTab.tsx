@@ -4,13 +4,19 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCreateSubmissionBatchMutation, useSubmissionCandidatesQuery } from '@duing/hooks';
 import type { SubmissionCandidateBooking, SubmissionCandidatesParams } from '@duing/types';
-import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { toRoute } from '../../../_lib/route';
 import { EmptyState } from '../_components/EmptyState';
 import { ViewModeToggle, type SubmissionViewMode } from '../_components/ViewModeToggle';
 import { currentMonthRange } from '../_lib/submissionPeriod';
-import { BatchCreateDialog } from '../submission/_components/BatchCreateDialog';
+import {
+  BatchBulkCreateDialog,
+  type BulkCreateFacilityGroup,
+} from '../submission/_components/BatchBulkCreateDialog';
+import {
+  BatchBulkCreateResultDialog,
+  type BulkCreateOutcome,
+} from '../submission/_components/BatchBulkCreateResultDialog';
 import { SubmissionClubGroupList } from '../submission/_components/SubmissionClubGroupList';
 import { SubmissionDetailSheet } from '../submission/_components/SubmissionDetailSheet';
 import { SubmissionSummaryCards, type SummaryFilter } from '../submission/_components/SubmissionSummaryCards';
@@ -55,10 +61,11 @@ export function SubmissionPrepareTab() {
   // v3 선택 모델 — 제외 집합만 상태로 두고 선택은 파생한다(기본 전체 선택·신규 유입 자동 선택).
   const [excludedIds, setExcludedIds] = useState<ReadonlySet<number>>(new Set());
   const [detailBooking, setDetailBooking] = useState<SubmissionCandidateBooking | null>(null);
-  // 학교 제출 Dialog 는 시설 단위 — 열린 섹션의 시설 정보만 상태로 둔다.
-  const [dialogSection, setDialogSection] = useState<{ facilityId: number; facilityName: string } | null>(null);
+  // 일괄 생성(개편 스펙 §4) — 선택 요약 바 하나로 시설별 배치를 순차 생성한다.
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkOutcomes, setBulkOutcomes] = useState<BulkCreateOutcome[] | null>(null);
   const createMutation = useCreateSubmissionBatchMutation();
-  const { addToast } = useToast();
 
   // startDate/endDate 가 빈 값이면 periodDayCount 가 NaN 을 반환 — 범위 비교(NaN >= 1)는 항상 false 라 아래 한 식으로 NaN·역순·초과·0일을 함께 차단한다.
   const periodDays = periodDayCount(startDate, endDate);
@@ -80,6 +87,18 @@ export function SubmissionPrepareTab() {
   const visibleBookings = searchedBookings.filter((booking) => matchesFilter(booking, summaryFilter));
   const sections = buildFacilitySections(visibleBookings);
   const selectedIdSet = new Set(deriveSelectedIds(visibleBookings, excludedIds));
+  // 선택 요약 바·일괄 생성용 파생 — 배치=단일 시설 제약이라 시설별로 분해해 둔다.
+  const selectedFacilityGroups: BulkCreateFacilityGroup[] = sections
+    .map((section) => ({
+      facilityId: section.facilityId,
+      facilityName: section.facilityName,
+      bookingIds: deriveSelectedIds(section.bookings, excludedIds),
+    }))
+    .filter((group) => group.bookingIds.length > 0);
+  const selectedTotalCount = selectedFacilityGroups.reduce((sum, group) => sum + group.bookingIds.length, 0);
+  const visibleSelectableIds = visibleBookings
+    .filter((booking) => booking.selectable)
+    .map((booking) => booking.bookingId);
 
   // 제출 상태 셀렉트는 필터의 3값(전체/학교에 제출할 예약/제출 목록에 담긴 예약)만 표현 — 카드 확장값(APPROVED/CONFIRMED)일 땐 '전체' 표시.
   const statusFilterValue: SubmissionStatusFilter =
@@ -120,23 +139,42 @@ export function SubmissionPrepareTab() {
       return next;
     });
 
-  const handleSubmitConfirm = async (memo: string) => {
-    if (dialogSection === null) return;
-    const sectionBookings = visibleBookings.filter((booking) => booking.facilityId === dialogSection.facilityId);
-    const bookingIds = deriveSelectedIds(sectionBookings, excludedIds);
-    if (bookingIds.length === 0) return;
-    try {
-      await createMutation.mutateAsync({
-        bookingIds,
-        memo: memo.trim() === '' ? undefined : memo.trim(),
-      });
-      setDialogSection(null);
-      // excluded 정리는 별도 불필요 — 제출된 예약은 재조회 후 selectable 에서 빠지고, 화면 기준
-      // 프루닝 이펙트가 잔재를 정리한다(세션 상태 누적 방지 규약).
-      addToast("제출 목록이 만들어졌어요. 학교 제출 후 '제출 대기' 탭에서 완료 처리해 주세요.");
-    } catch (error) {
-      addToast(submissionErrorMessage(error), { variant: 'error' });
+  // 시설별 순차 생성(개편 스펙 §4) — 부분 실패를 시설 단위로 보고한다. 성공한 시설의 예약은
+  // 재조회 후 selectable 에서 빠지고 실패한 시설의 예약은 기본 선택으로 남아 바로 재시도할 수 있다.
+  const handleBulkCreate = async (
+    groups: BulkCreateFacilityGroup[],
+    memoByFacilityId: ReadonlyMap<number, string>,
+  ) => {
+    if (groups.length === 0) return;
+    setBulkSubmitting(true);
+    const outcomes: BulkCreateOutcome[] = [];
+    for (const group of groups) {
+      const memo = (memoByFacilityId.get(group.facilityId) ?? '').trim();
+      try {
+        const createdBatch = await createMutation.mutateAsync({
+          bookingIds: group.bookingIds,
+          memo: memo === '' ? undefined : memo,
+        });
+        outcomes.push({
+          facilityId: group.facilityId,
+          facilityName: group.facilityName,
+          bookingCount: group.bookingIds.length,
+          batch: createdBatch,
+          errorMessage: null,
+        });
+      } catch (error) {
+        outcomes.push({
+          facilityId: group.facilityId,
+          facilityName: group.facilityName,
+          bookingCount: group.bookingIds.length,
+          batch: null,
+          errorMessage: submissionErrorMessage(error),
+        });
+      }
     }
+    setBulkSubmitting(false);
+    setBulkDialogOpen(false);
+    setBulkOutcomes(outcomes);
   };
 
   return (
@@ -221,21 +259,11 @@ export function SubmissionPrepareTab() {
                 const sectionNeedCount = section.bookings.filter((booking) => booking.selectable).length;
                 return (
                   <li key={section.facilityId} className="space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <h2 className="font-medium text-ink-deep">{section.facilityName}</h2>
-                        <p className="text-xs text-charcoal-3">학교에 제출할 예약 {sectionNeedCount}건</p>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        disabled={sectionSelectedCount === 0}
-                        onClick={() =>
-                          setDialogSection({ facilityId: section.facilityId, facilityName: section.facilityName })
-                        }
-                      >
-                        제출 목록 만들기 ({sectionSelectedCount}건)
-                      </button>
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h2 className="font-medium text-ink-deep">{section.facilityName}</h2>
+                      <p className="text-xs text-charcoal-3">
+                        학교에 제출할 예약 {sectionNeedCount}건 · 선택 {sectionSelectedCount}건
+                      </p>
                     </div>
                     {view === 'list' ? (
                       <SubmissionClubGroupList
@@ -259,6 +287,38 @@ export function SubmissionPrepareTab() {
               })}
             </ul>
           )}
+
+          {/* 선택 요약 고정 바(개편 스펙 §4) — 생성 진입점을 하나로 모은다. 바가 자체 하단 패딩을 소유한다. */}
+          {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && (
+            <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 rounded-t-lg border border-b-0 border-line bg-paper/95 px-3 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] backdrop-blur">
+              <p className="text-sm font-medium tabular-nums text-ink-deep">
+                {`선택 ${selectedTotalCount}건${
+                  selectedFacilityGroups.length > 0 ? ` · 시설 ${selectedFacilityGroups.length}곳` : ''
+                }`}
+              </p>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setExcludedIds(new Set())}>
+                전체 선택
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setExcludedIds(new Set(visibleSelectableIds))}
+              >
+                전체 해제
+              </button>
+              <div className="ml-auto">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={selectedTotalCount === 0}
+                  onClick={() => setBulkDialogOpen(true)}
+                >
+                  제출 목록 만들기
+                  {selectedFacilityGroups.length > 1 ? ` (${selectedFacilityGroups.length}개 시설)` : ''}
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -267,21 +327,19 @@ export function SubmissionPrepareTab() {
         facilityName={detailBooking?.facilityName ?? (detailBooking !== null ? `시설 ${detailBooking.facilityId}` : '')}
         onClose={() => setDetailBooking(null)}
       />
-      <BatchCreateDialog
-        open={dialogSection !== null}
-        facilityName={dialogSection?.facilityName ?? ''}
-        selectedCount={
-          dialogSection === null
-            ? 0
-            : deriveSelectedIds(
-                visibleBookings.filter((booking) => booking.facilityId === dialogSection.facilityId),
-                excludedIds,
-              ).length
-        }
-        isPending={createMutation.isPending}
-        onClose={() => setDialogSection(null)}
-        onConfirm={(memo) => void handleSubmitConfirm(memo)}
-      />
+      {bulkDialogOpen && (
+        <BatchBulkCreateDialog
+          groups={selectedFacilityGroups}
+          isPending={bulkSubmitting}
+          onClose={() => {
+            if (!bulkSubmitting) setBulkDialogOpen(false);
+          }}
+          onConfirm={(groups, memoByFacilityId) => void handleBulkCreate(groups, memoByFacilityId)}
+        />
+      )}
+      {bulkOutcomes !== null && (
+        <BatchBulkCreateResultDialog outcomes={bulkOutcomes} onClose={() => setBulkOutcomes(null)} />
+      )}
     </div>
   );
 }

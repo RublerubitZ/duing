@@ -3,6 +3,7 @@ import type { SubmissionBatchSummary } from '@duing/types';
 import {
   AUDIT_ACTION_LABELS,
   BATCH_STATUS_META,
+  defaultBatchMemo,
   deriveBatchStatus,
   submissionCsvFileName,
 } from '../../../app/admin/facility-bookings/submission/_lib/submissionBatches';
@@ -57,6 +58,14 @@ describe('BATCH_STATUS_META', () => {
     expect(BATCH_STATUS_META.REVIEWING.label).toBe('제출 대기');
     expect(BATCH_STATUS_META.COMPLETED.label).toBe('제출 완료');
     expect(BATCH_STATUS_META.CANCELLED.label).toBe('취소됨');
+  });
+});
+
+describe('defaultBatchMemo', () => {
+  it('오늘 날짜 기준 "M월 N주차 · 시설명"을 만든다 — 월말(29~31일)은 5주차', () => {
+    expect(defaultBatchMemo('강당', new Date(2026, 6, 1))).toBe('7월 1주차 · 강당');
+    expect(defaultBatchMemo('강당', new Date(2026, 6, 20))).toBe('7월 3주차 · 강당');
+    expect(defaultBatchMemo('세미나실', new Date(2026, 6, 31))).toBe('7월 5주차 · 세미나실');
   });
 });
 

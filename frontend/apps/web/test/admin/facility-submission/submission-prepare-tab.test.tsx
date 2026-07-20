@@ -1,15 +1,23 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SubmissionCandidatesResponse } from '@duing/types';
 
 const mockCandidatesQuery = vi.fn();
 const mockCreateMutation = vi.fn();
+const mockCsvMutateAsync = vi.fn();
+const mockDownloadBlobFile = vi.fn();
 const mockAddToast = vi.fn();
 
 vi.mock('@duing/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@duing/hooks')>()),
   useSubmissionCandidatesQuery: (...args: unknown[]) => mockCandidatesQuery(...args),
   useCreateSubmissionBatchMutation: () => mockCreateMutation(),
+  // 생성 결과 다이얼로그의 CSV 바로 받기용 — 실 blob 다운로드는 jsdom 에서 불가해 스텁한다.
+  useDownloadSubmissionCsvMutation: () => ({ mutateAsync: mockCsvMutateAsync, isPending: false, variables: undefined }),
+}));
+
+vi.mock('@/app/_lib/downloadFile', () => ({
+  downloadBlobFile: (...args: unknown[]) => mockDownloadBlobFile(...args),
 }));
 
 vi.mock('@/app/_components/toast/ToastProvider', () => ({
@@ -63,19 +71,14 @@ const querySuccess = (response: SubmissionCandidatesResponse) => ({
 });
 const queryIdle = { data: undefined, isLoading: false, isSuccess: false, isError: false, refetch: vi.fn() };
 
-/** 시설별 섹션 <li> — 같은 라벨의 "제출 목록 만들기" 버튼이 여러 섹션에 있어 섹션 단위로 좁혀 조회한다. */
-function sectionOf(facilityName: string): HTMLElement {
-  const section = screen.getByRole('heading', { name: facilityName }).closest('li');
-  if (section === null) throw new Error(`섹션(${facilityName})을 찾지 못했습니다`);
-  return section;
-}
-
 describe('SubmissionPrepareTab', () => {
   beforeEach(() => {
     mockCandidatesQuery.mockReset();
     mockCandidatesQuery.mockReturnValue(queryIdle);
     mockCreateMutation.mockReset();
     mockCreateMutation.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+    mockCsvMutateAsync.mockReset();
+    mockDownloadBlobFile.mockReset();
     mockAddToast.mockReset();
   });
 
@@ -97,20 +100,20 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.getByText(/학교에 제출할 예약 1건/)).toBeInTheDocument();
   });
 
-  it('제출 필요 예약은 기본 전체 선택이고, 체크 해제는 제외로 동작한다', () => {
+  it('제출 필요 예약은 기본 전체 선택이고, 체크 해제는 제외로 동작해 요약 바에 반영된다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
     const rowCheckbox = screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ });
-    const dangSubmitButton = () => within(sectionOf('강당')).getByRole('button', { name: /제출 목록 만들기/ });
+    const createBarButton = () => screen.getByRole('button', { name: /^제출 목록 만들기/ });
     expect(rowCheckbox).toBeChecked();
-    expect(dangSubmitButton()).toHaveTextContent('제출 목록 만들기 (1건)');
-    expect(dangSubmitButton()).toBeEnabled();
+    expect(screen.getByText('선택 1건 · 시설 1곳')).toBeInTheDocument();
+    expect(createBarButton()).toBeEnabled();
 
     fireEvent.click(rowCheckbox);
     expect(rowCheckbox).not.toBeChecked();
-    expect(dangSubmitButton()).toHaveTextContent('제출 목록 만들기 (0건)');
-    expect(dangSubmitButton()).toBeDisabled();
+    expect(screen.getByText('선택 0건')).toBeInTheDocument();
+    expect(createBarButton()).toBeDisabled();
   });
 
   it('그룹 헤더 전체 선택 체크박스를 다시 클릭하면 제외된 예약이 전원 재선택된다', () => {
@@ -119,17 +122,29 @@ describe('SubmissionPrepareTab', () => {
 
     const rowCheckbox = screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ });
     const groupCheckbox = screen.getByRole('checkbox', { name: '밴드부 전체 선택' });
-    const dangSubmitButton = () => within(sectionOf('강당')).getByRole('button', { name: /제출 목록 만들기/ });
 
     fireEvent.click(rowCheckbox);
     expect(rowCheckbox).not.toBeChecked();
     expect(groupCheckbox).not.toBeChecked();
-    expect(dangSubmitButton()).toHaveTextContent('제출 목록 만들기 (0건)');
+    expect(screen.getByText('선택 0건')).toBeInTheDocument();
 
     fireEvent.click(groupCheckbox);
     expect(rowCheckbox).toBeChecked();
     expect(groupCheckbox).toBeChecked();
-    expect(dangSubmitButton()).toHaveTextContent('제출 목록 만들기 (1건)');
+    expect(screen.getByText('선택 1건 · 시설 1곳')).toBeInTheDocument();
+  });
+
+  it('요약 바의 전체 해제·전체 선택이 보이는 selectable 예약 전체에 작용한다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeMultiFacilityResponse()));
+    render(<SubmissionPrepareTab />);
+
+    expect(screen.getByText('선택 2건 · 시설 2곳')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '전체 해제' }));
+    expect(screen.getByText('선택 0건')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '전체 선택' }));
+    expect(screen.getByText('선택 2건 · 시설 2곳')).toBeInTheDocument();
   });
 
   it('검색으로 화면에서 사라진 예약의 제외 상태는 정리된다 — 검색 해제 시 기본 선택으로 복귀', () => {
@@ -212,29 +227,48 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.getAllByRole('columnheader', { name: '09' }).length).toBeGreaterThan(0);
   });
 
-  it('제출 목록 만들기 확인까지 진행하면 그 시설의 선택 예약으로 제출 목록이 만들어진다', async () => {
+  it('일괄 생성: 메모 프리필을 고쳐 확정하면 시설별 예약으로 생성되고 결과에서 CSV 를 바로 받는다', async () => {
     const createMutateAsync = vi.fn().mockResolvedValue({
       batchId: 7, submissionNo: 'SUB-20260801-002', csvFileName: 'facility-submission-SUB-20260801-002.csv',
     });
     mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
+    mockCsvMutateAsync.mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
-    fireEvent.click(screen.getByRole('button', { name: /제출 목록 만들기 \(1건\)/ }));
-    expect(screen.getByText(/강당 예약 1건으로 제출 목록을 만들까요/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('메모'), { target: { value: '8월 1차' } });
-    fireEvent.click(screen.getByRole('button', { name: '제출 목록 만들기' }));
+    fireEvent.click(screen.getByRole('button', { name: /^제출 목록 만들기/ }));
+    expect(screen.getByText('제출 목록을 만들까요?')).toBeInTheDocument();
+
+    // 메모는 "M월 N주차 · 시설명" 프리필(수정 가능) — 절대 날짜 대신 오늘 기준으로 계산해 단언한다.
+    const today = new Date();
+    const expectedPrefill = `${today.getMonth() + 1}월 ${Math.ceil(today.getDate() / 7)}주차 · 강당`;
+    const memoInput = screen.getByLabelText('강당 메모');
+    expect(memoInput).toHaveValue(expectedPrefill);
+    fireEvent.change(memoInput, { target: { value: '8월 1차' } });
+    fireEvent.click(screen.getByRole('button', { name: '목록 만들기' }));
 
     await waitFor(() => {
       expect(createMutateAsync).toHaveBeenCalledWith({ bookingIds: [1], memo: '8월 1차' });
-      expect(mockAddToast).toHaveBeenCalledWith(
-        "제출 목록이 만들어졌어요. 학교 제출 후 '제출 대기' 탭에서 완료 처리해 주세요.",
+    });
+
+    // 생성 결과 다이얼로그 — 제출번호·CSV 바로 받기·제출 대기 이동
+    expect(await screen.findByText('제출 목록 1개가 만들어졌어요')).toBeInTheDocument();
+    expect(screen.getByText(/SUB-20260801-002/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '제출 대기로 이동' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('?tab=ready'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'CSV 받기' }));
+    await waitFor(() => {
+      expect(mockCsvMutateAsync).toHaveBeenCalledWith({ batchId: 7 });
+      expect(mockDownloadBlobFile).toHaveBeenCalledWith(
+        'facility-submission-SUB-20260801-002.csv',
+        expect.any(Blob),
       );
     });
-    expect(mockAddToast).toHaveBeenCalledTimes(1);
   });
 
-  it('다른 시설도 선택 예약이 있을 때, 제출 목록 만들기는 해당 섹션 시설의 예약만 전송한다', async () => {
+  it('여러 시설 선택 시 시설별로 순차 생성한다 — 배치=단일 시설 제약 준수', async () => {
     const createMutateAsync = vi.fn().mockResolvedValue({
       batchId: 8, submissionNo: 'SUB-20260801-003', csvFileName: 'facility-submission-SUB-20260801-003.csv',
     });
@@ -242,26 +276,40 @@ describe('SubmissionPrepareTab', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeMultiFacilityResponse()));
     render(<SubmissionPrepareTab />);
 
-    // 강당·세미나실 모두 selectable 예약이 기본 전체 선택 상태 — 라벨 문구가 같아 섹션 단위로 좁혀 클릭한다.
-    fireEvent.click(within(sectionOf('강당')).getByRole('button', { name: /제출 목록 만들기 \(1건\)/ }));
-    expect(screen.getByText(/강당 예약 1건으로 제출 목록을 만들까요/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '제출 목록 만들기' }));
+    fireEvent.click(screen.getByRole('button', { name: '제출 목록 만들기 (2개 시설)' }));
+    expect(screen.getByText('제출 목록 2개를 만들까요?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '목록 만들기' }));
 
+    const today = new Date();
+    const weekPrefix = `${today.getMonth() + 1}월 ${Math.ceil(today.getDate() / 7)}주차`;
     await waitFor(() => {
-      expect(createMutateAsync).toHaveBeenCalledWith({ bookingIds: [1], memo: undefined });
+      expect(createMutateAsync).toHaveBeenNthCalledWith(1, { bookingIds: [1], memo: `${weekPrefix} · 강당` });
+      expect(createMutateAsync).toHaveBeenNthCalledWith(2, { bookingIds: [3], memo: `${weekPrefix} · 세미나실` });
     });
   });
 
-  it('생성 실패 시 서버 메시지 에러 토스트를 띄운다', async () => {
-    const createMutateAsync = vi.fn().mockRejectedValue(new Error('이미 제출된 예약이 포함되어 있습니다.'));
+  it('일부 시설 생성 실패 시 결과 다이얼로그에 시설별 성공·실패가 구분 표기된다', async () => {
+    const createMutateAsync = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('이미 제출된 예약이 포함되어 있습니다.'))
+      .mockResolvedValueOnce({
+        batchId: 9, submissionNo: 'SUB-20260801-004', csvFileName: 'facility-submission-SUB-20260801-004.csv',
+      });
     mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
-    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeMultiFacilityResponse()));
     render(<SubmissionPrepareTab />);
-    fireEvent.click(screen.getByRole('button', { name: /제출 목록 만들기 \(1건\)/ }));
-    fireEvent.click(screen.getByRole('button', { name: '제출 목록 만들기' }));
 
-    await waitFor(() => {
-      expect(mockAddToast).toHaveBeenCalledWith('이미 제출된 예약이 포함되어 있습니다.', { variant: 'error' });
-    });
+    fireEvent.click(screen.getByRole('button', { name: '제출 목록 만들기 (2개 시설)' }));
+    fireEvent.click(screen.getByRole('button', { name: '목록 만들기' }));
+
+    expect(await screen.findByText('일부 제출 목록을 만들지 못했어요')).toBeInTheDocument();
+    expect(screen.getByText('이미 제출된 예약이 포함되어 있습니다.')).toBeInTheDocument();
+    expect(screen.getByText(/SUB-20260801-004/)).toBeInTheDocument();
+
+    // 실패해도 excluded 는 건드리지 않는다 — 닫은 뒤 실패 시설(강당) 예약이 선택 유지되어 바로 재시도 가능.
+    // (성공 시설의 이탈은 실제 재조회가 담당 — 이 테스트의 candidates 목은 정적이라 그 경로는 다루지 않는다.)
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).toBeChecked();
+    expect(screen.getByText('선택 2건 · 시설 2곳')).toBeInTheDocument();
   });
 });
