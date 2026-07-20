@@ -21,6 +21,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class FacilityReservation extends BaseEntity {
 
+    private static final int MAX_ORGANIZATION_NAME_LENGTH = 200;
+
     @Column(name = "facility_id", nullable = false)
     private Long facilityId;
 
@@ -80,10 +82,22 @@ public class FacilityReservation extends BaseEntity {
                 .reservationDate(reservationDate)
                 .startTime(startTime)
                 .endTime(endTime)
-                .organizationName(organizationName)
+                .organizationName(truncate(organizationName, MAX_ORGANIZATION_NAME_LENGTH))
                 .reservedStartTime(reservedStartTime)
                 .reservedEndTime(reservedEndTime)
                 .crawledAt(crawledAt)
                 .build();
+    }
+
+    /** 학교가 내려준 긴 단체명의 컬럼 길이 초과가 해당 시설·월 크롤 트랜잭션을 롤백시키지 않게 절단한다(서로게이트 쌍 보존). */
+    private static String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        int end = maxLength;
+        if (Character.isHighSurrogate(value.charAt(end - 1))) {
+            end--;
+        }
+        return value.substring(0, end);
     }
 }

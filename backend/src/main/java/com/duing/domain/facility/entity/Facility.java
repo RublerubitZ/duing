@@ -17,6 +17,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Facility extends BaseEntity {
 
+    private static final int MAX_ROOM_NAME_LENGTH = 100;
+    private static final int MAX_LOCATION_LENGTH = 100;
+
     @Column(name = "room_seq", nullable = false, unique = true)
     private Integer roomSeq;
 
@@ -43,19 +46,21 @@ public class Facility extends BaseEntity {
     public static Facility create(Integer roomSeq, String roomName, String location, Integer sortOrder) {
         return Facility.builder()
                 .roomSeq(roomSeq)
-                .roomName(roomName)
-                .location(location)
+                .roomName(truncate(roomName, MAX_ROOM_NAME_LENGTH))
+                .location(truncate(location, MAX_LOCATION_LENGTH))
                 .sortOrder(sortOrder)
                 .build();
     }
 
     /** 학교 목록 기준 이름/위치/순서를 갱신한다. 변경이 있으면 true 를 반환한다(reconcile 로그용). */
     public boolean updateDetails(String newRoomName, String newLocation, Integer newSortOrder) {
-        boolean changed = !Objects.equals(this.roomName, newRoomName)
-                || !Objects.equals(this.location, newLocation)
+        String truncatedRoomName = truncate(newRoomName, MAX_ROOM_NAME_LENGTH);
+        String truncatedLocation = truncate(newLocation, MAX_LOCATION_LENGTH);
+        boolean changed = !Objects.equals(this.roomName, truncatedRoomName)
+                || !Objects.equals(this.location, truncatedLocation)
                 || !Objects.equals(this.sortOrder, newSortOrder);
-        this.roomName = newRoomName;
-        this.location = newLocation;
+        this.roomName = truncatedRoomName;
+        this.location = truncatedLocation;
         this.sortOrder = newSortOrder;
         return changed;
     }
@@ -72,5 +77,17 @@ public class Facility extends BaseEntity {
 
     public boolean isArchived() {
         return this.archivedAt != null;
+    }
+
+    /** 학교가 내려준 긴 값의 컬럼 길이 초과가 시설 동기화 트랜잭션을 롤백시키지 않게 절단한다(서로게이트 쌍 보존). */
+    private static String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        int end = maxLength;
+        if (Character.isHighSurrogate(value.charAt(end - 1))) {
+            end--;
+        }
+        return value.substring(0, end);
     }
 }
