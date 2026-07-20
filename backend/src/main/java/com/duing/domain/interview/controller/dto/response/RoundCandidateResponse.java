@@ -4,7 +4,8 @@ import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.interview.service.dto.query.RoundCandidateQuery;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record RoundCandidateResponse(
         Long applicationId,
@@ -15,7 +16,7 @@ public record RoundCandidateResponse(
         String major,
         Grade grade,
         ApplicationStatus status,
-        LocalDateTime submittedAt
+        Instant submittedAt
 ) {
     public static RoundCandidateResponse from(RoundCandidateQuery candidateQuery) {
         return new RoundCandidateResponse(
@@ -27,6 +28,7 @@ public record RoundCandidateResponse(
                 candidateQuery.major(),
                 candidateQuery.grade(),
                 candidateQuery.status(),
-                candidateQuery.submittedAt());
+                // submittedAt = application.createdAt(JPA 감사, JVM 기본 존) — system 변환.
+                TimeMapper.systemWallClockToInstant(candidateQuery.submittedAt()));
     }
 }

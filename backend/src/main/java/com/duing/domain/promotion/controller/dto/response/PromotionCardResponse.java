@@ -3,7 +3,8 @@ package com.duing.domain.promotion.controller.dto.response;
 import com.duing.domain.promotion.entity.Promotion;
 import com.duing.domain.promotion.entity.PromotionPalette;
 import com.duing.domain.promotion.entity.PromotionRenderMode;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record PromotionCardResponse(
         Long id,
@@ -12,7 +13,7 @@ public record PromotionCardResponse(
         String bannerImageUrl,
         String linkUrl,
         int displayOrder,
-        LocalDateTime createdAt,
+        Instant createdAt,
         String tag,
         String subtitle,
         String ctaLabel,
@@ -30,7 +31,8 @@ public record PromotionCardResponse(
     public static PromotionCardResponse of(Promotion promotion, ClubRef club, NoticeRef notice) {
         return new PromotionCardResponse(
                 promotion.getId(), club, promotion.getTitle(), promotion.getBannerImageUrl(),
-                promotion.getLinkUrl(), promotion.getDisplayOrder(), promotion.getCreatedAt(),
+                promotion.getLinkUrl(), promotion.getDisplayOrder(),
+                TimeMapper.systemWallClockToInstant(promotion.getCreatedAt()),
                 promotion.getTag(), promotion.getSubtitle(), promotion.getCtaLabel(),
                 promotion.getEmoji(), promotion.getPalette(),
                 promotion.getRenderMode(), promotion.getImageAltText(),

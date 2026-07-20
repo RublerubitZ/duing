@@ -5,7 +5,8 @@ import com.duing.domain.report.entity.ReportReasonCode;
 import com.duing.domain.report.entity.ReportStatus;
 import com.duing.domain.report.entity.ReportTargetType;
 import com.duing.domain.report.service.dto.query.ReportAdminSummaryQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record ReportSummaryResponse(
         Long id,
@@ -14,13 +15,13 @@ public record ReportSummaryResponse(
         String targetLabel,
         ReportReasonCode reasonCode,
         ReportStatus status,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
     public static ReportSummaryResponse of(Report report, String targetLabel) {
         return new ReportSummaryResponse(
                 report.getId(), report.getTargetType(), report.getTargetId(),
                 targetLabel, report.getReasonCode(), report.getStatus(),
-                report.getCreatedAt()
+                TimeMapper.systemWallClockToInstant(report.getCreatedAt())
         );
     }
 

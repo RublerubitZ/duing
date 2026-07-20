@@ -149,7 +149,7 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
                 .body("data.conflicts", notNullValue())
                 .body("data.conflicts[0].source", equalTo("SCHOOL"))
                 .body("data.conflicts[0].organization", equalTo("문화팀"))
-                // crawlBasisAt 은 검증에 사용한 시설 행 세대(주입한 점유행의 crawledAt) — KST OffsetDateTime 로 실린다.
+                // crawlBasisAt 은 검증에 사용한 시설 행 세대(주입한 점유행의 crawledAt) — 절대시각(Instant, …Z)으로 실린다.
                 .body("data.crawlBasisAt", notNullValue());
 
         Assertions.assertThat(bookingRepository.findById(bookingId).orElseThrow().getStatus())

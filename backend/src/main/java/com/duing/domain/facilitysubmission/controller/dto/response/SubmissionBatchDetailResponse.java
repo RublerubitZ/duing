@@ -2,7 +2,8 @@ package com.duing.domain.facilitysubmission.controller.dto.response;
 
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionAuditEntry;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchDetailResult;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.util.List;
 
 public record SubmissionBatchDetailResponse(
@@ -12,10 +13,11 @@ public record SubmissionBatchDetailResponse(
 ) {
     /** adminName 은 탈퇴 관리자 시 null 일 수 있다(record String 기본 nullable — 계약상 허용). */
     public record SubmissionAuditResponse(
-            String action, String adminName, LocalDateTime createdAt, String ipAddress, String detail) {
+            String action, String adminName, Instant createdAt, String ipAddress, String detail) {
         public static SubmissionAuditResponse from(SubmissionAuditEntry entry) {
+            // createdAt 은 JPA 감사(JVM 기본 존 wall-clock) 기록값 — system 변환.
             return new SubmissionAuditResponse(entry.action().name(), entry.adminName(),
-                    entry.createdAt(), entry.ipAddress(), entry.detail());
+                    TimeMapper.systemWallClockToInstant(entry.createdAt()), entry.ipAddress(), entry.detail());
         }
     }
 

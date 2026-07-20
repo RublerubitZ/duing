@@ -3,8 +3,9 @@ package com.duing.domain.facilitysubmission.controller.dto.response;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidateBooking;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesResult;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -31,7 +32,7 @@ public record SubmissionCandidatesResponse(Summary summary, List<Booking> bookin
             boolean selectable,
             String submissionNo,
             String decidedByName,
-            LocalDateTime decidedAt
+            Instant decidedAt
     ) {
         public static Booking from(SubmissionCandidateBooking candidate) {
             return new Booking(candidate.bookingId(), candidate.facilityId(), candidate.facilityName(),
@@ -39,7 +40,8 @@ public record SubmissionCandidatesResponse(Summary summary, List<Booking> bookin
                     candidate.applicantName(), candidate.contactPhone(), candidate.reservationDate(),
                     candidate.startTime(), candidate.endTime(), candidate.purpose(), candidate.attendeeCount(),
                     candidate.status(), candidate.submitted(), candidate.selectable(), candidate.submissionNo(),
-                    candidate.decidedByName(), candidate.decidedAt());
+                    // decided_at 은 seoulClock(KST wall-clock) 기록값 — seoul 변환.
+                    candidate.decidedByName(), TimeMapper.seoulWallClockToInstant(candidate.decidedAt()));
         }
     }
 

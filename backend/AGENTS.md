@@ -278,6 +278,15 @@ return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(id));
 
 ---
 
+## 시간 처리 규칙 (요약 — 상세: [/TIMEZONE.md](../TIMEZONE.md))
+
+- **Event Time**(발생 시각: createdAt/handledAt 등)은 응답 DTO에서 `Instant`로 노출 — 저장 벽시계에 맞는 `TimeMapper.systemWallClockToInstant`(감사 필드·무클럭 now) 또는 `seoulWallClockToInstant`(seoulClock 기록)로 변환. 오프셋 없는 LocalDateTime JSON 반환 금지
+- **Schedule Time**(행사·면접·모집 등 KST 예정 시각)은 `LocalDate`/`LocalDateTime` 유지
+- **판정**(마감·오늘)은 항상 `now(seoulClock)` — 무클럭 `now()` 신규 작성 금지
+- prod JVM=UTC(`Dockerfile TZ=UTC`), 새 시각 필드를 응답에 노출하면 TIMEZONE.md regime 표에 행 추가
+
+---
+
 ## 도메인 목록 및 엔티티
 
 | 도메인 | 엔티티 | 주요 필드 |

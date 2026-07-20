@@ -86,8 +86,8 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.OK.value())
                 .body("data.source", equalTo("CACHE"))
                 .body("data.stale", equalTo(false))
-                // lastUpdatedAt 은 KST(+09:00) ISO 오프셋 형식
-                .body("data.lastUpdatedAt", matchesPattern("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?\\+09:00"))
+                // lastUpdatedAt 은 절대시각(Instant) — UTC …Z ISO 형식
+                .body("data.lastUpdatedAt", matchesPattern("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?Z"))
                 .body("data.facilities[0].roomName", equalTo("공동연습실(1)"))
                 .body("data.facilities[0].reservations[0].start", equalTo("09:00"))
                 .body("data.facilities[0].reservations[0].organization", equalTo("댄스동아리"))

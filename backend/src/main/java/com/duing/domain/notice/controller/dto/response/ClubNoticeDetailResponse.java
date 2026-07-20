@@ -2,6 +2,8 @@ package com.duing.domain.notice.controller.dto.response;
 
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeContentFormat;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 /**
@@ -19,14 +21,16 @@ public record ClubNoticeDetailResponse(
         String coverImageUrl,
         boolean pinned,
         LocalDateTime expiresAt,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        Instant createdAt,
+        Instant updatedAt
 ) {
     public static ClubNoticeDetailResponse from(Notice notice) {
         return new ClubNoticeDetailResponse(
                 notice.getId(), notice.getTitle(), notice.getSummary(), notice.getContent(),
                 notice.getContentFormat(), notice.getCoverImageUrl(), notice.isPinned(),
-                notice.getExpiresAt(), notice.getCreatedAt(), notice.getUpdatedAt()
+                notice.getExpiresAt(),
+                TimeMapper.systemWallClockToInstant(notice.getCreatedAt()),
+                TimeMapper.systemWallClockToInstant(notice.getUpdatedAt())
         );
     }
 }

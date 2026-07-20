@@ -26,7 +26,6 @@ import com.duing.domain.facilitysubmission.service.dto.query.SubmissionSummaryCo
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
@@ -173,12 +172,10 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     }
 
     private SubmissionAuditEntry toAuditEntry(FacilitySubmissionAudit auditRow, Map<Long, String> auditAdminNames) {
-        // createdAt 은 JPA 감사가 저장 존(JVM 기본) 벽시계로 기록하므로 KST 로 환산한다 —
-        // 같은 응답의 completedAt/submittedAt 은 seoulClock(KST) 이라 그대로 노출하면 prod(UTC)에서 9시간 어긋난다.
+        // createdAt 은 JPA 감사(JVM 기본 존 wall-clock) 원본 그대로 넘긴다 — 절대시각 환산은
+        // 응답 경계(SubmissionAuditResponse.from 의 TimeMapper.systemWallClockToInstant)에서 수행한다.
         return new SubmissionAuditEntry(auditRow.getAction(), auditAdminNames.get(auditRow.getAdminId()),
-                auditRow.getCreatedAt().atZone(ZoneId.systemDefault())
-                        .withZoneSameInstant(ZoneId.of("Asia/Seoul")).toLocalDateTime(),
-                auditRow.getIpAddress(), auditRow.getDetail());
+                auditRow.getCreatedAt(), auditRow.getIpAddress(), auditRow.getDetail());
     }
 
     private void validatePeriod(LocalDate startDate, LocalDate endDate) {

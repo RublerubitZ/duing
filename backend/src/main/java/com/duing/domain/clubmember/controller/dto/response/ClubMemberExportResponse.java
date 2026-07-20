@@ -2,7 +2,8 @@ package com.duing.domain.clubmember.controller.dto.response;
 
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberExportQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record ClubMemberExportResponse(
         Long memberId,
@@ -11,12 +12,12 @@ public record ClubMemberExportResponse(
         String major,
         String phone,
         ClubMemberRole role,
-        LocalDateTime joinedAt
+        Instant joinedAt
 ) {
     public static ClubMemberExportResponse from(ClubMemberExportQuery query) {
         return new ClubMemberExportResponse(
                 query.memberId(), query.name(), query.studentId(), query.major(),
-                query.phone(), query.role(), query.joinedAt()
+                query.phone(), query.role(), TimeMapper.systemWallClockToInstant(query.joinedAt())
         );
     }
 }

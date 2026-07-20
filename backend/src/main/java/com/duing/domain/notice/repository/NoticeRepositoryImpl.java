@@ -15,6 +15,7 @@ import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +30,9 @@ import org.springframework.util.StringUtils;
 public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
+    // expiresAt 은 운영자가 KST 벽시계로 입력한다 — 만료 판정도 같은 기준(seoulClock)으로 비교해야
+    // prod(UTC JVM)에서 만료가 9시간 늦게 적용되지 않는다.
+    private final Clock clock;
 
     @Override
     public Page<Notice> findFeed(NoticeSearchCondition condition, ViewerScope viewer, Pageable pageable) {
@@ -95,7 +99,7 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
 
     @Override
     public Page<Notice> findClubScopedForMember(Long clubId, Pageable pageable) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
 
         BooleanExpression where = notice.visibility.eq(NoticeVisibility.CLUB_SCOPED)
                 .and(notice.clubScopeRole.eq(NoticeClubScopeRole.ALL_MEMBERS))
@@ -118,7 +122,7 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
     }
 
     private BooleanExpression notExpired() {
-        return notice.expiresAt.isNull().or(notice.expiresAt.gt(LocalDateTime.now()));
+        return notice.expiresAt.isNull().or(notice.expiresAt.gt(LocalDateTime.now(clock)));
     }
 
     private BooleanExpression categoryEq(NoticeCategory category) {

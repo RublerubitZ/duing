@@ -20,6 +20,7 @@ import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -43,6 +44,8 @@ public class GeneralNoticeService implements NoticeService {
     private final NoticeTargetClubRepository targetClubRepository;
     private final ClubRepository clubRepository;
     private final NoticeBroadcaster broadcaster;
+    // 만료 판정용 — 운영자가 KST 벽시계로 입력한 expiresAt 과 같은 기준(seoulClock)으로 비교한다.
+    private final Clock clock;
 
     @Value("${duing.notice.cover-image-url-prefix:}")
     private String coverImageUrlPrefix;
@@ -230,7 +233,7 @@ public class GeneralNoticeService implements NoticeService {
                 .stream().anyMatch(targetClub -> targetClub.getClubId().equals(clubId));
         boolean memberVisible = found.getVisibility() == NoticeVisibility.CLUB_SCOPED
                 && found.getClubScopeRole() == NoticeClubScopeRole.ALL_MEMBERS
-                && (found.getExpiresAt() == null || found.getExpiresAt().isAfter(LocalDateTime.now()));
+                && (found.getExpiresAt() == null || found.getExpiresAt().isAfter(LocalDateTime.now(clock)));
         if (!owned || !stillTargetsClub || !memberVisible) {
             throw new NoticeException.NoticeAccessDeniedException();
         }

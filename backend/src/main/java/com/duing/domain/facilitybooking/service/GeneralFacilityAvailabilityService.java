@@ -19,14 +19,13 @@ import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.service.FacilitySlotAssembler.BookingSlice;
 import com.duing.domain.facilitybooking.service.FacilitySlotAssembler.CrawlSlice;
+import com.duing.global.time.TimeMapper;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.OffsetDateTime;
 import java.time.YearMonth;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -42,8 +41,6 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class GeneralFacilityAvailabilityService implements FacilityAvailabilityService {
-
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     // 예약 홈은 당월·익월 전용이라 TTL 은 항상 10분(선행 스펙 §5.5의 현재·다음월 TTL 과 동일 값)
     private static final Duration FRESH_TTL = Duration.ofMinutes(10);
@@ -92,7 +89,8 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
         return new FacilityAvailabilityResponse(
                 facility.getId(),
                 targetMonth.toString(),
-                toKstOffset(crawledAt),
+                // crawled_at 은 seoulClock 기준 KST wall-clock LocalDateTime 저장값 — TimeMapper 로 절대시각 환산.
+                TimeMapper.seoulWallClockToInstant(crawledAt),
                 stale,
                 window.from(),
                 window.until(),
@@ -143,9 +141,4 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
         return Duration.between(crawledAt, LocalDateTime.now(clock)).compareTo(FRESH_TTL) > 0;
     }
 
-    private OffsetDateTime toKstOffset(LocalDateTime crawledAt) {
-        // crawled_at 은 seoulClock 기준 KST wall-clock LocalDateTime 으로 저장된다 —
-        // 기존 FacilityUsageResponse.toKst 와 동일한 변환(임의로 다른 변환을 만들면 +9h 오차).
-        return crawledAt == null ? null : crawledAt.atZone(KST).toOffsetDateTime();
-    }
 }

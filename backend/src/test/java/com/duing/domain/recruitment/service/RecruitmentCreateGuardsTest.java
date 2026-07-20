@@ -20,7 +20,9 @@ import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -44,7 +46,9 @@ class RecruitmentCreateGuardsTest {
             applicationRepository,
             clubRepository,
             clubAuthService,
-            eventPublisher);
+            eventPublisher,
+            // 실제 빈(seoulClock)과 동일한 Asia/Seoul 존 — systemDefaultZone 은 환경 의존.
+            Clock.system(ZoneId.of("Asia/Seoul")));
 
     @Test
     @DisplayName("진짜 활성(endDate >= today) 인 OPEN 모집이 있으면 DuplicateActiveRecruitmentException 을 던진다")

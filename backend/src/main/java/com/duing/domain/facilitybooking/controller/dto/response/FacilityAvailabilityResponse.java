@@ -1,15 +1,15 @@
 package com.duing.domain.facilitybooking.controller.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.List;
 
 /** 월 단위 가용성(설계 §8.1). 시간은 "HH:mm", yearMonth 는 "yyyy-MM" 문자열. */
 public record FacilityAvailabilityResponse(
         Long facilityId,
         String yearMonth,
-        @JsonInclude(JsonInclude.Include.NON_NULL) OffsetDateTime lastUpdatedAt,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Instant lastUpdatedAt,
         boolean stale,
         LocalDate bookableFrom,
         LocalDate bookableUntil,

@@ -3,7 +3,8 @@ package com.duing.domain.clubmember.controller.dto.response;
 import com.duing.domain.clubmember.entity.LeaderSuccessionRequest;
 import com.duing.domain.clubmember.entity.SuccessionStatus;
 import com.duing.domain.clubmember.service.dto.query.SuccessionRequestAdminSummaryQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record SuccessionRequestSummaryResponse(
         Long id,
@@ -11,7 +12,7 @@ public record SuccessionRequestSummaryResponse(
         String clubName,
         UserRef requester,
         SuccessionStatus status,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
     public record UserRef(Long id, String name) {}
 
@@ -20,7 +21,8 @@ public record SuccessionRequestSummaryResponse(
     ) {
         return new SuccessionRequestSummaryResponse(
                 request.getId(), request.getClubId(), clubName,
-                requester, request.getStatus(), request.getCreatedAt()
+                requester, request.getStatus(),
+                TimeMapper.systemWallClockToInstant(request.getCreatedAt())
         );
     }
 
@@ -28,7 +30,8 @@ public record SuccessionRequestSummaryResponse(
         UserRef requesterRef = new UserRef(query.requester().id(), query.requester().name());
         return new SuccessionRequestSummaryResponse(
                 query.id(), query.clubId(), query.clubName(),
-                requesterRef, query.status(), query.createdAt()
+                requesterRef, query.status(),
+                TimeMapper.systemWallClockToInstant(query.createdAt())
         );
     }
 }
