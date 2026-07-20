@@ -5,7 +5,9 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.ClubFixture;
 import com.duing.common.fixture.UserFixture;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
@@ -33,6 +35,7 @@ class PageableHardeningAcceptanceTest extends IntegrationTestBase {
     @LocalServerPort int port;
 
     @Autowired UserRepository userRepository;
+    @Autowired ClubRepository clubRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
 
     private String adminToken;
@@ -92,22 +95,46 @@ class PageableHardeningAcceptanceTest extends IntegrationTestBase {
     @Test
     @DisplayName("화이트리스트 없이 클라이언트 sort 를 받는 실제 쿼리 엔드포인트도, 존재하지 않는 정렬 속성이면 500 이 아니라 400 을 반환한다")
     void realQueryEndpointInvalidSortReturns400() {
-        // 화이트리스트가 없는 엔드포인트(admin facility-bookings/submission)에서 실제 Spring Data 쿼리가
-        // 잘못된 정렬 속성을 만나 던지는 예외가 전역 핸들러를 통해 400 으로 변환되는지 end-to-end 로 고정한다.
+        // 화이트리스트가 없는 엔드포인트(admin clubs member-history)에서 실제 Spring Data 쿼리가 잘못된
+        // 정렬 속성을 만나 던지는 예외가 전역 핸들러를 통해 400 으로 변환되는지 end-to-end 로 고정한다.
+        // 이전 대상(admin facility-bookings/submission)은 #706 에서 QueryDSL 고정 정렬로 바뀌어
+        // 클라이언트 sort 를 더 이상 Spring Data 로 흘리지 않는다 — 아래 고정 정렬 케이스로 별도 고정.
+        Long clubId = savedClubId();
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .queryParam("sort", "no_such_field")
-                .when().get("/api/v1/admin/facility-bookings/submission")
+                .when().get("/api/v1/admin/clubs/" + clubId + "/member-history")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
     @Test
     @DisplayName("실제 쿼리 엔드포인트에서 유효한 정렬 속성은 정상(200) 응답한다")
     void realQueryEndpointValidSortSucceeds() {
+        Long clubId = savedClubId();
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .queryParam("sort", "createdAt,desc")
+                .when().get("/api/v1/admin/clubs/" + clubId + "/member-history")
+                .then().statusCode(HttpStatus.OK.value());
+    }
+
+    @Test
+    @DisplayName("고정 정렬(QueryDSL) 엔드포인트는 클라이언트 sort 를 무시하므로 잘못된 정렬 속성도 무해하게 200 을 반환한다")
+    void fixedOrderEndpointIgnoresInvalidSort() {
+        // facility submission 목록은 #706 부터 id 내림차순 고정 — 임의 속성 정렬이 원천 차단됨을 문서화한다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .queryParam("sort", "no_such_field")
                 .when().get("/api/v1/admin/facility-bookings/submission")
                 .then().statusCode(HttpStatus.OK.value());
+    }
+
+    /**
+     * member-history 는 동아리 존재 검증(404)이 있어 실제 동아리 픽스처가 필요하다.
+     * 주의: 이 엔드포인트가 QueryDSL 고정 정렬로 바뀌면(#706 의 submission 전례) sort 통과 전제가
+     * 다시 깨진다 — 그때는 다른 파생 쿼리 엔드포인트로 재타겟할 것.
+     */
+    private Long savedClubId() {
+        return clubRepository.save(ClubFixture.academic("하드닝검증동아리")).getId();
     }
 }
