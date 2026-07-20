@@ -32,6 +32,7 @@ vi.mock('@duing/hooks', () => ({
   }),
   useCancelSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDownloadSubmissionCsvMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCompleteSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 // 탭 셸은 URL(?tab=)로 상태를 관리한다 — searchParams 로 상태 주입, 탭 전환은 replace 호출 인자로 단언(ClubExplorePage 계약).
