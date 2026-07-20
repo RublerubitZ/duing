@@ -19,7 +19,7 @@ vi.mock('@duing/hooks', () => ({
   useAdminFacilityBookingQueueQuery: (...args: unknown[]) => mockQueueQuery(...args),
   useAdminFacilityBookingSummaryQuery: () => mockSummaryQuery(),
   useFacilityUsageQuery: () => mockUsageQuery(),
-  // prepare 탭(임시 AdminSubmissionPage)이 마운트되면 호출되는 훅 — 기본 탭 테스트에선 미사용이나 모킹을 채워둔다.
+  // prepare 탭(SubmissionPrepareTab)이 마운트되면 호출되는 훅 — 기본 탭 테스트에선 미사용이나 모킹을 채워둔다.
   useSubmissionCandidatesQuery: () => ({ data: undefined, isLoading: false, isSuccess: false, isError: false, refetch: vi.fn() }),
   useCreateSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
@@ -30,7 +30,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(mockTabParam === null ? '' : `tab=${mockTabParam}`),
 }));
 
-// useGuardedRouter·AdminSubmissionPage 가 ToastProvider 컨텍스트를 물어 스텁한다(faq-page.test 패턴).
+// useGuardedRouter 가 ToastProvider 컨텍스트를 물어 스텁한다(faq-page.test 패턴).
 vi.mock('@/app/_components/toast/ToastProvider', () => ({
   useToast: () => ({ addToast: vi.fn() }),
   useOptionalToast: () => vi.fn(),
