@@ -249,24 +249,3 @@ export function Info({ size = 22, ...rest }: IconProps) {
     </svg>
   );
 }
-
-export function Building({ size = 22, ...rest }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...rest}
-    >
-      <rect x="4" y="3" width="16" height="18" rx="1.5" />
-      <path d="M9 8h.01M15 8h.01M9 12h.01M15 12h.01M9 16h.01M15 16h.01" />
-      <path d="M4 21h16" />
-    </svg>
-  );
-}
