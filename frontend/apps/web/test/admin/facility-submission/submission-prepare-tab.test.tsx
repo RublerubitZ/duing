@@ -6,7 +6,8 @@ const mockCandidatesQuery = vi.fn();
 const mockCreateMutation = vi.fn();
 const mockAddToast = vi.fn();
 
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useSubmissionCandidatesQuery: (...args: unknown[]) => mockCandidatesQuery(...args),
   useCreateSubmissionBatchMutation: () => mockCreateMutation(),
 }));
