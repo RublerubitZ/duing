@@ -103,8 +103,7 @@ public class GeneralFacilitySubmissionService implements FacilitySubmissionServi
         // item 은 bookingId 매핑용으로 유지한다 — 제외 판정 시 해당 item 에 skipped 를 남겨야
         // 완료된 배치가 예약을 영구히 붙잡는 락아웃(재승인 후 재제출 불가)이 생기지 않는다.
         Map<Long, FacilitySubmissionItem> itemsByBookingId = itemRepository.findByBatchIdOrderByIdAsc(batchId).stream()
-                .collect(Collectors.toMap(FacilitySubmissionItem::getBookingId, item -> item,
-                        (first, second) -> first));
+                .collect(Collectors.toMap(FacilitySubmissionItem::getBookingId, item -> item));
         List<Long> bookingIds = itemsByBookingId.keySet().stream().sorted().toList();
         // 생성과 동일한 ID 정렬 행잠금(§4.3-2) — 생성·완료의 교차 실행도 booking 잠금에서 직렬화된다.
         List<FacilityBooking> bookings = bookingRepository.findAllByIdInForUpdate(bookingIds);

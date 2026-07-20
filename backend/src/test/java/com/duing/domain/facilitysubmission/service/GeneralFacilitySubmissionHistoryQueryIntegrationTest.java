@@ -20,9 +20,11 @@ import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionAuditRepository;
 import com.duing.domain.facilitysubmission.service.dto.command.CreateSubmissionBatchCommand;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
+import com.duing.domain.facilitysubmission.service.dto.query.CreateSubmissionBatchResult;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionAuditEntry;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchDetailResult;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchListItem;
+import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidateBooking;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.LocalDate;
@@ -137,19 +139,52 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
     }
 
     @Test
-    @DisplayName("취소된 Batch 도 상세 조회가 가능하고 소속 예약은 미제출 상태로 표시된다")
+    @DisplayName("취소된 Batch 도 상세 조회가 가능하고 소속 예약은 이 Batch 에 담긴 것으로 표시된다")
     void cancelledBatchDetailRemainsReadable() {
         FacilityBooking booking = approvedBooking(9);
-        Long batchId = submissionService.create(
-                new CreateSubmissionBatchCommand(List.of(booking.getId()), null), actor()).batchId();
-        submissionService.cancel(batchId, actor());
+        CreateSubmissionBatchResult batch = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(booking.getId()), null), actor());
+        submissionService.cancel(batch.batchId(), actor());
 
-        SubmissionBatchDetailResult detail = queryService.getDetail(batchId, actor());
+        SubmissionBatchDetailResult detail = queryService.getDetail(batch.batchId(), actor());
 
         assertThat(detail.batch().cancelled()).isTrue();
         assertThat(detail.bookings()).hasSize(1);
         assertThat(detail.bookings().get(0).submitted())
-                .as("활성 제출 기준 재계산 — 취소된 Batch 소속은 미제출").isFalse();
+                .as("상세는 이 Batch 기준 — 취소 여부는 헤더가 알린다").isTrue();
+        assertThat(detail.bookings().get(0).submissionNo()).isEqualTo(batch.submissionNo());
+    }
+
+    @Test
+    @DisplayName("스킵 후 다른 Batch 에 재제출된 예약도 원래 Batch 상세에서는 미제출로 남고 남의 제출번호가 붙지 않는다")
+    void detailScopesSubmissionNoToViewedBatch() {
+        FacilityBooking confirmedTarget = approvedBooking(9);
+        FacilityBooking skippedTarget = approvedBooking(11);
+        CreateSubmissionBatchResult firstBatch = submissionService.create(new CreateSubmissionBatchCommand(
+                List.of(confirmedTarget.getId(), skippedTarget.getId()), null), actor());
+        FacilityBooking toConflict = bookingRepository.findById(skippedTarget.getId()).orElseThrow();
+        toConflict.markConflict("학교 시간표와 충돌");
+        bookingRepository.save(toConflict);
+        submissionService.complete(firstBatch.batchId(), actor());
+        FacilityBooking reapproved = bookingRepository.findById(skippedTarget.getId()).orElseThrow();
+        reapproved.approve(admin.getId(), null, LocalDateTime.now());
+        bookingRepository.save(reapproved);
+        CreateSubmissionBatchResult secondBatch = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(skippedTarget.getId()), null), actor());
+
+        SubmissionBatchDetailResult detail = queryService.getDetail(firstBatch.batchId(), actor());
+
+        SubmissionCandidateBooking skippedRow = detail.bookings().stream()
+                .filter(row -> row.bookingId().equals(skippedTarget.getId()))
+                .findFirst().orElseThrow();
+        assertThat(skippedRow.submissionNo())
+                .as("재제출된 Batch(" + secondBatch.submissionNo() + ")의 번호가 새어 나오면 안 된다").isNull();
+        assertThat(skippedRow.submitted()).as("이 Batch 에서는 제외된 건").isFalse();
+        SubmissionCandidateBooking confirmedRow = detail.bookings().stream()
+                .filter(row -> row.bookingId().equals(confirmedTarget.getId()))
+                .findFirst().orElseThrow();
+        assertThat(confirmedRow.submitted()).isTrue();
+        assertThat(confirmedRow.submissionNo()).isEqualTo(firstBatch.submissionNo());
     }
 
     @Test
