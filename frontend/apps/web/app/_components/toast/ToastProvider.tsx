@@ -106,18 +106,85 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// 모바일 하단 배치가 비켜야 할 높이를 실측한다. 화면마다 하단 고정 UI 가 달라
+// (탭바 없음 / 탭바 / 상세 액션 바 / 탭바+예약 액션 바 / 바텀시트 푸터) 상수로는 맞출 수 없고,
+// 상수를 쓰면 토스트(z-[80])가 그보다 낮은 z-index 인 그 바들의 주 CTA 를 덮어 탭까지 막는다.
+// 그래서 `data-bottom-bar` 를 단 요소들의 실제 위치를 읽어 그중 가장 위를 기준으로 잡는다.
+// 새 하단 바는 이 속성만 달면 되고 여기는 손대지 않는다.
+export function measureBottomInset(): number {
+  const viewportHeight = window.innerHeight;
+
+  // 화면에 실제로 그려진 것만 — 반응형으로 꺼진 바(md:hidden 등)는 rect 가 전부 0 이라 걸러진다.
+  let topmost = viewportHeight;
+  document.querySelectorAll('[data-bottom-bar]').forEach((bar) => {
+    const { top, height } = bar.getBoundingClientRect();
+    if (height > 0) topmost = Math.min(topmost, top);
+  });
+  const barInset = viewportHeight - topmost;
+
+  // iOS 는 키보드가 떠도 layout viewport 가 줄지 않아 fixed 하단 요소가 키보드 뒤로 들어간다.
+  // visual viewport 와의 차이가 곧 키보드(+ 하단 브라우저 UI)가 가린 높이다.
+  const visual = window.visualViewport;
+  const keyboardInset = visual
+    ? Math.max(0, viewportHeight - visual.height - visual.offsetTop)
+    : 0;
+
+  return Math.max(0, barInset, keyboardInset);
+}
+
+function useBottomInset(active: boolean): number {
+  const [inset, setInset] = useState(0);
+
+  useEffect(() => {
+    if (!active) return;
+
+    const remeasure = () => setInset(measureBottomInset());
+    remeasure();
+
+    // 토스트가 떠 있는 동안 아래 지형이 바뀌는 경우가 실제로 있다 — 시설 예약의 무효 딥링크는
+    // 토스트를 띄우면서 같은 흐름에서 뷰를 전환해 액션 바를 새로 만든다. 표시 중(수 초)에만
+    // 도는 폴링으로 따라간다. 값이 그대로면 setState 가 bail out 하므로 리렌더도 없다.
+    // ponytail: 250ms 폴링. 더 정밀한 추적이 필요해지면 MutationObserver 로 바꾼다.
+    const poll = setInterval(remeasure, 250);
+
+    const visual = window.visualViewport;
+    window.addEventListener('resize', remeasure);
+    visual?.addEventListener('resize', remeasure);
+    visual?.addEventListener('scroll', remeasure);
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener('resize', remeasure);
+      visual?.removeEventListener('resize', remeasure);
+      visual?.removeEventListener('scroll', remeasure);
+    };
+  }, [active]);
+
+  return inset;
+}
+
 function Toaster({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
   // 포털은 클라이언트에서만 — SSR 하이드레이션 불일치를 피한다.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const bottomInset = useBottomInset(mounted && toasts.length > 0);
   if (!mounted) return null;
 
   return createPortal(
     // `.duing` 스코프는 토스트 카드의 폰트·디자인 토큰을 위해 유지하되, 이 스코프가 함께 거는
-    // `bg-cream` 은 명시적으로 끈다(bg-transparent). 이 컨테이너는 top-0·전폭·고정 오버레이라
-    // 배경이 칠해지면 토스트가 없어도 화면 최상단(헤더 위)에 크림색 가로 띠로 보인다.
+    // `bg-cream` 은 명시적으로 끈다(bg-transparent). 이 컨테이너는 전폭 고정 오버레이라
+    // 배경이 칠해지면 토스트가 없어도 화면 가장자리에 크림색 가로 띠로 보인다.
     // 실제 배경은 각 토스트 카드(bg-ink-deep)가 가지므로 컨테이너는 투명해야 한다.
-    <div className="duing pointer-events-none fixed inset-x-0 top-0 z-[80] flex flex-col items-center gap-2 bg-transparent px-4 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+    //
+    // 위치는 반응형: 모바일(<md)은 시선이 머무는 하단, md 이상은 기존대로 상단.
+    // 하단 오프셋은 아래 스페이서가 만든다 — 실측값(px)을 inline style 로 주면서도
+    // md 분기는 순수 클래스로 남겨야 하기 때문(컨테이너에 inline bottom 을 주면 md:top-0 을 이긴다).
+    <div
+      className={cn(
+        'duing pointer-events-none fixed inset-x-0 z-[80] flex flex-col items-center gap-2 bg-transparent px-4',
+        'bottom-0 pb-3',
+        'md:bottom-auto md:top-0 md:pb-0 md:pt-[calc(0.75rem+env(safe-area-inset-top))]',
+      )}
+    >
       {toasts.map((toast) => (
         <div
           key={toast.id}
@@ -125,7 +192,8 @@ function Toaster({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: numbe
           role={toast.variant === 'error' ? 'alert' : 'status'}
           className={cn(
             'pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-[14px] px-4 py-3 shadow-3',
-            'animate-in slide-in-from-top-2 fade-in-0 motion-reduce:animate-none',
+            // 등장 방향도 위치를 따라간다(모바일은 아래에서, md 이상은 위에서).
+            'animate-in slide-in-from-bottom-2 md:slide-in-from-top-2 fade-in-0 motion-reduce:animate-none',
             'bg-ink-deep text-cream',
           )}
         >
@@ -147,6 +215,14 @@ function Toaster({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: numbe
           </button>
         </div>
       ))}
+      {/* 하단 고정 UI 를 비켜서는 자리. 실측값이 0(하단에 아무것도 없는 화면)이어도 safe-area 는
+          확보해야 하므로 min-height 로 하한을 둔다 — 바가 있으면 그 바가 이미 safe-area 를
+          포함하고 있어 실측값에 반영되므로 이중 가산되지 않는다. */}
+      <div
+        aria-hidden
+        style={{ height: bottomInset }}
+        className="min-h-[env(safe-area-inset-bottom)] w-full shrink-0 md:hidden"
+      />
     </div>,
     document.body,
   );

@@ -138,7 +138,9 @@ export function MobileDaySheet({
             <DaySlotList day={shownDay} selection={selection} onToggleSlot={onToggleSlot} />
             {/* bg-inherit 은 transparent 로 풀려 스크롤 중 뒤 슬롯이 비친다 — 시트 표면 bg-cream 으로 고정(패널 전례).
                 하단 여백은 푸터 자신의 pb(safe-area 포함)로 — 컨테이너 pb-0 과 짝이라 화면 끝까지 배경이 이어진다. */}
-            <div className="sticky bottom-0 -mx-5 mt-2 bg-cream px-5 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] pt-2">
+            <div
+              data-bottom-bar
+              className="sticky bottom-0 -mx-5 mt-2 bg-cream px-5 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] pt-2">
               {selection !== null && (
                 <div className="mb-2 flex items-center gap-2 rounded-lg bg-sage-mist px-3 py-2">
                   <span className="font-mono text-base font-bold text-ink-deep">{rangeLabel(selection)}</span>

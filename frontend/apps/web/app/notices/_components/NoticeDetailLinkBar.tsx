@@ -18,7 +18,9 @@ export function NoticeDetailLinkBar({ eventInfo, linkUrl }: Props) {
   if (!safeLink) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-cream/95 px-[18px] pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] font-body backdrop-blur md:hidden">
+    <div
+      data-bottom-bar
+      className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-cream/95 px-[18px] pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] font-body backdrop-blur md:hidden">
       <div className="min-w-0">
         <div className="text-[10.5px] text-charcoal-3">행사 안내</div>
         <div className="truncate text-sm font-bold text-ink">
