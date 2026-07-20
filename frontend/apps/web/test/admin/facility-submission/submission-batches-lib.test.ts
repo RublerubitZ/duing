@@ -3,6 +3,8 @@ import type { SubmissionBatchSummary } from '@duing/types';
 import {
   AUDIT_ACTION_LABELS,
   BATCH_STATUS_META,
+  batchAgeDays,
+  batchTitle,
   defaultBatchMemo,
   deriveBatchStatus,
   submissionCsvFileName,
@@ -66,6 +68,25 @@ describe('defaultBatchMemo', () => {
     expect(defaultBatchMemo('강당', new Date(2026, 6, 1))).toBe('7월 1주차 · 강당');
     expect(defaultBatchMemo('강당', new Date(2026, 6, 20))).toBe('7월 3주차 · 강당');
     expect(defaultBatchMemo('세미나실', new Date(2026, 6, 31))).toBe('7월 5주차 · 세미나실');
+  });
+});
+
+describe('batchTitle', () => {
+  it('메모가 있으면 제목, 없거나 공백뿐이면 제출번호가 제목이 된다', () => {
+    expect(batchTitle({ memo: '8월 1차 제출', submissionNo: 'SUB-1' })).toBe('8월 1차 제출');
+    expect(batchTitle({ memo: null, submissionNo: 'SUB-1' })).toBe('SUB-1');
+    expect(batchTitle({ memo: '   ', submissionNo: 'SUB-1' })).toBe('SUB-1');
+  });
+});
+
+describe('batchAgeDays', () => {
+  it('생성 후 경과 일수를 24시간 단위 floor 로 계산하고, 미래·Invalid 입력을 방어한다', () => {
+    const now = new Date('2026-07-20T12:00:00+09:00');
+    expect(batchAgeDays('2026-07-20T10:00:00+09:00', now)).toBe(0); // 당일
+    expect(batchAgeDays('2026-07-17T11:00:00+09:00', now)).toBe(3); // 경고 경계(3일)
+    // 미래 시각(시계 오차)은 음수 대신 0 으로 clamp, 파싱 불가 문자열은 null.
+    expect(batchAgeDays('2026-07-21T12:00:00+09:00', now)).toBe(0);
+    expect(batchAgeDays('not-a-date', now)).toBeNull();
   });
 });
 

@@ -1,3 +1,4 @@
+import { parseKstInstant } from '@duing/hooks';
 import type { SubmissionAuditEntry, SubmissionBatchSummary } from '@duing/types';
 
 export type SubmissionBatchStatus = 'REVIEWING' | 'COMPLETED' | 'CANCELLED';
@@ -36,4 +37,16 @@ export function submissionCsvFileName(submissionNo: string): string {
 export function defaultBatchMemo(facilityName: string, today: Date = new Date()): string {
   const weekOfMonth = Math.ceil(today.getDate() / 7);
   return `${today.getMonth() + 1}월 ${weekOfMonth}주차 · ${facilityName}`;
+}
+
+/** 목록 제목 승격(개편 스펙 §5·§7) — 메모가 있으면 제목, 없으면 제출번호가 제목이 된다. */
+export function batchTitle(batch: Pick<SubmissionBatchSummary, 'memo' | 'submissionNo'>): string {
+  return batch.memo !== null && batch.memo.trim() !== '' ? batch.memo : batch.submissionNo;
+}
+
+/** 방치 배치 감지(개편 스펙 §5) — 생성 후 경과 일수(24시간 단위 floor). Invalid 입력은 null. */
+export function batchAgeDays(submittedAt: string, now: Date = new Date()): number | null {
+  const createdAt = parseKstInstant(submittedAt);
+  if (Number.isNaN(createdAt.getTime())) return null;
+  return Math.floor(Math.max(0, now.getTime() - createdAt.getTime()) / 86_400_000);
 }

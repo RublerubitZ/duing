@@ -20,6 +20,14 @@ export function BatchCompleteDialog({ batch, isPending, onConfirm, onClose }: Pr
     <Dialog open={batch !== null} onOpenChange={(nextOpen) => { if (!nextOpen && !isPending) onClose(); }}>
       <DialogContent className="w-[calc(100%-2rem)] max-w-sm" aria-describedby={undefined}>
         <DialogTitle>학교 제출을 완료하시겠습니까?</DialogTitle>
+        {/* 두 행위 구분 경고(개편 스펙 §5) — 오프라인 제출과 시스템 완료 처리를 혼동한 조기 완료를 막는다. */}
+        <div className="flex gap-2 rounded-md bg-[#FBEFD7] px-3 py-2 text-xs leading-relaxed text-[#8E6620]">
+          <span aria-hidden>⚠️</span>
+          <p>
+            <strong>학교 제출(오프라인)</strong>과 <strong>시스템 완료 처리</strong>는 별개입니다. 실제 행정실
+            제출을 마친 뒤에 진행하세요.
+          </p>
+        </div>
         <div className="space-y-1 text-sm text-charcoal-2">
           <p>• 제출 가능한 예약은 학교 등록 완료 상태로 변경됩니다.</p>
           <p>• 이미 취소되었거나 상태가 변경된 예약은 자동으로 제외됩니다.</p>

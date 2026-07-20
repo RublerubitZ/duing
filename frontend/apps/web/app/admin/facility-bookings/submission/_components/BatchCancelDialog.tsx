@@ -24,7 +24,7 @@ export function BatchCancelDialog({ batch, isPending, onConfirm, onClose }: Prop
         <p className="text-sm text-charcoal-2">
           {"담긴 예약은 다시 '학교에 제출할 예약' 목록으로 돌아갑니다."}
         </p>
-        <p className="text-xs text-charcoal-3">이 작업은 되돌릴 수 없습니다.</p>
+        <p className="text-xs text-charcoal-3">이 작업은 되돌릴 수 없습니다. CSV 는 취소 후에도 다시 받을 수 있어요.</p>
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" className="btn btn-ghost" disabled={isPending} onClick={onClose}>
             돌아가기
