@@ -206,13 +206,16 @@ git commit -m "feat(backend): 제출 Batch 완료 상태·감사 detail 스키�
 - Modify: `backend/src/main/java/com/duing/domain/facilitysubmission/repository/FacilitySubmissionBatchRepository.java` (`findByIdForUpdate` 추가)
 - Modify: `backend/src/main/java/com/duing/domain/facilitysubmission/service/FacilitySubmissionService.java` (complete 추가)
 - Modify: `backend/src/main/java/com/duing/domain/facilitysubmission/service/GeneralFacilitySubmissionService.java`
+- Create: `backend/src/main/java/com/duing/domain/facilitysubmission/service/SubmissionCompletionSummaryFormatter.java`
 - Create: `backend/src/main/java/com/duing/domain/facilitysubmission/service/dto/query/CompleteSubmissionBatchResult.java`
+- Test: `backend/src/test/java/com/duing/domain/facilitysubmission/service/SubmissionCompletionSummaryFormatterTest.java` (순수 유닛)
 - Test: `backend/src/test/java/com/duing/domain/facilitysubmission/service/GeneralFacilitySubmissionServiceIntegrationTest.java` (완료 테스트 추가)
 - Test: `backend/src/test/java/com/duing/domain/facilitysubmission/service/FacilitySubmissionConcurrencyTest.java` (완료/취소 레이스 추가)
 
 **Interfaces:**
 - Consumes: Task 1 산출물, 기존 `FacilityBookingRepository.findAllByIdInForUpdate`, `FacilityBookingStatusHistory.record`, `FacilityBookingConfirmedEvent(bookingId, clubId, historyId)`, `booking.confirmManually(LocalDateTime)`
-- Produces(Task 4 소비): `FacilitySubmissionService.complete(Long batchId, SubmissionActorContext actor) → CompleteSubmissionBatchResult(int totalCount, int confirmedCount, List<SkippedBooking> skippedBookings)` — `SkippedBooking(Long bookingId, BookingStatus status)` 중첩 record
+- Produces(Task 4 소비): `FacilitySubmissionService.complete(Long batchId, SubmissionActorContext actor) → CompleteSubmissionBatchResult(int totalCount, int confirmedCount, LocalDateTime completedAt, List<SkippedBooking> skippedBookings)` — `SkippedBooking(Long bookingId, BookingStatus status, String reason)` 중첩 record(**reason = 사람이 읽는 한글 라벨**, FE 재매핑 불요)
+- Produces(내부): `SubmissionCompletionSummaryFormatter` — `reasonLabel(BookingStatus) → String`, `summarize(int totalCount, int confirmedCount, List<SkippedBooking>) → String`. **응답 reason 과 감사 요약의 표현 단일 출처**(스펙 §4.3 v2.2 보완) — 서비스는 호출만 한다
 
 - [ ] **Step 1: 실패하는 통합 테스트 추가** (기존 서비스 통합 테스트 파일에 — 픽스처 헬퍼 재사용)
 
@@ -229,6 +232,7 @@ git commit -m "feat(backend): 제출 Batch 완료 상태·감사 detail 스키�
 
         assertThat(result.totalCount()).isEqualTo(2);
         assertThat(result.confirmedCount()).isEqualTo(2);
+        assertThat(result.completedAt()).isNotNull();
         assertThat(result.skippedBookings()).isEmpty();
         assertThat(bookingRepository.findById(first.getId()).orElseThrow().getStatus())
                 .isEqualTo(BookingStatus.CONFIRMED);
@@ -257,6 +261,7 @@ git commit -m "feat(backend): 제출 Batch 완료 상태·감사 detail 스키�
         assertThat(result.skippedBookings()).hasSize(1);
         assertThat(result.skippedBookings().get(0).bookingId()).isEqualTo(cancelledOne.getId());
         assertThat(result.skippedBookings().get(0).status()).isEqualTo(BookingStatus.CANCELLED);
+        assertThat(result.skippedBookings().get(0).reason()).isEqualTo("취소됨");
         List<FacilitySubmissionAudit> audits = auditRepository.findByBatchIdOrderByIdAsc(created.batchId());
         assertThat(audits.get(1).getDetail())
                 .isEqualTo("학교 제출 완료 — 총 2건 / 등록 완료 1건 / 제외 1건: 예약 #"
@@ -338,9 +343,56 @@ git commit -m "feat(backend): 제출 Batch 완료 상태·감사 detail 스키�
     }
 ```
 
+Formatter 순수 유닛 테스트(`SubmissionCompletionSummaryFormatterTest.java` 신규 — Spring 미기동):
+
+```java
+package com.duing.domain.facilitysubmission.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.duing.domain.facilitybooking.entity.BookingStatus;
+import com.duing.domain.facilitysubmission.service.dto.query.CompleteSubmissionBatchResult.SkippedBooking;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+class SubmissionCompletionSummaryFormatterTest {
+
+    private final SubmissionCompletionSummaryFormatter formatter = new SubmissionCompletionSummaryFormatter();
+
+    @Test
+    @DisplayName("스킵 사유는 운영자가 읽는 한글 라벨로 변환된다")
+    void reasonLabelsAreHumanReadable() {
+        assertThat(formatter.reasonLabel(BookingStatus.CANCELLED)).isEqualTo("취소됨");
+        assertThat(formatter.reasonLabel(BookingStatus.CONFLICT)).isEqualTo("충돌");
+        assertThat(formatter.reasonLabel(BookingStatus.CONFIRMED)).isEqualTo("이미 등록 완료");
+        assertThat(formatter.reasonLabel(BookingStatus.PENDING)).isEqualTo("승인 대기");
+        assertThat(formatter.reasonLabel(BookingStatus.REJECTED)).isEqualTo("반려됨");
+    }
+
+    @Test
+    @DisplayName("제외가 없으면 총·등록 건수만으로 요약한다")
+    void summaryWithoutSkipsOmitsExclusionClause() {
+        assertThat(formatter.summarize(8, 8, List.of()))
+                .isEqualTo("학교 제출 완료 — 총 8건 / 등록 완료 8건");
+    }
+
+    @Test
+    @DisplayName("제외가 있으면 예약별 사유가 나열된다")
+    void summaryListsSkippedBookingsWithReasons() {
+        List<SkippedBooking> skipped = List.of(
+                new SkippedBooking(123L, BookingStatus.CANCELLED, "취소됨"),
+                new SkippedBooking(531L, BookingStatus.CONFLICT, "충돌"));
+
+        assertThat(formatter.summarize(10, 8, skipped))
+                .isEqualTo("학교 제출 완료 — 총 10건 / 등록 완료 8건 / 제외 2건: 예약 #123(취소됨), 예약 #531(충돌)");
+    }
+}
+```
+
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd backend && ./gradlew test --tests GeneralFacilitySubmissionServiceIntegrationTest --tests FacilitySubmissionConcurrencyTest`
+Run: `cd backend && ./gradlew test --tests GeneralFacilitySubmissionServiceIntegrationTest --tests FacilitySubmissionConcurrencyTest --tests SubmissionCompletionSummaryFormatterTest`
 Expected: 컴파일 실패
 
 - [ ] **Step 3: 구현**
@@ -366,9 +418,62 @@ import java.util.List;
 public record CompleteSubmissionBatchResult(
         int totalCount,
         int confirmedCount,
+        LocalDateTime completedAt,
         List<SkippedBooking> skippedBookings
 ) {
-    public record SkippedBooking(Long bookingId, BookingStatus status) {
+    /** reason = 사람이 읽는 한글 라벨(Formatter 단일 출처) — FE 가 상태 코드를 재매핑하지 않는다. */
+    public record SkippedBooking(Long bookingId, BookingStatus status, String reason) {
+    }
+}
+```
+
+(import 에 `java.time.LocalDateTime` 추가)
+
+`SubmissionCompletionSummaryFormatter.java`:
+
+```java
+package com.duing.domain.facilitysubmission.service;
+
+import com.duing.domain.facilitybooking.entity.BookingStatus;
+import com.duing.domain.facilitysubmission.service.dto.query.CompleteSubmissionBatchResult;
+import java.util.List;
+import java.util.Map;
+import org.springframework.stereotype.Component;
+
+/**
+ * 완료 처리의 사람이 읽는 표현 단일 출처(스펙 §4.3 v2.2 보완) — 응답 reason 과 감사 요약이 같은 라벨을 쓴다.
+ * 문구·다국어·포맷 변경은 이 클래스에서만 이뤄진다(서비스는 호출만).
+ */
+@Component
+public class SubmissionCompletionSummaryFormatter {
+
+    private static final Map<BookingStatus, String> SKIP_REASON_LABELS = Map.of(
+            BookingStatus.CANCELLED, "취소됨",
+            BookingStatus.CONFLICT, "충돌",
+            BookingStatus.CONFIRMED, "이미 등록 완료",
+            BookingStatus.PENDING, "승인 대기",
+            BookingStatus.REJECTED, "반려됨");
+
+    public String reasonLabel(BookingStatus status) {
+        return SKIP_REASON_LABELS.getOrDefault(status, status.name());
+    }
+
+    /** 감사 detail 요약(§4.3) — 요약 수치가 앞이라 500자 절단에도 핵심은 보존된다. */
+    public String summarize(int totalCount, int confirmedCount,
+            List<CompleteSubmissionBatchResult.SkippedBooking> skippedBookings) {
+        StringBuilder summary = new StringBuilder()
+                .append("학교 제출 완료 — 총 ").append(totalCount).append("건 / 등록 완료 ")
+                .append(confirmedCount).append("건");
+        if (!skippedBookings.isEmpty()) {
+            summary.append(" / 제외 ").append(skippedBookings.size()).append("건: ");
+            for (int index = 0; index < skippedBookings.size(); index++) {
+                CompleteSubmissionBatchResult.SkippedBooking skipped = skippedBookings.get(index);
+                if (index > 0) summary.append(", ");
+                summary.append("예약 #").append(skipped.bookingId())
+                        .append('(').append(skipped.reason()).append(')');
+            }
+        }
+        return summary.toString();
     }
 }
 ```
@@ -379,17 +484,9 @@ public record CompleteSubmissionBatchResult(
     CompleteSubmissionBatchResult complete(Long batchId, SubmissionActorContext actor);
 ```
 
-`GeneralFacilitySubmissionService.java` — `cancel` 의 `findById` 를 `findByIdForUpdate` 로 교체하고, complete 구현 추가. 신규 주입: `FacilityBookingStatusHistoryRepository historyRepository`, `ApplicationEventPublisher eventPublisher`(import: `com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory`, `com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository`, `com.duing.domain.notification.event.FacilityBookingConfirmedEvent`, `org.springframework.context.ApplicationEventPublisher`, `java.util.ArrayList`, `java.util.Map`, `CompleteSubmissionBatchResult`):
+`GeneralFacilitySubmissionService.java` — `cancel` 의 `findById` 를 `findByIdForUpdate` 로 교체하고, complete 구현 추가. 신규 주입: `FacilityBookingStatusHistoryRepository historyRepository`, `ApplicationEventPublisher eventPublisher`, `SubmissionCompletionSummaryFormatter summaryFormatter`(import: `com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory`, `com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository`, `com.duing.domain.notification.event.FacilityBookingConfirmedEvent`, `org.springframework.context.ApplicationEventPublisher`, `java.util.ArrayList`, `CompleteSubmissionBatchResult`):
 
 ```java
-    /** 스킵 사유의 한글 라벨(§4.3) — 감사 요약은 운영자가 읽는 문장이다. */
-    private static final Map<BookingStatus, String> SKIP_REASON_LABELS = Map.of(
-            BookingStatus.CANCELLED, "취소됨",
-            BookingStatus.CONFLICT, "충돌",
-            BookingStatus.CONFIRMED, "이미 등록 완료",
-            BookingStatus.PENDING, "승인 대기",
-            BookingStatus.REJECTED, "반려됨");
-
     @Override
     @Transactional
     public CompleteSubmissionBatchResult complete(Long batchId, SubmissionActorContext actor) {
@@ -408,7 +505,8 @@ public record CompleteSubmissionBatchResult(
         for (FacilityBooking booking : bookings) {
             if (booking.getStatus() != BookingStatus.APPROVED) {
                 skippedBookings.add(new CompleteSubmissionBatchResult.SkippedBooking(
-                        booking.getId(), booking.getStatus()));
+                        booking.getId(), booking.getStatus(),
+                        summaryFormatter.reasonLabel(booking.getStatus())));
                 continue;
             }
             // best-effort(§4.3-3) — 기존 수동 확정 경로 재사용(상태 머신 무변경), 이력·알림도 기존 계약 그대로.
@@ -425,27 +523,8 @@ public record CompleteSubmissionBatchResult(
         batch.complete(actor.adminId(), completedAt);
         auditRepository.save(FacilitySubmissionAudit.of(batchId, SubmissionAuditAction.COMPLETED,
                 actor.adminId(), actor.ipAddress(), actor.userAgent(),
-                completionDetail(bookings.size(), confirmedCount, skippedBookings)));
-        return new CompleteSubmissionBatchResult(bookings.size(), confirmedCount, skippedBookings);
-    }
-
-    /** 사람이 읽는 감사 요약(§4.3) — 요약 수치가 앞이라 500자 절단에도 핵심은 보존된다. */
-    private String completionDetail(int totalCount, int confirmedCount,
-            List<CompleteSubmissionBatchResult.SkippedBooking> skippedBookings) {
-        StringBuilder detail = new StringBuilder()
-                .append("학교 제출 완료 — 총 ").append(totalCount).append("건 / 등록 완료 ")
-                .append(confirmedCount).append("건");
-        if (!skippedBookings.isEmpty()) {
-            detail.append(" / 제외 ").append(skippedBookings.size()).append("건: ");
-            for (int index = 0; index < skippedBookings.size(); index++) {
-                CompleteSubmissionBatchResult.SkippedBooking skipped = skippedBookings.get(index);
-                if (index > 0) detail.append(", ");
-                detail.append("예약 #").append(skipped.bookingId())
-                        .append('(').append(SKIP_REASON_LABELS.getOrDefault(skipped.status(), skipped.status().name()))
-                        .append(')');
-            }
-        }
-        return detail.toString();
+                summaryFormatter.summarize(bookings.size(), confirmedCount, skippedBookings)));
+        return new CompleteSubmissionBatchResult(bookings.size(), confirmedCount, completedAt, skippedBookings);
     }
 ```
 
@@ -644,6 +723,7 @@ git commit -m "feat(backend): 제출 이력·상세에 완료 상태·감사 이
                 .body("data.totalCount", equalTo(1))
                 .body("data.confirmedCount", equalTo(1))
                 .body("data.skippedCount", equalTo(0))
+                .body("data.completedAt", notNullValue())
                 .body("data.skippedBookings", notNullValue());
 
         Assertions.assertThat(bookingRepository.findById(booking.getId()).orElseThrow().getStatus())
@@ -716,20 +796,26 @@ public record CompleteSubmissionBatchResponse(
         int totalCount,
         int confirmedCount,
         int skippedCount,
+        LocalDateTime completedAt,
         List<SkippedBookingResponse> skippedBookings
 ) {
-    public record SkippedBookingResponse(Long bookingId, BookingStatus status) {
+    /** reason = 서비스가 내려준 한글 라벨 그대로(Formatter 단일 출처) — FE 재매핑 금지 계약. */
+    public record SkippedBookingResponse(Long bookingId, BookingStatus status, String reason) {
     }
 
     public static CompleteSubmissionBatchResponse from(CompleteSubmissionBatchResult result) {
         return new CompleteSubmissionBatchResponse(
                 result.totalCount(), result.confirmedCount(), result.skippedBookings().size(),
+                result.completedAt(),
                 result.skippedBookings().stream()
-                        .map(skipped -> new SkippedBookingResponse(skipped.bookingId(), skipped.status()))
+                        .map(skipped -> new SkippedBookingResponse(
+                                skipped.bookingId(), skipped.status(), skipped.reason()))
                         .toList());
     }
 }
 ```
+
+(import 에 `java.time.LocalDateTime` 추가)
 
 `SubmissionBatchSummaryResponse.java` — `boolean completed, LocalDateTime completedAt` 필드 추가 + `from` 매핑에 `listItem.completed(), listItem.completedAt()` 추가.
 

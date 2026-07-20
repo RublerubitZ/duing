@@ -110,14 +110,19 @@ PR-3 에서 batch 조회를 행잠금(`findByIdForUpdate`)으로 교체 — 완�
 제외 사유는 상태의 한글 라벨(취소됨/충돌/이미 등록 완료)로 기록한다 — ID 나열이 아니라 "왜 제외됐는지"가 남는 게 목적.
 500자 초과 시 절단(절단 내장) — 요약 수치가 앞에 오므로 핵심 정보는 항상 보존된다. 제외 0건이면 `학교 제출 완료 — 총 8건 / 등록 완료 8건`.
 
-**응답**: 200 — 운영자가 한눈에 이해하도록 전체·스킵 건수 포함:
+**표현 단일 출처(v2.2 보완)**: 사유 라벨과 요약 문장 생성은 `SubmissionCompletionSummaryFormatter` 컴포넌트로 분리한다
+(`reasonLabel(status)` + `summarize(total, confirmed, skipped)`) — 서비스는 호출만. 응답의 `reason` 과 감사 detail 이
+같은 라벨을 쓰게 되어 FE 중복 매핑이 사라지고, 향후 문구·다국어 변경이 한 곳에 모인다.
+
+**응답**: 200 — 운영자가 추가 조회 없이 결과를 안내할 수 있도록 전체·스킵 건수, **완료 시각, 사람이 읽는 제외 사유** 포함:
 
 ```json
 {
   "totalCount": 10,
   "confirmedCount": 8,
   "skippedCount": 2,
-  "skippedBookings": [ { "bookingId": 123, "status": "CANCELLED" } ]
+  "completedAt": "2026-07-20T09:15:00",
+  "skippedBookings": [ { "bookingId": 123, "status": "CANCELLED", "reason": "취소됨" } ]
 }
 ```
 
@@ -136,7 +141,7 @@ candidates 파생 무영향 — submitted 판정은 `cancelledAt IS NULL` 만 �
 | 5.4 GET `/{batchId}` | ✅ | 취소·완료 Batch 도 조회 가능. `{batch, bookings[]}`(멤버십 고정·status 현재값·활성 기준 재계산). audit `VIEWED`(쓰기 트랜잭션). **PR-3: batch 에 `completed`/`completedAt`, 응답에 `audits[]`(action·admin 이름·시각·IP) 추가** — 동아리별 그룹핑은 FE 가공 |
 | 5.5 GET `/{batchId}/csv` | ✅ | Excel 호환(BOM·CRLF·수식 가드). 취소·완료 Batch 도 허용. audit `CSV_DOWNLOADED` |
 | 5.6 DELETE `/{batchId}` | ✅ | 취소. 204 / 404 / 기취소 409. **PR-3: 기완료 409 가드 + 행잠금 추가** |
-| 5.7 POST `/{batchId}/complete` | 🆕 PR-3 | §4.3. 200 `{totalCount, confirmedCount, skippedCount, skippedBookings[]}`. 404 / 기취소·기완료 409. audit `COMPLETED`+요약 detail |
+| 5.7 POST `/{batchId}/complete` | 🆕 PR-3 | §4.3. 200 `{totalCount, confirmedCount, skippedCount, completedAt, skippedBookings[{bookingId, status, reason}]}`. 404 / 기취소·기완료 409. audit `COMPLETED`+요약 detail(Formatter 단일 출처) |
 
 ## 6. Export — 선택 기능(업무 흐름의 일부가 아님)
 
@@ -207,7 +212,7 @@ Action: **학교 제출 완료 처리**(검토 중일 때만) · CSV 다운로�
 
 **PR-2 (FE)**: 그룹 목록(그룹핑·동아리 일괄 선택·부분 검색·제출 여부 필터), Summary 카드 라벨·필터 연동, 시간표(토글·선택), 생성 플로우(자동 다운로드 없음 — 토스트·무효화만), 기간 가드.
 
-**PR-3 (BE 완료 처리)**: 완료 시 APPROVED 전이+history+이벤트 / 비APPROVED 스킵 목록 / **응답 4필드(totalCount·confirmedCount·skippedCount·skippedBookings) 정합** / 기완료·기취소 409 / 완료 후 취소 409 / 완료·취소 동시 실행 행잠금 직렬화(실스레드) / candidates 파생 불변(완료 batch 도 제출함) / **audit COMPLETED 의 요약 detail 문구(사유 라벨 포함)·500자 절단** / 상세 audits[] 응답.
+**PR-3 (BE 완료 처리)**: 완료 시 APPROVED 전이+history+이벤트 / 비APPROVED 스킵 목록(**reason 라벨 포함**) / **응답 정합(totalCount·confirmedCount·skippedCount·completedAt·skippedBookings)** / 기완료·기취소 409 / 완료 후 취소 409 / 완료·취소 동시 실행 행잠금 직렬화(실스레드) / candidates 파생 불변(완료 batch 도 제출함) / **SubmissionCompletionSummaryFormatter 순수 유닛(라벨 맵·0스킵·N스킵 형식)** / audit COMPLETED 요약 detail·500자 절단 / 상세 audits[] 응답.
 
 **PR-4 (FE 이력·상세)**: 상태 배지 3종, 완료 확인 Dialog 안내 3줄 문구, **완료 결과 분기(스킵 0=토스트 / 스킵 있음=결과 Dialog+제외 목록)**, Export 버튼, Audit 표시(COMPLETED 요약 노출).
 
