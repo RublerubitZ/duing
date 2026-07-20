@@ -60,3 +60,11 @@ export function buildSlotStrip(input: {
 export function conflictCardCount(counts: AdminFacilityBookingCounts): number {
   return counts.conflictCount + counts.conflictSuspectedCount;
 }
+
+/** 큐 서브라인용 신청 경과 표기(개편 스펙 §2) — 24시간 단위 floor, Invalid 입력은 빈 문자열. */
+export function requestAgeLabel(createdAt: string, now: Date): string {
+  const requested = parseKstInstant(createdAt);
+  if (Number.isNaN(requested.getTime())) return '';
+  const elapsedDays = Math.floor(Math.max(0, now.getTime() - requested.getTime()) / 86_400_000);
+  return elapsedDays === 0 ? '오늘 접수' : `${elapsedDays}일 경과`;
+}

@@ -12,6 +12,8 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminBookingDetailModal } from '../_components/AdminBookingDetailModal';
 import { AdminBookingQueueTable } from '../_components/AdminBookingQueueTable';
 import { BookingSummaryCards, type AdminQueueTab } from '../_components/BookingSummaryCards';
+import { EmptyState } from '../_components/EmptyState';
+import { conflictCardCount } from '../_lib/adminBookingDisplay';
 
 const PAGE_SIZE = 20;
 
@@ -38,6 +40,7 @@ export function BookingManagementTab() {
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
 
   const facilityId = facilityIdInput === '' ? undefined : Number(facilityIdInput);
+  const hasQueueFilter = facilityIdInput !== '' || dateFrom !== '' || dateTo !== '';
   const baseParams: AdminBookingQueueParams = {
     facilityId,
     dateFrom: dateFrom === '' ? undefined : dateFrom,
@@ -58,6 +61,17 @@ export function BookingManagementTab() {
   const selectTab = (tab: AdminQueueTab) => {
     setActiveTab(tab);
     setPage(0);
+  };
+
+  // 필터 칩 건수 병기(개편 스펙 §2) — 큐 필터와 의미가 일치하는 지표만 표기한다.
+  // 확정은 summary 가 이달 기준이라 큐 전체 건수와 어긋나고, 전체는 표기 실익이 없다.
+  const chipCountOf = (tab: AdminQueueTab): number | undefined => {
+    const summaryCounts = summaryQuery.data;
+    if (summaryCounts === undefined) return undefined;
+    if (tab === 'PENDING') return summaryCounts.pendingCount;
+    if (tab === 'APPROVED') return summaryCounts.approvedWaitingCount;
+    if (tab === 'CONFLICT_ATTENTION') return conflictCardCount(summaryCounts);
+    return undefined;
   };
 
   const conflictRows = queueQuery.data?.content ?? [];
@@ -110,20 +124,25 @@ export function BookingManagementTab() {
       )}
 
       <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="큐 필터">
-        {(Object.keys(TAB_LABELS) as AdminQueueTab[]).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab}
-            onClick={() => selectTab(tab)}
-            className={`rounded-full border px-3 py-1.5 text-xs motion-safe:transition-colors ${
-              activeTab === tab ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-charcoal-2 hover:border-sage'
-            }`}
-          >
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
+        {(Object.keys(TAB_LABELS) as AdminQueueTab[]).map((tab) => {
+          const chipCount = chipCountOf(tab);
+          return (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab}
+              onClick={() => selectTab(tab)}
+              className={`rounded-full border px-3 py-1.5 text-xs motion-safe:transition-colors ${
+                activeTab === tab ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-charcoal-2 hover:border-sage'
+              }`}
+            >
+              {TAB_LABELS[tab]}
+              {/* 공백 텍스트 노드는 접근성 이름을 '승인 대기 7'로 띄어 읽히게 한다. */}
+              {chipCount !== undefined && <> <span className="tabular-nums">{chipCount}</span></>}
+            </button>
+          );
+        })}
         <select
           aria-label="시설 필터"
           className="ml-auto rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
@@ -164,13 +183,42 @@ export function BookingManagementTab() {
         </div>
       )}
       {!isQueueLoading && !isQueueError && queueQuery.isSuccess && rows.length === 0 && (
-        <p className="text-sm text-charcoal-3">해당 조건의 신청이 없어요.</p>
+        // 시설·기간 필터가 있을 때만 본문·초기화 버튼 노출 — 탭별 상태와 무관한 안내 문구를 만들지 않는다.
+        <EmptyState
+          title="해당 조건의 신청이 없어요"
+          body={hasQueueFilter ? '시설·기간 필터를 넓혀보세요.' : undefined}
+          action={
+            hasQueueFilter ? (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setFacilityIdInput('');
+                  setDateFrom('');
+                  setDateTo('');
+                  setPage(0);
+                }}
+              >
+                필터 초기화
+              </button>
+            ) : undefined
+          }
+        />
       )}
       {!isQueueLoading && !isQueueError && rows.length > 0 && (
         <AdminBookingQueueTable rows={rows} onSelect={setSelectedBookingId} />
       )}
 
-      {totalPages > 1 && <Pagination page={page} totalPages={totalPages} onChange={setPage} />}
+      {totalPages > 1 && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onChange={setPage}
+          // 충돌·의심 탭은 두 쿼리 병합이라 총계가 부정확 — 범위 표기를 생략한다(개편 스펙 §2).
+          totalElements={activeTab === 'CONFLICT_ATTENTION' ? undefined : queueQuery.data?.totalElements}
+          pageSize={PAGE_SIZE}
+        />
+      )}
 
       {selectedBookingId !== null && (
         <AdminBookingDetailModal

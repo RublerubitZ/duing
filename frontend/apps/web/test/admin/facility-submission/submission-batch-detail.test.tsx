@@ -130,7 +130,7 @@ describe('SubmissionBatchDetailPage', () => {
     render(<SubmissionBatchDetailPage batchId={1} />);
 
     expect(screen.getByRole('heading', { name: 'SUB-20260801-001' })).toBeInTheDocument();
-    expect(screen.getByText('검토 중')).toBeInTheDocument();
+    expect(screen.getByText('제출 대기')).toBeInTheDocument();
     // 생성자 항목의 값만 좁혀 폴백(-)을 단언 — 다른 셀의 - 와 헷갈리지 않는다.
     expect(screen.getByText('생성자').nextElementSibling).toHaveTextContent('-');
     // 조회는 라우트가 넘긴 batchId 로 마운트된다.

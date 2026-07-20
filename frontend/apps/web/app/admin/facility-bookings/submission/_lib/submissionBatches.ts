@@ -12,8 +12,9 @@ export function deriveBatchStatus(batch: SubmissionBatchSummary): SubmissionBatc
 // badgeClass 는 submission 도메인 기존 팔레트(submissionTimetable.submissionBlockVisual) 톤을 뱃지 필 형태로 옮긴 것 —
 // REVIEWING=ink(선택 가능/진행 중 톤), COMPLETED=sage(CONFIRMED 성공 톤), CANCELLED=graysoft(PENDING/취소 회색 톤).
 // 두 톤 다 bookingDisplay.BOOKING_STATUS_META(APPROVED/CANCELLED)와도 동일 관례.
+// REVIEWING 라벨은 '제출 대기' — 검토할 대상이 없는 상태라 '검토 중'은 오독을 부른다(개편 스펙 §1).
 export const BATCH_STATUS_META: Record<SubmissionBatchStatus, { label: string; badgeClass: string }> = {
-  REVIEWING: { label: '검토 중', badgeClass: 'bg-ink/10 text-ink' },
+  REVIEWING: { label: '제출 대기', badgeClass: 'bg-ink/10 text-ink' },
   COMPLETED: { label: '제출 완료', badgeClass: 'bg-sage/30 text-ink-deep' },
   CANCELLED: { label: '취소됨', badgeClass: 'bg-graysoft text-charcoal-3' },
 };
