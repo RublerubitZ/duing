@@ -30,6 +30,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -90,13 +91,16 @@ class FacilitySubmissionConcurrencyTest extends IntegrationTestBase {
         Long batchId = submissionService.create(
                 new CreateSubmissionBatchCommand(List.of(bookingId), null), actor).batchId();
 
-        java.util.concurrent.atomic.AtomicInteger turn = new java.util.concurrent.atomic.AtomicInteger();
+        AtomicInteger turn = new AtomicInteger();
         List<Throwable> failures = runConcurrently(2, () -> {
             if (turn.getAndIncrement() == 0) submissionService.complete(batchId, actor);
             else submissionService.cancel(batchId, actor);
         });
 
         assertThat(failures).as("행잠금 직렬화로 정확히 한쪽만 거부돼야 한다").hasSize(1);
+        assertThat(failures.get(0)).isInstanceOfAny(
+                FacilitySubmissionException.BatchAlreadyCancelledException.class,
+                FacilitySubmissionException.CompletedBatchUncancellableException.class);
         FacilitySubmissionBatch batch = batchRepository.findById(batchId).orElseThrow();
         assertThat(batch.isCompleted() ^ batch.isCancelled())
                 .as("완료·취소는 상호 배타 — 정확히 하나만 참").isTrue();

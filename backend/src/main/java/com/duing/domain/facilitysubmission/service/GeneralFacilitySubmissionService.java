@@ -95,13 +95,15 @@ public class GeneralFacilitySubmissionService implements FacilitySubmissionServi
         // 행잠금(§4.3-1) — 완료/취소 동시 실행을 직렬화해 상태 가드가 잠금 하에서 평가되게 한다.
         FacilitySubmissionBatch batch = batchRepository.findByIdForUpdate(batchId)
                 .orElseThrow(FacilitySubmissionException.BatchNotFoundException::new);
+        LocalDateTime completedAt = LocalDateTime.now(clock);
+        // 가드 선평가 — 기취소/기완료면 부작용 없이 즉시 거부
+        batch.complete(actor.adminId(), completedAt);
         List<Long> bookingIds = itemRepository.findByBatchIdOrderByIdAsc(batchId).stream()
                 .map(FacilitySubmissionItem::getBookingId)
                 .toList();
         // 생성과 동일한 ID 정렬 행잠금(§4.3-2) — 생성·완료의 교차 실행도 booking 잠금에서 직렬화된다.
         List<FacilityBooking> bookings = bookingRepository.findAllByIdInForUpdate(bookingIds);
 
-        LocalDateTime completedAt = LocalDateTime.now(clock);
         List<CompleteSubmissionBatchResult.SkippedBooking> skippedBookings = new ArrayList<>();
         int confirmedCount = 0;
         for (FacilityBooking booking : bookings) {
@@ -122,7 +124,6 @@ public class GeneralFacilitySubmissionService implements FacilitySubmissionServi
             confirmedCount++;
         }
 
-        batch.complete(actor.adminId(), completedAt);
         auditRepository.save(FacilitySubmissionAudit.of(batchId, SubmissionAuditAction.COMPLETED,
                 actor.adminId(), actor.ipAddress(), actor.userAgent(),
                 summaryFormatter.summarize(bookings.size(), confirmedCount, skippedBookings)));
