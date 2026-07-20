@@ -99,7 +99,8 @@ export function AdminFacilityBookingsPage() {
   const activeStepIndex = TAB_KEYS.indexOf(activeTab);
 
   return (
-    <section className="space-y-5">
+    // 다른 admin 페이지와 동일한 컨테이너 관례(max-w-layout+px+py) — 없으면 사이드바에 붙고 와이드에서 과확장된다.
+    <main className="max-w-layout mx-auto space-y-5 px-4 py-10 sm:px-6 md:px-10">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           {/* 목업 CAdmin 헤더 — eyebrow 서브타이틀 + 큰 타이틀 */}
@@ -214,6 +215,6 @@ export function AdminFacilityBookingsPage() {
       {activeTab === 'prepare' && <SubmissionPrepareTab />}
       {activeTab === 'ready' && <SubmissionBatchesTab statusFilter="REVIEWING" />}
       {activeTab === 'archive' && <SubmissionBatchesTab />}
-    </section>
+    </main>
   );
 }
