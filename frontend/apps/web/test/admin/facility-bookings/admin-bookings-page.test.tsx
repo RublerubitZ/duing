@@ -15,6 +15,8 @@ const mockUsageQuery = vi.fn();
 const mockReplace = vi.fn();
 let mockTabParam: string | null = null;
 
+const mockBatchesListQuery = vi.fn();
+
 // 큐 테이블이 쓰는 formatDateTimeKst 등 순수 유틸은 실제 구현을 유지한다(batches-tab 테스트 동일 패턴).
 vi.mock('@duing/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@duing/hooks')>()),
@@ -24,14 +26,17 @@ vi.mock('@duing/hooks', async (importOriginal) => ({
   // prepare 탭(SubmissionPrepareTab)이 마운트되면 호출되는 훅 — 기본 탭 테스트에선 미사용이나 모킹을 채워둔다.
   useSubmissionCandidatesQuery: () => ({ data: undefined, isLoading: false, isSuccess: false, isError: false, refetch: vi.fn() }),
   useCreateSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  // batches 탭(SubmissionBatchesTab)이 마운트되면 호출되는 훅 — 기본은 빈 목록 성공으로 채운다.
-  useSubmissionBatchesQuery: () => ({
-    data: { content: [], page: 0, size: 10, totalElements: 0, totalPages: 0, hasNext: false },
-    isLoading: false,
-    isSuccess: true,
-    isError: false,
-    refetch: vi.fn(),
-  }),
+  // batches 탭·셸 건수 조회가 호출하는 훅 — 인자를 스파이로 남기고 빈 목록 성공을 돌려준다.
+  useSubmissionBatchesQuery: (...args: unknown[]) => {
+    mockBatchesListQuery(...args);
+    return {
+      data: { content: [], page: 0, size: 10, totalElements: 0, totalPages: 0, hasNext: false },
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+      refetch: vi.fn(),
+    };
+  },
   useCancelSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDownloadSubmissionCsvMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCompleteSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -145,12 +150,17 @@ describe('AdminFacilityBookingsPage', () => {
     mockQueueQuery.mockReturnValue(makeQueueSuccess([]));
   });
 
-  it('업무 단계 탭 3개가 렌더되고 기본은 예약 관리다', () => {
+  it('워크플로 탭 4개가 렌더되고 기본은 예약 검토, 검토 탭에 대기 건수가 붙는다', () => {
     render(<AdminFacilityBookingsPage />);
 
-    expect(screen.getByRole('tab', { name: '예약 관리' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: '학교 제출 준비' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '제출 목록' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /예약 검토/ })).toHaveAttribute('aria-selected', 'true');
+    // 검토 탭 건수 = summary.pendingCount(7). 경고 점은 aria-hidden 장식이라 이름에 합류하지 않는다.
+    expect(screen.getByRole('tab', { name: /예약 검토 7/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /제출 준비/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /제출 대기/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /제출 이력/ })).toBeInTheDocument();
+    // 제출 대기 건수는 REVIEWING size-1 조회의 totalElements 를 쓴다(개편 스펙 §1).
+    expect(mockBatchesListQuery).toHaveBeenCalledWith({ page: 0, size: 1, status: 'REVIEWING' });
     // 기본 탭 = 기존 관리 화면(요약 카드 렌더) — '오늘 접수'는 승인 대기 카드에만 있어 큐 필터 탭 라벨과 겹치지 않는다.
     expect(screen.getByRole('button', { name: /오늘 접수/ })).toBeInTheDocument();
   });
@@ -158,19 +168,46 @@ describe('AdminFacilityBookingsPage', () => {
   it('탭 클릭은 URL 을 replace 로 동기화한다', () => {
     render(<AdminFacilityBookingsPage />);
 
-    fireEvent.click(screen.getByRole('tab', { name: '학교 제출 준비' }));
+    fireEvent.click(screen.getByRole('tab', { name: /제출 준비/ }));
     expect(mockReplace).toHaveBeenCalledWith(
       expect.stringContaining('/admin/facility-bookings?tab=prepare'),
       expect.objectContaining({ scroll: false }),
     );
   });
 
-  it('tab=batches 로 진입하면 제출 목록 탭이 마운트되어 빈 목록 안내가 보인다', () => {
+  it('구 URL(tab=batches)은 제출 대기 탭으로, tab=pending 은 예약 검토 탭으로 흡수된다', () => {
     mockTabParam = 'batches';
+    const { unmount } = render(<AdminFacilityBookingsPage />);
+
+    expect(screen.getByRole('tab', { name: /제출 대기/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('진행 중인 제출 목록이 없어요')).toBeInTheDocument();
+    expect(screen.queryByText('승인 대기')).not.toBeInTheDocument();
+    unmount();
+
+    mockTabParam = 'pending';
+    render(<AdminFacilityBookingsPage />);
+    expect(screen.getByRole('tab', { name: /예약 검토/ })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('프로토타입 상속 키(tab=constructor)는 별칭으로 오인되지 않고 기본 탭으로 폴백한다', () => {
+    mockTabParam = 'constructor';
     render(<AdminFacilityBookingsPage />);
 
-    expect(screen.getByText(/아직 만든 제출 목록이 없어요/)).toBeInTheDocument();
-    expect(screen.queryByText('승인 대기')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /예약 검토/ })).toHaveAttribute('aria-selected', 'true');
+    // 기본 탭 콘텐츠(검토 화면)가 실제로 렌더된다 — 빈 워크플로 영역 회귀 방지.
+    expect(screen.getByRole('button', { name: /오늘 접수/ })).toBeInTheDocument();
+  });
+
+  it('summary 에 수집 시각이 있으면 헤더에 크롤 신선도 칩이 보인다', () => {
+    // 절대 날짜 하드코딩 금지(타임밤) — 5분 전 시각을 만들어 신선 상태를 검증한다.
+    mockSummaryQuery.mockReturnValue({
+      data: makeCounts({ crawledAt: new Date(Date.now() - 5 * 60_000).toISOString() }),
+      isError: false,
+      refetch: mockSummaryRefetch,
+    });
+    render(<AdminFacilityBookingsPage />);
+
+    expect(screen.getByText(/학교 데이터 마지막 수집 5분 전/)).toBeInTheDocument();
   });
 
   it('요약 카드 4장이 렌더되고 충돌 카드는 충돌+의심 합산(5)을 보여준다', () => {
@@ -208,6 +245,7 @@ describe('AdminFacilityBookingsPage', () => {
         makeRow({
           bookingId: 55,
           status: 'APPROVED',
+          attendeeCount: 120,
           approvedWaitingDays: 8,
           conflictSuspected: true,
           partiallyMatched: true,
@@ -218,6 +256,7 @@ describe('AdminFacilityBookingsPage', () => {
     render(<AdminFacilityBookingsPage />);
 
     expect(screen.getByText('#55')).toBeInTheDocument();
+    expect(screen.getByText('120명')).toBeInTheDocument();
     expect(screen.getByText('학교 반영 대기 D+8')).toBeInTheDocument();
     expect(screen.getByText('충돌 의심')).toBeInTheDocument();
     expect(screen.getByText('부분 반영')).toBeInTheDocument();

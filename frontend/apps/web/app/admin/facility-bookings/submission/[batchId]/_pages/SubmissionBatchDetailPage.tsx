@@ -33,7 +33,8 @@ import {
 } from '../../_lib/submissionBatches';
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../../_lib/submissionTimetable';
 
-const BATCH_LIST_ROUTE = toRoute('/admin/facility-bookings?tab=batches');
+// 완료·취소 배치 상세에서도 돌아갈 수 있게 전체 이력 탭으로 복귀한다(제출 대기 탭엔 진행 중만 있음).
+const BATCH_LIST_ROUTE = toRoute('/admin/facility-bookings?tab=archive');
 /**
  * 상세 Sheet 가 제출번호를 소개하는 문구 — 예약의 업무 상태가 아니라 "이 목록과의 관계"를 말한다.
  * 취소된 목록은 학교에 실제 제출된 것이 아니므로 '제출됨'으로 읽히지 않게 관계로만 서술한다.
@@ -130,7 +131,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
     <main className="max-w-layout mx-auto px-4 py-10 sm:px-6 md:px-10">
       <div className="mb-6">
         <Link href={BATCH_LIST_ROUTE} className="text-[13px] text-charcoal-2 hover:text-ink">
-          ← 제출 목록
+          ← 제출 이력
         </Link>
       </div>
 
@@ -144,7 +145,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
             href={BATCH_LIST_ROUTE}
             className="mt-2 inline-block text-charcoal-2 hover:text-ink hover:underline"
           >
-            제출 목록으로 돌아가기
+            제출 이력으로 돌아가기
           </Link>
         </div>
       )}

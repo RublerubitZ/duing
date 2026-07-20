@@ -69,7 +69,10 @@ export type SubmissionBatchSummary = {
   completedAt: string | null;
 };
 
-export type SubmissionBatchListParams = { page: number; size: number };
+// 파생 상태 필터(개편 스펙 A3) — BE SubmissionBatchStatusFilter 와 1:1.
+export type SubmissionBatchStatusFilter = 'REVIEWING' | 'COMPLETED' | 'CANCELLED';
+
+export type SubmissionBatchListParams = { page: number; size: number; status?: SubmissionBatchStatusFilter };
 
 export type SubmissionAuditEntry = {
   action: 'CREATED' | 'CANCELLED' | 'CSV_DOWNLOADED' | 'VIEWED' | 'COMPLETED';

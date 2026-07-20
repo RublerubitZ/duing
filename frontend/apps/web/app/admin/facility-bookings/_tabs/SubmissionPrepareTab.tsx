@@ -9,6 +9,7 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 import { toRoute } from '../../../_lib/route';
 import { EmptyState } from '../_components/EmptyState';
 import { ViewModeToggle, type SubmissionViewMode } from '../_components/ViewModeToggle';
+import { currentMonthRange } from '../_lib/submissionPeriod';
 import { BatchCreateDialog } from '../submission/_components/BatchCreateDialog';
 import { SubmissionClubGroupList } from '../submission/_components/SubmissionClubGroupList';
 import { SubmissionDetailSheet } from '../submission/_components/SubmissionDetailSheet';
@@ -19,18 +20,6 @@ import { buildFacilitySections, deriveSelectedIds } from '../submission/_lib/sub
 const MAX_PERIOD_DAYS = 31;
 
 type SubmissionStatusFilter = 'ALL' | 'NEED' | 'SUBMITTED';
-
-const toIso = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
-/** 기본 조회 기간 = 이번 달 1일~말일(≤31일이라 항상 유효) — 월간 제출 업무 단위(스펙 v3). */
-function currentMonthRange(): { startDate: string; endDate: string } {
-  const today = new Date();
-  return {
-    startDate: toIso(new Date(today.getFullYear(), today.getMonth(), 1)),
-    endDate: toIso(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
-  };
-}
 
 function periodDayCount(startDate: string, endDate: string): number {
   const diffMs = new Date(`${endDate}T00:00:00`).getTime() - new Date(`${startDate}T00:00:00`).getTime();
@@ -144,7 +133,7 @@ export function SubmissionPrepareTab() {
       setDialogSection(null);
       // excluded 정리는 별도 불필요 — 제출된 예약은 재조회 후 selectable 에서 빠지고, 화면 기준
       // 프루닝 이펙트가 잔재를 정리한다(세션 상태 누적 방지 규약).
-      addToast("제출 목록이 만들어졌어요. 학교 제출 후 '제출 목록' 탭에서 완료 처리해 주세요.");
+      addToast("제출 목록이 만들어졌어요. 학교 제출 후 '제출 대기' 탭에서 완료 처리해 주세요.");
     } catch (error) {
       addToast(submissionErrorMessage(error), { variant: 'error' });
     }
@@ -216,10 +205,10 @@ export function SubmissionPrepareTab() {
               <EmptyState
                 icon="✅"
                 title="학교에 제출할 예약이 없어요"
-                body={'예약을 승인하면 여기에 자동으로 표시돼요.\n대기 중인 신청은 예약 관리 탭에서 처리할 수 있어요.'}
+                body={'예약을 승인하면 여기에 자동으로 표시돼요.\n대기 중인 신청은 예약 검토 탭에서 처리할 수 있어요.'}
                 action={
-                  <Link href={toRoute('/admin/facility-bookings?tab=pending')} className="btn btn-secondary btn-sm">
-                    예약 관리로 이동
+                  <Link href={toRoute('/admin/facility-bookings?tab=review')} className="btn btn-secondary btn-sm">
+                    예약 검토로 이동
                   </Link>
                 }
               />

@@ -48,6 +48,9 @@ export function AdminBookingQueueTable({ rows, onSelect }: Props) {
                   <p className="font-semibold text-ink-deep">{row.clubName}</p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-charcoal-3">
                     <span className="max-w-[14rem] truncate">{row.purpose}</span>
+                    {row.attendeeCount !== undefined && (
+                      <span className="whitespace-nowrap">{row.attendeeCount}명</span>
+                    )}
                     {row.conflictSuspected && (
                       <span className="rounded-full bg-coral/15 px-2 py-0.5 font-bold text-coral">충돌 의심</span>
                     )}
