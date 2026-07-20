@@ -63,13 +63,14 @@ afterAll(() => server.close());
 
 function renderLoginForm() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const renderResult = render(
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={apiClient}>
         <LoginFormPanel />
       </ApiClientProvider>
     </QueryClientProvider>,
   );
+  return { queryClient, ...renderResult };
 }
 
 // studentId 가 pattern="\d{8}" 을 만족하지 않으면 jsdom 도 브라우저처럼 제출 버튼 클릭 시
@@ -103,6 +104,26 @@ describe('LoginFormPanel', () => {
 
     expect(screen.getByText('학번은 8자리 숫자여야 합니다.')).toBeInTheDocument();
     expect(loginCalled).toBe(false);
+  });
+
+  // 로그인 페이지는 세션 보유 상태에서도 열린다(사용자 전환) — 이전 계정의 캐시가
+  // 새 계정 화면에 렌더되지 않도록 로그인 성공이 캐시를 비워야 한다(공용 단말 정보 노출 방지).
+  it('로그인 성공 시 이전 계정의 React Query 캐시를 비운다', async () => {
+    server.use(
+      http.post(`${BASE}/auth/web/login`, () =>
+        HttpResponse.json({ ok: true, data: { user: TEST_USER }, message: null }),
+      ),
+    );
+    const user = userEvent.setup();
+    const { container, queryClient } = renderLoginForm();
+    queryClient.setQueryData(['users', 'me'], { id: 99, name: '이전사용자' });
+
+    await user.type(screen.getByLabelText('학번'), '20240001');
+    await user.type(screen.getByLabelText('비밀번호'), 'password1234');
+    submitForm(container);
+
+    await waitFor(() => expect(useAuthStore.getState().status).toBe('authenticated'));
+    expect(queryClient.getQueryData(['users', 'me'])).toBeUndefined();
   });
 
   it('유효한 학번·비밀번호로 제출하면 login 을 호출한다', async () => {
