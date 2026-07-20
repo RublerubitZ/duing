@@ -12,11 +12,28 @@ const mockSummaryRefetch = vi.fn();
 const mockQueueQuery = vi.fn();
 const mockSummaryQuery = vi.fn();
 const mockUsageQuery = vi.fn();
+const mockReplace = vi.fn();
+let mockTabParam: string | null = null;
 
 vi.mock('@duing/hooks', () => ({
   useAdminFacilityBookingQueueQuery: (...args: unknown[]) => mockQueueQuery(...args),
   useAdminFacilityBookingSummaryQuery: () => mockSummaryQuery(),
   useFacilityUsageQuery: () => mockUsageQuery(),
+  // prepare 탭(임시 AdminSubmissionPage)이 마운트되면 호출되는 훅 — 기본 탭 테스트에선 미사용이나 모킹을 채워둔다.
+  useSubmissionCandidatesQuery: () => ({ data: undefined, isLoading: false, isSuccess: false, isError: false, refetch: vi.fn() }),
+  useCreateSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
+// 탭 셸은 URL(?tab=)로 상태를 관리한다 — searchParams 로 상태 주입, 탭 전환은 replace 호출 인자로 단언(ClubExplorePage 계약).
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mockReplace }),
+  useSearchParams: () => new URLSearchParams(mockTabParam === null ? '' : `tab=${mockTabParam}`),
+}));
+
+// useGuardedRouter·AdminSubmissionPage 가 ToastProvider 컨텍스트를 물어 스텁한다(faq-page.test 패턴).
+vi.mock('@/app/_components/toast/ToastProvider', () => ({
+  useToast: () => ({ addToast: vi.fn() }),
+  useOptionalToast: () => vi.fn(),
 }));
 
 /* ── 대상 ───────────────────────────────────────────────────── */
@@ -86,6 +103,8 @@ const queueError = {
 /* ── 테스트 ─────────────────────────────────────────────────── */
 describe('AdminFacilityBookingsPage', () => {
   beforeEach(() => {
+    mockTabParam = null;
+    mockReplace.mockReset();
     mockRefetch.mockReset();
     mockSummaryRefetch.mockReset();
     mockQueueQuery.mockReset();
@@ -94,6 +113,34 @@ describe('AdminFacilityBookingsPage', () => {
     mockSummaryQuery.mockReturnValue({ data: makeCounts(), isError: false, refetch: mockSummaryRefetch });
     mockUsageQuery.mockReturnValue({ data: undefined });
     mockQueueQuery.mockReturnValue(makeQueueSuccess([]));
+  });
+
+  it('업무 단계 탭 3개가 렌더되고 기본은 예약 관리다', () => {
+    render(<AdminFacilityBookingsPage />);
+
+    expect(screen.getByRole('tab', { name: '예약 관리' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '학교 제출 준비' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '제출 목록' })).toBeInTheDocument();
+    // 기본 탭 = 기존 관리 화면(요약 카드 렌더) — '오늘 접수'는 승인 대기 카드에만 있어 큐 필터 탭 라벨과 겹치지 않는다.
+    expect(screen.getByRole('button', { name: /오늘 접수/ })).toBeInTheDocument();
+  });
+
+  it('탭 클릭은 URL 을 replace 로 동기화한다', () => {
+    render(<AdminFacilityBookingsPage />);
+
+    fireEvent.click(screen.getByRole('tab', { name: '학교 제출 준비' }));
+    expect(mockReplace).toHaveBeenCalledWith(
+      expect.stringContaining('/admin/facility-bookings?tab=prepare'),
+      expect.objectContaining({ scroll: false }),
+    );
+  });
+
+  it('tab=batches 로 진입하면 제출 목록 준비 중 안내가 보인다', () => {
+    mockTabParam = 'batches';
+    render(<AdminFacilityBookingsPage />);
+
+    expect(screen.getByText(/준비 중/)).toBeInTheDocument();
+    expect(screen.queryByText('승인 대기')).not.toBeInTheDocument();
   });
 
   it('요약 카드 4장이 렌더되고 충돌 카드는 충돌+의심 합산(5)을 보여준다', () => {
