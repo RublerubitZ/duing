@@ -730,7 +730,10 @@ export function ClubExplorePage() {
             </div>
           </div>
 
-          <div className="flex shrink-0 gap-2.5 border-t border-line px-5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-3.5">
+          <div
+            data-bottom-bar
+            className="flex shrink-0 gap-2.5 border-t border-line px-5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-3.5"
+          >
             <button
               type="button"
               onClick={handleResetFilters}

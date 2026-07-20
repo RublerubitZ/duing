@@ -50,6 +50,7 @@ export function WeekBlockSheet({ block, onClose }: Props) {
       <SheetContent
         side="bottom"
         hideClose
+        data-bottom-bar
         className="duing rounded-t-[26px] border-line bg-cream px-5 pb-[calc(1.5rem_+_env(safe-area-inset-bottom))] pt-3"
       >
         <div className="mx-auto mb-3 h-[4.5px] w-10 rounded-full bg-line" />

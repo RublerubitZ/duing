@@ -53,6 +53,7 @@ export function BottomNav() {
       <div aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] md:hidden" />
       <nav
         aria-label="주요 메뉴"
+        data-bottom-bar
         className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-cream/90 font-body backdrop-blur pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         <ul className="flex">

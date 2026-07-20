@@ -2,7 +2,11 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { ToastProvider, useToast } from '@/app/_components/toast/ToastProvider';
+import {
+  ToastProvider,
+  measureBottomInset,
+  useToast,
+} from '@/app/_components/toast/ToastProvider';
 
 function Trigger({ message, durationMs }: { message: string; durationMs?: number }) {
   const { addToast } = useToast();
@@ -132,5 +136,54 @@ describe('ToastProvider', () => {
       vi.advanceTimersByTime(1);
     });
     expect(screen.queryByText('잠깐 알림')).not.toBeInTheDocument();
+  });
+});
+
+describe('measureBottomInset', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    vi.unstubAllGlobals();
+  });
+
+  // jsdom 은 레이아웃을 계산하지 않아 getBoundingClientRect 가 항상 0 이다 — 실제 값을 심어 검증한다.
+  function addBar(top: number, height: number) {
+    const bar = document.createElement('div');
+    bar.setAttribute('data-bottom-bar', '');
+    bar.getBoundingClientRect = () => ({ top, height, bottom: top + height }) as DOMRect;
+    document.body.appendChild(bar);
+    return bar;
+  }
+
+  it('하단 바가 없으면 0 이다', () => {
+    vi.stubGlobal('innerHeight', 800);
+    expect(measureBottomInset()).toBe(0);
+  });
+
+  it('하단 바 중 가장 위에 있는 것을 기준으로 삼는다', () => {
+    vi.stubGlobal('innerHeight', 800);
+    addBar(744, 56); // 탭바
+    addBar(600, 144); // 그 위에 겹쳐 뜬 예약 액션 바
+    expect(measureBottomInset()).toBe(200);
+  });
+
+  it('화면에 그려지지 않은 바(높이 0)는 무시한다', () => {
+    vi.stubGlobal('innerHeight', 800);
+    addBar(744, 56);
+    addBar(0, 0); // md:hidden 등으로 꺼진 바
+    expect(measureBottomInset()).toBe(56);
+  });
+
+  it('키보드가 하단 바보다 많이 가리면 키보드 높이를 쓴다', () => {
+    vi.stubGlobal('innerHeight', 800);
+    addBar(744, 56);
+    vi.stubGlobal('visualViewport', { height: 500, offsetTop: 0 });
+    expect(measureBottomInset()).toBe(300);
+  });
+
+  it('visualViewport 가 없는 환경에서도 하단 바 측정은 동작한다', () => {
+    vi.stubGlobal('innerHeight', 800);
+    vi.stubGlobal('visualViewport', undefined);
+    addBar(724, 76);
+    expect(measureBottomInset()).toBe(76);
   });
 });

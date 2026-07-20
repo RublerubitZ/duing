@@ -28,6 +28,7 @@ export function BulkActionBar({
     <div
       role="region"
       aria-label="일괄 처리 액션"
+      data-bottom-bar
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)]"
     >
       <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
