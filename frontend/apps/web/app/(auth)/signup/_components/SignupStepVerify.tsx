@@ -51,6 +51,8 @@ export function SignupStepVerify({ phone, onPhoneChange, verification, onNext }:
         canIssue={verification.canIssue}
         errorMessage={verification.errorMessage}
         stalled={verification.stalled}
+        rechecking={verification.rechecking}
+        recheckCooldownSeconds={verification.recheckCooldownSeconds}
         onIssue={verification.issue}
         onSent={verification.markSent}
         onReset={verification.reset}

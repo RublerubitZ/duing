@@ -107,6 +107,9 @@ s3:
 mo:
   provider: ${MO_PROVIDER:stub}       # stub(로컬·CI — Octomo 미호출) | octomo(실조회)
   inbound-number: "16663538"          # 수신 대표번호(1666-3538) — 안내 문구·딥링크·QR 본문용
+  # Octomo 일일 자체 상한 — 80% 도달 시 조기 경보(ERROR). 피크(모집 시즌) 상향은 반드시
+  # 벤더 플랜(Free 월 1만 콜) 상향과 세트로만 — 상한만 올리면 월 쿼터가 며칠에 소진된다.
+  daily-call-limit: ${MO_DAILY_CALL_LIMIT:1000}
   stub:
     # 양수(N)면 stub 이 최초 조회 후 N초 지난 세션을 수신된 것으로 간주 — 로컬 수동 플로우 확인용. 0 = 비활성.
     auto-verify-after-seconds: ${MO_STUB_AUTO_VERIFY_AFTER_SECONDS:0}

@@ -161,7 +161,18 @@ export function useCompletePasswordResetMutation() {
   });
 }
 
-// 서버 상태를 3초 간격으로 폴링한다. VERIFIED/EXPIRED 로 확정되면 refetchInterval=false 로 스스로 멈추고,
+/**
+ * 폴링 백오프 — 문자 수신은 대부분 초반(~15초)에 확인되므로 초반은 촘촘히(3초), 이후 점차 늦춘다
+ * (5폴까지 3초 → 8폴까지 5초 → 이후 8초). 서버의 세션당 실호출 최소 간격 사다리(2.5s→4.5s→7.5s)보다
+ * 항상 넓어 모든 폴링이 실제 확인으로 이어진다(헛폴링 없음). 재발급은 새 토큰=새 쿼리라 처음부터 다시 시작.
+ */
+export function phoneVerificationPollIntervalMs(completedPolls: number): number {
+  if (completedPolls < 5) return 3_000;
+  if (completedPolls < 8) return 5_000;
+  return 8_000;
+}
+
+// 서버 상태를 백오프 간격으로 폴링한다. VERIFIED/EXPIRED 로 확정되면 refetchInterval=false 로 스스로 멈추고,
 // 백그라운드 탭에서는 폴링하지 않는다. enabled 는 "문자 보냈어요" 를 누른 뒤(waiting)에만 true 로 넘긴다.
 export function usePhoneVerificationStatusQuery(
   verificationToken: string | null,
@@ -177,7 +188,8 @@ export function usePhoneVerificationStatusQuery(
     enabled: options.enabled && verificationToken !== null,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status === 'VERIFIED' || status === 'EXPIRED' ? false : 3000;
+      if (status === 'VERIFIED' || status === 'EXPIRED') return false;
+      return phoneVerificationPollIntervalMs(query.state.dataUpdateCount + query.state.errorUpdateCount);
     },
     refetchIntervalInBackground: false,
     staleTime: 0,

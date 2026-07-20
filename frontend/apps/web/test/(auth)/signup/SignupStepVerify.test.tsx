@@ -19,6 +19,8 @@ function makeController(overrides: Partial<PhoneVerificationController>): PhoneV
     canIssue: false,
     errorMessage: null,
     stalled: false,
+    rechecking: false,
+    recheckCooldownSeconds: 0,
     issue: vi.fn(),
     markSent: vi.fn(),
     reset: vi.fn(),

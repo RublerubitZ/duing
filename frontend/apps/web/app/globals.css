@@ -155,8 +155,18 @@ body {
     font-family: inherit;
     letter-spacing: -0.01em;
   }
+  /* 비활성 버튼 공통 — 클릭 불가 커서·딤 처리, 변형별 hover 효과는 아래에서 무효화한다. */
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
   .btn-primary {
     @apply bg-ink text-paper hover:bg-ink-deep;
+  }
+  .btn-primary:disabled:hover {
+    @apply bg-ink;
+  }
+  .btn-secondary:disabled:hover {
+    @apply border-line;
   }
   .btn-secondary {
     @apply bg-paper text-ink border border-line hover:border-sage;

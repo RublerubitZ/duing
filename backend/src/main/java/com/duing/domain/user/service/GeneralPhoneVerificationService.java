@@ -94,9 +94,15 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
             case PASSWORD_RESET -> { }
         }
 
+        // 쿨다운(60초)과 별개의 번호+IP당 발급 총량 상한(시간당 5회) — 검사는 여기서, 기록은 upsert 성공
+        // 후에만 한다. 쿨다운·중복 409 로 끝난 재시도가 한도를 소진해 정상 사용자가 잠기는 것을 막고,
+        // 키에 IP 를 섞어 타 IP 공격자의 반복 발급이 정당 소유자의 가입·재설정을 잠그지 못하게 한다.
+        rateLimiter.assertIssuePhoneWithinLimit(issueCommand.phone(), clientIp, now);
+
         String token = UUID.randomUUID().toString();
         PhoneVerification phoneVerification = sessionManager.upsert(
                 issueCommand.phone(), token, issueCommand.purpose(), issueCommand.targetUserId(), now);
+        rateLimiter.recordIssuePhoneRequest(issueCommand.phone(), clientIp, now);
         String code = codeDeriver.deriveCode(token);
         // QR 발급(외부 콜)은 upsert 트랜잭션 커밋 이후 — 행잠금을 쥔 채 외부 지연을 기다리지 않는다.
         String qrCode = issueCommand.includeQr() ? createQrCodeWithinQuota(code, now) : null;

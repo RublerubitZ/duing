@@ -272,6 +272,19 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("같은 번호의 성공 발급이 시간당 5회에 이르면 6번째는 쿨다운과 구분되는 429 코드로 거절된다")
+    void issuePhoneHourlyLimitBlocksSixthIssue() {
+        for (int issued = 0; issued < 5; issued++) {
+            issue(PHONE);
+            bypassCooldown(PHONE);
+        }
+        given().contentType(ContentType.JSON).body(Map.of("phone", PHONE))
+                .when().post("/api/v1/auth/phone-verifications")
+                .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                .body("code", equalTo("PHONE_ISSUE_LIMIT_EXCEEDED"));
+    }
+
+    @Test
     @DisplayName("60초 쿨다운 내 재발급은 429, 쿨다운 후 재발급은 새 토큰·새 코드를 발급하고 구 토큰·구 코드를 무효화한다")
     void reissueInvalidatesOldSession() {
         IssuedSession firstSession = issue(PHONE);

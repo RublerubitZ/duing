@@ -2,6 +2,9 @@ import { ApiError } from '@duing/api';
 
 export const RESEND_COOLDOWN_SECONDS = 60;
 export const SMS_TIMEOUT_SECONDS = 300; // 세션 TTL(5분)과 정렬 (spec §4.3)
+// [지금 확인] 연타 방지 — 스톨 시점의 서버 세션당 실호출 간격(7.5초)보다 넓게 잡아, 쿨다운이 풀린
+// 클릭은 항상 실제 벤더 확인으로 이어지게 한다(더 짧으면 서버 스로틀에 걸려 헛클릭이 된다).
+export const RECHECK_COOLDOWN_SECONDS = 8;
 
 export function formatSeconds(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
@@ -30,6 +33,8 @@ export function mapIssueError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'PHONE_ALREADY_REGISTERED') return '이미 가입된 번호예요. 로그인해 주세요.';
     if (error.code === 'PHONE_VERIFICATION_COOLDOWN') return '잠시 후 다시 시도할 수 있어요.';
+    if (error.code === 'PHONE_ISSUE_LIMIT_EXCEEDED')
+      return '이 번호로 인증 요청이 많았어요. 최대 1시간 후 다시 시도할 수 있어요.';
     if (error.code === 'VERIFICATION_RATE_LIMITED') return '요청이 너무 많아요. 잠시 후 다시 시도해주세요.';
     if (error.status === 409) return '이미 가입된 번호예요. 로그인해 주세요.';
     return error.message;
