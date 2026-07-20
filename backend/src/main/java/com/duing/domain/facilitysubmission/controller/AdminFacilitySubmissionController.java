@@ -10,6 +10,8 @@ import com.duing.domain.facilitysubmission.controller.dto.response.SubmissionCan
 import com.duing.domain.facilitysubmission.service.FacilitySubmissionQueryService;
 import com.duing.domain.facilitysubmission.service.FacilitySubmissionService;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
+import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchSearchCondition;
+import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchStatusFilter;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesQuery;
 import com.duing.domain.facilitysubmission.service.export.ExportFile;
 import com.duing.domain.facilitysubmission.service.export.ExportFormat;
@@ -63,9 +65,10 @@ public class AdminFacilitySubmissionController implements AdminFacilitySubmissio
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<SubmissionBatchSummaryResponse>>> getBatches(
-            Long facilityId, Pageable pageable) {
+            Long facilityId, SubmissionBatchStatusFilter status, Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(
-                queryService.getBatches(facilityId, pageable).map(SubmissionBatchSummaryResponse::from))));
+                queryService.getBatches(new SubmissionBatchSearchCondition(facilityId, status), pageable)
+                        .map(SubmissionBatchSummaryResponse::from))));
     }
 
     @Override

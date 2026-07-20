@@ -14,9 +14,13 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.facility.entity.CrawlSource;
 import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
+import com.duing.domain.facility.entity.FacilityMonthSnapshot;
 import com.duing.domain.facility.entity.FacilityReservation;
+import com.duing.domain.facility.entity.FetchStatus;
+import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
@@ -40,6 +44,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -67,6 +72,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
     @Autowired FacilityBookingStatusHistoryRepository historyRepository;
     @Autowired FacilityRepository facilityRepository;
     @Autowired FacilityReservationRepository facilityReservationRepository;
+    @Autowired FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
@@ -415,5 +421,38 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         assertThat(summary.conflictCount()).isEqualTo(1);
         assertThat(summary.conflictSuspectedCount()).isEqualTo(1); // 이름 불일치 점유행 겹친 APPROVED 1건
         assertThat(summary.confirmedThisMonthCount()).isEqualTo(1);
+        assertThat(summary.crawledAt()).isNull(); // 스냅샷 없는 상태 — 수집 시각 없음(개편 스펙 A1 폴백)
+    }
+
+    @Test
+    @DisplayName("대시보드 요약에 당월 크롤 스냅샷의 마지막 수집 시각이 포함된다")
+    void summaryExposesCurrentMonthCrawledAt() {
+        // 값 단언은 PG timestamp 정밀도(MICROS)로 절단해 저장 왕복과 일치시킨다.
+        LocalDateTime crawledAt = LocalDateTime.now(clock).minusMinutes(5).truncatedTo(ChronoUnit.MICROS);
+        facilityMonthSnapshotRepository.save(FacilityMonthSnapshot.create(
+                YearMonth.now(clock), crawledAt, CrawlSource.ON_DEMAND, FetchStatus.SUCCESS, null));
+
+        AdminBookingSummaryCounts summary = queryService.getSummary();
+
+        assertThat(summary.crawledAt()).isEqualTo(crawledAt);
+    }
+
+    @Test
+    @DisplayName("큐 행에 신청 인원이 포함된다")
+    void queueRowExposesAttendeeCount() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+        bookingRepository.save(FacilityBooking.request(
+                fixture.facility().getId(), fixture.club().getId(), fixture.leader().getId(), date,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "정기 합주", 20,
+                FacilityBookingFixture.VALID_CONTACT_PHONE));
+
+        Page<AdminBookingSummaryResult> queue = queryService.getQueue(
+                new AdminBookingSearchCondition(null, fixture.facility().getId(), null, null),
+                PageRequest.of(0, 10));
+
+        assertThat(queue.getContent())
+                .extracting(AdminBookingSummaryResult::attendeeCount)
+                .containsExactly(20);
     }
 }

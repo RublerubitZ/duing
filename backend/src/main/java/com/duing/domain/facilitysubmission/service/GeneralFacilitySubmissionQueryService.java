@@ -19,6 +19,7 @@ import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorCo
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionAuditEntry;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchDetailResult;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchListItem;
+import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchSearchCondition;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidateBooking;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesQuery;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesResult;
@@ -85,10 +86,8 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     }
 
     @Override
-    public Page<SubmissionBatchListItem> getBatches(Long facilityId, Pageable pageable) {
-        Page<FacilitySubmissionBatch> batchPage = facilityId != null
-                ? batchRepository.findByFacilityIdOrderByIdDesc(facilityId, pageable)
-                : batchRepository.findAllByOrderByIdDesc(pageable);
+    public Page<SubmissionBatchListItem> getBatches(SubmissionBatchSearchCondition condition, Pageable pageable) {
+        Page<FacilitySubmissionBatch> batchPage = batchRepository.search(condition, pageable);
         List<FacilitySubmissionBatch> batches = batchPage.getContent();
         Map<Long, Long> bookingCounts = bookingCounts(batches);
         Map<Long, String> facilityNames = facilityNames(batches);

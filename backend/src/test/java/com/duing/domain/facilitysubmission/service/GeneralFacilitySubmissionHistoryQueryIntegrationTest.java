@@ -24,6 +24,8 @@ import com.duing.domain.facilitysubmission.service.dto.query.CreateSubmissionBat
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionAuditEntry;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchDetailResult;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchListItem;
+import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchSearchCondition;
+import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchStatusFilter;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidateBooking;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
@@ -94,7 +96,8 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
                 new CreateSubmissionBatchCommand(List.of(second.getId()), "2차"), actor()).batchId();
         submissionService.cancel(olderBatchId, actor());
 
-        Page<SubmissionBatchListItem> page = queryService.getBatches(null, PageRequest.of(0, 20));
+        Page<SubmissionBatchListItem> page = queryService.getBatches(
+                new SubmissionBatchSearchCondition(null, null), PageRequest.of(0, 20));
 
         assertThat(page.getContent()).extracting(SubmissionBatchListItem::batchId)
                 .containsExactly(newerBatchId, olderBatchId);
@@ -114,9 +117,39 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         Facility otherFacility = facilityRepository.save(Facility.create(
                 (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(2)", "1504호", 0));
 
-        Page<SubmissionBatchListItem> page = queryService.getBatches(otherFacility.getId(), PageRequest.of(0, 20));
+        Page<SubmissionBatchListItem> page = queryService.getBatches(
+                new SubmissionBatchSearchCondition(otherFacility.getId(), null), PageRequest.of(0, 20));
 
         assertThat(page.getContent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("status 필터가 파생 상태(진행 중·완료·취소)별로 이력을 나눈다")
+    void statusFilterPartitionsBatchesByDerivedState() {
+        FacilityBooking reviewingTarget = approvedBooking(9);
+        FacilityBooking completedTarget = approvedBooking(11);
+        FacilityBooking cancelledTarget = approvedBooking(13);
+        Long reviewingBatchId = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(reviewingTarget.getId()), null), actor()).batchId();
+        Long completedBatchId = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(completedTarget.getId()), null), actor()).batchId();
+        submissionService.complete(completedBatchId, actor());
+        Long cancelledBatchId = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(cancelledTarget.getId()), null), actor()).batchId();
+        submissionService.cancel(cancelledBatchId, actor());
+
+        assertThat(batchIdsOf(SubmissionBatchStatusFilter.REVIEWING)).containsExactly(reviewingBatchId);
+        assertThat(batchIdsOf(SubmissionBatchStatusFilter.COMPLETED)).containsExactly(completedBatchId);
+        assertThat(batchIdsOf(SubmissionBatchStatusFilter.CANCELLED)).containsExactly(cancelledBatchId);
+        // 무필터는 전 상태를 최신순으로 반환한다(현행 유지).
+        assertThat(batchIdsOf(null)).containsExactly(cancelledBatchId, completedBatchId, reviewingBatchId);
+    }
+
+    private List<Long> batchIdsOf(SubmissionBatchStatusFilter status) {
+        return queryService.getBatches(new SubmissionBatchSearchCondition(facility.getId(), status),
+                        PageRequest.of(0, 20)).getContent().stream()
+                .map(SubmissionBatchListItem::batchId)
+                .toList();
     }
 
     @Test
@@ -202,7 +235,8 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
                 new CreateSubmissionBatchCommand(List.of(booking.getId()), null), actor()).batchId();
         submissionService.complete(batchId, actor());
 
-        Page<SubmissionBatchListItem> page = queryService.getBatches(null, PageRequest.of(0, 20));
+        Page<SubmissionBatchListItem> page = queryService.getBatches(
+                new SubmissionBatchSearchCondition(null, null), PageRequest.of(0, 20));
 
         assertThat(page.getContent().get(0).completed()).isTrue();
         assertThat(page.getContent().get(0).completedAt()).isNotNull();
