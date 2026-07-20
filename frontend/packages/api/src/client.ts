@@ -21,6 +21,7 @@ import type {
   AdminClubSummary,
   AdminClubMemberHistoryParams,
   AdminClubMemberHistoryRow,
+  AdminPendingCounts,
   AdminSuccessionDetail,
   AdminSuccessionSearchParams,
   AdminSuccessionSummary,
@@ -506,6 +507,8 @@ export type DuingApiClient = {
     submit(payload: SubmitReportPayload): Promise<number>;
   };
   admin: {
+    /** 콘솔 사이드바 뱃지용 도메인별 미처리 건수. 미처리 판정 기준은 전부 서버가 정한다. */
+    pendingCounts(): Promise<AdminPendingCounts>;
     clubs: {
       list(params?: AdminClubSearchParams): Promise<PageResponse<AdminClubSummary>>;
       detail(clubId: number): Promise<ClubDetail>;
@@ -1343,6 +1346,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonOk<number>(http.post('reports', { json: payload })),
     },
     admin: {
+      pendingCounts: () => jsonOk<AdminPendingCounts>(http.get('admin/pending-counts')),
       clubs: {
         list: (params) =>
           jsonOk<PageResponse<AdminClubSummary>>(

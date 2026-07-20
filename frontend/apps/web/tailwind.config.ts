@@ -33,7 +33,8 @@ const config: Config = {
           DEFAULT: '#F6F3EC',
           2: '#EFEBE0',
         },
-        paper: '#FFFFFF',
+        // paper.warm — 크림 캔버스 위에 얹히는 옅은 웜 화이트 표면(관리자 콘솔 사이드바).
+        paper: { DEFAULT: '#FFFFFF', warm: '#FBFAF6' },
         warm: '#E8B968',
         coral: '#D97757',
         berry: '#B65672',

@@ -11,6 +11,19 @@ import { useApiClient } from './api-context';
 import { adminQueryKeys } from './adminQueryKeys';
 import { clubQueryKeys } from './clubQueryKeys';
 
+/**
+ * 콘솔 사이드바 뱃지용 미처리 건수. 전역 staleTime(30초)을 그대로 써서, 사이드바가 다시 마운트되거나
+ * 캐시가 만료된 뒤 진입하면 자연스럽게 갱신된다(폴링 없음). 처리 직후 반영은 각 도메인 뮤테이션이
+ * 이 키를 무효화해 담당한다.
+ */
+export function useAdminPendingCountsQuery() {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.pendingCounts(),
+    queryFn: () => client.admin.pendingCounts(),
+  });
+}
+
 export function useAdminClubsQuery(params: AdminClubSearchParams = {}) {
   const client = useApiClient();
   return useQuery({
@@ -65,6 +78,8 @@ export function useCreateClubMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
+      // 새 동아리는 승인 대기로 생성되므로 뱃지가 늘어야 한다.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
     },
   });
 }
@@ -79,6 +94,8 @@ export function useUpdateClubStatusMutation() {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
+      // 사이드바 뱃지 — 승인/반려 즉시 승인 대기 수가 줄어야 한다.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
     },
   });
 }

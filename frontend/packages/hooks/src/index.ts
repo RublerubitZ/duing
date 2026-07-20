@@ -131,6 +131,7 @@ export {
 export { federationInquiryQueryKeys } from './federationInquiryQueryKeys';
 export { useFileUploadMutation } from './files';
 export {
+  useAdminPendingCountsQuery,
   useAdminClubsQuery,
   useAdminClubDetailQuery,
   useAdminUserSearchQuery,
