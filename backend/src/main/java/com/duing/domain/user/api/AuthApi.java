@@ -91,7 +91,8 @@ public interface AuthApi {
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "갱신 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
-                    description = "만료·폐기·재사용 리프레시 토큰(AUTH_SESSION_EXPIRED)")
+                    description = "만료·폐기·재사용 리프레시 토큰(AUTH_SESSION_EXPIRED) — "
+                            + "인증 Cookie 3종을 즉시 만료시킨다")
     })
     @PostMapping("/auth/web/refresh")
     ResponseEntity<Void> webRefresh(
