@@ -139,6 +139,14 @@ describe('SubmissionBatchesTab', () => {
     });
   });
 
+  it('CSV 다운로드 진행 중이면 CSV 버튼이 비활성화된다', () => {
+    mockCsvMutation.mockReturnValue({ mutateAsync: mockCsvMutateAsync, isPending: true });
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
+    render(<SubmissionBatchesTab />);
+
+    expect(screen.getByRole('button', { name: /CSV/ })).toBeDisabled();
+  });
+
   it('CSV 실패 시 안내 토스트를 띄운다', async () => {
     mockCsvMutateAsync.mockRejectedValue(new Error('boom'));
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));

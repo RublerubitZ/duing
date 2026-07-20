@@ -10,6 +10,7 @@ import {
 import type { SubmissionBatchSummary } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { Pagination } from '@/components/Pagination';
 import { downloadBlobFile } from '@/app/_lib/downloadFile';
 import { toRoute } from '../../../_lib/route';
@@ -131,8 +132,11 @@ export function SubmissionBatchesTab() {
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
+                          disabled={csvMutation.isPending}
                           onClick={() => void handleDownloadCsv(batch)}
                         >
+                          {/* 동일 batchId 중복 발사·CSV_DOWNLOADED 중복 기록 방지 — 뮤테이션 하나를 표 전체 CSV 버튼이 공유하므로 전역 gate 로 충분(행별 pending 추적은 과설계). */}
+                          {csvMutation.isPending && <ButtonSpinner />}
                           CSV
                         </button>
                         <Link
