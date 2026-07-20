@@ -243,7 +243,11 @@ export function SubmissionPrepareTab() {
         </>
       )}
 
-      <SubmissionDetailSheet booking={detailBooking} facilityName={detailBooking?.facilityName ?? ''} onClose={() => setDetailBooking(null)} />
+      <SubmissionDetailSheet
+        booking={detailBooking}
+        facilityName={detailBooking?.facilityName ?? (detailBooking !== null ? `시설 ${detailBooking.facilityId}` : '')}
+        onClose={() => setDetailBooking(null)}
+      />
       {/* Task 4: SubmitToSchoolDialog(BatchCreateDialog v3 개조)를 dialogSection 상태와 함께 연결한다. */}
     </div>
   );

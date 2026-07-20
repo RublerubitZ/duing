@@ -82,6 +82,25 @@ describe('SubmissionPrepareTab', () => {
     expect(dangSubmitButton()).toBeDisabled();
   });
 
+  it('그룹 헤더 전체 선택 체크박스를 다시 클릭하면 제외된 예약이 전원 재선택된다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<SubmissionPrepareTab />);
+
+    const rowCheckbox = screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ });
+    const groupCheckbox = screen.getByRole('checkbox', { name: '밴드부 전체 선택' });
+    const dangSubmitButton = () => within(sectionOf('강당')).getByRole('button', { name: /학교 제출하기/ });
+
+    fireEvent.click(rowCheckbox);
+    expect(rowCheckbox).not.toBeChecked();
+    expect(groupCheckbox).not.toBeChecked();
+    expect(dangSubmitButton()).toHaveTextContent('학교 제출하기 (0건)');
+
+    fireEvent.click(groupCheckbox);
+    expect(rowCheckbox).toBeChecked();
+    expect(groupCheckbox).toBeChecked();
+    expect(dangSubmitButton()).toHaveTextContent('학교 제출하기 (1건)');
+  });
+
   it('검색으로 화면에서 사라진 예약의 제외 상태는 정리된다 — 검색 해제 시 기본 선택으로 복귀', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
