@@ -30,7 +30,6 @@ public class GeneralClubClosureService implements ClubClosureService {
     private final RecruitmentService recruitmentService;
     private final ApplicationService applicationService;
     private final InterviewRoundService interviewRoundService;
-    private final RecertificationRequestService recertificationRequestService;
     private final PromotionService promotionService;
     private final PromotionRequestService promotionRequestService;
     private final ClubEventService clubEventService;
@@ -61,8 +60,7 @@ public class GeneralClubClosureService implements ClubClosureService {
         interviewRoundService.softDeleteAllOnClubClosure(recruitmentIds);
         recruitmentService.softDeleteAllOnClubClosure(recruitmentIds);
 
-        // 3. 인증 · 홍보 · 이벤트 · 즐겨찾기
-        recertificationRequestService.rejectPendingOnClubClosure(clubId, actorAdminUserId, reason);
+        // 3. 홍보 · 이벤트 · 즐겨찾기
         promotionService.removeAllOnClubClosure(clubId);
         promotionRequestService.rejectPendingOnClubClosure(clubId, actorAdminUserId, reason);
         clubEventService.removeAllOnClubClosure(clubId);

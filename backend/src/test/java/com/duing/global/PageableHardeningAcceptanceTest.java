@@ -92,12 +92,12 @@ class PageableHardeningAcceptanceTest extends IntegrationTestBase {
     @Test
     @DisplayName("화이트리스트 없이 클라이언트 sort 를 받는 실제 쿼리 엔드포인트도, 존재하지 않는 정렬 속성이면 500 이 아니라 400 을 반환한다")
     void realQueryEndpointInvalidSortReturns400() {
-        // 화이트리스트가 없는 엔드포인트(admin recertification-rounds)에서 실제 Spring Data 쿼리가 잘못된
-        // 정렬 속성을 만나 던지는 예외가 전역 핸들러를 통해 400 으로 변환되는지 end-to-end 로 고정한다.
+        // 화이트리스트가 없는 엔드포인트(admin facility-bookings/submission)에서 실제 Spring Data 쿼리가
+        // 잘못된 정렬 속성을 만나 던지는 예외가 전역 핸들러를 통해 400 으로 변환되는지 end-to-end 로 고정한다.
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .queryParam("sort", "no_such_field")
-                .when().get("/api/v1/admin/recertification-rounds")
+                .when().get("/api/v1/admin/facility-bookings/submission")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
@@ -106,8 +106,8 @@ class PageableHardeningAcceptanceTest extends IntegrationTestBase {
     void realQueryEndpointValidSortSucceeds() {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
-                .queryParam("sort", "year,desc")
-                .when().get("/api/v1/admin/recertification-rounds")
+                .queryParam("sort", "createdAt,desc")
+                .when().get("/api/v1/admin/facility-bookings/submission")
                 .then().statusCode(HttpStatus.OK.value());
     }
 }

@@ -71,8 +71,6 @@ public abstract class IntegrationTestBase {
                 "notification, " +
                 "report, " +
                 "leader_succession_request, " +
-                "recertification_request, " +
-                "recertification_round, " +
                 "promotion, " +
                 "promotion_request, " +
                 "auth_refresh_token, " +
