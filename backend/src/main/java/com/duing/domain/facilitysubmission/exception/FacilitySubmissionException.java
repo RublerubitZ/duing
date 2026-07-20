@@ -79,4 +79,20 @@ public class FacilitySubmissionException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static class BatchAlreadyCompletedException extends FacilitySubmissionException {
+        private static final String MESSAGE = "이미 학교 제출 완료 처리된 Batch입니다.";
+
+        public BatchAlreadyCompletedException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    public static class CompletedBatchUncancellableException extends FacilitySubmissionException {
+        private static final String MESSAGE = "학교 제출이 완료된 Batch는 취소할 수 없습니다.";
+
+        public CompletedBatchUncancellableException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
 }

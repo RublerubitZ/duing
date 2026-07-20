@@ -37,24 +37,34 @@ public class FacilitySubmissionAudit extends BaseEntity {
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 
+    @Column(length = 500)
+    private String detail;
+
     @Builder(access = AccessLevel.PRIVATE)
     private FacilitySubmissionAudit(Long batchId, SubmissionAuditAction action, Long adminId,
-                                    String ipAddress, String userAgent) {
+                                    String ipAddress, String userAgent, String detail) {
         this.batchId = batchId;
         this.action = action;
         this.adminId = adminId;
         this.ipAddress = ipAddress;
         this.userAgent = userAgent;
+        this.detail = detail;
     }
 
     public static FacilitySubmissionAudit of(Long batchId, SubmissionAuditAction action, Long adminId,
                                              String ipAddress, String userAgent) {
+        return of(batchId, action, adminId, ipAddress, userAgent, null);
+    }
+
+    public static FacilitySubmissionAudit of(Long batchId, SubmissionAuditAction action, Long adminId,
+                                             String ipAddress, String userAgent, String detail) {
         return FacilitySubmissionAudit.builder()
                 .batchId(batchId)
                 .action(action)
                 .adminId(adminId)
                 .ipAddress(truncate(ipAddress, 45))
                 .userAgent(truncate(userAgent, 500))
+                .detail(truncate(detail, 500))
                 .build();
     }
 

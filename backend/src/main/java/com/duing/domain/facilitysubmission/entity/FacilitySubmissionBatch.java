@@ -46,6 +46,12 @@ public class FacilitySubmissionBatch extends BaseEntity {
     @Column(name = "cancelled_by")
     private Long cancelledById;
 
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    @Column(name = "completed_by")
+    private Long completedById;
+
     @Builder(access = AccessLevel.PRIVATE)
     private FacilitySubmissionBatch(String submissionNo, Long facilityId, Long submittedById,
                                     LocalDateTime submittedAt, String memo, String csvFileName) {
@@ -69,8 +75,11 @@ public class FacilitySubmissionBatch extends BaseEntity {
                 .build();
     }
 
-    /** 제출 취소(§4) — booking·item 은 건드리지 않는다. 활성 판정은 이 필드 하나로 파생된다. */
+    /** 제출 취소(§4) — booking·item 은 건드리지 않는다. 완료된 Batch 는 종결 상태라 취소 불가(§4.2). */
     public void cancel(Long adminId, LocalDateTime cancelledAt) {
+        if (isCompleted()) {
+            throw new FacilitySubmissionException.CompletedBatchUncancellableException();
+        }
         if (isCancelled()) {
             throw new FacilitySubmissionException.BatchAlreadyCancelledException();
         }
@@ -78,7 +87,23 @@ public class FacilitySubmissionBatch extends BaseEntity {
         this.cancelledById = adminId;
     }
 
+    /** 학교 제출 완료(§4.3) — 담당자가 실제 제출을 마친 시점의 종결 전이. 취소와 상호 배타. */
+    public void complete(Long adminId, LocalDateTime completedAt) {
+        if (isCancelled()) {
+            throw new FacilitySubmissionException.BatchAlreadyCancelledException();
+        }
+        if (isCompleted()) {
+            throw new FacilitySubmissionException.BatchAlreadyCompletedException();
+        }
+        this.completedAt = completedAt;
+        this.completedById = adminId;
+    }
+
     public boolean isCancelled() {
         return cancelledAt != null;
+    }
+
+    public boolean isCompleted() {
+        return completedAt != null;
     }
 }
