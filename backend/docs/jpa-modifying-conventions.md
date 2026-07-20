@@ -136,7 +136,6 @@ JdbcTemplate batch 로의 전환은 **반드시 측정 데이터를 근거로** 
 | `ApplicationDraftRepository.deleteAllByRecruitmentId` | `@Modifying` JPQL DELETE + `clearAutomatically=true` | 2026-06-08 전환 |
 | `NoticeTargetClubRepository.deleteAllByNoticeId` | `@Modifying` JPQL DELETE | 기존부터 적용 |
 | `GeneralApplicationService.bulkUpdateStatus()` | self-proxy + 건별 save | 의도된 건별 tx 격리. 유지 |
-| `GeneralRecertificationRoundService` | `findAllById` + Map 인덱싱 | 의도된 N+1 회피. 유지 |
 
 ### 5.2 보류 (Dirty Checking 유지)
 
