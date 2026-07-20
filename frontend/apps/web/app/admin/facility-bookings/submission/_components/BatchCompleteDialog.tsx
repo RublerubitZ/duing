@@ -13,7 +13,7 @@ type Props = {
 
 /**
  * 학교 제출 완료 확인(스펙 v3 §7.3) — 완료하면 예약이 학교 등록 완료로 넘어가고 다시 취소할 수 없어,
- * 안내 3줄로 결과를 미리 알린다. 펜딩 중 확인·돌아가기 잠금 + onOpenChange 가드(BatchCreateDialog 전례).
+ * 안내 3줄로 결과를 미리 알린다. 펜딩 중 확인·돌아가기 잠금 + onOpenChange 가드(BatchBulkCreateDialog 전례).
  */
 export function BatchCompleteDialog({ batch, isPending, onConfirm, onClose }: Props) {
   return (

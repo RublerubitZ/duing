@@ -31,3 +31,9 @@ export const AUDIT_ACTION_LABELS: Record<SubmissionAuditEntry['action'], string>
 export function submissionCsvFileName(submissionNo: string): string {
   return `facility-submission-${submissionNo}.csv`;
 }
+
+/** 일괄 생성 메모 프리필(개편 스펙 §4) — "M월 N주차 · 시설명". 메모는 목록 이름처럼 쓰인다(수정 가능). */
+export function defaultBatchMemo(facilityName: string, today: Date = new Date()): string {
+  const weekOfMonth = Math.ceil(today.getDate() / 7);
+  return `${today.getMonth() + 1}월 ${weekOfMonth}주차 · ${facilityName}`;
+}
