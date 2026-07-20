@@ -62,7 +62,7 @@ const querySuccess = (response: SubmissionCandidatesResponse) => ({
 });
 const queryIdle = { data: undefined, isLoading: false, isSuccess: false, isError: false, refetch: vi.fn() };
 
-/** 시설별 섹션 <li> — 같은 라벨의 "학교 제출하기" 버튼이 여러 섹션에 있어 섹션 단위로 좁혀 조회한다. */
+/** 시설별 섹션 <li> — 같은 라벨의 "제출 목록 만들기" 버튼이 여러 섹션에 있어 섹션 단위로 좁혀 조회한다. */
 function sectionOf(facilityName: string): HTMLElement {
   const section = screen.getByRole('heading', { name: facilityName }).closest('li');
   if (section === null) throw new Error(`섹션(${facilityName})을 찾지 못했습니다`);
@@ -101,14 +101,14 @@ describe('SubmissionPrepareTab', () => {
     render(<SubmissionPrepareTab />);
 
     const rowCheckbox = screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ });
-    const dangSubmitButton = () => within(sectionOf('강당')).getByRole('button', { name: /학교 제출하기/ });
+    const dangSubmitButton = () => within(sectionOf('강당')).getByRole('button', { name: /제출 목록 만들기/ });
     expect(rowCheckbox).toBeChecked();
-    expect(dangSubmitButton()).toHaveTextContent('학교 제출하기 (1건)');
+    expect(dangSubmitButton()).toHaveTextContent('제출 목록 만들기 (1건)');
     expect(dangSubmitButton()).toBeEnabled();
 
     fireEvent.click(rowCheckbox);
     expect(rowCheckbox).not.toBeChecked();
-    expect(dangSubmitButton()).toHaveTextContent('학교 제출하기 (0건)');
+    expect(dangSubmitButton()).toHaveTextContent('제출 목록 만들기 (0건)');
     expect(dangSubmitButton()).toBeDisabled();
   });
 
@@ -118,17 +118,17 @@ describe('SubmissionPrepareTab', () => {
 
     const rowCheckbox = screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ });
     const groupCheckbox = screen.getByRole('checkbox', { name: '밴드부 전체 선택' });
-    const dangSubmitButton = () => within(sectionOf('강당')).getByRole('button', { name: /학교 제출하기/ });
+    const dangSubmitButton = () => within(sectionOf('강당')).getByRole('button', { name: /제출 목록 만들기/ });
 
     fireEvent.click(rowCheckbox);
     expect(rowCheckbox).not.toBeChecked();
     expect(groupCheckbox).not.toBeChecked();
-    expect(dangSubmitButton()).toHaveTextContent('학교 제출하기 (0건)');
+    expect(dangSubmitButton()).toHaveTextContent('제출 목록 만들기 (0건)');
 
     fireEvent.click(groupCheckbox);
     expect(rowCheckbox).toBeChecked();
     expect(groupCheckbox).toBeChecked();
-    expect(dangSubmitButton()).toHaveTextContent('학교 제출하기 (1건)');
+    expect(dangSubmitButton()).toHaveTextContent('제출 목록 만들기 (1건)');
   });
 
   it('검색으로 화면에서 사라진 예약의 제외 상태는 정리된다 — 검색 해제 시 기본 선택으로 복귀', () => {
@@ -211,7 +211,7 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.getAllByRole('columnheader', { name: '09' }).length).toBeGreaterThan(0);
   });
 
-  it('학교 제출하기 확인까지 진행하면 그 시설의 선택 예약으로 제출 목록이 만들어진다', async () => {
+  it('제출 목록 만들기 확인까지 진행하면 그 시설의 선택 예약으로 제출 목록이 만들어진다', async () => {
     const createMutateAsync = vi.fn().mockResolvedValue({
       batchId: 7, submissionNo: 'SUB-20260801-002', csvFileName: 'facility-submission-SUB-20260801-002.csv',
     });
@@ -219,10 +219,10 @@ describe('SubmissionPrepareTab', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
-    fireEvent.click(screen.getByRole('button', { name: /학교 제출하기 \(1건\)/ }));
-    expect(screen.getByText(/강당 예약 1건을 학교에 제출할까요/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /제출 목록 만들기 \(1건\)/ }));
+    expect(screen.getByText(/강당 예약 1건으로 제출 목록을 만들까요/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('메모'), { target: { value: '8월 1차' } });
-    fireEvent.click(screen.getByRole('button', { name: '학교 제출하기' }));
+    fireEvent.click(screen.getByRole('button', { name: '제출 목록 만들기' }));
 
     await waitFor(() => {
       expect(createMutateAsync).toHaveBeenCalledWith({ bookingIds: [1], memo: '8월 1차' });
@@ -233,7 +233,7 @@ describe('SubmissionPrepareTab', () => {
     expect(mockAddToast).toHaveBeenCalledTimes(1);
   });
 
-  it('다른 시설도 선택 예약이 있을 때, 학교 제출하기는 해당 섹션 시설의 예약만 전송한다', async () => {
+  it('다른 시설도 선택 예약이 있을 때, 제출 목록 만들기는 해당 섹션 시설의 예약만 전송한다', async () => {
     const createMutateAsync = vi.fn().mockResolvedValue({
       batchId: 8, submissionNo: 'SUB-20260801-003', csvFileName: 'facility-submission-SUB-20260801-003.csv',
     });
@@ -242,9 +242,9 @@ describe('SubmissionPrepareTab', () => {
     render(<SubmissionPrepareTab />);
 
     // 강당·세미나실 모두 selectable 예약이 기본 전체 선택 상태 — 라벨 문구가 같아 섹션 단위로 좁혀 클릭한다.
-    fireEvent.click(within(sectionOf('강당')).getByRole('button', { name: /학교 제출하기 \(1건\)/ }));
-    expect(screen.getByText(/강당 예약 1건을 학교에 제출할까요/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '학교 제출하기' }));
+    fireEvent.click(within(sectionOf('강당')).getByRole('button', { name: /제출 목록 만들기 \(1건\)/ }));
+    expect(screen.getByText(/강당 예약 1건으로 제출 목록을 만들까요/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '제출 목록 만들기' }));
 
     await waitFor(() => {
       expect(createMutateAsync).toHaveBeenCalledWith({ bookingIds: [1], memo: undefined });
@@ -256,8 +256,8 @@ describe('SubmissionPrepareTab', () => {
     mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
-    fireEvent.click(screen.getByRole('button', { name: /학교 제출하기 \(1건\)/ }));
-    fireEvent.click(screen.getByRole('button', { name: '학교 제출하기' }));
+    fireEvent.click(screen.getByRole('button', { name: /제출 목록 만들기 \(1건\)/ }));
+    fireEvent.click(screen.getByRole('button', { name: '제출 목록 만들기' }));
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('이미 제출된 예약이 포함되어 있습니다.', { variant: 'error' });

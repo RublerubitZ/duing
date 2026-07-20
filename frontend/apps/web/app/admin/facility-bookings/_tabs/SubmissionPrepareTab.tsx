@@ -51,7 +51,7 @@ function matchesFilter(booking: SubmissionCandidateBooking, filter: SummaryFilte
 /**
  * 학교 제출 준비 탭(스펙 v3 §7.2) — 승인된 예약이 자동 유입되는 준비 큐.
  * 전 시설을 시설별 섹션으로 표시하고, 제출 필요 예약은 기본 전체 선택(선택 = selectable − excluded 파생).
- * 운영자는 제외만 하고 시설 단위 "학교 제출하기"를 수행한다.
+ * 운영자는 제외만 하고 시설 단위 "제출 목록 만들기"를 수행한다.
  */
 export function SubmissionPrepareTab() {
   const defaultRange = currentMonthRange();
@@ -248,7 +248,7 @@ export function SubmissionPrepareTab() {
                           setDialogSection({ facilityId: section.facilityId, facilityName: section.facilityName })
                         }
                       >
-                        학교 제출하기 ({sectionSelectedCount}건)
+                        제출 목록 만들기 ({sectionSelectedCount}건)
                       </button>
                     </div>
                     {view === 'list' ? (
