@@ -118,6 +118,37 @@ class AdminFacilitySubmissionAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("status 파라미터가 파생 상태로 이력을 필터링하고, 잘못된 값은 400 을 반환한다")
+    void batchStatusFilterBindsAndRejectsInvalidValue() {
+        FacilityBooking booking = approvedBooking(9);
+        Integer batchId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("bookingIds", List.of(booking.getId())))
+                .when().post(SUBMISSION_PATH)
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().path("data.batchId");
+
+        // 진행 중(REVIEWING) 필터에는 방금 만든 Batch 가 잡히고, 취소 필터에는 잡히지 않는다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(SUBMISSION_PATH + "?status=REVIEWING")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.batchId", org.hamcrest.Matchers.hasItem(batchId));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(SUBMISSION_PATH + "?status=CANCELLED")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", org.hamcrest.Matchers.empty());
+
+        // enum 에 없는 값은 형식 오류 400 — 기존 파라미터 오류 처리 규격과 동일해야 한다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(SUBMISSION_PATH + "?status=INVALID_STATUS")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("candidates 경로가 batchId 템플릿에 삼켜지지 않고 summary·bookings 를 반환한다")
     void candidatesPathIsNotSwallowedByBatchIdTemplate() {
         approvedBooking(9);
