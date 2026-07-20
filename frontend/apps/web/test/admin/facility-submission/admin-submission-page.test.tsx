@@ -106,7 +106,7 @@ describe('AdminSubmissionPage', () => {
     expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
   });
 
-  it('제출 여부 셀렉트(제출 필요/제출함)와 카드 클릭이 같은 필터를 조작한다', () => {
+  it('제출 상태 셀렉트와 카드 클릭이 같은 필터를 조작한다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<AdminSubmissionPage />);
     selectFacility();
@@ -146,7 +146,7 @@ describe('AdminSubmissionPage', () => {
     expect(screen.getByText(/준비 중/)).toBeInTheDocument();
   });
 
-  it('선택 후 생성 확인까지 진행하면 Batch 생성·성공 토스트로 끝난다(자동 다운로드 없음)', async () => {
+  it('선택 후 확인까지 진행하면 제출 목록 생성·성공 토스트로 끝난다(자동 다운로드 없음)', async () => {
     const createMutateAsync = vi.fn().mockResolvedValue({
       batchId: 7, submissionNo: 'SUB-20260801-002', csvFileName: 'facility-submission-SUB-20260801-002.csv',
     });

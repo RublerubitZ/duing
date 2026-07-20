@@ -75,7 +75,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     href: '/admin/facility-bookings/submission',
     title: '학교 제출',
-    description: '승인된 예약을 모아 학교 제출 목록을 만들고 관리해요',
+    description: '승인 예약 취합·제출 목록 생성·관리',
     group: '동아리',
   },
   {

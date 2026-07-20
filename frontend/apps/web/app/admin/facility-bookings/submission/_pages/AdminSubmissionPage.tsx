@@ -75,7 +75,7 @@ export function AdminSubmissionPage() {
 
   const allBookings = candidatesQuery.data?.bookings ?? [];
   const keyword = clubKeyword.trim();
-  // 동아리명 부분 검색·제출 여부 필터는 클라이언트 가공(스펙 v2 — 단일 시설·31일 상한 소량).
+  // 동아리명 부분 검색·제출 상태 필터는 클라이언트 가공(스펙 v2 — 단일 시설·31일 상한 소량).
   // clubName 이 null 인 예약은 그룹 라벨이 `동아리 {clubId}` 로 합성되므로(SubmissionClubGroupList),
   // 검색도 같은 폴백 문자열로 매칭해야 라벨 그대로 검색된다.
   const searchedBookings =
@@ -88,7 +88,7 @@ export function AdminSubmissionPage() {
   );
   const selectedIds = [...selection].filter((bookingId) => selectableIdSet.has(bookingId));
 
-  // 제출 여부 셀렉트는 필터의 3값(전체/제출 필요/제출함)만 표현 — 카드 확장값(APPROVED/CONFIRMED)일 땐 '전체' 표시.
+  // 제출 상태 셀렉트는 필터의 3값(전체/학교에 제출할 예약/제출 목록에 담긴 예약)만 표현 — 카드 확장값(APPROVED/CONFIRMED)일 땐 '전체' 표시.
   const statusFilterValue: SubmissionStatusFilter =
     summaryFilter === 'NEED' || summaryFilter === 'SUBMITTED' ? summaryFilter : 'ALL';
 
@@ -219,7 +219,7 @@ export function AdminSubmissionPage() {
           )}
           {facilityId !== undefined && periodInvalid && (
             <div role="alert" className="rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal-2">
-              조회 기간을 확인해주세요 — 시작일부터 최대 31일까지 조회할 수 있어요.
+              조회 기간을 확인해주세요 — 종료일이 시작일보다 앞설 수 없고, 시작일부터 최대 31일까지 조회할 수 있어요.
             </div>
           )}
 
