@@ -19,9 +19,13 @@ import { X } from '@/components/duing/Icon';
 
 type ToastVariant = 'info' | 'error';
 
-type Toast = { id: number; message: string; variant: ToastVariant };
+// 복구 수단이 있는 알림용(예: 세션 확인 실패 → 다시 시도). 액션을 누르면 토스트는 스스로 닫힌다 —
+// 액션 자체가 상황 해소 시도라 남아 있을 이유가 없고, 실패하면 새 토스트가 다시 뜬다.
+type ToastAction = { label: string; onClick: () => void };
 
-type AddToastOptions = { variant?: ToastVariant; durationMs?: number };
+type Toast = { id: number; message: string; variant: ToastVariant; action?: ToastAction };
+
+type AddToastOptions = { variant?: ToastVariant; durationMs?: number; action?: ToastAction };
 
 type ToastContextValue = {
   addToast: (message: string, options?: AddToastOptions) => void;
@@ -78,7 +82,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       if (isAlreadyShown) return;
 
       const id = (nextId.current += 1);
-      toastsRef.current = [...toastsRef.current, { id, message, variant }];
+      toastsRef.current = [...toastsRef.current, { id, message, variant, action: options?.action }];
       setToasts(toastsRef.current);
 
       const duration = options?.durationMs ?? DEFAULT_DURATION_MS;
@@ -204,7 +208,20 @@ function Toaster({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: numbe
               toast.variant === 'error' ? 'bg-coral' : 'bg-sage',
             )}
           />
-          <span className="flex-1 text-[13.5px] leading-snug">{toast.message}</span>
+          {/* break-keep — 한글은 어절 단위로만 접는다(기본값은 '로그/인' 처럼 낱말 중간에서 잘린다). */}
+          <span className="flex-1 break-keep text-[13.5px] leading-snug">{toast.message}</span>
+          {toast.action && (
+            <button
+              type="button"
+              onClick={() => {
+                onDismiss(toast.id);
+                toast.action?.onClick();
+              }}
+              className="shrink-0 rounded-full border border-cream/40 px-3 py-1 text-[12.5px] font-semibold text-cream transition hover:bg-white/10"
+            >
+              {toast.action.label}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onDismiss(toast.id)}
