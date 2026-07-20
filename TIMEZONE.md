@@ -100,8 +100,8 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 
 ## 알려진 이슈 (1단계 미해결 — 후속 결정 대기)
 
-1. **동아리 행사(club_event) start_at/end_at 데이터 오염** — 등록 폼(`ClubEventFormModal.tsx`)이 `new Date(입력).toISOString()`으로 UTC `…Z`를 전송하고 백엔드 `LocalDateTime`이 Z를 버려, **입력보다 9시간 이른 벽시계가 저장**된다(편집 재저장 시마다 −9h 누적). 위 regime 표의 "Schedule = KST 벽시계" 전제가 이 테이블에는 성립하지 않으므로, 2단계 백필 시 club_event는 **입력 경로 수정 시점 전/후를 나눠** 보정해야 한다. 수정안(폼에서 원문 전송)은 승인 대기 중.
-2. **미전환 판정 잔존 (여전히 JVM 존 = prod UTC)** — 프로모션 공개 노출 판정(`PromotionRepositoryImpl.findPublicActive`, 관리자 화면은 KST로 판정하므로 최대 9시간 모순 창), 행사/전역행사 기본 조회 윈도우(`GeneralClubEventService`, `GeneralGlobalEventService`), 면접 `availabilityDeadline` 생성 검증(`GeneralInterviewRoundService` — 응답 마감 판정은 KST라 같은 필드를 두 시계로 판정). "판정은 항상 seoulClock" 규칙의 예외로 남아 있으며 전환 승인 대기 중.
+1. **동아리 행사(club_event) start_at/end_at 기존 데이터 오염** — 등록 폼이 과거에 `toISOString()`으로 UTC를 전송해 **입력보다 9시간 이른 벽시계가 저장**되어 있었다(편집 재저장 시마다 −9h 누적). **입력 경로는 1단계에서 수정 완료**(폼이 KST 벽시계 원문 전송) — 신규 저장은 정합. 수정 이전에 저장된 행만 2단계 백필 대상이며, **수정 배포 시점 전/후를 나눠** 보정해야 한다.
+2. **미전환 판정 잔존 (여전히 JVM 존 = prod UTC, 후속 PR 대상)** — 행사/전역행사 기본 조회 윈도우(`GeneralClubEventService`, `GeneralGlobalEventService` — KST 00~09시에 기본 표시 범위가 하루 어긋남), 면접 `availabilityDeadline` 생성 검증(`GeneralInterviewRoundService` — 응답 마감 판정은 KST라 같은 필드를 두 시계로 판정, 생성 순간의 가드만 약함). 영향도 낮음(데이터 무손상)으로 후속 PR로 분리. ※ 프로모션 공개 노출 판정은 1단계에서 seoulClock으로 전환 완료.
 3. **배포 전환기 일시 현상** — 응답이 `…Z`로 바뀌므로, 배포 직후 캐시된 구버전 FE 번들의 문자열 절단 표시(영수증 날짜 등)는 새 번들 로드 전까지 UTC 숫자를 노출할 수 있다.
 
 ## 2단계: DB 마이그레이션 계획 (별도 릴리스)
