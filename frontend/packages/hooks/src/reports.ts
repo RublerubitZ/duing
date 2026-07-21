@@ -39,6 +39,8 @@ export function useProcessReportMutation() {
     onSuccess: (_, { reportId }) => {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.reportsAll });
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.reportsDetail(reportId) });
+      // 사이드바 뱃지 — 처리 즉시 숫자가 줄어야 한다.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
     },
   });
 }

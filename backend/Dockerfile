@@ -30,7 +30,9 @@ COPY --from=build /workspace/build/libs/*.jar app.jar
 USER duing
 
 EXPOSE 8080
+# TZ=UTC — naive 컬럼은 JVM 기본 존 벽시계로 기록되므로 존을 명시 고정한다 (/TIMEZONE.md)
 ENV SPRING_PROFILES_ACTIVE=prod \
+    TZ=UTC \
     JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
 
 # exec 로 java 를 PID 1 로 띄워 SIGTERM 을 직접 받게 한다 — 컨테이너 종료/재배포 시

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
+import { parseKstInstant } from '@duing/hooks';
 import type { MyClubSummary } from '@duing/types';
 
 import { isKnownNonActiveClubStatus } from '../_lib/clubStatusGuard';
@@ -22,9 +23,9 @@ function pickBannerCandidate(clubs: MyClubSummary[], now: Date): MyClubSummary |
     .filter(
       (club) =>
         !isKnownNonActiveClubStatus(club.status) &&
-        new Date(club.joinedAt).getTime() >= cutoffMs,
+        parseKstInstant(club.joinedAt).getTime() >= cutoffMs,
     )
-    .sort((a, b) => new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime())[0];
+    .sort((a, b) => parseKstInstant(b.joinedAt).getTime() - parseKstInstant(a.joinedAt).getTime())[0];
 
   if (!candidate) return null;
   if (typeof window === 'undefined') return null;

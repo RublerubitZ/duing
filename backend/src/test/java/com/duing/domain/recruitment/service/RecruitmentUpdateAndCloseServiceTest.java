@@ -23,7 +23,9 @@ import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +48,9 @@ class RecruitmentUpdateAndCloseServiceTest {
             applicationRepository,
             clubRepository,
             clubAuthService,
-            eventPublisher
+            eventPublisher,
+            // 실제 빈(seoulClock)과 동일한 Asia/Seoul 존 — systemDefaultZone 은 환경 의존.
+            Clock.system(ZoneId.of("Asia/Seoul"))
     );
 
     private static final Long MANAGER_USER_ID = 1L;

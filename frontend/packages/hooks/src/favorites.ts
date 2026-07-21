@@ -1,5 +1,6 @@
 import type { FavoriteIds } from '@duing/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '@duing/stores';
 import { useApiClient } from './api-context';
 import { favoriteQueryKeys } from './favoriteQueryKeys';
 
@@ -9,18 +10,22 @@ type FavoriteToggleContext = {
 
 export function useFavoriteListQuery(page = 0, size = 20) {
   const client = useApiClient();
+  const status = useAuthStore((s) => s.status);
   return useQuery({
     queryKey: favoriteQueryKeys.list(page, size),
     queryFn: () => client.favorites.list(page, size),
+    enabled: status === 'authenticated',
   });
 }
 
 export function useFavoriteIdsQuery() {
   const client = useApiClient();
+  const status = useAuthStore((s) => s.status);
   return useQuery({
     queryKey: favoriteQueryKeys.ids(),
     queryFn: () => client.favorites.ids(),
     select: (favoriteIds) => favoriteIds.clubIds,
+    enabled: status === 'authenticated',
   });
 }
 

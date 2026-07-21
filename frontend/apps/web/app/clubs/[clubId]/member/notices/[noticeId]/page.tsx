@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { useClubNoticeDetailQuery } from '@duing/hooks';
+import { formatDateTimeKst, useClubNoticeDetailQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
@@ -46,7 +46,7 @@ export default function MemberNoticeDetailPage({
       </Link>
       <h1 className="text-xl font-bold text-ink">{notice.title}</h1>
       <p className="mt-2 text-xs text-charcoal-3">
-        {new Date(notice.createdAt).toLocaleString('ko-KR')}
+        {formatDateTimeKst(notice.createdAt)}
       </p>
       {notice.coverImageUrl ? (
         <ImageWithFallback

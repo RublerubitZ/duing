@@ -175,7 +175,8 @@ public class GeneralApplicationService implements ApplicationService {
             throw new RecruitmentException.RecruitmentNotFoundException();
         }
 
-        if (!recruitment.isEffectivelyOpen(LocalDate.now())) {
+        // 마감 판정은 KST(seoulClock) 기준 — prod JVM 은 UTC 라 무클럭 now() 는 자정~09시 사이 하루 늦게 마감된다.
+        if (!recruitment.isEffectivelyOpen(LocalDate.now(clock))) {
             throw new ApplicationDomainException.RecruitmentClosedException();
         }
 

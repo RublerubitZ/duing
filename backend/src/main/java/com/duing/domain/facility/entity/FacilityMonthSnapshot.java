@@ -77,10 +77,18 @@ public class FacilityMonthSnapshot extends BaseEntity {
         this.lastError = truncate(lastError);
     }
 
+    /**
+     * 예외 메시지에는 크롤 원문(이모지 포함 가능)이 실릴 수 있어 서로게이트 쌍을 보존해 절단한다.
+     * 쌍을 쪼개면 고아 서로게이트가 남아 UTF-8 인코딩 단계에서 메타 기록 자체가 실패한다.
+     */
     private static String truncate(String error) {
-        if (error == null) {
-            return null;
+        if (error == null || error.length() <= MAX_ERROR_LENGTH) {
+            return error;
         }
-        return error.length() <= MAX_ERROR_LENGTH ? error : error.substring(0, MAX_ERROR_LENGTH);
+        int end = MAX_ERROR_LENGTH;
+        if (Character.isHighSurrogate(error.charAt(end - 1))) {
+            end--;
+        }
+        return error.substring(0, end);
     }
 }

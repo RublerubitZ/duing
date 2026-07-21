@@ -5,6 +5,8 @@ import com.duing.domain.notice.entity.NoticeCategory;
 import com.duing.domain.notice.entity.NoticeClubScopeRole;
 import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -23,8 +25,8 @@ public record NoticeDetailResponse(
         boolean pinned,
         LocalDateTime expiresAt,
         boolean notifyOnPublish,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt,
+        Instant createdAt,
+        Instant updatedAt,
         NoticeContentFormat contentFormat,
         // 출처 — 동아리 작성 공지면 채워지고(전체 뷰어 노출), 학교(관리자) 공지면 null.
         Long owningClubId,
@@ -61,7 +63,8 @@ public record NoticeDetailResponse(
                 exposeAdminFields ? targetClubIds : null,
                 notice.isPinned(), notice.getExpiresAt(),
                 exposeAdminFields && notice.isNotifyOnPublish(),
-                notice.getCreatedAt(), notice.getUpdatedAt(),
+                TimeMapper.systemWallClockToInstant(notice.getCreatedAt()),
+                TimeMapper.systemWallClockToInstant(notice.getUpdatedAt()),
                 notice.getContentFormat(),
                 notice.getOwningClubId(), clubName,
                 EventInfo.from(notice)

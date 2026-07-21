@@ -62,7 +62,7 @@ ClubMember 운영(승급/강등·추방·탈퇴·정상 인계)은 이미 제공
 | U-1 | 회원가입 | `studentId`(8자리 숫자), `name`(≤50), `password`(8~20자·2종 조합), `grade`, `college`, `major`, `verificationToken`(MO 인증 세션), 약관 동의 2종 | 생성된 `userId` (201) | 미인증·만료·용도 불일치 토큰 403(`PHONE_NOT_VERIFIED`), 중복 학번·전화번호 409, 입력 검증 실패 400 |
 | U-2 | 로그인 | `studentId`(8자리 숫자), `password` | `accessToken`, `tokenType="Bearer"`, `user` (200) | 자격 증명 실패 401 |
 | U-3 | 내 정보 조회 | (JWT) | `id`, `studentId`, `name`, `phone`, `role`, `grade` (200) | 미인증 401 |
-| U-4 | 휴대폰 MO 인증 시작 | `phone`, `?qr=true` | `verificationToken`, `code`, `moNumber`, `qrCode?`, 만료 정보 (201) | 가입된 번호 409, 쿨다운·IP 한도 429 |
+| U-4 | 휴대폰 MO 인증 시작 | `phone`, `?qr=true` | `verificationToken`, `code`, `moNumber`, `qrCode?`, 만료 정보 (201) | 가입된 번호 409, 쿨다운·IP 한도·번호+IP당 시간당 한도(5회) 429 |
 | U-5 | 휴대폰 MO 인증 상태 조회 | `verificationToken` (body — `POST /auth/phone-verifications/status`, 토큰이 URL에 남지 않도록 조회용 POST) | `status`(PENDING/VERIFIED/EXPIRED), `expiresInSeconds`, `maskedPhone` (200) | 빈 토큰 400, 미존재 토큰 404, IP 한도 429, 일일 쿼터 초과 503 |
 
 **비기능 요구사항**

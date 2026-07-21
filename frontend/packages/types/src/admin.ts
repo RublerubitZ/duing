@@ -1,5 +1,5 @@
 import type { ClubCategory, ClubStatus } from './club';
-import type { College } from './user';
+import type { College, Grade } from './user';
 import type { ClubMemberRole } from './clubmember';
 import type { UserRole } from './user';
 
@@ -37,12 +37,18 @@ export type AdminClubSearchParams = {
 
 /**
  * GET /admin/users 응답 행. 비밀번호 해시·전화번호 등 민감 필드는 의도적으로 빠져있다.
+ *
+ * grade·college·major 는 동명이인 식별용이다. 원값(enum)으로 내려오며 한글 라벨은
+ * GRADE_DISPLAY_NAME·COLLEGE_DISPLAY_NAME 으로 붙인다. major 는 자유 입력이라 빈 문자열일 수 있다.
  */
 export type AdminUserSearchResult = {
   id: number;
   studentId: string;
   name: string;
   role: UserRole;
+  grade: Grade;
+  college: College;
+  major: string;
 };
 
 export type AdminUserSearchParams = {
@@ -173,98 +179,6 @@ export type AdminClubMemberHistoryRow = {
 };
 
 export type AdminClubMemberHistoryParams = {
-  page?: number;
-  size?: number;
-  sort?: string;
-};
-
-// ─── 재인증 라운드 ──────────────────────────────────────────────────────────────
-
-export type RoundStatus = 'OPEN' | 'CLOSED';
-
-export type AdminRecertificationRoundUserRef = { id: number; name: string };
-
-export type AdminRecertificationRound = {
-  id: number;
-  year: number;
-  label: string;
-  status: RoundStatus;
-  openedBy: AdminRecertificationRoundUserRef;
-  openedAt: string;
-  closedBy: AdminRecertificationRoundUserRef | null;
-  closedAt: string | null;
-};
-
-export type AdminRecertificationRoundSearchParams = {
-  status?: RoundStatus;
-  page?: number;
-  size?: number;
-  sort?: string;
-};
-
-export type CreateRecertificationRoundPayload = {
-  year: number;
-  label: string;
-};
-
-// ─── 재인증 요청 ──────────────────────────────────────────────────────────────
-
-export type RecertificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-
-export type AdminRecertificationUserRef = { id: number; name: string };
-
-export type AdminRecertificationRequestSummary = {
-  id: number;
-  round: { id: number; year: number; label: string; status: RoundStatus };
-  club: { id: number; name: string };
-  leader: AdminRecertificationUserRef;
-  status: RecertificationStatus;
-  operatingYear: number;
-  createdAt: string;
-};
-
-export type AdminRecertificationRequestDetail = {
-  id: number;
-  round: { id: number; year: number; label: string };
-  club: { id: number; name: string; lastVerifiedYear: number | null };
-  currentLeader: AdminRecertificationUserRef | null;
-  officers: AdminRecertificationUserRef[];
-  submittedLeader: AdminRecertificationUserRef;
-  contactEmail: string;
-  contactPhone: string;
-  operatingYear: number;
-  notes: string | null;
-  status: RecertificationStatus;
-  actionNote: string | null;
-  handledBy: AdminRecertificationUserRef | null;
-  handledAt: string | null;
-  createdAt: string;
-  recentMemberHistory: AdminClubMemberHistoryRow[];
-};
-
-export type AdminRecertificationRequestSearchParams = {
-  roundId?: number;
-  status?: RecertificationStatus;
-  page?: number;
-  size?: number;
-  sort?: string;
-};
-
-export type ProcessRecertificationPayload = {
-  status: Exclude<RecertificationStatus, 'PENDING'>;
-  actionNote?: string;
-};
-
-export type CentralClubRecertificationStatus = {
-  clubId: number;
-  clubName: string;
-  centralClub: boolean;
-  lastVerifiedYear: number | null;
-  expired: boolean;
-};
-
-export type CentralClubRecertificationStatusParams = {
-  operatingYear: number;
   page?: number;
   size?: number;
   sort?: string;
@@ -451,4 +365,20 @@ export type PromotionCard = {
   renderMode: PromotionRenderMode;
   imageAltText: string | null;
   notice: PublicPromotionNoticeRef | null;
+};
+
+/**
+ * GET /admin/pending-counts 응답. 관리자 콘솔 사이드바 뱃지용 도메인별 미처리 건수.
+ *
+ * "무엇이 미처리인가" 는 서버가 정한다 — 예를 들어 inquiryUnanswered 는 접수(RECEIVED)뿐 아니라
+ * 관리자가 답변을 쓰기 시작한 상태(IN_PROGRESS)까지 포함한 합산값이다. 화면은 숫자만 그린다.
+ */
+export type AdminPendingCounts = {
+  clubApproval: number;
+  facilityBooking: number;
+  inquiryUnanswered: number;
+  promotionRequest: number;
+  reportUnresolved: number;
+  leaderSuccession: number;
+  totalPendingCount: number;
 };

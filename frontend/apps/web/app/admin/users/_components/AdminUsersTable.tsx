@@ -2,6 +2,8 @@
 
 import type { AdminUserSearchResult, UserRole } from '@duing/types';
 
+import { MemberIdentity } from '../../_components/MemberIdentity';
+
 const USER_ROLE_LABEL: Record<UserRole, string> = {
   STUDENT: '학생',
   ADMIN: '관리자',
@@ -22,8 +24,7 @@ export function AdminUsersTable({ items, onForceLogout }: Props) {
       <table className="w-full text-[13px]">
         <thead className="bg-graysoft text-charcoal-2">
           <tr>
-            <Th>학번</Th>
-            <Th>이름</Th>
+            <Th>회원</Th>
             <Th>역할</Th>
             <Th>조치</Th>
           </tr>
@@ -31,8 +32,9 @@ export function AdminUsersTable({ items, onForceLogout }: Props) {
         <tbody>
           {items.map((user) => (
             <tr key={user.id} className="border-t border-line hover:bg-graysoft/50">
-              <Td>{user.studentId}</Td>
-              <Td>{user.name}</Td>
+              <Td>
+                <MemberIdentity user={user} />
+              </Td>
               {/* 배포 전환기의 미지 role 값도 빈 셀 대신 원문으로 노출한다(fail-open) */}
               <Td>{USER_ROLE_LABEL[user.role] ?? user.role}</Td>
               <Td>

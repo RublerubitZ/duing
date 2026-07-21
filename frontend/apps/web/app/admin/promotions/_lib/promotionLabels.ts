@@ -1,3 +1,4 @@
+import { parseKstInstant } from '@duing/hooks/datetime';
 import type { PromotionRenderMode } from '@duing/types';
 
 export const ACTIVE_LABEL: Record<'true' | 'false', string> = {
@@ -30,8 +31,9 @@ export function resolveDisplayStatus(
 ): PromotionDisplayStatus {
   if (!active) return 'INACTIVE';
   const nowMs = now.getTime();
-  if (endAt !== null && new Date(endAt).getTime() <= nowMs) return 'EXPIRED';
-  if (startAt !== null && new Date(startAt).getTime() > nowMs) return 'UPCOMING';
+  // startAt/endAt 은 무오프셋 KST 벽시계 문자열 — 브라우저 존이 아닌 KST 로 고정 해석한다.
+  if (endAt !== null && parseKstInstant(endAt).getTime() <= nowMs) return 'EXPIRED';
+  if (startAt !== null && parseKstInstant(startAt).getTime() > nowMs) return 'UPCOMING';
   return 'LIVE';
 }
 

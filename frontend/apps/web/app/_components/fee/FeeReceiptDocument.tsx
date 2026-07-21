@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateKst } from '@duing/hooks';
 import type { Receipt } from '@duing/types';
 
 import { feeStatusLabel, formatWon, paymentMethodLabel } from '@/app/_lib/feeLabels';
@@ -66,7 +67,7 @@ export function FeeReceiptDocument({ receipt }: FeeReceiptDocumentProps) {
         <tbody>
           {receipt.payments.map((line, index) => (
             <tr key={`${line.paidAt}-${index}`} className="border-b border-line/60">
-              <td className="py-1.5">{line.paidAt.slice(0, 10)}</td>
+              <td className="py-1.5">{formatDateKst(line.paidAt)}</td>
               <td className="py-1.5">{paymentMethodLabel(line.method)}</td>
               <td className="py-1.5 text-right">{formatWon(line.amount)}</td>
               <td className="py-1.5 text-charcoal-2">{line.memo ?? '-'}</td>
@@ -76,7 +77,7 @@ export function FeeReceiptDocument({ receipt }: FeeReceiptDocumentProps) {
       </table>
 
       <footer className="mt-6 text-right text-xs text-charcoal-3">
-        발급일 {receipt.issuedAt.slice(0, 10)}
+        발급일 {formatDateKst(receipt.issuedAt)}
       </footer>
     </article>
   );

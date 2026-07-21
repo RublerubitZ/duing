@@ -4,7 +4,8 @@ import com.duing.domain.clubmember.entity.ClubMemberEventType;
 import com.duing.domain.clubmember.entity.ClubMemberHistory;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberHistoryAdminQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record ClubMemberHistoryResponse(
         Long id,
@@ -14,7 +15,7 @@ public record ClubMemberHistoryResponse(
         ClubMemberRole fromRole,
         ClubMemberRole toRole,
         String reason,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
     public record UserRef(Long id, String name) {}
 
@@ -24,7 +25,7 @@ public record ClubMemberHistoryResponse(
         return new ClubMemberHistoryResponse(
                 history.getId(), history.getEventType(), target, actor,
                 history.getFromRole(), history.getToRole(),
-                history.getReason(), history.getCreatedAt()
+                history.getReason(), TimeMapper.systemWallClockToInstant(history.getCreatedAt())
         );
     }
 
@@ -34,7 +35,7 @@ public record ClubMemberHistoryResponse(
         return new ClubMemberHistoryResponse(
                 query.id(), query.eventType(), target, actor,
                 query.fromRole(), query.toRole(),
-                query.reason(), query.createdAt()
+                query.reason(), TimeMapper.systemWallClockToInstant(query.createdAt())
         );
     }
 }

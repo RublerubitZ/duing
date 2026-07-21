@@ -14,6 +14,9 @@ public interface LeaderSuccessionRequestRepository
 
     Optional<LeaderSuccessionRequest> findByClubIdAndStatus(Long clubId, SuccessionStatus status);
 
+    // 관리자 콘솔 미처리 건수 — derived query 라 @SQLRestriction(soft delete 제외) 이 자동 적용된다.
+    long countByStatus(SuccessionStatus status);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM LeaderSuccessionRequest r WHERE r.id = :id")
     Optional<LeaderSuccessionRequest> findByIdForUpdate(@Param("id") Long id);

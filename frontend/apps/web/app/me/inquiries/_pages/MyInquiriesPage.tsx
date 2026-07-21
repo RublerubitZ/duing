@@ -4,12 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 
 import type { FederationInquiryStatus } from '@duing/types';
-import { useMyFederationInquiriesQuery } from '@duing/hooks';
+import { formatDateKst, useMyFederationInquiriesQuery } from '@duing/hooks';
 
 import { Pagination } from '@/components/Pagination';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { cn } from '@/app/_lib/cn';
-import { formatDateDot } from '@/app/_lib/formatDateDot';
 import { toRoute } from '@/app/_lib/route';
 import {
   INQUIRY_STATUS_BADGE_CLASS,
@@ -123,8 +122,8 @@ export function MyInquiriesPage() {
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-charcoal-3">
-                    작성 {formatDateDot(inquiry.createdAt)}
-                    {inquiry.answeredAt && ` · 답변 ${formatDateDot(inquiry.answeredAt)}`}
+                    작성 {formatDateKst(inquiry.createdAt)}
+                    {inquiry.answeredAt && ` · 답변 ${formatDateKst(inquiry.answeredAt)}`}
                   </p>
                 </div>
               </Link>

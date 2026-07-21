@@ -2,19 +2,32 @@
 
 import { useState } from 'react';
 import { ApiError } from '@duing/api';
-import { useCancelFacilityBookingMutation, useFacilityBookingDetailQuery } from '@duing/hooks';
+import {
+  formatDateTimeKst,
+  useCancelFacilityBookingMutation,
+  useFacilityBookingDetailQuery,
+} from '@duing/hooks';
 import type { BookingStatus } from '@duing/types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import {
   BOOKING_STATUS_META,
   bookingDateLabel,
-  bookingDateTimeLabel,
   bookingTimeLabel,
 } from '@/app/_lib/bookingDisplay';
 import { BookingStatusBadge } from '@/app/_components/BookingStatusBadge';
 import { CancelBookingDialog } from './CancelBookingDialog';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+
+// 상태 배너 전용 톤 — 배지 필 클래스(.pill-*)와 분리해 전역 배지 개편의 파급을 차단한다(기존 팔레트 유지).
+const STATUS_BANNER_TONE: Record<BookingStatus, string> = {
+  PENDING: 'bg-[#FBEFD7] text-[#8E6620]',
+  APPROVED: 'bg-ink/10 text-ink',
+  CONFIRMED: 'bg-ink text-cream',
+  REJECTED: 'bg-graysoft text-charcoal-3',
+  CONFLICT: 'bg-coral/15 text-coral',
+  CANCELLED: 'bg-graysoft text-charcoal-3',
+};
 
 const STEPS = ['신청 접수', '관리자 승인', '학교 반영 확정'] as const;
 
@@ -91,7 +104,7 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
                   ))}
                 </ol>
               ) : (
-                <div className={`rounded-md px-3 py-2 text-sm ${BOOKING_STATUS_META[detail.status].badgeClass}`}>
+                <div className={`rounded-md px-3 py-2 text-sm ${STATUS_BANNER_TONE[detail.status]}`}>
                   {BOOKING_STATUS_META[detail.status].label}
                   {detail.status === 'REJECTED' && detail.rejectReason && ` — ${detail.rejectReason}`}
                   {detail.status === 'CONFLICT' && ` — ${detail.conflictDetail ?? '관리자가 확인 중이에요.'}`}
@@ -124,7 +137,7 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
                           {BOOKING_STATUS_META[item.newStatus].label}
                           {item.reason && <span className="text-charcoal-3"> — {item.reason}</span>}
                         </span>
-                        <span className="shrink-0 text-charcoal-3">{bookingDateTimeLabel(item.changedAt)}</span>
+                        <span className="shrink-0 text-charcoal-3">{formatDateTimeKst(item.changedAt)}</span>
                       </li>
                     ))}
                   </ul>

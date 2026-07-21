@@ -1,4 +1,14 @@
+import { parseKstInstant } from '@duing/hooks/datetime';
 import type { ClubMemberExportRow, ClubMemberRole } from '@duing/types';
+
+// CSV 는 기존 YYYY-MM-DD 표기를 유지한다(en-CA 로케일 = ISO 날짜 포맷).
+// joinedAt 은 절대시각(…Z)일 수 있어 문자열 절단 대신 KST 로 변환해 날짜를 뽑는다.
+const KST_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 
 const MEMBER_ROLE_LABEL: Record<ClubMemberRole, string> = {
   LEADER: '회장',
@@ -31,20 +41,13 @@ export function buildMembersCsv(rows: ClubMemberExportRow[], includePhone: boole
 
   const lines = [serializeRow(header)];
   for (const row of rows) {
+    const joinedDate = KST_DATE_FORMATTER.format(parseKstInstant(row.joinedAt));
     const fields = includePhone
-      ? [row.name, row.studentId, row.major, row.phone ?? '', MEMBER_ROLE_LABEL[row.role], row.joinedAt.slice(0, 10)]
-      : [row.name, row.studentId, row.major, MEMBER_ROLE_LABEL[row.role], row.joinedAt.slice(0, 10)];
+      ? [row.name, row.studentId, row.major, row.phone ?? '', MEMBER_ROLE_LABEL[row.role], joinedDate]
+      : [row.name, row.studentId, row.major, MEMBER_ROLE_LABEL[row.role], joinedDate];
     lines.push(serializeRow(fields));
   }
   return BOM + lines.join('\r\n');
-}
-
-function pad2(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
-function formatDate(date: Date): string {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
 function sanitizeFilename(name: string): string {
@@ -52,5 +55,5 @@ function sanitizeFilename(name: string): string {
 }
 
 export function buildMembersCsvFilename(clubName: string, today: Date): string {
-  return `${sanitizeFilename(clubName)}_멤버목록_${formatDate(today)}.csv`;
+  return `${sanitizeFilename(clubName)}_멤버목록_${KST_DATE_FORMATTER.format(today)}.csv`;
 }

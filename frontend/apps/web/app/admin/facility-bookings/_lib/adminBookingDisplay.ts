@@ -1,12 +1,12 @@
 // 관리자 콘솔 전용 파생 — 크롤 신선도·409 payload 가드·검증 컨텍스트 슬롯 스트립(§9.7·§8.3)
+import { parseKstInstant } from '@duing/hooks/datetime';
 import type { AdminBookingOverlapItem, AdminFacilityBookingCounts, FacilityBookingConflictPayload } from '@duing/types';
 
 export function crawlFreshnessLabel(crawlBasisAt: string | undefined, now: Date): string {
   if (!crawlBasisAt) return '수집 정보 없음';
-  const [datePart, timePart] = crawlBasisAt.split('T');
-  const [year, month, day] = (datePart ?? '').split('-').map(Number);
-  const [hour, minute] = (timePart ?? '').split(':').map(Number);
-  const basis = new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1, hour ?? 0, minute ?? 0);
+  // crawlBasisAt 은 Event Time(`…Z` 절대시각, 구버전은 무오프셋) — 브라우저 존 의존 파싱 대신 공통 규칙으로 흡수한다.
+  const basis = parseKstInstant(crawlBasisAt);
+  if (Number.isNaN(basis.getTime())) return '수집 정보 없음';
   const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - basis.getTime()) / 60_000));
   if (elapsedMinutes < 60) return `마지막 수집 ${elapsedMinutes}분 전`;
   return `마지막 수집 ${Math.floor(elapsedMinutes / 60)}시간 전`;
@@ -35,7 +35,12 @@ export function isFacilityBookingConflictPayload(payload: unknown): payload is F
   return payload.crawlBasisAt === null || typeof payload.crawlBasisAt === 'string';
 }
 
-export type SlotStripCell = { hour: number; inRequest: boolean; overlapSource: string | null };
+export type SlotStripCell = {
+  hour: number;
+  inRequest: boolean;
+  overlapSource: string | null;
+  overlapOrganization: string | null; // 겹치는 칸의 점유 조직명 — 스트립 셀에 표기(개편 스펙 §3)
+};
 
 export function buildSlotStrip(input: {
   startTime: string;
@@ -53,10 +58,19 @@ export function buildSlotStrip(input: {
       hour,
       inRequest: requestStart <= hour && hour < requestEnd,
       overlapSource: overlap ? overlap.source : null,
+      overlapOrganization: overlap && overlap.organization !== '' ? overlap.organization : null,
     };
   });
 }
 
 export function conflictCardCount(counts: AdminFacilityBookingCounts): number {
   return counts.conflictCount + counts.conflictSuspectedCount;
+}
+
+/** 큐 서브라인용 신청 경과 표기(개편 스펙 §2) — 24시간 단위 floor, Invalid 입력은 빈 문자열. */
+export function requestAgeLabel(createdAt: string, now: Date): string {
+  const requested = parseKstInstant(createdAt);
+  if (Number.isNaN(requested.getTime())) return '';
+  const elapsedDays = Math.floor(Math.max(0, now.getTime() - requested.getTime()) / 86_400_000);
+  return elapsedDays === 0 ? '오늘 접수' : `${elapsedDays}일 경과`;
 }

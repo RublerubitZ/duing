@@ -1,3 +1,4 @@
+import { daysUntilKst, parseKstInstant } from '@duing/hooks/datetime';
 import type { RecruitmentDisplayStatus } from '@duing/types';
 
 export function displayStatusLabel(status: RecruitmentDisplayStatus): string {
@@ -23,6 +24,7 @@ export function recruitmentPeriodLabel(
   return `${startDate} ~ ${endDate}`;
 }
 
+/** KST 캘린더 기준 마감까지 남은 일수. endDate 가 null 이거나 파싱 불가면 null. */
 export function recruitmentDaysLeft(
   endDate: string | null,
   today: Date = new Date(),
@@ -30,14 +32,8 @@ export function recruitmentDaysLeft(
   if (endDate === null) {
     return null;
   }
-  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-  const parts = endDate.split('-').map(Number);
-  const y = parts[0];
-  const m = parts[1];
-  const d = parts[2];
-  if (y === undefined || m === undefined || d === undefined) {
+  if (Number.isNaN(parseKstInstant(endDate).getTime())) {
     return null;
   }
-  const endUtc = Date.UTC(y, m - 1, d);
-  return Math.round((endUtc - todayUtc) / 86_400_000);
+  return daysUntilKst(endDate, today);
 }

@@ -3,7 +3,6 @@ import type { BookingStatus } from '@duing/types';
 import {
   BOOKING_STATUS_META,
   bookingDateLabel,
-  bookingDateTimeLabel,
   bookingTimeLabel,
 } from '@/app/_lib/bookingDisplay';
 
@@ -14,10 +13,9 @@ describe('bookingDateLabel', () => {
   });
 });
 
-describe('bookingTimeLabel / bookingDateTimeLabel', () => {
-  it('시간 범위와 일시 라벨을 만든다', () => {
+describe('bookingTimeLabel', () => {
+  it('시간 범위 라벨을 만든다', () => {
     expect(bookingTimeLabel('18:00', '20:00')).toBe('18:00~20:00');
-    expect(bookingDateTimeLabel('2026-07-20T19:30:00')).toBe('7월 20일 (월) 19:30');
   });
 });
 
@@ -26,7 +24,8 @@ describe('상태 메타', () => {
     const statuses: BookingStatus[] = ['PENDING', 'APPROVED', 'CONFIRMED', 'REJECTED', 'CONFLICT', 'CANCELLED'];
     for (const status of statuses) {
       expect(BOOKING_STATUS_META[status].label.length).toBeGreaterThan(0);
-      expect(BOOKING_STATUS_META[status].badgeClass.length).toBeGreaterThan(0);
+      // badgeClass 는 .pill 변형 클래스 — 기본 필(APPROVED)은 빈 문자열이 유효값이다.
+      expect(typeof BOOKING_STATUS_META[status].badgeClass).toBe('string');
     }
     expect(BOOKING_STATUS_META.APPROVED.subLabel).toBe('학교 반영 대기');
     expect(BOOKING_STATUS_META.PENDING.subLabel).toBeUndefined();

@@ -137,6 +137,39 @@ class AuthRefreshControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("refresh 쿠키가 없는 웹 refresh 의 401 응답은 인증 쿠키 3종을 즉시 만료시킨다")
+    void webRefreshWithoutCookieExpiresAllAuthCookies() {
+        Response refreshResponse = given().header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                .when().post("/api/v1/auth/web/refresh");
+
+        assertThat(refreshResponse.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        assertExpiresAllAuthCookies(refreshResponse);
+    }
+
+    @Test
+    @DisplayName("위조된 refresh 쿠키의 웹 refresh 401 응답도 인증 쿠키 3종을 즉시 만료시킨다")
+    void webRefreshWithForgedCookieExpiresAllAuthCookies() {
+        Response refreshResponse = given()
+                .cookie(WebAuthCookieService.REFRESH_COOKIE_NAME, "forged-refresh-token")
+                .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                .when().post("/api/v1/auth/web/refresh");
+
+        assertThat(refreshResponse.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        assertExpiresAllAuthCookies(refreshResponse);
+    }
+
+    @Test
+    @DisplayName("모바일 refresh 의 401 응답에는 Set-Cookie 가 내려가지 않는다")
+    void mobileRefreshFailureDoesNotTouchCookies() {
+        Response refreshResponse = given().contentType(ContentType.JSON)
+                .body(Map.of("refreshToken", "forged-refresh-token"))
+                .when().post("/api/v1/auth/refresh");
+
+        assertThat(refreshResponse.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        assertThat(refreshResponse.getHeaders().getValues(HttpHeaders.SET_COOKIE)).isEmpty();
+    }
+
+    @Test
     @DisplayName("모바일 refresh 는 새 access·refresh 쌍을 바디로 반환한다")
     void mobileRefreshReturnsNewTokenPair() {
         User user = saveUser();
@@ -163,5 +196,16 @@ class AuthRefreshControllerTest extends IntegrationTestBase {
                 .when().post("/api/v1/auth/refresh")
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value())
                 .body("code", equalTo("AUTH_SESSION_EXPIRED"));
+    }
+
+    private void assertExpiresAllAuthCookies(Response response) {
+        List<String> cookieHeaders = response.getHeaders().getValues(HttpHeaders.SET_COOKIE);
+        for (String cookieName : List.of(
+                WebAuthCookieService.ACCESS_COOKIE_NAME,
+                WebAuthCookieService.REFRESH_COOKIE_NAME,
+                WebAuthCookieService.AUTH_HINT_COOKIE_NAME)) {
+            assertThat(cookieHeaders).anyMatch(header ->
+                    header.startsWith(cookieName + "=") && header.contains("Max-Age=0"));
+        }
     }
 }

@@ -4,9 +4,10 @@ import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService.AdminBookingDetailResult;
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService.OverlapContext;
 import com.duing.domain.facilitybooking.service.FacilityBookingService.HistoryEntry;
+import com.duing.global.time.TimeMapper;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -20,7 +21,7 @@ public record AdminFacilityBookingDetailResponse(
         @JsonInclude(JsonInclude.Include.NON_NULL) String rejectReason,
         @JsonInclude(JsonInclude.Include.NON_NULL) String conflictDetail,
         @JsonInclude(JsonInclude.Include.NON_NULL) Long matchedScheduleSeq,
-        @JsonInclude(JsonInclude.Include.NON_NULL) LocalDateTime crawlBasisAt,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Instant crawlBasisAt,
         boolean stale,
         List<OverlapItem> overlaps, long overlappingPendingCount,
         List<HistoryItem> history
@@ -33,9 +34,10 @@ public record AdminFacilityBookingDetailResponse(
     }
 
     public record HistoryItem(BookingStatus previousStatus, BookingStatus newStatus,
-                              String reason, LocalDateTime changedAt) {
+                              String reason, Instant changedAt) {
         static HistoryItem from(HistoryEntry entry) {
-            return new HistoryItem(entry.previousStatus(), entry.newStatus(), entry.reason(), entry.changedAt());
+            return new HistoryItem(entry.previousStatus(), entry.newStatus(), entry.reason(),
+                    TimeMapper.systemWallClockToInstant(entry.changedAt()));
         }
     }
 
@@ -44,7 +46,8 @@ public record AdminFacilityBookingDetailResponse(
                 result.facilityId(), result.roomName(), result.date(), result.startTime(), result.endTime(),
                 result.status(), result.purpose(), result.attendeeCount(), result.contactPhone(),
                 result.rejectReason(),
-                result.conflictDetail(), result.matchedScheduleSeq(), result.crawlBasisAt(), result.stale(),
+                result.conflictDetail(), result.matchedScheduleSeq(),
+                TimeMapper.seoulWallClockToInstant(result.crawlBasisAt()), result.stale(),
                 result.overlaps().stream().map(OverlapItem::from).toList(), result.overlappingPendingCount(),
                 result.history().stream().map(HistoryItem::from).toList());
     }

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatDateTimeKst } from '@duing/hooks';
 import type { AdminSuccessionSummary } from '@duing/types';
 import { cn } from '../../../_lib/cn';
 import { toRoute } from '../../../_lib/route';
@@ -46,7 +47,7 @@ export function AdminSuccessionTable({ items }: Props) {
               </Td>
               <Td>{item.clubName}</Td>
               <Td>{item.requester.name}</Td>
-              <Td>{new Date(item.createdAt).toLocaleString('ko-KR')}</Td>
+              <Td>{formatDateTimeKst(item.createdAt)}</Td>
               <Td>
                 <Link
                   href={toRoute(`/admin/leader-succession/${item.id}`)}

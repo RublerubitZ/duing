@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { middleware, verifyAuthHint } from '../../middleware';
+import { config, middleware, verifyAuthHint } from '../../middleware';
 
 const AUTH_HINT_SECRET = 'test-auth-hint-secret-at-least-32-bytes';
 const NOW_SECONDS = 2_000_000_000;
@@ -144,5 +144,33 @@ describe('middleware auth_hint UX', () => {
     const response = await middleware(createRequest('/admin/users', token));
 
     expect(response.headers.get('x-middleware-next')).toBe('1');
+  });
+
+  // 세션이 죽어도 auth_hint는 남을 수 있다 — 잔존 hint가 재로그인 진입을 막으면
+  // 쿠키를 수동 삭제하기 전까지 로그인 자체가 불가능해진다.
+  it('유효한 hint가 있어도 로그인 페이지 진입을 /me로 되돌리지 않는다', async () => {
+    const token = createAuthHint({
+      typ: 'AUTH_HINT',
+      role: 'STUDENT',
+      exp: Math.floor(Date.now() / 1000) + 60,
+    });
+
+    const response = await middleware(createRequest('/login', token));
+
+    expect(response.headers.get('location')).toBeNull();
+  });
+});
+
+describe('middleware matcher 정책', () => {
+  it('로그인·가입·비밀번호 재설정 경로는 미들웨어 대상에서 제외된다', () => {
+    expect(config.matcher).not.toContain('/login');
+    expect(config.matcher).not.toContain('/signup');
+    expect(config.matcher).not.toContain('/forgot-password');
+  });
+
+  it('보호 경로 가드는 그대로 유지된다', () => {
+    expect(config.matcher).toEqual(
+      expect.arrayContaining(['/apply/:path*', '/me/:path*', '/manage/:path*', '/admin/:path*']),
+    );
   });
 });

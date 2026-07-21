@@ -3,7 +3,8 @@ package com.duing.domain.promotion.controller.dto.response;
 import com.duing.domain.promotion.entity.PromotionRequest;
 import com.duing.domain.promotion.entity.PromotionRequestStatus;
 import com.duing.domain.promotion.service.dto.query.PromotionRequestAdminDetailQuery;
-import java.time.LocalDateTime;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record PromotionRequestDetailResponse(
         Long id,
@@ -16,8 +17,8 @@ public record PromotionRequestDetailResponse(
         PromotionRequestStatus status,
         String actionNote,
         UserRef handledBy,
-        LocalDateTime handledAt,
-        LocalDateTime createdAt
+        Instant handledAt,
+        Instant createdAt
 ) {
     public record ClubRef(Long id, String name) {}
     public record UserRef(Long id, String name) {}
@@ -30,7 +31,9 @@ public record PromotionRequestDetailResponse(
                 request.getTitle(), request.getDescription(),
                 request.getSuggestedBannerImageUrl(), request.getSuggestedLinkUrl(),
                 request.getStatus(), request.getActionNote(),
-                handler, request.getHandledAt(), request.getCreatedAt());
+                handler,
+                TimeMapper.systemWallClockToInstant(request.getHandledAt()),
+                TimeMapper.systemWallClockToInstant(request.getCreatedAt()));
     }
 
     public static PromotionRequestDetailResponse from(PromotionRequestAdminDetailQuery query) {
@@ -44,6 +47,8 @@ public record PromotionRequestDetailResponse(
                 query.title(), query.description(),
                 query.suggestedBannerImageUrl(), query.suggestedLinkUrl(),
                 query.status(), query.actionNote(),
-                handlerRef, query.handledAt(), query.createdAt());
+                handlerRef,
+                TimeMapper.systemWallClockToInstant(query.handledAt()),
+                TimeMapper.systemWallClockToInstant(query.createdAt()));
     }
 }

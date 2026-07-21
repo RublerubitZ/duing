@@ -21,21 +21,13 @@ import type {
   AdminClubSummary,
   AdminClubMemberHistoryParams,
   AdminClubMemberHistoryRow,
+  AdminPendingCounts,
   AdminSuccessionDetail,
   AdminSuccessionSearchParams,
   AdminSuccessionSummary,
   AssignAdminLeaderPayload,
   ProcessSuccessionPayload,
   SubmitSuccessionRequestPayload,
-  AdminRecertificationRound,
-  AdminRecertificationRoundSearchParams,
-  CreateRecertificationRoundPayload,
-  AdminRecertificationRequestSummary,
-  AdminRecertificationRequestDetail,
-  AdminRecertificationRequestSearchParams,
-  ProcessRecertificationPayload,
-  CentralClubRecertificationStatus,
-  CentralClubRecertificationStatusParams,
   AdminUserSearchParams,
   AdminUserSearchResult,
   AdminReportSearchParams,
@@ -56,6 +48,7 @@ import type {
   PageResponse,
   ClubDetail,
   ClubMember,
+  AdminClubMember,
   ClubMemberExportRow,
   ClubPhoto,
   ClubSearchParams,
@@ -122,8 +115,6 @@ import type {
   FileUploadResult,
   FilePurpose,
   PromotionCard,
-  LeaderRecertificationContext,
-  SubmitRecertificationRequestPayload,
   MyClubMembership,
   CreateClubNoticePayload,
   UpdateClubNoticePayload,
@@ -186,6 +177,14 @@ import type {
   AdminFacilityBookingDetail,
   AdminFacilityBookingCounts,
   AdminBookingQueueParams,
+  SubmissionCandidatesParams,
+  SubmissionCandidatesResponse,
+  CreateSubmissionBatchPayload,
+  CreateSubmissionBatchResult,
+  SubmissionBatchListParams,
+  SubmissionBatchSummary,
+  SubmissionBatchDetail,
+  CompleteSubmissionBatchResult,
   FederationFaqCategory,
   FederationFaqItem,
   AdminFederationFaqSummary,
@@ -481,10 +480,6 @@ export type DuingApiClient = {
   promotionRequests: {
     submit(clubId: number, payload: SubmitPromotionRequestPayload): Promise<number>;
   };
-  recertificationRequests: {
-    context(clubId: number): Promise<LeaderRecertificationContext>;
-    submit(clubId: number, payload: SubmitRecertificationRequestPayload): Promise<number>;
-  };
   clubMembership: {
     get(clubId: number): Promise<MyClubMembership>;
   };
@@ -513,9 +508,13 @@ export type DuingApiClient = {
     submit(payload: SubmitReportPayload): Promise<number>;
   };
   admin: {
+    /** 콘솔 사이드바 뱃지용 도메인별 미처리 건수. 미처리 판정 기준은 전부 서버가 정한다. */
+    pendingCounts(): Promise<AdminPendingCounts>;
     clubs: {
       list(params?: AdminClubSearchParams): Promise<PageResponse<AdminClubSummary>>;
       detail(clubId: number): Promise<ClubDetail>;
+      /** 학교 제출용 동아리원 명단(이름·학번·전공·단과대). 총동연 전용, 소속 무관 조회. */
+      members(clubId: number): Promise<AdminClubMember[]>;
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
@@ -588,17 +587,6 @@ export type DuingApiClient = {
       assignLeader(clubId: number, payload: AssignAdminLeaderPayload): Promise<void>;
       memberHistory(clubId: number, params: AdminClubMemberHistoryParams): Promise<PageResponse<AdminClubMemberHistoryRow>>;
     };
-    recertificationRounds: {
-      list(params: AdminRecertificationRoundSearchParams): Promise<PageResponse<AdminRecertificationRound>>;
-      create(payload: CreateRecertificationRoundPayload): Promise<number>;
-      close(roundId: number): Promise<void>;
-    };
-    recertificationRequests: {
-      list(params: AdminRecertificationRequestSearchParams): Promise<PageResponse<AdminRecertificationRequestSummary>>;
-      get(requestId: number): Promise<AdminRecertificationRequestDetail>;
-      process(requestId: number, payload: ProcessRecertificationPayload): Promise<void>;
-      centralClubStatus(params: CentralClubRecertificationStatusParams): Promise<PageResponse<CentralClubRecertificationStatus>>;
-    };
     promotionRequests: {
       list(params: AdminPromotionRequestSearchParams): Promise<PageResponse<AdminPromotionRequestSummary>>;
       get(requestId: number): Promise<AdminPromotionRequestDetail>;
@@ -625,6 +613,23 @@ export type DuingApiClient = {
       cancel(bookingId: number, reason: string): Promise<void>;
       // GET .../summary — 대시보드 카드 수치(§9.7)
       summary(): Promise<AdminFacilityBookingCounts>;
+    };
+    // === 학교 제출(Submission Batch) — BE §5 ===
+    facilitySubmission: {
+      // GET .../submission/candidates — 기간 내 전체 예약 + summary(REJECTED 제외)
+      candidates(params: SubmissionCandidatesParams): Promise<SubmissionCandidatesResponse>;
+      // POST .../submission — all-or-nothing, 409(기제출/미승인)
+      create(payload: CreateSubmissionBatchPayload): Promise<CreateSubmissionBatchResult>;
+      // GET .../submission/{batchId}/csv — BOM 포함 CSV(비 ApiResponse, Blob 그대로)
+      downloadCsv(batchId: number): Promise<Blob>;
+      // GET .../submission?page=&size= — 제출 이력 목록(PageResponse)
+      list(params: SubmissionBatchListParams): Promise<PageResponse<SubmissionBatchSummary>>;
+      // GET .../submission/{batchId} — 상세(batch/bookings/audits, VIEWED 는 BE 부수효과)
+      detail(batchId: number): Promise<SubmissionBatchDetail>;
+      // POST .../submission/{batchId}/complete — 제출 완료 확정(404/기취소·기완료 409)
+      complete(batchId: number): Promise<CompleteSubmissionBatchResult>;
+      // DELETE .../submission/{batchId} — 제출 취소(204, 404/기취소·기완료 409)
+      cancel(batchId: number): Promise<void>;
     };
     // === BANK 자동매칭 관리 (Sprint 3) ===
     bankMatching: {
@@ -1299,16 +1304,6 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           http.post(`clubs/${clubId}/promotion-requests`, { json: payload }),
         ),
     },
-    recertificationRequests: {
-      context: (clubId) =>
-        jsonOk<LeaderRecertificationContext>(
-          http.get(`clubs/${clubId}/recertification-context`),
-        ),
-      submit: (clubId, payload) =>
-        jsonOk<number>(
-          http.post(`clubs/${clubId}/recertification-requests`, { json: payload }),
-        ),
-    },
     clubMembership: {
       get: (clubId) =>
         jsonOk<MyClubMembership>(http.get(`clubs/${clubId}/membership`)),
@@ -1354,6 +1349,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonOk<number>(http.post('reports', { json: payload })),
     },
     admin: {
+      pendingCounts: () => jsonOk<AdminPendingCounts>(http.get('admin/pending-counts')),
       clubs: {
         list: (params) =>
           jsonOk<PageResponse<AdminClubSummary>>(
@@ -1363,6 +1359,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             }),
           ),
         detail: (clubId) => jsonOk<ClubDetail>(http.get(`admin/clubs/${clubId}`)),
+        members: (clubId) =>
+          jsonOk<AdminClubMember[]>(http.get(`admin/clubs/${clubId}/members`)),
       },
       users: {
         search: (params) =>
@@ -1486,32 +1484,6 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             http.get(`admin/clubs/${clubId}/member-history`, { searchParams: cleanParams(params) }),
           ),
       },
-      recertificationRounds: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminRecertificationRound>>(
-            http.get('admin/recertification-rounds', { searchParams: cleanParams(params) }),
-          ),
-        create: (payload) =>
-          jsonOk<number>(http.post('admin/recertification-rounds', { json: payload })),
-        close: (roundId) =>
-          jsonVoid(http.patch(`admin/recertification-rounds/${roundId}/close`, { json: {} })),
-      },
-      recertificationRequests: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminRecertificationRequestSummary>>(
-            http.get('admin/recertification-requests', { searchParams: cleanParams(params) }),
-          ),
-        get: (requestId) =>
-          jsonOk<AdminRecertificationRequestDetail>(
-            http.get(`admin/recertification-requests/${requestId}`),
-          ),
-        process: (requestId, payload) =>
-          jsonVoid(http.patch(`admin/recertification-requests/${requestId}`, { json: payload })),
-        centralClubStatus: (params) =>
-          jsonOk<PageResponse<CentralClubRecertificationStatus>>(
-            http.get('admin/clubs/recertification-status', { searchParams: cleanParams(params) }),
-          ),
-      },
       promotionRequests: {
         list: (params) =>
           jsonOk<PageResponse<AdminPromotionRequestSummary>>(
@@ -1559,6 +1531,31 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         cancel: (bookingId, reason) =>
           jsonVoid(http.post(`admin/facility-bookings/${bookingId}/cancel`, { json: { reason } })),
         summary: () => jsonOk<AdminFacilityBookingCounts>(http.get('admin/facility-bookings/summary')),
+      },
+      facilitySubmission: {
+        candidates: (params) =>
+          jsonOk<SubmissionCandidatesResponse>(
+            http.get('admin/facility-bookings/submission/candidates', { searchParams: cleanParams(params) }),
+          ),
+        create: (payload) =>
+          jsonOk<CreateSubmissionBatchResult>(
+            http.post('admin/facility-bookings/submission', { json: payload }),
+          ),
+        // 원본 바이트(BOM CSV·비 ApiResponse) — 첨부 다운로드와 동일하게 blobOk 로 에러 정규화+본문 타임아웃.
+        downloadCsv: (batchId) =>
+          blobOk(http.get(`admin/facility-bookings/submission/${batchId}/csv`)),
+        list: (params) =>
+          jsonOk<PageResponse<SubmissionBatchSummary>>(
+            http.get('admin/facility-bookings/submission', { searchParams: cleanParams(params) }),
+          ),
+        detail: (batchId) =>
+          jsonOk<SubmissionBatchDetail>(http.get(`admin/facility-bookings/submission/${batchId}`)),
+        complete: (batchId) =>
+          jsonOk<CompleteSubmissionBatchResult>(
+            http.post(`admin/facility-bookings/submission/${batchId}/complete`),
+          ),
+        cancel: (batchId) =>
+          jsonVoid(http.delete(`admin/facility-bookings/submission/${batchId}`)),
       },
       bankMatching: {
         overview: () =>

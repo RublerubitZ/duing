@@ -9,18 +9,20 @@
 
 // 탭 전환은 View Transition 을 태우지 않는다(next/link) — 전역 크로스페이드는 전체 뷰포트를
 // 스냅샷 이중 페인트해 유지되는 헤더·탭바·로고까지 깜빡여 보이게 한다(목록→상세 모핑 전용).
+import { Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { cn } from '@/app/_lib/cn';
 import { DEFAULT_INFO_PATH, isInfoSection } from '@/app/_lib/infoMenu';
 import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
-import { Building, Calendar, Compass, Home, Info } from '@/components/duing/Icon';
+import { Calendar, Compass, Home, Info } from '@/components/duing/Icon';
 
 const TABS = [
   { label: '홈', href: '/', Icon: Home },
   { label: '탐색', href: '/clubs', Icon: Compass },
-  { label: '시설', href: '/facilities', Icon: Building },
+  // 시설 예약 화면(FacilityContextBar)이 시설 폴백 아이콘으로 쓰는 lucide Building2 와 맞춘다.
+  { label: '시설', href: '/facilities', Icon: Building2 },
   { label: '캘린더', href: '/calendar', Icon: Calendar },
   { label: '정보', href: DEFAULT_INFO_PATH, Icon: Info },
 ] as const;
@@ -47,15 +49,33 @@ export function BottomNav() {
 
   if (activeHref === null) return null;
 
+  const activeIndex = TABS.findIndex((tab) => tab.href === activeHref);
+
   return (
     <>
       {/* 고정 탭바가 콘텐츠를 가리지 않도록 스크롤 여유(탭바 높이 + 세이프에어리어) */}
       <div aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] md:hidden" />
+      {/* overflow-hidden — 첫·마지막 탭의 focus-visible ring(inset, 사각)이 둥근 모서리 밖으로 새는 것을 막는다.
+          바깥으로 그려지는 자체 그림자는 overflow 대상이 아니라 그대로 남는다. */}
       <nav
         aria-label="주요 메뉴"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-cream/90 font-body backdrop-blur pb-[env(safe-area-inset-bottom)] md:hidden"
+        data-bottom-bar
+        className="fixed inset-x-0 bottom-0 z-40 overflow-hidden rounded-t-lg border-t border-line/50 bg-paper/85 font-body shadow-[0_-6px_24px_rgb(31_74_54_/_0.07)] backdrop-blur-xl pb-[env(safe-area-inset-bottom)] md:hidden"
       >
-        <ul className="flex">
+        <ul className="relative flex">
+          {/* 스포트라이트 — 탭 셀(w-1/5)을 가로질러 이동한다. 링크와 동일한 flex-col/gap/행 높이를
+              그대로 복제해(라벨 자리는 invisible 텍스트로 확보) 아이콘 중심에 매직넘버 없이 정렬된다. */}
+          {activeIndex >= 0 && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 flex w-1/5 flex-col items-center justify-center gap-1 text-[10px] leading-none motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-out"
+              style={{ transform: `translateX(${activeIndex * 100}%)` }}
+            >
+              {/* closest-side — 좌우/상하 falloff 가 pill 비율 그대로라 위아래로 뭉치지 않는다. */}
+              <span className="h-8 w-12 rounded-full bg-[radial-gradient(closest-side_at_50%_50%,rgb(157_182_160_/_0.55),rgb(157_182_160_/_0.18)_62%,rgb(157_182_160_/_0)_100%)]" />
+              <span className="invisible">홈</span>
+            </span>
+          )}
           {TABS.map(({ label, href, Icon }) => {
             const on = activeHref === href;
             // 정보 탭만 마지막 방문 허브 경로로 이동한다(다른 탭은 고정 href).
@@ -66,15 +86,22 @@ export function BottomNav() {
                   href={linkHref}
                   aria-current={on ? 'page' : undefined}
                   className={cn(
-                    'relative flex h-14 flex-col items-center justify-center gap-1 text-[10px] font-semibold motion-safe:transition-colors',
+                    'relative flex h-14 flex-col items-center justify-center gap-1 text-[10px] leading-none motion-safe:transition-colors',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink',
-                    on ? 'text-ink' : 'text-charcoal-3',
+                    on ? 'font-extrabold text-ink-deep' : 'font-semibold text-charcoal-3',
                   )}
                 >
-                  {on && (
-                    <span className="absolute top-0 left-1/2 h-[2px] w-6 -translate-x-1/2 rounded-full bg-ink" />
-                  )}
-                  <Icon size={22} />
+                  {/* 스포트라이트 pill 과 같은 h-8 행을 차지해 정렬을 맞춘다.
+                      활성은 저알파 currentColor 로 내부를 채운다 — filled 변형을 따로 그리지 않고
+                      기존 아웃라인 패스만으로 실루엣이 차오르는 느낌을 낸다. */}
+                  <span className="grid h-8 w-12 place-items-center">
+                    <Icon
+                      size={22}
+                      strokeWidth={on ? 2.2 : 1.8}
+                      fill={on ? 'currentColor' : 'none'}
+                      fillOpacity={on ? 0.16 : undefined}
+                    />
+                  </span>
                   {label}
                 </Link>
               </li>

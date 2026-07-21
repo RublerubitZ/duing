@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -11,6 +11,7 @@ import { useAuthStore } from '@duing/stores';
 import type { User } from '@duing/types';
 
 import { AuthSessionBootstrap } from '@/app/_components/AuthSessionBootstrap';
+import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
 const BASE = 'http://localhost:8080/api/v1';
 const server = setupServer();
@@ -33,13 +34,21 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   useAuthStore.setState({ status: 'idle', user: null });
+  window.localStorage.clear();
 });
 afterAll(() => server.close());
+
+// 알림은 "이 브라우저에서 세션이 살아 있던 적이 있는" 사용자에게만 뜬다.
+function givenPreviousSession() {
+  window.localStorage.setItem('duing:had-session', '1');
+}
 
 function renderBootstrap() {
   return render(
     <ApiClientProvider client={apiClient}>
-      <AuthSessionBootstrap />
+      <ToastProvider>
+        <AuthSessionBootstrap />
+      </ToastProvider>
     </ApiClientProvider>,
   );
 }
@@ -78,6 +87,7 @@ describe('AuthSessionBootstrap', () => {
       ),
     );
 
+    givenPreviousSession();
     renderBootstrap();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('세션을 확인하지 못했습니다');
@@ -87,10 +97,72 @@ describe('AuthSessionBootstrap', () => {
   it('/users/me 네트워크 오류를 인증 만료로 오판하지 않는다', async () => {
     server.use(http.get(`${BASE}/users/me`, () => HttpResponse.error()));
 
+    givenPreviousSession();
     renderBootstrap();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('세션을 확인하지 못했습니다');
     expect(useAuthStore.getState()).toMatchObject({ status: 'idle', user: null });
+  });
+
+  it('세션을 가진 적 없는 방문자에게는 확인 실패를 알리지 않는다', async () => {
+    server.use(http.get(`${BASE}/users/me`, () => HttpResponse.error()));
+
+    renderBootstrap();
+
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(useAuthStore.getState()).toMatchObject({ status: 'idle', user: null });
+  });
+
+  it('401 이후에는 세션 이력이 지워져 다음 실패를 알리지 않는다', async () => {
+    givenPreviousSession();
+    server.use(
+      http.get(`${BASE}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 }),
+      ),
+    );
+
+    renderBootstrap();
+
+    await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
+    expect(window.localStorage.getItem('duing:had-session')).toBeNull();
+  });
+
+  // 로그인 뮤테이션은 이 컴포넌트를 거치지 않고 스토어에 직접 세션을 세운다. 그 경로에서 이력이
+  // 남지 않으면, 방금 로그인한 사용자가 새로고침 중 일시 오류를 만났을 때 알림도 재시도 버튼도
+  // 받지 못하고 조용히 멈춘다.
+  it('부트스트랩 밖에서 세션이 서도 이력을 남긴다', async () => {
+    server.use(
+      http.get(`${BASE}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 }),
+      ),
+    );
+
+    renderBootstrap();
+    await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
+
+    act(() => useAuthStore.getState().setSession(TEST_USER));
+
+    await waitFor(() =>
+      expect(window.localStorage.getItem('duing:had-session')).toBe('1'),
+    );
+  });
+
+  it('로그아웃으로 세션이 지워지면 이력도 지운다', async () => {
+    givenPreviousSession();
+    server.use(
+      http.get(`${BASE}/users/me`, () =>
+        HttpResponse.json({ ok: true, data: TEST_USER, message: null }),
+      ),
+    );
+
+    renderBootstrap();
+    await waitFor(() => expect(useAuthStore.getState().status).toBe('authenticated'));
+
+    await act(async () => {
+      await useAuthStore.getState().clearSession();
+    });
+
+    await waitFor(() => expect(window.localStorage.getItem('duing:had-session')).toBeNull());
   });
 
   it('/users/me 403을 인증 만료로 오판하지 않고 재시도를 제공한다', async () => {
@@ -100,6 +172,7 @@ describe('AuthSessionBootstrap', () => {
       ),
     );
 
+    givenPreviousSession();
     renderBootstrap();
 
     expect(await screen.findByRole('button', { name: '다시 시도' })).toBeVisible();
@@ -122,6 +195,7 @@ describe('AuthSessionBootstrap', () => {
       }),
     );
 
+    givenPreviousSession();
     renderBootstrap();
     await user.click(await screen.findByRole('button', { name: '다시 시도' }));
 

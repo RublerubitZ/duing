@@ -10,6 +10,7 @@ import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,8 @@ import org.springframework.data.domain.Pageable;
 public class ClubFavoriteRepositoryImpl implements ClubFavoriteRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
+    // 모집중 판정(endDate >= 오늘)은 KST(seoulClock) 기준 — 다른 모집 노출 경로와 동일한 시계.
+    private final Clock clock;
 
     @Override
     public Page<FavoriteClubQuery> findFavoriteClubPage(Long userId, Pageable pageable) {
@@ -39,7 +42,7 @@ public class ClubFavoriteRepositoryImpl implements ClubFavoriteRepositoryCustom 
                                 .where(
                                         recruitment.club.id.eq(club.id),
                                         recruitment.status.eq(RecruitmentStatus.OPEN),
-                                        recruitment.endDate.isNull().or(recruitment.endDate.goe(LocalDate.now())),
+                                        recruitment.endDate.isNull().or(recruitment.endDate.goe(LocalDate.now(clock))),
                                         recruitment.deletedAt.isNull()
                                 )
                 ))

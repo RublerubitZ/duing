@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useAdminPromotionRequestDetailQuery, useProcessPromotionRequestMutation } from '@duing/hooks';
+import { formatDateTimeKst, useAdminPromotionRequestDetailQuery, useProcessPromotionRequestMutation } from '@duing/hooks';
 import type { ProcessPromotionRequestPayload } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { cn } from '../../../_lib/cn';
@@ -103,7 +103,7 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
             <span className="ml-1 text-charcoal-3 text-[12px]">(ID: {request.requester.id})</span>
           </Row>
           <Row label="신청 일시">
-            {new Date(request.createdAt).toLocaleString('ko-KR')}
+            {formatDateTimeKst(request.createdAt)}
           </Row>
         </dl>
 
@@ -181,7 +181,7 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
             )}
             {request.handledAt && (
               <Row label="처리 일시">
-                {new Date(request.handledAt).toLocaleString('ko-KR')}
+                {formatDateTimeKst(request.handledAt)}
               </Row>
             )}
             {request.actionNote && (

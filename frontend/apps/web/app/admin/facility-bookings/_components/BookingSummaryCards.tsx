@@ -33,24 +33,38 @@ export function BookingSummaryCards({ counts, activeTab, onSelectTab }: Props) {
   ];
   return (
     <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {cards.map((card) => (
-        <li key={card.tab}>
-          <button
-            type="button"
-            aria-pressed={activeTab === card.tab}
-            onClick={() => onSelectTab(card.tab)}
-            className={`w-full rounded-xl border p-4 text-left motion-safe:transition-colors ${
-              activeTab === card.tab ? 'border-ink bg-ink/5' : 'border-line bg-paper hover:border-sage'
-            }`}
-          >
-            <p className="text-sm text-charcoal-3">{card.label}</p>
-            <p className={`mt-1 text-2xl font-bold tabular-nums ${card.warn ? 'text-coral' : 'text-ink-deep'}`}>
-              {card.value}
-            </p>
-            <p className={`mt-0.5 text-xs ${card.warn ? 'text-coral' : 'text-charcoal-3'}`}>{card.sub}</p>
-          </button>
-        </li>
-      ))}
+      {cards.map((card) => {
+        const isActive = activeTab === card.tab;
+        return (
+          <li key={card.tab}>
+            {/* 목업 CKpis/CandidateCards — 활성 카드는 ink-deep 채움 + sage 라벨. */}
+            <button
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => onSelectTab(card.tab)}
+              className={`w-full rounded-[14px] border px-4 py-3.5 text-left motion-safe:transition-colors ${
+                isActive ? 'border-ink-deep bg-ink-deep' : 'border-line bg-paper hover:border-sage'
+              }`}
+            >
+              <p className={`text-xs font-semibold ${isActive ? 'text-sage' : 'text-charcoal-3'}`}>{card.label}</p>
+              <p
+                className={`mt-1.5 font-display text-[26px] font-bold leading-none tabular-nums ${
+                  card.warn ? 'text-coral' : isActive ? 'text-paper' : 'text-ink-deep'
+                }`}
+              >
+                {card.value}
+              </p>
+              <p
+                className={`mt-1.5 text-[11.5px] ${
+                  card.warn ? 'text-coral' : isActive ? 'text-paper/60' : 'text-charcoal-3'
+                }`}
+              >
+                {card.sub}
+              </p>
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }

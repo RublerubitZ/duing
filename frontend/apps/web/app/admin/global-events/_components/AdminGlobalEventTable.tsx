@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatDateTimeKst } from '@duing/hooks';
 import type { AdminGlobalEventSummary } from '@duing/types';
 import { toRoute } from '../../../_lib/route';
 import { GLOBAL_EVENT_CATEGORY_LABEL } from '../_lib/categoryLabels';
@@ -10,11 +11,8 @@ type Props = {
   onDeleteClick: (eventId: number, title: string) => void;
 };
 
-const formatRange = (startAt: string, endAt: string): string => {
-  const start = startAt.slice(0, 16).replace('T', ' ');
-  const end = endAt.slice(0, 16).replace('T', ' ');
-  return `${start} ~ ${end}`;
-};
+const formatRange = (startAt: string, endAt: string): string =>
+  `${formatDateTimeKst(startAt)} ~ ${formatDateTimeKst(endAt)}`;
 
 export function AdminGlobalEventTable({ items, onDeleteClick }: Props) {
   if (items.length === 0) {

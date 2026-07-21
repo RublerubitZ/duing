@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { useClubEventDetailQuery } from '@duing/hooks';
+import { formatDateTimeKst, useClubEventDetailQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
@@ -45,7 +45,7 @@ export default function ClubMemberEventDetailPage({
       </Link>
       <h1 className="text-xl font-bold text-ink">{data.title}</h1>
       <p className="mt-2 text-sm text-charcoal-2">
-        {new Date(data.startAt).toLocaleString('ko-KR')} ~ {new Date(data.endAt).toLocaleString('ko-KR')}
+        {formatDateTimeKst(data.startAt)} ~ {formatDateTimeKst(data.endAt)}
       </p>
       {data.location && <p className="mt-1 text-sm text-charcoal-3">📍 {data.location}</p>}
       {data.description && (

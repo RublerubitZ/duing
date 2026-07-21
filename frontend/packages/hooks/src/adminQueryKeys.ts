@@ -1,24 +1,27 @@
 import type {
   AdminClubMemberHistoryParams,
   AdminClubSearchParams,
-  AdminRecertificationRoundSearchParams,
-  AdminRecertificationRequestSearchParams,
   AdminReportSearchParams,
   AdminSuccessionSearchParams,
   AdminUserSearchParams,
   AdminPromotionRequestSearchParams,
   AdminPromotionSearchParams,
-  CentralClubRecertificationStatusParams,
   AdminBookingQueueParams,
+  SubmissionCandidatesParams,
+  SubmissionBatchListParams,
 } from '@duing/types';
 
 export const adminQueryKeys = {
   all: ['admin'] as const,
+  // 사이드바 뱃지 — 각 도메인 처리 뮤테이션이 성공하면 이 키만 무효화해 뱃지를 즉시 줄인다.
+  pendingCounts: () => ['admin', 'pending-counts'] as const,
   clubsAll: ['admin', 'clubs'] as const,
   clubsList: (params: AdminClubSearchParams) =>
     [...adminQueryKeys.clubsAll, 'list', params] as const,
   clubsDetail: (clubId: number) =>
     [...adminQueryKeys.clubsAll, 'detail', clubId] as const,
+  clubMembers: (clubId: number) =>
+    [...adminQueryKeys.clubsAll, 'members', clubId] as const,
   usersAll: ['admin', 'users'] as const,
   usersSearch: (params: AdminUserSearchParams) =>
     [...adminQueryKeys.usersAll, 'search', params] as const,
@@ -34,16 +37,6 @@ export const adminQueryKeys = {
     [...adminQueryKeys.leaderSuccessionAll, 'detail', requestId] as const,
   clubMemberHistory: (clubId: number, params: AdminClubMemberHistoryParams) =>
     ['admin', 'club-member-history', clubId, params] as const,
-  recertificationRoundsAll: ['admin', 'recertification-rounds'] as const,
-  recertificationRoundsList: (params: AdminRecertificationRoundSearchParams) =>
-    [...adminQueryKeys.recertificationRoundsAll, 'list', params] as const,
-  recertificationRequestsAll: ['admin', 'recertification-requests'] as const,
-  recertificationRequestsList: (params: AdminRecertificationRequestSearchParams) =>
-    [...adminQueryKeys.recertificationRequestsAll, 'list', params] as const,
-  recertificationRequestsDetail: (requestId: number) =>
-    [...adminQueryKeys.recertificationRequestsAll, 'detail', requestId] as const,
-  centralClubRecertificationStatus: (params: CentralClubRecertificationStatusParams) =>
-    ['admin', 'central-club-recertification-status', params] as const,
   promotionRequestsAll: ['admin', 'promotion-requests'] as const,
   promotionRequestsList: (params: AdminPromotionRequestSearchParams) =>
     [...adminQueryKeys.promotionRequestsAll, 'list', params] as const,
@@ -60,4 +53,11 @@ export const adminQueryKeys = {
   facilityBookingDetail: (bookingId: number) =>
     [...adminQueryKeys.facilityBookingsAll, 'detail', bookingId] as const,
   facilityBookingSummary: () => [...adminQueryKeys.facilityBookingsAll, 'summary'] as const,
+  facilitySubmissionAll: ['admin', 'facility-submission'] as const,
+  facilitySubmissionCandidates: (params: SubmissionCandidatesParams) =>
+    [...adminQueryKeys.facilitySubmissionAll, 'candidates', params] as const,
+  facilitySubmissionBatches: (params: SubmissionBatchListParams) =>
+    [...adminQueryKeys.facilitySubmissionAll, 'batches', params] as const,
+  facilitySubmissionBatchDetail: (batchId: number) =>
+    [...adminQueryKeys.facilitySubmissionAll, 'batch-detail', batchId] as const,
 };

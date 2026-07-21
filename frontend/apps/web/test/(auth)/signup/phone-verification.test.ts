@@ -33,6 +33,7 @@ describe('phone-verification 유틸', () => {
   it('발급 에러 코드를 한국어로 매핑한다', () => {
     expect(mapIssueError(new ApiError(409, 'x', undefined, 'PHONE_ALREADY_REGISTERED'))).toContain('이미 가입');
     expect(mapIssueError(new ApiError(429, 'x', undefined, 'PHONE_VERIFICATION_COOLDOWN'))).toContain('잠시 후');
+    expect(mapIssueError(new ApiError(429, 'x', undefined, 'PHONE_ISSUE_LIMIT_EXCEEDED'))).toContain('1시간');
   });
   it('상태조회 에러 코드를 한국어로 매핑한다', () => {
     expect(mapStatusError(new ApiError(503, 'x', undefined, 'SMS_POLL_QUOTA_EXCEEDED'))).toContain('제한');

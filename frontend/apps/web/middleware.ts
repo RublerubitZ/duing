@@ -77,20 +77,6 @@ export async function middleware(request: NextRequest) {
   const claims = authHint && authHintSecret ? await verifyAuthHint(authHint, authHintSecret) : null;
   const hasValidAuthHint = claims !== null;
 
-  if (
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/signup') ||
-    pathname.startsWith('/forgot-password')
-  ) {
-    if (hasValidAuthHint) {
-      const next = request.nextUrl.clone();
-      next.pathname = '/me';
-      next.search = '';
-      return NextResponse.redirect(next);
-    }
-    return NextResponse.next();
-  }
-
   if (STUDENT_PREFIXES.some((p) => pathname.startsWith(p))) {
     if (!hasValidAuthHint) {
       const next = request.nextUrl.clone();
@@ -130,11 +116,10 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
+// /login·/signup·/forgot-password 는 의도적으로 제외한다 — auth_hint 는 라우팅 힌트일 뿐 실제
+// 세션을 보장하지 않으므로, 죽은 세션의 잔존 hint 가 로그인/비밀번호 재설정 진입을 막으면 안 된다.
 export const config = {
   matcher: [
-    '/login',
-    '/signup',
-    '/forgot-password',
     '/apply/:path*',
     '/me/:path*',
     '/manage/:path*',

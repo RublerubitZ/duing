@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockUseBillPaymentsQuery = vi.fn();
 const mockVoidMutate = vi.fn();
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useBillPaymentsQuery: (clubId: number, billId: number) =>
     mockUseBillPaymentsQuery(clubId, billId),
   useVoidPaymentMutation: (clubId: number, billId: number) => {
@@ -81,7 +82,7 @@ describe('PaymentHistory', () => {
     }
 
     expect(within(activeRow).getByText('6,000원')).toBeInTheDocument();
-    expect(within(activeRow).getByText(/현금 · 납부일 2026-07-10/)).toBeInTheDocument();
+    expect(within(activeRow).getByText(/현금 · 납부일 2026\.07\.10/)).toBeInTheDocument();
     expect(within(activeRow).getByRole('button', { name: '취소' })).toBeInTheDocument();
 
     expect(within(voidedRow).getByText('취소됨')).toBeInTheDocument();

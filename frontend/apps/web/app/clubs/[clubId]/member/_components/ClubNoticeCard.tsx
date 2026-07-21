@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatDateTimeKst } from '@duing/hooks';
 import type { NoticeCardItem } from '@duing/types';
 import { toRoute } from '@/app/_lib/route';
 
@@ -31,7 +32,7 @@ export function ClubNoticeCard({ clubId, notice, canEdit, canDelete, onEdit, onD
             <p className="mt-1 line-clamp-2 text-sm text-charcoal-2">{notice.summary}</p>
           )}
           <p className="mt-2 text-xs text-charcoal-3">
-            {new Date(notice.createdAt).toLocaleString('ko-KR')}
+            {formatDateTimeKst(notice.createdAt)}
           </p>
         </Link>
         {(canEdit || canDelete) && (

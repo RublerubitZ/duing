@@ -5,15 +5,14 @@ import com.duing.domain.facility.entity.ReservationStatus;
 import com.duing.domain.facility.service.dto.query.FacilityUsageItem;
 import com.duing.domain.facility.service.dto.query.FacilityUsageResult;
 import com.duing.domain.facility.service.dto.query.ReservationSlot;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-/** §7.2 이용현황 응답. lastUpdatedAt 은 KST(+09:00) OffsetDateTime, 시간은 HH:mm 문자열, room_seq 미노출. */
-public record FacilityUsageResponse(String yearMonth, OffsetDateTime lastUpdatedAt, boolean stale,
+/** §7.2 이용현황 응답. lastUpdatedAt 은 절대시각(Instant, …Z), 시간은 HH:mm 문자열, room_seq 미노출. */
+public record FacilityUsageResponse(String yearMonth, Instant lastUpdatedAt, boolean stale,
                                     DataSource source, List<FacilityUsage> facilities) {
 
     public record FacilityUsage(Long id, String roomName, String location, boolean isUsingNow,
@@ -23,19 +22,14 @@ public record FacilityUsageResponse(String yearMonth, OffsetDateTime lastUpdated
     public record Reservation(LocalDate date, String start, String end, String organization, ReservationStatus status) {}
 
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     public static FacilityUsageResponse from(FacilityUsageResult result) {
         return new FacilityUsageResponse(
                 result.yearMonth().toString(),
-                toKst(result.crawledAt()),
+                TimeMapper.seoulWallClockToInstant(result.crawledAt()),
                 result.stale(),
                 result.source(),
                 result.facilities().stream().map(FacilityUsageResponse::toFacility).toList());
-    }
-
-    static OffsetDateTime toKst(LocalDateTime crawledAt) {
-        return crawledAt == null ? null : crawledAt.atZone(KST).toOffsetDateTime();
     }
 
     static FacilityUsage toFacility(FacilityUsageItem item) {

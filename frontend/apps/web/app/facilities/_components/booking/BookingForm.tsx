@@ -10,6 +10,7 @@ import {
 } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type { CreateFacilityBookingResult } from '@duing/types';
+import { formatPhone } from '@/app/_components/PhoneInput';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
@@ -47,7 +48,8 @@ export function BookingForm({
   const [purpose, setPurpose] = useState('');
   const [attendeeCount, setAttendeeCount] = useState('');
   // 로그인 프로필(/users/me)에 휴대폰 번호가 있으면 프리필(편집 가능). 없으면 빈 값 시작(§2.1).
-  const [contactPhone, setContactPhone] = useState(() => authUser?.phone ?? '');
+  // 프리필 값도 표준 표기(010-1234-5678)로 맞춰 입력 중 포맷과 일관되게 한다.
+  const [contactPhone, setContactPhone] = useState(() => formatPhone(authUser?.phone ?? ''));
   const [contactError, setContactError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -121,21 +123,22 @@ export function BookingForm({
   const attendeeNumber = attendeeCount === '' ? undefined : Number(attendeeCount);
   const attendeeInvalid =
     attendeeNumber !== undefined && (!Number.isInteger(attendeeNumber) || attendeeNumber <= 0);
-  // 대표 연락처는 확인 클릭 시점에 검증해 오류를 노출하므로(§2.2·§2.1) 트리거 활성 조건에선 제외한다.
+  const attendeeValid = attendeeNumber !== undefined && !attendeeInvalid;
+  // 6개 필수항목이 모두 입력돼야 버튼이 활성화된다(2026-07-21). 시설·날짜·시간은 props 로 이미 확정이고
+  // 동아리·사용목적·사용인원·대표연락처가 입력값이다. 연락처는 "입력됨"(비어있지 않음)만 게이트로 두고,
+  // 형식 오류는 확인 클릭 시점 메시지로 노출한다 — 미완성 번호에 버튼만 죽이면 이유를 알 수 없기 때문(§2.2).
   const canOpenConfirm =
     effectiveClubId !== null &&
     trimmedPurpose.length > 0 &&
     trimmedPurpose.length <= PURPOSE_MAX_LENGTH &&
-    !attendeeInvalid &&
+    attendeeValid &&
+    trimmedContact.length > 0 &&
     !createMutation.isPending;
 
-  // 폼 "예약 신청" — 즉시 전송하지 않고 대표 연락처 검증 통과 시 확인 Dialog 만 연다(§2.2).
+  // 폼 "예약 신청" — 즉시 전송하지 않고 대표 연락처 형식 검증 통과 시 확인 Dialog 만 연다(§2.2).
+  // 빈 연락처는 canOpenConfirm 게이트가 이미 버튼을 막으므로 여기선 형식만 본다(입력됨 → 형식 오류 메시지).
   const openConfirm = () => {
     if (!canOpenConfirm) return;
-    if (trimmedContact.length === 0) {
-      setContactError('대표 연락처를 입력해주세요.');
-      return;
-    }
     if (!CONTACT_PHONE_PATTERN.test(trimmedContact)) {
       setContactError('휴대폰 번호 형식으로 입력해주세요.');
       return;
@@ -146,7 +149,9 @@ export function BookingForm({
 
   // 실제 POST 는 확인 Dialog 의 [예약 신청]에서만 발사된다(§2.2).
   const submit = () => {
-    if (effectiveClubId === null || createMutation.isPending) return;
+    // attendeeNumber 는 게이트(attendeeValid)를 통과해야 확인 Dialog 가 열리므로 여기선 항상 정의돼 있다.
+    // 타입 좁힘 + 방어를 겸해 undefined 를 걸러낸다(사용 인원 필수화, 2026-07-21).
+    if (effectiveClubId === null || attendeeNumber === undefined || createMutation.isPending) return;
     createMutation.mutate(
       {
         clubId: effectiveClubId,
@@ -156,7 +161,7 @@ export function BookingForm({
           startTime: range.start,
           endTime: range.end,
           purpose: trimmedPurpose,
-          ...(attendeeNumber !== undefined ? { attendeeCount: attendeeNumber } : {}),
+          attendeeCount: attendeeNumber,
           contactPhone: trimmedContact,
         },
       },
@@ -255,7 +260,7 @@ export function BookingForm({
       </div>
 
       <div>
-        <label htmlFor="booking-attendees" className="mb-1 block text-xs text-charcoal-3">사용 인원 (선택)</label>
+        <label htmlFor="booking-attendees" className="mb-1 block text-xs text-charcoal-3">사용 인원</label>
         <input
           id="booking-attendees"
           inputMode="numeric"
@@ -271,10 +276,11 @@ export function BookingForm({
         <label htmlFor="booking-contact" className="mb-1 block text-xs text-charcoal-3">대표 연락처</label>
         <input
           id="booking-contact"
-          inputMode="tel"
+          inputMode="numeric"
           value={contactPhone}
           onChange={(event) => {
-            setContactPhone(event.target.value);
+            // 숫자만 받아 010-1234-5678 로 자동 포맷(하이픈 자동, 11자리 초과 차단). MO 인증과 동일 유틸.
+            setContactPhone(formatPhone(event.target.value));
             if (contactError) setContactError(null);
           }}
           aria-label="대표 연락처"

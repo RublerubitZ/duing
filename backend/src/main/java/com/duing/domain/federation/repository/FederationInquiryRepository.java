@@ -3,6 +3,7 @@ package com.duing.domain.federation.repository;
 import com.duing.domain.federation.entity.FederationInquiry;
 import com.duing.domain.federation.entity.FederationInquiryStatus;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -12,6 +13,9 @@ public interface FederationInquiryRepository extends JpaRepository<FederationInq
 
     // 도배 가드 (a): 열린 RECEIVED 건수 — derived query 라 @SQLRestriction(soft delete 제외) 자동 적용.
     long countByAuthorIdAndStatus(Long authorId, FederationInquiryStatus status);
+
+    // 관리자 콘솔 미처리 건수 — 미답변은 RECEIVED·IN_PROGRESS 두 상태에 걸쳐 있어 In 으로 받는다.
+    long countByStatusIn(Collection<FederationInquiryStatus> statuses);
 
     // 도배 가드 (b): 최근 24시간 생성 건수 — '삭제→재작성' 루프 우회를 막기 위해 soft delete 포함이어야
     // 하므로 native. (@SQLRestriction 은 native 에 적용되지 않는다)

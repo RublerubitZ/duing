@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { formatDateKst, formatDateTimeKst } from '@duing/hooks';
 import type { Applicant, ApplicationStatus } from '@duing/types';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
@@ -138,7 +139,7 @@ export function ApplicantTable({
                 <td className="px-4 py-3 text-slate-600">{applicant.studentId}</td>
                 <td className="px-4 py-3 text-slate-600">{GRADE_DISPLAY_NAME[applicant.grade]}</td>
                 <td className="px-4 py-3 text-slate-600">
-                  {new Date(applicant.submittedAt).toLocaleString('ko-KR')}
+                  {formatDateTimeKst(applicant.submittedAt)}
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -150,7 +151,7 @@ export function ApplicantTable({
                 {useInterview && (
                   <td className="px-4 py-3 text-slate-600">
                     {applicant.interviewStartAt
-                      ? new Date(applicant.interviewStartAt).toLocaleString('ko-KR')
+                      ? formatDateTimeKst(applicant.interviewStartAt)
                       : '—'}
                   </td>
                 )}
@@ -204,14 +205,14 @@ export function ApplicantTable({
                     학번 {applicant.studentId} · {GRADE_DISPLAY_NAME[applicant.grade]}
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[11.5px] text-slate-500">
-                    <span>지원 {new Date(applicant.submittedAt).toLocaleDateString('ko-KR')}</span>
+                    <span>지원 {formatDateKst(applicant.submittedAt)}</span>
                     <MyScoreBadge score={applicant.myScore} />
                   </div>
                   {useInterview && (
                     <div className="mt-1 text-[11.5px] text-slate-500">
                       면접{' '}
                       {applicant.interviewStartAt
-                        ? new Date(applicant.interviewStartAt).toLocaleString('ko-KR')
+                        ? formatDateTimeKst(applicant.interviewStartAt)
                         : '—'}
                     </div>
                   )}

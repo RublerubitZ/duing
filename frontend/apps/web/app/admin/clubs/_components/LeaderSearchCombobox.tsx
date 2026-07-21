@@ -6,6 +6,7 @@ import { useAdminUserSearchQuery } from '@duing/hooks';
 import type { AdminUserSearchResult } from '@duing/types';
 
 import { SearchCombobox, ComboboxSelectedValue } from '@/components/SearchCombobox';
+import { MemberIdentity, memberMetaParts } from '../../_components/MemberIdentity';
 import { useDebouncedValue } from '../../_hooks/useDebouncedValue';
 
 type Props = {
@@ -25,7 +26,7 @@ export function LeaderSearchCombobox({ selectedLeader, onSelect }: Props) {
     return (
       <ComboboxSelectedValue
         primary={selectedLeader.name}
-        secondary={selectedLeader.studentId}
+        secondary={memberMetaParts(selectedLeader).join(' · ')}
         onClear={() => onSelect(null)}
       />
     );
@@ -44,12 +45,7 @@ export function LeaderSearchCombobox({ selectedLeader, onSelect }: Props) {
         onSelect(user);
         setQuery('');
       }}
-      renderItem={(user) => (
-        <>
-          <div className="text-sm font-medium text-charcoal">{user.name}</div>
-          <div className="text-xs text-charcoal-3">{user.studentId}</div>
-        </>
-      )}
+      renderItem={(user) => <MemberIdentity user={user} />}
       placeholder="학번 / 이름으로 회장 검색"
     />
   );

@@ -25,6 +25,15 @@ public class PhoneVerificationException extends ApplicationException {
         }
     }
 
+    /** 번호당 발급 총량(시간당 5회) 초과 — 쿨다운(60초)과 구분해 대기 시간을 안내한다. */
+    public static class PhoneIssueLimitExceededException extends PhoneVerificationException {
+        private static final String MESSAGE = "이 번호로 인증 요청이 너무 많았습니다. 최대 1시간 후 다시 시도할 수 있습니다.";
+
+        public PhoneIssueLimitExceededException() {
+            super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS, "PHONE_ISSUE_LIMIT_EXCEEDED");
+        }
+    }
+
     public static class VerificationRateLimitedException extends PhoneVerificationException {
         private static final String MESSAGE = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
 

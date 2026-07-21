@@ -46,6 +46,9 @@ function makeUser(overrides: Partial<AdminUserSearchResult> = {}): AdminUserSear
     studentId: '20250001',
     name: '김두잉',
     role: 'STUDENT',
+    grade: 'FRESHMAN',
+    college: 'NURSING',
+    major: '간호학',
     ...overrides,
   };
 }
@@ -77,7 +80,7 @@ describe('AdminUsersPage', () => {
     mockSearch.mockReturnValue(searchIdle);
   });
 
-  it('검색 결과의 학번·이름·역할 한글 라벨을 렌더링한다', async () => {
+  it('검색 결과의 이름·역할과 식별 메타(학번·학년·단과대·전공)를 렌더링한다', async () => {
     mockSearch.mockReturnValue(
       searchSuccess([
         makeUser({ id: 1, studentId: '20250001', name: '김두잉', role: 'STUDENT' }),
@@ -87,8 +90,9 @@ describe('AdminUsersPage', () => {
     render(<AdminUsersPage />);
     await searchFor('20');
 
-    expect(screen.getByText('20250001')).toBeInTheDocument();
     expect(screen.getByText('김두잉')).toBeInTheDocument();
+    // 학번·학년·단과대·전공은 이름 아래 한 줄 메타로 합쳐진다.
+    expect(screen.getByText('20250001 · 1학년 · 간호대학 · 간호학')).toBeInTheDocument();
     expect(screen.getByText('학생')).toBeInTheDocument();
     expect(screen.getByText('이관리')).toBeInTheDocument();
     expect(screen.getByText('관리자')).toBeInTheDocument();

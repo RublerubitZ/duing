@@ -45,10 +45,14 @@ export function ClubEventFormModal(props: Props) {
     if (event.target === overlayRef.current) props.onClose();
   };
 
+  // datetime-local 입력(KST 벽시계, Schedule Time)은 원문 그대로 초만 붙여 전송한다.
+  // new Date(...).toISOString() 은 UTC 로 변환되어 백엔드 LocalDateTime 에 -9시간으로 저장된다 (/TIMEZONE.md)
+  const toKstWallClock = (datetimeLocal: string): string => `${datetimeLocal}:00`;
+
   const onSubmit = (formData: CreateClubEventInput) => {
     const title = formData.title.trim();
-    const startAt = new Date(formData.startAt).toISOString();
-    const endAt = new Date(formData.endAt).toISOString();
+    const startAt = toKstWallClock(formData.startAt);
+    const endAt = toKstWallClock(formData.endAt);
 
     if (props.mode === 'create') {
       createMutation.mutate(

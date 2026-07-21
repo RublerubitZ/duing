@@ -64,7 +64,8 @@ public class FacilityBookingAdminQueryService {
 
     public record AdminBookingSummaryResult(Long bookingId, Long clubId, String clubName,
             Long facilityId, String roomName, LocalDate date, LocalTime startTime, LocalTime endTime,
-            BookingStatus status, String purpose, String contactPhone, LocalDateTime createdAt,
+            BookingStatus status, String purpose, Integer attendeeCount, String contactPhone,
+            LocalDateTime createdAt,
             Integer approvedWaitingDays, boolean conflictSuspected, boolean partiallyMatched) {}
 
     public record OverlapContext(String source, String organization, LocalTime startTime, LocalTime endTime) {}
@@ -79,7 +80,8 @@ public class FacilityBookingAdminQueryService {
 
     public record AdminBookingSummaryCounts(long pendingCount, long todaySubmittedCount,
             long oldestPendingWaitingDays, long approvedWaitingCount, long oldestApprovedWaitingDays,
-            long conflictCount, long conflictSuspectedCount, long confirmedThisMonthCount) {}
+            long conflictCount, long conflictSuspectedCount, long confirmedThisMonthCount,
+            LocalDateTime crawledAt) {}
 
     /** (시설,월) 크롤 행 캐시 키 — 큐 한 페이지 내 같은 조합을 1회만 조회하기 위한 것. */
     private record FacilityMonthKey(Long facilityId, YearMonth yearMonth) {}
@@ -192,10 +194,14 @@ public class FacilityBookingAdminQueryService {
         long conflictSuspectedCount = countConflictSuspected(thisMonth);
         long confirmedThisMonthCount = facilityBookingRepository.countByStatusAndReservationDateBetween(
                 BookingStatus.CONFIRMED, thisMonth.atDay(1), thisMonth.atEndOfMonth());
+        // 헤더 신선도 칩(개편 스펙 A1) — 당월 스냅샷의 마지막 수집 시각. 재크롤 트리거 없이 저장값만 노출한다.
+        LocalDateTime crawledAt = facilityMonthSnapshotRepository.findByYearMonth(thisMonth)
+                .map(FacilityMonthSnapshot::getCrawledAt)
+                .orElse(null);
 
         return new AdminBookingSummaryCounts(pendingCount, todaySubmittedCount, oldestPendingWaitingDays,
                 approvedWaitingCount, oldestApprovedWaitingDays,
-                conflictCount, conflictSuspectedCount, confirmedThisMonthCount);
+                conflictCount, conflictSuspectedCount, confirmedThisMonthCount, crawledAt);
     }
 
     /**
@@ -228,7 +234,7 @@ public class FacilityBookingAdminQueryService {
                 clubNames.getOrDefault(booking.getClubId(), ""), booking.getFacilityId(),
                 roomNames.getOrDefault(booking.getFacilityId(), ""), booking.getReservationDate(),
                 booking.getStartTime(), booking.getEndTime(), booking.getStatus(), booking.getPurpose(),
-                blankToNull(booking.getContactPhone()), booking.getCreatedAt(),
+                booking.getAttendeeCount(), blankToNull(booking.getContactPhone()), booking.getCreatedAt(),
                 approvedWaitingDays, conflictSuspected, partiallyMatched);
     }
 

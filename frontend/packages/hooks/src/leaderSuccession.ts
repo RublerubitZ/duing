@@ -47,6 +47,8 @@ export function useProcessSuccessionMutation() {
     onSuccess: (_, { requestId }) => {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.leaderSuccessionAll });
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.leaderSuccessionDetail(requestId) });
+      // 사이드바 뱃지 — 처리 즉시 숫자가 줄어야 한다.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
     },
   });
 }

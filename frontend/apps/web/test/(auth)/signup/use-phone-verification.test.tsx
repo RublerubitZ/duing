@@ -256,7 +256,7 @@ describe('usePhoneVerification', () => {
       result.current.markSent();
     });
 
-    // 스톨 시점(40초)까지는 3초 간격 자동 폴링이 누적된다.
+    // 스톨 시점(40초)까지 백오프 간격(3s→5s→8s) 자동 폴링이 누적된다.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(45000);
     });
@@ -361,6 +361,59 @@ describe('usePhoneVerification', () => {
       await vi.advanceTimersByTimeAsync(30000);
     });
     expect(pollCount).toBe(pollCountAfterRecheck);
+  });
+
+  it('recheck 연타는 쿨다운(5초)으로 무시되고, 쿨다운이 지나면 다시 조회한다', async () => {
+    mockIssue();
+    let pollCount = 0;
+    server.use(
+      http.post('*/auth/phone-verifications/status', () => {
+        pollCount += 1;
+        return HttpResponse.json({
+          ok: true,
+          data: { status: 'PENDING', expiresInSeconds: 290, maskedPhone: '010-****-5678' },
+          message: null,
+        });
+      }),
+    );
+
+    const { result } = renderHook(() => usePhoneVerification(VALID_PHONE), {
+      wrapper: makeWrapper(newQueryClient()),
+    });
+
+    await act(async () => {
+      await result.current.issue(false);
+    });
+    act(() => {
+      result.current.markSent();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(45000);
+    });
+    expect(result.current.stalled).toBe(true);
+    const pollCountAtStall = pollCount;
+
+    // 연타 3번 — 첫 클릭만 조회하고 나머지는 쿨다운으로 무시된다.
+    await act(async () => {
+      result.current.recheck();
+      await vi.advanceTimersByTimeAsync(0);
+      result.current.recheck();
+      result.current.recheck();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(pollCount).toBe(pollCountAtStall + 1);
+    expect(result.current.recheckCooldownSeconds).toBeGreaterThan(0);
+
+    // 쿨다운(8초 — 서버 스톨 시점 실호출 간격 7.5초보다 넓게)이 지나면 다시 1회 조회된다.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8000);
+    });
+    expect(result.current.recheckCooldownSeconds).toBe(0);
+    await act(async () => {
+      result.current.recheck();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(pollCount).toBe(pollCountAtStall + 2);
   });
 
   it('일시적 폴링 실패 후 다음 성공 폴링에서 에러 메시지가 지워진다', async () => {

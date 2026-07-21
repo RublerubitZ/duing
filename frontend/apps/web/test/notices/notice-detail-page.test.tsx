@@ -13,7 +13,9 @@ vi.mock('../../app/notices/_components/NoticeContent', () => ({
 const mockUseNoticeDetailQuery = vi.fn();
 const mockUseNoticeListQuery = vi.fn();
 
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  // 날짜 유틸(formatDateKst 등) 순수 함수는 실제 구현을 그대로 쓴다.
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useNoticeDetailQuery: (...args: unknown[]) => mockUseNoticeDetailQuery(...args),
   useNoticeListQuery: (...args: unknown[]) => mockUseNoticeListQuery(...args),
 }));

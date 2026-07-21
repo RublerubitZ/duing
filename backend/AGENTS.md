@@ -275,6 +275,16 @@ return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(id));
 
 - 기존 파일 절대 수정 금지 — 변경은 새 버전 파일만
 - `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` 사용
+- 컬럼 추가와 같은 릴리스에서 `DROP DEFAULT`·`SET NOT NULL` 로 제약을 강화하거나 `DROP COLUMN` 으로 컬럼을 지우지 말 것 — 배포 실패 시 자동 롤백으로 그 컬럼을 모르는(또는 아직 매핑 중인) 구 이미지가 다시 뜨는데 Flyway 는 되돌아가지 않아 해당 기능의 INSERT 만 조용히 깨진다(제약 강화·컬럼 삭제는 다음 릴리스에서 단독 마이그레이션으로)
+
+---
+
+## 시간 처리 규칙 (요약 — 상세: [/TIMEZONE.md](../TIMEZONE.md))
+
+- **Event Time**(발생 시각: createdAt/handledAt 등)은 응답 DTO에서 `Instant`로 노출 — 저장 벽시계에 맞는 `TimeMapper.systemWallClockToInstant`(감사 필드·무클럭 now) 또는 `seoulWallClockToInstant`(seoulClock 기록)로 변환. 오프셋 없는 LocalDateTime JSON 반환 금지
+- **Schedule Time**(행사·면접·모집 등 KST 예정 시각)은 `LocalDate`/`LocalDateTime` 유지
+- **판정**(마감·오늘)은 항상 `now(seoulClock)` — 무클럭 `now()` 신규 작성 금지
+- prod JVM=UTC(`Dockerfile TZ=UTC`), 새 시각 필드를 응답에 노출하면 TIMEZONE.md regime 표에 행 추가
 
 ---
 

@@ -28,6 +28,7 @@ import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
@@ -44,6 +45,8 @@ import org.springframework.util.StringUtils;
 public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
+    // 모집중/예정/마감 판정(startDate·endDate vs 오늘)은 KST(seoulClock) 기준.
+    private final Clock clock;
 
     @Override
     public Page<Club> findByCondition(ClubSearchCondition condition, Pageable pageable) {
@@ -203,7 +206,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private BooleanExpression recruitmentStatusFilter(RecruitmentStatusFilter filter) {
         if (filter == null) return null;
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         return switch (filter) {
             case AVAILABLE -> JPAExpressions
                     .selectOne()
@@ -270,7 +273,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
             case RECENT -> {
                 // 동아리당 대표 모집을 sub-select 로 한 번 lookup 해서 그룹 번호와 보조 정렬 키를 만든다.
                 // 운영 가정상 동아리당 활성 모집은 1건. 다중일 때는 createdAt 최신을 대표로 본다.
-                LocalDate today = LocalDate.now();
+                LocalDate today = LocalDate.now(clock);
 
                 // 주의: CASE 절은 위에서부터 평가된다. RecruitmentDisplayStatus.resolve() 의 우선순위와 맞추기 위해
                 // (1) CLOSED → 그룹 4
@@ -322,7 +325,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 };
             }
             case POPULAR -> {
-                LocalDate today = LocalDate.now();
+                LocalDate today = LocalDate.now(clock);
 
                 // tier 1: 활성 모집들의 application 수 합
                 var applicationCount = JPAExpressions.select(application.count())

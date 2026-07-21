@@ -118,7 +118,8 @@ export type CreateFacilityBookingPayload = {
   startTime: string; // HH:mm
   endTime: string; // HH:mm
   purpose: string;
-  attendeeCount?: number;
+  // 사용 인원(필수, 2026-07-21 개정) — 서버 @NotNull. 응답 타입은 기존 null 데이터 때문에 optional 유지.
+  attendeeCount: number;
   // 대표 연락처(필수) — 서버 검증 패턴 ^01[016789]-?\d{3,4}-?\d{4}$ (하이픈 유무 허용).
   contactPhone: string;
 };
@@ -189,6 +190,7 @@ export type AdminFacilityBookingSummary = {
   endTime: string;
   status: BookingStatus;
   purpose: string;
+  attendeeCount?: number; // NON_NULL — 선택 입력(개편 스펙 A2), 큐 테이블 인원 표기용
   createdAt: string; // ISO LocalDateTime
   approvedWaitingDays?: number; // NON_NULL — APPROVED 행에만("학교 반영 대기 D+N")
   conflictSuspected: boolean;
@@ -235,6 +237,7 @@ export type AdminFacilityBookingCounts = {
   conflictCount: number;
   conflictSuspectedCount: number;
   confirmedThisMonthCount: number;
+  crawledAt?: string; // NON_NULL — 당월 크롤 마지막 수집 시각(개편 스펙 A1), 스냅샷 부재 시 생략
 };
 
 // 승인 409(FACILITY_BOOKING_SCHOOL_CONFLICT)의 ApiError.payload 형태(§8.3)

@@ -21,6 +21,7 @@ import com.duing.domain.recruitment.service.dto.command.QuestionItemCommand;
 import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -52,6 +53,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
     private final ApplicationEventPublisher eventPublisher;
+    // 모집 활성/마감 판정용 — 저장용 타임스탬프(softDelete 등)에는 쓰지 않는다.
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -71,7 +74,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
         // endDate 가 지났지만 status 가 OPEN 인 행이 있으면 사전 체크는 통과하고 INSERT 가 인덱스에
         // 걸리는 모순이 생긴다. 이 경우 운영자가 보기엔 이미 끝난 모집이므로 자동 close 후 새 INSERT 를
         // 진행해 사용자 멘탈모델과 DB 인덱스의 의미차를 흡수한다. 진짜 활성인 경우엔 그대로 거부.
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         recruitmentRepository.findOpenByClubId(club.getId()).ifPresent(existingOpen -> {
             boolean isStillActive = existingOpen.getEndDate() == null
                     || !existingOpen.getEndDate().isBefore(today);
@@ -91,7 +94,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
     public List<RecruitmentSummaryQuery> getCalendar(YearMonth yearMonth) {
         LocalDate periodStart = yearMonth.atDay(1);
         LocalDate periodEnd = yearMonth.atEndOfMonth();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
 
         return recruitmentRepository.findOverlappingPeriod(periodStart, periodEnd).stream()
                 .map(recruitment -> RecruitmentSummaryQuery.from(recruitment, today))
@@ -114,7 +117,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
         // 응답 필드는 FE 재배선(라운드 dashboard 전환) 전까지 호환용으로만 유지한다.
         LocalDateTime interviewAvailabilityDeadline = null;
         return RecruitmentDetailQuery.from(
-                recruitment, LocalDate.now(), applicantCount, interviewAvailabilityDeadline);
+                recruitment, LocalDate.now(clock), applicantCount, interviewAvailabilityDeadline);
     }
 
     @Override
@@ -123,7 +126,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
         if (!clubRepository.existsByIdAndStatus(clubId, ClubStatus.ACTIVE)) {
             throw new ClubException.ClubNotFoundException();
         }
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         return recruitmentRepository
                 .findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId)
                 .stream()
@@ -427,7 +430,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
         }
 
         if (saved.getStatus() == RecruitmentStatus.OPEN
-                && !saved.getStartDate().isAfter(LocalDate.now())) {
+                && !saved.getStartDate().isAfter(LocalDate.now(clock))) {
             eventPublisher.publishEvent(new RecruitmentOpenedEvent(
                     saved.getId(),
                     club.getId(),

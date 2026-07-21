@@ -9,6 +9,7 @@ import type {
   UpdateFederationInquiryPayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
+import { adminQueryKeys } from './adminQueryKeys';
 import { federationInquiryQueryKeys } from './federationInquiryQueryKeys';
 import { isNonRetryableError } from './retry';
 
@@ -149,6 +150,8 @@ export function useChangeFederationInquiryStatusMutation() {
     onSuccess: (_, { inquiryId }) => {
       queryClient.invalidateQueries({ queryKey: federationInquiryQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: federationInquiryQueryKeys.adminDetail(inquiryId) });
+      // 사이드바 뱃지 — 답변 상태가 바뀌면 미답변 수가 즉시 줄어야 한다.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
     },
   });
 }
@@ -167,6 +170,8 @@ export function useAnswerFederationInquiryMutation() {
     onSuccess: (_, { inquiryId }) => {
       queryClient.invalidateQueries({ queryKey: federationInquiryQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: federationInquiryQueryKeys.adminDetail(inquiryId) });
+      // 사이드바 뱃지 — 답변 상태가 바뀌면 미답변 수가 즉시 줄어야 한다.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
     },
   });
 }
@@ -185,6 +190,8 @@ export function useUpdateFederationInquiryAnswerMutation() {
     onSuccess: (_, { inquiryId }) => {
       queryClient.invalidateQueries({ queryKey: federationInquiryQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: federationInquiryQueryKeys.adminDetail(inquiryId) });
+      // 사이드바 뱃지 — 답변 상태가 바뀌면 미답변 수가 즉시 줄어야 한다.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
     },
   });
 }

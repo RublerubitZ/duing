@@ -2,6 +2,8 @@ package com.duing.domain.application.controller.dto.response;
 
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -15,7 +17,7 @@ public record MyApplicationDetailResponse(
         List<String> answers,
         ApplicationStatus status,
         AssignedInterview interview,
-        LocalDateTime submittedAt,
+        Instant submittedAt,
         int interviewAvailabilityCount,
         LocalDateTime availabilityDeadline
 ) {
@@ -49,7 +51,7 @@ public record MyApplicationDetailResponse(
                 detailQuery.answers(),
                 detailQuery.status(),
                 interview,
-                detailQuery.submittedAt(),
+                TimeMapper.systemWallClockToInstant(detailQuery.submittedAt()),
                 detailQuery.interviewAvailabilityCount(),
                 detailQuery.availabilityDeadline()
         );

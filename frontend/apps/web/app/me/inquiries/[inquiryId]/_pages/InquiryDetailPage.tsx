@@ -6,6 +6,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { ApiError } from '@duing/api';
 import {
+  formatDateKst,
   useDeleteFederationInquiryMutation,
   useFederationInquiryDetailQuery,
   useUpdateFederationInquiryMutation,
@@ -14,7 +15,6 @@ import {
 import { cn } from '@/app/_lib/cn';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
-import { formatDateDot } from '@/app/_lib/formatDateDot';
 import { toRoute } from '@/app/_lib/route';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -281,7 +281,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
                   {INQUIRY_STATUS_LABEL[inquiry.status]}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-charcoal-3">작성 {formatDateDot(inquiry.createdAt)}</p>
+              <p className="mt-1 text-xs text-charcoal-3">작성 {formatDateKst(inquiry.createdAt)}</p>
               <p className="mt-4 whitespace-pre-wrap text-sm text-ink-deep">{inquiry.content}</p>
               {inquiry.attachments.length > 0 && (
                 <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -320,7 +320,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-semibold text-ink">총동아리연합회</span>
               <span className="text-xs text-charcoal-3">
-                답변 {formatDateDot(inquiry.answer.answeredAt)}
+                답변 {formatDateKst(inquiry.answer.answeredAt)}
               </span>
             </div>
             <p className="mt-4 whitespace-pre-wrap text-sm text-ink-deep">{inquiry.answer.content}</p>

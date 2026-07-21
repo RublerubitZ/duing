@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { useBillPaymentsQuery, useVoidPaymentMutation } from '@duing/hooks';
+import { formatDateKst, useBillPaymentsQuery, useVoidPaymentMutation } from '@duing/hooks';
 import type { FeeBill, Payment } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
@@ -25,11 +25,6 @@ type PaymentHistoryProps = {
   memberName: string;
   onClose: () => void;
 };
-
-// ISO 일시 문자열에서 날짜부(YYYY-MM-DD)만 잘라낸다.
-function paidDate(paidAt: string): string {
-  return paidAt.slice(0, 10);
-}
 
 export function PaymentHistory({ clubId, bill, memberName, onClose }: PaymentHistoryProps) {
   const { data: payments, isLoading } = useBillPaymentsQuery(clubId, bill.id);
@@ -110,7 +105,7 @@ function PaymentRow({ payment, onVoid }: PaymentRowProps) {
             isVoided ? 'text-charcoal-3 line-through' : 'text-charcoal-3',
           )}
         >
-          {paymentMethodLabel(payment.method)} · 납부일 {paidDate(payment.paidAt)}
+          {paymentMethodLabel(payment.method)} · 납부일 {formatDateKst(payment.paidAt)}
         </p>
         {isVoided && payment.voidReason && (
           <p className="mt-0.5 text-xs text-charcoal-2">사유: {payment.voidReason}</p>

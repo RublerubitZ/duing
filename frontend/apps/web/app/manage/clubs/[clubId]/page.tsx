@@ -7,7 +7,6 @@ import { notFound } from 'next/navigation';
 import { toRoute } from '../../../_lib/route';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { PromotionRequestModal } from './_components/PromotionRequestModal';
-import { RecertificationRequestModal } from './_components/RecertificationRequestModal';
 import { DashboardCardGrid } from '../../_components/dashboard/DashboardCardGrid';
 
 export default function ClubManagePage({
@@ -20,7 +19,6 @@ export default function ClubManagePage({
 
   // useState는 조건부 return 이전에 반드시 호출해야 한다 (Rules of Hooks)
   const [promotionOpen, setPromotionOpen] = useState(false);
-  const [recertificationOpen, setRecertificationOpen] = useState(false);
 
   const { data: managedClubs, isLoading: isManagedClubsLoading } = useManagedClubsQuery();
 
@@ -53,13 +51,6 @@ export default function ClubManagePage({
           >
             홍보 요청
           </button>
-          <button
-            type="button"
-            onClick={() => setRecertificationOpen(true)}
-            className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal-2 hover:border-ink hover:text-ink"
-          >
-            재인증 신청
-          </button>
           <Link
             href={toRoute(`/manage/clubs/${currentClubId}/recruitments/new`)}
             className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-ink-deep"
@@ -76,13 +67,6 @@ export default function ClubManagePage({
           clubId={currentClubId}
           clubName={currentManagedClub.clubName}
           onClose={() => setPromotionOpen(false)}
-        />
-      )}
-      {recertificationOpen && currentManagedClub && (
-        <RecertificationRequestModal
-          clubId={currentClubId}
-          clubName={currentManagedClub.clubName}
-          onClose={() => setRecertificationOpen(false)}
         />
       )}
     </div>

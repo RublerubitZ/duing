@@ -52,7 +52,7 @@ export function yearMonthLabel(yearMonth: string): string {
   return `${year}년 ${month}월`;
 }
 
-// lastUpdatedAt(+09:00 ISO)를 'YYYY-MM-DD HH:mm'(KST)로 표시. 콜드/미수집(null) 은 빈 문자열.
+// lastUpdatedAt(오프셋 포함 ISO — 현재 `…Z`, 구응답 +09:00도 호환)를 'YYYY-MM-DD HH:mm'(KST)로 표시. 콜드/미수집(null) 은 빈 문자열.
 export function formatLastUpdated(iso: string | null): string {
   if (!iso) return ''; // null/빈 값: new Date(null)=epoch(0) 은 NaN 이 아니라 1970 이 되므로 먼저 차단
   const date = new Date(iso);

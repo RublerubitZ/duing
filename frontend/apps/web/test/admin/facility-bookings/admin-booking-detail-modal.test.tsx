@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdminFacilityBookingDetail } from '@duing/types';
 
@@ -31,7 +31,8 @@ const mockCancelMutate = vi.hoisted(() => vi.fn());
 const mockAddToast = vi.hoisted(() => vi.fn());
 
 vi.mock('@duing/api', () => ({ ApiError: MockApiError }));
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useAdminFacilityBookingDetailQuery: () => mockDetailQuery.current,
   useApproveFacilityBookingMutation: () => ({ mutate: mockApproveMutate, isPending: false }),
   useRejectFacilityBookingMutation: () => ({ mutate: mockRejectMutate, isPending: false }),
@@ -91,20 +92,96 @@ describe('AdminBookingDetailModal', () => {
 
     expect(screen.getByText(/마지막 수집/)).toBeInTheDocument();
     expect(screen.getByLabelText('검증 컨텍스트 타임라인')).toBeInTheDocument();
-    expect(screen.getByText('이력')).toBeInTheDocument();
-    expect(screen.getByText(/7월 13일 \(월\) 19:30/)).toBeInTheDocument();
+    expect(screen.getByText('처리 이력')).toBeInTheDocument();
+    expect(screen.getByText(/2026\.07\.13 19:30/)).toBeInTheDocument();
+  });
+
+  it('검증 3카드: 겹침이 없으면 전부 "없음", 겹침·대기가 있으면 건수와 안내를 보여준다', () => {
+    mockDetailQuery.current.data = makeDetail();
+    const { unmount } = render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+    expect(screen.getAllByText('없음')).toHaveLength(3);
+    unmount();
+
+    mockDetailQuery.current.data = makeDetail({
+      overlaps: [
+        { source: 'SCHOOL', organization: '문화팀', startTime: '18:00', endTime: '19:00' },
+        { source: 'INTERNAL', organization: '비호응원단', startTime: '20:00', endTime: '21:00' },
+      ],
+      overlappingPendingCount: 2,
+    });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    expect(screen.getByText('학교 일정 겹침')).toBeInTheDocument();
+    expect(screen.getByText('내부 승인 예약 겹침')).toBeInTheDocument();
+    expect(screen.getByText('같은 시간대 대기')).toBeInTheDocument();
+    expect(screen.getAllByText('⚠ 1건')).toHaveLength(2);
+    expect(screen.getByText('⚠ 2건')).toBeInTheDocument();
+    expect(screen.getByText('승인 후 겹치는 대기 신청은 수동으로 거절해주세요.')).toBeInTheDocument();
+    // 슬롯 스트립: 신청 구간과 겹친 칸은 '충돌', 신청 밖 점유 칸은 조직명이 표기된다(목업 셀 시맨틱).
+    expect(screen.getByText('충돌')).toBeInTheDocument();
+    expect(screen.getByText('비호응원단')).toBeInTheDocument();
+  });
+
+  it('이전/다음 탐색: 이웃이 없으면 비활성, 있으면 onNavigate 로 이웃 예약을 연다', () => {
+    mockDetailQuery.current.data = makeDetail();
+    const onNavigate = vi.fn();
+    render(
+      <AdminBookingDetailModal
+        bookingId={42}
+        onClose={vi.fn()}
+        neighborIds={{ previous: null, next: 43 }}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '← 이전' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '다음 →' }));
+    expect(onNavigate).toHaveBeenCalledWith(43);
+  });
+
+  it('신청 정보: 시설·시간·목적·인원·연락처를 항목별 레이아웃으로 구분해 보여준다', () => {
+    mockDetailQuery.current.data = makeDetail({
+      roomName: '커뮤니티룸(1)',
+      date: '2026-07-23',
+      startTime: '12:00',
+      endTime: '15:00',
+      purpose: '행사 준비',
+      attendeeCount: 155,
+      contactPhone: '010-6663-9528',
+    });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    // 문장 한 줄이 아니라 각 항목 라벨이 개별로 존재한다.
+    for (const label of ['사용 목적', '시설', '사용 인원', '사용 시간', '대표 연락처']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByText('행사 준비')).toBeInTheDocument();
+    expect(screen.getByText('커뮤니티룸(1)')).toBeInTheDocument();
+    expect(screen.getByText('155명')).toBeInTheDocument();
+    expect(screen.getByText('010-6663-9528')).toBeInTheDocument();
+  });
+
+  it('사용 인원: 0명도 실제 값으로 표기하고 "—" 폴백으로 삼지 않는다', () => {
+    mockDetailQuery.current.data = makeDetail({ attendeeCount: 0 });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    const attendeeField = screen.getByText('사용 인원').closest('div');
+    if (attendeeField === null) throw new Error('사용 인원 항목 컨테이너를 찾지 못했다');
+    expect(within(attendeeField).getByText('0명')).toBeInTheDocument();
   });
 
   it('대표 연락처: 값이 있으면 노출하고, 없으면(null) "—" 로 표기한다(§2.3)', () => {
     mockDetailQuery.current.data = makeDetail({ contactPhone: '010-1234-5678' });
     const { rerender } = render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
-    expect(screen.getByText('대표 연락처')).toBeInTheDocument();
+    // 신청 정보 카드의 대표 연락처 항목에 값이 그대로 노출된다.
     expect(screen.getByText('010-1234-5678')).toBeInTheDocument();
 
     mockDetailQuery.current = { data: makeDetail({ contactPhone: null }), isLoading: false, isError: false };
     rerender(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
-    expect(screen.getByText('대표 연락처')).toBeInTheDocument();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    // 값이 없으면 '—' 로 폴백 — 사용 인원 미기재도 '—' 라 대표 연락처 항목 스코프로 조회한다.
+    const contactField = screen.getByText('대표 연락처').closest('div');
+    if (contactField === null) throw new Error('대표 연락처 항목 컨테이너를 찾지 못했다');
+    expect(within(contactField).getByText('—')).toBeInTheDocument();
   });
 
   it('APPROVED: 수동 확정·충돌 전환·취소 버튼을 노출한다', () => {
@@ -203,5 +280,74 @@ describe('AdminBookingDetailModal', () => {
     expect(screen.getByText('학교 예약과 시간이 충돌하여 승인할 수 없습니다.')).toBeInTheDocument();
     expect(screen.getByText('문화팀 · 18:00~19:00')).toBeInTheDocument();
     expect(mockAddToast).not.toHaveBeenCalled();
+  });
+
+  it('충돌 패널의 "충돌 사유로 거절"은 충돌 내용을 사유로 프리필한 거절 다이얼로그를 연다', () => {
+    mockDetailQuery.current.data = makeDetail({ status: 'PENDING' });
+    mockApproveMutate.mockImplementation((_vars: unknown, callbacks?: { onError?: (error: unknown) => void }) => {
+      callbacks?.onError?.(
+        new MockApiError(
+          409,
+          '학교 예약과 충돌합니다.',
+          {
+            conflicts: [{ source: 'SCHOOL', organization: '문화팀', start: '18:00', end: '19:00' }],
+            crawlBasisAt: '2026-07-13T08:00:00+09:00',
+          },
+          'FACILITY_BOOKING_SCHOOL_CONFLICT',
+        ),
+      );
+    });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    const approveButtons = screen.getAllByRole('button', { name: '승인', hidden: true });
+    const approveConfirm = approveButtons[1];
+    if (!approveConfirm) throw new Error('확정 버튼을 찾지 못했습니다');
+    fireEvent.click(approveConfirm);
+
+    fireEvent.click(screen.getByRole('button', { name: '충돌 사유로 거절' }));
+
+    // 프리필된 사유가 이미 유효하므로 확정 버튼은 바로 활성화된다.
+    const reasonInput = screen.getByLabelText('거절 사유');
+    expect(reasonInput).toHaveValue('학교 예약(문화팀 18:00~19:00)과 시간이 겹쳐 승인이 어렵습니다.');
+    const rejectButtons = screen.getAllByRole('button', { name: '거절', hidden: true });
+    const rejectConfirm = rejectButtons[rejectButtons.length - 1];
+    if (!rejectConfirm) throw new Error('확정 버튼을 찾지 못했습니다');
+    expect(rejectConfirm).not.toBeDisabled();
+
+    fireEvent.click(rejectConfirm);
+    expect(mockRejectMutate).toHaveBeenCalledWith(
+      { bookingId: 42, reason: '학교 예약(문화팀 18:00~19:00)과 시간이 겹쳐 승인이 어렵습니다.' },
+      expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
+    );
+  });
+
+  it('CONFLICT 재승인 409: 거절이 불가능한 상태라 "충돌 사유로 거절" 바로가기는 노출되지 않는다', () => {
+    mockDetailQuery.current.data = makeDetail({ status: 'CONFLICT' });
+    mockApproveMutate.mockImplementation((_vars: unknown, callbacks?: { onError?: (error: unknown) => void }) => {
+      callbacks?.onError?.(
+        new MockApiError(
+          409,
+          '학교 예약과 충돌합니다.',
+          {
+            conflicts: [{ source: 'SCHOOL', organization: '문화팀', start: '18:00', end: '19:00' }],
+            crawlBasisAt: '2026-07-13T08:00:00+09:00',
+          },
+          'FACILITY_BOOKING_SCHOOL_CONFLICT',
+        ),
+      );
+    });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '재승인' }));
+    const reapproveButtons = screen.getAllByRole('button', { name: '재승인', hidden: true });
+    const reapproveConfirm = reapproveButtons[1];
+    if (!reapproveConfirm) throw new Error('확정 버튼을 찾지 못했습니다');
+    fireEvent.click(reapproveConfirm);
+
+    expect(screen.getByText('학교 예약과 시간이 충돌하여 승인할 수 없습니다.')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: '충돌 사유로 거절', hidden: true }),
+    ).not.toBeInTheDocument();
   });
 });

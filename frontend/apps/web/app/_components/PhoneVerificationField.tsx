@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { buildSmsDeeplink, formatSeconds, isIosUserAgent, isMobileUserAgent } from '@/app/_lib/phone-verification';
 import type { PhoneVerificationFieldStatus } from '@/app/_lib/use-phone-verification';
-import { ButtonSpinner, Spinner } from '@/components/loading/Spinner';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { PhoneInput } from './PhoneInput';
 import { SignupIllustration } from './SignupIllustration';
 
@@ -20,6 +20,8 @@ type Props = {
   canIssue: boolean;
   errorMessage: string | null;
   stalled: boolean;
+  rechecking: boolean;
+  recheckCooldownSeconds: number;
   onIssue: (includeQr: boolean) => void;
   onSent: () => void;
   onReset: () => void;
@@ -45,6 +47,8 @@ export function PhoneVerificationField({
   canIssue,
   errorMessage,
   stalled,
+  rechecking,
+  recheckCooldownSeconds,
   onIssue,
   onSent,
   onReset,
@@ -67,36 +71,57 @@ export function PhoneVerificationField({
     void navigator.clipboard.writeText(code);
   }
 
-  // 대기 안내(확인 중 / stall + 지금 확인) — 데스크톱·모바일 공용.
+  // 대기 안내 — 버튼이 상태(확인 중/지금 확인)를 직접 표현하므로 여기는 보조 안내만 남긴다.
   const waitingNotice =
     status === 'waiting' ? (
       stalled ? (
-        <>
-          <p className="mt-3 text-xs text-coral" aria-live="polite">
-            아직 확인되지 않았어요. 문자에 코드만 담아 그대로 보냈는지 확인하고, 문자 도착 후 아래 [지금 확인]을 누르거나, 계속 안 되면 재발급하세요.
-          </p>
-          <button type="button" onClick={onRecheck} className="btn btn-sm mt-2">
-            지금 확인
-          </button>
-        </>
+        <p className="mt-3 text-xs text-coral" aria-live="polite">
+          아직 확인되지 않았어요. 문자에 인증 코드만 포함되어 있는지 확인해주세요. 문자를 보냈다면 [지금
+          확인]을, 계속 안 되면 [재발급]을 눌러주세요.
+        </p>
       ) : (
-        <p role="status" aria-label="인증 확인 중" className="mt-3 flex items-center gap-1.5 text-xs text-charcoal-3">
-          <Spinner size={14} />
+        <p role="status" className="mt-3 text-xs text-charcoal-3">
+          문자 도착을 자동으로 확인하고 있어요. 화면을 벗어나지 말고 잠시만 기다려주세요.
         </p>
       )
     ) : null;
 
-  // [문자를 보냈어요] + [재발급] 액션 행 (데스크톱 상시 / 모바일 탭 후).
-  const actionRow = (
-    <div className="mt-3 flex gap-2">
+  // 주 액션 버튼 상태 머신 — [문자를 보냈어요] → (클릭) → [확인 중… 스피너·비활성] → (40초) → [지금 확인].
+  // 요청이 접수됐음을 버튼만 보고 알 수 있게 하고, 중복 클릭·연타를 버튼 수준에서 차단한다.
+  const recheckDisabled = rechecking || recheckCooldownSeconds > 0;
+  const primaryAction =
+    status === 'waiting' ? (
+      stalled ? (
+        <button
+          type="button"
+          onClick={onRecheck}
+          disabled={recheckDisabled}
+          className="btn btn-primary flex-1"
+        >
+          {rechecking && <ButtonSpinner />}
+          지금 확인{!rechecking && recheckCooldownSeconds > 0 ? ` (${recheckCooldownSeconds}s)` : ''}
+        </button>
+      ) : (
+        <button type="button" disabled aria-label="인증 확인 중" className="btn btn-primary flex-1">
+          <ButtonSpinner />
+          확인 중…
+        </button>
+      )
+    ) : (
       <button type="button" onClick={onSent} className="btn btn-primary flex-1">
         문자를 보냈어요
       </button>
+    );
+
+  // 주 액션 + [재발급] 행 (데스크톱 상시 / 모바일 탭 후).
+  const actionRow = (
+    <div className="mt-3 flex gap-2">
+      {primaryAction}
       <button
         type="button"
         disabled={!canIssue}
         onClick={() => onIssue(!isMobile)}
-        className="btn shrink-0 whitespace-nowrap disabled:opacity-50"
+        className="btn shrink-0 whitespace-nowrap"
       >
         재발급{resendCooldownSeconds > 0 ? ` (${resendCooldownSeconds}s)` : ''}
       </button>
@@ -124,7 +149,7 @@ export function PhoneVerificationField({
               type="button"
               disabled={!canIssue}
               onClick={() => onIssue(!isMobile)}
-              className="btn shrink-0 whitespace-nowrap disabled:opacity-50"
+              className="btn shrink-0 whitespace-nowrap"
             >
               {issuing && <ButtonSpinner />}인증 시작
             </button>

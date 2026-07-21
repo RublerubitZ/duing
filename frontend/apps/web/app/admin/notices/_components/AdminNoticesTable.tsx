@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatDateKst } from '@duing/hooks';
 import type { AdminNoticeSummary } from '@duing/types';
 import { toRoute } from '../../../_lib/route';
 import { NOTICE_CATEGORY_LABEL } from '../../../notices/_lib/categoryLabels';
@@ -33,8 +34,8 @@ export function AdminNoticesTable({ items, onDeleteClick }: Props) {
               </Td>
               <Td>{NOTICE_CATEGORY_LABEL[notice.category]}</Td>
               <Td>{VISIBILITY_LABEL[notice.visibility]}</Td>
-              <Td>{new Date(notice.createdAt).toLocaleDateString('ko-KR')}</Td>
-              <Td>{notice.expiresAt ? new Date(notice.expiresAt).toLocaleDateString('ko-KR') : '—'}</Td>
+              <Td>{formatDateKst(notice.createdAt)}</Td>
+              <Td>{notice.expiresAt ? formatDateKst(notice.expiresAt) : '—'}</Td>
               <Td>{notice.notifyOnPublish ? '발송' : '미발송'}</Td>
               <Td>{notice.pinned ? '📌' : ''}</Td>
               <Td>

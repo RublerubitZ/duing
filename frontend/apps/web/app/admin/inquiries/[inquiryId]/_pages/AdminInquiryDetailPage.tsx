@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import { ApiError } from '@duing/api';
 import {
+  formatDateTimeKst,
   useAdminFederationInquiryDetailQuery,
   useAnswerFederationInquiryMutation,
   useChangeFederationInquiryStatusMutation,
@@ -302,7 +303,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
         </div>
 
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-[13.5px]">
-          <Row label="작성일">{new Date(inquiry.createdAt).toLocaleString('ko-KR')}</Row>
+          <Row label="작성일">{formatDateTimeKst(inquiry.createdAt)}</Row>
         </dl>
 
         <div>
@@ -341,8 +342,8 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
           <div className="flex items-center justify-between gap-3">
             <span className="text-[13px] font-semibold text-ink">답변</span>
             <span className="text-[12px] text-charcoal-3">
-              답변일 {new Date(inquiry.answer.answeredAt).toLocaleString('ko-KR')} · 수정일{' '}
-              {new Date(inquiry.answer.updatedAt).toLocaleString('ko-KR')}
+              답변일 {formatDateTimeKst(inquiry.answer.answeredAt)} · 수정일{' '}
+              {formatDateTimeKst(inquiry.answer.updatedAt)}
             </span>
           </div>
           <p className="whitespace-pre-wrap text-[13.5px] text-ink">{inquiry.answer.content}</p>

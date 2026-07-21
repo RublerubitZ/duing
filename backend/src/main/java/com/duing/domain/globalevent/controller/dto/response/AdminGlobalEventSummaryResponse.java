@@ -2,6 +2,8 @@ package com.duing.domain.globalevent.controller.dto.response;
 
 import com.duing.domain.globalevent.entity.GlobalEvent;
 import com.duing.domain.globalevent.entity.GlobalEventCategory;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 public record AdminGlobalEventSummaryResponse(
@@ -12,8 +14,8 @@ public record AdminGlobalEventSummaryResponse(
         String location,
         GlobalEventCategory category,
         Long createdById,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        Instant createdAt,
+        Instant updatedAt
 ) {
     public static AdminGlobalEventSummaryResponse from(GlobalEvent event) {
         return new AdminGlobalEventSummaryResponse(
@@ -21,7 +23,8 @@ public record AdminGlobalEventSummaryResponse(
                 event.getStartAt(), event.getEndAt(),
                 event.getLocation(), event.getCategory(),
                 event.getCreatedBy(),
-                event.getCreatedAt(), event.getUpdatedAt()
+                TimeMapper.systemWallClockToInstant(event.getCreatedAt()),
+                TimeMapper.systemWallClockToInstant(event.getUpdatedAt())
         );
     }
 }

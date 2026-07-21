@@ -5,6 +5,7 @@ import com.duing.domain.promotion.entity.QPromotion;
 import com.duing.domain.promotion.service.dto.query.PromotionAdminSearchCondition;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Repository;
 public class PromotionRepositoryImpl implements PromotionRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
+    private final Clock clock;
 
     @Override
     public Page<Promotion> searchForAdmin(PromotionAdminSearchCondition condition, Pageable pageable) {
@@ -40,7 +42,8 @@ public class PromotionRepositoryImpl implements PromotionRepositoryCustom {
     public Page<Promotion> findPublicActive(Pageable pageable) {
         QPromotion promotion = QPromotion.promotion;
         // 같은 호출 안에서 동일한 now 로 시작·종료를 비교한다.
-        LocalDateTime now = LocalDateTime.now();
+        // startAt/endAt 은 KST 벽시계(Schedule)이므로 판정 기준도 seoulClock(KST)이어야 한다. (/TIMEZONE.md)
+        LocalDateTime now = LocalDateTime.now(clock);
         BooleanExpression activeTrue = promotion.active.isTrue();
         BooleanExpression startedOrAlways = promotion.startAt.isNull().or(promotion.startAt.loe(now));
         BooleanExpression notEndedOrAlways = promotion.endAt.isNull().or(promotion.endAt.gt(now));

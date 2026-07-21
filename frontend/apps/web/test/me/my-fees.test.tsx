@@ -8,7 +8,9 @@ import type { FeeAccount, MyFee } from '@duing/types';
 const mockUseMyFeesQuery = vi.fn();
 const mockUseMyClubsQuery = vi.fn();
 const mockUseMemberFeeAccountQuery = vi.fn();
-vi.mock('@duing/hooks', () => ({
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  // 날짜 유틸(daysUntilKst 등) 순수 함수는 실제 구현을 그대로 쓴다.
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
   useMyFeesQuery: (params: unknown) => mockUseMyFeesQuery(params),
   useMyClubsQuery: () => mockUseMyClubsQuery(),
   useMemberFeeAccountQuery: (clubId: number) => mockUseMemberFeeAccountQuery(clubId),

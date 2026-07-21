@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatDateTimeKst } from '@duing/hooks';
 import type { AdminPromotionRequestSummary } from '@duing/types';
 import { cn } from '../../../_lib/cn';
 import { toRoute } from '../../../_lib/route';
@@ -51,7 +52,7 @@ export function AdminPromotionRequestsTable({ items }: Props) {
               <Td>{request.club.name}</Td>
               <Td>{request.requester.name}</Td>
               <Td className="max-w-xs truncate">{request.title}</Td>
-              <Td>{new Date(request.createdAt).toLocaleString('ko-KR')}</Td>
+              <Td>{formatDateTimeKst(request.createdAt)}</Td>
               <Td>
                 <Link
                   href={toRoute(`/admin/promotion-requests/${request.id}`)}

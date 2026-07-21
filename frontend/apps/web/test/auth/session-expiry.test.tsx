@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -9,6 +9,7 @@ import {
   registerUnauthorizedHandler,
   notifyUnauthorized,
 } from '@duing/api';
+import { ApiClientProvider } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { useAuthStore } from '@duing/stores';
 
@@ -75,14 +76,24 @@ describe('API 401 감지 (afterResponse)', () => {
 
 describe('SessionExpiryHandler', () => {
   let queryClient: QueryClient;
+  const webLogoutSpy = vi.fn();
 
   beforeEach(() => {
+    webLogoutSpy.mockReset();
+    server.use(
+      http.post(`${BASE}/auth/web/logout`, () => {
+        webLogoutSpy();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
     queryClient = new QueryClient();
     render(
       <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <SessionExpiryHandler />
-        </ToastProvider>
+        <ApiClientProvider client={apiClient}>
+          <ToastProvider>
+            <SessionExpiryHandler />
+          </ToastProvider>
+        </ApiClientProvider>
       </QueryClientProvider>,
     );
   });
@@ -118,6 +129,30 @@ describe('SessionExpiryHandler', () => {
 
     expect(pushSpy).not.toHaveBeenCalled();
     expect(screen.queryByText(/세션이 만료/)).not.toBeInTheDocument();
+    expect(webLogoutSpy).not.toHaveBeenCalled();
+  });
+
+  // HttpOnly 쿠키(auth_hint 포함)는 JS 로 지울 수 없다 — 서버 로그아웃이 유일한 정리 경로다.
+  it('만료 처리 시 서버 로그아웃을 호출해 HttpOnly 쿠키 정리를 위임한다', async () => {
+    useAuthStore.setState({ status: 'authenticated' });
+
+    act(() => notifyUnauthorized());
+
+    await waitFor(() => expect(webLogoutSpy).toHaveBeenCalledTimes(1));
+  });
+
+  it('서버 로그아웃이 실패해도 토스트와 로그인 이동은 그대로 진행된다', async () => {
+    server.use(
+      http.post(`${BASE}/auth/web/logout`, () =>
+        HttpResponse.json({ message: '일시 오류' }, { status: 500 }),
+      ),
+    );
+    useAuthStore.setState({ status: 'authenticated' });
+
+    act(() => notifyUnauthorized());
+
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/세션이 만료/)).toBeInTheDocument();
   });
 
   it('만료 처리 시 이전 사용자 데이터(React Query 캐시)를 비운다', () => {

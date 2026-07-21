@@ -4,6 +4,8 @@ import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -17,7 +19,7 @@ public record ApplicantResponse(
         Grade grade,
         List<String> answers,
         ApplicationStatus status,
-        LocalDateTime submittedAt,
+        Instant submittedAt,
         LocalDateTime interviewStartAt,
         Integer myScore
 ) {
@@ -32,7 +34,7 @@ public record ApplicantResponse(
                 applicantQuery.grade(),
                 applicantQuery.answers(),
                 applicantQuery.status(),
-                applicantQuery.submittedAt(),
+                TimeMapper.systemWallClockToInstant(applicantQuery.submittedAt()),
                 applicantQuery.interviewStartAt(),
                 applicantQuery.myScore()
         );

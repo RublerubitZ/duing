@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import {
+  daysUntilKst,
   useNotificationListQuery,
   useNotificationSourceAwareReadMutation,
   useNotificationReadAllMutation,
@@ -138,18 +139,15 @@ type TimeBuckets = {
   older: Notification[];
 };
 
+// KST 캘린더 기준 버킷: 오늘(0일) / 이번 주(1~7일 전) / 이전. 미래 시각(서버 시계 편차)은 오늘로.
 function groupByTimeBucket(items: Notification[]): TimeBuckets {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const weekAgo = new Date(today);
-  weekAgo.setDate(weekAgo.getDate() - 7);
-
+  const now = new Date();
   const buckets: TimeBuckets = { today: [], thisWeek: [], older: [] };
   for (const item of items) {
-    const created = new Date(item.createdAt);
-    if (created >= today) {
+    const daysAgo = -daysUntilKst(item.createdAt, now);
+    if (daysAgo <= 0) {
       buckets.today.push(item);
-    } else if (created >= weekAgo) {
+    } else if (daysAgo <= 7) {
       buckets.thisWeek.push(item);
     } else {
       buckets.older.push(item);

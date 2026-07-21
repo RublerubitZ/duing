@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTimeKst } from '@duing/hooks';
 import type { ApplicationEvaluation } from '@duing/types';
 
 type Props = {
@@ -25,7 +26,7 @@ export function OtherEvaluationsList({ evaluations }: Props) {
                   {evaluation.score} / 5
                 </span>
                 <span className="ml-auto text-xs text-neutral-500">
-                  {new Date(evaluation.updatedAt).toLocaleString('ko-KR')}
+                  {formatDateTimeKst(evaluation.updatedAt)}
                 </span>
               </div>
               {evaluation.memo && (

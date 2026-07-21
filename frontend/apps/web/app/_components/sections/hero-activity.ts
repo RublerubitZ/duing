@@ -1,6 +1,8 @@
 // Hero 우측 활동 토스트의 순수 도메인 로직. Server Component 와 분리해 단위 테스트 가능하게 둔다.
 // React/DOM 에 의존하지 않는다. Phase C 가 API 응답을 HeroActivity[] 로 매핑해 resolveHeroToasts 에 넘긴다.
 
+import { formatRelativeTime } from '@duing/hooks/datetime';
+
 export type HeroActivityType =
   | 'RECRUIT_OPEN'
   | 'RECRUIT_CLOSE'
@@ -51,22 +53,6 @@ const FALLBACK_DARK: HeroToast = {
   message: '합격자 발표',
   timeAgo: '방금 전',
 };
-
-const MINUTE_MS = 60_000;
-const HOUR_MS = 60 * MINUTE_MS;
-const DAY_MS = 24 * HOUR_MS;
-
-// ISO 시각을 now 기준 상대 표현으로. now 를 주입받아 결정적으로 테스트 가능하게 한다.
-export function formatRelativeTime(iso: string, now: Date): string {
-  const occurred = new Date(iso).getTime();
-  if (Number.isNaN(occurred)) return '방금 전';
-  const diff = now.getTime() - occurred;
-  // diff < 0 (occurredAt 이 now 보다 미래 — 서버 시계 편차)도 "방금 전" 으로 처리한다.
-  if (diff < MINUTE_MS) return '방금 전';
-  if (diff < HOUR_MS) return `${Math.floor(diff / MINUTE_MS)}분 전`;
-  if (diff < DAY_MS) return `${Math.floor(diff / HOUR_MS)}시간 전`;
-  return `${Math.floor(diff / DAY_MS)}일 전`;
-}
 
 // 실활동(있으면)을 토스트로 매핑, 없으면 슬롯 폴백을 쓴다.
 function toHeroToast(activity: HeroActivity | undefined, fallback: HeroToast, now: Date): HeroToast {

@@ -138,19 +138,27 @@ public class AuthController implements AuthApi {
     public ResponseEntity<Void> webRefresh(
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) {
-        String rawRefreshToken = readRefreshCookie(httpServletRequest);
-        if (rawRefreshToken == null) {
-            throw new AuthSessionException.SessionExpiredException();
+        try {
+            String rawRefreshToken = readRefreshCookie(httpServletRequest);
+            if (rawRefreshToken == null) {
+                throw new AuthSessionException.SessionExpiredException();
+            }
+            RotationResult rotationResult = authSessionService.rotate(rawRefreshToken);
+            webAuthCookieService.issue(
+                    httpServletRequest,
+                    httpServletResponse,
+                    rotationResult.accessToken(),
+                    rotationResult.refreshToken(),
+                    rotationResult.role(),
+                    rotationResult.rememberMe());
+            return ResponseEntity.noContent().build();
+        } catch (AuthSessionException.SessionExpiredException sessionExpiredException) {
+            // 세션 만료 확정(rotate 의 모든 401 경로는 복구 불가) 시 쿠키 3종을 함께 지운다 —
+            // auth_hint 가 세션보다 오래 살아남으면 FE 미들웨어가 로그인 페이지를 /me 로 되돌려
+            // 재로그인 자체가 불가능해진다. Bearer(모바일) refresh 는 이 메서드를 타지 않는다.
+            webAuthCookieService.clear(httpServletResponse);
+            throw sessionExpiredException;
         }
-        RotationResult rotationResult = authSessionService.rotate(rawRefreshToken);
-        webAuthCookieService.issue(
-                httpServletRequest,
-                httpServletResponse,
-                rotationResult.accessToken(),
-                rotationResult.refreshToken(),
-                rotationResult.role(),
-                rotationResult.rememberMe());
-        return ResponseEntity.noContent().build();
     }
 
     private String readRefreshCookie(HttpServletRequest httpServletRequest) {
