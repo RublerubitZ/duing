@@ -76,6 +76,24 @@ class UserProfileControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("금칙어 이름으로 프로필을 수정하면 400 과 안내 메시지를 반환하고 이름은 바뀌지 않는다")
+    void updateProfileRejectsReservedName() {
+        User user = saveUser(Grade.FRESHMAN);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(user))
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"관리자\"}")
+                .when().patch("/api/v1/users/me")
+                .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("사용할 수 없는 이름입니다. 다른 이름을 입력해 주세요."));
+
+        User unchanged = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(unchanged.getName()).isEqualTo("프로필테스터");
+    }
+
+    @Test
     @DisplayName("프로필 수정 후 내 정보를 조회하면 변경된 학년이 반환된다")
     void updateProfileChangesGrade() {
         User user = saveUser(Grade.FRESHMAN);
