@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -17,9 +18,13 @@ class CreateFacilityBookingRequestValidationTest {
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
     private CreateFacilityBookingRequest withContactPhone(String contactPhone) {
+        return withAttendeeCount(15, contactPhone);
+    }
+
+    private CreateFacilityBookingRequest withAttendeeCount(Integer attendeeCount, String contactPhone) {
         return new CreateFacilityBookingRequest(
                 1L, LocalDate.of(2026, 7, 20), LocalTime.of(18, 0), LocalTime.of(20, 0),
-                "정기 합주", 15, contactPhone);
+                "정기 합주", attendeeCount, contactPhone);
     }
 
     @ParameterizedTest
@@ -55,5 +60,27 @@ class CreateFacilityBookingRequestValidationTest {
         assertThat(violations).anyMatch(violation ->
                 violation.getPropertyPath().toString().equals("contactPhone")
                         && violation.getMessage().equals("대표 연락처를 입력해주세요."));
+    }
+
+    @Test
+    @DisplayName("사용 인원이 없으면 필수 입력 메시지로 거절된다(선택 → 필수 정책 변경)")
+    void nullAttendeeCountFails() {
+        Set<ConstraintViolation<CreateFacilityBookingRequest>> violations =
+                validator.validate(withAttendeeCount(null, "010-1234-5678"));
+
+        assertThat(violations).anyMatch(violation ->
+                violation.getPropertyPath().toString().equals("attendeeCount")
+                        && violation.getMessage().equals("사용 인원을 입력해주세요."));
+    }
+
+    @Test
+    @DisplayName("사용 인원이 0 이하이면 양수 검증 메시지로 거절된다")
+    void nonPositiveAttendeeCountFails() {
+        Set<ConstraintViolation<CreateFacilityBookingRequest>> violations =
+                validator.validate(withAttendeeCount(0, "010-1234-5678"));
+
+        assertThat(violations).anyMatch(violation ->
+                violation.getPropertyPath().toString().equals("attendeeCount")
+                        && violation.getMessage().equals("사용 인원은 1명 이상이어야 합니다."));
     }
 }
