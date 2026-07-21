@@ -48,7 +48,8 @@ public interface AdminFacilitySubmissionApi {
             @Parameter(hidden = true) HttpServletRequest httpServletRequest);
 
     @Operation(summary = "제출 이력", description = "취소된 Batch 포함 최신순 페이지네이션. "
-            + "status 필터는 파생 상태(REVIEWING=진행 중, COMPLETED=완료, CANCELLED=취소) 기준.")
+            + "status 필터는 파생 상태(REVIEWING=진행 중, COMPLETED=완료, CANCELLED=취소, "
+            + "ARCHIVED=완료+취소 이력) 기준.")
     @GetMapping("/admin/facility-bookings/submission")
     ResponseEntity<ApiResponse<PageResponse<SubmissionBatchSummaryResponse>>> getBatches(
             @Parameter(description = "시설 필터") @RequestParam(required = false) Long facilityId,
