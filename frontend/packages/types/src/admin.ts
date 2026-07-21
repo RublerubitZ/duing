@@ -1,5 +1,5 @@
 import type { ClubCategory, ClubStatus } from './club';
-import type { College } from './user';
+import type { College, Grade } from './user';
 import type { ClubMemberRole } from './clubmember';
 import type { UserRole } from './user';
 
@@ -37,12 +37,18 @@ export type AdminClubSearchParams = {
 
 /**
  * GET /admin/users 응답 행. 비밀번호 해시·전화번호 등 민감 필드는 의도적으로 빠져있다.
+ *
+ * grade·college·major 는 동명이인 식별용이다. 원값(enum)으로 내려오며 한글 라벨은
+ * GRADE_DISPLAY_NAME·COLLEGE_DISPLAY_NAME 으로 붙인다. major 는 자유 입력이라 빈 문자열일 수 있다.
  */
 export type AdminUserSearchResult = {
   id: number;
   studentId: string;
   name: string;
   role: UserRole;
+  grade: Grade;
+  college: College;
+  major: string;
 };
 
 export type AdminUserSearchParams = {
