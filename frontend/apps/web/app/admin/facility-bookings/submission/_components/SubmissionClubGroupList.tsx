@@ -98,7 +98,10 @@ export function SubmissionClubGroupList({ bookings, selection, onToggleSelect, o
                         승인 {booking.decidedAt !== null ? formatDateKst(booking.decidedAt) : '-'}
                       </span>
                       <span className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${visual.container}`}>
-                        <span className={visual.nameClass}>{SUBMISSION_STATUS_LABELS[booking.status]}</span>
+                        {/* 제출 목록에 담긴 예약은 상태(승인 완료) 대신 '제출 대기'로 표기 — 제출 대기 탭으로 이동했음을 알린다. */}
+                        <span className={visual.nameClass}>
+                          {booking.submitted ? '제출 대기' : SUBMISSION_STATUS_LABELS[booking.status]}
+                        </span>
                       </span>
                       {booking.submitted && booking.submissionNo !== null && (
                         <span className="font-mono text-[10px] text-charcoal-3">{booking.submissionNo}</span>

@@ -91,13 +91,24 @@ describe('SubmissionPrepareTab', () => {
     expect(lastParams.startDate.endsWith('-01')).toBe(true);
   });
 
-  it('시설별 섹션이 렌더되고 헤더에 제출할 예약 수가 보인다', () => {
+  it('기본은 미제출 예약만 보여주고, 제출 대기(submitted)로 이동한 예약은 숨긴다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
+    // 강당(미제출 밴드부)은 보이고, 세미나실(제출된 방송국)은 기본 목록에서 빠진다.
+    expect(screen.getByRole('heading', { name: '강당' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '세미나실' })).not.toBeInTheDocument();
+    expect(screen.getByText(/학교에 제출할 예약 1건/)).toBeInTheDocument();
+  });
+
+  it('전체 보기로 바꾸면 제출 대기 예약이 있는 시설 섹션도 함께 보인다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<SubmissionPrepareTab />);
+
+    fireEvent.change(screen.getByLabelText('제출 상태'), { target: { value: 'ALL' } });
+
     expect(screen.getByRole('heading', { name: '강당' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '세미나실' })).toBeInTheDocument();
-    expect(screen.getByText(/학교에 제출할 예약 1건/)).toBeInTheDocument();
   });
 
   it('제출 필요 예약은 기본 전체 선택이고, 체크 해제는 제외로 동작해 요약 바에 반영된다', () => {
@@ -188,6 +199,8 @@ describe('SubmissionPrepareTab', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
+    // 방송국은 제출 대기(submitted)라 기본(미제출) 뷰에선 숨겨져 있으므로 전체 보기로 바꿔 검색을 검증한다.
+    fireEvent.change(screen.getByLabelText('제출 상태'), { target: { value: 'ALL' } });
     fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '방송' } });
 
     expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
@@ -253,6 +266,10 @@ describe('SubmissionPrepareTab', () => {
 
     // 생성 결과 다이얼로그 — 제출번호·CSV 바로 받기·제출 대기 이동
     expect(await screen.findByText('제출 목록 1개가 만들어졌어요')).toBeInTheDocument();
+    // 제출 대기로 이동한 건수를 토스트로 알린다(목록에서 사라진 이유를 직관적으로).
+    expect(mockAddToast).toHaveBeenCalledWith(
+      '제출 목록이 생성되었습니다. 선택한 1건의 예약이 제출 대기로 이동했습니다.',
+    );
     expect(screen.getByText(/SUB-20260801-002/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '제출 대기로 이동' })).toHaveAttribute(
       'href',

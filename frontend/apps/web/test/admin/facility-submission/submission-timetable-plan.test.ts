@@ -111,8 +111,13 @@ describe('submissionBlockVisual', () => {
     expect(visual.badge).toBeNull();
   });
 
-  it('제출 완료는 sage 계열이고 CONFIRMED 는 「등록완료」 뱃지가 붙는다', () => {
-    expect(submissionBlockVisual(makeBooking({ submitted: true, selectable: false })).container).toContain('sage');
+  it('제출 대기(submitted)는 회색으로 낮추고 「제출 대기」 뱃지가 붙는다', () => {
+    const visual = submissionBlockVisual(makeBooking({ submitted: true, selectable: false }));
+    expect(visual.container).toContain('graysoft');
+    expect(visual.badge).toBe('제출 대기');
+  });
+
+  it('CONFIRMED 는 「등록완료」 뱃지가 붙는다', () => {
     expect(submissionBlockVisual(makeBooking({ status: 'CONFIRMED', selectable: false })).badge).toBe('등록완료');
   });
 
