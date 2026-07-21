@@ -222,13 +222,23 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                           )}
                           CSV
                         </button>
-                        {/* 상세는 버튼 크롬으로 통일해 인접 버튼과 높이·여백을 맞춘다(맨몸 텍스트 링크라 붙어 보이던 문제). */}
-                        <Link
-                          href={toRoute(`/admin/facility-bookings/submission/${batch.batchId}`)}
-                          className="btn btn-ghost btn-sm"
-                        >
-                          상세
-                        </Link>
+                        {/* 진행 중(REVIEWING)은 전사 콕핏(제출 정보 보기)으로, 완료·취소는 읽기 전용 상세로 진입한다.
+                            콕핏은 학교 양식 전사 화면이라 진행 중 배치의 주 업무 진입점이다. */}
+                        {status === 'REVIEWING' ? (
+                          <Link
+                            href={toRoute(`/admin/facility-bookings/submission/${batch.batchId}/transcribe`)}
+                            className="btn btn-ghost btn-sm"
+                          >
+                            제출 정보 보기
+                          </Link>
+                        ) : (
+                          <Link
+                            href={toRoute(`/admin/facility-bookings/submission/${batch.batchId}`)}
+                            className="btn btn-ghost btn-sm"
+                          >
+                            상세
+                          </Link>
+                        )}
                         {status === 'REVIEWING' && (
                           <>
                             {/* 파괴적 동작(취소)은 구분선으로 갈라 낮은 위계로 둔다 — 주 흐름 버튼과 섞이지 않게. */}

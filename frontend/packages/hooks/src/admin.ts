@@ -47,6 +47,24 @@ export function useAdminClubDetailQuery(clubId: number | undefined) {
 }
 
 /**
+ * 학교 제출용 동아리원 명단(총동연). clubId 가 있을 때만 조회한다 — 전사 콕핏에서 현재 예약의
+ * 동아리 명단을 펼칠 때 쓴다. 명단은 자주 바뀌지 않으므로 전역 staleTime(30초)을 그대로 쓴다.
+ */
+export function useAdminClubMembersQuery(clubId: number | null) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: clubId !== null ? adminQueryKeys.clubMembers(clubId) : ['admin', 'clubs', 'members', null],
+    queryFn: () => {
+      if (clubId === null) {
+        throw new Error('clubId is required');
+      }
+      return client.admin.clubs.members(clubId);
+    },
+    enabled: clubId !== null,
+  });
+}
+
+/**
  * 동아리장 후보 검색. 검색어가 비어있으면 백엔드 400 이 떨어지므로 `enabled` 로 가드한다.
  */
 export function useAdminUserSearchQuery(params: AdminUserSearchParams) {

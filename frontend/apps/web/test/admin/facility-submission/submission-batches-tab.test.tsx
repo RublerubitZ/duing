@@ -355,14 +355,28 @@ describe('SubmissionBatchesTab', () => {
     expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10 });
   });
 
-  it('상세 링크는 batchId 경로를 가리킨다', () => {
+  it('진행 중(REVIEWING) 행은 제출 정보 보기(전사 콕핏) 링크를 노출하고 상세는 없다', () => {
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 55 })]));
     render(<SubmissionBatchesTab />);
+
+    expect(screen.getByRole('link', { name: '제출 정보 보기' })).toHaveAttribute(
+      'href',
+      '/admin/facility-bookings/submission/55/transcribe',
+    );
+    expect(screen.queryByRole('link', { name: '상세' })).not.toBeInTheDocument();
+  });
+
+  it('완료·취소 행은 읽기 전용 상세 링크를 노출하고 전사 콕핏 링크는 없다', () => {
+    mockBatchesQuery.mockReturnValue(
+      listSuccess([makeBatch({ batchId: 55, completed: true, completedAt: '2026-08-02T09:00:00' })]),
+    );
+    render(<SubmissionBatchesTab statusFilter="ARCHIVED" />);
 
     expect(screen.getByRole('link', { name: '상세' })).toHaveAttribute(
       'href',
       '/admin/facility-bookings/submission/55',
     );
+    expect(screen.queryByRole('link', { name: '제출 정보 보기' })).not.toBeInTheDocument();
   });
 
   it('statusFilter 를 조회 status 파라미터로 그대로 넘긴다(이력 탭 ARCHIVED 분리)', () => {

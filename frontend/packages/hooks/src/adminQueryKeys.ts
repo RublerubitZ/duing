@@ -20,6 +20,8 @@ export const adminQueryKeys = {
     [...adminQueryKeys.clubsAll, 'list', params] as const,
   clubsDetail: (clubId: number) =>
     [...adminQueryKeys.clubsAll, 'detail', clubId] as const,
+  clubMembers: (clubId: number) =>
+    [...adminQueryKeys.clubsAll, 'members', clubId] as const,
   usersAll: ['admin', 'users'] as const,
   usersSearch: (params: AdminUserSearchParams) =>
     [...adminQueryKeys.usersAll, 'search', params] as const,
