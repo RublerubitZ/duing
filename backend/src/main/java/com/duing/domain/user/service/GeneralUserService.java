@@ -52,6 +52,7 @@ public class GeneralUserService implements UserService {
     private final ClubMemberRepository clubMemberRepository;
     private final PhoneVerificationSessionManager phoneVerificationSessionManager;
     private final Clock clock;
+    private final ReservedNamePolicy reservedNamePolicy = new ReservedNamePolicy();
 
     private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
     private static final Duration LOGIN_LOCK_DURATION = Duration.ofMinutes(15);
@@ -62,6 +63,9 @@ public class GeneralUserService implements UserService {
     @Override
     @Transactional
     public Long signup(SignupCommand signupCommand, String clientIp, String userAgent) {
+        // 금칙어(400)는 순수 입력 검증이므로 세션 검증(403)·중복(409)보다 먼저 거른다 — 노출되는 정보가 없다.
+        reservedNamePolicy.validate(signupCommand.name());
+
         // 가입 한 건의 시각 필드(세션 판정·phoneVerifiedAt·termsAgreedAt)가 서로 다른 기준을 갖지 않도록
         // 단일 now 를 쓴다. 세션 만료·완료 창 판정은 발급(seoulClock) 과 같은 기준이어야 한다 (prod JVM 은 UTC).
         LocalDateTime now = LocalDateTime.now(clock);

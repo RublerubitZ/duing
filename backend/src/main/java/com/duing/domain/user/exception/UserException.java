@@ -103,4 +103,12 @@ public class UserException extends ApplicationException {
             super(MESSAGE, HttpStatus.NOT_FOUND);
         }
     }
+
+    public static class ReservedNameException extends UserException {
+        private static final String MESSAGE = "사용할 수 없는 이름입니다. 다른 이름을 입력해 주세요.";
+
+        public ReservedNameException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }
