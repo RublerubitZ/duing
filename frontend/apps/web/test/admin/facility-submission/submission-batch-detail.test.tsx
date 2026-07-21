@@ -248,8 +248,8 @@ describe('SubmissionBatchDetailPage', () => {
     );
     render(<SubmissionBatchDetailPage batchId={9} />);
 
-    fireEvent.click(screen.getByRole('button', { name: '제출 완료' }));
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '제출 완료' }));
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '완료 처리' }));
 
     await waitFor(() => {
       expect(mockCompleteMutateAsync).toHaveBeenCalledWith({ batchId: 9 });
@@ -280,8 +280,8 @@ describe('SubmissionBatchDetailPage', () => {
     mockDetailQuery.mockReturnValue(detailSuccess(detail));
     const { rerender } = render(<SubmissionBatchDetailPage batchId={9} />);
 
-    fireEvent.click(screen.getByRole('button', { name: '제출 완료' }));
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '제출 완료' }));
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '완료 처리' }));
 
     await waitFor(() => {
       expect(screen.getByText('2026-08-01 밴드부 · 취소됨')).toBeInTheDocument();
@@ -306,7 +306,7 @@ describe('SubmissionBatchDetailPage', () => {
     );
     render(<SubmissionBatchDetailPage batchId={1} />);
 
-    expect(screen.queryByRole('button', { name: '제출 완료' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '완료 처리' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '제출 목록 취소' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /CSV/ })).toBeInTheDocument();
   });

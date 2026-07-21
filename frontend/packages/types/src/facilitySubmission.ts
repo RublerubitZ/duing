@@ -70,7 +70,8 @@ export type SubmissionBatchSummary = {
 };
 
 // 파생 상태 필터(개편 스펙 A3) — BE SubmissionBatchStatusFilter 와 1:1.
-export type SubmissionBatchStatusFilter = 'REVIEWING' | 'COMPLETED' | 'CANCELLED';
+// ARCHIVED = 완료+취소(제출 이력). 진행 중(REVIEWING)을 뺀 지난 배치만 한 목록으로 받는다.
+export type SubmissionBatchStatusFilter = 'REVIEWING' | 'COMPLETED' | 'CANCELLED' | 'ARCHIVED';
 
 export type SubmissionBatchListParams = { page: number; size: number; status?: SubmissionBatchStatusFilter };
 

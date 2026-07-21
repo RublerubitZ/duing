@@ -213,12 +213,13 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                   CSV
                 </button>
                 {status === 'REVIEWING' && (
+                  // '완료 처리' — 상태 배지 '제출 완료'와 구분되는 명령형 동작 라벨(목록 탭과 통일).
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
                     onClick={() => setCompleteOpen(true)}
                   >
-                    제출 완료
+                    완료 처리
                   </button>
                 )}
                 {status === 'REVIEWING' && (

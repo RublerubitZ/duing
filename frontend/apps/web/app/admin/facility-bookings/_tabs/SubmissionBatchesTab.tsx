@@ -193,8 +193,22 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                       <StatusPill label={statusMeta.label} className={statusMeta.badgeClass} />
                     </td>
                     <td className="py-2">
-                      {/* 액션 순서 = 실제 작업 순서(개편 스펙 §5): CSV 서류 준비 → 오프라인 제출 → 완료 처리. */}
-                      <div className="flex items-center gap-2 whitespace-nowrap">
+                      {/* 액션 순서 = 실제 작업 순서(개편 스펙 §5): 제출 완료(주 흐름)는 좌측 고정, 서류·열람 버튼
+                          (CSV·상세·취소)은 우측에 묶는다. 제출 완료는 REVIEWING 행에만 있고 mr-auto 로 나머지를 우측으로 민다.
+                          이력 행은 제출 완료가 없어 CSV·상세가 그대로 우측(justify-end)에 붙는다. */}
+                      <div className="flex w-full items-center justify-end gap-2 whitespace-nowrap">
+                        {/* '제출 완료'·'취소' 는 REVIEWING 행 전용 — 확인 Dialog 를 거쳐 완료/취소 처리한다. */}
+                        {status === 'REVIEWING' && (
+                          // '완료 처리' — 상태 배지 '제출 완료'와 글자가 겹쳐 동작을 상태로 오인하지 않게 명령형으로.
+                          // ml-6 로 좌측 끝에서 살짝 띄우고, mr-auto 로 나머지를 우측에 몰아준다.
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm ml-6 mr-auto bg-ink-deep hover:bg-ink"
+                            onClick={() => setCompleteTarget(batch)}
+                          >
+                            완료 처리
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
@@ -208,30 +222,25 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                           )}
                           CSV
                         </button>
-                        {/* '제출 완료'·'취소' 는 REVIEWING 행 전용 — 확인 Dialog 를 거쳐 완료/취소 처리한다. */}
-                        {status === 'REVIEWING' && (
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm bg-ink-deep hover:bg-ink"
-                            onClick={() => setCompleteTarget(batch)}
-                          >
-                            제출 완료
-                          </button>
-                        )}
+                        {/* 상세는 버튼 크롬으로 통일해 인접 버튼과 높이·여백을 맞춘다(맨몸 텍스트 링크라 붙어 보이던 문제). */}
                         <Link
                           href={toRoute(`/admin/facility-bookings/submission/${batch.batchId}`)}
-                          className="text-xs text-charcoal-2 hover:text-ink hover:underline"
+                          className="btn btn-ghost btn-sm"
                         >
                           상세
                         </Link>
                         {status === 'REVIEWING' && (
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm text-coral"
-                            onClick={() => setCancelTarget(batch)}
-                          >
-                            취소
-                          </button>
+                          <>
+                            {/* 파괴적 동작(취소)은 구분선으로 갈라 낮은 위계로 둔다 — 주 흐름 버튼과 섞이지 않게. */}
+                            <span aria-hidden className="mx-0.5 h-4 w-px bg-line" />
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm text-coral"
+                              onClick={() => setCancelTarget(batch)}
+                            >
+                              취소
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
