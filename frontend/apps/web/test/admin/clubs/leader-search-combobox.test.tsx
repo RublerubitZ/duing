@@ -18,12 +18,18 @@ const USER_1: AdminUserSearchResult = {
   studentId: '20231234',
   name: '홍길동',
   role: 'STUDENT',
+  grade: 'JUNIOR',
+  college: 'IT_ENGINEERING',
+  major: '컴퓨터공학',
 };
 const USER_2: AdminUserSearchResult = {
   id: 2,
   studentId: '20235678',
   name: '김철수',
   role: 'STUDENT',
+  grade: 'SENIOR',
+  college: 'DESIGN_ART',
+  major: '',
 };
 const USERS: AdminUserSearchResult[] = [USER_1, USER_2];
 
