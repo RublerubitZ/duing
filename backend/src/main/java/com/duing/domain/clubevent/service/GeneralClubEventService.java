@@ -9,6 +9,7 @@ import com.duing.domain.clubevent.service.dto.command.CreateClubEventCommand;
 import com.duing.domain.clubevent.service.dto.command.UpdateClubEventCommand;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -29,6 +30,7 @@ public class GeneralClubEventService implements ClubEventService {
 
     private final ClubEventRepository eventRepository;
     private final UserRepository userRepository;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -66,7 +68,7 @@ public class GeneralClubEventService implements ClubEventService {
 
     @Override
     public List<ClubEventCardResponse> listWindow(Long clubId, LocalDate from, LocalDate to) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         LocalDate fromDate = from != null ? from : today.minusDays(DEFAULT_PAST_DAYS);
         LocalDate toDate   = to   != null ? to   : today.plusDays(DEFAULT_FUTURE_DAYS);
         if (toDate.isBefore(fromDate)) {

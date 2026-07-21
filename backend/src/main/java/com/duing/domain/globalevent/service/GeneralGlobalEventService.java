@@ -7,6 +7,7 @@ import com.duing.domain.globalevent.repository.GlobalEventRepository;
 import com.duing.domain.globalevent.service.dto.command.CreateGlobalEventCommand;
 import com.duing.domain.globalevent.service.dto.command.UpdateGlobalEventCommand;
 import com.duing.domain.globalevent.service.dto.query.GlobalEventAdminSearchCondition;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -29,6 +30,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
     private static final int MAX_WINDOW_DAYS = 400;
 
     private final GlobalEventRepository eventRepository;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -65,7 +67,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
 
     @Override
     public List<GlobalEvent> listPublicWindow(LocalDate from, LocalDate to, GlobalEventCategory category) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         LocalDate fromDate = from != null ? from : today.minusDays(DEFAULT_PAST_DAYS);
         LocalDate toDate = to != null ? to : today.plusDays(DEFAULT_FUTURE_DAYS);
         if (toDate.isBefore(fromDate)) {
