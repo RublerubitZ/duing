@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdminFacilityBookingDetail } from '@duing/types';
 
@@ -139,15 +139,49 @@ describe('AdminBookingDetailModal', () => {
     expect(onNavigate).toHaveBeenCalledWith(43);
   });
 
+  it('신청 정보: 시설·시간·목적·인원·연락처를 항목별 레이아웃으로 구분해 보여준다', () => {
+    mockDetailQuery.current.data = makeDetail({
+      roomName: '커뮤니티룸(1)',
+      date: '2026-07-23',
+      startTime: '12:00',
+      endTime: '15:00',
+      purpose: '행사 준비',
+      attendeeCount: 155,
+      contactPhone: '010-6663-9528',
+    });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    // 문장 한 줄이 아니라 각 항목 라벨이 개별로 존재한다.
+    for (const label of ['사용 목적', '시설', '사용 인원', '사용 시간', '대표 연락처']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByText('행사 준비')).toBeInTheDocument();
+    expect(screen.getByText('커뮤니티룸(1)')).toBeInTheDocument();
+    expect(screen.getByText('155명')).toBeInTheDocument();
+    expect(screen.getByText('010-6663-9528')).toBeInTheDocument();
+  });
+
+  it('사용 인원: 0명도 실제 값으로 표기하고 "—" 폴백으로 삼지 않는다', () => {
+    mockDetailQuery.current.data = makeDetail({ attendeeCount: 0 });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    const attendeeField = screen.getByText('사용 인원').closest('div');
+    if (attendeeField === null) throw new Error('사용 인원 항목 컨테이너를 찾지 못했다');
+    expect(within(attendeeField).getByText('0명')).toBeInTheDocument();
+  });
+
   it('대표 연락처: 값이 있으면 노출하고, 없으면(null) "—" 로 표기한다(§2.3)', () => {
     mockDetailQuery.current.data = makeDetail({ contactPhone: '010-1234-5678' });
     const { rerender } = render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
-    // 헤더 메타 한 줄에 연락처가 포함된다(목업 FC2 헤더).
-    expect(screen.getByText(/연락처 010-1234-5678/)).toBeInTheDocument();
+    // 신청 정보 카드의 대표 연락처 항목에 값이 그대로 노출된다.
+    expect(screen.getByText('010-1234-5678')).toBeInTheDocument();
 
     mockDetailQuery.current = { data: makeDetail({ contactPhone: null }), isLoading: false, isError: false };
     rerender(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
-    expect(screen.getByText(/연락처 —/)).toBeInTheDocument();
+    // 값이 없으면 '—' 로 폴백 — 사용 인원 미기재도 '—' 라 대표 연락처 항목 스코프로 조회한다.
+    const contactField = screen.getByText('대표 연락처').closest('div');
+    if (contactField === null) throw new Error('대표 연락처 항목 컨테이너를 찾지 못했다');
+    expect(within(contactField).getByText('—')).toBeInTheDocument();
   });
 
   it('APPROVED: 수동 확정·충돌 전환·취소 버튼을 노출한다', () => {

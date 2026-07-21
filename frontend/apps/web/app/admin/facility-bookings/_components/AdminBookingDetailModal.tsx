@@ -266,14 +266,6 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                 {detail && <span className="font-mono text-xs text-charcoal-3">#{detail.bookingId}</span>}
                 {detail && <BookingStatusBadge status={detail.status} />}
               </div>
-              {detail && (
-                <p className="mt-0.5 truncate text-[13px] text-charcoal-2">
-                  {detail.roomName} · {bookingDateLabel(detail.date)}{' '}
-                  {bookingTimeLabel(detail.startTime, detail.endTime)} · {detail.purpose}
-                  {detail.attendeeCount !== undefined && ` · ${detail.attendeeCount}명`}
-                  {` · 연락처 ${detail.contactPhone ?? '—'}`}
-                </p>
-              )}
             </div>
             {/* 대기 건 연속 검토(개편 스펙 §3) — 모달을 닫지 않고 현재 큐의 이웃 예약으로 이동한다. */}
             {neighborIds !== undefined && onNavigate !== undefined && (
@@ -312,6 +304,43 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
 
             {detail && (
               <>
+                {/* 신청 정보(항목별 레이아웃) — 문장형 메타 대신 항목을 구분해 승인 판단 정보를 빠르게 읽게 한다.
+                    사용 목적은 승인 판단의 핵심이라 가장 크게 강조하고, 시설·인원 / 시간·연락처를 2열로 묶어
+                    세로 길이를 줄인다. */}
+                <div>
+                  <p className="mb-2.5 text-[12.5px] font-bold text-charcoal-2">신청 정보</p>
+                  <section className="overflow-hidden rounded-[14px] border border-line">
+                    <div className="border-l-[3px] border-b border-l-ink border-b-line bg-sage-mist/50 px-[18px] py-3.5">
+                      <p className="text-[11.5px] font-bold text-charcoal-3">사용 목적</p>
+                      <p className="mt-1 text-[16px] font-extrabold leading-snug text-ink-deep">{detail.purpose}</p>
+                    </div>
+                    <dl className="grid grid-cols-2 bg-paper">
+                      <div className="border-b border-r border-line px-[18px] py-3">
+                        <dt className="text-[11.5px] font-semibold text-charcoal-3">시설</dt>
+                        <dd className="mt-0.5 text-[13.5px] font-bold text-ink-deep">{detail.roomName}</dd>
+                      </div>
+                      <div className="border-b border-line px-[18px] py-3">
+                        <dt className="text-[11.5px] font-semibold text-charcoal-3">사용 인원</dt>
+                        <dd className="mt-0.5 text-[13.5px] font-bold text-ink-deep">
+                          {detail.attendeeCount !== undefined ? `${detail.attendeeCount}명` : '—'}
+                        </dd>
+                      </div>
+                      <div className="border-r border-line px-[18px] py-3">
+                        <dt className="text-[11.5px] font-semibold text-charcoal-3">사용 시간</dt>
+                        <dd className="mt-0.5 font-mono text-[13px] font-semibold text-ink-deep">
+                          {bookingDateLabel(detail.date)} {bookingTimeLabel(detail.startTime, detail.endTime)}
+                        </dd>
+                      </div>
+                      <div className="px-[18px] py-3">
+                        <dt className="text-[11.5px] font-semibold text-charcoal-3">대표 연락처</dt>
+                        <dd className="mt-0.5 font-mono text-[13px] font-semibold text-ink-deep">
+                          {detail.contactPhone ?? '—'}
+                        </dd>
+                      </div>
+                    </dl>
+                  </section>
+                </div>
+
                 {detail.rejectReason && (
                   <p className="rounded-[12px] bg-graysoft px-3.5 py-2.5 text-xs text-charcoal-2">
                     거절 사유 — {detail.rejectReason}
