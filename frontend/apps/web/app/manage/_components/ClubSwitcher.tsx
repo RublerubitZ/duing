@@ -108,7 +108,7 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
           내 동아리 {managedClubs.length}
         </DropdownMenuLabel>
         {managedClubs.map((club) => {
-          const isCurrent = club.clubId === currentClub.clubId;
+          const isCurrent = club.clubId === currentClubId;
           return (
             <DropdownMenuItem
               key={club.clubId}

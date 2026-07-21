@@ -76,4 +76,27 @@ describe('ClubSwitcher', () => {
     expect(pushSpy).not.toHaveBeenCalled();
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });
+
+  it('currentClubId 가 목록에 없으면 어떤 항목에도 체크가 없고, 표시된 폴백 클럽도 선택 시 이동한다', async () => {
+    const user = userEvent.setup();
+    render(<ClubSwitcher managedClubs={CLUBS} currentClubId={999} />);
+
+    await user.click(screen.getByRole('button', { name: /동아리 전환/ }));
+    const menuItems = await screen.findAllByRole('menuitem');
+
+    expect(screen.queryByText('현재 선택됨')).not.toBeInTheDocument();
+    await user.click(menuItems[0]!);
+    expect(pushSpy).toHaveBeenCalledWith('/manage/clubs/1');
+  });
+
+  it('운영 동아리가 1개여도 드롭다운이 동일하게 동작한다', async () => {
+    const user = userEvent.setup();
+    render(<ClubSwitcher managedClubs={[CLUBS[0]!]} currentClubId={1} />);
+
+    await user.click(screen.getByRole('button', { name: /동아리 전환/ }));
+    const menuItems = await screen.findAllByRole('menuitem');
+
+    expect(menuItems).toHaveLength(1);
+    expect(within(menuItems[0]!).getByText('현재 선택됨')).toBeInTheDocument();
+  });
 });
