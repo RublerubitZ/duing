@@ -7,7 +7,7 @@ import type { ManagedClub } from '@duing/types';
 import { useManagedClubsQuery } from '@duing/hooks';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { ManageGuard } from './ManageGuard';
-import { ClubSelector } from './ClubSelector';
+import { ClubSwitcher } from './ClubSwitcher';
 import { ManageNav } from './ManageNav';
 
 type ManageShellProps = {
@@ -20,9 +20,11 @@ type ManageShellProps = {
 function ManageSidebarContent({
   managedClubs,
   currentClubId,
+  onNavigate,
 }: {
   managedClubs: ManagedClub[] | undefined;
   currentClubId: number | null;
+  onNavigate?: () => void;
 }) {
   return (
     <>
@@ -37,7 +39,13 @@ function ManageSidebarContent({
 
       {managedClubs && managedClubs.length > 0 && (
         <>
-          <ClubSelector managedClubs={managedClubs} currentClubId={currentClubId} />
+          <div className="px-2">
+            <ClubSwitcher
+              managedClubs={managedClubs}
+              currentClubId={currentClubId}
+              onNavigate={onNavigate}
+            />
+          </div>
           {currentClubId !== null && <ManageNav currentClubId={currentClubId} />}
         </>
       )}
@@ -96,8 +104,8 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
           className="flex w-[82%] max-w-[300px] flex-col gap-[18px] border-black/20 bg-ink-deep px-4 py-[22px] pb-6"
         >
           <SheetTitle className="sr-only">운영진 콘솔 메뉴</SheetTitle>
-          {/* 닫힘 처리는 SheetContent(Radix) 가 아닌 내부 div(display:contents 라 레이아웃 무영향)에 위임:
-              내비 링크 클릭(앵커) 또는 동아리 선택(select change) 시 드로어를 닫는다. */}
+          {/* 닫힘 처리: 내비 링크 클릭(앵커)은 내부 div(display:contents 라 레이아웃 무영향)에서 감지하고,
+              동아리 전환은 드롭다운이 포털로 렌더돼 이 div 밖이므로 onNavigate 콜백으로 닫는다. */}
           <div
             className="contents"
             onClick={(event) => {
@@ -105,9 +113,12 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
                 setDrawerOpen(false);
               }
             }}
-            onChange={() => setDrawerOpen(false)}
           >
-            <ManageSidebarContent managedClubs={managedClubs} currentClubId={currentClubId} />
+            <ManageSidebarContent
+              managedClubs={managedClubs}
+              currentClubId={currentClubId}
+              onNavigate={() => setDrawerOpen(false)}
+            />
           </div>
         </SheetContent>
       </Sheet>
