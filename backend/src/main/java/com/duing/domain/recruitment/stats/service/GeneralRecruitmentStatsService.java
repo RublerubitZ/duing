@@ -9,6 +9,7 @@ import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryC
 import com.duing.domain.recruitment.stats.service.dto.query.StatsDailyPointQuery;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsFunnelQuery;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,7 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
     private final RecruitmentRepository recruitmentRepository;
     private final RecruitmentStatsRepositoryCustom recruitmentStatsRepository;
     private final ClubAuthService clubAuthService;
+    private final Clock clock;
 
     @Override
     public StatsSummaryQuery getSummary(Long recruitmentId, Long currentUserId) {
@@ -55,13 +57,16 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
         clubAuthService.requireManager(currentUserId, clubId);
 
         LocalDate startDate = recruitment.getStartDate();
-        LocalDate endDate = recruitment.getEndDate();
+        // 상시모집(endDate=null)은 오늘(KST)까지를 조회 구간으로 사용한다
+        LocalDate effectiveEndDate = recruitment.getEndDate() != null
+                ? recruitment.getEndDate()
+                : LocalDate.now(clock);
 
         Map<LocalDate, Long> dailySubmissionCounts =
-                recruitmentStatsRepository.findDailySubmissionCounts(recruitmentId, startDate, endDate);
+                recruitmentStatsRepository.findDailySubmissionCounts(recruitmentId, startDate, effectiveEndDate);
 
         List<StatsDailyPointQuery> paddedDays = new ArrayList<>();
-        for (LocalDate paddingDate = startDate; !paddingDate.isAfter(endDate); paddingDate = paddingDate.plusDays(1)) {
+        for (LocalDate paddingDate = startDate; !paddingDate.isAfter(effectiveEndDate); paddingDate = paddingDate.plusDays(1)) {
             long submittedCount = dailySubmissionCounts.getOrDefault(paddingDate, 0L);
             paddedDays.add(new StatsDailyPointQuery(paddingDate, submittedCount));
         }
