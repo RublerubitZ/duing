@@ -81,7 +81,9 @@ export function submissionBlockVisual(booking: SubmissionCandidateBooking): Bloc
     return { container: 'border-sage bg-sage/30', nameClass: 'text-ink-deep', badge: '등록완료' };
   }
   if (booking.submitted) {
-    return { container: 'border-sage-soft bg-sage-mist', nameClass: 'text-ink-deep', badge: null };
+    // 이미 제출 목록에 담겨 제출 대기로 이동한 예약 — 회색으로 낮추고 '제출 대기' 뱃지로 상태를 명시한다.
+    // 선택 불가(selectable=false)는 체크박스 disabled 로 이미 처리된다.
+    return { container: 'border-line bg-graysoft/60 opacity-70', nameClass: 'text-charcoal-3', badge: '제출 대기' };
   }
   if (booking.selectable) {
     return { container: 'border-ink bg-paper hover:bg-sage-mist', nameClass: 'text-ink-deep', badge: null };

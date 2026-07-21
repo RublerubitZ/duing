@@ -22,7 +22,7 @@ export function BatchCancelDialog({ batch, isPending, onConfirm, onClose }: Prop
         <DialogTitle className="text-[21px] font-extrabold leading-snug text-ink-deep">제출 목록을 취소할까요?</DialogTitle>
         <p className="text-sm text-charcoal-2">취소하면 이 제출 목록은 사용할 수 없게 됩니다.</p>
         <p className="text-sm text-charcoal-2">
-          {"담긴 예약은 다시 '학교에 제출할 예약' 목록으로 돌아갑니다."}
+          {"담긴 예약은 다시 '미제출 예약' 목록으로 돌아갑니다."}
         </p>
         <p className="text-xs text-charcoal-3">이 작업은 되돌릴 수 없습니다. CSV 는 취소 후에도 다시 받을 수 있어요.</p>
         <div className="flex justify-end gap-2 pt-1">

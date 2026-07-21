@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCreateSubmissionBatchMutation, useSubmissionCandidatesQuery } from '@duing/hooks';
 import type { SubmissionCandidateBooking, SubmissionCandidatesParams } from '@duing/types';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { toRoute } from '../../../_lib/route';
 import { ConsoleCard } from '../_components/ConsoleCard';
@@ -58,7 +59,10 @@ export function SubmissionPrepareTab() {
   const [endDate, setEndDate] = useState(defaultRange.endDate);
   const [clubKeyword, setClubKeyword] = useState('');
   const [view, setView] = useState<SubmissionViewMode>('list');
-  const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>('ALL');
+  // 제출 준비 탭은 "아직 제출 목록에 담지 않은 예약"만 관리하는 공간이라 기본을 미제출(NEED)로 둔다.
+  // 제출 목록을 만든 예약은 즉시 이 목록에서 빠지고(재조회 후 submitted=true → 필터 제외), '제출 대기' 탭에서 관리한다.
+  const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>('NEED');
+  const { addToast } = useToast();
   // v3 선택 모델 — 제외 집합만 상태로 두고 선택은 파생한다(기본 전체 선택·신규 유입 자동 선택).
   const [excludedIds, setExcludedIds] = useState<ReadonlySet<number>>(new Set());
   const [detailBooking, setDetailBooking] = useState<SubmissionCandidateBooking | null>(null);
@@ -101,7 +105,7 @@ export function SubmissionPrepareTab() {
     .filter((booking) => booking.selectable)
     .map((booking) => booking.bookingId);
 
-  // 제출 상태 셀렉트는 필터의 3값(전체/학교에 제출할 예약/제출 목록에 담긴 예약)만 표현 — 카드 확장값(APPROVED/CONFIRMED)일 땐 '전체' 표시.
+  // 제출 상태 셀렉트는 필터의 3값(미제출 예약/제출 대기 예약/전체)만 표현 — 카드 확장값(APPROVED/CONFIRMED)일 땐 '전체' 표시.
   const statusFilterValue: SubmissionStatusFilter =
     summaryFilter === 'NEED' || summaryFilter === 'SUBMITTED' ? summaryFilter : 'ALL';
 
@@ -176,6 +180,15 @@ export function SubmissionPrepareTab() {
     setBulkSubmitting(false);
     setBulkDialogOpen(false);
     setBulkOutcomes(outcomes);
+
+    // 제출 목록이 만들어진 예약은 재조회 후 미제출 목록에서 빠진다 — "제출 대기로 이동" 을 토스트로 명시해
+    // 목록에서 사라진 이유를 직관적으로 알린다(부분 실패 상세는 결과 Dialog 가 담당).
+    const movedCount = outcomes
+      .filter((outcome) => outcome.batch !== null)
+      .reduce((total, outcome) => total + outcome.bookingCount, 0);
+    if (movedCount > 0) {
+      addToast(`제출 목록이 생성되었습니다. 선택한 ${movedCount}건의 예약이 제출 대기로 이동했습니다.`);
+    }
   };
 
   return (
@@ -276,9 +289,9 @@ export function SubmissionPrepareTab() {
               setSummaryFilter(nextValue === 'NEED' || nextValue === 'SUBMITTED' ? nextValue : 'ALL');
             }}
           >
+            <option value="NEED">미제출 예약</option>
+            <option value="SUBMITTED">제출 대기 예약</option>
             <option value="ALL">전체</option>
-            <option value="NEED">학교에 제출할 예약</option>
-            <option value="SUBMITTED">제출 목록에 담긴 예약</option>
           </select>
         </div>
 
@@ -299,7 +312,7 @@ export function SubmissionPrepareTab() {
               ) : (
                 <EmptyState
                   icon="✅"
-                  title="학교에 제출할 예약이 없어요"
+                  title="미제출 예약이 없어요"
                   body={'예약을 승인하면 여기에 자동으로 표시돼요.\n대기 중인 신청은 예약 검토 탭에서 처리할 수 있어요.'}
                   action={
                     <Link href={toRoute('/admin/facility-bookings?tab=review')} className="btn btn-secondary btn-sm">
@@ -323,7 +336,7 @@ export function SubmissionPrepareTab() {
                       <div className="flex flex-wrap items-center justify-between gap-2 bg-sage-tint px-[18px] py-[13px]">
                         <h2 className="text-[14.5px] font-extrabold text-ink-deep">{section.facilityName}</h2>
                         <p className="text-xs text-charcoal-3">
-                          학교에 제출할 예약 {sectionNeedCount}건 · 선택 {sectionSelectedCount}건
+                          미제출 예약 {sectionNeedCount}건 · 선택 {sectionSelectedCount}건
                         </p>
                       </div>
                       <div className={view === 'list' ? 'px-2 py-2' : 'px-[18px] py-3'}>
