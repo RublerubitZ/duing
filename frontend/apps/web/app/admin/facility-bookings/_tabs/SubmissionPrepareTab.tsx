@@ -312,7 +312,7 @@ export function SubmissionPrepareTab() {
               ) : (
                 <EmptyState
                   icon="✅"
-                  title="학교에 제출할 예약이 없어요"
+                  title="미제출 예약이 없어요"
                   body={'예약을 승인하면 여기에 자동으로 표시돼요.\n대기 중인 신청은 예약 검토 탭에서 처리할 수 있어요.'}
                   action={
                     <Link href={toRoute('/admin/facility-bookings?tab=review')} className="btn btn-secondary btn-sm">
@@ -336,7 +336,7 @@ export function SubmissionPrepareTab() {
                       <div className="flex flex-wrap items-center justify-between gap-2 bg-sage-tint px-[18px] py-[13px]">
                         <h2 className="text-[14.5px] font-extrabold text-ink-deep">{section.facilityName}</h2>
                         <p className="text-xs text-charcoal-3">
-                          학교에 제출할 예약 {sectionNeedCount}건 · 선택 {sectionSelectedCount}건
+                          미제출 예약 {sectionNeedCount}건 · 선택 {sectionSelectedCount}건
                         </p>
                       </div>
                       <div className={view === 'list' ? 'px-2 py-2' : 'px-[18px] py-3'}>

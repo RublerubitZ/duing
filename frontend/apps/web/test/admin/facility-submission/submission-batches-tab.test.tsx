@@ -212,7 +212,7 @@ describe('SubmissionBatchesTab', () => {
 
     expect(screen.getByText('제출 목록을 취소할까요?')).toBeInTheDocument();
     expect(screen.getByText('취소하면 이 제출 목록은 사용할 수 없게 됩니다.')).toBeInTheDocument();
-    expect(screen.getByText("담긴 예약은 다시 '학교에 제출할 예약' 목록으로 돌아갑니다.")).toBeInTheDocument();
+    expect(screen.getByText("담긴 예약은 다시 '미제출 예약' 목록으로 돌아갑니다.")).toBeInTheDocument();
     expect(
       screen.getByText('이 작업은 되돌릴 수 없습니다. CSV 는 취소 후에도 다시 받을 수 있어요.'),
     ).toBeInTheDocument();

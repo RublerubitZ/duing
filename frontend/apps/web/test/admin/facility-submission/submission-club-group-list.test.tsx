@@ -207,4 +207,26 @@ describe('SubmissionClubGroupList', () => {
     fireEvent.click(within(bandGroup).getAllByRole('button', { name: '상세' })[0]!);
     expect(onShowDetail).toHaveBeenCalledWith(twoClubs[0]);
   });
+
+  it('상태 배지는 제출 여부보다 예약 상태 우선순위를 따른다 — 완료 배치의 등록완료·취소 예약은 「제출 대기」로 뭉개지지 않는다', () => {
+    // 배치를 완료하면 승인 예약은 CONFIRMED 로 넘어가지만 제출 항목은 유지되어 submitted=true 로 남는다.
+    // 그래도 목록 상태 배지는 취소>충돌>등록완료>제출 대기 순서를 지켜야 한다.
+    render(
+      <SubmissionClubGroupList
+        bookings={[
+          makeBooking({ bookingId: 1, clubId: 10, clubName: '밴드부', status: 'APPROVED', submitted: true, selectable: false }),
+          makeBooking({ bookingId: 2, clubId: 11, clubName: '사진부', status: 'CONFIRMED', submitted: true, selectable: false }),
+          makeBooking({ bookingId: 3, clubId: 12, clubName: '연극부', status: 'CANCELLED', submitted: true, selectable: false }),
+        ]}
+        selection={new Set()}
+        onToggleSelect={vi.fn()}
+        onToggleMany={vi.fn()}
+        onShowDetail={vi.fn()}
+      />,
+    );
+
+    expect(within(screen.getByRole('group', { name: /밴드부/ })).getByText('제출 대기')).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: /사진부/ })).getByText('등록완료')).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: /연극부/ })).getByText('취소됨')).toBeInTheDocument();
+  });
 });

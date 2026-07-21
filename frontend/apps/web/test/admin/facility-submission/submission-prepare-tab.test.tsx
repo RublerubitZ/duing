@@ -98,7 +98,7 @@ describe('SubmissionPrepareTab', () => {
     // 강당(미제출 밴드부)은 보이고, 세미나실(제출된 방송국)은 기본 목록에서 빠진다.
     expect(screen.getByRole('heading', { name: '강당' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '세미나실' })).not.toBeInTheDocument();
-    expect(screen.getByText(/학교에 제출할 예약 1건/)).toBeInTheDocument();
+    expect(screen.getByText(/미제출 예약 1건/)).toBeInTheDocument();
   });
 
   it('전체 보기로 바꾸면 제출 대기 예약이 있는 시설 섹션도 함께 보인다', () => {
@@ -175,10 +175,10 @@ describe('SubmissionPrepareTab', () => {
     render(<SubmissionPrepareTab />);
 
     // 카드 라벨은 상태 배지·셀렉트 옵션·섹션 헤더와 문자열이 겹쳐 role=button(aria-pressed 카드)으로 조회.
-    // '학교에 제출할 예약'은 셀렉트 옵션·섹션 헤더와 겹쳐 카드 sub 문구로 고정 조회.
+    // '미제출 예약'은 셀렉트 옵션·섹션 헤더와 겹쳐 카드 sub 문구로 고정 조회.
     expect(screen.getByRole('button', { name: /^승인 완료/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /아직 제출 목록에 담기지 않은 예약/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /제출 목록에 담김/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /아직 제출 목록에 포함되지 않은 예약/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /제출 대기 예약/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /학교 등록 완료/ })).toBeInTheDocument();
   });
 
@@ -190,8 +190,8 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
 
-    // 제출 목록에 담김 카드 재클릭 = 전체 복귀
-    fireEvent.click(screen.getByRole('button', { name: /제출 목록에 담김/ }));
+    // 제출 대기 예약 카드 재클릭 = 전체 복귀
+    fireEvent.click(screen.getByRole('button', { name: /제출 대기 예약/ }));
     expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
   });
 
