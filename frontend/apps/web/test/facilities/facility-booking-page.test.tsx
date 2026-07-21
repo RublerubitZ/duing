@@ -402,6 +402,45 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(screen.getByRole('button', { name: '18:00~20:00 예약 신청' })).toBeEnabled();
   });
 
+  it('사용 인원 필수(2026-07-21): 인원 미입력이면 예약 신청 버튼이 비활성이고, 입력하면 활성화된다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+    fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
+    await screen.findByText('밴드부');
+    // 목적·연락처(프리필)는 채워졌지만 사용 인원이 비어 버튼이 비활성이다.
+    expect(screen.getByRole('button', { name: '예약 신청' })).toBeDisabled();
+
+    fireEvent.change(screen.getByRole('textbox', { name: '사용 인원' }), { target: { value: '15' } });
+    expect(screen.getByRole('button', { name: '예약 신청' })).toBeEnabled();
+
+    // 0 은 유효하지 않아 다시 비활성(양수만 허용).
+    fireEvent.change(screen.getByRole('textbox', { name: '사용 인원' }), { target: { value: '0' } });
+    expect(screen.getByRole('button', { name: '예약 신청' })).toBeDisabled();
+  });
+
+  it('대표 연락처 자동 포맷(2026-07-21): 숫자만 입력해도 010-1234-5678 로 표기되고 11자리 초과는 잘린다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: { ...AUTH_USER, phone: '' } });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+    fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
+    await screen.findByText('밴드부');
+
+    const contactInput = screen.getByRole('textbox', { name: '대표 연락처' });
+    // 하이픈 없이 숫자만 입력해도 자동으로 하이픈이 들어간다.
+    fireEvent.change(contactInput, { target: { value: '01012345678' } });
+    expect(contactInput).toHaveValue('010-1234-5678');
+    // 문자·초과 자릿수는 걸러지고 11자리까지만 유지된다.
+    fireEvent.change(contactInput, { target: { value: '010abc1234567890' } });
+    expect(contactInput).toHaveValue('010-1234-5678');
+  });
+
   it('시나리오 5: 로그인 신청이 확인 Dialog 를 거쳐 성공하면 정확한 payload(대표 연락처 포함) 전송·승인 타임라인 노출 후 "다른 시설 예약하기"로 홈에 복귀한다', async () => {
     useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
     let capturedBody: unknown = null;
@@ -433,6 +472,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     await screen.findByText('밴드부');
     // 대표 연락처는 프로필(/users/me)에 번호가 있으면 프리필된다(§2.1).
     expect(screen.getByRole('textbox', { name: '대표 연락처' })).toHaveValue('010-1234-5678');
+    // 사용 인원은 필수(2026-07-21) — 입력해야 예약 신청 버튼이 활성화된다.
+    fireEvent.change(screen.getByRole('textbox', { name: '사용 인원' }), { target: { value: '15' } });
 
     // 폼 "예약 신청" → 즉시 전송 대신 확인 Dialog 만 열린다(§2.2). 이 시점엔 POST 미발사.
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
@@ -450,14 +491,15 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(screen.getByText(/1건이 함께 대기/)).toBeInTheDocument();
 
     await waitFor(() => expect(capturedBody).not.toBeNull());
-    // attendeeCount 는 미입력이므로 body 에 키 자체가 없어야 한다(toEqual 전체 비교로 보장). date 는 마감-안전한 신청일.
-    // contactPhone 은 프리필 값이 그대로 실린다.
+    // 사용 인원 필수화(2026-07-21) — attendeeCount 가 body 에 포함된다(toEqual 전체 비교로 보장).
+    // date 는 마감-안전한 신청일. contactPhone 은 프리필 값이 그대로 실린다.
     expect(capturedBody).toEqual({
       facilityId: 1,
       date: APPLY_DATE_ISO,
       startTime: '18:00',
       endTime: '20:00',
       purpose: '정기 합주',
+      attendeeCount: 15,
       contactPhone: '010-1234-5678',
     });
     expect(postCount).toBe(1); // 확인 클릭 1회 = POST 1회(중복 제출 없음)
@@ -600,6 +642,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
     await screen.findByText('밴드부');
+    fireEvent.change(screen.getByRole('textbox', { name: '사용 인원' }), { target: { value: '15' } });
     // 폼 "예약 신청" → 확인 Dialog. 실제 POST 는 Dialog 확인에서만(§2.2).
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
     const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });
@@ -631,7 +674,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
   });
 
-  it('시나리오 13-1 (§2.1·§2.2): 대표 연락처 미입력·형식 오류면 확인 Dialog 가 열리지 않고 한국어 오류를 노출한다', async () => {
+  it('시나리오 13-1 (§2.1·§2.2): 대표 연락처 미입력이면 버튼 비활성, 형식 오류면 확인 Dialog 가 열리지 않고 한국어 오류를 노출한다', async () => {
     // 프로필에 번호가 없으면 프리필되지 않아 빈 값으로 시작한다(§2.1).
     useAuthStore.setState({ status: 'authenticated', user: { ...AUTH_USER, phone: '' } });
     renderPage();
@@ -641,23 +684,24 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
     await screen.findByText('밴드부');
+    // 사용 인원은 필수 — 연락처만 변수로 두기 위해 먼저 채운다.
+    fireEvent.change(screen.getByRole('textbox', { name: '사용 인원' }), { target: { value: '15' } });
 
     const contactInput = screen.getByRole('textbox', { name: '대표 연락처' });
     expect(contactInput).toHaveValue(''); // 번호 없음 → 프리필 생략
 
-    // (미입력) 폼 "예약 신청" → Dialog 안 열림 + 한국어 오류.
-    fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
-    expect(screen.queryByRole('dialog', { name: '예약을 신청하시겠어요?' })).not.toBeInTheDocument();
-    expect(screen.getByText('대표 연락처를 입력해주세요.')).toBeInTheDocument();
+    // (미입력) 대표 연락처가 비면 필수항목 미충족 — 예약 신청 버튼이 비활성이라 Dialog 가 열리지 않는다(2026-07-21).
+    expect(screen.getByRole('button', { name: '예약 신청' })).toBeDisabled();
 
-    // (형식 오류) → Dialog 안 열림 + 형식 오류.
+    // (형식 오류) 값이 있으면 버튼은 활성 — 확인 클릭 시점에 형식 오류를 메시지로 노출하고 Dialog 는 안 열린다.
     fireEvent.change(contactInput, { target: { value: '0101234' } });
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
     expect(screen.queryByRole('dialog', { name: '예약을 신청하시겠어요?' })).not.toBeInTheDocument();
     expect(screen.getByText('휴대폰 번호 형식으로 입력해주세요.')).toBeInTheDocument();
 
-    // (유효 — 하이픈 없이도 통과) → Dialog 열림.
+    // (유효 — 하이픈 없이 입력해도 자동 포맷되어 통과) → Dialog 열림.
     fireEvent.change(contactInput, { target: { value: '01012345678' } });
+    expect(contactInput).toHaveValue('010-1234-5678');
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
     expect(await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' })).toBeInTheDocument();
   });
@@ -678,6 +722,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
     await screen.findByText('밴드부');
+    fireEvent.change(screen.getByRole('textbox', { name: '사용 인원' }), { target: { value: '15' } });
 
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
     const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });
@@ -745,6 +790,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
     await screen.findByText('밴드부');
+    fireEvent.change(screen.getByRole('textbox', { name: '사용 인원' }), { target: { value: '15' } });
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
     const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });
     fireEvent.click(within(confirmDialog).getByRole('button', { name: '예약 신청' }));
@@ -970,6 +1016,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
     await screen.findByText('밴드부');
+    fireEvent.change(screen.getByRole('textbox', { name: '사용 인원' }), { target: { value: '15' } });
     fireEvent.click(screen.getByRole('button', { name: '예약 신청' }));
     const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });
     fireEvent.click(within(confirmDialog).getByRole('button', { name: '예약 신청' }));
@@ -1154,6 +1201,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(await within(dialog).findByRole('button', { name: '정기 합주' }));
     expect(within(dialog).queryByRole('button', { name: '시간표로 보기' })).not.toBeInTheDocument();
     await within(dialog).findByText('밴드부');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '사용 인원' }), { target: { value: '15' } });
     // 폼 "예약 신청" → 확인 Dialog(포털은 시트 밖). 실제 POST 는 Dialog 확인에서만(§2.2).
     fireEvent.click(within(dialog).getByRole('button', { name: '예약 신청' }));
     const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });

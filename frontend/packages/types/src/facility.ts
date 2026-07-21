@@ -118,7 +118,8 @@ export type CreateFacilityBookingPayload = {
   startTime: string; // HH:mm
   endTime: string; // HH:mm
   purpose: string;
-  attendeeCount?: number;
+  // 사용 인원(필수, 2026-07-21 개정) — 서버 @NotNull. 응답 타입은 기존 null 데이터 때문에 optional 유지.
+  attendeeCount: number;
   // 대표 연락처(필수) — 서버 검증 패턴 ^01[016789]-?\d{3,4}-?\d{4}$ (하이픈 유무 허용).
   contactPhone: string;
 };
