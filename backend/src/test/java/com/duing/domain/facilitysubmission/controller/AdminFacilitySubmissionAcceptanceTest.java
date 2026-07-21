@@ -94,6 +94,16 @@ class AdminFacilitySubmissionAcceptanceTest extends IntegrationTestBase {
                 + "&startDate=" + baseDate.minusDays(1) + "&endDate=" + baseDate.plusDays(1);
     }
 
+    private Integer createBatch(FacilityBooking booking) {
+        return RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("bookingIds", List.of(booking.getId())))
+                .when().post(SUBMISSION_PATH)
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().path("data.batchId");
+    }
+
     @Test
     @DisplayName("익명·일반 사용자 요청은 각각 401·403 이다")
     void anonymousIs401AndStudentIs403() {
@@ -146,6 +156,31 @@ class AdminFacilitySubmissionAcceptanceTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .when().get(SUBMISSION_PATH + "?status=INVALID_STATUS")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("ARCHIVED 필터는 완료·취소 배치만 반환하고 진행 중(REVIEWING)은 제외한다")
+    void archivedFilterReturnsCompletedAndCancelledOnly() {
+        Integer completedBatchId = createBatch(approvedBooking(9));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().post(SUBMISSION_PATH + "/" + completedBatchId + "/complete")
+                .then().statusCode(HttpStatus.OK.value());
+
+        Integer cancelledBatchId = createBatch(approvedBooking(11));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().delete(SUBMISSION_PATH + "/" + cancelledBatchId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        Integer reviewingBatchId = createBatch(approvedBooking(13));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(SUBMISSION_PATH + "?status=ARCHIVED")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.batchId", org.hamcrest.Matchers.hasItems(completedBatchId, cancelledBatchId))
+                .body("data.content.batchId", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(reviewingBatchId)));
     }
 
     @Test
