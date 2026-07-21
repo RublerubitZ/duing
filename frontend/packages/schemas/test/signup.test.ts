@@ -26,6 +26,53 @@ describe('signupSchema — 학번', () => {
   );
 });
 
+describe('signupSchema — 이름', () => {
+  it.each(['홍길동', '김민수', '남궁민', '제갈성', '황보준', '이준', '가나다라마바사'])(
+    '한글 완성형 2~7자 이름(%s)을 통과시킨다',
+    (name) => {
+      expect(signupSchema.safeParse({ ...baseInput, name }).success).toBe(true);
+    },
+  );
+
+  it('앞뒤 공백은 제거한 값으로 검증·제출한다', () => {
+    const parsed = signupSchema.safeParse({ ...baseInput, name: ' 홍길동 ' });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.name).toBe('홍길동');
+    }
+  });
+
+  it.each([
+    '여동근(테스트입니다)',
+    'Terry',
+    '홍길동123',
+    '홍 길동',
+    '홍길동!',
+    '😀홍길동',
+    'ㅁㄴㅇㄹ',
+    'ㅏㅑㅓ',
+    'ㄱ가ㄴ',
+    '김',
+    '가나다라마바사아',
+    '',
+  ])('한글 완성형 2~7자가 아닌 이름(%s)은 거부한다', (name) => {
+    expect(signupSchema.safeParse({ ...baseInput, name }).success).toBe(false);
+  });
+
+  it.each(['테스트', '테스터', '관리자', '운영자', '최고관리자', '아무개', '샘플', '예시'])(
+    '금칙어 이름(%s)은 안내 메시지와 함께 거부한다',
+    (name) => {
+      const parsed = signupSchema.safeParse({ ...baseInput, name });
+      expect(parsed.success).toBe(false);
+      if (!parsed.success) {
+        expect(parsed.error.issues[0]?.message).toBe(
+          '사용할 수 없는 이름입니다. 다른 이름을 입력해 주세요.',
+        );
+      }
+    },
+  );
+});
+
 describe('signupSchema — 학년', () => {
   it.each(['FRESHMAN', 'SOPHOMORE', 'JUNIOR', 'SENIOR', 'ON_LEAVE', 'GRADUATED'])(
     '유효한 학년(%s)을 통과시킨다',
