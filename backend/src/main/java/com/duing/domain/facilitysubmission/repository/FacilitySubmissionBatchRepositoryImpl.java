@@ -53,6 +53,9 @@ public class FacilitySubmissionBatchRepositoryImpl implements FacilitySubmission
             case COMPLETED -> facilitySubmissionBatch.completedAt.isNotNull()
                     .and(facilitySubmissionBatch.cancelledAt.isNull());
             case CANCELLED -> facilitySubmissionBatch.cancelledAt.isNotNull();
+            // 제출 이력 = 완료 또는 취소(= REVIEWING 이 아닌 모든 배치). 지난 배치만 모아 보여준다.
+            case ARCHIVED -> facilitySubmissionBatch.completedAt.isNotNull()
+                    .or(facilitySubmissionBatch.cancelledAt.isNotNull());
         };
     }
 }
