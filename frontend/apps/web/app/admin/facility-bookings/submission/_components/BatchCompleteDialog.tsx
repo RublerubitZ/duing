@@ -57,7 +57,7 @@ export function BatchCompleteDialog({ batch, isPending, onConfirm, onClose }: Pr
             disabled={isPending}
             onClick={onConfirm}
           >
-            {isPending && <ButtonSpinner />}제출 완료
+            {isPending && <ButtonSpinner />}완료 처리
           </button>
         </div>
       </DialogContent>

@@ -43,13 +43,13 @@ const TAB_PURPOSE: Record<FacilityOpsTab, ReactNode> = {
   ),
   ready: (
     <>
-      <strong>학교 행정실 제출을 마친 목록은 &apos;제출 완료&apos; 처리를 해주세요.</strong> CSV로 제출 서류를 준비할 수
+      <strong>학교 행정실 제출을 마친 목록은 &apos;완료 처리&apos;를 해주세요.</strong> CSV로 제출 서류를 준비할 수
       있어요.
     </>
   ),
   archive: (
     <>
-      지금까지 만든 제출 목록의 <strong>전체 기록</strong>이에요. 완료·취소된 목록도 CSV를 다시 받을 수 있어요.
+      제출을 <strong>마친 목록</strong>이에요. 완료·취소된 목록의 CSV를 다시 받을 수 있어요. 진행 중인 목록은 &lsquo;제출 대기&rsquo;에 있어요.
     </>
   ),
 };
@@ -214,7 +214,8 @@ export function AdminFacilityBookingsPage() {
       {activeTab === 'review' && <BookingManagementTab />}
       {activeTab === 'prepare' && <SubmissionPrepareTab />}
       {activeTab === 'ready' && <SubmissionBatchesTab statusFilter="REVIEWING" />}
-      {activeTab === 'archive' && <SubmissionBatchesTab />}
+      {/* 이력 탭은 완료·취소만(ARCHIVED) — 진행 중 배치는 '제출 대기' 탭에서만 보이도록 단계를 가른다. */}
+      {activeTab === 'archive' && <SubmissionBatchesTab statusFilter="ARCHIVED" />}
     </main>
   );
 }

@@ -139,7 +139,7 @@ describe('SubmissionBatchesTab', () => {
     expect(screen.getByText('제출 완료')).toBeInTheDocument();
     expect(screen.getByText('취소됨')).toBeInTheDocument();
     // '제출 완료' 배지는 있어도 REVIEWING 전용 '제출 완료'·'취소' 버튼은 어느 행에도 없다.
-    expect(screen.queryByRole('button', { name: '제출 완료' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '완료 처리' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '취소' })).not.toBeInTheDocument();
     // CSV 는 전 상태 허용 — 완료·취소 두 행 모두 노출한다.
     expect(screen.getAllByRole('button', { name: 'CSV' })).toHaveLength(2);
@@ -242,7 +242,7 @@ describe('SubmissionBatchesTab', () => {
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
     render(<SubmissionBatchesTab />);
 
-    fireEvent.click(screen.getByRole('button', { name: '제출 완료' }));
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
 
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('학교 제출을 완료하시겠습니까?')).toBeInTheDocument();
@@ -269,8 +269,8 @@ describe('SubmissionBatchesTab', () => {
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 9 })]));
     render(<SubmissionBatchesTab />);
 
-    fireEvent.click(screen.getByRole('button', { name: '제출 완료' }));
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '제출 완료' }));
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '완료 처리' }));
 
     await waitFor(() => {
       expect(mockCompleteMutateAsync).toHaveBeenCalledWith({ batchId: 9 });
@@ -295,8 +295,8 @@ describe('SubmissionBatchesTab', () => {
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
     render(<SubmissionBatchesTab />);
 
-    fireEvent.click(screen.getByRole('button', { name: '제출 완료' }));
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '제출 완료' }));
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '완료 처리' }));
 
     await waitFor(() => {
       expect(
@@ -317,8 +317,8 @@ describe('SubmissionBatchesTab', () => {
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
     render(<SubmissionBatchesTab />);
 
-    fireEvent.click(screen.getByRole('button', { name: '제출 완료' }));
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '제출 완료' }));
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '완료 처리' }));
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('이미 취소된 제출 목록입니다', { variant: 'error' });
@@ -362,6 +362,16 @@ describe('SubmissionBatchesTab', () => {
     expect(screen.getByRole('link', { name: '상세' })).toHaveAttribute(
       'href',
       '/admin/facility-bookings/submission/55',
+    );
+  });
+
+  it('statusFilter 를 조회 status 파라미터로 그대로 넘긴다(이력 탭 ARCHIVED 분리)', () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
+    render(<SubmissionBatchesTab statusFilter="ARCHIVED" />);
+
+    // 이력 탭은 완료·취소만(ARCHIVED) 서버에서 걸러야 페이지네이션이 진행 중 배치와 어긋나지 않는다.
+    expect(mockBatchesQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'ARCHIVED' }),
     );
   });
 });
