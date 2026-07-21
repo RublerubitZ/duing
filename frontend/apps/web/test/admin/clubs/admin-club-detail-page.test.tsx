@@ -118,6 +118,27 @@ describe('AdminClubDetailPage', () => {
     });
   });
 
+  it('전공(major)과 학번(studentId)으로도 검색된다', async () => {
+    renderPage();
+    await screen.findByText('홍길동');
+
+    const searchInput = screen.getByLabelText('회원 검색');
+    // 전공 경로: 0번 회원만 컴퓨터공학과
+    await userEvent.type(searchInput, '컴퓨터공학');
+    await waitFor(() => {
+      expect(screen.getByText('홍길동')).toBeInTheDocument();
+      expect(screen.queryByText('회원5')).not.toBeInTheDocument();
+    });
+
+    // 학번 경로: index 5(=회원6)만 20231005
+    await userEvent.clear(searchInput);
+    await userEvent.type(searchInput, '20231005');
+    await waitFor(() => {
+      expect(screen.getByText('회원6')).toBeInTheDocument();
+      expect(screen.queryByText('홍길동')).not.toBeInTheDocument();
+    });
+  });
+
   it('검색 결과가 없으면 Empty 문구를 보여준다', async () => {
     renderPage();
     await screen.findByText('홍길동');
