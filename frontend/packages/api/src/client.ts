@@ -48,6 +48,7 @@ import type {
   PageResponse,
   ClubDetail,
   ClubMember,
+  AdminClubMember,
   ClubMemberExportRow,
   ClubPhoto,
   ClubSearchParams,
@@ -512,6 +513,8 @@ export type DuingApiClient = {
     clubs: {
       list(params?: AdminClubSearchParams): Promise<PageResponse<AdminClubSummary>>;
       detail(clubId: number): Promise<ClubDetail>;
+      /** 학교 제출용 동아리원 명단(이름·학번·전공·단과대). 총동연 전용, 소속 무관 조회. */
+      members(clubId: number): Promise<AdminClubMember[]>;
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
@@ -1356,6 +1359,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             }),
           ),
         detail: (clubId) => jsonOk<ClubDetail>(http.get(`admin/clubs/${clubId}`)),
+        members: (clubId) =>
+          jsonOk<AdminClubMember[]>(http.get(`admin/clubs/${clubId}/members`)),
       },
       users: {
         search: (params) =>
