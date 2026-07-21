@@ -14,6 +14,7 @@ import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsFunnelQuery;
+import java.time.Clock;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +38,8 @@ class RecruitmentStatsFunnelServiceTest {
         recruitmentStatsService = new GeneralRecruitmentStatsService(
                 recruitmentRepository,
                 recruitmentStatsRepository,
-                clubAuthService
+                clubAuthService,
+                Clock.systemDefaultZone()
         );
     }
 
