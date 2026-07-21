@@ -11,11 +11,14 @@ import { cn } from '@/app/_lib/cn';
 import { toLinkRoute, toRoute } from '@/app/_lib/route';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
-function IconMail() {
+function IconStudentId() {
+  // 학번 입력 — 학생증(사진 + 텍스트 줄) 아이콘으로 신분/학번 맥락을 드러낸다.
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-      <path d="M1.5 5.5l6.5 4 6.5-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="5.5" cy="7" r="1.3" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M3.2 10.6c0-1.1 1-1.7 2.3-1.7s2.3.6 2.3 1.7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M9.5 6.6h3.2M9.5 9.4h3.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -168,7 +171,7 @@ function LoginForm() {
               </label>
               <div className="relative">
                 <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-charcoal-3">
-                  <IconMail />
+                  <IconStudentId />
                 </span>
                 <input
                   id="login-studentId"
@@ -183,7 +186,7 @@ function LoginForm() {
                   onChange={(changeEvent) =>
                     setStudentId(changeEvent.target.value.replace(/\D/g, '').slice(0, 8))
                   }
-                  placeholder="20241234"
+                  placeholder="8자리 숫자"
                   className={cn(
                     'w-full rounded-md border bg-paper py-3 pl-10 pr-10 text-sm text-charcoal outline-none transition',
                     'placeholder:text-charcoal-3/50',
