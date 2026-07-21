@@ -1,20 +1,33 @@
 package com.duing.domain.user.controller.dto.response;
 
+import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
+import io.swagger.v3.oas.annotations.media.Schema;
 
+@Schema(description = "관리자 회원 검색 결과 행")
 public record AdminUserSearchResponse(
         Long id,
         String studentId,
         String name,
-        UserRole role
+        UserRole role,
+        @Schema(description = "학년(원값). 한글 라벨은 프론트가 붙인다.", example = "JUNIOR")
+        Grade grade,
+        @Schema(description = "단과대(원값). 한글 라벨은 프론트가 붙인다.", example = "IT_ENGINEERING")
+        College college,
+        @Schema(description = "전공(자유 입력). 미입력이면 빈 문자열일 수 있다.", example = "컴퓨터공학")
+        String major
 ) {
     public static AdminUserSearchResponse from(UserSearchResultQuery searchResult) {
         return new AdminUserSearchResponse(
                 searchResult.id(),
                 searchResult.studentId(),
                 searchResult.name(),
-                searchResult.role()
+                searchResult.role(),
+                searchResult.grade(),
+                searchResult.college(),
+                searchResult.major()
         );
     }
 }

@@ -101,6 +101,23 @@ class AdminUsersSearchControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("검색 결과에 동명이인 식별용 학년·단과대·전공이 원값으로 포함된다")
+    void responseIncludesIdentityFields() {
+        saveUser("2024030040", "식별대상", UserRole.STUDENT, Grade.JUNIOR, College.IT_ENGINEERING, "컴퓨터공학");
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when()
+                    .get("/api/v1/admin/users?q=2024030040")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.content[0].grade", equalTo("JUNIOR"))
+                    .body("data.content[0].college", equalTo("IT_ENGINEERING"))
+                    .body("data.content[0].major", equalTo("컴퓨터공학"));
+    }
+
+    @Test
     @DisplayName("STUDENT 가 호출하면 403 을 반환한다")
     void studentGetsForbidden() {
         RestAssured
@@ -125,15 +142,20 @@ class AdminUsersSearchControllerTest extends IntegrationTestBase {
     }
 
     private User saveUser(String studentId, String name, UserRole role) {
+        return saveUser(studentId, name, role, Grade.FRESHMAN, College.IT_ENGINEERING, "미설정");
+    }
+
+    private User saveUser(String studentId, String name, UserRole role,
+                          Grade grade, College college, String major) {
         long unique = sequence.getAndIncrement();
         return userRepository.save(User.create(
                 studentId,
                 name,
                 "hashed",
                 role,
-                Grade.FRESHMAN,
-                College.IT_ENGINEERING,
-                "미설정",
+                grade,
+                college,
+                major,
                 "010-" + String.format("%04d", unique % 10000) + "-0000",
                 LocalDateTime.now()
         ));
