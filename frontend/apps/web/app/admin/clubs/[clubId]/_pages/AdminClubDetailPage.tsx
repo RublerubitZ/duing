@@ -246,8 +246,8 @@ export function AdminClubDetailPage({ clubId }: Props) {
               )}
             </section>
 
-            {/* 강제 회장 지정 카드 — LEADER 없을 때만 */}
-            {hasNoLeader && <AdminAssignLeaderCard clubId={clubId} />}
+            {/* 강제 회장 지정 카드 — 회원 로딩 완료 후 LEADER 없을 때만 (로딩 중 순간 노출 방지) */}
+            {membersQuery.isSuccess && hasNoLeader && <AdminAssignLeaderCard clubId={clubId} />}
           </div>
         ))}
     </main>
