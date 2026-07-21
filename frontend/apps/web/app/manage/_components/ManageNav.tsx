@@ -1,15 +1,47 @@
 'use client';
 
+import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import {
+  BarChart3,
+  CalendarCheck,
+  ClipboardList,
+  Image as ImageIcon,
+  Info,
+  LayoutDashboard,
+  Users,
+  UsersRound,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '../../_lib/cn';
 import { toRoute } from '../../_lib/route';
 
 type ManageNavProps = {
   currentClubId: number;
+  /** 데스크탑 사이드바 접힘 상태 — 아이콘만 표시하고 라벨은 sr-only + title 로 옮긴다. */
+  collapsed?: boolean;
 };
 
-export function ManageNav({ currentClubId }: ManageNavProps) {
+type NavItem = {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  /** null 이면 비활성 안내 항목 (지원자/통계 — 모집 미선택). typedRoutes 이므로 Route 타입. */
+  href: Route | null;
+  active: boolean;
+};
+
+type NavGroup = {
+  /** null 이면 라벨 없는 최상단 그룹 (대시보드) */
+  label: string | null;
+  items: NavItem[];
+};
+
+const DISABLED_HINT = '모집을 먼저 선택하세요';
+
+export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) {
   const pathname = usePathname();
 
   const dashboardPath = toRoute(`/manage/clubs/${currentClubId}`);
@@ -37,232 +69,144 @@ export function ManageNav({ currentClubId }: ManageNavProps) {
 
   const isApplicantsActive = applicantsPath !== null && pathname.startsWith(applicantsPath);
   const isStatsActive = statsPath !== null && pathname.startsWith(statsPath);
-
-  const isDashboardActive = pathname === dashboardPath;
   // 지원자/통계 하위 페이지에서는 그 항목이 활성이므로 "모집 관리" 중복 강조를 끈다.
   const isRecruitmentsActive =
     pathname.startsWith(recruitmentsPath) && !isApplicantsActive && !isStatsActive;
-  const isPhotosActive = pathname.startsWith(photosPath);
-  const isMembersActive = pathname.startsWith(membersPath);
-  const isFeesActive = pathname.startsWith(feesPath);
-  const isInfoActive = pathname.startsWith(infoPath);
-  const isFacilityBookingsActive = pathname.startsWith(facilityBookingsPath);
+
+  const groups: NavGroup[] = [
+    {
+      label: null,
+      items: [
+        {
+          key: 'dashboard',
+          label: '대시보드',
+          icon: LayoutDashboard,
+          href: dashboardPath,
+          active: pathname === dashboardPath,
+        },
+      ],
+    },
+    {
+      label: '모집',
+      items: [
+        {
+          key: 'recruitments',
+          label: '모집 관리',
+          icon: ClipboardList,
+          href: recruitmentsPath,
+          active: isRecruitmentsActive,
+        },
+        { key: 'applicants', label: '지원자', icon: Users, href: applicantsPath, active: isApplicantsActive },
+        { key: 'stats', label: '통계', icon: BarChart3, href: statsPath, active: isStatsActive },
+      ],
+    },
+    {
+      label: '운영',
+      items: [
+        {
+          key: 'members',
+          label: '멤버 관리',
+          icon: UsersRound,
+          href: membersPath,
+          active: pathname.startsWith(membersPath),
+        },
+        { key: 'fees', label: '회비 관리', icon: Wallet, href: feesPath, active: pathname.startsWith(feesPath) },
+        {
+          key: 'facility-bookings',
+          label: '시설 예약',
+          icon: CalendarCheck,
+          href: facilityBookingsPath,
+          active: pathname.startsWith(facilityBookingsPath),
+        },
+        { key: 'photos', label: '활동사진', icon: ImageIcon, href: photosPath, active: pathname.startsWith(photosPath) },
+      ],
+    },
+    {
+      label: '설정',
+      items: [
+        { key: 'info', label: '동아리 정보', icon: Info, href: infoPath, active: pathname.startsWith(infoPath) },
+      ],
+    },
+  ];
 
   return (
-    <nav className="flex flex-col gap-0.5 px-2">
-      <Link
-        href={dashboardPath}
-        className={cn(
-          'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
-          isDashboardActive
-            ? 'bg-ink text-cream font-semibold'
-            : 'text-cream/80 hover:bg-ink/60',
-        )}
-      >
-        <svg
-          className={cn('w-4 h-4 flex-shrink-0', isDashboardActive ? 'text-cream' : 'text-sage')}
-          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
-        >
-          <rect x="2" y="2" width="5" height="5" rx="1" />
-          <rect x="9" y="2" width="5" height="5" rx="1" />
-          <rect x="2" y="9" width="5" height="5" rx="1" />
-          <rect x="9" y="9" width="5" height="5" rx="1" />
-        </svg>
-        대시보드
-      </Link>
-
-      <p className="px-2.5 pt-3 pb-1.5 text-[11px] uppercase tracking-[0.12em] text-cream/50">
-        모집
-      </p>
-
-      <Link
-        href={recruitmentsPath}
-        className={cn(
-          'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
-          isRecruitmentsActive
-            ? 'bg-ink text-cream font-semibold'
-            : 'text-cream/80 hover:bg-ink/60',
-        )}
-      >
-        <svg
-          className={cn('w-4 h-4 flex-shrink-0', isRecruitmentsActive ? 'text-cream' : 'text-sage')}
-          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
-        >
-          <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
-          <path d="M5.5 8h5M8 5.5v5" />
-        </svg>
-        모집 관리
-      </Link>
-
-      {applicantsPath ? (
-        <Link
-          href={applicantsPath}
-          className={cn(
-            'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
-            isApplicantsActive
-              ? 'bg-ink text-cream font-semibold'
-              : 'text-cream/80 hover:bg-ink/60',
-          )}
-        >
-          <svg
-            className={cn('w-4 h-4 flex-shrink-0', isApplicantsActive ? 'text-cream' : 'text-sage')}
-            viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
-          >
-            <circle cx="7" cy="6" r="3" />
-            <path d="M2 14c.5-2.5 2.5-4 5-4s4.5 1.5 5 4" />
-            <circle cx="12.5" cy="5.5" r="2" />
-          </svg>
-          지원자
-        </Link>
-      ) : (
-        <span className="block px-2.5 py-2 rounded-[8px] text-[13.5px] text-cream/40 cursor-not-allowed select-none">
-          <span className="flex items-center gap-2.5">
-            <svg className="w-4 h-4 text-cream/30 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
-              <circle cx="7" cy="6" r="3" />
-              <path d="M2 14c.5-2.5 2.5-4 5-4s4.5 1.5 5 4" />
-              <circle cx="12.5" cy="5.5" r="2" />
-            </svg>
-            지원자
-          </span>
-          <span className="mt-0.5 block pl-[26px] text-[11px] leading-tight text-cream/30">
-            모집을 먼저 선택하세요
-          </span>
-        </span>
-      )}
-
-      {statsPath ? (
-        <Link
-          href={statsPath}
-          className={cn(
-            'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
-            isStatsActive
-              ? 'bg-ink text-cream font-semibold'
-              : 'text-cream/80 hover:bg-ink/60',
-          )}
-        >
-          <svg
-            className={cn('w-4 h-4 flex-shrink-0', isStatsActive ? 'text-cream' : 'text-sage')}
-            viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
-          >
-            <path d="M2 13V7M6 13V4M10 13V8M14 13V6" />
-          </svg>
-          통계
-        </Link>
-      ) : (
-        <span className="block px-2.5 py-2 rounded-[8px] text-[13.5px] text-cream/40 cursor-not-allowed select-none">
-          <span className="flex items-center gap-2.5">
-            <svg className="w-4 h-4 text-cream/30 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
-              <path d="M2 13V7M6 13V4M10 13V8M14 13V6" />
-            </svg>
-            통계
-          </span>
-          <span className="mt-0.5 block pl-[26px] text-[11px] leading-tight text-cream/30">
-            모집을 먼저 선택하세요
-          </span>
-        </span>
-      )}
-
-      <p className="px-2.5 pt-3.5 pb-1.5 text-[11px] uppercase tracking-[0.12em] text-cream/50">
-        관리
-      </p>
-
-      <Link
-        href={infoPath}
-        className={cn(
-          'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
-          isInfoActive
-            ? 'bg-ink text-cream font-semibold'
-            : 'text-cream/80 hover:bg-ink/60',
-        )}
-      >
-        <svg
-          className={cn('w-4 h-4 flex-shrink-0', isInfoActive ? 'text-cream' : 'text-sage')}
-          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
-        >
-          <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
-          <path d="M5 6h6M5 9h4" />
-        </svg>
-        동아리 정보
-      </Link>
-
-      <Link
-        href={photosPath}
-        className={cn(
-          'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
-          isPhotosActive
-            ? 'bg-ink text-cream font-semibold'
-            : 'text-cream/80 hover:bg-ink/60',
-        )}
-      >
-        <svg
-          className={cn('w-4 h-4 flex-shrink-0', isPhotosActive ? 'text-cream' : 'text-sage')}
-          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
-        >
-          <rect x="2.5" y="3.5" width="11" height="9" rx="1.5" />
-          <circle cx="6" cy="7" r="1.2" />
-          <path d="M3 11l3-2 3 2 4-3" />
-        </svg>
-        활동사진
-      </Link>
-
-      <Link
-        href={membersPath}
-        className={cn(
-          'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
-          isMembersActive
-            ? 'bg-ink text-cream font-semibold'
-            : 'text-cream/80 hover:bg-ink/60',
-        )}
-      >
-        <svg
-          className={cn('w-4 h-4 flex-shrink-0', isMembersActive ? 'text-cream' : 'text-sage')}
-          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
-        >
-          <circle cx="6" cy="6" r="2.4" />
-          <path d="M2 13c.4-2 2-3.3 4-3.3s3.6 1.3 4 3.3" />
-          <circle cx="12" cy="5.5" r="1.7" />
-          <path d="M11 12.6c.5-1.5 1.7-2.5 3-2.5" />
-        </svg>
-        멤버 관리
-      </Link>
-
-      <Link
-        href={feesPath}
-        className={cn(
-          'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
-          isFeesActive
-            ? 'bg-ink text-cream font-semibold'
-            : 'text-cream/80 hover:bg-ink/60',
-        )}
-      >
-        <svg
-          className={cn('w-4 h-4 flex-shrink-0', isFeesActive ? 'text-cream' : 'text-sage')}
-          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
-        >
-          <circle cx="8" cy="8" r="6" />
-          <path d="M6 6l2 3 2-3M8 9v2M6.3 8.4h3.4" />
-        </svg>
-        회비 관리
-      </Link>
-
-      <Link
-        href={facilityBookingsPath}
-        className={cn(
-          'flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-[13.5px] transition-colors',
-          isFacilityBookingsActive
-            ? 'bg-ink text-cream font-semibold'
-            : 'text-cream/80 hover:bg-ink/60',
-        )}
-      >
-        <svg
-          className={cn('w-4 h-4 flex-shrink-0', isFacilityBookingsActive ? 'text-cream' : 'text-sage')}
-          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
-        >
-          <rect x="2.5" y="3" width="11" height="10.5" rx="1.5" />
-          <path d="M2.5 6h11M5.5 2v2M10.5 2v2" />
-        </svg>
-        시설 예약
-      </Link>
+    <nav
+      aria-label="운영 메뉴"
+      className={cn('min-h-0 flex-1 overflow-y-auto pb-2', collapsed ? 'px-3.5' : 'px-4')}
+    >
+      {groups.map((group, groupIndex) => (
+        <div key={group.label ?? 'top'} className="mb-1.5">
+          {group.label &&
+            (collapsed ? (
+              groupIndex > 0 && <div aria-hidden className="mx-2 my-2 h-px bg-white/10" />
+            ) : (
+              <p className="px-3 pb-1 pt-2.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-white/35">
+                {group.label}
+              </p>
+            ))}
+          {group.items.map((item) => (
+            <ManageNavItem key={item.key} item={item} collapsed={collapsed} />
+          ))}
+        </div>
+      ))}
     </nav>
+  );
+}
+
+function ManageNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
+  const Icon = item.icon;
+
+  if (item.href === null) {
+    // 지원자/통계 — 모집 컨텍스트가 없을 때의 비활성 안내
+    if (collapsed) {
+      return (
+        <span
+          title={`${item.label} — ${DISABLED_HINT}`}
+          className="my-0.5 flex cursor-not-allowed select-none justify-center rounded-md py-2.5 text-white/25"
+        >
+          <Icon size={19} aria-hidden className="shrink-0" />
+          <span className="sr-only">{`${item.label} — ${DISABLED_HINT}`}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="my-0.5 block cursor-not-allowed select-none rounded-md px-3 py-2.5 text-[13.5px] text-white/35">
+        <span className="flex items-center gap-3">
+          <Icon size={19} aria-hidden className="shrink-0 text-white/25" />
+          {item.label}
+        </span>
+        <span className="mt-0.5 block pl-8 text-[11px] leading-tight text-white/30">{DISABLED_HINT}</span>
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      aria-current={item.active ? 'page' : undefined}
+      title={collapsed ? item.label : undefined}
+      className={cn(
+        'relative my-0.5 flex items-center gap-3 rounded-md py-2.5 text-[13.5px] font-semibold outline-none',
+        'focus-visible:ring-2 focus-visible:ring-sage motion-safe:transition-colors motion-safe:duration-200',
+        collapsed ? 'justify-center px-0' : 'px-3',
+        item.active ? 'bg-white/10 font-bold text-white' : 'text-white/60 hover:bg-white/5 hover:text-white',
+      )}
+    >
+      {item.active && (
+        <span
+          aria-hidden
+          className={cn(
+            'absolute top-1/2 h-[26px] w-[5px] -translate-y-1/2 rounded-full bg-sage',
+            collapsed ? '-left-3.5' : '-left-4',
+          )}
+        />
+      )}
+      <Icon size={19} aria-hidden className={cn('shrink-0', item.active && 'text-sage')} />
+      {collapsed ? (
+        <span className="sr-only">{item.label}</span>
+      ) : (
+        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      )}
+    </Link>
   );
 }
