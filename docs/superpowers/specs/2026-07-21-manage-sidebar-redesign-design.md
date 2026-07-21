@@ -59,7 +59,7 @@
     - 공용 Badge 컴포넌트가 레포에 없으므로 팔레트 토큰 조합으로 정의한다. 드롭다운 서브라인의
       모집 상태 텍스트도 같은 색 규칙(sage-soft / white/50)을 따른다.
   - chevron은 드롭다운 열림 시 180° 회전(`transition-transform 200ms`).
-- **드롭다운**: shadcn `DropdownMenu` 재사용. 다크 표면(`#2A382F`, 보더 `white/12`).
+- **드롭다운**: shadcn `DropdownMenu` 재사용. 다크 표면(`#2A382F`, 보더 `white/10`).
   - 항목 구성(운영 동아리 수만큼): 아바타(30px) + 클럽명(truncate) + 서브라인 **"역할 · 모집중/모집종료"**.
   - **현재 클럽에 ✓ 체크(lucide `Check`, sage)** 표시.
   - 선택 시 `router.push(/manage/clubs/{clubId})`. 모바일 드로어에서는 선택 후 드로어도 닫는다 —
