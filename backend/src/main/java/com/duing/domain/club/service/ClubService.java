@@ -27,6 +27,9 @@ public interface ClubService {
 
     void update(UpdateClubCommand updateClubCommand);
 
+    /** 총동연(ADMIN) 전용 프로필 수정 — 리더 멤버십·상태 게이트 없이 조회 가능한 모든 상태의 동아리를 수정한다. */
+    void updateAsAdmin(UpdateClubCommand updateClubCommand);
+
     void updateStatus(UpdateClubStatusCommand updateClubStatusCommand);
 
     void updateCentralClub(UpdateClubCentralClubCommand updateClubCentralClubCommand);

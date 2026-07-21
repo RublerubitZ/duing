@@ -3,6 +3,7 @@ package com.duing.domain.club.api;
 import com.duing.domain.club.controller.dto.request.CloseClubRequest;
 import com.duing.domain.club.controller.dto.request.CreateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
+import com.duing.domain.club.controller.dto.request.UpdateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
 import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
@@ -45,6 +46,16 @@ public interface AdminClubApi {
             description = "상태 무관 동아리 상세 조회. 공개 GET /clubs/{clubId} 와 응답 형태가 동일하지만, ADMIN 권한 가드 하에 PENDING_APPROVAL/REJECTED/INACTIVE 동아리도 조회 가능하다.")
     @GetMapping("/admin/clubs/{clubId}")
     ResponseEntity<ApiResponse<ClubDetailResponse>> getAdminClub(@PathVariable Long clubId);
+
+    @Operation(summary = "동아리 정보 수정 (ADMIN)",
+            description = "총동연이 임의 동아리의 기본 정보를 부분 수정한다. 리더 PATCH /clubs/{clubId} 와 동일한 입력·검증을 쓰며, "
+                    + "리더 멤버십 대신 ADMIN 권한으로 접근한다. null/미포함 필드는 변경되지 않고, 조회 가능한 모든 상태의 동아리를 수정할 수 있다.")
+    @PatchMapping("/admin/clubs/{clubId}")
+    ResponseEntity<ApiResponse<ClubDetailResponse>> updateClub(
+            @PathVariable Long clubId,
+            @Valid @RequestBody UpdateClubRequest updateClubRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
 
     @Operation(summary = "동아리 생성", description = "총동연이 신규 동아리를 등록한다. 기본 상태는 PENDING_APPROVAL.")
     @PostMapping("/admin/clubs")
