@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import { notFound } from 'next/navigation';
-import { useClubDetailQuery, useManagedClubsQuery } from '@duing/hooks';
+import { useClubDetailQuery, useManagedClubsQuery, useUpdateClubMutation } from '@duing/hooks';
 import { ClubInfoForm } from './_components/ClubInfoForm';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
@@ -18,6 +18,7 @@ export default function ClubInfoPage({
   const { data: detail, isLoading: isDetailLoading } = useClubDetailQuery(
     isNaN(currentClubId) ? undefined : currentClubId,
   );
+  const updateMutation = useUpdateClubMutation(currentClubId);
 
   if (isManagedClubsLoading || isDetailLoading) {
     return <LoadingGate label="동아리 정보 불러오는 중" />;
@@ -34,5 +35,5 @@ export default function ClubInfoPage({
 
   const readOnly = managedClub.myRole !== 'LEADER';
 
-  return <ClubInfoForm clubId={currentClubId} detail={detail} readOnly={readOnly} />;
+  return <ClubInfoForm detail={detail} readOnly={readOnly} mutation={updateMutation} />;
 }

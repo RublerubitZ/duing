@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import type { ClubDetail, ClubDayOfWeek, College, UpdateClubPayload } from '@duing/types';
 import { updateClubSchema } from '@duing/schemas';
-import { useUpdateClubMutation } from '@duing/hooks';
 import { TagsInput } from './TagsInput';
 import { SnsLinksRepeater } from './SnsLinksRepeater';
 import { FaqsRepeater } from './FaqsRepeater';
@@ -15,10 +14,17 @@ import { ImageUploader } from '@/app/_components/ImageUploader';
 import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
+type ClubUpdateMutation = {
+  mutateAsync: (payload: UpdateClubPayload) => Promise<ClubDetail>;
+  isPending: boolean;
+};
+
 type ClubInfoFormProps = {
-  clubId: number;
   detail: ClubDetail;
   readOnly: boolean;
+  mutation: ClubUpdateMutation;
+  onCancel?: () => void;
+  onSaved?: () => void;
 };
 
 const CATEGORIES = ['ACADEMIC', 'CULTURE', 'ART', 'SPORTS', 'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER'] as const;
@@ -55,7 +61,7 @@ const groupCardCls =
 const groupLegendCls =
   'absolute -top-[10px] left-4 bg-white px-2 text-[12px] font-semibold text-[#3e5b34] tracking-[0.02em]';
 
-export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
+export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: ClubInfoFormProps) {
   const [name, setName] = useState(detail.name);
   const [category, setCategory] = useState(detail.category);
   const [division, setDivision] = useState(detail.division ?? '');
@@ -85,8 +91,6 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
 
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
-
-  const mutation = useUpdateClubMutation(clubId);
 
   function buildPayload(): UpdateClubPayload {
     const payload: UpdateClubPayload = {};
@@ -175,6 +179,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
     try {
       await mutation.mutateAsync(payload);
       setSavedAt(new Date());
+      onSaved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
     }
@@ -538,7 +543,7 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
 
         {/* 저장 버튼 */}
         {!readOnly && (
-          <div className="mt-6">
+          <div className="mt-6 flex items-center gap-2">
             <button
               type="submit"
               disabled={mutation.isPending}
@@ -546,6 +551,16 @@ export function ClubInfoForm({ clubId, detail, readOnly }: ClubInfoFormProps) {
             >
               {mutation.isPending && <ButtonSpinner />}저장
             </button>
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={mutation.isPending}
+                className="rounded-[8px] border border-[#cfcab8] px-4 py-2 text-[14px] text-[#4a5247] hover:bg-[#f5f3ec] disabled:opacity-50"
+              >
+                취소
+              </button>
+            )}
           </div>
         )}
 
