@@ -104,7 +104,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
             throw new InterviewException.InterviewNotUsed();
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         if (createCommand.availabilityDeadline() != null
                 && !createCommand.availabilityDeadline().isAfter(now)) {
             throw new InterviewException.InvalidDeadline();

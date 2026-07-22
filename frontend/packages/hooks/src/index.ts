@@ -141,6 +141,7 @@ export {
   useUpdateClubStatusMutation,
   useCloseClubMutation,
   useUpdateClubCentralClubMutation,
+  useAdminUpdateClubMutation,
 } from './admin';
 export { adminQueryKeys } from './adminQueryKeys';
 export {

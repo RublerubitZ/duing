@@ -121,6 +121,18 @@ class AuthControllerSignupTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("금칙어 이름으로 가입하면 세션 검증보다 먼저 400 과 안내 메시지를 반환한다")
+    void signupRejectsReservedName() {
+        Map<String, Object> reservedNameBody = new HashMap<>(validBody(UUID.randomUUID().toString()));
+        reservedNameBody.put("name", "테스트");
+
+        given().contentType(ContentType.JSON).body(reservedNameBody)
+                .when().post("/api/v1/auth/signup")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("사용할 수 없는 이름입니다. 다른 이름을 입력해 주세요."));
+    }
+
+    @Test
     @DisplayName("가입이 완료되면 세션 행은 삭제되고 userId 가 포함된 CONSUMED 감사 이벤트가 남는다")
     void signupConsumesSessionAndRecordsAuditEvent() {
         String token = prepareVerifiedPhone("010-1234-5678");

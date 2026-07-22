@@ -159,7 +159,18 @@ public class GeneralClubService implements ClubService {
     public void update(UpdateClubCommand updateClubCommand) {
         // 프로필 보완 게이트(D6) — 재심사 보완(PENDING_APPROVAL·REJECTED)을 허용해야 하므로 운영 행위 게이트를 쓰지 않는다.
         clubAuthService.requireEditableClubLeader(updateClubCommand.requesterId(), updateClubCommand.clubId());
+        applyProfileUpdate(updateClubCommand);
+    }
 
+    @Override
+    @Transactional
+    public void updateAsAdmin(UpdateClubCommand updateClubCommand) {
+        // 총동연(ADMIN) 수정 — 웹 계층 @PreAuthorize("hasRole('ADMIN')") 가 권한을 이미 검증한다.
+        // 리더 멤버십·동아리 상태 게이트 없이 조회 가능한(soft-delete 되지 않은) 모든 상태의 동아리를 수정한다.
+        applyProfileUpdate(updateClubCommand);
+    }
+
+    private void applyProfileUpdate(UpdateClubCommand updateClubCommand) {
         Club club = clubRepository.findById(updateClubCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
 

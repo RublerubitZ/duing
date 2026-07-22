@@ -5,6 +5,7 @@ import type {
   CloseClubPayload,
   CreateClubPayload,
   UpdateClubCentralClubPayload,
+  UpdateClubPayload,
   UpdateClubStatusPayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
@@ -139,6 +140,21 @@ export function useUpdateClubCentralClubMutation() {
     mutationFn: ({ clubId, payload }: { clubId: number; payload: UpdateClubCentralClubPayload }) =>
       client.clubs.updateCentralClub(clubId, payload),
     onSuccess: (_, { clubId }) => {
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
+    },
+  });
+}
+
+export function useAdminUpdateClubMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateClubPayload) => client.admin.clubs.update(clubId, payload),
+    onSuccess: (updated) => {
+      // 관리자 상세는 반환값으로 즉시 갱신, 나머지 관리자/공개 목록·상세는 무효화해 재조회.
+      queryClient.setQueryData(adminQueryKeys.clubsDetail(clubId), updated);
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });

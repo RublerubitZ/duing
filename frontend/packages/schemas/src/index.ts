@@ -26,15 +26,43 @@ const COLLEGE_VALUES = [
   'FREE_MAJOR',
 ] as const;
 
+// 회원 이름 금칙어 — 테스트 계정·장난 입력·운영자 사칭용 이름 차단. 소문자 정규화 후 정확 일치 시 거부.
+// BE ReservedNamePolicy 와 동일 목록 유지(최종 검증은 백엔드).
+export const RESERVED_NAMES: readonly string[] = [
+  '테스트',
+  '테스터',
+  '관리자',
+  '운영자',
+  '최고관리자',
+  '아무개',
+  '샘플',
+  '예시',
+  'example',
+  'test',
+  'admin',
+  'qwer',
+  'asdf',
+];
+
+// 회원 실명 공용 규칙 — 가입·프로필 수정 동일 정책.
+// 한글 완성형(가~힣) 2~7자만 허용(자모·공백·숫자·영문·특수문자·이모지 불가), trim 후 검증·저장.
+// 다국어 지원 시 이 정규식만 확장하면 된다. BE SignupRequest/UpdateProfileRequest 와 동일.
+export const userNameSchema = z
+  .string()
+  .trim()
+  .min(1, '이름은 필수 입력값입니다.')
+  .regex(/^[가-힣]{2,7}$/, '이름은 한글 2~7자만 입력할 수 있습니다.')
+  .refine(
+    (name) => !RESERVED_NAMES.includes(name.toLowerCase()),
+    '사용할 수 없는 이름입니다. 다른 이름을 입력해 주세요.',
+  );
+
 export const signupSchema = z.object({
   studentId: z
     .string()
     .min(1, '학번은 필수 입력값입니다.')
     .regex(/^\d{8}$/, '학번은 8자리 숫자여야 합니다.'),
-  name: z
-    .string()
-    .min(1, '이름은 필수 입력값입니다.')
-    .max(50, '이름은 50자 이하여야 합니다.'),
+  name: userNameSchema,
   password: passwordSchema,
   grade: z.enum(GRADE_VALUES, { errorMap: () => ({ message: '학년을 선택해주세요.' }) }),
   college: z.enum(COLLEGE_VALUES, { errorMap: () => ({ message: '단과대학을 선택해주세요.' }) }),

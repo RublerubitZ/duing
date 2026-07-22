@@ -515,6 +515,8 @@ export type DuingApiClient = {
       detail(clubId: number): Promise<ClubDetail>;
       /** 학교 제출용 동아리원 명단(이름·학번·전공·단과대). 총동연 전용, 소속 무관 조회. */
       members(clubId: number): Promise<AdminClubMember[]>;
+      /** 총동연 전용 동아리 정보 수정. 리더 PATCH clubs/{id} 와 동일 payload, ADMIN 권한으로 접근. */
+      update(clubId: number, payload: UpdateClubPayload): Promise<ClubDetail>;
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
@@ -1361,6 +1363,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         detail: (clubId) => jsonOk<ClubDetail>(http.get(`admin/clubs/${clubId}`)),
         members: (clubId) =>
           jsonOk<AdminClubMember[]>(http.get(`admin/clubs/${clubId}/members`)),
+        update: (clubId, payload) =>
+          jsonOk<ClubDetail>(http.patch(`admin/clubs/${clubId}`, { json: payload })),
       },
       users: {
         search: (params) =>

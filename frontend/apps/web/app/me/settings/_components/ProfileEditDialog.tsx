@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { ApiError } from '@duing/api';
 import { useUpdateProfileMutation } from '@duing/hooks';
+import { userNameSchema } from '@duing/schemas';
 import type { Grade } from '@duing/types';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -36,13 +37,14 @@ export function ProfileEditDialog({ open, onClose, currentName, currentGrade }: 
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!name.trim()) {
-      setError('이름을 입력해 주세요.');
+    const parsedName = userNameSchema.safeParse(name);
+    if (!parsedName.success) {
+      setError(parsedName.error.issues[0]?.message ?? '이름을 확인해 주세요.');
       return;
     }
     setError(null);
     updateMutation.mutate(
-      { name: name.trim(), grade },
+      { name: parsedName.data, grade },
       {
         onSuccess: () => {
           addToast('프로필을 수정했어요.');
@@ -75,7 +77,7 @@ export function ProfileEditDialog({ open, onClose, currentName, currentGrade }: 
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              maxLength={50}
+              maxLength={7}
               className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
             />
           </label>

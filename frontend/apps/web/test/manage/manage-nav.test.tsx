@@ -63,3 +63,14 @@ describe('ManageNav — 지원자/통계 컨텍스트 활성화', () => {
     );
   });
 });
+
+describe('ManageNav — 접힘 상태', () => {
+  it('접힘 시 링크의 접근 가능한 이름은 유지되고 title 툴팁이 제공되며, 비활성 안내문은 숨겨진다', () => {
+    mockUsePathname.mockReturnValue(`/manage/clubs/${CLUB_ID}`);
+    render(<ManageNav currentClubId={CLUB_ID} collapsed />);
+
+    const dashboardLink = screen.getByRole('link', { name: '대시보드' });
+    expect(dashboardLink).toHaveAttribute('title', '대시보드');
+    expect(screen.queryByText('모집을 먼저 선택하세요')).not.toBeInTheDocument();
+  });
+});

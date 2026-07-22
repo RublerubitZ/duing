@@ -14,8 +14,10 @@ public record SignupRequest(
         @Pattern(regexp = "\\d{8}", message = "학번은 8자리 숫자여야 합니다.")
         String studentId,
 
+        // 한국어 기반 서비스 정책 — 한글 완성형(가~힣) 2~7자만 허용(자모·공백·숫자·영문·특수문자·이모지 불가).
+        // 다국어 지원 시 이 정규식만 확장하면 된다. FE signupSchema 와 동일 정책.
         @NotBlank(message = "이름은 필수 입력값입니다.")
-        @Size(max = 50, message = "이름은 50자 이하여야 합니다.")
+        @Pattern(regexp = "^[가-힣]{2,7}$", message = "이름은 한글 2~7자만 입력할 수 있습니다.")
         String name,
 
         @NotBlank(message = "비밀번호는 필수 입력값입니다.")
@@ -48,6 +50,13 @@ public record SignupRequest(
         @AssertTrue(message = "개인정보 수집·이용에 동의해야 합니다.")
         Boolean privacyPolicyAgreed
 ) {
+    // 이름은 저장 전 앞뒤 공백을 제거한다 — 역직렬화 직후(검증 전) 실행되므로 @Pattern 도 trim 값 기준으로 평가된다.
+    public SignupRequest {
+        if (name != null) {
+            name = name.strip();
+        }
+    }
+
     public SignupCommand toCommand() {
         return new SignupCommand(studentId, name, password, grade, college, major, verificationToken);
     }

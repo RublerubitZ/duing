@@ -13,7 +13,10 @@ import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsDailyPointQuery;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +27,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
 
 class RecruitmentStatsDailyServiceTest {
+
+    // 2025-03-09T15:00Z = 2025-03-10 00:00 KST — "오늘"을 KST 기준으로 고정한다
+    private static final Clock FIXED_SEOUL_CLOCK =
+            Clock.fixed(Instant.parse("2025-03-09T15:00:00Z"), ZoneId.of("Asia/Seoul"));
 
     private RecruitmentRepository recruitmentRepository;
     private RecruitmentStatsRepositoryCustom recruitmentStatsRepository;
@@ -38,7 +45,8 @@ class RecruitmentStatsDailyServiceTest {
         recruitmentStatsService = new GeneralRecruitmentStatsService(
                 recruitmentRepository,
                 recruitmentStatsRepository,
-                clubAuthService
+                clubAuthService,
+                FIXED_SEOUL_CLOCK
         );
     }
 
@@ -108,6 +116,31 @@ class RecruitmentStatsDailyServiceTest {
         result.forEach(dailyPoint -> assertThat(dailyPoint.submittedCount()).isEqualTo(0L));
         assertThat(result.get(0).date()).isEqualTo(startDate);
         assertThat(result.get(6).date()).isEqualTo(endDate);
+    }
+
+    @Test
+    @DisplayName("상시모집(종료일 없음)은 시작일부터 오늘(KST)까지 0으로 padding된 일별 통계가 반환된다")
+    void alwaysOpenRecruitmentIsPaddedFromStartDateToToday() {
+        Long recruitmentId = 5L;
+        Long clubId = 10L;
+        Long currentUserId = 100L;
+
+        LocalDate today = LocalDate.now(FIXED_SEOUL_CLOCK);
+        LocalDate startDate = today.minusDays(4);
+        mockRecruitmentWithPeriod(recruitmentId, clubId, startDate, null);
+
+        Map<LocalDate, Long> dailySubmissionCounts = new HashMap<>();
+        dailySubmissionCounts.put(startDate, 3L);
+        when(recruitmentStatsRepository.findDailySubmissionCounts(recruitmentId, startDate, today))
+                .thenReturn(dailySubmissionCounts);
+
+        List<StatsDailyPointQuery> result = recruitmentStatsService.getDaily(recruitmentId, currentUserId);
+
+        assertThat(result).hasSize(5);
+        assertThat(result.get(0).date()).isEqualTo(startDate);
+        assertThat(result.get(0).submittedCount()).isEqualTo(3L);
+        assertThat(result.get(4).date()).isEqualTo(today);
+        assertThat(result.get(4).submittedCount()).isEqualTo(0L);
     }
 
     @Test

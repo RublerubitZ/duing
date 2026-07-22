@@ -76,6 +76,42 @@ describe('ProfileEditDialog', () => {
     expect(await screen.findByText('프로필을 수정했어요.')).toBeInTheDocument();
   });
 
+  // 아래 두 케이스는 MSW 핸들러를 등록하지 않는다 — 검증 실패 시 PATCH 가 나가면
+  // onUnhandledRequest: 'error' 로 테스트가 실패하므로 "API 호출 없음"까지 함께 검증된다.
+  it('한글 2~7자가 아닌 이름이면 API 호출 없이 오류 메시지를 보여준다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
+    );
+
+    const name = screen.getByDisplayValue('홍길동');
+    await user.clear(name);
+    await user.type(name, 'Terry');
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(await screen.findByText('이름은 한글 2~7자만 입력할 수 있습니다.')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('금칙어 이름이면 API 호출 없이 안내 메시지를 보여준다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
+    );
+
+    const name = screen.getByDisplayValue('홍길동');
+    await user.clear(name);
+    await user.type(name, '테스트');
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(
+      await screen.findByText('사용할 수 없는 이름입니다. 다른 이름을 입력해 주세요.'),
+    ).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('학년 셀렉트가 렌더되고, 학년을 변경하면 PATCH 페이로드에 grade가 포함된다', async () => {
     let capturedBody: unknown = null;
     server.use(

@@ -67,7 +67,7 @@ export function SignupStepProfile({
           <input
             id="signup-name"
             required
-            maxLength={50}
+            maxLength={7}
             value={state.name}
             onChange={(changeEvent) => setField('name', changeEvent.target.value)}
             placeholder="김도윤"
