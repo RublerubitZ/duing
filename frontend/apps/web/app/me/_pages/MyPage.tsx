@@ -64,7 +64,6 @@ export function MyPage() {
     programmaticScroll.current = true;
     setActiveTab(id as SectionId);
 
-    const TAB_OFFSET = 56;
     const GAP = 8;
 
     const titleEl = sectionEl.querySelector('[data-section-title]') ?? sectionEl;
@@ -72,7 +71,11 @@ export function MyPage() {
     const titleRect = titleEl.getBoundingClientRect();
 
     const scale = root.offsetWidth ? rootRect.width / root.offsetWidth : 1;
-    const visualDelta = titleRect.top - rootRect.top - (TAB_OFFSET + GAP) * scale;
+    // 탭바가 모바일에서 flex-wrap 으로 2줄이 되어 높이가 반응형으로 달라짐 → 상수 대신 sticky 탭바 실측.
+    // getBoundingClientRect() 는 이미 비주얼(시각) 좌표라 실측 높이엔 scale 을 다시 곱하지 않는다(fallback 만 곱).
+    const stickyEl = root.querySelector('[data-mypage-tabs]');
+    const tabsVisualHeight = stickyEl ? stickyEl.getBoundingClientRect().height : 56 * scale;
+    const visualDelta = titleRect.top - rootRect.top - tabsVisualHeight - GAP * scale;
     const delta = visualDelta / scale;
     const top = Math.max(0, root.scrollTop + delta);
 
@@ -89,15 +92,16 @@ export function MyPage() {
     const root = scrollRef.current;
     if (!root) return;
 
-    const TAB_OFFSET = 72;
-
     const compute = () => {
       rafRef.current = 0;
       if (programmaticScroll.current) return;
 
       const rootRect = root.getBoundingClientRect();
       const scale = root.offsetWidth ? rootRect.width / root.offsetWidth : 1;
-      const line = rootRect.top + TAB_OFFSET * scale;
+      // 탭바 높이는 모바일 2줄 랩으로 반응형 → 상수(72) 대신 실측(비주얼 좌표)에 여유 16 을 더한 기준선.
+      const stickyEl = root.querySelector('[data-mypage-tabs]');
+      const tabsVisualHeight = stickyEl ? stickyEl.getBoundingClientRect().height : 56 * scale;
+      const line = rootRect.top + tabsVisualHeight + 16 * scale;
 
       let nextActive: SectionId = 'apply';
       for (const section of SECTIONS) {
