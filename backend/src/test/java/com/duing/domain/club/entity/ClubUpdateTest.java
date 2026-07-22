@@ -8,24 +8,25 @@ import org.junit.jupiter.api.Test;
 
 class ClubUpdateTest {
 
+    // UpdatePayload 컴포넌트(24개) 그룹:
+    //  A(1~9)  name, category, division, description, logoUrl, coverUrl, tags, snsLinks, faqs
+    //  B(10~16) foundedYear, cohortNumber, location, activityFrequency, activeDays, tagline, highlights
+    //  C(17~20) contactVisibility, feeCycle, membershipFeeAmount, projects
+    //  D(21~24) college, clearCollege, clearLogoImage, clearCoverImage
+
     @Test
     @DisplayName("update 는 null 이 아닌 필드만 부분 갱신한다")
     void updatesOnlyNonNullFields() {
         Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "원본 설명", "https://logo");
 
         club.update(new Club.UpdatePayload(
-                "두잉 NEW",
-                null,
-                null,
-                null,
-                null,
-                "https://cover",
+                "두잉 NEW", null, null, null, null, "https://cover",
                 List.of("코딩", "스터디"),
-                List.of(new ClubSnsLink("INSTAGRAM", "https://insta")),
+                List.of(new ClubSnsLink("INSTAGRAM", null, "https://insta")),
                 List.of(new ClubFaq("Q1", "A1", 0)),
-                null, null, null, null, null, null, null,
-                null, null, null,
-                null, null, null, null
+                null, null, null, null, null, null, null,   // B
+                null, null, null, null,                     // C
+                null, null, null, null                      // D
         ));
 
         assertThat(club.getName()).isEqualTo("두잉 NEW");
@@ -44,11 +45,12 @@ class ClubUpdateTest {
     void dedupesTags() {
         Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");
 
-        club.update(new Club.UpdatePayload(null, null, null, null, null, null,
+        club.update(new Club.UpdatePayload(
+                null, null, null, null, null, null,
                 List.of("코딩", "스터디", "코딩"), null, null,
-                null, null, null, null, null, null, null,
-                null, null, null,
-                null, null, null, null));
+                null, null, null, null, null, null, null,   // B
+                null, null, null, null,                     // C
+                null, null, null, null));                   // D
 
         assertThat(club.getTags()).containsExactly("코딩", "스터디");
     }
@@ -58,10 +60,11 @@ class ClubUpdateTest {
     void keepsExistingValuesWhenAllArgsNull() {
         Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");
 
-        club.update(new Club.UpdatePayload(null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null,
-                null, null, null,
-                null, null, null, null));
+        club.update(new Club.UpdatePayload(
+                null, null, null, null, null, null, null, null, null,   // A
+                null, null, null, null, null, null, null,               // B
+                null, null, null, null,                                 // C
+                null, null, null, null));                               // D
 
         assertThat(club.getName()).isEqualTo("두잉");
         assertThat(club.getCategory()).isEqualTo(ClubCategory.ACADEMIC);
@@ -74,18 +77,18 @@ class ClubUpdateTest {
     @DisplayName("clearLogoImage/clearCoverImage 가 true 면 로고·커버가 null 로 비워지고 같은 요청의 새 값보다 우선한다")
     void clearsImagesWithPrecedence() {
         Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");
-        club.update(new Club.UpdatePayload(null, null, null, null, null, "https://cover",
-                null, null, null,
-                null, null, null, null, null, null, null,
-                null, null, null,
-                null, null, null, null));
+        club.update(new Club.UpdatePayload(
+                null, null, null, null, null, "https://cover", null, null, null,   // A
+                null, null, null, null, null, null, null,                          // B
+                null, null, null, null,                                            // C
+                null, null, null, null));                                          // D
         assertThat(club.getCoverUrl()).isEqualTo("https://cover");
 
-        club.update(new Club.UpdatePayload(null, null, null, null, "https://new-logo", "https://new-cover",
-                null, null, null,
-                null, null, null, null, null, null, null,
-                null, null, null,
-                null, null, true, true));
+        club.update(new Club.UpdatePayload(
+                null, null, null, null, "https://new-logo", "https://new-cover", null, null, null,   // A
+                null, null, null, null, null, null, null,                                            // B
+                null, null, null, null,                                                              // C
+                null, null, true, true));                                                            // D (clearLogoImage/clearCoverImage)
 
         assertThat(club.getLogoUrl()).isNull();
         assertThat(club.getCoverUrl()).isNull();
@@ -97,13 +100,10 @@ class ClubUpdateTest {
         Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "원본 설명", "https://logo");
 
         club.update(new Club.UpdatePayload(
-                null, null, null, "",     // name, category, division, description=""
-                null, null,               // logoUrl, coverUrl
-                null, null, null,         // tags, snsLinks, faqs
-                null, null, "",           // foundedYear, cohortNumber, location=""
-                null, null, null, null,   // contactEmail, activityFrequency, activeDays, membershipFee
-                null, null, null,         // tagline, highlights, majorProjects
-                null, null, null, null)); // college, clearCollege, clearLogoImage, clearCoverImage
+                null, null, null, "", null, null, null, null, null,   // A: description=""
+                null, null, "", null, null, null, null,               // B: location=""
+                null, null, null, null,                               // C
+                null, null, null, null));                             // D
 
         assertThat(club.getDescription()).isNull();
         assertThat(club.getLocation()).isNull();

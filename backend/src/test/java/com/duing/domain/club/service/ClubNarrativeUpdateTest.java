@@ -38,7 +38,7 @@ class ClubNarrativeUpdateTest {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("tagline/highlights/majorProjects 를 업데이트하면 ClubDetail 응답에 그대로 반영된다")
+    @DisplayName("tagline/highlights 를 업데이트하면 ClubDetail 응답에 그대로 반영된다")
     void updateAndReadNarrativeContent() throws Exception {
         User leader = saveUser("서술리더");
         Club club = saveActiveClub("서술동아리");
@@ -46,20 +46,18 @@ class ClubNarrativeUpdateTest {
 
         clubService.update(new UpdateClubCommand(
                 club.getId(), leader.getId(),
-                null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null,
-                "코드를 두잉",
-                List.of("개발 기초 다진 사람", "사이드 프로젝트 동료 필요한 사람"),
-                "올해는 이번 학기 박람회 부스 안내 앱을 만들고 있어요.",
-                null, null, null, null
+                null, null, null, null, null, null, null, null, null,  // name~faqs
+                null, null, null, null, null,                          // foundedYear~activeDays
+                "코드를 두잉",                                           // tagline
+                List.of("개발 기초 다진 사람", "사이드 프로젝트 동료 필요한 사람"),  // highlights
+                null, null, null, null,                                // contactVisibility, feeCycle, membershipFeeAmount, projects
+                null, null, null, null                                 // college, clearCollege, clearLogoImage, clearCoverImage
         ));
 
         ClubDetailQuery detail = clubService.getById(club.getId());
         assertThat(detail.tagline()).isEqualTo("코드를 두잉");
         assertThat(detail.highlights())
                 .containsExactly("개발 기초 다진 사람", "사이드 프로젝트 동료 필요한 사람");
-        assertThat(detail.majorProjects())
-                .isEqualTo("올해는 이번 학기 박람회 부스 안내 앱을 만들고 있어요.");
     }
 
     @Test
@@ -71,10 +69,12 @@ class ClubNarrativeUpdateTest {
 
         clubService.update(new UpdateClubCommand(
                 club.getId(), leader.getId(),
-                null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null,
-                null, List.of(), null,
-                null, null, null, null
+                null, null, null, null, null, null, null, null, null,  // name~faqs
+                null, null, null, null, null,                          // foundedYear~activeDays
+                null,                                                  // tagline
+                List.of(),                                             // highlights
+                null, null, null, null,                                // contactVisibility, feeCycle, membershipFeeAmount, projects
+                null, null, null, null                                 // college, clearCollege, clearLogoImage, clearCoverImage
         ));
 
         ClubDetailQuery detail = clubService.getById(club.getId());

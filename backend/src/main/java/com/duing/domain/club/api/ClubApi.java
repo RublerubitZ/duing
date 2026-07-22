@@ -54,7 +54,8 @@ public interface ClubApi {
     ResponseEntity<ApiResponse<ClubDetailResponse>> getClub(@PathVariable Long clubId);
 
     @Operation(summary = "동아리 정보 수정 (LEADER)",
-            description = "본인이 LEADER 인 동아리의 기본 정보를 부분 수정한다. null/미포함 필드는 변경되지 않는다.")
+            description = "본인이 LEADER 인 동아리의 프로필을 부분 수정한다. null/미포함 필드는 변경되지 않는다. "
+                    + "동아리명·카테고리·분과·단과대학은 총동연 전용(PATCH /admin/clubs/{clubId}) — 이 요청으로는 수정할 수 없다.")
     @SecurityRequirement(name = "bearerAuth")
     @PatchMapping("/clubs/{clubId}")
     ResponseEntity<ApiResponse<ClubDetailResponse>> updateClub(

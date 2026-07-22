@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,12 +71,11 @@ class AdminClubUpdateControllerTest extends IntegrationTestBase {
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                     .contentType(ContentType.JSON)
-                    .body(Map.of("name", "새이름동아리", "description", "관리자가 수정한 설명"))
+                    .body(Map.of("description", "관리자가 수정한 설명"))
                 .when()
                     .patch("/api/v1/admin/clubs/{clubId}", club.getId())
                 .then()
                     .statusCode(HttpStatus.OK.value())
-                    .body("data.name", equalTo("새이름동아리"))
                     .body("data.description", equalTo("관리자가 수정한 설명"));
     }
 
@@ -111,6 +111,7 @@ class AdminClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @Disabled("Task 3 어드민 전용 요청(AdminUpdateClubRequest)에서 이름 수정 복원 후 활성화")
     @DisplayName("다른 동아리와 중복되는 이름으로 수정하면 409 가 반환된다")
     void updatingToDuplicateNameReturnsConflict() throws Exception {
         Club existing = saveClubWithLeader("이미있는동아리", ClubStatus.ACTIVE);

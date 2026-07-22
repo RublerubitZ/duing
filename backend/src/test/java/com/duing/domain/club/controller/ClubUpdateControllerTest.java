@@ -2,6 +2,7 @@ package com.duing.domain.club.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -23,6 +24,7 @@ import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,17 +77,17 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                     .contentType(ContentType.JSON)
-                    .body(Map.of("name", club.getName() + "-수정", "coverUrl", "https://cover"))
+                    .body(Map.of("description", "수정된 설명", "coverUrl", "https://cover"))
                 .when()
                     .patch("/api/v1/clubs/{clubId}", club.getId())
                 .then()
                     .statusCode(HttpStatus.OK.value())
                     .body("ok", equalTo(true))
-                    .body("data.name", equalTo(club.getName() + "-수정"))
+                    .body("data.description", equalTo("수정된 설명"))
                     .body("data.coverUrl", equalTo("https://cover"));
 
         Club reloaded = clubRepository.findById(club.getId()).orElseThrow();
-        assertThat(reloaded.getName()).isEqualTo(club.getName() + "-수정");
+        assertThat(reloaded.getDescription()).isEqualTo("수정된 설명");
     }
 
     @Test
@@ -128,37 +130,6 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
                 .then()
                     .extract().statusCode();
         assertThat(status).isIn(401, 403);
-    }
-
-    @Test
-    @DisplayName("이미 존재하는 이름으로 변경하면 409 를 반환한다")
-    void duplicateNameReturns409() throws Exception {
-        Club other = saveActiveClub("기존이름");
-        RestAssured
-                .given()
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
-                    .contentType(ContentType.JSON)
-                    .body(Map.of("name", other.getName()))
-                .when()
-                    .patch("/api/v1/clubs/{clubId}", club.getId())
-                .then()
-                    .statusCode(HttpStatus.CONFLICT.value())
-                    .body("ok", equalTo(false));
-    }
-
-    @Test
-    @DisplayName("이름이 101자 이상이면 400 을 반환한다")
-    void nameTooLongReturns400() {
-        String tooLong = "a".repeat(101);
-        RestAssured
-                .given()
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
-                    .contentType(ContentType.JSON)
-                    .body(Map.of("name", tooLong))
-                .when()
-                    .patch("/api/v1/clubs/{clubId}", club.getId())
-                .then()
-                    .statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
     @Test
@@ -262,6 +233,150 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
                     .patch("/api/v1/clubs/{clubId}", club.getId())
                 .then()
                     .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("리더가 요청 바디에 동아리명을 실어 보내도 무시되고 이름은 바뀌지 않는다")
+    void lockedFieldIgnored() {
+        String originalName = club.getName();
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("name", "해킹시도", "location", "학생회관 101호"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.name", equalTo(originalName))
+                    .body("data.location", equalTo("학생회관 101호"));
+    }
+
+    @Test
+    @DisplayName("납부 주기 없이 회비 금액만 보내면 400 이다")
+    void feeAmountWithoutCycleRejected() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("membershipFeeAmount", 30000))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("납부 주기가 NONE 인데 금액이 있으면 400 이다")
+    void feeNoneWithAmountRejected() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("feeCycle", "NONE", "membershipFeeAmount", 30000))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @Disabled("Task 4 응답 개편 후 활성화")
+    @DisplayName("주기와 금액을 쌍으로 보내면 회비가 저장되고 응답에 반영된다")
+    void feePairSaved() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("feeCycle", "SEMESTER", "membershipFeeAmount", 30000))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.feeCycle", equalTo("SEMESTER"))
+                    .body("data.membershipFeeAmount", equalTo(30000));
+    }
+
+    @Test
+    @DisplayName("허용 목록에 없는 프로젝트 아이콘은 400 이다")
+    void invalidProjectIconRejected() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("projects",
+                            java.util.List.of(Map.of("icon", "EMOJI", "title", "t"))))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("프로젝트는 6개를 초과할 수 없다")
+    void projectsMaxSix() {
+        java.util.List<Map<String, Object>> projects = new java.util.ArrayList<>();
+        for (int index = 0; index < 7; index++) {
+            projects.add(Map.of("icon", "CODE", "title", "프로젝트" + index));
+        }
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("projects", projects))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("기타 SNS 플랫폼은 플랫폼명이 없으면 400 이다")
+    void snsOtherRequiresLabel() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("snsLinks",
+                            java.util.List.of(Map.of("platform", "OTHER", "url", "https://a.b"))))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @Disabled("Task 4 응답 개편 후 활성화")
+    @DisplayName("기타가 아닌 SNS 플랫폼의 label 은 저장되지 않는다")
+    void snsNonOtherLabelDropped() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("snsLinks",
+                            java.util.List.of(Map.of("platform", "INSTAGRAM", "label", "라벨",
+                                    "url", "https://instagram.com/x"))))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.snsLinks[0].label", nullValue());
+    }
+
+    @Test
+    @Disabled("Task 4 응답 개편 후 활성화")
+    @DisplayName("대표 연락처 공개 범위를 변경할 수 있다")
+    void contactVisibilityUpdated() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("contactVisibility", "PRIVATE"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.contactVisibility", equalTo("PRIVATE"));
     }
 
     private User saveUser(String name) {

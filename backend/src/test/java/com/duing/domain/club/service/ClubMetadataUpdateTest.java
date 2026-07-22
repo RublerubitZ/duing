@@ -40,7 +40,7 @@ class ClubMetadataUpdateTest {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("동아리 메타데이터(창설년도/기수/위치/연락처/활동/회비)를 업데이트하면 ClubDetail 응답에 반영된다")
+    @DisplayName("동아리 메타데이터(창설년도/기수/위치/활동)를 업데이트하면 ClubDetail 응답에 반영된다")
     void updateAndReadClubMetadata() throws Exception {
         User leader = saveUser("메타리더");
         Club club = saveActiveClub("메타동아리");
@@ -49,49 +49,23 @@ class ClubMetadataUpdateTest {
         Set<DayOfWeek> days = new LinkedHashSet<>(List.of(DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY));
         clubService.update(new UpdateClubCommand(
                 club.getId(), leader.getId(),
-                null, null, null, null, null, null, null, null, null,
-                2018,
-                10,
-                "학생회관 405호",
-                "doing-code@duing.ac.kr",
-                2,
-                days,
-                "학기당 30,000원",
-                null, null, null,
-                null, null, null, null
+                null, null, null, null, null, null, null, null, null,  // name~faqs
+                2018,                                                  // foundedYear
+                10,                                                    // cohortNumber
+                "학생회관 405호",                                        // location
+                2,                                                     // activityFrequency
+                days,                                                  // activeDays
+                null, null,                                            // tagline, highlights
+                null, null, null, null,                                // contactVisibility, feeCycle, membershipFeeAmount, projects
+                null, null, null, null                                 // college, clearCollege, clearLogoImage, clearCoverImage
         ));
 
         ClubDetailQuery detail = clubService.getById(club.getId());
         assertThat(detail.foundedYear()).isEqualTo(2018);
         assertThat(detail.cohortNumber()).isEqualTo(10);
         assertThat(detail.location()).isEqualTo("학생회관 405호");
-        assertThat(detail.contactEmail()).isEqualTo("doing-code@duing.ac.kr");
         assertThat(detail.activityFrequency()).isEqualTo(2);
         assertThat(detail.activeDays()).containsExactlyInAnyOrder(DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY);
-        assertThat(detail.membershipFee()).isEqualTo("학기당 30,000원");
-    }
-
-    @Test
-    @DisplayName("이메일이 아닌 자유 형식 연락처(전화·오픈채팅 등)도 저장되고 ClubDetail 응답에 그대로 반영된다")
-    void updateAndReadFreeFormContact() throws Exception {
-        User leader = saveUser("연락처리더");
-        Club club = saveActiveClub("연락처동아리");
-        clubMemberRepository.save(ClubMember.asLeader(club, leader));
-
-        String freeFormContact = "010-1234-5678 / 카톡 오픈채팅 open.kakao.com/o/abc123";
-        clubService.update(new UpdateClubCommand(
-                club.getId(), leader.getId(),
-                null, null, null, null, null, null, null, null, null,  // name~faqs
-                null, null, null,                                       // foundedYear, cohortNumber, location
-                freeFormContact,                                        // contactEmail (자유 형식)
-                null, null, null,                                       // activityFrequency, activeDays, membershipFee
-                null, null, null,                                       // tagline, highlights, majorProjects
-                null, null,                                             // college, clearCollege
-                null, null                                              // clearLogoImage, clearCoverImage
-        ));
-
-        ClubDetailQuery detail = clubService.getById(club.getId());
-        assertThat(detail.contactEmail()).isEqualTo(freeFormContact);
     }
 
     private User saveUser(String name) {
