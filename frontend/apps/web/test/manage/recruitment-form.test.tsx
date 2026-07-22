@@ -394,6 +394,23 @@ describe('RecruitmentForm — cloneSeed(양식 복제)', () => {
     expect(screen.getByLabelText('운영진')).toBeChecked();
     expect((screen.getByLabelText(/^시작일/) as HTMLInputElement).value).toBe('');
     expect((screen.getByLabelText(/^종료일/) as HTMLInputElement).value).toBe('');
+    // useInterview 는 시드되지만 면접 기간은 회차마다 다르므로 비워둔다.
+    expect((screen.getByLabelText('면접 시작일') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('면접 종료일') as HTMLInputElement).value).toBe('');
+  });
+
+  it('자체 폼 원본의 질문 항목이 질문 빌더에 시드된다', () => {
+    const selfSeed: RecruitmentDetail = {
+      ...seed,
+      applicationMode: 'SELF',
+      externalFormUrl: null,
+      questionItems: [
+        { id: 'q1', text: '지원 동기를 알려주세요', type: 'TEXT', required: true, choices: [] },
+      ],
+    };
+    render(<RecruitmentForm mode="create" cloneSeed={selfSeed} onSubmit={vi.fn()} isPending={false} />);
+
+    expect(screen.getByDisplayValue('지원 동기를 알려주세요')).toBeInTheDocument();
   });
 
   it('cloneSeed가 없으면 기존과 동일하게 빈 폼으로 시작한다', () => {
