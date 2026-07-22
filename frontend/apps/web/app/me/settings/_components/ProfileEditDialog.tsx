@@ -56,15 +56,24 @@ export function ProfileEditDialog({
       setError(parsedName.error.issues[0]?.message ?? '이름을 확인해 주세요.');
       return;
     }
-    if (college === '') {
-      setError('단과대학을 선택해주세요.');
+    // 전환기 fail-open: college/major API 미배포 시 currentCollege/currentMajor 가
+    // undefined 라 셀렉트·입력이 비어 있다. 이 경우 이름·학년만 수정하려는 사용자를
+    // 막지 않도록 하드 게이트하지 않고, 비어 있으면 payload 에서 생략한다
+    // (시드된 뒤에는 CollegeSelect placeholder 가 disabled 라 college 를 다시 비울 수 없다).
+    const trimmedMajor = major.trim();
+    if (trimmedMajor !== '') {
+      // 값이 있으면 정책 검증(길이 등). payload 와 동일하게 trim 값으로 일원화한다.
+      const parsedMajor = majorSchema.safeParse(trimmedMajor);
+      if (!parsedMajor.success) {
+        setError(parsedMajor.error.issues[0]?.message ?? '전공 학과를 확인해 주세요.');
+        return;
+      }
+    } else if (currentMajor?.trim()) {
+      // 시드된 필수 필드를 비워 저장하는 것은 명시적 에러(침묵 복원 금지).
+      setError('전공 학과는 필수 입력값입니다.');
       return;
     }
-    const parsedMajor = majorSchema.safeParse(major);
-    if (!parsedMajor.success) {
-      setError(parsedMajor.error.issues[0]?.message ?? '전공 학과를 확인해 주세요.');
-      return;
-    }
+    // trimmedMajor 가 비었고 currentMajor 도 없으면(전환기) 에러 없이 진행 — major 생략.
     setError(null);
 
     // college 는 유효한 College 값일 때만, major 는 trim 후 비어있지 않을 때만 담는다
@@ -73,8 +82,7 @@ export function ProfileEditDialog({
     if (isCollege(college)) {
       payload.college = college;
     }
-    const trimmedMajor = major.trim();
-    if (trimmedMajor) {
+    if (trimmedMajor !== '') {
       payload.major = trimmedMajor;
     }
 
@@ -106,7 +114,7 @@ export function ProfileEditDialog({
       {/* 별도 설명 문구가 없는 폼 다이얼로그 — Description 연결을 명시적으로 해제한다(Radix a11y 경고 억제). */}
       <DialogContent aria-describedby={undefined}>
         <DialogTitle>프로필 수정</DialogTitle>
-        {/* 검증은 JS(userNameSchema/majorSchema/college)로 친절한 한글 메시지를 노출한다.
+        {/* 검증은 JS(userNameSchema/majorSchema)로 친절한 한글 메시지를 노출한다.
             CollegeSelect 의 native required 가 빈 값일 때 submit 을 막지 않도록 noValidate. */}
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">

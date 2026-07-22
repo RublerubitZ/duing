@@ -83,18 +83,55 @@ describe('ProfileEditDialog', () => {
     expect(await screen.findByText('프로필을 수정했어요.')).toBeInTheDocument();
   });
 
-  it('단과대학이 시드되지 않으면(전환기) API 호출 없이 선택 안내를 보여준다', async () => {
+  it('전환기(college/major 미시드)에는 이름·학년만 저장하고 payload 에서 college·major 를 생략한다', async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    server.use(
+      http.patch(`${BASE}/users/me`, async ({ request }) => {
+        capturedBody = (await request.json()) as Record<string, unknown>;
+        return ok204();
+      }),
+    );
+
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderWithProviders(
       <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
     );
 
-    // 이름은 유효하지만 college 가 '' 이므로 college 검증에서 막혀 PATCH 가 나가지 않는다.
-    // (MSW 핸들러 미등록 + onUnhandledRequest: 'error' 로 "API 호출 없음"도 함께 검증)
+    // college='' · major='' 인 전환기에도 이름·학년 수정은 막히지 않는다.
+    const name = screen.getByDisplayValue('홍길동');
+    await user.clear(name);
+    await user.type(name, '김두잉');
+    await user.selectOptions(screen.getByLabelText('학년'), '4학년');
     await user.click(screen.getByRole('button', { name: '저장' }));
 
-    expect(await screen.findByText('단과대학을 선택해주세요.')).toBeInTheDocument();
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(capturedBody).toEqual({ name: '김두잉', grade: 'SENIOR' });
+    expect(capturedBody).not.toHaveProperty('college');
+    expect(capturedBody).not.toHaveProperty('major');
+  });
+
+  it('시드된 전공을 모두 지우고 저장하면 API 호출 없이 필수 오류를 보여준다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog
+        open
+        onClose={onClose}
+        currentName="홍길동"
+        currentGrade="JUNIOR"
+        currentCollege="IT_ENGINEERING"
+        currentMajor="컴퓨터정보공학부"
+      />,
+    );
+
+    // 시드된 필수 필드(전공)를 비워 저장하면 침묵 복원 대신 명시적 에러.
+    // (MSW 핸들러 미등록 + onUnhandledRequest: 'error' 로 "API 호출 없음"도 함께 검증)
+    const major = screen.getByDisplayValue('컴퓨터정보공학부');
+    await user.clear(major);
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(await screen.findByText('전공 학과는 필수 입력값입니다.')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
 
