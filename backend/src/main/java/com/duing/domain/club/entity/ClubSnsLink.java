@@ -1,9 +1,12 @@
 package com.duing.domain.club.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+// JSONB 스키마 진화 대비 — 이후 버전이 키를 추가한 뒤 이 버전으로 롤백해도 역직렬화가 깨지지 않게 한다.
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record ClubSnsLink(
         @NotNull(message = "SNS 플랫폼은 필수입니다.")
         @Pattern(regexp = "INSTAGRAM|FACEBOOK|X|YOUTUBE|KAKAO|WEB",
