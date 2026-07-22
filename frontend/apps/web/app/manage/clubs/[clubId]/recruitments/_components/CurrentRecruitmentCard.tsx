@@ -12,7 +12,7 @@ import {
   RECRUITMENT_DISPLAY_STATUS_BADGE,
   RECRUITMENT_DISPLAY_STATUS_LABEL,
 } from '@/app/manage/_components/dashboard/dashboard-labels';
-import { recruitmentStageLabels } from '../_lib/recruitmentFlowLabel';
+import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
 
 type Props = {
   clubId: number;

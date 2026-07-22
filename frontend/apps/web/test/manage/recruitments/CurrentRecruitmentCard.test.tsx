@@ -97,6 +97,17 @@ describe('CurrentRecruitmentCard', () => {
     fireEvent.click(screen.getByRole('button', { name: '마감' }));
     await waitFor(() => expect(mockCloseMutateAsync).toHaveBeenCalled());
   });
+
+  it('마감 실패 시 다이얼로그를 닫고 에러 메시지를 카드에 렌더한다', async () => {
+    mockCloseMutateAsync.mockRejectedValue(new Error('이미 마감된 모집입니다.'));
+    render(<CurrentRecruitmentCard clubId={1} recruitment={recruitment()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '모집 종료' }));
+    fireEvent.click(screen.getByRole('button', { name: '마감' }));
+
+    await waitFor(() => expect(screen.getByText('이미 마감된 모집입니다.')).toBeInTheDocument());
+    expect(screen.queryByText('모집을 마감할까요?')).not.toBeInTheDocument();
+  });
 });
 
 describe('RecruitmentEmptyState', () => {
