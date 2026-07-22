@@ -98,10 +98,10 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     render(<RecruitmentForm mode="create" onSubmit={vi.fn()} isPending={false} />);
 
     fireEvent.click(screen.getByRole('button', { name: '+ 질문 추가' }));
-    expect(screen.getByLabelText('주관식')).toBeChecked();
+    expect(screen.getByRole('radio', { name: '주관식' })).toBeChecked();
     expect(screen.queryByPlaceholderText('선택지 1')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText('객관식(단일 선택)'));
+    fireEvent.click(screen.getByRole('radio', { name: '객관식(단일 선택)' }));
 
     expect(screen.getByPlaceholderText('선택지 1')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('선택지 2')).toBeInTheDocument();
@@ -114,7 +114,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
     fillCreateBasics();
     addQuestion('학년을 선택해주세요');
-    fireEvent.click(screen.getByLabelText('객관식(단일 선택)'));
+    fireEvent.click(screen.getByRole('radio', { name: '객관식(단일 선택)' }));
     fireEvent.change(screen.getByPlaceholderText('선택지 1'), { target: { value: '1학년' } });
     fireEvent.change(screen.getByPlaceholderText('선택지 2'), { target: { value: '2학년' } });
 
@@ -161,7 +161,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
     fillCreateBasics();
     addQuestion('학년을 선택해주세요');
-    fireEvent.click(screen.getByLabelText('객관식(단일 선택)'));
+    fireEvent.click(screen.getByRole('radio', { name: '객관식(단일 선택)' }));
     fireEvent.change(screen.getByPlaceholderText('선택지 1'), { target: { value: '1학년' } });
 
     const choiceRemoveButtons = screen.getAllByLabelText('선택지 삭제');
@@ -182,7 +182,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
     fillCreateBasics();
     addQuestion('관심 분야를 골라주세요');
-    fireEvent.click(screen.getByLabelText('객관식(복수 선택)'));
+    fireEvent.click(screen.getByRole('radio', { name: '객관식(복수 선택)' }));
     fireEvent.change(screen.getByPlaceholderText('선택지 1'), { target: { value: '백엔드' } });
     fireEvent.change(screen.getByPlaceholderText('선택지 2'), { target: { value: '백엔드' } });
 
@@ -262,7 +262,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
       />,
     );
 
-    expect(screen.getByLabelText('객관식(단일 선택)')).toBeChecked();
+    expect(screen.getByRole('radio', { name: '객관식(단일 선택)' })).toBeChecked();
     fireEvent.change(screen.getByDisplayValue('학년은?'), {
       target: { value: '몇 학년인가요?' },
     });
@@ -354,11 +354,11 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
     fillCreateBasics();
     addQuestion('지원 동기를 알려주세요');
-    fireEvent.click(screen.getByLabelText('객관식(단일 선택)'));
+    fireEvent.click(screen.getByRole('radio', { name: '객관식(단일 선택)' }));
     fireEvent.change(screen.getByPlaceholderText('선택지 1'), { target: { value: '백엔드' } });
     fireEvent.change(screen.getByPlaceholderText('선택지 2'), { target: { value: '프론트엔드' } });
 
-    fireEvent.click(screen.getByLabelText('주관식'));
+    fireEvent.click(screen.getByRole('radio', { name: '주관식' }));
     expect(screen.queryByPlaceholderText('선택지 1')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /모집 작성/ }));
