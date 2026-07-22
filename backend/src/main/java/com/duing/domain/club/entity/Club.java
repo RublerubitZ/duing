@@ -113,6 +113,21 @@ public class Club extends BaseEntity {
     @Column(name = "major_projects", columnDefinition = "TEXT")
     private String majorProjects;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "contact_visibility", nullable = false, length = 20)
+    private ContactVisibility contactVisibility = ContactVisibility.PUBLIC;
+
+    @Column(name = "membership_fee_amount")
+    private Integer membershipFeeAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fee_cycle", nullable = false, length = 20)
+    private FeeCycle feeCycle = FeeCycle.NONE;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "projects", columnDefinition = "jsonb", nullable = false)
+    private List<ClubProject> projects = new ArrayList<>();
+
     @Column(name = "rejection_reason", length = 500)
     private String rejectionReason;
 
@@ -142,6 +157,10 @@ public class Club extends BaseEntity {
 
     public List<String> getHighlights() {
         return Collections.unmodifiableList(highlights);
+    }
+
+    public List<ClubProject> getProjects() {
+        return Collections.unmodifiableList(projects);
     }
 
     public Set<DayOfWeek> getActiveDays() {
@@ -243,29 +262,30 @@ public class Club extends BaseEntity {
     }
 
     public record UpdatePayload(
-            String name,
-            ClubCategory category,
-            String division,
-            String description,
-            String logoUrl,
-            String coverUrl,
-            List<String> tags,
-            List<ClubSnsLink> snsLinks,
-            List<ClubFaq> faqs,
-            Integer foundedYear,
-            Integer cohortNumber,
-            String location,
-            String contactEmail,
-            Integer activityFrequency,
-            Set<DayOfWeek> activeDays,
-            String membershipFee,
-            String tagline,
-            List<String> highlights,
-            String majorProjects,
-            College college,
-            Boolean clearCollege,
-            Boolean clearLogoImage,
-            Boolean clearCoverImage
+            String name,                         // 1
+            ClubCategory category,               // 2
+            String division,                     // 3
+            String description,                  // 4
+            String logoUrl,                      // 5
+            String coverUrl,                     // 6
+            List<String> tags,                   // 7
+            List<ClubSnsLink> snsLinks,          // 8
+            List<ClubFaq> faqs,                  // 9
+            Integer foundedYear,                 // 10
+            Integer cohortNumber,                // 11
+            String location,                     // 12
+            Integer activityFrequency,           // 13
+            Set<DayOfWeek> activeDays,           // 14
+            String tagline,                      // 15
+            List<String> highlights,             // 16
+            ContactVisibility contactVisibility, // 17
+            FeeCycle feeCycle,                   // 18
+            Integer membershipFeeAmount,         // 19
+            List<ClubProject> projects,          // 20
+            College college,                     // 21
+            Boolean clearCollege,                // 22
+            Boolean clearLogoImage,              // 23
+            Boolean clearCoverImage              // 24
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -284,18 +304,27 @@ public class Club extends BaseEntity {
             this.coverUrl = payload.coverUrl();
         }
         if (payload.tags() != null) this.tags = payload.tags().stream().distinct().toArray(String[]::new);
-        if (payload.snsLinks() != null) this.snsLinks = new ArrayList<>(payload.snsLinks());
+        if (payload.snsLinks() != null) {
+            this.snsLinks = payload.snsLinks().stream()
+                    .map(ClubSnsLink::normalized)
+                    .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        }
         if (payload.faqs() != null) this.faqs = new ArrayList<>(payload.faqs());
         if (payload.foundedYear() != null) this.foundedYear = payload.foundedYear();
         if (payload.cohortNumber() != null) this.cohortNumber = payload.cohortNumber();
         if (payload.location() != null) this.location = blankToNull(payload.location());
-        if (payload.contactEmail() != null) this.contactEmail = blankToNull(payload.contactEmail());
         if (payload.activityFrequency() != null) this.activityFrequency = payload.activityFrequency();
         if (payload.activeDays() != null) this.activeDays = toActiveDaysCsv(payload.activeDays());
-        if (payload.membershipFee() != null) this.membershipFee = blankToNull(payload.membershipFee());
         if (payload.tagline() != null) this.tagline = blankToNull(payload.tagline());
         if (payload.highlights() != null) this.highlights = new ArrayList<>(payload.highlights());
-        if (payload.majorProjects() != null) this.majorProjects = blankToNull(payload.majorProjects());
+        if (payload.contactVisibility() != null) this.contactVisibility = payload.contactVisibility();
+        if (payload.feeCycle() != null) {
+            // 회비는 주기+금액 쌍으로만 갱신 — NONE 이면 금액을 무조건 비운다 (DB CHECK 정합).
+            this.feeCycle = payload.feeCycle();
+            this.membershipFeeAmount =
+                    payload.feeCycle() == FeeCycle.NONE ? null : payload.membershipFeeAmount();
+        }
+        if (payload.projects() != null) this.projects = new ArrayList<>(payload.projects());
         if (Boolean.TRUE.equals(payload.clearCollege())) {
             this.college = null;
         } else if (payload.college() != null) {
