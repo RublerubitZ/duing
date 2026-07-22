@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.DayOfWeek;
@@ -49,13 +50,14 @@ public record AdminUpdateClubRequest(
         String coverUrl,
 
         @Size(max = 20, message = "태그는 최대 20개까지 가능합니다.")
-        List<@Size(min = 1, max = 20, message = "각 태그는 1~20자여야 합니다.") String> tags,
+        List<@NotNull(message = "태그는 비어 있을 수 없습니다.")
+                @Size(min = 1, max = 20, message = "각 태그는 1~20자여야 합니다.") String> tags,
 
         @Size(max = 10, message = "SNS 링크는 최대 10개까지 가능합니다.")
-        List<@Valid ClubSnsLink> snsLinks,
+        List<@NotNull(message = "SNS 링크는 비어 있을 수 없습니다.") @Valid ClubSnsLink> snsLinks,
 
         @Size(max = 20, message = "FAQ는 최대 20개까지 가능합니다.")
-        List<@Valid ClubFaq> faqs,
+        List<@NotNull(message = "FAQ 항목은 비어 있을 수 없습니다.") @Valid ClubFaq> faqs,
 
         @Min(value = 1900, message = "창설년도는 1900 이상이어야 합니다.")
         @Max(value = 2100, message = "창설년도가 너무 큽니다.")
@@ -76,7 +78,8 @@ public record AdminUpdateClubRequest(
         String tagline,
 
         @Size(max = 10, message = "강조 항목은 최대 10개까지 가능합니다.")
-        List<@Size(min = 1, max = 100, message = "각 강조 항목은 1~100자여야 합니다.") String> highlights,
+        List<@NotNull(message = "강조 항목은 비어 있을 수 없습니다.")
+                @Size(min = 1, max = 100, message = "각 강조 항목은 1~100자여야 합니다.") String> highlights,
 
         ContactVisibility contactVisibility,
 
@@ -87,7 +90,7 @@ public record AdminUpdateClubRequest(
         Integer membershipFeeAmount,
 
         @Size(max = 6, message = "주요 프로젝트는 최대 6개까지 가능합니다.")
-        List<@Valid ClubProject> projects,
+        List<@NotNull(message = "프로젝트 항목은 비어 있을 수 없습니다.") @Valid ClubProject> projects,
 
         Boolean clearLogoImage,
 
@@ -99,6 +102,12 @@ public record AdminUpdateClubRequest(
         if (feeCycle == null) return membershipFeeAmount == null;
         if (feeCycle == FeeCycle.NONE) return membershipFeeAmount == null;
         return membershipFeeAmount != null;
+    }
+
+    /** 공백만 있는 이름은 @Size(1~100) 를 통과하므로 별도 차단 — Club.update() 가 blankToNull 없이 직대입한다. */
+    @AssertTrue(message = "동아리 이름은 공백일 수 없습니다.")
+    public boolean isNameBlankSafe() {
+        return name == null || !name.isBlank();
     }
 
     public UpdateClubCommand toCommand(Long clubId, Long requesterId) {

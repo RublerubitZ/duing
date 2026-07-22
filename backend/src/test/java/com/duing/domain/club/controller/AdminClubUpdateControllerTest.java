@@ -182,6 +182,23 @@ class AdminClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("동아리 이름을 공백 문자열로 수정하면 400 이 반환된다")
+    void blankNameRejected() throws Exception {
+        Club club = saveClubWithLeader("공백이름검증동아리", ClubStatus.ACTIVE);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                    .body("{\"name\":\"   \"}")
+                .when()
+                    .patch("/api/v1/admin/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("ok", equalTo(false));
+    }
+
+    @Test
     @DisplayName("일부 필드만 보내면 나머지 필드는 변경되지 않는다")
     void partialUpdateLeavesOtherFieldsUnchanged() throws Exception {
         Club club = saveClubWithLeader("부분수정동아리", ClubStatus.ACTIVE);

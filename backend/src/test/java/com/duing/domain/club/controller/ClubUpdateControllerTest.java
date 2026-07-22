@@ -361,6 +361,34 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("snsLinks 배열에 null 원소가 있으면 400 을 반환한다")
+    void nullSnsLinkElementReturns400() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body("{\"snsLinks\":[null]}")
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("projects 배열에 null 원소가 있으면 400 을 반환한다")
+    void nullProjectElementReturns400() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body("{\"projects\":[null]}")
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
     @DisplayName("대표 연락처 공개 범위를 변경할 수 있다")
     void contactVisibilityUpdated() {
         RestAssured

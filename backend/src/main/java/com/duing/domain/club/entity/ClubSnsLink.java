@@ -1,6 +1,7 @@
 package com.duing.domain.club.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -10,6 +11,8 @@ import jakarta.validation.constraints.Size;
  * 기본 4종(INSTAGRAM/FACEBOOK/KAKAO) + OTHER(플랫폼명 직접 입력).
  * 과거 X/YOUTUBE/WEB 값은 V91 에서 OTHER + label 로 데이터 변환됐다.
  */
+// JSONB 스키마 진화 대비 — 미래 버전이 키를 추가해도 이 버전으로 롤백 시 역직렬화가 깨지지 않게 한다.
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record ClubSnsLink(
         @NotNull(message = "SNS 플랫폼은 필수입니다.")
         @Pattern(regexp = "INSTAGRAM|FACEBOOK|KAKAO|OTHER",
