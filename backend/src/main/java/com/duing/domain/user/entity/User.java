@@ -141,11 +141,20 @@ public class User extends BaseEntity {
         this.tokenVersion += 1;
     }
 
-    /** 프로필(이름·학년)을 수정한다. 학번·전화번호는 변경 대상이 아니다(번호 변경은 MO 재인증 필요). 학년은 선택값으로, null 전달 시 기존 값을 유지한다. */
-    public void updateProfile(String name, Grade grade) {
+    /**
+     * 프로필(이름·학년·단과대학·전공)을 수정한다. 학번·전화번호는 변경 대상이 아니다(번호 변경은 MO 재인증 필요).
+     * 학년·단과대학·전공은 선택값으로, null 전달 시 각각 기존 값을 유지한다.
+     */
+    public void updateProfile(String name, Grade grade, College college, String major) {
         this.name = name;
         if (grade != null) {       // 학년은 선택 — 전달되지 않으면(null) 기존 값을 유지한다
             this.grade = grade;
+        }
+        if (college != null) {     // 단과대학은 선택 — 전달되지 않으면(null) 기존 값을 유지한다
+            this.college = college;
+        }
+        if (major != null) {       // 전공은 선택 — 전달되지 않으면(null) 기존 값을 유지한다
+            this.major = major;
         }
     }
 

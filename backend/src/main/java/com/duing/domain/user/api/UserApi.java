@@ -30,12 +30,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Tag(name = "사용자", description = "내 정보 조회 / 수정 / 탈퇴")
 public interface UserApi {
 
-    @Operation(summary = "내 정보 조회", description = "현재 인증된 사용자의 정보를 반환한다.")
+    @Operation(summary = "내 정보 조회", description = "현재 인증된 사용자의 정보(이름·학년·단과대학·전공 등)를 반환한다.")
     @SecurityRequirement(name = "BearerAuth")
     @GetMapping("/users/me")
     ResponseEntity<ApiResponse<UserResponse>> getMe(@AuthenticationPrincipal UserPrincipal currentUser);
 
-    @Operation(summary = "프로필 수정", description = "이름·학년을 수정한다. 학년은 생략 시 기존 값을 유지한다. 학번·전화번호는 이 API로 변경할 수 없다(번호 변경은 재인증 필요).")
+    @Operation(summary = "프로필 수정", description = "이름·학년·단과대학·전공을 수정한다. 학년·단과대학·전공은 생략 시 기존 값을 유지한다. 학번·전화번호는 이 API로 변경할 수 없다(번호 변경은 재인증 필요).")
     @SecurityRequirement(name = "BearerAuth")
     @PatchMapping("/users/me")
     ResponseEntity<Void> updateProfile(

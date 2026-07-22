@@ -207,7 +207,8 @@ public class GeneralUserService implements UserService {
         reservedNamePolicy.validate(updateProfileCommand.name());
         User user = userRepository.findById(updateProfileCommand.userId())
                 .orElseThrow(UserException.UserNotFoundException::new);
-        user.updateProfile(updateProfileCommand.name(), updateProfileCommand.grade());
+        user.updateProfile(updateProfileCommand.name(), updateProfileCommand.grade(),
+                updateProfileCommand.college(), updateProfileCommand.major());
     }
 
     @Override
