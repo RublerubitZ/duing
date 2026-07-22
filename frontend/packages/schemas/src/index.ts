@@ -2,7 +2,7 @@
 // 한국어 메시지는 백엔드와 동일하게 유지한다.
 
 import { z } from 'zod';
-import { BANKS } from '@duing/types';
+import { BANKS, PROJECT_ICONS } from '@duing/types';
 import type { GenerateBillsPayload } from '@duing/types';
 import { passwordSchema } from './password';
 
@@ -275,8 +275,7 @@ const feePairRule = {
 };
 
 export const clubProjectSchema = z.object({
-  icon: z.enum(['CODE', 'TROPHY', 'USERS', 'ROCKET', 'BOOK', 'CAMERA', 'PALETTE', 'MUSIC', 'MIC', 'GLOBE',
-    'HEART', 'LEAF', 'BRIEFCASE', 'LIGHTBULB', 'FLASK', 'GAMEPAD', 'DUMBBELL', 'GRADUATION', 'MONITOR', 'SPARKLES']),
+  icon: z.enum(PROJECT_ICONS),
   title: z.string().trim().min(1, '프로젝트 제목은 1~30자여야 합니다.').max(30, '프로젝트 제목은 1~30자여야 합니다.'),
   subtitle: z.string().max(40, '프로젝트 부제목은 40자 이하여야 합니다.').nullable(),
 });

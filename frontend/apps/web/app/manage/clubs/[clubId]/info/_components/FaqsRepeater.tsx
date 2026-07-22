@@ -36,27 +36,33 @@ export function FaqsRepeater({
       {value.map((faq, idx) => (
         <div
           key={idx}
-          className="border border-[#e6e1d2] bg-[#faf7ee] rounded-[8px] p-3"
+          className="rounded-[12px] border border-[#e2ddcb] bg-white p-3.5"
         >
-          <input
-            type="text"
-            value={faq.question}
-            onChange={(event) => update(idx, { question: event.target.value })}
-            placeholder="질문"
-            disabled={readOnly}
-            className={`${cardInputCls} mb-2`}
-          />
-          <textarea
-            value={faq.answer}
-            onChange={(event) => update(idx, { answer: event.target.value })}
-            placeholder="답변"
-            disabled={readOnly}
-            rows={3}
-            className={`${cardInputCls} resize-y`}
-            style={{ minHeight: '72px' }}
-          />
+          <div className="flex items-start gap-2.5">
+            <span className="mt-2 shrink-0 font-mono text-[14px] font-extrabold text-[#4a6b3f]">Q</span>
+            <input
+              type="text"
+              value={faq.question}
+              onChange={(event) => update(idx, { question: event.target.value })}
+              placeholder="질문"
+              disabled={readOnly}
+              className={`${cardInputCls} font-semibold`}
+            />
+          </div>
+          <div className="mt-2 flex items-start gap-2.5">
+            <span className="mt-2 shrink-0 font-mono text-[14px] font-extrabold text-[#b6a06a]">A</span>
+            <textarea
+              value={faq.answer}
+              onChange={(event) => update(idx, { answer: event.target.value })}
+              placeholder="답변"
+              disabled={readOnly}
+              rows={3}
+              className={`${cardInputCls} resize-y`}
+              style={{ minHeight: '72px' }}
+            />
+          </div>
           {!readOnly && (
-            <div className="flex justify-end mt-1">
+            <div className="mt-1 flex justify-end">
               <button type="button" onClick={() => remove(idx)} className={deleteBtnCls}>
                 삭제
               </button>
