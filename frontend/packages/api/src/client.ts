@@ -77,6 +77,7 @@ import type {
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
   UpdateClubPayload,
+  AdminUpdateClubPayload,
   UpdateClubStatusPayload,
   UpdateClubCentralClubPayload,
   CloseClubPayload,
@@ -515,8 +516,8 @@ export type DuingApiClient = {
       detail(clubId: number): Promise<ClubDetail>;
       /** 학교 제출용 동아리원 명단(이름·학번·전공·단과대). 총동연 전용, 소속 무관 조회. */
       members(clubId: number): Promise<AdminClubMember[]>;
-      /** 총동연 전용 동아리 정보 수정. 리더 PATCH clubs/{id} 와 동일 payload, ADMIN 권한으로 접근. */
-      update(clubId: number, payload: UpdateClubPayload): Promise<ClubDetail>;
+      /** 총동연 전용 — 잠금 필드(name/category/division/college)까지 수정 가능. */
+      update(clubId: number, payload: AdminUpdateClubPayload): Promise<ClubDetail>;
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;

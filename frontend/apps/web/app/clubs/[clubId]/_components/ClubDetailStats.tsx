@@ -1,5 +1,6 @@
 import type { ClubDetail } from '@duing/types';
 
+import { formatClubFee } from '../../../_lib/clubFee';
 import { activityScheduleLabel } from '../../_lib/activeDaysLabel';
 
 type Props = { club: ClubDetail };
@@ -16,8 +17,9 @@ export function ClubDetailStats({ club }: Props) {
   if (club.foundedYear !== null) {
     cells.push({ label: '창설년도', value: String(club.foundedYear) });
   }
-  if (club.membershipFee !== null) {
-    cells.push({ label: '회비', value: club.membershipFee });
+  const feeText = formatClubFee(club.feeCycle, club.membershipFeeAmount);
+  if (feeText !== null) {
+    cells.push({ label: '회비', value: feeText });
   }
 
   if (cells.length === 0) return null;

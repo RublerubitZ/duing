@@ -79,32 +79,19 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
     detail.cohortNumber !== null ? String(detail.cohortNumber) : '',
   );
   const [location, setLocation] = useState(detail.location ?? '');
-  const [contactEmail, setContactEmail] = useState(detail.contactEmail ?? '');
   const [activityFrequency, setActivityFrequency] = useState<string>(
     detail.activityFrequency !== null ? String(detail.activityFrequency) : '',
   );
   const [activeDays, setActiveDays] = useState<ClubDayOfWeek[]>(detail.activeDays ?? []);
-  const [membershipFee, setMembershipFee] = useState(detail.membershipFee ?? '');
   const [tagline, setTagline] = useState(detail.tagline ?? '');
   const [highlights, setHighlights] = useState<string[]>(detail.highlights ?? []);
-  const [majorProjects, setMajorProjects] = useState(detail.majorProjects ?? '');
 
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
 
   function buildPayload(): UpdateClubPayload {
+    // 잠금 필드(name/category/division/college)는 리더 PATCH 대상이 아니라 diff 에서 제외한다(PR-3 재작성 예정).
     const payload: UpdateClubPayload = {};
-    if (name !== detail.name) payload.name = name;
-    if (category !== detail.category) payload.category = category;
-    if (division !== (detail.division ?? '')) payload.division = division;
-    const previousCollege: College | '' = detail.college ?? '';
-    if (college !== previousCollege) {
-      if (college === '') {
-        payload.clearCollege = true;
-      } else {
-        payload.college = college;
-      }
-    }
     if (description !== (detail.description ?? '')) payload.description = description;
     if (logoUrl !== (detail.logoUrl ?? '')) {
       if (logoUrl === '') {
@@ -128,14 +115,11 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
     const newCohortNumber = cohortNumber.trim() === '' ? null : Number(cohortNumber);
     if (newCohortNumber !== detail.cohortNumber) payload.cohortNumber = newCohortNumber;
     if (location !== (detail.location ?? '')) payload.location = location;
-    if (contactEmail !== (detail.contactEmail ?? '')) payload.contactEmail = contactEmail;
     const newActivityFrequency = activityFrequency.trim() === '' ? null : Number(activityFrequency);
     if (newActivityFrequency !== detail.activityFrequency) payload.activityFrequency = newActivityFrequency;
     if (JSON.stringify(activeDays) !== JSON.stringify(detail.activeDays)) payload.activeDays = activeDays;
-    if (membershipFee !== (detail.membershipFee ?? '')) payload.membershipFee = membershipFee;
     if (tagline !== (detail.tagline ?? '')) payload.tagline = tagline;
     if (JSON.stringify(highlights) !== JSON.stringify(detail.highlights)) payload.highlights = highlights;
-    if (majorProjects !== (detail.majorProjects ?? '')) payload.majorProjects = majorProjects;
     return payload;
   }
 
@@ -143,10 +127,8 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
     event.preventDefault();
     setError(null);
 
+    // 회비·공개범위·프로젝트는 이 폼에서 아직 편집하지 않는다(PR-3) — 상세값을 그대로 넣어 zod 페어 검증을 통과시킨다.
     const fullData = {
-      name,
-      category,
-      division: division || null,
       description: description || null,
       logoUrl: logoUrl || null,
       coverUrl: coverUrl || null,
@@ -156,13 +138,14 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
       foundedYear: foundedYear.trim() === '' ? null : Number(foundedYear),
       cohortNumber: cohortNumber.trim() === '' ? null : Number(cohortNumber),
       location: location || null,
-      contactEmail: contactEmail || '',
       activityFrequency: activityFrequency.trim() === '' ? null : Number(activityFrequency),
       activeDays,
-      membershipFee: membershipFee || null,
       tagline: tagline || null,
       highlights,
-      majorProjects: majorProjects || null,
+      contactVisibility: detail.contactVisibility,
+      feeCycle: detail.feeCycle,
+      membershipFeeAmount: detail.membershipFeeAmount,
+      projects: detail.projects,
     };
     const parsed = updateClubSchema.safeParse(fullData);
     if (!parsed.success) {
@@ -204,6 +187,7 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
 
         {/* 기본 정보 */}
         <fieldset disabled={readOnly} className="border-0 p-0 m-0 space-y-0">
+          {/* 이름·카테고리·분과·단과대학은 리더가 수정할 수 없는 잠금 필드 — 총동연 전용(PR-3 에서 어드민 폼 분리). */}
           <div className={fieldCls}>
             <label htmlFor="f-name" className={labelCls}>이름</label>
             <input
@@ -211,6 +195,7 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
+              disabled
               className={inputCls}
             />
           </div>
@@ -224,6 +209,7 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
                 const next = event.target.value;
                 if (isCategory(next)) setCategory(next);
               }}
+              disabled
               className={selectCls}
               style={{
                 backgroundImage:
@@ -247,6 +233,7 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
                 id="f-div"
                 value={division}
                 onChange={(event) => setDivision(event.target.value)}
+                disabled
                 className={selectCls}
                 style={{
                   backgroundImage:
@@ -270,6 +257,7 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
                 id="f-college"
                 value={college}
                 onChange={(event) => setCollege(event.target.value as College | '')}
+                disabled
                 className={selectCls}
                 style={{
                   backgroundImage:
@@ -382,18 +370,6 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
             </div>
 
             <div className={fieldCls.replace('mb-[18px]', '')}>
-              <label htmlFor="f-contact" className={labelCls}>연락처</label>
-              <input
-                id="f-contact"
-                type="text"
-                value={contactEmail}
-                onChange={(event) => setContactEmail(event.target.value)}
-                placeholder="예: 010-0000-0000"
-                className={inputCls}
-              />
-            </div>
-
-            <div className={fieldCls.replace('mb-[18px]', '')}>
               <span className={labelCls}>활동 요일 / 빈도</span>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <ActiveDaysToggle value={activeDays} onChange={setActiveDays} disabled={readOnly} />
@@ -408,18 +384,6 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
                 />
                 <span className="text-[13px] text-[#4a5247]">회</span>
               </div>
-            </div>
-
-            <div className={fieldCls.replace('mb-[18px]', '')}>
-              <label htmlFor="f-fee" className={labelCls}>회비</label>
-              <input
-                id="f-fee"
-                type="text"
-                value={membershipFee}
-                onChange={(event) => setMembershipFee(event.target.value)}
-                placeholder="예: 학기당 30,000원"
-                className={inputCls}
-              />
             </div>
           </fieldset>
         </div>
@@ -503,18 +467,6 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
               <span className={labelCls}>이런 사람이 좋아할 거예요</span>
               <p className="text-[11.5px] text-[#8a8f83] -mt-0.5">최대 10개, 각 100자 이하.</p>
               <HighlightsRepeater value={highlights} onChange={setHighlights} readOnly={readOnly} />
-            </div>
-
-            <div className={fieldCls.replace('mb-[18px]', '')}>
-              <label htmlFor="f-proj" className={labelCls}>주요 프로젝트</label>
-              <textarea
-                id="f-proj"
-                value={majorProjects}
-                onChange={(event) => setMajorProjects(event.target.value)}
-                rows={5}
-                placeholder="동아리에서 진행 중이거나 마친 프로젝트를 자유롭게 적어주세요."
-                className={`${inputCls} resize-y leading-relaxed`}
-              />
             </div>
           </fieldset>
         </div>
