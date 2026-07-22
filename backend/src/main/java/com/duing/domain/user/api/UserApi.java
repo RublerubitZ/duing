@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Tag(name = "사용자", description = "내 정보 조회 / 수정 / 탈퇴")
 public interface UserApi {
 
-    @Operation(summary = "내 정보 조회", description = "현재 인증된 사용자의 정보를 반환한다.")
+    @Operation(summary = "내 정보 조회", description = "현재 인증된 사용자의 정보(이름·학년·단과대학·전공 등)를 반환한다.")
     @SecurityRequirement(name = "BearerAuth")
     @GetMapping("/users/me")
     ResponseEntity<ApiResponse<UserResponse>> getMe(@AuthenticationPrincipal UserPrincipal currentUser);

@@ -36,7 +36,7 @@ public record UpdateProfileRequest(
 
     // 전공은 선택값(null=유지)이지만, 제공됐다면 공백 문자열은 허용하지 않는다(400) — strip 후 빈 값이면 위반.
     @AssertTrue(message = "전공 학과는 공백일 수 없습니다.")
-    private boolean isMajorPresentWhenProvided() {
+    public boolean isMajorPresentWhenProvided() {
         return major == null || !major.isBlank();
     }
 
