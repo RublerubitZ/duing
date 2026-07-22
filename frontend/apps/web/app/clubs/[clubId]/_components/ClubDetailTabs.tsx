@@ -3,6 +3,7 @@
 import type { ClubDetail, ClubPhoto, MyClubMembership } from '@duing/types';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatClubFee } from '../../../_lib/clubFee';
 import { activityScheduleLabel } from '../../_lib/activeDaysLabel';
 import { ClubDetailAbout } from './ClubDetailAbout';
 import { ClubDetailActivity } from './ClubDetailActivity';
@@ -25,15 +26,16 @@ type Props = {
 export function ClubDetailTabs({ club, photos, membership }: Props) {
   const hasIntro = club.description !== null
     || club.highlights.length > 0
-    || club.majorProjects !== null;
+    || club.projects.length > 0;
   const hasActivity = activityScheduleLabel(club.activityFrequency, club.activeDays) !== null
     || photos.length > 0;
   const hasQna = club.faqs.length > 0;
   const hasInfo = club.foundedYear !== null
     || club.cohortNumber !== null
-    || club.membershipFee !== null
+    || formatClubFee(club.feeCycle, club.membershipFeeAmount) !== null
     || club.location !== null
-    || club.contactEmail !== null;
+    || club.contactPhone !== null
+    || club.contactVisibility !== 'PUBLIC';
 
   // 가입한 멤버에게만 공지/일정 탭을 노출한다.
   const isMember = membership != null;
@@ -70,7 +72,7 @@ export function ClubDetailTabs({ club, photos, membership }: Props) {
           <ClubDetailAbout
             description={club.description}
             highlights={club.highlights}
-            majorProjects={club.majorProjects}
+            projects={club.projects}
           />
         </TabsContent>
       )}

@@ -34,12 +34,14 @@ const CLUB_DETAIL: ClubDetail = {
   foundedYear: 2018,
   cohortNumber: 10,
   location: '학생회관 405호',
-  contactEmail: null,
+  contactPhone: null,
+  contactVisibility: 'PUBLIC',
   activityFrequency: 1,
   activeDays: [],
-  membershipFee: null,
+  membershipFeeAmount: null,
+  feeCycle: 'NONE',
   highlights: [],
-  majorProjects: null,
+  projects: [],
   activeRecruitment: null,
 };
 
@@ -146,6 +148,8 @@ describe('AdminClubDetailPage', () => {
     expect(await screen.findByText('검색 결과가 없습니다.')).toBeInTheDocument();
   });
 
+  // 잠금 필드(이름·카테고리·분과·단과대)는 PR-2 잠정 폼에서 비활성 — PR-3 어드민 폼 분리에서 복원.
+  // 편집 가능한 필드(위치)로 편집→저장 흐름을 검증한다.
   it('수정 버튼으로 편집 모드에 진입해 저장하면 변경 payload 로 PATCH 되고 편집 모드가 닫힌다', async () => {
     let patchBody: unknown = null;
     server.use(
@@ -153,7 +157,7 @@ describe('AdminClubDetailPage', () => {
         patchBody = await request.json();
         return HttpResponse.json({
           ok: true,
-          data: { ...CLUB_DETAIL, name: '새이름두잉' },
+          data: { ...CLUB_DETAIL, location: '학생회관 999호' },
           message: null,
         });
       }),
@@ -162,12 +166,12 @@ describe('AdminClubDetailPage', () => {
     await screen.findByText('홍길동');
 
     await userEvent.click(screen.getByRole('button', { name: '수정' }));
-    const nameInput = await screen.findByLabelText('이름');
-    await userEvent.clear(nameInput);
-    await userEvent.type(nameInput, '새이름두잉');
+    const locationInput = await screen.findByLabelText('위치');
+    await userEvent.clear(locationInput);
+    await userEvent.type(locationInput, '학생회관 999호');
     await userEvent.click(screen.getByRole('button', { name: '저장' }));
 
-    await waitFor(() => expect(patchBody).toEqual({ name: '새이름두잉' }));
+    await waitFor(() => expect(patchBody).toEqual({ location: '학생회관 999호' }));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: '수정' })).toBeInTheDocument(),
     );

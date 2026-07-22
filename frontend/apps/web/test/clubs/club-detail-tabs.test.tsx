@@ -38,13 +38,15 @@ const baseClub: ClubDetail = {
   foundedYear: null,
   cohortNumber: null,
   location: null,
-  contactEmail: null,
+  contactPhone: null,
+  contactVisibility: 'PUBLIC',
   activityFrequency: null,
   activeDays: [],
-  membershipFee: null,
+  membershipFeeAmount: null,
+  feeCycle: 'NONE',
   tagline: null,
   highlights: [],
-  majorProjects: null,
+  projects: [],
   activeRecruitment: null,
 };
 

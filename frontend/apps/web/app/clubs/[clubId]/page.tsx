@@ -70,7 +70,8 @@ export default function ClubDetailPage({
             <ClubContactCard
               snsLinks={club.snsLinks}
               location={club.location}
-              contactEmail={club.contactEmail}
+              contactPhone={club.contactPhone}
+              contactVisibility={club.contactVisibility}
             />
           </div>
         </div>
