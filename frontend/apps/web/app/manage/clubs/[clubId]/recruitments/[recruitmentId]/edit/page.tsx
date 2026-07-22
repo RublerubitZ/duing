@@ -1,12 +1,16 @@
 'use client';
 
 import { use } from 'react';
+import Link from 'next/link';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useRecruitmentDetailQuery, useUpdateRecruitmentMutation } from '@duing/hooks';
-import { toRoute } from '../../../../../../_lib/route';
-import { RecruitmentForm } from '../../_components/RecruitmentForm';
-import type { EditFormValues } from '../../_components/RecruitmentForm';
+import { toRoute } from '@/app/_lib/route';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import {
+  RecruitmentForm,
+  RECRUITMENT_FORM_ID,
+} from '@/app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
+import type { EditFormValues } from '@/app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
 
 export default function EditRecruitmentPage({
   params,
@@ -56,8 +60,27 @@ export default function EditRecruitmentPage({
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-10">
-      <h1 className="mb-8 text-xl font-bold">모집 수정</h1>
+    <div className="mx-auto max-w-[1240px] px-6 py-9">
+      <header className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="text-xl font-bold text-ink-deep">모집 수정</h1>
+        <div className="flex items-center gap-2">
+          <Link
+            href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
+            className="btn btn-secondary"
+          >
+            취소
+          </Link>
+          <button
+            type="submit"
+            form={RECRUITMENT_FORM_ID}
+            disabled={updateRecruitment.isPending}
+            className="btn btn-primary disabled:opacity-50"
+          >
+            수정 저장
+          </button>
+        </div>
+      </header>
+
       <RecruitmentForm
         mode="edit"
         initialValues={recruitment}
