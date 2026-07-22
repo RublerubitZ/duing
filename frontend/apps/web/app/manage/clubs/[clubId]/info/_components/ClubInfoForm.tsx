@@ -295,27 +295,50 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                 </div>
               </div>
             ) : (
-              <div className="relative mb-20">
-                <ImageUploader
-                  value={coverUrl}
-                  onChange={setCoverUrl}
-                  purpose="COVER"
-                  aspectRatio="16/9"
-                  placeholder="커버 이미지를 업로드하세요"
-                  altText="커버"
-                />
-                {/* 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(좁아질수록 걸침 얕게). */}
-                <div className="absolute -bottom-14 left-5 w-[72px] overflow-hidden rounded-[16px] border-[3px] border-white bg-white shadow-lg sm:-bottom-16 sm:w-[96px]">
-                  <ImageUploader
-                    value={logoUrl}
-                    onChange={setLogoUrl}
-                    purpose="LOGO"
-                    aspectRatio="1/1"
-                    placeholder="로고"
-                    altText="로고"
+              <>
+                <div className="relative">
+                  <ImageWithFallback
+                    src={coverUrl}
+                    alt="커버"
+                    className="aspect-[16/9] overflow-hidden rounded-xl border border-line"
+                    emptyMessage="커버 이미지를 업로드하세요 (권장 1200×675)"
                   />
+                  {/* 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(좁아질수록 걸침 얕게). 칩에는 이미지만 그린다. */}
+                  <div className="absolute -bottom-14 left-5 w-[72px] rounded-[16px] border-[3px] border-white bg-white shadow-lg sm:-bottom-16 sm:w-[96px]">
+                    <ImageWithFallback
+                      src={logoUrl}
+                      alt="로고"
+                      className="aspect-square overflow-hidden rounded-[13px]"
+                      emptyMessage="로고"
+                    />
+                  </div>
                 </div>
-              </div>
+                {/* 업로드 컨트롤 — 커버에 걸친 칩을 피해 오른쪽 흐름에 배치 */}
+                <div className="mb-4 ml-[104px] mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 sm:ml-[132px]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12.5px] font-medium text-[#4a5247]">커버</span>
+                    <ImageUploader
+                      value={coverUrl}
+                      onChange={setCoverUrl}
+                      purpose="COVER"
+                      aspectRatio="16/9"
+                      altText="커버"
+                      controlsOnly
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12.5px] font-medium text-[#4a5247]">로고</span>
+                    <ImageUploader
+                      value={logoUrl}
+                      onChange={setLogoUrl}
+                      purpose="LOGO"
+                      aspectRatio="1/1"
+                      altText="로고"
+                      controlsOnly
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </SectionCard>
 

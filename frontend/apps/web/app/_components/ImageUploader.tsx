@@ -15,6 +15,8 @@ type Props = {
   aspectRatio?: '1/1' | '16/9' | '4/3' | '3/4';
   placeholder?: string;
   altText?: string;
+  /** true 면 미리보기 없이 업로드·제거 컨트롤만 렌더 — 미리보기를 호출부가 따로 그리는 히어로 칩 레이아웃용. */
+  controlsOnly?: boolean;
 };
 
 const ASPECT_CLASS: Record<NonNullable<Props['aspectRatio']>, string> = {
@@ -31,6 +33,7 @@ export function ImageUploader({
   aspectRatio = '16/9',
   placeholder = '이미지를 업로드하세요',
   altText = '대표 이미지',
+  controlsOnly = false,
 }: Props) {
   const uploadMutation = useFileUploadMutation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,12 +67,14 @@ export function ImageUploader({
 
   return (
     <div className="space-y-2">
-      <ImageWithFallback
-        src={value}
-        alt={altText}
-        className={cn(ASPECT_CLASS[aspectRatio], 'rounded-xl overflow-hidden border border-line')}
-        emptyMessage={placeholder}
-      />
+      {!controlsOnly && (
+        <ImageWithFallback
+          src={value}
+          alt={altText}
+          className={cn(ASPECT_CLASS[aspectRatio], 'rounded-xl overflow-hidden border border-line')}
+          emptyMessage={placeholder}
+        />
+      )}
       <div className="flex gap-2">
         <input
           ref={fileInputRef}
