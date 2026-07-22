@@ -12,7 +12,7 @@ import { FaqsRepeater } from './FaqsRepeater';
 import { HighlightsRepeater } from './HighlightsRepeater';
 import { ProjectsRepeater } from './ProjectsRepeater';
 import { ActiveDaysToggle } from './ActiveDaysToggle';
-import { SectionCard } from './SectionCard';
+import { SectionCard } from '@/app/manage/_components/SectionCard';
 import { LockedInput } from './LockedInput';
 import { ContactVisibilityField } from './ContactVisibilityField';
 import { FeeCycleSegment } from './FeeCycleSegment';
