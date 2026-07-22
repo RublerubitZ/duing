@@ -25,7 +25,7 @@ export function ProjectIconPicker({ value, onChange }: Props) {
                 : 'border-[#e2ddcb] bg-white text-[#8a8f83] hover:border-[#cfcab8] hover:text-[#4a5247]'
             }`}
           >
-            <IconComponent className="h-4.5 w-4.5" />
+            <IconComponent className="h-[18px] w-[18px]" />
           </button>
         );
       })}
