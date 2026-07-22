@@ -1,6 +1,6 @@
 'use client';
 
-import { CollegeSelect } from './CollegeSelect';
+import { CollegeSelect } from '@/app/_components/CollegeSelect';
 import { GradeSelect } from '@/app/_components/GradeSelect';
 import { TermsAgreement } from './TermsAgreement';
 import type { SignupFormState } from '../_lib/signup-state';
@@ -83,6 +83,7 @@ export function SignupStepProfile({
         </label>
         <div className="space-y-2">
           <CollegeSelect
+            id="signup-college"
             value={state.college}
             onChange={(college: College) => setField('college', college)}
           />

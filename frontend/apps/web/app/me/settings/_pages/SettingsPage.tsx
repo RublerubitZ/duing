@@ -6,10 +6,12 @@ import Link from 'next/link';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useFavoriteListQuery, useLogout, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
-import { GRADE_DISPLAY_NAME } from '@duing/types';
+import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME, isCollege } from '@duing/types';
 
+import { toRoute } from '@/app/_lib/route';
 import { HomeNav } from '@/app/_components/HomeNav';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 
 import { MyPageHeader } from '../../_components/MyPageHeader';
@@ -42,11 +44,12 @@ type SettingsCardProps = {
   hint?: string;
   children: React.ReactNode;
   danger?: boolean;
+  id?: string;
 };
 
-function SettingsCard({ title, hint, children, danger = false }: SettingsCardProps) {
+function SettingsCard({ title, hint, children, danger = false, id }: SettingsCardProps) {
   return (
-    <section className="bg-paper rounded-lg border border-line mb-4 overflow-hidden">
+    <section id={id} className="bg-paper rounded-lg border border-line mb-4 overflow-hidden scroll-mt-24">
       <div
         className="px-7 py-5 border-b border-line"
         style={danger ? { background: 'rgba(217,119,87,0.05)' } : undefined}
@@ -61,6 +64,14 @@ function SettingsCard({ title, hint, children, danger = false }: SettingsCardPro
 
 /* ── Settings Page tabs ── */
 const TAB_LABELS = ['프로필 정보', '계정 보안', '알림 설정', '계정'] as const;
+
+// 탭 클릭 시 스크롤할 대상 카드 id. 스크롤 스파이(스크롤→탭 동기화)는 하지 않는다.
+const TAB_TARGET_IDS: Record<(typeof TAB_LABELS)[number], string> = {
+  '프로필 정보': 'settings-profile',
+  '계정 보안': 'settings-security',
+  '알림 설정': 'settings-notifications',
+  '계정': 'settings-account',
+};
 
 function SettingsPageTabs() {
   const [activeTab, setActiveTab] = useState<(typeof TAB_LABELS)[number]>('프로필 정보');
@@ -80,7 +91,12 @@ function SettingsPageTabs() {
             <button
               key={tab}
               type="button"
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab);
+                document
+                  .getElementById(TAB_TARGET_IDS[tab])
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
               className={`py-4 bg-transparent border-none text-[15px] font-semibold cursor-pointer transition-colors duration-150 -mb-px ${
                 isActive
                   ? 'text-ink border-b-[2.5px] border-ink'
@@ -144,6 +160,7 @@ export function SettingsPage() {
         <div className="max-w-[880px] mx-auto">
 
           <SettingsCard
+            id="settings-profile"
             title="프로필 정보"
             hint="공개 프로필과 운영자 알림에 사용됩니다."
           >
@@ -164,6 +181,11 @@ export function SettingsPage() {
             <SettingsRow label="학번" value={user?.studentId ?? '—'} />
             <SettingsRow label="학년" value={user?.grade ? GRADE_DISPLAY_NAME[user.grade] : '—'} />
             <SettingsRow
+              label="단과대학"
+              value={user?.college && isCollege(user.college) ? COLLEGE_DISPLAY_NAME[user.college] : '—'}
+            />
+            <SettingsRow label="전공" value={user?.major || '—'} />
+            <SettingsRow
               label="전화번호"
               value={user?.phone ?? '—'}
               action={
@@ -179,7 +201,7 @@ export function SettingsPage() {
             />
           </SettingsCard>
 
-          <SettingsCard title="계정 보안">
+          <SettingsCard id="settings-security" title="계정 보안">
             <SettingsRow
               label="비밀번호"
               value={
@@ -199,7 +221,7 @@ export function SettingsPage() {
 
           <SessionListCard />
 
-          <SettingsCard title="알림 설정">
+          <SettingsCard id="settings-notifications" title="알림 설정">
             <div className="py-6 text-center">
               <p className="text-sm font-semibold text-ink-deep">알림 설정은 준비 중이에요</p>
               <p className="mt-1 text-[12.5px] text-charcoal-3">
@@ -208,7 +230,7 @@ export function SettingsPage() {
             </div>
           </SettingsCard>
 
-          <SettingsCard title="계정" danger hint="세션 종료와 계정 삭제는 한 번 더 확인 후 진행됩니다.">
+          <SettingsCard id="settings-account" title="계정" danger hint="세션 종료와 계정 삭제는 한 번 더 확인 후 진행됩니다.">
             <div className="py-5 flex gap-3">
               <button
                 type="button"
@@ -233,32 +255,35 @@ export function SettingsPage() {
             </div>
           </SettingsCard>
 
-          {/* 설정 섹션 링크 CTA */}
+          {/* 1:1 문의 CTA */}
           <div
-            className="relative overflow-hidden rounded-[24px] px-6 py-6 sm:px-8 sm:py-7 flex items-center gap-6 justify-between"
+            className="relative overflow-hidden rounded-[24px] px-6 py-6 sm:px-8 sm:py-7 flex flex-wrap items-center gap-5 justify-between"
             style={{ background: 'linear-gradient(120deg, #1F4A36 0%, #143025 100%)' }}
           >
-            <SparkleFull
-              size={48}
-              color="rgba(157,182,160,0.35)"
-              className="absolute top-4 right-[240px] pointer-events-none hidden sm:block"
-            />
-            <div className="relative z-[1]">
-              <div className="text-[11.5px] font-bold text-sage tracking-wide16 mb-1.5">SETTINGS</div>
+            <div className="relative z-[1] min-w-0">
+              <div className="text-[11.5px] font-bold text-sage tracking-wide16 mb-1.5">SUPPORT</div>
               <div className="text-[19px] font-bold text-white mb-1">
-                전체 설정 페이지로 이동해서 자세히 관리해요
+                궁금한 점이나 불편한 점이 있나요?
               </div>
               <div className="text-[12.5px] text-white/70">
-                프로필 편집, 알림 세부 설정, 비밀번호 변경, 로그아웃, 회원 탈퇴까지 한 번에.
+                총동연에 1:1 문의를 남기면 확인 후 답변을 드려요.
               </div>
             </div>
+            <div className="relative z-[1] flex items-center gap-3">
+              <SparkleFull
+                size={44}
+                color="rgba(157,182,160,0.35)"
+                className="pointer-events-none hidden sm:block"
+              />
+              <Link
+                href={toRoute('/me/inquiries/new')}
+                className="btn btn-primary px-[22px] whitespace-nowrap"
+              >
+                1:1 문의하기
+                <ArrowRight size={16} />
+              </Link>
+            </div>
           </div>
-
-          <p className="text-[12px] text-charcoal-3 text-center py-4 leading-relaxed">
-            두잉 v2.4.0 · 마지막 업데이트 2026.05.26
-            <br />
-            문의: duing.official@gmail.com
-          </p>
         </div>
       </section>
 
@@ -267,6 +292,8 @@ export function SettingsPage() {
         onClose={() => setProfileOpen(false)}
         currentName={user?.name ?? ''}
         currentGrade={user?.grade ?? 'FRESHMAN'}
+        currentCollege={user?.college}
+        currentMajor={user?.major}
       />
       <PasswordChangeDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
       <PhoneChangeDialog open={phoneOpen} onClose={() => setPhoneOpen(false)} />

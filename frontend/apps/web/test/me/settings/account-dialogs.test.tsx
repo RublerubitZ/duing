@@ -64,7 +64,14 @@ describe('ProfileEditDialog', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderWithProviders(
-      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
+      <ProfileEditDialog
+        open
+        onClose={onClose}
+        currentName="홍길동"
+        currentGrade="JUNIOR"
+        currentCollege="IT_ENGINEERING"
+        currentMajor="컴퓨터정보공학부"
+      />,
     );
 
     const name = screen.getByDisplayValue('홍길동');
@@ -74,6 +81,56 @@ describe('ProfileEditDialog', () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(await screen.findByText('프로필을 수정했어요.')).toBeInTheDocument();
+  });
+
+  it('단과대학이 시드되지 않으면(전환기) API 호출 없이 선택 안내를 보여준다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
+    );
+
+    // 이름은 유효하지만 college 가 '' 이므로 college 검증에서 막혀 PATCH 가 나가지 않는다.
+    // (MSW 핸들러 미등록 + onUnhandledRequest: 'error' 로 "API 호출 없음"도 함께 검증)
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(await screen.findByText('단과대학을 선택해주세요.')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('단과대학·전공을 변경하면 PATCH 페이로드에 college·major가 포함된다', async () => {
+    let capturedBody: unknown = null;
+    server.use(
+      http.patch(`${BASE}/users/me`, async ({ request }) => {
+        capturedBody = await request.json();
+        return ok204();
+      }),
+    );
+
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog
+        open
+        onClose={onClose}
+        currentName="홍길동"
+        currentGrade="JUNIOR"
+        currentCollege="IT_ENGINEERING"
+        currentMajor="컴퓨터정보공학부"
+      />,
+    );
+
+    // 시드된 현재 값이 노출된다.
+    expect(screen.getByDisplayValue('컴퓨터정보공학부')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('단과대학'), '간호대학');
+    const major = screen.getByDisplayValue('컴퓨터정보공학부');
+    await user.clear(major);
+    await user.type(major, '간호학과');
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(capturedBody).toMatchObject({ college: 'NURSING', major: '간호학과' });
   });
 
   // 아래 두 케이스는 MSW 핸들러를 등록하지 않는다 — 검증 실패 시 PATCH 가 나가면
@@ -124,14 +181,21 @@ describe('ProfileEditDialog', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderWithProviders(
-      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
+      <ProfileEditDialog
+        open
+        onClose={onClose}
+        currentName="홍길동"
+        currentGrade="JUNIOR"
+        currentCollege="IT_ENGINEERING"
+        currentMajor="컴퓨터정보공학부"
+      />,
     );
 
     // 학년 셀렉트가 노출되고 현재 값(3학년)이 선택되어 있다.
     expect(screen.getByRole('option', { name: '3학년' })).toBeInTheDocument();
 
-    // 학년을 4학년으로 변경한다.
-    await user.selectOptions(screen.getByRole('combobox'), '4학년');
+    // 학년을 4학년으로 변경한다(단과대학 셀렉트가 추가되어 label 로 특정한다).
+    await user.selectOptions(screen.getByLabelText('학년'), '4학년');
     await user.click(screen.getByRole('button', { name: '저장' }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
