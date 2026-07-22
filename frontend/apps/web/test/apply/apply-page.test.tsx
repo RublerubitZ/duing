@@ -103,12 +103,14 @@ type RecruitmentDetailMockOpts = {
   useInterview?: boolean;
   questionItems?: RecruitmentQuestionItem[];
   interviewAvailabilityDeadline?: string | null;
+  content?: string | null;
 };
 
 function makeRecruitment({
   useInterview = false,
   questionItems = TEXT_ONLY_QUESTION_ITEMS,
   interviewAvailabilityDeadline = null,
+  content = null,
 }: RecruitmentDetailMockOpts = {}): RecruitmentDetail {
   return {
     id: RECRUITMENT_ID,
@@ -125,7 +127,7 @@ function makeRecruitment({
     externalFormUrl: null,
     useInterview,
     targetRole: 'MEMBER',
-    content: null,
+    content,
     // 구 BE 호환 필드 — 신 BE 는 questionItems 와 함께 텍스트 목록도 그대로 내려준다.
     questions: questionItems.map((question) => question.text),
     questionItems,
@@ -269,6 +271,29 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     expect(capturedBody?.['answerItems']).toEqual([
       { questionId: TEXT_QUESTION_ID, values: ['열정'] },
     ]);
+  });
+});
+
+describe('ApplyForm — 모집 안내문(content)', () => {
+  it('안내문(content)이 있으면 질문보다 먼저 Markdown 으로 렌더한다', () => {
+    // 기존 상세 픽스처에서 content 만 오버라이드해 렌더(헬퍼 시그니처에 맞춤).
+    renderForm({ content: '## 환영합니다\n\n- OT 9/30' });
+
+    expect(screen.getByRole('heading', { name: '환영합니다' })).toBeInTheDocument();
+    expect(screen.getByText('OT 9/30')).toBeInTheDocument();
+
+    // 안내 섹션이 지원서 질문(form 내부)보다 문서 순서상 앞선다.
+    const notice = screen.getByRole('region', { name: '모집 안내' });
+    const firstFormNode = screen.getAllByText(/./, { selector: 'form *' })[0];
+    if (!firstFormNode) throw new Error('expected a form node');
+    expect(
+      notice.compareDocumentPosition(firstFormNode) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('content 가 null 이면 모집 안내 섹션을 렌더하지 않는다', () => {
+    renderForm({ content: null });
+    expect(screen.queryByRole('region', { name: '모집 안내' })).not.toBeInTheDocument();
   });
 });
 

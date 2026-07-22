@@ -16,6 +16,7 @@ import { InterviewStageChip } from './_components/InterviewStageChip';
 import { RecruitmentQuestionItemList } from './_components/RecruitmentQuestionItemList';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { MarkdownProse } from '@/components/markdown/MarkdownProse';
 
 export default function RecruitmentDetailPage({
   params,
@@ -163,7 +164,7 @@ export default function RecruitmentDetailPage({
       {recruitment.content && (
         <div className="mb-8">
           <h2 className="mb-2 text-sm font-medium text-slate-700">모집 내용</h2>
-          <p className="whitespace-pre-wrap text-sm text-slate-600">{recruitment.content}</p>
+          <MarkdownProse content={recruitment.content} />
         </div>
       )}
 
