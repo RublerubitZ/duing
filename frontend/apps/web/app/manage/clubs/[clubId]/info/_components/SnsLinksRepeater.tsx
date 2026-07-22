@@ -2,7 +2,7 @@
 
 import type { ClubSnsLink } from '@duing/types';
 
-const PLATFORMS = ['INSTAGRAM', 'FACEBOOK', 'X', 'YOUTUBE', 'KAKAO', 'WEB'] as const;
+const PLATFORMS = ['INSTAGRAM', 'FACEBOOK', 'KAKAO', 'OTHER'] as const;
 type PlatformLiteral = (typeof PLATFORMS)[number];
 
 function isPlatform(value: string): value is PlatformLiteral {
@@ -34,7 +34,7 @@ export function SnsLinksRepeater({
 
   function add() {
     if (value.length >= maxLinks) return;
-    onChange([...value, { platform: 'INSTAGRAM', url: '' }]);
+    onChange([...value, { platform: 'INSTAGRAM', label: null, url: '' }]);
   }
 
   function remove(idx: number) {
