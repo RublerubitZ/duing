@@ -191,7 +191,7 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
           style={{ width: collapsed ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded }}
           className={cn(
             'sticky top-0 hidden h-[calc(100dvh-1.5rem)] shrink-0 flex-col self-start overflow-hidden md:flex',
-            'my-3 mr-3 rounded-r-xl shadow-4',
+            'm-3 rounded-xl shadow-4',
             SIDEBAR_SURFACE_CLASS,
             'motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out',
           )}
