@@ -116,7 +116,8 @@ export function ImageUploader({
         <div
           className={cn(
             'absolute flex',
-            dense ? 'right-1 top-1 gap-1.5' : 'right-2 top-2 gap-2',
+            // dense 도 gap-2 — 히트 확장(before:-inset-2)이 이웃 버튼 가시 표면을 덮어 오클릭(제거)되는 것 방지.
+            dense ? 'right-1 top-1 gap-2' : 'right-2 top-2 gap-2',
             // 모바일(hover 없음)은 항상 노출, md+ 는 컨테이너 hover·키보드 포커스 시 등장.
             'translate-y-0 opacity-100',
             'md:-translate-y-1 md:opacity-0',
