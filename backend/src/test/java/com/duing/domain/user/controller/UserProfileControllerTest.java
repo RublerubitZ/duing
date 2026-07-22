@@ -1,6 +1,7 @@
 package com.duing.domain.user.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
@@ -166,5 +167,86 @@ class UserProfileControllerTest extends IntegrationTestBase {
 
         User reloaded = userRepository.findById(user.getId()).orElseThrow();
         assertThat(reloaded.getPhone()).isEqualTo(originalPhone);
+    }
+
+    @Test
+    @DisplayName("내 정보 조회 시 단과대학과 전공이 응답에 포함된다")
+    void getMeIncludesCollegeAndMajor() {
+        User user = saveUser(Grade.JUNIOR);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(user))
+                .when().get("/api/v1/users/me")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.college", equalTo("IT_ENGINEERING"))
+                .body("data.major", equalTo("컴퓨터공학"));
+    }
+
+    @Test
+    @DisplayName("단과대학과 전공을 함께 수정하면 저장된 값이 변경된다")
+    void updateProfileChangesCollegeAndMajor() {
+        User user = saveUser(Grade.FRESHMAN);
+        String token = tokenFor(user);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"수정이름\",\"college\":\"DESIGN_ART\",\"major\":\"산업디자인\"}")
+                .when().patch("/api/v1/users/me")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        User reloaded = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(reloaded.getCollege()).isEqualTo(College.DESIGN_ART);
+        assertThat(reloaded.getMajor()).isEqualTo("산업디자인");
+    }
+
+    @Test
+    @DisplayName("단과대학과 전공을 생략하고 프로필을 수정하면 기존 값이 그대로 유지된다")
+    void updateProfileWithoutCollegeAndMajorKeepsExistingValues() {
+        User user = saveUser(Grade.JUNIOR);
+        String token = tokenFor(user);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"수정이름\"}")
+                .when().patch("/api/v1/users/me")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        User reloaded = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(reloaded.getCollege()).isEqualTo(College.IT_ENGINEERING);
+        assertThat(reloaded.getMajor()).isEqualTo("컴퓨터공학");
+    }
+
+    @Test
+    @DisplayName("전공을 공백 문자열로 보내면 400 을 반환한다")
+    void updateProfileRejectsBlankMajor() {
+        User user = saveUser(Grade.JUNIOR);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(user))
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"수정이름\",\"major\":\"   \"}")
+                .when().patch("/api/v1/users/me")
+                .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", containsString("전공 학과는 공백일 수 없습니다."));
+    }
+
+    @Test
+    @DisplayName("전공이 50자를 초과하면 400 을 반환한다")
+    void updateProfileRejectsTooLongMajor() {
+        User user = saveUser(Grade.JUNIOR);
+        String tooLongMajor = "가".repeat(51);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(user))
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"수정이름\",\"major\":\"" + tooLongMajor + "\"}")
+                .when().patch("/api/v1/users/me")
+                .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", containsString("전공 학과는 50자 이하여야 합니다."));
     }
 }

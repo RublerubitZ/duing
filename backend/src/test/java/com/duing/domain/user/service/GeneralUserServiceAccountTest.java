@@ -64,7 +64,7 @@ class GeneralUserServiceAccountTest {
     void updateProfileChangesNameAndGrade() {
         User user = saveUserWithPassword("Old1234!");
 
-        userService.updateProfile(new UpdateProfileCommand(user.getId(), "새이름", Grade.SENIOR));
+        userService.updateProfile(new UpdateProfileCommand(user.getId(), "새이름", Grade.SENIOR, null, null));
         flushAndClear();
 
         User reloaded = userRepository.findById(user.getId()).orElseThrow();
@@ -76,7 +76,7 @@ class GeneralUserServiceAccountTest {
     @DisplayName("존재하지 않는 사용자의 프로필 수정은 UserNotFoundException")
     void updateProfileForMissingUserThrows() {
         assertThatThrownBy(() -> userService.updateProfile(
-                new UpdateProfileCommand(999_999L, "새이름", Grade.JUNIOR)))
+                new UpdateProfileCommand(999_999L, "새이름", Grade.JUNIOR, null, null)))
                 .isInstanceOf(UserException.UserNotFoundException.class);
     }
 
