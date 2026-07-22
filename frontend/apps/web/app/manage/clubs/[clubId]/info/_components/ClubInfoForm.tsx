@@ -304,7 +304,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                     emptyMessage="커버 이미지를 업로드하세요 (권장 1200×675)"
                   />
                   {/* 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(좁아질수록 걸침 얕게). 칩에는 이미지만 그린다. */}
-                  <div className="absolute -bottom-14 left-5 w-[72px] rounded-[16px] border-[3px] border-white bg-white shadow-lg sm:-bottom-16 sm:w-[96px]">
+                  <div className="absolute -bottom-14 left-5 w-[72px] overflow-hidden rounded-[16px] border-[3px] border-white bg-white shadow-lg sm:-bottom-16 sm:w-[96px]">
                     <ImageWithFallback
                       src={logoUrl}
                       alt="로고"
