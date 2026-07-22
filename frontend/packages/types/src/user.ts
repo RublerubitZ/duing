@@ -82,11 +82,17 @@ export type User = {
   phone: string;
   grade: Grade;
   role: UserRole;
+  // BE 미배포 전환기에 실제로 부재할 수 있어 옵셔널.
+  college?: College;
+  major?: string;
 };
 
 export type UpdateProfilePayload = {
   name: string;
   grade: Grade;
+  // BE null=기존 값 유지 시맨틱 — 변경하지 않을 필드는 생략한다.
+  college?: College;
+  major?: string;
 };
 
 export type ChangePasswordPayload = {

@@ -64,7 +64,14 @@ describe('ProfileEditDialog', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderWithProviders(
-      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
+      <ProfileEditDialog
+        open
+        onClose={onClose}
+        currentName="홍길동"
+        currentGrade="JUNIOR"
+        currentCollege="IT_ENGINEERING"
+        currentMajor="컴퓨터정보공학부"
+      />,
     );
 
     const name = screen.getByDisplayValue('홍길동');
@@ -74,6 +81,93 @@ describe('ProfileEditDialog', () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(await screen.findByText('프로필을 수정했어요.')).toBeInTheDocument();
+  });
+
+  it('전환기(college/major 미시드)에는 이름·학년만 저장하고 payload 에서 college·major 를 생략한다', async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    server.use(
+      http.patch(`${BASE}/users/me`, async ({ request }) => {
+        capturedBody = (await request.json()) as Record<string, unknown>;
+        return ok204();
+      }),
+    );
+
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
+    );
+
+    // college='' · major='' 인 전환기에도 이름·학년 수정은 막히지 않는다.
+    const name = screen.getByDisplayValue('홍길동');
+    await user.clear(name);
+    await user.type(name, '김두잉');
+    await user.selectOptions(screen.getByLabelText('학년'), '4학년');
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(capturedBody).toEqual({ name: '김두잉', grade: 'SENIOR' });
+    expect(capturedBody).not.toHaveProperty('college');
+    expect(capturedBody).not.toHaveProperty('major');
+  });
+
+  it('시드된 전공을 모두 지우고 저장하면 API 호출 없이 필수 오류를 보여준다', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog
+        open
+        onClose={onClose}
+        currentName="홍길동"
+        currentGrade="JUNIOR"
+        currentCollege="IT_ENGINEERING"
+        currentMajor="컴퓨터정보공학부"
+      />,
+    );
+
+    // 시드된 필수 필드(전공)를 비워 저장하면 침묵 복원 대신 명시적 에러.
+    // (MSW 핸들러 미등록 + onUnhandledRequest: 'error' 로 "API 호출 없음"도 함께 검증)
+    const major = screen.getByDisplayValue('컴퓨터정보공학부');
+    await user.clear(major);
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(await screen.findByText('전공 학과는 필수 입력값입니다.')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('단과대학·전공을 변경하면 PATCH 페이로드에 college·major가 포함된다', async () => {
+    let capturedBody: unknown = null;
+    server.use(
+      http.patch(`${BASE}/users/me`, async ({ request }) => {
+        capturedBody = await request.json();
+        return ok204();
+      }),
+    );
+
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog
+        open
+        onClose={onClose}
+        currentName="홍길동"
+        currentGrade="JUNIOR"
+        currentCollege="IT_ENGINEERING"
+        currentMajor="컴퓨터정보공학부"
+      />,
+    );
+
+    // 시드된 현재 값이 노출된다.
+    expect(screen.getByDisplayValue('컴퓨터정보공학부')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('단과대학'), '간호대학');
+    const major = screen.getByDisplayValue('컴퓨터정보공학부');
+    await user.clear(major);
+    await user.type(major, '간호학과');
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(capturedBody).toMatchObject({ college: 'NURSING', major: '간호학과' });
   });
 
   // 아래 두 케이스는 MSW 핸들러를 등록하지 않는다 — 검증 실패 시 PATCH 가 나가면
@@ -124,14 +218,21 @@ describe('ProfileEditDialog', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderWithProviders(
-      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
+      <ProfileEditDialog
+        open
+        onClose={onClose}
+        currentName="홍길동"
+        currentGrade="JUNIOR"
+        currentCollege="IT_ENGINEERING"
+        currentMajor="컴퓨터정보공학부"
+      />,
     );
 
     // 학년 셀렉트가 노출되고 현재 값(3학년)이 선택되어 있다.
     expect(screen.getByRole('option', { name: '3학년' })).toBeInTheDocument();
 
-    // 학년을 4학년으로 변경한다.
-    await user.selectOptions(screen.getByRole('combobox'), '4학년');
+    // 학년을 4학년으로 변경한다(단과대학 셀렉트가 추가되어 label 로 특정한다).
+    await user.selectOptions(screen.getByLabelText('학년'), '4학년');
     await user.click(screen.getByRole('button', { name: '저장' }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());

@@ -57,6 +57,12 @@ export const userNameSchema = z
     '사용할 수 없는 이름입니다. 다른 이름을 입력해 주세요.',
   );
 
+// 전공 학과 공용 규칙 — 가입·프로필 수정 동일 정책(필수·50자). BE SignupRequest/UpdateProfileRequest 와 동일.
+export const majorSchema = z
+  .string()
+  .min(1, '전공 학과는 필수 입력값입니다.')
+  .max(50, '전공 학과는 50자 이하여야 합니다.');
+
 export const signupSchema = z.object({
   studentId: z
     .string()
@@ -66,10 +72,7 @@ export const signupSchema = z.object({
   password: passwordSchema,
   grade: z.enum(GRADE_VALUES, { errorMap: () => ({ message: '학년을 선택해주세요.' }) }),
   college: z.enum(COLLEGE_VALUES, { errorMap: () => ({ message: '단과대학을 선택해주세요.' }) }),
-  major: z
-    .string()
-    .min(1, '전공 학과는 필수 입력값입니다.')
-    .max(50, '전공 학과는 50자 이하여야 합니다.'),
+  major: majorSchema,
   verificationToken: z
     .string()
     .min(1, '휴대폰 인증을 완료해주세요.')
