@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { RecruitmentDetail } from '@duing/types';
 import { RecruitmentForm } from '../../app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
@@ -16,9 +16,35 @@ describe('toBuilderQuestions — undefined(구 BE) 와 [](신 BE 외부 폼) 구
   });
 });
 
+describe('RecruitmentForm — 4섹션 구조', () => {
+  it('기본 정보 → 모집 설정 → 안내문 → 지원서 질문 섹션과 전형 단계 칩을 렌더한다', () => {
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={vi.fn()} isPending={false} />);
+    const headings = screen.getAllByRole('heading', { level: 3 }).map((el) => el.textContent);
+    expect(headings).toEqual(['기본 정보', '모집 설정', '안내문', '지원서 질문']);
+    // 면접 미사용 기본 상태 — 전형 칩은 서류→최종
+    expect(screen.getByText('1. 서류')).toBeInTheDocument();
+    expect(screen.getByText('2. 최종')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '모집 시작' })).toBeInTheDocument();
+  });
+
+  it('면접 진행 스위치를 켜면 전형 칩에 면접이 들어가고 기간 입력이 나타난다', () => {
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={vi.fn()} isPending={false} />);
+    fireEvent.click(screen.getByRole('switch', { name: '면접 진행' }));
+    expect(screen.getByText('2. 면접')).toBeInTheDocument();
+    expect(screen.getByLabelText('면접 시작일')).toBeInTheDocument();
+  });
+
+  it('외부 폼 선택 시 지원서 질문 섹션이 안내 배너로 대체된다', () => {
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={vi.fn()} isPending={false} />);
+    fireEvent.click(screen.getByRole('radio', { name: '외부 폼' }));
+    expect(screen.getByText(/외부 폼 사용 중/)).toBeInTheDocument();
+    expect(screen.queryByText('+ 질문 추가')).not.toBeInTheDocument();
+  });
+});
+
 describe('RecruitmentForm — 상시모집 토글', () => {
   it('상시모집 체크박스를 켜면 종료일 입력이 disabled 되고 값이 비워진다', () => {
-    render(<RecruitmentForm mode="create" onSubmit={vi.fn()} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={vi.fn()} isPending={false} />);
     const endDateInput = screen.getByLabelText(/^종료일/) as HTMLInputElement;
     const alwaysOpenCheckbox = screen.getByLabelText(/^상시모집/);
 
@@ -32,7 +58,7 @@ describe('RecruitmentForm — 상시모집 토글', () => {
 
   it('상시모집 체크 + 외부폼 으로 채워 제출하면 endDate=null 로 onSubmit 이 호출된다', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<RecruitmentForm mode="create" onSubmit={onSubmit} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={onSubmit} isPending={false} />);
 
     fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), {
       target: { value: '상시모집 공고' },
@@ -43,12 +69,12 @@ describe('RecruitmentForm — 상시모집 토글', () => {
     fireEvent.click(screen.getByLabelText(/^상시모집/));
 
     // 외부 폼은 지원 질문을 요구하지 않으므로 상시모집 단독 검증에 적합하다.
-    fireEvent.click(screen.getByLabelText('외부 폼'));
+    fireEvent.click(screen.getByRole('radio', { name: '외부 폼' }));
     fireEvent.change(screen.getByPlaceholderText('https://forms.google.com/...'), {
       target: { value: 'https://forms.example.com/x' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /모집 작성/ }));
+    fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ endDate: null });
@@ -95,13 +121,13 @@ function addQuestion(text: string) {
 
 describe('RecruitmentForm — 질문 유형 빌더', () => {
   it('질문 유형을 객관식(단일 선택)으로 바꾸면 선택지 입력이 나타난다', () => {
-    render(<RecruitmentForm mode="create" onSubmit={vi.fn()} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={vi.fn()} isPending={false} />);
 
     fireEvent.click(screen.getByRole('button', { name: '+ 질문 추가' }));
-    expect(screen.getByLabelText('주관식')).toBeChecked();
+    expect(screen.getByRole('radio', { name: '주관식' })).toBeChecked();
     expect(screen.queryByPlaceholderText('선택지 1')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText('객관식(단일 선택)'));
+    fireEvent.click(screen.getByRole('radio', { name: '객관식(단일 선택)' }));
 
     expect(screen.getByPlaceholderText('선택지 1')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('선택지 2')).toBeInTheDocument();
@@ -110,15 +136,15 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
   it('객관식 질문은 선택지와 함께 제출된다', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<RecruitmentForm mode="create" onSubmit={onSubmit} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={onSubmit} isPending={false} />);
 
     fillCreateBasics();
     addQuestion('학년을 선택해주세요');
-    fireEvent.click(screen.getByLabelText('객관식(단일 선택)'));
+    fireEvent.click(screen.getByRole('radio', { name: '객관식(단일 선택)' }));
     fireEvent.change(screen.getByPlaceholderText('선택지 1'), { target: { value: '1학년' } });
     fireEvent.change(screen.getByPlaceholderText('선택지 2'), { target: { value: '2학년' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /모집 작성/ }));
+    fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]?.questionItems).toEqual([
@@ -137,7 +163,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
   it('필수 질문 체크박스는 기본 선택이고 해제하면 required=false 로 제출된다', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<RecruitmentForm mode="create" onSubmit={onSubmit} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={onSubmit} isPending={false} />);
 
     fillCreateBasics();
     addQuestion('지원 동기를 알려주세요');
@@ -147,7 +173,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     fireEvent.click(requiredCheckbox);
     expect(requiredCheckbox).not.toBeChecked();
 
-    fireEvent.click(screen.getByRole('button', { name: /모집 작성/ }));
+    fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]?.questionItems).toEqual([
@@ -157,18 +183,18 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
   it('선택지가 1개인 객관식은 검증 메시지로 제출이 막힌다', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<RecruitmentForm mode="create" onSubmit={onSubmit} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={onSubmit} isPending={false} />);
 
     fillCreateBasics();
     addQuestion('학년을 선택해주세요');
-    fireEvent.click(screen.getByLabelText('객관식(단일 선택)'));
+    fireEvent.click(screen.getByRole('radio', { name: '객관식(단일 선택)' }));
     fireEvent.change(screen.getByPlaceholderText('선택지 1'), { target: { value: '1학년' } });
 
     const choiceRemoveButtons = screen.getAllByLabelText('선택지 삭제');
     fireEvent.click(choiceRemoveButtons[1] as HTMLElement);
     expect(screen.getByText('선택지를 2개 이상 등록해주세요.')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /모집 작성/ }));
+    fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
     expect(
       await screen.findByText('선택형 질문은 선택지를 2개 이상 등록해야 합니다.'),
@@ -178,15 +204,15 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
   it('같은 선택지 내용을 두 번 입력하면 제출이 막힌다', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<RecruitmentForm mode="create" onSubmit={onSubmit} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={onSubmit} isPending={false} />);
 
     fillCreateBasics();
     addQuestion('관심 분야를 골라주세요');
-    fireEvent.click(screen.getByLabelText('객관식(복수 선택)'));
+    fireEvent.click(screen.getByRole('radio', { name: '객관식(복수 선택)' }));
     fireEvent.change(screen.getByPlaceholderText('선택지 1'), { target: { value: '백엔드' } });
     fireEvent.change(screen.getByPlaceholderText('선택지 2'), { target: { value: '백엔드' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /모집 작성/ }));
+    fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
     expect(
       await screen.findByText('같은 질문 안에서 선택지 내용이 중복될 수 없습니다.'),
@@ -196,13 +222,13 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
   it('자체 폼에서 질문을 모두 지우면 제출이 막힌다', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<RecruitmentForm mode="create" onSubmit={onSubmit} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={onSubmit} isPending={false} />);
 
     fillCreateBasics();
     addQuestion('지원 동기를 알려주세요');
     fireEvent.click(screen.getByLabelText('삭제'));
 
-    fireEvent.click(screen.getByRole('button', { name: /모집 작성/ }));
+    fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
     expect(
       await screen.findByText('자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.'),
@@ -215,6 +241,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     render(
       <RecruitmentForm
         mode="edit"
+        submitLabel="수정 저장"
         initialValues={{
           ...baseRecruitmentDetail,
           questions: ['지원 동기는?'],
@@ -241,6 +268,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     render(
       <RecruitmentForm
         mode="edit"
+        submitLabel="수정 저장"
         initialValues={{
           ...baseRecruitmentDetail,
           questions: ['학년은?'],
@@ -262,7 +290,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
       />,
     );
 
-    expect(screen.getByLabelText('객관식(단일 선택)')).toBeChecked();
+    expect(screen.getByRole('radio', { name: '객관식(단일 선택)' })).toBeChecked();
     fireEvent.change(screen.getByDisplayValue('학년은?'), {
       target: { value: '몇 학년인가요?' },
     });
@@ -291,6 +319,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     render(
       <RecruitmentForm
         mode="edit"
+        submitLabel="수정 저장"
         initialValues={{ ...baseRecruitmentDetail, questions: ['지원 동기는?'] }}
         onSubmit={vi.fn()}
         isPending={false}
@@ -311,6 +340,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     render(
       <RecruitmentForm
         mode="edit"
+        submitLabel="수정 저장"
         initialValues={{ ...baseRecruitmentDetail, questions: ['지원 동기는?'] }}
         onSubmit={onSubmit}
         isPending={false}
@@ -331,6 +361,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     render(
       <RecruitmentForm
         mode="edit"
+        submitLabel="수정 저장"
         initialValues={{
           ...baseRecruitmentDetail,
           applicationMode: 'EXTERNAL',
@@ -350,18 +381,18 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
   it('선택형에서 주관식으로 되돌리면 선택지 초안은 화면에서 감춰지고 빈 배열로 제출된다', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<RecruitmentForm mode="create" onSubmit={onSubmit} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={onSubmit} isPending={false} />);
 
     fillCreateBasics();
     addQuestion('지원 동기를 알려주세요');
-    fireEvent.click(screen.getByLabelText('객관식(단일 선택)'));
+    fireEvent.click(screen.getByRole('radio', { name: '객관식(단일 선택)' }));
     fireEvent.change(screen.getByPlaceholderText('선택지 1'), { target: { value: '백엔드' } });
     fireEvent.change(screen.getByPlaceholderText('선택지 2'), { target: { value: '프론트엔드' } });
 
-    fireEvent.click(screen.getByLabelText('주관식'));
+    fireEvent.click(screen.getByRole('radio', { name: '주관식' }));
     expect(screen.queryByPlaceholderText('선택지 1')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /모집 작성/ }));
+    fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]?.questionItems).toEqual([
@@ -386,12 +417,12 @@ describe('RecruitmentForm — cloneSeed(양식 복제)', () => {
   };
 
   it('제목·정원·지원 방식 등은 시드되지만 시작일/종료일은 비워둔다', () => {
-    render(<RecruitmentForm mode="create" cloneSeed={seed} onSubmit={vi.fn()} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" cloneSeed={seed} onSubmit={vi.fn()} isPending={false} />);
 
     expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('9기 신입 모집');
     expect(screen.getByDisplayValue('18')).toBeInTheDocument();
-    expect(screen.getByLabelText('외부 폼')).toBeChecked();
-    expect(screen.getByLabelText('운영진')).toBeChecked();
+    expect(screen.getByRole('radio', { name: '외부 폼' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: '운영진' })).toBeChecked();
     expect((screen.getByLabelText(/^시작일/) as HTMLInputElement).value).toBe('');
     expect((screen.getByLabelText(/^종료일/) as HTMLInputElement).value).toBe('');
     // useInterview 는 시드되지만 면접 기간은 회차마다 다르므로 비워둔다.
@@ -408,13 +439,38 @@ describe('RecruitmentForm — cloneSeed(양식 복제)', () => {
         { id: 'q1', text: '지원 동기를 알려주세요', type: 'TEXT', required: true, choices: [] },
       ],
     };
-    render(<RecruitmentForm mode="create" cloneSeed={selfSeed} onSubmit={vi.fn()} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" cloneSeed={selfSeed} onSubmit={vi.fn()} isPending={false} />);
 
     expect(screen.getByDisplayValue('지원 동기를 알려주세요')).toBeInTheDocument();
   });
 
   it('cloneSeed가 없으면 기존과 동일하게 빈 폼으로 시작한다', () => {
-    render(<RecruitmentForm mode="create" onSubmit={vi.fn()} isPending={false} />);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={vi.fn()} isPending={false} />);
     expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('');
+  });
+});
+
+describe('RecruitmentForm — 상시모집 수정', () => {
+  it('상시모집 공고는 endDate 없이 수정 저장이 가능하다', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <RecruitmentForm
+        mode="edit"
+        submitLabel="수정 저장"
+        initialValues={{ ...baseRecruitmentDetail, endDate: null }}
+        onSubmit={onSubmit}
+        isPending={false}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), {
+      target: { value: '수정된 상시모집' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ title: '수정된 상시모집' });
+    expect(onSubmit.mock.calls[0]?.[0].endDate).toBeUndefined();
+    expect(screen.queryByText('날짜 형식이 올바르지 않습니다.')).not.toBeInTheDocument();
   });
 });

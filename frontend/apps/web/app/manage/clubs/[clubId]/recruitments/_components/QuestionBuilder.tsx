@@ -2,6 +2,8 @@
 
 import type { QuestionItemPayload, QuestionType, RecruitmentQuestionItem } from '@duing/types';
 
+import { FormSegment } from './form-controls';
+
 /** 빌더 내부 상태 — key 는 React 렌더 전용 식별자로 서버가 발급하는 id 와 별개다. */
 export type BuilderChoice = { key: string; id: string | null; label: string };
 export type BuilderQuestion = {
@@ -160,22 +162,22 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
   return (
     <div className="space-y-3">
       {questions.map((question, index) => (
-        <div key={question.key} className="rounded-md border border-slate-200 p-3">
+        <div key={question.key} className="rounded-[13px] border border-line bg-paper p-3.5">
           <div className="flex items-center gap-2">
-            <span className="w-5 shrink-0 text-right text-sm text-slate-400">{index + 1}.</span>
+            <span className="w-5 shrink-0 text-right text-sm text-charcoal-3">{index + 1}.</span>
             <input
               type="text"
               value={question.text}
               onChange={(event) => handleChangeText(question.key, event.target.value)}
               placeholder={`질문 ${index + 1}을 입력하세요`}
-              className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
             />
             <div className="flex gap-1">
               <button
                 type="button"
                 onClick={() => handleMoveUp(index)}
                 disabled={index === 0}
-                className="grid h-9 w-9 place-items-center rounded text-slate-400 hover:bg-slate-100 disabled:opacity-30"
+                className="grid h-9 w-9 place-items-center rounded text-charcoal-3 hover:bg-graysoft disabled:opacity-30"
                 aria-label="위로 이동"
               >
                 ▲
@@ -184,7 +186,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                 type="button"
                 onClick={() => handleMoveDown(index)}
                 disabled={index === questions.length - 1}
-                className="grid h-9 w-9 place-items-center rounded text-slate-400 hover:bg-slate-100 disabled:opacity-30"
+                className="grid h-9 w-9 place-items-center rounded text-charcoal-3 hover:bg-graysoft disabled:opacity-30"
                 aria-label="아래로 이동"
               >
                 ▼
@@ -192,7 +194,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
               <button
                 type="button"
                 onClick={() => handleRemoveQuestion(question.key)}
-                className="grid h-9 w-9 place-items-center rounded text-rose-400 hover:bg-rose-50"
+                className="grid h-9 w-9 place-items-center rounded text-coral hover:bg-coral/10"
                 aria-label="삭제"
               >
                 ✕
@@ -201,30 +203,19 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
           </div>
 
           <div className="mt-3 pl-7">
-            <fieldset>
-              <legend className="sr-only">{`질문 ${index + 1} 유형`}</legend>
-              <div className="flex flex-wrap gap-4">
-                {QUESTION_TYPE_OPTIONS.map((option) => (
-                  <label key={option.value} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name={`question-type-${question.key}`}
-                      value={option.value}
-                      checked={question.type === option.value}
-                      onChange={() => handleChangeType(question.key, option.value)}
-                    />
-                    {option.label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+            <FormSegment
+              options={QUESTION_TYPE_OPTIONS}
+              value={question.type}
+              onChange={(type) => handleChangeType(question.key, type)}
+              ariaLabel={`질문 ${index + 1} 유형`}
+            />
 
             <label className="mt-3 flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={question.required}
                 onChange={(event) => handleToggleRequired(question.key, event.target.checked)}
-                className="h-4 w-4 rounded border-slate-300"
+                className="h-4 w-4 rounded border-line accent-ink"
               />
               필수 질문
             </label>
@@ -240,12 +231,12 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                         handleChangeChoiceLabel(question.key, choice.key, event.target.value)
                       }
                       placeholder={`선택지 ${choiceIndex + 1}`}
-                      className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      className="flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
                     />
                     <button
                       type="button"
                       onClick={() => handleRemoveChoice(question.key, choice.key)}
-                      className="grid h-9 w-9 place-items-center rounded text-rose-400 hover:bg-rose-50"
+                      className="grid h-9 w-9 place-items-center rounded text-coral hover:bg-coral/10"
                       aria-label="선택지 삭제"
                     >
                       ✕
@@ -253,12 +244,12 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                   </div>
                 ))}
                 {question.choices.length < MIN_CHOICE_COUNT && (
-                  <p className="text-xs text-slate-400">선택지를 2개 이상 등록해주세요.</p>
+                  <p className="text-xs text-charcoal-3">선택지를 2개 이상 등록해주세요.</p>
                 )}
                 <button
                   type="button"
                   onClick={() => handleAddChoice(question.key)}
-                  className="rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-xs text-slate-500 hover:border-slate-400 hover:text-slate-700"
+                  className="rounded-md border border-dashed border-line px-3 py-1.5 text-xs text-charcoal-3 hover:border-charcoal-3 hover:text-charcoal"
                 >
                   + 선택지 추가
                 </button>
@@ -270,7 +261,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
       <button
         type="button"
         onClick={handleAddQuestion}
-        className="mt-1 rounded-md border border-dashed border-slate-300 px-4 py-2 text-sm text-slate-500 hover:border-slate-400 hover:text-slate-700"
+        className="mt-1 rounded-md border border-dashed border-line px-4 py-2 text-sm text-charcoal-3 hover:border-charcoal-3 hover:text-charcoal"
       >
         + 질문 추가
       </button>

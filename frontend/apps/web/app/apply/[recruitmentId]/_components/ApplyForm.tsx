@@ -13,6 +13,7 @@ import type {
 } from '@duing/types';
 import { useSubmitApplicationMutation, draftQueryKeys } from '@duing/hooks';
 import { Spinner, ButtonSpinner } from '@/components/loading/Spinner';
+import { MarkdownProse } from '@/components/markdown/MarkdownProse';
 import { useAutosaveDraft } from '../_hooks/useAutosaveDraft';
 import { ApplyAnswersStep } from './ApplyAnswersStep';
 import { toRoute } from '../../../_lib/route';
@@ -186,6 +187,14 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
               모집이 마감되어 더 이상 임시저장되지 않습니다. 제출도 불가합니다.
             </p>
           </div>
+        )}
+
+        {/* 모집 안내문 — 모집 정보(헤더) → 안내문 → 지원서 질문 순서 정책. content 없으면 미표시 */}
+        {recruitment.content && (
+          <section aria-label="모집 안내" className="mb-9">
+            <h2 className="mb-3 text-[13px] font-bold tracking-wide text-ink">모집 안내</h2>
+            <MarkdownProse content={recruitment.content} className="text-[14.5px]" />
+          </section>
         )}
 
         <form onSubmit={handleSubmit} noValidate className="space-y-7">

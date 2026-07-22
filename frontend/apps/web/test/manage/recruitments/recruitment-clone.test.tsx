@@ -71,6 +71,11 @@ describe('NewRecruitmentPage — 양식 복제', () => {
     renderPage({});
     expect(screen.getByText('신규 모집 작성')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('');
+    expect(screen.getAllByRole('button', { name: '모집 시작' }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('link', { name: '취소' })).toHaveAttribute(
+      'href',
+      '/manage/clubs/1/recruitments',
+    );
   });
 
   it('cloneFrom이 있으면 원본을 불러와 제목·질문을 시드하고 안내 배너를 보여준다', async () => {
@@ -80,5 +85,12 @@ describe('NewRecruitmentPage — 양식 복제', () => {
     expect(await screen.findByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('9기 신입 모집');
     expect(screen.getByText(/원본 모집은 변경되지 않으며/)).toBeInTheDocument();
     expect(screen.getByDisplayValue('지원 동기를 알려주세요')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button', { name: '복제하여 모집 시작' }).length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('link', { name: '9기 신입 모집' })).toHaveAttribute(
+      'href',
+      '/manage/clubs/1/recruitments/9',
+    );
   });
 });
