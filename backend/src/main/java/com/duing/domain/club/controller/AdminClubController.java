@@ -1,10 +1,10 @@
 package com.duing.domain.club.controller;
 
 import com.duing.domain.club.api.AdminClubApi;
+import com.duing.domain.club.controller.dto.request.AdminUpdateClubRequest;
 import com.duing.domain.club.controller.dto.request.CloseClubRequest;
 import com.duing.domain.club.controller.dto.request.CreateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
-import com.duing.domain.club.controller.dto.request.UpdateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
 import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
@@ -62,10 +62,10 @@ public class AdminClubController implements AdminClubApi {
     @Override
     public ResponseEntity<ApiResponse<ClubDetailResponse>> updateClub(
             @PathVariable Long clubId,
-            @Valid @RequestBody UpdateClubRequest updateClubRequest,
+            @Valid @RequestBody AdminUpdateClubRequest adminUpdateClubRequest,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        clubService.updateAsAdmin(updateClubRequest.toCommand(clubId, currentUser.id()));
+        clubService.updateAsAdmin(adminUpdateClubRequest.toCommand(clubId, currentUser.id()));
         ClubDetailResponse response = ClubDetailResponse.from(clubService.getById(clubId));
         return ResponseEntity.ok(ApiResponse.success(response));
     }

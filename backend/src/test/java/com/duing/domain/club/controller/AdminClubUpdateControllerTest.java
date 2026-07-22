@@ -23,7 +23,6 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,7 +62,7 @@ class AdminClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("총동연 관리자는 자신이 멤버가 아닌 동아리의 기본 정보를 수정할 수 있고 변경된 상세가 반환된다")
+    @DisplayName("총동연 관리자는 자신이 멤버가 아닌 동아리의 이름·설명을 수정할 수 있고 변경된 상세가 반환된다")
     void adminUpdatesClubProfileSuccessfully() throws Exception {
         Club club = saveClubWithLeader("수정대상동아리", ClubStatus.ACTIVE);
 
@@ -71,11 +70,12 @@ class AdminClubUpdateControllerTest extends IntegrationTestBase {
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                     .contentType(ContentType.JSON)
-                    .body(Map.of("description", "관리자가 수정한 설명"))
+                    .body(Map.of("name", "관리자가바꾼이름", "description", "관리자가 수정한 설명"))
                 .when()
                     .patch("/api/v1/admin/clubs/{clubId}", club.getId())
                 .then()
                     .statusCode(HttpStatus.OK.value())
+                    .body("data.name", equalTo("관리자가바꾼이름"))
                     .body("data.description", equalTo("관리자가 수정한 설명"));
     }
 
@@ -111,7 +111,42 @@ class AdminClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @Disabled("Task 3 어드민 전용 요청(AdminUpdateClubRequest)에서 이름 수정 복원 후 활성화")
+    @DisplayName("총동연은 동아리명·카테고리·분과(잠금 필드)를 수정할 수 있다")
+    void adminUpdatesLockedFields() throws Exception {
+        Club club = saveClubWithLeader("잠금필드수정동아리", ClubStatus.ACTIVE);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("name", "새이름", "category", "SPORTS", "division", "체육"))
+                .when()
+                    .patch("/api/v1/admin/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.name", equalTo("새이름"))
+                    .body("data.category", equalTo("SPORTS"))
+                    .body("data.division", equalTo("체육"));
+    }
+
+    @Test
+    @DisplayName("총동연 수정 요청도 회비는 주기 없이 금액만 보내면 400 이 반환된다")
+    void adminFeePairValidated() throws Exception {
+        Club club = saveClubWithLeader("회비검증동아리", ClubStatus.ACTIVE);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("membershipFeeAmount", 5000))
+                .when()
+                    .patch("/api/v1/admin/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("ok", equalTo(false));
+    }
+
+    @Test
     @DisplayName("다른 동아리와 중복되는 이름으로 수정하면 409 가 반환된다")
     void updatingToDuplicateNameReturnsConflict() throws Exception {
         Club existing = saveClubWithLeader("이미있는동아리", ClubStatus.ACTIVE);

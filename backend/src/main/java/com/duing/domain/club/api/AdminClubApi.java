@@ -1,9 +1,9 @@
 package com.duing.domain.club.api;
 
+import com.duing.domain.club.controller.dto.request.AdminUpdateClubRequest;
 import com.duing.domain.club.controller.dto.request.CloseClubRequest;
 import com.duing.domain.club.controller.dto.request.CreateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
-import com.duing.domain.club.controller.dto.request.UpdateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
 import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
@@ -48,12 +48,12 @@ public interface AdminClubApi {
     ResponseEntity<ApiResponse<ClubDetailResponse>> getAdminClub(@PathVariable Long clubId);
 
     @Operation(summary = "동아리 정보 수정 (ADMIN)",
-            description = "총동연이 임의 동아리의 기본 정보를 부분 수정한다. 리더 PATCH /clubs/{clubId} 와 동일한 입력·검증을 쓰며, "
-                    + "리더 멤버십 대신 ADMIN 권한으로 접근한다. null/미포함 필드는 변경되지 않고, 조회 가능한 모든 상태의 동아리를 수정할 수 있다.")
+            description = "총동연이 임의 동아리의 프로필을 부분 수정한다. 리더 요청과 달리 동아리명·카테고리·분과·단과대학(잠금 필드)까지 수정할 수 있다. "
+                    + "null/미포함 필드는 변경되지 않고, 조회 가능한 모든 상태의 동아리를 수정할 수 있다.")
     @PatchMapping("/admin/clubs/{clubId}")
     ResponseEntity<ApiResponse<ClubDetailResponse>> updateClub(
             @PathVariable Long clubId,
-            @Valid @RequestBody UpdateClubRequest updateClubRequest,
+            @Valid @RequestBody AdminUpdateClubRequest adminUpdateClubRequest,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
