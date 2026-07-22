@@ -131,7 +131,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
         (editing ? (
           <ClubInfoForm
             detail={club}
-            readOnly={false}
+            mode="admin"
             mutation={updateMutation}
             onCancel={() => setEditing(false)}
             onSaved={() => setEditing(false)}

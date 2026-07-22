@@ -148,16 +148,15 @@ describe('AdminClubDetailPage', () => {
     expect(await screen.findByText('검색 결과가 없습니다.')).toBeInTheDocument();
   });
 
-  // 잠금 필드(이름·카테고리·분과·단과대)는 PR-2 잠정 폼에서 비활성 — PR-3 어드민 폼 분리에서 복원.
-  // 편집 가능한 필드(위치)로 편집→저장 흐름을 검증한다.
-  it('수정 버튼으로 편집 모드에 진입해 저장하면 변경 payload 로 PATCH 되고 편집 모드가 닫힌다', async () => {
+  // 총동연(admin)은 잠금 필드(동아리명 등)까지 수정할 수 있다 — mode="admin" 배선 검증.
+  it('수정 버튼으로 편집 모드에 진입해 동아리명을 저장하면 변경 payload 로 PATCH 되고 편집 모드가 닫힌다', async () => {
     let patchBody: unknown = null;
     server.use(
       http.patch('*/admin/clubs/1', async ({ request }) => {
         patchBody = await request.json();
         return HttpResponse.json({
           ok: true,
-          data: { ...CLUB_DETAIL, location: '학생회관 999호' },
+          data: { ...CLUB_DETAIL, name: '두잉 리브랜드' },
           message: null,
         });
       }),
@@ -166,12 +165,12 @@ describe('AdminClubDetailPage', () => {
     await screen.findByText('홍길동');
 
     await userEvent.click(screen.getByRole('button', { name: '수정' }));
-    const locationInput = await screen.findByLabelText('위치');
-    await userEvent.clear(locationInput);
-    await userEvent.type(locationInput, '학생회관 999호');
+    const nameInput = await screen.findByLabelText('동아리명');
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, '두잉 리브랜드');
     await userEvent.click(screen.getByRole('button', { name: '저장' }));
 
-    await waitFor(() => expect(patchBody).toEqual({ location: '학생회관 999호' }));
+    await waitFor(() => expect(patchBody).toEqual({ name: '두잉 리브랜드' }));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: '수정' })).toBeInTheDocument(),
     );
