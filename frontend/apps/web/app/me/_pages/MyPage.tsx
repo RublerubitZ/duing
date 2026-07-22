@@ -158,7 +158,13 @@ export function MyPage() {
   return (
     <div
       className="duing bg-cream"
-      style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      style={{
+        // body 높이 체인이 없어 height:'100%'는 auto로 붕괴 → 내부 overflow-y-auto가 스크롤포트를 못 잡음. dvh로 뷰포트 높이 고정.
+        height: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
     >
       <HomeNav slimOnMobile />
 
