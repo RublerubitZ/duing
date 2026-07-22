@@ -204,7 +204,9 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
           />
         </aside>
 
-        <main className="min-w-0 flex-1 overflow-y-auto bg-cream">
+        {/* overflow-y-auto 금지 — min-h-dvh 윈도우 스크롤 레이아웃에서 스크롤 없는 컨테이너가
+            sticky 기준만 가로채 하위 sticky(미리보기·모바일 상단바)를 죽인다 */}
+        <main className="min-w-0 flex-1 bg-cream">
           {/* 모바일 상단바 — 햄버거로 드로어 열기 */}
           <div className="sticky top-0 z-30 flex items-center gap-3 bg-[#34463E] px-4 py-2.5 md:hidden">
             <button
