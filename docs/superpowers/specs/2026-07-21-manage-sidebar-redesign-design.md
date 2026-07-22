@@ -30,7 +30,8 @@
 
 - **표면**: `linear-gradient(180deg, #34463E 0%, #2A382F 100%)` — aside·모바일 Sheet 공유 상수.
   모바일 상단바는 단색 `#34463E`.
-- **카드**: `m-3 rounded-xl`(28px 토큰) + `shadow-4`, sticky·`max-h-dvh` 독립 스크롤(admin과 동일).
+- **레이아웃**: 좌측 풀블리드 — 여백·라운딩·그림자 없이 화면 왼쪽을 `h-dvh`로 위아래 끝까지 채운다,
+  sticky 독립 스크롤. (최초 플로팅 카드(`m-3 rounded-xl shadow-4`)로 구현 후 사용자 결정으로 전환.)
 - **폭**: 펼침 **280px** / 접힘 **84px**. `motion-safe:transition-[width] duration-200`.
   (264 → 280 확대: 한글 클럽명 가용폭 ~171px 확보, 가독성 우선.)
   두 값은 `ManageShell` 상단의 단일 상수(예: `SIDEBAR_WIDTH = { expanded: 280, collapsed: 84 }`)로

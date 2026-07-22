@@ -190,8 +190,7 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
           aria-label="운영진 콘솔 사이드바"
           style={{ width: collapsed ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded }}
           className={cn(
-            'sticky top-0 hidden max-h-dvh shrink-0 flex-col self-start overflow-hidden md:flex',
-            'm-3 rounded-xl shadow-4',
+            'sticky top-0 hidden h-dvh shrink-0 flex-col self-start overflow-hidden md:flex',
             SIDEBAR_SURFACE_CLASS,
             'motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out',
           )}
