@@ -178,7 +178,8 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
     if (adminMode) {
       if (name !== detail.name) payload.name = name;
       if (category !== detail.category) payload.category = category;
-      if (parsedDivision !== (detail.division ?? null)) payload.division = parsedDivision;
+      // 비우기는 clear-intent 규약대로 '' 전송 — null 은 BE 부분수정에서 "미변경"이라 no-op 된다.
+      if (parsedDivision !== (detail.division ?? null)) payload.division = parsedDivision ?? '';
       const nextCollege = college === '' ? null : college;
       if (nextCollege !== (detail.college ?? null)) {
         if (nextCollege === null) payload.clearCollege = true;
