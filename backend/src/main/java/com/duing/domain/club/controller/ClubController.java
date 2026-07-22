@@ -8,8 +8,10 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.service.ClubService;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
+import com.duing.domain.club.service.dto.query.ClubViewer;
 import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.UserRole;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
@@ -59,8 +61,12 @@ public class ClubController implements ClubApi {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<ClubDetailResponse>> getClub(@PathVariable Long clubId) {
-        ClubDetailResponse response = ClubDetailResponse.from(clubService.getActiveById(clubId));
+    public ResponseEntity<ApiResponse<ClubDetailResponse>> getClub(
+            @PathVariable Long clubId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        ClubDetailResponse response =
+                ClubDetailResponse.from(clubService.getActiveById(clubId, toViewer(currentUser)));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -71,7 +77,13 @@ public class ClubController implements ClubApi {
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         clubService.update(updateClubRequest.toCommand(clubId, currentUser.id()));
-        ClubDetailResponse response = ClubDetailResponse.from(clubService.getById(clubId));
+        // 리더 본인 재조회 — 임원 게이트를 통과해 대표 연락처가 항상 표시된다.
+        ClubDetailResponse response = ClubDetailResponse.from(clubService.getById(clubId, toViewer(currentUser)));
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    private static ClubViewer toViewer(UserPrincipal currentUser) {
+        if (currentUser == null) return ClubViewer.anonymous();
+        return new ClubViewer(currentUser.id(), UserRole.ADMIN.name().equals(currentUser.role()));
     }
 }

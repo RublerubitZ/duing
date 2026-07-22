@@ -1,11 +1,13 @@
 package com.duing.domain.club.controller.dto.request;
 
+import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubFaq;
 import com.duing.domain.club.entity.ClubProject;
 import com.duing.domain.club.entity.ClubSnsLink;
 import com.duing.domain.club.entity.ContactVisibility;
 import com.duing.domain.club.entity.FeeCycle;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
+import com.duing.domain.user.entity.College;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
@@ -18,10 +20,22 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 리더(운영진) 프로필 수정 요청. 동아리명·카테고리·분과·단과대학은 총동연 전용(AdminUpdateClubRequest) —
- * 이 요청에는 필드 자체가 없어 API 로도 수정할 수 없다. null/미포함 필드는 변경되지 않는다.
+ * 총동연(ADMIN) 전용 프로필 수정 요청. 리더 요청(UpdateClubRequest)의 전 필드에 더해 동아리명·카테고리·분과·단과대학
+ * (잠금 필드)까지 수정할 수 있다. null/미포함 필드는 변경되지 않는다.
  */
-public record UpdateClubRequest(
+public record AdminUpdateClubRequest(
+        @Size(min = 1, max = 100, message = "동아리 이름은 1~100자여야 합니다.")
+        String name,
+
+        ClubCategory category,
+
+        @Size(max = 50, message = "분류는 50자 이하여야 합니다.")
+        String division,
+
+        College college,
+
+        Boolean clearCollege,
+
         String description,
 
         // http(s) 절대 URL 또는 `/files/...` 내부 경로만 허용 — javascript:/data: 스킴과 // 차단(저장형 XSS 방어).
@@ -90,16 +104,22 @@ public record UpdateClubRequest(
         return membershipFeeAmount != null;
     }
 
+    /** 공백만 있는 이름은 @Size(1~100) 를 통과하므로 별도 차단 — Club.update() 가 blankToNull 없이 직대입한다. */
+    @AssertTrue(message = "동아리 이름은 공백일 수 없습니다.")
+    public boolean isNameBlankSafe() {
+        return name == null || !name.isBlank();
+    }
+
     public UpdateClubCommand toCommand(Long clubId, Long requesterId) {
         return new UpdateClubCommand(
                 clubId, requesterId,
-                null, null, null,                       // name, category, division — 총동연 전용
+                name, category, division,
                 description, logoUrl, coverUrl,
                 tags, snsLinks, faqs,
                 foundedYear, cohortNumber, location,
                 activityFrequency, activeDays, tagline, highlights,
                 contactVisibility, feeCycle, membershipFeeAmount, projects,
-                null, null,                             // college, clearCollege — 총동연 전용
+                college, clearCollege,
                 clearLogoImage, clearCoverImage
         );
     }
