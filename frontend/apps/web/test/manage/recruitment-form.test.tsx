@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { RecruitmentDetail } from '@duing/types';
 import { RecruitmentForm } from '../../app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
@@ -416,5 +416,29 @@ describe('RecruitmentForm — cloneSeed(양식 복제)', () => {
   it('cloneSeed가 없으면 기존과 동일하게 빈 폼으로 시작한다', () => {
     render(<RecruitmentForm mode="create" onSubmit={vi.fn()} isPending={false} />);
     expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('');
+  });
+});
+
+describe('RecruitmentForm — 상시모집 수정', () => {
+  it('상시모집 공고는 endDate 없이 수정 저장이 가능하다', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <RecruitmentForm
+        mode="edit"
+        initialValues={{ ...baseRecruitmentDetail, endDate: null }}
+        onSubmit={onSubmit}
+        isPending={false}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), {
+      target: { value: '수정된 상시모집' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ title: '수정된 상시모집' });
+    expect(onSubmit.mock.calls[0]?.[0].endDate).toBeUndefined();
+    expect(screen.queryByText('날짜 형식이 올바르지 않습니다.')).not.toBeInTheDocument();
   });
 });

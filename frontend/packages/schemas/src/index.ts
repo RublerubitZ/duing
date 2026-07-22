@@ -228,7 +228,11 @@ export const updateRecruitmentSchema = z
       .max(200, '제목은 200자 이하여야 합니다.'),
     content: z.string().optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
-    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
+    // 상시모집(endDate null) 공고는 endDate 를 보내지 않는다(생략=미변경). 기간 모집은 폼 native required 가 빈 값을 차단한다.
+    endDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .optional(),
     capacity: z.number().int().min(1, '모집 정원은 1명 이상이어야 합니다.'),
     useInterview: z.boolean(),
     // 수정에서는 applicationMode 를 받지 않는다. 자체 폼일 때만 호출부가 questionItems 를 채우므로
@@ -250,7 +254,7 @@ export const updateRecruitmentSchema = z
       .optional(),
     showApplicantCount: z.boolean().optional(),
   })
-  .refine((data) => data.endDate >= data.startDate, {
+  .refine((data) => data.endDate === undefined || data.endDate >= data.startDate, {
     message: '모집 종료일은 시작일보다 빠를 수 없습니다.',
     path: ['endDate'],
   })

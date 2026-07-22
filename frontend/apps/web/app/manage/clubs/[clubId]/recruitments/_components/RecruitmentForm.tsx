@@ -47,7 +47,8 @@ export type EditFormValues = {
   title: string;
   content: string;
   startDate: string;
-  endDate: string;
+  // 상시모집(endDate null) 공고는 undefined — PATCH payload 에서 키가 생략돼 미변경으로 처리된다.
+  endDate?: string;
   capacity: number;
   useInterview: boolean;
   // 구 BE 상세(questionItems 부재)에서는 아예 생략한다 — 아래 isLegacyQuestionsBackend 주석 참조.
@@ -129,7 +130,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         title,
         content: content || undefined,
         startDate,
-        endDate,
+        // 상시모집이면 endDate 를 생략한다 — 빈 문자열('')을 넣으면 날짜 regex 에 걸려 저장이 막힌다.
+        endDate: isAlwaysOpen ? undefined : endDate,
         capacity,
         useInterview,
         questionItems: editableQuestionItems,
