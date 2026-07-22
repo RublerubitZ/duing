@@ -58,8 +58,9 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
           )}
           <div className="relative max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-9">
             <div className="flex flex-col items-start gap-6 md:flex-row">
+              {/* 커버는 히어로 전체 배경(풀블리드)이라 걸침 없음 — 보더·섀도만 규칙 통일. */}
               <div
-                className="relative grid h-[140px] w-[140px] shrink-0 place-items-center overflow-hidden rounded-[28px] text-white shadow-2"
+                className="relative grid h-[140px] w-[140px] shrink-0 place-items-center overflow-hidden rounded-[28px] border-[3px] border-white text-white shadow-lg"
                 style={{
                   // 로고 있으면 ink(이미지가 덮음), 없으면 카드와 동일 시그니처 색 → 모핑 중 배경 일치.
                   background: club.logoUrl
@@ -147,8 +148,9 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
         <div className="px-4 pb-1">
           <div
             className={cn(
-              'relative inline-grid h-20 w-20 place-items-center overflow-hidden rounded-[22px] text-white shadow-2',
-              club.coverUrl ? '-mt-12 ring-4 ring-cream' : 'mt-1',
+              // 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(편집 폼·Preview와 통일).
+              'relative inline-grid h-20 w-20 place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg',
+              club.coverUrl ? '-mt-6' : 'mt-1',
             )}
             style={{
               // 로고 있으면 ink(이미지가 덮음), 없으면 카드/리스트와 동일 시그니처 색 → 모핑 중 배경 일치.

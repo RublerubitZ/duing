@@ -277,22 +277,25 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
             description="커버는 프로필 상단 배경, 로고는 카드 아바타로 노출돼요."
           >
             {readOnly ? (
-              <div className="space-y-3">
+              // 로고 1/3만 커버에 걸치는 히어로 프로필 규칙 — 편집·Preview 표면과 통일.
+              <div className="relative mb-20">
                 <ImageWithFallback
                   src={coverUrl}
                   alt="커버"
                   className="aspect-[16/9] overflow-hidden rounded-xl border border-line"
                   emptyMessage="커버 이미지가 없습니다"
                 />
-                <ImageWithFallback
-                  src={logoUrl}
-                  alt="로고"
-                  className="aspect-square max-w-[120px] overflow-hidden rounded-xl border border-line"
-                  emptyMessage="로고 이미지가 없습니다"
-                />
+                <div className="absolute -bottom-14 left-5 w-[72px] overflow-hidden rounded-[16px] border-[3px] border-white bg-white shadow-lg sm:-bottom-16 sm:w-[96px]">
+                  <ImageWithFallback
+                    src={logoUrl}
+                    alt="로고"
+                    className="aspect-square overflow-hidden rounded-[13px]"
+                    emptyMessage="로고"
+                  />
+                </div>
               </div>
             ) : (
-              <div className="relative mb-14">
+              <div className="relative mb-20">
                 <ImageUploader
                   value={coverUrl}
                   onChange={setCoverUrl}
@@ -301,7 +304,8 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                   placeholder="커버 이미지를 업로드하세요"
                   altText="커버"
                 />
-                <div className="absolute -bottom-10 left-5 w-[96px] overflow-hidden rounded-[16px] border-[3px] border-white bg-white shadow-md">
+                {/* 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(좁아질수록 걸침 얕게). */}
+                <div className="absolute -bottom-14 left-5 w-[72px] overflow-hidden rounded-[16px] border-[3px] border-white bg-white shadow-lg sm:-bottom-16 sm:w-[96px]">
                   <ImageUploader
                     value={logoUrl}
                     onChange={setLogoUrl}

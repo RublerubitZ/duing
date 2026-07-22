@@ -46,7 +46,8 @@ export function ClubProfilePreview({ preview }: { preview: ClubPreviewData }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={preview.coverUrl} alt="" draggable={false} className="h-full w-full object-cover" />
           )}
-          <div className="absolute -bottom-6 left-4 grid h-14 w-14 place-items-center overflow-hidden rounded-[16px] border-[3px] border-white bg-[#1f3a2e] font-mono text-[20px] font-bold text-white">
+          {/* 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(편집 폼·학생 히어로와 통일). */}
+          <div className="absolute -bottom-[38px] left-4 grid h-14 w-14 place-items-center overflow-hidden rounded-[16px] border-[3px] border-white bg-[#1f3a2e] font-mono text-[20px] font-bold text-white shadow-lg">
             {preview.logoUrl !== '' ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={preview.logoUrl} alt="로고" draggable={false} className="h-full w-full object-cover" />
@@ -55,7 +56,7 @@ export function ClubProfilePreview({ preview }: { preview: ClubPreviewData }) {
             )}
           </div>
         </div>
-        <div className="px-4 pb-4 pt-9">
+        <div className="px-4 pb-4 pt-14">
           <div className="flex items-center gap-2">
             <span className="text-[18px] font-extrabold text-[#2a2f27]">{preview.name}</span>
             {preview.cohortNumber !== null && (
