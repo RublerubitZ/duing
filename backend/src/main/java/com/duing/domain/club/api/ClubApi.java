@@ -49,9 +49,12 @@ public interface ClubApi {
     );
 
     @Operation(summary = "동아리 상세 조회",
-            description = "운영 중(ACTIVE) 동아리만 조회할 수 있다. 승인 대기·거절·운영 중단·폐쇄 상태는 404 를 반환한다.")
+            description = "운영 중(ACTIVE) 동아리만 조회할 수 있다. 승인 대기·거절·운영 중단·폐쇄 상태는 404 를 반환한다. "
+                    + "대표 연락처(contactPhone)는 공개 범위(contactVisibility)에 따라 노출되며, 비로그인 요청도 허용한다.")
     @GetMapping("/clubs/{clubId}")
-    ResponseEntity<ApiResponse<ClubDetailResponse>> getClub(@PathVariable Long clubId);
+    ResponseEntity<ApiResponse<ClubDetailResponse>> getClub(
+            @PathVariable Long clubId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser);
 
     @Operation(summary = "동아리 정보 수정 (LEADER)",
             description = "본인이 LEADER 인 동아리의 프로필을 부분 수정한다. null/미포함 필드는 변경되지 않는다. "

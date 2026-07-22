@@ -24,7 +24,6 @@ import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -281,7 +280,6 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @Disabled("Task 4 응답 개편 후 활성화")
     @DisplayName("주기와 금액을 쌍으로 보내면 회비가 저장되고 응답에 반영된다")
     void feePairSaved() {
         RestAssured
@@ -346,7 +344,6 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @Disabled("Task 4 응답 개편 후 활성화")
     @DisplayName("기타가 아닌 SNS 플랫폼의 label 은 저장되지 않는다")
     void snsNonOtherLabelDropped() {
         RestAssured
@@ -364,7 +361,6 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @Disabled("Task 4 응답 개편 후 활성화")
     @DisplayName("대표 연락처 공개 범위를 변경할 수 있다")
     void contactVisibilityUpdated() {
         RestAssured

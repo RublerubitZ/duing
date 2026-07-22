@@ -9,6 +9,7 @@ import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
+import com.duing.domain.club.service.dto.query.ClubViewer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -20,10 +21,10 @@ public interface ClubService {
 
     Page<AdminClubSummaryQuery> searchForAdmin(AdminClubSearchCondition condition, Pageable pageable);
 
-    ClubDetailQuery getById(Long clubId);
+    ClubDetailQuery getById(Long clubId, ClubViewer viewer);
 
     /** 학생/공개용 상세 — 운영 중(ACTIVE) 동아리만. 그 외 상태는 ClubNotFoundException(404). */
-    ClubDetailQuery getActiveById(Long clubId);
+    ClubDetailQuery getActiveById(Long clubId, ClubViewer viewer);
 
     void update(UpdateClubCommand updateClubCommand);
 

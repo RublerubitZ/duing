@@ -3,6 +3,7 @@ package com.duing.domain.club.service;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.entity.ContactVisibility;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
@@ -16,6 +17,7 @@ import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
+import com.duing.domain.club.service.dto.query.ClubViewer;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -114,24 +116,24 @@ public class GeneralClubService implements ClubService {
     }
 
     @Override
-    public ClubDetailQuery getById(Long clubId) {
+    public ClubDetailQuery getById(Long clubId, ClubViewer viewer) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
-        return toDetailQuery(club);
+        return toDetailQuery(club, viewer);
     }
 
     @Override
-    public ClubDetailQuery getActiveById(Long clubId) {
+    public ClubDetailQuery getActiveById(Long clubId, ClubViewer viewer) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         // 존재 여부를 숨기기 위해 403 이 아닌 404 로 동일하게 응답한다.
         if (club.getStatus() != ClubStatus.ACTIVE) {
             throw new ClubException.ClubNotFoundException();
         }
-        return toDetailQuery(club);
+        return toDetailQuery(club, viewer);
     }
 
-    private ClubDetailQuery toDetailQuery(Club club) {
+    private ClubDetailQuery toDetailQuery(Club club, ClubViewer viewer) {
         Long clubId = club.getId();
         List<ClubPhotoQuery> photos = clubPhotoRepository.findByClubIdOrderByDisplayOrderAsc(clubId)
                 .stream()
@@ -150,8 +152,26 @@ public class GeneralClubService implements ClubService {
 
         return clubMemberRepository.findFirstByClubIdAndRole(clubId, ClubMemberRole.LEADER)
                 .map(leader -> ClubDetailQuery.of(
-                        club, leader.getUser().getId(), leader.getUser().getName(), photos, activeRecruitment))
-                .orElseGet(() -> ClubDetailQuery.of(club, null, null, photos, activeRecruitment));
+                        club, leader.getUser().getId(), leader.getUser().getName(),
+                        resolveContactPhone(club, leader.getUser().getPhone(), viewer),
+                        photos, activeRecruitment))
+                .orElseGet(() -> ClubDetailQuery.of(club, null, null, null, photos, activeRecruitment));
+    }
+
+    /**
+     * 대표 연락처 게이트 (§5.3) — PUBLIC=전체, LOGGED_IN_ONLY=로그인, PRIVATE=해당 동아리 임원만.
+     * ADMIN 과 임원은 편집 화면 표시용으로 정책 무관 상시 노출. 임원 여부 조회는 PRIVATE+로그인일 때만 발생.
+     */
+    private String resolveContactPhone(Club club, String leaderPhone, ClubViewer viewer) {
+        if (viewer.admin()) return leaderPhone;
+        ContactVisibility visibility = club.getContactVisibility();
+        if (visibility == ContactVisibility.PUBLIC) return leaderPhone;
+        if (viewer.userId() == null) return null;
+        if (visibility == ContactVisibility.LOGGED_IN_ONLY) return leaderPhone;
+        boolean clubStaff = clubMemberRepository.findByClubIdAndUserId(club.getId(), viewer.userId())
+                .map(ClubMember::canManageClub)
+                .orElse(false);
+        return clubStaff ? leaderPhone : null;
     }
 
     @Override

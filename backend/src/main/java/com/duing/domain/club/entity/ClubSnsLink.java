@@ -1,5 +1,6 @@
 package com.duing.domain.club.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -23,6 +24,9 @@ public record ClubSnsLink(
         @Pattern(regexp = "^https?://.+", message = "SNS URL은 http(s):// 로 시작해야 합니다.")
         String url
 ) {
+    // @JsonIgnore: 검증 전용 파생 프로퍼티. JSONB 직렬화 시 실제 필드로 새어 나가 역직렬화가 깨지는 것을 막는다
+    // (Bean Validation 은 Jackson 어노테이션과 무관하게 리플렉션으로 이 메서드를 읽는다).
+    @JsonIgnore
     @AssertTrue(message = "기타 플랫폼은 플랫폼명을 입력해야 합니다.")
     public boolean isLabelPresentForOther() {
         return !"OTHER".equals(platform) || (label != null && !label.isBlank());

@@ -7,6 +7,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
+import com.duing.domain.club.service.dto.query.ClubViewer;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.User;
@@ -60,7 +61,7 @@ class ClubMetadataUpdateTest {
                 null, null, null, null                                 // college, clearCollege, clearLogoImage, clearCoverImage
         ));
 
-        ClubDetailQuery detail = clubService.getById(club.getId());
+        ClubDetailQuery detail = clubService.getById(club.getId(), ClubViewer.anonymous());
         assertThat(detail.foundedYear()).isEqualTo(2018);
         assertThat(detail.cohortNumber()).isEqualTo(10);
         assertThat(detail.location()).isEqualTo("학생회관 405호");

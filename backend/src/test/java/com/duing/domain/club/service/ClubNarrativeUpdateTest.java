@@ -7,6 +7,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
+import com.duing.domain.club.service.dto.query.ClubViewer;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.College;
@@ -54,7 +55,7 @@ class ClubNarrativeUpdateTest {
                 null, null, null, null                                 // college, clearCollege, clearLogoImage, clearCoverImage
         ));
 
-        ClubDetailQuery detail = clubService.getById(club.getId());
+        ClubDetailQuery detail = clubService.getById(club.getId(), ClubViewer.anonymous());
         assertThat(detail.tagline()).isEqualTo("코드를 두잉");
         assertThat(detail.highlights())
                 .containsExactly("개발 기초 다진 사람", "사이드 프로젝트 동료 필요한 사람");
@@ -77,7 +78,7 @@ class ClubNarrativeUpdateTest {
                 null, null, null, null                                 // college, clearCollege, clearLogoImage, clearCoverImage
         ));
 
-        ClubDetailQuery detail = clubService.getById(club.getId());
+        ClubDetailQuery detail = clubService.getById(club.getId(), ClubViewer.anonymous());
         assertThat(detail.highlights()).isEmpty();
     }
 

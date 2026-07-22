@@ -43,9 +43,12 @@ public interface AdminClubApi {
     );
 
     @Operation(summary = "동아리 단건 조회 (ADMIN)",
-            description = "상태 무관 동아리 상세 조회. 공개 GET /clubs/{clubId} 와 응답 형태가 동일하지만, ADMIN 권한 가드 하에 PENDING_APPROVAL/REJECTED/INACTIVE 동아리도 조회 가능하다.")
+            description = "상태 무관 동아리 상세 조회. 공개 GET /clubs/{clubId} 와 응답 형태가 동일하지만, ADMIN 권한 가드 하에 PENDING_APPROVAL/REJECTED/INACTIVE 동아리도 조회 가능하다. "
+                    + "총동연 조회이므로 대표 연락처(contactPhone)는 공개 범위와 무관하게 항상 노출된다.")
     @GetMapping("/admin/clubs/{clubId}")
-    ResponseEntity<ApiResponse<ClubDetailResponse>> getAdminClub(@PathVariable Long clubId);
+    ResponseEntity<ApiResponse<ClubDetailResponse>> getAdminClub(
+            @PathVariable Long clubId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser);
 
     @Operation(summary = "동아리 정보 수정 (ADMIN)",
             description = "총동연이 임의 동아리의 프로필을 부분 수정한다. 리더 요청과 달리 동아리명·카테고리·분과·단과대학(잠금 필드)까지 수정할 수 있다. "

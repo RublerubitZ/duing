@@ -3,8 +3,11 @@ package com.duing.domain.club.service.dto.query;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubFaq;
+import com.duing.domain.club.entity.ClubProject;
 import com.duing.domain.club.entity.ClubSnsLink;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.entity.ContactVisibility;
+import com.duing.domain.club.entity.FeeCycle;
 import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
 import com.duing.domain.user.entity.College;
 import java.time.DayOfWeek;
@@ -25,29 +28,33 @@ public record ClubDetailQuery(
         List<ClubFaq> faqs,
         Long leaderId,
         String leaderName,
+        String contactPhone,
+        ContactVisibility contactVisibility,
         ClubStatus status,
         List<ClubPhotoQuery> photos,
         Integer foundedYear,
         Integer cohortNumber,
         String location,
-        String contactEmail,
         Integer activityFrequency,
         Set<DayOfWeek> activeDays,
-        String membershipFee,
+        Integer membershipFeeAmount,
+        FeeCycle feeCycle,
         String tagline,
         List<String> highlights,
-        String majorProjects,
+        List<ClubProject> projects,
         StudentRecruitmentProjection activeRecruitment,
         boolean centralClub
 ) {
     /**
      * leaderId / leaderName 은 ClubMember 테이블에서 role = LEADER 인 행을 조회해 주입한다.
      * 회장 부재(공석) 상황을 허용하므로 null 이 가능하다.
+     * contactPhone 은 서비스에서 공개 게이트를 통과한 값만 받는다 (회장 부재 시 null).
      */
     public static ClubDetailQuery of(
             Club club,
             Long leaderId,
             String leaderName,
+            String contactPhone,
             List<ClubPhotoQuery> photos,
             StudentRecruitmentProjection activeRecruitment
     ) {
@@ -65,18 +72,20 @@ public record ClubDetailQuery(
                 club.getFaqs(),
                 leaderId,
                 leaderName,
+                contactPhone,
+                club.getContactVisibility(),
                 club.getStatus(),
                 photos,
                 club.getFoundedYear(),
                 club.getCohortNumber(),
                 club.getLocation(),
-                club.getContactEmail(),
                 club.getActivityFrequency(),
                 club.getActiveDays(),
-                club.getMembershipFee(),
+                club.getMembershipFeeAmount(),
+                club.getFeeCycle(),
                 club.getTagline(),
                 club.getHighlights(),
-                club.getMajorProjects(),
+                club.getProjects(),
                 activeRecruitment,
                 club.isCentralClub()
         );
