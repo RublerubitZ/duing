@@ -61,6 +61,7 @@ export default function EditRecruitmentPage({
       <RecruitmentForm
         mode="edit"
         initialValues={recruitment}
+        submitLabel="수정 저장"
         onSubmit={handleSubmit}
         isPending={updateRecruitment.isPending}
       />

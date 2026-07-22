@@ -71,6 +71,7 @@ export default function NewRecruitmentPage({
       <RecruitmentForm
         mode="create"
         cloneSeed={cloneSource}
+        submitLabel="모집 시작"
         onSubmit={handleSubmit}
         isPending={createRecruitment.isPending}
       />
