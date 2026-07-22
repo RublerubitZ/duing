@@ -369,3 +369,35 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     ]);
   });
 });
+
+describe('RecruitmentForm — cloneSeed(양식 복제)', () => {
+  const seed: RecruitmentDetail = {
+    ...baseRecruitmentDetail,
+    title: '9기 신입 모집',
+    content: '기존 안내문',
+    capacity: 18,
+    applicationMode: 'EXTERNAL',
+    externalFormUrl: 'https://forms.example.com/legacy',
+    useInterview: true,
+    targetRole: 'OFFICER',
+    showApplicantCount: true,
+    startDate: '2025-09-10',
+    endDate: '2025-09-24',
+  };
+
+  it('제목·정원·지원 방식 등은 시드되지만 시작일/종료일은 비워둔다', () => {
+    render(<RecruitmentForm mode="create" cloneSeed={seed} onSubmit={vi.fn()} isPending={false} />);
+
+    expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('9기 신입 모집');
+    expect(screen.getByDisplayValue('18')).toBeInTheDocument();
+    expect(screen.getByLabelText('외부 폼')).toBeChecked();
+    expect(screen.getByLabelText('운영진')).toBeChecked();
+    expect((screen.getByLabelText(/^시작일/) as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText(/^종료일/) as HTMLInputElement).value).toBe('');
+  });
+
+  it('cloneSeed가 없으면 기존과 동일하게 빈 폼으로 시작한다', () => {
+    render(<RecruitmentForm mode="create" onSubmit={vi.fn()} isPending={false} />);
+    expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('');
+  });
+});

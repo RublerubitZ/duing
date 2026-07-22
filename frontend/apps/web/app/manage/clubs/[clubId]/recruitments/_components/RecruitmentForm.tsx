@@ -11,6 +11,11 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type CreateMode = {
   mode: 'create';
+  /**
+   * 양식 복제 진입 시 초기값. 원본 모집 값을 재사용하되 기간 관련 필드(시작일·종료일·면접 일정·상시모집)는
+   * 회차마다 달라지므로 의도적으로 시드하지 않는다 — 아래 useState 초기화 목록 참고.
+   */
+  cloneSeed?: RecruitmentDetail;
   onSubmit: (values: CreateFormValues) => Promise<void>;
   isPending: boolean;
 };
@@ -61,6 +66,9 @@ const fieldInputClass =
 export function RecruitmentForm(props: RecruitmentFormProps) {
   const isEditMode = props.mode === 'edit';
   const initialData = isEditMode ? props.initialValues : null;
+  const cloneSeed = !isEditMode ? (props.cloneSeed ?? null) : null;
+  // 기간 필드를 제외한 값들의 단일 시드 소스 — edit 모드면 상세, create+복제 모드면 원본 모집.
+  const seed = initialData ?? cloneSeed;
 
   /**
    * 구 BE 는 상세에 questionItems 를 아예 싣지 않는다(신 BE 는 자체 폼이면 최소 1개, 외부 폼이면 []
@@ -73,35 +81,37 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
    */
   const isLegacyQuestionsBackend = isEditMode && initialData?.questionItems === undefined;
 
-  const [title, setTitle] = useState(initialData?.title ?? '');
-  const [content, setContent] = useState(initialData?.content ?? '');
+  const [title, setTitle] = useState(seed?.title ?? '');
+  const [content, setContent] = useState(seed?.content ?? '');
   const [startDate, setStartDate] = useState(initialData?.startDate ?? '');
   const [endDate, setEndDate] = useState(initialData?.endDate ?? '');
   const [isAlwaysOpen, setIsAlwaysOpen] = useState(
     isEditMode ? initialData?.endDate === null : false,
   );
-  const [capacity, setCapacity] = useState(initialData?.capacity ?? 1);
+  const [capacity, setCapacity] = useState(seed?.capacity ?? 1);
   const [applicationMode, setApplicationMode] = useState<'SELF' | 'EXTERNAL'>(
-    initialData?.applicationMode ?? 'SELF',
+    seed?.applicationMode ?? 'SELF',
   );
-  const [externalFormUrl, setExternalFormUrl] = useState(
-    initialData?.externalFormUrl ?? '',
-  );
-  const [useInterview, setUseInterview] = useState(initialData?.useInterview ?? false);
+  const [externalFormUrl, setExternalFormUrl] = useState(seed?.externalFormUrl ?? '');
+  const [useInterview, setUseInterview] = useState(seed?.useInterview ?? false);
   const [interviewStartDate, setInterviewStartDate] = useState(initialData?.interviewStartDate ?? '');
   const [interviewEndDate, setInterviewEndDate] = useState(initialData?.interviewEndDate ?? '');
-  const [showApplicantCount, setShowApplicantCount] = useState(initialData?.showApplicantCount ?? false);
-  const [targetRole, setTargetRole] = useState<'MEMBER' | 'OFFICER'>(
-    initialData?.targetRole ?? 'MEMBER',
-  );
+  const [showApplicantCount, setShowApplicantCount] = useState(seed?.showApplicantCount ?? false);
+  const [targetRole, setTargetRole] = useState<'MEMBER' | 'OFFICER'>(seed?.targetRole ?? 'MEMBER');
   // 서버 id 와 무관한 React key 발급기 — jsdom 에 crypto.randomUUID 가 없어 카운터로 만든다.
   const keyCounter = useRef(0);
   const nextKey = useCallback(() => `bq-${(keyCounter.current += 1)}`, []);
-  const [questionItems, setQuestionItems] = useState<BuilderQuestion[]>(() =>
-    isEditMode && !isLegacyQuestionsBackend
-      ? toBuilderQuestions(initialData?.questionItems, initialData?.questions ?? [], nextKey)
-      : [],
-  );
+  const [questionItems, setQuestionItems] = useState<BuilderQuestion[]>(() => {
+    if (isEditMode) {
+      return isLegacyQuestionsBackend
+        ? []
+        : toBuilderQuestions(initialData?.questionItems, initialData?.questions ?? [], nextKey);
+    }
+    if (cloneSeed) {
+      return toBuilderQuestions(cloneSeed.questionItems, cloneSeed.questions, nextKey);
+    }
+    return [];
+  });
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
