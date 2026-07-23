@@ -298,7 +298,8 @@ const clubSnsLinkSchema = z.object({
 });
 
 const clubProfileBaseSchema = z.object({
-  description: z.string().nullable(),
+  // 소개는 리치 에디터(Tiptap) HTML — 텍스트 1,500자 정책은 폼에서, 여기선 HTML 백스톱만 둔다.
+  description: z.string().max(10000, '소개글이 너무 깁니다. 1,500자 이하로 줄여주세요.').nullable(),
   logoUrl: z.string().max(500, '로고 URL은 500자 이하여야 합니다.').nullable(),
   coverUrl: z.string().max(500, '커버 URL은 500자 이하여야 합니다.').nullable(),
   tags: z.array(

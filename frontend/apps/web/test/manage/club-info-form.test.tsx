@@ -17,6 +17,10 @@ vi.mock('@/app/_components/ImageWithFallback', () => ({
   ),
 }));
 
+vi.mock('@/app/_components/NoticeRichEditorLazy', () => ({
+  NoticeRichEditorLazy: (props: { value: string }) => <div data-testid="rich-editor">{props.value}</div>,
+}));
+
 import { ClubInfoForm } from '../../app/manage/clubs/[clubId]/info/_components/ClubInfoForm';
 import { ActiveDaysToggle } from '../../app/manage/clubs/[clubId]/info/_components/ActiveDaysToggle';
 import type { AdminUpdateClubPayload, ClubDetail } from '@duing/types';

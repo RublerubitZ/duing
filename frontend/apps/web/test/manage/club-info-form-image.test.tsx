@@ -50,6 +50,10 @@ vi.mock('@duing/hooks', () => ({
   }),
 }));
 
+vi.mock('@/app/_components/NoticeRichEditorLazy', () => ({
+  NoticeRichEditorLazy: (props: { value: string }) => <div data-testid="rich-editor">{props.value}</div>,
+}));
+
 import { ClubInfoForm } from '../../app/manage/clubs/[clubId]/info/_components/ClubInfoForm';
 import type { ClubDetail } from '@duing/types';
 

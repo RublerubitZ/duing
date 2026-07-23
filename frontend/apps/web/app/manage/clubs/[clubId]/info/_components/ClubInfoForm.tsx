@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import type {
   AdminUpdateClubPayload, ClubCategory, ClubDetail, ClubDayOfWeek, College,
@@ -21,7 +21,11 @@ import { DIVISIONS } from '../../../../../clubs/_lib/clubs';
 import { COLLEGE_OPTIONS } from '../../../../../_lib/college';
 import { ImageUploader } from '@/app/_components/ImageUploader';
 import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
+import { NoticeRichEditorLazy } from '@/app/_components/NoticeRichEditorLazy';
+import { sanitizeNoticeHtml } from '@/app/notices/_lib/sanitizeHtml';
+import { PROSE_CLASS } from '@/app/notices/_components/NoticeContent';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { seedEditorHtml } from '../_lib/seedEditorHtml';
 
 type ClubUpdateMutation = {
   mutateAsync: (payload: AdminUpdateClubPayload) => Promise<ClubDetail>;
@@ -51,6 +55,9 @@ const CATEGORY_LABELS: Record<ClubCategory, string> = {
 
 const LOCKED_NOTICE =
   '동아리명 · 카테고리 · 분과(또는 단과대학)는 총동연에서 관리하며 운영진은 수정할 수 없습니다.';
+
+// 소개글 글자 수 정책 — 텍스트(getText) 기준. HTML 백스톱은 zod(clubProfileBaseSchema.description).
+const DESCRIPTION_TEXT_LIMIT = 1500;
 
 function isCategory(value: string): value is ClubCategory {
   return (CATEGORIES as readonly string[]).includes(value);
@@ -102,7 +109,13 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
   const [division, setDivision] = useState(detail.division ?? '');
   const [college, setCollege] = useState<College | ''>(detail.college ?? '');
 
-  const [description, setDescription] = useState(detail.description ?? '');
+  // 편집 진입 시 레거시 plain 소개는 <p> 로 변환해 시드한다(개행 소실 방지). value 는 마운트 시 1회만 읽힌다.
+  const [seededDescription] = useState(() => seedEditorHtml(detail.description ?? ''));
+  const [description, setDescription] = useState(seededDescription);
+  const [descriptionTextLength, setDescriptionTextLength] = useState(0);
+  // dirty 판정은 에디터가 시드로부터 처음 직렬화한 HTML(onCreate) 을 기준으로 한다 —
+  // 에디터를 연 것만으로(변환·정규화 차이) 변경으로 오인해 저장되는 것을 막는다.
+  const descriptionBaselineRef = useRef<string | null>(null);
   const [logoUrl, setLogoUrl] = useState(detail.logoUrl ?? '');
   const [coverUrl, setCoverUrl] = useState(detail.coverUrl ?? '');
   const [tags, setTags] = useState(detail.tags);
@@ -136,6 +149,13 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
   const parsedCohortNumber = cohortNumber.trim() === '' ? null : Number(cohortNumber);
   const parsedActivityFrequency = activityFrequency.trim() === '' ? null : Number(activityFrequency);
   const parsedDivision = division.trim() === '' ? null : division;
+  const descriptionOverLimit = descriptionTextLength > DESCRIPTION_TEXT_LIMIT;
+
+  function handleDescriptionChange(html: string, textLength: number) {
+    if (descriptionBaselineRef.current === null) descriptionBaselineRef.current = html;
+    setDescription(html);
+    setDescriptionTextLength(textLength);
+  }
 
   // §6.5 — 저장 상태(detail) 기준으로 판정하므로 입력 중에는 조건이 유지된다.
   const showFeeMigrationNotice =
@@ -144,7 +164,10 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
   function buildPayload(): AdminUpdateClubPayload {
     const payload: AdminUpdateClubPayload = {};
 
-    if (description !== (detail.description ?? '')) payload.description = description;
+    // 시드 변환본(에디터 첫 직렬화) 과 다를 때만 담는다 — 미터치 시 변환/정규화 차이로 오저장 방지.
+    if (descriptionBaselineRef.current !== null && description !== descriptionBaselineRef.current) {
+      payload.description = description;
+    }
     if (logoUrl !== (detail.logoUrl ?? '')) {
       if (logoUrl === '') payload.clearLogoImage = true;
       else payload.logoUrl = logoUrl;
@@ -193,6 +216,9 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+
+    // 소개 텍스트 1,500자 초과는 인라인 에러(descriptionOverLimit)로 이미 노출 중 — 저장만 차단한다.
+    if (descriptionOverLimit) return;
 
     const baseData = {
       description: description || null,
@@ -561,15 +587,43 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
             </div>
 
             <div className="mt-4 flex flex-col gap-1.5">
-              <label htmlFor="f-intro" className={labelCls}>동아리 소개</label>
-              <textarea
-                id="f-intro"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                rows={5}
-                placeholder="동아리 활동, 분위기, 지원자에게 전하고 싶은 이야기를 자유롭게 적어주세요."
-                className={`${inputCls} resize-y leading-relaxed`}
-              />
+              <div className="flex items-baseline justify-between">
+                <span className={labelCls}>동아리 소개</span>
+                {!readOnly && (
+                  <span
+                    className={`text-[11.5px] font-medium ${
+                      descriptionOverLimit ? 'text-[#b04a2a]' : 'text-[#8a8f83]'
+                    }`}
+                  >
+                    {`${descriptionTextLength}/1,500 · 권장 300~800자`}
+                  </span>
+                )}
+              </div>
+              {readOnly ? (
+                seededDescription ? (
+                  <div
+                    className={`${PROSE_CLASS} rounded-xl border border-line bg-paper px-5 py-4`}
+                    // eslint-disable-next-line react/no-danger -- sanitizeNoticeHtml 로 정화한 HTML 만 주입
+                    dangerouslySetInnerHTML={{ __html: sanitizeNoticeHtml(seededDescription) }}
+                  />
+                ) : (
+                  <p className="text-[13px] text-[#8a8f83]">등록된 소개가 없습니다.</p>
+                )
+              ) : (
+                <>
+                  <NoticeRichEditorLazy
+                    value={seededDescription}
+                    format="HTML"
+                    onChange={handleDescriptionChange}
+                    features={{ headings: false, image: false }}
+                  />
+                  {descriptionOverLimit && (
+                    <p className="mt-1 text-[12px] text-[#b04a2a]">
+                      소개글은 1,500자 이하로 줄여주세요.
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           </SectionCard>
 
