@@ -151,9 +151,11 @@ describe('ClubDetailTabs', () => {
     expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
   });
 
-  it('membership 이 없으면 공지/일정 탭을 노출하지 않는다', () => {
+  it('membership 이 없으면 소식 탭을 노출하지 않는다', () => {
     render(<ClubDetailTabs club={{ ...baseClub, description: '본문' }} photos={[]} />);
     expect(screen.getByRole('tab', { name: '소개' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '소식' })).toBeNull();
+    // 옛 공지/일정 탭은 소식으로 통합되어 더 이상 존재하지 않는다
     expect(screen.queryByRole('tab', { name: '공지' })).toBeNull();
     expect(screen.queryByRole('tab', { name: '일정' })).toBeNull();
   });
@@ -221,7 +223,7 @@ describe('ClubDetailTabs', () => {
     expect(isBefore(introHeading, aboutText)).toBe(true);
   });
 
-  it('가입한 멤버에게는 공지/일정 탭을 추가로 노출한다', () => {
+  it('가입한 멤버에게는 소식 탭을 추가로 노출한다', () => {
     render(
       <ClubDetailTabs
         club={{ ...baseClub, description: '본문' }}
@@ -229,9 +231,11 @@ describe('ClubDetailTabs', () => {
         membership={memberMembership}
       />,
     );
-    // 기본 활성 탭은 여전히 소개 — 공지/일정은 트리거만 노출(비활성 콘텐츠는 마운트되지 않음)
+    // 기본 활성 탭은 여전히 소개 — 소식은 트리거만 노출(비활성 콘텐츠는 마운트되지 않음)
     expect(screen.getByRole('tab', { name: '소개' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '공지' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '일정' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '소식' })).toBeInTheDocument();
+    // 공지·일정은 소식 하나로 통합됐다
+    expect(screen.queryByRole('tab', { name: '공지' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: '일정' })).toBeNull();
   });
 });
