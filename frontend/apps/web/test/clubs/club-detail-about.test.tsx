@@ -4,12 +4,20 @@ import { describe, expect, it } from 'vitest';
 
 import { ClubDetailAbout } from '../../app/clubs/[clubId]/_components/ClubDetailAbout';
 
-// About 은 소개 본문(리치 HTML/레거시 plain)과 강조 칩만 다룬다.
-// Paper Card + 더보기(rest 펼침 또는 장문 클램프 해제) + ✓ 칩 행.
+// About 은 랜딩 공통 헤더(소개) + Paper Card(본문 + "이런 분께 추천해요" 체크 리스트)를 다룬다.
+// 본문=리치 HTML/레거시 plain + 더보기(rest 펼침 또는 장문 클램프 해제), 추천=✓ 체크 리스트.
 describe('ClubDetailAbout', () => {
   it('description·highlights 가 모두 비면 null 을 반환한다', () => {
     const { container } = render(<ClubDetailAbout description={null} highlights={[]} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it('카드가 렌더될 때 소개 섹션 헤더 문구를 노출한다', () => {
+    render(<ClubDetailAbout description="본문" highlights={[]} />);
+    expect(screen.getByRole('heading', { name: '소개' })).toBeInTheDocument();
+    expect(
+      screen.getByText('동아리가 추구하는 문화와 활동 방식을 소개합니다.'),
+    ).toBeInTheDocument();
   });
 
   it('짧은 단일 문단이면 본문만 노출하고 더보기 버튼이 없다', () => {
@@ -70,22 +78,42 @@ describe('ClubDetailAbout', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('highlights 는 소제목 없이 칩으로 노출된다', () => {
+  it('highlights 는 "이런 분께 추천해요" 소제목과 ✓ 체크 리스트로 노출된다 (칩 행 아님)', () => {
     render(
       <ClubDetailAbout
         description={null}
         highlights={['성장하고 싶은 사람', '동료가 필요한 사람']}
       />,
     );
+    expect(screen.getByText('이런 분께 추천해요')).toBeInTheDocument();
     expect(screen.getByText('성장하고 싶은 사람')).toBeInTheDocument();
     expect(screen.getByText('동료가 필요한 사람')).toBeInTheDocument();
-    expect(screen.getByRole('list')).toBeInTheDocument();
-    expect(screen.queryByRole('heading')).toBeNull();
+
+    const list = screen.getByRole('list');
+    expect(list).toHaveClass('space-y-2');
+    expect(list).not.toHaveClass('flex-wrap'); // 칩 행 제거
+
+    const [firstItem] = screen.getAllByRole('listitem');
+    expect(firstItem).not.toHaveClass('rounded-full'); // 칩 아님
   });
 
-  it('highlights 가 비면 칩 영역을 렌더링하지 않는다', () => {
+  it('본문·highlights 가 모두 있으면 추천 영역 앞에 구분선을 둔다', () => {
+    render(<ClubDetailAbout description="본문" highlights={['성장하고 싶은 사람']} />);
+    const subtitle = screen.getByText('이런 분께 추천해요');
+    expect(subtitle.parentElement).toHaveClass('border-t');
+  });
+
+  it('본문 없이 highlights 만 있으면 구분선 없이 추천 영역만 렌더한다', () => {
+    render(<ClubDetailAbout description={null} highlights={['성장하고 싶은 사람']} />);
+    const subtitle = screen.getByText('이런 분께 추천해요');
+    expect(subtitle.parentElement).not.toHaveClass('border-t');
+    expect(screen.getByText('성장하고 싶은 사람')).toBeInTheDocument();
+  });
+
+  it('highlights 가 비면 추천 영역(소제목·리스트)을 렌더링하지 않는다', () => {
     render(<ClubDetailAbout description="본문" highlights={[]} />);
     expect(screen.getByText('본문')).toBeInTheDocument();
+    expect(screen.queryByText('이런 분께 추천해요')).toBeNull();
     expect(screen.queryByRole('list')).toBeNull();
   });
 });

@@ -102,27 +102,36 @@ function AboutDescription({ description }: { description: string }) {
 }
 
 // 한줄 소개는 탐색 카드 전용, 해시태그는 상세 히어로(이름 아래) 담당, 주요 프로젝트는 랜딩 섹션으로 이관 —
-// 여기는 소개 본문(리치 HTML/레거시 plain)과 강조 칩만 다룬다.
+// 여기는 랜딩 공통 헤더(소개) + Paper Card(소개 본문 + "이런 분께 추천해요" 체크 리스트)를 다룬다.
 export function ClubDetailAbout({ description, highlights }: Props) {
   if (description === null && highlights.length === 0) return null;
 
   return (
-    <section className="rounded-[20px] border border-line bg-white p-7 shadow-1">
-      {description !== null && <AboutDescription description={description} />}
+    <section>
+      <div className="mb-4 flex items-baseline gap-2.5">
+        <h2 className="text-[20px] font-bold text-ink-deep">소개</h2>
+        <span className="text-[13px] text-charcoal-3">
+          동아리가 추구하는 문화와 활동 방식을 소개합니다.
+        </span>
+      </div>
 
-      {highlights.length > 0 && (
-        <ul className={cn('flex flex-wrap gap-2.5', description !== null && 'mt-6')}>
-          {highlights.map((keyword, index) => (
-            <li
-              key={index}
-              className="inline-flex items-center gap-1.5 rounded-full bg-cream px-3.5 py-1.5 text-[13.5px] font-semibold text-ink"
-            >
-              <Check aria-hidden className="h-3.5 w-3.5" />
-              {keyword}
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="rounded-[20px] border border-line bg-white p-7 shadow-1">
+        {description !== null && <AboutDescription description={description} />}
+
+        {highlights.length > 0 && (
+          <div className={cn(description !== null && 'mt-5 border-t border-line pt-5')}>
+            <p className="mb-3 text-[15px] font-semibold text-ink-deep">이런 분께 추천해요</p>
+            <ul className="space-y-2">
+              {highlights.map((keyword, index) => (
+                <li key={index} className="flex items-start gap-2 text-[15px] text-charcoal">
+                  <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink" />
+                  <span>{keyword}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
