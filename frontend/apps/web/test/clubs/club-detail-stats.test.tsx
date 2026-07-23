@@ -49,27 +49,58 @@ const worstCaseClub: ClubDetail = {
 
 const WORST_ACTIVITY_VALUE = '주 7회 (월·화·수·목·금·토·일)';
 
-describe('ClubDetailStats — 모바일 타이포·개행 안전성', () => {
+describe('ClubDetailStats — 모바일 행 리스트 + Desktop 복원', () => {
+  it('모바일에서 라벨과 값을 같은 flex 행에 두고, md 이상에서는 블록으로 복원한다', () => {
+    render(<ClubDetailStats club={worstCaseClub} />);
+
+    const label = screen.getByText('활동');
+    const row = label.parentElement;
+    // 라벨-값이 같은 행(부모)
+    const value = screen.getByText(WORST_ACTIVITY_VALUE);
+    expect(row).toHaveClass('flex', 'md:block');
+    expect(row).toContainElement(value);
+  });
+
+  it('라벨은 모바일 고정폭(w-16 shrink-0), md 에서 블록 폭·상단 여백 복원', () => {
+    render(<ClubDetailStats club={worstCaseClub} />);
+
+    const label = screen.getByText('활동');
+    expect(label).toHaveClass('w-16', 'shrink-0', 'md:w-auto', 'md:mb-1.5');
+    // 기존 라벨 타이포 유지
+    expect(label).toHaveClass('text-xs', 'tracking-wide04', 'text-charcoal-3');
+  });
+
   it('가장 긴 활동 값에 반응형 크기·개행 보호 클래스를 적용한다', () => {
     render(<ClubDetailStats club={worstCaseClub} />);
 
     const value = screen.getByText(WORST_ACTIVITY_VALUE);
-    // 모바일: 15px + 촘촘한 line-height + 한글 단어 보존 개행
+    // 모바일: 15px + 촘촘한 line-height + 한글 단어 보존 개행 + 남은 폭 전체
     expect(value).toHaveClass('text-[15px]');
     expect(value).toHaveClass('leading-snug');
     expect(value).toHaveClass('break-keep');
     expect(value).toHaveClass('[overflow-wrap:anywhere]');
+    expect(value).toHaveClass('min-w-0', 'flex-1');
     // Desktop(md+) 복원: 기존 22px 유지
     expect(value).toHaveClass('md:text-[22px]');
     // 기존 타이포 유지
     expect(value).toHaveClass('font-display', 'font-bold', 'text-ink-deep');
   });
 
-  it('컨테이너에 열 간격을 두어 값이 서로 붙지 않게 한다', () => {
+  it('컨테이너는 모바일 세로 리스트(gap-3), md 이상에서 gap 없는 3열 그리드로 복원한다', () => {
     const { container } = render(<ClubDetailStats club={worstCaseClub} />);
 
     const root = container.firstChild;
-    expect(root).toHaveClass('grid', 'grid-cols-3', 'gap-x-3', 'border-y', 'border-line', 'py-5');
+    expect(root).toHaveClass(
+      'flex',
+      'flex-col',
+      'gap-3',
+      'border-y',
+      'border-line',
+      'py-5',
+      'md:grid',
+      'md:grid-cols-3',
+      'md:gap-0',
+    );
   });
 
   it('활동·창설년도·회비 3개 셀을 회귀 없이 렌더한다', () => {
