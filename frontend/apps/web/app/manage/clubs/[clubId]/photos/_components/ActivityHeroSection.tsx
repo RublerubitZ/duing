@@ -36,7 +36,7 @@ import {
   useUpdateHeroActivityMutation,
 } from '@duing/hooks';
 import { SectionCard } from '@/app/manage/_components/SectionCard';
-import { HeroActivityCard } from './HeroActivityCard';
+import { HeroActivityCard } from '@/app/_components/HeroActivityCard';
 import { HeroActivityEditor } from './HeroActivityEditor';
 import { PhotoPickerDialog } from './PhotoPickerDialog';
 

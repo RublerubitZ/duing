@@ -27,7 +27,7 @@ vi.mock('@duing/hooks', async (importOriginal) => ({
   }),
 }));
 
-import { HeroActivityCard } from '../../../app/manage/clubs/[clubId]/photos/_components/HeroActivityCard';
+import { HeroActivityCard } from '@/app/_components/HeroActivityCard';
 import { HeroActivityEditor } from '../../../app/manage/clubs/[clubId]/photos/_components/HeroActivityEditor';
 
 beforeEach(() => {
@@ -55,6 +55,16 @@ describe('HeroActivityCard', () => {
     );
     expect(screen.getByText('봄 워크숍')).toBeInTheDocument();
     expect(screen.getByText('1박 2일 신입 MT')).toBeInTheDocument();
+  });
+
+  it('slotNumber 미전달 시 번호 배지를 렌더하지 않는다(학생 화면)', () => {
+    render(<HeroActivityCard imageUrl="a.jpg" title="데모데이" description="설명" />);
+    expect(screen.queryByText('1')).not.toBeInTheDocument();
+  });
+
+  it('size big 이면 제목이 확대 스케일로 렌더된다', () => {
+    render(<HeroActivityCard imageUrl="a.jpg" title="데모데이" description="설명" size="big" />);
+    expect(screen.getByText('데모데이').className).toContain('text-[22px]');
   });
 });
 

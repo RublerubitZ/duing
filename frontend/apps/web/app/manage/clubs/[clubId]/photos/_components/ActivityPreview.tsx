@@ -1,6 +1,6 @@
 import type { ClubHeroActivity, ClubPhoto } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
-import { HeroActivityCard } from './HeroActivityCard';
+import { HeroActivityCard } from '@/app/_components/HeroActivityCard';
 
 const PREVIEW_GRID_MAX = 6;
 
@@ -43,7 +43,6 @@ export function ActivityPreviewHero({ heroActivities }: { heroActivities: ClubHe
   return (
     <div className="space-y-2">
       <HeroActivityCard
-        slotNumber={1}
         imageUrl={first.storageKey}
         title={first.title}
         description={first.description}
