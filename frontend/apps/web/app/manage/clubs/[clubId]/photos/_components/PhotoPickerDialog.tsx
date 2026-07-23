@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ClubPhoto } from '@duing/types';
 import {
   Dialog,
@@ -42,6 +42,11 @@ export function PhotoPickerDialog({
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const usedSet = new Set(usedPhotoIds);
+
+  // 닫힘/재오픈 시 검증 에러를 클리어 — 다른 슬롯 피커로 stale 에러가 새지 않게(부모 serverError 와 대칭).
+  useEffect(() => {
+    if (!open) setUploadError(null);
+  }, [open]);
 
   function handleFile(fileList: FileList | null) {
     const file = fileList?.[0];
