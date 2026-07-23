@@ -1,41 +1,75 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { ClubDetailAbout } from '../../app/clubs/[clubId]/_components/ClubDetailAbout';
 
-// 한줄 소개는 탐색 카드 전용, 해시태그는 상세 히어로 담당, 주요 프로젝트는 랜딩 섹션으로 이관 — About 은 소개 본문·강조만 다룬다.
+// About 은 소개 본문(리치 HTML/레거시 plain)과 강조 칩만 다룬다.
+// Paper Card + 더보기(rest 펼침 또는 장문 클램프 해제) + ✓ 칩 행.
 describe('ClubDetailAbout', () => {
-  it('description·highlights 가 모두 비면 컨테이너 자체를 렌더링하지 않는다 (null 반환)', () => {
+  it('description·highlights 가 모두 비면 null 을 반환한다', () => {
     const { container } = render(<ClubDetailAbout description={null} highlights={[]} />);
     expect(container.firstChild).toBeNull();
   });
 
-  it('description 만 있으면 본문만 노출된다', () => {
-    render(<ClubDetailAbout description="본문" highlights={[]} />);
-    expect(screen.getByText('본문')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 3, name: '이런 사람이 좋아할 거예요' })).toBeNull();
+  it('짧은 단일 문단이면 본문만 노출하고 더보기 버튼이 없다', () => {
+    render(<ClubDetailAbout description="짧은 소개" highlights={[]} />);
+    expect(screen.getByText('짧은 소개')).toBeInTheDocument();
+    expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('highlights 만 있으면 강조 섹션만 노출된다', () => {
+  it('HTML 다중 블록: lead 는 노출, rest 는 접힌 채 시작하고 더보기 클릭 시 펼쳐진다', async () => {
+    render(<ClubDetailAbout description="<p>리드 문단</p><p>숨겨진 문단</p>" highlights={[]} />);
+
+    expect(screen.getByText('리드 문단')).toBeInTheDocument();
+
+    const panel = screen.getByText('숨겨진 문단').closest('[aria-hidden]');
+    expect(panel).toHaveAttribute('aria-hidden', 'true');
+
+    await userEvent.click(screen.getByRole('button', { name: /더보기/ }));
+
+    expect(panel).toHaveAttribute('aria-hidden', 'false');
+    expect(screen.getByRole('button', { name: /접기/ })).toBeInTheDocument();
+  });
+
+  it('plain 다중 문단: 더보기로 나머지 문단을 펼친다', async () => {
+    render(<ClubDetailAbout description={'첫 문단\n\n둘째 문단'} highlights={[]} />);
+
+    expect(screen.getByText('첫 문단')).toBeInTheDocument();
+    const panel = screen.getByText('둘째 문단').closest('[aria-hidden]');
+    expect(panel).toHaveAttribute('aria-hidden', 'true');
+
+    await userEvent.click(screen.getByRole('button', { name: /더보기/ }));
+    expect(panel).toHaveAttribute('aria-hidden', 'false');
+  });
+
+  it('rest 없이 lead 가 장문이면 클램프하고 더보기 클릭 시 클램프를 해제한다', async () => {
+    const longLead = '가'.repeat(230);
+    render(<ClubDetailAbout description={longLead} highlights={[]} />);
+
+    const paragraph = screen.getByText(longLead);
+    expect(paragraph).toHaveClass('line-clamp-4');
+
+    await userEvent.click(screen.getByRole('button', { name: /더보기/ }));
+    expect(paragraph).not.toHaveClass('line-clamp-4');
+  });
+
+  it('highlights 는 소제목 없이 칩으로 노출된다', () => {
     render(
       <ClubDetailAbout
         description={null}
-        highlights={['개발 기초 다진 사람', '동료가 필요한 사람']}
+        highlights={['성장하고 싶은 사람', '동료가 필요한 사람']}
       />,
     );
-    expect(screen.getByRole('heading', { level: 3, name: '이런 사람이 좋아할 거예요' })).toBeInTheDocument();
-    expect(screen.getByText('개발 기초 다진 사람')).toBeInTheDocument();
+    expect(screen.getByText('성장하고 싶은 사람')).toBeInTheDocument();
     expect(screen.getByText('동료가 필요한 사람')).toBeInTheDocument();
+    expect(screen.getByRole('list')).toBeInTheDocument();
+    expect(screen.queryByRole('heading')).toBeNull();
   });
 
-  it('description·highlights 가 있으면 본문 → 강조 순으로 노출된다', () => {
-    render(<ClubDetailAbout description="본문" highlights={['x']} />);
+  it('highlights 가 비면 칩 영역을 렌더링하지 않는다', () => {
+    render(<ClubDetailAbout description="본문" highlights={[]} />);
     expect(screen.getByText('본문')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 3, name: '이런 사람이 좋아할 거예요' })).toBeInTheDocument();
-  });
-
-  it('주요 프로젝트 섹션은 더 이상 About 에 렌더되지 않는다 (랜딩 섹션으로 이관)', () => {
-    render(<ClubDetailAbout description="본문" highlights={['x']} />);
-    expect(screen.queryByRole('heading', { level: 3, name: '주요 프로젝트' })).toBeNull();
+    expect(screen.queryByRole('list')).toBeNull();
   });
 });
