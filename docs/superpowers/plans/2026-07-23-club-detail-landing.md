@@ -664,3 +664,20 @@ export function ClubDetailActivityIntro({ projects }: Props) {
 - [ ] 정적 4종(typecheck/lint/test 전체/CI-env build) — frontend/
 - [ ] 실브라우저 QA(qa4/ 이어서): ①소개 카드(레거시 plain 렌더·펼침/접기·클램프·칩 유/무) ②콘솔 소개 에디터(서식 툴바 제한·굵게/목록/인용 저장→학생 화면 왕복 렌더·1500 초과 차단·레거시 시드 개행 보존) ③소식 탭(멤버 게이트·PC 2열/모바일 세로·공지 배지·일정 날짜 카드) ④기존 회귀(대표 활동·이런 활동을 해요·라이트박스·Sticky Footer). QA 생성 데이터 원복.
 - [ ] Commit 없음(문제 시 해당 Task 복귀).
+
+---
+
+### Task 13 (v4): 소개 섹션 헤더 + 추천 영역 재구성
+
+**Files:**
+- Modify: `frontend/apps/web/app/clubs/[clubId]/_components/ClubDetailAbout.tsx`
+- Test: `frontend/apps/web/test/clubs/club-detail-about.test.tsx`
+
+**Interfaces:** `ClubDetailAbout({ description, highlights })` 시그니처 불변(Tabs 무수정). 렌더 구조:
+- 섹션 래퍼에 헤더(다른 랜딩 섹션과 동일: `h2 text-[20px] font-bold text-ink-deep` "소개" + `span text-[13px] text-charcoal-3` "동아리가 추구하는 문화와 활동 방식을 소개합니다.") — 카드가 렌더될 때만(null 조건 기존 유지).
+- Paper Card 내부: 본문(lead+펼침+더보기 버튼, v3 로직 무변경) → 본문·highlights 둘 다 있으면 `border-t border-line pt-5 mt-5` Divider → `p 소제목 "이런 분께 추천해요"`(text-[15px] font-semibold text-ink-deep mb-3) → `ul` 체크 리스트(각 li: ✓ 아이콘(ink) + 텍스트, `space-y-2`, 기존 칩 행 flex-wrap 제거).
+- highlights 없으면 Divider+추천 영역 미렌더 / 본문 없고 highlights 만 있으면 Divider 없이 추천 영역만.
+
+- [ ] Step 1: 실패 테스트 — 헤더 문구 2종, 추천 소제목+체크 리스트 렌더, 칩 행 부재, highlights 없음 → 소제목·Divider 부재, 본문 없음+highlights 만 → 추천만, 기존 더보기 테스트 GREEN 유지
+- [ ] Step 2: RED → Step 3: 구현 → Step 4: `test/clubs/` GREEN + typecheck
+- [ ] Step 5: Commit — `feat(frontend): 소개 섹션 헤더 통일·"이런 분께 추천해요" 체크 리스트`
