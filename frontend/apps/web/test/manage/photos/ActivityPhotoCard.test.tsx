@@ -1,0 +1,113 @@
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { DndContext } from '@dnd-kit/core';
+import { SortableContext } from '@dnd-kit/sortable';
+import type { ClubPhoto } from '@duing/types';
+
+const mockUpdateMutateAsync = vi.fn();
+const mockDeleteMutateAsync = vi.fn();
+
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
+  useUpdatePhotoMutation: () => ({ mutateAsync: mockUpdateMutateAsync, isPending: false }),
+  useDeletePhotoMutation: () => ({ mutateAsync: mockDeleteMutateAsync, isPending: false }),
+}));
+
+import { ActivityPhotoCard } from '../../../app/manage/clubs/[clubId]/photos/_components/ActivityPhotoCard';
+
+function makePhoto(overrides: Partial<ClubPhoto> = {}): ClubPhoto {
+  return {
+    id: 42,
+    storageKey: 'https://cdn.example.com/42.jpg',
+    caption: '기존 캡션',
+    width: null,
+    height: null,
+    displayOrder: 0,
+    ...overrides,
+  };
+}
+
+function renderCard(props: {
+  photo?: ClubPhoto;
+  onPromote?: (photo: ClubPhoto) => void;
+  promoteDisabled?: boolean;
+}) {
+  const photo = props.photo ?? makePhoto();
+  return render(
+    <DndContext>
+      <SortableContext items={[photo.id]}>
+        <ActivityPhotoCard
+          clubId={1}
+          photo={photo}
+          onPromote={props.onPromote ?? (() => {})}
+          promoteDisabled={props.promoteDisabled ?? false}
+        />
+      </SortableContext>
+    </DndContext>,
+  );
+}
+
+beforeEach(() => {
+  mockUpdateMutateAsync.mockReset().mockResolvedValue(undefined);
+  mockDeleteMutateAsync.mockReset().mockResolvedValue(undefined);
+});
+
+describe('ActivityPhotoCard', () => {
+  it('대표로 지정·캡션·삭제·드래그 핸들 액션을 노출한다', () => {
+    renderCard({});
+    expect(screen.getByRole('button', { name: '대표로 지정' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '캡션 편집' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '사진 삭제' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '드래그하여 순서 변경' })).toBeInTheDocument();
+  });
+
+  it('빈 슬롯이 없으면 대표로 지정이 비활성·안내 title 을 갖고 onPromote 를 부르지 않는다', () => {
+    const onPromote = vi.fn();
+    renderCard({ onPromote, promoteDisabled: true });
+    const promoteButton = screen.getByRole('button', { name: '대표로 지정' });
+    expect(promoteButton).toBeDisabled();
+    expect(promoteButton).toHaveAttribute('title');
+    fireEvent.click(promoteButton);
+    expect(onPromote).not.toHaveBeenCalled();
+  });
+
+  it('대표로 지정 클릭 시 onPromote 에 사진을 전달한다', () => {
+    const onPromote = vi.fn();
+    const photo = makePhoto({ id: 7 });
+    renderCard({ photo, onPromote });
+    fireEvent.click(screen.getByRole('button', { name: '대표로 지정' }));
+    expect(onPromote).toHaveBeenCalledWith(photo);
+  });
+
+  it('캡션 편집 다이얼로그에서 저장하면 updatePhoto 를 호출한다', async () => {
+    renderCard({ photo: makePhoto({ id: 9, caption: '' }) });
+    fireEvent.click(screen.getByRole('button', { name: '캡션 편집' }));
+    fireEvent.change(screen.getByLabelText('캡션'), { target: { value: '봄 나들이' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() =>
+      expect(mockUpdateMutateAsync).toHaveBeenCalledWith({
+        photoId: 9,
+        payload: { caption: '봄 나들이' },
+      }),
+    );
+  });
+
+  it('삭제 확인 흐름 — 확인 클릭 시 deletePhoto 를 사진 id 로 호출한다', async () => {
+    renderCard({ photo: makePhoto({ id: 13 }) });
+    fireEvent.click(screen.getByRole('button', { name: '사진 삭제' }));
+    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+    await waitFor(() => expect(mockDeleteMutateAsync).toHaveBeenCalledWith(13));
+  });
+
+  it('대표 활동 참조(409) 삭제 실패 시 에러 메시지를 인라인 표시한다', async () => {
+    mockDeleteMutateAsync.mockRejectedValueOnce(
+      new Error('대표 활동에 사용 중인 사진입니다. 대표 활동에서 먼저 해제해주세요.'),
+    );
+    renderCard({});
+    fireEvent.click(screen.getByRole('button', { name: '사진 삭제' }));
+    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+    expect(
+      await screen.findByText(/대표 활동에 사용 중인 사진입니다/),
+    ).toBeInTheDocument();
+  });
+});
