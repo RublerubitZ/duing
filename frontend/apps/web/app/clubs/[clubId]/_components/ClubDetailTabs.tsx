@@ -20,7 +20,7 @@ type Tab = { key: TabKey; label: string };
 type Props = {
   club: ClubDetail;
   photos: ClubPhoto[];
-  /** 해당 동아리에 가입한 경우의 멤버십. 멤버에게만 공지/일정 탭을 노출한다. */
+  /** 해당 동아리에 가입한 경우의 멤버십. 멤버에게만 소식 탭을 노출한다. */
   membership?: MyClubMembership | null;
 };
 

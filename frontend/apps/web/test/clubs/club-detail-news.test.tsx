@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, todayKstDateString } from '@duing/hooks';
 import type { NoticeCardItem, ClubEventCard, PageResponse } from '@duing/types';
 
 import { ClubDetailNews } from '@/app/clubs/[clubId]/_components/ClubDetailNews';
@@ -134,7 +134,8 @@ describe('ClubDetailNews (소식 탭 — 공지+일정 통합)', () => {
     expect(await within(eventsSection).findByText('일정 1')).toBeInTheDocument();
     expect(within(eventsSection).getByText('일정 4')).toBeInTheDocument();
     expect(within(eventsSection).queryByText('일정 5')).not.toBeInTheDocument();
-    // 날짜 칸 일 숫자
+    // 날짜 칸 월·일 숫자
+    expect(within(eventsSection).getAllByText('6월').length).toBeGreaterThan(0);
     expect(within(eventsSection).getAllByText('10').length).toBeGreaterThan(0);
     // 시간 표기(KST 19:00)
     expect(within(eventsSection).getAllByText('19:00').length).toBeGreaterThan(0);
@@ -156,5 +157,21 @@ describe('ClubDetailNews (소식 탭 — 공지+일정 통합)', () => {
     const eventsSection = sectionByHeading('다가오는 일정');
     expect(await within(eventsSection).findByText('일정 1')).toBeInTheDocument();
     expect(within(eventsSection).getByText(/학생회관 201호/)).toBeInTheDocument();
+  });
+
+  it('일정 조회에 오늘(KST) 기준 from 파라미터를 넘겨 지난 일정을 배제한다', async () => {
+    let capturedFrom: string | null = null;
+    server.use(
+      http.get(`${BASE}/clubs/7/notices`, () => ok(noticePage([]))),
+      http.get(`${BASE}/clubs/7/events`, ({ request }) => {
+        capturedFrom = new URL(request.url).searchParams.get('from');
+        return ok([]);
+      }),
+    );
+    renderWithProviders(<ClubDetailNews clubId={7} />);
+
+    // 일정 섹션 빈 상태가 뜨면 요청이 완료된 것
+    expect(await screen.findByText('등록된 일정이 없어요.')).toBeInTheDocument();
+    expect(capturedFrom).toBe(todayKstDateString(new Date()));
   });
 });

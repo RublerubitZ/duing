@@ -10,6 +10,7 @@ import {
   formatTimeKst,
   kstDateTimeFormatter,
   parseKstInstant,
+  todayKstDateString,
   useClubEventListQuery,
   useClubNoticeListQuery,
 } from '@duing/hooks';
@@ -22,14 +23,15 @@ const PREVIEW_COUNT = 4;
 
 type Props = { clubId: number };
 
-// KST 날짜 칸용 — 일 숫자와 요일(짧게)만 뽑는다. 인스턴스 생성 비용이 있어 모듈 레벨에 둔다.
-const EVENT_DATE_FORMATTER = kstDateTimeFormatter({ day: 'numeric', weekday: 'short' });
+// KST 날짜 칸용 — 월·일·요일을 뽑는다. +180일 윈도우라 타월 일정 구분을 위해 월도 표기한다.
+// 인스턴스 생성 비용이 있어 모듈 레벨에 둔다.
+const EVENT_DATE_FORMATTER = kstDateTimeFormatter({ month: 'numeric', day: 'numeric', weekday: 'short' });
 
-function eventDateBox(startIso: string): { day: string; weekday: string } {
+function eventDateBox(startIso: string): { month: string; day: string; weekday: string } {
   const formattedParts = EVENT_DATE_FORMATTER.formatToParts(parseKstInstant(startIso));
   const partValue = (partType: Intl.DateTimeFormatPartTypes): string =>
     formattedParts.find((part) => part.type === partType)?.value ?? '';
-  return { day: partValue('day'), weekday: partValue('weekday') };
+  return { month: partValue('month'), day: partValue('day'), weekday: partValue('weekday') };
 }
 
 const EMPTY_STATE_CLASS =
@@ -93,7 +95,9 @@ function RecentNotices({ clubId }: Props) {
 }
 
 function UpcomingEvents({ clubId }: Props) {
-  const { data, isLoading } = useClubEventListQuery(clubId);
+  // BE 기본 윈도우는 오늘−30일~+180일 + startAt ASC 라 오늘(KST) 기준 from 을 넘겨야
+  // "다가오는 일정" 라벨과 데이터가 일치한다(지난 일정 우선 노출 방지).
+  const { data, isLoading } = useClubEventListQuery(clubId, { from: todayKstDateString(new Date()) });
   const events = (data ?? []).slice(0, PREVIEW_COUNT);
 
   return (
@@ -112,7 +116,7 @@ function UpcomingEvents({ clubId }: Props) {
       ) : (
         <ul className="flex flex-col gap-2">
           {events.map((event) => {
-            const { day, weekday } = eventDateBox(event.startAt);
+            const { month, day, weekday } = eventDateBox(event.startAt);
             return (
               <li key={event.id}>
                 <Link
@@ -120,8 +124,9 @@ function UpcomingEvents({ clubId }: Props) {
                   className={`flex items-center gap-4 ${CARD_CLASS}`}
                 >
                   <div className="flex w-10 shrink-0 flex-col items-center">
-                    <span className="font-display text-xl font-bold leading-none text-ink-deep">{day}</span>
-                    <span className="mt-1 text-[11px] text-charcoal-3">{weekday}</span>
+                    <span className="text-[11px] leading-none text-charcoal-3">{month}월</span>
+                    <span className="mt-0.5 font-display text-xl font-bold leading-none text-ink-deep">{day}</span>
+                    <span className="mt-0.5 text-[11px] text-charcoal-3">{weekday}</span>
                   </div>
                   <div className="h-9 w-px shrink-0 bg-line" aria-hidden />
                   <div className="min-w-0">
