@@ -1,11 +1,22 @@
 'use client';
 
-import { use } from 'react';
+import { use, useRef } from 'react';
 import { notFound } from 'next/navigation';
-import { useClubPhotosQuery, useManagedClubsQuery } from '@duing/hooks';
-import { PhotoUploader } from './_components/PhotoUploader';
-import { PhotoGrid } from './_components/PhotoGrid';
+import {
+  useClubHeroActivitiesQuery,
+  useClubPhotosQuery,
+  useManagedClubsQuery,
+} from '@duing/hooks';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { SectionCard } from '@/app/manage/_components/SectionCard';
+import {
+  ActivityHeroSection,
+  type ActivityHeroSectionHandle,
+} from './_components/ActivityHeroSection';
+import { ActivityPhotoGrid } from './_components/ActivityPhotoGrid';
+import { ActivityPreview } from './_components/ActivityPreview';
+
+const HERO_SLOT_COUNT = 6;
 
 export default function ClubPhotosPage({
   params,
@@ -14,14 +25,17 @@ export default function ClubPhotosPage({
 }) {
   const { clubId: clubIdParam } = use(params);
   const currentClubId = Number(clubIdParam);
+  const queryClubId = isNaN(currentClubId) ? undefined : currentClubId;
+
+  const heroSectionRef = useRef<ActivityHeroSectionHandle>(null);
 
   const { data: managedClubs, isLoading: isManagedClubsLoading } = useManagedClubsQuery();
-  const { data: photos, isLoading: isPhotosLoading } = useClubPhotosQuery(
-    isNaN(currentClubId) ? undefined : currentClubId,
-  );
+  const { data: photos, isLoading: isPhotosLoading } = useClubPhotosQuery(queryClubId);
+  const { data: heroActivities, isLoading: isHeroLoading } =
+    useClubHeroActivitiesQuery(queryClubId);
 
-  if (isManagedClubsLoading || isPhotosLoading) {
-    return <LoadingGate label="활동사진 불러오는 중" />;
+  if (isManagedClubsLoading || isPhotosLoading || isHeroLoading) {
+    return <LoadingGate label="활동 피드 불러오는 중" />;
   }
 
   const managedClub = managedClubs?.find((club) => club.clubId === currentClubId);
@@ -29,24 +43,46 @@ export default function ClubPhotosPage({
     notFound();
   }
 
+  const photoList = photos ?? [];
+  const heroList = heroActivities ?? [];
+  // 승격 비활성 여부는 ref(비반응형)가 아니라 쿼리 데이터로 직접 파생해 반응형으로 유지한다.
+  const promoteDisabled = heroList.length >= HERO_SLOT_COUNT;
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-6 py-10">
-      <header>
-        <h1 className="text-xl font-bold">활동사진</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          사진을 드래그해 순서를 바꿀 수 있습니다 (1초 후 자동 저장).
+    <div className="mx-auto max-w-[1240px] px-6 py-9">
+      <header className="mb-6">
+        <h1 className="text-xl font-bold text-ink">활동 피드</h1>
+        <p className="mt-1 text-[13px] text-charcoal-2">
+          대표 활동 6개와 전체 활동 사진을 관리하고, 학생에게 보일 모습을 미리 확인하세요.
         </p>
       </header>
 
-      <PhotoUploader clubId={currentClubId} />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div>
+          <ActivityHeroSection
+            ref={heroSectionRef}
+            clubId={currentClubId}
+            heroActivities={heroList}
+            photos={photoList}
+          />
+          <SectionCard number={2} title="전체 활동 사진" description="드래그로 순서를 바꿀 수 있어요(1초 후 자동 저장).">
+            <ActivityPhotoGrid
+              clubId={currentClubId}
+              photos={photoList}
+              onPromote={(photo) => heroSectionRef.current?.promotePhoto(photo)}
+              promoteDisabled={promoteDisabled}
+            />
+          </SectionCard>
+        </div>
 
-      {photos && photos.length === 0 && (
-        <p className="text-sm text-slate-500">아직 등록된 사진이 없습니다.</p>
-      )}
-
-      {photos && photos.length > 0 && (
-        <PhotoGrid clubId={currentClubId} photos={photos} />
-      )}
+        <aside data-testid="activity-preview" className="hidden xl:sticky xl:top-6 xl:block">
+          <ActivityPreview
+            clubName={managedClub.clubName}
+            heroActivities={heroList}
+            photos={photoList}
+          />
+        </aside>
+      </div>
     </div>
   );
 }
