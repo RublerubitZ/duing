@@ -67,6 +67,13 @@ export {
 } from './stats';
 export { userQueryKeys } from './userQueryKeys';
 export { clubQueryKeys } from './clubQueryKeys';
+export {
+  useClubHeroActivitiesQuery,
+  useCreateHeroActivityMutation,
+  useUpdateHeroActivityMutation,
+  useReorderHeroActivitiesMutation,
+  useDeleteHeroActivityMutation,
+} from './heroActivities';
 export { recruitmentQueryKeys } from './recruitmentQueryKeys';
 export { applicationQueryKeys } from './applicationQueryKeys';
 export { statsQueryKeys } from './statsQueryKeys';
