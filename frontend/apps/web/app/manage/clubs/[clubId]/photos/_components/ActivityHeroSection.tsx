@@ -64,9 +64,48 @@ type Props = {
 
 /** displayOrder 1..6 을 고정 슬롯 배열로 조립한다. 빈 슬롯은 null(순서 안 당김). */
 function buildSlots(heroActivities: ClubHeroActivity[]): Slot[] {
-  return Array.from({ length: SLOT_COUNT }, (_, index) => {
-    const hero = heroActivities.find((item) => item.displayOrder === index + 1) ?? null;
-    return { key: hero ? `hero-${hero.id}` : `empty-${index + 1}`, hero };
+  return reconcileSlots(heroActivities, []);
+}
+
+/**
+ * refetch 재조립 — 서버 hero 는 displayOrder 위치에 놓고, 빈 위치는 직전 로컬 order 의
+ * 같은 시각적 위치가 비어 있었으면 그 key 를 보존한다(=React key=dnd id=pendingByKey 키).
+ * 드래그로 옮긴 pending draft 슬롯의 정체성을 유지하고, 그 위치가 서버 hero 로 채워지면(displaced)
+ * key 가 사라져 I-8 pending 정리 effect 가 그 draft 를 걷어낸다. prevOrder 가 비면 buildSlots 와 동치.
+ * jsdom dnd 한계로 순수 함수로 분리해 단위 테스트한다.
+ */
+export function reconcileSlots(heroActivities: ClubHeroActivity[], prevOrder: Slot[]): Slot[] {
+  const heroByPosition = new Map<number, ClubHeroActivity>();
+  for (const hero of heroActivities) heroByPosition.set(hero.displayOrder, hero);
+  // 1-pass: hero 슬롯과 직전 로컬 key 보존 슬롯을 확정하며 사용된 key 를 수집한다.
+  // (usedKeys 가드는 혹시 남은 중복 상태도 다음 reconcile 에서 자가 치유하게 한다.)
+  const usedKeys = new Set<string>();
+  const keptSlots: (Slot | null)[] = Array.from({ length: SLOT_COUNT }, (_, index) => {
+    const hero = heroByPosition.get(index + 1) ?? null;
+    if (hero) {
+      const key = `hero-${hero.id}`;
+      usedKeys.add(key);
+      return { key, hero };
+    }
+    const prevSlot = prevOrder[index];
+    if (prevSlot && prevSlot.hero === null && !usedKeys.has(prevSlot.key)) {
+      usedKeys.add(prevSlot.key);
+      return { key: prevSlot.key, hero: null };
+    }
+    return null;
+  });
+  // 2-pass: 남은 빈 위치는 위치 파생 키(buildSlots 동치)를 우선하되, 보존된 키와 충돌하면
+  // 미사용 empty-N 으로 대체한다(드래그 정착 후 비우기 → 중복 key/dnd id/pendingByKey 앨리어싱 실측 재현).
+  let candidate = 1;
+  return keptSlots.map((slot, index) => {
+    if (slot) return slot;
+    let key = `empty-${index + 1}`;
+    if (usedKeys.has(key)) {
+      while (usedKeys.has(`empty-${candidate}`)) candidate += 1;
+      key = `empty-${candidate}`;
+    }
+    usedKeys.add(key);
+    return { key, hero: null };
   });
 }
 
@@ -159,10 +198,14 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
     const pendingReorder = useRef<Slot[] | null>(null);
     const inflightReorder = useRef<Promise<void> | null>(null);
     const lastCommitted = useRef<Slot[]>(order);
+    // 직전 로컬 order 를 ref 로 노출 — 재동기화 effect 가 deps 없이 최신 순서를 reconcile 입력으로 읽는다
+    // (order 를 deps 에 넣으면 드래그마다 effect 가 서버값으로 되돌려 조작을 끊는다).
+    const orderRef = useRef(order);
+    orderRef.current = order;
 
     // 서버 반영(정렬/생성/삭제 후 invalidate) 시 props 를 진리원본으로 로컬 순서 재동기화.
     useEffect(() => {
-      const next = buildSlots(heroActivities);
+      const next = reconcileSlots(heroActivities, orderRef.current);
       setOrder(next);
       lastCommitted.current = next;
       // 서버 확인 후 pending 정리 — 현재 빈 슬롯 key 에 없는 pending(=해당 슬롯이 hero 로 채워짐)은 제거.
@@ -179,8 +222,16 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
       onPendingPhotoIdsChange?.(Object.values(pendingByKey).map((pending) => pending.clubPhotoId));
     }, [pendingByKey, onPendingPhotoIdsChange]);
 
+    // 최신 runReorder 를 ref 로 보관 — unmount cleanup 이 deps 없이 호출하게(함수는 매 렌더 재생성).
+    const runReorderRef = useRef<(next: Slot[]) => Promise<void>>(() => Promise.resolve());
+
+    // unmount 시 대기 중 정렬이 있으면 타이머를 버리는 대신 즉시 발화(fire-and-forget) — RQ mutation 은 완주.
+    // StrictMode 이중 마운트는 pendingReorder 가 null 이라 no-op.
     useEffect(() => () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      const queued = pendingReorder.current;
+      pendingReorder.current = null;
+      if (queued) void runReorderRef.current(queued);
     }, []);
 
     const sensors = useSensors(
@@ -253,6 +304,8 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
     }
 
     function handleDragStart(event: DragStartEvent) {
+      // 다음 드래그 시작 시 직전 정렬 실패 안내를 걷어낸다(성공 시엔 runReorder 가 클리어).
+      setActionError(null);
       setActiveKey(String(event.active.id));
     }
 
@@ -286,9 +339,11 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
         try {
           await reorder.mutateAsync({ items: slotsToReorderPayload(next.map((slot) => slot.hero)) });
           lastCommitted.current = next;
+          setActionError(null);
         } catch {
           setOrder(lastCommitted.current);
-          alert('순서 저장에 실패했습니다. 다시 시도해주세요.');
+          // 실패는 alert 대신 섹션 인라인 에러로(이 화면의 확립된 통지 채널) — 다음 드래그 시작 시 클리어.
+          setActionError('순서 저장에 실패했습니다. 다시 시도해주세요.');
         } finally {
           if (inflightReorder.current === request) inflightReorder.current = null;
         }
@@ -296,6 +351,7 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
       inflightReorder.current = request;
       return request;
     }
+    runReorderRef.current = runReorder;
 
     // 대기 중 정렬을 즉시 확정하고 완료까지 await 한다 — create/update·피커 열기 직전 순서 확정용.
     // 타이머 대기 중이면 취소 후 즉시 PUT, 이미 자연 발화해 PUT 이 in-flight 면 그 완료를 대기(추월 방지).

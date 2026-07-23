@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -76,13 +76,14 @@ function renderPage() {
     status: 'fulfilled' as const,
     value: paramsValue,
   });
-  return render(
+  const view = render(
     <ApiClientProvider client={apiClient}>
       <QueryClientProvider client={queryClient}>
         <ClubPhotosPage params={params} />
       </QueryClientProvider>
     </ApiClientProvider>,
   );
+  return { ...view, queryClient };
 }
 
 describe('활동 피드 page 조립', () => {
@@ -112,5 +113,70 @@ describe('활동 피드 page 조립', () => {
     expect(screen.getByText('등록 0/6')).toBeInTheDocument();
     const preview = screen.getByTestId('activity-preview');
     expect(within(preview).getByText('대표 활동을 등록하면 여기에 보여요')).toBeInTheDocument();
+  });
+
+  it('M-5: hero 쿼리 실패 시 빈 슬롯 화면 대신 에러 상태를 보이고, 다시 시도로 복구한다', async () => {
+    let heroFails = true;
+    server.use(
+      http.get('*/leader/clubs/me/managed', () =>
+        envelope([
+          {
+            clubId: CLUB_ID,
+            clubName: '두잉',
+            logoUrl: null,
+            myRole: 'LEADER',
+            centralClub: false,
+            activeRecruitmentCount: 0,
+          },
+        ]),
+      ),
+      http.get(`*/clubs/${CLUB_ID}/photos`, () => envelope([makePhoto(10)])),
+      http.get(`*/clubs/${CLUB_ID}/hero-activities`, () =>
+        heroFails ? new HttpResponse(null, { status: 500 }) : envelope([makeHero(1, 1)]),
+      ),
+    );
+    renderPage();
+
+    // 실패 시 섹션을 렌더하지 않고(빈 슬롯 재등록 유도 방지) 에러 + 재시도 버튼을 보인다.
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('활동 피드를 불러오지 못했어요');
+    expect(screen.queryByText('대표 활동 6')).not.toBeInTheDocument();
+
+    // 다시 시도 → 두 쿼리 refetch 성공 → 정상 화면.
+    heroFails = false;
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByText('대표 활동 6')).toBeInTheDocument();
+    expect(screen.getByText('등록 1/6')).toBeInTheDocument();
+  });
+
+  it('백그라운드 refetch 실패는 이전 data 로 화면을 유지한다(에러 화면으로 언마운트 금지 — draft 보존)', async () => {
+    let heroFails = false;
+    server.use(
+      http.get('*/leader/clubs/me/managed', () =>
+        envelope([
+          {
+            clubId: CLUB_ID,
+            clubName: '두잉',
+            logoUrl: null,
+            myRole: 'LEADER',
+            centralClub: false,
+            activeRecruitmentCount: 0,
+          },
+        ]),
+      ),
+      http.get(`*/clubs/${CLUB_ID}/photos`, () => envelope([makePhoto(10)])),
+      http.get(`*/clubs/${CLUB_ID}/hero-activities`, () =>
+        heroFails ? new HttpResponse(null, { status: 500 }) : envelope([makeHero(1, 1)]),
+      ),
+    );
+    const { queryClient } = renderPage();
+    expect(await screen.findByText('등록 1/6')).toBeInTheDocument();
+
+    // 초기 로드 성공 후 refetch(invalidate 등)가 실패 — isError 지만 이전 data 는 남아 있다.
+    heroFails = true;
+    await queryClient.invalidateQueries();
+
+    expect(screen.getByText('등록 1/6')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
