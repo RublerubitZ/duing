@@ -2,7 +2,13 @@
 
 import { useRef, useState } from 'react';
 import type { ClubPhoto } from '@duing/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { IMAGE_UPLOAD_POLICY, validateImageFile } from '@/app/_components/imageUploadPolicy';
 import { cn } from '@/app/_lib/cn';
 
@@ -66,6 +72,7 @@ export function PhotoPickerDialog({
       >
         <DialogHeader>
           <DialogTitle>대표 활동 사진 선택</DialogTitle>
+          <DialogDescription>기존 활동 사진에서 고르거나 새 사진을 업로드해요.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-1.5">

@@ -8,7 +8,14 @@ import type { ClubPhoto } from '@duing/types';
 import { useDeletePhotoMutation, useUpdatePhotoMutation } from '@duing/hooks';
 import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/app/_lib/cn';
 
 const CAPTION_MAX = 200;
@@ -163,6 +170,7 @@ export function ActivityPhotoCard({ clubId, photo, onPromote, promoteDisabled = 
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>캡션 편집</DialogTitle>
+            <DialogDescription>사진 설명을 입력해요. 비워서 저장하면 캡션이 지워져요.</DialogDescription>
           </DialogHeader>
           <input
             aria-label="캡션"
