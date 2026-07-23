@@ -52,6 +52,8 @@ export function ActivityPhotoCard({
     : promoteDisabled
       ? '빈 대표 활동 슬롯이 없어요. 대표 활동에서 먼저 하나를 비워주세요.'
       : '이 사진을 첫 빈 대표 활동 슬롯에 등록합니다.';
+  // disabled 버튼의 title 툴팁은 일부 브라우저에서 안 뜨므로 사유를 스크린리더에도 노출한다(시각 추가 텍스트 없음).
+  const promoteReasonId = `promote-reason-${photo.id}`;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: photo.id,
   });
@@ -139,11 +141,17 @@ export function ActivityPhotoCard({
           onClick={() => onPromote(photo)}
           disabled={promoteButtonDisabled}
           title={promoteTitle}
+          aria-describedby={promoteButtonDisabled ? promoteReasonId : undefined}
           className="flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1 text-[11.5px] font-semibold text-white hover:bg-white/15 disabled:opacity-40"
         >
           <Star size={13} aria-hidden />
           대표로 지정
         </button>
+        {promoteButtonDisabled && (
+          <span id={promoteReasonId} className="sr-only">
+            {promoteTitle}
+          </span>
+        )}
         <button
           type="button"
           onClick={() => {

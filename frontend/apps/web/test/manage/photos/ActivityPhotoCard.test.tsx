@@ -83,6 +83,22 @@ describe('ActivityPhotoCard', () => {
     expect(onPromote).not.toHaveBeenCalled();
   });
 
+  it('M-6: 대표로 지정이 비활성이면 aria-describedby 로 사유를 스크린리더에 노출한다(title 미표시 브라우저 대비)', () => {
+    renderCard({ promoteDisabled: true });
+    const promoteButton = screen.getByRole('button', { name: '대표로 지정' });
+    // title 은 유지하되, 안 뜨는 브라우저 대비로 aria-describedby 참조 요소에 사유를 담아 읽히게 한다.
+    expect(promoteButton).toHaveAttribute('title');
+    const describedby = promoteButton.getAttribute('aria-describedby');
+    expect(describedby).toBeTruthy();
+    const reason = describedby ? document.getElementById(describedby) : null;
+    expect(reason).toHaveTextContent('빈 대표 활동 슬롯이 없어요');
+  });
+
+  it('M-6: 활성(등록 가능) 상태에서는 aria-describedby 를 붙이지 않는다', () => {
+    renderCard({});
+    expect(screen.getByRole('button', { name: '대표로 지정' })).not.toHaveAttribute('aria-describedby');
+  });
+
   it('대표로 지정 클릭 시 onPromote 에 사진을 전달한다', () => {
     const onPromote = vi.fn();
     const photo = makePhoto({ id: 7 });

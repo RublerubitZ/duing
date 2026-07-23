@@ -31,22 +31,53 @@ export default function ClubPhotosPage({
   // hero 섹션에서 시드했지만 아직 미저장인 사진 id — 그리드 "대표로 지정" 선차단(409 예방)에 합친다.
   const [pendingPhotoIds, setPendingPhotoIds] = useState<number[]>([]);
 
-  const { data: managedClubs, isLoading: isManagedClubsLoading } = useManagedClubsQuery();
-  const { data: photos, isLoading: isPhotosLoading } = useClubPhotosQuery(queryClubId);
-  const { data: heroActivities, isLoading: isHeroLoading } =
-    useClubHeroActivitiesQuery(queryClubId);
+  const managedClubsQuery = useManagedClubsQuery();
+  const photosQuery = useClubPhotosQuery(queryClubId);
+  const heroQuery = useClubHeroActivitiesQuery(queryClubId);
 
-  if (isManagedClubsLoading || isPhotosLoading || isHeroLoading) {
+  if (managedClubsQuery.isLoading || photosQuery.isLoading || heroQuery.isLoading) {
     return <LoadingGate label="활동 피드 불러오는 중" />;
   }
 
-  const managedClub = managedClubs?.find((club) => club.clubId === currentClubId);
+  const managedClub = managedClubsQuery.data?.find((club) => club.clubId === currentClubId);
   if (!managedClub) {
     notFound();
   }
 
-  const photoList = photos ?? [];
-  const heroList = heroActivities ?? [];
+  const pageHeader = (
+    <header className="mb-6">
+      <h1 className="text-xl font-bold text-ink">활동 피드</h1>
+      <p className="mt-1 text-[13px] text-charcoal-2">
+        대표 활동 6개와 전체 활동 사진을 관리하고, 학생에게 보일 모습을 미리 확인하세요.
+      </p>
+    </header>
+  );
+
+  // hero/photos 쿼리 실패 시 빈 데이터로 정상 화면을 렌더하면 6칸 전부 빈 슬롯으로 보여 재등록을 유도한다.
+  // 대신 에러 상태 + 두 쿼리 재시도 버튼을 보인다(managedClubs 실패는 위 notFound() 로 처리).
+  if (heroQuery.isError || photosQuery.isError) {
+    return (
+      <div className="mx-auto max-w-[1240px] px-6 py-9">
+        {pageHeader}
+        <div role="alert" className="text-sm text-charcoal-2">
+          <p>활동 피드를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
+          <button
+            type="button"
+            className="btn btn-ghost mt-2"
+            onClick={() => {
+              void heroQuery.refetch();
+              void photosQuery.refetch();
+            }}
+          >
+            다시 시도
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const photoList = photosQuery.data ?? [];
+  const heroList = heroQuery.data ?? [];
   // 승격 비활성 여부는 ref(비반응형)가 아니라 쿼리 데이터로 직접 파생해 반응형으로 유지한다.
   // pending 시드도 슬롯을 점유하므로 합산 — 승격이 pending 슬롯을 건너뛰는 정책과 짝(무반응 데드클릭 방지).
   const promoteDisabled = heroList.length + pendingPhotoIds.length >= HERO_SLOT_COUNT;
@@ -55,12 +86,7 @@ export default function ClubPhotosPage({
 
   return (
     <div className="mx-auto max-w-[1240px] px-6 py-9">
-      <header className="mb-6">
-        <h1 className="text-xl font-bold text-ink">활동 피드</h1>
-        <p className="mt-1 text-[13px] text-charcoal-2">
-          대표 활동 6개와 전체 활동 사진을 관리하고, 학생에게 보일 모습을 미리 확인하세요.
-        </p>
-      </header>
+      {pageHeader}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
         <div>
