@@ -37,6 +37,26 @@ describe('NoticeRichEditor features 구성', () => {
     expect(screen.getByLabelText('인용')).toBeInTheDocument();
   });
 
+  it('features.code:false 면 코드 확장이 꺼져 <code> 가 렌더되지 않는다(스펙 제외 목록)', async () => {
+    const { container } = render(
+      <NoticeRichEditor
+        value="<p>앞 <code>코드</code> 뒤</p>"
+        format="HTML"
+        onChange={() => {}}
+        features={{ headings: false, image: false, code: false }}
+      />,
+    );
+    await waitFor(() => expect(container.textContent).toContain('코드'));
+    expect(container.querySelector('code')).toBeNull();
+  });
+
+  it('기본값은 코드 확장이 살아 있어 <code> 가 렌더된다(공지 무변경)', async () => {
+    const { container } = render(
+      <NoticeRichEditor value="<p>앞 <code>코드</code> 뒤</p>" format="HTML" onChange={() => {}} />,
+    );
+    await waitFor(() => expect(container.querySelector('code')).not.toBeNull());
+  });
+
   it('image:false 면 본문 이미지 안내 문구도 사라진다', async () => {
     render(
       <NoticeRichEditor

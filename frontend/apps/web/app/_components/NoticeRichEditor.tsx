@@ -35,8 +35,9 @@ function toInitialHtml(value: string, format: NoticeContentFormat): string {
   return sanitizeNoticeHtml(value);
 }
 
-// 기능 구성 — 기본은 둘 다 활성(공지 소비처 무변경). false 시 해당 서식·툴바 버튼·이미지 확장을 뺀다.
-type EditorFeatures = { headings?: boolean; image?: boolean };
+// 기능 구성 — 기본은 모두 활성(공지 소비처 무변경). false 시 해당 서식·툴바 버튼·확장을 뺀다.
+// code 는 인라인 코드+코드블록을 함께 끈다(백틱 입력룰·마크다운 유입 차단).
+type EditorFeatures = { headings?: boolean; image?: boolean; code?: boolean };
 
 type Props = {
   value: string;
@@ -70,6 +71,7 @@ function ToolbarDivider() {
 export function NoticeRichEditor({ value, format, onChange, features }: Props) {
   const headingsEnabled = features?.headings ?? true;
   const imageEnabled = features?.image ?? true;
+  const codeEnabled = features?.code ?? true;
   const uploadMutation = useFileUploadMutation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -80,6 +82,7 @@ export function NoticeRichEditor({ value, format, onChange, features }: Props) {
     extensions: [
       StarterKit.configure({
         heading: headingsEnabled ? { levels: [2, 3] } : false,
+        ...(codeEnabled ? {} : { code: false, codeBlock: false }),
         link: {
           openOnClick: false,
           autolink: true,

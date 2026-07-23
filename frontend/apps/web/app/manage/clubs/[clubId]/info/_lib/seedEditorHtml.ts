@@ -6,9 +6,10 @@
 // 빈 줄로 문단을 나눠 <p> 로 감싸고 문단 내 단일 개행은 <br> 로 보존한다.
 // '<','>','&' 는 이스케이프해 문단 중간의 특수문자가 태그로 오인·삭제되는 데이터 손실을 막는다.
 
-// 실제 태그(<p, <h2, <!--, </…)로 시작할 때만 HTML 로 본다. "<신입 모집>" 처럼 '<' 뒤가 한글/공백이면
-// 태그가 성립하지 않으므로 plain 으로 취급해 escape 경로로 회수한다(데이터 손실 방지).
-const HTML_LEADING = /^\s*<[a-z!/]/i;
+// 콘솔 에디터가 실제로 내보내는 Tiptap 블록/마크 태그로 시작할 때만 저장된 리치 HTML 로 본다.
+// "<AI 스터디>"·"<신입 모집>" 처럼 태그명이 화이트리스트에 없으면 plain 으로 취급해 escape 로 회수한다
+// (접두부 소실 방지). 콘솔 열람/시드 양쪽이 같은 판정을 쓰도록 공유한다.
+export const STORED_RICH_HTML_LEADING = /^\s*<(p|ul|ol|li|blockquote|hr|h[1-6]|strong|em|s|a|br|div)[\s>/]/i;
 const BLANK_LINE = /\n\s*\n/;
 
 function escapeHtml(text: string): string {
@@ -17,7 +18,7 @@ function escapeHtml(text: string): string {
 
 export function seedEditorHtml(source: string): string {
   if (source.trim() === '') return '';
-  if (HTML_LEADING.test(source)) return source;
+  if (STORED_RICH_HTML_LEADING.test(source)) return source;
   return source
     .split(BLANK_LINE)
     .map((paragraph) => paragraph.trim())

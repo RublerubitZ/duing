@@ -12,6 +12,7 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 import { Pagination } from '@/components/Pagination';
 import { sanitizeNoticeHtml } from '@/app/notices/_lib/sanitizeHtml';
 import { PROSE_CLASS } from '@/app/notices/_components/NoticeContent';
+import { STORED_RICH_HTML_LEADING } from '@/app/manage/clubs/[clubId]/info/_lib/seedEditorHtml';
 import { collegeDisplayName } from '@/app/_lib/college';
 import { useDebouncedValue } from '@/app/admin/_hooks/useDebouncedValue';
 import { ClubInfoForm } from '@/app/manage/clubs/[clubId]/info/_components/ClubInfoForm';
@@ -27,13 +28,11 @@ type Props = {
 const MEMBER_PAGE_SIZE = 20;
 
 // 콘솔이 Tiptap HTML(<p…)로 저장하기 시작하므로 총동연 열람 뷰도 학생 렌더와 동일하게 렌더한다.
-// 실제 태그로 시작하면 sanitize 후 리치 HTML 로, 레거시 plain 은 기존 pre-wrap 로 표시한다.
-const HTML_LEADING = /^\s*<[a-z!/]/i;
-
+// 저장된 리치 HTML(화이트리스트 태그로 시작)이면 sanitize 후 리치로, 레거시 plain 은 기존 pre-wrap 로.
 // dangerouslySetInnerHTML 서브트리는 memo 로 분리 — 부모 재렌더마다 __html 이 새로 생성돼 주입 DOM 이
 // 교체되는 것을 막는다(공지·클럽 상세 렌더 전례).
 const ClubDescription = memo(function ClubDescription({ description }: { description: string }) {
-  if (HTML_LEADING.test(description)) {
+  if (STORED_RICH_HTML_LEADING.test(description)) {
     return (
       <div
         className={PROSE_CLASS}

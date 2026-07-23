@@ -99,7 +99,9 @@ describe('ClubInfoForm 소개 에디터', () => {
     render(<ClubInfoForm detail={makeDetail()} mode="leader" mutation={{ mutateAsync: vi.fn(), isPending: false }} />);
     const editor = screen.getByTestId('desc-editor');
     expect(editor).toBeInTheDocument();
-    expect(editor.getAttribute('data-features')).toBe(JSON.stringify({ headings: false, image: false }));
+    expect(editor.getAttribute('data-features')).toBe(
+      JSON.stringify({ headings: false, image: false, code: false }),
+    );
     // 기존 plain textarea 는 사라진다
     expect(screen.queryByPlaceholderText(/자유롭게 적어주세요/)).toBeNull();
   });
@@ -138,6 +140,25 @@ describe('ClubInfoForm 소개 에디터', () => {
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     const payload: AdminUpdateClubPayload = mutateAsync.mock.calls[0]?.[0] ?? {};
     expect(payload.description).toBe('<p>새로 쓴 소개</p>');
+  });
+
+  it('소개를 전부 지우면(빈 <p></p>) payload.description 은 클리어값 빈 문자열로 담긴다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm
+        detail={makeDetail({ description: '기존 소개' })}
+        mode="leader"
+        mutation={{ mutateAsync, isPending: false }}
+      />,
+    );
+
+    // Tiptap 빈 문서 = getHTML()'<p></p>', textLength 0 → '' 로 정규화돼야 클리어된다.
+    fireEditorChange('<p></p>', 0);
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    const payload: AdminUpdateClubPayload = mutateAsync.mock.calls[0]?.[0] ?? {};
+    expect(payload).toHaveProperty('description', '');
   });
 
   it('에디터를 열기만 하고 소개를 건드리지 않으면 payload 에 description 이 없다', async () => {

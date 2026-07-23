@@ -31,8 +31,12 @@ describe('seedEditorHtml — 편집 진입 시 소개글 에디터 시드', () =
     expect(seedEditorHtml('가격 < 100원 & 무료')).toBe('<p>가격 &lt; 100원 &amp; 무료</p>');
   });
 
-  it('< 뒤가 한글/공백이면(태그 불성립) HTML 로 오인하지 않고 escape 로 회수한다', () => {
-    // "<신입 모집>" 은 태그가 아니므로 plain 경로 → 통째로 소실되지 않고 이스케이프된다.
+  it('< 뒤가 한글이면(태그 불성립) HTML 로 오인하지 않고 escape 로 회수한다', () => {
     expect(seedEditorHtml('<신입 모집>')).toBe('<p>&lt;신입 모집&gt;</p>');
+  });
+
+  it('< 뒤가 화이트리스트 밖 태그명(<AI 스터디>)이면 HTML 로 오인하지 않고 escape 한다', () => {
+    // <AI 스터디> 는 Tiptap 블록/마크 화이트리스트에 없어 접두부 소실 없이 통째로 이스케이프된다.
+    expect(seedEditorHtml('<AI 스터디> 모집')).toBe('<p>&lt;AI 스터디&gt; 모집</p>');
   });
 });

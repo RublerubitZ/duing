@@ -152,8 +152,11 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
   const descriptionOverLimit = descriptionTextLength > DESCRIPTION_TEXT_LIMIT;
 
   function handleDescriptionChange(html: string, textLength: number) {
-    if (descriptionBaselineRef.current === null) descriptionBaselineRef.current = html;
-    setDescription(html);
+    // Tiptap 빈 문서는 getHTML()='<p></p>'(truthy)라 description||null·BE blankToNull 클리어를 우회한다.
+    // 텍스트가 없으면 '' 로 정규화해 "소개 전부 삭제 = 클리어"(''→null) 경로를 타게 한다.
+    const normalized = textLength === 0 ? '' : html;
+    if (descriptionBaselineRef.current === null) descriptionBaselineRef.current = normalized;
+    setDescription(normalized);
     setDescriptionTextLength(textLength);
   }
 
@@ -615,7 +618,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                     value={seededDescription}
                     format="HTML"
                     onChange={handleDescriptionChange}
-                    features={{ headings: false, image: false }}
+                    features={{ headings: false, image: false, code: false }}
                   />
                   {descriptionOverLimit && (
                     <p className="mt-1 text-[12px] text-[#b04a2a]">
