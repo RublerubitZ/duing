@@ -230,3 +230,32 @@ export type PhotoOrderItem = {
 export type ReorderClubPhotosPayload = {
   items: PhotoOrderItem[];
 };
+
+export type ClubHeroActivity = {
+  id: number;
+  clubPhotoId: number;
+  storageKey: string;
+  caption: string | null;
+  width: number | null;
+  height: number | null;
+  title: string;
+  description: string;
+  displayOrder: number; // 1..6 슬롯 번호
+};
+
+export type CreateHeroActivityPayload = {
+  clubPhotoId: number;
+  title: string;
+  description: string;
+  displayOrder: number;
+};
+
+export type UpdateHeroActivityPayload = {
+  clubPhotoId?: number;
+  title?: string;
+  description?: string;
+};
+
+export type ReorderHeroActivitiesPayload = {
+  items: { heroActivityId: number; displayOrder: number }[];
+};
