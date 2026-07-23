@@ -77,12 +77,35 @@ function buildSlots(heroActivities: ClubHeroActivity[]): Slot[] {
 export function reconcileSlots(heroActivities: ClubHeroActivity[], prevOrder: Slot[]): Slot[] {
   const heroByPosition = new Map<number, ClubHeroActivity>();
   for (const hero of heroActivities) heroByPosition.set(hero.displayOrder, hero);
-  return Array.from({ length: SLOT_COUNT }, (_, index) => {
+  // 1-pass: hero 슬롯과 직전 로컬 key 보존 슬롯을 확정하며 사용된 key 를 수집한다.
+  // (usedKeys 가드는 혹시 남은 중복 상태도 다음 reconcile 에서 자가 치유하게 한다.)
+  const usedKeys = new Set<string>();
+  const keptSlots: (Slot | null)[] = Array.from({ length: SLOT_COUNT }, (_, index) => {
     const hero = heroByPosition.get(index + 1) ?? null;
-    if (hero) return { key: `hero-${hero.id}`, hero };
+    if (hero) {
+      const key = `hero-${hero.id}`;
+      usedKeys.add(key);
+      return { key, hero };
+    }
     const prevSlot = prevOrder[index];
-    if (prevSlot && prevSlot.hero === null) return { key: prevSlot.key, hero: null };
-    return { key: `empty-${index + 1}`, hero: null };
+    if (prevSlot && prevSlot.hero === null && !usedKeys.has(prevSlot.key)) {
+      usedKeys.add(prevSlot.key);
+      return { key: prevSlot.key, hero: null };
+    }
+    return null;
+  });
+  // 2-pass: 남은 빈 위치는 위치 파생 키(buildSlots 동치)를 우선하되, 보존된 키와 충돌하면
+  // 미사용 empty-N 으로 대체한다(드래그 정착 후 비우기 → 중복 key/dnd id/pendingByKey 앨리어싱 실측 재현).
+  let candidate = 1;
+  return keptSlots.map((slot, index) => {
+    if (slot) return slot;
+    let key = `empty-${index + 1}`;
+    if (usedKeys.has(key)) {
+      while (usedKeys.has(`empty-${candidate}`)) candidate += 1;
+      key = `empty-${candidate}`;
+    }
+    usedKeys.add(key);
+    return { key, hero: null };
   });
 }
 

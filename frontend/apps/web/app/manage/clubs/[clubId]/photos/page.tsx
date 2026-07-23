@@ -55,7 +55,11 @@ export default function ClubPhotosPage({
 
   // hero/photos 쿼리 실패 시 빈 데이터로 정상 화면을 렌더하면 6칸 전부 빈 슬롯으로 보여 재등록을 유도한다.
   // 대신 에러 상태 + 두 쿼리 재시도 버튼을 보인다(managedClubs 실패는 위 notFound() 로 처리).
-  if (heroQuery.isError || photosQuery.isError) {
+  // 단, 백그라운드 refetch 실패는 이전 data 가 남아 있으므로 화면을 유지한다 — 여기서 언마운트하면
+  // 편집 중 draft(시드 사진·타이핑 텍스트)가 통째로 소실된다. 초기 로드 실패(data 부재)만 에러 화면.
+  const heroLoadFailed = heroQuery.isError && heroQuery.data === undefined;
+  const photosLoadFailed = photosQuery.isError && photosQuery.data === undefined;
+  if (heroLoadFailed || photosLoadFailed) {
     return (
       <div className="mx-auto max-w-[1240px] px-6 py-9">
         {pageHeader}

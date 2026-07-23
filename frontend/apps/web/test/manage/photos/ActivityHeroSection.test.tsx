@@ -119,6 +119,35 @@ describe('reconcileSlots (M-2 빈 슬롯 키 reconcile)', () => {
       'empty-6',
     ]);
   });
+
+  it('보존된 빈 슬롯 키와 fallback 발급 키가 충돌하지 않는다(드래그 정착 후 비우기 시퀀스)', () => {
+    // hero 1개를 pos1→pos2 로 드래그해 정착한 뒤(empty-2 가 pos1 에 보존) 그 hero 를 비운 상태:
+    // pos2 가 새로 빈 위치가 되는데, 위치 파생 fallback(empty-2)은 pos1 의 보존 키와 중복된다.
+    const settledOrder = [
+      { key: 'empty-2', hero: null },
+      { key: 'hero-1', hero: makeHero(1, 2) },
+      { key: 'empty-3', hero: null },
+      { key: 'empty-4', hero: null },
+      { key: 'empty-5', hero: null },
+      { key: 'empty-6', hero: null },
+    ];
+    const next = reconcileSlots([], settledOrder); // hero 삭제 반영
+    expect(next[0]?.key).toBe('empty-2'); // 보존
+    expect(new Set(next.map((slot) => slot.key)).size).toBe(6); // 중복 없음
+  });
+
+  it('이미 중복된 prevOrder 키도 다음 reconcile 에서 자가 치유된다', () => {
+    const duplicated = [
+      { key: 'empty-2', hero: null },
+      { key: 'empty-2', hero: null },
+      { key: 'empty-3', hero: null },
+      { key: 'empty-4', hero: null },
+      { key: 'empty-5', hero: null },
+      { key: 'empty-6', hero: null },
+    ];
+    const next = reconcileSlots([], duplicated);
+    expect(new Set(next.map((slot) => slot.key)).size).toBe(6);
+  });
 });
 
 describe('ActivityHeroSection', () => {
