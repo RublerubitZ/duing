@@ -31,13 +31,27 @@ type Props = {
   onPromote: (photo: ClubPhoto) => void;
   /** 빈 hero 슬롯이 없으면 true — 버튼 비활성 + 안내 title. */
   promoteDisabled?: boolean;
+  /** 이 사진이 이미 대표 활동(저장·pending)으로 쓰이면 true — 버튼 비활성 + 안내 title(409 선차단). */
+  alreadyFeatured?: boolean;
 };
 
 /**
  * 전체 활동 사진 카드. 정사각 이미지 + hover(모바일 상시) 오버레이 액션(대표로 지정·캡션·삭제) +
  * ⠿ 드래그 핸들(listeners 는 핸들에만). 캡션=소형 Dialog, 삭제=ConfirmDialog(참조 중 409 인라인).
  */
-export function ActivityPhotoCard({ clubId, photo, onPromote, promoteDisabled = false }: Props) {
+export function ActivityPhotoCard({
+  clubId,
+  photo,
+  onPromote,
+  promoteDisabled = false,
+  alreadyFeatured = false,
+}: Props) {
+  const promoteButtonDisabled = promoteDisabled || alreadyFeatured;
+  const promoteTitle = alreadyFeatured
+    ? '이미 대표 활동으로 사용 중인 사진이에요.'
+    : promoteDisabled
+      ? '빈 대표 활동 슬롯이 없어요. 대표 활동에서 먼저 하나를 비워주세요.'
+      : '이 사진을 첫 빈 대표 활동 슬롯에 등록합니다.';
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: photo.id,
   });
@@ -123,12 +137,8 @@ export function ActivityPhotoCard({ clubId, photo, onPromote, promoteDisabled = 
         <button
           type="button"
           onClick={() => onPromote(photo)}
-          disabled={promoteDisabled}
-          title={
-            promoteDisabled
-              ? '빈 대표 활동 슬롯이 없어요. 대표 활동에서 먼저 하나를 비워주세요.'
-              : '이 사진을 첫 빈 대표 활동 슬롯에 등록합니다.'
-          }
+          disabled={promoteButtonDisabled}
+          title={promoteTitle}
           className="flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1 text-[11.5px] font-semibold text-white hover:bg-white/15 disabled:opacity-40"
         >
           <Star size={13} aria-hidden />

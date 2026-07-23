@@ -142,4 +142,67 @@ describe('ActivityHeroSection', () => {
     // 첫 빈 슬롯이 pendingPhoto 시드로 편집 상태 전환 → 제목 입력 4개
     expect(screen.getAllByLabelText('제목')).toHaveLength(4);
   });
+
+  it('I-3: 이미 pending 으로 시드된 슬롯은 건너뛰고 다음 빈 슬롯에 시드한다', () => {
+    const photos = [makePhoto(10), makePhoto(20)];
+    const ref = createRef<ActivityHeroSectionHandle>();
+    render(<ActivityHeroSection ref={ref} clubId={1} heroActivities={[]} photos={photos} />);
+
+    act(() => {
+      ref.current?.promotePhoto(makePhoto(10));
+    });
+    act(() => {
+      ref.current?.promotePhoto(makePhoto(20));
+    });
+
+    // 두 번째 승격이 첫 pending 슬롯을 덮어쓰지 않고 다음 빈 슬롯에 시드 → 편집 슬롯 2개.
+    expect(screen.getAllByLabelText('제목')).toHaveLength(2);
+  });
+
+  it('M-7: pending 으로 시드된 사진은 피커에서도 "사용 중" 으로 비활성 처리된다', () => {
+    const photos = [makePhoto(10), makePhoto(20)];
+    const ref = createRef<ActivityHeroSectionHandle>();
+    render(<ActivityHeroSection ref={ref} clubId={1} heroActivities={[]} photos={photos} />);
+
+    act(() => {
+      ref.current?.promotePhoto(makePhoto(10));
+    });
+
+    // 다른 빈 슬롯의 피커를 연다.
+    const [pickButton] = screen.getAllByRole('button', { name: '사진 선택' });
+    if (!pickButton) throw new Error('사진 선택 버튼을 찾지 못했습니다');
+    fireEvent.click(pickButton);
+
+    expect(screen.getByText('대표 활동 사진 선택')).toBeInTheDocument();
+    // pending clubPhotoId(10)이 usedPhotoIds 에 포함 → "사용 중" 뱃지.
+    expect(screen.getByText('사용 중')).toBeInTheDocument();
+  });
+
+  it('I-8: 저장 직후 pending 을 즉시 비우지 않고(플래시 방지), 서버 반영 후 정리하며 부활시키지 않는다', async () => {
+    const ref = createRef<ActivityHeroSectionHandle>();
+    const { rerender } = render(
+      <ActivityHeroSection ref={ref} clubId={1} heroActivities={[]} photos={[makePhoto(77)]} />,
+    );
+
+    act(() => {
+      ref.current?.promotePhoto(makePhoto(77));
+    });
+    fireEvent.change(screen.getByLabelText('제목'), { target: { value: '봄 MT' } });
+    fireEvent.change(screen.getByLabelText('설명'), { target: { value: '즐거운 하루' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    });
+
+    // 저장 성공(create) 직후에도 refetch 전까지 슬롯이 빈 상태로 플래시되지 않는다.
+    expect(screen.getAllByLabelText('제목')).toHaveLength(1);
+
+    // 서버 반영(hero prop 도착) → pending 정리(슬롯은 hero 로 유지).
+    const savedHero = makeHero(77, 1);
+    rerender(<ActivityHeroSection ref={ref} clubId={1} heroActivities={[savedHero]} photos={[makePhoto(77)]} />);
+    expect(screen.getAllByLabelText('제목')).toHaveLength(1);
+
+    // hero 가 삭제돼 슬롯이 다시 비어도 옛 pending 이 부활하지 않는다.
+    rerender(<ActivityHeroSection ref={ref} clubId={1} heroActivities={[]} photos={[makePhoto(77)]} />);
+    expect(screen.queryAllByLabelText('제목')).toHaveLength(0);
+  });
 });

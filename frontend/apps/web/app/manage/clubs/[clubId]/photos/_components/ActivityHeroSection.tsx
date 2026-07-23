@@ -47,15 +47,16 @@ type Slot = { key: string; hero: ClubHeroActivity | null };
 type PendingPhoto = { clubPhotoId: number; storageKey: string };
 
 export type ActivityHeroSectionHandle = {
-  /** 사진을 첫 빈 슬롯에 시드해 편집 폼을 연다("대표로 지정"). 빈 슬롯 없으면 no-op. */
+  /** 사진을 첫 빈(비-pending) 슬롯에 시드해 편집 폼을 연다("대표로 지정"). 없으면 no-op. */
   promotePhoto: (photo: ClubPhoto) => void;
-  hasEmptySlot: boolean;
 };
 
 type Props = {
   clubId: number;
   heroActivities: ClubHeroActivity[];
   photos: ClubPhoto[];
+  /** pending(시드됐지만 미저장) 사진 id 목록 통지 — 부모가 그리드 "대표로 지정" 선차단에 쓴다. */
+  onPendingPhotoIdsChange?: (clubPhotoIds: number[]) => void;
 };
 
 /** displayOrder 1..6 을 고정 슬롯 배열로 조립한다. 빈 슬롯은 null(순서 안 당김). */
@@ -85,9 +86,10 @@ type SortableSlotProps = {
   pendingPhoto: PendingPhoto | null;
   onPickPhoto: () => void;
   onSaved: () => void;
+  onBeforeSave: () => Promise<void>;
 };
 
-function SortableSlot({ slot, slotNumber, clubId, pendingPhoto, onPickPhoto, onSaved }: SortableSlotProps) {
+function SortableSlot({ slot, slotNumber, clubId, pendingPhoto, onPickPhoto, onSaved, onBeforeSave }: SortableSlotProps) {
   // 빈 슬롯은 드래그 불가(핸들 없음)·드롭 대상은 허용해 채워진 카드를 이동시킬 수 있게 한다.
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: slot.key,
@@ -124,6 +126,7 @@ function SortableSlot({ slot, slotNumber, clubId, pendingPhoto, onPickPhoto, onS
         dragHandle={dragHandle}
         onPickPhoto={onPickPhoto}
         onSaved={onSaved}
+        onBeforeSave={onBeforeSave}
       />
     </div>
   );
@@ -134,7 +137,7 @@ function SortableSlot({ slot, slotNumber, clubId, pendingPhoto, onPickPhoto, onS
  * 정렬은 1초 디바운스 PUT + 실패 롤백(PhotoGrid 관행 클론). 기존 hero 사진 교체는 여기서 즉시 PATCH.
  */
 export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
-  function ActivityHeroSection({ clubId, heroActivities, photos }, ref) {
+  function ActivityHeroSection({ clubId, heroActivities, photos, onPendingPhotoIdsChange }, ref) {
     const [order, setOrder] = useState<Slot[]>(() => buildSlots(heroActivities));
     const [pendingByKey, setPendingByKey] = useState<Record<string, PendingPhoto>>({});
     const [pickingKey, setPickingKey] = useState<string | null>(null);
@@ -150,6 +153,7 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
     const createPhoto = useCreatePhotoMutation(clubId);
 
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingReorder = useRef<Slot[] | null>(null);
     const lastCommitted = useRef<Slot[]>(order);
 
     // 서버 반영(정렬/생성/삭제 후 invalidate) 시 props 를 진리원본으로 로컬 순서 재동기화.
@@ -157,7 +161,19 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
       const next = buildSlots(heroActivities);
       setOrder(next);
       lastCommitted.current = next;
+      // 서버 확인 후 pending 정리 — 현재 빈 슬롯 key 에 없는 pending(=해당 슬롯이 hero 로 채워짐)은 제거.
+      // 저장 직후 빈 슬롯 플래시를 없애고(서버 도착 전까지 pending 유지), 슬롯 재생성 시 고아 pending 부활을 막는다.
+      const emptyKeys = new Set(next.filter((slot) => slot.hero === null).map((slot) => slot.key));
+      setPendingByKey((prev) => {
+        const kept = Object.fromEntries(Object.entries(prev).filter(([key]) => emptyKeys.has(key)));
+        return Object.keys(kept).length === Object.keys(prev).length ? prev : kept;
+      });
     }, [heroActivities]);
+
+    // pending 사진 id 변화를 부모에 통지(그리드 "대표로 지정" 선차단용).
+    useEffect(() => {
+      onPendingPhotoIdsChange?.(Object.values(pendingByKey).map((pending) => pending.clubPhotoId));
+    }, [pendingByKey, onPendingPhotoIdsChange]);
 
     useEffect(() => () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -169,9 +185,15 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
     );
 
     const busy = uploadFile.isPending || createPhoto.isPending || updateHero.isPending;
-    const usedPhotoIds = heroActivities.map((item) => item.clubPhotoId);
+    // 저장된 hero + pending(시드) 사진 모두 사용 중 — 피커에서 딤 처리(중복 선택 시 409 선차단).
+    const usedPhotoIds = [
+      ...heroActivities.map((item) => item.clubPhotoId),
+      ...Object.values(pendingByKey).map((pending) => pending.clubPhotoId),
+    ];
 
     function openPicker(slot: Slot) {
+      // 대기 중 정렬을 먼저 확정 — 이후 create displayOrder 가 최신 서버 순서를 전제하도록.
+      void flushReorder();
       setActionError(null);
       setPickerServerError(null);
       setPickingKey(slot.key);
@@ -220,13 +242,10 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
       }
     }
 
-    function handleSaved(key: string) {
-      setPendingByKey((prev) => {
-        if (!(key in prev)) return prev;
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
+    // 저장 성공 시 pending 은 즉시 지우지 않는다(서버 반영 effect 가 정리 — 빈 슬롯 플래시 방지).
+    // 여기서는 남아 있던 섹션 에러만 걷어낸다.
+    function handleSaved() {
+      setActionError(null);
     }
 
     function handleDragStart(event: DragStartEvent) {
@@ -246,32 +265,43 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
     }
 
     function scheduleReorder(next: Slot[]) {
+      pendingReorder.current = next;
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
-      debounceTimer.current = setTimeout(async () => {
-        try {
-          await reorder.mutateAsync({ items: slotsToReorderPayload(next.map((slot) => slot.hero)) });
-          lastCommitted.current = next;
-        } catch {
-          setOrder(lastCommitted.current);
-          alert('순서 저장에 실패했습니다. 다시 시도해주세요.');
-        }
-      }, REORDER_DEBOUNCE_MS);
+      debounceTimer.current = setTimeout(() => void flushReorder(), REORDER_DEBOUNCE_MS);
+    }
+
+    // 대기 중 정렬 디바운스를 즉시 발화(타이머 취소 후 PUT)하고 완료까지 await 한다.
+    // 대기 중 타이머가 없으면 no-op — create/update·피커 열기 직전 순서 확정에 쓴다.
+    async function flushReorder() {
+      if (!debounceTimer.current) return;
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+      const next = pendingReorder.current;
+      pendingReorder.current = null;
+      if (!next) return;
+      try {
+        await reorder.mutateAsync({ items: slotsToReorderPayload(next.map((slot) => slot.hero)) });
+        lastCommitted.current = next;
+      } catch {
+        setOrder(lastCommitted.current);
+        alert('순서 저장에 실패했습니다. 다시 시도해주세요.');
+      }
     }
 
     useImperativeHandle(
       ref,
       () => ({
         promotePhoto: (photo: ClubPhoto) => {
-          const emptySlot = order.find((slot) => slot.hero === null);
+          // 이미 pending 이 시드된 슬롯은 건너뛴다 — 편집 중 draft 를 무경고로 덮어쓰지 않게(전부 pending 이면 no-op).
+          const emptySlot = order.find((slot) => slot.hero === null && !(slot.key in pendingByKey));
           if (!emptySlot) return;
           setPendingByKey((prev) => ({
             ...prev,
             [emptySlot.key]: { clubPhotoId: photo.id, storageKey: photo.storageKey },
           }));
         },
-        hasEmptySlot: heroActivities.length < SLOT_COUNT,
       }),
-      [order, heroActivities.length],
+      [order, pendingByKey],
     );
 
     const activeIndex = activeKey ? order.findIndex((slot) => slot.key === activeKey) : -1;
@@ -293,6 +323,7 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveKey(null)}
         >
           <SortableContext items={order.map((slot) => slot.key)} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -304,7 +335,8 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
                   clubId={clubId}
                   pendingPhoto={pendingByKey[slot.key] ?? null}
                   onPickPhoto={() => openPicker(slot)}
-                  onSaved={() => handleSaved(slot.key)}
+                  onSaved={handleSaved}
+                  onBeforeSave={flushReorder}
                 />
               ))}
             </div>

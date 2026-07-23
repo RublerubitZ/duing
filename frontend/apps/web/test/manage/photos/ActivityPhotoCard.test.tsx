@@ -31,6 +31,7 @@ function renderCard(props: {
   photo?: ClubPhoto;
   onPromote?: (photo: ClubPhoto) => void;
   promoteDisabled?: boolean;
+  alreadyFeatured?: boolean;
 }) {
   const photo = props.photo ?? makePhoto();
   return render(
@@ -41,6 +42,7 @@ function renderCard(props: {
           photo={photo}
           onPromote={props.onPromote ?? (() => {})}
           promoteDisabled={props.promoteDisabled ?? false}
+          alreadyFeatured={props.alreadyFeatured ?? false}
         />
       </SortableContext>
     </DndContext>,
@@ -67,6 +69,16 @@ describe('ActivityPhotoCard', () => {
     const promoteButton = screen.getByRole('button', { name: '대표로 지정' });
     expect(promoteButton).toBeDisabled();
     expect(promoteButton).toHaveAttribute('title');
+    fireEvent.click(promoteButton);
+    expect(onPromote).not.toHaveBeenCalled();
+  });
+
+  it('I-4: 이미 대표 활동으로 사용 중인 사진은 대표로 지정이 비활성·안내 title 이고 onPromote 를 부르지 않는다', () => {
+    const onPromote = vi.fn();
+    renderCard({ onPromote, alreadyFeatured: true });
+    const promoteButton = screen.getByRole('button', { name: '대표로 지정' });
+    expect(promoteButton).toBeDisabled();
+    expect(promoteButton.getAttribute('title')).toMatch(/사용 중/);
     fireEvent.click(promoteButton);
     expect(onPromote).not.toHaveBeenCalled();
   });

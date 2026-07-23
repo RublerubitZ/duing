@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useRef } from 'react';
+import { use, useRef, useState } from 'react';
 import { notFound } from 'next/navigation';
 import {
   useClubHeroActivitiesQuery,
@@ -28,6 +28,8 @@ export default function ClubPhotosPage({
   const queryClubId = isNaN(currentClubId) ? undefined : currentClubId;
 
   const heroSectionRef = useRef<ActivityHeroSectionHandle>(null);
+  // hero 섹션에서 시드했지만 아직 미저장인 사진 id — 그리드 "대표로 지정" 선차단(409 예방)에 합친다.
+  const [pendingPhotoIds, setPendingPhotoIds] = useState<number[]>([]);
 
   const { data: managedClubs, isLoading: isManagedClubsLoading } = useManagedClubsQuery();
   const { data: photos, isLoading: isPhotosLoading } = useClubPhotosQuery(queryClubId);
@@ -47,6 +49,8 @@ export default function ClubPhotosPage({
   const heroList = heroActivities ?? [];
   // 승격 비활성 여부는 ref(비반응형)가 아니라 쿼리 데이터로 직접 파생해 반응형으로 유지한다.
   const promoteDisabled = heroList.length >= HERO_SLOT_COUNT;
+  // 저장된 hero + pending 시드 사진 = 사용 중. 해당 그리드 카드의 "대표로 지정"을 선차단한다.
+  const usedPhotoIds = [...heroList.map((hero) => hero.clubPhotoId), ...pendingPhotoIds];
 
   return (
     <div className="mx-auto max-w-[1240px] px-6 py-9">
@@ -57,13 +61,14 @@ export default function ClubPhotosPage({
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
         <div>
           <ActivityHeroSection
             ref={heroSectionRef}
             clubId={currentClubId}
             heroActivities={heroList}
             photos={photoList}
+            onPendingPhotoIdsChange={setPendingPhotoIds}
           />
           <SectionCard number={2} title="전체 활동 사진" description="드래그로 순서를 바꿀 수 있어요(1초 후 자동 저장).">
             <ActivityPhotoGrid
@@ -71,6 +76,7 @@ export default function ClubPhotosPage({
               photos={photoList}
               onPromote={(photo) => heroSectionRef.current?.promotePhoto(photo)}
               promoteDisabled={promoteDisabled}
+              usedPhotoIds={usedPhotoIds}
             />
           </SectionCard>
         </div>

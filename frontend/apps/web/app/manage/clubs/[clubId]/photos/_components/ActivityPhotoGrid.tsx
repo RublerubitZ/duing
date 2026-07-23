@@ -30,15 +30,24 @@ type Props = {
   photos: ClubPhoto[];
   onPromote: (photo: ClubPhoto) => void;
   promoteDisabled?: boolean;
+  /** 이미 대표 활동(저장·pending)으로 쓰인 사진 id — 해당 카드 "대표로 지정" 비활성. */
+  usedPhotoIds?: number[];
 };
 
 /**
  * 전체 활동 사진 그리드. 핸들 전용 dnd + 1초 디바운스 자동저장(실패 시 마지막 순서로 롤백) +
  * 마지막에 다중 업로드 추가 카드. PhotoGrid·PhotoUploader 로직을 흡수해 대체한다.
  */
-export function ActivityPhotoGrid({ clubId, photos, onPromote, promoteDisabled = false }: Props) {
+export function ActivityPhotoGrid({
+  clubId,
+  photos,
+  onPromote,
+  promoteDisabled = false,
+  usedPhotoIds = [],
+}: Props) {
   // 드래그로 즉시 갱신되는 로컬 순서. server 갱신 성공 후 props 가 동기화될 때까지 사용.
   const [order, setOrder] = useState(photos);
+  const usedSet = new Set(usedPhotoIds);
   const reorder = useReorderPhotosMutation(clubId);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCommitted = useRef(photos);
@@ -98,6 +107,7 @@ export function ActivityPhotoGrid({ clubId, photos, onPromote, promoteDisabled =
               photo={photo}
               onPromote={onPromote}
               promoteDisabled={promoteDisabled}
+              alreadyFeatured={usedSet.has(photo.id)}
             />
           ))}
           <AddPhotoCard clubId={clubId} />
