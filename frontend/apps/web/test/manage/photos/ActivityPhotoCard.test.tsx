@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { DndContext } from '@dnd-kit/core';
 import { SortableContext } from '@dnd-kit/sortable';
@@ -92,6 +92,19 @@ describe('ActivityPhotoCard', () => {
     );
   });
 
+  it('캡션 저장 실패 시 다이얼로그 안에 에러를 표시하고 다이얼로그를 유지한다', async () => {
+    mockUpdateMutateAsync.mockRejectedValueOnce(new Error('캡션 저장 서버 오류'));
+    renderCard({ photo: makePhoto({ id: 9, caption: '' }) });
+    fireEvent.click(screen.getByRole('button', { name: '캡션 편집' }));
+    fireEvent.change(screen.getByLabelText('캡션'), { target: { value: '봄 나들이' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    // 에러는 다이얼로그 내부에 표시(T8 교훈 — 전역 조회 금지)되고, 다이얼로그는 열린 채 유지된다.
+    const dialog = screen.getByRole('dialog');
+    expect(await within(dialog).findByText('캡션 저장 서버 오류')).toBeInTheDocument();
+    expect(screen.getByLabelText('캡션')).toBeInTheDocument();
+  });
+
   it('삭제 확인 흐름 — 확인 클릭 시 deletePhoto 를 사진 id 로 호출한다', async () => {
     renderCard({ photo: makePhoto({ id: 13 }) });
     fireEvent.click(screen.getByRole('button', { name: '사진 삭제' }));
@@ -109,5 +122,7 @@ describe('ActivityPhotoCard', () => {
     expect(
       await screen.findByText(/대표 활동에 사용 중인 사진입니다/),
     ).toBeInTheDocument();
+    // "닫고 표시" 결정 고정 — ConfirmDialog 는 닫힌다.
+    expect(screen.queryByText('이 사진을 삭제할까요?')).not.toBeInTheDocument();
   });
 });

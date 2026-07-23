@@ -39,8 +39,10 @@ export function ActivityPhotoCard({ clubId, photo, onPromote, promoteDisabled = 
 
   const [captionOpen, setCaptionOpen] = useState(false);
   const [captionDraft, setCaptionDraft] = useState(photo.caption ?? '');
+  // 캡션 에러는 다이얼로그 내부 채널 — 카드의 삭제(409) 안내와 분리(편집 열기가 삭제 안내를 지우지 않게).
+  const [captionError, setCaptionError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -48,30 +50,36 @@ export function ActivityPhotoCard({ clubId, photo, onPromote, promoteDisabled = 
     opacity: isDragging ? 0.5 : 1,
   };
 
+  function closeCaption() {
+    setCaptionOpen(false);
+    setCaptionError(null);
+  }
+
   async function saveCaption() {
     const next = captionDraft.trim() || null;
     if (next === (photo.caption ?? null)) {
-      setCaptionOpen(false);
+      closeCaption();
       return;
     }
-    setError(null);
+    setCaptionError(null);
     try {
       await updatePhoto.mutateAsync({ photoId: photo.id, payload: { caption: next } });
-      setCaptionOpen(false);
+      closeCaption();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '캡션 저장에 실패했습니다.');
+      // 실패는 다이얼로그를 연 채 내부에 표시 — 입력값 보존·재시도 유리(재시도 대상이 입력이므로).
+      setCaptionError(err instanceof Error ? err.message : '캡션 저장에 실패했습니다.');
     }
   }
 
   async function runDelete() {
-    setError(null);
+    setDeleteError(null);
     try {
       await deletePhoto.mutateAsync(photo.id);
       setConfirmOpen(false);
     } catch (err) {
       // 참조 중(409) 등 실패는 다이얼로그를 닫고 카드에 인라인으로 안내(모달 뒤 가림 방지).
       setConfirmOpen(false);
-      setError(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+      setDeleteError(err instanceof Error ? err.message : '삭제에 실패했습니다.');
     }
   }
 
@@ -123,7 +131,7 @@ export function ActivityPhotoCard({ clubId, photo, onPromote, promoteDisabled = 
           type="button"
           onClick={() => {
             setCaptionDraft(photo.caption ?? '');
-            setError(null);
+            setCaptionError(null);
             setCaptionOpen(true);
           }}
           aria-label="캡션 편집"
@@ -134,7 +142,7 @@ export function ActivityPhotoCard({ clubId, photo, onPromote, promoteDisabled = 
         <button
           type="button"
           onClick={() => {
-            setError(null);
+            setDeleteError(null);
             setConfirmOpen(true);
           }}
           aria-label="사진 삭제"
@@ -144,12 +152,12 @@ export function ActivityPhotoCard({ clubId, photo, onPromote, promoteDisabled = 
         </button>
       </div>
 
-      {error && <p className="mt-1 text-[11.5px] leading-snug text-coral">{error}</p>}
+      {deleteError && <p className="mt-1 text-[11.5px] leading-snug text-coral">{deleteError}</p>}
 
       <Dialog
         open={captionOpen}
         onOpenChange={(next) => {
-          if (!next && !updatePhoto.isPending) setCaptionOpen(false);
+          if (!next && !updatePhoto.isPending) closeCaption();
         }}
       >
         <DialogContent className="max-w-sm">
@@ -167,10 +175,11 @@ export function ActivityPhotoCard({ clubId, photo, onPromote, promoteDisabled = 
           <p className="text-right text-[11px] text-charcoal-3">
             {captionDraft.length}/{CAPTION_MAX}
           </p>
+          {captionError && <p className="text-[12px] text-coral">{captionError}</p>}
           <DialogFooter>
             <button
               type="button"
-              onClick={() => setCaptionOpen(false)}
+              onClick={closeCaption}
               disabled={updatePhoto.isPending}
               className="btn btn-ghost btn-sm"
             >
