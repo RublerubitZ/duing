@@ -61,6 +61,7 @@ public abstract class IntegrationTestBase {
                 "club_member_history, " +
                 "club_favorite, " +
                 "recruitment, " +
+                "club_hero_activity, " +
                 "club_photo, " +
                 "club_event, " +
                 "global_event, " +
