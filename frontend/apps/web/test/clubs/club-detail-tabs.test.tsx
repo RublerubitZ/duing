@@ -124,6 +124,41 @@ describe('ClubDetailTabs', () => {
     expect(screen.queryByRole('tab', { name: '일정' })).toBeNull();
   });
 
+  it('projects 만 있는 동아리는 소개 탭이 사라지고 다음 탭이 기본 선택된다', () => {
+    render(
+      <ClubDetailTabs
+        club={{
+          ...baseClub,
+          description: null,
+          highlights: [],
+          projects: [{ icon: 'CODE', title: '해커톤', subtitle: null }],
+          faqs: [{ question: 'q', answer: 'a', order: 0 }],
+        }}
+        photos={[]}
+        membership={null}
+      />,
+    );
+    // 주요 프로젝트는 랜딩 섹션으로 이관 — 더 이상 소개 탭을 만들지 않는다.
+    expect(screen.queryByRole('tab', { name: '소개' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Q&A' })).toHaveAttribute('data-state', 'active');
+  });
+
+  it('소개 탭 콘텐츠에 주요 프로젝트가 더 이상 렌더되지 않는다', () => {
+    render(
+      <ClubDetailTabs
+        club={{
+          ...baseClub,
+          description: '본문',
+          projects: [{ icon: 'CODE', title: '해커톤', subtitle: '2박 3일' }],
+        }}
+        photos={[]}
+      />,
+    );
+    expect(screen.getByRole('tab', { name: '소개' })).toHaveAttribute('data-state', 'active');
+    expect(screen.getByText('본문')).toBeInTheDocument();
+    expect(screen.queryByText('해커톤')).toBeNull();
+  });
+
   it('가입한 멤버에게는 공지/일정 탭을 추가로 노출한다', () => {
     render(
       <ClubDetailTabs

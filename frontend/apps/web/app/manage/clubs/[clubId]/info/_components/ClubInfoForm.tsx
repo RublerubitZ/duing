@@ -582,8 +582,12 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
             <HighlightsRepeater value={highlights} onChange={setHighlights} readOnly={readOnly} />
           </SectionCard>
 
-          {/* ⑥ 주요 프로젝트 */}
-          <SectionCard number={6} title="주요 프로젝트" description="동아리 대표 활동·결과물을 보여줘요. 최대 6개.">
+          {/* ⑥ 이런 활동을 해요 */}
+          <SectionCard
+            number={6}
+            title="이런 활동을 해요"
+            description="학생들이 동아리의 활동을 한눈에 이해할 수 있게 대표적인 활동을 등록해 주세요. 최대 6개."
+          >
             <ProjectsRepeater value={projects} onChange={setProjects} readOnly={readOnly} />
           </SectionCard>
 
