@@ -1,20 +1,26 @@
 'use client';
 
-// 활동 사진 풀스크린 라이트박스. Radix Dialog 로 포커스 트랩·ESC·스크롤 잠금·a11y 를 확보하고,
-// framer-motion drag 로 모바일 좌우 스와이프(사진 전환)·아래로 끌어 닫기를 처리한다.
-// 데스크탑은 좌우 화살표 버튼 + 키보드(←/→), 공통으로 카운터와 캡션을 노출한다.
+// 활동 풀스크린 라이트박스(슬라이드 일반형). Radix Dialog 로 포커스 트랩·ESC·스크롤 잠금·a11y 를 확보하고,
+// framer-motion drag 로 모바일 좌우 스와이프(전환)·아래로 끌어 닫기를 처리한다.
+// 데스크탑은 좌우 화살표 버튼 + 키보드(←/→), 공통으로 카운터를 노출한다.
+// title 이 있으면 굵은 제목 + 설명(대표 활동), 없으면 캡션만(활동 사진).
 
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { motion, useReducedMotion, type PanInfo } from 'framer-motion';
 import { useCallback, useEffect, useState } from 'react';
 
-import type { ClubPhoto } from '@duing/types';
-
 import { ArrowLeft, ArrowRight, X } from '@/components/duing/Icon';
 
+export type LightboxSlide = {
+  id: number | string;
+  imageUrl: string;
+  title: string | null;
+  caption: string | null;
+};
+
 type Props = {
-  photos: ClubPhoto[];
-  /** 처음 열릴 때 보여줄 사진의 인덱스. */
+  slides: LightboxSlide[];
+  /** 처음 열릴 때 보여줄 슬라이드의 인덱스. */
   initialIndex: number;
   open: boolean;
   onClose: () => void;
@@ -25,8 +31,8 @@ const SWIPE_NAV_THRESHOLD = 60;
 // 아래로 끌어 닫기 임계값(px).
 const SWIPE_CLOSE_THRESHOLD = 120;
 
-export function PhotoLightbox({ photos, initialIndex, open, onClose }: Props) {
-  const count = photos.length;
+export function PhotoLightbox({ slides, initialIndex, open, onClose }: Props) {
+  const count = slides.length;
   const [current, setCurrent] = useState(initialIndex);
   // 전역 MotionConfig 가 transform 모션은 줄여주지만, 여기서 추가한 페이드/탄성도 함께 끈다.
   const reduceMotion = useReducedMotion();
@@ -58,7 +64,7 @@ export function PhotoLightbox({ photos, initialIndex, open, onClose }: Props) {
     return () => window.removeEventListener('keydown', handleKey);
   }, [open, goPrev, goNext]);
 
-  const photo = photos[current];
+  const slide = slides[current];
 
   function handleDragEnd(_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
     const { offset } = info;
@@ -70,7 +76,7 @@ export function PhotoLightbox({ photos, initialIndex, open, onClose }: Props) {
     }
   }
 
-  if (count === 0 || !photo) return null;
+  if (count === 0 || !slide) return null;
 
   return (
     <DialogPrimitive.Root
@@ -87,7 +93,7 @@ export function PhotoLightbox({ photos, initialIndex, open, onClose }: Props) {
         >
           {/* Radix 가 이 Title 을 aria-labelledby 로 연결한다. 따로 aria-label 을 주면 카운터 정보가 가려진다. */}
           <DialogPrimitive.Title className="sr-only">
-            활동 사진 크게 보기
+            활동 크게 보기
           </DialogPrimitive.Title>
 
           {/* 상단 바 — 카운터 · 닫기 */}
@@ -123,9 +129,9 @@ export function PhotoLightbox({ photos, initialIndex, open, onClose }: Props) {
             )}
 
             <motion.img
-              key={photo.id}
-              src={photo.storageKey}
-              alt={photo.caption ?? ''}
+              key={slide.id}
+              src={slide.imageUrl}
+              alt={slide.title ?? slide.caption ?? ''}
               draggable={false}
               drag
               dragSnapToOrigin
@@ -150,10 +156,11 @@ export function PhotoLightbox({ photos, initialIndex, open, onClose }: Props) {
             )}
           </div>
 
-          {/* 캡션 */}
-          {photo.caption && (
-            <div className="px-6 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-1 text-center text-sm text-white/85">
-              {photo.caption}
+          {/* 캡션 — title 있으면 굵은 제목 줄 + 설명(대표 활동), 없으면 캡션만(활동 사진) */}
+          {(slide.title || slide.caption) && (
+            <div className="px-6 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-1 text-center">
+              {slide.title && <div className="text-[15px] font-bold text-white">{slide.title}</div>}
+              {slide.caption && <div className="mt-1 text-sm text-white/85">{slide.caption}</div>}
             </div>
           )}
         </DialogPrimitive.Content>
