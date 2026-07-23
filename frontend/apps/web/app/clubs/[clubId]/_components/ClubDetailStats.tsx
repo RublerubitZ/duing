@@ -31,7 +31,7 @@ export function ClubDetailStats({ club }: Props) {
           <div className="w-16 shrink-0 text-xs tracking-wide04 text-charcoal-3 md:mb-1.5 md:w-auto">
             {cell.label}
           </div>
-          <div className="min-w-0 flex-1 font-display text-[15px] font-bold leading-snug text-ink-deep break-keep [overflow-wrap:anywhere] md:text-[22px]">
+          <div className="min-w-0 flex-1 font-display text-[15px] font-bold leading-snug text-ink-deep break-keep [overflow-wrap:anywhere] md:text-[22px] md:leading-normal">
             {cell.value}
           </div>
         </div>

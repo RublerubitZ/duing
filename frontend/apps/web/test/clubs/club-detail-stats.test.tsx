@@ -80,8 +80,9 @@ describe('ClubDetailStats — 모바일 행 리스트 + Desktop 복원', () => {
     expect(value).toHaveClass('break-keep');
     expect(value).toHaveClass('[overflow-wrap:anywhere]');
     expect(value).toHaveClass('min-w-0', 'flex-1');
-    // Desktop(md+) 복원: 기존 22px 유지
+    // Desktop(md+) 복원: 기존 22px + 상속 line-height(1.5) 복원
     expect(value).toHaveClass('md:text-[22px]');
+    expect(value).toHaveClass('md:leading-normal');
     // 기존 타이포 유지
     expect(value).toHaveClass('font-display', 'font-bold', 'text-ink-deep');
   });
