@@ -607,3 +607,60 @@ export function ClubDetailActivityIntro({ projects }: Props) {
 - [ ] typecheck / lint / test 전체 / build(CI 동등 env: `NEXT_PUBLIC_API_BASE_URL=https://api.ci.invalid/api/v1 AUTH_HINT_SECRET=ci-only-auth-hint-secret-at-least-32-bytes`) — frontend/
 - [ ] 실브라우저 QA(서버 기동·계정·정리 절차는 직전 프로젝트 T11 과 동일, 스크린샷 `.superpowers/sdd/qa4/`): ① PC 벤토 — 클럽 1249(hero 5개)로 5개 배치 시각 균형, 비우기/재등록으로 6개·4개·2개·1개 배치 확인(**5·6개 균형은 스펙 확인 포인트**) ② 배지 부재 ③ 카드 클릭 라이트박스(제목+설명, ←/→, 닫기) ④ 모바일 뷰포트(≤767px) 스와이프·도트·활동 사진과의 라이트박스 회귀 ⑤ md 경계(767↔768) 벤토↔스와이프 전환 ⑥ 스켈레톤→콘텐츠 전환(네트워크 스로틀) 및 0개 클럽에서 섹션 부재 ⑦ "이런 활동을 해요" 카드(아이콘 톤 순환·2줄 클램프) ⑧ 소개 탭에서 프로젝트 부재 + projects 만 있는 클럽의 첫 탭 폴백 ⑨ Sticky Footer CTA·우측 모집 카드 무영향 ⑩ 콘솔: ⑥섹션 문구, Preview 배지 부재(에디터 배지는 유지). QA 중 만든 데이터는 화면 기능으로 원복.
 - [ ] Commit 없음(문제 발견 시 해당 Task 로 돌아가 수정).
+
+---
+
+# v3 확장 태스크 (스펙 v3 — 소개 카드·소식 탭·리치 에디터)
+
+### Task 9: 소개(About) Paper Card 리디자인 + 리치/레거시 렌더
+
+**Files:**
+- Modify: `frontend/apps/web/app/clubs/[clubId]/_components/ClubDetailAbout.tsx` (전면 재작성)
+- Create: `frontend/apps/web/app/clubs/[clubId]/_lib/splitDescription.ts` (순수 함수 — 분할 로직)
+- Test: `frontend/apps/web/test/clubs/club-detail-about.test.tsx` (재작성), `test/clubs/split-description.test.ts` (신규)
+
+**Interfaces:**
+- Produces: `ClubDetailAbout({ description, highlights })` 시그니처 불변(Tabs 무수정). `splitDescription(description: string): { isHtml: boolean; lead: string; rest: string | null }` — isHtml 은 `/^\s*</` 휴리스틱. HTML 이면 sanitizeHtml(공지 `app/notices/_lib/sanitizeHtml`) 후 최상위 블록 파싱: lead=첫 블록 outerHTML, rest=나머지 블록 join(없으면 null). plain 이면 빈 줄(`\n\s*\n`) 분할: lead=첫 문단, rest=나머지(없으면 null).
+- 렌더: Paper Card(`rounded-[20px] border border-line bg-white p-7 shadow-1`). HTML 은 dangerouslySetInnerHTML — **React19 함정: 주입 서브트리는 memo 컴포넌트로 분리**(레포 공지 렌더 전례 참조), prose 스타일은 공지 본문 렌더 클래스 재사용(grep 해 확인). plain 은 `whitespace-pre-wrap`.
+- 더보기: rest 있으면 펼침 영역(`grid-rows-[0fr]→[1fr]` 트랜지션 + 펼침부 `border-t pt-5 mt-5`) + "더보기/접기" 버튼(chevron 회전). rest 없고 lead 가 장문(텍스트 220자 초과)이면 `line-clamp-4` + 더보기(펼치면 클램프 해제). 그 외 버튼 숨김.
+- highlights: 카드 하단 ✓ 칩 행(`flex flex-wrap gap-2.5`, 각 칩 ✓ 아이콘+키워드 semibold ink) — **소제목 없음**, 빈 배열이면 영역 미렌더. 본문과 칩 모두 없으면 기존처럼 null 반환.
+
+- [ ] Step 1: 실패 테스트 — splitDescription(HTML 다중 블록/단일 블록/plain 다중 문단/단일/`<script>` 제거), About(HTML 렌더+lead 만 초기 노출·더보기 후 rest·클램프 케이스·칩 유/무·null)
+- [ ] Step 2: RED 확인 → Step 3: 구현 → Step 4: `pnpm --filter @duing/web test -- --run test/clubs/` GREEN + typecheck
+- [ ] Step 5: Commit — `feat(frontend): 소개 카드 리디자인 — Paper Card·더보기·리치/레거시 렌더`
+
+### Task 10: 소식 탭 통합 (공지+일정)
+
+**Files:**
+- Create: `frontend/apps/web/app/clubs/[clubId]/_components/ClubDetailNews.tsx`
+- Modify: `frontend/apps/web/app/clubs/[clubId]/_components/ClubDetailTabs.tsx` (notices·events 탭 → news 1개)
+- Delete: `ClubDetailNotices.tsx`, `ClubDetailEvents.tsx` (ClubDetailNews 가 흡수 — 삭제 전 기능 인벤토리 이관 확인)
+- Test: `frontend/apps/web/test/clubs/club-detail-news.test.tsx` (신규), `club-detail-tabs.test.tsx` (갱신)
+
+**Interfaces:**
+- Produces: `ClubDetailNews({ clubId: number })`. TabKey 'notices'|'events' → 'news', 라벨 "소식", isMember 게이트 유지.
+- 레이아웃: `grid grid-cols-1 gap-8 md:grid-cols-2` — 좌 "최근 공지"(h3) 카드 리스트(rounded-[14px] border bg-white shadow-1 p-4: pill 카테고리 배지+제목 semibold+작성일 charcoal-3), 우 "다가오는 일정"(h3) 카드 리스트(날짜 칸: 일 숫자 font-display bold + 요일 11px | 세로 divider | 일정명+시간·장소).
+- 기존 ClubDetailNotices/Events 의 데이터 훅·로딩·빈 상태·상세 링크·표기 유틸(formatDateKst·kstDateTimeFormatter 등)을 그대로 이관(기능 삭제 금지) — 구현 전 두 파일 정독.
+- [ ] Step 1: 실패 테스트(탭: 공지·일정 탭 부재+소식 탭 존재+비멤버 미노출 / news: 두 섹션 h3·공지 행·일정 행·빈 상태) → RED → 구현 → `test/clubs/` GREEN → Commit — `feat(frontend): 공지·일정을 소식 탭으로 통합 — 목업 카드 디자인`
+
+### Task 11: 콘솔 소개글 Tiptap 전환 (1,500자 정책)
+
+**Files:**
+- Modify: `frontend/apps/web/app/_components/NoticeRichEditor.tsx` (+기능 구성 prop), `NoticeRichEditorLazy.tsx` (prop 통과)
+- Modify: `frontend/apps/web/app/manage/clubs/[clubId]/info/_components/ClubInfoForm.tsx` (소개 textarea → 에디터+카운터+차단)
+- Modify: `frontend/packages/schemas/src/index.ts` (클럽 description 백스톱 2000→10000, 관련 4곳 중 클럽 스키마만)
+- Test: `frontend/apps/web/test/manage/info/` 기존 스위트 갱신 + 신규 케이스, `test/notices/` 회귀
+
+**Interfaces:**
+- `NoticeRichEditor` 에 `features?: { headings?: boolean; image?: boolean }`(기본 둘 다 true — 공지 무변경). false 시 StarterKit heading 비활성·Image 확장 제외·툴바 버튼 미렌더. 허용 서식(굵게·기울임·취소선·링크·목록 2종·인용·구분선)은 StarterKit 기본 유지.
+- ClubInfoForm 소개: `NoticeRichEditorLazy`(features 둘 다 false) + 실시간 카운터 "N/1,500 · 권장 300~800자"(에디터 getText().length 콜백) + **1,500 초과 시 제출 차단 인라인 에러**("소개글은 1,500자 이하로 줄여주세요."). 저장 payload 는 HTML(기존 description 필드 그대로).
+- **레거시 시드**: 편집 진입 시 `^\s*<` 미충족 plain text 는 빈 줄 분할로 `<p>…</p>` 변환해 에디터 시드(개행 소실 방지 — 수정 모달 상세 시드 함정 계열). 시드 변환은 순수 함수로 분리+테스트.
+- zod: 클럽 create/update/admin 스키마의 description `.max(2000…)` → `.max(10000, …)` (HTML 백스톱 — 메시지 문구도 갱신). 다른 도메인 description(모집 등)은 무접촉.
+- 폴백: NoticeRichEditorLazy 폴백 마크업 원본과 동기화 확인(레포 메모리 규칙).
+- [ ] Step 1: 실패 테스트(카운터 표시·1500 초과 차단·레거시 시드 변환·features 구성 시 헤딩/이미지 툴바 부재·공지 기본값 회귀) → RED → 구현 → `test/manage/info/`+`test/notices/`+typecheck GREEN → Commit — `feat(frontend): 소개글 Tiptap 전환 — 서식 제한·1500자 정책·레거시 시드`
+
+### Task 12: v3 전체 검증 + 실브라우저 QA
+
+- [ ] 정적 4종(typecheck/lint/test 전체/CI-env build) — frontend/
+- [ ] 실브라우저 QA(qa4/ 이어서): ①소개 카드(레거시 plain 렌더·펼침/접기·클램프·칩 유/무) ②콘솔 소개 에디터(서식 툴바 제한·굵게/목록/인용 저장→학생 화면 왕복 렌더·1500 초과 차단·레거시 시드 개행 보존) ③소식 탭(멤버 게이트·PC 2열/모바일 세로·공지 배지·일정 날짜 카드) ④기존 회귀(대표 활동·이런 활동을 해요·라이트박스·Sticky Footer). QA 생성 데이터 원복.
+- [ ] Commit 없음(문제 시 해당 Task 복귀).
