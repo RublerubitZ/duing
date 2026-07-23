@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -17,13 +18,9 @@ import com.duing.domain.club.photo.service.ClubPhotoService;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
-import com.duing.domain.user.entity.College;
-import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
-import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -64,7 +61,7 @@ class ClubHeroActivityPhotoDeleteConcurrencyTest extends IntegrationTestBase {
     @Test
     @DisplayName("같은 사진에 대한 사진 삭제와 대표 활동 등록이 동시에 실행돼도 soft-delete 된 사진을 참조하는 대표 활동은 생기지 않는다")
     void photoDeleteVersusHeroCreateNeverLeavesHeroOnDeletedPhoto() throws Exception {
-        User leader = saveUser("동시성리더");
+        User leader = userRepository.save(UserFixture.unique());
         Club club = saveActiveClub("두잉히어로동시성");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         ClubPhoto photo = savePhoto(club, "concurrent.jpg", 0);
@@ -120,21 +117,6 @@ class ClubHeroActivityPhotoDeleteConcurrencyTest extends IntegrationTestBase {
     private ClubPhoto savePhoto(Club club, String storageKey, int displayOrder) {
         return clubPhotoRepository.save(
                 ClubPhoto.create(club, storageKey, "캡션", 100, 100, displayOrder));
-    }
-
-    private User saveUser(String name) {
-        long unique = sequence.getAndIncrement();
-        return userRepository.save(User.create(
-                String.format("%010d", unique % 10_000_000_000L),
-                name,
-                "hashed",
-                UserRole.STUDENT,
-                Grade.FRESHMAN,
-                College.IT_ENGINEERING,
-                "미설정",
-                "010-0000-0000",
-                LocalDateTime.now()
-        ));
     }
 
     private Club saveActiveClub(String name) throws Exception {
