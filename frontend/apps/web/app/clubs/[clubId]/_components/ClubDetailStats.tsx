@@ -25,11 +25,13 @@ export function ClubDetailStats({ club }: Props) {
   if (cells.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-3 border-y border-line py-5">
+    <div className="grid grid-cols-3 gap-x-3 border-y border-line py-5">
       {cells.map((cell) => (
         <div key={cell.label}>
           <div className="mb-1.5 text-xs tracking-wide04 text-charcoal-3">{cell.label}</div>
-          <div className="font-display text-[22px] font-bold text-ink-deep">{cell.value}</div>
+          <div className="font-display text-[15px] font-bold leading-snug text-ink-deep break-keep [overflow-wrap:anywhere] md:text-[22px]">
+            {cell.value}
+          </div>
         </div>
       ))}
     </div>
