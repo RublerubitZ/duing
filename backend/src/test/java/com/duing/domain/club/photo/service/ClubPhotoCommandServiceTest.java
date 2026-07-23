@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.heroactivity.entity.ClubHeroActivity;
+import com.duing.domain.club.heroactivity.repository.ClubHeroActivityRepository;
 import com.duing.domain.club.photo.entity.ClubPhoto;
 import com.duing.domain.club.photo.exception.ClubPhotoException;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
@@ -45,6 +47,7 @@ class ClubPhotoCommandServiceTest {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
+    @Autowired ClubHeroActivityRepository clubHeroActivityRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -236,6 +239,42 @@ class ClubPhotoCommandServiceTest {
                 club.getId(), leader.getId(), "same.jpg", null, null, null)).id();
 
         assertThat(clubPhotoRepository.findById(p2).orElseThrow().getDisplayOrder()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("대표 활동이 참조 중인 사진은 삭제하면 ReferencedByHeroActivity 가 발생한다")
+    void deleteRejectsPhotoReferencedByHeroActivity() throws Exception {
+        User leader = saveUser("리더H");
+        Club club = saveActiveClub("두잉포토10");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Long photoId = clubPhotoService.create(new CreateClubPhotoCommand(
+                club.getId(), leader.getId(), "hero.jpg", null, null, null)).id();
+        ClubPhoto photo = clubPhotoRepository.findById(photoId).orElseThrow();
+        clubHeroActivityRepository.save(
+                ClubHeroActivity.create(club, photo, "대표활동", "대표 활동 설명", 0));
+
+        assertThatThrownBy(() -> clubPhotoService.delete(club.getId(), leader.getId(), photoId))
+                .isInstanceOf(ClubPhotoException.ReferencedByHeroActivity.class);
+
+        assertThat(clubPhotoRepository.findById(photoId)).isPresent();
+    }
+
+    @Test
+    @DisplayName("대표 활동에서 해제한 뒤에는 참조되던 사진도 삭제할 수 있다")
+    void deleteSucceedsAfterHeroActivityReleased() throws Exception {
+        User leader = saveUser("리더I");
+        Club club = saveActiveClub("두잉포토11");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Long photoId = clubPhotoService.create(new CreateClubPhotoCommand(
+                club.getId(), leader.getId(), "hero2.jpg", null, null, null)).id();
+        ClubPhoto photo = clubPhotoRepository.findById(photoId).orElseThrow();
+        ClubHeroActivity hero = clubHeroActivityRepository.save(
+                ClubHeroActivity.create(club, photo, "대표활동", "대표 활동 설명", 0));
+
+        clubHeroActivityRepository.delete(hero);
+        clubPhotoService.delete(club.getId(), leader.getId(), photoId);
+
+        assertThat(clubPhotoRepository.findByClubId(club.getId())).isEmpty();
     }
 
     private User saveUser(String name) {

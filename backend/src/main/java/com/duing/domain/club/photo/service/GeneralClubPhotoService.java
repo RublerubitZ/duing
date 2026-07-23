@@ -3,6 +3,7 @@ package com.duing.domain.club.photo.service;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
+import com.duing.domain.club.heroactivity.repository.ClubHeroActivityRepository;
 import com.duing.domain.club.photo.entity.ClubPhoto;
 import com.duing.domain.club.photo.exception.ClubPhotoException;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
@@ -29,6 +30,7 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     private final ClubPhotoRepository clubPhotoRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
+    private final ClubHeroActivityRepository clubHeroActivityRepository;
 
     @Override
     public List<ClubPhotoQuery> getPhotosByClubId(Long clubId) {
@@ -106,6 +108,10 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     public void delete(Long clubId, Long requesterId, Long photoId) {
         clubAuthService.requireEditableClubManager(requesterId, clubId);
         ClubPhoto photo = findPhotoInClub(photoId, clubId);
+        // 대표 활동이 참조 중인 사진은 삭제할 수 없다 — 먼저 대표 활동에서 해제해야 한다.
+        if (clubHeroActivityRepository.existsByClubPhotoId(photoId)) {
+            throw new ClubPhotoException.ReferencedByHeroActivity();
+        }
         // 스펙 §3.2d: Storage 객체 정리는 별도 정리 잡(Phase 5)에서 처리한다.
         // 여기서는 DB 레코드만 soft-delete.
         clubPhotoRepository.delete(photo);
