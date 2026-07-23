@@ -48,7 +48,8 @@ export default function ClubPhotosPage({
   const photoList = photos ?? [];
   const heroList = heroActivities ?? [];
   // 승격 비활성 여부는 ref(비반응형)가 아니라 쿼리 데이터로 직접 파생해 반응형으로 유지한다.
-  const promoteDisabled = heroList.length >= HERO_SLOT_COUNT;
+  // pending 시드도 슬롯을 점유하므로 합산 — 승격이 pending 슬롯을 건너뛰는 정책과 짝(무반응 데드클릭 방지).
+  const promoteDisabled = heroList.length + pendingPhotoIds.length >= HERO_SLOT_COUNT;
   // 저장된 hero + pending 시드 사진 = 사용 중. 해당 그리드 카드의 "대표로 지정"을 선차단한다.
   const usedPhotoIds = [...heroList.map((hero) => hero.clubPhotoId), ...pendingPhotoIds];
 

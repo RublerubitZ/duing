@@ -55,7 +55,10 @@ type Props = {
   clubId: number;
   heroActivities: ClubHeroActivity[];
   photos: ClubPhoto[];
-  /** pending(시드됐지만 미저장) 사진 id 목록 통지 — 부모가 그리드 "대표로 지정" 선차단에 쓴다. */
+  /**
+   * pending(시드됐지만 미저장) 사진 id 목록 통지 — 부모가 그리드 "대표로 지정" 선차단에 쓴다.
+   * effect deps 에 포함되므로 안정 참조 필수 — 인라인 화살표를 넘기면 재렌더 루프가 된다(setState 직접 전달 권장).
+   */
   onPendingPhotoIdsChange?: (clubPhotoIds: number[]) => void;
 };
 
@@ -154,6 +157,7 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
 
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pendingReorder = useRef<Slot[] | null>(null);
+    const inflightReorder = useRef<Promise<void> | null>(null);
     const lastCommitted = useRef<Slot[]>(order);
 
     // 서버 반영(정렬/생성/삭제 후 invalidate) 시 props 를 진리원본으로 로컬 순서 재동기화.
@@ -267,25 +271,44 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
     function scheduleReorder(next: Slot[]) {
       pendingReorder.current = next;
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
-      debounceTimer.current = setTimeout(() => void flushReorder(), REORDER_DEBOUNCE_MS);
+      debounceTimer.current = setTimeout(() => {
+        debounceTimer.current = null;
+        const queued = pendingReorder.current;
+        pendingReorder.current = null;
+        if (queued) void runReorder(queued);
+      }, REORDER_DEBOUNCE_MS);
     }
 
-    // 대기 중 정렬 디바운스를 즉시 발화(타이머 취소 후 PUT)하고 완료까지 await 한다.
-    // 대기 중 타이머가 없으면 no-op — create/update·피커 열기 직전 순서 확정에 쓴다.
+    // PUT 실행 본체 — 진행 중 promise 를 ref 에 보관해 flushReorder 가 완료를 대기할 수 있게 한다.
+    function runReorder(next: Slot[]) {
+      let request: Promise<void> | null = null;
+      request = (async () => {
+        try {
+          await reorder.mutateAsync({ items: slotsToReorderPayload(next.map((slot) => slot.hero)) });
+          lastCommitted.current = next;
+        } catch {
+          setOrder(lastCommitted.current);
+          alert('순서 저장에 실패했습니다. 다시 시도해주세요.');
+        } finally {
+          if (inflightReorder.current === request) inflightReorder.current = null;
+        }
+      })();
+      inflightReorder.current = request;
+      return request;
+    }
+
+    // 대기 중 정렬을 즉시 확정하고 완료까지 await 한다 — create/update·피커 열기 직전 순서 확정용.
+    // 타이머 대기 중이면 취소 후 즉시 PUT, 이미 자연 발화해 PUT 이 in-flight 면 그 완료를 대기(추월 방지).
     async function flushReorder() {
-      if (!debounceTimer.current) return;
-      clearTimeout(debounceTimer.current);
-      debounceTimer.current = null;
-      const next = pendingReorder.current;
-      pendingReorder.current = null;
-      if (!next) return;
-      try {
-        await reorder.mutateAsync({ items: slotsToReorderPayload(next.map((slot) => slot.hero)) });
-        lastCommitted.current = next;
-      } catch {
-        setOrder(lastCommitted.current);
-        alert('순서 저장에 실패했습니다. 다시 시도해주세요.');
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+        debounceTimer.current = null;
+        const queued = pendingReorder.current;
+        pendingReorder.current = null;
+        if (queued) await runReorder(queued);
+        return;
       }
+      if (inflightReorder.current) await inflightReorder.current;
     }
 
     useImperativeHandle(

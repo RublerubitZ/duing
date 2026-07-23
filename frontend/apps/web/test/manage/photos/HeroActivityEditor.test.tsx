@@ -98,9 +98,12 @@ describe('HeroActivityEditor', () => {
 
   it('I-6: 신규 저장 시 onBeforeSave(정렬 flush)를 먼저 부른 뒤 create 한다', async () => {
     const callOrder: string[] = [];
-    const onBeforeSave = vi.fn(() => {
+    // flush 기록을 마이크로태스크 뒤로 미뤄, 구현이 await 를 빼먹으면 create 가 먼저 기록되게 한다.
+    const onBeforeSave = vi.fn(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
       callOrder.push('flush');
-      return Promise.resolve();
     });
     mockCreateMutateAsync.mockImplementation(() => {
       callOrder.push('create');
