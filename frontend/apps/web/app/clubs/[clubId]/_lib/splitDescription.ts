@@ -19,11 +19,15 @@ export function splitDescription(description: string): SplitDescription {
   if (HTML_LEADING.test(description)) {
     const doc = new DOMParser().parseFromString(sanitizeNoticeHtml(description), 'text/html');
     const [first, ...remaining] = Array.from(doc.body.children);
-    return {
-      isHtml: true,
-      lead: first?.outerHTML ?? '',
-      rest: remaining.length > 0 ? remaining.map((block) => block.outerHTML).join('') : null,
-    };
+    // 첫 블록이 없으면 '<신입부원 모집>' 처럼 '<' 로 시작하는 레거시 plain 텍스트가 태그로 오인식돼
+    // sanitize 단계에서 전부 이스케이프된 경우다 — plain 경로로 폴백해 본문 전체 소실을 막는다.
+    if (first !== undefined) {
+      return {
+        isHtml: true,
+        lead: first.outerHTML,
+        rest: remaining.length > 0 ? remaining.map((block) => block.outerHTML).join('') : null,
+      };
+    }
   }
 
   const [firstParagraph, ...remainingParagraphs] = description.split(BLANK_LINE);

@@ -18,10 +18,12 @@ const CLAMP_THRESHOLD = 220;
 
 // dangerouslySetInnerHTML 서브트리는 memo 로 분리한다 — 부모 재렌더마다 __html prop 객체가
 // 새로 생성되면 React 가 innerHTML 을 매번 재설정해 주입 DOM 이 교체된다(공지 렌더 전례).
-const RichHtml = memo(function RichHtml({ html, className }: { html: string; className?: string }) {
+// props 는 html 만 — 클램프 등 토글되는 클래스는 절대 여기로 넘기지 않는다. prop 이 바뀌면 memo 가
+// 깨져 React19 가 innerHTML 을 재주입하고(동일 문자열도) 주입 DOM 노드가 교체된다. 클램프는 바깥 래퍼가 소유.
+const RichHtml = memo(function RichHtml({ html }: { html: string }) {
   return (
     <div
-      className={cn(PROSE_CLASS, className)}
+      className={PROSE_CLASS}
       // eslint-disable-next-line react/no-danger -- splitDescription 이 sanitizeNoticeHtml 후 파싱한 결과라 안전
       dangerouslySetInnerHTML={{ __html: html }}
     />
@@ -51,7 +53,10 @@ function AboutDescription({ description }: { description: string }) {
   return (
     <div>
       {isHtml ? (
-        <RichHtml html={lead} className={clampClass} />
+        // 클램프는 memo 밖 래퍼가 소유 — RichHtml prop 을 불변으로 유지해 토글 시 재주입을 막는다.
+        <div className={clampClass}>
+          <RichHtml html={lead} />
+        </div>
       ) : (
         <p className={cn('whitespace-pre-wrap text-[15.5px] leading-relaxed text-charcoal', clampClass)}>
           {lead}

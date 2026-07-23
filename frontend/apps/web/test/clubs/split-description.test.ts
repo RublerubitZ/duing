@@ -40,4 +40,11 @@ describe('splitDescription', () => {
     expect(result.rest).toBe('<p>둘째 문단</p>');
     expect(`${result.lead}${result.rest ?? ''}`).not.toContain('script');
   });
+
+  it("'<' 로 시작하는 레거시 plain 텍스트는 HTML 로 오인하지 않고 원문을 보존한다", () => {
+    const result = splitDescription('<신입부원 모집> 환영합니다');
+    expect(result.isHtml).toBe(false);
+    expect(result.lead).toBe('<신입부원 모집> 환영합니다');
+    expect(result.rest).toBeNull();
+  });
 });

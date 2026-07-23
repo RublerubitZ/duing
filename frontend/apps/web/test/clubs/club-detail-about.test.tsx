@@ -54,6 +54,22 @@ describe('ClubDetailAbout', () => {
     expect(paragraph).not.toHaveClass('line-clamp-4');
   });
 
+  it('HTML 장문 단일 블록: 더보기 토글에도 주입된 DOM 노드 identity 가 유지된다 (memo 재주입 없음)', async () => {
+    const longHtml = `<p>${'가'.repeat(230)}</p>`;
+    const { container } = render(<ClubDetailAbout description={longHtml} highlights={[]} />);
+
+    const injectedBefore = container.querySelector('p');
+    await userEvent.click(screen.getByRole('button', { name: /더보기/ }));
+
+    // memo 가 유지되면 innerHTML 이 재설정되지 않아 주입 노드가 동일 객체로 남는다.
+    expect(container.querySelector('p')).toBe(injectedBefore);
+  });
+
+  it('lead 텍스트가 220자 이하이면 클램프하지 않고 더보기 버튼이 없다 (경계값)', () => {
+    render(<ClubDetailAbout description={'가'.repeat(220)} highlights={[]} />);
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
   it('highlights 는 소제목 없이 칩으로 노출된다', () => {
     render(
       <ClubDetailAbout
