@@ -328,7 +328,7 @@ const clubProfileBaseSchema = z.object({
   feeCycle: z.enum(['NONE', 'ONE_TIME', 'SEMESTER', 'YEARLY', 'MONTHLY']).optional(),
   membershipFeeAmount: z.number().int().min(1, '회비 금액은 1원 이상이어야 합니다.')
     .max(10_000_000, '회비 금액이 너무 큽니다.').nullable().optional(),
-  projects: z.array(clubProjectSchema).max(6, '주요 프로젝트는 최대 6개까지 가능합니다.').optional(),
+  projects: z.array(clubProjectSchema).max(6, '활동 소개는 최대 6개까지 등록할 수 있어요.').optional(),
 });
 
 export const updateClubSchema = clubProfileBaseSchema.refine(feePairRule.check, feePairRule.options);

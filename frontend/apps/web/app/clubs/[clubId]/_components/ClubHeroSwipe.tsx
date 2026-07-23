@@ -17,7 +17,9 @@ export function ClubHeroSwipe({ heroActivities, onOpen }: Props) {
   function handleScroll() {
     const track = trackRef.current;
     if (!track || track.clientWidth === 0) return;
-    setCurrentIndex(Math.round(track.scrollLeft / track.clientWidth));
+    // 오버스크롤 시 인덱스가 범위를 벗어나 도트가 전멸하지 않게 클램프.
+    const page = Math.round(track.scrollLeft / track.clientWidth);
+    setCurrentIndex(Math.max(0, Math.min(page, heroActivities.length - 1)));
   }
 
   function goTo(index: number) {
@@ -60,6 +62,7 @@ export function ClubHeroSwipe({ heroActivities, onOpen }: Props) {
             type="button"
             onClick={() => goTo(index)}
             aria-label={`${index + 1}번째 대표 활동`}
+            aria-current={index === currentIndex || undefined}
             className={cn(
               'h-1.5 rounded-full transition-all',
               index === currentIndex ? 'w-5 bg-ink' : 'w-1.5 bg-line',

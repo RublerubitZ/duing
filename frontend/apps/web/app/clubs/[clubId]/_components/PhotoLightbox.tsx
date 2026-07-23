@@ -102,7 +102,7 @@ export function PhotoLightbox({ slides, initialIndex, open, onClose }: Props) {
               data-testid="lightbox-counter"
               role="status"
               aria-live="polite"
-              aria-label={`전체 ${count}장 중 ${current + 1}번째`}
+              aria-label={`전체 ${count}개 중 ${current + 1}번째`}
               className="text-sm font-semibold tabular-nums"
             >
               {current + 1} / {count}
@@ -121,7 +121,7 @@ export function PhotoLightbox({ slides, initialIndex, open, onClose }: Props) {
               <button
                 type="button"
                 onClick={goPrev}
-                aria-label="이전 사진"
+                aria-label="이전"
                 className="absolute left-3 z-10 hidden h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20 md:grid"
               >
                 <ArrowLeft size={22} />
@@ -148,7 +148,7 @@ export function PhotoLightbox({ slides, initialIndex, open, onClose }: Props) {
               <button
                 type="button"
                 onClick={goNext}
-                aria-label="다음 사진"
+                aria-label="다음"
                 className="absolute right-3 z-10 hidden h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20 md:grid"
               >
                 <ArrowRight size={22} />

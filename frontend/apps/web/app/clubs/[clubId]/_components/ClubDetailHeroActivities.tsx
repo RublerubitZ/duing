@@ -19,7 +19,11 @@ export function ClubDetailHeroActivities({ clubId }: Props) {
 
   if (heroQuery.isLoading) {
     return (
-      <div role="status" aria-label="대표 활동 불러오는 중" className="delayed-show mb-10">
+      <div
+        role="status"
+        aria-label="대표 활동 불러오는 중"
+        className="delayed-show mb-10 animate-pulse motion-reduce:animate-none"
+      >
         <Skeleton className="mb-4 h-6 w-40" />
         <div className="hidden gap-3.5 md:grid md:grid-cols-3">
           <Skeleton className="aspect-[4/5]" />

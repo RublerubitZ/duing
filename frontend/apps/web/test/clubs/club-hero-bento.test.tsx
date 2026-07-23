@@ -27,6 +27,20 @@ describe('ClubHeroBento — 개수별 벤토(학생 래퍼)', () => {
     expect(cells[0]?.parentElement?.className).toContain('grid-cols-3');
   });
 
+  it('5개면 3열 그리드에 첫 카드가 2×2 큰 대표로 렌더된다(featured 하한 경계)', () => {
+    render(<ClubHeroBento heroActivities={makeMany(1, 2, 3, 4, 5)} onOpen={vi.fn()} />);
+    const cells = screen.getAllByRole('button');
+    expect(cells).toHaveLength(5);
+    expect(cells[0]?.className).toContain('col-span-2');
+    expect(cells[0]?.className).toContain('row-span-2');
+    expect(cells[0]?.parentElement?.className).toContain('grid-cols-3');
+  });
+
+  it('0개면 아무것도 렌더하지 않는다(null)', () => {
+    const { container } = render(<ClubHeroBento heroActivities={[]} onOpen={vi.fn()} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it('4개면 2열 균등 그리드(큰 대표 없음)', () => {
     render(<ClubHeroBento heroActivities={makeMany(1, 2, 3, 4)} onOpen={vi.fn()} />);
     const cells = screen.getAllByRole('button');

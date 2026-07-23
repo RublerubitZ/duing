@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -168,5 +168,11 @@ describe('동아리 상세 page 랜딩 조립', () => {
     expect(screen.getByText('창설년도')).toBeInTheDocument();
     // hero 실패는 조용히 강등 — 대표 활동 헤더 부재.
     expect(screen.queryByRole('heading', { name: '대표 활동' })).not.toBeInTheDocument();
+    // hero 쿼리가 500 으로 정착하면 스켈레톤도 남지 않는다(로딩이 걸려 있지 않음).
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('status', { name: '대표 활동 불러오는 중' }),
+      ).not.toBeInTheDocument(),
+    );
   });
 });

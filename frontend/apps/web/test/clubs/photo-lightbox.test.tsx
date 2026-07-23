@@ -50,10 +50,10 @@ describe('PhotoLightbox', () => {
     const user = userEvent.setup();
     render(<PhotoLightbox slides={makeSlides(3)} initialIndex={0} open onClose={vi.fn()} />);
 
-    await user.click(screen.getByRole('button', { name: '다음 사진' }));
+    await user.click(screen.getByRole('button', { name: '다음' }));
     expect(counter()).toHaveTextContent('2 / 3');
 
-    await user.click(screen.getByRole('button', { name: '이전 사진' }));
+    await user.click(screen.getByRole('button', { name: '이전' }));
     expect(counter()).toHaveTextContent('1 / 3');
   });
 
@@ -62,7 +62,7 @@ describe('PhotoLightbox', () => {
     render(<PhotoLightbox slides={makeSlides(2)} initialIndex={1} open onClose={vi.fn()} />);
     expect(counter()).toHaveTextContent('2 / 2');
 
-    await user.click(screen.getByRole('button', { name: '다음 사진' }));
+    await user.click(screen.getByRole('button', { name: '다음' }));
     expect(counter()).toHaveTextContent('1 / 2');
   });
 
@@ -87,8 +87,8 @@ describe('PhotoLightbox', () => {
 
   it('슬라이드가 1장이면 좌우 내비게이션 버튼을 숨긴다', () => {
     render(<PhotoLightbox slides={makeSlides(1)} initialIndex={0} open onClose={vi.fn()} />);
-    expect(screen.queryByRole('button', { name: '다음 사진' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '이전 사진' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '다음' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '이전' })).not.toBeInTheDocument();
   });
 
   it('title 이 있는 슬라이드는 굵은 제목과 설명을 함께 보여준다(대표 활동)', () => {
@@ -138,7 +138,7 @@ describe('ClubDetailPhotos', () => {
     expect(counter()).toHaveTextContent('8 / 10');
 
     // 라이트박스 안에서는 그리드에 없던 9·10번째 사진도 순회할 수 있다.
-    await user.click(screen.getByRole('button', { name: '다음 사진' }));
+    await user.click(screen.getByRole('button', { name: '다음' }));
     expect(counter()).toHaveTextContent('9 / 10');
   });
 });
