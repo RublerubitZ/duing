@@ -696,3 +696,20 @@ export function ClubDetailActivityIntro({ projects }: Props) {
 - [ ] Step 1: 실패 테스트 — 찜 버튼이 카드 상단 영역에 존재(+하단 행 부재), aria-pressed 토글 기능 유지, page 우측 컬럼에 sticky·self-start 클래스
 - [ ] Step 2: RED → Step 3: 구현 → Step 4: `test/clubs/` GREEN + typecheck
 - [ ] Step 5: Commit — `feat(frontend): 동아리 상세 우측 신청 패널 Sticky·찜 버튼 우상단 이동`
+
+---
+
+### Task 15 (v6): Stats 모바일 반응형 타이포·개행 안전성
+
+**Files:**
+- Modify: `frontend/apps/web/app/clubs/[clubId]/_components/ClubDetailStats.tsx`
+- Test: `frontend/apps/web/test/clubs/club-detail-stats.test.tsx` (없으면 신규)
+
+**Interfaces:** `ClubDetailStats({ club })` 불변. 변경은 클래스만:
+- 컨테이너: `grid grid-cols-3 gap-x-3 border-y border-line py-5` (items 기본 stretch 유지 — 높이 균일).
+- 값: `font-display font-bold text-ink-deep text-[15px] leading-snug break-keep [overflow-wrap:anywhere] md:text-[22px]`.
+- 라벨 행 무변경. Desktop 렌더 결과가 기존과 동일해야 한다(md 이상 클래스 값 검증).
+
+- [ ] Step 1: 실패 테스트 — 최악 케이스 값("주 7회 (월·화·수·목·금·토·일)") 렌더 + 값 요소에 반응형 크기·break-keep·overflow-wrap 클래스 단언, md 복원 클래스 단언, 셀 3종(활동·창설년도·회비) 렌더 회귀
+- [ ] Step 2: RED → Step 3: 구현 → Step 4: `test/clubs/` GREEN + typecheck
+- [ ] Step 5: Commit — `fix(frontend): 모집 정보 요약 모바일 타이포·개행 안전성 — 긴 활동 값 레이아웃 보호`
