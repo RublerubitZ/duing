@@ -147,6 +147,19 @@ describe('동아리 상세 page 랜딩 조립', () => {
     expect(tabpanel).toContainElement(introHeading);
   });
 
+  it('데스크탑 우측 신청 패널은 sticky·self-start 컬럼 안에 있다', async () => {
+    seed();
+    renderPage();
+
+    // '모집 인원'은 데스크탑 풀 카드에만 있는 라벨(모바일 요약은 '인원').
+    const capacityLabel = await screen.findByText('모집 인원');
+    const stickyColumn = capacityLabel.closest('.lg\\:self-start');
+
+    expect(stickyColumn).not.toBeNull();
+    // grid stretch 가 sticky 를 무력화하지 않도록 self-start 가 함께 있어야 한다.
+    expect(stickyColumn).toHaveClass('lg:sticky', 'lg:top-6', 'lg:self-start');
+  });
+
   it('모바일 모집 요약이 탭리스트보다 DOM 앞에 온다', async () => {
     seed();
     renderPage();

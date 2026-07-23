@@ -21,7 +21,9 @@ const mockRouterPush = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockRouterPush }) }));
 
 vi.mock('../../app/_components/FavoriteToggleButton', () => ({
-  FavoriteToggleButton: () => <button>찜하기</button>,
+  FavoriteToggleButton: ({ className }: { className?: string }) => (
+    <button className={className}>찜하기</button>
+  ),
 }));
 
 const server = setupServer();
@@ -98,6 +100,24 @@ describe('ClubRecruitmentCard', () => {
     expect(screen.getByText('모집 없음')).toBeInTheDocument();
     const button = screen.getByRole('button', { name: '지원하기' });
     expect(button).toBeDisabled();
+    // 찜 버튼은 모집 유무와 무관하게 전 상태 카드에서 항상 노출된다.
+    expect(screen.getByRole('button', { name: '찜하기' })).toBeInTheDocument();
+  });
+
+  it('찜 버튼은 카드 우상단에 absolute 플로팅되고 하단 찜 행은 제거된다', () => {
+    renderCard(base);
+    const favoriteButton = screen.getByRole('button', { name: '찜하기' });
+    const applyButton = screen.getByRole('button', { name: '지원하기' });
+
+    // 위치: aside 루트(positioning context) 직속 absolute 플로팅.
+    expect(favoriteButton).toHaveClass('absolute', 'right-5', 'top-5');
+    expect(favoriteButton.parentElement?.tagName).toBe('ASIDE');
+    expect(favoriteButton.parentElement).toHaveClass('relative');
+
+    // 하단 찜 행 제거 — 지원 버튼보다 DOM 앞(우상단).
+    expect(
+      favoriteButton.compareDocumentPosition(applyButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('상시모집이면 헤더에 "상시모집"이 노출되고 지원 버튼이 활성화된다', () => {
