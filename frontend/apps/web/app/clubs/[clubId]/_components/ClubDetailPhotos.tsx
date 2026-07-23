@@ -54,7 +54,12 @@ export function ClubDetailPhotos({ photos }: Props) {
       </div>
 
       <PhotoLightbox
-        photos={photos}
+        slides={photos.map((photo) => ({
+          id: photo.id,
+          imageUrl: photo.storageKey,
+          title: null,
+          caption: photo.caption,
+        }))}
         initialIndex={openIndex ?? 0}
         open={openIndex !== null}
         onClose={() => setOpenIndex(null)}

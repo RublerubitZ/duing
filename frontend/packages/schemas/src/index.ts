@@ -298,7 +298,8 @@ const clubSnsLinkSchema = z.object({
 });
 
 const clubProfileBaseSchema = z.object({
-  description: z.string().nullable(),
+  // 소개는 리치 에디터(Tiptap) HTML — 텍스트 1,500자 정책은 폼에서, 여기선 HTML 백스톱만 둔다.
+  description: z.string().max(10000, '소개글이 너무 깁니다. 1,500자 이하로 줄여주세요.').nullable(),
   logoUrl: z.string().max(500, '로고 URL은 500자 이하여야 합니다.').nullable(),
   coverUrl: z.string().max(500, '커버 URL은 500자 이하여야 합니다.').nullable(),
   tags: z.array(
@@ -328,7 +329,7 @@ const clubProfileBaseSchema = z.object({
   feeCycle: z.enum(['NONE', 'ONE_TIME', 'SEMESTER', 'YEARLY', 'MONTHLY']).optional(),
   membershipFeeAmount: z.number().int().min(1, '회비 금액은 1원 이상이어야 합니다.')
     .max(10_000_000, '회비 금액이 너무 큽니다.').nullable().optional(),
-  projects: z.array(clubProjectSchema).max(6, '주요 프로젝트는 최대 6개까지 가능합니다.').optional(),
+  projects: z.array(clubProjectSchema).max(6, '활동 소개는 최대 6개까지 등록할 수 있어요.').optional(),
 });
 
 export const updateClubSchema = clubProfileBaseSchema.refine(feePairRule.check, feePairRule.options);

@@ -148,6 +148,31 @@ describe('AdminClubDetailPage', () => {
     expect(await screen.findByText('검색 결과가 없습니다.')).toBeInTheDocument();
   });
 
+  it('설명이 Tiptap HTML 이면 원시 태그 대신 리치 서식으로 렌더한다', async () => {
+    server.use(
+      http.get('*/admin/clubs/1', () =>
+        HttpResponse.json({
+          ok: true,
+          data: { ...CLUB_DETAIL, description: '<p>안녕 <strong>리치</strong> 소개</p>' },
+          message: null,
+        }),
+      ),
+    );
+    renderPage();
+    await screen.findByText('홍길동');
+    // <strong> 로 파싱돼 렌더된다 — 원시 <p>/<strong> 문자열은 노출되지 않는다.
+    expect(screen.getByText('리치').tagName).toBe('STRONG');
+    expect(screen.queryByText((content) => content.includes('<strong>'))).toBeNull();
+  });
+
+  it('설명이 레거시 plain 이면 pre-wrap 텍스트로 그대로 보여준다', async () => {
+    renderPage();
+    await screen.findByText('홍길동');
+    const description = screen.getByText('기존 소개');
+    expect(description.tagName).toBe('DIV');
+    expect(description).toHaveClass('whitespace-pre-wrap');
+  });
+
   // 총동연(admin)은 잠금 필드(동아리명 등)까지 수정할 수 있다 — mode="admin" 배선 검증.
   it('수정 버튼으로 편집 모드에 진입해 동아리명을 저장하면 변경 payload 로 PATCH 되고 편집 모드가 닫힌다', async () => {
     let patchBody: unknown = null;

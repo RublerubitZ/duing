@@ -31,6 +31,8 @@ describe('ActivityPreview', () => {
     // 첫 hero 만 크게 렌더 — 제목/설명 노출
     expect(screen.getByText('제목1')).toBeInTheDocument();
     expect(screen.getByText('설명1')).toBeInTheDocument();
+    // Preview 는 학생 화면과 동일 — 번호 배지 없음(첫 hero displayOrder=1)
+    expect(screen.queryByText('1')).not.toBeInTheDocument();
     // dots 수 = hero 수
     expect(screen.getByTestId('preview-hero-dots').children).toHaveLength(3);
   });

@@ -8,7 +8,7 @@ import {
   useUpdateHeroActivityMutation,
 } from '@duing/hooks';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
-import { HeroActivityCard } from './HeroActivityCard';
+import { HeroActivityCard } from '@/app/_components/HeroActivityCard';
 
 const TITLE_MAX = 30;
 const DESC_MAX = 80;

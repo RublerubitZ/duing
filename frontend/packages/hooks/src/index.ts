@@ -231,7 +231,7 @@ export {
   useMyInterviewQuery,
   useRespondAvailabilityMutation,
 } from './applicantInterview';
-export { parseKstInstant, daysUntilKst } from './dashboardDate';
+export { parseKstInstant, daysUntilKst, todayKstDateString } from './dashboardDate';
 export {
   formatDateTimeKst,
   formatDateKst,

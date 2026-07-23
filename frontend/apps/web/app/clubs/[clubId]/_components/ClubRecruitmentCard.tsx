@@ -40,8 +40,10 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
   })();
 
   return (
-    <aside className="space-y-4">
-      <div className="lg:sticky lg:top-6 rounded-[24px] border border-line bg-paper p-7 shadow-2">
+    <aside className="relative">
+      {/* 찜 버튼은 전 모집 상태 공통으로 카드 우상단에 플로팅한다(aside 가 positioning context). */}
+      <FavoriteToggleButton clubId={clubId} size="md" className="absolute right-5 top-5" />
+      <div className="rounded-[24px] border border-line bg-paper p-7 shadow-2">
         <div className="mb-3 text-xs font-bold tracking-wide06 text-ink">
           {header}
         </div>
@@ -89,7 +91,7 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
           type="button"
           onClick={handleApply}
           disabled={!canApply || isCheckingEligibility}
-          className="btn btn-primary btn-big mb-2.5 w-full disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn btn-primary btn-big w-full disabled:cursor-not-allowed disabled:opacity-40"
         >
           {isCheckingEligibility ? (
             <span role="status" aria-label="지원 자격 확인 중" className="inline-flex items-center">
@@ -99,12 +101,6 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
             applyButtonLabel
           )}
         </button>
-
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <FavoriteToggleButton clubId={clubId} size="md" />
-          </div>
-        </div>
       </div>
     </aside>
   );

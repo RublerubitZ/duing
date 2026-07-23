@@ -35,10 +35,16 @@ function toInitialHtml(value: string, format: NoticeContentFormat): string {
   return sanitizeNoticeHtml(value);
 }
 
+// 기능 구성 — 기본은 모두 활성(공지 소비처 무변경). false 시 해당 서식·툴바 버튼·확장을 뺀다.
+// code 는 인라인 코드+코드블록을 함께 끈다(백틱 입력룰·마크다운 유입 차단).
+type EditorFeatures = { headings?: boolean; image?: boolean; code?: boolean };
+
 type Props = {
   value: string;
   format: NoticeContentFormat;
-  onChange: (html: string) => void;
+  // textLength 는 getText().length — 소비처의 글자 수 카운터/제한 검증용. 공지 소비처는 무시하면 된다.
+  onChange: (html: string, textLength: number) => void;
+  features?: EditorFeatures;
 };
 
 function ToolbarButton({ active, disabled, onClick, title, children }: {
@@ -62,7 +68,10 @@ function ToolbarDivider() {
   return <span className="mx-0.5 h-5 w-px self-center bg-line" />;
 }
 
-export function NoticeRichEditor({ value, format, onChange }: Props) {
+export function NoticeRichEditor({ value, format, onChange, features }: Props) {
+  const headingsEnabled = features?.headings ?? true;
+  const imageEnabled = features?.image ?? true;
+  const codeEnabled = features?.code ?? true;
   const uploadMutation = useFileUploadMutation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -72,18 +81,19 @@ export function NoticeRichEditor({ value, format, onChange }: Props) {
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        heading: { levels: [2, 3] },
+        heading: headingsEnabled ? { levels: [2, 3] } : false,
+        ...(codeEnabled ? {} : { code: false, codeBlock: false }),
         link: {
           openOnClick: false,
           autolink: true,
           HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer nofollow' },
         },
       }),
-      Image.configure({ allowBase64: false }),
+      ...(imageEnabled ? [Image.configure({ allowBase64: false })] : []),
     ],
     content: toInitialHtml(value, format),
-    onUpdate: ({ editor: instance }) => onChange(instance.getHTML()),
-    onCreate: ({ editor: instance }) => onChange(instance.getHTML()),
+    onUpdate: ({ editor: instance }) => onChange(instance.getHTML(), instance.getText().length),
+    onCreate: ({ editor: instance }) => onChange(instance.getHTML(), instance.getText().length),
     editorProps: {
       handlePaste: (_view, event) => {
         const clipboard = event.clipboardData;
@@ -154,14 +164,20 @@ export function NoticeRichEditor({ value, format, onChange }: Props) {
         <ToolbarButton title="기울임" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={16} /></ToolbarButton>
         <ToolbarButton title="취소선" active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}><Strikethrough size={16} /></ToolbarButton>
         <ToolbarDivider />
-        <ToolbarButton title="제목 2" active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 size={16} /></ToolbarButton>
-        <ToolbarButton title="제목 3" active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}><Heading3 size={16} /></ToolbarButton>
+        {headingsEnabled && (
+          <>
+            <ToolbarButton title="제목 2" active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 size={16} /></ToolbarButton>
+            <ToolbarButton title="제목 3" active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}><Heading3 size={16} /></ToolbarButton>
+          </>
+        )}
         <ToolbarButton title="글머리 목록" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={16} /></ToolbarButton>
         <ToolbarButton title="번호 목록" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered size={16} /></ToolbarButton>
         <ToolbarButton title="인용" active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}><Quote size={16} /></ToolbarButton>
         <ToolbarDivider />
         <ToolbarButton title="링크" active={editor.isActive('link')} onClick={setLink}><Link2 size={16} /></ToolbarButton>
-        <ToolbarButton title="이미지" disabled={uploadMutation.isPending} onClick={() => fileInputRef.current?.click()}><ImageIcon size={16} /></ToolbarButton>
+        {imageEnabled && (
+          <ToolbarButton title="이미지" disabled={uploadMutation.isPending} onClick={() => fileInputRef.current?.click()}><ImageIcon size={16} /></ToolbarButton>
+        )}
         <ToolbarDivider />
         <ToolbarButton title="실행 취소" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}><Undo2 size={16} /></ToolbarButton>
         <ToolbarButton title="다시 실행" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}><Redo2 size={16} /></ToolbarButton>
@@ -170,16 +186,20 @@ export function NoticeRichEditor({ value, format, onChange }: Props) {
         editor={editor}
         className="notice-editor px-5 py-4 min-h-[320px] [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[280px] [&_.ProseMirror]:text-[15.5px] [&_.ProseMirror]:leading-[1.8] [&_.ProseMirror]:text-charcoal [&_.ProseMirror_p]:my-2.5 [&_.ProseMirror_h2]:text-[21px] [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:text-ink-deep [&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:mb-2 [&_.ProseMirror_h2]:pl-3 [&_.ProseMirror_h2]:border-l-[3px] [&_.ProseMirror_h2]:border-sage [&_.ProseMirror_h3]:text-[17px] [&_.ProseMirror_h3]:font-bold [&_.ProseMirror_h3]:text-ink-deep [&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:mb-1.5 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6 [&_.ProseMirror_li]:my-1 [&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-line [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:text-charcoal-2 [&_.ProseMirror_a]:text-ink [&_.ProseMirror_a]:underline [&_.ProseMirror_img]:max-w-full [&_.ProseMirror_img]:h-auto [&_.ProseMirror_img]:rounded-lg [&_.ProseMirror_img]:my-3"
       />
-      <input
-        ref={fileInputRef}
-        data-testid="rich-editor-image-input"
-        type="file"
-        multiple
-        accept={IMAGE_UPLOAD_POLICY.acceptAttribute}
-        className="hidden"
-        onChange={(changeEvent) => { void handleImageFiles(changeEvent.target.files); }}
-      />
-      <p className="px-5 pb-2.5 text-[11.5px] text-charcoal-3">서식 버튼으로 꾸미거나 마크다운을 붙여넣으면 자동 변환됩니다 · 이미지는 본문에 인라인 삽입(최대 {MAX_INLINE_IMAGES}장·5MB)</p>
+      {imageEnabled && (
+        <input
+          ref={fileInputRef}
+          data-testid="rich-editor-image-input"
+          type="file"
+          multiple
+          accept={IMAGE_UPLOAD_POLICY.acceptAttribute}
+          className="hidden"
+          onChange={(changeEvent) => { void handleImageFiles(changeEvent.target.files); }}
+        />
+      )}
+      <p className="px-5 pb-2.5 text-[11.5px] text-charcoal-3">
+        서식 버튼으로 꾸미거나 마크다운을 붙여넣으면 자동 변환됩니다{imageEnabled && ` · 이미지는 본문에 인라인 삽입(최대 ${MAX_INLINE_IMAGES}장·5MB)`}
+      </p>
       {error && <p className="px-5 pb-2.5 text-[12px] text-red-500">{error}</p>}
     </div>
   );
