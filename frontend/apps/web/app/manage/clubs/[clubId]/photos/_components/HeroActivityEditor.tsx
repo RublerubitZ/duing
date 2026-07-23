@@ -24,6 +24,8 @@ type Props = {
   /** 신규/교체용으로 부모(피커)가 시드한 선택 사진. */
   pendingPhoto?: PendingPhoto | null;
   onSaved?: () => void;
+  /** 저장 직전(create/update) 대기 중 정렬 디바운스를 즉시 flush 한다 — reorder↔create 레이스 방지. */
+  onBeforeSave?: () => Promise<void>;
 };
 
 /**
@@ -40,6 +42,7 @@ export function HeroActivityEditor({
   onPickPhoto,
   pendingPhoto = null,
   onSaved,
+  onBeforeSave,
 }: Props) {
   const createMutation = useCreateHeroActivityMutation(clubId);
   const updateMutation = useUpdateHeroActivityMutation(clubId);
@@ -48,6 +51,8 @@ export function HeroActivityEditor({
   const [title, setTitle] = useState(hero?.title ?? '');
   const [description, setDescription] = useState(hero?.description ?? '');
   const [validationError, setValidationError] = useState<string | null>(null);
+  // 삭제(비우기) 실패 전용 채널 — 모달을 닫고 에디터 인라인에 표시(ActivityPhotoCard.runDelete 패턴).
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const isEmpty = hero === null && pendingPhoto === null;
@@ -56,6 +61,7 @@ export function HeroActivityEditor({
 
   async function handleSave() {
     setValidationError(null);
+    setDeleteError(null);
     const trimmedTitle = title.trim();
     const trimmedDesc = description.trim();
 
@@ -72,41 +78,67 @@ export function HeroActivityEditor({
         setValidationError('설명을 입력해주세요.');
         return;
       }
-      await createMutation.mutateAsync({
-        clubPhotoId: pendingPhoto.clubPhotoId,
-        title: trimmedTitle,
-        description: trimmedDesc,
-        displayOrder: slotNumber,
-      });
-      onSaved?.();
+      // 검증 통과 후, mutate 직전에 대기 중 정렬 디바운스를 확정한다(create displayOrder↔서버 순서 정합).
+      await onBeforeSave?.();
+      try {
+        await createMutation.mutateAsync({
+          clubPhotoId: pendingPhoto.clubPhotoId,
+          title: trimmedTitle,
+          description: trimmedDesc,
+          displayOrder: slotNumber,
+        });
+        onSaved?.();
+      } catch {
+        // 표시는 mutationError 채널로 — rejection 만 삼켜 unhandled 를 막는다.
+      }
       return;
     }
 
-    // 기존 수정 — 바뀐 필드만 PATCH.
+    // 기존 수정 — 빈 값은 에러(BE title/desc 필수), 바뀐 필드만 PATCH.
+    if (!trimmedTitle) {
+      setValidationError('제목을 입력해주세요.');
+      return;
+    }
+    if (!trimmedDesc) {
+      setValidationError('설명을 입력해주세요.');
+      return;
+    }
     const payload: UpdateHeroActivityPayload = {};
-    if (trimmedTitle && trimmedTitle !== hero.title) payload.title = trimmedTitle;
-    if (trimmedDesc && trimmedDesc !== hero.description) payload.description = trimmedDesc;
+    if (trimmedTitle !== hero.title) payload.title = trimmedTitle;
+    if (trimmedDesc !== hero.description) payload.description = trimmedDesc;
     if (pendingPhoto !== null && pendingPhoto.clubPhotoId !== hero.clubPhotoId) {
       payload.clubPhotoId = pendingPhoto.clubPhotoId;
     }
+    // 변경 없음은 조용히 무시(빈 값만 에러).
     if (Object.keys(payload).length === 0) return;
-    await updateMutation.mutateAsync({ heroActivityId: hero.id, payload });
-    onSaved?.();
+    await onBeforeSave?.();
+    try {
+      await updateMutation.mutateAsync({ heroActivityId: hero.id, payload });
+      onSaved?.();
+    } catch {
+      // 표시는 mutationError 채널로.
+    }
   }
 
   async function handleDelete() {
     if (hero === null) return;
-    await deleteMutation.mutateAsync(hero.id);
-    setConfirmOpen(false);
-    onSaved?.();
+    setDeleteError(null);
+    try {
+      await deleteMutation.mutateAsync(hero.id);
+      setConfirmOpen(false);
+      onSaved?.();
+    } catch (error) {
+      // 실패는 다이얼로그를 닫고 인라인 표시(모달 뒤 가림·unhandled rejection 방지).
+      setConfirmOpen(false);
+      setDeleteError(error instanceof Error ? error.message : '삭제에 실패했습니다.');
+    }
   }
 
   const mutationError =
     (createMutation.isError && createMutation.error instanceof Error && createMutation.error.message) ||
     (updateMutation.isError && updateMutation.error instanceof Error && updateMutation.error.message) ||
-    (deleteMutation.isError && deleteMutation.error instanceof Error && deleteMutation.error.message) ||
     null;
-  const displayError = validationError ?? mutationError;
+  const displayError = validationError ?? deleteError ?? mutationError;
 
   return (
     <div className="space-y-2.5">
@@ -184,7 +216,11 @@ export function HeroActivityEditor({
             {hero !== null && (
               <button
                 type="button"
-                onClick={() => setConfirmOpen(true)}
+                onClick={() => {
+                  setValidationError(null);
+                  setDeleteError(null);
+                  setConfirmOpen(true);
+                }}
                 className="ml-auto text-[12.5px] text-charcoal-2 hover:text-coral"
               >
                 비우기
