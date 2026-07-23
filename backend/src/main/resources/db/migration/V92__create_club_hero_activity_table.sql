@@ -16,3 +16,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_club_hero_activity_slot
     ON club_hero_activity (club_id, display_order) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uk_club_hero_activity_photo
     ON club_hero_activity (club_id, club_photo_id) WHERE deleted_at IS NULL;
+
+ALTER TABLE club_hero_activity ENABLE ROW LEVEL SECURITY;

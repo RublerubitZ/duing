@@ -251,7 +251,7 @@ class ClubPhotoCommandServiceTest {
                 club.getId(), leader.getId(), "hero.jpg", null, null, null)).id();
         ClubPhoto photo = clubPhotoRepository.findById(photoId).orElseThrow();
         clubHeroActivityRepository.save(
-                ClubHeroActivity.create(club, photo, "대표활동", "대표 활동 설명", 0));
+                ClubHeroActivity.create(club, photo, "대표활동", "대표 활동 설명", 1));
 
         assertThatThrownBy(() -> clubPhotoService.delete(club.getId(), leader.getId(), photoId))
                 .isInstanceOf(ClubPhotoException.ReferencedByHeroActivity.class);
@@ -269,7 +269,7 @@ class ClubPhotoCommandServiceTest {
                 club.getId(), leader.getId(), "hero2.jpg", null, null, null)).id();
         ClubPhoto photo = clubPhotoRepository.findById(photoId).orElseThrow();
         ClubHeroActivity hero = clubHeroActivityRepository.save(
-                ClubHeroActivity.create(club, photo, "대표활동", "대표 활동 설명", 0));
+                ClubHeroActivity.create(club, photo, "대표활동", "대표 활동 설명", 1));
 
         clubHeroActivityRepository.delete(hero);
         clubPhotoService.delete(club.getId(), leader.getId(), photoId);

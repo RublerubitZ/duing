@@ -19,12 +19,14 @@ import com.duing.domain.club.photo.entity.ClubPhoto;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
@@ -44,7 +46,7 @@ class ClubHeroActivityServiceTest {
     @Autowired ClubHeroActivityRepository clubHeroActivityRepository;
     @Autowired ClubPhotoRepository clubPhotoRepository;
     @Autowired ClubRepository clubRepository;
-    @Autowired com.duing.domain.clubmember.repository.ClubMemberRepository clubMemberRepository;
+    @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
@@ -278,7 +280,7 @@ class ClubHeroActivityServiceTest {
                 College.IT_ENGINEERING,
                 "미설정",
                 "010-0000-0000",
-                java.time.LocalDateTime.now()
+                LocalDateTime.now()
         ));
     }
 

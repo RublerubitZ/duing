@@ -26,6 +26,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
 import java.lang.reflect.Field;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -174,9 +175,24 @@ class ClubHeroActivityControllerTest extends IntegrationTestBase {
                 .then()
                     .statusCode(HttpStatus.NO_CONTENT.value());
 
-        JsonPath list = getList(null);
+        JsonPath list = getList();
         assertThat(list.getString("data[0].title")).isEqualTo("새제목");
         assertThat(list.getString("data[0].description")).isEqualTo("원설명");
+    }
+
+    @Test
+    @DisplayName("PATCH 로 제목·설명을 빈 문자열이나 공백으로 바꾸려 하면 각각 400 을 반환한다")
+    void patchBlankContentReturns400() {
+        ClubPhoto photo = savePhoto("hero.jpg", 1);
+        ClubHeroActivity activity = saveActivity(photo, "원제목", "원설명", 1);
+        Long activityId = activity.getId();
+
+        patchContent(activityId, Map.of("title", ""))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+        patchContent(activityId, Map.of("title", "   "))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+        patchContent(activityId, Map.of("description", " "))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
     @Test
@@ -235,13 +251,13 @@ class ClubHeroActivityControllerTest extends IntegrationTestBase {
                 .then()
                     .statusCode(HttpStatus.NO_CONTENT.value());
 
-        JsonPath list = getList(null);
+        JsonPath list = getList();
         assertThat(list.getList("data.id", Long.class)).containsExactly(second.getId());
         assertThat(list.getInt("data[0].displayOrder")).isEqualTo(2);
     }
 
     @Test
-    @DisplayName("MEMBER 쓰기는 403, 비로그인 쓰기는 401/403 인증 오류를 반환한다")
+    @DisplayName("MEMBER 쓰기는 403, 비로그인 쓰기는 401 인증 오류를 반환한다")
     void memberForbiddenAndAnonymousUnauthorized() {
         ClubPhoto photo = savePhoto("hero.jpg", 1);
         Map<String, Object> body = Map.of(
@@ -259,7 +275,7 @@ class ClubHeroActivityControllerTest extends IntegrationTestBase {
                     .post("/api/v1/clubs/{clubId}/hero-activities", club.getId())
                 .then()
                     .extract().statusCode();
-        assertThat(anonymousStatus).isIn(401, 403);
+        assertThat(anonymousStatus).isEqualTo(HttpStatus.UNAUTHORIZED.value());
     }
 
     @Test
@@ -285,12 +301,20 @@ class ClubHeroActivityControllerTest extends IntegrationTestBase {
                     .post("/api/v1/clubs/{clubId}/hero-activities", club.getId());
     }
 
-    private JsonPath getList(String token) {
-        var request = RestAssured.given();
-        if (token != null) {
-            request.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-        }
-        return request
+    private io.restassured.response.Response patchContent(Long heroActivityId, Map<String, Object> body) {
+        return RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(body)
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/hero-activities/{heroActivityId}",
+                            club.getId(), heroActivityId);
+    }
+
+    private JsonPath getList() {
+        return RestAssured
+                .given()
                 .when()
                     .get("/api/v1/clubs/{clubId}/hero-activities", club.getId())
                 .then()
@@ -319,7 +343,7 @@ class ClubHeroActivityControllerTest extends IntegrationTestBase {
                 College.IT_ENGINEERING,
                 "미설정",
                 "010-0000-0000",
-                java.time.LocalDateTime.now()
+                LocalDateTime.now()
         ));
     }
 
