@@ -12,6 +12,8 @@ type Props = {
   /** 이미 대표 활동으로 쓰인 사진 id — 딤 처리·클릭 불가. */
   usedPhotoIds: number[];
   busy?: boolean;
+  /** 부모가 처리하는 업로드/생성 서버 실패 메시지 — 다이얼로그 안에서 표시(닫힌 채 무반응 방지). */
+  serverError?: string | null;
   onPick: (photo: ClubPhoto) => void;
   onUploadNew: (file: File) => void;
   onClose: () => void;
@@ -26,6 +28,7 @@ export function PhotoPickerDialog({
   photos,
   usedPhotoIds,
   busy = false,
+  serverError = null,
   onPick,
   onUploadNew,
   onClose,
@@ -78,7 +81,9 @@ export function PhotoPickerDialog({
             />
           </label>
           <p className="text-[11.5px] text-charcoal-3">업로드한 사진은 전체 활동 사진에도 추가돼요.</p>
-          {uploadError && <p className="text-[12px] text-coral">{uploadError}</p>}
+          {(uploadError ?? serverError) && (
+            <p className="text-[12px] text-coral">{uploadError ?? serverError}</p>
+          )}
         </div>
 
         {photos.length === 0 ? (

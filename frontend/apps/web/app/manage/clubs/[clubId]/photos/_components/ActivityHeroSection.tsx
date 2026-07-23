@@ -141,6 +141,8 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
     const [replacingHeroId, setReplacingHeroId] = useState<number | null>(null);
     const [activeKey, setActiveKey] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
+    // 피커 안(업로드/생성 서버 실패) 전용 에러 — 다이얼로그를 연 채 표시한다.
+    const [pickerServerError, setPickerServerError] = useState<string | null>(null);
 
     const reorder = useReorderHeroActivitiesMutation(clubId);
     const updateHero = useUpdateHeroActivityMutation(clubId);
@@ -171,6 +173,7 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
 
     function openPicker(slot: Slot) {
       setActionError(null);
+      setPickerServerError(null);
       setPickingKey(slot.key);
       setReplacingHeroId(slot.hero ? slot.hero.id : null);
     }
@@ -178,6 +181,7 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
     function closePicker() {
       setPickingKey(null);
       setReplacingHeroId(null);
+      setPickerServerError(null);
     }
 
     async function handlePick(photo: ClubPhoto) {
@@ -200,7 +204,8 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
     }
 
     async function handleUploadNew(file: File) {
-      setActionError(null);
+      // 재시도 시 이전 실패 메시지 클리어. 실패는 다이얼로그를 연 채 피커 안에 표시한다.
+      setPickerServerError(null);
       try {
         const uploaded = await uploadFile.mutateAsync({ file, purpose: 'PHOTO' });
         const created = await createPhoto.mutateAsync({
@@ -211,7 +216,7 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
         });
         await handlePick(created);
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : '사진 업로드에 실패했습니다.');
+        setPickerServerError(error instanceof Error ? error.message : '사진 업로드에 실패했습니다.');
       }
     }
 
@@ -321,6 +326,7 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
           photos={photos}
           usedPhotoIds={usedPhotoIds}
           busy={busy}
+          serverError={pickerServerError}
           onPick={handlePick}
           onUploadNew={handleUploadNew}
           onClose={closePicker}

@@ -3,22 +3,23 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClubHeroActivity, ClubPhoto } from '@duing/types';
 
-const noopMutation = {
-  mutateAsync: vi.fn().mockResolvedValue(undefined),
-  isPending: false,
-  isError: false,
-  error: null,
-};
+const mockUploadMutateAsync = vi.fn();
+const mockCreatePhotoMutateAsync = vi.fn();
+const mockReorderMutateAsync = vi.fn();
+const mockGenericMutateAsync = vi.fn();
 
-vi.mock('@duing/hooks', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@duing/hooks')>()),
-  useCreateHeroActivityMutation: () => noopMutation,
-  useUpdateHeroActivityMutation: () => noopMutation,
-  useDeleteHeroActivityMutation: () => noopMutation,
-  useReorderHeroActivitiesMutation: () => noopMutation,
-  useCreatePhotoMutation: () => noopMutation,
-  useFileUploadMutation: () => noopMutation,
-}));
+vi.mock('@duing/hooks', async (importOriginal) => {
+  const base = { isPending: false, isError: false, error: null };
+  return {
+    ...(await importOriginal<typeof import('@duing/hooks')>()),
+    useCreateHeroActivityMutation: () => ({ mutateAsync: mockGenericMutateAsync, ...base }),
+    useUpdateHeroActivityMutation: () => ({ mutateAsync: mockGenericMutateAsync, ...base }),
+    useDeleteHeroActivityMutation: () => ({ mutateAsync: mockGenericMutateAsync, ...base }),
+    useReorderHeroActivitiesMutation: () => ({ mutateAsync: mockReorderMutateAsync, ...base }),
+    useCreatePhotoMutation: () => ({ mutateAsync: mockCreatePhotoMutateAsync, ...base }),
+    useFileUploadMutation: () => ({ mutateAsync: mockUploadMutateAsync, ...base }),
+  };
+});
 
 import {
   ActivityHeroSection,
@@ -46,6 +47,10 @@ function makePhoto(id: number): ClubPhoto {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUploadMutateAsync.mockResolvedValue({ storageKey: 'key/new.jpg', url: 'https://cdn/new.jpg' });
+  mockCreatePhotoMutateAsync.mockResolvedValue(makePhoto(500));
+  mockReorderMutateAsync.mockResolvedValue(undefined);
+  mockGenericMutateAsync.mockResolvedValue(undefined);
 });
 
 describe('slotsToReorderPayload', () => {
@@ -100,6 +105,25 @@ describe('ActivityHeroSection', () => {
     expect(screen.getByLabelText('사용 중인 사진')).toBeDisabled();
     // 미사용 사진은 선택 가능
     expect(screen.getByLabelText('이 사진 선택')).toBeEnabled();
+  });
+
+  it('새 사진 업로드 서버 실패 시 다이얼로그 안에 에러를 표시하고 다이얼로그를 유지한다', async () => {
+    mockUploadMutateAsync.mockRejectedValueOnce(new Error('업로드 서버 오류'));
+    const heroes = [makeHero(1, 1)];
+    const photos = [makePhoto(10)];
+    render(<ActivityHeroSection clubId={1} heroActivities={heroes} photos={photos} />);
+
+    const [pickButton] = screen.getAllByRole('button', { name: '사진 선택' });
+    if (!pickButton) throw new Error('사진 선택 버튼을 찾지 못했습니다');
+    fireEvent.click(pickButton);
+
+    const fileInput = screen.getByLabelText('새 사진 업로드');
+    const file = new File(['x'], 'a.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    // 서버 실패 메시지가 다이얼로그 내부에 노출되고 다이얼로그는 열린 채 유지된다.
+    expect(await screen.findByText('업로드 서버 오류')).toBeInTheDocument();
+    expect(screen.getByText('대표 활동 사진 선택')).toBeInTheDocument();
   });
 
   it('promotePhoto 는 첫 빈 슬롯에 사진을 시드해 편집 상태로 전환한다', () => {
