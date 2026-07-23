@@ -264,6 +264,73 @@ class ClubHeroActivityServiceTest {
                 .isInstanceOf(AccessDeniedException.class);
     }
 
+    @Test
+    @DisplayName("대표 활동을 삭제한 뒤 같은 슬롯·같은 사진으로 다시 생성하면 부분 유니크 위반 없이 성공한다")
+    void recreateAfterDeleteWithSameSlotAndPhotoSucceeds() throws Exception {
+        User leader = saveUser("리더재등록");
+        Club club = saveActiveClub("두잉히어로재등록");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        ClubPhoto photo = savePhoto(club, "recreate.jpg", 0);
+        Long firstHeroId = clubHeroActivityService.create(new CreateHeroActivityCommand(
+                club.getId(), leader.getId(), photo.getId(), "처음제목", "처음설명", 2)).id();
+
+        clubHeroActivityService.delete(club.getId(), leader.getId(), firstHeroId);
+        // soft-delete UPDATE 를 재생성 INSERT 보다 먼저 밀어내 두 요청(두 트랜잭션) 흐름을 재현한다.
+        clubHeroActivityRepository.flush();
+
+        HeroActivityQuery recreated = clubHeroActivityService.create(new CreateHeroActivityCommand(
+                club.getId(), leader.getId(), photo.getId(), "다시제목", "다시설명", 2));
+
+        assertThat(recreated.id()).isNotEqualTo(firstHeroId);
+        assertThat(recreated.clubPhotoId()).isEqualTo(photo.getId());
+        assertThat(recreated.displayOrder()).isEqualTo(2);
+        assertThat(clubHeroActivityRepository.findByClubId(club.getId())).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("자기 clubId 에 타 클럽 대표 활동 id 로 update·delete 하면 NotInClub 이 발생한다")
+    void updateAndDeleteRejectForeignHeroActivity() throws Exception {
+        User leader = saveUser("리더타활동");
+        Club clubA = saveActiveClub("두잉히어로타A");
+        Club clubB = saveActiveClub("두잉히어로타B");
+        clubMemberRepository.save(ClubMember.asLeader(clubA, leader));
+        clubMemberRepository.save(ClubMember.asLeader(clubB, leader));
+        ClubPhoto photoInB = savePhoto(clubB, "inB.jpg", 0);
+        Long heroInB = clubHeroActivityService.create(new CreateHeroActivityCommand(
+                clubB.getId(), leader.getId(), photoInB.getId(), "b제목", "b설명", 1)).id();
+
+        assertThatThrownBy(() -> clubHeroActivityService.update(new UpdateHeroActivityCommand(
+                clubA.getId(), leader.getId(), heroInB, null, "바꿈", null)))
+                .isInstanceOf(ClubHeroActivityException.NotInClub.class);
+        assertThatThrownBy(() -> clubHeroActivityService.delete(clubA.getId(), leader.getId(), heroInB))
+                .isInstanceOf(ClubHeroActivityException.NotInClub.class);
+    }
+
+    @Test
+    @DisplayName("reorder 페이로드에 중복 슬롯 또는 중복 id 가 있으면 OrderMismatch 가 발생한다")
+    void reorderRejectsDuplicateSlotAndDuplicateId() throws Exception {
+        User leader = saveUser("리더중복정렬");
+        Club club = saveActiveClub("두잉히어로중복정렬");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        ClubPhoto photo1 = savePhoto(club, "dq1.jpg", 0);
+        ClubPhoto photo2 = savePhoto(club, "dq2.jpg", 1);
+        Long hero1 = clubHeroActivityService.create(new CreateHeroActivityCommand(
+                club.getId(), leader.getId(), photo1.getId(), "t1", "d1", 1)).id();
+        Long hero2 = clubHeroActivityService.create(new CreateHeroActivityCommand(
+                club.getId(), leader.getId(), photo2.getId(), "t2", "d2", 2)).id();
+
+        // 서로 다른 대표 활동이 같은 슬롯 1 을 요구 → 중복 슬롯
+        assertThatThrownBy(() -> clubHeroActivityService.reorder(new ReorderHeroActivitiesCommand(
+                club.getId(), leader.getId(),
+                List.of(new HeroOrder(hero1, 1), new HeroOrder(hero2, 1)))))
+                .isInstanceOf(ClubHeroActivityException.OrderMismatch.class);
+        // 같은 대표 활동 id 가 두 번, 다른 id 는 누락 → 중복 id
+        assertThatThrownBy(() -> clubHeroActivityService.reorder(new ReorderHeroActivitiesCommand(
+                club.getId(), leader.getId(),
+                List.of(new HeroOrder(hero1, 1), new HeroOrder(hero1, 2)))))
+                .isInstanceOf(ClubHeroActivityException.OrderMismatch.class);
+    }
+
     private ClubPhoto savePhoto(Club club, String storageKey, int displayOrder) {
         return clubPhotoRepository.save(
                 ClubPhoto.create(club, storageKey, "캡션", 100, 100, displayOrder));

@@ -157,7 +157,10 @@ public class GeneralClubHeroActivityService implements ClubHeroActivityService {
     }
 
     private ClubPhoto findPhotoInClub(Long clubPhotoId, Long clubId) {
-        ClubPhoto photo = clubPhotoRepository.findById(clubPhotoId)
+        // 사진 행을 PESSIMISTIC_WRITE 로 잠근다 — 사진 삭제 가드(GeneralClubPhotoService.delete)와 같은
+        // 사진 행을 두고 직렬화해 soft-delete 된 사진을 참조하는 대표 활동이 성립하는 TOCTOU 를 차단한다.
+        // 삭제가 선행했다면 @SQLRestriction 재적용으로 빈 결과 → PhotoNotFound 로 안전하게 실패한다.
+        ClubPhoto photo = clubPhotoRepository.findByIdForUpdate(clubPhotoId)
                 .orElseThrow(ClubHeroActivityException.PhotoNotFound::new);
         if (!photo.getClub().getId().equals(clubId)) {
             throw new ClubHeroActivityException.PhotoNotFound();
