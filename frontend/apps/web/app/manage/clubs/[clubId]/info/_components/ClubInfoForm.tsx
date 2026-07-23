@@ -595,7 +595,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                       descriptionOverLimit ? 'text-[#b04a2a]' : 'text-[#8a8f83]'
                     }`}
                   >
-                    {`${descriptionTextLength}/1,500 · 권장 300~800자`}
+                    {`${descriptionTextLength.toLocaleString()}/1,500 · 권장 300~800자`}
                   </span>
                 )}
               </div>

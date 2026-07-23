@@ -114,7 +114,7 @@ describe('ClubInfoForm 소개 에디터', () => {
     render(<ClubInfoForm detail={makeDetail()} mode="leader" mutation={{ mutateAsync, isPending: false }} />);
 
     fireEditorChange(`<p>${'가'.repeat(1600)}</p>`, 1600);
-    expect(screen.getByText('1600/1,500 · 권장 300~800자')).toBeInTheDocument();
+    expect(screen.getByText('1,600/1,500 · 권장 300~800자')).toBeInTheDocument();
     expect(screen.getByText('소개글은 1,500자 이하로 줄여주세요.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '저장' }));

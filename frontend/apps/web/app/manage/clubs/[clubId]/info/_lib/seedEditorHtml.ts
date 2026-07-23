@@ -6,7 +6,9 @@
 // 빈 줄로 문단을 나눠 <p> 로 감싸고 문단 내 단일 개행은 <br> 로 보존한다.
 // '<','>','&' 는 이스케이프해 문단 중간의 특수문자가 태그로 오인·삭제되는 데이터 손실을 막는다.
 
-const HTML_LEADING = /^\s*</;
+// 실제 태그(<p, <h2, <!--, </…)로 시작할 때만 HTML 로 본다. "<신입 모집>" 처럼 '<' 뒤가 한글/공백이면
+// 태그가 성립하지 않으므로 plain 으로 취급해 escape 경로로 회수한다(데이터 손실 방지).
+const HTML_LEADING = /^\s*<[a-z!/]/i;
 const BLANK_LINE = /\n\s*\n/;
 
 function escapeHtml(text: string): string {
@@ -15,8 +17,6 @@ function escapeHtml(text: string): string {
 
 export function seedEditorHtml(source: string): string {
   if (source.trim() === '') return '';
-  // ponytail: '<' 로 시작하는 레거시 plain(예: "<신입 모집>")은 HTML 로 오인해 통과 →
-  // 에디터 sanitize 에서 소실될 수 있음. 학생 렌더(splitDescription)와 동일한 희소 케이스라 브리프 범위 밖.
   if (HTML_LEADING.test(source)) return source;
   return source
     .split(BLANK_LINE)
