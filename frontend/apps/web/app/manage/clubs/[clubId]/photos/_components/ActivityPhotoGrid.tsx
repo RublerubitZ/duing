@@ -47,19 +47,28 @@ export function ActivityPhotoGrid({
 }: Props) {
   // 드래그로 즉시 갱신되는 로컬 순서. server 갱신 성공 후 props 가 동기화될 때까지 사용.
   const [order, setOrder] = useState(photos);
+  const [reorderError, setReorderError] = useState<string | null>(null);
   const usedSet = new Set(usedPhotoIds);
   const reorder = useReorderPhotosMutation(clubId);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingReorder = useRef<ClubPhoto[] | null>(null);
   const lastCommitted = useRef(photos);
+  // 최신 runReorder 를 ref 로 보관 — unmount cleanup 이 deps 없이 호출하게(함수는 매 렌더 재생성).
+  const runReorderRef = useRef<(next: ClubPhoto[]) => void>(() => {});
 
   useEffect(() => {
     setOrder(photos);
     lastCommitted.current = photos;
   }, [photos]);
 
+  // unmount 시 대기 중 정렬이 있으면 타이머를 버리는 대신 즉시 발화(fire-and-forget) — RQ mutation 은 완주.
+  // StrictMode 이중 마운트는 pendingReorder 가 null 이라 no-op.
   useEffect(
     () => () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      const queued = pendingReorder.current;
+      pendingReorder.current = null;
+      if (queued) runReorderRef.current(queued);
     },
     [],
   );
@@ -80,24 +89,39 @@ export function ActivityPhotoGrid({
     scheduleReorder(next);
   }
 
-  function scheduleReorder(next: ClubPhoto[]) {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(async () => {
+  // PUT 실행 본체 — 롤백·인라인 에러 통지를 담당(unmount flush 도 이 경로를 재사용).
+  function runReorder(next: ClubPhoto[]) {
+    void (async () => {
       try {
         await reorder.mutateAsync({
           items: next.map((photo, index) => ({ photoId: photo.id, displayOrder: index })),
         });
         lastCommitted.current = next;
+        setReorderError(null);
       } catch {
-        // 실패 시 마지막으로 commit 된 순서로 롤백.
+        // 실패 시 마지막으로 commit 된 순서로 롤백 + alert 대신 섹션 인라인 에러(그리드 업로드 에러와 같은 채널).
         setOrder(lastCommitted.current);
-        alert('순서 저장에 실패했습니다. 다시 시도해주세요.');
+        setReorderError('순서 저장에 실패했습니다. 다시 시도해주세요.');
       }
+    })();
+  }
+  runReorderRef.current = runReorder;
+
+  function scheduleReorder(next: ClubPhoto[]) {
+    setReorderError(null);
+    pendingReorder.current = next;
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      debounceTimer.current = null;
+      const queued = pendingReorder.current;
+      pendingReorder.current = null;
+      if (queued) runReorder(queued);
     }, REORDER_DEBOUNCE_MS);
   }
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      {reorderError && <p className="mb-2 text-[11.5px] text-coral">{reorderError}</p>}
       <SortableContext items={order.map((photo) => photo.id)} strategy={rectSortingStrategy}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
           {order.map((photo) => (

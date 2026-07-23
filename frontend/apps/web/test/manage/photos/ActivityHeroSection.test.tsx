@@ -23,6 +23,7 @@ vi.mock('@duing/hooks', async (importOriginal) => {
 
 import {
   ActivityHeroSection,
+  reconcileSlots,
   slotsToReorderPayload,
   type ActivityHeroSectionHandle,
 } from '../../../app/manage/clubs/[clubId]/photos/_components/ActivityHeroSection';
@@ -75,6 +76,48 @@ describe('slotsToReorderPayload', () => {
     expect(slotsToReorderPayload(slots)).toEqual(
       [1, 2, 3, 4, 5, 6].map((n) => ({ heroActivityId: n, displayOrder: n })),
     );
+  });
+});
+
+describe('reconcileSlots (M-2 빈 슬롯 키 reconcile)', () => {
+  const H1 = makeHero(1, 2); // 서버 displayOrder 2
+  const H2 = makeHero(2, 3); // 서버 displayOrder 3
+  // 사용자가 empty-3 슬롯(pending draft)을 pos1 로 드래그해 H1·H2 가 뒤로 밀린 로컬 order.
+  const draggedOrder = [
+    { key: 'empty-3', hero: null },
+    { key: 'hero-1', hero: H1 },
+    { key: 'hero-2', hero: H2 },
+    { key: 'empty-4', hero: null },
+    { key: 'empty-5', hero: null },
+    { key: 'empty-6', hero: null },
+  ];
+
+  it('드래그로 옮긴 빈 슬롯(pending) 키를 옮긴 위치에 보존한다(위치 기반 재생성 안 함)', () => {
+    const next = reconcileSlots([H1, H2], draggedOrder);
+    // pos1(빈 위치)에 드래그한 pending 키가 그대로 — buildSlots 였다면 empty-1 로 뒤바뀌어 pending 이 유실/점프한다.
+    expect(next[0]).toEqual({ key: 'empty-3', hero: null });
+    expect(next[1]?.key).toBe('hero-1');
+    expect(next[2]?.key).toBe('hero-2');
+  });
+
+  it('옮긴 빈 슬롯 위치가 서버 hero 로 채워지면(displaced) 그 키를 버린다 → pending 정리 대상', () => {
+    const Hnew = makeHero(9, 1); // 서버가 pos1 을 새 hero 로 채움
+    const next = reconcileSlots([Hnew, H1, H2], draggedOrder);
+    expect(next[0]?.key).toBe('hero-9');
+    // empty-3 키가 어디에도 남지 않는다 → I-8 pending 정리 effect 가 그 draft 를 걷어낸다.
+    expect(next.some((slot) => slot.key === 'empty-3')).toBe(false);
+  });
+
+  it('prevOrder 가 비면 위치 기반 키를 발급한다(buildSlots 동치)', () => {
+    const next = reconcileSlots([makeHero(1, 1)], []);
+    expect(next.map((slot) => slot.key)).toEqual([
+      'hero-1',
+      'empty-2',
+      'empty-3',
+      'empty-4',
+      'empty-5',
+      'empty-6',
+    ]);
   });
 });
 
