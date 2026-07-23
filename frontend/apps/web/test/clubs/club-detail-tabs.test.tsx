@@ -1,9 +1,37 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-import type { ClubDetail, MyClubMembership } from '@duing/types';
+import type { ClubDetail, MyClubMembership, ClubHeroActivity } from '@duing/types';
+
+/* ── 모듈 모킹 ─────────────────────────────────────────────── */
+// ClubDetailTabs 가 소개 탭 안에서 ClubDetailHeroActivities(→ useClubHeroActivitiesQuery)를
+// 마운트하므로, TanStack 내부는 건드리지 않고 커스텀 훅만 부분 mock 한다(레포 관례).
+const mockUseClubHeroActivitiesQuery = vi.fn();
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
+  useClubHeroActivitiesQuery: (...args: unknown[]) => mockUseClubHeroActivitiesQuery(...args),
+}));
 
 import { ClubDetailTabs } from '../../app/clubs/[clubId]/_components/ClubDetailTabs';
+
+// a 가 b 앞에 오면 true (DOCUMENT_POSITION_FOLLOWING = 4).
+function isBefore(first: Element, second: Element): boolean {
+  return Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+}
+
+function makeHero(id: number, displayOrder: number): ClubHeroActivity {
+  return {
+    id,
+    clubPhotoId: id * 10,
+    storageKey: `key/${id}.jpg`,
+    caption: null,
+    width: null,
+    height: null,
+    title: `히어로${id}`,
+    description: `설명${id}`,
+    displayOrder,
+  };
+}
 
 const memberMembership: MyClubMembership = {
   role: 'MEMBER',
@@ -51,6 +79,12 @@ const baseClub: ClubDetail = {
 };
 
 describe('ClubDetailTabs', () => {
+  beforeEach(() => {
+    mockUseClubHeroActivitiesQuery.mockReset();
+    // 기본은 hero 0개 — 대부분 케이스는 대표 활동 섹션이 조용히 미렌더된다.
+    mockUseClubHeroActivitiesQuery.mockReturnValue({ data: [], isLoading: false, isError: false });
+  });
+
   it('데이터가 하나도 없으면 컨테이너 자체를 렌더링하지 않는다 (null 반환)', () => {
     const { container } = render(<ClubDetailTabs club={baseClub} photos={[]} />);
     expect(container.firstChild).toBeNull();
@@ -124,7 +158,7 @@ describe('ClubDetailTabs', () => {
     expect(screen.queryByRole('tab', { name: '일정' })).toBeNull();
   });
 
-  it('projects 만 있는 동아리는 소개 탭이 사라지고 다음 탭이 기본 선택된다', () => {
+  it('projects 만 있어도 소개 탭이 노출되고 그 안에 "이런 활동을 해요"가 렌더된다', () => {
     render(
       <ClubDetailTabs
         club={{
@@ -138,12 +172,14 @@ describe('ClubDetailTabs', () => {
         membership={null}
       />,
     );
-    // 주요 프로젝트는 랜딩 섹션으로 이관 — 더 이상 소개 탭을 만들지 않는다.
-    expect(screen.queryByRole('tab', { name: '소개' })).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Q&A' })).toHaveAttribute('data-state', 'active');
+    // 주요 프로젝트(랜딩 섹션)를 소개 탭 안으로 되돌렸다 — projects 만 있어도 소개 탭이 첫 활성 탭.
+    expect(screen.getByRole('tab', { name: '소개' })).toHaveAttribute('data-state', 'active');
+    const introPanel = screen.getByRole('tabpanel');
+    expect(within(introPanel).getByRole('heading', { name: '이런 활동을 해요' })).toBeInTheDocument();
+    expect(within(introPanel).getByText('해커톤')).toBeInTheDocument();
   });
 
-  it('소개 탭 콘텐츠에 주요 프로젝트가 더 이상 렌더되지 않는다', () => {
+  it('소개 탭에 옛 About 의 "주요 프로젝트" 섹션 문자열은 렌더되지 않는다', () => {
     render(
       <ClubDetailTabs
         club={{
@@ -156,7 +192,33 @@ describe('ClubDetailTabs', () => {
     );
     expect(screen.getByRole('tab', { name: '소개' })).toHaveAttribute('data-state', 'active');
     expect(screen.getByText('본문')).toBeInTheDocument();
-    expect(screen.queryByText('해커톤')).toBeNull();
+    // projects 는 "이런 활동을 해요" 카드로 노출 — 옛 About 의 "주요 프로젝트" 섹션 헤딩은 부재.
+    expect(screen.queryByText('주요 프로젝트')).not.toBeInTheDocument();
+  });
+
+  it('소개 탭 안 순서: 대표 활동 → 이런 활동을 해요 → 소개글', () => {
+    mockUseClubHeroActivitiesQuery.mockReturnValue({
+      data: [makeHero(1, 1)],
+      isLoading: false,
+      isError: false,
+    });
+    render(
+      <ClubDetailTabs
+        club={{
+          ...baseClub,
+          description: '소개 본문',
+          projects: [{ icon: 'CODE', title: '해커톤', subtitle: null }],
+        }}
+        photos={[]}
+      />,
+    );
+    const introPanel = screen.getByRole('tabpanel');
+    const heroHeading = within(introPanel).getByRole('heading', { name: '대표 활동' });
+    const introHeading = within(introPanel).getByRole('heading', { name: '이런 활동을 해요' });
+    const aboutText = within(introPanel).getByText('소개 본문');
+
+    expect(isBefore(heroHeading, introHeading)).toBe(true);
+    expect(isBefore(introHeading, aboutText)).toBe(true);
   });
 
   it('가입한 멤버에게는 공지/일정 탭을 추가로 노출한다', () => {

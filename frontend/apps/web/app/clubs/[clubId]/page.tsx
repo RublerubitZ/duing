@@ -8,10 +8,8 @@ import { useAuthStore } from '@duing/stores';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
 import { ClubContactCard } from './_components/ClubContactCard';
-import { ClubDetailActivityIntro } from './_components/ClubDetailActivityIntro';
 import { ClubDetailApplyBar } from './_components/ClubDetailApplyBar';
 import { ClubDetailHero } from './_components/ClubDetailHero';
-import { ClubDetailHeroActivities } from './_components/ClubDetailHeroActivities';
 import { ClubDetailStats } from './_components/ClubDetailStats';
 import { ClubDetailTabs } from './_components/ClubDetailTabs';
 import { ClubRecruitmentCard } from './_components/ClubRecruitmentCard';
@@ -61,8 +59,6 @@ export default function ClubDetailPage({
             <div className="mb-6 md:hidden">
               <ClubRecruitmentSummary recruitment={club.activeRecruitment ?? undefined} />
             </div>
-            <ClubDetailHeroActivities clubId={clubId} />
-            <ClubDetailActivityIntro projects={club.projects} />
             <ClubDetailTabs club={club} photos={photos.data ?? []} membership={membership.data ?? null} />
           </div>
 

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -135,29 +135,29 @@ function isBefore(first: Element, second: Element): boolean {
 }
 
 describe('동아리 상세 page 랜딩 조립', () => {
-  it('랜딩 두 섹션(대표 활동·이런 활동을 해요)이 탭리스트보다 DOM 앞에 온다', async () => {
+  it('랜딩 두 섹션(대표 활동·이런 활동을 해요)이 소개 탭패널 안에서 렌더된다', async () => {
     seed();
     renderPage();
 
     const heroHeading = await screen.findByRole('heading', { name: '대표 활동' });
     const introHeading = screen.getByRole('heading', { name: '이런 활동을 해요' });
-    const tablist = screen.getByRole('tablist');
+    const tabpanel = screen.getByRole('tabpanel');
 
-    expect(isBefore(heroHeading, tablist)).toBe(true);
-    expect(isBefore(introHeading, tablist)).toBe(true);
+    expect(tabpanel).toContainElement(heroHeading);
+    expect(tabpanel).toContainElement(introHeading);
   });
 
-  it('모바일 모집 요약이 랜딩 섹션보다 DOM 앞에 온다', async () => {
+  it('모바일 모집 요약이 탭리스트보다 DOM 앞에 온다', async () => {
     seed();
     renderPage();
 
-    const heroHeading = await screen.findByRole('heading', { name: '대표 활동' });
-    const summary = screen.getByRole('region', { name: '모집 정보' });
+    const summary = await screen.findByRole('region', { name: '모집 정보' });
+    const tablist = screen.getByRole('tablist');
 
-    expect(isBefore(summary, heroHeading)).toBe(true);
+    expect(isBefore(summary, tablist)).toBe(true);
   });
 
-  it('hero API 500 이어도 페이지 본문(Stats·탭)은 렌더되고 대표 활동 헤더는 없다', async () => {
+  it('hero API 500 이어도 페이지 본문은 렌더되고 소개 탭 안에 대표 활동 헤더는 없다', async () => {
     seed({ heroFails: true });
     renderPage();
 
@@ -166,8 +166,13 @@ describe('동아리 상세 page 랜딩 조립', () => {
     expect(tablist).toBeInTheDocument();
     // Stats(창설년도 셀)도 정상.
     expect(screen.getByText('창설년도')).toBeInTheDocument();
-    // hero 실패는 조용히 강등 — 대표 활동 헤더 부재.
-    expect(screen.queryByRole('heading', { name: '대표 활동' })).not.toBeInTheDocument();
+
+    const tabpanel = screen.getByRole('tabpanel');
+    // hero 실패는 조용히 강등 — 소개 탭 안 대표 활동 헤더 부재.
+    expect(within(tabpanel).queryByRole('heading', { name: '대표 활동' })).not.toBeInTheDocument();
+    // 소개 탭 본문(소개글·이런 활동을 해요)은 정상 렌더.
+    expect(within(tabpanel).getByText('동아리 본문 소개')).toBeInTheDocument();
+    expect(within(tabpanel).getByRole('heading', { name: '이런 활동을 해요' })).toBeInTheDocument();
     // hero 쿼리가 500 으로 정착하면 스켈레톤도 남지 않는다(로딩이 걸려 있지 않음).
     await waitFor(() =>
       expect(

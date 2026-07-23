@@ -7,6 +7,8 @@ import { formatClubFee } from '../../../_lib/clubFee';
 import { activityScheduleLabel } from '../../_lib/activeDaysLabel';
 import { ClubDetailAbout } from './ClubDetailAbout';
 import { ClubDetailActivity } from './ClubDetailActivity';
+import { ClubDetailActivityIntro } from './ClubDetailActivityIntro';
+import { ClubDetailHeroActivities } from './ClubDetailHeroActivities';
 import { ClubDetailInfoList } from './ClubDetailInfoList';
 import { ClubDetailQna } from './ClubDetailQna';
 import { ClubDetailNotices } from './ClubDetailNotices';
@@ -25,7 +27,8 @@ type Props = {
 
 export function ClubDetailTabs({ club, photos, membership }: Props) {
   const hasIntro = club.description !== null
-    || club.highlights.length > 0;
+    || club.highlights.length > 0
+    || club.projects.length > 0;
   const hasActivity = activityScheduleLabel(club.activityFrequency, club.activeDays) !== null
     || photos.length > 0;
   const hasQna = club.faqs.length > 0;
@@ -68,6 +71,8 @@ export function ClubDetailTabs({ club, photos, membership }: Props) {
 
       {hasIntro && (
         <TabsContent value="intro">
+          <ClubDetailHeroActivities clubId={club.id} />
+          <ClubDetailActivityIntro projects={club.projects} />
           <ClubDetailAbout
             description={club.description}
             highlights={club.highlights}
