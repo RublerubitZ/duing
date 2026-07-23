@@ -55,7 +55,8 @@ export function ClubHeroSwipe({ heroActivities, onOpen }: Props) {
           </button>
         ))}
       </div>
-      <div className="mt-3 flex justify-center gap-1.5">
+      {/* 도트: 시각 6px 유지, 히트 영역은 버튼 패딩으로 확장(WCAG 2.5.8 최소 24px). */}
+      <div className="mt-0.5 flex justify-center">
         {heroActivities.map((activity, index) => (
           <button
             key={activity.id}
@@ -63,11 +64,15 @@ export function ClubHeroSwipe({ heroActivities, onOpen }: Props) {
             onClick={() => goTo(index)}
             aria-label={`${index + 1}번째 대표 활동`}
             aria-current={index === currentIndex || undefined}
-            className={cn(
-              'h-1.5 rounded-full transition-all',
-              index === currentIndex ? 'w-5 bg-ink' : 'w-1.5 bg-line',
-            )}
-          />
+            className="px-[3px] py-2.5"
+          >
+            <span
+              className={cn(
+                'block h-1.5 rounded-full transition-all',
+                index === currentIndex ? 'w-5 bg-ink' : 'w-1.5 bg-line',
+              )}
+            />
+          </button>
         ))}
       </div>
     </div>

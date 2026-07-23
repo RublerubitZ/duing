@@ -91,7 +91,7 @@ function AboutDescription({ description }: { description: string }) {
           onClick={() => setExpanded((prev) => !prev)}
           aria-expanded={expanded}
           aria-controls={rest !== null ? panelId : undefined}
-          className="mt-4 inline-flex items-center gap-1 text-[14px] font-semibold text-ink"
+          className="mt-3 inline-flex items-center gap-1 py-1.5 text-[14px] font-semibold text-ink"
         >
           {expanded ? '접기' : '더보기'}
           <ChevronDown aria-hidden className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} />

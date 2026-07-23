@@ -21,7 +21,7 @@ describe('ClubHeroSwipe — 모바일 스와이프(학생 래퍼)', () => {
     expect(screen.getAllByRole('button', { name: /자세히 보기/ })).toHaveLength(3);
     const dots = screen.getAllByRole('button', { name: /번째 대표 활동/ });
     expect(dots).toHaveLength(3);
-    expect(dots[0]?.className).toContain('w-5'); // 활성 도트 확대
+    expect(dots[0]?.firstElementChild?.className).toContain('w-5'); // 활성 도트 확대(시각은 내부 span, 버튼은 히트 영역)
   });
 
   it('스크롤 위치에 따라 활성 도트가 바뀐다', () => {
@@ -30,7 +30,7 @@ describe('ClubHeroSwipe — 모바일 스와이프(학생 래퍼)', () => {
     Object.defineProperty(track, 'clientWidth', { value: 300, configurable: true });
     Object.defineProperty(track, 'scrollLeft', { value: 600, configurable: true });
     fireEvent.scroll(track);
-    expect(screen.getAllByRole('button', { name: /번째 대표 활동/ })[2]?.className).toContain('w-5');
+    expect(screen.getAllByRole('button', { name: /번째 대표 활동/ })[2]?.firstElementChild?.className).toContain('w-5');
   });
 
   it('카드 클릭 시 해당 인덱스로 onOpen 을 부른다', () => {
