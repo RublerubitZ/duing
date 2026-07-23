@@ -1,5 +1,5 @@
 import { createRef } from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClubHeroActivity, ClubPhoto } from '@duing/types';
 
@@ -122,7 +122,7 @@ describe('ActivityHeroSection', () => {
     fireEvent.change(fileInput, { target: { files: [file] } });
 
     // 서버 실패 메시지가 다이얼로그 내부에 노출되고 다이얼로그는 열린 채 유지된다.
-    expect(await screen.findByText('업로드 서버 오류')).toBeInTheDocument();
+    expect(await within(screen.getByRole('dialog')).findByText('업로드 서버 오류')).toBeInTheDocument();
     expect(screen.getByText('대표 활동 사진 선택')).toBeInTheDocument();
   });
 
