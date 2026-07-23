@@ -681,3 +681,18 @@ export function ClubDetailActivityIntro({ projects }: Props) {
 - [ ] Step 1: 실패 테스트 — 헤더 문구 2종, 추천 소제목+체크 리스트 렌더, 칩 행 부재, highlights 없음 → 소제목·Divider 부재, 본문 없음+highlights 만 → 추천만, 기존 더보기 테스트 GREEN 유지
 - [ ] Step 2: RED → Step 3: 구현 → Step 4: `test/clubs/` GREEN + typecheck
 - [ ] Step 5: Commit — `feat(frontend): 소개 섹션 헤더 통일·"이런 분께 추천해요" 체크 리스트`
+
+---
+
+### Task 14 (v5): 우측 신청 패널 Sticky + 찜 버튼 우상단 이동
+
+**Files:**
+- Modify: `frontend/apps/web/app/clubs/[clubId]/page.tsx` (우측 컬럼 div 에 `lg:sticky lg:top-6 lg:self-start`)
+- Modify: `frontend/apps/web/app/clubs/[clubId]/_components/ClubRecruitmentCard.tsx` (찜 버튼 하단 행 제거 → 카드 우상단 absolute 플로팅)
+- Test: `frontend/apps/web/test/clubs/club-recruitment-card.test.tsx` (찜 버튼 위치·기능 단언 갱신), `club-detail-page.test.tsx` (우측 컬럼 sticky 클래스 단언 1건)
+
+**Interfaces:** 시그니처 전부 불변. ClubRecruitmentCard 루트(aside)는 `relative` 확보 후 `FavoriteToggleButton` 을 `absolute right-5 top-5`(카드 패딩과 정합한 값) 배치 — 모집중·모집예정·마감 상태 전부 동일. 하단 `flex gap-2` 행은 찜 제거 후 비면 행 자체 제거.
+
+- [ ] Step 1: 실패 테스트 — 찜 버튼이 카드 상단 영역에 존재(+하단 행 부재), aria-pressed 토글 기능 유지, page 우측 컬럼에 sticky·self-start 클래스
+- [ ] Step 2: RED → Step 3: 구현 → Step 4: `test/clubs/` GREEN + typecheck
+- [ ] Step 5: Commit — `feat(frontend): 동아리 상세 우측 신청 패널 Sticky·찜 버튼 우상단 이동`
