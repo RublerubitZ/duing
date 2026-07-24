@@ -7,6 +7,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useFavoriteListQuery, useLogout, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME, isCollege } from '@duing/types';
+import posthog from 'posthog-js';
 
 import { toRoute } from '@/app/_lib/route';
 import { HomeNav } from '@/app/_components/HomeNav';
@@ -135,6 +136,7 @@ export function SettingsPage() {
   const handleLogout = async () => {
     try {
       await logout();
+      posthog.reset();
       router.replace('/');
     } catch {
       addToast(

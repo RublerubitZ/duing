@@ -7,6 +7,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { ApiError } from '@duing/api';
 import { useCreateFederationInquiryMutation } from '@duing/hooks';
+import posthog from 'posthog-js';
 
 import { toRoute } from '@/app/_lib/route';
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -36,6 +37,10 @@ export function InquiryCreatePage() {
         title: title.trim(),
         content: content.trim(),
         attachmentUrls: attachmentUrls.length > 0 ? attachmentUrls : undefined,
+      });
+      posthog.capture('inquiry_submitted', {
+        inquiry_id: inquiryId,
+        has_attachments: attachmentUrls.length > 0,
       });
       addToast('문의가 등록되었어요');
       router.push(toRoute(`/me/inquiries/${inquiryId}`));

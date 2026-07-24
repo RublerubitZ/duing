@@ -7,6 +7,7 @@ import { useApiClient } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import posthog from 'posthog-js';
 
 // 이 브라우저에서 세션이 살아 있던 적이 있는지 표시하는 로컬 플래그.
 // 인증 쿠키 3종은 모두 HttpOnly 라 JS 로는 로그인 여부를 알 수 없는데, 로그인한 적도 없는
@@ -57,6 +58,7 @@ export function AuthSessionBootstrap() {
       .then((user) => {
         if (cancelled) return;
         setSession(user);
+        posthog.identify(user.studentId, { role: user.role, grade: user.grade, college: user.college });
       })
       .catch((sessionError: unknown) => {
         if (cancelled) return;
