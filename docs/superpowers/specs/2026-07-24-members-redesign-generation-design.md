@@ -23,14 +23,15 @@
 ## PR-1: Backend (V93, 순수 additive)
 
 - **V93 마이그레이션**: `club.use_generation BOOLEAN NOT NULL DEFAULT false` +
-  `club_member.generation INTEGER NULL`. **DB CHECK 없음**(저위험 표시 필드 — 서비스 레벨 1~999 검증만).
+  `club_member.generation INTEGER NULL`. **DB CHECK 없음** — 서비스 레벨 검증만: **양의 정수(≥1)**, 구체적 최대값은 스펙으로 고정하지 않음.
   기존 데이터 무영향(NULL 유지)·V92 이미지와 롤백 호환.
 - **멤버 목록 응답 확장**(`ClubMemberQuery`): `generation`(nullable) + `feeStatus`(PAID/UNPAID/NONE).
   회비 판정 = 해당 club 의 유저별 **가장 최근 FeeBill(created_at 기준)** 상태, 청구 없으면 NONE.
   **단일 쿼리**(서브쿼리/윈도우) — 멤버당 N+1 금지.
 - **기수 수정 API**: `PATCH /leader/clubs/{clubId}/members/{memberId}/generation`
-  body `{ generation: number | null }` — null=클리어(명시적). 범위 검증 1~999(서비스). use_generation
-  무관하게 **항상 저장**(표시 제어 전용 정책).
+  body `{ generation: number | null }` — null=클리어(명시적). 검증: 양의 정수(서비스 레벨). use_generation
+  무관하게 **항상 저장** — useGeneration 은 데이터 저장 여부가 아니라 **UI 표시 여부만 제어**(FE: true 일 때만
+  기수 컬럼·필터·입력·상세 노출, false 면 전부 숨김).
 - **설정**: `UpdateClubRequest`에 `useGeneration Boolean`(null=미변경 — clear-intent 규약) 추가,
   `ClubDetail` 응답에 `useGeneration` 노출(FE 회원·정보 페이지 공유, 민감정보 아님).
 - 권한: 기존 `requireEditableClubManager` 계열 재사용. 기존 API·Enum·권한 정책 무변경.
@@ -42,7 +43,7 @@
 
 ### 회원 관리 페이지 (재작성, 기존 디자인 시스템 재사용)
 - **KPI 4종**: 재적 회원 / 임원(회장 1·임원 N 서브텍스트) / 회비 미납 / 조건부 4번째 —
-  기수 ON: "신입(최고기수 N기)" · OFF: "최근 가입"(기본 90일, **FE 상수** `RECENT_JOIN_DAYS` 로 관리).
+  기수 ON: **"최신 기수"(최고 generation 인원 — "N기 X명" 표기, 신입=최고기수 가정 없음)** · OFF: "최근 가입"(기본 90일, **FE 상수** `RECENT_JOIN_DAYS` 로 관리).
 - **필터 칩(조합 가능)**: 전체·회장·임원·부원·회비 미납·최근 가입·기수별(ON 일 때 드롭다운).
   선언적 배열 구조(향후 휴면 등 추가 대비).
 - **검색**: 이름·학과·학번·기수(ON)·역할 통합, 결과 수 상시 표시.
@@ -50,11 +51,13 @@
   가입일 / 상세 버튼. **전화번호 목록 비노출**.
 - **상세 패널**: 데스크탑 우측 고정 컬럼, **태블릿 Sheet(Drawer), 모바일 풀스크린**(기존 shadcn sheet/dialog).
   - 기본 정보: 이름·프로필·학과·학년·학번·**연락처(복사 버튼)**·가입일·**가입 기간(FE 계산, "2년 4개월")**·기수(조건부)
-  - 운영 정보: 역할, 회비 상태(🟢 납부 / 🔴 미납 / ⚪ 관리 대상 아님) + "회비 관리에서 보기" 링크
+  - 운영 정보: 역할, 회비 상태(🟢 납부 / 🔴 미납 / ⚪ 관리 대상 아님 — 회비 기능 미사용·청구 이력 없음 모두 동일 정책) + "회비 관리에서 보기" 링크
   - 관리: 역할 변경 세그먼트, 기수 수정(ON), 기존 회원 정보 수정 모달(**상세 쿼리 시드 함정 준수**)·탈퇴·회장 이양 유지
 - **일괄 툴바**: 선택 시 전환 — 임원 승급 / 부원 강등 / 기수 변경(ON) / 탈퇴(위험색 상시).
   단건 API 반복 호출, 진행 표시 + 부분 실패 요약.
-- **CSV 내보내기**: 기존 팝오버 유지, 컬럼 확장(기수 ON 시 기수, 회비 상태).
+- **CSV 내보내기**: **현재 적용된 검색·필터 결과 기준**으로 내보낸다(미납 필터 → 미납만, 기수 필터 → 해당 기수만.
+  전체 명단은 필터 해제 후). 컬럼 확장(기수 ON 시 기수, 회비 상태). 기존 내보내기가 서버 생성이면
+  클라이언트 생성(필터된 rows 기반)으로 전환 검토 — 플랜 단계 확인 항목.
 
 ## 테스트
 
