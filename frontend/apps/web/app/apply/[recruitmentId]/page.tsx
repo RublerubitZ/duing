@@ -13,6 +13,7 @@ import { ApiError } from '@duing/api';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ApplyForm } from './_components/ApplyForm';
 import { toRoute } from '../../_lib/route';
+import posthog from 'posthog-js';
 
 export default function ApplyPage({
   params,
@@ -25,6 +26,10 @@ export default function ApplyPage({
 
   const detail = useRecruitmentDetailQuery(recruitmentId);
   const draftQuery = useApplicationDraftQuery(recruitmentId);
+
+  useEffect(() => {
+    posthog.capture('apply_page_viewed', { recruitment_id: recruitmentId });
+  }, [recruitmentId]);
 
   // 외부 폼 모집은 동아리 상세로 되돌려보낸다. side-effect 라 effect 로 격리한다.
   const recruitment = detail.data;

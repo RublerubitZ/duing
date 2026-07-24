@@ -10,6 +10,7 @@ import { PhoneVerificationField } from '@/app/_components/PhoneVerificationField
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { usePasswordResetVerification } from '@/app/_lib/use-phone-verification';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import posthog from 'posthog-js';
 
 const inputCls =
   'w-full rounded-md border border-line bg-paper px-3.5 py-3 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20 placeholder:text-charcoal-3/50';
@@ -42,6 +43,7 @@ export function ForgotPasswordPanel() {
         verificationToken: verification.verificationToken,
         newPassword,
       });
+      posthog.capture('password_reset_completed');
       addToast('비밀번호가 재설정되었어요. 새 비밀번호로 로그인해 주세요.');
       router.replace('/login');
     } catch (completeError) {

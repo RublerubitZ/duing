@@ -5,6 +5,7 @@ import { useAuthStore } from '@duing/stores';
 import { useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
+import posthog from 'posthog-js';
 
 type Props = { clubId: number; size?: 'sm' | 'md'; className?: string };
 
@@ -27,6 +28,9 @@ export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) 
     toggleMutation.mutate(
       { clubId, isFavorited },
       {
+        onSuccess: () => {
+          posthog.capture(isFavorited ? 'club_unfavorited' : 'club_favorited', { club_id: clubId });
+        },
         onError: (error) => {
           console.error('찜 토글 실패:', error);
         },

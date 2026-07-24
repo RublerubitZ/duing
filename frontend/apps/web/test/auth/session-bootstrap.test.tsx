@@ -1,8 +1,9 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
+import posthog from 'posthog-js';
 
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
@@ -163,6 +164,43 @@ describe('AuthSessionBootstrap', () => {
     });
 
     await waitFor(() => expect(window.localStorage.getItem('duing:had-session')).toBeNull());
+  });
+
+  // 세션 종료는 경로가 여럿(로그아웃·만료·전체 로그아웃·탈퇴)이지만 전부 스토어 status 전이를
+  // 지난다 — 공용 단말에서 다음 사용자의 이벤트가 이전 distinct_id 에 붙지 않아야 한다.
+  it('세션 종료 전이에서 PostHog identity 를 초기화한다', async () => {
+    const resetSpy = vi.spyOn(posthog, 'reset').mockImplementation(() => {});
+    server.use(
+      http.get(`${BASE}/users/me`, () =>
+        HttpResponse.json({ ok: true, data: TEST_USER, message: null }),
+      ),
+    );
+
+    renderBootstrap();
+    await waitFor(() => expect(useAuthStore.getState().status).toBe('authenticated'));
+    expect(resetSpy).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await useAuthStore.getState().clearSession();
+    });
+
+    await waitFor(() => expect(resetSpy).toHaveBeenCalledTimes(1));
+    resetSpy.mockRestore();
+  });
+
+  it('익명 방문자의 401 에서는 익명 distinct_id 를 갈아치우지 않는다', async () => {
+    const resetSpy = vi.spyOn(posthog, 'reset').mockImplementation(() => {});
+    server.use(
+      http.get(`${BASE}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 }),
+      ),
+    );
+
+    renderBootstrap();
+    await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
+
+    expect(resetSpy).not.toHaveBeenCalled();
+    resetSpy.mockRestore();
   });
 
   it('/users/me 403을 인증 만료로 오판하지 않고 재시도를 제공한다', async () => {

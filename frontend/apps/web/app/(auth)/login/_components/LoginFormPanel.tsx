@@ -10,6 +10,7 @@ import { loginSchema } from '@duing/schemas';
 import { cn } from '@/app/_lib/cn';
 import { toLinkRoute, toRoute } from '@/app/_lib/route';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import posthog from 'posthog-js';
 
 function IconStudentId() {
   // 학번 입력 — 학생증(사진 + 텍스트 줄) 아이콘으로 신분/학번 맥락을 드러낸다.
@@ -95,7 +96,9 @@ function LoginForm() {
       return;
     }
     try {
-      await login.mutateAsync({ ...parsed.data, rememberMe });
+      const loggedInUser = await login.mutateAsync({ ...parsed.data, rememberMe });
+      posthog.identify(String(loggedInUser.id));
+      posthog.capture('user_logged_in', { remember_me: rememberMe });
       router.replace(next);
     } catch (loginError) {
       // 타임아웃·오프라인은 자격증명 문제가 아니다 — 정규화된 안내(요청 시간 초과/연결 확인)를 그대로 보여줘

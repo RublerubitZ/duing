@@ -25,6 +25,7 @@ const CONTENT_SECURITY_POLICY_REPORT_ONLY = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  skipTrailingSlashRedirect: true,
   // 모노레포 워크스페이스 패키지를 Next 가 트랜스파일하도록 설정
   transpilePackages: [
     '@duing/api',
@@ -40,6 +41,22 @@ const nextConfig = {
     // 기본값 0 이면 하단 탭 재방문마다 풀 RSC 재페치가 돌아 로딩 폴백이 번쩍인다(모바일 깜빡임).
     // 홈 콘텐츠(배너·모집 티커)는 3분 staleness 를 허용할 수 있는 노출성 데이터다.
     staleTimes: { dynamic: 180 },
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/ingest/static/:path*',
+        destination: 'https://us-assets.i.posthog.com/static/:path*',
+      },
+      {
+        source: '/ingest/array/:path*',
+        destination: 'https://us-assets.i.posthog.com/array/:path*',
+      },
+      {
+        source: '/ingest/:path*',
+        destination: 'https://us.i.posthog.com/:path*',
+      },
+    ];
   },
   async headers() {
     const headers = [
