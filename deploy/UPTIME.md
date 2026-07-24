@@ -10,9 +10,12 @@
 | 1 | BE Health | `https://api.duings.com/actuator/health` | HTTP GET + 키워드 | 1~3분 | 200 + 본문에 `"UP"` |
 | 2 | BE API 실질 | `https://api.duings.com/api/v1/clubs?size=1` | HTTP GET + 키워드 | 3분 | 200 + 본문에 `"ok":true` |
 | 3 | FE | `https://duings.com/` | HTTP GET | 3분 | 200 |
+| 4 | BE Liveness | `https://api.duings.com/actuator/health/liveness` | HTTP GET + 키워드 | 3분 | 200 + 본문에 `"UP"` |
 
-- **1번**은 프로세스·DB 연결(readiness 포함)을, **2번**은 Caddy→앱→DB 실쿼리 경로 전체를, **3번**은 Vercel 서빙을 본다.
-  2번이 죽고 1번이 살아 있으면 앱 내부(쿼리·직렬화) 문제, 둘 다 죽으면 VM/Caddy/네트워크 문제로 1차 분류할 수 있다.
+- **1번**(aggregate)은 프로세스+DB 를, **2번**은 Caddy→앱→DB 실쿼리 경로 전체를, **3번**은 Vercel 서빙을,
+  **4번**(liveness)은 DB 를 제외한 프로세스 생존만 본다(감사 13번 — liveness/readiness 분리는 백엔드에 구현·운영 중).
+- **1차 분류표**: ①1번 Down + 4번 Up → **DB 장애**(Supabase 확인) ②1·4번 동시 Down → 프로세스/VM/Caddy 장애
+  ③2번만 Down → 앱 내부(쿼리·직렬화) ④3번만 Down → Vercel.
 - 기준 응답시간(2026-07-24 실측): health ~1.2s, clubs API ~1.2s, FE ~0.5s.
 
 ## 알림 정책
@@ -57,5 +60,5 @@
 ## 미커버 (후속)
 
 - 서버 내부 지표(Hikari pool·CPU/RSS·p95)와 request ID 추적 — 감사 12번 본대응.
-- liveness/readiness 분리 소비(재시작 자동화) — 감사 13번(Health Check 분리).
+- unhealthy 시 자동 재시작(autoheal 류) — 단일 인스턴스에선 DB 순단 보호를 위해 의도적으로 미도입(compose 주석 참조).
 - 5xx 비율 알림(현재는 가용성만) — Sentry alert rule 로 보완 가능.
